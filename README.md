@@ -138,7 +138,9 @@ mantém handles e agora carrega F64 denso diretamente do intervalo declarado pel
 header para esse executor; F32/BF16/F16 não são silenciosamente promovidos a F64,
 pois isso perderia a política real de arredondamento/acumulação. Políticas de dtype
 implícitas (`model-configured`), quantização e variantes de RoPE ainda
-falham fechadas. Isso torna a fronteira de fidelidade observável antes de conectar
+falham fechadas. Em particular, os executores aceitam somente `ropeType=default`,
+layout `rotate_half` e nenhuma `rope_scaling` explícita; eles nunca aplicam
+silenciosamente a fórmula padrão a uma variante declarada. Isso torna a fronteira de fidelidade observável antes de conectar
 runtimes autoritativos.
 
 O executor F64 exige que cada operação declare `computeDtype`,

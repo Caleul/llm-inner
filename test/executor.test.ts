@@ -159,6 +159,31 @@ test("executor F64 rejects an attention softmax declared in another dtype", asyn
   );
 });
 
+test("executor F32 fails closed instead of treating non-default RoPE as rotate_half", async () => {
+  const { ir, weights } = await tinyLlama();
+  const f32Weights = new Map<string, DenseF32Tensor>(
+    [...weights].map(([name, tensor]) => [name, { shape: [...tensor.shape], values: Float32Array.from(tensor.values) }]),
+  );
+  for (const operation of [...ir.prelude, ...ir.layers.flatMap((layer) => layer.operations), ...ir.epilogue]) {
+    operation.dtypePolicy = { ...f32Policy };
+    if (operation.op === "scaled_dot_product_attention") operation.softmaxComputeDtype = "F32";
+  }
+  const qRope = ir.layers[0]!.operations.find((operation) => operation.id === "layer_0_q_rope");
+  assert.equal(qRope?.op, "rotary_embedding");
+  if (qRope?.op !== "rotary_embedding") throw new Error("fixture sem Q RoPE");
+
+  qRope.ropeType = "linear";
+  assert.throws(() => executeReferenceF32(ir, { inputIds: [[1]], tensors: f32Weights }), /ropeType=linear/);
+
+  qRope.ropeType = "default";
+  qRope.layout = "interleaved_pairs";
+  assert.throws(() => executeReferenceF32(ir, { inputIds: [[1]], tensors: f32Weights }), /layout RoPE rotate_half/);
+
+  qRope.layout = "rotate_half";
+  qRope.scaling = { rope_type: "default", factor: 2 };
+  assert.throws(() => executeReferenceF32(ir, { inputIds: [[1]], tensors: f32Weights }), /rope_scaling explícito/);
+});
+
 test("executor F64 applies a canonical additive attention mask before softmax", async () => {
   const { ir, weights } = await tinyLlama();
   const unmasked = executeReferenceF64(ir, { inputIds: [[1, 0]], tensors: weights });

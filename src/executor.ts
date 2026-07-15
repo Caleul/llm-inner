@@ -189,6 +189,7 @@ function assertF64Policy(operation: Operation): void {
   if (operation.op === "scaled_dot_product_attention" && operation.softmaxComputeDtype !== "F64") {
     throw new Error(`${operation.id}: executor de referência suporta somente softmaxComputeDtype=F64.`);
   }
+  assertDefaultRotaryContract(operation);
 }
 
 function assertF32Policy(operation: Operation): void {
@@ -208,6 +209,25 @@ function assertF32Policy(operation: Operation): void {
   }
   if (operation.op === "scaled_dot_product_attention" && operation.softmaxComputeDtype !== "F32") {
     throw new Error(`${operation.id}: executor de referência suporta somente softmaxComputeDtype=F32.`);
+  }
+  assertDefaultRotaryContract(operation);
+}
+
+/**
+ * rotary()/rotaryF32 implement exactly the conventional half-split RoPE
+ * formula. The IR can describe more variants, but executing those fields as
+ * if they were this formula would manufacture numerical semantics.
+ */
+function assertDefaultRotaryContract(operation: Operation): void {
+  if (operation.op !== "rotary_embedding") return;
+  if (operation.ropeType !== "default") {
+    throw new Error(`${operation.id}: executor de referência não implementa ropeType=${operation.ropeType}.`);
+  }
+  if (operation.layout !== "rotate_half") {
+    throw new Error(`${operation.id}: executor de referência requer layout RoPE rotate_half; recebeu ${operation.layout}.`);
+  }
+  if (operation.scaling && Object.keys(operation.scaling).length > 0) {
+    throw new Error(`${operation.id}: executor de referência não implementa rope_scaling explícito.`);
   }
 }
 
