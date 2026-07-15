@@ -128,6 +128,73 @@ test("integrity-bound F32 generation trace verifies positions, terminal logits, 
   }
 });
 
+test("F16 and BF16 dense Safetensors and GGUF packages replay independent F32 operation, cache, logits, and generation traces", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-dense-16-trace-"));
+  try {
+    await writeTinyF32Model(directory);
+    const denseSource = path.join(directory, "model");
+    const denseExecution = await executeFixture(denseSource, [[1]]);
+    const denseGeneration = await generateFixture(denseSource);
+
+    for (const storageDtype of ["F16", "BF16"] as const) {
+      const safetensorsSource = path.join(directory, `safetensors-${storageDtype.toLowerCase()}`);
+      await writeTiny16SafetensorsModel(safetensorsSource, storageDtype);
+      const ggufSource = path.join(directory, `llama-${storageDtype.toLowerCase()}.gguf`);
+      await writeTiny16GgufModel(ggufSource, storageDtype);
+
+      for (const [label, source, files, format] of [
+        ["safetensors", safetensorsSource, ["config.json", "model.safetensors"], "safetensors"],
+        ["gguf", ggufSource, [path.basename(ggufSource)], "gguf v3"],
+      ] as const) {
+        const target = await executeFixture(source, [[1]]);
+        const checksumRoot = label === "safetensors" ? source : path.dirname(source);
+        const executionTrace = path.join(directory, `${label}-${storageDtype.toLowerCase()}-execution-trace.json`);
+        await writeFile(executionTrace, JSON.stringify({
+          schemaVersion: 1, kind: "execution",
+          source: { files: await checksums(checksumRoot, files) }, irFingerprint: target.fingerprint,
+          candidatePolicy: { dtype: "F32", runtime: "llm-inner scalar IEEE-754 F32" },
+          reference: {
+            runtime: "independent exact F32 dense-storage fixture", model: `tiny-llama-${label}-${storageDtype.toLowerCase()}`,
+            revisionOrChecksum: `dense-${storageDtype.toLowerCase()}-${label}-fixture-v1`, containerFormat: format,
+            quantization: "none", inputTokens: [[1]], dtypePolicy: `F32 scalar fixture from exact ${storageDtype} storage values`,
+            operations: operations(denseExecution.ir).map((operation) => ({ operationId: operation.id, output: operation.output, tensor: serialized(denseExecution.candidate.values.get(operation.output)!) })),
+            pastKeyValues: [...denseExecution.candidate.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
+          },
+        }, null, 2));
+        const executionReport = await runExecutionTraceComparison({ source, trace: executionTrace, report: path.join(directory, `${label}-${storageDtype.toLowerCase()}-execution-report.json`), topK: 3 });
+        assert.equal(executionReport.fidelityClass, "lossless-within-dtype", `${label} ${storageDtype} execution trace`);
+        assert.equal(executionReport.firstDivergentOperation, null);
+
+        const generationTrace = path.join(directory, `${label}-${storageDtype.toLowerCase()}-generation-trace.json`);
+        await writeFile(generationTrace, JSON.stringify({
+          schemaVersion: 1, kind: "generation",
+          source: { files: await checksums(checksumRoot, files) }, irFingerprint: target.fingerprint,
+          candidatePolicy: { dtype: "F32", runtime: "llm-inner scalar IEEE-754 F32" },
+          reference: {
+            runtime: "independent exact F32 dense-storage fixture", model: `tiny-llama-${label}-${storageDtype.toLowerCase()}`,
+            revisionOrChecksum: `dense-${storageDtype.toLowerCase()}-${label}-fixture-v1`, containerFormat: format,
+            quantization: "none", inputTokens: [1], promptPositionIds: [0],
+            dtypePolicy: `F32 scalar fixture from exact ${storageDtype} storage values`, maxNewTokens: 2,
+            generatedTokenIds: denseGeneration.generatedTokenIds, steps: denseGeneration.steps, logits: serialized(denseGeneration.logits),
+            pastKeyValues: [...denseGeneration.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
+          },
+        }, null, 2));
+        const generationReport = await runGenerationTraceComparison({ source, trace: generationTrace, report: path.join(directory, `${label}-${storageDtype.toLowerCase()}-generation-report.json`), topK: 3 });
+        assert.equal(generationReport.fidelityClass, "lossless-within-dtype", `${label} ${storageDtype} generation trace`);
+        assert.equal(generationReport.firstDivergence, null);
+
+        const mutableFile = label === "safetensors" ? path.join(source, "model.safetensors") : source;
+        const mutated = await readFile(mutableFile);
+        mutated[mutated.length - 1] = mutated[mutated.length - 1]! ^ 1;
+        await writeFile(mutableFile, mutated);
+        await assert.rejects(() => runExecutionTraceComparison({ source, trace: executionTrace, report: path.join(directory, "corrupt-report.json") }), /Checksum divergente/);
+      }
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("Gemma F32 Safetensors replays complete execution and greedy generation with embedding scale and unit-offset norms", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-gemma-trace-"));
   try {
@@ -1118,7 +1185,7 @@ function serialized(tensor: { shape: number[]; values: Float32Array }) {
   return { dtype: "F32", shape: tensor.shape, valuesBase64: Buffer.from(tensor.values.buffer, tensor.values.byteOffset, tensor.values.byteLength).toString("base64") };
 }
 
-async function checksums(directory: string, files: string[]) {
+async function checksums(directory: string, files: readonly string[]) {
   return Promise.all(files.map(async (file) => ({ path: file, sha256: createHash("sha256").update(await readFile(path.join(directory, file))).digest("hex") })));
 }
 
@@ -1146,14 +1213,7 @@ async function generateFixture(source: string) {
 async function writeTinyF32Model(root: string): Promise<void> {
   const directory = path.join(root, "model");
   await mkdir(directory);
-  const weights: Array<[string, number[], number[]]> = [
-    ["model.embed_tokens.weight", [3, 2], [0, 0, 3, 4, 0, 0]],
-    ["model.layers.0.input_layernorm.weight", [2], [1, 1]],
-    ...["q_proj", "k_proj", "v_proj", "o_proj"].map((projection): [string, number[], number[]] => [`model.layers.0.self_attn.${projection}.weight`, [2, 2], [1, 0, 0, 1]]),
-    ["model.layers.0.post_attention_layernorm.weight", [2], [1, 1]],
-    ["model.layers.0.mlp.gate_proj.weight", [2, 2], [0, 0, 0, 0]], ["model.layers.0.mlp.up_proj.weight", [2, 2], [0, 0, 0, 0]], ["model.layers.0.mlp.down_proj.weight", [2, 2], [0, 0, 0, 0]],
-    ["model.norm.weight", [2], [1, 1]], ["lm_head.weight", [3, 2], [1, 0, 0, 1, 1, 1]],
-  ];
+  const weights = tinyLlamaWeights();
   const header: Record<string, unknown> = {};
   let offset = 0;
   const payloads = weights.map(([name, shape, values]) => {
@@ -1165,8 +1225,39 @@ async function writeTinyF32Model(root: string): Promise<void> {
   });
   const encoded = Buffer.from(JSON.stringify(header));
   const prefix = Buffer.alloc(8); prefix.writeBigUInt64LE(BigInt(encoded.length));
-  await writeFile(path.join(directory, "config.json"), JSON.stringify({ model_type: "llama", hidden_size: 2, intermediate_size: 2, num_hidden_layers: 1, num_attention_heads: 1, num_key_value_heads: 1, head_dim: 2, vocab_size: 3, rms_norm_eps: 1e-6, hidden_act: "silu" }));
+  await writeFile(path.join(directory, "config.json"), JSON.stringify(tinyLlamaConfig()));
   await writeFile(path.join(directory, "model.safetensors"), Buffer.concat([prefix, encoded, ...payloads]));
+}
+
+async function writeTiny16SafetensorsModel(directory: string, storageDtype: "F16" | "BF16"): Promise<void> {
+  await mkdir(directory);
+  await writeFile(path.join(directory, "config.json"), JSON.stringify(tinyLlamaConfig()));
+  const header: Record<string, unknown> = {};
+  let offset = 0;
+  const payloads = tinyLlamaWeights().map(([name, shape, values]) => {
+    const payload = dense16Payload(values, storageDtype);
+    header[name] = { dtype: storageDtype, shape, data_offsets: [offset, offset + payload.length] };
+    offset += payload.length;
+    return payload;
+  });
+  const encoded = Buffer.from(JSON.stringify(header));
+  const prefix = Buffer.alloc(8); prefix.writeBigUInt64LE(BigInt(encoded.length));
+  await writeFile(path.join(directory, "model.safetensors"), Buffer.concat([prefix, encoded, ...payloads]));
+}
+
+function tinyLlamaConfig() {
+  return { model_type: "llama", hidden_size: 2, intermediate_size: 2, num_hidden_layers: 1, num_attention_heads: 1, num_key_value_heads: 1, head_dim: 2, vocab_size: 3, rms_norm_eps: 1e-6, hidden_act: "silu" };
+}
+
+function tinyLlamaWeights(): Array<[string, number[], number[]]> {
+  return [
+    ["model.embed_tokens.weight", [3, 2], [0, 0, 3, 4, 0, 0]],
+    ["model.layers.0.input_layernorm.weight", [2], [1, 1]],
+    ...["q_proj", "k_proj", "v_proj", "o_proj"].map((projection): [string, number[], number[]] => [`model.layers.0.self_attn.${projection}.weight`, [2, 2], [1, 0, 0, 1]]),
+    ["model.layers.0.post_attention_layernorm.weight", [2], [1, 1]],
+    ["model.layers.0.mlp.gate_proj.weight", [2, 2], [0, 0, 0, 0]], ["model.layers.0.mlp.up_proj.weight", [2, 2], [0, 0, 0, 0]], ["model.layers.0.mlp.down_proj.weight", [2, 2], [0, 0, 0, 0]],
+    ["model.norm.weight", [2], [1, 1]], ["lm_head.weight", [3, 2], [1, 0, 0, 1, 1, 1]],
+  ];
 }
 
 /** A non-Llama decoder fixture whose nonzero path exercises Gemma-specific lowering semantics. */
@@ -1326,6 +1417,60 @@ async function writeTinyF32GgufModel(file: string): Promise<void> {
   }
   const prefix = Buffer.concat([Buffer.from("GGUF"), u32(3), u64(weights.length), u64(metadataEntries.length), ...metadataEntries, ...directory]);
   await writeFile(file, Buffer.concat([prefix, Buffer.alloc((32 - (prefix.length % 32)) % 32), ...payloads]));
+}
+
+/** Writes the tiny Llama fixture in a verified dense GGML storage dtype. */
+async function writeTiny16GgufModel(file: string, storageDtype: "F16" | "BF16"): Promise<void> {
+  const weights: Array<[string, number[], number[]]> = [
+    ["token_embd.weight", [2, 3], [0, 0, 3, 4, 0, 0]], ["blk.0.attn_norm.weight", [2], [1, 1]],
+    ...["attn_q", "attn_k", "attn_v", "attn_output"].map((projection): [string, number[], number[]] => [`blk.0.${projection}.weight`, [2, 2], [1, 0, 0, 1]]),
+    ["blk.0.ffn_norm.weight", [2], [1, 1]],
+    ...["ffn_gate", "ffn_up", "ffn_down"].map((projection): [string, number[], number[]] => [`blk.0.${projection}.weight`, [2, 2], [0, 0, 0, 0]]),
+    ["output_norm.weight", [2], [1, 1]], ["output.weight", [2, 3], [1, 0, 0, 1, 1, 1]],
+  ];
+  const text = (value: string) => { const bytes = Buffer.from(value); const length = Buffer.alloc(8); length.writeBigUInt64LE(BigInt(bytes.length)); return Buffer.concat([length, bytes]); };
+  const u32 = (value: number) => { const bytes = Buffer.alloc(4); bytes.writeUInt32LE(value); return bytes; };
+  const u64 = (value: number) => { const bytes = Buffer.alloc(8); bytes.writeBigUInt64LE(BigInt(value)); return bytes; };
+  const metadata = (key: string, type: number, value: Buffer) => Buffer.concat([text(key), u32(type), value]);
+  const metadataU32 = (key: string, value: number) => metadata(key, 4, u32(value));
+  const metadataF32 = (key: string, value: number) => { const bytes = Buffer.alloc(4); bytes.writeFloatLE(value); return metadata(key, 6, bytes); };
+  const metadataEntries = [
+    metadata("general.architecture", 8, text("llama")), metadataU32("general.alignment", 32), metadataU32("llama.embedding_length", 2),
+    metadataU32("llama.block_count", 1), metadataU32("llama.attention.head_count", 1), metadataU32("llama.attention.head_count_kv", 1),
+    metadataU32("llama.attention.key_length", 2), metadataU32("llama.feed_forward_length", 2), metadataF32("llama.attention.layer_norm_rms_epsilon", 1e-6),
+  ];
+  const ggmlType = storageDtype === "F16" ? 1 : 25;
+  const payloads: Buffer[] = [];
+  const directory: Buffer[] = [];
+  let offset = 0;
+  for (const [name, shape, values] of weights) {
+    const padding = (32 - (offset % 32)) % 32;
+    if (padding) { payloads.push(Buffer.alloc(padding)); offset += padding; }
+    const payload = dense16Payload(values, storageDtype);
+    directory.push(Buffer.concat([text(name), u32(shape.length), ...shape.map(u64), u32(ggmlType), u64(offset)]));
+    payloads.push(payload); offset += payload.length;
+  }
+  const prefix = Buffer.concat([Buffer.from("GGUF"), u32(3), u64(weights.length), u64(metadataEntries.length), ...metadataEntries, ...directory]);
+  await writeFile(file, Buffer.concat([prefix, Buffer.alloc((32 - (prefix.length % 32)) % 32), ...payloads]));
+}
+
+function dense16Payload(values: readonly number[], storageDtype: "F16" | "BF16"): Buffer {
+  const payload = Buffer.alloc(values.length * 2);
+  for (const [index, value] of values.entries()) payload.writeUInt16LE(storageDtype === "F16" ? encodeTinyF16(value) : encodeBF16(value), index * 2);
+  return payload;
+}
+
+function encodeTinyF16(value: number): number {
+  const bits = new Map<number, number>([[0, 0x0000], [1, 0x3c00], [3, 0x4200], [4, 0x4400]]).get(value);
+  if (bits === undefined) throw new Error(`Fixture F16 não possui codificação exata para ${value}.`);
+  return bits;
+}
+
+function encodeBF16(value: number): number {
+  const bits = new ArrayBuffer(4);
+  const view = new DataView(bits);
+  view.setFloat32(0, value, true);
+  return view.getUint16(2, true);
 }
 
 /**

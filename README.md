@@ -517,6 +517,16 @@ arredondado finito (e infinito) do armazenamento; ela não permite que o
 executor escolha F32 por conta própria, nem afirma que o runtime original
 acumulava em F32.
 
+Uma regressão de trace cobre também esta fronteira de storage denso, não só a
+leitura unitária: o mesmo Llama mínimo é codificado independentemente em
+Safetensors e GGUF v3, cada um em `F16` e `BF16`, enquanto a evidência vem de
+um pacote F32 pareado que não chama os leitores candidatos. Para os quatro
+pacotes, o comparador confere cada operação, KV pós-RoPE, logits e duas etapas
+greedy sem erro sob a política escalar F32, e uma mutação do payload é recusada
+pelo checksum. Isso prova somente os valores já arredondados desses formatos
+de storage no executor F32; não é uma alegação sobre a precisão de acumulação
+ou kernels de um runtime externo.
+
 Os geradores `generateReferenceF64` e `generateReferenceF32` exercitam o
 mesmo contrato de cache em geração greedy. Eles aceitam um único prompt sem
 padding, escolhem o argmax dos logits terminais, alimentam cada token escolhido
