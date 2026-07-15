@@ -396,6 +396,16 @@ equivalentes não recebem aprovação. Captura ausente ou com shape incompatíve
 dentro da tolerância declarada pode ser `numerically-equivalent` (ou
 `lossless-within-dtype` quando todos os valores comparados são exatos).
 
+A fixture sintética Q5_1 de 256 dimensões também percorre a fronteira completa
+de execução e geração: o lado denso independente aplica `d*q+m` com `d=0.5`,
+`m=-1` e todos os 32 códigos unsigned; o GGUF empacotado grava os códigos
+`q[0..15]` nos nibbles baixos, `q[16..31]` nos altos e o quinto bit no plano
+`qh`. A comparação liga cada operação, o cache KV pós-RoPE, logits e dois
+passos greedy à fonte Q5_1 com checksum; uma mutação no plano `qh` é recusada
+antes de qualquer relatório fiel. Isso demonstra reconstrução lossless sob a
+política escalar F32 contra evidência F32 construída pela fórmula declarada,
+não contra um runtime externo autoritativo.
+
 Além da máscara causal/janela declarada pelo IR, o executor de referência pode
 receber uma máscara aditiva canônica `[batch, 1|heads, query, key]`. Zero
 preserva o score e `-Infinity` exclui a chave antes do softmax; valores finitos
