@@ -2,6 +2,7 @@ import { open, readFile, readdir, stat } from "node:fs/promises";
 import * as path from "node:path";
 import type { FileHandle } from "node:fs/promises";
 import type {
+  DenseTensor,
   JsonObject,
   ModelCatalog,
   QuantizationSpec,
@@ -40,6 +41,7 @@ const DTYPE_BYTES: Record<string, number> = {
   I64: 8,
   F64: 8,
 };
+const F64_BYTES = 8;
 
 export class SafetensorsCatalogReader {
   readonly #sourceDir: string;
@@ -165,6 +167,41 @@ export class SafetensorsCatalogReader {
       rawMetadata: {},
       tensors,
     };
+  }
+
+  /**
+   * Reads one unquantized F64 tensor directly from its Safetensors byte range.
+   * The reference executor intentionally accepts no implicit conversion here:
+   * widening F32/BF16/F16 would not reproduce their original accumulation and
+   * rounding policy.
+   */
+  async readDenseF64(tensor: TensorInfo): Promise<DenseTensor> {
+    if (tensor.quantization) {
+      throw new Error(`${tensor.name}: leitura F64 não dequantiza ${tensor.quantization.family}/${tensor.quantization.mode}.`);
+    }
+    if (tensor.storageDtype !== "F64") {
+      throw new Error(`${tensor.name}: leitura de referência requer storageDtype=F64, recebeu ${tensor.storageDtype}.`);
+    }
+    if (
+      !tensor.shard ||
+      tensor.byteOffset === undefined ||
+      tensor.byteLength === undefined ||
+      tensor.storageShape.length !== tensor.logicalShape.length ||
+      tensor.storageShape.some((dimension, index) => dimension !== tensor.logicalShape[index])
+    ) {
+      throw new Error(`${tensor.name}: metadados Safetensors densos incompletos ou shape lógico diferente do storage.`);
+    }
+    const elements = product(tensor.storageShape);
+    const expectedBytes = elements * F64_BYTES;
+    if (tensor.byteLength !== expectedBytes) {
+      throw new Error(`${tensor.name}: intervalo de ${tensor.byteLength} bytes não corresponde a ${elements} valores F64.`);
+    }
+
+    const bytes = Buffer.allocUnsafe(tensor.byteLength);
+    await this.#readExactly(await this.#getHandle(tensor.shard), bytes, tensor.byteOffset);
+    const values = new Float64Array(elements);
+    for (let index = 0; index < elements; index += 1) values[index] = bytes.readDoubleLE(index * F64_BYTES);
+    return { shape: [...tensor.logicalShape], values };
   }
 
   async #readConfig(): Promise<JsonObject> {

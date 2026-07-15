@@ -1,7 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import * as path from "node:path";
 import { buildModelIR } from "../src/architecture.js";
 import { executeReferenceF64 } from "../src/executor.js";
+import { SafetensorsCatalogReader } from "../src/safetensors.js";
 import type { DenseTensor, ModelCatalog, TensorInfo } from "../src/types.js";
 
 const preview = { outputRows: 1, inputTerms: 1, includeWeights: false } as const;
@@ -82,3 +86,71 @@ test("executor F64 rejects an attention softmax declared in another dtype", asyn
     /softmaxComputeDtype=F64/,
   );
 });
+
+test("reader range-loads an on-disk F64 Safetensors fixture into executor logits", async () => {
+  const { ir, weights } = await tinyLlama();
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-f64-"));
+  try {
+    await writeFile(path.join(directory, "config.json"), JSON.stringify({
+      model_type: "llama", hidden_size: 2, intermediate_size: 2, num_hidden_layers: 1,
+      num_attention_heads: 1, num_key_value_heads: 1, head_dim: 2, vocab_size: 3,
+      rms_norm_eps: 1e-6, hidden_act: "silu",
+    }));
+    await writeF64Safetensors(path.join(directory, "model.safetensors"), weights);
+
+    const reader = new SafetensorsCatalogReader(directory);
+    try {
+      const catalog = await reader.inspect();
+      const loaded = new Map<string, DenseTensor>();
+      for (const tensor of catalog.tensors.values()) loaded.set(tensor.name, await reader.readDenseF64(tensor));
+      const result = executeReferenceF64(ir, { inputIds: [[1]], tensors: loaded });
+      assert.deepEqual([...result.logits.values], [...(executeReferenceF64(ir, { inputIds: [[1]], tensors: weights })).logits.values]);
+    } finally {
+      await reader.close();
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("reader rejects F32 range loads instead of silently widening their semantics", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-f32-"));
+  try {
+    await writeFile(path.join(directory, "config.json"), JSON.stringify({ model_type: "llama" }));
+    const header = Buffer.from(JSON.stringify({ "x.weight": { dtype: "F32", shape: [1], data_offsets: [0, 4] } }), "utf8");
+    const payload = Buffer.alloc(4);
+    payload.writeFloatLE(1, 0);
+    const prefix = Buffer.alloc(8);
+    prefix.writeBigUInt64LE(BigInt(header.length));
+    await writeFile(path.join(directory, "model.safetensors"), Buffer.concat([prefix, header, payload]));
+    const reader = new SafetensorsCatalogReader(directory);
+    try {
+      const catalog = await reader.inspect();
+      await assert.rejects(() => reader.readDenseF64(catalog.tensors.get("x.weight")!), /storageDtype=F64/);
+    } finally {
+      await reader.close();
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+async function writeF64Safetensors(file: string, tensors: ReadonlyMap<string, DenseTensor>): Promise<void> {
+  let offset = 0;
+  const header: Record<string, { dtype: "F64"; shape: number[]; data_offsets: [number, number] }> = {};
+  for (const [name, tensor] of tensors) {
+    const length = tensor.values.length * Float64Array.BYTES_PER_ELEMENT;
+    header[name] = { dtype: "F64", shape: [...tensor.shape], data_offsets: [offset, offset + length] };
+    offset += length;
+  }
+  const headerBytes = Buffer.from(JSON.stringify(header), "utf8");
+  const prefix = Buffer.alloc(8);
+  prefix.writeBigUInt64LE(BigInt(headerBytes.length));
+  const payload = Buffer.alloc(offset);
+  let byteOffset = 0;
+  for (const tensor of tensors.values()) {
+    for (let index = 0; index < tensor.values.length; index += 1) payload.writeDoubleLE(tensor.values[index]!, byteOffset + index * Float64Array.BYTES_PER_ELEMENT);
+    byteOffset += tensor.values.length * Float64Array.BYTES_PER_ELEMENT;
+  }
+  await writeFile(file, Buffer.concat([prefix, headerBytes, payload]));
+}

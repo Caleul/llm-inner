@@ -117,10 +117,13 @@ A equivalência real deve ser confirmada por um validador diferencial: mesma ent
 `src/executor.ts` interpreta o subconjunto denso do IR de decoder (embedding,
 RMSNorm, linear, RoPE `rotate_half` padrão, atenção causal/GQA, SiLU/GELU,
 MLP gated e residuais) com tensores F64 explícitos. É um executor de referência
-determinístico para fixtures e validação por operação, não um atalho para
-checkpoints reais: políticas de dtype implícitas (`model-configured`), cache KV,
-quantização e variantes de RoPE ainda falham fechadas. Isso torna a fronteira de
-fidelidade observável antes de conectar leitores densos e runtimes autoritativos.
+determinístico para fixtures e validação por operação. `SafetensorsCatalogReader`
+mantém handles e agora carrega F64 denso diretamente do intervalo declarado pelo
+header para esse executor; F32/BF16/F16 não são silenciosamente promovidos a F64,
+pois isso perderia a política real de arredondamento/acumulação. Políticas de dtype
+implícitas (`model-configured`), cache KV, quantização e variantes de RoPE ainda
+falham fechadas. Isso torna a fronteira de fidelidade observável antes de conectar
+runtimes autoritativos.
 
 
 ## O que “agnóstico” significa
