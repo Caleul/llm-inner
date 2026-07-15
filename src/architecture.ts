@@ -101,6 +101,8 @@ export async function buildModelIR(
       optionalString(adaptedCatalog.rawMetadata, ["general.architecture"]) ??
       "",
   );
+  rejectCompositeMultimodalPackage(adaptedCatalog.config, config, modelType);
+  rejectKnownUnsupportedArchitecture(adaptedCatalog, config, modelType);
   if (!SUPPORTED_MODEL_TYPES.has(modelType)) {
     throw new Error(
       `Arquitetura '${modelType || "desconhecida"}' não possui adaptador exato. ` +
@@ -211,6 +213,90 @@ function selectTextConfig(config: JsonObject): JsonObject {
   const text = config.text_config;
   if (typeof text === "object" && text !== null && !Array.isArray(text)) return text as JsonObject;
   return config;
+}
+
+/**
+ * A text sub-config describes only one component of a composite checkpoint.
+ * It is not authority to discard image/audio token injection, modality towers,
+ * or their ordering in the forward pass.  Keep this check before adapter
+ * selection so a future text adapter cannot accidentally accept the text
+ * weights from a multimodal package as if they were a standalone model.
+ */
+function rejectCompositeMultimodalPackage(
+  packageConfig: JsonObject,
+  textConfig: JsonObject,
+  textModelType: string,
+): void {
+  if (packageConfig === textConfig) return;
+  const outerModelType = optionalString(packageConfig, ["model_type"]);
+  const modalityConfigs = ["vision_config", "audio_config"].filter((key) =>
+    typeof packageConfig[key] === "object" && packageConfig[key] !== null && !Array.isArray(packageConfig[key]),
+  );
+  const modalityTokenIds = ["image_token_id", "audio_token_id", "boi_token_id", "eoi_token_id", "boa_token_id", "eoa_token_id"]
+    .filter((key) => Object.hasOwn(packageConfig, key));
+  if (modalityConfigs.length === 0 && modalityTokenIds.length === 0) return;
+
+  throw new Error(
+    `Pacote composto '${outerModelType ?? "desconhecido"}' contém submodelo de texto '${textModelType || "desconhecido"}' ` +
+      `e semântica multimodal declarada (${[...modalityConfigs, ...modalityTokenIds].join(", ")}). ` +
+      "Não é seguro compilar somente text_config: um adaptador do pacote composto deve declarar a injeção e a ordem dos tokens/modos antes de reutilizar o adaptador textual.",
+  );
+}
+
+/**
+ * These are named architecture families, not tensor-name guesses.  Reporting
+ * the declared semantic boundary makes unsupported packages actionable while
+ * preserving the fail-closed contract.  In particular, Gemma 4 text cannot be
+ * lowered through the Gemma 2/3 decoder path merely because several projection
+ * names coincide.
+ */
+function rejectKnownUnsupportedArchitecture(
+  catalog: ModelCatalog,
+  config: JsonObject,
+  modelType: string,
+): void {
+  if (modelType !== "gemma4_text") return;
+
+  const reasons: string[] = [];
+  const perLayerWidth = declaredNumber(config, ["hidden_size_per_layer_input"], "hidden_size_per_layer_input");
+  if (perLayerWidth !== undefined) {
+    reasons.push(`hidden_size_per_layer_input=${perLayerWidth} exige PLE/AltUp explícito`);
+  }
+  const globalHeadDim = declaredNumber(config, ["global_head_dim"], "global_head_dim");
+  if (globalHeadDim !== undefined) {
+    reasons.push(`global_head_dim=${globalHeadDim} exige shapes e RoPE por tipo de camada`);
+  }
+  const ropeParameters = config.rope_parameters;
+  if (typeof ropeParameters === "object" && ropeParameters !== null && !Array.isArray(ropeParameters)) {
+    const full = (ropeParameters as JsonObject).full_attention;
+    if (typeof full === "object" && full !== null && !Array.isArray(full) &&
+      optionalString(full as JsonObject, ["rope_type", "type"]) === "proportional") {
+      reasons.push("RoPE proporcional para full_attention exige fórmula registrada e executor compatível");
+    }
+  }
+  const shared = declaredNumber(config, ["num_kv_shared_layers"], "num_kv_shared_layers");
+  if (shared !== undefined) {
+    reasons.push(`num_kv_shared_layers=${shared} exige contrato de ownership/layout específico do runtime Gemma 4`);
+  }
+  const pleTensors = [
+    "language_model.model.embed_tokens_per_layer.weight",
+    "model.embed_tokens_per_layer.weight",
+  ].filter((name) => catalog.tensors.has(name));
+  const layerPleTensors = [
+    "per_layer_input_gate.weight",
+    "per_layer_projection.weight",
+    "post_per_layer_input_norm.weight",
+    "layer_scalar",
+  ].filter((suffix) =>
+    [...catalog.tensors.keys()].some((name) => name.endsWith(`.${suffix}`)),
+  );
+  if (pleTensors.length > 0 || layerPleTensors.length > 0) {
+    reasons.push(`tensores PLE encontrados (${[...pleTensors, ...layerPleTensors].join(", ")})`);
+  }
+  throw new Error(
+    `Gemma 4 text não possui adaptador matemático exato: ${reasons.length > 0 ? reasons.join("; ") : "topologia Gemma 4 não especificada para este compilador"}. ` +
+      "Não será rebaixada ao decoder Gemma genérico; implemente operações, política de dtype/cache e validação diferencial do runtime antes de registrá-la.",
+  );
 }
 
 function normalizeModelType(value: string): string {

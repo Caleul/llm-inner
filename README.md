@@ -224,7 +224,9 @@ validados.
 
 ## Limites atuais
 
-O adaptador atual cobre blocos decoder-only auditáveis de Llama, Mistral, Qwen 2/3 e Gemma 1/2/3-text. Modelos com código remoto, state-space layers, linear attention, MoE, multimodal completo, Gemma 3n/4 ou layouts QKV especiais precisam de adaptadores próprios ou extração do grafo do runtime oficial. Gemma 4 é rejeitado de propósito porque sua topologia inclui PLE, heads por tipo de camada, KV sharing e outras semânticas que o bloco genérico não representa.
+O adaptador atual cobre blocos decoder-only auditáveis de Llama, Mistral, Qwen 2/3 e Gemma 1/2/3-text. Modelos com código remoto, state-space layers, linear attention, MoE, multimodal completo, Gemma 3n/4 ou layouts QKV especiais precisam de adaptadores próprios ou extração do grafo do runtime oficial. Gemma 4 é rejeitado de propósito porque sua topologia inclui PLE, heads por tipo de camada, KV sharing e outras semânticas que o bloco genérico não representa. A recusa usa os metadados/tensores declarados: `hidden_size_per_layer_input`, `global_head_dim`, RoPE proporcional para `full_attention`, `num_kv_shared_layers` e pesos PLE (`embed_tokens_per_layer`, `per_layer_input_gate`, `per_layer_projection`, `post_per_layer_input_norm`, `layer_scalar`) aparecem no diagnóstico quando presentes.
+
+Um pacote composto não é convertido implicitamente em um checkpoint textual. Quando o `config.json` externo declara `audio_config` ou `vision_config` e tokens de modalidade, enquanto `text_config` descreve outro `model_type`, o compilador falha antes da seleção do adaptador: a injeção desses tokens, os towers e sua ordem no forward pass fazem parte da função. Um futuro adaptador de texto só pode reutilizar esse submodelo depois que um adaptador do pacote composto declarar e validar explicitamente essa fronteira.
 
 Para Qwen 3 e outros adaptadores que declarem `q_norm`, `k_norm` ou `v_norm`,
 o IR faz `reshape_heads` antes da RMSNorm. Esses pesos precisam ter exatamente

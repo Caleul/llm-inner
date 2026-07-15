@@ -80,10 +80,49 @@ test("Gemma 2 preserva quatro normas do bloco", async () => {
   assert.ok(ids.indexOf("layer_0_post_ffn_norm") < ids.indexOf("layer_0_mlp_residual"));
 });
 
-test("Gemma 4 falha fechado até existir adaptador específico", async () => {
+test("Gemma 4 text reports its declared unsupported semantics instead of generic lowering", async () => {
+  const source = catalog("gemma4_text", {
+    hidden_size_per_layer_input: 2,
+    global_head_dim: 8,
+    num_kv_shared_layers: 1,
+    rope_parameters: {
+      full_attention: { rope_type: "proportional", rope_theta: 1_000_000 },
+      sliding_attention: { rope_type: "default", rope_theta: 10_000 },
+    },
+  });
+  source.tensors.set(
+    "model.embed_tokens_per_layer.weight",
+    tensor("model.embed_tokens_per_layer.weight", [32, 4]),
+  );
+  source.tensors.set(
+    "model.layers.0.per_layer_input_gate.weight",
+    tensor("model.layers.0.per_layer_input_gate.weight", [2, 4]),
+  );
   await assert.rejects(
-    () => buildModelIR(catalog("gemma4_text"), preview),
-    /não possui adaptador exato/,
+    () => buildModelIR(source, preview),
+    /Gemma 4 text não possui adaptador matemático exato:.*hidden_size_per_layer_input=2.*global_head_dim=8.*RoPE proporcional.*num_kv_shared_layers=1.*tensores PLE encontrados/s,
+  );
+});
+
+test("composite multimodal packages cannot be silently narrowed to text_config", async () => {
+  const source = catalog("gemma4", {
+    audio_config: { model_type: "gemma4_audio" },
+    audio_token_id: 99,
+    text_config: {
+      model_type: "gemma4_text",
+      hidden_size: 4,
+      intermediate_size: 8,
+      num_hidden_layers: 1,
+      num_attention_heads: 1,
+      num_key_value_heads: 1,
+      head_dim: 4,
+      vocab_size: 32,
+      rms_norm_eps: 1e-6,
+    },
+  });
+  await assert.rejects(
+    () => buildModelIR(source, preview),
+    /Pacote composto 'gemma4'.*submodelo de texto 'gemma4_text'.*audio_config, audio_token_id.*Não é seguro compilar somente text_config/,
   );
 });
 
