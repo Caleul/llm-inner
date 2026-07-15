@@ -32,11 +32,14 @@ export async function materializeReferenceF32Constants(
 
     let materialized: DenseF32Tensor;
     if (catalogued.quantization) {
-      if (adaptedCatalog.format !== "mlx-safetensors" || catalogued.quantization.family !== "mlx") {
+      if (adaptedCatalog.format === "mlx-safetensors" && catalogued.quantization.family === "mlx") {
+        if (!bridge) throw new Error(`${reference.name}: tensor MLX quantizado requer TensorBridge com mlx.core.dequantize.`);
+        materialized = await bridge.readMlxDequantizedF32(adaptedCatalog, reference.name);
+      } else if (adaptedCatalog.format === "gguf" && catalogued.quantization.family === "gguf" && catalogued.quantization.mode === "q8_0") {
+        materialized = await reader.readDenseAsF32(catalogued);
+      } else {
         throw new Error(`${reference.name}: quantização ${catalogued.quantization.family}/${catalogued.quantization.mode} não possui materializador F32 verificado.`);
       }
-      if (!bridge) throw new Error(`${reference.name}: tensor MLX quantizado requer TensorBridge com mlx.core.dequantize.`);
-      materialized = await bridge.readMlxDequantizedF32(adaptedCatalog, reference.name);
     } else {
       materialized = await reader.readDenseAsF32(catalogued);
     }
