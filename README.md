@@ -137,6 +137,13 @@ Enquanto o IR produzido pelo adaptador ainda declarar `model-configured`, ambos 
 executores rejeitam a execução: a política deve vir de metadados/runtime
 verificáveis, não ser inferida do dtype de armazenamento.
 
+Checkpoints Safetensors densos em `F16` e `BF16` também podem ser lidos por
+intervalo como valores `Float32Array` (`readDenseF16AsF32` e
+`readDenseBF16AsF32`). A conversão preserva exatamente cada valor já
+arredondado finito (e infinito) do armazenamento; ela não permite que o
+executor escolha F32 por conta própria, nem afirma que o runtime original
+acumulava em F32.
+
 
 ## O que “agnóstico” significa
 

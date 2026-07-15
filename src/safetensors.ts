@@ -44,6 +44,7 @@ const DTYPE_BYTES: Record<string, number> = {
 };
 const F64_BYTES = 8;
 const F32_BYTES = 4;
+const F16_BYTES = 2;
 
 export class SafetensorsCatalogReader {
   readonly #sourceDir: string;
@@ -241,6 +242,67 @@ export class SafetensorsCatalogReader {
     return { shape: [...tensor.logicalShape], values };
   }
 
+  /**
+   * Reads IEEE-754 binary16 storage and widens every finite value and infinity
+   * exactly to binary32. This conversion says nothing about the
+   * source runtime's compute or accumulation dtype; callers must still supply
+   * the explicit F32 executor policy.
+   */
+  async readDenseF16AsF32(tensor: TensorInfo): Promise<DenseF32Tensor> {
+    const { bytes, elements } = await this.#readDenseBytes(tensor, "F16", F16_BYTES);
+    const values = new Float32Array(elements);
+    for (let index = 0; index < elements; index += 1) {
+      values[index] = decodeF16(bytes.readUInt16LE(index * F16_BYTES));
+    }
+    return { shape: [...tensor.logicalShape], values };
+  }
+
+  /**
+   * Reads bfloat16 storage and widens every finite value and infinity exactly
+   * to binary32 by preserving its 16 most-significant IEEE-754 bits. As with F16, this is storage
+   * decoding only, never an implicit choice of runtime arithmetic policy.
+   */
+  async readDenseBF16AsF32(tensor: TensorInfo): Promise<DenseF32Tensor> {
+    const { bytes, elements } = await this.#readDenseBytes(tensor, "BF16", F16_BYTES);
+    const values = new Float32Array(elements);
+    const scratch = new DataView(new ArrayBuffer(F32_BYTES));
+    for (let index = 0; index < elements; index += 1) {
+      scratch.setUint32(0, bytes.readUInt16LE(index * F16_BYTES) << 16, true);
+      values[index] = scratch.getFloat32(0, true);
+    }
+    return { shape: [...tensor.logicalShape], values };
+  }
+
+  async #readDenseBytes(
+    tensor: TensorInfo,
+    storageDtype: "F16" | "BF16",
+    elementBytes: number,
+  ): Promise<{ bytes: Buffer; elements: number }> {
+    if (tensor.quantization) {
+      throw new Error(`${tensor.name}: leitura ${storageDtype} não dequantiza ${tensor.quantization.family}/${tensor.quantization.mode}.`);
+    }
+    if (tensor.storageDtype !== storageDtype) {
+      throw new Error(`${tensor.name}: leitura de referência requer storageDtype=${storageDtype}, recebeu ${tensor.storageDtype}.`);
+    }
+    if (
+      !tensor.shard ||
+      tensor.byteOffset === undefined ||
+      tensor.byteLength === undefined ||
+      tensor.storageShape.length !== tensor.logicalShape.length ||
+      tensor.storageShape.some((dimension, index) => dimension !== tensor.logicalShape[index])
+    ) {
+      throw new Error(`${tensor.name}: metadados Safetensors densos incompletos ou shape lógico diferente do storage.`);
+    }
+    const elements = product(tensor.storageShape);
+    const expectedBytes = elements * elementBytes;
+    if (tensor.byteLength !== expectedBytes) {
+      throw new Error(`${tensor.name}: intervalo de ${tensor.byteLength} bytes não corresponde a ${elements} valores ${storageDtype}.`);
+    }
+    const bytes = Buffer.allocUnsafe(tensor.byteLength);
+    await this.#readExactly(await this.#getHandle(tensor.shard), bytes, tensor.byteOffset);
+    return { bytes, elements };
+  }
+
   async #readConfig(): Promise<JsonObject> {
     const configPath = path.join(this.#sourceDir, "config.json");
     try {
@@ -382,4 +444,13 @@ export class SafetensorsCatalogReader {
       throw new Error(`Tensor ${name}: ${bytes} bytes, mas shape/dtype indicam ${expected}.`);
     }
   }
+}
+
+function decodeF16(bits: number): number {
+  const sign = (bits & 0x8000) === 0 ? 1 : -1;
+  const exponent = (bits >>> 10) & 0x1f;
+  const fraction = bits & 0x03ff;
+  if (exponent === 0) return sign * fraction * 2 ** -24;
+  if (exponent === 0x1f) return fraction === 0 ? sign * Infinity : Number.NaN;
+  return sign * (1 + fraction / 1024) * 2 ** (exponent - 15);
 }

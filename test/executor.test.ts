@@ -167,6 +167,32 @@ test("reader range-loads F32 Safetensors into the explicit F32 executor", async 
   }
 });
 
+test("reader range-loads F16 and BF16 Safetensors losslessly into F32 values", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-f16-bf16-"));
+  try {
+    await writeFile(path.join(directory, "config.json"), JSON.stringify({ model_type: "llama" }));
+    await writeMixed16Safetensors(path.join(directory, "model.safetensors"));
+    const reader = new SafetensorsCatalogReader(directory);
+    try {
+      const catalog = await reader.inspect();
+      const f16 = await reader.readDenseF16AsF32(catalog.tensors.get("f16.weight")!);
+      const bf16 = await reader.readDenseBF16AsF32(catalog.tensors.get("bf16.weight")!);
+      assert.deepEqual(f16.shape, [6]);
+      assert.deepEqual([...f16.values.slice(0, 4)], [1, -2, 0.00006103515625, 65504]);
+      assert.equal(f16.values[4], Infinity);
+      assert.ok(Number.isNaN(f16.values[5]!));
+      assert.deepEqual([...bf16.values.slice(0, 4)], [1, -2.5, 0.5, 3.3895313892515355e38]);
+      assert.equal(bf16.values[4], -Infinity);
+      assert.ok(Number.isNaN(bf16.values[5]!));
+      await assert.rejects(() => reader.readDenseF16AsF32(catalog.tensors.get("bf16.weight")!), /storageDtype=F16/);
+    } finally {
+      await reader.close();
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("F32 executor rejects an F64 policy instead of silently changing cast boundaries", async () => {
   const { ir, weights } = await tinyLlama();
   const f32Weights = new Map<string, DenseF32Tensor>(
@@ -211,6 +237,24 @@ async function writeF32Safetensors(file: string, tensors: ReadonlyMap<string, De
   for (const tensor of tensors.values()) {
     for (let index = 0; index < tensor.values.length; index += 1) payload.writeFloatLE(tensor.values[index]!, byteOffset + index * Float32Array.BYTES_PER_ELEMENT);
     byteOffset += tensor.values.length * Float32Array.BYTES_PER_ELEMENT;
+  }
+  await writeFile(file, Buffer.concat([prefix, headerBytes, payload]));
+}
+
+async function writeMixed16Safetensors(file: string): Promise<void> {
+  const header = {
+    "f16.weight": { dtype: "F16", shape: [6], data_offsets: [0, 12] },
+    "bf16.weight": { dtype: "BF16", shape: [6], data_offsets: [12, 24] },
+  };
+  const headerBytes = Buffer.from(JSON.stringify(header), "utf8");
+  const prefix = Buffer.alloc(8);
+  prefix.writeBigUInt64LE(BigInt(headerBytes.length));
+  const payload = Buffer.alloc(24);
+  for (const [index, value] of [0x3c00, 0xc000, 0x0400, 0x7bff, 0x7c00, 0x7e00].entries()) {
+    payload.writeUInt16LE(value, index * 2);
+  }
+  for (const [index, value] of [0x3f80, 0xc020, 0x3f00, 0x7f7f, 0xff80, 0x7fc1].entries()) {
+    payload.writeUInt16LE(value, 12 + index * 2);
   }
   await writeFile(file, Buffer.concat([prefix, headerBytes, payload]));
 }
