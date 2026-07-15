@@ -406,6 +406,14 @@ antes de qualquer relatório fiel. Isso demonstra reconstrução lossless sob a
 política escalar F32 contra evidência F32 construída pela fórmula declarada,
 não contra um runtime externo autoritativo.
 
+A fixture sintética Q5_0 de 256 dimensões cobre a variante de cinco bits
+centrada, que não possui o mínimo afim de Q5_1: a evidência densa independente
+calcula `d*(q-16)` com `d=0.5` para todos os 32 códigos. O GGUF empacotado
+exercita os dois planos de nibbles e o bit alto `qh`; a fronteira de execução e
+geração compara todas as operações, cache KV, logits e dois passos greedy, e
+rejeita uma mutação em `qh` pelo checksum. É prova sintética
+lossless-within-dtype sob F32 escalar, não comparação com runtime externo.
+
 Além da máscara causal/janela declarada pelo IR, o executor de referência pode
 receber uma máscara aditiva canônica `[batch, 1|heads, query, key]`. Zero
 preserva o score e `-Infinity` exclui a chave antes do softmax; valores finitos
