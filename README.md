@@ -266,7 +266,17 @@ checksum da captura. Isto prova uma fronteira sintética lossless dentro do
 executor escalar F32 para Q8_0; não é uma comparação com llama.cpp nem uma
 prova para os demais layouts GGML quantizados.
 
-Uma terceira regressão executável percorre o `GGML_TYPE_Q4_K` por essa mesma
+Uma terceira regressão executável percorre o `GGML_TYPE_Q3_K` pela fronteira
+completa. Cada matriz de um Llama de largura 256 contém os quatro planos de
+códigos de dois bits, os dois estados do `hmask[32]` e as 16 escalas assinadas
+de seis bits por grupos de 16, incluindo ambos os sinais. Um GGUF F32 pareado
+calcula diretamente `d*signedScale*(low2-(hmask?0:4))` com `d=0.5`, sem chamar
+o leitor candidato, e fornece operações, cache KV pós-RoPE, logits e duas
+etapas greedy. Uma alteração no payload empacotado é recusada pelo checksum da
+captura. Isto é uma prova sintética lossless sob a política escalar F32 para
+Q3_K, não uma comparação externa nem uma validação de checkpoint real.
+
+Uma quarta regressão executável percorre o `GGML_TYPE_Q4_K` por essa mesma
 fronteira. Cada matriz de um Llama de largura 256 contém blocos de 256 valores
 com `d=0.5`, `dmin=0.25`, códigos de nibble variados e todos os oito grupos de
 escala/mínimo; os grupos 4..7 usam também os dois bits altos espalhados pelos
@@ -277,7 +287,7 @@ empacotado é rejeitada pelo checksum. A classe continua sendo uma prova
 sintética lossless na política escalar F32 — não uma comparação externa nem
 uma prova para os outros tipos GGML.
 
-Uma quarta regressão executável cobre o `GGML_TYPE_Q5_K` pela fronteira
+Uma quinta regressão executável cobre o `GGML_TYPE_Q5_K` pela fronteira
 completa. Cada matriz de um Llama de largura 256 usa o mesmo `d=0.5`,
 `dmin=0.25` e os oito campos de escala/mínimo de seis bits, mas constrói
 diretamente no pacote F32 pareado os códigos unsigned de cinco bits da fórmula
@@ -289,7 +299,7 @@ leitor candidato e uma alteração de byte empacotado é rejeitada pelo checksum
 Esta é uma prova sintética lossless dentro da política escalar F32, não uma
 comparação com llama.cpp nem uma validação de checkpoint real.
 
-Uma quinta regressão executável percorre o `GGML_TYPE_Q6_K` pela mesma
+Uma sexta regressão executável percorre o `GGML_TYPE_Q6_K` pela mesma
 fronteira completa. Cada matriz do Llama de largura 256 contém os 64 códigos
 centrados possíveis, distribuídos pelos oito planos de 32 valores de `ql` e
 pelos dois bits altos de `qh`, e as 16 escalas `int8` por grupos de 16 incluem
