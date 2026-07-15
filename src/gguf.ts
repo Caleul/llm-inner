@@ -1,0 +1,269 @@
+import { open } from "node:fs/promises";
+import type { FileHandle } from "node:fs/promises";
+import type { JsonObject, ModelCatalog, TensorInfo } from "./types.js";
+import { product } from "./utils.js";
+
+const GGUF_MAGIC = "GGUF";
+const MAX_STRING_BYTES = 16 * 1024 * 1024;
+const MAX_METADATA_ENTRIES = 1_000_000;
+const MAX_TENSORS = 1_000_000;
+
+enum GgufValueType {
+  Uint8 = 0,
+  Int8 = 1,
+  Uint16 = 2,
+  Int16 = 3,
+  Uint32 = 4,
+  Int32 = 5,
+  Float32 = 6,
+  Bool = 7,
+  String = 8,
+  Array = 9,
+  Uint64 = 10,
+  Int64 = 11,
+  Float64 = 12,
+}
+
+interface DirectoryTensor {
+  name: string;
+  dimensions: number[];
+  ggmlType: number;
+  offset: number;
+}
+
+/**
+ * Native, read-only GGUF v2/v3 catalog reader. It deliberately recognizes
+ * only dense F32/F16 tensor payloads: a GGML type number is not enough to
+ * safely dequantize a packed tensor. Unsupported encodings fail while the
+ * directory is still being validated rather than being mislabeled as dense.
+ */
+export class GgufCatalogReader {
+  readonly #source: string;
+  #handle: FileHandle | undefined;
+  #fileSize = 0;
+  #position = 0;
+
+  constructor(source: string) {
+    this.#source = source;
+  }
+
+  async close(): Promise<void> {
+    await this.#handle?.close();
+    this.#handle = undefined;
+  }
+
+  async inspect(): Promise<ModelCatalog> {
+    this.#handle = await open(this.#source, "r");
+    const info = await this.#handle.stat();
+    if (!info.isFile()) throw new Error(`GGUF deve ser arquivo regular: ${this.#source}`);
+    this.#fileSize = info.size;
+    this.#position = 0;
+
+    if (await this.#readText(4) !== GGUF_MAGIC) {
+      throw new Error("Arquivo não possui magic GGUF.");
+    }
+    const version = await this.#readU32();
+    if (version !== 2 && version !== 3) {
+      throw new Error(`Versão GGUF ${version} não suportada; este leitor aceita somente v2/v3.`);
+    }
+    const tensorCount = await this.#readCount("tensor_count", MAX_TENSORS);
+    const metadataCount = await this.#readCount("metadata_kv_count", MAX_METADATA_ENTRIES);
+    const rawMetadata: JsonObject = {};
+    for (let index = 0; index < metadataCount; index += 1) {
+      const key = await this.#readString(`chave de metadata ${index}`);
+      if (key.length === 0 || Object.hasOwn(rawMetadata, key)) {
+        throw new Error(`Metadata GGUF possui chave vazia ou duplicada: '${key}'.`);
+      }
+      rawMetadata[key] = await this.#readMetadataValue(false);
+    }
+
+    const directory: DirectoryTensor[] = [];
+    const names = new Set<string>();
+    for (let index = 0; index < tensorCount; index += 1) {
+      const name = await this.#readString(`nome do tensor ${index}`);
+      if (name.length === 0 || names.has(name)) throw new Error(`Tensor GGUF vazio ou duplicado: '${name}'.`);
+      names.add(name);
+      const dimensionsCount = await this.#readU32();
+      if (dimensionsCount === 0 || dimensionsCount > 4) {
+        throw new Error(`${name}: GGUF declara ${dimensionsCount} dimensões; esperado 1..4.`);
+      }
+      const dimensions: number[] = [];
+      for (let dimension = 0; dimension < dimensionsCount; dimension += 1) {
+        const value = await this.#readSafeU64(`${name}.dimensions[${dimension}]`);
+        if (value <= 0) throw new Error(`${name}: dimensão GGUF deve ser positiva.`);
+        dimensions.push(value);
+      }
+      const ggmlType = await this.#readU32();
+      const offset = await this.#readSafeU64(`${name}.offset`);
+      directory.push({ name, dimensions, ggmlType, offset });
+    }
+
+    const alignmentValue = rawMetadata["general.alignment"];
+    const alignment: unknown = alignmentValue === undefined ? 32 : alignmentValue;
+    if (typeof alignment !== "number" || !Number.isSafeInteger(alignment) || alignment <= 0 || alignment > 1024 * 1024 || (alignment & (alignment - 1)) !== 0) {
+      throw new Error(`general.alignment GGUF inválido: ${String(alignment)}; esperado potência de dois positiva até 1048576.`);
+    }
+    const dataStart = alignUp(this.#position, alignment);
+    if (dataStart > this.#fileSize) throw new Error("Diretório GGUF termina além do arquivo antes do alinhamento de dados.");
+    const payloadLength = this.#fileSize - dataStart;
+    const tensors = new Map<string, TensorInfo>();
+    const intervals: Array<{ name: string; start: number; end: number }> = [];
+    for (const tensor of directory) {
+      if (tensor.offset % alignment !== 0) {
+        throw new Error(`${tensor.name}: offset GGUF ${tensor.offset} não é alinhado a ${alignment}.`);
+      }
+      const storage = denseStorageForGgmlType(tensor.ggmlType, tensor.name);
+      const elements = product(tensor.dimensions);
+      if (!Number.isSafeInteger(elements) || elements <= 0) throw new Error(`${tensor.name}: produto de dimensões GGUF inválido.`);
+      const byteLength = elements * storage.bytes;
+      if (!Number.isSafeInteger(byteLength) || tensor.offset > payloadLength || byteLength > payloadLength - tensor.offset) {
+        throw new Error(`${tensor.name}: intervalo GGUF ultrapassa o payload declarado.`);
+      }
+      const start = dataStart + tensor.offset;
+      const end = start + byteLength;
+      intervals.push({ name: tensor.name, start, end });
+      // GGUF dimensions are retained in their declared GGML order. This reader
+      // does not claim a row-major logical layout or architecture tensor role.
+      tensors.set(tensor.name, {
+        name: tensor.name,
+        storageDtype: storage.dtype,
+        storageShape: [...tensor.dimensions],
+        logicalShape: [...tensor.dimensions],
+        byteOffset: start,
+        byteLength,
+        shard: this.#source,
+      });
+    }
+    intervals.sort((left, right) => left.start - right.start || left.end - right.end);
+    for (let index = 1; index < intervals.length; index += 1) {
+      const previous = intervals[index - 1]!;
+      const current = intervals[index]!;
+      if (current.start < previous.end) throw new Error(`${current.name}: intervalo GGUF sobrepõe ${previous.name}.`);
+    }
+
+    return {
+      source: this.#source,
+      format: "gguf",
+      config: metadataToConfig(rawMetadata),
+      rawMetadata,
+      tensors,
+    };
+  }
+
+  async #readMetadataValue(inArray: boolean): Promise<unknown> {
+    const type = await this.#readU32();
+    if (type === GgufValueType.Array) {
+      if (inArray) throw new Error("GGUF não permite arrays aninhados em metadata.");
+      const elementType = await this.#readU32();
+      if (elementType === GgufValueType.Array) throw new Error("GGUF metadata array não pode conter arrays.");
+      const count = await this.#readCount("metadata array", MAX_METADATA_ENTRIES);
+      const values: unknown[] = [];
+      for (let index = 0; index < count; index += 1) values.push(await this.#readValue(elementType, true));
+      return values;
+    }
+    return this.#readValue(type, inArray);
+  }
+
+  async #readValue(type: number, _inArray: boolean): Promise<unknown> {
+    switch (type) {
+      case GgufValueType.Uint8: return (await this.#readBytes(1))[0]!;
+      case GgufValueType.Int8: return (await this.#readBytes(1)).readInt8(0);
+      case GgufValueType.Uint16: return (await this.#readBytes(2)).readUInt16LE(0);
+      case GgufValueType.Int16: return (await this.#readBytes(2)).readInt16LE(0);
+      case GgufValueType.Uint32: return await this.#readU32();
+      case GgufValueType.Int32: return (await this.#readBytes(4)).readInt32LE(0);
+      case GgufValueType.Float32: return (await this.#readBytes(4)).readFloatLE(0);
+      case GgufValueType.Bool: {
+        const value = (await this.#readBytes(1))[0]!;
+        if (value !== 0 && value !== 1) throw new Error(`Booleano GGUF inválido: ${value}.`);
+        return value === 1;
+      }
+      case GgufValueType.String: return this.#readString("valor string de metadata");
+      case GgufValueType.Uint64: return this.#readIntegerMetadata(false);
+      case GgufValueType.Int64: return this.#readIntegerMetadata(true);
+      case GgufValueType.Float64: return (await this.#readBytes(8)).readDoubleLE(0);
+      default: throw new Error(`Tipo de metadata GGUF não suportado: ${type}.`);
+    }
+  }
+
+  async #readIntegerMetadata(signed: boolean): Promise<number | string> {
+    const value = signed ? (await this.#readBytes(8)).readBigInt64LE(0) : (await this.#readBytes(8)).readBigUInt64LE(0);
+    return value >= BigInt(Number.MIN_SAFE_INTEGER) && value <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(value) : value.toString();
+  }
+
+  async #readCount(label: string, maximum: number): Promise<number> {
+    const count = await this.#readSafeU64(label);
+    if (count > maximum) throw new Error(`${label} GGUF excede o limite local de ${maximum}.`);
+    return count;
+  }
+
+  async #readSafeU64(label: string): Promise<number> {
+    const value = (await this.#readBytes(8)).readBigUInt64LE(0);
+    if (value > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error(`${label} GGUF excede Number.MAX_SAFE_INTEGER.`);
+    return Number(value);
+  }
+
+  async #readU32(): Promise<number> { return (await this.#readBytes(4)).readUInt32LE(0); }
+
+  async #readString(label: string): Promise<string> {
+    const length = await this.#readSafeU64(`${label}.length`);
+    if (length > MAX_STRING_BYTES) throw new Error(`${label} GGUF excede ${MAX_STRING_BYTES} bytes.`);
+    return this.#readText(length);
+  }
+
+  async #readText(length: number): Promise<string> {
+    const bytes = await this.#readBytes(length);
+    try { return new TextDecoder("utf-8", { fatal: true }).decode(bytes); } catch { throw new Error("String GGUF não é UTF-8 válido."); }
+  }
+
+  async #readBytes(length: number): Promise<Buffer> {
+    if (!Number.isSafeInteger(length) || length < 0 || length > this.#fileSize - this.#position) throw new Error("EOF inesperado lendo GGUF.");
+    const bytes = Buffer.allocUnsafe(length);
+    let read = 0;
+    while (read < length) {
+      const result = await this.#handle!.read(bytes, read, length - read, this.#position + read);
+      if (result.bytesRead === 0) throw new Error("EOF inesperado lendo GGUF.");
+      read += result.bytesRead;
+    }
+    this.#position += length;
+    return bytes;
+  }
+}
+
+function denseStorageForGgmlType(type: number, name: string): { dtype: "F32" | "F16"; bytes: number } {
+  if (type === 0) return { dtype: "F32", bytes: 4 }; // GGML_TYPE_F32
+  if (type === 1) return { dtype: "F16", bytes: 2 }; // GGML_TYPE_F16
+  const label = GGML_TYPE_NAMES[type] ?? `GGML_TYPE_${type}`;
+  throw new Error(`${name}: ${label} é um encoding GGML sem decodificador/layout verificado; catálogo rejeitado.`);
+}
+
+const GGML_TYPE_NAMES: Record<number, string> = {
+  2: "GGML_TYPE_Q4_0", 3: "GGML_TYPE_Q4_1", 6: "GGML_TYPE_Q5_0", 7: "GGML_TYPE_Q5_1",
+  8: "GGML_TYPE_Q8_0", 9: "GGML_TYPE_Q8_1", 10: "GGML_TYPE_Q2_K", 11: "GGML_TYPE_Q3_K",
+  12: "GGML_TYPE_Q4_K", 13: "GGML_TYPE_Q5_K", 14: "GGML_TYPE_Q6_K", 15: "GGML_TYPE_Q8_K",
+  16: "GGML_TYPE_IQ2_XXS", 17: "GGML_TYPE_IQ2_XS", 18: "GGML_TYPE_IQ3_XXS", 19: "GGML_TYPE_IQ1_S",
+  20: "GGML_TYPE_IQ4_NL", 21: "GGML_TYPE_IQ3_S", 22: "GGML_TYPE_IQ2_S", 23: "GGML_TYPE_IQ4_XS",
+  24: "GGML_TYPE_IQ1_M", 25: "GGML_TYPE_BF16", 26: "GGML_TYPE_Q4_0_4_4", 27: "GGML_TYPE_Q4_0_4_8",
+  28: "GGML_TYPE_Q4_0_8_8", 29: "GGML_TYPE_TQ1_0", 30: "GGML_TYPE_TQ2_0",
+};
+
+function metadataToConfig(metadata: JsonObject): JsonObject {
+  const architecture = metadata["general.architecture"];
+  if (typeof architecture !== "string" || architecture.length === 0) return {};
+  const config: JsonObject = { model_type: architecture };
+  const prefix = `${architecture}.`;
+  for (const [key, value] of Object.entries(metadata)) {
+    if (!key.startsWith(prefix)) continue;
+    const shortName = key.slice(prefix.length);
+    config[shortName] = value;
+    config[shortName.replaceAll(".", "_")] = value;
+  }
+  return config;
+}
+
+function alignUp(value: number, alignment: number): number {
+  const remainder = value % alignment;
+  const aligned = remainder === 0 ? value : value + alignment - remainder;
+  if (!Number.isSafeInteger(aligned)) throw new Error("Alinhamento GGUF excede Number.MAX_SAFE_INTEGER.");
+  return aligned;
+}

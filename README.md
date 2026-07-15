@@ -16,12 +16,13 @@ O IR guarda `inFeatures`, `outFeatures`, referência ao tensor, dtype e quantiza
 
 - Diretórios Hugging Face/Safetensors densos.
 - Diretórios MLX/Safetensors quantizados, lendo `config.json`, incluindo overrides por módulo.
-- Arquivos GGUF por meio do pacote oficial `gguf`.
+- Arquivos GGUF v2/v3 por um leitor nativo estrito de header, metadata e diretório.
 
 A leitura numérica é delegada ao runtime de referência:
 
 - `mlx.core.dequantize` para MLX (`affine`, `mxfp4`, `mxfp8`, `nvfp4` e modos suportados pela versão instalada).
-- `gguf.dequantize` para tipos GGML/GGUF suportados pelo `gguf-py` instalado.
+- tipos GGML quantizados continuam rejeitados até cada layout ter um decodificador
+  local verificado; o catálogo nunca trata um `GGML_TYPE_Q*` como um F32 genérico.
 
 Isso evita implementar uma falsa “dequantização genérica por número de bits”. Q4_K, IQ2, MXFP4 e affine-4bit têm layouts e fórmulas diferentes.
 
@@ -33,8 +34,6 @@ npm run build
 python3 -m pip install safetensors
 # Em Apple Silicon, para modelos MLX:
 python3 -m pip install mlx
-# Para GGUF:
-python3 -m pip install gguf
 ```
 
 ## Uso
@@ -166,6 +165,14 @@ materializa cada constante uma única vez. Safetensors densos usam o leitor de
 intervalos F32/F16/BF16; MLX quantizado exige explicitamente o bridge com
 `mlx.core.dequantize` e preserva a proveniência. GGUF não é reinterpretado
 como F32 até existir um decodificador GGML por tipo verificado.
+
+`GgufCatalogReader` em `src/gguf.ts` não depende de `gguf-py`: valida magic,
+versão v2/v3, contagens seguras, metadata tipada (incluindo arrays), diretório,
+alinhamento e intervalos de payload. Hoje só expõe armazenamento GGML F32/F16
+de tamanho verificável, mantendo as dimensões na ordem declarada pelo GGML;
+qualquer encoding empacotado é rejeitado com seu tipo GGML até haver contrato de
+layout e dequantização específico. A leitura do catálogo não inventa papéis de
+tensores nem uma convenção de layout de arquitetura.
 
 `compareGenerationTrace` cobre a evidência que não cabe em um forward isolado:
 ele exige uma captura autoritativa do prompt e suas posições absolutas, cada

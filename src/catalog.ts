@@ -2,6 +2,7 @@ import { stat } from "node:fs/promises";
 import * as path from "node:path";
 import type { ModelCatalog } from "./types.js";
 import { SafetensorsCatalogReader } from "./safetensors.js";
+import { GgufCatalogReader } from "./gguf.js";
 import { TensorBridge } from "./bridge.js";
 
 export interface OpenCatalogResult {
@@ -13,22 +14,14 @@ export interface OpenCatalogResult {
 export async function openCatalog(source: string, includeBridge: boolean): Promise<OpenCatalogResult> {
   const info = await stat(source);
   if (info.isFile() && path.extname(source).toLowerCase() === ".gguf") {
-    const bridge = new TensorBridge(source);
+    const reader = new GgufCatalogReader(source);
     try {
-      const inspected = await bridge.inspectGguf();
       return {
-        catalog: {
-          source,
-          format: "gguf",
-          config: inspected.config,
-          rawMetadata: inspected.rawMetadata,
-          tensors: new Map(inspected.tensors.map((tensor) => [tensor.name, tensor])),
-        },
-        bridge,
-        close: () => bridge.close(),
+        catalog: await reader.inspect(),
+        close: () => reader.close(),
       };
     } catch (error) {
-      await bridge.close();
+      await reader.close();
       throw error;
     }
   }

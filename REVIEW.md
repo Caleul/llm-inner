@@ -38,13 +38,16 @@ y[o] = Σ(i=0..inFeatures-1) x[i] * W[o,i] + b[o]
 - fórmula affine invertida: o código usava `(q - bias) * scale`, enquanto o formato MLX usa `scale * q + bias`;
 - leitura do tensor inteiro para exibir poucas linhas.
 
-A versão 2 delega a dequantização aos backends de referência:
+A versão 2 delega apenas a dequantização MLX cujo contrato é conhecido ao
+backend de referência:
 
 - MLX: `mlx.core.dequantize`;
-- GGUF: `gguf.dequantize`;
 - Safetensors denso: `safetensors`.
 
-Isso permite aceitar novos números de bits ou formatos quando o backend oficial os suporta, sem fingir que “N bits” define sozinho a fórmula.
+O catálogo GGUF v2/v3 é lido localmente, com metadata e intervalos alinhados
+validados. Tipos GGML empacotados são rejeitados até cada formato ter um
+decodificador e layout verificados; um pacote Python instalado não transforma
+um tipo ou largura de bits em semântica comprovada.
 
 ### 3. A arquitetura era presumida pelos nomes
 

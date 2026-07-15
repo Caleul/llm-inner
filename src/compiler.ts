@@ -13,7 +13,7 @@ export interface CompileOptions {
 }
 
 export async function compileModel(options: CompileOptions): Promise<void> {
-  const opened = await openCatalog(options.source, options.preview.includeWeights || options.source.endsWith(".gguf"));
+  const opened = await openCatalog(options.source, options.preview.includeWeights);
   try {
     const ir = await buildModelIR(opened.catalog, options.preview, opened.bridge);
     await mkdir(path.dirname(options.output), { recursive: true });

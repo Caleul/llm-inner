@@ -51,18 +51,6 @@ export class TensorBridge {
     this.#readline.close();
   }
 
-  async inspectGguf(): Promise<{
-    config: JsonObject;
-    rawMetadata: JsonObject;
-    tensors: TensorInfo[];
-  }> {
-    return (await this.#call("inspect", {})) as {
-      config: JsonObject;
-      rawMetadata: JsonObject;
-      tensors: TensorInfo[];
-    };
-  }
-
   async readLinearPreview(
     catalog: ModelCatalog,
     weightName: string,
