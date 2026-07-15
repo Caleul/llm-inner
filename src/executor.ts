@@ -16,6 +16,7 @@ import type {
   ReferenceGenerationStep,
   TensorRef,
 } from "./types.js";
+import { selectGreedyToken } from "./generation.js";
 
 /**
  * Small, deterministic F64 interpreter for the dense decoder subset emitted by
@@ -201,7 +202,7 @@ export function generateReferenceF64(
   let nextPosition = promptPositions.at(-1)! + 1;
   for (let index = 0; index < request.maxNewTokens; index += 1) {
     selectionLogits.push(current.logits);
-    const tokenId = greedyToken(current.logits);
+    const tokenId = selectGreedyToken(current.logits);
     generatedTokenIds.push(tokenId);
     steps.push({ tokenId, positionId: nextPosition });
     current = executeReferenceF64(ir, {
@@ -245,7 +246,7 @@ export function generateReferenceF32(
   let nextPosition = promptPositions.at(-1)! + 1;
   for (let index = 0; index < request.maxNewTokens; index += 1) {
     selectionLogits.push(current.logits);
-    const tokenId = greedyToken(current.logits);
+    const tokenId = selectGreedyToken(current.logits);
     generatedTokenIds.push(tokenId);
     steps.push({ tokenId, positionId: nextPosition });
     current = executeReferenceF32(ir, {
@@ -290,25 +291,6 @@ function validateGenerationRequest(
   if (eosTokenId !== undefined && (!Number.isInteger(eosTokenId) || eosTokenId < 0)) {
     throw new Error("eosTokenId deve ser um inteiro não negativo.");
   }
-}
-
-function greedyToken(logits: DenseTensor | DenseF32Tensor): number {
-  if (logits.shape.length !== 3 || logits.shape[0] !== 1 || logits.shape[1] === undefined || logits.shape[2] === undefined) {
-    throw new Error(`Logits de geração devem ter shape [1, sequence, vocab], recebeu [${logits.shape.join(", ")}].`);
-  }
-  const sequence = logits.shape[1]!;
-  const vocab = logits.shape[2]!;
-  let result = 0;
-  const offset = (sequence - 1) * vocab;
-  for (let index = 0; index < vocab; index += 1) {
-    if (!Number.isFinite(logits.values[offset + index]!)) {
-      throw new Error("Logits de geração devem ser finitos para argmax determinístico.");
-    }
-  }
-  for (let index = 1; index < vocab; index += 1) {
-    if (logits.values[offset + index]! > logits.values[offset + result]!) result = index;
-  }
-  return result;
 }
 
 function assertF64Policy(operation: Operation): void {

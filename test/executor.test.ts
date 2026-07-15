@@ -6,6 +6,7 @@ import * as path from "node:path";
 import { buildModelIR } from "../src/architecture.js";
 import { compareExecutionTrace, compareGenerationTrace } from "../src/differential.js";
 import { executeReferenceF32, executeReferenceF64, generateReferenceF32, generateReferenceF64 } from "../src/executor.js";
+import { selectGreedyToken } from "../src/generation.js";
 import { SafetensorsCatalogReader } from "../src/safetensors.js";
 import { decodeMlxF32Payload } from "../src/bridge.js";
 import type { DenseF32Tensor, DenseTensor, ModelCatalog, TensorInfo } from "../src/types.js";
@@ -269,6 +270,12 @@ test("F64 greedy generation advances absolute positions and returns a cache for 
   assert.deepEqual([...generated.logits.values], [...direct.logits.values.slice(9, 12)]);
 });
 
+test("greedy selection uses the final sequence logits, rejects non-finite scores, and keeps the lowest tied token", () => {
+  assert.equal(selectGreedyToken(dense([1, 2, 3], [99, 0, 0, 4, 7, 7])), 1);
+  assert.throws(() => selectGreedyToken(dense([1, 1, 3], [0, Number.NaN, 2])), /finitos/);
+  assert.throws(() => selectGreedyToken(dense([1, 0, 3], [])), /shape/);
+});
+
 test("generation differential report requires token, position, terminal-logit, and KV-cache agreement", async () => {
   const { ir, weights } = await tinyLlama();
   const candidate = generateReferenceF64(ir, { inputIds: [[1]], positionIds: [[7]], tensors: weights, maxNewTokens: 2 });
@@ -303,6 +310,12 @@ test("generation differential report requires token, position, terminal-logit, a
   const selectionDivergence = compareGenerationTrace(candidate, { ...reference, selectionLogits }, { candidateRuntime: "llm-inner F64 scalar" });
   assert.equal(selectionDivergence.fidelityClass, "approximate");
   assert.equal(selectionDivergence.firstDivergence, "generation:selection-logits-0");
+
+  const nonGreedyReference = { ...reference, generatedTokenIds: [0, ...reference.generatedTokenIds.slice(1)], steps: [{ ...reference.steps[0]!, tokenId: 0 }, ...reference.steps.slice(1)] };
+  assert.throws(() => compareGenerationTrace(candidate, nonGreedyReference, { candidateRuntime: "llm-inner F64 scalar" }), /logits determinísticos exigem outro argmax/);
+
+  const nonGreedyCandidate = { ...candidate, generatedTokenIds: [0, ...candidate.generatedTokenIds.slice(1)], inputIds: [1, 0, ...candidate.generatedTokenIds.slice(1)], steps: [{ ...candidate.steps[0]!, tokenId: 0 }, ...candidate.steps.slice(1)] };
+  assert.throws(() => compareGenerationTrace(nonGreedyCandidate, reference, { candidateRuntime: "llm-inner F64 scalar" }), /logits determinísticos exigem outro argmax/);
 
   const stepPastKeyValues = reference.stepPastKeyValues.map((snapshot) => snapshot.map((cache) => ({
     ...cache,

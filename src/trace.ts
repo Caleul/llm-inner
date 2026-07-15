@@ -10,6 +10,7 @@ import type {
   ModelCatalog,
   ModelIR,
 } from "./types.js";
+import { selectGreedyToken } from "./generation.js";
 
 export interface TraceSourceFile {
   path: string;
@@ -254,6 +255,11 @@ function validateGenerationBundle(raw: unknown): GenerationTraceBundle {
   });
   const selectionLogits = reference.selectionLogits.map((entry, index) =>
     validateSerializedTensor(entry, `logits de seleção ${index}`, candidatePolicy.dtype as "F32" | "F64"));
+  for (const [index, logits] of selectionLogits.entries()) {
+    if (selectGreedyToken(decodeTensor(logits, `logits de seleção ${index}`)) !== generatedTokenIds[index]) {
+      throw new Error(`Trace de geração seleciona token ${generatedTokenIds[index]} no índice ${index}, mas os logits determinísticos exigem outro argmax.`);
+    }
+  }
   const stepPastKeyValues = reference.stepPastKeyValues.map((entry, index) => {
     if (!Array.isArray(entry)) throw new Error(`Trace de geração cache KV pós-decode ${index} deve ser array.`);
     const caches = entry.map((cache) => serializedCache(cache, `Trace de geração cache KV pós-decode ${index}`, candidatePolicy.dtype as "F32" | "F64"));

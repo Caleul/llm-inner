@@ -17,6 +17,7 @@ import type {
   ReferenceF32GenerationResult,
   ReferenceGenerationResult,
 } from "./types.js";
+import { selectGreedyToken } from "./generation.js";
 
 type ComparableTensor = DenseTensor | DenseF32Tensor;
 type ExecutionResult = ReferenceExecutionResult | ReferenceF32ExecutionResult;
@@ -276,6 +277,9 @@ function validateCandidateGeneration(candidate: GenerationResult): void {
     if (!Number.isInteger(step.tokenId) || step.tokenId < 0 || !Number.isInteger(step.positionId) || step.positionId < 0 || step.tokenId !== candidate.generatedTokenIds[index]) {
       throw new Error(`Resultado candidato de geração contém step inválido no índice ${index}.`);
     }
+    if (selectGreedyToken(candidate.selectionLogits[index]!) !== step.tokenId) {
+      throw new Error(`Resultado candidato de geração seleciona token ${step.tokenId} no índice ${index}, mas os logits determinísticos exigem outro argmax.`);
+    }
   }
 }
 
@@ -307,6 +311,9 @@ function validateGenerationReference(reference: DifferentialGenerationReferenceT
   for (const [index, step] of reference.steps.entries()) {
     if (!Number.isInteger(step.tokenId) || step.tokenId < 0 || !Number.isInteger(step.positionId) || step.positionId < 0 || step.tokenId !== reference.generatedTokenIds[index]) {
       throw new Error(`Trace de geração contém step inválido no índice ${index}.`);
+    }
+    if (selectGreedyToken(reference.selectionLogits[index]!) !== step.tokenId) {
+      throw new Error(`Trace de geração seleciona token ${step.tokenId} no índice ${index}, mas os logits determinísticos exigem outro argmax.`);
     }
   }
   const eosIndex = reference.eosTokenId === undefined ? -1 : reference.generatedTokenIds.indexOf(reference.eosTokenId);
