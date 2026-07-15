@@ -464,6 +464,17 @@ operações, cache KV pós-RoPE, logits terminais e duas etapas greedy. Isto é
 evidência sintética lossless na política escalar F32 para Qwen/Q3_K, não uma
 equivalência contra runtime externo nem uma validação de checkpoint publicado.
 
+Qwen 2 e Qwen 3 também percorrem `GGML_TYPE_Q2_K` pela fronteira completa.
+Cada matriz de largura 256 usa os 16 nibbles independentes de escala/mínimo e
+os quatro planos de códigos de dois bits; o GGUF F32 pareado calcula
+diretamente `d*scale*code-dmin*minimum`, com `d=0.5` e `dmin=0.25`, sem ler o
+payload candidato. As projeções preservam os quatro biases densos de Qwen,
+enquanto apenas Qwen 3 mantém as normas Q/K em BHSD antes de RoPE. Para ambos
+os layouts, a captura ligada ao checksum compara todas as operações, cache KV
+pós-RoPE, logits terminais e duas etapas greedy. Isto é evidência sintética
+lossless na política escalar F32 para Qwen/Q2_K, não equivalência contra um
+runtime externo nem validação de checkpoint publicado.
+
 Uma sexta regressão executável percorre o `GGML_TYPE_Q6_K` pela mesma
 fronteira completa. Cada matriz do Llama de largura 256 contém os 64 códigos
 centrados possíveis, distribuídos pelos oito planos de 32 valores de `ql` e

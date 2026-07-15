@@ -884,8 +884,12 @@ test("Q3_K GGUF Qwen 2 and Qwen 3 replay their distinct attention contracts thro
   await assertQwenQuantizedGgufReplay("q3_k", writeQ3_KQwenTraceFixture);
 });
 
+test("Q2_K GGUF Qwen 2 and Qwen 3 replay their distinct attention contracts through execution and generation", async () => {
+  await assertQwenQuantizedGgufReplay("q2_k", writeQ2_KQwenTraceFixture);
+});
+
 async function assertQwenQuantizedGgufReplay(
-  mode: "q3_k" | "q4_0" | "q4_k" | "q5_k" | "q6_k" | "q8_0",
+  mode: "q2_k" | "q3_k" | "q4_0" | "q4_k" | "q5_k" | "q6_k" | "q8_0",
   writeFixture: (denseFile: string, quantizedFile: string, architecture: "qwen2" | "qwen3") => Promise<void>,
 ): Promise<void> {
   const directory = await mkdtemp(path.join(tmpdir(), `llm-inner-qwen-${mode}-trace-`));
@@ -2495,6 +2499,33 @@ async function writeQ3_KQwenTraceFixture(denseFile: string, quantizedFile: strin
   ];
   await writeGgufQwenFixture(denseFile, architecture, width, weights.map(([name, shape, values]) => [name, shape, 0, values]));
   await writeGgufQwenFixture(quantizedFile, architecture, width, weights.map(([name, shape, values]) => [name, shape, shape.length === 2 ? 11 : 0, values]));
+}
+
+/**
+ * Builds Qwen 2/3 packages that quantize every matrix with Q2_K while
+ * retaining architecture-required one-dimensional norms and attention biases
+ * in dense F32. The paired dense package independently applies Q2_K's affine
+ * d*scale*code-dmin*minimum formula across every packed scale/minimum nibble
+ * and all four two-bit code planes.
+ */
+async function writeQ2_KQwenTraceFixture(denseFile: string, quantizedFile: string, architecture: "qwen2" | "qwen3"): Promise<void> {
+  const width = 256;
+  const matrixValues = q2KDenseValues(width * width);
+  const ones = new Array<number>(width).fill(1);
+  const hasHeadLocalQkNorms = architecture === "qwen3";
+  const weights: Array<[string, number[], number[]]> = [
+    ["token_embd.weight", [width, width], matrixValues], ["blk.0.attn_norm.weight", [width], ones],
+    ...["attn_q", "attn_k", "attn_v", "attn_output"].flatMap((projection, index): Array<[string, number[], number[]]> => [
+      [`blk.0.${projection}.weight`, [width, width], matrixValues],
+      [`blk.0.${projection}.bias`, [width], [0.125 * (index + 1), -0.0625 * (index + 1), ...new Array<number>(width - 2).fill(0)]],
+    ]),
+    ...(hasHeadLocalQkNorms ? [["blk.0.attn_q_norm.weight", [width], ones], ["blk.0.attn_k_norm.weight", [width], ones]] as Array<[string, number[], number[]]> : []),
+    ["blk.0.ffn_norm.weight", [width], ones], ["blk.0.ffn_gate.weight", [width, width], matrixValues],
+    ["blk.0.ffn_up.weight", [width, width], matrixValues], ["blk.0.ffn_down.weight", [width, width], matrixValues],
+    ["output_norm.weight", [width], ones], ["output.weight", [width, width], matrixValues],
+  ];
+  await writeGgufQwenFixture(denseFile, architecture, width, weights.map(([name, shape, values]) => [name, shape, 0, values]));
+  await writeGgufQwenFixture(quantizedFile, architecture, width, weights.map(([name, shape, values]) => [name, shape, shape.length === 2 ? 10 : 0, values]));
 }
 
 /** Builds a Q8_1 fixture with all signed int8 codes and verified auxiliary sums live. */
