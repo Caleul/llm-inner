@@ -4,12 +4,13 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { buildModelIR } from "../src/architecture.js";
-import { executeReferenceF64 } from "../src/executor.js";
+import { executeReferenceF32, executeReferenceF64 } from "../src/executor.js";
 import { SafetensorsCatalogReader } from "../src/safetensors.js";
-import type { DenseTensor, ModelCatalog, TensorInfo } from "../src/types.js";
+import type { DenseF32Tensor, DenseTensor, ModelCatalog, TensorInfo } from "../src/types.js";
 
 const preview = { outputRows: 1, inputTerms: 1, includeWeights: false } as const;
 const f64Policy = { computeDtype: "F64", accumulationDtype: "F64", outputDtype: "F64" } as const;
+const f32Policy = { computeDtype: "F32", accumulationDtype: "F32", outputDtype: "F32" } as const;
 
 function info(name: string, shape: number[]): TensorInfo {
   return { name, storageDtype: "F64", storageShape: [...shape], logicalShape: [...shape] };
@@ -135,6 +136,45 @@ test("reader rejects F32 range loads instead of silently widening their semantic
   }
 });
 
+test("reader range-loads F32 Safetensors into the explicit F32 executor", async () => {
+  const { ir, weights } = await tinyLlama();
+  for (const operation of [...ir.prelude, ...ir.layers.flatMap((layer) => layer.operations), ...ir.epilogue]) {
+    operation.dtypePolicy = { ...f32Policy };
+    if (operation.op === "scaled_dot_product_attention") operation.softmaxComputeDtype = "F32";
+  }
+  const f32Weights = new Map<string, DenseF32Tensor>(
+    [...weights].map(([name, tensor]) => [name, { shape: [...tensor.shape], values: Float32Array.from(tensor.values) }]),
+  );
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-f32-"));
+  try {
+    await writeFile(path.join(directory, "config.json"), JSON.stringify({ model_type: "llama" }));
+    await writeF32Safetensors(path.join(directory, "model.safetensors"), f32Weights);
+    const reader = new SafetensorsCatalogReader(directory);
+    try {
+      const catalog = await reader.inspect();
+      const loaded = new Map<string, DenseF32Tensor>();
+      for (const tensor of catalog.tensors.values()) loaded.set(tensor.name, await reader.readDenseF32(tensor));
+      const result = executeReferenceF32(ir, { inputIds: [[1]], tensors: loaded });
+      const direct = executeReferenceF32(ir, { inputIds: [[1]], tensors: f32Weights });
+      assert.ok(result.logits.values instanceof Float32Array);
+      assert.deepEqual([...result.logits.values], [...direct.logits.values]);
+      assert.deepEqual([...loaded.get("model.embed_tokens.weight")!.values], [0, 0, 3, 4, 0, 0]);
+    } finally {
+      await reader.close();
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("F32 executor rejects an F64 policy instead of silently changing cast boundaries", async () => {
+  const { ir, weights } = await tinyLlama();
+  const f32Weights = new Map<string, DenseF32Tensor>(
+    [...weights].map(([name, tensor]) => [name, { shape: [...tensor.shape], values: Float32Array.from(tensor.values) }]),
+  );
+  assert.throws(() => executeReferenceF32(ir, { inputIds: [[1]], tensors: f32Weights }), /política F32 explícita/);
+});
+
 async function writeF64Safetensors(file: string, tensors: ReadonlyMap<string, DenseTensor>): Promise<void> {
   let offset = 0;
   const header: Record<string, { dtype: "F64"; shape: number[]; data_offsets: [number, number] }> = {};
@@ -151,6 +191,26 @@ async function writeF64Safetensors(file: string, tensors: ReadonlyMap<string, De
   for (const tensor of tensors.values()) {
     for (let index = 0; index < tensor.values.length; index += 1) payload.writeDoubleLE(tensor.values[index]!, byteOffset + index * Float64Array.BYTES_PER_ELEMENT);
     byteOffset += tensor.values.length * Float64Array.BYTES_PER_ELEMENT;
+  }
+  await writeFile(file, Buffer.concat([prefix, headerBytes, payload]));
+}
+
+async function writeF32Safetensors(file: string, tensors: ReadonlyMap<string, DenseF32Tensor>): Promise<void> {
+  let offset = 0;
+  const header: Record<string, { dtype: "F32"; shape: number[]; data_offsets: [number, number] }> = {};
+  for (const [name, tensor] of tensors) {
+    const length = tensor.values.length * Float32Array.BYTES_PER_ELEMENT;
+    header[name] = { dtype: "F32", shape: [...tensor.shape], data_offsets: [offset, offset + length] };
+    offset += length;
+  }
+  const headerBytes = Buffer.from(JSON.stringify(header), "utf8");
+  const prefix = Buffer.alloc(8);
+  prefix.writeBigUInt64LE(BigInt(headerBytes.length));
+  const payload = Buffer.alloc(offset);
+  let byteOffset = 0;
+  for (const tensor of tensors.values()) {
+    for (let index = 0; index < tensor.values.length; index += 1) payload.writeFloatLE(tensor.values[index]!, byteOffset + index * Float32Array.BYTES_PER_ELEMENT);
+    byteOffset += tensor.values.length * Float32Array.BYTES_PER_ELEMENT;
   }
   await writeFile(file, Buffer.concat([prefix, headerBytes, payload]));
 }

@@ -3,6 +3,7 @@ import * as path from "node:path";
 import type { FileHandle } from "node:fs/promises";
 import type {
   DenseTensor,
+  DenseF32Tensor,
   JsonObject,
   ModelCatalog,
   QuantizationSpec,
@@ -42,6 +43,7 @@ const DTYPE_BYTES: Record<string, number> = {
   F64: 8,
 };
 const F64_BYTES = 8;
+const F32_BYTES = 4;
 
 export class SafetensorsCatalogReader {
   readonly #sourceDir: string;
@@ -201,6 +203,41 @@ export class SafetensorsCatalogReader {
     await this.#readExactly(await this.#getHandle(tensor.shard), bytes, tensor.byteOffset);
     const values = new Float64Array(elements);
     for (let index = 0; index < elements; index += 1) values[index] = bytes.readDoubleLE(index * F64_BYTES);
+    return { shape: [...tensor.logicalShape], values };
+  }
+
+  /**
+   * Reads one unquantized F32 tensor directly from its Safetensors byte range.
+   * It intentionally preserves binary32 values in a Float32Array: callers
+   * select a separate explicit F32 execution policy instead of widening these
+   * constants into the F64 interpreter.
+   */
+  async readDenseF32(tensor: TensorInfo): Promise<DenseF32Tensor> {
+    if (tensor.quantization) {
+      throw new Error(`${tensor.name}: leitura F32 não dequantiza ${tensor.quantization.family}/${tensor.quantization.mode}.`);
+    }
+    if (tensor.storageDtype !== "F32") {
+      throw new Error(`${tensor.name}: leitura de referência requer storageDtype=F32, recebeu ${tensor.storageDtype}.`);
+    }
+    if (
+      !tensor.shard ||
+      tensor.byteOffset === undefined ||
+      tensor.byteLength === undefined ||
+      tensor.storageShape.length !== tensor.logicalShape.length ||
+      tensor.storageShape.some((dimension, index) => dimension !== tensor.logicalShape[index])
+    ) {
+      throw new Error(`${tensor.name}: metadados Safetensors densos incompletos ou shape lógico diferente do storage.`);
+    }
+    const elements = product(tensor.storageShape);
+    const expectedBytes = elements * F32_BYTES;
+    if (tensor.byteLength !== expectedBytes) {
+      throw new Error(`${tensor.name}: intervalo de ${tensor.byteLength} bytes não corresponde a ${elements} valores F32.`);
+    }
+
+    const bytes = Buffer.allocUnsafe(tensor.byteLength);
+    await this.#readExactly(await this.#getHandle(tensor.shard), bytes, tensor.byteOffset);
+    const values = new Float32Array(elements);
+    for (let index = 0; index < elements; index += 1) values[index] = bytes.readFloatLE(index * F32_BYTES);
     return { shape: [...tensor.logicalShape], values };
   }
 

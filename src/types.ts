@@ -204,6 +204,12 @@ export interface DenseTensor {
   values: Float64Array;
 }
 
+/** A dense, row-major F32 tensor. Values stay in their declared storage dtype. */
+export interface DenseF32Tensor {
+  shape: number[];
+  values: Float32Array;
+}
+
 export interface ReferenceExecutionRequest {
   inputIds: number[][];
   /** Optional absolute positions. When omitted, each sequence starts at zero. */
@@ -215,4 +221,20 @@ export interface ReferenceExecutionRequest {
 export interface ReferenceExecutionResult {
   values: ReadonlyMap<string, DenseTensor>;
   logits: DenseTensor;
+}
+
+/**
+ * Scalar IEEE-754 binary32 reference execution. This is deliberately a
+ * separate contract from the F64 interpreter: callers must provide F32
+ * constants and every IR operation must declare an explicit F32 policy.
+ */
+export interface ReferenceF32ExecutionRequest {
+  inputIds: number[][];
+  positionIds?: number[][];
+  tensors: ReadonlyMap<string, DenseF32Tensor>;
+}
+
+export interface ReferenceF32ExecutionResult {
+  values: ReadonlyMap<string, DenseF32Tensor>;
+  logits: DenseF32Tensor;
 }

@@ -125,6 +125,18 @@ implícitas (`model-configured`), cache KV, quantização e variantes de RoPE ai
 falham fechadas. Isso torna a fronteira de fidelidade observável antes de conectar
 runtimes autoritativos.
 
+Há também um caminho separado para F32 denso: `readDenseF32` preserva os bytes
+do Safetensors em `Float32Array`, e `executeReferenceF32` requer que cada operação
+declare explicitamente `computeDtype`/`accumulationDtype`/`outputDtype` como `F32`
+(e softmax `F32`; `inputDtype`, se declarado, também precisa ser `F32`). O interpretador aplica `Math.fround` nas fronteiras
+escalares de armazenamento e aritmética, sem converter os pesos para arrays de
+`number` ou para o executor F64. Funções transcendentais usam a `libm` do host e
+são arredondadas de volta para F32; portanto isto é uma política escalar declarada,
+não uma alegação de equivalência bitwise com kernels de PyTorch, MLX, CUDA ou BLAS.
+Enquanto o IR produzido pelo adaptador ainda declarar `model-configured`, ambos os
+executores rejeitam a execução: a política deve vir de metadados/runtime
+verificáveis, não ser inferida do dtype de armazenamento.
+
 
 ## O que “agnóstico” significa
 

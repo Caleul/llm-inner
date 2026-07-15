@@ -1,7 +1,10 @@
 import type {
   DenseTensor,
+  DenseF32Tensor,
   ModelIR,
   Operation,
+  ReferenceF32ExecutionRequest,
+  ReferenceF32ExecutionResult,
   ReferenceExecutionRequest,
   ReferenceExecutionResult,
   TensorRef,
@@ -71,6 +74,71 @@ export function executeReferenceF64(
   return { values, logits };
 }
 
+/**
+ * Deterministic scalar binary32 interpreter for the same dense decoder subset
+ * as executeReferenceF64. Every stored value and arithmetic boundary is
+ * rounded with Math.fround. Transcendentals use the host libm and are rounded
+ * back to F32, so this is a declared scalar policy rather than a claim that it
+ * is bitwise identical to a particular BLAS, GPU, or framework kernel.
+ */
+export function executeReferenceF32(
+  ir: ModelIR,
+  request: ReferenceF32ExecutionRequest,
+): ReferenceF32ExecutionResult {
+  const batch = request.inputIds.length;
+  if (batch === 0 || request.inputIds.some((row) => row.length === 0)) {
+    throw new Error("inputIds deve conter ao menos um token por batch.");
+  }
+  const sequence = request.inputIds[0]!.length;
+  if (request.inputIds.some((row) => row.length !== sequence)) {
+    throw new Error("O executor F32 requer sequências de mesmo comprimento no batch.");
+  }
+  const positions = request.positionIds ?? request.inputIds.map((row) => row.map((_, index) => index));
+  if (positions.length !== batch || positions.some((row) => row.length !== sequence)) {
+    throw new Error("positionIds deve ter o mesmo shape de inputIds.");
+  }
+
+  const values = new Map<string, DenseF32Tensor>();
+  for (const operation of [...ir.prelude, ...ir.layers.flatMap((layer) => layer.operations), ...ir.epilogue]) {
+    assertF32Policy(operation);
+    switch (operation.op) {
+      case "embedding":
+        values.set(operation.output, embeddingF32(request.inputIds, tensorF32(request, operation.weight), operation.scale));
+        break;
+      case "rms_norm":
+        values.set(operation.output, rmsNormF32(valueF32(values, operation.input), tensorF32(request, operation.weight), operation));
+        break;
+      case "linear":
+        if (!operation.transposeWeight) throw new Error(`${operation.id}: executor F32 requer weight no layout [out,in].`);
+        values.set(operation.output, linearF32(valueF32(values, operation.input), tensorF32(request, operation.weight), operation.bias ? tensorF32(request, operation.bias) : undefined));
+        break;
+      case "reshape_heads":
+        if (operation.layout !== "BHSD") throw new Error(`${operation.id}: executor F32 requer layout BHSD.`);
+        values.set(operation.output, reshapeHeadsF32(valueF32(values, operation.input), operation.numHeads, operation.headDim));
+        break;
+      case "rotary_embedding":
+        values.set(operation.output, rotaryF32(valueF32(values, operation.input), positions, operation));
+        break;
+      case "scaled_dot_product_attention":
+        values.set(operation.output, attentionF32(valueF32(values, operation.query), valueF32(values, operation.key), valueF32(values, operation.value), operation));
+        break;
+      case "activation":
+        values.set(operation.output, activationF32(valueF32(values, operation.input), operation.function, operation.approximation));
+        break;
+      case "elementwise":
+        values.set(operation.output, elementwiseF32(operation.inputs.map((name) => valueF32(values, name)), operation.kind, operation.scalar));
+        break;
+      default: {
+        const neverOperation: never = operation;
+        throw new Error(`Operação não suportada pelo executor F32: ${JSON.stringify(neverOperation)}`);
+      }
+    }
+  }
+  const logits = values.get("softcapped_logits") ?? values.get("logits");
+  if (!logits) throw new Error("IR não produziu logits.");
+  return { values, logits };
+}
+
 function assertF64Policy(operation: Operation): void {
   const policy = operation.dtypePolicy;
   for (const [name, dtype] of Object.entries(policy)) {
@@ -86,6 +154,26 @@ function assertF64Policy(operation: Operation): void {
   }
 }
 
+function assertF32Policy(operation: Operation): void {
+  const policy = operation.dtypePolicy;
+  for (const field of ["computeDtype", "accumulationDtype", "outputDtype"] as const) {
+    if (policy[field] !== "F32") {
+      throw new Error(`${operation.id}: executor de referência requer política F32 explícita; ${field}=${policy[field] ?? "ausente"}.`);
+    }
+  }
+  for (const [name, dtype] of Object.entries(policy)) {
+    if (dtype !== undefined && dtype !== "F32") {
+      throw new Error(`${operation.id}: executor de referência suporta somente política F32 explícita; ${name}=${dtype}.`);
+    }
+  }
+  if (operation.op === "linear" && operation.weight.quantization) {
+    throw new Error(`${operation.id}: executor F32 ainda não dequantiza ${operation.weight.quantization.family}.`);
+  }
+  if (operation.op === "scaled_dot_product_attention" && operation.softmaxComputeDtype !== "F32") {
+    throw new Error(`${operation.id}: executor de referência suporta somente softmaxComputeDtype=F32.`);
+  }
+}
+
 function tensor(request: ReferenceExecutionRequest, reference: TensorRef): DenseTensor {
   if (reference.quantization) throw new Error(`${reference.name}: tensor quantizado não é suportado pelo executor F64.`);
   const found = request.tensors.get(reference.name);
@@ -94,7 +182,21 @@ function tensor(request: ReferenceExecutionRequest, reference: TensorRef): Dense
   return found;
 }
 
+function tensorF32(request: ReferenceF32ExecutionRequest, reference: TensorRef): DenseF32Tensor {
+  if (reference.quantization) throw new Error(`${reference.name}: tensor quantizado não é suportado pelo executor F32.`);
+  const found = request.tensors.get(reference.name);
+  if (!found) throw new Error(`Tensor F32 ausente: ${reference.name}`);
+  assertShapeF32(found, reference.shape, reference.name);
+  return found;
+}
+
 function value(values: Map<string, DenseTensor>, name: string): DenseTensor {
+  const found = values.get(name);
+  if (!found) throw new Error(`Valor intermediário ausente: ${name}`);
+  return found;
+}
+
+function valueF32(values: Map<string, DenseF32Tensor>, name: string): DenseF32Tensor {
   const found = values.get(name);
   if (!found) throw new Error(`Valor intermediário ausente: ${name}`);
   return found;
@@ -108,6 +210,18 @@ function dense(shape: number[], values: number[] | Float64Array): DenseTensor {
 }
 
 function assertShape(actual: DenseTensor, expected: number[], label: string): void {
+  if (actual.shape.length !== expected.length || actual.shape.some((dimension, index) => dimension !== expected[index])) {
+    throw new Error(`${label}: shape esperado ${expected.join("x")}, recebeu ${actual.shape.join("x")}.`);
+  }
+}
+
+function denseF32(shape: number[], values: Float32Array): DenseF32Tensor {
+  const size = shape.reduce((total, dimension) => total * dimension, 1);
+  if (values.length !== size) throw new Error(`Tensor F32 inválido: shape ${shape.join("x")} requer ${size} valores, recebeu ${values.length}.`);
+  return { shape, values };
+}
+
+function assertShapeF32(actual: DenseF32Tensor, expected: number[], label: string): void {
   if (actual.shape.length !== expected.length || actual.shape.some((dimension, index) => dimension !== expected[index])) {
     throw new Error(`${label}: shape esperado ${expected.join("x")}, recebeu ${actual.shape.join("x")}.`);
   }
@@ -240,6 +354,150 @@ function elementwise(inputs: DenseTensor[], kind: Extract<Operation, { op: "elem
     else result[index] = scalar! * Math.tanh(first.values[index]! / scalar!);
   }
   return dense([...first.shape], result);
+}
+
+const f32 = Math.fround;
+
+function embeddingF32(inputIds: number[][], weight: DenseF32Tensor, scale?: number): DenseF32Tensor {
+  if (weight.shape.length !== 2) throw new Error("Embedding F32 requer weight 2D.");
+  const [vocab, hidden] = weight.shape as [number, number];
+  const result = new Float32Array(inputIds.length * inputIds[0]!.length * hidden);
+  const f32Scale = f32(scale ?? 1);
+  for (let batch = 0; batch < inputIds.length; batch += 1) for (let sequence = 0; sequence < inputIds[batch]!.length; sequence += 1) {
+    const token = inputIds[batch]![sequence]!;
+    if (!Number.isInteger(token) || token < 0 || token >= vocab) throw new Error(`Token fora do vocabulário: ${token}.`);
+    const offset = (batch * inputIds[batch]!.length + sequence) * hidden;
+    for (let index = 0; index < hidden; index += 1) result[offset + index] = f32(f32(weight.values[token * hidden + index]!) * f32Scale);
+  }
+  return denseF32([inputIds.length, inputIds[0]!.length, hidden], result);
+}
+
+function rmsNormF32(input: DenseF32Tensor, weight: DenseF32Tensor, operation: Extract<Operation, { op: "rms_norm" }>): DenseF32Tensor {
+  const width = input.shape.at(-1);
+  if (width === undefined || weight.shape.length !== 1 || weight.shape[0] !== width) throw new Error(`${operation.id}: RMSNorm incompatível.`);
+  const result = new Float32Array(input.values.length);
+  const epsilon = f32(operation.epsilon);
+  for (let offset = 0; offset < input.values.length; offset += width) {
+    let sum = f32(0);
+    for (let index = 0; index < width; index += 1) sum = f32(sum + f32(input.values[offset + index]! * input.values[offset + index]!));
+    const mean = f32(sum / f32(width));
+    const scale = f32(1 / f32(Math.sqrt(f32(mean + epsilon))));
+    for (let index = 0; index < width; index += 1) {
+      const multiplier = operation.weightTransform === "one_plus_weight" ? f32(1 + weight.values[index]!) : weight.values[index]!;
+      result[offset + index] = f32(f32(input.values[offset + index]! * scale) * multiplier);
+    }
+  }
+  return denseF32([...input.shape], result);
+}
+
+function linearF32(input: DenseF32Tensor, weight: DenseF32Tensor, bias?: DenseF32Tensor): DenseF32Tensor {
+  if (input.shape.length < 1 || weight.shape.length !== 2) throw new Error("Linear F32 requer entrada e weight válidos.");
+  const features = input.shape.at(-1)!;
+  const [outFeatures, inFeatures] = weight.shape as [number, number];
+  if (features !== inFeatures) throw new Error(`Linear: entrada ${features} incompatível com weight ${outFeatures}x${inFeatures}.`);
+  if (bias && (bias.shape.length !== 1 || bias.shape[0] !== outFeatures)) throw new Error("Linear: bias incompatível.");
+  const rows = input.values.length / features;
+  const result = new Float32Array(rows * outFeatures);
+  for (let row = 0; row < rows; row += 1) for (let output = 0; output < outFeatures; output += 1) {
+    let sum = f32(bias?.values[output] ?? 0);
+    for (let column = 0; column < inFeatures; column += 1) sum = f32(sum + f32(input.values[row * inFeatures + column]! * weight.values[output * inFeatures + column]!));
+    result[row * outFeatures + output] = sum;
+  }
+  return denseF32([...input.shape.slice(0, -1), outFeatures], result);
+}
+
+function reshapeHeadsF32(input: DenseF32Tensor, heads: number, headDim: number): DenseF32Tensor {
+  if (input.shape.length !== 3 || input.shape[2] !== heads * headDim) throw new Error("reshape_heads requer [B,S,H*D].");
+  const [batch, sequence] = input.shape as [number, number, number];
+  const result = new Float32Array(input.values.length);
+  for (let b = 0; b < batch; b += 1) for (let s = 0; s < sequence; s += 1) for (let h = 0; h < heads; h += 1) for (let d = 0; d < headDim; d += 1) {
+    result[((b * heads + h) * sequence + s) * headDim + d] = input.values[(b * sequence + s) * heads * headDim + h * headDim + d]!;
+  }
+  return denseF32([batch, heads, sequence, headDim], result);
+}
+
+function rotaryF32(input: DenseF32Tensor, positions: number[][], operation: Extract<Operation, { op: "rotary_embedding" }>): DenseF32Tensor {
+  if (operation.ropeType !== "default" || operation.layout !== "rotate_half" || operation.scaling) throw new Error(`${operation.id}: variante RoPE não suportada pelo executor F32.`);
+  if (input.shape.length !== 4 || operation.rotaryDim <= 0 || operation.rotaryDim % 2 !== 0 || operation.rotaryDim > input.shape[3]!) throw new Error(`${operation.id}: dimensão RoPE inválida.`);
+  const [batch, heads, sequence, headDim] = input.shape as [number, number, number, number];
+  if (positions.length !== batch || positions.some((row) => row.length !== sequence)) throw new Error("Posições incompatíveis com RoPE.");
+  const result = Float32Array.from(input.values);
+  const half = operation.rotaryDim / 2;
+  for (let b = 0; b < batch; b += 1) for (let h = 0; h < heads; h += 1) for (let s = 0; s < sequence; s += 1) for (let pair = 0; pair < half; pair += 1) {
+    const angle = f32(positions[b]![s]! / f32(operation.theta ** ((2 * pair) / operation.rotaryDim)));
+    const cosine = f32(Math.cos(angle));
+    const sine = f32(Math.sin(angle));
+    const base = ((b * heads + h) * sequence + s) * headDim;
+    const first = input.values[base + pair]!;
+    const second = input.values[base + pair + half]!;
+    result[base + pair] = f32(f32(first * cosine) - f32(second * sine));
+    result[base + pair + half] = f32(f32(second * cosine) + f32(first * sine));
+  }
+  return denseF32([...input.shape], result);
+}
+
+function attentionF32(query: DenseF32Tensor, key: DenseF32Tensor, valueTensor: DenseF32Tensor, operation: Extract<Operation, { op: "scaled_dot_product_attention" }>): DenseF32Tensor {
+  if (query.shape.length !== 4 || key.shape.length !== 4 || valueTensor.shape.length !== 4) throw new Error(`${operation.id}: attention requer tensores BHSD.`);
+  const [batch, queryHeads, querySequence, headDim] = query.shape as [number, number, number, number];
+  const [keyBatch, keyHeads, keySequence, keyDim] = key.shape as [number, number, number, number];
+  assertShapeF32(valueTensor, [keyBatch, keyHeads, keySequence, keyDim], `${operation.id}: value`);
+  if (batch !== keyBatch || queryHeads !== operation.numAttentionHeads || keyHeads !== operation.numKeyValueHeads || headDim !== operation.headDim || keyDim !== headDim) throw new Error(`${operation.id}: topologia attention incompatível.`);
+  const result = new Float32Array(batch * querySequence * queryHeads * headDim);
+  const group = queryHeads / keyHeads;
+  if (!Number.isInteger(group)) throw new Error(`${operation.id}: GQA inválida.`);
+  const scale = f32(operation.scale);
+  for (let b = 0; b < batch; b += 1) for (let h = 0; h < queryHeads; h += 1) for (let q = 0; q < querySequence; q += 1) {
+    const kvHead = Math.floor(h / group);
+    const firstKey = operation.slidingWindow === undefined ? 0 : Math.max(0, q - operation.slidingWindow + 1);
+    const lastKey = operation.causal ? Math.min(q, keySequence - 1) : keySequence - 1;
+    const scores = new Float32Array(keySequence);
+    let max = -Infinity;
+    for (let k = firstKey; k <= lastKey; k += 1) {
+      let dot = f32(0);
+      for (let d = 0; d < headDim; d += 1) dot = f32(dot + f32(query.values[((b * queryHeads + h) * querySequence + q) * headDim + d]! * key.values[((b * keyHeads + kvHead) * keySequence + k) * headDim + d]!));
+      const scaled = f32(dot * scale);
+      const score = operation.scoreSoftcap === undefined ? scaled : f32(f32(operation.scoreSoftcap) * f32(Math.tanh(f32(scaled / f32(operation.scoreSoftcap)))));
+      scores[k] = score;
+      max = Math.max(max, score);
+    }
+    let total = f32(0);
+    for (let k = firstKey; k <= lastKey; k += 1) { scores[k] = f32(Math.exp(f32(scores[k]! - f32(max)))); total = f32(total + scores[k]!); }
+    for (let d = 0; d < headDim; d += 1) {
+      let output = f32(0);
+      for (let k = firstKey; k <= lastKey; k += 1) output = f32(output + f32(f32(scores[k]! / total) * valueTensor.values[((b * keyHeads + kvHead) * keySequence + k) * headDim + d]!));
+      result[((b * querySequence + q) * queryHeads + h) * headDim + d] = output;
+    }
+  }
+  return denseF32([batch, querySequence, queryHeads * headDim], result);
+}
+
+function activationF32(input: DenseF32Tensor, functionName: string, approximation?: string): DenseF32Tensor {
+  const values = new Float32Array(input.values.length);
+  for (let index = 0; index < values.length; index += 1) {
+    const x = input.values[index]!;
+    if (functionName === "silu") values[index] = f32(x / f32(1 + f32(Math.exp(-x))));
+    else if (functionName === "gelu" && approximation === "tanh") values[index] = f32(f32(0.5 * x) * f32(1 + f32(Math.tanh(f32(Math.sqrt(2 / Math.PI) * f32(x + f32(0.044715 * f32(x * f32(x * x)))))))));
+    else if (functionName === "gelu" && approximation === "erf") values[index] = f32(f32(0.5 * x) * f32(1 + f32(erf(f32(x / f32(Math.sqrt(2)))))));
+    else throw new Error(`Ativação não suportada pelo executor F32: ${functionName}/${approximation ?? "none"}.`);
+  }
+  return denseF32([...input.shape], values);
+}
+
+function elementwiseF32(inputs: DenseF32Tensor[], kind: Extract<Operation, { op: "elementwise" }> ["kind"], scalar?: number): DenseF32Tensor {
+  if (inputs.length === 0) throw new Error("Operação elementwise sem entradas.");
+  const first = inputs[0]!;
+  for (const input of inputs.slice(1)) assertShapeF32(input, first.shape, "elementwise");
+  if ((kind === "add" || kind === "multiply") && inputs.length !== 2) throw new Error(`${kind} requer duas entradas.`);
+  if ((kind === "scale" || kind === "tanh_softcap") && (inputs.length !== 1 || scalar === undefined)) throw new Error(`${kind} requer escalar.`);
+  const result = new Float32Array(first.values.length);
+  const f32Scalar = scalar === undefined ? undefined : f32(scalar);
+  for (let index = 0; index < result.length; index += 1) {
+    if (kind === "add") result[index] = f32(first.values[index]! + inputs[1]!.values[index]!);
+    else if (kind === "multiply") result[index] = f32(first.values[index]! * inputs[1]!.values[index]!);
+    else if (kind === "scale") result[index] = f32(first.values[index]! * f32Scalar!);
+    else result[index] = f32(f32Scalar! * f32(Math.tanh(f32(first.values[index]! / f32Scalar!))));
+  }
+  return denseF32([...first.shape], result);
 }
 
 function erf(value: number): number {
