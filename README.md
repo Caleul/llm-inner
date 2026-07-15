@@ -159,6 +159,14 @@ saída terminal `softcapped_logits` com a captura `final_logit_softcap` (e não
 o `lm_head` pré-softcap). A ausência dessa saída terminal também torna o
 relatório `incomplete`.
 
+`materializeReferenceF32Constants` em `src/materialize.ts` fecha a fronteira
+entre o catálogo e o executor F32: reúne todos os `TensorRef` do IR, confirma
+nome, shape, dtype e contrato de quantização contra o catálogo de origem e
+materializa cada constante uma única vez. Safetensors densos usam o leitor de
+intervalos F32/F16/BF16; MLX quantizado exige explicitamente o bridge com
+`mlx.core.dequantize` e preserva a proveniência. GGUF não é reinterpretado
+como F32 até existir um decodificador GGML por tipo verificado.
+
 `compareGenerationTrace` cobre a evidência que não cabe em um forward isolado:
 ele exige uma captura autoritativa do prompt e suas posições absolutas, cada
 token greedy emitido, a posição em que cada token foi avaliado, logits terminais
