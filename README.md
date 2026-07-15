@@ -28,6 +28,11 @@ A leitura numérica é delegada ao runtime de referência:
   contém `ggml_half d`, `ggml_half m` e 16 bytes com os nibbles baixos para
   `q[0..15]` e altos para `q[16..31]`, materializando `F32[i] = d * q[i] + m`
   e preservando a proveniência `gguf/q4_1`.
+- `GGML_TYPE_Q5_0` tem um decodificador local estrito: cada bloco contém
+  `ggml_half d`, um plano de quatro bytes com o quinto bit de cada valor e 16
+  bytes de nibbles baixos para `q[0..15]` e altos para `q[16..31]`,
+  materializando `F32[i] = d * ((low4[i] | high1[i] << 4) - 16)` e preservando
+  a proveniência `gguf/q5_0`.
 - `GGML_TYPE_Q8_0` tem um decodificador local estrito: cada bloco contém um
   `ggml_half d` little-endian seguido de 32 `int8` assinados e materializa
   `F32[i] = d * qs[i]`, preservando a proveniência `gguf/q8_0` no tensor.
@@ -185,14 +190,16 @@ próprio leitor de intervalos. Os únicos tipos GGML empacotados materializávei
 hoje são `Q4_0`, sob o contrato exato de bloco de 18 bytes (`F16` scale + 16
 nibbles, baixo `q[0..15]`, alto `q[16..31]`, código centrado por `-8`), `Q4_1`,
 sob o contrato distinto de 20 bytes (`F16` scale, `F16` minimum e 16 nibbles,
-com `d*q+m`), e `Q8_0`, sob o contrato de 34 bytes (`F16` scale + 32 `int8`);
+com `d*q+m`), `Q5_0`, sob o contrato de 22 bytes (`F16` scale + plano de 32
+high bits + 16 nibbles, código centrado por `-16`), e `Q8_0`, sob o contrato de
+34 bytes (`F16` scale + 32 `int8`);
 todos exigem que a primeira dimensão GGML seja múltipla de 32. Os demais não são
 reinterpretados como F32 até existir um decodificador por tipo verificado.
 
 `GgufCatalogReader` em `src/gguf.ts` não depende de `gguf-py`: valida magic,
 versão v2/v3, contagens seguras, metadata tipada (incluindo arrays), diretório,
 alinhamento e intervalos de payload. Hoje expõe armazenamento GGML F32/F16 e os
-contratos quantizados explícitos Q4_0, Q4_1 e Q8_0 de tamanho verificável, mantendo as dimensões
+contratos quantizados explícitos Q4_0, Q4_1, Q5_0 e Q8_0 de tamanho verificável, mantendo as dimensões
 na ordem declarada pelo GGML; qualquer outro encoding empacotado é rejeitado com
 seu tipo GGML até haver contrato de layout e dequantização específico. A leitura do catálogo não inventa papéis de
 tensor nem uma convenção de layout de arquitetura. A exceção executável atual
