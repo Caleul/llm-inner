@@ -96,6 +96,7 @@ O compilador falha quando:
 - a arquitetura não tem adaptador registrado;
 - um tensor crítico está ausente ou ambíguo;
 - há QKV fundido sem layout conhecido;
+- shapes de embedding, normas, Q/K/V/O, MLP ou biases não coincidem com a topologia declarada;
 - há MoE/AltUp/LAuReL ou outra semântica ainda não implementada.
 
 Ele não cria bypasses nem zeros para componentes desconhecidos.

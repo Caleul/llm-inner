@@ -133,3 +133,31 @@ test("Q/K RMSNorm com dimensão diferente de head_dim falha fechado", async () =
     /head_dim=4/,
   );
 });
+
+test("projeção K com dimensão incompatível falha antes de gerar IR", async () => {
+  const source = catalog("llama");
+  source.tensors.set(
+    "model.layers.0.self_attn.k_proj.weight",
+    tensor("model.layers.0.self_attn.k_proj.weight", [3, 4]),
+  );
+  await assert.rejects(() => buildModelIR(source, preview), /k_proj da camada 0 deve ter shape 4x4/);
+});
+
+test("MLP gated com dimensão intermediária incompatível falha fechado", async () => {
+  const source = catalog("llama");
+  source.tensors.set(
+    "model.layers.0.mlp.down_proj.weight",
+    tensor("model.layers.0.mlp.down_proj.weight", [4, 7]),
+  );
+  await assert.rejects(() => buildModelIR(source, preview), /down_proj da camada 0 deve ter shape 4x8/);
+});
+
+test("embedding e norma final precisam respeitar hidden_size e vocab_size", async () => {
+  const badEmbedding = catalog("llama");
+  badEmbedding.tensors.set("model.embed_tokens.weight", tensor("model.embed_tokens.weight", [31, 4]));
+  await assert.rejects(() => buildModelIR(badEmbedding, preview), /vocab=31.*vocab_size=32/);
+
+  const badNorm = catalog("llama");
+  badNorm.tensors.set("model.norm.weight", tensor("model.norm.weight", [3]));
+  await assert.rejects(() => buildModelIR(badNorm, preview), /norma final deve ter shape 4/);
+});

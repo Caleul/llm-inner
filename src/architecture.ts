@@ -238,6 +238,12 @@ async function buildPrelude(ctx: ArchitectureContext): Promise<Operation[]> {
     "token_embd.weight",
   ]);
   if (!embed) throw new Error("Tensor de embedding não encontrado.");
+  assertMatrixShape(embed, "embedding", undefined, ctx.hiddenSize);
+  if (ctx.vocabSize !== undefined && embed.logicalShape[0] !== ctx.vocabSize) {
+    throw new Error(
+      `Embedding ${embed.name} possui vocab=${embed.logicalShape[0]}, mas config declara vocab_size=${ctx.vocabSize}.`,
+    );
+  }
   const scale = ctx.modelType.startsWith("gemma") ? Math.sqrt(ctx.hiddenSize) : undefined;
   return [
     {
@@ -262,6 +268,7 @@ async function buildEpilogue(ctx: ArchitectureContext): Promise<Operation[]> {
   ]);
   let input = `hidden_states_${ctx.numLayers}`;
   if (norm) {
+    assertVectorShape(norm, "norma final", ctx.hiddenSize);
     operations.push({
       id: "final_norm",
       op: "rms_norm",
@@ -288,6 +295,7 @@ async function buildEpilogue(ctx: ArchitectureContext): Promise<Operation[]> {
   const tied = ctx.config.tie_word_embeddings === true;
   const head = lmHead ?? (tied ? embedding : undefined);
   if (!head) throw new Error("lm_head não encontrado e embeddings não estão declarados como tied.");
+  assertMatrixShape(head, "lm_head", ctx.vocabSize, ctx.hiddenSize);
   operations.push(await linearOp(ctx, "lm_head", undefined, input, "logits", head, findBias(ctx.catalog, head.name)));
   const finalSoftcap = optionalNumber(ctx.config, ["final_logit_softcapping"]);
   if (finalSoftcap !== undefined) {
@@ -306,6 +314,7 @@ async function buildEpilogue(ctx: ArchitectureContext): Promise<Operation[]> {
 
 async function buildDecoderLayer(ctx: ArchitectureContext, layer: number): Promise<LayerIR> {
   const tensors = resolveLayerTensors(ctx, layer);
+  validateLayerTensorShapes(ctx, layer, tensors);
   const operations: Operation[] = [];
   const layerInput = `hidden_states_${layer}`;
   const inputNorm = `layer_${layer}_attn_norm`;
@@ -634,15 +643,13 @@ function rmsNormOp(
   expectedWeightLength?: number,
 ): RmsNormOp {
   const tensor = requireTensor(ctx.catalog, tensorName);
-  if (
-    expectedWeightLength !== undefined &&
-    (tensor.logicalShape.length !== 1 || tensor.logicalShape[0] !== expectedWeightLength)
-  ) {
-    throw new Error(
-      `${tensorName} deve ser um vetor RMSNorm de head_dim=${expectedWeightLength}; ` +
-        `shape=${tensor.logicalShape.join("x")}.`,
-    );
-  }
+  assertVectorShape(
+    tensor,
+    expectedWeightLength === undefined
+      ? `RMSNorm ${tensorName}`
+      : `${tensorName} como vetor RMSNorm de head_dim=${expectedWeightLength}`,
+    expectedWeightLength ?? ctx.hiddenSize,
+  );
   return {
     id: `layer_${layer}_${suffix}`,
     layer,
@@ -672,6 +679,7 @@ async function linearOp(
   const [outFeatures, inFeatures] = weight.logicalShape;
   if (outFeatures === undefined || inFeatures === undefined) throw new Error(`Shape incompleto em ${weight.name}.`);
   const resolvedBias = bias ?? findBias(ctx.catalog, weight.name);
+  if (resolvedBias) assertVectorShape(resolvedBias, `bias de ${weight.name}`, outFeatures);
   const preview =
     ctx.preview.includeWeights && ctx.bridge
       ? await ctx.bridge.readLinearPreview(
@@ -695,6 +703,75 @@ async function linearOp(
     ...(preview ? { preview } : {}),
     dtypePolicy: DEFAULT_DTYPE_POLICY,
   };
+}
+
+function validateLayerTensorShapes(ctx: ArchitectureContext, layer: number, tensors: LayerTensors): void {
+  const hidden = ctx.hiddenSize;
+  const qOut = ctx.numAttentionHeads * ctx.headDim;
+  const kvOut = ctx.numKeyValueHeads * ctx.headDim;
+  assertVectorShape(requireTensor(ctx.catalog, tensors.inputNorm), `input norm da camada ${layer}`, hidden);
+  assertMatrixShape(requireTensor(ctx.catalog, tensors.qProj), `q_proj da camada ${layer}`, qOut, hidden);
+
+  if (tensors.kProj || tensors.vProj) {
+    if (!tensors.kProj || !tensors.vProj) {
+      throw new Error(`Camada ${layer}: K e V devem estar ambos presentes ou ambos serem compartilhados.`);
+    }
+    assertMatrixShape(requireTensor(ctx.catalog, tensors.kProj), `k_proj da camada ${layer}`, kvOut, hidden);
+    assertMatrixShape(requireTensor(ctx.catalog, tensors.vProj), `v_proj da camada ${layer}`, kvOut, hidden);
+  }
+  assertMatrixShape(requireTensor(ctx.catalog, tensors.oProj), `o_proj da camada ${layer}`, hidden, qOut);
+
+  for (const [label, name] of [
+    ["post-attention norm", tensors.postAttentionNorm],
+    ["pre-feedforward norm", tensors.preFeedForwardNorm],
+    ["post-feedforward norm", tensors.postFeedForwardNorm],
+  ] as const) {
+    if (name) assertVectorShape(requireTensor(ctx.catalog, name), `${label} da camada ${layer}`, hidden);
+  }
+
+  const intermediate = intermediateSizeForLayer(ctx, layer);
+  if (tensors.gateProj || tensors.upProj || tensors.downProj) {
+    if (!tensors.gateProj || !tensors.upProj || !tensors.downProj) {
+      throw new Error(`Camada ${layer}: MLP gated exige gate_proj, up_proj e down_proj.`);
+    }
+    assertMatrixShape(requireTensor(ctx.catalog, tensors.gateProj), `gate_proj da camada ${layer}`, intermediate, hidden);
+    assertMatrixShape(requireTensor(ctx.catalog, tensors.upProj), `up_proj da camada ${layer}`, intermediate, hidden);
+    assertMatrixShape(requireTensor(ctx.catalog, tensors.downProj), `down_proj da camada ${layer}`, hidden, intermediate);
+  } else if (tensors.fc1 || tensors.fc2) {
+    if (!tensors.fc1 || !tensors.fc2) throw new Error(`Camada ${layer}: MLP densa exige fc1 e fc2.`);
+    assertMatrixShape(requireTensor(ctx.catalog, tensors.fc1), `fc1 da camada ${layer}`, intermediate, hidden);
+    assertMatrixShape(requireTensor(ctx.catalog, tensors.fc2), `fc2 da camada ${layer}`, hidden, intermediate);
+  }
+}
+
+function intermediateSizeForLayer(ctx: ArchitectureContext, layer: number): number {
+  if (typeof ctx.intermediateSize === "number") return ctx.intermediateSize;
+  if (Array.isArray(ctx.intermediateSize) && ctx.intermediateSize[layer] !== undefined) {
+    return ctx.intermediateSize[layer]!;
+  }
+  throw new Error(`Camada ${layer}: intermediate_size obrigatório para validar a topologia da MLP.`);
+}
+
+function assertVectorShape(tensor: TensorInfo, label: string, length: number): void {
+  if (tensor.logicalShape.length !== 1 || tensor.logicalShape[0] !== length) {
+    throw new Error(`${label} deve ter shape ${length}; recebido ${tensor.logicalShape.join("x")}.`);
+  }
+}
+
+function assertMatrixShape(
+  tensor: TensorInfo,
+  label: string,
+  rows: number | undefined,
+  columns: number,
+): void {
+  if (
+    tensor.logicalShape.length !== 2 ||
+    tensor.logicalShape[1] !== columns ||
+    (rows !== undefined && tensor.logicalShape[0] !== rows)
+  ) {
+    const expected = rows === undefined ? `*x${columns}` : `${rows}x${columns}`;
+    throw new Error(`${label} deve ter shape ${expected}; recebido ${tensor.logicalShape.join("x")}.`);
+  }
 }
 
 function elementwise(
