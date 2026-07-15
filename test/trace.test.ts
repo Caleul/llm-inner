@@ -214,6 +214,49 @@ test("integrity-bound F32 generation trace verifies positions, terminal logits, 
   }
 });
 
+test("generation traces bind shared-KV continuation state to its producer exactly once", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-shared-kv-generation-trace-"));
+  try {
+    const source = await writeTinySharedKvF32Model(directory);
+    const executed = await executeFixture(source, [[1]]);
+    const generated = await generateFixture(source);
+    const attentions = executed.ir.layers.flatMap((layer) => layer.operations).filter((operation) => operation.op === "scaled_dot_product_attention");
+    assert.equal(attentions.length, 2);
+    assert.equal(attentions[1]?.op, "scaled_dot_product_attention");
+    if (attentions[1]?.op === "scaled_dot_product_attention") assert.deepEqual(attentions[1].kvSharing, { enabled: true, producerLayer: 0, group: "full_attention" });
+    assert.deepEqual([...generated.pastKeyValues.keys()], [0]);
+
+    const trace = path.join(directory, "shared-kv-generation-trace.json");
+    await writeFile(trace, JSON.stringify({
+      schemaVersion: 1, kind: "generation",
+      source: { files: await checksums(source, ["config.json", "model.safetensors"]) },
+      irFingerprint: executed.fingerprint,
+      candidatePolicy: { dtype: "F32", runtime: "llm-inner scalar IEEE-754 F32" },
+      reference: {
+        runtime: "independent shared-KV F32 fixture", model: "tiny-llama-shared-kv", revisionOrChecksum: "shared-kv-fixture-v1",
+        containerFormat: "safetensors", quantization: "none", inputTokens: [1], promptPositionIds: [0], dtypePolicy: "F32 scalar shared-KV fixture", maxNewTokens: 2,
+        generatedTokenIds: generated.generatedTokenIds, steps: generated.steps, selectionLogits: generated.selectionLogits.map(serialized), stepPastKeyValues: serializedStepCaches(generated.stepPastKeyValues, serialized), logits: serialized(generated.logits),
+        pastKeyValues: [...generated.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
+      },
+    }, null, 2));
+    const report = await runGenerationTraceComparison({ source, trace, report: path.join(directory, "shared-kv-generation-report.json"), topK: 3 });
+    assert.equal(report.fidelityClass, "lossless-within-dtype");
+    assert.equal(report.firstDivergence, null);
+
+    const duplicateConsumer = JSON.parse(await readFile(trace, "utf8"));
+    const producer = duplicateConsumer.reference.pastKeyValues[0];
+    duplicateConsumer.reference.pastKeyValues.push({ ...producer, layer: 1 });
+    duplicateConsumer.reference.stepPastKeyValues = duplicateConsumer.reference.stepPastKeyValues.map((snapshot: unknown[]) => [...snapshot, { ...producer, layer: 1 }]);
+    await writeFile(trace, JSON.stringify(duplicateConsumer));
+    await assert.rejects(
+      () => runGenerationTraceComparison({ source, trace, report: path.join(directory, "shared-kv-duplicate-report.json") }),
+      /não cobre exatamente as camadas KV independentes do IR; ausentes \[\], extras \[1\]/,
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("F16 and BF16 dense Safetensors and GGUF packages replay independent F32 operation, cache, logits, and generation traces", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-dense-16-trace-"));
   try {
@@ -1335,6 +1378,22 @@ async function writeTinyF32Model(root: string): Promise<void> {
   const prefix = Buffer.alloc(8); prefix.writeBigUInt64LE(BigInt(encoded.length));
   await writeFile(path.join(directory, "config.json"), JSON.stringify(tinyLlamaConfig()));
   await writeFile(path.join(directory, "model.safetensors"), Buffer.concat([prefix, encoded, ...payloads]));
+}
+
+/** A two-layer Llama contract where layer 1 reuses layer 0 post-RoPE KV. */
+async function writeTinySharedKvF32Model(root: string): Promise<string> {
+  const directory = path.join(root, "shared-kv-model");
+  await mkdir(directory);
+  const weights = tinyLlamaWeights();
+  for (const [name, shape, values] of tinyLlamaWeights()) {
+    if (!name.startsWith("model.layers.0.") || name.includes("self_attn.k_proj") || name.includes("self_attn.v_proj")) continue;
+    weights.push([name.replace("model.layers.0", "model.layers.1"), shape, values]);
+  }
+  await writeFile(path.join(directory, "config.json"), JSON.stringify({
+    ...tinyLlamaConfig(), num_hidden_layers: 2, num_kv_shared_layers: 1,
+  }));
+  await writeSafetensorsFixture(path.join(directory, "model.safetensors"), weights.map(([name, shape, values]) => [name, "F32", shape, values]));
+  return directory;
 }
 
 async function writeTinyF64Model(root: string): Promise<string> {

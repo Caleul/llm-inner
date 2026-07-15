@@ -141,8 +141,9 @@ function allOperations(ir: ModelIR): Operation[] {
  * cache layers supplied by candidate and reference would allow both sides to
  * omit the same layer and still appear complete.
  *
- * Shared-KV attention is deliberately excluded: the scalar executor rejects
- * incremental shared-cache decoding until that storage contract is modeled.
+ * A shared-KV consumer deliberately has no cache entry of its own. Its
+ * producer is already part of `required`, so the trace proves the canonical
+ * state exactly once and rejects a duplicate consumer-owned snapshot.
  */
 function assertGenerationTraceCacheCoverage(
   ir: ModelIR,
