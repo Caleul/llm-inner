@@ -266,6 +266,17 @@ checksum da captura. Isto prova uma fronteira sintética lossless dentro do
 executor escalar F32 para Q8_0; não é uma comparação com llama.cpp nem uma
 prova para os demais layouts GGML quantizados.
 
+Uma terceira regressão executável percorre o `GGML_TYPE_Q4_K` por essa mesma
+fronteira. Cada matriz de um Llama de largura 256 contém blocos de 256 valores
+com `d=0.5`, `dmin=0.25`, códigos de nibble variados e todos os oito grupos de
+escala/mínimo; os grupos 4..7 usam também os dois bits altos espalhados pelos
+primeiros oito bytes. Um GGUF F32 pareado aplica diretamente a fórmula
+declarada `d*scale*q - dmin*minimum`, sem chamar o decodificador candidato, e
+fornece operações, KV, logits e duas etapas greedy. A alteração de um byte
+empacotado é rejeitada pelo checksum. A classe continua sendo uma prova
+sintética lossless na política escalar F32 — não uma comparação externa nem
+uma prova para os outros tipos GGML.
+
 `materializeReferenceF32Constants` em `src/materialize.ts` fecha a fronteira
 entre o catálogo e o executor F32: reúne todos os `TensorRef` do IR, confirma
 nome, shape, dtype e contrato de quantização contra o catálogo de origem e
