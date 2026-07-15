@@ -256,6 +256,29 @@ relatório `incomplete`.
 
 `npm run compare:generation-trace -- --source <checkpoint> --trace <captura.json> --report <relatorio.json>` consome uma captura distinta com `kind: "generation"`. Além da mesma ligação obrigatória a `source.files`, checksums e `irFingerprint`, ela exige prompt, posições absolutas do prompt, limite/EOS, cada token gerado e sua posição, os logits binários usados para selecionar **cada** token, um snapshot KV BHSD pós-decode para **cada** token, logits terminais e o cache KV BHSD final. Cada snapshot e o cache final devem cobrir exatamente cada camada de atenção com KV próprio declarada pelo IR; um consumidor `kvSharing` usa exclusivamente a entrada do seu produtor e é rejeitado se serializar uma cópia própria. Assim, duas partes não podem omitir o mesmo estado nem inventar uma segunda propriedade do mesmo cache. Cada token também precisa ser o argmax dos logits do último passo de sequência, com empate decidido pelo menor ID e nenhum valor não-finito; portanto uma captura não pode chamar uma sequência de sampling de geração greedy. O executor repete prefill e cada decode incremental com pesos materializados por range; uma posição, token, logits de seleção, cache intermediário/final, payload ou checksum ausente/divergente torna o relatório `incomplete` ou `approximate`, nunca aprovação. Assim, a captura ainda deve vir de hooks de um runtime autoritativo; a fixture local apenas valida o contrato de consumo.
 
+### Captura independente por kernels MLX (Llama denso F32)
+
+Quando há um Python com `mlx`, `numpy` e `safetensors`, o comando abaixo cria
+uma captura de referência independente para o subconjunto explicitamente
+suportado: Safetensors denso F32 com o adaptador `llama`. Ele recebe o IR já
+validado e executa cada operação por kernels MLX; não detecta arquitetura,
+não dequantiza e não aceita variantes de RoPE fora de `default/rotate_half`.
+
+```bash
+npm run capture:mlx-trace -- --source ./model --output ./mlx-execution.json \
+  --input-tokens 1,2 --python ./venv/bin/python \
+  --model my-dense-llama --revision immutable-checksum
+npm run compare:trace -- --source ./model --trace ./mlx-execution.json \
+  --report ./mlx-execution-report.json --max-absolute-error 1e-5 --max-relative-error 1e-4
+```
+
+Adicionar `--max-new-tokens 4` produz uma captura `generation` contendo
+logits de seleção, snapshots KV pós-decode e logits terminais, que deve ser
+consumida por `compare:generation-trace`. A evidência é independente do
+executor escalar, mas ainda é limitada ao adaptador/precisão declarados; não
+é uma alegação de equivalência com `transformers` nem habilita checkpoints
+quantizados, outras famílias ou o pacote multimodal Gemma 4.
+
 Há também uma regressão cruzada de contêiner que grava o mesmo microcheckpoint
 Llama denso em Safetensors e GGUF v3. O caminho GGUF reconstrói as dimensões
 `[in,out]` declaradas pelo GGML para os pesos IR `[out,in]`, verifica o checksum

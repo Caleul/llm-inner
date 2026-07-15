@@ -10,10 +10,34 @@ import { executeReferenceF32, executeReferenceF64, generateReferenceF32, generat
 import { materializeReferenceF32Constants, materializeReferenceF64Constants } from "../src/materialize.js";
 import { fingerprintIR, readExecutionTraceBundle } from "../src/trace.js";
 import { runExecutionTraceComparison, runGenerationTraceComparison } from "../src/trace-runner.js";
+import { captureMlxTrace } from "../src/mlx-trace-capture.js";
 import type { ModelIR } from "../src/types.js";
 import type { ReferenceF32ExecutionResult } from "../src/types.js";
 
 const preview = { outputRows: 1, inputTerms: 1, includeWeights: false } as const;
+
+test("MLX kernel capture independently records dense Llama execution and greedy generation traces", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-mlx-kernel-capture-"));
+  try {
+    await writeTinyF32Model(directory);
+    const source = path.join(directory, "model");
+    const python = path.resolve("venv/bin/python");
+    const executionTrace = path.join(directory, "mlx-execution.json");
+    assert.equal(await captureMlxTrace({ source, output: executionTrace, inputTokens: [1], python, model: "tiny-llama-mlx", revisionOrChecksum: "mlx-kernel-fixture-v1" }), "execution");
+    const execution = await runExecutionTraceComparison({ source, trace: executionTrace, report: path.join(directory, "mlx-execution-report.json"), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
+    assert.equal(execution.fidelityClass, "lossless-within-dtype");
+    assert.equal(execution.reference.runtime, "MLX 0.32 dense-F32 independent IR-kernel capture");
+    assert.equal(execution.operations.length, 22);
+
+    const generationTrace = path.join(directory, "mlx-generation.json");
+    assert.equal(await captureMlxTrace({ source, output: generationTrace, inputTokens: [1], maxNewTokens: 2, python, model: "tiny-llama-mlx", revisionOrChecksum: "mlx-kernel-fixture-v1" }), "generation");
+    const generation = await runGenerationTraceComparison({ source, trace: generationTrace, report: path.join(directory, "mlx-generation-report.json"), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
+    assert.equal(generation.fidelityClass, "numerically-equivalent");
+    assert.equal(generation.generatedTokenIds.length, 2);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
 
 test("integrity-bound F32 trace runs catalog-to-materializer-to-executor differential comparison", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-trace-"));
