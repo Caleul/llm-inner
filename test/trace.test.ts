@@ -62,8 +62,30 @@ test("MLX kernel capture independently dequantizes affine U32 Llama before execu
     await writeFile(configPath, JSON.stringify({ ...config, quantization: { ...config.quantization, group_size: 8 } }));
     await assert.rejects(
       () => captureMlxTrace({ source: quantizedSource, output: path.join(directory, "unsupported-affine.json"), inputTokens: [1], python, model: "mlx-affine-llama-32", revisionOrChecksum: "mlx-affine-mlx-kernel-fixture-v1" }),
-      /group_size MLX 32 validado/,
+      /group_size MLX 32 ou 64 validado/,
     );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("MLX kernel capture independently executes affine U32 Llama group_size 64", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-mlx-affine-64-kernel-capture-"));
+  try {
+    const { quantizedSource } = await writeMlxAffineTraceFixture(directory, 64);
+    const python = path.resolve("venv/bin/python");
+    const executionTrace = path.join(directory, "mlx-affine-64-execution.json");
+    assert.equal(await captureMlxTrace({ source: quantizedSource, output: executionTrace, inputTokens: [1], python, model: "mlx-affine-llama-64", revisionOrChecksum: "mlx-affine-64-mlx-kernel-fixture-v1" }), "execution");
+    const execution = await runExecutionTraceComparison({ source: quantizedSource, trace: executionTrace, report: path.join(directory, "mlx-affine-64-execution-report.json"), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
+    assert.equal(execution.fidelityClass, "numerically-equivalent");
+    assert.equal(execution.reference.runtime, "MLX 0.32 affine-U32 4-bit group-64 llama independent IR-kernel capture");
+    assert.equal(execution.reference.quantization, "MLX affine U32 4-bit group_size=64");
+
+    const generationTrace = path.join(directory, "mlx-affine-64-generation.json");
+    assert.equal(await captureMlxTrace({ source: quantizedSource, output: generationTrace, inputTokens: [1], maxNewTokens: 2, python, model: "mlx-affine-llama-64", revisionOrChecksum: "mlx-affine-64-mlx-kernel-fixture-v1" }), "generation");
+    const generation = await runGenerationTraceComparison({ source: quantizedSource, trace: generationTrace, report: path.join(directory, "mlx-affine-64-generation-report.json"), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
+    assert.equal(generation.fidelityClass, "numerically-equivalent");
+    assert.equal(generation.generatedTokenIds.length, 2);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -1674,17 +1696,16 @@ async function writeTinyQwen3F32Model(root: string): Promise<void> {
  * U32 row holds eight 4-bit codes per word; the F32 side computes every value
  * independently as scale[group] * code + bias[group].
  */
-async function writeMlxAffineTraceFixture(root: string): Promise<{ denseSource: string; quantizedSource: string }> {
+async function writeMlxAffineTraceFixture(root: string, groupSize = 32): Promise<{ denseSource: string; quantizedSource: string }> {
   const denseSource = path.join(root, "dense");
   const quantizedSource = path.join(root, "mlx-affine");
   await mkdir(denseSource);
   await mkdir(quantizedSource);
-  const width = 32;
-  // MLX 0.32 exposes an affine U32 dequantize kernel for this supported
-  // 32-value group. Keeping the fixture inside that native contract makes
-  // this an independent MLX check rather than a candidate-only formula test.
+  const width = groupSize;
+  // MLX 0.32 exposes affine U32 dequantize kernels for the independently
+  // exercised 32- and 64-value groups. Keeping each fixture inside one native
+  // contract makes this an MLX check rather than a candidate-only formula test.
   const groups = 1;
-  const groupSize = width / groups;
   const matrixNames = [
     "model.embed_tokens.weight", "model.layers.0.self_attn.q_proj.weight", "model.layers.0.self_attn.k_proj.weight",
     "model.layers.0.self_attn.v_proj.weight", "model.layers.0.self_attn.o_proj.weight", "model.layers.0.mlp.gate_proj.weight",

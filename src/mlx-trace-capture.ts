@@ -104,8 +104,8 @@ function validateMlxCaptureStorage(tensors: Iterable<{ name: string; storageDtyp
       continue;
     }
     const q = tensor.quantization;
-    if (q.family !== "mlx" || q.mode !== "affine" || tensor.storageDtype !== "U32" || !Number.isInteger(q.bits) || ![2, 3, 4, 5, 6, 8].includes(q.bits!) || q.groupSize !== 32) {
-      throw new Error(`${tensor.name}: MLX capture não possui contrato independente para ${q.family}/${q.mode} ${tensor.storageDtype}; requer affine U32 com bits {2,3,4,5,6,8} e group_size MLX 32 validado.`);
+    if (q.family !== "mlx" || q.mode !== "affine" || tensor.storageDtype !== "U32" || !Number.isInteger(q.bits) || ![2, 3, 4, 5, 6, 8].includes(q.bits!) || ![32, 64].includes(q.groupSize ?? -1)) {
+      throw new Error(`${tensor.name}: MLX capture não possui contrato independente para ${q.family}/${q.mode} ${tensor.storageDtype}; requer affine U32 com bits {2,3,4,5,6,8} e group_size MLX 32 ou 64 validado.`);
     }
     const current = { bits: q.bits!, groupSize: q.groupSize! };
     if (affine && (affine.bits !== current.bits || affine.groupSize !== current.groupSize)) {

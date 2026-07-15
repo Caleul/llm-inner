@@ -271,7 +271,7 @@ Qwen 3 cobre normas Q/K em BHSD e bias nas projeções. Outros IRs aparentemente
 um contrato e regressão independentes próprios.
 
 Há também um caminho separado e fechado para `llama` cujos pesos quantizados
-usam MLX `affine` U32 (bits 2/3/4/5/6/8, `group_size` 32 validado, um único
+usam MLX `affine` U32 (bits 2/3/4/5/6/8, `group_size` 32 ou 64 validado, um único
 contrato no checkpoint e `scales` F32,
 com `biases` F32 opcionais). O helper entrega os
 bytes U32, parâmetros e `bits/group_size/mode="affine"` diretamente a
@@ -627,14 +627,15 @@ política de dtype do modelo nem equivalência com um runtime MLX real. Um modo
 MLX omitido também é rejeitado: `U32` + bit width não define um algoritmo.
 
 Uma regressão de execução completa também percorre o MLX `affine` nativo: um
-Llama de uma camada e largura 32 armazena cada matriz em palavras U32 com oito
-códigos de 4 bits, quatro grupos por linha, scales e biases F32. Um pacote
-Safetensors F32 separado calcula `scale[group] * code + bias[group]` sem usar
-o leitor candidato; seus outputs por operação, cache KV pós-RoPE, logits e
-dois passos greedy são a evidência consumida pelo pacote MLX. A comparação
-exige os checksums de `config.json` e `model.safetensors`, portanto alterar um
-byte U32 também invalida o trace. É uma fronteira sintética lossless sob o
-executor escalar F32, não uma captura autoritativa do runtime MLX.
+Llama de uma camada exercita separadamente grupos de 32 e 64 valores: cada
+matriz é embalada em palavras U32 com oito códigos de 4 bits, scales e biases
+F32. Um pacote Safetensors F32 separado calcula `scale[group] * code +
+bias[group]` sem usar o leitor candidato; seus outputs por operação, cache KV
+pós-RoPE, logits e dois passos greedy são a evidência consumida pelo pacote
+MLX. A comparação exige os checksums de `config.json` e `model.safetensors`,
+portanto alterar um byte U32 também invalida o trace. É uma fronteira sintética
+lossless sob o executor escalar F32, não uma captura autoritativa do runtime
+MLX.
 
 A inspeção Safetensors também valida a fronteira do contêiner antes de expor
 qualquer tensor: nomes de shards do índice não podem sair do diretório de
