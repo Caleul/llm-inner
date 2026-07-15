@@ -20,6 +20,7 @@ interface SafeTensorHeaderEntry {
 interface ParsedShard {
   file: string;
   headerLength: number;
+  payloadLength: number;
   tensors: Map<string, SafeTensorHeaderEntry>;
 }
 
@@ -45,6 +46,8 @@ const DTYPE_BYTES: Record<string, number> = {
 const F64_BYTES = 8;
 const F32_BYTES = 4;
 const F16_BYTES = 2;
+/** Safetensors defines a 100 MiB maximum header to prevent hostile allocations. */
+const MAX_HEADER_BYTES = 100 * 1024 * 1024;
 
 export class SafetensorsCatalogReader {
   readonly #sourceDir: string;
@@ -77,6 +80,12 @@ export class SafetensorsCatalogReader {
         throw new Error(`${indexName} não possui weight_map válido.`);
       }
       weightMap = index.weight_map;
+      for (const [name, shard] of Object.entries(weightMap)) {
+        if (typeof shard !== "string") {
+          throw new Error(`${indexName}: shard de ${name} deve ser uma string.`);
+        }
+        this.#validateShardName(shard);
+      }
     } else {
       const shards = files.filter((file) => file.endsWith(".safetensors"));
       if (shards.length === 0) throw new Error("Nenhum .safetensors encontrado.");
@@ -107,7 +116,7 @@ export class SafetensorsCatalogReader {
         throw new Error(`Index aponta ${name} para ${shard}, mas o cabeçalho não contém o tensor.`);
       }
 
-      this.#validateDenseStorage(name, entry, quantizationRoot);
+      this.#validateDenseStorage(name, entry, quantizationRoot, parsed.payloadLength);
       const quantization = this.#quantizationForTensor(name, config, tensors, entry);
       const logicalShape = this.#logicalShape(entry, quantization);
       const [start, end] = entry.data_offsets;
@@ -355,7 +364,11 @@ export class SafetensorsCatalogReader {
   }
 
   async #parseShard(file: string): Promise<ParsedShard> {
+    this.#validateShardName(file);
     const handle = await this.#getHandle(file);
+    const fileInfo = await handle.stat();
+    if (!fileInfo.isFile()) throw new Error(`${file} não é um arquivo Safetensors regular.`);
+    if (fileInfo.size < 8) throw new Error(`${file} é menor que o prefixo Safetensors de 8 bytes.`);
     const lengthBuffer = Buffer.allocUnsafe(8);
     await this.#readExactly(handle, lengthBuffer, 0);
     const headerLengthBig = lengthBuffer.readBigUInt64LE(0);
@@ -363,6 +376,12 @@ export class SafetensorsCatalogReader {
       throw new Error(`Cabeçalho de ${file} excede Number.MAX_SAFE_INTEGER.`);
     }
     const headerLength = Number(headerLengthBig);
+    if (headerLength > MAX_HEADER_BYTES) {
+      throw new Error(`Cabeçalho de ${file} excede o limite Safetensors de ${MAX_HEADER_BYTES} bytes.`);
+    }
+    if (headerLength > fileInfo.size - 8) {
+      throw new Error(`Cabeçalho de ${file} excede o tamanho do arquivo.`);
+    }
     const headerBuffer = Buffer.allocUnsafe(headerLength);
     await this.#readExactly(handle, headerBuffer, 8);
     const rawHeader = asObject(JSON.parse(headerBuffer.toString("utf8")) as unknown, `header ${file}`);
@@ -384,6 +403,13 @@ export class SafetensorsCatalogReader {
       ) {
         throw new Error(`Metadados inválidos para ${name} em ${file}.`);
       }
+      const [start, end] = offsets as [number, number];
+      if (end < start) {
+        throw new Error(`Tensor ${name} em ${file} possui data_offsets invertidos.`);
+      }
+      if (end > fileInfo.size - 8 - headerLength) {
+        throw new Error(`Tensor ${name} em ${file} ultrapassa o payload declarado.`);
+      }
       tensors.set(name, {
         dtype,
         shape: shape as number[],
@@ -391,7 +417,34 @@ export class SafetensorsCatalogReader {
       });
     }
 
-    return { file, headerLength, tensors };
+    const intervals = [...tensors.entries()]
+      .map(([name, entry]) => ({ name, start: entry.data_offsets[0], end: entry.data_offsets[1] }))
+      .sort((left, right) => left.start - right.start || left.end - right.end);
+    let previousEnd = 0;
+    for (const interval of intervals) {
+      if (interval.start < previousEnd) {
+        throw new Error(`Tensor ${interval.name} em ${file} sobrepõe outro intervalo de dados.`);
+      }
+      previousEnd = Math.max(previousEnd, interval.end);
+    }
+
+    return { file, headerLength, payloadLength: fileInfo.size - 8 - headerLength, tensors };
+  }
+
+  #validateShardName(file: string): void {
+    if (
+      file.length === 0 ||
+      path.isAbsolute(file) ||
+      path.extname(file).toLowerCase() !== ".safetensors" ||
+      file.split(/[\\/]+/).some((part) => part === "..")
+    ) {
+      throw new Error(`Nome de shard Safetensors inválido: ${file}`);
+    }
+    const root = path.resolve(this.#sourceDir);
+    const candidate = path.resolve(root, file);
+    if (candidate !== root && !candidate.startsWith(`${root}${path.sep}`)) {
+      throw new Error(`Shard Safetensors fora do diretório de origem: ${file}`);
+    }
   }
 
   #quantizationRoot(config: JsonObject): JsonObject | undefined {
@@ -457,8 +510,12 @@ export class SafetensorsCatalogReader {
     name: string,
     entry: SafeTensorHeaderEntry,
     quantizationRoot: JsonObject | undefined,
+    payloadLength: number,
   ): void {
     const bytes = entry.data_offsets[1] - entry.data_offsets[0];
+    if (bytes < 0 || entry.data_offsets[1] > payloadLength) {
+      throw new Error(`Tensor ${name}: intervalo de dados fora do payload Safetensors.`);
+    }
     if (quantizationRoot && name.endsWith(".weight") && entry.dtype === "U32") return;
     const elementBytes = DTYPE_BYTES[entry.dtype];
     if (!elementBytes) return; // Dtypes novos são preservados e tratados pelo backend de referência.

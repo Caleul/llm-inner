@@ -151,6 +151,13 @@ decoder completo executa pesos armazenados tanto em F16 quanto em BF16, mas
 isso continua sendo validação de valores de storage em um interpretador escalar
 F32 — não uma comparação diferencial contra MLX, PyTorch ou outro runtime.
 
+A inspeção Safetensors também valida a fronteira do contêiner antes de expor
+qualquer tensor: nomes de shards do índice não podem sair do diretório de
+origem, o header tem o limite de 100 MiB da especificação, e cada intervalo
+`data_offsets` deve ser ordenado, caber no payload e não sobrepor outro tensor.
+Isso evita que um checkpoint malformado seja interpretado como pesos válidos ou
+provoque uma alocação de header descontrolada.
+
 
 ## O que “agnóstico” significa
 

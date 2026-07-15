@@ -253,6 +253,82 @@ test("F32 executor rejects an F64 policy instead of silently changing cast bound
   assert.throws(() => executeReferenceF32(ir, { inputIds: [[1]], tensors: f32Weights }), /política F32 explícita/);
 });
 
+test("Safetensors inspection rejects inverted, out-of-payload, and overlapping tensor ranges", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-invalid-ranges-"));
+  const model = path.join(directory, "model.safetensors");
+  try {
+    await writeFile(path.join(directory, "config.json"), JSON.stringify({ model_type: "llama" }));
+    const cases: Array<{ name: string; header: object; expected: RegExp }> = [
+      {
+        name: "inverted",
+        header: { "x.weight": { dtype: "F32", shape: [1], data_offsets: [4, 0] } },
+        expected: /data_offsets invertidos/,
+      },
+      {
+        name: "out-of-payload",
+        header: { "x.weight": { dtype: "F32", shape: [1], data_offsets: [0, 8] } },
+        expected: /ultrapassa o payload/,
+      },
+      {
+        name: "overlap",
+        header: {
+          "x.weight": { dtype: "F32", shape: [1], data_offsets: [0, 4] },
+          "y.weight": { dtype: "F32", shape: [1], data_offsets: [2, 6] },
+        },
+        expected: /sobrepõe outro intervalo/,
+      },
+    ];
+    for (const fixture of cases) {
+      await writeRawSafetensors(model, fixture.header, Buffer.alloc(6));
+      const reader = new SafetensorsCatalogReader(directory);
+      try {
+        await assert.rejects(() => reader.inspect(), fixture.expected, fixture.name);
+      } finally {
+        await reader.close();
+      }
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("Safetensors inspection rejects hostile shard paths and oversized headers before opening them", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-invalid-shard-"));
+  try {
+    await writeFile(path.join(directory, "config.json"), JSON.stringify({ model_type: "llama" }));
+    await writeFile(
+      path.join(directory, "model.safetensors.index.json"),
+      JSON.stringify({ weight_map: { "x.weight": "../outside.safetensors" } }),
+    );
+    let reader = new SafetensorsCatalogReader(directory);
+    try {
+      await assert.rejects(() => reader.inspect(), /Nome de shard Safetensors inválido/);
+    } finally {
+      await reader.close();
+    }
+
+    await rm(path.join(directory, "model.safetensors.index.json"));
+    const prefix = Buffer.alloc(8);
+    prefix.writeBigUInt64LE(BigInt(100 * 1024 * 1024 + 1));
+    await writeFile(path.join(directory, "model.safetensors"), prefix);
+    reader = new SafetensorsCatalogReader(directory);
+    try {
+      await assert.rejects(() => reader.inspect(), /limite Safetensors/);
+    } finally {
+      await reader.close();
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+async function writeRawSafetensors(file: string, header: object, payload: Buffer): Promise<void> {
+  const headerBytes = Buffer.from(JSON.stringify(header), "utf8");
+  const prefix = Buffer.alloc(8);
+  prefix.writeBigUInt64LE(BigInt(headerBytes.length));
+  await writeFile(file, Buffer.concat([prefix, headerBytes, payload]));
+}
+
 async function writeF64Safetensors(file: string, tensors: ReadonlyMap<string, DenseTensor>): Promise<void> {
   let offset = 0;
   const header: Record<string, { dtype: "F64"; shape: number[]; data_offsets: [number, number] }> = {};
