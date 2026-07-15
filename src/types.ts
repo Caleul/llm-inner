@@ -216,13 +216,25 @@ export interface ReferenceExecutionRequest {
   positionIds?: number[][];
   /** Canonical additive bias [batch, 1|heads, query, key]; -Infinity excludes a key. */
   attentionMask?: DenseTensor;
+  /**
+   * Canonical post-RoPE KV state keyed by decoder layer. Every entry uses
+   * [batch, num_key_value_heads, cached_sequence, head_dim]. When supplied,
+   * it must cover every non-shared decoder layer in the IR.
+   */
+  pastKeyValues?: ReadonlyMap<number, ReferenceKeyValueCache>;
   /** Dense F64 constants keyed by the tensor reference name in the IR. */
   tensors: ReadonlyMap<string, DenseTensor>;
+}
+
+export interface ReferenceKeyValueCache {
+  key: DenseTensor;
+  value: DenseTensor;
 }
 
 export interface ReferenceExecutionResult {
   values: ReadonlyMap<string, DenseTensor>;
   logits: DenseTensor;
+  pastKeyValues: ReadonlyMap<number, ReferenceKeyValueCache>;
 }
 
 /**
@@ -235,10 +247,18 @@ export interface ReferenceF32ExecutionRequest {
   positionIds?: number[][];
   /** Canonical additive bias [batch, 1|heads, query, key]; -Infinity excludes a key. */
   attentionMask?: DenseF32Tensor;
+  /** Canonical post-RoPE KV state; see ReferenceExecutionRequest.pastKeyValues. */
+  pastKeyValues?: ReadonlyMap<number, ReferenceF32KeyValueCache>;
   tensors: ReadonlyMap<string, DenseF32Tensor>;
+}
+
+export interface ReferenceF32KeyValueCache {
+  key: DenseF32Tensor;
+  value: DenseF32Tensor;
 }
 
 export interface ReferenceF32ExecutionResult {
   values: ReadonlyMap<string, DenseF32Tensor>;
   logits: DenseF32Tensor;
+  pastKeyValues: ReadonlyMap<number, ReferenceF32KeyValueCache>;
 }

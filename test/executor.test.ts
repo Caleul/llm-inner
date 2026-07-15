@@ -99,6 +99,37 @@ test("executor F64 applies a canonical additive attention mask before softmax", 
   assert.deepEqual([...maskedContext.values.slice(2, 4)], [0, 0]);
 });
 
+test("executor F64 incremental KV cache matches the final full-prompt logits", async () => {
+  const { ir, weights } = await tinyLlama();
+  const full = executeReferenceF64(ir, { inputIds: [[1, 1]], tensors: weights });
+  const prefill = executeReferenceF64(ir, { inputIds: [[1]], tensors: weights });
+  const decoded = executeReferenceF64(ir, {
+    inputIds: [[1]],
+    positionIds: [[1]],
+    pastKeyValues: prefill.pastKeyValues,
+    tensors: weights,
+  });
+  assert.deepEqual([...decoded.logits.values], [...full.logits.values.slice(3, 6)]);
+  assert.equal(decoded.pastKeyValues.get(0)?.key.shape.join("x"), "1x1x2x2");
+  assert.equal(decoded.pastKeyValues.get(0)?.value.shape.join("x"), "1x1x2x2");
+});
+
+test("executor F64 rejects incomplete and incompatible KV caches", async () => {
+  const { ir, weights } = await tinyLlama();
+  assert.throws(
+    () => executeReferenceF64(ir, { inputIds: [[1]], pastKeyValues: new Map(), tensors: weights }),
+    /não contém a camada 0/,
+  );
+  assert.throws(
+    () => executeReferenceF64(ir, {
+      inputIds: [[1]],
+      pastKeyValues: new Map([[0, { key: dense([1, 1, 1, 3], [0, 0, 0]), value: dense([1, 1, 1, 3], [0, 0, 0]) }]]),
+      tensors: weights,
+    }),
+    /shape do cache KV é incompatível/,
+  );
+});
+
 test("executors reject malformed or non-canonical additive attention masks", async () => {
   const { ir, weights } = await tinyLlama();
   const f32Weights = new Map<string, DenseF32Tensor>(
@@ -126,6 +157,27 @@ test("executors reject malformed or non-canonical additive attention masks", asy
     () => executeReferenceF32(ir, { inputIds: [[1, 0]], attentionMask: { shape: [1, 1, 2, 2], values: Float32Array.from([-Infinity, -Infinity, 0, -Infinity]) }, tensors: f32Weights }),
     /excluiu todas as chaves/,
   );
+});
+
+test("executor F32 incremental KV cache preserves declared F32 boundaries", async () => {
+  const { ir, weights } = await tinyLlama();
+  const f32Weights = new Map<string, DenseF32Tensor>(
+    [...weights].map(([name, tensor]) => [name, { shape: [...tensor.shape], values: Float32Array.from(tensor.values) }]),
+  );
+  for (const operation of [...ir.prelude, ...ir.layers.flatMap((layer) => layer.operations), ...ir.epilogue]) {
+    operation.dtypePolicy = { ...f32Policy };
+    if (operation.op === "scaled_dot_product_attention") operation.softmaxComputeDtype = "F32";
+  }
+  const full = executeReferenceF32(ir, { inputIds: [[1, 1]], tensors: f32Weights });
+  const prefill = executeReferenceF32(ir, { inputIds: [[1]], tensors: f32Weights });
+  const decoded = executeReferenceF32(ir, {
+    inputIds: [[1]],
+    positionIds: [[1]],
+    pastKeyValues: prefill.pastKeyValues,
+    tensors: f32Weights,
+  });
+  assert.deepEqual([...decoded.logits.values], [...full.logits.values.slice(3, 6)]);
+  assert.ok(decoded.pastKeyValues.get(0)?.key.values instanceof Float32Array);
 });
 
 test("reader range-loads an on-disk F64 Safetensors fixture into executor logits", async () => {

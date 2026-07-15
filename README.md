@@ -127,9 +127,19 @@ determinístico para fixtures e validação por operação. `SafetensorsCatalogR
 mantém handles e agora carrega F64 denso diretamente do intervalo declarado pelo
 header para esse executor; F32/BF16/F16 não são silenciosamente promovidos a F64,
 pois isso perderia a política real de arredondamento/acumulação. Políticas de dtype
-implícitas (`model-configured`), cache KV, quantização e variantes de RoPE ainda
+implícitas (`model-configured`), quantização e variantes de RoPE ainda
 falham fechadas. Isso torna a fronteira de fidelidade observável antes de conectar
 runtimes autoritativos.
+
+O executor também aceita e devolve cache KV por camada para decoder incremental.
+O contrato canônico é um `Map` indexado pela camada, com `key` e `value`
+post-RoPE no layout `[batch, kv_heads, cached_sequence, head_dim]`. Ao receber
+cache, ele precisa conter todas as camadas não compartilhadas e é concatenado às
+projeções atuais antes da atenção; `position_ids` continua explícito e deve usar
+as posições absolutas do token novo. A máscara aditiva, se presente no decode,
+tem chave com o comprimento completo (cache + tokens atuais). Shapes incompletos
+ou incompatíveis falham fechados. Cache com `kvSharing` entre camadas continua
+rejeitado até existir uma semântica de ownership validada.
 
 Há também um caminho separado para F32 denso: `readDenseF32` preserva os bytes
 do Safetensors em `Float32Array`, e `executeReferenceF32` requer que cada operação

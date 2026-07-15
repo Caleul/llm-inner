@@ -3,8 +3,10 @@ import type {
   DenseF32Tensor,
   ModelIR,
   Operation,
+  ReferenceF32KeyValueCache,
   ReferenceF32ExecutionRequest,
   ReferenceF32ExecutionResult,
+  ReferenceKeyValueCache,
   ReferenceExecutionRequest,
   ReferenceExecutionResult,
   TensorRef,
@@ -34,6 +36,7 @@ export function executeReferenceF64(
   }
 
   const values = new Map<string, DenseTensor>();
+  const pastKeyValues = new Map<number, ReferenceKeyValueCache>();
   for (const operation of [...ir.prelude, ...ir.layers.flatMap((layer) => layer.operations), ...ir.epilogue]) {
     assertF64Policy(operation);
     switch (operation.op) {
@@ -55,7 +58,21 @@ export function executeReferenceF64(
         values.set(operation.output, rotary(value(values, operation.input), positions, operation));
         break;
       case "scaled_dot_product_attention":
-        values.set(operation.output, attention(value(values, operation.query), value(values, operation.key), value(values, operation.value), operation, request.attentionMask));
+        if (operation.layer === undefined) throw new Error(`${operation.id}: attention sem índice de camada não pode usar cache KV.`);
+        if (operation.kvSharing) {
+          if (request.pastKeyValues) throw new Error(`${operation.id}: cache KV com compartilhamento entre camadas ainda não é suportado.`);
+          values.set(operation.output, attention(value(values, operation.query), value(values, operation.key), value(values, operation.value), operation, request.attentionMask));
+          break;
+        }
+        {
+          const currentKey = value(values, operation.key);
+          const currentValue = value(values, operation.value);
+          const cached = cacheForLayer(request.pastKeyValues, operation.layer, operation, currentKey, currentValue);
+          const key = cached ? concatSequence(cached.key, currentKey) : currentKey;
+          const valueTensor = cached ? concatSequence(cached.value, currentValue) : currentValue;
+          values.set(operation.output, attention(value(values, operation.query), key, valueTensor, operation, request.attentionMask, cached?.key.shape[2] ?? 0));
+          pastKeyValues.set(operation.layer, { key, value: valueTensor });
+        }
         break;
       case "activation":
         values.set(operation.output, activation(value(values, operation.input), operation.function, operation.approximation));
@@ -71,7 +88,7 @@ export function executeReferenceF64(
   }
   const logits = values.get("softcapped_logits") ?? values.get("logits");
   if (!logits) throw new Error("IR não produziu logits.");
-  return { values, logits };
+  return { values, logits, pastKeyValues };
 }
 
 /**
@@ -99,6 +116,7 @@ export function executeReferenceF32(
   }
 
   const values = new Map<string, DenseF32Tensor>();
+  const pastKeyValues = new Map<number, ReferenceF32KeyValueCache>();
   for (const operation of [...ir.prelude, ...ir.layers.flatMap((layer) => layer.operations), ...ir.epilogue]) {
     assertF32Policy(operation);
     switch (operation.op) {
@@ -120,7 +138,21 @@ export function executeReferenceF32(
         values.set(operation.output, rotaryF32(valueF32(values, operation.input), positions, operation));
         break;
       case "scaled_dot_product_attention":
-        values.set(operation.output, attentionF32(valueF32(values, operation.query), valueF32(values, operation.key), valueF32(values, operation.value), operation, request.attentionMask));
+        if (operation.layer === undefined) throw new Error(`${operation.id}: attention sem índice de camada não pode usar cache KV.`);
+        if (operation.kvSharing) {
+          if (request.pastKeyValues) throw new Error(`${operation.id}: cache KV com compartilhamento entre camadas ainda não é suportado.`);
+          values.set(operation.output, attentionF32(valueF32(values, operation.query), valueF32(values, operation.key), valueF32(values, operation.value), operation, request.attentionMask));
+          break;
+        }
+        {
+          const currentKey = valueF32(values, operation.key);
+          const currentValue = valueF32(values, operation.value);
+          const cached = cacheForLayerF32(request.pastKeyValues, operation.layer, operation, currentKey, currentValue);
+          const key = cached ? concatSequenceF32(cached.key, currentKey) : currentKey;
+          const valueTensor = cached ? concatSequenceF32(cached.value, currentValue) : currentValue;
+          values.set(operation.output, attentionF32(valueF32(values, operation.query), key, valueTensor, operation, request.attentionMask, cached?.key.shape[2] ?? 0));
+          pastKeyValues.set(operation.layer, { key, value: valueTensor });
+        }
         break;
       case "activation":
         values.set(operation.output, activationF32(valueF32(values, operation.input), operation.function, operation.approximation));
@@ -136,7 +168,7 @@ export function executeReferenceF32(
   }
   const logits = values.get("softcapped_logits") ?? values.get("logits");
   if (!logits) throw new Error("IR não produziu logits.");
-  return { values, logits };
+  return { values, logits, pastKeyValues };
 }
 
 function assertF64Policy(operation: Operation): void {
@@ -320,6 +352,39 @@ function reshapeHeads(input: DenseTensor, heads: number, headDim: number): Dense
   return dense([batch, heads, sequence, headDim], result);
 }
 
+function cacheForLayer(
+  cache: ReadonlyMap<number, ReferenceKeyValueCache> | undefined,
+  layer: number,
+  operation: Extract<Operation, { op: "scaled_dot_product_attention" }>,
+  currentKey: DenseTensor,
+  currentValue: DenseTensor,
+): ReferenceKeyValueCache | undefined {
+  if (!cache) return undefined;
+  const entry = cache.get(layer);
+  if (!entry) throw new Error(`${operation.id}: pastKeyValues não contém a camada ${layer}.`);
+  assertCacheEntry(entry.key, entry.value, currentKey, currentValue, operation.id);
+  return entry;
+}
+
+function concatSequence(previous: DenseTensor, current: DenseTensor): DenseTensor {
+  const [batch, heads, previousSequence, headDim] = previous.shape as [number, number, number, number];
+  const [, , currentSequence] = current.shape as [number, number, number, number];
+  const values = new Float64Array(batch * heads * (previousSequence + currentSequence) * headDim);
+  for (let b = 0; b < batch; b += 1) for (let h = 0; h < heads; h += 1) {
+    const target = (b * heads + h) * (previousSequence + currentSequence) * headDim;
+    values.set(previous.values.subarray((b * heads + h) * previousSequence * headDim, (b * heads + h + 1) * previousSequence * headDim), target);
+    values.set(current.values.subarray((b * heads + h) * currentSequence * headDim, (b * heads + h + 1) * currentSequence * headDim), target + previousSequence * headDim);
+  }
+  return dense([batch, heads, previousSequence + currentSequence, headDim], values);
+}
+
+function assertCacheEntry(key: DenseTensor, valueTensor: DenseTensor, currentKey: DenseTensor, currentValue: DenseTensor, operationId: string): void {
+  if (key.shape.length !== 4 || valueTensor.shape.length !== 4 || currentKey.shape.length !== 4 || currentValue.shape.length !== 4) throw new Error(`${operationId}: cache KV requer tensores BHSD.`);
+  if (key.shape[0] !== currentKey.shape[0] || key.shape[1] !== currentKey.shape[1] || key.shape[3] !== currentKey.shape[3] || valueTensor.shape[0] !== currentValue.shape[0] || valueTensor.shape[1] !== currentValue.shape[1] || valueTensor.shape[3] !== currentValue.shape[3] || key.shape[0] !== valueTensor.shape[0] || key.shape[1] !== valueTensor.shape[1] || key.shape[2] !== valueTensor.shape[2] || key.shape[3] !== valueTensor.shape[3]) {
+    throw new Error(`${operationId}: shape do cache KV é incompatível com as projeções atuais.`);
+  }
+}
+
 function rotary(input: DenseTensor, positions: number[][], operation: Extract<Operation, { op: "rotary_embedding" }>): DenseTensor {
   if (operation.ropeType !== "default" || operation.layout !== "rotate_half" || operation.scaling) throw new Error(`${operation.id}: variante RoPE não suportada pelo executor F64.`);
   if (input.shape.length !== 4 || operation.rotaryDim <= 0 || operation.rotaryDim % 2 !== 0 || operation.rotaryDim > input.shape[3]!) throw new Error(`${operation.id}: dimensão RoPE inválida.`);
@@ -338,7 +403,7 @@ function rotary(input: DenseTensor, positions: number[][], operation: Extract<Op
   return dense([...input.shape], result);
 }
 
-function attention(query: DenseTensor, key: DenseTensor, valueTensor: DenseTensor, operation: Extract<Operation, { op: "scaled_dot_product_attention" }>, attentionMask?: DenseTensor): DenseTensor {
+function attention(query: DenseTensor, key: DenseTensor, valueTensor: DenseTensor, operation: Extract<Operation, { op: "scaled_dot_product_attention" }>, attentionMask?: DenseTensor, pastLength = 0): DenseTensor {
   if (query.shape.length !== 4 || key.shape.length !== 4 || valueTensor.shape.length !== 4) throw new Error(`${operation.id}: attention requer tensores BHSD.`);
   const [batch, queryHeads, querySequence, headDim] = query.shape as [number, number, number, number];
   const [keyBatch, keyHeads, keySequence, keyDim] = key.shape as [number, number, number, number];
@@ -350,8 +415,9 @@ function attention(query: DenseTensor, key: DenseTensor, valueTensor: DenseTenso
   const mask = validateAttentionMask(attentionMask, batch, queryHeads, querySequence, keySequence, operation.id);
   for (let b = 0; b < batch; b += 1) for (let h = 0; h < queryHeads; h += 1) for (let q = 0; q < querySequence; q += 1) {
     const kvHead = Math.floor(h / group);
-    const firstKey = operation.slidingWindow === undefined ? 0 : Math.max(0, q - operation.slidingWindow + 1);
-    const lastKey = operation.causal ? Math.min(q, keySequence - 1) : keySequence - 1;
+    const absoluteQuery = pastLength + q;
+    const firstKey = operation.slidingWindow === undefined ? 0 : Math.max(0, absoluteQuery - operation.slidingWindow + 1);
+    const lastKey = operation.causal ? Math.min(absoluteQuery, keySequence - 1) : keySequence - 1;
     const scores = new Float64Array(keySequence);
     let max = -Infinity;
     for (let k = firstKey; k <= lastKey; k += 1) {
@@ -457,6 +523,39 @@ function reshapeHeadsF32(input: DenseF32Tensor, heads: number, headDim: number):
   return denseF32([batch, heads, sequence, headDim], result);
 }
 
+function cacheForLayerF32(
+  cache: ReadonlyMap<number, ReferenceF32KeyValueCache> | undefined,
+  layer: number,
+  operation: Extract<Operation, { op: "scaled_dot_product_attention" }>,
+  currentKey: DenseF32Tensor,
+  currentValue: DenseF32Tensor,
+): ReferenceF32KeyValueCache | undefined {
+  if (!cache) return undefined;
+  const entry = cache.get(layer);
+  if (!entry) throw new Error(`${operation.id}: pastKeyValues não contém a camada ${layer}.`);
+  assertCacheEntryF32(entry.key, entry.value, currentKey, currentValue, operation.id);
+  return entry;
+}
+
+function concatSequenceF32(previous: DenseF32Tensor, current: DenseF32Tensor): DenseF32Tensor {
+  const [batch, heads, previousSequence, headDim] = previous.shape as [number, number, number, number];
+  const [, , currentSequence] = current.shape as [number, number, number, number];
+  const values = new Float32Array(batch * heads * (previousSequence + currentSequence) * headDim);
+  for (let b = 0; b < batch; b += 1) for (let h = 0; h < heads; h += 1) {
+    const target = (b * heads + h) * (previousSequence + currentSequence) * headDim;
+    values.set(previous.values.subarray((b * heads + h) * previousSequence * headDim, (b * heads + h + 1) * previousSequence * headDim), target);
+    values.set(current.values.subarray((b * heads + h) * currentSequence * headDim, (b * heads + h + 1) * currentSequence * headDim), target + previousSequence * headDim);
+  }
+  return denseF32([batch, heads, previousSequence + currentSequence, headDim], values);
+}
+
+function assertCacheEntryF32(key: DenseF32Tensor, valueTensor: DenseF32Tensor, currentKey: DenseF32Tensor, currentValue: DenseF32Tensor, operationId: string): void {
+  if (key.shape.length !== 4 || valueTensor.shape.length !== 4 || currentKey.shape.length !== 4 || currentValue.shape.length !== 4) throw new Error(`${operationId}: cache KV requer tensores BHSD.`);
+  if (key.shape[0] !== currentKey.shape[0] || key.shape[1] !== currentKey.shape[1] || key.shape[3] !== currentKey.shape[3] || valueTensor.shape[0] !== currentValue.shape[0] || valueTensor.shape[1] !== currentValue.shape[1] || valueTensor.shape[3] !== currentValue.shape[3] || key.shape[0] !== valueTensor.shape[0] || key.shape[1] !== valueTensor.shape[1] || key.shape[2] !== valueTensor.shape[2] || key.shape[3] !== valueTensor.shape[3]) {
+    throw new Error(`${operationId}: shape do cache KV é incompatível com as projeções atuais.`);
+  }
+}
+
 function rotaryF32(input: DenseF32Tensor, positions: number[][], operation: Extract<Operation, { op: "rotary_embedding" }>): DenseF32Tensor {
   if (operation.ropeType !== "default" || operation.layout !== "rotate_half" || operation.scaling) throw new Error(`${operation.id}: variante RoPE não suportada pelo executor F32.`);
   if (input.shape.length !== 4 || operation.rotaryDim <= 0 || operation.rotaryDim % 2 !== 0 || operation.rotaryDim > input.shape[3]!) throw new Error(`${operation.id}: dimensão RoPE inválida.`);
@@ -477,7 +576,7 @@ function rotaryF32(input: DenseF32Tensor, positions: number[][], operation: Extr
   return denseF32([...input.shape], result);
 }
 
-function attentionF32(query: DenseF32Tensor, key: DenseF32Tensor, valueTensor: DenseF32Tensor, operation: Extract<Operation, { op: "scaled_dot_product_attention" }>, attentionMask?: DenseF32Tensor): DenseF32Tensor {
+function attentionF32(query: DenseF32Tensor, key: DenseF32Tensor, valueTensor: DenseF32Tensor, operation: Extract<Operation, { op: "scaled_dot_product_attention" }>, attentionMask?: DenseF32Tensor, pastLength = 0): DenseF32Tensor {
   if (query.shape.length !== 4 || key.shape.length !== 4 || valueTensor.shape.length !== 4) throw new Error(`${operation.id}: attention requer tensores BHSD.`);
   const [batch, queryHeads, querySequence, headDim] = query.shape as [number, number, number, number];
   const [keyBatch, keyHeads, keySequence, keyDim] = key.shape as [number, number, number, number];
@@ -490,8 +589,9 @@ function attentionF32(query: DenseF32Tensor, key: DenseF32Tensor, valueTensor: D
   const scale = f32(operation.scale);
   for (let b = 0; b < batch; b += 1) for (let h = 0; h < queryHeads; h += 1) for (let q = 0; q < querySequence; q += 1) {
     const kvHead = Math.floor(h / group);
-    const firstKey = operation.slidingWindow === undefined ? 0 : Math.max(0, q - operation.slidingWindow + 1);
-    const lastKey = operation.causal ? Math.min(q, keySequence - 1) : keySequence - 1;
+    const absoluteQuery = pastLength + q;
+    const firstKey = operation.slidingWindow === undefined ? 0 : Math.max(0, absoluteQuery - operation.slidingWindow + 1);
+    const lastKey = operation.causal ? Math.min(absoluteQuery, keySequence - 1) : keySequence - 1;
     const scores = new Float32Array(keySequence);
     let max = -Infinity;
     for (let k = firstKey; k <= lastKey; k += 1) {
