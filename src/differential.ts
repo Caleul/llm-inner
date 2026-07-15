@@ -179,7 +179,14 @@ export function compareGenerationTrace(
     const status = !expected ? "missing-reference" : !actual ? "missing-candidate" :
       actual.tokenId === expected.tokenId && actual.positionId === expected.positionId ? "pass" : "diverged";
     if (status !== "pass") firstDivergence ??= `generation:step-${index}`;
-    generatedTokenIds.push({ index, status, ...(actual ? { candidate: { ...actual } } : {}), ...(expected ? { reference: { ...expected } } : {}) });
+    const candidateSelectionLogits = candidate.selectionLogits[index];
+    const referenceSelectionLogits = reference.selectionLogits[index];
+    const selectionLogits = candidateSelectionLogits && referenceSelectionLogits && sameShape(candidateSelectionLogits.shape, referenceSelectionLogits.shape)
+      ? compareTensor(candidateSelectionLogits, referenceSelectionLogits, topK)
+      : null;
+    if (!selectionLogits) firstDivergence ??= `generation:selection-logits-${index}-shape`;
+    else if (!passes(selectionLogits, tolerance)) firstDivergence ??= `generation:selection-logits-${index}`;
+    generatedTokenIds.push({ index, status, ...(actual ? { candidate: { ...actual } } : {}), ...(expected ? { reference: { ...expected } } : {}), selectionLogits });
   }
 
   const terminalLogits = sameShape(candidate.logits.shape, reference.logits.shape)
@@ -215,10 +222,10 @@ export function compareGenerationTrace(
     kvCache.push({ layer, status, key, value });
   }
 
-  const incomplete = generatedTokenIds.some((step) => step.status.startsWith("missing")) ||
+  const incomplete = generatedTokenIds.some((step) => step.status.startsWith("missing") || step.selectionLogits === null) ||
     kvCache.some((cache) => cache.status.startsWith("missing") || cache.status === "shape-mismatch") || terminalLogits === null;
   const numericallyEquivalent = !incomplete && firstDivergence === null;
-  const exact = numericallyEquivalent && exactMetrics(terminalLogits ?? undefined) &&
+  const exact = numericallyEquivalent && generatedTokenIds.every((step) => exactMetrics(step.selectionLogits ?? undefined)) && exactMetrics(terminalLogits ?? undefined) &&
     kvCache.every((cache) => exactMetrics(cache.key) && exactMetrics(cache.value));
   return {
     reference: {
@@ -247,6 +254,9 @@ export function compareGenerationTrace(
 function validateCandidateGeneration(candidate: GenerationResult): void {
   if (candidate.steps.length !== candidate.generatedTokenIds.length) {
     throw new Error("Resultado candidato de geração requer um step para cada token emitido.");
+  }
+  if (candidate.selectionLogits.length !== candidate.generatedTokenIds.length) {
+    throw new Error("Resultado candidato de geração requer logits de seleção para cada token emitido.");
   }
   if (candidate.inputIds.length < candidate.generatedTokenIds.length ||
     !candidate.generatedTokenIds.every((token, index) => candidate.inputIds[candidate.inputIds.length - candidate.generatedTokenIds.length + index] === token)) {
@@ -277,6 +287,9 @@ function validateGenerationReference(reference: DifferentialGenerationReferenceT
   }
   if (reference.steps.length !== reference.generatedTokenIds.length) {
     throw new Error("Trace de geração requer um step para cada token emitido.");
+  }
+  if (reference.selectionLogits.length !== reference.generatedTokenIds.length) {
+    throw new Error("Trace de geração requer logits de seleção para cada token emitido.");
   }
   for (const [index, step] of reference.steps.entries()) {
     if (!Number.isInteger(step.tokenId) || step.tokenId < 0 || !Number.isInteger(step.positionId) || step.positionId < 0 || step.tokenId !== reference.generatedTokenIds[index]) {

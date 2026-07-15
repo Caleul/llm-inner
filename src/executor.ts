@@ -196,8 +196,10 @@ export function generateReferenceF64(
   });
   const generatedTokenIds: number[] = [];
   const steps: ReferenceGenerationStep[] = [];
+  const selectionLogits: ReferenceGenerationResult["selectionLogits"] = [];
   let nextPosition = promptPositions.at(-1)! + 1;
   for (let index = 0; index < request.maxNewTokens; index += 1) {
+    selectionLogits.push(current.logits);
     const tokenId = greedyToken(current.logits);
     generatedTokenIds.push(tokenId);
     steps.push({ tokenId, positionId: nextPosition });
@@ -214,6 +216,7 @@ export function generateReferenceF64(
     inputIds: [...prompt, ...generatedTokenIds],
     generatedTokenIds,
     steps,
+    selectionLogits,
     logits: current.logits,
     pastKeyValues: current.pastKeyValues,
   };
@@ -234,8 +237,10 @@ export function generateReferenceF32(
   });
   const generatedTokenIds: number[] = [];
   const steps: ReferenceGenerationStep[] = [];
+  const selectionLogits: ReferenceF32GenerationResult["selectionLogits"] = [];
   let nextPosition = promptPositions.at(-1)! + 1;
   for (let index = 0; index < request.maxNewTokens; index += 1) {
+    selectionLogits.push(current.logits);
     const tokenId = greedyToken(current.logits);
     generatedTokenIds.push(tokenId);
     steps.push({ tokenId, positionId: nextPosition });
@@ -252,6 +257,7 @@ export function generateReferenceF32(
     inputIds: [...prompt, ...generatedTokenIds],
     generatedTokenIds,
     steps,
+    selectionLogits,
     logits: current.logits,
     pastKeyValues: current.pastKeyValues,
   };

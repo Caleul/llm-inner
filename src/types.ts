@@ -303,6 +303,8 @@ export interface ReferenceGenerationResult {
   inputIds: number[];
   generatedTokenIds: number[];
   steps: ReferenceGenerationStep[];
+  /** Logits used to select each corresponding generated token, before it is evaluated into the cache. */
+  selectionLogits: DenseTensor[];
   /** Terminal logits after evaluating inputIds plus every generated token. */
   logits: DenseTensor;
   /** Post-RoPE KV cache for inputIds plus every generated token. */
@@ -313,6 +315,8 @@ export interface ReferenceF32GenerationResult {
   inputIds: number[];
   generatedTokenIds: number[];
   steps: ReferenceGenerationStep[];
+  /** Logits used to select each corresponding generated token, under the F32 policy. */
+  selectionLogits: DenseF32Tensor[];
   logits: DenseF32Tensor;
   pastKeyValues: ReadonlyMap<number, ReferenceF32KeyValueCache>;
 }
@@ -411,6 +415,8 @@ export interface DifferentialGenerationReferenceTrace {
   eosTokenId?: number;
   generatedTokenIds: number[];
   steps: readonly ReferenceGenerationStep[];
+  /** One pre-selection logits tensor per emitted token. */
+  selectionLogits: readonly (DenseTensor | DenseF32Tensor)[];
   logits: DenseTensor | DenseF32Tensor;
   pastKeyValues: readonly DifferentialKeyValueCacheSample[];
 }
@@ -420,11 +426,12 @@ export interface DifferentialGenerationStepComparison {
   status: "pass" | "diverged" | "missing-reference" | "missing-candidate";
   candidate?: ReferenceGenerationStep;
   reference?: ReferenceGenerationStep;
+  selectionLogits?: DifferentialTensorMetrics | null;
 }
 
 /** Serializable end-to-end greedy-generation evidence. */
 export interface DifferentialGenerationComparisonReport {
-  reference: Omit<DifferentialGenerationReferenceTrace, "generatedTokenIds" | "steps" | "logits" | "pastKeyValues">;
+  reference: Omit<DifferentialGenerationReferenceTrace, "generatedTokenIds" | "steps" | "selectionLogits" | "logits" | "pastKeyValues">;
   candidateRuntime: string;
   tolerance: DifferentialTolerance;
   promptMatches: boolean;

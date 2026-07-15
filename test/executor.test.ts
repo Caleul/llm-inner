@@ -263,6 +263,7 @@ test("F64 greedy generation advances absolute positions and returns a cache for 
     { tokenId: 2, positionId: 9 },
     { tokenId: 2, positionId: 10 },
   ]);
+  assert.equal(generated.selectionLogits.length, 3);
   assert.equal(generated.pastKeyValues.get(0)?.key.shape.join("x"), "1x1x4x2");
   const direct = executeReferenceF64(ir, { inputIds: [[1, 2, 2, 2]], positionIds: [[7, 8, 9, 10]], tensors: weights });
   assert.deepEqual([...generated.logits.values], [...direct.logits.values.slice(9, 12)]);
@@ -283,6 +284,7 @@ test("generation differential report requires token, position, terminal-logit, a
     maxNewTokens: 2,
     generatedTokenIds: [...candidate.generatedTokenIds],
     steps: candidate.steps.map((step) => ({ ...step })),
+    selectionLogits: [...candidate.selectionLogits],
     logits: candidate.logits,
     pastKeyValues: [...candidate.pastKeyValues].map(([layer, cache]) => ({ layer, key: cache.key, value: cache.value })),
   };
@@ -291,8 +293,15 @@ test("generation differential report requires token, position, terminal-logit, a
   assert.equal(report.firstDivergence, null);
   assert.equal(report.promptMatches, true);
   assert.deepEqual(report.generatedTokenIds.map((step) => step.status), ["pass", "pass"]);
+  assert.deepEqual(report.generatedTokenIds.map((step) => step.selectionLogits?.maxAbsoluteError), [0, 0]);
   assert.deepEqual(report.kvCache.map((cache) => cache.status), ["pass"]);
   assert.equal(report.terminalLogits?.argmaxAgreement, true);
+
+  const selectionLogits = candidate.selectionLogits.map((tensor) => ({ shape: [...tensor.shape], values: Float64Array.from(tensor.values) }));
+  selectionLogits[0]!.values[0] = selectionLogits[0]!.values[0]! + 1;
+  const selectionDivergence = compareGenerationTrace(candidate, { ...reference, selectionLogits }, { candidateRuntime: "llm-inner F64 scalar" });
+  assert.equal(selectionDivergence.fidelityClass, "approximate");
+  assert.equal(selectionDivergence.firstDivergence, "generation:selection-logits-0");
 });
 
 test("generation differential report marks token/position divergence approximate and missing evidence incomplete", async () => {
@@ -302,13 +311,13 @@ test("generation differential report marks token/position divergence approximate
     runtime: "fixture-authoritative-runtime", model: "tiny-llama", revisionOrChecksum: "in-repository-fixture",
     containerFormat: "safetensors" as const, quantization: "none", inputTokens: [1], promptPositionIds: [0],
     dtypePolicy: "F64 scalar fixture", maxNewTokens: 1, generatedTokenIds: [2],
-    steps: [{ tokenId: 2, positionId: 99 }], logits: candidate.logits,
+    steps: [{ tokenId: 2, positionId: 99 }], selectionLogits: [...candidate.selectionLogits], logits: candidate.logits,
     pastKeyValues: [...candidate.pastKeyValues].map(([layer, cache]) => ({ layer, key: cache.key, value: cache.value })),
   };
   const divergent = compareGenerationTrace(candidate, base, { candidateRuntime: "llm-inner F64 scalar" });
   assert.equal(divergent.fidelityClass, "approximate");
   assert.equal(divergent.firstDivergence, "generation:step-0");
-  const incomplete = compareGenerationTrace(candidate, { ...base, steps: [], generatedTokenIds: [], pastKeyValues: [] }, { candidateRuntime: "llm-inner F64 scalar" });
+  const incomplete = compareGenerationTrace(candidate, { ...base, steps: [], selectionLogits: [], generatedTokenIds: [], pastKeyValues: [] }, { candidateRuntime: "llm-inner F64 scalar" });
   assert.equal(incomplete.fidelityClass, "incomplete");
   assert.equal(incomplete.generatedTokenIds[0]?.status, "missing-reference");
   assert.equal(incomplete.kvCache[0]?.status, "missing-reference");
@@ -320,7 +329,7 @@ test("generation differential report rejects malformed authoritative captures", 
   assert.throws(() => compareGenerationTrace(candidate, {
     runtime: "fixture", model: "tiny", revisionOrChecksum: "fixture", containerFormat: "safetensors", quantization: "none",
     inputTokens: [1], promptPositionIds: [0], dtypePolicy: "F64", maxNewTokens: 1, eosTokenId: 2,
-    generatedTokenIds: [2, 2], steps: [{ tokenId: 2, positionId: 1 }, { tokenId: 2, positionId: 2 }],
+    generatedTokenIds: [2, 2], steps: [{ tokenId: 2, positionId: 1 }, { tokenId: 2, positionId: 2 }], selectionLogits: [...candidate.selectionLogits],
     logits: candidate.logits, pastKeyValues: [],
   }, { candidateRuntime: "llm-inner F64 scalar" }), /mais tokens do que o limite declarado/);
 });
@@ -331,7 +340,7 @@ test("generation differential report never treats a different prompt or malforme
   const reference = {
     runtime: "fixture", model: "tiny", revisionOrChecksum: "fixture", containerFormat: "safetensors" as const, quantization: "none",
     inputTokens: [0], promptPositionIds: [0], dtypePolicy: "F64", maxNewTokens: 1,
-    generatedTokenIds: [...candidate.generatedTokenIds], steps: candidate.steps, logits: candidate.logits,
+    generatedTokenIds: [...candidate.generatedTokenIds], steps: candidate.steps, selectionLogits: [...candidate.selectionLogits], logits: candidate.logits,
     pastKeyValues: [...candidate.pastKeyValues].map(([layer, cache]) => ({ layer, key: cache.key, value: cache.value })),
   };
   const report = compareGenerationTrace(candidate, reference, { candidateRuntime: "llm-inner F64 scalar" });
