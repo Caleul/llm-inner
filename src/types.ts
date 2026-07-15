@@ -225,7 +225,9 @@ export interface ReferenceExecutionRequest {
   /**
    * Canonical post-RoPE KV state keyed by decoder layer. Every entry uses
    * [batch, num_key_value_heads, cached_sequence, head_dim]. When supplied,
-   * it must cover every non-shared decoder layer in the IR.
+   * it must cover every KV-producing attention layer in the IR. An attention
+   * operation with kvSharing consumes its producer's entry and never owns a
+   * duplicate cache entry of its own.
    */
   pastKeyValues?: ReadonlyMap<number, ReferenceKeyValueCache>;
   /** Dense F64 constants keyed by the tensor reference name in the IR. */

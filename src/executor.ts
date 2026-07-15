@@ -66,8 +66,9 @@ export function executeReferenceF64(
       case "scaled_dot_product_attention":
         if (operation.layer === undefined) throw new Error(`${operation.id}: attention sem índice de camada não pode usar cache KV.`);
         if (operation.kvSharing) {
-          if (request.pastKeyValues) throw new Error(`${operation.id}: cache KV com compartilhamento entre camadas ainda não é suportado.`);
-          values.set(operation.output, attention(value(values, operation.query), value(values, operation.key), value(values, operation.value), operation, request.attentionMask));
+          const shared = sharedCacheForAttention(pastKeyValues, operation);
+          const query = value(values, operation.query);
+          values.set(operation.output, attention(query, shared.key, shared.value, operation, request.attentionMask, sharedPastLength(operation.id, shared.key.shape[2]!, query.shape[2]!)));
           break;
         }
         {
@@ -146,8 +147,9 @@ export function executeReferenceF32(
       case "scaled_dot_product_attention":
         if (operation.layer === undefined) throw new Error(`${operation.id}: attention sem índice de camada não pode usar cache KV.`);
         if (operation.kvSharing) {
-          if (request.pastKeyValues) throw new Error(`${operation.id}: cache KV com compartilhamento entre camadas ainda não é suportado.`);
-          values.set(operation.output, attentionF32(valueF32(values, operation.query), valueF32(values, operation.key), valueF32(values, operation.value), operation, request.attentionMask));
+          const shared = sharedCacheForAttention(pastKeyValues, operation);
+          const query = valueF32(values, operation.query);
+          values.set(operation.output, attentionF32(query, shared.key, shared.value, operation, request.attentionMask, sharedPastLength(operation.id, shared.key.shape[2]!, query.shape[2]!)));
           break;
         }
         {
@@ -523,6 +525,37 @@ function cacheForLayer(
   if (!entry) throw new Error(`${operation.id}: pastKeyValues não contém a camada ${layer}.`);
   assertCacheEntry(entry.key, entry.value, currentKey, currentValue, operation.id);
   return entry;
+}
+
+/**
+ * A shared-KV consumer does not append or persist a cache. Its declared
+ * producer has already run in this forward pass, consumed any prior cache,
+ * and published the complete post-RoPE sequence under its own layer index.
+ * Requiring that ordering prevents a consumer from silently using only the
+ * current projection or a stale cache from a different ownership chain.
+ */
+function sharedCacheForAttention<T extends { key: { shape: number[] }; value: { shape: number[] } }>(
+  produced: ReadonlyMap<number, T>,
+  operation: Extract<Operation, { op: "scaled_dot_product_attention" }>,
+): T {
+  const producer = operation.kvSharing?.producerLayer;
+  if (!operation.kvSharing?.enabled || operation.layer === undefined || typeof producer !== "number" || !Number.isInteger(producer) || producer < 0 || producer >= operation.layer) {
+    throw new Error(`${operation.id}: kvSharing requer producerLayer inteiro de uma camada anterior.`);
+  }
+  const cache = produced.get(producer);
+  if (!cache) throw new Error(`${operation.id}: cache KV do produtor da camada ${producer} não está disponível nesta execução.`);
+  if (cache.key.shape.length !== 4 || cache.value.shape.length !== 4 || cache.key.shape[2]! <= 0 || cache.key.shape[2] !== cache.value.shape[2]) {
+    throw new Error(`${operation.id}: cache KV do produtor da camada ${producer} é inválido.`);
+  }
+  return cache;
+}
+
+function sharedPastLength(operationId: string, cacheSequence: number, querySequence: number): number {
+  const pastLength = cacheSequence - querySequence;
+  if (!Number.isInteger(pastLength) || pastLength < 0) {
+    throw new Error(`${operationId}: cache KV compartilhado é menor que a sequência de consulta atual.`);
+  }
+  return pastLength;
 }
 
 function concatSequence(previous: DenseTensor, current: DenseTensor): DenseTensor {

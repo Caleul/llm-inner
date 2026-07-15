@@ -511,12 +511,15 @@ runtime externo.
 O executor também aceita e devolve cache KV por camada para decoder incremental.
 O contrato canônico é um `Map` indexado pela camada, com `key` e `value`
 post-RoPE no layout `[batch, kv_heads, cached_sequence, head_dim]`. Ao receber
-cache, ele precisa conter todas as camadas não compartilhadas e é concatenado às
+cache, ele precisa conter todas as camadas produtoras de KV e é concatenado às
 projeções atuais antes da atenção; `position_ids` continua explícito e deve usar
 as posições absolutas do token novo. A máscara aditiva, se presente no decode,
 tem chave com o comprimento completo (cache + tokens atuais). Shapes incompletos
-ou incompatíveis falham fechados. Cache com `kvSharing` entre camadas continua
-rejeitado até existir uma semântica de ownership validada.
+ou incompatíveis falham fechados. Para `kvSharing`, somente a camada produtora
+persiste a entrada BHSD: a consumidora precisa declarar um `producerLayer`
+anterior e lê o cache completo que esse produtor acabou de atualizar na mesma
+execução. Não há cópia por consumidora; produtor ausente, ordem inválida ou
+cache malformado falham fechados.
 
 Há também um caminho separado para F32 denso: `readDenseF32` preserva os bytes
 do Safetensors em `Float32Array`, e `executeReferenceF32` requer que cada operação

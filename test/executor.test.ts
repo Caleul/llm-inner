@@ -59,6 +59,42 @@ async function tinyLlama() {
   return { ir, weights };
 }
 
+/** Build a two-layer decoder where layer 1 consumes layer 0's post-RoPE KV. */
+async function tinySharedKvLlama() {
+  const { ir, weights } = await tinyLlama();
+  const second = structuredClone(ir.layers[0]!);
+  second.index = 1;
+  for (const operation of second.operations) {
+    operation.id = operation.id.replaceAll("layer_0", "layer_1");
+    operation.output = operation.output.replaceAll("layer_0", "layer_1").replace("hidden_states_1", "hidden_states_2");
+    operation.layer = 1;
+    if ("input" in operation) operation.input = operation.input.replaceAll("layer_0", "layer_1").replace("hidden_states_0", "hidden_states_1");
+    if ("inputs" in operation) operation.inputs = operation.inputs.map((input) => input.replaceAll("layer_0", "layer_1").replace("hidden_states_0", "hidden_states_1"));
+    if ("query" in operation) operation.query = operation.query.replaceAll("layer_0", "layer_1");
+    if ("key" in operation) operation.key = operation.key.replaceAll("layer_0", "layer_1");
+    if ("value" in operation) operation.value = operation.value.replaceAll("layer_0", "layer_1");
+    if ("weight" in operation) operation.weight.name = operation.weight.name.replace("model.layers.0", "model.layers.1");
+    if ("bias" in operation && operation.bias) operation.bias.name = operation.bias.name.replace("model.layers.0", "model.layers.1");
+  }
+  second.operations = second.operations.filter((operation) => ![
+    "layer_1_k_proj", "layer_1_v_proj", "layer_1_k_heads", "layer_1_v_heads", "layer_1_k_rope",
+  ].includes(operation.id));
+  const consumer = second.operations.find((operation) => operation.id === "layer_1_attention");
+  if (!consumer || consumer.op !== "scaled_dot_product_attention") throw new Error("shared-KV fixture did not retain layer 1 attention");
+  consumer.key = "layer_0_k_rot";
+  consumer.value = "layer_0_v_heads";
+  consumer.kvSharing = { enabled: true, producerLayer: 0, group: "full_attention" };
+  ir.layers.push(second);
+  ir.architecture.numLayers = 2;
+  for (const operation of ir.epilogue) {
+    if ("input" in operation) operation.input = operation.input.replace("hidden_states_1", "hidden_states_2");
+  }
+  for (const [name, tensor] of [...weights]) {
+    if (name.startsWith("model.layers.0.")) weights.set(name.replace("model.layers.0", "model.layers.1"), dense([...tensor.shape], [...tensor.values]));
+  }
+  return { ir, weights };
+}
+
 test("executor F64 runs a generated dense Llama decoder through logits", async () => {
   const { ir, weights } = await tinyLlama();
   const result = executeReferenceF64(ir, { inputIds: [[1]], tensors: weights });
@@ -69,6 +105,41 @@ test("executor F64 runs a generated dense Llama decoder through logits", async (
   assert.deepEqual(result.logits.shape, [1, 1, 3]);
   for (const [index, value] of expected.entries()) assert.ok(Math.abs(result.logits.values[index]! - value) < 1e-12);
   assert.equal(result.values.get("layer_0_attention_context")?.shape.join("x"), "1x1x2");
+});
+
+test("shared-KV consumers reuse the producer cache across F64 decode without duplicate ownership", async () => {
+  const { ir, weights } = await tinySharedKvLlama();
+  const full = executeReferenceF64(ir, { inputIds: [[1, 2]], tensors: weights });
+  const prefill = executeReferenceF64(ir, { inputIds: [[1]], tensors: weights });
+  const decoded = executeReferenceF64(ir, { inputIds: [[2]], positionIds: [[1]], pastKeyValues: prefill.pastKeyValues, tensors: weights });
+  assert.deepEqual([...prefill.pastKeyValues.keys()], [0]);
+  assert.deepEqual([...decoded.pastKeyValues.keys()], [0]);
+  assert.equal(decoded.pastKeyValues.get(0)?.key.shape.join("x"), "1x1x2x2");
+  for (let index = 0; index < decoded.logits.values.length; index += 1) {
+    assert.ok(Math.abs(decoded.logits.values[index]! - full.logits.values[full.logits.values.length - decoded.logits.values.length + index]!) < 1e-12);
+  }
+  const generated = generateReferenceF64(ir, { inputIds: [[1]], tensors: weights, maxNewTokens: 2 });
+  assert.deepEqual(generated.stepPastKeyValues.map((cache) => [...cache.keys()]), [[0], [0]]);
+  const consumer = ir.layers[1]!.operations.find((operation) => operation.op === "scaled_dot_product_attention")!;
+  if (consumer.op !== "scaled_dot_product_attention") throw new Error("shared-KV fixture has no consumer");
+  consumer.kvSharing = { enabled: true, producerLayer: 1 };
+  assert.throws(() => executeReferenceF64(ir, { inputIds: [[1]], tensors: weights }), /producerLayer inteiro de uma camada anterior/);
+});
+
+test("shared-KV consumers preserve F32 incremental logits and producer-only cache", async () => {
+  const { ir, weights } = await tinySharedKvLlama();
+  for (const operation of [...ir.prelude, ...ir.layers.flatMap((layer) => layer.operations), ...ir.epilogue]) {
+    operation.dtypePolicy = { ...f32Policy };
+    if (operation.op === "scaled_dot_product_attention") operation.softmaxComputeDtype = "F32";
+  }
+  const f32Weights = new Map([...weights].map(([name, tensor]) => [name, { shape: [...tensor.shape], values: Float32Array.from(tensor.values) }]));
+  const full = executeReferenceF32(ir, { inputIds: [[1, 2]], tensors: f32Weights });
+  const prefill = executeReferenceF32(ir, { inputIds: [[1]], tensors: f32Weights });
+  const decoded = executeReferenceF32(ir, { inputIds: [[2]], positionIds: [[1]], pastKeyValues: prefill.pastKeyValues, tensors: f32Weights });
+  assert.deepEqual([...decoded.pastKeyValues.keys()], [0]);
+  for (let index = 0; index < decoded.logits.values.length; index += 1) {
+    assert.equal(decoded.logits.values[index], full.logits.values[full.logits.values.length - decoded.logits.values.length + index]);
+  }
 });
 
 test("operation differential report compares every stable IR output and records required evidence", async () => {
