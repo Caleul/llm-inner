@@ -86,3 +86,50 @@ test("Gemma 4 falha fechado até existir adaptador específico", async () => {
     /não possui adaptador exato/,
   );
 });
+
+test("Qwen 3 aplica Q/K/V RMSNorm por cabeça após reshape", async () => {
+  const source = catalog("qwen3", { hidden_act: "silu" });
+  source.tensors.set(
+    "model.layers.0.self_attn.q_norm.weight",
+    tensor("model.layers.0.self_attn.q_norm.weight", [4]),
+  );
+  source.tensors.set(
+    "model.layers.0.self_attn.k_norm.weight",
+    tensor("model.layers.0.self_attn.k_norm.weight", [4]),
+  );
+  source.tensors.set(
+    "model.layers.0.self_attn.v_norm.weight",
+    tensor("model.layers.0.self_attn.v_norm.weight", [4]),
+  );
+  const operations = (await buildModelIR(source, preview)).layers[0]!.operations;
+  const indexOf = (id: string) => operations.findIndex((operation) => operation.id === id);
+
+  assert.ok(indexOf("layer_0_q_heads") < indexOf("layer_0_q_norm"));
+  assert.ok(indexOf("layer_0_q_norm") < indexOf("layer_0_q_rope"));
+  assert.ok(indexOf("layer_0_k_heads") < indexOf("layer_0_k_norm"));
+  assert.ok(indexOf("layer_0_k_norm") < indexOf("layer_0_k_rope"));
+  assert.ok(indexOf("layer_0_v_heads") < indexOf("layer_0_v_norm"));
+  assert.ok(indexOf("layer_0_v_norm") < indexOf("layer_0_attention"));
+  const qNorm = operations.find((operation) => operation.id === "layer_0_q_norm");
+  assert.equal(qNorm?.op, "rms_norm");
+  if (qNorm?.op === "rms_norm") assert.equal(qNorm.input, "layer_0_q_heads");
+  const attention = operations.find((operation) => operation.id === "layer_0_attention");
+  assert.equal(attention?.op, "scaled_dot_product_attention");
+  if (attention?.op === "scaled_dot_product_attention") assert.equal(attention.value, "layer_0_v_norm");
+});
+
+test("Q/K RMSNorm com dimensão diferente de head_dim falha fechado", async () => {
+  const source = catalog("qwen3", { hidden_act: "silu" });
+  source.tensors.set(
+    "model.layers.0.self_attn.q_norm.weight",
+    tensor("model.layers.0.self_attn.q_norm.weight", [2]),
+  );
+  source.tensors.set(
+    "model.layers.0.self_attn.k_norm.weight",
+    tensor("model.layers.0.self_attn.k_norm.weight", [2]),
+  );
+  await assert.rejects(
+    () => buildModelIR(source, preview),
+    /head_dim=4/,
+  );
+});

@@ -334,31 +334,12 @@ async function buildDecoderLayer(ctx: ArchitectureContext, layer: number): Promi
     }
   }
 
-  let qInput = qLinear;
-  let kInput = kLinear;
-  let vInput = vLinear;
-  if (tensors.qNorm) {
-    const output = `layer_${layer}_q_norm`;
-    operations.push(rmsNormOp(ctx, layer, "q_norm", qInput, output, tensors.qNorm, -1));
-    qInput = output;
-  }
-  if (tensors.kNorm) {
-    const output = `layer_${layer}_k_norm`;
-    operations.push(rmsNormOp(ctx, layer, "k_norm", kInput, output, tensors.kNorm, -1));
-    kInput = output;
-  }
-  if (tensors.vNorm) {
-    const output = `layer_${layer}_v_norm`;
-    operations.push(rmsNormOp(ctx, layer, "v_norm", vInput, output, tensors.vNorm, -1));
-    vInput = output;
-  }
-
   operations.push(
     {
       id: `layer_${layer}_q_heads`,
       layer,
       op: "reshape_heads",
-      input: qInput,
+      input: qLinear,
       output: `layer_${layer}_q_heads`,
       numHeads: ctx.numAttentionHeads,
       headDim: ctx.headDim,
@@ -374,7 +355,7 @@ async function buildDecoderLayer(ctx: ArchitectureContext, layer: number): Promi
         id: `layer_${layer}_k_heads`,
         layer,
         op: "reshape_heads",
-        input: kInput,
+        input: kLinear,
         output: `layer_${layer}_k_heads`,
         numHeads: ctx.numKeyValueHeads,
         headDim: ctx.headDim,
@@ -385,7 +366,7 @@ async function buildDecoderLayer(ctx: ArchitectureContext, layer: number): Promi
         id: `layer_${layer}_v_heads`,
         layer,
         op: "reshape_heads",
-        input: vInput,
+        input: vLinear,
         output: `layer_${layer}_v_heads`,
         numHeads: ctx.numKeyValueHeads,
         headDim: ctx.headDim,
@@ -395,12 +376,37 @@ async function buildDecoderLayer(ctx: ArchitectureContext, layer: number): Promi
     );
   }
 
+  // Q/K/V norm weights are head_dim vectors. Applying them to the flattened
+  // [batch, sequence, num_heads * head_dim] projection would normalize across
+  // heads and therefore describe a different function. The reference decoder
+  // implementations reshape first and normalize the final head_dim axis.
+  let qHeads = `layer_${layer}_q_heads`;
+  let kHeads = `layer_${layer}_k_heads`;
+  let vHeads = `layer_${layer}_v_heads`;
+  if (tensors.qNorm) {
+    const output = `layer_${layer}_q_norm`;
+    operations.push(rmsNormOp(ctx, layer, "q_norm", qHeads, output, tensors.qNorm, -1, ctx.headDim));
+    qHeads = output;
+  }
+  if (tensors.kNorm) {
+    if (!hasOwnKv) throw new Error(`Camada ${layer}: k_norm requer projeção K própria.`);
+    const output = `layer_${layer}_k_norm`;
+    operations.push(rmsNormOp(ctx, layer, "k_norm", kHeads, output, tensors.kNorm, -1, ctx.headDim));
+    kHeads = output;
+  }
+  if (tensors.vNorm) {
+    if (!hasOwnKv) throw new Error(`Camada ${layer}: v_norm requer projeção V própria.`);
+    const output = `layer_${layer}_v_norm`;
+    operations.push(rmsNormOp(ctx, layer, "v_norm", vHeads, output, tensors.vNorm, -1, ctx.headDim));
+    vHeads = output;
+  }
+
   const rope = ropeConfig(ctx.config, ctx.headDim, ctx.modelType, layer);
   operations.push({
     id: `layer_${layer}_q_rope`,
     layer,
     op: "rotary_embedding",
-    input: `layer_${layer}_q_heads`,
+    input: qHeads,
     positionInput: "position_ids",
     output: `layer_${layer}_q_rot`,
     ropeType: rope.type,
@@ -415,7 +421,7 @@ async function buildDecoderLayer(ctx: ArchitectureContext, layer: number): Promi
       id: `layer_${layer}_k_rope`,
       layer,
       op: "rotary_embedding",
-      input: `layer_${layer}_k_heads`,
+      input: kHeads,
       positionInput: "position_ids",
       output: `layer_${layer}_k_rot`,
       ropeType: rope.type,
@@ -434,7 +440,7 @@ async function buildDecoderLayer(ctx: ArchitectureContext, layer: number): Promi
     op: "scaled_dot_product_attention",
     query: `layer_${layer}_q_rot`,
     key: hasOwnKv ? `layer_${layer}_k_rot` : `layer_${sharedProducer}_k_rot`,
-    value: hasOwnKv ? `layer_${layer}_v_heads` : `layer_${sharedProducer}_v_heads`,
+    value: hasOwnKv ? vHeads : `layer_${sharedProducer}_v_heads`,
     maskInput: `attention_mask:${layerType(ctx.config, layer)}`,
     output: `layer_${layer}_attention_context`,
     numAttentionHeads: ctx.numAttentionHeads,
@@ -625,8 +631,18 @@ function rmsNormOp(
   output: string,
   tensorName: string,
   axis = -1,
+  expectedWeightLength?: number,
 ): RmsNormOp {
   const tensor = requireTensor(ctx.catalog, tensorName);
+  if (
+    expectedWeightLength !== undefined &&
+    (tensor.logicalShape.length !== 1 || tensor.logicalShape[0] !== expectedWeightLength)
+  ) {
+    throw new Error(
+      `${tensorName} deve ser um vetor RMSNorm de head_dim=${expectedWeightLength}; ` +
+        `shape=${tensor.logicalShape.join("x")}.`,
+    );
+  }
   return {
     id: `layer_${layer}_${suffix}`,
     layer,

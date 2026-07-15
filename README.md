@@ -104,6 +104,11 @@ Ele não cria bypasses nem zeros para componentes desconhecidos.
 
 O adaptador atual cobre blocos decoder-only auditáveis de Llama, Mistral, Qwen 2/3 e Gemma 1/2/3-text. Modelos com código remoto, state-space layers, linear attention, MoE, multimodal completo, Gemma 3n/4 ou layouts QKV especiais precisam de adaptadores próprios ou extração do grafo do runtime oficial. Gemma 4 é rejeitado de propósito porque sua topologia inclui PLE, heads por tipo de camada, KV sharing e outras semânticas que o bloco genérico não representa.
 
+Para Qwen 3 e outros adaptadores que declarem `q_norm`, `k_norm` ou `v_norm`,
+o IR faz `reshape_heads` antes da RMSNorm. Esses pesos precisam ter exatamente
+`head_dim` elementos: normalizar a projeção achatada misturaria cabeças e é
+rejeitado como semântica incompatível.
+
 A equivalência real deve ser confirmada por um validador diferencial: mesma entrada, mesmo dtype, comparação de embeddings, saída por camada, KV cache e logits contra Transformers/MLX/llama.cpp.
 
 
