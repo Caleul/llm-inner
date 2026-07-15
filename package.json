@@ -8,6 +8,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test dist/test/*.test.js",
     "compile:model": "node dist/src/cli.js",
+    "compare:trace": "node dist/src/trace-cli.js",
     "loop:start": "node scripts/agent-loop-runner.mjs start",
     "loop:status": "node scripts/agent-loop-runner.mjs status",
     "loop:stop": "node scripts/agent-loop-runner.mjs stop"

@@ -4,9 +4,12 @@ import type { ModelCatalog } from "./types.js";
 import { SafetensorsCatalogReader } from "./safetensors.js";
 import { GgufCatalogReader } from "./gguf.js";
 import { TensorBridge } from "./bridge.js";
+import type { DenseF32Reader } from "./materialize.js";
 
 export interface OpenCatalogResult {
   catalog: ModelCatalog;
+  /** The live container reader used for verified range materialization. */
+  reader: DenseF32Reader;
   close(): Promise<void>;
   bridge?: TensorBridge;
 }
@@ -18,6 +21,7 @@ export async function openCatalog(source: string, includeBridge: boolean): Promi
     try {
       return {
         catalog: await reader.inspect(),
+        reader,
         close: () => reader.close(),
       };
     } catch (error) {
@@ -33,6 +37,7 @@ export async function openCatalog(source: string, includeBridge: boolean): Promi
       const bridge = includeBridge ? new TensorBridge(source) : undefined;
       return {
         catalog,
+        reader,
         ...(bridge ? { bridge } : {}),
         close: async () => {
           await reader.close();

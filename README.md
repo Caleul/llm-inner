@@ -117,6 +117,20 @@ node dist/src/cli.js \
 
 Sem `--include-weights`, a compilação não dequantiza previews; ela apenas cataloga os tensores e gera o grafo.
 
+### Comparação com captura autoritativa
+
+`npm run compare:trace -- --source <checkpoint> --trace <captura.json> --report <relatorio.json>` executa a fronteira completa de validação F32: reabre o contêiner, confere SHA-256 de `config.json` e de cada shard/arquivo que participa do checkpoint, reconstrói o IR, materializa os pesos por range, executa o interpretador F32 e compara cada operação e cache KV com a captura. O relatório só é escrito depois de todas essas verificações.
+
+A captura é JSON `schemaVersion: 1`, `kind: "execution"`, e exige:
+
+- `source.files`: lista exata de caminhos relativos seguros e checksums SHA-256 do checkpoint;
+- `irFingerprint`: SHA-256 do IR serializado antes da política F32 declarada;
+- `candidatePolicy`: atualmente apenas `dtype: "F32"` e o identificador do executor candidato;
+- `reference`: identidade imutável do runtime/modelo/revisão, tokens de entrada e cada operação por `operationId`, além do cache KV pós-RoPE BHSD;
+- cada tensor como `dtype: "F32"`, `shape` e `valuesBase64` com bytes IEEE-754 little-endian — não arrays decimais sujeitos a arredondamento JSON.
+
+O comando recusa arquivo ausente/extra, checksum divergente, fingerprint de IR diferente, dtype implícito, operação duplicada, shape/payload inválido e evidência incompleta. A captura ainda precisa ser produzida por hooks verificados no runtime autoritativo; esse mecanismo não transforma o executor escalar em uma referência de Transformers, MLX ou llama.cpp.
+
 ## Loop autônomo sequencial
 
 O loop usa **um Codex por vez**. Ao fim de um ciclo, o agente cria um handoff
