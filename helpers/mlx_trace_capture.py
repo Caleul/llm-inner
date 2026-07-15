@@ -43,6 +43,7 @@ class Capture:
             shards = sorted(set(weight_map.values()))
         else:
             shards = [file.name for file in self.source.glob("*.safetensors")]
+        affine_parameters = self._affine_parameter_names()
         result: dict[str, mx.array] = {}
         for shard in shards:
             for name, value in load_file(str(self.source / shard)).items():
@@ -50,11 +51,24 @@ class Capture:
                     raise ValueError(f"Tensor duplicado: {name}")
                 if value.dtype == np.float32:
                     result[name] = mx.array(value, dtype=mx.float32)
+                elif value.dtype == np.float16 and name in affine_parameters:
+                    result[name] = mx.array(value, dtype=mx.float16)
                 elif value.dtype == np.uint32:
                     result[name] = mx.array(value, dtype=mx.uint32)
                 else:
-                    raise ValueError(f"{name}: MLX capture requer storage F32 ou U32 affine, recebeu {value.dtype}.")
+                    raise ValueError(f"{name}: MLX capture requer storage F32, peso U32 affine, ou parâmetro affine F16 declarado; recebeu {value.dtype}.")
         return self._dequantize_affine_weights(result)
+
+    def _affine_parameter_names(self) -> set[str]:
+        names: set[str] = set()
+        for reference in self._weight_references():
+            quantization = reference.get("quantization")
+            if quantization and quantization.get("family") == "mlx" and quantization.get("mode") == "affine":
+                scale = quantization.get("scaleTensor")
+                bias = quantization.get("biasTensor")
+                if isinstance(scale, str): names.add(scale)
+                if isinstance(bias, str): names.add(bias)
+        return names
 
     def _dequantize_affine_weights(self, raw: dict[str, mx.array]) -> dict[str, mx.array]:
         """Use MLX's own documented affine kernel, never the candidate decoder."""
@@ -73,10 +87,10 @@ class Capture:
             ):
                 raise ValueError(f"{reference['name']}: MLX capture requer contrato affine explícito no IR.")
             name, scales_name, biases_name = reference["name"], quantization["scaleTensor"], quantization.get("biasTensor")
-            if name not in raw or raw[name].dtype != mx.uint32 or scales_name not in raw or raw[scales_name].dtype != mx.float32:
-                raise ValueError(f"{name}: payload affine U32/scales F32 ausente ou incompatível.")
-            if biases_name is not None and (biases_name not in raw or raw[biases_name].dtype != mx.float32):
-                raise ValueError(f"{name}: biases F32 affine ausente ou incompatível.")
+            if name not in raw or raw[name].dtype != mx.uint32 or scales_name not in raw or raw[scales_name].dtype not in {mx.float32, mx.float16}:
+                raise ValueError(f"{name}: payload affine U32/scales F32 ou F16 ausente ou incompatível.")
+            if biases_name is not None and (biases_name not in raw or raw[biases_name].dtype != raw[scales_name].dtype):
+                raise ValueError(f"{name}: biases affine deve estar presente e ter o mesmo dtype dos scales.")
             # MLX's affine kernel requires a bias array even when the storage
             # contract omits biases. A zero tensor is the declared affine
             # identity in that case, rather than an implicit candidate-side

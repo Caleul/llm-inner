@@ -272,12 +272,12 @@ um contrato e regressão independentes próprios.
 
 Há também um caminho separado e fechado para `llama` cujos pesos quantizados
 usam MLX `affine` U32 (bits 2/3/4/5/6/8, `group_size` 32 ou 64 validado, um único
-contrato no checkpoint e `scales` F32,
-com `biases` F32 opcionais). O helper entrega os
+contrato no checkpoint e `scales`/`biases` no mesmo dtype F32 ou F16,
+com `biases` opcionais). O helper entrega os
 bytes U32, parâmetros e `bits/group_size/mode="affine"` diretamente a
 `mlx.core.dequantize(..., dtype=mlx.float32)` antes de executar os kernels; ele
 nunca chama o materializador nativo nem o bridge candidato. Modos MLX como
-`mxfp4`, `mxfp8` e `nvfp4`, parâmetros não F32, contratos por-módulo que mudam
+`mxfp4`, `mxfp8` e `nvfp4`, parâmetros BF16 ou mistos, contratos por-módulo que mudam
 bits/grupo e adaptadores quantizados não-Llama continuam recusados até terem
 um contrato de captura e regressão próprios. Quando o formato não traz
 `biases`, o helper passa uma matriz MLX F32 de zeros — a identidade explícita
@@ -631,8 +631,9 @@ MLX omitido também é rejeitado: `U32` + bit width não define um algoritmo.
 Uma regressão de execução completa também percorre o MLX `affine` nativo: um
 Llama de uma camada exercita grupos de 32 e 64 valores para todos os bits
 aceitos (2/3/4/5/6/8), incluindo os códigos que cruzam palavras U32 em 3, 5 e
-6 bits. O caso de 4 bits usa biases F32; os demais exercitam a identidade de
-bias zero exigida pelo kernel quando o pacote não traz `.biases`. Um pacote
+6 bits. O caso de 4 bits cobre biases F32 e, em uma captura separada, scales
+e biases F16; os demais exercitam a identidade de bias zero exigida pelo
+kernel quando o pacote não traz `.biases`. Um pacote
 Safetensors F32 separado calcula `scale[group] * code + bias[group]` sem usar
 o leitor candidato; seus outputs por operação, cache KV pós-RoPE, logits e dois
 passos greedy são a evidência consumida pelo pacote MLX. A comparação exige os

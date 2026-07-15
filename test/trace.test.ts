@@ -48,8 +48,8 @@ test("MLX kernel capture independently dequantizes affine U32 Llama before execu
     assert.equal(await captureMlxTrace({ source: quantizedSource, output: executionTrace, inputTokens: [1], python, model: "mlx-affine-llama-32", revisionOrChecksum: "mlx-affine-mlx-kernel-fixture-v1" }), "execution");
     const execution = await runExecutionTraceComparison({ source: quantizedSource, trace: executionTrace, report: path.join(directory, "mlx-affine-execution-report.json"), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
     assert.equal(execution.fidelityClass, "numerically-equivalent");
-    assert.equal(execution.reference.runtime, "MLX 0.32 affine-U32 4-bit group-32 llama independent IR-kernel capture");
-    assert.equal(execution.reference.quantization, "MLX affine U32 4-bit group_size=32");
+    assert.equal(execution.reference.runtime, "MLX 0.32 affine-U32 4-bit group-32 F32-parameters llama independent IR-kernel capture");
+    assert.equal(execution.reference.quantization, "MLX affine U32 4-bit group_size=32 F32-parameters");
 
     const generationTrace = path.join(directory, "mlx-affine-generation.json");
     assert.equal(await captureMlxTrace({ source: quantizedSource, output: generationTrace, inputTokens: [1], maxNewTokens: 2, python, model: "mlx-affine-llama-32", revisionOrChecksum: "mlx-affine-mlx-kernel-fixture-v1" }), "generation");
@@ -78,12 +78,34 @@ test("MLX kernel capture independently executes affine U32 Llama group_size 64",
     assert.equal(await captureMlxTrace({ source: quantizedSource, output: executionTrace, inputTokens: [1], python, model: "mlx-affine-llama-64", revisionOrChecksum: "mlx-affine-64-mlx-kernel-fixture-v1" }), "execution");
     const execution = await runExecutionTraceComparison({ source: quantizedSource, trace: executionTrace, report: path.join(directory, "mlx-affine-64-execution-report.json"), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
     assert.equal(execution.fidelityClass, "numerically-equivalent");
-    assert.equal(execution.reference.runtime, "MLX 0.32 affine-U32 4-bit group-64 llama independent IR-kernel capture");
-    assert.equal(execution.reference.quantization, "MLX affine U32 4-bit group_size=64");
+    assert.equal(execution.reference.runtime, "MLX 0.32 affine-U32 4-bit group-64 F32-parameters llama independent IR-kernel capture");
+    assert.equal(execution.reference.quantization, "MLX affine U32 4-bit group_size=64 F32-parameters");
 
     const generationTrace = path.join(directory, "mlx-affine-64-generation.json");
     assert.equal(await captureMlxTrace({ source: quantizedSource, output: generationTrace, inputTokens: [1], maxNewTokens: 2, python, model: "mlx-affine-llama-64", revisionOrChecksum: "mlx-affine-64-mlx-kernel-fixture-v1" }), "generation");
     const generation = await runGenerationTraceComparison({ source: quantizedSource, trace: generationTrace, report: path.join(directory, "mlx-affine-64-generation-report.json"), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
+    assert.equal(generation.fidelityClass, "numerically-equivalent");
+    assert.equal(generation.generatedTokenIds.length, 2);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("MLX kernel capture replays affine U32 Llama with F16 scales and biases", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-mlx-affine-f16-parameters-"));
+  try {
+    const { quantizedSource } = await writeMlxAffineTraceFixture(directory, 32, 4, true, "F16");
+    const python = path.resolve("venv/bin/python");
+    const executionTrace = path.join(directory, "mlx-affine-f16-execution.json");
+    assert.equal(await captureMlxTrace({ source: quantizedSource, output: executionTrace, inputTokens: [1], python, model: "mlx-affine-llama-f16", revisionOrChecksum: "mlx-affine-f16-parameters-fixture-v1" }), "execution");
+    const execution = await runExecutionTraceComparison({ source: quantizedSource, trace: executionTrace, report: path.join(directory, "mlx-affine-f16-execution-report.json"), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
+    assert.equal(execution.fidelityClass, "numerically-equivalent");
+    assert.equal(execution.reference.runtime, "MLX 0.32 affine-U32 4-bit group-32 F16-parameters llama independent IR-kernel capture");
+    assert.equal(execution.reference.quantization, "MLX affine U32 4-bit group_size=32 F16-parameters");
+
+    const generationTrace = path.join(directory, "mlx-affine-f16-generation.json");
+    assert.equal(await captureMlxTrace({ source: quantizedSource, output: generationTrace, inputTokens: [1], maxNewTokens: 2, python, model: "mlx-affine-llama-f16", revisionOrChecksum: "mlx-affine-f16-parameters-fixture-v1" }), "generation");
+    const generation = await runGenerationTraceComparison({ source: quantizedSource, trace: generationTrace, report: path.join(directory, "mlx-affine-f16-generation-report.json"), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
     assert.equal(generation.fidelityClass, "numerically-equivalent");
     assert.equal(generation.generatedTokenIds.length, 2);
   } finally {
@@ -109,8 +131,8 @@ test("MLX kernel capture covers every declared affine bit width and the no-bias 
         assert.equal(await captureMlxTrace({ source: quantizedSource, output: executionTrace, inputTokens: [1], python, model: `mlx-affine-llama-${suffix}`, revisionOrChecksum: `mlx-affine-${suffix}-fixture-v1` }), "execution");
         const execution = await runExecutionTraceComparison({ source: quantizedSource, trace: executionTrace, report: path.join(caseDirectory, "execution-report.json"), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
         assert.equal(execution.fidelityClass, "numerically-equivalent", suffix);
-        assert.equal(execution.reference.runtime, `MLX 0.32 affine-U32 ${bits}-bit group-${groupSize} llama independent IR-kernel capture`);
-        assert.equal(execution.reference.quantization, `MLX affine U32 ${bits}-bit group_size=${groupSize}`);
+        assert.equal(execution.reference.runtime, `MLX 0.32 affine-U32 ${bits}-bit group-${groupSize} F32-parameters llama independent IR-kernel capture`);
+        assert.equal(execution.reference.quantization, `MLX affine U32 ${bits}-bit group_size=${groupSize} F32-parameters`);
 
         const generationTrace = path.join(caseDirectory, "generation.json");
         assert.equal(await captureMlxTrace({ source: quantizedSource, output: generationTrace, inputTokens: [1], maxNewTokens: 2, python, model: `mlx-affine-llama-${suffix}`, revisionOrChecksum: `mlx-affine-${suffix}-fixture-v1` }), "generation");
@@ -1728,7 +1750,7 @@ async function writeTinyQwen3F32Model(root: string): Promise<void> {
  * Builds paired Llama packages for the native MLX affine reader. The F32 side
  * computes every value independently as scale[group] * code + bias[group].
  */
-async function writeMlxAffineTraceFixture(root: string, groupSize = 32, bits = 4, includeBiases = true): Promise<{ denseSource: string; quantizedSource: string }> {
+async function writeMlxAffineTraceFixture(root: string, groupSize = 32, bits = 4, includeBiases = true, parameterDtype: "F32" | "F16" = "F32"): Promise<{ denseSource: string; quantizedSource: string }> {
   const denseSource = path.join(root, "dense");
   const quantizedSource = path.join(root, "mlx-affine");
   await mkdir(denseSource);
@@ -1743,7 +1765,7 @@ async function writeMlxAffineTraceFixture(root: string, groupSize = 32, bits = 4
     "model.layers.0.mlp.up_proj.weight", "model.layers.0.mlp.down_proj.weight", "lm_head.weight",
   ];
   const denseTensors: Array<[string, "F32", number[], number[]]> = [];
-  const mlxTensors: Array<[string, "F32" | "U32", number[], number[]]> = [];
+  const mlxTensors: Array<[string, "F32" | "F16" | "U32", number[], number[]]> = [];
   for (const [matrixIndex, name] of matrixNames.entries()) {
     const scales = Array.from({ length: width * groups }, (_, index) => Math.fround(0.03125 * (1 + ((index + matrixIndex) % 4))));
     const biases = Array.from({ length: width * groups }, (_, index) => Math.fround(-0.25 + 0.0625 * ((index + matrixIndex) % 5)));
@@ -1755,8 +1777,8 @@ async function writeMlxAffineTraceFixture(root: string, groupSize = 32, bits = 4
     });
     const packed = packMlxAffineCodes(codes, width, width, bits);
     denseTensors.push([name, "F32", [width, width], denseValues]);
-    mlxTensors.push([name, "U32", [width, width * bits / 32], packed], [name.slice(0, -".weight".length) + ".scales", "F32", [width, groups], scales]);
-    if (includeBiases) mlxTensors.push([name.slice(0, -".weight".length) + ".biases", "F32", [width, groups], biases]);
+    mlxTensors.push([name, "U32", [width, width * bits / 32], packed], [name.slice(0, -".weight".length) + ".scales", parameterDtype, [width, groups], scales]);
+    if (includeBiases) mlxTensors.push([name.slice(0, -".weight".length) + ".biases", parameterDtype, [width, groups], biases]);
   }
   for (const name of ["model.layers.0.input_layernorm.weight", "model.layers.0.post_attention_layernorm.weight", "model.norm.weight"]) {
     denseTensors.push([name, "F32", [width], new Array<number>(width).fill(1)]);
@@ -1791,12 +1813,16 @@ function packMlxAffineCodes(codes: readonly number[], rows: number, columns: num
   return packed;
 }
 
-async function writeSafetensorsFixture(file: string, tensors: Array<[string, "F32" | "U32", number[], number[]]>): Promise<void> {
+async function writeSafetensorsFixture(file: string, tensors: Array<[string, "F32" | "F16" | "U32", number[], number[]]>): Promise<void> {
   const header: Record<string, unknown> = {};
   let offset = 0;
   const payloads = tensors.map(([name, dtype, shape, values]) => {
-    const payload = Buffer.alloc(values.length * 4);
-    values.forEach((value, index) => dtype === "F32" ? payload.writeFloatLE(value, index * 4) : payload.writeUInt32LE(value, index * 4));
+    const payload = Buffer.alloc(values.length * (dtype === "F16" ? 2 : 4));
+    values.forEach((value, index) => {
+      if (dtype === "F32") payload.writeFloatLE(value, index * 4);
+      else if (dtype === "F16") payload.writeUInt16LE(encodeAffineF16(value), index * 2);
+      else payload.writeUInt32LE(value, index * 4);
+    });
     header[name] = { dtype, shape, data_offsets: [offset, offset + payload.length] };
     offset += payload.length;
     return payload;
@@ -1804,6 +1830,16 @@ async function writeSafetensorsFixture(file: string, tensors: Array<[string, "F3
   const encoded = Buffer.from(JSON.stringify(header));
   const prefix = Buffer.alloc(8); prefix.writeBigUInt64LE(BigInt(encoded.length));
   await writeFile(file, Buffer.concat([prefix, encoded, ...payloads]));
+}
+
+function encodeAffineF16(value: number): number {
+  const known = new Map<number, number>([
+    [0, 0x0000], [0.03125, 0x2800], [0.0625, 0x2c00], [0.09375, 0x2e00], [0.125, 0x3000],
+    [-0.0625, 0xac00], [-0.125, 0xb000], [-0.1875, 0xb200], [-0.25, 0xb400],
+  ]);
+  const encoded = known.get(value);
+  if (encoded === undefined) throw new Error(`Fixture affine F16 não possui codificação exata para ${value}.`);
+  return encoded;
 }
 
 /** Writes the same logical weights as writeTinyF32Model in native GGUF order. */

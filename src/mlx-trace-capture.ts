@@ -88,7 +88,7 @@ export async function captureMlxTrace(options: MlxCaptureOptions): Promise<"exec
 // a generic "supported IR" fallback would hide unreviewed model behavior.
 const MLX_CAPTURE_MODEL_TYPES = new Set(["llama", "mistral", "gemma", "gemma2", "qwen2", "qwen3"]);
 
-interface MlxAffineCaptureSpec { bits: number; groupSize: number; }
+interface MlxAffineCaptureSpec { bits: number; groupSize: number; parameterDtype: "F32" | "F16"; }
 
 /**
  * This is intentionally stricter than cataloging: MLX is the independent
@@ -96,34 +96,49 @@ interface MlxAffineCaptureSpec { bits: number; groupSize: number; }
  * represented in the IR. Other MLX modes remain fail-closed here even if a
  * bridge supports them for candidate materialization.
  */
-function validateMlxCaptureStorage(tensors: Iterable<{ name: string; storageDtype: string; quantization?: { family: string; mode: string; bits?: number; groupSize?: number } }>): MlxAffineCaptureSpec | undefined {
+function validateMlxCaptureStorage(tensors: Iterable<{ name: string; storageDtype: string; quantization?: { family: string; mode: string; bits?: number; groupSize?: number; scaleTensor?: string; biasTensor?: string } }>): MlxAffineCaptureSpec | undefined {
+  const catalogued = new Map<string, { name: string; storageDtype: string; quantization?: { family: string; mode: string; bits?: number; groupSize?: number; scaleTensor?: string; biasTensor?: string } }>();
+  for (const tensor of tensors) catalogued.set(tensor.name, tensor);
   let affine: MlxAffineCaptureSpec | undefined;
-  for (const tensor of tensors) {
+  const affineParameterNames = new Set<string>();
+  for (const tensor of catalogued.values()) {
     if (!tensor.quantization) {
-      if (tensor.storageDtype !== "F32") throw new Error(`${tensor.name}: MLX capture requer tensor denso F32 ou peso MLX affine U32.`);
       continue;
     }
     const q = tensor.quantization;
     if (q.family !== "mlx" || q.mode !== "affine" || tensor.storageDtype !== "U32" || !Number.isInteger(q.bits) || ![2, 3, 4, 5, 6, 8].includes(q.bits!) || ![32, 64].includes(q.groupSize ?? -1)) {
       throw new Error(`${tensor.name}: MLX capture não possui contrato independente para ${q.family}/${q.mode} ${tensor.storageDtype}; requer affine U32 com bits {2,3,4,5,6,8} e group_size MLX 32 ou 64 validado.`);
     }
-    const current = { bits: q.bits!, groupSize: q.groupSize! };
-    if (affine && (affine.bits !== current.bits || affine.groupSize !== current.groupSize)) {
+    if (!q.scaleTensor) throw new Error(`${tensor.name}: MLX capture affine requer tensor de scales declarado.`);
+    const scales = catalogued.get(q.scaleTensor);
+    const biases = q.biasTensor ? catalogued.get(q.biasTensor) : undefined;
+    if (!scales || !["F32", "F16"].includes(scales.storageDtype) || (q.biasTensor && (!biases || biases.storageDtype !== scales.storageDtype))) {
+      throw new Error(`${tensor.name}: MLX capture affine requer scales e biases opcionais no mesmo dtype F32 ou F16.`);
+    }
+    affineParameterNames.add(q.scaleTensor);
+    if (q.biasTensor) affineParameterNames.add(q.biasTensor);
+    const current = { bits: q.bits!, groupSize: q.groupSize!, parameterDtype: scales.storageDtype as "F32" | "F16" };
+    if (affine && (affine.bits !== current.bits || affine.groupSize !== current.groupSize || affine.parameterDtype !== current.parameterDtype)) {
       throw new Error(`${tensor.name}: MLX capture exige um único contrato affine bits/group_size por checkpoint; recebeu ${current.bits}/${current.groupSize} após ${affine.bits}/${affine.groupSize}.`);
     }
     affine = current;
+  }
+  for (const tensor of catalogued.values()) {
+    if (!tensor.quantization && tensor.storageDtype !== "F32" && !affineParameterNames.has(tensor.name)) {
+      throw new Error(`${tensor.name}: MLX capture requer tensor denso F32, peso MLX affine U32, ou parâmetro affine F16 declarado.`);
+    }
   }
   return affine;
 }
 
 function mlxRuntime(modelType: string, affine: MlxAffineCaptureSpec | undefined): string {
   return affine
-    ? `MLX 0.32 affine-U32 ${affine.bits}-bit group-${affine.groupSize} ${modelType} independent IR-kernel capture`
+    ? `MLX 0.32 affine-U32 ${affine.bits}-bit group-${affine.groupSize} ${affine.parameterDtype}-parameters ${modelType} independent IR-kernel capture`
     : `MLX 0.32 dense-F32 ${modelType} independent IR-kernel capture`;
 }
 
 function mlxQuantizationLabel(affine: MlxAffineCaptureSpec | undefined): string {
-  return affine ? `MLX affine U32 ${affine.bits}-bit group_size=${affine.groupSize}` : "none";
+  return affine ? `MLX affine U32 ${affine.bits}-bit group_size=${affine.groupSize} ${affine.parameterDtype}-parameters` : "none";
 }
 
 async function checksums(source: string, tensors: Iterable<{ shard?: string }>): Promise<TraceSourceFile[]> {
