@@ -55,7 +55,7 @@ export function executeReferenceF64(
         values.set(operation.output, rotary(value(values, operation.input), positions, operation));
         break;
       case "scaled_dot_product_attention":
-        values.set(operation.output, attention(value(values, operation.query), value(values, operation.key), value(values, operation.value), operation));
+        values.set(operation.output, attention(value(values, operation.query), value(values, operation.key), value(values, operation.value), operation, request.attentionMask));
         break;
       case "activation":
         values.set(operation.output, activation(value(values, operation.input), operation.function, operation.approximation));
@@ -120,7 +120,7 @@ export function executeReferenceF32(
         values.set(operation.output, rotaryF32(valueF32(values, operation.input), positions, operation));
         break;
       case "scaled_dot_product_attention":
-        values.set(operation.output, attentionF32(valueF32(values, operation.query), valueF32(values, operation.key), valueF32(values, operation.value), operation));
+        values.set(operation.output, attentionF32(valueF32(values, operation.query), valueF32(values, operation.key), valueF32(values, operation.value), operation, request.attentionMask));
         break;
       case "activation":
         values.set(operation.output, activationF32(valueF32(values, operation.input), operation.function, operation.approximation));
@@ -227,6 +227,44 @@ function assertShapeF32(actual: DenseF32Tensor, expected: number[], label: strin
   }
 }
 
+type AttentionMask = DenseTensor | DenseF32Tensor;
+
+function validateAttentionMask<T extends AttentionMask>(
+  mask: T | undefined,
+  batch: number,
+  heads: number,
+  querySequence: number,
+  keySequence: number,
+  operationId: string,
+): T | undefined {
+  if (!mask) return undefined;
+  const [maskBatch, maskHeads, maskQuery, maskKey] = mask.shape;
+  if (
+    mask.shape.length !== 4 ||
+    maskBatch !== batch ||
+    (maskHeads !== 1 && maskHeads !== heads) ||
+    maskQuery !== querySequence ||
+    maskKey !== keySequence
+  ) {
+    throw new Error(
+      `${operationId}: attentionMask deve ter shape [${batch}, 1|${heads}, ${querySequence}, ${keySequence}], ` +
+        `recebeu [${mask.shape.join(", ")}].`,
+    );
+  }
+  for (const entry of mask.values) {
+    if (Number.isNaN(entry) || entry === Infinity) {
+      throw new Error(`${operationId}: attentionMask aceita somente valores finitos ou -Infinity.`);
+    }
+  }
+  return mask;
+}
+
+function maskOffset(mask: AttentionMask, batch: number, head: number, query: number, key: number): number {
+  const [, maskHeads, querySequence, keySequence] = mask.shape as [number, number, number, number];
+  const selectedHead = maskHeads === 1 ? 0 : head;
+  return ((batch * maskHeads + selectedHead) * querySequence + query) * keySequence + key;
+}
+
 function embedding(inputIds: number[][], weight: DenseTensor, scale?: number): DenseTensor {
   if (weight.shape.length !== 2) throw new Error("Embedding F64 requer weight 2D.");
   const [vocab, hidden] = weight.shape as [number, number];
@@ -300,7 +338,7 @@ function rotary(input: DenseTensor, positions: number[][], operation: Extract<Op
   return dense([...input.shape], result);
 }
 
-function attention(query: DenseTensor, key: DenseTensor, valueTensor: DenseTensor, operation: Extract<Operation, { op: "scaled_dot_product_attention" }>): DenseTensor {
+function attention(query: DenseTensor, key: DenseTensor, valueTensor: DenseTensor, operation: Extract<Operation, { op: "scaled_dot_product_attention" }>, attentionMask?: DenseTensor): DenseTensor {
   if (query.shape.length !== 4 || key.shape.length !== 4 || valueTensor.shape.length !== 4) throw new Error(`${operation.id}: attention requer tensores BHSD.`);
   const [batch, queryHeads, querySequence, headDim] = query.shape as [number, number, number, number];
   const [keyBatch, keyHeads, keySequence, keyDim] = key.shape as [number, number, number, number];
@@ -309,6 +347,7 @@ function attention(query: DenseTensor, key: DenseTensor, valueTensor: DenseTenso
   const result = new Float64Array(batch * querySequence * queryHeads * headDim);
   const group = queryHeads / keyHeads;
   if (!Number.isInteger(group)) throw new Error(`${operation.id}: GQA inválida.`);
+  const mask = validateAttentionMask(attentionMask, batch, queryHeads, querySequence, keySequence, operation.id);
   for (let b = 0; b < batch; b += 1) for (let h = 0; h < queryHeads; h += 1) for (let q = 0; q < querySequence; q += 1) {
     const kvHead = Math.floor(h / group);
     const firstKey = operation.slidingWindow === undefined ? 0 : Math.max(0, q - operation.slidingWindow + 1);
@@ -318,10 +357,12 @@ function attention(query: DenseTensor, key: DenseTensor, valueTensor: DenseTenso
     for (let k = firstKey; k <= lastKey; k += 1) {
       let dot = 0;
       for (let d = 0; d < headDim; d += 1) dot += query.values[((b * queryHeads + h) * querySequence + q) * headDim + d]! * key.values[((b * keyHeads + kvHead) * keySequence + k) * headDim + d]!;
-      const score = operation.scoreSoftcap === undefined ? dot * operation.scale : operation.scoreSoftcap * Math.tanh((dot * operation.scale) / operation.scoreSoftcap);
+      const unmasked = operation.scoreSoftcap === undefined ? dot * operation.scale : operation.scoreSoftcap * Math.tanh((dot * operation.scale) / operation.scoreSoftcap);
+      const score = unmasked + (mask ? mask.values[maskOffset(mask, b, h, q, k)]! : 0);
       scores[k] = score;
       max = Math.max(max, score);
     }
+    if (max === -Infinity) throw new Error(`${operation.id}: attentionMask excluiu todas as chaves da consulta ${q}.`);
     let total = 0;
     for (let k = firstKey; k <= lastKey; k += 1) { scores[k] = Math.exp(scores[k]! - max); total += scores[k]!; }
     for (let d = 0; d < headDim; d += 1) {
@@ -436,7 +477,7 @@ function rotaryF32(input: DenseF32Tensor, positions: number[][], operation: Extr
   return denseF32([...input.shape], result);
 }
 
-function attentionF32(query: DenseF32Tensor, key: DenseF32Tensor, valueTensor: DenseF32Tensor, operation: Extract<Operation, { op: "scaled_dot_product_attention" }>): DenseF32Tensor {
+function attentionF32(query: DenseF32Tensor, key: DenseF32Tensor, valueTensor: DenseF32Tensor, operation: Extract<Operation, { op: "scaled_dot_product_attention" }>, attentionMask?: DenseF32Tensor): DenseF32Tensor {
   if (query.shape.length !== 4 || key.shape.length !== 4 || valueTensor.shape.length !== 4) throw new Error(`${operation.id}: attention requer tensores BHSD.`);
   const [batch, queryHeads, querySequence, headDim] = query.shape as [number, number, number, number];
   const [keyBatch, keyHeads, keySequence, keyDim] = key.shape as [number, number, number, number];
@@ -445,6 +486,7 @@ function attentionF32(query: DenseF32Tensor, key: DenseF32Tensor, valueTensor: D
   const result = new Float32Array(batch * querySequence * queryHeads * headDim);
   const group = queryHeads / keyHeads;
   if (!Number.isInteger(group)) throw new Error(`${operation.id}: GQA inválida.`);
+  const mask = validateAttentionMask(attentionMask, batch, queryHeads, querySequence, keySequence, operation.id);
   const scale = f32(operation.scale);
   for (let b = 0; b < batch; b += 1) for (let h = 0; h < queryHeads; h += 1) for (let q = 0; q < querySequence; q += 1) {
     const kvHead = Math.floor(h / group);
@@ -456,10 +498,12 @@ function attentionF32(query: DenseF32Tensor, key: DenseF32Tensor, valueTensor: D
       let dot = f32(0);
       for (let d = 0; d < headDim; d += 1) dot = f32(dot + f32(query.values[((b * queryHeads + h) * querySequence + q) * headDim + d]! * key.values[((b * keyHeads + kvHead) * keySequence + k) * headDim + d]!));
       const scaled = f32(dot * scale);
-      const score = operation.scoreSoftcap === undefined ? scaled : f32(f32(operation.scoreSoftcap) * f32(Math.tanh(f32(scaled / f32(operation.scoreSoftcap)))));
+      const unmasked = operation.scoreSoftcap === undefined ? scaled : f32(f32(operation.scoreSoftcap) * f32(Math.tanh(f32(scaled / f32(operation.scoreSoftcap)))));
+      const score = f32(unmasked + (mask ? mask.values[maskOffset(mask, b, h, q, k)]! : 0));
       scores[k] = score;
       max = Math.max(max, score);
     }
+    if (max === -Infinity) throw new Error(`${operation.id}: attentionMask excluiu todas as chaves da consulta ${q}.`);
     let total = f32(0);
     for (let k = firstKey; k <= lastKey; k += 1) { scores[k] = f32(Math.exp(f32(scores[k]! - f32(max)))); total = f32(total + scores[k]!); }
     for (let d = 0; d < headDim; d += 1) {

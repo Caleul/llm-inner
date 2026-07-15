@@ -88,6 +88,46 @@ test("executor F64 rejects an attention softmax declared in another dtype", asyn
   );
 });
 
+test("executor F64 applies a canonical additive attention mask before softmax", async () => {
+  const { ir, weights } = await tinyLlama();
+  const unmasked = executeReferenceF64(ir, { inputIds: [[1, 0]], tensors: weights });
+  const attentionMask = dense([1, 1, 2, 2], [0, -Infinity, -Infinity, 0]);
+  const masked = executeReferenceF64(ir, { inputIds: [[1, 0]], attentionMask, tensors: weights });
+  const unmaskedContext = unmasked.values.get("layer_0_attention_context")!;
+  const maskedContext = masked.values.get("layer_0_attention_context")!;
+  assert.ok(unmaskedContext.values.slice(2, 4).every((value) => value !== 0));
+  assert.deepEqual([...maskedContext.values.slice(2, 4)], [0, 0]);
+});
+
+test("executors reject malformed or non-canonical additive attention masks", async () => {
+  const { ir, weights } = await tinyLlama();
+  const f32Weights = new Map<string, DenseF32Tensor>(
+    [...weights].map(([name, tensor]) => [name, { shape: [...tensor.shape], values: Float32Array.from(tensor.values) }]),
+  );
+  for (const operation of [...ir.prelude, ...ir.layers.flatMap((layer) => layer.operations), ...ir.epilogue]) {
+    operation.dtypePolicy = { ...f32Policy };
+    if (operation.op === "scaled_dot_product_attention") operation.softmaxComputeDtype = "F32";
+  }
+  const masked = executeReferenceF32(ir, {
+    inputIds: [[1, 0]],
+    attentionMask: { shape: [1, 1, 2, 2], values: Float32Array.from([0, -Infinity, -Infinity, 0]) },
+    tensors: f32Weights,
+  });
+  assert.deepEqual([...masked.values.get("layer_0_attention_context")!.values.slice(2, 4)], [0, 0]);
+  assert.throws(
+    () => executeReferenceF32(ir, { inputIds: [[1, 0]], attentionMask: { shape: [1, 2], values: new Float32Array(2) }, tensors: f32Weights }),
+    /attentionMask deve ter shape/,
+  );
+  assert.throws(
+    () => executeReferenceF32(ir, { inputIds: [[1, 0]], attentionMask: { shape: [1, 1, 2, 2], values: Float32Array.from([0, 0, NaN, 0]) }, tensors: f32Weights }),
+    /valores finitos ou -Infinity/,
+  );
+  assert.throws(
+    () => executeReferenceF32(ir, { inputIds: [[1, 0]], attentionMask: { shape: [1, 1, 2, 2], values: Float32Array.from([-Infinity, -Infinity, 0, -Infinity]) }, tensors: f32Weights }),
+    /excluiu todas as chaves/,
+  );
+});
+
 test("reader range-loads an on-disk F64 Safetensors fixture into executor logits", async () => {
   const { ir, weights } = await tinyLlama();
   const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-f64-"));

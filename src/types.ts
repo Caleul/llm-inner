@@ -214,6 +214,8 @@ export interface ReferenceExecutionRequest {
   inputIds: number[][];
   /** Optional absolute positions. When omitted, each sequence starts at zero. */
   positionIds?: number[][];
+  /** Canonical additive bias [batch, 1|heads, query, key]; -Infinity excludes a key. */
+  attentionMask?: DenseTensor;
   /** Dense F64 constants keyed by the tensor reference name in the IR. */
   tensors: ReadonlyMap<string, DenseTensor>;
 }
@@ -231,6 +233,8 @@ export interface ReferenceExecutionResult {
 export interface ReferenceF32ExecutionRequest {
   inputIds: number[][];
   positionIds?: number[][];
+  /** Canonical additive bias [batch, 1|heads, query, key]; -Infinity excludes a key. */
+  attentionMask?: DenseF32Tensor;
   tensors: ReadonlyMap<string, DenseF32Tensor>;
 }
 

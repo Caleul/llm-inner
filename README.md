@@ -112,6 +112,12 @@ rejeitado como semântica incompatível.
 
 A equivalência real deve ser confirmada por um validador diferencial: mesma entrada, mesmo dtype, comparação de embeddings, saída por camada, KV cache e logits contra Transformers/MLX/llama.cpp.
 
+Além da máscara causal/janela declarada pelo IR, o executor de referência pode
+receber uma máscara aditiva canônica `[batch, 1|heads, query, key]`. Zero
+preserva o score e `-Infinity` exclui a chave antes do softmax; valores finitos
+negativos representam viés aditivo. Sem máscara, a entrada é explicitamente
+sem padding. Shapes inválidos, `NaN` e `+Infinity` falham fechado.
+
 ## Executor de referência F64 (slice atual)
 
 `src/executor.ts` interpreta o subconjunto denso do IR de decoder (embedding,
