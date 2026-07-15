@@ -277,15 +277,17 @@ Qwen 3 cobre normas Q/K em BHSD e bias nas projeções. Outros IRs aparentemente
 um contrato e regressão independentes próprios.
 
 Há também um caminho separado e fechado para `llama` cujos pesos quantizados
-usam MLX `affine` U32 (bits 2/3/4/5/6/8, `group_size` 32 ou 64 validado, um único
-contrato no checkpoint e `scales`/`biases` no mesmo dtype F32, F16 ou BF16,
-com `biases` opcionais). O helper entrega os
+usam MLX `affine` U32 (bits 2/3/4/5/6/8 e `group_size` 32 ou 64 validados por
+matriz). O checkpoint pode ter overrides explícitos por módulo; a captura
+preserva a lista ordenada de cada contrato `bits/group_size/dtype` na
+proveniência, em vez de resumir a quantização como uma largura única. Cada
+matriz exige `scales` e `biases` opcionais no mesmo dtype F32, F16 ou BF16. O helper entrega os
 bytes U32, parâmetros e `bits/group_size/mode="affine"` diretamente a
 `mlx.core.dequantize(..., dtype=mlx.float32)` antes de executar os kernels; ele
 nunca chama o materializador nativo nem o bridge candidato. Modos MLX como
-`mxfp4`, `mxfp8` e `nvfp4`, parâmetros mistos, contratos por-módulo que mudam
-bits/grupo e adaptadores quantizados não-Llama continuam recusados até terem
-um contrato de captura e regressão próprios. Quando o formato não traz
+`mxfp4`, `mxfp8` e `nvfp4`, parâmetros mistos na mesma matriz e adaptadores
+quantizados não-Llama continuam recusados até terem um contrato de captura e
+regressão próprios. Quando o formato não traz
 `biases`, o helper passa uma matriz MLX F32 de zeros — a identidade explícita
 da fórmula afim — porque a API de dequantização exige esse argumento.
 
@@ -623,7 +625,11 @@ por range sem Python: exige `bits` em 2/3/4/5/6/8, packing exato de palavras
 U32, `group_size`, scales densas e biases compatíveis quando declaradas, e
 reconstrói `scale * code + bias` por grupo. O fluxo de códigos é contíguo por
 linha: códigos de 3, 5 e 6 bits que atravessam uma fronteira U32 são reunidos
-dos dois words, nunca truncados. Outros modos MLX usam
+dos dois words, nunca truncados. Quando os parâmetros affine são BF16, o
+leitor reproduz o arredondamento BF16 do resultado `scale*code+bias` antes do
+cast de saída F32 observado no kernel MLX; ampliar apenas os parâmetros para
+F32 mudaria pesos de códigos altos. Scales e biases com dtypes diferentes são
+rejeitados nessa rota nativa. Outros modos MLX usam
 `TensorBridge.readMlxDequantizedF32`, que repassa o contrato explícito a
 `mlx.core.dequantize`, verifica o shape de saída e devolve bytes F32 (não uma
 lista JSON de números), marcados com a proveniência completa da quantização.
@@ -637,9 +643,10 @@ MLX omitido também é rejeitado: `U32` + bit width não define um algoritmo.
 Uma regressão de execução completa também percorre o MLX `affine` nativo: um
 Llama de uma camada exercita grupos de 32 e 64 valores para todos os bits
 aceitos (2/3/4/5/6/8), incluindo os códigos que cruzam palavras U32 em 3, 5 e
-6 bits. O caso de 4 bits cobre biases F32 e, em uma captura separada, scales
-e biases F16; os demais exercitam a identidade de bias zero exigida pelo
-kernel quando o pacote não traz `.biases`. Um pacote
+6 bits. O caso de 4 bits cobre biases F32 e, em capturas separadas, scales e
+biases F16 e BF16; uma regressão de contratos mistos cobre raízes 4-bit/grupo
+32 F32 e overrides MLP 8-bit/grupo 64 BF16. Os demais exercitam a identidade
+de bias zero exigida pelo kernel quando o pacote não traz `.biases`. Um pacote
 Safetensors F32 separado calcula `scale[group] * code + bias[group]` sem usar
 o leitor candidato; seus outputs por operação, cache KV pós-RoPE, logits e dois
 passos greedy são a evidência consumida pelo pacote MLX. A comparação exige os

@@ -91,15 +91,23 @@ const MLX_CAPTURE_MODEL_TYPES = new Set(["llama", "mistral", "gemma", "gemma2", 
 interface MlxAffineCaptureSpec { bits: number; groupSize: number; parameterDtype: "F32" | "F16" | "BF16"; }
 
 /**
+ * A checkpoint may intentionally override MLX's root affine settings for
+ * individual modules. Capture provenance must retain every admitted contract:
+ * reducing this to one checkpoint-wide bit width or parameter dtype would
+ * make the reference trace describe a different storage program.
+ */
+interface MlxAffineCaptureStorage { contracts: readonly MlxAffineCaptureSpec[]; }
+
+/**
  * This is intentionally stricter than cataloging: MLX is the independent
  * backend only for affine U32 tensors whose exact dequantize invocation is
  * represented in the IR. Other MLX modes remain fail-closed here even if a
  * bridge supports them for candidate materialization.
  */
-function validateMlxCaptureStorage(tensors: Iterable<{ name: string; storageDtype: string; quantization?: { family: string; mode: string; bits?: number; groupSize?: number; scaleTensor?: string; biasTensor?: string } }>): MlxAffineCaptureSpec | undefined {
+function validateMlxCaptureStorage(tensors: Iterable<{ name: string; storageDtype: string; quantization?: { family: string; mode: string; bits?: number; groupSize?: number; scaleTensor?: string; biasTensor?: string } }>): MlxAffineCaptureStorage | undefined {
   const catalogued = new Map<string, { name: string; storageDtype: string; quantization?: { family: string; mode: string; bits?: number; groupSize?: number; scaleTensor?: string; biasTensor?: string } }>();
   for (const tensor of tensors) catalogued.set(tensor.name, tensor);
-  let affine: MlxAffineCaptureSpec | undefined;
+  const contracts = new Map<string, MlxAffineCaptureSpec>();
   const affineParameterNames = new Set<string>();
   for (const tensor of catalogued.values()) {
     if (!tensor.quantization) {
@@ -118,27 +126,42 @@ function validateMlxCaptureStorage(tensors: Iterable<{ name: string; storageDtyp
     affineParameterNames.add(q.scaleTensor);
     if (q.biasTensor) affineParameterNames.add(q.biasTensor);
     const current = { bits: q.bits!, groupSize: q.groupSize!, parameterDtype: scales.storageDtype as "F32" | "F16" | "BF16" };
-    if (affine && (affine.bits !== current.bits || affine.groupSize !== current.groupSize || affine.parameterDtype !== current.parameterDtype)) {
-      throw new Error(`${tensor.name}: MLX capture exige um único contrato affine bits/group_size por checkpoint; recebeu ${current.bits}/${current.groupSize} após ${affine.bits}/${affine.groupSize}.`);
-    }
-    affine = current;
+    contracts.set(affineContractKey(current), current);
   }
   for (const tensor of catalogued.values()) {
     if (!tensor.quantization && tensor.storageDtype !== "F32" && !affineParameterNames.has(tensor.name)) {
       throw new Error(`${tensor.name}: MLX capture requer tensor denso F32, peso MLX affine U32, ou parâmetro affine F16/BF16 declarado.`);
     }
   }
-  return affine;
+  return contracts.size === 0
+    ? undefined
+    : { contracts: [...contracts.values()].sort(compareAffineContracts) };
 }
 
-function mlxRuntime(modelType: string, affine: MlxAffineCaptureSpec | undefined): string {
+function mlxRuntime(modelType: string, affine: MlxAffineCaptureStorage | undefined): string {
   return affine
-    ? `MLX 0.32 affine-U32 ${affine.bits}-bit group-${affine.groupSize} ${affine.parameterDtype}-parameters ${modelType} independent IR-kernel capture`
+    ? `MLX 0.32 ${mlxAffineCaptureDescription(affine, "-", "affine-U32")} ${modelType} independent IR-kernel capture`
     : `MLX 0.32 dense-F32 ${modelType} independent IR-kernel capture`;
 }
 
-function mlxQuantizationLabel(affine: MlxAffineCaptureSpec | undefined): string {
-  return affine ? `MLX affine U32 ${affine.bits}-bit group_size=${affine.groupSize} ${affine.parameterDtype}-parameters` : "none";
+function mlxQuantizationLabel(affine: MlxAffineCaptureStorage | undefined): string {
+  return affine ? `MLX affine U32 ${mlxAffineCaptureDescription(affine, "_", "")}` : "none";
+}
+
+function mlxAffineCaptureDescription(storage: MlxAffineCaptureStorage, separator: "-" | "_", prefix: "affine-U32" | ""): string {
+  const groupLabel = separator === "-" ? "group-" : "group_size=";
+  const contracts = storage.contracts.map((contract) => `${contract.bits}-bit ${groupLabel}${contract.groupSize} ${contract.parameterDtype}-parameters`);
+  return contracts.length === 1
+    ? `${prefix}${prefix ? " " : ""}${contracts[0]}`
+    : `${prefix}${prefix ? " " : ""}mixed-contracts [${contracts.join("; ")}]`;
+}
+
+function affineContractKey(contract: MlxAffineCaptureSpec): string {
+  return `${contract.bits}/${contract.groupSize}/${contract.parameterDtype}`;
+}
+
+function compareAffineContracts(left: MlxAffineCaptureSpec, right: MlxAffineCaptureSpec): number {
+  return left.bits - right.bits || left.groupSize - right.groupSize || left.parameterDtype.localeCompare(right.parameterDtype);
 }
 
 async function checksums(source: string, tensors: Iterable<{ shard?: string }>): Promise<TraceSourceFile[]> {

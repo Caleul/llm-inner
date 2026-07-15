@@ -47,6 +47,7 @@ const F64_BYTES = 8;
 const F32_BYTES = 4;
 const F16_BYTES = 2;
 const U32_BYTES = 4;
+const BF16_ROUND_SCRATCH = new DataView(new ArrayBuffer(F32_BYTES));
 /** Safetensors defines a 100 MiB maximum header to prevent hostile allocations. */
 const MAX_HEADER_BYTES = 100 * 1024 * 1024;
 
@@ -297,9 +298,9 @@ export class SafetensorsCatalogReader {
     if (
       rows === undefined || packedWords === undefined || logicalRows !== rows || logicalColumns === undefined ||
       scaleRows !== rows || groups === undefined || groups * groupSize !== logicalColumns ||
-      (biases && (biases.logicalShape[0] !== rows || biases.logicalShape[1] !== groups))
+      (biases && (biases.logicalShape[0] !== rows || biases.logicalShape[1] !== groups || biases.storageDtype !== scales.storageDtype))
     ) {
-      throw new Error(`${tensor.name}: shapes MLX affine não coincidem entre U32, layout lógico e scales/biases.`);
+      throw new Error(`${tensor.name}: shapes ou dtypes MLX affine não coincidem entre U32, layout lógico e scales/biases.`);
     }
     const totalBits = logicalColumns * bits;
     if (!Number.isSafeInteger(totalBits) || totalBits % 32 !== 0 || packedWords !== totalBits / 32) {
@@ -328,7 +329,12 @@ export class SafetensorsCatalogReader {
           : ((word >>> shift) | (bytes.readUInt32LE((wordIndex + 1) * U32_BYTES) << (32 - shift))) & mask;
         const group = Math.floor(column / groupSize);
         const parameterIndex = row * groups + group;
-        values[row * logicalColumns + column] = Math.fround(Math.fround(scaleValues.values[parameterIndex]!) * code + (biasValues?.values[parameterIndex] ?? 0));
+        const affine = Math.fround(Math.fround(scaleValues.values[parameterIndex]!) * code + (biasValues?.values[parameterIndex] ?? 0));
+        // MLX's BF16 affine kernel rounds its fused scale*code+bias result to
+        // BF16 before the requested F32 output cast. Widening BF16 parameters
+        // and retaining F32 arithmetic here would materialize a different
+        // matrix for high codes even though the returned tensor is F32.
+        values[row * logicalColumns + column] = scales.storageDtype === "BF16" ? roundF32ToBF16(affine) : affine;
       }
     }
     return { shape: [...tensor.logicalShape], values, sourceQuantization: { ...quantization } };
@@ -606,4 +612,14 @@ function decodeF16(bits: number): number {
   if (exponent === 0) return sign * fraction * 2 ** -24;
   if (exponent === 0x1f) return fraction === 0 ? sign * Infinity : Number.NaN;
   return sign * (1 + fraction / 1024) * 2 ** (exponent - 15);
+}
+
+/** Round a binary32 result to BF16 (nearest, ties to even), then widen it back to binary32. */
+function roundF32ToBF16(value: number): number {
+  if (!Number.isFinite(value)) return value;
+  BF16_ROUND_SCRATCH.setFloat32(0, Math.fround(value), true);
+  const bits = BF16_ROUND_SCRATCH.getUint32(0, true);
+  const rounded = (bits + 0x7fff + ((bits >>> 16) & 1)) >>> 0;
+  BF16_ROUND_SCRATCH.setUint32(0, rounded & 0xffff0000, true);
+  return BF16_ROUND_SCRATCH.getFloat32(0, true);
 }

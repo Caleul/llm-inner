@@ -135,6 +135,41 @@ test("MLX kernel capture replays affine U32 Llama with BF16 scales and biases", 
   }
 });
 
+test("MLX kernel capture preserves mixed per-module affine contracts in operation and generation provenance", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-mlx-affine-mixed-contracts-"));
+  try {
+    const { quantizedSource } = await writeMlxMixedAffineTraceFixture(directory);
+    const python = path.resolve("venv/bin/python");
+    const executionTrace = path.join(directory, "mlx-affine-mixed-execution.json");
+    assert.equal(await captureMlxTrace({ source: quantizedSource, output: executionTrace, inputTokens: [1], python, model: "mlx-affine-llama-mixed", revisionOrChecksum: "mlx-affine-mixed-contracts-fixture-v1" }), "execution");
+    const execution = await runExecutionTraceComparison({ source: quantizedSource, trace: executionTrace, report: path.join(directory, "mlx-affine-mixed-execution-report.json"), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
+    assert.equal(execution.fidelityClass, "numerically-equivalent");
+    assert.equal(execution.reference.runtime, "MLX 0.32 affine-U32 mixed-contracts [4-bit group-32 F32-parameters; 8-bit group-64 BF16-parameters] llama independent IR-kernel capture");
+    assert.equal(execution.reference.quantization, "MLX affine U32 mixed-contracts [4-bit group_size=32 F32-parameters; 8-bit group_size=64 BF16-parameters]");
+
+    const generationTrace = path.join(directory, "mlx-affine-mixed-generation.json");
+    assert.equal(await captureMlxTrace({ source: quantizedSource, output: generationTrace, inputTokens: [1], maxNewTokens: 2, python, model: "mlx-affine-llama-mixed", revisionOrChecksum: "mlx-affine-mixed-contracts-fixture-v1" }), "generation");
+    const generation = await runGenerationTraceComparison({ source: quantizedSource, trace: generationTrace, report: path.join(directory, "mlx-affine-mixed-generation-report.json"), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
+    assert.equal(generation.fidelityClass, "numerically-equivalent");
+    assert.equal(generation.generatedTokenIds.length, 2);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("MLX kernel capture rejects an affine matrix whose scale and bias dtypes differ", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-mlx-affine-mixed-dtype-"));
+  try {
+    const { quantizedSource } = await writeMlxMixedAffineTraceFixture(directory, true);
+    await assert.rejects(
+      () => captureMlxTrace({ source: quantizedSource, output: path.join(directory, "invalid.json"), inputTokens: [1], python: path.resolve("venv/bin/python"), model: "mlx-affine-llama-invalid", revisionOrChecksum: "mlx-affine-mixed-dtype-fixture-v1" }),
+      /scales e biases opcionais no mesmo dtype F32, F16 ou BF16/,
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("MLX kernel capture covers every declared affine bit width and the no-bias identity", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-mlx-affine-bit-widths-"));
   try {
@@ -1812,6 +1847,71 @@ async function writeMlxAffineTraceFixture(root: string, groupSize = 32, bits = 4
   };
   await writeFile(path.join(denseSource, "config.json"), JSON.stringify(config));
   await writeFile(path.join(quantizedSource, "config.json"), JSON.stringify({ ...config, quantization: { bits, group_size: groupSize, mode: "affine" } }));
+  await writeSafetensorsFixture(path.join(denseSource, "model.safetensors"), denseTensors);
+  await writeSafetensorsFixture(path.join(quantizedSource, "model.safetensors"), mlxTensors);
+  return { denseSource, quantizedSource };
+}
+
+/**
+ * The root contract and the MLP overrides intentionally differ. This mirrors
+ * a real MLX config shape: a checkpoint-level default is not evidence that
+ * every U32 matrix has the same packing or affine parameter dtype.
+ */
+async function writeMlxMixedAffineTraceFixture(root: string, mismatchAffineParameterDtype = false): Promise<{ denseSource: string; quantizedSource: string }> {
+  const denseSource = path.join(root, "dense");
+  const quantizedSource = path.join(root, "mlx-affine-mixed");
+  await mkdir(denseSource);
+  await mkdir(quantizedSource);
+  const width = 64;
+  const matrixNames = [
+    "model.embed_tokens.weight", "model.layers.0.self_attn.q_proj.weight", "model.layers.0.self_attn.k_proj.weight",
+    "model.layers.0.self_attn.v_proj.weight", "model.layers.0.self_attn.o_proj.weight", "model.layers.0.mlp.gate_proj.weight",
+    "model.layers.0.mlp.up_proj.weight", "model.layers.0.mlp.down_proj.weight", "lm_head.weight",
+  ];
+  const overriddenModules = new Set([
+    "model.layers.0.mlp.gate_proj", "model.layers.0.mlp.up_proj", "model.layers.0.mlp.down_proj",
+  ]);
+  const denseTensors: Array<[string, "F32", number[], number[]]> = [];
+  const mlxTensors: Array<[string, "F32" | "F16" | "BF16" | "U32", number[], number[]]> = [];
+  for (const [matrixIndex, name] of matrixNames.entries()) {
+    const module = name.slice(0, -".weight".length);
+    const overridden = overriddenModules.has(module);
+    const bits = overridden ? 8 : 4;
+    const groupSize = overridden ? 64 : 32;
+    const parameterDtype = overridden ? "BF16" : "F32";
+    const biasDtype = mismatchAffineParameterDtype && module === "model.layers.0.mlp.gate_proj" ? "F32" : parameterDtype;
+    const groups = width / groupSize;
+    const scales = Array.from({ length: width * groups }, (_, index) => Math.fround(0.03125 * (1 + ((index + matrixIndex) % 4))));
+    const biases = Array.from({ length: width * groups }, (_, index) => Math.fround(-0.25 + 0.0625 * ((index + matrixIndex) % 5)));
+    const codeMask = (1 << bits) - 1;
+    const codes = Array.from({ length: width * width }, (_, index) => (index * 7 + matrixIndex * 3 + Math.floor(index / width)) & codeMask);
+    const denseValues = codes.map((code, index) => {
+      const parameter = Math.floor(index / width) * groups + Math.floor((index % width) / groupSize);
+      return Math.fround(Math.fround(scales[parameter]! * code) + biases[parameter]!);
+    });
+    denseTensors.push([name, "F32", [width, width], denseValues]);
+    mlxTensors.push(
+      [name, "U32", [width, width * bits / 32], packMlxAffineCodes(codes, width, width, bits)],
+      [`${module}.scales`, parameterDtype, [width, groups], scales],
+      [`${module}.biases`, biasDtype, [width, groups], biases],
+    );
+  }
+  for (const name of ["model.layers.0.input_layernorm.weight", "model.layers.0.post_attention_layernorm.weight", "model.norm.weight"]) {
+    denseTensors.push([name, "F32", [width], new Array<number>(width).fill(1)]);
+    mlxTensors.push([name, "F32", [width], new Array<number>(width).fill(1)]);
+  }
+  const config = {
+    model_type: "llama", hidden_size: width, intermediate_size: width, num_hidden_layers: 1, num_attention_heads: 1,
+    num_key_value_heads: 1, head_dim: width, vocab_size: width, rms_norm_eps: 1e-6, hidden_act: "silu",
+  };
+  const quantization = {
+    bits: 4,
+    group_size: 32,
+    mode: "affine",
+    ...Object.fromEntries([...overriddenModules].map((module) => [module, { bits: 8, group_size: 64 }])),
+  };
+  await writeFile(path.join(denseSource, "config.json"), JSON.stringify(config));
+  await writeFile(path.join(quantizedSource, "config.json"), JSON.stringify({ ...config, quantization }));
   await writeSafetensorsFixture(path.join(denseSource, "model.safetensors"), denseTensors);
   await writeSafetensorsFixture(path.join(quantizedSource, "model.safetensors"), mlxTensors);
   return { denseSource, quantizedSource };
