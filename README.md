@@ -46,6 +46,10 @@ A leitura numérica é delegada ao runtime de referência:
   A reconstrução de cada elemento é `F32[i] = d * qs[i]`; `s` faz parte do
   layout de bloco para kernels de produto interno, mas não é escala ou offset
   por elemento. A proveniência preservada é `gguf/q8_1`.
+- `GGML_TYPE_BF16` é armazenamento denso escalar, não uma quantização: cada
+  elemento é o `bfloat16` IEEE-754 little-endian formado pelos 16 bits mais
+  significativos de um `float32`; o leitor os amplia para F32 sem alterar
+  subnormais, infinitos ou NaNs.
   Os demais tipos GGML quantizados continuam rejeitados até cada layout ter um
   decodificador local verificado; o catálogo nunca trata um `GGML_TYPE_Q*` como
   um F32 genérico.
@@ -195,8 +199,8 @@ entre o catálogo e o executor F32: reúne todos os `TensorRef` do IR, confirma
 nome, shape, dtype e contrato de quantização contra o catálogo de origem e
 materializa cada constante uma única vez. Safetensors densos usam o leitor de
 intervalos F32/F16/BF16; MLX quantizado exige explicitamente o bridge com
-`mlx.core.dequantize` e preserva a proveniência. GGUF denso F32/F16 usa o seu
-próprio leitor de intervalos. Os únicos tipos GGML empacotados materializáveis
+`mlx.core.dequantize` e preserva a proveniência. GGUF denso F32/F16/BF16 usa o
+seu próprio leitor de intervalos. Os únicos tipos GGML empacotados materializáveis
 hoje são `Q4_0`, sob o contrato exato de bloco de 18 bytes (`F16` scale + 16
 nibbles, baixo `q[0..15]`, alto `q[16..31]`, código centrado por `-8`), `Q4_1`,
 sob o contrato distinto de 20 bytes (`F16` scale, `F16` minimum e 16 nibbles,
@@ -211,7 +215,7 @@ reinterpretados como F32 até existir um decodificador por tipo verificado.
 
 `GgufCatalogReader` em `src/gguf.ts` não depende de `gguf-py`: valida magic,
 versão v2/v3, contagens seguras, metadata tipada (incluindo arrays), diretório,
-alinhamento e intervalos de payload. Hoje expõe armazenamento GGML F32/F16 e os
+alinhamento e intervalos de payload. Hoje expõe armazenamento GGML F32/F16/BF16 e os
 contratos quantizados explícitos Q4_0, Q4_1, Q5_0, Q5_1, Q8_0 e Q8_1 de tamanho verificável, mantendo as dimensões
 na ordem declarada pelo GGML; qualquer outro encoding empacotado é rejeitado com
 seu tipo GGML até haver contrato de layout e dequantização específico. A leitura do catálogo não inventa papéis de

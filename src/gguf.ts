@@ -33,7 +33,7 @@ interface DirectoryTensor {
 
 /**
  * Native, read-only GGUF v2/v3 catalog reader. It deliberately recognizes
- * only dense F32/F16 and the explicitly specified Q4_0/Q4_1/Q5_0/Q5_1/Q8_0/Q8_1 block payloads. A
+ * only dense F32/F16/BF16 and the explicitly specified Q4_0/Q4_1/Q5_0/Q5_1/Q8_0/Q8_1 block payloads. A
  * GGML type number is not enough to safely dequantize a packed tensor:
  * unsupported encodings fail while the directory is still being validated
  * rather than being mislabeled as dense.
@@ -152,7 +152,7 @@ export class GgufCatalogReader {
     };
   }
 
-  /** Materializes only verified GGML dense F32/F16 or Q4_0/Q4_1/Q5_0/Q5_1/Q8_0/Q8_1 intervals into F32 values. */
+  /** Materializes only verified GGML dense F32/F16/BF16 or Q4_0/Q4_1/Q5_0/Q5_1/Q8_0/Q8_1 intervals into F32 values. */
   async readDenseAsF32(tensor: TensorInfo): Promise<DenseF32Tensor> {
     const q4 = isGgufQ4_0(tensor);
     const q41 = isGgufQ4_1(tensor);
@@ -160,8 +160,8 @@ export class GgufCatalogReader {
     const q51 = isGgufQ5_1(tensor);
     const q8 = isGgufQ8_0(tensor);
     const q81 = isGgufQ8_1(tensor);
-    if (!q4 && !q41 && !q5 && !q51 && !q8 && !q81 && (tensor.quantization || (tensor.storageDtype !== "F32" && tensor.storageDtype !== "F16"))) {
-      throw new Error(`${tensor.name}: materialização GGUF F32 requer storage GGML F32/F16 denso ou Q4_0/Q4_1/Q5_0/Q5_1/Q8_0/Q8_1 verificado.`);
+    if (!q4 && !q41 && !q5 && !q51 && !q8 && !q81 && (tensor.quantization || (tensor.storageDtype !== "F32" && tensor.storageDtype !== "F16" && tensor.storageDtype !== "BF16"))) {
+      throw new Error(`${tensor.name}: materialização GGUF F32 requer storage GGML F32/F16/BF16 denso ou Q4_0/Q4_1/Q5_0/Q5_1/Q8_0/Q8_1 verificado.`);
     }
     if (tensor.shard !== this.#source || tensor.byteOffset === undefined || tensor.byteLength === undefined) {
       throw new Error(`${tensor.name}: referência de intervalo GGUF não pertence a este leitor.`);
@@ -256,8 +256,10 @@ export class GgufCatalogReader {
       }
     } else if (tensor.storageDtype === "F32") {
       for (let index = 0; index < elements; index += 1) values[index] = bytes.readFloatLE(index * 4);
-    } else {
+    } else if (tensor.storageDtype === "F16") {
       for (let index = 0; index < elements; index += 1) values[index] = decodeF16(bytes.readUInt16LE(index * 2));
+    } else {
+      for (let index = 0; index < elements; index += 1) values[index] = decodeBF16(bytes.readUInt16LE(index * 2));
     }
     return { shape: [...tensor.logicalShape], values, ...((q4 || q41 || q5 || q51 || q8 || q81) ? { sourceQuantization: { ...tensor.quantization! } } : {}) };
   }
@@ -364,6 +366,7 @@ const GGML_Q5_1_BLOCK_BYTES = 24; // ggml_half d, ggml_half m, 4-byte high-bit p
 function storageForGgmlType(type: number, name: string): GgmlStorage {
   if (type === 0) return { dtype: "F32", byteLength: (dimensions) => product([...dimensions]) * 4 }; // GGML_TYPE_F32
   if (type === 1) return { dtype: "F16", byteLength: (dimensions) => product([...dimensions]) * 2 }; // GGML_TYPE_F16
+  if (type === 25) return { dtype: "BF16", byteLength: (dimensions) => product([...dimensions]) * 2 }; // GGML_TYPE_BF16
   if (type === 2) {
     return {
       dtype: "GGML_Q4_0",
@@ -532,4 +535,12 @@ function decodeF16(bits: number): number {
   if (exponent === 0) return sign * fraction * 2 ** -24;
   if (exponent === 0x1f) return fraction === 0 ? sign * Infinity : Number.NaN;
   return sign * (1 + fraction / 1024) * 2 ** (exponent - 15);
+}
+
+const BF16_SCRATCH = new DataView(new ArrayBuffer(4));
+
+/** GGML BF16 stores the most-significant 16 IEEE-754 binary32 bits little-endian. */
+function decodeBF16(bits: number): number {
+  BF16_SCRATCH.setUint32(0, bits << 16, true);
+  return BF16_SCRATCH.getFloat32(0, true);
 }
