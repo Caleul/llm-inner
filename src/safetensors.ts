@@ -1,0 +1,311 @@
+import { open, readFile, readdir, stat } from "node:fs/promises";
+import * as path from "node:path";
+import type { FileHandle } from "node:fs/promises";
+import type {
+  JsonObject,
+  ModelCatalog,
+  QuantizationSpec,
+  TensorInfo,
+} from "./types.js";
+import { asObject, product } from "./utils.js";
+
+interface SafeTensorHeaderEntry {
+  dtype: string;
+  shape: number[];
+  data_offsets: [number, number];
+}
+
+interface ParsedShard {
+  file: string;
+  headerLength: number;
+  tensors: Map<string, SafeTensorHeaderEntry>;
+}
+
+interface WeightIndex {
+  weight_map: Record<string, string>;
+}
+
+const DTYPE_BYTES: Record<string, number> = {
+  BOOL: 1,
+  U8: 1,
+  I8: 1,
+  U16: 2,
+  I16: 2,
+  F16: 2,
+  BF16: 2,
+  U32: 4,
+  I32: 4,
+  F32: 4,
+  U64: 8,
+  I64: 8,
+  F64: 8,
+};
+
+export class SafetensorsCatalogReader {
+  readonly #sourceDir: string;
+  readonly #handles = new Map<string, FileHandle>();
+
+  constructor(sourceDir: string) {
+    this.#sourceDir = sourceDir;
+  }
+
+  async close(): Promise<void> {
+    await Promise.all([...this.#handles.values()].map((handle) => handle.close()));
+    this.#handles.clear();
+  }
+
+  async inspect(): Promise<ModelCatalog> {
+    const sourceStat = await stat(this.#sourceDir);
+    if (!sourceStat.isDirectory()) {
+      throw new Error(`Esperado diretório de modelo, recebido: ${this.#sourceDir}`);
+    }
+
+    const config = await this.#readConfig();
+    const files = await readdir(this.#sourceDir);
+    const indexName = files.find((file) => file.endsWith(".safetensors.index.json"));
+
+    let weightMap: Record<string, string>;
+    if (indexName) {
+      const raw = JSON.parse(await readFile(path.join(this.#sourceDir, indexName), "utf8")) as unknown;
+      const index = asObject(raw, indexName) as unknown as WeightIndex;
+      if (!index.weight_map || typeof index.weight_map !== "object") {
+        throw new Error(`${indexName} não possui weight_map válido.`);
+      }
+      weightMap = index.weight_map;
+    } else {
+      const shards = files.filter((file) => file.endsWith(".safetensors"));
+      if (shards.length === 0) throw new Error("Nenhum .safetensors encontrado.");
+      weightMap = {};
+      for (const shard of shards) {
+        const parsed = await this.#parseShard(shard);
+        for (const name of parsed.tensors.keys()) {
+          if (weightMap[name]) {
+            throw new Error(`Tensor duplicado ${name} em shards sem index.`);
+          }
+          weightMap[name] = shard;
+        }
+      }
+    }
+
+    const parsedByShard = new Map<string, ParsedShard>();
+    for (const shard of new Set(Object.values(weightMap))) {
+      parsedByShard.set(shard, await this.#parseShard(shard));
+    }
+
+    const tensors = new Map<string, TensorInfo>();
+    const quantizationRoot = this.#quantizationRoot(config);
+
+    for (const [name, shard] of Object.entries(weightMap)) {
+      const parsed = parsedByShard.get(shard);
+      const entry = parsed?.tensors.get(name);
+      if (!parsed || !entry) {
+        throw new Error(`Index aponta ${name} para ${shard}, mas o cabeçalho não contém o tensor.`);
+      }
+
+      this.#validateDenseStorage(name, entry, quantizationRoot);
+      const quantization = this.#quantizationForTensor(name, config, tensors, entry);
+      const logicalShape = this.#logicalShape(entry, quantization);
+      const [start, end] = entry.data_offsets;
+
+      tensors.set(name, {
+        name,
+        storageDtype: entry.dtype,
+        storageShape: [...entry.shape],
+        logicalShape,
+        byteOffset: 8 + parsed.headerLength + start,
+        byteLength: end - start,
+        shard,
+        ...(quantization ? { quantization } : {}),
+      });
+    }
+
+    // Segunda passagem: agora scales/biases já estão catalogados. Além de ligar
+    // a especificação, derivamos a dimensão lógica a partir de
+    // groups * group_size, não apenas da capacidade dos U32 empacotados.
+    // Isso evita expor colunas de padding como pesos reais.
+    let hasMlxQuantization = false;
+    for (const tensor of tensors.values()) {
+      if (!tensor.name.endsWith(".weight")) continue;
+      const q = this.#quantizationForTensor(tensor.name, config, tensors);
+      if (!q) continue;
+      tensor.quantization = q;
+      hasMlxQuantization = true;
+
+      const scale = q.scaleTensor ? tensors.get(q.scaleTensor) : undefined;
+      if (
+        tensor.storageShape.length === 2 &&
+        scale &&
+        scale.logicalShape.length >= 2 &&
+        q.groupSize !== undefined &&
+        q.bits !== undefined
+      ) {
+        const rows = tensor.storageShape[0];
+        const groups = scale.logicalShape.at(-1);
+        const packedWords = tensor.storageShape[1];
+        if (rows === undefined || groups === undefined || packedWords === undefined) {
+          throw new Error(`Shape quantizado incompleto em ${tensor.name}.`);
+        }
+        const logicalColumns = groups * q.groupSize;
+        const packedCapacity = Math.floor((packedWords * 32) / q.bits);
+        if (logicalColumns > packedCapacity) {
+          throw new Error(
+            `${tensor.name}: scales indicam ${logicalColumns} colunas, ` +
+              `mas o armazenamento comporta apenas ${packedCapacity}.`,
+          );
+        }
+        tensor.logicalShape = [rows, logicalColumns];
+      }
+    }
+
+    const format = hasMlxQuantization ? "mlx-safetensors" : "safetensors";
+    return {
+      source: this.#sourceDir,
+      format,
+      config,
+      rawMetadata: {},
+      tensors,
+    };
+  }
+
+  async #readConfig(): Promise<JsonObject> {
+    const configPath = path.join(this.#sourceDir, "config.json");
+    try {
+      return asObject(JSON.parse(await readFile(configPath, "utf8")) as unknown, "config.json");
+    } catch (error) {
+      throw new Error(
+        `config.json é obrigatório para inferir a semântica do modelo: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  async #getHandle(file: string): Promise<FileHandle> {
+    const existing = this.#handles.get(file);
+    if (existing) return existing;
+    const handle = await open(path.join(this.#sourceDir, file), "r");
+    this.#handles.set(file, handle);
+    return handle;
+  }
+
+  async #readExactly(handle: FileHandle, buffer: Buffer, position: number): Promise<void> {
+    let offset = 0;
+    while (offset < buffer.length) {
+      const result = await handle.read(buffer, offset, buffer.length - offset, position + offset);
+      if (result.bytesRead === 0) throw new Error("EOF inesperado lendo Safetensors.");
+      offset += result.bytesRead;
+    }
+  }
+
+  async #parseShard(file: string): Promise<ParsedShard> {
+    const handle = await this.#getHandle(file);
+    const lengthBuffer = Buffer.allocUnsafe(8);
+    await this.#readExactly(handle, lengthBuffer, 0);
+    const headerLengthBig = lengthBuffer.readBigUInt64LE(0);
+    if (headerLengthBig > BigInt(Number.MAX_SAFE_INTEGER)) {
+      throw new Error(`Cabeçalho de ${file} excede Number.MAX_SAFE_INTEGER.`);
+    }
+    const headerLength = Number(headerLengthBig);
+    const headerBuffer = Buffer.allocUnsafe(headerLength);
+    await this.#readExactly(handle, headerBuffer, 8);
+    const rawHeader = asObject(JSON.parse(headerBuffer.toString("utf8")) as unknown, `header ${file}`);
+    const tensors = new Map<string, SafeTensorHeaderEntry>();
+
+    for (const [name, value] of Object.entries(rawHeader)) {
+      if (name === "__metadata__") continue;
+      const entry = asObject(value, `tensor ${name}`);
+      const dtype = entry.dtype;
+      const shape = entry.shape;
+      const offsets = entry.data_offsets;
+      if (
+        typeof dtype !== "string" ||
+        !Array.isArray(shape) ||
+        !shape.every((dim) => Number.isInteger(dim) && dim >= 0) ||
+        !Array.isArray(offsets) ||
+        offsets.length !== 2 ||
+        !offsets.every((offset) => Number.isInteger(offset) && offset >= 0)
+      ) {
+        throw new Error(`Metadados inválidos para ${name} em ${file}.`);
+      }
+      tensors.set(name, {
+        dtype,
+        shape: shape as number[],
+        data_offsets: offsets as [number, number],
+      });
+    }
+
+    return { file, headerLength, tensors };
+  }
+
+  #quantizationRoot(config: JsonObject): JsonObject | undefined {
+    const value = config.quantization ?? config.quantization_config;
+    if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
+    return value as JsonObject;
+  }
+
+  #quantizationForTensor(
+    tensorName: string,
+    config: JsonObject,
+    knownTensors?: Map<string, TensorInfo>,
+    entry?: SafeTensorHeaderEntry,
+  ): QuantizationSpec | undefined {
+    if (!tensorName.endsWith(".weight")) return undefined;
+    const root = this.#quantizationRoot(config);
+    if (!root) return undefined;
+    const moduleName = tensorName.slice(0, -".weight".length);
+    const overrideRaw = root[moduleName];
+    if (overrideRaw === false) return undefined;
+    const override =
+      typeof overrideRaw === "object" && overrideRaw !== null && !Array.isArray(overrideRaw)
+        ? (overrideRaw as JsonObject)
+        : {};
+
+    const bitsValue = override.bits ?? root.bits;
+    const groupSizeValue = override.group_size ?? root.group_size;
+    const modeValue = override.mode ?? root.mode ?? "affine";
+    if (typeof bitsValue !== "number" || typeof groupSizeValue !== "number" || typeof modeValue !== "string") {
+      return undefined;
+    }
+
+    const scaleTensor = `${moduleName}.scales`;
+    const biasTensor = `${moduleName}.biases`;
+    const globalScaleTensor = `${moduleName}.global_scale`;
+    const hasKnown = (name: string): boolean => knownTensors?.has(name) ?? false;
+    const storageDtype = entry?.dtype ?? knownTensors?.get(tensorName)?.storageDtype;
+
+    // Pesos MLX quantizados são normalmente U32. Não inferimos quantização apenas pelo dtype;
+    // o config é a fonte de verdade e os tensores auxiliares confirmam o layout.
+    if (storageDtype && storageDtype !== "U32" && !hasKnown(scaleTensor)) return undefined;
+
+    return {
+      family: "mlx",
+      mode: modeValue,
+      bits: bitsValue,
+      groupSize: groupSizeValue,
+      ...(hasKnown(scaleTensor) ? { scaleTensor } : {}),
+      ...(hasKnown(biasTensor) ? { biasTensor } : {}),
+      ...(hasKnown(globalScaleTensor) ? { globalScaleTensor } : {}),
+    };
+  }
+
+  #logicalShape(entry: SafeTensorHeaderEntry, quantization?: QuantizationSpec): number[] {
+    if (!quantization || entry.shape.length !== 2 || !quantization.bits) return [...entry.shape];
+    const [rows, packedWords] = entry.shape;
+    if (rows === undefined || packedWords === undefined) return [...entry.shape];
+    const logicalColumns = Math.floor((packedWords * 32) / quantization.bits);
+    return [rows, logicalColumns];
+  }
+
+  #validateDenseStorage(
+    name: string,
+    entry: SafeTensorHeaderEntry,
+    quantizationRoot: JsonObject | undefined,
+  ): void {
+    const bytes = entry.data_offsets[1] - entry.data_offsets[0];
+    if (quantizationRoot && name.endsWith(".weight") && entry.dtype === "U32") return;
+    const elementBytes = DTYPE_BYTES[entry.dtype];
+    if (!elementBytes) return; // Dtypes novos são preservados e tratados pelo backend de referência.
+    const expected = product(entry.shape) * elementBytes;
+    if (expected !== bytes) {
+      throw new Error(`Tensor ${name}: ${bytes} bytes, mas shape/dtype indicam ${expected}.`);
+    }
+  }
+}

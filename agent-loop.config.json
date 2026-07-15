@@ -1,0 +1,92 @@
+{
+  "$schema": "./schemas/agent-loop-config.schema.json",
+  "version": 1,
+  "enabled": true,
+  "maxLoops": 20,
+  "maxConsecutiveFailures": 3,
+  "maxLoopDurationMinutes": 180,
+  "cooldownSeconds": 10,
+  "handoffDirectory": ".agent-loop/handoffs/completed",
+  "processingDirectory": ".agent-loop/handoffs/processing",
+  "rejectedDirectory": ".agent-loop/handoffs/rejected",
+  "runsDirectory": ".agent-loop/runs",
+  "stateFile": ".agent-loop/state.json",
+  "lockFile": ".agent-loop/lock.json",
+  "stopFile": ".agent-loop/STOP",
+  "promptFile": ".agent-loop/prompts/master-prompt.md",
+  "handoffPattern": "^HANDOFF-(\\d{4,})-(\\d{8}T\\d{6}Z)-[a-z0-9-]+\\.json$",
+  "requireCleanGitBeforeNextLoop": true,
+  "requireNewCommitPerLoop": true,
+  "requireHandoffValidation": true,
+  "trigger": {
+    "type": "filesystem",
+    "event": "atomic-rename",
+    "debounceMilliseconds": 1500
+  },
+  "validationCommands": [
+    "npm run typecheck",
+    "npm test"
+  ],
+  "missionGates": [
+    {
+      "id": "container-abstraction",
+      "description": "Safetensors, MLX and GGUF are isolated behind strict container interfaces",
+      "required": true
+    },
+    {
+      "id": "quantization-abstraction",
+      "description": "Quantization is represented by exact schemes rather than bit-width assumptions",
+      "required": true
+    },
+    {
+      "id": "architecture-adapters",
+      "description": "Architectures are reconstructed through explicit validated adapters",
+      "required": true
+    },
+    {
+      "id": "fail-closed",
+      "description": "Unknown semantics are rejected rather than approximated",
+      "required": true
+    },
+    {
+      "id": "full-dimensional-ir",
+      "description": "Preview limits never truncate mathematical dimensions",
+      "required": true
+    },
+    {
+      "id": "reference-executor",
+      "description": "The generated IR has a reproducible reference executor",
+      "required": true
+    },
+    {
+      "id": "operation-differential-validation",
+      "description": "Intermediate operations can be compared with an authoritative runtime",
+      "required": true
+    },
+    {
+      "id": "multi-architecture-validation",
+      "description": "At least three materially different model families pass differential validation",
+      "required": true
+    },
+    {
+      "id": "multi-container-validation",
+      "description": "Equivalent models are validated across at least Safetensors, MLX and GGUF",
+      "required": true
+    },
+    {
+      "id": "dense-and-quantized-validation",
+      "description": "Dense and multiple quantized representations are validated",
+      "required": true
+    },
+    {
+      "id": "generation-validation",
+      "description": "KV cache, logits and greedy generation are validated end-to-end",
+      "required": true
+    },
+    {
+      "id": "performance-report",
+      "description": "Parsing, memory, IR generation and execution performance are measured",
+      "required": true
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+node_modules/
+venv/
+dist/
+gemma-4-E4B-it-MLX-4bit/
+.DS_Store
+
+# Runtime-owned loop state. The contract and prompt are versioned; a run's
+# state, locks, logs and handoffs are intentionally external to its commit.
+.agent-loop/state.json
+.agent-loop/lock.json
+.agent-loop/STOP
+.agent-loop/runs/
+.agent-loop/handoffs/
