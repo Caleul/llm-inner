@@ -65,6 +65,10 @@ A leitura numérica é delegada ao runtime de referência:
   A reconstrução de cada elemento é `F32[i] = d * qs[i]`; `s` faz parte do
   layout de bloco para kernels de produto interno, mas não é escala ou offset
   por elemento. A proveniência preservada é `gguf/q8_1`.
+- `GGML_TYPE_Q8_K` tem um contrato local estrito de 260 bytes por bloco de 256
+  valores: uma escala `float32 d` little-endian seguida por 256 códigos `int8`
+  assinados, materializando `F32[i] = d * qs[i]`. Ele não possui o `F16 d` de
+  `Q8_0` nem o campo auxiliar `s` de `Q8_1`; a proveniência é `gguf/q8_k`.
 - `GGML_TYPE_BF16` é armazenamento denso escalar, não uma quantização: cada
   elemento é o `bfloat16` IEEE-754 little-endian formado pelos 16 bits mais
   significativos de um `float32`; o leitor os amplia para F32 sem alterar
@@ -234,16 +238,17 @@ escalas/mínimos, `qh[32]` e 128 bytes de códigos baixos; `d*scale*q -
 dmin*minimum`), `Q6_K`, sob o contrato
 de 210 bytes por grupo de 256 (`ql[128]`, `qh[64]`, 16 escalas `int8` por 16
 valores e `F16 d` final, com código de seis bits centrado por `-32`), `Q8_0`, sob o contrato
-de 34 bytes (`F16` scale + 32 `int8`), e `Q8_1`, sob o contrato distinto de
-40 bytes (`F32 d`, `F32 s=d*sum(qs)` e 32 `int8`, reconstruídos por `d*q`).
-Q4_K, Q5_K e Q6_K exigem que a primeira dimensão GGML seja múltipla de 256; os demais acima
+de 34 bytes (`F16` scale + 32 `int8`), `Q8_1`, sob o contrato distinto de
+40 bytes (`F32 d`, `F32 s=d*sum(qs)` e 32 `int8`, reconstruídos por `d*q`), e
+`Q8_K`, sob o contrato de 260 bytes por grupo de 256 (`F32 d` e 256 `int8`,
+reconstruídos por `d*q`). Q4_K, Q5_K, Q6_K e Q8_K exigem que a primeira dimensão GGML seja múltipla de 256; os demais acima
 exigem múltiplos de 32. Os demais não são
 reinterpretados como F32 até existir um decodificador por tipo verificado.
 
 `GgufCatalogReader` em `src/gguf.ts` não depende de `gguf-py`: valida magic,
 versão v2/v3, contagens seguras, metadata tipada (incluindo arrays), diretório,
 alinhamento e intervalos de payload. Hoje expõe armazenamento GGML F32/F16/BF16 e os
-contratos quantizados explícitos Q4_0, Q4_1, Q4_K, Q5_0, Q5_1, Q5_K, Q6_K, Q8_0 e Q8_1 de tamanho verificável, mantendo as dimensões
+contratos quantizados explícitos Q4_0, Q4_1, Q4_K, Q5_0, Q5_1, Q5_K, Q6_K, Q8_0, Q8_1 e Q8_K de tamanho verificável, mantendo as dimensões
 na ordem declarada pelo GGML; qualquer outro encoding empacotado é rejeitado com
 seu tipo GGML até haver contrato de layout e dequantização específico. A leitura do catálogo não inventa papéis de
 tensor nem uma convenção de layout de arquitetura. A exceção executável atual
