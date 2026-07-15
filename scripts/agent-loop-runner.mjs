@@ -153,7 +153,12 @@ async function runCodex(config, prompt, runId, sequence) {
   const args = [
     "exec",
     "-C", root,
-    "--sandbox", "workspace-write",
+    // A completed loop must create a local Git commit. workspace-write
+    // deliberately excludes .git, which makes the required index.lock write
+    // fail after otherwise valid work. The runner is the explicit trusted
+    // boundary that starts this autonomous process, so grant the minimum
+    // available mode that includes the repository metadata as well.
+    "--sandbox", "danger-full-access",
     "--color", "never",
     "--output-last-message", outputPath,
     "-",
