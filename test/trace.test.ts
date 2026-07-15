@@ -91,6 +91,39 @@ test("MLX kernel capture independently executes affine U32 Llama group_size 64",
   }
 });
 
+test("MLX kernel capture covers every declared affine bit width and the no-bias identity", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-mlx-affine-bit-widths-"));
+  try {
+    const python = path.resolve("venv/bin/python");
+    // Four-bit groups are covered above with explicit biases. These cases
+    // exercise the remaining accepted bit widths for both proven group sizes,
+    // including U32-boundary crossings at 3, 5, and 6 bits, and the explicit
+    // zero-bias identity required by MLX when storage has no bias tensor.
+    for (const bits of [2, 3, 5, 6, 8]) {
+      for (const groupSize of [32, 64]) {
+        const caseDirectory = path.join(directory, `bits-${bits}-group-${groupSize}`);
+        await mkdir(caseDirectory);
+        const { quantizedSource } = await writeMlxAffineTraceFixture(caseDirectory, groupSize, bits, false);
+        const suffix = `${bits}-${groupSize}`;
+        const executionTrace = path.join(caseDirectory, "execution.json");
+        assert.equal(await captureMlxTrace({ source: quantizedSource, output: executionTrace, inputTokens: [1], python, model: `mlx-affine-llama-${suffix}`, revisionOrChecksum: `mlx-affine-${suffix}-fixture-v1` }), "execution");
+        const execution = await runExecutionTraceComparison({ source: quantizedSource, trace: executionTrace, report: path.join(caseDirectory, "execution-report.json"), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
+        assert.equal(execution.fidelityClass, "numerically-equivalent", suffix);
+        assert.equal(execution.reference.runtime, `MLX 0.32 affine-U32 ${bits}-bit group-${groupSize} llama independent IR-kernel capture`);
+        assert.equal(execution.reference.quantization, `MLX affine U32 ${bits}-bit group_size=${groupSize}`);
+
+        const generationTrace = path.join(caseDirectory, "generation.json");
+        assert.equal(await captureMlxTrace({ source: quantizedSource, output: generationTrace, inputTokens: [1], maxNewTokens: 2, python, model: `mlx-affine-llama-${suffix}`, revisionOrChecksum: `mlx-affine-${suffix}-fixture-v1` }), "generation");
+        const generation = await runGenerationTraceComparison({ source: quantizedSource, trace: generationTrace, report: path.join(caseDirectory, "generation-report.json"), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
+        assert.equal(generation.fidelityClass, "numerically-equivalent", suffix);
+        assert.equal(generation.generatedTokenIds.length, 2, suffix);
+      }
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("MLX kernel capture independently records Mistral, Gemma 1/2, and Qwen 2/3 attention traces", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-mlx-multi-adapter-capture-"));
   try {
@@ -1692,19 +1725,17 @@ async function writeTinyQwen3F32Model(root: string): Promise<void> {
 }
 
 /**
- * Builds paired 32-wide Llama packages for the native MLX affine reader. Each
- * U32 row holds eight 4-bit codes per word; the F32 side computes every value
- * independently as scale[group] * code + bias[group].
+ * Builds paired Llama packages for the native MLX affine reader. The F32 side
+ * computes every value independently as scale[group] * code + bias[group].
  */
-async function writeMlxAffineTraceFixture(root: string, groupSize = 32): Promise<{ denseSource: string; quantizedSource: string }> {
+async function writeMlxAffineTraceFixture(root: string, groupSize = 32, bits = 4, includeBiases = true): Promise<{ denseSource: string; quantizedSource: string }> {
   const denseSource = path.join(root, "dense");
   const quantizedSource = path.join(root, "mlx-affine");
   await mkdir(denseSource);
   await mkdir(quantizedSource);
   const width = groupSize;
-  // MLX 0.32 exposes affine U32 dequantize kernels for the independently
-  // exercised 32- and 64-value groups. Keeping each fixture inside one native
-  // contract makes this an MLX check rather than a candidate-only formula test.
+  // Keeping each fixture inside one native contract makes this an MLX check
+  // rather than a candidate-only formula test.
   const groups = 1;
   const matrixNames = [
     "model.embed_tokens.weight", "model.layers.0.self_attn.q_proj.weight", "model.layers.0.self_attn.k_proj.weight",
@@ -1716,11 +1747,16 @@ async function writeMlxAffineTraceFixture(root: string, groupSize = 32): Promise
   for (const [matrixIndex, name] of matrixNames.entries()) {
     const scales = Array.from({ length: width * groups }, (_, index) => Math.fround(0.03125 * (1 + ((index + matrixIndex) % 4))));
     const biases = Array.from({ length: width * groups }, (_, index) => Math.fround(-0.25 + 0.0625 * ((index + matrixIndex) % 5)));
-    const codes = Array.from({ length: width * width }, (_, index) => (index * 7 + matrixIndex * 3 + Math.floor(index / width)) & 0x0f);
-    const denseValues = codes.map((code, index) => Math.fround(Math.fround(scales[Math.floor(index / width) * groups + Math.floor((index % width) / groupSize)]!) * code + biases[Math.floor(index / width) * groups + Math.floor((index % width) / groupSize)]!));
-    const packed = packMlxAffineCodes(codes, width, width, 4);
+    const codeMask = (1 << bits) - 1;
+    const codes = Array.from({ length: width * width }, (_, index) => (index * 7 + matrixIndex * 3 + Math.floor(index / width)) & codeMask);
+    const denseValues = codes.map((code, index) => {
+      const parameter = Math.floor(index / width) * groups + Math.floor((index % width) / groupSize);
+      return Math.fround(Math.fround(scales[parameter]! * code) + (includeBiases ? biases[parameter]! : 0));
+    });
+    const packed = packMlxAffineCodes(codes, width, width, bits);
     denseTensors.push([name, "F32", [width, width], denseValues]);
-    mlxTensors.push([name, "U32", [width, width / 8], packed], [name.slice(0, -".weight".length) + ".scales", "F32", [width, groups], scales], [name.slice(0, -".weight".length) + ".biases", "F32", [width, groups], biases]);
+    mlxTensors.push([name, "U32", [width, width * bits / 32], packed], [name.slice(0, -".weight".length) + ".scales", "F32", [width, groups], scales]);
+    if (includeBiases) mlxTensors.push([name.slice(0, -".weight".length) + ".biases", "F32", [width, groups], biases]);
   }
   for (const name of ["model.layers.0.input_layernorm.weight", "model.layers.0.post_attention_layernorm.weight", "model.norm.weight"]) {
     denseTensors.push([name, "F32", [width], new Array<number>(width).fill(1)]);
@@ -1731,7 +1767,7 @@ async function writeMlxAffineTraceFixture(root: string, groupSize = 32): Promise
     num_key_value_heads: 1, head_dim: width, vocab_size: width, rms_norm_eps: 1e-6, hidden_act: "silu",
   };
   await writeFile(path.join(denseSource, "config.json"), JSON.stringify(config));
-  await writeFile(path.join(quantizedSource, "config.json"), JSON.stringify({ ...config, quantization: { bits: 4, group_size: groupSize, mode: "affine" } }));
+  await writeFile(path.join(quantizedSource, "config.json"), JSON.stringify({ ...config, quantization: { bits, group_size: groupSize, mode: "affine" } }));
   await writeSafetensorsFixture(path.join(denseSource, "model.safetensors"), denseTensors);
   await writeSafetensorsFixture(path.join(quantizedSource, "model.safetensors"), mlxTensors);
   return { denseSource, quantizedSource };
@@ -1746,7 +1782,10 @@ function packMlxAffineCodes(codes: readonly number[], rows: number, columns: num
     for (let column = 0; column < columns; column += 1) {
       const bitOffset = column * bits;
       const word = row * wordsPerRow + Math.floor(bitOffset / 32);
-      packed[word] = (packed[word]! | (codes[row * columns + column]! << (bitOffset % 32))) >>> 0;
+      const shift = bitOffset % 32;
+      const code = codes[row * columns + column]!;
+      packed[word] = (packed[word]! | (code << shift)) >>> 0;
+      if (shift + bits > 32) packed[word + 1] = (packed[word + 1]! | (code >>> (32 - shift))) >>> 0;
     }
   }
   return packed;

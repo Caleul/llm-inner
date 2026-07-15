@@ -317,8 +317,15 @@ export class SafetensorsCatalogReader {
     for (let row = 0; row < rows; row += 1) {
       for (let column = 0; column < logicalColumns; column += 1) {
         const bitOffset = column * bits;
-        const word = bytes.readUInt32LE((row * packedWords + Math.floor(bitOffset / 32)) * U32_BYTES);
-        const code = (word >>> (bitOffset % 32)) & mask;
+        const wordIndex = row * packedWords + Math.floor(bitOffset / 32);
+        const shift = bitOffset % 32;
+        const word = bytes.readUInt32LE(wordIndex * U32_BYTES);
+        // A declared MLX code stream is contiguous within each row. Widths
+        // such as 3, 5, and 6 therefore have codes that straddle U32 words;
+        // truncating them at the first word would silently change weights.
+        const code = shift + bits <= 32
+          ? (word >>> shift) & mask
+          : ((word >>> shift) | (bytes.readUInt32LE((wordIndex + 1) * U32_BYTES) << (32 - shift))) & mask;
         const group = Math.floor(column / groupSize);
         const parameterIndex = row * groups + group;
         values[row * logicalColumns + column] = Math.fround(Math.fround(scaleValues.values[parameterIndex]!) * code + (biasValues?.values[parameterIndex] ?? 0));
