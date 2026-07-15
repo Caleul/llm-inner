@@ -6,10 +6,10 @@ import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { buildModelIR } from "../src/architecture.js";
 import { openCatalog } from "../src/catalog.js";
-import { executeReferenceF32 } from "../src/executor.js";
+import { executeReferenceF32, generateReferenceF32 } from "../src/executor.js";
 import { materializeReferenceF32Constants } from "../src/materialize.js";
 import { fingerprintIR, readExecutionTraceBundle } from "../src/trace.js";
-import { runExecutionTraceComparison } from "../src/trace-runner.js";
+import { runExecutionTraceComparison, runGenerationTraceComparison } from "../src/trace-runner.js";
 import type { ModelIR } from "../src/types.js";
 import type { ReferenceF32ExecutionResult } from "../src/types.js";
 
@@ -74,6 +74,55 @@ test("trace bundle rejects decimal-array tensor payloads and unsafe checkpoint p
       reference: { runtime: "test", model: "test", revisionOrChecksum: "test", containerFormat: "safetensors", quantization: "none", inputTokens: [[0]], dtypePolicy: "F32", operations: [{ operationId: "x", output: "x", tensor: { dtype: "F32", shape: [1], values: [1] } }], pastKeyValues: [] },
     }));
     await assert.rejects(() => readExecutionTraceBundle(trace), /valuesBase64/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("integrity-bound F32 generation trace verifies positions, terminal logits, and canonical KV cache", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-generation-trace-"));
+  try {
+    await writeTinyF32Model(directory);
+    const source = path.join(directory, "model");
+    const opened = await openCatalog(source, false);
+    let ir: ModelIR;
+    let generated: ReturnType<typeof generateReferenceF32>;
+    try {
+      ir = await buildModelIR(opened.catalog, preview);
+      setF32Policy(ir);
+      const tensors = await materializeReferenceF32Constants(ir, opened.catalog, opened.reader);
+      generated = generateReferenceF32(ir, { inputIds: [[1]], tensors, maxNewTokens: 2 });
+    } finally {
+      await opened.close();
+    }
+    const fingerprintSource = await openCatalog(source, false);
+    let fingerprint: string;
+    try { fingerprint = fingerprintIR(await buildModelIR(fingerprintSource.catalog, preview)); } finally { await fingerprintSource.close(); }
+    const trace = path.join(directory, "generation-trace.json");
+    await writeFile(trace, JSON.stringify({
+      schemaVersion: 1,
+      kind: "generation",
+      source: { files: await checksums(source, ["config.json", "model.safetensors"]) },
+      irFingerprint: fingerprint,
+      candidatePolicy: { dtype: "F32", runtime: "llm-inner scalar IEEE-754 F32" },
+      reference: {
+        runtime: "fixture authoritative F32", model: "tiny-llama", revisionOrChecksum: "fixture-sha256",
+        containerFormat: "safetensors", quantization: "none", inputTokens: [1], promptPositionIds: [0],
+        dtypePolicy: "F32 scalar fixture", maxNewTokens: 2, generatedTokenIds: generated!.generatedTokenIds,
+        steps: generated!.steps, logits: serialized(generated!.logits),
+        pastKeyValues: [...generated!.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
+      },
+    }, null, 2));
+    const reportPath = path.join(directory, "generation-report.json");
+    const report = await runGenerationTraceComparison({ source, trace, report: reportPath, topK: 3 });
+    assert.equal(report.fidelityClass, "lossless-within-dtype");
+    assert.equal(report.firstDivergence, null);
+    assert.equal(JSON.parse(await readFile(reportPath, "utf8")).terminalLogits.maxAbsoluteError, 0);
+
+    const malformed = JSON.parse(await readFile(trace, "utf8"));
+    malformed.reference.pastKeyValues.push(malformed.reference.pastKeyValues[0]);
+    await writeFile(trace, JSON.stringify(malformed));
+    await assert.rejects(() => runGenerationTraceComparison({ source, trace, report: reportPath }), /cache KV duplicado/);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

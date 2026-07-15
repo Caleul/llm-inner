@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import * as path from "node:path";
 import type {
   DenseF32Tensor,
+  DifferentialGenerationReferenceTrace,
   DifferentialKeyValueCacheSample,
   DifferentialReferenceTrace,
   ModelCatalog,
@@ -33,6 +34,11 @@ interface SerializedCache {
   value: SerializedF32Tensor;
 }
 
+interface SerializedGenerationStep {
+  tokenId: number;
+  positionId: number;
+}
+
 /**
  * Portable, integrity-bound capture consumed by the F32 reference executor.
  * The producing runtime remains responsible for authoritative hooks; this
@@ -59,6 +65,25 @@ export interface DecodedExecutionTrace {
   reference: DifferentialReferenceTrace;
 }
 
+/** Persisted F32 greedy-generation evidence, bound to checkpoint and IR. */
+export interface GenerationTraceBundle {
+  schemaVersion: 1;
+  kind: "generation";
+  source: { files: TraceSourceFile[] };
+  irFingerprint: string;
+  candidatePolicy: { dtype: "F32"; runtime: string };
+  reference: Omit<DifferentialGenerationReferenceTrace, "logits" | "pastKeyValues" | "steps"> & {
+    logits: SerializedF32Tensor;
+    pastKeyValues: SerializedCache[];
+    steps: SerializedGenerationStep[];
+  };
+}
+
+export interface DecodedGenerationTrace {
+  bundle: GenerationTraceBundle;
+  reference: DifferentialGenerationReferenceTrace;
+}
+
 export async function readExecutionTraceBundle(file: string): Promise<DecodedExecutionTrace> {
   const raw: unknown = JSON.parse(await readFile(file, "utf8"));
   const bundle = validateBundle(raw);
@@ -72,6 +97,27 @@ export async function readExecutionTraceBundle(file: string): Promise<DecodedExe
         output: sample.output,
         tensor: decodeTensor(sample.tensor, `operação ${sample.operationId}`),
       })),
+      pastKeyValues: bundle.reference.pastKeyValues.map((cache) => ({
+        layer: cache.layer,
+        key: decodeTensor(cache.key, `cache KV ${cache.layer}.key`),
+        value: decodeTensor(cache.value, `cache KV ${cache.layer}.value`),
+      })),
+    },
+  };
+}
+
+export async function readGenerationTraceBundle(file: string): Promise<DecodedGenerationTrace> {
+  const raw: unknown = JSON.parse(await readFile(file, "utf8"));
+  const bundle = validateGenerationBundle(raw);
+  return {
+    bundle,
+    reference: {
+      ...bundle.reference,
+      inputTokens: [...bundle.reference.inputTokens],
+      promptPositionIds: [...bundle.reference.promptPositionIds],
+      generatedTokenIds: [...bundle.reference.generatedTokenIds],
+      steps: bundle.reference.steps.map((step) => ({ ...step })),
+      logits: decodeTensor(bundle.reference.logits, "logits terminais"),
       pastKeyValues: bundle.reference.pastKeyValues.map((cache) => ({
         layer: cache.layer,
         key: decodeTensor(cache.key, `cache KV ${cache.layer}.key`),
@@ -165,6 +211,88 @@ function validateBundle(raw: unknown): ExecutionTraceBundle {
   };
 }
 
+function validateGenerationBundle(raw: unknown): GenerationTraceBundle {
+  const value = object(raw, "Trace de geração");
+  validateEnvelope(value, "generation");
+  const source = object(value.source, "Trace source");
+  const candidatePolicy = object(value.candidatePolicy, "Trace candidatePolicy");
+  const reference = object(value.reference, "Trace generation reference");
+  for (const field of ["runtime", "model", "revisionOrChecksum", "containerFormat", "quantization", "dtypePolicy"] as const) {
+    if (typeof reference[field] !== "string" || reference[field].trim() === "") throw new Error(`Trace de geração requer ${field} não vazio.`);
+  }
+  if (!tokenVector(reference.inputTokens)) throw new Error("Trace de geração requer inputTokens inteiros não negativos.");
+  if (!tokenVector(reference.promptPositionIds) || reference.promptPositionIds.length !== reference.inputTokens.length) {
+    throw new Error("Trace de geração requer promptPositionIds inteiros não negativos com o comprimento do prompt.");
+  }
+  if (!tokenVector(reference.generatedTokenIds)) throw new Error("Trace de geração contém generatedTokenIds inválido.");
+  const inputTokens = reference.inputTokens;
+  const promptPositionIds = reference.promptPositionIds;
+  const generatedTokenIds = reference.generatedTokenIds;
+  if (!Number.isInteger(reference.maxNewTokens) || (reference.maxNewTokens as number) < 0 || generatedTokenIds.length > (reference.maxNewTokens as number)) {
+    throw new Error("Trace de geração contém maxNewTokens ou generatedTokenIds inválido.");
+  }
+  if (reference.eosTokenId !== undefined && (!Number.isInteger(reference.eosTokenId) || (reference.eosTokenId as number) < 0)) throw new Error("Trace de geração contém eosTokenId inválido.");
+  if (!Array.isArray(reference.steps) || reference.steps.length !== generatedTokenIds.length) throw new Error("Trace de geração requer um step para cada token emitido.");
+  const steps = reference.steps.map((entry, index) => {
+    const step = object(entry, `Trace de geração step ${index}`);
+    if (!Number.isInteger(step.tokenId) || (step.tokenId as number) < 0 || !Number.isInteger(step.positionId) || (step.positionId as number) < 0 || step.tokenId !== generatedTokenIds[index]) {
+      throw new Error(`Trace de geração contém step inválido no índice ${index}.`);
+    }
+    return { tokenId: step.tokenId as number, positionId: step.positionId as number };
+  });
+  const eosIndex = reference.eosTokenId === undefined ? -1 : generatedTokenIds.indexOf(reference.eosTokenId as number);
+  if (eosIndex >= 0 && eosIndex !== generatedTokenIds.length - 1) throw new Error("Trace de geração não pode emitir tokens após EOS.");
+  if (!Array.isArray(reference.pastKeyValues)) throw new Error("Trace de geração requer pastKeyValues array.");
+  const pastKeyValues = reference.pastKeyValues.map((entry) => serializedCache(entry, "Trace de geração cache KV"));
+  uniqueCacheLayers(pastKeyValues);
+  const files = parseSourceFiles(source.files);
+  return {
+    schemaVersion: 1, kind: "generation", source: { files }, irFingerprint: value.irFingerprint as string,
+    candidatePolicy: { dtype: "F32", runtime: candidatePolicy.runtime as string },
+    reference: {
+      runtime: reference.runtime as string, model: reference.model as string, revisionOrChecksum: reference.revisionOrChecksum as string,
+      containerFormat: reference.containerFormat as string, quantization: reference.quantization as string,
+      inputTokens: [...inputTokens], promptPositionIds: [...promptPositionIds],
+      dtypePolicy: reference.dtypePolicy as string, maxNewTokens: reference.maxNewTokens as number,
+      ...(reference.eosTokenId !== undefined ? { eosTokenId: reference.eosTokenId as number } : {}),
+      generatedTokenIds: [...generatedTokenIds], steps,
+      logits: validateSerializedTensor(reference.logits, "logits terminais"), pastKeyValues,
+    },
+  };
+}
+
+function validateEnvelope(value: Record<string, unknown>, kind: "execution" | "generation"): void {
+  if (value.schemaVersion !== 1 || value.kind !== kind) throw new Error(`Trace requer schemaVersion=1 e kind=${kind}.`);
+  const source = object(value.source, "Trace source");
+  if (!Array.isArray(source.files) || source.files.length === 0) throw new Error("Trace requer source.files não vazio.");
+  const candidatePolicy = object(value.candidatePolicy, "Trace candidatePolicy");
+  if (candidatePolicy.dtype !== "F32" || typeof candidatePolicy.runtime !== "string" || candidatePolicy.runtime.trim() === "") throw new Error("Trace requer candidatePolicy F32 e runtime não vazio.");
+  if (typeof value.irFingerprint !== "string" || !/^[a-f0-9]{64}$/.test(value.irFingerprint)) throw new Error("Trace requer irFingerprint SHA-256.");
+}
+
+function parseSourceFiles(raw: unknown): TraceSourceFile[] {
+  if (!Array.isArray(raw)) throw new Error("Trace requer source.files não vazio.");
+  return raw.map((entry) => {
+    const file = object(entry, "Trace source file");
+    if (typeof file.path !== "string" || typeof file.sha256 !== "string") throw new Error("Trace source file inválido.");
+    return { path: file.path, sha256: file.sha256 };
+  });
+}
+
+function serializedCache(raw: unknown, label: string): SerializedCache {
+  const cache = object(raw, label);
+  if (!Number.isInteger(cache.layer) || (cache.layer as number) < 0) throw new Error(`${label} requer layer inteiro não negativo.`);
+  return { layer: cache.layer as number, key: validateSerializedTensor(cache.key, "cache key"), value: validateSerializedTensor(cache.value, "cache value") };
+}
+
+function uniqueCacheLayers(caches: readonly SerializedCache[]): void {
+  const layers = new Set<number>();
+  for (const cache of caches) {
+    if (layers.has(cache.layer)) throw new Error(`Trace de geração contém cache KV duplicado para camada ${cache.layer}.`);
+    layers.add(cache.layer);
+  }
+}
+
 function validateSerializedTensor(raw: unknown, label: string): SerializedF32Tensor {
   const tensor = object(raw, `Tensor ${label}`);
   if (tensor.dtype !== "F32" || !Array.isArray(tensor.shape) || !tensor.shape.every((dimension) => Number.isInteger(dimension) && (dimension as number) > 0) || typeof tensor.valuesBase64 !== "string") {
@@ -190,6 +318,10 @@ function object(value: unknown, label: string): Record<string, unknown> {
 
 function tokenRow(row: unknown): boolean {
   return Array.isArray(row) && row.length > 0 && row.every((token) => Number.isInteger(token) && (token as number) >= 0);
+}
+
+function tokenVector(value: unknown): value is number[] {
+  return Array.isArray(value) && value.length > 0 && value.every((token) => Number.isInteger(token) && (token as number) >= 0);
 }
 
 function assertRelativePath(file: string, label: string): void {

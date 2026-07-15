@@ -245,6 +245,8 @@ saída terminal `softcapped_logits` com a captura `final_logit_softcap` (e não
 o `lm_head` pré-softcap). A ausência dessa saída terminal também torna o
 relatório `incomplete`.
 
+`npm run compare:generation-trace -- --source <checkpoint> --trace <captura.json> --report <relatorio.json>` consome uma captura distinta com `kind: "generation"`. Além da mesma ligação obrigatória a `source.files`, checksums e `irFingerprint`, ela exige prompt, posições absolutas do prompt, limite/EOS, cada token gerado e sua posição, logits terminais F32 e o cache KV BHSD final. O executor repete prefill e cada decode incremental com pesos materializados por range; uma posição, token, cache, payload F32 ou checksum ausente/divergente torna o relatório `incomplete` ou `approximate`, nunca aprovação. Assim, a captura ainda deve vir de hooks de um runtime autoritativo; a fixture local apenas valida o contrato de consumo.
+
 `materializeReferenceF32Constants` em `src/materialize.ts` fecha a fronteira
 entre o catálogo e o executor F32: reúne todos os `TensorRef` do IR, confirma
 nome, shape, dtype e contrato de quantização contra o catálogo de origem e
