@@ -423,6 +423,15 @@ do último bloco é recusada pelo checksum antes do relatório. Assim como as
 demais fixtures quantizadas, é prova sintética lossless-within-dtype sob F32
 escalar, não uma comparação com runtime externo autoritativo.
 
+A fixture sintética Q4_0 de 256 dimensões fecha a variante centrada de quatro
+bits, semanticamente distinta de Q4_1 por não possuir mínimo afim: a evidência
+F32 independente calcula `d*(q-8)` com `d=0.5` para todos os 16 códigos. O
+GGUF empacotado grava `q[0..15]` nos nibbles baixos e `q[16..31]` nos altos;
+todas as operações, cache KV pós-RoPE, logits e dois passos greedy são
+comparados contra essa evidência, e a mutação do último byte que contém ambos
+os nibbles é recusada pelo checksum antes do relatório. É prova sintética
+lossless-within-dtype sob F32 escalar, não comparação com runtime externo.
+
 Além da máscara causal/janela declarada pelo IR, o executor de referência pode
 receber uma máscara aditiva canônica `[batch, 1|heads, query, key]`. Zero
 preserva o score e `-Infinity` exclui a chave antes do softmax; valores finitos
