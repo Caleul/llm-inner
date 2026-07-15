@@ -99,6 +99,8 @@ O compilador falha quando:
 - `hidden_act` não está entre as fórmulas de ativação explicitamente registradas;
 - `attention_bias` ou `mlp_bias` declarado não coincide com a presença dos
   tensores `.bias` das projeções correspondentes (ou a flag não é booleana);
+- `tie_word_embeddings` não é booleano, ou um `lm_head` independente está
+  ausente quando o config não declara o peso de saída amarrado ao embedding;
 - shapes de embedding, normas, Q/K/V/O, MLP ou biases não coincidem com a topologia declarada;
 - há MoE/AltUp/LAuReL ou outra semântica ainda não implementada.
 
@@ -118,6 +120,11 @@ Para Qwen 3 e outros adaptadores que declarem `q_norm`, `k_norm` ou `v_norm`,
 o IR faz `reshape_heads` antes da RMSNorm. Esses pesos precisam ter exatamente
 `head_dim` elementos: normalizar a projeção achatada misturaria cabeças e é
 rejeitado como semântica incompatível.
+
+Quando `tie_word_embeddings=true`, o IR usa explicitamente o tensor de
+embedding como peso do `lm_head`, mesmo que o contêiner retenha uma cópia de
+`lm_head.weight`. Um eventual `lm_head.bias` continua pertencendo ao módulo de
+saída e é preservado; ele não é procurado como se fosse `embed_tokens.bias`.
 
 A equivalência real deve ser confirmada por um validador diferencial: mesma entrada, mesmo dtype, comparação de embeddings, saída por camada, KV cache e logits contra Transformers/MLX/llama.cpp.
 

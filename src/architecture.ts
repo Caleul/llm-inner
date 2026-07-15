@@ -299,11 +299,29 @@ async function buildEpilogue(ctx: ArchitectureContext): Promise<Operation[]> {
     "language_model.model.embed_tokens.weight",
     "token_embd.weight",
   ]);
-  const tied = ctx.config.tie_word_embeddings === true;
-  const head = lmHead ?? (tied ? embedding : undefined);
-  if (!head) throw new Error("lm_head não encontrado e embeddings não estão declarados como tied.");
+  const tied = tiedWordEmbeddings(ctx.config);
+  // `tie_word_embeddings` declares the parameter used by the output
+  // projection. A serialized duplicate lm_head.weight must not override that
+  // contract, because it might be stale or otherwise not the shared parameter.
+  const head = tied ? embedding : lmHead;
+  if (!head) {
+    throw new Error(
+      "lm_head não encontrado e tie_word_embeddings não declara um output head amarrado ao embedding.",
+    );
+  }
   assertMatrixShape(head, "lm_head", ctx.vocabSize, ctx.hiddenSize);
-  operations.push(await linearOp(ctx, "lm_head", undefined, input, "logits", head, "optional", findBias(ctx.catalog, head.name)));
+  operations.push(
+    await linearOp(
+      ctx,
+      "lm_head",
+      undefined,
+      input,
+      "logits",
+      head,
+      "optional",
+      findOutputHeadBias(ctx.catalog, lmHead),
+    ),
+  );
   const finalSoftcap = optionalNumber(ctx.config, ["final_logit_softcapping"]);
   if (finalSoftcap !== undefined) {
     operations.push({
@@ -836,6 +854,16 @@ function findBias(catalog: ModelCatalog, weightName: string): TensorInfo | undef
   return catalog.tensors.get(biasNameForWeight(weightName));
 }
 
+/**
+ * An output bias belongs to the output module even when its weight is tied to
+ * the input embedding and the serialized lm_head.weight is absent.
+ */
+function findOutputHeadBias(catalog: ModelCatalog, serializedHead: TensorInfo | undefined): TensorInfo | undefined {
+  return serializedHead
+    ? findBias(catalog, serializedHead.name)
+    : findTensor(catalog, ["lm_head.bias", "language_model.lm_head.bias", "output.bias"]);
+}
+
 function biasNameForWeight(weightName: string): string {
   return weightName.endsWith(".weight")
     ? `${weightName.slice(0, -".weight".length)}.bias`
@@ -853,6 +881,14 @@ function biasRequirement(config: JsonObject, keys: string[], label: string): Bia
     throw new Error(`${label} possui declarações conflitantes; não é seguro escolher a semântica de bias.`);
   }
   return value ? "required" : "forbidden";
+}
+
+function tiedWordEmbeddings(config: JsonObject): boolean {
+  if (!Object.hasOwn(config, "tie_word_embeddings")) return false;
+  if (typeof config.tie_word_embeddings !== "boolean") {
+    throw new Error("tie_word_embeddings deve ser booleano quando declarado; não é seguro inferir o peso do output head.");
+  }
+  return config.tie_word_embeddings;
 }
 
 function layerPrefixes(layer: number): string[] {

@@ -238,3 +238,30 @@ test("flags de bias verdadeiras preservam cada bias declarado no IR", async () =
     ],
   );
 });
+
+test("tie_word_embeddings escolhe o embedding declarado e preserva bias do módulo lm_head", async () => {
+  const source = catalog("llama", { tie_word_embeddings: true });
+  source.tensors.set("lm_head.bias", tensor("lm_head.bias", [32]));
+
+  const ir = await buildModelIR(source, preview);
+  const output = ir.epilogue.find((operation) => operation.id === "lm_head");
+  assert.equal(output?.op, "linear");
+  if (output?.op === "linear") {
+    assert.equal(output.weight.name, "model.embed_tokens.weight");
+    assert.equal(output.bias?.name, "lm_head.bias");
+  }
+});
+
+test("output-head tying must be boolean and untied heads cannot be omitted", async () => {
+  const untied = catalog("llama", { tie_word_embeddings: false });
+  untied.tensors.delete("lm_head.weight");
+  await assert.rejects(
+    () => buildModelIR(untied, preview),
+    /lm_head não encontrado e tie_word_embeddings não declara um output head amarrado/,
+  );
+
+  await assert.rejects(
+    () => buildModelIR(catalog("llama", { tie_word_embeddings: "true" }), preview),
+    /tie_word_embeddings deve ser booleano/,
+  );
+});
