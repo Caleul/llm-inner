@@ -338,6 +338,18 @@ normas BHSD. É evidência sintética lossless para a combinação declarada de
 layout Qwen e Q8_0, não uma equivalência com llama.cpp nem cobertura de outros
 formatos GGML quantizados ou de um checkpoint publicado.
 
+A mesma fronteira agora cobre Qwen 2 e Qwen 3 com `GGML_TYPE_Q4_0`, cuja
+semântica centrada é diferente de Q8_0: cada matriz de largura 32 usa blocos
+de 18 bytes com `F16 d=0.5` e nibbles baixo/alto, e o pacote F32 pareado é
+construído diretamente por `F32[i] = d * (q[i] - 8)`. O fixture percorre todos
+os 16 códigos e ambos os nibbles em cada matriz, mantendo normas e os quatro
+biases de atenção densos; Qwen 2 continua sem Q/K norms e Qwen 3 exige os
+dois norms BHSD. Para ambas, todas as operações, KV pós-RoPE, logits e duas
+etapas greedy são comparadas com a testemunha F32 independente. Isso é
+evidência sintética lossless limitada ao contrato Qwen/Q4_0 e à política
+escalar F32, não equivalência com llama.cpp nem validação de checkpoint
+publicado.
+
 Uma segunda regressão executável cobre o `GGML_TYPE_Q8_0`: um Llama de uma
 camada e largura 256 armazena todas as matrizes em blocos Q8_0 de 32 valores
 com `d=0.5`. Um pacote GGUF F32 separado é construído diretamente da fórmula

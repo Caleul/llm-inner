@@ -861,15 +861,26 @@ test("dense GGUF Qwen 3 replays Safetensors Q/K-norm execution and greedy-genera
 });
 
 test("Q8_0 GGUF Qwen 2 and Qwen 3 replay their distinct attention contracts through execution and generation", async () => {
-  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-qwen-q8_0-trace-"));
+  await assertQwenQuantizedGgufReplay("q8_0", writeQ8_0QwenTraceFixture);
+});
+
+test("Q4_0 GGUF Qwen 2 and Qwen 3 replay their distinct attention contracts through execution and generation", async () => {
+  await assertQwenQuantizedGgufReplay("q4_0", writeQ4_0QwenTraceFixture);
+});
+
+async function assertQwenQuantizedGgufReplay(
+  mode: "q4_0" | "q8_0",
+  writeFixture: (denseFile: string, quantizedFile: string, architecture: "qwen2" | "qwen3") => Promise<void>,
+): Promise<void> {
+  const directory = await mkdtemp(path.join(tmpdir(), `llm-inner-qwen-${mode}-trace-`));
   try {
     for (const architecture of ["qwen2", "qwen3"] as const) {
       const denseSource = path.join(directory, `${architecture}-dense.gguf`);
-      const quantizedSource = path.join(directory, `${architecture}-q8_0.gguf`);
-      await writeQ8_0QwenTraceFixture(denseSource, quantizedSource, architecture);
+      const quantizedSource = path.join(directory, `${architecture}-${mode}.gguf`);
+      await writeFixture(denseSource, quantizedSource, architecture);
 
-      // The F32 package is constructed directly from the declared Q8_0
-      // formula (F16(d) * int8(q)), never by the candidate reader.
+      // The F32 package is constructed directly from the declared GGML
+      // formula for this mode, never by the candidate reader.
       const dense = await executeFixture(denseSource, [[1]]);
       const quantized = await executeFixture(quantizedSource, [[1]]);
       assert.deepEqual(serialized(quantized.candidate.values.get("logits")!), serialized(dense.candidate.values.get("logits")!));
@@ -883,46 +894,46 @@ test("Q8_0 GGUF Qwen 2 and Qwen 3 replay their distinct attention contracts thro
       assert.equal(operationIds.includes("layer_0_q_norm"), architecture === "qwen3");
       assert.equal(operationIds.includes("layer_0_k_norm"), architecture === "qwen3");
 
-      const executionTrace = path.join(directory, `${architecture}-q8_0-execution-trace.json`);
+      const executionTrace = path.join(directory, `${architecture}-${mode}-execution-trace.json`);
       await writeFile(executionTrace, JSON.stringify({
         schemaVersion: 1, kind: "execution",
-        source: { files: await checksums(directory, [`${architecture}-q8_0.gguf`]) },
+        source: { files: await checksums(directory, [`${architecture}-${mode}.gguf`]) },
         irFingerprint: quantized.fingerprint,
         candidatePolicy: { dtype: "F32", runtime: "llm-inner scalar IEEE-754 F32" },
         reference: {
-          runtime: "independent declared GGML Q8_0 Qwen F32 fixture", model: `${architecture}-q8_0-32`, revisionOrChecksum: `${architecture}-q8_0-formula-fixture-v1`,
-          containerFormat: "gguf v3", quantization: "GGML_TYPE_Q8_0 with dense Qwen biases and norms", inputTokens: [[1]], dtypePolicy: "F32 scalar fixture from declared Q8_0 formula",
+          runtime: `independent declared GGML ${mode.toUpperCase()} Qwen F32 fixture`, model: `${architecture}-${mode}-32`, revisionOrChecksum: `${architecture}-${mode}-formula-fixture-v1`,
+          containerFormat: "gguf v3", quantization: `GGML_TYPE_${mode.toUpperCase()} with dense Qwen biases and norms`, inputTokens: [[1]], dtypePolicy: `F32 scalar fixture from declared ${mode.toUpperCase()} formula`,
           operations: operations(quantized.ir).map((operation) => ({ operationId: operation.id, output: operation.output, tensor: serialized(dense.candidate.values.get(operation.output)!) })),
           pastKeyValues: [...dense.candidate.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
         },
       }, null, 2));
-      const executionReport = await runExecutionTraceComparison({ source: quantizedSource, trace: executionTrace, report: path.join(directory, `${architecture}-q8_0-execution-report.json`), topK: 3 });
+      const executionReport = await runExecutionTraceComparison({ source: quantizedSource, trace: executionTrace, report: path.join(directory, `${architecture}-${mode}-execution-report.json`), topK: 3 });
       assert.equal(executionReport.fidelityClass, "lossless-within-dtype");
       assert.equal(executionReport.firstDivergentOperation, null);
 
       const denseGeneration = await generateFixture(denseSource);
-      const generationTrace = path.join(directory, `${architecture}-q8_0-generation-trace.json`);
+      const generationTrace = path.join(directory, `${architecture}-${mode}-generation-trace.json`);
       await writeFile(generationTrace, JSON.stringify({
         schemaVersion: 1, kind: "generation",
-        source: { files: await checksums(directory, [`${architecture}-q8_0.gguf`]) },
+        source: { files: await checksums(directory, [`${architecture}-${mode}.gguf`]) },
         irFingerprint: quantized.fingerprint,
         candidatePolicy: { dtype: "F32", runtime: "llm-inner scalar IEEE-754 F32" },
         reference: {
-          runtime: "independent declared GGML Q8_0 Qwen F32 fixture", model: `${architecture}-q8_0-32`, revisionOrChecksum: `${architecture}-q8_0-formula-fixture-v1`,
-          containerFormat: "gguf v3", quantization: "GGML_TYPE_Q8_0 with dense Qwen biases and norms", inputTokens: [1], promptPositionIds: [0],
-          dtypePolicy: "F32 scalar fixture from declared Q8_0 formula", maxNewTokens: 2, generatedTokenIds: denseGeneration.generatedTokenIds,
+          runtime: `independent declared GGML ${mode.toUpperCase()} Qwen F32 fixture`, model: `${architecture}-${mode}-32`, revisionOrChecksum: `${architecture}-${mode}-formula-fixture-v1`,
+          containerFormat: "gguf v3", quantization: `GGML_TYPE_${mode.toUpperCase()} with dense Qwen biases and norms`, inputTokens: [1], promptPositionIds: [0],
+          dtypePolicy: `F32 scalar fixture from declared ${mode.toUpperCase()} formula`, maxNewTokens: 2, generatedTokenIds: denseGeneration.generatedTokenIds,
           steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), stepPastKeyValues: serializedStepCaches(denseGeneration.stepPastKeyValues, serialized), logits: serialized(denseGeneration.logits),
           pastKeyValues: [...denseGeneration.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
         },
       }, null, 2));
-      const generationReport = await runGenerationTraceComparison({ source: quantizedSource, trace: generationTrace, report: path.join(directory, `${architecture}-q8_0-generation-report.json`), topK: 3 });
+      const generationReport = await runGenerationTraceComparison({ source: quantizedSource, trace: generationTrace, report: path.join(directory, `${architecture}-${mode}-generation-report.json`), topK: 3 });
       assert.equal(generationReport.fidelityClass, "lossless-within-dtype");
       assert.equal(generationReport.firstDivergence, null);
     }
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
-});
+}
 
 test("MLX affine U32 Llama replays independently constructed dense F32 execution and generation evidence", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-mlx-affine-trace-"));
@@ -2333,6 +2344,33 @@ async function writeQ8_0QwenTraceFixture(denseFile: string, quantizedFile: strin
   ];
   await writeGgufQwenFixture(denseFile, architecture, width, weights.map(([name, shape, values]) => [name, shape, 0, values]));
   await writeGgufQwenFixture(quantizedFile, architecture, width, weights.map(([name, shape, values]) => [name, shape, shape.length === 2 ? 8 : 0, values]));
+}
+
+/**
+ * Builds Qwen 2/3 packages that quantize every matrix with Q4_0 while
+ * retaining architecture-required one-dimensional norms and attention biases
+ * in dense F32. Each dense matrix is authored from Q4_0's centered
+ * F16(d) * (nibble - 8) formula and exercises both nibble halves and every
+ * code, independently of the candidate decoder.
+ */
+async function writeQ4_0QwenTraceFixture(denseFile: string, quantizedFile: string, architecture: "qwen2" | "qwen3"): Promise<void> {
+  const width = 32;
+  const matrixValues = q4_0DenseValues(width * width);
+  const ones = new Array<number>(width).fill(1);
+  const hasHeadLocalQkNorms = architecture === "qwen3";
+  const weights: Array<[string, number[], number[]]> = [
+    ["token_embd.weight", [width, width], matrixValues], ["blk.0.attn_norm.weight", [width], ones],
+    ...["attn_q", "attn_k", "attn_v", "attn_output"].flatMap((projection, index): Array<[string, number[], number[]]> => [
+      [`blk.0.${projection}.weight`, [width, width], matrixValues],
+      [`blk.0.${projection}.bias`, [width], [0.125 * (index + 1), -0.0625 * (index + 1), ...new Array<number>(width - 2).fill(0)]],
+    ]),
+    ...(hasHeadLocalQkNorms ? [["blk.0.attn_q_norm.weight", [width], ones], ["blk.0.attn_k_norm.weight", [width], ones]] as Array<[string, number[], number[]]> : []),
+    ["blk.0.ffn_norm.weight", [width], ones], ["blk.0.ffn_gate.weight", [width, width], matrixValues],
+    ["blk.0.ffn_up.weight", [width, width], matrixValues], ["blk.0.ffn_down.weight", [width, width], matrixValues],
+    ["output_norm.weight", [width], ones], ["output.weight", [width, width], matrixValues],
+  ];
+  await writeGgufQwenFixture(denseFile, architecture, width, weights.map(([name, shape, values]) => [name, shape, 0, values]));
+  await writeGgufQwenFixture(quantizedFile, architecture, width, weights.map(([name, shape, values]) => [name, shape, shape.length === 2 ? 2 : 0, values]));
 }
 
 /** Builds a Q8_1 fixture with all signed int8 codes and verified auxiliary sums live. */
