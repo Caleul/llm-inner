@@ -15,6 +15,7 @@ import type {
   TensorRef,
 } from "./types.js";
 import type { TensorBridge } from "./bridge.js";
+import { adaptGgufLlamaCatalog } from "./gguf-llama.js";
 import {
   arrayOfStrings,
   numberFrom,
@@ -91,12 +92,13 @@ export async function buildModelIR(
   preview: PreviewOptions,
   bridge?: TensorBridge,
 ): Promise<ModelIR> {
-  const config = selectTextConfig(catalog.config);
-  const architectureClass = arrayOfStrings(catalog.config.architectures)?.[0];
+  const adaptedCatalog = adaptGgufLlamaCatalog(catalog);
+  const config = selectTextConfig(adaptedCatalog.config);
+  const architectureClass = arrayOfStrings(adaptedCatalog.config.architectures)?.[0];
   const modelType = normalizeModelType(
     optionalString(config, ["model_type"]) ??
-      optionalString(catalog.config, ["model_type"]) ??
-      optionalString(catalog.rawMetadata, ["general.architecture"]) ??
+      optionalString(adaptedCatalog.config, ["model_type"]) ??
+      optionalString(adaptedCatalog.rawMetadata, ["general.architecture"]) ??
       "",
   );
   if (!SUPPORTED_MODEL_TYPES.has(modelType)) {
@@ -138,7 +140,7 @@ export async function buildModelIR(
         : undefined;
 
   const context: ArchitectureContext = {
-    catalog,
+    catalog: adaptedCatalog,
     config,
     modelType,
     ...(architectureClass ? { architectureClass } : {}),
@@ -185,7 +187,7 @@ export async function buildModelIR(
       headDim,
       ...(context.vocabSize !== undefined ? { vocabSize: context.vocabSize } : {}),
     },
-    config: catalog.config,
+    config: adaptedCatalog.config,
     preview,
     inputs: [
       { name: "input_ids", description: "IDs dos tokens de entrada." },

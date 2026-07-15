@@ -16,7 +16,7 @@ O IR guarda `inFeatures`, `outFeatures`, referência ao tensor, dtype e quantiza
 
 - Diretórios Hugging Face/Safetensors densos.
 - Diretórios MLX/Safetensors quantizados, lendo `config.json`, incluindo overrides por módulo.
-- Arquivos GGUF v2/v3 por um leitor nativo estrito de header, metadata e diretório.
+- Arquivos GGUF v2/v3 por um leitor nativo estrito de header, metadata e diretório; o subconjunto denso Llama também pode chegar ao IR e à materialização F32 sem bridge Python.
 
 A leitura numérica é delegada ao runtime de referência:
 
@@ -163,8 +163,9 @@ entre o catálogo e o executor F32: reúne todos os `TensorRef` do IR, confirma
 nome, shape, dtype e contrato de quantização contra o catálogo de origem e
 materializa cada constante uma única vez. Safetensors densos usam o leitor de
 intervalos F32/F16/BF16; MLX quantizado exige explicitamente o bridge com
-`mlx.core.dequantize` e preserva a proveniência. GGUF não é reinterpretado
-como F32 até existir um decodificador GGML por tipo verificado.
+`mlx.core.dequantize` e preserva a proveniência. GGUF denso F32/F16 usa o seu
+próprio leitor de intervalos; tipos GGML empacotados não são reinterpretados
+como F32 até existir um decodificador por tipo verificado.
 
 `GgufCatalogReader` em `src/gguf.ts` não depende de `gguf-py`: valida magic,
 versão v2/v3, contagens seguras, metadata tipada (incluindo arrays), diretório,
@@ -172,7 +173,11 @@ alinhamento e intervalos de payload. Hoje só expõe armazenamento GGML F32/F16
 de tamanho verificável, mantendo as dimensões na ordem declarada pelo GGML;
 qualquer encoding empacotado é rejeitado com seu tipo GGML até haver contrato de
 layout e dequantização específico. A leitura do catálogo não inventa papéis de
-tensores nem uma convenção de layout de arquitetura.
+tensor nem uma convenção de layout de arquitetura. A exceção executável atual
+é o adaptador separado `adaptGgufLlamaCatalog`: ele exige
+`general.architecture=llama`, reconhece apenas os nomes GGUF Llama registrados
+(`token_embd`, `output` e projeções `blk.N`) e converte somente essas matrizes
+da ordem GGML declarada `[in,out]` para a forma IR `[out,in]`.
 
 `compareGenerationTrace` cobre a evidência que não cabe em um forward isolado:
 ele exige uma captura autoritativa do prompt e suas posições absolutas, cada

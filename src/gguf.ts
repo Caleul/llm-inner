@@ -1,6 +1,6 @@
 import { open } from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
-import type { JsonObject, ModelCatalog, TensorInfo } from "./types.js";
+import type { DenseF32Tensor, JsonObject, ModelCatalog, TensorInfo } from "./types.js";
 import { product } from "./utils.js";
 
 const GGUF_MAGIC = "GGUF";
@@ -150,6 +150,36 @@ export class GgufCatalogReader {
     };
   }
 
+  /** Materializes only verified dense GGML F32/F16 intervals into F32 values. */
+  async readDenseAsF32(tensor: TensorInfo): Promise<DenseF32Tensor> {
+    if (tensor.quantization || (tensor.storageDtype !== "F32" && tensor.storageDtype !== "F16")) {
+      throw new Error(`${tensor.name}: materialização GGUF F32 requer storage GGML F32/F16 denso verificado.`);
+    }
+    if (tensor.shard !== this.#source || tensor.byteOffset === undefined || tensor.byteLength === undefined) {
+      throw new Error(`${tensor.name}: referência de intervalo GGUF não pertence a este leitor.`);
+    }
+    const elementBytes = tensor.storageDtype === "F32" ? 4 : 2;
+    const elements = product(tensor.storageShape);
+    if (!Number.isSafeInteger(elements) || tensor.byteLength !== elements * elementBytes || tensor.byteOffset < 0 || tensor.byteOffset > this.#fileSize - tensor.byteLength) {
+      throw new Error(`${tensor.name}: intervalo denso GGUF não coincide com shape e dtype catalogados.`);
+    }
+    if (!this.#handle) throw new Error("Leitor GGUF está fechado; mantenha o catálogo aberto durante a materialização.");
+    const bytes = Buffer.allocUnsafe(tensor.byteLength);
+    let read = 0;
+    while (read < bytes.length) {
+      const result = await this.#handle.read(bytes, read, bytes.length - read, tensor.byteOffset + read);
+      if (result.bytesRead === 0) throw new Error("EOF inesperado materializando tensor GGUF.");
+      read += result.bytesRead;
+    }
+    const values = new Float32Array(elements);
+    if (tensor.storageDtype === "F32") {
+      for (let index = 0; index < elements; index += 1) values[index] = bytes.readFloatLE(index * 4);
+    } else {
+      for (let index = 0; index < elements; index += 1) values[index] = decodeF16(bytes.readUInt16LE(index * 2));
+    }
+    return { shape: [...tensor.logicalShape], values };
+  }
+
   async #readMetadataValue(inArray: boolean): Promise<unknown> {
     const type = await this.#readU32();
     if (type === GgufValueType.Array) {
@@ -266,4 +296,13 @@ function alignUp(value: number, alignment: number): number {
   const aligned = remainder === 0 ? value : value + alignment - remainder;
   if (!Number.isSafeInteger(aligned)) throw new Error("Alinhamento GGUF excede Number.MAX_SAFE_INTEGER.");
   return aligned;
+}
+
+function decodeF16(bits: number): number {
+  const sign = (bits & 0x8000) === 0 ? 1 : -1;
+  const exponent = (bits >>> 10) & 0x1f;
+  const fraction = bits & 0x03ff;
+  if (exponent === 0) return sign * fraction * 2 ** -24;
+  if (exponent === 0x1f) return fraction === 0 ? sign * Infinity : Number.NaN;
+  return sign * (1 + fraction / 1024) * 2 ** (exponent - 15);
 }

@@ -1,6 +1,10 @@
 import type { TensorBridge } from "./bridge.js";
-import type { SafetensorsCatalogReader } from "./safetensors.js";
 import type { DenseF32Tensor, ModelCatalog, ModelIR, Operation, QuantizationSpec, TensorInfo, TensorRef } from "./types.js";
+import { adaptGgufLlamaCatalog } from "./gguf-llama.js";
+
+export interface DenseF32Reader {
+  readDenseAsF32(tensor: TensorInfo): Promise<DenseF32Tensor>;
+}
 
 /**
  * Materialize the complete set of constants referenced by an IR for the
@@ -15,27 +19,24 @@ import type { DenseF32Tensor, ModelCatalog, ModelIR, Operation, QuantizationSpec
 export async function materializeReferenceF32Constants(
   ir: ModelIR,
   catalog: ModelCatalog,
-  reader: Pick<SafetensorsCatalogReader, "readDenseAsF32">,
+  reader: DenseF32Reader,
   bridge?: Pick<TensorBridge, "readMlxDequantizedF32">,
 ): Promise<ReadonlyMap<string, DenseF32Tensor>> {
-  if (catalog.format === "gguf") {
-    throw new Error("Materialização F32 GGUF ainda não possui um decodificador por tipo GGML verificado; não é seguro reinterpretar seus blocos como F32.");
-  }
-
+  const adaptedCatalog = adaptGgufLlamaCatalog(catalog);
   const references = referencedTensors(ir);
   const constants = new Map<string, DenseF32Tensor>();
   for (const reference of references.values()) {
-    const catalogued = catalog.tensors.get(reference.name);
+    const catalogued = adaptedCatalog.tensors.get(reference.name);
     if (!catalogued) throw new Error(`IR referencia tensor ausente do catálogo: ${reference.name}.`);
     assertReferenceMatchesCatalog(reference, catalogued);
 
     let materialized: DenseF32Tensor;
     if (catalogued.quantization) {
-      if (catalog.format !== "mlx-safetensors" || catalogued.quantization.family !== "mlx") {
+      if (adaptedCatalog.format !== "mlx-safetensors" || catalogued.quantization.family !== "mlx") {
         throw new Error(`${reference.name}: quantização ${catalogued.quantization.family}/${catalogued.quantization.mode} não possui materializador F32 verificado.`);
       }
       if (!bridge) throw new Error(`${reference.name}: tensor MLX quantizado requer TensorBridge com mlx.core.dequantize.`);
-      materialized = await bridge.readMlxDequantizedF32(catalog, reference.name);
+      materialized = await bridge.readMlxDequantizedF32(adaptedCatalog, reference.name);
     } else {
       materialized = await reader.readDenseAsF32(catalogued);
     }
