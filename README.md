@@ -277,6 +277,18 @@ empacotado é rejeitada pelo checksum. A classe continua sendo uma prova
 sintética lossless na política escalar F32 — não uma comparação externa nem
 uma prova para os outros tipos GGML.
 
+Uma quarta regressão executável cobre o `GGML_TYPE_Q5_K` pela fronteira
+completa. Cada matriz de um Llama de largura 256 usa o mesmo `d=0.5`,
+`dmin=0.25` e os oito campos de escala/mínimo de seis bits, mas constrói
+diretamente no pacote F32 pareado os códigos unsigned de cinco bits da fórmula
+`d*scale*(low4 | high1<<4) - dmin*minimum`. Os 32 valores possíveis de cada
+código aparecem no fixture, portanto tanto `qh[32]` quanto os nibbles baixos
+e ambos os ramos de campos altos dos grupos 4..7 influenciam as operações,
+cache KV, logits e duas etapas greedy comparadas. O pacote F32 não chama o
+leitor candidato e uma alteração de byte empacotado é rejeitada pelo checksum.
+Esta é uma prova sintética lossless dentro da política escalar F32, não uma
+comparação com llama.cpp nem uma validação de checkpoint real.
+
 `materializeReferenceF32Constants` em `src/materialize.ts` fecha a fronteira
 entre o catálogo e o executor F32: reúne todos os `TensorRef` do IR, confirma
 nome, shape, dtype e contrato de quantização contra o catálogo de origem e
