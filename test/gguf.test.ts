@@ -4,8 +4,10 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { GgufCatalogReader } from "../src/gguf.js";
+import { adaptGgufDecoderCatalog } from "../src/gguf-llama.js";
 import { buildModelIR } from "../src/architecture.js";
 import { materializeReferenceF32Constants } from "../src/materialize.js";
+import type { ModelCatalog, TensorInfo } from "../src/types.js";
 
 const encoder = new TextEncoder();
 
@@ -802,6 +804,68 @@ test("explicit Llama GGUF adapter lowers and materializes dense BF16 constants",
       assert.equal(embedding.sourceQuantization, undefined);
     } finally { await reader.close(); }
   });
+});
+
+test("explicit Qwen 3 GGUF adapter reverses registered matrices and preserves head-local Q/K norms", async () => {
+  const shapes: Array<[string, number[]]> = [
+    ["token_embd.weight", [2, 3]], ["blk.0.attn_norm.weight", [2]],
+    ["blk.0.attn_q.weight", [2, 2]], ["blk.0.attn_k.weight", [2, 2]], ["blk.0.attn_v.weight", [2, 2]], ["blk.0.attn_output.weight", [2, 2]],
+    ["blk.0.attn_q_norm.weight", [2]], ["blk.0.attn_k_norm.weight", [2]], ["blk.0.ffn_norm.weight", [2]],
+    ["blk.0.ffn_gate.weight", [2, 2]], ["blk.0.ffn_up.weight", [2, 2]], ["blk.0.ffn_down.weight", [2, 2]],
+    ["output_norm.weight", [2]], ["output.weight", [2, 3]],
+  ];
+  const payloadParts: Buffer[] = [];
+  const directory: Buffer[] = [];
+  let offset = 0;
+  for (const [name, ggmlShape] of shapes) {
+    const padding = (32 - (offset % 32)) % 32;
+    if (padding) { payloadParts.push(Buffer.alloc(padding)); offset += padding; }
+    const values = Buffer.alloc(ggmlShape.reduce((left, right) => left * right, 1) * 4);
+    for (let index = 0; index < values.length / 4; index += 1) values.writeFloatLE(index + 0.25, index * 4);
+    directory.push(tensor(name, ggmlShape, 0, offset));
+    payloadParts.push(values); offset += values.length;
+  }
+  const epsilon = Buffer.alloc(4); epsilon.writeFloatLE(1e-5);
+  const metadataEntries = [
+    metadataString("general.architecture", "qwen3"), metadataU32("general.alignment", 32),
+    metadataU32("qwen3.embedding_length", 2), metadataU32("qwen3.block_count", 1),
+    metadataU32("qwen3.attention.head_count", 1), metadataU32("qwen3.attention.head_count_kv", 1),
+    metadataU32("qwen3.attention.key_length", 2), metadataU32("qwen3.feed_forward_length", 2),
+    metadata("qwen3.attention.layer_norm_rms_epsilon", 6, epsilon),
+  ];
+  await withFixture(fixture(metadataEntries, directory, Buffer.concat(payloadParts)), async (file) => {
+    const reader = new GgufCatalogReader(file);
+    try {
+      const catalog = await reader.inspect();
+      const ir = await buildModelIR(catalog, { outputRows: 1, inputTerms: 1, includeWeights: false });
+      assert.equal(ir.architecture.modelType, "qwen3");
+      const qNorm = ir.layers[0]!.operations.find((operation) => operation.id === "layer_0_q_norm");
+      const kNorm = ir.layers[0]!.operations.find((operation) => operation.id === "layer_0_k_norm");
+      assert.equal(qNorm?.op, "rms_norm");
+      assert.equal(kNorm?.op, "rms_norm");
+      if (qNorm?.op === "rms_norm") assert.equal(qNorm.input, "layer_0_q_heads");
+      if (kNorm?.op === "rms_norm") assert.equal(kNorm.input, "layer_0_k_heads");
+      const constants = await materializeReferenceF32Constants(ir, catalog, reader);
+      assert.deepEqual(constants.get("token_embd.weight")?.shape, [3, 2]);
+      assert.deepEqual([...constants.get("token_embd.weight")!.values.slice(0, 3)], [0.25, 1.25, 2.25]);
+    } finally { await reader.close(); }
+  });
+});
+
+test("Qwen 2 GGUF layout selection is metadata-bound and reverses no unregistered tensor", () => {
+  const tensorInfo = (name: string): TensorInfo => ({
+    name, storageDtype: "F32", storageShape: [2, 3], logicalShape: [2, 3], byteOffset: 0, byteLength: 24, shard: "/tmp/qwen2.gguf",
+  });
+  const catalog: ModelCatalog = {
+    source: "/tmp/qwen2.gguf", format: "gguf", config: { model_type: "qwen2" }, rawMetadata: { "general.architecture": "qwen2" },
+    tensors: new Map([["token_embd.weight", tensorInfo("token_embd.weight")], ["vendor.weight", tensorInfo("vendor.weight")]]),
+  };
+  const adapted = adaptGgufDecoderCatalog(catalog);
+  assert.deepEqual(adapted.tensors.get("token_embd.weight")?.logicalShape, [3, 2]);
+  assert.deepEqual(adapted.tensors.get("vendor.weight")?.logicalShape, [2, 3]);
+
+  const unknown = adaptGgufDecoderCatalog({ ...catalog, rawMetadata: { "general.architecture": "qwen2_variant" } });
+  assert.deepEqual(unknown.tensors.get("token_embd.weight")?.logicalShape, [2, 3]);
 });
 
 test("Llama GGUF adapter rejects a documented matrix with non-matrix GGML dimensions", async () => {

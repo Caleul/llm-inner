@@ -743,6 +743,61 @@ test("dense GGUF Llama replays Safetensors forward and greedy-generation evidenc
   }
 });
 
+test("dense GGUF Qwen 3 replays Safetensors Q/K-norm execution and greedy-generation evidence", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-qwen3-gguf-trace-"));
+  try {
+    await writeTinyQwen3F32Model(directory);
+    const safetensorsSource = path.join(directory, "qwen3");
+    const ggufSource = path.join(directory, "qwen3.gguf");
+    await writeTinyQwen3F32GgufModel(ggufSource);
+
+    const safetensors = await executeFixture(safetensorsSource, [[1]]);
+    const gguf = await executeFixture(ggufSource, [[1]]);
+    assert.deepEqual(serialized(gguf.candidate.values.get("logits")!), serialized(safetensors.candidate.values.get("logits")!));
+    assert.deepEqual([...gguf.candidate.pastKeyValues], [...safetensors.candidate.pastKeyValues]);
+    assert.ok(operations(gguf.ir).some((operation) => operation.id === "layer_0_q_norm"));
+    assert.ok(operations(gguf.ir).some((operation) => operation.id === "layer_0_k_norm"));
+
+    const executionTrace = path.join(directory, "qwen3-gguf-execution-trace.json");
+    await writeFile(executionTrace, JSON.stringify({
+      schemaVersion: 1, kind: "execution",
+      source: { files: await checksums(directory, ["qwen3.gguf"]) },
+      irFingerprint: gguf.fingerprint,
+      candidatePolicy: { dtype: "F32", runtime: "llm-inner scalar IEEE-754 F32" },
+      reference: {
+        runtime: "paired Safetensors Qwen 3 F32 fixture", model: "tiny-qwen3-qk-norm", revisionOrChecksum: "qwen3-gguf-paired-fixture-v1",
+        containerFormat: "safetensors", quantization: "none", inputTokens: [[1]], dtypePolicy: "F32 scalar Qwen 3 fixture",
+        operations: operations(gguf.ir).map((operation) => ({ operationId: operation.id, output: operation.output, tensor: serialized(safetensors.candidate.values.get(operation.output)!) })),
+        pastKeyValues: [...safetensors.candidate.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
+      },
+    }, null, 2));
+    const executionReport = await runExecutionTraceComparison({ source: ggufSource, trace: executionTrace, report: path.join(directory, "qwen3-gguf-execution-report.json"), topK: 3 });
+    assert.equal(executionReport.fidelityClass, "lossless-within-dtype");
+    assert.equal(executionReport.firstDivergentOperation, null);
+
+    const safetensorsGeneration = await generateFixture(safetensorsSource);
+    const generationTrace = path.join(directory, "qwen3-gguf-generation-trace.json");
+    await writeFile(generationTrace, JSON.stringify({
+      schemaVersion: 1, kind: "generation",
+      source: { files: await checksums(directory, ["qwen3.gguf"]) },
+      irFingerprint: gguf.fingerprint,
+      candidatePolicy: { dtype: "F32", runtime: "llm-inner scalar IEEE-754 F32" },
+      reference: {
+        runtime: "paired Safetensors Qwen 3 F32 fixture", model: "tiny-qwen3-qk-norm", revisionOrChecksum: "qwen3-gguf-paired-fixture-v1",
+        containerFormat: "safetensors", quantization: "none", inputTokens: [1], promptPositionIds: [0],
+        dtypePolicy: "F32 scalar Qwen 3 fixture", maxNewTokens: 2, generatedTokenIds: safetensorsGeneration.generatedTokenIds,
+        steps: safetensorsGeneration.steps, selectionLogits: safetensorsGeneration.selectionLogits.map(serialized), stepPastKeyValues: serializedStepCaches(safetensorsGeneration.stepPastKeyValues, serialized), logits: serialized(safetensorsGeneration.logits),
+        pastKeyValues: [...safetensorsGeneration.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
+      },
+    }, null, 2));
+    const generationReport = await runGenerationTraceComparison({ source: ggufSource, trace: generationTrace, report: path.join(directory, "qwen3-gguf-generation-report.json"), topK: 3 });
+    assert.equal(generationReport.fidelityClass, "lossless-within-dtype");
+    assert.equal(generationReport.firstDivergence, null);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("MLX affine U32 Llama replays independently constructed dense F32 execution and generation evidence", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-mlx-affine-trace-"));
   try {
@@ -1985,6 +2040,45 @@ async function writeTinyF32GgufModel(file: string): Promise<void> {
     metadata("general.architecture", 8, text("llama")), metadataU32("general.alignment", 32), metadataU32("llama.embedding_length", 2),
     metadataU32("llama.block_count", 1), metadataU32("llama.attention.head_count", 1), metadataU32("llama.attention.head_count_kv", 1),
     metadataU32("llama.attention.key_length", 2), metadataU32("llama.feed_forward_length", 2), metadataF32("llama.attention.layer_norm_rms_epsilon", 1e-6),
+  ];
+  const payloads: Buffer[] = [];
+  const directory: Buffer[] = [];
+  let offset = 0;
+  for (const [name, shape, values] of weights) {
+    const padding = (32 - (offset % 32)) % 32;
+    if (padding) { payloads.push(Buffer.alloc(padding)); offset += padding; }
+    const payload = Buffer.alloc(values.length * 4);
+    values.forEach((value, index) => payload.writeFloatLE(value, index * 4));
+    directory.push(Buffer.concat([text(name), u32(shape.length), ...shape.map(u64), u32(0), u64(offset)]));
+    payloads.push(payload); offset += payload.length;
+  }
+  const prefix = Buffer.concat([Buffer.from("GGUF"), u32(3), u64(weights.length), u64(metadataEntries.length), ...metadataEntries, ...directory]);
+  await writeFile(file, Buffer.concat([prefix, Buffer.alloc((32 - (prefix.length % 32)) % 32), ...payloads]));
+}
+
+/** Writes the Qwen 3 fixture in its registered GGUF tensor and metadata layout. */
+async function writeTinyQwen3F32GgufModel(file: string): Promise<void> {
+  const weights: Array<[string, number[], number[]]> = [
+    ["token_embd.weight", [2, 3], [0, 0, 2, -1, -1, 1]], ["blk.0.attn_norm.weight", [2], [1, 1]],
+    ...["attn_q", "attn_k", "attn_v", "attn_output"].flatMap((projection, index): Array<[string, number[], number[]]> => [
+      [`blk.0.${projection}.weight`, [2, 2], [1, 0, 0, 1]],
+      [`blk.0.${projection}.bias`, [2], [0.125 * (index + 1), -0.0625 * (index + 1)]],
+    ]),
+    ["blk.0.attn_q_norm.weight", [2], [1.5, 0.5]], ["blk.0.attn_k_norm.weight", [2], [0.75, 1.25]],
+    ["blk.0.ffn_norm.weight", [2], [1, 1]], ["blk.0.ffn_gate.weight", [2, 2], [1, 0, 0, 1]],
+    ["blk.0.ffn_up.weight", [2, 2], [1, 0, 0, 1]], ["blk.0.ffn_down.weight", [2, 2], [1, 0, 0, 1]],
+    ["output_norm.weight", [2], [1, 1]], ["output.weight", [2, 3], [1, 0, 0, 1, 1, -1]],
+  ];
+  const text = (value: string) => { const bytes = Buffer.from(value); const length = Buffer.alloc(8); length.writeBigUInt64LE(BigInt(bytes.length)); return Buffer.concat([length, bytes]); };
+  const u32 = (value: number) => { const bytes = Buffer.alloc(4); bytes.writeUInt32LE(value); return bytes; };
+  const u64 = (value: number) => { const bytes = Buffer.alloc(8); bytes.writeBigUInt64LE(BigInt(value)); return bytes; };
+  const metadata = (key: string, type: number, value: Buffer) => Buffer.concat([text(key), u32(type), value]);
+  const metadataU32 = (key: string, value: number) => metadata(key, 4, u32(value));
+  const metadataF32 = (key: string, value: number) => { const bytes = Buffer.alloc(4); bytes.writeFloatLE(value); return metadata(key, 6, bytes); };
+  const metadataEntries = [
+    metadata("general.architecture", 8, text("qwen3")), metadataU32("general.alignment", 32), metadataU32("qwen3.embedding_length", 2),
+    metadataU32("qwen3.block_count", 1), metadataU32("qwen3.attention.head_count", 1), metadataU32("qwen3.attention.head_count_kv", 1),
+    metadataU32("qwen3.attention.key_length", 2), metadataU32("qwen3.feed_forward_length", 2), metadataF32("qwen3.attention.layer_norm_rms_epsilon", 1e-6),
   ];
   const payloads: Buffer[] = [];
   const directory: Buffer[] = [];

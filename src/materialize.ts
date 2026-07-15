@@ -1,6 +1,6 @@
 import type { TensorBridge } from "./bridge.js";
 import type { DenseF32Tensor, DenseTensor, ModelCatalog, ModelIR, Operation, QuantizationSpec, TensorInfo, TensorRef } from "./types.js";
-import { adaptGgufLlamaCatalog } from "./gguf-llama.js";
+import { adaptGgufDecoderCatalog } from "./gguf-llama.js";
 
 export interface DenseF32Reader {
   readDenseAsF32(tensor: TensorInfo): Promise<DenseF32Tensor>;
@@ -31,7 +31,7 @@ export async function materializeReferenceF32Constants(
   reader: DenseF32Reader,
   bridge?: Pick<TensorBridge, "readMlxDequantizedF32">,
 ): Promise<ReadonlyMap<string, DenseF32Tensor>> {
-  const adaptedCatalog = adaptGgufLlamaCatalog(catalog);
+  const adaptedCatalog = adaptGgufDecoderCatalog(catalog);
   const references = referencedTensors(ir);
   const constants = new Map<string, DenseF32Tensor>();
   for (const reference of references.values()) {
@@ -74,7 +74,7 @@ export async function materializeReferenceF64Constants(
   catalog: ModelCatalog,
   reader: DenseF64Reader,
 ): Promise<ReadonlyMap<string, DenseTensor>> {
-  const adaptedCatalog = adaptGgufLlamaCatalog(catalog);
+  const adaptedCatalog = adaptGgufDecoderCatalog(catalog);
   const constants = new Map<string, DenseTensor>();
   for (const reference of referencedTensors(ir).values()) {
     const catalogued = adaptedCatalog.tensors.get(reference.name);

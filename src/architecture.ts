@@ -15,7 +15,7 @@ import type {
   TensorRef,
 } from "./types.js";
 import type { TensorBridge } from "./bridge.js";
-import { adaptGgufLlamaCatalog } from "./gguf-llama.js";
+import { adaptGgufDecoderCatalog } from "./gguf-llama.js";
 import {
   arrayOfStrings,
   numberFrom,
@@ -92,7 +92,7 @@ export async function buildModelIR(
   preview: PreviewOptions,
   bridge?: TensorBridge,
 ): Promise<ModelIR> {
-  const adaptedCatalog = adaptGgufLlamaCatalog(catalog);
+  const adaptedCatalog = adaptGgufDecoderCatalog(catalog);
   const config = selectTextConfig(adaptedCatalog.config);
   const architectureClass = arrayOfStrings(adaptedCatalog.config.architectures)?.[0];
   const modelType = normalizeModelType(
@@ -774,9 +774,9 @@ function resolveLayerTensors(ctx: ArchitectureContext, layer: number): LayerTens
     : explicitPreFeedForward ?? postAttentionCandidate;
   const postAttentionNorm = hasFourNormBlock ? postAttentionCandidate : undefined;
 
-  const qNorm = findLayerTensor(ctx.catalog, layer, ["self_attn.q_norm.weight", "attention.q_norm.weight"]);
-  const kNorm = findLayerTensor(ctx.catalog, layer, ["self_attn.k_norm.weight", "attention.k_norm.weight"]);
-  const vNorm = findLayerTensor(ctx.catalog, layer, ["self_attn.v_norm.weight", "attention.v_norm.weight"]);
+  const qNorm = findLayerTensor(ctx.catalog, layer, ["self_attn.q_norm.weight", "attention.q_norm.weight", "attn_q_norm.weight"]);
+  const kNorm = findLayerTensor(ctx.catalog, layer, ["self_attn.k_norm.weight", "attention.k_norm.weight", "attn_k_norm.weight"]);
+  const vNorm = findLayerTensor(ctx.catalog, layer, ["self_attn.v_norm.weight", "attention.v_norm.weight", "attn_v_norm.weight"]);
   const gateProj = findLayerTensor(ctx.catalog, layer, ["mlp.gate_proj.weight", "feed_forward.w1.weight", "ffn_gate.weight"]);
   const upProj = findLayerTensor(ctx.catalog, layer, ["mlp.up_proj.weight", "feed_forward.w3.weight", "ffn_up.weight"]);
   const downProj = findLayerTensor(ctx.catalog, layer, ["mlp.down_proj.weight", "feed_forward.w2.weight", "ffn_down.weight"]);

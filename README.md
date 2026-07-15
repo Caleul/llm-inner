@@ -16,7 +16,7 @@ O IR guarda `inFeatures`, `outFeatures`, referência ao tensor, dtype e quantiza
 
 - Diretórios Hugging Face/Safetensors densos.
 - Diretórios MLX/Safetensors quantizados, lendo `config.json`, incluindo overrides por módulo.
-- Arquivos GGUF v2/v3 por um leitor nativo estrito de header, metadata e diretório; o subconjunto denso Llama também pode chegar ao IR e à materialização F32 sem bridge Python.
+- Arquivos GGUF v2/v3 por um leitor nativo estrito de header, metadata e diretório; os subconjuntos densos Llama e Qwen 2/3 com layout de decoder registrado também podem chegar ao IR e à materialização F32 sem bridge Python.
 
 A leitura numérica usa contratos explícitos por formato:
 
@@ -443,10 +443,14 @@ contratos quantizados explícitos Q2_K, Q3_K, Q4_0, Q4_1, Q4_K, Q5_0, Q5_1, Q5_K
 na ordem declarada pelo GGML; qualquer outro encoding empacotado é rejeitado com
 seu tipo GGML até haver contrato de layout e dequantização específico. A leitura do catálogo não inventa papéis de
 tensor nem uma convenção de layout de arquitetura. A exceção executável atual
-é o adaptador separado `adaptGgufLlamaCatalog`: ele exige
-`general.architecture=llama`, reconhece apenas os nomes GGUF Llama registrados
-(`token_embd`, `output` e projeções `blk.N`) e converte somente essas matrizes
-da ordem GGML declarada `[in,out]` para a forma IR `[out,in]`.
+é o adaptador separado `adaptGgufDecoderCatalog`: ele seleciona exclusivamente
+`general.architecture=llama`, `qwen2` ou `qwen3`, reconhece apenas o registro
+documentado de matrizes decoder (`token_embd`, `output` e projeções `blk.N`) e
+converte somente essas matrizes da ordem GGML declarada `[in,out]` para a forma
+IR `[out,in]`. No Qwen 3, os vetores registrados `attn_q_norm` e
+`attn_k_norm` continuam vetores e são baixados depois do reshape de cabeças;
+um nome coincidente sob qualquer outra arquitetura não recebe orientação nem
+semântica implícita.
 
 `compareGenerationTrace` cobre a evidência que não cabe em um forward isolado:
 ele exige uma captura autoritativa do prompt e suas posições absolutas, cada
