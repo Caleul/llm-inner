@@ -414,6 +414,15 @@ geração compara todas as operações, cache KV, logits e dois passos greedy, e
 rejeita uma mutação em `qh` pelo checksum. É prova sintética
 lossless-within-dtype sob F32 escalar, não comparação com runtime externo.
 
+A fixture sintética Q4_1 de 256 dimensões fecha a variante afim de quatro
+bits: a evidência F32 independente aplica `d*q+m` com `d=0.5`, `m=-1` e os 16
+códigos unsigned; o pacote GGUF grava `q[0..15]` nos nibbles baixos e
+`q[16..31]` nos altos. Todas as operações, o cache KV pós-RoPE, logits e dois
+passos greedy são comparados contra essa evidência, e uma mutação do `F16 m`
+do último bloco é recusada pelo checksum antes do relatório. Assim como as
+demais fixtures quantizadas, é prova sintética lossless-within-dtype sob F32
+escalar, não uma comparação com runtime externo autoritativo.
+
 Além da máscara causal/janela declarada pelo IR, o executor de referência pode
 receber uma máscara aditiva canônica `[batch, 1|heads, query, key]`. Zero
 preserva o score e `-Infinity` exclui a chave antes do softmax; valores finitos

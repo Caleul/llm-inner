@@ -436,6 +436,68 @@ test("Q5_0 GGUF Llama replays independently constructed centered dense F32 forwa
   }
 });
 
+test("Q4_1 GGUF Llama replays independently constructed affine dense F32 forward and greedy-generation evidence", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-q4_1-trace-"));
+  try {
+    const denseSource = path.join(directory, "dense-reference.gguf");
+    const quantizedSource = path.join(directory, "q4_1.gguf");
+    await writeQ4_1TraceFixture(denseSource, quantizedSource);
+
+    // The dense package applies d*q+m directly with d=0.5 and m=-1 to all
+    // unsigned four-bit codes. The packed writer places q[0..15] in low
+    // nibbles and q[16..31] in high nibbles without using the candidate reader.
+    const dense = await executeFixture(denseSource, [[1]]);
+    const quantized = await executeFixture(quantizedSource, [[1]]);
+    assert.deepEqual(serialized(quantized.candidate.values.get("logits")!), serialized(dense.candidate.values.get("logits")!));
+    assert.deepEqual([...quantized.candidate.pastKeyValues], [...dense.candidate.pastKeyValues]);
+
+    const executionTrace = path.join(directory, "q4_1-execution-trace.json");
+    await writeFile(executionTrace, JSON.stringify({
+      schemaVersion: 1, kind: "execution",
+      source: { files: await checksums(directory, ["q4_1.gguf"]) },
+      irFingerprint: quantized.fingerprint,
+      candidatePolicy: { dtype: "F32", runtime: "llm-inner scalar IEEE-754 F32" },
+      reference: {
+        runtime: "independent declared GGML Q4_1 F32 fixture", model: "q4_1-llama-256", revisionOrChecksum: "q4_1-formula-fixture-v1",
+        containerFormat: "gguf v3", quantization: "GGML_TYPE_Q4_1", inputTokens: [[1]], dtypePolicy: "F32 scalar fixture from declared Q4_1 formula",
+        operations: operations(quantized.ir).map((operation) => ({ operationId: operation.id, output: operation.output, tensor: serialized(dense.candidate.values.get(operation.output)!) })),
+        pastKeyValues: [...dense.candidate.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
+      },
+    }, null, 2));
+    const executionReport = await runExecutionTraceComparison({ source: quantizedSource, trace: executionTrace, report: path.join(directory, "q4_1-execution-report.json"), topK: 3 });
+    assert.equal(executionReport.fidelityClass, "lossless-within-dtype");
+    assert.equal(executionReport.firstDivergentOperation, null);
+
+    const denseGeneration = await generateFixture(denseSource);
+    const generationTrace = path.join(directory, "q4_1-generation-trace.json");
+    await writeFile(generationTrace, JSON.stringify({
+      schemaVersion: 1, kind: "generation",
+      source: { files: await checksums(directory, ["q4_1.gguf"]) },
+      irFingerprint: quantized.fingerprint,
+      candidatePolicy: { dtype: "F32", runtime: "llm-inner scalar IEEE-754 F32" },
+      reference: {
+        runtime: "independent declared GGML Q4_1 F32 fixture", model: "q4_1-llama-256", revisionOrChecksum: "q4_1-formula-fixture-v1",
+        containerFormat: "gguf v3", quantization: "GGML_TYPE_Q4_1", inputTokens: [1], promptPositionIds: [0],
+        dtypePolicy: "F32 scalar fixture from declared Q4_1 formula", maxNewTokens: 2, generatedTokenIds: denseGeneration.generatedTokenIds,
+        steps: denseGeneration.steps, logits: serialized(denseGeneration.logits),
+        pastKeyValues: [...denseGeneration.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
+      },
+    }, null, 2));
+    const generationReport = await runGenerationTraceComparison({ source: quantizedSource, trace: generationTrace, report: path.join(directory, "q4_1-generation-report.json"), topK: 3 });
+    assert.equal(generationReport.fidelityClass, "lossless-within-dtype");
+    assert.equal(generationReport.firstDivergence, null);
+
+    // The final Q4_1 block stores its F16 minimum at byte -18. Integrity is
+    // over the packed source, so a minimum mutation fails before comparison.
+    const corrupted = await readFile(quantizedSource);
+    corrupted[corrupted.length - 18] = corrupted[corrupted.length - 18]! ^ 1;
+    await writeFile(quantizedSource, corrupted);
+    await assert.rejects(() => runExecutionTraceComparison({ source: quantizedSource, trace: executionTrace, report: path.join(directory, "corrupt-report.json") }), /Checksum divergente/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("Q4_K GGUF Llama replays independently constructed affine dense F32 forward and greedy-generation evidence", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-q4_k-trace-"));
   try {
@@ -961,6 +1023,20 @@ async function writeQ5_0TraceFixture(denseFile: string, quantizedFile: string): 
   await writeGgufLlamaFixture(quantizedFile, denseWeights.map(([name, shape, values]) => [name, shape, values.length === width ? 0 : 6, values]));
 }
 
+/** Builds a Q4_1 fixture with every affine code, nibble half, F16 scale, and F16 minimum live. */
+async function writeQ4_1TraceFixture(denseFile: string, quantizedFile: string): Promise<void> {
+  const width = 256;
+  const ones = new Array<number>(width).fill(1);
+  const matrixNames = ["attn_q", "attn_k", "attn_v", "attn_output", "ffn_gate", "ffn_up", "ffn_down"];
+  const denseWeights: Array<[string, number[], number[]]> = [
+    ["token_embd.weight", [width, width], q4_1DenseValues(width * width)], ["blk.0.attn_norm.weight", [width], ones],
+    ...matrixNames.map((projection): [string, number[], number[]] => [`blk.0.${projection}.weight`, [width, width], q4_1DenseValues(width * width)]),
+    ["blk.0.ffn_norm.weight", [width], ones], ["output_norm.weight", [width], ones], ["output.weight", [width, width], q4_1DenseValues(width * width)],
+  ];
+  await writeGgufLlamaFixture(denseFile, denseWeights.map(([name, shape, values]) => [name, shape, 0, values]));
+  await writeGgufLlamaFixture(quantizedFile, denseWeights.map(([name, shape, values]) => [name, shape, values.length === width ? 0 : 3, values]));
+}
+
 /** Builds a Q4_K fixture with all eight group fields and the nibble planes live. */
 async function writeQ4_KTraceFixture(denseFile: string, quantizedFile: string): Promise<void> {
   const width = 256;
@@ -1063,7 +1139,7 @@ async function writeGgufLlamaFixture(file: string, weights: Array<[string, numbe
   for (const [name, shape, ggmlType, values] of weights) {
     const padding = (32 - (offset % 32)) % 32;
     if (padding) { payloads.push(Buffer.alloc(padding)); offset += padding; }
-    const payload = ggmlType === 6 ? q5_0Payload(values.length) : ggmlType === 7 ? q5_1Payload(values.length) : ggmlType === 8 ? q8_0Payload(values) : ggmlType === 9 ? q8_1Payload(values.length) : ggmlType === 10 ? q2KPayload(values.length) : ggmlType === 11 ? q3KPayload(values.length) : ggmlType === 12 ? q4KPayload(values.length) : ggmlType === 13 ? q5KPayload(values.length) : ggmlType === 14 ? q6KPayload(values.length) : ggmlType === 15 ? q8KPayload(values.length) : f32Payload(values);
+    const payload = ggmlType === 3 ? q4_1Payload(values.length) : ggmlType === 6 ? q5_0Payload(values.length) : ggmlType === 7 ? q5_1Payload(values.length) : ggmlType === 8 ? q8_0Payload(values) : ggmlType === 9 ? q8_1Payload(values.length) : ggmlType === 10 ? q2KPayload(values.length) : ggmlType === 11 ? q3KPayload(values.length) : ggmlType === 12 ? q4KPayload(values.length) : ggmlType === 13 ? q5KPayload(values.length) : ggmlType === 14 ? q6KPayload(values.length) : ggmlType === 15 ? q8KPayload(values.length) : f32Payload(values);
     directory.push(Buffer.concat([text(name), u32(shape.length), ...shape.map(u64), u32(ggmlType), u64(offset)]));
     payloads.push(payload); offset += payload.length;
   }
@@ -1131,6 +1207,31 @@ function q5_0DenseValues(length: number): number[] {
     const code = withinBlock < 16 ? withinBlock : 31 - (withinBlock - 16);
     return 0.5 * (code - 16);
   });
+}
+
+function q4_1DenseValues(length: number): number[] {
+  assert.equal(length % 32, 0, "Q4_1 fixture requires complete 32-value blocks");
+  return Array.from({ length }, (_, index) => {
+    const withinBlock = index % 32;
+    const code = withinBlock < 16 ? withinBlock : 15 - (withinBlock - 16);
+    return 0.5 * code - 1;
+  });
+}
+
+function q4_1Payload(length: number): Buffer {
+  assert.equal(length % 32, 0, "Q4_1 fixture requires complete 32-value blocks");
+  const payload = Buffer.alloc((length / 32) * 20);
+  for (let block = 0; block < length / 32; block += 1) {
+    const offset = block * 20;
+    payload.writeUInt16LE(0x3800, offset); // d = 0.5
+    payload.writeUInt16LE(0xbc00, offset + 2); // m = -1
+    for (let index = 0; index < 16; index += 1) {
+      const lowCode = index;
+      const highCode = 15 - index;
+      payload[offset + 4 + index] = lowCode | (highCode << 4);
+    }
+  }
+  return payload;
 }
 
 function q5_0Payload(length: number): Buffer {
