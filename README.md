@@ -106,6 +106,12 @@ O compilador falha quando:
   tensores `.bias` das projeções correspondentes (ou a flag não é booleana);
 - `tie_word_embeddings` não é booleano, ou um `lm_head` independente está
   ausente quando o config não declara o peso de saída amarrado ao embedding;
+- campos declarados de topologia de atenção (`layer_types`, janela deslizante,
+  compartilhamento de KV) ou escala/softcap numéricos são inválidos, em vez de
+  cair silenciosamente na atenção global padrão;
+- RoPE declara uma variante, dimensão ou parâmetros fora do contrato
+  `default`/`rotate_half` atualmente modelado; variantes como `linear`,
+  `dynamic`, YaRN ou proporcional exigem fórmula e validação próprias;
 - shapes de embedding, normas, Q/K/V/O, MLP ou biases não coincidem com a topologia declarada;
 - há MoE/AltUp/LAuReL ou outra semântica ainda não implementada.
 
@@ -176,6 +182,14 @@ falham fechadas. Em particular, os executores aceitam somente `ropeType=default`
 layout `rotate_half` e nenhuma `rope_scaling` explícita; eles nunca aplicam
 silenciosamente a fórmula padrão a uma variante declarada. Isso torna a fronteira de fidelidade observável antes de conectar
 runtimes autoritativos.
+
+O adaptador aplica a mesma fronteira já no lowering: uma configuração RoPE
+declarada precisa ter `rope_type=default`, dimensão par dentro de `head_dim` e
+parâmetros finitos positivos. `layer_types`, quando presente, precisa cobrir
+todas as camadas com `full_attention` ou `sliding_attention`; valores
+malformados não são reinterpretados como atenção global. Assim, o IR não
+transporta rótulos de RoPE ou atenção cujo significado o executor/adaptador não
+conhece.
 
 O executor F64 exige que cada operação declare `computeDtype`,
 `accumulationDtype` e `outputDtype` como `F64`; campos ausentes não são tratados

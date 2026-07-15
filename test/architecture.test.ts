@@ -265,3 +265,56 @@ test("output-head tying must be boolean and untied heads cannot be omitted", asy
     /tie_word_embeddings deve ser booleano/,
   );
 });
+
+test("declared attention topology cannot silently fall back to full attention", async () => {
+  await assert.rejects(
+    () => buildModelIR(catalog("llama", { layer_types: ["sliding_attention", "full_attention"] }), preview),
+    /layer_types deve listar exatamente 1 valores/,
+  );
+  await assert.rejects(
+    () => buildModelIR(catalog("llama", { layer_types: ["vendor_attention"] }), preview),
+    /layer_types deve listar exatamente 1 valores/,
+  );
+  await assert.rejects(
+    () => buildModelIR(catalog("llama", { sliding_window: 0 }), preview),
+    /sliding_window deve ser inteiro positivo/,
+  );
+  await assert.rejects(
+    () => buildModelIR(catalog("llama", { query_pre_attn_scalar: "4" }), preview),
+    /query_pre_attn_scalar deve ser número finito quando declarado/,
+  );
+});
+
+test("RoPE variants and invalid rotary dimensions fail before generic lowering", async () => {
+  await assert.rejects(
+    () => buildModelIR(catalog("llama", { rope_scaling: { rope_type: "linear", factor: 2 } }), preview),
+    /RoPE 'linear' não possui adaptador matemático registrado/,
+  );
+  await assert.rejects(
+    () => buildModelIR(catalog("llama", { rope_dimension_count: 3 }), preview),
+    /dimensão RoPE deve ser inteira, positiva, par e não maior que head_dim=4/,
+  );
+  await assert.rejects(
+    () => buildModelIR(catalog("llama", { rope_theta: 0 }), preview),
+    /rope_theta deve ser positivo/,
+  );
+  await assert.rejects(
+    () => buildModelIR(catalog("llama", { rope_parameters: null, rope_scaling: { rope_type: "dynamic" } }), preview),
+    /RoPE 'dynamic' não possui adaptador matemático registrado/,
+  );
+});
+
+test("declared default RoPE preserves the verified rotate-half contract", async () => {
+  const ir = await buildModelIR(catalog("llama", {
+    rope_parameters: { rope_type: "default", rope_theta: 50_000, partial_rotary_factor: 0.5 },
+    layer_types: ["sliding_attention"],
+    sliding_window: 2,
+  }), preview);
+  const rope = ir.layers[0]!.operations.find((operation) => operation.id === "layer_0_q_rope");
+  assert.equal(rope?.op, "rotary_embedding");
+  if (rope?.op === "rotary_embedding") {
+    assert.deepEqual({ ropeType: rope.ropeType, theta: rope.theta, rotaryDim: rope.rotaryDim, layout: rope.layout }, {
+      ropeType: "default", theta: 50_000, rotaryDim: 2, layout: "rotate_half",
+    });
+  }
+});

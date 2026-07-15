@@ -216,12 +216,38 @@ function normalizeModelType(value: string): string {
 }
 
 function validateArchitectureConfig(ctx: ArchitectureContext): void {
+  for (const [label, value] of [
+    ["hidden_size", ctx.hiddenSize],
+    ["num_hidden_layers", ctx.numLayers],
+    ["num_attention_heads", ctx.numAttentionHeads],
+    ["num_key_value_heads", ctx.numKeyValueHeads],
+    ["head_dim", ctx.headDim],
+  ] as const) {
+    if (!Number.isInteger(value) || value <= 0) {
+      throw new Error(`${label} deve ser inteiro positivo; recebido ${value}.`);
+    }
+  }
   if (ctx.hiddenSize % ctx.numAttentionHeads !== 0 && !ctx.config.head_dim) {
     throw new Error("hidden_size não é divisível por num_attention_heads e head_dim não foi informado.");
   }
   if (ctx.numAttentionHeads % ctx.numKeyValueHeads !== 0) {
     throw new Error("num_attention_heads deve ser múltiplo de num_key_value_heads para GQA/MQA.");
   }
+  const epsilon = declaredNumber(ctx.config, ["rms_norm_eps", "layer_norm_epsilon", "attention_layer_norm_rms_epsilon"], "norm epsilon");
+  if (epsilon !== undefined && epsilon <= 0) {
+    throw new Error(`norm epsilon deve ser positivo; recebido ${epsilon}.`);
+  }
+  const attentionScalar = declaredNumber(ctx.config, ["query_pre_attn_scalar"], "query_pre_attn_scalar");
+  if (attentionScalar !== undefined && attentionScalar <= 0) {
+    throw new Error(`query_pre_attn_scalar deve ser positivo; recebido ${attentionScalar}.`);
+  }
+  for (const label of ["attn_logit_softcapping", "attention_logit_softcapping", "final_logit_softcapping"] as const) {
+    const softcap = declaredNumber(ctx.config, [label], label);
+    if (softcap !== undefined && softcap <= 0) {
+      throw new Error(`${label} deve ser positivo; recebido ${softcap}.`);
+    }
+  }
+  validateAttentionTopologyConfig(ctx);
   const quantMethod = optionalString(ctx.config, ["quant_method"]);
   if (quantMethod && !["mlx", "affine", "mxfp4", "mxfp8", "nvfp4"].includes(quantMethod)) {
     ctx.warnings.push(`quant_method '${quantMethod}' será delegado ao backend do contêiner.`);
@@ -233,6 +259,36 @@ function validateArchitectureConfig(ctx: ArchitectureContext): void {
     const perLayerInput = optionalNumber(ctx.config, ["hidden_size_per_layer_input"]);
     if (perLayerInput) {
       ctx.unsupported.push("Gemma 3n usa per-layer input embeddings/AltUp/LAuReL; adaptador específico ainda necessário.");
+    }
+  }
+}
+
+/**
+ * Attention layer selection and its window are executable semantics.  A
+ * malformed declaration must not quietly become the generic full-attention
+ * fallback used when the fields are absent.
+ */
+function validateAttentionTopologyConfig(ctx: ArchitectureContext): void {
+  if (Object.hasOwn(ctx.config, "layer_types")) {
+    const layerTypes = ctx.config.layer_types;
+    if (!Array.isArray(layerTypes) || layerTypes.length !== ctx.numLayers || !layerTypes.every((value) => value === "full_attention" || value === "sliding_attention")) {
+      throw new Error(
+        `layer_types deve listar exatamente ${ctx.numLayers} valores 'full_attention' ou 'sliding_attention'.`,
+      );
+    }
+  }
+  const window = declaredNumber(ctx.config, ["sliding_window"], "sliding_window");
+  if (window !== undefined && (!Number.isInteger(window) || window <= 0)) {
+    throw new Error(`sliding_window deve ser inteiro positivo; recebido ${window}.`);
+  }
+  const pattern = declaredNumber(ctx.config, ["sliding_window_pattern"], "sliding_window_pattern");
+  if (pattern !== undefined && (!Number.isInteger(pattern) || pattern <= 0)) {
+    throw new Error(`sliding_window_pattern deve ser inteiro positivo; recebido ${pattern}.`);
+  }
+  if (Object.hasOwn(ctx.config, "num_kv_shared_layers")) {
+    const shared = declaredNumber(ctx.config, ["num_kv_shared_layers"], "num_kv_shared_layers");
+    if (!Number.isInteger(shared) || shared! <= 0 || shared! > ctx.numLayers) {
+      throw new Error(`num_kv_shared_layers deve ser inteiro entre 1 e ${ctx.numLayers}; recebido ${shared}.`);
     }
   }
 }
@@ -322,7 +378,7 @@ async function buildEpilogue(ctx: ArchitectureContext): Promise<Operation[]> {
       findOutputHeadBias(ctx.catalog, lmHead),
     ),
   );
-  const finalSoftcap = optionalNumber(ctx.config, ["final_logit_softcapping"]);
+  const finalSoftcap = declaredNumber(ctx.config, ["final_logit_softcapping"], "final_logit_softcapping");
   if (finalSoftcap !== undefined) {
     operations.push({
       id: "final_logit_softcap",
@@ -483,9 +539,9 @@ async function buildDecoderLayer(ctx: ArchitectureContext, layer: number): Promi
     numKeyValueHeads: ctx.numKeyValueHeads,
     headDim: ctx.headDim,
     scale: attentionScale(ctx.config, ctx.headDim),
-    ...(optionalNumber(ctx.config, ["attn_logit_softcapping", "attention_logit_softcapping"]) !== undefined
+    ...(declaredNumber(ctx.config, ["attn_logit_softcapping", "attention_logit_softcapping"], "attention logit softcap") !== undefined
       ? {
-          scoreSoftcap: optionalNumber(ctx.config, ["attn_logit_softcapping", "attention_logit_softcapping"])!,
+          scoreSoftcap: declaredNumber(ctx.config, ["attn_logit_softcapping", "attention_logit_softcapping"], "attention logit softcap")!,
         }
       : {}),
     softmaxComputeDtype: "float32",
@@ -883,6 +939,24 @@ function biasRequirement(config: JsonObject, keys: string[], label: string): Bia
   return value ? "required" : "forbidden";
 }
 
+/**
+ * Unlike an optional convenience setting, a present numerical architecture
+ * field is a declared part of the model contract.  Do not make a malformed
+ * value disappear and then lower the fallback equation instead.
+ */
+function declaredNumber(config: JsonObject, keys: string[], label: string): number | undefined {
+  const declarations = keys.filter((key) => Object.hasOwn(config, key)).map((key) => ({ key, value: config[key] }));
+  if (declarations.length === 0) return undefined;
+  if (declarations.some(({ value }) => typeof value !== "number" || !Number.isFinite(value))) {
+    throw new Error(`${label} deve ser número finito quando declarado; não é seguro usar o fallback.`);
+  }
+  const value = declarations[0]!.value as number;
+  if (declarations.some((entry) => entry.value !== value)) {
+    throw new Error(`${label} possui declarações conflitantes; não é seguro escolher uma semântica numérica.`);
+  }
+  return value;
+}
+
 function tiedWordEmbeddings(config: JsonObject): boolean {
   if (!Object.hasOwn(config, "tie_word_embeddings")) return false;
   if (typeof config.tie_word_embeddings !== "boolean") {
@@ -931,7 +1005,7 @@ function usesUnitOffsetRmsNorm(modelType: string): boolean {
 }
 
 function normEpsilon(config: JsonObject): number {
-  return numberFrom(config, ["rms_norm_eps", "layer_norm_epsilon", "attention_layer_norm_rms_epsilon"], "norm epsilon", 1e-6);
+  return declaredNumber(config, ["rms_norm_eps", "layer_norm_epsilon", "attention_layer_norm_rms_epsilon"], "norm epsilon") ?? 1e-6;
 }
 
 function hiddenActivation(config: JsonObject, modelType: string): { function: string; approximation?: string } {
@@ -953,25 +1027,30 @@ function hiddenActivation(config: JsonObject, modelType: string): { function: st
 }
 
 function attentionScale(config: JsonObject, headDim: number): number {
-  const scalar = optionalNumber(config, ["query_pre_attn_scalar"]);
+  const scalar = declaredNumber(config, ["query_pre_attn_scalar"], "query_pre_attn_scalar");
   return scalar !== undefined ? scalar ** -0.5 : headDim ** -0.5;
 }
 
 function layerType(config: JsonObject, layer: number): string {
-  const layerTypes = arrayOfStrings(config.layer_types);
-  if (layerTypes?.[layer]) return layerTypes[layer]!;
-  const pattern = optionalNumber(config, ["sliding_window_pattern"]);
+  if (Object.hasOwn(config, "layer_types")) {
+    const layerTypes = config.layer_types;
+    if (!Array.isArray(layerTypes) || layerTypes.length <= layer || (layerTypes[layer] !== "full_attention" && layerTypes[layer] !== "sliding_attention")) {
+      throw new Error(`layer_types não possui semântica de atenção válida para a camada ${layer}.`);
+    }
+    return layerTypes[layer] as string;
+  }
+  const pattern = declaredNumber(config, ["sliding_window_pattern"], "sliding_window_pattern");
   if (pattern && pattern > 0) return (layer + 1) % pattern === 0 ? "full_attention" : "sliding_attention";
-  return optionalNumber(config, ["sliding_window"]) ? "sliding_attention" : "full_attention";
+  return declaredNumber(config, ["sliding_window"], "sliding_window") ? "sliding_attention" : "full_attention";
 }
 
 function slidingWindow(config: JsonObject, layer: number): number | undefined {
   if (layerType(config, layer) !== "sliding_attention") return undefined;
-  return optionalNumber(config, ["sliding_window"]);
+  return declaredNumber(config, ["sliding_window"], "sliding_window");
 }
 
 function resolveSharedKvProducer(ctx: ArchitectureContext, layer: number): number | undefined {
-  const numShared = optionalNumber(ctx.config, ["num_kv_shared_layers"]);
+  const numShared = declaredNumber(ctx.config, ["num_kv_shared_layers"], "num_kv_shared_layers");
   if (!numShared || layer < ctx.numLayers - numShared) return undefined;
   const type = layerType(ctx.config, layer);
   for (let candidate = layer - 1; candidate >= 0; candidate -= 1) {
@@ -995,7 +1074,18 @@ function ropeConfig(
   layout: "rotate_half" | "interleaved_pairs" | "multidimensional";
   scaling?: JsonObject;
 } {
-  const rootRaw = config.rope_parameters ?? config.rope_scaling;
+  // Some HF configs retain `rope_parameters: null` while declaring the older
+  // `rope_scaling` field.  Null means no value here, not an instruction to
+  // discard the alternate explicit declaration.
+  const rootKey = config.rope_parameters !== undefined && config.rope_parameters !== null
+    ? "rope_parameters"
+    : config.rope_scaling !== undefined && config.rope_scaling !== null
+      ? "rope_scaling"
+      : undefined;
+  const rootRaw = rootKey ? config[rootKey] : undefined;
+  if (rootRaw !== undefined && (typeof rootRaw !== "object" || rootRaw === null || Array.isArray(rootRaw))) {
+    throw new Error(`${rootKey} deve ser um objeto para declarar a semântica RoPE.`);
+  }
   const root =
     typeof rootRaw === "object" && rootRaw !== null && !Array.isArray(rootRaw)
       ? (rootRaw as JsonObject)
@@ -1014,18 +1104,27 @@ function ropeConfig(
         : 1_000_000
       : undefined;
   const theta =
-    (parameters ? optionalNumber(parameters, ["rope_theta"]) : undefined) ??
-    optionalNumber(config, ["rope_theta", "rope_freq_base"]) ??
+    (parameters ? declaredNumber(parameters, ["rope_theta"], "rope_theta") : undefined) ??
+    declaredNumber(config, ["rope_theta", "rope_freq_base"], "rope_theta") ??
     defaultGemma3Theta ??
     10_000;
-  const type =
-    (parameters ? optionalString(parameters, ["rope_type", "type"]) : undefined) ?? "default";
+  if (theta <= 0) throw new Error(`rope_theta deve ser positivo; recebido ${theta}.`);
+  const type = parameters ? ropeType(parameters) : "default";
+  if (type !== "default") {
+    throw new Error(`RoPE '${type}' não possui adaptador matemático registrado; o compilador não pode reduzi-lo a RoPE padrão.`);
+  }
   const partial =
-    (parameters ? optionalNumber(parameters, ["partial_rotary_factor"]) : undefined) ??
-    optionalNumber(config, ["partial_rotary_factor"]);
-  const explicitDim = optionalNumber(config, ["rope_dimension_count"]);
+    (parameters ? declaredNumber(parameters, ["partial_rotary_factor"], "partial_rotary_factor") : undefined) ??
+    declaredNumber(config, ["partial_rotary_factor"], "partial_rotary_factor");
+  if (partial !== undefined && (partial <= 0 || partial > 1)) {
+    throw new Error(`partial_rotary_factor deve estar no intervalo (0, 1]; recebido ${partial}.`);
+  }
+  const explicitDim = declaredNumber(config, ["rope_dimension_count"], "rope_dimension_count");
   const dim = explicitDim ?? (partial !== undefined ? Math.floor(headDim * partial) : headDim);
-  const layout = modelType === "gemma4" || modelType === "gemma4_text" ? "multidimensional" : "rotate_half";
+  if (!Number.isInteger(dim) || dim <= 0 || dim > headDim || dim % 2 !== 0) {
+    throw new Error(`dimensão RoPE deve ser inteira, positiva, par e não maior que head_dim=${headDim}; recebeu ${dim}.`);
+  }
+  const layout = "rotate_half";
   return {
     type,
     theta,
@@ -1033,4 +1132,19 @@ function ropeConfig(
     layout,
     ...(parameters ? { scaling: parameters } : {}),
   };
+}
+
+function ropeType(parameters: JsonObject): string {
+  const declarations = ["rope_type", "type"]
+    .filter((key) => Object.hasOwn(parameters, key))
+    .map((key) => ({ key, value: parameters[key] }));
+  if (declarations.length === 0) return "default";
+  if (declarations.some(({ value }) => typeof value !== "string" || value.length === 0)) {
+    throw new Error("rope_type deve ser string não vazia quando declarado.");
+  }
+  const value = declarations[0]!.value as string;
+  if (declarations.some((entry) => entry.value !== value)) {
+    throw new Error("rope_type possui declarações conflitantes; não é seguro escolher uma fórmula.");
+  }
+  return value;
 }
