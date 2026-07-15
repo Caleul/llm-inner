@@ -276,6 +276,16 @@ etapas greedy. Uma alteração no payload empacotado é recusada pelo checksum d
 captura. Isto é uma prova sintética lossless sob a política escalar F32 para
 Q3_K, não uma comparação externa nem uma validação de checkpoint real.
 
+Uma regressão complementar percorre o `GGML_TYPE_Q2_K` pela mesma fronteira
+completa. Cada matriz do Llama de largura 256 usa os 16 nibbles independentes
+de escala e mínimo, todos os quatro planos de códigos de dois bits e as bases
+`d=0.5` e `dmin=0.25`. O GGUF F32 pareado calcula diretamente
+`d*scale*code - dmin*minimum`, sem usar o leitor candidato, e fornece cada
+operação, o cache KV pós-RoPE, logits e duas etapas greedy. Uma alteração no
+payload compactado é recusada pelo checksum da captura. Isto demonstra somente
+uma fronteira sintética lossless na política escalar F32 para Q2_K — não uma
+comparação com llama.cpp nem validação de checkpoint real.
+
 Uma quarta regressão executável percorre o `GGML_TYPE_Q4_K` por essa mesma
 fronteira. Cada matriz de um Llama de largura 256 contém blocos de 256 valores
 com `d=0.5`, `dmin=0.25`, códigos de nibble variados e todos os oito grupos de
