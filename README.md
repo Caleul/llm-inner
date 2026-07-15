@@ -256,6 +256,16 @@ greedy. Ela é uma prova lossless dentro da política escalar F32 do fixture —
 não uma alegação de equivalência com um runtime externo ou de cobertura de
 modelos reais/quantizados.
 
+Uma segunda regressão executável cobre o `GGML_TYPE_Q8_0`: um Llama de uma
+camada e largura 256 armazena todas as matrizes em blocos Q8_0 de 32 valores
+com `d=0.5`. Um pacote GGUF F32 separado é construído diretamente da fórmula
+declarada `F32[i] = F16(d) * int8(q[i])`, sem reutilizar o leitor candidato, e
+fornece a evidência para cada operação, KV cache, logits e duas etapas greedy.
+O comparador também rejeita um único bit alterado no payload quantizado pelo
+checksum da captura. Isto prova uma fronteira sintética lossless dentro do
+executor escalar F32 para Q8_0; não é uma comparação com llama.cpp nem uma
+prova para os demais layouts GGML quantizados.
+
 `materializeReferenceF32Constants` em `src/materialize.ts` fecha a fronteira
 entre o catálogo e o executor F32: reúne todos os `TensorRef` do IR, confirma
 nome, shape, dtype e contrato de quantização contra o catálogo de origem e

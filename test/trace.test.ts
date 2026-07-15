@@ -181,6 +181,70 @@ test("dense GGUF Llama replays Safetensors forward and greedy-generation evidenc
   }
 });
 
+test("Q8_0 GGUF Llama replays independently materialized dense F32 forward and greedy-generation evidence", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-q8_0-trace-"));
+  try {
+    const denseSource = path.join(directory, "dense-reference.gguf");
+    const quantizedSource = path.join(directory, "q8_0.gguf");
+    await writeQ8_0TraceFixture(denseSource, quantizedSource);
+
+    // The F32 package is constructed directly from the declared Q8_0 formula
+    // (F32[i] = F16(d) * int8(q[i])), rather than by using the candidate
+    // reader. It is therefore independent evidence for the full trace path.
+    const dense = await executeFixture(denseSource, [[1]]);
+    const quantized = await executeFixture(quantizedSource, [[1]]);
+    assert.deepEqual(serialized(quantized.candidate.values.get("logits")!), serialized(dense.candidate.values.get("logits")!));
+    assert.deepEqual([...quantized.candidate.pastKeyValues], [...dense.candidate.pastKeyValues]);
+
+    const executionTrace = path.join(directory, "q8_0-execution-trace.json");
+    await writeFile(executionTrace, JSON.stringify({
+      schemaVersion: 1, kind: "execution",
+      source: { files: await checksums(directory, ["q8_0.gguf"]) },
+      irFingerprint: quantized.fingerprint,
+      candidatePolicy: { dtype: "F32", runtime: "llm-inner scalar IEEE-754 F32" },
+      reference: {
+        runtime: "independent declared GGML Q8_0 F32 fixture", model: "q8_0-llama-256", revisionOrChecksum: "q8_0-formula-fixture-v1",
+        containerFormat: "gguf v3", quantization: "GGML_TYPE_Q8_0", inputTokens: [[1]], dtypePolicy: "F32 scalar fixture from declared Q8_0 formula",
+        operations: operations(quantized.ir).map((operation) => ({ operationId: operation.id, output: operation.output, tensor: serialized(dense.candidate.values.get(operation.output)!) })),
+        pastKeyValues: [...dense.candidate.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
+      },
+    }, null, 2));
+    const executionReport = await runExecutionTraceComparison({ source: quantizedSource, trace: executionTrace, report: path.join(directory, "q8_0-execution-report.json"), topK: 3 });
+    assert.equal(executionReport.fidelityClass, "lossless-within-dtype");
+    assert.equal(executionReport.firstDivergentOperation, null);
+
+    const denseGeneration = await generateFixture(denseSource);
+    const generationTrace = path.join(directory, "q8_0-generation-trace.json");
+    await writeFile(generationTrace, JSON.stringify({
+      schemaVersion: 1, kind: "generation",
+      source: { files: await checksums(directory, ["q8_0.gguf"]) },
+      irFingerprint: quantized.fingerprint,
+      candidatePolicy: { dtype: "F32", runtime: "llm-inner scalar IEEE-754 F32" },
+      reference: {
+        runtime: "independent declared GGML Q8_0 F32 fixture", model: "q8_0-llama-256", revisionOrChecksum: "q8_0-formula-fixture-v1",
+        containerFormat: "gguf v3", quantization: "GGML_TYPE_Q8_0", inputTokens: [1], promptPositionIds: [0],
+        dtypePolicy: "F32 scalar fixture from declared Q8_0 formula", maxNewTokens: 2, generatedTokenIds: denseGeneration.generatedTokenIds,
+        steps: denseGeneration.steps, logits: serialized(denseGeneration.logits),
+        pastKeyValues: [...denseGeneration.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
+      },
+    }, null, 2));
+    const generationReport = await runGenerationTraceComparison({ source: quantizedSource, trace: generationTrace, report: path.join(directory, "q8_0-generation-report.json"), topK: 3 });
+    assert.equal(generationReport.fidelityClass, "lossless-within-dtype");
+    assert.equal(generationReport.firstDivergence, null);
+
+    // A trace is bound to the exact packed source, not merely its model name
+    // or a claim that it uses Q8_0. Changing one packed code must fail before
+    // the candidate result can be accepted.
+    const corrupted = await readFile(quantizedSource);
+    const last = corrupted.length - 1;
+    corrupted[last] = corrupted[last]! ^ 1;
+    await writeFile(quantizedSource, corrupted);
+    await assert.rejects(() => runExecutionTraceComparison({ source: quantizedSource, trace: executionTrace, report: path.join(directory, "corrupt-report.json") }), /Checksum divergente/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 function operations(ir: ModelIR) { return [...ir.prelude, ...ir.layers.flatMap((layer) => layer.operations), ...ir.epilogue]; }
 
 function setF32Policy(ir: ModelIR): void {
@@ -279,4 +343,71 @@ async function writeTinyF32GgufModel(file: string): Promise<void> {
   }
   const prefix = Buffer.concat([Buffer.from("GGUF"), u32(3), u64(weights.length), u64(metadataEntries.length), ...metadataEntries, ...directory]);
   await writeFile(file, Buffer.concat([prefix, Buffer.alloc((32 - (prefix.length % 32)) % 32), ...payloads]));
+}
+
+/**
+ * Writes a one-layer 256-wide Llama whose matrix payloads are Q8_0 blocks
+ * with d=0.5.  The paired dense file is formed from exactly d*q, so it can
+ * exercise every materialized projection while respecting Q8_0's 32-value
+ * block boundary on GGML's first matrix dimension.
+ */
+async function writeQ8_0TraceFixture(denseFile: string, quantizedFile: string): Promise<void> {
+  const width = 256;
+  const identity = Array.from({ length: width * width }, (_, index) => (Math.floor(index / width) === index % width ? 1 : 0));
+  const embedding = Array.from({ length: width * width }, (_, index) => (Math.floor(index / width) === 1 && index % width < 2 ? (index % width === 0 ? 1 : 0.5) : 0));
+  const zeros = new Array<number>(width * width).fill(0);
+  const ones = new Array<number>(width).fill(1);
+  const denseWeights: Array<[string, number[], number[]]> = [
+    ["token_embd.weight", [width, width], embedding], ["blk.0.attn_norm.weight", [width], ones],
+    ...["attn_q", "attn_k", "attn_v", "attn_output"].map((projection): [string, number[], number[]] => [`blk.0.${projection}.weight`, [width, width], identity]),
+    ["blk.0.ffn_norm.weight", [width], ones],
+    ...["ffn_gate", "ffn_up", "ffn_down"].map((projection): [string, number[], number[]] => [`blk.0.${projection}.weight`, [width, width], zeros]),
+    ["output_norm.weight", [width], ones], ["output.weight", [width, width], identity],
+  ];
+  await writeGgufLlamaFixture(denseFile, denseWeights.map(([name, shape, values]) => [name, shape, 0, values]));
+  await writeGgufLlamaFixture(quantizedFile, denseWeights.map(([name, shape, values]) => [name, shape, values.length === width ? 0 : 8, values]));
+}
+
+async function writeGgufLlamaFixture(file: string, weights: Array<[string, number[], number, number[]]>): Promise<void> {
+  const text = (value: string) => { const bytes = Buffer.from(value); const length = Buffer.alloc(8); length.writeBigUInt64LE(BigInt(bytes.length)); return Buffer.concat([length, bytes]); };
+  const u32 = (value: number) => { const bytes = Buffer.alloc(4); bytes.writeUInt32LE(value); return bytes; };
+  const u64 = (value: number) => { const bytes = Buffer.alloc(8); bytes.writeBigUInt64LE(BigInt(value)); return bytes; };
+  const metadata = (key: string, type: number, value: Buffer) => Buffer.concat([text(key), u32(type), value]);
+  const metadataU32 = (key: string, value: number) => metadata(key, 4, u32(value));
+  const metadataF32 = (key: string, value: number) => { const bytes = Buffer.alloc(4); bytes.writeFloatLE(value); return metadata(key, 6, bytes); };
+  const metadataEntries = [
+    metadata("general.architecture", 8, text("llama")), metadataU32("general.alignment", 32), metadataU32("llama.embedding_length", 256),
+    metadataU32("llama.block_count", 1), metadataU32("llama.attention.head_count", 1), metadataU32("llama.attention.head_count_kv", 1),
+    metadataU32("llama.attention.key_length", 256), metadataU32("llama.feed_forward_length", 256), metadataF32("llama.attention.layer_norm_rms_epsilon", 1e-6),
+  ];
+  const payloads: Buffer[] = [];
+  const directory: Buffer[] = [];
+  let offset = 0;
+  for (const [name, shape, ggmlType, values] of weights) {
+    const padding = (32 - (offset % 32)) % 32;
+    if (padding) { payloads.push(Buffer.alloc(padding)); offset += padding; }
+    const payload = ggmlType === 8 ? q8_0Payload(values) : f32Payload(values);
+    directory.push(Buffer.concat([text(name), u32(shape.length), ...shape.map(u64), u32(ggmlType), u64(offset)]));
+    payloads.push(payload); offset += payload.length;
+  }
+  const prefix = Buffer.concat([Buffer.from("GGUF"), u32(3), u64(weights.length), u64(metadataEntries.length), ...metadataEntries, ...directory]);
+  await writeFile(file, Buffer.concat([prefix, Buffer.alloc((32 - (prefix.length % 32)) % 32), ...payloads]));
+}
+
+function f32Payload(values: number[]): Buffer {
+  const payload = Buffer.alloc(values.length * 4);
+  values.forEach((value, index) => payload.writeFloatLE(value, index * 4));
+  return payload;
+}
+
+function q8_0Payload(values: number[]): Buffer {
+  assert.equal(values.length % 32, 0, "Q8_0 fixture requires complete 32-value blocks");
+  const payload = Buffer.alloc((values.length / 32) * 34);
+  for (let block = 0; block < values.length / 32; block += 1) {
+    // 0x3800 is IEEE-754 binary16 0.5. All fixture values are multiples of
+    // 0.5, producing exact signed Q8_0 codes without a candidate dequantizer.
+    payload.writeUInt16LE(0x3800, block * 34);
+    for (let index = 0; index < 32; index += 1) payload.writeInt8(values[block * 32 + index]! * 2, block * 34 + 2 + index);
+  }
+  return payload;
 }
