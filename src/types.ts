@@ -386,3 +386,45 @@ export interface DifferentialComparisonReport {
   logits: DifferentialTensorMetrics | null;
   fidelityClass: "bitwise" | "lossless-within-dtype" | "numerically-equivalent" | "approximate" | "incomplete";
 }
+
+/**
+ * Authoritative greedy-decoding capture. This deliberately records the
+ * prompt positions and every emitted-token position: token agreement without
+ * cache/position agreement is not evidence of equivalent generation.
+ */
+export interface DifferentialGenerationReferenceTrace {
+  runtime: string;
+  model: string;
+  revisionOrChecksum: string;
+  containerFormat: SourceFormat | string;
+  quantization: string;
+  inputTokens: number[];
+  promptPositionIds: number[];
+  dtypePolicy: string;
+  maxNewTokens: number;
+  eosTokenId?: number;
+  generatedTokenIds: number[];
+  steps: readonly ReferenceGenerationStep[];
+  logits: DenseTensor | DenseF32Tensor;
+  pastKeyValues: readonly DifferentialKeyValueCacheSample[];
+}
+
+export interface DifferentialGenerationStepComparison {
+  index: number;
+  status: "pass" | "diverged" | "missing-reference" | "missing-candidate";
+  candidate?: ReferenceGenerationStep;
+  reference?: ReferenceGenerationStep;
+}
+
+/** Serializable end-to-end greedy-generation evidence. */
+export interface DifferentialGenerationComparisonReport {
+  reference: Omit<DifferentialGenerationReferenceTrace, "generatedTokenIds" | "steps" | "logits" | "pastKeyValues">;
+  candidateRuntime: string;
+  tolerance: DifferentialTolerance;
+  promptMatches: boolean;
+  generatedTokenIds: DifferentialGenerationStepComparison[];
+  terminalLogits: DifferentialTensorMetrics | null;
+  kvCache: DifferentialKeyValueCacheComparison[];
+  firstDivergence: string | null;
+  fidelityClass: "bitwise" | "lossless-within-dtype" | "numerically-equivalent" | "approximate" | "incomplete";
+}

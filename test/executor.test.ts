@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { buildModelIR } from "../src/architecture.js";
-import { compareExecutionTrace } from "../src/differential.js";
+import { compareExecutionTrace, compareGenerationTrace } from "../src/differential.js";
 import { executeReferenceF32, executeReferenceF64, generateReferenceF32, generateReferenceF64 } from "../src/executor.js";
 import { SafetensorsCatalogReader } from "../src/safetensors.js";
 import type { DenseF32Tensor, DenseTensor, ModelCatalog, TensorInfo } from "../src/types.js";
@@ -265,6 +265,79 @@ test("F64 greedy generation advances absolute positions and returns a cache for 
   assert.equal(generated.pastKeyValues.get(0)?.key.shape.join("x"), "1x1x4x2");
   const direct = executeReferenceF64(ir, { inputIds: [[1, 2, 2, 2]], positionIds: [[7, 8, 9, 10]], tensors: weights });
   assert.deepEqual([...generated.logits.values], [...direct.logits.values.slice(9, 12)]);
+});
+
+test("generation differential report requires token, position, terminal-logit, and KV-cache agreement", async () => {
+  const { ir, weights } = await tinyLlama();
+  const candidate = generateReferenceF64(ir, { inputIds: [[1]], positionIds: [[7]], tensors: weights, maxNewTokens: 2 });
+  const reference = {
+    runtime: "fixture-authoritative-runtime",
+    model: "tiny-llama",
+    revisionOrChecksum: "in-repository-fixture",
+    containerFormat: "safetensors" as const,
+    quantization: "none",
+    inputTokens: [1],
+    promptPositionIds: [7],
+    dtypePolicy: "F64 scalar fixture",
+    maxNewTokens: 2,
+    generatedTokenIds: [...candidate.generatedTokenIds],
+    steps: candidate.steps.map((step) => ({ ...step })),
+    logits: candidate.logits,
+    pastKeyValues: [...candidate.pastKeyValues].map(([layer, cache]) => ({ layer, key: cache.key, value: cache.value })),
+  };
+  const report = compareGenerationTrace(candidate, reference, { candidateRuntime: "llm-inner F64 scalar", topK: 3 });
+  assert.equal(report.fidelityClass, "lossless-within-dtype");
+  assert.equal(report.firstDivergence, null);
+  assert.equal(report.promptMatches, true);
+  assert.deepEqual(report.generatedTokenIds.map((step) => step.status), ["pass", "pass"]);
+  assert.deepEqual(report.kvCache.map((cache) => cache.status), ["pass"]);
+  assert.equal(report.terminalLogits?.argmaxAgreement, true);
+});
+
+test("generation differential report marks token/position divergence approximate and missing evidence incomplete", async () => {
+  const { ir, weights } = await tinyLlama();
+  const candidate = generateReferenceF64(ir, { inputIds: [[1]], tensors: weights, maxNewTokens: 1 });
+  const base = {
+    runtime: "fixture-authoritative-runtime", model: "tiny-llama", revisionOrChecksum: "in-repository-fixture",
+    containerFormat: "safetensors" as const, quantization: "none", inputTokens: [1], promptPositionIds: [0],
+    dtypePolicy: "F64 scalar fixture", maxNewTokens: 1, generatedTokenIds: [2],
+    steps: [{ tokenId: 2, positionId: 99 }], logits: candidate.logits,
+    pastKeyValues: [...candidate.pastKeyValues].map(([layer, cache]) => ({ layer, key: cache.key, value: cache.value })),
+  };
+  const divergent = compareGenerationTrace(candidate, base, { candidateRuntime: "llm-inner F64 scalar" });
+  assert.equal(divergent.fidelityClass, "approximate");
+  assert.equal(divergent.firstDivergence, "generation:step-0");
+  const incomplete = compareGenerationTrace(candidate, { ...base, steps: [], generatedTokenIds: [], pastKeyValues: [] }, { candidateRuntime: "llm-inner F64 scalar" });
+  assert.equal(incomplete.fidelityClass, "incomplete");
+  assert.equal(incomplete.generatedTokenIds[0]?.status, "missing-reference");
+  assert.equal(incomplete.kvCache[0]?.status, "missing-reference");
+});
+
+test("generation differential report rejects malformed authoritative captures", async () => {
+  const { ir, weights } = await tinyLlama();
+  const candidate = generateReferenceF64(ir, { inputIds: [[1]], tensors: weights, maxNewTokens: 1 });
+  assert.throws(() => compareGenerationTrace(candidate, {
+    runtime: "fixture", model: "tiny", revisionOrChecksum: "fixture", containerFormat: "safetensors", quantization: "none",
+    inputTokens: [1], promptPositionIds: [0], dtypePolicy: "F64", maxNewTokens: 1, eosTokenId: 2,
+    generatedTokenIds: [2, 2], steps: [{ tokenId: 2, positionId: 1 }, { tokenId: 2, positionId: 2 }],
+    logits: candidate.logits, pastKeyValues: [],
+  }, { candidateRuntime: "llm-inner F64 scalar" }), /mais tokens do que o limite declarado/);
+});
+
+test("generation differential report never treats a different prompt or malformed candidate result as equivalent", async () => {
+  const { ir, weights } = await tinyLlama();
+  const candidate = generateReferenceF64(ir, { inputIds: [[1]], tensors: weights, maxNewTokens: 1 });
+  const reference = {
+    runtime: "fixture", model: "tiny", revisionOrChecksum: "fixture", containerFormat: "safetensors" as const, quantization: "none",
+    inputTokens: [0], promptPositionIds: [0], dtypePolicy: "F64", maxNewTokens: 1,
+    generatedTokenIds: [...candidate.generatedTokenIds], steps: candidate.steps, logits: candidate.logits,
+    pastKeyValues: [...candidate.pastKeyValues].map(([layer, cache]) => ({ layer, key: cache.key, value: cache.value })),
+  };
+  const report = compareGenerationTrace(candidate, reference, { candidateRuntime: "llm-inner F64 scalar" });
+  assert.equal(report.promptMatches, false);
+  assert.equal(report.firstDivergence, "generation:prompt");
+  assert.equal(report.fidelityClass, "approximate");
+  assert.throws(() => compareGenerationTrace({ ...candidate, generatedTokenIds: [0] }, { ...reference, inputTokens: [1] }, { candidateRuntime: "llm-inner F64 scalar" }), /Resultado candidato de geração/);
 });
 
 test("greedy generation evaluates EOS before stopping and rejects ambiguous generation inputs", async () => {

@@ -126,6 +126,15 @@ saída terminal `softcapped_logits` com a captura `final_logit_softcap` (e não
 o `lm_head` pré-softcap). A ausência dessa saída terminal também torna o
 relatório `incomplete`.
 
+`compareGenerationTrace` cobre a evidência que não cabe em um forward isolado:
+ele exige uma captura autoritativa do prompt e suas posições absolutas, cada
+token greedy emitido, a posição em que cada token foi avaliado, logits terminais
+e o cache KV pós-RoPE por camada. Tokens iguais sem posições, logits ou cache
+equivalentes não recebem aprovação. Captura ausente ou com shape incompatível é
+`incomplete`; divergência medida é `approximate`; somente a captura completa
+dentro da tolerância declarada pode ser `numerically-equivalent` (ou
+`lossless-within-dtype` quando todos os valores comparados são exatos).
+
 Além da máscara causal/janela declarada pelo IR, o executor de referência pode
 receber uma máscara aditiva canônica `[batch, 1|heads, query, key]`. Zero
 preserva o score e `-Infinity` exclui a chave antes do softmax; valores finitos
