@@ -442,6 +442,17 @@ leitor candidato e uma alteração de byte empacotado é rejeitada pelo checksum
 Esta é uma prova sintética lossless dentro da política escalar F32, não uma
 comparação com llama.cpp nem uma validação de checkpoint real.
 
+Qwen 2 e Qwen 3 também percorrem `GGML_TYPE_Q6_K` pela fronteira completa,
+sem emprestar a semântica de atenção do Llama. Os dois GGUFs de largura 256
+quantizam todas as matrizes com os 64 códigos centrados, os oito planos de 32
+valores de `ql`/`qh` e as 16 escalas `int8` por grupos de 16; o par F32 calcula
+diretamente `d*scale*(code-32)` com `d=0.5`, sem ler o payload candidato. As
+projeções de Qwen preservam seus biases densos, e somente Qwen 3 preserva as
+normas Q/K em BHSD antes de RoPE. Para cada layout, a captura ligada ao checksum
+compara todas as operações, cache KV pós-RoPE, logits terminais e duas etapas
+greedy. Isso é evidência sintética lossless na política escalar F32, não
+equivalência contra um runtime Qwen externo nem validação de checkpoint real.
+
 Uma sexta regressão executável percorre o `GGML_TYPE_Q6_K` pela mesma
 fronteira completa. Cada matriz do Llama de largura 256 contém os 64 códigos
 centrados possíveis, distribuídos pelos oito planos de 32 valores de `ql` e
