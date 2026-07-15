@@ -173,6 +173,11 @@ export function executeReferenceF32(
 
 function assertF64Policy(operation: Operation): void {
   const policy = operation.dtypePolicy;
+  for (const field of ["computeDtype", "accumulationDtype", "outputDtype"] as const) {
+    if (policy[field] !== "F64") {
+      throw new Error(`${operation.id}: executor de referência requer política F64 explícita; ${field}=${policy[field] ?? "ausente"}.`);
+    }
+  }
   for (const [name, dtype] of Object.entries(policy)) {
     if (dtype !== undefined && dtype !== "F64") {
       throw new Error(`${operation.id}: executor de referência suporta somente política F64 explícita; ${name}=${dtype}.`);

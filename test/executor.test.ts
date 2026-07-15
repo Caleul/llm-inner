@@ -139,6 +139,15 @@ test("executor F64 fails closed for compiler-default implicit dtype policies", a
   );
 });
 
+test("executor F64 rejects missing cast boundaries instead of assuming F64", async () => {
+  const { ir, weights } = await tinyLlama();
+  ir.prelude[0]!.dtypePolicy = {};
+  assert.throws(
+    () => executeReferenceF64(ir, { inputIds: [[1]], tensors: weights }),
+    /política F64 explícita.*computeDtype=ausente/,
+  );
+});
+
 test("executor F64 rejects an attention softmax declared in another dtype", async () => {
   const { ir, weights } = await tinyLlama();
   const attention = ir.layers[0]!.operations.find((operation) => operation.op === "scaled_dot_product_attention");

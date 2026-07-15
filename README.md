@@ -141,6 +141,11 @@ implícitas (`model-configured`), quantização e variantes de RoPE ainda
 falham fechadas. Isso torna a fronteira de fidelidade observável antes de conectar
 runtimes autoritativos.
 
+O executor F64 exige que cada operação declare `computeDtype`,
+`accumulationDtype` e `outputDtype` como `F64`; campos ausentes não são tratados
+como defaults. `inputDtype`, quando declarado, também deve ser `F64`. Isso evita
+que um IR incompleto seja executado com fronteiras de cast inventadas.
+
 O executor também aceita e devolve cache KV por camada para decoder incremental.
 O contrato canônico é um `Map` indexado pela camada, com `key` e `value`
 post-RoPE no layout `[batch, kv_heads, cached_sequence, head_dim]`. Ao receber
