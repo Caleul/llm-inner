@@ -32,8 +32,8 @@ class Capture:
         if self.ir["source"]["format"] != "safetensors":
             raise ValueError("MLX capture suporta somente Safetensors denso F32.")
         model_type = self.ir["architecture"]["modelType"]
-        if model_type not in {"llama", "mistral", "gemma", "qwen2", "qwen3"}:
-            raise ValueError(f"MLX capture não possui contrato independente para {model_type}; suportados: llama, mistral, gemma, qwen2, qwen3.")
+        if model_type not in {"llama", "mistral", "gemma", "gemma2", "qwen2", "qwen3"}:
+            raise ValueError(f"MLX capture não possui contrato independente para {model_type}; suportados: llama, mistral, gemma, gemma2, qwen2, qwen3.")
         self.weights = self._weights()
 
     def _weights(self) -> dict[str, mx.array]:
@@ -105,7 +105,9 @@ class Capture:
                 if op["kind"] == "add": value = inputs[0] + inputs[1]
                 elif op["kind"] == "multiply": value = inputs[0] * inputs[1]
                 elif op["kind"] == "scale": value = inputs[0] * np.float32(op["scalar"])
-                elif op["kind"] == "tanh_softcap": value = np.float32(op["scalar"]) * mx.tanh(inputs[0] / np.float32(op["scalar"]))
+                elif op["kind"] == "tanh_softcap":
+                    cap = float(op["scalar"])
+                    value = mx.tanh(inputs[0] / cap) * cap
                 else: raise ValueError(f"{op['id']}: elementwise não suportado")
             else:
                 raise ValueError(f"{op['id']}: op não suportada pelo capture MLX: {kind}")
@@ -130,9 +132,13 @@ class Capture:
         group = op["numAttentionHeads"] // op["numKeyValueHeads"]
         key = mx.repeat(key, group, axis=1)
         value = mx.repeat(value, group, axis=1)
-        scores = mx.matmul(query, mx.transpose(key, (0, 1, 3, 2))) * np.float32(op["scale"])
+        scores = mx.matmul(query, mx.transpose(key, (0, 1, 3, 2))) * float(op["scale"])
         if op.get("scoreSoftcap") is not None:
-            cap = np.float32(op["scoreSoftcap"]); scores = cap * mx.tanh(scores / cap)
+            # Keep the value in MLX. A NumPy scalar on the left-hand side
+            # dispatches NumPy multiplication and silently converts an MLX
+            # array to ndarray, so softcapped attention would no longer be an
+            # independent MLX-kernel capture.
+            cap = float(op["scoreSoftcap"]); scores = mx.tanh(scores / cap) * cap
         query_sequence, key_sequence = query.shape[2], key.shape[2]
         mask = np.full((query_sequence, key_sequence), -np.inf, dtype=np.float32)
         for row in range(query_sequence):

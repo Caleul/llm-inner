@@ -39,17 +39,21 @@ test("MLX kernel capture independently records dense Llama execution and greedy 
   }
 });
 
-test("MLX kernel capture independently records Mistral sliding-window, Gemma unit-offset, and Qwen 2/3 attention traces", async () => {
+test("MLX kernel capture independently records Mistral, Gemma 1/2, and Qwen 2/3 attention traces", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-mlx-multi-adapter-capture-"));
   try {
     await writeTinyMistralF32Model(directory);
     await writeTinyGemmaF32Model(directory);
+    await writeTinyGemma2F32Model(directory);
     await writeTinyQwen2F32Model(directory);
     await writeTinyQwen3F32Model(directory);
     const python = path.resolve("venv/bin/python");
     for (const fixture of [
       { name: "mistral", model: "tiny-mistral-mlx", revision: "mistral-mlx-fixture-v1", inputTokens: [1, 1, 1], expectedOperations: 22, executionFidelity: "numerically-equivalent" },
       { name: "gemma", model: "tiny-gemma-mlx", revision: "gemma-mlx-fixture-v1", expectedOperations: 22, executionFidelity: "lossless-within-dtype" },
+      // Gemma 2 exercises the non-Llama four-norm block, Q/K head norms,
+      // query_pre_attn_scalar, attention/final softcaps, and local attention.
+      { name: "gemma2", model: "tiny-gemma2-mlx", revision: "gemma2-mlx-fixture-v1", inputTokens: [1, 1, 1], expectedOperations: 27, executionFidelity: "numerically-equivalent" },
       // Qwen 2 uses bias-bearing attention projections but deliberately has
       // no Q/K head norms. This keeps its independently captured contract
       // distinct from both the Llama baseline and Qwen 3.
@@ -1543,6 +1547,40 @@ async function writeTinyGemmaF32Model(root: string): Promise<void> {
   await writeFile(path.join(directory, "config.json"), JSON.stringify({
     model_type: "gemma", hidden_size: 2, intermediate_size: 2, num_hidden_layers: 1, num_attention_heads: 1,
     num_key_value_heads: 1, head_dim: 2, vocab_size: 3, rms_norm_eps: 1e-6, hidden_act: "gelu_pytorch_tanh", tie_word_embeddings: true,
+  }));
+  await writeSafetensorsFixture(path.join(directory, "model.safetensors"), weights);
+}
+
+/**
+ * Gemma 2 has a distinct decoder contract: Q/K head norms, four RMSNorms,
+ * local attention and both attention and terminal logit softcaps. Keeping all
+ * of them nonzero prevents this MLX path from merely reusing Gemma 1.
+ */
+async function writeTinyGemma2F32Model(root: string): Promise<void> {
+  const directory = path.join(root, "gemma2");
+  await mkdir(directory);
+  const identity = [1, 0, 0, 1];
+  const unitOffset = [0, 0];
+  const weights: Array<[string, "F32", number[], number[]]> = [
+    ["model.embed_tokens.weight", "F32", [3, 2], [0, 0, 3, -2, 1, 1]],
+    ["model.layers.0.input_layernorm.weight", "F32", [2], unitOffset],
+    ...["q_proj", "k_proj", "v_proj", "o_proj"].map((projection): [string, "F32", number[], number[]] => [`model.layers.0.self_attn.${projection}.weight`, "F32", [2, 2], identity]),
+    ["model.layers.0.self_attn.q_norm.weight", "F32", [2], [0.5, -0.25]],
+    ["model.layers.0.self_attn.k_norm.weight", "F32", [2], [-0.125, 0.25]],
+    ["model.layers.0.post_attention_layernorm.weight", "F32", [2], unitOffset],
+    ["model.layers.0.pre_feedforward_layernorm.weight", "F32", [2], unitOffset],
+    ["model.layers.0.mlp.gate_proj.weight", "F32", [2, 2], identity],
+    ["model.layers.0.mlp.up_proj.weight", "F32", [2, 2], identity],
+    ["model.layers.0.mlp.down_proj.weight", "F32", [2, 2], identity],
+    ["model.layers.0.post_feedforward_layernorm.weight", "F32", [2], unitOffset],
+    ["model.norm.weight", "F32", [2], unitOffset],
+    ["lm_head.weight", "F32", [3, 2], [1, 0, 0, 1, 1, -1]],
+  ];
+  await writeFile(path.join(directory, "config.json"), JSON.stringify({
+    model_type: "gemma2", hidden_size: 2, intermediate_size: 2, num_hidden_layers: 1, num_attention_heads: 1,
+    num_key_value_heads: 1, head_dim: 2, vocab_size: 3, rms_norm_eps: 1e-6, hidden_act: "gelu_pytorch_tanh",
+    tie_word_embeddings: false, query_pre_attn_scalar: 4, sliding_window: 2, attn_logit_softcapping: 1.5,
+    final_logit_softcapping: 2,
   }));
   await writeSafetensorsFixture(path.join(directory, "model.safetensors"), weights);
 }

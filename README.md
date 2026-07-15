@@ -256,16 +256,17 @@ relatório `incomplete`.
 
 `npm run compare:generation-trace -- --source <checkpoint> --trace <captura.json> --report <relatorio.json>` consome uma captura distinta com `kind: "generation"`. Além da mesma ligação obrigatória a `source.files`, checksums e `irFingerprint`, ela exige prompt, posições absolutas do prompt, limite/EOS, cada token gerado e sua posição, os logits binários usados para selecionar **cada** token, um snapshot KV BHSD pós-decode para **cada** token, logits terminais e o cache KV BHSD final. Cada snapshot e o cache final devem cobrir exatamente cada camada de atenção com KV próprio declarada pelo IR; um consumidor `kvSharing` usa exclusivamente a entrada do seu produtor e é rejeitado se serializar uma cópia própria. Assim, duas partes não podem omitir o mesmo estado nem inventar uma segunda propriedade do mesmo cache. Cada token também precisa ser o argmax dos logits do último passo de sequência, com empate decidido pelo menor ID e nenhum valor não-finito; portanto uma captura não pode chamar uma sequência de sampling de geração greedy. O executor repete prefill e cada decode incremental com pesos materializados por range; uma posição, token, logits de seleção, cache intermediário/final, payload ou checksum ausente/divergente torna o relatório `incomplete` ou `approximate`, nunca aprovação. Assim, a captura ainda deve vir de hooks de um runtime autoritativo; a fixture local apenas valida o contrato de consumo.
 
-### Captura independente por kernels MLX (Llama, Mistral, Gemma 1 e Qwen 2/3 densos F32)
+### Captura independente por kernels MLX (Llama, Mistral, Gemma 1/2 e Qwen 2/3 densos F32)
 
 Quando há um Python com `mlx`, `numpy` e `safetensors`, o comando abaixo cria
 uma captura de referência independente para o subconjunto explicitamente
 suportado: Safetensors denso F32 com os adaptadores `llama`, `mistral`,
-`gemma`, `qwen2` ou `qwen3`. Ele recebe o IR já validado e executa cada operação por kernels MLX;
+`gemma`, `gemma2`, `qwen2` ou `qwen3`. Ele recebe o IR já validado e executa cada operação por kernels MLX;
 não detecta arquitetura, não dequantiza e não aceita variantes de RoPE fora de
 `default/rotate_half`. A lista é fechada: Mistral cobre máscara causal de janela
 deslizante no prefill e decode; Gemma 1 cobre escala de embedding, RMSNorm
-`1 + weight` e GELU-tanh; Qwen 2 cobre bias de atenção sem normalização Q/K;
+`1 + weight` e GELU-tanh; Gemma 2 cobre quatro RMSNorms, normas Q/K por cabeça,
+`query_pre_attn_scalar`, softcaps de atenção/logit e janela local; Qwen 2 cobre bias de atenção sem normalização Q/K;
 Qwen 3 cobre normas Q/K em BHSD e bias nas projeções. Outros IRs aparentemente compatíveis continuam recusados até terem
 um contrato e regressão independentes próprios.
 
