@@ -266,6 +266,17 @@ checksum da captura. Isto prova uma fronteira sintética lossless dentro do
 executor escalar F32 para Q8_0; não é uma comparação com llama.cpp nem uma
 prova para os demais layouts GGML quantizados.
 
+Uma regressão complementar cobre o `GGML_TYPE_Q8_1`: cada matriz de um Llama
+de largura 256 usa blocos de 32 códigos `int8` assinados com escala `F32
+d=0.25`, incluindo o domínio completo de `-128` a `127`. O writer constrói
+independentemente o campo auxiliar obrigatório `F32 s=d*sum(qs)` para cada
+bloco, enquanto o GGUF F32 pareado aplica somente a reconstrução declarada
+`d*q` (sem reinterpretar `s` como offset ou escala F16). A evidência cobre
+cada operação, cache KV pós-RoPE, logits e duas etapas greedy; uma alteração
+em um campo `s` empacotado é recusada pelo checksum. É uma prova sintética
+lossless na política escalar F32, não uma comparação com llama.cpp nem uma
+validação de checkpoint real.
+
 Uma terceira regressão executável percorre o `GGML_TYPE_Q3_K` pela fronteira
 completa. Cada matriz de um Llama de largura 256 contém os quatro planos de
 códigos de dois bits, os dois estados do `hmask[32]` e as 16 escalas assinadas
