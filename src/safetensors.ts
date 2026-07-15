@@ -46,6 +46,7 @@ const DTYPE_BYTES: Record<string, number> = {
 const F64_BYTES = 8;
 const F32_BYTES = 4;
 const F16_BYTES = 2;
+const U32_BYTES = 4;
 /** Safetensors defines a 100 MiB maximum header to prevent hostile allocations. */
 const MAX_HEADER_BYTES = 100 * 1024 * 1024;
 
@@ -268,6 +269,72 @@ export class SafetensorsCatalogReader {
             "use um decodificador explícito para este formato, nunca uma conversão implícita.",
         );
     }
+  }
+
+  /**
+   * Materializes MLX's documented affine U32 packing without starting a
+   * Python/MLX process. This deliberately excludes MXFP4, MXFP8 and NVFP4:
+   * their codebooks and scale contracts are different and stay fail-closed.
+   */
+  async readMlxAffineAsF32(tensor: TensorInfo, scales: TensorInfo, biases?: TensorInfo): Promise<DenseF32Tensor> {
+    const quantization = tensor.quantization;
+    if (
+      tensor.storageDtype !== "U32" || quantization?.family !== "mlx" || quantization.mode !== "affine" ||
+      !Number.isInteger(quantization.bits) || ![2, 3, 4, 5, 6, 8].includes(quantization.bits!) ||
+      !Number.isInteger(quantization.groupSize) || quantization.groupSize! <= 0 || !quantization.scaleTensor ||
+      scales.name !== quantization.scaleTensor || (quantization.biasTensor !== undefined && biases?.name !== quantization.biasTensor)
+    ) {
+      throw new Error(`${tensor.name}: materialização nativa exige contrato MLX affine U32, bits {2,3,4,5,6,8}, group_size e scales compatíveis.`);
+    }
+    const bits = quantization.bits!;
+    const groupSize = quantization.groupSize!;
+    if (tensor.storageShape.length !== 2 || tensor.logicalShape.length !== 2 || scales.logicalShape.length !== 2 || (biases && biases.logicalShape.length !== 2)) {
+      throw new Error(`${tensor.name}: materialização MLX affine requer peso, scales e biases opcionais 2D.`);
+    }
+    const [rows, packedWords] = tensor.storageShape;
+    const [logicalRows, logicalColumns] = tensor.logicalShape;
+    const [scaleRows, groups] = scales.logicalShape;
+    if (
+      rows === undefined || packedWords === undefined || logicalRows !== rows || logicalColumns === undefined ||
+      scaleRows !== rows || groups === undefined || groups * groupSize !== logicalColumns ||
+      (biases && (biases.logicalShape[0] !== rows || biases.logicalShape[1] !== groups))
+    ) {
+      throw new Error(`${tensor.name}: shapes MLX affine não coincidem entre U32, layout lógico e scales/biases.`);
+    }
+    const totalBits = logicalColumns * bits;
+    if (!Number.isSafeInteger(totalBits) || totalBits % 32 !== 0 || packedWords !== totalBits / 32) {
+      throw new Error(`${tensor.name}: packing MLX affine requer exatamente logicalColumns * bits / 32 palavras U32 por linha.`);
+    }
+    if (!tensor.shard || tensor.byteOffset === undefined || tensor.byteLength === undefined || tensor.byteLength !== rows * packedWords * U32_BYTES) {
+      throw new Error(`${tensor.name}: intervalo U32 MLX inválido para materialização affine.`);
+    }
+    const scaleValues = await this.readMlxParameterAsF32(scales, tensor.name, "scales");
+    const biasValues = biases ? await this.readMlxParameterAsF32(biases, tensor.name, "biases") : undefined;
+    const bytes = Buffer.allocUnsafe(tensor.byteLength);
+    await this.#readExactly(await this.#getHandle(tensor.shard), bytes, tensor.byteOffset);
+    const values = new Float32Array(rows * logicalColumns);
+    const mask = (1 << bits) - 1;
+    for (let row = 0; row < rows; row += 1) {
+      for (let column = 0; column < logicalColumns; column += 1) {
+        const bitOffset = column * bits;
+        const word = bytes.readUInt32LE((row * packedWords + Math.floor(bitOffset / 32)) * U32_BYTES);
+        const code = (word >>> (bitOffset % 32)) & mask;
+        const group = Math.floor(column / groupSize);
+        const parameterIndex = row * groups + group;
+        values[row * logicalColumns + column] = Math.fround(Math.fround(scaleValues.values[parameterIndex]!) * code + (biasValues?.values[parameterIndex] ?? 0));
+      }
+    }
+    return { shape: [...tensor.logicalShape], values, sourceQuantization: { ...quantization } };
+  }
+
+  async readMlxParameterAsF32(tensor: TensorInfo, weightName: string, label: "scales" | "biases"): Promise<DenseF32Tensor> {
+    if (tensor.quantization || !tensor.shard || tensor.byteOffset === undefined || tensor.byteLength === undefined) {
+      throw new Error(`${weightName}: ${label} MLX deve ser tensor denso catalogado no mesmo checkpoint.`);
+    }
+    if (!["F32", "F16", "BF16"].includes(tensor.storageDtype)) {
+      throw new Error(`${weightName}: ${label} MLX requer storage F32/F16/BF16, recebeu ${tensor.storageDtype}.`);
+    }
+    return this.readDenseAsF32(tensor);
   }
 
   /**

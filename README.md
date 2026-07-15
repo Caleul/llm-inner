@@ -18,9 +18,9 @@ O IR guarda `inFeatures`, `outFeatures`, referência ao tensor, dtype e quantiza
 - Diretórios MLX/Safetensors quantizados, lendo `config.json`, incluindo overrides por módulo.
 - Arquivos GGUF v2/v3 por um leitor nativo estrito de header, metadata e diretório; o subconjunto denso Llama também pode chegar ao IR e à materialização F32 sem bridge Python.
 
-A leitura numérica é delegada ao runtime de referência:
+A leitura numérica usa contratos explícitos por formato:
 
-- `mlx.core.dequantize` para MLX (`affine`, `mxfp4`, `mxfp8`, `nvfp4` e modos suportados pela versão instalada).
+- materialização nativa por ranges para MLX `affine` U32 (códigos 2/3/4/5/6/8-bit, `scale * code + bias` por grupo); `mxfp4`, `mxfp8`, `nvfp4` e outros modos continuam na fronteira explícita de `mlx.core.dequantize`.
 - `GGML_TYPE_Q4_0` tem um decodificador local estrito: cada bloco contém um
   `ggml_half d` little-endian e 16 bytes com os nibbles baixos para `q[0..15]`
   e altos para `q[16..31]`, materializando `F32[i] = d * (q[i] - 8)`.
@@ -365,12 +365,14 @@ decoder completo executa pesos armazenados tanto em F16 quanto em BF16, mas
 isso continua sendo validação de valores de storage em um interpretador escalar
 F32 — não uma comparação diferencial contra MLX, PyTorch ou outro runtime.
 
-Para um peso MLX quantizado, `TensorBridge.readMlxDequantizedF32` é a fronteira
-explícita de materialização: exige catálogo `mlx-safetensors`, storage `U32`,
-modo/bits/group size/scales declarados, e shapes 2D que coincidam com o
-catálogo. O bridge repassa esse contrato a `mlx.core.dequantize`, verifica o
-shape de saída e devolve bytes F32 (não uma lista JSON de números), marcados
-com a proveniência completa da quantização. `executeReferenceF32` só aceita um
+Para um peso MLX `affine` quantizado, o leitor Safetensors materializa os U32
+por range sem Python: exige `bits` em 2/3/4/5/6/8, packing exato de palavras
+U32, `group_size`, scales densas e biases compatíveis quando declaradas, e
+reconstrói `scale * code + bias` por grupo. Outros modos MLX usam
+`TensorBridge.readMlxDequantizedF32`, que repassa o contrato explícito a
+`mlx.core.dequantize`, verifica o shape de saída e devolve bytes F32 (não uma
+lista JSON de números), marcados com a proveniência completa da quantização.
+`executeReferenceF32` só aceita um
 tensor quantizado se essa proveniência for idêntica ao `TensorRef` do IR;
 buffer sem proveniência ou de outro esquema falha fechado. Isso habilita uma
 execução F32 de fixtures/materializações declaradas, mas não estabelece a

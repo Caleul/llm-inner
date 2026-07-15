@@ -6,6 +6,10 @@ export interface DenseF32Reader {
   readDenseAsF32(tensor: TensorInfo): Promise<DenseF32Tensor>;
 }
 
+interface NativeMlxAffineReader extends DenseF32Reader {
+  readMlxAffineAsF32(tensor: TensorInfo, scales: TensorInfo, biases?: TensorInfo): Promise<DenseF32Tensor>;
+}
+
 /**
  * Materialize the complete set of constants referenced by an IR for the
  * scalar F32 executor. This is deliberately separate from lowering: a model
@@ -33,8 +37,14 @@ export async function materializeReferenceF32Constants(
     let materialized: DenseF32Tensor;
     if (catalogued.quantization) {
       if (adaptedCatalog.format === "mlx-safetensors" && catalogued.quantization.family === "mlx") {
-        if (!bridge) throw new Error(`${reference.name}: tensor MLX quantizado requer TensorBridge com mlx.core.dequantize.`);
-        materialized = await bridge.readMlxDequantizedF32(adaptedCatalog, reference.name);
+        const scales = catalogued.quantization.scaleTensor ? adaptedCatalog.tensors.get(catalogued.quantization.scaleTensor) : undefined;
+        const biases = catalogued.quantization.biasTensor ? adaptedCatalog.tensors.get(catalogued.quantization.biasTensor) : undefined;
+        if (catalogued.quantization.mode === "affine" && supportsNativeMlxAffine(reader) && scales && (!catalogued.quantization.biasTensor || biases)) {
+          materialized = await reader.readMlxAffineAsF32(catalogued, scales, biases);
+        } else {
+          if (!bridge) throw new Error(`${reference.name}: quantização MLX ${catalogued.quantization.mode} requer TensorBridge com mlx.core.dequantize; affine nativo exige reader e tensors de parâmetros verificados.`);
+          materialized = await bridge.readMlxDequantizedF32(adaptedCatalog, reference.name);
+        }
       } else if (adaptedCatalog.format === "gguf" && catalogued.quantization.family === "gguf" && (catalogued.quantization.mode === "q2_k" || catalogued.quantization.mode === "q3_k" || catalogued.quantization.mode === "q4_0" || catalogued.quantization.mode === "q4_1" || catalogued.quantization.mode === "q4_k" || catalogued.quantization.mode === "q5_0" || catalogued.quantization.mode === "q5_1" || catalogued.quantization.mode === "q5_k" || catalogued.quantization.mode === "q6_k" || catalogued.quantization.mode === "q8_0" || catalogued.quantization.mode === "q8_1" || catalogued.quantization.mode === "q8_k")) {
         materialized = await reader.readDenseAsF32(catalogued);
       } else {
@@ -47,6 +57,10 @@ export async function materializeReferenceF32Constants(
     constants.set(reference.name, materialized);
   }
   return constants;
+}
+
+function supportsNativeMlxAffine(reader: DenseF32Reader): reader is NativeMlxAffineReader {
+  return "readMlxAffineAsF32" in reader && typeof reader.readMlxAffineAsF32 === "function";
 }
 
 function referencedTensors(ir: ModelIR): Map<string, TensorRef> {

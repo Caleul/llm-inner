@@ -76,6 +76,34 @@ test("materializer requires the declared MLX bridge and preserves its provenance
   assert.deepEqual(constants.get("model.embed_tokens.weight")?.sourceQuantization, quantization);
 });
 
+test("materializer selects a native verified MLX affine reader before the optional bridge", async () => {
+  const quantization = { family: "mlx" as const, mode: "affine", bits: 4, groupSize: 2, scaleTensor: "weight.scales", biasTensor: "weight.biases" };
+  const source: ModelCatalog = {
+    source: "/tmp/mlx", format: "mlx-safetensors", config: {}, rawMetadata: {},
+    tensors: new Map([
+      ["weight", { name: "weight", storageDtype: "U32", storageShape: [1, 1], logicalShape: [1, 2], quantization }],
+      ["weight.scales", { name: "weight.scales", storageDtype: "F32", storageShape: [1, 1], logicalShape: [1, 1] }],
+      ["weight.biases", { name: "weight.biases", storageDtype: "F32", storageShape: [1, 1], logicalShape: [1, 1] }],
+    ]),
+  };
+  const ir: ModelIR = {
+    schemaVersion: 2, source: { path: source.source, format: source.format }, architecture: { modelType: "fixture", hiddenSize: 2, numLayers: 0, numAttentionHeads: 1, numKeyValueHeads: 1, headDim: 2 }, config: {}, preview,
+    inputs: [], prelude: [{ id: "embedding", op: "embedding", tokenInput: "input_ids", output: "x", weight: { name: "weight", shape: [1, 2], storageDtype: "U32", quantization }, dtypePolicy: {} }], layers: [], epilogue: [], fidelity: { exactByConstruction: false, assumptions: [], unsupported: [], warnings: [] },
+  };
+  let nativeCalls = 0;
+  const reader = {
+    async readDenseAsF32(info: TensorInfo): Promise<DenseF32Tensor> { return { shape: [...info.logicalShape], values: new Float32Array(info.logicalShape.reduce((a, b) => a * b, 1)) }; },
+    async readMlxAffineAsF32(weight: TensorInfo, scales: TensorInfo, biases?: TensorInfo): Promise<DenseF32Tensor> {
+      nativeCalls += 1;
+      assert.equal(weight.name, "weight"); assert.equal(scales.name, "weight.scales"); assert.equal(biases?.name, "weight.biases");
+      return { shape: [1, 2], values: Float32Array.from([1, 2]), sourceQuantization: { ...quantization } };
+    },
+  };
+  const constants = await materializeReferenceF32Constants(ir, source, reader);
+  assert.equal(nativeCalls, 1);
+  assert.deepEqual([...constants.get("weight")!.values], [1, 2]);
+});
+
 test("temporary Safetensors source materializes binary32 values through the catalog range reader", async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "llm-inner-f32-"));
   try {

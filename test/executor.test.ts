@@ -776,6 +776,50 @@ test("MLX quantization requires U32 packing and a row-compatible scales matrix",
   }
 });
 
+test("native MLX affine reader reconstructs little-endian U32 codes with per-group F32 parameters", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-mlx-affine-"));
+  try {
+    await writeFile(path.join(directory, "config.json"), JSON.stringify({ model_type: "llama", quantization: { bits: 4, group_size: 4, mode: "affine" } }));
+    const weights = Buffer.alloc(32);
+    for (let row = 0; row < 2; row += 1) {
+      for (let column = 0; column < 32; column += 1) {
+        const code = row === 0 ? column & 15 : 15 - (column & 15);
+        const wordOffset = (row * 4 + Math.floor(column / 8)) * 4;
+        weights.writeUInt32LE((weights.readUInt32LE(wordOffset) | (code << ((column % 8) * 4))) >>> 0, wordOffset);
+      }
+    }
+    const scales = Buffer.alloc(64);
+    const biases = Buffer.alloc(64);
+    for (let index = 0; index < 16; index += 1) {
+      scales.writeFloatLE(index + 1, index * 4);
+      biases.writeFloatLE(100 + index, index * 4);
+    }
+    await writeRawSafetensors(path.join(directory, "model.safetensors"), {
+      "linear.weight": { dtype: "U32", shape: [2, 4], data_offsets: [0, 32] },
+      "linear.scales": { dtype: "F32", shape: [2, 8], data_offsets: [32, 96] },
+      "linear.biases": { dtype: "F32", shape: [2, 8], data_offsets: [96, 160] },
+    }, Buffer.concat([weights, scales, biases]));
+    const reader = new SafetensorsCatalogReader(directory);
+    try {
+      const catalog = await reader.inspect();
+      const weight = catalog.tensors.get("linear.weight")!;
+      const values = await reader.readMlxAffineAsF32(weight, catalog.tensors.get("linear.scales")!, catalog.tensors.get("linear.biases")!);
+      assert.deepEqual(values.shape, [2, 32]);
+      assert.deepEqual(values.sourceQuantization, { family: "mlx", mode: "affine", bits: 4, groupSize: 4, scaleTensor: "linear.scales", biasTensor: "linear.biases" });
+      assert.equal(values.values[0], 100);
+      assert.equal(values.values[3], 103);
+      assert.equal(values.values[4], 109);
+      assert.equal(values.values[31], 227);
+      assert.equal(values.values[32], 243);
+      assert.equal(values.values[63], 115);
+    } finally {
+      await reader.close();
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 async function writeRawSafetensors(file: string, header: object, payload: Buffer): Promise<void> {
   const headerBytes = Buffer.from(JSON.stringify(header), "utf8");
   const prefix = Buffer.alloc(8);
