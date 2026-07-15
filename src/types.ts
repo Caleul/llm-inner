@@ -208,6 +208,12 @@ export interface DenseTensor {
 export interface DenseF32Tensor {
   shape: number[];
   values: Float32Array;
+  /**
+   * Present only when this F32 buffer was materialized by the declared
+   * container backend from a specific quantized source tensor.  This is
+   * provenance, not a claim about the original runtime's compute dtype.
+   */
+  sourceQuantization?: QuantizationSpec;
 }
 
 export interface ReferenceExecutionRequest {

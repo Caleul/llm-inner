@@ -206,6 +206,18 @@ decoder completo executa pesos armazenados tanto em F16 quanto em BF16, mas
 isso continua sendo validação de valores de storage em um interpretador escalar
 F32 — não uma comparação diferencial contra MLX, PyTorch ou outro runtime.
 
+Para um peso MLX quantizado, `TensorBridge.readMlxDequantizedF32` é a fronteira
+explícita de materialização: exige catálogo `mlx-safetensors`, storage `U32`,
+modo/bits/group size/scales declarados, e shapes 2D que coincidam com o
+catálogo. O bridge repassa esse contrato a `mlx.core.dequantize`, verifica o
+shape de saída e devolve bytes F32 (não uma lista JSON de números), marcados
+com a proveniência completa da quantização. `executeReferenceF32` só aceita um
+tensor quantizado se essa proveniência for idêntica ao `TensorRef` do IR;
+buffer sem proveniência ou de outro esquema falha fechado. Isso habilita uma
+execução F32 de fixtures/materializações declaradas, mas não estabelece a
+política de dtype do modelo nem equivalência com um runtime MLX real. Um modo
+MLX omitido também é rejeitado: `U32` + bit width não define um algoritmo.
+
 A inspeção Safetensors também valida a fronteira do contêiner antes de expor
 qualquer tensor: nomes de shards do índice não podem sair do diretório de
 origem, o header tem o limite de 100 MiB da especificação, e cada intervalo

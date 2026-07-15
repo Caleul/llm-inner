@@ -7,6 +7,7 @@ import { buildModelIR } from "../src/architecture.js";
 import { compareExecutionTrace, compareGenerationTrace } from "../src/differential.js";
 import { executeReferenceF32, executeReferenceF64, generateReferenceF32, generateReferenceF64 } from "../src/executor.js";
 import { SafetensorsCatalogReader } from "../src/safetensors.js";
+import { decodeMlxF32Payload } from "../src/bridge.js";
 import type { DenseF32Tensor, DenseTensor, ModelCatalog, TensorInfo } from "../src/types.js";
 
 const preview = { outputRows: 1, inputTerms: 1, includeWeights: false } as const;
@@ -598,6 +599,51 @@ test("F32 executor rejects an F64 policy instead of silently changing cast bound
   assert.throws(() => executeReferenceF32(ir, { inputIds: [[1]], tensors: f32Weights }), /política F32 explícita/);
 });
 
+test("MLX dequantized F32 payload preserves declared provenance and rejects malformed backend bytes", () => {
+  const quantization = {
+    family: "mlx" as const, mode: "affine", bits: 4, groupSize: 4,
+    scaleTensor: "linear.scales", biasTensor: "linear.biases",
+  };
+  const bytes = Buffer.alloc(8);
+  bytes.writeFloatLE(1.25, 0);
+  bytes.writeFloatLE(-2.5, 4);
+  const tensor = decodeMlxF32Payload({ shape: [1, 2], f32leBase64: bytes.toString("base64") }, [1, 2], quantization);
+  assert.deepEqual([...tensor.values], [1.25, -2.5]);
+  assert.deepEqual(tensor.sourceQuantization, quantization);
+  assert.throws(
+    () => decodeMlxF32Payload({ shape: [1, 2], f32leBase64: Buffer.alloc(4).toString("base64") }, [1, 2], quantization),
+    /bytes F32/,
+  );
+  assert.throws(
+    () => decodeMlxF32Payload({ shape: [2], f32leBase64: bytes.toString("base64") }, [1, 2], quantization),
+    /shape/,
+  );
+});
+
+test("F32 executor accepts MLX materialized weights only with matching quantization provenance", async () => {
+  const { ir, weights } = await tinyLlama();
+  for (const operation of [...ir.prelude, ...ir.layers.flatMap((layer) => layer.operations), ...ir.epilogue]) {
+    operation.dtypePolicy = { ...f32Policy };
+    if (operation.op === "scaled_dot_product_attention") operation.softmaxComputeDtype = "F32";
+  }
+  const lmHead = ir.epilogue.find((operation) => operation.id === "lm_head");
+  assert.equal(lmHead?.op, "linear");
+  if (lmHead?.op !== "linear") throw new Error("fixture sem lm_head");
+  const quantization = { family: "mlx" as const, mode: "affine", bits: 4, groupSize: 4, scaleTensor: "lm_head.scales" };
+  lmHead.weight.quantization = quantization;
+  const materialized = new Map<string, DenseF32Tensor>(
+    [...weights].map(([name, tensor]) => [name, { shape: [...tensor.shape], values: Float32Array.from(tensor.values) }]),
+  );
+  const head = materialized.get("lm_head.weight")!;
+  head.sourceQuantization = { ...quantization };
+  assert.doesNotThrow(() => executeReferenceF32(ir, { inputIds: [[1]], tensors: materialized }));
+  delete head.sourceQuantization;
+  assert.throws(
+    () => executeReferenceF32(ir, { inputIds: [[1]], tensors: materialized }),
+    /exige proveniência idêntica/,
+  );
+});
+
 test("Safetensors inspection rejects inverted, out-of-payload, and overlapping tensor ranges", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-invalid-ranges-"));
   const model = path.join(directory, "model.safetensors");
@@ -708,6 +754,20 @@ test("MLX quantization requires U32 packing and a row-compatible scales matrix",
       assert.equal(catalog.format, "safetensors");
       assert.equal(weight.quantization, undefined);
       assert.deepEqual(weight.logicalShape, [2, 4]);
+    } finally {
+      await reader.close();
+    }
+
+    await writeFile(path.join(directory, "config.json"), JSON.stringify({
+      model_type: "llama", quantization: { bits: 4, group_size: 4 },
+    }));
+    await writeRawSafetensors(path.join(directory, "model.safetensors"), {
+      "linear.weight": { dtype: "U32", shape: [2, 1], data_offsets: [0, 8] },
+      "linear.scales": { dtype: "F16", shape: [2, 1], data_offsets: [8, 12] },
+    }, Buffer.alloc(12));
+    reader = new SafetensorsCatalogReader(directory);
+    try {
+      await assert.rejects(() => reader.inspect(), /mode explícito/);
     } finally {
       await reader.close();
     }

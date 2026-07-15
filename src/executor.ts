@@ -332,9 +332,6 @@ function assertF32Policy(operation: Operation): void {
       throw new Error(`${operation.id}: executor de referência suporta somente política F32 explícita; ${name}=${dtype}.`);
     }
   }
-  if (operation.op === "linear" && operation.weight.quantization) {
-    throw new Error(`${operation.id}: executor F32 ainda não dequantiza ${operation.weight.quantization.family}.`);
-  }
   if (operation.op === "scaled_dot_product_attention" && operation.softmaxComputeDtype !== "F32") {
     throw new Error(`${operation.id}: executor de referência suporta somente softmaxComputeDtype=F32.`);
   }
@@ -368,11 +365,26 @@ function tensor(request: ReferenceExecutionRequest, reference: TensorRef): Dense
 }
 
 function tensorF32(request: ReferenceF32ExecutionRequest, reference: TensorRef): DenseF32Tensor {
-  if (reference.quantization) throw new Error(`${reference.name}: tensor quantizado não é suportado pelo executor F32.`);
   const found = request.tensors.get(reference.name);
   if (!found) throw new Error(`Tensor F32 ausente: ${reference.name}`);
   assertShapeF32(found, reference.shape, reference.name);
+  if (reference.quantization && !sameQuantization(found.sourceQuantization, reference.quantization)) {
+    throw new Error(`${reference.name}: tensor quantizado F32 exige proveniência idêntica do backend ${reference.quantization.family}/${reference.quantization.mode}.`);
+  }
+  if (!reference.quantization && found.sourceQuantization) {
+    throw new Error(`${reference.name}: tensor denso não pode receber buffer proveniente de ${found.sourceQuantization.family}/${found.sourceQuantization.mode}.`);
+  }
   return found;
+}
+
+function sameQuantization(
+  actual: import("./types.js").QuantizationSpec | undefined,
+  expected: import("./types.js").QuantizationSpec,
+): boolean {
+  return actual?.family === expected.family && actual.mode === expected.mode && actual.bits === expected.bits &&
+    actual.groupSize === expected.groupSize && actual.tensorType === expected.tensorType &&
+    actual.scaleTensor === expected.scaleTensor && actual.biasTensor === expected.biasTensor &&
+    actual.globalScaleTensor === expected.globalScaleTensor;
 }
 
 function value(values: Map<string, DenseTensor>, name: string): DenseTensor {

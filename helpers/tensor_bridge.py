@@ -10,6 +10,7 @@ O processo fica vivo e recebe JSON-RPC por stdin para evitar spawn por tensor.
 from __future__ import annotations
 
 import json
+import base64
 import sys
 import traceback
 from pathlib import Path
@@ -76,8 +77,8 @@ class SafeTensorsBackend(Backend):
         local = override if isinstance(override, dict) else {}
         bits = local.get("bits", root.get("bits"))
         group_size = local.get("group_size", root.get("group_size"))
-        mode = local.get("mode", root.get("mode", "affine"))
-        if bits is None or group_size is None:
+        mode = local.get("mode", root.get("mode"))
+        if bits is None or group_size is None or not isinstance(mode, str) or not mode:
             return None
         return {"bits": int(bits), "group_size": int(group_size), "mode": str(mode), "module": module}
 
@@ -131,6 +132,8 @@ class SafeTensorsBackend(Backend):
 
         module = quant["module"]
         weight = self._mlx_tensor(tensor)[row_start:row_end]
+        if weight.dtype != mx.uint32:
+            raise ValueError(f"{tensor}: config MLX não pode reinterpretar storage {weight.dtype} como peso U32 embalado")
         scales_name = f"{module}.scales"
         biases_name = f"{module}.biases"
         global_scale_name = f"{module}.global_scale"
@@ -146,6 +149,57 @@ class SafeTensorsBackend(Backend):
         dequantized = mx.dequantize(weight, scales, biases, **kwargs)
         sliced = dequantized[:, col_start:col_end]
         return {"values": mx.array(sliced, dtype=mx.float32).tolist()}
+
+    def read_tensor_f32(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Return a complete dequantized F32 tensor as bytes, never JSON floats."""
+        tensor = str(request.get("tensor", ""))
+        expected = request.get("quantization")
+        if not isinstance(expected, dict):
+            raise ValueError("read_tensor_f32 requer quantization declarada pelo catálogo")
+        quant = self._quant_spec(tensor)
+        if quant is None:
+            raise ValueError(f"{tensor}: não possui especificação MLX verificável")
+        if request.get("storage_dtype") != "U32":
+            raise ValueError(f"{tensor}: execução MLX requer storage_dtype U32")
+        if expected.get("family") != "mlx" or any(expected.get(key) != quant.get(key) for key in ("mode", "bits", "group_size")):
+            raise ValueError(f"{tensor}: contrato de quantização do RPC diverge do config.json")
+        module = quant["module"]
+        expected_scales = f"{module}.scales"
+        if expected.get("scale_tensor") != expected_scales:
+            raise ValueError(f"{tensor}: scales declaradas pelo RPC não correspondem ao módulo MLX")
+        expected_biases = f"{module}.biases"
+        expected_global_scale = f"{module}.global_scale"
+        if expected.get("bias_tensor") not in (None, expected_biases) or expected.get("global_scale_tensor") not in (None, expected_global_scale):
+            raise ValueError(f"{tensor}: metadados auxiliares MLX divergem do módulo")
+        storage_shape = request.get("storage_shape")
+        logical_shape = request.get("logical_shape")
+        if not (isinstance(storage_shape, list) and isinstance(logical_shape, list) and len(storage_shape) == 2 and len(logical_shape) == 2):
+            raise ValueError(f"{tensor}: execução MLX requer shapes 2D declarados")
+        weight = self._mlx_tensor(tensor)
+        scales = self._mlx_tensor(expected_scales)
+        try:
+            import mlx.core as mx
+        except Exception as exc:
+            raise RuntimeError("Dequantização MLX exata requer 'pip install mlx'.") from exc
+        if weight.dtype != mx.uint32:
+            raise ValueError(f"{tensor}: storage carregado não é U32 embalado")
+        if list(weight.shape) != storage_shape or len(scales.shape) != 2 or scales.shape[0] != weight.shape[0]:
+            raise ValueError(f"{tensor}: storage/scales carregados não correspondem ao catálogo")
+        if int(scales.shape[1]) * int(quant["group_size"]) != int(logical_shape[1]) or int(weight.shape[0]) != int(logical_shape[0]):
+            raise ValueError(f"{tensor}: shape lógico não corresponde a scales e group_size")
+        biases = self._mlx_tensor(expected_biases) if expected_biases in self.weight_map else None
+        if biases is not None and list(biases.shape) != list(scales.shape):
+            raise ValueError(f"{tensor}: biases MLX devem ter o mesmo shape de scales")
+        kwargs: dict[str, Any] = {"group_size": quant["group_size"], "bits": quant["bits"], "mode": quant["mode"]}
+        if expected_global_scale in self.weight_map:
+            kwargs["global_scale"] = self._mlx_tensor(expected_global_scale)
+        dequantized = mx.dequantize(weight, scales, biases, **kwargs).astype(mx.float32)
+        if list(dequantized.shape) != logical_shape:
+            raise ValueError(f"{tensor}: mlx.core.dequantize retornou shape {list(dequantized.shape)}, esperado {logical_shape}")
+        raw = dequantized.tobytes()
+        if len(raw) != int(logical_shape[0]) * int(logical_shape[1]) * 4:
+            raise ValueError(f"{tensor}: mlx.core.dequantize retornou tamanho F32 inválido")
+        return {"shape": logical_shape, "f32leBase64": base64.b64encode(raw).decode("ascii")}
 
     def close(self) -> None:
         for context, _handle in self._safe_handles.values():
@@ -269,6 +323,10 @@ for line in sys.stdin:
                 int(params["col_start"]),
                 int(params["col_end"]),
             )
+        elif method == "read_tensor_f32":
+            if not isinstance(backend, SafeTensorsBackend):
+                raise ValueError("read_tensor_f32 é exclusivo para checkpoints MLX Safetensors")
+            result = backend.read_tensor_f32(params)
         elif method == "close":
             backend.close()
             emit({"id": request_id, "result": True})

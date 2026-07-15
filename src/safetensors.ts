@@ -467,7 +467,7 @@ export class SafetensorsCatalogReader {
 
     const bitsValue = override.bits ?? root.bits;
     const groupSizeValue = override.group_size ?? root.group_size;
-    const modeValue = override.mode ?? root.mode ?? "affine";
+    const modeValue = override.mode ?? root.mode;
     const storageDtype = knownTensors?.get(tensorName)?.storageDtype;
     if (storageDtype !== "U32") return undefined;
     if (
