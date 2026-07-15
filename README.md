@@ -28,6 +28,13 @@ A leitura numérica é delegada ao runtime de referência:
   contém `ggml_half d`, `ggml_half m` e 16 bytes com os nibbles baixos para
   `q[0..15]` e altos para `q[16..31]`, materializando `F32[i] = d * q[i] + m`
   e preservando a proveniência `gguf/q4_1`.
+- `GGML_TYPE_Q3_K` tem um contrato local estrito de 110 bytes por bloco de 256
+  valores: `ggml_half d`, `hmask[32]`, `qs[64]` com quatro planos de dois
+  bits e 12 bytes que empacotam 16 escalas assinadas de seis bits por grupo de
+  16 valores. Cada valor é `F32[i] = d * (scale[group] - 32) * (low2[i] -
+  (highMask[i] ? 0 : 4))`; a posição do bit alto e os campos de escala são
+  derivados do layout GGML, não do nome ou da largura de três bits. A
+  proveniência é `gguf/q3_k`.
 - `GGML_TYPE_Q4_K` tem um contrato local estrito de 144 bytes por bloco de 256
   valores: `ggml_half d`, `ggml_half dmin`, 12 bytes que codificam oito campos
   de escala e oito campos de mínimo de seis bits, e 128 bytes de códigos de
@@ -224,7 +231,10 @@ materializa cada constante uma única vez. Safetensors densos usam o leitor de
 intervalos F32/F16/BF16; MLX quantizado exige explicitamente o bridge com
 `mlx.core.dequantize` e preserva a proveniência. GGUF denso F32/F16/BF16 usa o
 seu próprio leitor de intervalos. Os únicos tipos GGML empacotados materializáveis
-hoje são `Q4_0`, sob o contrato exato de bloco de 18 bytes (`F16` scale + 16
+hoje são `Q3_K`, sob o contrato de 110 bytes por grupo de 256 (`F16 d`,
+`hmask[32]`, 64 bytes com quatro planos de códigos de dois bits e 12 bytes com
+16 escalas assinadas de seis bits, com `d*(scale-32)*(code-(mask?0:4))`),
+`Q4_0`, sob o contrato exato de bloco de 18 bytes (`F16` scale + 16
 nibbles, baixo `q[0..15]`, alto `q[16..31]`, código centrado por `-8`), `Q4_1`,
 sob o contrato distinto de 20 bytes (`F16` scale, `F16` minimum e 16 nibbles,
 com `d*q+m`), `Q4_K`, sob o contrato de 144 bytes por grupo de 256 (`F16 d`,
@@ -241,14 +251,14 @@ valores e `F16 d` final, com código de seis bits centrado por `-32`), `Q8_0`, s
 de 34 bytes (`F16` scale + 32 `int8`), `Q8_1`, sob o contrato distinto de
 40 bytes (`F32 d`, `F32 s=d*sum(qs)` e 32 `int8`, reconstruídos por `d*q`), e
 `Q8_K`, sob o contrato de 260 bytes por grupo de 256 (`F32 d` e 256 `int8`,
-reconstruídos por `d*q`). Q4_K, Q5_K, Q6_K e Q8_K exigem que a primeira dimensão GGML seja múltipla de 256; os demais acima
+reconstruídos por `d*q`). Q3_K, Q4_K, Q5_K, Q6_K e Q8_K exigem que a primeira dimensão GGML seja múltipla de 256; os demais acima
 exigem múltiplos de 32. Os demais não são
 reinterpretados como F32 até existir um decodificador por tipo verificado.
 
 `GgufCatalogReader` em `src/gguf.ts` não depende de `gguf-py`: valida magic,
 versão v2/v3, contagens seguras, metadata tipada (incluindo arrays), diretório,
 alinhamento e intervalos de payload. Hoje expõe armazenamento GGML F32/F16/BF16 e os
-contratos quantizados explícitos Q4_0, Q4_1, Q4_K, Q5_0, Q5_1, Q5_K, Q6_K, Q8_0, Q8_1 e Q8_K de tamanho verificável, mantendo as dimensões
+contratos quantizados explícitos Q3_K, Q4_0, Q4_1, Q4_K, Q5_0, Q5_1, Q5_K, Q6_K, Q8_0, Q8_1 e Q8_K de tamanho verificável, mantendo as dimensões
 na ordem declarada pelo GGML; qualquer outro encoding empacotado é rejeitado com
 seu tipo GGML até haver contrato de layout e dequantização específico. A leitura do catálogo não inventa papéis de
 tensor nem uma convenção de layout de arquitetura. A exceção executável atual
