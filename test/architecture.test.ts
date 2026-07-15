@@ -143,6 +143,22 @@ test("projeção K com dimensão incompatível falha antes de gerar IR", async (
   await assert.rejects(() => buildModelIR(source, preview), /k_proj da camada 0 deve ter shape 4x4/);
 });
 
+test("tensor role resolution rejects unregistered substring naming conventions", async () => {
+  const source = catalog("llama");
+  source.tensors.delete("model.layers.0.self_attn.q_proj.weight");
+  // This has the expected suffix, shape, and apparent layer number, but is
+  // not a registered convention for the explicit Llama adapter.  Resolving it
+  // would make arbitrary names a source of forward-pass semantics.
+  source.tensors.set(
+    "vendor.layers.0.self_attn.q_proj.weight",
+    tensor("vendor.layers.0.self_attn.q_proj.weight", [4, 4]),
+  );
+  await assert.rejects(
+    () => buildModelIR(source, preview),
+    /Camada 0: q_proj\/qkv_proj ausente/,
+  );
+});
+
 test("MLP gated com dimensão intermediária incompatível falha fechado", async () => {
   const source = catalog("llama");
   source.tensors.set(

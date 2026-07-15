@@ -983,15 +983,14 @@ function findLayerTensor(catalog: ModelCatalog, layer: number, suffixes: string[
       if (catalog.tensors.has(name)) return name;
     }
   }
-  // GGUF usa blk.N.<nome> e já está contemplado; fallback controlado por final de nome.
-  const layerMarkers = [`.${layer}.`, `blk.${layer}.`];
-  const candidates = [...catalog.tensors.keys()].filter(
-    (name) => layerMarkers.some((marker) => name.includes(marker)) && suffixes.some((suffix) => name.endsWith(suffix)),
-  );
-  if (candidates.length > 1) {
-    throw new Error(`Tensor ambíguo na camada ${layer}: ${candidates.join(", ")}`);
-  }
-  return candidates[0];
+  // Role resolution is deliberately restricted to the adapter's registered
+  // complete names. A suffix/substring fallback would make an arbitrary
+  // checkpoint naming convention executable semantics: for example,
+  // `vendor.layers.0.self_attn.q_proj.weight` could be mistaken for the
+  // Llama role merely because it happens to end in `q_proj.weight`. GGUF's
+  // registered `blk.N.` convention is already represented in layerPrefixes.
+  // New layouts must be added as explicit, reviewed adapter conventions.
+  return undefined;
 }
 
 function requireLayerTensor(catalog: ModelCatalog, layer: number, suffixes: string[]): string {

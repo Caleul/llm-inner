@@ -103,6 +103,9 @@ O compilador falha quando:
 - não existe `config.json` para Safetensors;
 - a arquitetura não tem adaptador registrado;
 - um tensor crítico está ausente ou ambíguo;
+- um tensor de camada só coincide por substring/sufixo com um papel conhecido:
+  cada adaptador aceita apenas convenções completas de nome registradas, e uma
+  nova convenção exige mapeamento explícito e revisado;
 - há QKV fundido sem layout conhecido;
 - `hidden_act` não está entre as fórmulas de ativação explicitamente registradas;
 - `attention_bias` ou `mlp_bias` declarado não coincide com a presença dos
