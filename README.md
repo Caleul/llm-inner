@@ -74,7 +74,7 @@ Então execute, a partir da raiz do projeto:
 npm run loop:start
 ```
 
-O limite é de 20 handoffs aceitos, configurado em `agent-loop.config.json`.
+O limite é de 50 handoffs aceitos, configurado em `agent-loop.config.json`.
 O runner exige árvore Git limpa, um novo commit por ciclo, testes configurados,
 um handoff válido e nenhuma flag `.agent-loop/STOP` antes de iniciar o próximo.
 
@@ -87,6 +87,11 @@ npm run loop:stop
 permite que o ciclo atual termine de forma coerente. Os logs e mensagens finais
 de cada ciclo ficam em `.agent-loop/runs/`; estado, handoffs e logs são
 ignorados pelo Git para não violar a exigência de árvore limpa.
+
+Cada instância recebe contexto novo a partir do repositório e do último
+handoff. O protocolo exige que ela complete um milestone substancial e
+validado — não uma sequência de microalterações — e que o handoff final retenha
+somente resultado, evidência, gargalos e a próxima frente de alto impacto.
 
 ## Política de fidelidade
 

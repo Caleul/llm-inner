@@ -48,7 +48,7 @@ handoff. Renew your context before deciding what to do:
    mission gates and fidelity risk.
 4. If a plausible approach fails, record the exact evidence in the handoff so
    the successor can make a better decision rather than repeating it blindly.
-5. Continue autonomously while a bounded milestone can be selected from live
+5. Continue autonomously while a substantial milestone can be selected from live
    evidence. Ask for a human decision only when progress truly depends on an
    unavailable external resource, credential, license, specification, hardware
    capability, or product choice.
@@ -56,6 +56,31 @@ handoff. Renew your context before deciding what to do:
 The external runner supplies the next invocation only after validating your
 handoff. Never invoke that runner, start another Codex, or assume a successor
 will accept an unverified claim.
+
+## Substantial-milestone policy
+
+The loop exists to refresh context between meaningful implementation phases,
+not to turn one engineering task into many tiny handoffs. Use each invocation
+to make as much coherent, validated progress as the repository evidence and
+time budget allow.
+
+Prefer a substantial vertical milestone such as a complete container path,
+architecture adapter, reference-execution operation family, differential
+validation harness, or an end-to-end fidelity boundary. A milestone may touch
+multiple source modules, tests, documentation and reports when they form one
+verifiable outcome.
+
+Do not end a successful loop merely because one small helper, assertion,
+comment, or narrow test was added when the same live context supports the
+larger coherent outcome. Split only when further work would require an unknown
+semantic decision, unavailable model/runtime/resource, a failing acceptance
+gate that needs investigation in a fresh context, or an otherwise unsafe
+scope expansion.
+
+Use the handoff to deliberately reset context for the next agent. It must be
+short and decision-useful, not a chronology: state the completed high-impact
+result, the validation evidence, the unresolved bottleneck(s), and exactly one
+recommended next substantial milestone with concrete acceptance criteria.
 
 ## Final objective
 
@@ -227,7 +252,8 @@ Never assume that all 4-bit values share:
 
 ## Working method
 
-For each loop, choose a bounded milestone that can be implemented and validated coherently.
+For each loop, choose a substantial milestone that can be implemented and
+validated coherently within the loop budget.
 
 Good milestones include:
 
@@ -241,7 +267,9 @@ Good milestones include:
 * improving performance without changing semantics;
 * adding support for one previously rejected configuration.
 
-Do not create broad unvalidated scaffolding across many components when one complete vertical slice can be finished.
+Do not create broad unvalidated scaffolding across many components when one
+complete vertical slice can be finished. Prefer the largest coherent vertical
+slice supported by current evidence over a sequence of cosmetic micro-steps.
 
 Prefer vertical slices:
 
@@ -502,6 +530,11 @@ failed
 ```
 
 A failed experiment may still produce a valid handoff, but the handoff must explain the failure precisely.
+
+When `missionStatus` is `continue`, `nextRecommendedMilestone` is mandatory
+and must contain one substantial next milestone, its reason, and concrete
+acceptance criteria. Keep `summary`, `findings`, `knownLimitations`, and
+`blockedBy` concise; do not duplicate commit diffs or a chronological diary.
 
 ## Stop behavior
 
