@@ -149,6 +149,30 @@ function validateHandoffShape(handoff, expectedSequence, expectedRunId) {
     ) {
       fail("Continuing handoffs must name one next substantial milestone with acceptance criteria.");
     }
+    if (!Array.isArray(handoff.nextSteps) || handoff.nextSteps.length < 1 || handoff.nextSteps.length > 3) {
+      fail("Continuing handoffs must contain one to three ordered nextSteps.");
+    }
+    for (const step of handoff.nextSteps) {
+      if (
+        !step ||
+        typeof step.title !== "string" || step.title.trim() === "" ||
+        typeof step.reason !== "string" || step.reason.trim() === "" ||
+        !Array.isArray(step.acceptanceCriteria) || step.acceptanceCriteria.length === 0
+      ) {
+        fail("Each nextSteps entry requires title, reason, and acceptanceCriteria.");
+      }
+    }
+    if (!Array.isArray(handoff.bottlenecks)) fail("Continuing handoffs must include a bottlenecks array.");
+    for (const bottleneck of handoff.bottlenecks) {
+      if (
+        !bottleneck ||
+        typeof bottleneck.description !== "string" ||
+        typeof bottleneck.impact !== "string" ||
+        typeof bottleneck.evidence !== "string"
+      ) {
+        fail("Each bottleneck requires description, impact, and evidence.");
+      }
+    }
   }
 }
 
@@ -200,7 +224,7 @@ async function runCodex(config, prompt, runId, sequence) {
 }
 
 function agentPrompt(masterPrompt, config, state, runId, sequence, previousHandoff) {
-  return `${masterPrompt}\n\n---\n\n# Runner invocation context\n\nYou are the single active Codex for loop ${sequence} (${runId}). Work autonomously: inspect the live repository and choose the highest-impact substantial unfinished milestone. Use this fresh context to complete the largest coherent, validated vertical slice supported by the evidence; do not stop at a micro-change just to create a handoff. Do not ask for a plan or wait for human input unless an actual external resource or decision is required.\n\nCurrent state:\n\n\`\`\`json\n${JSON.stringify(state, null, 2)}\n\`\`\`\n\nPrevious accepted handoff: ${previousHandoff ?? "none; this is the first loop"}.\n\nThe external runner, not you, starts the next loop. Before exiting, run every command in agent-loop.config.json.validationCommands, create one local Git commit, and atomically create exactly one handoff named HANDOFF-${String(sequence).padStart(4, "0")}-<UTC timestamp>-<slug>.json in ${config.handoffDirectory}. Its runId must be \`${runId}\`, sequence must be ${sequence}, and endingState.gitCommit must equal the new HEAD commit. The handoff is your final repository-changing action. If missionStatus is continue, it must contain exactly one decision-useful nextRecommendedMilestone with acceptance criteria, plus only unresolved bottlenecks and limitations; it is not a chronological work log.\n`;
+  return `${masterPrompt}\n\n---\n\n# Runner invocation context\n\nYou are the single active Codex for loop ${sequence} (${runId}). Work autonomously: inspect the live repository and choose the highest-impact substantial unfinished milestone. Use this fresh context to complete the largest coherent, validated vertical slice supported by the evidence; do not stop at a micro-change just to create a handoff. Independently reassess the previous handoff rather than treating it as an assignment. Do not ask for a plan or wait for human input unless an actual external resource or decision is required.\n\nCurrent state:\n\n\`\`\`json\n${JSON.stringify(state, null, 2)}\n\`\`\`\n\nPrevious accepted handoff: ${previousHandoff ?? "none; this is the first loop"}.\n\nThe external runner, not you, starts the next loop. Before exiting, run every command in agent-loop.config.json.validationCommands, create one local Git commit, and atomically create exactly one handoff named HANDOFF-${String(sequence).padStart(4, "0")}-<UTC timestamp>-<slug>.json in ${config.handoffDirectory}. Its runId must be \`${runId}\`, sequence must be ${sequence}, and endingState.gitCommit must equal the new HEAD commit. The handoff is your final repository-changing action. If missionStatus is continue, it must contain exactly one decision-useful nextRecommendedMilestone, one to three ordered nextSteps with acceptance criteria, and a bottlenecks array whose entries state description, impact, and evidence. Keep only unresolved bottlenecks and limitations; it is not a chronological work log.\n`;
 }
 
 async function start(config) {

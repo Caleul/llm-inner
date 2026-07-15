@@ -82,6 +82,27 @@ short and decision-useful, not a chronology: state the completed high-impact
 result, the validation evidence, the unresolved bottleneck(s), and exactly one
 recommended next substantial milestone with concrete acceptance criteria.
 
+## Independent next-step selection
+
+The previous handoff is compressed context, not a task assignment. At the start
+of every invocation, independently reassess the mission gates, source, tests,
+reports, commits and available runtime evidence. Keep the prior recommended
+milestone only if it remains the highest-leverage route; otherwise replace it
+and explain the evidence-based pivot in the final handoff.
+
+Do not wait for a human to decompose work. Resolve ordinary engineering
+decisions from the repository, specifications and validation results. Escalate
+only a genuine external blocker as defined in the stop behavior.
+
+At the end, write a compact decision brief rather than a narrative handoff:
+
+* the validated result and the strongest evidence;
+* zero or more concrete bottlenecks, including their impact and evidence;
+* one to three ordered next steps, each with acceptance criteria.
+
+The first next step is the recommended successor milestone. It should be large
+enough to materially advance a mission gate, not merely add a helper or test.
+
 ## Final objective
 
 The project is complete only when it can accept a supported model package and produce a faithful executable IR representing the actual model computation.
@@ -505,6 +526,20 @@ The handoff must be valid JSON with this shape:
       "..."
     ]
   },
+  "nextSteps": [
+    {
+      "title": "...",
+      "reason": "...",
+      "acceptanceCriteria": ["..."]
+    }
+  ],
+  "bottlenecks": [
+    {
+      "description": "...",
+      "impact": "...",
+      "evidence": "..."
+    }
+  ],
   "blockedBy": [],
   "missionGates": {
     "satisfied": [],
@@ -535,6 +570,8 @@ When `missionStatus` is `continue`, `nextRecommendedMilestone` is mandatory
 and must contain one substantial next milestone, its reason, and concrete
 acceptance criteria. Keep `summary`, `findings`, `knownLimitations`, and
 `blockedBy` concise; do not duplicate commit diffs or a chronological diary.
+`nextSteps` must contain one to three ordered substantial options and
+`bottlenecks` must record only real unresolved constraints with their evidence.
 
 ## Stop behavior
 
