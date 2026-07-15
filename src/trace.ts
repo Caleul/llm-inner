@@ -73,11 +73,12 @@ export interface GenerationTraceBundle {
   source: { files: TraceSourceFile[] };
   irFingerprint: string;
   candidatePolicy: { dtype: "F32" | "F64"; runtime: string };
-  reference: Omit<DifferentialGenerationReferenceTrace, "logits" | "pastKeyValues" | "steps" | "selectionLogits"> & {
+  reference: Omit<DifferentialGenerationReferenceTrace, "logits" | "pastKeyValues" | "stepPastKeyValues" | "steps" | "selectionLogits"> & {
     logits: SerializedTensor;
     pastKeyValues: SerializedCache[];
     steps: SerializedGenerationStep[];
     selectionLogits: SerializedTensor[];
+    stepPastKeyValues: SerializedCache[][];
   };
 }
 
@@ -120,6 +121,11 @@ export async function readGenerationTraceBundle(file: string): Promise<DecodedGe
       generatedTokenIds: [...bundle.reference.generatedTokenIds],
       steps: bundle.reference.steps.map((step) => ({ ...step })),
       selectionLogits: bundle.reference.selectionLogits.map((tensor, index) => decodeTensor(tensor, `logits de seleção ${index}`)),
+      stepPastKeyValues: bundle.reference.stepPastKeyValues.map((step, index) => step.map((cache) => ({
+        layer: cache.layer,
+        key: decodeTensor(cache.key, `cache KV pós-decode ${index}/${cache.layer}.key`),
+        value: decodeTensor(cache.value, `cache KV pós-decode ${index}/${cache.layer}.value`),
+      }))),
       logits: decodeTensor(bundle.reference.logits, "logits terminais"),
       pastKeyValues: bundle.reference.pastKeyValues.map((cache) => ({
         layer: cache.layer,
@@ -238,6 +244,7 @@ function validateGenerationBundle(raw: unknown): GenerationTraceBundle {
   if (reference.eosTokenId !== undefined && (!Number.isInteger(reference.eosTokenId) || (reference.eosTokenId as number) < 0)) throw new Error("Trace de geração contém eosTokenId inválido.");
   if (!Array.isArray(reference.steps) || reference.steps.length !== generatedTokenIds.length) throw new Error("Trace de geração requer um step para cada token emitido.");
   if (!Array.isArray(reference.selectionLogits) || reference.selectionLogits.length !== generatedTokenIds.length) throw new Error("Trace de geração requer logits de seleção para cada token emitido.");
+  if (!Array.isArray(reference.stepPastKeyValues) || reference.stepPastKeyValues.length !== generatedTokenIds.length) throw new Error("Trace de geração requer cache KV pós-decode para cada token emitido.");
   const steps = reference.steps.map((entry, index) => {
     const step = object(entry, `Trace de geração step ${index}`);
     if (!Number.isInteger(step.tokenId) || (step.tokenId as number) < 0 || !Number.isInteger(step.positionId) || (step.positionId as number) < 0 || step.tokenId !== generatedTokenIds[index]) {
@@ -247,6 +254,12 @@ function validateGenerationBundle(raw: unknown): GenerationTraceBundle {
   });
   const selectionLogits = reference.selectionLogits.map((entry, index) =>
     validateSerializedTensor(entry, `logits de seleção ${index}`, candidatePolicy.dtype as "F32" | "F64"));
+  const stepPastKeyValues = reference.stepPastKeyValues.map((entry, index) => {
+    if (!Array.isArray(entry)) throw new Error(`Trace de geração cache KV pós-decode ${index} deve ser array.`);
+    const caches = entry.map((cache) => serializedCache(cache, `Trace de geração cache KV pós-decode ${index}`, candidatePolicy.dtype as "F32" | "F64"));
+    uniqueCacheLayers(caches);
+    return caches;
+  });
   const eosIndex = reference.eosTokenId === undefined ? -1 : generatedTokenIds.indexOf(reference.eosTokenId as number);
   if (eosIndex >= 0 && eosIndex !== generatedTokenIds.length - 1) throw new Error("Trace de geração não pode emitir tokens após EOS.");
   if (!Array.isArray(reference.pastKeyValues)) throw new Error("Trace de geração requer pastKeyValues array.");
@@ -262,7 +275,7 @@ function validateGenerationBundle(raw: unknown): GenerationTraceBundle {
       inputTokens: [...inputTokens], promptPositionIds: [...promptPositionIds],
       dtypePolicy: reference.dtypePolicy as string, maxNewTokens: reference.maxNewTokens as number,
       ...(reference.eosTokenId !== undefined ? { eosTokenId: reference.eosTokenId as number } : {}),
-      generatedTokenIds: [...generatedTokenIds], steps, selectionLogits,
+      generatedTokenIds: [...generatedTokenIds], steps, selectionLogits, stepPastKeyValues,
       logits: validateSerializedTensor(reference.logits, "logits terminais", candidatePolicy.dtype as "F32" | "F64"), pastKeyValues,
     },
   };

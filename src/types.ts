@@ -305,6 +305,8 @@ export interface ReferenceGenerationResult {
   steps: ReferenceGenerationStep[];
   /** Logits used to select each corresponding generated token, before it is evaluated into the cache. */
   selectionLogits: DenseTensor[];
+  /** Post-RoPE KV state immediately after evaluating each emitted token. */
+  stepPastKeyValues: ReadonlyArray<ReadonlyMap<number, ReferenceKeyValueCache>>;
   /** Terminal logits after evaluating inputIds plus every generated token. */
   logits: DenseTensor;
   /** Post-RoPE KV cache for inputIds plus every generated token. */
@@ -317,6 +319,8 @@ export interface ReferenceF32GenerationResult {
   steps: ReferenceGenerationStep[];
   /** Logits used to select each corresponding generated token, under the F32 policy. */
   selectionLogits: DenseF32Tensor[];
+  /** Post-RoPE KV state immediately after evaluating each emitted token. */
+  stepPastKeyValues: ReadonlyArray<ReadonlyMap<number, ReferenceF32KeyValueCache>>;
   logits: DenseF32Tensor;
   pastKeyValues: ReadonlyMap<number, ReferenceF32KeyValueCache>;
 }
@@ -417,6 +421,8 @@ export interface DifferentialGenerationReferenceTrace {
   steps: readonly ReferenceGenerationStep[];
   /** One pre-selection logits tensor per emitted token. */
   selectionLogits: readonly (DenseTensor | DenseF32Tensor)[];
+  /** One canonical post-RoPE KV snapshot per emitted token, in decode order. */
+  stepPastKeyValues: readonly (readonly DifferentialKeyValueCacheSample[])[];
   logits: DenseTensor | DenseF32Tensor;
   pastKeyValues: readonly DifferentialKeyValueCacheSample[];
 }
@@ -427,11 +433,13 @@ export interface DifferentialGenerationStepComparison {
   candidate?: ReferenceGenerationStep;
   reference?: ReferenceGenerationStep;
   selectionLogits?: DifferentialTensorMetrics | null;
+  /** KV state after the corresponding selected token was evaluated. */
+  kvCache?: DifferentialKeyValueCacheComparison[];
 }
 
 /** Serializable end-to-end greedy-generation evidence. */
 export interface DifferentialGenerationComparisonReport {
-  reference: Omit<DifferentialGenerationReferenceTrace, "generatedTokenIds" | "steps" | "selectionLogits" | "logits" | "pastKeyValues">;
+  reference: Omit<DifferentialGenerationReferenceTrace, "generatedTokenIds" | "steps" | "selectionLogits" | "stepPastKeyValues" | "logits" | "pastKeyValues">;
   candidateRuntime: string;
   tolerance: DifferentialTolerance;
   promptMatches: boolean;

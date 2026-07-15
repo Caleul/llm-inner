@@ -5,6 +5,7 @@ import type {
   DifferentialGenerationComparisonReport,
   DifferentialGenerationReferenceTrace,
   DifferentialGenerationStepComparison,
+  DifferentialKeyValueCacheSample,
   DifferentialKeyValueCacheComparison,
   DifferentialOperationComparison,
   DifferentialReferenceTrace,
@@ -20,6 +21,7 @@ import type {
 type ComparableTensor = DenseTensor | DenseF32Tensor;
 type ExecutionResult = ReferenceExecutionResult | ReferenceF32ExecutionResult;
 type GenerationResult = ReferenceGenerationResult | ReferenceF32GenerationResult;
+type GenerationCacheMap = ReadonlyMap<number, { key: ComparableTensor; value: ComparableTensor }>;
 
 const DEFAULT_TOLERANCE: DifferentialTolerance = { maxAbsoluteError: 0, maxRelativeError: 0 };
 
@@ -186,7 +188,10 @@ export function compareGenerationTrace(
       : null;
     if (!selectionLogits) firstDivergence ??= `generation:selection-logits-${index}-shape`;
     else if (!passes(selectionLogits, tolerance)) firstDivergence ??= `generation:selection-logits-${index}`;
-    generatedTokenIds.push({ index, status, ...(actual ? { candidate: { ...actual } } : {}), ...(expected ? { reference: { ...expected } } : {}), selectionLogits });
+    const stepKvCache = compareGenerationCache(candidate.stepPastKeyValues[index], reference.stepPastKeyValues[index], tolerance, topK);
+    const stepCacheDivergence = stepKvCache.find((cache) => cache.status !== "pass");
+    if (stepCacheDivergence) firstDivergence ??= `generation:step-${index}-kv-cache-layer-${stepCacheDivergence.layer}`;
+    generatedTokenIds.push({ index, status, ...(actual ? { candidate: { ...actual } } : {}), ...(expected ? { reference: { ...expected } } : {}), selectionLogits, kvCache: stepKvCache });
   }
 
   const terminalLogits = sameShape(candidate.logits.shape, reference.logits.shape)
@@ -222,10 +227,12 @@ export function compareGenerationTrace(
     kvCache.push({ layer, status, key, value });
   }
 
-  const incomplete = generatedTokenIds.some((step) => step.status.startsWith("missing") || step.selectionLogits === null) ||
+  const incomplete = generatedTokenIds.some((step) => step.status.startsWith("missing") || step.selectionLogits === null ||
+    step.kvCache?.some((cache) => cache.status.startsWith("missing") || cache.status === "shape-mismatch")) ||
     kvCache.some((cache) => cache.status.startsWith("missing") || cache.status === "shape-mismatch") || terminalLogits === null;
   const numericallyEquivalent = !incomplete && firstDivergence === null;
-  const exact = numericallyEquivalent && generatedTokenIds.every((step) => exactMetrics(step.selectionLogits ?? undefined)) && exactMetrics(terminalLogits ?? undefined) &&
+  const exact = numericallyEquivalent && generatedTokenIds.every((step) => exactMetrics(step.selectionLogits ?? undefined) &&
+    step.kvCache?.every((cache) => exactMetrics(cache.key) && exactMetrics(cache.value))) && exactMetrics(terminalLogits ?? undefined) &&
     kvCache.every((cache) => exactMetrics(cache.key) && exactMetrics(cache.value));
   return {
     reference: {
@@ -257,6 +264,9 @@ function validateCandidateGeneration(candidate: GenerationResult): void {
   }
   if (candidate.selectionLogits.length !== candidate.generatedTokenIds.length) {
     throw new Error("Resultado candidato de geração requer logits de seleção para cada token emitido.");
+  }
+  if (candidate.stepPastKeyValues.length !== candidate.generatedTokenIds.length) {
+    throw new Error("Resultado candidato de geração requer cache KV pós-decode para cada token emitido.");
   }
   if (candidate.inputIds.length < candidate.generatedTokenIds.length ||
     !candidate.generatedTokenIds.every((token, index) => candidate.inputIds[candidate.inputIds.length - candidate.generatedTokenIds.length + index] === token)) {
@@ -291,6 +301,9 @@ function validateGenerationReference(reference: DifferentialGenerationReferenceT
   if (reference.selectionLogits.length !== reference.generatedTokenIds.length) {
     throw new Error("Trace de geração requer logits de seleção para cada token emitido.");
   }
+  if (reference.stepPastKeyValues.length !== reference.generatedTokenIds.length) {
+    throw new Error("Trace de geração requer cache KV pós-decode para cada token emitido.");
+  }
   for (const [index, step] of reference.steps.entries()) {
     if (!Number.isInteger(step.tokenId) || step.tokenId < 0 || !Number.isInteger(step.positionId) || step.positionId < 0 || step.tokenId !== reference.generatedTokenIds[index]) {
       throw new Error(`Trace de geração contém step inválido no índice ${index}.`);
@@ -310,6 +323,36 @@ function uniqueGenerationCache(samples: readonly DifferentialGenerationReference
     result.set(sample.layer, sample);
   }
   return result;
+}
+
+function compareGenerationCache(
+  candidate: GenerationCacheMap | undefined,
+  reference: readonly DifferentialKeyValueCacheSample[] | undefined,
+  tolerance: DifferentialTolerance,
+  topK: number,
+): DifferentialKeyValueCacheComparison[] {
+  const referenceCache = uniqueGenerationCache(reference ?? []);
+  const comparisons: DifferentialKeyValueCacheComparison[] = [];
+  for (const layer of new Set([...referenceCache.keys(), ...(candidate?.keys() ?? [])])) {
+    const expected = referenceCache.get(layer);
+    const actual = candidate?.get(layer);
+    if (!expected) {
+      comparisons.push({ layer, status: "missing-reference" });
+      continue;
+    }
+    if (!actual) {
+      comparisons.push({ layer, status: "missing-candidate" });
+      continue;
+    }
+    if (!sameShape(actual.key.shape, expected.key.shape) || !sameShape(actual.value.shape, expected.value.shape)) {
+      comparisons.push({ layer, status: "shape-mismatch" });
+      continue;
+    }
+    const key = compareTensor(actual.key, expected.key, topK);
+    const value = compareTensor(actual.value, expected.value, topK);
+    comparisons.push({ layer, status: passes(key, tolerance) && passes(value, tolerance) ? "pass" : "diverged", key, value });
+  }
+  return comparisons;
 }
 
 function compareTensor(actual: ComparableTensor, expected: ComparableTensor, topK: number): DifferentialTensorMetrics {

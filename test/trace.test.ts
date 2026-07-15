@@ -123,7 +123,7 @@ test("F64 Safetensors replays binary64 operations, KV cache, logits, and greedy 
       candidatePolicy: { dtype: "F64", runtime: "llm-inner scalar IEEE-754 F64" },
       reference: {
         runtime: "independent exact F64 fixture", model: "tiny-llama-f64", revisionOrChecksum: "f64-fixture-v1", containerFormat: "safetensors", quantization: "none", inputTokens: [1], promptPositionIds: [0], dtypePolicy: "F64 scalar fixture", maxNewTokens: 2,
-        generatedTokenIds: generation!.generatedTokenIds, steps: generation!.steps, selectionLogits: generation!.selectionLogits.map(serializedF64), logits: serializedF64(generation!.logits),
+        generatedTokenIds: generation!.generatedTokenIds, steps: generation!.steps, selectionLogits: generation!.selectionLogits.map(serializedF64), stepPastKeyValues: serializedStepCaches(generation!.stepPastKeyValues, serializedF64), logits: serializedF64(generation!.logits),
         pastKeyValues: [...generation!.pastKeyValues].map(([layer, cache]) => ({ layer, key: serializedF64(cache.key), value: serializedF64(cache.value) })),
       },
     }, null, 2));
@@ -168,7 +168,7 @@ test("integrity-bound F32 generation trace verifies positions, terminal logits, 
         runtime: "fixture authoritative F32", model: "tiny-llama", revisionOrChecksum: "fixture-sha256",
         containerFormat: "safetensors", quantization: "none", inputTokens: [1], promptPositionIds: [0],
         dtypePolicy: "F32 scalar fixture", maxNewTokens: 2, generatedTokenIds: generated!.generatedTokenIds,
-        steps: generated!.steps, selectionLogits: generated!.selectionLogits.map(serialized), logits: serialized(generated!.logits),
+        steps: generated!.steps, selectionLogits: generated!.selectionLogits.map(serialized), stepPastKeyValues: serializedStepCaches(generated!.stepPastKeyValues, serialized), logits: serialized(generated!.logits),
         pastKeyValues: [...generated!.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
       },
     }, null, 2));
@@ -187,6 +187,11 @@ test("integrity-bound F32 generation trace verifies positions, terminal logits, 
     malformed.reference.pastKeyValues.pop();
     await writeFile(trace, JSON.stringify(malformed));
     await assert.rejects(() => runGenerationTraceComparison({ source, trace, report: reportPath }), /logits de seleção para cada token/);
+
+    malformed.reference.selectionLogits = generated!.selectionLogits.map(serialized);
+    delete malformed.reference.stepPastKeyValues;
+    await writeFile(trace, JSON.stringify(malformed));
+    await assert.rejects(() => runGenerationTraceComparison({ source, trace, report: reportPath }), /cache KV pós-decode para cada token/);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -239,7 +244,7 @@ test("F16 and BF16 dense Safetensors and GGUF packages replay independent F32 op
             revisionOrChecksum: `dense-${storageDtype.toLowerCase()}-${label}-fixture-v1`, containerFormat: format,
             quantization: "none", inputTokens: [1], promptPositionIds: [0],
             dtypePolicy: `F32 scalar fixture from exact ${storageDtype} storage values`, maxNewTokens: 2,
-            generatedTokenIds: denseGeneration.generatedTokenIds, steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), logits: serialized(denseGeneration.logits),
+            generatedTokenIds: denseGeneration.generatedTokenIds, steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), stepPastKeyValues: serializedStepCaches(denseGeneration.stepPastKeyValues, serialized), logits: serialized(denseGeneration.logits),
             pastKeyValues: [...denseGeneration.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
           },
         }, null, 2));
@@ -306,7 +311,7 @@ test("Gemma F32 Safetensors replays complete execution and greedy generation wit
       reference: {
         runtime: "independent Gemma F32 formula fixture", model: "tiny-gemma-unit-offset", revisionOrChecksum: "gemma-formula-fixture-v1",
         containerFormat: "safetensors", quantization: "none", inputTokens: [1], promptPositionIds: [0],
-        dtypePolicy: "F32 scalar Gemma fixture", maxNewTokens: 2, generatedTokenIds: generated.generatedTokenIds, steps: generated.steps, selectionLogits: generated.selectionLogits.map(serialized),
+        dtypePolicy: "F32 scalar Gemma fixture", maxNewTokens: 2, generatedTokenIds: generated.generatedTokenIds, steps: generated.steps, selectionLogits: generated.selectionLogits.map(serialized), stepPastKeyValues: serializedStepCaches(generated.stepPastKeyValues, serialized),
         logits: serialized(generated.logits), pastKeyValues: [...generated.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
       },
     }, null, 2));
@@ -373,7 +378,7 @@ test("Qwen 3 F32 Safetensors replays Q/K head norms, attention biases, and greed
       reference: {
         runtime: "deterministic Qwen 3 F32 formula fixture", model: "tiny-qwen3-qk-norm", revisionOrChecksum: "qwen3-qk-norm-fixture-v1",
         containerFormat: "safetensors", quantization: "none", inputTokens: [1], promptPositionIds: [0],
-        dtypePolicy: "F32 scalar Qwen 3 fixture", maxNewTokens: 2, generatedTokenIds: generated.generatedTokenIds, steps: generated.steps, selectionLogits: generated.selectionLogits.map(serialized),
+        dtypePolicy: "F32 scalar Qwen 3 fixture", maxNewTokens: 2, generatedTokenIds: generated.generatedTokenIds, steps: generated.steps, selectionLogits: generated.selectionLogits.map(serialized), stepPastKeyValues: serializedStepCaches(generated.stepPastKeyValues, serialized),
         logits: serialized(generated.logits), pastKeyValues: [...generated.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
       },
     }, null, 2));
@@ -426,7 +431,7 @@ test("dense GGUF Llama replays Safetensors forward and greedy-generation evidenc
         runtime: "paired Safetensors F32 fixture", model: "tiny-llama", revisionOrChecksum: "paired-fixture-v1",
         containerFormat: "safetensors", quantization: "none", inputTokens: [1], promptPositionIds: [0],
         dtypePolicy: "F32 scalar fixture", maxNewTokens: 2, generatedTokenIds: safetensorsGeneration.generatedTokenIds,
-        steps: safetensorsGeneration.steps, selectionLogits: safetensorsGeneration.selectionLogits.map(serialized), logits: serialized(safetensorsGeneration.logits),
+        steps: safetensorsGeneration.steps, selectionLogits: safetensorsGeneration.selectionLogits.map(serialized), stepPastKeyValues: serializedStepCaches(safetensorsGeneration.stepPastKeyValues, serialized), logits: serialized(safetensorsGeneration.logits),
         pastKeyValues: [...safetensorsGeneration.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
       },
     }, null, 2));
@@ -480,7 +485,7 @@ test("MLX affine U32 Llama replays independently constructed dense F32 execution
         runtime: "independent declared MLX affine F32 fixture", model: "mlx-affine-llama-32", revisionOrChecksum: "mlx-affine-formula-fixture-v1",
         containerFormat: "mlx-safetensors", quantization: "MLX affine U32 4-bit", inputTokens: [1], promptPositionIds: [0],
         dtypePolicy: "F32 scalar fixture from declared MLX affine formula", maxNewTokens: 2, generatedTokenIds: denseGeneration.generatedTokenIds,
-        steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), logits: serialized(denseGeneration.logits),
+        steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), stepPastKeyValues: serializedStepCaches(denseGeneration.stepPastKeyValues, serialized), logits: serialized(denseGeneration.logits),
         pastKeyValues: [...denseGeneration.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
       },
     }, null, 2));
@@ -540,7 +545,7 @@ test("Q8_0 GGUF Llama replays independently materialized dense F32 forward and g
         runtime: "independent declared GGML Q8_0 F32 fixture", model: "q8_0-llama-256", revisionOrChecksum: "q8_0-formula-fixture-v1",
         containerFormat: "gguf v3", quantization: "GGML_TYPE_Q8_0", inputTokens: [1], promptPositionIds: [0],
         dtypePolicy: "F32 scalar fixture from declared Q8_0 formula", maxNewTokens: 2, generatedTokenIds: denseGeneration.generatedTokenIds,
-        steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), logits: serialized(denseGeneration.logits),
+        steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), stepPastKeyValues: serializedStepCaches(denseGeneration.stepPastKeyValues, serialized), logits: serialized(denseGeneration.logits),
         pastKeyValues: [...denseGeneration.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
       },
     }, null, 2));
@@ -605,7 +610,7 @@ test("Q8_1 GGUF Llama replays independently constructed dense F32 forward and gr
         runtime: "independent declared GGML Q8_1 F32 fixture", model: "q8_1-llama-256", revisionOrChecksum: "q8_1-formula-fixture-v1",
         containerFormat: "gguf v3", quantization: "GGML_TYPE_Q8_1", inputTokens: [1], promptPositionIds: [0],
         dtypePolicy: "F32 scalar fixture from declared Q8_1 formula", maxNewTokens: 2, generatedTokenIds: denseGeneration.generatedTokenIds,
-        steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), logits: serialized(denseGeneration.logits),
+        steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), stepPastKeyValues: serializedStepCaches(denseGeneration.stepPastKeyValues, serialized), logits: serialized(denseGeneration.logits),
         pastKeyValues: [...denseGeneration.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
       },
     }, null, 2));
@@ -669,7 +674,7 @@ test("Q5_1 GGUF Llama replays independently constructed affine dense F32 forward
         runtime: "independent declared GGML Q5_1 F32 fixture", model: "q5_1-llama-256", revisionOrChecksum: "q5_1-formula-fixture-v1",
         containerFormat: "gguf v3", quantization: "GGML_TYPE_Q5_1", inputTokens: [1], promptPositionIds: [0],
         dtypePolicy: "F32 scalar fixture from declared Q5_1 formula", maxNewTokens: 2, generatedTokenIds: denseGeneration.generatedTokenIds,
-        steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), logits: serialized(denseGeneration.logits),
+        steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), stepPastKeyValues: serializedStepCaches(denseGeneration.stepPastKeyValues, serialized), logits: serialized(denseGeneration.logits),
         pastKeyValues: [...denseGeneration.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
       },
     }, null, 2));
@@ -732,7 +737,7 @@ test("Q5_0 GGUF Llama replays independently constructed centered dense F32 forwa
         runtime: "independent declared GGML Q5_0 F32 fixture", model: "q5_0-llama-256", revisionOrChecksum: "q5_0-formula-fixture-v1",
         containerFormat: "gguf v3", quantization: "GGML_TYPE_Q5_0", inputTokens: [1], promptPositionIds: [0],
         dtypePolicy: "F32 scalar fixture from declared Q5_0 formula", maxNewTokens: 2, generatedTokenIds: denseGeneration.generatedTokenIds,
-        steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), logits: serialized(denseGeneration.logits),
+        steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), stepPastKeyValues: serializedStepCaches(denseGeneration.stepPastKeyValues, serialized), logits: serialized(denseGeneration.logits),
         pastKeyValues: [...denseGeneration.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
       },
     }, null, 2));
@@ -795,7 +800,7 @@ test("Q4_0 GGUF Llama replays independently constructed centered dense F32 forwa
         runtime: "independent declared GGML Q4_0 F32 fixture", model: "q4_0-llama-256", revisionOrChecksum: "q4_0-formula-fixture-v1",
         containerFormat: "gguf v3", quantization: "GGML_TYPE_Q4_0", inputTokens: [1], promptPositionIds: [0],
         dtypePolicy: "F32 scalar fixture from declared Q4_0 formula", maxNewTokens: 2, generatedTokenIds: denseGeneration.generatedTokenIds,
-        steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), logits: serialized(denseGeneration.logits),
+        steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), stepPastKeyValues: serializedStepCaches(denseGeneration.stepPastKeyValues, serialized), logits: serialized(denseGeneration.logits),
         pastKeyValues: [...denseGeneration.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
       },
     }, null, 2));
@@ -857,7 +862,7 @@ test("Q4_1 GGUF Llama replays independently constructed affine dense F32 forward
         runtime: "independent declared GGML Q4_1 F32 fixture", model: "q4_1-llama-256", revisionOrChecksum: "q4_1-formula-fixture-v1",
         containerFormat: "gguf v3", quantization: "GGML_TYPE_Q4_1", inputTokens: [1], promptPositionIds: [0],
         dtypePolicy: "F32 scalar fixture from declared Q4_1 formula", maxNewTokens: 2, generatedTokenIds: denseGeneration.generatedTokenIds,
-        steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), logits: serialized(denseGeneration.logits),
+        steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), stepPastKeyValues: serializedStepCaches(denseGeneration.stepPastKeyValues, serialized), logits: serialized(denseGeneration.logits),
         pastKeyValues: [...denseGeneration.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
       },
     }, null, 2));
@@ -919,7 +924,7 @@ test("Q4_K GGUF Llama replays independently constructed affine dense F32 forward
         runtime: "independent declared GGML Q4_K F32 fixture", model: "q4_k-llama-256", revisionOrChecksum: "q4_k-formula-fixture-v1",
         containerFormat: "gguf v3", quantization: "GGML_TYPE_Q4_K", inputTokens: [1], promptPositionIds: [0],
         dtypePolicy: "F32 scalar fixture from declared Q4_K formula", maxNewTokens: 2, generatedTokenIds: denseGeneration.generatedTokenIds,
-        steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), logits: serialized(denseGeneration.logits),
+        steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), stepPastKeyValues: serializedStepCaches(denseGeneration.stepPastKeyValues, serialized), logits: serialized(denseGeneration.logits),
         pastKeyValues: [...denseGeneration.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
       },
     }, null, 2));
@@ -979,7 +984,7 @@ test("Q5_K GGUF Llama replays independently constructed affine dense F32 forward
         runtime: "independent declared GGML Q5_K F32 fixture", model: "q5_k-llama-256", revisionOrChecksum: "q5_k-formula-fixture-v1",
         containerFormat: "gguf v3", quantization: "GGML_TYPE_Q5_K", inputTokens: [1], promptPositionIds: [0],
         dtypePolicy: "F32 scalar fixture from declared Q5_K formula", maxNewTokens: 2, generatedTokenIds: denseGeneration.generatedTokenIds,
-        steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), logits: serialized(denseGeneration.logits),
+        steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), stepPastKeyValues: serializedStepCaches(denseGeneration.stepPastKeyValues, serialized), logits: serialized(denseGeneration.logits),
         pastKeyValues: [...denseGeneration.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
       },
     }, null, 2));
@@ -1039,7 +1044,7 @@ test("Q6_K GGUF Llama replays independently constructed signed dense F32 forward
         runtime: "independent declared GGML Q6_K F32 fixture", model: "q6_k-llama-256", revisionOrChecksum: "q6_k-formula-fixture-v1",
         containerFormat: "gguf v3", quantization: "GGML_TYPE_Q6_K", inputTokens: [1], promptPositionIds: [0],
         dtypePolicy: "F32 scalar fixture from declared Q6_K formula", maxNewTokens: 2, generatedTokenIds: denseGeneration.generatedTokenIds,
-        steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), logits: serialized(denseGeneration.logits),
+        steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), stepPastKeyValues: serializedStepCaches(denseGeneration.stepPastKeyValues, serialized), logits: serialized(denseGeneration.logits),
         pastKeyValues: [...denseGeneration.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
       },
     }, null, 2));
@@ -1099,7 +1104,7 @@ test("Q3_K GGUF Llama replays independently constructed signed dense F32 forward
         runtime: "independent declared GGML Q3_K F32 fixture", model: "q3_k-llama-256", revisionOrChecksum: "q3_k-formula-fixture-v1",
         containerFormat: "gguf v3", quantization: "GGML_TYPE_Q3_K", inputTokens: [1], promptPositionIds: [0],
         dtypePolicy: "F32 scalar fixture from declared Q3_K formula", maxNewTokens: 2, generatedTokenIds: denseGeneration.generatedTokenIds,
-        steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), logits: serialized(denseGeneration.logits),
+        steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), stepPastKeyValues: serializedStepCaches(denseGeneration.stepPastKeyValues, serialized), logits: serialized(denseGeneration.logits),
         pastKeyValues: [...denseGeneration.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
       },
     }, null, 2));
@@ -1159,7 +1164,7 @@ test("Q2_K GGUF Llama replays independently constructed affine dense F32 forward
         runtime: "independent declared GGML Q2_K F32 fixture", model: "q2_k-llama-256", revisionOrChecksum: "q2_k-formula-fixture-v1",
         containerFormat: "gguf v3", quantization: "GGML_TYPE_Q2_K", inputTokens: [1], promptPositionIds: [0],
         dtypePolicy: "F32 scalar fixture from declared Q2_K formula", maxNewTokens: 2, generatedTokenIds: denseGeneration.generatedTokenIds,
-        steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), logits: serialized(denseGeneration.logits),
+        steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), stepPastKeyValues: serializedStepCaches(denseGeneration.stepPastKeyValues, serialized), logits: serialized(denseGeneration.logits),
         pastKeyValues: [...denseGeneration.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
       },
     }, null, 2));
@@ -1219,7 +1224,7 @@ test("Q8_K GGUF Llama replays independently constructed signed dense F32 forward
         runtime: "independent declared GGML Q8_K F32 fixture", model: "q8_k-llama-256", revisionOrChecksum: "q8_k-formula-fixture-v1",
         containerFormat: "gguf v3", quantization: "GGML_TYPE_Q8_K", inputTokens: [1], promptPositionIds: [0],
         dtypePolicy: "F32 scalar fixture from declared Q8_K formula", maxNewTokens: 2, generatedTokenIds: denseGeneration.generatedTokenIds,
-        steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), logits: serialized(denseGeneration.logits),
+        steps: denseGeneration.steps, selectionLogits: denseGeneration.selectionLogits.map(serialized), stepPastKeyValues: serializedStepCaches(denseGeneration.stepPastKeyValues, serialized), logits: serialized(denseGeneration.logits),
         pastKeyValues: [...denseGeneration.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
       },
     }, null, 2));
@@ -1258,6 +1263,17 @@ function serialized(tensor: { shape: number[]; values: Float32Array }) {
 
 function serializedF64(tensor: { shape: number[]; values: Float64Array }) {
   return { dtype: "F64", shape: tensor.shape, valuesBase64: Buffer.from(tensor.values.buffer, tensor.values.byteOffset, tensor.values.byteLength).toString("base64") };
+}
+
+function serializedStepCaches<T extends Float32Array | Float64Array>(
+  snapshots: ReadonlyArray<ReadonlyMap<number, { key: { shape: number[]; values: T }; value: { shape: number[]; values: T } }>>,
+  serialize: (tensor: { shape: number[]; values: T }) => unknown,
+) {
+  return snapshots.map((snapshot) => [...snapshot].map(([layer, cache]) => ({
+    layer,
+    key: serialize(cache.key),
+    value: serialize(cache.value),
+  })));
 }
 
 async function checksums(directory: string, files: readonly string[]) {

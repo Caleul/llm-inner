@@ -197,6 +197,7 @@ export function generateReferenceF64(
   const generatedTokenIds: number[] = [];
   const steps: ReferenceGenerationStep[] = [];
   const selectionLogits: ReferenceGenerationResult["selectionLogits"] = [];
+  const stepPastKeyValues: Array<ReadonlyMap<number, ReferenceKeyValueCache>> = [];
   let nextPosition = promptPositions.at(-1)! + 1;
   for (let index = 0; index < request.maxNewTokens; index += 1) {
     selectionLogits.push(current.logits);
@@ -209,6 +210,7 @@ export function generateReferenceF64(
       pastKeyValues: current.pastKeyValues,
       tensors: request.tensors,
     });
+    stepPastKeyValues.push(current.pastKeyValues);
     nextPosition += 1;
     if (tokenId === request.eosTokenId) break;
   }
@@ -217,6 +219,7 @@ export function generateReferenceF64(
     generatedTokenIds,
     steps,
     selectionLogits,
+    stepPastKeyValues,
     logits: current.logits,
     pastKeyValues: current.pastKeyValues,
   };
@@ -238,6 +241,7 @@ export function generateReferenceF32(
   const generatedTokenIds: number[] = [];
   const steps: ReferenceGenerationStep[] = [];
   const selectionLogits: ReferenceF32GenerationResult["selectionLogits"] = [];
+  const stepPastKeyValues: Array<ReadonlyMap<number, ReferenceF32KeyValueCache>> = [];
   let nextPosition = promptPositions.at(-1)! + 1;
   for (let index = 0; index < request.maxNewTokens; index += 1) {
     selectionLogits.push(current.logits);
@@ -250,6 +254,7 @@ export function generateReferenceF32(
       pastKeyValues: current.pastKeyValues,
       tensors: request.tensors,
     });
+    stepPastKeyValues.push(current.pastKeyValues);
     nextPosition += 1;
     if (tokenId === request.eosTokenId) break;
   }
@@ -258,6 +263,7 @@ export function generateReferenceF32(
     generatedTokenIds,
     steps,
     selectionLogits,
+    stepPastKeyValues,
     logits: current.logits,
     pastKeyValues: current.pastKeyValues,
   };

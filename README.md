@@ -245,7 +245,7 @@ saída terminal `softcapped_logits` com a captura `final_logit_softcap` (e não
 o `lm_head` pré-softcap). A ausência dessa saída terminal também torna o
 relatório `incomplete`.
 
-`npm run compare:generation-trace -- --source <checkpoint> --trace <captura.json> --report <relatorio.json>` consome uma captura distinta com `kind: "generation"`. Além da mesma ligação obrigatória a `source.files`, checksums e `irFingerprint`, ela exige prompt, posições absolutas do prompt, limite/EOS, cada token gerado e sua posição, os logits binários usados para selecionar **cada** token, logits terminais e o cache KV BHSD final. O executor repete prefill e cada decode incremental com pesos materializados por range; uma posição, token, logits de seleção, cache, payload ou checksum ausente/divergente torna o relatório `incomplete` ou `approximate`, nunca aprovação. Assim, a captura ainda deve vir de hooks de um runtime autoritativo; a fixture local apenas valida o contrato de consumo.
+`npm run compare:generation-trace -- --source <checkpoint> --trace <captura.json> --report <relatorio.json>` consome uma captura distinta com `kind: "generation"`. Além da mesma ligação obrigatória a `source.files`, checksums e `irFingerprint`, ela exige prompt, posições absolutas do prompt, limite/EOS, cada token gerado e sua posição, os logits binários usados para selecionar **cada** token, um snapshot KV BHSD pós-decode para **cada** token, logits terminais e o cache KV BHSD final. O executor repete prefill e cada decode incremental com pesos materializados por range; uma posição, token, logits de seleção, cache intermediário/final, payload ou checksum ausente/divergente torna o relatório `incomplete` ou `approximate`, nunca aprovação. Assim, a captura ainda deve vir de hooks de um runtime autoritativo; a fixture local apenas valida o contrato de consumo.
 
 Há também uma regressão cruzada de contêiner que grava o mesmo microcheckpoint
 Llama denso em Safetensors e GGUF v3. O caminho GGUF reconstrói as dimensões
@@ -390,7 +390,9 @@ da ordem GGML declarada `[in,out]` para a forma IR `[out,in]`.
 `compareGenerationTrace` cobre a evidência que não cabe em um forward isolado:
 ele exige uma captura autoritativa do prompt e suas posições absolutas, cada
 token greedy emitido, a posição em que cada token foi avaliado, os logits que
-selecionaram cada token, logits terminais e o cache KV pós-RoPE por camada. Tokens iguais sem posições, logits de seleção, logits terminais ou cache
+selecionaram cada token, o cache KV pós-RoPE imediatamente após cada decode,
+logits terminais e o cache KV final por camada. Tokens iguais sem posições,
+logits de seleção, snapshots de cache, logits terminais ou cache final
 equivalentes não recebem aprovação. Captura ausente ou com shape incompatível é
 `incomplete`; divergência medida é `approximate`; somente a captura completa
 dentro da tolerância declarada pode ser `numerically-equivalent` (ou
