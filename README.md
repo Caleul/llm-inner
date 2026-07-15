@@ -334,6 +334,15 @@ executor escalar, mas ainda é limitada ao adaptador/precisão declarados; não
 quantizados além do contrato affine Llama, outras famílias além das seis declaradas ou o pacote multimodal
 Gemma 4.
 
+Um replay completo contra o checkpoint público, imutável e denso F32
+`hf-internal-testing/tiny-random-LlamaForCausalLM` está registrado em
+[`docs/validation/tiny-random-llama-mlx-2026-07-15.md`](docs/validation/tiny-random-llama-mlx-2026-07-15.md).
+Ele cobre catalogação Safetensors, lowering Llama, 41 operações, ambos os
+caches KV, logits e três passos greedy, todos contra MLX 0.32. O relatório
+preserva a distinção essencial: é uma comparação numérica por kernels MLX
+contra o executor candidato, não uma captura do `transformers` que estabelece
+de modo independente a semântica da arquitetura.
+
 Há também uma regressão cruzada de contêiner que grava o mesmo microcheckpoint
 Llama denso em Safetensors e GGUF v3. O caminho GGUF reconstrói as dimensões
 `[in,out]` declaradas pelo GGML para os pesos IR `[out,in]`, verifica o checksum
