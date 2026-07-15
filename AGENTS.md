@@ -15,9 +15,11 @@ An agent must never start another agent or invoke the runner.
    the evidence supports it. Do not stop after a cosmetic, isolated or
    mechanical micro-change merely to produce a handoff.
 4. Run the configured validation commands and record their real results.
-5. Update documentation when behavior or support changes.
-6. Create one local Git commit for the loop.
-7. Write exactly one concise valid handoff atomically to
+5. Perform an architectural self-review: cohesion, duplication, dependency
+   direction, naming, error boundaries, testability and extension seams.
+6. Update documentation when behavior, support or architecture changes.
+7. Create one local Git commit for the loop.
+8. Write exactly one concise valid handoff atomically to
    `.agent-loop/handoffs/completed/` as the final repository-changing action.
 
 ## Safety and fidelity
@@ -31,6 +33,17 @@ An agent must never start another agent or invoke the runner.
   system and connect adjacent layers when that removes a material fidelity or
   validation gap. A passing narrow test alone is not a reason to end a cycle
   when a larger coherent acceptance boundary remains reachable.
+- Follow Clean Code and SOLID as engineering tools, not ceremony: keep each
+  module focused on one responsibility, make format/architecture/runtime
+  extensions additive behind explicit interfaces, depend on contracts rather
+  than incidental concrete implementations, preserve clear domain names and
+  fail-closed error boundaries, and remove duplication that can drift across
+  supported model paths.
+- Do not hand off because a local edit is complete. Hand off only after either
+  a material mission boundary is closed, the available context has exposed a
+  genuine external/semantic blocker, or the remaining work is a distinct
+  higher-level boundary. Use the context budget to improve the system around
+  the problem rather than reproducing a pattern of adjacent microtasks.
 - Do not modify `.agent-loop/state.json`, lock files or the runner's run logs.
 - Do not use network resources, credentials or destructive commands unless the
   current milestone makes that necessary and the repository instructions allow it.

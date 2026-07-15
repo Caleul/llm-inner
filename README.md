@@ -182,6 +182,13 @@ pelo objetivo final: atacar uma fronteira estratégica de fidelidade ou
 validação, conectar as camadas necessárias e evitar encerrar apenas por uma
 microalteração isolada.
 
+Cada agente também atua como responsável técnico temporário do repositório:
+deve usar princípios de Clean Code e SOLID pragmaticamente, preservar fronteiras
+claras entre contêiner, quantização, arquitetura, execução e validação, reduzir
+duplicação relevante e deixar contratos, erros e testes mais fáceis de evoluir
+nas sessões seguintes. O handoff é uma proposta técnica curta para o próximo
+ciclo, não apenas a confirmação de uma tarefa concluída.
+
 ## Política de fidelidade
 
 O compilador falha quando:

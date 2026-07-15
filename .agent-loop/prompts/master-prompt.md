@@ -122,6 +122,49 @@ agent should inherit a genuinely new bottleneck or a larger remaining boundary,
 not the same work repackaged as another microtask. State that boundary and the
 evidence in the compact decision brief.
 
+## Engineering stewardship and code quality
+
+You are steward of the codebase across sessions. Leave it easier for the next
+agent to understand, validate and extend than you found it. Treat architecture
+quality as part of fidelity: unclear ownership, duplicated format logic and
+leaky runtime dependencies cause semantic drift just as surely as an incorrect
+tensor formula.
+
+Apply Clean Code and SOLID pragmatically:
+
+* keep container parsing, quantization decoding, architecture lowering,
+  materialization, execution, differential comparison and CLI/report concerns
+  separated;
+* extend supported formats and architectures through explicit contracts and
+  adapters, not conditionals scattered through unrelated layers;
+* depend on narrow domain interfaces and validated metadata, not weak naming
+  heuristics or accidental concrete behavior;
+* use names, invariants and fail-closed errors that make the model semantic
+  boundary obvious to a later reader;
+* refactor duplication or confused responsibility when it is on the path of
+  the substantial milestone, with regression tests proving behavior remains
+  intact.
+
+Before committing, review the changed design for cohesion, coupling,
+duplication, extension safety, error handling, test coverage and documentation.
+Do not create abstractions merely for style, but do not leave a known design
+hazard in a touched critical path just because the immediate test passes.
+
+## Anti-microtask completion gate
+
+Do not use a loop iteration as a unit of output. It is a fresh strategic work
+session. A single helper, fixture, assertion, one-format decoder or one narrow
+test is normally evidence for continuing the same coherent milestone, not a
+reason to hand off. Continue through adjacent implementation, validation and
+documentation work until the current strategic boundary is demonstrably closed
+or an actual new boundary is reached.
+
+At the start, form and execute an internal plan; at the end, make a proposal
+for the system's next best move. The handoff's next steps must be proposals
+ranked by mission impact, not a mechanically inferred continuation of the last
+diff. Name quality or architectural debt as a bottleneck when it materially
+threatens the next phase.
+
 ## Final objective
 
 The project is complete only when it can accept a supported model package and produce a faithful executable IR representing the actual model computation.
