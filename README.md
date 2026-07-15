@@ -407,6 +407,17 @@ tradução explícita de `gelu_pytorch_tanh` para a operação GELU-tanh do IR e
 outras fixtures locais, a prova é lossless somente dentro do executor escalar
 F32 e não é uma comparação contra runtime Gemma/Transformers autoritativo.
 
+Há também uma fronteira executável sintética para Qwen 3 de uma camada. Além
+do catálogo, lowering, materialização por range, todas as operações, KV pós-RoPE
+e duas etapas greedy, ela fixa a ordem semântica que distingue esse adaptador:
+as normas RMS de Q e K recebem tensores já reorganizados em BHSD e normalizam
+o eixo `head_dim` antes de RoPE. As quatro projeções de atenção possuem bias
+porque `attention_bias: true` é declarado pelo pacote e precisa coincidir com
+os tensores. A captura é ligada aos checksums de `config.json` e
+`model.safetensors`; seu resultado é lossless somente no executor escalar F32
+determinístico, não uma comparação com um runtime Qwen/Transformers
+autoritativo.
+
 A fixture sintética Q5_1 de 256 dimensões também percorre a fronteira completa
 de execução e geração: o lado denso independente aplica `d*q+m` com `d=0.5`,
 `m=-1` e todos os 32 códigos unsigned; o GGUF empacotado grava os códigos
