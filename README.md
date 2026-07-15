@@ -327,6 +327,17 @@ duas etapas greedy contra uma captura com checksum do arquivo GGUF. O resultado
 é evidência sintética lossless na política escalar F32, não uma comparação com
 um runtime externo nem uma validação de checkpoint publicado.
 
+Essa fronteira também cobre Qwen 2 e Qwen 3 com `GGML_TYPE_Q8_0`. Cada matriz
+de largura 32 é empacotada em blocos de 32 códigos `int8` com `d=0.5`, enquanto
+as normas e os quatro biases de atenção permanecem F32 conforme os tensores
+declarados. Um GGUF F32 pareado é construído diretamente da fórmula
+`F32[i] = F16(d) * int8(q[i])`, sem chamar o leitor candidato. Para ambas as
+arquiteturas, a regressão confirma todas as operações, KV pós-RoPE, logits e
+duas etapas greedy; Qwen 2 mantém a ausência de normas Q/K e Qwen 3 exige suas
+normas BHSD. É evidência sintética lossless para a combinação declarada de
+layout Qwen e Q8_0, não uma equivalência com llama.cpp nem cobertura de outros
+formatos GGML quantizados ou de um checkpoint publicado.
+
 Uma segunda regressão executável cobre o `GGML_TYPE_Q8_0`: um Llama de uma
 camada e largura 256 armazena todas as matrizes em blocos Q8_0 de 32 valores
 com `d=0.5`. Um pacote GGUF F32 separado é construído diretamente da fórmula
