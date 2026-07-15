@@ -396,6 +396,17 @@ equivalentes não recebem aprovação. Captura ausente ou com shape incompatíve
 dentro da tolerância declarada pode ser `numerically-equivalent` (ou
 `lossless-within-dtype` quando todos os valores comparados são exatos).
 
+Uma regressão executável Safetensors F32 também atravessa a cadeia inteira para
+Gemma 1 de uma camada: catálogo, lowering, materialização por range, cada
+operação, KV pós-RoPE, logits e duas etapas greedy. Ela verifica os dois
+desvios que não podem herdar a semântica Llama: embedding multiplicado por
+`sqrt(hidden_size)` e RMSNorm com peso `1 + weight`; também preserva a
+tradução explícita de `gelu_pytorch_tanh` para a operação GELU-tanh do IR e o
+`lm_head` amarrado ao embedding. A captura é ligada a `config.json` e
+`model.safetensors` por checksum e rejeita uma mutação do payload. Como as
+outras fixtures locais, a prova é lossless somente dentro do executor escalar
+F32 e não é uma comparação contra runtime Gemma/Transformers autoritativo.
+
 A fixture sintética Q5_1 de 256 dimensões também percorre a fronteira completa
 de execução e geração: o lado denso independente aplica `d*q+m` com `d=0.5`,
 `m=-1` e todos os 32 códigos unsigned; o GGUF empacotado grava os códigos

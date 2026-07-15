@@ -128,6 +128,70 @@ test("integrity-bound F32 generation trace verifies positions, terminal logits, 
   }
 });
 
+test("Gemma F32 Safetensors replays complete execution and greedy generation with embedding scale and unit-offset norms", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-gemma-trace-"));
+  try {
+    await writeTinyGemmaF32Model(directory);
+    const source = path.join(directory, "gemma");
+    const executed = await executeFixture(source, [[1]]);
+
+    // Gemma's embedding scale and (1 + weight) RMSNorm transform are not
+    // interchangeable with the Llama defaults. Assert the lowered contract
+    // before using its operation captures as evidence for replay.
+    assert.equal(executed.ir.architecture.modelType, "gemma");
+    assert.equal(executed.ir.prelude[0]?.op, "embedding");
+    assert.equal(executed.ir.prelude[0]?.scale, Math.sqrt(2));
+    assert.ok(operations(executed.ir).filter((operation) => operation.op === "rms_norm").every((operation) => operation.weightTransform === "one_plus_weight"));
+    const activation = operations(executed.ir).find((operation) => operation.id === "layer_0_activation");
+    assert.equal(activation?.op, "activation");
+    if (activation?.op !== "activation") throw new Error("Gemma fixture did not lower its declared activation.");
+    assert.equal(activation.function, "gelu");
+    assert.equal(activation.approximation, "tanh");
+
+    const executionTrace = path.join(directory, "gemma-execution-trace.json");
+    await writeFile(executionTrace, JSON.stringify({
+      schemaVersion: 1, kind: "execution",
+      source: { files: await checksums(source, ["config.json", "model.safetensors"]) },
+      irFingerprint: executed.fingerprint,
+      candidatePolicy: { dtype: "F32", runtime: "llm-inner scalar IEEE-754 F32" },
+      reference: {
+        runtime: "independent Gemma F32 formula fixture", model: "tiny-gemma-unit-offset", revisionOrChecksum: "gemma-formula-fixture-v1",
+        containerFormat: "safetensors", quantization: "none", inputTokens: [[1]], dtypePolicy: "F32 scalar Gemma fixture",
+        operations: operations(executed.ir).map((operation) => ({ operationId: operation.id, output: operation.output, tensor: serialized(executed.candidate.values.get(operation.output)!) })),
+        pastKeyValues: [...executed.candidate.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
+      },
+    }, null, 2));
+    const executionReport = await runExecutionTraceComparison({ source, trace: executionTrace, report: path.join(directory, "gemma-execution-report.json"), topK: 3 });
+    assert.equal(executionReport.fidelityClass, "lossless-within-dtype");
+    assert.equal(executionReport.firstDivergentOperation, null);
+
+    const generated = await generateFixture(source);
+    const generationTrace = path.join(directory, "gemma-generation-trace.json");
+    await writeFile(generationTrace, JSON.stringify({
+      schemaVersion: 1, kind: "generation",
+      source: { files: await checksums(source, ["config.json", "model.safetensors"]) },
+      irFingerprint: executed.fingerprint,
+      candidatePolicy: { dtype: "F32", runtime: "llm-inner scalar IEEE-754 F32" },
+      reference: {
+        runtime: "independent Gemma F32 formula fixture", model: "tiny-gemma-unit-offset", revisionOrChecksum: "gemma-formula-fixture-v1",
+        containerFormat: "safetensors", quantization: "none", inputTokens: [1], promptPositionIds: [0],
+        dtypePolicy: "F32 scalar Gemma fixture", maxNewTokens: 2, generatedTokenIds: generated.generatedTokenIds, steps: generated.steps,
+        logits: serialized(generated.logits), pastKeyValues: [...generated.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
+      },
+    }, null, 2));
+    const generationReport = await runGenerationTraceComparison({ source, trace: generationTrace, report: path.join(directory, "gemma-generation-report.json"), topK: 3 });
+    assert.equal(generationReport.fidelityClass, "lossless-within-dtype");
+    assert.equal(generationReport.firstDivergence, null);
+
+    const corrupted = await readFile(path.join(source, "model.safetensors"));
+    corrupted[corrupted.length - 1] = corrupted[corrupted.length - 1]! ^ 1;
+    await writeFile(path.join(source, "model.safetensors"), corrupted);
+    await assert.rejects(() => runExecutionTraceComparison({ source, trace: executionTrace, report: path.join(directory, "gemma-corrupt-report.json") }), /Checksum divergente/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("dense GGUF Llama replays Safetensors forward and greedy-generation evidence through the same IR semantics", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-cross-container-trace-"));
   try {
@@ -1041,6 +1105,27 @@ async function writeTinyF32Model(root: string): Promise<void> {
   const prefix = Buffer.alloc(8); prefix.writeBigUInt64LE(BigInt(encoded.length));
   await writeFile(path.join(directory, "config.json"), JSON.stringify({ model_type: "llama", hidden_size: 2, intermediate_size: 2, num_hidden_layers: 1, num_attention_heads: 1, num_key_value_heads: 1, head_dim: 2, vocab_size: 3, rms_norm_eps: 1e-6, hidden_act: "silu" }));
   await writeFile(path.join(directory, "model.safetensors"), Buffer.concat([prefix, encoded, ...payloads]));
+}
+
+/** A non-Llama decoder fixture whose nonzero path exercises Gemma-specific lowering semantics. */
+async function writeTinyGemmaF32Model(root: string): Promise<void> {
+  const directory = path.join(root, "gemma");
+  await mkdir(directory);
+  const identity = [1, 0, 0, 1];
+  const zeroNorm = [0, 0]; // Gemma consumes this as (1 + weight), not directly.
+  const weights: Array<[string, "F32", number[], number[]]> = [
+    ["model.embed_tokens.weight", "F32", [3, 2], [0, 0, 3, 4, 1, -1]],
+    ["model.layers.0.input_layernorm.weight", "F32", [2], zeroNorm],
+    ...["q_proj", "k_proj", "v_proj", "o_proj"].map((projection): [string, "F32", number[], number[]] => [`model.layers.0.self_attn.${projection}.weight`, "F32", [2, 2], identity]),
+    ["model.layers.0.post_attention_layernorm.weight", "F32", [2], zeroNorm],
+    ["model.layers.0.mlp.gate_proj.weight", "F32", [2, 2], identity], ["model.layers.0.mlp.up_proj.weight", "F32", [2, 2], identity], ["model.layers.0.mlp.down_proj.weight", "F32", [2, 2], identity],
+    ["model.norm.weight", "F32", [2], zeroNorm],
+  ];
+  await writeFile(path.join(directory, "config.json"), JSON.stringify({
+    model_type: "gemma", hidden_size: 2, intermediate_size: 2, num_hidden_layers: 1, num_attention_heads: 1,
+    num_key_value_heads: 1, head_dim: 2, vocab_size: 3, rms_norm_eps: 1e-6, hidden_act: "gelu_pytorch_tanh", tie_word_embeddings: true,
+  }));
+  await writeSafetensorsFixture(path.join(directory, "model.safetensors"), weights);
 }
 
 /**
