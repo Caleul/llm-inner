@@ -121,6 +121,10 @@ relativo, cosseno, sobreposição top-k, argmax e a primeira divergência. Captu
 ausente, operação extra, shape incompatível ou cache faltante é `incomplete`,
 nunca uma aprovação numérica. O contrato em si não é uma integração com
 Transformers/MLX/llama.cpp nem constitui comparação de checkpoint real.
+Quando o IR declara `final_logit_softcap`, as métricas de logits comparam a
+saída terminal `softcapped_logits` com a captura `final_logit_softcap` (e não
+o `lm_head` pré-softcap). A ausência dessa saída terminal também torna o
+relatório `incomplete`.
 
 Além da máscara causal/janela declarada pelo IR, o executor de referência pode
 receber uma máscara aditiva canônica `[batch, 1|heads, query, key]`. Zero

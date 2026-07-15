@@ -102,14 +102,24 @@ export function compareExecutionTrace(
     kvCache.push({ layer, status, key, value });
   }
 
-  const logitsSample = referenceById.get("lm_head") ?? referenceById.get("final_logit_softcap");
+  // `candidate.logits` is the terminal decoder result, which is softcapped
+  // when the IR emits `final_logit_softcap`.  Looking up lm_head first would
+  // compare post-softcap candidate logits with pre-softcap reference logits;
+  // worse, the operation comparisons could still all pass and incorrectly
+  // classify the complete trace as equivalent.  Derive the comparison target
+  // from the emitted IR rather than assuming a particular epilogue shape.
+  const terminalOperations = [...expected].reverse();
+  const logitsOperation = terminalOperations.find((operation) => operation.output === "softcapped_logits") ??
+    terminalOperations.find((operation) => operation.output === "logits");
+  const logitsSample = logitsOperation ? referenceById.get(logitsOperation.id) : undefined;
   const logits = logitsSample && sameShape(candidate.logits.shape, logitsSample.tensor.shape)
     ? compareTensor(candidate.logits, logitsSample.tensor, topK)
     : null;
   const complete = missingReferenceOperationIds.length === 0 && unexpectedReferenceOperationIds.length === 0 &&
-    operations.every((comparison) => comparison.status === "pass") && kvCache.every((comparison) => comparison.status === "pass");
+    operations.every((comparison) => comparison.status === "pass") && kvCache.every((comparison) => comparison.status === "pass") &&
+    logits !== null && passes(logits, tolerance);
   const exact = operations.every((comparison) => exactMetrics(comparison.metrics)) &&
-    kvCache.every((comparison) => exactMetrics(comparison.key) && exactMetrics(comparison.value));
+    kvCache.every((comparison) => exactMetrics(comparison.key) && exactMetrics(comparison.value)) && exactMetrics(logits ?? undefined);
   const fidelityClass = !complete ? "incomplete" : exact ? "lossless-within-dtype" : "numerically-equivalent";
   return {
     reference: {

@@ -130,6 +130,43 @@ test("operation differential report fails closed for missing captures, shape dri
   assert.equal(shapeReport.operations[0]?.status, "shape-mismatch");
 });
 
+test("operation differential report compares terminal softcapped logits to final_logit_softcap", async () => {
+  const { ir, weights } = await tinyLlama();
+  const softcap = 0.25;
+  ir.epilogue.push({
+    id: "final_logit_softcap",
+    op: "elementwise",
+    kind: "tanh_softcap",
+    inputs: ["logits"],
+    scalar: softcap,
+    output: "softcapped_logits",
+    dtypePolicy: { computeDtype: "F64", accumulationDtype: "F64", outputDtype: "F64" },
+  });
+  const candidate = executeReferenceF64(ir, { inputIds: [[1]], tensors: weights });
+  const operations = [...ir.prelude, ...ir.layers.flatMap((layer) => layer.operations), ...ir.epilogue];
+  const report = compareExecutionTrace(ir, candidate, {
+    runtime: "fixture-authoritative-runtime",
+    model: "tiny-llama-with-softcap",
+    revisionOrChecksum: "in-repository-fixture",
+    containerFormat: "safetensors",
+    quantization: "none",
+    inputTokens: [[1]],
+    dtypePolicy: "F64 scalar fixture",
+    operations: operations.map((operation) => ({
+      operationId: operation.id,
+      output: operation.output,
+      tensor: candidate.values.get(operation.output)!,
+    })),
+    pastKeyValues: [...candidate.pastKeyValues].map(([layer, cache]) => ({ layer, key: cache.key, value: cache.value })),
+  }, { candidateRuntime: "llm-inner F64 scalar", topK: 3 });
+
+  const rawLogits = candidate.values.get("logits")!;
+  assert.notDeepEqual([...candidate.logits.values], [...rawLogits.values]);
+  assert.equal(report.fidelityClass, "lossless-within-dtype");
+  assert.equal(report.logits?.maxAbsoluteError, 0);
+  assert.equal(report.logits?.argmaxAgreement, true);
+});
+
 test("executor F64 fails closed for compiler-default implicit dtype policies", async () => {
   const { ir, weights } = await tinyLlama();
   ir.prelude[0]!.dtypePolicy = { computeDtype: "model-configured" };
