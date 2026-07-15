@@ -197,3 +197,22 @@ export interface ModelIR {
     warnings: string[];
   };
 }
+
+/** A dense, row-major tensor used by the deterministic reference executor. */
+export interface DenseTensor {
+  shape: number[];
+  values: Float64Array;
+}
+
+export interface ReferenceExecutionRequest {
+  inputIds: number[][];
+  /** Optional absolute positions. When omitted, each sequence starts at zero. */
+  positionIds?: number[][];
+  /** Dense F64 constants keyed by the tensor reference name in the IR. */
+  tensors: ReadonlyMap<string, DenseTensor>;
+}
+
+export interface ReferenceExecutionResult {
+  values: ReadonlyMap<string, DenseTensor>;
+  logits: DenseTensor;
+}

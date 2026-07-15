@@ -112,6 +112,16 @@ rejeitado como semântica incompatível.
 
 A equivalência real deve ser confirmada por um validador diferencial: mesma entrada, mesmo dtype, comparação de embeddings, saída por camada, KV cache e logits contra Transformers/MLX/llama.cpp.
 
+## Executor de referência F64 (slice atual)
+
+`src/executor.ts` interpreta o subconjunto denso do IR de decoder (embedding,
+RMSNorm, linear, RoPE `rotate_half` padrão, atenção causal/GQA, SiLU/GELU,
+MLP gated e residuais) com tensores F64 explícitos. É um executor de referência
+determinístico para fixtures e validação por operação, não um atalho para
+checkpoints reais: políticas de dtype implícitas (`model-configured`), cache KV,
+quantização e variantes de RoPE ainda falham fechadas. Isso torna a fronteira de
+fidelidade observável antes de conectar leitores densos e runtimes autoritativos.
+
 
 ## O que “agnóstico” significa
 
