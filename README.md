@@ -21,10 +21,13 @@ O IR guarda `inFeatures`, `outFeatures`, referência ao tensor, dtype e quantiza
 A leitura numérica é delegada ao runtime de referência:
 
 - `mlx.core.dequantize` para MLX (`affine`, `mxfp4`, `mxfp8`, `nvfp4` e modos suportados pela versão instalada).
+- `GGML_TYPE_Q4_0` tem um decodificador local estrito: cada bloco contém um
+  `ggml_half d` little-endian e 16 bytes com os nibbles baixos para `q[0..15]`
+  e altos para `q[16..31]`, materializando `F32[i] = d * (q[i] - 8)`.
 - `GGML_TYPE_Q8_0` tem um decodificador local estrito: cada bloco contém um
   `ggml_half d` little-endian seguido de 32 `int8` assinados e materializa
   `F32[i] = d * qs[i]`, preservando a proveniência `gguf/q8_0` no tensor.
-  Os demais tipos GGML quantizados continuam rejeitados até cada layout ter um
+  Os demais tipos GGML quantizados (inclusive Q4_1) continuam rejeitados até cada layout ter um
   decodificador local verificado; o catálogo nunca trata um `GGML_TYPE_Q*` como
   um F32 genérico.
 
@@ -174,15 +177,17 @@ nome, shape, dtype e contrato de quantização contra o catálogo de origem e
 materializa cada constante uma única vez. Safetensors densos usam o leitor de
 intervalos F32/F16/BF16; MLX quantizado exige explicitamente o bridge com
 `mlx.core.dequantize` e preserva a proveniência. GGUF denso F32/F16 usa o seu
-próprio leitor de intervalos. O único tipo GGML empacotado materializável hoje
-é `Q8_0`, sob o contrato exato de bloco de 34 bytes (`F16` scale + 32 `int8`) e
-somente quando a primeira dimensão GGML é múltipla de 32; os demais não são
+próprio leitor de intervalos. Os únicos tipos GGML empacotados materializáveis
+hoje são `Q4_0`, sob o contrato exato de bloco de 18 bytes (`F16` scale + 16
+nibbles, baixo `q[0..15]`, alto `q[16..31]`, código centrado por `-8`), e
+`Q8_0`, sob o contrato de 34 bytes (`F16` scale + 32 `int8`); ambos exigem que
+a primeira dimensão GGML seja múltipla de 32. Os demais não são
 reinterpretados como F32 até existir um decodificador por tipo verificado.
 
 `GgufCatalogReader` em `src/gguf.ts` não depende de `gguf-py`: valida magic,
 versão v2/v3, contagens seguras, metadata tipada (incluindo arrays), diretório,
-alinhamento e intervalos de payload. Hoje expõe armazenamento GGML F32/F16 e o
-contrato quantizado explícito Q8_0 de tamanho verificável, mantendo as dimensões
+alinhamento e intervalos de payload. Hoje expõe armazenamento GGML F32/F16 e os
+contratos quantizados explícitos Q4_0 e Q8_0 de tamanho verificável, mantendo as dimensões
 na ordem declarada pelo GGML; qualquer outro encoding empacotado é rejeitado com
 seu tipo GGML até haver contrato de layout e dequantização específico. A leitura do catálogo não inventa papéis de
 tensor nem uma convenção de layout de arquitetura. A exceção executável atual

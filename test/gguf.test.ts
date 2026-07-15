@@ -31,6 +31,21 @@ function q8_0(values: number[], scaleBits = 0x3800): Buffer {
   }
   return output;
 }
+function q4_0(values: number[], scaleBits = 0x3800): Buffer {
+  assert.equal(values.length % 32, 0, "Q4_0 fixture must contain complete 32-value blocks");
+  const output = Buffer.alloc((values.length / 32) * 18);
+  for (let block = 0; block < values.length / 32; block += 1) {
+    const offset = block * 18;
+    output.writeUInt16LE(scaleBits, offset);
+    for (let index = 0; index < 16; index += 1) {
+      const low = values[block * 32 + index]!;
+      const high = values[block * 32 + 16 + index]!;
+      assert.ok(low >= -8 && low <= 7 && high >= -8 && high <= 7, "Q4_0 fixture codes must be signed 4-bit values");
+      output[offset + 2 + index] = (low + 8) | ((high + 8) << 4);
+    }
+  }
+  return output;
+}
 function fixture(metadataEntries: Buffer[], tensors: Buffer[], payload: Buffer): Buffer {
   const prefix = Buffer.concat([Buffer.from("GGUF"), u32(3), u64(tensors.length), u64(metadataEntries.length), ...metadataEntries, ...tensors]);
   const padding = Buffer.alloc((32 - (prefix.length % 32)) % 32);
@@ -69,12 +84,12 @@ test("native GGUF reader catalogs v3 typed metadata, aligned F32 payloads and de
 test("native GGUF reader rejects unsupported packed GGML types instead of guessing a dequantizer", async () => {
   const bytes = fixture(
     [metadataString("general.architecture", "llama")],
-    [tensor("blk.0.attn_q.weight", [32], 2, 0)],
+    [tensor("blk.0.attn_q.weight", [32], 3, 0)],
     Buffer.alloc(32),
   );
   await withFixture(bytes, async (file) => {
     const reader = new GgufCatalogReader(file);
-    try { await assert.rejects(() => reader.inspect(), /GGML_TYPE_Q4_0.*sem decodificador/); } finally { await reader.close(); }
+    try { await assert.rejects(() => reader.inspect(), /GGML_TYPE_Q4_1.*sem decodificador/); } finally { await reader.close(); }
   });
 });
 
@@ -112,11 +127,37 @@ test("native GGUF reader decodes the documented Q8_0 half-scale plus signed-byte
   });
 });
 
+test("native GGUF reader decodes Q4_0 low then high nibbles with the centered -8 formula", async () => {
+  const quantized = q4_0([...Array.from({ length: 16 }, (_, index) => index - 8), ...Array.from({ length: 16 }, (_, index) => 7 - index)]);
+  const bytes = fixture([metadataString("general.architecture", "llama")], [tensor("quantized", [32], 2, 0)], quantized);
+  await withFixture(bytes, async (file) => {
+    const reader = new GgufCatalogReader(file);
+    try {
+      const catalog = await reader.inspect();
+      const source = catalog.tensors.get("quantized")!;
+      assert.equal(source.storageDtype, "GGML_Q4_0");
+      assert.deepEqual(source.quantization, { family: "gguf", mode: "q4_0", bits: 4, groupSize: 32, tensorType: "GGML_TYPE_Q4_0" });
+      const loaded = await reader.readDenseAsF32(source);
+      assert.deepEqual([...loaded.values.slice(0, 4)], [-4, -3.5, -3, -2.5]);
+      assert.deepEqual([...loaded.values.slice(16, 20)], [3.5, 3, 2.5, 2]);
+      assert.deepEqual(loaded.sourceQuantization, source.quantization);
+    } finally { await reader.close(); }
+  });
+});
+
 test("native GGUF reader rejects Q8_0 shapes whose fastest GGML dimension cannot contain complete blocks", async () => {
   const bytes = fixture([metadataString("general.architecture", "llama")], [tensor("bad", [31], 8, 0)], Buffer.alloc(34));
   await withFixture(bytes, async (file) => {
     const reader = new GgufCatalogReader(file);
     try { await assert.rejects(() => reader.inspect(), /Q8_0 exige a primeira dimensão GGML positiva e múltipla de 32/); } finally { await reader.close(); }
+  });
+});
+
+test("native GGUF reader rejects Q4_0 shapes whose fastest GGML dimension cannot contain complete blocks", async () => {
+  const bytes = fixture([metadataString("general.architecture", "llama")], [tensor("bad", [31], 2, 0)], Buffer.alloc(18));
+  await withFixture(bytes, async (file) => {
+    const reader = new GgufCatalogReader(file);
+    try { await assert.rejects(() => reader.inspect(), /Q4_0 exige a primeira dimensão GGML positiva e múltipla de 32/); } finally { await reader.close(); }
   });
 });
 
@@ -231,6 +272,45 @@ test("explicit Llama GGUF adapter lowers and materializes verified Q8_0 matrices
       const weight = constants.get("token_embd.weight")!;
       assert.deepEqual([...weight.values.slice(0, 4)], [-8, -7.5, -7, -6.5]);
       assert.deepEqual(weight.sourceQuantization, { family: "gguf", mode: "q8_0", bits: 8, groupSize: 32, tensorType: "GGML_TYPE_Q8_0" });
+    } finally { await reader.close(); }
+  });
+});
+
+test("explicit Llama GGUF adapter lowers and materializes verified Q4_0 matrices with provenance", async () => {
+  const matrixShapes: Array<[string, number[]]> = [
+    ["token_embd.weight", [32, 32]], ["blk.0.attn_q.weight", [32, 32]], ["blk.0.attn_k.weight", [32, 16]],
+    ["blk.0.attn_v.weight", [32, 16]], ["blk.0.attn_output.weight", [32, 32]], ["blk.0.ffn_gate.weight", [32, 32]],
+    ["blk.0.ffn_up.weight", [32, 32]], ["blk.0.ffn_down.weight", [32, 32]], ["output.weight", [32, 32]],
+  ];
+  const vectorShapes: Array<[string, number[]]> = [["blk.0.attn_norm.weight", [32]], ["blk.0.ffn_norm.weight", [32]], ["output_norm.weight", [32]]];
+  const payloadParts: Buffer[] = [];
+  const directory: Buffer[] = [];
+  let offset = 0;
+  for (const [name, ggmlShape] of [...matrixShapes, ...vectorShapes]) {
+    const padding = (32 - (offset % 32)) % 32;
+    if (padding) { payloadParts.push(Buffer.alloc(padding)); offset += padding; }
+    const payload = matrixShapes.some(([matrixName]) => matrixName === name)
+      ? q4_0(Array.from({ length: ggmlShape[0]! * ggmlShape[1]! }, (_, index) => (index % 16) - 8))
+      : Buffer.alloc(ggmlShape[0]! * 4, 0);
+    directory.push(tensor(name, ggmlShape, matrixShapes.some(([matrixName]) => matrixName === name) ? 2 : 0, offset));
+    payloadParts.push(payload); offset += payload.length;
+  }
+  const epsilon = Buffer.alloc(4); epsilon.writeFloatLE(1e-5);
+  const metadataEntries = [
+    metadataString("general.architecture", "llama"), metadataU32("general.alignment", 32), metadataU32("llama.embedding_length", 32),
+    metadataU32("llama.block_count", 1), metadataU32("llama.attention.head_count", 2), metadataU32("llama.attention.head_count_kv", 1),
+    metadataU32("llama.attention.key_length", 16), metadataU32("llama.feed_forward_length", 32), metadata("llama.attention.layer_norm_rms_epsilon", 6, epsilon),
+  ];
+  await withFixture(fixture(metadataEntries, directory, Buffer.concat(payloadParts)), async (file) => {
+    const reader = new GgufCatalogReader(file);
+    try {
+      const catalog = await reader.inspect();
+      const ir = await buildModelIR(catalog, { outputRows: 1, inputTerms: 1, includeWeights: false });
+      const constants = await materializeReferenceF32Constants(ir, catalog, reader);
+      const weight = constants.get("token_embd.weight")!;
+      assert.deepEqual(weight.shape, [32, 32]);
+      assert.deepEqual([...weight.values.slice(0, 4)], [-4, -3.5, -3, -2.5]);
+      assert.deepEqual(weight.sourceQuantization, { family: "gguf", mode: "q4_0", bits: 4, groupSize: 32, tensorType: "GGML_TYPE_Q4_0" });
     } finally { await reader.close(); }
   });
 });
