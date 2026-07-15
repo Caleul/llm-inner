@@ -61,6 +61,7 @@ export async function runGenerationTraceComparison(options: {
     await verifyTraceSource(opened.catalog, decoded.bundle.source.files);
     const ir = await buildModelIR(opened.catalog, { outputRows: 1, inputTerms: 1, includeWeights: false }, opened.bridge);
     if (fingerprintIR(ir) !== decoded.bundle.irFingerprint) throw new Error("Fingerprint do IR diverge; trace foi capturado para outra semântica/adaptador.");
+    assertGenerationTraceCacheCoverage(ir, decoded.reference);
     const candidate = decoded.bundle.candidatePolicy.dtype === "F32"
       ? await generateF32Trace(ir, opened, decoded.reference)
       : await generateF64Trace(ir, opened, decoded.reference);
@@ -132,4 +133,35 @@ function applyF64Policy(ir: ModelIR): void {
 
 function allOperations(ir: ModelIR): Operation[] {
   return [...ir.prelude, ...ir.layers.flatMap((layer) => layer.operations), ...ir.epilogue];
+}
+
+/**
+ * A generation trace must prove continuation state for every independent
+ * attention layer declared by the lowered IR.  Comparing only the union of
+ * cache layers supplied by candidate and reference would allow both sides to
+ * omit the same layer and still appear complete.
+ *
+ * Shared-KV attention is deliberately excluded: the scalar executor rejects
+ * incremental shared-cache decoding until that storage contract is modeled.
+ */
+function assertGenerationTraceCacheCoverage(
+  ir: ModelIR,
+  reference: Awaited<ReturnType<typeof readGenerationTraceBundle>>["reference"],
+): void {
+  const required = new Set(
+    allOperations(ir)
+      .filter((operation): operation is Extract<Operation, { op: "scaled_dot_product_attention" }> =>
+        operation.op === "scaled_dot_product_attention" && operation.layer !== undefined && !operation.kvSharing)
+      .map((operation) => operation.layer!),
+  );
+  const validate = (caches: readonly { layer: number }[], location: string) => {
+    const actual = new Set(caches.map((cache) => cache.layer));
+    const missing = [...required].filter((layer) => !actual.has(layer));
+    const unexpected = [...actual].filter((layer) => !required.has(layer));
+    if (missing.length > 0 || unexpected.length > 0) {
+      throw new Error(`${location} não cobre exatamente as camadas KV independentes do IR; ausentes [${missing.join(", ")}], extras [${unexpected.join(", ")}].`);
+    }
+  };
+  reference.stepPastKeyValues.forEach((caches, index) => validate(caches, `Trace de geração cache KV pós-decode ${index}`));
+  validate(reference.pastKeyValues, "Trace de geração cache KV final");
 }

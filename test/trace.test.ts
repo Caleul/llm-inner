@@ -198,6 +198,17 @@ test("integrity-bound F32 generation trace verifies positions, terminal logits, 
     malformed.reference.steps[0].tokenId = 0;
     await writeFile(trace, JSON.stringify(malformed));
     await assert.rejects(() => runGenerationTraceComparison({ source, trace, report: reportPath }), /logits determinísticos exigem outro argmax/);
+
+    const missingCache = JSON.parse(await readFile(trace, "utf8"));
+    missingCache.reference.generatedTokenIds = generated!.generatedTokenIds;
+    missingCache.reference.steps = generated!.steps;
+    missingCache.reference.stepPastKeyValues = serializedStepCaches(generated!.stepPastKeyValues, serialized).map(() => []);
+    missingCache.reference.pastKeyValues = [];
+    await writeFile(trace, JSON.stringify(missingCache));
+    await assert.rejects(
+      () => runGenerationTraceComparison({ source, trace, report: reportPath }),
+      /não cobre exatamente as camadas KV independentes do IR; ausentes \[0\]/,
+    );
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
