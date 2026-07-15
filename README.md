@@ -181,6 +181,15 @@ arredondado finito (e infinito) do armazenamento; ela não permite que o
 executor escolha F32 por conta própria, nem afirma que o runtime original
 acumulava em F32.
 
+Os geradores `generateReferenceF64` e `generateReferenceF32` exercitam o
+mesmo contrato de cache em geração greedy. Eles aceitam um único prompt sem
+padding, escolhem o argmax dos logits terminais, alimentam cada token escolhido
+de volta com a próxima posição absoluta e devolvem um cache que inclui prompt e
+todos os tokens gerados. O token EOS também é avaliado antes de interromper, de
+forma que esse cache continua utilizável. Batch, padding, estratégias de
+stopping e sampling não são aproximados: exigem uma política de máscara/cache
+declarada e continuam fora deste slice de referência.
+
 Para o caminho F32 explícito, `readDenseAsF32` faz somente o despacho estrito
 entre storage `F32`, `F16` e `BF16`; inteiros e tensores quantizados são
 rejeitados até terem um decodificador de formato específico. Um fixture de

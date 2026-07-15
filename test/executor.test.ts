@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { buildModelIR } from "../src/architecture.js";
 import { compareExecutionTrace } from "../src/differential.js";
-import { executeReferenceF32, executeReferenceF64 } from "../src/executor.js";
+import { executeReferenceF32, executeReferenceF64, generateReferenceF32, generateReferenceF64 } from "../src/executor.js";
 import { SafetensorsCatalogReader } from "../src/safetensors.js";
 import type { DenseF32Tensor, DenseTensor, ModelCatalog, TensorInfo } from "../src/types.js";
 
@@ -247,6 +247,37 @@ test("executor F64 incremental KV cache matches the final full-prompt logits", a
   assert.equal(decoded.pastKeyValues.get(0)?.value.shape.join("x"), "1x1x2x2");
 });
 
+test("F64 greedy generation advances absolute positions and returns a cache for every emitted token", async () => {
+  const { ir, weights } = await tinyLlama();
+  const generated = generateReferenceF64(ir, {
+    inputIds: [[1]],
+    positionIds: [[7]],
+    tensors: weights,
+    maxNewTokens: 3,
+  });
+  assert.deepEqual(generated.generatedTokenIds, [2, 2, 2]);
+  assert.deepEqual(generated.inputIds, [1, 2, 2, 2]);
+  assert.deepEqual(generated.steps, [
+    { tokenId: 2, positionId: 8 },
+    { tokenId: 2, positionId: 9 },
+    { tokenId: 2, positionId: 10 },
+  ]);
+  assert.equal(generated.pastKeyValues.get(0)?.key.shape.join("x"), "1x1x4x2");
+  const direct = executeReferenceF64(ir, { inputIds: [[1, 2, 2, 2]], positionIds: [[7, 8, 9, 10]], tensors: weights });
+  assert.deepEqual([...generated.logits.values], [...direct.logits.values.slice(9, 12)]);
+});
+
+test("greedy generation evaluates EOS before stopping and rejects ambiguous generation inputs", async () => {
+  const { ir, weights } = await tinyLlama();
+  const eos = generateReferenceF64(ir, { inputIds: [[1]], tensors: weights, maxNewTokens: 5, eosTokenId: 2 });
+  assert.deepEqual(eos.generatedTokenIds, [2]);
+  assert.equal(eos.pastKeyValues.get(0)?.key.shape.join("x"), "1x1x2x2");
+  assert.throws(() => generateReferenceF64(ir, { inputIds: [[1], [1]], tensors: weights, maxNewTokens: 1 }), /exatamente um prompt/);
+  assert.throws(() => generateReferenceF64(ir, { inputIds: [[1]], positionIds: [[0.5]], tensors: weights, maxNewTokens: 1 }), /posições absolutas/);
+  assert.throws(() => generateReferenceF64(ir, { inputIds: [[1]], tensors: weights, maxNewTokens: -1 }), /maxNewTokens/);
+  assert.throws(() => generateReferenceF64(ir, { inputIds: [[1]], tensors: weights, maxNewTokens: 1, eosTokenId: -1 }), /eosTokenId/);
+});
+
 test("executor F64 rejects incomplete and incompatible KV caches", async () => {
   const { ir, weights } = await tinyLlama();
   assert.throws(
@@ -311,6 +342,22 @@ test("executor F32 incremental KV cache preserves declared F32 boundaries", asyn
   });
   assert.deepEqual([...decoded.logits.values], [...full.logits.values.slice(3, 6)]);
   assert.ok(decoded.pastKeyValues.get(0)?.key.values instanceof Float32Array);
+});
+
+test("F32 greedy generation keeps F32 logits and canonical cache ownership", async () => {
+  const { ir, weights } = await tinyLlama();
+  for (const operation of [...ir.prelude, ...ir.layers.flatMap((layer) => layer.operations), ...ir.epilogue]) {
+    operation.dtypePolicy = { ...f32Policy };
+    if (operation.op === "scaled_dot_product_attention") operation.softmaxComputeDtype = "F32";
+  }
+  const f32Weights = new Map<string, DenseF32Tensor>(
+    [...weights].map(([name, tensor]) => [name, { shape: [...tensor.shape], values: Float32Array.from(tensor.values) }]),
+  );
+  const generated = generateReferenceF32(ir, { inputIds: [[1]], tensors: f32Weights, maxNewTokens: 2 });
+  assert.deepEqual(generated.generatedTokenIds, [2, 2]);
+  assert.ok(generated.logits.values instanceof Float32Array);
+  assert.ok(generated.pastKeyValues.get(0)?.key.values instanceof Float32Array);
+  assert.equal(generated.pastKeyValues.get(0)?.key.shape.join("x"), "1x1x3x2");
 });
 
 test("reader range-loads an on-disk F64 Safetensors fixture into executor logits", async () => {

@@ -263,6 +263,54 @@ export interface ReferenceF32ExecutionResult {
   pastKeyValues: ReadonlyMap<number, ReferenceF32KeyValueCache>;
 }
 
+/**
+ * Greedy decoding is intentionally a separate, narrow contract from a
+ * forward request. The current reference path accepts one unpadded prompt so
+ * that every sampled token has one unambiguous absolute position and one KV
+ * ownership chain. Padding/batched stop policies require their own declared
+ * mask and cache semantics rather than being guessed here.
+ */
+export interface ReferenceGenerationRequest {
+  inputIds: number[][];
+  positionIds?: number[][];
+  tensors: ReadonlyMap<string, DenseTensor>;
+  maxNewTokens: number;
+  eosTokenId?: number;
+}
+
+export interface ReferenceF32GenerationRequest {
+  inputIds: number[][];
+  positionIds?: number[][];
+  tensors: ReadonlyMap<string, DenseF32Tensor>;
+  maxNewTokens: number;
+  eosTokenId?: number;
+}
+
+export interface ReferenceGenerationStep {
+  /** Token chosen from the preceding terminal logits. */
+  tokenId: number;
+  /** Absolute position at which that chosen token was subsequently evaluated. */
+  positionId: number;
+}
+
+export interface ReferenceGenerationResult {
+  inputIds: number[];
+  generatedTokenIds: number[];
+  steps: ReferenceGenerationStep[];
+  /** Terminal logits after evaluating inputIds plus every generated token. */
+  logits: DenseTensor;
+  /** Post-RoPE KV cache for inputIds plus every generated token. */
+  pastKeyValues: ReadonlyMap<number, ReferenceKeyValueCache>;
+}
+
+export interface ReferenceF32GenerationResult {
+  inputIds: number[];
+  generatedTokenIds: number[];
+  steps: ReferenceGenerationStep[];
+  logits: DenseF32Tensor;
+  pastKeyValues: ReadonlyMap<number, ReferenceF32KeyValueCache>;
+}
+
 /** Runtime-captured output for one IR operation, keyed by the stable IR id. */
 export interface DifferentialOperationSample {
   operationId: string;

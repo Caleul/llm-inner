@@ -6,16 +6,21 @@ import type {
   ReferenceF32KeyValueCache,
   ReferenceF32ExecutionRequest,
   ReferenceF32ExecutionResult,
+  ReferenceF32GenerationRequest,
+  ReferenceF32GenerationResult,
   ReferenceKeyValueCache,
   ReferenceExecutionRequest,
   ReferenceExecutionResult,
+  ReferenceGenerationRequest,
+  ReferenceGenerationResult,
+  ReferenceGenerationStep,
   TensorRef,
 } from "./types.js";
 
 /**
  * Small, deterministic F64 interpreter for the dense decoder subset emitted by
  * the architecture adapters. It intentionally rejects implicit dtype policies,
- * cache inputs, quantized tensors, and RoPE variants whose numerical contract
+ * quantized tensors, and RoPE variants whose numerical contract
  * has not yet been encoded here.
  */
 export function executeReferenceF64(
@@ -169,6 +174,129 @@ export function executeReferenceF32(
   const logits = values.get("softcapped_logits") ?? values.get("logits");
   if (!logits) throw new Error("IR não produziu logits.");
   return { values, logits, pastKeyValues };
+}
+
+/**
+ * Deterministic greedy generation using the F64 executor's canonical KV
+ * contract. Each selected token is evaluated before returning, so the result
+ * cache covers the entire returned token sequence and is safe to continue
+ * with the next absolute position.
+ */
+export function generateReferenceF64(
+  ir: ModelIR,
+  request: ReferenceGenerationRequest,
+): ReferenceGenerationResult {
+  validateGenerationRequest(request.inputIds, request.positionIds, request.maxNewTokens, request.eosTokenId);
+  const prompt = request.inputIds[0]!;
+  const promptPositions = request.positionIds?.[0] ?? prompt.map((_, index) => index);
+  let current = executeReferenceF64(ir, {
+    inputIds: [prompt],
+    positionIds: [promptPositions],
+    tensors: request.tensors,
+  });
+  const generatedTokenIds: number[] = [];
+  const steps: ReferenceGenerationStep[] = [];
+  let nextPosition = promptPositions.at(-1)! + 1;
+  for (let index = 0; index < request.maxNewTokens; index += 1) {
+    const tokenId = greedyToken(current.logits);
+    generatedTokenIds.push(tokenId);
+    steps.push({ tokenId, positionId: nextPosition });
+    current = executeReferenceF64(ir, {
+      inputIds: [[tokenId]],
+      positionIds: [[nextPosition]],
+      pastKeyValues: current.pastKeyValues,
+      tensors: request.tensors,
+    });
+    nextPosition += 1;
+    if (tokenId === request.eosTokenId) break;
+  }
+  return {
+    inputIds: [...prompt, ...generatedTokenIds],
+    generatedTokenIds,
+    steps,
+    logits: current.logits,
+    pastKeyValues: current.pastKeyValues,
+  };
+}
+
+/** See generateReferenceF64 for the cache and position contract. */
+export function generateReferenceF32(
+  ir: ModelIR,
+  request: ReferenceF32GenerationRequest,
+): ReferenceF32GenerationResult {
+  validateGenerationRequest(request.inputIds, request.positionIds, request.maxNewTokens, request.eosTokenId);
+  const prompt = request.inputIds[0]!;
+  const promptPositions = request.positionIds?.[0] ?? prompt.map((_, index) => index);
+  let current = executeReferenceF32(ir, {
+    inputIds: [prompt],
+    positionIds: [promptPositions],
+    tensors: request.tensors,
+  });
+  const generatedTokenIds: number[] = [];
+  const steps: ReferenceGenerationStep[] = [];
+  let nextPosition = promptPositions.at(-1)! + 1;
+  for (let index = 0; index < request.maxNewTokens; index += 1) {
+    const tokenId = greedyToken(current.logits);
+    generatedTokenIds.push(tokenId);
+    steps.push({ tokenId, positionId: nextPosition });
+    current = executeReferenceF32(ir, {
+      inputIds: [[tokenId]],
+      positionIds: [[nextPosition]],
+      pastKeyValues: current.pastKeyValues,
+      tensors: request.tensors,
+    });
+    nextPosition += 1;
+    if (tokenId === request.eosTokenId) break;
+  }
+  return {
+    inputIds: [...prompt, ...generatedTokenIds],
+    generatedTokenIds,
+    steps,
+    logits: current.logits,
+    pastKeyValues: current.pastKeyValues,
+  };
+}
+
+function validateGenerationRequest(
+  inputIds: number[][],
+  positionIds: number[][] | undefined,
+  maxNewTokens: number,
+  eosTokenId: number | undefined,
+): void {
+  if (inputIds.length !== 1 || inputIds[0]?.length === 0) {
+    throw new Error("Geração de referência requer exatamente um prompt não vazio e sem padding.");
+  }
+  if (positionIds && (positionIds.length !== 1 || positionIds[0]?.length !== inputIds[0]!.length)) {
+    throw new Error("positionIds de geração deve ter o mesmo shape do prompt único.");
+  }
+  if (positionIds?.[0]?.some((position) => !Number.isInteger(position) || position < 0)) {
+    throw new Error("positionIds de geração deve conter posições absolutas inteiras não negativas.");
+  }
+  if (!Number.isInteger(maxNewTokens) || maxNewTokens < 0) {
+    throw new Error("maxNewTokens deve ser um inteiro não negativo.");
+  }
+  if (eosTokenId !== undefined && (!Number.isInteger(eosTokenId) || eosTokenId < 0)) {
+    throw new Error("eosTokenId deve ser um inteiro não negativo.");
+  }
+}
+
+function greedyToken(logits: DenseTensor | DenseF32Tensor): number {
+  if (logits.shape.length !== 3 || logits.shape[0] !== 1 || logits.shape[1] === undefined || logits.shape[2] === undefined) {
+    throw new Error(`Logits de geração devem ter shape [1, sequence, vocab], recebeu [${logits.shape.join(", ")}].`);
+  }
+  const sequence = logits.shape[1]!;
+  const vocab = logits.shape[2]!;
+  let result = 0;
+  const offset = (sequence - 1) * vocab;
+  for (let index = 0; index < vocab; index += 1) {
+    if (!Number.isFinite(logits.values[offset + index]!)) {
+      throw new Error("Logits de geração devem ser finitos para argmax determinístico.");
+    }
+  }
+  for (let index = 1; index < vocab; index += 1) {
+    if (logits.values[offset + index]! > logits.values[offset + result]!) result = index;
+  }
+  return result;
 }
 
 function assertF64Policy(operation: Operation): void {
