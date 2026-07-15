@@ -525,6 +525,16 @@ execução F32 de fixtures/materializações declaradas, mas não estabelece a
 política de dtype do modelo nem equivalência com um runtime MLX real. Um modo
 MLX omitido também é rejeitado: `U32` + bit width não define um algoritmo.
 
+Uma regressão de execução completa também percorre o MLX `affine` nativo: um
+Llama de uma camada e largura 32 armazena cada matriz em palavras U32 com oito
+códigos de 4 bits, quatro grupos por linha, scales e biases F32. Um pacote
+Safetensors F32 separado calcula `scale[group] * code + bias[group]` sem usar
+o leitor candidato; seus outputs por operação, cache KV pós-RoPE, logits e
+dois passos greedy são a evidência consumida pelo pacote MLX. A comparação
+exige os checksums de `config.json` e `model.safetensors`, portanto alterar um
+byte U32 também invalida o trace. É uma fronteira sintética lossless sob o
+executor escalar F32, não uma captura autoritativa do runtime MLX.
+
 A inspeção Safetensors também valida a fronteira do contêiner antes de expor
 qualquer tensor: nomes de shards do índice não podem sair do diretório de
 origem, o header tem o limite de 100 MiB da especificação, e cada intervalo

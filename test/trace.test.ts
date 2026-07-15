@@ -181,6 +181,65 @@ test("dense GGUF Llama replays Safetensors forward and greedy-generation evidenc
   }
 });
 
+test("MLX affine U32 Llama replays independently constructed dense F32 execution and generation evidence", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-mlx-affine-trace-"));
+  try {
+    const { denseSource, quantizedSource } = await writeMlxAffineTraceFixture(directory);
+
+    // The dense package is produced directly from the declared affine formula
+    // (scale * packedCode + bias). It never invokes the MLX catalog reader or
+    // dequantizer, so it witnesses the complete native U32 materialization
+    // boundary rather than merely replaying candidate output.
+    const dense = await executeFixture(denseSource, [[1]]);
+    const quantized = await executeFixture(quantizedSource, [[1]]);
+    assert.deepEqual(serialized(quantized.candidate.values.get("logits")!), serialized(dense.candidate.values.get("logits")!));
+    assert.deepEqual([...quantized.candidate.pastKeyValues], [...dense.candidate.pastKeyValues]);
+
+    const executionTrace = path.join(directory, "mlx-affine-execution-trace.json");
+    await writeFile(executionTrace, JSON.stringify({
+      schemaVersion: 1, kind: "execution",
+      source: { files: await checksums(quantizedSource, ["config.json", "model.safetensors"]) },
+      irFingerprint: quantized.fingerprint,
+      candidatePolicy: { dtype: "F32", runtime: "llm-inner scalar IEEE-754 F32" },
+      reference: {
+        runtime: "independent declared MLX affine F32 fixture", model: "mlx-affine-llama-32", revisionOrChecksum: "mlx-affine-formula-fixture-v1",
+        containerFormat: "mlx-safetensors", quantization: "MLX affine U32 4-bit", inputTokens: [[1]], dtypePolicy: "F32 scalar fixture from declared MLX affine formula",
+        operations: operations(quantized.ir).map((operation) => ({ operationId: operation.id, output: operation.output, tensor: serialized(dense.candidate.values.get(operation.output)!) })),
+        pastKeyValues: [...dense.candidate.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
+      },
+    }, null, 2));
+    const executionReport = await runExecutionTraceComparison({ source: quantizedSource, trace: executionTrace, report: path.join(directory, "mlx-affine-execution-report.json"), topK: 3 });
+    assert.equal(executionReport.fidelityClass, "lossless-within-dtype");
+    assert.equal(executionReport.firstDivergentOperation, null);
+
+    const denseGeneration = await generateFixture(denseSource);
+    const generationTrace = path.join(directory, "mlx-affine-generation-trace.json");
+    await writeFile(generationTrace, JSON.stringify({
+      schemaVersion: 1, kind: "generation",
+      source: { files: await checksums(quantizedSource, ["config.json", "model.safetensors"]) },
+      irFingerprint: quantized.fingerprint,
+      candidatePolicy: { dtype: "F32", runtime: "llm-inner scalar IEEE-754 F32" },
+      reference: {
+        runtime: "independent declared MLX affine F32 fixture", model: "mlx-affine-llama-32", revisionOrChecksum: "mlx-affine-formula-fixture-v1",
+        containerFormat: "mlx-safetensors", quantization: "MLX affine U32 4-bit", inputTokens: [1], promptPositionIds: [0],
+        dtypePolicy: "F32 scalar fixture from declared MLX affine formula", maxNewTokens: 2, generatedTokenIds: denseGeneration.generatedTokenIds,
+        steps: denseGeneration.steps, logits: serialized(denseGeneration.logits),
+        pastKeyValues: [...denseGeneration.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
+      },
+    }, null, 2));
+    const generationReport = await runGenerationTraceComparison({ source: quantizedSource, trace: generationTrace, report: path.join(directory, "mlx-affine-generation-report.json"), topK: 3 });
+    assert.equal(generationReport.fidelityClass, "lossless-within-dtype");
+    assert.equal(generationReport.firstDivergence, null);
+
+    const corrupted = await readFile(path.join(quantizedSource, "model.safetensors"));
+    corrupted[corrupted.length - 1] = corrupted[corrupted.length - 1]! ^ 1;
+    await writeFile(path.join(quantizedSource, "model.safetensors"), corrupted);
+    await assert.rejects(() => runExecutionTraceComparison({ source: quantizedSource, trace: executionTrace, report: path.join(directory, "corrupt-report.json") }), /Checksum divergente/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("Q8_0 GGUF Llama replays independently materialized dense F32 forward and greedy-generation evidence", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-q8_0-trace-"));
   try {
@@ -982,6 +1041,80 @@ async function writeTinyF32Model(root: string): Promise<void> {
   const prefix = Buffer.alloc(8); prefix.writeBigUInt64LE(BigInt(encoded.length));
   await writeFile(path.join(directory, "config.json"), JSON.stringify({ model_type: "llama", hidden_size: 2, intermediate_size: 2, num_hidden_layers: 1, num_attention_heads: 1, num_key_value_heads: 1, head_dim: 2, vocab_size: 3, rms_norm_eps: 1e-6, hidden_act: "silu" }));
   await writeFile(path.join(directory, "model.safetensors"), Buffer.concat([prefix, encoded, ...payloads]));
+}
+
+/**
+ * Builds paired 32-wide Llama packages for the native MLX affine reader. Each
+ * U32 row holds eight 4-bit codes per word; the F32 side computes every value
+ * independently as scale[group] * code + bias[group].
+ */
+async function writeMlxAffineTraceFixture(root: string): Promise<{ denseSource: string; quantizedSource: string }> {
+  const denseSource = path.join(root, "dense");
+  const quantizedSource = path.join(root, "mlx-affine");
+  await mkdir(denseSource);
+  await mkdir(quantizedSource);
+  const width = 32;
+  const groups = 4;
+  const groupSize = width / groups;
+  const matrixNames = [
+    "model.embed_tokens.weight", "model.layers.0.self_attn.q_proj.weight", "model.layers.0.self_attn.k_proj.weight",
+    "model.layers.0.self_attn.v_proj.weight", "model.layers.0.self_attn.o_proj.weight", "model.layers.0.mlp.gate_proj.weight",
+    "model.layers.0.mlp.up_proj.weight", "model.layers.0.mlp.down_proj.weight", "lm_head.weight",
+  ];
+  const denseTensors: Array<[string, "F32", number[], number[]]> = [];
+  const mlxTensors: Array<[string, "F32" | "U32", number[], number[]]> = [];
+  for (const [matrixIndex, name] of matrixNames.entries()) {
+    const scales = Array.from({ length: width * groups }, (_, index) => Math.fround(0.03125 * (1 + ((index + matrixIndex) % 4))));
+    const biases = Array.from({ length: width * groups }, (_, index) => Math.fround(-0.25 + 0.0625 * ((index + matrixIndex) % 5)));
+    const codes = Array.from({ length: width * width }, (_, index) => (index * 7 + matrixIndex * 3 + Math.floor(index / width)) & 0x0f);
+    const denseValues = codes.map((code, index) => Math.fround(Math.fround(scales[Math.floor(index / width) * groups + Math.floor((index % width) / groupSize)]!) * code + biases[Math.floor(index / width) * groups + Math.floor((index % width) / groupSize)]!));
+    const packed = packMlxAffineCodes(codes, width, width, 4);
+    denseTensors.push([name, "F32", [width, width], denseValues]);
+    mlxTensors.push([name, "U32", [width, width / 8], packed], [name.slice(0, -".weight".length) + ".scales", "F32", [width, groups], scales], [name.slice(0, -".weight".length) + ".biases", "F32", [width, groups], biases]);
+  }
+  for (const name of ["model.layers.0.input_layernorm.weight", "model.layers.0.post_attention_layernorm.weight", "model.norm.weight"]) {
+    denseTensors.push([name, "F32", [width], new Array<number>(width).fill(1)]);
+    mlxTensors.push([name, "F32", [width], new Array<number>(width).fill(1)]);
+  }
+  const config = {
+    model_type: "llama", hidden_size: width, intermediate_size: width, num_hidden_layers: 1, num_attention_heads: 1,
+    num_key_value_heads: 1, head_dim: width, vocab_size: width, rms_norm_eps: 1e-6, hidden_act: "silu",
+  };
+  await writeFile(path.join(denseSource, "config.json"), JSON.stringify(config));
+  await writeFile(path.join(quantizedSource, "config.json"), JSON.stringify({ ...config, quantization: { bits: 4, group_size: groupSize, mode: "affine" } }));
+  await writeSafetensorsFixture(path.join(denseSource, "model.safetensors"), denseTensors);
+  await writeSafetensorsFixture(path.join(quantizedSource, "model.safetensors"), mlxTensors);
+  return { denseSource, quantizedSource };
+}
+
+function packMlxAffineCodes(codes: readonly number[], rows: number, columns: number, bits: number): number[] {
+  assert.equal(codes.length, rows * columns);
+  assert.equal((columns * bits) % 32, 0, "MLX fixture requires whole U32 rows");
+  const wordsPerRow = columns * bits / 32;
+  const packed = new Array<number>(rows * wordsPerRow).fill(0);
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      const bitOffset = column * bits;
+      const word = row * wordsPerRow + Math.floor(bitOffset / 32);
+      packed[word] = (packed[word]! | (codes[row * columns + column]! << (bitOffset % 32))) >>> 0;
+    }
+  }
+  return packed;
+}
+
+async function writeSafetensorsFixture(file: string, tensors: Array<[string, "F32" | "U32", number[], number[]]>): Promise<void> {
+  const header: Record<string, unknown> = {};
+  let offset = 0;
+  const payloads = tensors.map(([name, dtype, shape, values]) => {
+    const payload = Buffer.alloc(values.length * 4);
+    values.forEach((value, index) => dtype === "F32" ? payload.writeFloatLE(value, index * 4) : payload.writeUInt32LE(value, index * 4));
+    header[name] = { dtype, shape, data_offsets: [offset, offset + payload.length] };
+    offset += payload.length;
+    return payload;
+  });
+  const encoded = Buffer.from(JSON.stringify(header));
+  const prefix = Buffer.alloc(8); prefix.writeBigUInt64LE(BigInt(encoded.length));
+  await writeFile(file, Buffer.concat([prefix, encoded, ...payloads]));
 }
 
 /** Writes the same logical weights as writeTinyF32Model in native GGUF order. */
