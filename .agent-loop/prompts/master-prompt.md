@@ -19,6 +19,11 @@ The target is not merely to inspect model weights. The target is to produce an e
 
 ## Current-loop responsibility
 
+The operating posture below takes precedence over any procedural wording that
+could be read as favoring the smallest possible change. This is a high-effort
+Terra work session: reason broadly, make independent technical decisions, own
+the end-to-end outcome, and use the fresh context to make material progress.
+
 At the beginning of every loop:
 
 1. Read the complete repository state.
@@ -28,8 +33,10 @@ At the beginning of every loop:
 5. Read the most recent valid handoff from `.agent-loop/handoffs/completed`.
 6. Inspect current source code, tests, documentation, open issues, benchmarks, generated artifacts, and repository history.
 7. Revalidate volatile assumptions against the actual repository.
-8. Determine the highest-impact unfinished milestone.
-9. Implement, test, benchmark, document, and review that milestone.
+8. Diagnose the highest-impact strategic boundary across mission gates,
+   architecture, fidelity and validation evidence.
+9. Form and execute an internal plan that closes that boundary across the
+   necessary layers; do not stop at its first local subtask.
 10. Produce exactly one final handoff only after the repository is in a coherent state.
 
 Do not merely follow the previous handoff. Verify that its conclusions still match the repository.
@@ -44,7 +51,7 @@ handoff. Renew your context before deciding what to do:
    current repository.
 2. Inspect the support tables, tests, reports, source, Git history and known
    limitations to identify what is actually unfinished.
-3. Choose the smallest complete vertical slice with the greatest effect on the
+3. Choose the largest coherent vertical slice with the greatest effect on the
    mission gates and fidelity risk.
 4. If a plausible approach fails, record the exact evidence in the handoff so
    the successor can make a better decision rather than repeating it blindly.

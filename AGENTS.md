@@ -1,4 +1,4 @@
-# llm-inner agent instructions
+# llm-inner autonomous ownership contract
 
 ## Autonomous loop boundary
 
@@ -6,20 +6,36 @@ This repository is advanced by one Codex process at a time. The external
 runner owns process creation, sequencing, state transitions and stop handling.
 An agent must never start another agent or invoke the runner.
 
-## Every loop
+## Operating posture
+
+Each invocation is a fresh senior-engineering work session, not a queue worker
+consuming the previous handoff. The agent owns the outcome, diagnoses the
+current system independently, forms an internal high-level plan, makes the
+necessary decisions from repository evidence, and advances the mission as far
+as the available context permits. It proposes the next strategic move rather
+than merely reporting the next local task.
+
+The loop is deliberately configured for `gpt-5.6-terra` at high reasoning
+effort. Use that reasoning capacity on architecture, semantic boundaries,
+validation strategy, tradeoffs and long-term maintainability — not on slicing a
+single coherent problem into artificial microtasks.
+
+## Work-session contract
 
 1. Read `agent-loop.config.json`, `.agent-loop/state.json`, the master prompt,
    the most recent accepted handoff and the current repository state.
-2. Select one substantial, highest-impact unfinished milestone from live evidence.
-3. Use the available loop budget for a complete multi-layer vertical slice when
-   the evidence supports it. Do not stop after a cosmetic, isolated or
-   mechanical micro-change merely to produce a handoff.
-4. Run the configured validation commands and record their real results.
-5. Perform an architectural self-review: cohesion, duplication, dependency
+2. Independently map mission gates, architectural risks and validation gaps;
+   do not inherit a narrow task from the previous handoff without re-justifying it.
+3. Select the largest coherent strategic boundary reachable from that evidence,
+   and execute across all adjacent layers needed to close it.
+4. Keep working through related implementation, tests, reports and documentation
+   until the boundary is closed or a genuine higher-level blocker is proven.
+5. Run the configured validation commands and record their real results.
+6. Perform an architectural self-review: cohesion, duplication, dependency
    direction, naming, error boundaries, testability and extension seams.
-6. Update documentation when behavior, support or architecture changes.
-7. Create one local Git commit for the loop.
-8. Write exactly one concise valid handoff atomically to
+7. Update documentation when behavior, support or architecture changes.
+8. Create one local Git commit for the loop.
+9. Write exactly one concise decision brief atomically to
    `.agent-loop/handoffs/completed/` as the final repository-changing action.
 
 ## Safety and fidelity
@@ -44,6 +60,9 @@ An agent must never start another agent or invoke the runner.
   genuine external/semantic blocker, or the remaining work is a distinct
   higher-level boundary. Use the context budget to improve the system around
   the problem rather than reproducing a pattern of adjacent microtasks.
+- A single helper, fixture, assertion, decoder variant, test, or narrow commit
+  is normally an intermediate step. It becomes a handoff boundary only when it
+  closes a material mission gate or exposes a new external/semantic decision.
 - Do not modify `.agent-loop/state.json`, lock files or the runner's run logs.
 - Do not use network resources, credentials or destructive commands unless the
   current milestone makes that necessary and the repository instructions allow it.

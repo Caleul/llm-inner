@@ -67,6 +67,9 @@ async function load() {
   if (config.version !== 1 || !Number.isInteger(config.maxLoops) || config.maxLoops < 1) {
     fail("agent-loop.config.json is not a supported version-1 configuration.");
   }
+  if (!config.agent || typeof config.agent.model !== "string" || !["low", "medium", "high"].includes(config.agent.reasoningEffort)) {
+    fail("agent-loop.config.json must declare an agent model and low, medium, or high reasoningEffort.");
+  }
   const requiredPaths = [
     config.promptFile,
     config.stateFile,
@@ -191,6 +194,8 @@ async function runCodex(config, prompt, runId, sequence) {
   const args = [
     "exec",
     "-C", root,
+    "-m", config.agent.model,
+    "-c", `model_reasoning_effort=${JSON.stringify(config.agent.reasoningEffort)}`,
     // The user explicitly authorizes this autonomous runner to work without
     // sandboxing or interactive approvals, including repository metadata.
     "--dangerously-bypass-approvals-and-sandbox",
@@ -304,6 +309,7 @@ async function status(config) {
   console.log(JSON.stringify({
     state,
     maxLoops: config.maxLoops,
+    agent: config.agent,
     lockPresent: await exists(absolute(config.lockFile)),
     stopRequested: await exists(absolute(config.stopFile)),
     codex,

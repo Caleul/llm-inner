@@ -182,6 +182,12 @@ pelo objetivo final: atacar uma fronteira estratégica de fidelidade ou
 validação, conectar as camadas necessárias e evitar encerrar apenas por uma
 microalteração isolada.
 
+O runner usa `gpt-5.6-terra` com esforço de raciocínio `high`. Cada invocação
+é uma sessão autônoma de engenharia: o agente reavalia o sistema, decide a
+fronteira estratégica de maior impacto, executa uma entrega coesa através das
+camadas necessárias e deixa uma proposta técnica para a próxima sessão — não
+uma sequência de microtarefas derivadas mecanicamente do commit anterior.
+
 Cada agente também atua como responsável técnico temporário do repositório:
 deve usar princípios de Clean Code e SOLID pragmaticamente, preservar fronteiras
 claras entre contêiner, quantização, arquitetura, execução e validação, reduzir

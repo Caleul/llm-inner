@@ -9,6 +9,7 @@
     "maxConsecutiveFailures",
     "maxLoopDurationMinutes",
     "cooldownSeconds",
+    "agent",
     "handoffDirectory",
     "processingDirectory",
     "rejectedDirectory",
@@ -31,6 +32,15 @@
     "maxConsecutiveFailures": { "type": "integer", "minimum": 1 },
     "maxLoopDurationMinutes": { "type": "integer", "minimum": 1 },
     "cooldownSeconds": { "type": "integer", "minimum": 0 },
+    "agent": {
+      "type": "object",
+      "required": ["model", "reasoningEffort"],
+      "properties": {
+        "model": { "type": "string", "minLength": 1 },
+        "reasoningEffort": { "enum": ["low", "medium", "high"] }
+      },
+      "additionalProperties": false
+    },
     "handoffDirectory": { "type": "string", "minLength": 1 },
     "processingDirectory": { "type": "string", "minLength": 1 },
     "rejectedDirectory": { "type": "string", "minLength": 1 },

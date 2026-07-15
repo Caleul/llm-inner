@@ -6,6 +6,10 @@
   "maxConsecutiveFailures": 3,
   "maxLoopDurationMinutes": 240,
   "cooldownSeconds": 10,
+  "agent": {
+    "model": "gpt-5.6-terra",
+    "reasoningEffort": "high"
+  },
   "handoffDirectory": ".agent-loop/handoffs/completed",
   "processingDirectory": ".agent-loop/handoffs/processing",
   "rejectedDirectory": ".agent-loop/handoffs/rejected",
