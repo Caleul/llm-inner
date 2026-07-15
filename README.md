@@ -317,6 +317,16 @@ greedy. Ela é uma prova lossless dentro da política escalar F32 do fixture —
 não uma alegação de equivalência com um runtime externo ou de cobertura de
 modelos reais/quantizados.
 
+As mesmas fronteiras executáveis agora cobrem Qwen 2 e Qwen 3 em GGUF v3
+denso. A regressão Qwen 2 preserva os quatro biases de projeção de atenção e
+prova que não introduz os Q/K norms que pertencem apenas ao Qwen 3; a regressão
+Qwen 3 preserva esses norms no tensor BHSD após `reshape_heads`. Ambas partem
+de um Safetensors F32 pareado, verificam a orientação `[in,out]` do GGML para
+cada matriz registrada, todas as operações, o KV pós-RoPE, logits terminais e
+duas etapas greedy contra uma captura com checksum do arquivo GGUF. O resultado
+é evidência sintética lossless na política escalar F32, não uma comparação com
+um runtime externo nem uma validação de checkpoint publicado.
+
 Uma segunda regressão executável cobre o `GGML_TYPE_Q8_0`: um Llama de uma
 camada e largura 256 armazena todas as matrizes em blocos Q8_0 de 32 valores
 com `d=0.5`. Um pacote GGUF F32 separado é construído diretamente da fórmula
