@@ -21,9 +21,9 @@ export interface MlxCaptureOptions {
 
 /**
  * Capture a deliberately narrow independent reference trace through MLX
- * kernels. This consumes a prevalidated dense F32 IR for one of the explicitly
- * listed adapters; it never guesses architecture or dequantization semantics,
- * and remains separate from the scalar candidate executor used by trace replay.
+ * kernels. This consumes a prevalidated IR for one of the explicitly listed
+ * adapters; it never guesses architecture or dequantization semantics, and
+ * remains separate from the scalar candidate executor used by trace replay.
  */
 export async function captureMlxTrace(options: MlxCaptureOptions): Promise<"execution" | "generation"> {
   if (options.inputTokens.length === 0 || options.inputTokens.some((token) => !Number.isInteger(token) || token < 0)) throw new Error("MLX capture requer inputTokens inteiros não negativos.");
@@ -31,13 +31,16 @@ export async function captureMlxTrace(options: MlxCaptureOptions): Promise<"exec
   if (positions.length !== options.inputTokens.length || positions.some((position) => !Number.isInteger(position) || position < 0)) throw new Error("MLX capture requer positionIds inteiros não negativos para todo input token.");
   const opened = await openCatalog(options.source, false);
   try {
-    if (opened.catalog.format !== "safetensors") throw new Error(`MLX capture requer Safetensors denso; recebeu ${opened.catalog.format}.`);
-    for (const tensor of opened.catalog.tensors.values()) {
-      if (tensor.storageDtype !== "F32" || tensor.quantization) throw new Error(`${tensor.name}: MLX capture requer todos os tensors F32 densos e não quantizados.`);
+    if (opened.catalog.format !== "safetensors" && opened.catalog.format !== "mlx-safetensors") {
+      throw new Error(`MLX capture requer Safetensors denso ou MLX affine; recebeu ${opened.catalog.format}.`);
     }
+    const captureQuantization = validateMlxCaptureStorage(opened.catalog.tensors.values());
     const ir = await buildModelIR(opened.catalog, { outputRows: 1, inputTerms: 1, includeWeights: false });
     if (!MLX_CAPTURE_MODEL_TYPES.has(ir.architecture.modelType)) {
       throw new Error(`MLX capture não possui contrato independente para ${ir.architecture.modelType}; suportados: ${[...MLX_CAPTURE_MODEL_TYPES].join(", ")}.`);
+    }
+    if (captureQuantization && ir.architecture.modelType !== "llama") {
+      throw new Error(`MLX capture quantizado possui contrato independente somente para llama; recebeu ${ir.architecture.modelType}.`);
     }
     const source = { files: await checksums(opened.catalog.source, opened.catalog.tensors.values()) };
     const common = {
@@ -51,8 +54,8 @@ export async function captureMlxTrace(options: MlxCaptureOptions): Promise<"exec
       const bundle: ExecutionTraceBundle = {
         ...common, kind: "execution",
         reference: {
-          runtime: `MLX 0.32 dense-F32 ${ir.architecture.modelType} independent IR-kernel capture`, model: options.model, revisionOrChecksum: options.revisionOrChecksum,
-          containerFormat: "safetensors", quantization: "none", inputTokens: [options.inputTokens], dtypePolicy: "MLX float32 kernel capture",
+          runtime: mlxRuntime(ir.architecture.modelType, captureQuantization), model: options.model, revisionOrChecksum: options.revisionOrChecksum,
+          containerFormat: captureQuantization ? "mlx-safetensors" : "safetensors", quantization: mlxQuantizationLabel(captureQuantization), inputTokens: [options.inputTokens], dtypePolicy: "MLX float32 kernel capture",
           operations: reference.operations, pastKeyValues: reference.pastKeyValues,
         },
       };
@@ -65,8 +68,8 @@ export async function captureMlxTrace(options: MlxCaptureOptions): Promise<"exec
     const bundle: GenerationTraceBundle = {
       ...common, kind: "generation",
       reference: {
-        runtime: `MLX 0.32 dense-F32 ${ir.architecture.modelType} independent IR-kernel capture`, model: options.model, revisionOrChecksum: options.revisionOrChecksum,
-        containerFormat: "safetensors", quantization: "none", inputTokens: [...options.inputTokens], promptPositionIds: positions,
+        runtime: mlxRuntime(ir.architecture.modelType, captureQuantization), model: options.model, revisionOrChecksum: options.revisionOrChecksum,
+        containerFormat: captureQuantization ? "mlx-safetensors" : "safetensors", quantization: mlxQuantizationLabel(captureQuantization), inputTokens: [...options.inputTokens], promptPositionIds: positions,
         dtypePolicy: "MLX float32 kernel capture", maxNewTokens: options.maxNewTokens, generatedTokenIds: reference.generatedTokenIds,
         steps: reference.steps, selectionLogits: reference.selectionLogits, stepPastKeyValues: reference.stepPastKeyValues,
         logits: reference.logits, pastKeyValues: reference.pastKeyValues,
@@ -84,6 +87,44 @@ export async function captureMlxTrace(options: MlxCaptureOptions): Promise<"exec
 // shared by the Llama baseline. New adapters must be added here deliberately;
 // a generic "supported IR" fallback would hide unreviewed model behavior.
 const MLX_CAPTURE_MODEL_TYPES = new Set(["llama", "mistral", "gemma", "gemma2", "qwen2", "qwen3"]);
+
+interface MlxAffineCaptureSpec { bits: number; groupSize: number; }
+
+/**
+ * This is intentionally stricter than cataloging: MLX is the independent
+ * backend only for affine U32 tensors whose exact dequantize invocation is
+ * represented in the IR. Other MLX modes remain fail-closed here even if a
+ * bridge supports them for candidate materialization.
+ */
+function validateMlxCaptureStorage(tensors: Iterable<{ name: string; storageDtype: string; quantization?: { family: string; mode: string; bits?: number; groupSize?: number } }>): MlxAffineCaptureSpec | undefined {
+  let affine: MlxAffineCaptureSpec | undefined;
+  for (const tensor of tensors) {
+    if (!tensor.quantization) {
+      if (tensor.storageDtype !== "F32") throw new Error(`${tensor.name}: MLX capture requer tensor denso F32 ou peso MLX affine U32.`);
+      continue;
+    }
+    const q = tensor.quantization;
+    if (q.family !== "mlx" || q.mode !== "affine" || tensor.storageDtype !== "U32" || !Number.isInteger(q.bits) || ![2, 3, 4, 5, 6, 8].includes(q.bits!) || q.groupSize !== 32) {
+      throw new Error(`${tensor.name}: MLX capture não possui contrato independente para ${q.family}/${q.mode} ${tensor.storageDtype}; requer affine U32 com bits {2,3,4,5,6,8} e group_size MLX 32 validado.`);
+    }
+    const current = { bits: q.bits!, groupSize: q.groupSize! };
+    if (affine && (affine.bits !== current.bits || affine.groupSize !== current.groupSize)) {
+      throw new Error(`${tensor.name}: MLX capture exige um único contrato affine bits/group_size por checkpoint; recebeu ${current.bits}/${current.groupSize} após ${affine.bits}/${affine.groupSize}.`);
+    }
+    affine = current;
+  }
+  return affine;
+}
+
+function mlxRuntime(modelType: string, affine: MlxAffineCaptureSpec | undefined): string {
+  return affine
+    ? `MLX 0.32 affine-U32 ${affine.bits}-bit group-${affine.groupSize} ${modelType} independent IR-kernel capture`
+    : `MLX 0.32 dense-F32 ${modelType} independent IR-kernel capture`;
+}
+
+function mlxQuantizationLabel(affine: MlxAffineCaptureSpec | undefined): string {
+  return affine ? `MLX affine U32 ${affine.bits}-bit group_size=${affine.groupSize}` : "none";
+}
 
 async function checksums(source: string, tensors: Iterable<{ shard?: string }>): Promise<TraceSourceFile[]> {
   const files = new Set<string>(["config.json"]);

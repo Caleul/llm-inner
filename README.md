@@ -270,6 +270,19 @@ deslizante no prefill e decode; Gemma 1 cobre escala de embedding, RMSNorm
 Qwen 3 cobre normas Q/K em BHSD e bias nas projeções. Outros IRs aparentemente compatíveis continuam recusados até terem
 um contrato e regressão independentes próprios.
 
+Há também um caminho separado e fechado para `llama` cujos pesos quantizados
+usam MLX `affine` U32 (bits 2/3/4/5/6/8, `group_size` 32 validado, um único
+contrato no checkpoint e `scales` F32,
+com `biases` F32 opcionais). O helper entrega os
+bytes U32, parâmetros e `bits/group_size/mode="affine"` diretamente a
+`mlx.core.dequantize(..., dtype=mlx.float32)` antes de executar os kernels; ele
+nunca chama o materializador nativo nem o bridge candidato. Modos MLX como
+`mxfp4`, `mxfp8` e `nvfp4`, parâmetros não F32, contratos por-módulo que mudam
+bits/grupo e adaptadores quantizados não-Llama continuam recusados até terem
+um contrato de captura e regressão próprios. Quando o formato não traz
+`biases`, o helper passa uma matriz MLX F32 de zeros — a identidade explícita
+da fórmula afim — porque a API de dequantização exige esse argumento.
+
 ```bash
 npm run capture:mlx-trace -- --source ./model --output ./mlx-execution.json \
   --input-tokens 1,2 --python ./venv/bin/python \

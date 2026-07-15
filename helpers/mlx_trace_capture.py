@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Independent MLX-kernel capture for explicitly lowered dense F32 IR.
+"""Independent MLX-kernel capture for explicitly lowered F32/affine IR.
 
 This is intentionally not a model-family detector or a fallback executor.  The
 Node caller has already selected and validated an adapter, and this helper
@@ -29,8 +29,8 @@ class Capture:
     def __init__(self, request: dict[str, Any]):
         self.ir = request["ir"]
         self.source = Path(request["source"])
-        if self.ir["source"]["format"] != "safetensors":
-            raise ValueError("MLX capture suporta somente Safetensors denso F32.")
+        if self.ir["source"]["format"] not in {"safetensors", "mlx-safetensors"}:
+            raise ValueError("MLX capture suporta somente Safetensors denso F32 ou MLX affine U32.")
         model_type = self.ir["architecture"]["modelType"]
         if model_type not in {"llama", "mistral", "gemma", "gemma2", "qwen2", "qwen3"}:
             raise ValueError(f"MLX capture não possui contrato independente para {model_type}; suportados: llama, mistral, gemma, gemma2, qwen2, qwen3.")
@@ -46,12 +46,60 @@ class Capture:
         result: dict[str, mx.array] = {}
         for shard in shards:
             for name, value in load_file(str(self.source / shard)).items():
-                if value.dtype != np.float32:
-                    raise ValueError(f"{name}: MLX capture requer storage F32, recebeu {value.dtype}.")
                 if name in result:
                     raise ValueError(f"Tensor duplicado: {name}")
-                result[name] = mx.array(value, dtype=mx.float32)
+                if value.dtype == np.float32:
+                    result[name] = mx.array(value, dtype=mx.float32)
+                elif value.dtype == np.uint32:
+                    result[name] = mx.array(value, dtype=mx.uint32)
+                else:
+                    raise ValueError(f"{name}: MLX capture requer storage F32 ou U32 affine, recebeu {value.dtype}.")
+        return self._dequantize_affine_weights(result)
+
+    def _dequantize_affine_weights(self, raw: dict[str, mx.array]) -> dict[str, mx.array]:
+        """Use MLX's own documented affine kernel, never the candidate decoder."""
+        result = dict(raw)
+        for reference in self._weight_references():
+            quantization = reference.get("quantization")
+            if quantization is None:
+                if reference["name"] not in raw or raw[reference["name"]].dtype != mx.float32:
+                    raise ValueError(f"{reference['name']}: IR denso requer storage F32.")
+                continue
+            if (
+                quantization.get("family") != "mlx" or quantization.get("mode") != "affine"
+                or not isinstance(quantization.get("bits"), int) or quantization["bits"] not in {2, 3, 4, 5, 6, 8}
+                or not isinstance(quantization.get("groupSize"), int) or quantization["groupSize"] <= 0
+                or not quantization.get("scaleTensor")
+            ):
+                raise ValueError(f"{reference['name']}: MLX capture requer contrato affine explícito no IR.")
+            name, scales_name, biases_name = reference["name"], quantization["scaleTensor"], quantization.get("biasTensor")
+            if name not in raw or raw[name].dtype != mx.uint32 or scales_name not in raw or raw[scales_name].dtype != mx.float32:
+                raise ValueError(f"{name}: payload affine U32/scales F32 ausente ou incompatível.")
+            if biases_name is not None and (biases_name not in raw or raw[biases_name].dtype != mx.float32):
+                raise ValueError(f"{name}: biases F32 affine ausente ou incompatível.")
+            # MLX's affine kernel requires a bias array even when the storage
+            # contract omits biases. A zero tensor is the declared affine
+            # identity in that case, rather than an implicit candidate-side
+            # dequantization rule.
+            biases = mx.zeros(raw[scales_name].shape, dtype=mx.float32) if biases_name is None else raw[biases_name]
+            result[name] = mx.dequantize(raw[name], raw[scales_name], biases, group_size=quantization["groupSize"], bits=quantization["bits"], mode="affine", dtype=mx.float32)
         return result
+
+    def _weight_references(self) -> list[dict[str, Any]]:
+        references: dict[str, dict[str, Any]] = {}
+        operations = [*self.ir["prelude"], *[op for layer in self.ir["layers"] for op in layer["operations"]], *self.ir["epilogue"]]
+        for op in operations:
+            for field in ("weight", "bias"):
+                reference = op.get(field)
+                if reference is not None:
+                    name = reference.get("name")
+                    if not isinstance(name, str):
+                        raise ValueError(f"{op['id']}: referência {field} sem nome.")
+                    existing = references.get(name)
+                    if existing is not None and existing != reference:
+                        raise ValueError(f"{name}: referências IR conflitantes.")
+                    references[name] = reference
+        return list(references.values())
 
     def forward(self, input_ids: list[int], positions: list[int], past: dict[int, tuple[mx.array, mx.array]] | None = None) -> tuple[dict[str, mx.array], dict[int, tuple[mx.array, mx.array]]]:
         if not input_ids or len(input_ids) != len(positions):
