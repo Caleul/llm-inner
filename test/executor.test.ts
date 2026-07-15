@@ -322,6 +322,55 @@ test("Safetensors inspection rejects hostile shard paths and oversized headers b
   }
 });
 
+test("MLX quantization requires U32 packing and a row-compatible scales matrix", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-mlx-layout-"));
+  try {
+    const config = {
+      model_type: "llama",
+      quantization: { bits: 4, group_size: 4, mode: "affine" },
+    };
+    await writeFile(path.join(directory, "config.json"), JSON.stringify(config));
+
+    await writeRawSafetensors(path.join(directory, "model.safetensors"), {
+      "linear.weight": { dtype: "U32", shape: [2, 1], data_offsets: [0, 8] },
+    }, Buffer.alloc(8));
+    let reader = new SafetensorsCatalogReader(directory);
+    try {
+      await assert.rejects(() => reader.inspect(), /linear\.scales está ausente/);
+    } finally {
+      await reader.close();
+    }
+
+    await writeRawSafetensors(path.join(directory, "model.safetensors"), {
+      "linear.weight": { dtype: "U32", shape: [2, 1], data_offsets: [0, 8] },
+      "linear.scales": { dtype: "F16", shape: [1, 2], data_offsets: [8, 12] },
+    }, Buffer.alloc(12));
+    reader = new SafetensorsCatalogReader(directory);
+    try {
+      await assert.rejects(() => reader.inspect(), /scales possui 1 linhas, mas o peso possui 2/);
+    } finally {
+      await reader.close();
+    }
+
+    await writeRawSafetensors(path.join(directory, "model.safetensors"), {
+      "linear.weight": { dtype: "F32", shape: [2, 4], data_offsets: [0, 32] },
+      "linear.scales": { dtype: "F16", shape: [2, 1], data_offsets: [32, 36] },
+    }, Buffer.alloc(36));
+    reader = new SafetensorsCatalogReader(directory);
+    try {
+      const catalog = await reader.inspect();
+      const weight = catalog.tensors.get("linear.weight")!;
+      assert.equal(catalog.format, "safetensors");
+      assert.equal(weight.quantization, undefined);
+      assert.deepEqual(weight.logicalShape, [2, 4]);
+    } finally {
+      await reader.close();
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 async function writeRawSafetensors(file: string, header: object, payload: Buffer): Promise<void> {
   const headerBytes = Buffer.from(JSON.stringify(header), "utf8");
   const prefix = Buffer.alloc(8);

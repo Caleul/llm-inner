@@ -107,8 +107,6 @@ export class SafetensorsCatalogReader {
     }
 
     const tensors = new Map<string, TensorInfo>();
-    const quantizationRoot = this.#quantizationRoot(config);
-
     for (const [name, shard] of Object.entries(weightMap)) {
       const parsed = parsedByShard.get(shard);
       const entry = parsed?.tensors.get(name);
@@ -116,27 +114,25 @@ export class SafetensorsCatalogReader {
         throw new Error(`Index aponta ${name} para ${shard}, mas o cabeçalho não contém o tensor.`);
       }
 
-      this.#validateDenseStorage(name, entry, quantizationRoot, parsed.payloadLength);
-      const quantization = this.#quantizationForTensor(name, config, tensors, entry);
-      const logicalShape = this.#logicalShape(entry, quantization);
+      this.#validateDenseStorage(name, entry, parsed.payloadLength);
       const [start, end] = entry.data_offsets;
 
       tensors.set(name, {
         name,
         storageDtype: entry.dtype,
         storageShape: [...entry.shape],
-        logicalShape,
+        logicalShape: [...entry.shape],
         byteOffset: 8 + parsed.headerLength + start,
         byteLength: end - start,
         shard,
-        ...(quantization ? { quantization } : {}),
       });
     }
 
-    // Segunda passagem: agora scales/biases já estão catalogados. Além de ligar
-    // a especificação, derivamos a dimensão lógica a partir de
-    // groups * group_size, não apenas da capacidade dos U32 empacotados.
-    // Isso evita expor colunas de padding como pesos reais.
+    // Segunda passagem: scales/biases já estão catalogados. A configuração
+    // MLX sozinha nunca torna um peso denso quantizado: somente U32 embalado
+    // com scales compatíveis recebe uma especificação. A dimensão lógica vem
+    // de groups * group_size, não da capacidade dos U32, para não expor padding
+    // como pesos reais.
     let hasMlxQuantization = false;
     for (const tensor of tensors.values()) {
       if (!tensor.name.endsWith(".weight")) continue;
@@ -146,29 +142,29 @@ export class SafetensorsCatalogReader {
       hasMlxQuantization = true;
 
       const scale = q.scaleTensor ? tensors.get(q.scaleTensor) : undefined;
-      if (
-        tensor.storageShape.length === 2 &&
-        scale &&
-        scale.logicalShape.length >= 2 &&
-        q.groupSize !== undefined &&
-        q.bits !== undefined
-      ) {
-        const rows = tensor.storageShape[0];
-        const groups = scale.logicalShape.at(-1);
-        const packedWords = tensor.storageShape[1];
-        if (rows === undefined || groups === undefined || packedWords === undefined) {
-          throw new Error(`Shape quantizado incompleto em ${tensor.name}.`);
-        }
-        const logicalColumns = groups * q.groupSize;
-        const packedCapacity = Math.floor((packedWords * 32) / q.bits);
-        if (logicalColumns > packedCapacity) {
-          throw new Error(
-            `${tensor.name}: scales indicam ${logicalColumns} colunas, ` +
-              `mas o armazenamento comporta apenas ${packedCapacity}.`,
-          );
-        }
-        tensor.logicalShape = [rows, logicalColumns];
+      if (!scale || q.groupSize === undefined || q.bits === undefined) {
+        throw new Error(`${tensor.name}: quantização MLX não possui scales, bits ou group_size verificáveis.`);
       }
+      if (tensor.storageShape.length !== 2 || scale.logicalShape.length !== 2) {
+        throw new Error(`${tensor.name}: peso MLX e scales devem ser matrizes 2D para um layout affine verificável.`);
+      }
+      const [rows, packedWords] = tensor.storageShape;
+      const [scaleRows, groups] = scale.logicalShape;
+      if (rows === undefined || groups === undefined || packedWords === undefined || scaleRows === undefined) {
+        throw new Error(`Shape quantizado incompleto em ${tensor.name}.`);
+      }
+      if (scaleRows !== rows) {
+        throw new Error(`${tensor.name}: scales possui ${scaleRows} linhas, mas o peso possui ${rows}.`);
+      }
+      const logicalColumns = groups * q.groupSize;
+      const packedCapacity = Math.floor((packedWords * 32) / q.bits);
+      if (logicalColumns > packedCapacity) {
+        throw new Error(
+          `${tensor.name}: scales indicam ${logicalColumns} colunas, ` +
+            `mas o armazenamento comporta apenas ${packedCapacity}.`,
+        );
+      }
+      tensor.logicalShape = [rows, logicalColumns];
     }
 
     const format = hasMlxQuantization ? "mlx-safetensors" : "safetensors";
@@ -457,7 +453,6 @@ export class SafetensorsCatalogReader {
     tensorName: string,
     config: JsonObject,
     knownTensors?: Map<string, TensorInfo>,
-    entry?: SafeTensorHeaderEntry,
   ): QuantizationSpec | undefined {
     if (!tensorName.endsWith(".weight")) return undefined;
     const root = this.#quantizationRoot(config);
@@ -473,50 +468,54 @@ export class SafetensorsCatalogReader {
     const bitsValue = override.bits ?? root.bits;
     const groupSizeValue = override.group_size ?? root.group_size;
     const modeValue = override.mode ?? root.mode ?? "affine";
-    if (typeof bitsValue !== "number" || typeof groupSizeValue !== "number" || typeof modeValue !== "string") {
-      return undefined;
+    const storageDtype = knownTensors?.get(tensorName)?.storageDtype;
+    if (storageDtype !== "U32") return undefined;
+    if (
+      typeof bitsValue !== "number" ||
+      !Number.isInteger(bitsValue) ||
+      bitsValue <= 0 ||
+      bitsValue > 32 ||
+      typeof groupSizeValue !== "number" ||
+      !Number.isInteger(groupSizeValue) ||
+      groupSizeValue <= 0 ||
+      typeof modeValue !== "string" ||
+      modeValue.length === 0
+    ) {
+      throw new Error(`${tensorName}: configuração MLX inválida; bits, group_size e mode explícito são obrigatórios para storage U32.`);
     }
+    const bits = bitsValue as number;
+    const groupSize = groupSizeValue as number;
 
     const scaleTensor = `${moduleName}.scales`;
     const biasTensor = `${moduleName}.biases`;
     const globalScaleTensor = `${moduleName}.global_scale`;
     const hasKnown = (name: string): boolean => knownTensors?.has(name) ?? false;
-    const storageDtype = entry?.dtype ?? knownTensors?.get(tensorName)?.storageDtype;
-
-    // Pesos MLX quantizados são normalmente U32. Não inferimos quantização apenas pelo dtype;
-    // o config é a fonte de verdade e os tensores auxiliares confirmam o layout.
-    if (storageDtype && storageDtype !== "U32" && !hasKnown(scaleTensor)) return undefined;
+    // U32 não é uma especificação de quantização. A configuração define o
+    // algoritmo, e scales confirmam que o layout necessário realmente existe.
+    if (!hasKnown(scaleTensor)) {
+      throw new Error(`${tensorName}: config declara quantização MLX para storage U32, mas ${scaleTensor} está ausente.`);
+    }
 
     return {
       family: "mlx",
       mode: modeValue,
-      bits: bitsValue,
-      groupSize: groupSizeValue,
+      bits,
+      groupSize,
       ...(hasKnown(scaleTensor) ? { scaleTensor } : {}),
       ...(hasKnown(biasTensor) ? { biasTensor } : {}),
       ...(hasKnown(globalScaleTensor) ? { globalScaleTensor } : {}),
     };
   }
 
-  #logicalShape(entry: SafeTensorHeaderEntry, quantization?: QuantizationSpec): number[] {
-    if (!quantization || entry.shape.length !== 2 || !quantization.bits) return [...entry.shape];
-    const [rows, packedWords] = entry.shape;
-    if (rows === undefined || packedWords === undefined) return [...entry.shape];
-    const logicalColumns = Math.floor((packedWords * 32) / quantization.bits);
-    return [rows, logicalColumns];
-  }
-
   #validateDenseStorage(
     name: string,
     entry: SafeTensorHeaderEntry,
-    quantizationRoot: JsonObject | undefined,
     payloadLength: number,
   ): void {
     const bytes = entry.data_offsets[1] - entry.data_offsets[0];
     if (bytes < 0 || entry.data_offsets[1] > payloadLength) {
       throw new Error(`Tensor ${name}: intervalo de dados fora do payload Safetensors.`);
     }
-    if (quantizationRoot && name.endsWith(".weight") && entry.dtype === "U32") return;
     const elementBytes = DTYPE_BYTES[entry.dtype];
     if (!elementBytes) return; // Dtypes novos são preservados e tratados pelo backend de referência.
     const expected = product(entry.shape) * elementBytes;

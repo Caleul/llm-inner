@@ -158,6 +158,13 @@ origem, o header tem o limite de 100 MiB da especificação, e cada intervalo
 Isso evita que um checkpoint malformado seja interpretado como pesos válidos ou
 provoque uma alocação de header descontrolada.
 
+Para MLX, `quantization` no `config.json` também não basta para reinterpretar
+um tensor: apenas um `.weight` em `U32` com `bits`, `group_size`, `mode` e uma
+matriz `.scales` 2D de mesmo número de linhas recebe o rótulo MLX. A dimensão
+lógica é derivada de `scales.columns * group_size` e conferida contra a
+capacidade do packing. Configuração quantizada aplicada a peso denso permanece
+densa; U32 declarado como MLX sem scales compatíveis falha fechado.
+
 
 ## O que “agnóstico” significa
 
