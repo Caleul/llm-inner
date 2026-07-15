@@ -486,6 +486,32 @@ greedy. Isto é evidência sintética lossless na política escalar F32 para
 Qwen/Q8_K, não equivalência contra runtime externo nem validação de checkpoint
 publicado.
 
+Qwen 2 e Qwen 3 também percorrem `GGML_TYPE_Q8_1` pela fronteira completa.
+Cada matriz de largura 256 usa blocos de 40 bytes: escala `F32 d=0.25`, campo
+auxiliar `F32 s=d*sum(qs)` e 32 códigos `int8` assinados, cobrindo o domínio
+de `-128` a `127`. O GGUF F32 pareado calcula apenas `d*q`, sem ler o payload
+candidato nem interpretar `s` como offset ou escala F16; o writer verifica que
+`s` é persistido independentemente em cada bloco. As projeções preservam os
+quatro biases densos de Qwen, enquanto apenas Qwen 3 mantém as normas Q/K em
+BHSD antes de RoPE. Para ambos os layouts, a captura ligada ao checksum compara
+todas as operações, cache KV pós-RoPE, logits terminais e duas etapas greedy;
+uma mutação no campo `s` final é recusada antes do relatório. Isto é evidência
+sintética lossless na política escalar F32 para Qwen/Q8_1, não equivalência
+contra runtime externo nem validação de checkpoint publicado.
+
+As três variantes restantes de bloco curto também possuem replay Qwen 2/3
+completo, sem tratar sua largura de bits como uma semântica comum. `Q4_1` usa
+`F16 d`, `F16 m` e nibbles unsigned para reconstruir `d*q+m`; `Q5_0` combina
+nibbles e `qh` em um código centrado para `d*(q-16)`; e `Q5_1` usa o mesmo
+packing de cinco bits com mínimo afim, `d*q+m`. Cada pacote F32 pareado aplica
+sua fórmula declarada diretamente, enquanto o GGUF empacotado mantém as normas
+e os quatro biases de atenção de Qwen densos. Para cada variante e ambos os
+layouts, a captura ligada ao checksum compara todas as operações, cache KV
+pós-RoPE, logits terminais e duas etapas greedy; Qwen 2 continua sem normas
+Q/K e Qwen 3 mantém suas normas BHSD antes de RoPE. Isto é evidência sintética
+lossless na política escalar F32 para Qwen/Q4_1, Qwen/Q5_0 e Qwen/Q5_1, não
+equivalência contra runtime externo nem validação de checkpoint publicado.
+
 Uma sexta regressão executável percorre o `GGML_TYPE_Q6_K` pela mesma
 fronteira completa. Cada matriz do Llama de largura 256 contém os 64 códigos
 centrados possíveis, distribuídos pelos oito planos de 32 valores de `ql` e

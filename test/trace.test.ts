@@ -892,8 +892,24 @@ test("Q8_K GGUF Qwen 2 and Qwen 3 replay their distinct attention contracts thro
   await assertQwenQuantizedGgufReplay("q8_k", writeQ8_KQwenTraceFixture);
 });
 
+test("Q8_1 GGUF Qwen 2 and Qwen 3 replay their distinct attention contracts through execution and generation", async () => {
+  await assertQwenQuantizedGgufReplay("q8_1", writeQ8_1QwenTraceFixture);
+});
+
+test("Q4_1 GGUF Qwen 2 and Qwen 3 replay their distinct attention contracts through execution and generation", async () => {
+  await assertQwenQuantizedGgufReplay("q4_1", writeQ4_1QwenTraceFixture);
+});
+
+test("Q5_0 GGUF Qwen 2 and Qwen 3 replay their distinct attention contracts through execution and generation", async () => {
+  await assertQwenQuantizedGgufReplay("q5_0", writeQ5_0QwenTraceFixture);
+});
+
+test("Q5_1 GGUF Qwen 2 and Qwen 3 replay their distinct attention contracts through execution and generation", async () => {
+  await assertQwenQuantizedGgufReplay("q5_1", writeQ5_1QwenTraceFixture);
+});
+
 async function assertQwenQuantizedGgufReplay(
-  mode: "q2_k" | "q3_k" | "q4_0" | "q4_k" | "q5_k" | "q6_k" | "q8_0" | "q8_k",
+  mode: "q2_k" | "q3_k" | "q4_0" | "q4_1" | "q4_k" | "q5_0" | "q5_1" | "q5_k" | "q6_k" | "q8_0" | "q8_1" | "q8_k",
   writeFixture: (denseFile: string, quantizedFile: string, architecture: "qwen2" | "qwen3") => Promise<void>,
 ): Promise<void> {
   const directory = await mkdtemp(path.join(tmpdir(), `llm-inner-qwen-${mode}-trace-`));
@@ -953,6 +969,19 @@ async function assertQwenQuantizedGgufReplay(
       const generationReport = await runGenerationTraceComparison({ source: quantizedSource, trace: generationTrace, report: path.join(directory, `${architecture}-${mode}-generation-report.json`), topK: 3 });
       assert.equal(generationReport.fidelityClass, "lossless-within-dtype");
       assert.equal(generationReport.firstDivergence, null);
+
+      if (mode === "q8_1") {
+        // The final block ends with 32 codes; its preceding four bytes are
+        // Q8_1's binary32 auxiliary s=d*sum(qs), not a per-element affine
+        // term. Trace integrity must still bind this required block field.
+        const corrupted = await readFile(quantizedSource);
+        corrupted[corrupted.length - 36] = corrupted[corrupted.length - 36]! ^ 1;
+        await writeFile(quantizedSource, corrupted);
+        await assert.rejects(
+          () => runExecutionTraceComparison({ source: quantizedSource, trace: executionTrace, report: path.join(directory, `${architecture}-${mode}-corrupt-report.json`) }),
+          /Checksum divergente/,
+        );
+      }
     }
   } finally {
     await rm(directory, { recursive: true, force: true });
@@ -2556,6 +2585,57 @@ async function writeQ8_KQwenTraceFixture(denseFile: string, quantizedFile: strin
   ];
   await writeGgufQwenFixture(denseFile, architecture, width, weights.map(([name, shape, values]) => [name, shape, 0, values]));
   await writeGgufQwenFixture(quantizedFile, architecture, width, weights.map(([name, shape, values]) => [name, shape, shape.length === 2 ? 15 : 0, values]));
+}
+
+/** Builds Qwen 2/3 packages for Q8_1's F32 scale and auxiliary-sum blocks. */
+async function writeQ8_1QwenTraceFixture(denseFile: string, quantizedFile: string, architecture: "qwen2" | "qwen3"): Promise<void> {
+  await writeQwenQuantizedFixture(denseFile, quantizedFile, architecture, q8_1DenseValues, 9);
+}
+
+/** Builds Qwen 2/3 packages for Q4_1's F16 scale/minimum affine blocks. */
+async function writeQ4_1QwenTraceFixture(denseFile: string, quantizedFile: string, architecture: "qwen2" | "qwen3"): Promise<void> {
+  await writeQwenQuantizedFixture(denseFile, quantizedFile, architecture, q4_1DenseValues, 3);
+}
+
+/** Builds Qwen 2/3 packages for Q5_0's centered qh-plus-nibble blocks. */
+async function writeQ5_0QwenTraceFixture(denseFile: string, quantizedFile: string, architecture: "qwen2" | "qwen3"): Promise<void> {
+  await writeQwenQuantizedFixture(denseFile, quantizedFile, architecture, q5_0DenseValues, 6);
+}
+
+/** Builds Qwen 2/3 packages for Q5_1's affine qh-plus-nibble blocks. */
+async function writeQ5_1QwenTraceFixture(denseFile: string, quantizedFile: string, architecture: "qwen2" | "qwen3"): Promise<void> {
+  await writeQwenQuantizedFixture(denseFile, quantizedFile, architecture, q5_1DenseValues, 7);
+}
+
+/**
+ * Shares only Qwen's architectural fixture topology. Each caller supplies an
+ * independently authored dense formula and one declared GGML block type, so
+ * storage semantics cannot be generalized from the quantization bit width.
+ */
+async function writeQwenQuantizedFixture(
+  denseFile: string,
+  quantizedFile: string,
+  architecture: "qwen2" | "qwen3",
+  denseValues: (length: number) => number[],
+  ggmlType: 3 | 6 | 7 | 9,
+): Promise<void> {
+  const width = 256;
+  const matrixValues = denseValues(width * width);
+  const ones = new Array<number>(width).fill(1);
+  const hasHeadLocalQkNorms = architecture === "qwen3";
+  const weights: Array<[string, number[], number[]]> = [
+    ["token_embd.weight", [width, width], matrixValues], ["blk.0.attn_norm.weight", [width], ones],
+    ...["attn_q", "attn_k", "attn_v", "attn_output"].flatMap((projection, index): Array<[string, number[], number[]]> => [
+      [`blk.0.${projection}.weight`, [width, width], matrixValues],
+      [`blk.0.${projection}.bias`, [width], [0.125 * (index + 1), -0.0625 * (index + 1), ...new Array<number>(width - 2).fill(0)]],
+    ]),
+    ...(hasHeadLocalQkNorms ? [["blk.0.attn_q_norm.weight", [width], ones], ["blk.0.attn_k_norm.weight", [width], ones]] as Array<[string, number[], number[]]> : []),
+    ["blk.0.ffn_norm.weight", [width], ones], ["blk.0.ffn_gate.weight", [width, width], matrixValues],
+    ["blk.0.ffn_up.weight", [width, width], matrixValues], ["blk.0.ffn_down.weight", [width, width], matrixValues],
+    ["output_norm.weight", [width], ones], ["output.weight", [width, width], matrixValues],
+  ];
+  await writeGgufQwenFixture(denseFile, architecture, width, weights.map(([name, shape, values]) => [name, shape, 0, values]));
+  await writeGgufQwenFixture(quantizedFile, architecture, width, weights.map(([name, shape, values]) => [name, shape, shape.length === 2 ? ggmlType : 0, values]));
 }
 
 /** Builds a Q8_1 fixture with all signed int8 codes and verified auxiliary sums live. */
