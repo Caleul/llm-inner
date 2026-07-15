@@ -62,6 +62,13 @@ interface LayerTensors {
   fc2?: string;
 }
 
+/**
+ * A bias is part of the forward equation, not an optional display detail.
+ * When the architecture config declares whether a projection family has one,
+ * the checkpoint must agree before we lower the linear operation.
+ */
+type BiasRequirement = "optional" | "required" | "forbidden";
+
 const SUPPORTED_MODEL_TYPES = new Set([
   "llama",
   "mistral",
@@ -296,7 +303,7 @@ async function buildEpilogue(ctx: ArchitectureContext): Promise<Operation[]> {
   const head = lmHead ?? (tied ? embedding : undefined);
   if (!head) throw new Error("lm_head não encontrado e embeddings não estão declarados como tied.");
   assertMatrixShape(head, "lm_head", ctx.vocabSize, ctx.hiddenSize);
-  operations.push(await linearOp(ctx, "lm_head", undefined, input, "logits", head, findBias(ctx.catalog, head.name)));
+  operations.push(await linearOp(ctx, "lm_head", undefined, input, "logits", head, "optional", findBias(ctx.catalog, head.name)));
   const finalSoftcap = optionalNumber(ctx.config, ["final_logit_softcapping"]);
   if (finalSoftcap !== undefined) {
     operations.push({
@@ -323,12 +330,14 @@ async function buildDecoderLayer(ctx: ArchitectureContext, layer: number): Promi
   const qLinear = `layer_${layer}_q_linear`;
   const kLinear = `layer_${layer}_k_linear`;
   const vLinear = `layer_${layer}_v_linear`;
+  const attentionBias = biasRequirement(ctx.config, ["attention_bias"], "attention_bias");
+  const mlpBias = biasRequirement(ctx.config, ["mlp_bias"], "mlp_bias");
 
   if (tensors.qkvProj) {
     ctx.unsupported.push(`Camada ${layer}: projeção QKV fundida requer split segundo layout específico da arquitetura.`);
   } else {
     operations.push(
-      await linearOp(ctx, "q_proj", layer, inputNorm, qLinear, requireTensor(ctx.catalog, tensors.qProj)),
+      await linearOp(ctx, "q_proj", layer, inputNorm, qLinear, requireTensor(ctx.catalog, tensors.qProj), attentionBias),
     );
     if (!tensors.kProj || !tensors.vProj) {
       const shared = resolveSharedKvProducer(ctx, layer);
@@ -337,8 +346,8 @@ async function buildDecoderLayer(ctx: ArchitectureContext, layer: number): Promi
       }
     } else {
       operations.push(
-        await linearOp(ctx, "k_proj", layer, inputNorm, kLinear, requireTensor(ctx.catalog, tensors.kProj)),
-        await linearOp(ctx, "v_proj", layer, inputNorm, vLinear, requireTensor(ctx.catalog, tensors.vProj)),
+        await linearOp(ctx, "k_proj", layer, inputNorm, kLinear, requireTensor(ctx.catalog, tensors.kProj), attentionBias),
+        await linearOp(ctx, "v_proj", layer, inputNorm, vLinear, requireTensor(ctx.catalog, tensors.vProj), attentionBias),
       );
     }
   }
@@ -482,6 +491,7 @@ async function buildDecoderLayer(ctx: ArchitectureContext, layer: number): Promi
       attention.output,
       attnProjected,
       requireTensor(ctx.catalog, tensors.oProj),
+      attentionBias,
     ),
   );
 
@@ -506,8 +516,8 @@ async function buildDecoderLayer(ctx: ArchitectureContext, layer: number): Promi
     const gate = `layer_${layer}_gate`;
     const up = `layer_${layer}_up`;
     operations.push(
-      await linearOp(ctx, "gate_proj", layer, mlpInput, gate, requireTensor(ctx.catalog, tensors.gateProj)),
-      await linearOp(ctx, "up_proj", layer, mlpInput, up, requireTensor(ctx.catalog, tensors.upProj)),
+      await linearOp(ctx, "gate_proj", layer, mlpInput, gate, requireTensor(ctx.catalog, tensors.gateProj), mlpBias),
+      await linearOp(ctx, "up_proj", layer, mlpInput, up, requireTensor(ctx.catalog, tensors.upProj), mlpBias),
     );
     const activated = `layer_${layer}_gate_activated`;
     const activation = hiddenActivation(ctx.config, ctx.modelType);
@@ -526,11 +536,11 @@ async function buildDecoderLayer(ctx: ArchitectureContext, layer: number): Promi
     operations.push(elementwise(layer, "gated_multiply", "multiply", [activated, up], gated));
     mlpOutput = `layer_${layer}_mlp_output`;
     operations.push(
-      await linearOp(ctx, "down_proj", layer, gated, mlpOutput, requireTensor(ctx.catalog, tensors.downProj)),
+      await linearOp(ctx, "down_proj", layer, gated, mlpOutput, requireTensor(ctx.catalog, tensors.downProj), mlpBias),
     );
   } else if (tensors.fc1 && tensors.fc2) {
     const fc1 = `layer_${layer}_fc1`;
-    operations.push(await linearOp(ctx, "fc1", layer, mlpInput, fc1, requireTensor(ctx.catalog, tensors.fc1)));
+    operations.push(await linearOp(ctx, "fc1", layer, mlpInput, fc1, requireTensor(ctx.catalog, tensors.fc1), mlpBias));
     const activated = `layer_${layer}_fc1_activated`;
     const activation = hiddenActivation(ctx.config, ctx.modelType);
     operations.push({
@@ -544,7 +554,7 @@ async function buildDecoderLayer(ctx: ArchitectureContext, layer: number): Promi
       dtypePolicy: DEFAULT_DTYPE_POLICY,
     });
     mlpOutput = `layer_${layer}_mlp_output`;
-    operations.push(await linearOp(ctx, "fc2", layer, activated, mlpOutput, requireTensor(ctx.catalog, tensors.fc2)));
+    operations.push(await linearOp(ctx, "fc2", layer, activated, mlpOutput, requireTensor(ctx.catalog, tensors.fc2), mlpBias));
   } else {
     throw new Error(`Camada ${layer}: MLP não reconhecida.`);
   }
@@ -671,6 +681,7 @@ async function linearOp(
   input: string,
   output: string,
   weight: TensorInfo,
+  biasRequirement: BiasRequirement = "optional",
   bias?: TensorInfo,
 ): Promise<LinearOp> {
   if (weight.logicalShape.length !== 2) {
@@ -679,6 +690,12 @@ async function linearOp(
   const [outFeatures, inFeatures] = weight.logicalShape;
   if (outFeatures === undefined || inFeatures === undefined) throw new Error(`Shape incompleto em ${weight.name}.`);
   const resolvedBias = bias ?? findBias(ctx.catalog, weight.name);
+  if (biasRequirement === "required" && !resolvedBias) {
+    throw new Error(`${weight.name}: config declara bias obrigatório, mas o tensor ${biasNameForWeight(weight.name)} está ausente.`);
+  }
+  if (biasRequirement === "forbidden" && resolvedBias) {
+    throw new Error(`${weight.name}: config declara ausência de bias, mas o tensor ${resolvedBias.name} está presente.`);
+  }
   if (resolvedBias) assertVectorShape(resolvedBias, `bias de ${weight.name}`, outFeatures);
   const preview =
     ctx.preview.includeWeights && ctx.bridge
@@ -816,10 +833,26 @@ function findTensor(catalog: ModelCatalog, exactNames: string[]): TensorInfo | u
 }
 
 function findBias(catalog: ModelCatalog, weightName: string): TensorInfo | undefined {
-  const biasName = weightName.endsWith(".weight")
+  return catalog.tensors.get(biasNameForWeight(weightName));
+}
+
+function biasNameForWeight(weightName: string): string {
+  return weightName.endsWith(".weight")
     ? `${weightName.slice(0, -".weight".length)}.bias`
     : `${weightName}.bias`;
-  return catalog.tensors.get(biasName);
+}
+
+function biasRequirement(config: JsonObject, keys: string[], label: string): BiasRequirement {
+  const declared = keys.filter((key) => Object.hasOwn(config, key)).map((key) => ({ key, value: config[key] }));
+  if (declared.length === 0) return "optional";
+  if (declared.some(({ value }) => typeof value !== "boolean")) {
+    throw new Error(`${label} deve ser booleano quando declarado; não é seguro inferir a semântica de bias.`);
+  }
+  const value = declared[0]!.value as boolean;
+  if (declared.some((entry) => entry.value !== value)) {
+    throw new Error(`${label} possui declarações conflitantes; não é seguro escolher a semântica de bias.`);
+  }
+  return value ? "required" : "forbidden";
 }
 
 function layerPrefixes(layer: number): string[] {

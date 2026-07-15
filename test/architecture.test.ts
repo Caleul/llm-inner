@@ -178,3 +178,63 @@ test("swish é normalizado apenas como o alias matemático de SiLU", async () =>
     { function: "silu", approximation: undefined },
   );
 });
+
+test("attention_bias declarado deve coincidir com todos os tensores de projeção", async () => {
+  const forbidden = catalog("llama", { attention_bias: false });
+  await assert.rejects(
+    () => buildModelIR(forbidden, preview),
+    /q_proj\.weight: config declara ausência de bias.*q_proj\.bias está presente/,
+  );
+
+  const required = catalog("llama", { attention_bias: true });
+  required.tensors.delete("model.layers.0.self_attn.q_proj.bias");
+  await assert.rejects(
+    () => buildModelIR(required, preview),
+    /q_proj\.weight: config declara bias obrigatório.*q_proj\.bias está ausente/,
+  );
+});
+
+test("mlp_bias declarado não aceita tensores extras e flags de bias devem ser booleanas", async () => {
+  const forbidden = catalog("llama", { mlp_bias: false });
+  forbidden.tensors.set(
+    "model.layers.0.mlp.gate_proj.bias",
+    tensor("model.layers.0.mlp.gate_proj.bias", [8]),
+  );
+  await assert.rejects(
+    () => buildModelIR(forbidden, preview),
+    /gate_proj\.weight: config declara ausência de bias.*gate_proj\.bias está presente/,
+  );
+
+  await assert.rejects(
+    () => buildModelIR(catalog("llama", { attention_bias: "false" }), preview),
+    /attention_bias deve ser booleano/,
+  );
+});
+
+test("flags de bias verdadeiras preservam cada bias declarado no IR", async () => {
+  const source = catalog("llama", { attention_bias: true, mlp_bias: true });
+  for (const [name, shape] of [
+    ["model.layers.0.self_attn.k_proj.bias", [4]],
+    ["model.layers.0.self_attn.v_proj.bias", [4]],
+    ["model.layers.0.self_attn.o_proj.bias", [4]],
+    ["model.layers.0.mlp.gate_proj.bias", [8]],
+    ["model.layers.0.mlp.up_proj.bias", [8]],
+    ["model.layers.0.mlp.down_proj.bias", [4]],
+  ] as const) {
+    source.tensors.set(name, tensor(name, [...shape]));
+  }
+  const linearOperations = (await buildModelIR(source, preview)).layers[0]!.operations
+    .filter((operation) => operation.op === "linear");
+  assert.deepEqual(
+    linearOperations.map((operation) => operation.bias?.name),
+    [
+      "model.layers.0.self_attn.q_proj.bias",
+      "model.layers.0.self_attn.k_proj.bias",
+      "model.layers.0.self_attn.v_proj.bias",
+      "model.layers.0.self_attn.o_proj.bias",
+      "model.layers.0.mlp.gate_proj.bias",
+      "model.layers.0.mlp.up_proj.bias",
+      "model.layers.0.mlp.down_proj.bias",
+    ],
+  );
+});

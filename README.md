@@ -97,6 +97,8 @@ O compilador falha quando:
 - um tensor crítico está ausente ou ambíguo;
 - há QKV fundido sem layout conhecido;
 - `hidden_act` não está entre as fórmulas de ativação explicitamente registradas;
+- `attention_bias` ou `mlp_bias` declarado não coincide com a presença dos
+  tensores `.bias` das projeções correspondentes (ou a flag não é booleana);
 - shapes de embedding, normas, Q/K/V/O, MLP ou biases não coincidem com a topologia declarada;
 - há MoE/AltUp/LAuReL ou outra semântica ainda não implementada.
 
