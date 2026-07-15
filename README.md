@@ -96,10 +96,17 @@ O compilador falha quando:
 - a arquitetura não tem adaptador registrado;
 - um tensor crítico está ausente ou ambíguo;
 - há QKV fundido sem layout conhecido;
+- `hidden_act` não está entre as fórmulas de ativação explicitamente registradas;
 - shapes de embedding, normas, Q/K/V/O, MLP ou biases não coincidem com a topologia declarada;
 - há MoE/AltUp/LAuReL ou outra semântica ainda não implementada.
 
 Ele não cria bypasses nem zeros para componentes desconhecidos.
+
+Os adaptadores atuais registram `silu` (e o alias matematicamente idêntico
+`swish`), `gelu` por `erf`, e `gelu_pytorch_tanh`/`gelu_new`/`gelu_fast` por
+GELU-tanh. Qualquer outro rótulo falha na construção do IR até que a fórmula,
+os limites numéricos e a implementação do executor sejam adicionados e
+validados.
 
 ## Limites atuais
 

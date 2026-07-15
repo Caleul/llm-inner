@@ -871,7 +871,16 @@ function hiddenActivation(config: JsonObject, modelType: string): { function: st
     return { function: "gelu", approximation: "tanh" };
   }
   if (value === "gelu") return { function: "gelu", approximation: "erf" };
-  return { function: value };
+  // An activation label is executable mathematical semantics, not a display
+  // string.  Passing an unfamiliar config value through would create an IR
+  // whose function is unspecified (and which the reference executor may
+  // interpret differently or reject only much later).  Keep aliases only
+  // where they are definitionally the same formula we model.
+  if (value === "silu" || value === "swish") return { function: "silu" };
+  throw new Error(
+    `Ativação '${value}' não possui semântica exata registrada neste adaptador. ` +
+      "Adicione uma operação/implementação validada ou rejeite a arquitetura; nunca propague um nome desconhecido para o IR.",
+  );
 }
 
 function attentionScale(config: JsonObject, headDim: number): number {

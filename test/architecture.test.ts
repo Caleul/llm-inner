@@ -161,3 +161,20 @@ test("embedding e norma final precisam respeitar hidden_size e vocab_size", asyn
   badNorm.tensors.set("model.norm.weight", tensor("model.norm.weight", [3]));
   await assert.rejects(() => buildModelIR(badNorm, preview), /norma final deve ter shape 4/);
 });
+
+test("activation desconhecida falha antes de criar um IR sem semântica executável", async () => {
+  await assert.rejects(
+    () => buildModelIR(catalog("llama", { hidden_act: "vendor_magic_gelu" }), preview),
+    /Ativação 'vendor_magic_gelu'.*semântica exata registrada/,
+  );
+});
+
+test("swish é normalizado apenas como o alias matemático de SiLU", async () => {
+  const operations = (await buildModelIR(catalog("llama", { hidden_act: "swish" }), preview)).layers[0]!.operations;
+  const activation = operations.find((operation) => operation.id === "layer_0_activation");
+  assert.equal(activation?.op, "activation");
+  if (activation?.op === "activation") assert.deepEqual(
+    { function: activation.function, approximation: activation.approximation },
+    { function: "silu", approximation: undefined },
+  );
+});
