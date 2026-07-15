@@ -33,7 +33,7 @@ interface DirectoryTensor {
 
 /**
  * Native, read-only GGUF v2/v3 catalog reader. It deliberately recognizes
- * only dense F32/F16/BF16 and the explicitly specified Q4_0/Q4_1/Q4_K/Q5_0/Q5_1/Q6_K/Q8_0/Q8_1 block payloads. A
+ * only dense F32/F16/BF16 and the explicitly specified Q4_0/Q4_1/Q4_K/Q5_0/Q5_1/Q5_K/Q6_K/Q8_0/Q8_1 block payloads. A
  * GGML type number is not enough to safely dequantize a packed tensor:
  * unsupported encodings fail while the directory is still being validated
  * rather than being mislabeled as dense.
@@ -152,24 +152,25 @@ export class GgufCatalogReader {
     };
   }
 
-  /** Materializes only verified GGML dense F32/F16/BF16 or Q4_0/Q4_1/Q4_K/Q5_0/Q5_1/Q6_K/Q8_0/Q8_1 intervals into F32 values. */
+  /** Materializes only verified GGML dense F32/F16/BF16 or Q4_0/Q4_1/Q4_K/Q5_0/Q5_1/Q5_K/Q6_K/Q8_0/Q8_1 intervals into F32 values. */
   async readDenseAsF32(tensor: TensorInfo): Promise<DenseF32Tensor> {
     const q4 = isGgufQ4_0(tensor);
     const q41 = isGgufQ4_1(tensor);
     const q4k = isGgufQ4_K(tensor);
     const q5 = isGgufQ5_0(tensor);
     const q51 = isGgufQ5_1(tensor);
+    const q5k = isGgufQ5_K(tensor);
     const q6k = isGgufQ6_K(tensor);
     const q8 = isGgufQ8_0(tensor);
     const q81 = isGgufQ8_1(tensor);
-    if (!q4 && !q41 && !q4k && !q5 && !q51 && !q6k && !q8 && !q81 && (tensor.quantization || (tensor.storageDtype !== "F32" && tensor.storageDtype !== "F16" && tensor.storageDtype !== "BF16"))) {
-      throw new Error(`${tensor.name}: materialização GGUF F32 requer storage GGML F32/F16/BF16 denso ou Q4_0/Q4_1/Q4_K/Q5_0/Q5_1/Q6_K/Q8_0/Q8_1 verificado.`);
+    if (!q4 && !q41 && !q4k && !q5 && !q51 && !q5k && !q6k && !q8 && !q81 && (tensor.quantization || (tensor.storageDtype !== "F32" && tensor.storageDtype !== "F16" && tensor.storageDtype !== "BF16"))) {
+      throw new Error(`${tensor.name}: materialização GGUF F32 requer storage GGML F32/F16/BF16 denso ou Q4_0/Q4_1/Q4_K/Q5_0/Q5_1/Q5_K/Q6_K/Q8_0/Q8_1 verificado.`);
     }
     if (tensor.shard !== this.#source || tensor.byteOffset === undefined || tensor.byteLength === undefined) {
       throw new Error(`${tensor.name}: referência de intervalo GGUF não pertence a este leitor.`);
     }
     const elements = product(tensor.storageShape);
-    const expectedBytes = q4 ? q4ByteLength(tensor.storageShape, tensor.name) : q41 ? q41ByteLength(tensor.storageShape, tensor.name) : q4k ? q4kByteLength(tensor.storageShape, tensor.name) : q5 ? q5ByteLength(tensor.storageShape, tensor.name) : q51 ? q51ByteLength(tensor.storageShape, tensor.name) : q6k ? q6kByteLength(tensor.storageShape, tensor.name) : q8 ? q8ByteLength(tensor.storageShape, tensor.name) : q81 ? q81ByteLength(tensor.storageShape, tensor.name) : elements * (tensor.storageDtype === "F32" ? 4 : 2);
+    const expectedBytes = q4 ? q4ByteLength(tensor.storageShape, tensor.name) : q41 ? q41ByteLength(tensor.storageShape, tensor.name) : q4k ? q4kByteLength(tensor.storageShape, tensor.name) : q5 ? q5ByteLength(tensor.storageShape, tensor.name) : q51 ? q51ByteLength(tensor.storageShape, tensor.name) : q5k ? q5kByteLength(tensor.storageShape, tensor.name) : q6k ? q6kByteLength(tensor.storageShape, tensor.name) : q8 ? q8ByteLength(tensor.storageShape, tensor.name) : q81 ? q81ByteLength(tensor.storageShape, tensor.name) : elements * (tensor.storageDtype === "F32" ? 4 : 2);
     if (!Number.isSafeInteger(elements) || tensor.byteLength !== expectedBytes || tensor.byteOffset < 0 || tensor.byteOffset > this.#fileSize - tensor.byteLength) {
       throw new Error(`${tensor.name}: intervalo denso GGUF não coincide com shape e dtype catalogados.`);
     }
@@ -260,6 +261,30 @@ export class GgufCatalogReader {
           values[block * GGML_Q5_1_BLOCK_SIZE + highIndex] = scale * ((packed >>> 4) | (highHighBit << 4)) + minimum;
         }
       }
+    } else if (q5k) {
+      for (let block = 0; block < elements / GGML_Q5_K_BLOCK_SIZE; block += 1) {
+        const offset = block * GGML_Q5_K_BLOCK_BYTES;
+        // block_q5_K extends Q4_K's scale/minimum hierarchy with qh[32],
+        // where bit i is code q[i]'s fifth bit. qs[128] keeps Q4_K's paired
+        // low-nibble planes, so each 32-value group remains independently
+        // affine: d*scale*(low4 | high1<<4) - dmin*minimum.
+        const scaleBase = decodeF16(bytes.readUInt16LE(offset));
+        const minimumBase = decodeF16(bytes.readUInt16LE(offset + 2));
+        for (let group = 0; group < 8; group += 1) {
+          const { scaleCode, minimumCode } = getScaleMinimumQ4K(bytes, offset + 4, group);
+          const scale = scaleBase * scaleCode;
+          const minimum = minimumBase * minimumCode;
+          const codeOffset = offset + 48 + Math.floor(group / 2) * 32;
+          const highNibble = group % 2 === 1;
+          for (let index = 0; index < 32; index += 1) {
+            const blockIndex = group * 32 + index;
+            const packed = bytes[codeOffset + index]!;
+            const lowCode = highNibble ? packed >>> 4 : packed & 0x0f;
+            const highBit = (bytes[offset + 16 + Math.floor(blockIndex / 8)]! >>> (blockIndex % 8)) & 1;
+            values[block * GGML_Q5_K_BLOCK_SIZE + blockIndex] = scale * (lowCode | (highBit << 4)) - minimum;
+          }
+        }
+      }
     } else if (q6k) {
       for (let block = 0; block < elements / GGML_Q6_K_BLOCK_SIZE; block += 1) {
         const offset = block * GGML_Q6_K_BLOCK_BYTES;
@@ -308,7 +333,7 @@ export class GgufCatalogReader {
     } else {
       for (let index = 0; index < elements; index += 1) values[index] = decodeBF16(bytes.readUInt16LE(index * 2));
     }
-    return { shape: [...tensor.logicalShape], values, ...((q4 || q41 || q4k || q5 || q51 || q6k || q8 || q81) ? { sourceQuantization: { ...tensor.quantization! } } : {}) };
+    return { shape: [...tensor.logicalShape], values, ...((q4 || q41 || q4k || q5 || q51 || q5k || q6k || q8 || q81) ? { sourceQuantization: { ...tensor.quantization! } } : {}) };
   }
 
   async #readMetadataValue(inArray: boolean): Promise<unknown> {
@@ -411,6 +436,8 @@ const GGML_Q5_0_BLOCK_SIZE = 32;
 const GGML_Q5_0_BLOCK_BYTES = 22; // ggml_half d, 4-byte high-bit plane, then 16 packed low nibbles.
 const GGML_Q5_1_BLOCK_SIZE = 32;
 const GGML_Q5_1_BLOCK_BYTES = 24; // ggml_half d, ggml_half m, 4-byte high-bit plane, then 16 packed low nibbles.
+const GGML_Q5_K_BLOCK_SIZE = 256;
+const GGML_Q5_K_BLOCK_BYTES = 176; // F16 d, F16 dmin, 12 packed scale/minimum fields, qh[32], then qs[128].
 const GGML_Q6_K_BLOCK_SIZE = 256;
 const GGML_Q6_K_BLOCK_BYTES = 210; // ql[128], qh[64], signed scales[16], then ggml_half d.
 
@@ -451,6 +478,13 @@ function storageForGgmlType(type: number, name: string): GgmlStorage {
       dtype: "GGML_Q5_1",
       quantization: { family: "gguf", mode: "q5_1", bits: 5, groupSize: GGML_Q5_1_BLOCK_SIZE, tensorType: "GGML_TYPE_Q5_1" },
       byteLength: q51ByteLength,
+    };
+  }
+  if (type === 13) {
+    return {
+      dtype: "GGML_Q5_K",
+      quantization: { family: "gguf", mode: "q5_k", bits: 5, groupSize: GGML_Q5_K_BLOCK_SIZE, tensorType: "GGML_TYPE_Q5_K" },
+      byteLength: q5kByteLength,
     };
   }
   if (type === 14) {
@@ -534,6 +568,14 @@ function q51ByteLength(dimensions: readonly number[], name: string): number {
   return (elements / GGML_Q5_1_BLOCK_SIZE) * GGML_Q5_1_BLOCK_BYTES;
 }
 
+function q5kByteLength(dimensions: readonly number[], name: string): number {
+  const elements = product([...dimensions]);
+  if (!Number.isSafeInteger(elements) || elements <= 0 || dimensions[0] === undefined || dimensions[0] % GGML_Q5_K_BLOCK_SIZE !== 0) {
+    throw new Error(`${name}: GGML_TYPE_Q5_K exige a primeira dimensão GGML positiva e múltipla de ${GGML_Q5_K_BLOCK_SIZE}.`);
+  }
+  return (elements / GGML_Q5_K_BLOCK_SIZE) * GGML_Q5_K_BLOCK_BYTES;
+}
+
 function q6kByteLength(dimensions: readonly number[], name: string): number {
   const elements = product([...dimensions]);
   if (!Number.isSafeInteger(elements) || elements <= 0 || dimensions[0] === undefined || dimensions[0] % GGML_Q6_K_BLOCK_SIZE !== 0) {
@@ -593,6 +635,12 @@ function isGgufQ5_1(tensor: TensorInfo): boolean {
   const quantization = tensor.quantization;
   return tensor.storageDtype === "GGML_Q5_1" && quantization?.family === "gguf" && quantization.mode === "q5_1" &&
     quantization.bits === 5 && quantization.groupSize === GGML_Q5_1_BLOCK_SIZE && quantization.tensorType === "GGML_TYPE_Q5_1";
+}
+
+function isGgufQ5_K(tensor: TensorInfo): boolean {
+  const quantization = tensor.quantization;
+  return tensor.storageDtype === "GGML_Q5_K" && quantization?.family === "gguf" && quantization.mode === "q5_k" &&
+    quantization.bits === 5 && quantization.groupSize === GGML_Q5_K_BLOCK_SIZE && quantization.tensorType === "GGML_TYPE_Q5_K";
 }
 
 function isGgufQ6_K(tensor: TensorInfo): boolean {
