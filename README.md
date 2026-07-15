@@ -247,6 +247,15 @@ relatório `incomplete`.
 
 `npm run compare:generation-trace -- --source <checkpoint> --trace <captura.json> --report <relatorio.json>` consome uma captura distinta com `kind: "generation"`. Além da mesma ligação obrigatória a `source.files`, checksums e `irFingerprint`, ela exige prompt, posições absolutas do prompt, limite/EOS, cada token gerado e sua posição, logits terminais F32 e o cache KV BHSD final. O executor repete prefill e cada decode incremental com pesos materializados por range; uma posição, token, cache, payload F32 ou checksum ausente/divergente torna o relatório `incomplete` ou `approximate`, nunca aprovação. Assim, a captura ainda deve vir de hooks de um runtime autoritativo; a fixture local apenas valida o contrato de consumo.
 
+Há também uma regressão cruzada de contêiner que grava o mesmo microcheckpoint
+Llama denso em Safetensors e GGUF v3. O caminho GGUF reconstrói as dimensões
+`[in,out]` declaradas pelo GGML para os pesos IR `[out,in]`, verifica o checksum
+do arquivo `.gguf`, e consome a evidência F32 produzida pelo fixture
+Safetensors para forward completo, cada operação, cache KV, logits e geração
+greedy. Ela é uma prova lossless dentro da política escalar F32 do fixture —
+não uma alegação de equivalência com um runtime externo ou de cobertura de
+modelos reais/quantizados.
+
 `materializeReferenceF32Constants` em `src/materialize.ts` fecha a fronteira
 entre o catálogo e o executor F32: reúne todos os `TensorRef` do IR, confirma
 nome, shape, dtype e contrato de quantização contra o catálogo de origem e
