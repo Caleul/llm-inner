@@ -364,6 +364,20 @@ evidência sintética lossless dentro da política F32 declarada para
 Qwen/Q4_K, não equivalência com llama.cpp nem validação de checkpoint
 publicado.
 
+Qwen 2 e Qwen 3 também possuem replay completo com `GGML_TYPE_Q5_K`, que
+preserva a mesma hierarquia afim de escala/mínimo do Q4_K mas acrescenta
+`qh[32]` como quinto bit independente de cada código. As matrizes de largura
+256 do fixture percorrem os oito grupos, todos os códigos unsigned de cinco
+bits, nibbles baixo/alto, ambos os campos altos divididos dos grupos 4..7 e
+cada posição de `qh`. A testemunha GGUF F32 calcula diretamente
+`d * scale[group] * (low4 | high1 << 4) - dmin * minimum[group]`; normas e
+os quatro biases de atenção permanecem F32. Para os dois layouts, a regressão
+compara todas as operações, KV pós-RoPE, logits terminais e duas etapas greedy,
+mantendo a ausência de Q/K norms no Qwen 2 e exigindo as normas BHSD no Qwen
+3. É evidência sintética lossless dentro da política F32 declarada para
+Qwen/Q5_K, não equivalência com llama.cpp nem validação de checkpoint
+publicado.
+
 Uma segunda regressão executável cobre o `GGML_TYPE_Q8_0`: um Llama de uma
 camada e largura 256 armazena todas as matrizes em blocos Q8_0 de 32 valores
 com `d=0.5`. Um pacote GGUF F32 separado é construído diretamente da fórmula
