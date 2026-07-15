@@ -26,7 +26,7 @@ test("MLX kernel capture independently records dense Llama execution and greedy 
     assert.equal(await captureMlxTrace({ source, output: executionTrace, inputTokens: [1], python, model: "tiny-llama-mlx", revisionOrChecksum: "mlx-kernel-fixture-v1" }), "execution");
     const execution = await runExecutionTraceComparison({ source, trace: executionTrace, report: path.join(directory, "mlx-execution-report.json"), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
     assert.equal(execution.fidelityClass, "lossless-within-dtype");
-    assert.equal(execution.reference.runtime, "MLX 0.32 dense-F32 independent IR-kernel capture");
+    assert.equal(execution.reference.runtime, "MLX 0.32 dense-F32 llama independent IR-kernel capture");
     assert.equal(execution.operations.length, 22);
 
     const generationTrace = path.join(directory, "mlx-generation.json");
@@ -34,6 +34,46 @@ test("MLX kernel capture independently records dense Llama execution and greedy 
     const generation = await runGenerationTraceComparison({ source, trace: generationTrace, report: path.join(directory, "mlx-generation-report.json"), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
     assert.equal(generation.fidelityClass, "numerically-equivalent");
     assert.equal(generation.generatedTokenIds.length, 2);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("MLX kernel capture independently records Gemma unit-offset and Qwen 3 Q/K-norm traces", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-mlx-multi-adapter-capture-"));
+  try {
+    await writeTinyGemmaF32Model(directory);
+    await writeTinyQwen3F32Model(directory);
+    const python = path.resolve("venv/bin/python");
+    for (const fixture of [
+      { name: "gemma", model: "tiny-gemma-mlx", revision: "gemma-mlx-fixture-v1", expectedOperations: 22, executionFidelity: "lossless-within-dtype" },
+      // The Qwen 3 projections include nonzero bias and Q/K RMSNorm. MLX
+      // reduction boundaries therefore differ from the scalar F32 candidate,
+      // while the complete trace remains inside the declared tolerance.
+      { name: "qwen3", model: "tiny-qwen3-mlx", revision: "qwen3-mlx-fixture-v1", expectedOperations: 24, executionFidelity: "numerically-equivalent" },
+    ]) {
+      const source = path.join(directory, fixture.name);
+      const executionTrace = path.join(directory, `${fixture.name}-mlx-execution.json`);
+      assert.equal(await captureMlxTrace({ source, output: executionTrace, inputTokens: [1], python, model: fixture.model, revisionOrChecksum: fixture.revision }), "execution");
+      const execution = await runExecutionTraceComparison({ source, trace: executionTrace, report: path.join(directory, `${fixture.name}-mlx-execution-report.json`), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
+      assert.equal(execution.fidelityClass, fixture.executionFidelity, fixture.name);
+      assert.equal(execution.reference.runtime, `MLX 0.32 dense-F32 ${fixture.name} independent IR-kernel capture`);
+      assert.equal(execution.operations.length, fixture.expectedOperations, fixture.name);
+
+      const generationTrace = path.join(directory, `${fixture.name}-mlx-generation.json`);
+      assert.equal(await captureMlxTrace({ source, output: generationTrace, inputTokens: [1], maxNewTokens: 2, python, model: fixture.model, revisionOrChecksum: fixture.revision }), "generation");
+      const generation = await runGenerationTraceComparison({ source, trace: generationTrace, report: path.join(directory, `${fixture.name}-mlx-generation-report.json`), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
+      assert.equal(generation.fidelityClass, "numerically-equivalent", fixture.name);
+      assert.equal(generation.generatedTokenIds.length, 2, fixture.name);
+    }
+
+    await writeTinyF32Model(directory);
+    const unsupportedConfig = path.join(directory, "model", "config.json");
+    await writeFile(unsupportedConfig, JSON.stringify({ ...tinyLlamaConfig(), model_type: "mistral" }));
+    await assert.rejects(
+      () => captureMlxTrace({ source: path.join(directory, "model"), output: path.join(directory, "mistral-mlx.json"), inputTokens: [1], python, model: "tiny-mistral", revisionOrChecksum: "mistral-fixture-v1" }),
+      /não possui contrato independente para mistral/,
+    );
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

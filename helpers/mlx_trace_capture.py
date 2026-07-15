@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Independent MLX-kernel capture for the explicitly lowered dense F32 IR.
+"""Independent MLX-kernel capture for explicitly lowered dense F32 IR.
 
 This is intentionally not a model-family detector or a fallback executor.  The
 Node caller has already selected and validated an adapter, and this helper
@@ -31,8 +31,9 @@ class Capture:
         self.source = Path(request["source"])
         if self.ir["source"]["format"] != "safetensors":
             raise ValueError("MLX capture suporta somente Safetensors denso F32.")
-        if self.ir["architecture"]["modelType"] != "llama":
-            raise ValueError("MLX capture atual suporta somente o adaptador llama declarado.")
+        model_type = self.ir["architecture"]["modelType"]
+        if model_type not in {"llama", "gemma", "qwen3"}:
+            raise ValueError(f"MLX capture não possui contrato independente para {model_type}; suportados: llama, gemma, qwen3.")
         self.weights = self._weights()
 
     def _weights(self) -> dict[str, mx.array]:

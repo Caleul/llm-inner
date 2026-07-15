@@ -21,9 +21,9 @@ export interface MlxCaptureOptions {
 
 /**
  * Capture a deliberately narrow independent reference trace through MLX
- * kernels.  This consumes a prevalidated dense F32 Llama IR; it never guesses
- * architecture or dequantization semantics, and remains separate from the
- * scalar candidate executor used by trace replay.
+ * kernels. This consumes a prevalidated dense F32 IR for one of the explicitly
+ * listed adapters; it never guesses architecture or dequantization semantics,
+ * and remains separate from the scalar candidate executor used by trace replay.
  */
 export async function captureMlxTrace(options: MlxCaptureOptions): Promise<"execution" | "generation"> {
   if (options.inputTokens.length === 0 || options.inputTokens.some((token) => !Number.isInteger(token) || token < 0)) throw new Error("MLX capture requer inputTokens inteiros não negativos.");
@@ -36,7 +36,9 @@ export async function captureMlxTrace(options: MlxCaptureOptions): Promise<"exec
       if (tensor.storageDtype !== "F32" || tensor.quantization) throw new Error(`${tensor.name}: MLX capture requer todos os tensors F32 densos e não quantizados.`);
     }
     const ir = await buildModelIR(opened.catalog, { outputRows: 1, inputTerms: 1, includeWeights: false });
-    if (ir.architecture.modelType !== "llama") throw new Error(`MLX capture possui adaptador independente somente para llama; recebeu ${ir.architecture.modelType}.`);
+    if (!MLX_CAPTURE_MODEL_TYPES.has(ir.architecture.modelType)) {
+      throw new Error(`MLX capture não possui contrato independente para ${ir.architecture.modelType}; suportados: ${[...MLX_CAPTURE_MODEL_TYPES].join(", ")}.`);
+    }
     const source = { files: await checksums(opened.catalog.source, opened.catalog.tensors.values()) };
     const common = {
       schemaVersion: 1 as const,
@@ -49,7 +51,7 @@ export async function captureMlxTrace(options: MlxCaptureOptions): Promise<"exec
       const bundle: ExecutionTraceBundle = {
         ...common, kind: "execution",
         reference: {
-          runtime: "MLX 0.32 dense-F32 independent IR-kernel capture", model: options.model, revisionOrChecksum: options.revisionOrChecksum,
+          runtime: `MLX 0.32 dense-F32 ${ir.architecture.modelType} independent IR-kernel capture`, model: options.model, revisionOrChecksum: options.revisionOrChecksum,
           containerFormat: "safetensors", quantization: "none", inputTokens: [options.inputTokens], dtypePolicy: "MLX float32 kernel capture",
           operations: reference.operations, pastKeyValues: reference.pastKeyValues,
         },
@@ -63,7 +65,7 @@ export async function captureMlxTrace(options: MlxCaptureOptions): Promise<"exec
     const bundle: GenerationTraceBundle = {
       ...common, kind: "generation",
       reference: {
-        runtime: "MLX 0.32 dense-F32 independent IR-kernel capture", model: options.model, revisionOrChecksum: options.revisionOrChecksum,
+        runtime: `MLX 0.32 dense-F32 ${ir.architecture.modelType} independent IR-kernel capture`, model: options.model, revisionOrChecksum: options.revisionOrChecksum,
         containerFormat: "safetensors", quantization: "none", inputTokens: [...options.inputTokens], promptPositionIds: positions,
         dtypePolicy: "MLX float32 kernel capture", maxNewTokens: options.maxNewTokens, generatedTokenIds: reference.generatedTokenIds,
         steps: reference.steps, selectionLogits: reference.selectionLogits, stepPastKeyValues: reference.stepPastKeyValues,
@@ -77,6 +79,11 @@ export async function captureMlxTrace(options: MlxCaptureOptions): Promise<"exec
     await opened.close();
   }
 }
+
+// Each entry has an end-to-end MLX regression that exercises semantics not
+// shared by the Llama baseline. New adapters must be added here deliberately;
+// a generic "supported IR" fallback would hide unreviewed model behavior.
+const MLX_CAPTURE_MODEL_TYPES = new Set(["llama", "gemma", "qwen3"]);
 
 async function checksums(source: string, tensors: Iterable<{ shard?: string }>): Promise<TraceSourceFile[]> {
   const files = new Set<string>(["config.json"]);
