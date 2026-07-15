@@ -4,12 +4,12 @@ import type { ModelCatalog } from "./types.js";
 import { SafetensorsCatalogReader } from "./safetensors.js";
 import { GgufCatalogReader } from "./gguf.js";
 import { TensorBridge } from "./bridge.js";
-import type { DenseF32Reader } from "./materialize.js";
+import type { DenseF32Reader, DenseF64Reader } from "./materialize.js";
 
 export interface OpenCatalogResult {
   catalog: ModelCatalog;
   /** The live container reader used for verified range materialization. */
-  reader: DenseF32Reader;
+  reader: DenseF32Reader | (DenseF32Reader & DenseF64Reader);
   close(): Promise<void>;
   bridge?: TensorBridge;
 }

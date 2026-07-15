@@ -6,8 +6,8 @@ import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { buildModelIR } from "../src/architecture.js";
 import { openCatalog } from "../src/catalog.js";
-import { executeReferenceF32, generateReferenceF32 } from "../src/executor.js";
-import { materializeReferenceF32Constants } from "../src/materialize.js";
+import { executeReferenceF32, executeReferenceF64, generateReferenceF32, generateReferenceF64 } from "../src/executor.js";
+import { materializeReferenceF32Constants, materializeReferenceF64Constants } from "../src/materialize.js";
 import { fingerprintIR, readExecutionTraceBundle } from "../src/trace.js";
 import { runExecutionTraceComparison, runGenerationTraceComparison } from "../src/trace-runner.js";
 import type { ModelIR } from "../src/types.js";
@@ -77,6 +77,65 @@ test("trace bundle rejects decimal-array tensor payloads and unsafe checkpoint p
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+test("F64 Safetensors replays binary64 operations, KV cache, logits, and greedy generation without F32 narrowing", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-f64-trace-"));
+  try {
+    const source = await writeTinyF64Model(directory);
+    const opened = await openCatalog(source, false);
+    let ir: ModelIR;
+    let execution: ReturnType<typeof executeReferenceF64>;
+    let generation: ReturnType<typeof generateReferenceF64>;
+    try {
+      ir = await buildModelIR(opened.catalog, preview);
+      setF64Policy(ir);
+      if (!("readDenseF64" in opened.reader) || typeof opened.reader.readDenseF64 !== "function") throw new Error("F64 Safetensors reader unavailable.");
+      const tensors = await materializeReferenceF64Constants(ir, opened.catalog, opened.reader);
+      execution = executeReferenceF64(ir, { inputIds: [[1]], tensors });
+      generation = generateReferenceF64(ir, { inputIds: [[1]], tensors, maxNewTokens: 2 });
+    } finally { await opened.close(); }
+    const fingerprintOpened = await openCatalog(source, false);
+    let fingerprint: string;
+    try { fingerprint = fingerprintIR(await buildModelIR(fingerprintOpened.catalog, preview)); } finally { await fingerprintOpened.close(); }
+    const trace = path.join(directory, "f64-execution.json");
+    await writeFile(trace, JSON.stringify({
+      schemaVersion: 1, kind: "execution", source: { files: await checksums(source, ["config.json", "model.safetensors"]) }, irFingerprint: fingerprint,
+      candidatePolicy: { dtype: "F64", runtime: "llm-inner scalar IEEE-754 F64" },
+      reference: {
+        runtime: "independent exact F64 fixture", model: "tiny-llama-f64", revisionOrChecksum: "f64-fixture-v1", containerFormat: "safetensors", quantization: "none", inputTokens: [[1]], dtypePolicy: "F64 scalar fixture",
+        operations: operations(ir!).map((operation) => ({ operationId: operation.id, output: operation.output, tensor: serializedF64(execution!.values.get(operation.output)!) })),
+        pastKeyValues: [...execution!.pastKeyValues].map(([layer, cache]) => ({ layer, key: serializedF64(cache.key), value: serializedF64(cache.value) })),
+      },
+    }, null, 2));
+    const executionReport = await runExecutionTraceComparison({ source, trace, report: path.join(directory, "f64-execution-report.json"), topK: 3 });
+    assert.equal(executionReport.fidelityClass, "lossless-within-dtype");
+    assert.equal(executionReport.firstDivergentOperation, null);
+
+    const mixedPrecision = JSON.parse(await readFile(trace, "utf8"));
+    mixedPrecision.reference.operations[0].tensor.dtype = "F32";
+    await writeFile(path.join(directory, "f64-mixed.json"), JSON.stringify(mixedPrecision));
+    await assert.rejects(() => runExecutionTraceComparison({ source, trace: path.join(directory, "f64-mixed.json"), report: path.join(directory, "f64-mixed-report.json") }), /dtype F64/);
+
+    const generationTrace = path.join(directory, "f64-generation.json");
+    await writeFile(generationTrace, JSON.stringify({
+      schemaVersion: 1, kind: "generation", source: { files: await checksums(source, ["config.json", "model.safetensors"]) }, irFingerprint: fingerprint,
+      candidatePolicy: { dtype: "F64", runtime: "llm-inner scalar IEEE-754 F64" },
+      reference: {
+        runtime: "independent exact F64 fixture", model: "tiny-llama-f64", revisionOrChecksum: "f64-fixture-v1", containerFormat: "safetensors", quantization: "none", inputTokens: [1], promptPositionIds: [0], dtypePolicy: "F64 scalar fixture", maxNewTokens: 2,
+        generatedTokenIds: generation!.generatedTokenIds, steps: generation!.steps, logits: serializedF64(generation!.logits),
+        pastKeyValues: [...generation!.pastKeyValues].map(([layer, cache]) => ({ layer, key: serializedF64(cache.key), value: serializedF64(cache.value) })),
+      },
+    }, null, 2));
+    const generationReport = await runGenerationTraceComparison({ source, trace: generationTrace, report: path.join(directory, "f64-generation-report.json"), topK: 3 });
+    assert.equal(generationReport.fidelityClass, "lossless-within-dtype");
+    assert.equal(generationReport.firstDivergence, null);
+
+    const corrupt = await readFile(path.join(source, "model.safetensors"));
+    corrupt[corrupt.length - 1] = corrupt[corrupt.length - 1]! ^ 1;
+    await writeFile(path.join(source, "model.safetensors"), corrupt);
+    await assert.rejects(() => runExecutionTraceComparison({ source, trace, report: path.join(directory, "f64-corrupt.json") }), /Checksum divergente/);
+  } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
 test("integrity-bound F32 generation trace verifies positions, terminal logits, and canonical KV cache", async () => {
@@ -1181,8 +1240,19 @@ function setF32Policy(ir: ModelIR): void {
   }
 }
 
+function setF64Policy(ir: ModelIR): void {
+  for (const operation of operations(ir)) {
+    operation.dtypePolicy = { computeDtype: "F64", accumulationDtype: "F64", outputDtype: "F64" };
+    if (operation.op === "scaled_dot_product_attention") operation.softmaxComputeDtype = "F64";
+  }
+}
+
 function serialized(tensor: { shape: number[]; values: Float32Array }) {
   return { dtype: "F32", shape: tensor.shape, valuesBase64: Buffer.from(tensor.values.buffer, tensor.values.byteOffset, tensor.values.byteLength).toString("base64") };
+}
+
+function serializedF64(tensor: { shape: number[]; values: Float64Array }) {
+  return { dtype: "F64", shape: tensor.shape, valuesBase64: Buffer.from(tensor.values.buffer, tensor.values.byteOffset, tensor.values.byteLength).toString("base64") };
 }
 
 async function checksums(directory: string, files: readonly string[]) {
@@ -1227,6 +1297,25 @@ async function writeTinyF32Model(root: string): Promise<void> {
   const prefix = Buffer.alloc(8); prefix.writeBigUInt64LE(BigInt(encoded.length));
   await writeFile(path.join(directory, "config.json"), JSON.stringify(tinyLlamaConfig()));
   await writeFile(path.join(directory, "model.safetensors"), Buffer.concat([prefix, encoded, ...payloads]));
+}
+
+async function writeTinyF64Model(root: string): Promise<string> {
+  const directory = path.join(root, "model");
+  await mkdir(directory);
+  const header: Record<string, unknown> = {};
+  let offset = 0;
+  const payloads = tinyLlamaWeights().map(([name, shape, values]) => {
+    const payload = Buffer.alloc(values.length * 8);
+    values.forEach((value, index) => payload.writeDoubleLE(value + (value !== 0 ? 1e-13 : 0), index * 8));
+    header[name] = { dtype: "F64", shape, data_offsets: [offset, offset + payload.length] };
+    offset += payload.length;
+    return payload;
+  });
+  const encoded = Buffer.from(JSON.stringify(header));
+  const prefix = Buffer.alloc(8); prefix.writeBigUInt64LE(BigInt(encoded.length));
+  await writeFile(path.join(directory, "config.json"), JSON.stringify(tinyLlamaConfig()));
+  await writeFile(path.join(directory, "model.safetensors"), Buffer.concat([prefix, encoded, ...payloads]));
+  return directory;
 }
 
 async function writeTiny16SafetensorsModel(directory: string, storageDtype: "F16" | "BF16"): Promise<void> {

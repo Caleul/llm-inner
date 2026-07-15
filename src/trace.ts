@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import * as path from "node:path";
 import type {
+  DenseTensor,
   DenseF32Tensor,
   DifferentialGenerationReferenceTrace,
   DifferentialKeyValueCacheSample,
@@ -15,23 +16,23 @@ export interface TraceSourceFile {
   sha256: string;
 }
 
-interface SerializedF32Tensor {
-  dtype: "F32";
+interface SerializedTensor {
+  dtype: "F32" | "F64";
   shape: number[];
-  /** Little-endian IEEE-754 binary32 payload, encoded without JSON rounding. */
+  /** Little-endian IEEE-754 payload in the declared dtype, without JSON rounding. */
   valuesBase64: string;
 }
 
 interface SerializedOperation {
   operationId: string;
   output: string;
-  tensor: SerializedF32Tensor;
+  tensor: SerializedTensor;
 }
 
 interface SerializedCache {
   layer: number;
-  key: SerializedF32Tensor;
-  value: SerializedF32Tensor;
+  key: SerializedTensor;
+  value: SerializedTensor;
 }
 
 interface SerializedGenerationStep {
@@ -51,7 +52,7 @@ export interface ExecutionTraceBundle {
   source: { files: TraceSourceFile[] };
   irFingerprint: string;
   candidatePolicy: {
-    dtype: "F32";
+    dtype: "F32" | "F64";
     runtime: string;
   };
   reference: Omit<DifferentialReferenceTrace, "operations" | "pastKeyValues"> & {
@@ -71,9 +72,9 @@ export interface GenerationTraceBundle {
   kind: "generation";
   source: { files: TraceSourceFile[] };
   irFingerprint: string;
-  candidatePolicy: { dtype: "F32"; runtime: string };
+  candidatePolicy: { dtype: "F32" | "F64"; runtime: string };
   reference: Omit<DifferentialGenerationReferenceTrace, "logits" | "pastKeyValues" | "steps"> & {
-    logits: SerializedF32Tensor;
+    logits: SerializedTensor;
     pastKeyValues: SerializedCache[];
     steps: SerializedGenerationStep[];
   };
@@ -174,8 +175,8 @@ function validateBundle(raw: unknown): ExecutionTraceBundle {
   const source = object(value.source, "Trace source");
   if (!Array.isArray(source.files) || source.files.length === 0) throw new Error("Trace requer source.files não vazio.");
   const candidatePolicy = object(value.candidatePolicy, "Trace candidatePolicy");
-  if (candidatePolicy.dtype !== "F32" || typeof candidatePolicy.runtime !== "string" || candidatePolicy.runtime.trim() === "") {
-    throw new Error("Trace requer candidatePolicy F32 e runtime não vazio.");
+  if ((candidatePolicy.dtype !== "F32" && candidatePolicy.dtype !== "F64") || typeof candidatePolicy.runtime !== "string" || candidatePolicy.runtime.trim() === "") {
+    throw new Error("Trace requer candidatePolicy F32/F64 e runtime não vazio.");
   }
   if (typeof value.irFingerprint !== "string" || !/^[a-f0-9]{64}$/.test(value.irFingerprint)) throw new Error("Trace requer irFingerprint SHA-256.");
   const reference = object(value.reference, "Trace reference");
@@ -189,19 +190,20 @@ function validateBundle(raw: unknown): ExecutionTraceBundle {
     if (typeof file.path !== "string" || typeof file.sha256 !== "string") throw new Error("Trace source file inválido.");
     return { path: file.path, sha256: file.sha256 };
   });
+  const dtype = candidatePolicy.dtype as "F32" | "F64";
   const operations = reference.operations.map((entry) => {
     const sample = object(entry, "Trace operation");
     if (typeof sample.operationId !== "string" || sample.operationId === "" || typeof sample.output !== "string" || sample.output === "") throw new Error("Trace operation requer operationId e output.");
-    return { operationId: sample.operationId, output: sample.output, tensor: validateSerializedTensor(sample.tensor, `operação ${sample.operationId}`) };
+    return { operationId: sample.operationId, output: sample.output, tensor: validateSerializedTensor(sample.tensor, `operação ${sample.operationId}`, dtype) };
   });
   const pastKeyValues = reference.pastKeyValues.map((entry) => {
     const cache = object(entry, "Trace cache KV");
     if (!Number.isInteger(cache.layer) || (cache.layer as number) < 0) throw new Error("Trace cache KV requer layer inteiro não negativo.");
-    return { layer: cache.layer as number, key: validateSerializedTensor(cache.key, "cache key"), value: validateSerializedTensor(cache.value, "cache value") };
+    return { layer: cache.layer as number, key: validateSerializedTensor(cache.key, "cache key", dtype), value: validateSerializedTensor(cache.value, "cache value", dtype) };
   });
   return {
     schemaVersion: 1, kind: "execution", source: { files }, irFingerprint: value.irFingerprint,
-    candidatePolicy: { dtype: "F32", runtime: candidatePolicy.runtime },
+    candidatePolicy: { dtype: candidatePolicy.dtype as "F32" | "F64", runtime: candidatePolicy.runtime },
     reference: {
       runtime: reference.runtime as string, model: reference.model as string, revisionOrChecksum: reference.revisionOrChecksum as string,
       containerFormat: reference.containerFormat as string, quantization: reference.quantization as string,
@@ -243,12 +245,12 @@ function validateGenerationBundle(raw: unknown): GenerationTraceBundle {
   const eosIndex = reference.eosTokenId === undefined ? -1 : generatedTokenIds.indexOf(reference.eosTokenId as number);
   if (eosIndex >= 0 && eosIndex !== generatedTokenIds.length - 1) throw new Error("Trace de geração não pode emitir tokens após EOS.");
   if (!Array.isArray(reference.pastKeyValues)) throw new Error("Trace de geração requer pastKeyValues array.");
-  const pastKeyValues = reference.pastKeyValues.map((entry) => serializedCache(entry, "Trace de geração cache KV"));
+  const pastKeyValues = reference.pastKeyValues.map((entry) => serializedCache(entry, "Trace de geração cache KV", candidatePolicy.dtype as "F32" | "F64"));
   uniqueCacheLayers(pastKeyValues);
   const files = parseSourceFiles(source.files);
   return {
     schemaVersion: 1, kind: "generation", source: { files }, irFingerprint: value.irFingerprint as string,
-    candidatePolicy: { dtype: "F32", runtime: candidatePolicy.runtime as string },
+    candidatePolicy: { dtype: candidatePolicy.dtype as "F32" | "F64", runtime: candidatePolicy.runtime as string },
     reference: {
       runtime: reference.runtime as string, model: reference.model as string, revisionOrChecksum: reference.revisionOrChecksum as string,
       containerFormat: reference.containerFormat as string, quantization: reference.quantization as string,
@@ -256,7 +258,7 @@ function validateGenerationBundle(raw: unknown): GenerationTraceBundle {
       dtypePolicy: reference.dtypePolicy as string, maxNewTokens: reference.maxNewTokens as number,
       ...(reference.eosTokenId !== undefined ? { eosTokenId: reference.eosTokenId as number } : {}),
       generatedTokenIds: [...generatedTokenIds], steps,
-      logits: validateSerializedTensor(reference.logits, "logits terminais"), pastKeyValues,
+      logits: validateSerializedTensor(reference.logits, "logits terminais", candidatePolicy.dtype as "F32" | "F64"), pastKeyValues,
     },
   };
 }
@@ -266,7 +268,7 @@ function validateEnvelope(value: Record<string, unknown>, kind: "execution" | "g
   const source = object(value.source, "Trace source");
   if (!Array.isArray(source.files) || source.files.length === 0) throw new Error("Trace requer source.files não vazio.");
   const candidatePolicy = object(value.candidatePolicy, "Trace candidatePolicy");
-  if (candidatePolicy.dtype !== "F32" || typeof candidatePolicy.runtime !== "string" || candidatePolicy.runtime.trim() === "") throw new Error("Trace requer candidatePolicy F32 e runtime não vazio.");
+  if ((candidatePolicy.dtype !== "F32" && candidatePolicy.dtype !== "F64") || typeof candidatePolicy.runtime !== "string" || candidatePolicy.runtime.trim() === "") throw new Error("Trace requer candidatePolicy F32/F64 e runtime não vazio.");
   if (typeof value.irFingerprint !== "string" || !/^[a-f0-9]{64}$/.test(value.irFingerprint)) throw new Error("Trace requer irFingerprint SHA-256.");
 }
 
@@ -279,10 +281,10 @@ function parseSourceFiles(raw: unknown): TraceSourceFile[] {
   });
 }
 
-function serializedCache(raw: unknown, label: string): SerializedCache {
+function serializedCache(raw: unknown, label: string, dtype: "F32" | "F64"): SerializedCache {
   const cache = object(raw, label);
   if (!Number.isInteger(cache.layer) || (cache.layer as number) < 0) throw new Error(`${label} requer layer inteiro não negativo.`);
-  return { layer: cache.layer as number, key: validateSerializedTensor(cache.key, "cache key"), value: validateSerializedTensor(cache.value, "cache value") };
+  return { layer: cache.layer as number, key: validateSerializedTensor(cache.key, "cache key", dtype), value: validateSerializedTensor(cache.value, "cache value", dtype) };
 }
 
 function uniqueCacheLayers(caches: readonly SerializedCache[]): void {
@@ -293,22 +295,24 @@ function uniqueCacheLayers(caches: readonly SerializedCache[]): void {
   }
 }
 
-function validateSerializedTensor(raw: unknown, label: string): SerializedF32Tensor {
+function validateSerializedTensor(raw: unknown, label: string, expectedDtype?: "F32" | "F64"): SerializedTensor {
   const tensor = object(raw, `Tensor ${label}`);
-  if (tensor.dtype !== "F32" || !Array.isArray(tensor.shape) || !tensor.shape.every((dimension) => Number.isInteger(dimension) && (dimension as number) > 0) || typeof tensor.valuesBase64 !== "string") {
-    throw new Error(`Tensor ${label} deve declarar dtype F32, shape positivo e valuesBase64.`);
+  if ((tensor.dtype !== "F32" && tensor.dtype !== "F64") || (expectedDtype !== undefined && tensor.dtype !== expectedDtype) || !Array.isArray(tensor.shape) || !tensor.shape.every((dimension) => Number.isInteger(dimension) && (dimension as number) > 0) || typeof tensor.valuesBase64 !== "string") {
+    throw new Error(`Tensor ${label} deve declarar dtype ${expectedDtype ?? "F32/F64"}, shape positivo e valuesBase64.`);
   }
-  decodeTensor({ dtype: "F32", shape: tensor.shape as number[], valuesBase64: tensor.valuesBase64 }, label);
-  return { dtype: "F32", shape: tensor.shape as number[], valuesBase64: tensor.valuesBase64 };
+  decodeTensor({ dtype: tensor.dtype, shape: tensor.shape as number[], valuesBase64: tensor.valuesBase64 }, label);
+  return { dtype: tensor.dtype, shape: tensor.shape as number[], valuesBase64: tensor.valuesBase64 };
 }
 
-function decodeTensor(tensor: SerializedF32Tensor, label: string): DenseF32Tensor {
+function decodeTensor(tensor: SerializedTensor, label: string): DenseF32Tensor | DenseTensor {
   const elements = tensor.shape.reduce((total, dimension) => total * dimension, 1);
   if (!Number.isSafeInteger(elements) || elements <= 0) throw new Error(`Tensor ${label} possui shape inseguro.`);
   const bytes = Buffer.from(tensor.valuesBase64, "base64");
-  if (bytes.length !== elements * Float32Array.BYTES_PER_ELEMENT) throw new Error(`Tensor ${label} possui ${bytes.length} bytes F32, esperado ${elements * 4}.`);
+  const bytesPerElement = tensor.dtype === "F32" ? Float32Array.BYTES_PER_ELEMENT : Float64Array.BYTES_PER_ELEMENT;
+  if (bytes.length !== elements * bytesPerElement) throw new Error(`Tensor ${label} possui ${bytes.length} bytes ${tensor.dtype}, esperado ${elements * bytesPerElement}.`);
   const copy = new Uint8Array(bytes);
-  return { shape: [...tensor.shape], values: new Float32Array(copy.buffer) };
+  if (tensor.dtype === "F32") return { shape: [...tensor.shape], values: new Float32Array(copy.buffer) };
+  return { shape: [...tensor.shape], values: new Float64Array(copy.buffer) };
 }
 
 function object(value: unknown, label: string): Record<string, unknown> {

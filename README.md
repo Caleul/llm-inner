@@ -119,15 +119,15 @@ Sem `--include-weights`, a compilação não dequantiza previews; ela apenas cat
 
 ### Comparação com captura autoritativa
 
-`npm run compare:trace -- --source <checkpoint> --trace <captura.json> --report <relatorio.json>` executa a fronteira completa de validação F32: reabre o contêiner, confere SHA-256 de `config.json` e de cada shard/arquivo que participa do checkpoint, reconstrói o IR, materializa os pesos por range, executa o interpretador F32 e compara cada operação e cache KV com a captura. O relatório só é escrito depois de todas essas verificações.
+`npm run compare:trace -- --source <checkpoint> --trace <captura.json> --report <relatorio.json>` executa a fronteira completa de validação declarada pela captura (`F32` ou `F64`): reabre o contêiner, confere SHA-256 de `config.json` e de cada shard/arquivo que participa do checkpoint, reconstrói o IR, materializa os pesos por range, executa o interpretador correspondente e compara cada operação e cache KV com a captura. O relatório só é escrito depois de todas essas verificações.
 
 A captura é JSON `schemaVersion: 1`, `kind: "execution"`, e exige:
 
 - `source.files`: lista exata de caminhos relativos seguros e checksums SHA-256 do checkpoint;
-- `irFingerprint`: SHA-256 do IR serializado antes da política F32 declarada;
-- `candidatePolicy`: atualmente apenas `dtype: "F32"` e o identificador do executor candidato;
+- `irFingerprint`: SHA-256 do IR serializado antes da política declarada;
+- `candidatePolicy`: `dtype: "F32"` ou `"F64"` e o identificador do executor candidato;
 - `reference`: identidade imutável do runtime/modelo/revisão, tokens de entrada e cada operação por `operationId`, além do cache KV pós-RoPE BHSD;
-- cada tensor como `dtype: "F32"`, `shape` e `valuesBase64` com bytes IEEE-754 little-endian — não arrays decimais sujeitos a arredondamento JSON.
+- cada tensor com o mesmo `dtype` da política (`"F32"` ou `"F64"`), `shape` e `valuesBase64` com bytes IEEE-754 little-endian — não arrays decimais sujeitos a arredondamento JSON nem mistura silenciosa de precisão.
 
 O comando recusa arquivo ausente/extra, checksum divergente, fingerprint de IR diferente, dtype implícito, operação duplicada, shape/payload inválido e evidência incompleta. A captura ainda precisa ser produzida por hooks verificados no runtime autoritativo; esse mecanismo não transforma o executor escalar em uma referência de Transformers, MLX ou llama.cpp.
 
@@ -487,6 +487,17 @@ O executor F64 exige que cada operação declare `computeDtype`,
 `accumulationDtype` e `outputDtype` como `F64`; campos ausentes não são tratados
 como defaults. `inputDtype`, quando declarado, também deve ser `F64`. Isso evita
 que um IR incompleto seja executado com fronteiras de cast inventadas.
+
+O mesmo comando de trace também percorre a fronteira F64 completa para
+Safetensors densos: payloads `valuesBase64` F64, todas as operações, KV
+pós-RoPE, logits terminais e geração greedy são comparados sem estreitar os
+bytes para F32. A validação exige que todos os tensores capturados tenham o
+dtype declarado e que o leitor do contêiner implemente materialização F64
+verificada; GGUF, quantização e F16/BF16 continuam recusados nesse caminho em
+vez de serem promovidos implicitamente. O fixture regressivo altera valores
+F64 além da precisão F32 e também prova a recusa por checksum de um payload
+modificado. Continua sendo evidência sintética escalar, não equivalência a um
+runtime externo.
 
 O executor também aceita e devolve cache KV por camada para decoder incremental.
 O contrato canônico é um `Map` indexado pela camada, com `key` e `value`

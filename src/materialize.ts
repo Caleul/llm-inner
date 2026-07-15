@@ -1,9 +1,14 @@
 import type { TensorBridge } from "./bridge.js";
-import type { DenseF32Tensor, ModelCatalog, ModelIR, Operation, QuantizationSpec, TensorInfo, TensorRef } from "./types.js";
+import type { DenseF32Tensor, DenseTensor, ModelCatalog, ModelIR, Operation, QuantizationSpec, TensorInfo, TensorRef } from "./types.js";
 import { adaptGgufLlamaCatalog } from "./gguf-llama.js";
 
 export interface DenseF32Reader {
   readDenseAsF32(tensor: TensorInfo): Promise<DenseF32Tensor>;
+}
+
+/** Deliberately separate from F32 materialization: no storage widening occurs. */
+export interface DenseF64Reader {
+  readDenseF64(tensor: TensorInfo): Promise<DenseTensor>;
 }
 
 interface NativeMlxAffineReader extends DenseF32Reader {
@@ -54,6 +59,35 @@ export async function materializeReferenceF32Constants(
       materialized = await reader.readDenseAsF32(catalogued);
     }
     assertMaterializedTensor(reference, materialized);
+    constants.set(reference.name, materialized);
+  }
+  return constants;
+}
+
+/**
+ * Materialize the exact dense F64 constants required by the F64 executor.
+ * Quantized and lower-precision storage are rejected rather than being widened
+ * into a different accumulation/rounding contract.
+ */
+export async function materializeReferenceF64Constants(
+  ir: ModelIR,
+  catalog: ModelCatalog,
+  reader: DenseF64Reader,
+): Promise<ReadonlyMap<string, DenseTensor>> {
+  const adaptedCatalog = adaptGgufLlamaCatalog(catalog);
+  const constants = new Map<string, DenseTensor>();
+  for (const reference of referencedTensors(ir).values()) {
+    const catalogued = adaptedCatalog.tensors.get(reference.name);
+    if (!catalogued) throw new Error(`IR referencia tensor ausente do catálogo: ${reference.name}.`);
+    assertReferenceMatchesCatalog(reference, catalogued);
+    if (catalogued.storageDtype !== "F64" || catalogued.quantization) {
+      throw new Error(`${reference.name}: executor F64 requer storage F64 denso não quantizado; recebeu ${catalogued.storageDtype}${catalogued.quantization ? " quantizado" : ""}.`);
+    }
+    const materialized = await reader.readDenseF64(catalogued);
+    const elements = reference.shape.reduce((product, dimension) => product * dimension, 1);
+    if (!sameShape(reference.shape, materialized.shape) || materialized.values.length !== elements) {
+      throw new Error(`${reference.name}: materializador F64 retornou shape incompatível [${materialized.shape.join(", ")}].`);
+    }
     constants.set(reference.name, materialized);
   }
   return constants;
