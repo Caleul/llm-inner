@@ -113,6 +113,28 @@ test("MLX kernel capture replays affine U32 Llama with F16 scales and biases", a
   }
 });
 
+test("MLX kernel capture replays affine U32 Llama with BF16 scales and biases", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-mlx-affine-bf16-parameters-"));
+  try {
+    const { quantizedSource } = await writeMlxAffineTraceFixture(directory, 32, 4, true, "BF16");
+    const python = path.resolve("venv/bin/python");
+    const executionTrace = path.join(directory, "mlx-affine-bf16-execution.json");
+    assert.equal(await captureMlxTrace({ source: quantizedSource, output: executionTrace, inputTokens: [1], python, model: "mlx-affine-llama-bf16", revisionOrChecksum: "mlx-affine-bf16-parameters-fixture-v1" }), "execution");
+    const execution = await runExecutionTraceComparison({ source: quantizedSource, trace: executionTrace, report: path.join(directory, "mlx-affine-bf16-execution-report.json"), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
+    assert.equal(execution.fidelityClass, "numerically-equivalent");
+    assert.equal(execution.reference.runtime, "MLX 0.32 affine-U32 4-bit group-32 BF16-parameters llama independent IR-kernel capture");
+    assert.equal(execution.reference.quantization, "MLX affine U32 4-bit group_size=32 BF16-parameters");
+
+    const generationTrace = path.join(directory, "mlx-affine-bf16-generation.json");
+    assert.equal(await captureMlxTrace({ source: quantizedSource, output: generationTrace, inputTokens: [1], maxNewTokens: 2, python, model: "mlx-affine-llama-bf16", revisionOrChecksum: "mlx-affine-bf16-parameters-fixture-v1" }), "generation");
+    const generation = await runGenerationTraceComparison({ source: quantizedSource, trace: generationTrace, report: path.join(directory, "mlx-affine-bf16-generation-report.json"), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
+    assert.equal(generation.fidelityClass, "numerically-equivalent");
+    assert.equal(generation.generatedTokenIds.length, 2);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("MLX kernel capture covers every declared affine bit width and the no-bias identity", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-mlx-affine-bit-widths-"));
   try {
@@ -1750,7 +1772,7 @@ async function writeTinyQwen3F32Model(root: string): Promise<void> {
  * Builds paired Llama packages for the native MLX affine reader. The F32 side
  * computes every value independently as scale[group] * code + bias[group].
  */
-async function writeMlxAffineTraceFixture(root: string, groupSize = 32, bits = 4, includeBiases = true, parameterDtype: "F32" | "F16" = "F32"): Promise<{ denseSource: string; quantizedSource: string }> {
+async function writeMlxAffineTraceFixture(root: string, groupSize = 32, bits = 4, includeBiases = true, parameterDtype: "F32" | "F16" | "BF16" = "F32"): Promise<{ denseSource: string; quantizedSource: string }> {
   const denseSource = path.join(root, "dense");
   const quantizedSource = path.join(root, "mlx-affine");
   await mkdir(denseSource);
@@ -1765,7 +1787,7 @@ async function writeMlxAffineTraceFixture(root: string, groupSize = 32, bits = 4
     "model.layers.0.mlp.up_proj.weight", "model.layers.0.mlp.down_proj.weight", "lm_head.weight",
   ];
   const denseTensors: Array<[string, "F32", number[], number[]]> = [];
-  const mlxTensors: Array<[string, "F32" | "F16" | "U32", number[], number[]]> = [];
+  const mlxTensors: Array<[string, "F32" | "F16" | "BF16" | "U32", number[], number[]]> = [];
   for (const [matrixIndex, name] of matrixNames.entries()) {
     const scales = Array.from({ length: width * groups }, (_, index) => Math.fround(0.03125 * (1 + ((index + matrixIndex) % 4))));
     const biases = Array.from({ length: width * groups }, (_, index) => Math.fround(-0.25 + 0.0625 * ((index + matrixIndex) % 5)));
@@ -1813,14 +1835,15 @@ function packMlxAffineCodes(codes: readonly number[], rows: number, columns: num
   return packed;
 }
 
-async function writeSafetensorsFixture(file: string, tensors: Array<[string, "F32" | "F16" | "U32", number[], number[]]>): Promise<void> {
+async function writeSafetensorsFixture(file: string, tensors: Array<[string, "F32" | "F16" | "BF16" | "U32", number[], number[]]>): Promise<void> {
   const header: Record<string, unknown> = {};
   let offset = 0;
   const payloads = tensors.map(([name, dtype, shape, values]) => {
-    const payload = Buffer.alloc(values.length * (dtype === "F16" ? 2 : 4));
+    const payload = Buffer.alloc(values.length * (dtype === "F16" || dtype === "BF16" ? 2 : 4));
     values.forEach((value, index) => {
       if (dtype === "F32") payload.writeFloatLE(value, index * 4);
       else if (dtype === "F16") payload.writeUInt16LE(encodeAffineF16(value), index * 2);
+      else if (dtype === "BF16") payload.writeUInt16LE(encodeBF16(value), index * 2);
       else payload.writeUInt32LE(value, index * 4);
     });
     header[name] = { dtype, shape, data_offsets: [offset, offset + payload.length] };

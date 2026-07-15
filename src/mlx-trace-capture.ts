@@ -88,7 +88,7 @@ export async function captureMlxTrace(options: MlxCaptureOptions): Promise<"exec
 // a generic "supported IR" fallback would hide unreviewed model behavior.
 const MLX_CAPTURE_MODEL_TYPES = new Set(["llama", "mistral", "gemma", "gemma2", "qwen2", "qwen3"]);
 
-interface MlxAffineCaptureSpec { bits: number; groupSize: number; parameterDtype: "F32" | "F16"; }
+interface MlxAffineCaptureSpec { bits: number; groupSize: number; parameterDtype: "F32" | "F16" | "BF16"; }
 
 /**
  * This is intentionally stricter than cataloging: MLX is the independent
@@ -112,12 +112,12 @@ function validateMlxCaptureStorage(tensors: Iterable<{ name: string; storageDtyp
     if (!q.scaleTensor) throw new Error(`${tensor.name}: MLX capture affine requer tensor de scales declarado.`);
     const scales = catalogued.get(q.scaleTensor);
     const biases = q.biasTensor ? catalogued.get(q.biasTensor) : undefined;
-    if (!scales || !["F32", "F16"].includes(scales.storageDtype) || (q.biasTensor && (!biases || biases.storageDtype !== scales.storageDtype))) {
-      throw new Error(`${tensor.name}: MLX capture affine requer scales e biases opcionais no mesmo dtype F32 ou F16.`);
+    if (!scales || !["F32", "F16", "BF16"].includes(scales.storageDtype) || (q.biasTensor && (!biases || biases.storageDtype !== scales.storageDtype))) {
+      throw new Error(`${tensor.name}: MLX capture affine requer scales e biases opcionais no mesmo dtype F32, F16 ou BF16.`);
     }
     affineParameterNames.add(q.scaleTensor);
     if (q.biasTensor) affineParameterNames.add(q.biasTensor);
-    const current = { bits: q.bits!, groupSize: q.groupSize!, parameterDtype: scales.storageDtype as "F32" | "F16" };
+    const current = { bits: q.bits!, groupSize: q.groupSize!, parameterDtype: scales.storageDtype as "F32" | "F16" | "BF16" };
     if (affine && (affine.bits !== current.bits || affine.groupSize !== current.groupSize || affine.parameterDtype !== current.parameterDtype)) {
       throw new Error(`${tensor.name}: MLX capture exige um único contrato affine bits/group_size por checkpoint; recebeu ${current.bits}/${current.groupSize} após ${affine.bits}/${affine.groupSize}.`);
     }
@@ -125,7 +125,7 @@ function validateMlxCaptureStorage(tensors: Iterable<{ name: string; storageDtyp
   }
   for (const tensor of catalogued.values()) {
     if (!tensor.quantization && tensor.storageDtype !== "F32" && !affineParameterNames.has(tensor.name)) {
-      throw new Error(`${tensor.name}: MLX capture requer tensor denso F32, peso MLX affine U32, ou parâmetro affine F16 declarado.`);
+      throw new Error(`${tensor.name}: MLX capture requer tensor denso F32, peso MLX affine U32, ou parâmetro affine F16/BF16 declarado.`);
     }
   }
   return affine;

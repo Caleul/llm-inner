@@ -11,13 +11,66 @@ from __future__ import annotations
 
 import base64
 import json
+import struct
 import sys
 from pathlib import Path
 from typing import Any
 
 import mlx.core as mx
 import numpy as np
-from safetensors.numpy import load_file
+
+
+class Bf16Payload:
+    """A BF16 Safetensors payload widened exactly to its binary32 value."""
+    def __init__(self, values: np.ndarray):
+        self.values = values
+
+
+def read_supported_safetensors(file: Path) -> dict[str, np.ndarray | Bf16Payload]:
+    """Read only the storage formats this capture contract can prove.
+
+    safetensors.numpy deliberately has no BF16 mapping.  Parsing the standard
+    header here keeps those 16-bit values distinct from F16 and avoids silently
+    treating BF16 payload bits as another NumPy dtype.
+    """
+    data = file.read_bytes()
+    if len(data) < 8:
+        raise ValueError(f"{file.name}: Safetensors sem prefixo de header.")
+    header_size = struct.unpack_from("<Q", data)[0]
+    payload_start = 8 + header_size
+    if payload_start > len(data):
+        raise ValueError(f"{file.name}: header Safetensors excede o arquivo.")
+    try:
+        header = json.loads(data[8:payload_start].decode("utf8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError(f"{file.name}: header Safetensors inválido.") from error
+    result: dict[str, np.ndarray | Bf16Payload] = {}
+    dtypes = {"F32": np.dtype("<f4"), "F16": np.dtype("<f2"), "U32": np.dtype("<u4")}
+    for name, entry in header.items():
+        if name == "__metadata__":
+            continue
+        if not isinstance(name, str) or not isinstance(entry, dict):
+            raise ValueError(f"{file.name}: entrada Safetensors inválida.")
+        dtype, shape, offsets = entry.get("dtype"), entry.get("shape"), entry.get("data_offsets")
+        if not isinstance(dtype, str) or not isinstance(shape, list) or not isinstance(offsets, list) or len(offsets) != 2:
+            raise ValueError(f"{file.name}: {name} não possui dtype, shape e offsets válidos.")
+        if any(not isinstance(dimension, int) or dimension < 0 for dimension in shape) or any(not isinstance(offset, int) or offset < 0 for offset in offsets):
+            raise ValueError(f"{file.name}: {name} possui shape ou offsets inválidos.")
+        start, end = offsets
+        if end < start or payload_start + end > len(data):
+            raise ValueError(f"{file.name}: {name} excede o payload Safetensors.")
+        elements = int(np.prod(shape, dtype=np.int64))
+        item_size = 2 if dtype == "BF16" else dtypes.get(dtype).itemsize if dtype in dtypes else None
+        if item_size is None or end - start != elements * item_size:
+            raise ValueError(f"{file.name}: {name} possui dtype ou intervalo não suportado pelo capture MLX.")
+        payload = memoryview(data)[payload_start + start:payload_start + end]
+        if dtype == "BF16":
+            bits = np.frombuffer(payload, dtype="<u2").astype(np.uint32)
+            values = (bits << 16).view(np.float32).reshape(shape)
+            result[name] = Bf16Payload(values)
+        else:
+            result[name] = np.frombuffer(payload, dtype=dtypes[dtype]).reshape(shape)
+    return result
 
 
 def tensor_payload(value: mx.array) -> dict[str, Any]:
@@ -46,17 +99,23 @@ class Capture:
         affine_parameters = self._affine_parameter_names()
         result: dict[str, mx.array] = {}
         for shard in shards:
-            for name, value in load_file(str(self.source / shard)).items():
+            for name, value in read_supported_safetensors(self.source / shard).items():
                 if name in result:
                     raise ValueError(f"Tensor duplicado: {name}")
-                if value.dtype == np.float32:
+                if isinstance(value, Bf16Payload) and name in affine_parameters:
+                    # NumPy 2 has no portable bfloat16 ndarray dtype. Preserve
+                    # the storage bits until MLX constructs its bfloat16 array.
+                    result[name] = mx.array(value.values, dtype=mx.bfloat16)
+                elif isinstance(value, Bf16Payload):
+                    raise ValueError(f"{name}: MLX capture aceita BF16 somente para parâmetro affine declarado.")
+                elif value.dtype == np.float32:
                     result[name] = mx.array(value, dtype=mx.float32)
                 elif value.dtype == np.float16 and name in affine_parameters:
                     result[name] = mx.array(value, dtype=mx.float16)
                 elif value.dtype == np.uint32:
                     result[name] = mx.array(value, dtype=mx.uint32)
                 else:
-                    raise ValueError(f"{name}: MLX capture requer storage F32, peso U32 affine, ou parâmetro affine F16 declarado; recebeu {value.dtype}.")
+                    raise ValueError(f"{name}: MLX capture requer storage F32, peso U32 affine, ou parâmetro affine F16/BF16 declarado; recebeu {value.dtype}.")
         return self._dequantize_affine_weights(result)
 
     def _affine_parameter_names(self) -> set[str]:
@@ -87,8 +146,8 @@ class Capture:
             ):
                 raise ValueError(f"{reference['name']}: MLX capture requer contrato affine explícito no IR.")
             name, scales_name, biases_name = reference["name"], quantization["scaleTensor"], quantization.get("biasTensor")
-            if name not in raw or raw[name].dtype != mx.uint32 or scales_name not in raw or raw[scales_name].dtype not in {mx.float32, mx.float16}:
-                raise ValueError(f"{name}: payload affine U32/scales F32 ou F16 ausente ou incompatível.")
+            if name not in raw or raw[name].dtype != mx.uint32 or scales_name not in raw or raw[scales_name].dtype not in {mx.float32, mx.float16, mx.bfloat16}:
+                raise ValueError(f"{name}: payload affine U32/scales F32, F16 ou BF16 ausente ou incompatível.")
             if biases_name is not None and (biases_name not in raw or raw[biases_name].dtype != raw[scales_name].dtype):
                 raise ValueError(f"{name}: biases affine deve estar presente e ter o mesmo dtype dos scales.")
             # MLX's affine kernel requires a bias array even when the storage

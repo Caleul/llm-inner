@@ -272,12 +272,12 @@ um contrato e regressão independentes próprios.
 
 Há também um caminho separado e fechado para `llama` cujos pesos quantizados
 usam MLX `affine` U32 (bits 2/3/4/5/6/8, `group_size` 32 ou 64 validado, um único
-contrato no checkpoint e `scales`/`biases` no mesmo dtype F32 ou F16,
+contrato no checkpoint e `scales`/`biases` no mesmo dtype F32, F16 ou BF16,
 com `biases` opcionais). O helper entrega os
 bytes U32, parâmetros e `bits/group_size/mode="affine"` diretamente a
 `mlx.core.dequantize(..., dtype=mlx.float32)` antes de executar os kernels; ele
 nunca chama o materializador nativo nem o bridge candidato. Modos MLX como
-`mxfp4`, `mxfp8` e `nvfp4`, parâmetros BF16 ou mistos, contratos por-módulo que mudam
+`mxfp4`, `mxfp8` e `nvfp4`, parâmetros mistos, contratos por-módulo que mudam
 bits/grupo e adaptadores quantizados não-Llama continuam recusados até terem
 um contrato de captura e regressão próprios. Quando o formato não traz
 `biases`, o helper passa uma matriz MLX F32 de zeros — a identidade explícita
@@ -297,7 +297,7 @@ snapshots KV pós-decode e logits terminais, que deve ser consumida por
 `compare:generation-trace`. A evidência é independente do
 executor escalar, mas ainda é limitada ao adaptador/precisão declarados; não
 é uma alegação de equivalência com `transformers` nem habilita checkpoints
-quantizados, outras famílias além das cinco declaradas ou o pacote multimodal
+quantizados além do contrato affine Llama, outras famílias além das seis declaradas ou o pacote multimodal
 Gemma 4.
 
 Há também uma regressão cruzada de contêiner que grava o mesmo microcheckpoint
