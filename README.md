@@ -112,6 +112,16 @@ rejeitado como semântica incompatível.
 
 A equivalência real deve ser confirmada por um validador diferencial: mesma entrada, mesmo dtype, comparação de embeddings, saída por camada, KV cache e logits contra Transformers/MLX/llama.cpp.
 
+`compareExecutionTrace` em `src/differential.ts` define o contrato serializável
+para essa comparação. Um hook do runtime autoritativo precisa fornecer a saída
+de **cada** operação pelo `operationId` estável do IR, mais o KV pós-RoPE por
+camada em BHSD, e identificar runtime, modelo, revisão/checksum, formato,
+quantização, tokens e política de dtype. O relatório mede erro absoluto e
+relativo, cosseno, sobreposição top-k, argmax e a primeira divergência. Captura
+ausente, operação extra, shape incompatível ou cache faltante é `incomplete`,
+nunca uma aprovação numérica. O contrato em si não é uma integração com
+Transformers/MLX/llama.cpp nem constitui comparação de checkpoint real.
+
 Além da máscara causal/janela declarada pelo IR, o executor de referência pode
 receber uma máscara aditiva canônica `[batch, 1|heads, query, key]`. Zero
 preserva o score e `-Infinity` exclui a chave antes do softmax; valores finitos

@@ -4,6 +4,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { buildModelIR } from "../src/architecture.js";
+import { compareExecutionTrace } from "../src/differential.js";
 import { executeReferenceF32, executeReferenceF64 } from "../src/executor.js";
 import { SafetensorsCatalogReader } from "../src/safetensors.js";
 import type { DenseF32Tensor, DenseTensor, ModelCatalog, TensorInfo } from "../src/types.js";
@@ -66,6 +67,67 @@ test("executor F64 runs a generated dense Llama decoder through logits", async (
   assert.deepEqual(result.logits.shape, [1, 1, 3]);
   for (const [index, value] of expected.entries()) assert.ok(Math.abs(result.logits.values[index]! - value) < 1e-12);
   assert.equal(result.values.get("layer_0_attention_context")?.shape.join("x"), "1x1x2");
+});
+
+test("operation differential report compares every stable IR output and records required evidence", async () => {
+  const { ir, weights } = await tinyLlama();
+  const candidate = executeReferenceF64(ir, { inputIds: [[1]], tensors: weights });
+  const allOperations = [...ir.prelude, ...ir.layers.flatMap((layer) => layer.operations), ...ir.epilogue];
+  const report = compareExecutionTrace(ir, candidate, {
+    runtime: "fixture-authoritative-runtime",
+    model: "tiny-llama",
+    revisionOrChecksum: "in-repository-fixture",
+    containerFormat: "safetensors",
+    quantization: "none",
+    inputTokens: [[1]],
+    dtypePolicy: "F64 scalar fixture",
+    operations: allOperations.map((operation) => ({
+      operationId: operation.id,
+      output: operation.output,
+      tensor: candidate.values.get(operation.output)!,
+    })),
+    pastKeyValues: [...candidate.pastKeyValues].map(([layer, cache]) => ({ layer, key: cache.key, value: cache.value })),
+  }, { candidateRuntime: "llm-inner F64 scalar", topK: 3 });
+  assert.equal(report.fidelityClass, "lossless-within-dtype");
+  assert.equal(report.firstDivergentOperation, null);
+  assert.equal(report.operations.length, allOperations.length);
+  assert.deepEqual(report.kvCache.map((comparison) => comparison.status), ["pass"]);
+  assert.equal(report.logits?.argmaxAgreement, true);
+  assert.equal(report.logits?.topKOverlap, 1);
+  assert.equal(report.reference.revisionOrChecksum, "in-repository-fixture");
+});
+
+test("operation differential report fails closed for missing captures, shape drift, and numeric divergence", async () => {
+  const { ir, weights } = await tinyLlama();
+  const candidate = executeReferenceF64(ir, { inputIds: [[1]], tensors: weights });
+  const operations = [...ir.prelude, ...ir.layers.flatMap((layer) => layer.operations), ...ir.epilogue];
+  const first = operations[0]!;
+  const firstValue = candidate.values.get(first.output)!;
+  const altered = { shape: [...firstValue.shape], values: Float64Array.from(firstValue.values) };
+  altered.values[0] = altered.values[0]! + 1;
+  const report = compareExecutionTrace(ir, candidate, {
+    runtime: "fixture-authoritative-runtime",
+    model: "tiny-llama",
+    revisionOrChecksum: "in-repository-fixture",
+    containerFormat: "safetensors",
+    quantization: "none",
+    inputTokens: [[1]],
+    dtypePolicy: "F64 scalar fixture",
+    operations: [{ operationId: first.id, output: first.output, tensor: altered }],
+    pastKeyValues: [],
+  }, { candidateRuntime: "llm-inner F64 scalar" });
+  assert.equal(report.fidelityClass, "incomplete");
+  assert.equal(report.firstDivergentOperation, first.id);
+  assert.equal(report.operations[0]?.status, "diverged");
+  assert.equal(report.missingReferenceOperationIds.length, operations.length - 1);
+
+  const shapeReport = compareExecutionTrace(ir, candidate, {
+    runtime: "fixture-authoritative-runtime", model: "tiny-llama", revisionOrChecksum: "in-repository-fixture",
+    containerFormat: "safetensors", quantization: "none", inputTokens: [[1]], dtypePolicy: "F64 scalar fixture",
+    operations: [{ operationId: first.id, output: first.output, tensor: { shape: [99], values: new Float64Array(99) } }],
+    pastKeyValues: [],
+  }, { candidateRuntime: "llm-inner F64 scalar" });
+  assert.equal(shapeReport.operations[0]?.status, "shape-mismatch");
 });
 
 test("executor F64 fails closed for compiler-default implicit dtype policies", async () => {

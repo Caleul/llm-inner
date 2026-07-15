@@ -262,3 +262,79 @@ export interface ReferenceF32ExecutionResult {
   logits: DenseF32Tensor;
   pastKeyValues: ReadonlyMap<number, ReferenceF32KeyValueCache>;
 }
+
+/** Runtime-captured output for one IR operation, keyed by the stable IR id. */
+export interface DifferentialOperationSample {
+  operationId: string;
+  output: string;
+  tensor: DenseTensor | DenseF32Tensor;
+}
+
+/** Authoritative post-RoPE cache in the canonical BHSD layout for one layer. */
+export interface DifferentialKeyValueCacheSample {
+  layer: number;
+  key: DenseTensor | DenseF32Tensor;
+  value: DenseTensor | DenseF32Tensor;
+}
+
+/**
+ * Authoritative-runtime trace required for an operation-level comparison. The
+ * caller, not the decompiler, is responsible for capturing values with a
+ * verified runtime hook and recording its immutable model identity.
+ */
+export interface DifferentialReferenceTrace {
+  runtime: string;
+  model: string;
+  revisionOrChecksum: string;
+  containerFormat: SourceFormat | string;
+  quantization: string;
+  inputTokens: number[][];
+  dtypePolicy: string;
+  operations: readonly DifferentialOperationSample[];
+  pastKeyValues: readonly DifferentialKeyValueCacheSample[];
+}
+
+export interface DifferentialTolerance {
+  /** A coordinate passes when either absolute or relative error is within tolerance. */
+  maxAbsoluteError: number;
+  maxRelativeError: number;
+}
+
+export interface DifferentialTensorMetrics {
+  shape: number[];
+  elementCount: number;
+  maxAbsoluteError: number;
+  maxRelativeError: number;
+  cosineSimilarity: number | null;
+  topKOverlap: number | null;
+  argmaxAgreement: boolean | null;
+  nonFiniteMismatchCount: number;
+}
+
+export interface DifferentialOperationComparison {
+  operationId: string;
+  output: string;
+  status: "pass" | "diverged" | "missing-reference" | "shape-mismatch";
+  metrics?: DifferentialTensorMetrics;
+}
+
+export interface DifferentialKeyValueCacheComparison {
+  layer: number;
+  status: "pass" | "diverged" | "missing-reference" | "missing-candidate" | "shape-mismatch";
+  key?: DifferentialTensorMetrics;
+  value?: DifferentialTensorMetrics;
+}
+
+/** Serializable evidence object; it never upgrades a numerical comparison to bitwise equivalence. */
+export interface DifferentialComparisonReport {
+  reference: Omit<DifferentialReferenceTrace, "operations" | "pastKeyValues">;
+  candidateRuntime: string;
+  tolerance: DifferentialTolerance;
+  operations: DifferentialOperationComparison[];
+  kvCache: DifferentialKeyValueCacheComparison[];
+  missingReferenceOperationIds: string[];
+  unexpectedReferenceOperationIds: string[];
+  firstDivergentOperation: string | null;
+  logits: DifferentialTensorMetrics | null;
+  fidelityClass: "bitwise" | "lossless-within-dtype" | "numerically-equivalent" | "approximate" | "incomplete";
+}
