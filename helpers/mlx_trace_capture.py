@@ -32,8 +32,8 @@ class Capture:
         if self.ir["source"]["format"] != "safetensors":
             raise ValueError("MLX capture suporta somente Safetensors denso F32.")
         model_type = self.ir["architecture"]["modelType"]
-        if model_type not in {"llama", "mistral", "gemma", "qwen3"}:
-            raise ValueError(f"MLX capture não possui contrato independente para {model_type}; suportados: llama, mistral, gemma, qwen3.")
+        if model_type not in {"llama", "mistral", "gemma", "qwen2", "qwen3"}:
+            raise ValueError(f"MLX capture não possui contrato independente para {model_type}; suportados: llama, mistral, gemma, qwen2, qwen3.")
         self.weights = self._weights()
 
     def _weights(self) -> dict[str, mx.array]:

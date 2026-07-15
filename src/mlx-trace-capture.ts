@@ -83,7 +83,7 @@ export async function captureMlxTrace(options: MlxCaptureOptions): Promise<"exec
 // Each entry has an end-to-end MLX regression that exercises semantics not
 // shared by the Llama baseline. New adapters must be added here deliberately;
 // a generic "supported IR" fallback would hide unreviewed model behavior.
-const MLX_CAPTURE_MODEL_TYPES = new Set(["llama", "mistral", "gemma", "qwen3"]);
+const MLX_CAPTURE_MODEL_TYPES = new Set(["llama", "mistral", "gemma", "qwen2", "qwen3"]);
 
 async function checksums(source: string, tensors: Iterable<{ shard?: string }>): Promise<TraceSourceFile[]> {
   const files = new Set<string>(["config.json"]);

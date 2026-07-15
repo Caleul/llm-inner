@@ -39,16 +39,21 @@ test("MLX kernel capture independently records dense Llama execution and greedy 
   }
 });
 
-test("MLX kernel capture independently records Mistral sliding-window, Gemma unit-offset, and Qwen 3 Q/K-norm traces", async () => {
+test("MLX kernel capture independently records Mistral sliding-window, Gemma unit-offset, and Qwen 2/3 attention traces", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-mlx-multi-adapter-capture-"));
   try {
     await writeTinyMistralF32Model(directory);
     await writeTinyGemmaF32Model(directory);
+    await writeTinyQwen2F32Model(directory);
     await writeTinyQwen3F32Model(directory);
     const python = path.resolve("venv/bin/python");
     for (const fixture of [
       { name: "mistral", model: "tiny-mistral-mlx", revision: "mistral-mlx-fixture-v1", inputTokens: [1, 1, 1], expectedOperations: 22, executionFidelity: "numerically-equivalent" },
       { name: "gemma", model: "tiny-gemma-mlx", revision: "gemma-mlx-fixture-v1", expectedOperations: 22, executionFidelity: "lossless-within-dtype" },
+      // Qwen 2 uses bias-bearing attention projections but deliberately has
+      // no Q/K head norms. This keeps its independently captured contract
+      // distinct from both the Llama baseline and Qwen 3.
+      { name: "qwen2", model: "tiny-qwen2-mlx", revision: "qwen2-mlx-fixture-v1", expectedOperations: 22, executionFidelity: "numerically-equivalent" },
       // The Qwen 3 projections include nonzero bias and Q/K RMSNorm. MLX
       // reduction boundaries therefore differ from the scalar F32 candidate,
       // while the complete trace remains inside the declared tolerance.
@@ -70,12 +75,12 @@ test("MLX kernel capture independently records Mistral sliding-window, Gemma uni
       assert.equal(generation.generatedTokenIds.length, 2, fixture.name);
     }
 
-    await writeTinyF32Model(directory);
-    const unsupportedConfig = path.join(directory, "model", "config.json");
-    await writeFile(unsupportedConfig, JSON.stringify({ ...tinyLlamaConfig(), model_type: "qwen2" }));
+    const unsupportedConfig = path.join(directory, "qwen2", "config.json");
+    const qwen2Config = JSON.parse(await readFile(unsupportedConfig, "utf8"));
+    await writeFile(unsupportedConfig, JSON.stringify({ ...qwen2Config, rope_scaling: { rope_type: "linear", factor: 2 } }));
     await assert.rejects(
-      () => captureMlxTrace({ source: path.join(directory, "model"), output: path.join(directory, "qwen2-mlx.json"), inputTokens: [1], python, model: "tiny-qwen2", revisionOrChecksum: "qwen2-fixture-v1" }),
-      /não possui contrato independente para qwen2/,
+      () => captureMlxTrace({ source: path.join(directory, "qwen2"), output: path.join(directory, "qwen2-mlx.json"), inputTokens: [1], python, model: "tiny-qwen2", revisionOrChecksum: "qwen2-mlx-fixture-v1" }),
+      /RoPE 'linear' não possui adaptador matemático registrado/,
     );
   } finally {
     await rm(directory, { recursive: true, force: true });
@@ -1538,6 +1543,32 @@ async function writeTinyGemmaF32Model(root: string): Promise<void> {
   await writeFile(path.join(directory, "config.json"), JSON.stringify({
     model_type: "gemma", hidden_size: 2, intermediate_size: 2, num_hidden_layers: 1, num_attention_heads: 1,
     num_key_value_heads: 1, head_dim: 2, vocab_size: 3, rms_norm_eps: 1e-6, hidden_act: "gelu_pytorch_tanh", tie_word_embeddings: true,
+  }));
+  await writeSafetensorsFixture(path.join(directory, "model.safetensors"), weights);
+}
+
+/** Qwen 2 keeps Q/K unnormalized but makes attention bias an explicit contract. */
+async function writeTinyQwen2F32Model(root: string): Promise<void> {
+  const directory = path.join(root, "qwen2");
+  await mkdir(directory);
+  const identity = [1, 0, 0, 1];
+  const weights: Array<[string, "F32", number[], number[]]> = [
+    ["model.embed_tokens.weight", "F32", [3, 2], [0, 0, 2, -1, -1, 1]],
+    ["model.layers.0.input_layernorm.weight", "F32", [2], [1, 1]],
+    ...["q_proj", "k_proj", "v_proj", "o_proj"].flatMap((projection, index): Array<[string, "F32", number[], number[]]> => [
+      [`model.layers.0.self_attn.${projection}.weight`, "F32", [2, 2], identity],
+      [`model.layers.0.self_attn.${projection}.bias`, "F32", [2], [0.125 * (index + 1), -0.0625 * (index + 1)]],
+    ]),
+    ["model.layers.0.post_attention_layernorm.weight", "F32", [2], [1, 1]],
+    ["model.layers.0.mlp.gate_proj.weight", "F32", [2, 2], identity],
+    ["model.layers.0.mlp.up_proj.weight", "F32", [2, 2], identity],
+    ["model.layers.0.mlp.down_proj.weight", "F32", [2, 2], identity],
+    ["model.norm.weight", "F32", [2], [1, 1]],
+    ["lm_head.weight", "F32", [3, 2], [1, 0, 0, 1, 1, -1]],
+  ];
+  await writeFile(path.join(directory, "config.json"), JSON.stringify({
+    model_type: "qwen2", hidden_size: 2, intermediate_size: 2, num_hidden_layers: 1, num_attention_heads: 1,
+    num_key_value_heads: 1, head_dim: 2, vocab_size: 3, rms_norm_eps: 1e-6, hidden_act: "silu", attention_bias: true,
   }));
   await writeSafetensorsFixture(path.join(directory, "model.safetensors"), weights);
 }
