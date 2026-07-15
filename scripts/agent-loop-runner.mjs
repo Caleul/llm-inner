@@ -191,12 +191,9 @@ async function runCodex(config, prompt, runId, sequence) {
   const args = [
     "exec",
     "-C", root,
-    // A completed loop must create a local Git commit. workspace-write
-    // deliberately excludes .git, which makes the required index.lock write
-    // fail after otherwise valid work. The runner is the explicit trusted
-    // boundary that starts this autonomous process, so grant the minimum
-    // available mode that includes the repository metadata as well.
-    "--sandbox", "danger-full-access",
+    // The user explicitly authorizes this autonomous runner to work without
+    // sandboxing or interactive approvals, including repository metadata.
+    "--dangerously-bypass-approvals-and-sandbox",
     "--color", "never",
     "--output-last-message", outputPath,
     "-",
@@ -224,7 +221,7 @@ async function runCodex(config, prompt, runId, sequence) {
 }
 
 function agentPrompt(masterPrompt, config, state, runId, sequence, previousHandoff) {
-  return `${masterPrompt}\n\n---\n\n# Runner invocation context\n\nYou are the single active Codex for loop ${sequence} (${runId}). Work autonomously: inspect the live repository and choose the highest-impact substantial unfinished milestone. Use this fresh context to complete the largest coherent, validated vertical slice supported by the evidence; do not stop at a micro-change just to create a handoff. Independently reassess the previous handoff rather than treating it as an assignment. Do not ask for a plan or wait for human input unless an actual external resource or decision is required.\n\nCurrent state:\n\n\`\`\`json\n${JSON.stringify(state, null, 2)}\n\`\`\`\n\nPrevious accepted handoff: ${previousHandoff ?? "none; this is the first loop"}.\n\nThe external runner, not you, starts the next loop. Before exiting, run every command in agent-loop.config.json.validationCommands, create one local Git commit, and atomically create exactly one handoff named HANDOFF-${String(sequence).padStart(4, "0")}-<UTC timestamp>-<slug>.json in ${config.handoffDirectory}. Its runId must be \`${runId}\`, sequence must be ${sequence}, and endingState.gitCommit must equal the new HEAD commit. The handoff is your final repository-changing action. If missionStatus is continue, it must contain exactly one decision-useful nextRecommendedMilestone, one to three ordered nextSteps with acceptance criteria, and a bottlenecks array whose entries state description, impact, and evidence. Keep only unresolved bottlenecks and limitations; it is not a chronological work log.\n`;
+  return `${masterPrompt}\n\n---\n\n# Runner invocation context\n\nYou are the single active Codex for loop ${sequence} (${runId}). You own the decompiler mission, not a narrow ticket. Work autonomously: inspect the live repository, independently reassess the previous handoff, and choose the strategic boundary that most limits faithful execution, validated format support, or end-to-end evidence. Use this fresh context to complete the largest coherent, validated vertical slice supported by the evidence; connect adjacent parser, IR, materialization, executor, differential-validation, documentation and report layers whenever that closes one material mission gap. Do not stop at a micro-change, isolated test, or small commit merely to create a handoff. Do not ask for a plan or wait for human input unless an actual external resource or decision is required.\n\nCurrent state:\n\n\`\`\`json\n${JSON.stringify(state, null, 2)}\n\`\`\`\n\nPrevious accepted handoff: ${previousHandoff ?? "none; this is the first loop"}.\n\nThe external runner, not you, starts the next loop. Before exiting, run every command in agent-loop.config.json.validationCommands, create one local Git commit, and atomically create exactly one handoff named HANDOFF-${String(sequence).padStart(4, "0")}-<UTC timestamp>-<slug>.json in ${config.handoffDirectory}. Its runId must be \`${runId}\`, sequence must be ${sequence}, and endingState.gitCommit must equal the new HEAD commit. The handoff is your final repository-changing action. If missionStatus is continue, it must contain exactly one decision-useful nextRecommendedMilestone, one to three ordered nextSteps with acceptance criteria, and a bottlenecks array whose entries state description, impact, and evidence. Keep only unresolved bottlenecks and limitations; it is not a chronological work log.\n`;
 }
 
 async function start(config) {

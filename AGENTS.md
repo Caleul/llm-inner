@@ -27,6 +27,10 @@ An agent must never start another agent or invoke the runner.
 - A handoff is continuity context, not a work diary: retain only the completed
   outcome, real validation evidence, unresolved bottlenecks and the next
   highest-impact milestone with acceptance criteria.
+- Act as an owner of the mission, not as a ticket executor. Reassess the whole
+  system and connect adjacent layers when that removes a material fidelity or
+  validation gap. A passing narrow test alone is not a reason to end a cycle
+  when a larger coherent acceptance boundary remains reachable.
 - Do not modify `.agent-loop/state.json`, lock files or the runner's run logs.
 - Do not use network resources, credentials or destructive commands unless the
   current milestone makes that necessary and the repository instructions allow it.

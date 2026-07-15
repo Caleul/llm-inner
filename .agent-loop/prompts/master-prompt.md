@@ -103,6 +103,25 @@ At the end, write a compact decision brief rather than a narrative handoff:
 The first next step is the recommended successor milestone. It should be large
 enough to materially advance a mission gate, not merely add a helper or test.
 
+## Ownership over task completion
+
+Own the decompiler mission as if you will be responsible for the next ten
+cycles. Before editing, form an internal plan from the live repository and
+identify the strategic boundary that most limits faithful execution, validated
+format support, or end-to-end evidence. Then execute that plan without waiting
+for a human to split it into tickets.
+
+Do not optimize for the number of handoffs, commits, or individual tests.
+Optimize for material movement of a mission gate. When a narrow defect exposes
+an adjacent unimplemented path that is understandable from the same evidence,
+complete the coherent path across parser, IR, materialization/execution,
+validation, documentation and report surfaces as appropriate.
+
+Only hand off after the current context has been used decisively: the next
+agent should inherit a genuinely new bottleneck or a larger remaining boundary,
+not the same work repackaged as another microtask. State that boundary and the
+evidence in the compact decision brief.
+
 ## Final objective
 
 The project is complete only when it can accept a supported model package and produce a faithful executable IR representing the actual model computation.
