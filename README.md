@@ -289,6 +289,17 @@ leitor candidato e uma alteração de byte empacotado é rejeitada pelo checksum
 Esta é uma prova sintética lossless dentro da política escalar F32, não uma
 comparação com llama.cpp nem uma validação de checkpoint real.
 
+Uma quinta regressão executável percorre o `GGML_TYPE_Q6_K` pela mesma
+fronteira completa. Cada matriz do Llama de largura 256 contém os 64 códigos
+centrados possíveis, distribuídos pelos oito planos de 32 valores de `ql` e
+pelos dois bits altos de `qh`, e as 16 escalas `int8` por grupos de 16 incluem
+ambos os sinais. O pacote GGUF F32 pareado calcula diretamente
+`d*scale*(code-32)` com `d=0.5`, sem chamar o leitor candidato; dele vêm cada
+operação, o cache KV pós-RoPE, logits e duas etapas greedy. Uma alteração no
+payload empacotado é recusada pelo checksum da captura. Isso demonstra uma
+fronteira sintética lossless sob a política escalar F32 para Q6_K, não uma
+comparação com llama.cpp nem uma validação de checkpoint real.
+
 `materializeReferenceF32Constants` em `src/materialize.ts` fecha a fronteira
 entre o catálogo e o executor F32: reúne todos os `TensorRef` do IR, confirma
 nome, shape, dtype e contrato de quantização contra o catálogo de origem e
