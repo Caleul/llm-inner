@@ -39,13 +39,15 @@ test("MLX kernel capture independently records dense Llama execution and greedy 
   }
 });
 
-test("MLX kernel capture independently records Gemma unit-offset and Qwen 3 Q/K-norm traces", async () => {
+test("MLX kernel capture independently records Mistral sliding-window, Gemma unit-offset, and Qwen 3 Q/K-norm traces", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-mlx-multi-adapter-capture-"));
   try {
+    await writeTinyMistralF32Model(directory);
     await writeTinyGemmaF32Model(directory);
     await writeTinyQwen3F32Model(directory);
     const python = path.resolve("venv/bin/python");
     for (const fixture of [
+      { name: "mistral", model: "tiny-mistral-mlx", revision: "mistral-mlx-fixture-v1", inputTokens: [1, 1, 1], expectedOperations: 22, executionFidelity: "numerically-equivalent" },
       { name: "gemma", model: "tiny-gemma-mlx", revision: "gemma-mlx-fixture-v1", expectedOperations: 22, executionFidelity: "lossless-within-dtype" },
       // The Qwen 3 projections include nonzero bias and Q/K RMSNorm. MLX
       // reduction boundaries therefore differ from the scalar F32 candidate,
@@ -54,14 +56,15 @@ test("MLX kernel capture independently records Gemma unit-offset and Qwen 3 Q/K-
     ]) {
       const source = path.join(directory, fixture.name);
       const executionTrace = path.join(directory, `${fixture.name}-mlx-execution.json`);
-      assert.equal(await captureMlxTrace({ source, output: executionTrace, inputTokens: [1], python, model: fixture.model, revisionOrChecksum: fixture.revision }), "execution");
+      const inputTokens = fixture.inputTokens ?? [1];
+      assert.equal(await captureMlxTrace({ source, output: executionTrace, inputTokens, python, model: fixture.model, revisionOrChecksum: fixture.revision }), "execution");
       const execution = await runExecutionTraceComparison({ source, trace: executionTrace, report: path.join(directory, `${fixture.name}-mlx-execution-report.json`), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
       assert.equal(execution.fidelityClass, fixture.executionFidelity, fixture.name);
       assert.equal(execution.reference.runtime, `MLX 0.32 dense-F32 ${fixture.name} independent IR-kernel capture`);
       assert.equal(execution.operations.length, fixture.expectedOperations, fixture.name);
 
       const generationTrace = path.join(directory, `${fixture.name}-mlx-generation.json`);
-      assert.equal(await captureMlxTrace({ source, output: generationTrace, inputTokens: [1], maxNewTokens: 2, python, model: fixture.model, revisionOrChecksum: fixture.revision }), "generation");
+      assert.equal(await captureMlxTrace({ source, output: generationTrace, inputTokens, maxNewTokens: 2, python, model: fixture.model, revisionOrChecksum: fixture.revision }), "generation");
       const generation = await runGenerationTraceComparison({ source, trace: generationTrace, report: path.join(directory, `${fixture.name}-mlx-generation-report.json`), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
       assert.equal(generation.fidelityClass, "numerically-equivalent", fixture.name);
       assert.equal(generation.generatedTokenIds.length, 2, fixture.name);
@@ -69,10 +72,10 @@ test("MLX kernel capture independently records Gemma unit-offset and Qwen 3 Q/K-
 
     await writeTinyF32Model(directory);
     const unsupportedConfig = path.join(directory, "model", "config.json");
-    await writeFile(unsupportedConfig, JSON.stringify({ ...tinyLlamaConfig(), model_type: "mistral" }));
+    await writeFile(unsupportedConfig, JSON.stringify({ ...tinyLlamaConfig(), model_type: "qwen2" }));
     await assert.rejects(
-      () => captureMlxTrace({ source: path.join(directory, "model"), output: path.join(directory, "mistral-mlx.json"), inputTokens: [1], python, model: "tiny-mistral", revisionOrChecksum: "mistral-fixture-v1" }),
-      /não possui contrato independente para mistral/,
+      () => captureMlxTrace({ source: path.join(directory, "model"), output: path.join(directory, "qwen2-mlx.json"), inputTokens: [1], python, model: "tiny-qwen2", revisionOrChecksum: "qwen2-fixture-v1" }),
+      /não possui contrato independente para qwen2/,
     );
   } finally {
     await rm(directory, { recursive: true, force: true });
@@ -1508,6 +1511,14 @@ function tinyLlamaWeights(): Array<[string, number[], number[]]> {
     ["model.layers.0.mlp.gate_proj.weight", [2, 2], [0, 0, 0, 0]], ["model.layers.0.mlp.up_proj.weight", [2, 2], [0, 0, 0, 0]], ["model.layers.0.mlp.down_proj.weight", [2, 2], [0, 0, 0, 0]],
     ["model.norm.weight", [2], [1, 1]], ["lm_head.weight", [3, 2], [1, 0, 0, 1, 1, 1]],
   ];
+}
+
+/** Mistral's declared local window must remain active through prompt and decode capture. */
+async function writeTinyMistralF32Model(root: string): Promise<void> {
+  const directory = path.join(root, "mistral");
+  await mkdir(directory);
+  await writeFile(path.join(directory, "config.json"), JSON.stringify({ ...tinyLlamaConfig(), model_type: "mistral", sliding_window: 2 }));
+  await writeSafetensorsFixture(path.join(directory, "model.safetensors"), tinyLlamaWeights().map(([name, shape, values]) => [name, "F32", shape, values]));
 }
 
 /** A non-Llama decoder fixture whose nonzero path exercises Gemma-specific lowering semantics. */

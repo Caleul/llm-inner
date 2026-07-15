@@ -32,8 +32,8 @@ class Capture:
         if self.ir["source"]["format"] != "safetensors":
             raise ValueError("MLX capture suporta somente Safetensors denso F32.")
         model_type = self.ir["architecture"]["modelType"]
-        if model_type not in {"llama", "gemma", "qwen3"}:
-            raise ValueError(f"MLX capture não possui contrato independente para {model_type}; suportados: llama, gemma, qwen3.")
+        if model_type not in {"llama", "mistral", "gemma", "qwen3"}:
+            raise ValueError(f"MLX capture não possui contrato independente para {model_type}; suportados: llama, mistral, gemma, qwen3.")
         self.weights = self._weights()
 
     def _weights(self) -> dict[str, mx.array]:
@@ -161,7 +161,11 @@ def main() -> None:
         for index in range(limit):
             selection = current_logits[:, -1:, :]
             token = int(np.asarray(mx.argmax(selection, axis=-1)).reshape(-1)[0])
-            tokens.append(token); steps.append({"tokenId": token, "positionId": positions[-1] + 1 + index}); logits.append(tensor_payload(selection))
+            # The trace contract retains the complete logits tensor produced by
+            # each forward call. Greedy selection uses its final sequence row,
+            # but slicing the serialized prefill logits would make a multi-token
+            # prompt incomparable with the scalar replay result.
+            tokens.append(token); steps.append({"tokenId": token, "positionId": positions[-1] + 1 + index}); logits.append(tensor_payload(current_logits))
             values, cache = capture.forward([token], [steps[-1]["positionId"]], cache)
             snapshots.append([{"layer": layer, "key": tensor_payload(pair[0]), "value": tensor_payload(pair[1])} for layer, pair in sorted(cache.items())])
             current_logits = values["softcapped_logits"] if "softcapped_logits" in values else values["logits"]
