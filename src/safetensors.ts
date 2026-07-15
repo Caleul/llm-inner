@@ -243,6 +243,29 @@ export class SafetensorsCatalogReader {
   }
 
   /**
+   * Loads a supported dense floating-point Safetensors tensor into the
+   * binary32 reference representation. The storage dtype remains an explicit
+   * dispatch boundary: this method does not dequantize integers or choose the
+   * IR execution policy. F16 and BF16 are widened only after their stored
+   * values have been decoded exactly into binary32.
+   */
+  async readDenseAsF32(tensor: TensorInfo): Promise<DenseF32Tensor> {
+    switch (tensor.storageDtype) {
+      case "F32":
+        return this.readDenseF32(tensor);
+      case "F16":
+        return this.readDenseF16AsF32(tensor);
+      case "BF16":
+        return this.readDenseBF16AsF32(tensor);
+      default:
+        throw new Error(
+          `${tensor.name}: execução de referência F32 não suporta storageDtype=${tensor.storageDtype}; ` +
+            "use um decodificador explícito para este formato, nunca uma conversão implícita.",
+        );
+    }
+  }
+
+  /**
    * Reads IEEE-754 binary16 storage and widens every finite value and infinity
    * exactly to binary32. This conversion says nothing about the
    * source runtime's compute or accumulation dtype; callers must still supply

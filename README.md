@@ -144,6 +144,13 @@ arredondado finito (e infinito) do armazenamento; ela não permite que o
 executor escolha F32 por conta própria, nem afirma que o runtime original
 acumulava em F32.
 
+Para o caminho F32 explícito, `readDenseAsF32` faz somente o despacho estrito
+entre storage `F32`, `F16` e `BF16`; inteiros e tensores quantizados são
+rejeitados até terem um decodificador de formato específico. Um fixture de
+decoder completo executa pesos armazenados tanto em F16 quanto em BF16, mas
+isso continua sendo validação de valores de storage em um interpretador escalar
+F32 — não uma comparação diferencial contra MLX, PyTorch ou outro runtime.
+
 
 ## O que “agnóstico” significa
 

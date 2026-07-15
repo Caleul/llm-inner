@@ -193,6 +193,58 @@ test("reader range-loads F16 and BF16 Safetensors losslessly into F32 values", a
   }
 });
 
+test("F32 executor runs a complete decoder from F16 and BF16 Safetensors storage", async () => {
+  const { ir, weights } = await tinyLlama();
+  for (const operation of [...ir.prelude, ...ir.layers.flatMap((layer) => layer.operations), ...ir.epilogue]) {
+    operation.dtypePolicy = { ...f32Policy };
+    if (operation.op === "scaled_dot_product_attention") operation.softmaxComputeDtype = "F32";
+  }
+  const expectedWeights = new Map<string, DenseF32Tensor>(
+    [...weights].map(([name, tensor]) => [name, { shape: [...tensor.shape], values: Float32Array.from(tensor.values) }]),
+  );
+  const expected = executeReferenceF32(ir, { inputIds: [[1]], tensors: expectedWeights });
+
+  for (const storageDtype of ["F16", "BF16"] as const) {
+    const directory = await mkdtemp(path.join(tmpdir(), `llm-inner-${storageDtype.toLowerCase()}-decoder-`));
+    try {
+      await writeFile(path.join(directory, "config.json"), JSON.stringify({ model_type: "llama" }));
+      await write16Safetensors(path.join(directory, "model.safetensors"), weights, storageDtype);
+      const reader = new SafetensorsCatalogReader(directory);
+      try {
+        const catalog = await reader.inspect();
+        const loaded = new Map<string, DenseF32Tensor>();
+        for (const tensor of catalog.tensors.values()) loaded.set(tensor.name, await reader.readDenseAsF32(tensor));
+        const result = executeReferenceF32(ir, { inputIds: [[1]], tensors: loaded });
+        assert.deepEqual([...result.logits.values], [...expected.logits.values], `${storageDtype} logits must preserve the decoded storage values`);
+      } finally {
+        await reader.close();
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }
+});
+
+test("F32 dense dispatch rejects integer and quantized storage rather than guessing a conversion", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-f32-dispatch-"));
+  try {
+    await writeFile(path.join(directory, "config.json"), JSON.stringify({ model_type: "llama" }));
+    const header = Buffer.from(JSON.stringify({ "x.weight": { dtype: "I8", shape: [1], data_offsets: [0, 1] } }), "utf8");
+    const prefix = Buffer.alloc(8);
+    prefix.writeBigUInt64LE(BigInt(header.length));
+    await writeFile(path.join(directory, "model.safetensors"), Buffer.concat([prefix, header, Buffer.from([1])]));
+    const reader = new SafetensorsCatalogReader(directory);
+    try {
+      const catalog = await reader.inspect();
+      await assert.rejects(() => reader.readDenseAsF32(catalog.tensors.get("x.weight")!), /storageDtype=I8/);
+    } finally {
+      await reader.close();
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("F32 executor rejects an F64 policy instead of silently changing cast boundaries", async () => {
   const { ir, weights } = await tinyLlama();
   const f32Weights = new Map<string, DenseF32Tensor>(
@@ -257,4 +309,44 @@ async function writeMixed16Safetensors(file: string): Promise<void> {
     payload.writeUInt16LE(value, 12 + index * 2);
   }
   await writeFile(file, Buffer.concat([prefix, headerBytes, payload]));
+}
+
+async function write16Safetensors(
+  file: string,
+  tensors: ReadonlyMap<string, DenseTensor>,
+  storageDtype: "F16" | "BF16",
+): Promise<void> {
+  let offset = 0;
+  const header: Record<string, { dtype: "F16" | "BF16"; shape: number[]; data_offsets: [number, number] }> = {};
+  for (const [name, tensor] of tensors) {
+    const length = tensor.values.length * Uint16Array.BYTES_PER_ELEMENT;
+    header[name] = { dtype: storageDtype, shape: [...tensor.shape], data_offsets: [offset, offset + length] };
+    offset += length;
+  }
+  const headerBytes = Buffer.from(JSON.stringify(header), "utf8");
+  const prefix = Buffer.alloc(8);
+  prefix.writeBigUInt64LE(BigInt(headerBytes.length));
+  const payload = Buffer.alloc(offset);
+  let byteOffset = 0;
+  for (const tensor of tensors.values()) {
+    for (let index = 0; index < tensor.values.length; index += 1) {
+      payload.writeUInt16LE(storageDtype === "F16" ? encodeFixtureF16(tensor.values[index]!) : encodeBF16(tensor.values[index]!), byteOffset + index * 2);
+    }
+    byteOffset += tensor.values.length * Uint16Array.BYTES_PER_ELEMENT;
+  }
+  await writeFile(file, Buffer.concat([prefix, headerBytes, payload]));
+}
+
+function encodeFixtureF16(value: number): number {
+  const known = new Map<number, number>([[0, 0x0000], [1, 0x3c00], [3, 0x4200], [4, 0x4400]]);
+  const encoded = known.get(value);
+  if (encoded === undefined) throw new Error(`Fixture F16 não tem codificação para ${value}.`);
+  return encoded;
+}
+
+function encodeBF16(value: number): number {
+  const bytes = new ArrayBuffer(4);
+  const view = new DataView(bytes);
+  view.setFloat32(0, value, true);
+  return view.getUint16(2, true);
 }
