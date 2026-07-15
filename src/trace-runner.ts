@@ -5,6 +5,7 @@ import { openCatalog } from "./catalog.js";
 import { compareExecutionTrace, compareGenerationTrace } from "./differential.js";
 import { executeReferenceF32, executeReferenceF64, generateReferenceF32, generateReferenceF64 } from "./executor.js";
 import { materializeReferenceF32Constants, materializeReferenceF64Constants } from "./materialize.js";
+import { applyReferenceF32Policy, applyReferenceF64Policy } from "./reference-policy.js";
 import { fingerprintIR, readExecutionTraceBundle, readGenerationTraceBundle, verifyTraceSource } from "./trace.js";
 import type { DifferentialComparisonReport, DifferentialGenerationComparisonReport, ModelIR, Operation } from "./types.js";
 
@@ -82,13 +83,13 @@ export async function runGenerationTraceComparison(options: {
 }
 
 async function executeF32Trace(ir: ModelIR, opened: Awaited<ReturnType<typeof openCatalog>>, inputIds: number[][]) {
-  applyF32Policy(ir);
+  applyReferenceF32Policy(ir);
   const tensors = await materializeReferenceF32Constants(ir, opened.catalog, opened.reader, opened.bridge);
   return executeReferenceF32(ir, { inputIds, tensors });
 }
 
 async function executeF64Trace(ir: ModelIR, opened: Awaited<ReturnType<typeof openCatalog>>, inputIds: number[][]) {
-  applyF64Policy(ir);
+  applyReferenceF64Policy(ir);
   if (!("readDenseF64" in opened.reader) || typeof opened.reader.readDenseF64 !== "function") {
     throw new Error("Trace F64 requer um contêiner com materializador F64 denso verificado.");
   }
@@ -97,7 +98,7 @@ async function executeF64Trace(ir: ModelIR, opened: Awaited<ReturnType<typeof op
 }
 
 async function generateF32Trace(ir: ModelIR, opened: Awaited<ReturnType<typeof openCatalog>>, reference: Awaited<ReturnType<typeof readGenerationTraceBundle>>["reference"]) {
-  applyF32Policy(ir);
+  applyReferenceF32Policy(ir);
   const tensors = await materializeReferenceF32Constants(ir, opened.catalog, opened.reader, opened.bridge);
   return generateReferenceF32(ir, {
     inputIds: [reference.inputTokens], positionIds: [reference.promptPositionIds], tensors, maxNewTokens: reference.maxNewTokens,
@@ -106,7 +107,7 @@ async function generateF32Trace(ir: ModelIR, opened: Awaited<ReturnType<typeof o
 }
 
 async function generateF64Trace(ir: ModelIR, opened: Awaited<ReturnType<typeof openCatalog>>, reference: Awaited<ReturnType<typeof readGenerationTraceBundle>>["reference"]) {
-  applyF64Policy(ir);
+  applyReferenceF64Policy(ir);
   if (!("readDenseF64" in opened.reader) || typeof opened.reader.readDenseF64 !== "function") {
     throw new Error("Trace F64 requer um contêiner com materializador F64 denso verificado.");
   }
@@ -117,23 +118,6 @@ async function generateF64Trace(ir: ModelIR, opened: Awaited<ReturnType<typeof o
   });
 }
 
-function applyF32Policy(ir: ModelIR): void {
-  for (const operation of allOperations(ir)) {
-    operation.dtypePolicy = { computeDtype: "F32", accumulationDtype: "F32", outputDtype: "F32" };
-    if (operation.op === "scaled_dot_product_attention") operation.softmaxComputeDtype = "F32";
-  }
-}
-
-function applyF64Policy(ir: ModelIR): void {
-  for (const operation of allOperations(ir)) {
-    operation.dtypePolicy = { computeDtype: "F64", accumulationDtype: "F64", outputDtype: "F64" };
-    if (operation.op === "scaled_dot_product_attention") operation.softmaxComputeDtype = "F64";
-  }
-}
-
-function allOperations(ir: ModelIR): Operation[] {
-  return [...ir.prelude, ...ir.layers.flatMap((layer) => layer.operations), ...ir.epilogue];
-}
 
 /**
  * A generation trace must prove continuation state for every independent
@@ -165,4 +149,8 @@ function assertGenerationTraceCacheCoverage(
   };
   reference.stepPastKeyValues.forEach((caches, index) => validate(caches, `Trace de geração cache KV pós-decode ${index}`));
   validate(reference.pastKeyValues, "Trace de geração cache KV final");
+}
+
+function allOperations(ir: ModelIR): Operation[] {
+  return [...ir.prelude, ...ir.layers.flatMap((layer) => layer.operations), ...ir.epilogue];
 }

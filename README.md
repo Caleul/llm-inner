@@ -228,6 +228,32 @@ GELU-tanh. Qualquer outro rótulo falha na construção do IR até que a fórmul
 os limites numéricos e a implementação do executor sejam adicionados e
 validados.
 
+## Benchmark nativo reproduzível
+
+`npm run benchmark:native -- --output docs/benchmarks/<arquivo>.json --samples 7 --warmup-samples 2`
+gera uma linha de base de wall-clock para os caminhos que hoje são executáveis
+sem bridge externo. O harness cria e remove três fixtures Llama determinísticas
+de uma camada e largura 256: Safetensors F32 denso, Safetensors MLX affine U32
+4-bit/grupo-32 (com `scales` e `biases` F32), e GGUF v3 `Q8_0`. O relatório
+persiste os SHA-256 dos payloads, a topologia, tokens de prefill/decode, versão
+do Node, plataforma, arquitetura, amostras em nanossegundos, mínimo, mediana e
+p95 para cada estágio. Também registra bytes exatos dos constantes F32
+materializados e um snapshot de `rss`/heap/ArrayBuffer do processo:
+
+- inspeção de catálogo;
+- lowering de IR (após abrir o catálogo);
+- materialização por ranges (após lowering);
+- prefill F32 (após materialização);
+- um decode incremental com o KV cache do prefill (após preparar esse cache).
+
+Logo, criação de fixture, checksum, abertura para as etapas posteriores,
+lowering para as etapas de materialização e materialização para as etapas de
+executor ficam fora da janela medida. Os testes verificam contrato e cobertura
+das três rotas, mas não impõem limite de tempo: o relatório é evidência local,
+não uma alegação comparável entre máquinas ou uma prova de fidelidade contra um
+runtime autoritativo. A primeira medição comprometida está em
+`docs/benchmarks/native-fixture-baseline-2026-07-15.json`.
+
 ## Limites atuais
 
 O adaptador atual cobre blocos decoder-only auditáveis de Llama, Mistral, Qwen 2/3 e Gemma 1/2/3-text. Modelos com código remoto, state-space layers, linear attention, MoE, multimodal completo, Gemma 3n/4 ou layouts QKV especiais precisam de adaptadores próprios ou extração do grafo do runtime oficial. Gemma 4 é rejeitado de propósito porque sua topologia inclui PLE, heads por tipo de camada, KV sharing e outras semânticas que o bloco genérico não representa. A recusa usa os metadados/tensores declarados: `hidden_size_per_layer_input`, `global_head_dim`, RoPE proporcional para `full_attention`, `num_kv_shared_layers` e pesos PLE (`embed_tokens_per_layer`, `per_layer_input_gate`, `per_layer_projection`, `post_per_layer_input_norm`, `layer_scalar`) aparecem no diagnóstico quando presentes.

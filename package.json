@@ -11,6 +11,7 @@
     "compare:trace": "node dist/src/trace-cli.js",
     "compare:generation-trace": "node dist/src/generation-trace-cli.js",
     "capture:mlx-trace": "node dist/src/mlx-trace-capture-cli.js",
+    "benchmark:native": "npm run build && node dist/src/benchmark-cli.js",
     "loop:start": "node scripts/agent-loop-runner.mjs start",
     "loop:status": "node scripts/agent-loop-runner.mjs status",
     "loop:stop": "node scripts/agent-loop-runner.mjs stop"
