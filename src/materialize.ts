@@ -35,7 +35,7 @@ export async function materializeReferenceF32Constants(
       if (adaptedCatalog.format === "mlx-safetensors" && catalogued.quantization.family === "mlx") {
         if (!bridge) throw new Error(`${reference.name}: tensor MLX quantizado requer TensorBridge com mlx.core.dequantize.`);
         materialized = await bridge.readMlxDequantizedF32(adaptedCatalog, reference.name);
-      } else if (adaptedCatalog.format === "gguf" && catalogued.quantization.family === "gguf" && (catalogued.quantization.mode === "q4_0" || catalogued.quantization.mode === "q4_1" || catalogued.quantization.mode === "q5_0" || catalogued.quantization.mode === "q5_1" || catalogued.quantization.mode === "q8_0" || catalogued.quantization.mode === "q8_1")) {
+      } else if (adaptedCatalog.format === "gguf" && catalogued.quantization.family === "gguf" && (catalogued.quantization.mode === "q4_0" || catalogued.quantization.mode === "q4_1" || catalogued.quantization.mode === "q5_0" || catalogued.quantization.mode === "q5_1" || catalogued.quantization.mode === "q6_k" || catalogued.quantization.mode === "q8_0" || catalogued.quantization.mode === "q8_1")) {
         materialized = await reader.readDenseAsF32(catalogued);
       } else {
         throw new Error(`${reference.name}: quantização ${catalogued.quantization.family}/${catalogued.quantization.mode} não possui materializador F32 verificado.`);
