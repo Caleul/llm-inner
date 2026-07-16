@@ -22,6 +22,9 @@ export interface Gemma4LinearReductionProbeProfileResult {
 export interface Gemma4LinearReductionProbeReport {
   kind: "gemma4-linear-reduction-profile-probe";
   artifact: string;
+  /** Independent native captures that agreed on the traced producer/result. */
+  traces: string[];
+  traceCount: number;
   operationId: string;
   inputOperationId: string;
   sourceCheckpointAccessed: false;
@@ -46,24 +49,28 @@ export interface Gemma4LinearReductionProbeReport {
  */
 export async function probeGemma4LiteralLinearReductionProfiles(options: {
   artifact: string;
-  trace: string;
+  traces: readonly string[];
   operationId: string;
   profiles: readonly Gemma4LinearReductionProfile[];
   maxReadBytes: number;
 }): Promise<Gemma4LinearReductionProbeReport> {
   if (!Number.isSafeInteger(options.maxReadBytes) || options.maxReadBytes <= 0) throw new Error("Probe de redução Gemma 4 requer maxReadBytes positivo seguro.");
+  const traces = validateTracePaths(options.traces);
   const profiles = validateProfiles(options.profiles);
-  const decoded = await readExecutionTraceBundle(options.trace);
-  if (decoded.bundle.candidatePolicy.dtype !== "F32" || decoded.bundle.candidatePolicy.runtime !== "llm-inner paged Gemma4Text literal F32") {
-    throw new Error("Probe de redução requer trace Gemma4Text F32 paginado compatível.");
-  }
+  const decoded = await Promise.all(traces.map((trace) => readExecutionTraceBundle(trace)));
   const artifact = await openGemma4CompositeLiteralArtifact(options.artifact);
   try {
-    if (fingerprintIR(artifact.program.textProgram) !== decoded.bundle.irFingerprint) throw new Error("Trace de redução Gemma 4 não corresponde ao programa textual do artefato literal.");
+    const fingerprint = fingerprintIR(artifact.program.textProgram);
+    for (const trace of decoded) assertCompatibleTrace(trace, fingerprint);
     const operation = findLinearOperation(artifact.program.textProgram, options.operationId);
     const inputOperation = findProducerOperation(artifact.program.textProgram, operation.input);
-    const input = traceTensor(decoded.reference.operations, inputOperation.id, inputOperation.output);
-    const reference = traceTensor(decoded.reference.operations, operation.id, operation.output);
+    const input = traceTensor(decoded[0]!.reference.operations, inputOperation.id, inputOperation.output);
+    const reference = traceTensor(decoded[0]!.reference.operations, operation.id, operation.output);
+    for (let index = 1; index < decoded.length; index += 1) {
+      assertSameTraceIdentity(decoded[0]!, decoded[index]!);
+      assertSameTensor(input, traceTensor(decoded[index]!.reference.operations, inputOperation.id, inputOperation.output), `${inputOperation.id}: produtor nativo não repetível`);
+      assertSameTensor(reference, traceTensor(decoded[index]!.reference.operations, operation.id, operation.output), `${operation.id}: resultado nativo não repetível`);
+    }
     const matrix = createPagedDenseF32Matrix(tensorInfo(artifact, operation.weight.name, operation.weight.shape, operation.weight.storageDtype), artifact, options.maxReadBytes);
     const results: Gemma4LinearReductionProbeProfileResult[] = [];
     for (const profile of profiles) {
@@ -77,17 +84,19 @@ export async function probeGemma4LiteralLinearReductionProfiles(options: {
     return {
       kind: "gemma4-linear-reduction-profile-probe",
       artifact: artifact.artifact,
+      traces: [...traces],
+      traceCount: traces.length,
       operationId: operation.id,
       inputOperationId: inputOperation.id,
       sourceCheckpointAccessed: false,
       reference: {
-        runtime: decoded.reference.runtime,
-        model: decoded.reference.model,
-        revisionOrChecksum: decoded.reference.revisionOrChecksum,
-        containerFormat: decoded.reference.containerFormat,
-        quantization: decoded.reference.quantization,
-        inputTokens: decoded.reference.inputTokens.map((row) => [...row]),
-        dtypePolicy: decoded.reference.dtypePolicy,
+        runtime: decoded[0]!.reference.runtime,
+        model: decoded[0]!.reference.model,
+        revisionOrChecksum: decoded[0]!.reference.revisionOrChecksum,
+        containerFormat: decoded[0]!.reference.containerFormat,
+        quantization: decoded[0]!.reference.quantization,
+        inputTokens: decoded[0]!.reference.inputTokens.map((row) => [...row]),
+        dtypePolicy: decoded[0]!.reference.dtypePolicy,
       },
       profiles: results,
       exactProfileIds: results.filter((result) => result.exact).map((result) => result.id),
@@ -95,6 +104,44 @@ export async function probeGemma4LiteralLinearReductionProfiles(options: {
   } finally {
     await artifact.close();
   }
+}
+
+function validateTracePaths(traces: readonly string[]): string[] {
+  if (traces.length < 2) throw new Error("Probe de redução Gemma 4 requer ao menos dois traces nativos independentes.");
+  if (traces.some((trace) => !trace)) throw new Error("Probe de redução Gemma 4 recebeu caminho de trace vazio.");
+  if (new Set(traces).size !== traces.length) throw new Error("Probe de redução Gemma 4 requer arquivos de trace distintos.");
+  return [...traces];
+}
+
+function assertCompatibleTrace(trace: Awaited<ReturnType<typeof readExecutionTraceBundle>>, fingerprint: string): void {
+  if (trace.bundle.candidatePolicy.dtype !== "F32" || trace.bundle.candidatePolicy.runtime !== "llm-inner paged Gemma4Text literal F32") {
+    throw new Error("Probe de redução requer trace Gemma4Text F32 paginado compatível.");
+  }
+  if (trace.bundle.irFingerprint !== fingerprint) throw new Error("Trace de redução Gemma 4 não corresponde ao programa textual do artefato literal.");
+  if (!trace.bundle.captureId) throw new Error("Probe de redução requer captureId por trace para provar capturas independentes.");
+}
+
+function assertSameTraceIdentity(
+  left: Awaited<ReturnType<typeof readExecutionTraceBundle>>,
+  right: Awaited<ReturnType<typeof readExecutionTraceBundle>>,
+): void {
+  if (left.bundle.captureId === right.bundle.captureId) throw new Error("Probe de redução requer captureId distinto por trace.");
+  const identity = (trace: Awaited<ReturnType<typeof readExecutionTraceBundle>>) => JSON.stringify({
+    source: trace.bundle.source,
+    irFingerprint: trace.bundle.irFingerprint,
+    candidatePolicy: trace.bundle.candidatePolicy,
+    reference: {
+      runtime: trace.reference.runtime,
+      model: trace.reference.model,
+      revisionOrChecksum: trace.reference.revisionOrChecksum,
+      containerFormat: trace.reference.containerFormat,
+      quantization: trace.reference.quantization,
+      inputTokens: trace.reference.inputTokens,
+      positionIds: trace.reference.positionIds,
+      dtypePolicy: trace.reference.dtypePolicy,
+    },
+  });
+  if (identity(left) !== identity(right)) throw new Error("Probe de redução recebeu traces com identidade de referência diferente.");
 }
 
 function validateProfiles(profiles: readonly Gemma4LinearReductionProfile[]): Gemma4LinearReductionProfile[] {
@@ -130,6 +177,15 @@ function traceTensor(samples: readonly { operationId: string; output: string; te
   if (!sample || sample.output !== output) throw new Error(`Trace de redução não contém ${operationId}/${output}.`);
   if (!(sample.tensor.values instanceof Float32Array)) throw new Error(`Trace de redução ${operationId} não declara tensor F32.`);
   return sample.tensor as DenseF32Tensor;
+}
+
+function assertSameTensor(left: DenseF32Tensor, right: DenseF32Tensor, label: string): void {
+  if (left.shape.length !== right.shape.length || left.shape.some((dimension, index) => dimension !== right.shape[index]) || left.values.length !== right.values.length) {
+    throw new Error(`${label}: shape divergente entre traces.`);
+  }
+  for (let index = 0; index < left.values.length; index += 1) {
+    if (!Object.is(left.values[index], right.values[index])) throw new Error(`${label}: valor divergente no índice ${index}.`);
+  }
 }
 
 function tensorInfo(

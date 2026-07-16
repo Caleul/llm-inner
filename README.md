@@ -339,10 +339,12 @@ primeiro limite agora é `layer_0_up_proj`. A comparação completa permanece
 
 Para evitar transformar um palpite de SIMD em semântica do artefato, há também
 `probe:gemma4-linear-reduction`. Ele vincula uma projeção linear ao produtor e
-resultado nomeados de um trace nativo com fingerprint de IR, lê somente ranges
-do JSON literal e exige igualdade de todos os elementos após o cast declarado.
-No E4B, ele confirma independentemente as 32 lanes de `layer_0_gate_proj`, mas
-nenhuma das agendas escalar/F32/F64 ou 2..256 lanes testadas resolve
+resultado nomeados de **duas capturas nativas independentes** com fingerprint
+de IR e identidade de fonte iguais, lê somente ranges do JSON literal e exige
+igualdade bitwise dos dois traces antes de comparar todos os elementos após o
+cast declarado. No E4B, duas capturas completas de 1.229 atribuições foram
+idênticas; o probe confirma as 32 lanes de `layer_0_gate_proj`, mas nenhuma das
+agendas escalar/F32/F64 ou 2..256 lanes testadas resolve
 `layer_0_up_proj`; os resultados e o comando estão em
 [`docs/validation/gemma4-e4b-linear-reduction-probe-2026-07-16.md`](docs/validation/gemma4-e4b-linear-reduction-probe-2026-07-16.md).
 

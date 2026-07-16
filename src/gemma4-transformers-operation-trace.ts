@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
@@ -80,6 +81,7 @@ export async function captureGemma4TransformersOperationTrace(options: Gemma4Tra
     const bundle: ExecutionTraceBundle = {
       schemaVersion: 1,
       kind: "execution",
+      captureId: randomUUID(),
       source: { files: await checksums(opened.catalog.source, opened.catalog.tensors.values()) },
       irFingerprint: fingerprintIR(program.textProgram),
       candidatePolicy: { dtype: "F32", runtime: "llm-inner paged Gemma4Text literal F32" },

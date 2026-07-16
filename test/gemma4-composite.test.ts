@@ -407,9 +407,9 @@ test("Gemma 4 linear reduction probe binds a candidate schedule to traced produc
     if (target.op !== "linear") throw new Error("fixture gate must be linear");
     const producer = [...program.textProgram.prelude, ...program.textProgram.layers.flatMap((layer) => layer.operations), ...program.textProgram.epilogue].find((operation) => operation.output === target.input)!;
     const serialize = (tensor: DenseF32Tensor) => ({ dtype: "F32", shape: tensor.shape, valuesBase64: Buffer.from(tensor.values.buffer, tensor.values.byteOffset, tensor.values.byteLength).toString("base64") });
-    const trace = path.join(root, "trace.json");
-    await writeFile(trace, JSON.stringify({
-      schemaVersion: 1, kind: "execution", source: { files: [{ path: "config.json", sha256: "a".repeat(64) }] },
+    const trace = path.join(root, "trace.json"), repeatedTrace = path.join(root, "trace-repeat.json");
+    const tracePayload = {
+      schemaVersion: 1, kind: "execution", captureId: "fixture-capture-a", source: { files: [{ path: "config.json", sha256: "a".repeat(64) }] },
       irFingerprint: fingerprintIR(program.textProgram), candidatePolicy: { dtype: "F32", runtime: "llm-inner paged Gemma4Text literal F32" },
       reference: {
         runtime: "fixture", model: "fixture", revisionOrChecksum: "fixture", containerFormat: "safetensors", quantization: "none", inputTokens: [[1]], dtypePolicy: "fixture F32",
@@ -419,14 +419,30 @@ test("Gemma 4 linear reduction probe binds a candidate schedule to traced produc
         ],
         pastKeyValues: [],
       },
-    }), "utf8");
+    };
+    await writeFile(trace, JSON.stringify(tracePayload), "utf8");
+    const repeatedPayload = structuredClone(tracePayload);
+    repeatedPayload.captureId = "fixture-capture-b";
+    await writeFile(repeatedTrace, JSON.stringify(repeatedPayload), "utf8");
     const report = await probeGemma4LiteralLinearReductionProfiles({
-      artifact, trace, operationId: target.id, maxReadBytes: 1024 * 1024,
+      artifact, traces: [trace, repeatedTrace], operationId: target.id, maxReadBytes: 1024 * 1024,
       profiles: [{ id: "ordered-f32", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } }],
     });
     assert.equal(report.inputOperationId, producer.id);
+    assert.equal(report.traceCount, 2);
     assert.deepEqual(report.exactProfileIds, ["ordered-f32"]);
     assert.equal(report.profiles[0]!.mismatchedElements, 0);
+    const divergent = structuredClone(repeatedPayload);
+    const targetTrace = divergent.reference.operations.find((entry) => entry.operationId === target.id)!;
+    const divergentValues = Float32Array.from(native.values.get(target.output)!.values);
+    divergentValues[0] = Math.fround(divergentValues[0]! + 1);
+    targetTrace.tensor.valuesBase64 = serialize({ shape: [...native.values.get(target.output)!.shape], values: divergentValues }).valuesBase64;
+    await writeFile(repeatedTrace, JSON.stringify(divergent), "utf8");
+    await assert.rejects(
+      () => probeGemma4LiteralLinearReductionProfiles({ artifact, traces: [trace, repeatedTrace], operationId: target.id, maxReadBytes: 1024 * 1024,
+        profiles: [{ id: "ordered-f32", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } }], }),
+      /resultado nativo não repetível/,
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }

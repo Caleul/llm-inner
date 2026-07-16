@@ -59,6 +59,8 @@ interface SerializedGenerationStep {
 export interface ExecutionTraceBundle {
   schemaVersion: 1;
   kind: "execution";
+  /** Per-capture nonce; optional for historical generic traces. */
+  captureId?: string;
   source: { files: TraceSourceFile[] };
   irFingerprint: string;
   candidatePolicy: {
@@ -233,8 +235,10 @@ function validateBundle(raw: unknown): ExecutionTraceBundle {
     if (!Number.isInteger(cache.layer) || (cache.layer as number) < 0) throw new Error("Trace cache KV requer layer inteiro não negativo.");
     return { layer: cache.layer as number, key: validateSerializedTensor(cache.key, "cache key", dtype), value: validateSerializedTensor(cache.value, "cache value", dtype) };
   });
+  const captureId = value.captureId;
+  if (captureId !== undefined && (typeof captureId !== "string" || captureId.trim() === "")) throw new Error("Trace captureId deve ser string não vazia quando declarado.");
   return {
-    schemaVersion: 1, kind: "execution", source: { files }, irFingerprint: value.irFingerprint,
+    schemaVersion: 1, kind: "execution", ...(captureId === undefined ? {} : { captureId }), source: { files }, irFingerprint: value.irFingerprint,
     candidatePolicy: { dtype: candidatePolicy.dtype as "F32" | "F64", runtime: candidatePolicy.runtime },
     reference: {
       runtime: reference.runtime as string, model: reference.model as string, revisionOrChecksum: reference.revisionOrChecksum as string,
