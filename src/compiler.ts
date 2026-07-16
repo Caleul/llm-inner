@@ -2,6 +2,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 import * as path from "node:path";
 import { openCatalog } from "./catalog.js";
 import { buildModelIR } from "./architecture.js";
+import { buildDenseF32LiteralProgram } from "./literal.js";
+import type { LiteralTensorReader } from "./literal.js";
 import { renderEquations } from "./render.js";
 import type { PreviewOptions } from "./types.js";
 
@@ -10,6 +12,8 @@ export interface CompileOptions {
   output: string;
   equationsOutput?: string;
   preview: PreviewOptions;
+  /** Emit a source-independent dense-F32 Safetensors calculation program. */
+  literal?: boolean;
 }
 
 export async function compileModel(options: CompileOptions): Promise<void> {
@@ -17,7 +21,10 @@ export async function compileModel(options: CompileOptions): Promise<void> {
   try {
     const ir = await buildModelIR(opened.catalog, options.preview, opened.bridge);
     await mkdir(path.dirname(options.output), { recursive: true });
-    await writeFile(options.output, `${JSON.stringify(ir, null, 2)}\n`, "utf8");
+    const artifact = options.literal
+      ? await buildDenseF32LiteralProgram(ir, opened.catalog, literalReader(opened.reader))
+      : ir;
+    await writeFile(options.output, `${JSON.stringify(artifact, null, 2)}\n`, "utf8");
     if (options.equationsOutput) {
       await mkdir(path.dirname(options.equationsOutput), { recursive: true });
       await writeFile(options.equationsOutput, renderEquations(ir), "utf8");
@@ -25,4 +32,14 @@ export async function compileModel(options: CompileOptions): Promise<void> {
   } finally {
     await opened.close();
   }
+}
+
+function literalReader(reader: unknown): LiteralTensorReader {
+  if (
+    typeof reader !== "object" || reader === null ||
+    !("readTensorBytes" in reader) || typeof reader.readTensorBytes !== "function"
+  ) {
+    throw new Error("O contêiner selecionado não expõe ranges brutos para exportação literal autocontida.");
+  }
+  return reader as LiteralTensorReader;
 }

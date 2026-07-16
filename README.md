@@ -150,6 +150,27 @@ node dist/src/cli.js \
 
 Sem `--include-weights`, a compilação não dequantiza previews; ela apenas cataloga os tensores e gera o grafo.
 
+### Exportação literal autocontida (Safetensors F32 denso)
+
+`--literal` troca o artefato de IR interno por um programa de cálculo que não
+retém `source.path`, shard, offset ou referência externa. Para cada tensor
+usado pelas atribuições, ele incorpora o payload original `F32` em base64 com
+shape, layout `row-major` e byte order little-endian; as atribuições são
+ordenadas em `prelude`, camadas e `epilogue`, e cada atenção declara sua
+transição de cache KV (`append-post-rope` ou `reuse-producer`).
+
+```bash
+node dist/src/cli.js --source ./modelo --output ./modelo.literal.json --literal
+```
+
+`executeLiteralF32` e `generateLiteralF32` reconstroem os `Float32Array`
+somente desses bytes incorporados. A regressão remove o diretório inteiro do
+checkpoint antes de executar forward e dois passos greedy, portanto esse
+caminho não pode cair de volta para um shard local. A versão inicial falha
+fechado para F16/BF16, MLX U32 e GGUF quantizado: esses formatos requerem que o
+programa incorpore também a semântica de decode/cast específica, não uma matriz
+F32 materializada escondida.
+
 ### Comparação com captura autoritativa
 
 `npm run compare:trace -- --source <checkpoint> --trace <captura.json> --report <relatorio.json>` executa a fronteira completa de validação declarada pela captura (`F32` ou `F64`): reabre o contêiner, confere SHA-256 de `config.json` e de cada shard/arquivo que participa do checkpoint, reconstrói o IR, materializa os pesos por range, executa o interpretador correspondente e compara cada operação e cache KV com a captura. O relatório só é escrito depois de todas essas verificações.
@@ -187,7 +208,7 @@ Então execute, a partir da raiz do projeto:
 npm run loop:start
 ```
 
-O limite é de 150 handoffs aceitos, configurado em `agent-loop.config.json`.
+O limite é de 100 handoffs aceitos, configurado em `agent-loop.config.json`.
 O runner exige árvore Git limpa, um novo commit por ciclo, testes configurados,
 um handoff válido e nenhuma flag `.agent-loop/STOP` antes de iniciar o próximo.
 

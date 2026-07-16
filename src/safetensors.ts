@@ -180,6 +180,23 @@ export class SafetensorsCatalogReader {
   }
 
   /**
+   * Returns the exact stored byte range for one catalogued Safetensors tensor.
+   * This is deliberately storage-level access: it performs no dtype widening,
+   * dequantization, or interpretation. Callers that serialize a literal
+   * program can therefore embed the original IEEE/packed payload rather than
+   * a lossy decimal rendering or a reference back to this checkpoint.
+   */
+  async readTensorBytes(tensor: TensorInfo): Promise<Buffer> {
+    if (!tensor.shard || tensor.byteOffset === undefined || tensor.byteLength === undefined || tensor.byteLength < 0) {
+      throw new Error(`${tensor.name}: metadados de range Safetensors incompletos para exportação literal.`);
+    }
+    this.#validateShardName(tensor.shard);
+    const bytes = Buffer.allocUnsafe(tensor.byteLength);
+    await this.#readExactly(await this.#getHandle(tensor.shard), bytes, tensor.byteOffset);
+    return bytes;
+  }
+
+  /**
    * Reads one unquantized F64 tensor directly from its Safetensors byte range.
    * The reference executor intentionally accepts no implicit conversion here:
    * widening F32/BF16/F16 would not reproduce their original accumulation and
