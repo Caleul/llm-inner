@@ -802,8 +802,7 @@ export function rmsNormF32(input: DenseF32Tensor, weight: DenseF32Tensor | undef
   const result = new Float32Array(input.values.length);
   const epsilon = f32(operation.epsilon);
   for (let offset = 0; offset < input.values.length; offset += width) {
-    let sum = f32(0);
-    for (let index = 0; index < width; index += 1) sum = f32(sum + f32(input.values[offset + index]! * input.values[offset + index]!));
+    const sum = operation.dtypePolicy.accumulationDtype === "F64" ? rmsNormF32ProductsF64Accumulation(input, offset, width) : rmsNormF32ProductsF32Accumulation(input, offset, width);
     const mean = f32(sum / f32(width));
     const scale = f32(1 / f32(Math.sqrt(f32(mean + epsilon))));
     for (let index = 0; index < width; index += 1) {
@@ -812,6 +811,20 @@ export function rmsNormF32(input: DenseF32Tensor, weight: DenseF32Tensor | undef
     }
   }
   return denseF32([...input.shape], result);
+}
+
+/** Ordered F32 squares and F32 additions: the generic scalar reference contract. */
+function rmsNormF32ProductsF32Accumulation(input: DenseF32Tensor, offset: number, width: number): number {
+  let sum = f32(0);
+  for (let index = 0; index < width; index += 1) sum = f32(sum + f32(input.values[offset + index]! * input.values[offset + index]!));
+  return sum;
+}
+
+/** Ordered F32 squares with a declared F64 scalar accumulator. */
+function rmsNormF32ProductsF64Accumulation(input: DenseF32Tensor, offset: number, width: number): number {
+  let sum = 0;
+  for (let index = 0; index < width; index += 1) sum += f32(input.values[offset + index]! * input.values[offset + index]!);
+  return sum;
 }
 
 function linearF32(input: DenseF32Tensor, weight: DenseF32Tensor, bias?: DenseF32Tensor): DenseF32Tensor {

@@ -293,6 +293,22 @@ test("paged dense kernels widen BF16 only from declared literal ranges", async (
   assert.equal(maxRead, 4, "the kernel must never request more than the declared row budget");
 });
 
+test("paged linear keeps the declared F64 accumulator distinct from F32 products and BF16 storage", async () => {
+  const tensor: TensorInfo = { name: "embedded://cancellation", storageDtype: "F32", storageShape: [1, 3], logicalShape: [1, 3] };
+  const storage = Buffer.alloc(12);
+  storage.writeFloatLE(16_777_216, 0);
+  storage.writeFloatLE(1, 4);
+  storage.writeFloatLE(-16_777_216, 8);
+  const matrix = createPagedDenseF32Matrix(tensor, {
+    async readTensorBytesRange(_tensor, offset, byteLength) { return storage.subarray(offset, offset + byteLength); },
+  }, 12);
+  const input = { shape: [1, 3], values: Float32Array.from([1, 1, 1]) };
+  const f32 = await pagedLinearF32(input, matrix, { outputDtype: "BF16", accumulationDtype: "F32" });
+  const f64 = await pagedLinearF32(input, matrix, { outputDtype: "BF16", accumulationDtype: "F64" });
+  assert.deepEqual(f32.values, Float32Array.from([0]));
+  assert.deepEqual(f64.values, Float32Array.from([1]));
+});
+
 test("Gemma 4 shared-KV consumers embed but explicitly label their checkpoint-local K/V tensors", async () => {
   const catalog = fixture({ layers: 3, layerTypes: ["sliding_attention", "full_attention", "sliding_attention"], sharedKeyValueLayers: 1 });
   const program = buildGemma4CompositeProgram(catalog, preview), sourceTensors = materialize(catalog);

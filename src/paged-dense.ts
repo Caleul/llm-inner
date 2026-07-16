@@ -109,7 +109,7 @@ export async function pagedEmbeddingF32(
 export async function pagedLinearF32(
   input: DenseF32Tensor,
   weight: PagedDenseF32Matrix,
-  options: { outputDtype?: "F32" | "BF16" } = {},
+  options: { outputDtype?: "F32" | "BF16"; accumulationDtype?: "F32" | "F64" } = {},
 ): Promise<DenseF32Tensor> {
   if (input.shape.length < 1) throw new Error("Linear paginado requer entrada com dimensão de features.");
   const [outFeatures, inFeatures] = weight.shape;
@@ -122,12 +122,34 @@ export async function pagedLinearF32(
     const outputCount = Math.min(chunkRows, outFeatures - firstOutput);
     const stored = await weight.readRows(firstOutput, outputCount);
     for (let row = 0; row < rows; row += 1) for (let output = 0; output < outputCount; output += 1) {
-      let sum = Math.fround(0);
-      for (let column = 0; column < inFeatures; column += 1) sum = Math.fround(sum + Math.fround(input.values[row * inFeatures + column]! * stored.values[output * inFeatures + column]!));
-      result[row * outFeatures + firstOutput + output] = options.outputDtype === "BF16" ? roundF32ToBF16(sum) : sum;
+      const sum = options.accumulationDtype === "F64" ? linearF32ProductsF64Accumulation(input, stored.values, row, output, inFeatures) : linearF32ProductsF32Accumulation(input, stored.values, row, output, inFeatures);
+      result[row * outFeatures + firstOutput + output] = options.outputDtype === "BF16" ? roundF32ToBF16(sum) : Math.fround(sum);
     }
   }
   return { shape: [...input.shape.slice(0, -1), outFeatures], values: result };
+}
+
+/** Ordered F32 products and F32 additions: the generic scalar reference contract. */
+function linearF32ProductsF32Accumulation(input: DenseF32Tensor, weight: Float32Array, row: number, output: number, inFeatures: number): number {
+  let sum = Math.fround(0);
+  for (let column = 0; column < inFeatures; column += 1) {
+    sum = Math.fround(sum + Math.fround(input.values[row * inFeatures + column]! * weight[output * inFeatures + column]!));
+  }
+  return sum;
+}
+
+/**
+ * Ordered F32 products with an F64 scalar accumulator. This is deliberately
+ * separate from storage widening: callers must declare it in the operation
+ * dtype policy, because it changes an observable BF16 result at cancellation
+ * boundaries.
+ */
+function linearF32ProductsF64Accumulation(input: DenseF32Tensor, weight: Float32Array, row: number, output: number, inFeatures: number): number {
+  let sum = 0;
+  for (let column = 0; column < inFeatures; column += 1) {
+    sum += Math.fround(input.values[row * inFeatures + column]! * weight[output * inFeatures + column]!);
+  }
+  return sum;
 }
 
 /** Applies an explicit tensor-result BF16 cast after a declared operation. */

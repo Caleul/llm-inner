@@ -3,6 +3,7 @@ import { roundF32ToBF16 } from "./utils.js";
 
 const F32_POLICY = { computeDtype: "model-configured", accumulationDtype: "runtime-defined", outputDtype: "model-configured" } as const;
 const F32_RUNTIME_POLICY = { inputDtype: "F32", computeDtype: "F32", accumulationDtype: "F32", outputDtype: "F32" } as const;
+const BF16_NATIVE_REDUCTION_POLICY = { inputDtype: "BF16", computeDtype: "F32", accumulationDtype: "F64", outputDtype: "BF16" } as const;
 
 /**
  * Lowers the authoritative Gemma4Text model only. The outer Gemma 4 package
@@ -147,7 +148,7 @@ export function buildGemma4TextIR(catalog: ModelCatalog, config: JsonObject, pre
   if (finalSoftcap !== undefined) epilogue.push({ id: "final_logit_softcap", op: "elementwise", kind: "tanh_softcap", inputs: ["logits"], scalar: finalSoftcap, output: "softcapped_logits", dtypePolicy: F32_POLICY });
   const dtypePolicy = textRuntimeDtypePolicy(runtimeDtype);
   for (const operation of [...prelude, ...lowered.flatMap((layer) => layer.operations), ...epilogue]) {
-    operation.dtypePolicy = dtypePolicy;
+    operation.dtypePolicy = runtimeDtype === "BF16" && (operation.op === "linear" || operation.op === "rms_norm") ? BF16_NATIVE_REDUCTION_POLICY : dtypePolicy;
   }
   return { schemaVersion: 2, source: { path: catalog.source, format: catalog.format }, architecture: { modelType: "gemma4_text", hiddenSize: hidden, intermediateSize: intermediate, numLayers: layers, numAttentionHeads: heads, numKeyValueHeads: kvHeads, headDim, vocabSize: vocab }, config: structuredClone(config), preview, inputs: [{ name: "input_ids", description: "IDs dos tokens de entrada." }, { name: "attention_mask", description: "Máscaras causais por tipo de atenção." }, { name: "position_ids", description: "Posições absolutas RoPE." }, { name: "past_key_values", description: "Estado KV pós-RoPE por camada produtora." }], prelude, layers: lowered, epilogue, fidelity: { exactByConstruction: false, assumptions: ["A política declarada preserva fronteiras BF16 de saída quando a configuração autoritativa as exige; a ordem exata de redução do kernel nativo continua sujeita à validação diferencial."], unsupported: [], warnings: ["Este adaptador cobre Gemma4Text isolado. O pacote multimodal Gemma4 continua rejeitado até vision/audio replacement ser lowered."] } };
 }
@@ -159,11 +160,15 @@ export function gemma4TextEmbeddingScale(hiddenSize: number, storageDtype: strin
 }
 
 /**
- * Gemma4Text modules execute their reductions in float32 but return tensors in
- * the configured model dtype.  This is an observable assignment boundary, not
- * a storage-only hint: later residuals, norms, and cache writes consume the
- * narrowed BF16 values.  F32 fixtures may omit `dtype`, but an unfamiliar
- * declared runtime dtype is not safe to approximate.
+ * Gemma4Text modules return tensors in the configured model dtype. The
+ * registered eager-BF16 linear/RMSNorm compatibility profiles keep products
+ * in F32, reduce them in a declared ordered F64 scalar accumulator, then
+ * narrow the result to BF16. This preserves the observed pinned-runtime output
+ * at cancellation boundaries without pretending that storage dtype alone
+ * defines a reduction rule. Other operations retain their source-visible F32
+ * policy.
+ * F32 fixtures may omit `dtype`, but an unfamiliar declared runtime dtype is
+ * not safe to approximate.
  */
 function declaredTextRuntimeDtype(config: JsonObject): "F32" | "BF16" {
   const dtype = config.dtype;

@@ -106,7 +106,10 @@ export async function executeGemma4PagedTextLiteralF32(
         break;
       case "linear":
         if (!operation.transposeWeight || operation.bias) throw new Error(`${operation.id}: executor Gemma 4 paginado requer linear [out,in] sem bias.`);
-        store(operation, await pagedLinearF32(value(values, operation.input), matrix(operation.weight), { outputDtype: operation.dtypePolicy.outputDtype === "BF16" ? "BF16" : "F32" }));
+        store(operation, await pagedLinearF32(value(values, operation.input), matrix(operation.weight), {
+          outputDtype: operation.dtypePolicy.outputDtype === "BF16" ? "BF16" : "F32",
+          accumulationDtype: operation.dtypePolicy.accumulationDtype === "F64" ? "F64" : "F32",
+        }));
         break;
       case "reshape_heads":
         if (operation.layout !== "BHSD") throw new Error(`${operation.id}: executor Gemma 4 paginado requer layout BHSD.`);
@@ -205,8 +208,9 @@ function assertPagedF32Policy(operation: Operation): void {
   const policy = operation.dtypePolicy;
   const f32 = policy.computeDtype === "F32" && policy.accumulationDtype === "F32" && policy.outputDtype === "F32";
   const bf16 = policy.inputDtype === "BF16" && policy.computeDtype === "F32" && policy.accumulationDtype === "F32" && policy.outputDtype === "BF16";
-  if (!f32 && !bf16) {
-    throw new Error(`${operation.id}: executor Gemma 4 paginado requer política F32 ou fronteira BF16 explícita.`);
+  const bf16F64Reduction = (operation.op === "linear" || operation.op === "rms_norm") && policy.inputDtype === "BF16" && policy.computeDtype === "F32" && policy.accumulationDtype === "F64" && policy.outputDtype === "BF16";
+  if (!f32 && !bf16 && !bf16F64Reduction) {
+    throw new Error(`${operation.id}: executor Gemma 4 paginado requer política F32, BF16 explícita, ou redução linear/RMSNorm BF16 F64 declarada.`);
   }
 }
 

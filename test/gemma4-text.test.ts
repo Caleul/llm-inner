@@ -18,7 +18,9 @@ test("Gemma 4 text preserves authoritative BF16 result boundaries in its IR", as
   for (const tensor of catalog.tensors.values()) tensor.storageDtype = "BF16";
   const ir = await buildModelIR(catalog, preview);
   for (const operation of [...ir.prelude, ...ir.layers.flatMap((layer) => layer.operations), ...ir.epilogue]) {
-    assert.deepEqual(operation.dtypePolicy, { inputDtype: "BF16", computeDtype: "F32", accumulationDtype: "F32", outputDtype: "BF16" });
+    assert.deepEqual(operation.dtypePolicy, operation.op === "linear" || operation.op === "rms_norm"
+      ? { inputDtype: "BF16", computeDtype: "F32", accumulationDtype: "F64", outputDtype: "BF16" }
+      : { inputDtype: "BF16", computeDtype: "F32", accumulationDtype: "F32", outputDtype: "BF16" });
   }
 });
 

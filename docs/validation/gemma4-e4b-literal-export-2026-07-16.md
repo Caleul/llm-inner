@@ -16,7 +16,7 @@ forward/generation replay has yet been completed.
 - Local artifact (ignored because it is 21.3 GB):
   `artifacts/gemma4-e4b-dense.literal.json`.
 - Artifact SHA-256:
-  `83d63c1be28a8cdb6f35a6b81a889552777da57d662b5367a88138f707a9c001`.
+  `77110ff676903cb0b7588c547b169121b59acececf5572c88997f2f163c27f83`.
 - Artifact bytes: `21,325,922,407`; embedded original storage bytes:
   `15,992,314,836`.
 
@@ -61,9 +61,11 @@ are referenced by ordered composite, vision, audio, or text assignments.
 
 ## Remaining checkpoint gates
 
-The artifact now declares F32 reduction with BF16 result casts for the
-authoritatively BF16 Gemma4Text assignments. This does not encode the native
-kernel's exact reduction tree or complete multimodal replay. Source-removed
-text-only native comparisons remain approximate, and the vision/audio towers
-still lack paged storage-backed execution. Do not create
+The artifact now declares F32 products, ordered F64 accumulation, and BF16
+result casts for the observed eager-BF16 Gemma4Text linear/RMSNorm boundaries.
+This is an explicit portable compatibility policy, not a claim that storage
+dtype alone defines the native kernel's exact reduction tree. Source-removed
+text-only native comparisons remain approximate (`layer_0_gate_proj` is the
+first unresolved boundary), and the vision/audio towers still lack paged
+storage-backed execution. Do not create
 `.agent-loop/checkpoints/gemma4-dense-lossless/`.
