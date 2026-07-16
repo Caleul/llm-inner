@@ -12,6 +12,7 @@
     "compare:generation-trace": "node dist/src/generation-trace-cli.js",
     "capture:mlx-trace": "node dist/src/mlx-trace-capture-cli.js",
     "capture:transformers-trace": "node dist/src/transformers-trace-capture-cli.js",
+    "audit:gemma4": "npm run build && node dist/src/gemma4-contract-cli.js",
     "benchmark:native": "npm run build && node dist/src/benchmark-cli.js",
     "loop:start": "node scripts/agent-loop-runner.mjs start",
     "loop:status": "node scripts/agent-loop-runner.mjs status",

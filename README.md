@@ -334,6 +334,26 @@ O adaptador atual cobre blocos decoder-only auditáveis de Llama, Mistral, Qwen 
 
 Um pacote composto não é convertido implicitamente em um checkpoint textual. Quando o `config.json` externo declara `audio_config` ou `vision_config` e tokens de modalidade, enquanto `text_config` descreve outro `model_type`, o compilador falha antes da seleção do adaptador: a injeção desses tokens, os towers e sua ordem no forward pass fazem parte da função. Um futuro adaptador de texto só pode reutilizar esse submodelo depois que um adaptador do pacote composto declarar e validar explicitamente essa fronteira.
 
+### Auditoria do contrato Gemma 4 denso
+
+`npm run audit:gemma4 -- --source <diretório-Gemma4> --output <audit.json>` é
+uma fronteira de evidência para o checkpoint obrigatório — não é um adaptador e
+não produz IR. Ele exige o pacote composto `gemma4` denso em Safetensors,
+`text_config=gemma4_text`, os towers de visão e áudio, e os namespaces
+registrados do checkpoint oficial (`model.language_model`, `model.vision_tower`,
+`model.audio_tower`, `model.embed_vision`, `model.embed_audio`). Em seguida
+verifica os shapes de PLE, quatro RMSNorms, projeções por tipo de atenção,
+RoPE default/proporcional e a propriedade KV compartilhada. O relatório
+declara a camada produtora KV para cada consumidor e calcula SHA-256 dos
+arquivos de identidade. A primeira evidência para o E4B BF16 está em
+[`docs/validation/gemma4-e4b-source-audit-2026-07-16.json`](docs/validation/gemma4-e4b-source-audit-2026-07-16.json).
+
+Esse relatório não muda a recusa do compilador: as sete famílias explicitadas
+no artefato — injeção de visão, injeção de áudio, PLE, RoPE por tipo, estado KV
+compartilhado, decoder de quatro RMSNorms e estado de geração multimodal —
+continuam sem lowering/executor/diferencial completos. Portanto ele não é um
+marcador `gemma4-dense-lossless` e não autoriza reduzir o pacote a texto.
+
 Para Qwen 3 e outros adaptadores que declarem `q_norm`, `k_norm` ou `v_norm`,
 o IR faz `reshape_heads` antes da RMSNorm. Esses pesos precisam ter exatamente
 `head_dim` elementos: normalizar a projeção achatada misturaria cabeças e é
