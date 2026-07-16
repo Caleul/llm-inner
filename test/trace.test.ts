@@ -11,7 +11,7 @@ import { materializeReferenceF32Constants, materializeReferenceF64Constants } fr
 import { fingerprintIR, readExecutionTraceBundle } from "../src/trace.js";
 import { runExecutionTraceComparison, runGenerationTraceComparison } from "../src/trace-runner.js";
 import { captureMlxTrace } from "../src/mlx-trace-capture.js";
-import { captureTransformersLlamaTrace, captureTransformersQwen2Trace } from "../src/transformers-trace-capture.js";
+import { captureTransformersGemma2Trace, captureTransformersLlamaTrace, captureTransformersQwen2Trace } from "../src/transformers-trace-capture.js";
 import type { ModelIR } from "../src/types.js";
 import type { ReferenceF32ExecutionResult } from "../src/types.js";
 
@@ -80,6 +80,35 @@ test("version-pinned Transformers Qwen 2 capture records its bias-bearing native
   }
 });
 
+test("version-pinned Transformers Gemma 2 capture records four norms, softcaps, cache, and greedy continuation", async (context) => {
+  const python = await availableTransformersPython();
+  if (!python) {
+    context.skip("Transformers/PyTorch runtime is external to the clean Node checkout; set LLM_INNER_TRANSFORMERS_PYTHON to enable this native integration test.");
+    return;
+  }
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-transformers-gemma2-capture-"));
+  try {
+    await writeTinyTransformersGemma2F32Model(directory);
+    const source = path.join(directory, "gemma2-transformers");
+    const executionTrace = path.join(directory, "execution.json");
+    assert.equal(await captureTransformersGemma2Trace({ source, output: executionTrace, inputTokens: [1], positionIds: [7], python, model: "tiny-gemma2-transformers", revisionOrChecksum: "tiny-transformers-gemma2-fixture-v1" }), "execution");
+    const execution = await runExecutionTraceComparison({ source, trace: executionTrace, report: path.join(directory, "execution-report.json"), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
+    assert.equal(execution.reference.runtime, "PyTorch 2.7.1 / Transformers 4.57.1 Gemma2ForCausalLM eager native capture");
+    assert.equal(execution.operations.length, 25);
+    assert.equal(execution.firstDivergentOperation, null);
+    assert.equal(execution.kvCache.length, 1);
+    assert.deepEqual(execution.reference.positionIds, [[7]]);
+
+    const generationTrace = path.join(directory, "generation.json");
+    assert.equal(await captureTransformersGemma2Trace({ source, output: generationTrace, inputTokens: [1], maxNewTokens: 2, python, model: "tiny-gemma2-transformers", revisionOrChecksum: "tiny-transformers-gemma2-fixture-v1" }), "generation");
+    const generation = await runGenerationTraceComparison({ source, trace: generationTrace, report: path.join(directory, "generation-report.json"), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
+    assert.equal(generation.generatedTokenIds.length, 2);
+    assert.equal(generation.firstDivergence, null);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("Transformers capture rejects a non-Llama adapter before launching Python", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-transformers-adapter-rejection-"));
   try {
@@ -90,6 +119,22 @@ test("Transformers capture rejects a non-Llama adapter before launching Python",
         python: path.join(directory, "missing-python"), model: "tiny-mistral", revisionOrChecksum: "fixture-v1",
       }),
       /model_type=llama/,
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("Transformers Gemma 2 capture rejects Q/K-normalized IR before launching Python", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-transformers-gemma2-qk-norm-rejection-"));
+  try {
+    await writeTinyGemma2F32Model(directory);
+    await assert.rejects(
+      () => captureTransformersGemma2Trace({
+        source: path.join(directory, "gemma2"), output: path.join(directory, "trace.json"), inputTokens: [1],
+        python: path.join(directory, "missing-python"), model: "tiny-gemma2-qk-norm", revisionOrChecksum: "fixture-v1",
+      }),
+      /não possui módulos Q\/K norm/,
     );
   } finally {
     await rm(directory, { recursive: true, force: true });
@@ -2074,6 +2119,39 @@ async function writeTinyGemma2F32Model(root: string): Promise<void> {
     num_key_value_heads: 1, head_dim: 2, vocab_size: 3, rms_norm_eps: 1e-6, hidden_act: "gelu_pytorch_tanh",
     tie_word_embeddings: false, query_pre_attn_scalar: 4, sliding_window: 2, attn_logit_softcapping: 1.5,
     final_logit_softcapping: 2,
+  }));
+  await writeSafetensorsFixture(path.join(directory, "model.safetensors"), weights);
+}
+
+/**
+ * Native Transformers 4.57.1 Gemma 2 has the four RMSNorms and both
+ * softcaps, but no Q/K-normalization modules. Keep this distinct from the
+ * broader IR fixture above so native evidence cannot silently borrow a
+ * different Gemma-style attention contract.
+ */
+async function writeTinyTransformersGemma2F32Model(root: string): Promise<void> {
+  const directory = path.join(root, "gemma2-transformers");
+  await mkdir(directory);
+  const identity = [1, 0, 0, 1];
+  const unitOffset = [0, 0];
+  const weights: Array<[string, "F32", number[], number[]]> = [
+    ["model.embed_tokens.weight", "F32", [3, 2], [0, 0, 3, -2, 1, 1]],
+    ["model.layers.0.input_layernorm.weight", "F32", [2], unitOffset],
+    ...["q_proj", "k_proj", "v_proj", "o_proj"].map((projection): [string, "F32", number[], number[]] => [`model.layers.0.self_attn.${projection}.weight`, "F32", [2, 2], identity]),
+    ["model.layers.0.post_attention_layernorm.weight", "F32", [2], unitOffset],
+    ["model.layers.0.pre_feedforward_layernorm.weight", "F32", [2], unitOffset],
+    ["model.layers.0.mlp.gate_proj.weight", "F32", [2, 2], identity],
+    ["model.layers.0.mlp.up_proj.weight", "F32", [2, 2], identity],
+    ["model.layers.0.mlp.down_proj.weight", "F32", [2, 2], identity],
+    ["model.layers.0.post_feedforward_layernorm.weight", "F32", [2], unitOffset],
+    ["model.norm.weight", "F32", [2], unitOffset],
+    ["lm_head.weight", "F32", [3, 2], [1, 0, 0, 1, 1, -1]],
+  ];
+  await writeFile(path.join(directory, "config.json"), JSON.stringify({
+    model_type: "gemma2", hidden_size: 2, intermediate_size: 2, num_hidden_layers: 1, num_attention_heads: 1,
+    num_key_value_heads: 1, head_dim: 2, vocab_size: 3, rms_norm_eps: 1e-6, hidden_activation: "gelu_pytorch_tanh",
+    tie_word_embeddings: false, attention_bias: false, query_pre_attn_scalar: 4, sliding_window: 4096, layer_types: ["sliding_attention"],
+    attn_logit_softcapping: 1.5, final_logit_softcapping: 2,
   }));
   await writeSafetensorsFixture(path.join(directory, "model.safetensors"), weights);
 }

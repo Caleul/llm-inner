@@ -22,6 +22,7 @@ from transformers import AutoModelForCausalLM
 from transformers.cache_utils import DynamicCache
 from transformers.models.llama import modeling_llama
 from transformers.models.qwen2 import modeling_qwen2
+from transformers.models.gemma2 import modeling_gemma2
 
 
 SUPPORTED_TRANSFORMERS = "4.57.1"
@@ -76,7 +77,7 @@ def greedy(logits: torch.Tensor) -> int:
 
 
 class TransformersDecoderCapture:
-    """Pinned native capture with explicit Llama and Qwen 2 contracts.
+    """Pinned native capture with explicit Llama, Qwen 2, and Gemma 2 contracts.
 
     The filename is retained for backwards-compatible runner paths; adapter
     selection is explicit request data and every contract below is validated
@@ -95,6 +96,7 @@ class TransformersDecoderCapture:
         contracts = {
             "llama": {"model_type": "llama", "model_class": "LlamaForCausalLM", "label": "Llama", "module": modeling_llama, "attention_bias": False},
             "qwen2": {"model_type": "qwen2", "model_class": "Qwen2ForCausalLM", "label": "Qwen 2", "module": modeling_qwen2, "attention_bias": None},
+            "gemma2": {"model_type": "gemma2", "model_class": "Gemma2ForCausalLM", "label": "Gemma 2", "module": modeling_gemma2, "attention_bias": False},
         }
         if adapter not in contracts:
             raise ValueError(f"Adapter Transformers desconhecido: {adapter}.")
@@ -125,8 +127,12 @@ class TransformersDecoderCapture:
                 f"Transformers capture requer exatamente {self.contract['model_class']} com model_type={self.contract['model_type']}; "
                 f"recebeu {self.model.__class__.__name__}/{config.model_type}."
             )
-        if getattr(config, "hidden_act", None) != "silu":
-            raise ValueError(f"Transformers Llama capture requer hidden_act=silu; recebeu {getattr(config, 'hidden_act', None)}.")
+        expected_activation = "gelu_pytorch_tanh" if self.adapter == "gemma2" else "silu"
+        actual_activation = getattr(config, "hidden_activation", getattr(config, "hidden_act", None))
+        if actual_activation != expected_activation:
+            raise ValueError(
+                f"Transformers {self.contract['label']} capture requer ativação {expected_activation}; recebeu {actual_activation}."
+            )
         configured_attention_bias = bool(getattr(config, "attention_bias", False))
         required_attention_bias = self.contract["attention_bias"]
         if (required_attention_bias is not None and configured_attention_bias is not required_attention_bias) or getattr(config, "mlp_bias", False):
@@ -142,17 +148,30 @@ class TransformersDecoderCapture:
                     f"Transformers {self.contract['label']} capture encontrou {projection}.bias incompatível com o contrato esperado={expected_qkv_bias}."
                 )
         if attention.o_proj.bias is not None:
-            raise ValueError(f"Transformers {self.contract['label']} capture requer o_proj sem bias no contrato Qwen 2/Llama.")
+            raise ValueError(f"Transformers {self.contract['label']} capture requer o_proj sem bias no contrato declarado.")
         if self.adapter == "qwen2" and any(name.endswith(("self_attn.q_norm.weight", "self_attn.k_norm.weight")) for name, _ in self.model.named_parameters()):
             raise ValueError("Transformers Qwen 2 capture rejeita Q/K head norms: elas pertencem a um contrato arquitetural diferente.")
+        if self.adapter == "gemma2":
+            if any(name.endswith(("self_attn.q_norm.weight", "self_attn.k_norm.weight")) for name, _ in self.model.named_parameters()):
+                raise ValueError("Transformers Gemma 2 4.57.1 capture rejeita Q/K head norms: seu Gemma2Attention eager não declara esses módulos.")
+            if not all(hasattr(layer, name) for layer in self.model.model.layers for name in (
+                "input_layernorm", "post_attention_layernorm", "pre_feedforward_layernorm", "post_feedforward_layernorm",
+            )):
+                raise ValueError("Transformers Gemma 2 capture requer as quatro RMSNorms declaradas por camada.")
+            if getattr(config, "query_pre_attn_scalar", None) is None or getattr(config, "attn_logit_softcapping", None) is None or getattr(config, "final_logit_softcapping", None) is None:
+                raise ValueError("Transformers Gemma 2 capture requer query_pre_attn_scalar e ambos os softcaps declarados.")
+            if not isinstance(getattr(config, "layer_types", None), list) or len(config.layer_types) != config.num_hidden_layers:
+                raise ValueError("Transformers Gemma 2 capture requer layer_types explícito para selecionar atenção local/global.")
+            if config.tie_word_embeddings and self.model.lm_head.weight is not self.model.model.embed_tokens.weight:
+                raise ValueError("Transformers Gemma 2 capture encontrou tie_word_embeddings=true sem lm_head amarrado ao embedding.")
         rope_scaling = getattr(config, "rope_scaling", None)
         if rope_scaling not in (None, {}):
-            raise ValueError("Transformers Llama capture requer RoPE default sem rope_scaling.")
+            raise ValueError(f"Transformers {self.contract['label']} capture requer RoPE default sem rope_scaling.")
         if getattr(config, "_attn_implementation", None) != "eager":
-            raise ValueError(f"Transformers Llama capture requer attention eager; recebeu {getattr(config, '_attn_implementation', None)}.")
+            raise ValueError(f"Transformers {self.contract['label']} capture requer attention eager; recebeu {getattr(config, '_attn_implementation', None)}.")
         for name, parameter in self.model.named_parameters():
             if parameter.dtype != torch.float32:
-                raise ValueError(f"{name}: Transformers Llama capture requer parâmetro F32; recebeu {parameter.dtype}.")
+                raise ValueError(f"{name}: Transformers {self.contract['label']} capture requer parâmetro F32; recebeu {parameter.dtype}.")
 
     def _forward(self, tokens: list[int], positions: list[int], cache: DynamicCache | None = None):
         if len(tokens) != len(positions) or not tokens:
@@ -181,7 +200,13 @@ class TransformersDecoderCapture:
         if self.handles or self.original_rope is not None:
             raise RuntimeError("Hooks Transformers Llama já instalados.")
         self.operations = {}
-        self.handles.append(self.model.model.embed_tokens.register_forward_hook(self._hook_output("token_embedding")))
+        if self.adapter == "gemma2":
+            # Gemma2Model multiplies embeddings by sqrt(hidden_size) after
+            # embed_tokens. The IR boundary is post-scale, observed by the
+            # first layer norm's input rather than embed_tokens' output.
+            self.handles.append(self.model.model.layers[0].input_layernorm.register_forward_pre_hook(self._hook_input("token_embedding")))
+        else:
+            self.handles.append(self.model.model.embed_tokens.register_forward_hook(self._hook_output("token_embedding")))
         for index, layer in enumerate(self.model.model.layers):
             prefix = f"layer_{index}"
             self.handles.extend([
@@ -191,20 +216,34 @@ class TransformersDecoderCapture:
                 layer.self_attn.v_proj.register_forward_hook(self._hook_output(f"{prefix}_v_proj")),
                 layer.self_attn.v_proj.register_forward_hook(self._v_heads_hook(index)),
                 layer.self_attn.o_proj.register_forward_hook(self._hook_output(f"{prefix}_o_proj")),
-                # Its input is the native residual+attention addition, before
-                # the norm consumes it, so this observes the IR boundary.
-                layer.post_attention_layernorm.register_forward_pre_hook(self._hook_input(f"{prefix}_attention_residual")),
-                layer.post_attention_layernorm.register_forward_hook(self._hook_output(f"{prefix}_pre_ffn_norm")),
+                *([] if self.adapter == "gemma2" else [
+                    # In Llama/Qwen2 this norm consumes the native
+                    # residual+attention addition and is the IR pre-FFN norm.
+                    layer.post_attention_layernorm.register_forward_pre_hook(self._hook_input(f"{prefix}_attention_residual")),
+                    layer.post_attention_layernorm.register_forward_hook(self._hook_output(f"{prefix}_pre_ffn_norm")),
+                ]),
+                *([
+                    layer.post_attention_layernorm.register_forward_hook(self._hook_output(f"{prefix}_post_attention_norm")),
+                    # Gemma 2 applies the residual after post-attention norm;
+                    # pre_feedforward_layernorm observes that exact IR add.
+                    layer.pre_feedforward_layernorm.register_forward_pre_hook(self._hook_input(f"{prefix}_attention_residual")),
+                    layer.pre_feedforward_layernorm.register_forward_hook(self._hook_output(f"{prefix}_pre_ffn_norm")),
+                ] if self.adapter == "gemma2" else []),
                 layer.mlp.gate_proj.register_forward_hook(self._hook_output(f"{prefix}_gate_proj")),
                 layer.mlp.up_proj.register_forward_hook(self._hook_output(f"{prefix}_up_proj")),
                 layer.mlp.act_fn.register_forward_hook(self._hook_output(f"{prefix}_activation")),
                 # Its input is exactly activation(gate) * up in native code.
                 layer.mlp.down_proj.register_forward_pre_hook(self._hook_input(f"{prefix}_gated_multiply")),
                 layer.mlp.down_proj.register_forward_hook(self._hook_output(f"{prefix}_down_proj")),
+                *([
+                    layer.post_feedforward_layernorm.register_forward_hook(self._hook_output(f"{prefix}_post_ffn_norm")),
+                ] if self.adapter == "gemma2" else []),
                 layer.register_forward_hook(self._hook_output(f"{prefix}_mlp_residual")),
             ])
         self.handles.append(self.model.model.norm.register_forward_hook(self._hook_output("final_norm")))
         self.handles.append(self.model.lm_head.register_forward_hook(self._hook_output("lm_head")))
+        if self.adapter == "gemma2":
+            self.handles.append(self.model.register_forward_hook(lambda _module, _inputs, output: self._record("final_logit_softcap", output.logits)))
 
         self.original_rope = self.modeling.apply_rotary_pos_emb
         self.original_attention = self.modeling.eager_attention_forward
@@ -243,7 +282,7 @@ class TransformersDecoderCapture:
         for index in range(self.layers):
             if f"layer_{index}_q_heads" not in self.operations:
                 return index
-        raise ValueError("Capture Transformers observou mais aplicações RoPE do que camadas Llama declaradas.")
+        raise ValueError(f"Capture Transformers observou mais aplicações RoPE do que camadas {self.contract['label']} declaradas.")
 
     def _remove(self) -> None:
         for handle in self.handles:
@@ -264,7 +303,7 @@ class TransformersDecoderCapture:
             missing = [operation for operation in expected if operation not in self.operations]
             unexpected = sorted(set(self.operations).difference(expected))
             if missing or unexpected:
-                raise ValueError(f"Hooks Transformers não cobriram exatamente as operações Llama: ausentes={missing}, extras={unexpected}.")
+                raise ValueError(f"Hooks Transformers não cobriram exatamente as operações {self.contract['label']}: ausentes={missing}, extras={unexpected}.")
             return output, self.operations
         finally:
             self._remove()
@@ -276,11 +315,15 @@ class TransformersDecoderCapture:
             result.extend([
                 f"{prefix}_input_norm", f"{prefix}_q_proj", f"{prefix}_k_proj", f"{prefix}_v_proj",
                 f"{prefix}_q_heads", f"{prefix}_k_heads", f"{prefix}_v_heads", f"{prefix}_q_rope", f"{prefix}_k_rope",
-                f"{prefix}_attention", f"{prefix}_o_proj", f"{prefix}_attention_residual", f"{prefix}_pre_ffn_norm",
+                f"{prefix}_attention", f"{prefix}_o_proj",
+                *([f"{prefix}_post_attention_norm"] if self.adapter == "gemma2" else []),
+                f"{prefix}_attention_residual", f"{prefix}_pre_ffn_norm",
                 f"{prefix}_gate_proj", f"{prefix}_up_proj", f"{prefix}_activation", f"{prefix}_gated_multiply",
-                f"{prefix}_down_proj", f"{prefix}_mlp_residual",
+                f"{prefix}_down_proj",
+                *([f"{prefix}_post_ffn_norm"] if self.adapter == "gemma2" else []),
+                f"{prefix}_mlp_residual",
             ])
-        return [*result, "final_norm", "lm_head"]
+        return [*result, "final_norm", "lm_head", *(["final_logit_softcap"] if self.adapter == "gemma2" else [])]
 
     def execution(self, tokens: list[int], positions: list[int]) -> dict[str, Any]:
         plain = self._forward(tokens, positions)
@@ -343,16 +386,23 @@ class CacheSnapshot:
         self.layers: list[Any] = []
 
 
+class CacheLayerSnapshot:
+    """Tensor-only cache layer snapshot, independent of runtime constructors."""
+
+    def __init__(self, key: torch.Tensor, value: torch.Tensor) -> None:
+        self.keys = key.detach().clone()
+        self.values = value.detach().clone()
+
+
 def clone_cache(cache: DynamicCache, layers: int) -> CacheSnapshot:
     # DynamicCache constructors differ across Transformers releases; retaining
     # the native tensors in this narrow immutable snapshot avoids a private
     # cache-copy API while preserving exactly the canonical cache fields.
     result = CacheSnapshot()
     for layer in cache.layers[:layers]:
-        copy = type(layer)()
-        copy.keys = layer.keys.detach().clone()
-        copy.values = layer.values.detach().clone()
-        result.layers.append(copy)
+        if layer.keys is None or layer.values is None:
+            raise ValueError("Não é possível capturar snapshot de camada KV incompleta.")
+        result.layers.append(CacheLayerSnapshot(layer.keys, layer.values))
     return result
 
 
@@ -360,6 +410,7 @@ def operation_output(operation_id: str) -> str:
     if operation_id == "token_embedding": return "hidden_states_0"
     if operation_id == "final_norm": return "final_hidden_states"
     if operation_id == "lm_head": return "logits"
+    if operation_id == "final_logit_softcap": return "softcapped_logits"
     parts = operation_id.split("_")
     layer = parts[1]
     suffix = "_".join(parts[2:])
@@ -368,9 +419,11 @@ def operation_output(operation_id: str) -> str:
         "v_proj": f"layer_{layer}_v_linear", "q_heads": f"layer_{layer}_q_heads", "k_heads": f"layer_{layer}_k_heads",
         "v_heads": f"layer_{layer}_v_heads", "q_rope": f"layer_{layer}_q_rot", "k_rope": f"layer_{layer}_k_rot",
         "attention": f"layer_{layer}_attention_context", "o_proj": f"layer_{layer}_attention_projected",
+        "post_attention_norm": f"layer_{layer}_post_attention_norm",
         "attention_residual": f"layer_{layer}_after_attention", "pre_ffn_norm": f"layer_{layer}_ffn_norm",
         "gate_proj": f"layer_{layer}_gate", "up_proj": f"layer_{layer}_up", "activation": f"layer_{layer}_gate_activated",
-        "gated_multiply": f"layer_{layer}_gated_mlp", "down_proj": f"layer_{layer}_mlp_output", "mlp_residual": f"hidden_states_{int(layer) + 1}",
+        "gated_multiply": f"layer_{layer}_gated_mlp", "down_proj": f"layer_{layer}_mlp_output",
+        "post_ffn_norm": f"layer_{layer}_post_ffn_norm", "mlp_residual": f"hidden_states_{int(layer) + 1}",
     }[suffix]
 
 

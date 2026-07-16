@@ -443,7 +443,7 @@ async function buildEpilogue(ctx: ArchitectureContext): Promise<Operation[]> {
     "language_model.model.embed_tokens.weight",
     "token_embd.weight",
   ]);
-  const tied = tiedWordEmbeddings(ctx.config);
+  const tied = tiedWordEmbeddings(ctx.config, ctx.modelType);
   // `tie_word_embeddings` declares the parameter used by the output
   // projection. A serialized duplicate lm_head.weight must not override that
   // contract, because it might be stale or otherwise not the shared parameter.
@@ -1070,8 +1070,12 @@ function declaredNumber(config: JsonObject, keys: string[], label: string): numb
   return value;
 }
 
-function tiedWordEmbeddings(config: JsonObject): boolean {
-  if (!Object.hasOwn(config, "tie_word_embeddings")) return false;
+function tiedWordEmbeddings(config: JsonObject, modelType: string): boolean {
+  // Gemma 2's registered configuration contract defaults this field to true.
+  // A minimal config may omit the serialised default and its Safetensors then
+  // legitimately has no lm_head payload. This is an adapter-owned semantic
+  // default, not an inference from tensor naming or checkpoint absence.
+  if (!Object.hasOwn(config, "tie_word_embeddings")) return modelType === "gemma2";
   if (typeof config.tie_word_embeddings !== "boolean") {
     throw new Error("tie_word_embeddings deve ser booleano quando declarado; não é seguro inferir o peso do output head.");
   }

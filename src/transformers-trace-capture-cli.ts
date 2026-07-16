@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { captureTransformersLlamaTrace, captureTransformersQwen2Trace } from "./transformers-trace-capture.js";
+import { captureTransformersGemma2Trace, captureTransformersLlamaTrace, captureTransformersQwen2Trace } from "./transformers-trace-capture.js";
 
 function value(argv: string[], name: string, required = true): string | undefined {
   const index = argv.indexOf(name);
@@ -21,8 +21,10 @@ async function main(): Promise<void> {
     ? captureTransformersLlamaTrace
     : adapter === "qwen2"
       ? captureTransformersQwen2Trace
+      : adapter === "gemma2"
+        ? captureTransformersGemma2Trace
       : undefined;
-  if (!capture) throw new Error(`--adapter deve ser llama ou qwen2; recebeu ${adapter}.`);
+  if (!capture) throw new Error(`--adapter deve ser llama, qwen2 ou gemma2; recebeu ${adapter}.`);
   const kind = await capture({
     source: resolve(source), output: resolve(output), inputTokens,
     ...(positions ? { positionIds: positions } : {}),

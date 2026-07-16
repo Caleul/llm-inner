@@ -19,7 +19,7 @@ export interface TransformersCaptureOptions {
   revisionOrChecksum: string;
 }
 
-export type TransformersCaptureAdapter = "llama" | "qwen2";
+export type TransformersCaptureAdapter = "llama" | "qwen2" | "gemma2";
 
 interface CaptureAdapterContract {
   modelType: TransformersCaptureAdapter;
@@ -30,6 +30,7 @@ interface CaptureAdapterContract {
 const CAPTURE_ADAPTERS: Record<TransformersCaptureAdapter, CaptureAdapterContract> = {
   llama: { modelType: "llama", helperLabel: "Llama", modelClass: "LlamaForCausalLM" },
   qwen2: { modelType: "qwen2", helperLabel: "Qwen 2", modelClass: "Qwen2ForCausalLM" },
+  gemma2: { modelType: "gemma2", helperLabel: "Gemma 2", modelClass: "Gemma2ForCausalLM" },
 };
 
 interface TransformersExecutionCapture {
@@ -70,6 +71,11 @@ export async function captureTransformersQwen2Trace(options: TransformersCapture
   return captureTransformersTrace("qwen2", options);
 }
 
+/** Captures the four-norm Gemma 2 decoder against its native eager runtime. */
+export async function captureTransformersGemma2Trace(options: TransformersCaptureOptions): Promise<"execution" | "generation"> {
+  return captureTransformersTrace("gemma2", options);
+}
+
 async function captureTransformersTrace(
   adapterName: TransformersCaptureAdapter,
   options: TransformersCaptureOptions,
@@ -95,6 +101,14 @@ async function captureTransformersTrace(
       throw new Error(
         `Transformers ${adapter.helperLabel} capture requer model_type=${adapter.modelType} e ${adapter.modelClass}; ` +
           `recebeu ${ir.architecture.modelType}.`,
+      );
+    }
+    if (adapterName === "gemma2" && ir.layers.some((layer) => layer.operations.some((operation) =>
+      operation.id.endsWith("_q_norm") || operation.id.endsWith("_k_norm"),
+    ))) {
+      throw new Error(
+        "Transformers Gemma 2 4.57.1 capture não possui módulos Q/K norm; " +
+          "registre outro contrato de runtime antes de capturar este pacote.",
       );
     }
     const source = { files: await checksums(opened.catalog.source, opened.catalog.tensors.values()) };

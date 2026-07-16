@@ -327,6 +327,15 @@ test("tie_word_embeddings escolhe o embedding declarado e preserva bias do módu
   }
 });
 
+test("Gemma 2 usa somente o default semântico registrado para lm_head amarrado ausente", async () => {
+  const source = catalog("gemma2", { hidden_activation: "gelu_pytorch_tanh" });
+  source.tensors.delete("lm_head.weight");
+  const ir = await buildModelIR(source, preview);
+  const head = ir.epilogue.find((operation) => operation.id === "lm_head");
+  assert.equal(head?.op, "linear");
+  if (head?.op === "linear") assert.equal(head.weight.name, "model.embed_tokens.weight");
+});
+
 test("output-head tying must be boolean and untied heads cannot be omitted", async () => {
   const untied = catalog("llama", { tie_word_embeddings: false });
   untied.tensors.delete("lm_head.weight");

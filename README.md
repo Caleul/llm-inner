@@ -243,7 +243,8 @@ O compilador falha quando:
 - `attention_bias` ou `mlp_bias` declarado não coincide com a presença dos
   tensores `.bias` das projeções correspondentes (ou a flag não é booleana);
 - `tie_word_embeddings` não é booleano, ou um `lm_head` independente está
-  ausente quando o config não declara o peso de saída amarrado ao embedding;
+  ausente quando o config não declara o peso de saída amarrado ao embedding
+  (exceto o default semântico registrado `true` de Gemma 2);
 - campos declarados de topologia de atenção (`layer_types`, janela deslizante,
   compartilhamento de KV) ou escala/softcap numéricos são inválidos, em vez de
   cair silenciosamente na atenção global padrão;
@@ -377,15 +378,20 @@ preserva a distinção essencial: é uma comparação numérica por kernels MLX
 contra o executor candidato, não uma captura do `transformers` que estabelece
 de modo independente a semântica da arquitetura.
 
-### Captura semântica nativa por Transformers (Llama e Qwen 2 F32)
+### Captura semântica nativa por Transformers (Llama, Qwen 2 e Gemma 2 F32)
 
 `capture:transformers-trace` é o caminho separado para evidência semântica do
 runtime oficial: ele abre um pacote local denso F32 por
-`LlamaForCausalLM` ou `Qwen2ForCausalLM` do Hugging Face, fixa `transformers==4.57.1` e
+`LlamaForCausalLM`, `Qwen2ForCausalLM` ou `Gemma2ForCausalLM` do Hugging Face, fixa `transformers==4.57.1` e
 `torch==2.7.1`, força atenção `eager` e não envia o IR candidato ao helper
-Python. O adaptador seleciona explicitamente `--adapter llama|qwen2`: Llama
-exige projeções sem bias, enquanto Qwen 2 exige bias em Q/K/V e ausência de
-bias em `o_proj`. Ambos exigem `hidden_act=silu` e RoPE padrão sem scaling.
+Python. O adaptador seleciona explicitamente `--adapter llama|qwen2|gemma2`:
+Llama exige projeções sem bias, Qwen 2 exige bias em Q/K/V e ausência de bias
+em `o_proj`, e Gemma 2 exige quatro RMSNorms, embedding escalado, atenção
+local/global declarada, `query_pre_attn_scalar`, ambos os softcaps e a ligação
+de saída declarada/default. No runtime Gemma 2 4.57.1, Q/K norms não existem no
+`Gemma2Attention`; um pacote que as declare é recusado por este adaptador em
+vez de ser apresentado como evidência nativa. Todos exigem RoPE padrão sem
+scaling, F32 e `eager`.
 Ele instala hooks para todas as
 fronteiras estáveis do IR e prova, antes de escrever a captura, que a execução
 instrumentada preserva bit a bit logits e `DynamicCache` canônico BHSD da
@@ -404,11 +410,12 @@ npm run compare:trace -- --source ./model --trace ./transformers-execution.json 
 Com `--max-new-tokens`, a mesma fronteira captura logits de seleção, cada KV
 pós-decode, logits terminais e o cache final para `compare:generation-trace`.
 Ao contrário da captura MLX, esta evidência não deriva a semântica de forward
-do IR candidato. Ela ainda é limitada aos contratos Llama/Qwen 2 F32 e às
+do IR candidato. Ela ainda é limitada aos contratos Llama/Qwen 2/Gemma 2 F32 e às
 versões declaradas; não generaliza para arquiteturas, formatos ou quantizações
 não instrumentados. Os replays públicos imutáveis estão em
 [`docs/validation/tiny-random-llama-transformers-2026-07-16.md`](docs/validation/tiny-random-llama-transformers-2026-07-16.md)
-e [`docs/validation/tiny-dummy-qwen2-transformers-2026-07-16.md`](docs/validation/tiny-dummy-qwen2-transformers-2026-07-16.md).
+e [`docs/validation/tiny-dummy-qwen2-transformers-2026-07-16.md`](docs/validation/tiny-dummy-qwen2-transformers-2026-07-16.md),
+além de [`docs/validation/tiny-random-gemma2-transformers-2026-07-16.md`](docs/validation/tiny-random-gemma2-transformers-2026-07-16.md).
 
 Há também uma regressão cruzada de contêiner que grava o mesmo microcheckpoint
 Llama denso em Safetensors e GGUF v3. O caminho GGUF reconstrói as dimensões
