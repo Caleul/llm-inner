@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { captureTransformersLlamaTrace } from "./transformers-trace-capture.js";
+import { captureTransformersLlamaTrace, captureTransformersQwen2Trace } from "./transformers-trace-capture.js";
 
 function value(argv: string[], name: string, required = true): string | undefined {
   const index = argv.indexOf(name);
@@ -16,7 +16,14 @@ async function main(): Promise<void> {
   const inputTokens = value(argv, "--input-tokens")!.split(",").map(Number);
   const positions = value(argv, "--position-ids", false)?.split(",").map(Number);
   const maxNewTokens = value(argv, "--max-new-tokens", false);
-  const kind = await captureTransformersLlamaTrace({
+  const adapter = value(argv, "--adapter", false) ?? "llama";
+  const capture = adapter === "llama"
+    ? captureTransformersLlamaTrace
+    : adapter === "qwen2"
+      ? captureTransformersQwen2Trace
+      : undefined;
+  if (!capture) throw new Error(`--adapter deve ser llama ou qwen2; recebeu ${adapter}.`);
+  const kind = await capture({
     source: resolve(source), output: resolve(output), inputTokens,
     ...(positions ? { positionIds: positions } : {}),
     ...(maxNewTokens !== undefined ? { maxNewTokens: Number(maxNewTokens) } : {}),

@@ -365,21 +365,23 @@ preserva a distinção essencial: é uma comparação numérica por kernels MLX
 contra o executor candidato, não uma captura do `transformers` que estabelece
 de modo independente a semântica da arquitetura.
 
-### Captura semântica nativa por Transformers (Llama F32)
+### Captura semântica nativa por Transformers (Llama e Qwen 2 F32)
 
 `capture:transformers-trace` é o caminho separado para evidência semântica do
 runtime oficial: ele abre um pacote local denso F32 por
-`LlamaForCausalLM` do Hugging Face, fixa `transformers==4.57.1` e
+`LlamaForCausalLM` ou `Qwen2ForCausalLM` do Hugging Face, fixa `transformers==4.57.1` e
 `torch==2.7.1`, força atenção `eager` e não envia o IR candidato ao helper
-Python. O adaptador aceita somente `model_type=llama`, `hidden_act=silu`,
-projeções sem bias e RoPE padrão sem scaling. Ele instala hooks para todas as
+Python. O adaptador seleciona explicitamente `--adapter llama|qwen2`: Llama
+exige projeções sem bias, enquanto Qwen 2 exige bias em Q/K/V e ausência de
+bias em `o_proj`. Ambos exigem `hidden_act=silu` e RoPE padrão sem scaling.
+Ele instala hooks para todas as
 fronteiras estáveis do IR e prova, antes de escrever a captura, que a execução
 instrumentada preserva bit a bit logits e `DynamicCache` canônico BHSD da
 execução não instrumentada. Famílias, storage, dtypes, versões ou semânticas
 fora desse contrato falham fechadas.
 
 ```bash
-npm run capture:transformers-trace -- --source ./model --output ./transformers-execution.json \
+npm run capture:transformers-trace -- --adapter qwen2 --source ./model --output ./transformers-execution.json \
   --input-tokens 1,2,3 --position-ids 0,1,2 \
   --python /path/to/pinned-transformers/bin/python \
   --model my-llama --revision immutable-revision
@@ -390,10 +392,11 @@ npm run compare:trace -- --source ./model --trace ./transformers-execution.json 
 Com `--max-new-tokens`, a mesma fronteira captura logits de seleção, cada KV
 pós-decode, logits terminais e o cache final para `compare:generation-trace`.
 Ao contrário da captura MLX, esta evidência não deriva a semântica de forward
-do IR candidato. Ela ainda é limitada ao contrato Llama F32 e às versões
-declaradas; não generaliza para arquiteturas, formatos ou quantizações não
-instrumentados. O replay do pacote público imutável está em
-[`docs/validation/tiny-random-llama-transformers-2026-07-16.md`](docs/validation/tiny-random-llama-transformers-2026-07-16.md).
+do IR candidato. Ela ainda é limitada aos contratos Llama/Qwen 2 F32 e às
+versões declaradas; não generaliza para arquiteturas, formatos ou quantizações
+não instrumentados. Os replays públicos imutáveis estão em
+[`docs/validation/tiny-random-llama-transformers-2026-07-16.md`](docs/validation/tiny-random-llama-transformers-2026-07-16.md)
+e [`docs/validation/tiny-dummy-qwen2-transformers-2026-07-16.md`](docs/validation/tiny-dummy-qwen2-transformers-2026-07-16.md).
 
 Há também uma regressão cruzada de contêiner que grava o mesmo microcheckpoint
 Llama denso em Safetensors e GGUF v3. O caminho GGUF reconstrói as dimensões
@@ -405,7 +408,8 @@ não uma alegação de equivalência com um runtime externo ou de cobertura de
 modelos reais/quantizados.
 
 As mesmas fronteiras executáveis agora cobrem Qwen 2 e Qwen 3 em GGUF v3
-denso. A regressão Qwen 2 preserva os quatro biases de projeção de atenção e
+denso. A regressão Qwen 2 preserva os biases Q/K/V e a ausência de bias em
+`o_proj`,
 prova que não introduz os Q/K norms que pertencem apenas ao Qwen 3; a regressão
 Qwen 3 preserva esses norms no tensor BHSD após `reshape_heads`. Ambas partem
 de um Safetensors F32 pareado, verificam a orientação `[in,out]` do GGML para
@@ -416,7 +420,7 @@ um runtime externo nem uma validação de checkpoint publicado.
 
 Essa fronteira também cobre Qwen 2 e Qwen 3 com `GGML_TYPE_Q8_0`. Cada matriz
 de largura 32 é empacotada em blocos de 32 códigos `int8` com `d=0.5`, enquanto
-as normas e os quatro biases de atenção permanecem F32 conforme os tensores
+as normas e os biases de atenção declarados permanecem F32 conforme os tensores
 declarados. Um GGUF F32 pareado é construído diretamente da fórmula
 `F32[i] = F16(d) * int8(q[i])`, sem chamar o leitor candidato. Para ambas as
 arquiteturas, a regressão confirma todas as operações, KV pós-RoPE, logits e
@@ -443,7 +447,7 @@ oito escalas e oito mínimos de seis bits, e 128 bytes de nibbles. As matrizes
 de largura 256 do fixture percorrem os oito grupos, todos os códigos de quatro
 bits e tanto os campos diretos dos grupos 0..3 quanto os bits altos divididos
 dos grupos 4..7. A testemunha GGUF F32 é construída diretamente por
-`d * scale[group] * q - dmin * minimum[group]`; normas e os quatro biases de
+`d * scale[group] * q - dmin * minimum[group]`; normas e os biases de atenção declarados
 atenção continuam F32. Para os dois layouts, a regressão compara todas as
 operações, KV pós-RoPE, logits terminais e duas etapas greedy, mantendo a
 ausência de Q/K norms no Qwen 2 e exigindo as normas BHSD no Qwen 3. É
@@ -458,7 +462,7 @@ preserva a mesma hierarquia afim de escala/mínimo do Q4_K mas acrescenta
 bits, nibbles baixo/alto, ambos os campos altos divididos dos grupos 4..7 e
 cada posição de `qh`. A testemunha GGUF F32 calcula diretamente
 `d * scale[group] * (low4 | high1 << 4) - dmin * minimum[group]`; normas e
-os quatro biases de atenção permanecem F32. Para os dois layouts, a regressão
+os biases de atenção declarados permanecem F32. Para os dois layouts, a regressão
 compara todas as operações, KV pós-RoPE, logits terminais e duas etapas greedy,
 mantendo a ausência de Q/K norms no Qwen 2 e exigindo as normas BHSD no Qwen
 3. É evidência sintética lossless dentro da política F32 declarada para
@@ -544,7 +548,7 @@ Qwen 2 e Qwen 3 também percorrem `GGML_TYPE_Q3_K` pela fronteira completa.
 Cada matriz de largura 256 usa as 16 escalas assinadas de seis bits, os dois
 estados de `hmask[32]` e os quatro planos de códigos baixos de dois bits; o
 GGUF F32 pareado calcula diretamente `d*scale*(low2-(hmask?0:4))` com
-`d=0.5`, sem ler o payload candidato. As projeções preservam os quatro biases
+`d=0.5`, sem ler o payload candidato. As projeções preservam os biases de atenção declarados,
 densos de Qwen, enquanto apenas Qwen 3 mantém as normas Q/K em BHSD antes de
 RoPE. Para ambos os layouts, a captura ligada ao checksum compara todas as
 operações, cache KV pós-RoPE, logits terminais e duas etapas greedy. Isto é
@@ -555,7 +559,7 @@ Qwen 2 e Qwen 3 também percorrem `GGML_TYPE_Q2_K` pela fronteira completa.
 Cada matriz de largura 256 usa os 16 nibbles independentes de escala/mínimo e
 os quatro planos de códigos de dois bits; o GGUF F32 pareado calcula
 diretamente `d*scale*code-dmin*minimum`, com `d=0.5` e `dmin=0.25`, sem ler o
-payload candidato. As projeções preservam os quatro biases densos de Qwen,
+payload candidato. As projeções preservam os biases de atenção declarados por Qwen,
 enquanto apenas Qwen 3 mantém as normas Q/K em BHSD antes de RoPE. Para ambos
 os layouts, a captura ligada ao checksum compara todas as operações, cache KV
 pós-RoPE, logits terminais e duas etapas greedy. Isto é evidência sintética
@@ -566,7 +570,7 @@ Qwen 2 e Qwen 3 também percorrem `GGML_TYPE_Q8_K` pela fronteira completa.
 Cada matriz de largura 256 usa o bloco de 260 bytes com escala `F32 d=0.25`
 e os 256 códigos `int8` assinados, de `-128` a `127`; o GGUF F32 pareado
 calcula diretamente `d*q`, sem ler o payload candidato. As projeções preservam
-os quatro biases densos de Qwen, enquanto apenas Qwen 3 mantém as normas Q/K
+os biases de atenção declarados por Qwen, enquanto apenas Qwen 3 mantém as normas Q/K
 em BHSD antes de RoPE. Para ambos os layouts, a captura ligada ao checksum
 compara todas as operações, cache KV pós-RoPE, logits terminais e duas etapas
 greedy. Isto é evidência sintética lossless na política escalar F32 para
@@ -579,7 +583,7 @@ auxiliar `F32 s=d*sum(qs)` e 32 códigos `int8` assinados, cobrindo o domínio
 de `-128` a `127`. O GGUF F32 pareado calcula apenas `d*q`, sem ler o payload
 candidato nem interpretar `s` como offset ou escala F16; o writer verifica que
 `s` é persistido independentemente em cada bloco. As projeções preservam os
-quatro biases densos de Qwen, enquanto apenas Qwen 3 mantém as normas Q/K em
+biases de atenção densos declarados de Qwen, enquanto apenas Qwen 3 mantém as normas Q/K em
 BHSD antes de RoPE. Para ambos os layouts, a captura ligada ao checksum compara
 todas as operações, cache KV pós-RoPE, logits terminais e duas etapas greedy;
 uma mutação no campo `s` final é recusada antes do relatório. Isto é evidência
@@ -592,7 +596,7 @@ completo, sem tratar sua largura de bits como uma semântica comum. `Q4_1` usa
 nibbles e `qh` em um código centrado para `d*(q-16)`; e `Q5_1` usa o mesmo
 packing de cinco bits com mínimo afim, `d*q+m`. Cada pacote F32 pareado aplica
 sua fórmula declarada diretamente, enquanto o GGUF empacotado mantém as normas
-e os quatro biases de atenção de Qwen densos. Para cada variante e ambos os
+e os biases de atenção declarados de Qwen densos. Para cada variante e ambos os
 layouts, a captura ligada ao checksum compara todas as operações, cache KV
 pós-RoPE, logits terminais e duas etapas greedy; Qwen 2 continua sem normas
 Q/K e Qwen 3 mantém suas normas BHSD antes de RoPE. Isto é evidência sintética

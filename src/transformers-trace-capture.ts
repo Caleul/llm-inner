@@ -19,6 +19,19 @@ export interface TransformersCaptureOptions {
   revisionOrChecksum: string;
 }
 
+export type TransformersCaptureAdapter = "llama" | "qwen2";
+
+interface CaptureAdapterContract {
+  modelType: TransformersCaptureAdapter;
+  helperLabel: string;
+  modelClass: string;
+}
+
+const CAPTURE_ADAPTERS: Record<TransformersCaptureAdapter, CaptureAdapterContract> = {
+  llama: { modelType: "llama", helperLabel: "Llama", modelClass: "LlamaForCausalLM" },
+  qwen2: { modelType: "qwen2", helperLabel: "Qwen 2", modelClass: "Qwen2ForCausalLM" },
+};
+
 interface TransformersExecutionCapture {
   runtime: string;
   operations: ExecutionTraceBundle["reference"]["operations"];
@@ -44,6 +57,24 @@ interface TransformersGenerationCapture {
  * from tensor names.
  */
 export async function captureTransformersLlamaTrace(options: TransformersCaptureOptions): Promise<"execution" | "generation"> {
+  return captureTransformersTrace("llama", options);
+}
+
+/**
+ * Captures the bias-bearing Qwen 2 decoder against its native eager
+ * Transformers implementation.  This is intentionally a separate explicit
+ * adapter contract: callers cannot send a Llama package through it merely
+ * because both families lower to a superficially similar decoder graph.
+ */
+export async function captureTransformersQwen2Trace(options: TransformersCaptureOptions): Promise<"execution" | "generation"> {
+  return captureTransformersTrace("qwen2", options);
+}
+
+async function captureTransformersTrace(
+  adapterName: TransformersCaptureAdapter,
+  options: TransformersCaptureOptions,
+): Promise<"execution" | "generation"> {
+  const adapter = CAPTURE_ADAPTERS[adapterName];
   validateTokens(options.inputTokens, "inputTokens");
   const positions = options.positionIds ?? options.inputTokens.map((_, index) => index);
   validateTokens(positions, "positionIds");
@@ -52,16 +83,19 @@ export async function captureTransformersLlamaTrace(options: TransformersCapture
   const opened = await openCatalog(options.source, false);
   try {
     if (opened.catalog.format !== "safetensors") {
-      throw new Error(`Transformers Llama capture requer Safetensors denso; recebeu ${opened.catalog.format}.`);
+      throw new Error(`Transformers ${adapter.helperLabel} capture requer Safetensors denso; recebeu ${opened.catalog.format}.`);
     }
     for (const tensor of opened.catalog.tensors.values()) {
       if (tensor.storageDtype !== "F32" || tensor.quantization !== undefined) {
-        throw new Error(`${tensor.name}: Transformers Llama capture requer todo tensor em storage F32 denso sem quantização.`);
+        throw new Error(`${tensor.name}: Transformers ${adapter.helperLabel} capture requer todo tensor em storage F32 denso sem quantização.`);
       }
     }
     const ir = await buildModelIR(opened.catalog, { outputRows: 1, inputTerms: 1, includeWeights: false });
-    if (ir.architecture.modelType !== "llama") {
-      throw new Error(`Transformers capture possui adaptador nativo somente para llama; recebeu ${ir.architecture.modelType}.`);
+    if (ir.architecture.modelType !== adapter.modelType) {
+      throw new Error(
+        `Transformers ${adapter.helperLabel} capture requer model_type=${adapter.modelType} e ${adapter.modelClass}; ` +
+          `recebeu ${ir.architecture.modelType}.`,
+      );
     }
     const source = { files: await checksums(opened.catalog.source, opened.catalog.tensors.values()) };
     const common = {
@@ -72,6 +106,7 @@ export async function captureTransformersLlamaTrace(options: TransformersCapture
     };
     if (options.maxNewTokens === undefined) {
       const reference = await invoke<TransformersExecutionCapture>(options.python, {
+        adapter: adapter.modelType,
         kind: "execution", source: options.source, inputTokens: options.inputTokens, positionIds: positions,
       });
       const bundle: ExecutionTraceBundle = {
@@ -85,7 +120,7 @@ export async function captureTransformersLlamaTrace(options: TransformersCapture
           quantization: "none",
           inputTokens: [options.inputTokens],
           positionIds: [positions],
-          dtypePolicy: "PyTorch float32 eager LlamaForCausalLM native capture",
+          dtypePolicy: `PyTorch float32 eager ${adapter.modelClass} native capture`,
           operations: reference.operations,
           pastKeyValues: reference.pastKeyValues,
         },
@@ -95,6 +130,7 @@ export async function captureTransformersLlamaTrace(options: TransformersCapture
     }
     if (!Number.isInteger(options.maxNewTokens) || options.maxNewTokens < 0) throw new Error("maxNewTokens deve ser inteiro não negativo.");
     const reference = await invoke<TransformersGenerationCapture>(options.python, {
+      adapter: adapter.modelType,
       kind: "generation", source: options.source, inputTokens: options.inputTokens, positionIds: positions, maxNewTokens: options.maxNewTokens,
     });
     const bundle: GenerationTraceBundle = {
@@ -108,7 +144,7 @@ export async function captureTransformersLlamaTrace(options: TransformersCapture
         quantization: "none",
         inputTokens: [...options.inputTokens],
         promptPositionIds: positions,
-        dtypePolicy: "PyTorch float32 eager LlamaForCausalLM native capture",
+        dtypePolicy: `PyTorch float32 eager ${adapter.modelClass} native capture`,
         maxNewTokens: options.maxNewTokens,
         generatedTokenIds: reference.generatedTokenIds,
         steps: reference.steps,
@@ -163,7 +199,7 @@ async function invoke<T>(python: string, request: object): Promise<T> {
       process.on("error", reject);
       process.on("close", (code) => code === 0
         ? resolve(stdout)
-        : reject(new Error(`Transformers Llama capture helper encerrou com código ${code}: ${stderr.trim()}`)));
+        : reject(new Error(`Transformers native capture helper encerrou com código ${code}: ${stderr.trim()}`)));
     });
     return JSON.parse(output) as T;
   } finally {

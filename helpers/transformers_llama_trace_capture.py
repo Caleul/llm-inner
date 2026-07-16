@@ -21,6 +21,7 @@ import transformers
 from transformers import AutoModelForCausalLM
 from transformers.cache_utils import DynamicCache
 from transformers.models.llama import modeling_llama
+from transformers.models.qwen2 import modeling_qwen2
 
 
 SUPPORTED_TRANSFORMERS = "4.57.1"
@@ -74,8 +75,15 @@ def greedy(logits: torch.Tensor) -> int:
     return int(torch.argmax(logits[0, -1], dim=-1).item())
 
 
-class LlamaCapture:
-    def __init__(self, source: Path):
+class TransformersDecoderCapture:
+    """Pinned native capture with explicit Llama and Qwen 2 contracts.
+
+    The filename is retained for backwards-compatible runner paths; adapter
+    selection is explicit request data and every contract below is validated
+    before a model forward or hook installation can happen.
+    """
+
+    def __init__(self, source: Path, adapter: str):
         if transformers.__version__ != SUPPORTED_TRANSFORMERS or torch.__version__.split("+")[0] != SUPPORTED_TORCH:
             raise ValueError(
                 "Adapter Transformers Llama é version-pinned e requer "
@@ -83,6 +91,15 @@ class LlamaCapture:
                 f"recebeu transformers=={transformers.__version__}, torch=={torch.__version__}."
             )
         self.source = source
+        self.adapter = adapter
+        contracts = {
+            "llama": {"model_type": "llama", "model_class": "LlamaForCausalLM", "label": "Llama", "module": modeling_llama, "attention_bias": False},
+            "qwen2": {"model_type": "qwen2", "model_class": "Qwen2ForCausalLM", "label": "Qwen 2", "module": modeling_qwen2, "attention_bias": None},
+        }
+        if adapter not in contracts:
+            raise ValueError(f"Adapter Transformers desconhecido: {adapter}.")
+        self.contract = contracts[adapter]
+        self.modeling = self.contract["module"]
         self.model = AutoModelForCausalLM.from_pretrained(
             source, local_files_only=True, torch_dtype=torch.float32, attn_implementation="eager"
         )
@@ -98,20 +115,36 @@ class LlamaCapture:
     def runtime(self) -> str:
         return (
             f"PyTorch {torch.__version__.split('+')[0]} / Transformers {transformers.__version__} "
-            "LlamaForCausalLM eager native capture"
+            f"{self.contract['model_class']} eager native capture"
         )
 
     def _validate_model(self) -> None:
         config = self.model.config
-        if config.model_type != "llama" or self.model.__class__.__name__ != "LlamaForCausalLM":
+        if config.model_type != self.contract["model_type"] or self.model.__class__.__name__ != self.contract["model_class"]:
             raise ValueError(
-                "Transformers capture requer exatamente LlamaForCausalLM com model_type=llama; "
+                f"Transformers capture requer exatamente {self.contract['model_class']} com model_type={self.contract['model_type']}; "
                 f"recebeu {self.model.__class__.__name__}/{config.model_type}."
             )
         if getattr(config, "hidden_act", None) != "silu":
             raise ValueError(f"Transformers Llama capture requer hidden_act=silu; recebeu {getattr(config, 'hidden_act', None)}.")
-        if getattr(config, "attention_bias", False) or getattr(config, "mlp_bias", False):
-            raise ValueError("Transformers Llama capture não aceita projeções com bias; implemente o contrato explícito antes de capturar.")
+        configured_attention_bias = bool(getattr(config, "attention_bias", False))
+        required_attention_bias = self.contract["attention_bias"]
+        if (required_attention_bias is not None and configured_attention_bias is not required_attention_bias) or getattr(config, "mlp_bias", False):
+            raise ValueError(
+                f"Transformers {self.contract['label']} capture requer attention_bias={required_attention_bias} "
+                "e mlp_bias=false; implemente o contrato explícito antes de capturar."
+            )
+        attention = self.model.model.layers[0].self_attn
+        expected_qkv_bias = True if self.adapter == "qwen2" else configured_attention_bias
+        for projection in ("q_proj", "k_proj", "v_proj"):
+            if (getattr(attention, projection).bias is not None) is not expected_qkv_bias:
+                raise ValueError(
+                    f"Transformers {self.contract['label']} capture encontrou {projection}.bias incompatível com o contrato esperado={expected_qkv_bias}."
+                )
+        if attention.o_proj.bias is not None:
+            raise ValueError(f"Transformers {self.contract['label']} capture requer o_proj sem bias no contrato Qwen 2/Llama.")
+        if self.adapter == "qwen2" and any(name.endswith(("self_attn.q_norm.weight", "self_attn.k_norm.weight")) for name, _ in self.model.named_parameters()):
+            raise ValueError("Transformers Qwen 2 capture rejeita Q/K head norms: elas pertencem a um contrato arquitetural diferente.")
         rope_scaling = getattr(config, "rope_scaling", None)
         if rope_scaling not in (None, {}):
             raise ValueError("Transformers Llama capture requer RoPE default sem rope_scaling.")
@@ -173,8 +206,8 @@ class LlamaCapture:
         self.handles.append(self.model.model.norm.register_forward_hook(self._hook_output("final_norm")))
         self.handles.append(self.model.lm_head.register_forward_hook(self._hook_output("lm_head")))
 
-        self.original_rope = modeling_llama.apply_rotary_pos_emb
-        self.original_attention = modeling_llama.eager_attention_forward
+        self.original_rope = self.modeling.apply_rotary_pos_emb
+        self.original_attention = self.modeling.eager_attention_forward
 
         def rope(q: torch.Tensor, k: torch.Tensor, *args: Any, **kwargs: Any):
             index = self._next_rope_layer()
@@ -193,14 +226,16 @@ class LlamaCapture:
             self._record(f"layer_{index}_attention", result.reshape(result.shape[0], result.shape[1], -1))
             return result, weights
 
-        modeling_llama.apply_rotary_pos_emb = rope
-        modeling_llama.eager_attention_forward = attention
+        self.modeling.apply_rotary_pos_emb = rope
+        self.modeling.eager_attention_forward = attention
 
     def _v_heads_hook(self, layer: int):
         def hook(_module: Any, _inputs: tuple[Any, ...], output: torch.Tensor) -> None:
             batch, sequence, _ = output.shape
             heads = self.model.config.num_key_value_heads
-            dim = self.model.config.head_dim
+            # Qwen 2 materializes head_dim inside Qwen2Attention when its
+            # public config omits that optional derived field.
+            dim = self.model.model.layers[layer].self_attn.head_dim
             self._record(f"layer_{layer}_v_heads", output.view(batch, sequence, heads, dim).transpose(1, 2))
         return hook
 
@@ -215,10 +250,10 @@ class LlamaCapture:
             handle.remove()
         self.handles = []
         if self.original_rope is not None:
-            modeling_llama.apply_rotary_pos_emb = self.original_rope
+            self.modeling.apply_rotary_pos_emb = self.original_rope
             self.original_rope = None
         if self.original_attention is not None:
-            modeling_llama.eager_attention_forward = self.original_attention
+            self.modeling.eager_attention_forward = self.original_attention
             self.original_attention = None
 
     def _captured_forward(self, tokens: list[int], positions: list[int], cache: DynamicCache | None = None):
@@ -349,7 +384,10 @@ def main() -> None:
     tokens, positions = request["inputTokens"], request["positionIds"]
     if not isinstance(tokens, list) or not isinstance(positions, list) or any(not isinstance(value, int) or value < 0 for value in [*tokens, *positions]):
         raise ValueError("Capture Transformers requer tokens e posições inteiros não negativos.")
-    capture = LlamaCapture(source)
+    adapter = request.get("adapter", "llama")
+    if not isinstance(adapter, str):
+        raise ValueError("Request adapter deve ser string.")
+    capture = TransformersDecoderCapture(source, adapter)
     result = capture.execution(tokens, positions) if request["kind"] == "execution" else capture.generation(tokens, positions, request["maxNewTokens"])
     print(json.dumps(result, separators=(",", ":")))
 

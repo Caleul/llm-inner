@@ -499,7 +499,7 @@ async function buildDecoderLayer(ctx: ArchitectureContext, layer: number): Promi
     ctx.unsupported.push(`Camada ${layer}: projeção QKV fundida requer split segundo layout específico da arquitetura.`);
   } else {
     operations.push(
-      await linearOp(ctx, "q_proj", layer, inputNorm, qLinear, requireTensor(ctx.catalog, tensors.qProj), attentionBias),
+      await linearOp(ctx, "q_proj", layer, inputNorm, qLinear, requireTensor(ctx.catalog, tensors.qProj), attentionProjectionBiasRequirement(ctx, "q_proj", attentionBias)),
     );
     if (!tensors.kProj || !tensors.vProj) {
       const shared = resolveSharedKvProducer(ctx, layer);
@@ -508,8 +508,8 @@ async function buildDecoderLayer(ctx: ArchitectureContext, layer: number): Promi
       }
     } else {
       operations.push(
-        await linearOp(ctx, "k_proj", layer, inputNorm, kLinear, requireTensor(ctx.catalog, tensors.kProj), attentionBias),
-        await linearOp(ctx, "v_proj", layer, inputNorm, vLinear, requireTensor(ctx.catalog, tensors.vProj), attentionBias),
+        await linearOp(ctx, "k_proj", layer, inputNorm, kLinear, requireTensor(ctx.catalog, tensors.kProj), attentionProjectionBiasRequirement(ctx, "k_proj", attentionBias)),
+        await linearOp(ctx, "v_proj", layer, inputNorm, vLinear, requireTensor(ctx.catalog, tensors.vProj), attentionProjectionBiasRequirement(ctx, "v_proj", attentionBias)),
       );
     }
   }
@@ -653,7 +653,7 @@ async function buildDecoderLayer(ctx: ArchitectureContext, layer: number): Promi
       attention.output,
       attnProjected,
       requireTensor(ctx.catalog, tensors.oProj),
-      attentionBias,
+      attentionProjectionBiasRequirement(ctx, "o_proj", attentionBias),
     ),
   );
 
@@ -731,6 +731,31 @@ async function buildDecoderLayer(ctx: ArchitectureContext, layer: number): Promi
   operations.push(elementwise(layer, "mlp_residual", "add", [afterAttention, mlpBranch], layerOutput));
 
   return { index: layer, layerType: layerType(ctx.config, layer), operations };
+}
+
+/**
+ * The pinned Qwen2 eager reference constructs Q/K/V with bias and `o_proj`
+ * with `bias=False`, even where a public config omits `attention_bias`.
+ * Treating a generic flag as a family-wide switch would accept a weight that
+ * native Qwen 2 cannot consume, so the output projection is explicitly
+ * forbidden rather than left optional.
+ */
+function attentionProjectionBiasRequirement(
+  ctx: ArchitectureContext,
+  projection: "q_proj" | "k_proj" | "v_proj" | "o_proj",
+  declared: BiasRequirement,
+): BiasRequirement {
+  if (ctx.modelType === "qwen2") {
+    if (projection === "o_proj") return "forbidden";
+    if (declared === "forbidden") {
+      throw new Error(
+        "Qwen 2 declara attention_bias=false, mas o adaptador Qwen2 registrado exige bias em q_proj, k_proj e v_proj; " +
+          "não é seguro omitir esses termos com base em uma flag incompatível.",
+      );
+    }
+    return "required";
+  }
+  return declared;
 }
 
 function resolveLayerTensors(ctx: ArchitectureContext, layer: number): LayerTensors {

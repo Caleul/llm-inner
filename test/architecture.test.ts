@@ -249,6 +249,26 @@ test("attention_bias declarado deve coincidir com todos os tensores de projeçã
   );
 });
 
+test("Qwen 2 aplica attention_bias somente a Q/K/V e rejeita bias em o_proj", async () => {
+  const source = catalog("qwen2", { attention_bias: true, hidden_act: "silu" });
+  source.tensors.set("model.layers.0.self_attn.k_proj.bias", tensor("model.layers.0.self_attn.k_proj.bias", [4]));
+  source.tensors.set("model.layers.0.self_attn.v_proj.bias", tensor("model.layers.0.self_attn.v_proj.bias", [4]));
+  const attention = (await buildModelIR(source, preview)).layers[0]!.operations
+    .filter((operation) => operation.op === "linear" && ["layer_0_q_proj", "layer_0_k_proj", "layer_0_v_proj", "layer_0_o_proj"].includes(operation.id));
+  assert.deepEqual(attention.map((operation) => operation.op === "linear" ? Boolean(operation.bias) : false), [true, true, true, false]);
+
+  source.tensors.set("model.layers.0.self_attn.o_proj.bias", tensor("model.layers.0.self_attn.o_proj.bias", [4]));
+  await assert.rejects(
+    () => buildModelIR(source, preview),
+    /o_proj\.weight: config declara ausência de bias.*o_proj\.bias está presente/,
+  );
+
+  await assert.rejects(
+    () => buildModelIR(catalog("qwen2", { attention_bias: false, hidden_act: "silu" }), preview),
+    /Qwen 2 declara attention_bias=false.*exige bias em q_proj, k_proj e v_proj/,
+  );
+});
+
 test("mlp_bias declarado não aceita tensores extras e flags de bias devem ser booleanas", async () => {
   const forbidden = catalog("llama", { mlp_bias: false });
   forbidden.tensors.set(

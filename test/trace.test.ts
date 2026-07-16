@@ -11,7 +11,7 @@ import { materializeReferenceF32Constants, materializeReferenceF64Constants } fr
 import { fingerprintIR, readExecutionTraceBundle } from "../src/trace.js";
 import { runExecutionTraceComparison, runGenerationTraceComparison } from "../src/trace-runner.js";
 import { captureMlxTrace } from "../src/mlx-trace-capture.js";
-import { captureTransformersLlamaTrace } from "../src/transformers-trace-capture.js";
+import { captureTransformersLlamaTrace, captureTransformersQwen2Trace } from "../src/transformers-trace-capture.js";
 import type { ModelIR } from "../src/types.js";
 import type { ReferenceF32ExecutionResult } from "../src/types.js";
 
@@ -51,6 +51,35 @@ test("version-pinned Transformers Llama capture records native operations, cache
   }
 });
 
+test("version-pinned Transformers Qwen 2 capture records its bias-bearing native operations, cache, and greedy continuation", async (context) => {
+  const python = await availableTransformersPython();
+  if (!python) {
+    context.skip("Transformers/PyTorch runtime is external to the clean Node checkout; set LLM_INNER_TRANSFORMERS_PYTHON to enable this native integration test.");
+    return;
+  }
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-transformers-qwen2-capture-"));
+  try {
+    await writeTinyQwen2F32Model(directory);
+    const source = path.join(directory, "qwen2");
+    const executionTrace = path.join(directory, "execution.json");
+    assert.equal(await captureTransformersQwen2Trace({ source, output: executionTrace, inputTokens: [1], positionIds: [7], python, model: "tiny-qwen2-transformers", revisionOrChecksum: "tiny-transformers-qwen2-fixture-v1" }), "execution");
+    const execution = await runExecutionTraceComparison({ source, trace: executionTrace, report: path.join(directory, "execution-report.json"), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
+    assert.equal(execution.reference.runtime, "PyTorch 2.7.1 / Transformers 4.57.1 Qwen2ForCausalLM eager native capture");
+    assert.equal(execution.operations.length, 22);
+    assert.equal(execution.firstDivergentOperation, null);
+    assert.equal(execution.kvCache.length, 1);
+    assert.deepEqual(execution.reference.positionIds, [[7]]);
+
+    const generationTrace = path.join(directory, "generation.json");
+    assert.equal(await captureTransformersQwen2Trace({ source, output: generationTrace, inputTokens: [1], maxNewTokens: 2, python, model: "tiny-qwen2-transformers", revisionOrChecksum: "tiny-transformers-qwen2-fixture-v1" }), "generation");
+    const generation = await runGenerationTraceComparison({ source, trace: generationTrace, report: path.join(directory, "generation-report.json"), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
+    assert.equal(generation.generatedTokenIds.length, 2);
+    assert.equal(generation.firstDivergence, null);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("Transformers capture rejects a non-Llama adapter before launching Python", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-transformers-adapter-rejection-"));
   try {
@@ -60,7 +89,7 @@ test("Transformers capture rejects a non-Llama adapter before launching Python",
         source: path.join(directory, "mistral"), output: path.join(directory, "trace.json"), inputTokens: [1],
         python: path.join(directory, "missing-python"), model: "tiny-mistral", revisionOrChecksum: "fixture-v1",
       }),
-      /adaptador nativo somente para llama/,
+      /model_type=llama/,
     );
   } finally {
     await rm(directory, { recursive: true, force: true });
@@ -808,13 +837,13 @@ test("dense GGUF Qwen 2 replays Safetensors attention-bias execution and greedy-
     assert.deepEqual(serialized(gguf.candidate.values.get("logits")!), serialized(safetensors.candidate.values.get("logits")!));
     assert.deepEqual([...gguf.candidate.pastKeyValues], [...safetensors.candidate.pastKeyValues]);
 
-    // Qwen 2 must retain all four declared attention biases, while avoiding
-    // Qwen 3's head-local Q/K normalization path.
+    // Qwen 2 must retain Q/K/V biases but its native Qwen2Attention keeps
+    // o_proj bias-free, while avoiding Qwen 3's head-local Q/K norm path.
     const attentionLinears = gguf.ir.layers[0]!.operations.filter((operation) =>
       operation.op === "linear" && ["layer_0_q_proj", "layer_0_k_proj", "layer_0_v_proj", "layer_0_o_proj"].includes(operation.id),
     );
     assert.equal(attentionLinears.length, 4);
-    assert.ok(attentionLinears.every((operation) => operation.op === "linear" && operation.bias !== undefined));
+    assert.deepEqual(attentionLinears.map((operation) => operation.op === "linear" ? Boolean(operation.bias) : false), [true, true, true, false]);
     assert.equal(operations(gguf.ir).some((operation) => operation.id === "layer_0_q_norm" || operation.id === "layer_0_k_norm"), false);
 
     const executionTrace = path.join(directory, "qwen2-gguf-execution-trace.json");
@@ -982,7 +1011,10 @@ async function assertQwenQuantizedGgufReplay(
         operation.op === "linear" && ["layer_0_q_proj", "layer_0_k_proj", "layer_0_v_proj", "layer_0_o_proj"].includes(operation.id),
       );
       assert.equal(attentionLinears.length, 4);
-      assert.ok(attentionLinears.every((operation) => operation.op === "linear" && operation.bias !== undefined));
+      assert.deepEqual(
+        attentionLinears.map((operation) => operation.op === "linear" ? Boolean(operation.bias) : false),
+        architecture === "qwen2" ? [true, true, true, false] : [true, true, true, true],
+      );
       assert.equal(operationIds.includes("layer_0_q_norm"), architecture === "qwen3");
       assert.equal(operationIds.includes("layer_0_k_norm"), architecture === "qwen3");
 
@@ -2051,13 +2083,21 @@ async function writeTinyQwen2F32Model(root: string): Promise<void> {
   const directory = path.join(root, "qwen2");
   await mkdir(directory);
   const identity = [1, 0, 0, 1];
+  const attentionWeights: Array<[string, "F32", number[], number[]]> = ["q_proj", "k_proj", "v_proj", "o_proj"].flatMap((projection, index) => {
+    const entries: Array<[string, "F32", number[], number[]]> = [
+      [`model.layers.0.self_attn.${projection}.weight`, "F32", [2, 2], identity],
+    ];
+    // Qwen 2's native eager module keeps o_proj bias-free even when
+    // attention_bias enables Q/K/V biases.
+    if (projection !== "o_proj") {
+      entries.push([`model.layers.0.self_attn.${projection}.bias`, "F32", [2], [0.125 * (index + 1), -0.0625 * (index + 1)]]);
+    }
+    return entries;
+  });
   const weights: Array<[string, "F32", number[], number[]]> = [
     ["model.embed_tokens.weight", "F32", [3, 2], [0, 0, 2, -1, -1, 1]],
     ["model.layers.0.input_layernorm.weight", "F32", [2], [1, 1]],
-    ...["q_proj", "k_proj", "v_proj", "o_proj"].flatMap((projection, index): Array<[string, "F32", number[], number[]]> => [
-      [`model.layers.0.self_attn.${projection}.weight`, "F32", [2, 2], identity],
-      [`model.layers.0.self_attn.${projection}.bias`, "F32", [2], [0.125 * (index + 1), -0.0625 * (index + 1)]],
-    ]),
+    ...attentionWeights,
     ["model.layers.0.post_attention_layernorm.weight", "F32", [2], [1, 1]],
     ["model.layers.0.mlp.gate_proj.weight", "F32", [2, 2], identity],
     ["model.layers.0.mlp.up_proj.weight", "F32", [2, 2], identity],
@@ -2312,6 +2352,9 @@ async function writeTinyQwenF32GgufModel(file: string, architecture: "qwen2" | "
     ["blk.0.ffn_up.weight", [2, 2], [1, 0, 0, 1]], ["blk.0.ffn_down.weight", [2, 2], [1, 0, 0, 1]],
     ["output_norm.weight", [2], [1, 1]], ["output.weight", [2, 3], [1, 0, 0, 1, 1, -1]],
   ];
+  const serializedWeights = architecture === "qwen2"
+    ? weights.filter(([name]) => name !== "blk.0.attn_output.bias")
+    : weights;
   const text = (value: string) => { const bytes = Buffer.from(value); const length = Buffer.alloc(8); length.writeBigUInt64LE(BigInt(bytes.length)); return Buffer.concat([length, bytes]); };
   const u32 = (value: number) => { const bytes = Buffer.alloc(4); bytes.writeUInt32LE(value); return bytes; };
   const u64 = (value: number) => { const bytes = Buffer.alloc(8); bytes.writeBigUInt64LE(BigInt(value)); return bytes; };
@@ -2326,7 +2369,7 @@ async function writeTinyQwenF32GgufModel(file: string, architecture: "qwen2" | "
   const payloads: Buffer[] = [];
   const directory: Buffer[] = [];
   let offset = 0;
-  for (const [name, shape, values] of weights) {
+  for (const [name, shape, values] of serializedWeights) {
     const padding = (32 - (offset % 32)) % 32;
     if (padding) { payloads.push(Buffer.alloc(padding)); offset += padding; }
     const payload = Buffer.alloc(values.length * 4);
@@ -2334,7 +2377,7 @@ async function writeTinyQwenF32GgufModel(file: string, architecture: "qwen2" | "
     directory.push(Buffer.concat([text(name), u32(shape.length), ...shape.map(u64), u32(0), u64(offset)]));
     payloads.push(payload); offset += payload.length;
   }
-  const prefix = Buffer.concat([Buffer.from("GGUF"), u32(3), u64(weights.length), u64(metadataEntries.length), ...metadataEntries, ...directory]);
+  const prefix = Buffer.concat([Buffer.from("GGUF"), u32(3), u64(serializedWeights.length), u64(metadataEntries.length), ...metadataEntries, ...directory]);
   await writeFile(file, Buffer.concat([prefix, Buffer.alloc((32 - (prefix.length % 32)) % 32), ...payloads]));
 }
 
@@ -2877,6 +2920,12 @@ async function writeGgufQwenFixture(
   width: number,
   weights: Array<[string, number[], number, number[]]>,
 ): Promise<void> {
+  // Qwen 2's native Qwen2Attention hard-codes o_proj.bias=False. Keep the
+  // shared Qwen 2/3 fixture builders honest even when a caller constructs its
+  // Q/K/V bias rows mechanically from the four projection names.
+  const serializedWeights = architecture === "qwen2"
+    ? weights.filter(([name]) => !name.endsWith("attn_output.bias"))
+    : weights;
   const text = (value: string) => { const bytes = Buffer.from(value); const length = Buffer.alloc(8); length.writeBigUInt64LE(BigInt(bytes.length)); return Buffer.concat([length, bytes]); };
   const u32 = (value: number) => { const bytes = Buffer.alloc(4); bytes.writeUInt32LE(value); return bytes; };
   const u64 = (value: number) => { const bytes = Buffer.alloc(8); bytes.writeBigUInt64LE(BigInt(value)); return bytes; };
@@ -2891,14 +2940,14 @@ async function writeGgufQwenFixture(
   const payloads: Buffer[] = [];
   const directory: Buffer[] = [];
   let offset = 0;
-  for (const [name, shape, ggmlType, values] of weights) {
+  for (const [name, shape, ggmlType, values] of serializedWeights) {
     const padding = (32 - (offset % 32)) % 32;
     if (padding) { payloads.push(Buffer.alloc(padding)); offset += padding; }
     const payload = ggmlPayload(ggmlType, values);
     directory.push(Buffer.concat([text(name), u32(shape.length), ...shape.map(u64), u32(ggmlType), u64(offset)]));
     payloads.push(payload); offset += payload.length;
   }
-  const prefix = Buffer.concat([Buffer.from("GGUF"), u32(3), u64(weights.length), u64(metadataEntries.length), ...metadataEntries, ...directory]);
+  const prefix = Buffer.concat([Buffer.from("GGUF"), u32(3), u64(serializedWeights.length), u64(metadataEntries.length), ...metadataEntries, ...directory]);
   await writeFile(file, Buffer.concat([prefix, Buffer.alloc((32 - (prefix.length % 32)) % 32), ...payloads]));
 }
 
