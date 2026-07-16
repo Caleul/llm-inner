@@ -121,6 +121,47 @@ export function executeReferenceF32(
   ir: ModelIR,
   request: ReferenceF32ExecutionRequest,
 ): ReferenceF32ExecutionResult {
+  return executeReferenceF32Operations(
+    ir,
+    request,
+    [...ir.prelude, ...ir.layers.flatMap((layer) => layer.operations), ...ir.epilogue],
+    new Map<string, DenseF32Tensor>(),
+  );
+}
+
+/**
+ * Runs a decoder IR after an explicit caller-owned prelude has produced the
+ * values consumed by its first layer. This is intentionally narrow: it exists
+ * for composite architectures whose outer model changes both embeddings and
+ * auxiliary streams before entering an otherwise registered text decoder.
+ *
+ * The supplied map is copied and every declared text prelude output must be
+ * present, so skipping a prelude cannot turn into an implicit default.
+ */
+export function executeReferenceF32WithPreparedPrelude(
+  ir: ModelIR,
+  request: ReferenceF32ExecutionRequest,
+  preparedPrelude: ReadonlyMap<string, DenseF32Tensor>,
+): ReferenceF32ExecutionResult {
+  for (const operation of ir.prelude) {
+    if (!preparedPrelude.has(operation.output)) {
+      throw new Error(`Prelude preparado não declarou a saída obrigatória ${operation.output}.`);
+    }
+  }
+  return executeReferenceF32Operations(
+    ir,
+    request,
+    [...ir.layers.flatMap((layer) => layer.operations), ...ir.epilogue],
+    new Map(preparedPrelude),
+  );
+}
+
+function executeReferenceF32Operations(
+  ir: ModelIR,
+  request: ReferenceF32ExecutionRequest,
+  operations: readonly Operation[],
+  values: Map<string, DenseF32Tensor>,
+): ReferenceF32ExecutionResult {
   const batch = request.inputIds.length;
   if (batch === 0 || request.inputIds.some((row) => row.length === 0)) {
     throw new Error("inputIds deve conter ao menos um token por batch.");
@@ -134,9 +175,8 @@ export function executeReferenceF32(
     throw new Error("positionIds deve ter o mesmo shape de inputIds.");
   }
 
-  const values = new Map<string, DenseF32Tensor>();
   const pastKeyValues = new Map<number, ReferenceF32KeyValueCache>();
-  for (const operation of [...ir.prelude, ...ir.layers.flatMap((layer) => layer.operations), ...ir.epilogue]) {
+  for (const operation of operations) {
     assertF32Policy(operation);
     switch (operation.op) {
       case "embedding":

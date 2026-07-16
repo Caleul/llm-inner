@@ -371,15 +371,17 @@ profunda, projeções e stripping/scatter de tokens de áudio. Também continua 
 ser apenas uma feature branch F32: a montagem texto+imagem+áudio+vídeo, casts
 BF16, cache e geração do pacote composto seguem pendentes.
 
-O relatório não transforma o pacote composto em modelo textual: embora os
-towers de visão e áudio agora tenham feature programs separados, a injeção
-ordenada de visão/áudio/vídeo, o PLE preparado para os tokens PAD e o estado de
-geração multimodal continuam fora do adaptador `gemma4_text` isolado. Portanto
-o pacote E4B denso ainda falha
-fechado e não há marcador `gemma4-dense-lossless`. O próximo adaptador do
-pacote precisa lower essas fronteiras, materializar BF16 para o programa
-literal e produzir diferenciais autoritativos de operação, KV, logits e
-geração.
+O programa externo composto está em
+[`src/gemma4-composite.ts`](src/gemma4-composite.ts) e sua evidência em
+[`docs/validation/gemma4-composite-prelude-2026-07-16.md`](docs/validation/gemma4-composite-prelude-2026-07-16.md).
+Ele declara a substituição inicial de todos os IDs multimodais por PAD, a PLE
+de identidade desses PADs, o scatter ordenado imagem → vídeo → áudio e a
+projeção/contexto PLE após os três scatters antes de entrar no núcleo textual.
+O executor F32 exige todas essas saídas de prelude nomeadas para chamar as
+camadas textuais; portanto não há atalho implícito de embedding. A máscara
+bidirecional derivada de `mm_token_type_ids`, casts BF16, cache/geração
+multimodal, literalização e diferencial autoritativo ainda falham fechados.
+Logo o E4B denso não tem marcador `gemma4-dense-lossless`.
 
 Para Qwen 3 e outros adaptadores que declarem `q_norm`, `k_norm` ou `v_norm`,
 o IR faz `reshape_heads` antes da RMSNorm. Esses pesos precisam ter exatamente
