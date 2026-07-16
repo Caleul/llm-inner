@@ -1,4 +1,5 @@
 import { executeReferenceF32, generateReferenceF32 } from "./executor.js";
+import { adaptGgufDecoderCatalog } from "./gguf-llama.js";
 import { decodeIeeeBF16ToF32, decodeIeeeF16ToF32, roundF32ToBF16 } from "./utils.js";
 import type {
   DenseF32Tensor,
@@ -29,7 +30,8 @@ export interface LiteralInput {
 }
 
 export type LiteralDenseStorageDtype = "F32" | "F16" | "BF16";
-export type LiteralStorageDtype = LiteralDenseStorageDtype | "U32";
+export type LiteralStorageDtype = LiteralDenseStorageDtype | "U32" | "GGML_Q8_0";
+export type LiteralStorageLayout = "row-major" | "ggml-first-axis-contiguous";
 
 /**
  * Exact storage payload embedded in the program. `name` is the logical tensor
@@ -41,7 +43,7 @@ export interface LiteralConstant {
   storageDtype: LiteralStorageDtype;
   storageShape: number[];
   logicalShape: number[];
-  layout: "row-major";
+  layout: LiteralStorageLayout;
   byteOrder: "little-endian";
   encoding: "base64";
   payloadBase64: string;
@@ -89,7 +91,28 @@ export interface LiteralMlxAffineStorageDecodeAssignment {
   semantics: "F32(scale * unsigned_code + bias); BF16 parameters round each affine result to BF16 before F32 output";
 }
 
-export type LiteralStorageDecodeAssignment = LiteralDenseStorageDecodeAssignment | LiteralMlxAffineStorageDecodeAssignment;
+/**
+ * GGML Q8_0 retains the original 34-byte block instead of expanding its
+ * values into decimal JSON: F16 scale `d` followed by 32 signed codes.
+ */
+export interface LiteralGgmlQ8_0StorageDecodeAssignment {
+  id: string;
+  operation: "ggml-q8-0-to-f32";
+  input: string;
+  output: string;
+  storageDtype: "GGML_Q8_0";
+  outputDtype: "F32";
+  byteOrder: "little-endian";
+  packing: "blocks-of-32-f16-scale-then-i8-codes";
+  blockSize: 32;
+  blockBytes: 34;
+  semantics: "F32(IEEE-754 binary16 scale * signed int8 code) for each consecutive GGML logical value";
+}
+
+export type LiteralStorageDecodeAssignment =
+  | LiteralDenseStorageDecodeAssignment
+  | LiteralMlxAffineStorageDecodeAssignment
+  | LiteralGgmlQ8_0StorageDecodeAssignment;
 
 export interface LiteralKvCacheTransition {
   id: string;
@@ -102,15 +125,15 @@ export interface LiteralKvCacheTransition {
 }
 
 /**
- * A source-independent literal calculation program for established dense and
- * MLX-affine Safetensors storage contracts. The operation graph intentionally
+ * A source-independent literal calculation program for established dense,
+ * MLX-affine Safetensors, and GGML Q8_0 storage contracts. The operation graph intentionally
  * retains the same stable operation ids and named dataflow as ModelIR, but
  * every referenced tensor is embedded as exact bytes rather than a shard path.
  */
 export interface LiteralCalculationProgram {
   schemaVersion: 1;
   kind: "literal-calculation-program";
-  sourceFormat: "safetensors" | "mlx-safetensors";
+  sourceFormat: "safetensors" | "mlx-safetensors" | "gguf";
   architecture: ModelIR["architecture"];
   config: JsonObject;
   numericPolicy: {
@@ -132,7 +155,7 @@ export interface LiteralCalculationProgram {
   outputs: { logits: string };
 }
 
-const STORAGE_BYTES: Record<LiteralStorageDtype, number> = {
+const STORAGE_BYTES: Record<Exclude<LiteralStorageDtype, "GGML_Q8_0">, number> = {
   F32: 4,
   F16: 2,
   BF16: 2,
@@ -141,28 +164,34 @@ const STORAGE_BYTES: Record<LiteralStorageDtype, number> = {
 
 /**
  * Creates a self-contained literal program from an already validated
- * architecture IR. It accepts dense F32/F16/BF16 Safetensors and the
- * established MLX affine-U32 contract. Lower-precision and packed storage are
- * embedded unchanged, then accompanied by explicit decoder assignments.
+ * architecture IR. It accepts dense F32/F16/BF16 storage, the established
+ * MLX affine-U32 contract, and the established GGML Q8_0 contract.
+ * Lower-precision and packed storage are embedded unchanged, then accompanied
+ * by explicit decoder assignments.
  */
-export async function buildDenseSafetensorsLiteralProgram(
+export async function buildLiteralCalculationProgram(
   ir: ModelIR,
   catalog: ModelCatalog,
   reader: LiteralTensorReader,
 ): Promise<LiteralCalculationProgram> {
-  if (catalog.format !== "safetensors" && catalog.format !== "mlx-safetensors") {
-    throw new Error(`Exportação literal requer Safetensors denso ou MLX affine-U32; recebeu formato ${catalog.format}.`);
+  if (catalog.format !== "safetensors" && catalog.format !== "mlx-safetensors" && catalog.format !== "gguf") {
+    throw new Error(`Exportação literal requer Safetensors denso, MLX affine-U32 ou GGUF Q8_0; recebeu formato ${catalog.format}.`);
   }
+  const adaptedCatalog = adaptGgufDecoderCatalog(catalog);
   const references = referencedTensors(ir);
   const constants = new Map<string, LiteralConstant>();
   for (const reference of references.values()) {
-    const tensor = catalog.tensors.get(reference.name);
+    const tensor = adaptedCatalog.tensors.get(reference.name);
     assertLiteralReference(reference, tensor);
     if (tensor!.quantization) {
-      const { scale, bias } = assertMlxAffineTensor(tensor!, catalog);
-      await embedLiteralConstant(constants, tensor!, reader);
-      await embedLiteralConstant(constants, scale, reader);
-      if (bias) await embedLiteralConstant(constants, bias, reader);
+      if (isGgmlQ8_0Tensor(tensor!)) {
+        await embedLiteralConstant(constants, tensor!, reader);
+      } else {
+        const { scale, bias } = assertMlxAffineTensor(tensor!, adaptedCatalog);
+        await embedLiteralConstant(constants, tensor!, reader);
+        await embedLiteralConstant(constants, scale, reader);
+        if (bias) await embedLiteralConstant(constants, bias, reader);
+      }
     } else {
       await embedLiteralConstant(constants, tensor!, reader);
     }
@@ -193,8 +222,9 @@ export async function buildDenseSafetensorsLiteralProgram(
   return program;
 }
 
-/** Backward-compatible entry point retained for callers of the F32-only release. */
-export const buildDenseF32LiteralProgram = buildDenseSafetensorsLiteralProgram;
+/** Backward-compatible entry points retained for earlier callers. */
+export const buildDenseSafetensorsLiteralProgram = buildLiteralCalculationProgram;
+export const buildDenseF32LiteralProgram = buildLiteralCalculationProgram;
 
 /** Replays a validated literal program without opening a source checkpoint. */
 export function executeLiteralF32(
@@ -221,7 +251,7 @@ export function generateLiteralF32(
  */
 export function validateLiteralCalculationProgram(program: LiteralCalculationProgram): void {
   if (program.schemaVersion !== 1 || program.kind !== "literal-calculation-program" ||
-    (program.sourceFormat !== "safetensors" && program.sourceFormat !== "mlx-safetensors")) {
+    (program.sourceFormat !== "safetensors" && program.sourceFormat !== "mlx-safetensors" && program.sourceFormat !== "gguf")) {
     throw new Error("Programa literal inválido: schemaVersion, kind ou sourceFormat não reconhecido.");
   }
   if (
@@ -237,7 +267,7 @@ export function validateLiteralCalculationProgram(program: LiteralCalculationPro
     if (constants.has(constant.name)) throw new Error(`Programa literal contém constante duplicada: ${constant.name}.`);
     validateLiteralConstant(constant);
     const payload = decodeBase64(constant.payloadBase64, constant.name);
-    if (payload.length !== product(constant.storageShape) * storageByteWidth(constant.storageDtype)) {
+    if (payload.length !== literalStorageByteLength(constant.storageDtype, constant.storageShape)) {
       throw new Error(`${constant.name}: payload base64 não corresponde ao shape ${constant.storageDtype} declarado.`);
     }
     constants.set(constant.name, constant);
@@ -374,6 +404,8 @@ function decodeDenseConstantsAsF32(program: LiteralCalculationProgram): Readonly
       const biases = decoder.biasInput ? decoded.get(decoder.biasInput) : undefined;
       if (!scales || (decoder.biasInput && !biases)) throw new Error(`${decoder.id}: parâmetros affine não foram decodificados antes do peso.`);
       decoded.set(decoder.output, decodeMlxAffineConstant(constant, bytes, decoder, scales, biases));
+    } else if (decoder.operation === "ggml-q8-0-to-f32") {
+      decoded.set(decoder.output, decodeGgmlQ8_0Constant(constant, bytes, decoder));
     } else {
       const elements = product(constant.logicalShape);
       const values = new Float32Array(elements);
@@ -419,6 +451,7 @@ function assertLiteralReference(reference: TensorRef, tensor: TensorInfo | undef
     }
     return;
   }
+  if (isGgmlQ8_0Tensor(tensor)) return;
   if (tensor.storageDtype !== "U32" || !validShape(tensor.storageShape) || !validShape(tensor.logicalShape)) {
     throw new Error(`${reference.name}: storage quantizado literal exige U32 e shapes positivos declarados.`);
   }
@@ -438,7 +471,7 @@ async function embedLiteralConstant(
     return;
   }
   const payload = await reader.readTensorBytes(tensor);
-  const expectedBytes = product(tensor.storageShape) * storageByteWidth(tensor.storageDtype);
+  const expectedBytes = literalStorageByteLength(tensor.storageDtype, tensor.storageShape);
   if (payload.length !== expectedBytes) {
     throw new Error(`${tensor.name}: payload literal possui ${payload.length} bytes, esperado ${expectedBytes} para ${tensor.storageDtype}.`);
   }
@@ -447,7 +480,7 @@ async function embedLiteralConstant(
     storageDtype: tensor.storageDtype as LiteralStorageDtype,
     storageShape: [...tensor.storageShape],
     logicalShape: [...tensor.logicalShape],
-    layout: "row-major",
+    layout: tensor.quantization?.family === "gguf" ? "ggml-first-axis-contiguous" : "row-major",
     byteOrder: "little-endian",
     encoding: "base64",
     payloadBase64: payload.toString("base64"),
@@ -486,7 +519,7 @@ function assertMlxAffineTensor(tensor: TensorInfo, catalog: ModelCatalog): { sca
 }
 
 function validateLiteralConstant(constant: LiteralConstant): void {
-  if (constant.layout !== "row-major" || constant.byteOrder !== "little-endian" || constant.encoding !== "base64" ||
+  if ((constant.layout !== "row-major" && constant.layout !== "ggml-first-axis-contiguous") || constant.byteOrder !== "little-endian" || constant.encoding !== "base64" ||
     !validShape(constant.storageShape) || !validShape(constant.logicalShape)) {
     throw new Error(`${constant.name}: contrato de constante literal inválido.`);
   }
@@ -497,6 +530,11 @@ function validateLiteralConstant(constant: LiteralConstant): void {
     return;
   }
   const q = constant.quantization;
+  if (constant.storageDtype === "GGML_Q8_0" && q.family === "gguf" && q.mode === "q8_0" && q.bits === 8 &&
+    q.groupSize === 32 && q.tensorType === "GGML_TYPE_Q8_0" && constant.layout === "ggml-first-axis-contiguous" &&
+    product(constant.storageShape) % 32 === 0) {
+    return;
+  }
   if (constant.storageDtype !== "U32" || q.family !== "mlx" || q.mode !== "affine" || !isMlxAffineBitWidth(q.bits) ||
     !Number.isInteger(q.groupSize) || q.groupSize! <= 0 || !q.scaleTensor || q.globalScaleTensor !== undefined ||
     constant.storageShape.length !== 2 || constant.logicalShape.length !== 2) {
@@ -613,8 +651,37 @@ function decodeMlxAffineConstant(
   return { shape: [...constant.logicalShape], values, sourceQuantization: structuredClone(constant.quantization) };
 }
 
+function decodeGgmlQ8_0Constant(
+  constant: LiteralConstant,
+  bytes: Buffer,
+  decoder: LiteralGgmlQ8_0StorageDecodeAssignment,
+): DenseF32Tensor {
+  const elements = product(constant.logicalShape);
+  if (elements !== product(constant.storageShape) || elements % decoder.blockSize !== 0 ||
+    bytes.length !== elements / decoder.blockSize * decoder.blockBytes) {
+    throw new Error(`${decoder.id}: payload GGML Q8_0 não corresponde aos blocos e shapes declarados.`);
+  }
+  const values = new Float32Array(elements);
+  for (let block = 0; block < elements / decoder.blockSize; block += 1) {
+    const offset = block * decoder.blockBytes;
+    const scale = decodeIeeeF16ToF32(bytes.readUInt16LE(offset));
+    for (let index = 0; index < decoder.blockSize; index += 1) {
+      values[block * decoder.blockSize + index] = Math.fround(scale * bytes.readInt8(offset + 2 + index));
+    }
+  }
+  if (!constant.quantization) throw new Error(`${decoder.id}: replay Q8_0 sem proveniência de quantização.`);
+  return { shape: [...constant.logicalShape], values, sourceQuantization: structuredClone(constant.quantization) };
+}
+
 function isMlxAffineBitWidth(bits: number | undefined): bits is LiteralMlxAffineStorageDecodeAssignment["bits"] {
   return bits === 2 || bits === 3 || bits === 4 || bits === 5 || bits === 6 || bits === 8;
+}
+
+function isGgmlQ8_0Tensor(tensor: TensorInfo): boolean {
+  const q = tensor.quantization;
+  return tensor.storageDtype === "GGML_Q8_0" && q?.family === "gguf" && q.mode === "q8_0" && q.bits === 8 &&
+    q.groupSize === 32 && q.tensorType === "GGML_TYPE_Q8_0" && validShape(tensor.storageShape) &&
+    sameShape(tensor.storageShape, tensor.logicalShape) && product(tensor.storageShape) % 32 === 0;
 }
 
 function sameQuantization(left: QuantizationSpec | undefined, right: QuantizationSpec | undefined): boolean {
@@ -625,7 +692,10 @@ function sameQuantization(left: QuantizationSpec | undefined, right: Quantizatio
 }
 
 function storageDecoder(constant: LiteralConstant, constants: ReadonlyMap<string, LiteralConstant>): LiteralStorageDecodeAssignment {
-  if (constant.quantization) return mlxAffineStorageDecoder(constant, constants);
+  if (constant.quantization) {
+    if (constant.quantization.family === "gguf" && constant.quantization.mode === "q8_0") return ggmlQ8_0StorageDecoder(constant);
+    return mlxAffineStorageDecoder(constant, constants);
+  }
   if (!isSupportedDenseStorageDtype(constant.storageDtype)) throw new Error(`${constant.name}: constante densa literal não possui dtype IEEE suportado.`);
   return {
     id: `decode_${constant.name}`,
@@ -636,6 +706,27 @@ function storageDecoder(constant: LiteralConstant, constants: ReadonlyMap<string
     outputDtype: "F32",
     byteOrder: "little-endian",
     semantics: "exact IEEE-754 storage decode; no arithmetic narrowing",
+  };
+}
+
+function ggmlQ8_0StorageDecoder(constant: LiteralConstant): LiteralGgmlQ8_0StorageDecodeAssignment {
+  if (constant.storageDtype !== "GGML_Q8_0" || constant.quantization?.family !== "gguf" ||
+    constant.quantization.mode !== "q8_0" || constant.quantization.bits !== 8 || constant.quantization.groupSize !== 32 ||
+    constant.quantization.tensorType !== "GGML_TYPE_Q8_0" || constant.layout !== "ggml-first-axis-contiguous") {
+    throw new Error(`${constant.name}: constante GGML Q8_0 não possui contrato literal verificável.`);
+  }
+  return {
+    id: `decode_${constant.name}`,
+    operation: "ggml-q8-0-to-f32",
+    input: `${constant.name}:storage`,
+    output: constant.name,
+    storageDtype: "GGML_Q8_0",
+    outputDtype: "F32",
+    byteOrder: "little-endian",
+    packing: "blocks-of-32-f16-scale-then-i8-codes",
+    blockSize: 32,
+    blockBytes: 34,
+    semantics: "F32(IEEE-754 binary16 scale * signed int8 code) for each consecutive GGML logical value",
   };
 }
 
@@ -652,8 +743,25 @@ function validateStorageDecoders(
     const constant = constants.get(decoder.output);
     if (!constant || decoded.has(decoder.output)) throw new Error(`${decoder.id}: decoder de storage literal não corresponde à constante declarada.`);
     if (decoder.operation === "mlx-affine-u32-to-f32") validateMlxAffineStorageDecoder(decoder, constant, constants, decoded);
+    else if (decoder.operation === "ggml-q8-0-to-f32") validateGgmlQ8_0StorageDecoder(decoder, constant);
     else validateDenseStorageDecoder(decoder, constant);
     decoded.add(decoder.output);
+  }
+}
+
+function validateGgmlQ8_0StorageDecoder(
+  decoder: LiteralGgmlQ8_0StorageDecodeAssignment,
+  constant: LiteralConstant,
+): void {
+  const q = constant.quantization;
+  if (constant.storageDtype !== "GGML_Q8_0" || constant.layout !== "ggml-first-axis-contiguous" || !q ||
+    q.family !== "gguf" || q.mode !== "q8_0" || q.bits !== 8 || q.groupSize !== 32 || q.tensorType !== "GGML_TYPE_Q8_0" ||
+    decoder.id !== `decode_${constant.name}` || decoder.input !== `${constant.name}:storage` || decoder.storageDtype !== "GGML_Q8_0" ||
+    decoder.outputDtype !== "F32" || decoder.byteOrder !== "little-endian" || decoder.packing !== "blocks-of-32-f16-scale-then-i8-codes" ||
+    decoder.blockSize !== 32 || decoder.blockBytes !== 34 ||
+    decoder.semantics !== "F32(IEEE-754 binary16 scale * signed int8 code) for each consecutive GGML logical value" ||
+    product(constant.storageShape) !== product(constant.logicalShape) || product(constant.storageShape) % decoder.blockSize !== 0) {
+    throw new Error(`${decoder.id}: decoder GGML Q8_0 literal não corresponde ao packing, escala ou shapes declarados.`);
   }
 }
 
@@ -686,7 +794,17 @@ function isSupportedDenseStorageDtype(dtype: string): dtype is LiteralDenseStora
 
 function storageByteWidth(dtype: string): number {
   if (dtype !== "U32" && !isSupportedDenseStorageDtype(dtype)) throw new Error(`storageDtype literal não suportado: ${dtype}.`);
-  return STORAGE_BYTES[dtype as LiteralStorageDtype];
+  return STORAGE_BYTES[dtype as Exclude<LiteralStorageDtype, "GGML_Q8_0">];
+}
+
+function literalStorageByteLength(dtype: string, shape: readonly number[]): number {
+  const elements = product(shape);
+  if (!Number.isSafeInteger(elements) || elements <= 0) throw new Error(`shape literal inválido para ${dtype}.`);
+  if (dtype === "GGML_Q8_0") {
+    if (elements % 32 !== 0) throw new Error(`GGML_Q8_0 exige número de elementos múltiplo de 32.`);
+    return elements / 32 * 34;
+  }
+  return elements * storageByteWidth(dtype);
 }
 
 function allOperations(assignments: LiteralCalculationProgram["assignments"]): Operation[] {

@@ -150,12 +150,15 @@ node dist/src/cli.js \
 
 Sem `--include-weights`, a compilação não dequantiza previews; ela apenas cataloga os tensores e gera o grafo.
 
-### Exportação literal autocontida (Safetensors denso e MLX affine-U32)
+### Exportação literal autocontida (Safetensors, MLX affine-U32 e GGUF Q8_0)
 
 `--literal` troca o artefato de IR interno por um programa de cálculo que não
 retém `source.path`, shard, offset ou referência externa. Para cada tensor
-usado pelas atribuições, ele incorpora o payload original `F32`, `F16`, `BF16`
-ou `U32` em base64 com shape, layout `row-major` e byte order little-endian.
+usado pelas atribuições, ele incorpora o payload original `F32`, `F16`, `BF16`,
+`U32` ou o bloco `GGML_Q8_0` em base64 com shape, layout declarado e byte
+order little-endian. Safetensors/MLX usam `row-major`; o stream GGUF Q8_0
+declara `ggml-first-axis-contiguous`, em vez de fingir que seu bloco físico é
+uma matriz F32 já materializada.
 O programa declara uma atribuição de storage por constante:
 `ieee-f32-little-endian`, `ieee-f16-to-f32`, `ieee-bf16-to-f32` ou, no
 contrato MLX verificado, `mlx-affine-u32-to-f32`. Este último incorpora também
@@ -163,7 +166,10 @@ os tensors `scales` e `biases` e declara bits, group size, packing de códigos
 contíguos LSB-first por palavra U32, dtype dos parâmetros e o arredondamento
 BF16 após `scale * code + bias`. Portanto o limite de decode/cast até a
 política escalar F32 é explícito e o exportador não substitui silenciosamente
-valores de storage por uma matriz F32 materializada.
+valores de storage por uma matriz F32 materializada. Para `GGML_TYPE_Q8_0`, a
+atribuição `ggml-q8-0-to-f32` incorpora os 34 bytes de cada bloco (escala
+IEEE-754 binary16 + 32 códigos `int8` assinados), declara o tamanho/packing e
+reconstrói cada valor como `F32(d * q)` no próprio programa literal.
 As atribuições do modelo são ordenadas em `prelude`, camadas e `epilogue`, e
 cada atenção declara sua transição de cache KV (`append-post-rope` ou
 `reuse-producer`).
@@ -174,11 +180,13 @@ node dist/src/cli.js --source ./modelo --output ./modelo.literal.json --literal
 
 `executeLiteralF32` e `generateLiteralF32` reconstroem os `Float32Array`
 somente desses bytes incorporados e das atribuições de decode validadas. As
-regressões removem o diretório inteiro do checkpoint antes de executar forward
-e dois passos greedy para F32, F16, BF16 e MLX affine U32 (inclusive parâmetros
-BF16 e códigos de 3 bits que cruzam palavras U32); portanto esse caminho não
-pode cair de volta para um shard local. MLX `mxfp4`, `mxfp8`, `nvfp4`, affine
-com `global_scale` e GGUF quantizado continuam falhando fechado: cada um exige
+regressões removem o checkpoint antes de executar forward e dois passos greedy
+para F32, F16, BF16, MLX affine U32 (inclusive parâmetros BF16 e códigos de 3
+bits que cruzam palavras U32) e GGUF Q8_0. A regressão Q8_0 compara o replay
+literal sem arquivo com o materializador nativo já estabelecido e também rejeita
+um contrato de bloco alterado. Portanto esse caminho não pode cair de volta para
+um shard local. MLX `mxfp4`, `mxfp8`, `nvfp4`, affine com `global_scale` e os
+outros layouts GGUF quantizados continuam falhando fechado: cada um exige
 payloads, parâmetros e atribuições de dequantização específicos, não uma matriz
 F32 materializada escondida.
 

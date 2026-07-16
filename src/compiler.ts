@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import * as path from "node:path";
 import { openCatalog } from "./catalog.js";
 import { buildModelIR } from "./architecture.js";
-import { buildDenseSafetensorsLiteralProgram } from "./literal.js";
+import { buildLiteralCalculationProgram } from "./literal.js";
 import type { LiteralTensorReader } from "./literal.js";
 import { renderEquations } from "./render.js";
 import type { PreviewOptions } from "./types.js";
@@ -12,7 +12,7 @@ export interface CompileOptions {
   output: string;
   equationsOutput?: string;
   preview: PreviewOptions;
-  /** Emit a source-independent dense or established MLX-affine Safetensors calculation program. */
+  /** Emit a source-independent dense, MLX-affine, or established GGUF Q8_0 calculation program. */
   literal?: boolean;
 }
 
@@ -22,7 +22,7 @@ export async function compileModel(options: CompileOptions): Promise<void> {
     const ir = await buildModelIR(opened.catalog, options.preview, opened.bridge);
     await mkdir(path.dirname(options.output), { recursive: true });
     const artifact = options.literal
-      ? await buildDenseSafetensorsLiteralProgram(ir, opened.catalog, literalReader(opened.reader))
+      ? await buildLiteralCalculationProgram(ir, opened.catalog, literalReader(opened.reader))
       : ir;
     await writeFile(options.output, `${JSON.stringify(artifact, null, 2)}\n`, "utf8");
     if (options.equationsOutput) {

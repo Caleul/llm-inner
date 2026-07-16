@@ -53,6 +53,28 @@ export class GgufCatalogReader {
     this.#handle = undefined;
   }
 
+  /**
+   * Returns a verified raw GGUF tensor interval without interpreting its
+   * dtype or block format. Literal export owns the explicit decoder contract.
+   */
+  async readTensorBytes(tensor: TensorInfo): Promise<Buffer> {
+    if (tensor.shard !== this.#source || tensor.byteOffset === undefined || tensor.byteLength === undefined || tensor.byteLength < 0) {
+      throw new Error(`${tensor.name}: metadados de range GGUF incompletos para exportação literal.`);
+    }
+    if (tensor.byteOffset < 0 || tensor.byteOffset > this.#fileSize - tensor.byteLength) {
+      throw new Error(`${tensor.name}: intervalo GGUF literal ultrapassa o arquivo.`);
+    }
+    if (!this.#handle) throw new Error("Leitor GGUF está fechado; mantenha o catálogo aberto durante a exportação literal.");
+    const bytes = Buffer.allocUnsafe(tensor.byteLength);
+    let read = 0;
+    while (read < bytes.length) {
+      const result = await this.#handle.read(bytes, read, bytes.length - read, tensor.byteOffset + read);
+      if (result.bytesRead === 0) throw new Error("EOF inesperado lendo payload GGUF literal.");
+      read += result.bytesRead;
+    }
+    return bytes;
+  }
+
   async inspect(): Promise<ModelCatalog> {
     this.#handle = await open(this.#source, "r");
     const info = await this.#handle.stat();

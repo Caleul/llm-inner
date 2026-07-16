@@ -10,6 +10,7 @@ import type { LiteralCalculationProgram } from "../src/literal.js";
 import { executeReferenceF32, generateReferenceF32 } from "../src/executor.js";
 import { materializeReferenceF32Constants } from "../src/materialize.js";
 import { SafetensorsCatalogReader } from "../src/safetensors.js";
+import { GgufCatalogReader } from "../src/gguf.js";
 
 const preview = { outputRows: 1, inputTerms: 1, includeWeights: false } as const;
 
@@ -164,6 +165,49 @@ test("literal MLX affine U32 embeds codes and BF16 parameters, then replays afte
   }
 });
 
+test("literal GGUF Q8_0 embeds original blocks and replays forward and greedy generation after source removal", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "llm-inner-literal-gguf-q8_0-"));
+  const model = path.join(root, "tiny-q8_0.gguf");
+  try {
+    await writeTinyGgmlQ8_0Llama(model);
+    const reader = new GgufCatalogReader(model);
+    const catalog = await reader.inspect();
+    const ir = await buildModelIR(catalog, preview);
+    forceF32Policy(ir);
+    const expectedTensors = await materializeReferenceF32Constants(ir, catalog, reader);
+    const expected = executeReferenceF32(ir, { inputIds: [[1]], tensors: expectedTensors });
+    const expectedGeneration = generateReferenceF32(ir, { inputIds: [[1]], tensors: expectedTensors, maxNewTokens: 2 });
+    await reader.close();
+
+    const artifact = path.join(root, "tiny-q8_0.literal.json");
+    await compileModel({ source: model, output: artifact, preview, literal: true });
+    const program = JSON.parse(await readFile(artifact, "utf8")) as LiteralCalculationProgram;
+    assert.equal(program.sourceFormat, "gguf");
+    const q8 = program.storageDecoders.filter((decoder) => decoder.operation === "ggml-q8-0-to-f32");
+    assert.equal(q8.length, 9);
+    assert.equal(q8.every((decoder) => decoder.blockSize === 32 && decoder.blockBytes === 34 && decoder.packing === "blocks-of-32-f16-scale-then-i8-codes"), true);
+    assert.equal(program.constants.filter((constant) => constant.storageDtype === "GGML_Q8_0").length, 9);
+    assert.equal(program.constants.filter((constant) => constant.storageDtype === "GGML_Q8_0").every((constant) => constant.layout === "ggml-first-axis-contiguous"), true);
+    assert.equal(JSON.stringify(program).includes(model), false);
+    assert.equal(JSON.stringify(program).includes(".gguf"), false);
+
+    const corrupted = structuredClone(program);
+    const firstQ8 = corrupted.storageDecoders.find((decoder) => decoder.operation === "ggml-q8-0-to-f32");
+    if (!firstQ8 || firstQ8.operation !== "ggml-q8-0-to-f32") throw new Error("fixture did not emit GGML Q8_0 decoder");
+    firstQ8.blockBytes = 33 as never;
+    assert.throws(() => validateLiteralCalculationProgram(corrupted), /decoder GGML Q8_0 literal não corresponde/);
+
+    await rm(model, { force: true });
+    const replay = executeLiteralF32(program, { inputIds: [[1]] });
+    const generation = generateLiteralF32(program, { inputIds: [[1]], maxNewTokens: 2 });
+    assert.deepEqual([...replay.logits.values], [...expected.logits.values]);
+    assert.deepEqual(generation.generatedTokenIds, expectedGeneration.generatedTokenIds);
+    assert.deepEqual([...generation.logits.values], [...expectedGeneration.logits.values]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 async function writeTinyF32Llama(directory: string): Promise<void> {
   await writeTinyDenseLlama(directory, "F32");
 }
@@ -237,6 +281,69 @@ function float32Bits(value: number): number {
   const view = new DataView(new ArrayBuffer(4));
   view.setFloat32(0, value, true);
   return view.getUint32(0, true);
+}
+
+/**
+ * A one-layer GGUF Llama with every matrix encoded as independently declared
+ * Q8_0 blocks.  Vectors remain F32 because Q8_0 requires whole 32-value
+ * blocks; values are all exact multiples of the binary16 scale 0.5.
+ */
+async function writeTinyGgmlQ8_0Llama(file: string): Promise<void> {
+  const width = 32;
+  const identity = Array.from({ length: width * width }, (_, index) => Math.floor(index / width) === index % width ? 1 : 0);
+  const embedding = Array.from({ length: width * width }, (_, index) => Math.floor(index / width) === 1 && index % width < 2 ? (index % width === 0 ? 1 : 0.5) : 0);
+  const zeros = new Array<number>(width * width).fill(0);
+  const ones = new Array<number>(width).fill(1);
+  const weights: Array<[string, number[], number[], number]> = [
+    ["token_embd.weight", [width, width], embedding, 8], ["blk.0.attn_norm.weight", [width], ones, 0],
+    ...["attn_q", "attn_k", "attn_v", "attn_output"].map((projection): [string, number[], number[], number] => [`blk.0.${projection}.weight`, [width, width], identity, 8]),
+    ["blk.0.ffn_norm.weight", [width], ones, 0],
+    ...["ffn_gate", "ffn_up", "ffn_down"].map((projection): [string, number[], number[], number] => [`blk.0.${projection}.weight`, [width, width], zeros, 8]),
+    ["output_norm.weight", [width], ones, 0], ["output.weight", [width, width], identity, 8],
+  ];
+  const text = (value: string) => { const bytes = Buffer.from(value); const length = Buffer.alloc(8); length.writeBigUInt64LE(BigInt(bytes.length)); return Buffer.concat([length, bytes]); };
+  const u32 = (value: number) => { const bytes = Buffer.alloc(4); bytes.writeUInt32LE(value); return bytes; };
+  const u64 = (value: number) => { const bytes = Buffer.alloc(8); bytes.writeBigUInt64LE(BigInt(value)); return bytes; };
+  const metadata = (key: string, type: number, value: Buffer) => Buffer.concat([text(key), u32(type), value]);
+  const metadataU32 = (key: string, value: number) => metadata(key, 4, u32(value));
+  const metadataF32 = (key: string, value: number) => { const bytes = Buffer.alloc(4); bytes.writeFloatLE(value); return metadata(key, 6, bytes); };
+  const metadataEntries = [
+    metadata("general.architecture", 8, text("llama")), metadataU32("general.alignment", 32), metadataU32("llama.embedding_length", width),
+    metadataU32("llama.block_count", 1), metadataU32("llama.attention.head_count", 1), metadataU32("llama.attention.head_count_kv", 1),
+    metadataU32("llama.attention.key_length", width), metadataU32("llama.feed_forward_length", width), metadataF32("llama.attention.layer_norm_rms_epsilon", 1e-6),
+  ];
+  const payloads: Buffer[] = [];
+  const directory: Buffer[] = [];
+  let offset = 0;
+  for (const [name, shape, values, ggmlType] of weights) {
+    const padding = (32 - (offset % 32)) % 32;
+    if (padding) { payloads.push(Buffer.alloc(padding)); offset += padding; }
+    const payload = ggmlType === 8 ? encodeGgmlQ8_0(values) : encodeF32Payload(values);
+    directory.push(Buffer.concat([text(name), u32(shape.length), ...shape.map(u64), u32(ggmlType), u64(offset)]));
+    payloads.push(payload); offset += payload.length;
+  }
+  const prefix = Buffer.concat([Buffer.from("GGUF"), u32(3), u64(weights.length), u64(metadataEntries.length), ...metadataEntries, ...directory]);
+  await writeFile(file, Buffer.concat([prefix, Buffer.alloc((32 - (prefix.length % 32)) % 32), ...payloads]));
+}
+
+function encodeGgmlQ8_0(values: readonly number[]): Buffer {
+  assert.equal(values.length % 32, 0, "Q8_0 fixture requires whole blocks");
+  const payload = Buffer.alloc(values.length / 32 * 34);
+  for (let block = 0; block < values.length / 32; block += 1) {
+    payload.writeUInt16LE(0x3800, block * 34); // IEEE binary16 0.5
+    for (let index = 0; index < 32; index += 1) {
+      const code = values[block * 32 + index]! * 2;
+      assert.equal(Number.isInteger(code) && code >= -128 && code <= 127, true, "Q8_0 code must be an exact int8 at scale 0.5");
+      payload.writeInt8(code, block * 34 + 2 + index);
+    }
+  }
+  return payload;
+}
+
+function encodeF32Payload(values: readonly number[]): Buffer {
+  const payload = Buffer.alloc(values.length * 4);
+  values.forEach((value, index) => payload.writeFloatLE(value, index * 4));
+  return payload;
 }
 
 /** Uses 3-bit codes so each row contains codes that straddle U32 boundaries. */
