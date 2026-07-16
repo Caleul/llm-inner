@@ -249,6 +249,16 @@ Isso prova materialização completa e ausência do caminho do checkpoint no
 artefato, mas ainda não é replay E4B sem fonte nem comparação numérica com o
 runtime autoritativo.
 
+`paged-dense.ts` é a fronteira seguinte: aceita somente matrizes literais
+row-major densas `F32`/`F16`/`BF16`, lê linhas por `readTensorBytesRange` e
+executa embedding e linear na mesma ordem escalar F32 do executor de
+referência. A leitura é limitada por uma janela explícita e não aceita
+quantização ou um payload sem decoder declarado. Isso permite que embeddings e
+projeções enormes sejam consumidos sem formar um mapa F32 do pacote inteiro,
+mas a orquestração assíncrona de todas as operações Gemma 4 (normas, RoPE,
+atenção, cache, PLE e logits) ainda é necessária antes de qualquer alegação de
+prefill/generation E4B.
+
 ### Comparação com captura autoritativa
 
 `npm run compare:trace -- --source <checkpoint> --trace <captura.json> --report <relatorio.json>` executa a fronteira completa de validação declarada pela captura (`F32` ou `F64`): reabre o contêiner, confere SHA-256 de `config.json` e de cada shard/arquivo que participa do checkpoint, reconstrói o IR, materializa os pesos por range, executa o interpretador correspondente e compara cada operação e cache KV com a captura. O relatório só é escrito depois de todas essas verificações.

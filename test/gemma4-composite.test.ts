@@ -14,6 +14,7 @@ import {
   writeGemma4CompositeLiteralCalculationProgram,
 } from "../src/gemma4-composite-literal.js";
 import { openGemma4CompositeLiteralArtifact } from "../src/gemma4-composite-literal-reader.js";
+import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearF32 } from "../src/paged-dense.js";
 import type { DenseF32Tensor, ModelCatalog, TensorInfo } from "../src/types.js";
 
 const preview = { outputRows: 1, inputTerms: 1, includeWeights: false } as const;
@@ -198,6 +199,61 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding and linear kernels after source removal", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "llm-inner-gemma4-paged-"));
+  try {
+    const catalog = fixture(), program = buildGemma4CompositeProgram(catalog, preview), sourceTensors = materialize(catalog);
+    const output = path.join(root, "tiny.gemma4.literal.json");
+    await writeGemma4CompositeLiteralCalculationProgram(program, catalog, {
+      async readTensorBytes(info) {
+        const source = sourceTensors.get(info.name)!;
+        const bytes = Buffer.alloc(source.values.length * 4);
+        source.values.forEach((value, index) => bytes.writeFloatLE(value, index * 4));
+        return bytes;
+      },
+    }, output);
+    sourceTensors.clear();
+    const artifact = await openGemma4CompositeLiteralArtifact(output);
+    try {
+      const embeddingInfo = artifact.constants.get("model.language_model.embed_tokens.weight")!;
+      const projectionInfo = artifact.constants.get("model.language_model.layers.0.self_attn.q_proj.weight")!;
+      const embedding = createPagedDenseF32Matrix({ name: embeddingInfo.name, storageDtype: embeddingInfo.storageDtype, storageShape: embeddingInfo.storageShape, logicalShape: embeddingInfo.logicalShape }, artifact, 16);
+      const projection = createPagedDenseF32Matrix({ name: projectionInfo.name, storageDtype: projectionInfo.storageDtype, storageShape: projectionInfo.storageShape, logicalShape: projectionInfo.logicalShape }, artifact, 16);
+      const embedded = await pagedEmbeddingF32([[1, 2, 1]], embedding, 2);
+      assert.deepEqual(embedded.shape, [1, 3, 4]);
+      assert.deepEqual(embedded.values, Float32Array.from([0.2, 0.04, 0.08, 0.12, 0.16, 0.2, 0.04, 0.08, 0.2, 0.04, 0.08, 0.12]));
+      const linear = await pagedLinearF32({ shape: [1, 2, 4], values: Float32Array.from([0.1, 0.2, 0.3, 0.4, 0.4, 0.3, 0.2, 0.1]) }, projection);
+      assert.deepEqual(linear.shape, [1, 2, 4]);
+      assert.deepEqual(linear.values, Float32Array.from([
+        0.06000000238418579, 0.05000000074505806, 0.05000000447034836, 0.06000000238418579,
+        0.03999999910593033, 0.06000000610947609, 0.07000000029802322, 0.07000000029802322,
+      ]));
+      await assert.rejects(() => projection.readRows(0, 2), /excede maxReadBytes/);
+    } finally {
+      await artifact.close();
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("paged dense kernels widen BF16 only from declared literal ranges", async () => {
+  const tensor: TensorInfo = { name: "embedded://bf16-matrix", storageDtype: "BF16", storageShape: [2, 2], logicalShape: [2, 2] };
+  const storage = Buffer.from([0x80, 0x3f, 0x00, 0x40, 0x40, 0x40, 0x80, 0x40]); // [[1, 2], [3, 4]] BF16 LE
+  let maxRead = 0;
+  const matrix = createPagedDenseF32Matrix(tensor, {
+    async readTensorBytesRange(_tensor, offset, byteLength) {
+      maxRead = Math.max(maxRead, byteLength);
+      return storage.subarray(offset, offset + byteLength);
+    },
+  }, 4);
+  const embedded = await pagedEmbeddingF32([[1, 0]], matrix);
+  assert.deepEqual(embedded.values, Float32Array.from([3, 4, 1, 2]));
+  const output = await pagedLinearF32({ shape: [1, 2], values: Float32Array.from([1, 2]) }, matrix);
+  assert.deepEqual(output.values, Float32Array.from([5, 11]));
+  assert.equal(maxRead, 4, "the kernel must never request more than the declared row budget");
 });
 
 test("Gemma 4 shared-KV consumers embed but explicitly label their checkpoint-local K/V tensors", async () => {
