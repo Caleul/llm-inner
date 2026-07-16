@@ -80,10 +80,14 @@ export async function executeGemma4PagedTextLiteralF32(
     assertPagedF32Policy(operation);
     switch (operation.op) {
       case "embedding":
-        values.set(operation.output, await pagedEmbeddingF32(inputIds, matrix(operation.weight), operation.scale));
+        values.set(operation.output, await pagedEmbeddingF32(inputIds, matrix(operation.weight), operation.scale, {
+          roundOutputToBf16: operation.weight.storageDtype === "BF16",
+        }));
         break;
       case "per_layer_embedding":
-        values.set(operation.output, reshapePerLayerF32(await pagedEmbeddingF32(inputIds, matrix(operation.weight), operation.scale), operation.numLayers, operation.layerWidth));
+        values.set(operation.output, reshapePerLayerF32(await pagedEmbeddingF32(inputIds, matrix(operation.weight), operation.scale, {
+          roundOutputToBf16: operation.weight.storageDtype === "BF16",
+        }), operation.numLayers, operation.layerWidth));
         break;
       case "rms_norm":
         values.set(operation.output, rmsNormF32(value(values, operation.input), operation.weight ? await vector(operation.weight) : undefined, operation));

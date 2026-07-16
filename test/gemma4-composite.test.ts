@@ -284,6 +284,8 @@ test("paged dense kernels widen BF16 only from declared literal ranges", async (
   }, 4);
   const embedded = await pagedEmbeddingF32([[1, 0]], matrix);
   assert.deepEqual(embedded.values, Float32Array.from([3, 4, 1, 2]));
+  const bf16Output = await pagedEmbeddingF32([[0]], matrix, Math.fround(1.003), { roundOutputToBf16: true });
+  assert.deepEqual(bf16Output.values, Float32Array.from([1, 2]), "Gemma BF16 embeddings cast the scaled output back to BF16");
   const output = await pagedLinearF32({ shape: [1, 2], values: Float32Array.from([1, 2]) }, matrix);
   assert.deepEqual(output.values, Float32Array.from([5, 11]));
   assert.equal(maxRead, 4, "the kernel must never request more than the declared row budget");

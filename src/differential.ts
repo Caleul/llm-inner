@@ -2,6 +2,7 @@ import type {
   DenseF32Tensor,
   DenseTensor,
   DifferentialComparisonReport,
+  DifferentialCheckpointComparisonReport,
   DifferentialGenerationComparisonReport,
   DifferentialGenerationReferenceTrace,
   DifferentialGenerationStepComparison,
@@ -25,6 +26,56 @@ type GenerationResult = ReferenceGenerationResult | ReferenceF32GenerationResult
 type GenerationCacheMap = ReadonlyMap<number, { key: ComparableTensor; value: ComparableTensor }>;
 
 const DEFAULT_TOLERANCE: DifferentialTolerance = { maxAbsoluteError: 0, maxRelativeError: 0 };
+
+/**
+ * Compare a selected set of authoritative runtime module boundaries.  This is
+ * intentionally distinct from compareExecutionTrace: a checkpoint probe is
+ * diagnostic evidence for locating a numerical-policy mismatch, not proof
+ * that every IR assignment was captured.
+ */
+export function compareCapturedOperationCheckpoints(
+  candidateValues: ReadonlyMap<string, ComparableTensor>,
+  reference: Pick<DifferentialReferenceTrace, "operations">,
+  options: { candidateRuntime: string; tolerance?: DifferentialTolerance; topK?: number },
+): DifferentialCheckpointComparisonReport {
+  const tolerance = options.tolerance ?? DEFAULT_TOLERANCE;
+  validateTolerance(tolerance);
+  const topK = options.topK ?? 10;
+  if (!Number.isInteger(topK) || topK <= 0) throw new Error("topK deve ser inteiro positivo.");
+  const seen = new Set<string>();
+  const operations: DifferentialOperationComparison[] = [];
+  const missingCandidateOperationIds: string[] = [];
+  let firstDivergentOperation: string | null = null;
+  for (const sample of reference.operations) {
+    if (seen.has(sample.operationId)) throw new Error(`Checkpoint nativo duplicado: ${sample.operationId}.`);
+    seen.add(sample.operationId);
+    const actual = candidateValues.get(sample.output);
+    if (!actual) {
+      missingCandidateOperationIds.push(sample.operationId);
+      operations.push({ operationId: sample.operationId, output: sample.output, status: "missing-reference" });
+      firstDivergentOperation ??= sample.operationId;
+      continue;
+    }
+    if (!sameShape(actual.shape, sample.tensor.shape)) {
+      operations.push({ operationId: sample.operationId, output: sample.output, status: "shape-mismatch" });
+      firstDivergentOperation ??= sample.operationId;
+      continue;
+    }
+    const metrics = compareTensor(actual, sample.tensor, topK);
+    const status = passes(metrics, tolerance) ? "pass" : "diverged";
+    if (status === "diverged") firstDivergentOperation ??= sample.operationId;
+    operations.push({ operationId: sample.operationId, output: sample.output, status, metrics });
+  }
+  const incomplete = reference.operations.length === 0 || missingCandidateOperationIds.length > 0 || operations.some((item) => item.status === "shape-mismatch");
+  return {
+    candidateRuntime: options.candidateRuntime,
+    tolerance: { ...tolerance },
+    operations,
+    missingCandidateOperationIds,
+    firstDivergentOperation,
+    fidelityClass: incomplete ? "incomplete" : firstDivergentOperation === null ? "lossless-within-dtype" : "approximate",
+  };
+}
 
 /**
  * Compare every emitted IR operation against a trace captured by an

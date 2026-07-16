@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { buildModelIR } from "../src/architecture.js";
 import { openCatalog } from "../src/catalog.js";
+import { compareCapturedOperationCheckpoints } from "../src/differential.js";
 import { executeReferenceF32, executeReferenceF64, generateReferenceF32, generateReferenceF64 } from "../src/executor.js";
 import { materializeReferenceF32Constants, materializeReferenceF64Constants } from "../src/materialize.js";
 import { fingerprintIR, readExecutionTraceBundle } from "../src/trace.js";
@@ -16,6 +17,23 @@ import type { ModelIR } from "../src/types.js";
 import type { ReferenceF32ExecutionResult } from "../src/types.js";
 
 const preview = { outputRows: 1, inputTerms: 1, includeWeights: false } as const;
+
+test("native checkpoint comparator preserves capture order and does not upgrade a partial probe", () => {
+  const candidate = new Map([
+    ["embedding", { shape: [1], values: new Float32Array([1]) }],
+    ["layer", { shape: [1], values: new Float32Array([2]) }],
+  ]);
+  const reference = {
+    operations: [
+      { operationId: "token_embedding", output: "embedding", tensor: { shape: [1], values: new Float32Array([1]) } },
+      { operationId: "layer_0_input_norm", output: "layer", tensor: { shape: [1], values: new Float32Array([3]) } },
+    ],
+  };
+  const report = compareCapturedOperationCheckpoints(candidate, reference, { candidateRuntime: "test" });
+  assert.equal(report.firstDivergentOperation, "layer_0_input_norm");
+  assert.equal(report.fidelityClass, "approximate");
+  assert.deepEqual(report.operations.map((operation) => operation.status), ["pass", "diverged"]);
+});
 
 async function availableTransformersPython(): Promise<string | undefined> {
   const candidate = process.env.LLM_INNER_TRANSFORMERS_PYTHON ?? "/private/tmp/llm-inner-transformers/bin/python";

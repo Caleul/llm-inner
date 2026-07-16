@@ -86,23 +86,104 @@ def forward(model: Any, tokens: list[int], positions: list[int], cache: Any | No
         return model(input_ids=input_ids, position_ids=position_ids, past_key_values=cache, use_cache=True)
 
 
+def operation_checkpoints(model: Any, tokens: list[int], positions: list[int]) -> dict[str, Any]:
+    """Capture native module boundaries without sending the candidate IR to Python.
+
+    The stable operation IDs are owned by the registered TypeScript Gemma4Text
+    adapter.  We deliberately capture only boundaries that are native modules
+    (linear, norm, embedding, complete attention and layer output); residuals,
+    activations and rotations still need an authoritative fine-grained trace.
+    """
+    text = model.model.language_model
+    checkpoints: dict[str, dict[str, Any]] = {}
+
+    def save(operation_id: str, output: str, transform=None):
+        def hook(_module, _inputs, value):
+            if isinstance(value, tuple):
+                value = value[0]
+            if transform is not None:
+                value = transform(value)
+            checkpoints[operation_id] = {"operationId": operation_id, "output": output, "tensor": tensor_payload(value)}
+        return hook
+
+    hooks = []
+    try:
+        hooks.append(text.embed_tokens.register_forward_hook(save("token_embedding", "hidden_states_0")))
+        if getattr(text, "hidden_size_per_layer_input", None):
+            hooks.append(text.embed_tokens_per_layer.register_forward_hook(save(
+                "ple_token_identity", "ple_token_identity",
+                lambda value: value.reshape(*value.shape[:2], text.config.num_hidden_layers, text.config.hidden_size_per_layer_input),
+            )))
+            hooks.append(text.per_layer_model_projection.register_forward_hook(save("ple_context_projection", "ple_context_packed")))
+            hooks.append(text.per_layer_projection_norm.register_forward_hook(save("ple_context_norm", "ple_context_normalized")))
+        for layer_index, layer in enumerate(text.layers):
+            prefix = f"layer_{layer_index}"
+            hooks.extend([
+                layer.input_layernorm.register_forward_hook(save(f"{prefix}_input_norm", f"{prefix}_attn_norm")),
+                layer.self_attn.q_proj.register_forward_hook(save(f"{prefix}_q_proj", f"{prefix}_q_linear")),
+                layer.self_attn.q_norm.register_forward_hook(save(f"{prefix}_q_norm", f"{prefix}_q_normalized", lambda value: value.transpose(1, 2))),
+                layer.self_attn.register_forward_hook(save(f"{prefix}_o_proj", f"{prefix}_attention_projected")),
+                layer.post_attention_layernorm.register_forward_hook(save(f"{prefix}_post_attention_norm", f"{prefix}_post_attention_normalized")),
+                layer.pre_feedforward_layernorm.register_forward_hook(save(f"{prefix}_pre_ffn_norm", f"{prefix}_ffn_norm")),
+                layer.mlp.gate_proj.register_forward_hook(save(f"{prefix}_gate_proj", f"{prefix}_gate")),
+                layer.mlp.up_proj.register_forward_hook(save(f"{prefix}_up_proj", f"{prefix}_up")),
+                layer.mlp.down_proj.register_forward_hook(save(f"{prefix}_down_proj", f"{prefix}_mlp_output")),
+                layer.post_feedforward_layernorm.register_forward_hook(save(f"{prefix}_post_ffn_norm", f"{prefix}_post_ffn_normalized")),
+                layer.register_forward_hook(save(f"{prefix}_scalar", f"hidden_states_{layer_index + 1}")),
+            ])
+            if getattr(layer, "hidden_size_per_layer_input", None):
+                hooks.extend([
+                    layer.per_layer_input_gate.register_forward_hook(save(f"{prefix}_ple_gate", f"{prefix}_ple_gate_linear")),
+                    layer.per_layer_projection.register_forward_hook(save(f"{prefix}_ple_project", f"{prefix}_ple_projected")),
+                    layer.post_per_layer_input_norm.register_forward_hook(save(f"{prefix}_post_ple_norm", f"{prefix}_post_ple_normalized")),
+                ])
+            if not layer.self_attn.is_kv_shared_layer:
+                hooks.extend([
+                    layer.self_attn.k_proj.register_forward_hook(save(f"{prefix}_k_proj", f"{prefix}_k_linear")),
+                    layer.self_attn.k_norm.register_forward_hook(save(f"{prefix}_k_norm", f"{prefix}_k_normalized", lambda value: value.transpose(1, 2))),
+                    layer.self_attn.v_norm.register_forward_hook(save(f"{prefix}_v_norm", f"{prefix}_v_normalized", lambda value: value.transpose(1, 2))),
+                ])
+                if layer.self_attn.v_proj is not None:
+                    hooks.append(layer.self_attn.v_proj.register_forward_hook(save(f"{prefix}_v_proj", f"{prefix}_v_linear")))
+        hooks.append(text.norm.register_forward_hook(save("final_norm", "final_hidden_states")))
+        hooks.append(model.lm_head.register_forward_hook(save("lm_head", "logits")))
+        native = forward(model, tokens, positions)
+        if model.config.text_config.final_logit_softcapping is not None:
+            cap = model.config.text_config.final_logit_softcapping
+            checkpoints["final_logit_softcap"] = {
+                "operationId": "final_logit_softcap", "output": "softcapped_logits",
+                "tensor": tensor_payload(native.logits),
+            }
+        return {
+            "runtime": f"PyTorch {torch.__version__.split('+')[0]} / Transformers {transformers.__version__} Gemma4ForConditionalGeneration eager BF16 native module checkpoints",
+            # Hook invocation preserves actual native execution order, which is
+            # required for a meaningful first-divergence diagnostic.
+            "operations": list(checkpoints.values()),
+            "pastKeyValues": cache_payload(native.past_key_values),
+        }
+    finally:
+        for hook in hooks:
+            hook.remove()
+
+
 def main(request: dict[str, Any]) -> dict[str, Any]:
     source = Path(request["source"])
     tokens = request["inputTokens"]
     positions = request["positionIds"]
-    max_new_tokens = request["maxNewTokens"]
     if not isinstance(tokens, list) or not all(isinstance(token, int) and token >= 0 for token in tokens):
         raise ValueError("inputTokens must be non-negative integer IDs.")
     if not isinstance(positions, list) or not all(isinstance(position, int) and position >= 0 for position in positions):
         raise ValueError("positionIds must be non-negative integer IDs.")
-    if not isinstance(max_new_tokens, int) or max_new_tokens < 0:
-        raise ValueError("maxNewTokens must be a non-negative integer.")
-
     model = AutoModelForImageTextToText.from_pretrained(
         source, local_files_only=True, dtype=torch.bfloat16, attn_implementation="eager"
     )
     model.eval()
     validate(model)
+    if request.get("mode") == "operation-checkpoints":
+        return operation_checkpoints(model, tokens, positions)
+    max_new_tokens = request.get("maxNewTokens")
+    if not isinstance(max_new_tokens, int) or max_new_tokens < 0:
+        raise ValueError("maxNewTokens must be a non-negative integer.")
     current = forward(model, tokens, positions)
     generated: list[int] = []
     selection_logits: list[dict[str, Any]] = []

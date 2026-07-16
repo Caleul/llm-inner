@@ -438,6 +438,21 @@ export interface DifferentialOperationComparison {
   metrics?: DifferentialTensorMetrics;
 }
 
+/**
+ * A deliberately partial, named set of runtime checkpoints.  Unlike a full
+ * operation trace this is used to localize an already-known mismatch at
+ * native module boundaries; it must never be promoted to an end-to-end
+ * fidelity claim.
+ */
+export interface DifferentialCheckpointComparisonReport {
+  candidateRuntime: string;
+  tolerance: DifferentialTolerance;
+  operations: DifferentialOperationComparison[];
+  missingCandidateOperationIds: string[];
+  firstDivergentOperation: string | null;
+  fidelityClass: "lossless-within-dtype" | "approximate" | "incomplete";
+}
+
 export interface DifferentialKeyValueCacheComparison {
   layer: number;
   status: "pass" | "diverged" | "missing-reference" | "missing-candidate" | "shape-mismatch";

@@ -1,10 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildModelIR } from "../src/architecture.js";
+import { gemma4TextEmbeddingScale } from "../src/gemma4-text.js";
 import { executeReferenceF32 } from "../src/executor.js";
 import type { DenseF32Tensor, ModelCatalog, TensorInfo } from "../src/types.js";
 
 const preview = { outputRows: 1, inputTerms: 1, includeWeights: false } as const;
+
+test("Gemma 4 text embedding scale preserves the native BF16 scalar cast", () => {
+  assert.equal(gemma4TextEmbeddingScale(2560, "BF16"), 50.5);
+  assert.equal(gemma4TextEmbeddingScale(4, "F32"), 2);
+});
 
 test("standalone Gemma 4 text lowering makes PLE, proportional RoPE, unscaled V norm, and scalar assignments explicit", async () => {
   const catalog = tinyGemma4Text();

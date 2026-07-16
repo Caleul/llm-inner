@@ -1,4 +1,5 @@
 import type { JsonObject, LayerIR, ModelCatalog, ModelIR, Operation, PreviewOptions, TensorInfo, TensorRef } from "./types.js";
+import { roundF32ToBF16 } from "./utils.js";
 
 const F32_POLICY = { computeDtype: "model-configured", accumulationDtype: "runtime-defined", outputDtype: "model-configured" } as const;
 
@@ -37,7 +38,12 @@ export function buildGemma4TextIR(catalog: ModelCatalog, config: JsonObject, pre
   const pleProjection = shape(`${prefix}.per_layer_model_projection.weight`, [layers * pleWidth, hidden]);
   const pleNorm = shape(`${prefix}.per_layer_projection_norm.weight`, [pleWidth]);
   const prelude: Operation[] = [
-    { id: "token_embedding", op: "embedding", tokenInput: "input_ids", output: "hidden_states_0", weight: normalEmbedding, scale: Math.sqrt(hidden), dtypePolicy: F32_POLICY },
+    // Gemma4TextScaledWordEmbedding converts this scalar to the weight dtype
+    // before multiplication.  For the mandatory BF16 package that is an
+    // observable cast boundary: sqrt(2560) becomes BF16 50.5, not F32
+    // 50.596442... .  Store the widened exact BF16 value in the literal IR so
+    // a source-independent F32 reader does not silently invent a scale.
+    { id: "token_embedding", op: "embedding", tokenInput: "input_ids", output: "hidden_states_0", weight: normalEmbedding, scale: gemma4TextEmbeddingScale(hidden, normalEmbedding.storageDtype), dtypePolicy: F32_POLICY },
     { id: "ple_token_identity", op: "per_layer_embedding", tokenInput: "input_ids", output: "ple_token_identity", weight: pleEmbedding, numLayers: layers, layerWidth: pleWidth, scale: Math.sqrt(pleWidth), dtypePolicy: F32_POLICY },
     linear("ple_context_projection", "hidden_states_0", "ple_context_packed", pleProjection),
     { id: "ple_context_scale", op: "elementwise", kind: "scale", inputs: ["ple_context_packed"], scalar: hidden ** -0.5, output: "ple_context_scaled", dtypePolicy: F32_POLICY },
@@ -138,6 +144,12 @@ export function buildGemma4TextIR(catalog: ModelCatalog, config: JsonObject, pre
   ];
   if (finalSoftcap !== undefined) epilogue.push({ id: "final_logit_softcap", op: "elementwise", kind: "tanh_softcap", inputs: ["logits"], scalar: finalSoftcap, output: "softcapped_logits", dtypePolicy: F32_POLICY });
   return { schemaVersion: 2, source: { path: catalog.source, format: catalog.format }, architecture: { modelType: "gemma4_text", hiddenSize: hidden, intermediateSize: intermediate, numLayers: layers, numAttentionHeads: heads, numKeyValueHeads: kvHeads, headDim, vocabSize: vocab }, config: structuredClone(config), preview, inputs: [{ name: "input_ids", description: "IDs dos tokens de entrada." }, { name: "attention_mask", description: "Máscaras causais por tipo de atenção." }, { name: "position_ids", description: "Posições absolutas RoPE." }, { name: "past_key_values", description: "Estado KV pós-RoPE por camada produtora." }], prelude, layers: lowered, epilogue, fidelity: { exactByConstruction: false, assumptions: ["A política F32 escalar é uma implementação de referência; a fidelidade BF16 do runtime oficial requer validação diferencial."], unsupported: [], warnings: ["Este adaptador cobre Gemma4Text isolado. O pacote multimodal Gemma4 continua rejeitado até vision/audio replacement ser lowered."] } };
+}
+
+/** Native Gemma4TextScaledWordEmbedding casts its scalar scale to weight dtype. */
+export function gemma4TextEmbeddingScale(hiddenSize: number, storageDtype: string): number {
+  const scale = Math.sqrt(hiddenSize);
+  return storageDtype === "BF16" ? roundF32ToBF16(scale) : Math.fround(scale);
 }
 
 function rope(layer: number, role: "q" | "k", input: string, dim: number, type: string, config: JsonObject): Operation {

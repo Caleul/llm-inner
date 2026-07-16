@@ -237,10 +237,12 @@ compara logits e dois tokens greedy.
 Para o checkpoint obrigatório `google/gemma-4-E4B` BF16, o mesmo comando agora
 escreve o artefato completo em streaming: ranges Safetensors de 12 MiB são
 codificados em base64 sem acumular o pacote ou uma string de vários GiB na
-heap. O resultado local de 21,325,917,078 bytes contém os 2,130 payloads
-originais (15,992,314,836 bytes), tem SHA-256
-`e81feb9061cabb9a1982c0b2ce890d540ea91f22034c99b1382e6283076c61e1` e é
-auditado por `npm run audit:literal`. As 54 projeções/normas K/V locais dos
+heap. O resultado local contém os 2,130 payloads originais
+(15,992,314,836 bytes) e é auditado por `npm run audit:literal`. O hash
+`e81feb9061cabb9a1982c0b2ce890d540ea91f22034c99b1382e6283076c61e1`
+identifica a exportação histórica F32 documentada antes do cast BF16 do
+embedding; toda exportação deve registrar seu próprio hash, pois o programa
+literal inclui as políticas numéricas. As 54 projeções/normas K/V locais dos
 consumidores compartilhados são incorporadas com proveniência explícita em
 `unreachableConstants`; o grafo usa apenas os KV do produtor declarado. A
 evidência reproduzível está em
@@ -317,6 +319,14 @@ Uma repetição independente contra a revisão imutável oficial
 inclusive a ausência do checkpoint durante o replay candidato; a evidência
 atualizada está em
 [`docs/validation/gemma4-e4b-immutable-source-revalidation-2026-07-16.md`](docs/validation/gemma4-e4b-immutable-source-revalidation-2026-07-16.md).
+
+Uma sonda posterior de 691 checkpoints de módulos nativos BF16 torna a
+divergência localizável sem reabrir o checkpoint durante o candidato. Ela
+corrigiu o cast BF16 observável do embedding (`sqrt(2560)` para `50.5` e o
+produto BF16), tornando `token_embedding` e `ple_token_identity` idênticos;
+o primeiro limite restante é `ple_context_projection`. A sonda é parcial,
+portanto continua sendo evidência `approximate`, documentada em
+[`docs/validation/gemma4-e4b-native-operation-checkpoints-2026-07-16.md`](docs/validation/gemma4-e4b-native-operation-checkpoints-2026-07-16.md).
 
 ### Comparação com captura autoritativa
 

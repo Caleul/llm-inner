@@ -1,4 +1,4 @@
-import { decodeIeeeBF16ToF32, decodeIeeeF16ToF32 } from "./utils.js";
+import { decodeIeeeBF16ToF32, decodeIeeeF16ToF32, roundF32ToBF16 } from "./utils.js";
 import type { LiteralTensorReader } from "./literal.js";
 import type { DenseF32Tensor, TensorInfo } from "./types.js";
 
@@ -76,7 +76,12 @@ export function createPagedDenseF32Matrix(
 }
 
 /** Reads only the token rows needed by an embedding lookup. */
-export async function pagedEmbeddingF32(inputIds: readonly number[][], weight: PagedDenseF32Matrix, scale = 1): Promise<DenseF32Tensor> {
+export async function pagedEmbeddingF32(
+  inputIds: readonly number[][],
+  weight: PagedDenseF32Matrix,
+  scale = 1,
+  options: { roundOutputToBf16?: boolean } = {},
+): Promise<DenseF32Tensor> {
   const [vocab, hidden] = weight.shape;
   if (inputIds.length === 0 || inputIds.some((row) => row.length === 0 || row.length !== inputIds[0]!.length)) throw new Error("Embedding paginado requer batch não vazio e sequências iguais.");
   const result = new Float32Array(inputIds.length * inputIds[0]!.length * hidden);
@@ -88,7 +93,10 @@ export async function pagedEmbeddingF32(inputIds: readonly number[][], weight: P
     let values = rows.get(token);
     if (!values) { values = (await weight.readRows(token, 1)).values; rows.set(token, values); }
     const offset = (batch * inputIds[batch]!.length + sequence) * hidden;
-    for (let column = 0; column < hidden; column += 1) result[offset + column] = Math.fround(Math.fround(values[column]!) * f32Scale);
+    for (let column = 0; column < hidden; column += 1) {
+      const product = Math.fround(Math.fround(values[column]!) * f32Scale);
+      result[offset + column] = options.roundOutputToBf16 ? roundF32ToBF16(product) : product;
+    }
   }
   return { shape: [inputIds.length, inputIds[0]!.length, hidden], values: result };
 }
