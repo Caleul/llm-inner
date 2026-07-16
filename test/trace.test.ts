@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { buildModelIR } from "../src/architecture.js";
@@ -11,10 +11,60 @@ import { materializeReferenceF32Constants, materializeReferenceF64Constants } fr
 import { fingerprintIR, readExecutionTraceBundle } from "../src/trace.js";
 import { runExecutionTraceComparison, runGenerationTraceComparison } from "../src/trace-runner.js";
 import { captureMlxTrace } from "../src/mlx-trace-capture.js";
+import { captureTransformersLlamaTrace } from "../src/transformers-trace-capture.js";
 import type { ModelIR } from "../src/types.js";
 import type { ReferenceF32ExecutionResult } from "../src/types.js";
 
 const preview = { outputRows: 1, inputTerms: 1, includeWeights: false } as const;
+
+async function availableTransformersPython(): Promise<string | undefined> {
+  const candidate = process.env.LLM_INNER_TRANSFORMERS_PYTHON ?? "/private/tmp/llm-inner-transformers/bin/python";
+  try { await access(candidate); return candidate; } catch { return undefined; }
+}
+
+test("version-pinned Transformers Llama capture records native operations, cache, and greedy continuation", async (context) => {
+  const python = await availableTransformersPython();
+  if (!python) {
+    context.skip("Transformers/PyTorch runtime is external to the clean Node checkout; set LLM_INNER_TRANSFORMERS_PYTHON to enable this native integration test.");
+    return;
+  }
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-transformers-llama-capture-"));
+  try {
+    await writeTinyF32Model(directory);
+    const source = path.join(directory, "model");
+    const executionTrace = path.join(directory, "execution.json");
+    assert.equal(await captureTransformersLlamaTrace({ source, output: executionTrace, inputTokens: [1], python, model: "tiny-llama-transformers", revisionOrChecksum: "tiny-transformers-fixture-v1" }), "execution");
+    const execution = await runExecutionTraceComparison({ source, trace: executionTrace, report: path.join(directory, "execution-report.json"), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
+    assert.equal(execution.reference.runtime, "PyTorch 2.7.1 / Transformers 4.57.1 LlamaForCausalLM eager native capture");
+    assert.equal(execution.operations.length, 22);
+    assert.equal(execution.firstDivergentOperation, null);
+    assert.equal(execution.kvCache.length, 1);
+
+    const generationTrace = path.join(directory, "generation.json");
+    assert.equal(await captureTransformersLlamaTrace({ source, output: generationTrace, inputTokens: [1], maxNewTokens: 2, python, model: "tiny-llama-transformers", revisionOrChecksum: "tiny-transformers-fixture-v1" }), "generation");
+    const generation = await runGenerationTraceComparison({ source, trace: generationTrace, report: path.join(directory, "generation-report.json"), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
+    assert.equal(generation.generatedTokenIds.length, 2);
+    assert.equal(generation.firstDivergence, null);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("Transformers capture rejects a non-Llama adapter before launching Python", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-transformers-adapter-rejection-"));
+  try {
+    await writeTinyMistralF32Model(directory);
+    await assert.rejects(
+      () => captureTransformersLlamaTrace({
+        source: path.join(directory, "mistral"), output: path.join(directory, "trace.json"), inputTokens: [1],
+        python: path.join(directory, "missing-python"), model: "tiny-mistral", revisionOrChecksum: "fixture-v1",
+      }),
+      /adaptador nativo somente para llama/,
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
 
 test("MLX kernel capture independently records dense Llama execution and greedy generation traces", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-mlx-kernel-capture-"));
