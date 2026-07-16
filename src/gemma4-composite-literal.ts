@@ -423,7 +423,13 @@ function denseStorageDecoder(constant: Omit<LiteralConstant, "payloadBase64">): 
   };
 }
 
-function validateGemma4CompositeLiteralStructure(
+/**
+ * Validates the semantic graph against literal constant metadata without
+ * requiring base64 payload strings. The streamed-artifact reader uses this
+ * boundary after it has indexed byte ranges, keeping 20 GiB payloads outside
+ * the JavaScript object graph while preserving the same fail-closed rules.
+ */
+export function validateGemma4CompositeLiteralStructure(
   program: Gemma4CompositeProgram,
   assignments: Gemma4CompositeLiteralCalculationProgram["assignments"],
   outputs: Gemma4CompositeLiteralCalculationProgram["outputs"],

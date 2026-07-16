@@ -14,6 +14,7 @@
     "capture:transformers-trace": "node dist/src/transformers-trace-capture-cli.js",
     "audit:gemma4": "npm run build && node dist/src/gemma4-contract-cli.js",
     "audit:literal": "npm run build && node dist/src/literal-artifact-audit-cli.js",
+    "inspect:gemma4-literal": "npm run build && node dist/src/gemma4-composite-literal-reader-cli.js",
     "benchmark:native": "npm run build && node dist/src/benchmark-cli.js",
     "loop:start": "node scripts/agent-loop-runner.mjs start",
     "loop:status": "node scripts/agent-loop-runner.mjs status",

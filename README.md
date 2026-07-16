@@ -227,6 +227,24 @@ consumidores compartilhados são incorporadas com proveniência explícita em
 `unreachableConstants`; o grafo usa apenas os KV do produtor declarado. A
 evidência reproduzível está em
 [`docs/validation/gemma4-e4b-literal-export-2026-07-16.md`](docs/validation/gemma4-e4b-literal-export-2026-07-16.md).
+
+O leitor `gemma4-composite-literal-reader.ts` abre esse JSON em streaming: ele
+indexa os offsets dos payloads base64 e valida a estrutura semântica sem
+`JSON.parse` do artefato completo. Cada faixa de bytes é decodificada a partir
+do próprio JSON, sem abrir shard Safetensors. Para auditar o índice ou uma
+faixa específica (o comando não executa o modelo):
+
+```bash
+npm run inspect:gemma4-literal -- \
+  --artifact ./artifacts/gemma4-e4b-dense.literal.json \
+  --tensor model.language_model.embed_tokens.weight \
+  --offset 0 --byte-length 4096
+```
+
+Isso fecha a fronteira de leitura seletiva; ainda não é uma alegação de replay
+numérico BF16 ou de geração da E4B real. A medição do artefato real e o limite
+de memória do executor atual estão em
+[`docs/validation/gemma4-e4b-literal-reader-2026-07-16.md`](docs/validation/gemma4-e4b-literal-reader-2026-07-16.md).
 Isso prova materialização completa e ausência do caminho do checkpoint no
 artefato, mas ainda não é replay E4B sem fonte nem comparação numérica com o
 runtime autoritativo.

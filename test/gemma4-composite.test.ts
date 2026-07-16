@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import * as path from "node:path";
 import test from "node:test";
 import { tmpdir } from "node:os";
@@ -13,6 +13,7 @@ import {
   validateGemma4CompositeLiteralCalculationProgram,
   writeGemma4CompositeLiteralCalculationProgram,
 } from "../src/gemma4-composite-literal.js";
+import { openGemma4CompositeLiteralArtifact } from "../src/gemma4-composite-literal-reader.js";
 import type { DenseF32Tensor, ModelCatalog, TensorInfo } from "../src/types.js";
 
 const preview = { outputRows: 1, inputTerms: 1, includeWeights: false } as const;
@@ -151,6 +152,49 @@ test("Gemma 4 composite streamed writer emits an atomic self-contained JSON file
     sourceTensors.clear();
     const replay = executeGemma4CompositeLiteralF32(literal, { inputIds: [[1, 99, 2]], mmTokenTypeIds: [[0, 1, 0]], pixelValues: patterned([1, 4, 12]), imagePositionIds: [[[0, 0], [1, 0], [0, 1], [1, 1]]] });
     assert.deepEqual([...replay.text.logits.values], [...expected.text.logits.values]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its checkpoint path is removed", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "llm-inner-gemma4-artifact-reader-"));
+  try {
+    const catalog = fixture(), program = buildGemma4CompositeProgram(catalog, preview), sourceTensors = materialize(catalog);
+    const source = path.join(root, "removed-checkpoint.safetensors");
+    const output = path.join(root, "tiny.gemma4.literal.json");
+    catalog.source = source;
+    await writeFile(source, "checkpoint bytes are intentionally unavailable after export");
+    await writeGemma4CompositeLiteralCalculationProgram(program, catalog, {
+      async readTensorBytes(info) {
+        const tensor = sourceTensors.get(info.name);
+        if (!tensor) throw new Error(`source tensor missing: ${info.name}`);
+        const bytes = Buffer.alloc(tensor.values.length * 4);
+        tensor.values.forEach((value, index) => bytes.writeFloatLE(value, index * 4));
+        return bytes;
+      },
+    }, output);
+    const expected = sourceTensors.get("model.language_model.layers.0.self_attn.q_proj.weight")!;
+    const expectedBytes = Buffer.alloc(expected.values.length * 4);
+    expected.values.forEach((value, index) => expectedBytes.writeFloatLE(value, index * 4));
+    sourceTensors.clear();
+    await rm(source);
+
+    const artifact = await openGemma4CompositeLiteralArtifact(output);
+    try {
+      assert.equal(artifact.constants.size, catalog.tensors.size);
+      assert.equal(artifact.program.textProgram.source.path, "embedded://gemma4-composite-literal");
+      const tensor = catalog.tensors.get("model.language_model.layers.0.self_attn.q_proj.weight")!;
+      assert.deepEqual(await artifact.readTensorBytes(tensor), expectedBytes);
+      assert.deepEqual(await artifact.readTensorBytesRange(tensor, 5, 23), expectedBytes.subarray(5, 28));
+      assert.equal("payloadBase64" in artifact.constants.get(tensor.name)!, false);
+    } finally {
+      await artifact.close();
+    }
+    const corrupted = path.join(root, "corrupted.gemma4.literal.json");
+    const raw = await readFile(output, "utf8");
+    await writeFile(corrupted, raw.replace('"semantics":"exact IEEE-754 storage decode; no arithmetic narrowing"', '"semantics":"invalid"'));
+    await assert.rejects(() => openGemma4CompositeLiteralArtifact(corrupted), /decoder denso do artefato literal/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
