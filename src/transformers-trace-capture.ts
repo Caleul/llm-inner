@@ -1,12 +1,11 @@
-import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildModelIR } from "./architecture.js";
 import { openCatalog } from "./catalog.js";
-import { fingerprintIR, type ExecutionTraceBundle, type GenerationTraceBundle, type TraceSourceFile } from "./trace.js";
+import { fingerprintIR, sha256File, type ExecutionTraceBundle, type GenerationTraceBundle, type TraceSourceFile } from "./trace.js";
 
 export interface TransformersCaptureOptions {
   source: string;
@@ -194,7 +193,7 @@ async function checksums(source: string, tensors: Iterable<{ shard?: string }>):
   }
   return Promise.all([...files].sort().map(async (file) => ({
     path: file,
-    sha256: createHash("sha256").update(await readFile(path.join(source, file))).digest("hex"),
+    sha256: await sha256File(path.join(source, file)),
   })));
 }
 

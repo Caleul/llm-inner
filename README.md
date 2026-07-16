@@ -302,6 +302,16 @@ fonte foi renomeado durante o comando), mas ainda não há comparação com runt
 autoritativo nem replay multimodal; portanto o marcador de checkpoint Gemma 4
 continua proibido.
 
+Há agora uma comparação nativa separada para esse ramo textual: o capturador
+fixado em Transformers 5.5.0/PyTorch 2.12.1 executa
+`Gemma4ForConditionalGeneration` BF16 e vincula a captura aos SHA-256 do
+`config.json` e do Safetensors. `compare:gemma4-paged-text-trace` executa o
+candidato somente a partir do artefato e pode exigir que a fonte esteja ausente
+com `--assert-source-unavailable`. A primeira execução E4B reproduziu o token
+greedy `184`, mas é explicitamente `approximate`: logits e os 24 caches KV
+produtores divergem do eager BF16. Comandos, hashes e métricas estão em
+[`docs/validation/gemma4-e4b-native-text-differential-2026-07-16.md`](docs/validation/gemma4-e4b-native-text-differential-2026-07-16.md).
+
 ### Comparação com captura autoritativa
 
 `npm run compare:trace -- --source <checkpoint> --trace <captura.json> --report <relatorio.json>` executa a fronteira completa de validação declarada pela captura (`F32` ou `F64`): reabre o contêiner, confere SHA-256 de `config.json` e de cada shard/arquivo que participa do checkpoint, reconstrói o IR, materializa os pesos por range, executa o interpretador correspondente e compara cada operação e cache KV com a captura. O relatório só é escrito depois de todas essas verificações.

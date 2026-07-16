@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { createReadStream } from "node:fs";
 import { readFile } from "node:fs/promises";
 import * as path from "node:path";
 import type {
@@ -15,6 +16,14 @@ import { selectGreedyToken } from "./generation.js";
 export interface TraceSourceFile {
   path: string;
   sha256: string;
+}
+
+/** Stream source-file identities so a real multi-gigabyte checkpoint never
+ * needs to fit in Node's Buffer limit merely to bind an authoritative trace. */
+export async function sha256File(file: string): Promise<string> {
+  const hash = createHash("sha256");
+  for await (const chunk of createReadStream(file)) hash.update(chunk);
+  return hash.digest("hex");
 }
 
 interface SerializedTensor {
@@ -138,9 +147,17 @@ export async function readGenerationTraceBundle(file: string): Promise<DecodedGe
   };
 }
 
-/** Stable hash of the complete executable IR, including tensor contracts. */
+/**
+ * Stable hash of mathematical IR semantics and tensor contracts.  Source
+ * location is bound separately by `source.files`, while preview controls are
+ * diagnostics only and must never make two equivalent full programs appear
+ * semantically different.
+ */
 export function fingerprintIR(ir: ModelIR): string {
-  return createHash("sha256").update(JSON.stringify(ir)).digest("hex");
+  const semantic = structuredClone(ir);
+  semantic.source.path = "<source-bound-by-checksums>";
+  semantic.preview = { outputRows: 0, inputTerms: 0, includeWeights: false };
+  return createHash("sha256").update(JSON.stringify(semantic)).digest("hex");
 }
 
 /**
@@ -162,8 +179,7 @@ export async function verifyTraceSource(catalog: ModelCatalog, files: readonly T
   }
   const base = catalog.format === "gguf" ? path.dirname(catalog.source) : catalog.source;
   for (const file of expected) {
-    const bytes = await readFile(path.join(base, file));
-    const actual = createHash("sha256").update(bytes).digest("hex");
+    const actual = await sha256File(path.join(base, file));
     if (actual !== declared.get(file)) throw new Error(`Checksum divergente para ${file}; trace e checkpoint não são a mesma revisão.`);
   }
 }

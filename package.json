@@ -12,6 +12,8 @@
     "compare:generation-trace": "node dist/src/generation-trace-cli.js",
     "capture:mlx-trace": "node dist/src/mlx-trace-capture-cli.js",
     "capture:transformers-trace": "node dist/src/transformers-trace-capture-cli.js",
+    "capture:gemma4-text-trace": "npm run build && node dist/src/gemma4-transformers-text-trace-cli.js",
+    "compare:gemma4-paged-text-trace": "npm run build && node dist/src/gemma4-paged-text-differential-cli.js",
     "audit:gemma4": "npm run build && node dist/src/gemma4-contract-cli.js",
     "audit:literal": "npm run build && node dist/src/literal-artifact-audit-cli.js",
     "inspect:gemma4-literal": "npm run build && node dist/src/gemma4-composite-literal-reader-cli.js",

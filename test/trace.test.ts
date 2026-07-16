@@ -1954,6 +1954,21 @@ async function checksums(directory: string, files: readonly string[]) {
   return Promise.all(files.map(async (file) => ({ path: file, sha256: createHash("sha256").update(await readFile(path.join(directory, file))).digest("hex") })));
 }
 
+test("semantic IR fingerprints ignore source locations and preview-only controls", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-fingerprint-"));
+  try {
+    await writeTinyF32Model(directory);
+    const opened = await openCatalog(path.join(directory, "model"), false);
+    try {
+      const baseline = await buildModelIR(opened.catalog, preview);
+      const relocated = structuredClone(baseline);
+      relocated.source.path = "embedded://literal-artifact";
+      relocated.preview = { outputRows: 999, inputTerms: 999, includeWeights: true };
+      assert.equal(fingerprintIR(relocated), fingerprintIR(baseline));
+    } finally { await opened.close(); }
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
 async function executeFixture(source: string, inputIds: number[][]): Promise<{ ir: ModelIR; fingerprint: string; candidate: ReferenceF32ExecutionResult }> {
   const opened = await openCatalog(source, false);
   try {
