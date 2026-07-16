@@ -20,13 +20,16 @@ self-contained, executable and auditable JSON calculation artifact that can
 reproduce the original model's forward pass and generation behavior with
 explicitly measured numerical fidelity.
 
-## Primary product: a literal calculation program
+## Primary product: Safetensors to a literal calculation program
 
-For a supported model package, the output JSON must be sufficient to reproduce
-the model with no source checkpoint, runtime implementation, inferred default
-or hidden state. The user supplies only declared input variables — for example
-token IDs, `x[t,d]`, positions and explicit generation controls. Every other
-quantity required by the calculation is represented inside the artifact.
+The primary transformation is `.safetensors` model package plus authoritative
+semantic evidence into a literal, self-contained JSON calculation program. For
+every package whose semantics are established, the output JSON must be
+sufficient to reproduce the model with no source checkpoint, runtime
+implementation, inferred default or hidden state. The user supplies only
+declared input variables — for example token IDs, `x[i]`/`x[t,d]`, positions
+and explicit generation controls. Every other quantity required by the
+calculation is represented inside the artifact.
 
 The JSON is a program of explicit assignments, not a descriptive graph. It
 must contain, in dependency order:
@@ -43,9 +46,11 @@ must contain, in dependency order:
 
 Thus the input to layer 2 is a named assignment calculated from the preceding
 layer's output (ultimately from `x[...]`/tokens), rather than an implicit
-statement that a generic decoder block happens to run. The artifact must make
-each dependency and formula inspectable enough for a manual or independent
-step-by-step replay.
+statement that a generic decoder block happens to run. Use names that expose
+the dataflow — e.g. `x_embedding[i]`, `x_med[i]`,
+`x_alguma_variacao[i]`, `x_para_proxima_camada[i]` — while preserving exact
+formula, type and provenance. The artifact must make each dependency and
+formula inspectable enough for a manual or independent step-by-step replay.
 
 Weights cannot remain references to a source shard in the final calculation
 artifact. Dense values may be represented as exact IEEE binary payloads in
@@ -59,6 +64,15 @@ The canonical internal IR may retain references while compiling for scale, but
 the product is incomplete until a self-contained export mode expands those
 references into the literal calculation program and proves replay after the
 source checkpoint is unavailable.
+
+Architecture agnosticism is a correctness requirement, not permission to
+invent semantics. The Safetensors container and literal-JSON serializer must
+be generic; architecture semantics must be recovered from authoritative
+metadata, a validated adapter, or authoritative runtime-graph extraction. If
+that evidence is absent or contradictory, fail closed with the missing
+contract. Do not call the mission complete until every established Safetensors
+semantic path can be lowered into literal assignments, including embedded
+weights and deterministic quantization reconstruction.
 
 ## Current-loop responsibility
 
@@ -217,7 +231,13 @@ threatens the next phase.
 
 ## Final objective
 
-The project is complete only when it can accept a supported model package and produce a faithful executable IR representing the actual model computation.
+The project is complete only when it can accept a Safetensors package with
+established semantics and produce a faithful, self-contained literal JSON
+program representing the actual model computation. The program must be
+replayable from only its declared `x[...]`/token/position/control inputs and
+its own assignments, constants and embedded weights. A generic container alone
+is insufficient; a generic exporter must preserve each established model's
+actual semantics, while unknown semantics remain explicit fail-closed gaps.
 
 A complete implementation should separate at least these concerns:
 

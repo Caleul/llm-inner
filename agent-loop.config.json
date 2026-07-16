@@ -34,7 +34,12 @@
   "missionGates": [
     {
       "id": "self-contained-calculation-export",
-      "description": "A lossless JSON calculation artifact contains the complete assignment graph, inputs, constants, weights and numeric policy needed to replay a supported model without its checkpoint",
+      "description": "A lossless literal JSON program contains every dependency-ordered assignment, declared x[i]/token/position input, intermediate variable, constant, embedded weight, quantization decoder and numeric policy needed to replay a supported model without its checkpoint",
+      "required": true
+    },
+    {
+      "id": "safetensors-semantic-decompilation",
+      "description": "Any Safetensors package whose semantics are established by authoritative metadata, a validated adapter or runtime-graph extraction can be lowered into the self-contained literal JSON program; unknown semantics fail closed rather than being guessed",
       "required": true
     },
     {

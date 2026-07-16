@@ -38,26 +38,41 @@ single coherent problem into artificial microtasks.
 9. Write exactly one concise decision brief atomically to
   `.agent-loop/handoffs/completed/` as the final repository-changing action.
 
-## Primary deliverable: self-contained calculation JSON
+## Primary deliverable: Safetensors-to-literal-calculation JSON decompilation
 
-The central product is a lossless calculation artifact, not merely a catalog,
-diagram, benchmark or differential report. For every supported model, the
-export must let a later reader reproduce the forward pass and generation from
-only declared input variables and the JSON itself, without reopening the source
-checkpoint or inferring hidden behavior from source code.
+The central product is a decompiler: it receives a `.safetensors` model package
+(and its authoritative metadata/architecture evidence) and emits a lossless
+calculation JSON artifact. This is not merely a tensor catalog, diagram,
+benchmark, trace or differential report. For every supported package, a later
+reader must reproduce the forward pass and generation from only declared input
+variables and that JSON, without reopening the source checkpoint or inferring
+hidden behavior from source code.
 
 The artifact must declare an ordered assignment graph: named inputs such as
-`x[t,d]`/token IDs/positions, every named intermediate, its operation and
-ordered inputs, exact tensor/constant values, shapes/layouts/dtypes, casts,
-accumulation order, masks, cache transitions and final outputs. A downstream
-assignment must explicitly reference the named result of the preceding
-calculation — never an implicit layer shortcut.
+`x[i]`, token IDs and positions; every named intermediate such as
+`x_embedding[i]`, `x_med[i]`, `x_alguma_variacao[i]` and
+`x_para_proxima_camada[i]`; its operation and ordered inputs; exact
+tensor/constant values; shapes/layouts/dtypes; casts; accumulation order;
+masks; cache transitions; and final outputs. Names may be improved for the
+actual domain, but every value must have a stable declaration and provenance.
+A downstream assignment, including the input to layer 2, must explicitly
+reference the named result calculated by the preceding layer — never an
+implicit layer shortcut or a hidden generic-decoder invocation.
 
 All weights required for replay must be embedded losslessly in the JSON
 artifact. For large or quantized tensors, an exact binary payload encoded in
 JSON is allowed only when dtype, endianness, shape, layout, packing, scale,
 zero/bias/codebook metadata and a deterministic decoding assignment are also
 declared. The artifact still may not require the original checkpoint.
+
+“Model-type agnostic” means the pipeline has a generic Safetensors container
+path and can add explicit semantic adapters or authoritative runtime-graph
+extraction for new architectures. It never means guessing architecture from
+raw weights. If package semantics cannot be established from metadata, a
+registered adapter or an authoritative graph, export must fail closed and name
+the missing semantic contract. Completion requires a generic path that can
+lower every established Safetensors semantic contract into this literal JSON,
+not a collection of architecture-specific prose or external references.
 
 ## Safety and fidelity
 

@@ -14,17 +14,21 @@ O IR guarda `inFeatures`, `outFeatures`, referência ao tensor, dtype e quantiza
 
 ## Produto final: programa JSON autocontido
 
-O objetivo final não é somente catalogar ou desenhar uma LLM. É exportar um
-JSON que seja um programa de cálculo literal: com as entradas declaradas
-(`x[t,d]`, IDs de token, posições e controles de geração), os pesos e
-constantes necessários, e todas as atribuições intermediárias em ordem de
-dependência até logits e tokens gerados.
+O objetivo final é decompilar um pacote `.safetensors` — acompanhado de sua
+evidência semântica autoritativa — para um JSON que seja um programa de cálculo
+literal. Não basta catalogar ou desenhar uma LLM. O JSON recebe somente as
+entradas declaradas (`x[i]`/`x[t,d]`, IDs de token, posições e controles de
+geração); os pesos, constantes e todas as atribuições intermediárias em ordem
+de dependência até logits e tokens gerados ficam dentro dele.
 
 Cada etapa precisa declarar o resultado nomeado, operação, entradas nomeadas,
-dimensões, dtype, layout, casts, ordem de redução e estado. Assim, a entrada da
-segunda camada aponta explicitamente para o cálculo produzido pela primeira;
-nada depende de um "bloco Transformer" implícito. O JSON final deve reproduzir
-um modelo suportado mesmo sem acesso ao checkpoint de origem.
+dimensões, dtype, layout, casts, ordem de redução e estado. Nomes como
+`x_embedding[i]`, `x_med[i]`, `x_alguma_variacao[i]` e
+`x_para_proxima_camada[i]` exemplificam o nível de explicitação esperado.
+Assim, a entrada da segunda camada aponta explicitamente para o cálculo
+produzido pela primeira; nada depende de um "bloco Transformer" implícito. O
+JSON final deve reproduzir um modelo suportado mesmo sem acesso ao checkpoint
+de origem.
 
 Para isso, toda constante ou peso exigido pelo replay precisa estar presente de
 forma lossless no próprio JSON. Payloads binários codificados são aceitáveis
@@ -32,6 +36,14 @@ para tensores grandes, desde que o JSON também descreva dtype, endianness,
 shape, layout e, para quantização, packing, parâmetros e fórmula determinística
 de dequantização. Referências externas a shards são aceitáveis apenas no IR
 interno de compilação, nunca no artefato final autocontido.
+
+Ser agnóstico ao tipo de modelo não autoriza supor que pesos brutos revelem a
+arquitetura. O contêiner Safetensors e o exportador são genéricos; cada
+semântica deve vir de metadata autoritativa, adaptador validado ou extração de
+grafo de runtime autoritativo. Se essa evidência não existir, o compilador falha
+de forma explícita. O estado final buscado é: toda semântica Safetensors que
+possa ser estabelecida é transformada nesse JSON literal autocontido, e não em
+referências externas, resumos ou aproximações.
 
 ## Fontes
 
