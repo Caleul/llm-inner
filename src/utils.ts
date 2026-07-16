@@ -98,3 +98,13 @@ export function decodeIeeeBF16ToF32(bits: number): number {
   F32_BITS_SCRATCH.setUint32(0, bits << 16, true);
   return F32_BITS_SCRATCH.getFloat32(0, true);
 }
+
+/** Round a binary32 result to BF16 (nearest, ties to even), then widen it back to binary32. */
+export function roundF32ToBF16(value: number): number {
+  if (!Number.isFinite(value)) return value;
+  F32_BITS_SCRATCH.setFloat32(0, Math.fround(value), true);
+  const bits = F32_BITS_SCRATCH.getUint32(0, true);
+  const rounded = (bits + 0x7fff + ((bits >>> 16) & 1)) >>> 0;
+  F32_BITS_SCRATCH.setUint32(0, rounded & 0xffff0000, true);
+  return F32_BITS_SCRATCH.getFloat32(0, true);
+}

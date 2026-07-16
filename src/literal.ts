@@ -1,11 +1,12 @@
 import { executeReferenceF32, generateReferenceF32 } from "./executor.js";
-import { decodeIeeeBF16ToF32, decodeIeeeF16ToF32 } from "./utils.js";
+import { decodeIeeeBF16ToF32, decodeIeeeF16ToF32, roundF32ToBF16 } from "./utils.js";
 import type {
   DenseF32Tensor,
   JsonObject,
   ModelCatalog,
   ModelIR,
   Operation,
+  QuantizationSpec,
   ReferenceF32ExecutionRequest,
   ReferenceF32ExecutionResult,
   ReferenceF32GenerationRequest,
@@ -28,6 +29,7 @@ export interface LiteralInput {
 }
 
 export type LiteralDenseStorageDtype = "F32" | "F16" | "BF16";
+export type LiteralStorageDtype = LiteralDenseStorageDtype | "U32";
 
 /**
  * Exact storage payload embedded in the program. `name` is the logical tensor
@@ -36,13 +38,15 @@ export type LiteralDenseStorageDtype = "F32" | "F16" | "BF16";
  */
 export interface LiteralConstant {
   name: string;
-  storageDtype: LiteralDenseStorageDtype;
+  storageDtype: LiteralStorageDtype;
   storageShape: number[];
   logicalShape: number[];
   layout: "row-major";
   byteOrder: "little-endian";
   encoding: "base64";
   payloadBase64: string;
+  /** Present only for a packed logical tensor with a declared decoder below. */
+  quantization?: QuantizationSpec;
 }
 
 /**
@@ -51,7 +55,7 @@ export interface LiteralConstant {
  * F16/BF16 payloads remain in their original representation until this exact
  * IEEE conversion emits the F32 tensor named by `output`.
  */
-export interface LiteralStorageDecodeAssignment {
+export interface LiteralDenseStorageDecodeAssignment {
   id: string;
   operation: "ieee-f32-little-endian" | "ieee-f16-to-f32" | "ieee-bf16-to-f32";
   input: string;
@@ -61,6 +65,31 @@ export interface LiteralStorageDecodeAssignment {
   byteOrder: "little-endian";
   semantics: "exact IEEE-754 storage decode; no arithmetic narrowing";
 }
+
+/**
+ * The exact MLX affine-U32 reconstruction contract. Codes are contiguous in
+ * each logical row, least-significant-bit first in little-endian U32 words;
+ * scale/bias tensors are separately embedded constants decoded earlier in the
+ * program. This remains a literal assignment rather than host-side loading.
+ */
+export interface LiteralMlxAffineStorageDecodeAssignment {
+  id: string;
+  operation: "mlx-affine-u32-to-f32";
+  input: string;
+  output: string;
+  storageDtype: "U32";
+  outputDtype: "F32";
+  byteOrder: "little-endian";
+  packing: "row-major-contiguous-lsb-first-u32";
+  bits: 2 | 3 | 4 | 5 | 6 | 8;
+  groupSize: number;
+  scaleInput: string;
+  biasInput?: string;
+  parameterDtype: LiteralDenseStorageDtype;
+  semantics: "F32(scale * unsigned_code + bias); BF16 parameters round each affine result to BF16 before F32 output";
+}
+
+export type LiteralStorageDecodeAssignment = LiteralDenseStorageDecodeAssignment | LiteralMlxAffineStorageDecodeAssignment;
 
 export interface LiteralKvCacheTransition {
   id: string;
@@ -73,15 +102,15 @@ export interface LiteralKvCacheTransition {
 }
 
 /**
- * A source-independent, literal calculation program for the dense floating
- * Safetensors contract. The operation graph intentionally retains the same
- * stable operation ids and named dataflow as ModelIR, but every referenced
- * tensor is embedded as exact little-endian bytes rather than a shard path.
+ * A source-independent literal calculation program for established dense and
+ * MLX-affine Safetensors storage contracts. The operation graph intentionally
+ * retains the same stable operation ids and named dataflow as ModelIR, but
+ * every referenced tensor is embedded as exact bytes rather than a shard path.
  */
 export interface LiteralCalculationProgram {
   schemaVersion: 1;
   kind: "literal-calculation-program";
-  sourceFormat: "safetensors";
+  sourceFormat: "safetensors" | "mlx-safetensors";
   architecture: ModelIR["architecture"];
   config: JsonObject;
   numericPolicy: {
@@ -103,53 +132,47 @@ export interface LiteralCalculationProgram {
   outputs: { logits: string };
 }
 
-const STORAGE_BYTES: Record<LiteralDenseStorageDtype, number> = {
+const STORAGE_BYTES: Record<LiteralStorageDtype, number> = {
   F32: 4,
   F16: 2,
   BF16: 2,
+  U32: 4,
 };
 
 /**
  * Creates a self-contained literal program from an already validated
- * architecture IR. It accepts ordinary dense F32/F16/BF16 Safetensors only.
- * Lower-precision storage is embedded as-is, then accompanied by an explicit
- * lossless IEEE decoder into the declared scalar-F32 execution policy.
+ * architecture IR. It accepts dense F32/F16/BF16 Safetensors and the
+ * established MLX affine-U32 contract. Lower-precision and packed storage are
+ * embedded unchanged, then accompanied by explicit decoder assignments.
  */
 export async function buildDenseSafetensorsLiteralProgram(
   ir: ModelIR,
   catalog: ModelCatalog,
   reader: LiteralTensorReader,
 ): Promise<LiteralCalculationProgram> {
-  if (catalog.format !== "safetensors") {
-    throw new Error(`Exportação literal F32 requer Safetensors denso; recebeu formato ${catalog.format}.`);
+  if (catalog.format !== "safetensors" && catalog.format !== "mlx-safetensors") {
+    throw new Error(`Exportação literal requer Safetensors denso ou MLX affine-U32; recebeu formato ${catalog.format}.`);
   }
   const references = referencedTensors(ir);
-  const constants: LiteralConstant[] = [];
+  const constants = new Map<string, LiteralConstant>();
   for (const reference of references.values()) {
     const tensor = catalog.tensors.get(reference.name);
-    assertDenseFloatingReference(reference, tensor);
-    const payload = await reader.readTensorBytes(tensor!);
-    const expectedBytes = product(tensor!.storageShape) * storageByteWidth(tensor!.storageDtype);
-    if (payload.length !== expectedBytes) {
-      throw new Error(`${reference.name}: payload literal possui ${payload.length} bytes, esperado ${expectedBytes} para ${tensor!.storageDtype}.`);
+    assertLiteralReference(reference, tensor);
+    if (tensor!.quantization) {
+      const { scale, bias } = assertMlxAffineTensor(tensor!, catalog);
+      await embedLiteralConstant(constants, tensor!, reader);
+      await embedLiteralConstant(constants, scale, reader);
+      if (bias) await embedLiteralConstant(constants, bias, reader);
+    } else {
+      await embedLiteralConstant(constants, tensor!, reader);
     }
-    constants.push({
-      name: reference.name,
-      storageDtype: tensor!.storageDtype as LiteralDenseStorageDtype,
-      storageShape: [...tensor!.storageShape],
-      logicalShape: [...tensor!.logicalShape],
-      layout: "row-major",
-      byteOrder: "little-endian",
-      encoding: "base64",
-      payloadBase64: payload.toString("base64"),
-    });
   }
 
   const assignments = cloneF32Assignments(ir);
   const program: LiteralCalculationProgram = {
     schemaVersion: 1,
     kind: "literal-calculation-program",
-    sourceFormat: "safetensors",
+    sourceFormat: catalog.format,
     architecture: structuredClone(ir.architecture),
     config: structuredClone(ir.config),
     numericPolicy: {
@@ -160,8 +183,8 @@ export async function buildDenseSafetensorsLiteralProgram(
       scalarSemantics: "IEEE-754 binary32; host libm results rounded to F32",
     },
     inputs: literalInputs(),
-    constants,
-    storageDecoders: constants.map(storageDecoder),
+    constants: [...constants.values()],
+    storageDecoders: [...constants.values()].sort((left, right) => Number(Boolean(left.quantization)) - Number(Boolean(right.quantization))).map((constant) => storageDecoder(constant, constants)),
     assignments,
     stateTransitions: cacheTransitions(assignments),
     outputs: { logits: assignments.epilogue.some((operation) => operation.output === "softcapped_logits") ? "softcapped_logits" : "logits" },
@@ -197,7 +220,8 @@ export function generateLiteralF32(
  * constant; neither a shard path nor an implicit decoder can enter replay.
  */
 export function validateLiteralCalculationProgram(program: LiteralCalculationProgram): void {
-  if (program.schemaVersion !== 1 || program.kind !== "literal-calculation-program" || program.sourceFormat !== "safetensors") {
+  if (program.schemaVersion !== 1 || program.kind !== "literal-calculation-program" ||
+    (program.sourceFormat !== "safetensors" && program.sourceFormat !== "mlx-safetensors")) {
     throw new Error("Programa literal inválido: schemaVersion, kind ou sourceFormat não reconhecido.");
   }
   if (
@@ -211,10 +235,7 @@ export function validateLiteralCalculationProgram(program: LiteralCalculationPro
   const constants = new Map<string, LiteralConstant>();
   for (const constant of program.constants) {
     if (constants.has(constant.name)) throw new Error(`Programa literal contém constante duplicada: ${constant.name}.`);
-    if (!isSupportedDenseStorageDtype(constant.storageDtype) || constant.layout !== "row-major" || constant.byteOrder !== "little-endian" || constant.encoding !== "base64" ||
-      !sameShape(constant.storageShape, constant.logicalShape) || !validShape(constant.storageShape)) {
-      throw new Error(`${constant.name}: contrato de constante literal densa inválido.`);
-    }
+    validateLiteralConstant(constant);
     const payload = decodeBase64(constant.payloadBase64, constant.name);
     if (payload.length !== product(constant.storageShape) * storageByteWidth(constant.storageDtype)) {
       throw new Error(`${constant.name}: payload base64 não corresponde ao shape ${constant.storageDtype} declarado.`);
@@ -310,7 +331,8 @@ function validateOperationInputs(operation: Operation, available: ReadonlySet<st
   };
   const requireTensor = (reference: TensorRef): void => {
     const constant = constants.get(reference.name);
-    if (!constant || !sameShape(reference.shape, constant.logicalShape) || reference.storageDtype !== constant.storageDtype || reference.quantization) {
+    if (!constant || !sameShape(reference.shape, constant.logicalShape) || reference.storageDtype !== constant.storageDtype ||
+      !sameQuantization(reference.quantization, constant.quantization)) {
       throw new Error(`${operation.id}: tensor ${reference.name} não possui constante literal F32 compatível.`);
     }
   };
@@ -328,7 +350,7 @@ function validateOperationInputs(operation: Operation, available: ReadonlySet<st
 function toEmbeddedModelIR(program: LiteralCalculationProgram): ModelIR {
   return {
     schemaVersion: 2,
-    source: { path: "embedded://literal-calculation-program", format: "safetensors" },
+    source: { path: "embedded://literal-calculation-program", format: program.sourceFormat },
     architecture: structuredClone(program.architecture),
     config: structuredClone(program.config),
     preview: { outputRows: 1, inputTerms: 1, includeWeights: false },
@@ -347,13 +369,20 @@ function decodeDenseConstantsAsF32(program: LiteralCalculationProgram): Readonly
     const constant = constants.get(decoder.output);
     if (!constant) throw new Error(`${decoder.id}: constante de storage não encontrada após validação.`);
     const bytes = decodeBase64(constant.payloadBase64, constant.name);
-    const elements = product(constant.logicalShape);
-    const values = new Float32Array(elements);
-    for (let index = 0; index < elements; index += 1) {
-      const offset = index * storageByteWidth(constant.storageDtype);
-      values[index] = decodeStoredValueAsF32(bytes, offset, decoder.operation);
+    if (decoder.operation === "mlx-affine-u32-to-f32") {
+      const scales = decoded.get(decoder.scaleInput);
+      const biases = decoder.biasInput ? decoded.get(decoder.biasInput) : undefined;
+      if (!scales || (decoder.biasInput && !biases)) throw new Error(`${decoder.id}: parâmetros affine não foram decodificados antes do peso.`);
+      decoded.set(decoder.output, decodeMlxAffineConstant(constant, bytes, decoder, scales, biases));
+    } else {
+      const elements = product(constant.logicalShape);
+      const values = new Float32Array(elements);
+      for (let index = 0; index < elements; index += 1) {
+        const offset = index * storageByteWidth(constant.storageDtype);
+        values[index] = decodeStoredValueAsF32(bytes, offset, decoder.operation);
+      }
+      decoded.set(decoder.output, { shape: [...constant.logicalShape], values });
     }
-    decoded.set(decoder.output, { shape: [...constant.logicalShape], values });
   }
   return decoded;
 }
@@ -372,23 +401,232 @@ function referencedTensors(ir: ModelIR): Map<string, TensorRef> {
 
 function registerReference(references: Map<string, TensorRef>, reference: TensorRef): void {
   const previous = references.get(reference.name);
-  if (previous && (previous.storageDtype !== reference.storageDtype || !sameShape(previous.shape, reference.shape) || previous.quantization || reference.quantization)) {
+  if (previous && (previous.storageDtype !== reference.storageDtype || !sameShape(previous.shape, reference.shape) ||
+    !sameQuantization(previous.quantization, reference.quantization))) {
     throw new Error(`IR contém referências incompatíveis para ${reference.name}.`);
   }
   references.set(reference.name, reference);
 }
 
-function assertDenseFloatingReference(reference: TensorRef, tensor: TensorInfo | undefined): void {
-  if (!tensor || !isSupportedDenseStorageDtype(reference.storageDtype) || !isSupportedDenseStorageDtype(tensor.storageDtype) ||
-    reference.storageDtype !== tensor.storageDtype || reference.quantization || tensor.quantization) {
-    throw new Error(`${reference.name}: exportação literal aceita somente tensor Safetensors F32/F16/BF16 denso não quantizado.`);
+function assertLiteralReference(reference: TensorRef, tensor: TensorInfo | undefined): void {
+  if (!tensor || reference.storageDtype !== tensor.storageDtype || !sameShape(reference.shape, tensor.logicalShape) ||
+    !sameQuantization(reference.quantization, tensor.quantization)) {
+    throw new Error(`${reference.name}: referência literal diverge do catálogo de origem.`);
   }
-  if (!sameShape(reference.shape, tensor.logicalShape) || !sameShape(tensor.storageShape, tensor.logicalShape) || !validShape(tensor.storageShape)) {
-    throw new Error(`${reference.name}: shape lógico/storage incompatível para exportação literal densa.`);
+  if (!tensor.quantization) {
+    if (!isSupportedDenseStorageDtype(tensor.storageDtype) || !sameShape(tensor.storageShape, tensor.logicalShape) || !validShape(tensor.storageShape)) {
+      throw new Error(`${reference.name}: exportação literal aceita tensor denso somente em F32/F16/BF16 com shape lógico idêntico ao storage.`);
+    }
+    return;
+  }
+  if (tensor.storageDtype !== "U32" || !validShape(tensor.storageShape) || !validShape(tensor.logicalShape)) {
+    throw new Error(`${reference.name}: storage quantizado literal exige U32 e shapes positivos declarados.`);
   }
 }
 
-function storageDecoder(constant: LiteralConstant): LiteralStorageDecodeAssignment {
+async function embedLiteralConstant(
+  constants: Map<string, LiteralConstant>,
+  tensor: TensorInfo,
+  reader: LiteralTensorReader,
+): Promise<void> {
+  const existing = constants.get(tensor.name);
+  if (existing) {
+    if (existing.storageDtype !== tensor.storageDtype || !sameShape(existing.storageShape, tensor.storageShape) ||
+      !sameShape(existing.logicalShape, tensor.logicalShape) || !sameQuantization(existing.quantization, tensor.quantization)) {
+      throw new Error(`${tensor.name}: constante literal foi requisitada com contratos incompatíveis.`);
+    }
+    return;
+  }
+  const payload = await reader.readTensorBytes(tensor);
+  const expectedBytes = product(tensor.storageShape) * storageByteWidth(tensor.storageDtype);
+  if (payload.length !== expectedBytes) {
+    throw new Error(`${tensor.name}: payload literal possui ${payload.length} bytes, esperado ${expectedBytes} para ${tensor.storageDtype}.`);
+  }
+  constants.set(tensor.name, {
+    name: tensor.name,
+    storageDtype: tensor.storageDtype as LiteralStorageDtype,
+    storageShape: [...tensor.storageShape],
+    logicalShape: [...tensor.logicalShape],
+    layout: "row-major",
+    byteOrder: "little-endian",
+    encoding: "base64",
+    payloadBase64: payload.toString("base64"),
+    ...(tensor.quantization ? { quantization: structuredClone(tensor.quantization) } : {}),
+  });
+}
+
+function assertMlxAffineTensor(tensor: TensorInfo, catalog: ModelCatalog): { scale: TensorInfo; bias?: TensorInfo } {
+  const q = tensor.quantization;
+  if (!q || q.family !== "mlx" || q.mode !== "affine" || tensor.storageDtype !== "U32" ||
+    !isMlxAffineBitWidth(q.bits) || !Number.isInteger(q.groupSize) || q.groupSize! <= 0 || !q.scaleTensor || q.globalScaleTensor !== undefined) {
+    throw new Error(`${tensor.name}: exportação literal aceita somente MLX affine U32 com bits {2,3,4,5,6,8}, group_size, scales e sem global_scale.`);
+  }
+  const groupSize = q.groupSize!;
+  const bits = q.bits;
+  const scale = catalog.tensors.get(q.scaleTensor);
+  const bias = q.biasTensor ? catalog.tensors.get(q.biasTensor) : undefined;
+  if (!scale || scale.quantization || !isSupportedDenseStorageDtype(scale.storageDtype) ||
+    !sameShape(scale.storageShape, scale.logicalShape) || !validShape(scale.logicalShape) ||
+    (q.biasTensor !== undefined && (!bias || bias.quantization || bias.storageDtype !== scale.storageDtype ||
+      !sameShape(bias.storageShape, bias.logicalShape) || !sameShape(bias.logicalShape, scale.logicalShape)))) {
+    throw new Error(`${tensor.name}: MLX affine literal requer scales e biases opcionais densos F32/F16/BF16 de shape/dtype idêntico.`);
+  }
+  if (tensor.storageShape.length !== 2 || tensor.logicalShape.length !== 2 || scale.logicalShape.length !== 2) {
+    throw new Error(`${tensor.name}: MLX affine literal requer peso e parâmetros em matrizes 2D.`);
+  }
+  const [rows, packedWords] = tensor.storageShape;
+  const [logicalRows, logicalColumns] = tensor.logicalShape;
+  const [scaleRows, groups] = scale.logicalShape;
+  if (rows === undefined || packedWords === undefined || logicalRows !== rows || logicalColumns === undefined ||
+    scaleRows !== rows || groups === undefined || groups * groupSize !== logicalColumns ||
+    logicalColumns * bits % 32 !== 0 || packedWords !== logicalColumns * bits / 32) {
+    throw new Error(`${tensor.name}: MLX affine literal encontrou packing U32, shape lógico ou grupos incompatíveis.`);
+  }
+  return { scale, ...(bias ? { bias } : {}) };
+}
+
+function validateLiteralConstant(constant: LiteralConstant): void {
+  if (constant.layout !== "row-major" || constant.byteOrder !== "little-endian" || constant.encoding !== "base64" ||
+    !validShape(constant.storageShape) || !validShape(constant.logicalShape)) {
+    throw new Error(`${constant.name}: contrato de constante literal inválido.`);
+  }
+  if (!constant.quantization) {
+    if (!isSupportedDenseStorageDtype(constant.storageDtype) || !sameShape(constant.storageShape, constant.logicalShape)) {
+      throw new Error(`${constant.name}: constante literal densa requer F32/F16/BF16 e shape lógico idêntico ao storage.`);
+    }
+    return;
+  }
+  const q = constant.quantization;
+  if (constant.storageDtype !== "U32" || q.family !== "mlx" || q.mode !== "affine" || !isMlxAffineBitWidth(q.bits) ||
+    !Number.isInteger(q.groupSize) || q.groupSize! <= 0 || !q.scaleTensor || q.globalScaleTensor !== undefined ||
+    constant.storageShape.length !== 2 || constant.logicalShape.length !== 2) {
+    throw new Error(`${constant.name}: constante literal quantizada não possui contrato MLX affine U32 verificável.`);
+  }
+}
+
+function mlxAffineStorageDecoder(
+  constant: LiteralConstant,
+  constants: ReadonlyMap<string, LiteralConstant>,
+): LiteralMlxAffineStorageDecodeAssignment {
+  const q = constant.quantization;
+  const scale = q?.scaleTensor ? constants.get(q.scaleTensor) : undefined;
+  if (!q || !isMlxAffineBitWidth(q.bits) || !Number.isInteger(q.groupSize) || !q.scaleTensor || !scale ||
+    !isSupportedDenseStorageDtype(scale.storageDtype)) {
+    throw new Error(`${constant.name}: constante MLX affine não possui metadados para decoder literal.`);
+  }
+  const groupSize = q.groupSize!;
+  return {
+    id: `decode_${constant.name}`,
+    operation: "mlx-affine-u32-to-f32",
+    input: `${constant.name}:storage`,
+    output: constant.name,
+    storageDtype: "U32",
+    outputDtype: "F32",
+    byteOrder: "little-endian",
+    packing: "row-major-contiguous-lsb-first-u32",
+    bits: q.bits,
+    groupSize,
+    scaleInput: q.scaleTensor,
+    ...(q.biasTensor ? { biasInput: q.biasTensor } : {}),
+    parameterDtype: scale.storageDtype,
+    semantics: "F32(scale * unsigned_code + bias); BF16 parameters round each affine result to BF16 before F32 output",
+  };
+}
+
+function validateDenseStorageDecoder(decoder: LiteralDenseStorageDecodeAssignment, constant: LiteralConstant): void {
+  if (constant.quantization || !isSupportedDenseStorageDtype(constant.storageDtype) || decoder.id !== `decode_${constant.name}` ||
+    decoder.input !== `${constant.name}:storage` || decoder.operation !== decodeOperationFor(constant.storageDtype) ||
+    decoder.storageDtype !== constant.storageDtype || decoder.outputDtype !== "F32" || decoder.byteOrder !== "little-endian" ||
+    decoder.semantics !== "exact IEEE-754 storage decode; no arithmetic narrowing") {
+    throw new Error(`${decoder.id}: decoder de storage literal não corresponde à constante declarada.`);
+  }
+}
+
+function validateMlxAffineStorageDecoder(
+  decoder: LiteralMlxAffineStorageDecodeAssignment,
+  constant: LiteralConstant,
+  constants: ReadonlyMap<string, LiteralConstant>,
+  decoded: ReadonlySet<string>,
+): void {
+  const q = constant.quantization;
+  const scale = q?.scaleTensor ? constants.get(q.scaleTensor) : undefined;
+  const bias = q?.biasTensor ? constants.get(q.biasTensor) : undefined;
+  if (!q || !scale || !isSupportedDenseStorageDtype(scale.storageDtype) || scale.quantization || !decoded.has(scale.name) ||
+    (q.biasTensor !== undefined && (!bias || bias.quantization || bias.storageDtype !== scale.storageDtype || !decoded.has(bias.name))) ||
+    decoder.id !== `decode_${constant.name}` || decoder.input !== `${constant.name}:storage` || decoder.storageDtype !== "U32" ||
+    decoder.outputDtype !== "F32" || decoder.byteOrder !== "little-endian" || decoder.packing !== "row-major-contiguous-lsb-first-u32" ||
+    !isMlxAffineBitWidth(decoder.bits) || decoder.bits !== q.bits || !Number.isInteger(decoder.groupSize) || decoder.groupSize !== q.groupSize ||
+    decoder.scaleInput !== q.scaleTensor || decoder.biasInput !== q.biasTensor || decoder.parameterDtype !== scale.storageDtype ||
+    decoder.semantics !== "F32(scale * unsigned_code + bias); BF16 parameters round each affine result to BF16 before F32 output" ||
+    !mlxAffineShapesMatch(constant, scale.logicalShape, bias?.logicalShape, decoder.bits, decoder.groupSize)) {
+    throw new Error(`${decoder.id}: decoder MLX affine literal não corresponde ao packing, parâmetros ou shapes declarados.`);
+  }
+}
+
+function mlxAffineShapesMatch(
+  constant: LiteralConstant,
+  scaleShape: readonly number[],
+  biasShape: readonly number[] | undefined,
+  bits: number,
+  groupSize: number,
+): boolean {
+  if (constant.storageShape.length !== 2 || constant.logicalShape.length !== 2 || scaleShape.length !== 2 ||
+    (biasShape && !sameShape(biasShape, scaleShape))) return false;
+  const [rows, packedWords] = constant.storageShape;
+  const [logicalRows, logicalColumns] = constant.logicalShape;
+  const [scaleRows, groups] = scaleShape;
+  return rows !== undefined && packedWords !== undefined && logicalRows === rows && logicalColumns !== undefined &&
+    scaleRows === rows && groups !== undefined && groups * groupSize === logicalColumns &&
+    logicalColumns * bits % 32 === 0 && packedWords === logicalColumns * bits / 32;
+}
+
+function decodeMlxAffineConstant(
+  constant: LiteralConstant,
+  bytes: Buffer,
+  decoder: LiteralMlxAffineStorageDecodeAssignment,
+  scales: DenseF32Tensor,
+  biases: DenseF32Tensor | undefined,
+): DenseF32Tensor {
+  if (!mlxAffineShapesMatch(constant, scales.shape, biases?.shape, decoder.bits, decoder.groupSize)) {
+    throw new Error(`${decoder.id}: shapes affine inválidos durante replay literal.`);
+  }
+  const [rows, packedWords] = constant.storageShape as [number, number];
+  const [, columns] = constant.logicalShape as [number, number];
+  const [, groups] = scales.shape as [number, number];
+  const values = new Float32Array(rows * columns);
+  const mask = (1 << decoder.bits) - 1;
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      const bitOffset = column * decoder.bits;
+      const wordIndex = row * packedWords + Math.floor(bitOffset / 32);
+      const shift = bitOffset % 32;
+      const word = bytes.readUInt32LE(wordIndex * 4);
+      const code = shift + decoder.bits <= 32
+        ? (word >>> shift) & mask
+        : ((word >>> shift) | (bytes.readUInt32LE((wordIndex + 1) * 4) << (32 - shift))) & mask;
+      const parameterIndex = row * groups + Math.floor(column / decoder.groupSize);
+      const affine = Math.fround(Math.fround(scales.values[parameterIndex]! * code) + (biases?.values[parameterIndex] ?? 0));
+      values[row * columns + column] = decoder.parameterDtype === "BF16" ? roundF32ToBF16(affine) : affine;
+    }
+  }
+  if (!constant.quantization) throw new Error(`${decoder.id}: replay affine sem proveniência de quantização.`);
+  return { shape: [...constant.logicalShape], values, sourceQuantization: structuredClone(constant.quantization) };
+}
+
+function isMlxAffineBitWidth(bits: number | undefined): bits is LiteralMlxAffineStorageDecodeAssignment["bits"] {
+  return bits === 2 || bits === 3 || bits === 4 || bits === 5 || bits === 6 || bits === 8;
+}
+
+function sameQuantization(left: QuantizationSpec | undefined, right: QuantizationSpec | undefined): boolean {
+  if (!left || !right) return left === right;
+  return left.family === right.family && left.mode === right.mode && left.bits === right.bits && left.groupSize === right.groupSize &&
+    left.tensorType === right.tensorType && left.scaleTensor === right.scaleTensor && left.biasTensor === right.biasTensor &&
+    left.globalScaleTensor === right.globalScaleTensor;
+}
+
+function storageDecoder(constant: LiteralConstant, constants: ReadonlyMap<string, LiteralConstant>): LiteralStorageDecodeAssignment {
+  if (constant.quantization) return mlxAffineStorageDecoder(constant, constants);
+  if (!isSupportedDenseStorageDtype(constant.storageDtype)) throw new Error(`${constant.name}: constante densa literal não possui dtype IEEE suportado.`);
   return {
     id: `decode_${constant.name}`,
     operation: decodeOperationFor(constant.storageDtype),
@@ -412,17 +650,14 @@ function validateStorageDecoders(
     if (seenIds.has(decoder.id)) throw new Error(`Programa literal contém decoder duplicado: ${decoder.id}.`);
     seenIds.add(decoder.id);
     const constant = constants.get(decoder.output);
-    if (!constant || decoded.has(decoder.output) || decoder.id !== `decode_${constant.name}` ||
-      decoder.input !== `${constant.name}:storage` || decoder.operation !== decodeOperationFor(constant.storageDtype) ||
-      decoder.storageDtype !== constant.storageDtype || decoder.outputDtype !== "F32" || decoder.byteOrder !== "little-endian" ||
-      decoder.semantics !== "exact IEEE-754 storage decode; no arithmetic narrowing") {
-      throw new Error(`${decoder.id}: decoder de storage literal não corresponde à constante declarada.`);
-    }
+    if (!constant || decoded.has(decoder.output)) throw new Error(`${decoder.id}: decoder de storage literal não corresponde à constante declarada.`);
+    if (decoder.operation === "mlx-affine-u32-to-f32") validateMlxAffineStorageDecoder(decoder, constant, constants, decoded);
+    else validateDenseStorageDecoder(decoder, constant);
     decoded.add(decoder.output);
   }
 }
 
-function decodeOperationFor(storageDtype: LiteralDenseStorageDtype): LiteralStorageDecodeAssignment["operation"] {
+function decodeOperationFor(storageDtype: LiteralDenseStorageDtype): LiteralDenseStorageDecodeAssignment["operation"] {
   switch (storageDtype) {
     case "F32": return "ieee-f32-little-endian";
     case "F16": return "ieee-f16-to-f32";
@@ -430,7 +665,7 @@ function decodeOperationFor(storageDtype: LiteralDenseStorageDtype): LiteralStor
   }
 }
 
-function decodeStoredValueAsF32(bytes: Buffer, offset: number, operation: LiteralStorageDecodeAssignment["operation"]): number {
+function decodeStoredValueAsF32(bytes: Buffer, offset: number, operation: LiteralDenseStorageDecodeAssignment["operation"]): number {
   switch (operation) {
     case "ieee-f32-little-endian": return bytes.readFloatLE(offset);
     case "ieee-f16-to-f32": return decodeIeeeF16ToF32(bytes.readUInt16LE(offset));
@@ -450,8 +685,8 @@ function isSupportedDenseStorageDtype(dtype: string): dtype is LiteralDenseStora
 }
 
 function storageByteWidth(dtype: string): number {
-  if (!isSupportedDenseStorageDtype(dtype)) throw new Error(`storageDtype literal não suportado: ${dtype}.`);
-  return STORAGE_BYTES[dtype];
+  if (dtype !== "U32" && !isSupportedDenseStorageDtype(dtype)) throw new Error(`storageDtype literal não suportado: ${dtype}.`);
+  return STORAGE_BYTES[dtype as LiteralStorageDtype];
 }
 
 function allOperations(assignments: LiteralCalculationProgram["assignments"]): Operation[] {

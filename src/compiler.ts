@@ -12,7 +12,7 @@ export interface CompileOptions {
   output: string;
   equationsOutput?: string;
   preview: PreviewOptions;
-  /** Emit a source-independent dense-F32 Safetensors calculation program. */
+  /** Emit a source-independent dense or established MLX-affine Safetensors calculation program. */
   literal?: boolean;
 }
 

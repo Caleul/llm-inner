@@ -7,6 +7,8 @@ import { buildModelIR } from "../src/architecture.js";
 import { compileModel } from "../src/compiler.js";
 import { executeLiteralF32, buildDenseF32LiteralProgram, generateLiteralF32, validateLiteralCalculationProgram } from "../src/literal.js";
 import type { LiteralCalculationProgram } from "../src/literal.js";
+import { executeReferenceF32, generateReferenceF32 } from "../src/executor.js";
+import { materializeReferenceF32Constants } from "../src/materialize.js";
 import { SafetensorsCatalogReader } from "../src/safetensors.js";
 
 const preview = { outputRows: 1, inputTerms: 1, includeWeights: false } as const;
@@ -120,6 +122,48 @@ test("literal validation rejects an altered decoder instead of implicitly wideni
   }
 });
 
+test("literal MLX affine U32 embeds codes and BF16 parameters, then replays after source removal", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "llm-inner-literal-mlx-affine-"));
+  const model = path.join(root, "mlx-affine");
+  try {
+    await writeTinyMlxAffineLlama(model);
+    const reader = new SafetensorsCatalogReader(model);
+    const catalog = await reader.inspect();
+    const ir = await buildModelIR(catalog, preview);
+    forceF32Policy(ir);
+    const expectedTensors = await materializeReferenceF32Constants(ir, catalog, reader);
+    const expected = executeReferenceF32(ir, { inputIds: [[1]], tensors: expectedTensors });
+    const expectedGeneration = generateReferenceF32(ir, { inputIds: [[1]], tensors: expectedTensors, maxNewTokens: 2 });
+    await reader.close();
+
+    const artifact = path.join(root, "tiny.mlx.literal.json");
+    await compileModel({ source: model, output: artifact, preview, literal: true });
+    const program = JSON.parse(await readFile(artifact, "utf8")) as LiteralCalculationProgram;
+    assert.equal(program.sourceFormat, "mlx-safetensors");
+    const affine = program.storageDecoders.filter((decoder) => decoder.operation === "mlx-affine-u32-to-f32");
+    assert.equal(affine.length, 9);
+    assert.equal(affine.every((decoder) => decoder.bits === 3 && decoder.groupSize === 4 && decoder.parameterDtype === "BF16"), true);
+    assert.equal(program.constants.filter((constant) => constant.storageDtype === "U32").length, 9);
+    assert.equal(JSON.stringify(program).includes(model), false);
+    assert.equal(JSON.stringify(program).includes(".safetensors"), false);
+
+    const corrupted = structuredClone(program);
+    const firstAffine = corrupted.storageDecoders.find((decoder) => decoder.operation === "mlx-affine-u32-to-f32");
+    if (!firstAffine || firstAffine.operation !== "mlx-affine-u32-to-f32") throw new Error("fixture did not emit MLX affine decoder");
+    firstAffine.packing = "row-major-contiguous-lsb-first-u32x" as never;
+    assert.throws(() => validateLiteralCalculationProgram(corrupted), /decoder MLX affine literal não corresponde/);
+
+    await rm(model, { recursive: true, force: true });
+    const replay = executeLiteralF32(program, { inputIds: [[1]] });
+    const generation = generateLiteralF32(program, { inputIds: [[1]], maxNewTokens: 2 });
+    assert.deepEqual([...replay.logits.values], [...expected.logits.values]);
+    assert.deepEqual(generation.generatedTokenIds, expectedGeneration.generatedTokenIds);
+    assert.deepEqual([...generation.logits.values], [...expectedGeneration.logits.values]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 async function writeTinyF32Llama(directory: string): Promise<void> {
   await writeTinyDenseLlama(directory, "F32");
 }
@@ -193,4 +237,87 @@ function float32Bits(value: number): number {
   const view = new DataView(new ArrayBuffer(4));
   view.setFloat32(0, value, true);
   return view.getUint32(0, true);
+}
+
+/** Uses 3-bit codes so each row contains codes that straddle U32 boundaries. */
+async function writeTinyMlxAffineLlama(directory: string): Promise<void> {
+  await mkdir(directory, { recursive: true });
+  const width = 32;
+  const groupSize = 4;
+  const bits = 3;
+  const groups = width / groupSize;
+  const quantizedNames = [
+    "model.embed_tokens.weight", "model.layers.0.self_attn.q_proj.weight", "model.layers.0.self_attn.k_proj.weight",
+    "model.layers.0.self_attn.v_proj.weight", "model.layers.0.self_attn.o_proj.weight", "model.layers.0.mlp.gate_proj.weight",
+    "model.layers.0.mlp.up_proj.weight", "model.layers.0.mlp.down_proj.weight", "lm_head.weight",
+  ];
+  const tensors: Array<[string, "F32" | "BF16" | "U32", number[], number[]]> = [];
+  for (const [tensorIndex, name] of quantizedNames.entries()) {
+    const codes = Array.from({ length: width * width }, (_, index) => (index * 5 + tensorIndex * 3 + Math.floor(index / width)) & 7);
+    const scales = Array.from({ length: width * groups }, (_, index) => 0.03125 * (1 + ((index + tensorIndex) % 4)));
+    const biases = Array.from({ length: width * groups }, (_, index) => -0.25 + 0.0625 * ((index + tensorIndex) % 5));
+    const module = name.slice(0, -".weight".length);
+    tensors.push(
+      [name, "U32", [width, width * bits / 32], packMlxCodes(codes, width, width, bits)],
+      [`${module}.scales`, "BF16", [width, groups], scales],
+      [`${module}.biases`, "BF16", [width, groups], biases],
+    );
+  }
+  for (const name of ["model.layers.0.input_layernorm.weight", "model.layers.0.post_attention_layernorm.weight", "model.norm.weight"]) {
+    tensors.push([name, "F32", [width], new Array<number>(width).fill(1)]);
+  }
+  await writeFile(path.join(directory, "config.json"), JSON.stringify({
+    model_type: "llama", hidden_size: width, intermediate_size: width, num_hidden_layers: 1,
+    num_attention_heads: 1, num_key_value_heads: 1, head_dim: width, vocab_size: width,
+    rms_norm_eps: 1e-6, hidden_act: "silu", quantization: { bits, group_size: groupSize, mode: "affine" },
+  }));
+  await writeSafetensorsFixture(path.join(directory, "model.safetensors"), tensors);
+}
+
+function packMlxCodes(codes: readonly number[], rows: number, columns: number, bits: number): number[] {
+  assert.equal(codes.length, rows * columns);
+  assert.equal(columns * bits % 32, 0);
+  const wordsPerRow = columns * bits / 32;
+  const packed = new Array<number>(rows * wordsPerRow).fill(0);
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      const bitOffset = column * bits;
+      const wordIndex = row * wordsPerRow + Math.floor(bitOffset / 32);
+      const shift = bitOffset % 32;
+      const code = codes[row * columns + column]!;
+      packed[wordIndex] = (packed[wordIndex]! | (code << shift)) >>> 0;
+      if (shift + bits > 32) packed[wordIndex + 1] = (packed[wordIndex + 1]! | (code >>> (32 - shift))) >>> 0;
+    }
+  }
+  return packed;
+}
+
+async function writeSafetensorsFixture(
+  file: string,
+  tensors: Array<[string, "F32" | "BF16" | "U32", number[], number[]]>,
+): Promise<void> {
+  const header: Record<string, unknown> = {};
+  let offset = 0;
+  const payloads = tensors.map(([name, dtype, shape, values]) => {
+    const payload = Buffer.alloc(values.length * (dtype === "BF16" ? 2 : 4));
+    values.forEach((value, index) => {
+      if (dtype === "F32") payload.writeFloatLE(value, index * 4);
+      else if (dtype === "BF16") payload.writeUInt16LE(float32Bits(value) >>> 16, index * 2);
+      else payload.writeUInt32LE(value, index * 4);
+    });
+    header[name] = { dtype, shape, data_offsets: [offset, offset + payload.length] };
+    offset += payload.length;
+    return payload;
+  });
+  const encodedHeader = Buffer.from(JSON.stringify(header));
+  const prefix = Buffer.alloc(8);
+  prefix.writeBigUInt64LE(BigInt(encodedHeader.length));
+  await writeFile(file, Buffer.concat([prefix, encodedHeader, ...payloads]));
+}
+
+function forceF32Policy(ir: Awaited<ReturnType<typeof buildModelIR>>): void {
+  for (const operation of [...ir.prelude, ...ir.layers.flatMap((layer) => layer.operations), ...ir.epilogue]) {
+    operation.dtypePolicy = { inputDtype: "F32", computeDtype: "F32", accumulationDtype: "F32", outputDtype: "F32" };
+    if (operation.op === "scaled_dot_product_attention") operation.softmaxComputeDtype = "F32";
+  }
 }

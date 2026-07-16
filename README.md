@@ -150,16 +150,20 @@ node dist/src/cli.js \
 
 Sem `--include-weights`, a compilação não dequantiza previews; ela apenas cataloga os tensores e gera o grafo.
 
-### Exportação literal autocontida (Safetensors denso F32/F16/BF16)
+### Exportação literal autocontida (Safetensors denso e MLX affine-U32)
 
 `--literal` troca o artefato de IR interno por um programa de cálculo que não
 retém `source.path`, shard, offset ou referência externa. Para cada tensor
-usado pelas atribuições, ele incorpora o payload original `F32`, `F16` ou
-`BF16` em base64 com shape, layout `row-major` e byte order little-endian.
-O programa também declara uma atribuição de storage por constante:
-`ieee-f32-little-endian`, `ieee-f16-to-f32` ou `ieee-bf16-to-f32`. Portanto o
-limite de decode/cast até a política escalar F32 é explícito e o exportador não
-substitui silenciosamente valores de storage por uma matriz F32 materializada.
+usado pelas atribuições, ele incorpora o payload original `F32`, `F16`, `BF16`
+ou `U32` em base64 com shape, layout `row-major` e byte order little-endian.
+O programa declara uma atribuição de storage por constante:
+`ieee-f32-little-endian`, `ieee-f16-to-f32`, `ieee-bf16-to-f32` ou, no
+contrato MLX verificado, `mlx-affine-u32-to-f32`. Este último incorpora também
+os tensors `scales` e `biases` e declara bits, group size, packing de códigos
+contíguos LSB-first por palavra U32, dtype dos parâmetros e o arredondamento
+BF16 após `scale * code + bias`. Portanto o limite de decode/cast até a
+política escalar F32 é explícito e o exportador não substitui silenciosamente
+valores de storage por uma matriz F32 materializada.
 As atribuições do modelo são ordenadas em `prelude`, camadas e `epilogue`, e
 cada atenção declara sua transição de cache KV (`append-post-rope` ou
 `reuse-producer`).
@@ -171,10 +175,12 @@ node dist/src/cli.js --source ./modelo --output ./modelo.literal.json --literal
 `executeLiteralF32` e `generateLiteralF32` reconstroem os `Float32Array`
 somente desses bytes incorporados e das atribuições de decode validadas. As
 regressões removem o diretório inteiro do checkpoint antes de executar forward
-e dois passos greedy para F32, F16 e BF16; portanto esse caminho não pode cair
-de volta para um shard local. MLX U32 e GGUF quantizado continuam falhando
-fechado: eles exigem payloads de packing, parâmetros e atribuições de
-dequantização específicas, não uma matriz F32 materializada escondida.
+e dois passos greedy para F32, F16, BF16 e MLX affine U32 (inclusive parâmetros
+BF16 e códigos de 3 bits que cruzam palavras U32); portanto esse caminho não
+pode cair de volta para um shard local. MLX `mxfp4`, `mxfp8`, `nvfp4`, affine
+com `global_scale` e GGUF quantizado continuam falhando fechado: cada um exige
+payloads, parâmetros e atribuições de dequantização específicos, não uma matriz
+F32 materializada escondida.
 
 ### Comparação com captura autoritativa
 

@@ -9,7 +9,7 @@ import type {
   QuantizationSpec,
   TensorInfo,
 } from "./types.js";
-import { asObject, decodeIeeeBF16ToF32, decodeIeeeF16ToF32, product } from "./utils.js";
+import { asObject, decodeIeeeBF16ToF32, decodeIeeeF16ToF32, product, roundF32ToBF16 } from "./utils.js";
 
 interface SafeTensorHeaderEntry {
   dtype: string;
@@ -47,7 +47,6 @@ const F64_BYTES = 8;
 const F32_BYTES = 4;
 const F16_BYTES = 2;
 const U32_BYTES = 4;
-const BF16_ROUND_SCRATCH = new DataView(new ArrayBuffer(F32_BYTES));
 /** Safetensors defines a 100 MiB maximum header to prevent hostile allocations. */
 const MAX_HEADER_BYTES = 100 * 1024 * 1024;
 
@@ -618,14 +617,4 @@ export class SafetensorsCatalogReader {
       throw new Error(`Tensor ${name}: ${bytes} bytes, mas shape/dtype indicam ${expected}.`);
     }
   }
-}
-
-/** Round a binary32 result to BF16 (nearest, ties to even), then widen it back to binary32. */
-function roundF32ToBF16(value: number): number {
-  if (!Number.isFinite(value)) return value;
-  BF16_ROUND_SCRATCH.setFloat32(0, Math.fround(value), true);
-  const bits = BF16_ROUND_SCRATCH.getUint32(0, true);
-  const rounded = (bits + 0x7fff + ((bits >>> 16) & 1)) >>> 0;
-  BF16_ROUND_SCRATCH.setUint32(0, rounded & 0xffff0000, true);
-  return BF16_ROUND_SCRATCH.getFloat32(0, true);
 }
