@@ -354,6 +354,14 @@ identidade. A primeira evidência para o E4B BF16 está em
 O lowering estrutural do subgrafo textual do mesmo catálogo BF16 está registrado
 em [`docs/validation/gemma4-e4b-text-core-lowering-2026-07-16.md`](docs/validation/gemma4-e4b-text-core-lowering-2026-07-16.md).
 
+O branch visual agora possui um programa de atribuições e executor F32
+separados em [`src/gemma4-vision.ts`](src/gemma4-vision.ts), documentados em
+[`docs/validation/gemma4-vision-lowering-2026-07-16.md`](docs/validation/gemma4-vision-lowering-2026-07-16.md).
+Ele preserva o affine de pixels, lookup x/y, RoPE 2-D, `Gemma4ClippableLinear`,
+atenção bidirecional, pool espacial, escala F32, projeção e a cardinalidade do
+`masked_scatter` de imagens. Isso ainda não aceita o pacote composto: falta o
+branch de áudio e a montagem explícita da sequência/política BF16 completa.
+
 O relatório não transforma o pacote composto em modelo textual: a injeção de
 visão/áudio, os towers e o estado de geração multimodal continuam fora do
 adaptador `gemma4_text` isolado. Portanto o pacote E4B denso ainda falha
