@@ -175,12 +175,19 @@ export function compareExecutionTrace(
   const logits = logitsSample && sameShape(candidate.logits.shape, logitsSample.tensor.shape)
     ? compareTensor(candidate.logits, logitsSample.tensor, topK)
     : null;
-  const complete = missingReferenceOperationIds.length === 0 && unexpectedReferenceOperationIds.length === 0 &&
-    operations.every((comparison) => comparison.status === "pass") && kvCache.every((comparison) => comparison.status === "pass") &&
-    logits !== null && passes(logits, tolerance);
+  // Coverage and fidelity are separate facts. A complete trace can prove an
+  // approximation by observing a divergent assignment; calling that result
+  // "incomplete" would conceal the exact diagnostic boundary. Only absent or
+  // structurally incompatible evidence makes the comparison incomplete.
+  const coverageComplete = missingReferenceOperationIds.length === 0 && unexpectedReferenceOperationIds.length === 0 &&
+    operations.every((comparison) => comparison.status !== "missing-reference" && comparison.status !== "shape-mismatch") &&
+    kvCache.every((comparison) => comparison.status !== "missing-reference" && comparison.status !== "missing-candidate" && comparison.status !== "shape-mismatch") &&
+    logits !== null;
+  const numericallyEquivalent = coverageComplete && operations.every((comparison) => comparison.status === "pass") &&
+    kvCache.every((comparison) => comparison.status === "pass") && passes(logits, tolerance);
   const exact = operations.every((comparison) => exactMetrics(comparison.metrics)) &&
     kvCache.every((comparison) => exactMetrics(comparison.key) && exactMetrics(comparison.value)) && exactMetrics(logits ?? undefined);
-  const fidelityClass = !complete ? "incomplete" : exact ? "lossless-within-dtype" : "numerically-equivalent";
+  const fidelityClass = !coverageComplete ? "incomplete" : exact ? "lossless-within-dtype" : numericallyEquivalent ? "numerically-equivalent" : "approximate";
   return {
     reference: {
       runtime: reference.runtime,

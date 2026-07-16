@@ -320,12 +320,15 @@ inclusive a ausência do checkpoint durante o replay candidato; a evidência
 atualizada está em
 [`docs/validation/gemma4-e4b-immutable-source-revalidation-2026-07-16.md`](docs/validation/gemma4-e4b-immutable-source-revalidation-2026-07-16.md).
 
-Uma sonda posterior de 691 checkpoints de módulos nativos BF16 torna a
-divergência localizável sem reabrir o checkpoint durante o candidato. Ela
-corrigiu o cast BF16 observável do embedding (`sqrt(2560)` para `50.5` e o
+Uma captura posterior de todas as 1.229 atribuições declaradas do Gemma4Text
+torna a divergência localizável sem reabrir o checkpoint durante o candidato.
+Ela corrige o cast BF16 observável do embedding (`sqrt(2560)` para `50.5` e o
 produto BF16), tornando `token_embedding` e `ple_token_identity` idênticos;
-o primeiro limite restante é `ple_context_projection`. A sonda é parcial,
-portanto continua sendo evidência `approximate`, documentada em
+o primeiro limite restante é `ple_context_projection`, por um ULP BF16. A
+instrumentação é comparada a um forward nativo sem hooks e falha se logits ou
+cache KV mudarem. O replay com fonte removida tem 63 atribuições e um cache
+produtor exatos; as 1.166 atribuições e 23 caches restantes divergem, logo a
+comparação completa é `approximate`, documentada em
 [`docs/validation/gemma4-e4b-native-operation-checkpoints-2026-07-16.md`](docs/validation/gemma4-e4b-native-operation-checkpoints-2026-07-16.md).
 
 ### Comparação com captura autoritativa

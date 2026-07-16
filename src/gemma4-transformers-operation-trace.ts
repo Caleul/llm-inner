@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { openCatalog } from "./catalog.js";
 import { buildGemma4CompositeProgram } from "./gemma4-composite.js";
 import { fingerprintIR, sha256File, type ExecutionTraceBundle, type TraceSourceFile } from "./trace.js";
+import type { Operation } from "./types.js";
 
 export interface Gemma4TransformersOperationTraceOptions {
   source: string;
@@ -24,10 +25,35 @@ interface NativeOperationCapture {
 }
 
 /**
- * Captures stable native module boundaries for the registered Gemma4Text
- * path.  These are intentionally a diagnostic subset of the IR, used to
- * identify the first numerical-policy mismatch before claiming a full
- * operation-level equivalence trace.
+ * The native helper may only emit a complete assignment trace.  Its IDs and
+ * outputs are tied to the registered adapter rather than accepted as an
+ * opportunistic collection of module hooks.
+ */
+export function assertGemma4NativeOperationCoverage(
+  expected: readonly Pick<Operation, "id" | "output">[],
+  actual: readonly Pick<ExecutionTraceBundle["reference"]["operations"][number], "operationId" | "output">[],
+): void {
+  const seen = new Set<string>();
+  const byId = new Map<string, string>();
+  for (const operation of actual) {
+    if (seen.has(operation.operationId)) throw new Error(`Gemma 4 native trace duplicou a operação ${operation.operationId}.`);
+    seen.add(operation.operationId);
+    byId.set(operation.operationId, operation.output);
+  }
+  for (const operation of expected) {
+    const output = byId.get(operation.id);
+    if (output === undefined) throw new Error(`Gemma 4 native trace não capturou a atribuição declarada ${operation.id}.`);
+    if (output !== operation.output) throw new Error(`Gemma 4 native trace declarou output '${output}' para ${operation.id}; esperado '${operation.output}'.`);
+  }
+  const expectedIds = new Set(expected.map((operation) => operation.id));
+  const unexpected = actual.find((operation) => !expectedIds.has(operation.operationId));
+  if (unexpected) throw new Error(`Gemma 4 native trace contém operação não declarada ${unexpected.operationId}.`);
+}
+
+/**
+ * Captures every declared Gemma4Text assignment from the pinned native eager
+ * BF16 path. The Python helper rejects instrumentation that changes final
+ * logits or KV cache before this complete trace is written.
  */
 export async function captureGemma4TransformersOperationTrace(options: Gemma4TransformersOperationTraceOptions): Promise<void> {
   validateIds(options.inputTokens, "inputTokens");
@@ -49,7 +75,8 @@ export async function captureGemma4TransformersOperationTrace(options: Gemma4Tra
       positionIds: positions,
       mode: "operation-checkpoints",
     });
-    if (native.operations.length === 0) throw new Error("Gemma 4 checkpoint capture não retornou nenhuma fronteira de módulo nativa.");
+    const expected = [...program.textProgram.prelude, ...program.textProgram.layers.flatMap((layer) => layer.operations), ...program.textProgram.epilogue];
+    assertGemma4NativeOperationCoverage(expected, native.operations);
     const bundle: ExecutionTraceBundle = {
       schemaVersion: 1,
       kind: "execution",

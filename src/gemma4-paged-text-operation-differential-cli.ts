@@ -22,8 +22,8 @@ async function main(): Promise<void> {
     ...(value(argv, "--assert-source-unavailable", false) ? { assertSourceUnavailable: resolve(value(argv, "--assert-source-unavailable")!) } : {}),
   });
   await mkdir(dirname(report), { recursive: true });
-  await writeFile(report, `${JSON.stringify({ kind: "gemma4-paged-text-native-operation-checkpoints", sourceCheckpointAccessed: false, ...result }, null, 2)}\n`, "utf8");
-  console.log(`Relatório de checkpoints Gemma 4 escrito em ${report} (${result.fidelityClass}).`);
+  await writeFile(report, `${JSON.stringify({ kind: "gemma4-paged-text-native-operation-trace", sourceCheckpointAccessed: false, ...result }, null, 2)}\n`, "utf8");
+  console.log(`Relatório completo de atribuições Gemma 4 escrito em ${report} (${result.fidelityClass}).`);
 }
 
 main().catch((error: unknown) => { console.error(error instanceof Error ? error.stack ?? error.message : error); process.exitCode = 1; });

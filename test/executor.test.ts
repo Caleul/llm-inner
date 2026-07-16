@@ -203,6 +203,26 @@ test("operation differential report fails closed for missing captures, shape dri
   assert.equal(shapeReport.operations[0]?.status, "shape-mismatch");
 });
 
+test("a complete operation trace with a numerical mismatch is approximate, not incomplete", async () => {
+  const { ir, weights } = await tinyLlama();
+  const candidate = executeReferenceF64(ir, { inputIds: [[1]], tensors: weights });
+  const operations = [...ir.prelude, ...ir.layers.flatMap((layer) => layer.operations), ...ir.epilogue];
+  const referenceOperations = operations.map((operation) => {
+    const tensor = candidate.values.get(operation.output)!;
+    return { operationId: operation.id, output: operation.output, tensor: { shape: [...tensor.shape], values: Float64Array.from(tensor.values) } };
+  });
+  referenceOperations[0]!.tensor.values[0] = referenceOperations[0]!.tensor.values[0]! + 1;
+  const report = compareExecutionTrace(ir, candidate, {
+    runtime: "fixture-authoritative-runtime", model: "tiny-llama", revisionOrChecksum: "in-repository-fixture",
+    containerFormat: "safetensors", quantization: "none", inputTokens: [[1]], dtypePolicy: "F64 scalar fixture",
+    operations: referenceOperations,
+    pastKeyValues: [...candidate.pastKeyValues].map(([layer, cache]) => ({ layer, key: cache.key, value: cache.value })),
+  }, { candidateRuntime: "llm-inner F64 scalar" });
+  assert.equal(report.fidelityClass, "approximate");
+  assert.equal(report.firstDivergentOperation, operations[0]!.id);
+  assert.deepEqual(report.missingReferenceOperationIds, []);
+});
+
 test("operation differential report compares terminal softcapped logits to final_logit_softcap", async () => {
   const { ir, weights } = await tinyLlama();
   const softcap = 0.25;

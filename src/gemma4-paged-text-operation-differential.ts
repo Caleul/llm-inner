@@ -1,12 +1,12 @@
 import { access } from "node:fs/promises";
 import { constants } from "node:fs";
-import { compareCapturedOperationCheckpoints } from "./differential.js";
+import { compareExecutionTrace } from "./differential.js";
 import { openGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
 import { executeGemma4PagedTextLiteralF32 } from "./gemma4-paged-text.js";
 import { fingerprintIR, readExecutionTraceBundle } from "./trace.js";
-import type { DifferentialCheckpointComparisonReport } from "./types.js";
+import type { DifferentialComparisonReport } from "./types.js";
 
-/** Compare a source-independent literal prefill against native module checkpoints. */
+/** Compare every source-independent literal assignment against a native Gemma4Text trace. */
 export async function compareGemma4PagedTextLiteralOperationCheckpoints(options: {
   artifact: string;
   trace: string;
@@ -15,7 +15,7 @@ export async function compareGemma4PagedTextLiteralOperationCheckpoints(options:
   maxAbsoluteError?: number;
   maxRelativeError?: number;
   assertSourceUnavailable?: string;
-}): Promise<DifferentialCheckpointComparisonReport> {
+}): Promise<DifferentialComparisonReport> {
   if (!Number.isSafeInteger(options.maxReadBytes) || options.maxReadBytes <= 0) throw new Error("Comparação de checkpoints Gemma 4 requer maxReadBytes positivo seguro.");
   if (options.assertSourceUnavailable) {
     let exists = true;
@@ -33,7 +33,7 @@ export async function compareGemma4PagedTextLiteralOperationCheckpoints(options:
       inputIds: decoded.reference.inputTokens,
       ...(decoded.reference.positionIds ? { positionIds: decoded.reference.positionIds } : {}),
     }, { maxReadBytes: options.maxReadBytes });
-    return compareCapturedOperationCheckpoints(candidate.values, decoded.reference, {
+    return compareExecutionTrace(artifact.program.textProgram, candidate, decoded.reference, {
       candidateRuntime: decoded.bundle.candidatePolicy.runtime,
       ...(options.topK === undefined ? {} : { topK: options.topK }),
       tolerance: { maxAbsoluteError: options.maxAbsoluteError ?? 0, maxRelativeError: options.maxRelativeError ?? 0 },

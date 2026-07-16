@@ -12,6 +12,7 @@ import { materializeReferenceF32Constants, materializeReferenceF64Constants } fr
 import { fingerprintIR, readExecutionTraceBundle } from "../src/trace.js";
 import { runExecutionTraceComparison, runGenerationTraceComparison } from "../src/trace-runner.js";
 import { captureMlxTrace } from "../src/mlx-trace-capture.js";
+import { assertGemma4NativeOperationCoverage } from "../src/gemma4-transformers-operation-trace.js";
 import { captureTransformersGemma2Trace, captureTransformersLlamaTrace, captureTransformersQwen2Trace } from "../src/transformers-trace-capture.js";
 import type { ModelIR } from "../src/types.js";
 import type { ReferenceF32ExecutionResult } from "../src/types.js";
@@ -33,6 +34,31 @@ test("native checkpoint comparator preserves capture order and does not upgrade 
   assert.equal(report.firstDivergentOperation, "layer_0_input_norm");
   assert.equal(report.fidelityClass, "approximate");
   assert.deepEqual(report.operations.map((operation) => operation.status), ["pass", "diverged"]);
+});
+
+test("Gemma 4 native trace coverage rejects partial, duplicate, output-drift, and unexpected assignments", () => {
+  const expected = [
+    { id: "token_embedding", output: "hidden_states_0" },
+    { id: "final_norm", output: "final_hidden_states" },
+  ] as const;
+  assert.doesNotThrow(() => assertGemma4NativeOperationCoverage(expected, [
+    { operationId: "token_embedding", output: "hidden_states_0" },
+    { operationId: "final_norm", output: "final_hidden_states" },
+  ]));
+  assert.throws(() => assertGemma4NativeOperationCoverage(expected, [{ operationId: "token_embedding", output: "hidden_states_0" }]), /não capturou/);
+  assert.throws(() => assertGemma4NativeOperationCoverage(expected, [
+    { operationId: "token_embedding", output: "hidden_states_0" },
+    { operationId: "token_embedding", output: "hidden_states_0" },
+  ]), /duplicou/);
+  assert.throws(() => assertGemma4NativeOperationCoverage(expected, [
+    { operationId: "token_embedding", output: "incorreto" },
+    { operationId: "final_norm", output: "final_hidden_states" },
+  ]), /esperado/);
+  assert.throws(() => assertGemma4NativeOperationCoverage(expected, [
+    { operationId: "token_embedding", output: "hidden_states_0" },
+    { operationId: "final_norm", output: "final_hidden_states" },
+    { operationId: "extra", output: "extra" },
+  ]), /não declarada/);
 });
 
 async function availableTransformersPython(): Promise<string | undefined> {

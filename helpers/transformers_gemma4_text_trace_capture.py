@@ -11,12 +11,14 @@ from __future__ import annotations
 import base64
 import json
 import sys
+import types
 from pathlib import Path
 from typing import Any
 
 import torch
 import transformers
 from transformers import AutoModelForImageTextToText
+from transformers.models.gemma4 import modeling_gemma4
 
 
 SUPPORTED_TRANSFORMERS = "5.5.0"
@@ -87,83 +89,193 @@ def forward(model: Any, tokens: list[int], positions: list[int], cache: Any | No
 
 
 def operation_checkpoints(model: Any, tokens: list[int], positions: list[int]) -> dict[str, Any]:
-    """Capture native module boundaries without sending the candidate IR to Python.
+    """Capture every declared Gemma4Text assignment from the native forward.
 
-    The stable operation IDs are owned by the registered TypeScript Gemma4Text
-    adapter.  We deliberately capture only boundaries that are native modules
-    (linear, norm, embedding, complete attention and layer output); residuals,
-    activations and rotations still need an authoritative fine-grained trace.
+    This is instrumentation of the pinned Transformers 5.5.0 eager-BF16
+    implementation, not an independent candidate executor.  The wrappers use
+    the exact registered modules and native tensor operations, record the
+    adapter-owned assignment IDs at their execution boundaries, and are
+    checked against an uninstrumented forward before results are emitted.
     """
     text = model.model.language_model
     checkpoints: dict[str, dict[str, Any]] = {}
 
-    def save(operation_id: str, output: str, transform=None):
-        def hook(_module, _inputs, value):
-            if isinstance(value, tuple):
-                value = value[0]
-            if transform is not None:
-                value = transform(value)
-            checkpoints[operation_id] = {"operationId": operation_id, "output": output, "tensor": tensor_payload(value)}
-        return hook
+    def save(operation_id: str, output: str, value: torch.Tensor) -> torch.Tensor:
+        if operation_id in checkpoints:
+            raise ValueError(f"Gemma 4 native operation trace captured duplicate operation {operation_id}.")
+        checkpoints[operation_id] = {"operationId": operation_id, "output": output, "tensor": tensor_payload(value)}
+        return value
 
-    hooks = []
+    def equal_cache(left: Any, right: Any) -> bool:
+        if not hasattr(left, "layers") or not hasattr(right, "layers") or len(left.layers) != len(right.layers):
+            return False
+        for left_layer, right_layer in zip(left.layers, right.layers):
+            if not torch.equal(left_layer.keys, right_layer.keys) or not torch.equal(left_layer.values, right_layer.values):
+                return False
+        return True
+
+    # First prove that the unmodified authoritative path is stable for this
+    # exact request.  The instrumented pass below is compared to this result
+    # before any trace is accepted.
+    baseline = forward(model, tokens, positions)
+
+    original_project = text.project_per_layer_inputs
+    original_layers = [(layer.forward, layer.self_attn.forward, layer.mlp.forward) for layer in text.layers]
     try:
-        hooks.append(text.embed_tokens.register_forward_hook(save("token_embedding", "hidden_states_0")))
-        if getattr(text, "hidden_size_per_layer_input", None):
-            hooks.append(text.embed_tokens_per_layer.register_forward_hook(save(
-                "ple_token_identity", "ple_token_identity",
-                lambda value: value.reshape(*value.shape[:2], text.config.num_hidden_layers, text.config.hidden_size_per_layer_input),
-            )))
-            hooks.append(text.per_layer_model_projection.register_forward_hook(save("ple_context_projection", "ple_context_packed")))
-            hooks.append(text.per_layer_projection_norm.register_forward_hook(save("ple_context_norm", "ple_context_normalized")))
+        def project_per_layer_inputs(self, inputs_embeds, per_layer_inputs=None):
+            projection = self.per_layer_model_projection(inputs_embeds)
+            save("ple_context_projection", "ple_context_packed", projection)
+            projection = projection * self.per_layer_model_projection_scale
+            save("ple_context_scale", "ple_context_scaled", projection)
+            projection = projection.reshape(*inputs_embeds.shape[:-1], self.config.num_hidden_layers, self.hidden_size_per_layer_input)
+            save("ple_context_reshape", "ple_context_reshaped", projection)
+            projection = self.per_layer_projection_norm(projection)
+            save("ple_context_norm", "ple_context_normalized", projection)
+            if per_layer_inputs is None:
+                return projection
+            combined = projection + per_layer_inputs
+            save("ple_combine", "ple_combined", combined)
+            result = combined * self.per_layer_input_scale
+            return save("ple_combine_scale", "ple_inputs", result)
+
+        text.project_per_layer_inputs = types.MethodType(project_per_layer_inputs, text)
+
+        def make_mlp_forward(layer_index: int):
+            def mlp_forward(self, x):
+                prefix = f"layer_{layer_index}"
+                gate = self.gate_proj(x)
+                save(f"{prefix}_gate_proj", f"{prefix}_gate", gate)
+                up = self.up_proj(x)
+                save(f"{prefix}_up_proj", f"{prefix}_up", up)
+                activated = self.act_fn(gate)
+                save(f"{prefix}_activation", f"{prefix}_gate_activated", activated)
+                gated = activated * up
+                save(f"{prefix}_gated_mlp", f"{prefix}_gated_mlp", gated)
+                output = self.down_proj(gated)
+                return save(f"{prefix}_down_proj", f"{prefix}_mlp_output", output)
+            return mlp_forward
+
+        def make_attention_forward(layer_index: int):
+            def attention_forward(self, hidden_states, position_embeddings, attention_mask, past_key_values=None, **kwargs):
+                prefix = f"layer_{layer_index}"
+                input_shape = hidden_states.shape[:-1]
+                hidden_shape = (*input_shape, -1, self.head_dim)
+                cos, sin = position_embeddings
+                query_states = self.q_proj(hidden_states).view(hidden_shape)
+                save(f"{prefix}_q_proj", f"{prefix}_q_linear", query_states.reshape(*input_shape, -1))
+                save(f"{prefix}_q_heads", f"{prefix}_q_heads", query_states.transpose(1, 2))
+                query_states = self.q_norm(query_states)
+                save(f"{prefix}_q_norm", f"{prefix}_q_normalized", query_states.transpose(1, 2))
+                query_states = modeling_gemma4.apply_rotary_pos_emb(query_states, cos, sin, unsqueeze_dim=2)
+                query_states = query_states.transpose(1, 2)
+                save(f"{prefix}_q_rope", f"{prefix}_q_rot", query_states)
+                if self.is_kv_shared_layer and past_key_values is not None:
+                    key_states, value_states = past_key_values.shared_layers[self.kv_shared_layer_index]
+                    key_states = key_states.to(query_states.device)
+                    value_states = value_states.to(query_states.device)
+                else:
+                    key_states = self.k_proj(hidden_states).view(hidden_shape)
+                    save(f"{prefix}_k_proj", f"{prefix}_k_linear", key_states.reshape(*input_shape, -1))
+                    save(f"{prefix}_k_heads", f"{prefix}_k_heads", key_states.transpose(1, 2))
+                    value_states = self.v_proj(hidden_states).view(hidden_shape) if self.v_proj is not None else key_states
+                    if self.v_proj is not None:
+                        save(f"{prefix}_v_proj", f"{prefix}_v_linear", value_states.reshape(*input_shape, -1))
+                        save(f"{prefix}_v_heads", f"{prefix}_v_heads", value_states.transpose(1, 2))
+                    key_states = self.k_norm(key_states)
+                    save(f"{prefix}_k_norm", f"{prefix}_k_normalized", key_states.transpose(1, 2))
+                    key_states = modeling_gemma4.apply_rotary_pos_emb(key_states, cos, sin, unsqueeze_dim=2)
+                    key_states = key_states.transpose(1, 2)
+                    save(f"{prefix}_k_rope", f"{prefix}_k_rot", key_states)
+                    value_states = self.v_norm(value_states)
+                    value_states = value_states.transpose(1, 2)
+                    save(f"{prefix}_v_norm", f"{prefix}_v_normalized", value_states)
+                if past_key_values is not None:
+                    if not self.is_kv_shared_layer:
+                        key_states, value_states = past_key_values.update(key_states, value_states, self.layer_idx)
+                    if self.store_full_length_kv:
+                        if not hasattr(past_key_values, "shared_layers"):
+                            past_key_values.shared_layers = {}
+                        past_key_values.shared_layers[self.layer_idx] = key_states, value_states
+                attention_interface = modeling_gemma4.eager_attention_forward
+                if self.config._attn_implementation != "eager":
+                    attention_interface = modeling_gemma4.ALL_ATTENTION_FUNCTIONS[self.config._attn_implementation]
+                output, weights = attention_interface(
+                    self, query_states, key_states, value_states, attention_mask,
+                    dropout=self.attention_dropout if self.training else 0.0,
+                    scaling=self.scaling, sliding_window=self.sliding_window, **kwargs,
+                )
+                output = output.reshape(*input_shape, -1).contiguous()
+                save(f"{prefix}_attention", f"{prefix}_attention_context", output)
+                output = self.o_proj(output)
+                return save(f"{prefix}_o_proj", f"{prefix}_attention_projected", output), weights
+            return attention_forward
+
+        def make_layer_forward(layer_index: int):
+            def layer_forward(self, hidden_states, per_layer_input=None, position_embeddings=None, attention_mask=None, position_ids=None, past_key_values=None, **kwargs):
+                prefix = f"layer_{layer_index}"
+                residual = hidden_states
+                hidden_states = self.input_layernorm(hidden_states)
+                save(f"{prefix}_input_norm", f"{prefix}_attn_norm", hidden_states)
+                hidden_states, _ = self.self_attn(hidden_states=hidden_states, position_embeddings=position_embeddings, attention_mask=attention_mask, position_ids=position_ids, past_key_values=past_key_values, **kwargs)
+                hidden_states = self.post_attention_layernorm(hidden_states)
+                save(f"{prefix}_post_attention_norm", f"{prefix}_post_attention_normalized", hidden_states)
+                hidden_states = residual + hidden_states
+                save(f"{prefix}_attention_residual", f"{prefix}_after_attention", hidden_states)
+                residual = hidden_states
+                hidden_states = self.pre_feedforward_layernorm(hidden_states)
+                save(f"{prefix}_pre_ffn_norm", f"{prefix}_ffn_norm", hidden_states)
+                hidden_states = self.mlp(hidden_states)
+                hidden_states = self.post_feedforward_layernorm(hidden_states)
+                save(f"{prefix}_post_ffn_norm", f"{prefix}_post_ffn_normalized", hidden_states)
+                hidden_states = residual + hidden_states
+                save(f"{prefix}_mlp_residual", f"{prefix}_after_mlp", hidden_states)
+                if self.hidden_size_per_layer_input:
+                    if per_layer_input is None:
+                        raise ValueError("Gemma 4 dense PLE trace requires per_layer_input.")
+                    save(f"{prefix}_ple_select", f"{prefix}_ple_input", per_layer_input)
+                    residual = hidden_states
+                    hidden_states = self.per_layer_input_gate(hidden_states)
+                    save(f"{prefix}_ple_gate", f"{prefix}_ple_gate_linear", hidden_states)
+                    hidden_states = self.act_fn(hidden_states)
+                    save(f"{prefix}_ple_activation", f"{prefix}_ple_gate_activated", hidden_states)
+                    hidden_states = hidden_states * per_layer_input
+                    save(f"{prefix}_ple_gated_multiply", f"{prefix}_ple_gated", hidden_states)
+                    hidden_states = self.per_layer_projection(hidden_states)
+                    save(f"{prefix}_ple_project", f"{prefix}_ple_projected", hidden_states)
+                    hidden_states = self.post_per_layer_input_norm(hidden_states)
+                    save(f"{prefix}_post_ple_norm", f"{prefix}_post_ple_normalized", hidden_states)
+                    hidden_states = residual + hidden_states
+                    save(f"{prefix}_ple_residual", f"{prefix}_before_scalar", hidden_states)
+                hidden_states *= self.layer_scalar
+                return save(f"{prefix}_scalar", f"hidden_states_{layer_index + 1}", hidden_states)
+            return layer_forward
+
         for layer_index, layer in enumerate(text.layers):
-            prefix = f"layer_{layer_index}"
-            hooks.extend([
-                layer.input_layernorm.register_forward_hook(save(f"{prefix}_input_norm", f"{prefix}_attn_norm")),
-                layer.self_attn.q_proj.register_forward_hook(save(f"{prefix}_q_proj", f"{prefix}_q_linear")),
-                layer.self_attn.q_norm.register_forward_hook(save(f"{prefix}_q_norm", f"{prefix}_q_normalized", lambda value: value.transpose(1, 2))),
-                layer.self_attn.register_forward_hook(save(f"{prefix}_o_proj", f"{prefix}_attention_projected")),
-                layer.post_attention_layernorm.register_forward_hook(save(f"{prefix}_post_attention_norm", f"{prefix}_post_attention_normalized")),
-                layer.pre_feedforward_layernorm.register_forward_hook(save(f"{prefix}_pre_ffn_norm", f"{prefix}_ffn_norm")),
-                layer.mlp.gate_proj.register_forward_hook(save(f"{prefix}_gate_proj", f"{prefix}_gate")),
-                layer.mlp.up_proj.register_forward_hook(save(f"{prefix}_up_proj", f"{prefix}_up")),
-                layer.mlp.down_proj.register_forward_hook(save(f"{prefix}_down_proj", f"{prefix}_mlp_output")),
-                layer.post_feedforward_layernorm.register_forward_hook(save(f"{prefix}_post_ffn_norm", f"{prefix}_post_ffn_normalized")),
-                layer.register_forward_hook(save(f"{prefix}_scalar", f"hidden_states_{layer_index + 1}")),
-            ])
-            if getattr(layer, "hidden_size_per_layer_input", None):
-                hooks.extend([
-                    layer.per_layer_input_gate.register_forward_hook(save(f"{prefix}_ple_gate", f"{prefix}_ple_gate_linear")),
-                    layer.per_layer_projection.register_forward_hook(save(f"{prefix}_ple_project", f"{prefix}_ple_projected")),
-                    layer.post_per_layer_input_norm.register_forward_hook(save(f"{prefix}_post_ple_norm", f"{prefix}_post_ple_normalized")),
-                ])
-            if not layer.self_attn.is_kv_shared_layer:
-                hooks.extend([
-                    layer.self_attn.k_proj.register_forward_hook(save(f"{prefix}_k_proj", f"{prefix}_k_linear")),
-                    layer.self_attn.k_norm.register_forward_hook(save(f"{prefix}_k_norm", f"{prefix}_k_normalized", lambda value: value.transpose(1, 2))),
-                    layer.self_attn.v_norm.register_forward_hook(save(f"{prefix}_v_norm", f"{prefix}_v_normalized", lambda value: value.transpose(1, 2))),
-                ])
-                if layer.self_attn.v_proj is not None:
-                    hooks.append(layer.self_attn.v_proj.register_forward_hook(save(f"{prefix}_v_proj", f"{prefix}_v_linear")))
-        hooks.append(text.norm.register_forward_hook(save("final_norm", "final_hidden_states")))
-        hooks.append(model.lm_head.register_forward_hook(save("lm_head", "logits")))
+            layer.mlp.forward = types.MethodType(make_mlp_forward(layer_index), layer.mlp)
+            layer.self_attn.forward = types.MethodType(make_attention_forward(layer_index), layer.self_attn)
+            layer.forward = types.MethodType(make_layer_forward(layer_index), layer)
+
+        embedding_hook = text.embed_tokens.register_forward_hook(lambda _module, _inputs, value: save("token_embedding", "hidden_states_0", value))
+        ple_embedding_hook = text.embed_tokens_per_layer.register_forward_hook(lambda _module, _inputs, value: save("ple_token_identity", "ple_token_identity", value.reshape(*value.shape[:2], text.config.num_hidden_layers, text.config.hidden_size_per_layer_input))) if getattr(text, "hidden_size_per_layer_input", None) else None
+        final_norm_hook = text.norm.register_forward_hook(lambda _module, _inputs, value: save("final_norm", "final_hidden_states", value))
+        lm_head_hook = model.lm_head.register_forward_hook(lambda _module, _inputs, value: save("lm_head", "logits", value))
         native = forward(model, tokens, positions)
         if model.config.text_config.final_logit_softcapping is not None:
-            cap = model.config.text_config.final_logit_softcapping
-            checkpoints["final_logit_softcap"] = {
-                "operationId": "final_logit_softcap", "output": "softcapped_logits",
-                "tensor": tensor_payload(native.logits),
-            }
+            save("final_logit_softcap", "softcapped_logits", native.logits)
+        if not torch.equal(baseline.logits, native.logits) or not equal_cache(baseline.past_key_values, native.past_key_values):
+            raise ValueError("Gemma 4 native operation instrumentation changed the authoritative forward result or KV cache.")
         return {
-            "runtime": f"PyTorch {torch.__version__.split('+')[0]} / Transformers {transformers.__version__} Gemma4ForConditionalGeneration eager BF16 native module checkpoints",
-            # Hook invocation preserves actual native execution order, which is
-            # required for a meaningful first-divergence diagnostic.
+            "runtime": f"PyTorch {torch.__version__.split('+')[0]} / Transformers {transformers.__version__} Gemma4ForConditionalGeneration eager BF16 full assignment trace",
             "operations": list(checkpoints.values()),
             "pastKeyValues": cache_payload(native.past_key_values),
         }
     finally:
-        for hook in hooks:
-            hook.remove()
+        text.project_per_layer_inputs = original_project
+        for layer, originals in zip(text.layers, original_layers):
+            layer.forward, layer.self_attn.forward, layer.mlp.forward = originals
+        for hook in (locals().get("embedding_hook"), locals().get("ple_embedding_hook"), locals().get("final_norm_hook"), locals().get("lm_head_hook")):
+            if hook is not None:
+                hook.remove()
 
 
 def main(request: dict[str, Any]) -> dict[str, Any]:
