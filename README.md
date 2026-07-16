@@ -12,6 +12,27 @@ y[o] = Σ(i=0..in_features-1) x[i] * W[o,i] + b[o]
 
 O IR guarda `inFeatures`, `outFeatures`, referência ao tensor, dtype e quantização. Os primeiros termos podem ser anexados para inspeção, mas nunca substituem a soma completa.
 
+## Produto final: programa JSON autocontido
+
+O objetivo final não é somente catalogar ou desenhar uma LLM. É exportar um
+JSON que seja um programa de cálculo literal: com as entradas declaradas
+(`x[t,d]`, IDs de token, posições e controles de geração), os pesos e
+constantes necessários, e todas as atribuições intermediárias em ordem de
+dependência até logits e tokens gerados.
+
+Cada etapa precisa declarar o resultado nomeado, operação, entradas nomeadas,
+dimensões, dtype, layout, casts, ordem de redução e estado. Assim, a entrada da
+segunda camada aponta explicitamente para o cálculo produzido pela primeira;
+nada depende de um "bloco Transformer" implícito. O JSON final deve reproduzir
+um modelo suportado mesmo sem acesso ao checkpoint de origem.
+
+Para isso, toda constante ou peso exigido pelo replay precisa estar presente de
+forma lossless no próprio JSON. Payloads binários codificados são aceitáveis
+para tensores grandes, desde que o JSON também descreva dtype, endianness,
+shape, layout e, para quantização, packing, parâmetros e fórmula determinística
+de dequantização. Referências externas a shards são aceitáveis apenas no IR
+interno de compilação, nunca no artefato final autocontido.
+
 ## Fontes
 
 - Diretórios Hugging Face/Safetensors densos.

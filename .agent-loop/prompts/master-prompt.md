@@ -15,7 +15,50 @@ Continue the implementation, validation, and maturation of this repository until
 
 The final system must derive its behavior from verifiable model metadata, configuration, tensor structure, format specifications, and architecture adapters. It must not silently infer semantics from weak naming heuristics.
 
-The target is not merely to inspect model weights. The target is to produce an executable, auditable intermediate representation that can reproduce the original model's forward pass and generation behavior with explicitly measured numerical fidelity.
+The target is not merely to inspect model weights. The target is to produce a
+self-contained, executable and auditable JSON calculation artifact that can
+reproduce the original model's forward pass and generation behavior with
+explicitly measured numerical fidelity.
+
+## Primary product: a literal calculation program
+
+For a supported model package, the output JSON must be sufficient to reproduce
+the model with no source checkpoint, runtime implementation, inferred default
+or hidden state. The user supplies only declared input variables — for example
+token IDs, `x[t,d]`, positions and explicit generation controls. Every other
+quantity required by the calculation is represented inside the artifact.
+
+The JSON is a program of explicit assignments, not a descriptive graph. It
+must contain, in dependency order:
+
+1. named input variables and their domains, shapes, dtypes and positions;
+2. every embedded constant, weight and quantization parameter in a lossless
+   representation;
+3. each intermediate assignment with a stable name, operation semantics,
+   ordered input references, axes/reduction bounds, shapes, layouts, casts and
+   numeric/accumulation policy;
+4. explicit residual, attention-mask, RoPE, KV-cache and generation state
+   transitions; and
+5. logits and generated outputs as assignments from named predecessors.
+
+Thus the input to layer 2 is a named assignment calculated from the preceding
+layer's output (ultimately from `x[...]`/tokens), rather than an implicit
+statement that a generic decoder block happens to run. The artifact must make
+each dependency and formula inspectable enough for a manual or independent
+step-by-step replay.
+
+Weights cannot remain references to a source shard in the final calculation
+artifact. Dense values may be represented as exact IEEE binary payloads in
+JSON with dtype, byte order, shape and layout. Quantized values must additionally
+embed their packed payload and every scale, zero/bias, codebook, block and
+dequantization assignment needed to obtain the exact logical values. JSON
+encoding may be compact, but it must be lossless, self-contained and
+deterministically decodable without the original model files.
+
+The canonical internal IR may retain references while compiling for scale, but
+the product is incomplete until a self-contained export mode expands those
+references into the literal calculation program and proves replay after the
+source checkpoint is unavailable.
 
 ## Current-loop responsibility
 
@@ -436,6 +479,11 @@ Prioritize:
 * reference-based weight storage;
 * deterministic output.
 
+These performance techniques apply to internal compilation only. They must not
+weaken the self-contained calculation export requirement: an export intended
+for replay cannot depend on a shard path, live file handle, bridge process or
+unwritten tensor value.
+
 Measure before and after performance changes.
 
 ## Repository hygiene
@@ -480,6 +528,9 @@ At minimum, completion requires:
 * no architecture selected solely from tensor-name substring matching;
 * no silent generic Transformer fallback;
 * no truncation of mathematical dimensions by preview settings;
+* a self-contained lossless calculation JSON with all replay weights/constants
+  and named intermediate assignments;
+* isolated replay of that JSON after the source checkpoint is unavailable;
 * reproducible reference execution;
 * operation-level differential validation;
 * end-to-end validation on multiple architecture families;

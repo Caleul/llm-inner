@@ -33,6 +33,11 @@
   ],
   "missionGates": [
     {
+      "id": "self-contained-calculation-export",
+      "description": "A lossless JSON calculation artifact contains the complete assignment graph, inputs, constants, weights and numeric policy needed to replay a supported model without its checkpoint",
+      "required": true
+    },
+    {
       "id": "container-abstraction",
       "description": "Safetensors, MLX and GGUF are isolated behind strict container interfaces",
       "required": true

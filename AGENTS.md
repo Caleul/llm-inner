@@ -36,11 +36,35 @@ single coherent problem into artificial microtasks.
 7. Update documentation when behavior, support or architecture changes.
 8. Create one local Git commit for the loop.
 9. Write exactly one concise decision brief atomically to
-   `.agent-loop/handoffs/completed/` as the final repository-changing action.
+  `.agent-loop/handoffs/completed/` as the final repository-changing action.
+
+## Primary deliverable: self-contained calculation JSON
+
+The central product is a lossless calculation artifact, not merely a catalog,
+diagram, benchmark or differential report. For every supported model, the
+export must let a later reader reproduce the forward pass and generation from
+only declared input variables and the JSON itself, without reopening the source
+checkpoint or inferring hidden behavior from source code.
+
+The artifact must declare an ordered assignment graph: named inputs such as
+`x[t,d]`/token IDs/positions, every named intermediate, its operation and
+ordered inputs, exact tensor/constant values, shapes/layouts/dtypes, casts,
+accumulation order, masks, cache transitions and final outputs. A downstream
+assignment must explicitly reference the named result of the preceding
+calculation — never an implicit layer shortcut.
+
+All weights required for replay must be embedded losslessly in the JSON
+artifact. For large or quantized tensors, an exact binary payload encoded in
+JSON is allowed only when dtype, endianness, shape, layout, packing, scale,
+zero/bias/codebook metadata and a deterministic decoding assignment are also
+declared. The artifact still may not require the original checkpoint.
 
 ## Safety and fidelity
 
 - Preserve fail-closed behavior for unsupported model semantics.
+- Never call an export complete when it contains external tensor references,
+  preview-only weights, omitted intermediates, implicit configuration, or a
+  mathematical dimension truncated for presentation.
 - Never claim validation, equivalence or a commit that did not occur.
 - A handoff is continuity context, not a work diary: retain only the completed
   outcome, real validation evidence, unresolved bottlenecks and the next
