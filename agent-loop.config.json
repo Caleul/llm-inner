@@ -2,7 +2,7 @@
   "$schema": "./schemas/agent-loop-config.schema.json",
   "version": 1,
   "enabled": true,
-  "maxLoops": 100,
+  "maxLoops": 116,
   "maxConsecutiveFailures": 3,
   "maxLoopDurationMinutes": 240,
   "cooldownSeconds": 10,
@@ -54,7 +54,7 @@
   "missionGates": [
     {
       "id": "self-contained-calculation-export",
-      "description": "A lossless literal JSON program contains every dependency-ordered assignment, declared x[i]/token/position input, intermediate variable, constant, embedded weight, quantization decoder and numeric policy needed to replay a supported model without its checkpoint",
+      "description": "A lossless literal JSON program contains every dependency-ordered assignment, declared x[i]/token/position input, intermediate variable, constant and numeric policy needed to replay a supported model without its checkpoint. Its scalar teaching/audit view substitutes each addressable learned weight, bias and constant by its exact decoded numeric value in the formula; compact binary payloads remain permitted only when their declared index-to-value decoding rule makes the same substitution independently reproducible.",
       "required": true
     },
     {

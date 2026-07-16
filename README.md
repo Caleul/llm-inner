@@ -174,6 +174,24 @@ As atribuições do modelo são ordenadas em `prelude`, camadas e `epilogue`, e
 cada atenção declara sua transição de cache KV (`append-post-rope` ou
 `reuse-producer`).
 
+#### Fórmulas auditáveis com valores substituídos
+
+O grafo não pode parar em `linear(x, weight)` ou `weight[o,i]` como se isso
+fosse uma fórmula manual completa. A visualização/auditoria literal precisa
+explicitar os índices, limites e ordem de redução, e substituir cada peso,
+bias e constante endereçável pelo seu valor numérico decodificado no local em
+que participa da equação. Assim, uma linha auditável é
+`y[t,0] = F32(x[t,0] * 3.456812134 + x[t,1] * -0.125 + 0.75)`, e não apenas
+uma referência opaca à matriz. Para não transformar uma E4B em um JSON ainda
+mais impraticável, o artefato de produção pode conservar o payload binário
+lossless; porém deve declarar o decoder e o mapeamento de índice suficientes
+para derivar exatamente a mesma substituição sem o checkpoint original.
+
+O contrato e o exemplo completo de duas camadas estão em
+[`docs/literal-scalar-substitution-contract.md`](docs/literal-scalar-substitution-contract.md)
+e
+[`docs/examples/literal-scalar-substitution.example.json`](docs/examples/literal-scalar-substitution.example.json).
+
 ```bash
 node dist/src/cli.js --source ./modelo --output ./modelo.literal.json --literal
 ```

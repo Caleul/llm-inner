@@ -52,6 +52,19 @@ the dataflow — e.g. `x_embedding[i]`, `x_med[i]`,
 formula, type and provenance. The artifact must make each dependency and
 formula inspectable enough for a manual or independent step-by-step replay.
 
+The required audit view is scalar-substituting, not merely tensor-describing.
+For every addressable learned value used by a formula, it must be possible to
+render the actual decoded number at the point of use: for example,
+`y[t,0] = F32(x[t,0] * 3.456812134 + x[t,1] * -0.125 + 0.75)`, not only
+`linear(x, weight)` or `weight[0,i]`. Large production tensors may remain
+losslessly encoded in Base64/packed storage, but their declared decoder,
+layout and index mapping must make that same substitution exact and
+independently reproducible. Every reduction needs its index bounds and order;
+every cast/rounding boundary must be declared. Treat
+`docs/literal-scalar-substitution-contract.md` and
+`docs/examples/literal-scalar-substitution.example.json` as the format's
+minimum human-auditable example.
+
 Weights cannot remain references to a source shard in the final calculation
 artifact. Dense values may be represented as exact IEEE binary payloads in
 JSON with dtype, byte order, shape and layout. Quantized values must additionally
@@ -131,6 +144,18 @@ At the beginning of every loop:
 10. Produce exactly one final handoff only after the repository is in a coherent state.
 
 Do not merely follow the previous handoff. Verify that its conclusions still match the repository.
+
+## Independent achievement review
+
+The agent that changes code or documentation may report only a **candidate**
+acceptance claim in its handoff, together with commands, expected results and
+known limits. It must not declare its own milestone, gate or the mission
+achieved. The next loop is the designated independent reviewer: it first
+inspects the previous diff and independently reruns, extends or falsifies the
+candidate evidence. Only that successor may accept the claim, advance the
+roadmap, or report that an objective is reached. If evidence is insufficient,
+it must keep the claim unaccepted and continue the work rather than relying on
+the predecessor's self-assessment.
 
 ## Autonomous continuity
 

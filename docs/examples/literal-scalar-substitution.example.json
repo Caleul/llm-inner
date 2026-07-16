@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "kind": "literal-scalar-substitution-example",
+  "purpose": "Small self-contained target artifact for manual and independent replay. Every learned scalar is substituted at its use site.",
+  "numericPolicy": {
+    "storageDtype": "F32",
+    "computeDtype": "F32",
+    "accumulationDtype": "F32",
+    "roundAfter": ["multiply", "add"]
+  },
+  "inputs": {
+    "x0": [2, -1]
+  },
+  "layers": [
+    {
+      "id": "layer_0",
+      "input": "x0",
+      "assignments": [
+        {
+          "id": "layer_0_mean",
+          "output": "mean_0",
+          "formula": "F32(F32(x0[0] + x0[1]) / 2)",
+          "value": 0.5
+        },
+        {
+          "id": "layer_0_hidden_0",
+          "output": "h0[0]",
+          "formula": "F32(F32(x0[0] * 3.456812134) + F32(x0[1] * -0.125) + 0.75)",
+          "substitutedConstants": [3.456812134, -0.125, 0.75],
+          "value": 7.788624286651611
+        },
+        {
+          "id": "layer_0_hidden_1",
+          "output": "h0[1]",
+          "formula": "F32(F32(x0[0] * -0.5) + F32(x0[1] * 1.25) + -0.25)",
+          "substitutedConstants": [-0.5, 1.25, -0.25],
+          "value": -2.5
+        },
+        {
+          "id": "layer_0_output_0",
+          "output": "x1[0]",
+          "formula": "F32(h0[0] * mean_0)",
+          "value": 3.8943121433258057
+        },
+        {
+          "id": "layer_0_output_1",
+          "output": "x1[1]",
+          "formula": "F32(h0[1] * mean_0)",
+          "value": -1.25
+        }
+      ]
+    },
+    {
+      "id": "layer_1",
+      "input": "x1",
+      "assignments": [
+        {
+          "id": "layer_1_mean",
+          "output": "mean_1",
+          "formula": "F32(F32(x1[0] + x1[1]) / 2)",
+          "value": 1.3221560716629028
+        },
+        {
+          "id": "layer_1_output_0",
+          "output": "x2[0]",
+          "formula": "F32(F32(x1[0] * 0.25) + F32(x1[1] * 2.0) + -0.5)",
+          "substitutedConstants": [0.25, 2, -0.5],
+          "value": -2.0264220237731934
+        },
+        {
+          "id": "layer_1_output_1",
+          "output": "x2[1]",
+          "formula": "F32(F32(x1[0] * -1.5) + F32(x1[1] * 0.5) + 0.125)",
+          "substitutedConstants": [-1.5, 0.5, 0.125],
+          "value": -6.341468334197998
+        }
+      ]
+    }
+  ],
+  "expectedOutputs": {
+    "x2": [-2.0264220237731934, -6.341468334197998]
+  }
+}

@@ -59,6 +59,18 @@ A downstream assignment, including the input to layer 2, must explicitly
 reference the named result calculated by the preceding layer — never an
 implicit layer shortcut or a hidden generic-decoder invocation.
 
+"Explicit" also applies below the tensor-operation level. The canonical audit
+view must be able to state a calculation by indexed scalar formula, such as
+`y[t,o] = F32(sum_i(F32(x[t,i] * 3.456812134)) + -0.125)`, rather than leaving
+the learned term as an unexplained `weight[o,i]`. A production artifact may
+keep a large weight losslessly encoded as binary/Base64 for scale, but it must
+declare its exact index-to-value decoder and an audit/export mode must be able
+to substitute the decoded value at every referenced index. Matrix operations,
+reductions, attention, normalization, RoPE, quantization and cache updates
+must likewise declare their index domains, order and F32 rounding boundaries.
+See `docs/literal-scalar-substitution-contract.md` and its executable-size
+example before changing this format.
+
 All weights required for replay must be embedded losslessly in the JSON
 artifact. For large or quantized tensors, an exact binary payload encoded in
 JSON is allowed only when dtype, endianness, shape, layout, packing, scale,
@@ -109,8 +121,14 @@ call the checkpoint reached.
 
 - Preserve fail-closed behavior for unsupported model semantics.
 - Never call an export complete when it contains external tensor references,
-  preview-only weights, omitted intermediates, implicit configuration, or a
-  mathematical dimension truncated for presentation.
+  preview-only weights, omitted intermediates, implicit configuration, a
+  mathematical dimension truncated for presentation, or formulas that refer
+  to learned values without a deterministic path to their exact numeric value.
+- An agent that implements an acceptance boundary must not be the authority
+  that declares the boundary or mission achieved. It records a candidate claim,
+  exact evidence and reproducible commands in its handoff. The next loop must
+  independently inspect the diff and rerun or strengthen the evidence before
+  it may accept that claim, advance the roadmap, or report achievement.
 - Never claim validation, equivalence or a commit that did not occur.
 - A handoff is continuity context, not a work diary: retain only the completed
   outcome, real validation evidence, unresolved bottlenecks and the next
