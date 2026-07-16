@@ -293,11 +293,14 @@ npm run replay:gemma4-paged-text -- \
 ```
 
 O relatório inclui hash dos logits, tokens greedy, produtores KV, janela de
-leitura e RSS. A regressão atual prova equivalência byte-a-byte de prefill e
+leitura e RSS, incluindo o máximo residente (`maxRssKiB`) do processo. A
+regressão atual prova equivalência byte-a-byte de prefill e
 dois passos cached contra o executor eager apenas para a fixture Gemma 4
-registrada após remover os tensores de origem. Não há ainda execução E4B real
-nem comparação com runtime autoritativo; portanto o marcador de checkpoint
-Gemma 4 continua proibido.
+registrada após remover os tensores de origem. Um prefill E4B real de um token
+mais um decode cached foi executado somente do artefato literal (o diretório
+fonte foi renomeado durante o comando), mas ainda não há comparação com runtime
+autoritativo nem replay multimodal; portanto o marcador de checkpoint Gemma 4
+continua proibido.
 
 ### Comparação com captura autoritativa
 

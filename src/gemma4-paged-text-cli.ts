@@ -39,6 +39,9 @@ try {
     elapsedMilliseconds: Math.round((performance.now() - started) * 1000) / 1000,
     rssBefore,
     rssAfter: process.memoryUsage().rss,
+    // Node normalizes ru_maxrss to KiB. Unlike rssAfter, this preserves the
+    // process high-water mark for a real paged replay report.
+    maxRssKiB: process.resourceUsage().maxRSS,
   };
   const json = `${JSON.stringify(report, null, 2)}\n`;
   if (args.output) await writeFile(args.output, json);

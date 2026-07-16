@@ -46,8 +46,39 @@ The local 21.3 GB artifact can now be addressed by the text-only CLI:
 npm run replay:gemma4-paged-text -- --artifact ./artifacts/gemma4-e4b-dense.literal.json --input-ids 2,106,3 --max-new-tokens 1 --output ./paged-text-report.json
 ```
 
-This command is intentionally a candidate replay, not evidence that the real
-E4B run has completed. No real E4B prefill/cached decode was run in this
-change, and no pinned authoritative Gemma 4 runtime trace exists. Vision,
-video, and audio replacement stay unavailable on this paged path; do not use
-it for multimodal prompts or create the Gemma 4 checkpoint marker.
+## Real E4B source-removed text replay
+
+On 2026-07-16, the source directory was atomically renamed away for the full
+command, then restored after it exited. The only model input available to the
+executor was the literal artifact. The source file and artifact hashes were
+recomputed immediately afterwards:
+
+- `gemma-4-E4B-dense/model.safetensors` SHA-256:
+  `43fb96cec3045b72852c787540300dc5b258634b7a025f7c80355ac0788b9651`
+- `artifacts/gemma4-e4b-dense.literal.json` SHA-256:
+  `e81feb9061cabb9a1982c0b2ce890d540ea91f22034c99b1382e6283076c61e1`
+- Artifact bytes: `21,325,917,078`; source checkpoint access: `false`.
+
+```bash
+mv ./gemma-4-E4B-dense ./.gemma-4-E4B-dense-source-unavailable
+npm run replay:gemma4-paged-text -- \
+  --artifact ./artifacts/gemma4-e4b-dense.literal.json \
+  --input-ids 2 --max-new-tokens 1 --max-read-mib 16 \
+  --output /tmp/gemma4-e4b-paged-text-replay-0018.json
+mv ./.gemma-4-E4B-dense-source-unavailable ./gemma-4-E4B-dense
+```
+
+The command completed a one-token prefill and one cache-backed greedy decode
+in `62,917.933 ms`, yielding generated token `184`, final logits shape
+`[1, 1, 262144]`, and logits SHA-256
+`9fbd1e292c8f0d493c1d848e06c4821b6564a00c996c294a4fa052ff73a2ab4d`.
+It reported all 24 producer-owned KV layers (`0` through `23`), a 16 MiB read
+ceiling, RSS before/after of `230,375,424` / `777,388,032` bytes, and a
+process high-water mark of `789,472 KiB`. The CLI now includes that high-water
+mark as `maxRssKiB` in every replay report.
+
+This is source-independent **text-only candidate replay evidence**, not a
+Gemma 4 dense-lossless checkpoint claim. It does not compare against the
+official BF16 runtime and it does not execute image, video, or audio feature
+replacement. Vision, video, and audio remain fail-closed on this paged path;
+do not use this result to create the Gemma 4 checkpoint marker.
