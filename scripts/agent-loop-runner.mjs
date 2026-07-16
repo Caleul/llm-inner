@@ -106,6 +106,83 @@ async function assertCanRun(config) {
   if (!(await exists(codex))) fail(`Codex executable not found: ${codex}`);
 }
 
+function isProcessAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    // EPERM proves that a process exists but belongs to another user; ESRCH
+    // means the PID recorded by the lock has gone away.
+    return error?.code === "EPERM";
+  }
+}
+
+async function inspectLock(config) {
+  const lockPath = absolute(config.lockFile);
+  if (!(await exists(lockPath))) return { status: "absent", lockPath };
+  try {
+    const lock = await readJson(lockPath);
+    return {
+      status: isProcessAlive(lock.pid) ? "active" : "stale",
+      lockPath,
+      lock,
+    };
+  } catch (error) {
+    return {
+      status: "stale",
+      lockPath,
+      lock: null,
+      parseError: error.message,
+    };
+  }
+}
+
+async function recordInterruptedRun(config, state, reason) {
+  const detectedAt = now();
+  const interruption = {
+    runId: state.lastRunId ?? null,
+    sequence: state.currentSequence,
+    detectedAt,
+    reason,
+  };
+  if (state.lastRunId) {
+    await writeJsonAtomically(join(absolute(config.runsDirectory), `${state.lastRunId}.interrupted.json`), interruption);
+  }
+  const recovered = {
+    ...state,
+    status: "interrupted",
+    consecutiveFailures: state.consecutiveFailures + 1,
+    lastCompletedAt: detectedAt,
+    lastInterruption: interruption,
+  };
+  await writeJsonAtomically(absolute(config.stateFile), recovered);
+  return recovered;
+}
+
+/**
+ * A runner can be terminated by a host restart, sleep/crash, or external kill
+ * before its finally block removes the lock. Recover that state before every
+ * start instead of permanently reporting a nonexistent Codex as "running".
+ */
+async function recoverInterruptedRuntime(config) {
+  let state = await readJson(absolute(config.stateFile));
+  const inspection = await inspectLock(config);
+  if (inspection.status === "active") {
+    fail(`Loop lock belongs to active PID ${inspection.lock.pid}: ${config.lockFile}`);
+  }
+  const needsRecovery = state.status === "running" || inspection.status === "stale";
+  if (!needsRecovery) return { state, recovered: false, inspection };
+
+  const reason = inspection.status === "stale"
+    ? `Runner lock is stale (PID ${inspection.lock?.pid ?? "unknown"} is not alive).`
+    : "State says running but no runner lock exists.";
+  if (state.status === "running") state = await recordInterruptedRun(config, state, reason);
+  if (inspection.status === "stale") await rm(inspection.lockPath, { force: true });
+  console.error(`Recovered interrupted loop state: ${reason}`);
+  return { state, recovered: true, inspection };
+}
+
 async function acquireLock(config) {
   const lockPath = absolute(config.lockFile);
   try {
@@ -231,6 +308,7 @@ function agentPrompt(masterPrompt, config, state, runId, sequence, previousHando
 
 async function start(config) {
   await ensureRuntime(config);
+  await recoverInterruptedRuntime(config);
   await assertCanRun(config);
   const lockPath = await acquireLock(config);
   try {
@@ -306,11 +384,16 @@ async function start(config) {
 async function status(config) {
   await ensureRuntime(config);
   const state = await readJson(absolute(config.stateFile));
+  const lock = await inspectLock(config);
+  const orphaned = state.status === "running" && lock.status !== "active";
   console.log(JSON.stringify({
     state,
     maxLoops: config.maxLoops,
     agent: config.agent,
-    lockPresent: await exists(absolute(config.lockFile)),
+    lockPresent: lock.status !== "absent",
+    lockStatus: lock.status,
+    lockPid: lock.lock?.pid ?? null,
+    orphanedRunDetected: orphaned,
     stopRequested: await exists(absolute(config.stopFile)),
     codex,
   }, null, 2));
