@@ -201,17 +201,17 @@ gate that needs investigation in a fresh context, or an otherwise unsafe
 scope expansion.
 
 Use the handoff to deliberately reset context for the next agent. It must be
-short and decision-useful, not a chronology: state the completed high-impact
-result, the validation evidence, the unresolved bottleneck(s), and exactly one
-recommended next substantial milestone with concrete acceptance criteria.
+short and backward-looking, not a chronology or task assignment: state only
+the completed high-impact result, validation evidence and unresolved
+bottleneck(s). Do not recommend an implementation, milestone or next step.
 
-## Independent next-step selection
+## Independent work selection
 
 The previous handoff is compressed context, not a task assignment. At the start
 of every invocation, independently reassess the mission gates, source, tests,
-reports, commits and available runtime evidence. Keep the prior recommended
-milestone only if it remains the highest-leverage route; otherwise replace it
-and explain the evidence-based pivot in the final handoff.
+reports, commits and available runtime evidence. Select and execute the
+highest-leverage coherent work yourself; a predecessor leaves evidence, never
+a queue of deferred tasks.
 
 Do not wait for a human to decompose work. Resolve ordinary engineering
 decisions from the repository, specifications and validation results. Escalate
@@ -221,10 +221,7 @@ At the end, write a compact decision brief rather than a narrative handoff:
 
 * the validated result and the strongest evidence;
 * zero or more concrete bottlenecks, including their impact and evidence;
-* one to three ordered next steps, each with acceptance criteria.
-
-The first next step is the recommended successor milestone. It should be large
-enough to materially advance a mission gate, not merely add a helper or test.
+* no proposal, recommendation or ordered task list for a successor.
 
 ## Ownership over task completion
 
@@ -240,10 +237,9 @@ an adjacent unimplemented path that is understandable from the same evidence,
 complete the coherent path across parser, IR, materialization/execution,
 validation, documentation and report surfaces as appropriate.
 
-Only hand off after the current context has been used decisively: the next
-agent should inherit a genuinely new bottleneck or a larger remaining boundary,
-not the same work repackaged as another microtask. State that boundary and the
-evidence in the compact decision brief.
+Only hand off after the current context has been used decisively: a successor
+should inherit evidence and genuinely unresolved constraints, not ordinary
+work repackaged as another microtask.
 
 ## Engineering stewardship and code quality
 
@@ -282,11 +278,10 @@ reason to hand off. Continue through adjacent implementation, validation and
 documentation work until the current strategic boundary is demonstrably closed
 or an actual new boundary is reached.
 
-At the start, form and execute an internal plan; at the end, make a proposal
-for the system's next best move. The handoff's next steps must be proposals
-ranked by mission impact, not a mechanically inferred continuation of the last
-diff. Name quality or architectural debt as a bottleneck when it materially
-threatens the next phase.
+At the start, form and execute an internal plan; at the end, report only what
+was completed and what is genuinely blocked. If quality or architectural debt
+is understandable and safe to repair, repair it in this loop; name it as a
+bottleneck only when it truly prevents further progress now.
 
 ## Final objective
 
@@ -721,20 +716,6 @@ The handoff must be valid JSON with this shape:
     }
   ],
   "knownLimitations": [],
-  "nextRecommendedMilestone": {
-    "title": "...",
-    "reason": "...",
-    "acceptanceCriteria": [
-      "..."
-    ]
-  },
-  "nextSteps": [
-    {
-      "title": "...",
-      "reason": "...",
-      "acceptanceCriteria": ["..."]
-    }
-  ],
   "bottlenecks": [
     {
       "description": "...",
@@ -768,12 +749,10 @@ failed
 
 A failed experiment may still produce a valid handoff, but the handoff must explain the failure precisely.
 
-When `missionStatus` is `continue`, `nextRecommendedMilestone` is mandatory
-and must contain one substantial next milestone, its reason, and concrete
-acceptance criteria. Keep `summary`, `findings`, `knownLimitations`, and
-`blockedBy` concise; do not duplicate commit diffs or a chronological diary.
-`nextSteps` must contain one to three ordered substantial options and
-`bottlenecks` must record only real unresolved constraints with their evidence.
+Every handoff must be backward-looking. Keep `summary`, `findings`,
+`knownLimitations`, `blockedBy` and `bottlenecks` concise; do not duplicate
+commit diffs, create a chronological diary, or include `nextRecommendedMilestone`
+or `nextSteps`. Record only real unresolved constraints with their evidence.
 
 ## Stop behavior
 

@@ -365,11 +365,10 @@ ignorados pelo Git para não violar a exigência de árvore limpa.
 
 Cada instância recebe contexto novo a partir do repositório e do último
 handoff. O protocolo exige que ela complete um milestone substancial e
-validado — não uma sequência de microalterações — e que o handoff final retenha
-somente resultado, evidência, gargalos e a próxima frente de alto impacto.
-Ao terminar, cada ciclo também registra uma lista ordenada de até três próximos
-passos e seus critérios de aceite; o sucessor os reavalia contra o repositório
-atual, em vez de tratá-los como uma fila cega.
+validado — não uma sequência de microalterações — e execute no próprio ciclo
+toda melhoria coerente que a evidência disponível permite. O handoff final é
+somente retrospectivo: resultado, evidência e gargalos reais. Ele não contém
+"próxima implementação", lista de próximos passos nem tarefa para o sucessor.
 
 O runner inicia os ciclos com acesso completo e sem confirmações interativas,
 por autorização explícita do operador. Cada ciclo deve atuar como responsável
@@ -379,16 +378,18 @@ microalteração isolada.
 
 O runner usa `gpt-5.6-terra` com esforço de raciocínio `high`. Cada invocação
 é uma sessão autônoma de engenharia: o agente reavalia o sistema, decide a
-fronteira estratégica de maior impacto, executa uma entrega coesa através das
-camadas necessárias e deixa uma proposta técnica para a próxima sessão — não
-uma sequência de microtarefas derivadas mecanicamente do commit anterior.
+fronteira estratégica de maior impacto e executa uma entrega coesa através das
+camadas necessárias. O sucessor revisa as evidências independentemente e
+escolhe seu próprio trabalho; não recebe uma sequência de microtarefas do
+commit anterior.
 
 Cada agente também atua como responsável técnico temporário do repositório:
 deve usar princípios de Clean Code e SOLID pragmaticamente, preservar fronteiras
 claras entre contêiner, quantização, arquitetura, execução e validação, reduzir
 duplicação relevante e deixar contratos, erros e testes mais fáceis de evoluir
-nas sessões seguintes. O handoff é uma proposta técnica curta para o próximo
-ciclo, não apenas a confirmação de uma tarefa concluída.
+nas sessões seguintes. O handoff é uma evidência técnica curta do que foi
+concluído e do que realmente bloqueia progresso, nunca uma proposta de trabalho
+para o próximo ciclo.
 
 ## Política de fidelidade
 

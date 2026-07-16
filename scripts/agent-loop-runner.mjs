@@ -219,39 +219,18 @@ function validateHandoffShape(handoff, expectedSequence, expectedRunId) {
   if (!Array.isArray(handoff.knownLimitations) || !Array.isArray(handoff.blockedBy)) {
     fail("Handoff must include concise knownLimitations and blockedBy arrays.");
   }
-  if (handoff.missionStatus === "continue") {
-    const next = handoff.nextRecommendedMilestone;
+  if ("nextRecommendedMilestone" in handoff || "nextSteps" in handoff) {
+    fail("Handoffs must be backward-looking evidence, not assignments for a successor.");
+  }
+  if (!Array.isArray(handoff.bottlenecks)) fail("Handoff must include a bottlenecks array.");
+  for (const bottleneck of handoff.bottlenecks) {
     if (
-      !next ||
-      typeof next.title !== "string" || next.title.trim() === "" ||
-      typeof next.reason !== "string" || next.reason.trim() === "" ||
-      !Array.isArray(next.acceptanceCriteria) || next.acceptanceCriteria.length === 0
+      !bottleneck ||
+      typeof bottleneck.description !== "string" ||
+      typeof bottleneck.impact !== "string" ||
+      typeof bottleneck.evidence !== "string"
     ) {
-      fail("Continuing handoffs must name one next substantial milestone with acceptance criteria.");
-    }
-    if (!Array.isArray(handoff.nextSteps) || handoff.nextSteps.length < 1 || handoff.nextSteps.length > 3) {
-      fail("Continuing handoffs must contain one to three ordered nextSteps.");
-    }
-    for (const step of handoff.nextSteps) {
-      if (
-        !step ||
-        typeof step.title !== "string" || step.title.trim() === "" ||
-        typeof step.reason !== "string" || step.reason.trim() === "" ||
-        !Array.isArray(step.acceptanceCriteria) || step.acceptanceCriteria.length === 0
-      ) {
-        fail("Each nextSteps entry requires title, reason, and acceptanceCriteria.");
-      }
-    }
-    if (!Array.isArray(handoff.bottlenecks)) fail("Continuing handoffs must include a bottlenecks array.");
-    for (const bottleneck of handoff.bottlenecks) {
-      if (
-        !bottleneck ||
-        typeof bottleneck.description !== "string" ||
-        typeof bottleneck.impact !== "string" ||
-        typeof bottleneck.evidence !== "string"
-      ) {
-        fail("Each bottleneck requires description, impact, and evidence.");
-      }
+      fail("Each bottleneck requires description, impact, and evidence.");
     }
   }
 }
@@ -303,7 +282,7 @@ async function runCodex(config, prompt, runId, sequence) {
 }
 
 function agentPrompt(masterPrompt, config, state, runId, sequence, previousHandoff) {
-  return `${masterPrompt}\n\n---\n\n# Runner invocation context\n\nYou are the single active Codex for loop ${sequence} (${runId}). You own the decompiler mission and the long-term health of this codebase, not a narrow ticket. Work autonomously: inspect the live repository, independently reassess the previous handoff, and choose the strategic boundary that most limits faithful execution, validated format support, end-to-end evidence, or safe future evolution. Use this fresh context to complete the largest coherent, validated vertical slice supported by the evidence; connect adjacent parser, IR, materialization, executor, differential-validation, documentation and report layers whenever that closes one material mission gap. Apply Clean Code and SOLID pragmatically: preserve responsibility boundaries, explicit extension contracts, narrow dependencies, clear invariants and fail-closed errors; repair relevant duplication or design hazards encountered in the critical path. Do not stop at a micro-change, isolated test, or small commit merely to create a handoff. Before committing, conduct an architectural self-review for cohesion, coupling, duplication, testability and extension safety. Do not ask for a plan or wait for human input unless an actual external resource or decision is required.\n\nA predecessor can propose a candidate acceptance claim, but never certify its own work. Before advancing any claimed gate or reporting an objective achieved, independently inspect the predecessor's diff and rerun or strengthen its evidence. Your independent review, not the implementer's self-assessment, is the authority for accepting the claim.\n\nCurrent state:\n\n\`\`\`json\n${JSON.stringify(state, null, 2)}\n\`\`\`\n\nPrevious accepted handoff: ${previousHandoff ?? "none; this is the first loop"}.\n\nThe external runner, not you, starts the next loop. Before exiting, run every command in agent-loop.config.json.validationCommands, create one local Git commit, and atomically create exactly one handoff named HANDOFF-${String(sequence).padStart(4, "0")}-<UTC timestamp>-<slug>.json in ${config.handoffDirectory}. Its runId must be \`${runId}\`, sequence must be ${sequence}, and endingState.gitCommit must equal the new HEAD commit. The handoff is your final repository-changing action. If missionStatus is continue, it must contain exactly one decision-useful nextRecommendedMilestone, one to three ordered nextSteps with acceptance criteria, and a bottlenecks array whose entries state description, impact, and evidence. Keep only unresolved bottlenecks and limitations; it is not a chronological work log. The next steps are owner proposals ranked by mission impact, not a mechanical task list.\n`;
+  return `${masterPrompt}\n\n---\n\n# Runner invocation context\n\nYou are the single active Codex for loop ${sequence} (${runId}). You own the decompiler mission and the long-term health of this codebase, not a narrow ticket. Work autonomously: inspect the live repository, independently reassess the previous handoff, and choose the strategic boundary that most limits faithful execution, validated format support, end-to-end evidence, or safe future evolution. Use this fresh context to complete the largest coherent, validated vertical slice supported by the evidence; connect adjacent parser, IR, materialization, executor, differential-validation, documentation and report layers whenever that closes one material mission gap. Apply Clean Code and SOLID pragmatically: preserve responsibility boundaries, explicit extension contracts, narrow dependencies, clear invariants and fail-closed errors; repair relevant duplication or design hazards encountered in the critical path. Do not stop at a micro-change, isolated test, or small commit merely to create a handoff. Before committing, conduct an architectural self-review for cohesion, coupling, duplication, testability and extension safety. Do not ask for a plan or wait for human input unless an actual external resource or decision is required.\n\nDo every safe, coherent improvement that current evidence reveals. Never write that a future implementation or next loop should perform ordinary work you can perform now. A predecessor's handoff is evidence only: independently review its claimed results, then choose and execute the current loop's own highest-impact work.\n\nA predecessor can propose a candidate acceptance claim, but never certify its own work. Before advancing any claimed gate or reporting an objective achieved, independently inspect the predecessor's diff and rerun or strengthen its evidence. Your independent review, not the implementer's self-assessment, is the authority for accepting the claim.\n\nCurrent state:\n\n\`\`\`json\n${JSON.stringify(state, null, 2)}\n\`\`\`\n\nPrevious accepted handoff: ${previousHandoff ?? "none; this is the first loop"}.\n\nThe external runner, not you, starts the next loop. Before exiting, run every command in agent-loop.config.json.validationCommands, create one local Git commit, and atomically create exactly one handoff named HANDOFF-${String(sequence).padStart(4, "0")}-<UTC timestamp>-<slug>.json in ${config.handoffDirectory}. Its runId must be \`${runId}\`, sequence must be ${sequence}, and endingState.gitCommit must equal the new HEAD commit. The handoff is your final repository-changing action. It must be backward-looking: include only completed results, reproducible validation, known limits and evidence-backed bottlenecks. Do not include nextRecommendedMilestone, nextSteps, or a proposal for the successor.\n`;
 }
 
 async function start(config) {

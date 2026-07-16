@@ -12,8 +12,9 @@ Each invocation is a fresh senior-engineering work session, not a queue worker
 consuming the previous handoff. The agent owns the outcome, diagnoses the
 current system independently, forms an internal high-level plan, makes the
 necessary decisions from repository evidence, and advances the mission as far
-as the available context permits. It proposes the next strategic move rather
-than merely reporting the next local task.
+as the available context permits. It executes every coherent improvement that
+the live evidence makes safe and necessary; it does not defer ordinary work to
+a hypothetical successor.
 
 The loop is deliberately configured for `gpt-5.6-terra` at high reasoning
 effort. Use that reasoning capacity on architecture, semantic boundaries,
@@ -130,9 +131,12 @@ call the checkpoint reached.
   independently inspect the diff and rerun or strengthen the evidence before
   it may accept that claim, advance the roadmap, or report achievement.
 - Never claim validation, equivalence or a commit that did not occur.
-- A handoff is continuity context, not a work diary: retain only the completed
-  outcome, real validation evidence, unresolved bottlenecks and the next
-  highest-impact milestone with acceptance criteria.
+- A handoff is continuity context, not a work diary or a task assignment:
+  retain only the completed outcome, real validation evidence and unresolved
+  bottlenecks. Do not include proposed next implementations or next steps.
+- If an improvement is understandable and safe from the current evidence, make
+  it in the current loop. Leave work only for a genuinely new boundary,
+  external blocker, or a required independent review of the current evidence.
 - Act as an owner of the mission, not as a ticket executor. Reassess the whole
   system and connect adjacent layers when that removes a material fidelity or
   validation gap. A passing narrow test alone is not a reason to end a cycle
