@@ -84,6 +84,7 @@ export async function captureTransformersLlamaTrace(options: TransformersCapture
           containerFormat: "safetensors",
           quantization: "none",
           inputTokens: [options.inputTokens],
+          positionIds: [positions],
           dtypePolicy: "PyTorch float32 eager LlamaForCausalLM native capture",
           operations: reference.operations,
           pastKeyValues: reference.pastKeyValues,

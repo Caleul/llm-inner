@@ -96,6 +96,7 @@ export async function readExecutionTraceBundle(file: string): Promise<DecodedExe
     reference: {
       ...bundle.reference,
       inputTokens: bundle.reference.inputTokens.map((row) => [...row]),
+      ...(bundle.reference.positionIds ? { positionIds: bundle.reference.positionIds.map((row) => [...row]) } : {}),
       operations: bundle.reference.operations.map((sample) => ({
         operationId: sample.operationId,
         output: sample.output,
@@ -193,6 +194,12 @@ function validateBundle(raw: unknown): ExecutionTraceBundle {
     if (typeof reference[field] !== "string" || reference[field].trim() === "") throw new Error(`Trace reference requer ${field} não vazio.`);
   }
   if (!Array.isArray(reference.inputTokens) || reference.inputTokens.length === 0 || !reference.inputTokens.every(tokenRow)) throw new Error("Trace reference requer inputTokens inteiros não negativos.");
+  const inputTokens = reference.inputTokens as number[][];
+  const positionIds = reference.positionIds;
+  if (positionIds !== undefined && (!Array.isArray(positionIds) || positionIds.length !== inputTokens.length ||
+    !positionIds.every((row, index) => tokenRow(row) && row.length === inputTokens[index]!.length))) {
+    throw new Error("Trace reference positionIds requer o mesmo shape de inputTokens com posições inteiras não negativas.");
+  }
   if (!Array.isArray(reference.operations) || !Array.isArray(reference.pastKeyValues)) throw new Error("Trace reference requer operations e pastKeyValues arrays.");
   const files = source.files.map((entry) => {
     const file = object(entry, "Trace source file");
@@ -216,7 +223,7 @@ function validateBundle(raw: unknown): ExecutionTraceBundle {
     reference: {
       runtime: reference.runtime as string, model: reference.model as string, revisionOrChecksum: reference.revisionOrChecksum as string,
       containerFormat: reference.containerFormat as string, quantization: reference.quantization as string,
-      inputTokens: reference.inputTokens as number[][], dtypePolicy: reference.dtypePolicy as string,
+      inputTokens, ...(positionIds !== undefined ? { positionIds: positionIds.map((row) => [...row] as number[]) } : {}), dtypePolicy: reference.dtypePolicy as string,
       operations, pastKeyValues,
     },
   };

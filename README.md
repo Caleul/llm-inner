@@ -276,7 +276,8 @@ A equivalência real deve ser confirmada por um validador diferencial: mesma ent
 para essa comparação. Um hook do runtime autoritativo precisa fornecer a saída
 de **cada** operação pelo `operationId` estável do IR, mais o KV pós-RoPE por
 camada em BHSD, e identificar runtime, modelo, revisão/checksum, formato,
-quantização, tokens e política de dtype. O relatório mede erro absoluto e
+quantização, tokens, posições absolutas de execução (quando não começam em
+zero) e política de dtype. O relatório mede erro absoluto e
 relativo, cosseno, sobreposição top-k, argmax e a primeira divergência. Captura
 ausente, operação extra, shape incompatível ou cache faltante é `incomplete`,
 nunca uma aprovação numérica. O contrato em si não é uma integração com
@@ -342,6 +343,36 @@ caches KV, logits e três passos greedy, todos contra MLX 0.32. O relatório
 preserva a distinção essencial: é uma comparação numérica por kernels MLX
 contra o executor candidato, não uma captura do `transformers` que estabelece
 de modo independente a semântica da arquitetura.
+
+### Captura semântica nativa por Transformers (Llama F32)
+
+`capture:transformers-trace` é o caminho separado para evidência semântica do
+runtime oficial: ele abre um pacote local denso F32 por
+`LlamaForCausalLM` do Hugging Face, fixa `transformers==4.57.1` e
+`torch==2.7.1`, força atenção `eager` e não envia o IR candidato ao helper
+Python. O adaptador aceita somente `model_type=llama`, `hidden_act=silu`,
+projeções sem bias e RoPE padrão sem scaling. Ele instala hooks para todas as
+fronteiras estáveis do IR e prova, antes de escrever a captura, que a execução
+instrumentada preserva bit a bit logits e `DynamicCache` canônico BHSD da
+execução não instrumentada. Famílias, storage, dtypes, versões ou semânticas
+fora desse contrato falham fechadas.
+
+```bash
+npm run capture:transformers-trace -- --source ./model --output ./transformers-execution.json \
+  --input-tokens 1,2,3 --position-ids 0,1,2 \
+  --python /path/to/pinned-transformers/bin/python \
+  --model my-llama --revision immutable-revision
+npm run compare:trace -- --source ./model --trace ./transformers-execution.json \
+  --report ./transformers-execution-report.json --max-absolute-error 1e-5 --max-relative-error 1e-4
+```
+
+Com `--max-new-tokens`, a mesma fronteira captura logits de seleção, cada KV
+pós-decode, logits terminais e o cache final para `compare:generation-trace`.
+Ao contrário da captura MLX, esta evidência não deriva a semântica de forward
+do IR candidato. Ela ainda é limitada ao contrato Llama F32 e às versões
+declaradas; não generaliza para arquiteturas, formatos ou quantizações não
+instrumentados. O replay do pacote público imutável está em
+[`docs/validation/tiny-random-llama-transformers-2026-07-16.md`](docs/validation/tiny-random-llama-transformers-2026-07-16.md).
 
 Há também uma regressão cruzada de contêiner que grava o mesmo microcheckpoint
 Llama denso em Safetensors e GGUF v3. O caminho GGUF reconstrói as dimensões

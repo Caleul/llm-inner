@@ -55,7 +55,7 @@ export async function captureMlxTrace(options: MlxCaptureOptions): Promise<"exec
         ...common, kind: "execution",
         reference: {
           runtime: mlxRuntime(ir.architecture.modelType, captureQuantization), model: options.model, revisionOrChecksum: options.revisionOrChecksum,
-          containerFormat: captureQuantization ? "mlx-safetensors" : "safetensors", quantization: mlxQuantizationLabel(captureQuantization), inputTokens: [options.inputTokens], dtypePolicy: "MLX float32 kernel capture",
+          containerFormat: captureQuantization ? "mlx-safetensors" : "safetensors", quantization: mlxQuantizationLabel(captureQuantization), inputTokens: [options.inputTokens], positionIds: [positions], dtypePolicy: "MLX float32 kernel capture",
           operations: reference.operations, pastKeyValues: reference.pastKeyValues,
         },
       };

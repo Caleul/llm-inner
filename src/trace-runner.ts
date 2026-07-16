@@ -24,8 +24,8 @@ export async function runExecutionTraceComparison(options: {
     const ir = await buildModelIR(opened.catalog, { outputRows: 1, inputTerms: 1, includeWeights: false }, opened.bridge);
     if (fingerprintIR(ir) !== decoded.bundle.irFingerprint) throw new Error("Fingerprint do IR diverge; trace foi capturado para outra semântica/adaptador.");
     const candidate = decoded.bundle.candidatePolicy.dtype === "F32"
-      ? await executeF32Trace(ir, opened, decoded.reference.inputTokens)
-      : await executeF64Trace(ir, opened, decoded.reference.inputTokens);
+      ? await executeF32Trace(ir, opened, decoded.reference)
+      : await executeF64Trace(ir, opened, decoded.reference);
     const report = compareExecutionTrace(ir, candidate, decoded.reference, {
       candidateRuntime: decoded.bundle.candidatePolicy.runtime,
       ...(options.topK !== undefined ? { topK: options.topK } : {}),
@@ -82,19 +82,27 @@ export async function runGenerationTraceComparison(options: {
   }
 }
 
-async function executeF32Trace(ir: ModelIR, opened: Awaited<ReturnType<typeof openCatalog>>, inputIds: number[][]) {
+async function executeF32Trace(
+  ir: ModelIR,
+  opened: Awaited<ReturnType<typeof openCatalog>>,
+  reference: Awaited<ReturnType<typeof readExecutionTraceBundle>>["reference"],
+) {
   applyReferenceF32Policy(ir);
   const tensors = await materializeReferenceF32Constants(ir, opened.catalog, opened.reader, opened.bridge);
-  return executeReferenceF32(ir, { inputIds, tensors });
+  return executeReferenceF32(ir, { inputIds: reference.inputTokens, ...(reference.positionIds ? { positionIds: reference.positionIds } : {}), tensors });
 }
 
-async function executeF64Trace(ir: ModelIR, opened: Awaited<ReturnType<typeof openCatalog>>, inputIds: number[][]) {
+async function executeF64Trace(
+  ir: ModelIR,
+  opened: Awaited<ReturnType<typeof openCatalog>>,
+  reference: Awaited<ReturnType<typeof readExecutionTraceBundle>>["reference"],
+) {
   applyReferenceF64Policy(ir);
   if (!("readDenseF64" in opened.reader) || typeof opened.reader.readDenseF64 !== "function") {
     throw new Error("Trace F64 requer um contêiner com materializador F64 denso verificado.");
   }
   const tensors = await materializeReferenceF64Constants(ir, opened.catalog, opened.reader);
-  return executeReferenceF64(ir, { inputIds, tensors });
+  return executeReferenceF64(ir, { inputIds: reference.inputTokens, ...(reference.positionIds ? { positionIds: reference.positionIds } : {}), tensors });
 }
 
 async function generateF32Trace(ir: ModelIR, opened: Awaited<ReturnType<typeof openCatalog>>, reference: Awaited<ReturnType<typeof readGenerationTraceBundle>>["reference"]) {

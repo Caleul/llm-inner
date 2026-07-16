@@ -353,6 +353,11 @@ export interface DifferentialReferenceTrace {
   containerFormat: SourceFormat | string;
   quantization: string;
   inputTokens: number[][];
+  /**
+   * Absolute positions used by the authoritative execution capture. Omitted
+   * only for legacy traces whose sequences all start at zero.
+   */
+  positionIds?: number[][];
   dtypePolicy: string;
   operations: readonly DifferentialOperationSample[];
   pastKeyValues: readonly DifferentialKeyValueCacheSample[];

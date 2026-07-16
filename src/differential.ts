@@ -138,6 +138,7 @@ export function compareExecutionTrace(
       containerFormat: reference.containerFormat,
       quantization: reference.quantization,
       inputTokens: reference.inputTokens.map((row) => [...row]),
+      ...(reference.positionIds ? { positionIds: reference.positionIds.map((row) => [...row]) } : {}),
       dtypePolicy: reference.dtypePolicy,
     },
     candidateRuntime: options.candidateRuntime,

@@ -33,12 +33,13 @@ test("version-pinned Transformers Llama capture records native operations, cache
     await writeTinyF32Model(directory);
     const source = path.join(directory, "model");
     const executionTrace = path.join(directory, "execution.json");
-    assert.equal(await captureTransformersLlamaTrace({ source, output: executionTrace, inputTokens: [1], python, model: "tiny-llama-transformers", revisionOrChecksum: "tiny-transformers-fixture-v1" }), "execution");
+    assert.equal(await captureTransformersLlamaTrace({ source, output: executionTrace, inputTokens: [1], positionIds: [7], python, model: "tiny-llama-transformers", revisionOrChecksum: "tiny-transformers-fixture-v1" }), "execution");
     const execution = await runExecutionTraceComparison({ source, trace: executionTrace, report: path.join(directory, "execution-report.json"), topK: 3, maxAbsoluteError: 1e-5, maxRelativeError: 1e-4 });
     assert.equal(execution.reference.runtime, "PyTorch 2.7.1 / Transformers 4.57.1 LlamaForCausalLM eager native capture");
     assert.equal(execution.operations.length, 22);
     assert.equal(execution.firstDivergentOperation, null);
     assert.equal(execution.kvCache.length, 1);
+    assert.deepEqual(execution.reference.positionIds, [[7]]);
 
     const generationTrace = path.join(directory, "generation.json");
     assert.equal(await captureTransformersLlamaTrace({ source, output: generationTrace, inputTokens: [1], maxNewTokens: 2, python, model: "tiny-llama-transformers", revisionOrChecksum: "tiny-transformers-fixture-v1" }), "generation");
@@ -317,7 +318,7 @@ test("integrity-bound F32 trace runs catalog-to-materializer-to-executor differe
       ir = await buildModelIR(opened.catalog, preview);
       setF32Policy(ir);
       const tensors = await materializeReferenceF32Constants(ir, opened.catalog, opened.reader);
-      candidate = executeReferenceF32(ir, { inputIds: [[1]], tensors });
+      candidate = executeReferenceF32(ir, { inputIds: [[1]], positionIds: [[7]], tensors });
     } finally {
       await opened.close();
     }
@@ -335,7 +336,7 @@ test("integrity-bound F32 trace runs catalog-to-materializer-to-executor differe
       candidatePolicy: { dtype: "F32", runtime: "llm-inner scalar IEEE-754 F32" },
       reference: {
         runtime: "fixture authoritative F32", model: "tiny-llama", revisionOrChecksum: "fixture-sha256",
-        containerFormat: "safetensors", quantization: "none", inputTokens: [[1]], dtypePolicy: "F32 scalar fixture",
+        containerFormat: "safetensors", quantization: "none", inputTokens: [[1]], positionIds: [[7]], dtypePolicy: "F32 scalar fixture",
         operations: operations(ir!).map((operation) => ({ operationId: operation.id, output: operation.output, tensor: serialized(candidate!.values.get(operation.output)!) })),
         pastKeyValues: [...candidate!.pastKeyValues].map(([layer, cache]) => ({ layer, key: serialized(cache.key), value: serialized(cache.value) })),
       },
@@ -344,6 +345,7 @@ test("integrity-bound F32 trace runs catalog-to-materializer-to-executor differe
     const report = await runExecutionTraceComparison({ source, trace, report: reportPath, topK: 3 });
     assert.equal(report.fidelityClass, "lossless-within-dtype");
     assert.equal(report.firstDivergentOperation, null);
+    assert.deepEqual(report.reference.positionIds, [[7]]);
     assert.equal(JSON.parse(await readFile(reportPath, "utf8")).logits.maxAbsoluteError, 0);
 
     await writeFile(path.join(source, "config.json"), "{}\n");
