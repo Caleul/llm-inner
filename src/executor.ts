@@ -777,12 +777,13 @@ function perLayerEmbeddingF32(inputIds: number[][], weight: DenseF32Tensor, oper
   return reshapePerLayerF32(embeddingF32(inputIds, weight, operation.scale), operation.numLayers, operation.layerWidth);
 }
 
-function reshapePerLayerF32(input: DenseF32Tensor, numLayers: number, layerWidth: number): DenseF32Tensor {
+/** Shared scalar-F32 kernels. Storage-backed executors supply constants lazily. */
+export function reshapePerLayerF32(input: DenseF32Tensor, numLayers: number, layerWidth: number): DenseF32Tensor {
   if (input.shape.length !== 3 || input.shape[2] !== numLayers * layerWidth) throw new Error("reshape_per_layer requer [B,S,L*D].");
   return denseF32([input.shape[0]!, input.shape[1]!, numLayers, layerWidth], Float32Array.from(input.values));
 }
 
-function selectPerLayerF32(input: DenseF32Tensor, operation: Extract<Operation, { op: "select_per_layer" }>): DenseF32Tensor {
+export function selectPerLayerF32(input: DenseF32Tensor, operation: Extract<Operation, { op: "select_per_layer" }>): DenseF32Tensor {
   if (input.shape.length !== 4 || input.shape[2] !== operation.numLayers || input.shape[3] !== operation.layerWidth || operation.layerIndex < 0 || operation.layerIndex >= operation.numLayers) throw new Error(`${operation.id}: slice PLE incompatível.`);
   const [batch, sequence] = input.shape as [number, number, number, number];
   const values = new Float32Array(batch * sequence * operation.layerWidth);
@@ -790,12 +791,12 @@ function selectPerLayerF32(input: DenseF32Tensor, operation: Extract<Operation, 
   return denseF32([batch, sequence, operation.layerWidth], values);
 }
 
-function tensorScaleF32(input: DenseF32Tensor, scalar: DenseF32Tensor, operationId: string): DenseF32Tensor {
+export function tensorScaleF32(input: DenseF32Tensor, scalar: DenseF32Tensor, operationId: string): DenseF32Tensor {
   if (scalar.shape.length !== 1 || scalar.shape[0] !== 1) throw new Error(`${operationId}: tensor escalar deve ter shape [1].`);
   return denseF32([...input.shape], input.values.map((entry) => f32(entry * scalar.values[0]!)));
 }
 
-function rmsNormF32(input: DenseF32Tensor, weight: DenseF32Tensor | undefined, operation: Extract<Operation, { op: "rms_norm" }>): DenseF32Tensor {
+export function rmsNormF32(input: DenseF32Tensor, weight: DenseF32Tensor | undefined, operation: Extract<Operation, { op: "rms_norm" }>): DenseF32Tensor {
   const width = input.shape.at(-1);
   if (width === undefined || (operation.weightTransform === "none" ? weight !== undefined : !weight || weight.shape.length !== 1 || weight.shape[0] !== width)) throw new Error(`${operation.id}: RMSNorm incompatível.`);
   const result = new Float32Array(input.values.length);
@@ -829,7 +830,7 @@ function linearF32(input: DenseF32Tensor, weight: DenseF32Tensor, bias?: DenseF3
   return denseF32([...input.shape.slice(0, -1), outFeatures], result);
 }
 
-function reshapeHeadsF32(input: DenseF32Tensor, heads: number, headDim: number): DenseF32Tensor {
+export function reshapeHeadsF32(input: DenseF32Tensor, heads: number, headDim: number): DenseF32Tensor {
   if (input.shape.length !== 3 || input.shape[2] !== heads * headDim) throw new Error("reshape_heads requer [B,S,H*D].");
   const [batch, sequence] = input.shape as [number, number, number];
   const result = new Float32Array(input.values.length);
@@ -853,7 +854,7 @@ function cacheForLayerF32(
   return entry;
 }
 
-function concatSequenceF32(previous: DenseF32Tensor, current: DenseF32Tensor): DenseF32Tensor {
+export function concatSequenceF32(previous: DenseF32Tensor, current: DenseF32Tensor): DenseF32Tensor {
   const [batch, heads, previousSequence, headDim] = previous.shape as [number, number, number, number];
   const [, , currentSequence] = current.shape as [number, number, number, number];
   const values = new Float32Array(batch * heads * (previousSequence + currentSequence) * headDim);
@@ -872,7 +873,7 @@ function assertCacheEntryF32(key: DenseF32Tensor, valueTensor: DenseF32Tensor, c
   }
 }
 
-function rotaryF32(input: DenseF32Tensor, positions: number[][], operation: Extract<Operation, { op: "rotary_embedding" }>): DenseF32Tensor {
+export function rotaryF32(input: DenseF32Tensor, positions: number[][], operation: Extract<Operation, { op: "rotary_embedding" }>): DenseF32Tensor {
   if ((operation.ropeType !== "default" && operation.ropeType !== "proportional") || operation.layout !== "rotate_half") throw new Error(`${operation.id}: variante RoPE não suportada pelo executor F32.`);
   if (input.shape.length !== 4 || operation.rotaryDim <= 0 || operation.rotaryDim % 2 !== 0 || operation.rotaryDim > input.shape[3]!) throw new Error(`${operation.id}: dimensão RoPE inválida.`);
   const [batch, heads, sequence, headDim] = input.shape as [number, number, number, number];
@@ -894,7 +895,7 @@ function rotaryF32(input: DenseF32Tensor, positions: number[][], operation: Extr
   return denseF32([...input.shape], result);
 }
 
-function attentionF32(query: DenseF32Tensor, key: DenseF32Tensor, valueTensor: DenseF32Tensor, operation: Extract<Operation, { op: "scaled_dot_product_attention" }>, attentionMask?: DenseF32Tensor, pastLength = 0, maskDefinesTopology = false): DenseF32Tensor {
+export function attentionF32(query: DenseF32Tensor, key: DenseF32Tensor, valueTensor: DenseF32Tensor, operation: Extract<Operation, { op: "scaled_dot_product_attention" }>, attentionMask?: DenseF32Tensor, pastLength = 0, maskDefinesTopology = false): DenseF32Tensor {
   if (query.shape.length !== 4 || key.shape.length !== 4 || valueTensor.shape.length !== 4) throw new Error(`${operation.id}: attention requer tensores BHSD.`);
   const [batch, queryHeads, querySequence, headDim] = query.shape as [number, number, number, number];
   const [keyBatch, keyHeads, keySequence, keyDim] = key.shape as [number, number, number, number];
@@ -933,7 +934,7 @@ function attentionF32(query: DenseF32Tensor, key: DenseF32Tensor, valueTensor: D
   return denseF32([batch, querySequence, queryHeads * headDim], result);
 }
 
-function activationF32(input: DenseF32Tensor, functionName: string, approximation?: string): DenseF32Tensor {
+export function activationF32(input: DenseF32Tensor, functionName: string, approximation?: string): DenseF32Tensor {
   const values = new Float32Array(input.values.length);
   for (let index = 0; index < values.length; index += 1) {
     const x = input.values[index]!;
@@ -945,7 +946,7 @@ function activationF32(input: DenseF32Tensor, functionName: string, approximatio
   return denseF32([...input.shape], values);
 }
 
-function elementwiseF32(inputs: DenseF32Tensor[], kind: Extract<Operation, { op: "elementwise" }> ["kind"], scalar?: number): DenseF32Tensor {
+export function elementwiseF32(inputs: DenseF32Tensor[], kind: Extract<Operation, { op: "elementwise" }> ["kind"], scalar?: number): DenseF32Tensor {
   if (inputs.length === 0) throw new Error("Operação elementwise sem entradas.");
   const first = inputs[0]!;
   for (const input of inputs.slice(1)) assertShapeF32(input, first.shape, "elementwise");

@@ -14,6 +14,7 @@ import {
   writeGemma4CompositeLiteralCalculationProgram,
 } from "../src/gemma4-composite-literal.js";
 import { openGemma4CompositeLiteralArtifact } from "../src/gemma4-composite-literal-reader.js";
+import { executeGemma4PagedTextLiteralF32, generateGemma4PagedTextLiteralF32 } from "../src/gemma4-paged-text.js";
 import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearF32 } from "../src/paged-dense.js";
 import type { DenseF32Tensor, ModelCatalog, TensorInfo } from "../src/types.js";
 
@@ -231,6 +232,38 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
         0.03999999910593033, 0.06000000610947609, 0.07000000029802322, 0.07000000029802322,
       ]));
       await assert.rejects(() => projection.readRows(0, 2), /excede maxReadBytes/);
+    } finally {
+      await artifact.close();
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("Gemma 4 paged text interpreter replays prefill and cached greedy decode from literal ranges after source removal", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "llm-inner-gemma4-paged-text-"));
+  try {
+    const catalog = fixture(), program = buildGemma4CompositeProgram(catalog, preview), sourceTensors = materialize(catalog);
+    const expected = executeGemma4CompositeF32(program, { inputIds: [[1, 2, 3]], tensors: sourceTensors });
+    const expectedGeneration = generateGemma4CompositeF32(program, { inputIds: [[1, 2, 3]], tensors: sourceTensors, maxNewTokens: 2 });
+    const output = path.join(root, "tiny.gemma4.literal.json");
+    await writeGemma4CompositeLiteralCalculationProgram(program, catalog, {
+      async readTensorBytes(info) {
+        const tensor = sourceTensors.get(info.name)!;
+        const bytes = Buffer.alloc(tensor.values.length * 4);
+        tensor.values.forEach((value, index) => bytes.writeFloatLE(value, index * 4));
+        return bytes;
+      },
+    }, output);
+    sourceTensors.clear();
+    const artifact = await openGemma4CompositeLiteralArtifact(output);
+    try {
+      const replay = await executeGemma4PagedTextLiteralF32(artifact, { inputIds: [[1, 2, 3]] }, { maxReadBytes: 64 });
+      const generation = await generateGemma4PagedTextLiteralF32(artifact, { inputIds: [[1, 2, 3]], maxNewTokens: 2 }, { maxReadBytes: 64 });
+      assert.deepEqual(replay.logits.values, expected.text.logits.values);
+      assert.deepEqual(generation.generatedTokenIds, expectedGeneration.generatedTokenIds);
+      assert.deepEqual(generation.logits.values, expectedGeneration.text.logits.values);
+      assert.deepEqual([...generation.pastKeyValues.keys()], [...expectedGeneration.text.pastKeyValues.keys()]);
     } finally {
       await artifact.close();
     }

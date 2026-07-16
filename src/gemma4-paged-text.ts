@@ -1,0 +1,222 @@
+import {
+  activationF32,
+  attentionF32,
+  concatSequenceF32,
+  elementwiseF32,
+  reshapeHeadsF32,
+  reshapePerLayerF32,
+  rmsNormF32,
+  rotaryF32,
+  selectPerLayerF32,
+  tensorScaleF32,
+} from "./executor.js";
+import type { OpenGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
+import { selectGreedyToken } from "./generation.js";
+import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearF32, readPagedDenseF32Vector } from "./paged-dense.js";
+import type {
+  DenseF32Tensor,
+  Operation,
+  ReferenceF32ExecutionResult,
+  ReferenceF32GenerationResult,
+  ReferenceF32KeyValueCache,
+  TensorInfo,
+  TensorRef,
+} from "./types.js";
+
+export interface Gemma4PagedTextExecutionRequest {
+  inputIds: number[][];
+  positionIds?: number[][];
+  attentionMask?: DenseF32Tensor;
+  attentionMasksByLayer?: ReadonlyMap<number, DenseF32Tensor>;
+  pastKeyValues?: ReadonlyMap<number, ReferenceF32KeyValueCache>;
+}
+
+export interface Gemma4PagedTextGenerationRequest extends Gemma4PagedTextExecutionRequest {
+  maxNewTokens: number;
+  eosTokenId?: number;
+}
+
+export interface Gemma4PagedTextOptions {
+  /** Maximum decoded literal-storage range held by one matrix/vector read. */
+  maxReadBytes?: number;
+}
+
+/**
+ * Executes the declared Gemma4Text graph directly from an indexed literal
+ * artifact. Matrix bytes are decoded a bounded output-row page at a time;
+ * vector constants are bounded separately. This deliberately accepts no
+ * image, video, or audio values: those tower paths remain fail-closed until
+ * their own storage-backed kernels exist.
+ */
+export async function executeGemma4PagedTextLiteralF32(
+  artifact: OpenGemma4CompositeLiteralArtifact,
+  request: Gemma4PagedTextExecutionRequest,
+  options: Gemma4PagedTextOptions = {},
+): Promise<ReferenceF32ExecutionResult> {
+  const maxReadBytes = options.maxReadBytes ?? 16 * 1024 * 1024;
+  const inputIds = request.inputIds;
+  if (inputIds.length === 0 || inputIds.some((row) => row.length === 0 || row.length !== inputIds[0]!.length)) {
+    throw new Error("Gemma 4 paginado requer input_ids não vazio e retangular.");
+  }
+  const sequence = inputIds[0]!.length;
+  const positions = request.positionIds ?? inputIds.map((row) => row.map((_, index) => index));
+  if (positions.length !== inputIds.length || positions.some((row) => row.length !== sequence)) {
+    throw new Error("Gemma 4 paginado position_ids deve acompanhar input_ids.");
+  }
+  const vectors = new Map<string, Promise<DenseF32Tensor>>();
+  const matrix = (reference: TensorRef) => createPagedDenseF32Matrix(tensorInfo(artifact, reference), artifact, maxReadBytes);
+  const vector = (reference: TensorRef): Promise<DenseF32Tensor> => {
+    let result = vectors.get(reference.name);
+    if (!result) {
+      result = readPagedDenseF32Vector(tensorInfo(artifact, reference), artifact, maxReadBytes);
+      vectors.set(reference.name, result);
+    }
+    return result;
+  };
+  const values = new Map<string, DenseF32Tensor>();
+  const producedCache = new Map<number, ReferenceF32KeyValueCache>();
+  const operations = [...artifact.program.textProgram.prelude, ...artifact.program.textProgram.layers.flatMap((layer) => layer.operations), ...artifact.program.textProgram.epilogue];
+  for (const operation of operations) {
+    assertPagedF32Policy(operation);
+    switch (operation.op) {
+      case "embedding":
+        values.set(operation.output, await pagedEmbeddingF32(inputIds, matrix(operation.weight), operation.scale));
+        break;
+      case "per_layer_embedding":
+        values.set(operation.output, reshapePerLayerF32(await pagedEmbeddingF32(inputIds, matrix(operation.weight), operation.scale), operation.numLayers, operation.layerWidth));
+        break;
+      case "rms_norm":
+        values.set(operation.output, rmsNormF32(value(values, operation.input), operation.weight ? await vector(operation.weight) : undefined, operation));
+        break;
+      case "reshape_per_layer":
+        values.set(operation.output, reshapePerLayerF32(value(values, operation.input), operation.numLayers, operation.layerWidth));
+        break;
+      case "select_per_layer":
+        values.set(operation.output, selectPerLayerF32(value(values, operation.input), operation));
+        break;
+      case "tensor_scale":
+        values.set(operation.output, tensorScaleF32(value(values, operation.input), await vector(operation.scalar), operation.id));
+        break;
+      case "linear":
+        if (!operation.transposeWeight || operation.bias) throw new Error(`${operation.id}: executor Gemma 4 paginado requer linear [out,in] sem bias.`);
+        values.set(operation.output, await pagedLinearF32(value(values, operation.input), matrix(operation.weight)));
+        break;
+      case "reshape_heads":
+        if (operation.layout !== "BHSD") throw new Error(`${operation.id}: executor Gemma 4 paginado requer layout BHSD.`);
+        values.set(operation.output, reshapeHeadsF32(value(values, operation.input), operation.numHeads, operation.headDim));
+        break;
+      case "rotary_embedding":
+        values.set(operation.output, rotaryF32(value(values, operation.input), positions, operation));
+        break;
+      case "scaled_dot_product_attention": {
+        if (operation.layer === undefined) throw new Error(`${operation.id}: attention sem índice não pode possuir cache KV.`);
+        const topologyMask = request.attentionMasksByLayer?.get(operation.layer);
+        if (operation.kvSharing) {
+          const producer = operation.kvSharing.producerLayer;
+          if (producer === undefined) throw new Error(`${operation.id}: KV compartilhado sem produtor declarado.`);
+          const shared = producedCache.get(producer);
+          if (!shared) throw new Error(`${operation.id}: KV compartilhado não encontrou cache do produtor ${producer}.`);
+          const query = value(values, operation.query);
+          values.set(operation.output, attentionF32(query, shared.key, shared.value, operation, topologyMask ?? request.attentionMask, sharedPastLength(operation.id, shared, query), topologyMask !== undefined));
+          break;
+        }
+        const currentKey = value(values, operation.key);
+        const currentValue = value(values, operation.value);
+        const previous = request.pastKeyValues?.get(operation.layer);
+        if (request.pastKeyValues && !previous) throw new Error(`${operation.id}: pastKeyValues não contém a camada ${operation.layer}.`);
+        if (previous) assertCompatibleCache(previous, currentKey, currentValue, operation.id);
+        const key = previous ? concatSequenceF32(previous.key, currentKey) : currentKey;
+        const valueTensor = previous ? concatSequenceF32(previous.value, currentValue) : currentValue;
+        values.set(operation.output, attentionF32(value(values, operation.query), key, valueTensor, operation, topologyMask ?? request.attentionMask, previous?.key.shape[2] ?? 0, topologyMask !== undefined));
+        producedCache.set(operation.layer, { key, value: valueTensor });
+        break;
+      }
+      case "activation":
+        values.set(operation.output, activationF32(value(values, operation.input), operation.function, operation.approximation));
+        break;
+      case "elementwise":
+        values.set(operation.output, elementwiseF32(operation.inputs.map((name) => value(values, name)), operation.kind, operation.scalar));
+        break;
+      default: {
+        const unsupported: never = operation;
+        throw new Error(`Operação Gemma 4 paginada não suportada: ${JSON.stringify(unsupported)}.`);
+      }
+    }
+  }
+  const logits = values.get("softcapped_logits") ?? values.get("logits");
+  if (!logits) throw new Error("Gemma 4 paginado não produziu logits.");
+  return { values, logits, pastKeyValues: producedCache };
+}
+
+/** Greedy cached decode through the same source-independent text-only path. */
+export async function generateGemma4PagedTextLiteralF32(
+  artifact: OpenGemma4CompositeLiteralArtifact,
+  request: Gemma4PagedTextGenerationRequest,
+  options: Gemma4PagedTextOptions = {},
+): Promise<ReferenceF32GenerationResult> {
+  if (request.inputIds.length !== 1 || request.inputIds[0]?.length === 0 || !Number.isInteger(request.maxNewTokens) || request.maxNewTokens < 0) {
+    throw new Error("Geração Gemma 4 paginada requer um prompt único não vazio e maxNewTokens inteiro não negativo.");
+  }
+  if (request.eosTokenId !== undefined && (!Number.isInteger(request.eosTokenId) || request.eosTokenId < 0)) throw new Error("Geração Gemma 4 paginada requer eosTokenId inteiro não negativo.");
+  let current = await executeGemma4PagedTextLiteralF32(artifact, request, options);
+  const prompt = request.inputIds[0]!;
+  const positions = request.positionIds?.[0] ?? prompt.map((_, index) => index);
+  let nextPosition = positions.at(-1)! + 1;
+  const generatedTokenIds: number[] = [];
+  const selectionLogits: DenseF32Tensor[] = [];
+  const stepPastKeyValues: Array<ReadonlyMap<number, ReferenceF32KeyValueCache>> = [];
+  const steps: Array<{ tokenId: number; positionId: number }> = [];
+  for (let step = 0; step < request.maxNewTokens; step += 1) {
+    selectionLogits.push(current.logits);
+    const tokenId = selectGreedyToken(current.logits);
+    generatedTokenIds.push(tokenId);
+    steps.push({ tokenId, positionId: nextPosition });
+    current = await executeGemma4PagedTextLiteralF32(artifact, { inputIds: [[tokenId]], positionIds: [[nextPosition]], pastKeyValues: current.pastKeyValues }, options);
+    stepPastKeyValues.push(current.pastKeyValues);
+    nextPosition += 1;
+    if (tokenId === request.eosTokenId) break;
+  }
+  return { inputIds: [...prompt, ...generatedTokenIds], generatedTokenIds, steps, selectionLogits, stepPastKeyValues, logits: current.logits, pastKeyValues: current.pastKeyValues };
+}
+
+function tensorInfo(artifact: OpenGemma4CompositeLiteralArtifact, reference: TensorRef): TensorInfo {
+  const constant = artifact.constants.get(reference.name);
+  if (!constant || reference.quantization || constant.storageDtype !== reference.storageDtype ||
+    constant.logicalShape.length !== reference.shape.length || constant.logicalShape.some((value, index) => value !== reference.shape[index])) {
+    throw new Error(`${reference.name}: referência textual não corresponde à constante densa literal.`);
+  }
+  return { name: constant.name, storageDtype: constant.storageDtype, storageShape: [...constant.storageShape], logicalShape: [...constant.logicalShape] };
+}
+
+function value(values: ReadonlyMap<string, DenseF32Tensor>, name: string): DenseF32Tensor {
+  const found = values.get(name);
+  if (!found) throw new Error(`Gemma 4 paginado não encontrou intermediário ${name}.`);
+  return found;
+}
+
+function assertPagedF32Policy(operation: Operation): void {
+  const policy = operation.dtypePolicy;
+  if (policy.computeDtype !== "F32" || policy.accumulationDtype !== "F32" || policy.outputDtype !== "F32") {
+    throw new Error(`${operation.id}: executor Gemma 4 paginado requer política explícita F32.`);
+  }
+}
+
+function assertCompatibleCache(cache: ReferenceF32KeyValueCache, currentKey: DenseF32Tensor, currentValue: DenseF32Tensor, operationId: string): void {
+  const entries = [cache.key, cache.value, currentKey, currentValue];
+  if (entries.some((entry) => entry.shape.length !== 4) ||
+    cache.key.shape[0] !== currentKey.shape[0] || cache.key.shape[1] !== currentKey.shape[1] || cache.key.shape[3] !== currentKey.shape[3] ||
+    cache.value.shape[0] !== currentValue.shape[0] || cache.value.shape[1] !== currentValue.shape[1] || cache.value.shape[3] !== currentValue.shape[3] ||
+    cache.key.shape.some((dimension, index) => dimension !== cache.value.shape[index])) {
+    throw new Error(`${operationId}: cache KV incompatível com as projeções atuais.`);
+  }
+}
+
+function sharedPastLength(operationId: string, cache: ReferenceF32KeyValueCache, query: DenseF32Tensor): number {
+  if (cache.key.shape.length !== 4 || cache.value.shape.length !== 4 || query.shape.length !== 4 ||
+    cache.key.shape.some((dimension, index) => dimension !== cache.value.shape[index]) || cache.key.shape[0] !== query.shape[0]) {
+    throw new Error(`${operationId}: cache KV compartilhado incompatível.`);
+  }
+  const pastLength = cache.key.shape[2]! - query.shape[2]!;
+  if (pastLength < 0) throw new Error(`${operationId}: cache KV compartilhado menor que a consulta atual.`);
+  return pastLength;
+}

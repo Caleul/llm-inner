@@ -255,9 +255,31 @@ executa embedding e linear na mesma ordem escalar F32 do executor de
 referência. A leitura é limitada por uma janela explícita e não aceita
 quantização ou um payload sem decoder declarado. Isso permite que embeddings e
 projeções enormes sejam consumidos sem formar um mapa F32 do pacote inteiro,
-mas a orquestração assíncrona de todas as operações Gemma 4 (normas, RoPE,
-atenção, cache, PLE e logits) ainda é necessária antes de qualquer alegação de
-prefill/generation E4B.
+e fornece a base de armazenamento para a orquestração textual assíncrona
+descrita a seguir.
+
+`gemma4-paged-text.ts` agora fecha essa orquestração para o ramo textual: o
+interpretador assíncrono lê embeddings e projeções como faixas limitadas do
+artefato indexado, lê vetores de norma/escala sob o mesmo orçamento explícito,
+e executa PLE, RMSNorm, RoPE, atenção, KV por camada produtora, residual, MLP,
+norma final e projeção de vocabulário com os mesmos kernels escalares F32 do
+executor de referência. Ele nunca abre o checkpoint: recebe somente o leitor
+do JSON literal já indexado. O comando deliberadamente não recebe entradas
+visuais, vídeo ou áudio; esses ramos continuam fail-closed até terem kernels
+de armazenamento paginado próprios.
+
+```bash
+npm run replay:gemma4-paged-text -- \
+  --artifact ./artifacts/gemma4-e4b-dense.literal.json \
+  --input-ids 2,106,3 --max-new-tokens 1 --output ./paged-text-report.json
+```
+
+O relatório inclui hash dos logits, tokens greedy, produtores KV, janela de
+leitura e RSS. A regressão atual prova equivalência byte-a-byte de prefill e
+dois passos cached contra o executor eager apenas para a fixture Gemma 4
+registrada após remover os tensores de origem. Não há ainda execução E4B real
+nem comparação com runtime autoritativo; portanto o marcador de checkpoint
+Gemma 4 continua proibido.
 
 ### Comparação com captura autoritativa
 

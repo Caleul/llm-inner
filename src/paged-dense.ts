@@ -15,6 +15,32 @@ export interface PagedDenseF32Matrix {
   readRows(startRow: number, rowCount: number): Promise<DenseF32Tensor>;
 }
 
+/**
+ * Widens one bounded dense vector from declared literal storage. Vectors are
+ * intentionally separate from matrices: norms and scalar tensors do not gain
+ * an invented row-major matrix layout merely to reuse a projection kernel.
+ */
+export async function readPagedDenseF32Vector(
+  tensor: TensorInfo,
+  reader: Pick<LiteralTensorReader, "readTensorBytesRange">,
+  maxReadBytes = 16 * 1024 * 1024,
+): Promise<DenseF32Tensor> {
+  if (!reader.readTensorBytesRange) throw new Error(`${tensor.name}: execução paginada requer readTensorBytesRange.`);
+  if (tensor.quantization || (tensor.storageDtype !== "F32" && tensor.storageDtype !== "F16" && tensor.storageDtype !== "BF16") ||
+    tensor.storageShape.length !== 1 || !sameShape(tensor.storageShape, tensor.logicalShape)) {
+    throw new Error(`${tensor.name}: vetor paginado requer storage denso F32/F16/BF16 1-D sem quantização.`);
+  }
+  const elements = tensor.storageShape[0]!;
+  const bytesPerElement = tensor.storageDtype === "F32" ? 4 : 2;
+  const byteLength = elements * bytesPerElement;
+  if (!Number.isSafeInteger(byteLength) || byteLength <= 0 || byteLength > maxReadBytes) {
+    throw new Error(`${tensor.name}: vetor de ${byteLength} bytes excede maxReadBytes=${maxReadBytes}.`);
+  }
+  const bytes = await reader.readTensorBytesRange(tensor, 0, byteLength);
+  if (bytes.length !== byteLength) throw new Error(`${tensor.name}: leitor paginado retornou ${bytes.length} bytes; esperados ${byteLength}.`);
+  return { shape: [elements], values: decodeDenseRows(bytes, tensor.storageDtype) };
+}
+
 export function createPagedDenseF32Matrix(
   tensor: TensorInfo,
   reader: Pick<LiteralTensorReader, "readTensorBytesRange">,
