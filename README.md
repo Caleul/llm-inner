@@ -216,6 +216,21 @@ o executor composto para prefill e greedy cached decode. A regressão remove o
 mapa de bytes/tensores de uma fixture multimodal registrada antes do replay e
 compara logits e dois tokens greedy.
 
+Para o checkpoint obrigatório `google/gemma-4-E4B` BF16, o mesmo comando agora
+escreve o artefato completo em streaming: ranges Safetensors de 12 MiB são
+codificados em base64 sem acumular o pacote ou uma string de vários GiB na
+heap. O resultado local de 21,325,917,078 bytes contém os 2,130 payloads
+originais (15,992,314,836 bytes), tem SHA-256
+`e81feb9061cabb9a1982c0b2ce890d540ea91f22034c99b1382e6283076c61e1` e é
+auditado por `npm run audit:literal`. As 54 projeções/normas K/V locais dos
+consumidores compartilhados são incorporadas com proveniência explícita em
+`unreachableConstants`; o grafo usa apenas os KV do produtor declarado. A
+evidência reproduzível está em
+[`docs/validation/gemma4-e4b-literal-export-2026-07-16.md`](docs/validation/gemma4-e4b-literal-export-2026-07-16.md).
+Isso prova materialização completa e ausência do caminho do checkpoint no
+artefato, mas ainda não é replay E4B sem fonte nem comparação numérica com o
+runtime autoritativo.
+
 ### Comparação com captura autoritativa
 
 `npm run compare:trace -- --source <checkpoint> --trace <captura.json> --report <relatorio.json>` executa a fronteira completa de validação declarada pela captura (`F32` ou `F64`): reabre o contêiner, confere SHA-256 de `config.json` e de cada shard/arquivo que participa do checkpoint, reconstrói o IR, materializa os pesos por range, executa o interpretador correspondente e compara cada operação e cache KV com a captura. O relatório só é escrito depois de todas essas verificações.

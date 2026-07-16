@@ -11,6 +11,7 @@ import { executeReferenceF32, generateReferenceF32 } from "../src/executor.js";
 import { materializeReferenceF32Constants } from "../src/materialize.js";
 import { SafetensorsCatalogReader } from "../src/safetensors.js";
 import { GgufCatalogReader } from "../src/gguf.js";
+import { auditLiteralArtifactAgainstCatalog } from "../src/literal-artifact-audit.js";
 
 const preview = { outputRows: 1, inputTerms: 1, includeWeights: false } as const;
 
@@ -28,6 +29,9 @@ test("dense F32 Safetensors becomes a source-independent literal program that re
     assert.equal(serialized.includes(".safetensors"), false);
     assert.equal(program.constants.length, 12);
     assert.equal(program.constants.every((constant) => constant.encoding === "base64" && constant.byteOrder === "little-endian"), true);
+    const audit = await auditLiteralArtifactAgainstCatalog(artifact, model);
+    assert.equal(audit.constants, program.constants.length);
+    assert.equal(audit.forbiddenSourcePathPresent, false);
     assert.equal(program.stateTransitions.length, 1);
     assert.deepEqual(program.stateTransitions[0], {
       id: "layer_0_attention_kv_cache", layer: 0, operation: "append-post-rope",

@@ -19,6 +19,8 @@ import type {
 /** Storage-level reader required to remove source-checkpoint dependencies. */
 export interface LiteralTensorReader {
   readTensorBytes(tensor: TensorInfo): Promise<Buffer>;
+  /** Optional bounded range read for writers that must handle multi-GiB tensors. */
+  readTensorBytesRange?(tensor: TensorInfo, offset: number, byteLength: number): Promise<Buffer>;
 }
 
 export interface LiteralInput {

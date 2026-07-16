@@ -189,9 +189,22 @@ export class SafetensorsCatalogReader {
     if (!tensor.shard || tensor.byteOffset === undefined || tensor.byteLength === undefined || tensor.byteLength < 0) {
       throw new Error(`${tensor.name}: metadados de range Safetensors incompletos para exportação literal.`);
     }
+    return this.readTensorBytesRange(tensor, 0, tensor.byteLength);
+  }
+
+  /**
+   * Bounded raw-storage range read used by the literal JSON writer. It keeps
+   * a multi-GiB embedding tensor from becoming one Buffer/base64 string while
+   * preserving the exact Safetensors payload byte order.
+   */
+  async readTensorBytesRange(tensor: TensorInfo, offset: number, byteLength: number): Promise<Buffer> {
+    if (!tensor.shard || tensor.byteOffset === undefined || tensor.byteLength === undefined || tensor.byteLength < 0 ||
+      !Number.isInteger(offset) || !Number.isInteger(byteLength) || offset < 0 || byteLength < 0 || offset + byteLength > tensor.byteLength) {
+      throw new Error(`${tensor.name}: range literal Safetensors inválido.`);
+    }
     this.#validateShardName(tensor.shard);
-    const bytes = Buffer.allocUnsafe(tensor.byteLength);
-    await this.#readExactly(await this.#getHandle(tensor.shard), bytes, tensor.byteOffset);
+    const bytes = Buffer.allocUnsafe(byteLength);
+    await this.#readExactly(await this.#getHandle(tensor.shard), bytes, tensor.byteOffset + offset);
     return bytes;
   }
 

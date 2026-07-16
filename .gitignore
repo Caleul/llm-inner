@@ -3,6 +3,7 @@ venv/
 dist/
 gemma-4-E4B-it-MLX-4bit/
 gemma-4-E4B-dense/
+artifacts/
 .DS_Store
 
 # Runtime-owned loop state. The contract and prompt are versioned; a run's

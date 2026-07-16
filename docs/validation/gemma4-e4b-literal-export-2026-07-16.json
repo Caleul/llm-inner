@@ -1,0 +1,9 @@
+{
+  "artifact": "/Users/caleul/Documents/Work/Projects/llm-inner/artifacts/gemma4-e4b-dense.literal.json",
+  "artifactBytes": 21325917078,
+  "artifactSha256": "e81feb9061cabb9a1982c0b2ce890d540ea91f22034c99b1382e6283076c61e1",
+  "constants": 2130,
+  "embeddedPayloadBytes": 15992314836,
+  "payloadBase64Characters": 21323089296,
+  "forbiddenSourcePathPresent": false
+}

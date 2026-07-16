@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import * as path from "node:path";
 import test from "node:test";
+import { tmpdir } from "node:os";
 import { executeReferenceF32WithPreparedPrelude } from "../src/executor.js";
 import { buildGemma4CompositeProgram, executeGemma4CompositeF32, generateGemma4CompositeF32 } from "../src/gemma4-composite.js";
 import {
@@ -7,6 +11,7 @@ import {
   executeGemma4CompositeLiteralF32,
   generateGemma4CompositeLiteralF32,
   validateGemma4CompositeLiteralCalculationProgram,
+  writeGemma4CompositeLiteralCalculationProgram,
 } from "../src/gemma4-composite-literal.js";
 import type { DenseF32Tensor, ModelCatalog, TensorInfo } from "../src/types.js";
 
@@ -118,6 +123,60 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(external), /reteve uma referência de source checkpoint/);
 });
 
+test("Gemma 4 composite streamed writer emits an atomic self-contained JSON file without accumulating source payloads", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "llm-inner-gemma4-streamed-"));
+  try {
+    const catalog = fixture(), program = buildGemma4CompositeProgram(catalog, preview), sourceTensors = materialize(catalog);
+    const expected = executeGemma4CompositeF32(program, { inputIds: [[1, 99, 2]], mmTokenTypeIds: [[0, 1, 0]], tensors: sourceTensors, pixelValues: patterned([1, 4, 12]), imagePositionIds: [[[0, 0], [1, 0], [0, 1], [1, 1]]] });
+    const output = path.join(root, "tiny.gemma4.literal.json");
+    let maxRequestedBytes = 0;
+    const written = await writeGemma4CompositeLiteralCalculationProgram(program, catalog, {
+      async readTensorBytes(info) {
+        const tensor = sourceTensors.get(info.name);
+        if (!tensor) throw new Error(`source tensor missing: ${info.name}`);
+        const bytes = Buffer.alloc(tensor.values.length * 4);
+        tensor.values.forEach((value, index) => bytes.writeFloatLE(value, index * 4));
+        maxRequestedBytes = Math.max(maxRequestedBytes, bytes.length);
+        return bytes;
+      },
+    }, output);
+    const raw = await readFile(output);
+    assert.equal(written.artifactSha256, createHash("sha256").update(raw).digest("hex"));
+    assert.equal(written.constants, catalog.tensors.size);
+    assert.equal(written.embeddedPayloadBytes, [...catalog.tensors.values()].reduce((total, tensor) => total + tensor.logicalShape.reduce((size, dimension) => size * dimension, 1) * 4, 0));
+    assert.ok(maxRequestedBytes < written.embeddedPayloadBytes, "writer must request one payload at a time rather than a package buffer");
+    const literal = JSON.parse(raw.toString("utf8"));
+    assert.equal(JSON.stringify(literal).includes(catalog.source), false);
+
+    sourceTensors.clear();
+    const replay = executeGemma4CompositeLiteralF32(literal, { inputIds: [[1, 99, 2]], mmTokenTypeIds: [[0, 1, 0]], pixelValues: patterned([1, 4, 12]), imagePositionIds: [[[0, 0], [1, 0], [0, 1], [1, 1]]] });
+    assert.deepEqual([...replay.text.logits.values], [...expected.text.logits.values]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("Gemma 4 shared-KV consumers embed but explicitly label their checkpoint-local K/V tensors", async () => {
+  const catalog = fixture({ layers: 3, layerTypes: ["sliding_attention", "full_attention", "sliding_attention"], sharedKeyValueLayers: 1 });
+  const program = buildGemma4CompositeProgram(catalog, preview), sourceTensors = materialize(catalog);
+  const literal = await buildGemma4CompositeLiteralCalculationProgram(program, catalog, {
+    async readTensorBytes(info) {
+      const tensor = sourceTensors.get(info.name);
+      if (!tensor) throw new Error(`source tensor missing: ${info.name}`);
+      const bytes = Buffer.alloc(tensor.values.length * 4);
+      tensor.values.forEach((value, index) => bytes.writeFloatLE(value, index * 4));
+      return bytes;
+    },
+  });
+  assert.equal(literal.constants.length, catalog.tensors.size);
+  assert.deepEqual(literal.unreachableConstants, [
+    { name: "model.language_model.layers.2.self_attn.k_norm.weight", reason: "shared-kv-consumer-local-kv-is-runtime-unreachable", producerLayer: 0 },
+    { name: "model.language_model.layers.2.self_attn.k_proj.weight", reason: "shared-kv-consumer-local-kv-is-runtime-unreachable", producerLayer: 0 },
+    { name: "model.language_model.layers.2.self_attn.v_proj.weight", reason: "shared-kv-consumer-local-kv-is-runtime-unreachable", producerLayer: 0 },
+  ]);
+  validateGemma4CompositeLiteralCalculationProgram(literal);
+});
+
 test("Gemma 4 composite fails closed for cardinality, partial modality inputs, and malformed vision blocks", () => {
   const catalog = fixture(), program = buildGemma4CompositeProgram(catalog, preview), tensors = materialize(catalog);
   assert.throws(
@@ -138,11 +197,14 @@ test("Gemma 4 composite fails closed for cardinality, partial modality inputs, a
   );
 });
 
-function fixture(): ModelCatalog {
+function fixture(options: { layers?: number; layerTypes?: Array<"sliding_attention" | "full_attention">; sharedKeyValueLayers?: number } = {}): ModelCatalog {
   const tensors = new Map<string, TensorInfo>();
   const add = (name: string, shape: number[]): void => { tensors.set(name, { name, storageDtype: "F32", storageShape: shape, logicalShape: shape }); };
   const clipped = (prefix: string, shape: number[]): void => { add(`${prefix}.linear.weight`, shape); for (const suffix of ["input_min", "input_max", "output_min", "output_max"]) add(`${prefix}.${suffix}`, []); };
-  const hidden = 4, layers = 2, ple = 1, vocab = 6, text = "model.language_model";
+  const hidden = 4, layers = options.layers ?? 2, ple = 1, vocab = 6, text = "model.language_model";
+  const layerTypes = options.layerTypes ?? ["full_attention", "sliding_attention"];
+  const sharedKeyValueLayers = options.sharedKeyValueLayers ?? 0;
+  if (layerTypes.length !== layers) throw new Error("fixture layerTypes must match layers");
   add(`${text}.embed_tokens.weight`, [vocab, hidden]); add(`${text}.embed_tokens_per_layer.weight`, [vocab, layers * ple]); add(`${text}.per_layer_model_projection.weight`, [layers * ple, hidden]); add(`${text}.per_layer_projection_norm.weight`, [ple]); add(`${text}.norm.weight`, [hidden]);
   for (let layer = 0; layer < layers; layer += 1) {
     const textLayer = `${text}.layers.${layer}`;
@@ -169,7 +231,7 @@ function fixture(): ModelCatalog {
     model_type: "gemma4", image_token_id: 99, video_token_id: 97, audio_token_id: 98,
     vision_config: { model_type: "gemma4_vision", hidden_size: hidden, num_hidden_layers: 1, num_attention_heads: 1, num_key_value_heads: 1, head_dim: hidden, intermediate_size: 8, patch_size: 2, position_embedding_size: 4, default_output_length: 1, pooling_kernel_size: 2, attention_bias: false, hidden_activation: "gelu_pytorch_tanh", use_clipped_linears: true, rms_norm_eps: 1e-6, rope_parameters: { rope_type: "default", rope_theta: 100 } },
     audio_config: { model_type: "gemma4_audio", hidden_size: hidden, num_hidden_layers: 1, num_attention_heads: 1, output_proj_dims: hidden, attention_chunk_size: 2, attention_context_left: 1, attention_context_right: 0, attention_logit_cap: 50, attention_invalid_logits_value: -1e9, gradient_clipping: 1e10, conv_kernel_size: 5, residual_weight: 0.5, subsampling_conv_channels: [1, 1], hidden_act: "silu", use_clipped_linears: true, rms_norm_eps: 1e-6 },
-    text_config: { model_type: "gemma4_text", hidden_size: hidden, vocab_size: vocab, pad_token_id: 0, num_hidden_layers: layers, num_attention_heads: 1, num_key_value_heads: 1, global_head_dim: hidden, head_dim: hidden, intermediate_size: 8, num_kv_shared_layers: 0, hidden_size_per_layer_input: ple, vocab_size_per_layer_input: vocab, attention_bias: false, attention_k_eq_v: false, enable_moe_block: false, use_double_wide_mlp: false, rms_norm_eps: 1e-6, sliding_window: 4, layer_types: ["full_attention", "sliding_attention"], rope_parameters: { sliding_attention: { rope_type: "default", rope_theta: 10_000 }, full_attention: { rope_type: "proportional", rope_theta: 1_000_000, partial_rotary_factor: 1 } } },
+    text_config: { model_type: "gemma4_text", hidden_size: hidden, vocab_size: vocab, pad_token_id: 0, num_hidden_layers: layers, num_attention_heads: 1, num_key_value_heads: 1, global_head_dim: hidden, head_dim: hidden, intermediate_size: 8, num_kv_shared_layers: sharedKeyValueLayers, hidden_size_per_layer_input: ple, vocab_size_per_layer_input: vocab, attention_bias: false, attention_k_eq_v: false, enable_moe_block: false, use_double_wide_mlp: false, rms_norm_eps: 1e-6, sliding_window: 4, layer_types: layerTypes, rope_parameters: { sliding_attention: { rope_type: "default", rope_theta: 10_000 }, full_attention: { rope_type: "proportional", rope_theta: 1_000_000, partial_rotary_factor: 1 } } },
   } };
 }
 

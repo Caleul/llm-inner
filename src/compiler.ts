@@ -5,7 +5,7 @@ import { buildModelIR } from "./architecture.js";
 import { buildLiteralCalculationProgram } from "./literal.js";
 import type { LiteralTensorReader } from "./literal.js";
 import { buildGemma4CompositeProgram } from "./gemma4-composite.js";
-import { buildGemma4CompositeLiteralCalculationProgram } from "./gemma4-composite-literal.js";
+import { writeGemma4CompositeLiteralCalculationProgram } from "./gemma4-composite-literal.js";
 import { renderEquations } from "./render.js";
 import type { PreviewOptions } from "./types.js";
 
@@ -45,9 +45,7 @@ export async function compileGemma4CompositeLiteralModel(options: Omit<CompileOp
   const opened = await openCatalog(options.source, false);
   try {
     const composite = buildGemma4CompositeProgram(opened.catalog, options.preview);
-    const artifact = await buildGemma4CompositeLiteralCalculationProgram(composite, opened.catalog, literalReader(opened.reader));
-    await mkdir(path.dirname(options.output), { recursive: true });
-    await writeFile(options.output, `${JSON.stringify(artifact, null, 2)}\n`, "utf8");
+    await writeGemma4CompositeLiteralCalculationProgram(composite, opened.catalog, literalReader(opened.reader), options.output);
   } finally {
     await opened.close();
   }
