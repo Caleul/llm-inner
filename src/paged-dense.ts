@@ -106,7 +106,11 @@ export async function pagedEmbeddingF32(
  * accumulation order is identical to linearF32: output row, then input
  * column; only storage acquisition is paged.
  */
-export async function pagedLinearF32(input: DenseF32Tensor, weight: PagedDenseF32Matrix): Promise<DenseF32Tensor> {
+export async function pagedLinearF32(
+  input: DenseF32Tensor,
+  weight: PagedDenseF32Matrix,
+  options: { outputDtype?: "F32" | "BF16" } = {},
+): Promise<DenseF32Tensor> {
   if (input.shape.length < 1) throw new Error("Linear paginado requer entrada com dimensão de features.");
   const [outFeatures, inFeatures] = weight.shape;
   if (input.shape.at(-1) !== inFeatures) throw new Error(`Linear paginado: entrada ${input.shape.at(-1)} incompatível com weight ${outFeatures}x${inFeatures}.`);
@@ -120,10 +124,17 @@ export async function pagedLinearF32(input: DenseF32Tensor, weight: PagedDenseF3
     for (let row = 0; row < rows; row += 1) for (let output = 0; output < outputCount; output += 1) {
       let sum = Math.fround(0);
       for (let column = 0; column < inFeatures; column += 1) sum = Math.fround(sum + Math.fround(input.values[row * inFeatures + column]! * stored.values[output * inFeatures + column]!));
-      result[row * outFeatures + firstOutput + output] = sum;
+      result[row * outFeatures + firstOutput + output] = options.outputDtype === "BF16" ? roundF32ToBF16(sum) : sum;
     }
   }
   return { shape: [...input.shape.slice(0, -1), outFeatures], values: result };
+}
+
+/** Applies an explicit tensor-result BF16 cast after a declared operation. */
+export function roundDenseF32ToBF16(tensor: DenseF32Tensor): DenseF32Tensor {
+  const values = new Float32Array(tensor.values.length);
+  for (let index = 0; index < values.length; index += 1) values[index] = roundF32ToBF16(tensor.values[index]!);
+  return { shape: [...tensor.shape], values };
 }
 
 function decodeDenseRows(bytes: Buffer, dtype: "F32" | "F16" | "BF16"): Float32Array {

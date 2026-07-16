@@ -12,7 +12,7 @@ import {
 } from "./executor.js";
 import type { OpenGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
 import { selectGreedyToken } from "./generation.js";
-import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearF32, readPagedDenseF32Vector } from "./paged-dense.js";
+import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearF32, readPagedDenseF32Vector, roundDenseF32ToBF16 } from "./paged-dense.js";
 import type {
   DenseF32Tensor,
   Operation,
@@ -74,43 +74,46 @@ export async function executeGemma4PagedTextLiteralF32(
     return result;
   };
   const values = new Map<string, DenseF32Tensor>();
+  const store = (operation: Operation, tensor: DenseF32Tensor): void => {
+    values.set(operation.output, operation.dtypePolicy.outputDtype === "BF16" ? roundDenseF32ToBF16(tensor) : tensor);
+  };
   const producedCache = new Map<number, ReferenceF32KeyValueCache>();
   const operations = [...artifact.program.textProgram.prelude, ...artifact.program.textProgram.layers.flatMap((layer) => layer.operations), ...artifact.program.textProgram.epilogue];
   for (const operation of operations) {
     assertPagedF32Policy(operation);
     switch (operation.op) {
       case "embedding":
-        values.set(operation.output, await pagedEmbeddingF32(inputIds, matrix(operation.weight), operation.scale, {
+        store(operation, await pagedEmbeddingF32(inputIds, matrix(operation.weight), operation.scale, {
           roundOutputToBf16: operation.weight.storageDtype === "BF16",
         }));
         break;
       case "per_layer_embedding":
-        values.set(operation.output, reshapePerLayerF32(await pagedEmbeddingF32(inputIds, matrix(operation.weight), operation.scale, {
+        store(operation, reshapePerLayerF32(await pagedEmbeddingF32(inputIds, matrix(operation.weight), operation.scale, {
           roundOutputToBf16: operation.weight.storageDtype === "BF16",
         }), operation.numLayers, operation.layerWidth));
         break;
       case "rms_norm":
-        values.set(operation.output, rmsNormF32(value(values, operation.input), operation.weight ? await vector(operation.weight) : undefined, operation));
+        store(operation, rmsNormF32(value(values, operation.input), operation.weight ? await vector(operation.weight) : undefined, operation));
         break;
       case "reshape_per_layer":
-        values.set(operation.output, reshapePerLayerF32(value(values, operation.input), operation.numLayers, operation.layerWidth));
+        store(operation, reshapePerLayerF32(value(values, operation.input), operation.numLayers, operation.layerWidth));
         break;
       case "select_per_layer":
-        values.set(operation.output, selectPerLayerF32(value(values, operation.input), operation));
+        store(operation, selectPerLayerF32(value(values, operation.input), operation));
         break;
       case "tensor_scale":
-        values.set(operation.output, tensorScaleF32(value(values, operation.input), await vector(operation.scalar), operation.id));
+        store(operation, tensorScaleF32(value(values, operation.input), await vector(operation.scalar), operation.id));
         break;
       case "linear":
         if (!operation.transposeWeight || operation.bias) throw new Error(`${operation.id}: executor Gemma 4 paginado requer linear [out,in] sem bias.`);
-        values.set(operation.output, await pagedLinearF32(value(values, operation.input), matrix(operation.weight)));
+        store(operation, await pagedLinearF32(value(values, operation.input), matrix(operation.weight), { outputDtype: operation.dtypePolicy.outputDtype === "BF16" ? "BF16" : "F32" }));
         break;
       case "reshape_heads":
         if (operation.layout !== "BHSD") throw new Error(`${operation.id}: executor Gemma 4 paginado requer layout BHSD.`);
-        values.set(operation.output, reshapeHeadsF32(value(values, operation.input), operation.numHeads, operation.headDim));
+        store(operation, reshapeHeadsF32(value(values, operation.input), operation.numHeads, operation.headDim));
         break;
       case "rotary_embedding":
-        values.set(operation.output, rotaryF32(value(values, operation.input), positions, operation));
+        store(operation, rotaryF32(value(values, operation.input), positions, operation));
         break;
       case "scaled_dot_product_attention": {
         if (operation.layer === undefined) throw new Error(`${operation.id}: attention sem índice não pode possuir cache KV.`);
@@ -121,7 +124,7 @@ export async function executeGemma4PagedTextLiteralF32(
           const shared = producedCache.get(producer);
           if (!shared) throw new Error(`${operation.id}: KV compartilhado não encontrou cache do produtor ${producer}.`);
           const query = value(values, operation.query);
-          values.set(operation.output, attentionF32(query, shared.key, shared.value, operation, topologyMask ?? request.attentionMask, sharedPastLength(operation.id, shared, query), topologyMask !== undefined));
+          store(operation, attentionF32(query, shared.key, shared.value, operation, topologyMask ?? request.attentionMask, sharedPastLength(operation.id, shared, query), topologyMask !== undefined));
           break;
         }
         const currentKey = value(values, operation.key);
@@ -131,15 +134,15 @@ export async function executeGemma4PagedTextLiteralF32(
         if (previous) assertCompatibleCache(previous, currentKey, currentValue, operation.id);
         const key = previous ? concatSequenceF32(previous.key, currentKey) : currentKey;
         const valueTensor = previous ? concatSequenceF32(previous.value, currentValue) : currentValue;
-        values.set(operation.output, attentionF32(value(values, operation.query), key, valueTensor, operation, topologyMask ?? request.attentionMask, previous?.key.shape[2] ?? 0, topologyMask !== undefined));
+        store(operation, attentionF32(value(values, operation.query), key, valueTensor, operation, topologyMask ?? request.attentionMask, previous?.key.shape[2] ?? 0, topologyMask !== undefined));
         producedCache.set(operation.layer, { key, value: valueTensor });
         break;
       }
       case "activation":
-        values.set(operation.output, activationF32(value(values, operation.input), operation.function, operation.approximation));
+        store(operation, activationF32(value(values, operation.input), operation.function, operation.approximation));
         break;
       case "elementwise":
-        values.set(operation.output, elementwiseF32(operation.inputs.map((name) => value(values, name)), operation.kind, operation.scalar));
+        store(operation, elementwiseF32(operation.inputs.map((name) => value(values, name)), operation.kind, operation.scalar));
         break;
       default: {
         const unsupported: never = operation;
@@ -200,8 +203,10 @@ function value(values: ReadonlyMap<string, DenseF32Tensor>, name: string): Dense
 
 function assertPagedF32Policy(operation: Operation): void {
   const policy = operation.dtypePolicy;
-  if (policy.computeDtype !== "F32" || policy.accumulationDtype !== "F32" || policy.outputDtype !== "F32") {
-    throw new Error(`${operation.id}: executor Gemma 4 paginado requer política explícita F32.`);
+  const f32 = policy.computeDtype === "F32" && policy.accumulationDtype === "F32" && policy.outputDtype === "F32";
+  const bf16 = policy.inputDtype === "BF16" && policy.computeDtype === "F32" && policy.accumulationDtype === "F32" && policy.outputDtype === "BF16";
+  if (!f32 && !bf16) {
+    throw new Error(`${operation.id}: executor Gemma 4 paginado requer política F32 ou fronteira BF16 explícita.`);
   }
 }
 

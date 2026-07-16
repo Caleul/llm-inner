@@ -239,10 +239,10 @@ escreve o artefato completo em streaming: ranges Safetensors de 12 MiB são
 codificados em base64 sem acumular o pacote ou uma string de vários GiB na
 heap. O resultado local contém os 2,130 payloads originais
 (15,992,314,836 bytes) e é auditado por `npm run audit:literal`. O hash
-`e81feb9061cabb9a1982c0b2ce890d540ea91f22034c99b1382e6283076c61e1`
-identifica a exportação histórica F32 documentada antes do cast BF16 do
-embedding; toda exportação deve registrar seu próprio hash, pois o programa
-literal inclui as políticas numéricas. As 54 projeções/normas K/V locais dos
+`83d63c1be28a8cdb6f35a6b81a889552777da57d662b5367a88138f707a9c001`
+identifica a exportação atual, cuja política numérica declara fronteiras de
+resultado BF16 por operação do texto; toda exportação deve registrar seu
+próprio hash, pois o programa literal inclui as políticas numéricas. As 54 projeções/normas K/V locais dos
 consumidores compartilhados são incorporadas com proveniência explícita em
 `unreachableConstants`; o grafo usa apenas os KV do produtor declarado. A
 evidência reproduzível está em

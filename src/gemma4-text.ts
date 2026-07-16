@@ -2,6 +2,7 @@ import type { JsonObject, LayerIR, ModelCatalog, ModelIR, Operation, PreviewOpti
 import { roundF32ToBF16 } from "./utils.js";
 
 const F32_POLICY = { computeDtype: "model-configured", accumulationDtype: "runtime-defined", outputDtype: "model-configured" } as const;
+const F32_RUNTIME_POLICY = { inputDtype: "F32", computeDtype: "F32", accumulationDtype: "F32", outputDtype: "F32" } as const;
 
 /**
  * Lowers the authoritative Gemma4Text model only. The outer Gemma 4 package
@@ -21,6 +22,7 @@ export function buildGemma4TextIR(catalog: ModelCatalog, config: JsonObject, pre
   const pleWidth = integer(config, "hidden_size_per_layer_input");
   const pleVocab = integer(config, "vocab_size_per_layer_input");
   const epsilon = positive(config, "rms_norm_eps");
+  const runtimeDtype = declaredTextRuntimeDtype(config);
   const sharedCount = nonnegative(config, "num_kv_shared_layers");
   const layerTypes = layerTypesOf(config, layers);
   if (heads % kvHeads !== 0 || heads % globalKvHeads !== 0 || sharedCount > layers) throw new Error("Gemma 4 text declara topologia de heads/KV inválida.");
@@ -30,7 +32,7 @@ export function buildGemma4TextIR(catalog: ModelCatalog, config: JsonObject, pre
   const ref = (name: string): TensorRef => tensorRef(requireTensor(catalog, name));
   const shape = (name: string, expected: readonly number[]): TensorRef => {
     const tensor = requireTensor(catalog, name);
-    if (tensor.quantization || tensor.logicalShape.length !== expected.length || tensor.logicalShape.some((value, index) => value !== expected[index])) throw new Error(`${name}: tensor Gemma 4 text exige shape [${expected.join(", ")}] denso; recebeu [${tensor.logicalShape.join(", ")}].`);
+    if (tensor.quantization || tensor.storageDtype !== runtimeDtype || tensor.logicalShape.length !== expected.length || tensor.logicalShape.some((value, index) => value !== expected[index])) throw new Error(`${name}: tensor Gemma 4 text exige storage ${runtimeDtype} denso e shape [${expected.join(", ")}]; recebeu ${tensor.storageDtype} [${tensor.logicalShape.join(", ")}].`);
     return tensorRef(tensor);
   };
   const normalEmbedding = shape(`${prefix}.embed_tokens.weight`, [vocab, hidden]);
@@ -143,13 +145,39 @@ export function buildGemma4TextIR(catalog: ModelCatalog, config: JsonObject, pre
     linear("lm_head", "final_hidden_states", "logits", normalEmbedding),
   ];
   if (finalSoftcap !== undefined) epilogue.push({ id: "final_logit_softcap", op: "elementwise", kind: "tanh_softcap", inputs: ["logits"], scalar: finalSoftcap, output: "softcapped_logits", dtypePolicy: F32_POLICY });
-  return { schemaVersion: 2, source: { path: catalog.source, format: catalog.format }, architecture: { modelType: "gemma4_text", hiddenSize: hidden, intermediateSize: intermediate, numLayers: layers, numAttentionHeads: heads, numKeyValueHeads: kvHeads, headDim, vocabSize: vocab }, config: structuredClone(config), preview, inputs: [{ name: "input_ids", description: "IDs dos tokens de entrada." }, { name: "attention_mask", description: "Máscaras causais por tipo de atenção." }, { name: "position_ids", description: "Posições absolutas RoPE." }, { name: "past_key_values", description: "Estado KV pós-RoPE por camada produtora." }], prelude, layers: lowered, epilogue, fidelity: { exactByConstruction: false, assumptions: ["A política F32 escalar é uma implementação de referência; a fidelidade BF16 do runtime oficial requer validação diferencial."], unsupported: [], warnings: ["Este adaptador cobre Gemma4Text isolado. O pacote multimodal Gemma4 continua rejeitado até vision/audio replacement ser lowered."] } };
+  const dtypePolicy = textRuntimeDtypePolicy(runtimeDtype);
+  for (const operation of [...prelude, ...lowered.flatMap((layer) => layer.operations), ...epilogue]) {
+    operation.dtypePolicy = dtypePolicy;
+  }
+  return { schemaVersion: 2, source: { path: catalog.source, format: catalog.format }, architecture: { modelType: "gemma4_text", hiddenSize: hidden, intermediateSize: intermediate, numLayers: layers, numAttentionHeads: heads, numKeyValueHeads: kvHeads, headDim, vocabSize: vocab }, config: structuredClone(config), preview, inputs: [{ name: "input_ids", description: "IDs dos tokens de entrada." }, { name: "attention_mask", description: "Máscaras causais por tipo de atenção." }, { name: "position_ids", description: "Posições absolutas RoPE." }, { name: "past_key_values", description: "Estado KV pós-RoPE por camada produtora." }], prelude, layers: lowered, epilogue, fidelity: { exactByConstruction: false, assumptions: ["A política declarada preserva fronteiras BF16 de saída quando a configuração autoritativa as exige; a ordem exata de redução do kernel nativo continua sujeita à validação diferencial."], unsupported: [], warnings: ["Este adaptador cobre Gemma4Text isolado. O pacote multimodal Gemma4 continua rejeitado até vision/audio replacement ser lowered."] } };
 }
 
 /** Native Gemma4TextScaledWordEmbedding casts its scalar scale to weight dtype. */
 export function gemma4TextEmbeddingScale(hiddenSize: number, storageDtype: string): number {
   const scale = Math.sqrt(hiddenSize);
   return storageDtype === "BF16" ? roundF32ToBF16(scale) : Math.fround(scale);
+}
+
+/**
+ * Gemma4Text modules execute their reductions in float32 but return tensors in
+ * the configured model dtype.  This is an observable assignment boundary, not
+ * a storage-only hint: later residuals, norms, and cache writes consume the
+ * narrowed BF16 values.  F32 fixtures may omit `dtype`, but an unfamiliar
+ * declared runtime dtype is not safe to approximate.
+ */
+function declaredTextRuntimeDtype(config: JsonObject): "F32" | "BF16" {
+  const dtype = config.dtype;
+  if (dtype === undefined || dtype === "float32") return "F32";
+  if (dtype === "bfloat16") return "BF16";
+  throw new Error(`Gemma 4 text dtype '${String(dtype)}' não possui contrato de execução registrado.`);
+}
+
+function textRuntimeDtypePolicy(dtype: "F32" | "BF16") {
+  if (dtype === "F32") return F32_RUNTIME_POLICY;
+  if (dtype === "BF16") {
+    return { inputDtype: "BF16", computeDtype: "F32", accumulationDtype: "F32", outputDtype: "BF16" } as const;
+  }
+  throw new Error(`Gemma 4 text dtype interno não suportado: ${dtype}.`);
 }
 
 function rope(layer: number, role: "q" | "k", input: string, dim: number, type: string, config: JsonObject): Operation {

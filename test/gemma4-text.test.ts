@@ -12,6 +12,16 @@ test("Gemma 4 text embedding scale preserves the native BF16 scalar cast", () =>
   assert.equal(gemma4TextEmbeddingScale(4, "F32"), 2);
 });
 
+test("Gemma 4 text preserves authoritative BF16 result boundaries in its IR", async () => {
+  const catalog = tinyGemma4Text();
+  (catalog.config as Record<string, unknown>).dtype = "bfloat16";
+  for (const tensor of catalog.tensors.values()) tensor.storageDtype = "BF16";
+  const ir = await buildModelIR(catalog, preview);
+  for (const operation of [...ir.prelude, ...ir.layers.flatMap((layer) => layer.operations), ...ir.epilogue]) {
+    assert.deepEqual(operation.dtypePolicy, { inputDtype: "BF16", computeDtype: "F32", accumulationDtype: "F32", outputDtype: "BF16" });
+  }
+});
+
 test("standalone Gemma 4 text lowering makes PLE, proportional RoPE, unscaled V norm, and scalar assignments explicit", async () => {
   const catalog = tinyGemma4Text();
   const ir = await buildModelIR(catalog, preview);

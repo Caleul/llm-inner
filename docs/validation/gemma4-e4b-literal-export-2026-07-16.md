@@ -16,8 +16,8 @@ forward/generation replay has yet been completed.
 - Local artifact (ignored because it is 21.3 GB):
   `artifacts/gemma4-e4b-dense.literal.json`.
 - Artifact SHA-256:
-  `e81feb9061cabb9a1982c0b2ce890d540ea91f22034c99b1382e6283076c61e1`.
-- Artifact bytes: `21,325,917,078`; embedded original storage bytes:
+  `83d63c1be28a8cdb6f35a6b81a889552777da57d662b5367a88138f707a9c001`.
+- Artifact bytes: `21,325,922,407`; embedded original storage bytes:
   `15,992,314,836`.
 
 ## Reproduction and validation
@@ -61,10 +61,9 @@ are referenced by ordered composite, vision, audio, or text assignments.
 
 ## Remaining checkpoint gates
 
-The artifact currently uses the declared scalar F32 replay policy, not the
-official BF16 runtime kernel behavior. A source-removed artifact reader must
-be able to selectively decode the 21 GB JSON without `JSON.parse`, then run a
-real multimodal prefill and cached greedy decode. Finally, the same inputs and
-states need a pinned authoritative Transformers trace with operation, KV,
-logit, and generation metrics. Until those measurements exist, do not create
+The artifact now declares F32 reduction with BF16 result casts for the
+authoritatively BF16 Gemma4Text assignments. This does not encode the native
+kernel's exact reduction tree or complete multimodal replay. Source-removed
+text-only native comparisons remain approximate, and the vision/audio towers
+still lack paged storage-backed execution. Do not create
 `.agent-loop/checkpoints/gemma4-dense-lossless/`.

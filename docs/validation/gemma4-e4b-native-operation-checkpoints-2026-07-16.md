@@ -62,11 +62,18 @@ the multiplied embedding result to BF16.  The literal adapter now records the
 widened BF16 scale (`50.5`) and its paged embedding kernel applies the declared
 BF16 result cast.
 
-On the regenerated source-independent literal artifact, both
-`token_embedding` and `ple_token_identity` are byte-identical after the native
-capture has widened them to F32.  The first divergent boundary moved to
-`ple_context_projection` (max absolute error `0.1101226806640625`).  Of 691
-captured checkpoints, 2 pass and 689 diverge at zero tolerance.  This is
-actionable evidence that dense BF16 linear output/reduction semantics are the
-next unencoded boundary; it does not justify a lossless-within-dtype or
-Gemma-4-checkpoint claim.
+The regenerated artifact SHA-256 is
+`83d63c1be28a8cdb6f35a6b81a889552777da57d662b5367a88138f707a9c001`.
+Its program records F32 reduction plus BF16 result casts for every Gemma4Text
+assignment, and the paged executor applies those casts before the next named
+assignment or cache transition.
+
+The source-removed probe now passes 12 of 691 captured boundaries exactly:
+both embeddings; layer 0 input norm, Q/K/V projections, Q/K/V norms,
+pre-FFN norm, PLE projection, and post-PLE norm. The first divergent boundary
+is still `ple_context_projection`, but its maximum absolute error is now one
+BF16 ULP (`0.0000152587890625`) rather than `0.1101226806640625`. The remaining
+679 boundaries diverge at zero tolerance. This establishes that the result
+cast was a real missing contract; the unresolved native reduction tree and
+uncaptured internal operations still prohibit a lossless-within-dtype or Gemma
+4 checkpoint claim.

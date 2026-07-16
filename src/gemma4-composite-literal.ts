@@ -52,8 +52,8 @@ export interface Gemma4CompositeLiteralCalculationProgram extends LiteralStorage
     inputDtype: "I32/F32/BOOL";
     computeDtype: "F32";
     accumulationDtype: "F32";
-    outputDtype: "F32";
-    scalarSemantics: "IEEE-754 binary32; host libm results rounded to F32";
+    outputDtype: "F32" | "operation-declared";
+    scalarSemantics: "IEEE-754 binary32; host libm results rounded to F32" | "IEEE-754 binary32 reductions; each operation declares its F32 or BF16 result cast";
   };
   inputs: Gemma4CompositeLiteralInput[];
   /** No checkpoint path is retained: all tensor bytes are in `constants`. */
@@ -127,13 +127,7 @@ export async function buildGemma4CompositeLiteralCalculationProgram(
     schemaVersion: 1,
     kind: "gemma4-composite-literal-calculation-program",
     sourceFormat: "safetensors",
-    numericPolicy: {
-      inputDtype: "I32/F32/BOOL",
-      computeDtype: "F32",
-      accumulationDtype: "F32",
-      outputDtype: "F32",
-      scalarSemantics: "IEEE-754 binary32; host libm results rounded to F32",
-    },
+    numericPolicy: numericPolicy(program),
     inputs: literalInputs(),
     ...storage,
     unreachableConstants,
@@ -180,7 +174,7 @@ export async function writeGemma4CompositeLiteralCalculationProgram(
 
   try {
     await once(stream, "open");
-    await write(`{"schemaVersion":1,"kind":"gemma4-composite-literal-calculation-program","sourceFormat":"safetensors","numericPolicy":${JSON.stringify(numericPolicy())},"inputs":${JSON.stringify(literalInputs())},"constants":[`);
+    await write(`{"schemaVersion":1,"kind":"gemma4-composite-literal-calculation-program","sourceFormat":"safetensors","numericPolicy":${JSON.stringify(numericPolicy(program))},"inputs":${JSON.stringify(literalInputs())},"constants":[`);
     for (let index = 0; index < prepared.constants.length; index += 1) {
       const constant = prepared.constants[index]!;
       if (index > 0) await write(",");
@@ -259,9 +253,7 @@ export function generateGemma4CompositeLiteralF32(
  */
 export function validateGemma4CompositeLiteralCalculationProgram(literal: Gemma4CompositeLiteralCalculationProgram): void {
   if (literal.schemaVersion !== 1 || literal.kind !== "gemma4-composite-literal-calculation-program" || literal.sourceFormat !== "safetensors" ||
-    literal.numericPolicy.inputDtype !== "I32/F32/BOOL" || literal.numericPolicy.computeDtype !== "F32" ||
-    literal.numericPolicy.accumulationDtype !== "F32" || literal.numericPolicy.outputDtype !== "F32" ||
-    literal.numericPolicy.scalarSemantics !== "IEEE-754 binary32; host libm results rounded to F32") {
+    !sameNumericPolicy(literal.numericPolicy, numericPolicy(literal.program))) {
     throw new Error("Programa literal Gemma 4 composite possui cabeçalho ou política numérica inválida.");
   }
   validateLiteralStorageBundle(literal);
@@ -315,14 +307,27 @@ function literalInputs(): Gemma4CompositeLiteralInput[] {
   ];
 }
 
-function numericPolicy(): Gemma4CompositeLiteralCalculationProgram["numericPolicy"] {
+function numericPolicy(program: Gemma4CompositeProgram): Gemma4CompositeLiteralCalculationProgram["numericPolicy"] {
+  const textOperations = [...program.textProgram.prelude, ...program.textProgram.layers.flatMap((layer) => layer.operations), ...program.textProgram.epilogue];
+  const hasBf16ResultCast = textOperations.some((operation) => operation.dtypePolicy.outputDtype === "BF16");
   return {
     inputDtype: "I32/F32/BOOL",
     computeDtype: "F32",
     accumulationDtype: "F32",
-    outputDtype: "F32",
-    scalarSemantics: "IEEE-754 binary32; host libm results rounded to F32",
+    outputDtype: hasBf16ResultCast ? "operation-declared" : "F32",
+    scalarSemantics: hasBf16ResultCast
+      ? "IEEE-754 binary32 reductions; each operation declares its F32 or BF16 result cast"
+      : "IEEE-754 binary32; host libm results rounded to F32",
   };
+}
+
+function sameNumericPolicy(
+  actual: Gemma4CompositeLiteralCalculationProgram["numericPolicy"],
+  expected: Gemma4CompositeLiteralCalculationProgram["numericPolicy"],
+): boolean {
+  return actual.inputDtype === expected.inputDtype && actual.computeDtype === expected.computeDtype &&
+    actual.accumulationDtype === expected.accumulationDtype && actual.outputDtype === expected.outputDtype &&
+    actual.scalarSemantics === expected.scalarSemantics;
 }
 
 interface StreamedDenseConstant {

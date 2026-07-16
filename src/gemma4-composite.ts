@@ -93,7 +93,10 @@ export interface Gemma4CompositeGenerationResult {
  */
 export function buildGemma4CompositeProgram(catalog: ModelCatalog, preview: PreviewOptions): Gemma4CompositeProgram {
   const contract = inspectGemma4PackageContract(catalog);
-  const textProgram = asF32ReferenceProgram(buildGemma4TextIR(catalog, textConfig(catalog), preview));
+  // Keep the authoritative text output dtype in the exported program.  The
+  // legacy in-memory reference executor explicitly projects this to F32 at
+  // its invocation boundary instead of erasing BF16 casts from the artifact.
+  const textProgram = buildGemma4TextIR(catalog, textConfig(catalog), preview);
   const visionProgram = buildGemma4VisionProgram(catalog);
   const audioProgram = buildGemma4AudioProgram(catalog);
   const prefix = textPrefix(catalog);
@@ -186,7 +189,7 @@ export function executeGemma4CompositeF32(program: Gemma4CompositeProgram, reque
     values.set("full_attention_mask", visionMasks.full);
     values.set("sliding_attention_mask", visionMasks.sliding);
   }
-  const text = executeReferenceF32WithPreparedPrelude(program.textProgram, {
+  const text = executeReferenceF32WithPreparedPrelude(asF32ReferenceProgram(program.textProgram), {
     inputIds: request.inputIds,
     ...(request.positionIds ? { positionIds: request.positionIds } : {}),
     ...(request.attentionMask ? { attentionMask: request.attentionMask } : {}),

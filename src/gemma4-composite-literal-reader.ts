@@ -148,10 +148,13 @@ function buildIndex(
 }
 
 function assertHeader(header: Partial<Gemma4CompositeLiteralCalculationProgram>): void {
+  const policy = header.numericPolicy;
+  const f32 = policy?.inputDtype === "I32/F32/BOOL" && policy.computeDtype === "F32" && policy.accumulationDtype === "F32" &&
+    policy.outputDtype === "F32" && policy.scalarSemantics === "IEEE-754 binary32; host libm results rounded to F32";
+  const operationDeclared = policy?.inputDtype === "I32/F32/BOOL" && policy.computeDtype === "F32" && policy.accumulationDtype === "F32" &&
+    policy.outputDtype === "operation-declared" && policy.scalarSemantics === "IEEE-754 binary32 reductions; each operation declares its F32 or BF16 result cast";
   if (header.schemaVersion !== 1 || header.kind !== "gemma4-composite-literal-calculation-program" || header.sourceFormat !== "safetensors" ||
-    !Array.isArray(header.inputs) || !header.numericPolicy || header.numericPolicy.inputDtype !== "I32/F32/BOOL" ||
-    header.numericPolicy.computeDtype !== "F32" || header.numericPolicy.accumulationDtype !== "F32" || header.numericPolicy.outputDtype !== "F32" ||
-    header.numericPolicy.scalarSemantics !== "IEEE-754 binary32; host libm results rounded to F32") {
+    !Array.isArray(header.inputs) || !policy || (!f32 && !operationDeclared)) {
     throw new Error("Artefato literal Gemma 4 possui cabeçalho ou política numérica inválida.");
   }
 }
