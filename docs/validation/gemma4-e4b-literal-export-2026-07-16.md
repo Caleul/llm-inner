@@ -16,8 +16,8 @@ forward/generation replay has yet been completed.
 - Local artifact (ignored because it is 21.3 GB):
   `artifacts/gemma4-e4b-dense.literal.json`.
 - Artifact SHA-256:
-  `77110ff676903cb0b7588c547b169121b59acececf5572c88997f2f163c27f83`.
-- Artifact bytes: `21,325,922,407`; embedded original storage bytes:
+  `d74db021e785b081f5b84714368a23a8d3baf5da40048d971d124580190c491d`.
+- Artifact bytes: `21,325,922,453`; embedded original storage bytes:
   `15,992,314,836`.
 
 ## Reproduction and validation
@@ -61,8 +61,11 @@ are referenced by ordered composite, vision, audio, or text assignments.
 
 ## Remaining checkpoint gates
 
-The artifact now declares F32 products, ordered F64 accumulation, and BF16
-result casts for the observed eager-BF16 Gemma4Text linear/RMSNorm boundaries.
+The artifact header now truthfully declares
+`accumulationDtype: "operation-declared"`: Gemma4Text linear/RMSNorm
+assignments state their ordered F64 reductions while the remaining assignments
+retain their explicitly declared F32 boundaries and BF16 output casts. The
+streaming reader rejects a header that hides those operation-level semantics.
 This is an explicit portable compatibility policy, not a claim that storage
 dtype alone defines the native kernel's exact reduction tree. Source-removed
 text-only native comparisons remain approximate (`layer_0_gate_proj` is the

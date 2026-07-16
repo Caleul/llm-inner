@@ -4,7 +4,7 @@ import type {
   Gemma4CompositeLiteralInput,
   Gemma4CompositeUnreachableConstant,
 } from "./gemma4-composite-literal.js";
-import { validateGemma4CompositeLiteralStructure } from "./gemma4-composite-literal.js";
+import { validateGemma4CompositeLiteralNumericPolicy, validateGemma4CompositeLiteralStructure } from "./gemma4-composite-literal.js";
 import type { LiteralConstant, LiteralDenseStorageDecodeAssignment, LiteralTensorReader } from "./literal.js";
 import type { Gemma4CompositeProgram } from "./gemma4-composite.js";
 import type { TensorInfo } from "./types.js";
@@ -126,6 +126,10 @@ function buildIndex(
   const storageDecoders = tail.storageDecoders as LiteralDenseStorageDecodeAssignment[];
   if (storageDecoders.length !== constants.size) throw new Error("Artefato literal Gemma 4 deve declarar um decoder denso por constante.");
   for (const decoder of storageDecoders) assertDenseDecoder(decoder, constants);
+  validateGemma4CompositeLiteralNumericPolicy(
+    header.numericPolicy as Gemma4CompositeLiteralCalculationProgram["numericPolicy"],
+    tail.program as Gemma4CompositeProgram,
+  );
   validateGemma4CompositeLiteralStructure(
     tail.program as Gemma4CompositeProgram,
     tail.assignments as Gemma4CompositeLiteralCalculationProgram["assignments"],
@@ -153,8 +157,10 @@ function assertHeader(header: Partial<Gemma4CompositeLiteralCalculationProgram>)
     policy.outputDtype === "F32" && policy.scalarSemantics === "IEEE-754 binary32; host libm results rounded to F32";
   const operationDeclared = policy?.inputDtype === "I32/F32/BOOL" && policy.computeDtype === "F32" && policy.accumulationDtype === "F32" &&
     policy.outputDtype === "operation-declared" && policy.scalarSemantics === "IEEE-754 binary32 reductions; each operation declares its F32 or BF16 result cast";
+  const operationAccumulationDeclared = policy?.inputDtype === "I32/F32/BOOL" && policy.computeDtype === "F32" && policy.accumulationDtype === "operation-declared" &&
+    policy.outputDtype === "operation-declared" && policy.scalarSemantics === "IEEE-754 binary32 products; each operation declares its ordered F32 or F64 reduction and F32 or BF16 result cast";
   if (header.schemaVersion !== 1 || header.kind !== "gemma4-composite-literal-calculation-program" || header.sourceFormat !== "safetensors" ||
-    !Array.isArray(header.inputs) || !policy || (!f32 && !operationDeclared)) {
+    !Array.isArray(header.inputs) || !policy || (!f32 && !operationDeclared && !operationAccumulationDeclared)) {
     throw new Error("Artefato literal Gemma 4 possui cabeçalho ou política numérica inválida.");
   }
 }

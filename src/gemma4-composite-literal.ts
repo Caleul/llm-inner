@@ -51,9 +51,17 @@ export interface Gemma4CompositeLiteralCalculationProgram extends LiteralStorage
   numericPolicy: {
     inputDtype: "I32/F32/BOOL";
     computeDtype: "F32";
-    accumulationDtype: "F32";
+    /**
+     * A single policy applies only when every assignment shares the same
+     * reduction boundary. Otherwise every operation owns its declared F32 or
+     * F64 reduction contract.
+     */
+    accumulationDtype: "F32" | "operation-declared";
     outputDtype: "F32" | "operation-declared";
-    scalarSemantics: "IEEE-754 binary32; host libm results rounded to F32" | "IEEE-754 binary32 reductions; each operation declares its F32 or BF16 result cast";
+    scalarSemantics:
+      | "IEEE-754 binary32; host libm results rounded to F32"
+      | "IEEE-754 binary32 reductions; each operation declares its F32 or BF16 result cast"
+      | "IEEE-754 binary32 products; each operation declares its ordered F32 or F64 reduction and F32 or BF16 result cast";
   };
   inputs: Gemma4CompositeLiteralInput[];
   /** No checkpoint path is retained: all tensor bytes are in `constants`. */
@@ -127,7 +135,7 @@ export async function buildGemma4CompositeLiteralCalculationProgram(
     schemaVersion: 1,
     kind: "gemma4-composite-literal-calculation-program",
     sourceFormat: "safetensors",
-    numericPolicy: numericPolicy(program),
+    numericPolicy: gemma4CompositeLiteralNumericPolicy(program),
     inputs: literalInputs(),
     ...storage,
     unreachableConstants,
@@ -174,7 +182,7 @@ export async function writeGemma4CompositeLiteralCalculationProgram(
 
   try {
     await once(stream, "open");
-    await write(`{"schemaVersion":1,"kind":"gemma4-composite-literal-calculation-program","sourceFormat":"safetensors","numericPolicy":${JSON.stringify(numericPolicy(program))},"inputs":${JSON.stringify(literalInputs())},"constants":[`);
+    await write(`{"schemaVersion":1,"kind":"gemma4-composite-literal-calculation-program","sourceFormat":"safetensors","numericPolicy":${JSON.stringify(gemma4CompositeLiteralNumericPolicy(program))},"inputs":${JSON.stringify(literalInputs())},"constants":[`);
     for (let index = 0; index < prepared.constants.length; index += 1) {
       const constant = prepared.constants[index]!;
       if (index > 0) await write(",");
@@ -253,7 +261,7 @@ export function generateGemma4CompositeLiteralF32(
  */
 export function validateGemma4CompositeLiteralCalculationProgram(literal: Gemma4CompositeLiteralCalculationProgram): void {
   if (literal.schemaVersion !== 1 || literal.kind !== "gemma4-composite-literal-calculation-program" || literal.sourceFormat !== "safetensors" ||
-    !sameNumericPolicy(literal.numericPolicy, numericPolicy(literal.program))) {
+    !sameNumericPolicy(literal.numericPolicy, gemma4CompositeLiteralNumericPolicy(literal.program))) {
     throw new Error("Programa literal Gemma 4 composite possui cabeçalho ou política numérica inválida.");
   }
   validateLiteralStorageBundle(literal);
@@ -307,9 +315,24 @@ function literalInputs(): Gemma4CompositeLiteralInput[] {
   ];
 }
 
-function numericPolicy(program: Gemma4CompositeProgram): Gemma4CompositeLiteralCalculationProgram["numericPolicy"] {
+/**
+ * Derives the artifact-wide numeric declaration from the ordered assignments.
+ * This is intentionally stricter than an informational summary: a reader can
+ * reject an artifact whose header hides an operation-level reduction boundary.
+ */
+export function gemma4CompositeLiteralNumericPolicy(program: Gemma4CompositeProgram): Gemma4CompositeLiteralCalculationProgram["numericPolicy"] {
   const textOperations = [...program.textProgram.prelude, ...program.textProgram.layers.flatMap((layer) => layer.operations), ...program.textProgram.epilogue];
   const hasBf16ResultCast = textOperations.some((operation) => operation.dtypePolicy.outputDtype === "BF16");
+  const hasDeclaredAccumulation = textOperations.some((operation) => operation.dtypePolicy.accumulationDtype === "F64");
+  if (hasDeclaredAccumulation) {
+    return {
+      inputDtype: "I32/F32/BOOL",
+      computeDtype: "F32",
+      accumulationDtype: "operation-declared",
+      outputDtype: "operation-declared",
+      scalarSemantics: "IEEE-754 binary32 products; each operation declares its ordered F32 or F64 reduction and F32 or BF16 result cast",
+    };
+  }
   return {
     inputDtype: "I32/F32/BOOL",
     computeDtype: "F32",
@@ -319,6 +342,16 @@ function numericPolicy(program: Gemma4CompositeProgram): Gemma4CompositeLiteralC
       ? "IEEE-754 binary32 reductions; each operation declares its F32 or BF16 result cast"
       : "IEEE-754 binary32; host libm results rounded to F32",
   };
+}
+
+/** Validates that an artifact header faithfully describes its embedded graph. */
+export function validateGemma4CompositeLiteralNumericPolicy(
+  policy: Gemma4CompositeLiteralCalculationProgram["numericPolicy"],
+  program: Gemma4CompositeProgram,
+): void {
+  if (!sameNumericPolicy(policy, gemma4CompositeLiteralNumericPolicy(program))) {
+    throw new Error("Programa literal Gemma 4 composite possui política numérica incompatível com as atribuições declaradas.");
+  }
 }
 
 function sameNumericPolicy(

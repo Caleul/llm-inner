@@ -239,9 +239,9 @@ escreve o artefato completo em streaming: ranges Safetensors de 12 MiB são
 codificados em base64 sem acumular o pacote ou uma string de vários GiB na
 heap. O resultado local contém os 2,130 payloads originais
 (15,992,314,836 bytes) e é auditado por `npm run audit:literal`. O hash
-`83d63c1be28a8cdb6f35a6b81a889552777da57d662b5367a88138f707a9c001`
+`d74db021e785b081f5b84714368a23a8d3baf5da40048d971d124580190c491d`
 identifica a exportação atual, cuja política numérica declara fronteiras de
-resultado BF16 por operação do texto; toda exportação deve registrar seu
+resultado BF16 e acumulação F32/F64 por operação do texto; toda exportação deve registrar seu
 próprio hash, pois o programa literal inclui as políticas numéricas. As 54 projeções/normas K/V locais dos
 consumidores compartilhados são incorporadas com proveniência explícita em
 `unreachableConstants`; o grafo usa apenas os KV do produtor declarado. A
@@ -328,7 +328,7 @@ produtos F32 de linear/RMSNorm BF16. Isso torna exatas a projeção e a norma
 PLE; o primeiro limite restante é `layer_0_gate_proj`, cuja árvore de redução
 do kernel nativo é sensível ao shape. A instrumentação é comparada a um
 forward nativo sem hooks e falha se logits ou cache KV mudarem. O replay com
-fonte removida tem 70 atribuições e um cache produtor exatos; as 1.159
+fonte removida tem 69 atribuições e um cache produtor exatos; as 1.160
 atribuições e 23 caches restantes divergem, logo a comparação completa é
 `approximate`, documentada em
 [`docs/validation/gemma4-e4b-native-operation-checkpoints-2026-07-16.md`](docs/validation/gemma4-e4b-native-operation-checkpoints-2026-07-16.md).

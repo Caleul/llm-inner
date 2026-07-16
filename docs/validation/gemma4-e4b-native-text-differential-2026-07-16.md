@@ -9,7 +9,7 @@ not evidence from this run.
 
 - Checkpoint SHA-256: `43fb96cec3045b72852c787540300dc5b258634b7a025f7c80355ac0788b9651`
 - `config.json` SHA-256: `f27a045f32c39fb9cd930204920de6b0962810cf09929a8810901ffaec780f20`
-- Literal artifact SHA-256: `83d63c1be28a8cdb6f35a6b81a889552777da57d662b5367a88138f707a9c001`
+- Literal artifact SHA-256: `d74db021e785b081f5b84714368a23a8d3baf5da40048d971d124580190c491d`
 - Reference: PyTorch `2.12.1`, Transformers `5.5.0`, eager BF16
   `Gemma4ForConditionalGeneration`; values are widened to F32 only for
   comparison serialization.

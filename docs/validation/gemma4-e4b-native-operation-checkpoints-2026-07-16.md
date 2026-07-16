@@ -65,14 +65,15 @@ widened BF16 scale (`50.5`) and its paged embedding kernel applies the declared
 BF16 result cast.
 
 The regenerated artifact SHA-256 is
-`77110ff676903cb0b7588c547b169121b59acececf5572c88997f2f163c27f83`.
-Its program records F32 products plus an ordered F64 scalar accumulator and
-BF16 result cast for Gemma4Text linear/RMSNorm assignments; all other declared
-operations retain their explicit F32 policy. The paged executor applies these
-declared boundaries before the next named assignment or cache transition.
+`d74db021e785b081f5b84714368a23a8d3baf5da40048d971d124580190c491d`.
+Its header declares operation-level accumulation because its program records
+F32 products plus an ordered F64 scalar accumulator and BF16 result cast for
+Gemma4Text linear/RMSNorm assignments; all other declared operations retain
+their explicit F32 policy. The paged executor applies these declared boundaries
+before the next named assignment or cache transition.
 
 The source-removed probe covers every one of 1,229 declared assignments and
-has no missing or unexpected trace IDs. It passes 70 assignments and one
+has no missing or unexpected trace IDs. It passes 69 assignments and one
 producer-owned KV cache exactly. `ple_context_projection`,
 `ple_context_scale`, `ple_context_reshape`, and `ple_context_norm` now match
 exactly. The first divergent assignment is `layer_0_gate_proj`; the 10,240 by
@@ -81,7 +82,7 @@ F64 profile. A direct probe found that an interleaved 32-lane F32 tree matches
 that one projection, while the 10,752-row PLE projection requires the ordered
 F64 profile. Because the authoritative runtime does not expose a stable,
 documented shape-to-reduction-tree contract, the artifact does not invent this
-shape heuristic. The remaining 1,159 assignments and 23 producer KV caches
+shape heuristic. The remaining 1,160 assignments and 23 producer KV caches
 diverge at zero tolerance. This is therefore a complete **approximate**
 operation comparison, not an incomplete probe: the observed evidence
 identifies the first unresolved numerical boundary without claiming

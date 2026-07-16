@@ -202,6 +202,49 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
   }
 });
 
+test("Gemma 4 literal headers expose and stream-validate operation-declared F64 reductions", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "llm-inner-gemma4-f64-policy-"));
+  try {
+    const catalog = fixture(), program = buildGemma4CompositeProgram(catalog, preview), sourceTensors = materialize(catalog);
+    for (const operation of [...program.textProgram.prelude, ...program.textProgram.layers.flatMap((layer) => layer.operations), ...program.textProgram.epilogue]) {
+      if (operation.op === "linear" || operation.op === "rms_norm") {
+        operation.dtypePolicy = { inputDtype: "BF16", computeDtype: "F32", accumulationDtype: "F64", outputDtype: "BF16" };
+      }
+    }
+    const output = path.join(root, "f64.gemma4.literal.json");
+    await writeGemma4CompositeLiteralCalculationProgram(program, catalog, {
+      async readTensorBytes(info) {
+        const tensor = sourceTensors.get(info.name)!;
+        const bytes = Buffer.alloc(tensor.values.length * 4);
+        tensor.values.forEach((value, index) => bytes.writeFloatLE(value, index * 4));
+        return bytes;
+      },
+    }, output);
+    const artifact = await openGemma4CompositeLiteralArtifact(output);
+    try {
+      assert.deepEqual(artifact.numericPolicy, {
+        inputDtype: "I32/F32/BOOL",
+        computeDtype: "F32",
+        accumulationDtype: "operation-declared",
+        outputDtype: "operation-declared",
+        scalarSemantics: "IEEE-754 binary32 products; each operation declares its ordered F32 or F64 reduction and F32 or BF16 result cast",
+      });
+    } finally {
+      await artifact.close();
+    }
+
+    const corrupted = path.join(root, "f64-header-lie.gemma4.literal.json");
+    const raw = await readFile(output, "utf8");
+    await writeFile(corrupted, raw.replace(
+      '"accumulationDtype":"operation-declared","outputDtype":"operation-declared","scalarSemantics":"IEEE-754 binary32 products; each operation declares its ordered F32 or F64 reduction and F32 or BF16 result cast"',
+      '"accumulationDtype":"F32","outputDtype":"operation-declared","scalarSemantics":"IEEE-754 binary32 reductions; each operation declares its F32 or BF16 result cast"',
+    ));
+    await assert.rejects(() => openGemma4CompositeLiteralArtifact(corrupted), /política numérica incompatível com as atribuições declaradas/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding and linear kernels after source removal", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "llm-inner-gemma4-paged-"));
   try {
