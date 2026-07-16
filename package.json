@@ -20,6 +20,7 @@
     "audit:literal": "npm run build && node dist/src/literal-artifact-audit-cli.js",
     "inspect:gemma4-literal": "npm run build && node dist/src/gemma4-composite-literal-reader-cli.js",
     "replay:gemma4-paged-text": "npm run build && node dist/src/gemma4-paged-text-cli.js",
+    "probe:gemma4-linear-reduction": "npm run build && node dist/src/gemma4-linear-reduction-probe-cli.js",
     "benchmark:native": "npm run build && node dist/src/benchmark-cli.js",
     "loop:start": "node scripts/agent-loop-runner.mjs start",
     "loop:status": "node scripts/agent-loop-runner.mjs status",

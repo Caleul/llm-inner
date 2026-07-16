@@ -14,8 +14,10 @@ import {
   writeGemma4CompositeLiteralCalculationProgram,
 } from "../src/gemma4-composite-literal.js";
 import { openGemma4CompositeLiteralArtifact } from "../src/gemma4-composite-literal-reader.js";
+import { probeGemma4LiteralLinearReductionProfiles } from "../src/gemma4-linear-reduction-probe.js";
 import { executeGemma4PagedTextLiteralF32, generateGemma4PagedTextLiteralF32 } from "../src/gemma4-paged-text.js";
 import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearF32 } from "../src/paged-dense.js";
+import { fingerprintIR } from "../src/trace.js";
 import type { DenseF32Tensor, ModelCatalog, TensorInfo } from "../src/types.js";
 
 const preview = { outputRows: 1, inputTerms: 1, includeWeights: false } as const;
@@ -384,6 +386,50 @@ test("paged linear applies an explicit interleaved F32 lane schedule instead of 
   });
   assert.deepEqual(scalar.values, Float32Array.from([1]));
   assert.deepEqual(lanes.values, Float32Array.from([2]));
+});
+
+test("Gemma 4 linear reduction probe binds a candidate schedule to traced producer and output tensors", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "llm-inner-gemma4-reduction-probe-"));
+  try {
+    const catalog = fixture(), program = buildGemma4CompositeProgram(catalog, preview), tensors = materialize(catalog);
+    const reader = {
+      async readTensorBytes(info: TensorInfo) {
+        const tensor = tensors.get(info.name)!;
+        const bytes = Buffer.alloc(tensor.values.length * 4);
+        tensor.values.forEach((value, index) => bytes.writeFloatLE(value, index * 4));
+        return bytes;
+      },
+    };
+    const artifact = path.join(root, "fixture.literal.json");
+    await writeGemma4CompositeLiteralCalculationProgram(program, catalog, reader, artifact);
+    const native = executeGemma4CompositeF32(program, { inputIds: [[1]], tensors }).text;
+    const target = program.textProgram.layers[0]!.operations.find((operation) => operation.id === "layer_0_gate_proj")!;
+    if (target.op !== "linear") throw new Error("fixture gate must be linear");
+    const producer = [...program.textProgram.prelude, ...program.textProgram.layers.flatMap((layer) => layer.operations), ...program.textProgram.epilogue].find((operation) => operation.output === target.input)!;
+    const serialize = (tensor: DenseF32Tensor) => ({ dtype: "F32", shape: tensor.shape, valuesBase64: Buffer.from(tensor.values.buffer, tensor.values.byteOffset, tensor.values.byteLength).toString("base64") });
+    const trace = path.join(root, "trace.json");
+    await writeFile(trace, JSON.stringify({
+      schemaVersion: 1, kind: "execution", source: { files: [{ path: "config.json", sha256: "a".repeat(64) }] },
+      irFingerprint: fingerprintIR(program.textProgram), candidatePolicy: { dtype: "F32", runtime: "llm-inner paged Gemma4Text literal F32" },
+      reference: {
+        runtime: "fixture", model: "fixture", revisionOrChecksum: "fixture", containerFormat: "safetensors", quantization: "none", inputTokens: [[1]], dtypePolicy: "fixture F32",
+        operations: [
+          { operationId: producer.id, output: producer.output, tensor: serialize(native.values.get(producer.output)!) },
+          { operationId: target.id, output: target.output, tensor: serialize(native.values.get(target.output)!) },
+        ],
+        pastKeyValues: [],
+      },
+    }), "utf8");
+    const report = await probeGemma4LiteralLinearReductionProfiles({
+      artifact, trace, operationId: target.id, maxReadBytes: 1024 * 1024,
+      profiles: [{ id: "ordered-f32", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } }],
+    });
+    assert.equal(report.inputOperationId, producer.id);
+    assert.deepEqual(report.exactProfileIds, ["ordered-f32"]);
+    assert.equal(report.profiles[0]!.mismatchedElements, 0);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("Gemma 4 shared-KV consumers embed but explicitly label their checkpoint-local K/V tensors", async () => {

@@ -337,6 +337,15 @@ primeiro limite agora é `layer_0_up_proj`. A comparação completa permanece
 `approximate`, documentada em
 [`docs/validation/gemma4-e4b-native-operation-checkpoints-2026-07-16.md`](docs/validation/gemma4-e4b-native-operation-checkpoints-2026-07-16.md).
 
+Para evitar transformar um palpite de SIMD em semântica do artefato, há também
+`probe:gemma4-linear-reduction`. Ele vincula uma projeção linear ao produtor e
+resultado nomeados de um trace nativo com fingerprint de IR, lê somente ranges
+do JSON literal e exige igualdade de todos os elementos após o cast declarado.
+No E4B, ele confirma independentemente as 32 lanes de `layer_0_gate_proj`, mas
+nenhuma das agendas escalar/F32/F64 ou 2..256 lanes testadas resolve
+`layer_0_up_proj`; os resultados e o comando estão em
+[`docs/validation/gemma4-e4b-linear-reduction-probe-2026-07-16.md`](docs/validation/gemma4-e4b-linear-reduction-probe-2026-07-16.md).
+
 ### Comparação com captura autoritativa
 
 `npm run compare:trace -- --source <checkpoint> --trace <captura.json> --report <relatorio.json>` executa a fronteira completa de validação declarada pela captura (`F32` ou `F64`): reabre o contêiner, confere SHA-256 de `config.json` e de cada shard/arquivo que participa do checkpoint, reconstrói o IR, materializa os pesos por range, executa o interpretador correspondente e compara cada operação e cache KV com a captura. O relatório só é escrito depois de todas essas verificações.
