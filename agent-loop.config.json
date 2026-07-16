@@ -18,6 +18,26 @@
   "lockFile": ".agent-loop/lock.json",
   "stopFile": ".agent-loop/STOP",
   "promptFile": ".agent-loop/prompts/master-prompt.md",
+  "checkpointDirectory": ".agent-loop/checkpoints",
+  "checkpointRoadmap": [
+    {
+      "id": "gemma4-dense-lossless",
+      "priority": 1,
+      "model": "Gemma 4",
+      "sourceFormat": "unquantized Safetensors",
+      "markerDirectory": ".agent-loop/checkpoints/gemma4-dense-lossless",
+      "requiredEvidence": ["immutable source identity and checksums", "literal artifact with embedded weights", "source-removed forward and generation replay", "authoritative runtime differential comparison"]
+    },
+    {
+      "id": "glm-5.2-dense-lossless",
+      "priority": 2,
+      "model": "GLM 5.2",
+      "sourceFormat": "unquantized Safetensors",
+      "dependsOn": "gemma4-dense-lossless",
+      "markerDirectory": ".agent-loop/checkpoints/glm-5.2-dense-lossless",
+      "requiredEvidence": ["immutable source identity and checksums", "literal artifact with embedded weights", "source-removed forward and generation replay", "authoritative runtime differential comparison"]
+    }
+  ],
   "handoffPattern": "^HANDOFF-(\\d{4,})-(\\d{8}T\\d{6}Z)-[a-z0-9-]+\\.json$",
   "requireCleanGitBeforeNextLoop": true,
   "requireNewCommitPerLoop": true,
@@ -40,6 +60,16 @@
     {
       "id": "safetensors-semantic-decompilation",
       "description": "Any Safetensors package whose semantics are established by authoritative metadata, a validated adapter or runtime-graph extraction can be lowered into the self-contained literal JSON program; unknown semantics fail closed rather than being guessed",
+      "required": true
+    },
+    {
+      "id": "gemma4-dense-lossless-checkpoint",
+      "description": "A real unquantized Gemma 4 Safetensors package has a committed checkpoint manifest proving lossless literal export, source-removed replay, and authoritative differential validation",
+      "required": true
+    },
+    {
+      "id": "glm-5.2-dense-lossless-checkpoint",
+      "description": "After Gemma 4, a real unquantized GLM 5.2 Safetensors package has the same committed lossless literal-export and replay evidence",
       "required": true
     },
     {

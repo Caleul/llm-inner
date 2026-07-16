@@ -74,6 +74,37 @@ the missing semantic contract. Completion requires a generic path that can
 lower every established Safetensors semantic contract into this literal JSON,
 not a collection of architecture-specific prose or external references.
 
+## Mandatory checkpoint roadmap
+
+The next product checkpoint is not a generic feature count. It is a real,
+unquantized Gemma 4 Safetensors package transformed into and replayed from a
+lossless literal calculation JSON. Until that checkpoint is proven, it outranks
+new work on unrelated families, quantization variants, container breadth and
+cosmetic infrastructure. The agent has authority to download the required
+official/public model files, `config.json`, tokenizer/configuration metadata,
+and authoritative runtime/source evidence needed to establish its semantics.
+
+Gemma 4 is complete only when the selected immutable dense package has a
+documented source/revision/checksum; every model semantic is explicitly
+lowered; every original weight is embedded losslessly; forward and generation
+can replay after the source checkpoint is unavailable; and an authoritative
+runtime comparison establishes the claimed fidelity. On success, create and
+commit `.agent-loop/checkpoints/gemma4-dense-lossless/` containing a concise
+`manifest.json` and `CHECKPOINT.md` with source identity, artifact hash/path,
+validation commands/results, fidelity evidence, and known limits. Do not create
+this success folder for a partial adapter, synthetic fixture, catalog, or
+source-dependent IR.
+
+Only after that Gemma 4 checkpoint exists may GLM 5.2 become the primary
+target. Apply the same rules and create and commit
+`.agent-loop/checkpoints/glm-5.2-dense-lossless/` only after a real dense GLM
+5.2 Safetensors package is losslessly exported and independently replayed.
+If a requested family/version/package cannot be acquired or its semantics are
+not authoritatively established, record the exact acquisition/semantic blocker
+and continue the highest-leverage work that unblocks that checkpoint; never
+substitute a smaller, older, quantized, synthetic, or merely similar model and
+call the checkpoint reached.
+
 ## Safety and fidelity
 
 - Preserve fail-closed behavior for unsupported model semantics.

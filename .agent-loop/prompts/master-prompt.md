@@ -74,6 +74,40 @@ contract. Do not call the mission complete until every established Safetensors
 semantic path can be lowered into literal assignments, including embedded
 weights and deterministic quantization reconstruction.
 
+## Mandatory product checkpoints: Gemma 4, then GLM 5.2
+
+For this loop, prioritize a real **unquantized Gemma 4 Safetensors** package
+above all other architecture, storage, quantization and benchmark milestones.
+The immediate outcome is a lossless literal JSON program for that selected
+package: every dense source weight embedded without loss, every Gemma 4
+operation and state transition explicit, source-independent forward/generation
+replay, and authoritative-runtime differential evidence. You have full
+authority to download public/official weights, `config.json`, tokenizer and
+generation configuration, runtime dependencies, and source evidence needed to
+reach this target.
+
+Do not mistake a Gemma 1/2/3 fixture, a Gemma 4 catalog, a rejected-model
+diagnostic, a text-only approximation, a quantized checkpoint, or a
+source-dependent IR for this checkpoint. Select an immutable source revision
+and record its identity and checksums. Establish Gemma 4 semantics from
+authoritative metadata/runtime/source, implement a dedicated fail-closed
+adapter as necessary, and prove literal replay after the source checkpoint is
+unavailable.
+
+When and only when all of that is demonstrated, create and commit
+`.agent-loop/checkpoints/gemma4-dense-lossless/` with `manifest.json` and
+`CHECKPOINT.md`. They must state the exact source/revision/checksums, literal
+artifact hash and path, commands/results for source-removed replay and
+authoritative comparison, fidelity metrics, and remaining limitations. This
+folder is the durable marker that Gemma 4 was actually reached.
+
+Before that folder exists, Gemma 4 work is the first recommended milestone.
+After it exists, make a real unquantized **GLM 5.2 Safetensors** package the
+next mandatory checkpoint under identical rules, recording success only in
+`.agent-loop/checkpoints/glm-5.2-dense-lossless/`. If the exact GLM 5.2 package
+or semantics cannot be obtained, preserve exact evidence of the blocker; do
+not silently use another GLM version or a similar architecture as a substitute.
+
 ## Current-loop responsibility
 
 The operating posture below takes precedence over any procedural wording that
@@ -560,6 +594,9 @@ At minimum, completion requires:
 * documented unsupported cases;
 * performance measurements;
 * deterministic handoffs and reports.
+* committed Gemma 4 and GLM 5.2 dense-lossless checkpoint manifests under
+  `.agent-loop/checkpoints/` with source-removed replay and authoritative
+  differential evidence.
 
 Until then, use `missionStatus: "continue"`.
 
