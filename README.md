@@ -312,6 +312,12 @@ greedy `184`, mas é explicitamente `approximate`: logits e os 24 caches KV
 produtores divergem do eager BF16. Comandos, hashes e métricas estão em
 [`docs/validation/gemma4-e4b-native-text-differential-2026-07-16.md`](docs/validation/gemma4-e4b-native-text-differential-2026-07-16.md).
 
+Uma repetição independente contra a revisão imutável oficial
+`411aa17b749aa952df1359d2dcea73917a544d9a` confirmou a mesma fronteira,
+inclusive a ausência do checkpoint durante o replay candidato; a evidência
+atualizada está em
+[`docs/validation/gemma4-e4b-immutable-source-revalidation-2026-07-16.md`](docs/validation/gemma4-e4b-immutable-source-revalidation-2026-07-16.md).
+
 ### Comparação com captura autoritativa
 
 `npm run compare:trace -- --source <checkpoint> --trace <captura.json> --report <relatorio.json>` executa a fronteira completa de validação declarada pela captura (`F32` ou `F64`): reabre o contêiner, confere SHA-256 de `config.json` e de cada shard/arquivo que participa do checkpoint, reconstrói o IR, materializa os pesos por range, executa o interpretador correspondente e compara cada operação e cache KV com a captura. O relatório só é escrito depois de todas essas verificações.
