@@ -359,12 +359,23 @@ separados em [`src/gemma4-vision.ts`](src/gemma4-vision.ts), documentados em
 [`docs/validation/gemma4-vision-lowering-2026-07-16.md`](docs/validation/gemma4-vision-lowering-2026-07-16.md).
 Ele preserva o affine de pixels, lookup x/y, RoPE 2-D, `Gemma4ClippableLinear`,
 atenção bidirecional, pool espacial, escala F32, projeção e a cardinalidade do
-`masked_scatter` de imagens. Isso ainda não aceita o pacote composto: falta o
-branch de áudio e a montagem explícita da sequência/política BF16 completa.
+`masked_scatter` de imagens.
 
-O relatório não transforma o pacote composto em modelo textual: a injeção de
-visão/áudio, os towers e o estado de geração multimodal continuam fora do
-adaptador `gemma4_text` isolado. Portanto o pacote E4B denso ainda falha
+O branch de áudio agora possui o mesmo limite executável explícito em
+[`src/gemma4-audio.ts`](src/gemma4-audio.ts), com evidência em
+[`docs/validation/gemma4-audio-lowering-2026-07-16.md`](docs/validation/gemma4-audio-lowering-2026-07-16.md).
+Ele não aproxima o encoder como um Conformer genérico: declara os dois Conv2d
+com máscaras `::2`, LayerNorm por canal, posição relativa, atenção local por
+blocos com shift relativo e softcap, FFNs/clips/resíduos, GLU/convolução causal
+profunda, projeções e stripping/scatter de tokens de áudio. Também continua a
+ser apenas uma feature branch F32: a montagem texto+imagem+áudio+vídeo, casts
+BF16, cache e geração do pacote composto seguem pendentes.
+
+O relatório não transforma o pacote composto em modelo textual: embora os
+towers de visão e áudio agora tenham feature programs separados, a injeção
+ordenada de visão/áudio/vídeo, o PLE preparado para os tokens PAD e o estado de
+geração multimodal continuam fora do adaptador `gemma4_text` isolado. Portanto
+o pacote E4B denso ainda falha
 fechado e não há marcador `gemma4-dense-lossless`. O próximo adaptador do
 pacote precisa lower essas fronteiras, materializar BF16 para o programa
 literal e produzir diferenciais autoritativos de operação, KV, logits e

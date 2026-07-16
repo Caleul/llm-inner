@@ -22,7 +22,8 @@ used for this boundary is Hugging Face Transformers `v5.5.0`, commit
 - `Gemma4VisionPooler`: zero padding patches, pool by spatial coordinates,
   average in F32, then apply F32 `sqrt(hidden_size)` scale before stripping
   invalid pooled cells.
-- `Gemma4Model.forward`: project soft tokens into text hidden space and require
+- `Gemma4MultimodalEmbedder`: unscaled RMSNorm of soft tokens before projecting
+  into text hidden space; and `Gemma4Model.forward` requires
   exact image-placeholder/feature cardinality before `masked_scatter`.
 
 The implementation is `src/gemma4-vision.ts`. Its program records stable

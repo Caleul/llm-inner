@@ -17,6 +17,9 @@ test("Gemma 4 vision lowerer makes 2-D RoPE, clipping, pooling, projection, and 
   assert.ok([...result.imageFeatures.values].every(Number.isFinite));
   assert.equal(result.values.has("vision_layer_0_q_rotated"), true);
   assert.equal(result.values.has("vision_soft_tokens"), true);
+  const normalizedSoftTokens = result.values.get("vision_soft_tokens_normalized")!;
+  const rms = Math.sqrt([...normalizedSoftTokens.values].reduce((sum, value) => sum + value ** 2, 0) / normalizedSoftTokens.values.length);
+  assert.ok(Math.abs(rms - 1) < 1e-4, `expected unscaled multimodal RMSNorm, got RMS=${rms}`);
   for (const assignment of program.assignments.filter((assignment) => assignment.operation !== "masked-scatter-image-features")) {
     assert.equal(result.values.has(assignment.output), true, `missing named output ${assignment.output}`);
   }
