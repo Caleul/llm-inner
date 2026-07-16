@@ -1,4 +1,5 @@
 import { executeReferenceF32, generateReferenceF32 } from "./executor.js";
+import { decodeIeeeBF16ToF32, decodeIeeeF16ToF32 } from "./utils.js";
 import type {
   DenseF32Tensor,
   JsonObject,
@@ -26,15 +27,39 @@ export interface LiteralInput {
   shape: string;
 }
 
+export type LiteralDenseStorageDtype = "F32" | "F16" | "BF16";
+
+/**
+ * Exact storage payload embedded in the program. `name` is the logical tensor
+ * name used by IR assignments; its storage bytes are only made available to
+ * those assignments through the corresponding explicit decoder below.
+ */
 export interface LiteralConstant {
   name: string;
-  storageDtype: "F32";
+  storageDtype: LiteralDenseStorageDtype;
   storageShape: number[];
   logicalShape: number[];
   layout: "row-major";
   byteOrder: "little-endian";
   encoding: "base64";
   payloadBase64: string;
+}
+
+/**
+ * A deterministic storage-to-compute boundary. These are assignments in the
+ * literal program, not a convenience performed by the host when loading JSON:
+ * F16/BF16 payloads remain in their original representation until this exact
+ * IEEE conversion emits the F32 tensor named by `output`.
+ */
+export interface LiteralStorageDecodeAssignment {
+  id: string;
+  operation: "ieee-f32-little-endian" | "ieee-f16-to-f32" | "ieee-bf16-to-f32";
+  input: string;
+  output: string;
+  storageDtype: LiteralDenseStorageDtype;
+  outputDtype: "F32";
+  byteOrder: "little-endian";
+  semantics: "exact IEEE-754 storage decode; no arithmetic narrowing";
 }
 
 export interface LiteralKvCacheTransition {
@@ -48,7 +73,7 @@ export interface LiteralKvCacheTransition {
 }
 
 /**
- * A source-independent, literal calculation program for the dense F32
+ * A source-independent, literal calculation program for the dense floating
  * Safetensors contract. The operation graph intentionally retains the same
  * stable operation ids and named dataflow as ModelIR, but every referenced
  * tensor is embedded as exact little-endian bytes rather than a shard path.
@@ -68,6 +93,7 @@ export interface LiteralCalculationProgram {
   };
   inputs: LiteralInput[];
   constants: LiteralConstant[];
+  storageDecoders: LiteralStorageDecodeAssignment[];
   assignments: {
     prelude: Operation[];
     layers: ModelIR["layers"];
@@ -77,16 +103,19 @@ export interface LiteralCalculationProgram {
   outputs: { logits: string };
 }
 
-const F32_BYTES = 4;
+const STORAGE_BYTES: Record<LiteralDenseStorageDtype, number> = {
+  F32: 4,
+  F16: 2,
+  BF16: 2,
+};
 
 /**
  * Creates a self-contained literal program from an already validated
- * architecture IR. This deliberately accepts only ordinary dense F32
- * Safetensors: F16/BF16 conversion and quantized dequantization need their
- * own literal decoder assignments and are rejected instead of being silently
- * materialized into a different storage contract.
+ * architecture IR. It accepts ordinary dense F32/F16/BF16 Safetensors only.
+ * Lower-precision storage is embedded as-is, then accompanied by an explicit
+ * lossless IEEE decoder into the declared scalar-F32 execution policy.
  */
-export async function buildDenseF32LiteralProgram(
+export async function buildDenseSafetensorsLiteralProgram(
   ir: ModelIR,
   catalog: ModelCatalog,
   reader: LiteralTensorReader,
@@ -98,15 +127,15 @@ export async function buildDenseF32LiteralProgram(
   const constants: LiteralConstant[] = [];
   for (const reference of references.values()) {
     const tensor = catalog.tensors.get(reference.name);
-    assertDenseF32Reference(reference, tensor);
+    assertDenseFloatingReference(reference, tensor);
     const payload = await reader.readTensorBytes(tensor!);
-    const expectedBytes = product(tensor!.storageShape) * F32_BYTES;
+    const expectedBytes = product(tensor!.storageShape) * storageByteWidth(tensor!.storageDtype);
     if (payload.length !== expectedBytes) {
-      throw new Error(`${reference.name}: payload literal possui ${payload.length} bytes, esperado ${expectedBytes} para F32.`);
+      throw new Error(`${reference.name}: payload literal possui ${payload.length} bytes, esperado ${expectedBytes} para ${tensor!.storageDtype}.`);
     }
     constants.push({
       name: reference.name,
-      storageDtype: "F32",
+      storageDtype: tensor!.storageDtype as LiteralDenseStorageDtype,
       storageShape: [...tensor!.storageShape],
       logicalShape: [...tensor!.logicalShape],
       layout: "row-major",
@@ -132,6 +161,7 @@ export async function buildDenseF32LiteralProgram(
     },
     inputs: literalInputs(),
     constants,
+    storageDecoders: constants.map(storageDecoder),
     assignments,
     stateTransitions: cacheTransitions(assignments),
     outputs: { logits: assignments.epilogue.some((operation) => operation.output === "softcapped_logits") ? "softcapped_logits" : "logits" },
@@ -140,13 +170,16 @@ export async function buildDenseF32LiteralProgram(
   return program;
 }
 
+/** Backward-compatible entry point retained for callers of the F32-only release. */
+export const buildDenseF32LiteralProgram = buildDenseSafetensorsLiteralProgram;
+
 /** Replays a validated literal program without opening a source checkpoint. */
 export function executeLiteralF32(
   program: LiteralCalculationProgram,
   request: Omit<ReferenceF32ExecutionRequest, "tensors">,
 ): ReferenceF32ExecutionResult {
   validateLiteralCalculationProgram(program);
-  return executeReferenceF32(toEmbeddedModelIR(program), { ...request, tensors: decodeF32Constants(program.constants) });
+  return executeReferenceF32(toEmbeddedModelIR(program), { ...request, tensors: decodeDenseConstantsAsF32(program) });
 }
 
 /** Greedily generates from the same embedded constants and explicit KV contract. */
@@ -155,7 +188,7 @@ export function generateLiteralF32(
   request: Omit<ReferenceF32GenerationRequest, "tensors">,
 ): ReferenceF32GenerationResult {
   validateLiteralCalculationProgram(program);
-  return generateReferenceF32(toEmbeddedModelIR(program), { ...request, tensors: decodeF32Constants(program.constants) });
+  return generateReferenceF32(toEmbeddedModelIR(program), { ...request, tensors: decodeDenseConstantsAsF32(program) });
 }
 
 /**
@@ -178,19 +211,19 @@ export function validateLiteralCalculationProgram(program: LiteralCalculationPro
   const constants = new Map<string, LiteralConstant>();
   for (const constant of program.constants) {
     if (constants.has(constant.name)) throw new Error(`Programa literal contém constante duplicada: ${constant.name}.`);
-    if (
-      constant.storageDtype !== "F32" || constant.layout !== "row-major" || constant.byteOrder !== "little-endian" || constant.encoding !== "base64" ||
-      !sameShape(constant.storageShape, constant.logicalShape) || !validShape(constant.storageShape)
-    ) {
-      throw new Error(`${constant.name}: contrato de constante literal F32 inválido.`);
+    if (!isSupportedDenseStorageDtype(constant.storageDtype) || constant.layout !== "row-major" || constant.byteOrder !== "little-endian" || constant.encoding !== "base64" ||
+      !sameShape(constant.storageShape, constant.logicalShape) || !validShape(constant.storageShape)) {
+      throw new Error(`${constant.name}: contrato de constante literal densa inválido.`);
     }
-    const payload = Buffer.from(constant.payloadBase64, "base64");
-    if (payload.length !== product(constant.storageShape) * F32_BYTES) {
-      throw new Error(`${constant.name}: payload base64 não corresponde ao shape F32 declarado.`);
+    const payload = decodeBase64(constant.payloadBase64, constant.name);
+    if (payload.length !== product(constant.storageShape) * storageByteWidth(constant.storageDtype)) {
+      throw new Error(`${constant.name}: payload base64 não corresponde ao shape ${constant.storageDtype} declarado.`);
     }
     constants.set(constant.name, constant);
   }
   if (constants.size === 0) throw new Error("Programa literal não contém constantes incorporadas.");
+  if (!Array.isArray(program.storageDecoders)) throw new Error("Programa literal não declara decoders de storage.");
+  validateStorageDecoders(program.storageDecoders, constants);
 
   const declaredInputs = new Set(program.inputs.map((input) => input.name));
   for (const required of ["input_ids", "position_ids", "attention_mask", "past_key_values"] as const) {
@@ -307,12 +340,20 @@ function toEmbeddedModelIR(program: LiteralCalculationProgram): ModelIR {
   };
 }
 
-function decodeF32Constants(constants: readonly LiteralConstant[]): ReadonlyMap<string, DenseF32Tensor> {
+function decodeDenseConstantsAsF32(program: LiteralCalculationProgram): ReadonlyMap<string, DenseF32Tensor> {
+  const constants = new Map(program.constants.map((constant) => [constant.name, constant]));
   const decoded = new Map<string, DenseF32Tensor>();
-  for (const constant of constants) {
-    const bytes = Buffer.from(constant.payloadBase64, "base64");
-    const source = new Float32Array(bytes.buffer, bytes.byteOffset, bytes.byteLength / F32_BYTES);
-    decoded.set(constant.name, { shape: [...constant.logicalShape], values: Float32Array.from(source) });
+  for (const decoder of program.storageDecoders) {
+    const constant = constants.get(decoder.output);
+    if (!constant) throw new Error(`${decoder.id}: constante de storage não encontrada após validação.`);
+    const bytes = decodeBase64(constant.payloadBase64, constant.name);
+    const elements = product(constant.logicalShape);
+    const values = new Float32Array(elements);
+    for (let index = 0; index < elements; index += 1) {
+      const offset = index * storageByteWidth(constant.storageDtype);
+      values[index] = decodeStoredValueAsF32(bytes, offset, decoder.operation);
+    }
+    decoded.set(decoder.output, { shape: [...constant.logicalShape], values });
   }
   return decoded;
 }
@@ -337,13 +378,80 @@ function registerReference(references: Map<string, TensorRef>, reference: Tensor
   references.set(reference.name, reference);
 }
 
-function assertDenseF32Reference(reference: TensorRef, tensor: TensorInfo | undefined): void {
-  if (!tensor || reference.storageDtype !== "F32" || tensor.storageDtype !== "F32" || reference.quantization || tensor.quantization) {
-    throw new Error(`${reference.name}: exportação literal atual aceita somente tensor Safetensors F32 denso não quantizado.`);
+function assertDenseFloatingReference(reference: TensorRef, tensor: TensorInfo | undefined): void {
+  if (!tensor || !isSupportedDenseStorageDtype(reference.storageDtype) || !isSupportedDenseStorageDtype(tensor.storageDtype) ||
+    reference.storageDtype !== tensor.storageDtype || reference.quantization || tensor.quantization) {
+    throw new Error(`${reference.name}: exportação literal aceita somente tensor Safetensors F32/F16/BF16 denso não quantizado.`);
   }
   if (!sameShape(reference.shape, tensor.logicalShape) || !sameShape(tensor.storageShape, tensor.logicalShape) || !validShape(tensor.storageShape)) {
-    throw new Error(`${reference.name}: shape lógico/storage incompatível para exportação literal F32.`);
+    throw new Error(`${reference.name}: shape lógico/storage incompatível para exportação literal densa.`);
   }
+}
+
+function storageDecoder(constant: LiteralConstant): LiteralStorageDecodeAssignment {
+  return {
+    id: `decode_${constant.name}`,
+    operation: decodeOperationFor(constant.storageDtype),
+    input: `${constant.name}:storage`,
+    output: constant.name,
+    storageDtype: constant.storageDtype,
+    outputDtype: "F32",
+    byteOrder: "little-endian",
+    semantics: "exact IEEE-754 storage decode; no arithmetic narrowing",
+  };
+}
+
+function validateStorageDecoders(
+  decoders: readonly LiteralStorageDecodeAssignment[],
+  constants: ReadonlyMap<string, LiteralConstant>,
+): void {
+  if (decoders.length !== constants.size) throw new Error("Programa literal deve declarar exatamente um decoder de storage por constante.");
+  const seenIds = new Set<string>();
+  const decoded = new Set<string>();
+  for (const decoder of decoders) {
+    if (seenIds.has(decoder.id)) throw new Error(`Programa literal contém decoder duplicado: ${decoder.id}.`);
+    seenIds.add(decoder.id);
+    const constant = constants.get(decoder.output);
+    if (!constant || decoded.has(decoder.output) || decoder.id !== `decode_${constant.name}` ||
+      decoder.input !== `${constant.name}:storage` || decoder.operation !== decodeOperationFor(constant.storageDtype) ||
+      decoder.storageDtype !== constant.storageDtype || decoder.outputDtype !== "F32" || decoder.byteOrder !== "little-endian" ||
+      decoder.semantics !== "exact IEEE-754 storage decode; no arithmetic narrowing") {
+      throw new Error(`${decoder.id}: decoder de storage literal não corresponde à constante declarada.`);
+    }
+    decoded.add(decoder.output);
+  }
+}
+
+function decodeOperationFor(storageDtype: LiteralDenseStorageDtype): LiteralStorageDecodeAssignment["operation"] {
+  switch (storageDtype) {
+    case "F32": return "ieee-f32-little-endian";
+    case "F16": return "ieee-f16-to-f32";
+    case "BF16": return "ieee-bf16-to-f32";
+  }
+}
+
+function decodeStoredValueAsF32(bytes: Buffer, offset: number, operation: LiteralStorageDecodeAssignment["operation"]): number {
+  switch (operation) {
+    case "ieee-f32-little-endian": return bytes.readFloatLE(offset);
+    case "ieee-f16-to-f32": return decodeIeeeF16ToF32(bytes.readUInt16LE(offset));
+    case "ieee-bf16-to-f32": return decodeIeeeBF16ToF32(bytes.readUInt16LE(offset));
+  }
+}
+
+function decodeBase64(payloadBase64: string, name: string): Buffer {
+  if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(payloadBase64)) {
+    throw new Error(`${name}: payload base64 literal inválido.`);
+  }
+  return Buffer.from(payloadBase64, "base64");
+}
+
+function isSupportedDenseStorageDtype(dtype: string): dtype is LiteralDenseStorageDtype {
+  return dtype === "F32" || dtype === "F16" || dtype === "BF16";
+}
+
+function storageByteWidth(dtype: string): number {
+  if (!isSupportedDenseStorageDtype(dtype)) throw new Error(`storageDtype literal não suportado: ${dtype}.`);
+  return STORAGE_BYTES[dtype];
 }
 
 function allOperations(assignments: LiteralCalculationProgram["assignments"]): Operation[] {

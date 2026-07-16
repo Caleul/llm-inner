@@ -1,7 +1,7 @@
 import { open } from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
 import type { DenseF32Tensor, JsonObject, ModelCatalog, TensorInfo } from "./types.js";
-import { product } from "./utils.js";
+import { decodeIeeeBF16ToF32 as decodeBF16, decodeIeeeF16ToF32 as decodeF16, product } from "./utils.js";
 
 const GGUF_MAGIC = "GGUF";
 const MAX_STRING_BYTES = 16 * 1024 * 1024;
@@ -806,21 +806,4 @@ function alignUp(value: number, alignment: number): number {
   const aligned = remainder === 0 ? value : value + alignment - remainder;
   if (!Number.isSafeInteger(aligned)) throw new Error("Alinhamento GGUF excede Number.MAX_SAFE_INTEGER.");
   return aligned;
-}
-
-function decodeF16(bits: number): number {
-  const sign = (bits & 0x8000) === 0 ? 1 : -1;
-  const exponent = (bits >>> 10) & 0x1f;
-  const fraction = bits & 0x03ff;
-  if (exponent === 0) return sign * fraction * 2 ** -24;
-  if (exponent === 0x1f) return fraction === 0 ? sign * Infinity : Number.NaN;
-  return sign * (1 + fraction / 1024) * 2 ** (exponent - 15);
-}
-
-const BF16_SCRATCH = new DataView(new ArrayBuffer(4));
-
-/** GGML BF16 stores the most-significant 16 IEEE-754 binary32 bits little-endian. */
-function decodeBF16(bits: number): number {
-  BF16_SCRATCH.setUint32(0, bits << 16, true);
-  return BF16_SCRATCH.getFloat32(0, true);
 }

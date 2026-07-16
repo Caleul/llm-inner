@@ -80,3 +80,21 @@ export function assertPositiveInteger(value: number, label: string): void {
 export function stableUnique<T>(values: Iterable<T>): T[] {
   return [...new Set(values)];
 }
+
+/** Exact IEEE-754 binary16 widening; storage decoding is not an arithmetic policy. */
+export function decodeIeeeF16ToF32(bits: number): number {
+  const sign = (bits & 0x8000) === 0 ? 1 : -1;
+  const exponent = (bits >>> 10) & 0x1f;
+  const fraction = bits & 0x03ff;
+  if (exponent === 0) return sign * fraction * 2 ** -24;
+  if (exponent === 0x1f) return fraction === 0 ? sign * Infinity : Number.NaN;
+  return sign * (1 + fraction / 1024) * 2 ** (exponent - 15);
+}
+
+const F32_BITS_SCRATCH = new DataView(new ArrayBuffer(4));
+
+/** Exact IEEE-754 bfloat16 widening from its stored upper binary32 bits. */
+export function decodeIeeeBF16ToF32(bits: number): number {
+  F32_BITS_SCRATCH.setUint32(0, bits << 16, true);
+  return F32_BITS_SCRATCH.getFloat32(0, true);
+}
