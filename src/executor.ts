@@ -210,10 +210,13 @@ function executeReferenceF32Operations(
         break;
       case "scaled_dot_product_attention":
         if (operation.layer === undefined) throw new Error(`${operation.id}: attention sem índice de camada não pode usar cache KV.`);
+        const completeTopologyMask = request.attentionMasksByLayer?.get(operation.layer);
+        const attentionMask = completeTopologyMask ?? request.attentionMask;
+        const maskDefinesTopology = completeTopologyMask !== undefined;
         if (operation.kvSharing) {
           const shared = sharedCacheForAttention(pastKeyValues, operation);
           const query = valueF32(values, operation.query);
-          values.set(operation.output, attentionF32(query, shared.key, shared.value, operation, request.attentionMask, sharedPastLength(operation.id, shared.key.shape[2]!, query.shape[2]!)));
+          values.set(operation.output, attentionF32(query, shared.key, shared.value, operation, attentionMask, sharedPastLength(operation.id, shared.key.shape[2]!, query.shape[2]!), maskDefinesTopology));
           break;
         }
         {
@@ -222,7 +225,7 @@ function executeReferenceF32Operations(
           const cached = cacheForLayerF32(request.pastKeyValues, operation.layer, operation, currentKey, currentValue);
           const key = cached ? concatSequenceF32(cached.key, currentKey) : currentKey;
           const valueTensor = cached ? concatSequenceF32(cached.value, currentValue) : currentValue;
-          values.set(operation.output, attentionF32(valueF32(values, operation.query), key, valueTensor, operation, request.attentionMask, cached?.key.shape[2] ?? 0));
+          values.set(operation.output, attentionF32(valueF32(values, operation.query), key, valueTensor, operation, attentionMask, cached?.key.shape[2] ?? 0, maskDefinesTopology));
           pastKeyValues.set(operation.layer, { key, value: valueTensor });
         }
         break;
@@ -891,7 +894,7 @@ function rotaryF32(input: DenseF32Tensor, positions: number[][], operation: Extr
   return denseF32([...input.shape], result);
 }
 
-function attentionF32(query: DenseF32Tensor, key: DenseF32Tensor, valueTensor: DenseF32Tensor, operation: Extract<Operation, { op: "scaled_dot_product_attention" }>, attentionMask?: DenseF32Tensor, pastLength = 0): DenseF32Tensor {
+function attentionF32(query: DenseF32Tensor, key: DenseF32Tensor, valueTensor: DenseF32Tensor, operation: Extract<Operation, { op: "scaled_dot_product_attention" }>, attentionMask?: DenseF32Tensor, pastLength = 0, maskDefinesTopology = false): DenseF32Tensor {
   if (query.shape.length !== 4 || key.shape.length !== 4 || valueTensor.shape.length !== 4) throw new Error(`${operation.id}: attention requer tensores BHSD.`);
   const [batch, queryHeads, querySequence, headDim] = query.shape as [number, number, number, number];
   const [keyBatch, keyHeads, keySequence, keyDim] = key.shape as [number, number, number, number];
@@ -905,8 +908,8 @@ function attentionF32(query: DenseF32Tensor, key: DenseF32Tensor, valueTensor: D
   for (let b = 0; b < batch; b += 1) for (let h = 0; h < queryHeads; h += 1) for (let q = 0; q < querySequence; q += 1) {
     const kvHead = Math.floor(h / group);
     const absoluteQuery = pastLength + q;
-    const firstKey = operation.slidingWindow === undefined ? 0 : Math.max(0, absoluteQuery - operation.slidingWindow + 1);
-    const lastKey = operation.causal ? Math.min(absoluteQuery, keySequence - 1) : keySequence - 1;
+    const firstKey = maskDefinesTopology ? 0 : operation.slidingWindow === undefined ? 0 : Math.max(0, absoluteQuery - operation.slidingWindow + 1);
+    const lastKey = maskDefinesTopology ? keySequence - 1 : operation.causal ? Math.min(absoluteQuery, keySequence - 1) : keySequence - 1;
     const scores = new Float32Array(keySequence);
     let max = -Infinity;
     for (let k = firstKey; k <= lastKey; k += 1) {

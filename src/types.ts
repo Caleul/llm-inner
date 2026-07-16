@@ -298,6 +298,14 @@ export interface ReferenceF32ExecutionRequest {
   positionIds?: number[][];
   /** Canonical additive bias [batch, 1|heads, query, key]; -Infinity excludes a key. */
   attentionMask?: DenseF32Tensor;
+  /**
+   * Optional per-layer complete attention topologies. A mask here replaces the
+   * operation's built-in causal/sliding bounds for that layer: every excluded
+   * key must therefore be encoded as -Infinity in the supplied additive bias.
+   * This is required for architectures whose authoritative runtime assigns
+   * different mask families to different decoder layers.
+   */
+  attentionMasksByLayer?: ReadonlyMap<number, DenseF32Tensor>;
   /** Canonical post-RoPE KV state; see ReferenceExecutionRequest.pastKeyValues. */
   pastKeyValues?: ReadonlyMap<number, ReferenceF32KeyValueCache>;
   tensors: ReadonlyMap<string, DenseF32Tensor>;

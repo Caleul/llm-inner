@@ -378,10 +378,16 @@ Ele declara a substituição inicial de todos os IDs multimodais por PAD, a PLE
 de identidade desses PADs, o scatter ordenado imagem → vídeo → áudio e a
 projeção/contexto PLE após os três scatters antes de entrar no núcleo textual.
 O executor F32 exige todas essas saídas de prelude nomeadas para chamar as
-camadas textuais; portanto não há atalho implícito de embedding. A máscara
-bidirecional derivada de `mm_token_type_ids`, casts BF16, cache/geração
-multimodal, literalização e diferencial autoritativo ainda falham fechados.
-Logo o E4B denso não tem marcador `gemma4-dense-lossless`.
+camadas textuais; portanto não há atalho implícito de embedding. Para
+`use_bidirectional_attention="vision"`, também declara `vision_block_sequence_ids`
+e duas máscaras completas por camada: `full_attention` permanece causal,
+enquanto `sliding_attention` é `sliding_window AND (causal OR mesmo bloco
+image/video)`. O prefill multimodal usa essas máscaras; o decode incremental
+remove `mm_token_type_ids` e reutiliza apenas o KV do produtor, como o runtime
+autoritativo. Máscara 4-D fornecida pelo chamador junto com esses IDs, ou IDs
+multimodais no decode com cache, falham fechados. Casts BF16, literalização e
+diferencial autoritativo ainda falham fechados. Logo o E4B denso não tem
+marcador `gemma4-dense-lossless`.
 
 Para Qwen 3 e outros adaptadores que declarem `q_norm`, `k_norm` ou `v_norm`,
 o IR faz `reshape_heads` antes da RMSNorm. Esses pesos precisam ter exatamente

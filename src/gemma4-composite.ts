@@ -3,6 +3,7 @@ import { buildGemma4AudioProgram, executeGemma4AudioF32, scatterGemma4AudioFeatu
 import { inspectGemma4PackageContract, type Gemma4PackageContract } from "./gemma4-contract.js";
 import { buildGemma4TextIR } from "./gemma4-text.js";
 import { buildGemma4VisionProgram, executeGemma4VisionF32, scatterGemma4ImageFeaturesF32, type Gemma4VisionProgram } from "./gemma4-vision.js";
+import { selectGreedyToken } from "./generation.js";
 import type { DenseF32Tensor, ModelCatalog, ModelIR, PreviewOptions, ReferenceF32ExecutionResult, ReferenceF32KeyValueCache, TensorInfo, TensorRef } from "./types.js";
 
 const F32_POLICY = { inputDtype: "F32", computeDtype: "F32", accumulationDtype: "F32", outputDtype: "F32" } as const;
@@ -27,6 +28,9 @@ export interface Gemma4CompositeAssignment {
   id: string;
   operation:
     | "placeholder-masks"
+    | "vision-block-sequence-ids"
+    | "causal-attention-mask"
+    | "vision-sliding-attention-mask"
     | "replace-multimodal-ids-with-pad"
     | "embedding"
     | "per-layer-embedding"
@@ -60,13 +64,26 @@ export interface Gemma4CompositeExecutionRequest {
   videoPositionIds?: number[][][][];
   inputFeatures?: DenseF32Tensor;
   inputFeaturesMask?: boolean[][];
-  /** This branch changes the source attention-mask family and is not yet scalar-executed. */
+  /** Source mm_token_type_ids: 1=image and 2=video form bidirectional vision blocks. */
   mmTokenTypeIds?: number[][];
 }
 
 export interface Gemma4CompositeExecutionResult {
   values: ReadonlyMap<string, DenseF32Tensor>;
   llmInputIds: number[][];
+  text: ReferenceF32ExecutionResult;
+}
+
+export interface Gemma4CompositeGenerationRequest extends Gemma4CompositeExecutionRequest {
+  maxNewTokens: number;
+  eosTokenId?: number;
+}
+
+export interface Gemma4CompositeGenerationResult {
+  prefill: Gemma4CompositeExecutionResult;
+  generatedTokenIds: number[];
+  selectionLogits: DenseF32Tensor[];
+  stepPastKeyValues: Array<ReadonlyMap<number, ReferenceF32KeyValueCache>>;
   text: ReferenceF32ExecutionResult;
 }
 
@@ -83,6 +100,9 @@ export function buildGemma4CompositeProgram(catalog: ModelCatalog, preview: Prev
   const refs = (names: readonly string[]): TensorRef[] => names.map((name) => tensorRef(requireDenseTensor(catalog, name)));
   const assignments: Gemma4CompositeAssignment[] = [
     { id: "composite_placeholder_masks", operation: "placeholder-masks", inputs: ["input_ids"], output: "composite_image_video_audio_masks", semantics: "input_ids == image_token_id, video_token_id, audio_token_id; masks remain independent for ordered scatter" },
+    { id: "composite_block_sequence_ids", operation: "vision-block-sequence-ids", inputs: ["mm_token_type_ids"], output: "vision_block_sequence_ids", semantics: "source get_block_sequence_ids_for_mask: contiguous types 1=image or 2=video receive incrementing group IDs; every other type is -1" },
+    { id: "composite_full_attention_mask", operation: "causal-attention-mask", inputs: ["vision_block_sequence_ids", "past_key_values"], output: "full_attention_mask", semantics: "Gemma 4 full_attention remains causal; vision blocks do not make full-attention layers bidirectional" },
+    { id: "composite_sliding_attention_mask", operation: "vision-sliding-attention-mask", inputs: ["vision_block_sequence_ids", "past_key_values"], output: "sliding_attention_mask", semantics: "sliding_window AND (causal OR same non-negative vision block), matching create_masks_for_vision_model" },
     { id: "composite_pad_substitution", operation: "replace-multimodal-ids-with-pad", inputs: ["input_ids", "composite_image_video_audio_masks"], output: "composite_llm_input_ids", semantics: "replace every image/video/audio ID with text_config.pad_token_id before initial text embedding and PLE identity lookup" },
     { id: "composite_text_embedding", operation: "embedding", inputs: ["composite_llm_input_ids"], output: "composite_text_embeddings", tensors: refs([`${prefix}.embed_tokens.weight`]), semantics: "scaled Gemma4Text embedding of PAD-substituted ids" },
     { id: "composite_ple_identity", operation: "per-layer-embedding", inputs: ["composite_llm_input_ids"], output: "ple_token_identity", tensors: refs([`${prefix}.embed_tokens_per_layer.weight`]), semantics: "packed PLE identity uses PAD at all soft-token coordinates" },
@@ -107,7 +127,8 @@ export function buildGemma4CompositeProgram(catalog: ModelCatalog, preview: Prev
 /** Executes the composite prelude then enters the existing Gemma4Text F32 path. */
 export function executeGemma4CompositeF32(program: Gemma4CompositeProgram, request: Gemma4CompositeExecutionRequest): Gemma4CompositeExecutionResult {
   validateInputIds(request.inputIds);
-  if (request.mmTokenTypeIds !== undefined) throw new Error("Gemma 4 composite F32 ainda não executa mm_token_type_ids/use_bidirectional_attention; a máscara multimodal deve falhar fechada.");
+  if (request.mmTokenTypeIds !== undefined && request.attentionMask !== undefined) throw new Error("Gemma 4 composite não combina mm_token_type_ids com attentionMask 4-D fornecida pelo chamador; o runtime autoritativo trata essa máscara como uma substituição já preparada.");
+  if (request.mmTokenTypeIds !== undefined && request.pastKeyValues !== undefined) throw new Error("Gemma 4 composite requer mm_token_type_ids somente no prefill sem cache; o prepare_inputs_for_generation autoritativo os remove no decode incremental.");
   const llmInputIds = replaceModalIdsWithPad(request.inputIds, program.contract, textPadTokenId(program.textProgram));
   const prefix = textPrefixFromProgram(program.textProgram);
   const tokenEmbedding = embedding(llmInputIds, tensor(request.tensors, `${prefix}.embed_tokens.weight`), Math.sqrt(program.contract.text.hiddenSize));
@@ -159,9 +180,50 @@ export function executeGemma4CompositeF32(program: Gemma4CompositeProgram, reque
   values.set("ple_context_normalized", contextNormalized);
   values.set("ple_combined", pleCombined);
   values.set("ple_inputs", pleInputs);
-  const text = executeReferenceF32WithPreparedPrelude(program.textProgram, { inputIds: request.inputIds, ...(request.positionIds ? { positionIds: request.positionIds } : {}), ...(request.attentionMask ? { attentionMask: request.attentionMask } : {}), ...(request.pastKeyValues ? { pastKeyValues: request.pastKeyValues } : {}), tensors: request.tensors }, values);
+  const visionMasks = request.mmTokenTypeIds === undefined ? undefined : visionAttentionMasks(request.mmTokenTypeIds, request.inputIds, program.textProgram);
+  if (visionMasks !== undefined) {
+    values.set("vision_block_sequence_ids", visionMasks.blockSequenceIds);
+    values.set("full_attention_mask", visionMasks.full);
+    values.set("sliding_attention_mask", visionMasks.sliding);
+  }
+  const text = executeReferenceF32WithPreparedPrelude(program.textProgram, {
+    inputIds: request.inputIds,
+    ...(request.positionIds ? { positionIds: request.positionIds } : {}),
+    ...(request.attentionMask ? { attentionMask: request.attentionMask } : {}),
+    ...(visionMasks ? { attentionMasksByLayer: visionMasks.byLayer } : {}),
+    ...(request.pastKeyValues ? { pastKeyValues: request.pastKeyValues } : {}),
+    tensors: request.tensors,
+  }, values);
   merge(values, text.values);
   return { values, llmInputIds, text };
+}
+
+/**
+ * Source-equivalent narrow greedy path: the multimodal block mask exists only
+ * during prefill, then cached decode deliberately omits mm_token_type_ids as
+ * Gemma4ForConditionalGeneration.prepare_inputs_for_generation does.
+ */
+export function generateGemma4CompositeF32(program: Gemma4CompositeProgram, request: Gemma4CompositeGenerationRequest): Gemma4CompositeGenerationResult {
+  if (request.inputIds.length !== 1 || request.inputIds[0]?.length === 0) throw new Error("Geração Gemma 4 composite requer um único prompt não vazio sem padding.");
+  if (!Number.isInteger(request.maxNewTokens) || request.maxNewTokens < 0) throw new Error("Geração Gemma 4 composite requer maxNewTokens inteiro não negativo.");
+  if (request.eosTokenId !== undefined && (!Number.isInteger(request.eosTokenId) || request.eosTokenId < 0)) throw new Error("Geração Gemma 4 composite requer eosTokenId inteiro não negativo.");
+  if (request.attentionMask !== undefined) throw new Error("Geração Gemma 4 composite ainda requer attentionMask ausente; padding/4-D caller masks exigem um contrato de geração próprio.");
+  const prefill = executeGemma4CompositeF32(program, request);
+  let current = prefill;
+  let position = request.positionIds?.[0]?.at(-1) ?? request.inputIds[0]!.length - 1;
+  const generatedTokenIds: number[] = [];
+  const selectionLogits: DenseF32Tensor[] = [];
+  const stepPastKeyValues: Array<ReadonlyMap<number, ReferenceF32KeyValueCache>> = [];
+  for (let index = 0; index < request.maxNewTokens; index += 1) {
+    selectionLogits.push(current.text.logits);
+    const tokenId = selectGreedyToken(current.text.logits);
+    generatedTokenIds.push(tokenId);
+    position += 1;
+    current = executeGemma4CompositeF32(program, { inputIds: [[tokenId]], positionIds: [[position]], pastKeyValues: current.text.pastKeyValues, tensors: request.tensors });
+    stepPastKeyValues.push(current.text.pastKeyValues);
+    if (tokenId === request.eosTokenId) break;
+  }
+  return { prefill, generatedTokenIds, selectionLogits, stepPastKeyValues, text: current.text };
 }
 
 function asF32ReferenceProgram(program: ModelIR): ModelIR {
@@ -211,6 +273,44 @@ function requireDenseTensor(catalog: ModelCatalog, name: string): TensorInfo {
 function tensorRef(tensor: TensorInfo): TensorRef { return { name: tensor.name, shape: [...tensor.logicalShape], storageDtype: tensor.storageDtype }; }
 function tensor(tensors: ReadonlyMap<string, DenseF32Tensor>, name: string): DenseF32Tensor { const found = tensors.get(name); if (!found) throw new Error(`Tensor F32 Gemma 4 composite ausente: ${name}`); return found; }
 function validateInputIds(inputIds: number[][]): void { if (inputIds.length === 0 || inputIds.some((row) => row.length === 0) || inputIds.some((row) => row.length !== inputIds[0]!.length)) throw new Error("Gemma 4 composite requer input_ids não vazio e retangular."); }
+
+function visionAttentionMasks(mmTokenTypeIds: number[][], inputIds: number[][], program: ModelIR): { blockSequenceIds: DenseF32Tensor; full: DenseF32Tensor; sliding: DenseF32Tensor; byLayer: ReadonlyMap<number, DenseF32Tensor> } {
+  const sequence = inputIds[0]!.length;
+  if (mmTokenTypeIds.length !== inputIds.length || mmTokenTypeIds.some((row) => row.length !== sequence)) throw new Error("Gemma 4 composite mm_token_type_ids deve acompanhar input_ids no shape [batch,sequence].");
+  if (mmTokenTypeIds.some((row) => row.some((value) => !Number.isInteger(value)))) throw new Error("Gemma 4 composite mm_token_type_ids requer IDs inteiros.");
+  const batch = mmTokenTypeIds.length;
+  const blocks = new Float32Array(batch * sequence);
+  for (let b = 0; b < batch; b += 1) {
+    let nextGroup = 0;
+    let previousVision = false;
+    for (let index = 0; index < sequence; index += 1) {
+      const type = mmTokenTypeIds[b]![index]!;
+      const vision = type === 1 || type === 2;
+      if (vision && !previousVision) nextGroup += 1;
+      blocks[b * sequence + index] = vision ? nextGroup - 1 : -1;
+      previousVision = vision;
+    }
+  }
+  const attention = program.layers.flatMap((layer) => layer.operations).filter((operation): operation is Extract<typeof operation, { op: "scaled_dot_product_attention" }> => operation.op === "scaled_dot_product_attention");
+  if (attention.length === 0 || attention.some((operation) => operation.layer === undefined || operation.causal !== true)) throw new Error("Gemma 4 composite requer atenções causais indexadas para compor máscaras multimodais.");
+  const slidingWindow = new Set(attention.filter((operation) => operation.slidingWindow !== undefined).map((operation) => operation.slidingWindow!));
+  if (slidingWindow.size !== 1) throw new Error("Gemma 4 composite requer exatamente uma janela deslizante registrada para a máscara multimodal.");
+  const window = [...slidingWindow][0]!;
+  const fullValues = new Float32Array(batch * sequence * sequence);
+  const slidingValues = new Float32Array(batch * sequence * sequence);
+  for (let b = 0; b < batch; b += 1) for (let query = 0; query < sequence; query += 1) for (let key = 0; key < sequence; key += 1) {
+    const offset = (b * sequence + query) * sequence + key;
+    const causal = key <= query;
+    const sameVisionBlock = blocks[b * sequence + query] === blocks[b * sequence + key] && blocks[b * sequence + query]! >= 0;
+    fullValues[offset] = causal ? 0 : -Infinity;
+    slidingValues[offset] = key > query - window && (causal || sameVisionBlock) ? 0 : -Infinity;
+  }
+  const full = dense([batch, 1, sequence, sequence], fullValues);
+  const sliding = dense([batch, 1, sequence, sequence], slidingValues);
+  const byLayer = new Map<number, DenseF32Tensor>();
+  for (const operation of attention) byLayer.set(operation.layer!, operation.slidingWindow === undefined ? full : sliding);
+  return { blockSequenceIds: dense([batch, sequence], blocks), full, sliding, byLayer };
+}
 
 function replaceModalIdsWithPad(inputIds: number[][], contract: Gemma4PackageContract, pad: number): number[][] {
   const ids = new Set<number>([contract.modalities.imageTokenId, contract.modalities.audioTokenId]);
