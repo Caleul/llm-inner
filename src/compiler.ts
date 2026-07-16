@@ -4,6 +4,8 @@ import { openCatalog } from "./catalog.js";
 import { buildModelIR } from "./architecture.js";
 import { buildLiteralCalculationProgram } from "./literal.js";
 import type { LiteralTensorReader } from "./literal.js";
+import { buildGemma4CompositeProgram } from "./gemma4-composite.js";
+import { buildGemma4CompositeLiteralCalculationProgram } from "./gemma4-composite-literal.js";
 import { renderEquations } from "./render.js";
 import type { PreviewOptions } from "./types.js";
 
@@ -29,6 +31,23 @@ export async function compileModel(options: CompileOptions): Promise<void> {
       await mkdir(path.dirname(options.equationsOutput), { recursive: true });
       await writeFile(options.equationsOutput, renderEquations(ir), "utf8");
     }
+  } finally {
+    await opened.close();
+  }
+}
+
+/**
+ * Explicit route for the registered outer Gemma 4 package. `compileModel`
+ * intentionally refuses composite packages rather than silently compiling
+ * text_config alone, so this route always emits the full literal program.
+ */
+export async function compileGemma4CompositeLiteralModel(options: Omit<CompileOptions, "literal">): Promise<void> {
+  const opened = await openCatalog(options.source, false);
+  try {
+    const composite = buildGemma4CompositeProgram(opened.catalog, options.preview);
+    const artifact = await buildGemma4CompositeLiteralCalculationProgram(composite, opened.catalog, literalReader(opened.reader));
+    await mkdir(path.dirname(options.output), { recursive: true });
+    await writeFile(options.output, `${JSON.stringify(artifact, null, 2)}\n`, "utf8");
   } finally {
     await opened.close();
   }

@@ -155,6 +155,18 @@ export interface LiteralCalculationProgram {
   outputs: { logits: string };
 }
 
+/**
+ * Reusable, source-independent storage boundary for architecture adapters
+ * whose executable assignments are not represented by ModelIR alone (for
+ * example Gemma 4's vision and audio towers).  Keeping this boundary here
+ * prevents an adapter from embedding ad-hoc F32 arrays or reopening a shard
+ * during literal replay.
+ */
+export interface LiteralStorageBundle {
+  constants: LiteralConstant[];
+  storageDecoders: LiteralStorageDecodeAssignment[];
+}
+
 const STORAGE_BYTES: Record<Exclude<LiteralStorageDtype, "GGML_Q8_0">, number> = {
   F32: 4,
   F16: 2,
@@ -177,25 +189,7 @@ export async function buildLiteralCalculationProgram(
   if (catalog.format !== "safetensors" && catalog.format !== "mlx-safetensors" && catalog.format !== "gguf") {
     throw new Error(`Exportação literal requer Safetensors denso, MLX affine-U32 ou GGUF Q8_0; recebeu formato ${catalog.format}.`);
   }
-  const adaptedCatalog = adaptGgufDecoderCatalog(catalog);
-  const references = referencedTensors(ir);
-  const constants = new Map<string, LiteralConstant>();
-  for (const reference of references.values()) {
-    const tensor = adaptedCatalog.tensors.get(reference.name);
-    assertLiteralReference(reference, tensor);
-    if (tensor!.quantization) {
-      if (isGgmlQ8_0Tensor(tensor!)) {
-        await embedLiteralConstant(constants, tensor!, reader);
-      } else {
-        const { scale, bias } = assertMlxAffineTensor(tensor!, adaptedCatalog);
-        await embedLiteralConstant(constants, tensor!, reader);
-        await embedLiteralConstant(constants, scale, reader);
-        if (bias) await embedLiteralConstant(constants, bias, reader);
-      }
-    } else {
-      await embedLiteralConstant(constants, tensor!, reader);
-    }
-  }
+  const storage = await buildLiteralStorageBundle(catalog, reader, referencedTensors(ir).values());
 
   const assignments = cloneF32Assignments(ir);
   const program: LiteralCalculationProgram = {
@@ -212,14 +206,50 @@ export async function buildLiteralCalculationProgram(
       scalarSemantics: "IEEE-754 binary32; host libm results rounded to F32",
     },
     inputs: literalInputs(),
-    constants: [...constants.values()],
-    storageDecoders: [...constants.values()].sort((left, right) => Number(Boolean(left.quantization)) - Number(Boolean(right.quantization))).map((constant) => storageDecoder(constant, constants)),
+    constants: storage.constants,
+    storageDecoders: storage.storageDecoders,
     assignments,
     stateTransitions: cacheTransitions(assignments),
     outputs: { logits: assignments.epilogue.some((operation) => operation.output === "softcapped_logits") ? "softcapped_logits" : "logits" },
   };
   validateLiteralCalculationProgram(program);
   return program;
+}
+
+/**
+ * Embeds each referenced storage payload exactly once and declares every
+ * required decoder.  Callers must pass references obtained from a validated
+ * adapter assignment; this function verifies them again against the catalog.
+ */
+export async function buildLiteralStorageBundle(
+  catalog: ModelCatalog,
+  reader: LiteralTensorReader,
+  references: Iterable<TensorRef>,
+): Promise<LiteralStorageBundle> {
+  const adaptedCatalog = adaptGgufDecoderCatalog(catalog);
+  const unique = new Map<string, TensorRef>();
+  for (const reference of references) registerReference(unique, reference);
+  const constants = new Map<string, LiteralConstant>();
+  for (const reference of unique.values()) {
+    const tensor = adaptedCatalog.tensors.get(reference.name);
+    assertLiteralReference(reference, tensor);
+    if (tensor!.quantization) {
+      if (isGgmlQ8_0Tensor(tensor!)) {
+        await embedLiteralConstant(constants, tensor!, reader);
+      } else {
+        const { scale, bias } = assertMlxAffineTensor(tensor!, adaptedCatalog);
+        await embedLiteralConstant(constants, tensor!, reader);
+        await embedLiteralConstant(constants, scale, reader);
+        if (bias) await embedLiteralConstant(constants, bias, reader);
+      }
+    } else {
+      await embedLiteralConstant(constants, tensor!, reader);
+    }
+  }
+  const ordered = [...constants.values()].sort((left, right) => Number(Boolean(left.quantization)) - Number(Boolean(right.quantization)));
+  const bundle = { constants: ordered, storageDecoders: ordered.map((constant) => storageDecoder(constant, constants)) };
+  validateLiteralStorageBundle(bundle);
+  return bundle;
 }
 
 /** Backward-compatible entry points retained for earlier callers. */
@@ -420,6 +450,38 @@ function decodeDenseConstantsAsF32(program: LiteralCalculationProgram): Readonly
   return decoded;
 }
 
+/** Materializes only already embedded payloads; it never opens a source model. */
+export function decodeLiteralStorageBundleF32(bundle: LiteralStorageBundle): ReadonlyMap<string, DenseF32Tensor> {
+  validateLiteralStorageBundle(bundle);
+  return decodeDenseConstantsAsF32({ constants: bundle.constants, storageDecoders: bundle.storageDecoders } as LiteralCalculationProgram);
+}
+
+/** Validates the standalone storage/decoder portion shared by literal adapters. */
+export function validateLiteralStorageBundle(bundle: LiteralStorageBundle): void {
+  const constants = new Map<string, LiteralConstant>();
+  for (const constant of bundle.constants) {
+    if (constants.has(constant.name)) throw new Error(`Programa literal contém constante duplicada: ${constant.name}.`);
+    validateLiteralConstant(constant);
+    const payload = decodeBase64(constant.payloadBase64, constant.name);
+    if (payload.length !== literalStorageByteLength(constant.storageDtype, constant.storageShape)) {
+      throw new Error(`${constant.name}: payload base64 não corresponde ao shape ${constant.storageDtype} declarado.`);
+    }
+    constants.set(constant.name, constant);
+  }
+  if (constants.size === 0) throw new Error("Programa literal não contém constantes incorporadas.");
+  if (!Array.isArray(bundle.storageDecoders)) throw new Error("Programa literal não declara decoders de storage.");
+  validateStorageDecoders(bundle.storageDecoders, constants);
+}
+
+/** Checks that a semantic assignment can only name a compatible embedded tensor. */
+export function validateLiteralStorageReference(reference: TensorRef, constants: ReadonlyMap<string, LiteralConstant>): void {
+  const constant = constants.get(reference.name);
+  if (!constant || !sameShape(reference.shape, constant.logicalShape) || reference.storageDtype !== constant.storageDtype ||
+    !sameQuantization(reference.quantization, constant.quantization)) {
+    throw new Error(`Referência literal ${reference.name} não possui constante incorporada compatível.`);
+  }
+}
+
 function referencedTensors(ir: ModelIR): Map<string, TensorRef> {
   const references = new Map<string, TensorRef>();
   for (const operation of allOperations({ prelude: ir.prelude, layers: ir.layers, epilogue: ir.epilogue })) {
@@ -449,7 +511,7 @@ function assertLiteralReference(reference: TensorRef, tensor: TensorInfo | undef
     throw new Error(`${reference.name}: referência literal diverge do catálogo de origem.`);
   }
   if (!tensor.quantization) {
-    if (!isSupportedDenseStorageDtype(tensor.storageDtype) || !sameShape(tensor.storageShape, tensor.logicalShape) || !validShape(tensor.storageShape)) {
+    if (!isSupportedDenseStorageDtype(tensor.storageDtype) || !sameShape(tensor.storageShape, tensor.logicalShape) || !validLiteralStorageShape(tensor.storageShape)) {
       throw new Error(`${reference.name}: exportação literal aceita tensor denso somente em F32/F16/BF16 com shape lógico idêntico ao storage.`);
     }
     return;
@@ -523,7 +585,7 @@ function assertMlxAffineTensor(tensor: TensorInfo, catalog: ModelCatalog): { sca
 
 function validateLiteralConstant(constant: LiteralConstant): void {
   if ((constant.layout !== "row-major" && constant.layout !== "ggml-first-axis-contiguous") || constant.byteOrder !== "little-endian" || constant.encoding !== "base64" ||
-    !validShape(constant.storageShape) || !validShape(constant.logicalShape)) {
+    !validLiteralStorageShape(constant.storageShape) || !validLiteralStorageShape(constant.logicalShape)) {
     throw new Error(`${constant.name}: contrato de constante literal inválido.`);
   }
   if (!constant.quantization) {
@@ -820,6 +882,11 @@ function product(shape: readonly number[]): number {
 
 function validShape(shape: readonly number[]): boolean {
   return shape.length > 0 && shape.every((dimension) => Number.isInteger(dimension) && dimension > 0) && Number.isSafeInteger(product(shape));
+}
+
+/** Safetensors scalar clipping bounds have shape []; they still contain one byte sequence. */
+function validLiteralStorageShape(shape: readonly number[]): boolean {
+  return shape.every((dimension) => Number.isInteger(dimension) && dimension > 0) && Number.isSafeInteger(product(shape));
 }
 
 function sameShape(left: readonly number[], right: readonly number[]): boolean {

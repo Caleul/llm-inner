@@ -190,6 +190,32 @@ outros layouts GGUF quantizados continuam falhando fechado: cada um exige
 payloads, parâmetros e atribuições de dequantização específicos, não uma matriz
 F32 materializada escondida.
 
+### Literal Gemma 4 composto denso
+
+O pacote externo `gemma4` não passa por `compileModel`: essa rota continua a
+rejeitar corretamente a redução silenciosa para `text_config`. O comando
+explícito abaixo escolhe o adaptador composto já auditado e grava um único JSON
+autocontido com os bytes densos de todos os pesos, inclusive os escalares
+`shape: []` de `Gemma4ClippableLinear`:
+
+```bash
+node dist/src/cli.js --source ./gemma-4-E4B --output ./gemma4.literal.json --gemma4-composite-literal
+```
+
+`gemma4-composite-literal.ts` mantém as atribuições do prelude externo, tower
+visual, tower de áudio e camadas textuais em escopos declarados. A validação
+exige uma constante incorporada compatível para toda referência, recusa qualquer
+tensor do catálogo sem atribuição semântica, declara os controles
+`pixel_values`, vídeo, áudio, `mm_token_type_ids` e cache KV, e exige as
+transições de máscara full/sliding antes de permitir replay. O texto interno
+recebe somente o identificador virtual
+`embedded://gemma4-composite-literal`; nenhum caminho de checkpoint é retido.
+`executeGemma4CompositeLiteralF32` e
+`generateGemma4CompositeLiteralF32` decodificam apenas esses payloads e chamam
+o executor composto para prefill e greedy cached decode. A regressão remove o
+mapa de bytes/tensores de uma fixture multimodal registrada antes do replay e
+compara logits e dois tokens greedy.
+
 ### Comparação com captura autoritativa
 
 `npm run compare:trace -- --source <checkpoint> --trace <captura.json> --report <relatorio.json>` executa a fronteira completa de validação declarada pela captura (`F32` ou `F64`): reabre o contêiner, confere SHA-256 de `config.json` e de cada shard/arquivo que participa do checkpoint, reconstrói o IR, materializa os pesos por range, executa o interpretador correspondente e compara cada operação e cache KV com a captura. O relatório só é escrito depois de todas essas verificações.
@@ -385,8 +411,10 @@ enquanto `sliding_attention` é `sliding_window AND (causal OR mesmo bloco
 image/video)`. O prefill multimodal usa essas máscaras; o decode incremental
 remove `mm_token_type_ids` e reutiliza apenas o KV do produtor, como o runtime
 autoritativo. Máscara 4-D fornecida pelo chamador junto com esses IDs, ou IDs
-multimodais no decode com cache, falham fechados. Casts BF16, literalização e
-diferencial autoritativo ainda falham fechados. Logo o E4B denso não tem
+multimodais no decode com cache, falham fechados. A literalização desse fluxo
+F32 agora incorpora cada tensor e reexecuta uma fixture multimodal sem o source;
+o contrato BF16 de E4B, a captura autoritativa e o diferencial de operações/KV
+ainda falham fechados. Logo o E4B denso não tem
 marcador `gemma4-dense-lossless`.
 
 Para Qwen 3 e outros adaptadores que declarem `q_norm`, `k_norm` ou `v_norm`,

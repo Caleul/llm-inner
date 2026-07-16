@@ -2,6 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { executeReferenceF32WithPreparedPrelude } from "../src/executor.js";
 import { buildGemma4CompositeProgram, executeGemma4CompositeF32, generateGemma4CompositeF32 } from "../src/gemma4-composite.js";
+import {
+  buildGemma4CompositeLiteralCalculationProgram,
+  executeGemma4CompositeLiteralF32,
+  generateGemma4CompositeLiteralF32,
+  validateGemma4CompositeLiteralCalculationProgram,
+} from "../src/gemma4-composite-literal.js";
 import type { DenseF32Tensor, ModelCatalog, TensorInfo } from "../src/types.js";
 
 const preview = { outputRows: 1, inputTerms: 1, includeWeights: false } as const;
@@ -65,6 +71,51 @@ test("Gemma 4 composite reuses producer-owned KV after vision-aware prefill with
   assert.equal(generated.prefill.text.pastKeyValues.size, 2);
   assert.equal(generated.text.pastKeyValues.size, 2);
   for (const cache of generated.text.pastKeyValues.values()) assert.equal(cache.key.shape[2], 6);
+});
+
+test("Gemma 4 composite literal embeds every tower weight and replays multimodal prefill plus cached decode after source bytes are removed", async () => {
+  const catalog = fixture(), program = buildGemma4CompositeProgram(catalog, preview), sourceTensors = materialize(catalog);
+  const expected = executeGemma4CompositeF32(program, {
+    inputIds: [[1, 99, 2]], mmTokenTypeIds: [[0, 1, 0]], tensors: sourceTensors,
+    pixelValues: patterned([1, 4, 12]), imagePositionIds: [[[0, 0], [1, 0], [0, 1], [1, 1]]],
+  });
+  const expectedGeneration = generateGemma4CompositeF32(program, {
+    inputIds: [[1, 99, 2]], mmTokenTypeIds: [[0, 1, 0]], tensors: sourceTensors,
+    pixelValues: patterned([1, 4, 12]), imagePositionIds: [[[0, 0], [1, 0], [0, 1], [1, 1]]], maxNewTokens: 2,
+  });
+  const literal = await buildGemma4CompositeLiteralCalculationProgram(program, catalog, {
+    async readTensorBytes(info) {
+      const tensor = sourceTensors.get(info.name);
+      if (!tensor) throw new Error(`source tensor missing: ${info.name}`);
+      const bytes = Buffer.alloc(tensor.values.length * 4);
+      tensor.values.forEach((value, index) => bytes.writeFloatLE(value, index * 4));
+      return bytes;
+    },
+  });
+  assert.equal(literal.constants.length, catalog.tensors.size);
+  assert.equal(literal.storageDecoders.length, catalog.tensors.size);
+  assert.equal(JSON.stringify(literal).includes(catalog.source), false);
+  assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
+
+  sourceTensors.clear();
+  const replay = executeGemma4CompositeLiteralF32(literal, {
+    inputIds: [[1, 99, 2]], mmTokenTypeIds: [[0, 1, 0]],
+    pixelValues: patterned([1, 4, 12]), imagePositionIds: [[[0, 0], [1, 0], [0, 1], [1, 1]]],
+  });
+  const generation = generateGemma4CompositeLiteralF32(literal, {
+    inputIds: [[1, 99, 2]], mmTokenTypeIds: [[0, 1, 0]],
+    pixelValues: patterned([1, 4, 12]), imagePositionIds: [[[0, 0], [1, 0], [0, 1], [1, 1]]], maxNewTokens: 2,
+  });
+  assert.deepEqual([...replay.text.logits.values], [...expected.text.logits.values]);
+  assert.deepEqual(generation.generatedTokenIds, expectedGeneration.generatedTokenIds);
+  assert.deepEqual([...generation.text.logits.values], [...expectedGeneration.text.logits.values]);
+
+  const missingMask = structuredClone(literal);
+  missingMask.assignments.composite = missingMask.assignments.composite.filter((assignment) => assignment.id !== "composite_sliding_attention_mask");
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(missingMask), /omite uma transição de máscara ou cache obrigatória/);
+  const external = structuredClone(literal);
+  external.program.textProgram.source.path = "/checkpoint/model.safetensors";
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(external), /reteve uma referência de source checkpoint/);
 });
 
 test("Gemma 4 composite fails closed for cardinality, partial modality inputs, and malformed vision blocks", () => {
