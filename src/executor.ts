@@ -50,7 +50,19 @@ export function executeReferenceF64(
         values.set(operation.output, embedding(request.inputIds, tensor(request, operation.weight), operation.scale));
         break;
       case "rms_norm":
-        values.set(operation.output, rmsNorm(value(values, operation.input), tensor(request, operation.weight), operation));
+        values.set(operation.output, rmsNorm(value(values, operation.input), operation.weight ? tensor(request, operation.weight) : undefined, operation));
+        break;
+      case "per_layer_embedding":
+        values.set(operation.output, perLayerEmbedding(request.inputIds, tensor(request, operation.weight), operation));
+        break;
+      case "reshape_per_layer":
+        values.set(operation.output, reshapePerLayer(value(values, operation.input), operation.numLayers, operation.layerWidth));
+        break;
+      case "select_per_layer":
+        values.set(operation.output, selectPerLayer(value(values, operation.input), operation));
+        break;
+      case "tensor_scale":
+        values.set(operation.output, tensorScale(value(values, operation.input), tensor(request, operation.scalar), operation.id));
         break;
       case "linear":
         if (!operation.transposeWeight) throw new Error(`${operation.id}: executor F64 requer weight no layout [out,in].`);
@@ -131,7 +143,19 @@ export function executeReferenceF32(
         values.set(operation.output, embeddingF32(request.inputIds, tensorF32(request, operation.weight), operation.scale));
         break;
       case "rms_norm":
-        values.set(operation.output, rmsNormF32(valueF32(values, operation.input), tensorF32(request, operation.weight), operation));
+        values.set(operation.output, rmsNormF32(valueF32(values, operation.input), operation.weight ? tensorF32(request, operation.weight) : undefined, operation));
+        break;
+      case "per_layer_embedding":
+        values.set(operation.output, perLayerEmbeddingF32(request.inputIds, tensorF32(request, operation.weight), operation));
+        break;
+      case "reshape_per_layer":
+        values.set(operation.output, reshapePerLayerF32(valueF32(values, operation.input), operation.numLayers, operation.layerWidth));
+        break;
+      case "select_per_layer":
+        values.set(operation.output, selectPerLayerF32(valueF32(values, operation.input), operation));
+        break;
+      case "tensor_scale":
+        values.set(operation.output, tensorScaleF32(valueF32(values, operation.input), tensorF32(request, operation.scalar), operation.id));
         break;
       case "linear":
         if (!operation.transposeWeight) throw new Error(`${operation.id}: executor F32 requer weight no layout [out,in].`);
@@ -313,7 +337,7 @@ function assertF64Policy(operation: Operation): void {
   if (operation.op === "scaled_dot_product_attention" && operation.softmaxComputeDtype !== "F64") {
     throw new Error(`${operation.id}: executor de referência suporta somente softmaxComputeDtype=F64.`);
   }
-  assertDefaultRotaryContract(operation);
+  assertRotaryContract(operation);
 }
 
 function assertF32Policy(operation: Operation): void {
@@ -331,7 +355,7 @@ function assertF32Policy(operation: Operation): void {
   if (operation.op === "scaled_dot_product_attention" && operation.softmaxComputeDtype !== "F32") {
     throw new Error(`${operation.id}: executor de referência suporta somente softmaxComputeDtype=F32.`);
   }
-  assertDefaultRotaryContract(operation);
+  assertRotaryContract(operation);
 }
 
 /**
@@ -339,16 +363,24 @@ function assertF32Policy(operation: Operation): void {
  * formula. The IR can describe more variants, but executing those fields as
  * if they were this formula would manufacture numerical semantics.
  */
-function assertDefaultRotaryContract(operation: Operation): void {
+function assertRotaryContract(operation: Operation): void {
   if (operation.op !== "rotary_embedding") return;
-  if (operation.ropeType !== "default") {
+  if (operation.ropeType !== "default" && operation.ropeType !== "proportional") {
     throw new Error(`${operation.id}: executor de referência não implementa ropeType=${operation.ropeType}.`);
   }
   if (operation.layout !== "rotate_half") {
     throw new Error(`${operation.id}: executor de referência requer layout RoPE rotate_half; recebeu ${operation.layout}.`);
   }
-  if (operation.scaling && Object.keys(operation.scaling).length > 0) {
+  if (operation.ropeType === "default" && operation.scaling && Object.keys(operation.scaling).length > 0) {
     throw new Error(`${operation.id}: executor de referência não implementa rope_scaling explícito.`);
+  }
+  if (operation.ropeType === "proportional") {
+    const partial = operation.scaling?.partial_rotary_factor;
+    const factor = operation.scaling?.factor;
+    if (typeof partial !== "number" || !Number.isFinite(partial) || partial <= 0 || partial > 1 ||
+      (factor !== undefined && (typeof factor !== "number" || !Number.isFinite(factor) || factor <= 0))) {
+      throw new Error(`${operation.id}: RoPE proporcional requer partial_rotary_factor e factor positivo quando declarado.`);
+    }
   }
 }
 
@@ -471,16 +503,40 @@ function embedding(inputIds: number[][], weight: DenseTensor, scale?: number): D
   return dense([inputIds.length, inputIds[0]!.length, hidden], result);
 }
 
-function rmsNorm(input: DenseTensor, weight: DenseTensor, operation: Extract<Operation, { op: "rms_norm" }>): DenseTensor {
+function perLayerEmbedding(inputIds: number[][], weight: DenseTensor, operation: Extract<Operation, { op: "per_layer_embedding" }>): DenseTensor {
+  if (weight.shape.length !== 2 || weight.shape[1] !== operation.numLayers * operation.layerWidth) throw new Error(`${operation.id}: tabela PLE incompatível.`);
+  const embedded = embedding(inputIds, weight, operation.scale);
+  return reshapePerLayer(embedded, operation.numLayers, operation.layerWidth);
+}
+
+function reshapePerLayer(input: DenseTensor, numLayers: number, layerWidth: number): DenseTensor {
+  if (input.shape.length !== 3 || input.shape[2] !== numLayers * layerWidth) throw new Error("reshape_per_layer requer [B,S,L*D].");
+  return dense([input.shape[0]!, input.shape[1]!, numLayers, layerWidth], Float64Array.from(input.values));
+}
+
+function selectPerLayer(input: DenseTensor, operation: Extract<Operation, { op: "select_per_layer" }>): DenseTensor {
+  if (input.shape.length !== 4 || input.shape[2] !== operation.numLayers || input.shape[3] !== operation.layerWidth || operation.layerIndex < 0 || operation.layerIndex >= operation.numLayers) throw new Error(`${operation.id}: slice PLE incompatível.`);
+  const [batch, sequence] = input.shape as [number, number, number, number];
+  const values = new Float64Array(batch * sequence * operation.layerWidth);
+  for (let b = 0; b < batch; b += 1) for (let s = 0; s < sequence; s += 1) for (let d = 0; d < operation.layerWidth; d += 1) values[(b * sequence + s) * operation.layerWidth + d] = input.values[((b * sequence + s) * operation.numLayers + operation.layerIndex) * operation.layerWidth + d]!;
+  return dense([batch, sequence, operation.layerWidth], values);
+}
+
+function tensorScale(input: DenseTensor, scalar: DenseTensor, operationId: string): DenseTensor {
+  if (scalar.shape.length !== 1 || scalar.shape[0] !== 1) throw new Error(`${operationId}: tensor escalar deve ter shape [1].`);
+  return dense([...input.shape], input.values.map((entry) => entry * scalar.values[0]!));
+}
+
+function rmsNorm(input: DenseTensor, weight: DenseTensor | undefined, operation: Extract<Operation, { op: "rms_norm" }>): DenseTensor {
   const width = input.shape.at(-1);
-  if (width === undefined || weight.shape.length !== 1 || weight.shape[0] !== width) throw new Error(`${operation.id}: RMSNorm incompatível.`);
+  if (width === undefined || (operation.weightTransform === "none" ? weight !== undefined : !weight || weight.shape.length !== 1 || weight.shape[0] !== width)) throw new Error(`${operation.id}: RMSNorm incompatível.`);
   const result = new Float64Array(input.values.length);
   for (let offset = 0; offset < input.values.length; offset += width) {
     let sum = 0;
     for (let index = 0; index < width; index += 1) sum += input.values[offset + index]! ** 2;
     const scale = 1 / Math.sqrt(sum / width + operation.epsilon);
     for (let index = 0; index < width; index += 1) {
-      const multiplier = operation.weightTransform === "one_plus_weight" ? 1 + weight.values[index]! : weight.values[index]!;
+      const multiplier = operation.weightTransform === "none" ? 1 : operation.weightTransform === "one_plus_weight" ? 1 + weight!.values[index]! : weight!.values[index]!;
       result[offset + index] = input.values[offset + index]! * scale * multiplier;
     }
   }
@@ -578,14 +634,16 @@ function assertCacheEntry(key: DenseTensor, valueTensor: DenseTensor, currentKey
 }
 
 function rotary(input: DenseTensor, positions: number[][], operation: Extract<Operation, { op: "rotary_embedding" }>): DenseTensor {
-  if (operation.ropeType !== "default" || operation.layout !== "rotate_half" || operation.scaling) throw new Error(`${operation.id}: variante RoPE não suportada pelo executor F64.`);
+  if ((operation.ropeType !== "default" && operation.ropeType !== "proportional") || operation.layout !== "rotate_half") throw new Error(`${operation.id}: variante RoPE não suportada pelo executor F64.`);
   if (input.shape.length !== 4 || operation.rotaryDim <= 0 || operation.rotaryDim % 2 !== 0 || operation.rotaryDim > input.shape[3]!) throw new Error(`${operation.id}: dimensão RoPE inválida.`);
   const [batch, heads, sequence, headDim] = input.shape as [number, number, number, number];
   if (positions.length !== batch || positions.some((row) => row.length !== sequence)) throw new Error("Posições incompatíveis com RoPE.");
   const result = Float64Array.from(input.values);
   const half = operation.rotaryDim / 2;
+  const proportionalPairs = operation.ropeType === "proportional" ? Math.floor((operation.scaling?.partial_rotary_factor as number) * headDim / 2) : half;
+  const proportionalFactor = operation.ropeType === "proportional" ? ((operation.scaling?.factor as number | undefined) ?? 1) : 1;
   for (let b = 0; b < batch; b += 1) for (let h = 0; h < heads; h += 1) for (let s = 0; s < sequence; s += 1) for (let pair = 0; pair < half; pair += 1) {
-    const angle = positions[b]![s]! / operation.theta ** ((2 * pair) / operation.rotaryDim);
+    const angle = operation.ropeType === "proportional" && pair >= proportionalPairs ? 0 : positions[b]![s]! / (operation.theta ** ((2 * pair) / (operation.ropeType === "proportional" ? headDim : operation.rotaryDim)) * proportionalFactor);
     const base = ((b * heads + h) * sequence + s) * headDim;
     const first = input.values[base + pair]!;
     const second = input.values[base + pair + half]!;
@@ -671,9 +729,32 @@ function embeddingF32(inputIds: number[][], weight: DenseF32Tensor, scale?: numb
   return denseF32([inputIds.length, inputIds[0]!.length, hidden], result);
 }
 
-function rmsNormF32(input: DenseF32Tensor, weight: DenseF32Tensor, operation: Extract<Operation, { op: "rms_norm" }>): DenseF32Tensor {
+function perLayerEmbeddingF32(inputIds: number[][], weight: DenseF32Tensor, operation: Extract<Operation, { op: "per_layer_embedding" }>): DenseF32Tensor {
+  if (weight.shape.length !== 2 || weight.shape[1] !== operation.numLayers * operation.layerWidth) throw new Error(`${operation.id}: tabela PLE incompatível.`);
+  return reshapePerLayerF32(embeddingF32(inputIds, weight, operation.scale), operation.numLayers, operation.layerWidth);
+}
+
+function reshapePerLayerF32(input: DenseF32Tensor, numLayers: number, layerWidth: number): DenseF32Tensor {
+  if (input.shape.length !== 3 || input.shape[2] !== numLayers * layerWidth) throw new Error("reshape_per_layer requer [B,S,L*D].");
+  return denseF32([input.shape[0]!, input.shape[1]!, numLayers, layerWidth], Float32Array.from(input.values));
+}
+
+function selectPerLayerF32(input: DenseF32Tensor, operation: Extract<Operation, { op: "select_per_layer" }>): DenseF32Tensor {
+  if (input.shape.length !== 4 || input.shape[2] !== operation.numLayers || input.shape[3] !== operation.layerWidth || operation.layerIndex < 0 || operation.layerIndex >= operation.numLayers) throw new Error(`${operation.id}: slice PLE incompatível.`);
+  const [batch, sequence] = input.shape as [number, number, number, number];
+  const values = new Float32Array(batch * sequence * operation.layerWidth);
+  for (let b = 0; b < batch; b += 1) for (let s = 0; s < sequence; s += 1) for (let d = 0; d < operation.layerWidth; d += 1) values[(b * sequence + s) * operation.layerWidth + d] = input.values[((b * sequence + s) * operation.numLayers + operation.layerIndex) * operation.layerWidth + d]!;
+  return denseF32([batch, sequence, operation.layerWidth], values);
+}
+
+function tensorScaleF32(input: DenseF32Tensor, scalar: DenseF32Tensor, operationId: string): DenseF32Tensor {
+  if (scalar.shape.length !== 1 || scalar.shape[0] !== 1) throw new Error(`${operationId}: tensor escalar deve ter shape [1].`);
+  return denseF32([...input.shape], input.values.map((entry) => f32(entry * scalar.values[0]!)));
+}
+
+function rmsNormF32(input: DenseF32Tensor, weight: DenseF32Tensor | undefined, operation: Extract<Operation, { op: "rms_norm" }>): DenseF32Tensor {
   const width = input.shape.at(-1);
-  if (width === undefined || weight.shape.length !== 1 || weight.shape[0] !== width) throw new Error(`${operation.id}: RMSNorm incompatível.`);
+  if (width === undefined || (operation.weightTransform === "none" ? weight !== undefined : !weight || weight.shape.length !== 1 || weight.shape[0] !== width)) throw new Error(`${operation.id}: RMSNorm incompatível.`);
   const result = new Float32Array(input.values.length);
   const epsilon = f32(operation.epsilon);
   for (let offset = 0; offset < input.values.length; offset += width) {
@@ -682,7 +763,7 @@ function rmsNormF32(input: DenseF32Tensor, weight: DenseF32Tensor, operation: Ex
     const mean = f32(sum / f32(width));
     const scale = f32(1 / f32(Math.sqrt(f32(mean + epsilon))));
     for (let index = 0; index < width; index += 1) {
-      const multiplier = operation.weightTransform === "one_plus_weight" ? f32(1 + weight.values[index]!) : weight.values[index]!;
+      const multiplier = operation.weightTransform === "none" ? 1 : operation.weightTransform === "one_plus_weight" ? f32(1 + weight!.values[index]!) : weight!.values[index]!;
       result[offset + index] = f32(f32(input.values[offset + index]! * scale) * multiplier);
     }
   }
@@ -749,14 +830,16 @@ function assertCacheEntryF32(key: DenseF32Tensor, valueTensor: DenseF32Tensor, c
 }
 
 function rotaryF32(input: DenseF32Tensor, positions: number[][], operation: Extract<Operation, { op: "rotary_embedding" }>): DenseF32Tensor {
-  if (operation.ropeType !== "default" || operation.layout !== "rotate_half" || operation.scaling) throw new Error(`${operation.id}: variante RoPE não suportada pelo executor F32.`);
+  if ((operation.ropeType !== "default" && operation.ropeType !== "proportional") || operation.layout !== "rotate_half") throw new Error(`${operation.id}: variante RoPE não suportada pelo executor F32.`);
   if (input.shape.length !== 4 || operation.rotaryDim <= 0 || operation.rotaryDim % 2 !== 0 || operation.rotaryDim > input.shape[3]!) throw new Error(`${operation.id}: dimensão RoPE inválida.`);
   const [batch, heads, sequence, headDim] = input.shape as [number, number, number, number];
   if (positions.length !== batch || positions.some((row) => row.length !== sequence)) throw new Error("Posições incompatíveis com RoPE.");
   const result = Float32Array.from(input.values);
   const half = operation.rotaryDim / 2;
+  const proportionalPairs = operation.ropeType === "proportional" ? Math.floor((operation.scaling?.partial_rotary_factor as number) * headDim / 2) : half;
+  const proportionalFactor = operation.ropeType === "proportional" ? ((operation.scaling?.factor as number | undefined) ?? 1) : 1;
   for (let b = 0; b < batch; b += 1) for (let h = 0; h < heads; h += 1) for (let s = 0; s < sequence; s += 1) for (let pair = 0; pair < half; pair += 1) {
-    const angle = f32(positions[b]![s]! / f32(operation.theta ** ((2 * pair) / operation.rotaryDim)));
+    const angle = f32(operation.ropeType === "proportional" && pair >= proportionalPairs ? 0 : positions[b]![s]! / f32(f32(operation.theta ** ((2 * pair) / (operation.ropeType === "proportional" ? headDim : operation.rotaryDim))) * f32(proportionalFactor)));
     const cosine = f32(Math.cos(angle));
     const sine = f32(Math.sin(angle));
     const base = ((b * heads + h) * sequence + s) * headDim;

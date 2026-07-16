@@ -367,10 +367,11 @@ function validateOperationInputs(operation: Operation, available: ReadonlySet<st
     }
   };
   switch (operation.op) {
-    case "embedding": requireValue(operation.tokenInput); requireTensor(operation.weight); break;
-    case "rms_norm": requireValue(operation.input); requireTensor(operation.weight); break;
+    case "embedding": case "per_layer_embedding": requireValue(operation.tokenInput); requireTensor(operation.weight); break;
+    case "rms_norm": requireValue(operation.input); if (operation.weight) requireTensor(operation.weight); break;
     case "linear": requireValue(operation.input); requireTensor(operation.weight); if (operation.bias) requireTensor(operation.bias); break;
-    case "reshape_heads": case "activation": requireValue(operation.input); break;
+    case "reshape_heads": case "reshape_per_layer": case "select_per_layer": case "activation": requireValue(operation.input); break;
+    case "tensor_scale": requireValue(operation.input); requireTensor(operation.scalar); break;
     case "rotary_embedding": requireValue(operation.input); requireValue(operation.positionInput); break;
     case "scaled_dot_product_attention": requireValue(operation.query); requireValue(operation.key); requireValue(operation.value); requireValue(operation.maskInput); break;
     case "elementwise": operation.inputs.forEach(requireValue); break;
@@ -422,11 +423,13 @@ function decodeDenseConstantsAsF32(program: LiteralCalculationProgram): Readonly
 function referencedTensors(ir: ModelIR): Map<string, TensorRef> {
   const references = new Map<string, TensorRef>();
   for (const operation of allOperations({ prelude: ir.prelude, layers: ir.layers, epilogue: ir.epilogue })) {
-    if (operation.op === "embedding" || operation.op === "rms_norm") registerReference(references, operation.weight);
+    if (operation.op === "embedding" || operation.op === "per_layer_embedding") registerReference(references, operation.weight);
+    if (operation.op === "rms_norm" && operation.weight) registerReference(references, operation.weight);
     if (operation.op === "linear") {
       registerReference(references, operation.weight);
       if (operation.bias) registerReference(references, operation.bias);
     }
+    if (operation.op === "tensor_scale") registerReference(references, operation.scalar);
   }
   return references;
 }

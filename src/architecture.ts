@@ -16,6 +16,7 @@ import type {
 } from "./types.js";
 import type { TensorBridge } from "./bridge.js";
 import { adaptGgufDecoderCatalog } from "./gguf-llama.js";
+import { buildGemma4TextIR } from "./gemma4-text.js";
 import {
   arrayOfStrings,
   numberFrom,
@@ -102,6 +103,7 @@ export async function buildModelIR(
       "",
   );
   rejectCompositeMultimodalPackage(adaptedCatalog.config, config, modelType);
+  if (modelType === "gemma4_text") return buildGemma4TextIR(adaptedCatalog, config, preview);
   rejectKnownUnsupportedArchitecture(adaptedCatalog, config, modelType);
   if (!SUPPORTED_MODEL_TYPES.has(modelType)) {
     throw new Error(

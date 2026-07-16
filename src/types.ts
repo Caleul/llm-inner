@@ -73,9 +73,10 @@ export interface DtypePolicy {
 export interface RmsNormOp extends BaseOp {
   op: "rms_norm";
   input: string;
-  weight: TensorRef;
+  /** Absent only for an explicitly declared unscaled RMS normalization. */
+  weight?: TensorRef;
   epsilon: number;
-  weightTransform: "direct" | "one_plus_weight";
+  weightTransform: "direct" | "one_plus_weight" | "none";
   axis: number;
 }
 
@@ -151,6 +152,44 @@ export interface EmbeddingOp extends BaseOp {
   scale?: number;
 }
 
+/**
+ * A packed auxiliary embedding that becomes one independent vector per
+ * decoder layer. This is deliberately distinct from a normal token embedding:
+ * its output rank and layer ordering are part of the model equation.
+ */
+export interface PerLayerEmbeddingOp extends BaseOp {
+  op: "per_layer_embedding";
+  tokenInput: string;
+  weight: TensorRef;
+  numLayers: number;
+  layerWidth: number;
+  scale?: number;
+}
+
+/** Reshapes a packed final dimension into [layer, feature] without reordering. */
+export interface ReshapePerLayerOp extends BaseOp {
+  op: "reshape_per_layer";
+  input: string;
+  numLayers: number;
+  layerWidth: number;
+}
+
+/** Selects one declared decoder-layer slice from [B,S,L,D] in stable order. */
+export interface SelectPerLayerOp extends BaseOp {
+  op: "select_per_layer";
+  input: string;
+  layerIndex: number;
+  numLayers: number;
+  layerWidth: number;
+}
+
+/** Multiplies every value by a scalar tensor whose [1] shape is explicit. */
+export interface TensorScaleOp extends BaseOp {
+  op: "tensor_scale";
+  input: string;
+  scalar: TensorRef;
+}
+
 export type Operation =
   | RmsNormOp
   | LinearOp
@@ -159,7 +198,11 @@ export type Operation =
   | AttentionOp
   | ActivationOp
   | ElementwiseOp
-  | EmbeddingOp;
+  | EmbeddingOp
+  | PerLayerEmbeddingOp
+  | ReshapePerLayerOp
+  | SelectPerLayerOp
+  | TensorScaleOp;
 
 export interface LayerIR {
   index: number;

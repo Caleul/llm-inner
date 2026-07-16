@@ -102,12 +102,18 @@ function referencedTensors(ir: ModelIR): Map<string, TensorRef> {
   for (const operation of allOperations(ir)) {
     switch (operation.op) {
       case "embedding":
-      case "rms_norm":
+      case "per_layer_embedding":
         registerReference(references, operation.weight);
+        break;
+      case "rms_norm":
+        if (operation.weight) registerReference(references, operation.weight);
         break;
       case "linear":
         registerReference(references, operation.weight);
         if (operation.bias) registerReference(references, operation.bias);
+        break;
+      case "tensor_scale":
+        registerReference(references, operation.scalar);
         break;
       default:
         break;

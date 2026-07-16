@@ -330,7 +330,7 @@ runtime autoritativo. A primeira medição comprometida está em
 
 ## Limites atuais
 
-O adaptador atual cobre blocos decoder-only auditáveis de Llama, Mistral, Qwen 2/3 e Gemma 1/2/3-text. Modelos com código remoto, state-space layers, linear attention, MoE, multimodal completo, Gemma 3n/4 ou layouts QKV especiais precisam de adaptadores próprios ou extração do grafo do runtime oficial. Gemma 4 é rejeitado de propósito porque sua topologia inclui PLE, heads por tipo de camada, KV sharing e outras semânticas que o bloco genérico não representa. A recusa usa os metadados/tensores declarados: `hidden_size_per_layer_input`, `global_head_dim`, RoPE proporcional para `full_attention`, `num_kv_shared_layers` e pesos PLE (`embed_tokens_per_layer`, `per_layer_input_gate`, `per_layer_projection`, `post_per_layer_input_norm`, `layer_scalar`) aparecem no diagnóstico quando presentes.
+O adaptador atual cobre blocos decoder-only auditáveis de Llama, Mistral, Qwen 2/3 e Gemma 1/2/3-text, além do núcleo `gemma4_text` isolado. Este último declara PLE empacotado, projeção/contexto normalizado, fatia PLE por camada, RoPE default/proporcional, RMSNorm sem escala de V, KV por produtor e `layer_scalar` como atribuições explícitas. A política executável F32 é uma referência escalar e ainda não é uma alegação de fidelidade BF16 ao runtime oficial. Modelos com código remoto, state-space layers, linear attention, MoE, multimodal completo, Gemma 3n/4 composto ou layouts QKV especiais precisam de adaptadores próprios ou extração do grafo do runtime oficial.
 
 Um pacote composto não é convertido implicitamente em um checkpoint textual. Quando o `config.json` externo declara `audio_config` ou `vision_config` e tokens de modalidade, enquanto `text_config` descreve outro `model_type`, o compilador falha antes da seleção do adaptador: a injeção desses tokens, os towers e sua ordem no forward pass fazem parte da função. Um futuro adaptador de texto só pode reutilizar esse submodelo depois que um adaptador do pacote composto declarar e validar explicitamente essa fronteira.
 
@@ -348,11 +348,16 @@ declara a camada produtora KV para cada consumidor e calcula SHA-256 dos
 arquivos de identidade. A primeira evidência para o E4B BF16 está em
 [`docs/validation/gemma4-e4b-source-audit-2026-07-16.json`](docs/validation/gemma4-e4b-source-audit-2026-07-16.json).
 
-Esse relatório não muda a recusa do compilador: as sete famílias explicitadas
-no artefato — injeção de visão, injeção de áudio, PLE, RoPE por tipo, estado KV
-compartilhado, decoder de quatro RMSNorms e estado de geração multimodal —
-continuam sem lowering/executor/diferencial completos. Portanto ele não é um
-marcador `gemma4-dense-lossless` e não autoriza reduzir o pacote a texto.
+O lowering estrutural do subgrafo textual do mesmo catálogo BF16 está registrado
+em [`docs/validation/gemma4-e4b-text-core-lowering-2026-07-16.md`](docs/validation/gemma4-e4b-text-core-lowering-2026-07-16.md).
+
+O relatório não transforma o pacote composto em modelo textual: a injeção de
+visão/áudio, os towers e o estado de geração multimodal continuam fora do
+adaptador `gemma4_text` isolado. Portanto o pacote E4B denso ainda falha
+fechado e não há marcador `gemma4-dense-lossless`. O próximo adaptador do
+pacote precisa lower essas fronteiras, materializar BF16 para o programa
+literal e produzir diferenciais autoritativos de operação, KV, logits e
+geração.
 
 Para Qwen 3 e outros adaptadores que declarem `q_norm`, `k_norm` ou `v_norm`,
 o IR faz `reshape_heads` antes da RMSNorm. Esses pesos precisam ter exatamente

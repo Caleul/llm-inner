@@ -80,7 +80,7 @@ test("Gemma 2 preserva quatro normas do bloco", async () => {
   assert.ok(ids.indexOf("layer_0_post_ffn_norm") < ids.indexOf("layer_0_mlp_residual"));
 });
 
-test("Gemma 4 text reports its declared unsupported semantics instead of generic lowering", async () => {
+test("Gemma 4 text refuses a malformed contract before lowering", async () => {
   const source = catalog("gemma4_text", {
     hidden_size_per_layer_input: 2,
     global_head_dim: 8,
@@ -100,7 +100,7 @@ test("Gemma 4 text reports its declared unsupported semantics instead of generic
   );
   await assert.rejects(
     () => buildModelIR(source, preview),
-    /Gemma 4 text não possui adaptador matemático exato:.*hidden_size_per_layer_input=2.*global_head_dim=8.*RoPE proporcional.*num_kv_shared_layers=1.*tensores PLE encontrados/s,
+    /Gemma 4 text vocab_size_per_layer_input deve ser inteiro positivo/,
   );
 });
 
