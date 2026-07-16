@@ -422,11 +422,45 @@
       "audio": true,
       "imageTokenId": 258880,
       "audioTokenId": 258881,
-      "videoTokenId": 258884
+      "videoTokenId": 258884,
+      "visionTower": {
+        "hiddenSize": 768,
+        "layers": 16,
+        "attentionHeads": 12,
+        "headDim": 64,
+        "intermediateSize": 3072,
+        "patchSize": 16,
+        "positionEmbeddingSize": 10240,
+        "defaultOutputLength": 280,
+        "poolingKernelSize": 3,
+        "ropeTheta": 100,
+        "clippedLinears": true
+      },
+      "audioTower": {
+        "hiddenSize": 1024,
+        "layers": 12,
+        "attentionHeads": 8,
+        "headDim": 128,
+        "outputProjectionSize": 1536,
+        "attentionChunkSize": 12,
+        "attentionContextLeft": 13,
+        "attentionContextRight": 0,
+        "attentionLogitCap": 50,
+        "convolutionKernelSize": 5,
+        "subsamplingChannels": [
+          128,
+          32
+        ],
+        "residualWeight": 0.5,
+        "clippedLinears": true
+      }
     },
     "requiredOperationFamilies": [
       "vision-token-injection",
       "audio-token-injection",
+      "clipped-linear",
+      "vision-patch-position-pooling",
+      "audio-subsample-local-convolution",
       "per-layer-embeddings",
       "type-specific-rope",
       "shared-kv-state",

@@ -41,10 +41,15 @@ export interface Gemma4PackageContract {
     imageTokenId: number;
     audioTokenId: number;
     videoTokenId?: number;
+    visionTower: Gemma4VisionTowerContract;
+    audioTower: Gemma4AudioTowerContract;
   };
   requiredOperationFamilies: readonly [
     "vision-token-injection",
     "audio-token-injection",
+    "clipped-linear",
+    "vision-patch-position-pooling",
+    "audio-subsample-local-convolution",
     "per-layer-embeddings",
     "type-specific-rope",
     "shared-kv-state",
@@ -53,9 +58,49 @@ export interface Gemma4PackageContract {
   ];
 }
 
+/**
+ * The vision tower has a registered, non-causal encoder topology.  The
+ * checkpointed clipping bounds are computational state, rather than optional
+ * calibration diagnostics: Gemma4ClippableLinear clamps before and after each
+ * projection when this contract is selected.
+ */
+export interface Gemma4VisionTowerContract {
+  hiddenSize: number;
+  layers: number;
+  attentionHeads: number;
+  headDim: number;
+  intermediateSize: number;
+  patchSize: number;
+  positionEmbeddingSize: number;
+  defaultOutputLength: number;
+  poolingKernelSize: number;
+  ropeTheta: number;
+  clippedLinears: true;
+}
+
+/** The audio tower is a subsampling Conformer-like encoder, not a decoder. */
+export interface Gemma4AudioTowerContract {
+  hiddenSize: number;
+  layers: number;
+  attentionHeads: number;
+  headDim: number;
+  outputProjectionSize: number;
+  attentionChunkSize: number;
+  attentionContextLeft: number;
+  attentionContextRight: number;
+  attentionLogitCap: number;
+  convolutionKernelSize: number;
+  subsamplingChannels: readonly [number, number];
+  residualWeight: number;
+  clippedLinears: true;
+}
+
 const REQUIRED_OPERATION_FAMILIES: Gemma4PackageContract["requiredOperationFamilies"] = [
   "vision-token-injection",
   "audio-token-injection",
+  "clipped-linear",
+  "vision-patch-position-pooling",
+  "audio-subsample-local-convolution",
   "per-layer-embeddings",
   "type-specific-rope",
   "shared-kv-state",
@@ -118,10 +163,8 @@ export function inspectGemma4PackageContract(catalog: ModelCatalog): Gemma4Packa
   requireShape(catalog, `${prefix}.per_layer_model_projection.weight`, [layers * perLayerInputSize, hiddenSize]);
   requireShape(catalog, `${prefix}.per_layer_projection_norm.weight`, [perLayerInputSize]);
   requireShape(catalog, `${prefix}.norm.weight`, [hiddenSize]);
-  requireNamespace(catalog, "model.vision_tower.");
-  requireNamespace(catalog, "model.audio_tower.");
-  requireNamespace(catalog, "model.embed_vision.");
-  requireNamespace(catalog, "model.embed_audio.");
+  const visionTower = inspectVisionTower(catalog, vision, hiddenSize);
+  const audioTower = inspectAudioTower(catalog, audio, hiddenSize);
 
   const firstSharedLayer = layers - sharedKeyValueLayers;
   const ownerByType = new Map<Gemma4LayerContract["attentionType"], number>();
@@ -190,13 +233,115 @@ export function inspectGemma4PackageContract(catalog: ModelCatalog): Gemma4Packa
       imageTokenId: positiveInt(outer, "image_token_id"),
       audioTokenId: positiveInt(outer, "audio_token_id"),
       ...(optionalPositiveInt(outer, "video_token_id") !== undefined ? { videoTokenId: optionalPositiveInt(outer, "video_token_id")! } : {}),
+      visionTower,
+      audioTower,
     },
     requiredOperationFamilies: REQUIRED_OPERATION_FAMILIES,
   };
 }
 
-function requireNamespace(catalog: ModelCatalog, prefix: string): void {
-  if (![...catalog.tensors.keys()].some((name) => name.startsWith(prefix))) throw new Error(`Gemma 4 exige tensors no namespace ${prefix}.`);
+function inspectVisionTower(catalog: ModelCatalog, config: JsonObject, textHiddenSize: number): Gemma4VisionTowerContract {
+  const hiddenSize = positiveInt(config, "hidden_size");
+  const layers = positiveInt(config, "num_hidden_layers");
+  const attentionHeads = positiveInt(config, "num_attention_heads");
+  const keyValueHeads = positiveInt(config, "num_key_value_heads");
+  const headDim = optionalPositiveInt(config, "head_dim") ?? hiddenSize / attentionHeads;
+  const intermediateSize = positiveInt(config, "intermediate_size");
+  const patchSize = positiveInt(config, "patch_size");
+  const positionEmbeddingSize = positiveInt(config, "position_embedding_size");
+  const defaultOutputLength = positiveInt(config, "default_output_length");
+  const poolingKernelSize = positiveInt(config, "pooling_kernel_size");
+  const rope = object(config, "rope_parameters");
+  const ropeTheta = positiveNumber(rope, "rope_theta");
+
+  if (attentionHeads !== keyValueHeads || attentionHeads * headDim !== hiddenSize) {
+    throw new Error("Gemma 4 vision requer MHA densa: num_attention_heads=num_key_value_heads e heads*head_dim=hidden_size.");
+  }
+  if (string(rope, "rope_type") !== "default") throw new Error("Gemma 4 vision requer RoPE default registrado.");
+  if (config.attention_bias !== false || config.hidden_activation !== "gelu_pytorch_tanh" || config.use_clipped_linears !== true) {
+    throw new Error("Gemma 4 vision requer attention_bias=false, gelu_pytorch_tanh e use_clipped_linears=true explicitamente.");
+  }
+
+  const prefix = "model.vision_tower";
+  requireShape(catalog, `${prefix}.patch_embedder.input_proj.weight`, [hiddenSize, 3 * patchSize ** 2]);
+  requireShape(catalog, `${prefix}.patch_embedder.position_embedding_table`, [2, positionEmbeddingSize, hiddenSize]);
+  for (let layer = 0; layer < layers; layer += 1) {
+    const layerPrefix = `${prefix}.encoder.layers.${layer}`;
+    requireShape(catalog, `${layerPrefix}.input_layernorm.weight`, [hiddenSize]);
+    requireShape(catalog, `${layerPrefix}.post_attention_layernorm.weight`, [hiddenSize]);
+    requireShape(catalog, `${layerPrefix}.pre_feedforward_layernorm.weight`, [hiddenSize]);
+    requireShape(catalog, `${layerPrefix}.post_feedforward_layernorm.weight`, [hiddenSize]);
+    requireShape(catalog, `${layerPrefix}.self_attn.q_norm.weight`, [headDim]);
+    requireShape(catalog, `${layerPrefix}.self_attn.k_norm.weight`, [headDim]);
+    requireClippedLinear(catalog, `${layerPrefix}.self_attn.q_proj`, [hiddenSize, hiddenSize]);
+    requireClippedLinear(catalog, `${layerPrefix}.self_attn.k_proj`, [hiddenSize, hiddenSize]);
+    requireClippedLinear(catalog, `${layerPrefix}.self_attn.v_proj`, [hiddenSize, hiddenSize]);
+    requireClippedLinear(catalog, `${layerPrefix}.self_attn.o_proj`, [hiddenSize, hiddenSize]);
+    requireClippedLinear(catalog, `${layerPrefix}.mlp.gate_proj`, [intermediateSize, hiddenSize]);
+    requireClippedLinear(catalog, `${layerPrefix}.mlp.up_proj`, [intermediateSize, hiddenSize]);
+    requireClippedLinear(catalog, `${layerPrefix}.mlp.down_proj`, [hiddenSize, intermediateSize]);
+  }
+  requireShape(catalog, "model.embed_vision.embedding_projection.weight", [textHiddenSize, hiddenSize]);
+  return { hiddenSize, layers, attentionHeads, headDim, intermediateSize, patchSize, positionEmbeddingSize, defaultOutputLength, poolingKernelSize, ropeTheta, clippedLinears: true };
+}
+
+function inspectAudioTower(catalog: ModelCatalog, config: JsonObject, textHiddenSize: number): Gemma4AudioTowerContract {
+  const hiddenSize = positiveInt(config, "hidden_size");
+  const layers = positiveInt(config, "num_hidden_layers");
+  const attentionHeads = positiveInt(config, "num_attention_heads");
+  const outputProjectionSize = positiveInt(config, "output_proj_dims");
+  const attentionChunkSize = positiveInt(config, "attention_chunk_size");
+  const attentionContextLeft = nonnegativeInt(config, "attention_context_left");
+  const attentionContextRight = nonnegativeInt(config, "attention_context_right");
+  const attentionLogitCap = positiveNumber(config, "attention_logit_cap");
+  const convolutionKernelSize = positiveInt(config, "conv_kernel_size");
+  const residualWeight = positiveNumber(config, "residual_weight");
+  const subsampling = tupleOfPositiveInts(config, "subsampling_conv_channels", 2);
+  const headDim = hiddenSize / attentionHeads;
+  if (!Number.isInteger(headDim)) throw new Error("Gemma 4 audio hidden_size deve ser múltiplo de num_attention_heads.");
+  if (config.hidden_act !== "silu") throw new Error("Gemma 4 audio requer hidden_act='silu'.");
+
+  const prefix = "model.audio_tower";
+  requireShape(catalog, `${prefix}.subsample_conv_projection.layer0.conv.weight`, [subsampling[0], 1, 3, 3]);
+  requireShape(catalog, `${prefix}.subsample_conv_projection.layer0.norm.weight`, [subsampling[0]]);
+  requireShape(catalog, `${prefix}.subsample_conv_projection.layer1.conv.weight`, [subsampling[1], subsampling[0], 3, 3]);
+  requireShape(catalog, `${prefix}.subsample_conv_projection.layer1.norm.weight`, [subsampling[1]]);
+  requireShape(catalog, `${prefix}.subsample_conv_projection.input_proj_linear.weight`, [hiddenSize, hiddenSize]);
+  for (let layer = 0; layer < layers; layer += 1) {
+    const layerPrefix = `${prefix}.layers.${layer}`;
+    requireShape(catalog, `${layerPrefix}.norm_pre_attn.weight`, [hiddenSize]);
+    requireShape(catalog, `${layerPrefix}.norm_post_attn.weight`, [hiddenSize]);
+    requireShape(catalog, `${layerPrefix}.norm_out.weight`, [hiddenSize]);
+    requireShape(catalog, `${layerPrefix}.self_attn.per_dim_scale`, [headDim]);
+    requireShape(catalog, `${layerPrefix}.self_attn.relative_k_proj.weight`, [hiddenSize, hiddenSize]);
+    requireClippedLinear(catalog, `${layerPrefix}.self_attn.q_proj`, [hiddenSize, hiddenSize]);
+    requireClippedLinear(catalog, `${layerPrefix}.self_attn.k_proj`, [hiddenSize, hiddenSize]);
+    requireClippedLinear(catalog, `${layerPrefix}.self_attn.v_proj`, [hiddenSize, hiddenSize]);
+    requireClippedLinear(catalog, `${layerPrefix}.self_attn.post`, [hiddenSize, hiddenSize]);
+    for (const feedForward of ["feed_forward1", "feed_forward2"] as const) {
+      requireShape(catalog, `${layerPrefix}.${feedForward}.pre_layer_norm.weight`, [hiddenSize]);
+      requireShape(catalog, `${layerPrefix}.${feedForward}.post_layer_norm.weight`, [hiddenSize]);
+      requireClippedLinear(catalog, `${layerPrefix}.${feedForward}.ffw_layer_1`, [hiddenSize * 4, hiddenSize]);
+      requireClippedLinear(catalog, `${layerPrefix}.${feedForward}.ffw_layer_2`, [hiddenSize, hiddenSize * 4]);
+    }
+    requireShape(catalog, `${layerPrefix}.lconv1d.pre_layer_norm.weight`, [hiddenSize]);
+    requireShape(catalog, `${layerPrefix}.lconv1d.conv_norm.weight`, [hiddenSize]);
+    requireShape(catalog, `${layerPrefix}.lconv1d.depthwise_conv1d.weight`, [hiddenSize, 1, convolutionKernelSize]);
+    requireClippedLinear(catalog, `${layerPrefix}.lconv1d.linear_start`, [hiddenSize * 2, hiddenSize]);
+    requireClippedLinear(catalog, `${layerPrefix}.lconv1d.linear_end`, [hiddenSize, hiddenSize]);
+  }
+  requireShape(catalog, `${prefix}.output_proj.weight`, [outputProjectionSize, hiddenSize]);
+  requireShape(catalog, `${prefix}.output_proj.bias`, [outputProjectionSize]);
+  requireShape(catalog, "model.embed_audio.embedding_projection.weight", [textHiddenSize, outputProjectionSize]);
+  return { hiddenSize, layers, attentionHeads, headDim, outputProjectionSize, attentionChunkSize, attentionContextLeft, attentionContextRight, attentionLogitCap, convolutionKernelSize, subsamplingChannels: [subsampling[0], subsampling[1]], residualWeight, clippedLinears: true };
+}
+
+/** Gemma4ClippableLinear: clamp(input, min, max) -> linear -> clamp(output, min, max). */
+function requireClippedLinear(catalog: ModelCatalog, prefix: string, weightShape: readonly number[]): void {
+  requireShape(catalog, `${prefix}.linear.weight`, weightShape);
+  for (const suffix of ["input_min", "input_max", "output_min", "output_max"] as const) {
+    requireShape(catalog, `${prefix}.${suffix}`, []);
+  }
 }
 
 /** These complete prefixes are registered package layouts, never suffix guesses. */
@@ -263,6 +408,14 @@ function positiveInt(value: JsonObject, key: string): number {
 function optionalPositiveInt(value: JsonObject, key: string): number | undefined {
   if (value[key] === undefined || value[key] === null) return undefined;
   return positiveInt(value, key);
+}
+
+function tupleOfPositiveInts(value: JsonObject, key: string, length: 2): [number, number] {
+  const result = value[key];
+  if (!Array.isArray(result) || result.length !== length || result.some((item) => !Number.isInteger(item) || item <= 0)) {
+    throw new Error(`${key} deve ser uma tupla de ${length} inteiros positivos no contrato Gemma 4.`);
+  }
+  return result as [number, number];
 }
 
 function nonnegativeInt(value: JsonObject, key: string): number {

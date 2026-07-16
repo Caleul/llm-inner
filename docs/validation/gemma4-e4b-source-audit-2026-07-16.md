@@ -41,7 +41,15 @@ after the MLP residual, and applies `layer_scalar`.
 The outer model carries image, audio, and video placeholder token IDs and
 contains vision/audio towers plus their projections. Their injection order and
 the PLE behavior for multimodal embeddings are therefore executable model
-semantics, not preprocessing details.
+semantics, not preprocessing details. The source contract now validates every
+registered tower tensor role, not merely the namespaces: the 16-layer vision
+encoder is 768-wide MHA with 64-wide heads, 2-D patch positions, RoPE θ=100,
+pooling, and a 280-token default output; the 12-layer audio encoder is
+1024-wide with 128-wide heads, two convolutional subsamplers (128 then 32
+channels), local convolution, chunked attention and a 1,536-wide output
+projection. Every vision/audio projection is a `Gemma4ClippableLinear`: its
+four checkpointed BF16 scalar bounds clamp the input and output around the
+linear operation, so they cannot be discarded as calibration metadata.
 
 ## Reproduction
 
@@ -56,10 +64,10 @@ npm run audit:gemma4 -- --source ./gemma-4-E4B-dense \
 
 ## What remains deliberately unsupported
 
-The compiler still fails closed for Gemma 4. The next vertical implementation
-must lower and execute the complete PLE path, the exact proportional RoPE
-formula and per-type dimensions, producer-owned shared KV state, the four-norm
-decoder, and image/audio injection before a Transformers operation/KV/logit/
-greedy-generation differential can be captured. It must then materialize the
-complete BF16 package into a literal source-independent program. No checkpoint
-marker may be created before those steps pass.
+The compiler still fails closed for Gemma 4. The text core now lowers PLE,
+proportional RoPE, producer-owned KV and four-norm decoding; the remaining
+vertical implementation must turn the established vision/audio contracts and
+placeholder replacement into explicit executable assignments, then capture a
+Transformers operation/KV/logit/greedy differential. It must finally
+materialize the complete BF16 package into a literal source-independent
+program. No checkpoint marker may be created before those steps pass.

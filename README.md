@@ -339,13 +339,16 @@ Um pacote composto não é convertido implicitamente em um checkpoint textual. Q
 `npm run audit:gemma4 -- --source <diretório-Gemma4> --output <audit.json>` é
 uma fronteira de evidência para o checkpoint obrigatório — não é um adaptador e
 não produz IR. Ele exige o pacote composto `gemma4` denso em Safetensors,
-`text_config=gemma4_text`, os towers de visão e áudio, e os namespaces
-registrados do checkpoint oficial (`model.language_model`, `model.vision_tower`,
+`text_config=gemma4_text`, os towers de visão e áudio, e os layouts registrados
+do checkpoint oficial (`model.language_model`, `model.vision_tower`,
 `model.audio_tower`, `model.embed_vision`, `model.embed_audio`). Em seguida
 verifica os shapes de PLE, quatro RMSNorms, projeções por tipo de atenção,
-RoPE default/proporcional e a propriedade KV compartilhada. O relatório
-declara a camada produtora KV para cada consumidor e calcula SHA-256 dos
-arquivos de identidade. A primeira evidência para o E4B BF16 está em
+RoPE default/proporcional e a propriedade KV compartilhada. Para os towers,
+valida patch/posição/pooling visual, subsampling/local-convolution/atenção por
+chunks do áudio, os projetores multimodais e cada limite escalar de
+`Gemma4ClippableLinear` antes e depois da projeção. O relatório declara a
+camada produtora KV para cada consumidor e calcula SHA-256 dos arquivos de
+identidade. A primeira evidência para o E4B BF16 está em
 [`docs/validation/gemma4-e4b-source-audit-2026-07-16.json`](docs/validation/gemma4-e4b-source-audit-2026-07-16.json).
 
 O lowering estrutural do subgrafo textual do mesmo catálogo BF16 está registrado
