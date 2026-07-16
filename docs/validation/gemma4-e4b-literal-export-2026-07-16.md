@@ -1,9 +1,10 @@
 # Gemma 4 E4B dense literal export — 2026-07-16
 
-This records a real artifact-materialization boundary for the immutable dense
-Gemma 4 package. It is not a Gemma 4 dense-lossless checkpoint claim: no
-authoritative Transformers operation/KV/logit comparison or source-removed
-forward/generation replay has yet been completed.
+This records the real artifact-materialization boundary for the immutable dense
+Gemma 4 package, including a source-removed, authoritative-runtime operation
+comparison. It is not a Gemma 4 dense-lossless checkpoint claim: the measured
+text path remains approximate, and multimodal and source-removed generation
+fidelity are not established.
 
 ## Source and artifact
 
@@ -16,8 +17,8 @@ forward/generation replay has yet been completed.
 - Local artifact (ignored because it is 21.3 GB):
   `artifacts/gemma4-e4b-dense.literal.json`.
 - Artifact SHA-256:
-  `d74db021e785b081f5b84714368a23a8d3baf5da40048d971d124580190c491d`.
-- Artifact bytes: `21,325,922,453`; embedded original storage bytes:
+  `55d494c1f2dec8024c4dc025277c4c626c44e0fb403395eeb42acfacc95ea2a7`.
+- Artifact bytes: `21,326,003,883`; embedded original storage bytes:
   `15,992,314,836`.
 
 ## Reproduction and validation
@@ -63,12 +64,13 @@ are referenced by ordered composite, vision, audio, or text assignments.
 
 The artifact header now truthfully declares
 `accumulationDtype: "operation-declared"`: Gemma4Text linear/RMSNorm
-assignments state their ordered F64 reductions while the remaining assignments
-retain their explicitly declared F32 boundaries and BF16 output casts. The
-streaming reader rejects a header that hides those operation-level semantics.
-This is an explicit portable compatibility policy, not a claim that storage
-dtype alone defines the native kernel's exact reduction tree. Source-removed
-text-only native comparisons remain approximate (`layer_0_gate_proj` is the
-first unresolved boundary), and the vision/audio towers still lack paged
-storage-backed execution. Do not create
+assignments state their complete reduction schedule. Most registered
+linear/RMSNorm assignments use ordered F64 scalar accumulation; the measured
+E4B `layer_0_gate_proj` instead declares 32 interleaved F32 lanes and an
+ascending final lane reduction. The streaming reader rejects missing or invalid
+reduction schedules. This is an explicit portable compatibility policy, not a
+claim that storage dtype alone defines the native kernel's exact reduction
+tree. Source-removed text-only native comparisons remain approximate
+(`layer_0_up_proj` is the first unresolved boundary), and the vision/audio
+towers still lack paged storage-backed execution. Do not create
 `.agent-loop/checkpoints/gemma4-dense-lossless/`.

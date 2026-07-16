@@ -9,7 +9,8 @@ not evidence from this run.
 
 - Checkpoint SHA-256: `43fb96cec3045b72852c787540300dc5b258634b7a025f7c80355ac0788b9651`
 - `config.json` SHA-256: `f27a045f32c39fb9cd930204920de6b0962810cf09929a8810901ffaec780f20`
-- Literal artifact SHA-256: `d74db021e785b081f5b84714368a23a8d3baf5da40048d971d124580190c491d`
+- Historical literal artifact SHA-256:
+  `d74db021e785b081f5b84714368a23a8d3baf5da40048d971d124580190c491d`
 - Reference: PyTorch `2.12.1`, Transformers `5.5.0`, eager BF16
   `Gemma4ForConditionalGeneration`; values are widened to F32 only for
   comparison serialization.
@@ -61,8 +62,9 @@ layers `0..23` with matching shapes. The comparison is nevertheless
 - every producer KV cache diverged under exact F32 comparison; the largest
   value-cache absolute error was `0.0576171875` at layer 17.
 
-This is artifact-only text replay plus a real native differential, not lossless
-BF16 fidelity. The explicit result-cast contract improves the prefill selection
-metric, but the continued decode makes clear that cast boundaries alone do not
-identify the native reduction tree or every internal attention operation. No
-Gemma 4 checkpoint marker is justified by this text-only approximate result.
+This is historical artifact-only text replay plus a real native differential,
+not lossless BF16 fidelity. It predates the current artifact's explicit
+`layer_0_gate_proj` 32-lane reduction schedule; the current source-removed
+assignment comparison is recorded separately in
+`gemma4-e4b-native-operation-checkpoints-2026-07-16.md` and remains
+approximate from `layer_0_up_proj`. No Gemma 4 checkpoint marker is justified.

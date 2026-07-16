@@ -208,7 +208,7 @@ test("Gemma 4 literal headers expose and stream-validate operation-declared F64 
     const catalog = fixture(), program = buildGemma4CompositeProgram(catalog, preview), sourceTensors = materialize(catalog);
     for (const operation of [...program.textProgram.prelude, ...program.textProgram.layers.flatMap((layer) => layer.operations), ...program.textProgram.epilogue]) {
       if (operation.op === "linear" || operation.op === "rms_norm") {
-        operation.dtypePolicy = { inputDtype: "BF16", computeDtype: "F32", accumulationDtype: "F64", outputDtype: "BF16" };
+        operation.dtypePolicy = { inputDtype: "BF16", computeDtype: "F32", accumulationDtype: "F64", outputDtype: "BF16", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } };
       }
     }
     const output = path.join(root, "f64.gemma4.literal.json");
@@ -227,7 +227,7 @@ test("Gemma 4 literal headers expose and stream-validate operation-declared F64 
         computeDtype: "F32",
         accumulationDtype: "operation-declared",
         outputDtype: "operation-declared",
-        scalarSemantics: "IEEE-754 binary32 products; each operation declares its ordered F32 or F64 reduction and F32 or BF16 result cast",
+        scalarSemantics: "IEEE-754 binary32 products; each operation declares its ordered-scalar or interleaved-lane F32/F64 reduction and F32 or BF16 result cast",
       });
     } finally {
       await artifact.close();
@@ -236,10 +236,29 @@ test("Gemma 4 literal headers expose and stream-validate operation-declared F64 
     const corrupted = path.join(root, "f64-header-lie.gemma4.literal.json");
     const raw = await readFile(output, "utf8");
     await writeFile(corrupted, raw.replace(
-      '"accumulationDtype":"operation-declared","outputDtype":"operation-declared","scalarSemantics":"IEEE-754 binary32 products; each operation declares its ordered F32 or F64 reduction and F32 or BF16 result cast"',
+      '"accumulationDtype":"operation-declared","outputDtype":"operation-declared","scalarSemantics":"IEEE-754 binary32 products; each operation declares its ordered-scalar or interleaved-lane F32/F64 reduction and F32 or BF16 result cast"',
       '"accumulationDtype":"F32","outputDtype":"operation-declared","scalarSemantics":"IEEE-754 binary32 reductions; each operation declares its F32 or BF16 result cast"',
     ));
     await assert.rejects(() => openGemma4CompositeLiteralArtifact(corrupted), /política numérica incompatível com as atribuições declaradas/);
+    const missingSchedule = path.join(root, "f64-missing-schedule.gemma4.literal.json");
+    await writeFile(missingSchedule, raw.replace(
+      '"reduction":{"kind":"ordered-scalar","indexOrder":"ascending"}',
+      '"reduction":{"kind":"invalid","indexOrder":"ascending"}',
+    ));
+    await assert.rejects(() => openGemma4CompositeLiteralArtifact(missingSchedule), /agenda de (redução|lanes)/);
+
+    const inMemory = await buildGemma4CompositeLiteralCalculationProgram(program, catalog, {
+      async readTensorBytes(info) {
+        const tensor = sourceTensors.get(info.name)!;
+        const bytes = Buffer.alloc(tensor.values.length * 4);
+        tensor.values.forEach((value, index) => bytes.writeFloatLE(value, index * 4));
+        return bytes;
+      },
+    });
+    assert.throws(
+      () => executeGemma4CompositeLiteralF32(inMemory, { inputIds: [[1]] }),
+      /não pode apagar a política numérica declarada/,
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -350,6 +369,21 @@ test("paged linear keeps the declared F64 accumulator distinct from F32 products
   const f64 = await pagedLinearF32(input, matrix, { outputDtype: "BF16", accumulationDtype: "F64" });
   assert.deepEqual(f32.values, Float32Array.from([0]));
   assert.deepEqual(f64.values, Float32Array.from([1]));
+});
+
+test("paged linear applies an explicit interleaved F32 lane schedule instead of selecting one from shape", async () => {
+  const tensor: TensorInfo = { name: "embedded://lanes", storageDtype: "F32", storageShape: [1, 4], logicalShape: [1, 4] };
+  const storage = Buffer.alloc(16);
+  [16_777_216, 1, -16_777_216, 1].forEach((value, index) => storage.writeFloatLE(value, index * 4));
+  const matrix = createPagedDenseF32Matrix(tensor, { async readTensorBytesRange(_tensor, offset, byteLength) { return storage.subarray(offset, offset + byteLength); } }, 16);
+  const input = { shape: [1, 4], values: Float32Array.from([1, 1, 1, 1]) };
+  const scalar = await pagedLinearF32(input, matrix, { accumulationDtype: "F32" });
+  const lanes = await pagedLinearF32(input, matrix, {
+    accumulationDtype: "F32",
+    reduction: { kind: "interleaved-f32-lanes", laneCount: 2, inputLane: "index-modulo-lane-count", laneReductionOrder: "ascending" },
+  });
+  assert.deepEqual(scalar.values, Float32Array.from([1]));
+  assert.deepEqual(lanes.values, Float32Array.from([2]));
 });
 
 test("Gemma 4 shared-KV consumers embed but explicitly label their checkpoint-local K/V tensors", async () => {

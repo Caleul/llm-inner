@@ -61,7 +61,7 @@ export interface Gemma4CompositeLiteralCalculationProgram extends LiteralStorage
     scalarSemantics:
       | "IEEE-754 binary32; host libm results rounded to F32"
       | "IEEE-754 binary32 reductions; each operation declares its F32 or BF16 result cast"
-      | "IEEE-754 binary32 products; each operation declares its ordered F32 or F64 reduction and F32 or BF16 result cast";
+      | "IEEE-754 binary32 products; each operation declares its ordered-scalar or interleaved-lane F32/F64 reduction and F32 or BF16 result cast";
   };
   inputs: Gemma4CompositeLiteralInput[];
   /** No checkpoint path is retained: all tensor bytes are in `constants`. */
@@ -116,6 +116,7 @@ export async function buildGemma4CompositeLiteralCalculationProgram(
   if (catalog.format !== "safetensors" || program.sourceFormat !== "safetensors") {
     throw new Error("Programa literal Gemma 4 composite requer Safetensors denso registrado.");
   }
+  validateGemma4TextReductionSchedules(program);
   const references = compositeReferences(program);
   const unreachableConstants = sharedKvUnreachableConstants(program, catalog, references);
   const catalogNames = new Set(catalog.tensors.keys());
@@ -166,6 +167,7 @@ export async function writeGemma4CompositeLiteralCalculationProgram(
   reader: LiteralTensorReader,
   output: string,
 ): Promise<Gemma4CompositeLiteralWriteResult> {
+  validateGemma4TextReductionSchedules(program);
   const prepared = prepareStreamedDenseLiteral(program, catalog);
   await mkdir(path.dirname(output), { recursive: true });
   const temporary = `${output}.${process.pid}.${Date.now()}.tmp`;
@@ -242,6 +244,7 @@ export function executeGemma4CompositeLiteralF32(
   request: Omit<Gemma4CompositeExecutionRequest, "tensors">,
 ): Gemma4CompositeExecutionResult {
   validateGemma4CompositeLiteralCalculationProgram(literal);
+  assertSynchronousCompositeF32Compatibility(literal.program);
   return executeGemma4CompositeF32(literal.program, { ...request, tensors: decodeLiteralStorageBundleF32(literal) });
 }
 
@@ -251,6 +254,7 @@ export function generateGemma4CompositeLiteralF32(
   request: Omit<Gemma4CompositeGenerationRequest, "tensors">,
 ): Gemma4CompositeGenerationResult {
   validateGemma4CompositeLiteralCalculationProgram(literal);
+  assertSynchronousCompositeF32Compatibility(literal.program);
   return generateGemma4CompositeF32(literal.program, { ...request, tensors: decodeLiteralStorageBundleF32(literal) });
 }
 
@@ -260,6 +264,7 @@ export function generateGemma4CompositeLiteralF32(
  * or a program which tries to retain a source-model path.
  */
 export function validateGemma4CompositeLiteralCalculationProgram(literal: Gemma4CompositeLiteralCalculationProgram): void {
+  validateGemma4TextReductionSchedules(literal.program);
   if (literal.schemaVersion !== 1 || literal.kind !== "gemma4-composite-literal-calculation-program" || literal.sourceFormat !== "safetensors" ||
     !sameNumericPolicy(literal.numericPolicy, gemma4CompositeLiteralNumericPolicy(literal.program))) {
     throw new Error("Programa literal Gemma 4 composite possui cabeçalho ou política numérica inválida.");
@@ -323,14 +328,14 @@ function literalInputs(): Gemma4CompositeLiteralInput[] {
 export function gemma4CompositeLiteralNumericPolicy(program: Gemma4CompositeProgram): Gemma4CompositeLiteralCalculationProgram["numericPolicy"] {
   const textOperations = [...program.textProgram.prelude, ...program.textProgram.layers.flatMap((layer) => layer.operations), ...program.textProgram.epilogue];
   const hasBf16ResultCast = textOperations.some((operation) => operation.dtypePolicy.outputDtype === "BF16");
-  const hasDeclaredAccumulation = textOperations.some((operation) => operation.dtypePolicy.accumulationDtype === "F64");
+  const hasDeclaredAccumulation = textOperations.some((operation) => operation.dtypePolicy.accumulationDtype === "F64" || operation.dtypePolicy.reduction?.kind === "interleaved-f32-lanes");
   if (hasDeclaredAccumulation) {
     return {
       inputDtype: "I32/F32/BOOL",
       computeDtype: "F32",
       accumulationDtype: "operation-declared",
       outputDtype: "operation-declared",
-      scalarSemantics: "IEEE-754 binary32 products; each operation declares its ordered F32 or F64 reduction and F32 or BF16 result cast",
+      scalarSemantics: "IEEE-754 binary32 products; each operation declares its ordered-scalar or interleaved-lane F32/F64 reduction and F32 or BF16 result cast",
     };
   }
   return {
@@ -349,8 +354,46 @@ export function validateGemma4CompositeLiteralNumericPolicy(
   policy: Gemma4CompositeLiteralCalculationProgram["numericPolicy"],
   program: Gemma4CompositeProgram,
 ): void {
+  validateGemma4TextReductionSchedules(program);
   if (!sameNumericPolicy(policy, gemma4CompositeLiteralNumericPolicy(program))) {
     throw new Error("Programa literal Gemma 4 composite possui política numérica incompatível com as atribuições declaradas.");
+  }
+}
+
+/** Every literal linear/RMS reduction must expose its finite index schedule. */
+function validateGemma4TextReductionSchedules(program: Gemma4CompositeProgram): void {
+  const operations = [...program.textProgram.prelude, ...program.textProgram.layers.flatMap((layer) => layer.operations), ...program.textProgram.epilogue];
+  for (const operation of operations) {
+    if (operation.op !== "linear" && operation.op !== "rms_norm") continue;
+    const reduction = operation.dtypePolicy.reduction;
+    if (!reduction) throw new Error(`${operation.id}: programa literal Gemma 4 não declara a agenda de redução.`);
+    if (reduction.kind === "ordered-scalar") {
+      if (reduction.indexOrder !== "ascending" || (operation.dtypePolicy.accumulationDtype !== "F32" && operation.dtypePolicy.accumulationDtype !== "F64")) {
+        throw new Error(`${operation.id}: agenda escalar de redução Gemma 4 é incompatível com sua política numérica.`);
+      }
+      continue;
+    }
+    if (operation.op !== "linear" || operation.dtypePolicy.accumulationDtype !== "F32" || !Number.isSafeInteger(reduction.laneCount) || reduction.laneCount < 2 ||
+      reduction.inputLane !== "index-modulo-lane-count" || reduction.laneReductionOrder !== "ascending") {
+      throw new Error(`${operation.id}: agenda de lanes Gemma 4 inválida.`);
+    }
+  }
+}
+
+/**
+ * The legacy in-memory composite executor is an explicitly scalar-F32 fixture
+ * path. It must reject, rather than erase, a literal program's BF16 result
+ * casts, F64 accumulators, or lane schedule. The paged text executor owns the
+ * storage-backed mixed-policy replay boundary.
+ */
+function assertSynchronousCompositeF32Compatibility(program: Gemma4CompositeProgram): void {
+  const operations = [...program.textProgram.prelude, ...program.textProgram.layers.flatMap((layer) => layer.operations), ...program.textProgram.epilogue];
+  for (const operation of operations) {
+    const policy = operation.dtypePolicy;
+    if (policy.inputDtype === "BF16" || policy.computeDtype !== "F32" || policy.accumulationDtype !== "F32" || policy.outputDtype !== "F32" ||
+      ((operation.op === "linear" || operation.op === "rms_norm") && policy.reduction?.kind !== "ordered-scalar")) {
+      throw new Error(`${operation.id}: replay composto síncrono F32 não pode apagar a política numérica declarada; use o executor paginado compatível.`);
+    }
   }
 }
 

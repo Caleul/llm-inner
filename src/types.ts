@@ -63,11 +63,21 @@ export interface BaseOp {
   dtypePolicy: DtypePolicy;
 }
 
+export type ReductionSchedule =
+  | { kind: "ordered-scalar"; indexOrder: "ascending" }
+  | { kind: "interleaved-f32-lanes"; laneCount: number; inputLane: "index-modulo-lane-count"; laneReductionOrder: "ascending" };
+
 export interface DtypePolicy {
   inputDtype?: string;
   computeDtype?: string;
   accumulationDtype?: string;
   outputDtype?: string;
+  /**
+   * The reduction is part of the mathematical program, rather than an
+   * executor implementation detail.  A lane schedule is deliberately
+   * explicit: it is never selected from a tensor shape at replay time.
+   */
+  reduction?: ReductionSchedule;
 }
 
 export interface RmsNormOp extends BaseOp {

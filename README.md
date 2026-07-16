@@ -229,20 +229,23 @@ transições de máscara full/sliding antes de permitir replay. O texto interno
 recebe somente o identificador virtual
 `embedded://gemma4-composite-literal`; nenhum caminho de checkpoint é retido.
 `executeGemma4CompositeLiteralF32` e
-`generateGemma4CompositeLiteralF32` decodificam apenas esses payloads e chamam
-o executor composto para prefill e greedy cached decode. A regressão remove o
-mapa de bytes/tensores de uma fixture multimodal registrada antes do replay e
-compara logits e dois tokens greedy.
+`generateGemma4CompositeLiteralF32` são o replay síncrono da fixture F32: eles
+decodificam apenas os payloads, mas falham fechados se o programa declarar
+BF16, acumulador F64 ou uma agenda de lanes que esse executor não implementa.
+A regressão remove o mapa de bytes/tensores de uma fixture multimodal registrada
+antes do replay e compara logits e dois tokens greedy. O E4B BF16 usa o caminho
+paginado compatível descrito abaixo; nunca tem sua política reduzida a F32.
 
 Para o checkpoint obrigatório `google/gemma-4-E4B` BF16, o mesmo comando agora
 escreve o artefato completo em streaming: ranges Safetensors de 12 MiB são
 codificados em base64 sem acumular o pacote ou uma string de vários GiB na
 heap. O resultado local contém os 2,130 payloads originais
 (15,992,314,836 bytes) e é auditado por `npm run audit:literal`. O hash
-`d74db021e785b081f5b84714368a23a8d3baf5da40048d971d124580190c491d`
+`55d494c1f2dec8024c4dc025277c4c626c44e0fb403395eeb42acfacc95ea2a7`
 identifica a exportação atual, cuja política numérica declara fronteiras de
-resultado BF16 e acumulação F32/F64 por operação do texto; toda exportação deve registrar seu
-próprio hash, pois o programa literal inclui as políticas numéricas. As 54 projeções/normas K/V locais dos
+resultado BF16, acumuladores F32/F64 e agendas de redução por operação do
+texto; toda exportação deve registrar seu próprio hash, pois o programa literal
+inclui as políticas numéricas. As 54 projeções/normas K/V locais dos
 consumidores compartilhados são incorporadas com proveniência explícita em
 `unreachableConstants`; o grafo usa apenas os KV do produtor declarado. A
 evidência reproduzível está em
@@ -271,8 +274,8 @@ runtime autoritativo.
 
 `paged-dense.ts` é a fronteira seguinte: aceita somente matrizes literais
 row-major densas `F32`/`F16`/`BF16`, lê linhas por `readTensorBytesRange` e
-executa embedding e linear na mesma ordem escalar F32 do executor de
-referência. A leitura é limitada por uma janela explícita e não aceita
+executa embedding e linear na agenda escalar ou de lanes explicitamente
+declarada pelo artefato. A leitura é limitada por uma janela explícita e não aceita
 quantização ou um payload sem decoder declarado. Isso permite que embeddings e
 projeções enormes sejam consumidos sem formar um mapa F32 do pacote inteiro,
 e fornece a base de armazenamento para a orquestração textual assíncrona
@@ -323,13 +326,14 @@ atualizada está em
 Uma captura posterior de todas as 1.229 atribuições declaradas do Gemma4Text
 torna a divergência localizável sem reabrir o checkpoint durante o candidato.
 Ela corrige o cast BF16 observável do embedding (`sqrt(2560)` para `50.5` e o
-produto BF16), e agora declara acumulação escalar ordenada F64 para os
-produtos F32 de linear/RMSNorm BF16. Isso torna exatas a projeção e a norma
-PLE; o primeiro limite restante é `layer_0_gate_proj`, cuja árvore de redução
-do kernel nativo é sensível ao shape. A instrumentação é comparada a um
-forward nativo sem hooks e falha se logits ou cache KV mudarem. O replay com
-fonte removida tem 69 atribuições e um cache produtor exatos; as 1.160
-atribuições e 23 caches restantes divergem, logo a comparação completa é
+produto BF16), declara acumulação escalar ordenada F64 para linear/RMSNorm e,
+somente no `layer_0_gate_proj` E4B medido, declara 32 lanes F32 intercaladas
+com redução final ascendente. Isso torna exatas a projeção e a norma PLE e o
+primeiro gate MLP, sem escolher uma agenda pelo shape no replay. A
+instrumentação é comparada a um forward nativo sem hooks e falha se logits ou
+cache KV mudarem. O replay com fonte removida tem 71 atribuições e um cache
+produtor exatos; as 1.158 atribuições e 23 caches restantes divergem; o
+primeiro limite agora é `layer_0_up_proj`. A comparação completa permanece
 `approximate`, documentada em
 [`docs/validation/gemma4-e4b-native-operation-checkpoints-2026-07-16.md`](docs/validation/gemma4-e4b-native-operation-checkpoints-2026-07-16.md).
 

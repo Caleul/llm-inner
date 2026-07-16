@@ -65,25 +65,26 @@ widened BF16 scale (`50.5`) and its paged embedding kernel applies the declared
 BF16 result cast.
 
 The regenerated artifact SHA-256 is
-`d74db021e785b081f5b84714368a23a8d3baf5da40048d971d124580190c491d`.
+`55d494c1f2dec8024c4dc025277c4c626c44e0fb403395eeb42acfacc95ea2a7`.
 Its header declares operation-level accumulation because its program records
 F32 products plus an ordered F64 scalar accumulator and BF16 result cast for
-Gemma4Text linear/RMSNorm assignments; all other declared operations retain
-their explicit F32 policy. The paged executor applies these declared boundaries
-before the next named assignment or cache transition.
+Gemma4Text linear/RMSNorm assignments. The one measured E4B exception,
+`layer_0_gate_proj`, declares 32 interleaved F32 accumulators with ascending
+lane reduction before its BF16 cast. All other declared operations retain their
+explicit F32 policy. The paged executor applies these declared boundaries before
+the next named assignment or cache transition.
 
 The source-removed probe covers every one of 1,229 declared assignments and
-has no missing or unexpected trace IDs. It passes 69 assignments and one
+has no missing or unexpected trace IDs. It passes 71 assignments and one
 producer-owned KV cache exactly. `ple_context_projection`,
-`ple_context_scale`, `ple_context_reshape`, and `ple_context_norm` now match
-exactly. The first divergent assignment is `layer_0_gate_proj`; the 10,240 by
-2,560 projection differs in two BF16 coordinates under the portable ordered
-F64 profile. A direct probe found that an interleaved 32-lane F32 tree matches
-that one projection, while the 10,752-row PLE projection requires the ordered
-F64 profile. Because the authoritative runtime does not expose a stable,
-documented shape-to-reduction-tree contract, the artifact does not invent this
-shape heuristic. The remaining 1,160 assignments and 23 producer KV caches
-diverge at zero tolerance. This is therefore a complete **approximate**
+`ple_context_scale`, `ple_context_reshape`, `ple_context_norm`, and the
+declared `layer_0_gate_proj` now match exactly. A direct source-independent
+probe established the gate's 32-lane F32 schedule for this pinned E4B topology;
+that schedule is serialized on the operation, not chosen from a shape during
+replay. The first divergent assignment is now `layer_0_up_proj`; its 10,240 by
+2,560 projection still differs in three BF16 coordinates under every tested
+ordered/F32-lane profile. The remaining 1,158 assignments and 23 producer KV
+caches diverge at zero tolerance. This is therefore a complete **approximate**
 operation comparison, not an incomplete probe: the observed evidence
 identifies the first unresolved numerical boundary without claiming
 lossless-within-dtype or the Gemma 4 checkpoint.

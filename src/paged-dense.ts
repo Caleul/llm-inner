@@ -1,6 +1,6 @@
 import { decodeIeeeBF16ToF32, decodeIeeeF16ToF32, roundF32ToBF16 } from "./utils.js";
 import type { LiteralTensorReader } from "./literal.js";
-import type { DenseF32Tensor, TensorInfo } from "./types.js";
+import type { DenseF32Tensor, ReductionSchedule, TensorInfo } from "./types.js";
 
 /**
  * A deliberately narrow, source-independent dense storage boundary for
@@ -109,7 +109,11 @@ export async function pagedEmbeddingF32(
 export async function pagedLinearF32(
   input: DenseF32Tensor,
   weight: PagedDenseF32Matrix,
-  options: { outputDtype?: "F32" | "BF16"; accumulationDtype?: "F32" | "F64" } = {},
+  options: {
+    outputDtype?: "F32" | "BF16";
+    accumulationDtype?: "F32" | "F64";
+    reduction?: ReductionSchedule;
+  } = {},
 ): Promise<DenseF32Tensor> {
   if (input.shape.length < 1) throw new Error("Linear paginado requer entrada com dimensão de features.");
   const [outFeatures, inFeatures] = weight.shape;
@@ -122,7 +126,11 @@ export async function pagedLinearF32(
     const outputCount = Math.min(chunkRows, outFeatures - firstOutput);
     const stored = await weight.readRows(firstOutput, outputCount);
     for (let row = 0; row < rows; row += 1) for (let output = 0; output < outputCount; output += 1) {
-      const sum = options.accumulationDtype === "F64" ? linearF32ProductsF64Accumulation(input, stored.values, row, output, inFeatures) : linearF32ProductsF32Accumulation(input, stored.values, row, output, inFeatures);
+      const sum = options.reduction?.kind === "interleaved-f32-lanes"
+        ? linearF32ProductsInterleavedF32Lanes(input, stored.values, row, output, inFeatures, options.reduction)
+        : options.accumulationDtype === "F64"
+          ? linearF32ProductsF64Accumulation(input, stored.values, row, output, inFeatures)
+          : linearF32ProductsF32Accumulation(input, stored.values, row, output, inFeatures);
       result[row * outFeatures + firstOutput + output] = options.outputDtype === "BF16" ? roundF32ToBF16(sum) : Math.fround(sum);
     }
   }
@@ -149,6 +157,28 @@ function linearF32ProductsF64Accumulation(input: DenseF32Tensor, weight: Float32
   for (let column = 0; column < inFeatures; column += 1) {
     sum += Math.fround(input.values[row * inFeatures + column]! * weight[output * inFeatures + column]!);
   }
+  return sum;
+}
+
+/** Declared F32 lane reductions are explicit runtime profiles, never shape heuristics. */
+function linearF32ProductsInterleavedF32Lanes(
+  input: DenseF32Tensor,
+  weight: Float32Array,
+  row: number,
+  output: number,
+  inFeatures: number,
+  reduction: Extract<ReductionSchedule, { kind: "interleaved-f32-lanes" }>,
+): number {
+  if (!Number.isSafeInteger(reduction.laneCount) || reduction.laneCount < 2 || reduction.inputLane !== "index-modulo-lane-count" || reduction.laneReductionOrder !== "ascending") {
+    throw new Error("Linear paginado recebeu agenda de lanes F32 inválida.");
+  }
+  const lanes = new Float32Array(reduction.laneCount);
+  for (let column = 0; column < inFeatures; column += 1) {
+    const lane = column % reduction.laneCount;
+    lanes[lane] = Math.fround(lanes[lane]! + Math.fround(input.values[row * inFeatures + column]! * weight[output * inFeatures + column]!));
+  }
+  let sum = Math.fround(0);
+  for (let lane = 0; lane < lanes.length; lane += 1) sum = Math.fround(sum + lanes[lane]!);
   return sum;
 }
 
