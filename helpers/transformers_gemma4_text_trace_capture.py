@@ -338,7 +338,7 @@ def operation_checkpoints(model: Any, tokens: list[int], positions: list[int], d
 
 
 def linear_reduction_checkpoint(model: Any, tokens: list[int], positions: list[int], device: str, request: dict[str, Any]) -> dict[str, Any]:
-    """Capture a single registered dense MLP projection without graph rewriting.
+    """Capture one registered Gemma4Text Linear without graph rewriting.
 
     A forward pre-hook observes the exact input passed to the native Linear
     module and a forward hook observes its result.  Both hooks return None, so
@@ -353,19 +353,25 @@ def linear_reduction_checkpoint(model: Any, tokens: list[int], positions: list[i
     output = request.get("output")
     if not isinstance(layer_index, int) or layer_index < 0 or layer_index >= len(model.model.language_model.layers):
         raise ValueError("Gemma 4 bounded linear capture requires a valid layerIndex.")
-    if projection not in ("gate_proj", "up_proj", "down_proj"):
-        raise ValueError("Gemma 4 bounded linear capture requires gate_proj, up_proj, or down_proj.")
+    if projection not in ("gate_proj", "up_proj", "down_proj", "o_proj"):
+        raise ValueError("Gemma 4 bounded linear capture requires gate_proj, up_proj, down_proj, or o_proj.")
     if not all(isinstance(value, str) and value for value in (operation_id, producer_operation_id, producer_output, output)):
         raise ValueError("Gemma 4 bounded linear capture requires declared operation and output IDs.")
     expected_operation = f"layer_{layer_index}_{projection}"
     if operation_id != expected_operation:
         raise ValueError(f"Gemma 4 bounded linear capture received {operation_id}; expected {expected_operation}.")
-    expected_producer = f"layer_{layer_index}_pre_ffn_norm" if projection in ("gate_proj", "up_proj") else f"layer_{layer_index}_gated_mlp"
-    expected_producer_output = f"layer_{layer_index}_ffn_norm" if projection in ("gate_proj", "up_proj") else f"layer_{layer_index}_gated_mlp"
-    expected_output = f"layer_{layer_index}_{projection.removesuffix('_proj')}" if projection != "down_proj" else f"layer_{layer_index}_mlp_output"
+    if projection == "o_proj":
+        expected_producer = f"layer_{layer_index}_attention"
+        expected_producer_output = f"layer_{layer_index}_attention_context"
+        expected_output = f"layer_{layer_index}_attention_projected"
+        target = model.model.language_model.layers[layer_index].self_attn.o_proj
+    else:
+        expected_producer = f"layer_{layer_index}_pre_ffn_norm" if projection in ("gate_proj", "up_proj") else f"layer_{layer_index}_gated_mlp"
+        expected_producer_output = f"layer_{layer_index}_ffn_norm" if projection in ("gate_proj", "up_proj") else f"layer_{layer_index}_gated_mlp"
+        expected_output = f"layer_{layer_index}_{projection.removesuffix('_proj')}" if projection != "down_proj" else f"layer_{layer_index}_mlp_output"
+        target = getattr(model.model.language_model.layers[layer_index].mlp, projection)
     if producer_operation_id != expected_producer or producer_output != expected_producer_output or output != expected_output:
-        raise ValueError("Gemma 4 bounded linear capture IDs do not match the registered Gemma4Text MLP contract.")
-    target = getattr(model.model.language_model.layers[layer_index].mlp, projection)
+        raise ValueError("Gemma 4 bounded linear capture IDs do not match the registered Gemma4Text projection contract.")
     activation_scale = request.get("activationScale", 1)
     activation_bf16_scale_bits = request.get("activationBf16ScaleBits")
     if (
@@ -430,7 +436,7 @@ def linear_reduction_checkpoint(model: Any, tokens: list[int], positions: list[i
     else:
         probe_output = captured["output"]
     return {
-        "runtime": f"PyTorch {torch.__version__.split('+')[0]} / Transformers {transformers.__version__} Gemma4ForConditionalGeneration eager BF16 bounded MLP projection trace",
+        "runtime": f"PyTorch {torch.__version__.split('+')[0]} / Transformers {transformers.__version__} Gemma4ForConditionalGeneration eager BF16 bounded linear projection trace",
         **execution_device_metadata(model, device),
         "nativeKernelEnvironment": native_kernel_environment(),
         "operations": [

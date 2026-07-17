@@ -12,7 +12,7 @@ import { materializeReferenceF32Constants, materializeReferenceF64Constants } fr
 import { fingerprintIR, readExecutionTraceBundle } from "../src/trace.js";
 import { runExecutionTraceComparison, runGenerationTraceComparison } from "../src/trace-runner.js";
 import { captureMlxTrace } from "../src/mlx-trace-capture.js";
-import { assertGemma4NativeOperationCoverage, selectGemma4MlpLinearCaptureTarget } from "../src/gemma4-transformers-operation-trace.js";
+import { assertGemma4NativeOperationCoverage, selectGemma4MlpLinearCaptureTarget, selectGemma4TextLinearCaptureTarget } from "../src/gemma4-transformers-operation-trace.js";
 import { captureTransformersGemma2Trace, captureTransformersLlamaTrace, captureTransformersQwen2Trace } from "../src/transformers-trace-capture.js";
 import type { ModelIR } from "../src/types.js";
 import type { ReferenceF32ExecutionResult } from "../src/types.js";
@@ -67,7 +67,9 @@ test("Gemma 4 bounded native reduction capture accepts only a declared MLP proje
     layers: [{
       operations: [
         { id: "layer_0_pre_ffn_norm", op: "rms_norm", output: "layer_0_ffn_norm" },
+        { id: "layer_0_attention", op: "scaled_dot_product_attention", output: "layer_0_attention_context" },
         { id: "layer_0_up_proj", layer: 0, op: "linear", input: "layer_0_ffn_norm", output: "layer_0_up", transposeWeight: true, weight: { name: "up", shape: [8, 4], storageDtype: "BF16" } },
+        { id: "layer_0_o_proj", layer: 0, op: "linear", input: "layer_0_attention_context", output: "layer_0_attention_projected", transposeWeight: true, weight: { name: "o", shape: [4, 4], storageDtype: "BF16" } },
         { id: "layer_0_q_proj", layer: 0, op: "linear", input: "layer_0_ffn_norm", output: "layer_0_q", transposeWeight: true, weight: { name: "q", shape: [4, 4], storageDtype: "BF16" } },
       ],
     }],
@@ -78,6 +80,12 @@ test("Gemma 4 bounded native reduction capture accepts only a declared MLP proje
     output: "layer_0_up", layer: 0, projection: "up_proj",
   });
   assert.throws(() => selectGemma4MlpLinearCaptureTarget(program, "layer_0_q_proj"), /somente layer_<n>_\(gate\|up\|down\)_proj/);
+  assert.deepEqual(selectGemma4TextLinearCaptureTarget(program, "layer_0_o_proj"), {
+    operationId: "layer_0_o_proj", producerOperationId: "layer_0_attention", producerOutput: "layer_0_attention_context",
+    output: "layer_0_attention_projected", layer: 0, projection: "o_proj",
+  });
+  assert.throws(() => selectGemma4MlpLinearCaptureTarget(program, "layer_0_o_proj"), /somente layer_<n>_\(gate\|up\|down\)_proj/);
+  assert.throws(() => selectGemma4TextLinearCaptureTarget(program, "layer_0_q_proj"), /somente layer_<n>_\(gate\|up\|down\|o\)_proj/);
 });
 
 async function availableTransformersPython(): Promise<string | undefined> {

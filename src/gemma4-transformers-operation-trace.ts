@@ -23,7 +23,7 @@ export interface Gemma4TransformersOperationTraceOptions {
 
 export interface Gemma4TransformersLinearReductionTraceOptions extends Omit<Gemma4TransformersOperationTraceOptions, "output"> {
   output: string;
-  /** A declared, bias-free Gemma4Text MLP projection such as layer_0_up_proj. */
+  /** A declared, bias-free Gemma4Text linear projection such as layer_1_o_proj. */
   operationId: string;
   /**
    * Diagnostic-only BF16 activation scale for a native Linear probe. It is
@@ -72,7 +72,7 @@ export async function captureGemma4TransformersLinearReductionTrace(options: Gem
       if (tensor.storageDtype !== "BF16" || tensor.quantization) throw new Error(`${tensor.name}: checkpoint capture requer armazenamento BF16 denso sem quantização.`);
     }
     const program = buildGemma4CompositeProgram(opened.catalog, { outputRows: 1, inputTerms: 1, includeWeights: false });
-    const target = selectGemma4MlpLinearCaptureTarget(program.textProgram, options.operationId);
+    const target = selectGemma4TextLinearCaptureTarget(program.textProgram, options.operationId);
     const native = await invoke<NativeOperationCapture>(options.python, {
       source: options.source,
       inputTokens: options.inputTokens,
@@ -114,7 +114,7 @@ export async function captureGemma4TransformersLinearReductionTrace(options: Gem
         quantization: "none; dense BF16 storage",
         inputTokens: [options.inputTokens],
         positionIds: [positions],
-        dtypePolicy: "native eager BF16 bounded MLP projection checkpoints captured as F32",
+        dtypePolicy: "native eager BF16 bounded Gemma4Text linear projection checkpoints captured as F32",
         reductionProbeInput: options.activationBf16ScaleBits !== undefined
           ? { kind: "bf16-scalar-scale" as const, factorBf16Bits: options.activationBf16ScaleBits }
           : activationScale === 1
@@ -176,25 +176,30 @@ function assertNativeKernelEnvironment(
   }
 }
 
-export interface Gemma4MlpLinearCaptureTarget {
+export interface Gemma4TextLinearCaptureTarget {
   operationId: string;
   producerOperationId: string;
   producerOutput: string;
   output: string;
   layer: number;
-  projection: "gate_proj" | "up_proj" | "down_proj";
+  projection: "gate_proj" | "up_proj" | "down_proj" | "o_proj";
 }
 
-/** Restricts bounded native captures to an explicit, adapter-owned MLP path. */
-export function selectGemma4MlpLinearCaptureTarget(program: ReturnType<typeof buildGemma4CompositeProgram>["textProgram"], operationId: string): Gemma4MlpLinearCaptureTarget {
+/**
+ * Restricts bounded native captures to declared Gemma4Text projections with a
+ * module-owned native hook target. Attention `o_proj` is included because its
+ * exact input is the explicit attention assignment, not an inferred MLP-like
+ * surrogate. Q/K/V remain deliberately outside this probe contract.
+ */
+export function selectGemma4TextLinearCaptureTarget(program: ReturnType<typeof buildGemma4CompositeProgram>["textProgram"], operationId: string): Gemma4TextLinearCaptureTarget {
   const operation = [...program.prelude, ...program.layers.flatMap((layer) => layer.operations), ...program.epilogue]
     .find((entry) => entry.id === operationId);
   if (!operation || operation.op !== "linear" || operation.layer === undefined || operation.bias || !operation.transposeWeight) {
     throw new Error(`${operationId}: captura limitada requer uma projeção linear Gemma4Text declarada, sem bias e transposta.`);
   }
-  const matched = /^layer_(\d+)_(gate|up|down)_proj$/.exec(operation.id);
+  const matched = /^layer_(\d+)_(gate|up|down|o)_proj$/.exec(operation.id);
   if (!matched || Number(matched[1]) !== operation.layer) {
-    throw new Error(`${operationId}: captura limitada aceita somente layer_<n>_(gate|up|down)_proj.`);
+    throw new Error(`${operationId}: captura limitada aceita somente layer_<n>_(gate|up|down|o)_proj.`);
   }
   const producer = [...program.prelude, ...program.layers.flatMap((layer) => layer.operations), ...program.epilogue]
     .find((entry) => entry.output === operation.input);
@@ -205,8 +210,22 @@ export function selectGemma4MlpLinearCaptureTarget(program: ReturnType<typeof bu
     producerOutput: producer.output,
     output: operation.output,
     layer: operation.layer,
-    projection: `${matched[2]}_proj` as "gate_proj" | "up_proj" | "down_proj",
+    projection: `${matched[2]}_proj` as Gemma4TextLinearCaptureTarget["projection"],
   };
+}
+
+/**
+ * Compatibility export for existing callers that intentionally need the
+ * narrower MLP-only policy. New reduction investigations should use the
+ * Gemma4Text selector above so each declared native module can opt in
+ * explicitly rather than being classified by matrix shape.
+ */
+export function selectGemma4MlpLinearCaptureTarget(program: ReturnType<typeof buildGemma4CompositeProgram>["textProgram"], operationId: string): Gemma4TextLinearCaptureTarget {
+  if (!/^layer_\d+_(gate|up|down)_proj$/.test(operationId)) {
+    throw new Error(`${operationId}: captura limitada aceita somente layer_<n>_(gate|up|down)_proj.`);
+  }
+  const target = selectGemma4TextLinearCaptureTarget(program, operationId);
+  return target;
 }
 
 /**
