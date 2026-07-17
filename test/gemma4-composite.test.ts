@@ -14,7 +14,10 @@ import {
   writeGemma4CompositeLiteralCalculationProgram,
 } from "../src/gemma4-composite-literal.js";
 import { openGemma4CompositeLiteralArtifact } from "../src/gemma4-composite-literal-reader.js";
-import { verifyGemma4CompositeLiteralPayloadsAgainstCatalog } from "../src/gemma4-composite-literal-payload-verification.js";
+import {
+  verifyGemma4CompositeLiteralEmbeddedPayloadIntegrity,
+  verifyGemma4CompositeLiteralPayloadsAgainstCatalog,
+} from "../src/gemma4-composite-literal-payload-verification.js";
 import { probeGemma4LiteralLinearReductionProfiles } from "../src/gemma4-linear-reduction-probe.js";
 import { executeGemma4PagedTextLiteralF32, generateGemma4PagedTextLiteralF32 } from "../src/gemma4-paged-text.js";
 import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearF32 } from "../src/paged-dense.js";
@@ -153,6 +156,9 @@ test("Gemma 4 composite streamed writer emits an atomic self-contained JSON file
     assert.ok(maxRequestedBytes < written.embeddedPayloadBytes, "writer must request one payload at a time rather than a package buffer");
     const literal = JSON.parse(raw.toString("utf8"));
     assert.equal(JSON.stringify(literal).includes(catalog.source), false);
+    assert.equal(literal.payloadIntegrity.length, catalog.tensors.size);
+    const embedded = literal.payloadIntegrity.find((entry: { name: string }) => entry.name === "model.language_model.embed_tokens.weight")!;
+    assert.equal(embedded.sha256, createHash("sha256").update(denseF32Bytes(sourceTensors.get(embedded.name)!)).digest("hex"));
 
     sourceTensors.clear();
     const replay = executeGemma4CompositeLiteralF32(literal, { inputIds: [[1, 99, 2]], mmTokenTypeIds: [[0, 1, 0]], pixelValues: patterned([1, 4, 12]), imagePositionIds: [[[0, 0], [1, 0], [0, 1], [1, 1]]] });
@@ -193,6 +199,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
       assert.deepEqual(await artifact.readTensorBytes(tensor), expectedBytes);
       assert.deepEqual(await artifact.readTensorBytesRange(tensor, 5, 23), expectedBytes.subarray(5, 28));
       assert.equal("payloadBase64" in artifact.constants.get(tensor.name)!, false);
+      assert.equal(artifact.payloadIntegrity?.size, catalog.tensors.size);
     } finally {
       await artifact.close();
     }
@@ -230,6 +237,32 @@ test("Gemma 4 literal payload verifier proves every embedded storage byte before
     await assert.rejects(
       () => verifyGemma4CompositeLiteralPayloadsAgainstCatalog({ artifact: corrupt, source, maxReadBytes: 13 }),
       /payload literal diverge do Safetensors/,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("Gemma 4 literal artifact verifies its embedded payload commitments after source removal", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "llm-inner-gemma4-embedded-payload-verification-"));
+  try {
+    const catalog = fixture(), sourceTensors = materialize(catalog);
+    const artifact = path.join(root, "tiny.gemma4.literal.json");
+    await writeGemma4CompositeLiteralCalculationProgram(buildGemma4CompositeProgram(catalog, preview), catalog, {
+      async readTensorBytes(info) { return denseF32Bytes(sourceTensors.get(info.name)!); },
+    }, artifact);
+    sourceTensors.clear();
+
+    const verified = await verifyGemma4CompositeLiteralEmbeddedPayloadIntegrity({ artifact, maxReadBytes: 13 });
+    assert.equal(verified.constants, catalog.tensors.size);
+    assert.ok(verified.comparedPayloadBytes > 0);
+
+    const corrupt = path.join(root, "corrupt.gemma4.literal.json");
+    const raw = await readFile(artifact, "utf8");
+    await writeFile(corrupt, raw.replace(/"payloadBase64":"([A-Za-z0-9])/, (_match, first: string) => `"payloadBase64":"${first === "A" ? "B" : "A"}`), "utf8");
+    await assert.rejects(
+      () => verifyGemma4CompositeLiteralEmbeddedPayloadIntegrity({ artifact: corrupt, maxReadBytes: 13 }),
+      /payload literal diverge do digest incorporado/,
     );
   } finally {
     await rm(root, { recursive: true, force: true });

@@ -266,6 +266,21 @@ faixas limitadas de 12 MiB, e registra SHA-256 concatenados da fonte e do
 artefato. Não substitui replay nem comparação de runtime: só prova a fronteira
 lossless de exportação enquanto o Safetensors ainda está disponível.
 
+Exportações streaming atuais também carregam um compromisso SHA-256 por
+payload. Depois de remover a fonte, o leitor pode verificar todos os bytes
+incorporados sem reabrir o Safetensors:
+
+```bash
+npm run inspect:gemma4-literal -- \
+  --artifact ./artifacts/gemma4-e4b-dense.literal.json --verify-payloads
+```
+
+Esse compromisso detecta corrupção posterior do artefato, mas não substitui a
+comparação fonte-para-literal feita antes da remoção. O E4B de 16 de julho foi
+emitido antes deste campo e continua verificável pelo hash externo e pela
+comparação documentada; para usar esta verificação interna ele precisa ser
+regenerado a partir da fonte imutável.
+
 O leitor `gemma4-composite-literal-reader.ts` abre esse JSON em streaming: ele
 indexa os offsets dos payloads base64 e valida a estrutura semântica sem
 `JSON.parse` do artefato completo. Cada faixa de bytes é decodificada a partir

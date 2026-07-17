@@ -82,12 +82,25 @@ export interface Gemma4CompositeLiteralCalculationProgram extends LiteralStorage
     textEpilogue: Operation[];
   };
   outputs: { embeddings: "hidden_states_0"; perLayerInputs: "ple_inputs"; logits: "softcapped_logits" | "logits" };
+  /** Present on streamed artifacts; binds each embedded payload after source removal. */
+  payloadIntegrity?: Gemma4CompositeLiteralPayloadIntegrityEntry[];
 }
 
 export interface Gemma4CompositeUnreachableConstant {
   name: string;
   reason: "shared-kv-consumer-local-kv-is-runtime-unreachable";
   producerLayer: number;
+}
+
+/**
+ * A source-independent integrity commitment for one embedded storage payload.
+ * It is written only after the streamed bytes have been read and is therefore
+ * usable after the original checkpoint has been removed.
+ */
+export interface Gemma4CompositeLiteralPayloadIntegrityEntry {
+  name: string;
+  payloadBytes: number;
+  sha256: string;
 }
 
 /**
@@ -176,6 +189,7 @@ export async function writeGemma4CompositeLiteralCalculationProgram(
   const digest = createHash("sha256");
   let artifactBytes = 0;
   let embeddedPayloadBytes = 0;
+  const payloadIntegrity: Gemma4CompositeLiteralPayloadIntegrityEntry[] = [];
 
   const write = async (chunk: string): Promise<void> => {
     digest.update(chunk, "utf8");
@@ -190,10 +204,12 @@ export async function writeGemma4CompositeLiteralCalculationProgram(
       const constant = prepared.constants[index]!;
       if (index > 0) await write(",");
       await write(`${JSON.stringify(constant.metadata).slice(0, -1)},"payloadBase64":"`);
-      embeddedPayloadBytes += await writeBase64Payload(constant, reader, write);
+      const payload = await writeBase64Payload(constant, reader, write);
+      embeddedPayloadBytes += payload.bytes;
+      payloadIntegrity.push({ name: constant.name, payloadBytes: payload.bytes, sha256: payload.sha256 });
       await write("\"}");
     }
-    await write(`],"unreachableConstants":${JSON.stringify(prepared.unreachableConstants)},"storageDecoders":${JSON.stringify(prepared.storageDecoders)},"program":${JSON.stringify(prepared.embeddedProgram)},"assignments":${JSON.stringify(prepared.assignments)},"outputs":${JSON.stringify(prepared.outputs)}}\n`);
+    await write(`],"unreachableConstants":${JSON.stringify(prepared.unreachableConstants)},"storageDecoders":${JSON.stringify(prepared.storageDecoders)},"program":${JSON.stringify(prepared.embeddedProgram)},"assignments":${JSON.stringify(prepared.assignments)},"outputs":${JSON.stringify(prepared.outputs)},"payloadIntegrity":${JSON.stringify(payloadIntegrity)}}\n`);
     stream.end();
     await once(stream, "finish");
     await rename(temporary, output);
@@ -216,7 +232,8 @@ async function writeBase64Payload(
   constant: StreamedDenseConstant,
   reader: LiteralTensorReader,
   write: (chunk: string) => Promise<void>,
-): Promise<number> {
+): Promise<{ bytes: number; sha256: string }> {
+  const digest = createHash("sha256");
   if (reader.readTensorBytesRange) {
     let offset = 0;
     while (offset < constant.expectedByteLength) {
@@ -226,9 +243,10 @@ async function writeBase64Payload(
       // Base64 alphabet is JSON-safe; the quote delimiters are emitted by the
       // caller. Every non-final chunk is 3-byte aligned by the constant above.
       await write(bytes.toString("base64"));
+      digest.update(bytes);
       offset += byteLength;
     }
-    return offset;
+    return { bytes: offset, sha256: digest.digest("hex") };
   }
   if (constant.expectedByteLength > BASE64_CHUNK_BYTES) {
     throw new Error(`${constant.name}: exportação literal de tensor grande requer readTensorBytesRange; o leitor não pode formar um base64 multi-GiB inteiro.`);
@@ -236,7 +254,8 @@ async function writeBase64Payload(
   const bytes = await reader.readTensorBytes(constant.tensor);
   if (bytes.length !== constant.expectedByteLength) throw new Error(`${constant.name}: leitor literal retornou ${bytes.length} bytes, esperados ${constant.expectedByteLength}.`);
   await write(bytes.toString("base64"));
-  return bytes.length;
+  digest.update(bytes);
+  return { bytes: bytes.length, sha256: digest.digest("hex") };
 }
 
 /** Replays prefill solely from the literal's embedded bytes and assignments. */

@@ -39,9 +39,16 @@ bytes to the enclosing base64 quadruplets. The source-removed fixture test
 deletes its checkpoint path before opening the literal artifact and verifies
 both full-tensor and unaligned-range equality.
 
-The real index run used 229,965,824 maximum resident bytes and completed in
-5.10 seconds wall-clock on this machine. Those figures cover structural
-indexing plus a 4 KiB range read, not model execution.
+The current pinned artifact is 21,326,003,883 bytes (the earlier
+21,325,917,078-byte index measurement predates the regenerated literal
+payload). That earlier index run used 229,965,824 maximum resident bytes and
+completed in 5.10 seconds wall-clock on this machine. Those figures cover
+structural indexing plus a 4 KiB range read, not model execution.
+
+This artifact also predates the per-payload integrity commitments added to the
+streamed writer, so `--verify-payloads` fails closed for it. Its storage bytes
+are instead independently bound to the source by the full 2026-07-17
+name-addressed verification recorded in the literal-export report.
 
 ## Remaining checkpoint gap
 

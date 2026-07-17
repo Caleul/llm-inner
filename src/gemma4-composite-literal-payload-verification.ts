@@ -14,6 +14,60 @@ export interface Gemma4CompositeLiteralPayloadVerification {
   literalStorageSha256: string;
 }
 
+export interface Gemma4CompositeLiteralEmbeddedPayloadVerification {
+  artifact: string;
+  constants: number;
+  comparedPayloadBytes: number;
+  literalStorageSha256: string;
+}
+
+/**
+ * Verifies the payload commitments carried by a streamed artifact itself.
+ * Unlike the catalog comparison this intentionally opens no checkpoint, so it
+ * is the integrity check available during source-removed replay.
+ */
+export async function verifyGemma4CompositeLiteralEmbeddedPayloadIntegrity(options: {
+  artifact: string;
+  maxReadBytes?: number;
+}): Promise<Gemma4CompositeLiteralEmbeddedPayloadVerification> {
+  const maxReadBytes = options.maxReadBytes ?? DEFAULT_CHUNK_BYTES;
+  if (!Number.isSafeInteger(maxReadBytes) || maxReadBytes <= 0) throw new Error("Verificação incorporada de payload Gemma 4 requer maxReadBytes inteiro positivo.");
+  const artifact = await openGemma4CompositeLiteralArtifact(options.artifact);
+  try {
+    if (!artifact.payloadIntegrity) throw new Error("Artefato literal Gemma 4 não contém compromissos de integridade de payload; regenere a exportação antes de remover a fonte.");
+    const storageHash = createHash("sha256");
+    let comparedPayloadBytes = 0;
+    for (const name of [...artifact.constants.keys()].sort()) {
+      const constant = artifact.constants.get(name)!;
+      const integrity = artifact.payloadIntegrity.get(name);
+      if (!integrity || integrity.payloadBytes !== constant.payloadBytes) throw new Error(`${name}: compromisso incorporado não corresponde ao payload literal.`);
+      const payloadHash = createHash("sha256");
+      const tensor: TensorInfo = {
+        name: constant.name,
+        storageDtype: constant.storageDtype,
+        storageShape: [...constant.storageShape],
+        logicalShape: [...constant.logicalShape],
+      };
+      for (let offset = 0; offset < constant.payloadBytes; offset += maxReadBytes) {
+        const byteLength = Math.min(maxReadBytes, constant.payloadBytes - offset);
+        const bytes = await artifact.readTensorBytesRange(tensor, offset, byteLength);
+        payloadHash.update(bytes);
+        storageHash.update(bytes);
+        comparedPayloadBytes += bytes.length;
+      }
+      if (payloadHash.digest("hex") !== integrity.sha256) throw new Error(`${name}: payload literal diverge do digest incorporado.`);
+    }
+    return {
+      artifact: artifact.artifact,
+      constants: artifact.constants.size,
+      comparedPayloadBytes,
+      literalStorageSha256: storageHash.digest("hex"),
+    };
+  } finally {
+    await artifact.close();
+  }
+}
+
 /**
  * Establishes the export boundary before a checkpoint is removed: every
  * original Safetensors storage byte must equal the matching embedded literal

@@ -2,6 +2,7 @@ import { open, stat, type FileHandle } from "node:fs/promises";
 import type {
   Gemma4CompositeLiteralCalculationProgram,
   Gemma4CompositeLiteralInput,
+  Gemma4CompositeLiteralPayloadIntegrityEntry,
   Gemma4CompositeUnreachableConstant,
 } from "./gemma4-composite-literal.js";
 import { validateGemma4CompositeLiteralNumericPolicy, validateGemma4CompositeLiteralStructure } from "./gemma4-composite-literal.js";
@@ -37,6 +38,8 @@ export interface Gemma4CompositeLiteralArtifactIndex {
   outputs: Gemma4CompositeLiteralCalculationProgram["outputs"];
   inputs: Gemma4CompositeLiteralInput[];
   numericPolicy: Gemma4CompositeLiteralCalculationProgram["numericPolicy"];
+  /** Optional for compatibility with artifacts emitted before payload commitments. */
+  payloadIntegrity?: ReadonlyMap<string, Gemma4CompositeLiteralPayloadIntegrityEntry>;
 }
 
 export interface OpenGemma4CompositeLiteralArtifact extends Gemma4CompositeLiteralArtifactIndex {
@@ -137,6 +140,9 @@ function buildIndex(
     new Map([...constants].map(([name, constant]) => [name, { ...constant, payloadBase64: "" }])),
     tail.unreachableConstants as Gemma4CompositeUnreachableConstant[],
   );
+  const payloadIntegrity = tail.payloadIntegrity === undefined
+    ? undefined
+    : validatePayloadIntegrity(tail.payloadIntegrity, constants);
   return {
     artifact,
     artifactBytes,
@@ -148,7 +154,30 @@ function buildIndex(
     outputs: tail.outputs as Gemma4CompositeLiteralCalculationProgram["outputs"],
     inputs: header.inputs as Gemma4CompositeLiteralInput[],
     numericPolicy: header.numericPolicy as Gemma4CompositeLiteralCalculationProgram["numericPolicy"],
+    ...(payloadIntegrity ? { payloadIntegrity } : {}),
   };
+}
+
+function validatePayloadIntegrity(
+  entries: unknown,
+  constants: ReadonlyMap<string, IndexedLiteralConstant>,
+): ReadonlyMap<string, Gemma4CompositeLiteralPayloadIntegrityEntry> {
+  if (!Array.isArray(entries) || entries.length !== constants.size) {
+    throw new Error("Artefato literal Gemma 4 possui compromissos de integridade de payload incompletos.");
+  }
+  const integrity = new Map<string, Gemma4CompositeLiteralPayloadIntegrityEntry>();
+  for (const entry of entries) {
+    if (!entry || typeof entry !== "object") throw new Error("Artefato literal Gemma 4 possui compromisso de integridade inválido.");
+    const candidate = entry as Partial<Gemma4CompositeLiteralPayloadIntegrityEntry>;
+    const constant = candidate.name ? constants.get(candidate.name) : undefined;
+    if (!constant || integrity.has(constant.name) || candidate.payloadBytes !== constant.payloadBytes ||
+      typeof candidate.sha256 !== "string" || !/^[a-f0-9]{64}$/.test(candidate.sha256)) {
+      throw new Error(`${candidate.name ?? "constante"}: compromisso de integridade de payload inválido.`);
+    }
+    integrity.set(constant.name, { name: constant.name, payloadBytes: constant.payloadBytes, sha256: candidate.sha256 });
+  }
+  if (integrity.size !== constants.size) throw new Error("Artefato literal Gemma 4 não possui compromisso para toda constante incorporada.");
+  return integrity;
 }
 
 function assertHeader(header: Partial<Gemma4CompositeLiteralCalculationProgram>): void {

@@ -59,6 +59,24 @@ atomically renames the complete JSON only after the final byte is flushed. This
 avoids both package-wide base64 accumulation and Node's maximum single-string
 limit for the multi-gigabyte token embedding.
 
+## Source-removed payload integrity
+
+The current streamed writer records one SHA-256 commitment per named payload
+in the structural tail. `npm run inspect:gemma4-literal -- --artifact
+<literal.json> --verify-payloads` range-decodes every payload and compares it
+to that embedded commitment without opening a checkpoint. This is a
+post-export corruption check, not proof that a newly edited payload/hash pair
+originated in the source; the source-to-literal comparison above remains the
+required pre-removal evidence.
+
+The 21.3 GB E4B artifact recorded above predates these per-payload commitments,
+so it correctly fails this new optional check rather than pretending it has
+evidence it does not contain. Its independent 2026-07-17 source-byte
+comparison was repeated in loop 15 and reproduced the 2,130-payload,
+15,992,314,836-byte digest equality stated above. Regenerating this artifact
+from the pinned immutable source is required before the new source-removed
+integrity mode can apply to E4B itself.
+
 ## Shared-KV storage provenance
 
 The established 42-layer Gemma 4 graph uses producer-owned KV state for layers
