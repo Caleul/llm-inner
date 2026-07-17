@@ -9,6 +9,7 @@ interface Arguments {
   offset: number;
   byteLength: number;
   verifyPayloads: boolean;
+  assertSourceUnavailable?: string;
   output?: string;
 }
 
@@ -40,7 +41,10 @@ try {
     };
   }
   if (args.verifyPayloads) {
-    result.payloadIntegrityVerification = await verifyGemma4CompositeLiteralEmbeddedPayloadIntegrity({ artifact: args.artifact });
+    result.payloadIntegrityVerification = await verifyGemma4CompositeLiteralEmbeddedPayloadIntegrity({
+      artifact: args.artifact,
+      ...(args.assertSourceUnavailable ? { assertSourceUnavailable: args.assertSourceUnavailable } : {}),
+    });
   }
   const json = `${JSON.stringify(result, null, 2)}\n`;
   if (args.output) await writeFile(args.output, json);
@@ -50,7 +54,7 @@ try {
 }
 
 function parseArguments(argv: string[]): Arguments {
-  let artifact: string | undefined, tensor: string | undefined, output: string | undefined;
+  let artifact: string | undefined, tensor: string | undefined, output: string | undefined, assertSourceUnavailable: string | undefined;
   let offset = 0, byteLength = 4096, verifyPayloads = false;
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
@@ -60,14 +64,20 @@ function parseArguments(argv: string[]): Arguments {
     else if (value === "--offset") { offset = parseInteger(next, "--offset"); index += 1; }
     else if (value === "--byte-length") { byteLength = parseInteger(next, "--byte-length"); index += 1; }
     else if (value === "--verify-payloads") { verifyPayloads = true; }
+    else if (value === "--assert-source-unavailable") {
+      if (!next || next.startsWith("--")) throw new Error("--assert-source-unavailable requer um caminho de checkpoint.");
+      assertSourceUnavailable = next;
+      index += 1;
+    }
     else if (value === "--output") { output = next; index += 1; }
     else throw new Error(`Argumento desconhecido: ${value}.`);
   }
-  if (!artifact) throw new Error("Uso: --artifact <literal.json> [--tensor <nome> --offset <bytes> --byte-length <bytes>] [--verify-payloads] [--output <report.json>].");
+  if (!artifact) throw new Error("Uso: --artifact <literal.json> [--tensor <nome> --offset <bytes> --byte-length <bytes>] [--verify-payloads --assert-source-unavailable <checkpoint>] [--output <report.json>].");
+  if (assertSourceUnavailable !== undefined && (!verifyPayloads || !assertSourceUnavailable)) throw new Error("--assert-source-unavailable requer --verify-payloads e um caminho de checkpoint.");
   if ((tensor === undefined && (offset !== 0 || byteLength !== 4096)) || (tensor !== undefined && (!Number.isSafeInteger(offset) || !Number.isSafeInteger(byteLength) || offset < 0 || byteLength <= 0))) {
     throw new Error("--offset e --byte-length requerem --tensor e valores inteiros positivos.");
   }
-  return { artifact, ...(tensor ? { tensor } : {}), offset, byteLength, verifyPayloads, ...(output ? { output } : {}) };
+  return { artifact, ...(tensor ? { tensor } : {}), offset, byteLength, verifyPayloads, ...(assertSourceUnavailable ? { assertSourceUnavailable } : {}), ...(output ? { output } : {}) };
 }
 
 function parseInteger(value: string | undefined, flag: string): number {

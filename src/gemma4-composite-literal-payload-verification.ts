@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { constants } from "node:fs";
+import { access } from "node:fs/promises";
 import { openCatalog } from "./catalog.js";
 import { openGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
 import type { TensorInfo } from "./types.js";
@@ -19,6 +21,10 @@ export interface Gemma4CompositeLiteralEmbeddedPayloadVerification {
   constants: number;
   comparedPayloadBytes: number;
   literalStorageSha256: string;
+  /** This verifier opens only the literal JSON, never a checkpoint catalog. */
+  sourceCheckpointAccessed: false;
+  /** Present when the caller required a specific former source path to be absent. */
+  assertedUnavailableSource?: string;
 }
 
 /**
@@ -29,9 +35,16 @@ export interface Gemma4CompositeLiteralEmbeddedPayloadVerification {
 export async function verifyGemma4CompositeLiteralEmbeddedPayloadIntegrity(options: {
   artifact: string;
   maxReadBytes?: number;
+  /**
+   * Require this former checkpoint location to be absent before opening the
+   * literal. This makes source-removal evidence reproducible in the result
+   * without granting the verifier any source-reader capability.
+   */
+  assertSourceUnavailable?: string;
 }): Promise<Gemma4CompositeLiteralEmbeddedPayloadVerification> {
   const maxReadBytes = options.maxReadBytes ?? DEFAULT_CHUNK_BYTES;
   if (!Number.isSafeInteger(maxReadBytes) || maxReadBytes <= 0) throw new Error("Verificação incorporada de payload Gemma 4 requer maxReadBytes inteiro positivo.");
+  if (options.assertSourceUnavailable) await assertUnavailable(options.assertSourceUnavailable);
   const artifact = await openGemma4CompositeLiteralArtifact(options.artifact);
   try {
     if (!artifact.payloadIntegrity) throw new Error("Artefato literal Gemma 4 não contém compromissos de integridade de payload; regenere a exportação antes de remover a fonte.");
@@ -62,10 +75,21 @@ export async function verifyGemma4CompositeLiteralEmbeddedPayloadIntegrity(optio
       constants: artifact.constants.size,
       comparedPayloadBytes,
       literalStorageSha256: storageHash.digest("hex"),
+      sourceCheckpointAccessed: false,
+      ...(options.assertSourceUnavailable ? { assertedUnavailableSource: options.assertSourceUnavailable } : {}),
     };
   } finally {
     await artifact.close();
   }
+}
+
+async function assertUnavailable(source: string): Promise<void> {
+  try {
+    await access(source, constants.F_OK);
+  } catch {
+    return;
+  }
+  throw new Error(`Verificação incorporada de payload Gemma 4 requer source indisponível, mas '${source}' ainda existe.`);
 }
 
 /**

@@ -248,14 +248,24 @@ test("Gemma 4 literal artifact verifies its embedded payload commitments after s
   try {
     const catalog = fixture(), sourceTensors = materialize(catalog);
     const artifact = path.join(root, "tiny.gemma4.literal.json");
+    const unavailableSource = path.join(root, "checkpoint-removed");
     await writeGemma4CompositeLiteralCalculationProgram(buildGemma4CompositeProgram(catalog, preview), catalog, {
       async readTensorBytes(info) { return denseF32Bytes(sourceTensors.get(info.name)!); },
     }, artifact);
     sourceTensors.clear();
 
-    const verified = await verifyGemma4CompositeLiteralEmbeddedPayloadIntegrity({ artifact, maxReadBytes: 13 });
+    const verified = await verifyGemma4CompositeLiteralEmbeddedPayloadIntegrity({ artifact, maxReadBytes: 13, assertSourceUnavailable: unavailableSource });
     assert.equal(verified.constants, catalog.tensors.size);
     assert.ok(verified.comparedPayloadBytes > 0);
+    assert.equal(verified.sourceCheckpointAccessed, false);
+    assert.equal(verified.assertedUnavailableSource, unavailableSource);
+
+    await mkdir(unavailableSource);
+    await assert.rejects(
+      () => verifyGemma4CompositeLiteralEmbeddedPayloadIntegrity({ artifact, assertSourceUnavailable: unavailableSource }),
+      /requer source indisponível/,
+    );
+    await rm(unavailableSource, { recursive: true });
 
     const corrupt = path.join(root, "corrupt.gemma4.literal.json");
     const raw = await readFile(artifact, "utf8");

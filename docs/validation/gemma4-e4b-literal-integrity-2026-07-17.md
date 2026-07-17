@@ -51,15 +51,29 @@ mv ./gemma-4-E4B-dense ./.gemma-4-E4B-dense-source-unavailable
 npm run inspect:gemma4-literal -- \
   --artifact ./artifacts/gemma4-e4b-dense.literal.json \
   --verify-payloads \
+  --assert-source-unavailable ./gemma-4-E4B-dense \
   --output /tmp/gemma4-e4b-source-removed-integrity.json
 mv ./.gemma-4-E4B-dense-source-unavailable ./gemma-4-E4B-dense
 ```
 
 The artifact-only reader indexed 2,130 constants and 2,130 storage decoders,
-reported `payloadIntegrityCommitted: true`, and range-decoded all
+reported `payloadIntegrityCommitted: true` and
+`sourceCheckpointAccessed: false`, asserted the former source path was absent,
+and range-decoded all
 15,992,314,836 embedded bytes. Its computed storage digest matched the same
 value above. This reader command has no source argument and opens only the
 literal JSON.
+
+## Independent source-removed rerun — loop 22
+
+After the verifier gained the enforced `--assert-source-unavailable` guard,
+the command above was rerun against the same ignored artifact while
+`./gemma-4-E4B-dense` was moved to the exact temporary path shown. The path
+was restored after the command. The persisted report recorded 2,130 constants,
+15,992,314,836 decoded payload bytes, sorted-name storage digest
+`e21b49734b3945d760d4f630e747e71f6510826f45bbb0159fb59abef005af98`,
+`sourceCheckpointAccessed: false`, and
+`assertedUnavailableSource: "./gemma-4-E4B-dense"`.
 
 ## Limit
 
