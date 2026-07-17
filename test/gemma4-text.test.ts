@@ -18,7 +18,7 @@ test("Gemma 4 E4B source-identified ARM reductions are bound to the complete reg
   assert.equal(isTraceBoundGemma4E4bArm32MlpProjection(e4b, "layer_0_gate_proj"), true);
   assert.equal(isTraceBoundGemma4E4bArm32MlpProjection(e4b, "layer_0_up_proj"), true);
   assert.equal(isTraceBoundGemma4E4bArm32MlpProjection(e4b, "layer_0_down_proj"), true);
-  assert.equal(isTraceBoundGemma4E4bArm32MlpProjection(e4b, "layer_1_o_proj"), true);
+  assert.equal(isTraceBoundGemma4E4bArm32MlpProjection(e4b, "layer_1_o_proj"), false);
   assert.equal(isTraceBoundGemma4E4bArm32MlpProjection(e4b, "layer_1_gate_proj"), false);
   assert.equal(isTraceBoundGemma4E4bArm32Topology({ ...e4b, layers: 41 }), false);
   assert.equal(isTraceBoundGemma4E4bArm32MlpProjection({ ...e4b, layers: 41 }, "layer_0_gate_proj"), false);

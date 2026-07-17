@@ -192,6 +192,30 @@ O contrato e o exemplo completo de duas camadas estão em
 e
 [`docs/examples/literal-scalar-substitution.example.json`](docs/examples/literal-scalar-substitution.example.json).
 
+O leitor streaming também materializa essa vista diretamente do artefato Gemma
+4 real. `--list-operations` devolve a ordem textual completa, predecessor,
+consumidores e vizinhos de cada atribuição. `--operation` seleciona uma
+coordenada escalar e decodifica do payload incorporado cada peso/escala usado,
+incluindo bits de storage, decoder IEEE, literal F32 e a agenda exata de
+redução/cast. Por padrão uma linear expande todos os termos; uma janela só é
+permitida quando `--input-start` e `--input-count` são ambos explícitos, e o
+resultado fica marcado `complete: false` e `omittedTerms > 0`:
+
+```bash
+npm run inspect:gemma4-literal -- \
+  --artifact ./artifacts/gemma4-e4b-dense.literal.json \
+  --operation layer_0_q_proj --output-coordinate 0,0,0 \
+  --input-start 0 --input-count 8 \
+  --assert-source-unavailable ./gemma-4-E4B-dense \
+  --output /tmp/q-proj-scalar-view.json
+```
+
+Embeddings exigem `--token-id`, pois o token continua sendo uma entrada do
+chamador, não um default inventado. Operações e coordenadas sem contrato
+escalar registrado falham fechado. A execução contra a E4B real com a fonte
+indisponível está em
+[`docs/validation/gemma4-e4b-source-removed-scalar-navigation-2026-07-17.md`](docs/validation/gemma4-e4b-source-removed-scalar-navigation-2026-07-17.md).
+
 #### Evidência de redução linear por feature de saída
 
 `probe:gemma4-linear-reduction` mede hipóteses de acumulação contra hooks
@@ -345,16 +369,21 @@ O leitor `gemma4-composite-literal-reader.ts` abre esse JSON em streaming: ele
 indexa os offsets dos payloads base64 e valida a estrutura semântica sem
 `JSON.parse` do artefato completo. Cada faixa de bytes é decodificada a partir
 do próprio JSON, sem abrir shard Safetensors. Para auditar o índice ou uma
-faixa específica (o comando não executa o modelo):
+faixa específica (o comando não executa o modelo), ou navegar pelas operações
+e fórmulas escalares substituídas:
 
 ```bash
 npm run inspect:gemma4-literal -- \
   --artifact ./artifacts/gemma4-e4b-dense.literal.json \
   --tensor model.language_model.embed_tokens.weight \
   --offset 0 --byte-length 4096
+
+npm run inspect:gemma4-literal -- \
+  --artifact ./artifacts/gemma4-e4b-dense.literal.json \
+  --list-operations --output /tmp/gemma4-operation-index.json
 ```
 
-Isso fecha a fronteira de leitura seletiva; ainda não é uma alegação de replay
+Isso fecha a fronteira de leitura seletiva e substituição escalar textual; ainda não é uma alegação de replay
 numérico BF16 ou de geração da E4B real. A medição do artefato real e o limite
 de memória do executor atual estão em
 [`docs/validation/gemma4-e4b-literal-reader-2026-07-16.md`](docs/validation/gemma4-e4b-literal-reader-2026-07-16.md).

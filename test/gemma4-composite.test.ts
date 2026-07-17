@@ -15,6 +15,7 @@ import {
   writeGemma4CompositeLiteralCalculationProgram,
 } from "../src/gemma4-composite-literal.js";
 import { openGemma4CompositeLiteralArtifact } from "../src/gemma4-composite-literal-reader.js";
+import { listGemma4LiteralTextOperations, renderGemma4LiteralScalarView } from "../src/gemma4-literal-scalar-view.js";
 import {
   verifyGemma4CompositeLiteralEmbeddedPayloadIntegrity,
   verifyGemma4CompositeLiteralPayloadsAgainstCatalog,
@@ -423,6 +424,64 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
         0.03999999910593033, 0.06000000610947609, 0.07000000029802322, 0.07000000029802322,
       ]));
       await assert.rejects(() => projection.readRows(0, 2), /excede maxReadBytes/);
+
+      const operations = listGemma4LiteralTextOperations(artifact);
+      const qProjection = operations.find((operation) => operation.operationId === "layer_0_q_proj");
+      assert.equal(qProjection?.predecessors[0]?.producerOperationId, "layer_0_input_norm");
+      assert.equal(qProjection?.nextOperationId, "layer_0_q_heads");
+
+      const scalar = await renderGemma4LiteralScalarView(artifact, {
+        operationId: "layer_0_q_proj", outputCoordinate: [0, 0, 1],
+      });
+      assert.equal(scalar.sourceCheckpointAccessed, false);
+      assert.equal(scalar.reduction?.complete, true);
+      assert.deepEqual(scalar.reduction?.bounds, { startInclusive: 0, endExclusive: 4 });
+      assert.equal(scalar.terms?.length, 4);
+      assert.deepEqual(scalar.learnedScalars.map((entry) => entry.indices), [[1, 0], [1, 1], [1, 2], [1, 3]]);
+      assert.ok(scalar.learnedScalars.every((entry) => entry.decoderOperation === "ieee-f32-little-endian" && /^0x[0-9a-f]{8}$/.test(entry.storageBitsHex)));
+      assert.ok(scalar.terms?.every((term) => term.formula.includes(term.learned.literal) && !term.formula.includes("weight[")));
+
+      const window = await renderGemma4LiteralScalarView(artifact, {
+        operationId: "layer_0_q_proj", outputCoordinate: [0, 0, 1], inputStart: 1, inputCount: 2,
+      });
+      assert.deepEqual(window.reduction, {
+        bounds: { startInclusive: 0, endExclusive: 4 }, schedule: { kind: "ordered-scalar", indexOrder: "ascending" },
+        complete: false, renderedWindow: { startInclusive: 1, endExclusive: 3 }, omittedTerms: 2,
+      });
+
+      const embeddingScalar = await renderGemma4LiteralScalarView(artifact, {
+        operationId: "token_embedding", outputCoordinate: [0, 0, 2], tokenId: 1,
+      });
+      assert.deepEqual(embeddingScalar.learnedScalars[0]?.indices, [1, 2]);
+      assert.doesNotMatch(embeddingScalar.formula, /weight\[/);
+
+      const normScalar = await renderGemma4LiteralScalarView(artifact, {
+        operationId: "layer_0_input_norm", outputCoordinate: [0, 0, 2],
+      });
+      assert.deepEqual(normScalar.learnedScalars[0]?.indices, [2]);
+      assert.ok(normScalar.scalarAssignments.some((entry) => entry.includes("sum_{i=0..3")));
+
+      const tensorScale = await renderGemma4LiteralScalarView(artifact, {
+        operationId: "layer_0_scalar", outputCoordinate: [0, 0, 2],
+      });
+      assert.equal(tensorScale.learnedScalars[0]?.decodedF32, 1);
+
+      const proportionalRope = await renderGemma4LiteralScalarView(artifact, {
+        operationId: "layer_1_q_rope", outputCoordinate: [0, 0, 0, 0],
+      });
+      assert.ok(proportionalRope.scalarAssignments.some((entry) => entry.startsWith("angle = F32(position_ids[0,0]")));
+      assert.ok(proportionalRope.formula.includes("layer_1_q_normalized[0,0,0,2]"));
+
+      const attention = await renderGemma4LiteralScalarView(artifact, {
+        operationId: "layer_0_attention", outputCoordinate: [0, 0, 3],
+      });
+      assert.ok(attention.scalarAssignments.some((entry) => entry.includes("feature=0..3")));
+      assert.ok(attention.formula.includes("layer_0_v_normalized[0,0,k,3]"));
+
+      const activation = await renderGemma4LiteralScalarView(artifact, {
+        operationId: "layer_0_activation", outputCoordinate: [0, 0, 1],
+      });
+      assert.ok(activation.formula.includes("0.044715"));
     } finally {
       await artifact.close();
     }

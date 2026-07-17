@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
-import { writeFile } from "node:fs/promises";
+import { access, writeFile } from "node:fs/promises";
 import { openGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
 import { verifyGemma4CompositeLiteralEmbeddedPayloadIntegrity } from "./gemma4-composite-literal-payload-verification.js";
+import { listGemma4LiteralTextOperations, renderGemma4LiteralScalarView } from "./gemma4-literal-scalar-view.js";
 
 interface Arguments {
   artifact: string;
@@ -11,9 +12,16 @@ interface Arguments {
   verifyPayloads: boolean;
   assertSourceUnavailable?: string;
   output?: string;
+  listOperations: boolean;
+  operationId?: string;
+  outputCoordinate?: number[];
+  tokenId?: number;
+  inputStart?: number;
+  inputCount?: number;
 }
 
 const args = parseArguments(process.argv.slice(2));
+if (args.assertSourceUnavailable) await assertUnavailable(args.assertSourceUnavailable);
 const artifact = await openGemma4CompositeLiteralArtifact(args.artifact);
 try {
   const selected = args.tensor ? artifact.constants.get(args.tensor) : undefined;
@@ -26,6 +34,7 @@ try {
     embeddedTextSource: artifact.program.textProgram.source.path,
     sourceFormat: "safetensors",
     payloadIntegrityCommitted: artifact.payloadIntegrity !== undefined,
+    ...(args.assertSourceUnavailable ? { assertedUnavailableSource: args.assertSourceUnavailable, sourceCheckpointAccessed: false } : {}),
   };
   if (selected) {
     const tensor = { name: selected.name, storageDtype: selected.storageDtype, storageShape: selected.storageShape, logicalShape: selected.logicalShape };
@@ -39,6 +48,15 @@ try {
       byteLength: bytes.length,
       sha256: createHash("sha256").update(bytes).digest("hex"),
     };
+  }
+  if (args.listOperations) result.operations = listGemma4LiteralTextOperations(artifact);
+  if (args.operationId) {
+    result.scalarView = await renderGemma4LiteralScalarView(artifact, {
+      operationId: args.operationId,
+      outputCoordinate: args.outputCoordinate!,
+      ...(args.tokenId === undefined ? {} : { tokenId: args.tokenId }),
+      ...(args.inputStart === undefined ? {} : { inputStart: args.inputStart, inputCount: args.inputCount! }),
+    });
   }
   if (args.verifyPayloads) {
     result.payloadIntegrityVerification = await verifyGemma4CompositeLiteralEmbeddedPayloadIntegrity({
@@ -54,8 +72,9 @@ try {
 }
 
 function parseArguments(argv: string[]): Arguments {
-  let artifact: string | undefined, tensor: string | undefined, output: string | undefined, assertSourceUnavailable: string | undefined;
-  let offset = 0, byteLength = 4096, verifyPayloads = false;
+  let artifact: string | undefined, tensor: string | undefined, output: string | undefined, assertSourceUnavailable: string | undefined, operationId: string | undefined;
+  let outputCoordinate: number[] | undefined, tokenId: number | undefined, inputStart: number | undefined, inputCount: number | undefined;
+  let offset = 0, byteLength = 4096, verifyPayloads = false, listOperations = false;
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
     const next = argv[index + 1];
@@ -64,6 +83,12 @@ function parseArguments(argv: string[]): Arguments {
     else if (value === "--offset") { offset = parseInteger(next, "--offset"); index += 1; }
     else if (value === "--byte-length") { byteLength = parseInteger(next, "--byte-length"); index += 1; }
     else if (value === "--verify-payloads") { verifyPayloads = true; }
+    else if (value === "--list-operations") { listOperations = true; }
+    else if (value === "--operation") { operationId = requiredValue(next, "--operation"); index += 1; }
+    else if (value === "--output-coordinate") { outputCoordinate = parseCoordinate(requiredValue(next, "--output-coordinate")); index += 1; }
+    else if (value === "--token-id") { tokenId = parseInteger(next, "--token-id"); index += 1; }
+    else if (value === "--input-start") { inputStart = parseInteger(next, "--input-start"); index += 1; }
+    else if (value === "--input-count") { inputCount = parseInteger(next, "--input-count"); index += 1; }
     else if (value === "--assert-source-unavailable") {
       if (!next || next.startsWith("--")) throw new Error("--assert-source-unavailable requer um caminho de checkpoint.");
       assertSourceUnavailable = next;
@@ -72,16 +97,47 @@ function parseArguments(argv: string[]): Arguments {
     else if (value === "--output") { output = next; index += 1; }
     else throw new Error(`Argumento desconhecido: ${value}.`);
   }
-  if (!artifact) throw new Error("Uso: --artifact <literal.json> [--tensor <nome> --offset <bytes> --byte-length <bytes>] [--verify-payloads --assert-source-unavailable <checkpoint>] [--output <report.json>].");
-  if (assertSourceUnavailable !== undefined && (!verifyPayloads || !assertSourceUnavailable)) throw new Error("--assert-source-unavailable requer --verify-payloads e um caminho de checkpoint.");
+  if (!artifact) throw new Error("Uso: --artifact <literal.json> [--list-operations] [--operation <id> --output-coordinate <i,j,...> [--token-id <id>] [--input-start <i> --input-count <n>]] [--tensor <nome> --offset <bytes> --byte-length <bytes>] [--verify-payloads --assert-source-unavailable <checkpoint>] [--output <report.json>].");
+  if (assertSourceUnavailable !== undefined && !verifyPayloads && !operationId && !listOperations) throw new Error("--assert-source-unavailable requer --verify-payloads, --operation ou --list-operations.");
   if ((tensor === undefined && (offset !== 0 || byteLength !== 4096)) || (tensor !== undefined && (!Number.isSafeInteger(offset) || !Number.isSafeInteger(byteLength) || offset < 0 || byteLength <= 0))) {
     throw new Error("--offset e --byte-length requerem --tensor e valores inteiros positivos.");
   }
-  return { artifact, ...(tensor ? { tensor } : {}), offset, byteLength, verifyPayloads, ...(assertSourceUnavailable ? { assertSourceUnavailable } : {}), ...(output ? { output } : {}) };
+  if ((operationId === undefined) !== (outputCoordinate === undefined)) throw new Error("--operation e --output-coordinate devem ser fornecidos juntos.");
+  if ((inputStart === undefined) !== (inputCount === undefined) || (inputStart !== undefined && operationId === undefined)) throw new Error("--input-start e --input-count requerem --operation e devem ser fornecidos juntos.");
+  if (tokenId !== undefined && operationId === undefined) throw new Error("--token-id requer --operation.");
+  return {
+    artifact, ...(tensor ? { tensor } : {}), offset, byteLength, verifyPayloads, listOperations,
+    ...(assertSourceUnavailable ? { assertSourceUnavailable } : {}), ...(output ? { output } : {}),
+    ...(operationId ? { operationId, outputCoordinate: outputCoordinate! } : {}), ...(tokenId === undefined ? {} : { tokenId }),
+    ...(inputStart === undefined ? {} : { inputStart, inputCount: inputCount! }),
+  };
 }
 
 function parseInteger(value: string | undefined, flag: string): number {
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed)) throw new Error(`${flag} requer inteiro seguro.`);
   return parsed;
+}
+
+function requiredValue(value: string | undefined, flag: string): string {
+  if (!value || value.startsWith("--")) throw new Error(`${flag} requer um valor.`);
+  return value;
+}
+
+function parseCoordinate(value: string): number[] {
+  const coordinate = value.split(",").map((entry) => Number(entry));
+  if (coordinate.length === 0 || coordinate.some((entry) => !Number.isSafeInteger(entry) || entry < 0)) {
+    throw new Error("--output-coordinate requer inteiros não negativos separados por vírgula.");
+  }
+  return coordinate;
+}
+
+async function assertUnavailable(source: string): Promise<void> {
+  try {
+    await access(source);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw error;
+  }
+  throw new Error(`Inspeção literal Gemma 4 requer source indisponível, mas '${source}' ainda existe.`);
 }

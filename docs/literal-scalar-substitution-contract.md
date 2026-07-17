@@ -85,3 +85,28 @@ Uma implementação só é candidata a fechar este requisito quando:
    arredondamento ausente; e
 4. o próximo loop revisa independentemente o diff e as evidências antes de
    aceitar a alegação. O agente implementador nunca a certifica sozinho.
+
+## Vista navegável do artefato Gemma 4
+
+`npm run inspect:gemma4-literal -- --artifact <json> --list-operations`
+enumera o programa Gemma4Text na ordem de dependência e preserva, para cada
+atribuição, seu output, predecessores produtores, consumidores e vizinhos.
+
+Uma coordenada é expandida com `--operation <id> --output-coordinate
+<i,j,...>`. O resultado `gemma4-literal-scalar-view` deve registrar:
+
+- `sourceCheckpointAccessed: false`;
+- bits de storage, dtype, decoder, índice row-major e literal F32 exato de
+  toda constante aprendida referenciada;
+- uma fórmula por termo na qual o número aparece diretamente, sem
+  `weight[...]`;
+- bounds completos e a agenda de redução serializada;
+- casts de saída F32/BF16; e
+- `complete`, `renderedWindow` e `omittedTerms`, para que uma janela diagnóstica
+  nunca seja confundida com a equação completa.
+
+Lineares expandem a redução inteira quando nenhuma janela é fornecida.
+Embeddings exigem o token concreto, porque `input_ids` é uma variável do
+programa e não pode receber valor implícito. A implementação suporta somente
+storage denso row-major F32/F16/BF16 nesse caminho e rejeita outros decoders em
+vez de inventar uma interpretação.
