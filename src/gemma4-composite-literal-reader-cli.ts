@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { access, writeFile } from "node:fs/promises";
 import { openGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
 import { verifyGemma4CompositeLiteralEmbeddedPayloadIntegrity } from "./gemma4-composite-literal-payload-verification.js";
-import { listGemma4LiteralTextOperations, renderGemma4LiteralScalarView } from "./gemma4-literal-scalar-view.js";
+import { listGemma4LiteralOperations, renderGemma4LiteralMultimodalScalarView } from "./gemma4-literal-multimodal-scalar-view.js";
 
 interface Arguments {
   artifact: string;
@@ -16,6 +16,7 @@ interface Arguments {
   operationId?: string;
   outputCoordinate?: number[];
   tokenId?: number;
+  positionCoordinate?: [number, number];
   inputStart?: number;
   inputCount?: number;
 }
@@ -49,12 +50,13 @@ try {
       sha256: createHash("sha256").update(bytes).digest("hex"),
     };
   }
-  if (args.listOperations) result.operations = listGemma4LiteralTextOperations(artifact);
+  if (args.listOperations) result.operations = listGemma4LiteralOperations(artifact);
   if (args.operationId) {
-    result.scalarView = await renderGemma4LiteralScalarView(artifact, {
+    result.scalarView = await renderGemma4LiteralMultimodalScalarView(artifact, {
       operationId: args.operationId,
       outputCoordinate: args.outputCoordinate!,
       ...(args.tokenId === undefined ? {} : { tokenId: args.tokenId }),
+      ...(args.positionCoordinate === undefined ? {} : { positionCoordinate: args.positionCoordinate }),
       ...(args.inputStart === undefined ? {} : { inputStart: args.inputStart, inputCount: args.inputCount! }),
     });
   }
@@ -73,7 +75,7 @@ try {
 
 function parseArguments(argv: string[]): Arguments {
   let artifact: string | undefined, tensor: string | undefined, output: string | undefined, assertSourceUnavailable: string | undefined, operationId: string | undefined;
-  let outputCoordinate: number[] | undefined, tokenId: number | undefined, inputStart: number | undefined, inputCount: number | undefined;
+  let outputCoordinate: number[] | undefined, tokenId: number | undefined, positionCoordinate: [number, number] | undefined, inputStart: number | undefined, inputCount: number | undefined;
   let offset = 0, byteLength = 4096, verifyPayloads = false, listOperations = false;
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
@@ -87,6 +89,7 @@ function parseArguments(argv: string[]): Arguments {
     else if (value === "--operation") { operationId = requiredValue(next, "--operation"); index += 1; }
     else if (value === "--output-coordinate") { outputCoordinate = parseCoordinate(requiredValue(next, "--output-coordinate")); index += 1; }
     else if (value === "--token-id") { tokenId = parseInteger(next, "--token-id"); index += 1; }
+    else if (value === "--position-coordinate") { positionCoordinate = parsePositionCoordinate(requiredValue(next, "--position-coordinate")); index += 1; }
     else if (value === "--input-start") { inputStart = parseInteger(next, "--input-start"); index += 1; }
     else if (value === "--input-count") { inputCount = parseInteger(next, "--input-count"); index += 1; }
     else if (value === "--assert-source-unavailable") {
@@ -97,7 +100,7 @@ function parseArguments(argv: string[]): Arguments {
     else if (value === "--output") { output = next; index += 1; }
     else throw new Error(`Argumento desconhecido: ${value}.`);
   }
-  if (!artifact) throw new Error("Uso: --artifact <literal.json> [--list-operations] [--operation <id> --output-coordinate <i,j,...> [--token-id <id>] [--input-start <i> --input-count <n>]] [--tensor <nome> --offset <bytes> --byte-length <bytes>] [--verify-payloads --assert-source-unavailable <checkpoint>] [--output <report.json>].");
+  if (!artifact) throw new Error("Uso: --artifact <literal.json> [--list-operations] [--operation <id> --output-coordinate <i,j,...> [--token-id <id>] [--position-coordinate <x,y>] [--input-start <i> --input-count <n>]] [--tensor <nome> --offset <bytes> --byte-length <bytes>] [--verify-payloads --assert-source-unavailable <checkpoint>] [--output <report.json>].");
   if (assertSourceUnavailable !== undefined && !verifyPayloads && !operationId && !listOperations) throw new Error("--assert-source-unavailable requer --verify-payloads, --operation ou --list-operations.");
   if ((tensor === undefined && (offset !== 0 || byteLength !== 4096)) || (tensor !== undefined && (!Number.isSafeInteger(offset) || !Number.isSafeInteger(byteLength) || offset < 0 || byteLength <= 0))) {
     throw new Error("--offset e --byte-length requerem --tensor e valores inteiros positivos.");
@@ -105,10 +108,12 @@ function parseArguments(argv: string[]): Arguments {
   if ((operationId === undefined) !== (outputCoordinate === undefined)) throw new Error("--operation e --output-coordinate devem ser fornecidos juntos.");
   if ((inputStart === undefined) !== (inputCount === undefined) || (inputStart !== undefined && operationId === undefined)) throw new Error("--input-start e --input-count requerem --operation e devem ser fornecidos juntos.");
   if (tokenId !== undefined && operationId === undefined) throw new Error("--token-id requer --operation.");
+  if (positionCoordinate !== undefined && operationId === undefined) throw new Error("--position-coordinate requer --operation.");
   return {
     artifact, ...(tensor ? { tensor } : {}), offset, byteLength, verifyPayloads, listOperations,
     ...(assertSourceUnavailable ? { assertSourceUnavailable } : {}), ...(output ? { output } : {}),
     ...(operationId ? { operationId, outputCoordinate: outputCoordinate! } : {}), ...(tokenId === undefined ? {} : { tokenId }),
+    ...(positionCoordinate === undefined ? {} : { positionCoordinate }),
     ...(inputStart === undefined ? {} : { inputStart, inputCount: inputCount! }),
   };
 }
@@ -130,6 +135,14 @@ function parseCoordinate(value: string): number[] {
     throw new Error("--output-coordinate requer inteiros não negativos separados por vírgula.");
   }
   return coordinate;
+}
+
+function parsePositionCoordinate(value: string): [number, number] {
+  const coordinate = value.split(",").map((entry) => Number(entry));
+  if (coordinate.length !== 2 || coordinate.some((entry) => !Number.isSafeInteger(entry) || entry < -1) || ((coordinate[0] === -1) !== (coordinate[1] === -1))) {
+    throw new Error("--position-coordinate requer x,y inteiros não negativos ou -1,-1 para padding.");
+  }
+  return coordinate as [number, number];
 }
 
 async function assertUnavailable(source: string): Promise<void> {

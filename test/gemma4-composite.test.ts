@@ -15,6 +15,7 @@ import {
   writeGemma4CompositeLiteralCalculationProgram,
 } from "../src/gemma4-composite-literal.js";
 import { openGemma4CompositeLiteralArtifact } from "../src/gemma4-composite-literal-reader.js";
+import { listGemma4LiteralOperations, renderGemma4LiteralMultimodalScalarView } from "../src/gemma4-literal-multimodal-scalar-view.js";
 import { listGemma4LiteralTextOperations, renderGemma4LiteralScalarView } from "../src/gemma4-literal-scalar-view.js";
 import {
   verifyGemma4CompositeLiteralEmbeddedPayloadIntegrity,
@@ -482,6 +483,52 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
         operationId: "layer_0_activation", outputCoordinate: [0, 0, 1],
       });
       assert.ok(activation.formula.includes("0.044715"));
+
+      const allOperations = listGemma4LiteralOperations(artifact);
+      assert.equal(allOperations.length, program.assignments.length + program.visionProgram.assignments.length + program.audioProgram.assignments.length + operations.length);
+      assert.equal(allOperations.find((operation) => operation.operationId === "vision_layer_0_q")?.scope, "vision");
+      assert.equal(allOperations.find((operation) => operation.operationId === "audio_layer_0_attention")?.predecessors[0]?.producerOperationId, "audio_layer_0_q_scale");
+      assert.equal(program.audioProgram.assignments.find((assignment) => assignment.id === "audio_layer_0_attention")?.tensors, undefined);
+
+      const visionLinear = await renderGemma4LiteralMultimodalScalarView(artifact, {
+        operationId: "vision_layer_0_q", outputCoordinate: [0, 0, 1],
+      });
+      assert.equal(visionLinear.reduction?.complete, true);
+      assert.equal(visionLinear.terms?.length, 4);
+      assert.equal(visionLinear.learnedScalars.length, 8, "four weights plus four exact clipping bounds");
+      assert.ok(visionLinear.terms?.every((term) => !term.formula.includes("weight[")));
+
+      const position = await renderGemma4LiteralMultimodalScalarView(artifact, {
+        operationId: "vision_position_embedding", outputCoordinate: [0, 0, 2], positionCoordinate: [1, 0],
+      });
+      assert.deepEqual(position.learnedScalars.map((scalar) => scalar.indices), [[0, 1, 2], [1, 0, 2]]);
+      assert.doesNotMatch(position.formula, /position_embedding_table/);
+
+      const convolution = await renderGemma4LiteralMultimodalScalarView(artifact, {
+        operationId: "audio_subsample_0_conv", outputCoordinate: [0, 0, 0, 0],
+      });
+      assert.equal(convolution.learnedScalars.length, 9);
+      assert.ok(convolution.scalarAssignments.some((formula) => formula.includes("source_in_bounds")));
+
+      const relativeProjection = await renderGemma4LiteralMultimodalScalarView(artifact, {
+        operationId: "audio_layer_0_relative_k_projection", outputCoordinate: [0, 1],
+      });
+      assert.equal(relativeProjection.learnedScalars.length, 4);
+      const queryScale = await renderGemma4LiteralMultimodalScalarView(artifact, {
+        operationId: "audio_layer_0_q_scale", outputCoordinate: [0, 0, 1],
+      });
+      assert.equal(queryScale.learnedScalars.length, 1);
+      assert.ok(queryScale.formula.includes(queryScale.learnedScalars[0]!.literal));
+      const depthwise = await renderGemma4LiteralMultimodalScalarView(artifact, {
+        operationId: "audio_layer_0_conv_depthwise", outputCoordinate: [0, 2, 1],
+      });
+      assert.equal(depthwise.learnedScalars.length, 5);
+
+      const audioAttention = await renderGemma4LiteralMultimodalScalarView(artifact, {
+        operationId: "audio_layer_0_attention", outputCoordinate: [0, 0, 1],
+      });
+      assert.equal(audioAttention.learnedScalars.length, 0, "learned attention transforms are explicit predecessors");
+      assert.ok(audioAttention.scalarAssignments.some((formula) => formula.startsWith("AC[key_slot]")));
     } finally {
       await artifact.close();
     }

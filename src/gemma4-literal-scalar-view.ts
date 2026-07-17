@@ -5,8 +5,8 @@ import { decodeIeeeBF16ToF32, decodeIeeeF16ToF32 } from "./utils.js";
 
 export interface Gemma4LiteralOperationNavigation {
   operationId: string;
-  operation: Operation["op"];
-  scope: "text-prelude" | "text-layer" | "text-epilogue";
+  operation: string;
+  scope: "composite" | "vision" | "audio" | "text-prelude" | "text-layer" | "text-epilogue";
   layer?: number;
   ordinal: number;
   output: string;
@@ -164,14 +164,14 @@ async function renderLinear(
   const learnedScalars: Gemma4LiteralLearnedScalar[] = [];
   const terms: Gemma4LiteralScalarTerm[] = [];
   for (let inputIndex = window.start; inputIndex < window.end; inputIndex += 1) {
-    const learned = await readLearnedScalar(artifact, operation.weight, [outputFeature, inputIndex]);
+    const learned = await readGemma4LiteralLearnedScalar(artifact, operation.weight, [outputFeature, inputIndex]);
     learnedScalars.push(learned);
     const input = indexed(operation.input, [...prefix, inputIndex]);
     terms.push({ inputIndex, input, learned, formula: scalarProductFormula(reduction, inputIndex, input, learned.literal) });
   }
   let bias: Gemma4LiteralLearnedScalar | undefined;
   if (operation.bias) {
-    bias = await readLearnedScalar(artifact, operation.bias, [outputFeature]);
+    bias = await readGemma4LiteralLearnedScalar(artifact, operation.bias, [outputFeature]);
     learnedScalars.push(bias);
   }
   const complete = window.start === 0 && window.end === operation.inFeatures;
@@ -213,7 +213,7 @@ async function renderEmbedding(
     ? request.outputCoordinate[2]! * operation.layerWidth + request.outputCoordinate[3]!
     : request.outputCoordinate[2]!;
   if (feature < 0 || feature >= operation.weight.shape[1]!) throw new Error(`${operation.id}: feature de embedding ${feature} fora do shape declarado.`);
-  const learned = await readLearnedScalar(artifact, operation.weight, [tokenId!, feature]);
+  const learned = await readGemma4LiteralLearnedScalar(artifact, operation.weight, [tokenId!, feature]);
   const scale = literal(operation.scale ?? 1);
   const formula = `${base.output} = ${outputCast(operation)}(F32(${learned.literal} * ${scale}))`;
   return { ...base, formula, scalarAssignments: [formula], learnedScalars: [learned] };
@@ -230,7 +230,7 @@ async function renderRmsNorm(
   if (operation.weightTransform !== "none" && (!operation.weight || operation.weight.shape.length !== 1 || width === undefined || feature >= width)) {
     throw new Error(`${operation.id}: RMSNorm ponderado não possui vetor compatível com a coordenada solicitada.`);
   }
-  const learned = operation.weight ? await readLearnedScalar(artifact, operation.weight, [feature]) : undefined;
+  const learned = operation.weight ? await readGemma4LiteralLearnedScalar(artifact, operation.weight, [feature]) : undefined;
   const multiplier = operation.weightTransform === "none" ? "1" : operation.weightTransform === "one_plus_weight"
     ? `F32(1 + ${learned!.literal})` : learned!.literal;
   const input = indexed(operation.input, request.outputCoordinate);
@@ -256,7 +256,7 @@ async function renderTensorScale(
   request: Gemma4LiteralScalarViewRequest,
   base: Omit<Gemma4LiteralScalarView, "formula" | "scalarAssignments" | "learnedScalars">,
 ): Promise<Gemma4LiteralScalarView> {
-  const learned = await readLearnedScalar(artifact, operation.scalar, [0]);
+  const learned = await readGemma4LiteralLearnedScalar(artifact, operation.scalar, [0]);
   const formula = `${base.output} = ${outputCast(operation)}(F32(${indexed(operation.input, request.outputCoordinate)} * ${learned.literal}))`;
   return { ...base, formula, scalarAssignments: [formula], learnedScalars: [learned] };
 }
@@ -270,7 +270,7 @@ function renderPlain(
   return { ...base, formula, scalarAssignments: [...prologue, formula], learnedScalars: [] };
 }
 
-async function readLearnedScalar(
+export async function readGemma4LiteralLearnedScalar(
   artifact: OpenGemma4CompositeLiteralArtifact,
   reference: TensorRef,
   indices: number[],
