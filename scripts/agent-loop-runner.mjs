@@ -79,6 +79,9 @@ async function load() {
   if (!Number.isInteger(config.maxNoProgressMinutes) || config.maxNoProgressMinutes < 1) {
     fail("agent-loop.config.json must declare maxNoProgressMinutes as a positive integer.");
   }
+  if (!Number.isInteger(config.capacityRetrySeconds) || config.capacityRetrySeconds < 1) {
+    fail("agent-loop.config.json must declare capacityRetrySeconds as a positive integer.");
+  }
   const requiredPaths = [
     config.promptFile,
     config.stateFile,
@@ -192,6 +195,15 @@ async function recoverInterruptedRuntime(config) {
     : "State says running but no runner lock exists.";
   if (state.status === "running") state = await recordInterruptedRun(config, state, reason);
   if (inspection.status === "stale") await rm(inspection.lockPath, { force: true });
+  if (!(await cleanGitTree())) {
+    const recovery = await checkpointFailedWork(
+      state.lastRunId ?? "interrupted-unknown-run",
+      state.currentSequence,
+      reason,
+    );
+    state = { ...state, lastRecovery: recovery, lastCompletedAt: now() };
+    await writeJsonAtomically(absolute(config.stateFile), state);
+  }
   console.error(`Recovered interrupted loop state: ${reason}`);
   return { state, recovered: true, inspection };
 }
@@ -266,11 +278,11 @@ function terminateProcessGroup(child, signal) {
   }
 }
 
-async function checkpointTimedOutWork(runId, sequence, reason) {
+async function checkpointFailedWork(runId, sequence, reason) {
   if (await cleanGitTree()) return null;
   const startingCommit = (await git(["rev-parse", "HEAD"])).stdout;
   await git(["add", "-A"]);
-  await git(["commit", "-m", `chore: checkpoint interrupted autonomous loop ${sequence}`]);
+  await git(["commit", "-m", `chore: checkpoint failed autonomous loop ${sequence}`]);
   const commit = (await git(["rev-parse", "HEAD"])).stdout;
   return { runId, sequence, reason, startingCommit, commit, checkpointedAt: now() };
 }
@@ -302,6 +314,8 @@ async function runCodex(config, prompt, runId, sequence) {
   return new Promise((done, reject) => {
     const child = spawn(codex, args, { cwd: root, detached: true, stdio: ["pipe", "pipe", "pipe"] });
     let timeoutReason = null;
+    let capacityError = false;
+    let recentOutput = "";
     let lastProgressAt = Date.now();
     let forceKill = null;
     const stopFor = (reason) => {
@@ -322,6 +336,8 @@ async function runCodex(config, prompt, runId, sequence) {
     }, 5_000);
     const recordProgress = (chunk) => {
       lastProgressAt = Date.now();
+      recentOutput = `${recentOutput}${chunk.toString("utf8")}`.slice(-4096);
+      if (recentOutput.includes("Selected model is at capacity")) capacityError = true;
       process.stdout.write(chunk);
       log.write(chunk);
     };
@@ -339,7 +355,7 @@ async function runCodex(config, prompt, runId, sequence) {
       clearInterval(progressWatchdog);
       if (forceKill) clearTimeout(forceKill);
       log.end();
-      done({ code: code ?? 1, signal, timeoutReason });
+      done({ code: code ?? 1, signal, timeoutReason, capacityError });
     });
     child.stdin.end(prompt);
   });
@@ -396,12 +412,30 @@ async function start(config) {
         }
       }
       if (!accepted) {
-        if (result.timeoutReason) {
-          try {
-            recovery = await checkpointTimedOutWork(runId, sequence, result.timeoutReason);
-          } catch (error) {
-            failure = `${failure} Timed-out worktree checkpoint failed: ${error.message}`;
-          }
+        const recoveryReason = result.timeoutReason
+          ?? (result.capacityError ? "selected model is at capacity" : failure);
+        try {
+          recovery = await checkpointFailedWork(runId, sequence, recoveryReason);
+        } catch (error) {
+          failure = `${failure} Failed-worktree checkpoint failed: ${error.message}`;
+        }
+        if (result.capacityError) {
+          state = {
+            ...state,
+            status: "waiting_capacity",
+            lastCompletedAt: now(),
+            lastCapacityWait: {
+              runId,
+              sequence,
+              detectedAt: now(),
+              retryAfterSeconds: config.capacityRetrySeconds,
+            },
+            ...(recovery ? { lastRecovery: recovery } : {}),
+          };
+          await writeJsonAtomically(absolute(config.stateFile), state);
+          console.error(`Loop ${sequence} could not start because ${recoveryReason}; retrying in ${config.capacityRetrySeconds} seconds.`);
+          await new Promise((resolve) => setTimeout(resolve, config.capacityRetrySeconds * 1000));
+          continue;
         }
         state = {
           ...state,
@@ -416,6 +450,7 @@ async function start(config) {
           console.error(`Stopping after ${state.consecutiveFailures} consecutive failures.`);
           return;
         }
+        await new Promise((resolve) => setTimeout(resolve, config.cooldownSeconds * 1000));
       } else {
         state = {
           ...state,

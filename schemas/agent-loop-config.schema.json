@@ -10,6 +10,7 @@
     "maxLoopDurationMinutes",
     "maxNoProgressMinutes",
     "cooldownSeconds",
+    "capacityRetrySeconds",
     "agent",
     "goalCommand",
     "missionGoal",
@@ -36,6 +37,7 @@
     "maxLoopDurationMinutes": { "type": "integer", "minimum": 1 },
     "maxNoProgressMinutes": { "type": "integer", "minimum": 1 },
     "cooldownSeconds": { "type": "integer", "minimum": 0 },
+    "capacityRetrySeconds": { "type": "integer", "minimum": 1 },
     "agent": {
       "type": "object",
       "required": ["model", "reasoningEffort"],

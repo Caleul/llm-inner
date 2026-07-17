@@ -647,10 +647,14 @@ ou `blocked` encerram o supervisor normalmente.
 Além do limite total (`maxLoopDurationMinutes`), o runner monitora progresso
 observável do Codex. Se não houver stdout ou stderr por
 `maxNoProgressMinutes`, ele encerra todo o grupo de processos do ciclo. Se o
-ciclo deixou alterações ainda não commitadas, o runner cria um commit de
-checkpoint automático e registra a recuperação no estado antes de iniciar o
-agente seguinte; assim um processo pendurado não deixa a árvore suja e não
-paralisa os ciclos seguintes.
+ciclo falhar ou for interrompido deixando alterações ainda não commitadas, o
+runner cria um commit de checkpoint automático e registra a recuperação no
+estado antes de iniciar o agente seguinte; assim uma falha não deixa a árvore
+suja nem paralisa os ciclos seguintes. A resposta transitória `Selected model
+is at capacity` não consome `consecutiveFailures`: o estado passa a
+`waiting_capacity`, aguarda `capacityRetrySeconds` e tenta novamente. Isso
+também vale para a recuperação de um runner encerrado pelo host e evita que o
+supervisor reinicie continuamente contra um worktree sujo.
 
 Cada instância recebe contexto novo a partir do repositório e do último
 handoff. O protocolo exige que ela complete um milestone substancial e
