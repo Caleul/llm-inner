@@ -12,8 +12,9 @@ not evidence from this run.
 - Historical literal artifact SHA-256:
   `d74db021e785b081f5b84714368a23a8d3baf5da40048d971d124580190c491d`
 - Reference: PyTorch `2.12.1`, Transformers `5.5.0`, eager BF16
-  `Gemma4ForConditionalGeneration`; values are widened to F32 only for
-  comparison serialization.
+  `Gemma4ForConditionalGeneration` on CPU; values are widened to F32 only for
+  comparison serialization. This historical helper invocation did not move
+  the model or tokens to MPS, so it is not MPS evidence.
 - Candidate: `llm-inner paged Gemma4Text literal F32`, with declared BF16
   result casts, reading bounded ranges only from the literal artifact.
 
@@ -28,7 +29,7 @@ npm run capture:gemma4-text-trace -- \
   --input-tokens 2 --max-new-tokens 1 \
   --python ./venv/bin/python \
   --model google/gemma-4-E4B \
-  --revision 43fb96cec3045b72852c787540300dc5b258634b7a025f7c80355ac0788b9651
+  --revision 43fb96cec3045b72852c787540300dc5b258634b7a025f7c80355ac0788b9651 --device cpu
 ```
 
 Then make the source unavailable for the whole candidate command:

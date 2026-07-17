@@ -23,7 +23,7 @@ for token in 3 4 5; do
       --input-tokens "$token" --position-ids 0 \
       --operation-id layer_0_up_proj --python ./venv/bin/python \
       --model google/gemma-4-E4B \
-      --revision 411aa17b749aa952df1359d2dcea73917a544d9a
+      --revision 411aa17b749aa952df1359d2dcea73917a544d9a --device cpu
   done
 done
 ```

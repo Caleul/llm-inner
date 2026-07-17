@@ -211,6 +211,9 @@ function validateBundle(raw: unknown): ExecutionTraceBundle {
   for (const field of ["runtime", "model", "revisionOrChecksum", "containerFormat", "quantization", "dtypePolicy"] as const) {
     if (typeof reference[field] !== "string" || reference[field].trim() === "") throw new Error(`Trace reference requer ${field} não vazio.`);
   }
+  if (reference.executionDevice !== undefined && (typeof reference.executionDevice !== "string" || reference.executionDevice.trim() === "")) {
+    throw new Error("Trace reference executionDevice deve ser string não vazia quando declarado.");
+  }
   if (!Array.isArray(reference.inputTokens) || reference.inputTokens.length === 0 || !reference.inputTokens.every(tokenRow)) throw new Error("Trace reference requer inputTokens inteiros não negativos.");
   const inputTokens = reference.inputTokens as number[][];
   const positionIds = reference.positionIds;
@@ -242,6 +245,7 @@ function validateBundle(raw: unknown): ExecutionTraceBundle {
     candidatePolicy: { dtype: candidatePolicy.dtype as "F32" | "F64", runtime: candidatePolicy.runtime },
     reference: {
       runtime: reference.runtime as string, model: reference.model as string, revisionOrChecksum: reference.revisionOrChecksum as string,
+      ...(reference.executionDevice === undefined ? {} : { executionDevice: reference.executionDevice as string }),
       containerFormat: reference.containerFormat as string, quantization: reference.quantization as string,
       inputTokens, ...(positionIds !== undefined ? { positionIds: positionIds.map((row) => [...row] as number[]) } : {}), dtypePolicy: reference.dtypePolicy as string,
       operations, pastKeyValues,
@@ -257,6 +261,9 @@ function validateGenerationBundle(raw: unknown): GenerationTraceBundle {
   const reference = object(value.reference, "Trace generation reference");
   for (const field of ["runtime", "model", "revisionOrChecksum", "containerFormat", "quantization", "dtypePolicy"] as const) {
     if (typeof reference[field] !== "string" || reference[field].trim() === "") throw new Error(`Trace de geração requer ${field} não vazio.`);
+  }
+  if (reference.executionDevice !== undefined && (typeof reference.executionDevice !== "string" || reference.executionDevice.trim() === "")) {
+    throw new Error("Trace de geração executionDevice deve ser string não vazia quando declarado.");
   }
   if (!tokenVector(reference.inputTokens)) throw new Error("Trace de geração requer inputTokens inteiros não negativos.");
   if (!tokenVector(reference.promptPositionIds) || reference.promptPositionIds.length !== reference.inputTokens.length) {
@@ -304,6 +311,7 @@ function validateGenerationBundle(raw: unknown): GenerationTraceBundle {
     candidatePolicy: { dtype: candidatePolicy.dtype as "F32" | "F64", runtime: candidatePolicy.runtime as string },
     reference: {
       runtime: reference.runtime as string, model: reference.model as string, revisionOrChecksum: reference.revisionOrChecksum as string,
+      ...(reference.executionDevice === undefined ? {} : { executionDevice: reference.executionDevice as string }),
       containerFormat: reference.containerFormat as string, quantization: reference.quantization as string,
       inputTokens: [...inputTokens], promptPositionIds: [...promptPositionIds],
       dtypePolicy: reference.dtypePolicy as string, maxNewTokens: reference.maxNewTokens as number,

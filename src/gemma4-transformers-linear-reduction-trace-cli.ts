@@ -9,6 +9,12 @@ function value(argv: string[], name: string, required = true): string | undefine
   return result;
 }
 
+function executionDevice(argv: string[]): "cpu" | "mps" {
+  const device = value(argv, "--device");
+  if (device === "cpu" || device === "mps") return device;
+  throw new Error("--device requer cpu ou mps.");
+}
+
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   const inputTokens = value(argv, "--input-tokens")!.split(",").map(Number);
@@ -18,7 +24,7 @@ async function main(): Promise<void> {
   await captureGemma4TransformersLinearReductionTrace({
     source: resolve(value(argv, "--source")!), output, operationId, inputTokens,
     ...(positionIds ? { positionIds } : {}), python: resolve(value(argv, "--python")!),
-    model: value(argv, "--model")!, revisionOrChecksum: value(argv, "--revision")!,
+    model: value(argv, "--model")!, revisionOrChecksum: value(argv, "--revision")!, executionDevice: executionDevice(argv),
   });
   console.log(`Checkpoint linear nativo Gemma 4 escrito em ${output}.`);
 }

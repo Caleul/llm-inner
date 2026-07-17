@@ -610,7 +610,7 @@ test("Gemma 4 linear reduction probe binds a candidate schedule to traced produc
       schemaVersion: 1, kind: "execution", captureId: "fixture-capture-a", source: { files: [{ path: "config.json", sha256: "a".repeat(64) }] },
       irFingerprint: fingerprintIR(program.textProgram), candidatePolicy: { dtype: "F32", runtime: "llm-inner paged Gemma4Text literal F32" },
       reference: {
-        runtime: "fixture", model: "fixture", revisionOrChecksum: "fixture", containerFormat: "safetensors", quantization: "none", inputTokens: [[1]], dtypePolicy: "fixture F32",
+        runtime: "fixture", executionDevice: "cpu", model: "fixture", revisionOrChecksum: "fixture", containerFormat: "safetensors", quantization: "none", inputTokens: [[1]], dtypePolicy: "fixture F32",
         operations: [
           { operationId: producer.id, output: producer.output, tensor: serialize(native.values.get(producer.output)!) },
           { operationId: target.id, output: target.output, tensor: serialize(native.values.get(target.output)!) },
@@ -694,6 +694,26 @@ test("Gemma 4 linear reduction probe binds a candidate schedule to traced produc
       () => probeGemma4LiteralLinearReductionProfiles({ artifact, traces: [trace, repeatedTrace], operationId: target.id, maxReadBytes: 1024 * 1024, minDistinctInputs: 2,
         profiles: [{ id: "ordered-f32", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } }], }),
       /2 entradas declaradas distintas/,
+    );
+    const mpsRepeat = structuredClone(repeatedPayload);
+    mpsRepeat.captureId = "fixture-capture-mps";
+    mpsRepeat.reference.executionDevice = "mps";
+    const mpsRepeatTrace = path.join(root, "trace-mps-repeat.json");
+    await writeFile(mpsRepeatTrace, JSON.stringify(mpsRepeat), "utf8");
+    await assert.rejects(
+      () => probeGemma4LiteralLinearReductionProfiles({ artifact, traces: [trace, mpsRepeatTrace], operationId: target.id, maxReadBytes: 1024 * 1024,
+        profiles: [{ id: "ordered-f32", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } }], }),
+      /contrato de referência diferente/,
+    );
+    const missingDevice = structuredClone(repeatedPayload);
+    missingDevice.captureId = "fixture-capture-no-device";
+    Object.defineProperty(missingDevice.reference, "executionDevice", { value: undefined, enumerable: true });
+    const missingDeviceTrace = path.join(root, "trace-no-device.json");
+    await writeFile(missingDeviceTrace, JSON.stringify(missingDevice), "utf8");
+    await assert.rejects(
+      () => probeGemma4LiteralLinearReductionProfiles({ artifact, traces: [trace, missingDeviceTrace], operationId: target.id, maxReadBytes: 1024 * 1024,
+        profiles: [{ id: "ordered-f32", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } }], }),
+      /executionDevice explícito cpu ou mps/,
     );
     const divergent = structuredClone(repeatedPayload);
     const targetTrace = divergent.reference.operations.find((entry) => entry.operationId === target.id)!;

@@ -16,11 +16,14 @@ export interface Gemma4TransformersTextTraceOptions {
   python: string;
   model: string;
   revisionOrChecksum: string;
+  /** Deliberate native kernel contract; never infer this from host capability. */
+  executionDevice: "cpu" | "mps";
   eosTokenId?: number;
 }
 
 interface NativeGenerationCapture {
   runtime: string;
+  executionDevice: string;
   generatedTokenIds: number[];
   steps: GenerationTraceBundle["reference"]["steps"];
   selectionLogits: GenerationTraceBundle["reference"]["selectionLogits"];
@@ -52,8 +55,9 @@ export async function captureGemma4TransformersTextGenerationTrace(options: Gemm
     }
     const program = buildGemma4CompositeProgram(opened.catalog, { outputRows: 1, inputTerms: 1, includeWeights: false });
     const native = await invoke<NativeGenerationCapture>(options.python, {
-      source: options.source, inputTokens: options.inputTokens, positionIds: positions, maxNewTokens: options.maxNewTokens,
+      source: options.source, inputTokens: options.inputTokens, positionIds: positions, maxNewTokens: options.maxNewTokens, executionDevice: options.executionDevice,
     });
+    assertNativeExecutionDevice(native.executionDevice, options.executionDevice);
     const bundle: GenerationTraceBundle = {
       schemaVersion: 1,
       kind: "generation",
@@ -62,6 +66,7 @@ export async function captureGemma4TransformersTextGenerationTrace(options: Gemm
       candidatePolicy: { dtype: "F32", runtime: "llm-inner paged Gemma4Text literal F32" },
       reference: {
         runtime: native.runtime,
+        executionDevice: native.executionDevice,
         model: options.model,
         revisionOrChecksum: options.revisionOrChecksum,
         containerFormat: "safetensors",
@@ -84,6 +89,10 @@ export async function captureGemma4TransformersTextGenerationTrace(options: Gemm
   } finally {
     await opened.close();
   }
+}
+
+function assertNativeExecutionDevice(actual: string, expected: "cpu" | "mps"): void {
+  if (actual !== expected) throw new Error(`Gemma 4 helper declarou executionDevice '${actual}', esperado '${expected}'.`);
 }
 
 function validateIds(values: readonly number[], label: string): void {

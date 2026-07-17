@@ -417,6 +417,14 @@ continua vinculado aos checksums de toda a fonte e ao fingerprint do programa;
 é executável com o diretório da fonte removido. A repetição limitada do
 `layer_0_up_proj` E4B está em
 [`docs/validation/gemma4-e4b-bounded-linear-reduction-2026-07-17.md`](docs/validation/gemma4-e4b-bounded-linear-reduction-2026-07-17.md).
+Toda captura nativa Gemma 4 agora exige `--device cpu` ou `--device mps` e
+persiste o valor em `reference.executionDevice`. O probe recusa traces sem
+esse campo e também recusa misturar dispositivos: CPU e MPS podem ter
+reduções BF16 distintas. As campanhas E4B históricas foram CPU — o helper
+anterior não movia modelo nem tokens para MPS — portanto elas não são
+evidência de uma agenda MPS; a nova opção torna essa fronteira reproduzível.
+Uma recaptura CPU real e o probe source-removed com esse contrato estão em
+[`docs/validation/gemma4-e4b-device-bound-capture-2026-07-17.md`](docs/validation/gemma4-e4b-device-bound-capture-2026-07-17.md).
 O vocabulário do probe também representa tiles com grupos contíguos de termos
 por lane (`--tiled-lane-counts` e `--tiled-terms-per-lane`), em vez de supor
 que toda SIMD use `i mod lanes`. Uma campanha source-removed de 122 agendas
@@ -446,7 +454,7 @@ A captura é JSON `schemaVersion: 1`, `kind: "execution"`, e exige:
 - `source.files`: lista exata de caminhos relativos seguros e checksums SHA-256 do checkpoint;
 - `irFingerprint`: SHA-256 do IR serializado antes da política declarada;
 - `candidatePolicy`: `dtype: "F32"` ou `"F64"` e o identificador do executor candidato;
-- `reference`: identidade imutável do runtime/modelo/revisão, tokens de entrada e cada operação por `operationId`, além do cache KV pós-RoPE BHSD;
+- `reference`: identidade imutável do runtime/modelo/revisão, `executionDevice` quando a captura define dispositivo, tokens de entrada e cada operação por `operationId`, além do cache KV pós-RoPE BHSD;
 - cada tensor com o mesmo `dtype` da política (`"F32"` ou `"F64"`), `shape` e `valuesBase64` com bytes IEEE-754 little-endian — não arrays decimais sujeitos a arredondamento JSON nem mistura silenciosa de precisão.
 
 O comando recusa arquivo ausente/extra, checksum divergente, fingerprint de IR diferente, dtype implícito, operação duplicada, shape/payload inválido e evidência incompleta. A captura ainda precisa ser produzida por hooks verificados no runtime autoritativo; esse mecanismo não transforma o executor escalar em uma referência de Transformers, MLX ou llama.cpp.

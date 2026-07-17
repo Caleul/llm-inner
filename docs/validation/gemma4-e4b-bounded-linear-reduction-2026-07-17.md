@@ -20,6 +20,11 @@ written execution bundle carries the full Gemma4Text IR fingerprint, source
 checksums, declared tokens/positions, distinct capture UUID, and no external
 tensor references.
 
+The capture device is now an explicit part of that contract (`--device cpu` or
+`--device mps`) and is written to `reference.executionDevice`; a reduction
+campaign cannot combine the two. These historical captures ran on CPU: the
+previous helper never transferred its model or input tokens to MPS.
+
 ## Reproduction
 
 The two captures below were made from the immutable public package
@@ -32,13 +37,13 @@ npm run capture:gemma4-linear-reduction -- \
   --source ./gemma-4-E4B-dense --output /tmp/gemma4-e4b-up-proj-bounded-a.json \
   --input-tokens 2 --position-ids 0 --operation-id layer_0_up_proj \
   --python ./venv/bin/python --model google/gemma-4-E4B \
-  --revision 411aa17b749aa952df1359d2dcea73917a544d9a
+  --revision 411aa17b749aa952df1359d2dcea73917a544d9a --device cpu
 
 npm run capture:gemma4-linear-reduction -- \
   --source ./gemma-4-E4B-dense --output /tmp/gemma4-e4b-up-proj-bounded-b.json \
   --input-tokens 2 --position-ids 0 --operation-id layer_0_up_proj \
   --python ./venv/bin/python --model google/gemma-4-E4B \
-  --revision 411aa17b749aa952df1359d2dcea73917a544d9a
+  --revision 411aa17b749aa952df1359d2dcea73917a544d9a --device cpu
 ```
 
 Both completed and produced independent 227 KB bundles. The source-removed

@@ -17,6 +17,8 @@ export interface Gemma4TransformersOperationTraceOptions {
   python: string;
   model: string;
   revisionOrChecksum: string;
+  /** Deliberate native kernel contract; never infer this from host capability. */
+  executionDevice: "cpu" | "mps";
 }
 
 export interface Gemma4TransformersLinearReductionTraceOptions extends Omit<Gemma4TransformersOperationTraceOptions, "output"> {
@@ -27,6 +29,7 @@ export interface Gemma4TransformersLinearReductionTraceOptions extends Omit<Gemm
 
 interface NativeOperationCapture {
   runtime: string;
+  executionDevice: string;
   operations: ExecutionTraceBundle["reference"]["operations"];
   pastKeyValues: ExecutionTraceBundle["reference"]["pastKeyValues"];
 }
@@ -57,6 +60,7 @@ export async function captureGemma4TransformersLinearReductionTrace(options: Gem
       source: options.source,
       inputTokens: options.inputTokens,
       positionIds: positions,
+      executionDevice: options.executionDevice,
       mode: "linear-reduction-checkpoint",
       layerIndex: target.layer,
       projection: target.projection,
@@ -65,6 +69,7 @@ export async function captureGemma4TransformersLinearReductionTrace(options: Gem
       producerOutput: target.producerOutput,
       output: target.output,
     });
+    assertNativeExecutionDevice(native.executionDevice, options.executionDevice);
     assertGemma4NativeOperationCoverage([
       { id: target.producerOperationId, output: target.producerOutput },
       { id: target.operationId, output: target.output },
@@ -78,6 +83,7 @@ export async function captureGemma4TransformersLinearReductionTrace(options: Gem
       candidatePolicy: { dtype: "F32", runtime: "llm-inner paged Gemma4Text literal F32" },
       reference: {
         runtime: native.runtime,
+        executionDevice: native.executionDevice,
         model: options.model,
         revisionOrChecksum: options.revisionOrChecksum,
         containerFormat: "safetensors",
@@ -178,8 +184,10 @@ export async function captureGemma4TransformersOperationTrace(options: Gemma4Tra
       source: options.source,
       inputTokens: options.inputTokens,
       positionIds: positions,
+      executionDevice: options.executionDevice,
       mode: "operation-checkpoints",
     });
+    assertNativeExecutionDevice(native.executionDevice, options.executionDevice);
     const expected = [...program.textProgram.prelude, ...program.textProgram.layers.flatMap((layer) => layer.operations), ...program.textProgram.epilogue];
     assertGemma4NativeOperationCoverage(expected, native.operations);
     const bundle: ExecutionTraceBundle = {
@@ -191,6 +199,7 @@ export async function captureGemma4TransformersOperationTrace(options: Gemma4Tra
       candidatePolicy: { dtype: "F32", runtime: "llm-inner paged Gemma4Text literal F32" },
       reference: {
         runtime: native.runtime,
+        executionDevice: native.executionDevice,
         model: options.model,
         revisionOrChecksum: options.revisionOrChecksum,
         containerFormat: "safetensors",
@@ -207,6 +216,10 @@ export async function captureGemma4TransformersOperationTrace(options: Gemma4Tra
   } finally {
     await opened.close();
   }
+}
+
+function assertNativeExecutionDevice(actual: string, expected: "cpu" | "mps"): void {
+  if (actual !== expected) throw new Error(`Gemma 4 helper declarou executionDevice '${actual}', esperado '${expected}'.`);
 }
 
 function validateIds(values: readonly number[], label: string): void {

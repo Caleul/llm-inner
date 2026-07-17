@@ -11,7 +11,8 @@ video, audio, and source-removed generation remain outside this trace.
 - Source tensor: `model.safetensors`, 15,992,595,884 bytes, SHA-256
   `43fb96cec3045b72852c787540300dc5b258634b7a025f7c80355ac0788b9651`
 - Native runtime: PyTorch 2.12.1 / Transformers 5.5.0,
-  `Gemma4ForConditionalGeneration`, eager BF16
+  `Gemma4ForConditionalGeneration`, eager BF16 on CPU. The helper that made
+  this historical trace did not move model or tokens to MPS.
 - Candidate: indexed `gemma4-e4b-dense.literal.json`, executed only through
   declared literal payload ranges with a 16 MiB read window
 - Prompt: token ID `2`, absolute position `0`
@@ -35,7 +36,7 @@ npm run capture:gemma4-operation-checkpoints -- \
   --output /tmp/gemma4-e4b-full-operation-trace.json \
   --input-tokens 2 --python ./venv/bin/python \
   --model google/gemma-4-E4B \
-  --revision 411aa17b749aa952df1359d2dcea73917a544d9a
+  --revision 411aa17b749aa952df1359d2dcea73917a544d9a --device cpu
 ```
 
 Then remove the complete source directory for the candidate process and run:

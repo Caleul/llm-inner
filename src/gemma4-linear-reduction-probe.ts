@@ -67,6 +67,7 @@ export interface Gemma4LinearReductionProbeReport {
   sourceCheckpointAccessed: false;
   reference: {
     runtime: string;
+    executionDevice?: string;
     model: string;
     revisionOrChecksum: string;
     containerFormat: string;
@@ -159,6 +160,7 @@ export async function probeGemma4LiteralLinearReductionProfiles(options: {
       sourceCheckpointAccessed: false,
       reference: {
         runtime: decoded[0]!.reference.runtime,
+        ...(decoded[0]!.reference.executionDevice === undefined ? {} : { executionDevice: decoded[0]!.reference.executionDevice }),
         model: decoded[0]!.reference.model,
         revisionOrChecksum: decoded[0]!.reference.revisionOrChecksum,
         containerFormat: decoded[0]!.reference.containerFormat,
@@ -224,6 +226,9 @@ function assertCompatibleTrace(trace: Awaited<ReturnType<typeof readExecutionTra
   if (trace.bundle.candidatePolicy.dtype !== "F32" || trace.bundle.candidatePolicy.runtime !== "llm-inner paged Gemma4Text literal F32") {
     throw new Error("Probe de redução requer trace Gemma4Text F32 paginado compatível.");
   }
+  if (trace.reference.executionDevice !== "cpu" && trace.reference.executionDevice !== "mps") {
+    throw new Error("Probe de redução requer executionDevice explícito cpu ou mps no trace nativo.");
+  }
   if (trace.bundle.irFingerprint !== fingerprint) throw new Error("Trace de redução Gemma 4 não corresponde ao programa textual do artefato literal.");
   if (!trace.bundle.captureId) throw new Error("Probe de redução requer captureId por trace para provar capturas independentes.");
 }
@@ -239,6 +244,7 @@ function assertSameTraceIdentity(
     candidatePolicy: trace.bundle.candidatePolicy,
     reference: {
       runtime: trace.reference.runtime,
+      executionDevice: trace.reference.executionDevice ?? null,
       model: trace.reference.model,
       revisionOrChecksum: trace.reference.revisionOrChecksum,
       containerFormat: trace.reference.containerFormat,
@@ -266,6 +272,7 @@ function assertSameProbeContract(
     candidatePolicy: trace.bundle.candidatePolicy,
     reference: {
       runtime: trace.reference.runtime,
+      executionDevice: trace.reference.executionDevice ?? null,
       model: trace.reference.model,
       revisionOrChecksum: trace.reference.revisionOrChecksum,
       containerFormat: trace.reference.containerFormat,

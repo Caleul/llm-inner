@@ -33,7 +33,7 @@ npm run capture:gemma4-text-trace -- \
   --input-tokens 2 --max-new-tokens 1 \
   --python ./venv/bin/python \
   --model google/gemma-4-E4B \
-  --revision 411aa17b749aa952df1359d2dcea73917a544d9a
+  --revision 411aa17b749aa952df1359d2dcea73917a544d9a --device cpu
 ```
 
 Then make the source unavailable for the entire candidate process:

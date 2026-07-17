@@ -19,13 +19,13 @@ npm run capture:gemma4-linear-reduction -- \
   --source ./gemma-4-E4B-dense --output /tmp/gemma4-e4b-loop18-up-proj-a.json \
   --input-tokens 2 --position-ids 0 --operation-id layer_0_up_proj \
   --python ./venv/bin/python --model google/gemma-4-E4B \
-  --revision 411aa17b749aa952df1359d2dcea73917a544d9a
+  --revision 411aa17b749aa952df1359d2dcea73917a544d9a --device cpu
 
 npm run capture:gemma4-linear-reduction -- \
   --source ./gemma-4-E4B-dense --output /tmp/gemma4-e4b-loop18-up-proj-b.json \
   --input-tokens 2 --position-ids 0 --operation-id layer_0_up_proj \
   --python ./venv/bin/python --model google/gemma-4-E4B \
-  --revision 411aa17b749aa952df1359d2dcea73917a544d9a
+  --revision 411aa17b749aa952df1359d2dcea73917a544d9a --device cpu
 ```
 
 The candidate then ran with the checkpoint directory unavailable; it read only

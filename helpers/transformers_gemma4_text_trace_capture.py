@@ -79,16 +79,16 @@ def validate(model: Any) -> None:
         raise ValueError("Gemma 4 native capture requires every loaded parameter to remain BF16.")
 
 
-def forward(model: Any, tokens: list[int], positions: list[int], cache: Any | None = None):
+def forward(model: Any, tokens: list[int], positions: list[int], device: str, cache: Any | None = None):
     if not tokens or len(tokens) != len(positions):
         raise ValueError("Gemma 4 tokens and positions must be non-empty vectors of equal length.")
-    input_ids = torch.tensor([tokens], dtype=torch.long)
-    position_ids = torch.tensor([positions], dtype=torch.long)
+    input_ids = torch.tensor([tokens], dtype=torch.long, device=device)
+    position_ids = torch.tensor([positions], dtype=torch.long, device=device)
     with torch.inference_mode():
         return model(input_ids=input_ids, position_ids=position_ids, past_key_values=cache, use_cache=True)
 
 
-def operation_checkpoints(model: Any, tokens: list[int], positions: list[int]) -> dict[str, Any]:
+def operation_checkpoints(model: Any, tokens: list[int], positions: list[int], device: str) -> dict[str, Any]:
     """Capture every declared Gemma4Text assignment from the native forward.
 
     This is instrumentation of the pinned Transformers 5.5.0 eager-BF16
@@ -117,7 +117,7 @@ def operation_checkpoints(model: Any, tokens: list[int], positions: list[int]) -
     # First prove that the unmodified authoritative path is stable for this
     # exact request.  The instrumented pass below is compared to this result
     # before any trace is accepted.
-    baseline = forward(model, tokens, positions)
+    baseline = forward(model, tokens, positions, device)
 
     original_project = text.project_per_layer_inputs
     original_layers = [(layer.forward, layer.self_attn.forward, layer.mlp.forward) for layer in text.layers]
@@ -259,13 +259,14 @@ def operation_checkpoints(model: Any, tokens: list[int], positions: list[int]) -
         ple_embedding_hook = text.embed_tokens_per_layer.register_forward_hook(lambda _module, _inputs, value: save("ple_token_identity", "ple_token_identity", value.reshape(*value.shape[:2], text.config.num_hidden_layers, text.config.hidden_size_per_layer_input))) if getattr(text, "hidden_size_per_layer_input", None) else None
         final_norm_hook = text.norm.register_forward_hook(lambda _module, _inputs, value: save("final_norm", "final_hidden_states", value))
         lm_head_hook = model.lm_head.register_forward_hook(lambda _module, _inputs, value: save("lm_head", "logits", value))
-        native = forward(model, tokens, positions)
+        native = forward(model, tokens, positions, device)
         if model.config.text_config.final_logit_softcapping is not None:
             save("final_logit_softcap", "softcapped_logits", native.logits)
         if not torch.equal(baseline.logits, native.logits) or not equal_cache(baseline.past_key_values, native.past_key_values):
             raise ValueError("Gemma 4 native operation instrumentation changed the authoritative forward result or KV cache.")
         return {
             "runtime": f"PyTorch {torch.__version__.split('+')[0]} / Transformers {transformers.__version__} Gemma4ForConditionalGeneration eager BF16 full assignment trace",
+            "executionDevice": str(next(model.parameters()).device),
             "operations": list(checkpoints.values()),
             "pastKeyValues": cache_payload(native.past_key_values),
         }
@@ -278,7 +279,7 @@ def operation_checkpoints(model: Any, tokens: list[int], positions: list[int]) -
                 hook.remove()
 
 
-def linear_reduction_checkpoint(model: Any, tokens: list[int], positions: list[int], request: dict[str, Any]) -> dict[str, Any]:
+def linear_reduction_checkpoint(model: Any, tokens: list[int], positions: list[int], device: str, request: dict[str, Any]) -> dict[str, Any]:
     """Capture a single registered dense MLP projection without graph rewriting.
 
     A forward pre-hook observes the exact input passed to the native Linear
@@ -319,11 +320,11 @@ def linear_reduction_checkpoint(model: Any, tokens: list[int], positions: list[i
             raise ValueError("Gemma 4 bounded linear capture received invalid native Linear output.")
         captured["output"] = value
 
-    baseline = forward(model, tokens, positions)
+    baseline = forward(model, tokens, positions, device)
     before_hook = target.register_forward_pre_hook(before)
     after_hook = target.register_forward_hook(after)
     try:
-        native = forward(model, tokens, positions)
+        native = forward(model, tokens, positions, device)
     finally:
         before_hook.remove()
         after_hook.remove()
@@ -338,6 +339,7 @@ def linear_reduction_checkpoint(model: Any, tokens: list[int], positions: list[i
             raise ValueError("Gemma 4 bounded linear hooks changed authoritative KV cache.")
     return {
         "runtime": f"PyTorch {torch.__version__.split('+')[0]} / Transformers {transformers.__version__} Gemma4ForConditionalGeneration eager BF16 bounded MLP projection trace",
+        "executionDevice": str(next(model.parameters()).device),
         "operations": [
             {"operationId": producer_operation_id, "output": producer_output, "tensor": tensor_payload(captured["input"])},
             {"operationId": operation_id, "output": output, "tensor": tensor_payload(captured["output"])},
@@ -354,19 +356,24 @@ def main(request: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("inputTokens must be non-negative integer IDs.")
     if not isinstance(positions, list) or not all(isinstance(position, int) and position >= 0 for position in positions):
         raise ValueError("positionIds must be non-negative integer IDs.")
+    device = request.get("executionDevice")
+    if device not in ("cpu", "mps"):
+        raise ValueError("Gemma 4 native capture requires executionDevice=cpu or mps.")
+    if device == "mps" and not torch.backends.mps.is_available():
+        raise ValueError("Gemma 4 native capture requested MPS but torch.backends.mps.is_available() is false.")
     model = AutoModelForImageTextToText.from_pretrained(
         source, local_files_only=True, dtype=torch.bfloat16, attn_implementation="eager"
-    )
+    ).to(device)
     model.eval()
     validate(model)
     if request.get("mode") == "operation-checkpoints":
-        return operation_checkpoints(model, tokens, positions)
+        return operation_checkpoints(model, tokens, positions, device)
     if request.get("mode") == "linear-reduction-checkpoint":
-        return linear_reduction_checkpoint(model, tokens, positions, request)
+        return linear_reduction_checkpoint(model, tokens, positions, device, request)
     max_new_tokens = request.get("maxNewTokens")
     if not isinstance(max_new_tokens, int) or max_new_tokens < 0:
         raise ValueError("maxNewTokens must be a non-negative integer.")
-    current = forward(model, tokens, positions)
+    current = forward(model, tokens, positions, device)
     generated: list[int] = []
     selection_logits: list[dict[str, Any]] = []
     steps: list[dict[str, int]] = []
@@ -377,11 +384,12 @@ def main(request: dict[str, Any]) -> dict[str, Any]:
         token = greedy(current.logits)
         generated.append(token)
         steps.append({"tokenId": token, "positionId": next_position})
-        current = forward(model, [token], [next_position], current.past_key_values)
+        current = forward(model, [token], [next_position], device, current.past_key_values)
         step_cache.append(cache_payload(current.past_key_values))
         next_position += 1
     return {
         "runtime": f"PyTorch {torch.__version__.split('+')[0]} / Transformers {transformers.__version__} Gemma4ForConditionalGeneration eager BF16 native capture",
+        "executionDevice": str(next(model.parameters()).device),
         "generatedTokenIds": generated,
         "steps": steps,
         "selectionLogits": selection_logits,
