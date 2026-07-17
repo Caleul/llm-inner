@@ -251,6 +251,21 @@ consumidores compartilhados são incorporadas com proveniência explícita em
 evidência reproduzível está em
 [`docs/validation/gemma4-e4b-literal-export-2026-07-16.md`](docs/validation/gemma4-e4b-literal-export-2026-07-16.md).
 
+O audit padrão confirma a cardinalidade, o total de bytes e a ausência do
+caminho fonte; para estabelecer que nenhum payload de tamanho igual foi
+trocado, use a verificação Gemma 4 antes de tornar a fonte indisponível:
+
+```bash
+npm run audit:literal -- --artifact ./artifacts/gemma4-e4b-dense.literal.json \
+  --source ./gemma-4-E4B-dense --output ./gemma4-e4b-payload-audit.json \
+  --verify-gemma4-payloads
+```
+
+Ela compara cada tensor por nome, dtype, shape e todos os bytes de storage em
+faixas limitadas de 12 MiB, e registra SHA-256 concatenados da fonte e do
+artefato. Não substitui replay nem comparação de runtime: só prova a fronteira
+lossless de exportação enquanto o Safetensors ainda está disponível.
+
 O leitor `gemma4-composite-literal-reader.ts` abre esse JSON em streaming: ele
 indexa os offsets dos payloads base64 e valida a estrutura semântica sem
 `JSON.parse` do artefato completo. Cada faixa de bytes é decodificada a partir

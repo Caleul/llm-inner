@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import * as path from "node:path";
 import test from "node:test";
 import { tmpdir } from "node:os";
@@ -14,6 +14,7 @@ import {
   writeGemma4CompositeLiteralCalculationProgram,
 } from "../src/gemma4-composite-literal.js";
 import { openGemma4CompositeLiteralArtifact } from "../src/gemma4-composite-literal-reader.js";
+import { verifyGemma4CompositeLiteralPayloadsAgainstCatalog } from "../src/gemma4-composite-literal-payload-verification.js";
 import { probeGemma4LiteralLinearReductionProfiles } from "../src/gemma4-linear-reduction-probe.js";
 import { executeGemma4PagedTextLiteralF32, generateGemma4PagedTextLiteralF32 } from "../src/gemma4-paged-text.js";
 import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearF32 } from "../src/paged-dense.js";
@@ -199,6 +200,37 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
     const raw = await readFile(output, "utf8");
     await writeFile(corrupted, raw.replace('"semantics":"exact IEEE-754 storage decode; no arithmetic narrowing"', '"semantics":"invalid"'));
     await assert.rejects(() => openGemma4CompositeLiteralArtifact(corrupted), /decoder denso do artefato literal/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("Gemma 4 literal payload verifier proves every embedded storage byte before source removal", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "llm-inner-gemma4-payload-verification-"));
+  try {
+    const source = path.join(root, "source");
+    const catalog = fixture();
+    const sourceTensors = materialize(catalog);
+    await writeFixtureSafetensors(source, catalog, sourceTensors);
+    catalog.source = source;
+    const program = buildGemma4CompositeProgram(catalog, preview);
+    const artifact = path.join(root, "tiny.gemma4.literal.json");
+    await writeGemma4CompositeLiteralCalculationProgram(program, catalog, {
+      async readTensorBytes(info) { return denseF32Bytes(sourceTensors.get(info.name)!); },
+    }, artifact);
+
+    const verified = await verifyGemma4CompositeLiteralPayloadsAgainstCatalog({ artifact, source, maxReadBytes: 13 });
+    assert.equal(verified.constants, catalog.tensors.size);
+    assert.equal(verified.comparedPayloadBytes, [...sourceTensors.values()].reduce((total, tensor) => total + tensor.values.byteLength, 0));
+    assert.equal(verified.sourceStorageSha256, verified.literalStorageSha256);
+
+    const corrupt = path.join(root, "corrupt.gemma4.literal.json");
+    const raw = await readFile(artifact, "utf8");
+    await writeFile(corrupt, raw.replace(/"payloadBase64":"([A-Za-z0-9])/, (_match, first: string) => `"payloadBase64":"${first === "A" ? "B" : "A"}`), "utf8");
+    await assert.rejects(
+      () => verifyGemma4CompositeLiteralPayloadsAgainstCatalog({ artifact: corrupt, source, maxReadBytes: 13 }),
+      /payload literal diverge do Safetensors/,
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -572,3 +604,21 @@ function fixture(options: { layers?: number; layerTypes?: Array<"sliding_attenti
 
 function patterned(shape: number[]): DenseF32Tensor { return { shape, values: Float32Array.from({ length: shape.reduce((total, dimension) => total * dimension, 1) }, (_, index) => Math.fround((index % 9 + 1) / 25)) }; }
 function materialize(catalog: ModelCatalog): Map<string, DenseF32Tensor> { const result = new Map<string, DenseF32Tensor>(); for (const entry of catalog.tensors.values()) { const size = entry.logicalShape.reduce((total, dimension) => total * dimension, 1) || 1; const values = new Float32Array(size); if (entry.name.endsWith("input_min") || entry.name.endsWith("output_min")) values[0] = -100; else if (entry.name.endsWith("input_max") || entry.name.endsWith("output_max")) values[0] = 100; else if (entry.name.endsWith("norm.weight")) values.fill(1); else if (entry.name.endsWith("layer_scalar")) values.fill(1); else for (let index = 0; index < size; index += 1) values[index] = Math.fround((index % 5 + 1) / 50); result.set(entry.name, { shape: [...entry.logicalShape], values }); } return result; }
+async function writeFixtureSafetensors(directory: string, catalog: ModelCatalog, tensors: ReadonlyMap<string, DenseF32Tensor>): Promise<void> {
+  await mkdir(directory, { recursive: true });
+  const header: Record<string, unknown> = {};
+  const payloads: Buffer[] = [];
+  let offset = 0;
+  for (const tensor of catalog.tensors.values()) {
+    const payload = denseF32Bytes(tensors.get(tensor.name)!);
+    header[tensor.name] = { dtype: "F32", shape: tensor.logicalShape, data_offsets: [offset, offset + payload.length] };
+    offset += payload.length;
+    payloads.push(payload);
+  }
+  const encodedHeader = Buffer.from(JSON.stringify(header));
+  const prefix = Buffer.alloc(8);
+  prefix.writeBigUInt64LE(BigInt(encodedHeader.length));
+  await writeFile(path.join(directory, "config.json"), JSON.stringify(catalog.config));
+  await writeFile(path.join(directory, "model.safetensors"), Buffer.concat([prefix, encodedHeader, ...payloads]));
+}
+function denseF32Bytes(tensor: DenseF32Tensor): Buffer { const bytes = Buffer.alloc(tensor.values.byteLength); tensor.values.forEach((value, index) => bytes.writeFloatLE(value, index * 4)); return bytes; }

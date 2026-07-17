@@ -33,7 +33,8 @@ node dist/src/cli.js \
 npm run audit:literal -- \
   --artifact ./artifacts/gemma4-e4b-dense.literal.json \
   --source ./gemma-4-E4B-dense \
-  --output ./docs/validation/gemma4-e4b-literal-export-2026-07-16.json
+  --output ./docs/validation/gemma4-e4b-literal-export-2026-07-16.json \
+  --verify-gemma4-payloads
 ```
 
 The streamed audit parses neither the 21 GB JSON nor a full payload into the
@@ -42,6 +43,16 @@ fields, totals their decoded storage bytes, compares both count and bytes to
 the catalog, and rejects the absolute source directory if it appears in the
 artifact. The recorded result is 2,130 constants, 15,992,314,836 embedded
 bytes, and `forbiddenSourcePathPresent: false`.
+
+The Gemma-specific payload verification then opens the literal artifact through
+its bounded range reader and compares every constant to the source tensor of
+the same name, dtype and shape. On 2026-07-17 it compared all 2,130 payloads
+and all `15,992,314,836` storage bytes with no mismatch. The canonical SHA-256
+over source storage bytes in sorted tensor-name order was
+`e21b49734b3945d760d4f630e747e71f6510826f45bbb0159fb59abef005af98`, and
+the literal payload stream produced the same digest. This proves the embedded
+storage export while the source is available; it neither proves the BF16 kernel
+schedule nor replaces the source-removed runtime differential.
 
 The writer reads Safetensors ranges in 12 MiB, three-byte-aligned chunks and
 atomically renames the complete JSON only after the final byte is flushed. This
