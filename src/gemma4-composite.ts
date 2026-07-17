@@ -214,6 +214,7 @@ export function generateGemma4CompositeF32(program: Gemma4CompositeProgram, requ
   if (!Number.isInteger(request.maxNewTokens) || request.maxNewTokens < 0) throw new Error("Geração Gemma 4 composite requer maxNewTokens inteiro não negativo.");
   if (request.eosTokenId !== undefined && (!Number.isInteger(request.eosTokenId) || request.eosTokenId < 0)) throw new Error("Geração Gemma 4 composite requer eosTokenId inteiro não negativo.");
   if (request.attentionMask !== undefined) throw new Error("Geração Gemma 4 composite ainda requer attentionMask ausente; padding/4-D caller masks exigem um contrato de geração próprio.");
+  if (request.pastKeyValues !== undefined) throw new Error("Geração Gemma 4 composite começa em prefill sem pastKeyValues; continuação externa requer um contrato de estado inicial próprio.");
   const prefill = executeGemma4CompositeF32(program, request);
   let current = prefill;
   let position = request.positionIds?.[0]?.at(-1) ?? request.inputIds[0]!.length - 1;

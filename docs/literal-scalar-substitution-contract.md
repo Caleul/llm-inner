@@ -113,3 +113,29 @@ Embeddings exigem o token concreto, porque `input_ids` é uma variável do
 programa e não pode receber valor implícito. A implementação suporta somente
 storage denso row-major F32/F16/BF16 nesse caminho e rejeita outros decoders em
 vez de inventar uma interpretação.
+
+## Programa literal de geração
+
+Logits não completam o produto de geração. O artefato Gemma 4 schema v2 deve
+declarar também `max_new_tokens` e `eos_token_id`, além de uma máquina de estado
+greedy ordenada. `requiredFor` diferencia inputs obrigatórios por modo, sem
+tornar `max_new_tokens` um requisito de forward. A forma canônica registra,
+sem depender de defaults de runtime:
+
+1. o prefill pelo programa forward declarado;
+2. a seleção da última linha de logits;
+3. argmax por varredura crescente, com empate pelo menor token ID;
+4. append do token antes de qualquer parada EOS;
+5. avanço inteiro da posição;
+6. entrada incremental `[1,1]` com o cache pós-RoPE anterior;
+7. ausência explícita de máscaras/modais de prefill no decode;
+8. nova execução do mesmo programa de cálculo declarado;
+9. captura do cache resultante;
+10. avaliação de EOS somente depois que logits e cache incrementais existem;
+11. seleção dos logits do último forward realmente executado; e
+12. seleção do cache pertencente ao mesmo estado terminal.
+
+Cada passo nomeia dtype, shape, inputs e output. O leitor streaming deriva o
+contrato canônico do próprio programa incorporado e rejeita uma atribuição,
+ordem, semântica, input ou output divergente. `--show-generation-program`
+expõe esse estado mesmo quando o checkpoint está indisponível.

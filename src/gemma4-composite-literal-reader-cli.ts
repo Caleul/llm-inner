@@ -13,6 +13,7 @@ interface Arguments {
   assertSourceUnavailable?: string;
   output?: string;
   listOperations: boolean;
+  showGenerationProgram: boolean;
   operationId?: string;
   outputCoordinate?: number[];
   tokenId?: number;
@@ -51,6 +52,7 @@ try {
     };
   }
   if (args.listOperations) result.operations = listGemma4LiteralOperations(artifact);
+  if (args.showGenerationProgram) result.generationProgram = artifact.generation;
   if (args.operationId) {
     result.scalarView = await renderGemma4LiteralMultimodalScalarView(artifact, {
       operationId: args.operationId,
@@ -76,7 +78,7 @@ try {
 function parseArguments(argv: string[]): Arguments {
   let artifact: string | undefined, tensor: string | undefined, output: string | undefined, assertSourceUnavailable: string | undefined, operationId: string | undefined;
   let outputCoordinate: number[] | undefined, tokenId: number | undefined, positionCoordinate: [number, number] | undefined, inputStart: number | undefined, inputCount: number | undefined;
-  let offset = 0, byteLength = 4096, verifyPayloads = false, listOperations = false;
+  let offset = 0, byteLength = 4096, verifyPayloads = false, listOperations = false, showGenerationProgram = false;
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
     const next = argv[index + 1];
@@ -86,6 +88,7 @@ function parseArguments(argv: string[]): Arguments {
     else if (value === "--byte-length") { byteLength = parseInteger(next, "--byte-length"); index += 1; }
     else if (value === "--verify-payloads") { verifyPayloads = true; }
     else if (value === "--list-operations") { listOperations = true; }
+    else if (value === "--show-generation-program") { showGenerationProgram = true; }
     else if (value === "--operation") { operationId = requiredValue(next, "--operation"); index += 1; }
     else if (value === "--output-coordinate") { outputCoordinate = parseCoordinate(requiredValue(next, "--output-coordinate")); index += 1; }
     else if (value === "--token-id") { tokenId = parseInteger(next, "--token-id"); index += 1; }
@@ -100,8 +103,8 @@ function parseArguments(argv: string[]): Arguments {
     else if (value === "--output") { output = next; index += 1; }
     else throw new Error(`Argumento desconhecido: ${value}.`);
   }
-  if (!artifact) throw new Error("Uso: --artifact <literal.json> [--list-operations] [--operation <id> --output-coordinate <i,j,...> [--token-id <id>] [--position-coordinate <x,y>] [--input-start <i> --input-count <n>]] [--tensor <nome> --offset <bytes> --byte-length <bytes>] [--verify-payloads --assert-source-unavailable <checkpoint>] [--output <report.json>].");
-  if (assertSourceUnavailable !== undefined && !verifyPayloads && !operationId && !listOperations) throw new Error("--assert-source-unavailable requer --verify-payloads, --operation ou --list-operations.");
+  if (!artifact) throw new Error("Uso: --artifact <literal.json> [--list-operations] [--show-generation-program] [--operation <id> --output-coordinate <i,j,...> [--token-id <id>] [--position-coordinate <x,y>] [--input-start <i> --input-count <n>]] [--tensor <nome> --offset <bytes> --byte-length <bytes>] [--verify-payloads --assert-source-unavailable <checkpoint>] [--output <report.json>].");
+  if (assertSourceUnavailable !== undefined && !verifyPayloads && !operationId && !listOperations && !showGenerationProgram) throw new Error("--assert-source-unavailable requer --verify-payloads, --operation, --list-operations ou --show-generation-program.");
   if ((tensor === undefined && (offset !== 0 || byteLength !== 4096)) || (tensor !== undefined && (!Number.isSafeInteger(offset) || !Number.isSafeInteger(byteLength) || offset < 0 || byteLength <= 0))) {
     throw new Error("--offset e --byte-length requerem --tensor e valores inteiros positivos.");
   }
@@ -110,7 +113,7 @@ function parseArguments(argv: string[]): Arguments {
   if (tokenId !== undefined && operationId === undefined) throw new Error("--token-id requer --operation.");
   if (positionCoordinate !== undefined && operationId === undefined) throw new Error("--position-coordinate requer --operation.");
   return {
-    artifact, ...(tensor ? { tensor } : {}), offset, byteLength, verifyPayloads, listOperations,
+    artifact, ...(tensor ? { tensor } : {}), offset, byteLength, verifyPayloads, listOperations, showGenerationProgram,
     ...(assertSourceUnavailable ? { assertSourceUnavailable } : {}), ...(output ? { output } : {}),
     ...(operationId ? { operationId, outputCoordinate: outputCoordinate! } : {}), ...(tokenId === undefined ? {} : { tokenId }),
     ...(positionCoordinate === undefined ? {} : { positionCoordinate }),

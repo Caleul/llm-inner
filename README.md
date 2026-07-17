@@ -225,6 +225,30 @@ A expansão composite corrigida e uma linha visual de 768 pesos substituídos
 estão em
 [`docs/validation/gemma4-e4b-expanded-calculation-order-2026-07-17.md`](docs/validation/gemma4-e4b-expanded-calculation-order-2026-07-17.md).
 
+O schema Gemma 4 literal v2 também carrega a geração greedy como programa,
+em vez de depender da implementação TypeScript para completar logits em
+tokens. `--show-generation-program` expõe doze atribuições ordenadas para
+prefill, posição inicial, linha final de logits, argmax com desempate pelo menor
+ID, append do token, avanço de posição, entrada incremental, nova execução do
+programa declarado, snapshot KV, parada EOS e seleção dos logits/cache
+terminais. O contrato deixa explícito que
+imagem/vídeo/áudio e `mm_token_type_ids` participam apenas do prefill, enquanto
+o decode usa o token único, a posição avançada e o cache pós-RoPE;
+`max_new_tokens` é marcado como obrigatório especificamente no modo geração.
+Uma regra,
+input ou transição alterada faz o leitor falhar fechado:
+
+```bash
+npm run inspect:gemma4-literal -- \
+  --artifact ./artifacts/gemma4-e4b-dense.literal.json \
+  --show-generation-program \
+  --assert-source-unavailable ./gemma-4-E4B-dense \
+  --output /tmp/gemma4-generation-program.json
+```
+
+A regeneração real e a verificação integral com a fonte indisponível estão em
+[`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
+
 #### Evidência de redução linear por feature de saída
 
 `probe:gemma4-linear-reduction` mede hipóteses de acumulação contra hooks
@@ -392,9 +416,10 @@ npm run inspect:gemma4-literal -- \
   --list-operations --output /tmp/gemma4-operation-index.json
 ```
 
-Isso fecha a fronteira de leitura seletiva e substituição escalar em todas as
-operações composite registradas; ainda não é uma alegação de replay numérico
-BF16 ou de geração da E4B real. A medição do artefato real e o limite
+Isso fecha a fronteira de leitura seletiva, substituição escalar em todas as
+operações composite registradas e declaração autocontida do estado de geração;
+ainda não é uma alegação de replay numérico BF16 ou de equivalência da geração
+E4B real. A medição do artefato real e o limite
 de memória do executor atual estão em
 [`docs/validation/gemma4-e4b-literal-reader-2026-07-16.md`](docs/validation/gemma4-e4b-literal-reader-2026-07-16.md).
 Isso prova materialização completa e ausência do caminho do checkpoint no

@@ -3,6 +3,7 @@ import { createWriteStream } from "node:fs";
 import { mkdir, rename, unlink } from "node:fs/promises";
 import { once } from "node:events";
 import * as path from "node:path";
+import { isDeepStrictEqual } from "node:util";
 import {
   buildLiteralStorageBundle,
   decodeLiteralStorageBundleF32,
@@ -36,6 +37,62 @@ export interface Gemma4CompositeLiteralInput {
   required: boolean;
   dtype: string;
   shape: string;
+  usedBy: Array<"forward" | "generation">;
+  requiredFor: Array<"forward" | "generation">;
+}
+
+export interface Gemma4LiteralGenerationAssignment {
+  id: string;
+  operation:
+    | "execute-declared-forward"
+    | "initialize-position"
+    | "capture-selection-logits"
+    | "argmax-lowest-token-id"
+    | "append-token"
+    | "increment-position"
+    | "prepare-incremental-forward-inputs"
+    | "execute-declared-incremental-forward"
+    | "append-cache-snapshot"
+    | "evaluate-eos-stop"
+    | "select-terminal-logits"
+    | "select-terminal-cache";
+  inputs: string[];
+  output: string;
+  dtype: string;
+  shape: string;
+  iteration?: "step = 0..max_new_tokens-1 while stop_after_step[step-1] is false";
+  semantics: string;
+}
+
+/**
+ * The generation state machine is data in the artifact, not behavior supplied
+ * by this TypeScript module. Both forward invocations refer to the complete
+ * declared composite assignment program and therefore cannot substitute an
+ * opaque generic decoder for the serialized Gemma 4 calculation.
+ */
+export interface Gemma4LiteralGreedyGenerationProgram {
+  kind: "gemma4-literal-greedy-generation-program";
+  forwardProgram: {
+    reference: "program";
+    expansionOrder: "composite assignments in array order; vision/audio definitions inline at invocation; prepared text layers then epilogue";
+    firstAssignment: "composite_placeholder_masks";
+    lastAssignment: "final_logit_softcap" | "lm_head";
+  };
+  loop: {
+    iterator: "step";
+    startInclusive: 0;
+    endExclusiveInput: "max_new_tokens";
+    earlyStop: "after incremental forward and cache capture when selected_token[step] == eos_token_id";
+  };
+  assignments: Gemma4LiteralGenerationAssignment[];
+  outputs: {
+    prefillState: "forward_state[0]";
+    generatedTokenIds: "generated_token_ids";
+    selectionLogits: "selection_logits";
+    stepPastKeyValues: "step_past_key_values";
+    terminalLogits: "terminal_logits";
+    terminalPastKeyValues: "terminal_past_key_values";
+  };
 }
 
 /**
@@ -45,7 +102,7 @@ export interface Gemma4CompositeLiteralInput {
  * steps remain distinct, named dependencies in the enclosing program.
  */
 export interface Gemma4CompositeLiteralCalculationProgram extends LiteralStorageBundle {
-  schemaVersion: 1;
+  schemaVersion: 2;
   kind: "gemma4-composite-literal-calculation-program";
   sourceFormat: "safetensors";
   numericPolicy: {
@@ -86,6 +143,7 @@ export interface Gemma4CompositeLiteralCalculationProgram extends LiteralStorage
     textEpilogue: Operation[];
   };
   outputs: { embeddings: "hidden_states_0"; perLayerInputs: "ple_inputs"; logits: "softcapped_logits" | "logits" };
+  generation: Gemma4LiteralGreedyGenerationProgram;
   /** Present on streamed artifacts; binds each embedded payload after source removal. */
   payloadIntegrity?: Gemma4CompositeLiteralPayloadIntegrityEntry[];
 }
@@ -151,7 +209,7 @@ export async function buildGemma4CompositeLiteralCalculationProgram(
   const storage = await buildLiteralStorageBundle(catalog, reader, allReferences.values());
   const embeddedProgram = embeddedCompositeProgram(program);
   const literal: Gemma4CompositeLiteralCalculationProgram = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     kind: "gemma4-composite-literal-calculation-program",
     sourceFormat: "safetensors",
     numericPolicy: gemma4CompositeLiteralNumericPolicy(program),
@@ -167,6 +225,7 @@ export async function buildGemma4CompositeLiteralCalculationProgram(
       textEpilogue: structuredClone(embeddedProgram.textProgram.epilogue),
     },
     outputs: structuredClone(embeddedProgram.outputs),
+    generation: gemma4LiteralGreedyGenerationProgram(embeddedProgram),
   };
   validateGemma4CompositeLiteralCalculationProgram(literal);
   return literal;
@@ -203,7 +262,7 @@ export async function writeGemma4CompositeLiteralCalculationProgram(
 
   try {
     await once(stream, "open");
-    await write(`{"schemaVersion":1,"kind":"gemma4-composite-literal-calculation-program","sourceFormat":"safetensors","numericPolicy":${JSON.stringify(gemma4CompositeLiteralNumericPolicy(program))},"inputs":${JSON.stringify(literalInputs())},"constants":[`);
+    await write(`{"schemaVersion":2,"kind":"gemma4-composite-literal-calculation-program","sourceFormat":"safetensors","numericPolicy":${JSON.stringify(gemma4CompositeLiteralNumericPolicy(program))},"inputs":${JSON.stringify(literalInputs())},"constants":[`);
     for (let index = 0; index < prepared.constants.length; index += 1) {
       const constant = prepared.constants[index]!;
       if (index > 0) await write(",");
@@ -213,7 +272,7 @@ export async function writeGemma4CompositeLiteralCalculationProgram(
       payloadIntegrity.push({ name: constant.name, payloadBytes: payload.bytes, sha256: payload.sha256 });
       await write("\"}");
     }
-    await write(`],"unreachableConstants":${JSON.stringify(prepared.unreachableConstants)},"storageDecoders":${JSON.stringify(prepared.storageDecoders)},"program":${JSON.stringify(prepared.embeddedProgram)},"assignments":${JSON.stringify(prepared.assignments)},"outputs":${JSON.stringify(prepared.outputs)},"payloadIntegrity":${JSON.stringify(payloadIntegrity)}}\n`);
+    await write(`],"unreachableConstants":${JSON.stringify(prepared.unreachableConstants)},"storageDecoders":${JSON.stringify(prepared.storageDecoders)},"program":${JSON.stringify(prepared.embeddedProgram)},"assignments":${JSON.stringify(prepared.assignments)},"outputs":${JSON.stringify(prepared.outputs)},"generation":${JSON.stringify(prepared.generation)},"payloadIntegrity":${JSON.stringify(payloadIntegrity)}}\n`);
     stream.end();
     await once(stream, "finish");
     await rename(temporary, output);
@@ -289,16 +348,16 @@ export function generateGemma4CompositeLiteralF32(
  */
 export function validateGemma4CompositeLiteralCalculationProgram(literal: Gemma4CompositeLiteralCalculationProgram): void {
   validateGemma4TextReductionSchedules(literal.program);
-  if (literal.schemaVersion !== 1 || literal.kind !== "gemma4-composite-literal-calculation-program" || literal.sourceFormat !== "safetensors" ||
+  if (literal.schemaVersion !== 2 || literal.kind !== "gemma4-composite-literal-calculation-program" || literal.sourceFormat !== "safetensors" ||
     !sameNumericPolicy(literal.numericPolicy, gemma4CompositeLiteralNumericPolicy(literal.program))) {
     throw new Error("Programa literal Gemma 4 composite possui cabeçalho ou política numérica inválida.");
   }
   validateLiteralStorageBundle(literal);
   const constants = new Map<string, LiteralConstant>(literal.constants.map((constant) => [constant.name, constant]));
-  const requiredInputs = literalInputs().map((input) => input.name);
-  if (literal.inputs.length !== requiredInputs.length || requiredInputs.some((name) => !literal.inputs.some((input) => input.name === name))) {
-    throw new Error("Programa literal Gemma 4 composite não declara todos os controles de entrada multimodal.");
-  }
+  const expectedInputs = literalInputs();
+  const requiredInputs = expectedInputs.map((input) => input.name);
+  validateGemma4CompositeLiteralInputs(literal.inputs);
+  validateGemma4LiteralGenerationProgram(literal.generation, literal.program);
   if (literal.program.textProgram.source.path !== "embedded://gemma4-composite-literal" || literal.program.textProgram.source.format !== "safetensors") {
     throw new Error("Programa literal Gemma 4 composite reteve uma referência de source checkpoint.");
   }
@@ -330,18 +389,112 @@ export function validateGemma4CompositeLiteralCalculationProgram(literal: Gemma4
 
 function literalInputs(): Gemma4CompositeLiteralInput[] {
   return [
-    { name: "input_ids", description: "Token IDs, including declared modal placeholders.", required: true, dtype: "I32", shape: "[batch, sequence]" },
-    { name: "position_ids", description: "Absolute text RoPE positions.", required: false, dtype: "I32", shape: "[batch, sequence]" },
-    { name: "attention_mask", description: "Caller additive text attention bias; mutually exclusive with mm_token_type_ids.", required: false, dtype: "F32", shape: "[batch, 1|heads, query, key]" },
-    { name: "past_key_values", description: "Post-RoPE text KV cache for incremental decode.", required: false, dtype: "F32", shape: "layer -> {key,value}" },
-    { name: "pixel_values", description: "Patchified image pixels.", required: false, dtype: "F32", shape: "[batch, patches, 3*patch_size^2]" },
-    { name: "image_position_ids", description: "Image patch [x,y] positions; required with pixel_values.", required: false, dtype: "I32", shape: "[batch][patch][x,y]" },
-    { name: "pixel_values_videos", description: "Patchified video frames.", required: false, dtype: "F32", shape: "[videos, frames, patches, 3*patch_size^2]" },
-    { name: "video_position_ids", description: "Video frame patch [x,y] positions; required with pixel_values_videos.", required: false, dtype: "I32", shape: "[videos][frames][patch][x,y]" },
-    { name: "input_features", description: "Audio features before stride-2 subsampling.", required: false, dtype: "F32", shape: "[batch, frames, features]" },
-    { name: "input_features_mask", description: "Boolean validity mask for input_features.", required: false, dtype: "BOOL", shape: "[batch, frames]" },
-    { name: "mm_token_type_ids", description: "Image/video block IDs used only during uncached prefill.", required: false, dtype: "I32", shape: "[batch, sequence]" },
+    { name: "input_ids", description: "Token IDs, including declared modal placeholders.", required: true, dtype: "I32", shape: "[batch, sequence]", usedBy: ["forward", "generation"], requiredFor: ["forward", "generation"] },
+    { name: "position_ids", description: "Absolute text RoPE positions.", required: false, dtype: "I32", shape: "[batch, sequence]", usedBy: ["forward", "generation"], requiredFor: [] },
+    { name: "attention_mask", description: "Caller additive text attention bias; mutually exclusive with mm_token_type_ids.", required: false, dtype: "F32", shape: "[batch, 1|heads, query, key]", usedBy: ["forward"], requiredFor: [] },
+    { name: "past_key_values", description: "Post-RoPE text KV cache for incremental decode.", required: false, dtype: "F32", shape: "layer -> {key,value}", usedBy: ["forward"], requiredFor: [] },
+    { name: "pixel_values", description: "Patchified image pixels.", required: false, dtype: "F32", shape: "[batch, patches, 3*patch_size^2]", usedBy: ["forward", "generation"], requiredFor: [] },
+    { name: "image_position_ids", description: "Image patch [x,y] positions; required with pixel_values.", required: false, dtype: "I32", shape: "[batch][patch][x,y]", usedBy: ["forward", "generation"], requiredFor: [] },
+    { name: "pixel_values_videos", description: "Patchified video frames.", required: false, dtype: "F32", shape: "[videos, frames, patches, 3*patch_size^2]", usedBy: ["forward", "generation"], requiredFor: [] },
+    { name: "video_position_ids", description: "Video frame patch [x,y] positions; required with pixel_values_videos.", required: false, dtype: "I32", shape: "[videos][frames][patch][x,y]", usedBy: ["forward", "generation"], requiredFor: [] },
+    { name: "input_features", description: "Audio features before stride-2 subsampling.", required: false, dtype: "F32", shape: "[batch, frames, features]", usedBy: ["forward", "generation"], requiredFor: [] },
+    { name: "input_features_mask", description: "Boolean validity mask for input_features.", required: false, dtype: "BOOL", shape: "[batch, frames]", usedBy: ["forward", "generation"], requiredFor: [] },
+    { name: "mm_token_type_ids", description: "Image/video block IDs used only during uncached prefill.", required: false, dtype: "I32", shape: "[batch, sequence]", usedBy: ["forward", "generation"], requiredFor: [] },
+    { name: "max_new_tokens", description: "Maximum greedy tokens; generation requires a non-negative integer.", required: false, dtype: "I32", shape: "[]", usedBy: ["generation"], requiredFor: ["generation"] },
+    { name: "eos_token_id", description: "Optional non-negative token ID that stops after its incremental forward/cache transition.", required: false, dtype: "I32", shape: "[]", usedBy: ["generation"], requiredFor: [] },
   ];
+}
+
+export function validateGemma4CompositeLiteralInputs(inputs: Gemma4CompositeLiteralInput[]): void {
+  if (!isDeepStrictEqual(inputs, literalInputs())) {
+    throw new Error("Programa literal Gemma 4 composite não declara todos os controles de forward e geração.");
+  }
+}
+
+export function gemma4LiteralGreedyGenerationProgram(program: Gemma4CompositeProgram): Gemma4LiteralGreedyGenerationProgram {
+  const lastAssignment = program.textProgram.epilogue.at(-1)?.id;
+  if (lastAssignment !== "final_logit_softcap" && lastAssignment !== "lm_head") {
+    throw new Error("Programa literal Gemma 4 requer lm_head ou final_logit_softcap como atribuição final para geração.");
+  }
+  const iteration = "step = 0..max_new_tokens-1 while stop_after_step[step-1] is false" as const;
+  const assignments: Gemma4LiteralGenerationAssignment[] = [
+    {
+      id: "generation_prefill", operation: "execute-declared-forward",
+      inputs: ["input_ids", "position_ids?", "pixel_values?", "image_position_ids?", "pixel_values_videos?", "video_position_ids?", "input_features?", "input_features_mask?", "mm_token_type_ids?"],
+      output: "forward_state[0]", dtype: "STRUCT", shape: "{logits:[1,sequence,vocab],past_key_values:layer->{key,value}}",
+      semantics: "Execute the artifact's complete declared composite calculation once. Generation requires batch=1, non-empty input_ids and no caller attention_mask; all supplied modalities and mm_token_type_ids participate only in this prefill.",
+    },
+    {
+      id: "generation_initial_position", operation: "initialize-position", inputs: ["position_ids?", "input_ids"], output: "position[-1]", dtype: "I32", shape: "[]",
+      semantics: "position[-1] = position_ids[0,last] when supplied, otherwise input_ids.shape[1]-1.",
+    },
+    {
+      id: "generation_selection_logits", operation: "capture-selection-logits", inputs: ["forward_state[step].logits"], output: "selection_logits[step]", dtype: "F32", shape: "[1,current_sequence,vocab]", iteration,
+      semantics: "Capture the current forward state's complete declared logits tensor without changing dtype or values; incremental states have current_sequence=1.",
+    },
+    {
+      id: "generation_argmax", operation: "argmax-lowest-token-id", inputs: ["selection_logits[step][0,current_sequence-1,0..vocab-1]"], output: "selected_token[step]", dtype: "I32", shape: "[]", iteration,
+      semantics: "From the final sequence row, reject non-finite logits; choose the greatest logit and, for an exact tie, the lowest token ID by ascending token scan.",
+    },
+    {
+      id: "generation_token_append", operation: "append-token", inputs: ["generated_token_ids[0..step-1]", "selected_token[step]"], output: "generated_token_ids[0..step]", dtype: "I32", shape: "[step+1]", iteration,
+      semantics: "Append selected_token[step] exactly once, including when it equals eos_token_id.",
+    },
+    {
+      id: "generation_position_advance", operation: "increment-position", inputs: ["position[step-1]"], output: "position[step]", dtype: "I32", shape: "[]", iteration,
+      semantics: "position[step] = position[step-1] + 1 using exact integer arithmetic.",
+    },
+    {
+      id: "generation_incremental_inputs", operation: "prepare-incremental-forward-inputs", inputs: ["selected_token[step]", "position[step]", "forward_state[step].past_key_values"], output: "incremental_inputs[step]", dtype: "STRUCT", shape: "{input_ids:[1,1],position_ids:[1,1],past_key_values:layer->{key,value}}", iteration,
+      semantics: "Set input_ids=[[selected_token[step]]], position_ids=[[position[step]]] and carry the exact post-RoPE cache. Omit attention_mask, mm_token_type_ids, every image/video/audio input and every multimodal mask after prefill.",
+    },
+    {
+      id: "generation_incremental_forward", operation: "execute-declared-incremental-forward", inputs: ["incremental_inputs[step]", "constants", "program"], output: "forward_state[step+1]", dtype: "STRUCT", shape: "{logits:[1,1,vocab],past_key_values:layer->{key,value}}", iteration,
+      semantics: "Execute the same complete declared composite calculation with the incremental inputs. Text attention reads each serialized append-post-rope or reuse-producer cache transition; no generic decoder or source checkpoint is invoked.",
+    },
+    {
+      id: "generation_cache_append", operation: "append-cache-snapshot", inputs: ["step_past_key_values[0..step-1]", "forward_state[step+1].past_key_values"], output: "step_past_key_values[0..step]", dtype: "STRUCT", shape: "[step+1] of layer->{key,value}", iteration,
+      semantics: "Append the exact cache produced after the selected token's incremental forward, preserving BHSD layout and producer-layer ownership.",
+    },
+    {
+      id: "generation_eos_stop", operation: "evaluate-eos-stop", inputs: ["eos_token_id?", "selected_token[step]", "forward_state[step+1]", "step_past_key_values[step]"], output: "stop_after_step[step]", dtype: "BOOL", shape: "[]", iteration,
+      semantics: "After incremental logits and cache exist, stop iff eos_token_id is supplied and selected_token[step] == eos_token_id; otherwise continue until step+1 == max_new_tokens.",
+    },
+    {
+      id: "generation_terminal_logits", operation: "select-terminal-logits", inputs: ["forward_state[executed_steps].logits", "stop_after_step", "max_new_tokens"], output: "terminal_logits", dtype: "F32", shape: "[1,1|prefill_sequence,vocab]",
+      semantics: "Return logits from the final executed forward state; when max_new_tokens=0 this is prefill logits, otherwise it is the incremental logits produced after the last appended token, including EOS.",
+    },
+    {
+      id: "generation_terminal_cache", operation: "select-terminal-cache", inputs: ["forward_state[executed_steps].past_key_values", "stop_after_step", "max_new_tokens"], output: "terminal_past_key_values", dtype: "STRUCT", shape: "layer->{key,value}",
+      semantics: "Return the exact post-RoPE cache from the same final forward state as terminal_logits; when max_new_tokens=0 this is the prefill cache.",
+    },
+  ];
+  return {
+    kind: "gemma4-literal-greedy-generation-program",
+    forwardProgram: {
+      reference: "program",
+      expansionOrder: "composite assignments in array order; vision/audio definitions inline at invocation; prepared text layers then epilogue",
+      firstAssignment: "composite_placeholder_masks",
+      lastAssignment,
+    },
+    loop: { iterator: "step", startInclusive: 0, endExclusiveInput: "max_new_tokens", earlyStop: "after incremental forward and cache capture when selected_token[step] == eos_token_id" },
+    assignments,
+    outputs: {
+      prefillState: "forward_state[0]",
+      generatedTokenIds: "generated_token_ids",
+      selectionLogits: "selection_logits",
+      stepPastKeyValues: "step_past_key_values",
+      terminalLogits: "terminal_logits",
+      terminalPastKeyValues: "terminal_past_key_values",
+    },
+  };
+}
+
+export function validateGemma4LiteralGenerationProgram(generation: Gemma4LiteralGreedyGenerationProgram, program: Gemma4CompositeProgram): void {
+  const expected = gemma4LiteralGreedyGenerationProgram(program);
+  if (!isDeepStrictEqual(generation, expected)) {
+    throw new Error("Programa literal Gemma 4 possui atribuições ou transições de geração greedy incompletas.");
+  }
 }
 
 /**
@@ -523,6 +676,7 @@ interface PreparedStreamedDenseLiteral {
   embeddedProgram: Gemma4CompositeProgram;
   assignments: Gemma4CompositeLiteralCalculationProgram["assignments"];
   outputs: Gemma4CompositeLiteralCalculationProgram["outputs"];
+  generation: Gemma4LiteralGreedyGenerationProgram;
 }
 
 /** Builds and validates all non-payload state before opening the output file. */
@@ -553,8 +707,9 @@ function prepareStreamedDenseLiteral(program: Gemma4CompositeProgram, catalog: M
     textEpilogue: structuredClone(embeddedProgram.textProgram.epilogue),
   };
   const outputs = structuredClone(embeddedProgram.outputs);
+  const generation = gemma4LiteralGreedyGenerationProgram(embeddedProgram);
   const constantMap = new Map<string, LiteralConstant>(constants.map((constant) => [constant.name, { ...constant.metadata, payloadBase64: "" }]));
-  validateGemma4CompositeLiteralStructure(embeddedProgram, assignments, outputs, constantMap, unreachableConstants);
+  validateGemma4CompositeLiteralStructure(embeddedProgram, assignments, outputs, generation, constantMap, unreachableConstants);
   return {
     constants,
     storageDecoders: constants.map((constant) => denseStorageDecoder(constant.metadata)),
@@ -562,6 +717,7 @@ function prepareStreamedDenseLiteral(program: Gemma4CompositeProgram, catalog: M
     embeddedProgram,
     assignments,
     outputs,
+    generation,
   };
 }
 
@@ -617,6 +773,7 @@ export function validateGemma4CompositeLiteralStructure(
   program: Gemma4CompositeProgram,
   assignments: Gemma4CompositeLiteralCalculationProgram["assignments"],
   outputs: Gemma4CompositeLiteralCalculationProgram["outputs"],
+  generation: Gemma4LiteralGreedyGenerationProgram,
   constants: ReadonlyMap<string, LiteralConstant>,
   unreachableConstants: readonly Gemma4CompositeUnreachableConstant[],
 ): void {
@@ -632,6 +789,7 @@ export function validateGemma4CompositeLiteralStructure(
     assignments.vision.length !== program.visionProgram.assignments.length || assignments.audio.length !== program.audioProgram.assignments.length) {
     throw new Error("Programa literal Gemma 4 composite diverge das atribuições registradas.");
   }
+  validateGemma4LiteralGenerationProgram(generation, program);
   validateAssignmentScope(assignments.composite, new Set(requiredInputs), constants, "composite");
   validateAssignmentScope(assignments.vision, new Set(["pixel_values", "pixel_position_ids", "text_embeddings", "input_ids"]), constants, "vision");
   validateAssignmentScope(assignments.audio, new Set(["input_features", "input_features_mask", "text_embeddings", "input_ids"]), constants, "audio");

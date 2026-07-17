@@ -133,6 +133,21 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.equal(literal.storageDecoders.length, catalog.tensors.size);
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
+  assert.equal(literal.schemaVersion, 2);
+  assert.deepEqual(literal.inputs.filter((input) => input.usedBy.includes("generation")).map((input) => input.name), [
+    "input_ids", "position_ids", "pixel_values", "image_position_ids", "pixel_values_videos", "video_position_ids",
+    "input_features", "input_features_mask", "mm_token_type_ids", "max_new_tokens", "eos_token_id",
+  ]);
+  assert.deepEqual(literal.inputs.find((input) => input.name === "max_new_tokens")?.requiredFor, ["generation"]);
+  assert.deepEqual(literal.generation.assignments.map((assignment) => assignment.id), [
+    "generation_prefill", "generation_initial_position", "generation_selection_logits", "generation_argmax",
+    "generation_token_append", "generation_position_advance", "generation_incremental_inputs",
+    "generation_incremental_forward", "generation_cache_append", "generation_eos_stop",
+    "generation_terminal_logits", "generation_terminal_cache",
+  ]);
+  assert.match(literal.generation.assignments.find((assignment) => assignment.id === "generation_argmax")!.semantics, /lowest token ID/);
+  assert.match(literal.generation.assignments.find((assignment) => assignment.id === "generation_incremental_inputs")!.semantics, /Omit attention_mask, mm_token_type_ids/);
+  assert.match(literal.generation.assignments.find((assignment) => assignment.id === "generation_eos_stop")!.semantics, /After incremental logits and cache exist/);
 
   sourceTensors.clear();
   const replay = executeGemma4CompositeLiteralF32(literal, {
@@ -153,6 +168,16 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   const external = structuredClone(literal);
   external.program.textProgram.source.path = "/checkpoint/model.safetensors";
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(external), /reteve uma referência de source checkpoint/);
+  const hiddenGenerationRule = structuredClone(literal);
+  hiddenGenerationRule.generation.assignments = hiddenGenerationRule.generation.assignments.filter((assignment) => assignment.id !== "generation_cache_append");
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(hiddenGenerationRule), /transições de geração greedy incompletas/);
+  const missingGenerationInput = structuredClone(literal);
+  missingGenerationInput.inputs = missingGenerationInput.inputs.filter((input) => input.name !== "max_new_tokens");
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(missingGenerationInput), /controles de forward e geração/);
+  assert.throws(
+    () => generateGemma4CompositeLiteralF32(literal, { inputIds: [[1]], maxNewTokens: 1, pastKeyValues: expected.text.pastKeyValues }),
+    /começa em prefill sem pastKeyValues/,
+  );
 });
 
 test("Gemma 4 composite streamed writer emits an atomic self-contained JSON file without accumulating source payloads", async () => {
@@ -223,6 +248,10 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
       assert.deepEqual(await artifact.readTensorBytesRange(tensor, 5, 23), expectedBytes.subarray(5, 28));
       assert.equal("payloadBase64" in artifact.constants.get(tensor.name)!, false);
       assert.equal(artifact.payloadIntegrity?.size, catalog.tensors.size);
+      assert.equal(artifact.generation.kind, "gemma4-literal-greedy-generation-program");
+      assert.equal(artifact.generation.forwardProgram.firstAssignment, "composite_placeholder_masks");
+      assert.equal(artifact.generation.forwardProgram.lastAssignment, "lm_head");
+      assert.equal(artifact.generation.outputs.generatedTokenIds, "generated_token_ids");
     } finally {
       await artifact.close();
     }
