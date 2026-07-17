@@ -354,6 +354,11 @@ quatro candidatos continuam indistinguíveis nesse prompt; no up projection, a
 melhor agenda é 32 lanes F32 com árvore pareada, mas ainda erra um único
 elemento BF16 e por isso não é registrada. Os resultados e o comando estão em
 [`docs/validation/gemma4-e4b-linear-reduction-probe-2026-07-16.md`](docs/validation/gemma4-e4b-linear-reduction-probe-2026-07-16.md).
+Quando houver capturas de prompts distintos, `--min-distinct-inputs N` exige
+dois captures bitwise-idênticos para cada prompt/posição e só mantém perfis
+exatos em todos os grupos; identidade de fonte/runtime/IR/dtype não pode variar
+entre eles. Assim uma coincidência em uma ativação não pode virar contrato de
+kernel do artefato.
 
 ### Comparação com captura autoritativa
 

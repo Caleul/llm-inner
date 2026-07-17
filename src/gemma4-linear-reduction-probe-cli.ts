@@ -11,6 +11,7 @@ const output = resolve(required("--output"));
 const maxReadMiB = integer(optional("--max-read-mib") ?? "16", "--max-read-mib");
 const laneCounts = (optional("--lane-counts") ?? "2,4,8,16,32,64,128").split(",").map((entry) => integer(entry, "--lane-counts"));
 const laneReductionOrders = (optional("--lane-reduction-orders") ?? "ascending,descending,balanced-pairwise").split(",").map(laneReductionOrder);
+const minDistinctInputs = integer(optional("--min-distinct-inputs") ?? "1", "--min-distinct-inputs");
 if (traces.length < 2 || maxReadMiB <= 0 || laneCounts.some((count) => count < 2)) throw new Error("Opções numéricas inválidas; informe ao menos dois --trace distintos.");
 const maxReadBytes = maxReadMiB * 1024 * 1024;
 if (!Number.isSafeInteger(maxReadBytes)) throw new Error("--max-read-mib excede limite seguro.");
@@ -22,7 +23,7 @@ const profiles: Gemma4LinearReductionProfile[] = [
     laneProfile("interleaved-fma-lanes", laneCount, laneReductionOrder),
   ])),
 ];
-const report = await probeGemma4LiteralLinearReductionProfiles({ artifact, traces, operationId, profiles, maxReadBytes });
+const report = await probeGemma4LiteralLinearReductionProfiles({ artifact, traces, operationId, profiles, maxReadBytes, minDistinctInputs });
 await mkdir(dirname(output), { recursive: true });
 await writeFile(output, `${JSON.stringify(report, null, 2)}\n`, "utf8");
 console.log(`Probe de redução Gemma 4 escrito em ${output}; perfis exatos: ${report.exactProfileIds.join(", ") || "nenhum"}.`);

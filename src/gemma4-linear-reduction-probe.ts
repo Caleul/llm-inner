@@ -19,6 +19,19 @@ export interface Gemma4LinearReductionProbeProfileResult {
   firstMismatchedElement: number | null;
 }
 
+export interface Gemma4LinearReductionProbeInputGroup {
+  /**
+   * Every trace in a group is an independently captured repeat of precisely
+   * these declared model inputs.  A group is the smallest unit that can show
+   * a native capture is stable; different groups are evidence against a
+   * schedule that only happens to fit one activation vector.
+   */
+  inputTokens: number[][];
+  positionIds?: number[][];
+  traces: string[];
+  profiles: Gemma4LinearReductionProbeProfileResult[];
+}
+
 export interface Gemma4LinearReductionProbeReport {
   kind: "gemma4-linear-reduction-profile-probe";
   artifact: string;
@@ -37,6 +50,8 @@ export interface Gemma4LinearReductionProbeReport {
     inputTokens: number[][];
     dtypePolicy: string;
   };
+  /** Stable repeated captures, partitioned by declared prompt/positions. */
+  inputGroups: Gemma4LinearReductionProbeInputGroup[];
   profiles: Gemma4LinearReductionProbeProfileResult[];
   exactProfileIds: string[];
 }
@@ -53,34 +68,56 @@ export async function probeGemma4LiteralLinearReductionProfiles(options: {
   operationId: string;
   profiles: readonly Gemma4LinearReductionProfile[];
   maxReadBytes: number;
+  /** Require evidence over this many distinct declared prompt/position pairs. */
+  minDistinctInputs?: number;
 }): Promise<Gemma4LinearReductionProbeReport> {
   if (!Number.isSafeInteger(options.maxReadBytes) || options.maxReadBytes <= 0) throw new Error("Probe de redução Gemma 4 requer maxReadBytes positivo seguro.");
   const traces = validateTracePaths(options.traces);
   const profiles = validateProfiles(options.profiles);
   const decoded = await Promise.all(traces.map((trace) => readExecutionTraceBundle(trace)));
+  const minDistinctInputs = options.minDistinctInputs ?? 1;
+  if (!Number.isSafeInteger(minDistinctInputs) || minDistinctInputs < 1) throw new Error("Probe de redução Gemma 4 requer minDistinctInputs inteiro positivo.");
   const artifact = await openGemma4CompositeLiteralArtifact(options.artifact);
   try {
     const fingerprint = fingerprintIR(artifact.program.textProgram);
     for (const trace of decoded) assertCompatibleTrace(trace, fingerprint);
+    for (let index = 1; index < decoded.length; index += 1) assertSameProbeContract(decoded[0]!, decoded[index]!);
     const operation = findLinearOperation(artifact.program.textProgram, options.operationId);
     const inputOperation = findProducerOperation(artifact.program.textProgram, operation.input);
-    const input = traceTensor(decoded[0]!.reference.operations, inputOperation.id, inputOperation.output);
-    const reference = traceTensor(decoded[0]!.reference.operations, operation.id, operation.output);
-    for (let index = 1; index < decoded.length; index += 1) {
-      assertSameTraceIdentity(decoded[0]!, decoded[index]!);
-      assertSameTensor(input, traceTensor(decoded[index]!.reference.operations, inputOperation.id, inputOperation.output), `${inputOperation.id}: produtor nativo não repetível`);
-      assertSameTensor(reference, traceTensor(decoded[index]!.reference.operations, operation.id, operation.output), `${operation.id}: resultado nativo não repetível`);
-    }
     const matrix = createPagedDenseF32Matrix(tensorInfo(artifact, operation.weight.name, operation.weight.shape, operation.weight.storageDtype), artifact, options.maxReadBytes);
-    const results: Gemma4LinearReductionProbeProfileResult[] = [];
-    for (const profile of profiles) {
-      const candidate = await pagedLinearF32(input, matrix, {
-        outputDtype: operation.dtypePolicy.outputDtype === "BF16" ? "BF16" : "F32",
-        accumulationDtype: profile.accumulationDtype,
-        reduction: profile.reduction,
+    const groups = groupByDeclaredInputs(traces, decoded);
+    if (groups.length < minDistinctInputs) throw new Error(`Probe de redução Gemma 4 requer ${minDistinctInputs} entradas declaradas distintas; recebeu ${groups.length}.`);
+    // Keep one bounded matrix read active at a time.  `maxReadBytes` is an
+    // evidence/runtime limit, not a per-prompt suggestion that a campaign may
+    // multiply through Promise.all.
+    const inputGroups: Gemma4LinearReductionProbeInputGroup[] = [];
+    for (const group of groups) {
+      const first = group.captures[0]!;
+      const input = traceTensor(first.decoded.reference.operations, inputOperation.id, inputOperation.output);
+      const reference = traceTensor(first.decoded.reference.operations, operation.id, operation.output);
+      for (let index = 1; index < group.captures.length; index += 1) {
+        const repeated = group.captures[index]!.decoded;
+        assertSameTraceIdentity(first.decoded, repeated);
+        assertSameTensor(input, traceTensor(repeated.reference.operations, inputOperation.id, inputOperation.output), `${inputOperation.id}: produtor nativo não repetível`);
+        assertSameTensor(reference, traceTensor(repeated.reference.operations, operation.id, operation.output), `${operation.id}: resultado nativo não repetível`);
+      }
+      const results: Gemma4LinearReductionProbeProfileResult[] = [];
+      for (const profile of profiles) {
+        const candidate = await pagedLinearF32(input, matrix, {
+          outputDtype: operation.dtypePolicy.outputDtype === "BF16" ? "BF16" : "F32",
+          accumulationDtype: profile.accumulationDtype,
+          reduction: profile.reduction,
+        });
+        results.push(compareProfile(profile, candidate, reference));
+      }
+      inputGroups.push({
+        inputTokens: cloneInputs(first.decoded.reference.inputTokens),
+        ...(first.decoded.reference.positionIds ? { positionIds: cloneInputs(first.decoded.reference.positionIds) } : {}),
+        traces: group.captures.map((capture) => capture.trace),
+        profiles: results,
       });
-      results.push(compareProfile(profile, candidate, reference));
     }
+    const results = profiles.map((profile) => aggregateProfile(profile, inputGroups.map((group) => group.profiles.find((result) => result.id === profile.id)!)));
     return {
       kind: "gemma4-linear-reduction-profile-probe",
       artifact: artifact.artifact,
@@ -95,15 +132,53 @@ export async function probeGemma4LiteralLinearReductionProfiles(options: {
         revisionOrChecksum: decoded[0]!.reference.revisionOrChecksum,
         containerFormat: decoded[0]!.reference.containerFormat,
         quantization: decoded[0]!.reference.quantization,
-        inputTokens: decoded[0]!.reference.inputTokens.map((row) => [...row]),
+        inputTokens: cloneInputs(decoded[0]!.reference.inputTokens),
         dtypePolicy: decoded[0]!.reference.dtypePolicy,
       },
+      inputGroups,
       profiles: results,
       exactProfileIds: results.filter((result) => result.exact).map((result) => result.id),
     };
   } finally {
     await artifact.close();
   }
+}
+
+function groupByDeclaredInputs(
+  traces: readonly string[],
+  decoded: readonly Awaited<ReturnType<typeof readExecutionTraceBundle>>[],
+): Array<{ captures: Array<{ trace: string; decoded: Awaited<ReturnType<typeof readExecutionTraceBundle>> }> }> {
+  const groups = new Map<string, Array<{ trace: string; decoded: Awaited<ReturnType<typeof readExecutionTraceBundle>> }>>();
+  const captureIds = new Set<string>();
+  for (let index = 0; index < decoded.length; index += 1) {
+    const entry = decoded[index]!;
+    if (captureIds.has(entry.bundle.captureId!)) throw new Error("Probe de redução requer captureId distinto por trace.");
+    captureIds.add(entry.bundle.captureId!);
+    const key = JSON.stringify({ inputTokens: entry.reference.inputTokens, positionIds: entry.reference.positionIds ?? null });
+    const group = groups.get(key) ?? [];
+    group.push({ trace: traces[index]!, decoded: entry });
+    groups.set(key, group);
+  }
+  for (const group of groups.values()) if (group.length < 2) throw new Error("Probe de redução requer ao menos dois traces nativos independentes por entrada declarada.");
+  return [...groups.values()].map((captures) => ({ captures }));
+}
+
+function cloneInputs(inputs: readonly number[][]): number[][] {
+  return inputs.map((row) => [...row]);
+}
+
+function aggregateProfile(profile: Gemma4LinearReductionProfile, results: readonly Gemma4LinearReductionProbeProfileResult[]): Gemma4LinearReductionProbeProfileResult {
+  if (results.length === 0) throw new Error(`${profile.id}: probe sem resultados por entrada.`);
+  const firstMismatch = results.find((result) => result.firstMismatchedElement !== null)?.firstMismatchedElement ?? null;
+  return {
+    id: profile.id,
+    accumulationDtype: profile.accumulationDtype,
+    reduction: structuredClone(profile.reduction),
+    exact: results.every((result) => result.exact),
+    mismatchedElements: results.reduce((total, result) => total + result.mismatchedElements, 0),
+    maxAbsoluteError: Math.max(...results.map((result) => result.maxAbsoluteError)),
+    firstMismatchedElement: firstMismatch,
+  };
 }
 
 function validateTracePaths(traces: readonly string[]): string[] {
@@ -142,6 +217,31 @@ function assertSameTraceIdentity(
     },
   });
   if (identity(left) !== identity(right)) throw new Error("Probe de redução recebeu traces com identidade de referência diferente.");
+}
+
+/**
+ * A multi-input campaign may vary only declared tokens/positions and capture
+ * UUIDs.  Source identity, runtime, artifact semantics and dtype contract
+ * must remain fixed so a profile cannot combine unrelated native behaviours.
+ */
+function assertSameProbeContract(
+  left: Awaited<ReturnType<typeof readExecutionTraceBundle>>,
+  right: Awaited<ReturnType<typeof readExecutionTraceBundle>>,
+): void {
+  const contract = (trace: Awaited<ReturnType<typeof readExecutionTraceBundle>>) => JSON.stringify({
+    source: trace.bundle.source,
+    irFingerprint: trace.bundle.irFingerprint,
+    candidatePolicy: trace.bundle.candidatePolicy,
+    reference: {
+      runtime: trace.reference.runtime,
+      model: trace.reference.model,
+      revisionOrChecksum: trace.reference.revisionOrChecksum,
+      containerFormat: trace.reference.containerFormat,
+      quantization: trace.reference.quantization,
+      dtypePolicy: trace.reference.dtypePolicy,
+    },
+  });
+  if (contract(left) !== contract(right)) throw new Error("Probe de redução recebeu traces com contrato de referência diferente.");
 }
 
 function validateProfiles(profiles: readonly Gemma4LinearReductionProfile[]): Gemma4LinearReductionProfile[] {

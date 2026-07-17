@@ -455,6 +455,26 @@ test("Gemma 4 linear reduction probe binds a candidate schedule to traced produc
     assert.equal(report.traceCount, 2);
     assert.deepEqual(report.exactProfileIds, ["ordered-f32"]);
     assert.equal(report.profiles[0]!.mismatchedElements, 0);
+    const secondInput = structuredClone(tracePayload);
+    secondInput.captureId = "fixture-capture-c";
+    secondInput.reference.inputTokens = [[2]];
+    const secondInputRepeat = structuredClone(secondInput);
+    secondInputRepeat.captureId = "fixture-capture-d";
+    const secondTrace = path.join(root, "trace-input-2.json"), secondTraceRepeat = path.join(root, "trace-input-2-repeat.json");
+    await writeFile(secondTrace, JSON.stringify(secondInput), "utf8");
+    await writeFile(secondTraceRepeat, JSON.stringify(secondInputRepeat), "utf8");
+    const campaign = await probeGemma4LiteralLinearReductionProfiles({
+      artifact, traces: [trace, repeatedTrace, secondTrace, secondTraceRepeat], operationId: target.id, maxReadBytes: 1024 * 1024, minDistinctInputs: 2,
+      profiles: [{ id: "ordered-f32", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } }],
+    });
+    assert.equal(campaign.inputGroups.length, 2);
+    assert.deepEqual(campaign.inputGroups.map((group) => group.traces.length), [2, 2]);
+    assert.deepEqual(campaign.exactProfileIds, ["ordered-f32"]);
+    await assert.rejects(
+      () => probeGemma4LiteralLinearReductionProfiles({ artifact, traces: [trace, repeatedTrace], operationId: target.id, maxReadBytes: 1024 * 1024, minDistinctInputs: 2,
+        profiles: [{ id: "ordered-f32", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } }], }),
+      /2 entradas declaradas distintas/,
+    );
     const divergent = structuredClone(repeatedPayload);
     const targetTrace = divergent.reference.operations.find((entry) => entry.operationId === target.id)!;
     const divergentValues = Float32Array.from(native.values.get(target.output)!.values);

@@ -34,6 +34,15 @@ and compares every output coordinate bitwise after the operation's declared
 BF16 result cast. It reports no source checkpoint access and never mutates the
 artifact or adapter.
 
+The probe can additionally be run as a multi-input campaign with
+`--min-distinct-inputs N`. It partitions traces by their declared
+`inputTokens`/`positionIds`, requires at least two bitwise-identical independent
+captures inside every input group, and requires each candidate profile to be
+exact across every group. The source checksums, runtime identity, IR
+fingerprint, container, quantization and dtype policy must remain identical
+across the whole campaign. A prompt-specific match therefore cannot be
+promoted into a general native-kernel policy.
+
 ## Result
 
 For `layer_0_gate_proj`, the previously declared
