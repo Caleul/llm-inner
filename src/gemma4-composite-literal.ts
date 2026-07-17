@@ -356,6 +356,7 @@ export function gemma4CompositeLiteralNumericPolicy(program: Gemma4CompositeProg
     (operation.dtypePolicy.reduction !== undefined && operation.dtypePolicy.reduction.kind !== "ordered-scalar"));
   const hasFmaBoundary = textOperations.some((operation) => operation.dtypePolicy.reduction?.kind === "ordered-fma" ||
     operation.dtypePolicy.reduction?.kind === "interleaved-fma-lanes" || operation.dtypePolicy.reduction?.kind === "tiled-fma-lanes" ||
+    operation.dtypePolicy.reduction?.kind === "arm-neon-bf16-dot-fma" ||
     (operation.dtypePolicy.reduction?.kind === "blocked-tiled-f32-lanes" && operation.dtypePolicy.reduction.productBoundary === "fused-fma") ||
     (operation.dtypePolicy.reduction?.kind === "blocked-f32-terms" && operation.dtypePolicy.reduction.productBoundary === "fused-fma"));
   if (hasDeclaredReduction) {
@@ -412,7 +413,7 @@ function legacyNumericPolicyMatchesProgram(
       (reduction?.kind === "blocked-f32-terms" && reduction.productBoundary === "separately-rounded-f32"));
   }
   if (policy.scalarSemantics === "IEEE-754 binary32; each operation declares ordered-scalar, contiguous blocked-term, separately-rounded F32-lane, or fused-multiply-add reduction and its F32 or BF16 result cast") {
-    return reductions.every((reduction) => reduction?.kind !== "blocked-tiled-f32-lanes");
+    return reductions.every((reduction) => reduction?.kind !== "blocked-tiled-f32-lanes" && reduction?.kind !== "arm-neon-bf16-dot-fma");
   }
   return false;
 }
@@ -447,6 +448,16 @@ function validateGemma4TextReductionSchedules(program: Gemma4CompositeProgram): 
         (reduction.laneReductionOrder !== "ascending" && reduction.laneReductionOrder !== "descending" && reduction.laneReductionOrder !== "balanced-pairwise") ||
         (reduction.productBoundary !== "separately-rounded-f32" && reduction.productBoundary !== "fused-fma")) {
         throw new Error(`${operation.id}: agenda de blocos tiled Gemma 4 inválida.`);
+      }
+      continue;
+    }
+    if (reduction.kind === "arm-neon-bf16-dot-fma") {
+      if (operation.op !== "linear" || operation.dtypePolicy.accumulationDtype !== "F32" ||
+        (reduction.laneCount !== 32 && reduction.laneCount !== 64) || reduction.registerCount !== 8 ||
+        (reduction.lanesPerRegister !== 4 && reduction.lanesPerRegister !== 8) || reduction.laneCount !== reduction.registerCount * reduction.lanesPerRegister ||
+        reduction.inputLane !== "index-modulo-vector-lane-count" ||
+        (reduction.horizontalFold !== "ascending" && reduction.horizontalFold !== "pairwise")) {
+        throw new Error(`${operation.id}: agenda ARM NEON BF16 dot Gemma 4 inválida.`);
       }
       continue;
     }

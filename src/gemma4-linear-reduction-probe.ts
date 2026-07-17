@@ -423,6 +423,14 @@ function validateProfiles(profiles: readonly Gemma4LinearReductionProfile[]): Ge
       }
       return { id: profile.id, accumulationDtype: profile.accumulationDtype, reduction: structuredClone(reduction) };
     }
+    if (reduction.kind === "arm-neon-bf16-dot-fma") {
+      if (profile.accumulationDtype !== "F32" || (reduction.laneCount !== 32 && reduction.laneCount !== 64) || reduction.registerCount !== 8 ||
+        (reduction.lanesPerRegister !== 4 && reduction.lanesPerRegister !== 8) || reduction.laneCount !== reduction.registerCount * reduction.lanesPerRegister ||
+        reduction.inputLane !== "index-modulo-vector-lane-count" || (reduction.horizontalFold !== "ascending" && reduction.horizontalFold !== "pairwise")) {
+        throw new Error(`${profile.id}: perfil ARM NEON BF16 dot inválido.`);
+      }
+      return { id: profile.id, accumulationDtype: profile.accumulationDtype, reduction: structuredClone(reduction) };
+    }
     if (profile.accumulationDtype !== "F32" || !Number.isSafeInteger(reduction.laneCount) || reduction.laneCount < 2 ||
       (reduction.laneReductionOrder !== "ascending" && reduction.laneReductionOrder !== "descending" && reduction.laneReductionOrder !== "balanced-pairwise")) {
       throw new Error(`${profile.id}: perfil de lanes F32 inválido.`);

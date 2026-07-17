@@ -515,6 +515,26 @@ test("paged linear preserves the declared horizontal lane fold instead of assumi
   assert.deepEqual(balanced.values, Float32Array.from([0]));
 });
 
+test("paged linear replays the ARM BF16 dot register tree rather than a generic 32-lane fold", async () => {
+  const tensor: TensorInfo = { name: "embedded://arm-neon-bf16-dot", storageDtype: "F32", storageShape: [1, 32], logicalShape: [1, 32] };
+  const storage = Buffer.alloc(32 * 4);
+  const values = new Float32Array(32);
+  values[0] = 1e20; values[16] = -1e20; values[8] = 1; values[24] = 1;
+  values.forEach((value, index) => storage.writeFloatLE(value, index * 4));
+  const matrix = createPagedDenseF32Matrix(tensor, { async readTensorBytesRange(_tensor, offset, byteLength) { return storage.subarray(offset, offset + byteLength); } }, storage.length);
+  const input = { shape: [1, 32], values: Float32Array.from({ length: 32 }, () => 1) };
+  const armTree = await pagedLinearF32(input, matrix, {
+    accumulationDtype: "F32",
+    reduction: { kind: "arm-neon-bf16-dot-fma", laneCount: 32, registerCount: 8, lanesPerRegister: 4, inputLane: "index-modulo-vector-lane-count", horizontalFold: "pairwise" },
+  });
+  const generic = await pagedLinearF32(input, matrix, {
+    accumulationDtype: "F32",
+    reduction: { kind: "interleaved-fma-lanes", laneCount: 32, inputLane: "index-modulo-lane-count", laneReductionOrder: "balanced-pairwise" },
+  });
+  assert.deepEqual(armTree.values, Float32Array.from([2]));
+  assert.deepEqual(generic.values, Float32Array.from([0]));
+});
+
 test("paged linear distinguishes a tiled adjacent-product lane schedule from index-modulo lanes", async () => {
   const tensor: TensorInfo = { name: "embedded://tiled-lanes", storageDtype: "F32", storageShape: [1, 4], logicalShape: [1, 4] };
   const storage = Buffer.alloc(16);

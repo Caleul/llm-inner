@@ -145,6 +145,23 @@ export type ReductionSchedule =
     laneReductionOrder: "ascending" | "descending" | "balanced-pairwise";
     productBoundary: "separately-rounded-f32" | "fused-fma";
     blockOrder: "ascending";
+  }
+  /**
+   * The explicit scalar form of PyTorch's ARM reduced-precision BF16 GEMV
+   * dot path. Eight vector registers hold four or eight F32 lanes each;
+   * every input coordinate updates lane `i mod laneCount` with one F32 FMA.
+   * The register tree
+   * first combines registers 0+4, 1+5, 2+6, 3+7, then 0+2 and 1+3, before
+   * the declared register-width horizontal fold. This is a calculation schedule,
+   * not a request to invoke an ARM kernel during literal replay.
+   */
+  | {
+    kind: "arm-neon-bf16-dot-fma";
+    laneCount: 32 | 64;
+    registerCount: 8;
+    lanesPerRegister: 4 | 8;
+    inputLane: "index-modulo-vector-lane-count";
+    horizontalFold: "ascending" | "pairwise";
   };
 
 export interface DtypePolicy {

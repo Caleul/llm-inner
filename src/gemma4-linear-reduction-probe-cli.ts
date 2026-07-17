@@ -26,6 +26,10 @@ const profiles: Gemma4LinearReductionProfile[] = [
   { id: "ordered-f32", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } },
   { id: "ordered-fma", accumulationDtype: "F32", reduction: { kind: "ordered-fma", indexOrder: "ascending" } },
   { id: "ordered-f64", accumulationDtype: "F64", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } },
+  armNeonBf16DotProfile(32, 4, "ascending"),
+  armNeonBf16DotProfile(32, 4, "pairwise"),
+  armNeonBf16DotProfile(64, 8, "ascending"),
+  armNeonBf16DotProfile(64, 8, "pairwise"),
   ...[...new Set(blockedTermsPerBlock)].flatMap((termsPerBlock) => [
     blockedProfile(termsPerBlock, "ascending", "separately-rounded-f32"),
     blockedProfile(termsPerBlock, "ascending", "fused-fma"),
@@ -93,6 +97,17 @@ function laneProfile(
   laneReductionOrder: Extract<ReductionSchedule, { kind: "interleaved-f32-lanes" }>['laneReductionOrder'],
 ): Gemma4LinearReductionProfile {
   return { id: `${kind}-${laneCount}-${laneReductionOrder}`, accumulationDtype: "F32", reduction: { kind, laneCount, inputLane: "index-modulo-lane-count", laneReductionOrder } };
+}
+
+function armNeonBf16DotProfile(laneCount: 32 | 64, lanesPerRegister: 4 | 8, horizontalFold: "ascending" | "pairwise"): Gemma4LinearReductionProfile {
+  return {
+    id: `arm-neon-bf16-dot-fma-${laneCount}-${horizontalFold}`,
+    accumulationDtype: "F32",
+    reduction: {
+      kind: "arm-neon-bf16-dot-fma", laneCount, registerCount: 8, lanesPerRegister,
+      inputLane: "index-modulo-vector-lane-count", horizontalFold,
+    },
+  };
 }
 
 function tiledLaneProfile(

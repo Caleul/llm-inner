@@ -132,6 +132,8 @@ export async function pagedLinearF32(
           ? linearF32ProductsBlockedTerms(input, stored.values, row, output, inFeatures, options.reduction)
           : options.reduction?.kind === "blocked-tiled-f32-lanes"
             ? linearF32ProductsBlockedTiledLanes(input, stored.values, row, output, inFeatures, options.reduction)
+            : options.reduction?.kind === "arm-neon-bf16-dot-fma"
+              ? linearF32ProductsArmNeonBf16DotFma(input, stored.values, row, output, inFeatures, options.reduction)
           : options.reduction?.kind === "interleaved-f32-lanes" || options.reduction?.kind === "interleaved-fma-lanes" ||
         options.reduction?.kind === "tiled-f32-lanes" || options.reduction?.kind === "tiled-fma-lanes"
             ? linearF32ProductsInterleavedF32Lanes(input, stored.values, row, output, inFeatures, options.reduction)
@@ -246,6 +248,43 @@ function linearF32ProductsF64Accumulation(input: DenseF32Tensor, weight: Float32
     sum += Math.fround(input.values[row * inFeatures + column]! * weight[output * inFeatures + column]!);
   }
   return sum;
+}
+
+/**
+ * Replays the finite scalar schedule used by the ARM BF16 GEMV source path:
+ * eight F32 vector registers of the declared width, FMA accumulation by
+ * coordinate modulo the declared lane count, followed by its non-adjacent
+ * register tree. `horizontalFold`
+ * remains explicit because the final vector horizontal reduction is a
+ * separate observable rounding boundary.
+ */
+function linearF32ProductsArmNeonBf16DotFma(
+  input: DenseF32Tensor,
+  weight: Float32Array,
+  row: number,
+  output: number,
+  inFeatures: number,
+  reduction: Extract<ReductionSchedule, { kind: "arm-neon-bf16-dot-fma" }>,
+): number {
+  if ((reduction.laneCount !== 32 && reduction.laneCount !== 64) || reduction.registerCount !== 8 ||
+    (reduction.lanesPerRegister !== 4 && reduction.lanesPerRegister !== 8) || reduction.laneCount !== reduction.registerCount * reduction.lanesPerRegister ||
+    reduction.inputLane !== "index-modulo-vector-lane-count" ||
+    (reduction.horizontalFold !== "ascending" && reduction.horizontalFold !== "pairwise")) {
+    throw new Error("Linear paginado recebeu agenda ARM NEON BF16 dot inválida.");
+  }
+  const lanes = new Float32Array(reduction.laneCount);
+  for (let column = 0; column < inFeatures; column += 1) {
+    const lane = column % reduction.laneCount;
+    lanes[lane] = Math.fround(lanes[lane]! + input.values[row * inFeatures + column]! * weight[output * inFeatures + column]!);
+  }
+  // VectorizedN<float, 8>: x[0..3] += x[4..7], then x[0..1] += x[2..3].
+  const registers = new Float32Array(reduction.laneCount / 2);
+  const registerWidth = reduction.lanesPerRegister;
+  for (let lane = 0; lane < registers.length; lane += 1) registers[lane] = Math.fround(lanes[lane]! + lanes[lane + registers.length]!);
+  for (let lane = 0; lane < registers.length / 2; lane += 1) registers[lane] = Math.fround(registers[lane]! + registers[lane + registers.length / 2]!);
+  return reduction.horizontalFold === "ascending"
+    ? foldF32Lanes(registers.subarray(0, registerWidth), "ascending")
+    : foldF32Lanes(registers.subarray(0, registerWidth), "balanced-pairwise");
 }
 
 /** Declared F32 lane reductions are explicit runtime profiles, never shape heuristics. */

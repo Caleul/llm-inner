@@ -468,6 +468,16 @@ seu parcial entra no acumulador F32 dos tiles. A campanha source-removed de 81
 perfis E4B também não encontrou agenda exata; nenhuma aproximação foi instalada
 no adaptador. A evidência e o comando reprodutível estão em
 [`docs/validation/gemma4-e4b-blocked-tiled-linear-reduction-2026-07-17.md`](docs/validation/gemma4-e4b-blocked-tiled-linear-reduction-2026-07-17.md).
+O vocabulário literal também contém a árvore finita de registradores do
+dot-product BF16 ARM de PyTorch: oito registradores F32, FMA por lane, árvore
+`0+4`/`0+2` e fold horizontal declarado. Ele suporta as larguras 32 e 64 da
+abstração vetorial sem chamar um kernel durante o replay. Duas capturas E4B
+novas e uma campanha source-removed de 231 perfis rejeitaram as quatro variantes
+ARM (10.218 ou 10.229 coordenadas divergentes), portanto nenhuma é instalada
+como semântica Gemma 4; a melhor aproximação continua 32 lanes balanceadas com
+um erro BF16. A evidência e a distinção entre fonte possível e dispatch provado
+estão em
+[`docs/validation/gemma4-e4b-arm-vector-reduction-2026-07-17.md`](docs/validation/gemma4-e4b-arm-vector-reduction-2026-07-17.md).
 
 ### Comparação com captura autoritativa
 

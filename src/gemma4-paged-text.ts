@@ -250,7 +250,11 @@ function assertPagedF32Policy(operation: Operation): void {
     reduction.inputBlock === "tile-contiguous-terms" && reduction.blockOrder === "ascending" &&
     (reduction.laneReductionOrder === "ascending" || reduction.laneReductionOrder === "descending" || reduction.laneReductionOrder === "balanced-pairwise") &&
     (reduction.productBoundary === "separately-rounded-f32" || reduction.productBoundary === "fused-fma");
-  if (!f32 && !bf16 && !bf16F64Reduction && !laneProfile && !orderedFma && !blockedTerms && !blockedTiled) {
+  const armNeonBf16Dot = operation.op === "linear" && policy.inputDtype === "BF16" && policy.computeDtype === "F32" && policy.accumulationDtype === "F32" && policy.outputDtype === "BF16" &&
+    reduction?.kind === "arm-neon-bf16-dot-fma" && (reduction.laneCount === 32 || reduction.laneCount === 64) && reduction.registerCount === 8 &&
+    (reduction.lanesPerRegister === 4 || reduction.lanesPerRegister === 8) && reduction.laneCount === reduction.registerCount * reduction.lanesPerRegister &&
+    reduction.inputLane === "index-modulo-vector-lane-count" && (reduction.horizontalFold === "ascending" || reduction.horizontalFold === "pairwise");
+  if (!f32 && !bf16 && !bf16F64Reduction && !laneProfile && !orderedFma && !blockedTerms && !blockedTiled && !armNeonBf16Dot) {
     throw new Error(`${operation.id}: executor Gemma 4 paginado requer política F32, BF16 explícita, ou redução linear/RMSNorm BF16 F64 declarada.`);
   }
 }
