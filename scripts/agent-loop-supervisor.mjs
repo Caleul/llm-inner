@@ -7,10 +7,14 @@
  * the supervisor cleanly.
  */
 import { access, readFile } from "node:fs/promises";
-import { isAbsolute, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
-const root = resolve(import.meta.dirname, "..");
+// launchd may start with a transient/unavailable cwd. Never derive the
+// repository root from process.cwd(); use the explicit LaunchAgent value or
+// the module's file URL instead.
+const root = process.env.LLM_INNER_ROOT ?? resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const restartDelayMs = 5_000;
 const command = process.argv[2] ?? "run";
 

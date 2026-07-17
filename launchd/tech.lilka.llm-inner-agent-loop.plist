@@ -22,6 +22,8 @@
   <integer>10</integer>
   <key>EnvironmentVariables</key>
   <dict>
+    <key>LLM_INNER_ROOT</key>
+    <string>__LLM_INNER_ROOT__</string>
     <key>PATH</key>
     <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
   </dict>
