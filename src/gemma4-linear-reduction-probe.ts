@@ -32,6 +32,30 @@ export interface Gemma4LinearReductionProbeInputGroup {
   profiles: Gemma4LinearReductionProbeProfileResult[];
 }
 
+export interface Gemma4LinearReductionOutputFeatureProfileSpan {
+  /** Inclusive output-feature index. */
+  start: number;
+  /** Exclusive output-feature index. */
+  endExclusive: number;
+  /**
+   * Candidate profiles that matched every observed row for every distinct
+   * declared input in this campaign. This is evidence only: it is not an
+   * adapter policy and cannot authorize a coordinate-specific runtime rule.
+   */
+  profileIds: string[];
+}
+
+export interface Gemma4LinearReductionOutputFeatureCoverage {
+  /** Number of distinct token/position input groups covered by this result. */
+  inputGroupCount: number;
+  /** The final dimension of the traced linear result. */
+  outputFeatures: number;
+  /** Run-length encoded common exact-profile sets, ordered by output feature. */
+  spans: Gemma4LinearReductionOutputFeatureProfileSpan[];
+  /** Features for which no one candidate profile matched every captured row/input. */
+  uncoveredOutputFeatures: number[];
+}
+
 export interface Gemma4LinearReductionProbeReport {
   kind: "gemma4-linear-reduction-profile-probe";
   artifact: string;
@@ -54,6 +78,12 @@ export interface Gemma4LinearReductionProbeReport {
   inputGroups: Gemma4LinearReductionProbeInputGroup[];
   profiles: Gemma4LinearReductionProbeProfileResult[];
   exactProfileIds: string[];
+  /**
+   * Cross-input, per-output-feature evidence. This exposes a possible
+   * kernel-output-tile boundary without pretending that a fitted feature map
+   * is established model semantics.
+   */
+  outputFeatureCoverage: Gemma4LinearReductionOutputFeatureCoverage;
 }
 
 /**
@@ -87,6 +117,7 @@ export async function probeGemma4LiteralLinearReductionProfiles(options: {
     const matrix = createPagedDenseF32Matrix(tensorInfo(artifact, operation.weight.name, operation.weight.shape, operation.weight.storageDtype), artifact, options.maxReadBytes);
     const groups = groupByDeclaredInputs(traces, decoded);
     if (groups.length < minDistinctInputs) throw new Error(`Probe de redução Gemma 4 requer ${minDistinctInputs} entradas declaradas distintas; recebeu ${groups.length}.`);
+    const outputFeatureCoverage = createOutputFeatureCoverage(profiles);
     // Keep one bounded matrix read active at a time.  `maxReadBytes` is an
     // evidence/runtime limit, not a per-prompt suggestion that a campaign may
     // multiply through Promise.all.
@@ -108,7 +139,7 @@ export async function probeGemma4LiteralLinearReductionProfiles(options: {
           accumulationDtype: profile.accumulationDtype,
           reduction: profile.reduction,
         });
-        results.push(compareProfile(profile, candidate, reference));
+        results.push(compareProfile(profile, candidate, reference, outputFeatureCoverage));
       }
       inputGroups.push({
         inputTokens: cloneInputs(first.decoded.reference.inputTokens),
@@ -138,6 +169,7 @@ export async function probeGemma4LiteralLinearReductionProfiles(options: {
       inputGroups,
       profiles: results,
       exactProfileIds: results.filter((result) => result.exact).map((result) => result.id),
+      outputFeatureCoverage: finalizeOutputFeatureCoverage(outputFeatureCoverage, groups.length),
     };
   } finally {
     await artifact.close();
@@ -332,14 +364,66 @@ function operations(program: ModelIR): Operation[] {
   return [...program.prelude, ...program.layers.flatMap((layer) => layer.operations), ...program.epilogue];
 }
 
-function compareProfile(profile: Gemma4LinearReductionProfile, candidate: DenseF32Tensor, reference: DenseF32Tensor): Gemma4LinearReductionProbeProfileResult {
+interface MutableOutputFeatureCoverage {
+  readonly profileMatches: Map<string, boolean[]>;
+  outputFeatures: number | null;
+}
+
+function createOutputFeatureCoverage(profiles: readonly Gemma4LinearReductionProfile[]): MutableOutputFeatureCoverage {
+  return { profileMatches: new Map(profiles.map((profile) => [profile.id, []])), outputFeatures: null };
+}
+
+function finalizeOutputFeatureCoverage(coverage: MutableOutputFeatureCoverage, inputGroupCount: number): Gemma4LinearReductionOutputFeatureCoverage {
+  const outputFeatures = coverage.outputFeatures;
+  if (outputFeatures === null) throw new Error("Probe de redução Gemma 4 não produziu cobertura de output.");
+  const profileIdsByFeature = Array.from({ length: outputFeatures }, (_unused, outputFeature) =>
+    [...coverage.profileMatches].filter(([, matches]) => matches[outputFeature]).map(([id]) => id),
+  );
+  const spans: Gemma4LinearReductionOutputFeatureProfileSpan[] = [];
+  for (let start = 0; start < outputFeatures;) {
+    const profileIds = profileIdsByFeature[start]!;
+    let endExclusive = start + 1;
+    while (endExclusive < outputFeatures && sameIds(profileIds, profileIdsByFeature[endExclusive]!)) endExclusive += 1;
+    spans.push({ start, endExclusive, profileIds });
+    start = endExclusive;
+  }
+  return {
+    inputGroupCount,
+    outputFeatures,
+    spans,
+    uncoveredOutputFeatures: profileIdsByFeature.flatMap((profileIds, outputFeature) => profileIds.length === 0 ? [outputFeature] : []),
+  };
+}
+
+function sameIds(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((id, index) => id === right[index]);
+}
+
+function compareProfile(
+  profile: Gemma4LinearReductionProfile,
+  candidate: DenseF32Tensor,
+  reference: DenseF32Tensor,
+  coverage: MutableOutputFeatureCoverage,
+): Gemma4LinearReductionProbeProfileResult {
   if (candidate.shape.length !== reference.shape.length || candidate.shape.some((dimension, index) => dimension !== reference.shape[index]) || candidate.values.length !== reference.values.length) {
     throw new Error(`${profile.id}: perfil produziu shape incompatível com o checkpoint nativo.`);
   }
+  if (candidate.shape.length === 0) throw new Error(`${profile.id}: perfil produziu tensor escalar sem dimensão de output.`);
+  const outputFeatures = candidate.shape[candidate.shape.length - 1]!;
+  if (!Number.isSafeInteger(outputFeatures) || outputFeatures <= 0) throw new Error(`${profile.id}: perfil produziu dimensão de output inválida.`);
+  if (coverage.outputFeatures === null) {
+    coverage.outputFeatures = outputFeatures;
+    for (const matches of coverage.profileMatches.values()) matches.push(...Array.from({ length: outputFeatures }, () => true));
+  } else if (coverage.outputFeatures !== outputFeatures) {
+    throw new Error(`${profile.id}: perfil produziu dimensão de output incompatível entre entradas.`);
+  }
+  const featureMatches = coverage.profileMatches.get(profile.id);
+  if (!featureMatches) throw new Error(`${profile.id}: perfil não possui cobertura de output registrada.`);
   let mismatchedElements = 0, maxAbsoluteError = 0, firstMismatchedElement: number | null = null;
   for (let index = 0; index < candidate.values.length; index += 1) {
     const actual = candidate.values[index]!, expected = reference.values[index]!;
     if (Object.is(actual, expected)) continue;
+    featureMatches[index % outputFeatures] = false;
     mismatchedElements += 1;
     firstMismatchedElement ??= index;
     const error = Math.abs(actual - expected);

@@ -628,6 +628,36 @@ test("Gemma 4 linear reduction probe binds a candidate schedule to traced produc
     assert.equal(campaign.inputGroups.length, 2);
     assert.deepEqual(campaign.inputGroups.map((group) => group.traces.length), [2, 2]);
     assert.deepEqual(campaign.exactProfileIds, ["ordered-f32"]);
+    const fixtureOutputFeatures = native.values.get(target.output)!.shape.at(-1)!;
+    assert.deepEqual(campaign.outputFeatureCoverage, {
+      inputGroupCount: 2,
+      outputFeatures: fixtureOutputFeatures,
+      spans: [{ start: 0, endExclusive: fixtureOutputFeatures, profileIds: ["ordered-f32"] }],
+      uncoveredOutputFeatures: [],
+    });
+    const incompatibleFeatureInput = structuredClone(secondInput);
+    const incompatibleFeatureTensor = incompatibleFeatureInput.reference.operations.find((entry) => entry.operationId === target.id)!.tensor;
+    const incompatibleFeatureValues = Float32Array.from(native.values.get(target.output)!.values);
+    incompatibleFeatureValues[0] = Math.fround(incompatibleFeatureValues[0]! + 1);
+    incompatibleFeatureTensor.valuesBase64 = serialize({ shape: [...native.values.get(target.output)!.shape], values: incompatibleFeatureValues }).valuesBase64;
+    const incompatibleFeatureRepeat = structuredClone(incompatibleFeatureInput);
+    incompatibleFeatureRepeat.captureId = "fixture-capture-e";
+    const incompatibleFeatureTrace = path.join(root, "trace-input-2-output-mismatch.json"), incompatibleFeatureRepeatTrace = path.join(root, "trace-input-2-output-mismatch-repeat.json");
+    await writeFile(incompatibleFeatureTrace, JSON.stringify(incompatibleFeatureInput), "utf8");
+    await writeFile(incompatibleFeatureRepeatTrace, JSON.stringify(incompatibleFeatureRepeat), "utf8");
+    const featureCoverage = await probeGemma4LiteralLinearReductionProfiles({
+      artifact, traces: [trace, repeatedTrace, incompatibleFeatureTrace, incompatibleFeatureRepeatTrace], operationId: target.id, maxReadBytes: 1024 * 1024, minDistinctInputs: 2,
+      profiles: [{ id: "ordered-f32", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } }],
+    });
+    assert.deepEqual(featureCoverage.outputFeatureCoverage, {
+      inputGroupCount: 2,
+      outputFeatures: fixtureOutputFeatures,
+      spans: [
+        { start: 0, endExclusive: 1, profileIds: [] },
+        { start: 1, endExclusive: fixtureOutputFeatures, profileIds: ["ordered-f32"] },
+      ],
+      uncoveredOutputFeatures: [0],
+    });
     await assert.rejects(
       () => probeGemma4LiteralLinearReductionProfiles({ artifact, traces: [trace, repeatedTrace], operationId: target.id, maxReadBytes: 1024 * 1024,
         profiles: [{ id: "invalid-tiled", accumulationDtype: "F32", reduction: { kind: "tiled-f32-lanes", laneCount: 2, termsPerLane: 1, inputLane: "tile-contiguous-terms", laneReductionOrder: "ascending" } }], }),

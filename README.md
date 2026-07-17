@@ -192,6 +192,17 @@ O contrato e o exemplo completo de duas camadas estão em
 e
 [`docs/examples/literal-scalar-substitution.example.json`](docs/examples/literal-scalar-substitution.example.json).
 
+#### Evidência de redução linear por feature de saída
+
+`probe:gemma4-linear-reduction` mede hipóteses de acumulação contra hooks
+passivos da runtime nativa. Além do resultado global por perfil, uma campanha
+com entradas declaradas distintas grava `outputFeatureCoverage`: spans
+compactos dos perfis que coincidiram em **todas** as linhas de cada feature de
+saída e em todos os prompts capturados. Isso localiza possíveis fronteiras de
+microkernel/tile de saída sem ocultá-las como uma política global. A cobertura
+é somente evidência diagnóstica: nunca altera o adaptador nem autoriza uma
+regra de redução por coordenada sem um contrato de runtime estabelecido.
+
 ```bash
 node dist/src/cli.js --source ./modelo --output ./modelo.literal.json --literal
 ```
