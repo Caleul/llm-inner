@@ -445,6 +445,12 @@ camadas necessárias. O sucessor revisa as evidências independentemente e
 escolhe seu próprio trabalho; não recebe uma sequência de microtarefas do
 commit anterior.
 
+`agent-loop.config.json` contém `missionGoal`. O runner injeta essa meta como
+uma seção obrigatória no prompt de **cada** ciclo, antes do contexto operacional;
+ela não é uma sugestão de backlog. O agente atual deve avançá-la ao máximo com
+as evidências disponíveis, e o sucessor deve revisar independentemente o que
+foi provado antes de escolher e executar o próximo avanço.
+
 Cada agente também atua como responsável técnico temporário do repositório:
 deve usar princípios de Clean Code e SOLID pragmaticamente, preservar fronteiras
 claras entre contêiner, quantização, arquitetura, execução e validação, reduzir

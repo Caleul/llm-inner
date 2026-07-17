@@ -10,6 +10,7 @@
     "maxLoopDurationMinutes",
     "cooldownSeconds",
     "agent",
+    "missionGoal",
     "handoffDirectory",
     "processingDirectory",
     "rejectedDirectory",
@@ -41,6 +42,7 @@
       },
       "additionalProperties": false
     },
+    "missionGoal": { "type": "string", "minLength": 1 },
     "handoffDirectory": { "type": "string", "minLength": 1 },
     "processingDirectory": { "type": "string", "minLength": 1 },
     "rejectedDirectory": { "type": "string", "minLength": 1 },

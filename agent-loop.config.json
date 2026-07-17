@@ -10,6 +10,7 @@
     "model": "gpt-5.6-terra",
     "reasoningEffort": "high"
   },
+  "missionGoal": "Drive the decompiler to the actual final objective: a lossless, self-contained Safetensors-to-literal-calculation JSON that exposes the model's complete mathematical execution, embeds exact learned values and replays forward and generation without its checkpoint. In this loop, pursue that objective as far as live evidence safely allows: implement every coherent improvement you can validate now, never defer ordinary work to a future loop, and leave only independently evidenced blockers. At the beginning of the next loop, independently review the predecessor's evidence and then choose and execute the strongest remaining improvement.",
   "handoffDirectory": ".agent-loop/handoffs/completed",
   "processingDirectory": ".agent-loop/handoffs/processing",
   "rejectedDirectory": ".agent-loop/handoffs/rejected",
