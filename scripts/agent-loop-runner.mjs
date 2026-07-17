@@ -152,7 +152,11 @@ async function recordInterruptedRun(config, state, reason) {
   const recovered = {
     ...state,
     status: "interrupted",
-    consecutiveFailures: state.consecutiveFailures + 1,
+    // A stale lock means the host process died; it is not evidence that the
+    // autonomous agent or its implementation failed. The durable supervisor
+    // may safely restart this state without exhausting the agent-failure
+    // budget.
+    consecutiveFailures: state.consecutiveFailures,
     lastCompletedAt: detectedAt,
     lastInterruption: interruption,
   };

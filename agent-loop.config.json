@@ -3,7 +3,7 @@
   "version": 1,
   "enabled": true,
   "maxLoops": 100,
-  "maxConsecutiveFailures": 3,
+  "maxConsecutiveFailures": 100,
   "maxLoopDurationMinutes": 240,
   "cooldownSeconds": 10,
   "agent": {

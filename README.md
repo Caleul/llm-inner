@@ -399,6 +399,25 @@ permite que o ciclo atual termine de forma coerente. Os logs e mensagens finais
 de cada ciclo ficam em `.agent-loop/runs/`; estado, handoffs e logs são
 ignorados pelo Git para não violar a exigência de árvore limpa.
 
+### Execução persistente no macOS
+
+Não inicie um loop longo a partir de uma sessão de terminal do Codex: se o
+app-server, a sessão ou o terminal for encerrado, o processo filho também pode
+morrer e deixar um lock stale. Para execução contínua, instale uma única vez o
+LaunchAgent versionado neste repositório:
+
+```bash
+npm run loop:install-launchd
+```
+
+Ele instala `tech.lilka.llm-inner-agent-loop` em `~/Library/LaunchAgents/` e
+executa `scripts/agent-loop-supervisor.mjs`. O supervisor é o pai durável do
+runner: após uma queda inesperada, espera cinco segundos e reinicia o runner,
+que recupera o lock stale. Uma interrupção de host é registrada como
+`interrupted` sem consumir `consecutiveFailures`; falhas reais do agente ainda
+ficam registradas. `.agent-loop/STOP`, orçamento concluído, missão `complete`
+ou `blocked` encerram o supervisor normalmente.
+
 Cada instância recebe contexto novo a partir do repositório e do último
 handoff. O protocolo exige que ela complete um milestone substancial e
 validado — não uma sequência de microalterações — e execute no próprio ciclo
