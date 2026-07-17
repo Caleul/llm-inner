@@ -151,8 +151,9 @@ export type ReductionSchedule =
    * dot path. Eight vector registers hold four or eight F32 lanes each;
    * every input coordinate updates lane `i mod laneCount` with one F32 FMA.
    * The register tree
-   * first combines registers 0+4, 1+5, 2+6, 3+7, then 0+2 and 1+3, before
-   * the declared register-width horizontal fold. This is a calculation schedule,
+   * first combines registers 0+4, 1+5, 2+6, 3+7, then 0+2 and 1+3, then the
+   * two remaining register vectors, before the declared register-width horizontal
+   * fold. This is a calculation schedule,
    * not a request to invoke an ARM kernel during literal replay.
    */
   | {

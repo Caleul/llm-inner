@@ -232,8 +232,7 @@ node dist/src/gemma4-linear-reduction-probe-cli.js \
   --artifact ./artifacts/gemma4-e4b-dense.literal.json \
   --trace /tmp/capture-a.json --trace /tmp/capture-b.json \
   --operation-id layer_0_up_proj --output /tmp/reduction-report.json \
-  --profile-id interleaved-f32-lanes-32-balanced-pairwise \
-  --profile-id interleaved-fma-lanes-32-balanced-pairwise
+  --profile-id arm-neon-bf16-dot-fma-32-pairwise
 ```
 
 Além do dtype, a captura limitada registra `reference.operationLayouts` antes
@@ -446,6 +445,17 @@ dois captures bitwise-idênticos para cada prompt/posição e só mantém perfis
 exatos em todos os grupos; identidade de fonte/runtime/IR/dtype não pode variar
 entre eles. Assim uma coincidência em uma ativação não pode virar contrato de
 kernel do artefato.
+
+Uma correção posterior completou a terceira etapa da árvore de oito registros
+ARM que a primeira implementação tinha omitido. Com o programa literal
+regenerado, a agenda explícita `arm-neon-bf16-dot-fma` de 32 lanes e fold
+pareado para `layer_0_up_proj` coincidiu em todas as coordenadas BF16 de seis
+capturas independentes, cobrindo `[2]`, `[17]` e `[2,17]`, com o checkpoint
+removido durante o probe. O fold ascendente falhou nessa mesma campanha, por
+isso ele não é emitido. Esta é uma reivindicação candidata apenas para essa
+atribuição e ambiente fixado, não uma conclusão do checkpoint Gemma 4; os
+comandos, checksums e limites estão em
+[`docs/validation/gemma4-e4b-arm-32-reduction-candidate-2026-07-17.md`](docs/validation/gemma4-e4b-arm-32-reduction-candidate-2026-07-17.md).
 
 Para repetir essa investigação sem serializar novamente o trace completo de
 1.229 atribuições, `capture:gemma4-linear-reduction` captura somente uma

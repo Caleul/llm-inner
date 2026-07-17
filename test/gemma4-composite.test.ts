@@ -539,6 +539,9 @@ test("paged linear replays the ARM BF16 dot register tree rather than a generic 
   const storage = Buffer.alloc(32 * 4);
   const values = new Float32Array(32);
   values[0] = 1e20; values[16] = -1e20; values[8] = 1; values[24] = 1;
+  // Lane 4 belongs to the second surviving register vector. It proves the
+  // final vector-vector merge occurs before the four-lane horizontal fold.
+  values[4] = 7;
   values.forEach((value, index) => storage.writeFloatLE(value, index * 4));
   const matrix = createPagedDenseF32Matrix(tensor, { async readTensorBytesRange(_tensor, offset, byteLength) { return storage.subarray(offset, offset + byteLength); } }, storage.length);
   const input = { shape: [1, 32], values: Float32Array.from({ length: 32 }, () => 1) };
@@ -550,7 +553,7 @@ test("paged linear replays the ARM BF16 dot register tree rather than a generic 
     accumulationDtype: "F32",
     reduction: { kind: "interleaved-fma-lanes", laneCount: 32, inputLane: "index-modulo-lane-count", laneReductionOrder: "balanced-pairwise" },
   });
-  assert.deepEqual(armTree.values, Float32Array.from([2]));
+  assert.deepEqual(armTree.values, Float32Array.from([9]));
   assert.deepEqual(generic.values, Float32Array.from([0]));
 });
 

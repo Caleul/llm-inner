@@ -5,9 +5,16 @@ const F32_POLICY = { computeDtype: "model-configured", accumulationDtype: "runti
 const F32_RUNTIME_POLICY = { inputDtype: "F32", computeDtype: "F32", accumulationDtype: "F32", outputDtype: "F32" } as const;
 const ORDERED_SCALAR_REDUCTION = { kind: "ordered-scalar", indexOrder: "ascending" } as const;
 const BF16_NATIVE_REDUCTION_POLICY = { inputDtype: "BF16", computeDtype: "F32", accumulationDtype: "F64", outputDtype: "BF16", reduction: ORDERED_SCALAR_REDUCTION } as const;
-const BF16_NATIVE_GATE_PROJECTION_POLICY = {
+/**
+ * Trace-bound E4B CPU policy for one measured assignment only. It encodes the
+ * complete finite ARM register tree and is never inferred by the executor.
+ */
+const BF16_TRACE_BOUND_ARM_32_UP_PROJECTION_POLICY = {
   inputDtype: "BF16", computeDtype: "F32", accumulationDtype: "F32", outputDtype: "BF16",
-  reduction: { kind: "interleaved-f32-lanes", laneCount: 32, inputLane: "index-modulo-lane-count", laneReductionOrder: "ascending" },
+  reduction: {
+    kind: "arm-neon-bf16-dot-fma", laneCount: 32, registerCount: 8, lanesPerRegister: 4,
+    inputLane: "index-modulo-vector-lane-count", horizontalFold: "pairwise",
+  },
 } as const;
 
 /**
@@ -153,14 +160,14 @@ export function buildGemma4TextIR(catalog: ModelCatalog, config: JsonObject, pre
   if (finalSoftcap !== undefined) epilogue.push({ id: "final_logit_softcap", op: "elementwise", kind: "tanh_softcap", inputs: ["logits"], scalar: finalSoftcap, output: "softcapped_logits", dtypePolicy: F32_POLICY });
   const dtypePolicy = textRuntimeDtypePolicy(runtimeDtype);
   // This is a pinned E4B trace-compatible candidate, not a replay-time shape
-  // heuristic. It remains explicit in the serialized assignment, but a
-  // single prompt also matches other lane/fold candidates; therefore it must
-  // never be promoted to a lossless kernel claim without distinguishing trace
-  // evidence across additional inputs.
-  const hasTraceBoundE4bGateCandidate = hidden === 2560 && intermediate === 10240 && layers === 42 && pleWidth === 256 && vocab === 262144;
+  // heuristic. The complete registered topology narrows the declaration to
+  // the only E4B operation measured against independent native captures; the
+  // executor receives the schedule from the serialized assignment and never
+  // selects it from a shape at replay time.
+  const hasTraceBoundE4bArm32Candidate = isTraceBoundGemma4E4bArm32Topology({ hidden, intermediate, layers, pleWidth, vocab });
   for (const operation of [...prelude, ...lowered.flatMap((layer) => layer.operations), ...epilogue]) {
-    operation.dtypePolicy = runtimeDtype === "BF16" && hasTraceBoundE4bGateCandidate && operation.id === "layer_0_gate_proj"
-      ? BF16_NATIVE_GATE_PROJECTION_POLICY
+    operation.dtypePolicy = runtimeDtype === "BF16" && hasTraceBoundE4bArm32Candidate && operation.id === "layer_0_up_proj"
+      ? BF16_TRACE_BOUND_ARM_32_UP_PROJECTION_POLICY
       : runtimeDtype === "BF16" && (operation.op === "linear" || operation.op === "rms_norm")
         ? BF16_NATIVE_REDUCTION_POLICY
         : operation.op === "linear" || operation.op === "rms_norm"
@@ -177,13 +184,31 @@ export function gemma4TextEmbeddingScale(hiddenSize: number, storageDtype: strin
 }
 
 /**
+ * The reduction candidate is bound to the complete registered E4B text
+ * topology, rather than a projection name or a single matrix dimension.
+ * Runtime replay never calls this: it receives the explicit schedule already
+ * serialized into the selected assignment.
+ */
+export function isTraceBoundGemma4E4bArm32Topology(topology: {
+  hidden: number;
+  intermediate: number;
+  layers: number;
+  pleWidth: number;
+  vocab: number;
+}): boolean {
+  return topology.hidden === 2560 && topology.intermediate === 10240 && topology.layers === 42 &&
+    topology.pleWidth === 256 && topology.vocab === 262144;
+}
+
+/**
  * Gemma4Text modules return tensors in the configured model dtype. The
  * registered eager-BF16 linear/RMSNorm compatibility profiles keep products
  * in F32, reduce them in a declared ordered F64 scalar accumulator, then
- * narrow the result to BF16. `layer_0_gate_proj` is the one separately
- * measured, pinned-runtime candidate: its literal declaration records 32
- * interleaved F32 lanes, which match the bound trace but are not uniquely
- * identified by it. The executor never selects either profile from shape.
+ * narrow the result to BF16. `layer_0_up_proj` is the one separately measured,
+ * pinned-runtime candidate: its literal declaration records the complete
+ * 32-lane ARM BF16 FMA register tree. It matched six independent captures over
+ * three declared inputs, but remains a candidate pending independent review.
+ * The executor never selects either profile from shape.
  * Other operations retain their source-visible F32 policy.
  * F32 fixtures may omit `dtype`, but an unfamiliar declared runtime dtype is
  * not safe to approximate.

@@ -277,11 +277,14 @@ function linearF32ProductsArmNeonBf16DotFma(
     const lane = column % reduction.laneCount;
     lanes[lane] = Math.fround(lanes[lane]! + input.values[row * inFeatures + column]! * weight[output * inFeatures + column]!);
   }
-  // VectorizedN<float, 8>: x[0..3] += x[4..7], then x[0..1] += x[2..3].
+  // VectorizedN<float, 8>: x[0..3] += x[4..7], then x[0..1] += x[2..3],
+  // then x[0] += x[1]. Each item here is a lanesPerRegister-wide vector;
+  // omitting that last merge silently drops four or eight accumulation lanes.
   const registers = new Float32Array(reduction.laneCount / 2);
   const registerWidth = reduction.lanesPerRegister;
   for (let lane = 0; lane < registers.length; lane += 1) registers[lane] = Math.fround(lanes[lane]! + lanes[lane + registers.length]!);
   for (let lane = 0; lane < registers.length / 2; lane += 1) registers[lane] = Math.fround(registers[lane]! + registers[lane + registers.length / 2]!);
+  for (let lane = 0; lane < registerWidth; lane += 1) registers[lane] = Math.fround(registers[lane]! + registers[lane + registerWidth]!);
   return reduction.horizontalFold === "ascending"
     ? foldF32Lanes(registers.subarray(0, registerWidth), "ascending")
     : foldF32Lanes(registers.subarray(0, registerWidth), "balanced-pairwise");

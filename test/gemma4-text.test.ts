@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildModelIR } from "../src/architecture.js";
-import { gemma4TextEmbeddingScale } from "../src/gemma4-text.js";
+import { gemma4TextEmbeddingScale, isTraceBoundGemma4E4bArm32Topology } from "../src/gemma4-text.js";
 import { executeReferenceF32 } from "../src/executor.js";
 import type { DenseF32Tensor, ModelCatalog, TensorInfo } from "../src/types.js";
 
@@ -10,6 +10,14 @@ const preview = { outputRows: 1, inputTerms: 1, includeWeights: false } as const
 test("Gemma 4 text embedding scale preserves the native BF16 scalar cast", () => {
   assert.equal(gemma4TextEmbeddingScale(2560, "BF16"), 50.5);
   assert.equal(gemma4TextEmbeddingScale(4, "F32"), 2);
+});
+
+test("Gemma 4 E4B ARM reduction candidate is bound to the complete registered topology", () => {
+  const e4b = { hidden: 2560, intermediate: 10240, layers: 42, pleWidth: 256, vocab: 262144 };
+  assert.equal(isTraceBoundGemma4E4bArm32Topology(e4b), true);
+  assert.equal(isTraceBoundGemma4E4bArm32Topology({ ...e4b, layers: 41 }), false);
+  assert.equal(isTraceBoundGemma4E4bArm32Topology({ ...e4b, intermediate: 5120 }), false);
+  assert.equal(isTraceBoundGemma4E4bArm32Topology({ ...e4b, pleWidth: 128 }), false);
 });
 
 test("Gemma 4 text preserves authoritative BF16 result boundaries in its IR", async () => {
