@@ -2,6 +2,21 @@
 
 ## Mission
 
+## /goal: Gemma 4 mathematical artifact first
+
+Until `.agent-loop/checkpoints/gemma4-dense-lossless/` exists with real
+evidence, work only on producing and proving the Gemma 4 mathematical export.
+The result must be a navigable, self-contained artifact from which a reader can
+follow inputs through every operation and intermediate value to logits, recover
+every learned numeric value and reproduce the same result step by step. The
+artifact is incomplete if it only catalogs tensors, audits a prior export,
+references weights by name, leaves opaque high-level operations, or requires a
+source checkpoint. Treat decoding and literal substitution of learned values,
+ordered scalar calculation views, exact dtype/cast semantics, source-removed
+replay and their direct validation as one product boundary. Do not work on
+generic breadth or nonessential probes while this boundary has an implementable
+gap. GLM 5.2 begins only after this Gemma 4 checkpoint is independently proven.
+
 Continue the implementation, validation, and maturation of this repository until it becomes a model decompiler capable of reconstructing the exact mathematical execution of an AI model independently of:
 
 * model family;

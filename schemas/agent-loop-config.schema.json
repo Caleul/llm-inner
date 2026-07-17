@@ -11,6 +11,7 @@
     "maxNoProgressMinutes",
     "cooldownSeconds",
     "agent",
+    "goalCommand",
     "missionGoal",
     "handoffDirectory",
     "processingDirectory",
@@ -44,6 +45,7 @@
       },
       "additionalProperties": false
     },
+    "goalCommand": { "const": "/goal" },
     "missionGoal": { "type": "string", "minLength": 1 },
     "handoffDirectory": { "type": "string", "minLength": 1 },
     "processingDirectory": { "type": "string", "minLength": 1 },
