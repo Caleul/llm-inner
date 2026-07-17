@@ -6,10 +6,10 @@ const F32_RUNTIME_POLICY = { inputDtype: "F32", computeDtype: "F32", accumulatio
 const ORDERED_SCALAR_REDUCTION = { kind: "ordered-scalar", indexOrder: "ascending" } as const;
 const BF16_NATIVE_REDUCTION_POLICY = { inputDtype: "BF16", computeDtype: "F32", accumulationDtype: "F64", outputDtype: "BF16", reduction: ORDERED_SCALAR_REDUCTION } as const;
 /**
- * Trace-bound E4B CPU policy for registered MLP assignments only. It encodes
- * the complete finite ARM register tree and is never inferred by the executor.
- * `layer_0_down_proj` additionally has source-dispatch evidence; the other
- * bindings retain their independently replayed trace evidence.
+ * Source- and trace-bound E4B CPU policy for individual registered linear
+ * assignments. It encodes the complete finite ARM register tree and is never
+ * inferred by the executor. The bindings below are intentionally assignment
+ * specific: identical matrix dimensions alone are insufficient evidence.
  */
 const BF16_TRACE_BOUND_ARM_32_MLP_PROJECTION_POLICY = {
   inputDtype: "BF16", computeDtype: "F32", accumulationDtype: "F32", outputDtype: "BF16",
@@ -204,8 +204,9 @@ export function isTraceBoundGemma4E4bArm32Topology(topology: {
 }
 
 /**
- * Only assignments with an independently replayed E4B CPU path may carry this
- * native reduction declaration. `layer_0_down_proj` also has source-dispatch
+ * Only assignments with independently replayed E4B CPU evidence may carry
+ * this native reduction declaration. `layer_0_down_proj` and
+ * `layer_1_o_proj` additionally have the pinned PyTorch GEMV source-dispatch
  * evidence. This binding is evaluated while compiling the IR; replay only
  * receives the serialized schedule.
  */
@@ -214,19 +215,19 @@ export function isTraceBoundGemma4E4bArm32MlpProjection(
   operationId: string,
 ): boolean {
   return isTraceBoundGemma4E4bArm32Topology(topology) &&
-    (operationId === "layer_0_gate_proj" || operationId === "layer_0_up_proj" || operationId === "layer_0_down_proj");
+    (operationId === "layer_0_gate_proj" || operationId === "layer_0_up_proj" || operationId === "layer_0_down_proj" || operationId === "layer_1_o_proj");
 }
 
 /**
  * Gemma4Text modules return tensors in the configured model dtype. The
  * registered eager-BF16 linear/RMSNorm compatibility profiles keep products
  * in F32, reduce them in a declared ordered F64 scalar accumulator, then
- * narrow the result to BF16. `layer_0_gate_proj`, `layer_0_up_proj`, and
- * `layer_0_down_proj` are bound to separately replayed, pinned-runtime
- * captures. Their literal declarations record the complete 32-lane ARM BF16
- * FMA register tree; source and wheel disassembly independently establish the
- * pairwise horizontal fold for `down_proj`. The executor never selects any
- * profile from shape.
+ * narrow the result to BF16. `layer_0_gate_proj`, `layer_0_up_proj`,
+ * `layer_0_down_proj`, and `layer_1_o_proj` are bound to separately replayed,
+ * pinned-runtime captures. Their literal declarations record the complete
+ * 32-lane ARM BF16 FMA register tree; source and wheel disassembly independently
+ * establish the pairwise horizontal fold for the transposed GEMV bindings.
+ * The executor never selects any profile from shape.
  * Other operations retain their source-visible F32 policy.
  * F32 fixtures may omit `dtype`, but an unfamiliar declared runtime dtype is
  * not safe to approximate.
