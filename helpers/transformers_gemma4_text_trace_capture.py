@@ -9,6 +9,7 @@ inputs are rejected by the TypeScript boundary that invokes it.
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import sys
 import types
@@ -98,6 +99,25 @@ def execution_device_metadata(model: Any, requested: str) -> dict[str, str]:
     if requested == "mps" and not observed.startswith("mps"):
         raise ValueError(f"Gemma 4 native capture requested mps but model is on {observed}.")
     return {"executionDevice": requested, "executionDeviceDetail": observed}
+
+
+def native_kernel_environment() -> dict[str, Any]:
+    """Persist controls that may select a different BF16 reduction kernel.
+
+    The literal program still needs an explicit scalar reduction to claim
+    losslessness.  This record only prevents a probe from merging captures
+    taken under different PyTorch builds or backend/threading controls.
+    """
+    build_config = torch.__config__.show().encode("utf-8")
+    mkldnn = torch.backends.mkldnn
+    return {
+        "torchBuildConfigSha256": hashlib.sha256(build_config).hexdigest(),
+        "intraopThreads": torch.get_num_threads(),
+        "interopThreads": torch.get_num_interop_threads(),
+        "deterministicAlgorithms": torch.are_deterministic_algorithms_enabled(),
+        "mkldnnAvailable": mkldnn.is_available(),
+        "mkldnnEnabled": mkldnn.enabled,
+    }
 
 
 def forward(model: Any, tokens: list[int], positions: list[int], device: str, cache: Any | None = None):
@@ -288,6 +308,7 @@ def operation_checkpoints(model: Any, tokens: list[int], positions: list[int], d
         return {
             "runtime": f"PyTorch {torch.__version__.split('+')[0]} / Transformers {transformers.__version__} Gemma4ForConditionalGeneration eager BF16 full assignment trace",
             **execution_device_metadata(model, device),
+            "nativeKernelEnvironment": native_kernel_environment(),
             "operations": list(checkpoints.values()),
             "pastKeyValues": cache_payload(native.past_key_values),
         }
@@ -361,6 +382,7 @@ def linear_reduction_checkpoint(model: Any, tokens: list[int], positions: list[i
     return {
         "runtime": f"PyTorch {torch.__version__.split('+')[0]} / Transformers {transformers.__version__} Gemma4ForConditionalGeneration eager BF16 bounded MLP projection trace",
         **execution_device_metadata(model, device),
+        "nativeKernelEnvironment": native_kernel_environment(),
         "operations": [
             {"operationId": producer_operation_id, "output": producer_output, "tensor": tensor_payload(captured["input"])},
             {"operationId": operation_id, "output": output, "tensor": tensor_payload(captured["output"])},
@@ -417,6 +439,7 @@ def main(request: dict[str, Any]) -> dict[str, Any]:
     return {
         "runtime": f"PyTorch {torch.__version__.split('+')[0]} / Transformers {transformers.__version__} Gemma4ForConditionalGeneration eager BF16 native capture",
         **execution_device_metadata(model, device),
+        "nativeKernelEnvironment": native_kernel_environment(),
         "generatedTokenIds": generated,
         "steps": steps,
         "selectionLogits": selection_logits,

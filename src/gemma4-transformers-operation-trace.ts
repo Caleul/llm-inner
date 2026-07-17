@@ -31,6 +31,7 @@ interface NativeOperationCapture {
   runtime: string;
   executionDevice: string;
   executionDeviceDetail: string;
+  nativeKernelEnvironment?: ExecutionTraceBundle["reference"]["nativeKernelEnvironment"];
   operations: ExecutionTraceBundle["reference"]["operations"];
   operationDtypes?: ExecutionTraceBundle["reference"]["operationDtypes"];
   pastKeyValues: ExecutionTraceBundle["reference"]["pastKeyValues"];
@@ -72,6 +73,7 @@ export async function captureGemma4TransformersLinearReductionTrace(options: Gem
       output: target.output,
     });
     assertNativeExecutionDevice(native.executionDevice, options.executionDevice);
+    assertNativeKernelEnvironment(native.nativeKernelEnvironment);
     assertGemma4NativeOperationCoverage([
       { id: target.producerOperationId, output: target.producerOutput },
       { id: target.operationId, output: target.output },
@@ -88,6 +90,7 @@ export async function captureGemma4TransformersLinearReductionTrace(options: Gem
         runtime: native.runtime,
         executionDevice: native.executionDevice,
         executionDeviceDetail: native.executionDeviceDetail,
+        nativeKernelEnvironment: native.nativeKernelEnvironment,
         model: options.model,
         revisionOrChecksum: options.revisionOrChecksum,
         containerFormat: "safetensors",
@@ -114,6 +117,18 @@ function assertNativeLinearDtypeCoverage(
   const record = operationDtypes?.find((entry) => entry.operationId === operationId);
   if (!record || !record.inputDtype || !record.outputDtype || !record.parameterDtype) {
     throw new Error(`Gemma 4 native trace não declarou dtypes de entrada, saída e parâmetro para ${operationId}.`);
+  }
+}
+
+function assertNativeKernelEnvironment(
+  environment: NativeOperationCapture["nativeKernelEnvironment"],
+): asserts environment is NonNullable<NativeOperationCapture["nativeKernelEnvironment"]> {
+  if (!environment || !/^[a-f0-9]{64}$/.test(environment.torchBuildConfigSha256) ||
+    !Number.isSafeInteger(environment.intraopThreads) || environment.intraopThreads <= 0 ||
+    !Number.isSafeInteger(environment.interopThreads) || environment.interopThreads <= 0 ||
+    typeof environment.deterministicAlgorithms !== "boolean" || typeof environment.mkldnnAvailable !== "boolean" ||
+    typeof environment.mkldnnEnabled !== "boolean") {
+    throw new Error("Gemma 4 helper não declarou nativeKernelEnvironment válido.");
   }
 }
 
@@ -203,6 +218,7 @@ export async function captureGemma4TransformersOperationTrace(options: Gemma4Tra
       mode: "operation-checkpoints",
     });
     assertNativeExecutionDevice(native.executionDevice, options.executionDevice);
+    assertNativeKernelEnvironment(native.nativeKernelEnvironment);
     const expected = [...program.textProgram.prelude, ...program.textProgram.layers.flatMap((layer) => layer.operations), ...program.textProgram.epilogue];
     assertGemma4NativeOperationCoverage(expected, native.operations);
     const bundle: ExecutionTraceBundle = {
@@ -216,6 +232,7 @@ export async function captureGemma4TransformersOperationTrace(options: Gemma4Tra
         runtime: native.runtime,
         executionDevice: native.executionDevice,
         executionDeviceDetail: native.executionDeviceDetail,
+        nativeKernelEnvironment: native.nativeKernelEnvironment,
         model: options.model,
         revisionOrChecksum: options.revisionOrChecksum,
         containerFormat: "safetensors",

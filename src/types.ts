@@ -488,6 +488,25 @@ export interface DifferentialOperationDtype {
   parameterDtype?: string;
 }
 
+/**
+ * Runtime controls that can change a native kernel's floating-point reduction
+ * even when the model, device, and module dtypes are identical.  This is
+ * capture evidence, not a substitute for an explicit literal reduction.
+ */
+export interface DifferentialNativeKernelEnvironment {
+  /** SHA-256 of `torch.__config__.show()` from the authoritative process. */
+  torchBuildConfigSha256: string;
+  /** PyTorch intra-op worker count observed before the capture. */
+  intraopThreads: number;
+  /** PyTorch inter-op worker count observed before the capture. */
+  interopThreads: number;
+  /** Whether PyTorch deterministic-algorithm mode was enabled. */
+  deterministicAlgorithms: boolean;
+  /** CPU MKLDNN availability and enabled state observed by the process. */
+  mkldnnAvailable: boolean;
+  mkldnnEnabled: boolean;
+}
+
 /** Authoritative post-RoPE cache in the canonical BHSD layout for one layer. */
 export interface DifferentialKeyValueCacheSample {
   layer: number;
@@ -527,6 +546,8 @@ export interface DifferentialReferenceTrace {
   operations: readonly DifferentialOperationSample[];
   /** Optional for legacy/general traces; required by dtype-sensitive probes. */
   operationDtypes?: readonly DifferentialOperationDtype[];
+  /** Optional for legacy/general traces; required by native-kernel probes. */
+  nativeKernelEnvironment?: DifferentialNativeKernelEnvironment;
   pastKeyValues: readonly DifferentialKeyValueCacheSample[];
 }
 

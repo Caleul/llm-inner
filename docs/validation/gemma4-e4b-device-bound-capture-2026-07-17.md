@@ -94,3 +94,36 @@ closest ordered-F64 candidate misses two BF16 coordinates by
 `1.1920928955078125e-7`. Thus the remaining reduction blocker is not caused
 by a hidden CPU/MPS dtype promotion, and neither backend establishes the dense
 lossless checkpoint.
+
+## Loop 27 native-kernel environment boundary
+
+Module dtypes and device family still do not identify an eager BF16 reduction
+kernel. The bounded capture now persists `reference.nativeKernelEnvironment`,
+and the source-removed probe rejects a missing or different environment before
+it compares one literal byte range. The record includes the SHA-256 of
+`torch.__config__.show()`, intra-op/inter-op worker counts, deterministic mode,
+and MKLDNN availability/enabled state. It is evidence about the authoritative
+runtime process, not a hidden execution dependency of the literal artifact.
+
+Two fresh CPU captures for token `2`, position `0`, of the same immutable E4B
+revision both reported:
+
+```json
+{
+  "torchBuildConfigSha256": "606e3853213dea3faabc6d58b66ed7e419ee4452a6d53c2b27495a2ecc4e07a7",
+  "intraopThreads": 10,
+  "interopThreads": 14,
+  "deterministicAlgorithms": false,
+  "mkldnnAvailable": false,
+  "mkldnnEnabled": true
+}
+```
+
+`mkldnnEnabled: true` with `mkldnnAvailable: false` is retained as the actual
+Apple PyTorch state; it is not rejected or normalized. With the source
+directory unavailable, the expanded 2/4/8/16/32/64/128-lane campaign still
+found no exact profile. Its best result remains 32 interleaved F32 lanes with
+a balanced fold: one BF16 coordinate (index 8354) differs by
+`1.1920928955078125e-7`. Thus the added environment evidence rules out an
+unrecorded build/thread/backend difference between the two captures, while the
+unresolved literal reduction schedule remains the checkpoint blocker.

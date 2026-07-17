@@ -1,7 +1,7 @@
 import { openGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
 import { createPagedDenseF32Matrix, pagedLinearF32 } from "./paged-dense.js";
 import { fingerprintIR, readExecutionTraceBundle } from "./trace.js";
-import type { DenseF32Tensor, DenseTensor, LinearOp, ModelIR, Operation, ReductionSchedule, TensorInfo } from "./types.js";
+import type { DenseF32Tensor, DenseTensor, DifferentialNativeKernelEnvironment, LinearOp, ModelIR, Operation, ReductionSchedule, TensorInfo } from "./types.js";
 
 export interface Gemma4LinearReductionProfile {
   id: string;
@@ -69,6 +69,8 @@ export interface Gemma4LinearReductionProbeReport {
     runtime: string;
     executionDevice?: string;
     executionDeviceDetail?: string;
+    /** Exact build/backend controls shared by every native capture in this campaign. */
+    nativeKernelEnvironment: DifferentialNativeKernelEnvironment;
     model: string;
     revisionOrChecksum: string;
     containerFormat: string;
@@ -112,7 +114,10 @@ export async function probeGemma4LiteralLinearReductionProfiles(options: {
   const artifact = await openGemma4CompositeLiteralArtifact(options.artifact);
   try {
     const fingerprint = fingerprintIR(artifact.program.textProgram);
-    for (const trace of decoded) assertCompatibleTrace(trace, fingerprint);
+    for (const trace of decoded) {
+      assertCompatibleTrace(trace, fingerprint);
+      assertNativeKernelEnvironment(trace);
+    }
     for (let index = 1; index < decoded.length; index += 1) assertSameProbeContract(decoded[0]!, decoded[index]!);
     const operation = findLinearOperation(artifact.program.textProgram, options.operationId);
     for (const trace of decoded) assertNativeLinearDtypeContract(trace, operation);
@@ -164,6 +169,7 @@ export async function probeGemma4LiteralLinearReductionProfiles(options: {
         runtime: decoded[0]!.reference.runtime,
         ...(decoded[0]!.reference.executionDevice === undefined ? {} : { executionDevice: decoded[0]!.reference.executionDevice }),
         ...(decoded[0]!.reference.executionDeviceDetail === undefined ? {} : { executionDeviceDetail: decoded[0]!.reference.executionDeviceDetail }),
+        nativeKernelEnvironment: decoded[0]!.reference.nativeKernelEnvironment!,
         model: decoded[0]!.reference.model,
         revisionOrChecksum: decoded[0]!.reference.revisionOrChecksum,
         containerFormat: decoded[0]!.reference.containerFormat,
@@ -304,6 +310,7 @@ function assertSameProbeContract(
       runtime: trace.reference.runtime,
       executionDevice: trace.reference.executionDevice ?? null,
       executionDeviceDetail: trace.reference.executionDeviceDetail ?? null,
+      nativeKernelEnvironment: trace.reference.nativeKernelEnvironment ?? null,
       model: trace.reference.model,
       revisionOrChecksum: trace.reference.revisionOrChecksum,
       containerFormat: trace.reference.containerFormat,
@@ -312,6 +319,17 @@ function assertSameProbeContract(
     },
   });
   if (contract(left) !== contract(right)) throw new Error("Probe de redução recebeu traces com contrato de referência diferente.");
+}
+
+/**
+ * BF16 module dtypes alone do not identify an accelerated reduction.  A
+ * campaign must also prove each repeat used the same observed Torch build and
+ * kernel controls; otherwise a fitted profile could blend different native
+ * computations before the literal reader is even evaluated.
+ */
+function assertNativeKernelEnvironment(trace: Awaited<ReturnType<typeof readExecutionTraceBundle>>): void {
+  const environment = trace.reference.nativeKernelEnvironment;
+  if (!environment) throw new Error("Probe de redução Gemma 4 requer nativeKernelEnvironment explícito.");
 }
 
 function validateProfiles(profiles: readonly Gemma4LinearReductionProfile[]): Gemma4LinearReductionProfile[] {

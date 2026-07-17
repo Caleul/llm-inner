@@ -611,6 +611,7 @@ test("Gemma 4 linear reduction probe binds a candidate schedule to traced produc
       irFingerprint: fingerprintIR(program.textProgram), candidatePolicy: { dtype: "F32", runtime: "llm-inner paged Gemma4Text literal F32" },
       reference: {
         runtime: "fixture", executionDevice: "cpu", executionDeviceDetail: "cpu", model: "fixture", revisionOrChecksum: "fixture", containerFormat: "safetensors", quantization: "none", inputTokens: [[1]], dtypePolicy: "fixture F32",
+        nativeKernelEnvironment: { torchBuildConfigSha256: "b".repeat(64), intraopThreads: 1, interopThreads: 1, deterministicAlgorithms: true, mkldnnAvailable: true, mkldnnEnabled: true },
         operations: [
           { operationId: producer.id, output: producer.output, tensor: serialize(native.values.get(producer.output)!) },
           { operationId: target.id, output: target.output, tensor: serialize(native.values.get(target.output)!) },
@@ -629,6 +630,7 @@ test("Gemma 4 linear reduction probe binds a candidate schedule to traced produc
     });
     assert.equal(report.inputOperationId, producer.id);
     assert.equal(report.traceCount, 2);
+    assert.deepEqual(report.reference.nativeKernelEnvironment, tracePayload.reference.nativeKernelEnvironment);
     assert.deepEqual(report.exactProfileIds, ["ordered-f32"]);
     assert.equal(report.profiles[0]!.mismatchedElements, 0);
     const secondInput = structuredClone(tracePayload);
@@ -735,6 +737,36 @@ test("Gemma 4 linear reduction probe binds a candidate schedule to traced produc
       () => probeGemma4LiteralLinearReductionProfiles({ artifact, traces: [trace, missingDtypesTrace], operationId: target.id, maxReadBytes: 1024 * 1024,
         profiles: [{ id: "ordered-f32", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } }], }),
       /requer dtypes nativos/,
+    );
+    const missingKernelEnvironment = structuredClone(repeatedPayload);
+    missingKernelEnvironment.captureId = "fixture-capture-no-kernel-environment";
+    Object.defineProperty(missingKernelEnvironment.reference, "nativeKernelEnvironment", { value: undefined, enumerable: true });
+    const missingKernelEnvironmentTrace = path.join(root, "trace-no-kernel-environment.json");
+    await writeFile(missingKernelEnvironmentTrace, JSON.stringify(missingKernelEnvironment), "utf8");
+    await assert.rejects(
+      () => probeGemma4LiteralLinearReductionProfiles({ artifact, traces: [trace, missingKernelEnvironmentTrace], operationId: target.id, maxReadBytes: 1024 * 1024,
+        profiles: [{ id: "ordered-f32", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } }], }),
+      /requer nativeKernelEnvironment explícito/,
+    );
+    const malformedKernelEnvironment = structuredClone(repeatedPayload);
+    malformedKernelEnvironment.captureId = "fixture-capture-malformed-kernel-environment";
+    malformedKernelEnvironment.reference.nativeKernelEnvironment.intraopThreads = 0;
+    const malformedKernelEnvironmentTrace = path.join(root, "trace-malformed-kernel-environment.json");
+    await writeFile(malformedKernelEnvironmentTrace, JSON.stringify(malformedKernelEnvironment), "utf8");
+    await assert.rejects(
+      () => probeGemma4LiteralLinearReductionProfiles({ artifact, traces: [trace, malformedKernelEnvironmentTrace], operationId: target.id, maxReadBytes: 1024 * 1024,
+        profiles: [{ id: "ordered-f32", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } }], }),
+      /requer intraopThreads inteiro positivo seguro/,
+    );
+    const differentKernelEnvironment = structuredClone(repeatedPayload);
+    differentKernelEnvironment.captureId = "fixture-capture-kernel-environment-drift";
+    differentKernelEnvironment.reference.nativeKernelEnvironment.intraopThreads = 2;
+    const differentKernelEnvironmentTrace = path.join(root, "trace-kernel-environment-drift.json");
+    await writeFile(differentKernelEnvironmentTrace, JSON.stringify(differentKernelEnvironment), "utf8");
+    await assert.rejects(
+      () => probeGemma4LiteralLinearReductionProfiles({ artifact, traces: [trace, differentKernelEnvironmentTrace], operationId: target.id, maxReadBytes: 1024 * 1024,
+        profiles: [{ id: "ordered-f32", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } }], }),
+      /contrato de referência diferente/,
     );
     const promotedDtypes = structuredClone(repeatedPayload);
     promotedDtypes.captureId = "fixture-capture-promoted-dtypes";

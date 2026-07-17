@@ -7,6 +7,7 @@ import type {
   DenseF32Tensor,
   DifferentialGenerationReferenceTrace,
   DifferentialKeyValueCacheSample,
+  DifferentialNativeKernelEnvironment,
   DifferentialReferenceTrace,
   ModelCatalog,
   ModelIR,
@@ -238,6 +239,9 @@ function validateBundle(raw: unknown): ExecutionTraceBundle {
   });
   const operationIds = new Set(operations.map((operation) => operation.operationId));
   const operationDtypes = reference.operationDtypes === undefined ? undefined : parseOperationDtypes(reference.operationDtypes, operationIds);
+  const nativeKernelEnvironment = reference.nativeKernelEnvironment === undefined
+    ? undefined
+    : parseNativeKernelEnvironment(reference.nativeKernelEnvironment);
   const pastKeyValues = reference.pastKeyValues.map((entry) => {
     const cache = object(entry, "Trace cache KV");
     if (!Number.isInteger(cache.layer) || (cache.layer as number) < 0) throw new Error("Trace cache KV requer layer inteiro não negativo.");
@@ -254,8 +258,32 @@ function validateBundle(raw: unknown): ExecutionTraceBundle {
       ...(reference.executionDeviceDetail === undefined ? {} : { executionDeviceDetail: reference.executionDeviceDetail as string }),
       containerFormat: reference.containerFormat as string, quantization: reference.quantization as string,
       inputTokens, ...(positionIds !== undefined ? { positionIds: positionIds.map((row) => [...row] as number[]) } : {}), dtypePolicy: reference.dtypePolicy as string,
-      operations, ...(operationDtypes === undefined ? {} : { operationDtypes }), pastKeyValues,
+      operations, ...(operationDtypes === undefined ? {} : { operationDtypes }),
+      ...(nativeKernelEnvironment === undefined ? {} : { nativeKernelEnvironment }), pastKeyValues,
     },
+  };
+}
+
+function parseNativeKernelEnvironment(raw: unknown): DifferentialNativeKernelEnvironment {
+  const value = object(raw, "Trace nativeKernelEnvironment");
+  if (typeof value.torchBuildConfigSha256 !== "string" || !/^[a-f0-9]{64}$/.test(value.torchBuildConfigSha256)) {
+    throw new Error("Trace nativeKernelEnvironment requer torchBuildConfigSha256 SHA-256.");
+  }
+  for (const field of ["intraopThreads", "interopThreads"] as const) {
+    if (!Number.isSafeInteger(value[field]) || (value[field] as number) <= 0) {
+      throw new Error(`Trace nativeKernelEnvironment requer ${field} inteiro positivo seguro.`);
+    }
+  }
+  for (const field of ["deterministicAlgorithms", "mkldnnAvailable", "mkldnnEnabled"] as const) {
+    if (typeof value[field] !== "boolean") throw new Error(`Trace nativeKernelEnvironment requer ${field} booleano.`);
+  }
+  return {
+    torchBuildConfigSha256: value.torchBuildConfigSha256,
+    intraopThreads: value.intraopThreads as number,
+    interopThreads: value.interopThreads as number,
+    deterministicAlgorithms: value.deterministicAlgorithms as boolean,
+    mkldnnAvailable: value.mkldnnAvailable as boolean,
+    mkldnnEnabled: value.mkldnnEnabled as boolean,
   };
 }
 

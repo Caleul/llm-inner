@@ -211,6 +211,14 @@ política literal e o dtype do peso; portanto uma promoção de backend ou uma
 captura sem fronteiras de dtype não pode ser usada para justificar uma agenda
 de redução BF16.
 
+O mesmo probe exige e preserva `reference.nativeKernelEnvironment`: SHA-256 da
+configuração do build Torch, contagens intra/inter-op, modo determinístico e
+estado disponível/habilitado de MKLDNN. Capturas com qualquer desses campos
+distintos não podem ser combinadas numa campanha. Isso limita a evidência ao
+mesmo ambiente nativo, mas não transforma o microkernel opaco numa semântica
+literal: sem uma agenda escalar declarada que coincida exatamente, o replay
+permanece aproximado.
+
 ```bash
 node dist/src/cli.js --source ./modelo --output ./modelo.literal.json --literal
 ```
