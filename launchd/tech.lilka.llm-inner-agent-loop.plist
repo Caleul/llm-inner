@@ -10,7 +10,7 @@
     <string>__LLM_INNER_ROOT__/scripts/agent-loop-supervisor.mjs</string>
   </array>
   <key>WorkingDirectory</key>
-  <string>__LLM_INNER_ROOT__</string>
+  <string>/tmp</string>
   <key>RunAtLoad</key>
   <true/>
   <key>KeepAlive</key>
