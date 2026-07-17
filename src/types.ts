@@ -66,6 +66,26 @@ export interface BaseOp {
 export type ReductionSchedule =
   | { kind: "ordered-scalar"; indexOrder: "ascending" }
   /**
+   * An ordered scalar reduction whose F32 accumulator receives the exact
+   * product before that single F32 rounding boundary.  This is distinct from
+   * `ordered-scalar`, which rounds every product before adding it.
+   */
+  | { kind: "ordered-fma"; indexOrder: "ascending" }
+  /**
+   * Consecutive terms first form an explicitly rounded F32 partial sum.  The
+   * partial sums then feed one ordered F32 accumulator.  This captures a
+   * dot-product instruction's adjacent-term boundary without pretending it
+   * is either a SIMD lane fold or an ordinary scalar reduction.
+   */
+  | {
+    kind: "blocked-f32-terms";
+    termsPerBlock: number;
+    inputBlock: "contiguous-terms";
+    termOrder: "ascending" | "descending";
+    productBoundary: "separately-rounded-f32" | "fused-fma";
+    blockOrder: "ascending";
+  }
+  /**
    * Product terms are accumulated into lane `i mod laneCount`, then the
    * lanes are folded with the declared F32 order.  The fold is semantic: an
    * eager kernel may expose a different answer at a cancellation boundary

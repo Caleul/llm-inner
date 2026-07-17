@@ -408,6 +408,13 @@ por lane (`--tiled-lane-counts` e `--tiled-terms-per-lane`), em vez de supor
 que toda SIMD use `i mod lanes`. Uma campanha source-removed de 122 agendas
 E4B ainda não encontrou perfil exato; a evidência está em
 [`docs/validation/gemma4-e4b-tiled-linear-reduction-2026-07-17.md`](docs/validation/gemma4-e4b-tiled-linear-reduction-2026-07-17.md).
+O mesmo probe declara também FMA escalar ordenado e parciais de termos
+contíguos (`--blocked-terms-per-block`): cada parcial e sua entrada no
+acumulador são fronteiras F32 explícitas, nunca uma suposição implícita sobre
+uma instrução BF16. Duas novas capturas E4B e uma execução com a fonte removida
+rejeitaram todos os 16 candidatos bloqueados de 2, 4, 8 e 16 termos; a evidência
+permanece separada da semântica instalada em
+[`docs/validation/gemma4-e4b-blocked-linear-reduction-2026-07-17.md`](docs/validation/gemma4-e4b-blocked-linear-reduction-2026-07-17.md).
 
 ### Comparação com captura autoritativa
 

@@ -294,7 +294,7 @@ test("Gemma 4 literal headers expose and stream-validate operation-declared F64 
         computeDtype: "F32",
         accumulationDtype: "operation-declared",
         outputDtype: "operation-declared",
-        scalarSemantics: "IEEE-754 binary32 products; each operation declares its ordered-scalar or interleaved-lane F32/F64 reduction and F32 or BF16 result cast",
+        scalarSemantics: "IEEE-754 binary32 products; each operation declares its ordered-scalar, contiguous blocked-term, or interleaved-lane F32/F64 reduction and F32 or BF16 result cast",
       });
     } finally {
       await artifact.close();
@@ -303,7 +303,7 @@ test("Gemma 4 literal headers expose and stream-validate operation-declared F64 
     const corrupted = path.join(root, "f64-header-lie.gemma4.literal.json");
     const raw = await readFile(output, "utf8");
     await writeFile(corrupted, raw.replace(
-      '"accumulationDtype":"operation-declared","outputDtype":"operation-declared","scalarSemantics":"IEEE-754 binary32 products; each operation declares its ordered-scalar or interleaved-lane F32/F64 reduction and F32 or BF16 result cast"',
+      '"accumulationDtype":"operation-declared","outputDtype":"operation-declared","scalarSemantics":"IEEE-754 binary32 products; each operation declares its ordered-scalar, contiguous blocked-term, or interleaved-lane F32/F64 reduction and F32 or BF16 result cast"',
       '"accumulationDtype":"F32","outputDtype":"operation-declared","scalarSemantics":"IEEE-754 binary32 reductions; each operation declares its F32 or BF16 result cast"',
     ));
     await assert.rejects(() => openGemma4CompositeLiteralArtifact(corrupted), /política numérica incompatível com as atribuições declaradas/);
@@ -494,6 +494,30 @@ test("paged linear keeps fused multiply-add lanes distinct from separately round
   assert.notEqual(separatelyRounded.values[0], fused.values[0]);
 });
 
+test("paged linear preserves ordered FMA and adjacent dot-product block boundaries", async () => {
+  const fmaTensor: TensorInfo = { name: "embedded://ordered-fma", storageDtype: "F32", storageShape: [1, 4], logicalShape: [1, 4] };
+  const fmaStorage = Buffer.alloc(16);
+  [-0.05253555625677109, 0, -0.771535336971283, 0].forEach((value, index) => fmaStorage.writeFloatLE(value, index * 4));
+  const fmaMatrix = createPagedDenseF32Matrix(fmaTensor, { async readTensorBytesRange(_tensor, offset, byteLength) { return fmaStorage.subarray(offset, offset + byteLength); } }, 16);
+  const fmaInput = { shape: [1, 4], values: Float32Array.from([-0.000940456404350698, 0, 13.010579109191895, 0]) };
+  const separate = await pagedLinearF32(fmaInput, fmaMatrix, { accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } });
+  const orderedFma = await pagedLinearF32(fmaInput, fmaMatrix, { accumulationDtype: "F32", reduction: { kind: "ordered-fma", indexOrder: "ascending" } });
+  assert.notEqual(separate.values[0], orderedFma.values[0]);
+
+  const blockTensor: TensorInfo = { name: "embedded://blocked-terms", storageDtype: "F32", storageShape: [1, 4], logicalShape: [1, 4] };
+  const blockStorage = Buffer.alloc(16);
+  [1e20, 1, -1e20, 1].forEach((value, index) => blockStorage.writeFloatLE(value, index * 4));
+  const blockMatrix = createPagedDenseF32Matrix(blockTensor, { async readTensorBytesRange(_tensor, offset, byteLength) { return blockStorage.subarray(offset, offset + byteLength); } }, 16);
+  const blockInput = { shape: [1, 4], values: Float32Array.from([1, 1, 1, 1]) };
+  const scalar = await pagedLinearF32(blockInput, blockMatrix, { accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } });
+  const pairBlocks = await pagedLinearF32(blockInput, blockMatrix, {
+    accumulationDtype: "F32",
+    reduction: { kind: "blocked-f32-terms", termsPerBlock: 2, inputBlock: "contiguous-terms", termOrder: "ascending", productBoundary: "separately-rounded-f32", blockOrder: "ascending" },
+  });
+  assert.deepEqual(scalar.values, Float32Array.from([1]));
+  assert.deepEqual(pairBlocks.values, Float32Array.from([0]));
+});
+
 test("Gemma 4 linear reduction probe binds a candidate schedule to traced producer and output tensors", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "llm-inner-gemma4-reduction-probe-"));
   try {
@@ -557,6 +581,11 @@ test("Gemma 4 linear reduction probe binds a candidate schedule to traced produc
       () => probeGemma4LiteralLinearReductionProfiles({ artifact, traces: [trace, repeatedTrace], operationId: target.id, maxReadBytes: 1024 * 1024,
         profiles: [{ id: "invalid-tiled", accumulationDtype: "F32", reduction: { kind: "tiled-f32-lanes", laneCount: 2, termsPerLane: 1, inputLane: "tile-contiguous-terms", laneReductionOrder: "ascending" } }], }),
       /mapeamento de lanes F32 inválido/,
+    );
+    await assert.rejects(
+      () => probeGemma4LiteralLinearReductionProfiles({ artifact, traces: [trace, repeatedTrace], operationId: target.id, maxReadBytes: 1024 * 1024,
+        profiles: [{ id: "invalid-blocked", accumulationDtype: "F32", reduction: { kind: "blocked-f32-terms", termsPerBlock: 1, inputBlock: "contiguous-terms", termOrder: "ascending", productBoundary: "fused-fma", blockOrder: "ascending" } }], }),
+      /perfil de blocos F32 inválido/,
     );
     await assert.rejects(
       () => probeGemma4LiteralLinearReductionProfiles({ artifact, traces: [trace, repeatedTrace], operationId: target.id, maxReadBytes: 1024 * 1024, minDistinctInputs: 2,

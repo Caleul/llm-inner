@@ -61,8 +61,8 @@ export interface Gemma4CompositeLiteralCalculationProgram extends LiteralStorage
     scalarSemantics:
       | "IEEE-754 binary32; host libm results rounded to F32"
       | "IEEE-754 binary32 reductions; each operation declares its F32 or BF16 result cast"
-      | "IEEE-754 binary32 products; each operation declares its ordered-scalar or interleaved-lane F32/F64 reduction and F32 or BF16 result cast"
-      | "IEEE-754 binary32; each operation declares ordered-scalar, separately-rounded F32-lane, or fused-multiply-add lane reduction and its F32 or BF16 result cast";
+      | "IEEE-754 binary32 products; each operation declares its ordered-scalar, contiguous blocked-term, or interleaved-lane F32/F64 reduction and F32 or BF16 result cast"
+      | "IEEE-754 binary32; each operation declares ordered-scalar, contiguous blocked-term, separately-rounded F32-lane, or fused-multiply-add reduction and its F32 or BF16 result cast";
   };
   inputs: Gemma4CompositeLiteralInput[];
   /** No checkpoint path is retained: all tensor bytes are in `constants`. */
@@ -348,17 +348,20 @@ function literalInputs(): Gemma4CompositeLiteralInput[] {
 export function gemma4CompositeLiteralNumericPolicy(program: Gemma4CompositeProgram): Gemma4CompositeLiteralCalculationProgram["numericPolicy"] {
   const textOperations = [...program.textProgram.prelude, ...program.textProgram.layers.flatMap((layer) => layer.operations), ...program.textProgram.epilogue];
   const hasBf16ResultCast = textOperations.some((operation) => operation.dtypePolicy.outputDtype === "BF16");
-  const hasDeclaredAccumulation = textOperations.some((operation) => operation.dtypePolicy.accumulationDtype === "F64" || operation.dtypePolicy.reduction?.kind === "interleaved-f32-lanes" || operation.dtypePolicy.reduction?.kind === "tiled-f32-lanes");
-  const hasFmaLaneReduction = textOperations.some((operation) => operation.dtypePolicy.reduction?.kind === "interleaved-fma-lanes" || operation.dtypePolicy.reduction?.kind === "tiled-fma-lanes");
-  if (hasDeclaredAccumulation || hasFmaLaneReduction) {
+  const hasDeclaredReduction = textOperations.some((operation) => operation.dtypePolicy.accumulationDtype === "F64" ||
+    (operation.dtypePolicy.reduction !== undefined && operation.dtypePolicy.reduction.kind !== "ordered-scalar"));
+  const hasFmaBoundary = textOperations.some((operation) => operation.dtypePolicy.reduction?.kind === "ordered-fma" ||
+    operation.dtypePolicy.reduction?.kind === "interleaved-fma-lanes" || operation.dtypePolicy.reduction?.kind === "tiled-fma-lanes" ||
+    (operation.dtypePolicy.reduction?.kind === "blocked-f32-terms" && operation.dtypePolicy.reduction.productBoundary === "fused-fma"));
+  if (hasDeclaredReduction) {
     return {
       inputDtype: "I32/F32/BOOL",
       computeDtype: "F32",
       accumulationDtype: "operation-declared",
       outputDtype: "operation-declared",
-      scalarSemantics: hasFmaLaneReduction
-        ? "IEEE-754 binary32; each operation declares ordered-scalar, separately-rounded F32-lane, or fused-multiply-add lane reduction and its F32 or BF16 result cast"
-        : "IEEE-754 binary32 products; each operation declares its ordered-scalar or interleaved-lane F32/F64 reduction and F32 or BF16 result cast",
+      scalarSemantics: hasFmaBoundary
+        ? "IEEE-754 binary32; each operation declares ordered-scalar, contiguous blocked-term, separately-rounded F32-lane, or fused-multiply-add reduction and its F32 or BF16 result cast"
+        : "IEEE-754 binary32 products; each operation declares its ordered-scalar, contiguous blocked-term, or interleaved-lane F32/F64 reduction and F32 or BF16 result cast",
     };
   }
   return {
@@ -390,9 +393,19 @@ function validateGemma4TextReductionSchedules(program: Gemma4CompositeProgram): 
     if (operation.op !== "linear" && operation.op !== "rms_norm") continue;
     const reduction = operation.dtypePolicy.reduction;
     if (!reduction) throw new Error(`${operation.id}: programa literal Gemma 4 não declara a agenda de redução.`);
-    if (reduction.kind === "ordered-scalar") {
+    if (reduction.kind === "ordered-scalar" || reduction.kind === "ordered-fma") {
       if (reduction.indexOrder !== "ascending" || (operation.dtypePolicy.accumulationDtype !== "F32" && operation.dtypePolicy.accumulationDtype !== "F64")) {
         throw new Error(`${operation.id}: agenda escalar de redução Gemma 4 é incompatível com sua política numérica.`);
+      }
+      if (reduction.kind === "ordered-fma" && operation.dtypePolicy.accumulationDtype !== "F32") throw new Error(`${operation.id}: agenda FMA escalar Gemma 4 requer acumulador F32.`);
+      continue;
+    }
+    if (reduction.kind === "blocked-f32-terms") {
+      if (operation.op !== "linear" || operation.dtypePolicy.accumulationDtype !== "F32" ||
+        !Number.isSafeInteger(reduction.termsPerBlock) || reduction.termsPerBlock < 2 || reduction.inputBlock !== "contiguous-terms" || reduction.blockOrder !== "ascending" ||
+        (reduction.termOrder !== "ascending" && reduction.termOrder !== "descending") ||
+        (reduction.productBoundary !== "separately-rounded-f32" && reduction.productBoundary !== "fused-fma")) {
+        throw new Error(`${operation.id}: agenda de blocos Gemma 4 inválida.`);
       }
       continue;
     }

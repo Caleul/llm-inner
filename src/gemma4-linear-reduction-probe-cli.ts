@@ -12,16 +12,24 @@ const maxReadMiB = integer(optional("--max-read-mib") ?? "16", "--max-read-mib")
 const laneCounts = (optional("--lane-counts") ?? "2,4,8,16,32,64,128").split(",").map((entry) => integer(entry, "--lane-counts"));
 const tiledLaneCounts = optional("--tiled-lane-counts")?.split(",").map((entry) => integer(entry, "--tiled-lane-counts")) ?? [];
 const tiledTermsPerLane = optional("--tiled-terms-per-lane")?.split(",").map((entry) => integer(entry, "--tiled-terms-per-lane")) ?? [];
+const blockedTermsPerBlock = optional("--blocked-terms-per-block")?.split(",").map((entry) => integer(entry, "--blocked-terms-per-block")) ?? [];
 const laneReductionOrders = (optional("--lane-reduction-orders") ?? "ascending,descending,balanced-pairwise").split(",").map(laneReductionOrder);
 const minDistinctInputs = integer(optional("--min-distinct-inputs") ?? "1", "--min-distinct-inputs");
-if (traces.length < 2 || maxReadMiB <= 0 || laneCounts.some((count) => count < 2) || tiledLaneCounts.some((count) => count < 2) || tiledTermsPerLane.some((count) => count < 2) || (tiledLaneCounts.length === 0) !== (tiledTermsPerLane.length === 0)) {
+if (traces.length < 2 || maxReadMiB <= 0 || laneCounts.some((count) => count < 2) || tiledLaneCounts.some((count) => count < 2) || tiledTermsPerLane.some((count) => count < 2) || blockedTermsPerBlock.some((count) => count < 2) || (tiledLaneCounts.length === 0) !== (tiledTermsPerLane.length === 0)) {
   throw new Error("Opções numéricas inválidas; informe ao menos dois --trace distintos e os dois parâmetros tiled quando usar redução tiled.");
 }
 const maxReadBytes = maxReadMiB * 1024 * 1024;
 if (!Number.isSafeInteger(maxReadBytes)) throw new Error("--max-read-mib excede limite seguro.");
 const profiles: Gemma4LinearReductionProfile[] = [
   { id: "ordered-f32", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } },
+  { id: "ordered-fma", accumulationDtype: "F32", reduction: { kind: "ordered-fma", indexOrder: "ascending" } },
   { id: "ordered-f64", accumulationDtype: "F64", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } },
+  ...[...new Set(blockedTermsPerBlock)].flatMap((termsPerBlock) => [
+    blockedProfile(termsPerBlock, "ascending", "separately-rounded-f32"),
+    blockedProfile(termsPerBlock, "ascending", "fused-fma"),
+    blockedProfile(termsPerBlock, "descending", "separately-rounded-f32"),
+    blockedProfile(termsPerBlock, "descending", "fused-fma"),
+  ]),
   ...[...new Set(laneCounts)].flatMap((laneCount) => [...new Set(laneReductionOrders)].flatMap((laneReductionOrder) => [
     laneProfile("interleaved-f32-lanes", laneCount, laneReductionOrder),
     laneProfile("interleaved-fma-lanes", laneCount, laneReductionOrder),
@@ -91,5 +99,17 @@ function tiledLaneProfile(
     id: `${kind}-${laneCount}-terms-${termsPerLane}-${laneReductionOrder}`,
     accumulationDtype: "F32",
     reduction: { kind, laneCount, termsPerLane, inputLane: "tile-contiguous-terms", laneReductionOrder },
+  };
+}
+
+function blockedProfile(
+  termsPerBlock: number,
+  termOrder: "ascending" | "descending",
+  productBoundary: "separately-rounded-f32" | "fused-fma",
+): Gemma4LinearReductionProfile {
+  return {
+    id: `blocked-f32-terms-${termsPerBlock}-${termOrder}-${productBoundary}`,
+    accumulationDtype: "F32",
+    reduction: { kind: "blocked-f32-terms", termsPerBlock, inputBlock: "contiguous-terms", termOrder, productBoundary, blockOrder: "ascending" },
   };
 }

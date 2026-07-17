@@ -126,12 +126,16 @@ export async function pagedLinearF32(
     const outputCount = Math.min(chunkRows, outFeatures - firstOutput);
     const stored = await weight.readRows(firstOutput, outputCount);
     for (let row = 0; row < rows; row += 1) for (let output = 0; output < outputCount; output += 1) {
-      const sum = options.reduction?.kind === "interleaved-f32-lanes" || options.reduction?.kind === "interleaved-fma-lanes" ||
+      const sum = options.reduction?.kind === "ordered-fma"
+        ? linearF32ProductsOrderedFma(input, stored.values, row, output, inFeatures)
+        : options.reduction?.kind === "blocked-f32-terms"
+          ? linearF32ProductsBlockedTerms(input, stored.values, row, output, inFeatures, options.reduction)
+          : options.reduction?.kind === "interleaved-f32-lanes" || options.reduction?.kind === "interleaved-fma-lanes" ||
         options.reduction?.kind === "tiled-f32-lanes" || options.reduction?.kind === "tiled-fma-lanes"
-        ? linearF32ProductsInterleavedF32Lanes(input, stored.values, row, output, inFeatures, options.reduction)
-        : options.accumulationDtype === "F64"
-          ? linearF32ProductsF64Accumulation(input, stored.values, row, output, inFeatures)
-          : linearF32ProductsF32Accumulation(input, stored.values, row, output, inFeatures);
+            ? linearF32ProductsInterleavedF32Lanes(input, stored.values, row, output, inFeatures, options.reduction)
+            : options.accumulationDtype === "F64"
+              ? linearF32ProductsF64Accumulation(input, stored.values, row, output, inFeatures)
+              : linearF32ProductsF32Accumulation(input, stored.values, row, output, inFeatures);
       result[row * outFeatures + firstOutput + output] = options.outputDtype === "BF16" ? roundF32ToBF16(sum) : Math.fround(sum);
     }
   }
@@ -143,6 +147,49 @@ function linearF32ProductsF32Accumulation(input: DenseF32Tensor, weight: Float32
   let sum = Math.fround(0);
   for (let column = 0; column < inFeatures; column += 1) {
     sum = Math.fround(sum + Math.fround(input.values[row * inFeatures + column]! * weight[output * inFeatures + column]!));
+  }
+  return sum;
+}
+
+/** Ordered F32 FMA boundaries: products stay exact until each accumulator add. */
+function linearF32ProductsOrderedFma(input: DenseF32Tensor, weight: Float32Array, row: number, output: number, inFeatures: number): number {
+  let sum = Math.fround(0);
+  for (let column = 0; column < inFeatures; column += 1) {
+    sum = Math.fround(sum + input.values[row * inFeatures + column]! * weight[output * inFeatures + column]!);
+  }
+  return sum;
+}
+
+/**
+ * Keeps adjacent-term dot-product partials explicit.  A block is not a lane:
+ * the completed partial is rounded, then added to the one scalar accumulator.
+ */
+function linearF32ProductsBlockedTerms(
+  input: DenseF32Tensor,
+  weight: Float32Array,
+  row: number,
+  output: number,
+  inFeatures: number,
+  reduction: Extract<ReductionSchedule, { kind: "blocked-f32-terms" }>,
+): number {
+  if (!Number.isSafeInteger(reduction.termsPerBlock) || reduction.termsPerBlock < 2 ||
+    reduction.inputBlock !== "contiguous-terms" || reduction.blockOrder !== "ascending" ||
+    (reduction.termOrder !== "ascending" && reduction.termOrder !== "descending") ||
+    (reduction.productBoundary !== "separately-rounded-f32" && reduction.productBoundary !== "fused-fma")) {
+    throw new Error("Linear paginado recebeu agenda de blocos F32 inválida.");
+  }
+  let sum = Math.fround(0);
+  for (let first = 0; first < inFeatures; first += reduction.termsPerBlock) {
+    const last = Math.min(first + reduction.termsPerBlock, inFeatures);
+    let partial = Math.fround(0);
+    for (let offset = 0; offset < last - first; offset += 1) {
+      const column = reduction.termOrder === "ascending" ? first + offset : last - 1 - offset;
+      const product = input.values[row * inFeatures + column]! * weight[output * inFeatures + column]!;
+      partial = reduction.productBoundary === "fused-fma"
+        ? Math.fround(partial + product)
+        : Math.fround(partial + Math.fround(product));
+    }
+    sum = Math.fround(sum + partial);
   }
   return sum;
 }
@@ -168,7 +215,7 @@ function linearF32ProductsInterleavedF32Lanes(
   row: number,
   output: number,
   inFeatures: number,
-  reduction: Exclude<ReductionSchedule, { kind: "ordered-scalar" }>,
+  reduction: Extract<ReductionSchedule, { kind: "interleaved-f32-lanes" | "interleaved-fma-lanes" | "tiled-f32-lanes" | "tiled-fma-lanes" }>,
 ): number {
   if (!Number.isSafeInteger(reduction.laneCount) || reduction.laneCount < 2 ||
     (reduction.laneReductionOrder !== "ascending" && reduction.laneReductionOrder !== "descending" && reduction.laneReductionOrder !== "balanced-pairwise")) {
@@ -197,7 +244,7 @@ function linearF32ProductsInterleavedF32Lanes(
  * reduction: every F32 addition and its tree/order are part of the literal
  * calculation program and can therefore be audited or probed independently.
  */
-function foldF32Lanes(lanes: Float32Array, order: Exclude<ReductionSchedule, { kind: "ordered-scalar" }>['laneReductionOrder']): number {
+function foldF32Lanes(lanes: Float32Array, order: Extract<ReductionSchedule, { kind: "interleaved-f32-lanes" | "interleaved-fma-lanes" | "tiled-f32-lanes" | "tiled-fma-lanes" }>['laneReductionOrder']): number {
   if (order === "ascending" || order === "descending") {
     let sum = Math.fround(0);
     const start = order === "ascending" ? 0 : lanes.length - 1;

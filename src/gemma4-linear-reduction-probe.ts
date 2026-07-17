@@ -251,8 +251,18 @@ function validateProfiles(profiles: readonly Gemma4LinearReductionProfile[]): Ge
     if (!profile.id || ids.has(profile.id)) throw new Error("Probe de redução requer IDs de perfil únicos e não vazios.");
     ids.add(profile.id);
     const reduction = profile.reduction;
-    if (reduction.kind === "ordered-scalar") {
+    if (reduction.kind === "ordered-scalar" || reduction.kind === "ordered-fma") {
       if (reduction.indexOrder !== "ascending") throw new Error(`${profile.id}: redução escalar não canônica.`);
+      if (reduction.kind === "ordered-fma" && profile.accumulationDtype !== "F32") throw new Error(`${profile.id}: redução FMA escalar requer acumulador F32.`);
+      return { id: profile.id, accumulationDtype: profile.accumulationDtype, reduction: structuredClone(reduction) };
+    }
+    if (reduction.kind === "blocked-f32-terms") {
+      if (profile.accumulationDtype !== "F32" || !Number.isSafeInteger(reduction.termsPerBlock) || reduction.termsPerBlock < 2 ||
+        reduction.inputBlock !== "contiguous-terms" || reduction.blockOrder !== "ascending" ||
+        (reduction.termOrder !== "ascending" && reduction.termOrder !== "descending") ||
+        (reduction.productBoundary !== "separately-rounded-f32" && reduction.productBoundary !== "fused-fma")) {
+        throw new Error(`${profile.id}: perfil de blocos F32 inválido.`);
+      }
       return { id: profile.id, accumulationDtype: profile.accumulationDtype, reduction: structuredClone(reduction) };
     }
     if (profile.accumulationDtype !== "F32" || !Number.isSafeInteger(reduction.laneCount) || reduction.laneCount < 2 ||

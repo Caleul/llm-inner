@@ -47,6 +47,14 @@ cada tile de 32 índices, que `i=0,1` alimenta a lane 0, `i=2,3` a lane 1 e
 assim por diante; cada adição na lane e a árvore final também são `F32` e
 auditáveis. Isso não pode ser abreviado como uma propriedade do hardware.
 
+Uma redução de produto adjacente também não pode esconder sua fronteira. Uma
+agenda `blocked-f32-terms` com `termsPerBlock=2`, `inputBlock=contiguous-terms`
+e `productBoundary=separately-rounded-f32` declara
+`partial[b] = F32(F32(x[2b] * W[o,2b]) + F32(x[2b+1] * W[o,2b+1]))` e depois
+`y[t,o] = F32(sum_b em ordem crescente(partial[b]))`. A variante `fused-fma`
+mantém cada produto exato até a soma F32 do parcial. Isto é diferente tanto de
+uma soma escalar por termo quanto de acumular em lanes e dobrá-las ao final.
+
 ## Requisitos por operação
 
 - `linear`: índices de batch/token/saída/entrada, ordem da soma, pesos e bias.
