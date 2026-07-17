@@ -16,9 +16,9 @@ fidelity are not established.
   `43fb96cec3045b72852c787540300dc5b258634b7a025f7c80355ac0788b9651`.
 - Local artifact (ignored because it is 21.3 GB):
   `artifacts/gemma4-e4b-dense.literal.json`.
-- Artifact SHA-256 after the 2026-07-17 layer-0 MLP reduction-policy
-  regeneration: `7a778d31269187f71a85458cf97b6b91f8c28eacd3fca78e43463bf833db7f0c`.
-- Artifact bytes: `21,326,357,297`; embedded original storage bytes:
+- Artifact SHA-256 after the 2026-07-17 expanded composite-order
+  regeneration: `73adbf5b950a45509c565e033282c3d0d1039eaff16a5e3ee9d6d1c0c5dcb91e`.
+- Artifact bytes: `21,326,374,423`; embedded original storage bytes:
   `15,992,314,836`.
 
 ## Reproduction and validation

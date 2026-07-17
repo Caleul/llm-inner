@@ -111,8 +111,9 @@ export function buildGemma4CompositeProgram(catalog: ModelCatalog, preview: Prev
     { id: "composite_ple_identity", operation: "per-layer-embedding", inputs: ["composite_llm_input_ids"], output: "ple_token_identity", tensors: refs([`${prefix}.embed_tokens_per_layer.weight`]), semantics: "packed PLE identity uses PAD at all soft-token coordinates" },
     { id: "composite_image_features", operation: "vision-feature-program", inputs: ["pixel_values", "image_position_ids"], output: "image_features", semantics: "registered Gemma4Vision program, including pooling, multimodal RMSNorm and language projection" },
     { id: "composite_image_scatter", operation: "masked-scatter", inputs: ["composite_text_embeddings", "input_ids", "image_features"], output: "composite_embeddings_after_image", semantics: "replace only image_token_id values; cardinality is exact" },
-    { id: "composite_video_flatten", operation: "video-frame-flatten", inputs: ["pixel_values_videos", "video_position_ids"], output: "composite_video_frames", semantics: "flatten videos and frames on dimensions 0 and 1 before the same vision tower" },
-    { id: "composite_video_features", operation: "vision-feature-program", inputs: ["composite_video_frames"], output: "video_features", semantics: "same registered vision program after exact frame flattening" },
+    { id: "composite_video_pixel_flatten", operation: "video-frame-flatten", inputs: ["pixel_values_videos"], output: "composite_video_pixels", semantics: "flatten video and frame dimensions without reordering pixel patches" },
+    { id: "composite_video_position_flatten", operation: "video-frame-flatten", inputs: ["video_position_ids"], output: "composite_video_position_ids", semantics: "flatten video and frame dimensions without reordering each patch's [x,y] position" },
+    { id: "composite_video_features", operation: "vision-feature-program", inputs: ["composite_video_pixels", "composite_video_position_ids"], output: "video_features", semantics: "same registered vision program after exact pixel and position flattening" },
     { id: "composite_video_scatter", operation: "masked-scatter", inputs: ["composite_embeddings_after_image", "input_ids", "video_features"], output: "composite_embeddings_after_video", semantics: "replace only video_token_id values after images and before audio" },
     { id: "composite_audio_features", operation: "audio-feature-program", inputs: ["input_features", "input_features_mask"], output: "audio_features", semantics: "registered Gemma4Audio program, including valid-frame stripping and language projection" },
     { id: "composite_audio_scatter", operation: "masked-scatter", inputs: ["composite_embeddings_after_video", "input_ids", "audio_features"], output: "hidden_states_0", semantics: "replace only audio_token_id values after image/video; exact cardinality" },
@@ -155,6 +156,8 @@ export function executeGemma4CompositeF32(program: Gemma4CompositeProgram, reque
     const videoTokenId = program.contract.modalities.videoTokenId;
     if (videoTokenId === undefined) throw new Error("Gemma 4 composite recebeu vídeo, mas o contrato não declara video_token_id.");
     const flattened = flattenVideo(request.pixelValuesVideos, request.videoPositionIds!);
+    values.set("composite_video_pixels", flattened.pixels);
+    values.set("composite_video_position_ids", positionsTensor(flattened.positions));
     const video = executeGemma4VisionF32(program.visionProgram, { pixelValues: flattened.pixels, pixelPositionIds: flattened.positions, tensors: request.tensors });
     merge(values, prefixValues(video.values, "video_"));
     values.set("video_features", video.imageFeatures);
@@ -276,6 +279,7 @@ function requireDenseTensor(catalog: ModelCatalog, name: string): TensorInfo {
 function tensorRef(tensor: TensorInfo): TensorRef { return { name: tensor.name, shape: [...tensor.logicalShape], storageDtype: tensor.storageDtype }; }
 function tensor(tensors: ReadonlyMap<string, DenseF32Tensor>, name: string): DenseF32Tensor { const found = tensors.get(name); if (!found) throw new Error(`Tensor F32 Gemma 4 composite ausente: ${name}`); return found; }
 function validateInputIds(inputIds: number[][]): void { if (inputIds.length === 0 || inputIds.some((row) => row.length === 0) || inputIds.some((row) => row.length !== inputIds[0]!.length)) throw new Error("Gemma 4 composite requer input_ids não vazio e retangular."); }
+function positionsTensor(positions: readonly (readonly (readonly number[])[])[]): DenseF32Tensor { return { shape: [positions.length, positions[0]?.length ?? 0, 2], values: Float32Array.from(positions.flat(2)) }; }
 
 function visionAttentionMasks(mmTokenTypeIds: number[][], inputIds: number[][], program: ModelIR): { blockSequenceIds: DenseF32Tensor; full: DenseF32Tensor; sliding: DenseF32Tensor; byLayer: ReadonlyMap<number, DenseF32Tensor> } {
   const sequence = inputIds[0]!.length;

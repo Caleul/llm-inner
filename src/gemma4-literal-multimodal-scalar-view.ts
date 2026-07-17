@@ -20,6 +20,20 @@ type NonTextScope = "composite" | "vision" | "audio";
 interface AssignmentEntry {
   assignment: Assignment;
   scope: NonTextScope;
+  operationId: string;
+  invocationId?: string;
+  bindings: ReadonlyMap<string, string>;
+}
+
+interface NavigationSeed {
+  operationId: string;
+  definitionId?: string;
+  operation: string;
+  scope: Gemma4LiteralOperationNavigation["scope"];
+  layer?: number;
+  invocationId?: string;
+  inputs: string[];
+  output: string;
 }
 
 export interface Gemma4LiteralMultimodalScalarViewRequest extends Gemma4LiteralScalarViewRequest {
@@ -33,37 +47,50 @@ const F32_REDUCTION_POLICY: DtypePolicy = {
   reduction: { kind: "ordered-scalar", indexOrder: "ascending" },
 };
 
-/** Lists every serialized calculation scope, including the shared modality programs and text core. */
+/**
+ * Expands the composite program into its real dependency order. Shared vision
+ * definitions are instantiated separately for image and video, audio is
+ * inlined at its call site, and prepared text starts at layer 0 rather than
+ * incorrectly rerunning the standalone embedding/PLE prelude.
+ */
 export function listGemma4LiteralOperations(artifact: OpenGemma4CompositeLiteralArtifact): Gemma4LiteralOperationNavigation[] {
-  const entries = assignmentEntries(artifact);
-  const producerByScopeAndOutput = new Map(entries.map((entry) => [`${entry.scope}:${entry.assignment.output}`, entry.assignment.id]));
-  const consumersByScopeAndOutput = new Map<string, string[]>();
-  for (const entry of entries) for (const input of entry.assignment.inputs) {
-    const key = `${entry.scope}:${input}`, consumers = consumersByScopeAndOutput.get(key) ?? [];
-    consumers.push(entry.assignment.id);
-    consumersByScopeAndOutput.set(key, consumers);
+  const seeds = navigationSeeds(artifact);
+  const ids = new Set<string>(), producerByOutput = new Map<string, string>();
+  for (const seed of seeds) {
+    if (ids.has(seed.operationId)) throw new Error(`Plano literal Gemma 4 possui operação instanciada duplicada: ${seed.operationId}.`);
+    if (producerByOutput.has(seed.output)) throw new Error(`Plano literal Gemma 4 redeclara saída instanciada: ${seed.output}.`);
+    ids.add(seed.operationId);
+    producerByOutput.set(seed.output, seed.operationId);
   }
-  const assignmentNavigation = entries.map((entry) => ({
-    operationId: entry.assignment.id,
-    operation: entry.assignment.operation,
-    scope: entry.scope,
-    ordinal: 0,
-    output: entry.assignment.output,
-    predecessors: entry.assignment.inputs.map((input) => ({
-      input,
-      ...(producerByScopeAndOutput.has(`${entry.scope}:${input}`) ? { producerOperationId: producerByScopeAndOutput.get(`${entry.scope}:${input}`)! } : {}),
-    })),
-    consumers: consumersByScopeAndOutput.get(`${entry.scope}:${entry.assignment.output}`) ?? [],
-  }));
-  const textNavigation = listGemma4LiteralTextOperations(artifact).map((entry) => ({ ...entry }));
-  const combined: Gemma4LiteralOperationNavigation[] = [...assignmentNavigation, ...textNavigation];
-  return combined.map((entry, ordinal) => {
-    const { previousOperationId: _previous, nextOperationId: _next, ...stable } = entry;
-    return {
-    ...stable,
+  const consumersByOutput = new Map<string, string[]>();
+  for (const seed of seeds) for (const input of seed.inputs) {
+    const consumers = consumersByOutput.get(input) ?? [];
+    consumers.push(seed.operationId);
+    consumersByOutput.set(input, consumers);
+  }
+  const navigation = seeds.map((seed, ordinal): Gemma4LiteralOperationNavigation => ({
+    operationId: seed.operationId,
+    ...(seed.definitionId ? { definitionId: seed.definitionId } : {}),
+    operation: seed.operation,
+    scope: seed.scope,
+    ...(seed.layer === undefined ? {} : { layer: seed.layer }),
+    ...(seed.invocationId ? { invocationId: seed.invocationId } : {}),
     ordinal,
-    ...(ordinal === 0 ? {} : { previousOperationId: combined[ordinal - 1]!.operationId }),
-    ...(ordinal + 1 === combined.length ? {} : { nextOperationId: combined[ordinal + 1]!.operationId }),
+    output: seed.output,
+    predecessors: seed.inputs.map((input) => ({ input, ...(producerByOutput.has(input) ? { producerOperationId: producerByOutput.get(input)! } : {}) })),
+    consumers: consumersByOutput.get(seed.output) ?? [],
+  }));
+  const navigationById = new Map(navigation.map((entry) => [entry.operationId, entry]));
+  for (const entry of navigation) for (const predecessor of entry.predecessors) {
+    if (!predecessor.producerOperationId) continue;
+    const producer = navigationById.get(predecessor.producerOperationId)!;
+    if (producer.ordinal >= entry.ordinal) throw new Error(`${entry.operationId}: predecessor ${producer.operationId} não antecede o consumidor no plano literal.`);
+  }
+  return navigation.map((entry, ordinal) => {
+    return {
+    ...entry,
+    ...(ordinal === 0 ? {} : { previousOperationId: navigation[ordinal - 1]!.operationId }),
+    ...(ordinal + 1 === navigation.length ? {} : { nextOperationId: navigation[ordinal + 1]!.operationId }),
   }; });
 }
 
@@ -77,43 +104,141 @@ export async function renderGemma4LiteralMultimodalScalarView(
   request: Gemma4LiteralMultimodalScalarViewRequest,
 ): Promise<Gemma4LiteralScalarView> {
   assertCoordinate(request.outputCoordinate);
-  if (listGemma4LiteralTextOperations(artifact).some((entry) => entry.operationId === request.operationId)) {
-    return renderGemma4LiteralScalarView(artifact, request);
+  const navigation = listGemma4LiteralOperations(artifact).find((candidate) => candidate.operationId === request.operationId);
+  if (!navigation) throw new Error(`Atribuição Gemma 4 literal não encontrada: ${request.operationId}.`);
+  if (navigation.scope === "text-layer" || navigation.scope === "text-epilogue") {
+    const rendered = await renderGemma4LiteralScalarView(artifact, { ...request, operationId: navigation.definitionId ?? navigation.operationId });
+    return bindScalarView(rendered, navigation, textBindings());
   }
-  const entry = assignmentEntries(artifact).find(({ assignment }) => assignment.id === request.operationId);
-  if (!entry) throw new Error(`Atribuição Gemma 4 literal não encontrada: ${request.operationId}.`);
-  const navigation = listGemma4LiteralOperations(artifact).find((candidate) => candidate.operationId === request.operationId)!;
+  const entry = assignmentEntries(artifact).find((candidate) => candidate.operationId === request.operationId);
+  if (!entry) throw new Error(`Atribuição Gemma 4 literal não possui definição instanciada: ${request.operationId}.`);
   const base = {
     kind: "gemma4-literal-scalar-view" as const,
     sourceCheckpointAccessed: false as const,
-    navigation,
+    navigation: { ...navigation, output: entry.assignment.output },
     outputCoordinate: [...request.outputCoordinate],
     output: indexed(entry.assignment.output, request.outputCoordinate),
     dtypePolicy: policyFor(entry.assignment),
   };
   const operation = entry.assignment.operation;
-  if (operation === "linear" || operation === "clipped-linear") return renderLinear(artifact, entry, request, base);
-  if (operation === "embedding" || operation === "per-layer-embedding") return renderEmbedding(artifact, entry, request, base);
-  if (operation === "rms-norm") return renderRmsNorm(artifact, entry, request, base);
-  if (operation === "position-embedding-2d") return renderPositionEmbedding(artifact, entry, request, base);
-  if (operation === "conv2d-stride2") return renderConv2d(artifact, entry, request, base);
-  if (operation === "layer-norm-channels") return renderChannelNorm(artifact, entry, request, base);
-  if (operation === "causal-depthwise-convolution") return renderDepthwise(artifact, entry, request, base);
-  if (operation === "per-dim-softplus-scale") return renderPerDimScale(artifact, entry, request, base);
-  if ((entry.assignment.tensors?.length ?? 0) !== 0) {
+  let rendered: Gemma4LiteralScalarView | undefined;
+  if (operation === "linear" || operation === "clipped-linear") rendered = await renderLinear(artifact, entry, request, base);
+  else if (operation === "embedding" || operation === "per-layer-embedding") rendered = await renderEmbedding(artifact, entry, request, base);
+  else if (operation === "rms-norm") rendered = await renderRmsNorm(artifact, entry, request, base);
+  else if (operation === "position-embedding-2d") rendered = await renderPositionEmbedding(artifact, entry, request, base);
+  else if (operation === "conv2d-stride2") rendered = await renderConv2d(artifact, entry, request, base);
+  else if (operation === "layer-norm-channels") rendered = await renderChannelNorm(artifact, entry, request, base);
+  else if (operation === "causal-depthwise-convolution") rendered = await renderDepthwise(artifact, entry, request, base);
+  else if (operation === "per-dim-softplus-scale") rendered = await renderPerDimScale(artifact, entry, request, base);
+  if (!rendered && (entry.assignment.tensors?.length ?? 0) !== 0) {
     throw new Error(`${entry.assignment.id}: operação ${operation} usa tensores aprendidos sem vista escalar registrada.`);
   }
-  const formulas = plainFormulas(artifact, entry, request.outputCoordinate);
-  return { ...base, formula: formulas.at(-1)!, scalarAssignments: formulas, learnedScalars: [] };
+  if (!rendered) {
+    const formulas = plainFormulas(artifact, entry, request.outputCoordinate);
+    rendered = { ...base, formula: formulas.at(-1)!, scalarAssignments: formulas, learnedScalars: [] };
+  }
+  return bindScalarView(rendered, navigation, entry.bindings);
 }
 
 function assignmentEntries(artifact: OpenGemma4CompositeLiteralArtifact): AssignmentEntry[] {
-  return [
-    ...artifact.program.assignments.map((assignment) => ({ assignment, scope: "composite" as const })),
-    ...artifact.program.visionProgram.assignments.map((assignment) => ({ assignment, scope: "vision" as const })),
-    ...artifact.program.audioProgram.assignments.map((assignment) => ({ assignment, scope: "audio" as const })),
-  ];
+  const entries: AssignmentEntry[] = [];
+  for (const assignment of artifact.program.assignments) {
+    if (assignment.operation === "vision-feature-program") {
+      entries.push(...instantiateAssignments(artifact.program.visionProgram.assignments, "vision", assignment, artifact.program.visionProgram.output));
+    } else if (assignment.operation === "audio-feature-program") {
+      entries.push(...instantiateAssignments(artifact.program.audioProgram.assignments, "audio", assignment, artifact.program.audioProgram.output));
+    } else if (assignment.operation !== "text-core") {
+      entries.push({ assignment, scope: "composite", operationId: assignment.id, bindings: new Map() });
+    }
+  }
+  return entries;
 }
+
+function navigationSeeds(artifact: OpenGemma4CompositeLiteralArtifact): NavigationSeed[] {
+  const entries = assignmentEntries(artifact);
+  const seeds: NavigationSeed[] = [];
+  for (const assignment of artifact.program.assignments) {
+    if (assignment.operation === "vision-feature-program" || assignment.operation === "audio-feature-program") {
+      for (const entry of entries.filter((candidate) => candidate.invocationId === assignment.id)) seeds.push(seedFromAssignment(entry));
+      continue;
+    }
+    if (assignment.operation === "text-core") {
+      for (const entry of listGemma4LiteralTextOperations(artifact).filter((candidate) => candidate.scope !== "text-prelude")) {
+        seeds.push({
+          operationId: entry.operationId,
+          operation: entry.operation,
+          scope: entry.scope,
+          ...(entry.layer === undefined ? {} : { layer: entry.layer }),
+          invocationId: assignment.id,
+          inputs: entry.predecessors.map((predecessor) => bindName(predecessor.input, textBindings())),
+          output: bindName(entry.output, textBindings()),
+        });
+      }
+      continue;
+    }
+    const entry = entries.find((candidate) => candidate.operationId === assignment.id);
+    if (!entry) throw new Error(`${assignment.id}: atribuição composite não foi instanciada.`);
+    seeds.push(seedFromAssignment(entry));
+  }
+  return seeds;
+}
+
+function seedFromAssignment(entry: AssignmentEntry): NavigationSeed {
+  return {
+    operationId: entry.operationId,
+    ...(entry.invocationId ? { definitionId: entry.assignment.id } : {}),
+    operation: entry.assignment.operation,
+    scope: entry.scope,
+    ...(entry.invocationId ? { invocationId: entry.invocationId } : {}),
+    inputs: entry.assignment.inputs.map((input) => bindName(input, entry.bindings)),
+    output: bindName(entry.assignment.output, entry.bindings),
+  };
+}
+
+function instantiateAssignments(
+  definitions: Assignment[],
+  scope: "vision" | "audio",
+  invocation: Gemma4CompositeAssignment,
+  terminalOutput: string,
+): AssignmentEntry[] {
+  const external = scope === "vision"
+    ? new Map([["pixel_values", invocation.inputs[0]!], ["pixel_position_ids", invocation.inputs[1]!]])
+    : new Map([["input_features", invocation.inputs[0]!], ["input_features_mask", invocation.inputs[1]!]]);
+  const usable = definitions.filter((definition) => definition.operation !== "masked-scatter-image-features" && definition.operation !== "masked-scatter-audio-features");
+  const bindings = new Map<string, string>(external);
+  for (const definition of usable) bindings.set(definition.output, definition.output === terminalOutput ? invocation.output : `${invocation.id}/${definition.output}`);
+  return usable.map((assignment) => ({
+    assignment,
+    scope,
+    operationId: `${invocation.id}/${assignment.id}`,
+    invocationId: invocation.id,
+    bindings,
+  }));
+}
+
+function textBindings(): ReadonlyMap<string, string> {
+  return new Map([["attention_mask:full", "full_attention_mask"], ["attention_mask:sliding", "sliding_attention_mask"]]);
+}
+
+function bindScalarView(
+  view: Gemma4LiteralScalarView,
+  navigation: Gemma4LiteralOperationNavigation,
+  bindings: ReadonlyMap<string, string>,
+): Gemma4LiteralScalarView {
+  const orderedBindings = [...bindings.entries()].sort(([left], [right]) => right.length - left.length);
+  const replace = (value: string): string => orderedBindings.reduce((current, [source, target]) => current.split(source).join(target), value);
+  return {
+    ...view,
+    navigation,
+    output: replace(view.output),
+    formula: replace(view.formula),
+    scalarAssignments: view.scalarAssignments.map(replace),
+    learnedScalars: view.learnedScalars.map((scalar) => ({ ...scalar })),
+    ...(view.terms ? { terms: view.terms.map((term) => ({ ...term, input: replace(term.input), formula: replace(term.formula) })) } : {}),
+  };
+}
+
+function bindName(value: string, bindings: ReadonlyMap<string, string>): string { return bindings.get(value) ?? value; }
 
 async function renderLinear(
   artifact: OpenGemma4CompositeLiteralArtifact,
@@ -327,7 +452,7 @@ function plainFormulas(artifact: OpenGemma4CompositeLiteralArtifact, entry: Assi
     case "vision-sliding-attention-mask": return [`${output} = key > query-sliding_window and (key<=query or same_nonnegative_vision_block) ? F32(0) : -Infinity`];
     case "replace-multimodal-ids-with-pad": return [`${output} = is_declared_modal_id(input_ids[${coordinate.join(",")}]) ? pad_token_id : input_ids[${coordinate.join(",")}]`];
     case "vision-feature-program": case "audio-feature-program": case "text-core": return [`${output} = declared_subprogram(${assignment.inputs.join(",")}); inspect its named scope assignments for scalar expansion`];
-    case "video-frame-flatten": return [`${output} = row_major_alias(pixel_values_videos)[video*frames+frame,patch,feature]`];
+    case "video-frame-flatten": return [`${output} = ${assignment.inputs[0]}[floor(${coordinate[0]}/frames),${coordinate[0]} mod frames,${coordinate.slice(1).join(",")}] (row-major alias; no arithmetic)`];
     case "masked-scatter": case "masked-scatter-image-features": case "masked-scatter-audio-features": return [`${output} = placeholder_at(input_ids) ? next_feature_row : prior_embedding; rows consumed in batch-major order with exact cardinality`];
     default: throw new Error(`${assignment.id}: operação ${assignment.operation} sem fórmula escalar registrada.`);
   }

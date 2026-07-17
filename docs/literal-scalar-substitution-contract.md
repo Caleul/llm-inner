@@ -89,8 +89,11 @@ Uma implementação só é candidata a fechar este requisito quando:
 ## Vista navegável do artefato Gemma 4
 
 `npm run inspect:gemma4-literal -- --artifact <json> --list-operations`
-enumera o programa Gemma4Text na ordem de dependência e preserva, para cada
-atribuição, seu output, predecessores produtores, consumidores e vizinhos.
+expande o programa composite na ordem de dependência. As chamadas de imagem e
+vídeo instanciam separadamente a mesma definição visual, a chamada de áudio é
+instanciada no seu ponto de uso e o texto preparado começa nas camadas — o
+prelude standalone não é executado novamente. Cada atribuição preserva output,
+predecessores produtores, consumidores, vizinhos, definição e invocação.
 
 Uma coordenada é expandida com `--operation <id> --output-coordinate
 <i,j,...>`. O resultado `gemma4-literal-scalar-view` deve registrar:

@@ -193,8 +193,14 @@ e
 [`docs/examples/literal-scalar-substitution.example.json`](docs/examples/literal-scalar-substitution.example.json).
 
 O leitor streaming também materializa essa vista diretamente do artefato Gemma
-4 real. `--list-operations` devolve a ordem textual completa, predecessor,
-consumidores e vizinhos de cada atribuição. `--operation` seleciona uma
+4 real. `--list-operations` expande a ordem composite completa: instancia a
+torre visual separadamente nos pontos de chamada de imagem e vídeo, instancia
+áudio no seu ponto de chamada e entra no texto preparado diretamente na camada
+0, sem repetir o embedding/PLE standalone. Cada instância compartilhada tem ID
+único, `definitionId` e `invocationId`; pixels e posições de vídeo possuem
+predecessores flatten distintos. O índice devolve predecessor, consumidores e
+vizinhos de cada atribuição, e rejeita IDs/outputs duplicados ou um produtor que
+apareça depois do consumidor. `--operation` seleciona uma
 coordenada escalar e decodifica do payload incorporado cada peso/escala usado,
 incluindo bits de storage, decoder IEEE, literal F32 e a agenda exata de
 redução/cast. Por padrão uma linear expande todos os termos; uma janela só é
@@ -215,6 +221,9 @@ chamador, não um default inventado. Operações e coordenadas sem contrato
 escalar registrado falham fechado. A execução contra a E4B real com a fonte
 indisponível está em
 [`docs/validation/gemma4-e4b-source-removed-scalar-navigation-2026-07-17.md`](docs/validation/gemma4-e4b-source-removed-scalar-navigation-2026-07-17.md).
+A expansão composite corrigida e uma linha visual de 768 pesos substituídos
+estão em
+[`docs/validation/gemma4-e4b-expanded-calculation-order-2026-07-17.md`](docs/validation/gemma4-e4b-expanded-calculation-order-2026-07-17.md).
 
 #### Evidência de redução linear por feature de saída
 
@@ -383,8 +392,9 @@ npm run inspect:gemma4-literal -- \
   --list-operations --output /tmp/gemma4-operation-index.json
 ```
 
-Isso fecha a fronteira de leitura seletiva e substituição escalar textual; ainda não é uma alegação de replay
-numérico BF16 ou de geração da E4B real. A medição do artefato real e o limite
+Isso fecha a fronteira de leitura seletiva e substituição escalar em todas as
+operações composite registradas; ainda não é uma alegação de replay numérico
+BF16 ou de geração da E4B real. A medição do artefato real e o limite
 de memória do executor atual estão em
 [`docs/validation/gemma4-e4b-literal-reader-2026-07-16.md`](docs/validation/gemma4-e4b-literal-reader-2026-07-16.md).
 Isso prova materialização completa e ausência do caminho do checkpoint no

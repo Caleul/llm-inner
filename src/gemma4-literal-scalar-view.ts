@@ -5,9 +5,13 @@ import { decodeIeeeBF16ToF32, decodeIeeeF16ToF32 } from "./utils.js";
 
 export interface Gemma4LiteralOperationNavigation {
   operationId: string;
+  /** Reused tower definition ID; absent when operationId is already the definition ID. */
+  definitionId?: string;
   operation: string;
   scope: "composite" | "vision" | "audio" | "text-prelude" | "text-layer" | "text-epilogue";
   layer?: number;
+  /** Composite invocation which instantiates a shared vision/audio/text definition. */
+  invocationId?: string;
   ordinal: number;
   output: string;
   predecessors: Array<{ input: string; producerOperationId?: string }>;
