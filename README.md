@@ -459,6 +459,17 @@ somente para as duas atribuições e o ambiente fixado, não uma conclusão do
 checkpoint Gemma 4; os comandos, checksums e limites estão em
 [`docs/validation/gemma4-e4b-arm-32-gate-up-reduction-candidate-2026-07-17.md`](docs/validation/gemma4-e4b-arm-32-gate-up-reduction-candidate-2026-07-17.md).
 
+Uma revisão independente subsequente repetiu o probe source-removed do
+`layer_0_down_proj` e uma captura completa atualizada de `[2]`/`[0]`. Os seis
+perfis down continuam `ambiguous`, enquanto `layer_0_gate_proj` e
+`layer_0_up_proj` passam bitwise; por isso o primeiro desvio completo é
+`layer_0_down_proj` (`0.001953125` máximo absoluto), seguido por
+`layer_0_post_ffn_norm`. O prefill mais um decode ainda escolhe `184`, mas os
+logits de seleção e terminais permanecem `approximate` (`0.1875` máximo
+absoluto). A fonte ficou indisponível durante ambos os replays candidatos;
+nenhuma agenda down foi instalada. Veja
+[`docs/validation/gemma4-e4b-current-text-boundary-2026-07-17.md`](docs/validation/gemma4-e4b-current-text-boundary-2026-07-17.md).
+
 Para repetir essa investigação sem serializar novamente o trace completo de
 1.229 atribuições, `capture:gemma4-linear-reduction` captura somente uma
 projeção MLP declarada (`layer_<n>_(gate|up|down)_proj`) e sua atribuição
