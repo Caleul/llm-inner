@@ -40,6 +40,7 @@ npm run compare:gemma4-paged-text-trace -- \
   --trace /tmp/gemma4-e4b-transformers-text-generation.json \
   --report /tmp/gemma4-e4b-paged-native-source-removed.json \
   --max-read-mib 16 --top-k 10 \
+  --allow-unverified-fidelity \
   --assert-source-unavailable ./gemma-4-E4B-dense
 mv ./.gemma-4-E4B-dense-source-unavailable ./gemma-4-E4B-dense
 ```

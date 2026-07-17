@@ -26,9 +26,10 @@ async function main(): Promise<void> {
     ...(maxAbsoluteError === undefined ? {} : { maxAbsoluteError: Number(maxAbsoluteError) }),
     ...(maxRelativeError === undefined ? {} : { maxRelativeError: Number(maxRelativeError) }),
     ...(value(argv, "--assert-source-unavailable", false) ? { assertSourceUnavailable: resolve(value(argv, "--assert-source-unavailable")!) } : {}),
+    ...(argv.includes("--allow-unverified-fidelity") ? { allowUnverifiedFidelity: true } : {}),
   });
   await mkdir(dirname(report), { recursive: true });
-  await writeFile(report, `${JSON.stringify({ kind: "gemma4-paged-text-native-generation-differential", sourceCheckpointAccessed: false, ...result }, null, 2)}\n`, "utf8");
+  await writeFile(report, `${JSON.stringify({ kind: "gemma4-paged-text-native-generation-differential", sourceCheckpointAccessed: false, candidateFidelityAcknowledged: argv.includes("--allow-unverified-fidelity"), ...result }, null, 2)}\n`, "utf8");
   console.log(`Relatório diferencial Gemma 4 escrito em ${report} (${result.fidelityClass}).`);
 }
 

@@ -430,12 +430,19 @@ test("Gemma 4 paged text interpreter replays prefill and cached greedy decode fr
     sourceTensors.clear();
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      const replay = await executeGemma4PagedTextLiteralF32(artifact, { inputIds: [[1, 2, 3]] }, { maxReadBytes: 64 });
-      const generation = await generateGemma4PagedTextLiteralF32(artifact, { inputIds: [[1, 2, 3]], maxNewTokens: 2 }, { maxReadBytes: 64 });
+      await assert.rejects(
+        () => executeGemma4PagedTextLiteralF32(artifact, { inputIds: [[1, 2, 3]] }, { maxReadBytes: 64 }),
+        /fidelidade numérica não verificada/,
+      );
+      const replay = await executeGemma4PagedTextLiteralF32(artifact, { inputIds: [[1, 2, 3]] }, { maxReadBytes: 64, allowUnverifiedFidelity: true });
+      const generation = await generateGemma4PagedTextLiteralF32(artifact, { inputIds: [[1, 2, 3]], maxNewTokens: 2 }, { maxReadBytes: 64, allowUnverifiedFidelity: true });
       assert.deepEqual(replay.logits.values, expected.text.logits.values);
       assert.deepEqual(generation.generatedTokenIds, expectedGeneration.generatedTokenIds);
       assert.deepEqual(generation.logits.values, expectedGeneration.text.logits.values);
       assert.deepEqual([...generation.pastKeyValues.keys()], [...expectedGeneration.text.pastKeyValues.keys()]);
+      artifact.program.textProgram.fidelity.exactByConstruction = true;
+      const exactReplay = await executeGemma4PagedTextLiteralF32(artifact, { inputIds: [[1, 2, 3]] }, { maxReadBytes: 64 });
+      assert.deepEqual(exactReplay.logits.values, expected.text.logits.values);
     } finally {
       await artifact.close();
     }

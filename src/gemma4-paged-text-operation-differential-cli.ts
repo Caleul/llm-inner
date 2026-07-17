@@ -20,9 +20,10 @@ async function main(): Promise<void> {
     artifact: resolve(value(argv, "--artifact")!), trace: resolve(value(argv, "--trace")!), maxReadBytes: maxReadMiB * 1024 * 1024,
     ...(topK === undefined ? {} : { topK: Number(topK) }),
     ...(value(argv, "--assert-source-unavailable", false) ? { assertSourceUnavailable: resolve(value(argv, "--assert-source-unavailable")!) } : {}),
+    ...(argv.includes("--allow-unverified-fidelity") ? { allowUnverifiedFidelity: true } : {}),
   });
   await mkdir(dirname(report), { recursive: true });
-  await writeFile(report, `${JSON.stringify({ kind: "gemma4-paged-text-native-operation-trace", sourceCheckpointAccessed: false, ...result }, null, 2)}\n`, "utf8");
+  await writeFile(report, `${JSON.stringify({ kind: "gemma4-paged-text-native-operation-trace", sourceCheckpointAccessed: false, candidateFidelityAcknowledged: argv.includes("--allow-unverified-fidelity"), ...result }, null, 2)}\n`, "utf8");
   console.log(`Relatório completo de atribuições Gemma 4 escrito em ${report} (${result.fidelityClass}).`);
 }
 

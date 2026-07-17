@@ -337,14 +337,17 @@ de armazenamento paginado próprios.
 ```bash
 npm run replay:gemma4-paged-text -- \
   --artifact ./artifacts/gemma4-e4b-dense.literal.json \
-  --input-ids 2,106,3 --max-new-tokens 1 --output ./paged-text-report.json
+  --input-ids 2,106,3 --max-new-tokens 1 \
+  --allow-unverified-fidelity --output ./paged-text-report.json
 ```
 
 O relatório inclui hash dos logits, tokens greedy, produtores KV, janela de
 leitura e RSS, incluindo o máximo residente (`maxRssKiB`) do processo. A
 regressão atual prova equivalência byte-a-byte de prefill e
 dois passos cached contra o executor eager apenas para a fixture Gemma 4
-registrada após remover os tensores de origem. Um prefill E4B real de um token
+registrada após remover os tensores de origem. `--allow-unverified-fidelity`
+é obrigatório para a E4B real atual: ele registra que o replay é diagnóstico
+aproximado, não uma alegação de fidelidade estabelecida. Um prefill E4B real de um token
 mais um decode cached foi executado somente do artefato literal (o diretório
 fonte foi renomeado durante o comando), mas ainda não há comparação com runtime
 autoritativo nem replay multimodal; portanto o marcador de checkpoint Gemma 4

@@ -9,6 +9,7 @@ interface Arguments {
   maxNewTokens: number;
   eosTokenId?: number;
   maxReadBytes: number;
+  allowUnverifiedFidelity: boolean;
   output?: string;
 }
 
@@ -19,8 +20,8 @@ const rssBefore = process.memoryUsage().rss;
 try {
   const request = { inputIds: [args.inputIds] };
   const result = args.maxNewTokens === 0
-    ? await executeGemma4PagedTextLiteralF32(artifact, request, { maxReadBytes: args.maxReadBytes })
-    : await generateGemma4PagedTextLiteralF32(artifact, { ...request, maxNewTokens: args.maxNewTokens, ...(args.eosTokenId === undefined ? {} : { eosTokenId: args.eosTokenId }) }, { maxReadBytes: args.maxReadBytes });
+    ? await executeGemma4PagedTextLiteralF32(artifact, request, { maxReadBytes: args.maxReadBytes, allowUnverifiedFidelity: args.allowUnverifiedFidelity })
+    : await generateGemma4PagedTextLiteralF32(artifact, { ...request, maxNewTokens: args.maxNewTokens, ...(args.eosTokenId === undefined ? {} : { eosTokenId: args.eosTokenId }) }, { maxReadBytes: args.maxReadBytes, allowUnverifiedFidelity: args.allowUnverifiedFidelity });
   const logits = result.logits;
   const hash = createHash("sha256").update(Buffer.from(logits.values.buffer, logits.values.byteOffset, logits.values.byteLength)).digest("hex");
   const report = {
@@ -28,6 +29,9 @@ try {
     artifact: artifact.artifact,
     artifactBytes: artifact.artifactBytes,
     sourceCheckpointAccessed: false,
+    executionFidelity: artifact.program.textProgram.fidelity.exactByConstruction
+      ? "exact-by-construction"
+      : "unverified-fidelity-explicitly-acknowledged",
     executionScope: "text-only; image/video/audio inputs are intentionally unsupported by this command",
     inputIds: args.inputIds,
     maxReadBytes: args.maxReadBytes,
@@ -52,7 +56,7 @@ try {
 
 function parseArguments(argv: string[]): Arguments {
   let artifact: string | undefined, inputIds: number[] | undefined, output: string | undefined, eosTokenId: number | undefined;
-  let maxNewTokens = 0, maxReadMiB = 16;
+  let maxNewTokens = 0, maxReadMiB = 16, allowUnverifiedFidelity = false;
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index], next = argv[index + 1];
     if (value === "--artifact") { artifact = next; index += 1; }
@@ -60,15 +64,16 @@ function parseArguments(argv: string[]): Arguments {
     else if (value === "--max-new-tokens") { maxNewTokens = parseInteger(next, value); index += 1; }
     else if (value === "--eos-token-id") { eosTokenId = parseInteger(next, value); index += 1; }
     else if (value === "--max-read-mib") { maxReadMiB = parseInteger(next, value); index += 1; }
+    else if (value === "--allow-unverified-fidelity") { allowUnverifiedFidelity = true; }
     else if (value === "--output") { output = next; index += 1; }
     else throw new Error(`Argumento desconhecido: ${value}.`);
   }
   if (!artifact || !inputIds || inputIds.length === 0 || maxNewTokens < 0 || maxReadMiB <= 0) {
-    throw new Error("Uso: --artifact <literal.json> --input-ids <id,id,...> [--max-new-tokens N] [--eos-token-id N] [--max-read-mib N] [--output report.json].");
+    throw new Error("Uso: --artifact <literal.json> --input-ids <id,id,...> [--max-new-tokens N] [--eos-token-id N] [--max-read-mib N] [--allow-unverified-fidelity] [--output report.json].");
   }
   const maxReadBytes = maxReadMiB * 1024 * 1024;
   if (!Number.isSafeInteger(maxReadBytes)) throw new Error("--max-read-mib excede limite seguro.");
-  return { artifact, inputIds, maxNewTokens, ...(eosTokenId === undefined ? {} : { eosTokenId }), maxReadBytes, ...(output ? { output } : {}) };
+  return { artifact, inputIds, maxNewTokens, ...(eosTokenId === undefined ? {} : { eosTokenId }), maxReadBytes, allowUnverifiedFidelity, ...(output ? { output } : {}) };
 }
 
 function parseIds(value: string | undefined): number[] {

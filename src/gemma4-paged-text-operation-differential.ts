@@ -15,6 +15,7 @@ export async function compareGemma4PagedTextLiteralOperationCheckpoints(options:
   maxAbsoluteError?: number;
   maxRelativeError?: number;
   assertSourceUnavailable?: string;
+  allowUnverifiedFidelity?: boolean;
 }): Promise<DifferentialComparisonReport> {
   if (!Number.isSafeInteger(options.maxReadBytes) || options.maxReadBytes <= 0) throw new Error("Comparação de checkpoints Gemma 4 requer maxReadBytes positivo seguro.");
   if (options.assertSourceUnavailable) {
@@ -32,7 +33,10 @@ export async function compareGemma4PagedTextLiteralOperationCheckpoints(options:
     const candidate = await executeGemma4PagedTextLiteralF32(artifact, {
       inputIds: decoded.reference.inputTokens,
       ...(decoded.reference.positionIds ? { positionIds: decoded.reference.positionIds } : {}),
-    }, { maxReadBytes: options.maxReadBytes });
+    }, {
+      maxReadBytes: options.maxReadBytes,
+      ...(options.allowUnverifiedFidelity === undefined ? {} : { allowUnverifiedFidelity: options.allowUnverifiedFidelity }),
+    });
     return compareExecutionTrace(artifact.program.textProgram, candidate, decoded.reference, {
       candidateRuntime: decoded.bundle.candidatePolicy.runtime,
       ...(options.topK === undefined ? {} : { topK: options.topK }),

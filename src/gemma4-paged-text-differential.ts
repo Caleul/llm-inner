@@ -14,6 +14,7 @@ export async function compareGemma4PagedTextLiteralGenerationTrace(options: {
   maxAbsoluteError?: number;
   maxRelativeError?: number;
   assertSourceUnavailable?: string;
+  allowUnverifiedFidelity?: boolean;
 }): Promise<DifferentialGenerationComparisonReport> {
   if (!Number.isSafeInteger(options.maxReadBytes) || options.maxReadBytes <= 0) throw new Error("Comparação Gemma 4 paginada requer maxReadBytes positivo seguro.");
   if (options.assertSourceUnavailable) {
@@ -33,7 +34,10 @@ export async function compareGemma4PagedTextLiteralGenerationTrace(options: {
     const candidate = await generateGemma4PagedTextLiteralF32(artifact, {
       inputIds: [reference.inputTokens], positionIds: [reference.promptPositionIds], maxNewTokens: reference.maxNewTokens,
       ...(reference.eosTokenId === undefined ? {} : { eosTokenId: reference.eosTokenId }),
-    }, { maxReadBytes: options.maxReadBytes });
+    }, {
+      maxReadBytes: options.maxReadBytes,
+      ...(options.allowUnverifiedFidelity === undefined ? {} : { allowUnverifiedFidelity: options.allowUnverifiedFidelity }),
+    });
     return compareGenerationTrace(candidate, reference, {
       candidateRuntime: decoded.bundle.candidatePolicy.runtime,
       ...(options.topK === undefined ? {} : { topK: options.topK }),

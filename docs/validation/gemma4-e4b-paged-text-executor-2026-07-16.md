@@ -21,6 +21,13 @@ attention, producer-owned shared KV, GELU, residuals, and the final vocabulary
 projection. Any non-F32 policy, quantized reference, unmatched literal
 constant, unsupported bias, or missing/incompatible cache fails closed.
 
+It also fails closed when `textProgram.fidelity.exactByConstruction` is
+`false`, unless the caller explicitly sets `allowUnverifiedFidelity: true`.
+That acknowledgement permits diagnostic approximate replay only; it does not
+change the artifact fidelity class or authorize a checkpoint claim. The current
+dense E4B artifact requires it because the eager-BF16 `layer_0_up_proj`
+accumulation schedule remains unestablished.
+
 `generateGemma4PagedTextLiteralF32` evaluates the selected token through the
 same path and returns the new producer cache, so its cache contract matches
 the normal F32 reference generator.
@@ -43,7 +50,7 @@ including projection rows that exceed a single F32 hidden vector.
 The local 21.3 GB artifact can now be addressed by the text-only CLI:
 
 ```bash
-npm run replay:gemma4-paged-text -- --artifact ./artifacts/gemma4-e4b-dense.literal.json --input-ids 2,106,3 --max-new-tokens 1 --output ./paged-text-report.json
+npm run replay:gemma4-paged-text -- --artifact ./artifacts/gemma4-e4b-dense.literal.json --input-ids 2,106,3 --max-new-tokens 1 --allow-unverified-fidelity --output ./paged-text-report.json
 ```
 
 ## Real E4B source-removed text replay
@@ -64,6 +71,7 @@ mv ./gemma-4-E4B-dense ./.gemma-4-E4B-dense-source-unavailable
 npm run replay:gemma4-paged-text -- \
   --artifact ./artifacts/gemma4-e4b-dense.literal.json \
   --input-ids 2 --max-new-tokens 1 --max-read-mib 16 \
+  --allow-unverified-fidelity \
   --output /tmp/gemma4-e4b-paged-text-replay-0018.json
 mv ./.gemma-4-E4B-dense-source-unavailable ./gemma-4-E4B-dense
 ```

@@ -39,6 +39,12 @@ export interface Gemma4PagedTextGenerationRequest extends Gemma4PagedTextExecuti
 export interface Gemma4PagedTextOptions {
   /** Maximum decoded literal-storage range held by one matrix/vector read. */
   maxReadBytes?: number;
+  /**
+   * Required only when the embedded program declares unresolved numerical
+   * fidelity. This keeps a diagnostic candidate replay from looking like an
+   * established exact execution contract.
+   */
+  allowUnverifiedFidelity?: boolean;
 }
 
 /**
@@ -54,6 +60,7 @@ export async function executeGemma4PagedTextLiteralF32(
   options: Gemma4PagedTextOptions = {},
 ): Promise<ReferenceF32ExecutionResult> {
   const maxReadBytes = options.maxReadBytes ?? 16 * 1024 * 1024;
+  assertExecutionFidelityAcknowledged(artifact, options);
   const inputIds = request.inputIds;
   if (inputIds.length === 0 || inputIds.some((row) => row.length === 0 || row.length !== inputIds[0]!.length)) {
     throw new Error("Gemma 4 paginado requer input_ids não vazio e retangular.");
@@ -157,6 +164,21 @@ export async function executeGemma4PagedTextLiteralF32(
   const logits = values.get("softcapped_logits") ?? values.get("logits");
   if (!logits) throw new Error("Gemma 4 paginado não produziu logits.");
   return { values, logits, pastKeyValues: producedCache };
+}
+
+/**
+ * A literal artifact can be storage-complete while its declared operation
+ * policy remains only a measured candidate. Do not silently turn that state
+ * into a replay claim just because the embedded program is executable.
+ */
+function assertExecutionFidelityAcknowledged(
+  artifact: OpenGemma4CompositeLiteralArtifact,
+  options: Gemma4PagedTextOptions,
+): void {
+  if (artifact.program.textProgram.fidelity.exactByConstruction || options.allowUnverifiedFidelity) return;
+  throw new Error(
+    "O programa literal Gemma 4 declara fidelidade numérica não verificada; passe allowUnverifiedFidelity: true somente para replay diagnóstico aproximado.",
+  );
 }
 
 /** Greedy cached decode through the same source-independent text-only path. */
