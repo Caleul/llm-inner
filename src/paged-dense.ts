@@ -130,6 +130,8 @@ export async function pagedLinearF32(
         ? linearF32ProductsOrderedFma(input, stored.values, row, output, inFeatures)
         : options.reduction?.kind === "blocked-f32-terms"
           ? linearF32ProductsBlockedTerms(input, stored.values, row, output, inFeatures, options.reduction)
+          : options.reduction?.kind === "blocked-tiled-f32-lanes"
+            ? linearF32ProductsBlockedTiledLanes(input, stored.values, row, output, inFeatures, options.reduction)
           : options.reduction?.kind === "interleaved-f32-lanes" || options.reduction?.kind === "interleaved-fma-lanes" ||
         options.reduction?.kind === "tiled-f32-lanes" || options.reduction?.kind === "tiled-fma-lanes"
             ? linearF32ProductsInterleavedF32Lanes(input, stored.values, row, output, inFeatures, options.reduction)
@@ -190,6 +192,44 @@ function linearF32ProductsBlockedTerms(
         : Math.fround(partial + Math.fround(product));
     }
     sum = Math.fround(sum + partial);
+  }
+  return sum;
+}
+
+/**
+ * Reduces each finite contiguous SIMD-like tile before advancing the scalar
+ * accumulator.  Keeping tile lanes local is materially distinct from the
+ * persistent-lane tiled schedules: the latter can carry cancellation across
+ * tiles, while this schedule cannot.
+ */
+function linearF32ProductsBlockedTiledLanes(
+  input: DenseF32Tensor,
+  weight: Float32Array,
+  row: number,
+  output: number,
+  inFeatures: number,
+  reduction: Extract<ReductionSchedule, { kind: "blocked-tiled-f32-lanes" }>,
+): number {
+  if (!Number.isSafeInteger(reduction.laneCount) || reduction.laneCount < 2 ||
+    !Number.isSafeInteger(reduction.termsPerLane) || reduction.termsPerLane < 2 ||
+    reduction.inputBlock !== "tile-contiguous-terms" || reduction.blockOrder !== "ascending" ||
+    (reduction.laneReductionOrder !== "ascending" && reduction.laneReductionOrder !== "descending" && reduction.laneReductionOrder !== "balanced-pairwise") ||
+    (reduction.productBoundary !== "separately-rounded-f32" && reduction.productBoundary !== "fused-fma")) {
+    throw new Error("Linear paginado recebeu agenda de blocos tiled F32 inválida.");
+  }
+  const tileWidth = reduction.laneCount * reduction.termsPerLane;
+  let sum = Math.fround(0);
+  for (let first = 0; first < inFeatures; first += tileWidth) {
+    const lanes = new Float32Array(reduction.laneCount);
+    const last = Math.min(first + tileWidth, inFeatures);
+    for (let column = first; column < last; column += 1) {
+      const lane = Math.floor((column - first) / reduction.termsPerLane);
+      const product = input.values[row * inFeatures + column]! * weight[output * inFeatures + column]!;
+      lanes[lane] = reduction.productBoundary === "fused-fma"
+        ? Math.fround(lanes[lane]! + product)
+        : Math.fround(lanes[lane]! + Math.fround(product));
+    }
+    sum = Math.fround(sum + foldF32Lanes(lanes, reduction.laneReductionOrder));
   }
   return sum;
 }

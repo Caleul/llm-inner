@@ -223,7 +223,12 @@ function assertPagedF32Policy(operation: Operation): void {
     reduction?.kind === "blocked-f32-terms" && Number.isSafeInteger(reduction.termsPerBlock) && reduction.termsPerBlock >= 2 && reduction.inputBlock === "contiguous-terms" && reduction.blockOrder === "ascending" &&
     (reduction.termOrder === "ascending" || reduction.termOrder === "descending") &&
     (reduction.productBoundary === "separately-rounded-f32" || reduction.productBoundary === "fused-fma");
-  if (!f32 && !bf16 && !bf16F64Reduction && !laneProfile && !orderedFma && !blockedTerms) {
+  const blockedTiled = operation.op === "linear" && policy.inputDtype === "BF16" && policy.computeDtype === "F32" && policy.accumulationDtype === "F32" && policy.outputDtype === "BF16" &&
+    reduction?.kind === "blocked-tiled-f32-lanes" && Number.isSafeInteger(reduction.laneCount) && reduction.laneCount >= 2 && Number.isSafeInteger(reduction.termsPerLane) && reduction.termsPerLane >= 2 &&
+    reduction.inputBlock === "tile-contiguous-terms" && reduction.blockOrder === "ascending" &&
+    (reduction.laneReductionOrder === "ascending" || reduction.laneReductionOrder === "descending" || reduction.laneReductionOrder === "balanced-pairwise") &&
+    (reduction.productBoundary === "separately-rounded-f32" || reduction.productBoundary === "fused-fma");
+  if (!f32 && !bf16 && !bf16F64Reduction && !laneProfile && !orderedFma && !blockedTerms && !blockedTiled) {
     throw new Error(`${operation.id}: executor Gemma 4 paginado requer política F32, BF16 explícita, ou redução linear/RMSNorm BF16 F64 declarada.`);
   }
 }

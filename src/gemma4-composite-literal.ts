@@ -61,8 +61,12 @@ export interface Gemma4CompositeLiteralCalculationProgram extends LiteralStorage
     scalarSemantics:
       | "IEEE-754 binary32; host libm results rounded to F32"
       | "IEEE-754 binary32 reductions; each operation declares its F32 or BF16 result cast"
+      /** Legacy headers remain readable; newly written artifacts use the expanded declarations below. */
+      | "IEEE-754 binary32 products; each operation declares its ordered-scalar or interleaved-lane F32/F64 reduction and F32 or BF16 result cast"
       | "IEEE-754 binary32 products; each operation declares its ordered-scalar, contiguous blocked-term, or interleaved-lane F32/F64 reduction and F32 or BF16 result cast"
-      | "IEEE-754 binary32; each operation declares ordered-scalar, contiguous blocked-term, separately-rounded F32-lane, or fused-multiply-add reduction and its F32 or BF16 result cast";
+      | "IEEE-754 binary32; each operation declares ordered-scalar, contiguous blocked-term, separately-rounded F32-lane, or fused-multiply-add reduction and its F32 or BF16 result cast"
+      | "IEEE-754 binary32 products; each operation declares its ordered-scalar, contiguous blocked-term, blocked tiled-lane, or interleaved-lane F32/F64 reduction and F32 or BF16 result cast"
+      | "IEEE-754 binary32; each operation declares ordered-scalar, contiguous blocked-term, blocked tiled-lane, separately-rounded F32-lane, or fused-multiply-add reduction and its F32 or BF16 result cast";
   };
   inputs: Gemma4CompositeLiteralInput[];
   /** No checkpoint path is retained: all tensor bytes are in `constants`. */
@@ -352,6 +356,7 @@ export function gemma4CompositeLiteralNumericPolicy(program: Gemma4CompositeProg
     (operation.dtypePolicy.reduction !== undefined && operation.dtypePolicy.reduction.kind !== "ordered-scalar"));
   const hasFmaBoundary = textOperations.some((operation) => operation.dtypePolicy.reduction?.kind === "ordered-fma" ||
     operation.dtypePolicy.reduction?.kind === "interleaved-fma-lanes" || operation.dtypePolicy.reduction?.kind === "tiled-fma-lanes" ||
+    (operation.dtypePolicy.reduction?.kind === "blocked-tiled-f32-lanes" && operation.dtypePolicy.reduction.productBoundary === "fused-fma") ||
     (operation.dtypePolicy.reduction?.kind === "blocked-f32-terms" && operation.dtypePolicy.reduction.productBoundary === "fused-fma"));
   if (hasDeclaredReduction) {
     return {
@@ -360,8 +365,8 @@ export function gemma4CompositeLiteralNumericPolicy(program: Gemma4CompositeProg
       accumulationDtype: "operation-declared",
       outputDtype: "operation-declared",
       scalarSemantics: hasFmaBoundary
-        ? "IEEE-754 binary32; each operation declares ordered-scalar, contiguous blocked-term, separately-rounded F32-lane, or fused-multiply-add reduction and its F32 or BF16 result cast"
-        : "IEEE-754 binary32 products; each operation declares its ordered-scalar, contiguous blocked-term, or interleaved-lane F32/F64 reduction and F32 or BF16 result cast",
+        ? "IEEE-754 binary32; each operation declares ordered-scalar, contiguous blocked-term, blocked tiled-lane, separately-rounded F32-lane, or fused-multiply-add reduction and its F32 or BF16 result cast"
+        : "IEEE-754 binary32 products; each operation declares its ordered-scalar, contiguous blocked-term, blocked tiled-lane, or interleaved-lane F32/F64 reduction and F32 or BF16 result cast",
     };
   }
   return {
@@ -381,9 +386,35 @@ export function validateGemma4CompositeLiteralNumericPolicy(
   program: Gemma4CompositeProgram,
 ): void {
   validateGemma4TextReductionSchedules(program);
-  if (!sameNumericPolicy(policy, gemma4CompositeLiteralNumericPolicy(program))) {
+  if (!sameNumericPolicy(policy, gemma4CompositeLiteralNumericPolicy(program)) && !legacyNumericPolicyMatchesProgram(policy, program)) {
     throw new Error("Programa literal Gemma 4 composite possui política numérica incompatível com as atribuições declaradas.");
   }
+}
+
+/**
+ * Artifacts written before blocked/tiled reduction declarations used a less
+ * specific header string.  It is safe to retain read compatibility only when
+ * their embedded graph actually stays within that former grammar; otherwise
+ * accepting the header would conceal a material calculation boundary.
+ */
+function legacyNumericPolicyMatchesProgram(
+  policy: Gemma4CompositeLiteralCalculationProgram["numericPolicy"],
+  program: Gemma4CompositeProgram,
+): boolean {
+  if (policy.inputDtype !== "I32/F32/BOOL" || policy.computeDtype !== "F32" || policy.accumulationDtype !== "operation-declared" || policy.outputDtype !== "operation-declared") return false;
+  const operations = [...program.textProgram.prelude, ...program.textProgram.layers.flatMap((layer) => layer.operations), ...program.textProgram.epilogue];
+  const reductions = operations.filter((operation) => operation.op === "linear" || operation.op === "rms_norm").map((operation) => operation.dtypePolicy.reduction);
+  if (policy.scalarSemantics === "IEEE-754 binary32 products; each operation declares its ordered-scalar or interleaved-lane F32/F64 reduction and F32 or BF16 result cast") {
+    return reductions.every((reduction) => reduction?.kind === "ordered-scalar" || reduction?.kind === "interleaved-f32-lanes");
+  }
+  if (policy.scalarSemantics === "IEEE-754 binary32 products; each operation declares its ordered-scalar, contiguous blocked-term, or interleaved-lane F32/F64 reduction and F32 or BF16 result cast") {
+    return reductions.every((reduction) => reduction?.kind === "ordered-scalar" || reduction?.kind === "interleaved-f32-lanes" || reduction?.kind === "tiled-f32-lanes" ||
+      (reduction?.kind === "blocked-f32-terms" && reduction.productBoundary === "separately-rounded-f32"));
+  }
+  if (policy.scalarSemantics === "IEEE-754 binary32; each operation declares ordered-scalar, contiguous blocked-term, separately-rounded F32-lane, or fused-multiply-add reduction and its F32 or BF16 result cast") {
+    return reductions.every((reduction) => reduction?.kind !== "blocked-tiled-f32-lanes");
+  }
+  return false;
 }
 
 /** Every literal linear/RMS reduction must expose its finite index schedule. */
@@ -406,6 +437,16 @@ function validateGemma4TextReductionSchedules(program: Gemma4CompositeProgram): 
         (reduction.termOrder !== "ascending" && reduction.termOrder !== "descending") ||
         (reduction.productBoundary !== "separately-rounded-f32" && reduction.productBoundary !== "fused-fma")) {
         throw new Error(`${operation.id}: agenda de blocos Gemma 4 inválida.`);
+      }
+      continue;
+    }
+    if (reduction.kind === "blocked-tiled-f32-lanes") {
+      if (operation.op !== "linear" || operation.dtypePolicy.accumulationDtype !== "F32" ||
+        !Number.isSafeInteger(reduction.laneCount) || reduction.laneCount < 2 || !Number.isSafeInteger(reduction.termsPerLane) || reduction.termsPerLane < 2 ||
+        reduction.inputBlock !== "tile-contiguous-terms" || reduction.blockOrder !== "ascending" ||
+        (reduction.laneReductionOrder !== "ascending" && reduction.laneReductionOrder !== "descending" && reduction.laneReductionOrder !== "balanced-pairwise") ||
+        (reduction.productBoundary !== "separately-rounded-f32" && reduction.productBoundary !== "fused-fma")) {
+        throw new Error(`${operation.id}: agenda de blocos tiled Gemma 4 inválida.`);
       }
       continue;
     }

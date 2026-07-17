@@ -415,6 +415,13 @@ uma instrução BF16. Duas novas capturas E4B e uma execução com a fonte remov
 rejeitaram todos os 16 candidatos bloqueados de 2, 4, 8 e 16 termos; a evidência
 permanece separada da semântica instalada em
 [`docs/validation/gemma4-e4b-blocked-linear-reduction-2026-07-17.md`](docs/validation/gemma4-e4b-blocked-linear-reduction-2026-07-17.md).
+Por fim, `--blocked-tiled-lane-counts` e
+`--blocked-tiled-terms-per-lane` testam uma fronteira diferente: lanes F32
+reiniciam em cada tile contíguo, o tile é dobrado na ordem declarada e somente
+seu parcial entra no acumulador F32 dos tiles. A campanha source-removed de 81
+perfis E4B também não encontrou agenda exata; nenhuma aproximação foi instalada
+no adaptador. A evidência e o comando reprodutível estão em
+[`docs/validation/gemma4-e4b-blocked-tiled-linear-reduction-2026-07-17.md`](docs/validation/gemma4-e4b-blocked-tiled-linear-reduction-2026-07-17.md).
 
 ### Comparação com captura autoritativa
 

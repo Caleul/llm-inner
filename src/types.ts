@@ -129,6 +129,22 @@ export type ReductionSchedule =
     termsPerLane: number;
     inputLane: "tile-contiguous-terms";
     laneReductionOrder: "ascending" | "descending" | "balanced-pairwise";
+  }
+  /**
+   * A finite tiled dot-product partial.  Unlike `tiled-*-lanes`, its lanes
+   * are reset for each tile; the folded F32 tile result is then added to one
+   * ordered F32 accumulator.  This makes the instruction/tile boundary
+   * explicit instead of silently carrying SIMD registers through the whole
+   * feature dimension.
+   */
+  | {
+    kind: "blocked-tiled-f32-lanes";
+    laneCount: number;
+    termsPerLane: number;
+    inputBlock: "tile-contiguous-terms";
+    laneReductionOrder: "ascending" | "descending" | "balanced-pairwise";
+    productBoundary: "separately-rounded-f32" | "fused-fma";
+    blockOrder: "ascending";
   };
 
 export interface DtypePolicy {

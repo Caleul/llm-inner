@@ -55,6 +55,13 @@ e `productBoundary=separately-rounded-f32` declara
 mantém cada produto exato até a soma F32 do parcial. Isto é diferente tanto de
 uma soma escalar por termo quanto de acumular em lanes e dobrá-las ao final.
 
+Uma agenda `blocked-tiled-f32-lanes` descreve outra fronteira observável:
+para cada tile finito de `laneCount * termsPerLane` coordenadas, ela inicializa
+lanes F32, aplica os produtos contíguos a cada lane, dobra as lanes na ordem
+declarada e só então adiciona esse parcial ao acumulador F32 ordenado dos
+tiles. As lanes não atravessam tiles. Portanto ela não é equivalente a
+`tiled-f32-lanes`, que mantém as lanes vivas por toda a redução.
+
 ## Requisitos por operação
 
 - `linear`: índices de batch/token/saída/entrada, ordem da soma, pesos e bias.

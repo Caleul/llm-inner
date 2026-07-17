@@ -265,6 +265,15 @@ function validateProfiles(profiles: readonly Gemma4LinearReductionProfile[]): Ge
       }
       return { id: profile.id, accumulationDtype: profile.accumulationDtype, reduction: structuredClone(reduction) };
     }
+    if (reduction.kind === "blocked-tiled-f32-lanes") {
+      if (profile.accumulationDtype !== "F32" || !Number.isSafeInteger(reduction.laneCount) || reduction.laneCount < 2 ||
+        !Number.isSafeInteger(reduction.termsPerLane) || reduction.termsPerLane < 2 || reduction.inputBlock !== "tile-contiguous-terms" || reduction.blockOrder !== "ascending" ||
+        (reduction.laneReductionOrder !== "ascending" && reduction.laneReductionOrder !== "descending" && reduction.laneReductionOrder !== "balanced-pairwise") ||
+        (reduction.productBoundary !== "separately-rounded-f32" && reduction.productBoundary !== "fused-fma")) {
+        throw new Error(`${profile.id}: perfil de blocos tiled F32 inválido.`);
+      }
+      return { id: profile.id, accumulationDtype: profile.accumulationDtype, reduction: structuredClone(reduction) };
+    }
     if (profile.accumulationDtype !== "F32" || !Number.isSafeInteger(reduction.laneCount) || reduction.laneCount < 2 ||
       (reduction.laneReductionOrder !== "ascending" && reduction.laneReductionOrder !== "descending" && reduction.laneReductionOrder !== "balanced-pairwise")) {
       throw new Error(`${profile.id}: perfil de lanes F32 inválido.`);

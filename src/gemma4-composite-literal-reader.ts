@@ -188,8 +188,11 @@ function assertHeader(header: Partial<Gemma4CompositeLiteralCalculationProgram>)
     policy.outputDtype === "operation-declared" && policy.scalarSemantics === "IEEE-754 binary32 reductions; each operation declares its F32 or BF16 result cast";
   const operationAccumulationDeclared = policy?.inputDtype === "I32/F32/BOOL" && policy.computeDtype === "F32" && policy.accumulationDtype === "operation-declared" &&
     policy.outputDtype === "operation-declared" &&
-    (policy.scalarSemantics === "IEEE-754 binary32 products; each operation declares its ordered-scalar, contiguous blocked-term, or interleaved-lane F32/F64 reduction and F32 or BF16 result cast" ||
-      policy.scalarSemantics === "IEEE-754 binary32; each operation declares ordered-scalar, contiguous blocked-term, separately-rounded F32-lane, or fused-multiply-add reduction and its F32 or BF16 result cast");
+    (policy.scalarSemantics === "IEEE-754 binary32 products; each operation declares its ordered-scalar or interleaved-lane F32/F64 reduction and F32 or BF16 result cast" ||
+      policy.scalarSemantics === "IEEE-754 binary32 products; each operation declares its ordered-scalar, contiguous blocked-term, or interleaved-lane F32/F64 reduction and F32 or BF16 result cast" ||
+      policy.scalarSemantics === "IEEE-754 binary32; each operation declares ordered-scalar, contiguous blocked-term, separately-rounded F32-lane, or fused-multiply-add reduction and its F32 or BF16 result cast" ||
+      policy.scalarSemantics === "IEEE-754 binary32 products; each operation declares its ordered-scalar, contiguous blocked-term, blocked tiled-lane, or interleaved-lane F32/F64 reduction and F32 or BF16 result cast" ||
+      policy.scalarSemantics === "IEEE-754 binary32; each operation declares ordered-scalar, contiguous blocked-term, blocked tiled-lane, separately-rounded F32-lane, or fused-multiply-add reduction and its F32 or BF16 result cast");
   if (header.schemaVersion !== 1 || header.kind !== "gemma4-composite-literal-calculation-program" || header.sourceFormat !== "safetensors" ||
     !Array.isArray(header.inputs) || !policy || (!f32 && !operationDeclared && !operationAccumulationDeclared)) {
     throw new Error("Artefato literal Gemma 4 possui cabeçalho ou política numérica inválida.");
