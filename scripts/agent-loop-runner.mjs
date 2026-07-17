@@ -73,6 +73,9 @@ async function load() {
   if (typeof config.missionGoal !== "string" || config.missionGoal.trim() === "") {
     fail("agent-loop.config.json must declare a non-empty missionGoal.");
   }
+  if (!Number.isInteger(config.maxNoProgressMinutes) || config.maxNoProgressMinutes < 1) {
+    fail("agent-loop.config.json must declare maxNoProgressMinutes as a positive integer.");
+  }
   const requiredPaths = [
     config.promptFile,
     config.stateFile,
@@ -249,6 +252,26 @@ async function moveRejected(config, name, reason) {
   await rename(source, target);
 }
 
+function terminateProcessGroup(child, signal) {
+  if (!child.pid) return;
+  try {
+    // Codex may own MCP/tool descendants. Kill the process group so a timed
+    // out parent cannot leave descendants alive indefinitely.
+    process.kill(-child.pid, signal);
+  } catch {
+    child.kill(signal);
+  }
+}
+
+async function checkpointTimedOutWork(runId, sequence, reason) {
+  if (await cleanGitTree()) return null;
+  const startingCommit = (await git(["rev-parse", "HEAD"])).stdout;
+  await git(["add", "-A"]);
+  await git(["commit", "-m", `chore: checkpoint interrupted autonomous loop ${sequence}`]);
+  const commit = (await git(["rev-parse", "HEAD"])).stdout;
+  return { runId, sequence, reason, startingCommit, commit, checkpointedAt: now() };
+}
+
 async function runCodex(config, prompt, runId, sequence) {
   const runDirectory = absolute(config.runsDirectory);
   const outputPath = join(runDirectory, `${runId}.last-message.md`);
@@ -274,15 +297,46 @@ async function runCodex(config, prompt, runId, sequence) {
     args: args.slice(0, -1),
   });
   return new Promise((done, reject) => {
-    const child = spawn(codex, args, { cwd: root, stdio: ["pipe", "pipe", "pipe"] });
-    const timeout = setTimeout(() => child.kill("SIGTERM"), config.maxLoopDurationMinutes * 60_000);
-    child.stdout.on("data", (chunk) => { process.stdout.write(chunk); log.write(chunk); });
-    child.stderr.on("data", (chunk) => { process.stderr.write(chunk); log.write(chunk); });
-    child.once("error", (error) => { clearTimeout(timeout); log.end(); reject(error); });
+    const child = spawn(codex, args, { cwd: root, detached: true, stdio: ["pipe", "pipe", "pipe"] });
+    let timeoutReason = null;
+    let lastProgressAt = Date.now();
+    let forceKill = null;
+    const stopFor = (reason) => {
+      if (timeoutReason) return;
+      timeoutReason = reason;
+      console.error(`Terminating ${runId}: ${reason}`);
+      terminateProcessGroup(child, "SIGTERM");
+      forceKill = setTimeout(() => terminateProcessGroup(child, "SIGKILL"), 15_000);
+    };
+    const timeout = setTimeout(
+      () => stopFor(`maximum duration of ${config.maxLoopDurationMinutes} minutes exceeded`),
+      config.maxLoopDurationMinutes * 60_000,
+    );
+    const progressWatchdog = setInterval(() => {
+      if (Date.now() - lastProgressAt >= config.maxNoProgressMinutes * 60_000) {
+        stopFor(`no Codex stdout/stderr progress for ${config.maxNoProgressMinutes} minutes`);
+      }
+    }, 5_000);
+    const recordProgress = (chunk) => {
+      lastProgressAt = Date.now();
+      process.stdout.write(chunk);
+      log.write(chunk);
+    };
+    child.stdout.on("data", recordProgress);
+    child.stderr.on("data", recordProgress);
+    child.once("error", (error) => {
+      clearTimeout(timeout);
+      clearInterval(progressWatchdog);
+      if (forceKill) clearTimeout(forceKill);
+      log.end();
+      reject(error);
+    });
     child.once("close", (code, signal) => {
       clearTimeout(timeout);
+      clearInterval(progressWatchdog);
+      if (forceKill) clearTimeout(forceKill);
       log.end();
-      done({ code: code ?? 1, signal });
+      done({ code: code ?? 1, signal, timeoutReason });
     });
     child.stdin.end(prompt);
   });
@@ -319,6 +373,7 @@ async function start(config) {
       const created = [...after].filter((name) => !before.has(name));
       let failure = null;
       let accepted = null;
+      let recovery = null;
       if (created.length !== 1) {
         failure = `Expected exactly one new completed handoff, found ${created.length}. Codex exit=${result.code}${result.signal ? ` signal=${result.signal}` : ""}.`;
       } else {
@@ -338,7 +393,20 @@ async function start(config) {
         }
       }
       if (!accepted) {
-        state = { ...state, status: "failed", consecutiveFailures: state.consecutiveFailures + 1, lastCompletedAt: now() };
+        if (result.timeoutReason) {
+          try {
+            recovery = await checkpointTimedOutWork(runId, sequence, result.timeoutReason);
+          } catch (error) {
+            failure = `${failure} Timed-out worktree checkpoint failed: ${error.message}`;
+          }
+        }
+        state = {
+          ...state,
+          status: "failed",
+          consecutiveFailures: state.consecutiveFailures + 1,
+          lastCompletedAt: now(),
+          ...(recovery ? { lastRecovery: recovery } : {}),
+        };
         await writeJsonAtomically(absolute(config.stateFile), state);
         console.error(`Loop ${sequence} rejected: ${failure}`);
         if (state.consecutiveFailures >= config.maxConsecutiveFailures) {

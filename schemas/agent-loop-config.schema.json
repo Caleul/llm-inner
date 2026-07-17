@@ -8,6 +8,7 @@
     "maxLoops",
     "maxConsecutiveFailures",
     "maxLoopDurationMinutes",
+    "maxNoProgressMinutes",
     "cooldownSeconds",
     "agent",
     "missionGoal",
@@ -32,6 +33,7 @@
     "maxLoops": { "type": "integer", "minimum": 1 },
     "maxConsecutiveFailures": { "type": "integer", "minimum": 1 },
     "maxLoopDurationMinutes": { "type": "integer", "minimum": 1 },
+    "maxNoProgressMinutes": { "type": "integer", "minimum": 1 },
     "cooldownSeconds": { "type": "integer", "minimum": 0 },
     "agent": {
       "type": "object",

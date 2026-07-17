@@ -5,6 +5,7 @@
   "maxLoops": 100,
   "maxConsecutiveFailures": 100,
   "maxLoopDurationMinutes": 240,
+  "maxNoProgressMinutes": 15,
   "cooldownSeconds": 10,
   "agent": {
     "model": "gpt-5.6-terra",
