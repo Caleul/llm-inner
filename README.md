@@ -410,6 +410,13 @@ LaunchAgent versionado neste repositório:
 npm run loop:install-launchd
 ```
 
+Como este checkout fica em `~/Documents`, conceda antes **Full Disk Access** a
+`/opt/homebrew/bin/node` em **System Settings → Privacy & Security → Full Disk
+Access**. Sem essa permissão TCC, um LaunchAgent iniciado por `launchd` pode
+ficar bloqueado ao abrir `agent-loop.config.json`, mesmo que `node` funcione no
+terminal do Codex. Depois de conceder a permissão, recarregue o serviço com o
+mesmo comando `npm run loop:install-launchd`.
+
 Ele instala `tech.lilka.llm-inner-agent-loop` em `~/Library/LaunchAgents/` e
 executa `scripts/agent-loop-supervisor.mjs`. O supervisor é o pai durável do
 runner: após uma queda inesperada, espera cinco segundos e reinicia o runner,
