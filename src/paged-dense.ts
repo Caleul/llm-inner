@@ -126,7 +126,8 @@ export async function pagedLinearF32(
     const outputCount = Math.min(chunkRows, outFeatures - firstOutput);
     const stored = await weight.readRows(firstOutput, outputCount);
     for (let row = 0; row < rows; row += 1) for (let output = 0; output < outputCount; output += 1) {
-      const sum = options.reduction?.kind === "interleaved-f32-lanes" || options.reduction?.kind === "interleaved-fma-lanes"
+      const sum = options.reduction?.kind === "interleaved-f32-lanes" || options.reduction?.kind === "interleaved-fma-lanes" ||
+        options.reduction?.kind === "tiled-f32-lanes" || options.reduction?.kind === "tiled-fma-lanes"
         ? linearF32ProductsInterleavedF32Lanes(input, stored.values, row, output, inFeatures, options.reduction)
         : options.accumulationDtype === "F64"
           ? linearF32ProductsF64Accumulation(input, stored.values, row, output, inFeatures)
@@ -167,17 +168,24 @@ function linearF32ProductsInterleavedF32Lanes(
   row: number,
   output: number,
   inFeatures: number,
-  reduction: Extract<ReductionSchedule, { kind: "interleaved-f32-lanes" | "interleaved-fma-lanes" }>,
+  reduction: Exclude<ReductionSchedule, { kind: "ordered-scalar" }>,
 ): number {
-  if (!Number.isSafeInteger(reduction.laneCount) || reduction.laneCount < 2 || reduction.inputLane !== "index-modulo-lane-count" ||
+  if (!Number.isSafeInteger(reduction.laneCount) || reduction.laneCount < 2 ||
     (reduction.laneReductionOrder !== "ascending" && reduction.laneReductionOrder !== "descending" && reduction.laneReductionOrder !== "balanced-pairwise")) {
     throw new Error("Linear paginado recebeu agenda de lanes F32 inválida.");
   }
+  const tiled = reduction.kind === "tiled-f32-lanes" || reduction.kind === "tiled-fma-lanes";
+  if ((!tiled && reduction.inputLane !== "index-modulo-lane-count") ||
+    (tiled && (!Number.isSafeInteger(reduction.termsPerLane) || reduction.termsPerLane < 2 || reduction.inputLane !== "tile-contiguous-terms"))) {
+    throw new Error("Linear paginado recebeu mapeamento de lanes F32 inválido.");
+  }
   const lanes = new Float32Array(reduction.laneCount);
   for (let column = 0; column < inFeatures; column += 1) {
-    const lane = column % reduction.laneCount;
+    const lane = tiled
+      ? Math.floor((column % (reduction.laneCount * reduction.termsPerLane)) / reduction.termsPerLane)
+      : column % reduction.laneCount;
     const product = input.values[row * inFeatures + column]! * weight[output * inFeatures + column]!;
-    lanes[lane] = reduction.kind === "interleaved-fma-lanes"
+    lanes[lane] = reduction.kind === "interleaved-fma-lanes" || reduction.kind === "tiled-fma-lanes"
       ? Math.fround(lanes[lane]! + product)
       : Math.fround(lanes[lane]! + Math.fround(product));
   }
@@ -189,7 +197,7 @@ function linearF32ProductsInterleavedF32Lanes(
  * reduction: every F32 addition and its tree/order are part of the literal
  * calculation program and can therefore be audited or probed independently.
  */
-function foldF32Lanes(lanes: Float32Array, order: Extract<ReductionSchedule, { kind: "interleaved-f32-lanes" | "interleaved-fma-lanes" }>['laneReductionOrder']): number {
+function foldF32Lanes(lanes: Float32Array, order: Exclude<ReductionSchedule, { kind: "ordered-scalar" }>['laneReductionOrder']): number {
   if (order === "ascending" || order === "descending") {
     let sum = Math.fround(0);
     const start = order === "ascending" ? 0 : lanes.length - 1;

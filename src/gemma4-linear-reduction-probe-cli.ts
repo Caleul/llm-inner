@@ -10,9 +10,13 @@ const operationId = required("--operation-id");
 const output = resolve(required("--output"));
 const maxReadMiB = integer(optional("--max-read-mib") ?? "16", "--max-read-mib");
 const laneCounts = (optional("--lane-counts") ?? "2,4,8,16,32,64,128").split(",").map((entry) => integer(entry, "--lane-counts"));
+const tiledLaneCounts = optional("--tiled-lane-counts")?.split(",").map((entry) => integer(entry, "--tiled-lane-counts")) ?? [];
+const tiledTermsPerLane = optional("--tiled-terms-per-lane")?.split(",").map((entry) => integer(entry, "--tiled-terms-per-lane")) ?? [];
 const laneReductionOrders = (optional("--lane-reduction-orders") ?? "ascending,descending,balanced-pairwise").split(",").map(laneReductionOrder);
 const minDistinctInputs = integer(optional("--min-distinct-inputs") ?? "1", "--min-distinct-inputs");
-if (traces.length < 2 || maxReadMiB <= 0 || laneCounts.some((count) => count < 2)) throw new Error("Opções numéricas inválidas; informe ao menos dois --trace distintos.");
+if (traces.length < 2 || maxReadMiB <= 0 || laneCounts.some((count) => count < 2) || tiledLaneCounts.some((count) => count < 2) || tiledTermsPerLane.some((count) => count < 2) || (tiledLaneCounts.length === 0) !== (tiledTermsPerLane.length === 0)) {
+  throw new Error("Opções numéricas inválidas; informe ao menos dois --trace distintos e os dois parâmetros tiled quando usar redução tiled.");
+}
 const maxReadBytes = maxReadMiB * 1024 * 1024;
 if (!Number.isSafeInteger(maxReadBytes)) throw new Error("--max-read-mib excede limite seguro.");
 const profiles: Gemma4LinearReductionProfile[] = [
@@ -22,6 +26,10 @@ const profiles: Gemma4LinearReductionProfile[] = [
     laneProfile("interleaved-f32-lanes", laneCount, laneReductionOrder),
     laneProfile("interleaved-fma-lanes", laneCount, laneReductionOrder),
   ])),
+  ...[...new Set(tiledLaneCounts)].flatMap((laneCount) => [...new Set(tiledTermsPerLane)].flatMap((termsPerLane) => [...new Set(laneReductionOrders)].flatMap((laneReductionOrder) => [
+    tiledLaneProfile("tiled-f32-lanes", laneCount, termsPerLane, laneReductionOrder),
+    tiledLaneProfile("tiled-fma-lanes", laneCount, termsPerLane, laneReductionOrder),
+  ]))),
 ];
 const report = await probeGemma4LiteralLinearReductionProfiles({ artifact, traces, operationId, profiles, maxReadBytes, minDistinctInputs });
 await mkdir(dirname(output), { recursive: true });
@@ -71,4 +79,17 @@ function laneProfile(
   laneReductionOrder: Extract<ReductionSchedule, { kind: "interleaved-f32-lanes" }>['laneReductionOrder'],
 ): Gemma4LinearReductionProfile {
   return { id: `${kind}-${laneCount}-${laneReductionOrder}`, accumulationDtype: "F32", reduction: { kind, laneCount, inputLane: "index-modulo-lane-count", laneReductionOrder } };
+}
+
+function tiledLaneProfile(
+  kind: "tiled-f32-lanes" | "tiled-fma-lanes",
+  laneCount: number,
+  termsPerLane: number,
+  laneReductionOrder: Extract<ReductionSchedule, { kind: "tiled-f32-lanes" }>['laneReductionOrder'],
+): Gemma4LinearReductionProfile {
+  return {
+    id: `${kind}-${laneCount}-terms-${termsPerLane}-${laneReductionOrder}`,
+    accumulationDtype: "F32",
+    reduction: { kind, laneCount, termsPerLane, inputLane: "tile-contiguous-terms", laneReductionOrder },
+  };
 }

@@ -87,6 +87,28 @@ export type ReductionSchedule =
     laneCount: number;
     inputLane: "index-modulo-lane-count";
     laneReductionOrder: "ascending" | "descending" | "balanced-pairwise";
+  }
+  /**
+   * A tiled dot-product reduction.  For every tile of
+   * `laneCount * termsPerLane` input coordinates, contiguous groups of
+   * `termsPerLane` products feed one F32 lane.  This models BF16 dot-product
+   * instructions which reduce adjacent BF16 pairs before their horizontal F32
+   * fold; it is intentionally distinct from `i mod laneCount`.
+   */
+  | {
+    kind: "tiled-f32-lanes";
+    laneCount: number;
+    termsPerLane: number;
+    inputLane: "tile-contiguous-terms";
+    laneReductionOrder: "ascending" | "descending" | "balanced-pairwise";
+  }
+  /** Like tiled F32 lanes, but each lane add has a fused product boundary. */
+  | {
+    kind: "tiled-fma-lanes";
+    laneCount: number;
+    termsPerLane: number;
+    inputLane: "tile-contiguous-terms";
+    laneReductionOrder: "ascending" | "descending" | "balanced-pairwise";
   };
 
 export interface DtypePolicy {

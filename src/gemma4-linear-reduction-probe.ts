@@ -250,15 +250,21 @@ function validateProfiles(profiles: readonly Gemma4LinearReductionProfile[]): Ge
   return profiles.map((profile) => {
     if (!profile.id || ids.has(profile.id)) throw new Error("Probe de redução requer IDs de perfil únicos e não vazios.");
     ids.add(profile.id);
-    if (profile.reduction.kind === "ordered-scalar") {
-      if (profile.reduction.indexOrder !== "ascending") throw new Error(`${profile.id}: redução escalar não canônica.`);
-    } else if (profile.accumulationDtype !== "F32" ||
-      (profile.reduction.kind !== "interleaved-f32-lanes" && profile.reduction.kind !== "interleaved-fma-lanes") || !Number.isSafeInteger(profile.reduction.laneCount) || profile.reduction.laneCount < 2 ||
-      profile.reduction.inputLane !== "index-modulo-lane-count" ||
-      (profile.reduction.laneReductionOrder !== "ascending" && profile.reduction.laneReductionOrder !== "descending" && profile.reduction.laneReductionOrder !== "balanced-pairwise")) {
+    const reduction = profile.reduction;
+    if (reduction.kind === "ordered-scalar") {
+      if (reduction.indexOrder !== "ascending") throw new Error(`${profile.id}: redução escalar não canônica.`);
+      return { id: profile.id, accumulationDtype: profile.accumulationDtype, reduction: structuredClone(reduction) };
+    }
+    if (profile.accumulationDtype !== "F32" || !Number.isSafeInteger(reduction.laneCount) || reduction.laneCount < 2 ||
+      (reduction.laneReductionOrder !== "ascending" && reduction.laneReductionOrder !== "descending" && reduction.laneReductionOrder !== "balanced-pairwise")) {
       throw new Error(`${profile.id}: perfil de lanes F32 inválido.`);
     }
-    return { id: profile.id, accumulationDtype: profile.accumulationDtype, reduction: structuredClone(profile.reduction) };
+    const tiled = reduction.kind === "tiled-f32-lanes" || reduction.kind === "tiled-fma-lanes";
+    if ((!tiled && reduction.inputLane !== "index-modulo-lane-count") ||
+      (tiled && (!Number.isSafeInteger(reduction.termsPerLane) || reduction.termsPerLane < 2 || reduction.inputLane !== "tile-contiguous-terms"))) {
+      throw new Error(`${profile.id}: mapeamento de lanes F32 inválido.`);
+    }
+    return { id: profile.id, accumulationDtype: profile.accumulationDtype, reduction: structuredClone(reduction) };
   });
 }
 

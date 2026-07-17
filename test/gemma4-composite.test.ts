@@ -465,6 +465,24 @@ test("paged linear preserves the declared horizontal lane fold instead of assumi
   assert.deepEqual(balanced.values, Float32Array.from([0]));
 });
 
+test("paged linear distinguishes a tiled adjacent-product lane schedule from index-modulo lanes", async () => {
+  const tensor: TensorInfo = { name: "embedded://tiled-lanes", storageDtype: "F32", storageShape: [1, 4], logicalShape: [1, 4] };
+  const storage = Buffer.alloc(16);
+  [1e20, 1, -1e20, 1].forEach((value, index) => storage.writeFloatLE(value, index * 4));
+  const matrix = createPagedDenseF32Matrix(tensor, { async readTensorBytesRange(_tensor, offset, byteLength) { return storage.subarray(offset, offset + byteLength); } }, 16);
+  const input = { shape: [1, 4], values: Float32Array.from([1, 1, 1, 1]) };
+  const modulo = await pagedLinearF32(input, matrix, {
+    accumulationDtype: "F32",
+    reduction: { kind: "interleaved-f32-lanes", laneCount: 2, inputLane: "index-modulo-lane-count", laneReductionOrder: "ascending" },
+  });
+  const tiled = await pagedLinearF32(input, matrix, {
+    accumulationDtype: "F32",
+    reduction: { kind: "tiled-f32-lanes", laneCount: 2, termsPerLane: 2, inputLane: "tile-contiguous-terms", laneReductionOrder: "ascending" },
+  });
+  assert.deepEqual(modulo.values, Float32Array.from([2]));
+  assert.deepEqual(tiled.values, Float32Array.from([0]));
+});
+
 test("paged linear keeps fused multiply-add lanes distinct from separately rounded products", async () => {
   const tensor: TensorInfo = { name: "embedded://fma", storageDtype: "F32", storageShape: [1, 4], logicalShape: [1, 4] };
   const storage = Buffer.alloc(16);
@@ -535,6 +553,11 @@ test("Gemma 4 linear reduction probe binds a candidate schedule to traced produc
     assert.equal(campaign.inputGroups.length, 2);
     assert.deepEqual(campaign.inputGroups.map((group) => group.traces.length), [2, 2]);
     assert.deepEqual(campaign.exactProfileIds, ["ordered-f32"]);
+    await assert.rejects(
+      () => probeGemma4LiteralLinearReductionProfiles({ artifact, traces: [trace, repeatedTrace], operationId: target.id, maxReadBytes: 1024 * 1024,
+        profiles: [{ id: "invalid-tiled", accumulationDtype: "F32", reduction: { kind: "tiled-f32-lanes", laneCount: 2, termsPerLane: 1, inputLane: "tile-contiguous-terms", laneReductionOrder: "ascending" } }], }),
+      /mapeamento de lanes F32 inválido/,
+    );
     await assert.rejects(
       () => probeGemma4LiteralLinearReductionProfiles({ artifact, traces: [trace, repeatedTrace], operationId: target.id, maxReadBytes: 1024 * 1024, minDistinctInputs: 2,
         profiles: [{ id: "ordered-f32", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } }], }),

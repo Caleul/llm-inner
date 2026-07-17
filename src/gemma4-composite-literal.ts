@@ -348,8 +348,8 @@ function literalInputs(): Gemma4CompositeLiteralInput[] {
 export function gemma4CompositeLiteralNumericPolicy(program: Gemma4CompositeProgram): Gemma4CompositeLiteralCalculationProgram["numericPolicy"] {
   const textOperations = [...program.textProgram.prelude, ...program.textProgram.layers.flatMap((layer) => layer.operations), ...program.textProgram.epilogue];
   const hasBf16ResultCast = textOperations.some((operation) => operation.dtypePolicy.outputDtype === "BF16");
-  const hasDeclaredAccumulation = textOperations.some((operation) => operation.dtypePolicy.accumulationDtype === "F64" || operation.dtypePolicy.reduction?.kind === "interleaved-f32-lanes");
-  const hasFmaLaneReduction = textOperations.some((operation) => operation.dtypePolicy.reduction?.kind === "interleaved-fma-lanes");
+  const hasDeclaredAccumulation = textOperations.some((operation) => operation.dtypePolicy.accumulationDtype === "F64" || operation.dtypePolicy.reduction?.kind === "interleaved-f32-lanes" || operation.dtypePolicy.reduction?.kind === "tiled-f32-lanes");
+  const hasFmaLaneReduction = textOperations.some((operation) => operation.dtypePolicy.reduction?.kind === "interleaved-fma-lanes" || operation.dtypePolicy.reduction?.kind === "tiled-fma-lanes");
   if (hasDeclaredAccumulation || hasFmaLaneReduction) {
     return {
       inputDtype: "I32/F32/BOOL",
@@ -397,10 +397,14 @@ function validateGemma4TextReductionSchedules(program: Gemma4CompositeProgram): 
       continue;
     }
     if (operation.op !== "linear" || operation.dtypePolicy.accumulationDtype !== "F32" ||
-      (reduction.kind !== "interleaved-f32-lanes" && reduction.kind !== "interleaved-fma-lanes") || !Number.isSafeInteger(reduction.laneCount) || reduction.laneCount < 2 ||
-      reduction.inputLane !== "index-modulo-lane-count" ||
+      !Number.isSafeInteger(reduction.laneCount) || reduction.laneCount < 2 ||
       (reduction.laneReductionOrder !== "ascending" && reduction.laneReductionOrder !== "descending" && reduction.laneReductionOrder !== "balanced-pairwise")) {
       throw new Error(`${operation.id}: agenda de lanes Gemma 4 inválida.`);
+    }
+    const tiled = reduction.kind === "tiled-f32-lanes" || reduction.kind === "tiled-fma-lanes";
+    if ((!tiled && reduction.inputLane !== "index-modulo-lane-count") ||
+      (tiled && (!Number.isSafeInteger(reduction.termsPerLane) || reduction.termsPerLane < 2 || reduction.inputLane !== "tile-contiguous-terms"))) {
+      throw new Error(`${operation.id}: mapeamento de lanes Gemma 4 inválido.`);
     }
   }
 }

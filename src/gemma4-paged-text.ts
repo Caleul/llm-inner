@@ -210,8 +210,13 @@ function assertPagedF32Policy(operation: Operation): void {
   const f32 = policy.computeDtype === "F32" && policy.accumulationDtype === "F32" && policy.outputDtype === "F32";
   const bf16 = policy.inputDtype === "BF16" && policy.computeDtype === "F32" && policy.accumulationDtype === "F32" && policy.outputDtype === "BF16";
   const bf16F64Reduction = (operation.op === "linear" || operation.op === "rms_norm") && policy.inputDtype === "BF16" && policy.computeDtype === "F32" && policy.accumulationDtype === "F64" && policy.outputDtype === "BF16";
+  const reduction = policy.reduction;
+  const tiled = reduction?.kind === "tiled-f32-lanes" || reduction?.kind === "tiled-fma-lanes";
   const laneProfile = operation.op === "linear" && policy.inputDtype === "BF16" && policy.computeDtype === "F32" && policy.accumulationDtype === "F32" && policy.outputDtype === "BF16" &&
-    policy.reduction?.kind === "interleaved-f32-lanes" && policy.reduction.laneCount === 32 && policy.reduction.inputLane === "index-modulo-lane-count" && policy.reduction.laneReductionOrder === "ascending";
+    reduction && reduction.kind !== "ordered-scalar" && Number.isSafeInteger(reduction.laneCount) && reduction.laneCount >= 2 &&
+    (reduction.laneReductionOrder === "ascending" || reduction.laneReductionOrder === "descending" || reduction.laneReductionOrder === "balanced-pairwise") &&
+    ((!tiled && reduction.inputLane === "index-modulo-lane-count") ||
+      (tiled && Number.isSafeInteger(reduction.termsPerLane) && reduction.termsPerLane >= 2 && reduction.inputLane === "tile-contiguous-terms"));
   if (!f32 && !bf16 && !bf16F64Reduction && !laneProfile) {
     throw new Error(`${operation.id}: executor Gemma 4 paginado requer política F32, BF16 explícita, ou redução linear/RMSNorm BF16 F64 declarada.`);
   }

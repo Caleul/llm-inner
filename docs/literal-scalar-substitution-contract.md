@@ -8,7 +8,7 @@ mas não basta como explicação auditável. Cada operação deve ter uma forma 
 índice que permita acompanhar os dados desde `x[...]`, através de cada camada,
 até os logits.
 
-Para uma projeção linear, a forma obrigatória é:
+Para uma projeção linear com redução escalar ordenada, a forma obrigatória é:
 
 ```text
 y[t,o] = F32(sum_{i=0..I-1, em ordem crescente}(F32(x[t,i] * W[o,i])) + b[o])
@@ -39,6 +39,13 @@ semântica:
 As duas formas devem produzir a mesma política numérica. Um `F32` deve indicar
 onde cada produto, soma, cast, softmax e dequantização arredonda; `BF16`/`F16`
 deve expor sua conversão IEEE antes do uso.
+
+Uma redução vetorial só é válida quando declara o mapeamento de cada índice de
+entrada para a lane e a dobra horizontal. Por exemplo, uma agenda
+`tile-contiguous-terms` com `laneCount=16` e `termsPerLane=2` declara, para
+cada tile de 32 índices, que `i=0,1` alimenta a lane 0, `i=2,3` a lane 1 e
+assim por diante; cada adição na lane e a árvore final também são `F32` e
+auditáveis. Isso não pode ser abreviado como uma propriedade do hardware.
 
 ## Requisitos por operação
 

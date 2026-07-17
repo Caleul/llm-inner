@@ -403,6 +403,11 @@ continua vinculado aos checksums de toda a fonte e ao fingerprint do programa;
 é executável com o diretório da fonte removido. A repetição limitada do
 `layer_0_up_proj` E4B está em
 [`docs/validation/gemma4-e4b-bounded-linear-reduction-2026-07-17.md`](docs/validation/gemma4-e4b-bounded-linear-reduction-2026-07-17.md).
+O vocabulário do probe também representa tiles com grupos contíguos de termos
+por lane (`--tiled-lane-counts` e `--tiled-terms-per-lane`), em vez de supor
+que toda SIMD use `i mod lanes`. Uma campanha source-removed de 122 agendas
+E4B ainda não encontrou perfil exato; a evidência está em
+[`docs/validation/gemma4-e4b-tiled-linear-reduction-2026-07-17.md`](docs/validation/gemma4-e4b-tiled-linear-reduction-2026-07-17.md).
 
 ### Comparação com captura autoritativa
 
