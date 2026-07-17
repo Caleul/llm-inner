@@ -16,9 +16,9 @@ fidelity are not established.
   `43fb96cec3045b72852c787540300dc5b258634b7a025f7c80355ac0788b9651`.
 - Local artifact (ignored because it is 21.3 GB):
   `artifacts/gemma4-e4b-dense.literal.json`.
-- Artifact SHA-256:
-  `55d494c1f2dec8024c4dc025277c4c626c44e0fb403395eeb42acfacc95ea2a7`.
-- Artifact bytes: `21,326,003,883`; embedded original storage bytes:
+- Artifact SHA-256 after the 2026-07-17 integrity-commitment regeneration:
+  `fb46de6b4ed24cad96e37e3223d8a1c40942b87342f65290a59a0680e90bfd3d`.
+- Artifact bytes: `21,326,356,937`; embedded original storage bytes:
   `15,992,314,836`.
 
 ## Reproduction and validation
@@ -69,13 +69,14 @@ post-export corruption check, not proof that a newly edited payload/hash pair
 originated in the source; the source-to-literal comparison above remains the
 required pre-removal evidence.
 
-The 21.3 GB E4B artifact recorded above predates these per-payload commitments,
-so it correctly fails this new optional check rather than pretending it has
-evidence it does not contain. Its independent 2026-07-17 source-byte
-comparison was repeated in loop 15 and reproduced the 2,130-payload,
-15,992,314,836-byte digest equality stated above. Regenerating this artifact
-from the pinned immutable source is required before the new source-removed
-integrity mode can apply to E4B itself.
+The E4B artifact recorded above was regenerated on 2026-07-17 from the pinned
+immutable source, so it carries all 2,130 commitments. The post-regeneration
+source-byte comparison reproduced the 2,130-payload, 15,992,314,836-byte
+digest equality stated above. A subsequent full commitment scan completed with
+the source directory renamed away; it reported the same sorted storage digest
+without opening a checkpoint. See
+[`gemma4-e4b-literal-integrity-2026-07-17.md`](gemma4-e4b-literal-integrity-2026-07-17.md)
+for the exact commands and result.
 
 ## Shared-KV storage provenance
 

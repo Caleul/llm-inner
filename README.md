@@ -241,7 +241,7 @@ escreve o artefato completo em streaming: ranges Safetensors de 12 MiB são
 codificados em base64 sem acumular o pacote ou uma string de vários GiB na
 heap. O resultado local contém os 2,130 payloads originais
 (15,992,314,836 bytes) e é auditado por `npm run audit:literal`. O hash
-`55d494c1f2dec8024c4dc025277c4c626c44e0fb403395eeb42acfacc95ea2a7`
+`fb46de6b4ed24cad96e37e3223d8a1c40942b87342f65290a59a0680e90bfd3d`
 identifica a exportação atual, cuja política numérica declara fronteiras de
 resultado BF16, acumuladores F32/F64 e agendas de redução por operação do
 texto; toda exportação deve registrar seu próprio hash, pois o programa literal
@@ -276,10 +276,12 @@ npm run inspect:gemma4-literal -- \
 ```
 
 Esse compromisso detecta corrupção posterior do artefato, mas não substitui a
-comparação fonte-para-literal feita antes da remoção. O E4B de 16 de julho foi
-emitido antes deste campo e continua verificável pelo hash externo e pela
-comparação documentada; para usar esta verificação interna ele precisa ser
-regenerado a partir da fonte imutável.
+comparação fonte-para-literal feita antes da remoção. O E4B atual foi
+regenerado em 17 de julho a partir da fonte imutável e passou tanto a
+comparação completa fonte-para-literal quanto a verificação interna com o
+diretório fonte temporariamente indisponível. A evidência e os hashes exatos
+estão em
+[`docs/validation/gemma4-e4b-literal-integrity-2026-07-17.md`](docs/validation/gemma4-e4b-literal-integrity-2026-07-17.md).
 
 O leitor `gemma4-composite-literal-reader.ts` abre esse JSON em streaming: ele
 indexa os offsets dos payloads base64 e valida a estrutura semântica sem
