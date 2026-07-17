@@ -203,6 +203,14 @@ microkernel/tile de saída sem ocultá-las como uma política global. A cobertur
 é somente evidência diagnóstica: nunca altera o adaptador nem autoriza uma
 regra de redução por coordenada sem um contrato de runtime estabelecido.
 
+Uma amostra serializada como F32 também não prova que o módulo nativo tenha
+executado em F32. As capturas lineares Gemma 4 registram
+`reference.operationDtypes` para a entrada, saída e parâmetro vistos pelo
+módulo antes da serialização. O probe exige esse registro e o compara com a
+política literal e o dtype do peso; portanto uma promoção de backend ou uma
+captura sem fronteiras de dtype não pode ser usada para justificar uma agenda
+de redução BF16.
+
 ```bash
 node dist/src/cli.js --source ./modelo --output ./modelo.literal.json --literal
 ```

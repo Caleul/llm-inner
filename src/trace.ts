@@ -236,6 +236,8 @@ function validateBundle(raw: unknown): ExecutionTraceBundle {
     if (typeof sample.operationId !== "string" || sample.operationId === "" || typeof sample.output !== "string" || sample.output === "") throw new Error("Trace operation requer operationId e output.");
     return { operationId: sample.operationId, output: sample.output, tensor: validateSerializedTensor(sample.tensor, `operação ${sample.operationId}`, dtype) };
   });
+  const operationIds = new Set(operations.map((operation) => operation.operationId));
+  const operationDtypes = reference.operationDtypes === undefined ? undefined : parseOperationDtypes(reference.operationDtypes, operationIds);
   const pastKeyValues = reference.pastKeyValues.map((entry) => {
     const cache = object(entry, "Trace cache KV");
     if (!Number.isInteger(cache.layer) || (cache.layer as number) < 0) throw new Error("Trace cache KV requer layer inteiro não negativo.");
@@ -252,9 +254,33 @@ function validateBundle(raw: unknown): ExecutionTraceBundle {
       ...(reference.executionDeviceDetail === undefined ? {} : { executionDeviceDetail: reference.executionDeviceDetail as string }),
       containerFormat: reference.containerFormat as string, quantization: reference.quantization as string,
       inputTokens, ...(positionIds !== undefined ? { positionIds: positionIds.map((row) => [...row] as number[]) } : {}), dtypePolicy: reference.dtypePolicy as string,
-      operations, pastKeyValues,
+      operations, ...(operationDtypes === undefined ? {} : { operationDtypes }), pastKeyValues,
     },
   };
+}
+
+function parseOperationDtypes(raw: unknown, operationIds: ReadonlySet<string>): Array<{ operationId: string; inputDtype: string; outputDtype: string; parameterDtype?: string }> {
+  if (!Array.isArray(raw)) throw new Error("Trace reference operationDtypes deve ser array quando declarado.");
+  const seen = new Set<string>();
+  return raw.map((entry) => {
+    const value = object(entry, "Trace operation dtype");
+    for (const field of ["operationId", "inputDtype", "outputDtype"] as const) {
+      if (typeof value[field] !== "string" || value[field].trim() === "") throw new Error(`Trace operation dtype requer ${field} não vazio.`);
+    }
+    if (value.parameterDtype !== undefined && (typeof value.parameterDtype !== "string" || value.parameterDtype.trim() === "")) {
+      throw new Error("Trace operation dtype parameterDtype deve ser string não vazia quando declarado.");
+    }
+    const operationId = value.operationId as string;
+    if (!operationIds.has(operationId)) throw new Error(`Trace operation dtype referencia operação ausente ${operationId}.`);
+    if (seen.has(operationId)) throw new Error(`Trace operation dtype duplicou ${operationId}.`);
+    seen.add(operationId);
+    return {
+      operationId,
+      inputDtype: value.inputDtype as string,
+      outputDtype: value.outputDtype as string,
+      ...(value.parameterDtype === undefined ? {} : { parameterDtype: value.parameterDtype as string }),
+    };
+  });
 }
 
 function validateGenerationBundle(raw: unknown): GenerationTraceBundle {

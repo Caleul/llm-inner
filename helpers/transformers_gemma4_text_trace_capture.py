@@ -35,6 +35,11 @@ def tensor_payload(value: torch.Tensor) -> dict[str, Any]:
     }
 
 
+def dtype_name(value: torch.Tensor) -> str:
+    """Stable trace spelling for the actual native tensor dtype."""
+    return str(value.dtype).removeprefix("torch.")
+
+
 def cache_payload(cache: Any) -> list[dict[str, Any]]:
     if not hasattr(cache, "layers"):
         raise ValueError(f"Gemma 4 capture expected DynamicCache.layers, received {type(cache).__name__}.")
@@ -360,6 +365,12 @@ def linear_reduction_checkpoint(model: Any, tokens: list[int], positions: list[i
             {"operationId": producer_operation_id, "output": producer_output, "tensor": tensor_payload(captured["input"])},
             {"operationId": operation_id, "output": output, "tensor": tensor_payload(captured["output"])},
         ],
+        "operationDtypes": [{
+            "operationId": operation_id,
+            "inputDtype": dtype_name(captured["input"]),
+            "outputDtype": dtype_name(captured["output"]),
+            "parameterDtype": dtype_name(target.weight),
+        }],
         "pastKeyValues": cache_payload(native.past_key_values),
     }
 

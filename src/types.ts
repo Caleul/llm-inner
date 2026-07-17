@@ -475,6 +475,19 @@ export interface DifferentialOperationSample {
   tensor: DenseTensor | DenseF32Tensor;
 }
 
+/**
+ * Native dtype boundary observed at one runtime operation before its values
+ * are serialized into the trace's comparison dtype.  This is evidence about
+ * the authoritative execution, not an inferred policy from checkpoint
+ * storage: a backend may promote BF16 parameters or activations to F32.
+ */
+export interface DifferentialOperationDtype {
+  operationId: string;
+  inputDtype: string;
+  outputDtype: string;
+  parameterDtype?: string;
+}
+
 /** Authoritative post-RoPE cache in the canonical BHSD layout for one layer. */
 export interface DifferentialKeyValueCacheSample {
   layer: number;
@@ -512,6 +525,8 @@ export interface DifferentialReferenceTrace {
   positionIds?: number[][];
   dtypePolicy: string;
   operations: readonly DifferentialOperationSample[];
+  /** Optional for legacy/general traces; required by dtype-sensitive probes. */
+  operationDtypes?: readonly DifferentialOperationDtype[];
   pastKeyValues: readonly DifferentialKeyValueCacheSample[];
 }
 

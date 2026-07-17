@@ -115,6 +115,7 @@ export async function probeGemma4LiteralLinearReductionProfiles(options: {
     for (const trace of decoded) assertCompatibleTrace(trace, fingerprint);
     for (let index = 1; index < decoded.length; index += 1) assertSameProbeContract(decoded[0]!, decoded[index]!);
     const operation = findLinearOperation(artifact.program.textProgram, options.operationId);
+    for (const trace of decoded) assertNativeLinearDtypeContract(trace, operation);
     const inputOperation = findProducerOperation(artifact.program.textProgram, operation.input);
     const matrix = createPagedDenseF32Matrix(tensorInfo(artifact, operation.weight.name, operation.weight.shape, operation.weight.storageDtype), artifact, options.maxReadBytes);
     const groups = groupByDeclaredInputs(traces, decoded);
@@ -233,6 +234,32 @@ function assertCompatibleTrace(trace: Awaited<ReturnType<typeof readExecutionTra
   }
   if (trace.bundle.irFingerprint !== fingerprint) throw new Error("Trace de redução Gemma 4 não corresponde ao programa textual do artefato literal.");
   if (!trace.bundle.captureId) throw new Error("Probe de redução requer captureId por trace para provar capturas independentes.");
+}
+
+/**
+ * A captured F32 comparison tensor is not proof that the native module itself
+ * calculated in F32.  Bind the probe to the pre-serialization module dtypes
+ * and reject device promotions that the literal operation does not declare.
+ */
+function assertNativeLinearDtypeContract(
+  trace: Awaited<ReturnType<typeof readExecutionTraceBundle>>,
+  operation: LinearOp,
+): void {
+  const native = trace.reference.operationDtypes?.find((entry) => entry.operationId === operation.id);
+  if (!native || !native.parameterDtype) throw new Error(`${operation.id}: probe de redução requer dtypes nativos de entrada, saída e parâmetro.`);
+  const expectedInput = torchDtype(operation.dtypePolicy.inputDtype, `${operation.id}: inputDtype literal`);
+  const expectedOutput = torchDtype(operation.dtypePolicy.outputDtype, `${operation.id}: outputDtype literal`);
+  const expectedParameter = torchDtype(operation.weight.storageDtype, `${operation.id}: storageDtype do weight`);
+  if (native.inputDtype !== expectedInput || native.outputDtype !== expectedOutput || native.parameterDtype !== expectedParameter) {
+    throw new Error(`${operation.id}: dtypes nativos ${native.inputDtype}->${native.outputDtype} com parâmetro ${native.parameterDtype} divergem do contrato literal ${expectedInput}->${expectedOutput} com parâmetro ${expectedParameter}.`);
+  }
+}
+
+function torchDtype(dtype: string | undefined, label: string): string {
+  if (dtype === "BF16") return "bfloat16";
+  if (dtype === "F32") return "float32";
+  if (dtype === "F64") return "float64";
+  throw new Error(`${label} exige BF16, F32 ou F64 explícito.`);
 }
 
 function assertSameTraceIdentity(

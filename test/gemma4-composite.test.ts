@@ -615,6 +615,7 @@ test("Gemma 4 linear reduction probe binds a candidate schedule to traced produc
           { operationId: producer.id, output: producer.output, tensor: serialize(native.values.get(producer.output)!) },
           { operationId: target.id, output: target.output, tensor: serialize(native.values.get(target.output)!) },
         ],
+        operationDtypes: [{ operationId: target.id, inputDtype: "float32", outputDtype: "float32", parameterDtype: "float32" }],
         pastKeyValues: [],
       },
     };
@@ -724,6 +725,26 @@ test("Gemma 4 linear reduction probe binds a candidate schedule to traced produc
       () => probeGemma4LiteralLinearReductionProfiles({ artifact, traces: [trace, missingDeviceTrace], operationId: target.id, maxReadBytes: 1024 * 1024,
         profiles: [{ id: "ordered-f32", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } }], }),
       /executionDevice explícito cpu ou mps/,
+    );
+    const missingDtypes = structuredClone(repeatedPayload);
+    missingDtypes.captureId = "fixture-capture-no-dtypes";
+    Object.defineProperty(missingDtypes.reference, "operationDtypes", { value: undefined, enumerable: true });
+    const missingDtypesTrace = path.join(root, "trace-no-dtypes.json");
+    await writeFile(missingDtypesTrace, JSON.stringify(missingDtypes), "utf8");
+    await assert.rejects(
+      () => probeGemma4LiteralLinearReductionProfiles({ artifact, traces: [trace, missingDtypesTrace], operationId: target.id, maxReadBytes: 1024 * 1024,
+        profiles: [{ id: "ordered-f32", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } }], }),
+      /requer dtypes nativos/,
+    );
+    const promotedDtypes = structuredClone(repeatedPayload);
+    promotedDtypes.captureId = "fixture-capture-promoted-dtypes";
+    promotedDtypes.reference.operationDtypes![0]!.outputDtype = "bfloat16";
+    const promotedDtypesTrace = path.join(root, "trace-promoted-dtypes.json");
+    await writeFile(promotedDtypesTrace, JSON.stringify(promotedDtypes), "utf8");
+    await assert.rejects(
+      () => probeGemma4LiteralLinearReductionProfiles({ artifact, traces: [trace, promotedDtypesTrace], operationId: target.id, maxReadBytes: 1024 * 1024,
+        profiles: [{ id: "ordered-f32", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } }], }),
+      /divergem do contrato literal/,
     );
     const divergent = structuredClone(repeatedPayload);
     const targetTrace = divergent.reference.operations.find((entry) => entry.operationId === target.id)!;

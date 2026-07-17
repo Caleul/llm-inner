@@ -32,6 +32,7 @@ interface NativeOperationCapture {
   executionDevice: string;
   executionDeviceDetail: string;
   operations: ExecutionTraceBundle["reference"]["operations"];
+  operationDtypes?: ExecutionTraceBundle["reference"]["operationDtypes"];
   pastKeyValues: ExecutionTraceBundle["reference"]["pastKeyValues"];
 }
 
@@ -75,6 +76,7 @@ export async function captureGemma4TransformersLinearReductionTrace(options: Gem
       { id: target.producerOperationId, output: target.producerOutput },
       { id: target.operationId, output: target.output },
     ], native.operations);
+    assertNativeLinearDtypeCoverage(native.operationDtypes, target.operationId);
     const bundle: ExecutionTraceBundle = {
       schemaVersion: 1,
       kind: "execution",
@@ -94,6 +96,7 @@ export async function captureGemma4TransformersLinearReductionTrace(options: Gem
         positionIds: [positions],
         dtypePolicy: "native eager BF16 bounded MLP projection checkpoints captured as F32",
         operations: native.operations,
+        operationDtypes: native.operationDtypes,
         pastKeyValues: native.pastKeyValues,
       },
     };
@@ -101,6 +104,16 @@ export async function captureGemma4TransformersLinearReductionTrace(options: Gem
     await writeFile(options.output, `${JSON.stringify(bundle, null, 2)}\n`, "utf8");
   } finally {
     await opened.close();
+  }
+}
+
+function assertNativeLinearDtypeCoverage(
+  operationDtypes: ExecutionTraceBundle["reference"]["operationDtypes"],
+  operationId: string,
+): asserts operationDtypes is NonNullable<ExecutionTraceBundle["reference"]["operationDtypes"]> {
+  const record = operationDtypes?.find((entry) => entry.operationId === operationId);
+  if (!record || !record.inputDtype || !record.outputDtype || !record.parameterDtype) {
+    throw new Error(`Gemma 4 native trace não declarou dtypes de entrada, saída e parâmetro para ${operationId}.`);
   }
 }
 

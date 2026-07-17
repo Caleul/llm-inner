@@ -13,6 +13,11 @@ device, reports the actual first-parameter device, and TypeScript rejects a
 different report. The persisted trace has `reference.executionDevice`; the
 linear-reduction probe rejects missing device metadata and rejects a campaign
 whose source/runtime/IR/dtype/device contract differs between captures.
+Each bounded-linear capture also declares `reference.operationDtypes` for the
+native module input, output, and weight before the tensors are widened to the
+trace's F32 payload. The probe requires that record and rejects a trace whose
+native dtype boundary differs from the literal assignment; serializing a value
+as F32 is not treated as proof that the module executed in F32.
 
 The earlier E4B traces were CPU traces: the previous helper left model and
 inputs on PyTorch's default CPU device. They are therefore not MPS evidence.
@@ -63,3 +68,29 @@ the closest 32-lane balanced F32 and FMA candidates each differed in one BF16
 coordinate with maximum absolute error `1.1920928955078125e-7`. Thus the new
 contract is exercised against the real source-independent literal reader, but
 the existing `layer_0_up_proj` approximate-fidelity boundary remains intact.
+
+## Loop 26 native-dtype revalidation
+
+The former CPU traces predated native operation-dtype evidence, so they cannot
+be used by the strengthened probe. Loop 26 captured two fresh `cpu` traces and
+two fresh `mps` traces for the same token/position and immutable source.
+Every capture reported the actual module boundary below:
+
+```json
+{
+  "operationId": "layer_0_up_proj",
+  "inputDtype": "bfloat16",
+  "outputDtype": "bfloat16",
+  "parameterDtype": "bfloat16"
+}
+```
+
+The source directory was unavailable for both candidate probe processes. The
+CPU report has `sourceCheckpointAccessed: false`, `traceCount: 2`, and no
+exact profile: its closest 32-lane balanced F32/FMA candidates each miss one
+BF16 coordinate by `1.1920928955078125e-7`. The MPS report independently has
+`sourceCheckpointAccessed: false`, `traceCount: 2`, and no exact profile; its
+closest ordered-F64 candidate misses two BF16 coordinates by
+`1.1920928955078125e-7`. Thus the remaining reduction blocker is not caused
+by a hidden CPU/MPS dtype promotion, and neither backend establishes the dense
+lossless checkpoint.
