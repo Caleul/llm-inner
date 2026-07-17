@@ -214,6 +214,9 @@ function validateBundle(raw: unknown): ExecutionTraceBundle {
   if (reference.executionDevice !== undefined && (typeof reference.executionDevice !== "string" || reference.executionDevice.trim() === "")) {
     throw new Error("Trace reference executionDevice deve ser string não vazia quando declarado.");
   }
+  if (reference.executionDeviceDetail !== undefined && (typeof reference.executionDeviceDetail !== "string" || reference.executionDeviceDetail.trim() === "")) {
+    throw new Error("Trace reference executionDeviceDetail deve ser string não vazia quando declarado.");
+  }
   if (!Array.isArray(reference.inputTokens) || reference.inputTokens.length === 0 || !reference.inputTokens.every(tokenRow)) throw new Error("Trace reference requer inputTokens inteiros não negativos.");
   const inputTokens = reference.inputTokens as number[][];
   const positionIds = reference.positionIds;
@@ -246,6 +249,7 @@ function validateBundle(raw: unknown): ExecutionTraceBundle {
     reference: {
       runtime: reference.runtime as string, model: reference.model as string, revisionOrChecksum: reference.revisionOrChecksum as string,
       ...(reference.executionDevice === undefined ? {} : { executionDevice: reference.executionDevice as string }),
+      ...(reference.executionDeviceDetail === undefined ? {} : { executionDeviceDetail: reference.executionDeviceDetail as string }),
       containerFormat: reference.containerFormat as string, quantization: reference.quantization as string,
       inputTokens, ...(positionIds !== undefined ? { positionIds: positionIds.map((row) => [...row] as number[]) } : {}), dtypePolicy: reference.dtypePolicy as string,
       operations, pastKeyValues,
@@ -264,6 +268,9 @@ function validateGenerationBundle(raw: unknown): GenerationTraceBundle {
   }
   if (reference.executionDevice !== undefined && (typeof reference.executionDevice !== "string" || reference.executionDevice.trim() === "")) {
     throw new Error("Trace de geração executionDevice deve ser string não vazia quando declarado.");
+  }
+  if (reference.executionDeviceDetail !== undefined && (typeof reference.executionDeviceDetail !== "string" || reference.executionDeviceDetail.trim() === "")) {
+    throw new Error("Trace de geração executionDeviceDetail deve ser string não vazia quando declarado.");
   }
   if (!tokenVector(reference.inputTokens)) throw new Error("Trace de geração requer inputTokens inteiros não negativos.");
   if (!tokenVector(reference.promptPositionIds) || reference.promptPositionIds.length !== reference.inputTokens.length) {
@@ -312,6 +319,7 @@ function validateGenerationBundle(raw: unknown): GenerationTraceBundle {
     reference: {
       runtime: reference.runtime as string, model: reference.model as string, revisionOrChecksum: reference.revisionOrChecksum as string,
       ...(reference.executionDevice === undefined ? {} : { executionDevice: reference.executionDevice as string }),
+      ...(reference.executionDeviceDetail === undefined ? {} : { executionDeviceDetail: reference.executionDeviceDetail as string }),
       containerFormat: reference.containerFormat as string, quantization: reference.quantization as string,
       inputTokens: [...inputTokens], promptPositionIds: [...promptPositionIds],
       dtypePolicy: reference.dtypePolicy as string, maxNewTokens: reference.maxNewTokens as number,

@@ -68,6 +68,7 @@ export interface Gemma4LinearReductionProbeReport {
   reference: {
     runtime: string;
     executionDevice?: string;
+    executionDeviceDetail?: string;
     model: string;
     revisionOrChecksum: string;
     containerFormat: string;
@@ -161,6 +162,7 @@ export async function probeGemma4LiteralLinearReductionProfiles(options: {
       reference: {
         runtime: decoded[0]!.reference.runtime,
         ...(decoded[0]!.reference.executionDevice === undefined ? {} : { executionDevice: decoded[0]!.reference.executionDevice }),
+        ...(decoded[0]!.reference.executionDeviceDetail === undefined ? {} : { executionDeviceDetail: decoded[0]!.reference.executionDeviceDetail }),
         model: decoded[0]!.reference.model,
         revisionOrChecksum: decoded[0]!.reference.revisionOrChecksum,
         containerFormat: decoded[0]!.reference.containerFormat,
@@ -245,6 +247,7 @@ function assertSameTraceIdentity(
     reference: {
       runtime: trace.reference.runtime,
       executionDevice: trace.reference.executionDevice ?? null,
+      executionDeviceDetail: trace.reference.executionDeviceDetail ?? null,
       model: trace.reference.model,
       revisionOrChecksum: trace.reference.revisionOrChecksum,
       containerFormat: trace.reference.containerFormat,
@@ -273,6 +276,7 @@ function assertSameProbeContract(
     reference: {
       runtime: trace.reference.runtime,
       executionDevice: trace.reference.executionDevice ?? null,
+      executionDeviceDetail: trace.reference.executionDeviceDetail ?? null,
       model: trace.reference.model,
       revisionOrChecksum: trace.reference.revisionOrChecksum,
       containerFormat: trace.reference.containerFormat,

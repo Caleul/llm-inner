@@ -490,11 +490,16 @@ export interface DifferentialKeyValueCacheSample {
 export interface DifferentialReferenceTrace {
   runtime: string;
   /**
-   * Concrete device used by the authoritative runtime, when the capture
-   * contract establishes one.  CPU and MPS linear kernels are distinct
+   * Canonical device family used by the authoritative runtime, when the
+   * capture contract establishes one. CPU and MPS linear kernels are distinct
    * numerical contracts and must never be merged into one fidelity claim.
    */
   executionDevice?: string;
+  /**
+   * Backend-reported concrete device, when it carries more detail than the
+   * canonical capture contract (for example `mps:0` under `mps`).
+   */
+  executionDeviceDetail?: string;
   model: string;
   revisionOrChecksum: string;
   containerFormat: SourceFormat | string;
@@ -579,6 +584,8 @@ export interface DifferentialGenerationReferenceTrace {
   runtime: string;
   /** See DifferentialReferenceTrace.executionDevice. */
   executionDevice?: string;
+  /** See DifferentialReferenceTrace.executionDeviceDetail. */
+  executionDeviceDetail?: string;
   model: string;
   revisionOrChecksum: string;
   containerFormat: SourceFormat | string;

@@ -79,6 +79,22 @@ def validate(model: Any) -> None:
         raise ValueError("Gemma 4 native capture requires every loaded parameter to remain BF16.")
 
 
+def execution_device_metadata(model: Any, requested: str) -> dict[str, str]:
+    """Bind the portable device contract to the actual runtime placement.
+
+    PyTorch names the first MPS device `mps:0`, while the persisted numerical
+    contract deliberately uses the portable `mps` selector.  Recording both
+    avoids rejecting a valid MPS capture or silently treating its detail as a
+    CPU/MPS-equivalent string.
+    """
+    observed = str(next(model.parameters()).device)
+    if requested == "cpu" and observed != "cpu":
+        raise ValueError(f"Gemma 4 native capture requested cpu but model is on {observed}.")
+    if requested == "mps" and not observed.startswith("mps"):
+        raise ValueError(f"Gemma 4 native capture requested mps but model is on {observed}.")
+    return {"executionDevice": requested, "executionDeviceDetail": observed}
+
+
 def forward(model: Any, tokens: list[int], positions: list[int], device: str, cache: Any | None = None):
     if not tokens or len(tokens) != len(positions):
         raise ValueError("Gemma 4 tokens and positions must be non-empty vectors of equal length.")
@@ -266,7 +282,7 @@ def operation_checkpoints(model: Any, tokens: list[int], positions: list[int], d
             raise ValueError("Gemma 4 native operation instrumentation changed the authoritative forward result or KV cache.")
         return {
             "runtime": f"PyTorch {torch.__version__.split('+')[0]} / Transformers {transformers.__version__} Gemma4ForConditionalGeneration eager BF16 full assignment trace",
-            "executionDevice": str(next(model.parameters()).device),
+            **execution_device_metadata(model, device),
             "operations": list(checkpoints.values()),
             "pastKeyValues": cache_payload(native.past_key_values),
         }
@@ -339,7 +355,7 @@ def linear_reduction_checkpoint(model: Any, tokens: list[int], positions: list[i
             raise ValueError("Gemma 4 bounded linear hooks changed authoritative KV cache.")
     return {
         "runtime": f"PyTorch {torch.__version__.split('+')[0]} / Transformers {transformers.__version__} Gemma4ForConditionalGeneration eager BF16 bounded MLP projection trace",
-        "executionDevice": str(next(model.parameters()).device),
+        **execution_device_metadata(model, device),
         "operations": [
             {"operationId": producer_operation_id, "output": producer_output, "tensor": tensor_payload(captured["input"])},
             {"operationId": operation_id, "output": output, "tensor": tensor_payload(captured["output"])},
@@ -389,7 +405,7 @@ def main(request: dict[str, Any]) -> dict[str, Any]:
         next_position += 1
     return {
         "runtime": f"PyTorch {torch.__version__.split('+')[0]} / Transformers {transformers.__version__} Gemma4ForConditionalGeneration eager BF16 native capture",
-        "executionDevice": str(next(model.parameters()).device),
+        **execution_device_metadata(model, device),
         "generatedTokenIds": generated,
         "steps": steps,
         "selectionLogits": selection_logits,

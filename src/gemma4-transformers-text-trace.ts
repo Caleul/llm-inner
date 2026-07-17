@@ -24,6 +24,7 @@ export interface Gemma4TransformersTextTraceOptions {
 interface NativeGenerationCapture {
   runtime: string;
   executionDevice: string;
+  executionDeviceDetail: string;
   generatedTokenIds: number[];
   steps: GenerationTraceBundle["reference"]["steps"];
   selectionLogits: GenerationTraceBundle["reference"]["selectionLogits"];
@@ -67,6 +68,7 @@ export async function captureGemma4TransformersTextGenerationTrace(options: Gemm
       reference: {
         runtime: native.runtime,
         executionDevice: native.executionDevice,
+        executionDeviceDetail: native.executionDeviceDetail,
         model: options.model,
         revisionOrChecksum: options.revisionOrChecksum,
         containerFormat: "safetensors",

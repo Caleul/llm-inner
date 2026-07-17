@@ -610,7 +610,7 @@ test("Gemma 4 linear reduction probe binds a candidate schedule to traced produc
       schemaVersion: 1, kind: "execution", captureId: "fixture-capture-a", source: { files: [{ path: "config.json", sha256: "a".repeat(64) }] },
       irFingerprint: fingerprintIR(program.textProgram), candidatePolicy: { dtype: "F32", runtime: "llm-inner paged Gemma4Text literal F32" },
       reference: {
-        runtime: "fixture", executionDevice: "cpu", model: "fixture", revisionOrChecksum: "fixture", containerFormat: "safetensors", quantization: "none", inputTokens: [[1]], dtypePolicy: "fixture F32",
+        runtime: "fixture", executionDevice: "cpu", executionDeviceDetail: "cpu", model: "fixture", revisionOrChecksum: "fixture", containerFormat: "safetensors", quantization: "none", inputTokens: [[1]], dtypePolicy: "fixture F32",
         operations: [
           { operationId: producer.id, output: producer.output, tensor: serialize(native.values.get(producer.output)!) },
           { operationId: target.id, output: target.output, tensor: serialize(native.values.get(target.output)!) },
@@ -702,6 +702,16 @@ test("Gemma 4 linear reduction probe binds a candidate schedule to traced produc
     await writeFile(mpsRepeatTrace, JSON.stringify(mpsRepeat), "utf8");
     await assert.rejects(
       () => probeGemma4LiteralLinearReductionProfiles({ artifact, traces: [trace, mpsRepeatTrace], operationId: target.id, maxReadBytes: 1024 * 1024,
+        profiles: [{ id: "ordered-f32", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } }], }),
+      /contrato de referência diferente/,
+    );
+    const differentDeviceDetail = structuredClone(repeatedPayload);
+    differentDeviceDetail.captureId = "fixture-capture-cpu-detail-drift";
+    differentDeviceDetail.reference.executionDeviceDetail = "cpu:0";
+    const differentDeviceDetailTrace = path.join(root, "trace-cpu-detail-drift.json");
+    await writeFile(differentDeviceDetailTrace, JSON.stringify(differentDeviceDetail), "utf8");
+    await assert.rejects(
+      () => probeGemma4LiteralLinearReductionProfiles({ artifact, traces: [trace, differentDeviceDetailTrace], operationId: target.id, maxReadBytes: 1024 * 1024,
         profiles: [{ id: "ordered-f32", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } }], }),
       /contrato de referência diferente/,
     );

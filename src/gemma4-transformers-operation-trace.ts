@@ -30,6 +30,7 @@ export interface Gemma4TransformersLinearReductionTraceOptions extends Omit<Gemm
 interface NativeOperationCapture {
   runtime: string;
   executionDevice: string;
+  executionDeviceDetail: string;
   operations: ExecutionTraceBundle["reference"]["operations"];
   pastKeyValues: ExecutionTraceBundle["reference"]["pastKeyValues"];
 }
@@ -84,6 +85,7 @@ export async function captureGemma4TransformersLinearReductionTrace(options: Gem
       reference: {
         runtime: native.runtime,
         executionDevice: native.executionDevice,
+        executionDeviceDetail: native.executionDeviceDetail,
         model: options.model,
         revisionOrChecksum: options.revisionOrChecksum,
         containerFormat: "safetensors",
@@ -200,6 +202,7 @@ export async function captureGemma4TransformersOperationTrace(options: Gemma4Tra
       reference: {
         runtime: native.runtime,
         executionDevice: native.executionDevice,
+        executionDeviceDetail: native.executionDeviceDetail,
         model: options.model,
         revisionOrChecksum: options.revisionOrChecksum,
         containerFormat: "safetensors",
