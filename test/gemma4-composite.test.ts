@@ -653,6 +653,7 @@ test("Gemma 4 linear reduction probe binds a candidate schedule to traced produc
       irFingerprint: fingerprintIR(program.textProgram), candidatePolicy: { dtype: "F32", runtime: "llm-inner paged Gemma4Text literal F32" },
       reference: {
         runtime: "fixture", executionDevice: "cpu", executionDeviceDetail: "cpu", model: "fixture", revisionOrChecksum: "fixture", containerFormat: "safetensors", quantization: "none", inputTokens: [[1]], dtypePolicy: "fixture F32",
+        reductionProbeInput: { kind: "model-forward" } as { kind: "model-forward" } | { kind: "bf16-power-of-two-scale"; factor: number } | { kind: "bf16-scalar-scale"; factorBf16Bits: number },
         nativeKernelEnvironment: { torchBuildConfigSha256: "b".repeat(64), intraopThreads: 1, interopThreads: 1, deterministicAlgorithms: true, mkldnnAvailable: true, mkldnnEnabled: true },
         operations: [
           { operationId: producer.id, output: producer.output, tensor: serialize(native.values.get(producer.output)!) },
@@ -680,9 +681,30 @@ test("Gemma 4 linear reduction probe binds a candidate schedule to traced produc
     assert.equal(report.traceCount, 2);
     assert.deepEqual(report.reference.nativeKernelEnvironment, tracePayload.reference.nativeKernelEnvironment);
     assert.deepEqual(report.reference.nativeOperationLayout, tracePayload.reference.operationLayouts[0]);
+    assert.deepEqual(report.reference.reductionProbeInput, { kind: "model-forward" });
     assert.deepEqual(report.exactProfileIds, ["ordered-f32"]);
     assert.deepEqual(report.candidateSelection, { status: "unique", profileId: "ordered-f32" });
     assert.equal(report.profiles[0]!.mismatchedElements, 0);
+    const legacyInput = structuredClone(repeatedPayload);
+    legacyInput.captureId = "fixture-capture-legacy-model-forward";
+    Reflect.deleteProperty(legacyInput.reference, "reductionProbeInput");
+    const legacyTrace = path.join(root, "trace-legacy-model-forward.json");
+    await writeFile(legacyTrace, JSON.stringify(legacyInput), "utf8");
+    const legacyReport = await probeGemma4LiteralLinearReductionProfiles({
+      artifact, traces: [trace, legacyTrace], operationId: target.id, maxReadBytes: 1024 * 1024,
+      profiles: [{ id: "ordered-f32", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } }],
+    });
+    assert.deepEqual(legacyReport.reference.reductionProbeInput, { kind: "model-forward" });
+    const transformedInput = structuredClone(repeatedPayload);
+    transformedInput.captureId = "fixture-capture-bf16-scale";
+    transformedInput.reference.reductionProbeInput = { kind: "bf16-scalar-scale", factorBf16Bits: 0x3fc0 };
+    const transformedTrace = path.join(root, "trace-bf16-scale.json");
+    await writeFile(transformedTrace, JSON.stringify(transformedInput), "utf8");
+    await assert.rejects(
+      () => probeGemma4LiteralLinearReductionProfiles({ artifact, traces: [trace, transformedTrace], operationId: target.id, maxReadBytes: 1024 * 1024,
+        profiles: [{ id: "ordered-f32", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } }], }),
+      /contrato de referência diferente/,
+    );
     const secondInput = structuredClone(tracePayload);
     secondInput.captureId = "fixture-capture-c";
     secondInput.reference.inputTokens = [[2]];

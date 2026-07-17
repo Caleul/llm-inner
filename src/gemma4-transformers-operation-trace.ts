@@ -25,6 +25,13 @@ export interface Gemma4TransformersLinearReductionTraceOptions extends Omit<Gemm
   output: string;
   /** A declared, bias-free Gemma4Text MLP projection such as layer_0_up_proj. */
   operationId: string;
+  /**
+   * Diagnostic-only BF16 activation scale for a native Linear probe. It is
+   * recorded in the trace and cannot stand in for model-forward fidelity.
+   */
+  activationScale?: number;
+  /** Exact BF16 scalar bits for a non-power-of-two diagnostic activation. */
+  activationBf16ScaleBits?: number;
 }
 
 interface NativeOperationCapture {
@@ -50,6 +57,12 @@ export async function captureGemma4TransformersLinearReductionTrace(options: Gem
   const positions = options.positionIds ?? options.inputTokens.map((_, index) => index);
   validateIds(positions, "positionIds");
   if (positions.length !== options.inputTokens.length) throw new Error("Gemma 4 checkpoint capture requer uma posição para cada token.");
+  const activationScale = options.activationScale ?? 1;
+  assertActivationScale(activationScale);
+  if (options.activationBf16ScaleBits !== undefined && activationScale !== 1) {
+    throw new Error("Gemma 4 activationScale e activationBf16ScaleBits são mutuamente exclusivos.");
+  }
+  if (options.activationBf16ScaleBits !== undefined) assertActivationBf16ScaleBits(options.activationBf16ScaleBits);
   const opened = await openCatalog(options.source, false);
   try {
     if (opened.catalog.format !== "safetensors" || opened.catalog.config.model_type !== "gemma4") {
@@ -72,6 +85,8 @@ export async function captureGemma4TransformersLinearReductionTrace(options: Gem
       producerOperationId: target.producerOperationId,
       producerOutput: target.producerOutput,
       output: target.output,
+      activationScale,
+      ...(options.activationBf16ScaleBits === undefined ? {} : { activationBf16ScaleBits: options.activationBf16ScaleBits }),
     });
     assertNativeExecutionDevice(native.executionDevice, options.executionDevice);
     assertNativeKernelEnvironment(native.nativeKernelEnvironment);
@@ -100,6 +115,11 @@ export async function captureGemma4TransformersLinearReductionTrace(options: Gem
         inputTokens: [options.inputTokens],
         positionIds: [positions],
         dtypePolicy: "native eager BF16 bounded MLP projection checkpoints captured as F32",
+        reductionProbeInput: options.activationBf16ScaleBits !== undefined
+          ? { kind: "bf16-scalar-scale" as const, factorBf16Bits: options.activationBf16ScaleBits }
+          : activationScale === 1
+            ? { kind: "model-forward" as const }
+            : { kind: "bf16-power-of-two-scale" as const, factor: activationScale },
         operations: native.operations,
         operationDtypes: native.operationDtypes,
         operationLayouts: native.operationLayouts,
@@ -110,6 +130,19 @@ export async function captureGemma4TransformersLinearReductionTrace(options: Gem
     await writeFile(options.output, `${JSON.stringify(bundle, null, 2)}\n`, "utf8");
   } finally {
     await opened.close();
+  }
+}
+
+function assertActivationScale(value: number): void {
+  if (!Number.isSafeInteger(value) || value < 1 || value > 256 || (value & (value - 1)) !== 0) {
+    throw new Error("Gemma 4 activationScale requer potência de dois inteira entre 1 e 256.");
+  }
+}
+
+function assertActivationBf16ScaleBits(value: number): void {
+  const exponent = Number.isSafeInteger(value) ? (value >>> 7) & 0xff : 0xff;
+  if (!Number.isSafeInteger(value) || value < 0 || value > 0xffff || exponent === 0xff || (value & 0x7fff) === 0) {
+    throw new Error("Gemma 4 activationBf16ScaleBits requer BF16 finito, não zero e uint16.");
   }
 }
 

@@ -21,12 +21,26 @@ async function main(): Promise<void> {
   const positionIds = value(argv, "--position-ids", false)?.split(",").map(Number);
   const operationId = value(argv, "--operation-id")!;
   const output = resolve(value(argv, "--output")!);
+  const activationScale = integer(value(argv, "--activation-scale", false) ?? "1", "--activation-scale");
+  const activationBf16ScaleBits = optionalInteger(value(argv, "--activation-bf16-scale-bits", false), "--activation-bf16-scale-bits");
   await captureGemma4TransformersLinearReductionTrace({
     source: resolve(value(argv, "--source")!), output, operationId, inputTokens,
+    activationScale,
+    ...(activationBf16ScaleBits === undefined ? {} : { activationBf16ScaleBits }),
     ...(positionIds ? { positionIds } : {}), python: resolve(value(argv, "--python")!),
     model: value(argv, "--model")!, revisionOrChecksum: value(argv, "--revision")!, executionDevice: executionDevice(argv),
   });
   console.log(`Checkpoint linear nativo Gemma 4 escrito em ${output}.`);
+}
+
+function integer(value: string, flag: string): number {
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed)) throw new Error(`${flag} requer inteiro seguro.`);
+  return parsed;
+}
+
+function optionalInteger(value: string | undefined, flag: string): number | undefined {
+  return value === undefined ? undefined : integer(value, flag);
 }
 
 main().catch((error: unknown) => { console.error(error instanceof Error ? error.stack ?? error.message : error); process.exitCode = 1; });

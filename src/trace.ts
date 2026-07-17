@@ -9,6 +9,7 @@ import type {
   DifferentialKeyValueCacheSample,
   DifferentialNativeKernelEnvironment,
   DifferentialOperationLayout,
+  DifferentialReductionProbeInput,
   DifferentialReferenceTrace,
   ModelCatalog,
   ModelIR,
@@ -244,6 +245,9 @@ function validateBundle(raw: unknown): ExecutionTraceBundle {
   const nativeKernelEnvironment = reference.nativeKernelEnvironment === undefined
     ? undefined
     : parseNativeKernelEnvironment(reference.nativeKernelEnvironment);
+  const reductionProbeInput = reference.reductionProbeInput === undefined
+    ? undefined
+    : parseReductionProbeInput(reference.reductionProbeInput);
   const pastKeyValues = reference.pastKeyValues.map((entry) => {
     const cache = object(entry, "Trace cache KV");
     if (!Number.isInteger(cache.layer) || (cache.layer as number) < 0) throw new Error("Trace cache KV requer layer inteiro não negativo.");
@@ -261,9 +265,34 @@ function validateBundle(raw: unknown): ExecutionTraceBundle {
       containerFormat: reference.containerFormat as string, quantization: reference.quantization as string,
       inputTokens, ...(positionIds !== undefined ? { positionIds: positionIds.map((row) => [...row] as number[]) } : {}), dtypePolicy: reference.dtypePolicy as string,
       operations, ...(operationDtypes === undefined ? {} : { operationDtypes }), ...(operationLayouts === undefined ? {} : { operationLayouts }),
-      ...(nativeKernelEnvironment === undefined ? {} : { nativeKernelEnvironment }), pastKeyValues,
+      ...(nativeKernelEnvironment === undefined ? {} : { nativeKernelEnvironment }),
+      ...(reductionProbeInput === undefined ? {} : { reductionProbeInput }), pastKeyValues,
     },
   };
+}
+
+function parseReductionProbeInput(raw: unknown): DifferentialReductionProbeInput {
+  const value = object(raw, "Trace reductionProbeInput");
+  if (value.kind === "model-forward") return { kind: "model-forward" };
+  if (value.kind === "bf16-power-of-two-scale") {
+    const factor = value.factor;
+    if (typeof factor !== "number" || !Number.isSafeInteger(factor) || factor < 2 || factor > 256 || (factor & (factor - 1)) !== 0) {
+      throw new Error("Trace reductionProbeInput bf16-power-of-two-scale requer factor potência de dois entre 2 e 256.");
+    }
+    return { kind: "bf16-power-of-two-scale", factor };
+  }
+  if (value.kind === "bf16-scalar-scale") {
+    const factorBf16Bits = value.factorBf16Bits;
+    if (typeof factorBf16Bits !== "number") {
+      throw new Error("Trace reductionProbeInput bf16-scalar-scale requer factorBf16Bits finito, não zero e uint16.");
+    }
+    const exponent = (factorBf16Bits >>> 7) & 0xff;
+    if (!Number.isSafeInteger(factorBf16Bits) || factorBf16Bits < 0 || factorBf16Bits > 0xffff || exponent === 0xff || (factorBf16Bits & 0x7fff) === 0) {
+      throw new Error("Trace reductionProbeInput bf16-scalar-scale requer factorBf16Bits finito, não zero e uint16.");
+    }
+    return { kind: "bf16-scalar-scale", factorBf16Bits };
+  }
+  throw new Error("Trace reductionProbeInput requer kind model-forward, bf16-power-of-two-scale ou bf16-scalar-scale.");
 }
 
 function parseNativeKernelEnvironment(raw: unknown): DifferentialNativeKernelEnvironment {

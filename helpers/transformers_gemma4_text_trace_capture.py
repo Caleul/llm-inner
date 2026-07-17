@@ -366,6 +366,26 @@ def linear_reduction_checkpoint(model: Any, tokens: list[int], positions: list[i
     if producer_operation_id != expected_producer or producer_output != expected_producer_output or output != expected_output:
         raise ValueError("Gemma 4 bounded linear capture IDs do not match the registered Gemma4Text MLP contract.")
     target = getattr(model.model.language_model.layers[layer_index].mlp, projection)
+    activation_scale = request.get("activationScale", 1)
+    activation_bf16_scale_bits = request.get("activationBf16ScaleBits")
+    if (
+        not isinstance(activation_scale, int)
+        or activation_scale < 1
+        or activation_scale > 256
+        or activation_scale & (activation_scale - 1)
+    ):
+        raise ValueError("Gemma 4 bounded linear capture activationScale must be a power of two from 1 to 256.")
+    if activation_bf16_scale_bits is not None:
+        exponent = ((activation_bf16_scale_bits >> 7) & 0xff) if isinstance(activation_bf16_scale_bits, int) else 0xff
+        if (
+            activation_scale != 1
+            or not isinstance(activation_bf16_scale_bits, int)
+            or activation_bf16_scale_bits < 0
+            or activation_bf16_scale_bits > 0xffff
+            or exponent == 0xff
+            or (activation_bf16_scale_bits & 0x7fff) == 0
+        ):
+            raise ValueError("Gemma 4 bounded linear capture activationBf16ScaleBits must be a finite non-zero uint16 and cannot combine with activationScale.")
     captured: dict[str, torch.Tensor] = {}
 
     def before(_module, inputs):
@@ -395,24 +415,38 @@ def linear_reduction_checkpoint(model: Any, tokens: list[int], positions: list[i
     for left, right in zip(baseline.past_key_values.layers, native.past_key_values.layers):
         if not torch.equal(left.keys, right.keys) or not torch.equal(left.values, right.values):
             raise ValueError("Gemma 4 bounded linear hooks changed authoritative KV cache.")
+    # Scaling happens only after the complete unmodified forward and hook
+    # integrity checks. It characterizes the native Linear kernel with a
+    # declared BF16 input transform; it never replaces model-forward output
+    # or generation evidence.
+    probe_input = captured["input"]
+    if activation_bf16_scale_bits is not None or activation_scale != 1:
+        if activation_bf16_scale_bits is None:
+            scale = torch.tensor(activation_scale, dtype=probe_input.dtype, device=probe_input.device)
+        else:
+            scale = torch.tensor([activation_bf16_scale_bits], dtype=torch.uint16).view(torch.bfloat16).to(probe_input.device)
+        probe_input = torch.mul(probe_input, scale).contiguous()
+        probe_output = target(probe_input)
+    else:
+        probe_output = captured["output"]
     return {
         "runtime": f"PyTorch {torch.__version__.split('+')[0]} / Transformers {transformers.__version__} Gemma4ForConditionalGeneration eager BF16 bounded MLP projection trace",
         **execution_device_metadata(model, device),
         "nativeKernelEnvironment": native_kernel_environment(),
         "operations": [
-            {"operationId": producer_operation_id, "output": producer_output, "tensor": tensor_payload(captured["input"])},
-            {"operationId": operation_id, "output": output, "tensor": tensor_payload(captured["output"])},
+            {"operationId": producer_operation_id, "output": producer_output, "tensor": tensor_payload(probe_input)},
+            {"operationId": operation_id, "output": output, "tensor": tensor_payload(probe_output)},
         ],
         "operationDtypes": [{
             "operationId": operation_id,
-            "inputDtype": dtype_name(captured["input"]),
-            "outputDtype": dtype_name(captured["output"]),
+            "inputDtype": dtype_name(probe_input),
+            "outputDtype": dtype_name(probe_output),
             "parameterDtype": dtype_name(target.weight),
         }],
         "operationLayouts": [{
             "operationId": operation_id,
-            "input": tensor_layout(captured["input"]),
-            "output": tensor_layout(captured["output"]),
+            "input": tensor_layout(probe_input),
+            "output": tensor_layout(probe_output),
             "parameter": tensor_layout(target.weight),
         }],
         "pastKeyValues": cache_payload(native.past_key_values),

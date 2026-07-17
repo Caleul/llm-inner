@@ -470,6 +470,18 @@ absoluto). A fonte ficou indisponível durante ambos os replays candidatos;
 nenhuma agenda down foi instalada. Veja
 [`docs/validation/gemma4-e4b-current-text-boundary-2026-07-17.md`](docs/validation/gemma4-e4b-current-text-boundary-2026-07-17.md).
 
+Uma campanha posterior ampliou o `layer_0_down_proj` para oito linhas de uma
+sequência diversa e também introduziu entradas diagnósticas explicitamente
+marcadas: escala BF16 por potência de dois e por um escalar BF16 serializado
+pelos bits IEEE. O helper primeiro prova que hooks passivos preservam o
+forward/KV original; só então chama o mesmo `Linear` nativo sobre a ativação
+transformada. Esses traces são segregados de `model-forward` pelo contrato e
+não contam como fidelidade do modelo. Mesmo com a escala BF16 `1.5`
+(`factorBf16Bits=16320`), as seis agendas down continuam exatamente
+compatíveis após a fonte ser removida; nenhuma política foi instalada. Os
+comandos, regras de separação e resultado estão em
+[`docs/validation/gemma4-e4b-down-proj-transformed-activation-2026-07-17.md`](docs/validation/gemma4-e4b-down-proj-transformed-activation-2026-07-17.md).
+
 Para repetir essa investigação sem serializar novamente o trace completo de
 1.229 atribuições, `capture:gemma4-linear-reduction` captura somente uma
 projeção MLP declarada (`layer_<n>_(gate|up|down)_proj`) e sua atribuição

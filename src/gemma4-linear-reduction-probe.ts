@@ -1,7 +1,7 @@
 import { openGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
 import { createPagedDenseF32Matrix, pagedLinearF32 } from "./paged-dense.js";
 import { fingerprintIR, readExecutionTraceBundle } from "./trace.js";
-import type { DenseF32Tensor, DenseTensor, DifferentialNativeKernelEnvironment, DifferentialOperationLayout, DifferentialTensorLayout, LinearOp, ModelIR, Operation, ReductionSchedule, TensorInfo } from "./types.js";
+import type { DenseF32Tensor, DenseTensor, DifferentialNativeKernelEnvironment, DifferentialOperationLayout, DifferentialReductionProbeInput, DifferentialTensorLayout, LinearOp, ModelIR, Operation, ReductionSchedule, TensorInfo } from "./types.js";
 
 export interface Gemma4LinearReductionProfile {
   id: string;
@@ -28,6 +28,8 @@ export interface Gemma4LinearReductionProbeInputGroup {
    */
   inputTokens: number[][];
   positionIds?: number[][];
+  /** Explicitly separates diagnostic transforms from a real model-forward input. */
+  reductionProbeInput: DifferentialReductionProbeInput;
   traces: string[];
   profiles: Gemma4LinearReductionProbeProfileResult[];
 }
@@ -91,6 +93,7 @@ export interface Gemma4LinearReductionProbeReport {
     quantization: string;
     inputTokens: number[][];
     dtypePolicy: string;
+    reductionProbeInput: DifferentialReductionProbeInput;
   };
   /** Stable repeated captures, partitioned by declared prompt/positions. */
   inputGroups: Gemma4LinearReductionProbeInputGroup[];
@@ -173,6 +176,7 @@ export async function probeGemma4LiteralLinearReductionProfiles(options: {
       inputGroups.push({
         inputTokens: cloneInputs(first.decoded.reference.inputTokens),
         ...(first.decoded.reference.positionIds ? { positionIds: cloneInputs(first.decoded.reference.positionIds) } : {}),
+        reductionProbeInput: reductionProbeInput(first.decoded),
         traces: group.captures.map((capture) => capture.trace),
         profiles: results,
       });
@@ -199,6 +203,7 @@ export async function probeGemma4LiteralLinearReductionProfiles(options: {
         quantization: decoded[0]!.reference.quantization,
         inputTokens: cloneInputs(decoded[0]!.reference.inputTokens),
         dtypePolicy: decoded[0]!.reference.dtypePolicy,
+        reductionProbeInput: reductionProbeInput(decoded[0]!),
       },
       inputGroups,
       profiles: results,
@@ -227,7 +232,7 @@ function groupByDeclaredInputs(
     const entry = decoded[index]!;
     if (captureIds.has(entry.bundle.captureId!)) throw new Error("Probe de redução requer captureId distinto por trace.");
     captureIds.add(entry.bundle.captureId!);
-    const key = JSON.stringify({ inputTokens: entry.reference.inputTokens, positionIds: entry.reference.positionIds ?? null });
+    const key = JSON.stringify({ inputTokens: entry.reference.inputTokens, positionIds: entry.reference.positionIds ?? null, reductionProbeInput: reductionProbeInput(entry) });
     const group = groups.get(key) ?? [];
     group.push({ trace: traces[index]!, decoded: entry });
     groups.set(key, group);
@@ -238,6 +243,11 @@ function groupByDeclaredInputs(
 
 function cloneInputs(inputs: readonly number[][]): number[][] {
   return inputs.map((row) => [...row]);
+}
+
+/** Legacy bounded traces predate this declaration and are model-forward only. */
+function reductionProbeInput(trace: Awaited<ReturnType<typeof readExecutionTraceBundle>>): DifferentialReductionProbeInput {
+  return trace.reference.reductionProbeInput ?? { kind: "model-forward" };
 }
 
 function aggregateProfile(profile: Gemma4LinearReductionProfile, results: readonly Gemma4LinearReductionProbeProfileResult[]): Gemma4LinearReductionProbeProfileResult {
@@ -374,6 +384,7 @@ function assertSameTraceIdentity(
       inputTokens: trace.reference.inputTokens,
       positionIds: trace.reference.positionIds,
       dtypePolicy: trace.reference.dtypePolicy,
+      reductionProbeInput: reductionProbeInput(trace),
     },
   });
   if (identity(left) !== identity(right)) throw new Error("Probe de redução recebeu traces com identidade de referência diferente.");
@@ -402,6 +413,7 @@ function assertSameProbeContract(
       containerFormat: trace.reference.containerFormat,
       quantization: trace.reference.quantization,
       dtypePolicy: trace.reference.dtypePolicy,
+      reductionProbeInput: reductionProbeInput(trace),
     },
   });
   if (contract(left) !== contract(right)) throw new Error("Probe de redução recebeu traces com contrato de referência diferente.");

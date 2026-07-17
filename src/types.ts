@@ -546,6 +546,18 @@ export interface DifferentialNativeKernelEnvironment {
   mkldnnEnabled: boolean;
 }
 
+/**
+ * Declares whether a bounded native-linear probe consumed the activation from
+ * the model forward unchanged or an explicitly transformed BF16 diagnostic
+ * activation. The latter characterizes a kernel only; it is not a model
+ * forward-fidelity claim.
+ */
+export type DifferentialReductionProbeInput =
+  | { kind: "model-forward" }
+  | { kind: "bf16-power-of-two-scale"; factor: number }
+  /** Exact IEEE BF16 scale bits, used only by an explicit kernel diagnostic. */
+  | { kind: "bf16-scalar-scale"; factorBf16Bits: number };
+
 /** Authoritative post-RoPE cache in the canonical BHSD layout for one layer. */
 export interface DifferentialKeyValueCacheSample {
   layer: number;
@@ -589,6 +601,8 @@ export interface DifferentialReferenceTrace {
   operationLayouts?: readonly DifferentialOperationLayout[];
   /** Optional for legacy/general traces; required by native-kernel probes. */
   nativeKernelEnvironment?: DifferentialNativeKernelEnvironment;
+  /** Optional for legacy traces; transformed probe inputs remain explicit. */
+  reductionProbeInput?: DifferentialReductionProbeInput;
   pastKeyValues: readonly DifferentialKeyValueCacheSample[];
 }
 
