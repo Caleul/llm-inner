@@ -681,6 +681,7 @@ test("Gemma 4 linear reduction probe binds a candidate schedule to traced produc
     assert.deepEqual(report.reference.nativeKernelEnvironment, tracePayload.reference.nativeKernelEnvironment);
     assert.deepEqual(report.reference.nativeOperationLayout, tracePayload.reference.operationLayouts[0]);
     assert.deepEqual(report.exactProfileIds, ["ordered-f32"]);
+    assert.deepEqual(report.candidateSelection, { status: "unique", profileId: "ordered-f32" });
     assert.equal(report.profiles[0]!.mismatchedElements, 0);
     const secondInput = structuredClone(tracePayload);
     secondInput.captureId = "fixture-capture-c";
@@ -697,6 +698,7 @@ test("Gemma 4 linear reduction probe binds a candidate schedule to traced produc
     assert.equal(campaign.inputGroups.length, 2);
     assert.deepEqual(campaign.inputGroups.map((group) => group.traces.length), [2, 2]);
     assert.deepEqual(campaign.exactProfileIds, ["ordered-f32"]);
+    assert.deepEqual(campaign.candidateSelection, { status: "unique", profileId: "ordered-f32" });
     const fixtureOutputFeatures = native.values.get(target.output)!.shape.at(-1)!;
     assert.deepEqual(campaign.outputFeatureCoverage, {
       inputGroupCount: 2,
@@ -727,6 +729,21 @@ test("Gemma 4 linear reduction probe binds a candidate schedule to traced produc
       ],
       uncoveredOutputFeatures: [0],
     });
+    const none = await probeGemma4LiteralLinearReductionProfiles({
+      artifact, traces: [incompatibleFeatureTrace, incompatibleFeatureRepeatTrace], operationId: target.id, maxReadBytes: 1024 * 1024,
+      profiles: [{ id: "ordered-f32", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } }],
+    });
+    assert.deepEqual(none.exactProfileIds, []);
+    assert.deepEqual(none.candidateSelection, { status: "none" });
+    const ambiguous = await probeGemma4LiteralLinearReductionProfiles({
+      artifact, traces: [trace, repeatedTrace], operationId: target.id, maxReadBytes: 1024 * 1024,
+      profiles: [
+        { id: "ordered-f32-a", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } },
+        { id: "ordered-f32-b", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } },
+      ],
+    });
+    assert.deepEqual(ambiguous.exactProfileIds, ["ordered-f32-a", "ordered-f32-b"]);
+    assert.deepEqual(ambiguous.candidateSelection, { status: "ambiguous" });
     await assert.rejects(
       () => probeGemma4LiteralLinearReductionProfiles({ artifact, traces: [trace, repeatedTrace], operationId: target.id, maxReadBytes: 1024 * 1024,
         profiles: [{ id: "invalid-tiled", accumulationDtype: "F32", reduction: { kind: "tiled-f32-lanes", laneCount: 2, termsPerLane: 1, inputLane: "tile-contiguous-terms", laneReductionOrder: "ascending" } }], }),

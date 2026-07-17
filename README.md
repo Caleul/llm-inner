@@ -441,7 +441,11 @@ Quando houver capturas de prompts distintos, `--min-distinct-inputs N` exige
 dois captures bitwise-idênticos para cada prompt/posição e só mantém perfis
 exatos em todos os grupos; identidade de fonte/runtime/IR/dtype não pode variar
 entre eles. Assim uma coincidência em uma ativação não pode virar contrato de
-kernel do artefato.
+kernel do artefato. Todo relatório agora declara `candidateSelection` como
+`unique`, `ambiguous` ou `none`; somente `unique` contém o único `profileId`
+que uma alteração posterior do adaptador pode considerar. Um conjunto de
+`exactProfileIds` com mais de um elemento é explicitamente `ambiguous`, não uma
+permissão para escolher uma agenda equivalente por shape.
 
 Uma correção posterior completou a terceira etapa da árvore de oito registros
 ARM que a primeira implementação tinha omitido. Com o programa literal

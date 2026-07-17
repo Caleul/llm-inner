@@ -56,6 +56,18 @@ export interface Gemma4LinearReductionOutputFeatureCoverage {
   uncoveredOutputFeatures: number[];
 }
 
+/**
+ * A reduction schedule may be emitted into the adapter only when the probe
+ * distinguishes exactly one complete candidate.  Matching a candidate is
+ * useful diagnostic evidence, but multiple matches leave the native schedule
+ * semantically unknown and must remain fail-closed.
+ */
+export interface Gemma4LinearReductionCandidateSelection {
+  status: "unique" | "ambiguous" | "none";
+  /** Present only when one complete profile matched every captured input. */
+  profileId?: string;
+}
+
 export interface Gemma4LinearReductionProbeReport {
   kind: "gemma4-linear-reduction-profile-probe";
   artifact: string;
@@ -84,6 +96,11 @@ export interface Gemma4LinearReductionProbeReport {
   inputGroups: Gemma4LinearReductionProbeInputGroup[];
   profiles: Gemma4LinearReductionProbeProfileResult[];
   exactProfileIds: string[];
+  /**
+   * Explicit interpretation of exactProfileIds for adapter policy binding.
+   * An ambiguous result is never a license to choose one matching schedule.
+   */
+  candidateSelection: Gemma4LinearReductionCandidateSelection;
   /**
    * Cross-input, per-output-feature evidence. This exposes a possible
    * kernel-output-tile boundary without pretending that a fitted feature map
@@ -161,6 +178,7 @@ export async function probeGemma4LiteralLinearReductionProfiles(options: {
       });
     }
     const results = profiles.map((profile) => aggregateProfile(profile, inputGroups.map((group) => group.profiles.find((result) => result.id === profile.id)!)));
+    const exactProfileIds = results.filter((result) => result.exact).map((result) => result.id);
     return {
       kind: "gemma4-linear-reduction-profile-probe",
       artifact: artifact.artifact,
@@ -184,12 +202,19 @@ export async function probeGemma4LiteralLinearReductionProfiles(options: {
       },
       inputGroups,
       profiles: results,
-      exactProfileIds: results.filter((result) => result.exact).map((result) => result.id),
+      exactProfileIds,
+      candidateSelection: selectCandidate(exactProfileIds),
       outputFeatureCoverage: finalizeOutputFeatureCoverage(outputFeatureCoverage, groups.length),
     };
   } finally {
     await artifact.close();
   }
+}
+
+function selectCandidate(exactProfileIds: readonly string[]): Gemma4LinearReductionCandidateSelection {
+  if (exactProfileIds.length === 0) return { status: "none" };
+  if (exactProfileIds.length === 1) return { status: "unique", profileId: exactProfileIds[0]! };
+  return { status: "ambiguous" };
 }
 
 function groupByDeclaredInputs(

@@ -54,7 +54,7 @@ const profiles = selectProfiles(candidateProfiles, selectedProfileIds);
 const report = await probeGemma4LiteralLinearReductionProfiles({ artifact, traces, operationId, profiles, maxReadBytes, minDistinctInputs });
 await mkdir(dirname(output), { recursive: true });
 await writeFile(output, `${JSON.stringify(report, null, 2)}\n`, "utf8");
-console.log(`Probe de redução Gemma 4 escrito em ${output}; perfis exatos: ${report.exactProfileIds.join(", ") || "nenhum"}.`);
+console.log(`Probe de redução Gemma 4 escrito em ${output}; seleção: ${report.candidateSelection.status}${report.candidateSelection.profileId ? ` (${report.candidateSelection.profileId})` : ""}; perfis exatos: ${report.exactProfileIds.join(", ") || "nenhum"}.`);
 
 function optional(flag: string): string | undefined {
   const index = argv.indexOf(flag);
