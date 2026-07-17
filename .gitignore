@@ -11,5 +11,6 @@ artifacts/
 .agent-loop/state.json
 .agent-loop/lock.json
 .agent-loop/STOP
+.agent-loop/supervisor.*.log
 .agent-loop/runs/
 .agent-loop/handoffs/
