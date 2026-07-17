@@ -41,6 +41,22 @@ def dtype_name(value: torch.Tensor) -> str:
     return str(value.dtype).removeprefix("torch.")
 
 
+def tensor_layout(value: torch.Tensor) -> dict[str, Any]:
+    """Capture the native view before tensor_payload makes it contiguous.
+
+    The literal artifact decodes row-major Safetensors bytes.  Serializing a
+    trace through ``contiguous()`` is necessary for portable payload bytes but
+    would otherwise erase whether the authoritative Linear observed that same
+    address order.
+    """
+    return {
+        "shape": list(value.shape),
+        "strides": list(value.stride()),
+        "storageOffset": value.storage_offset(),
+        "isContiguous": value.is_contiguous(),
+    }
+
+
 def cache_payload(cache: Any) -> list[dict[str, Any]]:
     if not hasattr(cache, "layers"):
         raise ValueError(f"Gemma 4 capture expected DynamicCache.layers, received {type(cache).__name__}.")
@@ -392,6 +408,12 @@ def linear_reduction_checkpoint(model: Any, tokens: list[int], positions: list[i
             "inputDtype": dtype_name(captured["input"]),
             "outputDtype": dtype_name(captured["output"]),
             "parameterDtype": dtype_name(target.weight),
+        }],
+        "operationLayouts": [{
+            "operationId": operation_id,
+            "input": tensor_layout(captured["input"]),
+            "output": tensor_layout(captured["output"]),
+            "parameter": tensor_layout(target.weight),
         }],
         "pastKeyValues": cache_payload(native.past_key_values),
     }

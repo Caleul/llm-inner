@@ -127,3 +127,34 @@ a balanced fold: one BF16 coordinate (index 8354) differs by
 `1.1920928955078125e-7`. Thus the added environment evidence rules out an
 unrecorded build/thread/backend difference between the two captures, while the
 unresolved literal reduction schedule remains the checkpoint blocker.
+
+## Loop 28 native-layout boundary
+
+The BF16 dtype and kernel-environment records still left one semantic question
+open: `tensor_payload` converts native tensors to contiguous F32 before
+serializing them. A trace could therefore look compatible with the literal
+row-major Safetensors decoder even if native `Linear` had received an offset,
+strided, or transposed view. The bounded capture now records the original
+`shape`, `strides`, `storageOffset`, and contiguity for the native linear input,
+output, and parameter. The TypeScript boundary validates the record and the
+source-removed probe requires the exact canonical row-major layout declared by
+the literal formula; its report retains that accepted record.
+
+Two fresh CPU captures of the same pinned E4B `layer_0_up_proj` reported the
+same compatible layouts:
+
+```json
+{
+  "input": { "shape": [1, 1, 2560], "strides": [2560, 2560, 1], "storageOffset": 0, "isContiguous": true },
+  "output": { "shape": [1, 1, 10240], "strides": [10240, 10240, 1], "storageOffset": 0, "isContiguous": true },
+  "parameter": { "shape": [10240, 2560], "strides": [2560, 1], "storageOffset": 0, "isContiguous": true }
+}
+```
+
+With `./gemma-4-E4B-dense` renamed for the candidate process, the expanded
+2/4/8/16/32/64/128-lane source-removed campaign again had
+`sourceCheckpointAccessed: false`, no exact profile, and the same closest
+32-lane balanced F32 result: one BF16 coordinate at output feature `8354`
+differs by `1.1920928955078125e-7`. Thus this change proves that the known
+mismatch is not explained by an erased native tensor-view layout, but it does
+not invent the still-unknown native accumulation schedule.

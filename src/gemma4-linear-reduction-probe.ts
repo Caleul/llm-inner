@@ -1,7 +1,7 @@
 import { openGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
 import { createPagedDenseF32Matrix, pagedLinearF32 } from "./paged-dense.js";
 import { fingerprintIR, readExecutionTraceBundle } from "./trace.js";
-import type { DenseF32Tensor, DenseTensor, DifferentialNativeKernelEnvironment, LinearOp, ModelIR, Operation, ReductionSchedule, TensorInfo } from "./types.js";
+import type { DenseF32Tensor, DenseTensor, DifferentialNativeKernelEnvironment, DifferentialOperationLayout, DifferentialTensorLayout, LinearOp, ModelIR, Operation, ReductionSchedule, TensorInfo } from "./types.js";
 
 export interface Gemma4LinearReductionProfile {
   id: string;
@@ -71,6 +71,8 @@ export interface Gemma4LinearReductionProbeReport {
     executionDeviceDetail?: string;
     /** Exact build/backend controls shared by every native capture in this campaign. */
     nativeKernelEnvironment: DifferentialNativeKernelEnvironment;
+    /** Native Linear views proven compatible with the literal row-major decoder. */
+    nativeOperationLayout: DifferentialOperationLayout;
     model: string;
     revisionOrChecksum: string;
     containerFormat: string;
@@ -121,6 +123,8 @@ export async function probeGemma4LiteralLinearReductionProfiles(options: {
     for (let index = 1; index < decoded.length; index += 1) assertSameProbeContract(decoded[0]!, decoded[index]!);
     const operation = findLinearOperation(artifact.program.textProgram, options.operationId);
     for (const trace of decoded) assertNativeLinearDtypeContract(trace, operation);
+    for (const trace of decoded) assertNativeLinearLayoutContract(trace, operation);
+    const nativeOperationLayout = nativeLinearLayout(decoded[0]!, operation.id);
     const inputOperation = findProducerOperation(artifact.program.textProgram, operation.input);
     const matrix = createPagedDenseF32Matrix(tensorInfo(artifact, operation.weight.name, operation.weight.shape, operation.weight.storageDtype), artifact, options.maxReadBytes);
     const groups = groupByDeclaredInputs(traces, decoded);
@@ -170,6 +174,7 @@ export async function probeGemma4LiteralLinearReductionProfiles(options: {
         ...(decoded[0]!.reference.executionDevice === undefined ? {} : { executionDevice: decoded[0]!.reference.executionDevice }),
         ...(decoded[0]!.reference.executionDeviceDetail === undefined ? {} : { executionDeviceDetail: decoded[0]!.reference.executionDeviceDetail }),
         nativeKernelEnvironment: decoded[0]!.reference.nativeKernelEnvironment!,
+        nativeOperationLayout: structuredClone(nativeOperationLayout),
         model: decoded[0]!.reference.model,
         revisionOrChecksum: decoded[0]!.reference.revisionOrChecksum,
         containerFormat: decoded[0]!.reference.containerFormat,
@@ -259,6 +264,62 @@ function assertNativeLinearDtypeContract(
   if (native.inputDtype !== expectedInput || native.outputDtype !== expectedOutput || native.parameterDtype !== expectedParameter) {
     throw new Error(`${operation.id}: dtypes nativos ${native.inputDtype}->${native.outputDtype} com parâmetro ${native.parameterDtype} divergem do contrato literal ${expectedInput}->${expectedOutput} com parâmetro ${expectedParameter}.`);
   }
+}
+
+/**
+ * The literal matrix decoder names row-major [out, in] addresses.  Treating a
+ * native view with a non-canonical stride, offset, or transpose as that same
+ * formula would silently change which stored BF16 value participates in each
+ * scalar product, even if dtype and tensor values look compatible after a
+ * contiguous F32 trace serialization.
+ */
+function assertNativeLinearLayoutContract(
+  trace: Awaited<ReturnType<typeof readExecutionTraceBundle>>,
+  operation: LinearOp,
+): void {
+  const native = nativeLinearLayout(trace, operation.id);
+  const input = trace.reference.operations.find((entry) => entry.output === operation.input)?.tensor;
+  if (!input) throw new Error(`${operation.id}: trace de redução não contém o produtor ${operation.input}.`);
+  const output = traceTensor(trace.reference.operations, operation.id, operation.output);
+  assertCanonicalRowMajorLayout(native.input, input.shape, `${operation.id}: input nativo`);
+  assertCanonicalRowMajorLayout(native.output, output.shape, `${operation.id}: output nativo`);
+  // Gemma's IR declares [out, in] storage and transposeWeight=true because
+  // the mathematical projection reads the stored row as W[o, i].  The native
+  // Linear parameter must therefore expose that same physical row-major view.
+  if (!operation.transposeWeight) throw new Error(`${operation.id}: probe de redução requer matriz literal [out,in] transposta.`);
+  assertCanonicalRowMajorLayout(native.parameter, [operation.outFeatures, operation.inFeatures], `${operation.id}: parâmetro nativo`);
+}
+
+function nativeLinearLayout(
+  trace: Awaited<ReturnType<typeof readExecutionTraceBundle>>,
+  operationId: string,
+): DifferentialOperationLayout & { parameter: DifferentialTensorLayout } {
+  const native = trace.reference.operationLayouts?.find((entry) => entry.operationId === operationId);
+  if (!native || !native.parameter) throw new Error(`${operationId}: probe de redução requer layouts nativos de entrada, saída e parâmetro.`);
+  return native as DifferentialOperationLayout & { parameter: DifferentialTensorLayout };
+}
+
+function assertCanonicalRowMajorLayout(layout: DifferentialTensorLayout, shape: readonly number[], label: string): void {
+  if (!sameShape(layout.shape, shape)) throw new Error(`${label}: shape nativo diverge do tensor literal.`);
+  const expectedStrides = rowMajorStrides(shape);
+  if (!layout.isContiguous || layout.storageOffset !== 0 || !sameShape(layout.strides, expectedStrides)) {
+    throw new Error(`${label}: literal requer layout row-major contíguo com storageOffset=0.`);
+  }
+}
+
+function rowMajorStrides(shape: readonly number[]): number[] {
+  const strides = new Array<number>(shape.length);
+  let stride = 1;
+  for (let index = shape.length - 1; index >= 0; index -= 1) {
+    strides[index] = stride;
+    stride *= shape[index]!;
+    if (!Number.isSafeInteger(stride)) throw new Error("Layout row-major excede inteiro seguro.");
+  }
+  return strides;
+}
+
+function sameShape(left: readonly number[], right: readonly number[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function torchDtype(dtype: string | undefined, label: string): string {

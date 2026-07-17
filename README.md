@@ -219,6 +219,14 @@ mesmo ambiente nativo, mas não transforma o microkernel opaco numa semântica
 literal: sem uma agenda escalar declarada que coincida exatamente, o replay
 permanece aproximado.
 
+Além do dtype, a captura limitada registra `reference.operationLayouts` antes
+de a serialização F32 tornar tensores contíguos. O probe exige input, output e
+peso com shape, strides row-major, `storageOffset: 0` e contiguidade compatíveis
+com a fórmula indexada do literal. Portanto um view nativo transposto, estriado
+ou deslocado não pode ser confundido com os bytes row-major incorporados no
+JSON e usado para justificar uma agenda de redução; o relatório source-removed
+preserva o layout nativo aceito como parte da evidência.
+
 ```bash
 node dist/src/cli.js --source ./modelo --output ./modelo.literal.json --literal
 ```

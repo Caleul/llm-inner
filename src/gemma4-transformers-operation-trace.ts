@@ -34,6 +34,7 @@ interface NativeOperationCapture {
   nativeKernelEnvironment?: ExecutionTraceBundle["reference"]["nativeKernelEnvironment"];
   operations: ExecutionTraceBundle["reference"]["operations"];
   operationDtypes?: ExecutionTraceBundle["reference"]["operationDtypes"];
+  operationLayouts?: ExecutionTraceBundle["reference"]["operationLayouts"];
   pastKeyValues: ExecutionTraceBundle["reference"]["pastKeyValues"];
 }
 
@@ -79,6 +80,7 @@ export async function captureGemma4TransformersLinearReductionTrace(options: Gem
       { id: target.operationId, output: target.output },
     ], native.operations);
     assertNativeLinearDtypeCoverage(native.operationDtypes, target.operationId);
+    assertNativeLinearLayoutCoverage(native.operationLayouts, target.operationId);
     const bundle: ExecutionTraceBundle = {
       schemaVersion: 1,
       kind: "execution",
@@ -100,6 +102,7 @@ export async function captureGemma4TransformersLinearReductionTrace(options: Gem
         dtypePolicy: "native eager BF16 bounded MLP projection checkpoints captured as F32",
         operations: native.operations,
         operationDtypes: native.operationDtypes,
+        operationLayouts: native.operationLayouts,
         pastKeyValues: native.pastKeyValues,
       },
     };
@@ -118,6 +121,14 @@ function assertNativeLinearDtypeCoverage(
   if (!record || !record.inputDtype || !record.outputDtype || !record.parameterDtype) {
     throw new Error(`Gemma 4 native trace não declarou dtypes de entrada, saída e parâmetro para ${operationId}.`);
   }
+}
+
+function assertNativeLinearLayoutCoverage(
+  operationLayouts: ExecutionTraceBundle["reference"]["operationLayouts"],
+  operationId: string,
+): asserts operationLayouts is NonNullable<ExecutionTraceBundle["reference"]["operationLayouts"]> {
+  const record = operationLayouts?.find((entry) => entry.operationId === operationId);
+  if (!record || !record.parameter) throw new Error(`Gemma 4 native trace não declarou layouts de entrada, saída e parâmetro para ${operationId}.`);
 }
 
 function assertNativeKernelEnvironment(

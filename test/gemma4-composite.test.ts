@@ -617,6 +617,12 @@ test("Gemma 4 linear reduction probe binds a candidate schedule to traced produc
           { operationId: target.id, output: target.output, tensor: serialize(native.values.get(target.output)!) },
         ],
         operationDtypes: [{ operationId: target.id, inputDtype: "float32", outputDtype: "float32", parameterDtype: "float32" }],
+        operationLayouts: [{
+          operationId: target.id,
+          input: { shape: [...native.values.get(producer.output)!.shape], strides: [target.inFeatures, target.inFeatures, 1], storageOffset: 0, isContiguous: true },
+          output: { shape: [...native.values.get(target.output)!.shape], strides: [target.outFeatures, target.outFeatures, 1], storageOffset: 0, isContiguous: true },
+          parameter: { shape: [target.outFeatures, target.inFeatures], strides: [target.inFeatures, 1], storageOffset: 0, isContiguous: true },
+        }],
         pastKeyValues: [],
       },
     };
@@ -631,6 +637,7 @@ test("Gemma 4 linear reduction probe binds a candidate schedule to traced produc
     assert.equal(report.inputOperationId, producer.id);
     assert.equal(report.traceCount, 2);
     assert.deepEqual(report.reference.nativeKernelEnvironment, tracePayload.reference.nativeKernelEnvironment);
+    assert.deepEqual(report.reference.nativeOperationLayout, tracePayload.reference.operationLayouts[0]);
     assert.deepEqual(report.exactProfileIds, ["ordered-f32"]);
     assert.equal(report.profiles[0]!.mismatchedElements, 0);
     const secondInput = structuredClone(tracePayload);
@@ -737,6 +744,26 @@ test("Gemma 4 linear reduction probe binds a candidate schedule to traced produc
       () => probeGemma4LiteralLinearReductionProfiles({ artifact, traces: [trace, missingDtypesTrace], operationId: target.id, maxReadBytes: 1024 * 1024,
         profiles: [{ id: "ordered-f32", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } }], }),
       /requer dtypes nativos/,
+    );
+    const missingLayouts = structuredClone(repeatedPayload);
+    missingLayouts.captureId = "fixture-capture-no-layouts";
+    Object.defineProperty(missingLayouts.reference, "operationLayouts", { value: undefined, enumerable: true });
+    const missingLayoutsTrace = path.join(root, "trace-no-layouts.json");
+    await writeFile(missingLayoutsTrace, JSON.stringify(missingLayouts), "utf8");
+    await assert.rejects(
+      () => probeGemma4LiteralLinearReductionProfiles({ artifact, traces: [trace, missingLayoutsTrace], operationId: target.id, maxReadBytes: 1024 * 1024,
+        profiles: [{ id: "ordered-f32", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } }], }),
+      /requer layouts nativos/,
+    );
+    const stridedParameter = structuredClone(repeatedPayload);
+    stridedParameter.captureId = "fixture-capture-strided-parameter";
+    stridedParameter.reference.operationLayouts![0]!.parameter!.strides = [1, target.outFeatures];
+    const stridedParameterTrace = path.join(root, "trace-strided-parameter.json");
+    await writeFile(stridedParameterTrace, JSON.stringify(stridedParameter), "utf8");
+    await assert.rejects(
+      () => probeGemma4LiteralLinearReductionProfiles({ artifact, traces: [trace, stridedParameterTrace], operationId: target.id, maxReadBytes: 1024 * 1024,
+        profiles: [{ id: "ordered-f32", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } }], }),
+      /layout row-major contíguo/,
     );
     const missingKernelEnvironment = structuredClone(repeatedPayload);
     missingKernelEnvironment.captureId = "fixture-capture-no-kernel-environment";

@@ -8,6 +8,7 @@ import type {
   DifferentialGenerationReferenceTrace,
   DifferentialKeyValueCacheSample,
   DifferentialNativeKernelEnvironment,
+  DifferentialOperationLayout,
   DifferentialReferenceTrace,
   ModelCatalog,
   ModelIR,
@@ -239,6 +240,7 @@ function validateBundle(raw: unknown): ExecutionTraceBundle {
   });
   const operationIds = new Set(operations.map((operation) => operation.operationId));
   const operationDtypes = reference.operationDtypes === undefined ? undefined : parseOperationDtypes(reference.operationDtypes, operationIds);
+  const operationLayouts = reference.operationLayouts === undefined ? undefined : parseOperationLayouts(reference.operationLayouts, operations);
   const nativeKernelEnvironment = reference.nativeKernelEnvironment === undefined
     ? undefined
     : parseNativeKernelEnvironment(reference.nativeKernelEnvironment);
@@ -258,7 +260,7 @@ function validateBundle(raw: unknown): ExecutionTraceBundle {
       ...(reference.executionDeviceDetail === undefined ? {} : { executionDeviceDetail: reference.executionDeviceDetail as string }),
       containerFormat: reference.containerFormat as string, quantization: reference.quantization as string,
       inputTokens, ...(positionIds !== undefined ? { positionIds: positionIds.map((row) => [...row] as number[]) } : {}), dtypePolicy: reference.dtypePolicy as string,
-      operations, ...(operationDtypes === undefined ? {} : { operationDtypes }),
+      operations, ...(operationDtypes === undefined ? {} : { operationDtypes }), ...(operationLayouts === undefined ? {} : { operationLayouts }),
       ...(nativeKernelEnvironment === undefined ? {} : { nativeKernelEnvironment }), pastKeyValues,
     },
   };
@@ -309,6 +311,46 @@ function parseOperationDtypes(raw: unknown, operationIds: ReadonlySet<string>): 
       ...(value.parameterDtype === undefined ? {} : { parameterDtype: value.parameterDtype as string }),
     };
   });
+}
+
+function parseOperationLayouts(raw: unknown, operations: readonly { operationId: string; tensor: { shape: number[] } }[]): DifferentialOperationLayout[] {
+  if (!Array.isArray(raw)) throw new Error("Trace operationLayouts deve ser array quando declarado.");
+  const samples = new Map(operations.map((operation) => [operation.operationId, operation]));
+  const seen = new Set<string>();
+  return raw.map((entry) => {
+    const value = object(entry, "Trace operation layout");
+    if (typeof value.operationId !== "string" || value.operationId.trim() === "") throw new Error("Trace operation layout requer operationId não vazio.");
+    const sample = samples.get(value.operationId);
+    if (!sample) throw new Error(`Trace operation layout referencia operação ausente ${value.operationId}.`);
+    if (seen.has(value.operationId)) throw new Error(`Trace operation layout duplicou ${value.operationId}.`);
+    seen.add(value.operationId);
+    const input = parseTensorLayout(value.input, `Trace operation layout ${value.operationId} input`);
+    const output = parseTensorLayout(value.output, `Trace operation layout ${value.operationId} output`);
+    if (!sameShape(output.shape, sample.tensor.shape)) throw new Error(`Trace operation layout ${value.operationId} output diverge do tensor serializado.`);
+    const parameter = value.parameter === undefined ? undefined : parseTensorLayout(value.parameter, `Trace operation layout ${value.operationId} parameter`);
+    return { operationId: value.operationId, input, output, ...(parameter === undefined ? {} : { parameter }) };
+  });
+}
+
+function parseTensorLayout(raw: unknown, label: string): DifferentialOperationLayout["input"] {
+  const value = object(raw, label);
+  if (!Array.isArray(value.shape) || value.shape.length === 0 || !value.shape.every((dimension) => Number.isSafeInteger(dimension) && (dimension as number) > 0)) {
+    throw new Error(`${label} requer shape de dimensões positivas seguras.`);
+  }
+  if (!Array.isArray(value.strides) || value.strides.length !== value.shape.length || !value.strides.every((stride) => Number.isSafeInteger(stride) && (stride as number) >= 0)) {
+    throw new Error(`${label} requer strides não negativos e compatíveis com shape.`);
+  }
+  if (!Number.isSafeInteger(value.storageOffset) || (value.storageOffset as number) < 0 || typeof value.isContiguous !== "boolean") {
+    throw new Error(`${label} requer storageOffset seguro e isContiguous booleano.`);
+  }
+  return {
+    shape: value.shape as number[], strides: value.strides as number[], storageOffset: value.storageOffset as number,
+    isContiguous: value.isContiguous as boolean,
+  };
+}
+
+function sameShape(left: readonly number[], right: readonly number[]): boolean {
+  return left.length === right.length && left.every((dimension, index) => dimension === right[index]);
 }
 
 function validateGenerationBundle(raw: unknown): GenerationTraceBundle {

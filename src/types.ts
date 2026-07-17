@@ -489,6 +489,27 @@ export interface DifferentialOperationDtype {
 }
 
 /**
+ * Exact native views supplied to a traced operator before its values are
+ * serialized.  Dtype equality alone cannot establish the indexed literal
+ * formula: a strided or offset view may select a different address sequence
+ * from the row-major storage declared by the artifact.
+ */
+export interface DifferentialTensorLayout {
+  shape: number[];
+  strides: number[];
+  storageOffset: number;
+  isContiguous: boolean;
+}
+
+/** Layout evidence for a native operator with one activation and one weight. */
+export interface DifferentialOperationLayout {
+  operationId: string;
+  input: DifferentialTensorLayout;
+  output: DifferentialTensorLayout;
+  parameter?: DifferentialTensorLayout;
+}
+
+/**
  * Runtime controls that can change a native kernel's floating-point reduction
  * even when the model, device, and module dtypes are identical.  This is
  * capture evidence, not a substitute for an explicit literal reduction.
@@ -546,6 +567,8 @@ export interface DifferentialReferenceTrace {
   operations: readonly DifferentialOperationSample[];
   /** Optional for legacy/general traces; required by dtype-sensitive probes. */
   operationDtypes?: readonly DifferentialOperationDtype[];
+  /** Optional for legacy/general traces; required by layout-sensitive probes. */
+  operationLayouts?: readonly DifferentialOperationLayout[];
   /** Optional for legacy/general traces; required by native-kernel probes. */
   nativeKernelEnvironment?: DifferentialNativeKernelEnvironment;
   pastKeyValues: readonly DifferentialKeyValueCacheSample[];
