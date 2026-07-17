@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import * as path from "node:path";
@@ -25,6 +26,24 @@ import { fingerprintIR } from "../src/trace.js";
 import type { DenseF32Tensor, ModelCatalog, TensorInfo } from "../src/types.js";
 
 const preview = { outputRows: 1, inputTerms: 1, includeWeights: false } as const;
+
+test("Gemma 4 reduction probe CLI rejects unknown and duplicate targeted profile IDs before opening artifacts", () => {
+  const fixedArguments = [
+    new URL("../src/gemma4-linear-reduction-probe-cli.js", import.meta.url).pathname,
+    "--artifact", "/tmp/nonexistent-artifact.json", "--trace", "/tmp/trace-a.json", "--trace", "/tmp/trace-b.json",
+    "--operation-id", "layer_0_up_proj", "--output", "/tmp/unused-report.json",
+  ];
+  const unknown = spawnSync(process.execPath, [...fixedArguments, "--profile-id", "unsupported-profile-id"], { encoding: "utf8" });
+  assert.notEqual(unknown.status, 0);
+  assert.match(unknown.stderr, /--profile-id não reconhece: unsupported-profile-id/);
+  const duplicate = spawnSync(process.execPath, [
+    ...fixedArguments,
+    "--profile-id", "interleaved-f32-lanes-32-balanced-pairwise",
+    "--profile-id", "interleaved-f32-lanes-32-balanced-pairwise",
+  ], { encoding: "utf8" });
+  assert.notEqual(duplicate.status, 0);
+  assert.match(duplicate.stderr, /--profile-id requer IDs não vazios e sem repetição/);
+});
 
 test("Gemma 4 composite prelude replaces PAD-backed image/video/audio slots before context PLE and enters text core", () => {
   const catalog = fixture();

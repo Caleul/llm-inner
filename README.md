@@ -219,6 +219,23 @@ mesmo ambiente nativo, mas não transforma o microkernel opaco numa semântica
 literal: sem uma agenda escalar declarada que coincida exatamente, o replay
 permanece aproximado.
 
+Por padrão, o CLI explora toda a matriz de perfis declarados. Para repetir uma
+hipótese já identificada sem transformar uma campanha multi-prompt em uma nova
+varredura combinatória, `--profile-id` pode ocorrer mais de uma vez. Cada ID
+precisa ser um dos IDs concretos gerados pelo próprio CLI; IDs repetidos ou
+desconhecidos falham antes de abrir o artefato. Por exemplo, a confirmação
+source-removed das duas hipóteses de 32 lanes é explícita, sem permitir que uma
+opção de desempenho invente uma agenda matemática:
+
+```bash
+node dist/src/gemma4-linear-reduction-probe-cli.js \
+  --artifact ./artifacts/gemma4-e4b-dense.literal.json \
+  --trace /tmp/capture-a.json --trace /tmp/capture-b.json \
+  --operation-id layer_0_up_proj --output /tmp/reduction-report.json \
+  --profile-id interleaved-f32-lanes-32-balanced-pairwise \
+  --profile-id interleaved-fma-lanes-32-balanced-pairwise
+```
+
 Além do dtype, a captura limitada registra `reference.operationLayouts` antes
 de a serialização F32 tornar tensores contíguos. O probe exige input, output e
 peso com shape, strides row-major, `storageOffset: 0` e contiguidade compatíveis

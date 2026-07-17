@@ -17,12 +17,13 @@ const blockedTiledLaneCounts = optional("--blocked-tiled-lane-counts")?.split(",
 const blockedTiledTermsPerLane = optional("--blocked-tiled-terms-per-lane")?.split(",").map((entry) => integer(entry, "--blocked-tiled-terms-per-lane")) ?? [];
 const laneReductionOrders = (optional("--lane-reduction-orders") ?? "ascending,descending,balanced-pairwise").split(",").map(laneReductionOrder);
 const minDistinctInputs = integer(optional("--min-distinct-inputs") ?? "1", "--min-distinct-inputs");
+const selectedProfileIds = values("--profile-id");
 if (traces.length < 2 || maxReadMiB <= 0 || laneCounts.some((count) => count < 2) || tiledLaneCounts.some((count) => count < 2) || tiledTermsPerLane.some((count) => count < 2) || blockedTermsPerBlock.some((count) => count < 2) || blockedTiledLaneCounts.some((count) => count < 2) || blockedTiledTermsPerLane.some((count) => count < 2) || (tiledLaneCounts.length === 0) !== (tiledTermsPerLane.length === 0) || (blockedTiledLaneCounts.length === 0) !== (blockedTiledTermsPerLane.length === 0)) {
   throw new Error("Opções numéricas inválidas; informe ao menos dois --trace distintos e os dois parâmetros tiled quando usar redução tiled.");
 }
 const maxReadBytes = maxReadMiB * 1024 * 1024;
 if (!Number.isSafeInteger(maxReadBytes)) throw new Error("--max-read-mib excede limite seguro.");
-const profiles: Gemma4LinearReductionProfile[] = [
+const candidateProfiles: Gemma4LinearReductionProfile[] = [
   { id: "ordered-f32", accumulationDtype: "F32", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } },
   { id: "ordered-fma", accumulationDtype: "F32", reduction: { kind: "ordered-fma", indexOrder: "ascending" } },
   { id: "ordered-f64", accumulationDtype: "F64", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } },
@@ -49,6 +50,7 @@ const profiles: Gemma4LinearReductionProfile[] = [
     tiledLaneProfile("tiled-fma-lanes", laneCount, termsPerLane, laneReductionOrder),
   ]))),
 ];
+const profiles = selectProfiles(candidateProfiles, selectedProfileIds);
 const report = await probeGemma4LiteralLinearReductionProfiles({ artifact, traces, operationId, profiles, maxReadBytes, minDistinctInputs });
 await mkdir(dirname(output), { recursive: true });
 await writeFile(output, `${JSON.stringify(report, null, 2)}\n`, "utf8");
@@ -72,6 +74,28 @@ function values(flag: string): string[] {
     index += 1;
   }
   return result;
+}
+
+/**
+ * A broad candidate sweep is useful while discovering a native reduction,
+ * but subsequent source-removed campaigns must be able to re-test only the
+ * profiles already implicated by evidence.  Selection is by generated
+ * immutable ID, never by a partial schedule or a shape-derived default.
+ */
+function selectProfiles(candidates: readonly Gemma4LinearReductionProfile[], requestedIds: readonly string[]): Gemma4LinearReductionProfile[] {
+  if (requestedIds.length === 0) return [...candidates];
+  const requested = new Set<string>();
+  for (const id of requestedIds) {
+    if (!id || requested.has(id)) throw new Error("--profile-id requer IDs não vazios e sem repetição.");
+    requested.add(id);
+  }
+  const selected = candidates.filter((profile) => requested.has(profile.id));
+  if (selected.length !== requested.size) {
+    const available = new Set(candidates.map((profile) => profile.id));
+    const unknown = requestedIds.filter((id) => !available.has(id));
+    throw new Error(`--profile-id não reconhece: ${unknown.join(", ")}.`);
+  }
+  return selected;
 }
 
 function required(flag: string): string {
