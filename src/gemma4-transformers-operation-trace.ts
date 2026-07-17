@@ -19,10 +19,114 @@ export interface Gemma4TransformersOperationTraceOptions {
   revisionOrChecksum: string;
 }
 
+export interface Gemma4TransformersLinearReductionTraceOptions extends Omit<Gemma4TransformersOperationTraceOptions, "output"> {
+  output: string;
+  /** A declared, bias-free Gemma4Text MLP projection such as layer_0_up_proj. */
+  operationId: string;
+}
+
 interface NativeOperationCapture {
   runtime: string;
   operations: ExecutionTraceBundle["reference"]["operations"];
   pastKeyValues: ExecutionTraceBundle["reference"]["pastKeyValues"];
+}
+
+/**
+ * Captures only a declared MLP projection and the named assignment that
+ * produces its activation.  Unlike the full 1,229-assignment trace, this
+ * narrow evidence bundle is small enough to repeat across a reduction-profile
+ * campaign.  It remains bound to the complete adapter fingerprint, immutable
+ * source checksums, and a native forward that is bitwise unchanged by hooks.
+ */
+export async function captureGemma4TransformersLinearReductionTrace(options: Gemma4TransformersLinearReductionTraceOptions): Promise<void> {
+  validateIds(options.inputTokens, "inputTokens");
+  const positions = options.positionIds ?? options.inputTokens.map((_, index) => index);
+  validateIds(positions, "positionIds");
+  if (positions.length !== options.inputTokens.length) throw new Error("Gemma 4 checkpoint capture requer uma posição para cada token.");
+  const opened = await openCatalog(options.source, false);
+  try {
+    if (opened.catalog.format !== "safetensors" || opened.catalog.config.model_type !== "gemma4") {
+      throw new Error("Gemma 4 checkpoint capture requer pacote Safetensors Gemma4 registrado.");
+    }
+    for (const tensor of opened.catalog.tensors.values()) {
+      if (tensor.storageDtype !== "BF16" || tensor.quantization) throw new Error(`${tensor.name}: checkpoint capture requer armazenamento BF16 denso sem quantização.`);
+    }
+    const program = buildGemma4CompositeProgram(opened.catalog, { outputRows: 1, inputTerms: 1, includeWeights: false });
+    const target = selectGemma4MlpLinearCaptureTarget(program.textProgram, options.operationId);
+    const native = await invoke<NativeOperationCapture>(options.python, {
+      source: options.source,
+      inputTokens: options.inputTokens,
+      positionIds: positions,
+      mode: "linear-reduction-checkpoint",
+      layerIndex: target.layer,
+      projection: target.projection,
+      operationId: target.operationId,
+      producerOperationId: target.producerOperationId,
+      producerOutput: target.producerOutput,
+      output: target.output,
+    });
+    assertGemma4NativeOperationCoverage([
+      { id: target.producerOperationId, output: target.producerOutput },
+      { id: target.operationId, output: target.output },
+    ], native.operations);
+    const bundle: ExecutionTraceBundle = {
+      schemaVersion: 1,
+      kind: "execution",
+      captureId: randomUUID(),
+      source: { files: await checksums(opened.catalog.source, opened.catalog.tensors.values()) },
+      irFingerprint: fingerprintIR(program.textProgram),
+      candidatePolicy: { dtype: "F32", runtime: "llm-inner paged Gemma4Text literal F32" },
+      reference: {
+        runtime: native.runtime,
+        model: options.model,
+        revisionOrChecksum: options.revisionOrChecksum,
+        containerFormat: "safetensors",
+        quantization: "none; dense BF16 storage",
+        inputTokens: [options.inputTokens],
+        positionIds: [positions],
+        dtypePolicy: "native eager BF16 bounded MLP projection checkpoints captured as F32",
+        operations: native.operations,
+        pastKeyValues: native.pastKeyValues,
+      },
+    };
+    await mkdir(path.dirname(options.output), { recursive: true });
+    await writeFile(options.output, `${JSON.stringify(bundle, null, 2)}\n`, "utf8");
+  } finally {
+    await opened.close();
+  }
+}
+
+export interface Gemma4MlpLinearCaptureTarget {
+  operationId: string;
+  producerOperationId: string;
+  producerOutput: string;
+  output: string;
+  layer: number;
+  projection: "gate_proj" | "up_proj" | "down_proj";
+}
+
+/** Restricts bounded native captures to an explicit, adapter-owned MLP path. */
+export function selectGemma4MlpLinearCaptureTarget(program: ReturnType<typeof buildGemma4CompositeProgram>["textProgram"], operationId: string): Gemma4MlpLinearCaptureTarget {
+  const operation = [...program.prelude, ...program.layers.flatMap((layer) => layer.operations), ...program.epilogue]
+    .find((entry) => entry.id === operationId);
+  if (!operation || operation.op !== "linear" || operation.layer === undefined || operation.bias || !operation.transposeWeight) {
+    throw new Error(`${operationId}: captura limitada requer uma projeção linear Gemma4Text declarada, sem bias e transposta.`);
+  }
+  const matched = /^layer_(\d+)_(gate|up|down)_proj$/.exec(operation.id);
+  if (!matched || Number(matched[1]) !== operation.layer) {
+    throw new Error(`${operationId}: captura limitada aceita somente layer_<n>_(gate|up|down)_proj.`);
+  }
+  const producer = [...program.prelude, ...program.layers.flatMap((layer) => layer.operations), ...program.epilogue]
+    .find((entry) => entry.output === operation.input);
+  if (!producer) throw new Error(`${operationId}: não encontrou atribuição produtora declarada para '${operation.input}'.`);
+  return {
+    operationId: operation.id,
+    producerOperationId: producer.id,
+    producerOutput: producer.output,
+    output: operation.output,
+    layer: operation.layer,
+    projection: `${matched[2]}_proj` as "gate_proj" | "up_proj" | "down_proj",
+  };
 }
 
 /**

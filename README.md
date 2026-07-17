@@ -392,6 +392,18 @@ exatos em todos os grupos; identidade de fonte/runtime/IR/dtype não pode variar
 entre eles. Assim uma coincidência em uma ativação não pode virar contrato de
 kernel do artefato.
 
+Para repetir essa investigação sem serializar novamente o trace completo de
+1.229 atribuições, `capture:gemma4-linear-reduction` captura somente uma
+projeção MLP declarada (`layer_<n>_(gate|up|down)_proj`) e sua atribuição
+produtora nomeada. O helper aceita somente esses módulos registrados, observa
+o `Linear` nativo por hooks passivos e rejeita a captura se o segundo forward
+alterar logits ou qualquer KV cache do forward sem hooks. Cada pequeno trace
+continua vinculado aos checksums de toda a fonte e ao fingerprint do programa;
+`probe:gemma4-linear-reduction` continua exigindo dois traces independentes e
+é executável com o diretório da fonte removido. A repetição limitada do
+`layer_0_up_proj` E4B está em
+[`docs/validation/gemma4-e4b-bounded-linear-reduction-2026-07-17.md`](docs/validation/gemma4-e4b-bounded-linear-reduction-2026-07-17.md).
+
 ### Comparação com captura autoritativa
 
 `npm run compare:trace -- --source <checkpoint> --trace <captura.json> --report <relatorio.json>` executa a fronteira completa de validação declarada pela captura (`F32` ou `F64`): reabre o contêiner, confere SHA-256 de `config.json` e de cada shard/arquivo que participa do checkpoint, reconstrói o IR, materializa os pesos por range, executa o interpretador correspondente e compara cada operação e cache KV com a captura. O relatório só é escrito depois de todas essas verificações.
