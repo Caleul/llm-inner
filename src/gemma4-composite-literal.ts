@@ -61,7 +61,8 @@ export interface Gemma4CompositeLiteralCalculationProgram extends LiteralStorage
     scalarSemantics:
       | "IEEE-754 binary32; host libm results rounded to F32"
       | "IEEE-754 binary32 reductions; each operation declares its F32 or BF16 result cast"
-      | "IEEE-754 binary32 products; each operation declares its ordered-scalar or interleaved-lane F32/F64 reduction and F32 or BF16 result cast";
+      | "IEEE-754 binary32 products; each operation declares its ordered-scalar or interleaved-lane F32/F64 reduction and F32 or BF16 result cast"
+      | "IEEE-754 binary32; each operation declares ordered-scalar, separately-rounded F32-lane, or fused-multiply-add lane reduction and its F32 or BF16 result cast";
   };
   inputs: Gemma4CompositeLiteralInput[];
   /** No checkpoint path is retained: all tensor bytes are in `constants`. */
@@ -329,13 +330,16 @@ export function gemma4CompositeLiteralNumericPolicy(program: Gemma4CompositeProg
   const textOperations = [...program.textProgram.prelude, ...program.textProgram.layers.flatMap((layer) => layer.operations), ...program.textProgram.epilogue];
   const hasBf16ResultCast = textOperations.some((operation) => operation.dtypePolicy.outputDtype === "BF16");
   const hasDeclaredAccumulation = textOperations.some((operation) => operation.dtypePolicy.accumulationDtype === "F64" || operation.dtypePolicy.reduction?.kind === "interleaved-f32-lanes");
-  if (hasDeclaredAccumulation) {
+  const hasFmaLaneReduction = textOperations.some((operation) => operation.dtypePolicy.reduction?.kind === "interleaved-fma-lanes");
+  if (hasDeclaredAccumulation || hasFmaLaneReduction) {
     return {
       inputDtype: "I32/F32/BOOL",
       computeDtype: "F32",
       accumulationDtype: "operation-declared",
       outputDtype: "operation-declared",
-      scalarSemantics: "IEEE-754 binary32 products; each operation declares its ordered-scalar or interleaved-lane F32/F64 reduction and F32 or BF16 result cast",
+      scalarSemantics: hasFmaLaneReduction
+        ? "IEEE-754 binary32; each operation declares ordered-scalar, separately-rounded F32-lane, or fused-multiply-add lane reduction and its F32 or BF16 result cast"
+        : "IEEE-754 binary32 products; each operation declares its ordered-scalar or interleaved-lane F32/F64 reduction and F32 or BF16 result cast",
     };
   }
   return {
@@ -373,8 +377,10 @@ function validateGemma4TextReductionSchedules(program: Gemma4CompositeProgram): 
       }
       continue;
     }
-    if (operation.op !== "linear" || operation.dtypePolicy.accumulationDtype !== "F32" || !Number.isSafeInteger(reduction.laneCount) || reduction.laneCount < 2 ||
-      reduction.inputLane !== "index-modulo-lane-count" || reduction.laneReductionOrder !== "ascending") {
+    if (operation.op !== "linear" || operation.dtypePolicy.accumulationDtype !== "F32" ||
+      (reduction.kind !== "interleaved-f32-lanes" && reduction.kind !== "interleaved-fma-lanes") || !Number.isSafeInteger(reduction.laneCount) || reduction.laneCount < 2 ||
+      reduction.inputLane !== "index-modulo-lane-count" ||
+      (reduction.laneReductionOrder !== "ascending" && reduction.laneReductionOrder !== "descending" && reduction.laneReductionOrder !== "balanced-pairwise")) {
       throw new Error(`${operation.id}: agenda de lanes Gemma 4 inválida.`);
     }
   }

@@ -388,6 +388,29 @@ test("paged linear applies an explicit interleaved F32 lane schedule instead of 
   assert.deepEqual(lanes.values, Float32Array.from([2]));
 });
 
+test("paged linear preserves the declared horizontal lane fold instead of assuming ascending accumulation", async () => {
+  const tensor: TensorInfo = { name: "embedded://lane-fold", storageDtype: "F32", storageShape: [1, 4], logicalShape: [1, 4] };
+  const storage = Buffer.alloc(16);
+  [1e20, 1, -1e20, 1].forEach((value, index) => storage.writeFloatLE(value, index * 4));
+  const matrix = createPagedDenseF32Matrix(tensor, { async readTensorBytesRange(_tensor, offset, byteLength) { return storage.subarray(offset, offset + byteLength); } }, 16);
+  const input = { shape: [1, 4], values: Float32Array.from([1, 1, 1, 1]) };
+  const ascending = await pagedLinearF32(input, matrix, { accumulationDtype: "F32", reduction: { kind: "interleaved-f32-lanes", laneCount: 4, inputLane: "index-modulo-lane-count", laneReductionOrder: "ascending" } });
+  const balanced = await pagedLinearF32(input, matrix, { accumulationDtype: "F32", reduction: { kind: "interleaved-f32-lanes", laneCount: 4, inputLane: "index-modulo-lane-count", laneReductionOrder: "balanced-pairwise" } });
+  assert.deepEqual(ascending.values, Float32Array.from([1]));
+  assert.deepEqual(balanced.values, Float32Array.from([0]));
+});
+
+test("paged linear keeps fused multiply-add lanes distinct from separately rounded products", async () => {
+  const tensor: TensorInfo = { name: "embedded://fma", storageDtype: "F32", storageShape: [1, 4], logicalShape: [1, 4] };
+  const storage = Buffer.alloc(16);
+  [-0.05253555625677109, 0, -0.771535336971283, 0].forEach((value, index) => storage.writeFloatLE(value, index * 4));
+  const matrix = createPagedDenseF32Matrix(tensor, { async readTensorBytesRange(_tensor, offset, byteLength) { return storage.subarray(offset, offset + byteLength); } }, 16);
+  const input = { shape: [1, 4], values: Float32Array.from([-0.000940456404350698, 0, 13.010579109191895, 0]) };
+  const separatelyRounded = await pagedLinearF32(input, matrix, { accumulationDtype: "F32", reduction: { kind: "interleaved-f32-lanes", laneCount: 2, inputLane: "index-modulo-lane-count", laneReductionOrder: "ascending" } });
+  const fused = await pagedLinearF32(input, matrix, { accumulationDtype: "F32", reduction: { kind: "interleaved-fma-lanes", laneCount: 2, inputLane: "index-modulo-lane-count", laneReductionOrder: "ascending" } });
+  assert.notEqual(separatelyRounded.values[0], fused.values[0]);
+});
+
 test("Gemma 4 linear reduction probe binds a candidate schedule to traced producer and output tensors", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "llm-inner-gemma4-reduction-probe-"));
   try {

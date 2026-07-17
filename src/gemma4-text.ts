@@ -152,12 +152,14 @@ export function buildGemma4TextIR(catalog: ModelCatalog, config: JsonObject, pre
   ];
   if (finalSoftcap !== undefined) epilogue.push({ id: "final_logit_softcap", op: "elementwise", kind: "tanh_softcap", inputs: ["logits"], scalar: finalSoftcap, output: "softcapped_logits", dtypePolicy: F32_POLICY });
   const dtypePolicy = textRuntimeDtypePolicy(runtimeDtype);
-  // This is an adapter registration for the exact public E4B topology that
-  // was measured against the pinned runtime. It is not a replay-time shape
-  // heuristic: the serialized gate assignment owns the complete schedule.
-  const hasMeasuredE4bGateProfile = hidden === 2560 && intermediate === 10240 && layers === 42 && pleWidth === 256 && vocab === 262144;
+  // This is a pinned E4B trace-compatible candidate, not a replay-time shape
+  // heuristic. It remains explicit in the serialized assignment, but a
+  // single prompt also matches other lane/fold candidates; therefore it must
+  // never be promoted to a lossless kernel claim without distinguishing trace
+  // evidence across additional inputs.
+  const hasTraceBoundE4bGateCandidate = hidden === 2560 && intermediate === 10240 && layers === 42 && pleWidth === 256 && vocab === 262144;
   for (const operation of [...prelude, ...lowered.flatMap((layer) => layer.operations), ...epilogue]) {
-    operation.dtypePolicy = runtimeDtype === "BF16" && hasMeasuredE4bGateProfile && operation.id === "layer_0_gate_proj"
+    operation.dtypePolicy = runtimeDtype === "BF16" && hasTraceBoundE4bGateCandidate && operation.id === "layer_0_gate_proj"
       ? BF16_NATIVE_GATE_PROJECTION_POLICY
       : runtimeDtype === "BF16" && (operation.op === "linear" || operation.op === "rms_norm")
         ? BF16_NATIVE_REDUCTION_POLICY
@@ -179,8 +181,9 @@ export function gemma4TextEmbeddingScale(hiddenSize: number, storageDtype: strin
  * registered eager-BF16 linear/RMSNorm compatibility profiles keep products
  * in F32, reduce them in a declared ordered F64 scalar accumulator, then
  * narrow the result to BF16. `layer_0_gate_proj` is the one separately
- * measured, pinned-runtime exception: its literal declaration records its 32
- * interleaved F32 lanes. The executor never selects either profile from shape.
+ * measured, pinned-runtime candidate: its literal declaration records 32
+ * interleaved F32 lanes, which match the bound trace but are not uniquely
+ * identified by it. The executor never selects either profile from shape.
  * Other operations retain their source-visible F32 policy.
  * F32 fixtures may omit `dtype`, but an unfamiliar declared runtime dtype is
  * not safe to approximate.

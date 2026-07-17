@@ -126,7 +126,7 @@ export async function pagedLinearF32(
     const outputCount = Math.min(chunkRows, outFeatures - firstOutput);
     const stored = await weight.readRows(firstOutput, outputCount);
     for (let row = 0; row < rows; row += 1) for (let output = 0; output < outputCount; output += 1) {
-      const sum = options.reduction?.kind === "interleaved-f32-lanes"
+      const sum = options.reduction?.kind === "interleaved-f32-lanes" || options.reduction?.kind === "interleaved-fma-lanes"
         ? linearF32ProductsInterleavedF32Lanes(input, stored.values, row, output, inFeatures, options.reduction)
         : options.accumulationDtype === "F64"
           ? linearF32ProductsF64Accumulation(input, stored.values, row, output, inFeatures)
@@ -167,19 +167,46 @@ function linearF32ProductsInterleavedF32Lanes(
   row: number,
   output: number,
   inFeatures: number,
-  reduction: Extract<ReductionSchedule, { kind: "interleaved-f32-lanes" }>,
+  reduction: Extract<ReductionSchedule, { kind: "interleaved-f32-lanes" | "interleaved-fma-lanes" }>,
 ): number {
-  if (!Number.isSafeInteger(reduction.laneCount) || reduction.laneCount < 2 || reduction.inputLane !== "index-modulo-lane-count" || reduction.laneReductionOrder !== "ascending") {
+  if (!Number.isSafeInteger(reduction.laneCount) || reduction.laneCount < 2 || reduction.inputLane !== "index-modulo-lane-count" ||
+    (reduction.laneReductionOrder !== "ascending" && reduction.laneReductionOrder !== "descending" && reduction.laneReductionOrder !== "balanced-pairwise")) {
     throw new Error("Linear paginado recebeu agenda de lanes F32 inválida.");
   }
   const lanes = new Float32Array(reduction.laneCount);
   for (let column = 0; column < inFeatures; column += 1) {
     const lane = column % reduction.laneCount;
-    lanes[lane] = Math.fround(lanes[lane]! + Math.fround(input.values[row * inFeatures + column]! * weight[output * inFeatures + column]!));
+    const product = input.values[row * inFeatures + column]! * weight[output * inFeatures + column]!;
+    lanes[lane] = reduction.kind === "interleaved-fma-lanes"
+      ? Math.fround(lanes[lane]! + product)
+      : Math.fround(lanes[lane]! + Math.fround(product));
   }
-  let sum = Math.fround(0);
-  for (let lane = 0; lane < lanes.length; lane += 1) sum = Math.fround(sum + lanes[lane]!);
-  return sum;
+  return foldF32Lanes(lanes, reduction.laneReductionOrder);
+}
+
+/**
+ * Keep the horizontal SIMD fold explicit.  This is deliberately not a host
+ * reduction: every F32 addition and its tree/order are part of the literal
+ * calculation program and can therefore be audited or probed independently.
+ */
+function foldF32Lanes(lanes: Float32Array, order: Extract<ReductionSchedule, { kind: "interleaved-f32-lanes" | "interleaved-fma-lanes" }>['laneReductionOrder']): number {
+  if (order === "ascending" || order === "descending") {
+    let sum = Math.fround(0);
+    const start = order === "ascending" ? 0 : lanes.length - 1;
+    const end = order === "ascending" ? lanes.length : -1;
+    const step = order === "ascending" ? 1 : -1;
+    for (let lane = start; lane !== end; lane += step) sum = Math.fround(sum + lanes[lane]!);
+    return sum;
+  }
+  let current = lanes;
+  while (current.length > 1) {
+    const next = new Float32Array(Math.ceil(current.length / 2));
+    for (let index = 0; index < current.length; index += 2) {
+      next[index / 2] = index + 1 < current.length ? Math.fround(current[index]! + current[index + 1]!) : current[index]!;
+    }
+    current = next;
+  }
+  return current[0]!;
 }
 
 /** Applies an explicit tensor-result BF16 cast after a declared operation. */

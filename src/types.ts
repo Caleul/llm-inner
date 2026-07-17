@@ -65,7 +65,29 @@ export interface BaseOp {
 
 export type ReductionSchedule =
   | { kind: "ordered-scalar"; indexOrder: "ascending" }
-  | { kind: "interleaved-f32-lanes"; laneCount: number; inputLane: "index-modulo-lane-count"; laneReductionOrder: "ascending" };
+  /**
+   * Product terms are accumulated into lane `i mod laneCount`, then the
+   * lanes are folded with the declared F32 order.  The fold is semantic: an
+   * eager kernel may expose a different answer at a cancellation boundary
+   * even when its lane count is unchanged.
+   */
+  | {
+    kind: "interleaved-f32-lanes";
+    laneCount: number;
+    inputLane: "index-modulo-lane-count";
+    laneReductionOrder: "ascending" | "descending" | "balanced-pairwise";
+  }
+  /**
+   * Like `interleaved-f32-lanes`, except each lane addition performs one F32
+   * rounding over `lane + exact(product)` rather than rounding the product
+   * first.  It models an explicitly declared fused multiply-add boundary.
+   */
+  | {
+    kind: "interleaved-fma-lanes";
+    laneCount: number;
+    inputLane: "index-modulo-lane-count";
+    laneReductionOrder: "ascending" | "descending" | "balanced-pairwise";
+  };
 
 export interface DtypePolicy {
   inputDtype?: string;

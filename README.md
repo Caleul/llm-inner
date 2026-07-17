@@ -327,9 +327,11 @@ Uma captura posterior de todas as 1.229 atribuições declaradas do Gemma4Text
 torna a divergência localizável sem reabrir o checkpoint durante o candidato.
 Ela corrige o cast BF16 observável do embedding (`sqrt(2560)` para `50.5` e o
 produto BF16), declara acumulação escalar ordenada F64 para linear/RMSNorm e,
-somente no `layer_0_gate_proj` E4B medido, declara 32 lanes F32 intercaladas
-com redução final ascendente. Isso torna exatas a projeção e a norma PLE e o
-primeiro gate MLP, sem escolher uma agenda pelo shape no replay. A
+somente no `layer_0_gate_proj` E4B trace-bound, declara como candidato 32
+lanes F32 intercaladas com redução final ascendente. Ela coincide com a captura
+original, mas não é uma identificação única do kernel e não é promovida a uma
+semântica lossless. Isso mantém exatas, nesse trace, a projeção e a norma PLE e
+o primeiro gate MLP, sem escolher uma agenda pelo shape no replay. A
 instrumentação é comparada a um forward nativo sem hooks e falha se logits ou
 cache KV mudarem. O replay com fonte removida tem 71 atribuições e um cache
 produtor exatos; as 1.158 atribuições e 23 caches restantes divergem; o
@@ -345,7 +347,12 @@ igualdade bitwise dos dois traces antes de comparar todos os elementos após o
 cast declarado. No E4B, duas capturas completas de 1.229 atribuições foram
 idênticas; o probe confirma as 32 lanes de `layer_0_gate_proj`, mas nenhuma das
 agendas escalar/F32/F64 ou 2..256 lanes testadas resolve
-`layer_0_up_proj`; os resultados e o comando estão em
+`layer_0_up_proj`. O probe agora também varia a árvore de fold horizontal
+(ascendente, descendente e pareada balanceada) e o limite explícito de FMA;
+para os operandos BF16 E4B, FMA não altera os candidatos observados. No gate,
+quatro candidatos continuam indistinguíveis nesse prompt; no up projection, a
+melhor agenda é 32 lanes F32 com árvore pareada, mas ainda erra um único
+elemento BF16 e por isso não é registrada. Os resultados e o comando estão em
 [`docs/validation/gemma4-e4b-linear-reduction-probe-2026-07-16.md`](docs/validation/gemma4-e4b-linear-reduction-probe-2026-07-16.md).
 
 ### Comparação com captura autoritativa
