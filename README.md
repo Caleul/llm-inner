@@ -412,16 +412,13 @@ atualizada está em
 Uma captura posterior de todas as 1.229 atribuições declaradas do Gemma4Text
 torna a divergência localizável sem reabrir o checkpoint durante o candidato.
 Ela corrige o cast BF16 observável do embedding (`sqrt(2560)` para `50.5` e o
-produto BF16), declara acumulação escalar ordenada F64 para linear/RMSNorm e,
-somente no `layer_0_gate_proj` E4B trace-bound, declara como candidato 32
-lanes F32 intercaladas com redução final ascendente. Ela coincide com a captura
-original, mas não é uma identificação única do kernel e não é promovida a uma
-semântica lossless. Isso mantém exatas, nesse trace, a projeção e a norma PLE e
-o primeiro gate MLP, sem escolher uma agenda pelo shape no replay. A
-instrumentação é comparada a um forward nativo sem hooks e falha se logits ou
-cache KV mudarem. O replay com fonte removida tem 71 atribuições e um cache
-produtor exatos; as 1.158 atribuições e 23 caches restantes divergem; o
-primeiro limite agora é `layer_0_up_proj`. A comparação completa permanece
+produto BF16), e mantém a acumulação escalar ordenada F64 para os
+linear/RMSNorm sem evidência de kernel mais específica. Campanhas posteriores
+com a fonte removida identificaram a árvore ARM BF16 completa somente para
+`layer_0_gate_proj` e `layer_0_up_proj`; ambas declaram 32 lanes, oito
+registradores e fold horizontal pareado, sem escolher uma agenda pelo shape no
+replay. A instrumentação é comparada a um forward nativo sem hooks e falha se
+logits ou cache KV mudarem. A comparação completa ainda permanece
 `approximate`, documentada em
 [`docs/validation/gemma4-e4b-native-operation-checkpoints-2026-07-16.md`](docs/validation/gemma4-e4b-native-operation-checkpoints-2026-07-16.md).
 
@@ -435,10 +432,10 @@ idênticas; o probe confirma as 32 lanes de `layer_0_gate_proj`, mas nenhuma das
 agendas escalar/F32/F64 ou 2..256 lanes testadas resolve
 `layer_0_up_proj`. O probe agora também varia a árvore de fold horizontal
 (ascendente, descendente e pareada balanceada) e o limite explícito de FMA;
-para os operandos BF16 E4B, FMA não altera os candidatos observados. No gate,
-quatro candidatos continuam indistinguíveis nesse prompt; no up projection, a
-melhor agenda é 32 lanes F32 com árvore pareada, mas ainda erra um único
-elemento BF16 e por isso não é registrada. Os resultados e o comando estão em
+para os operandos BF16 E4B, FMA não altera os candidatos observados. Essas
+primeiras campanhas de um único prompt não foram promovidas: somente as
+campanhas posteriores de três entradas, com a árvore de registradores completa,
+podem vincular uma agenda emitida. Os resultados históricos estão em
 [`docs/validation/gemma4-e4b-linear-reduction-probe-2026-07-16.md`](docs/validation/gemma4-e4b-linear-reduction-probe-2026-07-16.md).
 Quando houver capturas de prompts distintos, `--min-distinct-inputs N` exige
 dois captures bitwise-idênticos para cada prompt/posição e só mantém perfis
@@ -452,10 +449,11 @@ regenerado, a agenda explícita `arm-neon-bf16-dot-fma` de 32 lanes e fold
 pareado para `layer_0_up_proj` coincidiu em todas as coordenadas BF16 de seis
 capturas independentes, cobrindo `[2]`, `[17]` e `[2,17]`, com o checkpoint
 removido durante o probe. O fold ascendente falhou nessa mesma campanha, por
-isso ele não é emitido. Esta é uma reivindicação candidata apenas para essa
-atribuição e ambiente fixado, não uma conclusão do checkpoint Gemma 4; os
-comandos, checksums e limites estão em
-[`docs/validation/gemma4-e4b-arm-32-reduction-candidate-2026-07-17.md`](docs/validation/gemma4-e4b-arm-32-reduction-candidate-2026-07-17.md).
+isso ele não é emitido. A mesma campanha para `layer_0_gate_proj` também
+selecionou unicamente essa árvore completa. Essas são reivindicações candidatas
+somente para as duas atribuições e o ambiente fixado, não uma conclusão do
+checkpoint Gemma 4; os comandos, checksums e limites estão em
+[`docs/validation/gemma4-e4b-arm-32-gate-up-reduction-candidate-2026-07-17.md`](docs/validation/gemma4-e4b-arm-32-gate-up-reduction-candidate-2026-07-17.md).
 
 Para repetir essa investigação sem serializar novamente o trace completo de
 1.229 atribuições, `capture:gemma4-linear-reduction` captura somente uma

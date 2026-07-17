@@ -6,10 +6,10 @@ const F32_RUNTIME_POLICY = { inputDtype: "F32", computeDtype: "F32", accumulatio
 const ORDERED_SCALAR_REDUCTION = { kind: "ordered-scalar", indexOrder: "ascending" } as const;
 const BF16_NATIVE_REDUCTION_POLICY = { inputDtype: "BF16", computeDtype: "F32", accumulationDtype: "F64", outputDtype: "BF16", reduction: ORDERED_SCALAR_REDUCTION } as const;
 /**
- * Trace-bound E4B CPU policy for one measured assignment only. It encodes the
+ * Trace-bound E4B CPU policy for measured MLP assignments only. It encodes the
  * complete finite ARM register tree and is never inferred by the executor.
  */
-const BF16_TRACE_BOUND_ARM_32_UP_PROJECTION_POLICY = {
+const BF16_TRACE_BOUND_ARM_32_MLP_PROJECTION_POLICY = {
   inputDtype: "BF16", computeDtype: "F32", accumulationDtype: "F32", outputDtype: "BF16",
   reduction: {
     kind: "arm-neon-bf16-dot-fma", laneCount: 32, registerCount: 8, lanesPerRegister: 4,
@@ -161,13 +161,14 @@ export function buildGemma4TextIR(catalog: ModelCatalog, config: JsonObject, pre
   const dtypePolicy = textRuntimeDtypePolicy(runtimeDtype);
   // This is a pinned E4B trace-compatible candidate, not a replay-time shape
   // heuristic. The complete registered topology narrows the declaration to
-  // the only E4B operation measured against independent native captures; the
+  // the only E4B operations measured against independent native captures; the
   // executor receives the schedule from the serialized assignment and never
   // selects it from a shape at replay time.
-  const hasTraceBoundE4bArm32Candidate = isTraceBoundGemma4E4bArm32Topology({ hidden, intermediate, layers, pleWidth, vocab });
   for (const operation of [...prelude, ...lowered.flatMap((layer) => layer.operations), ...epilogue]) {
-    operation.dtypePolicy = runtimeDtype === "BF16" && hasTraceBoundE4bArm32Candidate && operation.id === "layer_0_up_proj"
-      ? BF16_TRACE_BOUND_ARM_32_UP_PROJECTION_POLICY
+    operation.dtypePolicy = runtimeDtype === "BF16" && isTraceBoundGemma4E4bArm32MlpProjection(
+      { hidden, intermediate, layers, pleWidth, vocab }, operation.id,
+    )
+      ? BF16_TRACE_BOUND_ARM_32_MLP_PROJECTION_POLICY
       : runtimeDtype === "BF16" && (operation.op === "linear" || operation.op === "rms_norm")
         ? BF16_NATIVE_REDUCTION_POLICY
         : operation.op === "linear" || operation.op === "rms_norm"
@@ -201,13 +202,27 @@ export function isTraceBoundGemma4E4bArm32Topology(topology: {
 }
 
 /**
+ * Only assignments independently measured on the registered E4B CPU path may
+ * carry this native reduction declaration. This binding is evaluated while
+ * compiling the IR; replay only receives the serialized schedule.
+ */
+export function isTraceBoundGemma4E4bArm32MlpProjection(
+  topology: { hidden: number; intermediate: number; layers: number; pleWidth: number; vocab: number },
+  operationId: string,
+): boolean {
+  return isTraceBoundGemma4E4bArm32Topology(topology) &&
+    (operationId === "layer_0_gate_proj" || operationId === "layer_0_up_proj");
+}
+
+/**
  * Gemma4Text modules return tensors in the configured model dtype. The
  * registered eager-BF16 linear/RMSNorm compatibility profiles keep products
  * in F32, reduce them in a declared ordered F64 scalar accumulator, then
- * narrow the result to BF16. `layer_0_up_proj` is the one separately measured,
- * pinned-runtime candidate: its literal declaration records the complete
- * 32-lane ARM BF16 FMA register tree. It matched six independent captures over
- * three declared inputs, but remains a candidate pending independent review.
+ * narrow the result to BF16. `layer_0_gate_proj` and `layer_0_up_proj` are the
+ * separately measured, pinned-runtime candidates: their literal declarations
+ * record the complete 32-lane ARM BF16 FMA register tree. Each matched six
+ * independent captures over three declared inputs, but remains a candidate
+ * pending independent review.
  * The executor never selects either profile from shape.
  * Other operations retain their source-visible F32 policy.
  * F32 fixtures may omit `dtype`, but an unfamiliar declared runtime dtype is

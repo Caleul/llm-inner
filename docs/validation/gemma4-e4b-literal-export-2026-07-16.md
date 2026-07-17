@@ -16,9 +16,9 @@ fidelity are not established.
   `43fb96cec3045b72852c787540300dc5b258634b7a025f7c80355ac0788b9651`.
 - Local artifact (ignored because it is 21.3 GB):
   `artifacts/gemma4-e4b-dense.literal.json`.
-- Artifact SHA-256 after the 2026-07-17 integrity-commitment regeneration:
-  `fb46de6b4ed24cad96e37e3223d8a1c40942b87342f65290a59a0680e90bfd3d`.
-- Artifact bytes: `21,326,356,937`; embedded original storage bytes:
+- Artifact SHA-256 after the 2026-07-17 layer-0 MLP reduction-policy
+  regeneration: `7a778d31269187f71a85458cf97b6b91f8c28eacd3fca78e43463bf833db7f0c`.
+- Artifact bytes: `21,326,357,297`; embedded original storage bytes:
   `15,992,314,836`.
 
 ## Reproduction and validation
@@ -95,12 +95,13 @@ are referenced by ordered composite, vision, audio, or text assignments.
 The artifact header now truthfully declares
 `accumulationDtype: "operation-declared"`: Gemma4Text linear/RMSNorm
 assignments state their complete reduction schedule. Most registered
-linear/RMSNorm assignments use ordered F64 scalar accumulation; the measured
-E4B `layer_0_gate_proj` instead declares 32 interleaved F32 lanes and an
-ascending final lane reduction. The streaming reader rejects missing or invalid
-reduction schedules. This is an explicit portable compatibility policy, not a
-claim that storage dtype alone defines the native kernel's exact reduction
-tree. Source-removed text-only native comparisons remain approximate
-(`layer_0_up_proj` is the first unresolved boundary), and the vision/audio
-towers still lack paged storage-backed execution. Do not create
+linear/RMSNorm assignments use ordered F64 scalar accumulation. The measured
+E4B `layer_0_gate_proj` and `layer_0_up_proj` instead declare the complete
+32-lane, eight-register ARM BF16 FMA tree with its pairwise horizontal fold.
+The streaming reader rejects missing or invalid reduction schedules. This is an
+explicit trace-bound compatibility policy, not a claim that storage dtype alone
+defines a native kernel. The source-removed exact-operation campaigns are
+limited to these two layer-0 projections; text end-to-end fidelity remains
+approximate, and the vision/audio towers still lack paged storage-backed
+execution. Do not create
 `.agent-loop/checkpoints/gemma4-dense-lossless/`.
