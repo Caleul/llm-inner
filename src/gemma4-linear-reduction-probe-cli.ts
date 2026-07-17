@@ -31,6 +31,8 @@ const candidateProfiles: Gemma4LinearReductionProfile[] = [
   armNeonBf16DotProfile(32, 4, "pairwise"),
   armNeonBf16DotProfile(64, 8, "ascending"),
   armNeonBf16DotProfile(64, 8, "pairwise"),
+  armNeonBf16BfdotProfile("ascending"),
+  armNeonBf16BfdotProfile("pairwise"),
   ...[...new Set(blockedTermsPerBlock)].flatMap((termsPerBlock) => [
     blockedProfile(termsPerBlock, "ascending", "separately-rounded-f32"),
     blockedProfile(termsPerBlock, "ascending", "fused-fma"),
@@ -130,6 +132,17 @@ function armNeonBf16DotProfile(laneCount: 32 | 64, lanesPerRegister: 4 | 8, hori
     reduction: {
       kind: "arm-neon-bf16-dot-fma", laneCount, registerCount: 8, lanesPerRegister,
       inputLane: "index-modulo-vector-lane-count", horizontalFold,
+    },
+  };
+}
+
+function armNeonBf16BfdotProfile(horizontalFold: "ascending" | "pairwise"): Gemma4LinearReductionProfile {
+  return {
+    id: `arm-neon-bf16-bfdot-fma-32-${horizontalFold}`,
+    accumulationDtype: "F32",
+    reduction: {
+      kind: "arm-neon-bf16-bfdot-fma", registerCount: 8, activeRegisterCount: 4, lanesPerRegister: 4,
+      termsPerLane: 2, termsPerInstruction: 8, inputLane: "contiguous-bf16-pairs", horizontalFold,
     },
   };
 }

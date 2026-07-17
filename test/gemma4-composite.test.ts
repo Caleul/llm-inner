@@ -557,6 +557,26 @@ test("paged linear replays the ARM BF16 dot register tree rather than a generic 
   assert.deepEqual(generic.values, Float32Array.from([0]));
 });
 
+test("paged linear keeps the BFDOT adjacent-pair lane contract distinct from modulo lanes", async () => {
+  const tensor: TensorInfo = { name: "embedded://arm-neon-bfdot", storageDtype: "F32", storageShape: [1, 32], logicalShape: [1, 32] };
+  const storage = Buffer.alloc(32 * 4);
+  const values = new Float32Array(32);
+  values[0] = 1e20; values[1] = -1e20; values[4] = 1; values[5] = 1;
+  values.forEach((value, index) => storage.writeFloatLE(value, index * 4));
+  const matrix = createPagedDenseF32Matrix(tensor, { async readTensorBytesRange(_tensor, offset, byteLength) { return storage.subarray(offset, offset + byteLength); } }, storage.length);
+  const input = { shape: [1, 32], values: Float32Array.from({ length: 32 }, () => 1) };
+  const bfdot = await pagedLinearF32(input, matrix, {
+    accumulationDtype: "F32",
+    reduction: { kind: "arm-neon-bf16-bfdot-fma", registerCount: 8, activeRegisterCount: 4, lanesPerRegister: 4, termsPerLane: 2, termsPerInstruction: 8, inputLane: "contiguous-bf16-pairs", horizontalFold: "pairwise" },
+  });
+  const modulo = await pagedLinearF32(input, matrix, {
+    accumulationDtype: "F32",
+    reduction: { kind: "arm-neon-bf16-dot-fma", laneCount: 32, registerCount: 8, lanesPerRegister: 4, inputLane: "index-modulo-vector-lane-count", horizontalFold: "pairwise" },
+  });
+  assert.deepEqual(bfdot.values, Float32Array.from([2]));
+  assert.deepEqual(modulo.values, Float32Array.from([0]));
+});
+
 test("paged linear distinguishes a tiled adjacent-product lane schedule from index-modulo lanes", async () => {
   const tensor: TensorInfo = { name: "embedded://tiled-lanes", storageDtype: "F32", storageShape: [1, 4], logicalShape: [1, 4] };
   const storage = Buffer.alloc(16);

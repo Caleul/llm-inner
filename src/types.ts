@@ -163,6 +163,23 @@ export type ReductionSchedule =
     lanesPerRegister: 4 | 8;
     inputLane: "index-modulo-vector-lane-count";
     horizontalFold: "ascending" | "pairwise";
+  }
+  /**
+   * The exact BFDOT branch of PyTorch's ARM reduced-precision BF16 GEMV
+   * routine. One BFDOT lane consumes two consecutive BF16 products; four
+   * lanes form an 8-term vector and the first four F32 registers consume the
+   * 32-term unrolled iteration. The remaining four registers are zero but
+   * still participate in the source register tree before the final fold.
+   */
+  | {
+    kind: "arm-neon-bf16-bfdot-fma";
+    registerCount: 8;
+    activeRegisterCount: 4;
+    lanesPerRegister: 4;
+    termsPerLane: 2;
+    termsPerInstruction: 8;
+    inputLane: "contiguous-bf16-pairs";
+    horizontalFold: "ascending" | "pairwise";
   };
 
 export interface DtypePolicy {

@@ -12,12 +12,12 @@ test("Gemma 4 text embedding scale preserves the native BF16 scalar cast", () =>
   assert.equal(gemma4TextEmbeddingScale(4, "F32"), 2);
 });
 
-test("Gemma 4 E4B ARM reduction candidate is bound to the complete registered topology", () => {
+test("Gemma 4 E4B source-identified ARM reductions are bound to the complete registered topology", () => {
   const e4b = { hidden: 2560, intermediate: 10240, layers: 42, pleWidth: 256, vocab: 262144 };
   assert.equal(isTraceBoundGemma4E4bArm32Topology(e4b), true);
   assert.equal(isTraceBoundGemma4E4bArm32MlpProjection(e4b, "layer_0_gate_proj"), true);
   assert.equal(isTraceBoundGemma4E4bArm32MlpProjection(e4b, "layer_0_up_proj"), true);
-  assert.equal(isTraceBoundGemma4E4bArm32MlpProjection(e4b, "layer_0_down_proj"), false);
+  assert.equal(isTraceBoundGemma4E4bArm32MlpProjection(e4b, "layer_0_down_proj"), true);
   assert.equal(isTraceBoundGemma4E4bArm32MlpProjection(e4b, "layer_1_gate_proj"), false);
   assert.equal(isTraceBoundGemma4E4bArm32Topology({ ...e4b, layers: 41 }), false);
   assert.equal(isTraceBoundGemma4E4bArm32MlpProjection({ ...e4b, layers: 41 }, "layer_0_gate_proj"), false);

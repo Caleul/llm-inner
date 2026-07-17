@@ -134,6 +134,8 @@ export async function pagedLinearF32(
             ? linearF32ProductsBlockedTiledLanes(input, stored.values, row, output, inFeatures, options.reduction)
             : options.reduction?.kind === "arm-neon-bf16-dot-fma"
               ? linearF32ProductsArmNeonBf16DotFma(input, stored.values, row, output, inFeatures, options.reduction)
+              : options.reduction?.kind === "arm-neon-bf16-bfdot-fma"
+                ? linearF32ProductsArmNeonBf16BfdotFma(input, stored.values, row, output, inFeatures, options.reduction)
           : options.reduction?.kind === "interleaved-f32-lanes" || options.reduction?.kind === "interleaved-fma-lanes" ||
         options.reduction?.kind === "tiled-f32-lanes" || options.reduction?.kind === "tiled-fma-lanes"
             ? linearF32ProductsInterleavedF32Lanes(input, stored.values, row, output, inFeatures, options.reduction)
@@ -288,6 +290,56 @@ function linearF32ProductsArmNeonBf16DotFma(
   return reduction.horizontalFold === "ascending"
     ? foldF32Lanes(registers.subarray(0, registerWidth), "ascending")
     : foldF32Lanes(registers.subarray(0, registerWidth), "balanced-pairwise");
+}
+
+/**
+ * Replays PyTorch's BFDOT-specific branch rather than treating it as a
+ * generic modulo-lane reduction. A BFDOT instruction performs two adjacent
+ * BF16 products into one F32 lane; the source uses four active registers per
+ * 32 input terms and reduces all eight registers afterwards.
+ */
+function linearF32ProductsArmNeonBf16BfdotFma(
+  input: DenseF32Tensor,
+  weight: Float32Array,
+  row: number,
+  output: number,
+  inFeatures: number,
+  reduction: Extract<ReductionSchedule, { kind: "arm-neon-bf16-bfdot-fma" }>,
+): number {
+  if (reduction.registerCount !== 8 || reduction.activeRegisterCount !== 4 || reduction.lanesPerRegister !== 4 ||
+    reduction.termsPerLane !== 2 || reduction.termsPerInstruction !== 8 || reduction.inputLane !== "contiguous-bf16-pairs" ||
+    (reduction.horizontalFold !== "ascending" && reduction.horizontalFold !== "pairwise")) {
+    throw new Error("Linear paginado recebeu agenda ARM NEON BFDOT BF16 inválida.");
+  }
+  const registers = new Float32Array(reduction.registerCount * reduction.lanesPerRegister);
+  const base = row * inFeatures;
+  const weightBase = output * inFeatures;
+  for (let column = 0; column < inFeatures; column += reduction.termsPerLane) {
+    const withinIteration = column % (reduction.activeRegisterCount * reduction.termsPerInstruction);
+    const register = Math.floor(withinIteration / reduction.termsPerInstruction);
+    const lane = Math.floor((withinIteration % reduction.termsPerInstruction) / reduction.termsPerLane);
+    const index = register * reduction.lanesPerRegister + lane;
+    let accumulator = registers[index]!;
+    for (let term = 0; term < reduction.termsPerLane && column + term < inFeatures; term += 1) {
+      accumulator = Math.fround(accumulator + input.values[base + column + term]! * weight[weightBase + column + term]!);
+    }
+    registers[index] = accumulator;
+  }
+  // VectorizedN<float, 8>: x[0..3] += x[4..7], x[0..1] += x[2..3], then x[0] += x[1].
+  for (let register = 0; register < 4; register += 1) for (let lane = 0; lane < reduction.lanesPerRegister; lane += 1) {
+    const index = register * reduction.lanesPerRegister + lane;
+    registers[index] = Math.fround(registers[index]! + registers[(register + 4) * reduction.lanesPerRegister + lane]!);
+  }
+  for (let register = 0; register < 2; register += 1) for (let lane = 0; lane < reduction.lanesPerRegister; lane += 1) {
+    const index = register * reduction.lanesPerRegister + lane;
+    registers[index] = Math.fround(registers[index]! + registers[(register + 2) * reduction.lanesPerRegister + lane]!);
+  }
+  for (let lane = 0; lane < reduction.lanesPerRegister; lane += 1) {
+    registers[lane] = Math.fround(registers[lane]! + registers[reduction.lanesPerRegister + lane]!);
+  }
+  return reduction.horizontalFold === "ascending"
+    ? foldF32Lanes(registers.subarray(0, reduction.lanesPerRegister), "ascending")
+    : foldF32Lanes(registers.subarray(0, reduction.lanesPerRegister), "balanced-pairwise");
 }
 
 /** Declared F32 lane reductions are explicit runtime profiles, never shape heuristics. */

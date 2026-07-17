@@ -235,6 +235,13 @@ node dist/src/gemma4-linear-reduction-probe-cli.js \
   --profile-id arm-neon-bf16-dot-fma-32-pairwise
 ```
 
+Uma hipótese BFDOT não é sinônimo da agenda de lanes acima. O perfil explícito
+`arm-neon-bf16-bfdot-fma-32-pairwise` agrupa pares BF16 adjacentes por lane e
+mantém os quatro registradores ativos e os quatro registradores zero da árvore
+fonte. Ele permite rejeitar uma instrução BFDOT compilada/dispatchada sem
+inventar essa semântica a partir de `FEAT_BF16`; a revisão E4B atual está em
+[`docs/validation/gemma4-e4b-down-proj-source-dispatch-2026-07-17.md`](docs/validation/gemma4-e4b-down-proj-source-dispatch-2026-07-17.md).
+
 Além do dtype, a captura limitada registra `reference.operationLayouts` antes
 de a serialização F32 tornar tensores contíguos. O probe exige input, output e
 peso com shape, strides row-major, `storageOffset: 0` e contiguidade compatíveis
