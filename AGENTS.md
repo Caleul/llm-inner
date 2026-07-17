@@ -16,10 +16,18 @@ as the available context permits. It executes every coherent improvement that
 the live evidence makes safe and necessary; it does not defer ordinary work to
 a hypothetical successor.
 
-The loop is deliberately configured for `gpt-5.6-terra` at high reasoning
+The loop is deliberately configured for `gpt-5.6-sol` at high reasoning
 effort. Use that reasoning capacity on architecture, semantic boundaries,
 validation strategy, tradeoffs and long-term maintainability — not on slicing a
 single coherent problem into artificial microtasks.
+
+Do not advance native numeric fidelity by hard-coding one assignment ID per
+loop. When a mismatch repeats across linear layers, derive a source-, shape-,
+dtype- or operation-level dispatch contract and apply it to every compatible
+assignment in one coherent change. If the evidence cannot support that
+generalization, leave the ambiguity fail-closed and advance another concrete
+Gemma 4 artifact-generation or mathematical-navigation gap instead of running
+the same probe against the next layer.
 
 ## Work-session contract
 

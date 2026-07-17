@@ -15,7 +15,12 @@ source checkpoint. Treat decoding and literal substitution of learned values,
 ordered scalar calculation views, exact dtype/cast semantics, source-removed
 replay and their direct validation as one product boundary. Do not work on
 generic breadth or nonessential probes while this boundary has an implementable
-gap. GLM 5.2 begins only after this Gemma 4 checkpoint is independently proven.
+gap. Do not repeat a reduction investigation one assignment at a time: derive
+one evidence-backed dispatch contract for the full compatible operation class
+and apply it across the artifact in the same cycle. If that general contract
+cannot be proven, preserve the fail-closed boundary and implement another
+concrete artifact-format/navigation gap rather than probing the next layer.
+GLM 5.2 begins only after this Gemma 4 checkpoint is independently proven.
 
 Continue the implementation, validation, and maturation of this repository until it becomes a model decompiler capable of reconstructing the exact mathematical execution of an AI model independently of:
 
@@ -140,7 +145,7 @@ not silently use another GLM version or a similar architecture as a substitute.
 
 The operating posture below takes precedence over any procedural wording that
 could be read as favoring the smallest possible change. This is a high-effort
-Terra work session: reason broadly, make independent technical decisions, own
+Sol work session: reason broadly, make independent technical decisions, own
 the end-to-end outcome, and use the fresh context to make material progress.
 
 At the beginning of every loop:
