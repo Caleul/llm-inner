@@ -573,6 +573,37 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       assert.equal(visionLinear.learnedScalars.length, 8, "four weights plus four exact clipping bounds");
       assert.ok(visionLinear.terms?.every((term) => !term.formula.includes("weight[")));
 
+      const visionScores = await renderGemma4LiteralMultimodalScalarView(artifact, {
+        operationId: "composite_image_features/vision_layer_0_attention_scores", outputCoordinate: [0, 0, 0, 0],
+      });
+      assert.ok(visionScores.scalarAssignments.some((formula) => formula.includes("F32_FMA") && formula.includes("d=0..3 ascending")));
+      const visionWeights = await renderGemma4LiteralMultimodalScalarView(artifact, {
+        operationId: "composite_image_features/vision_layer_0_attention_weights", outputCoordinate: [0, 0, 0, 0],
+      });
+      assert.ok(visionWeights.scalarAssignments.some((formula) => formula.includes("SLEEF_EXP_F32")));
+      assert.ok(visionWeights.scalarAssignments.some((formula) => formula.includes("sum_k_ascending")));
+      const visionContext = await renderGemma4LiteralMultimodalScalarView(artifact, {
+        operationId: "composite_image_features/vision_layer_0_attention", outputCoordinate: [0, 0, 0],
+      });
+      assert.ok(visionContext.scalarAssignments.some((formula) => formula.includes("F32_FMA") && formula.includes("k=0..patches-1 ascending")));
+      const visionPool = await renderGemma4LiteralMultimodalScalarView(artifact, {
+        operationId: "composite_image_features/vision_pool", outputCoordinate: [0, 0, 0],
+      });
+      assert.ok(visionPool.formula.includes("ordered_F32_FMA"));
+      const visionRope = await renderGemma4LiteralMultimodalScalarView(artifact, {
+        operationId: "composite_image_features/vision_layer_0_q_rope", outputCoordinate: [0, 0, 0, 0],
+      });
+      assert.ok(visionRope.scalarAssignments.some((formula) => formula.includes("BF16(SLEEF_COS_F32")));
+      assert.ok(visionRope.scalarAssignments.some((formula) => formula.includes("direct=BF16") && formula.includes("rotated=BF16")));
+      const visionNorm = await renderGemma4LiteralMultimodalScalarView(artifact, {
+        operationId: "composite_image_features/vision_layer_0_input_norm", outputCoordinate: [0, 0, 0],
+      });
+      assert.ok(visionNorm.scalarAssignments.includes("inv_rms = F32(1 / sqrt_mean_epsilon)"));
+      const visionActivation = await renderGemma4LiteralMultimodalScalarView(artifact, {
+        operationId: "composite_image_features/vision_layer_0_gate_activation", outputCoordinate: [0, 0, 0],
+      });
+      assert.ok(visionActivation.formula.includes("SLEEF_TANH_F32"));
+
       const videoLinear = await renderGemma4LiteralMultimodalScalarView(artifact, {
         operationId: "composite_video_features/vision_patch_projection", outputCoordinate: [0, 0, 1],
       });

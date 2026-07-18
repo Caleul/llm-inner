@@ -1,5 +1,11 @@
 # Gemma 4 E4B: composição imagem → logits → geração sem checkpoint — 2026-07-18
 
+> **Evidência substituída.** A captura vision que fundamentava esta comparação
+> estava efetivamente em SDPA, não eager. Após captura eager explícita e correção
+> das fronteiras BF16/RMS/pooling, a mesma invocação composite passou prefill,
+> geração, logits e caches com erro zero sem o checkpoint. Veja
+> [`gemma4-e4b-explicit-eager-vision-composite-2026-07-18.md`](gemma4-e4b-explicit-eager-vision-composite-2026-07-18.md).
+
 ## Classificação
 
 Esta é evidência candidata de execução do programa composite real somente a

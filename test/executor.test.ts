@@ -6,7 +6,7 @@ import * as path from "node:path";
 import { createHash } from "node:crypto";
 import { buildModelIR } from "../src/architecture.js";
 import { compareExecutionTrace, compareGenerationTrace } from "../src/differential.js";
-import { activationF32, attentionF32, elementwiseF32, executeReferenceF32, executeReferenceF64, generateReferenceF32, generateReferenceF64, rmsNormF32, rotaryF32 } from "../src/executor.js";
+import { activationF32, attentionF32, elementwiseF32, executeReferenceF32, executeReferenceF64, generateReferenceF32, generateReferenceF64, pytorchPowNegativeHalfF32, rmsNormF32, rotaryF32 } from "../src/executor.js";
 import { selectGreedyToken } from "../src/generation.js";
 import { GEMMA4_E4B_PYTORCH_BF16_ATTENTION_IMPLEMENTATION, GEMMA4_E4B_PYTORCH_BF16_TRIG_IMPLEMENTATION } from "../src/gemma4-text.js";
 import { SafetensorsCatalogReader } from "../src/safetensors.js";
@@ -24,6 +24,11 @@ const sleefTanh = {
   pytorchSourceCommit: "7269437d655783a26cba32aa88195b741ff496aa",
   sleefSourceCommit: "5a1d179df9cf652951b59010a2d2075372d67f68", kernel: "Sleef_tanhf4_u10advsimd",
 } as const;
+
+test("PyTorch CPU pow -0.5 transcript preserves the F32 RMS reciprocal-square-root boundary", () => {
+  assert.equal(pytorchPowNegativeHalfF32(4.022159099578857), 0.49862080812454224);
+  assert.throws(() => pytorchPowNegativeHalfF32(0), /positivo finito/);
+});
 
 test("pinned PyTorch ARM SLEEF tanh transcript preserves authoritative F32 results", () => {
   assert.deepEqual([0.1, 1, -1, 8, 0.001, -3.7, 0, 8.7].map(sleefTanhF32), [

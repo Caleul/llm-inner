@@ -64,8 +64,9 @@ test("Gemma 4 vision dispatches BF16 numeric policy across complete operation cl
   }
   assert.deepEqual(
     program.assignments.filter((assignment) => assignment.dtypePolicy?.accumulationDtype === "runtime-defined").map((assignment) => assignment.operation),
-    ["bidirectional-attention", "pool-by-position"],
+    ["attention-score-matmul", "attention-value-matmul"],
   );
+  assert.equal(program.assignments.find((assignment) => assignment.operation === "pool-by-position")?.dtypePolicy?.reduction?.kind, "ordered-fma");
 });
 
 function fixture(): ModelCatalog {

@@ -1,5 +1,11 @@
 # Gemma 4 E4B: image/video real sem o checkpoint — 2026-07-18
 
+> **Evidência substituída.** O helper desta campanha não fixava
+> `attn_implementation="eager"`; apesar do rótulo do relatório, o vision tower
+> executou SDPA. A campanha eager explícita, com 294 fronteiras por invocação,
+> está em
+> [`gemma4-e4b-explicit-eager-vision-composite-2026-07-18.md`](gemma4-e4b-explicit-eager-vision-composite-2026-07-18.md).
+
 ## Classificação
 
 Esta é evidência candidata de execução literal e diferencial da torre vision

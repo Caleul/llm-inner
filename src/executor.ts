@@ -813,7 +813,7 @@ export function rmsNormF32(input: DenseF32Tensor, weight: DenseF32Tensor | undef
         ? rmsNormF32ProductsF64Accumulation(input, offset, width)
         : rmsNormF32ProductsF32Accumulation(input, offset, width);
     const mean = f32(sum / f32(width));
-    const scale = f32(1 / f32(Math.sqrt(f32(mean + epsilon))));
+    const scale = pytorchPowNegativeHalfF32(f32(mean + epsilon));
     for (let index = 0; index < width; index += 1) {
       const multiplier = operation.weightTransform === "none" ? 1 : operation.weightTransform === "one_plus_weight" ? f32(1 + weight!.values[index]!) : weight!.values[index]!;
       result[offset + index] = f32(f32(input.values[offset + index]! * scale) * multiplier);
@@ -873,6 +873,13 @@ export function pytorchCpuCascadeSquareSumF32(input: DenseF32Tensor, offset: num
   let sum = f32(0);
   for (let lane = 0; lane < lanes; lane += 1) sum = f32(sum + accumulators[0]![0]![lane]!);
   return sum;
+}
+
+/** PyTorch CPU `torch.pow(x, -0.5)` for positive F32 RMS inputs. */
+export function pytorchPowNegativeHalfF32(value: number): number {
+  const input = f32(value);
+  if (!(input > 0) || !Number.isFinite(input)) throw new Error(`PyTorch pow -0.5 requer F32 positivo finito; recebeu ${input}.`);
+  return f32(1 / f32(Math.sqrt(input)));
 }
 
 function linearF32(input: DenseF32Tensor, weight: DenseF32Tensor, bias?: DenseF32Tensor): DenseF32Tensor {

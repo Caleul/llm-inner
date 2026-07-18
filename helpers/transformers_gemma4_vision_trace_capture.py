@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import json
 import sys
+import types
 from pathlib import Path
 from typing import Any
 
 import torch
 import transformers
 from transformers import Gemma4ForConditionalGeneration
+from transformers.models.gemma4 import modeling_gemma4
 
 
 SUPPORTED_TRANSFORMERS = "5.5.0"
@@ -32,6 +34,8 @@ def validate(model: Any) -> None:
         raise ValueError("Gemma 4 vision capture requires Gemma4ForConditionalGeneration/model_type=gemma4.")
     if config.vision_config.dtype not in ("bfloat16", torch.bfloat16) or config.vision_config.use_clipped_linears is not True:
         raise ValueError("Gemma 4 vision capture requires the registered dense BF16 clipped-linear contract.")
+    if getattr(config.vision_config, "_attn_implementation", None) != "eager":
+        raise ValueError(f"Gemma 4 vision capture requires eager attention; received {config.vision_config._attn_implementation}.")
     if any(parameter.dtype != torch.bfloat16 for parameter in model.parameters()):
         raise ValueError("Gemma 4 vision capture found a non-BF16 model parameter.")
 
@@ -51,11 +55,13 @@ def main() -> None:
         raise ValueError("Gemma 4 pixel_position_ids do not match pixel_values.")
 
     model = Gemma4ForConditionalGeneration.from_pretrained(
-        request["source"], local_files_only=True, torch_dtype=torch.bfloat16, low_cpu_mem_usage=True
+        request["source"], local_files_only=True, torch_dtype=torch.bfloat16, low_cpu_mem_usage=True,
+        attn_implementation="eager",
     ).eval()
     validate(model)
     checkpoints: list[dict[str, Any]] = []
     handles: list[Any] = []
+    attention_intermediates: dict[str, dict[str, Any]] = {}
 
     def capture(module: Any, operation_id: str, output: str, selector=lambda result: result) -> None:
         def hook(_module: Any, _inputs: Any, result: Any) -> None:
@@ -63,6 +69,40 @@ def main() -> None:
         handles.append(module.register_forward_hook(hook))
 
     vision = model.model.vision_tower
+    original_eager_attention = modeling_gemma4.eager_attention_forward
+
+    def traced_eager_attention(module: Any, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor,
+                               attention_mask: torch.Tensor | None, **kwargs: Any) -> tuple[torch.Tensor, torch.Tensor]:
+        scaling = kwargs.get("scaling")
+        if scaling is None:
+            scaling = module.head_dim**-0.5
+        key_states = modeling_gemma4.repeat_kv(key, module.num_key_value_groups)
+        scores = torch.matmul(query, key_states.transpose(2, 3)) * scaling
+        context, weights = original_eager_attention(module, query, key, value, attention_mask, **kwargs)
+        stem = f"vision_layer_{module.layer_idx}"
+        attention_intermediates[f"{stem}_attention_scores"] = {
+            "operationId": f"{stem}_attention_scores", "output": f"{stem}_attention_scores", "tensor": tensor_payload(scores)
+        }
+        attention_intermediates[f"{stem}_attention_weights"] = {
+            "operationId": f"{stem}_attention_weights", "output": f"{stem}_attention_weights", "tensor": tensor_payload(weights)
+        }
+        attention_intermediates[f"{stem}_attention"] = {
+            "operationId": f"{stem}_attention", "output": f"{stem}_attention_context",
+            "tensor": tensor_payload(context.reshape(*context.shape[:-2], -1))
+        }
+        return context, weights
+
+    modeling_gemma4.eager_attention_forward = traced_eager_attention
+    original_pool = vision.pooler._avg_pool_by_positions
+
+    def traced_pool(self: Any, hidden_states: torch.Tensor, pixel_position_ids: torch.Tensor, length: int):
+        output, mask = original_pool(hidden_states, pixel_position_ids, length)
+        attention_intermediates["vision_pool"] = {
+            "operationId": "vision_pool", "output": "vision_pooled", "tensor": tensor_payload(output)
+        }
+        return output, mask
+
+    vision.pooler._avg_pool_by_positions = types.MethodType(traced_pool, vision.pooler)
     capture(vision.patch_embedder, "vision_patch_embeddings", "vision_hidden_0")
     for index, layer in enumerate(vision.encoder.layers):
         stem = f"vision_layer_{index}"
@@ -86,16 +126,34 @@ def main() -> None:
     capture(model.model.embed_vision.embedding_pre_projection_norm, "vision_language_projection_norm", "vision_soft_tokens_normalized")
     capture(model.model.embed_vision.embedding_projection, "vision_language_projection", "image_features")
 
-    with torch.no_grad():
-        if request["invocation"] == "image":
-            model.model.get_image_features(pixel_values, positions, return_dict=True)
-        else:
-            model.model.get_video_features(pixel_values, positions, return_dict=True)
+    try:
+        with torch.no_grad():
+            if request["invocation"] == "image":
+                model.model.get_image_features(pixel_values, positions, return_dict=True)
+            else:
+                model.model.get_video_features(pixel_values, positions, return_dict=True)
+    finally:
+        modeling_gemma4.eager_attention_forward = original_eager_attention
+        vision.pooler._avg_pool_by_positions = original_pool
     for handle in handles:
         handle.remove()
-    expected = 1 + 15 * len(vision.encoder.layers) + 4
-    if len(checkpoints) != expected:
-        raise ValueError(f"Gemma 4 vision capture emitted {len(checkpoints)} checkpoints; expected {expected}.")
+    checkpoints.extend(attention_intermediates.values())
+    expected_order = ["vision_patch_embeddings"]
+    for index in range(len(vision.encoder.layers)):
+        stem = f"vision_layer_{index}"
+        expected_order.extend([
+            f"{stem}_input_norm", f"{stem}_q", f"{stem}_q_norm", f"{stem}_k", f"{stem}_k_norm",
+            f"{stem}_v", f"{stem}_v_norm", f"{stem}_attention_scores", f"{stem}_attention_weights",
+            f"{stem}_attention", f"{stem}_o", f"{stem}_post_attention_norm", f"{stem}_pre_ffn_norm",
+            f"{stem}_gate", f"{stem}_up", f"{stem}_down", f"{stem}_post_ffn_norm", f"{stem}_ffn_residual",
+        ])
+    expected_order.extend(["vision_pool", "vision_pool_scale", "vision_strip_padding", "vision_language_projection_norm", "vision_language_projection"])
+    by_id = {checkpoint["operationId"]: checkpoint for checkpoint in checkpoints}
+    if len(checkpoints) != len(expected_order) or set(by_id) != set(expected_order):
+        missing = sorted(set(expected_order) - set(by_id))
+        extra = sorted(set(by_id) - set(expected_order))
+        raise ValueError(f"Gemma 4 vision capture boundary mismatch: missing={missing}, extra={extra}.")
+    checkpoints = [by_id[operation_id] for operation_id in expected_order]
     result = {
         "runtime": f"transformers-{transformers.__version__}/torch-{torch.__version__}-Gemma4Vision-CPU-eager",
         "executionDevice": "cpu",

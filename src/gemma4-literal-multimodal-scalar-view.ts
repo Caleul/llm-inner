@@ -352,7 +352,9 @@ async function renderRmsNorm(artifact: OpenGemma4CompositeLiteralArtifact, entry
     scalarAssignments: [
       `square[i] = F32(${indexed(entry.assignment.inputs[0]!, [...request.outputCoordinate.slice(0, -1), "i"])} * ${indexed(entry.assignment.inputs[0]!, [...request.outputCoordinate.slice(0, -1), "i"])})`,
       sumFormula,
-      `inv_rms = F32(F32(F32(sum / F32(${width})) + F32(${literal(epsilon)}))^-0.5)`,
+      `mean_epsilon = F32(F32(sum / F32(${width})) + F32(${literal(epsilon)}))`,
+      "sqrt_mean_epsilon = F32(sqrt(mean_epsilon))",
+      "inv_rms = F32(1 / sqrt_mean_epsilon)",
       formula,
     ],
     learnedScalars: learned ? [learned] : [],
@@ -440,7 +442,7 @@ function plainFormulas(artifact: OpenGemma4CompositeLiteralArtifact, entry: Assi
     case "pixel-affine": return [`${output} = F32(2 * F32(${inputs[0]} - 0.5))`];
     case "relu": return [`${output} = F32(max(0, ${inputs[0]}))`];
     case "silu": return [`${output} = ${assignmentOutputDtype(assignment) === "BF16" ? "BF16" : "F32"}(F32(${inputs[0]} / F32(1 + SLEEF_EXP_F32(F32(-${inputs[0]})))))`];
-    case "gelu-tanh": return [`${output} = F32(F32(0.5*${inputs[0]}) * F32(1+F32(tanh(F32(sqrt(2/pi)*F32(${inputs[0]}+F32(0.044715*F32(${inputs[0]}*F32(${inputs[0]}*${inputs[0]})))))))))`];
+    case "gelu-tanh": return [`${output} = ${assignmentOutputDtype(assignment) === "BF16" ? "BF16" : "F32"}(F32(F32(0.5*${inputs[0]}) * F32(1+SLEEF_TANH_F32(F32(sqrt(2/pi)*F32(${inputs[0]}+F32(0.044715*F32(${inputs[0]}*F32(${inputs[0]}*${inputs[0]})))))))))`];
     case "clip": return [`${output} = F32(min(${literal(artifact.program.audioProgram.gradientClipping)}, max(${literal(-artifact.program.audioProgram.gradientClipping)}, ${inputs[0]})))`];
     case "scale-f32": return [`${output} = F32(${inputs[0]} * F32(${literal(scaleFor(artifact, entry))}))`];
     case "reshape-heads": {
@@ -454,7 +456,9 @@ function plainFormulas(artifact: OpenGemma4CompositeLiteralArtifact, entry: Assi
       return [`${output} = ${indexed(assignment.inputs[0]!, [coordinate[0]!, coordinate[1]!, coordinate[2]! * width + coordinate[3]!])}`];
     }
     case "multidimensional-rope": return visionRopeFormula(artifact, assignment, coordinate, output);
-    case "bidirectional-attention": return visionAttentionFormula(artifact, assignment, coordinate, output);
+    case "attention-score-matmul": return visionAttentionScoreFormula(artifact, assignment, coordinate, output);
+    case "masked-softmax": return visionAttentionSoftmaxFormula(assignment, coordinate, output);
+    case "attention-value-matmul": return visionAttentionValueFormula(artifact, assignment, coordinate, output);
     case "chunked-relative-attention": return audioAttentionFormula(artifact, assignment, coordinate, output);
     case "split-gated-linear-unit": {
       const half = artifact.program.audioProgram.tower.hiddenSize, d = last(coordinate, assignment.id);
@@ -470,7 +474,7 @@ function plainFormulas(artifact: OpenGemma4CompositeLiteralArtifact, entry: Assi
         `${output} = BF16(SLEEF_${feature < half ? "SIN" : "COS"}_F32(scaled_time))`,
       ];
     }
-    case "pool-by-position": return [`${output} = F32(sum_{patches mapped by floor(x/${artifact.program.visionProgram.tower.poolingKernelSize}),floor(y/${artifact.program.visionProgram.tower.poolingKernelSize}) in patch order}(F32(source / F32(${artifact.program.visionProgram.tower.poolingKernelSize ** 2}))))`];
+    case "pool-by-position": return [`${output} = ${assignmentOutputDtype(assignment) === "BF16" ? "BF16" : "F32"}(ordered_F32_FMA_{patches mapped by floor(x/${artifact.program.visionProgram.tower.poolingKernelSize}),floor(y/${artifact.program.visionProgram.tower.poolingKernelSize}) in ascending patch order}(source, F32(1/F32(${artifact.program.visionProgram.tower.poolingKernelSize ** 2}))))`];
     case "pool-valid-mask": return [`${output} = BOOL(any non-padding patch maps to this pooling cell)`];
     case "strip-padding": return [`${output} = ${assignment.inputs[0]}[stable_batch_major_true_mask_row,${coordinate.at(-1)}]`];
     case "mask-input-features": return [`${output} = ${assignment.inputs[1]}[batch,time] ? ${inputs[0]} : F32(0)`];
@@ -495,18 +499,41 @@ function visionRopeFormula(artifact: OpenGemma4CompositeLiteralArtifact, assignm
   const input = assignment.inputs[0]!, position = assignment.inputs[1]!, theta = artifact.program.visionProgram.tower.ropeTheta;
   return [
     `angle = F32(${position}[${coordinate[0]},${coordinate[2]},${axis}] / F32(${literal(theta)}^${literal((2 * pair) / part)}))`,
-    "cosine=F32(cos(angle)); sine=F32(sin(angle))",
-    `${output} = F32(F32(${indexed(input, coordinate)}*cosine) ${sign} F32(${indexed(input, [...coordinate.slice(0, 3), paired])}*sine))`,
+    "cosine=BF16(SLEEF_COS_F32(angle)); sine=BF16(SLEEF_SIN_F32(angle))",
+    `direct=BF16(F32(${indexed(input, coordinate)}*cosine)); rotated=BF16(F32(${indexed(input, [...coordinate.slice(0, 3), paired])}*sine))`,
+    `${output} = ${assignmentOutputDtype(assignment) === "BF16" ? "BF16" : "F32"}(F32(direct ${sign} rotated))`,
   ];
 }
 
-function visionAttentionFormula(artifact: OpenGemma4CompositeLiteralArtifact, assignment: Assignment, coordinate: number[], output: string): string[] {
-  if (coordinate.length !== 3) throw new Error(`${assignment.id}: atenção vision requer [b,s,h*headDim+d].`);
+function visionAttentionScoreFormula(artifact: OpenGemma4CompositeLiteralArtifact, assignment: Assignment, coordinate: number[], output: string): string[] {
+  if (coordinate.length !== 4) throw new Error(`${assignment.id}: score vision requer [b,h,q,k].`);
+  const dim = artifact.program.visionProgram.tower.headDim;
+  return [
+    "acc[-1]=F32(0)",
+    `acc[d]=F32_FMA(acc[d-1],${assignment.inputs[0]}[${coordinate[0]},${coordinate[1]},${coordinate[2]},d],${assignment.inputs[1]}[${coordinate[0]},${coordinate[1]},${coordinate[3]},d]), d=0..${dim - 1} ascending`,
+    `${output}=${assignmentOutputDtype(assignment) === "BF16" ? "BF16" : "F32"}(acc[${dim - 1}])`,
+  ];
+}
+
+function visionAttentionSoftmaxFormula(assignment: Assignment, coordinate: number[], output: string): string[] {
+  if (coordinate.length !== 4) throw new Error(`${assignment.id}: softmax vision requer [b,h,q,k].`);
+  const prefix = coordinate.slice(0, 3), key = coordinate[3]!;
+  return [
+    `masked_score[k]=pixel_position_valid(k) ? ${indexed(assignment.inputs[0]!, [...prefix, "k"])} : -Infinity`,
+    "maximum=max_k(masked_score[k])",
+    "exponential[k]=SLEEF_EXP_F32(F32(masked_score[k]-maximum))",
+    "denominator=F32(sum_k_ascending(exponential[k]))",
+    `${output}=${assignmentOutputDtype(assignment) === "BF16" ? "BF16" : "F32"}(F32(exponential[${key}]/denominator))`,
+  ];
+}
+
+function visionAttentionValueFormula(artifact: OpenGemma4CompositeLiteralArtifact, assignment: Assignment, coordinate: number[], output: string): string[] {
+  if (coordinate.length !== 3) throw new Error(`${assignment.id}: contexto vision requer [b,q,h*headDim+d].`);
   const dim = artifact.program.visionProgram.tower.headDim, merged = coordinate[2]!, head = Math.floor(merged / dim), d = merged % dim;
   return [
-    `score[k]=pixel_position_valid(k) ? F32(sum_{i=0..${dim - 1} ascending}(F32(${assignment.inputs[0]}[${coordinate[0]},${head},${coordinate[1]},i]*${assignment.inputs[1]}[${coordinate[0]},${head},k,i]))) : -Infinity`,
-    "probability[k]=F32(exp(F32(score[k]-max(score)))/F32(sum_k_ascending(exp(F32(score[k]-max(score))))))",
-    `${output}=F32(sum_{k=0..patches-1 ascending}(F32(probability[k]*${assignment.inputs[2]}[${coordinate[0]},${head},k,${d}])))`,
+    "acc[-1]=F32(0)",
+    `acc[k]=F32_FMA(acc[k-1],${assignment.inputs[0]}[${coordinate[0]},${head},${coordinate[1]},k],${assignment.inputs[1]}[${coordinate[0]},${head},k,${d}]), k=0..patches-1 ascending`,
+    `${output}=${assignmentOutputDtype(assignment) === "BF16" ? "BF16" : "F32"}(acc[patches-1])`,
   ];
 }
 

@@ -1,5 +1,13 @@
 # Gemma 4 E4B: execução de áudio real sem o checkpoint — 2026-07-18
 
+> **Artefato substituído.** A execução source-removed foi repetida após a
+> transcrição compartilhada de `torch.pow(x,-0.5)`, usando o artefato
+> `daa029dd3e635b6c7757a1db6979ea7f81d2b8c8b49a193b6574a58ea5d13cb4`.
+> A primeira divergência permanece `audio_subsample_0_relu`; a saída terminal
+> mantém erro absoluto `0.0625` e agora tem cosseno `0.9999595279745614`.
+> A evidência consolidada está em
+> [`gemma4-e4b-explicit-eager-vision-composite-2026-07-18.md`](gemma4-e4b-explicit-eager-vision-composite-2026-07-18.md).
+
 ## Classificação
 
 Esta é evidência candidata de execução literal e diferencial do tower de áudio

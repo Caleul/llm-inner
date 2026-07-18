@@ -367,10 +367,10 @@ escreve o artefato completo em streaming: ranges Safetensors de 12 MiB são
 codificados em base64 sem acumular o pacote ou uma string de vários GiB na
 heap. O resultado local contém os 2,130 payloads originais
 (15,992,314,836 bytes) e é auditado por `npm run audit:literal`. O hash
-`0ec0c382e09af1bc28805e59778c9ede69e9aa1133bdbd04edbb8b781f1d8483`
-identifica a exportação atual de `21.327.893.565` bytes, cuja política numérica
+`daa029dd3e635b6c7757a1db6979ea7f81d2b8c8b49a193b6574a58ea5d13cb4`
+identifica a exportação atual de `21.328.083.855` bytes, cuja política numérica
 declara fronteiras de resultado BF16, acumuladores F32/F64 e agendas de redução
-por operação do texto e do áudio; toda exportação deve registrar seu próprio hash, pois o programa literal
+por operação do texto, áudio e visão; toda exportação deve registrar seu próprio hash, pois o programa literal
 inclui as políticas numéricas. As 54 projeções/normas K/V locais dos
 consumidores compartilhados são incorporadas com proveniência explícita em
 `unreachableConstants`; o grafo usa apenas os KV do produtor declarado. A
@@ -403,11 +403,11 @@ npm run inspect:gemma4-literal -- \
 
 Esse compromisso detecta corrupção posterior do artefato, mas não substitui a
 comparação fonte-para-literal feita antes da remoção. O E4B atual foi
-regenerado em 17 de julho a partir da fonte imutável e passou tanto a
+regenerado em 18 de julho a partir da fonte imutável e passou tanto a
 comparação completa fonte-para-literal quanto a verificação interna com o
 diretório fonte temporariamente indisponível. A evidência e os hashes exatos
 estão em
-[`docs/validation/gemma4-e4b-literal-integrity-2026-07-17.md`](docs/validation/gemma4-e4b-literal-integrity-2026-07-17.md).
+[`docs/validation/gemma4-e4b-explicit-eager-vision-composite-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-eager-vision-composite-2026-07-18.md).
 
 O leitor `gemma4-composite-literal-reader.ts` abre esse JSON em streaming: ele
 indexa os offsets dos payloads base64 e valida a estrutura semântica sem
@@ -534,31 +534,28 @@ Uma captura real de um frame comparou 20 fronteiras de módulo. Com o diretório
 do checkpoint ausente, o executor chegou ao `audio_features [1,2560]` somente
 dos payloads incorporados; o resultado permanece `approximate`, com primeiro
 desvio em `audio_subsample_0_relu`, erro final máximo absoluto `0.0625`, cosseno
-`0.9999528084610771`, top-k overlap `1` e argmax agreement verdadeiro. Portanto
+`0.9999595279745614`, top-k overlap `1` e argmax agreement verdadeiro. Portanto
 isso fecha o caminho de execução/diferencial source-removed, mas não a fidelidade
 de áudio nem o checkpoint. Comandos, políticas e métricas estão em
 [`docs/validation/gemma4-e4b-source-removed-audio-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-audio-2026-07-18.md).
 
-A mesma fronteira source-removed agora cobre a torre vision compartilhada por
-imagem e vídeo. O executor resolve 659 referências apenas dos payloads do JSON
-e executa as 394 atribuições de features para imagem ou para frames achatados
-em ordem declarada. Em todo o programa BF16, 114 lineares usam a árvore ARM de
-32 lanes, 113 RMSNorm usam `cascade_sum` e cada saída observável é estreitada
-antes do próximo consumidor. As 16 atenções batched e o pooling continuam
-explicitamente `runtime-defined`; a vista escalar falha fechada nessas classes,
-em vez de reutilizar indevidamente a agenda GEMV textual.
+A fronteira source-removed cobre a torre vision compartilhada por imagem e
+vídeo. A captura agora exige `attn_implementation="eager"`; a captura anterior
+rotulada eager estava efetivamente em SDPA e foi substituída. O programa de
+427 atribuições separa cada uma das 16 atenções em score matmul, masked softmax
+e value matmul. Softmax declara soma de chaves ascendente e cast BF16; pooling
+declara `ordered-fma` com `F32(1/F32(9))`; RMSNorm reproduz a fronteira
+`torch.pow(x,-0.5)` para toda a classe. Score/value batched continuam
+`runtime-defined` e falham fechados na vista escalar, pois sua agenda nativa
+ainda não foi comprovada de forma geral.
 
-Capturas reais de imagem `[1,9,768]` e vídeo `[1,2,9,768]` compararam 245
-fronteiras cada com o checkpoint ausente. As oito primeiras fronteiras — patch
-embedding, input norm e Q/K/V projection + norm da camada 0 — passaram com
-erro zero nas duas invocações. O primeiro desvio geral é
-`vision_layer_0_o`, com erro absoluto máximo `0.125`; as saídas terminais
-`image_features [1,2560]` e `[2,2560]` permanecem aproximadas, com erros
-absolutos `0.03173828125` e `0.029296875`. Portanto imagem/vídeo agora possuem
-execução, navegação e localização diferencial reais sem fonte, mas ainda não
-fidelidade exata nem autorização para o checkpoint. Comandos e métricas estão
-em
-[`docs/validation/gemma4-e4b-source-removed-vision-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-vision-2026-07-18.md).
+Capturas eager reais de imagem `[1,9,768]` e vídeo `[1,2,9,768]` compararam
+294 fronteiras cada. Imagem passou 294/294 com erro zero e saída
+`image_features [1,2560]` exata. Vídeo passou 292/294 e terminou exato; somente
+`vision_layer_8_attention` (`5.960464477539063e-8`) e
+`vision_layer_9_attention_scores` (`0.0000152587890625`) preservam diferenças
+internas de batched matmul. A evidência, políticas e navegação escalar estão em
+[`docs/validation/gemma4-e4b-explicit-eager-vision-composite-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-eager-vision-composite-2026-07-18.md).
 
 O caminho literal agora conecta essas torres ao modelo composto inteiro.
 `gemma4-literal-composite.ts` executa embedding PAD, torre e scatter, projeção
@@ -567,16 +564,14 @@ dos payloads incorporados. O mesmo forward alimenta diretamente o interpretador
 das doze atribuições de geração serializadas; multimodalidade ocorre no
 prefill, e decode recebe apenas token, posição e cache declarado.
 
-Uma captura real `[image_token_id, 2]` com imagem `[1,9,768]` vinculou cinco
+Uma captura real `[image_token_id,2]` com imagem `[1,9,768]` vinculou cinco
 fronteiras de prefill, logits de seleção, token/posição, 24 caches pós-decode,
-logits e caches terminais. Com `gemma-4-E4B-dense` ausente, o candidato executou
-todo esse programa e gerou o mesmo token `184` na posição `2`. O embedding
-textual passou em erro zero; `image_features` foi a primeira divergência
-composite (`0.044921875`), os logits de seleção tiveram erro máximo `1.03125`
-e os logits terminais `0.28125`, cosseno `0.9999271922285432`, top-k `0.9` e
-argmax igual. Todos os 24 caches tiveram shape correto, mas divergiram
-numericamente. A evidência é portanto `approximate`, não checkpoint, e está em
-[`docs/validation/gemma4-e4b-source-removed-composite-generation-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-composite-generation-2026-07-18.md).
+logits e caches terminais. Com `gemma-4-E4B-dense` ausente, embedding,
+`image_features`, scatter, PLE, logits de prefill, token greedy `184` na posição
+`2`, todos os caches produtores e logits terminais passaram com erro absoluto
+e relativo zero. Prefill e geração são `lossless-within-dtype` para essa
+invocação; a evidência permanece candidata e não supera os limites de vídeo e
+áudio descritos acima.
 
 Uma captura posterior de todas as 1.229 atribuições declaradas do Gemma4Text
 torna a divergência localizável sem reabrir o checkpoint durante o candidato.
