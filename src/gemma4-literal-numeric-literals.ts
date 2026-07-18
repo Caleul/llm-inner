@@ -1,9 +1,12 @@
 import { isDeepStrictEqual } from "node:util";
-import type { Gemma4LiteralGenerationScalarCalculations } from "./gemma4-literal-generation-calculations.js";
+import type {
+  Gemma4LiteralGenerationForwardCalculationContract,
+  Gemma4LiteralGenerationScalarCalculations,
+} from "./gemma4-literal-generation-calculations.js";
 import type { Gemma4LiteralScalarCalculations } from "./gemma4-literal-scalar-calculations.js";
 
 export interface Gemma4LiteralNumericLiteralUse {
-  section: "forward" | "generation";
+  section: "forward" | "generation" | "cache-transition";
   definitionId: string;
   scope?: string;
 }
@@ -44,6 +47,7 @@ const NAMED_CONSTANT = /(?<![A-Za-z0-9_.])pi(?![A-Za-z0-9_.])/g;
 export function buildGemma4LiteralNumericLiterals(
   forward: Gemma4LiteralScalarCalculations,
   generation: Gemma4LiteralGenerationScalarCalculations,
+  generationForward: Gemma4LiteralGenerationForwardCalculationContract,
 ): Gemma4LiteralNumericLiterals {
   const collected: CollectedUse[] = [];
   for (const calculation of forward.assignments) {
@@ -56,6 +60,17 @@ export function buildGemma4LiteralNumericLiterals(
   for (const calculation of generation.assignments) {
     for (const formula of calculation.scalarAssignments) {
       collect(formula, { section: "generation", definitionId: calculation.definitionId }, collected);
+    }
+  }
+  for (const transition of generationForward.cacheTransitions) {
+    for (const [phase, program] of [["prefill", transition.prefill], ["incremental", transition.incremental]] as const) {
+      for (const formula of program.scalarAssignments) {
+        collect(formula, {
+          section: "cache-transition",
+          scope: transition.ownership,
+          definitionId: `layer_${transition.layer}_${phase}`,
+        }, collected);
+      }
     }
   }
   const byToken = new Map<string, { kind: Gemma4LiteralNumericLiteral["kind"]; uses: Gemma4LiteralNumericLiteralUse[] }>();
@@ -94,8 +109,9 @@ export function validateGemma4LiteralNumericLiterals(
   actual: Gemma4LiteralNumericLiterals,
   forward: Gemma4LiteralScalarCalculations,
   generation: Gemma4LiteralGenerationScalarCalculations,
+  generationForward: Gemma4LiteralGenerationForwardCalculationContract,
 ): void {
-  if (!isDeepStrictEqual(actual, buildGemma4LiteralNumericLiterals(forward, generation))) {
+  if (!isDeepStrictEqual(actual, buildGemma4LiteralNumericLiterals(forward, generation, generationForward))) {
     throw new Error("Programa literal Gemma 4 possui tabela de bits numéricos ausente ou divergente.");
   }
 }

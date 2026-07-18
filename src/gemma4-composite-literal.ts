@@ -149,7 +149,7 @@ export interface Gemma4LiteralGreedyGenerationProgram {
  * steps remain distinct, named dependencies in the enclosing program.
  */
 export interface Gemma4CompositeLiteralCalculationProgram extends LiteralStorageBundle {
-  schemaVersion: 23;
+  schemaVersion: 24;
   kind: "gemma4-composite-literal-calculation-program";
   sourceFormat: "safetensors";
   /** Gemma 4 checkpoint is dense; packed/quantized decoder variants are forbidden here. */
@@ -288,7 +288,7 @@ export async function buildGemma4CompositeLiteralCalculationProgram(
   const scalarCalculations = buildGemma4LiteralScalarCalculations(embeddedProgram);
   const generation = gemma4LiteralGreedyGenerationProgram(embeddedProgram, calculationGraph);
   const literal: Gemma4CompositeLiteralCalculationProgram = {
-    schemaVersion: 23,
+    schemaVersion: 24,
     kind: "gemma4-composite-literal-calculation-program",
     sourceFormat: "safetensors",
     sourceIdentity: structuredClone(sourceIdentity),
@@ -312,7 +312,7 @@ export async function buildGemma4CompositeLiteralCalculationProgram(
     scalarCalculations,
     formulaLanguage: buildGemma4LiteralFormulaLanguageContract(),
     transcendentalPrograms: buildGemma4LiteralTranscendentalPrograms(),
-    numericLiterals: buildGemma4LiteralNumericLiterals(scalarCalculations, generation.scalarCalculations),
+    numericLiterals: buildGemma4LiteralNumericLiterals(scalarCalculations, generation.scalarCalculations, generation.forwardCalculation),
     calculationGraph,
     outputs: structuredClone(embeddedProgram.outputs),
     generation,
@@ -354,7 +354,7 @@ export async function writeGemma4CompositeLiteralCalculationProgram(
 
   try {
     await once(stream, "open");
-    await write(`{"schemaVersion":23,"kind":"gemma4-composite-literal-calculation-program","sourceFormat":"safetensors","sourceIdentity":${JSON.stringify(sourceIdentity)},"authoritativeExecution":${JSON.stringify(gemma4AuthoritativeExecutionContract())},"numericPolicy":${JSON.stringify(gemma4CompositeLiteralNumericPolicy(program))},"inputs":${JSON.stringify(literalInputs())},"constants":[`);
+    await write(`{"schemaVersion":24,"kind":"gemma4-composite-literal-calculation-program","sourceFormat":"safetensors","sourceIdentity":${JSON.stringify(sourceIdentity)},"authoritativeExecution":${JSON.stringify(gemma4AuthoritativeExecutionContract())},"numericPolicy":${JSON.stringify(gemma4CompositeLiteralNumericPolicy(program))},"inputs":${JSON.stringify(literalInputs())},"constants":[`);
     for (let index = 0; index < prepared.constants.length; index += 1) {
       const constant = prepared.constants[index]!;
       if (index > 0) await write(",");
@@ -440,7 +440,7 @@ export function generateGemma4CompositeLiteralF32(
  */
 export function validateGemma4CompositeLiteralCalculationProgram(literal: Gemma4CompositeLiteralCalculationProgram): void {
   validateGemma4TextReductionSchedules(literal.program);
-  if (literal.schemaVersion !== 23 || literal.kind !== "gemma4-composite-literal-calculation-program" || literal.sourceFormat !== "safetensors" ||
+  if (literal.schemaVersion !== 24 || literal.kind !== "gemma4-composite-literal-calculation-program" || literal.sourceFormat !== "safetensors" ||
     !sameNumericPolicy(literal.numericPolicy, gemma4CompositeLiteralNumericPolicy(literal.program))) {
     throw new Error("Programa literal Gemma 4 composite possui cabeçalho ou política numérica inválida.");
   }
@@ -459,12 +459,12 @@ export function validateGemma4CompositeLiteralCalculationProgram(literal: Gemma4
   validateGemma4LiteralCalculationDomains(literal.calculationDomains, literal.program);
   validateGemma4LiteralLearnedOperandBindings(literal.learnedOperands, literal.program);
   validateGemma4LiteralScalarCalculations(literal.scalarCalculations, literal.program);
-  validateGemma4LiteralFormulaLanguageContract(literal.formulaLanguage, literal.scalarCalculations, literal.generation.scalarCalculations);
+  validateGemma4LiteralFormulaLanguageContract(literal.formulaLanguage, literal.scalarCalculations, literal.generation.scalarCalculations, literal.generation.forwardCalculation);
   validateGemma4LiteralTranscendentalCoverage(literal.transcendentalPrograms, [
     ...literal.scalarCalculations.assignments.map((assignment) => assignment.formula),
     ...literal.generation.scalarCalculations.assignments.flatMap((assignment) => assignment.scalarAssignments),
   ]);
-  validateGemma4LiteralNumericLiterals(literal.numericLiterals, literal.scalarCalculations, literal.generation.scalarCalculations);
+  validateGemma4LiteralNumericLiterals(literal.numericLiterals, literal.scalarCalculations, literal.generation.scalarCalculations, literal.generation.forwardCalculation);
   validateGemma4LiteralCalculationGraph(literal.calculationGraph, literal.program);
   if (literal.program.textProgram.source.path !== "embedded://gemma4-composite-literal" || literal.program.textProgram.source.format !== "safetensors") {
     throw new Error("Programa literal Gemma 4 composite reteve uma referência de source checkpoint.");
@@ -878,18 +878,18 @@ function prepareStreamedDenseLiteral(program: Gemma4CompositeProgram, catalog: M
   const scalarCalculations = buildGemma4LiteralScalarCalculations(embeddedProgram);
   const calculationGraph = buildGemma4LiteralCalculationGraph(embeddedProgram);
   const generation = gemma4LiteralGreedyGenerationProgram(embeddedProgram, calculationGraph);
-  const numericLiterals = buildGemma4LiteralNumericLiterals(scalarCalculations, generation.scalarCalculations);
+  const numericLiterals = buildGemma4LiteralNumericLiterals(scalarCalculations, generation.scalarCalculations, generation.forwardCalculation);
   const formulaLanguage = buildGemma4LiteralFormulaLanguageContract();
   const transcendentalPrograms = buildGemma4LiteralTranscendentalPrograms();
   validateGemma4LiteralCalculationDomains(calculationDomains, embeddedProgram);
   validateGemma4LiteralLearnedOperandBindings(learnedOperands, embeddedProgram);
   validateGemma4LiteralScalarCalculations(scalarCalculations, embeddedProgram);
-  validateGemma4LiteralFormulaLanguageContract(formulaLanguage, scalarCalculations, generation.scalarCalculations);
+  validateGemma4LiteralFormulaLanguageContract(formulaLanguage, scalarCalculations, generation.scalarCalculations, generation.forwardCalculation);
   validateGemma4LiteralTranscendentalCoverage(transcendentalPrograms, [
     ...scalarCalculations.assignments.map((assignment) => assignment.formula),
     ...generation.scalarCalculations.assignments.flatMap((assignment) => assignment.scalarAssignments),
   ]);
-  validateGemma4LiteralNumericLiterals(numericLiterals, scalarCalculations, generation.scalarCalculations);
+  validateGemma4LiteralNumericLiterals(numericLiterals, scalarCalculations, generation.scalarCalculations, generation.forwardCalculation);
   validateGemma4LiteralCalculationGraph(calculationGraph, embeddedProgram);
   const constantMap = new Map<string, LiteralConstant>(constants.map((constant) => [constant.name, { ...constant.metadata, payloadBase64: "" }]));
   validateGemma4CompositeLiteralStructure(embeddedProgram, assignments, outputs, generation, constantMap, unreachableConstants);

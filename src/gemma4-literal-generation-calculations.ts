@@ -46,9 +46,31 @@ export interface Gemma4LiteralCacheTransition {
   query: string;
   key: string;
   value: string;
-  prefill: string;
-  incremental: string;
+  numKeyValueHeads: number;
+  headDim: number;
+  dtype: "F32" | "BF16";
+  prefill: Gemma4LiteralCacheTransitionProgram;
+  incremental: Gemma4LiteralCacheTransitionProgram;
 }
+
+export type Gemma4LiteralCacheTransitionProgram =
+  | {
+    schemaVersion: 1;
+    mode: "write-producer";
+    cacheLayer: number;
+    sequenceAxis: 2;
+    coordinateOrder: "batch,head,sequence,head_feature ascending lexicographic";
+    scalarAssignments: string[];
+  }
+  | {
+    schemaVersion: 1;
+    mode: "reuse-producer";
+    cacheLayer: number;
+    producerLayer: number;
+    emitsCacheEntry: false;
+    coordinateOrder: "batch,head,sequence,head_feature ascending lexicographic";
+    scalarAssignments: string[];
+  };
 
 /**
  * The exact forward expansion referenced by both generation forward states.
@@ -58,7 +80,7 @@ export interface Gemma4LiteralCacheTransition {
  */
 export interface Gemma4LiteralGenerationForwardCalculationContract {
   kind: "gemma4-literal-generation-forward-calculation-contract";
-  schemaVersion: 1;
+  schemaVersion: 2;
   operationOrder: Gemma4LiteralForwardOperationReference[];
   logitsOutput: "softcapped_logits" | "logits";
   cacheTransitions: Gemma4LiteralCacheTransition[];
@@ -91,7 +113,7 @@ export function buildGemma4LiteralGenerationForwardCalculationContract(
 ): Gemma4LiteralGenerationForwardCalculationContract {
   return {
     kind: "gemma4-literal-generation-forward-calculation-contract",
-    schemaVersion: 1,
+    schemaVersion: 2,
     operationOrder: calculationGraph.assignments.map((assignment) => ({
       operationId: assignment.operationId,
       definitionId: assignment.definitionId,
@@ -123,6 +145,10 @@ function cacheTransitions(program: Gemma4CompositeProgram): Gemma4LiteralCacheTr
     if (!attention || attention.layer === undefined) throw new Error(`Camada textual ${layer.index} não possui atenção cacheável declarada.`);
     const producerLayer = attention.kvSharing?.producerLayer ?? attention.layer;
     const ownership = attention.kvSharing ? "reuse-producer" as const : "producer" as const;
+    const dtype = attention.dtypePolicy.outputDtype ?? attention.dtypePolicy.computeDtype ?? "unknown";
+    if (dtype !== "F32" && dtype !== "BF16") {
+      throw new Error(`${attention.id}: cache literal requer dtype F32 ou BF16 explícito; recebeu ${dtype}.`);
+    }
     transitions.push({
       layer: attention.layer,
       attentionOperationId: attention.id,
@@ -132,15 +158,93 @@ function cacheTransitions(program: Gemma4CompositeProgram): Gemma4LiteralCacheTr
       query: attention.query,
       key: attention.key,
       value: attention.value,
+      numKeyValueHeads: attention.numKeyValueHeads,
+      headDim: attention.headDim,
+      dtype,
       prefill: ownership === "producer"
-        ? `past_key_values[${attention.layer}] = {key:${attention.key},value:${attention.value}} in BHSD after RoPE`
-        : `attention layer ${attention.layer} reads past_key_values[${producerLayer}] and emits no duplicate cache entry`,
+        ? producerPrefillProgram(attention.layer, attention.key, attention.value, attention.numKeyValueHeads, attention.headDim, dtype)
+        : reuseProgram(attention.layer, producerLayer, attention.numKeyValueHeads, attention.headDim, dtype),
       incremental: ownership === "producer"
-        ? `past_key_values[${attention.layer}] = {key:concat(previous_past_key_values[${attention.layer}].key,${attention.key},sequence_axis=2),value:concat(previous_past_key_values[${attention.layer}].value,${attention.value},sequence_axis=2)} in BHSD`
-        : `attention layer ${attention.layer} reads the already-appended past_key_values[${producerLayer}] and emits no duplicate cache entry`,
+        ? producerIncrementalProgram(attention.layer, attention.key, attention.value, attention.numKeyValueHeads, attention.headDim, dtype)
+        : reuseProgram(attention.layer, producerLayer, attention.numKeyValueHeads, attention.headDim, dtype),
     });
   }
   return transitions;
+}
+
+function producerPrefillProgram(
+  layer: number,
+  key: string,
+  value: string,
+  heads: number,
+  headDim: number,
+  dtype: "F32" | "BF16",
+): Gemma4LiteralCacheTransitionProgram {
+  const domain = `batch=0..B-1,head=0..${heads - 1},sequence=0..current_sequence_length-1,head_feature=0..${headDim - 1}`;
+  return {
+    schemaVersion: 1,
+    mode: "write-producer",
+    cacheLayer: layer,
+    sequenceAxis: 2,
+    coordinateOrder: "batch,head,sequence,head_feature ascending lexicographic",
+    scalarAssignments: [
+      `current_sequence_length=${key}.shape[2]; require ${key}.shape=[B,${heads},current_sequence_length,${headDim}] && ${value}.shape=[B,${heads},current_sequence_length,${headDim}]`,
+      `past_key_values[${layer}].key[batch,head,sequence,head_feature]=${dtype}(${key}[batch,head,sequence,head_feature]), ${domain}`,
+      `past_key_values[${layer}].value[batch,head,sequence,head_feature]=${dtype}(${value}[batch,head,sequence,head_feature]), ${domain}`,
+      `cache_entry_present[${layer}]=BOOL(true)`,
+    ],
+  };
+}
+
+function producerIncrementalProgram(
+  layer: number,
+  key: string,
+  value: string,
+  heads: number,
+  headDim: number,
+  dtype: "F32" | "BF16",
+): Gemma4LiteralCacheTransitionProgram {
+  const domain = `batch=0..B-1,head=0..${heads - 1},sequence=0..next_sequence_length-1,head_feature=0..${headDim - 1}`;
+  return {
+    schemaVersion: 1,
+    mode: "write-producer",
+    cacheLayer: layer,
+    sequenceAxis: 2,
+    coordinateOrder: "batch,head,sequence,head_feature ascending lexicographic",
+    scalarAssignments: [
+      `previous_sequence_length=previous_past_key_values[${layer}].key.shape[2]; current_sequence_length=${key}.shape[2]; next_sequence_length=previous_sequence_length+current_sequence_length`,
+      `require previous_past_key_values[${layer}].key.shape=[B,${heads},previous_sequence_length,${headDim}] && previous_past_key_values[${layer}].value.shape=[B,${heads},previous_sequence_length,${headDim}]`,
+      `require ${key}.shape=[B,${heads},current_sequence_length,${headDim}] && ${value}.shape=[B,${heads},current_sequence_length,${headDim}]`,
+      `past_key_values[${layer}].key[batch,head,sequence,head_feature]=sequence<previous_sequence_length ? previous_past_key_values[${layer}].key[batch,head,sequence,head_feature] : ${dtype}(${key}[batch,head,sequence-previous_sequence_length,head_feature]), ${domain}`,
+      `past_key_values[${layer}].value[batch,head,sequence,head_feature]=sequence<previous_sequence_length ? previous_past_key_values[${layer}].value[batch,head,sequence,head_feature] : ${dtype}(${value}[batch,head,sequence-previous_sequence_length,head_feature]), ${domain}`,
+      `cache_entry_present[${layer}]=BOOL(true)`,
+    ],
+  };
+}
+
+function reuseProgram(
+  layer: number,
+  producerLayer: number,
+  heads: number,
+  headDim: number,
+  dtype: "F32" | "BF16",
+): Gemma4LiteralCacheTransitionProgram {
+  const domain = `batch=0..B-1,head=0..${heads - 1},sequence=0..cache_sequence_length-1,head_feature=0..${headDim - 1}`;
+  return {
+    schemaVersion: 1,
+    mode: "reuse-producer",
+    cacheLayer: layer,
+    producerLayer,
+    emitsCacheEntry: false,
+    coordinateOrder: "batch,head,sequence,head_feature ascending lexicographic",
+    scalarAssignments: [
+      `require ${producerLayer}<${layer} && cache_entry_present[${producerLayer}]==true`,
+      `cache_sequence_length=past_key_values[${producerLayer}].key.shape[2]; require past_key_values[${producerLayer}].key.shape=[B,${heads},cache_sequence_length,${headDim}] && past_key_values[${producerLayer}].value.shape=[B,${heads},cache_sequence_length,${headDim}]`,
+      `attention_layer_${layer}.key[batch,head,sequence,head_feature]=${dtype}(past_key_values[${producerLayer}].key[batch,head,sequence,head_feature]), ${domain}`,
+      `attention_layer_${layer}.value[batch,head,sequence,head_feature]=${dtype}(past_key_values[${producerLayer}].value[batch,head,sequence,head_feature]), ${domain}`,
+      `cache_entry_present[${layer}]=BOOL(false)`,
+    ],
+  };
 }
 
 function scalarCalculation(
@@ -178,8 +282,8 @@ function generationFormulas(
     case "execute-declared-forward": return [
       `evaluate generation.forwardCalculation.operationOrder[0..${orderEnd}] in array order using declared prefill inputs and embedded constants`,
       `forward_state[0].logits = ${forward.logitsOutput}`,
-      "forward_state[0].past_key_values = apply generation.forwardCalculation.cacheTransitions[*].prefill in layer order",
-      `forward_state[0] = STRUCT(logits=${forward.logitsOutput},past_key_values=declared_prefill_cache_outputs)`,
+      "prefill_past_key_values = execute generation.forwardCalculation.cacheTransitions[*].prefill.scalarAssignments in ascending layer order",
+      `forward_state[0] = STRUCT(logits=${forward.logitsOutput},past_key_values=prefill_past_key_values)`,
     ];
     case "initialize-position": return ["position[-1] = position_ids supplied ? position_ids[0,input_ids.shape[1]-1] : input_ids.shape[1]-1"];
     case "capture-selection-logits": return ["selection_logits[step] = forward_state[step].logits; exact F32 alias; no cast"];
@@ -200,8 +304,8 @@ function generationFormulas(
     case "execute-declared-incremental-forward": return [
       `evaluate generation.forwardCalculation.operationOrder[0..${orderEnd}] in array order with incremental_inputs[step], skipping absent modality branches by their declared optional-input guards`,
       `forward_state[step+1].logits = ${forward.logitsOutput}`,
-      "forward_state[step+1].past_key_values = apply generation.forwardCalculation.cacheTransitions[*].incremental in layer order",
-      `forward_state[step+1] = STRUCT(logits=${forward.logitsOutput},past_key_values=declared_incremental_cache_outputs)`,
+      "incremental_past_key_values[step] = execute generation.forwardCalculation.cacheTransitions[*].incremental.scalarAssignments in ascending layer order",
+      `forward_state[step+1] = STRUCT(logits=${forward.logitsOutput},past_key_values=incremental_past_key_values[step])`,
     ];
     case "append-cache-snapshot": return ["step_past_key_values[0..step] = step==0 ? [forward_state[1].past_key_values] : concat(step_past_key_values[0..step-1],[forward_state[step+1].past_key_values])"];
     case "evaluate-eos-stop": return ["stop_after_step[step] = eos_token_id supplied and selected_token[step] == eos_token_id; evaluate after forward_state[step+1] and its cache exist"];

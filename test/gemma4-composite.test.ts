@@ -424,15 +424,17 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 23);
+  assert.equal(literal.schemaVersion, 24);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   assert.deepEqual(literal.authoritativeExecution, gemma4AuthoritativeExecutionContract());
   assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.languageId, literal.generation.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.authority.numericLiteralBits, "/numericLiterals/literals");
-  assert.equal(literal.formulaLanguage.schemaVersion, 9);
+  assert.equal(literal.formulaLanguage.schemaVersion, 10);
   assert.equal(literal.formulaLanguage.indexing.programs.schemaVersion, 3);
+  assert.ok(literal.numericLiterals.literals.some((entry) =>
+    entry.uses.some((use) => use.section === "cache-transition" && use.definitionId === "layer_0_incremental")));
   assert.deepEqual(
     [-1, 0, 0, -1, 1, 1, -1, 2],
     [0, 1, 2, 0, 2, 1, 0, 1].map((_, sequence) => executeGemma4LiteralContiguousVisionGroupId(
@@ -691,10 +693,19 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.equal(literal.generation.forwardCalculation.operationOrder[0]?.operationId, "composite_placeholder_masks");
   assert.equal(literal.generation.forwardCalculation.operationOrder.at(-1)?.operationId, literal.generation.forwardProgram.lastAssignment);
   assert.deepEqual(literal.generation.forwardCalculation.cacheTransitions.map((transition) => transition.layer), [0, 1]);
+  assert.equal(literal.generation.forwardCalculation.schemaVersion, 2);
   assert.ok(literal.generation.forwardCalculation.cacheTransitions.every((transition) =>
     transition.ownership === "producer" && transition.producerLayer === transition.layer));
-  assert.match(literal.generation.forwardCalculation.cacheTransitions[0]!.incremental, /concat\(previous_past_key_values\[0\]\.key/);
-  assert.match(literal.generation.forwardCalculation.cacheTransitions[1]!.incremental, /concat\(previous_past_key_values\[1\]\.key/);
+  assert.ok(literal.generation.forwardCalculation.cacheTransitions.every((transition) =>
+    transition.prefill.mode === "write-producer" && transition.incremental.mode === "write-producer" &&
+    transition.prefill.coordinateOrder === "batch,head,sequence,head_feature ascending lexicographic" &&
+    transition.incremental.coordinateOrder === "batch,head,sequence,head_feature ascending lexicographic"));
+  assert.ok(literal.generation.forwardCalculation.cacheTransitions[0]!.prefill.scalarAssignments.some((formula) =>
+    formula.includes("past_key_values[0].key[batch,head,sequence,head_feature]")));
+  assert.ok(literal.generation.forwardCalculation.cacheTransitions[0]!.incremental.scalarAssignments.some((formula) =>
+    formula.includes("sequence<previous_sequence_length ? previous_past_key_values[0].key")));
+  assert.ok(literal.generation.forwardCalculation.cacheTransitions[1]!.incremental.scalarAssignments.some((formula) =>
+    formula.includes("sequence<previous_sequence_length ? previous_past_key_values[1].key")));
   const serializedIncrementalForward = literal.generation.scalarCalculations.assignments.find((calculation) =>
     calculation.definitionId === "generation_incremental_forward")!;
   assert.equal(serializedIncrementalForward.forwardExpansionReference, "generation.forwardCalculation.operationOrder");
@@ -862,7 +873,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 23);
+      assert.equal(artifact.schemaVersion, 24);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.deepEqual(artifact.authoritativeExecution, gemma4AuthoritativeExecutionContract());
@@ -1576,7 +1587,7 @@ test("Gemma 4 paged text interpreter replays prefill and cached greedy decode fr
       const incrementalView = renderGemma4LiteralGenerationCalculationView(artifact, 2, "generation_incremental_forward[1]");
       assert.equal(incrementalView.forwardExpansion?.mode, "cached-incremental");
       assert.equal(incrementalView.declaredForwardOperations?.length, generationPlan.declaredForwardOperations.length);
-      assert.ok(incrementalView.formula.includes("declared_incremental_cache_outputs"));
+      assert.ok(incrementalView.formula.includes("incremental_past_key_values[1]"));
       assert.ok(incrementalView.scalarAssignments.some((formula) => formula.includes("generation.forwardCalculation.operationOrder")));
       assert.ok(incrementalView.scalarAssignments.some((formula) => formula.includes("generation.forwardCalculation.cacheTransitions")));
       assert.doesNotMatch(incrementalView.formula, /declared_cached_incremental_forward|generic_decoder/);
@@ -2085,6 +2096,22 @@ test("Gemma 4 shared-KV consumers embed but explicitly label their checkpoint-lo
     { name: "model.language_model.layers.2.self_attn.k_proj.weight", reason: "shared-kv-consumer-local-kv-is-runtime-unreachable", producerLayer: 0 },
     { name: "model.language_model.layers.2.self_attn.v_proj.weight", reason: "shared-kv-consumer-local-kv-is-runtime-unreachable", producerLayer: 0 },
   ]);
+  const sharedTransition = literal.generation.forwardCalculation.cacheTransitions.find((transition) => transition.layer === 2)!;
+  assert.equal(sharedTransition.ownership, "reuse-producer");
+  assert.equal(sharedTransition.producerLayer, 0);
+  assert.equal(sharedTransition.prefill.mode, "reuse-producer");
+  assert.equal(sharedTransition.incremental.mode, "reuse-producer");
+  if (sharedTransition.prefill.mode === "reuse-producer" && sharedTransition.incremental.mode === "reuse-producer") {
+    assert.equal(sharedTransition.prefill.emitsCacheEntry, false);
+    assert.equal(sharedTransition.incremental.emitsCacheEntry, false);
+    assert.ok(sharedTransition.prefill.scalarAssignments.some((formula) =>
+      formula.includes("attention_layer_2.key") && formula.includes("past_key_values[0].key")));
+    assert.ok(sharedTransition.incremental.scalarAssignments.some((formula) => formula.includes("cache_entry_present[2]=BOOL(false)")));
+  }
+  const corruptedTransition = structuredClone(literal);
+  corruptedTransition.generation.forwardCalculation.cacheTransitions.find((transition) => transition.layer === 2)!
+    .incremental.scalarAssignments[0] = "reuse an unspecified cache";
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(corruptedTransition), /transições de geração greedy incompletas/);
   validateGemma4CompositeLiteralCalculationProgram(literal);
 });
 

@@ -1,17 +1,21 @@
 import { isDeepStrictEqual } from "node:util";
-import type { Gemma4LiteralGenerationScalarCalculations } from "./gemma4-literal-generation-calculations.js";
+import type {
+  Gemma4LiteralGenerationForwardCalculationContract,
+  Gemma4LiteralGenerationScalarCalculations,
+} from "./gemma4-literal-generation-calculations.js";
 import type { Gemma4LiteralScalarCalculations } from "./gemma4-literal-scalar-calculations.js";
 import { gemma4LiteralNormalizationReductionPrograms } from "./gemma4-literal-normalization-reduction-view.js";
 
 export interface Gemma4LiteralFormulaLanguageContract {
   kind: "gemma4-literal-formula-language-contract";
-  schemaVersion: 9;
+  schemaVersion: 10;
   languageId: "indexed-ieee754-expression-v1";
   authority: {
     forwardAssignments: "/scalarCalculations/assignments";
     generationAssignments: "/generation/scalarCalculations/assignments";
     instantiatedForwardOrder: "/calculationGraph/assignments";
     generationForwardOrder: "/generation/forwardCalculation/operationOrder";
+    cacheTransitions: "/generation/forwardCalculation/cacheTransitions";
     learnedOperandBindings: "/learnedOperands/assignments";
     learnedIndexLanguage: "/learnedOperands/indexLanguage";
     storageDecoders: "/storageDecoders";
@@ -27,6 +31,7 @@ export interface Gemma4LiteralFormulaLanguageContract {
     numericTokenBinding: string;
     learnedValueBinding: string;
     generationOrder: string;
+    cacheTransitionOrder: string;
     invalidOperation: string;
   };
   indexing: {
@@ -406,13 +411,14 @@ function pytorchPairwiseReduce(values: readonly number[], operation: "maximum" |
 export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormulaLanguageContract {
   return {
     kind: "gemma4-literal-formula-language-contract",
-    schemaVersion: 9,
+    schemaVersion: 10,
     languageId: "indexed-ieee754-expression-v1",
     authority: {
       forwardAssignments: "/scalarCalculations/assignments",
       generationAssignments: "/generation/scalarCalculations/assignments",
       instantiatedForwardOrder: "/calculationGraph/assignments",
       generationForwardOrder: "/generation/forwardCalculation/operationOrder",
+      cacheTransitions: "/generation/forwardCalculation/cacheTransitions",
       learnedOperandBindings: "/learnedOperands/assignments",
       learnedIndexLanguage: "/learnedOperands/indexLanguage",
       storageDecoders: "/storageDecoders",
@@ -425,9 +431,10 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
       dependencyOrder: "evaluate instantiated assignments by ascending ordinal; every predecessor must already exist",
       coordinateOrder: "row-major lexicographic over the complete declared output domain; preview windows never change evaluation",
       inputBinding: "bind orderedInputs positionally at each instantiated call site before evaluating the indexed formula",
-      numericTokenBinding: "resolve forward/generation decimal or named mathematical tokens through numericLiterals; resolve transcendental-program names through transcendentalPrograms.constants; select bits by the surrounding F64/F32/BF16 cast",
+      numericTokenBinding: "resolve forward, generation and cache-transition decimal or named mathematical tokens through numericLiterals; resolve transcendental-program names through transcendentalPrograms.constants; select bits by the surrounding F64/F32/BF16 cast",
       learnedValueBinding: "evaluate learnedOperands.logicalIndices with its embedded integer-expression AST, then execute the matching storageDecoder address and decode expression ASTs under denseDecoderLanguage over the embedded constant bytes",
       generationOrder: "evaluate generation scalarAssignments in array order and iterations in ascending step order until the declared stop predicate",
+      cacheTransitionOrder: "for every forward invocation execute cacheTransitions in ascending layer order; within each transition execute prefill or incremental scalarAssignments in array order over its complete BHSD coordinate domain",
       invalidOperation: "fail closed before producing an output; never infer a default, host reduction, tensor layout, cast, or missing intrinsic",
     },
     indexing: {
@@ -450,6 +457,7 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
       { notation: "a+b, a-b, a*b, a/b, a%b, -a", semantics: "evaluate operands left-to-right; % is exact non-negative I32 remainder for the indexed programs; arithmetic precision changes only at an explicit cast or declared reduction/FMA boundary" },
       { notation: "a**b", semantics: "real exponentiation followed by the surrounding declared cast; package formulas additionally pin source-visible pow/rsqrt decompositions where fidelity requires them" },
       { notation: "predicate ? a : b", semantics: "evaluate the predicate then only the selected branch" },
+      { notation: "require predicate", semantics: "evaluate predicate as BOOL and fail closed before any dependent assignment when it is false" },
       { notation: "==, >, >=, <, <=, &&, ||, !", semantics: "exact comparison or short-circuit Boolean operation over already materialized operands" },
       { notation: "tensor[i,j,...]", semantics: "zero-based indexed read using the referenced domain and layout; commas order axes exactly as declared" },
     ],
@@ -495,6 +503,7 @@ export function validateGemma4LiteralFormulaLanguageContract(
   contract: Gemma4LiteralFormulaLanguageContract,
   forward: Gemma4LiteralScalarCalculations,
   generation: Gemma4LiteralGenerationScalarCalculations,
+  generationForward: Gemma4LiteralGenerationForwardCalculationContract,
 ): void {
   if (!isDeepStrictEqual(contract, buildGemma4LiteralFormulaLanguageContract()) ||
     forward.formulaLanguage !== contract.languageId || generation.formulaLanguage !== contract.languageId) {
@@ -503,6 +512,10 @@ export function validateGemma4LiteralFormulaLanguageContract(
   validateGemma4LiteralFormulaFunctionCoverage([
     ...forward.assignments.map((assignment) => assignment.formula),
     ...generation.assignments.flatMap((assignment) => assignment.scalarAssignments),
+    ...generationForward.cacheTransitions.flatMap((transition) => [
+      ...transition.prefill.scalarAssignments,
+      ...transition.incremental.scalarAssignments,
+    ]),
   ]);
 }
 

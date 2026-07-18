@@ -511,6 +511,16 @@ vistas source-removed expõem o loop FMA, a seleção booleana e a coordenada
 fonte concreta. A prova no pacote real está em
 [`docs/validation/gemma4-e4b-explicit-coordinate-programs-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-coordinate-programs-2026-07-18.md).
 
+O schema v24 transforma as 42 transições KV textuais em programas escalares
+executáveis. Cada uma das 24 camadas produtoras declara cópia BHSD de prefill
+e append incremental por coordenada, com shape, dtype, eixo de sequência e
+ordem lexicográfica; cada um dos 18 consumidores compartilhados lê o cache do
+produtor anterior e declara `cache_entry_present[layer]=false`, sem criar uma
+cópia. Os programas fazem parte da linguagem incorporada e da tabela de bits
+numéricos, e qualquer fórmula, dtype, ownership ou layer alterado falha na
+validação canônica. A prova no pacote real está em
+[`docs/validation/gemma4-e4b-explicit-kv-cache-programs-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-kv-cache-programs-2026-07-18.md).
+
 O leitor também pode partir de qualquer saída instanciada e calcular o fecho
 transitivo exato de seus produtores. `--calculation-slice <operation-id>`
 retorna somente as atribuições necessárias ao alvo, ainda em ordem de
@@ -678,8 +688,8 @@ escreve o artefato completo em streaming: ranges Safetensors de 12 MiB são
 codificados em base64 sem acumular o pacote ou uma string de vários GiB na
 heap. O resultado local contém os 2,130 payloads originais
 (15,992,314,836 bytes) e é auditado por `npm run audit:literal`. O hash e
-tamanho da exportação schema v23 atual são registrados em
-[`docs/validation/gemma4-e4b-explicit-coordinate-programs-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-coordinate-programs-2026-07-18.md); sua política numérica
+tamanho da exportação schema v24 atual são registrados em
+[`docs/validation/gemma4-e4b-explicit-kv-cache-programs-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-kv-cache-programs-2026-07-18.md); sua política numérica
 declara fronteiras de resultado BF16, acumuladores F32/F64 e agendas de redução
 por operação do texto, áudio e visão; toda exportação deve registrar seu próprio hash, pois o programa literal
 inclui as políticas numéricas. As 54 projeções/normas K/V locais dos
