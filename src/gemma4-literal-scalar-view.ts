@@ -2,6 +2,7 @@ import type { OpenGemma4CompositeLiteralArtifact } from "./gemma4-composite-lite
 import type { LiteralDenseStorageDecodeAssignment } from "./literal.js";
 import type { DtypePolicy, Operation, ReductionSchedule, TensorRef } from "./types.js";
 import type { Gemma4LiteralValueDomain } from "./gemma4-literal-domains.js";
+import type { Gemma4LiteralLearnedOperand } from "./gemma4-literal-learned-operands.js";
 import { decodeIeeeBF16ToF32, decodeIeeeF16ToF32 } from "./utils.js";
 
 export interface Gemma4LiteralOperationNavigation {
@@ -16,6 +17,8 @@ export interface Gemma4LiteralOperationNavigation {
   ordinal: number;
   output: string;
   outputDomain: Gemma4LiteralValueDomain;
+  /** Exact learned roles and logical index expressions, when this assignment consumes checkpoint storage. */
+  learnedOperands?: Gemma4LiteralLearnedOperand[];
   predecessors: Array<{ input: string; producerOperationId?: string }>;
   consumers: string[];
   previousOperationId?: string;
@@ -98,6 +101,7 @@ export function listGemma4LiteralTextOperations(artifact: OpenGemma4CompositeLit
     ordinal,
     output: entry.operation.output,
     outputDomain: requiredTextDomain(artifact, entry.operation.id),
+    ...learnedOperandsFor(artifact, entry.scope, entry.operation.id),
     predecessors: operationInputs(entry.operation).map((input) => ({
       input,
       ...(producerByOutput.has(input) ? { producerOperationId: producerByOutput.get(input)! } : {}),
@@ -106,6 +110,16 @@ export function listGemma4LiteralTextOperations(artifact: OpenGemma4CompositeLit
     ...(ordinal === 0 ? {} : { previousOperationId: entries[ordinal - 1]!.operation.id }),
     ...(ordinal + 1 === entries.length ? {} : { nextOperationId: entries[ordinal + 1]!.operation.id }),
   }));
+}
+
+function learnedOperandsFor(
+  artifact: OpenGemma4CompositeLiteralArtifact,
+  scope: Gemma4LiteralOperationNavigation["scope"],
+  definitionId: string,
+): { learnedOperands?: Gemma4LiteralLearnedOperand[] } {
+  const binding = artifact.learnedOperands.assignments.find((candidate) =>
+    candidate.scope === scope && candidate.definitionId === definitionId);
+  return binding ? { learnedOperands: structuredClone(binding.operands) } : {};
 }
 
 function requiredTextDomain(artifact: OpenGemma4CompositeLiteralArtifact, definitionId: string): Gemma4LiteralValueDomain {

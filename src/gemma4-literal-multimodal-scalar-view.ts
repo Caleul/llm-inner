@@ -14,6 +14,12 @@ import {
 import type { Gemma4VisionAssignment } from "./gemma4-vision.js";
 import type { DtypePolicy, TensorRef } from "./types.js";
 import { instantiateGemma4LiteralValueDomain, type Gemma4LiteralValueDomain } from "./gemma4-literal-domains.js";
+import {
+  optionalGemma4LiteralLearnedOperand,
+  requiredGemma4LiteralLearnedOperand,
+  type Gemma4LiteralLearnedOperandRole,
+  type Gemma4LiteralLearnedOperand,
+} from "./gemma4-literal-learned-operands.js";
 
 type Assignment = Gemma4CompositeAssignment | Gemma4VisionAssignment | Gemma4AudioAssignment;
 type NonTextScope = "composite" | "vision" | "audio";
@@ -36,6 +42,7 @@ interface NavigationSeed {
   inputs: string[];
   output: string;
   outputDomain: Gemma4LiteralValueDomain;
+  learnedOperands?: Gemma4LiteralLearnedOperand[];
 }
 
 export interface Gemma4LiteralMultimodalScalarViewRequest extends Gemma4LiteralScalarViewRequest {
@@ -80,6 +87,7 @@ export function listGemma4LiteralOperations(artifact: OpenGemma4CompositeLiteral
     ordinal,
     output: seed.output,
     outputDomain: seed.outputDomain,
+    ...(seed.learnedOperands ? { learnedOperands: seed.learnedOperands } : {}),
     predecessors: seed.inputs.map((input) => ({ input, ...(producerByOutput.has(input) ? { producerOperationId: producerByOutput.get(input)! } : {}) })),
     consumers: consumersByOutput.get(seed.output) ?? [],
   }));
@@ -184,6 +192,7 @@ function navigationSeeds(artifact: OpenGemma4CompositeLiteralArtifact): Navigati
           inputs: entry.predecessors.map((predecessor) => bindName(predecessor.input, textBindings())),
           output: bindName(entry.output, textBindings()),
           outputDomain: entry.outputDomain,
+          ...(entry.learnedOperands ? { learnedOperands: entry.learnedOperands } : {}),
         });
       }
       continue;
@@ -205,7 +214,17 @@ function seedFromAssignment(entry: AssignmentEntry, artifact: OpenGemma4Composit
     inputs: entry.assignment.inputs.map((input) => bindName(input, entry.bindings)),
     output: bindName(entry.assignment.output, entry.bindings),
     outputDomain: requiredAssignmentDomain(artifact, entry),
+    ...learnedOperandsForAssignment(artifact, entry),
   };
+}
+
+function learnedOperandsForAssignment(
+  artifact: OpenGemma4CompositeLiteralArtifact,
+  entry: AssignmentEntry,
+): { learnedOperands?: Gemma4LiteralLearnedOperand[] } {
+  const binding = artifact.learnedOperands.assignments.find((candidate) =>
+    candidate.scope === entry.scope && candidate.definitionId === entry.assignment.id);
+  return binding ? { learnedOperands: structuredClone(binding.operands) } : {};
 }
 
 function requiredAssignmentDomain(artifact: OpenGemma4CompositeLiteralArtifact, entry: AssignmentEntry): Gemma4LiteralValueDomain {
@@ -296,9 +315,7 @@ async function renderLinear(
   if (base.dtypePolicy.accumulationDtype === "runtime-defined") {
     throw new Error(`${assignment.id}: vista escalar falha fechada porque o kernel nativo ${base.dtypePolicy.computeDtype ?? "desconhecido"} ainda não possui agenda de redução literal.`);
   }
-  const tensors = assignment.tensors ?? [];
-  const weight = tensors.find((tensor) => tensor.shape.length === 2);
-  if (!weight) throw new Error(`${assignment.id}: linear literal sem matriz [out,in].`);
+  const weight = learnedOperand(artifact, entry, "weight");
   const outputFeature = last(request.outputCoordinate, assignment.id);
   const [outFeatures, inFeatures] = weight.shape;
   if (outputFeature >= outFeatures!) throw new Error(`${assignment.id}: feature ${outputFeature} excede outFeatures=${outFeatures}.`);
@@ -312,10 +329,10 @@ async function renderLinear(
     const input = indexed(assignment.inputs[0]!, [...prefix, inputIndex]);
     terms.push({ inputIndex, input, learned, formula: `product[${inputIndex}] = F32(${input} * ${learned.literal})` });
   }
-  const biasRef = tensors.find((tensor) => tensor.shape.length === 1 && tensor.shape[0] === outFeatures);
+  const biasRef = optionalLearnedOperand(artifact, entry, "bias");
   const bias = biasRef ? await readGemma4LiteralLearnedScalar(artifact, biasRef, [outputFeature]) : undefined;
   if (bias) learnedScalars.push(bias);
-  const bounds = assignment.operation === "clipped-linear" ? await readClippingBounds(artifact, tensors, weight) : undefined;
+  const bounds = assignment.operation === "clipped-linear" ? await readClippingBounds(artifact, entry) : undefined;
   if (bounds) learnedScalars.push(...bounds.values);
   const inputExpression = (inputIndex: number | string): string => bounds
     ? `F32(min(${bounds.output[1]}, max(${bounds.output[0]}, ${indexed(assignment.inputs[0]!, [...prefix, inputIndex])})))`
@@ -359,7 +376,7 @@ async function renderLinear(
 }
 
 async function renderEmbedding(artifact: OpenGemma4CompositeLiteralArtifact, entry: AssignmentEntry, request: Gemma4LiteralMultimodalScalarViewRequest, base: ScalarBase): Promise<Gemma4LiteralScalarView> {
-  const weight = onlyTensor(entry.assignment);
+  const weight = learnedOperand(artifact, entry, "weight");
   const tokenId = request.tokenId;
   if (!Number.isSafeInteger(tokenId) || tokenId! < 0 || tokenId! >= weight.shape[0]!) throw new Error(`${entry.assignment.id}: --token-id válido é obrigatório.`);
   const perLayer = entry.assignment.operation === "per-layer-embedding";
@@ -375,7 +392,7 @@ async function renderEmbedding(artifact: OpenGemma4CompositeLiteralArtifact, ent
 }
 
 async function renderRmsNorm(artifact: OpenGemma4CompositeLiteralArtifact, entry: AssignmentEntry, request: Gemma4LiteralMultimodalScalarViewRequest, base: ScalarBase): Promise<Gemma4LiteralScalarView> {
-  const weight = entry.assignment.tensors?.[0];
+  const weight = optionalLearnedOperand(artifact, entry, "normalization-scale");
   const width = weight?.shape[0] ?? widthForUnscaledNorm(artifact, entry);
   const feature = last(request.outputCoordinate, entry.assignment.id);
   if (feature >= width) throw new Error(`${entry.assignment.id}: feature ${feature} excede width=${width}.`);
@@ -413,7 +430,7 @@ async function renderPositionEmbedding(artifact: OpenGemma4CompositeLiteralArtif
     const formula = `${base.output} = F32(0)`;
     return { ...base, formula, scalarAssignments: [formula], learnedScalars: [] };
   }
-  const table = onlyTensor(entry.assignment), feature = request.outputCoordinate[2]!;
+  const table = learnedOperand(artifact, entry, "position-table"), feature = request.outputCoordinate[2]!;
   if (position[0] >= table.shape[1]! || position[1] >= table.shape[1]!) throw new Error(`${entry.assignment.id}: posição fora da tabela.`);
   const x = await readGemma4LiteralLearnedScalar(artifact, table, [0, position[0], feature]);
   const y = await readGemma4LiteralLearnedScalar(artifact, table, [1, position[1], feature]);
@@ -424,7 +441,7 @@ async function renderPositionEmbedding(artifact: OpenGemma4CompositeLiteralArtif
 async function renderConv2d(artifact: OpenGemma4CompositeLiteralArtifact, entry: AssignmentEntry, request: Gemma4LiteralMultimodalScalarViewRequest, base: ScalarBase): Promise<Gemma4LiteralScalarView> {
   if (request.outputCoordinate.length !== 4) throw new Error(`${entry.assignment.id}: Conv2d requer [b,out_channel,time,feature].`);
   const [batch, outputChannel, time, feature] = request.outputCoordinate;
-  const weight = onlyTensor(entry.assignment), inputChannels = weight.shape[1]!;
+  const weight = learnedOperand(artifact, entry, "convolution-kernel"), inputChannels = weight.shape[1]!;
   if (outputChannel! >= weight.shape[0]!) throw new Error(`${entry.assignment.id}: canal de saída fora do shape.`);
   const learnedScalars: Gemma4LiteralLearnedScalar[] = [], assignments: string[] = [];
   let term = 0;
@@ -441,7 +458,7 @@ async function renderConv2d(artifact: OpenGemma4CompositeLiteralArtifact, entry:
 
 async function renderChannelNorm(artifact: OpenGemma4CompositeLiteralArtifact, entry: AssignmentEntry, request: Gemma4LiteralMultimodalScalarViewRequest, base: ScalarBase): Promise<Gemma4LiteralScalarView> {
   if (request.outputCoordinate.length !== 4) throw new Error(`${entry.assignment.id}: LayerNorm de canais requer [b,c,t,f].`);
-  const weight = onlyTensor(entry.assignment), channel = request.outputCoordinate[1]!, channels = weight.shape[0]!;
+  const weight = learnedOperand(artifact, entry, "normalization-scale"), channel = request.outputCoordinate[1]!, channels = weight.shape[0]!;
   const learned = await readGemma4LiteralLearnedScalar(artifact, weight, [channel]);
   const [batch, , time, feature] = request.outputCoordinate, input = entry.assignment.inputs[0]!;
   const epsilon = artifact.program.audioProgram.rmsNormEpsilon;
@@ -457,7 +474,7 @@ async function renderChannelNorm(artifact: OpenGemma4CompositeLiteralArtifact, e
 
 async function renderDepthwise(artifact: OpenGemma4CompositeLiteralArtifact, entry: AssignmentEntry, request: Gemma4LiteralMultimodalScalarViewRequest, base: ScalarBase): Promise<Gemma4LiteralScalarView> {
   if (request.outputCoordinate.length !== 3) throw new Error(`${entry.assignment.id}: depthwise requer [b,t,c].`);
-  const [batch, time, channel] = request.outputCoordinate, weight = onlyTensor(entry.assignment), kernel = weight.shape[2]!;
+  const [batch, time, channel] = request.outputCoordinate, weight = learnedOperand(artifact, entry, "convolution-kernel"), kernel = weight.shape[2]!;
   const learnedScalars: Gemma4LiteralLearnedScalar[] = [], assignments: string[] = [];
   for (let k = 0; k < kernel; k += 1) {
     const learned = await readGemma4LiteralLearnedScalar(artifact, weight, [channel!, 0, k]);
@@ -471,7 +488,7 @@ async function renderDepthwise(artifact: OpenGemma4CompositeLiteralArtifact, ent
 
 async function renderPerDimScale(artifact: OpenGemma4CompositeLiteralArtifact, entry: AssignmentEntry, request: Gemma4LiteralMultimodalScalarViewRequest, base: ScalarBase): Promise<Gemma4LiteralScalarView> {
   const feature = last(request.outputCoordinate, entry.assignment.id), headDim = artifact.program.audioProgram.tower.headDim, d = feature % headDim;
-  const learned = await readGemma4LiteralLearnedScalar(artifact, onlyTensor(entry.assignment), [d]);
+  const learned = await readGemma4LiteralLearnedScalar(artifact, learnedOperand(artifact, entry, "per-dimension-scale"), [d]);
   const qScale = Math.fround(headDim ** -0.5 / Math.log(2));
   const formula = `${base.output} = F32(F32(${indexed(entry.assignment.inputs[0]!, request.outputCoordinate)} * ${literal(qScale)}) * BF16(F32(log1p(exp(${learned.literal})))))`;
   return { ...base, formula, scalarAssignments: [formula], learnedScalars: [learned] };
@@ -649,20 +666,30 @@ function assignmentOutputDtype(assignment: Assignment): string | undefined {
   return "dtypePolicy" in assignment ? assignment.dtypePolicy?.outputDtype : undefined;
 }
 
-async function readClippingBounds(artifact: OpenGemma4CompositeLiteralArtifact, tensors: TensorRef[], weight: TensorRef): Promise<{ values: Gemma4LiteralLearnedScalar[]; output: [string, string, string, string] }> {
-  const suffixes = ["input_min", "input_max", "output_min", "output_max"] as const;
-  const scalarRefs = suffixes.map((suffix) => {
-    const matches = tensors.filter((tensor) => tensor !== weight
-      && tensor.name.endsWith(`.${suffix}`)
-      && (tensor.shape.length === 0 || (tensor.shape.length === 1 && tensor.shape[0] === 1)));
-    if (matches.length !== 1) throw new Error(`${weight.name}: clipped-linear requer exatamente um bound escalar ${suffix}.`);
-    return matches[0]!;
-  });
+async function readClippingBounds(artifact: OpenGemma4CompositeLiteralArtifact, entry: AssignmentEntry): Promise<{ values: Gemma4LiteralLearnedScalar[]; output: [string, string, string, string] }> {
+  const roles = ["input-min", "input-max", "output-min", "output-max"] as const;
+  const scalarRefs = roles.map((role) => learnedOperand(artifact, entry, role));
   const values: Gemma4LiteralLearnedScalar[] = [];
   for (const reference of scalarRefs) {
     values.push(await readGemma4LiteralLearnedScalar(artifact, reference, reference.shape.length === 0 ? [] : [0]));
   }
   return { values, output: values.map((value) => value.literal) as [string, string, string, string] };
+}
+
+function learnedOperand(
+  artifact: OpenGemma4CompositeLiteralArtifact,
+  entry: AssignmentEntry,
+  role: Gemma4LiteralLearnedOperandRole,
+): TensorRef {
+  return requiredGemma4LiteralLearnedOperand(artifact.learnedOperands, entry.scope, entry.assignment.id, role).tensor;
+}
+
+function optionalLearnedOperand(
+  artifact: OpenGemma4CompositeLiteralArtifact,
+  entry: AssignmentEntry,
+  role: Gemma4LiteralLearnedOperandRole,
+): TensorRef | undefined {
+  return optionalGemma4LiteralLearnedOperand(artifact.learnedOperands, entry.scope, entry.assignment.id, role)?.tensor;
 }
 
 function scaleFor(artifact: OpenGemma4CompositeLiteralArtifact, entry: AssignmentEntry): number {
@@ -676,11 +703,6 @@ function widthForUnscaledNorm(artifact: OpenGemma4CompositeLiteralArtifact, entr
   if (entry.scope === "vision") return entry.assignment.id === "vision_language_projection_norm" ? artifact.program.visionProgram.tower.hiddenSize : artifact.program.visionProgram.tower.headDim;
   if (entry.scope === "audio") return entry.assignment.id === "audio_language_projection_norm" ? artifact.program.audioProgram.tower.outputProjectionSize : artifact.program.audioProgram.tower.hiddenSize;
   throw new Error(`${entry.assignment.id}: RMSNorm sem weight não possui width registrado.`);
-}
-
-function onlyTensor(assignment: Assignment): TensorRef {
-  if (assignment.tensors?.length !== 1) throw new Error(`${assignment.id}: esperava exatamente um tensor aprendido.`);
-  return assignment.tensors[0]!;
 }
 
 function reductionWindow(request: Gemma4LiteralScalarViewRequest, width: number, id: string): { start: number; end: number } {

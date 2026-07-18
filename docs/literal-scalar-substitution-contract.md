@@ -73,6 +73,13 @@ tiles. As lanes não atravessam tiles. Portanto ela não é equivalente a
   dequantização antes de qualquer operação consumidor.
 - cache KV e geração: estado anterior, escrita, leitura e predecessor nomeado.
 
+O papel do tensor também é dado, não inferido. Cada consumidor aprendido deve
+ligar explicitamente `weight`, `bias`, limites de clipping, tabela posicional,
+kernel de convolução, escala de normalização ou escala por dimensão ao tensor,
+ao decoder e à expressão de índices lógicos correspondente. Rank, shape,
+ordem no array e sufixo de nome podem ser validados, mas não podem selecionar o
+papel semântico durante a auditoria.
+
 ## Critério de aceite
 
 Uma implementação só é candidata a fechar este requisito quando:

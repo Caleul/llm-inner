@@ -225,7 +225,7 @@ A expansão composite corrigida e uma linha visual de 768 pesos substituídos
 estão em
 [`docs/validation/gemma4-e4b-expanded-calculation-order-2026-07-17.md`](docs/validation/gemma4-e4b-expanded-calculation-order-2026-07-17.md).
 
-O schema Gemma 4 literal v2 também carrega a geração greedy como programa,
+Desde o schema Gemma 4 literal v2, o artefato também carrega a geração greedy como programa,
 em vez de depender da implementação TypeScript para completar logits em
 tokens. `--show-generation-program` expõe doze atribuições ordenadas para
 prefill, posição inicial, linha final de logits, argmax com desempate pelo menor
@@ -270,7 +270,7 @@ entrada incremental, cache, EOS e seleção terminal também possuem fórmulas
 concretas por passo. A validação E4B com a fonte ausente está em
 [`docs/validation/gemma4-e4b-source-removed-generation-navigation-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-generation-navigation-2026-07-18.md).
 
-O schema v3 também incorpora `calculationDomains`: cada definição composite,
+O schema v3 incorporou `calculationDomains`: cada definição composite,
 vision, audio e text declara o dtype de saída, layout, shape simbólico, eixos,
 bounds de coordenada e política numérica/redução. O leitor instancia os mesmos
 domínios para imagem e vídeo sem duplicar definições, portanto todas as 2.709
@@ -280,6 +280,18 @@ com `accumulationDtype=runtime-defined`; a presença de shape nunca autoriza uma
 redução aproximada. A regeneração, auditoria de 2.130 payloads e replays com o
 checkpoint ausente estão em
 [`docs/validation/gemma4-e4b-source-removed-calculation-domains-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-calculation-domains-2026-07-18.md).
+
+O schema v4 acrescenta `learnedOperands`, um vínculo fail-closed entre cada
+atribuição que consome storage e os papéis semânticos de seus tensores. Peso,
+bias, limites `input/output min/max`, tabela de posição, kernels de convolução,
+gamma de normalização e escalas aprendidas declaram o `decoderId` e expressões
+de índice lógico antes do cálculo do índice row-major. O scalar view e a
+navegação leem esse contrato serializado; não redescobrem papel por rank,
+shape, posição no array ou sufixo do nome. Alterar/remover um papel, decoder ou
+expressão de índice invalida o artefato inteiro.
+A regeneração E4B, a partição dos 2.130 tensores e a substituição com o
+checkpoint ausente estão em
+[`docs/validation/gemma4-e4b-source-removed-learned-operands-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-learned-operands-2026-07-18.md).
 
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
