@@ -17,6 +17,7 @@ import {
 import { openGemma4CompositeLiteralArtifact } from "../src/gemma4-composite-literal-reader.js";
 import { executeGemma4LiteralCompositeF32, generateGemma4LiteralCompositeF32 } from "../src/gemma4-literal-composite.js";
 import { buildGemma4LiteralGenerationNavigation, renderGemma4LiteralGenerationCalculationView } from "../src/gemma4-literal-generation-navigation.js";
+import { buildGemma4LiteralCalculationSlice } from "../src/gemma4-literal-calculation-slice.js";
 import { listGemma4LiteralOperations, renderGemma4LiteralMultimodalScalarView } from "../src/gemma4-literal-multimodal-scalar-view.js";
 import { executeGemma4LiteralVisionF32 } from "../src/gemma4-literal-vision.js";
 import { listGemma4LiteralTextOperations, renderGemma4LiteralScalarView } from "../src/gemma4-literal-scalar-view.js";
@@ -903,6 +904,30 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       assert.deepEqual(listGemma4LiteralOperations(artifact).map((operation) => operation.operationId), serializedIds,
         "source-removed navigation must consume the serialized graph instead of reconstructing program expansion");
       duplicateId.id = originalId;
+
+      const imageSlice = buildGemma4LiteralCalculationSlice(artifact, "composite_image_scatter");
+      assert.equal(imageSlice.sourceCheckpointAccessed, false);
+      assert.equal(imageSlice.lastOperationId, "composite_image_scatter");
+      assert.equal(imageSlice.operationCount, imageSlice.operations.length);
+      assert.ok(imageSlice.operations.some((operation) => operation.operationId === "composite_image_features/vision_patch_projection"));
+      assert.ok(imageSlice.operations.every((operation) => operation.invocationId !== "composite_video_features" && operation.scope !== "audio"));
+      const sliceOrdinals = new Map(imageSlice.operations.map((operation, index) => [operation.operationId, index]));
+      assert.ok(imageSlice.operations.every((operation) => operation.predecessors.every((predecessor) =>
+        predecessor.producerOperationId === undefined || sliceOrdinals.get(predecessor.producerOperationId)! < sliceOrdinals.get(operation.operationId)!)));
+      assert.ok(imageSlice.externalInputs.some((input) => input.name === "pixel_values"));
+      assert.ok(imageSlice.learnedConstants.some((constant) => constant.consumers.some((consumer) =>
+        consumer.operationId === "composite_image_features/vision_patch_projection" && consumer.role === "weight")));
+      assert.ok(imageSlice.learnedConstants.every((constant) => constant.decoderId === `decode_${constant.tensor.name}`));
+      assert.ok(imageSlice.numericLiterals.some((literal) => literal.token === "0.5" && /^0x[0-9a-f]{8}$/.test(literal.binary32Hex)));
+      assert.equal(imageSlice.reproducibility.status, "literal");
+      assert.deepEqual(imageSlice.reproducibility.failClosedOperationIds, []);
+      const terminalOperationId = allOperations.at(-1)!.operationId;
+      const logitsSlice = buildGemma4LiteralCalculationSlice(artifact, terminalOperationId);
+      assert.equal(logitsSlice.lastOperationId, terminalOperationId);
+      assert.equal(logitsSlice.operationCount, allOperations.length);
+      assert.equal(logitsSlice.reproducibility.status, "fail-closed-runtime-reduction");
+      assert.ok(logitsSlice.reproducibility.failClosedOperationIds.some((id) => id.includes("audio_layer_0_attention")));
+      assert.throws(() => buildGemma4LiteralCalculationSlice(artifact, "unknown-operation"), /não encontrada para slice/);
     } finally {
       await artifact.close();
     }

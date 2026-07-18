@@ -3,6 +3,7 @@ import { access, writeFile } from "node:fs/promises";
 import { openGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
 import { verifyGemma4CompositeLiteralEmbeddedPayloadIntegrity } from "./gemma4-composite-literal-payload-verification.js";
 import { buildGemma4LiteralGenerationNavigation, renderGemma4LiteralGenerationCalculationView } from "./gemma4-literal-generation-navigation.js";
+import { buildGemma4LiteralCalculationSlice } from "./gemma4-literal-calculation-slice.js";
 import { listGemma4LiteralOperations, renderGemma4LiteralMultimodalScalarView } from "./gemma4-literal-multimodal-scalar-view.js";
 
 interface Arguments {
@@ -25,6 +26,7 @@ interface Arguments {
   inputStart?: number;
   inputCount?: number;
   numericLiteral?: string;
+  calculationSliceOperationId?: string;
 }
 
 const args = parseArguments(process.argv.slice(2));
@@ -57,6 +59,9 @@ try {
     const literal = artifact.numericLiterals.literals.find((entry) => entry.token === args.numericLiteral);
     if (!literal) throw new Error(`Literal numérico não encontrado: ${args.numericLiteral}.`);
     result.numericLiteral = literal;
+  }
+  if (args.calculationSliceOperationId) {
+    result.calculationSlice = buildGemma4LiteralCalculationSlice(artifact, args.calculationSliceOperationId);
   }
   if (selected) {
     const tensor = { name: selected.name, storageDtype: selected.storageDtype, storageShape: selected.storageShape, logicalShape: selected.logicalShape };
@@ -102,7 +107,7 @@ try {
 }
 
 function parseArguments(argv: string[]): Arguments {
-  let artifact: string | undefined, tensor: string | undefined, output: string | undefined, assertSourceUnavailable: string | undefined, operationId: string | undefined, generationOperationId: string | undefined, numericLiteral: string | undefined;
+  let artifact: string | undefined, tensor: string | undefined, output: string | undefined, assertSourceUnavailable: string | undefined, operationId: string | undefined, generationOperationId: string | undefined, numericLiteral: string | undefined, calculationSliceOperationId: string | undefined;
   let outputCoordinate: number[] | undefined, tokenId: number | undefined, positionCoordinate: [number, number] | undefined, inputStart: number | undefined, inputCount: number | undefined;
   let generationMaxNewTokens: number | undefined;
   let offset = 0, byteLength = 4096, verifyPayloads = false, listOperations = false, showGenerationProgram = false, listGenerationOperations = false;
@@ -126,6 +131,7 @@ function parseArguments(argv: string[]): Arguments {
     else if (value === "--input-start") { inputStart = parseInteger(next, "--input-start"); index += 1; }
     else if (value === "--input-count") { inputCount = parseInteger(next, "--input-count"); index += 1; }
     else if (value === "--numeric-literal") { numericLiteral = requiredValue(next, "--numeric-literal"); index += 1; }
+    else if (value === "--calculation-slice") { calculationSliceOperationId = requiredValue(next, "--calculation-slice"); index += 1; }
     else if (value === "--assert-source-unavailable") {
       if (!next || next.startsWith("--")) throw new Error("--assert-source-unavailable requer um caminho de checkpoint.");
       assertSourceUnavailable = next;
@@ -134,8 +140,8 @@ function parseArguments(argv: string[]): Arguments {
     else if (value === "--output") { output = next; index += 1; }
     else throw new Error(`Argumento desconhecido: ${value}.`);
   }
-  if (!artifact) throw new Error("Uso: --artifact <literal.json> [--numeric-literal <token>] [--list-operations] [--show-generation-program] [--list-generation-operations --generation-max-new-tokens <n>] [--generation-operation <id> --generation-max-new-tokens <n>] [--operation <id> --output-coordinate <i,j,...> [--token-id <id>] [--position-coordinate <x,y>] [--input-start <i> --input-count <n>]] [--tensor <nome> --offset <bytes> --byte-length <bytes>] [--verify-payloads --assert-source-unavailable <checkpoint>] [--output <report.json>].");
-  if (assertSourceUnavailable !== undefined && !verifyPayloads && !operationId && !numericLiteral && !listOperations && !showGenerationProgram && !listGenerationOperations && !generationOperationId) throw new Error("--assert-source-unavailable requer uma operação de inspeção.");
+  if (!artifact) throw new Error("Uso: --artifact <literal.json> [--numeric-literal <token>] [--calculation-slice <operation-id>] [--list-operations] [--show-generation-program] [--list-generation-operations --generation-max-new-tokens <n>] [--generation-operation <id> --generation-max-new-tokens <n>] [--operation <id> --output-coordinate <i,j,...> [--token-id <id>] [--position-coordinate <x,y>] [--input-start <i> --input-count <n>]] [--tensor <nome> --offset <bytes> --byte-length <bytes>] [--verify-payloads --assert-source-unavailable <checkpoint>] [--output <report.json>].");
+  if (assertSourceUnavailable !== undefined && !verifyPayloads && !operationId && !numericLiteral && !calculationSliceOperationId && !listOperations && !showGenerationProgram && !listGenerationOperations && !generationOperationId) throw new Error("--assert-source-unavailable requer uma operação de inspeção.");
   if ((tensor === undefined && (offset !== 0 || byteLength !== 4096)) || (tensor !== undefined && (!Number.isSafeInteger(offset) || !Number.isSafeInteger(byteLength) || offset < 0 || byteLength <= 0))) {
     throw new Error("--offset e --byte-length requerem --tensor e valores inteiros positivos.");
   }
@@ -154,6 +160,7 @@ function parseArguments(argv: string[]): Arguments {
     ...(generationOperationId ? { generationOperationId } : {}),
     ...(generationMaxNewTokens === undefined ? {} : { generationMaxNewTokens }),
     ...(numericLiteral ? { numericLiteral } : {}),
+    ...(calculationSliceOperationId ? { calculationSliceOperationId } : {}),
   };
 }
 

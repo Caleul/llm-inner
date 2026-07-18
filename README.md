@@ -341,6 +341,22 @@ reconstrói a tabela do próprio programa e rejeita qualquer bit ou uso alterado
 checkpoint. A evidência do E4B real está em
 [`docs/validation/gemma4-e4b-source-removed-numeric-literals-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-numeric-literals-2026-07-18.md).
 
+O leitor também pode partir de qualquer saída instanciada e calcular o fecho
+transitivo exato de seus produtores. `--calculation-slice <operation-id>`
+retorna somente as atribuições necessárias ao alvo, ainda em ordem de
+dependência, mais os inputs do chamador, constantes aprendidas com decoder e
+consumidores, literais numéricos com bits e todas as reduções que permanecem
+fail-closed. Isso permite seguir uma saída até suas entradas sem confundir a
+ordem linear global com dependência real ou omitir um ramo necessário:
+
+```bash
+npm run inspect:gemma4-literal -- \
+  --artifact ./artifacts/gemma4-e4b-dense.literal.json \
+  --calculation-slice final_logit_softcap \
+  --assert-source-unavailable ./gemma-4-E4B-dense \
+  --output /tmp/gemma4-final-logits-calculation-slice.json
+```
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 
