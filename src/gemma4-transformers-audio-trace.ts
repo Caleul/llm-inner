@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { openCatalog } from "./catalog.js";
+import { assertGemma4AuthoritativeRuntime } from "./gemma4-authoritative-runtime.js";
 import type { Gemma4AudioDifferentialTrace } from "./gemma4-literal-audio.js";
 import type { DenseF32Tensor, DifferentialOperationSample } from "./types.js";
 
@@ -45,6 +46,7 @@ export async function captureGemma4TransformersAudioTrace(options: Gemma4Transfo
       inputFeatures: { shape: options.inputFeatures.shape, values: Array.from(options.inputFeatures.values) },
       inputFeaturesMask: options.inputFeaturesMask,
     });
+    assertGemma4AuthoritativeRuntime("audio", native.runtime);
     const trace: Gemma4AudioDifferentialTrace = {
       schemaVersion: 1,
       kind: "gemma4-audio-checkpoints",

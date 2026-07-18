@@ -56,7 +56,7 @@ def main() -> None:
         request["source"], local_files_only=True, torch_dtype=torch.bfloat16, low_cpu_mem_usage=True
     ).eval()
     validate(model)
-    with torch.no_grad():
+    with torch.inference_mode():
         baseline = model.model.get_audio_features(input_features, input_mask, return_dict=True)
     checkpoints: list[dict[str, Any]] = []
     handles: list[Any] = []
@@ -206,7 +206,7 @@ def main() -> None:
     capture(model.model.embed_audio.embedding_pre_projection_norm, "audio_language_projection_norm", "audio_output_normalized")
     capture(model.model.embed_audio.embedding_projection, "audio_language_projection", "audio_projected_features")
 
-    with torch.no_grad():
+    with torch.inference_mode():
         output = model.model.get_audio_features(input_features, input_mask, return_dict=True)
     if not torch.equal(output.pooler_output, baseline.pooler_output) or not torch.equal(output.attention_mask, baseline.attention_mask):
         raise ValueError("Instrumented Gemma 4 audio attention changed authoritative model output.")
@@ -218,7 +218,7 @@ def main() -> None:
     if len(checkpoints) != expected:
         raise ValueError(f"Gemma 4 audio capture emitted {len(checkpoints)} checkpoints; expected {expected}.")
     result = {
-        "runtime": f"transformers-{transformers.__version__}/torch-{torch.__version__}-Gemma4Audio-CPU-eager",
+        "runtime": f"transformers-{transformers.__version__}/torch-{torch.__version__}-Gemma4Audio-CPU-eager-inference-mode",
         "executionDevice": "cpu",
         "dtypePolicy": "native BF16 modules with source-visible F32 RMSNorm and attention promotions; serialized as F32",
         "inputFeatures": {"shape": shape, "values": values},

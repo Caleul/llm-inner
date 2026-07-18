@@ -424,6 +424,16 @@ literais aprendidos sem helpers opacos ou referências simbólicas. A evidência
 real está em
 [`docs/validation/gemma4-e4b-explicit-normalization-reductions-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-normalization-reductions-2026-07-18.md).
 
+O schema v16 incorpora `authoritativeExecution` no próprio programa. O
+artefato fixa o forward composite autoritativo em
+`Gemma4ForConditionalGeneration` CPU eager dentro de `torch.inference_mode`,
+distingue as capturas diagnósticas diretas de áudio e visão e registra, sem
+aproximar, as cinco classes de BMM despachadas para Apple Accelerate SGEMM cuja
+árvore escalar não é publicada. Capturadores, comparadores e o leitor recusam
+traces ou headers `no_grad`/runtime divergentes. A regeneração real, auditoria
+source-removed e evidência do desvio dependente do contexto estão em
+[`docs/validation/gemma4-e4b-authoritative-execution-contract-2026-07-18.md`](docs/validation/gemma4-e4b-authoritative-execution-contract-2026-07-18.md).
+
 O leitor também pode partir de qualquer saída instanciada e calcular o fecho
 transitivo exato de seus produtores. `--calculation-slice <operation-id>`
 retorna somente as atribuições necessárias ao alvo, ainda em ordem de
@@ -591,8 +601,8 @@ escreve o artefato completo em streaming: ranges Safetensors de 12 MiB são
 codificados em base64 sem acumular o pacote ou uma string de vários GiB na
 heap. O resultado local contém os 2,130 payloads originais
 (15,992,314,836 bytes) e é auditado por `npm run audit:literal`. O hash e
-tamanho da exportação schema v15 atual são registrados em
-[`docs/validation/gemma4-e4b-explicit-normalization-reductions-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-normalization-reductions-2026-07-18.md); sua política numérica
+tamanho da exportação schema v16 atual são registrados em
+[`docs/validation/gemma4-e4b-authoritative-execution-contract-2026-07-18.md`](docs/validation/gemma4-e4b-authoritative-execution-contract-2026-07-18.md); sua política numérica
 declara fronteiras de resultado BF16, acumuladores F32/F64 e agendas de redução
 por operação do texto, áudio e visão; toda exportação deve registrar seu próprio hash, pois o programa literal
 inclui as políticas numéricas. As 54 projeções/normas K/V locais dos

@@ -39,6 +39,13 @@ import {
 import { probeGemma4LiteralLinearReductionProfiles } from "../src/gemma4-linear-reduction-probe.js";
 import { executeGemma4PagedTextLiteralF32, generateGemma4PagedTextLiteralF32 } from "../src/gemma4-paged-text.js";
 import { executeGemma4VisionF32 } from "../src/gemma4-vision.js";
+import {
+  assertGemma4AuthoritativeRuntime,
+  gemma4AuthoritativeExecutionContract,
+  GEMMA4_AUDIO_REFERENCE_RUNTIME,
+  GEMMA4_COMPOSITE_REFERENCE_RUNTIME,
+  GEMMA4_VISION_REFERENCE_RUNTIME,
+} from "../src/gemma4-authoritative-runtime.js";
 import { gemma4CompositeTraceProfile } from "../src/gemma4-composite-trace-profile.js";
 import { validateGemma4CompositeTraceOptions } from "../src/gemma4-transformers-composite-trace.js";
 import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearF32 } from "../src/paged-dense.js";
@@ -54,6 +61,21 @@ import type { DenseF32Tensor, ModelCatalog, TensorInfo } from "../src/types.js";
 
 const preview = { outputRows: 1, inputTerms: 1, includeWeights: false } as const;
 const fixtureConfigBytes = Buffer.from("{}");
+
+test("Gemma 4 authoritative traces bind eager inference mode instead of accepting no-grad drift", () => {
+  assert.doesNotThrow(() => assertGemma4AuthoritativeRuntime("audio", GEMMA4_AUDIO_REFERENCE_RUNTIME));
+  assert.doesNotThrow(() => assertGemma4AuthoritativeRuntime("vision", GEMMA4_VISION_REFERENCE_RUNTIME));
+  assert.doesNotThrow(() => assertGemma4AuthoritativeRuntime("composite", GEMMA4_COMPOSITE_REFERENCE_RUNTIME));
+  assert.throws(
+    () => assertGemma4AuthoritativeRuntime("audio", "transformers-5.5.0/torch-2.12.1-Gemma4Audio-CPU-eager"),
+    /esperado .*inference-mode/,
+  );
+  assert.throws(
+    () => assertGemma4AuthoritativeRuntime("composite", "transformers-5.5.0/torch-2.12.1-Gemma4ForConditionalGeneration-CPU-eager"),
+    /esperado .*inference-mode/,
+  );
+});
+
 const fixtureSourceIdentity = (): Gemma4LiteralSourceIdentity => ({
   modelId: "fixture/tiny-gemma4",
   revision: "a".repeat(40),
@@ -344,9 +366,10 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 15);
+  assert.equal(literal.schemaVersion, 16);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
+  assert.deepEqual(literal.authoritativeExecution, gemma4AuthoritativeExecutionContract());
   assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.languageId, literal.generation.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.authority.numericLiteralBits, "/numericLiterals/literals");
@@ -509,6 +532,9 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   const missingMask = structuredClone(literal);
   missingMask.assignments.composite = missingMask.assignments.composite.filter((assignment) => assignment.id !== "composite_sliding_attention_mask");
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(missingMask), /omite uma transição de máscara ou cache obrigatória/);
+  const dishonestRuntime = structuredClone(literal);
+  dishonestRuntime.authoritativeExecution.executionMode = "torch.no_grad" as "torch.inference_mode";
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(dishonestRuntime), /contrato autoritativo de execução/);
   const external = structuredClone(literal);
   external.program.textProgram.source.path = "/checkpoint/model.safetensors";
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(external), /reteve uma referência de source checkpoint/);
@@ -645,9 +671,10 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 15);
+      assert.equal(artifact.schemaVersion, 16);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
+      assert.deepEqual(artifact.authoritativeExecution, gemma4AuthoritativeExecutionContract());
       assert.equal(artifact.constants.size, catalog.tensors.size);
       assert.equal(artifact.program.textProgram.source.path, "embedded://gemma4-composite-literal");
       const tensor = catalog.tensors.get("model.language_model.layers.0.self_attn.q_proj.weight")!;

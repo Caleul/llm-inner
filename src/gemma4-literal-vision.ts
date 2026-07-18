@@ -1,6 +1,7 @@
 import { constants as fsConstants } from "node:fs";
 import { access } from "node:fs/promises";
 import { compareCapturedOperationCheckpoints } from "./differential.js";
+import { assertGemma4AuthoritativeRuntime } from "./gemma4-authoritative-runtime.js";
 import { openGemma4CompositeLiteralArtifact, type OpenGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
 import { executeGemma4VisionF32, type Gemma4VisionExecutionRequest, type Gemma4VisionExecutionResult } from "./gemma4-vision.js";
 import { readLiteralDenseF32Tensor } from "./paged-dense.js";
@@ -110,6 +111,7 @@ function literalTensorInfo(artifact: OpenGemma4CompositeLiteralArtifact, referen
 }
 
 function assertTrace(trace: Gemma4VisionDifferentialTrace): void {
+  assertGemma4AuthoritativeRuntime("vision", trace.reference.runtime);
   const input = trace.reference.pixelValues;
   const rank = trace.invocation === "image" ? 3 : 4;
   const elements = input.shape.reduce((total, dimension) => total * dimension, 1);

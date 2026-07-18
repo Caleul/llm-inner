@@ -5,6 +5,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { openCatalog } from "./catalog.js";
 import { buildGemma4CompositeProgram } from "./gemma4-composite.js";
+import { assertGemma4AuthoritativeRuntime } from "./gemma4-authoritative-runtime.js";
 import { gemma4CompositeTraceProfile, type Gemma4CompositeTraceModality } from "./gemma4-composite-trace-profile.js";
 import { fingerprintIR, readGenerationTraceBundle, sha256File, type GenerationTraceBundle } from "./trace.js";
 
@@ -80,6 +81,7 @@ export async function captureGemma4TransformersCompositeTrace(options: Gemma4Tra
       maxNewTokens: options.maxNewTokens,
       executionDevice: "cpu",
     });
+    assertGemma4AuthoritativeRuntime("composite", native.runtime);
     if (native.executionDevice !== "cpu" || native.modality !== options.modality || native.prefillOperations.length !== 5) {
       throw new Error("Helper composite não declarou CPU e cinco fronteiras de prefill.");
     }

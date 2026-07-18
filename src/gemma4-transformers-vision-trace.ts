@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { openCatalog } from "./catalog.js";
+import { assertGemma4AuthoritativeRuntime } from "./gemma4-authoritative-runtime.js";
 import type { Gemma4VisionDifferentialTrace, Gemma4VisionInvocation } from "./gemma4-literal-vision.js";
 import type { DenseF32Tensor, DifferentialOperationSample } from "./types.js";
 
@@ -43,6 +44,7 @@ export async function captureGemma4TransformersVisionTrace(options: Gemma4Transf
       pixelValues: serializeTensor(options.pixelValues),
       pixelPositionIds: options.pixelPositionIds,
     });
+    assertGemma4AuthoritativeRuntime("vision", native.runtime);
     const trace: Gemma4VisionDifferentialTrace = {
       schemaVersion: 1,
       kind: "gemma4-vision-checkpoints",

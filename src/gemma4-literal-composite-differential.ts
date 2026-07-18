@@ -1,6 +1,7 @@
 import { constants as fsConstants } from "node:fs";
 import { access, readFile } from "node:fs/promises";
 import { compareCapturedOperationCheckpoints, compareGenerationTrace } from "./differential.js";
+import { assertGemma4AuthoritativeRuntime } from "./gemma4-authoritative-runtime.js";
 import { openGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
 import { generateGemma4LiteralCompositeF32 } from "./gemma4-literal-composite.js";
 import { gemma4CompositeTraceProfile, type Gemma4CompositeTraceModality } from "./gemma4-composite-trace-profile.js";
@@ -58,6 +59,7 @@ export async function compareGemma4LiteralCompositeTrace(options: {
     if (exists) throw new Error(`Comparação composite requer source indisponível, mas '${options.assertSourceUnavailable}' ainda existe.`);
   }
   const decoded = await readGenerationTraceBundle(options.trace);
+  assertGemma4AuthoritativeRuntime("composite", decoded.reference.runtime);
   if (decoded.bundle.candidatePolicy.runtime !== "llm-inner embedded-literal Gemma4 composite BF16-policy executor") {
     throw new Error("Trace não declara o executor composite literal esperado.");
   }

@@ -178,7 +178,7 @@ def run(request: dict[str, Any]) -> dict[str, Any]:
     metadata = execution_device_metadata(model, device)
     return {
         "modality": modality,
-        "runtime": "transformers-5.5.0/torch-2.12.1-Gemma4ForConditionalGeneration-CPU-eager",
+        "runtime": "transformers-5.5.0/torch-2.12.1-Gemma4ForConditionalGeneration-CPU-eager-inference-mode",
         **metadata,
         "generatedTokenIds": generated,
         "steps": steps,

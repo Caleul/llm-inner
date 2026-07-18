@@ -127,7 +127,7 @@ def main() -> None:
     capture(model.model.embed_vision.embedding_projection, "vision_language_projection", "image_features")
 
     try:
-        with torch.no_grad():
+        with torch.inference_mode():
             if request["invocation"] == "image":
                 model.model.get_image_features(pixel_values, positions, return_dict=True)
             else:
@@ -155,7 +155,7 @@ def main() -> None:
         raise ValueError(f"Gemma 4 vision capture boundary mismatch: missing={missing}, extra={extra}.")
     checkpoints = [by_id[operation_id] for operation_id in expected_order]
     result = {
-        "runtime": f"transformers-{transformers.__version__}/torch-{torch.__version__}-Gemma4Vision-CPU-eager",
+        "runtime": f"transformers-{transformers.__version__}/torch-{torch.__version__}-Gemma4Vision-CPU-eager-inference-mode",
         "executionDevice": "cpu",
         "dtypePolicy": "native BF16 modules with source-visible F32 RoPE, softmax and pooling promotions; serialized as F32",
         "pixelValues": {"shape": shape, "values": values},

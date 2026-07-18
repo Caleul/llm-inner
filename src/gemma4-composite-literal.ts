@@ -72,6 +72,11 @@ import {
   validateGemma4LiteralSourceIdentity,
   type Gemma4LiteralSourceIdentity,
 } from "./gemma4-literal-source-identity.js";
+import {
+  gemma4AuthoritativeExecutionContract,
+  validateGemma4AuthoritativeExecutionContract,
+  type Gemma4AuthoritativeExecutionContract,
+} from "./gemma4-authoritative-runtime.js";
 
 /** Divisible by three so every non-final base64 chunk has no padding. */
 const BASE64_CHUNK_BYTES = 12 * 1024 * 1024;
@@ -139,7 +144,7 @@ export interface Gemma4LiteralGreedyGenerationProgram {
  * steps remain distinct, named dependencies in the enclosing program.
  */
 export interface Gemma4CompositeLiteralCalculationProgram extends LiteralStorageBundle {
-  schemaVersion: 15;
+  schemaVersion: 16;
   kind: "gemma4-composite-literal-calculation-program";
   sourceFormat: "safetensors";
   /** Gemma 4 checkpoint is dense; packed/quantized decoder variants are forbidden here. */
@@ -148,6 +153,8 @@ export interface Gemma4CompositeLiteralCalculationProgram extends LiteralStorage
   denseDecoderLanguage: LiteralDenseDecoderLanguageContract;
   /** Immutable package identity and exact metadata bytes used to derive semantics. */
   sourceIdentity: Gemma4LiteralSourceIdentity;
+  /** Exact runtime context used as numeric authority, including its unresolved native reduction boundary. */
+  authoritativeExecution: Gemma4AuthoritativeExecutionContract;
   numericPolicy: {
     inputDtype: "I32/F32/BOOL";
     computeDtype: "F32";
@@ -274,10 +281,11 @@ export async function buildGemma4CompositeLiteralCalculationProgram(
   const scalarCalculations = buildGemma4LiteralScalarCalculations(embeddedProgram);
   const generation = gemma4LiteralGreedyGenerationProgram(embeddedProgram, calculationGraph);
   const literal: Gemma4CompositeLiteralCalculationProgram = {
-    schemaVersion: 15,
+    schemaVersion: 16,
     kind: "gemma4-composite-literal-calculation-program",
     sourceFormat: "safetensors",
     sourceIdentity: structuredClone(sourceIdentity),
+    authoritativeExecution: gemma4AuthoritativeExecutionContract(),
     numericPolicy: gemma4CompositeLiteralNumericPolicy(program),
     inputs: literalInputs(),
     constants: storage.constants,
@@ -338,7 +346,7 @@ export async function writeGemma4CompositeLiteralCalculationProgram(
 
   try {
     await once(stream, "open");
-    await write(`{"schemaVersion":15,"kind":"gemma4-composite-literal-calculation-program","sourceFormat":"safetensors","sourceIdentity":${JSON.stringify(sourceIdentity)},"numericPolicy":${JSON.stringify(gemma4CompositeLiteralNumericPolicy(program))},"inputs":${JSON.stringify(literalInputs())},"constants":[`);
+    await write(`{"schemaVersion":16,"kind":"gemma4-composite-literal-calculation-program","sourceFormat":"safetensors","sourceIdentity":${JSON.stringify(sourceIdentity)},"authoritativeExecution":${JSON.stringify(gemma4AuthoritativeExecutionContract())},"numericPolicy":${JSON.stringify(gemma4CompositeLiteralNumericPolicy(program))},"inputs":${JSON.stringify(literalInputs())},"constants":[`);
     for (let index = 0; index < prepared.constants.length; index += 1) {
       const constant = prepared.constants[index]!;
       if (index > 0) await write(",");
@@ -424,11 +432,12 @@ export function generateGemma4CompositeLiteralF32(
  */
 export function validateGemma4CompositeLiteralCalculationProgram(literal: Gemma4CompositeLiteralCalculationProgram): void {
   validateGemma4TextReductionSchedules(literal.program);
-  if (literal.schemaVersion !== 15 || literal.kind !== "gemma4-composite-literal-calculation-program" || literal.sourceFormat !== "safetensors" ||
+  if (literal.schemaVersion !== 16 || literal.kind !== "gemma4-composite-literal-calculation-program" || literal.sourceFormat !== "safetensors" ||
     !sameNumericPolicy(literal.numericPolicy, gemma4CompositeLiteralNumericPolicy(literal.program))) {
     throw new Error("Programa literal Gemma 4 composite possui cabeçalho ou política numérica inválida.");
   }
   validateGemma4LiteralSourceIdentity(literal.sourceIdentity);
+  validateGemma4AuthoritativeExecutionContract(literal.authoritativeExecution);
   validateLiteralDenseDecoderLanguageContract(literal.denseDecoderLanguage);
   validateLiteralStorageBundle(literal);
   const constants = new Map<string, LiteralConstant>(literal.constants.map((constant) => [constant.name, constant]));

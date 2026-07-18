@@ -43,6 +43,10 @@ import {
   validateGemma4LiteralFormulaLanguageContract,
   type Gemma4LiteralFormulaLanguageContract,
 } from "./gemma4-literal-formula-language.js";
+import {
+  validateGemma4AuthoritativeExecutionContract,
+  type Gemma4AuthoritativeExecutionContract,
+} from "./gemma4-authoritative-runtime.js";
 
 const CONSTANTS_MARKER = Buffer.from(",\"constants\":[", "ascii");
 const PAYLOAD_MARKER = Buffer.from(",\"payloadBase64\":\"", "ascii");
@@ -62,10 +66,11 @@ export interface IndexedLiteralConstant extends Omit<LiteralConstant, "payloadBa
  * fields, so opening a 20 GiB artifact does not build a 20 GiB V8 object.
  */
 export interface Gemma4CompositeLiteralArtifactIndex {
-  schemaVersion: 15;
+  schemaVersion: 16;
   artifact: string;
   artifactBytes: number;
   sourceIdentity: Gemma4LiteralSourceIdentity;
+  authoritativeExecution: Gemma4AuthoritativeExecutionContract;
   constants: ReadonlyMap<string, IndexedLiteralConstant>;
   storageDecoders: LiteralDenseStorageDecodeAssignment[];
   denseDecoderLanguage: LiteralDenseDecoderLanguageContract;
@@ -185,6 +190,7 @@ function buildIndex(
   );
   validateGemma4CompositeLiteralInputs(header.inputs as Gemma4CompositeLiteralInput[]);
   validateGemma4LiteralSourceIdentity(header.sourceIdentity as Gemma4LiteralSourceIdentity);
+  validateGemma4AuthoritativeExecutionContract(header.authoritativeExecution as Gemma4AuthoritativeExecutionContract);
   validateGemma4CompositeLiteralStructure(
     tail.program as Gemma4CompositeProgram,
     tail.assignments as Gemma4CompositeLiteralCalculationProgram["assignments"],
@@ -211,10 +217,11 @@ function buildIndex(
     ? undefined
     : validatePayloadIntegrity(tail.payloadIntegrity, constants);
   return {
-    schemaVersion: 15,
+    schemaVersion: 16,
     artifact,
     artifactBytes,
     sourceIdentity: structuredClone(header.sourceIdentity as Gemma4LiteralSourceIdentity),
+    authoritativeExecution: structuredClone(header.authoritativeExecution as Gemma4AuthoritativeExecutionContract),
     constants,
     storageDecoders,
     denseDecoderLanguage: structuredClone(tail.denseDecoderLanguage as LiteralDenseDecoderLanguageContract),
@@ -270,8 +277,8 @@ function assertHeader(header: Partial<Gemma4CompositeLiteralCalculationProgram>)
       policy.scalarSemantics === "IEEE-754 binary32; each operation declares ordered-scalar, contiguous blocked-term, separately-rounded F32-lane, or fused-multiply-add reduction and its F32 or BF16 result cast" ||
       policy.scalarSemantics === "IEEE-754 binary32 products; each operation declares its ordered-scalar, contiguous blocked-term, blocked tiled-lane, or interleaved-lane F32/F64 reduction and F32 or BF16 result cast" ||
       policy.scalarSemantics === "IEEE-754 binary32; each operation declares ordered-scalar, contiguous blocked-term, blocked tiled-lane, separately-rounded F32-lane, or fused-multiply-add reduction and its F32 or BF16 result cast");
-  if (header.schemaVersion !== 15 || header.kind !== "gemma4-composite-literal-calculation-program" || header.sourceFormat !== "safetensors" ||
-    !header.sourceIdentity || !Array.isArray(header.inputs) || !policy || (!f32 && !operationDeclared && !operationAccumulationDeclared)) {
+  if (header.schemaVersion !== 16 || header.kind !== "gemma4-composite-literal-calculation-program" || header.sourceFormat !== "safetensors" ||
+    !header.sourceIdentity || !header.authoritativeExecution || !Array.isArray(header.inputs) || !policy || (!f32 && !operationDeclared && !operationAccumulationDeclared)) {
     throw new Error("Artefato literal Gemma 4 possui cabeçalho ou política numérica inválida.");
   }
 }

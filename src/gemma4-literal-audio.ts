@@ -1,6 +1,7 @@
 import { constants as fsConstants } from "node:fs";
 import { access } from "node:fs/promises";
 import { compareCapturedOperationCheckpoints } from "./differential.js";
+import { assertGemma4AuthoritativeRuntime } from "./gemma4-authoritative-runtime.js";
 import {
   executeGemma4AudioBf16CastF32,
   executeGemma4AudioDerivedAttentionStagesF32,
@@ -200,6 +201,7 @@ function literalTensorInfo(artifact: OpenGemma4CompositeLiteralArtifact, referen
 }
 
 function assertTrace(trace: Gemma4AudioDifferentialTrace): void {
+  assertGemma4AuthoritativeRuntime("audio", trace.reference.runtime);
   const input = trace.reference.inputFeatures;
   const elements = input.shape.reduce((total, dimension) => total * dimension, 1);
   if (trace.schemaVersion !== 1 || trace.kind !== "gemma4-audio-checkpoints" || trace.source.containerFormat !== "safetensors" ||

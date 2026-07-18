@@ -42,6 +42,7 @@ try {
     artifact: artifact.artifact,
     artifactBytes: artifact.artifactBytes,
     sourceIdentity: artifact.sourceIdentity,
+    authoritativeExecution: artifact.authoritativeExecution,
     constants: artifact.constants.size,
     storageDecoders: artifact.storageDecoders.length,
     embeddedTextSource: artifact.program.textProgram.source.path,
