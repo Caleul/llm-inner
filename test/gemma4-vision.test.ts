@@ -48,6 +48,26 @@ test("Gemma 4 vision zeros padding patches before spatial pooling", () => {
   assert.deepEqual([...actual.imageFeatures.values], [...expected.imageFeatures.values]);
 });
 
+test("Gemma 4 vision dispatches BF16 numeric policy across complete operation classes", () => {
+  const catalog = fixture();
+  (catalog.config.vision_config as Record<string, unknown>).dtype = "bfloat16";
+  const program = buildGemma4VisionProgram(catalog);
+  assert.equal(program.runtimeDtype, "BF16");
+  const linears = program.assignments.filter((assignment) => assignment.operation === "linear" || assignment.operation === "clipped-linear");
+  assert.ok(linears.length > 0);
+  for (const assignment of linears) {
+    assert.equal(assignment.dtypePolicy?.reduction?.kind, "arm-neon-bf16-dot-fma", assignment.id);
+    assert.equal(assignment.dtypePolicy?.outputDtype, "BF16", assignment.id);
+  }
+  for (const assignment of program.assignments.filter((entry) => entry.operation === "rms-norm")) {
+    assert.equal(assignment.dtypePolicy?.reduction?.kind, "pytorch-cpu-f32-cascade-sum", assignment.id);
+  }
+  assert.deepEqual(
+    program.assignments.filter((assignment) => assignment.dtypePolicy?.accumulationDtype === "runtime-defined").map((assignment) => assignment.operation),
+    ["bidirectional-attention", "pool-by-position"],
+  );
+});
+
 function fixture(): ModelCatalog {
   const tensors = new Map<string, TensorInfo>();
   const add = (name: string, shape: number[]): void => { tensors.set(name, { name, storageDtype: "F32", storageShape: shape, logicalShape: shape }); };

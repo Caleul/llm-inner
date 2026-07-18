@@ -16,6 +16,7 @@ import {
 } from "../src/gemma4-composite-literal.js";
 import { openGemma4CompositeLiteralArtifact } from "../src/gemma4-composite-literal-reader.js";
 import { listGemma4LiteralOperations, renderGemma4LiteralMultimodalScalarView } from "../src/gemma4-literal-multimodal-scalar-view.js";
+import { executeGemma4LiteralVisionF32 } from "../src/gemma4-literal-vision.js";
 import { listGemma4LiteralTextOperations, renderGemma4LiteralScalarView } from "../src/gemma4-literal-scalar-view.js";
 import {
   verifyGemma4CompositeLiteralEmbeddedPayloadIntegrity,
@@ -23,6 +24,7 @@ import {
 } from "../src/gemma4-composite-literal-payload-verification.js";
 import { probeGemma4LiteralLinearReductionProfiles } from "../src/gemma4-linear-reduction-probe.js";
 import { executeGemma4PagedTextLiteralF32, generateGemma4PagedTextLiteralF32 } from "../src/gemma4-paged-text.js";
+import { executeGemma4VisionF32 } from "../src/gemma4-vision.js";
 import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearF32 } from "../src/paged-dense.js";
 import { fingerprintIR } from "../src/trace.js";
 import type { DenseF32Tensor, ModelCatalog, TensorInfo } from "../src/types.js";
@@ -430,6 +432,8 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
   const root = await mkdtemp(path.join(tmpdir(), "llm-inner-gemma4-paged-"));
   try {
     const catalog = fixture(), program = buildGemma4CompositeProgram(catalog, preview), sourceTensors = materialize(catalog);
+    const pixelValues = patterned([1, 4, 12]), pixelPositionIds = [[[0, 0], [1, 0], [0, 1], [1, 1]]];
+    const expectedVision = executeGemma4VisionF32(program.visionProgram, { pixelValues, pixelPositionIds, tensors: sourceTensors });
     const output = path.join(root, "tiny.gemma4.literal.json");
     await writeGemma4CompositeLiteralCalculationProgram(program, catalog, {
       async readTensorBytes(info) {
@@ -442,6 +446,9 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
     sourceTensors.clear();
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
+      const literalVision = await executeGemma4LiteralVisionF32(artifact, { pixelValues, pixelPositionIds });
+      assert.deepEqual(literalVision.imageFeatures, expectedVision.imageFeatures);
+      assert.equal(literalVision.values.size, expectedVision.values.size);
       const embeddingInfo = artifact.constants.get("model.language_model.embed_tokens.weight")!;
       const projectionInfo = artifact.constants.get("model.language_model.layers.0.self_attn.q_proj.weight")!;
       const embedding = createPagedDenseF32Matrix({ name: embeddingInfo.name, storageDtype: embeddingInfo.storageDtype, storageShape: embeddingInfo.storageShape, logicalShape: embeddingInfo.logicalShape }, artifact, 16);

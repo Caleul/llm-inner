@@ -453,8 +453,8 @@ e executa PLE, RMSNorm, RoPE, atenção, KV por camada produtora, residual, MLP,
 norma final e projeção de vocabulário com os mesmos kernels escalares F32 do
 executor de referência. Ele nunca abre o checkpoint: recebe somente o leitor
 do JSON literal já indexado. O comando textual deliberadamente não recebe
-entradas visuais, vídeo ou áudio; o áudio real possui agora um executor literal
-separado, enquanto imagem e vídeo continuam fail-closed para replay numérico.
+entradas visuais, vídeo ou áudio; áudio e vision possuem executores literais
+separados, e suas classes nativas ainda não transcritas continuam fail-closed.
 
 ```bash
 npm run replay:gemma4-paged-text -- \
@@ -537,6 +537,27 @@ desvio em `audio_subsample_0_relu`, erro final máximo absoluto `0.0625`, cossen
 isso fecha o caminho de execução/diferencial source-removed, mas não a fidelidade
 de áudio nem o checkpoint. Comandos, políticas e métricas estão em
 [`docs/validation/gemma4-e4b-source-removed-audio-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-audio-2026-07-18.md).
+
+A mesma fronteira source-removed agora cobre a torre vision compartilhada por
+imagem e vídeo. O executor resolve 659 referências apenas dos payloads do JSON
+e executa as 394 atribuições de features para imagem ou para frames achatados
+em ordem declarada. Em todo o programa BF16, 114 lineares usam a árvore ARM de
+32 lanes, 113 RMSNorm usam `cascade_sum` e cada saída observável é estreitada
+antes do próximo consumidor. As 16 atenções batched e o pooling continuam
+explicitamente `runtime-defined`; a vista escalar falha fechada nessas classes,
+em vez de reutilizar indevidamente a agenda GEMV textual.
+
+Capturas reais de imagem `[1,9,768]` e vídeo `[1,2,9,768]` compararam 245
+fronteiras cada com o checkpoint ausente. As oito primeiras fronteiras — patch
+embedding, input norm e Q/K/V projection + norm da camada 0 — passaram com
+erro zero nas duas invocações. O primeiro desvio geral é
+`vision_layer_0_o`, com erro absoluto máximo `0.125`; as saídas terminais
+`image_features [1,2560]` e `[2,2560]` permanecem aproximadas, com erros
+absolutos `0.03173828125` e `0.029296875`. Portanto imagem/vídeo agora possuem
+execução, navegação e localização diferencial reais sem fonte, mas ainda não
+fidelidade exata nem autorização para o checkpoint. Comandos e métricas estão
+em
+[`docs/validation/gemma4-e4b-source-removed-vision-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-vision-2026-07-18.md).
 
 Uma captura posterior de todas as 1.229 atribuições declaradas do Gemma4Text
 torna a divergência localizável sem reabrir o checkpoint durante o candidato.

@@ -133,6 +133,9 @@ export async function renderGemma4LiteralMultimodalScalarView(
   if (!rendered && (entry.assignment.tensors?.length ?? 0) !== 0) {
     throw new Error(`${entry.assignment.id}: operação ${operation} usa tensores aprendidos sem vista escalar registrada.`);
   }
+  if (!rendered && base.dtypePolicy.accumulationDtype === "runtime-defined") {
+    throw new Error(`${entry.assignment.id}: vista escalar falha fechada porque a redução ${base.dtypePolicy.computeDtype ?? "nativa"} ainda não possui agenda literal comprovada.`);
+  }
   if (!rendered) {
     const formulas = plainFormulas(artifact, entry, request.outputCoordinate);
     rendered = { ...base, formula: formulas.at(-1)!, scalarAssignments: formulas, learnedScalars: [] };
