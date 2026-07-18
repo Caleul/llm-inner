@@ -500,6 +500,17 @@ vistas escalares não contêm mais `next_feature_row`, `placeholder_at` ou
 `stable_batch_major_true_mask_row`. A prova no pacote real está em
 [`docs/validation/gemma4-e4b-explicit-stable-selection-programs-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-stable-selection-programs-2026-07-18.md).
 
+O schema v23 elimina a prosa de coordenadas das classes restantes que já têm
+semântica autoritativa. Pooling vision calcula cada célula com os programas
+executáveis `VISION_POOL_SLOT` e `VISION_POOL_CELL_HAS_PATCH`; relative shift
+audio calcula a coordenada exata de `pad/view/slice/view` com
+`AUDIO_RELATIVE_SHIFT_SOURCE`; score, máscara e value chunked declaram
+`query_index`/`key_index` e seus bounds; e todos os 90 reshapes de heads usam
+alias row-major explícito. Os executores recusam programas alterados, e as
+vistas source-removed expõem o loop FMA, a seleção booleana e a coordenada
+fonte concreta. A prova no pacote real está em
+[`docs/validation/gemma4-e4b-explicit-coordinate-programs-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-coordinate-programs-2026-07-18.md).
+
 O leitor também pode partir de qualquer saída instanciada e calcular o fecho
 transitivo exato de seus produtores. `--calculation-slice <operation-id>`
 retorna somente as atribuições necessárias ao alvo, ainda em ordem de
@@ -667,8 +678,8 @@ escreve o artefato completo em streaming: ranges Safetensors de 12 MiB são
 codificados em base64 sem acumular o pacote ou uma string de vários GiB na
 heap. O resultado local contém os 2,130 payloads originais
 (15,992,314,836 bytes) e é auditado por `npm run audit:literal`. O hash e
-tamanho da exportação schema v22 atual são registrados em
-[`docs/validation/gemma4-e4b-explicit-stable-selection-programs-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-stable-selection-programs-2026-07-18.md); sua política numérica
+tamanho da exportação schema v23 atual são registrados em
+[`docs/validation/gemma4-e4b-explicit-coordinate-programs-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-coordinate-programs-2026-07-18.md); sua política numérica
 declara fronteiras de resultado BF16, acumuladores F32/F64 e agendas de redução
 por operação do texto, áudio e visão; toda exportação deve registrar seu próprio hash, pois o programa literal
 inclui as políticas numéricas. As 54 projeções/normas K/V locais dos

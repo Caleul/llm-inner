@@ -5,7 +5,7 @@ import { gemma4LiteralNormalizationReductionPrograms } from "./gemma4-literal-no
 
 export interface Gemma4LiteralFormulaLanguageContract {
   kind: "gemma4-literal-formula-language-contract";
-  schemaVersion: 8;
+  schemaVersion: 9;
   languageId: "indexed-ieee754-expression-v1";
   authority: {
     forwardAssignments: "/scalarCalculations/assignments";
@@ -53,17 +53,20 @@ export interface Gemma4LiteralFormulaLanguageContract {
 
 export interface Gemma4LiteralIndexingPrograms {
   kind: "gemma4-literal-indexing-programs";
-  schemaVersion: 2;
+  schemaVersion: 3;
   contiguousVisionGroupId: string[];
   stableTrueCount: string[];
   stableTruePrefixRank: string[];
   stableTrueCoordinateAtRank: string[];
+  visionPoolSlot: string[];
+  visionPoolCellHasPatch: string[];
+  audioRelativeShiftSource: string[];
 }
 
 export function gemma4LiteralIndexingPrograms(): Gemma4LiteralIndexingPrograms {
   return {
     kind: "gemma4-literal-indexing-programs",
-    schemaVersion: 2,
+    schemaVersion: 3,
     contiguousVisionGroupId: [
       "require mm_token_type_ids to be an I32 row and sequence to be an in-bounds I32 coordinate",
       "group=I32(-1); previous_vision=false",
@@ -88,6 +91,97 @@ export function gemma4LiteralIndexingPrograms(): Gemma4LiteralIndexingPrograms {
       "for batch=0..rows-1 ascending: for sequence=0..columns-1 ascending: if mask[batch,sequence] and current==rank return STRUCT(batch=batch,sequence=sequence); if mask[batch,sequence] current=I32(current+1)",
       "absence of a returned coordinate is fail-closed",
     ],
+    visionPoolSlot: [
+      "require pixel_position_ids to be a non-empty row of exact I32 [x,y] pairs; padding is only [-1,-1]; require patch, kernel and pool_cells to be positive in-bounds I32 values except patch may be zero",
+      "if pixel_position_ids[patch]==[-1,-1] result=I32(-1)",
+      "max_x=I32(1+max(pixel_position_ids[index].x for index=0..patches-1 ascending where pixel_position_ids[index]!=[-1,-1])); require at least one non-padding patch",
+      "columns=I32(floor(max_x/kernel)); slot=I32(floor(pixel_position_ids[patch].x/kernel)+columns*floor(pixel_position_ids[patch].y/kernel))",
+      "require slot in 0..pool_cells-1; result=slot",
+    ],
+    visionPoolCellHasPatch: [
+      "require pool_cell to be I32 in 0..pool_cells-1 and validate the complete row through VISION_POOL_SLOT",
+      "result=false",
+      "for patch=0..patches-1 ascending: if VISION_POOL_SLOT(pixel_position_ids,patch,kernel,pool_cells)==pool_cell result=true",
+      "return BOOL(result) after visiting the complete patch domain",
+    ],
+    audioRelativeShiftSource: [
+      "require query_in_block and key_slot to be non-negative I32; require context and relative_length to be positive I32 with key_slot<context and relative_length<=context+1",
+      "padded_length=I32(context+1); flattened=I32(query_in_block*context+key_slot)",
+      "source_query=I32(floor(flattened/padded_length)); source_relative=I32(flattened%padded_length)",
+      "result=source_relative<relative_length ? STRUCT(valid=true,query_in_block=source_query,relative_index=source_relative) : STRUCT(valid=false,query_in_block=source_query,relative_index=I32(-1))",
+    ],
+  };
+}
+
+export interface Gemma4LiteralAudioRelativeShiftSource {
+  valid: boolean;
+  queryInBlock: number;
+  relativeIndex: number;
+}
+
+/** Maps one patch to the exact source-visible Gemma 4 pooling cell, or -1 for padding. */
+export function executeGemma4LiteralVisionPoolSlot(
+  programs: Gemma4LiteralIndexingPrograms,
+  pixelPositionIds: readonly (readonly [number, number])[],
+  patch: number,
+  kernel: number,
+  poolCells: number,
+): number {
+  assertCanonicalIndexingPrograms(programs);
+  validateVisionPoolRequest(pixelPositionIds, patch, kernel, poolCells);
+  const [x, y] = pixelPositionIds[patch]!;
+  const validXs = pixelPositionIds.filter(([candidateX, candidateY]) => candidateX !== -1 || candidateY !== -1).map(([candidateX]) => candidateX);
+  if (validXs.length === 0) throw new Error("Programa de pool vision Gemma 4 requer ao menos um patch válido.");
+  if (x === -1 && y === -1) return -1;
+  const maxX = Math.max(...validXs) + 1;
+  const slot = Math.floor(x / kernel) + Math.floor(maxX / kernel) * Math.floor(y / kernel);
+  if (!Number.isSafeInteger(slot) || slot < 0 || slot >= poolCells) {
+    throw new Error(`Programa de pool vision Gemma 4 produziu slot ${slot} fora de ${poolCells}.`);
+  }
+  return slot;
+}
+
+/** Executes the finite existential pool-mask program without an implicit host reduction. */
+export function executeGemma4LiteralVisionPoolCellHasPatch(
+  programs: Gemma4LiteralIndexingPrograms,
+  pixelPositionIds: readonly (readonly [number, number])[],
+  poolCell: number,
+  kernel: number,
+  poolCells: number,
+): boolean {
+  assertCanonicalIndexingPrograms(programs);
+  if (!Number.isSafeInteger(poolCell) || poolCell < 0 || poolCell >= poolCells) {
+    throw new Error("Programa de máscara pool vision Gemma 4 requer célula válida.");
+  }
+  let result = false;
+  for (let patch = 0; patch < pixelPositionIds.length; patch += 1) {
+    if (executeGemma4LiteralVisionPoolSlot(programs, pixelPositionIds, patch, kernel, poolCells) === poolCell) result = true;
+  }
+  return result;
+}
+
+/** Mirrors the exact pad/view/slice/view source coordinate used by Gemma 4 audio. */
+export function executeGemma4LiteralAudioRelativeShiftSource(
+  programs: Gemma4LiteralIndexingPrograms,
+  queryInBlock: number,
+  keySlot: number,
+  context: number,
+  relativeLength: number,
+): Gemma4LiteralAudioRelativeShiftSource {
+  assertCanonicalIndexingPrograms(programs);
+  if (![queryInBlock, keySlot, context, relativeLength].every(Number.isSafeInteger) || queryInBlock < 0 || keySlot < 0 ||
+    context <= 0 || keySlot >= context || relativeLength <= 0 || relativeLength > context + 1) {
+    throw new Error("Programa de relative shift audio Gemma 4 requer coordenadas e domínios válidos.");
+  }
+  const paddedLength = context + 1;
+  const flattened = queryInBlock * context + keySlot;
+  if (!Number.isSafeInteger(flattened)) throw new Error("Programa de relative shift audio Gemma 4 excedeu I32 seguro.");
+  const sourceQuery = Math.floor(flattened / paddedLength);
+  const sourceRelative = flattened % paddedLength;
+  return {
+    valid: sourceRelative < relativeLength,
+    queryInBlock: sourceQuery,
+    relativeIndex: sourceRelative < relativeLength ? sourceRelative : -1,
   };
 }
 
@@ -159,6 +253,20 @@ function validateBooleanMatrix(mask: readonly (readonly boolean[])[]): number {
     throw new Error("Programa de indexação BOOL Gemma 4 requer matriz retangular não vazia.");
   }
   return columns;
+}
+
+function validateVisionPoolRequest(
+  positions: readonly (readonly [number, number])[],
+  patch: number,
+  kernel: number,
+  poolCells: number,
+): void {
+  const validPositions = positions.length > 0 && positions.every((position) => position.length === 2 &&
+    position.every(Number.isSafeInteger) && ((position[0] === -1 && position[1] === -1) || (position[0] >= 0 && position[1] >= 0)));
+  if (!validPositions || !Number.isSafeInteger(patch) || patch < 0 || patch >= positions.length ||
+    !Number.isSafeInteger(kernel) || kernel <= 0 || !Number.isSafeInteger(poolCells) || poolCells <= 0) {
+    throw new Error("Programa de pool vision Gemma 4 requer posições e domínios I32 válidos.");
+  }
 }
 
 /** Executes only the serialized contiguous-run contract used by every Gemma 4 vision-block mask. */
@@ -298,7 +406,7 @@ function pytorchPairwiseReduce(values: readonly number[], operation: "maximum" |
 export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormulaLanguageContract {
   return {
     kind: "gemma4-literal-formula-language-contract",
-    schemaVersion: 8,
+    schemaVersion: 9,
     languageId: "indexed-ieee754-expression-v1",
     authority: {
       forwardAssignments: "/scalarCalculations/assignments",
@@ -339,7 +447,7 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
     ],
     operators: [
       { notation: "a=b", semantics: "assign the right scalar exactly once to the indexed scalar on the left" },
-      { notation: "a+b, a-b, a*b, a/b, -a", semantics: "evaluate operands left-to-right; arithmetic precision changes only at an explicit cast or declared reduction/FMA boundary" },
+      { notation: "a+b, a-b, a*b, a/b, a%b, -a", semantics: "evaluate operands left-to-right; % is exact non-negative I32 remainder for the indexed programs; arithmetic precision changes only at an explicit cast or declared reduction/FMA boundary" },
       { notation: "a**b", semantics: "real exponentiation followed by the surrounding declared cast; package formulas additionally pin source-visible pow/rsqrt decompositions where fidelity requires them" },
       { notation: "predicate ? a : b", semantics: "evaluate the predicate then only the selected branch" },
       { notation: "==, >, >=, <, <=, &&, ||, !", semantics: "exact comparison or short-circuit Boolean operation over already materialized operands" },
@@ -372,6 +480,9 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
       { notation: "STABLE_TRUE_COUNT", semantics: "execute indexing.programs.stableTrueCount over the complete rectangular BOOL matrix in batch-major order" },
       { notation: "STABLE_TRUE_PREFIX_RANK", semantics: "execute indexing.programs.stableTruePrefixRank and return the number of true coordinates preceding [batch,sequence], or I32(-1) when the requested coordinate is false" },
       { notation: "STABLE_TRUE_COORDINATE_AT_RANK", semantics: "execute indexing.programs.stableTrueCoordinateAtRank and return the unique [batch,sequence] coordinate of the requested zero-based true-row rank" },
+      { notation: "VISION_POOL_SLOT", semantics: "execute indexing.programs.visionPoolSlot over the complete position row and return the exact pool cell, or I32(-1) for padding" },
+      { notation: "VISION_POOL_CELL_HAS_PATCH", semantics: "execute indexing.programs.visionPoolCellHasPatch over the complete ascending patch domain and return whether the requested pool cell receives a valid patch" },
+      { notation: "AUDIO_RELATIVE_SHIFT_SOURCE", semantics: "execute indexing.programs.audioRelativeShiftSource and return the exact valid flag plus source query/relative coordinates for the audio pad-view-slice-view transform" },
       { notation: "EVALUATE(reference in ordinal order)", semantics: "inline the finite referenced calculationGraph assignments with positional bindings; it is never a generic architecture or hidden decoder invocation" },
       { notation: "argmax-lowest-token-id", semantics: "scan token IDs in ascending order and replace the winner only on strictly greater F32 logits; equality retains the lowest ID" },
       { notation: "exact_safe_integer", semantics: "perform exact integer arithmetic and fail if the result is not a safe integer or violates its declared input domain" },
@@ -396,12 +507,12 @@ export function validateGemma4LiteralFormulaLanguageContract(
 }
 
 const REGISTERED_FUNCTIONS = new Set([
-  "ARM_NEON_BF16_DOT_F32", "ARM_SQRT_F32", "BF16", "BOOL", "CONTIGUOUS_VISION_GROUP_ID",
-  "EVALUATE", "F32", "F64", "I32", "ORDERED_F32_DOT", "ORDERED_F32_REDUCE_MAX",
+  "ARM_NEON_BF16_DOT_F32", "ARM_SQRT_F32", "AUDIO_RELATIVE_SHIFT_SOURCE", "BF16", "BOOL", "CONTIGUOUS_VISION_GROUP_ID",
+  "EVALUATE", "F32", "F32_FMA", "F64", "I32", "ORDERED_F32_DOT", "ORDERED_F32_REDUCE_MAX",
   "ORDERED_F32_REDUCE_SUM", "PYTORCH_F32_VECTOR_REDUCE_MAX", "PYTORCH_F32_VECTOR_REDUCE_SUM",
   "PYTORCH_POW_NEGATIVE_HALF_F32", "REDUCE", "SLEEF_COS_F32", "SLEEF_EXP_F32", "SLEEF_LOG1P_F32",
   "SLEEF_SIN_F32", "SLEEF_TANH_F32", "STABLE_TRUE_COORDINATE_AT_RANK", "STABLE_TRUE_COUNT",
-  "STABLE_TRUE_PREFIX_RANK", "STRUCT", "concat", "decode", "exact_product",
+  "STABLE_TRUE_PREFIX_RANK", "STRUCT", "VISION_POOL_CELL_HAS_PATCH", "VISION_POOL_SLOT", "concat", "decode", "exact_product",
   "exact_safe_integer", "floor", "max", "min", "row_major_alias", "tuple",
 ]);
 

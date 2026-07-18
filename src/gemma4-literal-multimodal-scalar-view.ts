@@ -29,6 +29,7 @@ import {
   requiredGemma4LiteralScalarCalculation,
   type Gemma4LiteralScalarCalculation,
 } from "./gemma4-literal-scalar-calculations.js";
+import { executeGemma4LiteralAudioRelativeShiftSource } from "./gemma4-literal-formula-language.js";
 import {
   buildGemma4LiteralLinearReductionAssignments,
   gemma4LiteralScalarProductFormula,
@@ -558,8 +559,21 @@ function plainFormulas(artifact: OpenGemma4CompositeLiteralArtifact, entry: Assi
         `${output} = BF16(SLEEF_${feature < half ? "SIN" : "COS"}_F32(scaled_time))`,
       ];
     }
-    case "pool-by-position": return [`${output} = ${assignmentOutputDtype(assignment) === "BF16" ? "BF16" : "F32"}(ordered_F32_FMA_{patches mapped by floor(x/${artifact.program.visionProgram.tower.poolingKernelSize}),floor(y/${artifact.program.visionProgram.tower.poolingKernelSize}) in ascending patch order}(source, F32(1/F32(${artifact.program.visionProgram.tower.poolingKernelSize ** 2}))))`];
-    case "pool-valid-mask": return [`${output} = BOOL(any non-padding patch maps to this pooling cell)`];
+    case "pool-by-position": {
+      if (coordinate.length !== 3) throw new Error(`${assignment.id}: pool vision requer [batch,pool_cell,hidden].`);
+      const kernel = artifact.program.visionProgram.tower.poolingKernelSize, positions = assignment.inputs[1]!, source = assignment.inputs[0]!;
+      return [
+        `pool_slot[patch]=VISION_POOL_SLOT(${positions}[${coordinate[0]},0..patches-1],patch,${kernel},pool_cells)`,
+        "acc[-1]=F32(0)",
+        `acc[patch]=pool_slot[patch]==${coordinate[1]} ? F32_FMA(acc[patch-1],${source}[${coordinate[0]},patch,${coordinate[2]}],F32(1/F32(${kernel ** 2}))) : acc[patch-1], patch=0..patches-1 ascending`,
+        `${output} = ${assignmentOutputDtype(assignment) === "BF16" ? "BF16" : "F32"}(acc[patches-1])`,
+      ];
+    }
+    case "pool-valid-mask": {
+      if (coordinate.length !== 2) throw new Error(`${assignment.id}: máscara pool vision requer [batch,pool_cell].`);
+      const kernel = artifact.program.visionProgram.tower.poolingKernelSize;
+      return [`${output} = BOOL(VISION_POOL_CELL_HAS_PATCH(${assignment.inputs[0]}[${coordinate[0]},0..patches-1],${coordinate[1]},${kernel},pool_cells))`];
+    }
     case "strip-padding": {
       if (coordinate.length !== 2) throw new Error(`${assignment.id}: strip-padding requer [linha,feature].`);
       const mask = assignment.inputs[1]!;
@@ -591,7 +605,7 @@ function plainFormulas(artifact: OpenGemma4CompositeLiteralArtifact, entry: Assi
       return [`${output} = (${predicate}) ? ${pad} : ${token}`];
     }
     case "vision-feature-program": case "audio-feature-program": case "text-core": return [`${output} = EVALUATE(calculationGraph.assignments where invocationId==${JSON.stringify(assignment.id)} in ordinal order).terminalOutput; every bound assignment is serialized in the artifact`];
-    case "video-frame-flatten": return [`${output} = ${assignment.inputs[0]}[floor(${coordinate[0]}/frames),${coordinate[0]} mod frames,${coordinate.slice(1).join(",")}] (row-major alias; no arithmetic)`];
+    case "video-frame-flatten": return [`${output} = row_major_alias(${assignment.inputs[0]})[floor(${coordinate[0]}/frames),${coordinate[0]}%frames,${coordinate.slice(1).join(",")}]`];
     case "masked-scatter": case "masked-scatter-image-features": case "masked-scatter-audio-features": {
       if (coordinate.length !== 3) throw new Error(`${assignment.id}: masked scatter requer [batch,sequence,feature].`);
       const token = requiredGemma4LiteralPlaceholderTokenId(assignment);
@@ -655,13 +669,20 @@ function visionAttentionValueFormula(artifact: OpenGemma4CompositeLiteralArtifac
 function audioRelativeShiftFormula(artifact: OpenGemma4CompositeLiteralArtifact, assignment: Assignment, coordinate: number[], output: string): string[] {
   if (coordinate.length !== 5) throw new Error(`${assignment.id}: relative shift audio requer [b,h,block,query,context].`);
   const context = audioContext(artifact), relativeLength = Math.floor(context / 2) + 1;
-  const query = coordinate[3]!, keySlot = coordinate[4]!, source = relativeShiftSourceCoordinate(query, keySlot, context, relativeLength);
-  const value = source.relativeIndex === undefined
+  const query = coordinate[3]!, keySlot = coordinate[4]!;
+  const source = executeGemma4LiteralAudioRelativeShiftSource(
+    artifact.formulaLanguage.indexing.programs,
+    query,
+    keySlot,
+    context,
+    relativeLength,
+  );
+  const value = !source.valid
     ? "F32(0)"
     : indexed(assignment.inputs[0]!, [coordinate[0]!, coordinate[1]!, coordinate[2]!, source.queryInBlock, source.relativeIndex]);
   return [
-    `padded_length=${context + 1}; flattened=${query}*${context}+${keySlot}`,
-    `source_query=floor(flattened/padded_length)=${source.queryInBlock}; source_relative=flattened mod padded_length=${source.relativeIndex ?? "padding"}`,
+    `source_coordinate=AUDIO_RELATIVE_SHIFT_SOURCE(${query},${keySlot},${context},${relativeLength})`,
+    `source_coordinate=STRUCT(valid=${source.valid},query_in_block=${source.queryInBlock},relative_index=${source.relativeIndex})`,
     `${output} = ${value}`,
   ];
 }
@@ -685,12 +706,6 @@ function audioAttentionMaskFormula(artifact: OpenGemma4CompositeLiteralArtifact,
   ];
 }
 
-function relativeShiftSourceCoordinate(query: number, keySlot: number, context: number, relativeLength: number): { queryInBlock: number; relativeIndex?: number } {
-  const flattened = query * context + keySlot, paddedLength = context + 1;
-  const queryInBlock = Math.floor(flattened / paddedLength), relativeIndex = flattened % paddedLength;
-  return relativeIndex < relativeLength ? { queryInBlock, relativeIndex } : { queryInBlock };
-}
-
 function audioAttentionSoftmaxFormula(assignment: Assignment, coordinate: number[], output: string): string[] {
   if (coordinate.length !== 5) throw new Error(`${assignment.id}: softmax audio requer [b,h,block,query,context].`);
   const [batch, head, block, query, keySlot] = coordinate;
@@ -704,8 +719,15 @@ function audioAttentionSoftmaxFormula(assignment: Assignment, coordinate: number
 
 function audioAttentionValueFormula(artifact: OpenGemma4CompositeLiteralArtifact, assignment: Assignment, coordinate: number[], output: string): string[] {
   if (coordinate.length !== 3) throw new Error(`${assignment.id}: contexto audio requer [b,t,h*headDim+d].`);
-  const context = audioContext(artifact), merged = coordinate[2]!;
-  return [`${output}=F32(sum_{key_slot=0..${context - 1} ascending and in-bounds}(F32(${assignment.inputs[0]}[b,head,block,query,key_slot]*${assignment.inputs[1]}[b,key_index,${merged}])))`];
+  const context = audioContext(artifact), merged = coordinate[2]!, tower = artifact.program.audioProgram.tower;
+  const head = Math.floor(merged / tower.headDim), block = Math.floor(coordinate[1]! / tower.attentionChunkSize), query = coordinate[1]! % tower.attentionChunkSize;
+  return [
+    `head=${head}; head_feature=${merged % tower.headDim}; block=${block}; query_in_block=${query}`,
+    `key_index[key_slot]=${block}*${tower.attentionChunkSize}-${tower.attentionContextLeft - 1}+key_slot`,
+    "acc[-1]=F32(0)",
+    `acc[key_slot]=0<=key_index[key_slot] && key_index[key_slot]<${assignment.inputs[1]}.shape[1] ? F32(acc[key_slot-1]+F32(${assignment.inputs[0]}[${coordinate[0]},${head},${block},${query},key_slot]*${assignment.inputs[1]}[${coordinate[0]},key_index[key_slot],${merged}])) : acc[key_slot-1], key_slot=0..${context - 1} ascending`,
+    `${output}=F32(acc[${context - 1}])`,
+  ];
 }
 
 function policyFor(assignment: Assignment): DtypePolicy {

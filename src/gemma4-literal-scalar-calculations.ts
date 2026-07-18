@@ -121,12 +121,38 @@ export function buildGemma4LiteralScalarCalculations(program: Gemma4CompositePro
     keys.add(key);
   }
   validateClosedReductionFormulas(assignments);
+  validateExplicitCoordinateFormulas(assignments);
   return {
     kind: "gemma4-literal-scalar-calculations",
     schemaVersion: 1,
     formulaLanguage: "indexed-ieee754-expression-v1",
     assignments,
   };
+}
+
+function validateExplicitCoordinateFormulas(assignments: readonly Gemma4LiteralScalarCalculation[]): void {
+  for (const assignment of assignments) {
+    const formula = assignment.formula;
+    if (assignment.operation === "pool-by-position" && (!formula.includes("VISION_POOL_SLOT") || !formula.includes("F32_FMA"))) {
+      throw new Error(`${assignment.scope}:${assignment.definitionId}: pool vision não declara slot e redução FMA por coordenada.`);
+    }
+    if (assignment.operation === "pool-valid-mask" && !formula.includes("VISION_POOL_CELL_HAS_PATCH")) {
+      throw new Error(`${assignment.scope}:${assignment.definitionId}: máscara pool vision não declara o programa existencial de patches.`);
+    }
+    if (assignment.operation === "relative-attention-shift" && !formula.includes("AUDIO_RELATIVE_SHIFT_SOURCE")) {
+      throw new Error(`${assignment.scope}:${assignment.definitionId}: relative shift audio não declara sua coordenada fonte.`);
+    }
+    if ((assignment.operation === "chunked-attention-content-matmul" || assignment.operation === "chunked-relative-attention-values" ||
+      assignment.operation === "chunked-attention-mask") && (!formula.includes("query_index=") || !formula.includes("key_index="))) {
+      throw new Error(`${assignment.scope}:${assignment.definitionId}: operação chunked audio não declara índices de query e key.`);
+    }
+    if (assignment.operation === "relative-attention-position-matmul" && !formula.includes("query_index=")) {
+      throw new Error(`${assignment.scope}:${assignment.definitionId}: score posicional audio não declara o índice de query.`);
+    }
+    if (assignment.operation === "reshape_heads" && !formula.includes("row_major_alias")) {
+      throw new Error(`${assignment.scope}:${assignment.definitionId}: reshape de heads não declara alias row-major.`);
+    }
+  }
 }
 
 function validateClosedReductionFormulas(assignments: readonly Gemma4LiteralScalarCalculation[]): void {
@@ -253,8 +279,15 @@ function scalarFormula(definition: Definition, program: Gemma4CompositeProgram, 
     case "attention-value-matmul": return `${lhs} = ${cast}(REDUCE(key_patch=0..patches-1, F32(probability[batch,head,query_patch,key_patch]*value[batch,head,key_patch,head_feature])))`;
     case "gelu-tanh": return `${lhs} = ${cast}(F32(F32(0.5*x)*F32(1+SLEEF_TANH_F32(F32(${Math.sqrt(2 / Math.PI)}*F32(x+F32(0.044715*F32(x*F32(x*x)))))))))`;
     case "multiply": return `${lhs} = ${cast}(F32(${input(0)} * ${input(1)}))`;
-    case "pool-by-position": return `${lhs} = ${cast}(REDUCE(patch in stable ascending order mapped to pool_cell, F32(source[batch,patch,hidden]*F32(1/${program.visionProgram.tower.poolingKernelSize ** 2}))))`;
-    case "pool-valid-mask": return `${lhs} = BOOL(any non-padding patch maps to pool_cell)`;
+    case "pool-by-position": {
+      const source = assignment.inputs[0]!, positions = assignment.inputs[1]!, kernel = program.visionProgram.tower.poolingKernelSize;
+      return `${lhs} = ${cast}(acc[patches-1]); pool_slot[patch]=VISION_POOL_SLOT(${positions}[batch,0..patches-1],patch,${kernel},pool_cells); ` +
+        `acc[-1]=F32(0); acc[patch]=pool_slot[patch]==pool_cell ? F32_FMA(acc[patch-1],${source}[batch,patch,hidden],F32(1/F32(${kernel ** 2}))) : acc[patch-1], patch=0..patches-1 ascending`;
+    }
+    case "pool-valid-mask": {
+      const positions = assignment.inputs[0]!, kernel = program.visionProgram.tower.poolingKernelSize;
+      return `${lhs} = BOOL(VISION_POOL_CELL_HAS_PATCH(${positions}[batch,0..patches-1],pool_cell,${kernel},pool_cells))`;
+    }
     case "strip-padding": {
       const source = assignment.inputs[0]!, mask = assignment.inputs[1]!, row = domain.domain.axes[0]?.name, feature = domain.domain.axes[1]?.name;
       if (!row || !feature) throw new Error(`${assignment.id}: strip-padding requer domínio [linha,feature].`);
@@ -278,11 +311,28 @@ function scalarFormula(definition: Definition, program: Gemma4CompositeProgram, 
     case "per-dim-softplus-scale": return `${lhs} = F32(F32(${input()}*F32(${Math.fround(program.audioProgram.tower.headDim ** -0.5 / Math.log(2))}))*BF16(F32(decode(per-dimension-scale)[feature%head_dim]>F32(20) ? decode(per-dimension-scale)[feature%head_dim] : SLEEF_LOG1P_F32(SLEEF_EXP_F32(decode(per-dimension-scale)[feature%head_dim])))))`;
     case "split-gated-linear-unit": return `${lhs} = ${cast}(F32(input[...,hidden]/F32(1+SLEEF_EXP_F32(F32(-input[...,hidden+hidden_size])))))`;
     case "causal-depthwise-convolution": return `${lhs} = ${cast}(REDUCE(kernel_index=0..kernel_size-1, F32((frame-kernel_size+1+kernel_index<0 ? F32(0) : input[batch,frame-kernel_size+1+kernel_index,channel])*decode(convolution-kernel)[channel,0,kernel_index])))`;
-    case "chunked-attention-content-matmul": return `${lhs} = F32(REDUCE(head_feature=0..head_dim-1, F32(q_scaled[batch,head,block*chunk+query_in_block,head_feature]*context_key[batch,head,block,key_slot,head_feature])))`;
-    case "relative-attention-position-matmul": return `${lhs} = F32(REDUCE(head_feature=0..head_dim-1, F32(q_scaled[batch,head,block*chunk+query_in_block,head_feature]*relative_key[relative_position,head,head_feature])))`;
-    case "relative-attention-shift": return `${lhs} = source[batch,head,block,query_in_block,query_in_block+context-1-key_slot] after declared pad-flatten-slice-reshape; out-of-range source is F32(0)`;
+    case "chunked-attention-content-matmul": {
+      const query = assignment.inputs[0]!, key = assignment.inputs[1]!, tower = program.audioProgram.tower;
+      return `${lhs} = query_index<sequence_length && key_index>=0 && key_index<sequence_length ? F32(REDUCE(head_feature=0..head_dim-1,F32(${query}[batch,query_index,head*head_dim+head_feature]*${key}[batch,key_index,head*head_dim+head_feature]))) : F32(0); ` +
+        `query_index=block*${tower.attentionChunkSize}+query_in_block; key_index=block*${tower.attentionChunkSize}-${tower.attentionContextLeft - 1}+key_slot; sequence_length=${query}.shape[1]`;
+    }
+    case "relative-attention-position-matmul": {
+      const query = assignment.inputs[0]!, relative = assignment.inputs[1]!, chunk = program.audioProgram.tower.attentionChunkSize;
+      return `${lhs} = query_index<sequence_length ? F32(REDUCE(head_feature=0..head_dim-1,F32(${query}[batch,query_index,head*head_dim+head_feature]*${relative}[0,relative_position,head*head_dim+head_feature]))) : F32(0); ` +
+        `query_index=block*${chunk}+query_in_block; sequence_length=${query}.shape[1]`;
+    }
+    case "relative-attention-shift": {
+      const source = assignment.inputs[0]!, context = audioAttentionContext(program), relativeLength = Math.floor(context / 2) + 1;
+      return `${lhs} = source_coordinate.valid ? ${source}[batch,head,block,source_coordinate.query_in_block,source_coordinate.relative_index] : F32(0); ` +
+        `source_coordinate=AUDIO_RELATIVE_SHIFT_SOURCE(query_in_block,key_slot,${context},${relativeLength})`;
+    }
     case "attention-softcap": return `${lhs} = F32(${program.audioProgram.tower.attentionLogitCap}*SLEEF_TANH_F32(F32(${input()}/${program.audioProgram.tower.attentionLogitCap})))`;
-    case "chunked-attention-mask": return `${lhs} = eager_additive_mask_entry_is_zero_or_block_padding ? F32(${program.audioProgram.invalidAttentionLogit}) : ${input()}; additive_zero means in-range key with true key mask inside the left context; query padding is ignored before blocked padding`;
+    case "chunked-attention-mask": {
+      const scores = assignment.inputs[0]!, mask = assignment.inputs[1]!, tower = program.audioProgram.tower;
+      return `${lhs} = additive_mask_is_zero || blocked_padding_is_zero ? F32(${program.audioProgram.invalidAttentionLogit}) : ${scores}[batch,head,block,query_in_block,key_slot]; ` +
+        `query_index=block*${tower.attentionChunkSize}+query_in_block; key_index=block*${tower.attentionChunkSize}-${tower.attentionContextLeft - 1}+key_slot; sequence_length=${mask}.shape[1]; ` +
+        `source_entry_exists=query_index<sequence_length && key_index>=0 && key_index<sequence_length; additive_mask_is_zero=source_entry_exists && ${mask}[batch,key_index] && query_index>=key_index && query_index-key_index<${tower.attentionContextLeft}; blocked_padding_is_zero=!source_entry_exists`;
+    }
     case "chunked-relative-attention-softmax": {
       const score = assignment.inputs[0]!;
       return `${lhs} = F32(exponential[key_slot]/total); ` +
@@ -290,7 +340,12 @@ function scalarFormula(definition: Definition, program: Gemma4CompositeProgram, 
         `exponential[key_slot]=SLEEF_EXP_F32(F32(${score}[batch,head,block,query_in_block,key_slot]-maximum)); ` +
         "total=ORDERED_F32_REDUCE_SUM(exponential[key_slot],key_slot=0..context-1)";
     }
-    case "chunked-relative-attention-values": return `${lhs} = F32(REDUCE(key_slot=0..context-1, F32(probability[batch,head,block,query_in_block,key_slot]*context_value[batch,head,block,key_slot,head_feature])))`;
+    case "chunked-relative-attention-values": {
+      const probability = assignment.inputs[0]!, value = assignment.inputs[1]!, tower = program.audioProgram.tower;
+      return `${lhs} = F32(REDUCE(key_slot=0..context-1,key_index>=0 && key_index<sequence_length ? F32(${probability}[batch,head,block,query_in_block,key_slot]*${value}[batch,key_index,hidden]) : F32(0))); ` +
+        `head=floor(hidden/${tower.headDim}); head_feature=hidden%${tower.headDim}; block=floor(frame/${tower.attentionChunkSize}); query_in_block=frame%${tower.attentionChunkSize}; ` +
+        `query_index=block*${tower.attentionChunkSize}+query_in_block; key_index=block*${tower.attentionChunkSize}-${tower.attentionContextLeft - 1}+key_slot; sequence_length=${value}.shape[1]`;
+    }
     case "cast-bf16": return `${lhs} = BF16(${input()})`;
     case "subsample-mask": return `${lhs} = ${assignment.inputs[0]}[batch,2*frame]`;
   }
@@ -310,7 +365,7 @@ function textFormula(operation: Operation, lhs: string): string {
     case "per_layer_embedding": return `${lhs} = ${cast}(decode(weight)[input_ids[batch,sequence],layer*${operation.layerWidth}+feature]${operation.scale === undefined ? "" : `*F32(${operation.scale})`})`;
     case "rms_norm": return `${lhs} = ${cast}(F32(input*PYTORCH_POW_NEGATIVE_HALF_F32(F32(REDUCE(feature=0..${operation.reductionSize ?? "width"}-1,F32(input*input))/${operation.reductionSize ?? "width"}+F32(${operation.epsilon}))))${operation.weightTransform === "one_plus_weight" ? "*F32(1+decode(normalization-scale)[feature])" : operation.weightTransform === "direct" ? "*decode(normalization-scale)[feature]" : ""})`;
     case "linear": return linearFormula(lhs, operation.input, cast, operation.bias !== undefined, false, operation.dtypePolicy.reduction);
-    case "reshape_heads": return `${lhs} = ${operation.input}[batch,sequence,head*${operation.headDim}+head_feature] as ${operation.layout}`;
+    case "reshape_heads": return `${lhs} = row_major_alias(${operation.input})[batch,sequence,head*${operation.headDim}+head_feature]`;
     case "reshape_per_layer": return `${lhs} = ${operation.input}[batch,sequence,layer*${operation.layerWidth}+feature]`;
     case "select_per_layer": return `${lhs} = ${operation.input}[batch,sequence,${operation.layerIndex},feature]`;
     case "rotary_embedding": return textRotaryFormula(operation, lhs, cast);
@@ -457,7 +512,7 @@ function reductionIndices(definition: Definition, program: Gemma4CompositeProgra
     case "masked-softmax": return ["key_patch=0..patches-1"];
     case "attention-value-matmul": return ["key_patch=0..patches-1"];
     case "chunked-relative-attention-softmax": case "chunked-relative-attention-values": return ["key_slot=0..context-1"];
-    case "pool-by-position": return ["patch=0..patches-1 mapped to pool_cell"];
+    case "pool-by-position": return ["patch=0..patches-1"];
     case "scaled_dot_product_attention": return ["head_feature=0..head_dim-1", "key=0..K-1"];
     default: return [];
   }
@@ -504,6 +559,11 @@ function textSlidingWindow(program: Gemma4CompositeProgram): number {
     .map((operation) => (operation as Extract<Operation, { op: "scaled_dot_product_attention" }>).slidingWindow!));
   if (windows.size !== 1) throw new Error("Programa Gemma 4 não declara uma janela deslizante textual única.");
   return [...windows][0]!;
+}
+
+function audioAttentionContext(program: Gemma4CompositeProgram): number {
+  const tower = program.audioProgram.tower;
+  return tower.attentionChunkSize + tower.attentionContextLeft - 1 + tower.attentionContextRight;
 }
 
 function numericConfig(value: unknown, name: string): number {

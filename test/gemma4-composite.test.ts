@@ -22,10 +22,13 @@ import { buildGemma4LiteralEndToEndCalculation } from "../src/gemma4-literal-end
 import { evaluateGemma4LiteralLearnedOperandIndices } from "../src/gemma4-literal-learned-operands.js";
 import { buildGemma4LiteralScalarCalculations } from "../src/gemma4-literal-scalar-calculations.js";
 import {
+  executeGemma4LiteralAudioRelativeShiftSource,
   executeGemma4LiteralContiguousVisionGroupId,
   executeGemma4LiteralStableTrueCoordinateAtRank,
   executeGemma4LiteralStableTrueCount,
   executeGemma4LiteralStableTruePrefixRank,
+  executeGemma4LiteralVisionPoolCellHasPatch,
+  executeGemma4LiteralVisionPoolSlot,
   executeGemma4LiteralSoftmaxReductionProgram,
   gemma4LiteralIndexingPrograms,
   gemma4LiteralSoftmaxReductionPrograms,
@@ -421,14 +424,15 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 22);
+  assert.equal(literal.schemaVersion, 23);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   assert.deepEqual(literal.authoritativeExecution, gemma4AuthoritativeExecutionContract());
   assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.languageId, literal.generation.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.authority.numericLiteralBits, "/numericLiterals/literals");
-  assert.equal(literal.formulaLanguage.schemaVersion, 8);
+  assert.equal(literal.formulaLanguage.schemaVersion, 9);
+  assert.equal(literal.formulaLanguage.indexing.programs.schemaVersion, 3);
   assert.deepEqual(
     [-1, 0, 0, -1, 1, 1, -1, 2],
     [0, 1, 2, 0, 2, 1, 0, 1].map((_, sequence) => executeGemma4LiteralContiguousVisionGroupId(
@@ -451,6 +455,22 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   const alteredStablePrograms = structuredClone(gemma4LiteralIndexingPrograms());
   alteredStablePrograms.stableTruePrefixRank[1] = "rank=I32(1)";
   assert.throws(() => executeGemma4LiteralStableTruePrefixRank(alteredStablePrograms, stableMask, 0, 1), /ausente ou alterado/);
+  const poolPositions = [[0, 0], [1, 0], [2, 0], [3, 0], [-1, -1]] as const;
+  assert.deepEqual(poolPositions.map((_, patch) => executeGemma4LiteralVisionPoolSlot(
+    literal.formulaLanguage.indexing.programs, poolPositions, patch, 2, 2,
+  )), [0, 0, 1, 1, -1]);
+  assert.equal(executeGemma4LiteralVisionPoolCellHasPatch(literal.formulaLanguage.indexing.programs, poolPositions, 0, 2, 2), true);
+  assert.equal(executeGemma4LiteralVisionPoolCellHasPatch(literal.formulaLanguage.indexing.programs, poolPositions, 1, 2, 2), true);
+  assert.throws(() => executeGemma4LiteralVisionPoolSlot(literal.formulaLanguage.indexing.programs, [[-1, -1]], 0, 2, 1), /ao menos um patch válido/);
+  assert.deepEqual(executeGemma4LiteralAudioRelativeShiftSource(literal.formulaLanguage.indexing.programs, 0, 2, 4, 3), {
+    valid: true, queryInBlock: 0, relativeIndex: 2,
+  });
+  assert.deepEqual(executeGemma4LiteralAudioRelativeShiftSource(literal.formulaLanguage.indexing.programs, 0, 3, 4, 3), {
+    valid: false, queryInBlock: 0, relativeIndex: -1,
+  });
+  const alteredCoordinatePrograms = structuredClone(gemma4LiteralIndexingPrograms());
+  alteredCoordinatePrograms.visionPoolSlot[1] = "result=I32(0)";
+  assert.throws(() => executeGemma4LiteralVisionPoolSlot(alteredCoordinatePrograms, poolPositions, 0, 2, 2), /ausente ou alterado/);
   assert.throws(() => validateGemma4LiteralFormulaFunctionCoverage(["y=hidden_runtime_helper(x)"]), /helper opaco/);
   assert.equal(literal.formulaLanguage.authority.transcendentalPrograms, "/transcendentalPrograms");
   assert.deepEqual(literal.transcendentalPrograms, buildGemma4LiteralTranscendentalPrograms());
@@ -515,6 +535,17 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.equal(stripFormulas.length, 2);
   assert.ok(stripFormulas.every((entry) => entry.formula.includes("STABLE_TRUE_COORDINATE_AT_RANK") && entry.formula.includes("STABLE_TRUE_COUNT")));
   assert.equal(serializedFormulas.some((formula) => /next_feature_row|placeholder_at|stable_batch_major_true_mask_row/.test(formula)), false);
+  const visionPoolFormula = literal.scalarCalculations.assignments.find((entry) => entry.definitionId === "vision_pool")!.formula;
+  const visionPoolMaskFormula = literal.scalarCalculations.assignments.find((entry) => entry.definitionId === "vision_pool_mask")!.formula;
+  assert.match(visionPoolFormula, /VISION_POOL_SLOT/);
+  assert.match(visionPoolFormula, /F32_FMA/);
+  assert.match(visionPoolMaskFormula, /VISION_POOL_CELL_HAS_PATCH/);
+  const audioCoordinateFormulas = literal.scalarCalculations.assignments.filter((entry) => entry.scope === "audio" &&
+    ["chunked-attention-content-matmul", "relative-attention-position-matmul", "relative-attention-shift", "chunked-attention-mask", "chunked-relative-attention-values"].includes(entry.operation));
+  assert.equal(audioCoordinateFormulas.length, 5);
+  assert.ok(audioCoordinateFormulas.every((entry) => /query_index=|AUDIO_RELATIVE_SHIFT_SOURCE/.test(entry.formula)));
+  assert.match(audioCoordinateFormulas.find((entry) => entry.operation === "relative-attention-shift")!.formula, /AUDIO_RELATIVE_SHIFT_SOURCE/);
+  assert.equal(serializedFormulas.some((formula) => /mapped to pool_cell|any non-padding patch|after declared pad-flatten-slice-reshape|eager_additive_mask_entry_is_zero_or_block_padding/.test(formula)), false);
   const missingScatterToken = structuredClone(literal.program);
   delete missingScatterToken.assignments.find((entry) => entry.id === "composite_image_scatter")!.placeholderTokenId;
   assert.throws(() => buildGemma4LiteralScalarCalculations(missingScatterToken), /placeholderTokenId autoritativo/);
@@ -831,7 +862,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 22);
+      assert.equal(artifact.schemaVersion, 23);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.deepEqual(artifact.authoritativeExecution, gemma4AuthoritativeExecutionContract());
@@ -1266,7 +1297,12 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       const visionPool = await renderGemma4LiteralMultimodalScalarView(artifact, {
         operationId: "composite_image_features/vision_pool", outputCoordinate: [0, 0, 0],
       });
-      assert.ok(visionPool.formula.includes("ordered_F32_FMA"));
+      assert.ok(visionPool.scalarAssignments.some((formula) => formula.includes("VISION_POOL_SLOT")));
+      assert.ok(visionPool.scalarAssignments.some((formula) => formula.includes("F32_FMA")));
+      const visionPoolMask = await renderGemma4LiteralMultimodalScalarView(artifact, {
+        operationId: "composite_image_features/vision_pool_mask", outputCoordinate: [0, 0],
+      });
+      assert.match(visionPoolMask.formula, /VISION_POOL_CELL_HAS_PATCH/);
       const visionRope = await renderGemma4LiteralMultimodalScalarView(artifact, {
         operationId: "composite_image_features/vision_layer_0_q_rope", outputCoordinate: [0, 0, 0, 0],
       });
@@ -1333,7 +1369,7 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       const shiftedAudioPosition = await renderGemma4LiteralMultimodalScalarView(artifact, {
         operationId: "composite_audio_features/audio_layer_0_attention_relative_shift", outputCoordinate: [0, 0, 0, 0, 0],
       });
-      assert.ok(shiftedAudioPosition.scalarAssignments.some((formula) => formula.includes("source_query=floor")));
+      assert.ok(shiftedAudioPosition.scalarAssignments.some((formula) => formula.includes("AUDIO_RELATIVE_SHIFT_SOURCE")));
       assert.doesNotMatch(shiftedAudioPosition.formula, /composite_audio_features\/composite_audio_features/);
       const audioLogit = await renderGemma4LiteralMultimodalScalarView(artifact, {
         operationId: "composite_audio_features/audio_layer_0_attention_logit_add", outputCoordinate: [0, 0, 0, 0, 0],
