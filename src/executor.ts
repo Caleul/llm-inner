@@ -808,7 +808,7 @@ export function rmsNormF32(input: DenseF32Tensor, weight: DenseF32Tensor | undef
   const epsilon = f32(operation.epsilon);
   for (let offset = 0; offset < input.values.length; offset += width) {
     const sum = operation.dtypePolicy.reduction?.kind === "pytorch-cpu-f32-cascade-sum"
-      ? rmsNormPytorchCpuCascadeSum(input, offset, width)
+      ? pytorchCpuCascadeSquareSumF32(input, offset, width)
       : operation.dtypePolicy.accumulationDtype === "F64"
         ? rmsNormF32ProductsF64Accumulation(input, offset, width)
         : rmsNormF32ProductsF32Accumulation(input, offset, width);
@@ -837,7 +837,7 @@ function rmsNormF32ProductsF64Accumulation(input: DenseF32Tensor, offset: number
 }
 
 /** Scalar replay of SumKernel.cpp's vectorized_inner_sum/cascade_sum path. */
-function rmsNormPytorchCpuCascadeSum(input: DenseF32Tensor, offset: number, width: number): number {
+export function pytorchCpuCascadeSquareSumF32(input: DenseF32Tensor, offset: number, width: number): number {
   if (width % 16 !== 0) throw new Error(`PyTorch CPU cascade RMS requer largura divisível por 16; recebeu ${width}.`);
   const lanes = 4, registers = 4, levels = 4;
   const unitCount = width / (lanes * registers);

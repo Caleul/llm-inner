@@ -367,10 +367,10 @@ escreve o artefato completo em streaming: ranges Safetensors de 12 MiB são
 codificados em base64 sem acumular o pacote ou uma string de vários GiB na
 heap. O resultado local contém os 2,130 payloads originais
 (15,992,314,836 bytes) e é auditado por `npm run audit:literal`. O hash
-`fb46de6b4ed24cad96e37e3223d8a1c40942b87342f65290a59a0680e90bfd3d`
-identifica a exportação atual, cuja política numérica declara fronteiras de
-resultado BF16, acumuladores F32/F64 e agendas de redução por operação do
-texto; toda exportação deve registrar seu próprio hash, pois o programa literal
+`0ec0c382e09af1bc28805e59778c9ede69e9aa1133bdbd04edbb8b781f1d8483`
+identifica a exportação atual de `21.327.893.565` bytes, cuja política numérica
+declara fronteiras de resultado BF16, acumuladores F32/F64 e agendas de redução
+por operação do texto e do áudio; toda exportação deve registrar seu próprio hash, pois o programa literal
 inclui as políticas numéricas. As 54 projeções/normas K/V locais dos
 consumidores compartilhados são incorporadas com proveniência explícita em
 `unreachableConstants`; o grafo usa apenas os KV do produtor declarado. A
@@ -452,9 +452,9 @@ artefato indexado, lê vetores de norma/escala sob o mesmo orçamento explícito
 e executa PLE, RMSNorm, RoPE, atenção, KV por camada produtora, residual, MLP,
 norma final e projeção de vocabulário com os mesmos kernels escalares F32 do
 executor de referência. Ele nunca abre o checkpoint: recebe somente o leitor
-do JSON literal já indexado. O comando deliberadamente não recebe entradas
-visuais, vídeo ou áudio; esses ramos continuam fail-closed até terem kernels
-de armazenamento paginado próprios.
+do JSON literal já indexado. O comando textual deliberadamente não recebe
+entradas visuais, vídeo ou áudio; o áudio real possui agora um executor literal
+separado, enquanto imagem e vídeo continuam fail-closed para replay numérico.
 
 ```bash
 npm run replay:gemma4-paged-text -- \
@@ -508,15 +508,35 @@ textual cached. O scalar view expõe `SLEEF_SIN_F32`, `SLEEF_COS_F32`,
 `SLEEF_TANH_F32`, `SLEEF_EXP_F32`, as árvores ARM e cada cast BF16 dentro das
 fórmulas indexadas. O range reducer SLEEF `rempif` completo também está
 transcrito: a tabela F32 little-endian de 1.664 bytes é incorporada ao contrato
-de todas as 66 operações RoPE e uma comparação real na posição 125 passou as
-1.229 atribuições, logits e caches em tolerância zero com a fonte removida.
-Essa nova fronteira é evidência candidata; o checkpoint continua proibido
-porque a execução diferencial multimodal real permanece aberta.
+de todas as 66 operações RoPE. O loop seguinte repetiu independentemente uma
+comparação real na posição 125: as 1.229 atribuições, logits e caches passaram
+em tolerância zero com a fonte removida, aceitando também a fronteira
+full-range. O checkpoint continua proibido porque a execução diferencial
+multimodal real permanece aberta.
 Comandos, hash do artefato e métricas estão em
 [`docs/validation/gemma4-e4b-exact-cached-attention-2026-07-18.md`](docs/validation/gemma4-e4b-exact-cached-attention-2026-07-18.md); a fronteira anterior está preservada em
 [`docs/validation/gemma4-e4b-source-dispatched-text-math-2026-07-18.md`](docs/validation/gemma4-e4b-source-dispatched-text-math-2026-07-18.md). O contrato
 full-range e sua validação estão em
 [`docs/validation/gemma4-e4b-full-range-rope-2026-07-18.md`](docs/validation/gemma4-e4b-full-range-rope-2026-07-18.md).
+
+O ramo de áudio real também é agora executável diretamente do artefato. O
+materializador limitado por tensor decodifica `752` referências densas a partir
+do próprio JSON e alimenta as `523` atribuições nomeadas da torre de 12 camadas,
+sem catálogo ou fallback para Safetensors. O adaptador aplica a política BF16
+por classe em todo o ramo: 134 lineares bias-free usam a árvore ARM de 32 lanes,
+109 RMSNorm usam `cascade_sum`, e cada resultado de módulo BF16 é estreitado
+antes do consumidor seguinte. As 17 operações nativas ainda sem transcrição
+completa de redução (Conv2d, LayerNorm de canais, depthwise e linear com bias)
+declaram `runtime-defined` e a vista escalar falha fechada nelas.
+
+Uma captura real de um frame comparou 20 fronteiras de módulo. Com o diretório
+do checkpoint ausente, o executor chegou ao `audio_features [1,2560]` somente
+dos payloads incorporados; o resultado permanece `approximate`, com primeiro
+desvio em `audio_subsample_0_relu`, erro final máximo absoluto `0.0625`, cosseno
+`0.9999528084610771`, top-k overlap `1` e argmax agreement verdadeiro. Portanto
+isso fecha o caminho de execução/diferencial source-removed, mas não a fidelidade
+de áudio nem o checkpoint. Comandos, políticas e métricas estão em
+[`docs/validation/gemma4-e4b-source-removed-audio-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-audio-2026-07-18.md).
 
 Uma captura posterior de todas as 1.229 atribuições declaradas do Gemma4Text
 torna a divergência localizável sem reabrir o checkpoint durante o candidato.
@@ -863,8 +883,10 @@ Ele não aproxima o encoder como um Conformer genérico: declara os dois Conv2d
 com máscaras `::2`, LayerNorm por canal, posição relativa, atenção local por
 blocos com shift relativo e softcap, FFNs/clips/resíduos, GLU/convolução causal
 profunda, projeções e stripping/scatter de tokens de áudio. Também continua a
-ser apenas uma feature branch F32: a montagem texto+imagem+áudio+vídeo, casts
-BF16, cache e geração do pacote composto seguem pendentes.
+ser um limite separado da montagem texto+imagem+áudio+vídeo: o replay literal
+BF16 do próprio tower e seu diferencial real estão descritos abaixo, enquanto
+o scatter composto, cache e geração multimodal ainda não têm comparação
+autoritativa.
 
 O programa externo composto está em
 [`src/gemma4-composite.ts`](src/gemma4-composite.ts) e sua evidência em

@@ -17,6 +17,32 @@ export interface PagedDenseF32Matrix {
 }
 
 /**
+ * Materialize one complete dense literal tensor without consulting its source
+ * container. This is intentionally bounded per tensor rather than per model:
+ * multimodal feature programs can decode hundreds of modest parameters while
+ * still rejecting a single unexpectedly large allocation.
+ */
+export async function readLiteralDenseF32Tensor(
+  tensor: TensorInfo,
+  reader: Pick<LiteralTensorReader, "readTensorBytesRange">,
+  maxTensorBytes = 16 * 1024 * 1024,
+): Promise<DenseF32Tensor> {
+  if (!reader.readTensorBytesRange) throw new Error(`${tensor.name}: materialização literal requer readTensorBytesRange.`);
+  if (tensor.quantization || (tensor.storageDtype !== "F32" && tensor.storageDtype !== "F16" && tensor.storageDtype !== "BF16") ||
+    !sameShape(tensor.storageShape, tensor.logicalShape) || tensor.storageShape.some((dimension) => !Number.isSafeInteger(dimension) || dimension < 0)) {
+    throw new Error(`${tensor.name}: materialização literal requer storage denso F32/F16/BF16 sem quantização.`);
+  }
+  const elements = tensor.storageShape.reduce((total, dimension) => total * dimension, 1);
+  const byteLength = elements * (tensor.storageDtype === "F32" ? 4 : 2);
+  if (!Number.isSafeInteger(byteLength) || byteLength <= 0 || byteLength > maxTensorBytes) {
+    throw new Error(`${tensor.name}: tensor de ${byteLength} bytes excede maxTensorBytes=${maxTensorBytes}.`);
+  }
+  const bytes = await reader.readTensorBytesRange(tensor, 0, byteLength);
+  if (bytes.length !== byteLength) throw new Error(`${tensor.name}: leitor literal retornou ${bytes.length} bytes; esperados ${byteLength}.`);
+  return { shape: [...tensor.logicalShape], values: decodeDenseRows(bytes, tensor.storageDtype) };
+}
+
+/**
  * Widens one bounded dense vector from declared literal storage. Vectors are
  * intentionally separate from matrices: norms and scalar tensors do not gain
  * an invented row-major matrix layout merely to reuse a projection kernel.

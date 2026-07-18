@@ -34,6 +34,24 @@ test("Gemma 4 audio masks invalid frames before subsampling and rejects wrong pl
   assert.throws(() => executeGemma4AudioF32(program, { inputFeatures: dense([1, 4, 16], 0), inputFeaturesMask: [[true]], tensors }), /input_features \[B,T,F\].*input_features_mask/);
 });
 
+test("Gemma 4 audio BF16 policy dispatches every compatible assignment by operation class", () => {
+  const catalog = fixture();
+  (catalog.config.audio_config as Record<string, unknown>).dtype = "bfloat16";
+  for (const [name, tensor] of catalog.tensors) if (name.startsWith("model.audio_tower") || name.startsWith("model.embed_audio")) {
+    catalog.tensors.set(name, { ...tensor, storageDtype: "BF16" });
+  }
+  const program = buildGemma4AudioProgram(catalog);
+  assert.equal(program.runtimeDtype, "BF16");
+  const biasFree = program.assignments.filter((assignment) =>
+    (assignment.operation === "linear" || assignment.operation === "clipped-linear") && assignment.id !== "audio_output_projection");
+  assert.ok(biasFree.length > 0);
+  assert.ok(biasFree.every((assignment) => assignment.dtypePolicy?.reduction?.kind === "arm-neon-bf16-dot-fma" && assignment.dtypePolicy.outputDtype === "BF16"));
+  assert.ok(program.assignments.filter((assignment) => assignment.operation === "rms-norm")
+    .every((assignment) => assignment.dtypePolicy?.reduction?.kind === "pytorch-cpu-f32-cascade-sum" && assignment.dtypePolicy.outputDtype === "BF16"));
+  assert.equal(program.assignments.find((assignment) => assignment.id === "audio_layer_0_attention")?.dtypePolicy?.outputDtype, "F32");
+  assert.equal(program.assignments.find((assignment) => assignment.id === "audio_output_projection")?.dtypePolicy?.accumulationDtype, "runtime-defined");
+});
+
 test("Gemma 4 audio refuses a missing runtime numeric contract instead of applying a local default", () => {
   const catalog = fixture();
   delete (catalog.config.audio_config as Record<string, unknown>).gradient_clipping;

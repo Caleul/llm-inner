@@ -247,6 +247,9 @@ async function renderLinear(
   base: ScalarBase,
 ): Promise<Gemma4LiteralScalarView> {
   const assignment = entry.assignment;
+  if (base.dtypePolicy.accumulationDtype === "runtime-defined") {
+    throw new Error(`${assignment.id}: vista escalar falha fechada porque o kernel nativo ${base.dtypePolicy.computeDtype ?? "desconhecido"} ainda não possui agenda de redução literal.`);
+  }
   const tensors = assignment.tensors ?? [];
   const weight = tensors.find((tensor) => tensor.shape.length === 2);
   if (!weight) throw new Error(`${assignment.id}: linear literal sem matriz [out,in].`);
@@ -268,29 +271,40 @@ async function renderLinear(
   if (bias) learnedScalars.push(bias);
   const bounds = assignment.operation === "clipped-linear" ? await readClippingBounds(artifact, tensors, weight) : undefined;
   if (bounds) learnedScalars.push(...bounds.values);
-  const inputExpression = (inputIndex: number): string => bounds
+  const inputExpression = (inputIndex: number | string): string => bounds
     ? `F32(min(${bounds.output[1]}, max(${bounds.output[0]}, ${indexed(assignment.inputs[0]!, [...prefix, inputIndex])})))`
     : indexed(assignment.inputs[0]!, [...prefix, inputIndex]);
   if (bounds) {
     terms.forEach((term) => { term.input = inputExpression(term.inputIndex); term.formula = `product[${term.inputIndex}] = F32(${term.input} * ${term.learned.literal})`; });
   }
   const initial = bias ? bias.literal : "0";
-  const reduced = bounds ? `F32(min(${bounds.output[3]}, max(${bounds.output[2]}, acc[${inFeatures! - 1}])))` : `acc[${inFeatures! - 1}]`;
+  const schedule = base.dtypePolicy.reduction ?? { kind: "ordered-scalar", indexOrder: "ascending" } as const;
+  const arm = schedule.kind === "arm-neon-bf16-dot-fma";
+  const accumulationAssignments = arm ? [
+    `register[0..${schedule.laneCount - 1}] = F32(0)`,
+    `register[i mod ${schedule.laneCount}] = F32_FMA(register[i mod ${schedule.laneCount}], ${inputExpression("i")}, weight[${outputFeature},i]), i=0..floor(${inFeatures}/${schedule.laneCount})*${schedule.laneCount}-1`,
+    `dot = F32(ARM_NEON_${schedule.registerCount}x${schedule.lanesPerRegister}_REGISTER_TREE_PAIRWISE(register) + VECTOR_TAIL_8 + ASCENDING_SCALAR_TAIL)`,
+  ] : [
+    `acc[-1] = ${initial}`,
+    `acc[i] = F32(acc[i-1] + product[i]), i=0..${inFeatures! - 1} in ascending order`,
+  ];
+  const accumulated = arm ? "dot" : `acc[${inFeatures! - 1}]`;
+  const castResult = base.dtypePolicy.outputDtype === "BF16" ? `BF16(${accumulated})` : accumulated;
+  const reduced = bounds ? `${base.dtypePolicy.outputDtype === "BF16" ? "BF16" : "F32"}(min(${bounds.output[3]}, max(${bounds.output[2]}, ${castResult})))` : castResult;
   const formula = `${base.output} = ${reduced}`;
   return {
     ...base,
     formula,
     scalarAssignments: [
       ...terms.map((term) => term.formula),
-      `acc[-1] = ${initial}`,
-      `acc[i] = F32(acc[i-1] + product[i]), i=0..${inFeatures! - 1} in ascending order`,
+      ...accumulationAssignments,
       formula,
     ],
     learnedScalars,
     terms,
     reduction: {
       bounds: { startInclusive: 0, endExclusive: inFeatures! },
-      schedule: { kind: "ordered-scalar", indexOrder: "ascending" },
+      schedule: structuredClone(schedule),
       complete: window.start === 0 && window.end === inFeatures,
       renderedWindow: { startInclusive: window.start, endExclusive: window.end },
       omittedTerms: inFeatures! - (window.end - window.start),
@@ -324,13 +338,17 @@ async function renderRmsNorm(artifact: OpenGemma4CompositeLiteralArtifact, entry
     : entry.scope === "audio" ? artifact.program.audioProgram.rmsNormEpsilon
       : numericConfig(artifact.program.textProgram.config.rms_norm_eps, "text_config.rms_norm_eps");
   const input = indexed(entry.assignment.inputs[0]!, request.outputCoordinate);
-  const formula = `${base.output} = F32(F32(${input} * inv_rms) * ${learned?.literal ?? "1"})`;
+  const result = `F32(F32(${input} * inv_rms) * ${learned?.literal ?? "1"})`;
+  const formula = `${base.output} = ${base.dtypePolicy.outputDtype === "BF16" ? `BF16(${result})` : result}`;
+  const sumFormula = base.dtypePolicy.reduction?.kind === "pytorch-cpu-f32-cascade-sum"
+    ? `sum = PYTORCH_CPU_F32_CASCADE_SUM(square[0..${width - 1}], vector_lanes=4, ilp=4, levels=4, register_fold=ascending, lane_fold=ascending)`
+    : `sum = F32(sum_{i=0..${width - 1} in ascending order}(square[i]))`;
   return {
     ...base,
     formula,
     scalarAssignments: [
       `square[i] = F32(${indexed(entry.assignment.inputs[0]!, [...request.outputCoordinate.slice(0, -1), "i"])} * ${indexed(entry.assignment.inputs[0]!, [...request.outputCoordinate.slice(0, -1), "i"])})`,
-      `sum = F32(sum_{i=0..${width - 1} in ascending order}(square[i]))`,
+      sumFormula,
       `inv_rms = F32(F32(F32(sum / F32(${width})) + F32(${literal(epsilon)}))^-0.5)`,
       formula,
     ],
@@ -418,7 +436,7 @@ function plainFormulas(artifact: OpenGemma4CompositeLiteralArtifact, entry: Assi
     case "multiply": return [`${output} = F32(${inputs[0]} * ${inputs[1]})`];
     case "pixel-affine": return [`${output} = F32(2 * F32(${inputs[0]} - 0.5))`];
     case "relu": return [`${output} = F32(max(0, ${inputs[0]}))`];
-    case "silu": return [`${output} = F32(${inputs[0]} / F32(1 + exp(F32(-${inputs[0]}))))`];
+    case "silu": return [`${output} = ${assignmentOutputDtype(assignment) === "BF16" ? "BF16" : "F32"}(F32(${inputs[0]} / F32(1 + SLEEF_EXP_F32(F32(-${inputs[0]})))))`];
     case "gelu-tanh": return [`${output} = F32(F32(0.5*${inputs[0]}) * F32(1+F32(tanh(F32(sqrt(2/pi)*F32(${inputs[0]}+F32(0.044715*F32(${inputs[0]}*F32(${inputs[0]}*${inputs[0]})))))))))`];
     case "clip": return [`${output} = F32(min(${literal(artifact.program.audioProgram.gradientClipping)}, max(${literal(-artifact.program.audioProgram.gradientClipping)}, ${inputs[0]})))`];
     case "scale-f32": return [`${output} = F32(${inputs[0]} * F32(${literal(scaleFor(artifact, entry))}))`];
@@ -437,9 +455,18 @@ function plainFormulas(artifact: OpenGemma4CompositeLiteralArtifact, entry: Assi
     case "chunked-relative-attention": return audioAttentionFormula(artifact, assignment, coordinate, output);
     case "split-gated-linear-unit": {
       const half = artifact.program.audioProgram.tower.hiddenSize, d = last(coordinate, assignment.id);
-      return [`${output} = F32(${indexed(assignment.inputs[0]!, [...coordinate.slice(0, -1), d])} / F32(1 + exp(F32(-${indexed(assignment.inputs[0]!, [...coordinate.slice(0, -1), half + d])}))))`];
+      return [`${output} = ${assignmentOutputDtype(assignment) === "BF16" ? "BF16" : "F32"}(F32(${indexed(assignment.inputs[0]!, [...coordinate.slice(0, -1), d])} / F32(1 + SLEEF_EXP_F32(F32(-${indexed(assignment.inputs[0]!, [...coordinate.slice(0, -1), half + d])})))))`];
     }
-    case "relative-position-encoding": return [`${output} = deterministic_sin_cos_relative_position[${coordinate.join(",")}] with context=${audioContext(artifact)} and F32 rounding after scale,sin,cos`];
+    case "relative-position-encoding": {
+      if (coordinate.length !== 2) throw new Error(`${assignment.id}: posição relativa requer [position,feature].`);
+      const width = artifact.program.audioProgram.tower.hiddenSize, half = width / 2, feature = coordinate[1]!, frequency = feature % half;
+      return [
+        `increment = F32(log(10000)/F32(${half - 1}))`,
+        `inverse_timescale = SLEEF_EXP_F32(F32(-${frequency} * increment))`,
+        `scaled_time = F32(F32(${audioContext(artifact) / 2 - coordinate[0]!}) * inverse_timescale)`,
+        `${output} = BF16(SLEEF_${feature < half ? "SIN" : "COS"}_F32(scaled_time))`,
+      ];
+    }
     case "pool-by-position": return [`${output} = F32(sum_{patches mapped by floor(x/${artifact.program.visionProgram.tower.poolingKernelSize}),floor(y/${artifact.program.visionProgram.tower.poolingKernelSize}) in patch order}(F32(source / F32(${artifact.program.visionProgram.tower.poolingKernelSize ** 2}))))`];
     case "pool-valid-mask": return [`${output} = BOOL(any non-padding patch maps to this pooling cell)`];
     case "strip-padding": return [`${output} = ${assignment.inputs[0]}[stable_batch_major_true_mask_row,${coordinate.at(-1)}]`];
@@ -486,15 +513,20 @@ function audioAttentionFormula(artifact: OpenGemma4CompositeLiteralArtifact, ass
   return [
     `AC[key_slot]=F32(sum_{i=0..${dim - 1} ascending}(F32(${assignment.inputs[0]}[${coordinate[0]},${coordinate[1]},${head}*${dim}+i]*${assignment.inputs[1]}[${coordinate[0]},key_index,${head}*${dim}+i])))`,
     `BD[key_slot]=F32(sum_{i=0..${dim - 1} ascending}(F32(relative_shift(${assignment.inputs[0]})[${coordinate[0]},${coordinate[1]},${head}*${dim}+i]*${assignment.inputs[3]}[relative_index,${head}*${dim}+i])))`,
-    `score[key_slot]=F32(F32(tanh(F32((allowed ? F32(AC+BD) : ${literal(artifact.program.audioProgram.invalidAttentionLogit)})/${literal(tower.attentionLogitCap)})))*${literal(tower.attentionLogitCap)}), key_slot=0..${context - 1}`,
-    "probability[key_slot]=F32(exp(F32(score[key_slot]-max(score)))/F32(sum_key_slot_ascending(exp(F32(score[key_slot]-max(score))))))",
+    `score[key_slot]=F32(F32(SLEEF_TANH_F32(F32((allowed ? F32(AC+BD) : ${literal(artifact.program.audioProgram.invalidAttentionLogit)})/${literal(tower.attentionLogitCap)})))*${literal(tower.attentionLogitCap)}), key_slot=0..${context - 1}`,
+    "probability[key_slot]=F32(SLEEF_EXP_F32(F32(score[key_slot]-max(score)))/F32(sum_key_slot_ascending(SLEEF_EXP_F32(F32(score[key_slot]-max(score))))))",
     `${output}=F32(sum_{key_slot=0..${context - 1} ascending and in-bounds}(F32(probability[key_slot]*${assignment.inputs[2]}[${coordinate[0]},key_index,${merged}])))`,
   ];
 }
 
 function policyFor(assignment: Assignment): DtypePolicy {
+  if ("dtypePolicy" in assignment && assignment.dtypePolicy) return structuredClone(assignment.dtypePolicy);
   return assignment.operation === "linear" || assignment.operation === "clipped-linear" || assignment.operation === "conv2d-stride2" || assignment.operation === "causal-depthwise-convolution" || assignment.operation === "layer-norm-channels" || assignment.operation === "rms-norm"
     ? structuredClone(F32_REDUCTION_POLICY) : structuredClone(F32_POLICY);
+}
+
+function assignmentOutputDtype(assignment: Assignment): string | undefined {
+  return "dtypePolicy" in assignment ? assignment.dtypePolicy?.outputDtype : undefined;
 }
 
 async function readClippingBounds(artifact: OpenGemma4CompositeLiteralArtifact, tensors: TensorRef[], weight: TensorRef): Promise<{ values: Gemma4LiteralLearnedScalar[]; output: [string, string, string, string] }> {
