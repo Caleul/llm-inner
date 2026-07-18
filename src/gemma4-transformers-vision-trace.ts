@@ -11,6 +11,8 @@ import type { DenseF32Tensor, DifferentialOperationSample } from "./types.js";
 interface SerializedTensor { shape: number[]; values: number[] }
 interface NativeVisionCapture {
   runtime: string;
+  executionMode: "torch.inference_mode";
+  attentionImplementation: "eager";
   executionDevice: "cpu";
   dtypePolicy: string;
   pixelValues: SerializedTensor;
@@ -44,7 +46,7 @@ export async function captureGemma4TransformersVisionTrace(options: Gemma4Transf
       pixelValues: serializeTensor(options.pixelValues),
       pixelPositionIds: options.pixelPositionIds,
     });
-    assertGemma4AuthoritativeRuntime("vision", native.runtime);
+    assertGemma4AuthoritativeRuntime("vision", native);
     const trace: Gemma4VisionDifferentialTrace = {
       schemaVersion: 1,
       kind: "gemma4-vision-checkpoints",
@@ -52,6 +54,8 @@ export async function captureGemma4TransformersVisionTrace(options: Gemma4Transf
       source: { model: options.model, revisionOrChecksum: options.revisionOrChecksum, containerFormat: "safetensors", quantization: "none; dense BF16 storage" },
       reference: {
         runtime: native.runtime,
+        executionMode: native.executionMode,
+        attentionImplementation: native.attentionImplementation,
         executionDevice: native.executionDevice,
         dtypePolicy: native.dtypePolicy,
         pixelValues: dense(native.pixelValues),

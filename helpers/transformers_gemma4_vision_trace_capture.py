@@ -59,6 +59,8 @@ def main() -> None:
         attn_implementation="eager",
     ).eval()
     validate(model)
+    if model.config._attn_implementation != "eager" or model.config.vision_config._attn_implementation != "eager":
+        raise ValueError("Gemma 4 vision capture requires eager attention mask construction.")
     checkpoints: list[dict[str, Any]] = []
     handles: list[Any] = []
     attention_intermediates: dict[str, dict[str, Any]] = {}
@@ -156,6 +158,8 @@ def main() -> None:
     checkpoints = [by_id[operation_id] for operation_id in expected_order]
     result = {
         "runtime": f"transformers-{transformers.__version__}/torch-{torch.__version__}-Gemma4Vision-CPU-eager-inference-mode",
+        "executionMode": "torch.inference_mode",
+        "attentionImplementation": model.config._attn_implementation,
         "executionDevice": "cpu",
         "dtypePolicy": "native BF16 modules with source-visible F32 RoPE, softmax and pooling promotions; serialized as F32",
         "pixelValues": {"shape": shape, "values": values},

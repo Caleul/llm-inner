@@ -59,7 +59,15 @@ export async function compareGemma4LiteralCompositeTrace(options: {
     if (exists) throw new Error(`Comparação composite requer source indisponível, mas '${options.assertSourceUnavailable}' ainda existe.`);
   }
   const decoded = await readGenerationTraceBundle(options.trace);
-  assertGemma4AuthoritativeRuntime("composite", decoded.reference.runtime);
+  const referenceContext = decoded.reference as typeof decoded.reference & {
+    executionMode?: unknown;
+    attentionImplementation?: unknown;
+  };
+  assertGemma4AuthoritativeRuntime("composite", {
+    runtime: referenceContext.runtime,
+    executionMode: referenceContext.executionMode,
+    attentionImplementation: referenceContext.attentionImplementation,
+  });
   if (decoded.bundle.candidatePolicy.runtime !== "llm-inner embedded-literal Gemma4 composite BF16-policy executor") {
     throw new Error("Trace não declara o executor composite literal esperado.");
   }

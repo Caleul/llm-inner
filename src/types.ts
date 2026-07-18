@@ -710,6 +710,10 @@ export interface DifferentialKeyValueCacheSample {
  */
 export interface DifferentialReferenceTrace {
   runtime: string;
+  /** Explicit framework context when execution mode changes numerical semantics. */
+  executionMode?: string;
+  /** Explicit attention/mask backend when dispatch changes mathematical behavior. */
+  attentionImplementation?: string;
   /**
    * Canonical device family used by the authoritative runtime, when the
    * capture contract establishes one. CPU and MPS linear kernels are distinct
@@ -811,6 +815,10 @@ export interface DifferentialComparisonReport {
  */
 export interface DifferentialGenerationReferenceTrace {
   runtime: string;
+  /** Explicit framework context when execution mode changes numerical semantics. */
+  executionMode?: string;
+  /** Explicit attention/mask backend when dispatch changes mathematical behavior. */
+  attentionImplementation?: string;
   /** See DifferentialReferenceTrace.executionDevice. */
   executionDevice?: string;
   /** See DifferentialReferenceTrace.executionDeviceDetail. */

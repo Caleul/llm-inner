@@ -9,6 +9,12 @@ export const GEMMA4_COMPOSITE_REFERENCE_RUNTIME =
 
 export type Gemma4AuthoritativeRuntimeScope = "audio" | "vision" | "composite";
 
+export interface Gemma4AuthoritativeTraceContext {
+  runtime: string;
+  executionMode: unknown;
+  attentionImplementation: unknown;
+}
+
 export interface Gemma4AuthoritativeExecutionContract {
   kind: "gemma4-authoritative-execution-contract";
   schemaVersion: 1;
@@ -68,18 +74,22 @@ export function validateGemma4AuthoritativeExecutionContract(
 
 /**
  * A trace is numeric evidence only for the exact execution contract which
- * produced it.  In particular, PyTorch no-grad and inference-mode are not
- * interchangeable around the native Apple Accelerate matmul boundaries.
+ * produced it. PyTorch no-grad/inference-mode and SDPA/eager mask construction
+ * are not interchangeable around the audio and native matmul boundaries.
  */
 export function assertGemma4AuthoritativeRuntime(
   scope: Gemma4AuthoritativeRuntimeScope,
-  actual: string,
+  actual: Gemma4AuthoritativeTraceContext,
 ): void {
   const expected = scope === "audio" ? GEMMA4_AUDIO_REFERENCE_RUNTIME
     : scope === "vision" ? GEMMA4_VISION_REFERENCE_RUNTIME
       : GEMMA4_COMPOSITE_REFERENCE_RUNTIME;
-  if (actual !== expected) {
-    throw new Error(`Trace Gemma 4 ${scope} usa runtime '${actual}', esperado '${expected}'.`);
+  if (actual.runtime !== expected || actual.executionMode !== "torch.inference_mode" || actual.attentionImplementation !== "eager") {
+    throw new Error(
+      `Trace Gemma 4 ${scope} usa contexto runtime='${actual.runtime}', executionMode='${String(actual.executionMode)}', ` +
+      `attentionImplementation='${String(actual.attentionImplementation)}'; esperado runtime='${expected}', ` +
+      "executionMode='torch.inference_mode', attentionImplementation='eager'.",
+    );
   }
 }
 import { isDeepStrictEqual } from "node:util";

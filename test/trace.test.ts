@@ -9,7 +9,7 @@ import { openCatalog } from "../src/catalog.js";
 import { compareCapturedOperationCheckpoints } from "../src/differential.js";
 import { executeReferenceF32, executeReferenceF64, generateReferenceF32, generateReferenceF64 } from "../src/executor.js";
 import { materializeReferenceF32Constants, materializeReferenceF64Constants } from "../src/materialize.js";
-import { fingerprintIR, readExecutionTraceBundle } from "../src/trace.js";
+import { fingerprintIR, readExecutionTraceBundle, readGenerationTraceBundle } from "../src/trace.js";
 import { runExecutionTraceComparison, runGenerationTraceComparison } from "../src/trace-runner.js";
 import { captureMlxTrace } from "../src/mlx-trace-capture.js";
 import { assertGemma4NativeOperationCoverage, selectGemma4MlpLinearCaptureTarget, selectGemma4TextLinearCaptureTarget } from "../src/gemma4-transformers-operation-trace.js";
@@ -511,6 +511,51 @@ test("trace bundle rejects decimal-array tensor payloads and unsafe checkpoint p
       reference: { runtime: "test", model: "test", revisionOrChecksum: "test", containerFormat: "safetensors", quantization: "none", inputTokens: [[0]], dtypePolicy: "F32", operations: [{ operationId: "x", output: "x", tensor: { dtype: "F32", shape: [1], values: [1] } }], pastKeyValues: [] },
     }));
     await assert.rejects(() => readExecutionTraceBundle(trace), /valuesBase64/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("trace bundles preserve and validate the declared execution mode and attention implementation", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "llm-inner-trace-context-"));
+  const tensor = serialized({ shape: [1, 1, 1], values: Float32Array.of(0) });
+  const context = { executionMode: "torch.inference_mode", attentionImplementation: "eager" };
+  try {
+    const executionPath = path.join(directory, "execution.json");
+    const execution = {
+      schemaVersion: 1, kind: "execution", irFingerprint: "0".repeat(64),
+      source: { files: [{ path: "model.safetensors", sha256: "0".repeat(64) }] },
+      candidatePolicy: { dtype: "F32", runtime: "test" },
+      reference: {
+        runtime: "pinned runtime", ...context, model: "test", revisionOrChecksum: "test", containerFormat: "safetensors",
+        quantization: "none", inputTokens: [[0]], dtypePolicy: "F32", operations: [{ operationId: "x", output: "x", tensor }], pastKeyValues: [],
+      },
+    };
+    await writeFile(executionPath, JSON.stringify(execution));
+    assert.deepEqual((await readExecutionTraceBundle(executionPath)).reference, {
+      ...execution.reference,
+      inputTokens: [[0]],
+      operations: [{ operationId: "x", output: "x", tensor: { shape: [1, 1, 1], values: Float32Array.of(0) } }],
+    });
+
+    const generationPath = path.join(directory, "generation.json");
+    const generation = {
+      schemaVersion: 1, kind: "generation", irFingerprint: "0".repeat(64),
+      source: execution.source, candidatePolicy: execution.candidatePolicy,
+      reference: {
+        runtime: "pinned runtime", ...context, model: "test", revisionOrChecksum: "test", containerFormat: "safetensors",
+        quantization: "none", inputTokens: [0], promptPositionIds: [0], dtypePolicy: "F32", maxNewTokens: 1,
+        generatedTokenIds: [0], steps: [{ tokenId: 0, positionId: 1 }], selectionLogits: [tensor], stepPastKeyValues: [[]], logits: tensor, pastKeyValues: [],
+      },
+    };
+    await writeFile(generationPath, JSON.stringify(generation));
+    const decodedGeneration = await readGenerationTraceBundle(generationPath);
+    assert.equal(decodedGeneration.reference.executionMode, "torch.inference_mode");
+    assert.equal(decodedGeneration.reference.attentionImplementation, "eager");
+
+    execution.reference.executionMode = " ";
+    await writeFile(executionPath, JSON.stringify(execution));
+    await assert.rejects(() => readExecutionTraceBundle(executionPath), /executionMode deve ser string não vazia/);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

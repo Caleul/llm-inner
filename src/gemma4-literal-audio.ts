@@ -29,6 +29,8 @@ export interface Gemma4AudioDifferentialTrace {
   };
   reference: {
     runtime: string;
+    executionMode: "torch.inference_mode";
+    attentionImplementation: "eager";
     executionDevice: "cpu";
     dtypePolicy: string;
     inputFeatures: DenseF32Tensor;
@@ -201,7 +203,7 @@ function literalTensorInfo(artifact: OpenGemma4CompositeLiteralArtifact, referen
 }
 
 function assertTrace(trace: Gemma4AudioDifferentialTrace): void {
-  assertGemma4AuthoritativeRuntime("audio", trace.reference.runtime);
+  assertGemma4AuthoritativeRuntime("audio", trace.reference);
   const input = trace.reference.inputFeatures;
   const elements = input.shape.reduce((total, dimension) => total * dimension, 1);
   if (trace.schemaVersion !== 1 || trace.kind !== "gemma4-audio-checkpoints" || trace.source.containerFormat !== "safetensors" ||

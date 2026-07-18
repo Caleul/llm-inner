@@ -11,6 +11,8 @@ import type { DenseF32Tensor, DifferentialOperationSample } from "./types.js";
 interface SerializedTensor { shape: number[]; values: number[] }
 interface NativeAudioCapture {
   runtime: string;
+  executionMode: "torch.inference_mode";
+  attentionImplementation: "eager";
   executionDevice: "cpu";
   dtypePolicy: string;
   inputFeatures: SerializedTensor;
@@ -46,7 +48,7 @@ export async function captureGemma4TransformersAudioTrace(options: Gemma4Transfo
       inputFeatures: { shape: options.inputFeatures.shape, values: Array.from(options.inputFeatures.values) },
       inputFeaturesMask: options.inputFeaturesMask,
     });
-    assertGemma4AuthoritativeRuntime("audio", native.runtime);
+    assertGemma4AuthoritativeRuntime("audio", native);
     const trace: Gemma4AudioDifferentialTrace = {
       schemaVersion: 1,
       kind: "gemma4-audio-checkpoints",
@@ -58,6 +60,8 @@ export async function captureGemma4TransformersAudioTrace(options: Gemma4Transfo
       },
       reference: {
         runtime: native.runtime,
+        executionMode: native.executionMode,
+        attentionImplementation: native.attentionImplementation,
         executionDevice: native.executionDevice,
         dtypePolicy: native.dtypePolicy,
         inputFeatures: dense(native.inputFeatures),

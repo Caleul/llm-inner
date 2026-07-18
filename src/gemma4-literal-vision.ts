@@ -26,6 +26,8 @@ export interface Gemma4VisionDifferentialTrace {
   };
   reference: {
     runtime: string;
+    executionMode: "torch.inference_mode";
+    attentionImplementation: "eager";
     executionDevice: "cpu";
     dtypePolicy: string;
     pixelValues: DenseF32Tensor;
@@ -111,7 +113,7 @@ function literalTensorInfo(artifact: OpenGemma4CompositeLiteralArtifact, referen
 }
 
 function assertTrace(trace: Gemma4VisionDifferentialTrace): void {
-  assertGemma4AuthoritativeRuntime("vision", trace.reference.runtime);
+  assertGemma4AuthoritativeRuntime("vision", trace.reference);
   const input = trace.reference.pixelValues;
   const rank = trace.invocation === "image" ? 3 : 4;
   const elements = input.shape.reduce((total, dimension) => total * dimension, 1);

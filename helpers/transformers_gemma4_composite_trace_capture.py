@@ -61,6 +61,8 @@ def run(request: dict[str, Any]) -> dict[str, Any]:
         attn_implementation="eager",
     ).to(device).eval()
     validate(model)
+    if model.config._attn_implementation != "eager":
+        raise ValueError("Gemma 4 composite capture requires eager attention mask construction.")
 
     modality = request.get("modality")
     profiles = {
@@ -179,6 +181,8 @@ def run(request: dict[str, Any]) -> dict[str, Any]:
     return {
         "modality": modality,
         "runtime": "transformers-5.5.0/torch-2.12.1-Gemma4ForConditionalGeneration-CPU-eager-inference-mode",
+        "executionMode": "torch.inference_mode",
+        "attentionImplementation": model.config._attn_implementation,
         **metadata,
         "generatedTokenIds": generated,
         "steps": steps,

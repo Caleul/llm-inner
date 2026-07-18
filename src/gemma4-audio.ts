@@ -41,6 +41,7 @@ const BF16_RMS_POLICY = {
 export interface Gemma4AudioProgram {
   kind: "gemma4-audio-features";
   sourceFormat: "safetensors";
+  attentionMaskContract: "transformers-eager-additive-mask-logical-not-v1";
   tower: Gemma4AudioTowerContract;
   textHiddenSize: number;
   rmsNormEpsilon: number;
@@ -128,7 +129,19 @@ export function buildGemma4AudioProgram(catalog: ModelCatalog): Gemma4AudioProgr
     { id: "audio_placeholder_scatter", operation: "masked-scatter-audio-features", inputs: ["text_embeddings", "input_ids", "audio_features"], output: "text_embeddings_with_audio", semantics: "replace only audio_token_id coordinates; feature rows and placeholders must agree exactly" },
   );
   for (const assignment of assignments) assignment.dtypePolicy = audioAssignmentDtypePolicy(assignment, runtimeDtype);
-  return { kind: "gemma4-audio-features", sourceFormat: "safetensors", tower: contract.modalities.audioTower, textHiddenSize: contract.text.hiddenSize, rmsNormEpsilon: epsilon, gradientClipping, invalidAttentionLogit, runtimeDtype, assignments, output: "audio_features" };
+  return {
+    kind: "gemma4-audio-features",
+    sourceFormat: "safetensors",
+    attentionMaskContract: "transformers-eager-additive-mask-logical-not-v1",
+    tower: contract.modalities.audioTower,
+    textHiddenSize: contract.text.hiddenSize,
+    rmsNormEpsilon: epsilon,
+    gradientClipping,
+    invalidAttentionLogit,
+    runtimeDtype,
+    assignments,
+    output: "audio_features",
+  };
 }
 
 /** Executes every declared audio assignment with scalar IEEE binary32 boundaries. */
@@ -219,7 +232,7 @@ function layerAssignments(layer: number, prefix: string, refs: (names: string[])
     { id: `audio_layer_${layer}_attention_relative_shift`, operation: "relative-attention-shift", inputs: [`audio_layer_${layer}_attention_bd_unshifted`], output: `audio_layer_${layer}_attention_bd`, semantics: "source pad(context+1-relative_length), flatten, prefix slice and reshape into context slots" },
     { id: `audio_layer_${layer}_attention_logit_add`, operation: "attention-logit-add", inputs: [`audio_layer_${layer}_attention_ac`, `audio_layer_${layer}_attention_bd`], output: `audio_layer_${layer}_attention_logits`, semantics: "F32 AC + relative-shifted BD" },
     { id: `audio_layer_${layer}_attention_softcap`, operation: "attention-softcap", inputs: [`audio_layer_${layer}_attention_logits`], output: `audio_layer_${layer}_attention_softcapped`, semantics: "F32(SLEEF_TANH_F32(F32(logit / cap)) * cap) before masking" },
-    { id: `audio_layer_${layer}_attention_mask`, operation: "chunked-attention-mask", inputs: [`audio_layer_${layer}_attention_softcapped`, "audio_output_mask"], output: `audio_layer_${layer}_attention_scores`, semantics: "retain only valid causal local-context logits; fill all other slots with attention_invalid_logits_value" },
+    { id: `audio_layer_${layer}_attention_mask`, operation: "chunked-attention-mask", inputs: [`audio_layer_${layer}_attention_softcapped`, "audio_output_mask"], output: `audio_layer_${layer}_attention_scores`, semantics: "pinned eager source: create additive 4-D local mask, pad/gather it to blocked 5-D, then masked_fill(mask.logical_not()); zero allowed/padding entries are filled and nonzero rejected source entries retain scores" },
     { id: `audio_layer_${layer}_attention_softmax`, operation: "chunked-relative-attention-softmax", inputs: [`audio_layer_${layer}_attention_scores`], output: `audio_layer_${layer}_attention_weights`, semantics: "F32 maximum, exponential, denominator and probability over context slots" },
     { id: `audio_layer_${layer}_attention`, operation: "chunked-relative-attention-values", inputs: [`audio_layer_${layer}_attention_weights`, `audio_layer_${layer}_v`], output: `audio_layer_${layer}_attention_context`, semantics: "context-slot value reduction, head merge and sequence trim" },
     { id: `audio_layer_${layer}_attention_context_cast`, operation: "cast-bf16", inputs: [`audio_layer_${layer}_attention_context`], output: `audio_layer_${layer}_attention_context_bf16`, semantics: "explicit source-visible to(dtype=post.linear.weight.dtype) before attention post projection" },
@@ -395,7 +408,7 @@ export function executeGemma4AudioDerivedAttentionStagesF32(
   const shiftedPositionScores = shiftRelativeAttentionScores(unshiftedPositionScores, program);
   const logits = add(contentScores, shiftedPositionScores);
   const softcapped = softcapAttentionScores(logits, program.tower.attentionLogitCap);
-  const maskedScores = maskChunkedAttentionScores(softcapped, mask, program);
+  const maskedScores = executeGemma4AudioEagerAttentionMaskF32(softcapped, mask, program);
   return { shiftedPositionScores, logits, softcapped, maskedScores };
 }
 
@@ -403,16 +416,35 @@ function softcapAttentionScores(logits: DenseF32Tensor, cap: number): DenseF32Te
   return dense([...logits.shape], Float32Array.from(logits.values, (value) => f32(sleefTanhF32(f32(value / cap)) * cap)));
 }
 
-function maskChunkedAttentionScores(scores: DenseF32Tensor, mask: readonly boolean[][], program: Gemma4AudioProgram): DenseF32Tensor {
+/**
+ * Reproduces the pinned Transformers eager path, including its conversion of
+ * the additive 4-D mask to a blocked tensor followed by `logical_not()` in
+ * Gemma4AudioAttention. Consequently zero (allowed) and padded entries are
+ * filled, while nonzero additive-mask entries retain their score. This is an
+ * observed source contract, not the conventional logical mask one might infer.
+ */
+export function executeGemma4AudioEagerAttentionMaskF32(
+  scores: DenseF32Tensor,
+  mask: readonly boolean[][],
+  program: Gemma4AudioProgram,
+): DenseF32Tensor {
   const [batch, heads, blocks, chunk, context] = scores.shape;
   const { attentionContextLeft: left } = program.tower;
   const sequence = mask[0]?.length ?? 0;
-  if (scores.shape.length !== 5 || mask.length !== batch || mask.some((row) => row.length !== sequence)) throw new Error("Gemma 4 audio mask de atenção incompatível.");
+  if (program.attentionMaskContract !== "transformers-eager-additive-mask-logical-not-v1" || scores.shape.length !== 5 ||
+    mask.length !== batch || mask.some((row) => row.length !== sequence)) {
+    throw new Error("Gemma 4 audio mask de atenção eager incompatível.");
+  }
   const out = Float32Array.from(scores.values);
   for (let b = 0; b < batch!; b += 1) for (let h = 0; h < heads!; h += 1) for (let block = 0; block < blocks!; block += 1) for (let query = 0; query < chunk!; query += 1) for (let keySlot = 0; keySlot < context!; keySlot += 1) {
     const queryIndex = block * chunk! + query, keyIndex = block * chunk! - (left - 1) + keySlot;
-    const allowed = queryIndex < sequence && keyIndex >= 0 && keyIndex < sequence && mask[b]![queryIndex] === true && mask[b]![keyIndex] === true && queryIndex >= keyIndex && queryIndex - keyIndex < left;
-    if (!allowed) out[((((b * heads! + h) * blocks! + block) * chunk! + query) * context!) + keySlot] = program.invalidAttentionLogit;
+    const sourceEntryExists = queryIndex < sequence && keyIndex >= 0 && keyIndex < sequence;
+    const additiveMaskIsZero = sourceEntryExists && mask[b]![keyIndex] === true &&
+      queryIndex >= keyIndex && queryIndex - keyIndex < left;
+    const paddedBlockedEntryIsZero = !sourceEntryExists;
+    if (additiveMaskIsZero || paddedBlockedEntryIsZero) {
+      out[((((b * heads! + h) * blocks! + block) * chunk! + query) * context!) + keySlot] = program.invalidAttentionLogit;
+    }
   }
   return dense([...scores.shape], out);
 }

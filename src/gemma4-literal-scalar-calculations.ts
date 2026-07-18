@@ -205,7 +205,7 @@ function scalarFormula(definition: Definition, program: Gemma4CompositeProgram, 
     case "relative-attention-position-matmul": return `${lhs} = F32(REDUCE(head_feature=0..head_dim-1, F32(q_scaled[batch,head,block*chunk+query_in_block,head_feature]*relative_key[relative_position,head,head_feature])))`;
     case "relative-attention-shift": return `${lhs} = source[batch,head,block,query_in_block,query_in_block+context-1-key_slot] after declared pad-flatten-slice-reshape; out-of-range source is F32(0)`;
     case "attention-softcap": return `${lhs} = F32(${program.audioProgram.tower.attentionLogitCap}*SLEEF_TANH_F32(F32(${input()}/${program.audioProgram.tower.attentionLogitCap})))`;
-    case "chunked-attention-mask": return `${lhs} = valid_query_and_context_key ? ${input()} : F32(${program.audioProgram.invalidAttentionLogit})`;
+    case "chunked-attention-mask": return `${lhs} = eager_additive_mask_entry_is_zero_or_block_padding ? F32(${program.audioProgram.invalidAttentionLogit}) : ${input()}; additive_zero means in-range key with true key mask inside the left context; query padding is ignored before blocked padding`;
     case "chunked-relative-attention-softmax": return `${lhs} = F32(exp(score-max_key(score))/REDUCE(key_slot=0..context-1, exp(score-max_key(score))))`;
     case "chunked-relative-attention-values": return `${lhs} = F32(REDUCE(key_slot=0..context-1, F32(probability[batch,head,block,query_in_block,key_slot]*context_value[batch,head,block,key_slot,head_feature])))`;
     case "cast-bf16": return `${lhs} = BF16(${input()})`;

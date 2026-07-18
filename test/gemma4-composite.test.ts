@@ -63,16 +63,25 @@ const preview = { outputRows: 1, inputTerms: 1, includeWeights: false } as const
 const fixtureConfigBytes = Buffer.from("{}");
 
 test("Gemma 4 authoritative traces bind eager inference mode instead of accepting no-grad drift", () => {
-  assert.doesNotThrow(() => assertGemma4AuthoritativeRuntime("audio", GEMMA4_AUDIO_REFERENCE_RUNTIME));
-  assert.doesNotThrow(() => assertGemma4AuthoritativeRuntime("vision", GEMMA4_VISION_REFERENCE_RUNTIME));
-  assert.doesNotThrow(() => assertGemma4AuthoritativeRuntime("composite", GEMMA4_COMPOSITE_REFERENCE_RUNTIME));
+  const context = (runtime: string) => ({ runtime, executionMode: "torch.inference_mode", attentionImplementation: "eager" });
+  assert.doesNotThrow(() => assertGemma4AuthoritativeRuntime("audio", context(GEMMA4_AUDIO_REFERENCE_RUNTIME)));
+  assert.doesNotThrow(() => assertGemma4AuthoritativeRuntime("vision", context(GEMMA4_VISION_REFERENCE_RUNTIME)));
+  assert.doesNotThrow(() => assertGemma4AuthoritativeRuntime("composite", context(GEMMA4_COMPOSITE_REFERENCE_RUNTIME)));
   assert.throws(
-    () => assertGemma4AuthoritativeRuntime("audio", "transformers-5.5.0/torch-2.12.1-Gemma4Audio-CPU-eager"),
+    () => assertGemma4AuthoritativeRuntime("audio", context("transformers-5.5.0/torch-2.12.1-Gemma4Audio-CPU-eager")),
     /esperado .*inference-mode/,
   );
   assert.throws(
-    () => assertGemma4AuthoritativeRuntime("composite", "transformers-5.5.0/torch-2.12.1-Gemma4ForConditionalGeneration-CPU-eager"),
+    () => assertGemma4AuthoritativeRuntime("composite", context("transformers-5.5.0/torch-2.12.1-Gemma4ForConditionalGeneration-CPU-eager")),
     /esperado .*inference-mode/,
+  );
+  assert.throws(
+    () => assertGemma4AuthoritativeRuntime("audio", { ...context(GEMMA4_AUDIO_REFERENCE_RUNTIME), attentionImplementation: "sdpa" }),
+    /attentionImplementation='sdpa'.*esperado/,
+  );
+  assert.throws(
+    () => assertGemma4AuthoritativeRuntime("audio", { ...context(GEMMA4_AUDIO_REFERENCE_RUNTIME), executionMode: "torch.no_grad" }),
+    /executionMode='torch.no_grad'.*esperado/,
   );
 });
 
@@ -366,7 +375,7 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 16);
+  assert.equal(literal.schemaVersion, 17);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   assert.deepEqual(literal.authoritativeExecution, gemma4AuthoritativeExecutionContract());
@@ -671,7 +680,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 16);
+      assert.equal(artifact.schemaVersion, 17);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.deepEqual(artifact.authoritativeExecution, gemma4AuthoritativeExecutionContract());

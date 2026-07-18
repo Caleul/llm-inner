@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   executeGemma4AudioBf16CastF32,
+  executeGemma4AudioEagerAttentionMaskF32,
   buildGemma4AudioProgram,
   executeGemma4AudioDerivedAttentionStagesF32,
   executeGemma4AudioF32,
@@ -13,6 +14,7 @@ test("Gemma 4 audio lowering makes subsampling, chunk-relative attention, local 
   const catalog = fixture();
   const program = buildGemma4AudioProgram(catalog);
   assert.equal(program.kind, "gemma4-audio-features");
+  assert.equal(program.attentionMaskContract, "transformers-eager-additive-mask-logical-not-v1");
   assert.ok(program.assignments.some((assignment) => assignment.operation === "chunked-attention-content-matmul"));
   assert.ok(program.assignments.some((assignment) => assignment.operation === "relative-attention-position-matmul"));
   assert.ok(program.assignments.some((assignment) => assignment.operation === "relative-attention-shift"));
@@ -34,13 +36,30 @@ test("Gemma 4 audio lowering makes subsampling, chunk-relative attention, local 
   );
   assert.deepEqual([...derivedAttention.shiftedPositionScores.values], [5, 6, 0, 7]);
   assert.equal(derivedAttention.logits.values[0], 6);
-  assert.deepEqual([...derivedAttention.maskedScores.values.slice(1)], [-1e9, -1e9, -1e9]);
+  assert.deepEqual([...derivedAttention.maskedScores.values], [-1e9, -1e9, -1e9, -1e9]);
   const normalizedOutput = result.values.get("audio_output_normalized")!;
   const rms = Math.sqrt([...normalizedOutput.values].reduce((sum, value) => sum + value ** 2, 0) / normalizedOutput.values.length);
   assert.ok(Math.abs(rms - 1) < 1e-3, `expected unscaled multimodal RMSNorm, got RMS=${rms}`);
   for (const assignment of program.assignments.filter((assignment) => assignment.operation !== "masked-scatter-audio-features")) assert.equal(result.values.has(assignment.output), true, `missing named output ${assignment.output}`);
   const injected = scatterGemma4AudioFeaturesF32(dense([1, 3, 4], 0), [[1, 98, 2]], 98, result.audioFeatures);
   assert.deepEqual([...injected.values.slice(4, 8)], [...result.audioFeatures.values]);
+});
+
+test("Gemma 4 audio reproduces eager additive-mask logical inversion across the complete blocked class", () => {
+  const program = buildGemma4AudioProgram(fixture());
+  const scores = { shape: [1, 1, 1, 2, 2], values: Float32Array.from([10, 11, 12, 13]) };
+  assert.deepEqual(
+    [...executeGemma4AudioEagerAttentionMaskF32(scores, [[true]], program).values],
+    [-1e9, -1e9, -1e9, -1e9],
+    "allowed eager entries and blocked padding are zero before logical_not, therefore all are filled",
+  );
+  assert.deepEqual(
+    [...executeGemma4AudioEagerAttentionMaskF32(scores, [[true, false]], program).values],
+    [-1e9, 11, 12, 13],
+    "only the zero allowed entry is filled; nonzero rejected source entries retain their scores",
+  );
+  const altered = { ...program, attentionMaskContract: "conventional-boolean-mask" as never };
+  assert.throws(() => executeGemma4AudioEagerAttentionMaskF32(scores, [[true]], altered), /mask de atenção eager incompatível/);
 });
 
 test("Gemma 4 audio masks invalid frames before subsampling and rejects wrong placeholder cardinality", () => {

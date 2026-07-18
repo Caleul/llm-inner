@@ -24,6 +24,8 @@ interface SerializedOperation {
 interface NativeCompositeCapture {
   modality: Gemma4CompositeTraceModality;
   runtime: string;
+  executionMode: "torch.inference_mode";
+  attentionImplementation: "eager";
   executionDevice: string;
   executionDeviceDetail: string;
   generatedTokenIds: number[];
@@ -81,11 +83,15 @@ export async function captureGemma4TransformersCompositeTrace(options: Gemma4Tra
       maxNewTokens: options.maxNewTokens,
       executionDevice: "cpu",
     });
-    assertGemma4AuthoritativeRuntime("composite", native.runtime);
+    assertGemma4AuthoritativeRuntime("composite", native);
     if (native.executionDevice !== "cpu" || native.modality !== options.modality || native.prefillOperations.length !== 5) {
       throw new Error("Helper composite não declarou CPU e cinco fronteiras de prefill.");
     }
-    const bundle: GenerationTraceBundle & {
+    const bundle: Omit<GenerationTraceBundle, "reference"> & {
+      reference: GenerationTraceBundle["reference"] & {
+        executionMode: "torch.inference_mode";
+        attentionImplementation: "eager";
+      };
       compositeInputs: Omit<Gemma4TransformersCompositeTraceOptions, "source" | "output" | "python" | "model" | "revisionOrChecksum">;
       prefillOperations: SerializedOperation[];
     } = {
@@ -99,6 +105,8 @@ export async function captureGemma4TransformersCompositeTrace(options: Gemma4Tra
       candidatePolicy: { dtype: "F32", runtime: "llm-inner embedded-literal Gemma4 composite BF16-policy executor" },
       reference: {
         runtime: native.runtime,
+        executionMode: native.executionMode,
+        attentionImplementation: native.attentionImplementation,
         executionDevice: native.executionDevice,
         executionDeviceDetail: native.executionDeviceDetail,
         model: options.model,

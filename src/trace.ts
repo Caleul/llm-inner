@@ -260,6 +260,8 @@ function validateBundle(raw: unknown): ExecutionTraceBundle {
     candidatePolicy: { dtype: candidatePolicy.dtype as "F32" | "F64", runtime: candidatePolicy.runtime },
     reference: {
       runtime: reference.runtime as string, model: reference.model as string, revisionOrChecksum: reference.revisionOrChecksum as string,
+      ...(reference.executionMode === undefined ? {} : { executionMode: nonemptyTraceContext(reference.executionMode, "executionMode") }),
+      ...(reference.attentionImplementation === undefined ? {} : { attentionImplementation: nonemptyTraceContext(reference.attentionImplementation, "attentionImplementation") }),
       ...(reference.executionDevice === undefined ? {} : { executionDevice: reference.executionDevice as string }),
       ...(reference.executionDeviceDetail === undefined ? {} : { executionDeviceDetail: reference.executionDeviceDetail as string }),
       containerFormat: reference.containerFormat as string, quantization: reference.quantization as string,
@@ -443,6 +445,8 @@ function validateGenerationBundle(raw: unknown): GenerationTraceBundle {
     candidatePolicy: { dtype: candidatePolicy.dtype as "F32" | "F64", runtime: candidatePolicy.runtime as string },
     reference: {
       runtime: reference.runtime as string, model: reference.model as string, revisionOrChecksum: reference.revisionOrChecksum as string,
+      ...(reference.executionMode === undefined ? {} : { executionMode: nonemptyTraceContext(reference.executionMode, "executionMode") }),
+      ...(reference.attentionImplementation === undefined ? {} : { attentionImplementation: nonemptyTraceContext(reference.attentionImplementation, "attentionImplementation") }),
       ...(reference.executionDevice === undefined ? {} : { executionDevice: reference.executionDevice as string }),
       ...(reference.executionDeviceDetail === undefined ? {} : { executionDeviceDetail: reference.executionDeviceDetail as string }),
       containerFormat: reference.containerFormat as string, quantization: reference.quantization as string,
@@ -453,6 +457,11 @@ function validateGenerationBundle(raw: unknown): GenerationTraceBundle {
       logits: validateSerializedTensor(reference.logits, "logits terminais", candidatePolicy.dtype as "F32" | "F64"), pastKeyValues,
     },
   };
+}
+
+function nonemptyTraceContext(value: unknown, field: string): string {
+  if (typeof value !== "string" || value.trim() === "") throw new Error(`Trace ${field} deve ser string não vazia quando declarado.`);
+  return value;
 }
 
 function validateEnvelope(value: Record<string, unknown>, kind: "execution" | "generation"): void {

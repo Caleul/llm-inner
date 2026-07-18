@@ -53,9 +53,12 @@ def main() -> None:
         raise ValueError("Gemma 4 audio input_features_mask does not match input_features.")
 
     model = Gemma4ForConditionalGeneration.from_pretrained(
-        request["source"], local_files_only=True, torch_dtype=torch.bfloat16, low_cpu_mem_usage=True
+        request["source"], local_files_only=True, dtype=torch.bfloat16, low_cpu_mem_usage=True,
+        attn_implementation="eager",
     ).eval()
     validate(model)
+    if model.config._attn_implementation != "eager" or model.config.audio_config._attn_implementation != "eager":
+        raise ValueError("Gemma 4 audio capture requires eager attention mask construction.")
     with torch.inference_mode():
         baseline = model.model.get_audio_features(input_features, input_mask, return_dict=True)
     checkpoints: list[dict[str, Any]] = []
@@ -219,6 +222,8 @@ def main() -> None:
         raise ValueError(f"Gemma 4 audio capture emitted {len(checkpoints)} checkpoints; expected {expected}.")
     result = {
         "runtime": f"transformers-{transformers.__version__}/torch-{torch.__version__}-Gemma4Audio-CPU-eager-inference-mode",
+        "executionMode": "torch.inference_mode",
+        "attentionImplementation": model.config._attn_implementation,
         "executionDevice": "cpu",
         "dtypePolicy": "native BF16 modules with source-visible F32 RMSNorm and attention promotions; serialized as F32",
         "inputFeatures": {"shape": shape, "values": values},

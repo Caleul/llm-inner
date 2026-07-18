@@ -643,8 +643,10 @@ function audioAttentionMaskFormula(artifact: OpenGemma4CompositeLiteralArtifact,
   const keyIndex = `(${coordinate[2]}*${tower.attentionChunkSize}-${tower.attentionContextLeft - 1}+${coordinate[4]})`;
   return [
     `query_index=${queryIndex}; key_index=${keyIndex}`,
-    `allowed = query_index < sequence && 0 <= key_index < sequence && ${assignment.inputs[1]}[${coordinate[0]},query_index] && ${assignment.inputs[1]}[${coordinate[0]},key_index] && query_index >= key_index && query_index-key_index < ${tower.attentionContextLeft}`,
-    `${output} = allowed ? ${indexed(assignment.inputs[0]!, coordinate)} : ${literal(artifact.program.audioProgram.invalidAttentionLogit)}`,
+    `source_entry_exists = query_index < sequence && 0 <= key_index < sequence`,
+    `eager_additive_mask_entry_is_zero = source_entry_exists && ${assignment.inputs[1]}[${coordinate[0]},key_index] && query_index >= key_index && query_index-key_index < ${tower.attentionContextLeft}`,
+    `blocked_padding_is_zero = !source_entry_exists`,
+    `${output} = eager_additive_mask_entry_is_zero || blocked_padding_is_zero ? ${literal(artifact.program.audioProgram.invalidAttentionLogit)} : ${indexed(assignment.inputs[0]!, coordinate)}`,
   ];
 }
 
