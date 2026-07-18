@@ -5,6 +5,7 @@ import {
   listGemma4LiteralTextOperations,
   readGemma4LiteralLearnedOperandScalar,
   renderGemma4LiteralScalarView,
+  validateGemma4LiteralScalarView,
   type Gemma4LiteralLearnedScalar,
   type Gemma4LiteralOperationNavigation,
   type Gemma4LiteralScalarTerm,
@@ -27,6 +28,10 @@ import {
   requiredGemma4LiteralScalarCalculation,
   type Gemma4LiteralScalarCalculation,
 } from "./gemma4-literal-scalar-calculations.js";
+import {
+  buildGemma4LiteralLinearReductionAssignments,
+  gemma4LiteralScalarProductFormula,
+} from "./gemma4-literal-linear-reduction-view.js";
 
 type Assignment = Gemma4CompositeAssignment | Gemma4VisionAssignment | Gemma4AudioAssignment;
 type NonTextScope = "composite" | "vision" | "audio";
@@ -94,14 +99,18 @@ export async function renderGemma4LiteralMultimodalScalarView(
   if (!navigation) throw new Error(`Atribuição Gemma 4 literal não encontrada: ${request.operationId}.`);
   if (navigation.scope === "text-layer" || navigation.scope === "text-epilogue") {
     const rendered = await renderGemma4LiteralScalarView(artifact, { ...request, operationId: navigation.definitionId ?? navigation.operationId });
-    return bindScalarView(rendered, navigation, calculationBindings(rendered.navigation.scalarCalculation, navigation.scalarCalculation));
+    const result = bindScalarView(rendered, navigation, calculationBindings(rendered.navigation.scalarCalculation, navigation.scalarCalculation));
+    validateGemma4LiteralScalarView(result);
+    return result;
   }
   const entry = assignmentEntries(artifact).find((candidate) => candidate.operationId === request.operationId);
   if (!entry) throw new Error(`Atribuição Gemma 4 literal não possui definição instanciada: ${request.operationId}.`);
   const definitionId = entry.scope === "composite" ? compatibleTextPreludeDefinitionId(artifact, entry.assignment) : undefined;
   if (definitionId) {
     const rendered = await renderGemma4LiteralScalarView(artifact, { ...request, operationId: definitionId });
-    return bindScalarView(rendered, navigation, new Map([[rendered.navigation.output, entry.assignment.output]]));
+    const result = bindScalarView(rendered, navigation, new Map([[rendered.navigation.output, entry.assignment.output]]));
+    validateGemma4LiteralScalarView(result);
+    return result;
   }
   const base = {
     kind: "gemma4-literal-scalar-view" as const,
@@ -131,7 +140,9 @@ export async function renderGemma4LiteralMultimodalScalarView(
     const formulas = plainFormulas(artifact, entry, request.outputCoordinate);
     rendered = { ...base, formula: formulas.at(-1)!, scalarAssignments: formulas, learnedScalars: [] };
   }
-  return bindScalarView(attachDenseDecoderEvidence(artifact, rendered, entry.assignment.id), navigation, entry.bindings);
+  const result = bindScalarView(attachDenseDecoderEvidence(artifact, rendered, entry.assignment.id), navigation, entry.bindings);
+  validateGemma4LiteralScalarView(result);
+  return result;
 }
 
 function attachDenseDecoderEvidence(
@@ -240,6 +251,10 @@ async function renderLinear(
   if (outputFeature >= outFeatures!) throw new Error(`${assignment.id}: feature ${outputFeature} excede outFeatures=${outFeatures}.`);
   const prefix = request.outputCoordinate.slice(0, -1);
   const window = reductionWindow(request, inFeatures!, assignment.id);
+  const schedule = base.dtypePolicy.reduction ?? { kind: "ordered-scalar", indexOrder: "ascending" } as const;
+  if (schedule.kind === "pytorch-cpu-f32-cascade-sum" || schedule.kind === "pytorch-cpu-bf16-welford") {
+    throw new Error(`${assignment.id}: agenda ${schedule.kind} não é uma redução linear.`);
+  }
   const learnedScalars: Gemma4LiteralLearnedScalar[] = [];
   const terms: Gemma4LiteralScalarTerm[] = [];
   const indexEnvironment = gemma4LiteralOutputCoordinateEnvironment(base.navigation.outputDomain, request.outputCoordinate);
@@ -250,7 +265,7 @@ async function renderLinear(
     });
     learnedScalars.push(learned);
     const input = indexed(assignment.inputs[0]!, [...prefix, inputIndex]);
-    terms.push({ inputIndex, input, learned, formula: `product[${inputIndex}] = F32(${input} * ${learned.literal})` });
+    terms.push({ inputIndex, input, learned, formula: gemma4LiteralScalarProductFormula(schedule, inputIndex, input, learned.literal) });
   }
   const biasRef = optionalLearnedOperand(artifact, entry, "bias");
   const bias = biasRef ? await readGemma4LiteralLearnedOperandScalar(artifact, biasRef, indexEnvironment) : undefined;
@@ -261,21 +276,18 @@ async function renderLinear(
     ? `F32(min(${bounds.output[1]}, max(${bounds.output[0]}, ${indexed(assignment.inputs[0]!, [...prefix, inputIndex])})))`
     : indexed(assignment.inputs[0]!, [...prefix, inputIndex]);
   if (bounds) {
-    terms.forEach((term) => { term.input = inputExpression(term.inputIndex); term.formula = `product[${term.inputIndex}] = F32(${term.input} * ${term.learned.literal})`; });
+    terms.forEach((term) => {
+      term.input = inputExpression(term.inputIndex);
+      term.formula = gemma4LiteralScalarProductFormula(schedule, term.inputIndex, term.input, term.learned.literal);
+    });
   }
-  const initial = bias ? bias.literal : "0";
-  const schedule = base.dtypePolicy.reduction ?? { kind: "ordered-scalar", indexOrder: "ascending" } as const;
-  const arm = schedule.kind === "arm-neon-bf16-dot-fma";
-  const accumulationAssignments = arm ? [
-    `register[0..${schedule.laneCount - 1}] = F32(0)`,
-    `register[i mod ${schedule.laneCount}] = F32_FMA(register[i mod ${schedule.laneCount}], ${inputExpression("i")}, weight[${outputFeature},i]), i=0..floor(${inFeatures}/${schedule.laneCount})*${schedule.laneCount}-1`,
-    `dot = F32(ARM_NEON_${schedule.registerCount}x${schedule.lanesPerRegister}_REGISTER_TREE_PAIRWISE(register) + VECTOR_TAIL_8 + ASCENDING_SCALAR_TAIL)`,
-  ] : [
-    `acc[-1] = ${initial}`,
-    `acc[i] = F32(acc[i-1] + product[i]), i=0..${inFeatures! - 1} in ascending order`,
-  ];
-  const accumulated = arm ? "dot" : `acc[${inFeatures! - 1}]`;
-  const castResult = base.dtypePolicy.outputDtype === "BF16" ? `BF16(${accumulated})` : accumulated;
+  const accumulationAssignments = buildGemma4LiteralLinearReductionAssignments(
+    schedule,
+    inFeatures!,
+    base.dtypePolicy.accumulationDtype,
+  );
+  const biased = bias ? `F32(reduced + ${bias.literal})` : "reduced";
+  const castResult = base.dtypePolicy.outputDtype === "BF16" ? `BF16(${biased})` : biased;
   const reduced = bounds ? `${base.dtypePolicy.outputDtype === "BF16" ? "BF16" : "F32"}(min(${bounds.output[3]}, max(${bounds.output[2]}, ${castResult})))` : castResult;
   const formula = `${base.output} = ${reduced}`;
   return {
@@ -421,7 +433,9 @@ async function renderDepthwise(artifact: OpenGemma4CompositeLiteralArtifact, ent
     });
     learnedScalars.push(learned);
     const source = time! - kernel + 1 + k;
-    assignments.push(`product[${k}] = ${source < 0 ? "F32(0)" : `F32(${indexed(entry.assignment.inputs[0]!, [batch!, source, channel!])} * ${learned.literal})`}`);
+    assignments.push(`product[${k}] = ${source < 0
+      ? `F32(F32(0) * ${learned.literal})`
+      : `F32(${indexed(entry.assignment.inputs[0]!, [batch!, source, channel!])} * ${learned.literal})`}`);
   }
   const formula = `${base.output} = acc[${kernel - 1}]`;
   return { ...base, formula, scalarAssignments: [...assignments, "acc[-1]=F32(0)", `acc[k]=F32(acc[k-1]+product[k]), k=0..${kernel - 1} ascending`, formula], learnedScalars };

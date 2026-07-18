@@ -397,8 +397,20 @@ que são então bitcast, sem uma conversão de dtype escolhida pelo host. O
 contrato compartilhado `denseDecoderLanguage` incorpora a semântica e a ordem
 de avaliação desses opcodes. A vista escalar, os slices e a composição
 end-to-end carregam o contrato e somente os decoders usados. A evidência real
-está em
-[`docs/validation/gemma4-e4b-executable-dense-decoder-ast-2026-07-18.md`](docs/validation/gemma4-e4b-executable-dense-decoder-ast-2026-07-18.md).
+foi revisada independentemente e está preservada, junto da exportação que a
+substitui, em
+[`docs/validation/gemma4-e4b-exact-product-scalar-audit-2026-07-18.md`](docs/validation/gemma4-e4b-exact-product-scalar-audit-2026-07-18.md).
+
+O schema v14 corrige a fronteira produto-redução para toda classe linear Gemma
+4 compatível. Fórmulas com agendas FMA/dot agora declaram
+`exact_product(a*b)`: o produto não recebe um `F32` prematuro antes da soma
+fundida. As vistas escalares text, vision e audio compartilham a mesma
+transcrição por `ReductionSchedule`, substituem cada peso por seu número
+decodificado em `product[i]` e abrem registradores ARM, árvore 0+4/1+5/2+6/3+7,
+fold horizontal, vector tail e scalar tail sem `weight[o,i]` nem intrínsecos
+opacos. Uma validação fail-closed recusa qualquer vista completa com referência
+aprendida simbólica, termo ausente ou literal decodificado sem uso. A evidência
+real source-removed está no mesmo relatório acima.
 
 O leitor também pode partir de qualquer saída instanciada e calcular o fecho
 transitivo exato de seus produtores. `--calculation-slice <operation-id>`
@@ -567,8 +579,8 @@ escreve o artefato completo em streaming: ranges Safetensors de 12 MiB são
 codificados em base64 sem acumular o pacote ou uma string de vários GiB na
 heap. O resultado local contém os 2,130 payloads originais
 (15,992,314,836 bytes) e é auditado por `npm run audit:literal`. O hash e
-tamanho da exportação schema v13 atual são registrados em
-[`docs/validation/gemma4-e4b-executable-dense-decoder-ast-2026-07-18.md`](docs/validation/gemma4-e4b-executable-dense-decoder-ast-2026-07-18.md); sua política numérica
+tamanho da exportação schema v14 atual são registrados em
+[`docs/validation/gemma4-e4b-exact-product-scalar-audit-2026-07-18.md`](docs/validation/gemma4-e4b-exact-product-scalar-audit-2026-07-18.md); sua política numérica
 declara fronteiras de resultado BF16, acumuladores F32/F64 e agendas de redução
 por operação do texto, áudio e visão; toda exportação deve registrar seu próprio hash, pois o programa literal
 inclui as políticas numéricas. As 54 projeções/normas K/V locais dos
@@ -799,10 +811,11 @@ torna a divergência localizável sem reabrir o checkpoint durante o candidato.
 Ela corrige o cast BF16 observável do embedding (`sqrt(2560)` para `50.5` e o
 produto BF16), e mantém a acumulação escalar ordenada F64 para os
 linear/RMSNorm sem evidência de kernel mais específica. Campanhas posteriores
-com a fonte removida identificaram a árvore ARM BF16 completa somente para
-`layer_0_gate_proj` e `layer_0_up_proj`; ambas declaram 32 lanes, oito
-registradores e fold horizontal pareado, sem escolher uma agenda pelo shape no
-replay. A instrumentação é comparada a um forward nativo sem hooks e falha se
+com a fonte removida generalizaram a árvore ARM BF16 para toda a classe linear
+compatível por dtype, layout, transpose, ausência de bias e dispatch
+autoritativo; nenhuma atribuição é selecionada pelo ID ou somente pelo shape.
+Cada instância declara 32 lanes, oito registradores, a árvore de registradores,
+fold horizontal pareado e tails. A instrumentação é comparada a um forward nativo sem hooks e falha se
 logits ou cache KV mudarem. A comparação completa ainda permanece
 `approximate`, documentada em
 [`docs/validation/gemma4-e4b-native-operation-checkpoints-2026-07-16.md`](docs/validation/gemma4-e4b-native-operation-checkpoints-2026-07-16.md).

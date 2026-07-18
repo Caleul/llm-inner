@@ -12,6 +12,7 @@ import {
 } from "./gemma4-literal-learned-operands.js";
 import type { Gemma4VisionAssignment } from "./gemma4-vision.js";
 import type { DtypePolicy, Operation, ReductionSchedule } from "./types.js";
+import { gemma4LiteralReductionUsesExactProducts } from "./gemma4-literal-linear-reduction-view.js";
 
 type MultimodalAssignment = Gemma4CompositeAssignment | Gemma4VisionAssignment | Gemma4AudioAssignment;
 
@@ -167,8 +168,8 @@ function scalarFormula(definition: Definition, program: Gemma4CompositeProgram, 
     case "vision-feature-program": case "audio-feature-program": case "text-core": return `${lhs} = EVALUATE(calculationGraph.assignments where invocationId==${JSON.stringify(assignment.id)} in ordinal order, orderedInputs=[${assignment.inputs.join(",")}]).terminalOutput[${domain.domain.axes.map((axis) => axis.name).join(",")}]`;
     case "video-frame-flatten": return `${lhs} = ${assignment.inputs[0]}[floor(video_frame/frames),video_frame%frames,patch,${domain.domain.axes.at(-1)?.name}]`;
     case "masked-scatter": case "masked-scatter-image-features": case "masked-scatter-audio-features": return `${lhs} = placeholder_mask[batch,sequence] ? next_feature_row[feature] : ${assignment.inputs[0]}[batch,sequence,feature]; feature rows consumed in stable batch-major order`;
-    case "linear": return linearFormula(lhs, assignment.inputs[0]!, cast, assignment.tensors?.length === 2, false);
-    case "clipped-linear": return linearFormula(lhs, assignment.inputs[0]!, cast, false, true);
+    case "linear": return linearFormula(lhs, assignment.inputs[0]!, cast, assignment.tensors?.length === 2, false, domain.domain.dtypePolicy?.reduction);
+    case "clipped-linear": return linearFormula(lhs, assignment.inputs[0]!, cast, false, true, domain.domain.dtypePolicy?.reduction);
     case "scale-f32": return `${lhs} = F32(${input()} * F32(${scalarScale(assignment, program)}))`;
     case "reshape-per-layer": return `${lhs} = ${assignment.inputs[0]}[batch,sequence,layer*per_layer_width+feature]`;
     case "rms-norm": return `${lhs} = ${cast}(F32(F32(${input()} * F32(rsqrt(F32(REDUCE(feature=0..width-1,F32(input[...,feature]*input[...,feature]))/width + F32(${rmsEpsilon(definition.scope, program)})))))${assignment.tensors?.length ? "*decode(normalization-scale)[feature]" : ""}))`;
@@ -216,7 +217,7 @@ function textFormula(operation: Operation, lhs: string): string {
     case "embedding": return `${lhs} = ${cast}(decode(weight)[input_ids[batch,sequence],feature]${operation.scale === undefined ? "" : `*F32(${operation.scale})`})`;
     case "per_layer_embedding": return `${lhs} = ${cast}(decode(weight)[input_ids[batch,sequence],layer*${operation.layerWidth}+feature]${operation.scale === undefined ? "" : `*F32(${operation.scale})`})`;
     case "rms_norm": return `${lhs} = ${cast}(F32(input*rsqrt(F32(REDUCE(feature=0..${operation.reductionSize ?? "width"}-1,F32(input*input))/${operation.reductionSize ?? "width"}+F32(${operation.epsilon}))))${operation.weightTransform === "one_plus_weight" ? "*F32(1+decode(normalization-scale)[feature])" : operation.weightTransform === "direct" ? "*decode(normalization-scale)[feature]" : ""})`;
-    case "linear": return linearFormula(lhs, operation.input, cast, operation.bias !== undefined, false);
+    case "linear": return linearFormula(lhs, operation.input, cast, operation.bias !== undefined, false, operation.dtypePolicy.reduction);
     case "reshape_heads": return `${lhs} = ${operation.input}[batch,sequence,head*${operation.headDim}+head_feature] as ${operation.layout}`;
     case "reshape_per_layer": return `${lhs} = ${operation.input}[batch,sequence,layer*${operation.layerWidth}+feature]`;
     case "select_per_layer": return `${lhs} = ${operation.input}[batch,sequence,${operation.layerIndex},feature]`;
@@ -268,9 +269,19 @@ function requiredDomain(domains: readonly Gemma4LiteralAssignmentDomain[], defin
   return domain;
 }
 
-function linearFormula(lhs: string, input: string, cast: string, bias: boolean, clipped: boolean): string {
+function linearFormula(
+  lhs: string,
+  input: string,
+  cast: string,
+  bias: boolean,
+  clipped: boolean,
+  reduction: ReductionSchedule | undefined,
+): string {
   const x = clipped ? `F32(min(decode(input-max),max(decode(input-min),${input}[...,input_feature])))` : `${input}[...,input_feature]`;
-  const sum = `REDUCE(input_feature=0..in_features-1,F32(${x}*decode(weight)[output_feature,input_feature]))`;
+  const product = reduction && gemma4LiteralReductionUsesExactProducts(reduction)
+    ? `exact_product(${x}*decode(weight)[output_feature,input_feature])`
+    : `F32(${x}*decode(weight)[output_feature,input_feature])`;
+  const sum = `REDUCE(input_feature=0..in_features-1,${product})`;
   const biased = bias ? `F32(${sum}+decode(bias)[output_feature])` : sum;
   return `${lhs} = ${cast}(${clipped ? `min(decode(output-max),max(decode(output-min),${biased}))` : biased})`;
 }

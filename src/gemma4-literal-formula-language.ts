@@ -4,7 +4,7 @@ import type { Gemma4LiteralScalarCalculations } from "./gemma4-literal-scalar-ca
 
 export interface Gemma4LiteralFormulaLanguageContract {
   kind: "gemma4-literal-formula-language-contract";
-  schemaVersion: 1;
+  schemaVersion: 2;
   languageId: "indexed-ieee754-expression-v1";
   authority: {
     forwardAssignments: "/scalarCalculations/assignments";
@@ -55,7 +55,7 @@ export interface Gemma4LiteralFormulaLanguageContract {
 export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormulaLanguageContract {
   return {
     kind: "gemma4-literal-formula-language-contract",
-    schemaVersion: 1,
+    schemaVersion: 2,
     languageId: "indexed-ieee754-expression-v1",
     authority: {
       forwardAssignments: "/scalarCalculations/assignments",
@@ -109,6 +109,7 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
     intrinsics: [
       { notation: "decode(role)[indices]", semantics: "resolve role through the current learnedOperands binding; evaluate its gemma4-learned-index-expression-v1 AST, then execute storageDecoder.address for the exact byte range and storageDecoder.decode for the exact F32 result bits" },
       { notation: "REDUCE(index-domain, expression)", semantics: "evaluate the complete domain using the assignment reduction declaration; absence of a reduction schedule means ascending lexicographic order" },
+      { notation: "exact_product(a*b)", semantics: "retain the exact real product of the two already materialized operands until the immediately enclosing operation-declared FMA/add boundary; it is invalid outside a reduction schedule whose product boundary is fused" },
       { notation: "F32_FMA(acc,a,b)", semantics: "compute exact a*b+acc then round once to IEEE binary32" },
       { notation: "min, max, floor", semantics: "IEEE minimum/maximum over materialized operands and mathematical floor; NaN is invalid unless an assignment explicitly permits it" },
       { notation: "sqrt, rsqrt", semantics: "sqrt is correctly rounded by the pinned runtime policy; rsqrt(x) is F32(1/F32(sqrt(x))) unless the assignment declares another serialized implementation" },

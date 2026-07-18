@@ -165,6 +165,16 @@ desconhecido ou uma alteração no contrato canônico falham antes de retornar o
 literal. A cobertura F16 percorre exaustivamente os 65.536 words possíveis e a
 cobertura BF16 prova `sourceBits << 16` para o mesmo domínio completo.
 
+No schema v14, uma agenda FMA/dot não pode mais coexistir com uma fórmula que
+materializa `F32(input*weight)` antes da acumulação. O intrínseco incorporado
+`exact_product(a*b)` retém o produto matemático dos operandos já materializados
+até a fronteira F32 imediatamente declarada pela agenda. A expansão linear
+completa define `product[i]` para cada índice usando o literal aprendido real e
+depois transcreve, sem atalhos, a região principal de registradores, a árvore
+ARM, o fold horizontal, o vector tail e o scalar tail. `weight[o,i]`,
+`decode(role)` e nomes opacos de kernel são inválidos numa vista escalar já
+renderizada; termos faltantes também invalidam uma vista marcada `complete`.
+
 Quando a autoridade disponível prova a equação, mas não a árvore de uma
 redução nativa, a fórmula preserva o domínio matemático completo e a entrada
 declara `reproducibility=fail-closed-runtime-reduction` com

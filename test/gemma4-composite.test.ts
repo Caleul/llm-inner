@@ -23,7 +23,11 @@ import { evaluateGemma4LiteralLearnedOperandIndices } from "../src/gemma4-litera
 import { buildGemma4LiteralSourceIdentity, type Gemma4LiteralSourceIdentity } from "../src/gemma4-literal-source-identity.js";
 import { listGemma4LiteralOperations, renderGemma4LiteralMultimodalScalarView } from "../src/gemma4-literal-multimodal-scalar-view.js";
 import { executeGemma4LiteralVisionF32 } from "../src/gemma4-literal-vision.js";
-import { listGemma4LiteralTextOperations, renderGemma4LiteralScalarView } from "../src/gemma4-literal-scalar-view.js";
+import { listGemma4LiteralTextOperations, renderGemma4LiteralScalarView, validateGemma4LiteralScalarView } from "../src/gemma4-literal-scalar-view.js";
+import {
+  buildGemma4LiteralLinearReductionAssignments,
+  gemma4LiteralScalarProductFormula,
+} from "../src/gemma4-literal-linear-reduction-view.js";
 import {
   verifyGemma4CompositeLiteralEmbeddedPayloadIntegrity,
   verifyGemma4CompositeLiteralPayloadsAgainstCatalog,
@@ -130,6 +134,33 @@ test("dense literal decoders execute serialized row-major addresses and IEEE bit
   altered.address.stridesElements[0] = 1;
   assert.throws(() => evaluateLiteralDenseElementAddress(altered, [1, 2]), /stride row-major inválido/);
   assert.throws(() => evaluateLiteralDenseElementAddress(f16, [2, 0]), /fora do eixo 0/);
+});
+
+test("Gemma linear scalar audits preserve fused products and spell out every ARM reduction region", () => {
+  const schedule = {
+    kind: "arm-neon-bf16-dot-fma",
+    laneCount: 32,
+    registerCount: 8,
+    lanesPerRegister: 4,
+    inputLane: "index-modulo-vector-lane-count",
+    horizontalFold: "pairwise",
+  } as const;
+  assert.equal(
+    gemma4LiteralScalarProductFormula(schedule, 7, "x[0,7]", "-0.125"),
+    "product[7] = exact_product(x[0,7] * -0.125)",
+  );
+  const assignments = buildGemma4LiteralLinearReductionAssignments(schedule, 43, "F32");
+  const transcript = assignments.join("\n");
+  assert.match(transcript, /i=0\.\.31 ascending/);
+  assert.match(transcript, /tree_04\[r,l\].*tree_02\[r,l\].*tree_01\[l\]/s);
+  assert.match(transcript, /vector_tail\[b\+1,l\].*b=0\.\.0 ascending/s);
+  assert.match(transcript, /product\[40\+j\].*j=0\.\.2 ascending/);
+  assert.match(transcript, /reduced = tail_acc\[3\]/);
+  assert.doesNotMatch(transcript, /weight\[|decode\(|REGISTER_TREE|VECTOR_TAIL|SCALAR_TAIL/);
+  assert.equal(
+    gemma4LiteralScalarProductFormula({ kind: "ordered-scalar", indexOrder: "ascending" }, 7, "x[0,7]", "-0.125"),
+    "product[7] = F32(x[0,7] * -0.125)",
+  );
 });
 
 test("Gemma 4 composite trace dispatches every modality through one explicit feature/scatter contract", () => {
@@ -282,14 +313,16 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 13);
+  assert.equal(literal.schemaVersion, 14);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.languageId, literal.generation.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.authority.numericLiteralBits, "/numericLiterals/literals");
+  assert.equal(literal.formulaLanguage.schemaVersion, 2);
   assert.match(literal.formulaLanguage.reductions.runtimeDefined, /not executable/);
   assert.ok(literal.formulaLanguage.intrinsics.some((intrinsic) => intrinsic.notation === "decode(role)[indices]"));
+  assert.ok(literal.formulaLanguage.intrinsics.some((intrinsic) => intrinsic.notation === "exact_product(a*b)"));
   const expectedDomainCount = literal.assignments.composite.length + literal.assignments.vision.length + literal.assignments.audio.length +
     literal.program.textProgram.prelude.length + literal.program.textProgram.layers.reduce((total, layer) => total + layer.operations.length, 0) + literal.assignments.textEpilogue.length;
   assert.equal(literal.calculationDomains.assignments.length, expectedDomainCount);
@@ -579,7 +612,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 13);
+      assert.equal(artifact.schemaVersion, 14);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.equal(artifact.constants.size, catalog.tensors.size);
@@ -978,6 +1011,9 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       assert.equal(visionLinear.terms?.length, 4);
       assert.equal(visionLinear.learnedScalars.length, 8, "four weights plus four exact clipping bounds");
       assert.ok(visionLinear.terms?.every((term) => !term.formula.includes("weight[")));
+      const symbolicVisionLinear = structuredClone(visionLinear);
+      symbolicVisionLinear.scalarAssignments.push("acc[i] = F32_FMA(acc[i-1], x[i], weight[0,i])");
+      assert.throws(() => validateGemma4LiteralScalarView(symbolicVisionLinear), /referência aprendida simbólica/);
 
       const visionScores = await renderGemma4LiteralMultimodalScalarView(artifact, {
         operationId: "composite_image_features/vision_layer_0_attention_scores", outputCoordinate: [0, 0, 0, 0],

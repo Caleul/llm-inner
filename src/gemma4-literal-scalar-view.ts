@@ -18,6 +18,10 @@ import {
   requiredGemma4LiteralScalarCalculation,
   type Gemma4LiteralScalarCalculation,
 } from "./gemma4-literal-scalar-calculations.js";
+import {
+  buildGemma4LiteralLinearReductionAssignments,
+  gemma4LiteralScalarProductFormula,
+} from "./gemma4-literal-linear-reduction-view.js";
 
 export interface Gemma4LiteralOperationNavigation {
   operationId: string;
@@ -207,11 +211,39 @@ export async function renderGemma4LiteralScalarView(
   const decoderIds = new Set(rendered.learnedScalars.map((scalar) => scalar.decoderId));
   const storageDecoders = artifact.storageDecoders.filter((decoder) => decoderIds.has(decoder.id)).map((decoder) => structuredClone(decoder));
   if (storageDecoders.length !== decoderIds.size) throw new Error(`${operation.id}: programa de decoder ausente para valor substituído.`);
-  return {
+  const result: Gemma4LiteralScalarView = {
     ...rendered,
     denseDecoderLanguage: structuredClone(artifact.denseDecoderLanguage),
     storageDecoders,
   };
+  validateGemma4LiteralScalarView(result);
+  return result;
+}
+
+/**
+ * Fail-closed boundary for audit output. Definition-level formulas may use
+ * decode(role), but a rendered scalar view must contain only concrete learned
+ * literals. A complete linear reduction must also define every product term
+ * consumed by its transcript.
+ */
+export function validateGemma4LiteralScalarView(view: Gemma4LiteralScalarView): void {
+  const transcript = [view.formula, ...view.scalarAssignments].join("\n");
+  if (/\bdecode\s*\(|\bweight\s*\[|\bbias\s*\[/.test(transcript)) {
+    throw new Error(`${view.navigation.operationId}: vista escalar ainda contém referência aprendida simbólica.`);
+  }
+  for (const scalar of view.learnedScalars) {
+    if (!transcript.includes(scalar.literal)) {
+      throw new Error(`${view.navigation.operationId}: literal aprendido ${scalar.tensor}[${scalar.indices.join(",")}] não participa do cálculo escalar.`);
+    }
+  }
+  if (view.reduction?.complete) {
+    const width = view.reduction.bounds.endExclusive - view.reduction.bounds.startInclusive;
+    if (!view.terms || view.terms.length !== width || view.reduction.omittedTerms !== 0 ||
+      view.terms.some((term, index) => term.inputIndex !== view.reduction!.bounds.startInclusive + index ||
+        !view.scalarAssignments.includes(term.formula))) {
+      throw new Error(`${view.navigation.operationId}: redução escalar completa não substitui todos os ${width} termos em ordem.`);
+    }
+  }
 }
 
 async function renderLinear(
@@ -449,56 +481,12 @@ function reductionAssignments(schedule: ReductionSchedule, width: number, accumu
       `${schedule.inputVectorLanes} BF16 lanes widen into two ${schedule.accumulatorVectorLanes}-lane F32 vectors; each performs Welford updates over at most ${schedule.chunkVectors} input vectors`,
       `low/high vectors merge ${schedule.vectorMergeOrder}; ${schedule.accumulatorVectorLanes} moment lanes fold ${schedule.laneFold}; second pass is ${schedule.secondPass}`,
     ];
-    case "ordered-scalar": {
-      const accumulator = accumulationDtype === "F64" ? "F64" : accumulationDtype === "F32" ? "F32" : undefined;
-      if (!accumulator) throw new Error(`ordered-scalar requer accumulationDtype F32 ou F64; recebeu ${accumulationDtype ?? "missing"}.`);
-      return [
-      "acc[-1] = 0",
-      `acc[i] = ${accumulator}(acc[i-1] + product[i]), i=0..${width - 1} in ascending order`,
-      `reduced = acc[${width - 1}]`,
-      ];
-    }
-    case "ordered-fma": return [
-      "acc[-1] = 0",
-      `acc[i] = F32(acc[i-1] + product[i]), i=0..${width - 1} in ascending order; product[i] remains exact until this boundary`,
-      `reduced = acc[${width - 1}]`,
-    ];
-    case "arm-neon-bf16-dot-fma": return [
-      `register[r,lane] = 0 for r=0..7, lane=0..${schedule.lanesPerRegister - 1}`,
-      `for i=0..${width - 1}: r=floor((i mod ${schedule.laneCount})/${schedule.lanesPerRegister}); lane=i mod ${schedule.lanesPerRegister}; register[r,lane]=F32(register[r,lane] + product[i]); product[i] remains exact until this boundary`,
-      "register[0]+=register[4]; register[1]+=register[5]; register[2]+=register[6]; register[3]+=register[7]; register[0]+=register[2]; register[1]+=register[3]; register[0]+=register[1], each lane addition rounded F32",
-      `reduced = horizontal_${schedule.horizontalFold}_F32(register[0,0..${schedule.lanesPerRegister - 1}])`,
-    ];
-    case "arm-neon-bf16-bfdot-fma": return [
-      "register[r,lane] = 0 for r=0..7, lane=0..3",
-      "for each adjacent pair (i0,i1): pair_acc=F32(register[r,lane] + product[i0]); register[r,lane]=F32(pair_acc + product[i1]); each product remains exact until its declared add",
-      "register tree: 0+=4; 1+=5; 2+=6; 3+=7; 0+=2; 1+=3; 0+=1, each lane addition rounded F32",
-      `reduced = horizontal_${schedule.horizontalFold}_F32(register[0,0..3]) after all ${width} terms`,
-    ];
-    case "blocked-f32-terms": return [
-      `partial[b] = ${schedule.productBoundary === "fused-fma" ? "F32_FMA chain" : "ordered F32 products/adds"} over contiguous ${schedule.termsPerBlock}-term block in ${schedule.termOrder} order`,
-      "reduced = F32 sum of partial[b] in ascending block order",
-    ];
-    case "interleaved-f32-lanes": case "interleaved-fma-lanes": return [
-      `lane[l]=0 for l=0..${schedule.laneCount - 1}; input i updates lane[i mod ${schedule.laneCount}] with ${schedule.kind === "interleaved-fma-lanes" ? "F32_FMA" : "F32 add of an F32 product"}`,
-      `reduced = ${schedule.laneReductionOrder} F32 fold of all lanes`,
-    ];
-    case "tiled-f32-lanes": case "tiled-fma-lanes": return [
-      `lane groups consume ${schedule.termsPerLane} contiguous terms per lane across ${schedule.laneCount} persistent lanes; updates use ${schedule.kind === "tiled-fma-lanes" ? "F32_FMA" : "F32 products/adds"}`,
-      `reduced = ${schedule.laneReductionOrder} F32 fold of all lanes`,
-    ];
-    case "blocked-tiled-f32-lanes": return [
-      `each block resets ${schedule.laneCount} lanes and consumes ${schedule.termsPerLane} contiguous terms per lane with ${schedule.productBoundary}`,
-      `each block uses a ${schedule.laneReductionOrder} F32 lane fold; reduced is the ascending F32 fold of block results`,
-    ];
+    default: return buildGemma4LiteralLinearReductionAssignments(schedule, width, accumulationDtype);
   }
 }
 
 function scalarProductFormula(schedule: ReductionSchedule, inputIndex: number, input: string, learnedLiteral: string): string {
-  const fused = schedule.kind === "ordered-fma" || schedule.kind === "interleaved-fma-lanes" || schedule.kind === "tiled-fma-lanes" ||
-    schedule.kind === "arm-neon-bf16-dot-fma" || schedule.kind === "arm-neon-bf16-bfdot-fma" ||
-    (schedule.kind === "blocked-f32-terms" || schedule.kind === "blocked-tiled-f32-lanes") && schedule.productBoundary === "fused-fma";
-  return `product[${inputIndex}] = ${fused ? "exact_product" : "F32"}(${input} * ${learnedLiteral})`;
+  return gemma4LiteralScalarProductFormula(schedule, inputIndex, input, learnedLiteral);
 }
 
 function reductionWindow(request: Gemma4LiteralScalarViewRequest, width: number, operationId: string): { start: number; end: number } {
