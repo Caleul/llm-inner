@@ -203,8 +203,13 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.equal(literal.storageDecoders.length, catalog.tensors.size);
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 9);
+  assert.equal(literal.schemaVersion, 10);
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
+  assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
+  assert.equal(literal.formulaLanguage.languageId, literal.generation.scalarCalculations.formulaLanguage);
+  assert.equal(literal.formulaLanguage.authority.numericLiteralBits, "/numericLiterals/literals");
+  assert.match(literal.formulaLanguage.reductions.runtimeDefined, /not executable/);
+  assert.ok(literal.formulaLanguage.intrinsics.some((intrinsic) => intrinsic.notation === "decode(role)[indices]"));
   const expectedDomainCount = literal.assignments.composite.length + literal.assignments.vision.length + literal.assignments.audio.length +
     literal.program.textProgram.prelude.length + literal.program.textProgram.layers.reduce((total, layer) => total + layer.operations.length, 0) + literal.assignments.textEpilogue.length;
   assert.equal(literal.calculationDomains.assignments.length, expectedDomainCount);
@@ -471,7 +476,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 9);
+      assert.equal(artifact.schemaVersion, 10);
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.equal(artifact.constants.size, catalog.tensors.size);
       assert.equal(artifact.program.textProgram.source.path, "embedded://gemma4-composite-literal");
@@ -485,6 +490,8 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
       assert.equal(artifact.generation.forwardProgram.lastAssignment, "lm_head");
       assert.equal(artifact.generation.outputs.generatedTokenIds, "generated_token_ids");
       assert.equal(artifact.numericLiterals.literals.find((entry) => entry.token === "0.5")?.binary32Hex, "0x3f000000");
+      assert.equal(artifact.formulaLanguage.evaluation.dependencyOrder,
+        "evaluate instantiated assignments by ascending ordinal; every predecessor must already exist");
     } finally {
       await artifact.close();
     }
@@ -495,6 +502,12 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
     const corruptedNumeric = path.join(root, "corrupted-numeric.gemma4.literal.json");
     await writeFile(corruptedNumeric, raw.replace('"binary32Hex":"0x3f000000"', '"binary32Hex":"0x00000000"'));
     await assert.rejects(() => openGemma4CompositeLiteralArtifact(corruptedNumeric), /tabela de bits numéricos/);
+    const corruptedLanguage = path.join(root, "corrupted-language.gemma4.literal.json");
+    await writeFile(corruptedLanguage, raw.replace(
+      '"dependencyOrder":"evaluate instantiated assignments by ascending ordinal; every predecessor must already exist"',
+      '"dependencyOrder":"host decides"',
+    ));
+    await assert.rejects(() => openGemma4CompositeLiteralArtifact(corruptedLanguage), /linguagem de fórmulas/);
     const corruptedIdentity = path.join(root, "corrupted-identity.gemma4.literal.json");
     await writeFile(corruptedIdentity, raw.replace(`"revision":"${"a".repeat(40)}"`, '"revision":"moving-main"'));
     await assert.rejects(() => openGemma4CompositeLiteralArtifact(corruptedIdentity), /identidade de source inválida/);

@@ -1,5 +1,10 @@
 # Gemma 4 E4B: identidade imutável e metadata incorporada — 2026-07-18
 
+> **Artefato sucedido.** O mesmo pacote/identidade foi regenerado como schema
+> v10 com linguagem de fórmulas incorporada e novamente verificado com e sem a
+> fonte. O artefato atual e seus hashes estão em
+> [`gemma4-e4b-embedded-formula-language-2026-07-18.md`](gemma4-e4b-embedded-formula-language-2026-07-18.md).
+
 ## Resultado candidato
 
 O programa literal schema v9 agora carrega a autoridade exata da qual seu

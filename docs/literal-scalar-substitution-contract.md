@@ -125,6 +125,14 @@ valores aprendidos continuam incorporados uma única vez em `constants`. Assim,
 o leitor source-removed não depende de documentação externa para descobrir de
 qual pacote vieram a topologia, os controles ou a tokenização declarados.
 
+No schema v10, `formulaLanguage` incorpora a interpretação normativa de
+`indexed-ieee754-expression-v1`. Seus JSON pointers ligam fórmulas forward e
+greedy à ordem instanciada, domínios, bindings aprendidos, decoders e bits dos
+tokens numéricos. O contrato fixa indexação zero-based, layout, ordem de
+coordenadas, materialização de casts F64/F32/BF16, operadores, intrínsecos e
+reduções. `runtime-defined` é explicitamente não executável: nenhum leitor pode
+substituí-lo por uma redução do host e chamar o resultado de literal.
+
 Quando a autoridade disponível prova a equação, mas não a árvore de uma
 redução nativa, a fórmula preserva o domínio matemático completo e a entrada
 declara `reproducibility=fail-closed-runtime-reduction` com

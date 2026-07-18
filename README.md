@@ -341,7 +341,7 @@ reconstrói a tabela do próprio programa e rejeita qualquer bit ou uso alterado
 checkpoint. A evidência do E4B real está em
 [`docs/validation/gemma4-e4b-source-removed-numeric-literals-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-numeric-literals-2026-07-18.md).
 
-O schema v9 vincula o próprio programa ao pacote imutável que estabeleceu suas
+Desde o schema v9, o próprio programa fica vinculado ao pacote imutável que estabeleceu suas
 semânticas. `sourceIdentity` carrega `modelId`, revisão commit de 40 dígitos,
 adaptador semântico, tamanho e SHA-256 de cada shard/metadata. Todos os JSONs
 top-level do pacote — inclusive configuração, geração, processor e tokenizer —
@@ -353,6 +353,15 @@ compara a identidade inteira. Identidade móvel, metadata alterada, arquivo
 repetido ou decoder de metadata divergente falha fechado. A evidência do E4B
 real está em
 [`docs/validation/gemma4-e4b-embedded-source-identity-2026-07-18.md`](docs/validation/gemma4-e4b-embedded-source-identity-2026-07-18.md).
+
+O schema v10 também incorpora `formulaLanguage`, o contrato normativo da
+notação `indexed-ieee754-expression-v1`. Ele aponta para as seções que possuem
+ordem, domínios, bindings aprendidos, decoders e bits literais; define índices,
+casts F64/F32/BF16, operadores, reduções, intrínsecos e a execução greedy; e
+exige falha fechada para qualquer redução `runtime-defined`. Assim, uma leitura
+source-removed não precisa obter deste repositório a interpretação escondida
+das fórmulas. A evidência real está em
+[`docs/validation/gemma4-e4b-embedded-formula-language-2026-07-18.md`](docs/validation/gemma4-e4b-embedded-formula-language-2026-07-18.md).
 
 O leitor também pode partir de qualquer saída instanciada e calcular o fecho
 transitivo exato de seus produtores. `--calculation-slice <operation-id>`
@@ -521,8 +530,8 @@ escreve o artefato completo em streaming: ranges Safetensors de 12 MiB são
 codificados em base64 sem acumular o pacote ou uma string de vários GiB na
 heap. O resultado local contém os 2,130 payloads originais
 (15,992,314,836 bytes) e é auditado por `npm run audit:literal`. O hash
-`595603bedc33e27e3e7d270df45985c00eb7873196ac932aaf717fa0be0c6eee`
-identifica a exportação schema v9 atual de `21.382.303.443` bytes, cuja política numérica
+`72fb8eaa2a74bd98739543e44a5f4571a5c0ec2c7d0121aaa5736eb290f7d0c7`
+identifica a exportação schema v10 atual de `21.382.310.312` bytes, cuja política numérica
 declara fronteiras de resultado BF16, acumuladores F32/F64 e agendas de redução
 por operação do texto, áudio e visão; toda exportação deve registrar seu próprio hash, pois o programa literal
 inclui as políticas numéricas. As 54 projeções/normas K/V locais dos
