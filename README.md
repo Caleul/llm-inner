@@ -246,6 +246,30 @@ npm run inspect:gemma4-literal -- \
   --output /tmp/gemma4-generation-program.json
 ```
 
+Para sair dos templates simbólicos e seguir uma geração finita operação por
+operação, o mesmo leitor instancia `step`, resolve produtores/consumidores e
+liga cada prefill/decode à expansão completa do forward declarado:
+
+```bash
+npm run inspect:gemma4-literal -- \
+  --artifact ./artifacts/gemma4-e4b-dense.literal.json \
+  --list-generation-operations --generation-max-new-tokens 2 \
+  --output /tmp/gemma4-generation-navigation.json
+
+npm run inspect:gemma4-literal -- \
+  --artifact ./artifacts/gemma4-e4b-dense.literal.json \
+  --generation-operation 'generation_argmax[0]' \
+  --generation-max-new-tokens 2
+```
+
+A navegação mantém uma única expansão compartilhada do forward para não
+duplicar milhares de IDs por passo. A vista de cálculo do argmax expõe o scan
+ascendente completo do vocabulário, a rejeição de logits não finitos e o
+desempate que preserva o menor token ID; append de token, avanço de posição,
+entrada incremental, cache, EOS e seleção terminal também possuem fórmulas
+concretas por passo. A validação E4B com a fonte ausente está em
+[`docs/validation/gemma4-e4b-source-removed-generation-navigation-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-generation-navigation-2026-07-18.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 

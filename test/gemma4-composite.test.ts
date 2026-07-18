@@ -16,6 +16,7 @@ import {
 } from "../src/gemma4-composite-literal.js";
 import { openGemma4CompositeLiteralArtifact } from "../src/gemma4-composite-literal-reader.js";
 import { executeGemma4LiteralCompositeF32, generateGemma4LiteralCompositeF32 } from "../src/gemma4-literal-composite.js";
+import { buildGemma4LiteralGenerationNavigation, renderGemma4LiteralGenerationCalculationView } from "../src/gemma4-literal-generation-navigation.js";
 import { listGemma4LiteralOperations, renderGemma4LiteralMultimodalScalarView } from "../src/gemma4-literal-multimodal-scalar-view.js";
 import { executeGemma4LiteralVisionF32 } from "../src/gemma4-literal-vision.js";
 import { listGemma4LiteralTextOperations, renderGemma4LiteralScalarView } from "../src/gemma4-literal-scalar-view.js";
@@ -780,6 +781,64 @@ test("Gemma 4 paged text interpreter replays prefill and cached greedy decode fr
         "generation_prefill", "generation_initial_position", "generation_terminal_logits", "generation_terminal_cache",
       ]);
       assert.equal(zeroGeneration.logits, zeroGeneration.prefill.logits);
+
+      const generationPlan = buildGemma4LiteralGenerationNavigation(artifact, 2);
+      const generationNavigation = generationPlan.operations;
+      assert.equal(generationPlan.sourceCheckpointAccessed, false);
+      assert.equal(generationNavigation.length, 20);
+      assert.deepEqual(generationNavigation.map((entry) => entry.operationId), [
+        "generation_prefill", "generation_initial_position",
+        "generation_selection_logits[0]", "generation_argmax[0]", "generation_token_append[0]", "generation_position_advance[0]",
+        "generation_incremental_inputs[0]", "generation_incremental_forward[0]", "generation_cache_append[0]", "generation_eos_stop[0]",
+        "generation_selection_logits[1]", "generation_argmax[1]", "generation_token_append[1]", "generation_position_advance[1]",
+        "generation_incremental_inputs[1]", "generation_incremental_forward[1]", "generation_cache_append[1]", "generation_eos_stop[1]",
+        "generation_terminal_logits", "generation_terminal_cache",
+      ]);
+      assert.deepEqual(
+        generationNavigation.find((entry) => entry.operationId === "generation_argmax[1]")?.predecessors[0]?.producerOperationIds,
+        ["generation_selection_logits[1]"],
+      );
+      assert.deepEqual(
+        generationNavigation.find((entry) => entry.operationId === "generation_incremental_forward[1]")?.predecessors[0]?.producerOperationIds,
+        ["generation_incremental_inputs[1]"],
+      );
+      assert.deepEqual(
+        generationNavigation.find((entry) => entry.operationId === "generation_selection_logits[1]")?.conditionProducerOperationIds,
+        ["generation_eos_stop[0]"],
+      );
+      assert.deepEqual(
+        generationNavigation.find((entry) => entry.operationId === "generation_terminal_logits")?.predecessors[0]?.producerOperationIds,
+        ["generation_prefill", "generation_incremental_forward[0]", "generation_incremental_forward[1]"],
+      );
+      const generationOrdinal = new Map(generationNavigation.map((entry) => [entry.operationId, entry.ordinal]));
+      assert.ok(generationNavigation.every((entry) => entry.predecessors.every((predecessor) =>
+        predecessor.producerOperationIds.every((producer) => generationOrdinal.get(producer)! < entry.ordinal))));
+      assert.ok(generationNavigation.every((entry) => entry.conditionProducerOperationIds.every((producer) =>
+        generationOrdinal.get(producer)! < entry.ordinal)));
+      assert.ok(generationNavigation.every((entry) => entry.consumers.every((consumer) =>
+        generationOrdinal.get(consumer)! > entry.ordinal)));
+      const prefillNavigation = generationNavigation[0]!;
+      assert.equal(prefillNavigation.forwardExpansion?.firstOperationId, "composite_placeholder_masks");
+      assert.equal(prefillNavigation.forwardExpansion?.lastOperationId, program.textProgram.epilogue.at(-1)?.id);
+      assert.equal(prefillNavigation.forwardExpansion?.sourceCheckpointAccessed, false);
+      assert.equal(prefillNavigation.forwardExpansion?.operationCount, generationPlan.declaredForwardOperations.length);
+      assert.ok(generationPlan.declaredForwardOperations.length > program.assignments.length);
+      const argmaxView = renderGemma4LiteralGenerationCalculationView(artifact, 2, "generation_argmax[0]");
+      assert.equal(argmaxView.sourceCheckpointAccessed, false);
+      assert.ok(argmaxView.scalarAssignments.some((formula) => formula.includes("v=0..5")));
+      assert.ok(argmaxView.formula.includes("lowest"));
+      const incrementalView = renderGemma4LiteralGenerationCalculationView(artifact, 2, "generation_incremental_forward[1]");
+      assert.equal(incrementalView.forwardExpansion?.mode, "cached-incremental");
+      assert.equal(incrementalView.declaredForwardOperations?.length, generationPlan.declaredForwardOperations.length);
+      assert.ok(incrementalView.formula.includes("embedded_constants"));
+      const zeroNavigation = buildGemma4LiteralGenerationNavigation(artifact, 0);
+      assert.deepEqual(zeroNavigation.operations.map((entry) => entry.operationId), [
+        "generation_prefill", "generation_initial_position", "generation_terminal_logits", "generation_terminal_cache",
+      ]);
+      const zeroTerminal = renderGemma4LiteralGenerationCalculationView(artifact, 0, "generation_terminal_logits");
+      assert.equal(zeroTerminal.scalarAssignments[0], "executed_steps = 0 because max_new_tokens = 0");
+      assert.throws(() => buildGemma4LiteralGenerationNavigation(artifact, -1), /maxNewTokens inteiro não negativo/);
+      assert.throws(() => renderGemma4LiteralGenerationCalculationView(artifact, 1, "generation_argmax[1]"), /não encontrada/);
       await assert.rejects(
         () => generateGemma4PagedTextLiteralF32(artifact, { inputIds: [[1]], maxNewTokens: 1, pastKeyValues: replay.pastKeyValues }, { maxReadBytes: 64, allowUnverifiedFidelity: true }),
         /começa em prefill sem pastKeyValues/,

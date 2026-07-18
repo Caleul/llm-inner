@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { access, writeFile } from "node:fs/promises";
 import { openGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
 import { verifyGemma4CompositeLiteralEmbeddedPayloadIntegrity } from "./gemma4-composite-literal-payload-verification.js";
+import { buildGemma4LiteralGenerationNavigation, renderGemma4LiteralGenerationCalculationView } from "./gemma4-literal-generation-navigation.js";
 import { listGemma4LiteralOperations, renderGemma4LiteralMultimodalScalarView } from "./gemma4-literal-multimodal-scalar-view.js";
 
 interface Arguments {
@@ -14,6 +15,9 @@ interface Arguments {
   output?: string;
   listOperations: boolean;
   showGenerationProgram: boolean;
+  listGenerationOperations: boolean;
+  generationOperationId?: string;
+  generationMaxNewTokens?: number;
   operationId?: string;
   outputCoordinate?: number[];
   tokenId?: number;
@@ -53,6 +57,12 @@ try {
   }
   if (args.listOperations) result.operations = listGemma4LiteralOperations(artifact);
   if (args.showGenerationProgram) result.generationProgram = artifact.generation;
+  if (args.listGenerationOperations) result.generationNavigation = buildGemma4LiteralGenerationNavigation(artifact, args.generationMaxNewTokens!);
+  if (args.generationOperationId) {
+    result.generationCalculationView = renderGemma4LiteralGenerationCalculationView(
+      artifact, args.generationMaxNewTokens!, args.generationOperationId,
+    );
+  }
   if (args.operationId) {
     result.scalarView = await renderGemma4LiteralMultimodalScalarView(artifact, {
       operationId: args.operationId,
@@ -76,9 +86,10 @@ try {
 }
 
 function parseArguments(argv: string[]): Arguments {
-  let artifact: string | undefined, tensor: string | undefined, output: string | undefined, assertSourceUnavailable: string | undefined, operationId: string | undefined;
+  let artifact: string | undefined, tensor: string | undefined, output: string | undefined, assertSourceUnavailable: string | undefined, operationId: string | undefined, generationOperationId: string | undefined;
   let outputCoordinate: number[] | undefined, tokenId: number | undefined, positionCoordinate: [number, number] | undefined, inputStart: number | undefined, inputCount: number | undefined;
-  let offset = 0, byteLength = 4096, verifyPayloads = false, listOperations = false, showGenerationProgram = false;
+  let generationMaxNewTokens: number | undefined;
+  let offset = 0, byteLength = 4096, verifyPayloads = false, listOperations = false, showGenerationProgram = false, listGenerationOperations = false;
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
     const next = argv[index + 1];
@@ -89,6 +100,9 @@ function parseArguments(argv: string[]): Arguments {
     else if (value === "--verify-payloads") { verifyPayloads = true; }
     else if (value === "--list-operations") { listOperations = true; }
     else if (value === "--show-generation-program") { showGenerationProgram = true; }
+    else if (value === "--list-generation-operations") { listGenerationOperations = true; }
+    else if (value === "--generation-operation") { generationOperationId = requiredValue(next, "--generation-operation"); index += 1; }
+    else if (value === "--generation-max-new-tokens") { generationMaxNewTokens = parseInteger(next, "--generation-max-new-tokens"); index += 1; }
     else if (value === "--operation") { operationId = requiredValue(next, "--operation"); index += 1; }
     else if (value === "--output-coordinate") { outputCoordinate = parseCoordinate(requiredValue(next, "--output-coordinate")); index += 1; }
     else if (value === "--token-id") { tokenId = parseInteger(next, "--token-id"); index += 1; }
@@ -103,8 +117,8 @@ function parseArguments(argv: string[]): Arguments {
     else if (value === "--output") { output = next; index += 1; }
     else throw new Error(`Argumento desconhecido: ${value}.`);
   }
-  if (!artifact) throw new Error("Uso: --artifact <literal.json> [--list-operations] [--show-generation-program] [--operation <id> --output-coordinate <i,j,...> [--token-id <id>] [--position-coordinate <x,y>] [--input-start <i> --input-count <n>]] [--tensor <nome> --offset <bytes> --byte-length <bytes>] [--verify-payloads --assert-source-unavailable <checkpoint>] [--output <report.json>].");
-  if (assertSourceUnavailable !== undefined && !verifyPayloads && !operationId && !listOperations && !showGenerationProgram) throw new Error("--assert-source-unavailable requer --verify-payloads, --operation, --list-operations ou --show-generation-program.");
+  if (!artifact) throw new Error("Uso: --artifact <literal.json> [--list-operations] [--show-generation-program] [--list-generation-operations --generation-max-new-tokens <n>] [--generation-operation <id> --generation-max-new-tokens <n>] [--operation <id> --output-coordinate <i,j,...> [--token-id <id>] [--position-coordinate <x,y>] [--input-start <i> --input-count <n>]] [--tensor <nome> --offset <bytes> --byte-length <bytes>] [--verify-payloads --assert-source-unavailable <checkpoint>] [--output <report.json>].");
+  if (assertSourceUnavailable !== undefined && !verifyPayloads && !operationId && !listOperations && !showGenerationProgram && !listGenerationOperations && !generationOperationId) throw new Error("--assert-source-unavailable requer uma operação de inspeção.");
   if ((tensor === undefined && (offset !== 0 || byteLength !== 4096)) || (tensor !== undefined && (!Number.isSafeInteger(offset) || !Number.isSafeInteger(byteLength) || offset < 0 || byteLength <= 0))) {
     throw new Error("--offset e --byte-length requerem --tensor e valores inteiros positivos.");
   }
@@ -112,12 +126,16 @@ function parseArguments(argv: string[]): Arguments {
   if ((inputStart === undefined) !== (inputCount === undefined) || (inputStart !== undefined && operationId === undefined)) throw new Error("--input-start e --input-count requerem --operation e devem ser fornecidos juntos.");
   if (tokenId !== undefined && operationId === undefined) throw new Error("--token-id requer --operation.");
   if (positionCoordinate !== undefined && operationId === undefined) throw new Error("--position-coordinate requer --operation.");
+  if ((listGenerationOperations || generationOperationId !== undefined) !== (generationMaxNewTokens !== undefined)) throw new Error("Navegação de geração requer --generation-max-new-tokens e uma operação/listagem de geração.");
+  if (generationMaxNewTokens !== undefined && generationMaxNewTokens < 0) throw new Error("--generation-max-new-tokens requer inteiro não negativo.");
   return {
-    artifact, ...(tensor ? { tensor } : {}), offset, byteLength, verifyPayloads, listOperations, showGenerationProgram,
+    artifact, ...(tensor ? { tensor } : {}), offset, byteLength, verifyPayloads, listOperations, showGenerationProgram, listGenerationOperations,
     ...(assertSourceUnavailable ? { assertSourceUnavailable } : {}), ...(output ? { output } : {}),
     ...(operationId ? { operationId, outputCoordinate: outputCoordinate! } : {}), ...(tokenId === undefined ? {} : { tokenId }),
     ...(positionCoordinate === undefined ? {} : { positionCoordinate }),
     ...(inputStart === undefined ? {} : { inputStart, inputCount: inputCount! }),
+    ...(generationOperationId ? { generationOperationId } : {}),
+    ...(generationMaxNewTokens === undefined ? {} : { generationMaxNewTokens }),
   };
 }
 
