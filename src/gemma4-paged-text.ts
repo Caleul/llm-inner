@@ -152,10 +152,10 @@ export async function executeGemma4PagedTextLiteralF32(
         break;
       }
       case "activation":
-        store(operation, activationF32(value(values, operation.input), operation.function, operation.approximation));
+        store(operation, activationF32(value(values, operation.input), operation.function, operation.approximation, operation.tanhImplementation));
         break;
       case "elementwise":
-        store(operation, elementwiseF32(operation.inputs.map((name) => value(values, name)), operation.kind, operation.scalar));
+        store(operation, elementwiseF32(operation.inputs.map((name) => value(values, name)), operation.kind, operation.scalar, operation.tanhImplementation, operation.tanhSoftcapCasts));
         break;
       default: {
         const unsupported: never = operation;

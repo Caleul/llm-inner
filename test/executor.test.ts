@@ -5,15 +5,78 @@ import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { buildModelIR } from "../src/architecture.js";
 import { compareExecutionTrace, compareGenerationTrace } from "../src/differential.js";
-import { executeReferenceF32, executeReferenceF64, generateReferenceF32, generateReferenceF64 } from "../src/executor.js";
+import { activationF32, elementwiseF32, executeReferenceF32, executeReferenceF64, generateReferenceF32, generateReferenceF64, rmsNormF32, rotaryF32 } from "../src/executor.js";
 import { selectGreedyToken } from "../src/generation.js";
+import { GEMMA4_E4B_PYTORCH_BF16_TRIG_IMPLEMENTATION } from "../src/gemma4-text.js";
 import { SafetensorsCatalogReader } from "../src/safetensors.js";
 import { decodeMlxF32Payload } from "../src/bridge.js";
+import { sleefCosF32, sleefSinF32, sleefTanhF32 } from "../src/sleef-f32.js";
 import type { DenseF32Tensor, DenseTensor, ModelCatalog, TensorInfo } from "../src/types.js";
+import { roundF32ToBF16 } from "../src/utils.js";
 
 const preview = { outputRows: 1, inputTerms: 1, includeWeights: false } as const;
 const f64Policy = { computeDtype: "F64", accumulationDtype: "F64", outputDtype: "F64" } as const;
 const f32Policy = { computeDtype: "F32", accumulationDtype: "F32", outputDtype: "F32" } as const;
+const sleefTanh = {
+  authority: "pytorch-source-and-installed-binary", runtime: "pytorch-eager-cpu-darwin-arm64",
+  pytorchSourceCommit: "7269437d655783a26cba32aa88195b741ff496aa",
+  sleefSourceCommit: "5a1d179df9cf652951b59010a2d2075372d67f68", kernel: "Sleef_tanhf4_u10advsimd",
+} as const;
+
+test("pinned PyTorch ARM SLEEF tanh transcript preserves authoritative F32 results", () => {
+  assert.deepEqual([0.1, 1, -1, 8, 0.001, -3.7, 0, 8.7].map(sleefTanhF32), [
+    0.0996679961681366, 0.7615941762924194, -0.7615941762924194, 0.9999997615814209,
+    0.0009999996982514858, -0.998778223991394, 0, 1,
+  ]);
+  const input = { shape: [1, 4], values: Float32Array.of(-3.7, 0.001, 1, 8) };
+  assert.deepEqual([...activationF32(input, "gelu", "tanh", sleefTanh).values], [
+    -0.0002718120813369751, 0.0005003989790566266, 0.8411920070648193, 8,
+  ]);
+  assert.deepEqual([...elementwiseF32([input], "tanh_softcap", 30, sleefTanh, { afterDivide: "BF16", afterTanh: "BF16", afterMultiply: "BF16" }).values], [
+    -3.6875, 0.00099945068359375, 1, 7.84375,
+  ]);
+});
+
+test("pinned PyTorch ARM SLEEF trig and BF16 RoPE casts preserve authoritative results", () => {
+  assert.deepEqual([0, 0.001, 0.1, 0.5, 1, 1.234, 10, 124].map((value) => [sleefSinF32(value), sleefCosF32(value)]), [
+    [0, 1],
+    [0.0009999999310821295, 0.9999995231628418],
+    [0.0998334214091301, 0.9950041770935059],
+    [0.4794255495071411, 0.8775825500488281],
+    [0.8414709568023682, 0.5403023362159729],
+    [0.943818211555481, 0.3304651379585266],
+    [-0.5440211296081543, -0.83907151222229],
+    [-0.995686948299408, -0.09277620166540146],
+  ]);
+  const operation = {
+    id: "rope", op: "rotary_embedding" as const, input: "x", positionInput: "position_ids", output: "y",
+    ropeType: "default", theta: 10_000, rotaryDim: 2, layout: "rotate_half" as const,
+    trigImplementation: { ...GEMMA4_E4B_PYTORCH_BF16_TRIG_IMPLEMENTATION },
+    rotaryCasts: { cosine: "BF16", sine: "BF16", directProduct: "BF16", rotatedProduct: "BF16", sum: "BF16" } as const,
+    dtypePolicy: { inputDtype: "BF16", computeDtype: "F32", accumulationDtype: "F32", outputDtype: "BF16" },
+  };
+  const result = rotaryF32({ shape: [1, 1, 1, 2], values: Float32Array.of(0.5, -1) }, [[1]], operation);
+  assert.deepEqual([...result.values], [1.109375, -0.119140625]);
+  assert.throws(() => sleefSinF32(125), /requires the unimplemented rempif range reducer/);
+});
+
+test("PyTorch CPU cascade RMS schedule reproduces the authoritative BF16 vector", () => {
+  const input = { shape: [1, 16], values: Float32Array.from([0.5, -1, 2, -3, 4, -5, 6, -7, 8, -9, 10, -11, 12, -13, 14, -15]) };
+  const operation = {
+    id: "rms", op: "rms_norm" as const, input: "x", output: "y", epsilon: 1e-6, weightTransform: "none" as const,
+    axis: -1, reductionSize: 16,
+    dtypePolicy: { inputDtype: "BF16", computeDtype: "F32", accumulationDtype: "F32", outputDtype: "BF16", reduction: {
+      kind: "pytorch-cpu-f32-cascade-sum" as const, vectorLanes: 4 as const, ilpFactor: 4 as const, cascadeLevels: 4 as const,
+      minimumLevelStep: 16 as const, registerFold: "ascending" as const, laneFold: "ascending" as const,
+    } },
+  };
+  assert.deepEqual([...rmsNormF32(input, undefined, operation).values].map(roundF32ToBF16), [
+    0.056884765625, -0.11376953125, 0.2275390625, -0.33984375,
+    0.455078125, -0.56640625, 0.6796875, -0.796875,
+    0.91015625, -1.0234375, 1.1328125, -1.25,
+    1.359375, -1.4765625, 1.59375, -1.703125,
+  ]);
+});
 
 function info(name: string, shape: number[]): TensorInfo {
   return { name, storageDtype: "F64", storageShape: [...shape], logicalShape: [...shape] };

@@ -491,6 +491,21 @@ inclusive a ausência do checkpoint durante o replay candidato; a evidência
 atualizada está em
 [`docs/validation/gemma4-e4b-immutable-source-revalidation-2026-07-16.md`](docs/validation/gemma4-e4b-immutable-source-revalidation-2026-07-16.md).
 
+A fronteira textual atual substitui os perfis históricos por dispatch de
+classe baseado na fonte PyTorch fixada. Todas as 344 lineares BF16 compatíveis
+declaram a árvore ARM de 32 lanes; todas as 302 RMSNorm declaram o
+`cascade_sum` F32 de quatro lanes/quatro registradores; 84 GELU, 66 RoPE e o
+softcap final declaram os kernels SLEEF e cada cast BF16 observável. Com o
+checkpoint removido, um forward real em token `184`/posição `1` passou as
+1.229 atribuições, logits e 24 caches KV com erro zero. O scalar view também
+expõe os literais `SLEEF_SIN_F32`, `SLEEF_COS_F32` e `SLEEF_TANH_F32` dentro
+das fórmulas BF16. Esta é evidência candidata, não aceitação do checkpoint: no
+decode cached, logits de seleção, token `184` e KV da camada 0 são exatos, mas
+a primeira divergência é o KV da camada 1, isolando atenção/softmax não trivial;
+multimodal e o range reducer SLEEF completo também permanecem abertos. Comandos,
+hash do artefato e métricas estão em
+[`docs/validation/gemma4-e4b-source-dispatched-text-math-2026-07-18.md`](docs/validation/gemma4-e4b-source-dispatched-text-math-2026-07-18.md).
+
 Uma captura posterior de todas as 1.229 atribuições declaradas do Gemma4Text
 torna a divergência localizável sem reabrir o checkpoint durante o candidato.
 Ela corrige o cast BF16 observável do embedding (`sqrt(2560)` para `50.5` e o

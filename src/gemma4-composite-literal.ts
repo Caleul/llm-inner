@@ -25,6 +25,7 @@ import {
   type Gemma4CompositeProgram,
 } from "./gemma4-composite.js";
 import type { Gemma4AudioAssignment } from "./gemma4-audio.js";
+import { GEMMA4_E4B_PYTORCH_BF16_TANH_IMPLEMENTATION, GEMMA4_E4B_PYTORCH_BF16_TRIG_IMPLEMENTATION } from "./gemma4-text.js";
 import type { Gemma4VisionAssignment } from "./gemma4-vision.js";
 import type { ModelCatalog, Operation, TensorInfo, TensorRef } from "./types.js";
 
@@ -575,6 +576,8 @@ function legacyNumericPolicyMatchesProgram(
 function validateGemma4TextReductionSchedules(program: Gemma4CompositeProgram): void {
   const operations = [...program.textProgram.prelude, ...program.textProgram.layers.flatMap((layer) => layer.operations), ...program.textProgram.epilogue];
   for (const operation of operations) {
+    validateGemma4TextBf16Tanh(operation);
+    validateGemma4TextBf16Rotary(operation);
     if (operation.op !== "linear" && operation.op !== "rms_norm") continue;
     const reduction = operation.dtypePolicy.reduction;
     if (!reduction) throw new Error(`${operation.id}: programa literal Gemma 4 não declara a agenda de redução.`);
@@ -583,6 +586,14 @@ function validateGemma4TextReductionSchedules(program: Gemma4CompositeProgram): 
         throw new Error(`${operation.id}: agenda escalar de redução Gemma 4 é incompatível com sua política numérica.`);
       }
       if (reduction.kind === "ordered-fma" && operation.dtypePolicy.accumulationDtype !== "F32") throw new Error(`${operation.id}: agenda FMA escalar Gemma 4 requer acumulador F32.`);
+      continue;
+    }
+    if (reduction.kind === "pytorch-cpu-f32-cascade-sum") {
+      if (operation.op !== "rms_norm" || operation.dtypePolicy.accumulationDtype !== "F32" || reduction.vectorLanes !== 4 || reduction.ilpFactor !== 4 ||
+        reduction.cascadeLevels !== 4 || reduction.minimumLevelStep !== 16 || reduction.registerFold !== "ascending" || reduction.laneFold !== "ascending" ||
+        !Number.isSafeInteger(operation.reductionSize) || operation.reductionSize! <= 0 || operation.reductionSize! % 16 !== 0) {
+        throw new Error(`${operation.id}: agenda PyTorch CPU cascade RMS Gemma 4 inválida.`);
+      }
       continue;
     }
     if (reduction.kind === "blocked-f32-terms") {
@@ -633,6 +644,37 @@ function validateGemma4TextReductionSchedules(program: Gemma4CompositeProgram): 
       (tiled && (!Number.isSafeInteger(reduction.termsPerLane) || reduction.termsPerLane < 2 || reduction.inputLane !== "tile-contiguous-terms"))) {
       throw new Error(`${operation.id}: mapeamento de lanes Gemma 4 inválido.`);
     }
+  }
+}
+
+function validateGemma4TextBf16Rotary(operation: Operation): void {
+  if (operation.op !== "rotary_embedding" || operation.dtypePolicy.outputDtype !== "BF16") return;
+  if (!isDeepStrictEqual(operation.trigImplementation, GEMMA4_E4B_PYTORCH_BF16_TRIG_IMPLEMENTATION)) {
+    throw new Error(`${operation.id}: RoPE BF16 Gemma 4 não declara os kernels SLEEF fixados pelo runtime.`);
+  }
+  if (!isDeepStrictEqual(operation.rotaryCasts, {
+    cosine: "BF16", sine: "BF16", directProduct: "BF16", rotatedProduct: "BF16", sum: "BF16",
+  })) {
+    throw new Error(`${operation.id}: RoPE BF16 Gemma 4 não declara todas as fronteiras de cast do runtime.`);
+  }
+}
+
+/**
+ * PyTorch's BF16 GELU and final softcap do not use the host JavaScript tanh.
+ * The artifact must retain both the pinned SLEEF implementation and, for the
+ * composite softcap expression, each native BF16 materialization boundary.
+ */
+function validateGemma4TextBf16Tanh(operation: Operation): void {
+  const bf16Gelu = operation.op === "activation" && operation.function === "gelu" && operation.approximation === "tanh" && operation.dtypePolicy.outputDtype === "BF16";
+  const bf16Softcap = operation.op === "elementwise" && operation.kind === "tanh_softcap" && operation.dtypePolicy.outputDtype === "BF16";
+  if (!bf16Gelu && !bf16Softcap) return;
+  if (!isDeepStrictEqual(operation.tanhImplementation, GEMMA4_E4B_PYTORCH_BF16_TANH_IMPLEMENTATION)) {
+    throw new Error(`${operation.id}: operação tanh BF16 Gemma 4 não declara o kernel SLEEF fixado pelo runtime.`);
+  }
+  if (bf16Softcap && !isDeepStrictEqual(operation.tanhSoftcapCasts, {
+    afterDivide: "BF16", afterTanh: "BF16", afterMultiply: "BF16",
+  })) {
+    throw new Error(`${operation.id}: softcap tanh BF16 Gemma 4 não declara todas as fronteiras de cast do runtime.`);
   }
 }
 

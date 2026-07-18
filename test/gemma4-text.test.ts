@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildModelIR } from "../src/architecture.js";
-import { gemma4TextEmbeddingScale, isTraceBoundGemma4E4bArm32MlpProjection, isTraceBoundGemma4E4bArm32Topology } from "../src/gemma4-text.js";
+import { GEMMA4_E4B_PYTORCH_BF16_TANH_IMPLEMENTATION, GEMMA4_E4B_PYTORCH_BF16_TRIG_IMPLEMENTATION, gemma4TextEmbeddingScale, isSourceDispatchedGemma4E4bCpuBf16Linear, isTraceBoundGemma4E4bArm32Topology } from "../src/gemma4-text.js";
 import { executeReferenceF32 } from "../src/executor.js";
 import type { DenseF32Tensor, ModelCatalog, TensorInfo } from "../src/types.js";
 
@@ -12,16 +12,17 @@ test("Gemma 4 text embedding scale preserves the native BF16 scalar cast", () =>
   assert.equal(gemma4TextEmbeddingScale(4, "F32"), 2);
 });
 
-test("Gemma 4 E4B source-identified ARM reductions are bound to the complete registered topology", () => {
+test("Gemma 4 E4B source dispatch covers the compatible BF16 linear class without assignment IDs", () => {
   const e4b = { hidden: 2560, intermediate: 10240, layers: 42, pleWidth: 256, vocab: 262144 };
   assert.equal(isTraceBoundGemma4E4bArm32Topology(e4b), true);
-  assert.equal(isTraceBoundGemma4E4bArm32MlpProjection(e4b, "layer_0_gate_proj"), true);
-  assert.equal(isTraceBoundGemma4E4bArm32MlpProjection(e4b, "layer_0_up_proj"), true);
-  assert.equal(isTraceBoundGemma4E4bArm32MlpProjection(e4b, "layer_0_down_proj"), true);
-  assert.equal(isTraceBoundGemma4E4bArm32MlpProjection(e4b, "layer_1_o_proj"), false);
-  assert.equal(isTraceBoundGemma4E4bArm32MlpProjection(e4b, "layer_1_gate_proj"), false);
+  const compatible = { op: "linear" as const, transposeWeight: true, weight: { name: "any.assignment.weight", shape: [8, 4], storageDtype: "BF16" } };
+  assert.equal(isSourceDispatchedGemma4E4bCpuBf16Linear(e4b, compatible), true);
+  assert.equal(isSourceDispatchedGemma4E4bCpuBf16Linear(e4b, { ...compatible, weight: { ...compatible.weight, storageDtype: "F32" } }), false);
+  assert.equal(isSourceDispatchedGemma4E4bCpuBf16Linear(e4b, { ...compatible, transposeWeight: false }), false);
+  assert.equal(isSourceDispatchedGemma4E4bCpuBf16Linear(e4b, { ...compatible, bias: compatible.weight }), false);
+  assert.equal(isSourceDispatchedGemma4E4bCpuBf16Linear(e4b, { op: "rms_norm" }), false);
   assert.equal(isTraceBoundGemma4E4bArm32Topology({ ...e4b, layers: 41 }), false);
-  assert.equal(isTraceBoundGemma4E4bArm32MlpProjection({ ...e4b, layers: 41 }, "layer_0_gate_proj"), false);
+  assert.equal(isSourceDispatchedGemma4E4bCpuBf16Linear({ ...e4b, layers: 41 }, compatible), false);
   assert.equal(isTraceBoundGemma4E4bArm32Topology({ ...e4b, intermediate: 5120 }), false);
   assert.equal(isTraceBoundGemma4E4bArm32Topology({ ...e4b, pleWidth: 128 }), false);
 });
@@ -35,6 +36,23 @@ test("Gemma 4 text preserves authoritative BF16 result boundaries in its IR", as
     assert.deepEqual(operation.dtypePolicy, operation.op === "linear" || operation.op === "rms_norm"
       ? { inputDtype: "BF16", computeDtype: "F32", accumulationDtype: "F64", outputDtype: "BF16", reduction: { kind: "ordered-scalar", indexOrder: "ascending" } }
       : { inputDtype: "BF16", computeDtype: "F32", accumulationDtype: "F32", outputDtype: "BF16" });
+  }
+  const activations = ir.layers.flatMap((layer) => layer.operations).filter((operation) => operation.op === "activation");
+  assert.ok(activations.length > 0);
+  for (const operation of activations) {
+    if (operation.op === "activation") assert.deepEqual(operation.tanhImplementation, GEMMA4_E4B_PYTORCH_BF16_TANH_IMPLEMENTATION);
+  }
+  const softcap = ir.epilogue.find((operation) => operation.id === "final_logit_softcap");
+  assert.equal(softcap?.op, "elementwise");
+  if (softcap?.op === "elementwise") {
+    assert.deepEqual(softcap.tanhImplementation, GEMMA4_E4B_PYTORCH_BF16_TANH_IMPLEMENTATION);
+    assert.deepEqual(softcap.tanhSoftcapCasts, { afterDivide: "BF16", afterTanh: "BF16", afterMultiply: "BF16" });
+  }
+  const rotaryOperations = ir.layers.flatMap((layer) => layer.operations).filter((operation) => operation.op === "rotary_embedding");
+  assert.ok(rotaryOperations.length > 0);
+  for (const operation of rotaryOperations) if (operation.op === "rotary_embedding") {
+    assert.deepEqual(operation.trigImplementation, GEMMA4_E4B_PYTORCH_BF16_TRIG_IMPLEMENTATION);
+    assert.deepEqual(operation.rotaryCasts, { cosine: "BF16", sine: "BF16", directProduct: "BF16", rotatedProduct: "BF16", sum: "BF16" });
   }
 });
 

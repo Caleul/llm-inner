@@ -1,6 +1,7 @@
 import type {
   DenseTensor,
   DenseF32Tensor,
+  F32TanhImplementation,
   ModelIR,
   Operation,
   ReferenceF32KeyValueCache,
@@ -17,6 +18,8 @@ import type {
   TensorRef,
 } from "./types.js";
 import { selectGreedyToken } from "./generation.js";
+import { sleefCosF32, sleefSinF32, sleefTanhF32 } from "./sleef-f32.js";
+import { roundF32ToBF16 } from "./utils.js";
 
 /**
  * Small, deterministic F64 interpreter for the dense decoder subset emitted by
@@ -230,10 +233,10 @@ function executeReferenceF32Operations(
         }
         break;
       case "activation":
-        values.set(operation.output, activationF32(valueF32(values, operation.input), operation.function, operation.approximation));
+        values.set(operation.output, activationF32(valueF32(values, operation.input), operation.function, operation.approximation, operation.tanhImplementation));
         break;
       case "elementwise":
-        values.set(operation.output, elementwiseF32(operation.inputs.map((name) => valueF32(values, name)), operation.kind, operation.scalar));
+        values.set(operation.output, elementwiseF32(operation.inputs.map((name) => valueF32(values, name)), operation.kind, operation.scalar, operation.tanhImplementation, operation.tanhSoftcapCasts));
         break;
       default: {
         const neverOperation: never = operation;
@@ -799,10 +802,15 @@ export function tensorScaleF32(input: DenseF32Tensor, scalar: DenseF32Tensor, op
 export function rmsNormF32(input: DenseF32Tensor, weight: DenseF32Tensor | undefined, operation: Extract<Operation, { op: "rms_norm" }>): DenseF32Tensor {
   const width = input.shape.at(-1);
   if (width === undefined || (operation.weightTransform === "none" ? weight !== undefined : !weight || weight.shape.length !== 1 || weight.shape[0] !== width)) throw new Error(`${operation.id}: RMSNorm incompatível.`);
+  if (operation.reductionSize !== undefined && operation.reductionSize !== width) throw new Error(`${operation.id}: dimensão ${width} diverge do domínio de redução RMS declarado ${operation.reductionSize}.`);
   const result = new Float32Array(input.values.length);
   const epsilon = f32(operation.epsilon);
   for (let offset = 0; offset < input.values.length; offset += width) {
-    const sum = operation.dtypePolicy.accumulationDtype === "F64" ? rmsNormF32ProductsF64Accumulation(input, offset, width) : rmsNormF32ProductsF32Accumulation(input, offset, width);
+    const sum = operation.dtypePolicy.reduction?.kind === "pytorch-cpu-f32-cascade-sum"
+      ? rmsNormPytorchCpuCascadeSum(input, offset, width)
+      : operation.dtypePolicy.accumulationDtype === "F64"
+        ? rmsNormF32ProductsF64Accumulation(input, offset, width)
+        : rmsNormF32ProductsF32Accumulation(input, offset, width);
     const mean = f32(sum / f32(width));
     const scale = f32(1 / f32(Math.sqrt(f32(mean + epsilon))));
     for (let index = 0; index < width; index += 1) {
@@ -824,6 +832,45 @@ function rmsNormF32ProductsF32Accumulation(input: DenseF32Tensor, offset: number
 function rmsNormF32ProductsF64Accumulation(input: DenseF32Tensor, offset: number, width: number): number {
   let sum = 0;
   for (let index = 0; index < width; index += 1) sum += f32(input.values[offset + index]! * input.values[offset + index]!);
+  return sum;
+}
+
+/** Scalar replay of SumKernel.cpp's vectorized_inner_sum/cascade_sum path. */
+function rmsNormPytorchCpuCascadeSum(input: DenseF32Tensor, offset: number, width: number): number {
+  if (width % 16 !== 0) throw new Error(`PyTorch CPU cascade RMS requer largura divisível por 16; recebeu ${width}.`);
+  const lanes = 4, registers = 4, levels = 4;
+  const unitCount = width / (lanes * registers);
+  const levelPower = Math.max(4, Math.ceil(Math.log2(unitCount)) >> 2);
+  const levelStep = 1 << levelPower, levelMask = levelStep - 1;
+  const accumulators = Array.from({ length: levels }, () => Array.from({ length: registers }, () => new Float32Array(lanes)));
+  let unit = 0;
+  for (; unit + levelStep <= unitCount;) {
+    for (let local = 0; local < levelStep; local += 1, unit += 1) {
+      for (let register = 0; register < registers; register += 1) for (let lane = 0; lane < lanes; lane += 1) {
+        const value = input.values[offset + unit * lanes * registers + register * lanes + lane]!;
+        accumulators[0]![register]![lane] = f32(accumulators[0]![register]![lane]! + f32(value * value));
+      }
+    }
+    for (let level = 1; level < levels; level += 1) {
+      for (let register = 0; register < registers; register += 1) for (let lane = 0; lane < lanes; lane += 1) {
+        accumulators[level]![register]![lane] = f32(accumulators[level]![register]![lane]! + accumulators[level - 1]![register]![lane]!);
+        accumulators[level - 1]![register]![lane] = 0;
+      }
+      if ((unit & (levelMask << (level * levelPower))) !== 0) break;
+    }
+  }
+  for (; unit < unitCount; unit += 1) for (let register = 0; register < registers; register += 1) for (let lane = 0; lane < lanes; lane += 1) {
+    const value = input.values[offset + unit * lanes * registers + register * lanes + lane]!;
+    accumulators[0]![register]![lane] = f32(accumulators[0]![register]![lane]! + f32(value * value));
+  }
+  for (let level = 1; level < levels; level += 1) for (let register = 0; register < registers; register += 1) for (let lane = 0; lane < lanes; lane += 1) {
+    accumulators[0]![register]![lane] = f32(accumulators[0]![register]![lane]! + accumulators[level]![register]![lane]!);
+  }
+  for (let register = 1; register < registers; register += 1) for (let lane = 0; lane < lanes; lane += 1) {
+    accumulators[0]![0]![lane] = f32(accumulators[0]![0]![lane]! + accumulators[0]![register]![lane]!);
+  }
+  let sum = f32(0);
+  for (let lane = 0; lane < lanes; lane += 1) sum = f32(sum + accumulators[0]![0]![lane]!);
   return sum;
 }
 
@@ -897,13 +944,21 @@ export function rotaryF32(input: DenseF32Tensor, positions: number[][], operatio
   const proportionalFactor = operation.ropeType === "proportional" ? ((operation.scaling?.factor as number | undefined) ?? 1) : 1;
   for (let b = 0; b < batch; b += 1) for (let h = 0; h < heads; h += 1) for (let s = 0; s < sequence; s += 1) for (let pair = 0; pair < half; pair += 1) {
     const angle = f32(operation.ropeType === "proportional" && pair >= proportionalPairs ? 0 : positions[b]![s]! / f32(f32(operation.theta ** ((2 * pair) / (operation.ropeType === "proportional" ? headDim : operation.rotaryDim))) * f32(proportionalFactor)));
-    const cosine = f32(Math.cos(angle));
-    const sine = f32(Math.sin(angle));
+    const cosineF32 = operation.trigImplementation ? sleefCosF32(angle) : f32(Math.cos(angle));
+    const sineF32 = operation.trigImplementation ? sleefSinF32(angle) : f32(Math.sin(angle));
+    const cosine = operation.rotaryCasts ? roundF32ToBF16(cosineF32) : cosineF32;
+    const sine = operation.rotaryCasts ? roundF32ToBF16(sineF32) : sineF32;
     const base = ((b * heads + h) * sequence + s) * headDim;
     const first = input.values[base + pair]!;
     const second = input.values[base + pair + half]!;
-    result[base + pair] = f32(f32(first * cosine) - f32(second * sine));
-    result[base + pair + half] = f32(f32(second * cosine) + f32(first * sine));
+    const directFirst = f32(first * cosine), rotatedFirst = f32(second * sine);
+    const directSecond = f32(second * cosine), rotatedSecond = f32(first * sine);
+    result[base + pair] = operation.rotaryCasts
+      ? roundF32ToBF16(f32(roundF32ToBF16(directFirst) - roundF32ToBF16(rotatedFirst)))
+      : f32(directFirst - rotatedFirst);
+    result[base + pair + half] = operation.rotaryCasts
+      ? roundF32ToBF16(f32(roundF32ToBF16(directSecond) + roundF32ToBF16(rotatedSecond)))
+      : f32(directSecond + rotatedSecond);
   }
   return denseF32([...input.shape], result);
 }
@@ -947,19 +1002,28 @@ export function attentionF32(query: DenseF32Tensor, key: DenseF32Tensor, valueTe
   return denseF32([batch, querySequence, queryHeads * headDim], result);
 }
 
-export function activationF32(input: DenseF32Tensor, functionName: string, approximation?: string): DenseF32Tensor {
+export function activationF32(input: DenseF32Tensor, functionName: string, approximation?: string, tanhImplementation?: F32TanhImplementation): DenseF32Tensor {
   const values = new Float32Array(input.values.length);
   for (let index = 0; index < values.length; index += 1) {
     const x = input.values[index]!;
     if (functionName === "silu") values[index] = f32(x / f32(1 + f32(Math.exp(-x))));
-    else if (functionName === "gelu" && approximation === "tanh") values[index] = f32(f32(0.5 * x) * f32(1 + f32(Math.tanh(f32(Math.sqrt(2 / Math.PI) * f32(x + f32(0.044715 * f32(x * f32(x * x)))))))));
+    else if (functionName === "gelu" && approximation === "tanh") {
+      const cube = f32(f32(x * x) * x);
+      const inner = f32(f32(Math.sqrt(2 / Math.PI)) * f32(x + f32(f32(0.044715) * cube)));
+      const tanh = tanhImplementation?.kernel === "Sleef_tanhf4_u10advsimd" ? sleefTanhF32(inner) : f32(Math.tanh(inner));
+      values[index] = f32(f32(f32(0.5) * x) * f32(1 + tanh));
+    }
     else if (functionName === "gelu" && approximation === "erf") values[index] = f32(f32(0.5 * x) * f32(1 + f32(erf(f32(x / f32(Math.sqrt(2)))))));
     else throw new Error(`Ativação não suportada pelo executor F32: ${functionName}/${approximation ?? "none"}.`);
   }
   return denseF32([...input.shape], values);
 }
 
-export function elementwiseF32(inputs: DenseF32Tensor[], kind: Extract<Operation, { op: "elementwise" }> ["kind"], scalar?: number): DenseF32Tensor {
+export function elementwiseF32(
+  inputs: DenseF32Tensor[], kind: Extract<Operation, { op: "elementwise" }>["kind"], scalar?: number,
+  tanhImplementation?: F32TanhImplementation,
+  tanhSoftcapCasts?: Extract<Operation, { op: "elementwise" }>["tanhSoftcapCasts"],
+): DenseF32Tensor {
   if (inputs.length === 0) throw new Error("Operação elementwise sem entradas.");
   const first = inputs[0]!;
   for (const input of inputs.slice(1)) assertShapeF32(input, first.shape, "elementwise");
@@ -971,7 +1035,14 @@ export function elementwiseF32(inputs: DenseF32Tensor[], kind: Extract<Operation
     if (kind === "add") result[index] = f32(first.values[index]! + inputs[1]!.values[index]!);
     else if (kind === "multiply") result[index] = f32(first.values[index]! * inputs[1]!.values[index]!);
     else if (kind === "scale") result[index] = f32(first.values[index]! * f32Scalar!);
-    else result[index] = f32(f32Scalar! * f32(Math.tanh(f32(first.values[index]! / f32Scalar!))));
+    else {
+      const divided = f32(first.values[index]! / f32Scalar!);
+      const tanhInput = tanhSoftcapCasts ? roundF32ToBF16(divided) : divided;
+      const tanh = tanhImplementation?.kernel === "Sleef_tanhf4_u10advsimd" ? sleefTanhF32(tanhInput) : f32(Math.tanh(tanhInput));
+      const tanhOutput = tanhSoftcapCasts ? roundF32ToBF16(tanh) : tanh;
+      const multiplied = f32(f32Scalar! * tanhOutput);
+      result[index] = tanhSoftcapCasts ? roundF32ToBF16(multiplied) : multiplied;
+    }
   }
   return denseF32([...first.shape], result);
 }

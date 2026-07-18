@@ -1,22 +1,63 @@
-import type { JsonObject, LayerIR, ModelCatalog, ModelIR, Operation, PreviewOptions, TensorInfo, TensorRef } from "./types.js";
+import type { JsonObject, LayerIR, LinearOp, ModelCatalog, ModelIR, Operation, PreviewOptions, TensorInfo, TensorRef } from "./types.js";
 import { roundF32ToBF16 } from "./utils.js";
 
 const F32_POLICY = { computeDtype: "model-configured", accumulationDtype: "runtime-defined", outputDtype: "model-configured" } as const;
 const F32_RUNTIME_POLICY = { inputDtype: "F32", computeDtype: "F32", accumulationDtype: "F32", outputDtype: "F32" } as const;
 const ORDERED_SCALAR_REDUCTION = { kind: "ordered-scalar", indexOrder: "ascending" } as const;
 const BF16_NATIVE_REDUCTION_POLICY = { inputDtype: "BF16", computeDtype: "F32", accumulationDtype: "F64", outputDtype: "BF16", reduction: ORDERED_SCALAR_REDUCTION } as const;
-/**
- * Trace-bound E4B CPU policy for registered MLP assignments only. It encodes
- * the complete finite ARM register tree and is never inferred by the executor.
- * Identical matrix dimensions alone are insufficient evidence for another
- * assignment to inherit it.
- */
-const BF16_TRACE_BOUND_ARM_32_MLP_PROJECTION_POLICY = {
+const BF16_SOURCE_DISPATCHED_RMS_POLICY = {
+  inputDtype: "BF16", computeDtype: "F32", accumulationDtype: "F32", outputDtype: "BF16",
+  reduction: {
+    kind: "pytorch-cpu-f32-cascade-sum", vectorLanes: 4, ilpFactor: 4, cascadeLevels: 4,
+    minimumLevelStep: 16, registerFold: "ascending", laneFold: "ascending",
+  },
+} as const;
+const BF16_SOURCE_DISPATCHED_RMS_PROVENANCE = {
+  authority: "pytorch-source-and-installed-binary",
+  runtime: "pytorch-eager-cpu-darwin-arm64",
+  sourceCommit: "7269437d655783a26cba32aa88195b741ff496aa",
+  operationClass: "contiguous-last-dimension-f32-mean",
+  dispatchPath: "Gemma4RMSNorm hidden_states.float().pow(2).mean(-1) -> mean_out CPU -> sum_out F32 -> cascade_sum -> vectorized_inner_sum",
+} as const;
+const BF16_SOURCE_DISPATCHED_ARM_32_LINEAR_POLICY = {
   inputDtype: "BF16", computeDtype: "F32", accumulationDtype: "F32", outputDtype: "BF16",
   reduction: {
     kind: "arm-neon-bf16-dot-fma", laneCount: 32, registerCount: 8, lanesPerRegister: 4,
     inputLane: "index-modulo-vector-lane-count", horizontalFold: "pairwise",
   },
+} as const;
+
+const BF16_SOURCE_DISPATCHED_ARM_32_LINEAR_PROVENANCE = {
+  authority: "pytorch-source-and-installed-binary",
+  runtime: "pytorch-eager-cpu-darwin-arm64",
+  sourceCommit: "7269437d655783a26cba32aa88195b741ff496aa",
+  operationClass: "bias-free-transposed-bf16-linear",
+  dispatchPath: "torch.nn.functional.linear -> matmul -> mm_out_cpu -> addmm_impl_cpu_ -> cpublas::gemm -> gemm_transa_ -> bf16_dot_with_fp32_arith",
+  applicability: {
+    inputRows: "any-positive-folded-row-count",
+    inputDtype: "BF16",
+    weightDtype: "BF16",
+    outputDtype: "BF16",
+    transposeWeight: true,
+    bias: "absent",
+  },
+} as const;
+
+export const GEMMA4_E4B_PYTORCH_BF16_TANH_IMPLEMENTATION = {
+  authority: "pytorch-source-and-installed-binary",
+  runtime: "pytorch-eager-cpu-darwin-arm64",
+  pytorchSourceCommit: "7269437d655783a26cba32aa88195b741ff496aa",
+  sleefSourceCommit: "5a1d179df9cf652951b59010a2d2075372d67f68",
+  kernel: "Sleef_tanhf4_u10advsimd",
+} as const;
+
+export const GEMMA4_E4B_PYTORCH_BF16_TRIG_IMPLEMENTATION = {
+  authority: "pytorch-source-and-installed-binary",
+  runtime: "pytorch-eager-cpu-darwin-arm64",
+  pytorchSourceCommit: "7269437d655783a26cba32aa88195b741ff496aa",
+  sleefSourceCommit: "5a1d179df9cf652951b59010a2d2075372d67f68",
+  sineKernel: "Sleef_sinf4_u10advsimd",
+  cosineKernel: "Sleef_cosf4_u10advsimd",
 } as const;
 
 /**
@@ -122,10 +163,10 @@ export function buildGemma4TextIR(catalog: ModelCatalog, config: JsonObject, pre
       );
       key = `layer_${layer}_k_rot`;
       if (alternative) {
-        ops.push({ id: `layer_${layer}_v_norm`, layer, op: "rms_norm", input: `layer_${layer}_k_heads`, output: `layer_${layer}_v_normalized`, epsilon, weightTransform: "none", axis: -1, dtypePolicy: F32_POLICY });
+        ops.push({ id: `layer_${layer}_v_norm`, layer, op: "rms_norm", input: `layer_${layer}_k_heads`, output: `layer_${layer}_v_normalized`, epsilon, weightTransform: "none", axis: -1, reductionSize: dim, dtypePolicy: F32_POLICY });
       } else {
         const v = shape(`${layerPrefix}.self_attn.v_proj.weight`, [layerKvHeads * dim, hidden]);
-        ops.push(linear(`layer_${layer}_v_proj`, `layer_${layer}_attn_norm`, `layer_${layer}_v_linear`, v, layer), { id: `layer_${layer}_v_heads`, layer, op: "reshape_heads", input: `layer_${layer}_v_linear`, output: `layer_${layer}_v_heads`, numHeads: layerKvHeads, headDim: dim, layout: "BHSD", dtypePolicy: F32_POLICY }, { id: `layer_${layer}_v_norm`, layer, op: "rms_norm", input: `layer_${layer}_v_heads`, output: `layer_${layer}_v_normalized`, epsilon, weightTransform: "none", axis: -1, dtypePolicy: F32_POLICY });
+        ops.push(linear(`layer_${layer}_v_proj`, `layer_${layer}_attn_norm`, `layer_${layer}_v_linear`, v, layer), { id: `layer_${layer}_v_heads`, layer, op: "reshape_heads", input: `layer_${layer}_v_linear`, output: `layer_${layer}_v_heads`, numHeads: layerKvHeads, headDim: dim, layout: "BHSD", dtypePolicy: F32_POLICY }, { id: `layer_${layer}_v_norm`, layer, op: "rms_norm", input: `layer_${layer}_v_heads`, output: `layer_${layer}_v_normalized`, epsilon, weightTransform: "none", axis: -1, reductionSize: dim, dtypePolicy: F32_POLICY });
       }
       value = `layer_${layer}_v_normalized`;
     }
@@ -159,23 +200,49 @@ export function buildGemma4TextIR(catalog: ModelCatalog, config: JsonObject, pre
     { id: "final_norm", op: "rms_norm", input: `hidden_states_${layers}`, output: "final_hidden_states", weight: finalNorm, epsilon, weightTransform: "direct", axis: -1, dtypePolicy: F32_POLICY },
     linear("lm_head", "final_hidden_states", "logits", normalEmbedding),
   ];
-  if (finalSoftcap !== undefined) epilogue.push({ id: "final_logit_softcap", op: "elementwise", kind: "tanh_softcap", inputs: ["logits"], scalar: finalSoftcap, output: "softcapped_logits", dtypePolicy: F32_POLICY });
+  if (finalSoftcap !== undefined) epilogue.push({
+    id: "final_logit_softcap", op: "elementwise", kind: "tanh_softcap", inputs: ["logits"], scalar: finalSoftcap,
+    output: "softcapped_logits", dtypePolicy: F32_POLICY,
+    ...(runtimeDtype === "BF16" ? {
+      tanhImplementation: structuredClone(GEMMA4_E4B_PYTORCH_BF16_TANH_IMPLEMENTATION),
+      tanhSoftcapCasts: { afterDivide: "BF16", afterTanh: "BF16", afterMultiply: "BF16" } as const,
+    } : {}),
+  });
   const dtypePolicy = textRuntimeDtypePolicy(runtimeDtype);
-  // This is a pinned E4B trace-compatible candidate, not a replay-time shape
-  // heuristic. The complete registered topology narrows the declaration to
-  // the only E4B operations measured against independent native captures; the
-  // executor receives the schedule from the serialized assignment and never
-  // selects it from a shape at replay time.
   for (const operation of [...prelude, ...lowered.flatMap((layer) => layer.operations), ...epilogue]) {
-    operation.dtypePolicy = runtimeDtype === "BF16" && isTraceBoundGemma4E4bArm32MlpProjection(
-      { hidden, intermediate, layers, pleWidth, vocab }, operation.id,
-    )
-      ? BF16_TRACE_BOUND_ARM_32_MLP_PROJECTION_POLICY
+    const rmsReductionSize = operation.op === "rms_norm" ? operation.reductionSize ?? operation.weight?.shape[0] : undefined;
+    const sourceDispatchedLinear = runtimeDtype === "BF16" && isSourceDispatchedGemma4E4bCpuBf16Linear(
+      { hidden, intermediate, layers, pleWidth, vocab }, operation,
+    );
+    const sourceDispatchedRms = runtimeDtype === "BF16" && operation.op === "rms_norm" && typeof rmsReductionSize === "number" && rmsReductionSize >= 16 && rmsReductionSize % 16 === 0;
+    operation.dtypePolicy = sourceDispatchedLinear
+      ? BF16_SOURCE_DISPATCHED_ARM_32_LINEAR_POLICY
+      : sourceDispatchedRms
+        ? BF16_SOURCE_DISPATCHED_RMS_POLICY
       : runtimeDtype === "BF16" && (operation.op === "linear" || operation.op === "rms_norm")
         ? BF16_NATIVE_REDUCTION_POLICY
         : operation.op === "linear" || operation.op === "rms_norm"
           ? { ...dtypePolicy, reduction: ORDERED_SCALAR_REDUCTION }
           : dtypePolicy;
+    if (sourceDispatchedLinear && operation.op === "linear") {
+      operation.reductionProvenance = structuredClone(BF16_SOURCE_DISPATCHED_ARM_32_LINEAR_PROVENANCE);
+    }
+    if (runtimeDtype === "BF16" && operation.op === "rms_norm") {
+      if (typeof rmsReductionSize !== "number" || !Number.isSafeInteger(rmsReductionSize) || rmsReductionSize <= 0) {
+        throw new Error(`${operation.id}: RMSNorm BF16 Gemma 4 requer dimensão final positiva explícita.`);
+      }
+      operation.reductionSize = rmsReductionSize;
+      if (sourceDispatchedRms) operation.reductionProvenance = structuredClone(BF16_SOURCE_DISPATCHED_RMS_PROVENANCE);
+    }
+    if (runtimeDtype === "BF16" && operation.op === "activation" && operation.function === "gelu" && operation.approximation === "tanh") {
+      operation.tanhImplementation = structuredClone(GEMMA4_E4B_PYTORCH_BF16_TANH_IMPLEMENTATION);
+    }
+    if (runtimeDtype === "BF16" && operation.op === "rotary_embedding") {
+      operation.trigImplementation = structuredClone(GEMMA4_E4B_PYTORCH_BF16_TRIG_IMPLEMENTATION);
+      operation.rotaryCasts = {
+        cosine: "BF16", sine: "BF16", directProduct: "BF16", rotatedProduct: "BF16", sum: "BF16",
+      };
+    }
   }
   return { schemaVersion: 2, source: { path: catalog.source, format: catalog.format }, architecture: { modelType: "gemma4_text", hiddenSize: hidden, intermediateSize: intermediate, numLayers: layers, numAttentionHeads: heads, numKeyValueHeads: kvHeads, headDim, vocabSize: vocab }, config: structuredClone(config), preview, inputs: [{ name: "input_ids", description: "IDs dos tokens de entrada." }, { name: "attention_mask", description: "Máscaras causais por tipo de atenção." }, { name: "position_ids", description: "Posições absolutas RoPE." }, { name: "past_key_values", description: "Estado KV pós-RoPE por camada produtora." }], prelude, layers: lowered, epilogue, fidelity: { exactByConstruction: false, assumptions: ["A política declarada preserva fronteiras BF16 de saída quando a configuração autoritativa as exige; a ordem exata de redução do kernel nativo continua sujeita à validação diferencial."], unsupported: [], warnings: ["Este adaptador cobre Gemma4Text isolado. O pacote multimodal Gemma4 continua rejeitado até vision/audio replacement ser lowered."] } };
 }
@@ -204,29 +271,30 @@ export function isTraceBoundGemma4E4bArm32Topology(topology: {
 }
 
 /**
- * Only MLP assignments with independently replayed E4B CPU evidence may carry
- * this native reduction declaration. `layer_0_down_proj` additionally has the
- * pinned PyTorch GEMV source-dispatch evidence. This binding is evaluated
- * while compiling the IR; replay only receives the serialized schedule.
+ * Every compatible linear reaches the same dot implementation in the pinned
+ * eager CPU runtime. Bias-free F.linear lowers through matmul; contiguous
+ * [B,S,D] inputs fold to mm, mm_out_cpu enters addmm_impl_cpu_, and this wheel
+ * has neither MKLDNN nor a BF16 Accelerate sbgemm. gemm_transa_ invokes
+ * bf16_dot_with_fp32_arith once per output row for every positive folded row
+ * count. Selection is based on source, dtype, layout and operation class,
+ * never an assignment ID or matrix dimension.
  */
-export function isTraceBoundGemma4E4bArm32MlpProjection(
+export function isSourceDispatchedGemma4E4bCpuBf16Linear(
   topology: { hidden: number; intermediate: number; layers: number; pleWidth: number; vocab: number },
-  operationId: string,
-): boolean {
-  return isTraceBoundGemma4E4bArm32Topology(topology) &&
-    (operationId === "layer_0_gate_proj" || operationId === "layer_0_up_proj" || operationId === "layer_0_down_proj");
+  operation: Pick<Operation, "op"> & Partial<Pick<LinearOp, "transposeWeight" | "bias" | "weight">>,
+): operation is LinearOp {
+  return isTraceBoundGemma4E4bArm32Topology(topology) && operation.op === "linear" &&
+    operation.transposeWeight === true && operation.bias === undefined && operation.weight?.storageDtype === "BF16";
 }
 
 /**
  * Gemma4Text modules return tensors in the configured model dtype. The
- * registered eager-BF16 linear/RMSNorm compatibility profiles keep products
- * in F32, reduce them in a declared ordered F64 scalar accumulator, then
- * narrow the result to BF16. `layer_0_gate_proj`, `layer_0_up_proj`, and
- * `layer_0_down_proj` are bound to separately replayed, pinned-runtime
- * captures. Their literal declarations record the complete 32-lane ARM BF16
- * FMA register tree; source and wheel disassembly independently establish the
- * pairwise horizontal fold for `down_proj`. The executor never selects any
- * profile from shape.
+ * registered eager-BF16 RMSNorm compatibility profile keeps products in F32,
+ * reduces them in a declared ordered F64 scalar accumulator, then narrows the
+ * result to BF16. Every compatible bias-free transposed BF16 linear carries
+ * the complete 32-lane ARM BF16 FMA register tree selected by the pinned
+ * PyTorch source path and installed-wheel disassembly. The executor never
+ * selects a profile from an assignment ID or shape.
  * Other operations retain their source-visible F32 policy.
  * F32 fixtures may omit `dtype`, but an unfamiliar declared runtime dtype is
  * not safe to approximate.

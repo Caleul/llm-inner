@@ -56,6 +56,8 @@ export interface Gemma4LiteralScalarView {
     complete: boolean;
     renderedWindow: { startInclusive: number; endExclusive: number };
     omittedTerms: number;
+    /** Present when authoritative runtime source selected this schedule. */
+    provenance?: Extract<Operation, { op: "linear" }>["reductionProvenance"];
   };
 }
 
@@ -196,6 +198,7 @@ async function renderLinear(
       complete,
       renderedWindow: { startInclusive: window.start, endExclusive: window.end },
       omittedTerms: operation.inFeatures - (window.end - window.start),
+      ...(operation.reductionProvenance ? { provenance: structuredClone(operation.reductionProvenance) } : {}),
     },
   };
 }
@@ -230,7 +233,7 @@ async function renderRmsNorm(
   base: Omit<Gemma4LiteralScalarView, "formula" | "scalarAssignments" | "learnedScalars">,
 ): Promise<Gemma4LiteralScalarView> {
   const feature = last(request.outputCoordinate, operation.id);
-  const width = operation.weight?.shape[0];
+  const width = operation.reductionSize ?? operation.weight?.shape[0];
   if (operation.weightTransform !== "none" && (!operation.weight || operation.weight.shape.length !== 1 || width === undefined || feature >= width)) {
     throw new Error(`${operation.id}: RMSNorm ponderado não possui vetor compatível com a coordenada solicitada.`);
   }
@@ -245,7 +248,9 @@ async function renderRmsNorm(
     formula,
     scalarAssignments: [
       `square[i] = F32(${indexed(operation.input, [...request.outputCoordinate.slice(0, -1), "i"])} * ${indexed(operation.input, [...request.outputCoordinate.slice(0, -1), "i"])})`,
-      `sum = ${operation.dtypePolicy.accumulationDtype === "F64" ? "F64" : "F32"}(sum_{i=0..${typeof domain === "number" ? domain - 1 : domain} in ascending order}(square[i]))`,
+      ...(operation.dtypePolicy.reduction?.kind === "pytorch-cpu-f32-cascade-sum"
+        ? reductionAssignments(operation.dtypePolicy.reduction, typeof domain === "number" ? domain : 0, operation.dtypePolicy.accumulationDtype)
+        : [`sum = ${operation.dtypePolicy.accumulationDtype === "F64" ? "F64" : "F32"}(sum_{i=0..${typeof domain === "number" ? domain - 1 : domain} in ascending order}(square[i]))`]),
       `mean = F32(sum / F32(${String(domain)}))`,
       `inv_rms = F32(1 / F32(sqrt(F32(mean + ${literal(operation.epsilon)}))))`,
       formula,
@@ -346,6 +351,10 @@ function requireReduction(operation: Extract<Operation, { op: "linear" }>): Redu
 
 function reductionAssignments(schedule: ReductionSchedule, width: number, accumulationDtype: string | undefined): string[] {
   switch (schedule.kind) {
+    case "pytorch-cpu-f32-cascade-sum": return [
+      `four ADVSIMD lanes across four ILP registers consume ${width} contiguous square terms in 16-coordinate units`,
+      `four-level F32 cascade uses levelStep=max(${schedule.minimumLevelStep}, 2^(ceil(log2(${width}/16))/4)); registers then lanes fold ${schedule.registerFold}/${schedule.laneFold}`,
+    ];
     case "ordered-scalar": {
       const accumulator = accumulationDtype === "F64" ? "F64" : accumulationDtype === "F32" ? "F32" : undefined;
       if (!accumulator) throw new Error(`ordered-scalar requer accumulationDtype F32 ou F64; recebeu ${accumulationDtype ?? "missing"}.`);
@@ -438,6 +447,9 @@ function elementwiseFormula(operation: Extract<Operation, { op: "elementwise" }>
   if (operation.kind === "add") return `${indexed(operation.output, coordinate)} = ${outputCast(operation)}(F32(${inputs[0]} + ${inputs[1]}))`;
   if (operation.kind === "multiply") return `${indexed(operation.output, coordinate)} = ${outputCast(operation)}(F32(${inputs[0]} * ${inputs[1]}))`;
   if (operation.kind === "scale") return `${indexed(operation.output, coordinate)} = ${outputCast(operation)}(F32(${inputs[0]} * ${literal(operation.scalar!)}))`;
+  if (operation.tanhSoftcapCasts) {
+    return `${indexed(operation.output, coordinate)} = BF16(F32(${literal(operation.scalar!)} * BF16(SLEEF_TANH_F32(BF16(F32(${inputs[0]} / ${literal(operation.scalar!)}))))))`;
+  }
   return `${indexed(operation.output, coordinate)} = ${outputCast(operation)}(F32(${literal(operation.scalar!)} * tanh(F32(${inputs[0]} / ${literal(operation.scalar!)}))))`;
 }
 
@@ -459,11 +471,13 @@ function renderRotary(
   const paired = d < half ? d + half : d - half;
   const sign = d < half ? "-" : "+";
   const angle = pair >= activePairs ? "0" : `F32(position_ids[${coordinate[0]},${coordinate[2]}] / F32(F32(${literal(operation.theta)}^${literal((2 * pair) / operation.rotaryDim)}) * F32(${literal(factor)})))`;
-  const formula = `${base.output} = ${outputCast(operation)}(F32(F32(${indexed(operation.input, coordinate)} * cosine) ${sign} F32(${indexed(operation.input, [...coordinate.slice(0, 3), paired])} * sine)))`;
+  const formula = operation.rotaryCasts
+    ? `${base.output} = BF16(F32(BF16(F32(${indexed(operation.input, coordinate)} * cosine)) ${sign} BF16(F32(${indexed(operation.input, [...coordinate.slice(0, 3), paired])} * sine))))`
+    : `${base.output} = ${outputCast(operation)}(F32(F32(${indexed(operation.input, coordinate)} * cosine) ${sign} F32(${indexed(operation.input, [...coordinate.slice(0, 3), paired])} * sine)))`;
   return renderPlain(operation, base, formula, [
     `angle = ${angle}`,
-    "cosine = F32(cos(angle))",
-    "sine = F32(sin(angle))",
+    operation.trigImplementation ? "cosine = BF16(SLEEF_COS_F32(angle))" : "cosine = F32(cos(angle))",
+    operation.trigImplementation ? "sine = BF16(SLEEF_SIN_F32(angle))" : "sine = F32(sin(angle))",
   ]);
 }
 

@@ -66,6 +66,20 @@ export interface BaseOp {
 export type ReductionSchedule =
   | { kind: "ordered-scalar"; indexOrder: "ascending" }
   /**
+   * PyTorch CPU's contiguous-last-dimension F32 sum. Four ADVSIMD lanes and
+   * four ILP registers accumulate a hierarchical four-level cascade before
+   * registers and lanes are folded in ascending order.
+   */
+  | {
+    kind: "pytorch-cpu-f32-cascade-sum";
+    vectorLanes: 4;
+    ilpFactor: 4;
+    cascadeLevels: 4;
+    minimumLevelStep: 16;
+    registerFold: "ascending";
+    laneFold: "ascending";
+  }
+  /**
    * An ordered scalar reduction whose F32 accumulator receives the exact
    * product before that single F32 rounding boundary.  This is distinct from
    * `ordered-scalar`, which rounds every product before adding it.
@@ -203,6 +217,14 @@ export interface RmsNormOp extends BaseOp {
   epsilon: number;
   weightTransform: "direct" | "one_plus_weight" | "none";
   axis: number;
+  reductionSize?: number;
+  reductionProvenance?: {
+    authority: "pytorch-source-and-installed-binary";
+    runtime: "pytorch-eager-cpu-darwin-arm64";
+    sourceCommit: string;
+    operationClass: "contiguous-last-dimension-f32-mean";
+    dispatchPath: string;
+  };
 }
 
 export interface LinearOp extends BaseOp {
@@ -213,6 +235,22 @@ export interface LinearOp extends BaseOp {
   inFeatures: number;
   outFeatures: number;
   transposeWeight: boolean;
+  /** Authoritative evidence which selected a non-generic reduction schedule. */
+  reductionProvenance?: {
+    authority: "pytorch-source-and-installed-binary";
+    runtime: "pytorch-eager-cpu-darwin-arm64";
+    sourceCommit: string;
+    operationClass: "bias-free-transposed-bf16-linear";
+    dispatchPath: string;
+    applicability: {
+      inputRows: "any-positive-folded-row-count";
+      inputDtype: "BF16";
+      weightDtype: "BF16";
+      outputDtype: "BF16";
+      transposeWeight: true;
+      bias: "absent";
+    };
+  };
   preview?: LinearPreview;
 }
 
@@ -233,6 +271,23 @@ export interface RotaryOp extends BaseOp {
   rotaryDim: number;
   layout: "rotate_half" | "interleaved_pairs" | "multidimensional";
   scaling?: JsonObject;
+  trigImplementation?: F32SinCosImplementation;
+  rotaryCasts?: {
+    cosine: "BF16";
+    sine: "BF16";
+    directProduct: "BF16";
+    rotatedProduct: "BF16";
+    sum: "BF16";
+  };
+}
+
+export interface F32SinCosImplementation {
+  authority: "pytorch-source-and-installed-binary";
+  runtime: "pytorch-eager-cpu-darwin-arm64";
+  pytorchSourceCommit: string;
+  sleefSourceCommit: string;
+  sineKernel: "Sleef_sinf4_u10advsimd";
+  cosineKernel: "Sleef_cosf4_u10advsimd";
 }
 
 export interface AttentionOp extends BaseOp {
@@ -261,6 +316,7 @@ export interface ActivationOp extends BaseOp {
   input: string;
   function: string;
   approximation?: string;
+  tanhImplementation?: F32TanhImplementation;
 }
 
 export interface ElementwiseOp extends BaseOp {
@@ -268,6 +324,16 @@ export interface ElementwiseOp extends BaseOp {
   kind: "add" | "multiply" | "scale" | "tanh_softcap";
   inputs: string[];
   scalar?: number;
+  tanhImplementation?: F32TanhImplementation;
+  tanhSoftcapCasts?: { afterDivide: "BF16"; afterTanh: "BF16"; afterMultiply: "BF16" };
+}
+
+export interface F32TanhImplementation {
+  authority: "pytorch-source-and-installed-binary";
+  runtime: "pytorch-eager-cpu-darwin-arm64";
+  pytorchSourceCommit: string;
+  sleefSourceCommit: string;
+  kernel: "Sleef_tanhf4_u10advsimd";
 }
 
 export interface EmbeddingOp extends BaseOp {
