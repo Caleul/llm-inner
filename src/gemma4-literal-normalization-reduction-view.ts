@@ -86,7 +86,7 @@ export function gemma4LiteralNormalizationReductionPrograms(): {
       "merge_delta[lane]=F32(high_mean[vector_count,lane]-low_mean[vector_count,lane]); merge_ratio_delta[lane]=F32(F32(0.5)*merge_delta[lane]); merged_mean[lane]=F32(low_mean[vector_count,lane]+merge_ratio_delta[lane]); merged_m2[lane]=F32(F32(merge_delta[lane]*F32(vector_count))*merge_ratio_delta[lane]+F32(low_m2[vector_count,lane]+high_m2[vector_count,lane]))",
       "fold_count[0]=0; fold_mean[0]=F32(0); fold_m2[0]=F32(0); fold_total[lane]=fold_count[lane]+2*vector_count; fold_ratio[lane]=F32((2*vector_count)/fold_total[lane]); fold_delta[lane]=F32(merged_mean[lane]-fold_mean[lane]); fold_prior_delta[lane]=F32(fold_delta[lane]*F32(fold_count[lane])); fold_scaled_delta[lane]=F32(fold_ratio[lane]*fold_delta[lane])",
       "fold_mean[lane+1]=F32(fold_mean[lane]+fold_scaled_delta[lane]); fold_m2[lane+1]=F32(fold_prior_delta[lane]*fold_scaled_delta[lane]+F32(fold_m2[lane]+merged_m2[lane])); fold_count[lane+1]=fold_total[lane], lane=0..schedule.accumulatorVectorLanes-1 ascending",
-      "mean=fold_mean[schedule.accumulatorVectorLanes]; variance=F32(fold_m2[schedule.accumulatorVectorLanes]/F32(width)); inv_std=F32(1/F32(sqrt(F32(variance+epsilon)))); bias=F32(-inv_std*mean); result=F32(F32(F32(x*inv_std)+bias)*gamma); output=assignment_output_cast(result)",
+      "mean=fold_mean[schedule.accumulatorVectorLanes]; variance=F32(fold_m2[schedule.accumulatorVectorLanes]/F32(width)); inv_std=F32(1/ARM_SQRT_F32(F32(variance+epsilon))); bias=F32(-inv_std*mean); result=F32(F32(F32(x*inv_std)+bias)*gamma); output=assignment_output_cast(result)",
     ],
   };
 }

@@ -5,6 +5,7 @@ import {
   SLEEF_REMPITABSP_F32_LE_SHA256,
   sleefCosF32,
   sleefExpF32,
+  sleefLog1pF32,
   sleefSinF32,
   sleefTanhF32,
 } from "./sleef-f32.js";
@@ -13,7 +14,10 @@ export type Gemma4LiteralF32Transcendental =
   | "SLEEF_EXP_F32"
   | "SLEEF_SIN_F32"
   | "SLEEF_COS_F32"
-  | "SLEEF_TANH_F32";
+  | "SLEEF_TANH_F32"
+  | "SLEEF_LOG1P_F32"
+  | "ARM_SQRT_F32"
+  | "PYTORCH_POW_NEGATIVE_HALF_F32";
 
 export interface Gemma4LiteralF32Constant {
   name: string;
@@ -102,6 +106,13 @@ export function buildGemma4LiteralTranscendentalPrograms(): Gemma4LiteralTransce
     literal("EXP_PAIR_C4", 0.001394256484),
     literal("EXP_PAIR_C5", 0.0001980960224),
     literal("TANH_SATURATION", 8.664339742),
+    literal("LN2_HI", 0.69314718246459960938),
+    literal("LN2_LO", -1.904654323148236017e-9),
+    literal("LOG_C0", 0.3027294874),
+    literal("LOG_C1", 0.3996108174),
+    literal("LOG_C2", 0.6666694880),
+    literal("LOG1P_CORE_MAX", 1e38),
+    literal("F32_MIN_NORMAL", 2 ** -126),
   ];
   return {
     kind: "gemma4-literal-f32-transcendental-programs",
@@ -196,6 +207,43 @@ export function buildGemma4LiteralTranscendentalPrograms(): Gemma4LiteralTransce
           "if signbit(input) result=-result",
         ],
       },
+      SLEEF_LOG1P_F32: {
+        kernel: "Sleef_log1pf4_u10advsimd",
+        input: "input:F32",
+        output: "result:F32",
+        specialCases: ["input < F32(-1) or isNaN(input) => NaN", "input == F32(-1) => -Infinity", "input is -0 => -0", "input > LOG1P_CORE_MAX => SLEEF_LOG_F32(input)"],
+        scalarAssignments: [
+          "one_plus=F32_ADD(input,F32(1)); subnormal=one_plus<F32_MIN_NORMAL; scaled_one_plus=subnormal ? F32_MUL(one_plus,F32(2**64)) : one_plus",
+          "exponent=ILOGB_F32(F32_MUL(scaled_one_plus,F32(1/0.75))); reciprocal_power=F32_LDEXP(F32(1),-exponent)",
+          "mantissa=F32_FMA(input,reciprocal_power,F32_SUB(reciprocal_power,F32(1))); if subnormal exponent=exponent-64",
+          "sum=PAIR_MULTIPLY_FLOAT(PAIR(LN2_HI,LN2_LO),F32(exponent))",
+          "ratio=PAIR_DIVIDE(PAIR(mantissa,F32(0)),PAIR_ADD_FLOAT_FLOAT2(F32(2),mantissa)); ratio_squared=F32_MUL(ratio.x,ratio.x)",
+          "polynomial=LOG_C0; polynomial=F32_FMA(polynomial,ratio_squared,LOG_C1); polynomial=F32_FMA(polynomial,ratio_squared,LOG_C2)",
+          "sum=PAIR_ADD(sum,PAIR_MULTIPLY_FLOAT(ratio,F32(2))); sum=PAIR_ADD_FLOAT(sum,F32_MUL(F32_MUL(ratio_squared,ratio.x),polynomial)); result=F32_ADD(sum.x,sum.y)",
+        ],
+      },
+      ARM_SQRT_F32: {
+        kernel: "ARMv8-A FSQRT binary32, independently specified by finite bit search",
+        input: "input:F32",
+        output: "result:F32",
+        specialCases: ["input < F32(0) or isNaN(input) => NaN", "input is +Infinity => +Infinity", "input is +0 or -0 => input"],
+        scalarAssignments: [
+          "target=EXACT_F32_RATIONAL(F32_BITS(input)); lo_bits=greatest finite nonnegative binary32 bits whose EXACT_F32_RATIONAL(lo_bits)^2 <= target",
+          "hi_bits=NEXT_F32_BITS(lo_bits); midpoint=(EXACT_F32_RATIONAL(lo_bits)+EXACT_F32_RATIONAL(hi_bits))/2 in exact rational arithmetic",
+          "if target < midpoint^2 result=F32_FROM_BITS(lo_bits); if target > midpoint^2 result=F32_FROM_BITS(hi_bits)",
+          "if target == midpoint^2 result=F32_FROM_BITS((lo_bits&1)==0 ? lo_bits : hi_bits)",
+        ],
+      },
+      PYTORCH_POW_NEGATIVE_HALF_F32: {
+        kernel: "torch.pow(F32,-0.5) positive RMS dispatch: reciprocal ARM FSQRT",
+        input: "input:F32",
+        output: "result:F32",
+        specialCases: ["registered Gemma 4 RMS inputs require input > F32(0) and finite; otherwise fail closed"],
+        scalarAssignments: [
+          "root=ARM_SQRT_F32(input)",
+          "result=F32_DIV(F32(1),root)",
+        ],
+      },
     },
   };
 }
@@ -212,7 +260,8 @@ export function validateGemma4LiteralTranscendentalPrograms(programs: Gemma4Lite
     ...programs.sharedSubprograms.map((program) => program.name),
     ...Object.keys(programs.programs),
     "F32", "F32_ADD", "F32_SUB", "F32_MUL", "F32_DIV", "F32_FMA", "F32_BITS",
-    "PAIR", "ROUND_TIES_EVEN", "STRUCT",
+    "PAIR", "ROUND_TIES_EVEN", "STRUCT", "ILOGB_F32", "F32_LDEXP",
+    "EXACT_F32_RATIONAL", "NEXT_F32_BITS", "F32_FROM_BITS",
   ]);
   const statements = [
     ...programs.rempiTable.indexProgram,
@@ -224,17 +273,19 @@ export function validateGemma4LiteralTranscendentalPrograms(programs: Gemma4Lite
   }
 }
 
-/** Every named SLEEF intrinsic in artifact formulas must resolve to one embedded program. */
+/** Every named runtime math intrinsic in artifact formulas must resolve to one embedded program. */
 export function validateGemma4LiteralTranscendentalCoverage(
   programs: Gemma4LiteralTranscendentalPrograms,
   formulas: readonly string[],
 ): void {
   validateGemma4LiteralTranscendentalPrograms(programs);
-  for (const formula of formulas) for (const match of formula.matchAll(/\b(SLEEF_[A-Z0-9_]+)\b/g)) {
+  for (const formula of formulas) for (const match of formula.matchAll(/\b(SLEEF_[A-Z0-9_]+|ARM_SQRT_F32|PYTORCH_POW_NEGATIVE_HALF_F32)\b/g)) {
     if (!(match[1]! in programs.programs)) {
       throw new Error(`Fórmula Gemma 4 referencia transcendental sem programa incorporado: ${match[1]}.`);
     }
   }
+  const opaque = formulas.find((formula) => /\b(?:exp|tanh|log|log1p|sqrt|rsqrt|sin|cos)\s*\(/.test(formula));
+  if (opaque) throw new Error(`Fórmula Gemma 4 conserva intrínseco matemático opaco sem programa incorporado: ${opaque}.`);
 }
 
 /** Executes only a validated artifact contract; altered program data cannot silently fall back to host math. */
@@ -249,7 +300,68 @@ export function executeGemma4LiteralTranscendentalProgram(
     case "SLEEF_SIN_F32": return sleefSinF32(input);
     case "SLEEF_COS_F32": return sleefCosF32(input);
     case "SLEEF_TANH_F32": return sleefTanhF32(input);
+    case "SLEEF_LOG1P_F32": return sleefLog1pF32(input);
+    case "ARM_SQRT_F32": return armSqrtF32(input);
+    case "PYTORCH_POW_NEGATIVE_HALF_F32": return Math.fround(1 / armSqrtF32(input));
   }
+}
+
+/** Correctly rounded binary32 sqrt without delegating to host sqrt/libm. */
+function armSqrtF32(value: number): number {
+  const input = Math.fround(value);
+  if (Number.isNaN(input) || input < 0) return Number.NaN;
+  if (input === Number.POSITIVE_INFINITY || input === 0) return input;
+  const targetBits = f32Bits(input), target = positiveF32Dyadic(targetBits);
+  let lower = 0, upper = 0x7f7fffff;
+  while (lower <= upper) {
+    const candidate = lower + Math.floor((upper - lower) / 2);
+    const dyadic = positiveF32Dyadic(candidate);
+    if (compareDyadic(dyadic.significand * dyadic.significand, 2 * dyadic.exponent, target.significand, target.exponent) <= 0) {
+      lower = candidate + 1;
+    } else {
+      upper = candidate - 1;
+    }
+  }
+  const lowBits = upper, highBits = lowBits + 1;
+  const low = positiveF32Dyadic(lowBits), high = positiveF32Dyadic(highBits);
+  const commonExponent = Math.min(low.exponent, high.exponent);
+  const midpointNumerator = (low.significand << BigInt(low.exponent - commonExponent)) +
+    (high.significand << BigInt(high.exponent - commonExponent));
+  const midpointComparison = compareDyadic(
+    target.significand,
+    target.exponent,
+    midpointNumerator * midpointNumerator,
+    2 * commonExponent - 2,
+  );
+  const resultBits = midpointComparison < 0 ? lowBits : midpointComparison > 0 ? highBits
+    : (lowBits & 1) === 0 ? lowBits : highBits;
+  return f32FromBits(resultBits);
+}
+
+function positiveF32Dyadic(bits: number): { significand: bigint; exponent: number } {
+  const exponentBits = (bits >>> 23) & 0xff, fraction = bits & 0x7fffff;
+  return exponentBits === 0
+    ? { significand: BigInt(fraction), exponent: -149 }
+    : { significand: BigInt(0x800000 | fraction), exponent: exponentBits - 150 };
+}
+
+function compareDyadic(left: bigint, leftExponent: number, right: bigint, rightExponent: number): number {
+  const commonExponent = Math.min(leftExponent, rightExponent);
+  const alignedLeft = left << BigInt(leftExponent - commonExponent);
+  const alignedRight = right << BigInt(rightExponent - commonExponent);
+  return alignedLeft < alignedRight ? -1 : alignedLeft > alignedRight ? 1 : 0;
+}
+
+function f32Bits(value: number): number {
+  const bytes = new ArrayBuffer(4), view = new DataView(bytes);
+  view.setFloat32(0, value, true);
+  return view.getUint32(0, true);
+}
+
+function f32FromBits(bits: number): number {
+  const bytes = new ArrayBuffer(4), view = new DataView(bytes);
+  view.setUint32(0, bits, true);
+  return view.getFloat32(0, true);
 }
 
 function sharedSubprograms(): Gemma4LiteralTranscendentalPrograms["sharedSubprograms"] {
@@ -274,6 +386,14 @@ function sharedSubprograms(): Gemma4LiteralTranscendentalPrograms["sharedSubprog
     { name: "XOR_SIGN", scalarAssignments: ["result=signbit(sign_source) ? -value : value"] },
     { name: "SIN_REDUCED_F32", scalarAssignments: ["squared=PAIR_SQUARE(reduced); polynomial=SIN_C3", "polynomial=F32_FMA(polynomial,squared.x,SIN_C2); polynomial=F32_FMA(polynomial,squared.x,SIN_C1)", "coefficient=PAIR_ADD_FLOAT_FLOAT(SIN_C0,F32_MUL(polynomial,squared.x))", "correction=PAIR_MULTIPLY(coefficient,squared); expansion=PAIR_ADD_FLOAT_PAIR(F32(1),correction)", "result=F32_FMA(reduced.x,expansion.x,F32_FMA(reduced.y,expansion.x,F32_MUL(reduced.x,expansion.y)))"] },
     { name: "EXP_PAIR", scalarAssignments: ["exponent=ROUND_TIES_EVEN(F32_MUL(F32_ADD(input.x,input.y),INV_LN2))", "reduced=PAIR_ADD_FLOAT2(input,F32_MUL(F32(exponent),NEG_LN2_HI)); reduced=PAIR_ADD_FLOAT2(reduced,F32_MUL(F32(exponent),NEG_LN2_LO))", "polynomial=EXP_PAIR_C5; polynomial=F32_FMA(polynomial,reduced.x,EXP_PAIR_C4); polynomial=F32_FMA(polynomial,reduced.x,EXP_PAIR_C3); polynomial=F32_FMA(polynomial,reduced.x,EXP_PAIR_C2)", "correction=PAIR_ADD_FLOAT2(PAIR_MULTIPLY_FLOAT(reduced,polynomial),EXP_PAIR_C1); correction=PAIR_ADD_FLOAT2(PAIR_MULTIPLY(reduced,correction),EXP_PAIR_C0)", "correction=PAIR_ADD2(reduced,PAIR_MULTIPLY(PAIR_SQUARE(reduced),correction)); correction=PAIR_ADD_FLOAT_PAIR2(F32(1),correction)", "result=input.x<F32(-104) ? PAIR(F32(0),F32(0)) : PAIR(F32_SCALE_POW2(correction.x,exponent),F32_SCALE_POW2(correction.y,exponent))"] },
+    { name: "SLEEF_LOG_F32", scalarAssignments: [
+      "subnormal=input<F32_MIN_NORMAL; scaled=subnormal ? F32_MUL(input,F32(2**64)) : input",
+      "exponent=ILOGB_F32(F32_MUL(scaled,F32(1/0.75))); mantissa=F32_LDEXP(scaled,-exponent); if subnormal exponent=exponent-64",
+      "sum=PAIR_MULTIPLY_FLOAT(PAIR(LN2_HI,LN2_LO),F32(exponent)); ratio=PAIR_DIVIDE(PAIR_ADD_FLOAT_FLOAT2(F32(-1),mantissa),PAIR_ADD_FLOAT_FLOAT2(F32(1),mantissa))",
+      "ratio_squared=F32_MUL(ratio.x,ratio.x); polynomial=LOG_C0; polynomial=F32_FMA(polynomial,ratio_squared,LOG_C1); polynomial=F32_FMA(polynomial,ratio_squared,LOG_C2)",
+      "sum=PAIR_ADD(sum,PAIR_MULTIPLY_FLOAT(ratio,F32(2))); sum=PAIR_ADD_FLOAT(sum,F32_MUL(F32_MUL(ratio_squared,ratio.x),polynomial)); result=F32_ADD(sum.x,sum.y)",
+      "input==+Infinity => +Infinity; input<F32(0) or isNaN(input) => NaN; input==F32(0) => -Infinity",
+    ] },
     { name: "REMPI_F32", scalarAssignments: ["execute rempiTable.indexProgram; reduced=PAIR_MULTIPLY_FLOAT_FLOAT(scaled_input,table[index]); sub=REMPI_SUB(reduced.x); quadrant=sub.quadrant; reduced=PAIR_NORMALIZE(PAIR(sub.remainder,reduced.y))", "reduced=PAIR_ADD2(reduced,PAIR_MULTIPLY_FLOAT_FLOAT(scaled_input,table[index+1])); sub=REMPI_SUB(reduced.x); quadrant+=sub.quadrant; reduced=PAIR_NORMALIZE(PAIR(sub.remainder,reduced.y))", "reduced=PAIR_ADD2(reduced,PAIR_MULTIPLY_FLOAT(PAIR(table[index+2],table[index+3]),scaled_input)); reduced=PAIR_NORMALIZE(reduced)", "reduced=PAIR_MULTIPLY(reduced,PAIR(TWO_PI_HI,TWO_PI_LO)); result=STRUCT(reduced,quadrant)"] },
     { name: "REMPI_SUB", scalarAssignments: ["rounded_four=F32(ROUND_TIES_EVEN(F32_MUL(input,F32(4)))); rounded_one=F32(ROUND_TIES_EVEN(input))", "result=STRUCT(remainder=F32_SUB(input,F32_MUL(rounded_four,F32(0.25))),quadrant=trunc(F32_SUB(rounded_four,F32_MUL(rounded_one,F32(4)))))"] },
     { name: "SIN_LARGE_F32", scalarAssignments: ["quadrant=reduction.quadrant&3; quadrant=((quadrant+quadrant)+(reduction.reduced.x>0?2:1))>>2", "if reduction.quadrant&1: reduction.reduced=PAIR_ADD2(reduction.reduced,PAIR(XOR_SIGN(NEG_HALF_PI_HI,reduction.reduced.x),XOR_SIGN(HALF_PI_TINY,reduction.reduced.x)))", "result=SIN_REDUCED_F32(PAIR_NORMALIZE(reduction.reduced)); if quadrant&1 result=XOR_SIGN(result,F32(-1))"] },

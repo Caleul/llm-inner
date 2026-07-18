@@ -54,6 +54,7 @@ import { auditLiteralArtifact } from "../src/literal-artifact-audit.js";
 import {
   buildGemma4LiteralTranscendentalPrograms,
   executeGemma4LiteralTranscendentalProgram,
+  validateGemma4LiteralTranscendentalCoverage,
   validateGemma4LiteralTranscendentalPrograms,
 } from "../src/gemma4-literal-transcendental-programs.js";
 import {
@@ -67,9 +68,12 @@ import type { DenseF32Tensor, ModelCatalog, TensorInfo } from "../src/types.js";
 const preview = { outputRows: 1, inputTerms: 1, includeWeights: false } as const;
 const fixtureConfigBytes = Buffer.from("{}");
 
-test("Gemma 4 embeds one executable F32 transcendental program class for every SLEEF formula", () => {
+test("Gemma 4 embeds one executable F32 runtime-math program class for every formula", () => {
   const programs = buildGemma4LiteralTranscendentalPrograms();
-  assert.deepEqual(Object.keys(programs.programs), ["SLEEF_EXP_F32", "SLEEF_SIN_F32", "SLEEF_COS_F32", "SLEEF_TANH_F32"]);
+  assert.deepEqual(Object.keys(programs.programs), [
+    "SLEEF_EXP_F32", "SLEEF_SIN_F32", "SLEEF_COS_F32", "SLEEF_TANH_F32",
+    "SLEEF_LOG1P_F32", "ARM_SQRT_F32", "PYTORCH_POW_NEGATIVE_HALF_F32",
+  ]);
   assert.equal(programs.rempiTable.entries, 416);
   assert.equal(Buffer.from(programs.rempiTable.payloadBase64, "base64").length, 416 * 4);
   assert.ok(programs.constants.every((constant) => /^0x[0-9a-f]{8}$/.test(constant.binary32Hex) && Math.fround(constant.value) === constant.value));
@@ -79,10 +83,17 @@ test("Gemma 4 embeds one executable F32 transcendental program class for every S
   assert.equal(executeGemma4LiteralTranscendentalProgram(programs, "SLEEF_SIN_F32", 125), -0.6160404682159424);
   assert.equal(executeGemma4LiteralTranscendentalProgram(programs, "SLEEF_COS_F32", 125), 0.7877144813537598);
   assert.equal(executeGemma4LiteralTranscendentalProgram(programs, "SLEEF_TANH_F32", 1), 0.7615941762924194);
+  assert.equal(executeGemma4LiteralTranscendentalProgram(programs, "SLEEF_LOG1P_F32", 1), 0.6931471824645996);
+  assert.equal(executeGemma4LiteralTranscendentalProgram(programs, "SLEEF_LOG1P_F32", -0.5), -0.6931471824645996);
+  assert.equal(executeGemma4LiteralTranscendentalProgram(programs, "SLEEF_LOG1P_F32", 20), 3.044522523880005);
+  assert.equal(executeGemma4LiteralTranscendentalProgram(programs, "ARM_SQRT_F32", 4.022159099578857), 2.0055320262908936);
+  assert.equal(executeGemma4LiteralTranscendentalProgram(programs, "PYTORCH_POW_NEGATIVE_HALF_F32", 4.022159099578857), 0.49862080812454224);
   const corrupted = structuredClone(programs);
   corrupted.programs.SLEEF_EXP_F32.scalarAssignments[0] = "result=host_exp(input)";
   assert.throws(() => validateGemma4LiteralTranscendentalPrograms(corrupted), /transcrição transcendental F32/);
   assert.throws(() => executeGemma4LiteralTranscendentalProgram(corrupted, "SLEEF_EXP_F32", 1), /transcrição transcendental F32/);
+  assert.throws(() => validateGemma4LiteralTranscendentalCoverage(programs, ["y=exp(x)"]), /intrínseco matemático opaco/);
+  assert.throws(() => validateGemma4LiteralTranscendentalCoverage(programs, ["y=SLEEF_ERF_F32(x)"]), /sem programa incorporado/);
 });
 
 test("Gemma 4 authoritative traces bind eager inference mode instead of accepting no-grad drift", () => {
@@ -398,14 +409,14 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 18);
+  assert.equal(literal.schemaVersion, 19);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   assert.deepEqual(literal.authoritativeExecution, gemma4AuthoritativeExecutionContract());
   assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.languageId, literal.generation.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.authority.numericLiteralBits, "/numericLiterals/literals");
-  assert.equal(literal.formulaLanguage.schemaVersion, 4);
+  assert.equal(literal.formulaLanguage.schemaVersion, 5);
   assert.equal(literal.formulaLanguage.authority.transcendentalPrograms, "/transcendentalPrograms");
   assert.deepEqual(literal.transcendentalPrograms, buildGemma4LiteralTranscendentalPrograms());
   assert.ok(literal.formulaLanguage.reductions.normalizationPrograms.pytorchCpuF32CascadeSum.length >= 4);
@@ -484,9 +495,10 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.equal(halfLiteral.binary32Hex, "0x3f000000");
   assert.equal(halfLiteral.bfloat16Hex, "0x3f00");
   assert.ok(halfLiteral.uses.some((use) => use.section === "forward"));
-  const piLiteral = literal.numericLiterals.literals.find((entry) => entry.token === "pi")!;
-  assert.equal(piLiteral.kind, "named-mathematical-constant");
-  assert.equal(piLiteral.binary64Hex, "0x400921fb54442d18");
+  const geluScaleLiteral = literal.numericLiterals.literals.find((entry) =>
+    entry.token === String(Math.sqrt(2 / Math.PI)))!;
+  assert.equal(geluScaleLiteral.binary64Hex, "0x3fe9884533d43651");
+  assert.ok(geluScaleLiteral.uses.some((use) => use.section === "forward"));
   assert.ok(literal.numericLiterals.literals.some((entry) =>
     entry.uses.some((use) => use.section === "generation" && use.definitionId === "generation_argmax")));
   assert.equal(literal.calculationGraph.assignments.length, 224);
@@ -705,7 +717,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 18);
+      assert.equal(artifact.schemaVersion, 19);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.deepEqual(artifact.authoritativeExecution, gemma4AuthoritativeExecutionContract());
@@ -1145,7 +1157,7 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       const visionNorm = await renderGemma4LiteralMultimodalScalarView(artifact, {
         operationId: "composite_image_features/vision_layer_0_input_norm", outputCoordinate: [0, 0, 0],
       });
-      assert.ok(visionNorm.scalarAssignments.includes("inv_rms = F32(1 / sqrt_mean_epsilon)"));
+      assert.ok(visionNorm.scalarAssignments.some((formula) => formula.includes("ARM_SQRT_F32")));
       const visionActivation = await renderGemma4LiteralMultimodalScalarView(artifact, {
         operationId: "composite_image_features/vision_layer_0_gate_activation", outputCoordinate: [0, 0, 0],
       });

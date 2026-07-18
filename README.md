@@ -457,6 +457,17 @@ qualquer alteração ou intrínseco não resolvido, sem carregar uma biblioteca 
 checkout SLEEF. A evidência real source-removed está em
 [`docs/validation/gemma4-e4b-embedded-transcendental-programs-2026-07-18.md`](docs/validation/gemma4-e4b-embedded-transcendental-programs-2026-07-18.md).
 
+O schema v19 fecha a classe restante de intrínsecos unários usados pelo Gemma
+4: `SLEEF_LOG1P_F32`, `ARM_SQRT_F32` e
+`PYTORCH_POW_NEGATIVE_HALF_F32` passam a ser programas finitos incorporados,
+ao lado dos quatro programas do schema v18. Isso cobre softplus aprendido do
+áudio, LayerNorm/Welford e RMSNorm, e substitui também os `exp`, `tanh`,
+`sin` e `cos` crus que ainda apareciam em algumas vistas escalares. A validação
+agora recusa qualquer chamada host unária nas fórmulas ou vistas. A exportação
+real source-removed, comparação bit a bit com PyTorch e replay composite estão
+em
+[`docs/validation/gemma4-e4b-embedded-unary-runtime-math-2026-07-18.md`](docs/validation/gemma4-e4b-embedded-unary-runtime-math-2026-07-18.md).
+
 O leitor também pode partir de qualquer saída instanciada e calcular o fecho
 transitivo exato de seus produtores. `--calculation-slice <operation-id>`
 retorna somente as atribuições necessárias ao alvo, ainda em ordem de
@@ -624,8 +635,8 @@ escreve o artefato completo em streaming: ranges Safetensors de 12 MiB são
 codificados em base64 sem acumular o pacote ou uma string de vários GiB na
 heap. O resultado local contém os 2,130 payloads originais
 (15,992,314,836 bytes) e é auditado por `npm run audit:literal`. O hash e
-tamanho da exportação schema v18 atual são registrados em
-[`docs/validation/gemma4-e4b-embedded-transcendental-programs-2026-07-18.md`](docs/validation/gemma4-e4b-embedded-transcendental-programs-2026-07-18.md); sua política numérica
+tamanho da exportação schema v19 atual são registrados em
+[`docs/validation/gemma4-e4b-embedded-unary-runtime-math-2026-07-18.md`](docs/validation/gemma4-e4b-embedded-unary-runtime-math-2026-07-18.md); sua política numérica
 declara fronteiras de resultado BF16, acumuladores F32/F64 e agendas de redução
 por operação do texto, áudio e visão; toda exportação deve registrar seu próprio hash, pois o programa literal
 inclui as políticas numéricas. As 54 projeções/normas K/V locais dos

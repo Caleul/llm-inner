@@ -5,7 +5,7 @@ import { gemma4LiteralNormalizationReductionPrograms } from "./gemma4-literal-no
 
 export interface Gemma4LiteralFormulaLanguageContract {
   kind: "gemma4-literal-formula-language-contract";
-  schemaVersion: 4;
+  schemaVersion: 5;
   languageId: "indexed-ieee754-expression-v1";
   authority: {
     forwardAssignments: "/scalarCalculations/assignments";
@@ -58,7 +58,7 @@ export interface Gemma4LiteralFormulaLanguageContract {
 export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormulaLanguageContract {
   return {
     kind: "gemma4-literal-formula-language-contract",
-    schemaVersion: 4,
+    schemaVersion: 5,
     languageId: "indexed-ieee754-expression-v1",
     authority: {
       forwardAssignments: "/scalarCalculations/assignments",
@@ -117,9 +117,8 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
       { notation: "exact_product(a*b)", semantics: "retain the exact real product of the two already materialized operands until the immediately enclosing operation-declared FMA/add boundary; it is invalid outside a reduction schedule whose product boundary is fused" },
       { notation: "F32_FMA(acc,a,b)", semantics: "compute exact a*b+acc then round once to IEEE binary32" },
       { notation: "min, max, floor", semantics: "IEEE minimum/maximum over materialized operands and mathematical floor; NaN is invalid unless an assignment explicitly permits it" },
-      { notation: "sqrt, rsqrt", semantics: "sqrt is correctly rounded by the pinned runtime policy; rsqrt(x) is F32(1/F32(sqrt(x))) unless the assignment declares another serialized implementation" },
-      { notation: "SLEEF_EXP_F32, SLEEF_SIN_F32, SLEEF_COS_F32, SLEEF_TANH_F32", semantics: "execute the matching finite /transcendentalPrograms program, its exact binary32 constants, pair/FMA subprograms, special-value branches and embedded rempi table; no external SLEEF source, binary or host libm fallback is permitted" },
-      { notation: "log, log1p", semantics: "evaluate the mathematical function at the operation-declared compute dtype and materialize every surrounding cast in formula order" },
+      { notation: "ARM_SQRT_F32, PYTORCH_POW_NEGATIVE_HALF_F32", semantics: "execute the matching finite /transcendentalPrograms bit-search or reciprocal-square-root program; no host sqrt/pow fallback is permitted" },
+      { notation: "SLEEF_EXP_F32, SLEEF_SIN_F32, SLEEF_COS_F32, SLEEF_TANH_F32, SLEEF_LOG1P_F32", semantics: "execute the matching finite /transcendentalPrograms program, its exact binary32 constants, pair/FMA subprograms, special-value branches and embedded rempi table; no external SLEEF source, binary or host libm fallback is permitted" },
       { notation: "concat, tuple, STRUCT", semantics: "construct values in argument order without arithmetic conversion; concat uses the axis named by the formula or cache transition" },
       { notation: "row_major_alias, reshape, transpose", semantics: "change only logical indexing/layout exactly as written; preserve every source bit" },
       { notation: "EVALUATE(reference in ordinal order)", semantics: "inline the finite referenced calculationGraph assignments with positional bindings; it is never a generic architecture or hidden decoder invocation" },

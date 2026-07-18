@@ -241,6 +241,9 @@ export function validateGemma4LiteralScalarView(view: Gemma4LiteralScalarView): 
   if (/PYTORCH_CPU_F32_CASCADE_SUM|mean_channels\s*\(|variance_channels\s*\(/.test(transcript)) {
     throw new Error(`${view.navigation.operationId}: vista escalar ainda contém normalização opaca.`);
   }
+  if (/\b(?:exp|tanh|log|log1p|sqrt|rsqrt|sin|cos)\s*\(/.test(transcript)) {
+    throw new Error(`${view.navigation.operationId}: vista escalar ainda contém intrínseco matemático opaco.`);
+  }
   for (const scalar of view.learnedScalars) {
     if (!transcript.includes(scalar.literal)) {
       throw new Error(`${view.navigation.operationId}: literal aprendido ${scalar.tensor}[${scalar.indices.join(",")}] não participa do cálculo escalar.`);
@@ -375,7 +378,7 @@ async function renderRmsNorm(
         ? buildGemma4LiteralCascadeSquareReductionAssignments(operation.dtypePolicy.reduction, requiredNumericWidth(domain, operation.id))
         : [`sum = ${operation.dtypePolicy.accumulationDtype === "F64" ? "F64" : "F32"}(sum_{i=0..${typeof domain === "number" ? domain - 1 : domain} in ascending order}(square[i]))`]),
       `mean = F32(sum / F32(${String(domain)}))`,
-      `inv_rms = F32(1 / F32(sqrt(F32(mean + ${literal(operation.epsilon)}))))`,
+      `inv_rms = PYTORCH_POW_NEGATIVE_HALF_F32(F32(mean + ${literal(operation.epsilon)}))`,
       formula,
     ],
     learnedScalars: learned ? [learned] : [],
@@ -543,7 +546,7 @@ function selectPerLayerInputCoordinate(operation: Extract<Operation, { op: "sele
 
 function activationFormula(operation: Extract<Operation, { op: "activation" }>, input: string): string {
   if (operation.function === "gelu" && operation.approximation === "tanh") {
-    return `F32(F32(0.5 * ${input}) * F32(1 + F32(tanh(F32(sqrt(2/pi) * F32(${input} + F32(0.044715 * F32(${input} * F32(${input} * ${input})))))))))`;
+    return `F32(F32(0.5 * ${input}) * F32(1 + SLEEF_TANH_F32(F32(${literal(Math.sqrt(2 / Math.PI))} * F32(${input} + F32(0.044715 * F32(${input} * F32(${input} * ${input}))))))))`;
   }
   throw new Error(`${operation.id}: ativação ${operation.function}/${operation.approximation ?? "exact"} sem vista escalar registrada.`);
 }
@@ -556,7 +559,7 @@ function elementwiseFormula(operation: Extract<Operation, { op: "elementwise" }>
   if (operation.tanhSoftcapCasts) {
     return `${indexed(operation.output, coordinate)} = BF16(F32(${literal(operation.scalar!)} * BF16(SLEEF_TANH_F32(BF16(F32(${inputs[0]} / ${literal(operation.scalar!)}))))))`;
   }
-  return `${indexed(operation.output, coordinate)} = ${outputCast(operation)}(F32(${literal(operation.scalar!)} * tanh(F32(${inputs[0]} / ${literal(operation.scalar!)}))))`;
+  return `${indexed(operation.output, coordinate)} = ${outputCast(operation)}(F32(${literal(operation.scalar!)} * SLEEF_TANH_F32(F32(${inputs[0]} / ${literal(operation.scalar!)}))))`;
 }
 
 function renderRotary(
@@ -586,8 +589,8 @@ function renderRotary(
       `range_reduction = abs(angle) < ${operation.trigImplementation.argumentReduction.fastRangeMaxExclusive} ? SLEEF_CODY_WAITE_F32(angle) : SLEEF_REMPIF_F32(angle, inline_f32_le_table_sha256=${operation.trigImplementation.argumentReduction.tablePayloadSha256})`,
       `trig_polynomial = ${operation.trigImplementation.reducedPolynomial.evaluation}; coefficients_ascending=[${operation.trigImplementation.reducedPolynomial.coefficientsAscending.map(literal).join(",")}]`,
     ] : []),
-    operation.trigImplementation ? "cosine = BF16(SLEEF_COS_F32(angle))" : "cosine = F32(cos(angle))",
-    operation.trigImplementation ? "sine = BF16(SLEEF_SIN_F32(angle))" : "sine = F32(sin(angle))",
+    operation.trigImplementation ? "cosine = BF16(SLEEF_COS_F32(angle))" : "cosine = F32(SLEEF_COS_F32(angle))",
+    operation.trigImplementation ? "sine = BF16(SLEEF_SIN_F32(angle))" : "sine = F32(SLEEF_SIN_F32(angle))",
   ]);
 }
 
@@ -604,7 +607,7 @@ function renderAttention(
   const topology = operation.slidingWindow === undefined
     ? `k=0..min(past_length+${q},key_length-1)`
     : `k=max(0,past_length+${q}-${operation.slidingWindow - 1})..min(past_length+${q},key_length-1)`;
-  const softcap = operation.scoreSoftcap === undefined ? "scaled_dot[k]" : `F32(${literal(operation.scoreSoftcap)} * F32(tanh(F32(scaled_dot[k] / F32(${literal(operation.scoreSoftcap)})))))`;
+  const softcap = operation.scoreSoftcap === undefined ? "scaled_dot[k]" : `F32(${literal(operation.scoreSoftcap)} * SLEEF_TANH_F32(F32(scaled_dot[k] / F32(${literal(operation.scoreSoftcap)}))))`;
   if (operation.numericImplementation) {
     const implementation = operation.numericImplementation;
     const allKeys = "k=0..key_length-1";
@@ -628,7 +631,7 @@ function renderAttention(
     `scaled_dot[k] = F32(dot[k] * F32(${literal(operation.scale)}))`,
     `unmasked[k] = ${softcap}`,
     `score[k] = F32(unmasked[k] + ${operation.maskInput}[${b},${h},${q},k])`,
-    `exp_score[k] = F32(exp(F32(score[k] - F32(max_{${topology}}(score)))))`,
+    `exp_score[k] = SLEEF_EXP_F32(F32(score[k] - F32(max_{${topology}}(score))))`,
     `total = F32(sum_{${topology} in ascending order}(exp_score[k]))`,
     "probability[k] = F32(exp_score[k] / total)",
   ]);

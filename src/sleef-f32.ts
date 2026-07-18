@@ -92,6 +92,73 @@ export function sleefExpF32(value: number): number {
   return scalePowerOfTwo(result, exponent);
 }
 
+/** Exact ADVSIMD u10 log1p selected by PyTorch's contiguous F32 softplus kernel. */
+export function sleefLog1pF32(value: number): number {
+  const input = f32(value);
+  const onePlus = add(input, 1);
+  const minimumNormal = f32(2 ** -126);
+  const subnormal = onePlus < minimumNormal;
+  const scaledOnePlus = subnormal ? multiply(onePlus, f32(2 ** 64)) : onePlus;
+  let exponent = ilogbScaledFourThirdsF32(scaledOnePlus);
+  const reciprocalPower = f32(2 ** -exponent);
+  const mantissa = fma(input, reciprocalPower, subtract(reciprocalPower, 1));
+  if (subnormal) exponent -= 64;
+
+  let sum = multiplyPairFloat(pair(f32(0.69314718246459960938), f32(-1.904654323148236017e-9)), f32(exponent));
+  const ratio = dividePair(pair(mantissa), addFloatFloat2(2, mantissa));
+  const ratioSquared = multiply(ratio.x, ratio.x);
+  let polynomial = f32(0.3027294874);
+  polynomial = fma(polynomial, ratioSquared, f32(0.3996108174));
+  polynomial = fma(polynomial, ratioSquared, f32(0.6666694880));
+  sum = addPair(sum, multiplyPairFloat(ratio, 2));
+  sum = addPairFloat(sum, multiply(multiply(ratioSquared, ratio.x), polynomial));
+  let result = add(sum.x, sum.y);
+
+  // SLEEF delegates only very large positive lanes to its u10 log kernel.
+  if (input > f32(1e38)) result = sleefLogF32(input);
+  if (input < -1 || Number.isNaN(input)) return Number.NaN;
+  if (input === -1) return Number.NEGATIVE_INFINITY;
+  return Object.is(input, -0) ? -0 : result;
+}
+
+/** u10 log helper used by log1p's large-positive branch. */
+function sleefLogF32(value: number): number {
+  const input = f32(value);
+  const minimumNormal = f32(2 ** -126);
+  const subnormal = input < minimumNormal;
+  const scaled = subnormal ? multiply(input, f32(2 ** 64)) : input;
+  let exponent = ilogbScaledFourThirdsF32(scaled);
+  const mantissa = f32(scaled * (2 ** -exponent));
+  if (subnormal) exponent -= 64;
+  let sum = multiplyPairFloat(pair(f32(0.69314718246459960938), f32(-1.904654323148236017e-9)), f32(exponent));
+  const ratio = dividePair(addFloatFloat2(-1, mantissa), addFloatFloat2(1, mantissa));
+  const ratioSquared = multiply(ratio.x, ratio.x);
+  let polynomial = f32(0.3027294874);
+  polynomial = fma(polynomial, ratioSquared, f32(0.3996108174));
+  polynomial = fma(polynomial, ratioSquared, f32(0.6666694880));
+  sum = addPair(sum, multiplyPairFloat(ratio, 2));
+  sum = addPairFloat(sum, multiply(multiply(ratioSquared, ratio.x), polynomial));
+  const result = add(sum.x, sum.y);
+  if (input === Number.POSITIVE_INFINITY) return Number.POSITIVE_INFINITY;
+  if (input < 0 || Number.isNaN(input)) return Number.NaN;
+  return input === 0 ? Number.NEGATIVE_INFINITY : result;
+}
+
+function ilogbF32(value: number): number {
+  const input = f32(value);
+  if (!(input > 0) || !Number.isFinite(input)) throw new Error(`SLEEF ilogb requer F32 positivo finito; recebeu ${input}.`);
+  const bits = f32Bits(input);
+  const exponent = (bits >>> 23) & 0xff;
+  if (exponent !== 0) return exponent - 127;
+  const fraction = bits & 0x7fffff;
+  return 31 - Math.clz32(fraction) - 149;
+}
+
+function ilogbScaledFourThirdsF32(value: number): number {
+  const scaled = multiply(value, f32(1 / 0.75));
+  return scaled === Number.POSITIVE_INFINITY && Number.isFinite(value) ? 128 : ilogbF32(scaled);
+}
+
 function sleefSinLargeF32(input: number): number {
   const reduction = rempiF32(input);
   let quadrant = reduction.quadrant & 3;

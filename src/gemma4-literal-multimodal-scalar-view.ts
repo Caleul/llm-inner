@@ -358,7 +358,7 @@ async function renderRmsNorm(artifact: OpenGemma4CompositeLiteralArtifact, entry
       `square[i] = F32(${indexed(entry.assignment.inputs[0]!, [...request.outputCoordinate.slice(0, -1), "i"])} * ${indexed(entry.assignment.inputs[0]!, [...request.outputCoordinate.slice(0, -1), "i"])})`,
       ...reductionAssignments,
       `mean_epsilon = F32(F32(sum / F32(${width})) + F32(${literal(epsilon)}))`,
-      "sqrt_mean_epsilon = F32(sqrt(mean_epsilon))",
+      "sqrt_mean_epsilon = ARM_SQRT_F32(mean_epsilon)",
       "inv_rms = F32(1 / sqrt_mean_epsilon)",
       formula,
     ],
@@ -440,7 +440,7 @@ async function renderChannelNorm(artifact: OpenGemma4CompositeLiteralArtifact, e
       `x[c] = ${indexed(input, [batch!, "c", time!, feature!])}, c=0..${channels - 1} ascending`,
       ...buildGemma4LiteralWelfordAssignments(reduction, channels),
       `variance_epsilon = F32(variance + F32(${literal(epsilon)}))`,
-      "sqrt_variance_epsilon = F32(sqrt(variance_epsilon))",
+      "sqrt_variance_epsilon = ARM_SQRT_F32(variance_epsilon)",
       "inv_std = F32(1 / sqrt_variance_epsilon)",
       "bias = F32(-inv_std * mean)",
       formula,
@@ -456,7 +456,7 @@ async function renderChannelNorm(artifact: OpenGemma4CompositeLiteralArtifact, e
     `variance_term[c]=F32((${indexed(input, [batch!, "c", time!, feature!])}-mean)^2), c=0..${channels - 1}`,
     `variance_acc[0]=F32(0); variance_acc[c+1]=F32(variance_acc[c]+variance_term[c]), c=0..${channels - 1} ascending`,
     `variance=F32(variance_acc[${channels}]/F32(${channels}))`,
-    `inv_std=F32(1/F32(sqrt(F32(variance+F32(${literal(epsilon)})))))`, formula,
+    `inv_std=F32(1/ARM_SQRT_F32(F32(variance+F32(${literal(epsilon)}))))`, formula,
   ], learnedScalars: [learned] };
 }
 
@@ -506,7 +506,8 @@ async function renderPerDimScale(artifact: OpenGemma4CompositeLiteralArtifact, e
     gemma4LiteralOutputCoordinateEnvironment(base.navigation.outputDomain, request.outputCoordinate),
   );
   const qScale = Math.fround(headDim ** -0.5 / Math.log(2));
-  const formula = `${base.output} = F32(F32(${indexed(entry.assignment.inputs[0]!, request.outputCoordinate)} * ${literal(qScale)}) * BF16(F32(log1p(exp(${learned.literal})))))`;
+  const softplus = `${learned.literal}>F32(20) ? ${learned.literal} : SLEEF_LOG1P_F32(SLEEF_EXP_F32(${learned.literal}))`;
+  const formula = `${base.output} = F32(F32(${indexed(entry.assignment.inputs[0]!, request.outputCoordinate)} * ${literal(qScale)}) * BF16(F32(${softplus})))`;
   return { ...base, formula, scalarAssignments: [formula], learnedScalars: [learned] };
 }
 
@@ -520,7 +521,7 @@ function plainFormulas(artifact: OpenGemma4CompositeLiteralArtifact, entry: Assi
     case "pixel-affine": return [`${output} = F32(2 * F32(${inputs[0]} - 0.5))`];
     case "relu": return [`${output} = F32(max(0, ${inputs[0]}))`];
     case "silu": return [`${output} = ${assignmentOutputDtype(assignment) === "BF16" ? "BF16" : "F32"}(F32(${inputs[0]} / F32(1 + SLEEF_EXP_F32(F32(-${inputs[0]})))))`];
-    case "gelu-tanh": return [`${output} = ${assignmentOutputDtype(assignment) === "BF16" ? "BF16" : "F32"}(F32(F32(0.5*${inputs[0]}) * F32(1+SLEEF_TANH_F32(F32(sqrt(2/pi)*F32(${inputs[0]}+F32(0.044715*F32(${inputs[0]}*F32(${inputs[0]}*${inputs[0]})))))))))`];
+    case "gelu-tanh": return [`${output} = ${assignmentOutputDtype(assignment) === "BF16" ? "BF16" : "F32"}(F32(F32(0.5*${inputs[0]}) * F32(1+SLEEF_TANH_F32(F32(${literal(Math.sqrt(2 / Math.PI))}*F32(${inputs[0]}+F32(0.044715*F32(${inputs[0]}*F32(${inputs[0]}*${inputs[0]})))))))))`];
     case "clip": return [`${output} = F32(min(${literal(artifact.program.audioProgram.gradientClipping)}, max(${literal(-artifact.program.audioProgram.gradientClipping)}, ${inputs[0]})))`];
     case "scale-f32": return [`${output} = F32(${inputs[0]} * F32(${literal(scaleFor(artifact, entry))}))`];
     case "reshape-heads": {
@@ -550,7 +551,7 @@ function plainFormulas(artifact: OpenGemma4CompositeLiteralArtifact, entry: Assi
       if (coordinate.length !== 3 || coordinate[0] !== 0) throw new Error(`${assignment.id}: posição relativa requer [0,position,feature].`);
       const width = artifact.program.audioProgram.tower.hiddenSize, half = width / 2, feature = coordinate[2]!, frequency = feature % half;
       return [
-        `increment = F32(log(10000)/F32(${half - 1}))`,
+        `increment = F32(${literal(Math.log(10000) / (half - 1))})`,
         `inverse_timescale = BF16(SLEEF_EXP_F32(F32(-${frequency} * increment)))`,
         `scaled_time = BF16(F32(F32(${audioContext(artifact) / 2 - coordinate[1]!}) * inverse_timescale))`,
         `${output} = BF16(SLEEF_${feature < half ? "SIN" : "COS"}_F32(scaled_time))`,
