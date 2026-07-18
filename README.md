@@ -535,17 +535,20 @@ máscara causal. Somente os 12 AC, 12 BD e 12 value matmuls F32 permanecem
 `runtime-defined`; a vista escalar falha fechada nessas 36 reduções e expõe as
 demais etapas por coordenada.
 
-A captura autoritativa de um frame agora compara 432 fronteiras. Com o
-checkpoint ausente, 362 passam em tolerância zero; AC passa em 1/12 e BD em
-0/12, localizando a divergência no `sgemm` nativo antes do relative shift. Um
-segundo relatório ancora somente AC/BD autoritativos e prova bitwise as 48/48
-instâncias de relative shift, soma, softcap e máscara. Todos os softmax,
-contexts BF16, consumidores posteriores e `audio_features [1,2560]` permanecem
+A captura autoritativa de um frame agora compara 444 fronteiras. Com o
+checkpoint ausente, 374 passam em tolerância zero; AC passa em 1/12 e BD em
+0/12, localizando a divergência no `sgemm` nativo antes do relative shift. O
+contexto F32 produzido pelo value matmul é capturado diretamente antes do cast
+e passa em 12/12; um relatório source-anchored adicional prova em 12/12 o cast
+BF16 a partir desses valores autoritativos. O relatório AC/BD também mantém
+48/48 instâncias de relative shift, soma, softcap e máscara bitwise exatas.
+Todos os consumidores posteriores e `audio_features [1,2560]` permanecem
 exatos. A saída terminal tem erro absoluto e relativo zero, cosseno e top-k
-overlap `1`, mas a classificação global permanece `approximate` porque
-resultados terminais iguais não substituem a agenda escalar interna. Comandos,
-hashes, políticas e métricas estão em
-[`docs/validation/gemma4-e4b-explicit-audio-score-pipeline-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-audio-score-pipeline-2026-07-18.md); a evidência anterior foi preservada em
+overlap `1`, mas a classificação global permanece `approximate` porque uma
+entrada exata não prova a agenda escalar interna de `sgemm`. Comandos, hashes,
+políticas e métricas estão em
+[`docs/validation/gemma4-e4b-explicit-audio-context-boundary-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-audio-context-boundary-2026-07-18.md); a decomposição anterior foi preservada em
+[`docs/validation/gemma4-e4b-explicit-audio-score-pipeline-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-audio-score-pipeline-2026-07-18.md),
 [`docs/validation/gemma4-e4b-explicit-audio-native-classes-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-audio-native-classes-2026-07-18.md) e
 [`docs/validation/gemma4-e4b-source-removed-audio-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-audio-2026-07-18.md).
 

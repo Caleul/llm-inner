@@ -152,6 +152,11 @@ def main() -> None:
             attn_output = attn_weights @ value_states.permute(0, 3, 1, 2, 4)
             attn_output = attn_output.permute(0, 2, 3, 1, 4).reshape(batch_size, num_blocks * self.chunk_size, -1)
             attn_output = attn_output[:, :seq_length].contiguous()
+            checkpoints.append({
+                "operationId": f"audio_layer_{layer_index}_attention",
+                "output": f"audio_layer_{layer_index}_attention_context",
+                "tensor": tensor_payload(attn_output),
+            })
             attn_output = self.post(attn_output.to(dtype=self.post.linear.weight.dtype))
             return attn_output, attn_weights
 
@@ -209,7 +214,7 @@ def main() -> None:
         handle.remove()
     stripped = output.pooler_output[output.attention_mask]
     checkpoints.append({"operationId": "audio_strip_padding", "output": "audio_features", "tensor": tensor_payload(stripped)})
-    expected = 6 + 1 + 1 + 35 * len(audio.layers) + 3 + 1
+    expected = 6 + 1 + 1 + 36 * len(audio.layers) + 3 + 1
     if len(checkpoints) != expected:
         raise ValueError(f"Gemma 4 audio capture emitted {len(checkpoints)} checkpoints; expected {expected}.")
     result = {

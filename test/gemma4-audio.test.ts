@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  executeGemma4AudioBf16CastF32,
   buildGemma4AudioProgram,
   executeGemma4AudioDerivedAttentionStagesF32,
   executeGemma4AudioF32,
@@ -73,7 +74,8 @@ test("Gemma 4 audio BF16 policy dispatches every compatible assignment by operat
   assert.ok(program.assignments.filter((assignment) => assignment.operation === "layer-norm-channels")
     .every((assignment) => assignment.dtypePolicy?.reduction?.kind === "pytorch-cpu-bf16-welford"));
   assert.equal(program.assignments.find((assignment) => assignment.id === "audio_layer_0_attention")?.dtypePolicy?.outputDtype, "F32");
-  assert.equal(program.assignments.find((assignment) => assignment.id === "audio_layer_0_attention_context_cast")?.dtypePolicy?.outputDtype, "BF16");
+  assert.deepEqual(program.assignments.find((assignment) => assignment.id === "audio_layer_0_attention_context_cast")?.dtypePolicy,
+    { inputDtype: "F32", computeDtype: "F32", accumulationDtype: "none", outputDtype: "BF16" });
   assert.equal(program.assignments.find((assignment) => assignment.id === "audio_output_projection")?.dtypePolicy?.computeDtype, "pytorch-cpu-bf16-addmm");
   const nativeAttentionMatmuls = program.assignments.filter((assignment) =>
     assignment.operation === "chunked-attention-content-matmul" || assignment.operation === "relative-attention-position-matmul" ||
@@ -86,6 +88,14 @@ test("Gemma 4 audio BF16 policy dispatches every compatible assignment by operat
     assignment.operation === "relative-attention-shift" || assignment.operation === "attention-logit-add" ||
     assignment.operation === "attention-softcap" || assignment.operation === "chunked-attention-mask")
     .every((assignment) => assignment.dtypePolicy?.inputDtype === "F32" && assignment.dtypePolicy.outputDtype === "F32"));
+});
+
+test("Gemma 4 audio context cast narrows the complete native F32 value-matmul boundary to BF16", () => {
+  const context = { shape: [1, 2, 2], values: Float32Array.from([1.003, 1.006, -1.003, -1.006]) };
+  const cast = executeGemma4AudioBf16CastF32(context);
+  assert.deepEqual(cast.shape, context.shape);
+  assert.deepEqual([...cast.values], [1, 1.0078125, -1, -1.0078125]);
+  assert.deepEqual([...context.values], Array.from(Float32Array.from([1.003, 1.006, -1.003, -1.006])), "cast must not mutate the F32 source boundary");
 });
 
 test("Gemma 4 audio refuses a missing runtime numeric contract instead of applying a local default", () => {

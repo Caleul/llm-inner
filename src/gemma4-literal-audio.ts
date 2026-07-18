@@ -2,6 +2,7 @@ import { constants as fsConstants } from "node:fs";
 import { access } from "node:fs/promises";
 import { compareCapturedOperationCheckpoints } from "./differential.js";
 import {
+  executeGemma4AudioBf16CastF32,
   executeGemma4AudioDerivedAttentionStagesF32,
   executeGemma4AudioF32,
   type Gemma4AudioExecutionRequest,
@@ -38,6 +39,8 @@ export interface Gemma4AudioDifferentialTrace {
 export interface Gemma4AudioDifferentialComparisonReport extends DifferentialCheckpointComparisonReport {
   /** Exact validation of non-native score stages, seeded only at the two authoritative matmul outputs. */
   sourceAnchoredAttentionStages: DifferentialCheckpointComparisonReport;
+  /** Exact validation of the BF16 cast, seeded at each authoritative native F32 value-matmul output. */
+  sourceAnchoredAttentionContextCasts: DifferentialCheckpointComparisonReport;
 }
 
 /**
@@ -96,13 +99,19 @@ export async function compareGemma4LiteralAudioTrace(options: {
         maxRelativeError: options.maxRelativeError ?? 0,
       },
     });
+    const operations = indexOperations(options.trace.reference.operations);
     const sourceAnchoredAttentionStages = compareSourceAnchoredAttentionStages(
       artifact.program.audioProgram,
-      options.trace.reference.operations,
+      operations,
       options.trace.reference.inputFeaturesMask,
       options.topK,
     );
-    return { ...comparison, sourceAnchoredAttentionStages };
+    const sourceAnchoredAttentionContextCasts = compareSourceAnchoredAttentionContextCasts(
+      artifact.program.audioProgram,
+      operations,
+      options.topK,
+    );
+    return { ...comparison, sourceAnchoredAttentionStages, sourceAnchoredAttentionContextCasts };
   } finally {
     await artifact.close();
   }
@@ -110,20 +119,15 @@ export async function compareGemma4LiteralAudioTrace(options: {
 
 function compareSourceAnchoredAttentionStages(
   program: OpenGemma4CompositeLiteralArtifact["program"]["audioProgram"],
-  operations: DifferentialOperationSample[],
+  operations: ReadonlyMap<string, DifferentialOperationSample>,
   mask: readonly boolean[][],
   topK: number | undefined,
 ): DifferentialCheckpointComparisonReport {
-  const byOutput = new Map<string, DifferentialOperationSample>();
-  for (const operation of operations) {
-    if (byOutput.has(operation.output)) throw new Error(`Trace de áudio redeclara output '${operation.output}'.`);
-    byOutput.set(operation.output, operation);
-  }
   const candidates = new Map<string, DenseF32Tensor>(), references: DifferentialOperationSample[] = [];
   for (let layer = 0; layer < program.tower.layers; layer += 1) {
     const stem = `audio_layer_${layer}_attention`;
-    const content = requiredSample(byOutput, `${stem}_ac`);
-    const position = requiredSample(byOutput, `${stem}_bd_unshifted`);
+    const content = requiredSample(operations, `${stem}_ac`);
+    const position = requiredSample(operations, `${stem}_bd_unshifted`);
     const derived = executeGemma4AudioDerivedAttentionStagesF32(program, content.tensor, position.tensor, mask);
     for (const [suffix, tensor] of [
       ["bd", derived.shiftedPositionScores],
@@ -133,7 +137,7 @@ function compareSourceAnchoredAttentionStages(
     ] as const) {
       const output = `${stem}_${suffix}`;
       candidates.set(output, tensor);
-      references.push(requiredSample(byOutput, output));
+      references.push(requiredSample(operations, output));
     }
   }
   return compareCapturedOperationCheckpoints(candidates, { operations: references }, {
@@ -141,6 +145,34 @@ function compareSourceAnchoredAttentionStages(
     ...(topK === undefined ? {} : { topK }),
     tolerance: { maxAbsoluteError: 0, maxRelativeError: 0 },
   });
+}
+
+function compareSourceAnchoredAttentionContextCasts(
+  program: OpenGemma4CompositeLiteralArtifact["program"]["audioProgram"],
+  operations: ReadonlyMap<string, DifferentialOperationSample>,
+  topK: number | undefined,
+): DifferentialCheckpointComparisonReport {
+  const candidates = new Map<string, DenseF32Tensor>(), references: DifferentialOperationSample[] = [];
+  for (let layer = 0; layer < program.tower.layers; layer += 1) {
+    const context = requiredSample(operations, `audio_layer_${layer}_attention_context`);
+    const output = `audio_layer_${layer}_attention_context_bf16`;
+    candidates.set(output, executeGemma4AudioBf16CastF32(context.tensor));
+    references.push(requiredSample(operations, output));
+  }
+  return compareCapturedOperationCheckpoints(candidates, { operations: references }, {
+    candidateRuntime: "llm-inner source-anchored literal F32-to-BF16 attention-context cast",
+    ...(topK === undefined ? {} : { topK }),
+    tolerance: { maxAbsoluteError: 0, maxRelativeError: 0 },
+  });
+}
+
+function indexOperations(operations: readonly DifferentialOperationSample[]): ReadonlyMap<string, DifferentialOperationSample> {
+  const byOutput = new Map<string, DifferentialOperationSample>();
+  for (const operation of operations) {
+    if (byOutput.has(operation.output)) throw new Error(`Trace de áudio redeclara output '${operation.output}'.`);
+    byOutput.set(operation.output, operation);
+  }
+  return byOutput;
 }
 
 function requiredSample(

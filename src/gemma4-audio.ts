@@ -21,6 +21,7 @@ const BF16_WELFORD_REDUCTION = {
   secondPass: "x-times-scale-plus-bias-times-gamma",
 } as const;
 const F32_POLICY: DtypePolicy = { inputDtype: "F32", computeDtype: "F32", accumulationDtype: "F32", outputDtype: "F32" };
+const F32_TO_BF16_POLICY: DtypePolicy = { inputDtype: "F32", computeDtype: "F32", accumulationDtype: "none", outputDtype: "BF16" };
 const BF16_POLICY: DtypePolicy = { inputDtype: "BF16", computeDtype: "F32", accumulationDtype: "F32", outputDtype: "BF16" };
 const BF16_LINEAR_POLICY: DtypePolicy = { ...BF16_POLICY, reduction: BF16_ARM_DOT_REDUCTION };
 const BF16_RMS_POLICY = {
@@ -91,6 +92,11 @@ export interface Gemma4AudioDerivedAttentionStages {
   maskedScores: DenseF32Tensor;
 }
 
+/** Declared F32 -> BF16 assignment used by every narrowed audio value. */
+export function executeGemma4AudioBf16CastF32(input: DenseF32Tensor): DenseF32Tensor {
+  return roundDenseF32ToBF16(input);
+}
+
 export function buildGemma4AudioProgram(catalog: ModelCatalog): Gemma4AudioProgram {
   const contract = inspectGemma4PackageContract(catalog);
   const config = object(catalog.config, "audio_config");
@@ -133,7 +139,7 @@ export function executeGemma4AudioF32(program: Gemma4AudioProgram, request: Gemm
   const get = (name: string): DenseF32Tensor => tensor(request.tensors, name);
   const policyByOutput = new Map(program.assignments.map((assignment) => [assignment.output, assignment.dtypePolicy]));
   const put = (name: string, value: DenseF32Tensor): DenseF32Tensor => {
-    const stored = policyByOutput.get(name)?.outputDtype === "BF16" ? roundDenseF32ToBF16(value) : value;
+    const stored = policyByOutput.get(name)?.outputDtype === "BF16" ? executeGemma4AudioBf16CastF32(value) : value;
     values.set(name, stored);
     return stored;
   };
@@ -460,6 +466,7 @@ function declaredAudioRuntimeDtype(config: Record<string, unknown>): "F32" | "BF
 
 /** Source- and dtype-dispatched policy applied to the complete audio operation class. */
 function audioAssignmentDtypePolicy(assignment: Gemma4AudioAssignment, runtimeDtype: "F32" | "BF16"): DtypePolicy {
+  if (assignment.operation === "cast-bf16") return { ...F32_TO_BF16_POLICY };
   if (assignment.operation === "chunked-attention-content-matmul" || assignment.operation === "relative-attention-position-matmul" || assignment.operation === "chunked-relative-attention-values") {
     return { ...F32_POLICY, computeDtype: "pytorch-cpu-f32-matmul", accumulationDtype: "runtime-defined" };
   }
