@@ -221,7 +221,13 @@ function scalarFormula(definition: Definition, program: Gemma4CompositeProgram, 
     case "per-layer-embedding": return `${lhs} = F32(decode(weight)[input_ids[batch,sequence],layer*per_layer_width+feature]*F32(${Math.sqrt(program.contract.text.perLayerInputSize)}))`;
     case "vision-feature-program": case "audio-feature-program": case "text-core": return `${lhs} = EVALUATE(calculationGraph.assignments where invocationId==${JSON.stringify(assignment.id)} in ordinal order, orderedInputs=[${assignment.inputs.join(",")}]).terminalOutput[${domain.domain.axes.map((axis) => axis.name).join(",")}]`;
     case "video-frame-flatten": return `${lhs} = ${assignment.inputs[0]}[floor(video_frame/frames),video_frame%frames,patch,${domain.domain.axes.at(-1)?.name}]`;
-    case "masked-scatter": case "masked-scatter-image-features": case "masked-scatter-audio-features": return `${lhs} = placeholder_mask[batch,sequence] ? next_feature_row[feature] : ${assignment.inputs[0]}[batch,sequence,feature]; feature rows consumed in stable batch-major order`;
+    case "masked-scatter": case "masked-scatter-image-features": case "masked-scatter-audio-features": {
+      const token = requiredGemma4LiteralPlaceholderTokenId(assignment);
+      const prior = assignment.inputs[0]!, inputIds = assignment.inputs[1]!, features = assignment.inputs[2]!;
+      const predicate = `${inputIds}[batch,sequence]==${token}`;
+      return `${lhs} = ${predicate} ? ${features}[STABLE_TRUE_PREFIX_RANK(${inputIds}==${token},batch,sequence),feature] : ${prior}[batch,sequence,feature]; ` +
+        `require ${features}.shape[0]==STABLE_TRUE_COUNT(${inputIds}==${token})`;
+    }
     case "linear": return linearFormula(lhs, assignment.inputs[0]!, cast, assignment.tensors?.length === 2, false, domain.domain.dtypePolicy?.reduction);
     case "clipped-linear": return linearFormula(lhs, assignment.inputs[0]!, cast, false, true, domain.domain.dtypePolicy?.reduction);
     case "scale-f32": return `${lhs} = F32(${input()} * F32(${scalarScale(assignment, program)}))`;
@@ -249,7 +255,12 @@ function scalarFormula(definition: Definition, program: Gemma4CompositeProgram, 
     case "multiply": return `${lhs} = ${cast}(F32(${input(0)} * ${input(1)}))`;
     case "pool-by-position": return `${lhs} = ${cast}(REDUCE(patch in stable ascending order mapped to pool_cell, F32(source[batch,patch,hidden]*F32(1/${program.visionProgram.tower.poolingKernelSize ** 2}))))`;
     case "pool-valid-mask": return `${lhs} = BOOL(any non-padding patch maps to pool_cell)`;
-    case "strip-padding": return `${lhs} = ${assignment.inputs[0]}[stable_batch_major_true_mask_row,${domain.domain.axes.at(-1)?.name}]`;
+    case "strip-padding": {
+      const source = assignment.inputs[0]!, mask = assignment.inputs[1]!, row = domain.domain.axes[0]?.name, feature = domain.domain.axes[1]?.name;
+      if (!row || !feature) throw new Error(`${assignment.id}: strip-padding requer domínio [linha,feature].`);
+      return `${lhs} = ${source}[source_coordinate.batch,source_coordinate.sequence,${feature}]; ` +
+        `source_coordinate=STABLE_TRUE_COORDINATE_AT_RANK(${mask},${row}); require ${assignment.output}.shape[0]==STABLE_TRUE_COUNT(${mask})`;
+    }
     case "mask-input-features": return `${lhs} = ${assignment.inputs[1]}[batch,frame] ? ${input()} : F32(0)`;
     case "reshape-conv-features": return assignment.id === "audio_input_unsqueeze"
       ? `${lhs} = ${assignment.inputs[0]}[batch,frame,feature] where channel=0`
@@ -283,6 +294,13 @@ function scalarFormula(definition: Definition, program: Gemma4CompositeProgram, 
     case "cast-bf16": return `${lhs} = BF16(${input()})`;
     case "subsample-mask": return `${lhs} = ${assignment.inputs[0]}[batch,2*frame]`;
   }
+}
+
+export function requiredGemma4LiteralPlaceholderTokenId(assignment: MultimodalAssignment): number {
+  if (!Number.isSafeInteger(assignment.placeholderTokenId) || assignment.placeholderTokenId! < 0) {
+    throw new Error(`${assignment.id}: masked scatter requer placeholderTokenId autoritativo.`);
+  }
+  return assignment.placeholderTokenId!;
 }
 
 function textFormula(operation: Operation, lhs: string): string {

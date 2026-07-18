@@ -23,6 +23,9 @@ import { evaluateGemma4LiteralLearnedOperandIndices } from "../src/gemma4-litera
 import { buildGemma4LiteralScalarCalculations } from "../src/gemma4-literal-scalar-calculations.js";
 import {
   executeGemma4LiteralContiguousVisionGroupId,
+  executeGemma4LiteralStableTrueCoordinateAtRank,
+  executeGemma4LiteralStableTrueCount,
+  executeGemma4LiteralStableTruePrefixRank,
   executeGemma4LiteralSoftmaxReductionProgram,
   gemma4LiteralIndexingPrograms,
   gemma4LiteralSoftmaxReductionPrograms,
@@ -418,14 +421,14 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 21);
+  assert.equal(literal.schemaVersion, 22);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   assert.deepEqual(literal.authoritativeExecution, gemma4AuthoritativeExecutionContract());
   assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.languageId, literal.generation.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.authority.numericLiteralBits, "/numericLiterals/literals");
-  assert.equal(literal.formulaLanguage.schemaVersion, 7);
+  assert.equal(literal.formulaLanguage.schemaVersion, 8);
   assert.deepEqual(
     [-1, 0, 0, -1, 1, 1, -1, 2],
     [0, 1, 2, 0, 2, 1, 0, 1].map((_, sequence) => executeGemma4LiteralContiguousVisionGroupId(
@@ -438,6 +441,16 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   alteredIndexingPrograms.contiguousVisionGroupId[1] = "group=I32(0)";
   assert.throws(() => executeGemma4LiteralContiguousVisionGroupId(alteredIndexingPrograms, [1], 0), /ausente ou alterado/);
   assert.throws(() => executeGemma4LiteralContiguousVisionGroupId(gemma4LiteralIndexingPrograms(), [1], 1), /coordenada válida/);
+  const stableMask = [[false, true, true], [true, false, true]];
+  assert.equal(executeGemma4LiteralStableTrueCount(literal.formulaLanguage.indexing.programs, stableMask), 4);
+  assert.equal(executeGemma4LiteralStableTruePrefixRank(literal.formulaLanguage.indexing.programs, stableMask, 0, 1), 0);
+  assert.equal(executeGemma4LiteralStableTruePrefixRank(literal.formulaLanguage.indexing.programs, stableMask, 1, 2), 3);
+  assert.equal(executeGemma4LiteralStableTruePrefixRank(literal.formulaLanguage.indexing.programs, stableMask, 1, 1), -1);
+  assert.deepEqual(executeGemma4LiteralStableTrueCoordinateAtRank(literal.formulaLanguage.indexing.programs, stableMask, 2), [1, 0]);
+  assert.throws(() => executeGemma4LiteralStableTrueCoordinateAtRank(literal.formulaLanguage.indexing.programs, stableMask, 4), /rank válido/);
+  const alteredStablePrograms = structuredClone(gemma4LiteralIndexingPrograms());
+  alteredStablePrograms.stableTruePrefixRank[1] = "rank=I32(1)";
+  assert.throws(() => executeGemma4LiteralStableTruePrefixRank(alteredStablePrograms, stableMask, 0, 1), /ausente ou alterado/);
   assert.throws(() => validateGemma4LiteralFormulaFunctionCoverage(["y=hidden_runtime_helper(x)"]), /helper opaco/);
   assert.equal(literal.formulaLanguage.authority.transcendentalPrograms, "/transcendentalPrograms");
   assert.deepEqual(literal.transcendentalPrograms, buildGemma4LiteralTranscendentalPrograms());
@@ -491,6 +504,20 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     entry.scope === "vision" && entry.definitionId === "vision_position_embedding")!.formula;
   assert.match(positionEmbeddingFormula, /pixel_position_ids\[batch,patch,0\]==-1/);
   assert.doesNotMatch(positionEmbeddingFormula, /padding pair|\[0,x,hidden\]/);
+  const scatterFormulas = literal.scalarCalculations.assignments.filter((entry) =>
+    entry.operation === "masked-scatter" || entry.operation === "masked-scatter-image-features" || entry.operation === "masked-scatter-audio-features");
+  assert.equal(scatterFormulas.length, 5);
+  assert.ok(scatterFormulas.every((entry) => entry.formula.includes("STABLE_TRUE_PREFIX_RANK") && entry.formula.includes("STABLE_TRUE_COUNT")));
+  assert.match(scatterFormulas.find((entry) => entry.definitionId === "composite_image_scatter")!.formula, /input_ids==99/);
+  assert.match(scatterFormulas.find((entry) => entry.definitionId === "composite_video_scatter")!.formula, /input_ids==97/);
+  assert.match(scatterFormulas.find((entry) => entry.definitionId === "composite_audio_scatter")!.formula, /input_ids==98/);
+  const stripFormulas = literal.scalarCalculations.assignments.filter((entry) => entry.operation === "strip-padding");
+  assert.equal(stripFormulas.length, 2);
+  assert.ok(stripFormulas.every((entry) => entry.formula.includes("STABLE_TRUE_COORDINATE_AT_RANK") && entry.formula.includes("STABLE_TRUE_COUNT")));
+  assert.equal(serializedFormulas.some((formula) => /next_feature_row|placeholder_at|stable_batch_major_true_mask_row/.test(formula)), false);
+  const missingScatterToken = structuredClone(literal.program);
+  delete missingScatterToken.assignments.find((entry) => entry.id === "composite_image_scatter")!.placeholderTokenId;
+  assert.throws(() => buildGemma4LiteralScalarCalculations(missingScatterToken), /placeholderTokenId autoritativo/);
   assert.ok(literal.scalarCalculations.assignments.every((entry) =>
     entry.outputCoordinates.length > 0 && entry.formula.startsWith(`${entry.output}[`) && entry.orderedInputs.length > 0));
   assert.ok(literal.scalarCalculations.assignments.every((entry) =>
@@ -804,7 +831,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 21);
+      assert.equal(artifact.schemaVersion, 22);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.deepEqual(artifact.authoritativeExecution, gemma4AuthoritativeExecutionContract());

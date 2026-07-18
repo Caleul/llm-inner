@@ -25,6 +25,7 @@ import {
   type Gemma4LiteralLearnedOperandRole,
 } from "./gemma4-literal-learned-operands.js";
 import {
+  requiredGemma4LiteralPlaceholderTokenId,
   requiredGemma4LiteralScalarCalculation,
   type Gemma4LiteralScalarCalculation,
 } from "./gemma4-literal-scalar-calculations.js";
@@ -559,7 +560,15 @@ function plainFormulas(artifact: OpenGemma4CompositeLiteralArtifact, entry: Assi
     }
     case "pool-by-position": return [`${output} = ${assignmentOutputDtype(assignment) === "BF16" ? "BF16" : "F32"}(ordered_F32_FMA_{patches mapped by floor(x/${artifact.program.visionProgram.tower.poolingKernelSize}),floor(y/${artifact.program.visionProgram.tower.poolingKernelSize}) in ascending patch order}(source, F32(1/F32(${artifact.program.visionProgram.tower.poolingKernelSize ** 2}))))`];
     case "pool-valid-mask": return [`${output} = BOOL(any non-padding patch maps to this pooling cell)`];
-    case "strip-padding": return [`${output} = ${assignment.inputs[0]}[stable_batch_major_true_mask_row,${coordinate.at(-1)}]`];
+    case "strip-padding": {
+      if (coordinate.length !== 2) throw new Error(`${assignment.id}: strip-padding requer [linha,feature].`);
+      const mask = assignment.inputs[1]!;
+      return [
+        `source_coordinate = STABLE_TRUE_COORDINATE_AT_RANK(${mask},${coordinate[0]})`,
+        `require ${assignment.output}.shape[0] == STABLE_TRUE_COUNT(${mask})`,
+        `${output} = ${assignment.inputs[0]}[source_coordinate.batch,source_coordinate.sequence,${coordinate[1]}]`,
+      ];
+    }
     case "mask-input-features": return [`${output} = ${assignment.inputs[1]}[batch,time] ? ${inputs[0]} : F32(0)`];
     case "subsample-mask": return [`${output} = ${assignment.inputs[0]}[batch,2*time]`];
     case "reshape-conv-features": return [`${output} = row_major_alias(${assignment.inputs[0]})[${coordinate.join(",")}]`];
@@ -583,7 +592,16 @@ function plainFormulas(artifact: OpenGemma4CompositeLiteralArtifact, entry: Assi
     }
     case "vision-feature-program": case "audio-feature-program": case "text-core": return [`${output} = EVALUATE(calculationGraph.assignments where invocationId==${JSON.stringify(assignment.id)} in ordinal order).terminalOutput; every bound assignment is serialized in the artifact`];
     case "video-frame-flatten": return [`${output} = ${assignment.inputs[0]}[floor(${coordinate[0]}/frames),${coordinate[0]} mod frames,${coordinate.slice(1).join(",")}] (row-major alias; no arithmetic)`];
-    case "masked-scatter": case "masked-scatter-image-features": case "masked-scatter-audio-features": return [`${output} = placeholder_at(input_ids) ? next_feature_row : prior_embedding; rows consumed in batch-major order with exact cardinality`];
+    case "masked-scatter": case "masked-scatter-image-features": case "masked-scatter-audio-features": {
+      if (coordinate.length !== 3) throw new Error(`${assignment.id}: masked scatter requer [batch,sequence,feature].`);
+      const token = requiredGemma4LiteralPlaceholderTokenId(assignment);
+      const [batch, sequence, feature] = coordinate, inputIds = assignment.inputs[1]!, features = assignment.inputs[2]!;
+      return [
+        `feature_row = STABLE_TRUE_PREFIX_RANK(${inputIds}==${token},${batch},${sequence})`,
+        `require ${features}.shape[0] == STABLE_TRUE_COUNT(${inputIds}==${token})`,
+        `${output} = ${inputIds}[${batch},${sequence}]==${token} ? ${features}[feature_row,${feature}] : ${assignment.inputs[0]}[${batch},${sequence},${feature}]`,
+      ];
+    }
     default: throw new Error(`${assignment.id}: operação ${assignment.operation} sem fórmula escalar registrada.`);
   }
 }

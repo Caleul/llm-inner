@@ -68,6 +68,8 @@ export interface Gemma4AudioAssignment {
   output: string;
   tensors?: TensorRef[];
   semantics?: string;
+  /** Authoritative modal token selected by stable row-major scatter. */
+  placeholderTokenId?: number | undefined;
   dtypePolicy?: DtypePolicy;
 }
 
@@ -126,7 +128,7 @@ export function buildGemma4AudioProgram(catalog: ModelCatalog): Gemma4AudioProgr
     { id: "audio_language_projection_norm", operation: "rms-norm", inputs: ["audio_output_projected"], output: "audio_output_normalized", semantics: "unscaled Gemma4MultimodalEmbedder RMSNorm before language projection" },
     { id: "audio_language_projection", operation: "linear", inputs: ["audio_output_normalized"], output: "audio_projected_features", tensors: tensors(["model.embed_audio.embedding_projection.weight"]), semantics: "Gemma4MultimodalEmbedder bias-free language projection" },
     { id: "audio_strip_padding", operation: "strip-padding", inputs: ["audio_projected_features", "audio_output_mask"], output: "audio_features", semantics: "keep only true output-mask rows in batch-major order" },
-    { id: "audio_placeholder_scatter", operation: "masked-scatter-audio-features", inputs: ["text_embeddings", "input_ids", "audio_features"], output: "text_embeddings_with_audio", semantics: "replace only audio_token_id coordinates; feature rows and placeholders must agree exactly" },
+    { id: "audio_placeholder_scatter", operation: "masked-scatter-audio-features", inputs: ["text_embeddings", "input_ids", "audio_features"], output: "text_embeddings_with_audio", placeholderTokenId: contract.modalities.audioTokenId, semantics: "replace only audio_token_id coordinates; feature rows and placeholders must agree exactly" },
   );
   for (const assignment of assignments) assignment.dtypePolicy = audioAssignmentDtypePolicy(assignment, runtimeDtype);
   return {

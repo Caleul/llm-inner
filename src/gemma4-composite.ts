@@ -48,6 +48,8 @@ export interface Gemma4CompositeAssignment {
   output: string;
   tensors?: TensorRef[];
   semantics?: string;
+  /** Authoritative modal token selected by stable row-major scatter. */
+  placeholderTokenId?: number | undefined;
 }
 
 export interface Gemma4CompositeExecutionRequest {
@@ -110,13 +112,13 @@ export function buildGemma4CompositeProgram(catalog: ModelCatalog, preview: Prev
     { id: "composite_text_embedding", operation: "embedding", inputs: ["composite_llm_input_ids"], output: "composite_text_embeddings", tensors: refs([`${prefix}.embed_tokens.weight`]), semantics: "scaled Gemma4Text embedding of PAD-substituted ids" },
     { id: "composite_ple_identity", operation: "per-layer-embedding", inputs: ["composite_llm_input_ids"], output: "ple_token_identity", tensors: refs([`${prefix}.embed_tokens_per_layer.weight`]), semantics: "packed PLE identity uses PAD at all soft-token coordinates" },
     { id: "composite_image_features", operation: "vision-feature-program", inputs: ["pixel_values", "image_position_ids"], output: "image_features", semantics: "registered Gemma4Vision program, including pooling, multimodal RMSNorm and language projection" },
-    { id: "composite_image_scatter", operation: "masked-scatter", inputs: ["composite_text_embeddings", "input_ids", "image_features"], output: "composite_embeddings_after_image", semantics: "replace only image_token_id values; cardinality is exact" },
+    { id: "composite_image_scatter", operation: "masked-scatter", inputs: ["composite_text_embeddings", "input_ids", "image_features"], output: "composite_embeddings_after_image", placeholderTokenId: contract.modalities.imageTokenId, semantics: "replace only image_token_id values; cardinality is exact" },
     { id: "composite_video_pixel_flatten", operation: "video-frame-flatten", inputs: ["pixel_values_videos"], output: "composite_video_pixels", semantics: "flatten video and frame dimensions without reordering pixel patches" },
     { id: "composite_video_position_flatten", operation: "video-frame-flatten", inputs: ["video_position_ids"], output: "composite_video_position_ids", semantics: "flatten video and frame dimensions without reordering each patch's [x,y] position" },
     { id: "composite_video_features", operation: "vision-feature-program", inputs: ["composite_video_pixels", "composite_video_position_ids"], output: "video_features", semantics: "same registered vision program after exact pixel and position flattening" },
-    { id: "composite_video_scatter", operation: "masked-scatter", inputs: ["composite_embeddings_after_image", "input_ids", "video_features"], output: "composite_embeddings_after_video", semantics: "replace only video_token_id values after images and before audio" },
+    { id: "composite_video_scatter", operation: "masked-scatter", inputs: ["composite_embeddings_after_image", "input_ids", "video_features"], output: "composite_embeddings_after_video", placeholderTokenId: contract.modalities.videoTokenId, semantics: "replace only video_token_id values after images and before audio" },
     { id: "composite_audio_features", operation: "audio-feature-program", inputs: ["input_features", "input_features_mask"], output: "audio_features", semantics: "registered Gemma4Audio program, including valid-frame stripping and language projection" },
-    { id: "composite_audio_scatter", operation: "masked-scatter", inputs: ["composite_embeddings_after_video", "input_ids", "audio_features"], output: "hidden_states_0", semantics: "replace only audio_token_id values after image/video; exact cardinality" },
+    { id: "composite_audio_scatter", operation: "masked-scatter", inputs: ["composite_embeddings_after_video", "input_ids", "audio_features"], output: "hidden_states_0", placeholderTokenId: contract.modalities.audioTokenId, semantics: "replace only audio_token_id values after image/video; exact cardinality" },
     { id: "composite_ple_context_projection", operation: "linear", inputs: ["hidden_states_0"], output: "ple_context_packed", tensors: refs([`${prefix}.per_layer_model_projection.weight`]), semantics: "PLE context is derived after every modal scatter, not from pre-scatter PAD embeddings" },
     { id: "composite_ple_context_scale", operation: "scale-f32", inputs: ["ple_context_packed"], output: "ple_context_scaled", semantics: "multiply by hidden_size^-0.5" },
     { id: "composite_ple_context_reshape", operation: "reshape-per-layer", inputs: ["ple_context_scaled"], output: "ple_context_reshaped", semantics: "[B,S,L*P] -> [B,S,L,P] without reordering" },

@@ -65,6 +65,8 @@ export interface Gemma4VisionAssignment {
   output: string;
   tensors?: TensorRef[];
   semantics?: string;
+  /** Authoritative modal token selected by stable row-major scatter. */
+  placeholderTokenId?: number | undefined;
   dtypePolicy?: DtypePolicy;
 }
 
@@ -141,7 +143,7 @@ export function buildGemma4VisionProgram(catalog: ModelCatalog): Gemma4VisionPro
     { id: "vision_strip_padding", operation: "strip-padding", inputs: ["vision_pooled_scaled", "vision_pool_mask"], output: "vision_soft_tokens" },
     { id: "vision_language_projection_norm", operation: "rms-norm", inputs: ["vision_soft_tokens"], output: "vision_soft_tokens_normalized", semantics: "unscaled Gemma4MultimodalEmbedder RMSNorm before language projection" },
     { id: "vision_language_projection", operation: "linear", inputs: ["vision_soft_tokens_normalized"], output: "image_features", tensors: tensors(["model.embed_vision.embedding_projection.weight"]) },
-    { id: "vision_placeholder_scatter", operation: "masked-scatter-image-features", inputs: ["text_embeddings", "input_ids", "image_features"], output: "text_embeddings_with_images", semantics: "replace only image_token_id coordinates; feature rows and placeholder count must agree exactly" },
+    { id: "vision_placeholder_scatter", operation: "masked-scatter-image-features", inputs: ["text_embeddings", "input_ids", "image_features"], output: "text_embeddings_with_images", placeholderTokenId: contract.modalities.imageTokenId, semantics: "replace only image_token_id coordinates; feature rows and placeholder count must agree exactly" },
   );
   for (const assignment of assignments) assignment.dtypePolicy = visionAssignmentDtypePolicy(assignment, runtimeDtype);
   return { kind: "gemma4-vision-features", sourceFormat: "safetensors", tower: contract.modalities.visionTower, textHiddenSize: contract.text.hiddenSize, rmsNormEpsilon: epsilon, runtimeDtype, assignments, output: "image_features" };

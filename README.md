@@ -489,6 +489,17 @@ chamada cujo programa ou semântica não esteja registrado. A exportação real 
 os replays source-removed estão em
 [`docs/validation/gemma4-e4b-explicit-indexing-rope-programs-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-indexing-rope-programs-2026-07-18.md).
 
+O schema v22 fecha a indexação estável que liga features multimodais ao fluxo
+textual. Cada scatter de imagem, vídeo e áudio carrega o token modal
+autoritativo e calcula a linha exata de features por prefix rank batch-major;
+os dois `strip-padding` calculam a coordenada fonte do rank válido em vez de
+usar uma linha implícita. `STABLE_TRUE_COUNT`, `STABLE_TRUE_PREFIX_RANK` e
+`STABLE_TRUE_COORDINATE_AT_RANK` são programas executáveis incorporados, e o
+leitor falha se o programa, token ou cardinalidade divergir. As fórmulas e
+vistas escalares não contêm mais `next_feature_row`, `placeholder_at` ou
+`stable_batch_major_true_mask_row`. A prova no pacote real está em
+[`docs/validation/gemma4-e4b-explicit-stable-selection-programs-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-stable-selection-programs-2026-07-18.md).
+
 O leitor também pode partir de qualquer saída instanciada e calcular o fecho
 transitivo exato de seus produtores. `--calculation-slice <operation-id>`
 retorna somente as atribuições necessárias ao alvo, ainda em ordem de
@@ -656,8 +667,8 @@ escreve o artefato completo em streaming: ranges Safetensors de 12 MiB são
 codificados em base64 sem acumular o pacote ou uma string de vários GiB na
 heap. O resultado local contém os 2,130 payloads originais
 (15,992,314,836 bytes) e é auditado por `npm run audit:literal`. O hash e
-tamanho da exportação schema v21 atual são registrados em
-[`docs/validation/gemma4-e4b-explicit-indexing-rope-programs-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-indexing-rope-programs-2026-07-18.md); sua política numérica
+tamanho da exportação schema v22 atual são registrados em
+[`docs/validation/gemma4-e4b-explicit-stable-selection-programs-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-stable-selection-programs-2026-07-18.md); sua política numérica
 declara fronteiras de resultado BF16, acumuladores F32/F64 e agendas de redução
 por operação do texto, áudio e visão; toda exportação deve registrar seu próprio hash, pois o programa literal
 inclui as políticas numéricas. As 54 projeções/normas K/V locais dos

@@ -5,7 +5,7 @@ import { gemma4LiteralNormalizationReductionPrograms } from "./gemma4-literal-no
 
 export interface Gemma4LiteralFormulaLanguageContract {
   kind: "gemma4-literal-formula-language-contract";
-  schemaVersion: 7;
+  schemaVersion: 8;
   languageId: "indexed-ieee754-expression-v1";
   authority: {
     forwardAssignments: "/scalarCalculations/assignments";
@@ -53,21 +53,112 @@ export interface Gemma4LiteralFormulaLanguageContract {
 
 export interface Gemma4LiteralIndexingPrograms {
   kind: "gemma4-literal-indexing-programs";
-  schemaVersion: 1;
+  schemaVersion: 2;
   contiguousVisionGroupId: string[];
+  stableTrueCount: string[];
+  stableTruePrefixRank: string[];
+  stableTrueCoordinateAtRank: string[];
 }
 
 export function gemma4LiteralIndexingPrograms(): Gemma4LiteralIndexingPrograms {
   return {
     kind: "gemma4-literal-indexing-programs",
-    schemaVersion: 1,
+    schemaVersion: 2,
     contiguousVisionGroupId: [
       "require mm_token_type_ids to be an I32 row and sequence to be an in-bounds I32 coordinate",
       "group=I32(-1); previous_vision=false",
       "for index=0..sequence in ascending order: vision=(mm_token_type_ids[index]==1 || mm_token_type_ids[index]==2); if vision && !previous_vision then group=I32(group+1); previous_vision=vision",
       "result=(mm_token_type_ids[sequence]==1 || mm_token_type_ids[sequence]==2) ? group : I32(-1)",
     ],
+    stableTrueCount: [
+      "require mask to be a rectangular BOOL matrix",
+      "count=I32(0)",
+      "for batch=0..rows-1 ascending: for sequence=0..columns-1 ascending: if mask[batch,sequence] count=I32(count+1)",
+      "result=count",
+    ],
+    stableTruePrefixRank: [
+      "require mask to be a rectangular BOOL matrix and [batch,sequence] to be an in-bounds I32 coordinate",
+      "rank=I32(0)",
+      "for prior_batch=0..batch ascending: for prior_sequence=0..columns-1 ascending: stop before [batch,sequence]; if mask[prior_batch,prior_sequence] rank=I32(rank+1)",
+      "result=mask[batch,sequence] ? rank : I32(-1)",
+    ],
+    stableTrueCoordinateAtRank: [
+      "require mask to be a rectangular BOOL matrix and rank to be I32 in 0..STABLE_TRUE_COUNT(mask)-1",
+      "current=I32(0)",
+      "for batch=0..rows-1 ascending: for sequence=0..columns-1 ascending: if mask[batch,sequence] and current==rank return STRUCT(batch=batch,sequence=sequence); if mask[batch,sequence] current=I32(current+1)",
+      "absence of a returned coordinate is fail-closed",
+    ],
   };
+}
+
+/** Counts true rows in the exact stable batch-major order serialized in the artifact. */
+export function executeGemma4LiteralStableTrueCount(
+  programs: Gemma4LiteralIndexingPrograms,
+  mask: readonly (readonly boolean[])[],
+): number {
+  assertCanonicalIndexingPrograms(programs);
+  const columns = validateBooleanMatrix(mask);
+  let count = 0;
+  for (let batch = 0; batch < mask.length; batch += 1) for (let sequence = 0; sequence < columns; sequence += 1) {
+    if (mask[batch]![sequence]) count += 1;
+  }
+  return count;
+}
+
+/** Returns the zero-based true-row rank before a selected coordinate, or -1 when false. */
+export function executeGemma4LiteralStableTruePrefixRank(
+  programs: Gemma4LiteralIndexingPrograms,
+  mask: readonly (readonly boolean[])[],
+  batch: number,
+  sequence: number,
+): number {
+  assertCanonicalIndexingPrograms(programs);
+  const columns = validateBooleanMatrix(mask);
+  if (!Number.isSafeInteger(batch) || !Number.isSafeInteger(sequence) || batch < 0 || batch >= mask.length || sequence < 0 || sequence >= columns) {
+    throw new Error("Programa de prefixo BOOL Gemma 4 requer coordenada válida.");
+  }
+  if (!mask[batch]![sequence]) return -1;
+  let rank = 0;
+  for (let priorBatch = 0; priorBatch <= batch; priorBatch += 1) for (let priorSequence = 0; priorSequence < columns; priorSequence += 1) {
+    if (priorBatch === batch && priorSequence === sequence) return rank;
+    if (mask[priorBatch]![priorSequence]) rank += 1;
+  }
+  throw new Error("Programa de prefixo BOOL Gemma 4 não alcançou a coordenada declarada.");
+}
+
+/** Selects the batch/sequence coordinate of a true row by stable zero-based rank. */
+export function executeGemma4LiteralStableTrueCoordinateAtRank(
+  programs: Gemma4LiteralIndexingPrograms,
+  mask: readonly (readonly boolean[])[],
+  rank: number,
+): [number, number] {
+  assertCanonicalIndexingPrograms(programs);
+  const columns = validateBooleanMatrix(mask);
+  const count = executeGemma4LiteralStableTrueCount(programs, mask);
+  if (!Number.isSafeInteger(rank) || rank < 0 || rank >= count) {
+    throw new Error("Programa de seleção BOOL Gemma 4 requer rank válido.");
+  }
+  let current = 0;
+  for (let batch = 0; batch < mask.length; batch += 1) for (let sequence = 0; sequence < columns; sequence += 1) {
+    if (!mask[batch]![sequence]) continue;
+    if (current === rank) return [batch, sequence];
+    current += 1;
+  }
+  throw new Error("Programa de seleção BOOL Gemma 4 não encontrou o rank declarado.");
+}
+
+function assertCanonicalIndexingPrograms(programs: Gemma4LiteralIndexingPrograms): void {
+  if (!isDeepStrictEqual(programs, gemma4LiteralIndexingPrograms())) {
+    throw new Error("Programa de indexação multimodal Gemma 4 ausente ou alterado.");
+  }
+}
+
+function validateBooleanMatrix(mask: readonly (readonly boolean[])[]): number {
+  const columns = mask[0]?.length;
+  if (columns === undefined || columns === 0 || mask.some((row) => row.length !== columns || row.some((value) => typeof value !== "boolean"))) {
+    throw new Error("Programa de indexação BOOL Gemma 4 requer matriz retangular não vazia.");
+  }
+  return columns;
 }
 
 /** Executes only the serialized contiguous-run contract used by every Gemma 4 vision-block mask. */
@@ -76,9 +167,7 @@ export function executeGemma4LiteralContiguousVisionGroupId(
   mmTokenTypeIds: readonly number[],
   sequence: number,
 ): number {
-  if (!isDeepStrictEqual(programs, gemma4LiteralIndexingPrograms())) {
-    throw new Error("Programa de indexação multimodal Gemma 4 ausente ou alterado.");
-  }
+  assertCanonicalIndexingPrograms(programs);
   if (!Number.isSafeInteger(sequence) || sequence < 0 || sequence >= mmTokenTypeIds.length ||
     mmTokenTypeIds.some((value) => !Number.isSafeInteger(value))) {
     throw new Error("Programa de grupos vision Gemma 4 requer linha I32 e coordenada válida.");
@@ -209,7 +298,7 @@ function pytorchPairwiseReduce(values: readonly number[], operation: "maximum" |
 export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormulaLanguageContract {
   return {
     kind: "gemma4-literal-formula-language-contract",
-    schemaVersion: 7,
+    schemaVersion: 8,
     languageId: "indexed-ieee754-expression-v1",
     authority: {
       forwardAssignments: "/scalarCalculations/assignments",
@@ -280,6 +369,9 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
       { notation: "concat, tuple, STRUCT", semantics: "construct values in argument order without arithmetic conversion; concat uses the axis named by the formula or cache transition" },
       { notation: "row_major_alias, reshape, transpose", semantics: "change only logical indexing/layout exactly as written; preserve every source bit" },
       { notation: "CONTIGUOUS_VISION_GROUP_ID", semantics: "execute indexing.programs.contiguousVisionGroupId over the declared mm_token_type_ids row through the requested sequence coordinate" },
+      { notation: "STABLE_TRUE_COUNT", semantics: "execute indexing.programs.stableTrueCount over the complete rectangular BOOL matrix in batch-major order" },
+      { notation: "STABLE_TRUE_PREFIX_RANK", semantics: "execute indexing.programs.stableTruePrefixRank and return the number of true coordinates preceding [batch,sequence], or I32(-1) when the requested coordinate is false" },
+      { notation: "STABLE_TRUE_COORDINATE_AT_RANK", semantics: "execute indexing.programs.stableTrueCoordinateAtRank and return the unique [batch,sequence] coordinate of the requested zero-based true-row rank" },
       { notation: "EVALUATE(reference in ordinal order)", semantics: "inline the finite referenced calculationGraph assignments with positional bindings; it is never a generic architecture or hidden decoder invocation" },
       { notation: "argmax-lowest-token-id", semantics: "scan token IDs in ascending order and replace the winner only on strictly greater F32 logits; equality retains the lowest ID" },
       { notation: "exact_safe_integer", semantics: "perform exact integer arithmetic and fail if the result is not a safe integer or violates its declared input domain" },
@@ -308,7 +400,8 @@ const REGISTERED_FUNCTIONS = new Set([
   "EVALUATE", "F32", "F64", "I32", "ORDERED_F32_DOT", "ORDERED_F32_REDUCE_MAX",
   "ORDERED_F32_REDUCE_SUM", "PYTORCH_F32_VECTOR_REDUCE_MAX", "PYTORCH_F32_VECTOR_REDUCE_SUM",
   "PYTORCH_POW_NEGATIVE_HALF_F32", "REDUCE", "SLEEF_COS_F32", "SLEEF_EXP_F32", "SLEEF_LOG1P_F32",
-  "SLEEF_SIN_F32", "SLEEF_TANH_F32", "STRUCT", "concat", "decode", "exact_product",
+  "SLEEF_SIN_F32", "SLEEF_TANH_F32", "STABLE_TRUE_COORDINATE_AT_RANK", "STABLE_TRUE_COUNT",
+  "STABLE_TRUE_PREFIX_RANK", "STRUCT", "concat", "decode", "exact_product",
   "exact_safe_integer", "floor", "max", "min", "row_major_alias", "tuple",
 ]);
 
