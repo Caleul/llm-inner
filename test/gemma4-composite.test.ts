@@ -621,6 +621,53 @@ test("Gemma 4 paged text interpreter replays prefill and cached greedy decode fr
       assert.deepEqual(generation.generatedTokenIds, expectedGeneration.generatedTokenIds);
       assert.deepEqual(generation.logits.values, expectedGeneration.text.logits.values);
       assert.deepEqual([...generation.pastKeyValues.keys()], [...expectedGeneration.text.pastKeyValues.keys()]);
+      assert.deepEqual(generation.assignmentExecutions.map((execution) => execution.assignmentId), [
+        "generation_prefill", "generation_initial_position",
+        "generation_selection_logits", "generation_argmax", "generation_token_append", "generation_position_advance",
+        "generation_incremental_inputs", "generation_incremental_forward", "generation_cache_append", "generation_eos_stop",
+        "generation_selection_logits", "generation_argmax", "generation_token_append", "generation_position_advance",
+        "generation_incremental_inputs", "generation_incremental_forward", "generation_cache_append", "generation_eos_stop",
+        "generation_terminal_logits", "generation_terminal_cache",
+      ]);
+      assert.deepEqual(generation.assignmentExecutions.map((execution) => execution.output), [
+        "forward_state[0]", "position[-1]",
+        "selection_logits[0]", "selected_token[0]", "generated_token_ids[0..0]", "position[0]",
+        "incremental_inputs[0]", "forward_state[1]", "step_past_key_values[0..0]", "stop_after_step[0]",
+        "selection_logits[1]", "selected_token[1]", "generated_token_ids[0..1]", "position[1]",
+        "incremental_inputs[1]", "forward_state[2]", "step_past_key_values[0..1]", "stop_after_step[1]",
+        "terminal_logits", "terminal_past_key_values",
+      ]);
+      assert.equal(generation.assignmentExecutions.find((execution) => execution.output === "selected_token[0]")?.value, generation.generatedTokenIds[0]);
+      const eosGeneration = await generateGemma4PagedTextLiteralF32(artifact, {
+        inputIds: [[1, 2, 3]], maxNewTokens: 2, eosTokenId: generation.generatedTokenIds[0]!,
+      }, { maxReadBytes: 64, allowUnverifiedFidelity: true });
+      assert.deepEqual(eosGeneration.generatedTokenIds, generation.generatedTokenIds.slice(0, 1));
+      assert.deepEqual(eosGeneration.assignmentExecutions.map((execution) => execution.assignmentId), artifact.generation.assignments.map((assignment) => assignment.id));
+      assert.equal(eosGeneration.assignmentExecutions.find((execution) => execution.assignmentId === "generation_eos_stop")?.value, true);
+      assert.ok(eosGeneration.assignmentExecutions.findIndex((execution) => execution.assignmentId === "generation_incremental_forward") <
+        eosGeneration.assignmentExecutions.findIndex((execution) => execution.assignmentId === "generation_eos_stop"));
+      const zeroGeneration = await generateGemma4PagedTextLiteralF32(artifact, { inputIds: [[1, 2, 3]], maxNewTokens: 0 }, { maxReadBytes: 64, allowUnverifiedFidelity: true });
+      assert.deepEqual(zeroGeneration.generatedTokenIds, []);
+      assert.deepEqual(zeroGeneration.assignmentExecutions.map((execution) => execution.assignmentId), [
+        "generation_prefill", "generation_initial_position", "generation_terminal_logits", "generation_terminal_cache",
+      ]);
+      assert.equal(zeroGeneration.logits, zeroGeneration.prefill.logits);
+      await assert.rejects(
+        () => generateGemma4PagedTextLiteralF32(artifact, { inputIds: [[1]], maxNewTokens: 1, pastKeyValues: replay.pastKeyValues }, { maxReadBytes: 64, allowUnverifiedFidelity: true }),
+        /começa em prefill sem pastKeyValues/,
+      );
+      await assert.rejects(
+        () => generateGemma4PagedTextLiteralF32(artifact, {
+          inputIds: [[1]], maxNewTokens: 1, attentionMask: { shape: [1, 1, 1, 1], values: Float32Array.of(0) },
+        }, { maxReadBytes: 64, allowUnverifiedFidelity: true }),
+        /não aceita máscara externa/,
+      );
+      await assert.rejects(
+        () => generateGemma4PagedTextLiteralF32(artifact, {
+          inputIds: [[1]], positionIds: [[Number.MAX_SAFE_INTEGER]], maxNewTokens: 1,
+        }, { maxReadBytes: 64, allowUnverifiedFidelity: true }),
+        /avanço de posição excede inteiro seguro/,
+      );
       artifact.program.textProgram.fidelity.exactByConstruction = true;
       const exactReplay = await executeGemma4PagedTextLiteralF32(artifact, { inputIds: [[1, 2, 3]] }, { maxReadBytes: 64 });
       assert.deepEqual(exactReplay.logits.values, expected.text.logits.values);

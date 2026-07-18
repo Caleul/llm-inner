@@ -249,6 +249,17 @@ npm run inspect:gemma4-literal -- \
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 
+O executor paginado não mantém uma segunda implementação implícita desse
+loop. `src/gemma4-literal-generation.ts` interpreta as doze atribuições
+serializadas, instancia nomes como `selected_token[0]` e
+`forward_state[1]`, e registra o valor produzido por cada transição. O forward
+prefill/incremental entra por uma interface estreita; argmax, append, posição,
+cache, EOS e seleção terminal pertencem ao programa literal. O relatório de
+`replay:gemma4-paged-text` inclui `generationProgramExecution`, usando valores
+literais para escalares/tokens e shape mais hash para tensores grandes. A
+execução real de todas as atribuições com o checkpoint ausente está em
+[`docs/validation/gemma4-e4b-literal-generation-execution-2026-07-18.md`](docs/validation/gemma4-e4b-literal-generation-execution-2026-07-18.md).
+
 #### Evidência de redução linear por feature de saída
 
 `probe:gemma4-linear-reduction` mede hipóteses de acumulação contra hooks

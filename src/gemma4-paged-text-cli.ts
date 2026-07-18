@@ -1,7 +1,9 @@
 import { createHash } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import { openGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
+import type { Gemma4LiteralGenerationAssignmentExecution, Gemma4LiteralGenerationValue } from "./gemma4-literal-generation.js";
 import { executeGemma4PagedTextLiteralF32, generateGemma4PagedTextLiteralF32 } from "./gemma4-paged-text.js";
+import type { DenseF32Tensor, ReferenceF32ExecutionResult, ReferenceF32KeyValueCache } from "./types.js";
 
 interface Arguments {
   artifact: string;
@@ -37,6 +39,7 @@ try {
     maxReadBytes: args.maxReadBytes,
     maxNewTokens: args.maxNewTokens,
     ...("generatedTokenIds" in result ? { generatedTokenIds: result.generatedTokenIds } : {}),
+    ...("assignmentExecutions" in result ? { generationProgramExecution: result.assignmentExecutions.map(summarizeAssignmentExecution) } : {}),
     logitsShape: logits.shape,
     logitsSha256: hash,
     kvProducerLayers: [...result.pastKeyValues.keys()],
@@ -87,4 +90,53 @@ function parseInteger(value: string | undefined, flag: string): number {
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed)) throw new Error(`${flag} requer inteiro seguro.`);
   return parsed;
+}
+
+function summarizeAssignmentExecution(execution: Gemma4LiteralGenerationAssignmentExecution): Record<string, unknown> {
+  return {
+    assignmentId: execution.assignmentId,
+    operation: execution.operation,
+    ...(execution.step === undefined ? {} : { step: execution.step }),
+    output: execution.output,
+    value: summarizeGenerationValue(execution.value),
+  };
+}
+
+function summarizeGenerationValue(value: Gemma4LiteralGenerationValue): unknown {
+  if (typeof value === "number" || typeof value === "boolean") return value;
+  if (Array.isArray(value)) {
+    const entries = value as unknown[];
+    if (entries.length === 0 || typeof entries[0] === "number") return [...entries as number[]];
+    const snapshots = entries as Array<ReadonlyMap<number, ReferenceF32KeyValueCache>>;
+    return { cacheSnapshots: snapshots.length, terminal: summarizeCache(snapshots.at(-1)!) };
+  }
+  if (value instanceof Map) return summarizeCache(value);
+  if (isTensor(value)) return summarizeTensor(value);
+  if ("logits" in value && "pastKeyValues" in value) {
+    const state = value as ReferenceF32ExecutionResult;
+    return { logits: summarizeTensor(state.logits), pastKeyValues: summarizeCache(state.pastKeyValues) };
+  }
+  if ("inputIds" in value && "positionIds" in value && "pastKeyValues" in value) {
+    return { inputIds: value.inputIds, positionIds: value.positionIds, pastKeyValues: summarizeCache(value.pastKeyValues) };
+  }
+  throw new Error("Valor de atribuição do programa de geração Gemma 4 não reconhecido.");
+}
+
+function summarizeTensor(tensor: DenseF32Tensor): Record<string, unknown> {
+  return {
+    dtype: "F32",
+    shape: tensor.shape,
+    sha256: createHash("sha256").update(Buffer.from(tensor.values.buffer, tensor.values.byteOffset, tensor.values.byteLength)).digest("hex"),
+  };
+}
+
+function summarizeCache(cache: ReadonlyMap<number, ReferenceF32KeyValueCache>): Record<string, unknown> {
+  return {
+    producerLayers: [...cache.keys()],
+    shapes: [...cache].map(([layer, entry]) => ({ layer, key: entry.key.shape, value: entry.value.shape })),
+  };
+}
+
+function isTensor(value: Gemma4LiteralGenerationValue): value is DenseF32Tensor {
+  return typeof value === "object" && value !== null && "shape" in value && "values" in value;
 }

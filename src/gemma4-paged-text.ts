@@ -11,13 +11,15 @@ import {
   tensorScaleF32,
 } from "./executor.js";
 import type { OpenGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
-import { selectGreedyToken } from "./generation.js";
+import {
+  executeGemma4LiteralGenerationProgram,
+  type Gemma4LiteralGenerationExecutionResult,
+} from "./gemma4-literal-generation.js";
 import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearF32, readPagedDenseF32Vector, roundDenseF32ToBF16 } from "./paged-dense.js";
 import type {
   DenseF32Tensor,
   Operation,
   ReferenceF32ExecutionResult,
-  ReferenceF32GenerationResult,
   ReferenceF32KeyValueCache,
   TensorInfo,
   TensorRef,
@@ -186,30 +188,11 @@ export async function generateGemma4PagedTextLiteralF32(
   artifact: OpenGemma4CompositeLiteralArtifact,
   request: Gemma4PagedTextGenerationRequest,
   options: Gemma4PagedTextOptions = {},
-): Promise<ReferenceF32GenerationResult> {
-  if (request.inputIds.length !== 1 || request.inputIds[0]?.length === 0 || !Number.isInteger(request.maxNewTokens) || request.maxNewTokens < 0) {
-    throw new Error("Geração Gemma 4 paginada requer um prompt único não vazio e maxNewTokens inteiro não negativo.");
-  }
-  if (request.eosTokenId !== undefined && (!Number.isInteger(request.eosTokenId) || request.eosTokenId < 0)) throw new Error("Geração Gemma 4 paginada requer eosTokenId inteiro não negativo.");
-  let current = await executeGemma4PagedTextLiteralF32(artifact, request, options);
-  const prompt = request.inputIds[0]!;
-  const positions = request.positionIds?.[0] ?? prompt.map((_, index) => index);
-  let nextPosition = positions.at(-1)! + 1;
-  const generatedTokenIds: number[] = [];
-  const selectionLogits: DenseF32Tensor[] = [];
-  const stepPastKeyValues: Array<ReadonlyMap<number, ReferenceF32KeyValueCache>> = [];
-  const steps: Array<{ tokenId: number; positionId: number }> = [];
-  for (let step = 0; step < request.maxNewTokens; step += 1) {
-    selectionLogits.push(current.logits);
-    const tokenId = selectGreedyToken(current.logits);
-    generatedTokenIds.push(tokenId);
-    steps.push({ tokenId, positionId: nextPosition });
-    current = await executeGemma4PagedTextLiteralF32(artifact, { inputIds: [[tokenId]], positionIds: [[nextPosition]], pastKeyValues: current.pastKeyValues }, options);
-    stepPastKeyValues.push(current.pastKeyValues);
-    nextPosition += 1;
-    if (tokenId === request.eosTokenId) break;
-  }
-  return { inputIds: [...prompt, ...generatedTokenIds], generatedTokenIds, steps, selectionLogits, stepPastKeyValues, logits: current.logits, pastKeyValues: current.pastKeyValues };
+): Promise<Gemma4LiteralGenerationExecutionResult> {
+  return executeGemma4LiteralGenerationProgram(artifact.program, artifact.generation, request, {
+    prefill: (prefill) => executeGemma4PagedTextLiteralF32(artifact, prefill, options),
+    incremental: (incremental) => executeGemma4PagedTextLiteralF32(artifact, incremental, options),
+  });
 }
 
 function tensorInfo(artifact: OpenGemma4CompositeLiteralArtifact, reference: TensorRef): TensorInfo {
