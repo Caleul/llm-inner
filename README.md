@@ -522,21 +522,26 @@ full-range e sua validação estão em
 
 O ramo de áudio real também é agora executável diretamente do artefato. O
 materializador limitado por tensor decodifica `752` referências densas a partir
-do próprio JSON e alimenta as `523` atribuições nomeadas da torre de 12 camadas,
+do próprio JSON e alimenta as `559` atribuições nomeadas da torre de 12 camadas,
 sem catálogo ou fallback para Safetensors. O adaptador aplica a política BF16
 por classe em todo o ramo: 134 lineares bias-free usam a árvore ARM de 32 lanes,
-109 RMSNorm usam `cascade_sum`, e cada resultado de módulo BF16 é estreitado
-antes do consumidor seguinte. As 17 operações nativas ainda sem transcrição
-completa de redução (Conv2d, LayerNorm de canais, depthwise e linear com bias)
-declaram `runtime-defined` e a vista escalar falha fechada nelas.
+109 RMSNorm usam `cascade_sum`, Conv2d e depthwise BF16 usam o GEMM ILP4 do
+`slow_conv2d`, LayerNorm por canal usa Welford vetorial e o linear com bias usa
+o contrato `addmm`. Q/K, posição relativa, softcap/máscara e o cast BF16 do
+contexto também são atribuições separadas; cada resultado de módulo BF16 é
+estreitado antes do consumidor seguinte. Somente as 12 reduções de score e as
+12 reduções de valor da atenção F32 permanecem `runtime-defined`, por classe, e
+a vista escalar falha fechada nelas.
 
-Uma captura real de um frame comparou 20 fronteiras de módulo. Com o diretório
-do checkpoint ausente, o executor chegou ao `audio_features [1,2560]` somente
-dos payloads incorporados; o resultado permanece `approximate`, com primeiro
-desvio em `audio_subsample_0_relu`, erro final máximo absoluto `0.0625`, cosseno
-`0.9999595279745614`, top-k overlap `1` e argmax agreement verdadeiro. Portanto
-isso fecha o caminho de execução/diferencial source-removed, mas não a fidelidade
-de áudio nem o checkpoint. Comandos, políticas e métricas estão em
+A captura autoritativa de um frame agora compara 372 fronteiras. Com o
+checkpoint ausente, 361 passam em tolerância zero, incluindo todos os Q/K
+escalados, probabilidades, contexts, consumidores posteriores e
+`audio_features [1,2560]`. Os 11 únicos desvios são scores pré-softmax, com erro
+absoluto máximo `5.7220458984375e-6`; o score da camada 2 também é exato. A saída
+terminal tem erro absoluto e relativo zero, cosseno e top-k overlap `1`, mas a
+classificação permanece `approximate` porque resultados terminais iguais não
+substituem a agenda escalar interna. Comandos, políticas e métricas estão em
+[`docs/validation/gemma4-e4b-explicit-audio-native-classes-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-audio-native-classes-2026-07-18.md); a evidência anterior foi preservada em
 [`docs/validation/gemma4-e4b-source-removed-audio-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-audio-2026-07-18.md).
 
 A fronteira source-removed cobre a torre vision compartilhada por imagem e

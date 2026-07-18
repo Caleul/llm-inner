@@ -12,7 +12,7 @@ import { GEMMA4_E4B_PYTORCH_BF16_ATTENTION_IMPLEMENTATION, GEMMA4_E4B_PYTORCH_BF
 import { SafetensorsCatalogReader } from "../src/safetensors.js";
 import { decodeMlxF32Payload } from "../src/bridge.js";
 import { sleefCosF32, sleefExpF32, sleefSinF32, sleefTanhF32 } from "../src/sleef-f32.js";
-import { armNeonBf16DotF32 } from "../src/native-reductions.js";
+import { armNeonBf16DotF32, pytorchCpuBf16GemmIlp4F32, pytorchCpuBf16WelfordMomentsF32 } from "../src/native-reductions.js";
 import type { DenseF32Tensor, DenseTensor, ModelCatalog, TensorInfo } from "../src/types.js";
 import { roundF32ToBF16 } from "../src/utils.js";
 
@@ -28,6 +28,22 @@ const sleefTanh = {
 test("PyTorch CPU pow -0.5 transcript preserves the F32 RMS reciprocal-square-root boundary", () => {
   assert.equal(pytorchPowNegativeHalfF32(4.022159099578857), 0.49862080812454224);
   assert.throws(() => pytorchPowNegativeHalfF32(0), /positivo finito/);
+});
+
+test("PyTorch CPU BF16 slow-GEMM and Welford schedules preserve their registered reduction trees", () => {
+  const left = Float32Array.from({ length: 13 }, (_, index) => Math.fround((index - 6) / 7));
+  const right = Float32Array.from({ length: 13 }, (_, index) => Math.fround((9 - index) / 11));
+  assert.equal(pytorchCpuBf16GemmIlp4F32(13, (index) => left[index]!, (index) => right[index]!), -2.3636364936828613);
+  const reduction = {
+    kind: "pytorch-cpu-bf16-welford" as const, inputVectorLanes: 8 as const, accumulatorVectorLanes: 4 as const,
+    chunkVectors: 16 as const, vectorMergeOrder: "low-then-high" as const, laneFold: "ascending" as const,
+    secondPass: "x-times-scale-plus-bias-times-gamma" as const,
+  };
+  const values = Float32Array.from({ length: 128 }, (_, index) => Math.fround(((index * 17) % 61 - 30) / 13));
+  assert.deepEqual(pytorchCpuBf16WelfordMomentsF32(128, (index) => values[index]!, reduction), {
+    mean: -0.028245190158486366, variance: 1.8442003726959229,
+  });
+  assert.throws(() => pytorchCpuBf16WelfordMomentsF32(127, (index) => values[index]!, reduction), /vetores completos/);
 });
 
 test("pinned PyTorch ARM SLEEF tanh transcript preserves authoritative F32 results", () => {

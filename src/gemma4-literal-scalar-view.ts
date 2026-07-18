@@ -355,6 +355,10 @@ function reductionAssignments(schedule: ReductionSchedule, width: number, accumu
       `four ADVSIMD lanes across four ILP registers consume ${width} contiguous square terms in 16-coordinate units`,
       `four-level F32 cascade uses levelStep=max(${schedule.minimumLevelStep}, 2^(ceil(log2(${width}/16))/4)); registers then lanes fold ${schedule.registerFold}/${schedule.laneFold}`,
     ];
+    case "pytorch-cpu-bf16-welford": return [
+      `${schedule.inputVectorLanes} BF16 lanes widen into two ${schedule.accumulatorVectorLanes}-lane F32 vectors; each performs Welford updates over at most ${schedule.chunkVectors} input vectors`,
+      `low/high vectors merge ${schedule.vectorMergeOrder}; ${schedule.accumulatorVectorLanes} moment lanes fold ${schedule.laneFold}; second pass is ${schedule.secondPass}`,
+    ];
     case "ordered-scalar": {
       const accumulator = accumulationDtype === "F64" ? "F64" : accumulationDtype === "F32" ? "F32" : undefined;
       if (!accumulator) throw new Error(`ordered-scalar requer accumulationDtype F32 ou F64; recebeu ${accumulationDtype ?? "missing"}.`);

@@ -80,6 +80,21 @@ export type ReductionSchedule =
     laneFold: "ascending";
   }
   /**
+   * PyTorch CPU's reduced-precision contiguous LayerNorm moments kernel.
+   * Eight BF16 lanes are widened into two four-lane F32 vectors; each vector
+   * performs 16-sample Welford updates, the two halves are merged, and the
+   * four accumulator lanes are folded in ascending order.
+   */
+  | {
+    kind: "pytorch-cpu-bf16-welford";
+    inputVectorLanes: 8;
+    accumulatorVectorLanes: 4;
+    chunkVectors: 16;
+    vectorMergeOrder: "low-then-high";
+    laneFold: "ascending";
+    secondPass: "x-times-scale-plus-bias-times-gamma";
+  }
+  /**
    * An ordered scalar reduction whose F32 accumulator receives the exact
    * product before that single F32 rounding boundary.  This is distinct from
    * `ordered-scalar`, which rounds every product before adding it.

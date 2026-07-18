@@ -480,6 +480,9 @@ function validateProfiles(profiles: readonly Gemma4LinearReductionProfile[]): Ge
     if (reduction.kind === "pytorch-cpu-f32-cascade-sum") {
       throw new Error(`${profile.id}: agenda cascade de RMS não é um perfil de redução linear.`);
     }
+    if (reduction.kind === "pytorch-cpu-bf16-welford") {
+      throw new Error(`${profile.id}: agenda Welford de LayerNorm não é um perfil de redução linear.`);
+    }
     if (profile.accumulationDtype !== "F32" || !Number.isSafeInteger(reduction.laneCount) || reduction.laneCount < 2 ||
       (reduction.laneReductionOrder !== "ascending" && reduction.laneReductionOrder !== "descending" && reduction.laneReductionOrder !== "balanced-pairwise")) {
       throw new Error(`${profile.id}: perfil de lanes F32 inválido.`);

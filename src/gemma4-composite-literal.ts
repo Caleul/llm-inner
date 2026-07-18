@@ -596,6 +596,9 @@ function validateGemma4TextReductionSchedules(program: Gemma4CompositeProgram): 
       }
       continue;
     }
+    if (reduction.kind === "pytorch-cpu-bf16-welford") {
+      throw new Error(`${operation.id}: agenda Welford de LayerNorm de canais não é uma redução textual Gemma 4.`);
+    }
     if (reduction.kind === "blocked-f32-terms") {
       if (operation.op !== "linear" || operation.dtypePolicy.accumulationDtype !== "F32" ||
         !Number.isSafeInteger(reduction.termsPerBlock) || reduction.termsPerBlock < 2 || reduction.inputBlock !== "contiguous-terms" || reduction.blockOrder !== "ascending" ||

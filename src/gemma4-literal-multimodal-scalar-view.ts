@@ -430,7 +430,7 @@ async function renderPerDimScale(artifact: OpenGemma4CompositeLiteralArtifact, e
   const feature = last(request.outputCoordinate, entry.assignment.id), headDim = artifact.program.audioProgram.tower.headDim, d = feature % headDim;
   const learned = await readGemma4LiteralLearnedScalar(artifact, onlyTensor(entry.assignment), [d]);
   const qScale = Math.fround(headDim ** -0.5 / Math.log(2));
-  const formula = `${base.output} = F32(${indexed(entry.assignment.inputs[0]!, request.outputCoordinate)} * F32(${literal(qScale)} * F32(log1p(exp(${learned.literal})))))`;
+  const formula = `${base.output} = F32(F32(${indexed(entry.assignment.inputs[0]!, request.outputCoordinate)} * ${literal(qScale)}) * BF16(F32(log1p(exp(${learned.literal})))))`;
   return { ...base, formula, scalarAssignments: [formula], learnedScalars: [learned] };
 }
 
@@ -438,6 +438,7 @@ function plainFormulas(artifact: OpenGemma4CompositeLiteralArtifact, entry: Assi
   const { assignment, scope } = entry, output = indexed(assignment.output, coordinate), inputs = assignment.inputs.map((input) => indexed(input, coordinate));
   switch (assignment.operation) {
     case "add": return [`${output} = F32(${inputs[0]} + ${inputs[1]})`];
+    case "cast-bf16": return [`${output} = BF16(${inputs[0]})`];
     case "multiply": return [`${output} = F32(${inputs[0]} * ${inputs[1]})`];
     case "pixel-affine": return [`${output} = F32(2 * F32(${inputs[0]} - 0.5))`];
     case "relu": return [`${output} = F32(max(0, ${inputs[0]}))`];
@@ -459,18 +460,20 @@ function plainFormulas(artifact: OpenGemma4CompositeLiteralArtifact, entry: Assi
     case "attention-score-matmul": return visionAttentionScoreFormula(artifact, assignment, coordinate, output);
     case "masked-softmax": return visionAttentionSoftmaxFormula(assignment, coordinate, output);
     case "attention-value-matmul": return visionAttentionValueFormula(artifact, assignment, coordinate, output);
-    case "chunked-relative-attention": return audioAttentionFormula(artifact, assignment, coordinate, output);
+    case "chunked-relative-attention-scores": return audioAttentionScoreFormula(artifact, assignment, coordinate, output);
+    case "chunked-relative-attention-softmax": return audioAttentionSoftmaxFormula(assignment, coordinate, output);
+    case "chunked-relative-attention-values": return audioAttentionValueFormula(artifact, assignment, coordinate, output);
     case "split-gated-linear-unit": {
       const half = artifact.program.audioProgram.tower.hiddenSize, d = last(coordinate, assignment.id);
       return [`${output} = ${assignmentOutputDtype(assignment) === "BF16" ? "BF16" : "F32"}(F32(${indexed(assignment.inputs[0]!, [...coordinate.slice(0, -1), d])} / F32(1 + SLEEF_EXP_F32(F32(-${indexed(assignment.inputs[0]!, [...coordinate.slice(0, -1), half + d])})))))`];
     }
     case "relative-position-encoding": {
-      if (coordinate.length !== 2) throw new Error(`${assignment.id}: posição relativa requer [position,feature].`);
-      const width = artifact.program.audioProgram.tower.hiddenSize, half = width / 2, feature = coordinate[1]!, frequency = feature % half;
+      if (coordinate.length !== 3 || coordinate[0] !== 0) throw new Error(`${assignment.id}: posição relativa requer [0,position,feature].`);
+      const width = artifact.program.audioProgram.tower.hiddenSize, half = width / 2, feature = coordinate[2]!, frequency = feature % half;
       return [
         `increment = F32(log(10000)/F32(${half - 1}))`,
-        `inverse_timescale = SLEEF_EXP_F32(F32(-${frequency} * increment))`,
-        `scaled_time = F32(F32(${audioContext(artifact) / 2 - coordinate[0]!}) * inverse_timescale)`,
+        `inverse_timescale = BF16(SLEEF_EXP_F32(F32(-${frequency} * increment)))`,
+        `scaled_time = BF16(F32(F32(${audioContext(artifact) / 2 - coordinate[1]!}) * inverse_timescale))`,
         `${output} = BF16(SLEEF_${feature < half ? "SIN" : "COS"}_F32(scaled_time))`,
       ];
     }
@@ -537,16 +540,31 @@ function visionAttentionValueFormula(artifact: OpenGemma4CompositeLiteralArtifac
   ];
 }
 
-function audioAttentionFormula(artifact: OpenGemma4CompositeLiteralArtifact, assignment: Assignment, coordinate: number[], output: string): string[] {
-  if (coordinate.length !== 3) throw new Error(`${assignment.id}: atenção audio requer [b,t,h*headDim+d].`);
-  const tower = artifact.program.audioProgram.tower, dim = tower.headDim, merged = coordinate[2]!, head = Math.floor(merged / dim), d = merged % dim, context = audioContext(artifact);
+function audioAttentionScoreFormula(artifact: OpenGemma4CompositeLiteralArtifact, assignment: Assignment, coordinate: number[], output: string): string[] {
+  if (coordinate.length !== 5) throw new Error(`${assignment.id}: score audio requer [b,h,block,query,context].`);
+  const tower = artifact.program.audioProgram.tower, dim = tower.headDim, context = audioContext(artifact);
   return [
-    `AC[key_slot]=F32(sum_{i=0..${dim - 1} ascending}(F32(${assignment.inputs[0]}[${coordinate[0]},${coordinate[1]},${head}*${dim}+i]*${assignment.inputs[1]}[${coordinate[0]},key_index,${head}*${dim}+i])))`,
-    `BD[key_slot]=F32(sum_{i=0..${dim - 1} ascending}(F32(relative_shift(${assignment.inputs[0]})[${coordinate[0]},${coordinate[1]},${head}*${dim}+i]*${assignment.inputs[3]}[relative_index,${head}*${dim}+i])))`,
-    `score[key_slot]=F32(F32(SLEEF_TANH_F32(F32((allowed ? F32(AC+BD) : ${literal(artifact.program.audioProgram.invalidAttentionLogit)})/${literal(tower.attentionLogitCap)})))*${literal(tower.attentionLogitCap)}), key_slot=0..${context - 1}`,
-    "probability[key_slot]=F32(SLEEF_EXP_F32(F32(score[key_slot]-max(score)))/F32(sum_key_slot_ascending(SLEEF_EXP_F32(F32(score[key_slot]-max(score))))))",
-    `${output}=F32(sum_{key_slot=0..${context - 1} ascending and in-bounds}(F32(probability[key_slot]*${assignment.inputs[2]}[${coordinate[0]},key_index,${merged}])))`,
+    `AC=F32(sum_{i=0..${dim - 1} ascending}(F32(${assignment.inputs[0]}[b,query_index,h*${dim}+i]*${assignment.inputs[1]}[b,key_index,h*${dim}+i])))`,
+    `BD=F32(sum_{i=0..${dim - 1} ascending}(F32(relative_shift(${assignment.inputs[0]})[b,query_index,h*${dim}+i]*${assignment.inputs[2]}[0,relative_index,h*${dim}+i])))`,
+    `softcapped=F32(SLEEF_TANH_F32(F32(F32(AC+BD)/${literal(tower.attentionLogitCap)}))*${literal(tower.attentionLogitCap)})`,
+    `${output}=allowed ? softcapped : ${literal(artifact.program.audioProgram.invalidAttentionLogit)}; context_slots=0..${context - 1}`,
   ];
+}
+
+function audioAttentionSoftmaxFormula(assignment: Assignment, coordinate: number[], output: string): string[] {
+  if (coordinate.length !== 5) throw new Error(`${assignment.id}: softmax audio requer [b,h,block,query,context].`);
+  return [
+    `maximum=max_context(${assignment.inputs[0]})`,
+    `exponential[k]=SLEEF_EXP_F32(F32(${assignment.inputs[0]}[b,h,block,query,k]-maximum))`,
+    "denominator=F32(sum_context_ascending(exponential[k]))",
+    `${output}=F32(exponential[context]/denominator)`,
+  ];
+}
+
+function audioAttentionValueFormula(artifact: OpenGemma4CompositeLiteralArtifact, assignment: Assignment, coordinate: number[], output: string): string[] {
+  if (coordinate.length !== 3) throw new Error(`${assignment.id}: contexto audio requer [b,t,h*headDim+d].`);
+  const context = audioContext(artifact), merged = coordinate[2]!;
+  return [`${output}=F32(sum_{key_slot=0..${context - 1} ascending and in-bounds}(F32(${assignment.inputs[0]}[b,head,block,query,key_slot]*${assignment.inputs[1]}[b,key_index,${merged}])))`];
 }
 
 function policyFor(assignment: Assignment): DtypePolicy {

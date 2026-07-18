@@ -556,7 +556,7 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
         + textCore.length);
       assert.equal(allOperations.some((operation) => operation.operationId === "token_embedding"), false, "prepared composite text must not rerun standalone embedding");
       assert.equal(allOperations.find((operation) => operation.operationId === "composite_image_features/vision_layer_0_q")?.scope, "vision");
-      assert.equal(allOperations.find((operation) => operation.operationId === "composite_audio_features/audio_layer_0_attention")?.predecessors[0]?.producerOperationId, "composite_audio_features/audio_layer_0_q_scale");
+      assert.equal(allOperations.find((operation) => operation.operationId === "composite_audio_features/audio_layer_0_attention")?.predecessors[0]?.producerOperationId, "composite_audio_features/audio_layer_0_attention_softmax");
       assert.equal(allOperations.find((operation) => operation.operationId === "composite_video_features/vision_pixels_affine")?.predecessors[0]?.producerOperationId, "composite_video_pixel_flatten");
       assert.equal(allOperations.find((operation) => operation.operationId === "composite_video_features/vision_position_embedding")?.predecessors[0]?.producerOperationId, "composite_video_position_flatten");
       assert.equal(allOperations.find((operation) => operation.operationId === "composite_image_scatter")?.predecessors[2]?.producerOperationId, "composite_image_features/vision_language_projection");
@@ -624,7 +624,7 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       assert.ok(convolution.scalarAssignments.some((formula) => formula.includes("source_in_bounds")));
 
       const relativeProjection = await renderGemma4LiteralMultimodalScalarView(artifact, {
-        operationId: "composite_audio_features/audio_layer_0_relative_k_projection", outputCoordinate: [0, 1],
+        operationId: "composite_audio_features/audio_layer_0_relative_k_projection", outputCoordinate: [0, 0, 1],
       });
       assert.equal(relativeProjection.learnedScalars.length, 4);
       const queryScale = await renderGemma4LiteralMultimodalScalarView(artifact, {
@@ -637,11 +637,12 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       });
       assert.equal(depthwise.learnedScalars.length, 5);
 
-      const audioAttention = await renderGemma4LiteralMultimodalScalarView(artifact, {
+      await assert.rejects(() => renderGemma4LiteralMultimodalScalarView(artifact, {
         operationId: "composite_audio_features/audio_layer_0_attention", outputCoordinate: [0, 0, 1],
-      });
-      assert.equal(audioAttention.learnedScalars.length, 0, "learned attention transforms are explicit predecessors");
-      assert.ok(audioAttention.scalarAssignments.some((formula) => formula.startsWith("AC[key_slot]")));
+      }), /redução pytorch-cpu-f32-matmul ainda não possui agenda literal comprovada/);
+      await assert.rejects(() => renderGemma4LiteralMultimodalScalarView(artifact, {
+        operationId: "composite_audio_features/audio_layer_0_attention_scores", outputCoordinate: [0, 0, 0, 0, 0],
+      }), /redução pytorch-cpu-f32-matmul ainda não possui agenda literal comprovada/);
 
       const duplicateId = artifact.program.visionProgram.assignments[1]!;
       const originalId = duplicateId.id;

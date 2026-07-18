@@ -7,7 +7,9 @@ test("Gemma 4 audio lowering makes subsampling, chunk-relative attention, local 
   const catalog = fixture();
   const program = buildGemma4AudioProgram(catalog);
   assert.equal(program.kind, "gemma4-audio-features");
-  assert.ok(program.assignments.some((assignment) => assignment.operation === "chunked-relative-attention"));
+  assert.ok(program.assignments.some((assignment) => assignment.operation === "chunked-relative-attention-scores"));
+  assert.ok(program.assignments.some((assignment) => assignment.operation === "chunked-relative-attention-softmax"));
+  assert.ok(program.assignments.some((assignment) => assignment.operation === "chunked-relative-attention-values"));
   assert.ok(program.assignments.some((assignment) => assignment.operation === "causal-depthwise-convolution"));
   assert.ok(program.assignments.some((assignment) => assignment.operation === "clipped-linear" && assignment.tensors?.some((tensor) => tensor.name.endsWith("output_max"))));
   const result = executeGemma4AudioF32(program, { inputFeatures: patterned([1, 4, 16]), inputFeaturesMask: [[true, true, true, false]], tensors: materialize(catalog) });
@@ -48,8 +50,19 @@ test("Gemma 4 audio BF16 policy dispatches every compatible assignment by operat
   assert.ok(biasFree.every((assignment) => assignment.dtypePolicy?.reduction?.kind === "arm-neon-bf16-dot-fma" && assignment.dtypePolicy.outputDtype === "BF16"));
   assert.ok(program.assignments.filter((assignment) => assignment.operation === "rms-norm")
     .every((assignment) => assignment.dtypePolicy?.reduction?.kind === "pytorch-cpu-f32-cascade-sum" && assignment.dtypePolicy.outputDtype === "BF16"));
+  assert.ok(program.assignments.filter((assignment) => assignment.operation === "conv2d-stride2" || assignment.operation === "causal-depthwise-convolution")
+    .every((assignment) => assignment.dtypePolicy?.reduction?.kind === "interleaved-f32-lanes" && assignment.dtypePolicy.reduction.laneCount === 4));
+  assert.ok(program.assignments.filter((assignment) => assignment.operation === "layer-norm-channels")
+    .every((assignment) => assignment.dtypePolicy?.reduction?.kind === "pytorch-cpu-bf16-welford"));
   assert.equal(program.assignments.find((assignment) => assignment.id === "audio_layer_0_attention")?.dtypePolicy?.outputDtype, "F32");
-  assert.equal(program.assignments.find((assignment) => assignment.id === "audio_output_projection")?.dtypePolicy?.accumulationDtype, "runtime-defined");
+  assert.equal(program.assignments.find((assignment) => assignment.id === "audio_layer_0_attention_context_cast")?.dtypePolicy?.outputDtype, "BF16");
+  assert.equal(program.assignments.find((assignment) => assignment.id === "audio_output_projection")?.dtypePolicy?.computeDtype, "pytorch-cpu-bf16-addmm");
+  const nativeAttentionMatmuls = program.assignments.filter((assignment) =>
+    assignment.operation === "chunked-relative-attention-scores" || assignment.operation === "chunked-relative-attention-values");
+  assert.ok(nativeAttentionMatmuls.length > 0);
+  assert.ok(nativeAttentionMatmuls.every((assignment) =>
+    assignment.dtypePolicy?.computeDtype === "pytorch-cpu-f32-matmul" && assignment.dtypePolicy.accumulationDtype === "runtime-defined"));
+  assert.equal(program.assignments.filter((assignment) => assignment.dtypePolicy?.accumulationDtype === "runtime-defined").length, nativeAttentionMatmuls.length);
 });
 
 test("Gemma 4 audio refuses a missing runtime numeric contract instead of applying a local default", () => {

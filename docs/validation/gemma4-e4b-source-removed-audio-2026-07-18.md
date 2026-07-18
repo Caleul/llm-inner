@@ -7,6 +7,10 @@
 > mantém erro absoluto `0.0625` e agora tem cosseno `0.9999595279745614`.
 > A evidência consolidada está em
 > [`gemma4-e4b-explicit-eager-vision-composite-2026-07-18.md`](gemma4-e4b-explicit-eager-vision-composite-2026-07-18.md).
+> A transcrição posterior das classes nativas de Conv2d, LayerNorm, depthwise,
+> addmm, escalas Q/K e casts tornou a saída terminal exata e isolou o limite
+> restante nos scores F32; consulte
+> [`gemma4-e4b-explicit-audio-native-classes-2026-07-18.md`](gemma4-e4b-explicit-audio-native-classes-2026-07-18.md).
 
 ## Classificação
 

@@ -2,6 +2,99 @@ import type { ReductionSchedule } from "./types.js";
 
 const f32 = Math.fround;
 
+/** PyTorch generic reduced-precision GEMM `sum()` with four ILP accumulators. */
+export function pytorchCpuBf16GemmIlp4F32(
+  length: number,
+  left: (index: number) => number,
+  right: (index: number) => number,
+): number {
+  if (!Number.isSafeInteger(length) || length < 0) throw new Error(`PyTorch BF16 GEMM requer comprimento inteiro não negativo; recebeu ${length}.`);
+  const partial = new Float32Array(4);
+  let index = 0;
+  for (; index + 4 <= length; index += 4) for (let lane = 0; lane < 4; lane += 1) {
+    partial[lane] = f32(partial[lane]! + f32(left(index + lane) * right(index + lane)));
+  }
+  for (; index < length; index += 1) partial[0] = f32(partial[0]! + f32(left(index) * right(index)));
+  for (let lane = 1; lane < 4; lane += 1) partial[0] = f32(partial[0]! + partial[lane]!);
+  return partial[0]!;
+}
+
+export interface PytorchCpuBf16WelfordMoments {
+  mean: number;
+  variance: number;
+}
+
+/** Scalar transcript of PyTorch's BF16 `RowwiseMoments` ADVSIMD path. */
+export function pytorchCpuBf16WelfordMomentsF32(
+  length: number,
+  value: (index: number) => number,
+  reduction: Extract<ReductionSchedule, { kind: "pytorch-cpu-bf16-welford" }>,
+): PytorchCpuBf16WelfordMoments {
+  assertPytorchCpuBf16WelfordReduction(reduction);
+  if (!Number.isSafeInteger(length) || length <= 0 || length % reduction.inputVectorLanes !== 0 ||
+    length / reduction.inputVectorLanes > reduction.chunkVectors) {
+    throw new Error(`PyTorch BF16 Welford requer 1..${reduction.chunkVectors} vetores completos de ${reduction.inputVectorLanes} lanes; recebeu ${length}.`);
+  }
+  const vectorCount = length / reduction.inputVectorLanes;
+  const lowMean = new Float32Array(4), highMean = new Float32Array(4);
+  const lowM2 = new Float32Array(4), highM2 = new Float32Array(4);
+  for (let vector = 0; vector < vectorCount; vector += 1) {
+    const reciprocal = f32(1 / f32(vector + 1));
+    for (let lane = 0; lane < 4; lane += 1) {
+      welfordLaneUpdate(lowMean, lowM2, lane, value(vector * 8 + lane), reciprocal);
+      welfordLaneUpdate(highMean, highM2, lane, value(vector * 8 + 4 + lane), reciprocal);
+    }
+  }
+  const mergedMean = new Float32Array(4), mergedM2 = new Float32Array(4);
+  for (let lane = 0; lane < 4; lane += 1) {
+    const delta = f32(highMean[lane]! - lowMean[lane]!);
+    const ratioDelta = f32(f32(0.5) * delta);
+    mergedMean[lane] = f32(lowMean[lane]! + ratioDelta);
+    mergedM2[lane] = f32(f32(delta * f32(vectorCount)) * ratioDelta + f32(lowM2[lane]! + highM2[lane]!));
+  }
+  let count = 0, mean = f32(0), m2 = f32(0);
+  ({ count, mean, m2 } = foldMomentLanes(vectorCount * 2, mergedMean, mergedM2, count, mean, m2));
+  return { mean, variance: f32(m2 / f32(length)) };
+}
+
+export function assertPytorchCpuBf16WelfordReduction(
+  reduction: Extract<ReductionSchedule, { kind: "pytorch-cpu-bf16-welford" }>,
+): void {
+  if (reduction.inputVectorLanes !== 8 || reduction.accumulatorVectorLanes !== 4 || reduction.chunkVectors !== 16 ||
+    reduction.vectorMergeOrder !== "low-then-high" || reduction.laneFold !== "ascending" ||
+    reduction.secondPass !== "x-times-scale-plus-bias-times-gamma") {
+    throw new Error("Agenda PyTorch CPU BF16 Welford inválida.");
+  }
+}
+
+function welfordLaneUpdate(mean: Float32Array, m2: Float32Array, lane: number, sample: number, reciprocal: number): void {
+  const delta = f32(sample - mean[lane]!);
+  mean[lane] = f32(mean[lane]! + delta * reciprocal);
+  const remainder = f32(sample - mean[lane]!);
+  m2[lane] = f32(m2[lane]! + delta * remainder);
+}
+
+function foldMomentLanes(
+  countToAdd: number,
+  meansToAdd: Float32Array,
+  m2ToAdd: Float32Array,
+  count: number,
+  mean: number,
+  m2: number,
+): { count: number; mean: number; m2: number } {
+  for (let lane = 0; lane < 4; lane += 1) {
+    const total = count + countToAdd;
+    const ratio = f32(countToAdd / total);
+    const delta = f32(meansToAdd[lane]! - mean);
+    const priorDelta = f32(delta * f32(count));
+    const scaledDelta = f32(ratio * delta);
+    mean = f32(mean + scaledDelta);
+    m2 = f32(priorDelta * scaledDelta + f32(m2 + m2ToAdd[lane]!));
+    count = total;
+  }
+  return { count, mean, m2 };
+}
+
 /**
  * Scalar replay of PyTorch's ARM `bf16_dot_with_fp32_arith` non-BFDOT path.
  *
