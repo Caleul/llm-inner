@@ -8,6 +8,8 @@ import { listGemma4LiteralOperations } from "./gemma4-literal-multimodal-scalar-
 import type { Gemma4LiteralOperationNavigation } from "./gemma4-literal-scalar-view.js";
 import type { LiteralDenseDecoderLanguageContract, LiteralDenseStorageDecodeAssignment } from "./literal.js";
 import type { TensorRef } from "./types.js";
+import type { Gemma4LiteralFormulaLanguageContract } from "./gemma4-literal-formula-language.js";
+import type { Gemma4LiteralTranscendentalPrograms } from "./gemma4-literal-transcendental-programs.js";
 
 export interface Gemma4LiteralCalculationSliceExternalInput {
   name: string;
@@ -47,6 +49,8 @@ export interface Gemma4LiteralCalculationSlice {
   firstOperationId: string;
   lastOperationId: string;
   operations: Gemma4LiteralOperationNavigation[];
+  formulaLanguage: Gemma4LiteralFormulaLanguageContract;
+  transcendentalPrograms: Gemma4LiteralTranscendentalPrograms;
   denseDecoderLanguage: LiteralDenseDecoderLanguageContract;
   externalInputs: Gemma4LiteralCalculationSliceExternalInput[];
   learnedConstants: Gemma4LiteralCalculationSliceLearnedConstant[];
@@ -153,6 +157,8 @@ export function buildGemma4LiteralCalculationSlice(
     firstOperationId: operations[0]!.operationId,
     lastOperationId: target.operationId,
     operations,
+    formulaLanguage: structuredClone(artifact.formulaLanguage),
+    transcendentalPrograms: structuredClone(artifact.transcendentalPrograms),
     denseDecoderLanguage: structuredClone(artifact.denseDecoderLanguage),
     externalInputs,
     learnedConstants,

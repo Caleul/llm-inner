@@ -446,6 +446,17 @@ exatos; as 100 reduções BMM nativas continuam fail-closed e impedem declarar o
 checkpoint. Causa, hashes e limites estão em
 [`docs/validation/gemma4-e4b-eager-audio-mask-contract-2026-07-18.md`](docs/validation/gemma4-e4b-eager-audio-mask-contract-2026-07-18.md).
 
+O schema v18 remove a dependência externa escondida pelos nomes
+`SLEEF_EXP_F32`, `SLEEF_SIN_F32`, `SLEEF_COS_F32` e `SLEEF_TANH_F32` em todas
+as classes text/vision/audio. `transcendentalPrograms` incorpora a autoridade
+PyTorch/SLEEF, cada constante pelos bits binary32, as regras F32/FMA e de pares,
+os subprogramas de redução/polinômio, branches de NaN/infinito/zero assinado e a
+tabela `rempif` de 416 F32 com SHA-256. A linguagem de fórmulas aponta para esse
+programa finito; leitor, vistas escalares, slices e cálculo end-to-end recusam
+qualquer alteração ou intrínseco não resolvido, sem carregar uma biblioteca ou
+checkout SLEEF. A evidência real source-removed está em
+[`docs/validation/gemma4-e4b-embedded-transcendental-programs-2026-07-18.md`](docs/validation/gemma4-e4b-embedded-transcendental-programs-2026-07-18.md).
+
 O leitor também pode partir de qualquer saída instanciada e calcular o fecho
 transitivo exato de seus produtores. `--calculation-slice <operation-id>`
 retorna somente as atribuições necessárias ao alvo, ainda em ordem de
@@ -613,8 +624,8 @@ escreve o artefato completo em streaming: ranges Safetensors de 12 MiB são
 codificados em base64 sem acumular o pacote ou uma string de vários GiB na
 heap. O resultado local contém os 2,130 payloads originais
 (15,992,314,836 bytes) e é auditado por `npm run audit:literal`. O hash e
-tamanho da exportação schema v17 atual são registrados em
-[`docs/validation/gemma4-e4b-eager-audio-mask-contract-2026-07-18.md`](docs/validation/gemma4-e4b-eager-audio-mask-contract-2026-07-18.md); sua política numérica
+tamanho da exportação schema v18 atual são registrados em
+[`docs/validation/gemma4-e4b-embedded-transcendental-programs-2026-07-18.md`](docs/validation/gemma4-e4b-embedded-transcendental-programs-2026-07-18.md); sua política numérica
 declara fronteiras de resultado BF16, acumuladores F32/F64 e agendas de redução
 por operação do texto, áudio e visão; toda exportação deve registrar seu próprio hash, pois o programa literal
 inclui as políticas numéricas. As 54 projeções/normas K/V locais dos

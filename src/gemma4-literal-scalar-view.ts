@@ -23,6 +23,8 @@ import {
   gemma4LiteralScalarProductFormula,
 } from "./gemma4-literal-linear-reduction-view.js";
 import { buildGemma4LiteralCascadeSquareReductionAssignments } from "./gemma4-literal-normalization-reduction-view.js";
+import type { Gemma4LiteralFormulaLanguageContract } from "./gemma4-literal-formula-language.js";
+import type { Gemma4LiteralTranscendentalPrograms } from "./gemma4-literal-transcendental-programs.js";
 
 export interface Gemma4LiteralOperationNavigation {
   operationId: string;
@@ -78,6 +80,8 @@ export interface Gemma4LiteralScalarView {
   formula: string;
   scalarAssignments: string[];
   learnedScalars: Gemma4LiteralLearnedScalar[];
+  formulaLanguage: Gemma4LiteralFormulaLanguageContract;
+  transcendentalPrograms: Gemma4LiteralTranscendentalPrograms;
   /** Operator meanings plus the exact executable programs used by every substituted learned scalar. */
   denseDecoderLanguage: LiteralDenseDecoderLanguageContract;
   storageDecoders: LiteralDenseStorageDecodeAssignment[];
@@ -95,9 +99,9 @@ export interface Gemma4LiteralScalarView {
 
 export type Gemma4LiteralScalarViewBase = Omit<
   Gemma4LiteralScalarView,
-  "formula" | "scalarAssignments" | "learnedScalars" | "denseDecoderLanguage" | "storageDecoders"
+  "formula" | "scalarAssignments" | "learnedScalars" | "formulaLanguage" | "transcendentalPrograms" | "denseDecoderLanguage" | "storageDecoders"
 >;
-export type Gemma4LiteralRenderedScalarView = Omit<Gemma4LiteralScalarView, "denseDecoderLanguage" | "storageDecoders">;
+export type Gemma4LiteralRenderedScalarView = Omit<Gemma4LiteralScalarView, "formulaLanguage" | "transcendentalPrograms" | "denseDecoderLanguage" | "storageDecoders">;
 
 export interface Gemma4LiteralScalarViewRequest {
   operationId: string;
@@ -187,7 +191,7 @@ export async function renderGemma4LiteralScalarView(
     dtypePolicy: structuredClone(operation.dtypePolicy),
   };
 
-  let rendered: Omit<Gemma4LiteralScalarView, "denseDecoderLanguage" | "storageDecoders">;
+  let rendered: Gemma4LiteralRenderedScalarView;
   switch (operation.op) {
     case "linear": rendered = await renderLinear(artifact, operation, request, base); break;
     case "embedding": rendered = await renderEmbedding(artifact, operation, request, base, false); break;
@@ -214,6 +218,8 @@ export async function renderGemma4LiteralScalarView(
   if (storageDecoders.length !== decoderIds.size) throw new Error(`${operation.id}: programa de decoder ausente para valor substituído.`);
   const result: Gemma4LiteralScalarView = {
     ...rendered,
+    formulaLanguage: structuredClone(artifact.formulaLanguage),
+    transcendentalPrograms: structuredClone(artifact.transcendentalPrograms),
     denseDecoderLanguage: structuredClone(artifact.denseDecoderLanguage),
     storageDecoders,
   };

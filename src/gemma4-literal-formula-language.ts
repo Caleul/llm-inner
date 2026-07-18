@@ -5,7 +5,7 @@ import { gemma4LiteralNormalizationReductionPrograms } from "./gemma4-literal-no
 
 export interface Gemma4LiteralFormulaLanguageContract {
   kind: "gemma4-literal-formula-language-contract";
-  schemaVersion: 3;
+  schemaVersion: 4;
   languageId: "indexed-ieee754-expression-v1";
   authority: {
     forwardAssignments: "/scalarCalculations/assignments";
@@ -16,6 +16,7 @@ export interface Gemma4LiteralFormulaLanguageContract {
     learnedIndexLanguage: "/learnedOperands/indexLanguage";
     storageDecoders: "/storageDecoders";
     denseDecoderLanguage: "/denseDecoderLanguage";
+    transcendentalPrograms: "/transcendentalPrograms";
     numericLiteralBits: "/numericLiterals/literals";
     calculationDomains: "/calculationDomains/assignments";
   };
@@ -57,7 +58,7 @@ export interface Gemma4LiteralFormulaLanguageContract {
 export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormulaLanguageContract {
   return {
     kind: "gemma4-literal-formula-language-contract",
-    schemaVersion: 3,
+    schemaVersion: 4,
     languageId: "indexed-ieee754-expression-v1",
     authority: {
       forwardAssignments: "/scalarCalculations/assignments",
@@ -68,6 +69,7 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
       learnedIndexLanguage: "/learnedOperands/indexLanguage",
       storageDecoders: "/storageDecoders",
       denseDecoderLanguage: "/denseDecoderLanguage",
+      transcendentalPrograms: "/transcendentalPrograms",
       numericLiteralBits: "/numericLiterals/literals",
       calculationDomains: "/calculationDomains/assignments",
     },
@@ -75,7 +77,7 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
       dependencyOrder: "evaluate instantiated assignments by ascending ordinal; every predecessor must already exist",
       coordinateOrder: "row-major lexicographic over the complete declared output domain; preview windows never change evaluation",
       inputBinding: "bind orderedInputs positionally at each instantiated call site before evaluating the indexed formula",
-      numericTokenBinding: "resolve every decimal or named mathematical token through numericLiterals and select bits by its surrounding F64/F32/BF16 cast",
+      numericTokenBinding: "resolve forward/generation decimal or named mathematical tokens through numericLiterals; resolve transcendental-program names through transcendentalPrograms.constants; select bits by the surrounding F64/F32/BF16 cast",
       learnedValueBinding: "evaluate learnedOperands.logicalIndices with its embedded integer-expression AST, then execute the matching storageDecoder address and decode expression ASTs under denseDecoderLanguage over the embedded constant bytes",
       generationOrder: "evaluate generation scalarAssignments in array order and iterations in ascending step order until the declared stop predicate",
       invalidOperation: "fail closed before producing an output; never infer a default, host reduction, tensor layout, cast, or missing intrinsic",
@@ -116,7 +118,7 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
       { notation: "F32_FMA(acc,a,b)", semantics: "compute exact a*b+acc then round once to IEEE binary32" },
       { notation: "min, max, floor", semantics: "IEEE minimum/maximum over materialized operands and mathematical floor; NaN is invalid unless an assignment explicitly permits it" },
       { notation: "sqrt, rsqrt", semantics: "sqrt is correctly rounded by the pinned runtime policy; rsqrt(x) is F32(1/F32(sqrt(x))) unless the assignment declares another serialized implementation" },
-      { notation: "SLEEF_EXP_F32, SLEEF_SIN_F32, SLEEF_COS_F32, SLEEF_TANH_F32", semantics: "execute the exact SLEEF implementation identifier and cast boundaries serialized by the owning operation; lowercase exp/sin/cos/tanh in a formula are aliases only when that same operation declares the corresponding implementation" },
+      { notation: "SLEEF_EXP_F32, SLEEF_SIN_F32, SLEEF_COS_F32, SLEEF_TANH_F32", semantics: "execute the matching finite /transcendentalPrograms program, its exact binary32 constants, pair/FMA subprograms, special-value branches and embedded rempi table; no external SLEEF source, binary or host libm fallback is permitted" },
       { notation: "log, log1p", semantics: "evaluate the mathematical function at the operation-declared compute dtype and materialize every surrounding cast in formula order" },
       { notation: "concat, tuple, STRUCT", semantics: "construct values in argument order without arithmetic conversion; concat uses the axis named by the formula or cache transition" },
       { notation: "row_major_alias, reshape, transpose", semantics: "change only logical indexing/layout exactly as written; preserve every source bit" },

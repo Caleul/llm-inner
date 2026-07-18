@@ -159,6 +159,8 @@ function attachDenseDecoderEvidence(
   if (storageDecoders.length !== decoderIds.size) throw new Error(`${operationId}: programa de decoder ausente para valor substituído.`);
   return {
     ...view,
+    formulaLanguage: structuredClone(artifact.formulaLanguage),
+    transcendentalPrograms: structuredClone(artifact.transcendentalPrograms),
     denseDecoderLanguage: structuredClone(artifact.denseDecoderLanguage),
     storageDecoders,
   };
