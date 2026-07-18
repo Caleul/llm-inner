@@ -32,6 +32,10 @@ import {
   buildGemma4LiteralLinearReductionAssignments,
   gemma4LiteralScalarProductFormula,
 } from "./gemma4-literal-linear-reduction-view.js";
+import {
+  buildGemma4LiteralCascadeSquareReductionAssignments,
+  buildGemma4LiteralWelfordAssignments,
+} from "./gemma4-literal-normalization-reduction-view.js";
 
 type Assignment = Gemma4CompositeAssignment | Gemma4VisionAssignment | Gemma4AudioAssignment;
 type NonTextScope = "composite" | "vision" | "audio";
@@ -342,15 +346,15 @@ async function renderRmsNorm(artifact: OpenGemma4CompositeLiteralArtifact, entry
   const input = indexed(entry.assignment.inputs[0]!, request.outputCoordinate);
   const result = `F32(F32(${input} * inv_rms) * ${learned?.literal ?? "1"})`;
   const formula = `${base.output} = ${base.dtypePolicy.outputDtype === "BF16" ? `BF16(${result})` : result}`;
-  const sumFormula = base.dtypePolicy.reduction?.kind === "pytorch-cpu-f32-cascade-sum"
-    ? `sum = PYTORCH_CPU_F32_CASCADE_SUM(square[0..${width - 1}], vector_lanes=4, ilp=4, levels=4, register_fold=ascending, lane_fold=ascending)`
-    : `sum = F32(sum_{i=0..${width - 1} in ascending order}(square[i]))`;
+  const reductionAssignments = base.dtypePolicy.reduction?.kind === "pytorch-cpu-f32-cascade-sum"
+    ? buildGemma4LiteralCascadeSquareReductionAssignments(base.dtypePolicy.reduction, width)
+    : [`sum = F32(sum_{i=0..${width - 1} in ascending order}(square[i]))`];
   return {
     ...base,
     formula,
     scalarAssignments: [
       `square[i] = F32(${indexed(entry.assignment.inputs[0]!, [...request.outputCoordinate.slice(0, -1), "i"])} * ${indexed(entry.assignment.inputs[0]!, [...request.outputCoordinate.slice(0, -1), "i"])})`,
-      sumFormula,
+      ...reductionAssignments,
       `mean_epsilon = F32(F32(sum / F32(${width})) + F32(${literal(epsilon)}))`,
       "sqrt_mean_epsilon = F32(sqrt(mean_epsilon))",
       "inv_rms = F32(1 / sqrt_mean_epsilon)",
@@ -387,7 +391,7 @@ async function renderConv2d(artifact: OpenGemma4CompositeLiteralArtifact, entry:
   const [batch, outputChannel, time, feature] = request.outputCoordinate;
   const weight = learnedOperand(artifact, entry, "convolution-kernel"), inputChannels = weight.tensor.shape[1]!;
   if (outputChannel! >= weight.tensor.shape[0]!) throw new Error(`${entry.assignment.id}: canal de saída fora do shape.`);
-  const learnedScalars: Gemma4LiteralLearnedScalar[] = [], assignments: string[] = [];
+  const learnedScalars: Gemma4LiteralLearnedScalar[] = [], terms: Gemma4LiteralScalarTerm[] = [];
   const outputEnvironment = gemma4LiteralOutputCoordinateEnvironment(base.navigation.outputDomain, request.outputCoordinate);
   let term = 0;
   for (let inputChannel = 0; inputChannel < inputChannels; inputChannel += 1) for (let kernelTime = 0; kernelTime < 3; kernelTime += 1) for (let kernelFeature = 0; kernelFeature < 3; kernelFeature += 1) {
@@ -397,11 +401,24 @@ async function renderConv2d(artifact: OpenGemma4CompositeLiteralArtifact, entry:
     });
     learnedScalars.push(learned);
     const sourceTime = time! * 2 + kernelTime - 1, sourceFeature = feature! * 2 + kernelFeature - 1;
-    assignments.push(`product[${term}] = source_in_bounds(${sourceTime},${sourceFeature}) ? F32(${indexed(entry.assignment.inputs[0]!, [batch!, inputChannel, sourceTime, sourceFeature])} * ${learned.literal}) : F32(0)`);
+    const input = `source_in_bounds(${sourceTime},${sourceFeature}) ? ${indexed(entry.assignment.inputs[0]!, [batch!, inputChannel, sourceTime, sourceFeature])} : F32(0)`;
+    const termFormula = `product[${term}] = F32(${input} * ${learned.literal})`;
+    terms.push({ inputIndex: term, input, learned, formula: termFormula });
     term += 1;
   }
-  const formula = `${base.output} = acc[${term - 1}]`;
-  return { ...base, formula, scalarAssignments: [...assignments, "acc[-1] = F32(0)", `acc[i] = F32(acc[i-1] + product[i]), i=0..${term - 1} in channel,kernel_time,kernel_feature order`, formula], learnedScalars };
+  const reduction = requiredProductReduction(base, entry.assignment.id);
+  const formula = `${base.output} = ${base.dtypePolicy.outputDtype === "BF16" ? "BF16" : "F32"}(reduced)`;
+  return {
+    ...base,
+    formula,
+    scalarAssignments: [...terms.map((candidate) => candidate.formula), ...buildGemma4LiteralLinearReductionAssignments(reduction, term, base.dtypePolicy.accumulationDtype), formula],
+    learnedScalars,
+    terms,
+    reduction: {
+      bounds: { startInclusive: 0, endExclusive: term }, schedule: structuredClone(reduction), complete: true,
+      renderedWindow: { startInclusive: 0, endExclusive: term }, omittedTerms: 0,
+    },
+  };
 }
 
 async function renderChannelNorm(artifact: OpenGemma4CompositeLiteralArtifact, entry: AssignmentEntry, request: Gemma4LiteralMultimodalScalarViewRequest, base: ScalarBase): Promise<Gemma4LiteralRenderedScalarView> {
@@ -412,20 +429,39 @@ async function renderChannelNorm(artifact: OpenGemma4CompositeLiteralArtifact, e
   );
   const [batch, , time, feature] = request.outputCoordinate, input = entry.assignment.inputs[0]!;
   const epsilon = artifact.program.audioProgram.rmsNormEpsilon;
+  const reduction = base.dtypePolicy.reduction;
+  if (reduction?.kind === "pytorch-cpu-bf16-welford") {
+    const normalized = `F32(F32(${indexed(input, [batch!, channel, time!, feature!])} * inv_std) + bias)`;
+    const result = `F32(${normalized} * ${learned.literal})`;
+    const formula = `${base.output} = ${base.dtypePolicy.outputDtype === "BF16" ? `BF16(${result})` : result}`;
+    return { ...base, formula, scalarAssignments: [
+      `x[c] = ${indexed(input, [batch!, "c", time!, feature!])}, c=0..${channels - 1} ascending`,
+      ...buildGemma4LiteralWelfordAssignments(reduction, channels),
+      `variance_epsilon = F32(variance + F32(${literal(epsilon)}))`,
+      "sqrt_variance_epsilon = F32(sqrt(variance_epsilon))",
+      "inv_std = F32(1 / sqrt_variance_epsilon)",
+      "bias = F32(-inv_std * mean)",
+      formula,
+    ], learnedScalars: [learned] };
+  }
+  if (!reduction || reduction.kind !== "ordered-scalar" || reduction.indexOrder !== "ascending") {
+    throw new Error(`${entry.assignment.id}: LayerNorm de canais requer agenda Welford ou escalar ascendente declarada.`);
+  }
   const formula = `${base.output} = F32(F32(${indexed(input, [batch!, channel, time!, feature!])} - mean) * inv_std * ${learned.literal})`;
   return { ...base, formula, scalarAssignments: [
-    `mean_acc[-1]=F32(0); mean_acc[c]=F32(mean_acc[c-1]+${indexed(input, [batch!, "c", time!, feature!])}), c=0..${channels - 1}`,
-    `mean=F32(mean_acc[${channels - 1}]/F32(${channels}))`,
-    `variance_term[c]=F32((${indexed(input, [batch!, "c", time!, feature!])}-mean)^2)`,
-    `variance=F32(sum_{c=0..${channels - 1} ascending}(variance_term[c])/F32(${channels}))`,
-    `inv_std=F32(F32(variance+F32(${literal(epsilon)}))^-0.5)`, formula,
+    `mean_acc[0]=F32(0); mean_acc[c+1]=F32(mean_acc[c]+${indexed(input, [batch!, "c", time!, feature!])}), c=0..${channels - 1} ascending`,
+    `mean=F32(mean_acc[${channels}]/F32(${channels}))`,
+    `variance_term[c]=F32((${indexed(input, [batch!, "c", time!, feature!])}-mean)^2), c=0..${channels - 1}`,
+    `variance_acc[0]=F32(0); variance_acc[c+1]=F32(variance_acc[c]+variance_term[c]), c=0..${channels - 1} ascending`,
+    `variance=F32(variance_acc[${channels}]/F32(${channels}))`,
+    `inv_std=F32(1/F32(sqrt(F32(variance+F32(${literal(epsilon)})))))`, formula,
   ], learnedScalars: [learned] };
 }
 
 async function renderDepthwise(artifact: OpenGemma4CompositeLiteralArtifact, entry: AssignmentEntry, request: Gemma4LiteralMultimodalScalarViewRequest, base: ScalarBase): Promise<Gemma4LiteralRenderedScalarView> {
   if (request.outputCoordinate.length !== 3) throw new Error(`${entry.assignment.id}: depthwise requer [b,t,c].`);
   const [batch, time, channel] = request.outputCoordinate, weight = learnedOperand(artifact, entry, "convolution-kernel"), kernel = weight.tensor.shape[2]!;
-  const learnedScalars: Gemma4LiteralLearnedScalar[] = [], assignments: string[] = [];
+  const learnedScalars: Gemma4LiteralLearnedScalar[] = [], terms: Gemma4LiteralScalarTerm[] = [];
   const outputEnvironment = gemma4LiteralOutputCoordinateEnvironment(base.navigation.outputDomain, request.outputCoordinate);
   for (let k = 0; k < kernel; k += 1) {
     const learned = await readGemma4LiteralLearnedOperandScalar(artifact, weight, {
@@ -433,12 +469,31 @@ async function renderDepthwise(artifact: OpenGemma4CompositeLiteralArtifact, ent
     });
     learnedScalars.push(learned);
     const source = time! - kernel + 1 + k;
-    assignments.push(`product[${k}] = ${source < 0
-      ? `F32(F32(0) * ${learned.literal})`
-      : `F32(${indexed(entry.assignment.inputs[0]!, [batch!, source, channel!])} * ${learned.literal})`}`);
+    const input = source < 0 ? "F32(0)" : indexed(entry.assignment.inputs[0]!, [batch!, source, channel!]);
+    const termFormula = `product[${k}] = F32(${input} * ${learned.literal})`;
+    terms.push({ inputIndex: k, input, learned, formula: termFormula });
   }
-  const formula = `${base.output} = acc[${kernel - 1}]`;
-  return { ...base, formula, scalarAssignments: [...assignments, "acc[-1]=F32(0)", `acc[k]=F32(acc[k-1]+product[k]), k=0..${kernel - 1} ascending`, formula], learnedScalars };
+  const reduction = requiredProductReduction(base, entry.assignment.id);
+  const formula = `${base.output} = ${base.dtypePolicy.outputDtype === "BF16" ? "BF16" : "F32"}(reduced)`;
+  return {
+    ...base,
+    formula,
+    scalarAssignments: [...terms.map((candidate) => candidate.formula), ...buildGemma4LiteralLinearReductionAssignments(reduction, kernel, base.dtypePolicy.accumulationDtype), formula],
+    learnedScalars,
+    terms,
+    reduction: {
+      bounds: { startInclusive: 0, endExclusive: kernel }, schedule: structuredClone(reduction), complete: true,
+      renderedWindow: { startInclusive: 0, endExclusive: kernel }, omittedTerms: 0,
+    },
+  };
+}
+
+function requiredProductReduction(base: ScalarBase, operationId: string): Parameters<typeof buildGemma4LiteralLinearReductionAssignments>[0] {
+  const reduction = base.dtypePolicy.reduction;
+  if (!reduction || reduction.kind === "pytorch-cpu-f32-cascade-sum" || reduction.kind === "pytorch-cpu-bf16-welford") {
+    throw new Error(`${operationId}: redução de produtos literal ausente ou incompatível.`);
+  }
+  return reduction;
 }
 
 async function renderPerDimScale(artifact: OpenGemma4CompositeLiteralArtifact, entry: AssignmentEntry, request: Gemma4LiteralMultimodalScalarViewRequest, base: ScalarBase): Promise<Gemma4LiteralRenderedScalarView> {

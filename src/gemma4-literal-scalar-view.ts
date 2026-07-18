@@ -22,6 +22,7 @@ import {
   buildGemma4LiteralLinearReductionAssignments,
   gemma4LiteralScalarProductFormula,
 } from "./gemma4-literal-linear-reduction-view.js";
+import { buildGemma4LiteralCascadeSquareReductionAssignments } from "./gemma4-literal-normalization-reduction-view.js";
 
 export interface Gemma4LiteralOperationNavigation {
   operationId: string;
@@ -231,6 +232,9 @@ export function validateGemma4LiteralScalarView(view: Gemma4LiteralScalarView): 
   if (/\bdecode\s*\(|\bweight\s*\[|\bbias\s*\[/.test(transcript)) {
     throw new Error(`${view.navigation.operationId}: vista escalar ainda contém referência aprendida simbólica.`);
   }
+  if (/PYTORCH_CPU_F32_CASCADE_SUM|mean_channels\s*\(|variance_channels\s*\(/.test(transcript)) {
+    throw new Error(`${view.navigation.operationId}: vista escalar ainda contém normalização opaca.`);
+  }
   for (const scalar of view.learnedScalars) {
     if (!transcript.includes(scalar.literal)) {
       throw new Error(`${view.navigation.operationId}: literal aprendido ${scalar.tensor}[${scalar.indices.join(",")}] não participa do cálculo escalar.`);
@@ -243,6 +247,16 @@ export function validateGemma4LiteralScalarView(view: Gemma4LiteralScalarView): 
         !view.scalarAssignments.includes(term.formula))) {
       throw new Error(`${view.navigation.operationId}: redução escalar completa não substitui todos os ${width} termos em ordem.`);
     }
+  }
+  const schedule = view.navigation.scalarCalculation.reduction?.schedule;
+  if (schedule?.kind === "pytorch-cpu-f32-cascade-sum" &&
+    (!transcript.includes("cascade[level,register,lane]") || !transcript.includes("lane_acc[lane+1]") || !transcript.includes("sum = lane_acc"))) {
+    throw new Error(`${view.navigation.operationId}: vista RMS não expõe o estado completo da redução cascade.`);
+  }
+  if (schedule?.kind === "pytorch-cpu-bf16-welford" &&
+    (!transcript.includes("low_delta[v,lane]") || !transcript.includes("high_delta[v,lane]") ||
+      !transcript.includes("merged_m2[lane]") || !transcript.includes("fold_m2[lane+1]") || !transcript.includes("bias = F32(-inv_std * mean)"))) {
+    throw new Error(`${view.navigation.operationId}: vista LayerNorm não expõe o estado completo da redução Welford.`);
   }
 }
 
@@ -352,7 +366,7 @@ async function renderRmsNorm(
     scalarAssignments: [
       `square[i] = F32(${indexed(operation.input, [...request.outputCoordinate.slice(0, -1), "i"])} * ${indexed(operation.input, [...request.outputCoordinate.slice(0, -1), "i"])})`,
       ...(operation.dtypePolicy.reduction?.kind === "pytorch-cpu-f32-cascade-sum"
-        ? reductionAssignments(operation.dtypePolicy.reduction, typeof domain === "number" ? domain : 0, operation.dtypePolicy.accumulationDtype)
+        ? buildGemma4LiteralCascadeSquareReductionAssignments(operation.dtypePolicy.reduction, requiredNumericWidth(domain, operation.id))
         : [`sum = ${operation.dtypePolicy.accumulationDtype === "F64" ? "F64" : "F32"}(sum_{i=0..${typeof domain === "number" ? domain - 1 : domain} in ascending order}(square[i]))`]),
       `mean = F32(sum / F32(${String(domain)}))`,
       `inv_rms = F32(1 / F32(sqrt(F32(mean + ${literal(operation.epsilon)}))))`,
@@ -473,16 +487,20 @@ function requireReduction(operation: Extract<Operation, { op: "linear" }>): Redu
 
 function reductionAssignments(schedule: ReductionSchedule, width: number, accumulationDtype: string | undefined): string[] {
   switch (schedule.kind) {
-    case "pytorch-cpu-f32-cascade-sum": return [
-      `four ADVSIMD lanes across four ILP registers consume ${width} contiguous square terms in 16-coordinate units`,
-      `four-level F32 cascade uses levelStep=max(${schedule.minimumLevelStep}, 2^(ceil(log2(${width}/16))/4)); registers then lanes fold ${schedule.registerFold}/${schedule.laneFold}`,
-    ];
+    case "pytorch-cpu-f32-cascade-sum": return buildGemma4LiteralCascadeSquareReductionAssignments(schedule, width);
     case "pytorch-cpu-bf16-welford": return [
       `${schedule.inputVectorLanes} BF16 lanes widen into two ${schedule.accumulatorVectorLanes}-lane F32 vectors; each performs Welford updates over at most ${schedule.chunkVectors} input vectors`,
       `low/high vectors merge ${schedule.vectorMergeOrder}; ${schedule.accumulatorVectorLanes} moment lanes fold ${schedule.laneFold}; second pass is ${schedule.secondPass}`,
     ];
     default: return buildGemma4LiteralLinearReductionAssignments(schedule, width, accumulationDtype);
   }
+}
+
+function requiredNumericWidth(width: number | string, operationId: string): number {
+  if (!Number.isSafeInteger(width) || typeof width !== "number" || width <= 0) {
+    throw new Error(`${operationId}: redução RMS literal requer width numérico positivo.`);
+  }
+  return width;
 }
 
 function scalarProductFormula(schedule: ReductionSchedule, inputIndex: number, input: string, learnedLiteral: string): string {

@@ -412,6 +412,18 @@ opacos. Uma validação fail-closed recusa qualquer vista completa com referênc
 aprendida simbólica, termo ausente ou literal decodificado sem uso. A evidência
 real source-removed está no mesmo relatório acima.
 
+O schema v15 fecha as reduções aprendidas não lineares cujo contrato nativo já
+era conhecido. Os 637 RMSNorms instanciados agora abrem unidades, quatro níveis
+de cascade, merges/clears, registradores e lanes; as duas LayerNorms de canais
+abrem updates Welford low/high, merge, fold de momentos e segundo passe
+`x*inv_std+bias` antes de gamma; e os dois Conv2d mais doze depthwise obedecem
+seus quatro acumuladores intercalados em vez de exibirem uma soma ordenada.
+`formulaLanguage` schema 3 incorpora os programas normativos de cascade e
+Welford. A varredura source-removed de todas as 653 vistas decodificou 1.801
+literais aprendidos sem helpers opacos ou referências simbólicas. A evidência
+real está em
+[`docs/validation/gemma4-e4b-explicit-normalization-reductions-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-normalization-reductions-2026-07-18.md).
+
 O leitor também pode partir de qualquer saída instanciada e calcular o fecho
 transitivo exato de seus produtores. `--calculation-slice <operation-id>`
 retorna somente as atribuições necessárias ao alvo, ainda em ordem de
@@ -579,8 +591,8 @@ escreve o artefato completo em streaming: ranges Safetensors de 12 MiB são
 codificados em base64 sem acumular o pacote ou uma string de vários GiB na
 heap. O resultado local contém os 2,130 payloads originais
 (15,992,314,836 bytes) e é auditado por `npm run audit:literal`. O hash e
-tamanho da exportação schema v14 atual são registrados em
-[`docs/validation/gemma4-e4b-exact-product-scalar-audit-2026-07-18.md`](docs/validation/gemma4-e4b-exact-product-scalar-audit-2026-07-18.md); sua política numérica
+tamanho da exportação schema v15 atual são registrados em
+[`docs/validation/gemma4-e4b-explicit-normalization-reductions-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-normalization-reductions-2026-07-18.md); sua política numérica
 declara fronteiras de resultado BF16, acumuladores F32/F64 e agendas de redução
 por operação do texto, áudio e visão; toda exportação deve registrar seu próprio hash, pois o programa literal
 inclui as políticas numéricas. As 54 projeções/normas K/V locais dos

@@ -29,6 +29,10 @@ import {
   gemma4LiteralScalarProductFormula,
 } from "../src/gemma4-literal-linear-reduction-view.js";
 import {
+  buildGemma4LiteralCascadeSquareReductionAssignments,
+  buildGemma4LiteralWelfordAssignments,
+} from "../src/gemma4-literal-normalization-reduction-view.js";
+import {
   verifyGemma4CompositeLiteralEmbeddedPayloadIntegrity,
   verifyGemma4CompositeLiteralPayloadsAgainstCatalog,
 } from "../src/gemma4-composite-literal-payload-verification.js";
@@ -161,6 +165,33 @@ test("Gemma linear scalar audits preserve fused products and spell out every ARM
     gemma4LiteralScalarProductFormula({ kind: "ordered-scalar", indexOrder: "ascending" }, 7, "x[0,7]", "-0.125"),
     "product[7] = F32(x[0,7] * -0.125)",
   );
+});
+
+test("Gemma normalization scalar audits expose complete cascade and Welford state transitions", () => {
+  const cascade = buildGemma4LiteralCascadeSquareReductionAssignments({
+    kind: "pytorch-cpu-f32-cascade-sum", vectorLanes: 4, ilpFactor: 4, cascadeLevels: 4,
+    minimumLevelStep: 16, registerFold: "ascending", laneFold: "ascending",
+  }, 256);
+  const cascadeTranscript = cascade.join("\n");
+  assert.match(cascadeTranscript, /unit_width = 16; unit_count = 16/);
+  assert.match(cascadeTranscript, /cascade\[level,register,lane\] = F32\(0\)/);
+  assert.match(cascadeTranscript, /cascade\[level-1,register,lane\]=F32\(0\)/);
+  assert.match(cascadeTranscript, /register=1\.\.3 ascending/);
+  assert.match(cascadeTranscript, /lane_acc\[lane\+1\].*lane=0\.\.3 ascending/);
+  assert.equal(cascade.at(-1), "sum = lane_acc[4]");
+
+  const welford = buildGemma4LiteralWelfordAssignments({
+    kind: "pytorch-cpu-bf16-welford", inputVectorLanes: 8, accumulatorVectorLanes: 4,
+    chunkVectors: 16, vectorMergeOrder: "low-then-high", laneFold: "ascending",
+    secondPass: "x-times-scale-plus-bias-times-gamma",
+  }, 32);
+  const welfordTranscript = welford.join("\n");
+  assert.match(welfordTranscript, /vector_count = 4; merged_lane_count = 8/);
+  assert.match(welfordTranscript, /low_delta\[v,lane\].*low_remainder\[v,lane\]/s);
+  assert.match(welfordTranscript, /high_delta\[v,lane\].*high_remainder\[v,lane\]/s);
+  assert.match(welfordTranscript, /merged_m2\[lane\]/);
+  assert.match(welfordTranscript, /fold_count\[lane\+1\]=fold_total\[lane\]/);
+  assert.equal(welford.at(-1), "variance = F32(fold_m2[4]/F32(32))");
 });
 
 test("Gemma 4 composite trace dispatches every modality through one explicit feature/scatter contract", () => {
@@ -313,13 +344,15 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 14);
+  assert.equal(literal.schemaVersion, 15);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.languageId, literal.generation.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.authority.numericLiteralBits, "/numericLiterals/literals");
-  assert.equal(literal.formulaLanguage.schemaVersion, 2);
+  assert.equal(literal.formulaLanguage.schemaVersion, 3);
+  assert.ok(literal.formulaLanguage.reductions.normalizationPrograms.pytorchCpuF32CascadeSum.length >= 4);
+  assert.ok(literal.formulaLanguage.reductions.normalizationPrograms.pytorchCpuBf16Welford.length >= 3);
   assert.match(literal.formulaLanguage.reductions.runtimeDefined, /not executable/);
   assert.ok(literal.formulaLanguage.intrinsics.some((intrinsic) => intrinsic.notation === "decode(role)[indices]"));
   assert.ok(literal.formulaLanguage.intrinsics.some((intrinsic) => intrinsic.notation === "exact_product(a*b)"));
@@ -612,7 +645,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 14);
+      assert.equal(artifact.schemaVersion, 15);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.equal(artifact.constants.size, catalog.tensors.size);
@@ -933,6 +966,9 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       });
       assert.deepEqual(normScalar.learnedScalars[0]?.indices, [2]);
       assert.ok(normScalar.scalarAssignments.some((entry) => entry.includes("sum_{i=0..3")));
+      const opaqueNorm = structuredClone(normScalar);
+      opaqueNorm.scalarAssignments.push("sum = PYTORCH_CPU_F32_CASCADE_SUM(square)");
+      assert.throws(() => validateGemma4LiteralScalarView(opaqueNorm), /normalização opaca/);
 
       const tensorScale = await renderGemma4LiteralScalarView(artifact, {
         operationId: "layer_0_scalar", outputCoordinate: [0, 0, 2],
@@ -1063,6 +1099,8 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
         operationId: "composite_audio_features/audio_subsample_0_conv", outputCoordinate: [0, 0, 0, 0],
       });
       assert.equal(convolution.learnedScalars.length, 9);
+      assert.equal(convolution.reduction?.complete, true);
+      assert.equal(convolution.terms?.length, 9);
       assert.ok(convolution.scalarAssignments.some((formula) => formula.includes("source_in_bounds")));
 
       const relativeProjection = await renderGemma4LiteralMultimodalScalarView(artifact, {
@@ -1081,6 +1119,8 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
         operationId: "composite_audio_features/audio_layer_0_conv_depthwise", outputCoordinate: [0, 2, 1],
       });
       assert.equal(depthwise.learnedScalars.length, 5);
+      assert.equal(depthwise.reduction?.complete, true);
+      assert.equal(depthwise.terms?.length, 5);
 
       await assert.rejects(() => renderGemma4LiteralMultimodalScalarView(artifact, {
         operationId: "composite_audio_features/audio_layer_0_attention", outputCoordinate: [0, 0, 1],

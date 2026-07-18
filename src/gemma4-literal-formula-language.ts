@@ -1,10 +1,11 @@
 import { isDeepStrictEqual } from "node:util";
 import type { Gemma4LiteralGenerationScalarCalculations } from "./gemma4-literal-generation-calculations.js";
 import type { Gemma4LiteralScalarCalculations } from "./gemma4-literal-scalar-calculations.js";
+import { gemma4LiteralNormalizationReductionPrograms } from "./gemma4-literal-normalization-reduction-view.js";
 
 export interface Gemma4LiteralFormulaLanguageContract {
   kind: "gemma4-literal-formula-language-contract";
-  schemaVersion: 2;
+  schemaVersion: 3;
   languageId: "indexed-ieee754-expression-v1";
   authority: {
     forwardAssignments: "/scalarCalculations/assignments";
@@ -41,6 +42,7 @@ export interface Gemma4LiteralFormulaLanguageContract {
     operationDeclared: string;
     runtimeDefined: string;
     multipleDomains: string;
+    normalizationPrograms: ReturnType<typeof gemma4LiteralNormalizationReductionPrograms>;
   };
   intrinsics: Array<{ notation: string; semantics: string }>;
 }
@@ -55,7 +57,7 @@ export interface Gemma4LiteralFormulaLanguageContract {
 export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormulaLanguageContract {
   return {
     kind: "gemma4-literal-formula-language-contract",
-    schemaVersion: 2,
+    schemaVersion: 3,
     languageId: "indexed-ieee754-expression-v1",
     authority: {
       forwardAssignments: "/scalarCalculations/assignments",
@@ -105,6 +107,7 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
       operationDeclared: "execute the serialized reduction.schedule literally, including product rounding, lane assignment, block/tile order, FMA behavior, fold order, tails, accumulation dtype and output cast",
       runtimeDefined: "not executable: reproducibility must be fail-closed-runtime-reduction and every scalar renderer or replay claiming literal fidelity must reject it",
       multipleDomains: "nested REDUCE domains execute left-to-right as written; a schedule attached to the assignment overrides only the reduction indices named beside it",
+      normalizationPrograms: gemma4LiteralNormalizationReductionPrograms(),
     },
     intrinsics: [
       { notation: "decode(role)[indices]", semantics: "resolve role through the current learnedOperands binding; evaluate its gemma4-learned-index-expression-v1 AST, then execute storageDecoder.address for the exact byte range and storageDecoder.decode for the exact F32 result bits" },

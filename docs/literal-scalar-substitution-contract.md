@@ -175,6 +175,19 @@ ARM, o fold horizontal, o vector tail e o scalar tail. `weight[o,i]`,
 `decode(role)` e nomes opacos de kernel são inválidos numa vista escalar já
 renderizada; termos faltantes também invalidam uma vista marcada `complete`.
 
+No schema v15, nomes de schedules de normalização também deixam de ser
+atalhos. `formulaLanguage.reductions.normalizationPrograms` incorpora as
+transições normativas de `pytorch-cpu-f32-cascade-sum` e
+`pytorch-cpu-bf16-welford`. A vista RMS declara cada square, unidade de 16
+coordenadas, nível de cascade, merge/clear, fold de registrador e fold de lane.
+A LayerNorm de canais declara updates low/high de média e M2, merge vetorial,
+fold Welford de lanes, variância, sqrt, recíproco, bias nativo, segundo passe e
+gamma. Conv2d e depthwise substituem todos os kernels aprendidos e aplicam a
+agenda intercalada serializada; padding multiplica o literal real por zero em
+vez de omiti-lo. `PYTORCH_CPU_F32_CASCADE_SUM`, `mean_channels`,
+`variance_channels` e uma soma ordenada que contradiga a agenda são inválidos
+numa vista escalar completa.
+
 Quando a autoridade disponível prova a equação, mas não a árvore de uma
 redução nativa, a fórmula preserva o domínio matemático completo e a entrada
 declara `reproducibility=fail-closed-runtime-reduction` com
