@@ -534,11 +534,26 @@ alias livre reaparece. Isso não inventa a árvore Apple Accelerate: as mesmas
 real, incluindo 1.574 definições operand-closed e views source-removed, está em
 [`docs/validation/gemma4-e4b-explicit-operand-bindings-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-operand-bindings-2026-07-18.md).
 
+O schema v26 substitui as descrições em prosa dos shapes dinâmicos por
+`calculationDomains.dimensionPrograms`. A linguagem
+`gemma4-safe-integer-dimension-expression-v1` incorpora um AST fechado para
+ler eixos de tensores, somar o comprimento KV opcional, contar máscaras BOOL
+em ordem row-major e executar soma, produto, ceil-division e divisão exata com
+checagem de inteiro seguro. Assim `K`, os dois estágios Conv2d de áudio,
+`ABLOCKS`, pooling vision, flatten de vídeo e cardinalidades após
+`strip-padding` são calculáveis sem interpretar frases como “past key length
+plus S” ou “number of true rows”. Shapes compostos aceitam somente literais,
+dimensões registradas e multiplicação exata; ciclos, nomes ausentes, overflow,
+divisor zero e pooling não divisível falham fechado. Slices, vistas escalares
+e o cálculo end-to-end carregam a mesma linguagem e os mesmos programas. A
+prova no pacote real está em
+[`docs/validation/gemma4-e4b-executable-dimension-programs-2026-07-18.md`](docs/validation/gemma4-e4b-executable-dimension-programs-2026-07-18.md).
+
 O leitor também pode partir de qualquer saída instanciada e calcular o fecho
 transitivo exato de seus produtores. `--calculation-slice <operation-id>`
 retorna somente as atribuições necessárias ao alvo, ainda em ordem de
 dependência, mais os inputs do chamador, constantes aprendidas com decoder e
-consumidores, literais numéricos com bits e todas as reduções que permanecem
+consumidores, programas executáveis de dimensão, literais numéricos com bits e todas as reduções que permanecem
 fail-closed. Isso permite seguir uma saída até suas entradas sem confundir a
 ordem linear global com dependência real ou omitir um ramo necessário:
 

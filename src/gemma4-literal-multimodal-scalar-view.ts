@@ -162,6 +162,8 @@ function attachDenseDecoderEvidence(
   return {
     ...view,
     formulaLanguage: structuredClone(artifact.formulaLanguage),
+    dimensionLanguage: structuredClone(artifact.calculationDomains.dimensionLanguage),
+    dimensionPrograms: structuredClone(artifact.calculationDomains.dimensionPrograms),
     transcendentalPrograms: structuredClone(artifact.transcendentalPrograms),
     denseDecoderLanguage: structuredClone(artifact.denseDecoderLanguage),
     storageDecoders,

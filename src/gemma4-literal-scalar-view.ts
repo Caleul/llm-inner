@@ -25,6 +25,12 @@ import {
 import { buildGemma4LiteralCascadeSquareReductionAssignments } from "./gemma4-literal-normalization-reduction-view.js";
 import type { Gemma4LiteralFormulaLanguageContract } from "./gemma4-literal-formula-language.js";
 import type { Gemma4LiteralTranscendentalPrograms } from "./gemma4-literal-transcendental-programs.js";
+import {
+  validateGemma4LiteralDimensionExpressionLanguage,
+  validateGemma4LiteralDimensionPrograms,
+  type Gemma4LiteralDimensionExpressionLanguage,
+  type Gemma4LiteralDimensionPrograms,
+} from "./gemma4-literal-dimension-programs.js";
 
 export interface Gemma4LiteralOperationNavigation {
   operationId: string;
@@ -81,6 +87,8 @@ export interface Gemma4LiteralScalarView {
   scalarAssignments: string[];
   learnedScalars: Gemma4LiteralLearnedScalar[];
   formulaLanguage: Gemma4LiteralFormulaLanguageContract;
+  dimensionLanguage: Gemma4LiteralDimensionExpressionLanguage;
+  dimensionPrograms: Gemma4LiteralDimensionPrograms;
   transcendentalPrograms: Gemma4LiteralTranscendentalPrograms;
   /** Operator meanings plus the exact executable programs used by every substituted learned scalar. */
   denseDecoderLanguage: LiteralDenseDecoderLanguageContract;
@@ -99,9 +107,9 @@ export interface Gemma4LiteralScalarView {
 
 export type Gemma4LiteralScalarViewBase = Omit<
   Gemma4LiteralScalarView,
-  "formula" | "scalarAssignments" | "learnedScalars" | "formulaLanguage" | "transcendentalPrograms" | "denseDecoderLanguage" | "storageDecoders"
+  "formula" | "scalarAssignments" | "learnedScalars" | "formulaLanguage" | "dimensionLanguage" | "dimensionPrograms" | "transcendentalPrograms" | "denseDecoderLanguage" | "storageDecoders"
 >;
-export type Gemma4LiteralRenderedScalarView = Omit<Gemma4LiteralScalarView, "formulaLanguage" | "transcendentalPrograms" | "denseDecoderLanguage" | "storageDecoders">;
+export type Gemma4LiteralRenderedScalarView = Omit<Gemma4LiteralScalarView, "formulaLanguage" | "dimensionLanguage" | "dimensionPrograms" | "transcendentalPrograms" | "denseDecoderLanguage" | "storageDecoders">;
 
 export interface Gemma4LiteralScalarViewRequest {
   operationId: string;
@@ -219,6 +227,8 @@ export async function renderGemma4LiteralScalarView(
   const result: Gemma4LiteralScalarView = {
     ...rendered,
     formulaLanguage: structuredClone(artifact.formulaLanguage),
+    dimensionLanguage: structuredClone(artifact.calculationDomains.dimensionLanguage),
+    dimensionPrograms: structuredClone(artifact.calculationDomains.dimensionPrograms),
     transcendentalPrograms: structuredClone(artifact.transcendentalPrograms),
     denseDecoderLanguage: structuredClone(artifact.denseDecoderLanguage),
     storageDecoders,
@@ -234,6 +244,8 @@ export async function renderGemma4LiteralScalarView(
  * consumed by its transcript.
  */
 export function validateGemma4LiteralScalarView(view: Gemma4LiteralScalarView): void {
+  validateGemma4LiteralDimensionExpressionLanguage(view.dimensionLanguage);
+  validateGemma4LiteralDimensionPrograms(view.dimensionPrograms);
   const transcript = [view.formula, ...view.scalarAssignments].join("\n");
   if (/\bdecode\s*\(|\bweight\s*\[|\bbias\s*\[/.test(transcript)) {
     throw new Error(`${view.navigation.operationId}: vista escalar ainda contém referência aprendida simbólica.`);

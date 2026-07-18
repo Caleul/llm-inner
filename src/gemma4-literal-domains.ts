@@ -2,6 +2,14 @@ import { isDeepStrictEqual } from "node:util";
 import type { Gemma4AudioAssignment } from "./gemma4-audio.js";
 import type { Gemma4CompositeAssignment, Gemma4CompositeProgram } from "./gemma4-composite.js";
 import type { Gemma4VisionAssignment } from "./gemma4-vision.js";
+import {
+  gemma4LiteralDimensionExpressionLanguage,
+  validateGemma4LiteralDimensionExpressionLanguage,
+  validateGemma4LiteralDimensionPrograms,
+  type Gemma4LiteralDimensionExpression,
+  type Gemma4LiteralDimensionExpressionLanguage,
+  type Gemma4LiteralDimensionPrograms,
+} from "./gemma4-literal-dimension-programs.js";
 import type { DtypePolicy, Operation } from "./types.js";
 
 export type Gemma4LiteralCalculationScope = "composite" | "vision" | "audio" | "text-prelude" | "text-layer" | "text-epilogue";
@@ -24,7 +32,6 @@ export interface Gemma4LiteralValueDomain {
   shape: string[];
   layout: "row-major" | "tuple-of-row-major-tensors";
   axes: Gemma4LiteralAxisDomain[];
-  dimensionDefinitions?: Record<string, string>;
   dtypePolicy?: DtypePolicy;
 }
 
@@ -38,33 +45,17 @@ export interface Gemma4LiteralAssignmentDomain {
 
 export interface Gemma4LiteralCalculationDomains {
   kind: "gemma4-literal-calculation-domains";
-  schemaVersion: 1;
-  dimensionDefinitions: Record<string, string>;
+  schemaVersion: 2;
+  dimensionLanguage: Gemma4LiteralDimensionExpressionLanguage;
+  dimensionPrograms: Gemma4LiteralDimensionPrograms;
   assignments: Gemma4LiteralAssignmentDomain[];
 }
 
 type Assignment = Gemma4CompositeAssignment | Gemma4VisionAssignment | Gemma4AudioAssignment;
 
-const COMMON_DIMENSIONS = {
-  B: "input_ids.shape[0]",
-  S: "input_ids.shape[1]",
-  K: "past_key_values key length plus S; S when no cache is supplied",
-  VB: "vision-program invocation batch (images, or videos multiplied by frames)",
-  VP: "pixel_values.shape[-2] patches per vision invocation",
-  VPOOL: "VP divided by vision_pooling_kernel_size squared; the adapter requires an integer",
-  VVALID: "number of true pooled-position mask rows across VB in stable batch-major order",
-  AB: "input_features.shape[0]",
-  AT0: "input_features.shape[1]",
-  AF0: "input_features.shape[2]",
-  AT1: "ceil(AT0/2)",
-  AF1: "ceil(AF0/2)",
-  AT2: "ceil(AT1/2)",
-  AF2: "ceil(AF1/2)",
-  ABLOCKS: "ceil(AT2/audio_attention_chunk_size)",
-  AVALID: "number of true audio_output_mask rows across AB in stable batch-major order",
-} as const;
-
 export function buildGemma4LiteralCalculationDomains(program: Gemma4CompositeProgram): Gemma4LiteralCalculationDomains {
+  const dimensionPrograms = buildDimensionPrograms(program);
+  validateGemma4LiteralDimensionPrograms(dimensionPrograms);
   const assignments = [
     ...buildCompositeDomains(program),
     ...buildVisionDomains(program),
@@ -76,12 +67,13 @@ export function buildGemma4LiteralCalculationDomains(program: Gemma4CompositePro
     const key = `${entry.scope}:${entry.definitionId}`;
     if (ids.has(key)) throw new Error(`Domínio literal Gemma 4 duplicado: ${key}.`);
     ids.add(key);
-    validateValueDomain(entry.domain, key);
+    validateValueDomain(entry.domain, key, dimensionPrograms);
   }
   return {
     kind: "gemma4-literal-calculation-domains",
-    schemaVersion: 1,
-    dimensionDefinitions: { ...COMMON_DIMENSIONS },
+    schemaVersion: 2,
+    dimensionLanguage: gemma4LiteralDimensionExpressionLanguage(),
+    dimensionPrograms,
     assignments,
   };
 }
@@ -90,9 +82,11 @@ export function validateGemma4LiteralCalculationDomains(
   domains: Gemma4LiteralCalculationDomains,
   program: Gemma4CompositeProgram,
 ): void {
-  if (domains.kind !== "gemma4-literal-calculation-domains" || domains.schemaVersion !== 1) {
+  if (domains.kind !== "gemma4-literal-calculation-domains" || domains.schemaVersion !== 2) {
     throw new Error("Programa literal Gemma 4 possui cabeçalho de domínios de cálculo inválido.");
   }
+  validateGemma4LiteralDimensionExpressionLanguage(domains.dimensionLanguage);
+  validateGemma4LiteralDimensionPrograms(domains.dimensionPrograms);
   const expected = buildGemma4LiteralCalculationDomains(program);
   if (!isDeepStrictEqual(domains, expected)) {
     throw new Error("Programa literal Gemma 4 possui domínios de shape/dtype/layout ausentes ou divergentes.");
@@ -110,25 +104,45 @@ export function instantiateGemma4LiteralValueDomain(
       ? { VB: "VIDEO_BATCH*VIDEO_FRAMES", VP: "VIDEO_PATCHES", VPOOL: "VIDEO_POOL_CELLS", VVALID: "VIDEO_SOFT_TOKENS" }
       : undefined;
   if (!replacements) return structuredClone(domain);
-  const instantiatedDefinitions = invocationId === "composite_image_features"
-    ? {
-        IMAGE_BATCH: "pixel_values.shape[0]", IMAGE_PATCHES: "pixel_values.shape[1]",
-        IMAGE_POOL_CELLS: "IMAGE_PATCHES divided by vision_pooling_kernel_size squared",
-        IMAGE_SOFT_TOKENS: "true rows in the image pooled-position mask in batch-major order",
-      }
-    : {
-        VIDEO_BATCH: "pixel_values_videos.shape[0]", VIDEO_FRAMES: "pixel_values_videos.shape[1]",
-        VIDEO_PATCHES: "pixel_values_videos.shape[2]",
-        VIDEO_POOL_CELLS: "VIDEO_PATCHES divided by vision_pooling_kernel_size squared",
-        VIDEO_SOFT_TOKENS: "true rows in the video pooled-position mask in video-frame-major order",
-      };
   const replace = (value: string): string => Object.entries(replacements).sort(([left], [right]) => right.length - left.length)
     .reduce((current, [source, target]) => current.replaceAll(source, target), value);
   return {
     ...structuredClone(domain),
     shape: domain.shape.map(replace),
     axes: domain.axes.map((axis) => ({ ...axis, size: replace(axis.size), indexDomain: replace(axis.indexDomain) })),
-    dimensionDefinitions: instantiatedDefinitions,
+  };
+}
+
+function buildDimensionPrograms(program: Gemma4CompositeProgram): Gemma4LiteralDimensionPrograms {
+  const poolingCells = program.visionProgram.tower.poolingKernelSize ** 2;
+  const chunkSize = program.audioProgram.tower.attentionChunkSize;
+  return {
+    B: tensorAxis("input_ids", 0),
+    S: tensorAxis("input_ids", 1),
+    K: add(cacheKeyLength(), dimension("S")),
+    VB: tensorAxis("pixel_values", 0),
+    VP: tensorAxis("pixel_values", 1),
+    VPOOL_KERNEL_CELLS: constant(poolingCells),
+    VPOOL: exactDivide(dimension("VP"), dimension("VPOOL_KERNEL_CELLS")),
+    VVALID: trueCount("vision_pool_mask"),
+    IMAGE_BATCH: tensorAxis("pixel_values", 0),
+    IMAGE_PATCHES: tensorAxis("pixel_values", 1),
+    IMAGE_POOL_CELLS: exactDivide(dimension("IMAGE_PATCHES"), dimension("VPOOL_KERNEL_CELLS")),
+    IMAGE_SOFT_TOKENS: trueCount("composite_image_features/vision_pool_mask"),
+    VIDEO_BATCH: tensorAxis("pixel_values_videos", 0),
+    VIDEO_FRAMES: tensorAxis("pixel_values_videos", 1),
+    VIDEO_PATCHES: tensorAxis("pixel_values_videos", 2),
+    VIDEO_POOL_CELLS: exactDivide(dimension("VIDEO_PATCHES"), dimension("VPOOL_KERNEL_CELLS")),
+    VIDEO_SOFT_TOKENS: trueCount("composite_video_features/vision_pool_mask"),
+    AB: tensorAxis("input_features", 0),
+    AT0: tensorAxis("input_features", 1),
+    AF0: tensorAxis("input_features", 2),
+    AT1: ceilDivide(dimension("AT0"), constant(2)),
+    AF1: ceilDivide(dimension("AF0"), constant(2)),
+    AT2: ceilDivide(dimension("AT1"), constant(2)),
+    AF2: ceilDivide(dimension("AF1"), constant(2)),
+    ABLOCKS: ceilDivide(dimension("AT2"), constant(chunkSize)),
+    AVALID: trueCount("audio_output_mask"),
   };
 }
 
@@ -361,11 +375,49 @@ function exactPolicy(inputDtype: string, computeDtype: string, outputDtype: stri
   return { inputDtype, computeDtype, accumulationDtype: "none", outputDtype };
 }
 
-function validateValueDomain(domain: Gemma4LiteralValueDomain, id: string): void {
+function validateValueDomain(
+  domain: Gemma4LiteralValueDomain,
+  id: string,
+  globalPrograms: Gemma4LiteralDimensionPrograms,
+): void {
   const policy = domain.dtypePolicy;
   if ((domain.structure !== "tensor" && domain.structure !== "tuple") || !domain.dtype || domain.shape.length === 0 || domain.axes.length !== domain.shape.length ||
     domain.shape.some((size) => !size) || domain.axes.some((axis, index) => axis.axis !== index || !axis.name || axis.size !== domain.shape[index] || !axis.indexDomain) ||
     !policy || !policy.inputDtype || !policy.computeDtype || !policy.accumulationDtype || policy.outputDtype !== domain.dtype) {
     throw new Error(`${id}: domínio literal de valor inválido.`);
   }
+  const available = new Set(Object.keys(globalPrograms));
+  for (const size of domain.shape) {
+    if (!/^(?:\d+|[A-Z][A-Z0-9_]*)(?:\*(?:\d+|[A-Z][A-Z0-9_]*))*$/.test(size)) {
+      throw new Error(`${id}: expressão de shape não executável: ${size}.`);
+    }
+    for (const token of size.match(/[A-Z][A-Z0-9_]*/g) ?? []) {
+      if (!available.has(token)) throw new Error(`${id}: shape referencia dimensão sem programa: ${token}.`);
+    }
+  }
+}
+
+function constant(value: number): Gemma4LiteralDimensionExpression { return { kind: "constant", value }; }
+function dimension(name: string): Gemma4LiteralDimensionExpression { return { kind: "dimension", name }; }
+function tensorAxis(tensor: string, axis: number, whenAbsent?: 0): Gemma4LiteralDimensionExpression {
+  return { kind: "tensor-axis", tensor, axis, ...(whenAbsent === undefined ? {} : { whenAbsent }) };
+}
+function cacheKeyLength(): Gemma4LiteralDimensionExpression {
+  return {
+    kind: "cache-key-length",
+    input: "past_key_values",
+    sequenceAxis: 2,
+    whenAbsent: 0,
+    consistency: "all-present-producer-entries-equal",
+  };
+}
+function trueCount(tensor: string): Gemma4LiteralDimensionExpression { return { kind: "true-count", tensor, order: "row-major" }; }
+function add(left: Gemma4LiteralDimensionExpression, right: Gemma4LiteralDimensionExpression): Gemma4LiteralDimensionExpression {
+  return { kind: "add", left, right };
+}
+function ceilDivide(left: Gemma4LiteralDimensionExpression, right: Gemma4LiteralDimensionExpression): Gemma4LiteralDimensionExpression {
+  return { kind: "ceil-divide", left, right };
+}
+function exactDivide(left: Gemma4LiteralDimensionExpression, right: Gemma4LiteralDimensionExpression): Gemma4LiteralDimensionExpression {
+  return { kind: "exact-divide", left, right };
 }

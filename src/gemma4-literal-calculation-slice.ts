@@ -10,6 +10,10 @@ import type { LiteralDenseDecoderLanguageContract, LiteralDenseStorageDecodeAssi
 import type { TensorRef } from "./types.js";
 import type { Gemma4LiteralFormulaLanguageContract } from "./gemma4-literal-formula-language.js";
 import type { Gemma4LiteralTranscendentalPrograms } from "./gemma4-literal-transcendental-programs.js";
+import type {
+  Gemma4LiteralDimensionExpressionLanguage,
+  Gemma4LiteralDimensionPrograms,
+} from "./gemma4-literal-dimension-programs.js";
 
 export interface Gemma4LiteralCalculationSliceExternalInput {
   name: string;
@@ -50,6 +54,8 @@ export interface Gemma4LiteralCalculationSlice {
   lastOperationId: string;
   operations: Gemma4LiteralOperationNavigation[];
   formulaLanguage: Gemma4LiteralFormulaLanguageContract;
+  dimensionLanguage: Gemma4LiteralDimensionExpressionLanguage;
+  dimensionPrograms: Gemma4LiteralDimensionPrograms;
   transcendentalPrograms: Gemma4LiteralTranscendentalPrograms;
   denseDecoderLanguage: LiteralDenseDecoderLanguageContract;
   externalInputs: Gemma4LiteralCalculationSliceExternalInput[];
@@ -158,6 +164,8 @@ export function buildGemma4LiteralCalculationSlice(
     lastOperationId: target.operationId,
     operations,
     formulaLanguage: structuredClone(artifact.formulaLanguage),
+    dimensionLanguage: structuredClone(artifact.calculationDomains.dimensionLanguage),
+    dimensionPrograms: structuredClone(artifact.calculationDomains.dimensionPrograms),
     transcendentalPrograms: structuredClone(artifact.transcendentalPrograms),
     denseDecoderLanguage: structuredClone(artifact.denseDecoderLanguage),
     externalInputs,

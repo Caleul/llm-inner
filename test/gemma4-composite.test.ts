@@ -19,6 +19,11 @@ import { executeGemma4LiteralCompositeF32, generateGemma4LiteralCompositeF32 } f
 import { buildGemma4LiteralGenerationNavigation, renderGemma4LiteralGenerationCalculationView } from "../src/gemma4-literal-generation-navigation.js";
 import { buildGemma4LiteralCalculationSlice } from "../src/gemma4-literal-calculation-slice.js";
 import { buildGemma4LiteralEndToEndCalculation } from "../src/gemma4-literal-end-to-end-calculation.js";
+import {
+  evaluateGemma4LiteralDimensionProgram,
+  evaluateGemma4LiteralDimensionPrograms,
+  evaluateGemma4LiteralShapeExpression,
+} from "../src/gemma4-literal-dimension-programs.js";
 import { evaluateGemma4LiteralLearnedOperandIndices } from "../src/gemma4-literal-learned-operands.js";
 import { buildGemma4LiteralScalarCalculations } from "../src/gemma4-literal-scalar-calculations.js";
 import {
@@ -424,15 +429,16 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 25);
+  assert.equal(literal.schemaVersion, 26);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   assert.deepEqual(literal.authoritativeExecution, gemma4AuthoritativeExecutionContract());
   assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.languageId, literal.generation.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.authority.numericLiteralBits, "/numericLiterals/literals");
-  assert.equal(literal.formulaLanguage.schemaVersion, 11);
+  assert.equal(literal.formulaLanguage.schemaVersion, 12);
   assert.match(literal.formulaLanguage.evaluation.operandClosure, /every source tensor read names one ordered input/);
+  assert.match(literal.formulaLanguage.evaluation.dimensionBinding, /safe-integer dimension language/);
   assert.equal(literal.formulaLanguage.indexing.programs.schemaVersion, 3);
   assert.ok(literal.numericLiterals.literals.some((entry) =>
     entry.uses.some((use) => use.section === "cache-transition" && use.definitionId === "layer_0_incremental")));
@@ -502,6 +508,42 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   const expectedDomainCount = literal.assignments.composite.length + literal.assignments.vision.length + literal.assignments.audio.length +
     literal.program.textProgram.prelude.length + literal.program.textProgram.layers.reduce((total, layer) => total + layer.operations.length, 0) + literal.assignments.textEpilogue.length;
   assert.equal(literal.calculationDomains.assignments.length, expectedDomainCount);
+  assert.equal(literal.calculationDomains.schemaVersion, 2);
+  assert.equal(literal.calculationDomains.dimensionLanguage.id, "gemma4-safe-integer-dimension-expression-v1");
+  const dimensionValues = evaluateGemma4LiteralDimensionPrograms(literal.calculationDomains.dimensionPrograms, {
+    tensorShapes: {
+      input_ids: [2, 3], pixel_values: [2, 8, 12],
+      pixel_values_videos: [1, 2, 8, 12], input_features: [2, 5, 7],
+    },
+    booleanTensors: {
+      vision_pool_mask: [true, false, true, true],
+      "composite_image_features/vision_pool_mask": [true, true, false, true],
+      "composite_video_features/vision_pool_mask": [true, false, true, false],
+      audio_output_mask: [true, false, true],
+    },
+    cacheKeyLengths: [5, 5],
+  });
+  assert.deepEqual({
+    B: dimensionValues.B, S: dimensionValues.S, K: dimensionValues.K,
+    VB: dimensionValues.VB, VP: dimensionValues.VP, VPOOL: dimensionValues.VPOOL, VVALID: dimensionValues.VVALID,
+    AB: dimensionValues.AB, AT1: dimensionValues.AT1, AF1: dimensionValues.AF1,
+    AT2: dimensionValues.AT2, AF2: dimensionValues.AF2, ABLOCKS: dimensionValues.ABLOCKS, AVALID: dimensionValues.AVALID,
+  }, { B: 2, S: 3, K: 8, VB: 2, VP: 8, VPOOL: 2, VVALID: 3, AB: 2, AT1: 3, AF1: 4, AT2: 2, AF2: 2, ABLOCKS: 1, AVALID: 2 });
+  assert.equal(evaluateGemma4LiteralDimensionProgram("K", literal.calculationDomains.dimensionPrograms, {
+    tensorShapes: { input_ids: [1, 3] },
+  }), 3);
+  assert.throws(() => evaluateGemma4LiteralDimensionProgram("K", literal.calculationDomains.dimensionPrograms, {
+    tensorShapes: { input_ids: [1, 3] }, cacheKeyLengths: [5, 6],
+  }), /comprimentos de key contraditórios/);
+  assert.equal(evaluateGemma4LiteralShapeExpression("VIDEO_BATCH*VIDEO_FRAMES", dimensionValues), 2);
+  assert.throws(() => evaluateGemma4LiteralShapeExpression("ceil(VP/4)", dimensionValues), /shape Gemma 4 inválida/);
+  assert.throws(() => evaluateGemma4LiteralShapeExpression("9007199254740991*2", dimensionValues), /inteiro seguro/);
+  assert.throws(() => evaluateGemma4LiteralDimensionProgram("VPOOL", literal.calculationDomains.dimensionPrograms, {
+    tensorShapes: { pixel_values: [1, 7, 12] },
+  }), /não é exata/);
+  assert.throws(() => evaluateGemma4LiteralDimensionProgram("AVALID", literal.calculationDomains.dimensionPrograms, {
+    tensorShapes: {},
+  }), /tensor BOOL ausente/);
   assert.ok(literal.calculationDomains.assignments.every((entry) =>
     entry.domain.shape.length > 0 && entry.domain.axes.length === entry.domain.shape.length && entry.domain.layout.length > 0 &&
     entry.domain.dtype.length > 0 && entry.domain.dtypePolicy?.outputDtype === entry.domain.dtype));
@@ -767,6 +809,12 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   const missingDomain = structuredClone(literal);
   missingDomain.calculationDomains.assignments = missingDomain.calculationDomains.assignments.filter((entry) => entry.definitionId !== "layer_0_q_proj");
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(missingDomain), /domínios de shape\/dtype\/layout/);
+  const cyclicDimension = structuredClone(literal);
+  cyclicDimension.calculationDomains.dimensionPrograms.AT1 = { kind: "dimension", name: "AT1" };
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(cyclicDimension), /ciclo de dimensão/);
+  const hostDimensionLanguage = structuredClone(literal);
+  hostDimensionLanguage.calculationDomains.dimensionLanguage.arithmetic.ceilDivide = "host decides";
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(hostDimensionLanguage), /linguagem de dimensões/);
   const guessedLearnedRole = structuredClone(literal);
   guessedLearnedRole.learnedOperands.assignments.find((entry) =>
     entry.scope === "vision" && entry.definitionId === "vision_layer_0_q")!.operands[0]!.role = "bias";
@@ -894,7 +942,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 25);
+      assert.equal(artifact.schemaVersion, 26);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.deepEqual(artifact.authoritativeExecution, gemma4AuthoritativeExecutionContract());
@@ -1317,6 +1365,8 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       assert.ok(visionWeights.scalarAssignments.some((formula) => formula.includes("SLEEF_EXP_F32")));
       assert.equal(visionWeights.transcendentalPrograms.programs.SLEEF_EXP_F32.kernel, "Sleef_expf4_u10advsimd");
       assert.equal(visionWeights.formulaLanguage.authority.transcendentalPrograms, "/transcendentalPrograms");
+      assert.deepEqual(visionWeights.dimensionLanguage, artifact.calculationDomains.dimensionLanguage);
+      assert.deepEqual(visionWeights.dimensionPrograms, artifact.calculationDomains.dimensionPrograms);
       assert.ok(visionWeights.scalarAssignments.some((formula) => formula.includes("ORDERED_F32_REDUCE_MAX")));
       assert.ok(visionWeights.scalarAssignments.some((formula) => formula.includes("ORDERED_F32_REDUCE_SUM")));
       const opaqueVisionSoftmax = structuredClone(visionWeights);
@@ -1450,6 +1500,8 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       assert.deepEqual(imageSlice.denseDecoderLanguage, artifact.denseDecoderLanguage);
       assert.deepEqual(imageSlice.transcendentalPrograms, artifact.transcendentalPrograms);
       assert.deepEqual(imageSlice.formulaLanguage, artifact.formulaLanguage);
+      assert.deepEqual(imageSlice.dimensionLanguage, artifact.calculationDomains.dimensionLanguage);
+      assert.deepEqual(imageSlice.dimensionPrograms, artifact.calculationDomains.dimensionPrograms);
       assert.ok(imageSlice.numericLiterals.some((literal) => literal.token === "0.5" && /^0x[0-9a-f]{8}$/.test(literal.binary32Hex)));
       assert.equal(imageSlice.reproducibility.status, "literal");
       assert.deepEqual(imageSlice.reproducibility.failClosedOperationIds, []);
