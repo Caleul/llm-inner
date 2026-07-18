@@ -97,6 +97,16 @@ de prefill ou concatenação incremental no eixo de sequência. Um leitor pode
 substituir `step` e `max_new_tokens`, mas não pode inventar a fórmula de argmax,
 EOS, posição, cache ou estado forward fora do JSON.
 
+No schema v7, `calculationGraph.assignments` é a sequência forward canônica.
+Cada entrada vincula a definição reutilizável ao seu `invocationId`, substitui
+nomes locais por entradas/saídas instanciadas, carrega o domínio e cálculo
+escalar correspondentes e declara as arestas de predecessor e consumidor.
+Portanto um leitor não pode reconstruir a expansão de `vision-feature-program`,
+`audio-feature-program` ou `text-core` a partir de convenções próprias. As
+fórmulas de wrapper referem o intervalo instanciado no grafo; a navegação e a
+geração consomem essa mesma sequência serializada e falham se outra ordem for
+declarada.
+
 Quando a autoridade disponível prova a equação, mas não a árvore de uma
 redução nativa, a fórmula preserva o domínio matemático completo e a entrada
 declara `reproducibility=fail-closed-runtime-reduction` com

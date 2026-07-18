@@ -33,6 +33,7 @@ try {
   const selected = args.tensor ? artifact.constants.get(args.tensor) : undefined;
   if (args.tensor && !selected) throw new Error(`Tensor literal não encontrado: ${args.tensor}.`);
   const result: Record<string, unknown> = {
+    schemaVersion: artifact.schemaVersion,
     artifact: artifact.artifact,
     artifactBytes: artifact.artifactBytes,
     constants: artifact.constants.size,
@@ -40,6 +41,14 @@ try {
     embeddedTextSource: artifact.program.textProgram.source.path,
     sourceFormat: "safetensors",
     payloadIntegrityCommitted: artifact.payloadIntegrity !== undefined,
+    calculationGraph: {
+      assignments: artifact.calculationGraph.assignments.length,
+      firstOperation: artifact.calculationGraph.assignments[0]?.operationId,
+      lastOperation: artifact.calculationGraph.assignments.at(-1)?.operationId,
+      explicitPredecessorEdges: artifact.calculationGraph.assignments.reduce((total, assignment) =>
+        total + assignment.predecessors.filter((predecessor) => predecessor.producerOperationId !== undefined).length, 0),
+      instantiatedInvocations: [...new Set(artifact.calculationGraph.assignments.flatMap((assignment) => assignment.invocationId ? [assignment.invocationId] : []))],
+    },
     ...(args.assertSourceUnavailable ? { assertedUnavailableSource: args.assertSourceUnavailable, sourceCheckpointAccessed: false } : {}),
   };
   if (selected) {

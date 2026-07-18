@@ -13,12 +13,10 @@ import {
 } from "./gemma4-literal-scalar-view.js";
 import type { Gemma4VisionAssignment } from "./gemma4-vision.js";
 import type { DtypePolicy, TensorRef } from "./types.js";
-import { instantiateGemma4LiteralValueDomain, type Gemma4LiteralValueDomain } from "./gemma4-literal-domains.js";
 import {
   optionalGemma4LiteralLearnedOperand,
   requiredGemma4LiteralLearnedOperand,
   type Gemma4LiteralLearnedOperandRole,
-  type Gemma4LiteralLearnedOperand,
 } from "./gemma4-literal-learned-operands.js";
 import {
   requiredGemma4LiteralScalarCalculation,
@@ -34,20 +32,6 @@ interface AssignmentEntry {
   operationId: string;
   invocationId?: string;
   bindings: ReadonlyMap<string, string>;
-}
-
-interface NavigationSeed {
-  operationId: string;
-  definitionId?: string;
-  operation: string;
-  scope: Gemma4LiteralOperationNavigation["scope"];
-  layer?: number;
-  invocationId?: string;
-  inputs: string[];
-  output: string;
-  outputDomain: Gemma4LiteralValueDomain;
-  scalarCalculation: Gemma4LiteralScalarCalculation;
-  learnedOperands?: Gemma4LiteralLearnedOperand[];
 }
 
 export interface Gemma4LiteralMultimodalScalarViewRequest extends Gemma4LiteralScalarViewRequest {
@@ -68,41 +52,21 @@ const F32_REDUCTION_POLICY: DtypePolicy = {
  * incorrectly rerunning the standalone embedding/PLE prelude.
  */
 export function listGemma4LiteralOperations(artifact: OpenGemma4CompositeLiteralArtifact): Gemma4LiteralOperationNavigation[] {
-  const seeds = navigationSeeds(artifact);
-  const ids = new Set<string>(), producerByOutput = new Map<string, string>();
-  for (const seed of seeds) {
-    if (ids.has(seed.operationId)) throw new Error(`Plano literal Gemma 4 possui operação instanciada duplicada: ${seed.operationId}.`);
-    if (producerByOutput.has(seed.output)) throw new Error(`Plano literal Gemma 4 redeclara saída instanciada: ${seed.output}.`);
-    ids.add(seed.operationId);
-    producerByOutput.set(seed.output, seed.operationId);
-  }
-  const consumersByOutput = new Map<string, string[]>();
-  for (const seed of seeds) for (const input of seed.inputs) {
-    const consumers = consumersByOutput.get(input) ?? [];
-    consumers.push(seed.operationId);
-    consumersByOutput.set(input, consumers);
-  }
-  const navigation = seeds.map((seed, ordinal): Gemma4LiteralOperationNavigation => ({
-    operationId: seed.operationId,
-    ...(seed.definitionId ? { definitionId: seed.definitionId } : {}),
-    operation: seed.operation,
-    scope: seed.scope,
-    ...(seed.layer === undefined ? {} : { layer: seed.layer }),
-    ...(seed.invocationId ? { invocationId: seed.invocationId } : {}),
-    ordinal,
-    output: seed.output,
-    outputDomain: seed.outputDomain,
-    scalarCalculation: seed.scalarCalculation,
-    ...(seed.learnedOperands ? { learnedOperands: seed.learnedOperands } : {}),
-    predecessors: seed.inputs.map((input) => ({ input, ...(producerByOutput.has(input) ? { producerOperationId: producerByOutput.get(input)! } : {}) })),
-    consumers: consumersByOutput.get(seed.output) ?? [],
+  const navigation = artifact.calculationGraph.assignments.map((assignment): Gemma4LiteralOperationNavigation => ({
+    operationId: assignment.operationId,
+    definitionId: assignment.definitionId,
+    operation: assignment.operation,
+    scope: assignment.scope,
+    ...(assignment.layer === undefined ? {} : { layer: assignment.layer }),
+    ...(assignment.invocationId ? { invocationId: assignment.invocationId } : {}),
+    ordinal: assignment.ordinal,
+    output: assignment.output,
+    outputDomain: structuredClone(assignment.outputDomain),
+    scalarCalculation: structuredClone(assignment.scalarCalculation),
+    ...(assignment.learnedOperands ? { learnedOperands: structuredClone(assignment.learnedOperands) } : {}),
+    predecessors: structuredClone(assignment.predecessors),
+    consumers: [...assignment.consumers],
   }));
-  const navigationById = new Map(navigation.map((entry) => [entry.operationId, entry]));
-  for (const entry of navigation) for (const predecessor of entry.predecessors) {
-    if (!predecessor.producerOperationId) continue;
-    const producer = navigationById.get(predecessor.producerOperationId)!;
-    if (producer.ordinal >= entry.ordinal) throw new Error(`${entry.operationId}: predecessor ${producer.operationId} não antecede o consumidor no plano literal.`);
-  }
   return navigation.map((entry, ordinal) => {
     return {
     ...entry,
@@ -125,7 +89,7 @@ export async function renderGemma4LiteralMultimodalScalarView(
   if (!navigation) throw new Error(`Atribuição Gemma 4 literal não encontrada: ${request.operationId}.`);
   if (navigation.scope === "text-layer" || navigation.scope === "text-epilogue") {
     const rendered = await renderGemma4LiteralScalarView(artifact, { ...request, operationId: navigation.definitionId ?? navigation.operationId });
-    return bindScalarView(rendered, navigation, textBindings());
+    return bindScalarView(rendered, navigation, calculationBindings(rendered.navigation.scalarCalculation, navigation.scalarCalculation));
   }
   const entry = assignmentEntries(artifact).find((candidate) => candidate.operationId === request.operationId);
   if (!entry) throw new Error(`Atribuição Gemma 4 literal não possui definição instanciada: ${request.operationId}.`);
@@ -166,80 +130,22 @@ export async function renderGemma4LiteralMultimodalScalarView(
 }
 
 function assignmentEntries(artifact: OpenGemma4CompositeLiteralArtifact): AssignmentEntry[] {
-  const entries: AssignmentEntry[] = [];
-  for (const assignment of artifact.program.assignments) {
-    if (assignment.operation === "vision-feature-program") {
-      entries.push(...instantiateAssignments(artifact.program.visionProgram.assignments, "vision", assignment, artifact.program.visionProgram.output));
-    } else if (assignment.operation === "audio-feature-program") {
-      entries.push(...instantiateAssignments(artifact.program.audioProgram.assignments, "audio", assignment, artifact.program.audioProgram.output));
-    } else if (assignment.operation !== "text-core") {
-      entries.push({ assignment, scope: "composite", operationId: assignment.id, bindings: new Map() });
-    }
-  }
-  return entries;
-}
-
-function navigationSeeds(artifact: OpenGemma4CompositeLiteralArtifact): NavigationSeed[] {
-  const entries = assignmentEntries(artifact);
-  const seeds: NavigationSeed[] = [];
-  for (const assignment of artifact.program.assignments) {
-    if (assignment.operation === "vision-feature-program" || assignment.operation === "audio-feature-program") {
-      for (const entry of entries.filter((candidate) => candidate.invocationId === assignment.id)) seeds.push(seedFromAssignment(entry, artifact));
-      continue;
-    }
-    if (assignment.operation === "text-core") {
-      for (const entry of listGemma4LiteralTextOperations(artifact).filter((candidate) => candidate.scope !== "text-prelude")) {
-        seeds.push({
-          operationId: entry.operationId,
-          operation: entry.operation,
-          scope: entry.scope,
-          ...(entry.layer === undefined ? {} : { layer: entry.layer }),
-          invocationId: assignment.id,
-          inputs: entry.predecessors.map((predecessor) => bindName(predecessor.input, textBindings())),
-          output: bindName(entry.output, textBindings()),
-          outputDomain: entry.outputDomain,
-          scalarCalculation: entry.scalarCalculation,
-          ...(entry.learnedOperands ? { learnedOperands: entry.learnedOperands } : {}),
-        });
-      }
-      continue;
-    }
-    const entry = entries.find((candidate) => candidate.operationId === assignment.id);
-    if (!entry) throw new Error(`${assignment.id}: atribuição composite não foi instanciada.`);
-    seeds.push(seedFromAssignment(entry, artifact));
-  }
-  return seeds;
-}
-
-function seedFromAssignment(entry: AssignmentEntry, artifact: OpenGemma4CompositeLiteralArtifact): NavigationSeed {
-  return {
-    operationId: entry.operationId,
-    ...(entry.invocationId ? { definitionId: entry.assignment.id } : {}),
-    operation: entry.assignment.operation,
-    scope: entry.scope,
-    ...(entry.invocationId ? { invocationId: entry.invocationId } : {}),
-    inputs: entry.assignment.inputs.map((input) => bindName(input, entry.bindings)),
-    output: bindName(entry.assignment.output, entry.bindings),
-    outputDomain: requiredAssignmentDomain(artifact, entry),
-    scalarCalculation: requiredGemma4LiteralScalarCalculation(artifact.scalarCalculations, entry.scope, entry.assignment.id),
-    ...learnedOperandsForAssignment(artifact, entry),
-  };
-}
-
-function learnedOperandsForAssignment(
-  artifact: OpenGemma4CompositeLiteralArtifact,
-  entry: AssignmentEntry,
-): { learnedOperands?: Gemma4LiteralLearnedOperand[] } {
-  const binding = artifact.learnedOperands.assignments.find((candidate) =>
-    candidate.scope === entry.scope && candidate.definitionId === entry.assignment.id);
-  return binding ? { learnedOperands: structuredClone(binding.operands) } : {};
-}
-
-function requiredAssignmentDomain(artifact: OpenGemma4CompositeLiteralArtifact, entry: AssignmentEntry): Gemma4LiteralValueDomain {
-  const domain = artifact.calculationDomains.assignments.find((candidate) =>
-    candidate.scope === entry.scope && candidate.definitionId === entry.assignment.id);
-  if (!domain) throw new Error(`${entry.assignment.id}: domínio literal ${entry.scope} ausente.`);
-  return instantiateGemma4LiteralValueDomain(domain.domain, entry.invocationId);
+  return artifact.calculationGraph.assignments.flatMap((calculation): AssignmentEntry[] => {
+    if (calculation.scope === "text-layer" || calculation.scope === "text-epilogue") return [];
+    const definitions = calculation.scope === "composite" ? artifact.program.assignments
+      : calculation.scope === "vision" ? artifact.program.visionProgram.assignments
+        : artifact.program.audioProgram.assignments;
+    const assignment = definitions.find((candidate) => candidate.id === calculation.definitionId);
+    if (!assignment) throw new Error(`${calculation.operationId}: definição ${calculation.definitionId} ausente no programa literal.`);
+    const definitionCalculation = requiredGemma4LiteralScalarCalculation(artifact.scalarCalculations, calculation.scope, calculation.definitionId);
+    return [{
+      assignment,
+      scope: calculation.scope,
+      operationId: calculation.operationId,
+      ...(calculation.invocationId ? { invocationId: calculation.invocationId } : {}),
+      bindings: calculationBindings(definitionCalculation, calculation.scalarCalculation),
+    }];
+  });
 }
 
 function compatibleTextPreludeDefinitionId(
@@ -261,29 +167,16 @@ function compatibleTextPreludeDefinitionId(
   return candidates[0]!.id;
 }
 
-function instantiateAssignments(
-  definitions: Assignment[],
-  scope: "vision" | "audio",
-  invocation: Gemma4CompositeAssignment,
-  terminalOutput: string,
-): AssignmentEntry[] {
-  const external = scope === "vision"
-    ? new Map([["pixel_values", invocation.inputs[0]!], ["pixel_position_ids", invocation.inputs[1]!]])
-    : new Map([["input_features", invocation.inputs[0]!], ["input_features_mask", invocation.inputs[1]!]]);
-  const usable = definitions.filter((definition) => definition.operation !== "masked-scatter-image-features" && definition.operation !== "masked-scatter-audio-features");
-  const bindings = new Map<string, string>(external);
-  for (const definition of usable) bindings.set(definition.output, definition.output === terminalOutput ? invocation.output : `${invocation.id}/${definition.output}`);
-  return usable.map((assignment) => ({
-    assignment,
-    scope,
-    operationId: `${invocation.id}/${assignment.id}`,
-    invocationId: invocation.id,
-    bindings,
-  }));
-}
-
-function textBindings(): ReadonlyMap<string, string> {
-  return new Map([["attention_mask:full", "full_attention_mask"], ["attention_mask:sliding", "sliding_attention_mask"]]);
+function calculationBindings(
+  definition: Gemma4LiteralScalarCalculation,
+  instantiated: Gemma4LiteralScalarCalculation,
+): ReadonlyMap<string, string> {
+  if (definition.orderedInputs.length !== instantiated.orderedInputs.length) {
+    throw new Error(`${instantiated.definitionId}: cálculo instanciado possui aridade divergente.`);
+  }
+  const bindings = new Map(definition.orderedInputs.map((input, index) => [input, instantiated.orderedInputs[index]!]));
+  bindings.set(definition.output, instantiated.output);
+  return bindings;
 }
 
 function bindScalarView(
@@ -310,8 +203,6 @@ function bindScalarView(
     ...(view.terms ? { terms: view.terms.map((term) => ({ ...term, input: replace(term.input), formula: replace(term.formula) })) } : {}),
   };
 }
-
-function bindName(value: string, bindings: ReadonlyMap<string, string>): string { return bindings.get(value) ?? value; }
 
 async function renderLinear(
   artifact: OpenGemma4CompositeLiteralArtifact,
@@ -559,7 +450,7 @@ function plainFormulas(artifact: OpenGemma4CompositeLiteralArtifact, entry: Assi
     case "causal-attention-mask": return [`${output} = key <= query ? F32(0) : -Infinity`];
     case "vision-sliding-attention-mask": return [`${output} = key > query-sliding_window and (key<=query or same_nonnegative_vision_block) ? F32(0) : -Infinity`];
     case "replace-multimodal-ids-with-pad": return [`${output} = is_declared_modal_id(input_ids[${coordinate.join(",")}]) ? pad_token_id : input_ids[${coordinate.join(",")}]`];
-    case "vision-feature-program": case "audio-feature-program": case "text-core": return [`${output} = declared_subprogram(${assignment.inputs.join(",")}); inspect its named scope assignments for scalar expansion`];
+    case "vision-feature-program": case "audio-feature-program": case "text-core": return [`${output} = EVALUATE(calculationGraph.assignments where invocationId==${JSON.stringify(assignment.id)} in ordinal order).terminalOutput; every bound assignment is serialized in the artifact`];
     case "video-frame-flatten": return [`${output} = ${assignment.inputs[0]}[floor(${coordinate[0]}/frames),${coordinate[0]} mod frames,${coordinate.slice(1).join(",")}] (row-major alias; no arithmetic)`];
     case "masked-scatter": case "masked-scatter-image-features": case "masked-scatter-audio-features": return [`${output} = placeholder_at(input_ids) ? next_feature_row : prior_embedding; rows consumed in batch-major order with exact cardinality`];
     default: throw new Error(`${assignment.id}: operação ${assignment.operation} sem fórmula escalar registrada.`);

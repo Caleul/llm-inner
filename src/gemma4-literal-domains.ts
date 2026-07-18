@@ -263,8 +263,8 @@ function buildTextDomains(program: Gemma4CompositeProgram): Gemma4LiteralAssignm
     ["hidden_states_0", tensor("BF16", ["B", "S", String(architecture.hiddenSize)], ["batch", "sequence", "hidden"])],
     ["ple_inputs", tensor("BF16", ["B", "S", String(architecture.numLayers), String(program.contract.text.perLayerInputSize)], ["batch", "sequence", "layer", "ple_feature"])],
     ["position_ids", tensor("I32", ["B", "S"], ["batch", "sequence"])],
-    ["attention_mask:full", tensor("F32", ["B", "1", "S", "K"], ["batch", "mask_head", "query", "key"])],
-    ["attention_mask:sliding", tensor("F32", ["B", "1", "S", "K"], ["batch", "mask_head", "query", "key"])],
+    ["attention_mask:full_attention", tensor("F32", ["B", "1", "S", "K"], ["batch", "mask_head", "query", "key"])],
+    ["attention_mask:sliding_attention", tensor("F32", ["B", "1", "S", "K"], ["batch", "mask_head", "query", "key"])],
   ]);
   const operations = [
     ...program.textProgram.prelude.map((operation) => ({ operation, scope: "text-prelude" as const })),

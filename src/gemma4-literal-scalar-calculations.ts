@@ -164,7 +164,7 @@ function scalarFormula(definition: Definition, program: Gemma4CompositeProgram, 
     case "replace-multimodal-ids-with-pad": return `${lhs} = is_declared_modal_token(input_ids[batch,sequence]) ? ${numericConfig(program.textProgram.config.pad_token_id, "pad_token_id")} : input_ids[batch,sequence]`;
     case "embedding": return `${lhs} = F32(decode(weight)[input_ids[batch,sequence],feature]*F32(${Math.sqrt(program.contract.text.hiddenSize)}))`;
     case "per-layer-embedding": return `${lhs} = F32(decode(weight)[input_ids[batch,sequence],layer*per_layer_width+feature]*F32(${Math.sqrt(program.contract.text.perLayerInputSize)}))`;
-    case "vision-feature-program": case "audio-feature-program": case "text-core": return `${lhs} = inline_dependency_ordered_assignments(${assignment.inputs.join(",")})[${domain.domain.axes.map((axis) => axis.name).join(",")}]`;
+    case "vision-feature-program": case "audio-feature-program": case "text-core": return `${lhs} = EVALUATE(calculationGraph.assignments where invocationId==${JSON.stringify(assignment.id)} in ordinal order, orderedInputs=[${assignment.inputs.join(",")}]).terminalOutput[${domain.domain.axes.map((axis) => axis.name).join(",")}]`;
     case "video-frame-flatten": return `${lhs} = ${assignment.inputs[0]}[floor(video_frame/frames),video_frame%frames,patch,${domain.domain.axes.at(-1)?.name}]`;
     case "masked-scatter": case "masked-scatter-image-features": case "masked-scatter-audio-features": return `${lhs} = placeholder_mask[batch,sequence] ? next_feature_row[feature] : ${assignment.inputs[0]}[batch,sequence,feature]; feature rows consumed in stable batch-major order`;
     case "linear": return linearFormula(lhs, assignment.inputs[0]!, cast, assignment.tensors?.length === 2, false);
@@ -269,7 +269,7 @@ function requiredDomain(domains: readonly Gemma4LiteralAssignmentDomain[], defin
 }
 
 function linearFormula(lhs: string, input: string, cast: string, bias: boolean, clipped: boolean): string {
-  const x = clipped ? "F32(min(decode(input-max),max(decode(input-min),input[...,input_feature])))" : `${input}[...,input_feature]`;
+  const x = clipped ? `F32(min(decode(input-max),max(decode(input-min),${input}[...,input_feature])))` : `${input}[...,input_feature]`;
   const sum = `REDUCE(input_feature=0..in_features-1,F32(${x}*decode(weight)[output_feature,input_feature]))`;
   const biased = bias ? `F32(${sum}+decode(bias)[output_feature])` : sum;
   return `${lhs} = ${cast}(${clipped ? `min(decode(output-max),max(decode(output-min),${biased}))` : biased})`;

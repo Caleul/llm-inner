@@ -181,7 +181,7 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.equal(literal.storageDecoders.length, catalog.tensors.size);
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 6);
+  assert.equal(literal.schemaVersion, 7);
   const expectedDomainCount = literal.assignments.composite.length + literal.assignments.vision.length + literal.assignments.audio.length +
     literal.program.textProgram.prelude.length + literal.program.textProgram.layers.reduce((total, layer) => total + layer.operations.length, 0) + literal.assignments.textEpilogue.length;
   assert.equal(literal.calculationDomains.assignments.length, expectedDomainCount);
@@ -234,6 +234,29 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
       .filter((operation) => operation.op === "embedding" || operation.op === "per_layer_embedding" ||
         operation.op === "linear" || operation.op === "tensor_scale" || operation.op === "rms_norm" && operation.weight !== undefined).length;
   assert.equal(literal.learnedOperands.assignments.length, expectedLearnedConsumerCount);
+  assert.equal(literal.calculationGraph.assignments.length, 224);
+  assert.deepEqual(literal.calculationGraph.assignments.map((entry) => entry.ordinal),
+    Array.from({ length: literal.calculationGraph.assignments.length }, (_, index) => index));
+  assert.equal(literal.calculationGraph.assignments.some((entry) =>
+    entry.operation === "vision-feature-program" || entry.operation === "audio-feature-program" || entry.operation === "text-core"), false);
+  const instantiatedImageQ = literal.calculationGraph.assignments.find((entry) =>
+    entry.operationId === "composite_image_features/vision_layer_0_q")!;
+  assert.deepEqual(instantiatedImageQ.orderedInputs, ["composite_image_features/vision_layer_0_attn_norm"]);
+  assert.equal(instantiatedImageQ.output, "composite_image_features/vision_layer_0_q_linear");
+  assert.equal(instantiatedImageQ.predecessors[0]?.producerOperationId, "composite_image_features/vision_layer_0_input_norm");
+  assert.match(instantiatedImageQ.scalarCalculation.formula, /composite_image_features\/vision_layer_0_attn_norm/);
+  assert.equal(instantiatedImageQ.scalarCalculation.output, instantiatedImageQ.output);
+  const instantiatedVideoPatch = literal.calculationGraph.assignments.find((entry) =>
+    entry.operationId === "composite_video_features/vision_patch_projection")!;
+  assert.deepEqual(instantiatedVideoPatch.orderedInputs, ["composite_video_features/vision_pixels_standardized"]);
+  assert.equal(instantiatedVideoPatch.outputDomain.shape[0], "VIDEO_BATCH*VIDEO_FRAMES");
+  const instantiatedTextAttention = literal.calculationGraph.assignments.find((entry) => entry.operationId === "layer_0_attention")!;
+  assert.equal(instantiatedTextAttention.orderedInputs.at(-1), "full_attention_mask");
+  assert.ok(literal.calculationGraph.assignments.every((entry) => entry.predecessors.every((predecessor) => {
+    if (!predecessor.producerOperationId) return true;
+    const producer = literal.calculationGraph.assignments.find((candidate) => candidate.operationId === predecessor.producerOperationId)!;
+    return producer.ordinal < entry.ordinal && producer.consumers.includes(entry.operationId);
+  })));
   assert.deepEqual(literal.inputs.filter((input) => input.usedBy.includes("generation")).map((input) => input.name), [
     "input_ids", "position_ids", "pixel_values", "image_position_ids", "pixel_values_videos", "video_position_ids",
     "input_features", "input_features_mask", "mm_token_type_ids", "max_new_tokens", "eos_token_id",
@@ -251,6 +274,11 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     literal.generation.assignments.map((assignment) => assignment.id),
   );
   assert.equal(literal.generation.forwardCalculation.operationOrder.length, 224);
+  assert.deepEqual(literal.generation.forwardCalculation.operationOrder,
+    literal.calculationGraph.assignments.map((entry) => ({
+      operationId: entry.operationId, definitionId: entry.definitionId, scope: entry.scope,
+      ...(entry.invocationId ? { invocationId: entry.invocationId } : {}),
+    })));
   assert.equal(literal.generation.forwardCalculation.operationOrder[0]?.operationId, "composite_placeholder_masks");
   assert.equal(literal.generation.forwardCalculation.operationOrder.at(-1)?.operationId, literal.generation.forwardProgram.lastAssignment);
   assert.deepEqual(literal.generation.forwardCalculation.cacheTransitions.map((transition) => transition.layer), [0, 1]);
@@ -317,6 +345,18 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   alteredCalculation.reduction!.order = "ascending-lexicographic";
   delete alteredCalculation.reduction!.schedule;
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(alteredReduction), /fórmulas, casts ou reduções escalares/);
+  const hiddenInstantiatedInput = structuredClone(literal);
+  hiddenInstantiatedInput.calculationGraph.assignments.find((entry) =>
+    entry.operationId === "composite_image_features/vision_layer_0_q")!.orderedInputs[0] = "hidden_reader_binding";
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(hiddenInstantiatedInput), /grafo instanciado, bindings ou dependências/);
+  const opaqueInstantiatedFormula = structuredClone(literal);
+  opaqueInstantiatedFormula.calculationGraph.assignments.find((entry) =>
+    entry.operationId === "composite_audio_features/audio_subsample_0_conv")!.scalarCalculation.formula = "declared_subprogram(input_features)";
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(opaqueInstantiatedFormula), /grafo instanciado, bindings ou dependências/);
+  const hiddenPredecessor = structuredClone(literal);
+  delete hiddenPredecessor.calculationGraph.assignments.find((entry) =>
+    entry.operationId === "composite_audio_features/audio_subsample_0_conv")!.predecessors[0]!.producerOperationId;
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(hiddenPredecessor), /grafo instanciado, bindings ou dependências/);
   const opaqueGeneration = structuredClone(literal);
   opaqueGeneration.generation.scalarCalculations.assignments.find((calculation) =>
     calculation.definitionId === "generation_prefill")!.formula = "forward_state[0] = generic_decoder(input_ids)";
@@ -840,8 +880,10 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
 
       const duplicateId = artifact.program.visionProgram.assignments[1]!;
       const originalId = duplicateId.id;
+      const serializedIds = listGemma4LiteralOperations(artifact).map((operation) => operation.operationId);
       duplicateId.id = artifact.program.visionProgram.assignments[0]!.id;
-      assert.throws(() => listGemma4LiteralOperations(artifact), /operação instanciada duplicada/);
+      assert.deepEqual(listGemma4LiteralOperations(artifact).map((operation) => operation.operationId), serializedIds,
+        "source-removed navigation must consume the serialized graph instead of reconstructing program expansion");
       duplicateId.id = originalId;
     } finally {
       await artifact.close();

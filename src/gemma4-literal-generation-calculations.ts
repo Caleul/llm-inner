@@ -1,5 +1,8 @@
 import type { Gemma4CompositeProgram } from "./gemma4-composite.js";
-import type { Operation } from "./types.js";
+import {
+  buildGemma4LiteralCalculationGraph,
+  type Gemma4LiteralCalculationGraph,
+} from "./gemma4-literal-calculation-graph.js";
 
 export type Gemma4LiteralGenerationOperation =
   | "execute-declared-forward"
@@ -84,11 +87,17 @@ export interface Gemma4LiteralGenerationScalarCalculations {
 
 export function buildGemma4LiteralGenerationForwardCalculationContract(
   program: Gemma4CompositeProgram,
+  calculationGraph: Gemma4LiteralCalculationGraph = buildGemma4LiteralCalculationGraph(program),
 ): Gemma4LiteralGenerationForwardCalculationContract {
   return {
     kind: "gemma4-literal-generation-forward-calculation-contract",
     schemaVersion: 1,
-    operationOrder: forwardOperationOrder(program),
+    operationOrder: calculationGraph.assignments.map((assignment) => ({
+      operationId: assignment.operationId,
+      definitionId: assignment.definitionId,
+      scope: assignment.scope,
+      ...(assignment.invocationId ? { invocationId: assignment.invocationId } : {}),
+    })),
     logitsOutput: program.outputs.logits,
     cacheTransitions: cacheTransitions(program),
   };
@@ -105,45 +114,6 @@ export function buildGemma4LiteralGenerationScalarCalculations(
     formulaLanguage: "indexed-ieee754-expression-v1",
     assignments: assignments.map((assignment) => scalarCalculation(assignment, forward, vocabSize)),
   };
-}
-
-function forwardOperationOrder(program: Gemma4CompositeProgram): Gemma4LiteralForwardOperationReference[] {
-  const result: Gemma4LiteralForwardOperationReference[] = [];
-  for (const assignment of program.assignments) {
-    if (assignment.operation === "vision-feature-program") {
-      for (const definition of program.visionProgram.assignments) {
-        if (definition.operation === "masked-scatter-image-features") continue;
-        result.push({ operationId: `${assignment.id}/${definition.id}`, definitionId: definition.id, scope: "vision", invocationId: assignment.id });
-      }
-      continue;
-    }
-    if (assignment.operation === "audio-feature-program") {
-      for (const definition of program.audioProgram.assignments) {
-        if (definition.operation === "masked-scatter-audio-features") continue;
-        result.push({ operationId: `${assignment.id}/${definition.id}`, definitionId: definition.id, scope: "audio", invocationId: assignment.id });
-      }
-      continue;
-    }
-    if (assignment.operation === "text-core") {
-      for (const layer of program.textProgram.layers) {
-        for (const operation of layer.operations) result.push(textReference(operation, "text-layer", assignment.id));
-      }
-      for (const operation of program.textProgram.epilogue) result.push(textReference(operation, "text-epilogue", assignment.id));
-      continue;
-    }
-    result.push({ operationId: assignment.id, definitionId: assignment.id, scope: "composite" });
-  }
-  if (result.length === 0) throw new Error("Programa Gemma 4 não possui operações para expansão literal da geração.");
-  const ids = new Set<string>();
-  for (const reference of result) {
-    if (ids.has(reference.operationId)) throw new Error(`Expansão forward Gemma 4 repete ${reference.operationId}.`);
-    ids.add(reference.operationId);
-  }
-  return result;
-}
-
-function textReference(operation: Operation, scope: "text-layer" | "text-epilogue", invocationId: string): Gemma4LiteralForwardOperationReference {
-  return { operationId: operation.id, definitionId: operation.id, scope, invocationId };
 }
 
 function cacheTransitions(program: Gemma4CompositeProgram): Gemma4LiteralCacheTransition[] {

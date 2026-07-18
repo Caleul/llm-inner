@@ -318,6 +318,18 @@ A regeneração real, a navegação source-removed, as transições KV e os
 diferenciais estão em
 [`docs/validation/gemma4-e4b-source-removed-generation-calculations-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-generation-calculations-2026-07-18.md).
 
+O schema v7 torna essa expansão o grafo canônico do artefato, não uma
+reconstrução do leitor. `calculationGraph.assignments` armazena cada chamada
+instanciada em ordem de dependência, incluindo `definitionId`, `invocationId`,
+entradas e saída já vinculadas, domínio de saída, fórmula escalar vinculada,
+operandos aprendidos e arestas explícitas de produtor/consumidor. As chamadas
+compostas de vision, audio e text não aparecem como `declared_subprogram`:
+imagem, vídeo, áudio e o core textual apontam para suas atribuições concretas.
+`generation.forwardCalculation.operationOrder` é derivada do mesmo grafo e a
+navegação source-removed lê diretamente o JSON. A regeneração E4B real expôs
+2.709 atribuições e 3.363 arestas sem alterar os diferenciais existentes; veja
+[`docs/validation/gemma4-e4b-source-removed-instantiated-calculation-graph-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-instantiated-calculation-graph-2026-07-18.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 
