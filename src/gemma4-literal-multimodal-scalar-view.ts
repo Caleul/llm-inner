@@ -13,6 +13,7 @@ import {
 } from "./gemma4-literal-scalar-view.js";
 import type { Gemma4VisionAssignment } from "./gemma4-vision.js";
 import type { DtypePolicy, TensorRef } from "./types.js";
+import { instantiateGemma4LiteralValueDomain, type Gemma4LiteralValueDomain } from "./gemma4-literal-domains.js";
 
 type Assignment = Gemma4CompositeAssignment | Gemma4VisionAssignment | Gemma4AudioAssignment;
 type NonTextScope = "composite" | "vision" | "audio";
@@ -34,6 +35,7 @@ interface NavigationSeed {
   invocationId?: string;
   inputs: string[];
   output: string;
+  outputDomain: Gemma4LiteralValueDomain;
 }
 
 export interface Gemma4LiteralMultimodalScalarViewRequest extends Gemma4LiteralScalarViewRequest {
@@ -77,6 +79,7 @@ export function listGemma4LiteralOperations(artifact: OpenGemma4CompositeLiteral
     ...(seed.invocationId ? { invocationId: seed.invocationId } : {}),
     ordinal,
     output: seed.output,
+    outputDomain: seed.outputDomain,
     predecessors: seed.inputs.map((input) => ({ input, ...(producerByOutput.has(input) ? { producerOperationId: producerByOutput.get(input)! } : {}) })),
     consumers: consumersByOutput.get(seed.output) ?? [],
   }));
@@ -112,6 +115,11 @@ export async function renderGemma4LiteralMultimodalScalarView(
   }
   const entry = assignmentEntries(artifact).find((candidate) => candidate.operationId === request.operationId);
   if (!entry) throw new Error(`Atribuição Gemma 4 literal não possui definição instanciada: ${request.operationId}.`);
+  const definitionId = entry.scope === "composite" ? compatibleTextPreludeDefinitionId(artifact, entry.assignment) : undefined;
+  if (definitionId) {
+    const rendered = await renderGemma4LiteralScalarView(artifact, { ...request, operationId: definitionId });
+    return bindScalarView(rendered, navigation, new Map([[rendered.navigation.output, entry.assignment.output]]));
+  }
   const base = {
     kind: "gemma4-literal-scalar-view" as const,
     sourceCheckpointAccessed: false as const,
@@ -162,7 +170,7 @@ function navigationSeeds(artifact: OpenGemma4CompositeLiteralArtifact): Navigati
   const seeds: NavigationSeed[] = [];
   for (const assignment of artifact.program.assignments) {
     if (assignment.operation === "vision-feature-program" || assignment.operation === "audio-feature-program") {
-      for (const entry of entries.filter((candidate) => candidate.invocationId === assignment.id)) seeds.push(seedFromAssignment(entry));
+      for (const entry of entries.filter((candidate) => candidate.invocationId === assignment.id)) seeds.push(seedFromAssignment(entry, artifact));
       continue;
     }
     if (assignment.operation === "text-core") {
@@ -175,18 +183,19 @@ function navigationSeeds(artifact: OpenGemma4CompositeLiteralArtifact): Navigati
           invocationId: assignment.id,
           inputs: entry.predecessors.map((predecessor) => bindName(predecessor.input, textBindings())),
           output: bindName(entry.output, textBindings()),
+          outputDomain: entry.outputDomain,
         });
       }
       continue;
     }
     const entry = entries.find((candidate) => candidate.operationId === assignment.id);
     if (!entry) throw new Error(`${assignment.id}: atribuição composite não foi instanciada.`);
-    seeds.push(seedFromAssignment(entry));
+    seeds.push(seedFromAssignment(entry, artifact));
   }
   return seeds;
 }
 
-function seedFromAssignment(entry: AssignmentEntry): NavigationSeed {
+function seedFromAssignment(entry: AssignmentEntry, artifact: OpenGemma4CompositeLiteralArtifact): NavigationSeed {
   return {
     operationId: entry.operationId,
     ...(entry.invocationId ? { definitionId: entry.assignment.id } : {}),
@@ -195,7 +204,34 @@ function seedFromAssignment(entry: AssignmentEntry): NavigationSeed {
     ...(entry.invocationId ? { invocationId: entry.invocationId } : {}),
     inputs: entry.assignment.inputs.map((input) => bindName(input, entry.bindings)),
     output: bindName(entry.assignment.output, entry.bindings),
+    outputDomain: requiredAssignmentDomain(artifact, entry),
   };
+}
+
+function requiredAssignmentDomain(artifact: OpenGemma4CompositeLiteralArtifact, entry: AssignmentEntry): Gemma4LiteralValueDomain {
+  const domain = artifact.calculationDomains.assignments.find((candidate) =>
+    candidate.scope === entry.scope && candidate.definitionId === entry.assignment.id);
+  if (!domain) throw new Error(`${entry.assignment.id}: domínio literal ${entry.scope} ausente.`);
+  return instantiateGemma4LiteralValueDomain(domain.domain, entry.invocationId);
+}
+
+function compatibleTextPreludeDefinitionId(
+  artifact: OpenGemma4CompositeLiteralArtifact,
+  assignment: Assignment,
+): string | undefined {
+  const expected = assignment.operation === "embedding" ? "embedding"
+    : assignment.operation === "per-layer-embedding" ? "per_layer_embedding"
+      : assignment.operation === "linear" ? "linear"
+        : assignment.operation === "scale-f32" || assignment.operation === "add" ? "elementwise"
+          : assignment.operation === "reshape-per-layer" ? "reshape_per_layer"
+            : assignment.operation === "rms-norm" ? "rms_norm"
+              : undefined;
+  if (!expected) return undefined;
+  const candidates = artifact.program.textProgram.prelude.filter((operation) =>
+    operation.op === expected && (operation.output === assignment.output ||
+      assignment.operation === "embedding" && operation.id === "token_embedding"));
+  if (candidates.length !== 1) throw new Error(`${assignment.id}: operação composite compatível não possui definição text-prelude única.`);
+  return candidates[0]!.id;
 }
 
 function instantiateAssignments(

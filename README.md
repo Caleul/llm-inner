@@ -270,6 +270,17 @@ entrada incremental, cache, EOS e seleção terminal também possuem fórmulas
 concretas por passo. A validação E4B com a fonte ausente está em
 [`docs/validation/gemma4-e4b-source-removed-generation-navigation-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-generation-navigation-2026-07-18.md).
 
+O schema v3 também incorpora `calculationDomains`: cada definição composite,
+vision, audio e text declara o dtype de saída, layout, shape simbólico, eixos,
+bounds de coordenada e política numérica/redução. O leitor instancia os mesmos
+domínios para imagem e vídeo sem duplicar definições, portanto todas as 2.709
+operações do forward navegável carregam a região exata na qual sua fórmula
+escalar pode ser endereçada. Domínios nativos ainda não comprovados continuam
+com `accumulationDtype=runtime-defined`; a presença de shape nunca autoriza uma
+redução aproximada. A regeneração, auditoria de 2.130 payloads e replays com o
+checkpoint ausente estão em
+[`docs/validation/gemma4-e4b-source-removed-calculation-domains-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-calculation-domains-2026-07-18.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 

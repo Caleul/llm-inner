@@ -1,6 +1,7 @@
 import type { OpenGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
 import type { LiteralDenseStorageDecodeAssignment } from "./literal.js";
 import type { DtypePolicy, Operation, ReductionSchedule, TensorRef } from "./types.js";
+import type { Gemma4LiteralValueDomain } from "./gemma4-literal-domains.js";
 import { decodeIeeeBF16ToF32, decodeIeeeF16ToF32 } from "./utils.js";
 
 export interface Gemma4LiteralOperationNavigation {
@@ -14,6 +15,7 @@ export interface Gemma4LiteralOperationNavigation {
   invocationId?: string;
   ordinal: number;
   output: string;
+  outputDomain: Gemma4LiteralValueDomain;
   predecessors: Array<{ input: string; producerOperationId?: string }>;
   consumers: string[];
   previousOperationId?: string;
@@ -95,6 +97,7 @@ export function listGemma4LiteralTextOperations(artifact: OpenGemma4CompositeLit
     ...(entry.operation.layer === undefined ? {} : { layer: entry.operation.layer }),
     ordinal,
     output: entry.operation.output,
+    outputDomain: requiredTextDomain(artifact, entry.operation.id),
     predecessors: operationInputs(entry.operation).map((input) => ({
       input,
       ...(producerByOutput.has(input) ? { producerOperationId: producerByOutput.get(input)! } : {}),
@@ -103,6 +106,13 @@ export function listGemma4LiteralTextOperations(artifact: OpenGemma4CompositeLit
     ...(ordinal === 0 ? {} : { previousOperationId: entries[ordinal - 1]!.operation.id }),
     ...(ordinal + 1 === entries.length ? {} : { nextOperationId: entries[ordinal + 1]!.operation.id }),
   }));
+}
+
+function requiredTextDomain(artifact: OpenGemma4CompositeLiteralArtifact, definitionId: string): Gemma4LiteralValueDomain {
+  const entry = artifact.calculationDomains.assignments.find((candidate) =>
+    (candidate.scope === "text-prelude" || candidate.scope === "text-layer" || candidate.scope === "text-epilogue") && candidate.definitionId === definitionId);
+  if (!entry) throw new Error(`${definitionId}: domínio literal Gemma4Text ausente.`);
+  return structuredClone(entry.domain);
 }
 
 /**

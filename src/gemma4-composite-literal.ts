@@ -27,6 +27,11 @@ import {
 import type { Gemma4AudioAssignment } from "./gemma4-audio.js";
 import { GEMMA4_E4B_PYTORCH_BF16_TANH_IMPLEMENTATION, GEMMA4_E4B_PYTORCH_BF16_TRIG_IMPLEMENTATION } from "./gemma4-text.js";
 import type { Gemma4VisionAssignment } from "./gemma4-vision.js";
+import {
+  buildGemma4LiteralCalculationDomains,
+  validateGemma4LiteralCalculationDomains,
+  type Gemma4LiteralCalculationDomains,
+} from "./gemma4-literal-domains.js";
 import type { ModelCatalog, Operation, TensorInfo, TensorRef } from "./types.js";
 
 /** Divisible by three so every non-final base64 chunk has no padding. */
@@ -103,7 +108,7 @@ export interface Gemma4LiteralGreedyGenerationProgram {
  * steps remain distinct, named dependencies in the enclosing program.
  */
 export interface Gemma4CompositeLiteralCalculationProgram extends LiteralStorageBundle {
-  schemaVersion: 2;
+  schemaVersion: 3;
   kind: "gemma4-composite-literal-calculation-program";
   sourceFormat: "safetensors";
   numericPolicy: {
@@ -143,6 +148,8 @@ export interface Gemma4CompositeLiteralCalculationProgram extends LiteralStorage
     textLayers: Gemma4CompositeProgram["textProgram"]["layers"];
     textEpilogue: Operation[];
   };
+  /** Exact dtype, row-major layout and symbolic coordinate bounds for every declared calculation output. */
+  calculationDomains: Gemma4LiteralCalculationDomains;
   outputs: { embeddings: "hidden_states_0"; perLayerInputs: "ple_inputs"; logits: "softcapped_logits" | "logits" };
   generation: Gemma4LiteralGreedyGenerationProgram;
   /** Present on streamed artifacts; binds each embedded payload after source removal. */
@@ -210,7 +217,7 @@ export async function buildGemma4CompositeLiteralCalculationProgram(
   const storage = await buildLiteralStorageBundle(catalog, reader, allReferences.values());
   const embeddedProgram = embeddedCompositeProgram(program);
   const literal: Gemma4CompositeLiteralCalculationProgram = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     kind: "gemma4-composite-literal-calculation-program",
     sourceFormat: "safetensors",
     numericPolicy: gemma4CompositeLiteralNumericPolicy(program),
@@ -225,6 +232,7 @@ export async function buildGemma4CompositeLiteralCalculationProgram(
       textLayers: structuredClone(embeddedProgram.textProgram.layers),
       textEpilogue: structuredClone(embeddedProgram.textProgram.epilogue),
     },
+    calculationDomains: buildGemma4LiteralCalculationDomains(embeddedProgram),
     outputs: structuredClone(embeddedProgram.outputs),
     generation: gemma4LiteralGreedyGenerationProgram(embeddedProgram),
   };
@@ -263,7 +271,7 @@ export async function writeGemma4CompositeLiteralCalculationProgram(
 
   try {
     await once(stream, "open");
-    await write(`{"schemaVersion":2,"kind":"gemma4-composite-literal-calculation-program","sourceFormat":"safetensors","numericPolicy":${JSON.stringify(gemma4CompositeLiteralNumericPolicy(program))},"inputs":${JSON.stringify(literalInputs())},"constants":[`);
+    await write(`{"schemaVersion":3,"kind":"gemma4-composite-literal-calculation-program","sourceFormat":"safetensors","numericPolicy":${JSON.stringify(gemma4CompositeLiteralNumericPolicy(program))},"inputs":${JSON.stringify(literalInputs())},"constants":[`);
     for (let index = 0; index < prepared.constants.length; index += 1) {
       const constant = prepared.constants[index]!;
       if (index > 0) await write(",");
@@ -273,7 +281,7 @@ export async function writeGemma4CompositeLiteralCalculationProgram(
       payloadIntegrity.push({ name: constant.name, payloadBytes: payload.bytes, sha256: payload.sha256 });
       await write("\"}");
     }
-    await write(`],"unreachableConstants":${JSON.stringify(prepared.unreachableConstants)},"storageDecoders":${JSON.stringify(prepared.storageDecoders)},"program":${JSON.stringify(prepared.embeddedProgram)},"assignments":${JSON.stringify(prepared.assignments)},"outputs":${JSON.stringify(prepared.outputs)},"generation":${JSON.stringify(prepared.generation)},"payloadIntegrity":${JSON.stringify(payloadIntegrity)}}\n`);
+    await write(`],"unreachableConstants":${JSON.stringify(prepared.unreachableConstants)},"storageDecoders":${JSON.stringify(prepared.storageDecoders)},"program":${JSON.stringify(prepared.embeddedProgram)},"assignments":${JSON.stringify(prepared.assignments)},"calculationDomains":${JSON.stringify(prepared.calculationDomains)},"outputs":${JSON.stringify(prepared.outputs)},"generation":${JSON.stringify(prepared.generation)},"payloadIntegrity":${JSON.stringify(payloadIntegrity)}}\n`);
     stream.end();
     await once(stream, "finish");
     await rename(temporary, output);
@@ -349,7 +357,7 @@ export function generateGemma4CompositeLiteralF32(
  */
 export function validateGemma4CompositeLiteralCalculationProgram(literal: Gemma4CompositeLiteralCalculationProgram): void {
   validateGemma4TextReductionSchedules(literal.program);
-  if (literal.schemaVersion !== 2 || literal.kind !== "gemma4-composite-literal-calculation-program" || literal.sourceFormat !== "safetensors" ||
+  if (literal.schemaVersion !== 3 || literal.kind !== "gemma4-composite-literal-calculation-program" || literal.sourceFormat !== "safetensors" ||
     !sameNumericPolicy(literal.numericPolicy, gemma4CompositeLiteralNumericPolicy(literal.program))) {
     throw new Error("Programa literal Gemma 4 composite possui cabeçalho ou política numérica inválida.");
   }
@@ -359,6 +367,7 @@ export function validateGemma4CompositeLiteralCalculationProgram(literal: Gemma4
   const requiredInputs = expectedInputs.map((input) => input.name);
   validateGemma4CompositeLiteralInputs(literal.inputs);
   validateGemma4LiteralGenerationProgram(literal.generation, literal.program);
+  validateGemma4LiteralCalculationDomains(literal.calculationDomains, literal.program);
   if (literal.program.textProgram.source.path !== "embedded://gemma4-composite-literal" || literal.program.textProgram.source.format !== "safetensors") {
     throw new Error("Programa literal Gemma 4 composite reteve uma referência de source checkpoint.");
   }
@@ -720,6 +729,7 @@ interface PreparedStreamedDenseLiteral {
   unreachableConstants: Gemma4CompositeUnreachableConstant[];
   embeddedProgram: Gemma4CompositeProgram;
   assignments: Gemma4CompositeLiteralCalculationProgram["assignments"];
+  calculationDomains: Gemma4LiteralCalculationDomains;
   outputs: Gemma4CompositeLiteralCalculationProgram["outputs"];
   generation: Gemma4LiteralGreedyGenerationProgram;
 }
@@ -753,6 +763,7 @@ function prepareStreamedDenseLiteral(program: Gemma4CompositeProgram, catalog: M
   };
   const outputs = structuredClone(embeddedProgram.outputs);
   const generation = gemma4LiteralGreedyGenerationProgram(embeddedProgram);
+  const calculationDomains = buildGemma4LiteralCalculationDomains(embeddedProgram);
   const constantMap = new Map<string, LiteralConstant>(constants.map((constant) => [constant.name, { ...constant.metadata, payloadBase64: "" }]));
   validateGemma4CompositeLiteralStructure(embeddedProgram, assignments, outputs, generation, constantMap, unreachableConstants);
   return {
@@ -761,6 +772,7 @@ function prepareStreamedDenseLiteral(program: Gemma4CompositeProgram, catalog: M
     unreachableConstants,
     embeddedProgram,
     assignments,
+    calculationDomains,
     outputs,
     generation,
   };

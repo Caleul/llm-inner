@@ -181,7 +181,16 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.equal(literal.storageDecoders.length, catalog.tensors.size);
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 2);
+  assert.equal(literal.schemaVersion, 3);
+  const expectedDomainCount = literal.assignments.composite.length + literal.assignments.vision.length + literal.assignments.audio.length +
+    literal.program.textProgram.prelude.length + literal.program.textProgram.layers.reduce((total, layer) => total + layer.operations.length, 0) + literal.assignments.textEpilogue.length;
+  assert.equal(literal.calculationDomains.assignments.length, expectedDomainCount);
+  assert.ok(literal.calculationDomains.assignments.every((entry) =>
+    entry.domain.shape.length > 0 && entry.domain.axes.length === entry.domain.shape.length && entry.domain.layout.length > 0 &&
+    entry.domain.dtype.length > 0 && entry.domain.dtypePolicy?.outputDtype === entry.domain.dtype));
+  assert.deepEqual(literal.calculationDomains.assignments.find((entry) => entry.definitionId === "token_embedding")?.domain.shape, ["B", "S", "4"]);
+  assert.deepEqual(literal.calculationDomains.assignments.find((entry) => entry.definitionId === "vision_layer_0_attention_scores")?.domain.shape, ["VB", "1", "VP", "VP"]);
+  assert.deepEqual(literal.calculationDomains.assignments.find((entry) => entry.definitionId === "audio_layer_0_attention_content_scores")?.domain.shape, ["AB", "1", "ABLOCKS", "2", "2"]);
   assert.deepEqual(literal.inputs.filter((input) => input.usedBy.includes("generation")).map((input) => input.name), [
     "input_ids", "position_ids", "pixel_values", "image_position_ids", "pixel_values_videos", "video_position_ids",
     "input_features", "input_features_mask", "mm_token_type_ids", "max_new_tokens", "eos_token_id",
@@ -222,6 +231,9 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   const missingGenerationInput = structuredClone(literal);
   missingGenerationInput.inputs = missingGenerationInput.inputs.filter((input) => input.name !== "max_new_tokens");
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(missingGenerationInput), /controles de forward e geração/);
+  const missingDomain = structuredClone(literal);
+  missingDomain.calculationDomains.assignments = missingDomain.calculationDomains.assignments.filter((entry) => entry.definitionId !== "layer_0_q_proj");
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(missingDomain), /domínios de shape\/dtype\/layout/);
   assert.throws(
     () => generateGemma4CompositeLiteralF32(literal, { inputIds: [[1]], maxNewTokens: 1, pastKeyValues: expected.text.pastKeyValues }),
     /começa em prefill sem pastKeyValues/,
@@ -608,7 +620,28 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       const ordinal = new Map(allOperations.map((operation) => [operation.operationId, operation.ordinal]));
       assert.ok(allOperations.every((operation) => operation.predecessors.every((predecessor) => predecessor.producerOperationId === undefined || ordinal.get(predecessor.producerOperationId)! < operation.ordinal)));
       assert.equal(allOperations.at(-1)?.operationId, program.textProgram.epilogue.at(-1)?.id);
+      assert.ok(allOperations.every((operation) => operation.outputDomain.shape.length === operation.outputDomain.axes.length));
+      assert.deepEqual(allOperations.find((operation) => operation.operationId === "composite_image_features/vision_layer_0_attention_scores")?.outputDomain.shape, ["IMAGE_BATCH", "1", "IMAGE_PATCHES", "IMAGE_PATCHES"]);
+      assert.deepEqual(allOperations.find((operation) => operation.operationId === "composite_video_features/vision_pool")?.outputDomain.shape, ["VIDEO_BATCH*VIDEO_FRAMES", "VIDEO_POOL_CELLS", "4"]);
+      assert.deepEqual(allOperations.find((operation) => operation.operationId === "layer_0_attention")?.outputDomain.shape, ["B", "S", "4"]);
       assert.equal(program.audioProgram.assignments.find((assignment) => assignment.id === "audio_layer_0_attention")?.tensors, undefined);
+
+      const compositeEmbedding = await renderGemma4LiteralMultimodalScalarView(artifact, {
+        operationId: "composite_text_embedding", outputCoordinate: [0, 0, 1], tokenId: 1,
+      });
+      const textEmbedding = await renderGemma4LiteralScalarView(artifact, {
+        operationId: "token_embedding", outputCoordinate: [0, 0, 1], tokenId: 1,
+      });
+      assert.equal(compositeEmbedding.dtypePolicy.outputDtype, textEmbedding.dtypePolicy.outputDtype);
+      assert.equal(compositeEmbedding.formula, textEmbedding.formula.replace("hidden_states_0", "composite_text_embeddings"));
+      const compositeContext = await renderGemma4LiteralMultimodalScalarView(artifact, {
+        operationId: "composite_ple_context_projection", outputCoordinate: [0, 0, 0],
+      });
+      const textContext = await renderGemma4LiteralScalarView(artifact, {
+        operationId: "ple_context_projection", outputCoordinate: [0, 0, 0],
+      });
+      assert.equal(compositeContext.dtypePolicy.outputDtype, textContext.dtypePolicy.outputDtype);
+      assert.equal(compositeContext.formula, textContext.formula);
 
       const visionLinear = await renderGemma4LiteralMultimodalScalarView(artifact, {
         operationId: "composite_image_features/vision_layer_0_q", outputCoordinate: [0, 0, 1],
