@@ -363,6 +363,18 @@ source-removed não precisa obter deste repositório a interpretação escondida
 das fórmulas. A evidência real está em
 [`docs/validation/gemma4-e4b-embedded-formula-language-2026-07-18.md`](docs/validation/gemma4-e4b-embedded-formula-language-2026-07-18.md).
 
+O schema v11 remove a última expressão textual do caminho
+índice-lógico-para-storage. Cada `learnedOperands.logicalIndices` é agora uma
+AST `gemma4-learned-index-expression-v1`: coordenadas de saída, índices de
+redução e escalares de input possuem fontes distintas; `add`, `multiply` e
+`modulo` têm ordem e aritmética inteira exatas; índices de redução/input
+carregam bounds inclusivo/exclusivo; e cada resultado é validado contra o shape
+lógico antes do cálculo row-major. Os renderers de linear, embedding/PLE,
+normalização, posição 2-D, convolução, depthwise, escala por dimensão, clipping
+e tensor scalar usam um único avaliador dessa AST, em vez de reconstruir
+endereços por tipo de operação. A evidência real source-removed está em
+[`docs/validation/gemma4-e4b-learned-index-program-2026-07-18.md`](docs/validation/gemma4-e4b-learned-index-program-2026-07-18.md).
+
 O leitor também pode partir de qualquer saída instanciada e calcular o fecho
 transitivo exato de seus produtores. `--calculation-slice <operation-id>`
 retorna somente as atribuições necessárias ao alvo, ainda em ordem de
@@ -530,8 +542,8 @@ escreve o artefato completo em streaming: ranges Safetensors de 12 MiB são
 codificados em base64 sem acumular o pacote ou uma string de vários GiB na
 heap. O resultado local contém os 2,130 payloads originais
 (15,992,314,836 bytes) e é auditado por `npm run audit:literal`. O hash
-`72fb8eaa2a74bd98739543e44a5f4571a5c0ec2c7d0121aaa5736eb290f7d0c7`
-identifica a exportação schema v10 atual de `21.382.310.312` bytes, cuja política numérica
+`e89442dff45852fd954a03fee9171d80ea26319bd5067c6b6ede92eec1acab0b`
+identifica a exportação schema v11 atual de `21.382.503.979` bytes, cuja política numérica
 declara fronteiras de resultado BF16, acumuladores F32/F64 e agendas de redução
 por operação do texto, áudio e visão; toda exportação deve registrar seu próprio hash, pois o programa literal
 inclui as políticas numéricas. As 54 projeções/normas K/V locais dos

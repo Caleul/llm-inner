@@ -2,7 +2,13 @@ import type { OpenGemma4CompositeLiteralArtifact } from "./gemma4-composite-lite
 import type { LiteralDenseStorageDecodeAssignment } from "./literal.js";
 import type { DtypePolicy, Operation, ReductionSchedule, TensorRef } from "./types.js";
 import type { Gemma4LiteralValueDomain } from "./gemma4-literal-domains.js";
-import type { Gemma4LiteralLearnedOperand } from "./gemma4-literal-learned-operands.js";
+import {
+  evaluateGemma4LiteralLearnedOperandIndices,
+  gemma4LiteralOutputCoordinateEnvironment,
+  type Gemma4LiteralLearnedIndexEnvironment,
+  type Gemma4LiteralLearnedOperand,
+  type Gemma4LiteralLearnedOperandRole,
+} from "./gemma4-literal-learned-operands.js";
 import {
   requiredGemma4LiteralScalarCalculation,
   type Gemma4LiteralScalarCalculation,
@@ -198,17 +204,22 @@ async function renderLinear(
   const window = reductionWindow(request, operation.inFeatures, operation.id);
   const prefix = request.outputCoordinate.slice(0, -1);
   const reduction = requireReduction(operation);
+  const indexEnvironment = gemma4LiteralOutputCoordinateEnvironment(base.navigation.outputDomain, request.outputCoordinate);
+  const weightOperand = requiredNavigationOperand(base.navigation, "weight");
   const learnedScalars: Gemma4LiteralLearnedScalar[] = [];
   const terms: Gemma4LiteralScalarTerm[] = [];
   for (let inputIndex = window.start; inputIndex < window.end; inputIndex += 1) {
-    const learned = await readGemma4LiteralLearnedScalar(artifact, operation.weight, [outputFeature, inputIndex]);
+    const learned = await readGemma4LiteralLearnedOperandScalar(artifact, weightOperand, {
+      ...indexEnvironment,
+      reductionIndices: { input_feature: inputIndex },
+    });
     learnedScalars.push(learned);
     const input = indexed(operation.input, [...prefix, inputIndex]);
     terms.push({ inputIndex, input, learned, formula: scalarProductFormula(reduction, inputIndex, input, learned.literal) });
   }
   let bias: Gemma4LiteralLearnedScalar | undefined;
   if (operation.bias) {
-    bias = await readGemma4LiteralLearnedScalar(artifact, operation.bias, [outputFeature]);
+    bias = await readGemma4LiteralLearnedOperandScalar(artifact, requiredNavigationOperand(base.navigation, "bias"), indexEnvironment);
     learnedScalars.push(bias);
   }
   const complete = window.start === 0 && window.end === operation.inFeatures;
@@ -247,11 +258,12 @@ async function renderEmbedding(
   }
   const expectedRank = perLayer ? 4 : 3;
   if (request.outputCoordinate.length !== expectedRank) throw new Error(`${operation.id}: coordenada de embedding requer rank ${expectedRank}.`);
-  const feature = perLayer && operation.op === "per_layer_embedding"
-    ? request.outputCoordinate[2]! * operation.layerWidth + request.outputCoordinate[3]!
-    : request.outputCoordinate[2]!;
-  if (feature < 0 || feature >= operation.weight.shape[1]!) throw new Error(`${operation.id}: feature de embedding ${feature} fora do shape declarado.`);
-  const learned = await readGemma4LiteralLearnedScalar(artifact, operation.weight, [tokenId!, feature]);
+  const indexEnvironment = gemma4LiteralOutputCoordinateEnvironment(base.navigation.outputDomain, request.outputCoordinate);
+  const learned = await readGemma4LiteralLearnedOperandScalar(
+    artifact,
+    requiredNavigationOperand(base.navigation, "weight"),
+    { ...indexEnvironment, inputScalars: { token_id: tokenId! } },
+  );
   const scale = literal(operation.scale ?? 1);
   const formula = `${base.output} = ${outputCast(operation)}(F32(${learned.literal} * ${scale}))`;
   return { ...base, formula, scalarAssignments: [formula], learnedScalars: [learned] };
@@ -268,7 +280,11 @@ async function renderRmsNorm(
   if (operation.weightTransform !== "none" && (!operation.weight || operation.weight.shape.length !== 1 || width === undefined || feature >= width)) {
     throw new Error(`${operation.id}: RMSNorm ponderado não possui vetor compatível com a coordenada solicitada.`);
   }
-  const learned = operation.weight ? await readGemma4LiteralLearnedScalar(artifact, operation.weight, [feature]) : undefined;
+  const learned = operation.weight ? await readGemma4LiteralLearnedOperandScalar(
+    artifact,
+    requiredNavigationOperand(base.navigation, "normalization-scale"),
+    gemma4LiteralOutputCoordinateEnvironment(base.navigation.outputDomain, request.outputCoordinate),
+  ) : undefined;
   const multiplier = operation.weightTransform === "none" ? "1" : operation.weightTransform === "one_plus_weight"
     ? `F32(1 + ${learned!.literal})` : learned!.literal;
   const input = indexed(operation.input, request.outputCoordinate);
@@ -296,7 +312,11 @@ async function renderTensorScale(
   request: Gemma4LiteralScalarViewRequest,
   base: Omit<Gemma4LiteralScalarView, "formula" | "scalarAssignments" | "learnedScalars">,
 ): Promise<Gemma4LiteralScalarView> {
-  const learned = await readGemma4LiteralLearnedScalar(artifact, operation.scalar, [0]);
+  const learned = await readGemma4LiteralLearnedOperandScalar(
+    artifact,
+    requiredNavigationOperand(base.navigation, "tensor-scale"),
+    gemma4LiteralOutputCoordinateEnvironment(base.navigation.outputDomain, request.outputCoordinate),
+  );
   const formula = `${base.output} = ${outputCast(operation)}(F32(${indexed(operation.input, request.outputCoordinate)} * ${learned.literal}))`;
   return { ...base, formula, scalarAssignments: [formula], learnedScalars: [learned] };
 }
@@ -354,6 +374,27 @@ export async function readGemma4LiteralLearnedScalar(
     decoderId: decoder.id,
     decoderOperation: decoder.operation,
   };
+}
+
+export async function readGemma4LiteralLearnedOperandScalar(
+  artifact: OpenGemma4CompositeLiteralArtifact,
+  operand: Gemma4LiteralLearnedOperand,
+  environment: Gemma4LiteralLearnedIndexEnvironment,
+): Promise<Gemma4LiteralLearnedScalar> {
+  return readGemma4LiteralLearnedScalar(
+    artifact,
+    operand.tensor,
+    evaluateGemma4LiteralLearnedOperandIndices(operand, environment),
+  );
+}
+
+function requiredNavigationOperand(
+  navigation: Gemma4LiteralOperationNavigation,
+  role: Gemma4LiteralLearnedOperandRole,
+): Gemma4LiteralLearnedOperand {
+  const operand = navigation.learnedOperands?.find((candidate) => candidate.role === role);
+  if (!operand) throw new Error(`${navigation.operationId}: operando aprendido ${role} ausente na navegação literal.`);
+  return operand;
 }
 
 function operationEntries(artifact: OpenGemma4CompositeLiteralArtifact): OperationEntry[] {

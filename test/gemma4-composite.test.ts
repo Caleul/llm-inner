@@ -19,6 +19,7 @@ import { executeGemma4LiteralCompositeF32, generateGemma4LiteralCompositeF32 } f
 import { buildGemma4LiteralGenerationNavigation, renderGemma4LiteralGenerationCalculationView } from "../src/gemma4-literal-generation-navigation.js";
 import { buildGemma4LiteralCalculationSlice } from "../src/gemma4-literal-calculation-slice.js";
 import { buildGemma4LiteralEndToEndCalculation } from "../src/gemma4-literal-end-to-end-calculation.js";
+import { evaluateGemma4LiteralLearnedOperandIndices } from "../src/gemma4-literal-learned-operands.js";
 import { buildGemma4LiteralSourceIdentity, type Gemma4LiteralSourceIdentity } from "../src/gemma4-literal-source-identity.js";
 import { listGemma4LiteralOperations, renderGemma4LiteralMultimodalScalarView } from "../src/gemma4-literal-multimodal-scalar-view.js";
 import { executeGemma4LiteralVisionF32 } from "../src/gemma4-literal-vision.js";
@@ -203,7 +204,7 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.equal(literal.storageDecoders.length, catalog.tensors.size);
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 10);
+  assert.equal(literal.schemaVersion, 11);
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.languageId, literal.generation.scalarCalculations.formulaLanguage);
@@ -249,9 +250,23 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   const audioProjectionOperands = literal.learnedOperands.assignments.find((entry) =>
     entry.scope === "audio" && entry.definitionId === "audio_output_projection")?.operands;
   assert.deepEqual(audioProjectionOperands?.map((operand) => [operand.role, operand.logicalIndices]), [
-    ["weight", ["output_feature", "input_feature"]],
-    ["bias", ["output_feature"]],
+    ["weight", [
+      { kind: "output-coordinate", axis: "output_feature" },
+      { kind: "reduction-index", name: "input_feature", minInclusive: 0, endExclusive: 4 },
+    ]],
+    ["bias", [{ kind: "output-coordinate", axis: "output_feature" }]],
   ]);
+  assert.equal(literal.learnedOperands.schemaVersion, 2);
+  assert.equal(literal.learnedOperands.indexLanguage.id, "gemma4-learned-index-expression-v1");
+  assert.deepEqual(evaluateGemma4LiteralLearnedOperandIndices(audioProjectionOperands![0]!, {
+    outputCoordinates: { output_feature: 2 }, reductionIndices: { input_feature: 3 },
+  }), [2, 3]);
+  assert.throws(() => evaluateGemma4LiteralLearnedOperandIndices(audioProjectionOperands![0]!, {
+    outputCoordinates: { output_feature: 2 },
+  }), /binding de índice aprendido ausente: input_feature/);
+  assert.throws(() => evaluateGemma4LiteralLearnedOperandIndices(audioProjectionOperands![0]!, {
+    outputCoordinates: { output_feature: 2 }, reductionIndices: { input_feature: 4 },
+  }), /reduction-index: índice 4 fora de 0..3/);
   assert.equal(audioProjectionOperands?.[0]?.decoderId, `decode_${audioProjectionOperands[0]?.tensor.name}`);
   const visionClipOperands = literal.learnedOperands.assignments.find((entry) =>
     entry.scope === "vision" && entry.definitionId === "vision_layer_0_q")?.operands;
@@ -476,7 +491,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 10);
+      assert.equal(artifact.schemaVersion, 11);
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.equal(artifact.constants.size, catalog.tensors.size);
       assert.equal(artifact.program.textProgram.source.path, "embedded://gemma4-composite-literal");
@@ -842,7 +857,10 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       assert.deepEqual(allOperations.find((operation) => operation.operationId === "composite_image_features/vision_layer_0_q")?.learnedOperands?.map((operand) => operand.role),
         ["weight", "input-min", "input-max", "output-min", "output-max"]);
       assert.deepEqual(allOperations.find((operation) => operation.operationId === "layer_0_q_proj")?.learnedOperands?.map((operand) => operand.logicalIndices),
-        [["output_feature", "input_feature"]]);
+        [[
+          { kind: "output-coordinate", axis: "output_feature" },
+          { kind: "reduction-index", name: "input_feature", minInclusive: 0, endExclusive: 4 },
+        ]]);
       assert.ok(allOperations.flatMap((operation) => operation.learnedOperands ?? []).every((operand) =>
         operand.decoderId === `decode_${operand.tensor.name}`));
       assert.equal(program.audioProgram.assignments.find((assignment) => assignment.id === "audio_layer_0_attention")?.tensors, undefined);

@@ -1,6 +1,9 @@
 import type { OpenGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
 import type { Gemma4LiteralNumericLiteral, Gemma4LiteralNumericLiteralUse } from "./gemma4-literal-numeric-literals.js";
-import type { Gemma4LiteralLearnedOperandRole } from "./gemma4-literal-learned-operands.js";
+import type {
+  Gemma4LiteralIntegerExpression,
+  Gemma4LiteralLearnedOperandRole,
+} from "./gemma4-literal-learned-operands.js";
 import { listGemma4LiteralOperations } from "./gemma4-literal-multimodal-scalar-view.js";
 import type { Gemma4LiteralOperationNavigation } from "./gemma4-literal-scalar-view.js";
 import type { LiteralDenseStorageDecodeAssignment } from "./literal.js";
@@ -14,7 +17,7 @@ export interface Gemma4LiteralCalculationSliceExternalInput {
 export interface Gemma4LiteralCalculationSliceLearnedConsumer {
   operationId: string;
   role: Gemma4LiteralLearnedOperandRole;
-  logicalIndices: string[];
+  logicalIndices: Gemma4LiteralIntegerExpression[];
 }
 
 export interface Gemma4LiteralCalculationSliceLearnedConstant {
@@ -122,7 +125,7 @@ export function buildGemma4LiteralCalculationSlice(
     constant.consumers.push({
       operationId: operation.operationId,
       role: operand.role,
-      logicalIndices: [...operand.logicalIndices],
+      logicalIndices: structuredClone(operand.logicalIndices),
     });
     learnedByTensor.set(operand.tensor.name, constant);
   }

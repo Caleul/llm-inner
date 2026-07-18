@@ -133,6 +133,15 @@ coordenadas, materialização de casts F64/F32/BF16, operadores, intrínsecos e
 reduções. `runtime-defined` é explicitamente não executável: nenhum leitor pode
 substituí-lo por uma redução do host e chamar o resultado de literal.
 
+No schema v11, os endereços de `learnedOperands` deixam de ser strings livres.
+Cada eixo lógico é uma AST `gemma4-learned-index-expression-v1`, cujas folhas
+diferenciam coordenada de saída, índice de redução e escalar de input. Reduções
+e inputs carregam bounds explícitos; `add`, `multiply` e `modulo` operam apenas
+sobre inteiros seguros não negativos em ordem depth-first left-to-right. O
+avaliador deve resolver a AST, validar cada dimensão contra o shape lógico e
+só então aplicar o decoder e o offset row-major. Um binding ausente, overflow,
+divisor não positivo ou índice fora do tensor é erro antes de qualquer leitura.
+
 Quando a autoridade disponível prova a equação, mas não a árvore de uma
 redução nativa, a fórmula preserva o domínio matemático completo e a entrada
 declara `reproducibility=fail-closed-runtime-reduction` com
