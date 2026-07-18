@@ -4,6 +4,8 @@ import { stat } from "node:fs/promises";
 import { openCatalog } from "./catalog.js";
 
 const PAYLOAD_MARKER = /"payloadBase64"\s*:\s*"/;
+const CONSTANTS_MARKER = /"constants"\s*:\s*\[/;
+const CONSTANTS_END = /\]\s*,\s*"(?:unreachableConstants|storageDecoders)"/;
 const PAYLOAD_MARKER_CARRY = 64;
 
 export interface LiteralArtifactAudit {
@@ -34,6 +36,8 @@ export async function auditLiteralArtifact(
   let payloadBase64Characters = 0;
   let forbiddenSourcePathPresent = false;
   let outside = "";
+  let inConstants = false;
+  let constantsComplete = false;
   let inPayload = false;
   let currentCharacters = 0;
   let currentTail = "";
@@ -67,7 +71,27 @@ export async function auditLiteralArtifact(
         text = text.slice(end + 1);
         continue;
       }
+      if (!inConstants) {
+        if (constantsComplete) {
+          outside = text.slice(-Math.max(PAYLOAD_MARKER_CARRY, (forbidden?.length ?? 0) - 1));
+          break;
+        }
+        const start = CONSTANTS_MARKER.exec(text);
+        if (!start || start.index === undefined) {
+          outside = text.slice(-Math.max(PAYLOAD_MARKER_CARRY, (forbidden?.length ?? 0) - 1));
+          break;
+        }
+        text = text.slice(start.index + start[0].length);
+        inConstants = true;
+      }
       const marker = PAYLOAD_MARKER.exec(text);
+      const end = CONSTANTS_END.exec(text);
+      if (end?.index !== undefined && (!marker || marker.index === undefined || end.index < marker.index)) {
+        text = text.slice(end.index + end[0].length);
+        inConstants = false;
+        constantsComplete = true;
+        continue;
+      }
       if (!marker || marker.index === undefined) {
         outside = text.slice(-Math.max(PAYLOAD_MARKER_CARRY, (forbidden?.length ?? 0) - 1));
         break;
@@ -78,6 +102,7 @@ export async function auditLiteralArtifact(
     }
   }
   if (inPayload) throw new Error("Artifact literal terminou dentro de um payload base64.");
+  if (!constantsComplete) throw new Error("Artifact literal não delimitou o array de constantes incorporadas.");
   const result: LiteralArtifactAudit = {
     artifact,
     artifactBytes: info.size,

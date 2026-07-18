@@ -10,6 +10,8 @@ interface CliArgs {
   includeWeights: boolean;
   literal: boolean;
   gemma4CompositeLiteral: boolean;
+  modelId?: string;
+  revision?: string;
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -32,7 +34,7 @@ function parseArgs(argv: string[]): CliArgs {
   if (!source || !output) {
     throw new Error(
       "Uso: --source <dir|model.gguf> --output <model.ir.json> [--equations out.txt] " +
-        "[--max-features 10] [--max-terms 10] [--include-weights] [--literal] [--gemma4-composite-literal]",
+        "[--max-features 10] [--max-terms 10] [--include-weights] [--literal] [--gemma4-composite-literal --model-id owner/model --revision <40-hex>]",
     );
   }
   const maxFeatures = Number(values.get("--max-features") ?? 10);
@@ -48,6 +50,8 @@ function parseArgs(argv: string[]): CliArgs {
     includeWeights: flags.has("--include-weights"),
     literal: flags.has("--literal"),
     gemma4CompositeLiteral: flags.has("--gemma4-composite-literal"),
+    ...(values.has("--model-id") ? { modelId: values.get("--model-id")! } : {}),
+    ...(values.has("--revision") ? { revision: values.get("--revision")! } : {}),
   };
 }
 
@@ -65,7 +69,8 @@ async function main(): Promise<void> {
   };
   if (args.gemma4CompositeLiteral) {
     if (args.equations || args.includeWeights) throw new Error("--gemma4-composite-literal não aceita --equations nem --include-weights; ele sempre incorpora o payload completo.");
-    await compileGemma4CompositeLiteralModel(options);
+    if (!args.modelId || !args.revision) throw new Error("--gemma4-composite-literal requer --model-id e --revision imutável.");
+    await compileGemma4CompositeLiteralModel({ ...options, sourceIdentity: { modelId: args.modelId, revision: args.revision } });
   } else {
     await compileModel({ ...options, ...(args.literal ? { literal: true } : {}) });
   }

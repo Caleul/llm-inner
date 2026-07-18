@@ -41,6 +41,7 @@ try {
     schemaVersion: artifact.schemaVersion,
     artifact: artifact.artifact,
     artifactBytes: artifact.artifactBytes,
+    sourceIdentity: artifact.sourceIdentity,
     constants: artifact.constants.size,
     storageDecoders: artifact.storageDecoders.length,
     embeddedTextSource: artifact.program.textProgram.source.path,

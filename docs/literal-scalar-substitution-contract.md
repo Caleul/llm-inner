@@ -116,6 +116,15 @@ bits, portanto um leitor não pode obter outro valor da biblioteca matemática
 do host. A tabela inteira é derivada e validada fail-closed contra as fórmulas
 serializadas.
 
+No schema v9, `sourceIdentity` torna a autoridade do cálculo parte do JSON.
+`modelId`, revisão imutável, adaptador, nomes, tamanhos e SHA-256 dos arquivos
+do pacote são validados fail-closed. Os JSONs de configuração, geração,
+processor e tokenizer permanecem incorporados como bytes Base64 com decoder e
+digest exatos; os Safetensors são comprometidos como arquivos completos e seus
+valores aprendidos continuam incorporados uma única vez em `constants`. Assim,
+o leitor source-removed não depende de documentação externa para descobrir de
+qual pacote vieram a topologia, os controles ou a tokenização declarados.
+
 Quando a autoridade disponível prova a equação, mas não a árvore de uma
 redução nativa, a fórmula preserva o domínio matemático completo e a entrada
 declara `reproducibility=fail-closed-runtime-reduction` com

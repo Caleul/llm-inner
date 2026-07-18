@@ -60,6 +60,10 @@ import {
   type Gemma4LiteralGenerationScalarCalculations,
 } from "./gemma4-literal-generation-calculations.js";
 import type { ModelCatalog, Operation, TensorInfo, TensorRef } from "./types.js";
+import {
+  validateGemma4LiteralSourceIdentity,
+  type Gemma4LiteralSourceIdentity,
+} from "./gemma4-literal-source-identity.js";
 
 /** Divisible by three so every non-final base64 chunk has no padding. */
 const BASE64_CHUNK_BYTES = 12 * 1024 * 1024;
@@ -127,9 +131,11 @@ export interface Gemma4LiteralGreedyGenerationProgram {
  * steps remain distinct, named dependencies in the enclosing program.
  */
 export interface Gemma4CompositeLiteralCalculationProgram extends LiteralStorageBundle {
-  schemaVersion: 8;
+  schemaVersion: 9;
   kind: "gemma4-composite-literal-calculation-program";
   sourceFormat: "safetensors";
+  /** Immutable package identity and exact metadata bytes used to derive semantics. */
+  sourceIdentity: Gemma4LiteralSourceIdentity;
   numericPolicy: {
     inputDtype: "I32/F32/BOOL";
     computeDtype: "F32";
@@ -223,6 +229,7 @@ export async function buildGemma4CompositeLiteralCalculationProgram(
   program: Gemma4CompositeProgram,
   catalog: ModelCatalog,
   reader: LiteralTensorReader,
+  sourceIdentity: Gemma4LiteralSourceIdentity,
 ): Promise<Gemma4CompositeLiteralCalculationProgram> {
   if (catalog.format !== "safetensors" || program.sourceFormat !== "safetensors") {
     throw new Error("Programa literal Gemma 4 composite requer Safetensors denso registrado.");
@@ -247,9 +254,10 @@ export async function buildGemma4CompositeLiteralCalculationProgram(
   const scalarCalculations = buildGemma4LiteralScalarCalculations(embeddedProgram);
   const generation = gemma4LiteralGreedyGenerationProgram(embeddedProgram, calculationGraph);
   const literal: Gemma4CompositeLiteralCalculationProgram = {
-    schemaVersion: 8,
+    schemaVersion: 9,
     kind: "gemma4-composite-literal-calculation-program",
     sourceFormat: "safetensors",
+    sourceIdentity: structuredClone(sourceIdentity),
     numericPolicy: gemma4CompositeLiteralNumericPolicy(program),
     inputs: literalInputs(),
     ...storage,
@@ -286,8 +294,10 @@ export async function writeGemma4CompositeLiteralCalculationProgram(
   catalog: ModelCatalog,
   reader: LiteralTensorReader,
   output: string,
+  sourceIdentity: Gemma4LiteralSourceIdentity,
 ): Promise<Gemma4CompositeLiteralWriteResult> {
   validateGemma4TextReductionSchedules(program);
+  validateGemma4LiteralSourceIdentity(sourceIdentity);
   const prepared = prepareStreamedDenseLiteral(program, catalog);
   await mkdir(path.dirname(output), { recursive: true });
   const temporary = `${output}.${process.pid}.${Date.now()}.tmp`;
@@ -305,7 +315,7 @@ export async function writeGemma4CompositeLiteralCalculationProgram(
 
   try {
     await once(stream, "open");
-    await write(`{"schemaVersion":8,"kind":"gemma4-composite-literal-calculation-program","sourceFormat":"safetensors","numericPolicy":${JSON.stringify(gemma4CompositeLiteralNumericPolicy(program))},"inputs":${JSON.stringify(literalInputs())},"constants":[`);
+    await write(`{"schemaVersion":9,"kind":"gemma4-composite-literal-calculation-program","sourceFormat":"safetensors","sourceIdentity":${JSON.stringify(sourceIdentity)},"numericPolicy":${JSON.stringify(gemma4CompositeLiteralNumericPolicy(program))},"inputs":${JSON.stringify(literalInputs())},"constants":[`);
     for (let index = 0; index < prepared.constants.length; index += 1) {
       const constant = prepared.constants[index]!;
       if (index > 0) await write(",");
@@ -391,10 +401,11 @@ export function generateGemma4CompositeLiteralF32(
  */
 export function validateGemma4CompositeLiteralCalculationProgram(literal: Gemma4CompositeLiteralCalculationProgram): void {
   validateGemma4TextReductionSchedules(literal.program);
-  if (literal.schemaVersion !== 8 || literal.kind !== "gemma4-composite-literal-calculation-program" || literal.sourceFormat !== "safetensors" ||
+  if (literal.schemaVersion !== 9 || literal.kind !== "gemma4-composite-literal-calculation-program" || literal.sourceFormat !== "safetensors" ||
     !sameNumericPolicy(literal.numericPolicy, gemma4CompositeLiteralNumericPolicy(literal.program))) {
     throw new Error("Programa literal Gemma 4 composite possui cabeçalho ou política numérica inválida.");
   }
+  validateGemma4LiteralSourceIdentity(literal.sourceIdentity);
   validateLiteralStorageBundle(literal);
   const constants = new Map<string, LiteralConstant>(literal.constants.map((constant) => [constant.name, constant]));
   const expectedInputs = literalInputs();

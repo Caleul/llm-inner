@@ -19,6 +19,7 @@ import { executeGemma4LiteralCompositeF32, generateGemma4LiteralCompositeF32 } f
 import { buildGemma4LiteralGenerationNavigation, renderGemma4LiteralGenerationCalculationView } from "../src/gemma4-literal-generation-navigation.js";
 import { buildGemma4LiteralCalculationSlice } from "../src/gemma4-literal-calculation-slice.js";
 import { buildGemma4LiteralEndToEndCalculation } from "../src/gemma4-literal-end-to-end-calculation.js";
+import { buildGemma4LiteralSourceIdentity, type Gemma4LiteralSourceIdentity } from "../src/gemma4-literal-source-identity.js";
 import { listGemma4LiteralOperations, renderGemma4LiteralMultimodalScalarView } from "../src/gemma4-literal-multimodal-scalar-view.js";
 import { executeGemma4LiteralVisionF32 } from "../src/gemma4-literal-vision.js";
 import { listGemma4LiteralTextOperations, renderGemma4LiteralScalarView } from "../src/gemma4-literal-scalar-view.js";
@@ -33,9 +34,28 @@ import { gemma4CompositeTraceProfile } from "../src/gemma4-composite-trace-profi
 import { validateGemma4CompositeTraceOptions } from "../src/gemma4-transformers-composite-trace.js";
 import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearF32 } from "../src/paged-dense.js";
 import { fingerprintIR } from "../src/trace.js";
+import { auditLiteralArtifact } from "../src/literal-artifact-audit.js";
 import type { DenseF32Tensor, ModelCatalog, TensorInfo } from "../src/types.js";
 
 const preview = { outputRows: 1, inputTerms: 1, includeWeights: false } as const;
+const fixtureConfigBytes = Buffer.from("{}");
+const fixtureSourceIdentity = (): Gemma4LiteralSourceIdentity => ({
+  modelId: "fixture/tiny-gemma4",
+  revision: "a".repeat(40),
+  sourceFormat: "safetensors",
+  semanticAdapter: "gemma4-composite-v1",
+  files: [
+    {
+      path: "config.json", role: "model-config", bytes: fixtureConfigBytes.length,
+      sha256: createHash("sha256").update(fixtureConfigBytes).digest("hex"),
+      content: { storage: "embedded-metadata-base64", encoding: "base64", payloadBase64: fixtureConfigBytes.toString("base64"), decode: "base64-to-original-bytes" },
+    },
+    {
+      path: "model.safetensors", role: "weights", bytes: 1, sha256: "b".repeat(64),
+      content: { storage: "embedded-tensor-constants", mapping: "safetensors-header-ranges-to-named-constants" },
+    },
+  ],
+});
 
 test("Gemma 4 composite trace dispatches every modality through one explicit feature/scatter contract", () => {
   assert.deepEqual(gemma4CompositeTraceProfile("image"), {
@@ -178,12 +198,13 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
       tensor.values.forEach((value, index) => bytes.writeFloatLE(value, index * 4));
       return bytes;
     },
-  });
+  }, fixtureSourceIdentity());
   assert.equal(literal.constants.length, catalog.tensors.size);
   assert.equal(literal.storageDecoders.length, catalog.tensors.size);
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 8);
+  assert.equal(literal.schemaVersion, 9);
+  assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   const expectedDomainCount = literal.assignments.composite.length + literal.assignments.vision.length + literal.assignments.audio.length +
     literal.program.textProgram.prelude.length + literal.program.textProgram.layers.reduce((total, layer) => total + layer.operations.length, 0) + literal.assignments.textEpilogue.length;
   assert.equal(literal.calculationDomains.assignments.length, expectedDomainCount);
@@ -401,14 +422,18 @@ test("Gemma 4 composite streamed writer emits an atomic self-contained JSON file
         maxRequestedBytes = Math.max(maxRequestedBytes, bytes.length);
         return bytes;
       },
-    }, output);
+    }, output, fixtureSourceIdentity());
     const raw = await readFile(output);
     assert.equal(written.artifactSha256, createHash("sha256").update(raw).digest("hex"));
     assert.equal(written.constants, catalog.tensors.size);
     assert.equal(written.embeddedPayloadBytes, [...catalog.tensors.values()].reduce((total, tensor) => total + tensor.logicalShape.reduce((size, dimension) => size * dimension, 1) * 4, 0));
     assert.ok(maxRequestedBytes < written.embeddedPayloadBytes, "writer must request one payload at a time rather than a package buffer");
+    const audit = await auditLiteralArtifact(output, { constants: written.constants, embeddedPayloadBytes: written.embeddedPayloadBytes });
+    assert.equal(audit.constants, catalog.tensors.size);
     const literal = JSON.parse(raw.toString("utf8"));
     assert.equal(JSON.stringify(literal).includes(catalog.source), false);
+    assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
+    assert.equal(Buffer.from(literal.sourceIdentity.files.find((file: { path: string }) => file.path === "config.json").content.payloadBase64, "base64").toString("utf8"), "{}");
     assert.equal(literal.payloadIntegrity.length, catalog.tensors.size);
     const embedded = literal.payloadIntegrity.find((entry: { name: string }) => entry.name === "model.language_model.embed_tokens.weight")!;
     assert.equal(embedded.sha256, createHash("sha256").update(denseF32Bytes(sourceTensors.get(embedded.name)!)).digest("hex"));
@@ -437,7 +462,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
         tensor.values.forEach((value, index) => bytes.writeFloatLE(value, index * 4));
         return bytes;
       },
-    }, output);
+    }, output, fixtureSourceIdentity());
     const expected = sourceTensors.get("model.language_model.layers.0.self_attn.q_proj.weight")!;
     const expectedBytes = Buffer.alloc(expected.values.length * 4);
     expected.values.forEach((value, index) => expectedBytes.writeFloatLE(value, index * 4));
@@ -446,7 +471,8 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 8);
+      assert.equal(artifact.schemaVersion, 9);
+      assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.equal(artifact.constants.size, catalog.tensors.size);
       assert.equal(artifact.program.textProgram.source.path, "embedded://gemma4-composite-literal");
       const tensor = catalog.tensors.get("model.language_model.layers.0.self_attn.q_proj.weight")!;
@@ -469,6 +495,15 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
     const corruptedNumeric = path.join(root, "corrupted-numeric.gemma4.literal.json");
     await writeFile(corruptedNumeric, raw.replace('"binary32Hex":"0x3f000000"', '"binary32Hex":"0x00000000"'));
     await assert.rejects(() => openGemma4CompositeLiteralArtifact(corruptedNumeric), /tabela de bits numéricos/);
+    const corruptedIdentity = path.join(root, "corrupted-identity.gemma4.literal.json");
+    await writeFile(corruptedIdentity, raw.replace(`"revision":"${"a".repeat(40)}"`, '"revision":"moving-main"'));
+    await assert.rejects(() => openGemma4CompositeLiteralArtifact(corruptedIdentity), /identidade de source inválida/);
+    const nonCanonicalMetadata = path.join(root, "non-canonical-metadata.gemma4.literal.json");
+    await writeFile(nonCanonicalMetadata, raw.replace('"payloadBase64":"e30="', '"payloadBase64":"e30=\\n"'));
+    await assert.rejects(() => openGemma4CompositeLiteralArtifact(nonCanonicalMetadata), /bytes incorporados não correspondem/);
+    const unorderedIdentity = path.join(root, "unordered-identity.gemma4.literal.json");
+    await writeFile(unorderedIdentity, raw.replace('"path":"config.json"', '"path":"z-config.json"'));
+    await assert.rejects(() => openGemma4CompositeLiteralArtifact(unorderedIdentity), /ordem determinística/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -482,20 +517,37 @@ test("Gemma 4 literal payload verifier proves every embedded storage byte before
     const sourceTensors = materialize(catalog);
     await writeFixtureSafetensors(source, catalog, sourceTensors);
     catalog.source = source;
+    for (const tensor of catalog.tensors.values()) tensor.shard = "model.safetensors";
     const program = buildGemma4CompositeProgram(catalog, preview);
     const artifact = path.join(root, "tiny.gemma4.literal.json");
+    const sourceIdentity = await buildGemma4LiteralSourceIdentity(catalog, "fixture/tiny-gemma4", "c".repeat(40));
     await writeGemma4CompositeLiteralCalculationProgram(program, catalog, {
       async readTensorBytes(info) { return denseF32Bytes(sourceTensors.get(info.name)!); },
-    }, artifact);
+    }, artifact, sourceIdentity);
+    assert.equal(sourceIdentity.files.find((file) => file.path === "model.safetensors")?.sha256,
+      createHash("sha256").update(await readFile(path.join(source, "model.safetensors"))).digest("hex"));
+    const embeddedConfig = sourceIdentity.files.find((file) => file.path === "config.json")!.content;
+    assert.equal(embeddedConfig.storage, "embedded-metadata-base64");
+    assert.equal(Buffer.from(embeddedConfig.storage === "embedded-metadata-base64" ? embeddedConfig.payloadBase64 : "", "base64").toString("utf8"), JSON.stringify(catalog.config));
 
     const verified = await verifyGemma4CompositeLiteralPayloadsAgainstCatalog({ artifact, source, maxReadBytes: 13 });
     assert.equal(verified.constants, catalog.tensors.size);
     assert.equal(verified.comparedPayloadBytes, [...sourceTensors.values()].reduce((total, tensor) => total + tensor.values.byteLength, 0));
     assert.equal(verified.sourceStorageSha256, verified.literalStorageSha256);
+    assert.equal(verified.modelId, "fixture/tiny-gemma4");
+    assert.equal(verified.revision, "c".repeat(40));
+    assert.equal(verified.sourceIdentityFiles, 2);
 
     const corrupt = path.join(root, "corrupt.gemma4.literal.json");
     const raw = await readFile(artifact, "utf8");
-    await writeFile(corrupt, raw.replace(/"payloadBase64":"([A-Za-z0-9])/, (_match, first: string) => `"payloadBase64":"${first === "A" ? "B" : "A"}`), "utf8");
+    const corruptIdentity = path.join(root, "corrupt-source-identity.gemma4.literal.json");
+    const weightSha = sourceIdentity.files.find((file) => file.role === "weights")!.sha256;
+    await writeFile(corruptIdentity, raw.replace(weightSha, "d".repeat(64)), "utf8");
+    await assert.rejects(
+      () => verifyGemma4CompositeLiteralPayloadsAgainstCatalog({ artifact: corruptIdentity, source, maxReadBytes: 13 }),
+      /Identidade imutável Gemma 4 diverge/,
+    );
+    await writeFile(corrupt, raw.replace(/("constants":\[\{"name":[\s\S]*?"payloadBase64":")([A-Za-z0-9])/, (_match, prefix: string, first: string) => `${prefix}${first === "A" ? "B" : "A"}`), "utf8");
     await assert.rejects(
       () => verifyGemma4CompositeLiteralPayloadsAgainstCatalog({ artifact: corrupt, source, maxReadBytes: 13 }),
       /payload literal diverge do Safetensors/,
@@ -513,7 +565,7 @@ test("Gemma 4 literal artifact verifies its embedded payload commitments after s
     const unavailableSource = path.join(root, "checkpoint-removed");
     await writeGemma4CompositeLiteralCalculationProgram(buildGemma4CompositeProgram(catalog, preview), catalog, {
       async readTensorBytes(info) { return denseF32Bytes(sourceTensors.get(info.name)!); },
-    }, artifact);
+    }, artifact, fixtureSourceIdentity());
     sourceTensors.clear();
 
     const verified = await verifyGemma4CompositeLiteralEmbeddedPayloadIntegrity({ artifact, maxReadBytes: 13, assertSourceUnavailable: unavailableSource });
@@ -531,7 +583,7 @@ test("Gemma 4 literal artifact verifies its embedded payload commitments after s
 
     const corrupt = path.join(root, "corrupt.gemma4.literal.json");
     const raw = await readFile(artifact, "utf8");
-    await writeFile(corrupt, raw.replace(/"payloadBase64":"([A-Za-z0-9])/, (_match, first: string) => `"payloadBase64":"${first === "A" ? "B" : "A"}`), "utf8");
+    await writeFile(corrupt, raw.replace(/("constants":\[\{"name":[\s\S]*?"payloadBase64":")([A-Za-z0-9])/, (_match, prefix: string, first: string) => `${prefix}${first === "A" ? "B" : "A"}`), "utf8");
     await assert.rejects(
       () => verifyGemma4CompositeLiteralEmbeddedPayloadIntegrity({ artifact: corrupt, maxReadBytes: 13 }),
       /payload literal diverge do digest incorporado/,
@@ -558,7 +610,7 @@ test("Gemma 4 literal headers expose and stream-validate operation-declared F64 
         tensor.values.forEach((value, index) => bytes.writeFloatLE(value, index * 4));
         return bytes;
       },
-    }, output);
+    }, output, fixtureSourceIdentity());
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
       assert.deepEqual(artifact.numericPolicy, {
@@ -598,7 +650,7 @@ test("Gemma 4 literal headers expose and stream-validate operation-declared F64 
         tensor.values.forEach((value, index) => bytes.writeFloatLE(value, index * 4));
         return bytes;
       },
-    }, blockedTiledOutput);
+    }, blockedTiledOutput, fixtureSourceIdentity());
     const staleBlockedTiledHeader = path.join(root, "blocked-tiled-stale-header.gemma4.literal.json");
     const blockedTiledRaw = await readFile(blockedTiledOutput, "utf8");
     await writeFile(staleBlockedTiledHeader, blockedTiledRaw.replace(
@@ -626,7 +678,7 @@ test("Gemma 4 literal headers expose and stream-validate operation-declared F64 
         tensor.values.forEach((value, index) => bytes.writeFloatLE(value, index * 4));
         return bytes;
       },
-    });
+    }, fixtureSourceIdentity());
     assert.throws(
       () => executeGemma4CompositeLiteralF32(inMemory, { inputIds: [[1]] }),
       /não pode apagar a política numérica declarada/,
@@ -655,7 +707,7 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
         source.values.forEach((value, index) => bytes.writeFloatLE(value, index * 4));
         return bytes;
       },
-    }, output);
+    }, output, fixtureSourceIdentity());
     sourceTensors.clear();
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
@@ -983,7 +1035,7 @@ test("Gemma 4 paged text interpreter replays prefill and cached greedy decode fr
         tensor.values.forEach((value, index) => bytes.writeFloatLE(value, index * 4));
         return bytes;
       },
-    }, output);
+    }, output, fixtureSourceIdentity());
     sourceTensors.clear();
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
@@ -1307,7 +1359,7 @@ test("Gemma 4 linear reduction probe binds a candidate schedule to traced produc
       },
     };
     const artifact = path.join(root, "fixture.literal.json");
-    await writeGemma4CompositeLiteralCalculationProgram(program, catalog, reader, artifact);
+    await writeGemma4CompositeLiteralCalculationProgram(program, catalog, reader, artifact, fixtureSourceIdentity());
     const native = executeGemma4CompositeF32(program, { inputIds: [[1]], tensors }).text;
     const target = program.textProgram.layers[0]!.operations.find((operation) => operation.id === "layer_0_gate_proj")!;
     if (target.op !== "linear") throw new Error("fixture gate must be linear");
@@ -1579,7 +1631,7 @@ test("Gemma 4 shared-KV consumers embed but explicitly label their checkpoint-lo
       tensor.values.forEach((value, index) => bytes.writeFloatLE(value, index * 4));
       return bytes;
     },
-  });
+  }, fixtureSourceIdentity());
   assert.equal(literal.constants.length, catalog.tensors.size);
   assert.deepEqual(literal.unreachableConstants, [
     { name: "model.language_model.layers.2.self_attn.k_norm.weight", reason: "shared-kv-consumer-local-kv-is-runtime-unreachable", producerLayer: 0 },

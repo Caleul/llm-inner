@@ -4,6 +4,7 @@ import { access } from "node:fs/promises";
 import { openCatalog } from "./catalog.js";
 import { openGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
 import type { TensorInfo } from "./types.js";
+import { verifyGemma4LiteralSourceIdentityAgainstCatalog } from "./gemma4-literal-source-identity.js";
 
 const DEFAULT_CHUNK_BYTES = 12 * 1024 * 1024;
 
@@ -14,6 +15,10 @@ export interface Gemma4CompositeLiteralPayloadVerification {
   comparedPayloadBytes: number;
   sourceStorageSha256: string;
   literalStorageSha256: string;
+  modelId: string;
+  revision: string;
+  sourceIdentityFiles: number;
+  sourceIdentityBytes: number;
 }
 
 export interface Gemma4CompositeLiteralEmbeddedPayloadVerification {
@@ -114,6 +119,7 @@ export async function verifyGemma4CompositeLiteralPayloadsAgainstCatalog(options
       const reader = source.reader as typeof source.reader & { readTensorBytesRange?: (tensor: TensorInfo, offset: number, byteLength: number) => Promise<Buffer> };
       if (typeof reader.readTensorBytesRange !== "function") throw new Error("Leitor Safetensors não oferece readTensorBytesRange para verificação de payload.");
       if (artifact.constants.size !== source.catalog.tensors.size) throw new Error(`Verificação de payload Gemma 4 encontrou ${artifact.constants.size} constantes literais para ${source.catalog.tensors.size} tensores fonte.`);
+      const sourceIdentity = await verifyGemma4LiteralSourceIdentityAgainstCatalog(artifact.sourceIdentity, source.catalog);
 
       const sourceHash = createHash("sha256");
       const literalHash = createHash("sha256");
@@ -144,6 +150,10 @@ export async function verifyGemma4CompositeLiteralPayloadsAgainstCatalog(options
         comparedPayloadBytes,
         sourceStorageSha256: sourceHash.digest("hex"),
         literalStorageSha256: literalHash.digest("hex"),
+        modelId: artifact.sourceIdentity.modelId,
+        revision: artifact.sourceIdentity.revision,
+        sourceIdentityFiles: sourceIdentity.files,
+        sourceIdentityBytes: sourceIdentity.bytes,
       };
     } finally {
       await artifact.close();

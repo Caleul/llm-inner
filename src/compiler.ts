@@ -6,6 +6,7 @@ import { buildLiteralCalculationProgram } from "./literal.js";
 import type { LiteralTensorReader } from "./literal.js";
 import { buildGemma4CompositeProgram } from "./gemma4-composite.js";
 import { writeGemma4CompositeLiteralCalculationProgram } from "./gemma4-composite-literal.js";
+import { buildGemma4LiteralSourceIdentity } from "./gemma4-literal-source-identity.js";
 import { renderEquations } from "./render.js";
 import type { PreviewOptions } from "./types.js";
 
@@ -16,6 +17,8 @@ export interface CompileOptions {
   preview: PreviewOptions;
   /** Emit a source-independent dense, MLX-affine, or established GGUF Q8_0 calculation program. */
   literal?: boolean;
+  /** Required immutable package identity for the Gemma 4 product artifact. */
+  sourceIdentity?: { modelId: string; revision: string };
 }
 
 export async function compileModel(options: CompileOptions): Promise<void> {
@@ -42,10 +45,22 @@ export async function compileModel(options: CompileOptions): Promise<void> {
  * text_config alone, so this route always emits the full literal program.
  */
 export async function compileGemma4CompositeLiteralModel(options: Omit<CompileOptions, "literal">): Promise<void> {
+  if (!options.sourceIdentity) throw new Error("Exportação Gemma 4 literal requer modelId e revisão imutável.");
   const opened = await openCatalog(options.source, false);
   try {
     const composite = buildGemma4CompositeProgram(opened.catalog, options.preview);
-    await writeGemma4CompositeLiteralCalculationProgram(composite, opened.catalog, literalReader(opened.reader), options.output);
+    const sourceIdentity = await buildGemma4LiteralSourceIdentity(
+      opened.catalog,
+      options.sourceIdentity.modelId,
+      options.sourceIdentity.revision,
+    );
+    await writeGemma4CompositeLiteralCalculationProgram(
+      composite,
+      opened.catalog,
+      literalReader(opened.reader),
+      options.output,
+      sourceIdentity,
+    );
   } finally {
     await opened.close();
   }

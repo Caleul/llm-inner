@@ -27,6 +27,10 @@ import {
   type Gemma4LiteralNumericLiterals,
 } from "./gemma4-literal-numeric-literals.js";
 import type { TensorInfo } from "./types.js";
+import {
+  validateGemma4LiteralSourceIdentity,
+  type Gemma4LiteralSourceIdentity,
+} from "./gemma4-literal-source-identity.js";
 
 const CONSTANTS_MARKER = Buffer.from(",\"constants\":[", "ascii");
 const PAYLOAD_MARKER = Buffer.from(",\"payloadBase64\":\"", "ascii");
@@ -46,9 +50,10 @@ export interface IndexedLiteralConstant extends Omit<LiteralConstant, "payloadBa
  * fields, so opening a 20 GiB artifact does not build a 20 GiB V8 object.
  */
 export interface Gemma4CompositeLiteralArtifactIndex {
-  schemaVersion: 8;
+  schemaVersion: 9;
   artifact: string;
   artifactBytes: number;
+  sourceIdentity: Gemma4LiteralSourceIdentity;
   constants: ReadonlyMap<string, IndexedLiteralConstant>;
   storageDecoders: LiteralDenseStorageDecodeAssignment[];
   unreachableConstants: Gemma4CompositeUnreachableConstant[];
@@ -159,6 +164,7 @@ function buildIndex(
     tail.program as Gemma4CompositeProgram,
   );
   validateGemma4CompositeLiteralInputs(header.inputs as Gemma4CompositeLiteralInput[]);
+  validateGemma4LiteralSourceIdentity(header.sourceIdentity as Gemma4LiteralSourceIdentity);
   validateGemma4CompositeLiteralStructure(
     tail.program as Gemma4CompositeProgram,
     tail.assignments as Gemma4CompositeLiteralCalculationProgram["assignments"],
@@ -180,9 +186,10 @@ function buildIndex(
     ? undefined
     : validatePayloadIntegrity(tail.payloadIntegrity, constants);
   return {
-    schemaVersion: 8,
+    schemaVersion: 9,
     artifact,
     artifactBytes,
+    sourceIdentity: structuredClone(header.sourceIdentity as Gemma4LiteralSourceIdentity),
     constants,
     storageDecoders,
     unreachableConstants: tail.unreachableConstants as Gemma4CompositeUnreachableConstant[],
@@ -236,8 +243,8 @@ function assertHeader(header: Partial<Gemma4CompositeLiteralCalculationProgram>)
       policy.scalarSemantics === "IEEE-754 binary32; each operation declares ordered-scalar, contiguous blocked-term, separately-rounded F32-lane, or fused-multiply-add reduction and its F32 or BF16 result cast" ||
       policy.scalarSemantics === "IEEE-754 binary32 products; each operation declares its ordered-scalar, contiguous blocked-term, blocked tiled-lane, or interleaved-lane F32/F64 reduction and F32 or BF16 result cast" ||
       policy.scalarSemantics === "IEEE-754 binary32; each operation declares ordered-scalar, contiguous blocked-term, blocked tiled-lane, separately-rounded F32-lane, or fused-multiply-add reduction and its F32 or BF16 result cast");
-  if (header.schemaVersion !== 8 || header.kind !== "gemma4-composite-literal-calculation-program" || header.sourceFormat !== "safetensors" ||
-    !Array.isArray(header.inputs) || !policy || (!f32 && !operationDeclared && !operationAccumulationDeclared)) {
+  if (header.schemaVersion !== 9 || header.kind !== "gemma4-composite-literal-calculation-program" || header.sourceFormat !== "safetensors" ||
+    !header.sourceIdentity || !Array.isArray(header.inputs) || !policy || (!f32 && !operationDeclared && !operationAccumulationDeclared)) {
     throw new Error("Artefato literal Gemma 4 possui cabeçalho ou política numérica inválida.");
   }
 }

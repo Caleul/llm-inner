@@ -341,6 +341,19 @@ reconstrói a tabela do próprio programa e rejeita qualquer bit ou uso alterado
 checkpoint. A evidência do E4B real está em
 [`docs/validation/gemma4-e4b-source-removed-numeric-literals-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-numeric-literals-2026-07-18.md).
 
+O schema v9 vincula o próprio programa ao pacote imutável que estabeleceu suas
+semânticas. `sourceIdentity` carrega `modelId`, revisão commit de 40 dígitos,
+adaptador semântico, tamanho e SHA-256 de cada shard/metadata. Todos os JSONs
+top-level do pacote — inclusive configuração, geração, processor e tokenizer —
+são incorporados byte a byte em Base64 e validados contra o digest. Os shards
+Safetensors não são duplicados: seus bytes aprendidos continuam em `constants`,
+enquanto o hash do arquivo inteiro também compromete cabeçalho e layout do
+container. Antes da remoção da fonte, o auditor recalcula os seis arquivos e
+compara a identidade inteira. Identidade móvel, metadata alterada, arquivo
+repetido ou decoder de metadata divergente falha fechado. A evidência do E4B
+real está em
+[`docs/validation/gemma4-e4b-embedded-source-identity-2026-07-18.md`](docs/validation/gemma4-e4b-embedded-source-identity-2026-07-18.md).
+
 O leitor também pode partir de qualquer saída instanciada e calcular o fecho
 transitivo exato de seus produtores. `--calculation-slice <operation-id>`
 retorna somente as atribuições necessárias ao alvo, ainda em ordem de
@@ -478,7 +491,12 @@ autocontido com os bytes densos de todos os pesos, inclusive os escalares
 `shape: []` de `Gemma4ClippableLinear`:
 
 ```bash
-node dist/src/cli.js --source ./gemma-4-E4B --output ./gemma4.literal.json --gemma4-composite-literal
+node dist/src/cli.js \
+  --source ./gemma-4-E4B \
+  --output ./gemma4.literal.json \
+  --gemma4-composite-literal \
+  --model-id google/gemma-4-E4B \
+  --revision 411aa17b749aa952df1359d2dcea73917a544d9a
 ```
 
 `gemma4-composite-literal.ts` mantém as atribuições do prelude externo, tower
@@ -497,13 +515,14 @@ A regressão remove o mapa de bytes/tensores de uma fixture multimodal registrad
 antes do replay e compara logits e dois tokens greedy. O E4B BF16 usa o caminho
 paginado compatível descrito abaixo; nunca tem sua política reduzida a F32.
 
-Para o checkpoint obrigatório `google/gemma-4-E4B` BF16, o mesmo comando agora
+Para o checkpoint obrigatório `google/gemma-4-E4B` BF16, o mesmo comando exige
+identidade imutável explícita e
 escreve o artefato completo em streaming: ranges Safetensors de 12 MiB são
 codificados em base64 sem acumular o pacote ou uma string de vários GiB na
 heap. O resultado local contém os 2,130 payloads originais
 (15,992,314,836 bytes) e é auditado por `npm run audit:literal`. O hash
-`daa029dd3e635b6c7757a1db6979ea7f81d2b8c8b49a193b6574a58ea5d13cb4`
-identifica a exportação atual de `21.328.083.855` bytes, cuja política numérica
+`595603bedc33e27e3e7d270df45985c00eb7873196ac932aaf717fa0be0c6eee`
+identifica a exportação schema v9 atual de `21.382.303.443` bytes, cuja política numérica
 declara fronteiras de resultado BF16, acumuladores F32/F64 e agendas de redução
 por operação do texto, áudio e visão; toda exportação deve registrar seu próprio hash, pois o programa literal
 inclui as políticas numéricas. As 54 projeções/normas K/V locais dos
