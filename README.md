@@ -521,6 +521,19 @@ numéricos, e qualquer fórmula, dtype, ownership ou layer alterado falha na
 validação canônica. A prova no pacote real está em
 [`docs/validation/gemma4-e4b-explicit-kv-cache-programs-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-kv-cache-programs-2026-07-18.md).
 
+O schema v25 fecha a ligação dos operandos nas fórmulas canônicas. As classes
+linear, RMSNorm, ativação, elementwise, Conv2d/depthwise, LayerNorm, GLU e BMM
+vision agora nomeiam cada `orderedInput` e sua coordenada completa; nenhum
+leitor precisa inferir `input`, `x`, `q`, `k`, `value`, `padded_input` ou
+`...`. As 32 definições RoPE 2-D vision declaram eixo, feature local, par,
+feature pareada, ângulo e os branches concretos de soma/subtração, sem `+/-`
+nem "follows rotate_half". `formulaLanguage` schema 11 torna essa clausura de
+operandos parte do contrato e a construção falha para toda a classe quando um
+alias livre reaparece. Isso não inventa a árvore Apple Accelerate: as mesmas
+100 instâncias BMM continuam `fail-closed-runtime-reduction`. A prova no pacote
+real, incluindo 1.574 definições operand-closed e views source-removed, está em
+[`docs/validation/gemma4-e4b-explicit-operand-bindings-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-operand-bindings-2026-07-18.md).
+
 O leitor também pode partir de qualquer saída instanciada e calcular o fecho
 transitivo exato de seus produtores. `--calculation-slice <operation-id>`
 retorna somente as atribuições necessárias ao alvo, ainda em ordem de
@@ -688,8 +701,8 @@ escreve o artefato completo em streaming: ranges Safetensors de 12 MiB são
 codificados em base64 sem acumular o pacote ou uma string de vários GiB na
 heap. O resultado local contém os 2,130 payloads originais
 (15,992,314,836 bytes) e é auditado por `npm run audit:literal`. O hash e
-tamanho da exportação schema v24 atual são registrados em
-[`docs/validation/gemma4-e4b-explicit-kv-cache-programs-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-kv-cache-programs-2026-07-18.md); sua política numérica
+tamanho da exportação schema v25 atual são registrados em
+[`docs/validation/gemma4-e4b-explicit-operand-bindings-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-operand-bindings-2026-07-18.md); sua política numérica
 declara fronteiras de resultado BF16, acumuladores F32/F64 e agendas de redução
 por operação do texto, áudio e visão; toda exportação deve registrar seu próprio hash, pois o programa literal
 inclui as políticas numéricas. As 54 projeções/normas K/V locais dos

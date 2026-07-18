@@ -8,7 +8,7 @@ import { gemma4LiteralNormalizationReductionPrograms } from "./gemma4-literal-no
 
 export interface Gemma4LiteralFormulaLanguageContract {
   kind: "gemma4-literal-formula-language-contract";
-  schemaVersion: 10;
+  schemaVersion: 11;
   languageId: "indexed-ieee754-expression-v1";
   authority: {
     forwardAssignments: "/scalarCalculations/assignments";
@@ -28,6 +28,7 @@ export interface Gemma4LiteralFormulaLanguageContract {
     dependencyOrder: string;
     coordinateOrder: string;
     inputBinding: string;
+    operandClosure: string;
     numericTokenBinding: string;
     learnedValueBinding: string;
     generationOrder: string;
@@ -411,7 +412,7 @@ function pytorchPairwiseReduce(values: readonly number[], operation: "maximum" |
 export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormulaLanguageContract {
   return {
     kind: "gemma4-literal-formula-language-contract",
-    schemaVersion: 10,
+    schemaVersion: 11,
     languageId: "indexed-ieee754-expression-v1",
     authority: {
       forwardAssignments: "/scalarCalculations/assignments",
@@ -431,6 +432,7 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
       dependencyOrder: "evaluate instantiated assignments by ascending ordinal; every predecessor must already exist",
       coordinateOrder: "row-major lexicographic over the complete declared output domain; preview windows never change evaluation",
       inputBinding: "bind orderedInputs positionally at each instantiated call site before evaluating the indexed formula",
+      operandClosure: "every source tensor read names one ordered input and an explicit coordinate expression; free aliases such as input, x, q, k, value, padded_input, ellipsis and prose branch descriptions are invalid",
       numericTokenBinding: "resolve forward, generation and cache-transition decimal or named mathematical tokens through numericLiterals; resolve transcendental-program names through transcendentalPrograms.constants; select bits by the surrounding F64/F32/BF16 cast",
       learnedValueBinding: "evaluate learnedOperands.logicalIndices with its embedded integer-expression AST, then execute the matching storageDecoder address and decode expression ASTs under denseDecoderLanguage over the embedded constant bytes",
       generationOrder: "evaluate generation scalarAssignments in array order and iterations in ascending step order until the declared stop predicate",

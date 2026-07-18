@@ -405,7 +405,7 @@ async function renderConv2d(artifact: OpenGemma4CompositeLiteralArtifact, entry:
     });
     learnedScalars.push(learned);
     const sourceTime = time! * 2 + kernelTime - 1, sourceFeature = feature! * 2 + kernelFeature - 1;
-    const input = `source_in_bounds(${sourceTime},${sourceFeature}) ? ${indexed(entry.assignment.inputs[0]!, [batch!, inputChannel, sourceTime, sourceFeature])} : F32(0)`;
+    const input = `(source_in_bounds(${sourceTime},${sourceFeature}) ? ${indexed(entry.assignment.inputs[0]!, [batch!, inputChannel, sourceTime, sourceFeature])} : F32(0))`;
     const termFormula = `product[${term}] = F32(${input} * ${learned.literal})`;
     terms.push({ inputIndex: term, input, learned, formula: termFormula });
     term += 1;

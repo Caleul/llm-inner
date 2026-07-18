@@ -424,14 +424,15 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 24);
+  assert.equal(literal.schemaVersion, 25);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   assert.deepEqual(literal.authoritativeExecution, gemma4AuthoritativeExecutionContract());
   assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.languageId, literal.generation.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.authority.numericLiteralBits, "/numericLiterals/literals");
-  assert.equal(literal.formulaLanguage.schemaVersion, 10);
+  assert.equal(literal.formulaLanguage.schemaVersion, 11);
+  assert.match(literal.formulaLanguage.evaluation.operandClosure, /every source tensor read names one ordered input/);
   assert.equal(literal.formulaLanguage.indexing.programs.schemaVersion, 3);
   assert.ok(literal.numericLiterals.literals.some((entry) =>
     entry.uses.some((use) => use.section === "cache-transition" && use.definitionId === "layer_0_incremental")));
@@ -555,9 +556,29 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     entry.outputCoordinates.length > 0 && entry.formula.startsWith(`${entry.output}[`) && entry.orderedInputs.length > 0));
   assert.ok(literal.scalarCalculations.assignments.every((entry) =>
     !/masked_score-max_key|score-max_key|score-max_valid_key|max_k|max_context|sum_k_ascending|sum_context_ascending/.test(entry.formula)));
+  const operandClosedOperations = new Set([
+    "placeholder-masks", "embedding", "per-layer-embedding", "per_layer_embedding",
+    "linear", "clipped-linear", "rms-norm", "rms_norm", "activation", "gelu-tanh",
+    "elementwise", "tensor_scale",
+    "multidimensional-rope", "attention-score-matmul", "attention-value-matmul",
+    "reshape-conv-features", "conv2d-stride2", "layer-norm-channels",
+    "split-gated-linear-unit", "causal-depthwise-convolution",
+  ]);
+  const operandClosed = literal.scalarCalculations.assignments.filter((entry) => operandClosedOperations.has(entry.operation));
+  assert.ok(operandClosed.length > 20);
+  assert.ok(operandClosed.every((entry) => entry.orderedInputs.every((input) => entry.formula.includes(input))));
+  assert.equal(operandClosed.some((entry) => /\+\/-|\bfollows\b|\btuple\s*\(|\.\.\.|\bpadded_input\[/.test(entry.formula)), false);
+  assert.equal(operandClosed.filter((entry) => entry.operation === "rms_norm" || entry.operation === "rms-norm")
+    .some((entry) => /\binput\b/.test(entry.formula)), false);
+  const visionRopes = operandClosed.filter((entry) => entry.operation === "multidimensional-rope");
+  assert.equal(visionRopes.length, 2);
+  assert.ok(visionRopes.every((entry) =>
+    entry.formula.includes("local_feature<") && entry.formula.includes("paired_feature=") &&
+    entry.formula.includes(" ? BF16(F32(") && entry.formula.includes(" : BF16(F32(")));
   const visionAttentionCalculation = literal.scalarCalculations.assignments.find((entry) =>
     entry.scope === "vision" && entry.definitionId === "vision_layer_0_attention_scores")!;
-  assert.match(visionAttentionCalculation.formula, /head_feature=0\.\.head_dim-1/);
+  assert.match(visionAttentionCalculation.formula, /head_feature=0\.\.3/);
+  assert.ok(visionAttentionCalculation.orderedInputs.every((input) => visionAttentionCalculation.formula.includes(input)));
   assert.equal(visionAttentionCalculation.reproducibility, "literal");
   assert.equal(visionAttentionCalculation.reduction?.order, "operation-declared");
   const visionSoftmaxCalculation = literal.scalarCalculations.assignments.find((entry) =>
@@ -592,11 +613,11 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.equal(audioConvCalculation.reproducibility, "literal");
   const audioRmsCalculation = literal.scalarCalculations.assignments.find((entry) =>
     entry.scope === "audio" && entry.definitionId === "audio_layer_0_ffn1_pre_norm")!;
-  assert.match(audioRmsCalculation.formula, /\*decode\(normalization-scale\)\[feature\]/);
+  assert.match(audioRmsCalculation.formula, /\*decode\(normalization-scale\)\[output_feature\]/);
   assert.doesNotMatch(audioRmsCalculation.formula, /1\+decode\(normalization-scale\)/);
   const audioGluCalculation = literal.scalarCalculations.assignments.find((entry) =>
     entry.scope === "audio" && entry.definitionId === "audio_layer_0_conv_glu")!;
-  assert.match(audioGluCalculation.formula, /input\[\.\.\.,hidden\]\/F32\(1\+SLEEF_EXP_F32/);
+  assert.match(audioGluCalculation.formula, /audio_layer_0_conv_glu_linear\[batch,frame,hidden\]\/F32\(1\+SLEEF_EXP_F32/);
   const compositeEmbeddingCalculation = literal.scalarCalculations.assignments.find((entry) =>
     entry.scope === "composite" && entry.definitionId === "composite_text_embedding")!;
   assert.match(compositeEmbeddingCalculation.formula, /decode\(weight\).*F32\(2\)/);
@@ -873,7 +894,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 24);
+      assert.equal(artifact.schemaVersion, 25);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.deepEqual(artifact.authoritativeExecution, gemma4AuthoritativeExecutionContract());
@@ -1348,6 +1369,8 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       assert.equal(convolution.reduction?.complete, true);
       assert.equal(convolution.terms?.length, 9);
       assert.ok(convolution.scalarAssignments.some((formula) => formula.includes("source_in_bounds")));
+      assert.ok(convolution.terms?.every((term) =>
+        term.formula.includes(`F32(${term.input} * ${term.learned.literal})`)));
 
       const relativeProjection = await renderGemma4LiteralMultimodalScalarView(artifact, {
         operationId: "composite_audio_features/audio_layer_0_relative_k_projection", outputCoordinate: [0, 0, 1],
