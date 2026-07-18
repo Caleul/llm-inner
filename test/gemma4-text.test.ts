@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildModelIR } from "../src/architecture.js";
-import { GEMMA4_E4B_PYTORCH_BF16_TANH_IMPLEMENTATION, GEMMA4_E4B_PYTORCH_BF16_TRIG_IMPLEMENTATION, gemma4TextEmbeddingScale, isSourceDispatchedGemma4E4bCpuBf16Linear, isTraceBoundGemma4E4bArm32Topology } from "../src/gemma4-text.js";
+import { GEMMA4_E4B_PYTORCH_BF16_ATTENTION_IMPLEMENTATION, GEMMA4_E4B_PYTORCH_BF16_TANH_IMPLEMENTATION, GEMMA4_E4B_PYTORCH_BF16_TRIG_IMPLEMENTATION, gemma4TextEmbeddingScale, isSourceDispatchedGemma4E4bCpuBf16Attention, isSourceDispatchedGemma4E4bCpuBf16Linear, isTraceBoundGemma4E4bArm32Topology } from "../src/gemma4-text.js";
 import { executeReferenceF32 } from "../src/executor.js";
 import type { DenseF32Tensor, ModelCatalog, TensorInfo } from "../src/types.js";
 
@@ -25,6 +25,21 @@ test("Gemma 4 E4B source dispatch covers the compatible BF16 linear class withou
   assert.equal(isSourceDispatchedGemma4E4bCpuBf16Linear({ ...e4b, layers: 41 }, compatible), false);
   assert.equal(isTraceBoundGemma4E4bArm32Topology({ ...e4b, intermediate: 5120 }), false);
   assert.equal(isTraceBoundGemma4E4bArm32Topology({ ...e4b, pleWidth: 128 }), false);
+});
+
+test("Gemma 4 E4B source dispatch covers every compatible eager BF16 attention", () => {
+  const e4b = { hidden: 2560, intermediate: 10240, layers: 42, pleWidth: 256, vocab: 262144 };
+  const compatible = {
+    id: "any_attention", op: "scaled_dot_product_attention" as const, query: "q", key: "k", value: "v", maskInput: "mask", output: "context",
+    numAttentionHeads: 8, numKeyValueHeads: 2, headDim: 256, scale: 1, softmaxComputeDtype: "float32", causal: true,
+    dtypePolicy: { inputDtype: "BF16", computeDtype: "F32", accumulationDtype: "F32", outputDtype: "BF16" },
+  };
+  assert.equal(isSourceDispatchedGemma4E4bCpuBf16Attention(e4b, compatible), true);
+  assert.equal(isSourceDispatchedGemma4E4bCpuBf16Attention(e4b, { ...compatible, headDim: 512 }), true);
+  assert.equal(isSourceDispatchedGemma4E4bCpuBf16Attention(e4b, { ...compatible, scoreSoftcap: 30 }), false);
+  assert.equal(isSourceDispatchedGemma4E4bCpuBf16Attention(e4b, { ...compatible, scale: 0.5 }), false);
+  assert.equal(isSourceDispatchedGemma4E4bCpuBf16Attention({ ...e4b, layers: 41 }, compatible), false);
+  assert.equal(GEMMA4_E4B_PYTORCH_BF16_ATTENTION_IMPLEMENTATION.operationClass, "eager-bf16-gqa-attention");
 });
 
 test("Gemma 4 text preserves authoritative BF16 result boundaries in its IR", async () => {

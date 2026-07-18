@@ -290,6 +290,32 @@ export interface F32SinCosImplementation {
   cosineKernel: "Sleef_cosf4_u10advsimd";
 }
 
+export interface F32ExpImplementation {
+  authority: "pytorch-source-and-installed-binary";
+  runtime: "pytorch-eager-cpu-darwin-arm64";
+  pytorchSourceCommit: string;
+  sleefSourceCommit: string;
+  kernel: "Sleef_expf4_u10advsimd";
+}
+
+export interface PytorchEagerBf16AttentionImplementation {
+  authority: "pytorch-source-and-installed-binary";
+  runtime: "pytorch-eager-cpu-darwin-arm64";
+  pytorchSourceCommit: string;
+  operationClass: "eager-bf16-gqa-attention";
+  dispatchPath: string;
+  scoreReduction: Extract<ReductionSchedule, { kind: "arm-neon-bf16-dot-fma" }>;
+  scoreOutputDtype: "BF16";
+  maskAdditionDtype: "BF16";
+  softmaxInputDtype: "F32";
+  softmaxVectorLanes: 4;
+  softmaxReduction: "pairwise-f32-vector-lanes";
+  exponential: F32ExpImplementation;
+  probabilityDtype: "BF16";
+  contextReduction: Extract<ReductionSchedule, { kind: "arm-neon-bf16-dot-fma" }>;
+  contextOutputDtype: "BF16";
+}
+
 export interface AttentionOp extends BaseOp {
   op: "scaled_dot_product_attention";
   query: string;
@@ -304,6 +330,7 @@ export interface AttentionOp extends BaseOp {
   softmaxComputeDtype: string;
   causal: boolean;
   slidingWindow?: number;
+  numericImplementation?: PytorchEagerBf16AttentionImplementation;
   kvSharing?: {
     enabled: boolean;
     producerLayer?: number;

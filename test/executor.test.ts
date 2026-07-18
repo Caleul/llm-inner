@@ -5,12 +5,13 @@ import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { buildModelIR } from "../src/architecture.js";
 import { compareExecutionTrace, compareGenerationTrace } from "../src/differential.js";
-import { activationF32, elementwiseF32, executeReferenceF32, executeReferenceF64, generateReferenceF32, generateReferenceF64, rmsNormF32, rotaryF32 } from "../src/executor.js";
+import { activationF32, attentionF32, elementwiseF32, executeReferenceF32, executeReferenceF64, generateReferenceF32, generateReferenceF64, rmsNormF32, rotaryF32 } from "../src/executor.js";
 import { selectGreedyToken } from "../src/generation.js";
-import { GEMMA4_E4B_PYTORCH_BF16_TRIG_IMPLEMENTATION } from "../src/gemma4-text.js";
+import { GEMMA4_E4B_PYTORCH_BF16_ATTENTION_IMPLEMENTATION, GEMMA4_E4B_PYTORCH_BF16_TRIG_IMPLEMENTATION } from "../src/gemma4-text.js";
 import { SafetensorsCatalogReader } from "../src/safetensors.js";
 import { decodeMlxF32Payload } from "../src/bridge.js";
-import { sleefCosF32, sleefSinF32, sleefTanhF32 } from "../src/sleef-f32.js";
+import { sleefCosF32, sleefExpF32, sleefSinF32, sleefTanhF32 } from "../src/sleef-f32.js";
+import { armNeonBf16DotF32 } from "../src/native-reductions.js";
 import type { DenseF32Tensor, DenseTensor, ModelCatalog, TensorInfo } from "../src/types.js";
 import { roundF32ToBF16 } from "../src/utils.js";
 
@@ -58,6 +59,45 @@ test("pinned PyTorch ARM SLEEF trig and BF16 RoPE casts preserve authoritative r
   const result = rotaryF32({ shape: [1, 1, 1, 2], values: Float32Array.of(0.5, -1) }, [[1]], operation);
   assert.deepEqual([...result.values], [1.109375, -0.119140625]);
   assert.throws(() => sleefSinF32(125), /requires the unimplemented rempif range reducer/);
+});
+
+test("pinned PyTorch ARM SLEEF exp and BF16 eager attention preserve authoritative results", () => {
+  assert.deepEqual([0, -0.1, -1, -10, 0.1, 1, 10, -103].map(sleefExpF32), [
+    1, 0.904837429523468, 0.3678794503211975, 0.00004539993096841499,
+    1.1051709651947021, 2.7182817459106445, 22026.46484375, 1.401298464324817e-45,
+  ]);
+  const reduction = GEMMA4_E4B_PYTORCH_BF16_ATTENTION_IMPLEMENTATION.scoreReduction;
+  const left = Float32Array.from({ length: 42 }, (_, index) => Math.fround((index - 20) / 64));
+  const right = Float32Array.from({ length: 42 }, (_, index) => Math.fround((10 - index) / 32));
+  assert.equal(roundF32ToBF16(armNeonBf16DotF32(42, (index) => left[index]!, (index) => right[index]!, reduction)), -3.125);
+
+  const query = { shape: [1, 1, 1, 32], values: Float32Array.from({ length: 32 }, (_, index) => (index - 16) / 128) };
+  const key = { shape: [1, 1, 2, 32], values: Float32Array.from([
+    ...Array.from({ length: 32 }, (_, index) => (index - 8) / 64),
+    ...Array.from({ length: 32 }, (_, index) => (16 - index) / 128),
+  ]) };
+  const value = { shape: [1, 1, 2, 32], values: Float32Array.from([
+    ...Array.from({ length: 32 }, (_, index) => (index - 16) / 32),
+    ...Array.from({ length: 32 }, (_, index) => (31 - index) / 16),
+  ]) };
+  const operation = {
+    id: "attention", op: "scaled_dot_product_attention" as const, query: "q", key: "k", value: "v", maskInput: "mask", output: "context",
+    numAttentionHeads: 1, numKeyValueHeads: 1, headDim: 32, scale: 1, softmaxComputeDtype: "F32", causal: true,
+    numericImplementation: structuredClone(GEMMA4_E4B_PYTORCH_BF16_ATTENTION_IMPLEMENTATION),
+    dtypePolicy: { inputDtype: "BF16", computeDtype: "F32", accumulationDtype: "F32", outputDtype: "BF16" },
+  };
+  assert.deepEqual([...attentionF32(query, key, value, operation, undefined, 1).values], [
+    0.4296875, 0.42578125, 0.419921875, 0.416015625, 0.412109375, 0.40625, 0.40234375, 0.3984375,
+    0.392578125, 0.388671875, 0.384765625, 0.37890625, 0.375, 0.37109375, 0.365234375, 0.361328125,
+    0.357421875, 0.3515625, 0.34765625, 0.34375, 0.33984375, 0.333984375, 0.330078125, 0.326171875,
+    0.3203125, 0.31640625, 0.3125, 0.306640625, 0.302734375, 0.298828125, 0.29296875, 0.2890625,
+  ]);
+  const neutralMask = { shape: [1, 1, 1, 2], values: new Float32Array(2) };
+  assert.deepEqual(
+    [...attentionF32(query, key, value, operation, neutralMask, 0, false).values],
+    [...value.values.subarray(0, 32)].map(roundF32ToBF16),
+    "an additive mask that does not own topology cannot unmask a future key",
+  );
 });
 
 test("PyTorch CPU cascade RMS schedule reproduces the authoritative BF16 vector", () => {

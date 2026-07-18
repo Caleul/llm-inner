@@ -1,4 +1,4 @@
-import type { JsonObject, LayerIR, LinearOp, ModelCatalog, ModelIR, Operation, PreviewOptions, TensorInfo, TensorRef } from "./types.js";
+import type { AttentionOp, JsonObject, LayerIR, LinearOp, ModelCatalog, ModelIR, Operation, PreviewOptions, TensorInfo, TensorRef } from "./types.js";
 import { roundF32ToBF16 } from "./utils.js";
 
 const F32_POLICY = { computeDtype: "model-configured", accumulationDtype: "runtime-defined", outputDtype: "model-configured" } as const;
@@ -19,12 +19,13 @@ const BF16_SOURCE_DISPATCHED_RMS_PROVENANCE = {
   operationClass: "contiguous-last-dimension-f32-mean",
   dispatchPath: "Gemma4RMSNorm hidden_states.float().pow(2).mean(-1) -> mean_out CPU -> sum_out F32 -> cascade_sum -> vectorized_inner_sum",
 } as const;
+const BF16_SOURCE_DISPATCHED_ARM_32_DOT_REDUCTION = {
+  kind: "arm-neon-bf16-dot-fma", laneCount: 32, registerCount: 8, lanesPerRegister: 4,
+  inputLane: "index-modulo-vector-lane-count", horizontalFold: "pairwise",
+} as const;
 const BF16_SOURCE_DISPATCHED_ARM_32_LINEAR_POLICY = {
   inputDtype: "BF16", computeDtype: "F32", accumulationDtype: "F32", outputDtype: "BF16",
-  reduction: {
-    kind: "arm-neon-bf16-dot-fma", laneCount: 32, registerCount: 8, lanesPerRegister: 4,
-    inputLane: "index-modulo-vector-lane-count", horizontalFold: "pairwise",
-  },
+  reduction: BF16_SOURCE_DISPATCHED_ARM_32_DOT_REDUCTION,
 } as const;
 
 const BF16_SOURCE_DISPATCHED_ARM_32_LINEAR_PROVENANCE = {
@@ -58,6 +59,30 @@ export const GEMMA4_E4B_PYTORCH_BF16_TRIG_IMPLEMENTATION = {
   sleefSourceCommit: "5a1d179df9cf652951b59010a2d2075372d67f68",
   sineKernel: "Sleef_sinf4_u10advsimd",
   cosineKernel: "Sleef_cosf4_u10advsimd",
+} as const;
+
+export const GEMMA4_E4B_PYTORCH_BF16_ATTENTION_IMPLEMENTATION = {
+  authority: "pytorch-source-and-installed-binary",
+  runtime: "pytorch-eager-cpu-darwin-arm64",
+  pytorchSourceCommit: "7269437d655783a26cba32aa88195b741ff496aa",
+  operationClass: "eager-bf16-gqa-attention",
+  dispatchPath: "eager_attention_forward -> repeat_kv -> matmul/bmm_out_cpu -> split-batch addmm_impl_cpu_/bf16_dot_with_fp32_arith -> BF16 score -> softmax_lastdim F32/Sleef_expf4_u10advsimd -> BF16 probability -> matmul/bmm_out_cpu -> split-batch addmm_impl_cpu_/bf16_dot_with_fp32_arith -> BF16 context",
+  scoreReduction: BF16_SOURCE_DISPATCHED_ARM_32_DOT_REDUCTION,
+  scoreOutputDtype: "BF16",
+  maskAdditionDtype: "BF16",
+  softmaxInputDtype: "F32",
+  softmaxVectorLanes: 4,
+  softmaxReduction: "pairwise-f32-vector-lanes",
+  exponential: {
+    authority: "pytorch-source-and-installed-binary",
+    runtime: "pytorch-eager-cpu-darwin-arm64",
+    pytorchSourceCommit: "7269437d655783a26cba32aa88195b741ff496aa",
+    sleefSourceCommit: "5a1d179df9cf652951b59010a2d2075372d67f68",
+    kernel: "Sleef_expf4_u10advsimd",
+  },
+  probabilityDtype: "BF16",
+  contextReduction: BF16_SOURCE_DISPATCHED_ARM_32_DOT_REDUCTION,
+  contextOutputDtype: "BF16",
 } as const;
 
 /**
@@ -243,6 +268,11 @@ export function buildGemma4TextIR(catalog: ModelCatalog, config: JsonObject, pre
         cosine: "BF16", sine: "BF16", directProduct: "BF16", rotatedProduct: "BF16", sum: "BF16",
       };
     }
+    if (runtimeDtype === "BF16" && isSourceDispatchedGemma4E4bCpuBf16Attention(
+      { hidden, intermediate, layers, pleWidth, vocab }, operation,
+    )) {
+      operation.numericImplementation = structuredClone(GEMMA4_E4B_PYTORCH_BF16_ATTENTION_IMPLEMENTATION);
+    }
   }
   return { schemaVersion: 2, source: { path: catalog.source, format: catalog.format }, architecture: { modelType: "gemma4_text", hiddenSize: hidden, intermediateSize: intermediate, numLayers: layers, numAttentionHeads: heads, numKeyValueHeads: kvHeads, headDim, vocabSize: vocab }, config: structuredClone(config), preview, inputs: [{ name: "input_ids", description: "IDs dos tokens de entrada." }, { name: "attention_mask", description: "Máscaras causais por tipo de atenção." }, { name: "position_ids", description: "Posições absolutas RoPE." }, { name: "past_key_values", description: "Estado KV pós-RoPE por camada produtora." }], prelude, layers: lowered, epilogue, fidelity: { exactByConstruction: false, assumptions: ["A política declarada preserva fronteiras BF16 de saída quando a configuração autoritativa as exige; a ordem exata de redução do kernel nativo continua sujeita à validação diferencial."], unsupported: [], warnings: ["Este adaptador cobre Gemma4Text isolado. O pacote multimodal Gemma4 continua rejeitado até vision/audio replacement ser lowered."] } };
 }
@@ -285,6 +315,16 @@ export function isSourceDispatchedGemma4E4bCpuBf16Linear(
 ): operation is LinearOp {
   return isTraceBoundGemma4E4bArm32Topology(topology) && operation.op === "linear" &&
     operation.transposeWeight === true && operation.bias === undefined && operation.weight?.storageDtype === "BF16";
+}
+
+/** Every eager E4B attention reaches the same dtype- and source-selected kernels. */
+export function isSourceDispatchedGemma4E4bCpuBf16Attention(
+  topology: { hidden: number; intermediate: number; layers: number; pleWidth: number; vocab: number },
+  operation: Operation,
+): operation is AttentionOp {
+  return isTraceBoundGemma4E4bArm32Topology(topology) && operation.op === "scaled_dot_product_attention" &&
+    (operation.headDim === 256 || operation.headDim === 512) && operation.scale === 1 &&
+    operation.scoreSoftcap === undefined && (operation.softmaxComputeDtype === "float32" || operation.softmaxComputeDtype === "F32");
 }
 
 /**

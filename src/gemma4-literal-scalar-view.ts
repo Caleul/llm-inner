@@ -495,6 +495,23 @@ function renderAttention(
     ? `k=0..min(past_length+${q},key_length-1)`
     : `k=max(0,past_length+${q}-${operation.slidingWindow - 1})..min(past_length+${q},key_length-1)`;
   const softcap = operation.scoreSoftcap === undefined ? "scaled_dot[k]" : `F32(${literal(operation.scoreSoftcap)} * F32(tanh(F32(scaled_dot[k] / F32(${literal(operation.scoreSoftcap)})))))`;
+  if (operation.numericImplementation) {
+    const implementation = operation.numericImplementation;
+    const allKeys = "k=0..key_length-1";
+    const formula = `${base.output} = BF16_RNE(ARM_NEON_BF16_DOT_F32_${implementation.contextReduction.horizontalFold}(probability[k], ${operation.value}[${b},${kv},k,${d}], ${allKeys}))`;
+    return renderPlain(operation, base, formula, [
+      `dot[k] = BF16_RNE(ARM_NEON_BF16_DOT_F32_${implementation.scoreReduction.horizontalFold}(${operation.query}[${b},${h},${q},feature], ${operation.key}[${b},${kv},k,feature], feature=0..${operation.headDim - 1}))`,
+      `scaled_dot[k] = BF16_RNE(F32(dot[k] * F32(${literal(operation.scale)})))`,
+      `topology_mask[k] = 0 when ${topology}; otherwise -Infinity`,
+      `declared_mask[k] = ${operation.maskInput}[${b},${h},${q},k]`,
+      "effective_mask[k] = declared_mask[k] when it already defines topology; otherwise F32(topology_mask[k] + declared_mask[k])",
+      "score[k] = BF16_RNE(F32(scaled_dot[k] + effective_mask[k]))",
+      `maximum = PYTORCH_F32_VECTOR_MAX_PAIRWISE(score[k], ${allKeys}, lanes=${implementation.softmaxVectorLanes})`,
+      `exp_score[k] = SLEEF_EXP_F32(F32(score[k] - maximum))`,
+      `total = PYTORCH_F32_VECTOR_SUM_PAIRWISE(exp_score[k], ${allKeys}, lanes=${implementation.softmaxVectorLanes})`,
+      "probability[k] = BF16_RNE(F32(exp_score[k] * F32(1 / total)))",
+    ]);
+  }
   const formula = `${base.output} = ${outputCast(operation)}(sum_{${topology} in ascending order}(F32(probability[k] * ${operation.value}[${b},${kv},k,${d}])))`;
   return renderPlain(operation, base, formula, [
     `dot[k] = F32(sum_{feature=0..${operation.headDim - 1} in ascending order}(F32(${operation.query}[${b},${h},${q},feature] * ${operation.key}[${b},${kv},k,feature])))`,

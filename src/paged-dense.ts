@@ -1,6 +1,7 @@
 import { decodeIeeeBF16ToF32, decodeIeeeF16ToF32, roundF32ToBF16 } from "./utils.js";
 import type { LiteralTensorReader } from "./literal.js";
 import type { DenseF32Tensor, ReductionSchedule, TensorInfo } from "./types.js";
+import { armNeonBf16DotF32 } from "./native-reductions.js";
 
 /**
  * A deliberately narrow, source-independent dense storage boundary for
@@ -268,28 +269,14 @@ function linearF32ProductsArmNeonBf16DotFma(
   inFeatures: number,
   reduction: Extract<ReductionSchedule, { kind: "arm-neon-bf16-dot-fma" }>,
 ): number {
-  if ((reduction.laneCount !== 32 && reduction.laneCount !== 64) || reduction.registerCount !== 8 ||
-    (reduction.lanesPerRegister !== 4 && reduction.lanesPerRegister !== 8) || reduction.laneCount !== reduction.registerCount * reduction.lanesPerRegister ||
-    reduction.inputLane !== "index-modulo-vector-lane-count" ||
-    (reduction.horizontalFold !== "ascending" && reduction.horizontalFold !== "pairwise")) {
-    throw new Error("Linear paginado recebeu agenda ARM NEON BF16 dot inválida.");
-  }
-  const lanes = new Float32Array(reduction.laneCount);
-  for (let column = 0; column < inFeatures; column += 1) {
-    const lane = column % reduction.laneCount;
-    lanes[lane] = Math.fround(lanes[lane]! + input.values[row * inFeatures + column]! * weight[output * inFeatures + column]!);
-  }
-  // VectorizedN<float, 8>: x[0..3] += x[4..7], then x[0..1] += x[2..3],
-  // then x[0] += x[1]. Each item here is a lanesPerRegister-wide vector;
-  // omitting that last merge silently drops four or eight accumulation lanes.
-  const registers = new Float32Array(reduction.laneCount / 2);
-  const registerWidth = reduction.lanesPerRegister;
-  for (let lane = 0; lane < registers.length; lane += 1) registers[lane] = Math.fround(lanes[lane]! + lanes[lane + registers.length]!);
-  for (let lane = 0; lane < registers.length / 2; lane += 1) registers[lane] = Math.fround(registers[lane]! + registers[lane + registers.length / 2]!);
-  for (let lane = 0; lane < registerWidth; lane += 1) registers[lane] = Math.fround(registers[lane]! + registers[lane + registerWidth]!);
-  return reduction.horizontalFold === "ascending"
-    ? foldF32Lanes(registers.subarray(0, registerWidth), "ascending")
-    : foldF32Lanes(registers.subarray(0, registerWidth), "balanced-pairwise");
+  const inputBase = row * inFeatures;
+  const weightBase = output * inFeatures;
+  return armNeonBf16DotF32(
+    inFeatures,
+    (column) => input.values[inputBase + column]!,
+    (column) => weight[weightBase + column]!,
+    reduction,
+  );
 }
 
 /**

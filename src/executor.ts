@@ -18,8 +18,9 @@ import type {
   TensorRef,
 } from "./types.js";
 import { selectGreedyToken } from "./generation.js";
-import { sleefCosF32, sleefSinF32, sleefTanhF32 } from "./sleef-f32.js";
+import { sleefCosF32, sleefExpF32, sleefSinF32, sleefTanhF32 } from "./sleef-f32.js";
 import { roundF32ToBF16 } from "./utils.js";
+import { armNeonBf16DotF32, assertArmNeonBf16DotReduction } from "./native-reductions.js";
 
 /**
  * Small, deterministic F64 interpreter for the dense decoder subset emitted by
@@ -973,6 +974,9 @@ export function attentionF32(query: DenseF32Tensor, key: DenseF32Tensor, valueTe
   const group = queryHeads / keyHeads;
   if (!Number.isInteger(group)) throw new Error(`${operation.id}: GQA inválida.`);
   const mask = validateAttentionMask(attentionMask, batch, queryHeads, querySequence, keySequence, operation.id);
+  if (operation.numericImplementation) {
+    return attentionPytorchEagerBf16F32(query, key, valueTensor, operation, mask, pastLength, maskDefinesTopology);
+  }
   const scale = f32(operation.scale);
   for (let b = 0; b < batch; b += 1) for (let h = 0; h < queryHeads; h += 1) for (let q = 0; q < querySequence; q += 1) {
     const kvHead = Math.floor(h / group);
@@ -1000,6 +1004,104 @@ export function attentionF32(query: DenseF32Tensor, key: DenseF32Tensor, valueTe
     }
   }
   return denseF32([batch, querySequence, queryHeads * headDim], result);
+}
+
+function attentionPytorchEagerBf16F32(
+  query: DenseF32Tensor,
+  key: DenseF32Tensor,
+  valueTensor: DenseF32Tensor,
+  operation: Extract<Operation, { op: "scaled_dot_product_attention" }>,
+  mask: DenseF32Tensor | undefined,
+  pastLength: number,
+  maskDefinesTopology: boolean,
+): DenseF32Tensor {
+  const implementation = operation.numericImplementation!;
+  if (implementation.operationClass !== "eager-bf16-gqa-attention" ||
+    implementation.scoreOutputDtype !== "BF16" || implementation.maskAdditionDtype !== "BF16" ||
+    implementation.softmaxInputDtype !== "F32" || implementation.softmaxVectorLanes !== 4 ||
+    implementation.softmaxReduction !== "pairwise-f32-vector-lanes" || implementation.exponential.kernel !== "Sleef_expf4_u10advsimd" ||
+    implementation.probabilityDtype !== "BF16" || implementation.contextOutputDtype !== "BF16" ||
+    implementation.scoreReduction.laneCount !== 32 || implementation.scoreReduction.lanesPerRegister !== 4 || implementation.scoreReduction.horizontalFold !== "pairwise" ||
+    implementation.contextReduction.laneCount !== 32 || implementation.contextReduction.lanesPerRegister !== 4 || implementation.contextReduction.horizontalFold !== "pairwise") {
+    throw new Error(`${operation.id}: contrato numérico eager BF16 attention incompleto ou incompatível.`);
+  }
+  assertArmNeonBf16DotReduction(implementation.scoreReduction);
+  assertArmNeonBf16DotReduction(implementation.contextReduction);
+  if (operation.scoreSoftcap !== undefined) throw new Error(`${operation.id}: contrato eager BF16 registrado não cobre scoreSoftcap.`);
+
+  const [batch, queryHeads, querySequence, headDim] = query.shape as [number, number, number, number];
+  const keyHeads = key.shape[1]!, keySequence = key.shape[2]!;
+  const group = queryHeads / keyHeads;
+  const result = new Float32Array(batch * querySequence * queryHeads * headDim);
+  const scale = f32(operation.scale);
+  for (let b = 0; b < batch; b += 1) for (let h = 0; h < queryHeads; h += 1) for (let q = 0; q < querySequence; q += 1) {
+    const kvHead = Math.floor(h / group);
+    const absoluteQuery = pastLength + q;
+    const firstKey = operation.slidingWindow === undefined ? 0 : Math.max(0, absoluteQuery - operation.slidingWindow + 1);
+    const lastKey = operation.causal ? Math.min(absoluteQuery, keySequence - 1) : keySequence - 1;
+    const scores = new Float32Array(keySequence);
+    let hasFiniteTopology = false;
+    for (let k = 0; k < keySequence; k += 1) {
+      const queryBase = ((b * queryHeads + h) * querySequence + q) * headDim;
+      const keyBase = ((b * keyHeads + kvHead) * keySequence + k) * headDim;
+      const dot = armNeonBf16DotF32(
+        headDim,
+        (d) => query.values[queryBase + d]!,
+        (d) => key.values[keyBase + d]!,
+        implementation.scoreReduction,
+      );
+      const scaled = roundF32ToBF16(f32(dot * scale));
+      const topologyMask = maskDefinesTopology || (k >= firstKey && k <= lastKey) ? 0 : -Infinity;
+      const declaredMask = mask ? mask.values[maskOffset(mask, b, h, q, k)]! : 0;
+      const additiveMask = maskDefinesTopology ? declaredMask : f32(topologyMask + declaredMask);
+      scores[k] = roundF32ToBF16(f32(scaled + additiveMask));
+      if (Number.isFinite(scores[k]!)) hasFiniteTopology = true;
+    }
+    if (!hasFiniteTopology) throw new Error(`${operation.id}: attentionMask excluiu todas as chaves da consulta ${q}.`);
+    const probabilities = pytorchSoftmaxF32ToBf16(scores);
+    for (let d = 0; d < headDim; d += 1) {
+      const context = armNeonBf16DotF32(
+        keySequence,
+        (k) => probabilities[k]!,
+        (k) => valueTensor.values[((b * keyHeads + kvHead) * keySequence + k) * headDim + d]!,
+        implementation.contextReduction,
+      );
+      result[((b * querySequence + q) * queryHeads + h) * headDim + d] = roundF32ToBF16(context);
+    }
+  }
+  return denseF32([batch, querySequence, queryHeads * headDim], result);
+}
+
+/** PyTorch SoftMaxKernel.cpp last-dimension F32 map/reduce followed by BF16 cast. */
+function pytorchSoftmaxF32ToBf16(scores: Float32Array): Float32Array {
+  const maximum = pytorchF32VectorReduce(scores, "maximum");
+  const exponentials = new Float32Array(scores.length);
+  for (let index = 0; index < scores.length; index += 1) exponentials[index] = sleefExpF32(f32(scores[index]! - maximum));
+  const total = pytorchF32VectorReduce(exponentials, "sum");
+  const reciprocal = f32(1 / total);
+  const probabilities = new Float32Array(scores.length);
+  for (let index = 0; index < scores.length; index += 1) probabilities[index] = roundF32ToBF16(f32(exponentials[index]! * reciprocal));
+  return probabilities;
+}
+
+function pytorchF32VectorReduce(values: Float32Array, operation: "maximum" | "sum"): number {
+  if (values.length === 0) return operation === "maximum" ? -Infinity : f32(0);
+  const lanes = 4;
+  if (values.length < lanes) {
+    let result = values[0]!;
+    for (let index = 1; index < values.length; index += 1) result = operation === "maximum" ? Math.max(result, values[index]!) : f32(result + values[index]!);
+    return result;
+  }
+  const accumulators = Float32Array.from(values.subarray(0, lanes));
+  let index = lanes;
+  for (; index < values.length - (values.length % lanes); index += lanes) for (let lane = 0; lane < lanes; lane += 1) {
+    accumulators[lane] = operation === "maximum" ? Math.max(accumulators[lane]!, values[index + lane]!) : f32(accumulators[lane]! + values[index + lane]!);
+  }
+  for (let lane = 0; index + lane < values.length; lane += 1) {
+    accumulators[lane] = operation === "maximum" ? Math.max(accumulators[lane]!, values[index + lane]!) : f32(accumulators[lane]! + values[index + lane]!);
+  }
+  if (operation === "maximum") return Math.max(accumulators[0]!, accumulators[1]!, accumulators[2]!, accumulators[3]!);
+  return f32(f32(accumulators[0]! + accumulators[1]!) + f32(accumulators[2]! + accumulators[3]!));
 }
 
 export function activationF32(input: DenseF32Tensor, functionName: string, approximation?: string, tanhImplementation?: F32TanhImplementation): DenseF32Tensor {

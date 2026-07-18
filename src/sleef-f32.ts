@@ -60,6 +60,25 @@ export function sleefCosF32(value: number): number {
   return output;
 }
 
+/** Exact ADVSIMD u10 exponential selected by PyTorch's F32 softmax kernel. */
+export function sleefExpF32(value: number): number {
+  const input = f32(value);
+  if (Number.isNaN(input)) return Number.NaN;
+  if (input < -104) return 0;
+  if (input > 100) return Number.POSITIVE_INFINITY;
+  const exponent = roundTiesToEven(multiply(input, f32(1.4426950408889634)));
+  let reduced = fma(f32(exponent), f32(-0.693145751953125), input);
+  reduced = fma(f32(exponent), f32(-1.428606765330187e-6), reduced);
+  let polynomial = f32(0.000198527617612853646278381);
+  polynomial = fma(polynomial, reduced, f32(0.00139304355252534151077271));
+  polynomial = fma(polynomial, reduced, f32(0.00833336077630519866943359));
+  polynomial = fma(polynomial, reduced, f32(0.0416664853692054748535156));
+  polynomial = fma(polynomial, reduced, f32(0.166666671633720397949219));
+  polynomial = fma(polynomial, reduced, f32(0.5));
+  const result = add(1, fma(multiply(reduced, reduced), polynomial, reduced));
+  return scalePowerOfTwo(result, exponent);
+}
+
 function assertFastTrigRange(value: number): void {
   if (!Number.isFinite(value) || Math.abs(value) >= 125) {
     throw new Error(`SLEEF ADVSIMD trig argument ${value} requires the unimplemented rempif range reducer.`);
