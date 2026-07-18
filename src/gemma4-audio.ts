@@ -57,7 +57,9 @@ export interface Gemma4AudioAssignment {
     | "reshape-conv-features" | "linear" | "relative-position-encoding"
     | "rms-norm" | "clip" | "clipped-linear" | "silu" | "scale-f32" | "add" | "per-dim-softplus-scale"
     | "split-gated-linear-unit" | "causal-depthwise-convolution"
-    | "chunked-relative-attention-scores" | "chunked-relative-attention-softmax" | "chunked-relative-attention-values"
+    | "chunked-attention-content-matmul" | "relative-attention-position-matmul" | "relative-attention-shift"
+    | "attention-logit-add" | "attention-softcap" | "chunked-attention-mask"
+    | "chunked-relative-attention-softmax" | "chunked-relative-attention-values"
     | "cast-bf16" | "subsample-mask" | "strip-padding"
     | "masked-scatter-audio-features";
   inputs: string[];
@@ -80,6 +82,13 @@ export interface Gemma4AudioExecutionResult {
   outputMask: readonly boolean[][];
   /** Flattened, valid, language-projected audio soft tokens [tokens, text_hidden]. */
   audioFeatures: DenseF32Tensor;
+}
+
+export interface Gemma4AudioDerivedAttentionStages {
+  shiftedPositionScores: DenseF32Tensor;
+  logits: DenseF32Tensor;
+  softcapped: DenseF32Tensor;
+  maskedScores: DenseF32Tensor;
 }
 
 export function buildGemma4AudioProgram(catalog: ModelCatalog): Gemma4AudioProgram {
@@ -199,7 +208,12 @@ function layerAssignments(layer: number, prefix: string, refs: (names: string[])
     { id: `audio_layer_${layer}_relative_k_projection`, operation: "linear", inputs: ["audio_relative_positions"], output: `audio_layer_${layer}_relative_keys`, tensors: refs([`${base}.self_attn.relative_k_proj.weight`]), semantics: "bias-free relative-position projection with ordered F32 products and accumulation" },
     { id: `audio_layer_${layer}_q_scale`, operation: "per-dim-softplus-scale", inputs: [`audio_layer_${layer}_q`], output: `audio_layer_${layer}_q_scaled`, tensors: refs([`${base}.self_attn.per_dim_scale`]), semantics: "F32(F32(q * F32(head_dim^-0.5/log(2))) * BF16(softplus(BF16(per_dim_scale[d]))))" },
     { id: `audio_layer_${layer}_k_scale`, operation: "scale-f32", inputs: [`audio_layer_${layer}_k`], output: `audio_layer_${layer}_k_scaled`, semantics: "F32(k * F32(log1p(exp(1))/log(2)))" },
-    { id: `audio_layer_${layer}_attention_scores`, operation: "chunked-relative-attention-scores", inputs: [`audio_layer_${layer}_q_scaled`, `audio_layer_${layer}_k_scaled`, `audio_layer_${layer}_relative_keys`, "audio_output_mask"], output: `audio_layer_${layer}_attention_scores`, semantics: "blocked local AC+relative-shifted BD, authoritative mask and tanh softcap" },
+    { id: `audio_layer_${layer}_attention_content_scores`, operation: "chunked-attention-content-matmul", inputs: [`audio_layer_${layer}_q_scaled`, `audio_layer_${layer}_k_scaled`], output: `audio_layer_${layer}_attention_ac`, semantics: "AC[b,h,block,q,k] = native F32 batched matmul over head_dim after query blocking and key context extraction" },
+    { id: `audio_layer_${layer}_attention_position_scores`, operation: "relative-attention-position-matmul", inputs: [`audio_layer_${layer}_q_scaled`, `audio_layer_${layer}_relative_keys`], output: `audio_layer_${layer}_attention_bd_unshifted`, semantics: "BD_unshifted[b,h,block,q,r] = native F32 batched matmul over head_dim" },
+    { id: `audio_layer_${layer}_attention_relative_shift`, operation: "relative-attention-shift", inputs: [`audio_layer_${layer}_attention_bd_unshifted`], output: `audio_layer_${layer}_attention_bd`, semantics: "source pad(context+1-relative_length), flatten, prefix slice and reshape into context slots" },
+    { id: `audio_layer_${layer}_attention_logit_add`, operation: "attention-logit-add", inputs: [`audio_layer_${layer}_attention_ac`, `audio_layer_${layer}_attention_bd`], output: `audio_layer_${layer}_attention_logits`, semantics: "F32 AC + relative-shifted BD" },
+    { id: `audio_layer_${layer}_attention_softcap`, operation: "attention-softcap", inputs: [`audio_layer_${layer}_attention_logits`], output: `audio_layer_${layer}_attention_softcapped`, semantics: "F32(SLEEF_TANH_F32(F32(logit / cap)) * cap) before masking" },
+    { id: `audio_layer_${layer}_attention_mask`, operation: "chunked-attention-mask", inputs: [`audio_layer_${layer}_attention_softcapped`, "audio_output_mask"], output: `audio_layer_${layer}_attention_scores`, semantics: "retain only valid causal local-context logits; fill all other slots with attention_invalid_logits_value" },
     { id: `audio_layer_${layer}_attention_softmax`, operation: "chunked-relative-attention-softmax", inputs: [`audio_layer_${layer}_attention_scores`], output: `audio_layer_${layer}_attention_weights`, semantics: "F32 maximum, exponential, denominator and probability over context slots" },
     { id: `audio_layer_${layer}_attention`, operation: "chunked-relative-attention-values", inputs: [`audio_layer_${layer}_attention_weights`, `audio_layer_${layer}_v`], output: `audio_layer_${layer}_attention_context`, semantics: "context-slot value reduction, head merge and sequence trim" },
     { id: `audio_layer_${layer}_attention_context_cast`, operation: "cast-bf16", inputs: [`audio_layer_${layer}_attention_context`], output: `audio_layer_${layer}_attention_context_bf16`, semantics: "explicit source-visible to(dtype=post.linear.weight.dtype) before attention post projection" },
@@ -259,7 +273,13 @@ function executeLayer(
   const relativeKeys = put(`audio_layer_${layer}_relative_keys`, project(positions, get(`${base}.self_attn.relative_k_proj.weight`)));
   const qScaled = put(`audio_layer_${layer}_q_scaled`, scaleAttentionQuery(q, get(`${base}.self_attn.per_dim_scale`), program.tower.headDim));
   const kScaled = put(`audio_layer_${layer}_k_scaled`, scale(k, f32(Math.log1p(Math.exp(1)) / Math.log(2))));
-  const scores = put(`audio_layer_${layer}_attention_scores`, chunkedAttentionScores(qScaled, kScaled, relativeKeys, outputMask, program));
+  const contentScores = put(`audio_layer_${layer}_attention_ac`, chunkedAttentionContentScores(qScaled, kScaled, program));
+  const positionScores = put(`audio_layer_${layer}_attention_bd_unshifted`, relativeAttentionPositionScores(qScaled, relativeKeys, program));
+  const derivedAttention = executeGemma4AudioDerivedAttentionStagesF32(program, contentScores, positionScores, outputMask);
+  put(`audio_layer_${layer}_attention_bd`, derivedAttention.shiftedPositionScores);
+  put(`audio_layer_${layer}_attention_logits`, derivedAttention.logits);
+  put(`audio_layer_${layer}_attention_softcapped`, derivedAttention.softcapped);
+  const scores = put(`audio_layer_${layer}_attention_scores`, derivedAttention.maskedScores);
   const weights = put(`audio_layer_${layer}_attention_weights`, chunkedAttentionSoftmax(scores));
   const context = put(`audio_layer_${layer}_attention_context`, chunkedAttentionValues(weights, v, program));
   const contextBf16 = put(`audio_layer_${layer}_attention_context_bf16`, context);
@@ -281,10 +301,114 @@ function executeLayer(
   put(`audio_hidden_${layer + 1}`, normalize(outClip, get(`${base}.norm_out.weight`)));
 }
 
-function chunkedAttentionScores(q0: DenseF32Tensor, k0: DenseF32Tensor, relative: DenseF32Tensor, mask: readonly boolean[][], program: Gemma4AudioProgram): DenseF32Tensor {
-  const [batch, sequence, width] = q0.shape as [number, number, number]; const { attentionHeads: heads, headDim: dim, attentionChunkSize: chunk, attentionContextLeft: left, attentionContextRight: right } = program.tower; if (width !== heads * dim || k0.shape.some((value, index) => value !== q0.shape[index])) throw new Error("Gemma 4 audio attention possui Q/K incompatíveis."); const blocks = Math.ceil(sequence / chunk), context = chunk + left - 1 + right, out = new Float32Array(batch * heads * blocks * chunk * context); const relLength = relative.shape.length === 3 && relative.shape[0] === 1 ? relative.shape[1]! : -1; if (relLength !== Math.floor(context / 2) + 1 || relative.shape[2] !== width) throw new Error("Gemma 4 audio relative position shape incompatível."); const at = (values: Float32Array, b: number, s: number, h: number, d: number): number => values[((b * sequence + s) * heads + h) * dim + d]!;
-  for (let b = 0; b < batch; b += 1) for (let h = 0; h < heads; h += 1) for (let block = 0; block < blocks; block += 1) for (let qi = 0; qi < chunk; qi += 1) for (let keySlot = 0; keySlot < context; keySlot += 1) { const queryIndex = block * chunk + qi, keyIndex = block * chunk - (left - 1) + keySlot; let ac = f32(0); if (queryIndex < sequence && keyIndex >= 0 && keyIndex < sequence) for (let d = 0; d < dim; d += 1) ac = f32(ac + f32(at(q0.values, b, queryIndex, h, d) * at(k0.values, b, keyIndex, h, d))); const shifted = relativeShiftSource(qi, keySlot, context, relLength), shiftedQuery = block * chunk + shifted.queryInBlock; let bd = f32(0); if (shifted.relativeIndex !== undefined && shiftedQuery < sequence) for (let d = 0; d < dim; d += 1) bd = f32(bd + f32(at(q0.values, b, shiftedQuery, h, d) * relative.values[(shifted.relativeIndex * heads + h) * dim + d]!)); const allowed = queryIndex < sequence && keyIndex >= 0 && keyIndex < sequence && mask[b]![queryIndex] === true && mask[b]![keyIndex] === true && queryIndex >= keyIndex && queryIndex - keyIndex < left; const softcapped = f32(sleefTanhF32(f32(f32(ac + bd) / program.tower.attentionLogitCap)) * program.tower.attentionLogitCap); out[((((b * heads + h) * blocks + block) * chunk + qi) * context) + keySlot] = allowed ? softcapped : program.invalidAttentionLogit; }
+interface AudioAttentionLayout {
+  batch: number;
+  sequence: number;
+  width: number;
+  heads: number;
+  dim: number;
+  chunk: number;
+  left: number;
+  blocks: number;
+  context: number;
+  relativeLength: number;
+}
+
+function audioAttentionLayout(input: DenseF32Tensor, program: Gemma4AudioProgram): AudioAttentionLayout {
+  const [batch, sequence, width] = input.shape as [number, number, number];
+  const { attentionHeads: heads, headDim: dim, attentionChunkSize: chunk, attentionContextLeft: left, attentionContextRight: right } = program.tower;
+  if (input.shape.length !== 3 || width !== heads * dim) throw new Error("Gemma 4 audio attention possui hidden shape incompatível.");
+  const blocks = Math.ceil(sequence / chunk), context = chunk + left - 1 + right;
+  return { batch, sequence, width, heads, dim, chunk, left, blocks, context, relativeLength: Math.floor(context / 2) + 1 };
+}
+
+function chunkedAttentionContentScores(q: DenseF32Tensor, k: DenseF32Tensor, program: Gemma4AudioProgram): DenseF32Tensor {
+  const layout = audioAttentionLayout(q, program);
+  if (k.shape.some((value, index) => value !== q.shape[index])) throw new Error("Gemma 4 audio attention possui Q/K incompatíveis.");
+  const { batch, sequence, heads, dim, chunk, left, blocks, context } = layout;
+  const out = new Float32Array(batch * heads * blocks * chunk * context);
+  const at = (values: Float32Array, b: number, s: number, h: number, d: number): number => values[((b * sequence + s) * heads + h) * dim + d]!;
+  for (let b = 0; b < batch; b += 1) for (let h = 0; h < heads; h += 1) for (let block = 0; block < blocks; block += 1) for (let query = 0; query < chunk; query += 1) for (let keySlot = 0; keySlot < context; keySlot += 1) {
+    const queryIndex = block * chunk + query, keyIndex = block * chunk - (left - 1) + keySlot;
+    let sum = f32(0);
+    if (queryIndex < sequence && keyIndex >= 0 && keyIndex < sequence) for (let d = 0; d < dim; d += 1) {
+      sum = f32(sum + f32(at(q.values, b, queryIndex, h, d) * at(k.values, b, keyIndex, h, d)));
+    }
+    out[((((b * heads + h) * blocks + block) * chunk + query) * context) + keySlot] = sum;
+  }
   return dense([batch, heads, blocks, chunk, context], out);
+}
+
+function relativeAttentionPositionScores(q: DenseF32Tensor, relative: DenseF32Tensor, program: Gemma4AudioProgram): DenseF32Tensor {
+  const layout = audioAttentionLayout(q, program);
+  const { batch, sequence, width, heads, dim, chunk, blocks, relativeLength } = layout;
+  if (relative.shape.length !== 3 || relative.shape[0] !== 1 || relative.shape[1] !== relativeLength || relative.shape[2] !== width) {
+    throw new Error("Gemma 4 audio relative position shape incompatível.");
+  }
+  const out = new Float32Array(batch * heads * blocks * chunk * relativeLength);
+  const at = (b: number, s: number, h: number, d: number): number => q.values[((b * sequence + s) * heads + h) * dim + d]!;
+  for (let b = 0; b < batch; b += 1) for (let h = 0; h < heads; h += 1) for (let block = 0; block < blocks; block += 1) for (let query = 0; query < chunk; query += 1) for (let position = 0; position < relativeLength; position += 1) {
+    const queryIndex = block * chunk + query;
+    let sum = f32(0);
+    if (queryIndex < sequence) for (let d = 0; d < dim; d += 1) {
+      sum = f32(sum + f32(at(b, queryIndex, h, d) * relative.values[(position * heads + h) * dim + d]!));
+    }
+    out[((((b * heads + h) * blocks + block) * chunk + query) * relativeLength) + position] = sum;
+  }
+  return dense([batch, heads, blocks, chunk, relativeLength], out);
+}
+
+function shiftRelativeAttentionScores(unshifted: DenseF32Tensor, program: Gemma4AudioProgram): DenseF32Tensor {
+  const { attentionChunkSize: chunk, attentionContextLeft: left, attentionContextRight: right } = program.tower;
+  const context = chunk + left - 1 + right, relativeLength = Math.floor(context / 2) + 1;
+  if (unshifted.shape.length !== 5 || unshifted.shape[3] !== chunk || unshifted.shape[4] !== relativeLength) {
+    throw new Error("Gemma 4 audio relative shift possui shape incompatível.");
+  }
+  const [batch, heads, blocks] = unshifted.shape, out = new Float32Array(batch! * heads! * blocks! * chunk * context);
+  for (let b = 0; b < batch!; b += 1) for (let h = 0; h < heads!; h += 1) for (let block = 0; block < blocks!; block += 1) for (let query = 0; query < chunk; query += 1) for (let keySlot = 0; keySlot < context; keySlot += 1) {
+    const source = relativeShiftSource(query, keySlot, context, relativeLength);
+    if (source.relativeIndex === undefined) continue;
+    const sourceIndex = ((((b * heads! + h) * blocks! + block) * chunk + source.queryInBlock) * relativeLength) + source.relativeIndex;
+    out[((((b * heads! + h) * blocks! + block) * chunk + query) * context) + keySlot] = unshifted.values[sourceIndex]!;
+  }
+  return dense([batch!, heads!, blocks!, chunk, context], out);
+}
+
+/**
+ * Executes the source-visible, non-native stages which follow the two F32
+ * attention matmuls. Differential validation can seed this boundary with
+ * authoritative AC/BD tensors without replacing either unknown matmul by a
+ * guessed scalar schedule.
+ */
+export function executeGemma4AudioDerivedAttentionStagesF32(
+  program: Gemma4AudioProgram,
+  contentScores: DenseF32Tensor,
+  unshiftedPositionScores: DenseF32Tensor,
+  mask: readonly boolean[][],
+): Gemma4AudioDerivedAttentionStages {
+  const shiftedPositionScores = shiftRelativeAttentionScores(unshiftedPositionScores, program);
+  const logits = add(contentScores, shiftedPositionScores);
+  const softcapped = softcapAttentionScores(logits, program.tower.attentionLogitCap);
+  const maskedScores = maskChunkedAttentionScores(softcapped, mask, program);
+  return { shiftedPositionScores, logits, softcapped, maskedScores };
+}
+
+function softcapAttentionScores(logits: DenseF32Tensor, cap: number): DenseF32Tensor {
+  return dense([...logits.shape], Float32Array.from(logits.values, (value) => f32(sleefTanhF32(f32(value / cap)) * cap)));
+}
+
+function maskChunkedAttentionScores(scores: DenseF32Tensor, mask: readonly boolean[][], program: Gemma4AudioProgram): DenseF32Tensor {
+  const [batch, heads, blocks, chunk, context] = scores.shape;
+  const { attentionContextLeft: left } = program.tower;
+  const sequence = mask[0]?.length ?? 0;
+  if (scores.shape.length !== 5 || mask.length !== batch || mask.some((row) => row.length !== sequence)) throw new Error("Gemma 4 audio mask de atenção incompatível.");
+  const out = Float32Array.from(scores.values);
+  for (let b = 0; b < batch!; b += 1) for (let h = 0; h < heads!; h += 1) for (let block = 0; block < blocks!; block += 1) for (let query = 0; query < chunk!; query += 1) for (let keySlot = 0; keySlot < context!; keySlot += 1) {
+    const queryIndex = block * chunk! + query, keyIndex = block * chunk! - (left - 1) + keySlot;
+    const allowed = queryIndex < sequence && keyIndex >= 0 && keyIndex < sequence && mask[b]![queryIndex] === true && mask[b]![keyIndex] === true && queryIndex >= keyIndex && queryIndex - keyIndex < left;
+    if (!allowed) out[((((b * heads! + h) * blocks! + block) * chunk! + query) * context!) + keySlot] = program.invalidAttentionLogit;
+  }
+  return dense([...scores.shape], out);
 }
 
 function chunkedAttentionSoftmax(scores: DenseF32Tensor): DenseF32Tensor { const context = scores.shape.at(-1)!; if (scores.shape.length !== 5 || context <= 0) throw new Error("Gemma 4 audio softmax requer scores [B,H,blocks,chunk,context]."); const out = new Float32Array(scores.values.length); for (let row = 0; row < scores.values.length / context; row += 1) { const base = row * context; let maximum = -Infinity; for (let k = 0; k < context; k += 1) maximum = Math.max(maximum, scores.values[base + k]!); let total = f32(0); for (let k = 0; k < context; k += 1) { out[base + k] = sleefExpF32(f32(scores.values[base + k]! - maximum)); total = f32(total + out[base + k]!); } for (let k = 0; k < context; k += 1) out[base + k] = f32(out[base + k]! / total); } return dense([...scores.shape], out); }
@@ -336,7 +460,7 @@ function declaredAudioRuntimeDtype(config: Record<string, unknown>): "F32" | "BF
 
 /** Source- and dtype-dispatched policy applied to the complete audio operation class. */
 function audioAssignmentDtypePolicy(assignment: Gemma4AudioAssignment, runtimeDtype: "F32" | "BF16"): DtypePolicy {
-  if (assignment.operation === "chunked-relative-attention-scores" || assignment.operation === "chunked-relative-attention-values") {
+  if (assignment.operation === "chunked-attention-content-matmul" || assignment.operation === "relative-attention-position-matmul" || assignment.operation === "chunked-relative-attention-values") {
     return { ...F32_POLICY, computeDtype: "pytorch-cpu-f32-matmul", accumulationDtype: "runtime-defined" };
   }
   if (runtimeDtype === "F32") {
@@ -346,7 +470,9 @@ function audioAssignmentDtypePolicy(assignment: Gemma4AudioAssignment, runtimeDt
   }
   if (assignment.operation === "subsample-mask") return { inputDtype: "BOOL", computeDtype: "BOOL", accumulationDtype: "none", outputDtype: "BOOL" };
   if (assignment.id === "audio_input_mask" || assignment.id === "audio_input_unsqueeze") return { ...F32_POLICY };
-  if (assignment.id.endsWith("_q_scale") || assignment.id.endsWith("_k_scale") || assignment.operation === "chunked-relative-attention-softmax") return { ...F32_POLICY };
+  if (assignment.id.endsWith("_q_scale") || assignment.id.endsWith("_k_scale") || assignment.operation === "relative-attention-shift" ||
+    assignment.operation === "attention-logit-add" || assignment.operation === "attention-softcap" ||
+    assignment.operation === "chunked-attention-mask" || assignment.operation === "chunked-relative-attention-softmax") return { ...F32_POLICY };
   if (assignment.operation === "linear" || assignment.operation === "clipped-linear") {
     const hasBias = assignment.tensors?.some((tensor) => tensor.shape.length === 1 && !tensor.name.endsWith("input_min") && !tensor.name.endsWith("input_max") && !tensor.name.endsWith("output_min") && !tensor.name.endsWith("output_max"));
     return hasBias

@@ -641,8 +641,28 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
         operationId: "composite_audio_features/audio_layer_0_attention", outputCoordinate: [0, 0, 1],
       }), /redução pytorch-cpu-f32-matmul ainda não possui agenda literal comprovada/);
       await assert.rejects(() => renderGemma4LiteralMultimodalScalarView(artifact, {
-        operationId: "composite_audio_features/audio_layer_0_attention_scores", outputCoordinate: [0, 0, 0, 0, 0],
+        operationId: "composite_audio_features/audio_layer_0_attention_content_scores", outputCoordinate: [0, 0, 0, 0, 0],
       }), /redução pytorch-cpu-f32-matmul ainda não possui agenda literal comprovada/);
+      await assert.rejects(() => renderGemma4LiteralMultimodalScalarView(artifact, {
+        operationId: "composite_audio_features/audio_layer_0_attention_position_scores", outputCoordinate: [0, 0, 0, 0, 0],
+      }), /redução pytorch-cpu-f32-matmul ainda não possui agenda literal comprovada/);
+      const shiftedAudioPosition = await renderGemma4LiteralMultimodalScalarView(artifact, {
+        operationId: "composite_audio_features/audio_layer_0_attention_relative_shift", outputCoordinate: [0, 0, 0, 0, 0],
+      });
+      assert.ok(shiftedAudioPosition.scalarAssignments.some((formula) => formula.includes("source_query=floor")));
+      assert.doesNotMatch(shiftedAudioPosition.formula, /composite_audio_features\/composite_audio_features/);
+      const audioLogit = await renderGemma4LiteralMultimodalScalarView(artifact, {
+        operationId: "composite_audio_features/audio_layer_0_attention_logit_add", outputCoordinate: [0, 0, 0, 0, 0],
+      });
+      assert.ok(audioLogit.formula.includes("attention_ac") && audioLogit.formula.includes("attention_bd"));
+      const audioSoftcap = await renderGemma4LiteralMultimodalScalarView(artifact, {
+        operationId: "composite_audio_features/audio_layer_0_attention_softcap", outputCoordinate: [0, 0, 0, 0, 0],
+      });
+      assert.ok(audioSoftcap.formula.includes("SLEEF_TANH_F32"));
+      const audioMask = await renderGemma4LiteralMultimodalScalarView(artifact, {
+        operationId: "composite_audio_features/audio_layer_0_attention_mask", outputCoordinate: [0, 0, 0, 0, 0],
+      });
+      assert.ok(audioMask.scalarAssignments.some((formula) => formula.includes("query_index-key_index")));
 
       const duplicateId = artifact.program.visionProgram.assignments[1]!;
       const originalId = duplicateId.id;

@@ -1,7 +1,12 @@
 import { constants as fsConstants } from "node:fs";
 import { access } from "node:fs/promises";
 import { compareCapturedOperationCheckpoints } from "./differential.js";
-import { executeGemma4AudioF32, type Gemma4AudioExecutionRequest, type Gemma4AudioExecutionResult } from "./gemma4-audio.js";
+import {
+  executeGemma4AudioDerivedAttentionStagesF32,
+  executeGemma4AudioF32,
+  type Gemma4AudioExecutionRequest,
+  type Gemma4AudioExecutionResult,
+} from "./gemma4-audio.js";
 import { openGemma4CompositeLiteralArtifact, type OpenGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
 import { readLiteralDenseF32Tensor } from "./paged-dense.js";
 import type { DenseF32Tensor, DifferentialCheckpointComparisonReport, DifferentialOperationSample, TensorInfo, TensorRef } from "./types.js";
@@ -28,6 +33,11 @@ export interface Gemma4AudioDifferentialTrace {
     inputFeaturesMask: boolean[][];
     operations: DifferentialOperationSample[];
   };
+}
+
+export interface Gemma4AudioDifferentialComparisonReport extends DifferentialCheckpointComparisonReport {
+  /** Exact validation of non-native score stages, seeded only at the two authoritative matmul outputs. */
+  sourceAnchoredAttentionStages: DifferentialCheckpointComparisonReport;
 }
 
 /**
@@ -65,7 +75,7 @@ export async function compareGemma4LiteralAudioTrace(options: {
   maxRelativeError?: number;
   topK?: number;
   assertSourceUnavailable?: string;
-}): Promise<DifferentialCheckpointComparisonReport> {
+}): Promise<Gemma4AudioDifferentialComparisonReport> {
   if (options.assertSourceUnavailable) {
     let exists = true;
     try { await access(options.assertSourceUnavailable, fsConstants.F_OK); } catch { exists = false; }
@@ -78,7 +88,7 @@ export async function compareGemma4LiteralAudioTrace(options: {
       inputFeatures: options.trace.reference.inputFeatures,
       inputFeaturesMask: options.trace.reference.inputFeaturesMask,
     }, { maxTensorBytes: options.maxTensorBytes });
-    return compareCapturedOperationCheckpoints(candidate.values, { operations: options.trace.reference.operations }, {
+    const comparison = compareCapturedOperationCheckpoints(candidate.values, { operations: options.trace.reference.operations }, {
       candidateRuntime: "llm-inner embedded-literal Gemma4Audio BF16-policy scalar executor",
       ...(options.topK === undefined ? {} : { topK: options.topK }),
       tolerance: {
@@ -86,9 +96,61 @@ export async function compareGemma4LiteralAudioTrace(options: {
         maxRelativeError: options.maxRelativeError ?? 0,
       },
     });
+    const sourceAnchoredAttentionStages = compareSourceAnchoredAttentionStages(
+      artifact.program.audioProgram,
+      options.trace.reference.operations,
+      options.trace.reference.inputFeaturesMask,
+      options.topK,
+    );
+    return { ...comparison, sourceAnchoredAttentionStages };
   } finally {
     await artifact.close();
   }
+}
+
+function compareSourceAnchoredAttentionStages(
+  program: OpenGemma4CompositeLiteralArtifact["program"]["audioProgram"],
+  operations: DifferentialOperationSample[],
+  mask: readonly boolean[][],
+  topK: number | undefined,
+): DifferentialCheckpointComparisonReport {
+  const byOutput = new Map<string, DifferentialOperationSample>();
+  for (const operation of operations) {
+    if (byOutput.has(operation.output)) throw new Error(`Trace de áudio redeclara output '${operation.output}'.`);
+    byOutput.set(operation.output, operation);
+  }
+  const candidates = new Map<string, DenseF32Tensor>(), references: DifferentialOperationSample[] = [];
+  for (let layer = 0; layer < program.tower.layers; layer += 1) {
+    const stem = `audio_layer_${layer}_attention`;
+    const content = requiredSample(byOutput, `${stem}_ac`);
+    const position = requiredSample(byOutput, `${stem}_bd_unshifted`);
+    const derived = executeGemma4AudioDerivedAttentionStagesF32(program, content.tensor, position.tensor, mask);
+    for (const [suffix, tensor] of [
+      ["bd", derived.shiftedPositionScores],
+      ["logits", derived.logits],
+      ["softcapped", derived.softcapped],
+      ["scores", derived.maskedScores],
+    ] as const) {
+      const output = `${stem}_${suffix}`;
+      candidates.set(output, tensor);
+      references.push(requiredSample(byOutput, output));
+    }
+  }
+  return compareCapturedOperationCheckpoints(candidates, { operations: references }, {
+    candidateRuntime: "llm-inner source-anchored literal relative-shift/add/softcap/mask executor",
+    ...(topK === undefined ? {} : { topK }),
+    tolerance: { maxAbsoluteError: 0, maxRelativeError: 0 },
+  });
+}
+
+function requiredSample(
+  samples: ReadonlyMap<string, DifferentialOperationSample>,
+  output: string,
+): DifferentialOperationSample & { tensor: DenseF32Tensor } {
+  const sample = samples.get(output);
+  if (!sample) throw new Error(`Trace de áudio não contém fronteira explícita '${output}'.`);
+  if (!(sample.tensor.values instanceof Float32Array)) throw new Error(`Trace de áudio '${output}' não possui payload F32.`);
+  return sample as DifferentialOperationSample & { tensor: DenseF32Tensor };
 }
 
 function literalTensorInfo(artifact: OpenGemma4CompositeLiteralArtifact, reference: TensorRef): TensorInfo {

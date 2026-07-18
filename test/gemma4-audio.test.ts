@@ -1,13 +1,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildGemma4AudioProgram, executeGemma4AudioF32, scatterGemma4AudioFeaturesF32 } from "../src/gemma4-audio.js";
+import {
+  buildGemma4AudioProgram,
+  executeGemma4AudioDerivedAttentionStagesF32,
+  executeGemma4AudioF32,
+  scatterGemma4AudioFeaturesF32,
+} from "../src/gemma4-audio.js";
 import type { DenseF32Tensor, ModelCatalog, TensorInfo } from "../src/types.js";
 
 test("Gemma 4 audio lowering makes subsampling, chunk-relative attention, local convolution, projection, and scatter explicit", () => {
   const catalog = fixture();
   const program = buildGemma4AudioProgram(catalog);
   assert.equal(program.kind, "gemma4-audio-features");
-  assert.ok(program.assignments.some((assignment) => assignment.operation === "chunked-relative-attention-scores"));
+  assert.ok(program.assignments.some((assignment) => assignment.operation === "chunked-attention-content-matmul"));
+  assert.ok(program.assignments.some((assignment) => assignment.operation === "relative-attention-position-matmul"));
+  assert.ok(program.assignments.some((assignment) => assignment.operation === "relative-attention-shift"));
+  assert.ok(program.assignments.some((assignment) => assignment.operation === "attention-softcap"));
+  assert.ok(program.assignments.some((assignment) => assignment.operation === "chunked-attention-mask"));
   assert.ok(program.assignments.some((assignment) => assignment.operation === "chunked-relative-attention-softmax"));
   assert.ok(program.assignments.some((assignment) => assignment.operation === "chunked-relative-attention-values"));
   assert.ok(program.assignments.some((assignment) => assignment.operation === "causal-depthwise-convolution"));
@@ -16,6 +25,15 @@ test("Gemma 4 audio lowering makes subsampling, chunk-relative attention, local 
   assert.deepEqual(result.audioFeatures.shape, [1, 4]);
   assert.deepEqual(result.outputMask, [[true]]);
   assert.ok([...result.audioFeatures.values].every(Number.isFinite));
+  const derivedAttention = executeGemma4AudioDerivedAttentionStagesF32(
+    program,
+    { shape: [1, 1, 1, 2, 2], values: Float32Array.from([1, 2, 3, 4]) },
+    { shape: [1, 1, 1, 2, 2], values: Float32Array.from([5, 6, 7, 8]) },
+    [[true]],
+  );
+  assert.deepEqual([...derivedAttention.shiftedPositionScores.values], [5, 6, 0, 7]);
+  assert.equal(derivedAttention.logits.values[0], 6);
+  assert.deepEqual([...derivedAttention.maskedScores.values.slice(1)], [-1e9, -1e9, -1e9]);
   const normalizedOutput = result.values.get("audio_output_normalized")!;
   const rms = Math.sqrt([...normalizedOutput.values].reduce((sum, value) => sum + value ** 2, 0) / normalizedOutput.values.length);
   assert.ok(Math.abs(rms - 1) < 1e-3, `expected unscaled multimodal RMSNorm, got RMS=${rms}`);
@@ -58,11 +76,16 @@ test("Gemma 4 audio BF16 policy dispatches every compatible assignment by operat
   assert.equal(program.assignments.find((assignment) => assignment.id === "audio_layer_0_attention_context_cast")?.dtypePolicy?.outputDtype, "BF16");
   assert.equal(program.assignments.find((assignment) => assignment.id === "audio_output_projection")?.dtypePolicy?.computeDtype, "pytorch-cpu-bf16-addmm");
   const nativeAttentionMatmuls = program.assignments.filter((assignment) =>
-    assignment.operation === "chunked-relative-attention-scores" || assignment.operation === "chunked-relative-attention-values");
+    assignment.operation === "chunked-attention-content-matmul" || assignment.operation === "relative-attention-position-matmul" ||
+    assignment.operation === "chunked-relative-attention-values");
   assert.ok(nativeAttentionMatmuls.length > 0);
   assert.ok(nativeAttentionMatmuls.every((assignment) =>
     assignment.dtypePolicy?.computeDtype === "pytorch-cpu-f32-matmul" && assignment.dtypePolicy.accumulationDtype === "runtime-defined"));
   assert.equal(program.assignments.filter((assignment) => assignment.dtypePolicy?.accumulationDtype === "runtime-defined").length, nativeAttentionMatmuls.length);
+  assert.ok(program.assignments.filter((assignment) =>
+    assignment.operation === "relative-attention-shift" || assignment.operation === "attention-logit-add" ||
+    assignment.operation === "attention-softcap" || assignment.operation === "chunked-attention-mask")
+    .every((assignment) => assignment.dtypePolicy?.inputDtype === "F32" && assignment.dtypePolicy.outputDtype === "F32"));
 });
 
 test("Gemma 4 audio refuses a missing runtime numeric contract instead of applying a local default", () => {

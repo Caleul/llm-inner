@@ -229,7 +229,14 @@ function bindScalarView(
   bindings: ReadonlyMap<string, string>,
 ): Gemma4LiteralScalarView {
   const orderedBindings = [...bindings.entries()].sort(([left], [right]) => right.length - left.length);
-  const replace = (value: string): string => orderedBindings.reduce((current, [source, target]) => current.split(source).join(target), value);
+  // Replace through sentinels so overlapping names (for example `*_bd` and
+  // `*_bd_unshifted`) cannot recursively rewrite a target produced earlier in
+  // the same binding pass.
+  const placeholders = orderedBindings.map(([source, target], index) => ({ source, target, token: `\u0000binding:${index}\u0000` }));
+  const replace = (value: string): string => {
+    const tokenized = placeholders.reduce((current, binding) => current.split(binding.source).join(binding.token), value);
+    return placeholders.reduce((current, binding) => current.split(binding.token).join(binding.target), tokenized);
+  };
   return {
     ...view,
     navigation,
@@ -438,6 +445,7 @@ function plainFormulas(artifact: OpenGemma4CompositeLiteralArtifact, entry: Assi
   const { assignment, scope } = entry, output = indexed(assignment.output, coordinate), inputs = assignment.inputs.map((input) => indexed(input, coordinate));
   switch (assignment.operation) {
     case "add": return [`${output} = F32(${inputs[0]} + ${inputs[1]})`];
+    case "attention-logit-add": return [`${output} = F32(${inputs[0]} + ${inputs[1]})`];
     case "cast-bf16": return [`${output} = BF16(${inputs[0]})`];
     case "multiply": return [`${output} = F32(${inputs[0]} * ${inputs[1]})`];
     case "pixel-affine": return [`${output} = F32(2 * F32(${inputs[0]} - 0.5))`];
@@ -460,7 +468,9 @@ function plainFormulas(artifact: OpenGemma4CompositeLiteralArtifact, entry: Assi
     case "attention-score-matmul": return visionAttentionScoreFormula(artifact, assignment, coordinate, output);
     case "masked-softmax": return visionAttentionSoftmaxFormula(assignment, coordinate, output);
     case "attention-value-matmul": return visionAttentionValueFormula(artifact, assignment, coordinate, output);
-    case "chunked-relative-attention-scores": return audioAttentionScoreFormula(artifact, assignment, coordinate, output);
+    case "relative-attention-shift": return audioRelativeShiftFormula(artifact, assignment, coordinate, output);
+    case "attention-softcap": return audioAttentionSoftcapFormula(artifact, assignment, coordinate, output);
+    case "chunked-attention-mask": return audioAttentionMaskFormula(artifact, assignment, coordinate, output);
     case "chunked-relative-attention-softmax": return audioAttentionSoftmaxFormula(assignment, coordinate, output);
     case "chunked-relative-attention-values": return audioAttentionValueFormula(artifact, assignment, coordinate, output);
     case "split-gated-linear-unit": {
@@ -540,15 +550,41 @@ function visionAttentionValueFormula(artifact: OpenGemma4CompositeLiteralArtifac
   ];
 }
 
-function audioAttentionScoreFormula(artifact: OpenGemma4CompositeLiteralArtifact, assignment: Assignment, coordinate: number[], output: string): string[] {
-  if (coordinate.length !== 5) throw new Error(`${assignment.id}: score audio requer [b,h,block,query,context].`);
-  const tower = artifact.program.audioProgram.tower, dim = tower.headDim, context = audioContext(artifact);
+function audioRelativeShiftFormula(artifact: OpenGemma4CompositeLiteralArtifact, assignment: Assignment, coordinate: number[], output: string): string[] {
+  if (coordinate.length !== 5) throw new Error(`${assignment.id}: relative shift audio requer [b,h,block,query,context].`);
+  const context = audioContext(artifact), relativeLength = Math.floor(context / 2) + 1;
+  const query = coordinate[3]!, keySlot = coordinate[4]!, source = relativeShiftSourceCoordinate(query, keySlot, context, relativeLength);
+  const value = source.relativeIndex === undefined
+    ? "F32(0)"
+    : indexed(assignment.inputs[0]!, [coordinate[0]!, coordinate[1]!, coordinate[2]!, source.queryInBlock, source.relativeIndex]);
   return [
-    `AC=F32(sum_{i=0..${dim - 1} ascending}(F32(${assignment.inputs[0]}[b,query_index,h*${dim}+i]*${assignment.inputs[1]}[b,key_index,h*${dim}+i])))`,
-    `BD=F32(sum_{i=0..${dim - 1} ascending}(F32(relative_shift(${assignment.inputs[0]})[b,query_index,h*${dim}+i]*${assignment.inputs[2]}[0,relative_index,h*${dim}+i])))`,
-    `softcapped=F32(SLEEF_TANH_F32(F32(F32(AC+BD)/${literal(tower.attentionLogitCap)}))*${literal(tower.attentionLogitCap)})`,
-    `${output}=allowed ? softcapped : ${literal(artifact.program.audioProgram.invalidAttentionLogit)}; context_slots=0..${context - 1}`,
+    `padded_length=${context + 1}; flattened=${query}*${context}+${keySlot}`,
+    `source_query=floor(flattened/padded_length)=${source.queryInBlock}; source_relative=flattened mod padded_length=${source.relativeIndex ?? "padding"}`,
+    `${output} = ${value}`,
   ];
+}
+
+function audioAttentionSoftcapFormula(artifact: OpenGemma4CompositeLiteralArtifact, assignment: Assignment, coordinate: number[], output: string): string[] {
+  if (coordinate.length !== 5) throw new Error(`${assignment.id}: softcap audio requer [b,h,block,query,context].`);
+  const cap = literal(artifact.program.audioProgram.tower.attentionLogitCap);
+  return [`${output} = F32(SLEEF_TANH_F32(F32(${indexed(assignment.inputs[0]!, coordinate)} / ${cap})) * ${cap})`];
+}
+
+function audioAttentionMaskFormula(artifact: OpenGemma4CompositeLiteralArtifact, assignment: Assignment, coordinate: number[], output: string): string[] {
+  if (coordinate.length !== 5) throw new Error(`${assignment.id}: mask de atenção audio requer [b,h,block,query,context].`);
+  const tower = artifact.program.audioProgram.tower, queryIndex = `(${coordinate[2]}*${tower.attentionChunkSize}+${coordinate[3]})`;
+  const keyIndex = `(${coordinate[2]}*${tower.attentionChunkSize}-${tower.attentionContextLeft - 1}+${coordinate[4]})`;
+  return [
+    `query_index=${queryIndex}; key_index=${keyIndex}`,
+    `allowed = query_index < sequence && 0 <= key_index < sequence && ${assignment.inputs[1]}[${coordinate[0]},query_index] && ${assignment.inputs[1]}[${coordinate[0]},key_index] && query_index >= key_index && query_index-key_index < ${tower.attentionContextLeft}`,
+    `${output} = allowed ? ${indexed(assignment.inputs[0]!, coordinate)} : ${literal(artifact.program.audioProgram.invalidAttentionLogit)}`,
+  ];
+}
+
+function relativeShiftSourceCoordinate(query: number, keySlot: number, context: number, relativeLength: number): { queryInBlock: number; relativeIndex?: number } {
+  const flattened = query * context + keySlot, paddedLength = context + 1;
+  const queryInBlock = Math.floor(flattened / paddedLength), relativeIndex = flattened % paddedLength;
+  return relativeIndex < relativeLength ? { queryInBlock, relativeIndex } : { queryInBlock };
 }
 
 function audioAttentionSoftmaxFormula(assignment: Assignment, coordinate: number[], output: string): string[] {

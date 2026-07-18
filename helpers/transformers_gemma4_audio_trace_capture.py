@@ -118,19 +118,33 @@ def main() -> None:
             queries = query_states.permute(0, 3, 1, 2, 4)
             matrix_ac = queries @ key_states.permute(0, 3, 1, 4, 2)
             queries_flat = queries.reshape(batch_size, self.num_heads, -1, self.head_dim)
-            matrix_bd = queries_flat @ relative_key_states.permute(1, 2, 0)
-            matrix_bd = matrix_bd.reshape(batch_size, self.num_heads, num_blocks, self.chunk_size, -1)
+            matrix_bd_unshifted = queries_flat @ relative_key_states.permute(1, 2, 0)
+            matrix_bd_unshifted = matrix_bd_unshifted.reshape(
+                batch_size, self.num_heads, num_blocks, self.chunk_size, -1
+            )
+            matrix_bd = matrix_bd_unshifted
             matrix_bd = self._rel_shift(matrix_bd)
-            attn_weights = matrix_ac + matrix_bd
-            attn_weights = attn_weights / self.softcap
-            attn_weights = torch.tanh(attn_weights)
-            attn_weights = attn_weights * self.softcap
+            attention_logits = matrix_ac + matrix_bd
+            attention_softcapped = torch.tanh(attention_logits / self.softcap) * self.softcap
+            attn_weights = attention_softcapped
             if attention_mask is not None:
                 attn_weights = attn_weights.masked_fill(
                     attention_mask.logical_not(), self.config.attention_invalid_logits_value
                 )
+            for operation_id, output_name, tensor in (
+                ("attention_content_scores", "attention_ac", matrix_ac),
+                ("attention_position_scores", "attention_bd_unshifted", matrix_bd_unshifted),
+                ("attention_relative_shift", "attention_bd", matrix_bd),
+                ("attention_logit_add", "attention_logits", attention_logits),
+                ("attention_softcap", "attention_softcapped", attention_softcapped),
+            ):
+                checkpoints.append({
+                    "operationId": f"audio_layer_{layer_index}_{operation_id}",
+                    "output": f"audio_layer_{layer_index}_{output_name}",
+                    "tensor": tensor_payload(tensor),
+                })
             checkpoints.append({
-                "operationId": f"audio_layer_{layer_index}_attention_scores",
+                "operationId": f"audio_layer_{layer_index}_attention_mask",
                 "output": f"audio_layer_{layer_index}_attention_scores",
                 "tensor": tensor_payload(attn_weights),
             })
@@ -195,7 +209,7 @@ def main() -> None:
         handle.remove()
     stripped = output.pooler_output[output.attention_mask]
     checkpoints.append({"operationId": "audio_strip_padding", "output": "audio_features", "tensor": tensor_payload(stripped)})
-    expected = 6 + 1 + 1 + 30 * len(audio.layers) + 3 + 1
+    expected = 6 + 1 + 1 + 35 * len(audio.layers) + 3 + 1
     if len(checkpoints) != expected:
         raise ValueError(f"Gemma 4 audio capture emitted {len(checkpoints)} checkpoints; expected {expected}.")
     result = {
