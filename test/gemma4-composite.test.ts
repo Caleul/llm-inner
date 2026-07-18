@@ -18,6 +18,7 @@ import { openGemma4CompositeLiteralArtifact } from "../src/gemma4-composite-lite
 import { executeGemma4LiteralCompositeF32, generateGemma4LiteralCompositeF32 } from "../src/gemma4-literal-composite.js";
 import { buildGemma4LiteralGenerationNavigation, renderGemma4LiteralGenerationCalculationView } from "../src/gemma4-literal-generation-navigation.js";
 import { buildGemma4LiteralCalculationSlice } from "../src/gemma4-literal-calculation-slice.js";
+import { buildGemma4LiteralEndToEndCalculation } from "../src/gemma4-literal-end-to-end-calculation.js";
 import { listGemma4LiteralOperations, renderGemma4LiteralMultimodalScalarView } from "../src/gemma4-literal-multimodal-scalar-view.js";
 import { executeGemma4LiteralVisionF32 } from "../src/gemma4-literal-vision.js";
 import { listGemma4LiteralTextOperations, renderGemma4LiteralScalarView } from "../src/gemma4-literal-scalar-view.js";
@@ -928,6 +929,38 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       assert.equal(logitsSlice.reproducibility.status, "fail-closed-runtime-reduction");
       assert.ok(logitsSlice.reproducibility.failClosedOperationIds.some((id) => id.includes("audio_layer_0_attention")));
       assert.throws(() => buildGemma4LiteralCalculationSlice(artifact, "unknown-operation"), /não encontrada para slice/);
+
+      const endToEnd = buildGemma4LiteralEndToEndCalculation(artifact, 2);
+      assert.equal(endToEnd.sourceCheckpointAccessed, false);
+      assert.equal(endToEnd.maxNewTokens, 2);
+      assert.equal(endToEnd.forward.targetOutput, artifact.outputs.logits);
+      assert.equal(endToEnd.forward.operationCount, allOperations.length);
+      assert.equal(endToEnd.generation.operations.length, 20);
+      assert.ok(endToEnd.generation.operations.some((operation) =>
+        operation.navigation.operationId === "generation_argmax[1]" &&
+        operation.scalarAssignments.some((formula) => formula.includes("candidate[v]"))));
+      assert.ok(endToEnd.generation.operations.filter((operation) => operation.forwardExpansion).every((operation) =>
+        !("declaredForwardOperations" in operation)));
+      assert.equal(endToEnd.generation.cacheTransitions.length, program.textProgram.layers.length);
+      assert.ok(endToEnd.declaredInputs.some((input) => input.name === "max_new_tokens" && input.requiredFor.includes("generation")));
+      assert.equal(endToEnd.numericLiterals.length, artifact.numericLiterals.literals.length);
+      assert.equal(endToEnd.storageCoverage.complete, true);
+      assert.equal(
+        endToEnd.storageCoverage.reachableLearnedConstantCount + endToEnd.storageCoverage.runtimeUnreachableConstantCount,
+        endToEnd.storageCoverage.embeddedConstantCount,
+      );
+      assert.ok(endToEnd.storageCoverage.runtimeUnreachableConstants.every((entry) =>
+        entry.decoderId === `decode_${entry.tensor.name}` && entry.reason === "shared-kv-consumer-local-kv-is-runtime-unreachable"));
+      assert.equal(endToEnd.reproducibility.generationControl, "literal");
+      assert.equal(endToEnd.reproducibility.status, "fail-closed-runtime-reduction");
+
+      const hiddenConstant = endToEnd.storageCoverage.runtimeUnreachableConstants[0]?.tensor.name;
+      if (hiddenConstant) {
+        const declarationIndex = artifact.unreachableConstants.findIndex((entry) => entry.name === hiddenConstant);
+        const declaration = artifact.unreachableConstants.splice(declarationIndex, 1)[0]!;
+        assert.throws(() => buildGemma4LiteralEndToEndCalculation(artifact, 0), /não possui declaração runtime-unreachable e decoder/);
+        artifact.unreachableConstants.splice(declarationIndex, 0, declaration);
+      }
     } finally {
       await artifact.close();
     }

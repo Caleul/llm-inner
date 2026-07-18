@@ -4,6 +4,7 @@ import { openGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-r
 import { verifyGemma4CompositeLiteralEmbeddedPayloadIntegrity } from "./gemma4-composite-literal-payload-verification.js";
 import { buildGemma4LiteralGenerationNavigation, renderGemma4LiteralGenerationCalculationView } from "./gemma4-literal-generation-navigation.js";
 import { buildGemma4LiteralCalculationSlice } from "./gemma4-literal-calculation-slice.js";
+import { buildGemma4LiteralEndToEndCalculation } from "./gemma4-literal-end-to-end-calculation.js";
 import { listGemma4LiteralOperations, renderGemma4LiteralMultimodalScalarView } from "./gemma4-literal-multimodal-scalar-view.js";
 
 interface Arguments {
@@ -27,6 +28,7 @@ interface Arguments {
   inputCount?: number;
   numericLiteral?: string;
   calculationSliceOperationId?: string;
+  endToEndCalculation: boolean;
 }
 
 const args = parseArguments(process.argv.slice(2));
@@ -62,6 +64,9 @@ try {
   }
   if (args.calculationSliceOperationId) {
     result.calculationSlice = buildGemma4LiteralCalculationSlice(artifact, args.calculationSliceOperationId);
+  }
+  if (args.endToEndCalculation) {
+    result.endToEndCalculation = buildGemma4LiteralEndToEndCalculation(artifact, args.generationMaxNewTokens!);
   }
   if (selected) {
     const tensor = { name: selected.name, storageDtype: selected.storageDtype, storageShape: selected.storageShape, logicalShape: selected.logicalShape };
@@ -110,7 +115,7 @@ function parseArguments(argv: string[]): Arguments {
   let artifact: string | undefined, tensor: string | undefined, output: string | undefined, assertSourceUnavailable: string | undefined, operationId: string | undefined, generationOperationId: string | undefined, numericLiteral: string | undefined, calculationSliceOperationId: string | undefined;
   let outputCoordinate: number[] | undefined, tokenId: number | undefined, positionCoordinate: [number, number] | undefined, inputStart: number | undefined, inputCount: number | undefined;
   let generationMaxNewTokens: number | undefined;
-  let offset = 0, byteLength = 4096, verifyPayloads = false, listOperations = false, showGenerationProgram = false, listGenerationOperations = false;
+  let offset = 0, byteLength = 4096, verifyPayloads = false, listOperations = false, showGenerationProgram = false, listGenerationOperations = false, endToEndCalculation = false;
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
     const next = argv[index + 1];
@@ -132,6 +137,7 @@ function parseArguments(argv: string[]): Arguments {
     else if (value === "--input-count") { inputCount = parseInteger(next, "--input-count"); index += 1; }
     else if (value === "--numeric-literal") { numericLiteral = requiredValue(next, "--numeric-literal"); index += 1; }
     else if (value === "--calculation-slice") { calculationSliceOperationId = requiredValue(next, "--calculation-slice"); index += 1; }
+    else if (value === "--end-to-end-calculation") { endToEndCalculation = true; }
     else if (value === "--assert-source-unavailable") {
       if (!next || next.startsWith("--")) throw new Error("--assert-source-unavailable requer um caminho de checkpoint.");
       assertSourceUnavailable = next;
@@ -140,8 +146,8 @@ function parseArguments(argv: string[]): Arguments {
     else if (value === "--output") { output = next; index += 1; }
     else throw new Error(`Argumento desconhecido: ${value}.`);
   }
-  if (!artifact) throw new Error("Uso: --artifact <literal.json> [--numeric-literal <token>] [--calculation-slice <operation-id>] [--list-operations] [--show-generation-program] [--list-generation-operations --generation-max-new-tokens <n>] [--generation-operation <id> --generation-max-new-tokens <n>] [--operation <id> --output-coordinate <i,j,...> [--token-id <id>] [--position-coordinate <x,y>] [--input-start <i> --input-count <n>]] [--tensor <nome> --offset <bytes> --byte-length <bytes>] [--verify-payloads --assert-source-unavailable <checkpoint>] [--output <report.json>].");
-  if (assertSourceUnavailable !== undefined && !verifyPayloads && !operationId && !numericLiteral && !calculationSliceOperationId && !listOperations && !showGenerationProgram && !listGenerationOperations && !generationOperationId) throw new Error("--assert-source-unavailable requer uma operação de inspeção.");
+  if (!artifact) throw new Error("Uso: --artifact <literal.json> [--numeric-literal <token>] [--calculation-slice <operation-id>] [--end-to-end-calculation --generation-max-new-tokens <n>] [--list-operations] [--show-generation-program] [--list-generation-operations --generation-max-new-tokens <n>] [--generation-operation <id> --generation-max-new-tokens <n>] [--operation <id> --output-coordinate <i,j,...> [--token-id <id>] [--position-coordinate <x,y>] [--input-start <i> --input-count <n>]] [--tensor <nome> --offset <bytes> --byte-length <bytes>] [--verify-payloads --assert-source-unavailable <checkpoint>] [--output <report.json>].");
+  if (assertSourceUnavailable !== undefined && !verifyPayloads && !operationId && !numericLiteral && !calculationSliceOperationId && !endToEndCalculation && !listOperations && !showGenerationProgram && !listGenerationOperations && !generationOperationId) throw new Error("--assert-source-unavailable requer uma operação de inspeção.");
   if ((tensor === undefined && (offset !== 0 || byteLength !== 4096)) || (tensor !== undefined && (!Number.isSafeInteger(offset) || !Number.isSafeInteger(byteLength) || offset < 0 || byteLength <= 0))) {
     throw new Error("--offset e --byte-length requerem --tensor e valores inteiros positivos.");
   }
@@ -149,10 +155,10 @@ function parseArguments(argv: string[]): Arguments {
   if ((inputStart === undefined) !== (inputCount === undefined) || (inputStart !== undefined && operationId === undefined)) throw new Error("--input-start e --input-count requerem --operation e devem ser fornecidos juntos.");
   if (tokenId !== undefined && operationId === undefined) throw new Error("--token-id requer --operation.");
   if (positionCoordinate !== undefined && operationId === undefined) throw new Error("--position-coordinate requer --operation.");
-  if ((listGenerationOperations || generationOperationId !== undefined) !== (generationMaxNewTokens !== undefined)) throw new Error("Navegação de geração requer --generation-max-new-tokens e uma operação/listagem de geração.");
+  if ((listGenerationOperations || generationOperationId !== undefined || endToEndCalculation) !== (generationMaxNewTokens !== undefined)) throw new Error("Navegação de geração requer --generation-max-new-tokens e uma operação/listagem de geração.");
   if (generationMaxNewTokens !== undefined && generationMaxNewTokens < 0) throw new Error("--generation-max-new-tokens requer inteiro não negativo.");
   return {
-    artifact, ...(tensor ? { tensor } : {}), offset, byteLength, verifyPayloads, listOperations, showGenerationProgram, listGenerationOperations,
+    artifact, ...(tensor ? { tensor } : {}), offset, byteLength, verifyPayloads, listOperations, showGenerationProgram, listGenerationOperations, endToEndCalculation,
     ...(assertSourceUnavailable ? { assertSourceUnavailable } : {}), ...(output ? { output } : {}),
     ...(operationId ? { operationId, outputCoordinate: outputCoordinate! } : {}), ...(tokenId === undefined ? {} : { tokenId }),
     ...(positionCoordinate === undefined ? {} : { positionCoordinate }),

@@ -57,6 +57,14 @@ export interface Gemma4LiteralGenerationCalculationView {
   declaredForwardOperations?: Gemma4LiteralOperationNavigation[];
 }
 
+export interface Gemma4LiteralGenerationCalculationPlan {
+  kind: "gemma4-literal-generation-calculation-plan";
+  sourceCheckpointAccessed: false;
+  maxNewTokens: number;
+  /** Concrete control assignments. The complete forward graph is shared once by the enclosing product view. */
+  operations: Array<Omit<Gemma4LiteralGenerationCalculationView, "declaredForwardOperations">>;
+}
+
 interface InstantiatedAssignment {
   assignment: Gemma4LiteralGenerationAssignment;
   operationId: string;
@@ -151,6 +159,31 @@ export function renderGemma4LiteralGenerationCalculationView(
   const navigation = plan.operations
     .find((entry) => entry.operationId === operationId);
   if (!navigation) throw new Error(`Atribuição de geração Gemma 4 literal não encontrada: ${operationId}.`);
+  return {
+    ...generationCalculationView(artifact, navigation, maxNewTokens),
+    ...(navigation.forwardExpansion ? { declaredForwardOperations: plan.declaredForwardOperations } : {}),
+  };
+}
+
+/** Materializes every greedy-control formula once without duplicating the 2,709-operation forward graph per step. */
+export function buildGemma4LiteralGenerationCalculationPlan(
+  artifact: OpenGemma4CompositeLiteralArtifact,
+  maxNewTokens: number,
+): Gemma4LiteralGenerationCalculationPlan {
+  const navigation = buildGemma4LiteralGenerationNavigation(artifact, maxNewTokens);
+  return {
+    kind: "gemma4-literal-generation-calculation-plan",
+    sourceCheckpointAccessed: false,
+    maxNewTokens,
+    operations: navigation.operations.map((entry) => generationCalculationView(artifact, entry, maxNewTokens)),
+  };
+}
+
+function generationCalculationView(
+  artifact: OpenGemma4CompositeLiteralArtifact,
+  navigation: Gemma4LiteralGenerationOperationNavigation,
+  maxNewTokens: number,
+): Omit<Gemma4LiteralGenerationCalculationView, "declaredForwardOperations"> {
   const calculation = artifact.generation.scalarCalculations.assignments
     .find((candidate) => candidate.definitionId === navigation.definitionId);
   if (!calculation || calculation.operation !== navigation.operation) {
@@ -164,7 +197,6 @@ export function renderGemma4LiteralGenerationCalculationView(
     formula: scalarAssignments.at(-1)!,
     scalarAssignments,
     ...(navigation.forwardExpansion ? { forwardExpansion: navigation.forwardExpansion } : {}),
-    ...(navigation.forwardExpansion ? { declaredForwardOperations: plan.declaredForwardOperations } : {}),
   };
 }
 

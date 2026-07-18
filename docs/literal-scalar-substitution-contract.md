@@ -164,6 +164,16 @@ programa e não pode receber valor implícito. A implementação suporta somente
 storage denso row-major F32/F16/BF16 nesse caminho e rejeita outros decoders em
 vez de inventar uma interpretação.
 
+`--end-to-end-calculation --generation-max-new-tokens <n>` compõe essa mesma
+slice forward com todas as fórmulas de controle greedy instanciadas e as
+transições KV armazenadas. O forward é compartilhado uma vez entre prefill e
+decode, mas cada invocação declara o modo e o estado de entrada. A vista deve
+particionar todas as constantes incorporadas entre operandos alcançáveis do
+logit e projeções K/V ou K-norm locais declaradas runtime-unreachable por
+reutilizar o produtor compartilhado. A soma das duas classes precisa ser exatamente o
+número de constantes do artefato; órfãos, sobreposição ou decoder ausente são
+erro, nunca warning.
+
 ## Programa literal de geração
 
 Logits não completam o produto de geração. O artefato Gemma 4 schema v2 deve

@@ -357,6 +357,30 @@ npm run inspect:gemma4-literal -- \
   --output /tmp/gemma4-final-logits-calculation-slice.json
 ```
 
+Para seguir o produto inteiro em uma única vista finita,
+`--end-to-end-calculation --generation-max-new-tokens <n>` liga os inputs
+declarados ao fecho de produtores dos logits, instancia todas as atribuições
+greedy para o limite escolhido e inclui as transições KV. Essa vista também
+prova a cobertura do storage: cada constante incorporada precisa estar no
+cálculo alcançável ou na lista explícita de projeções K/V e K-norm locais que
+não são executadas porque a camada reutiliza o cache de um produtor. Uma constante
+órfã, um decoder ausente ou uma declaração `runtime-unreachable` contraditória
+faz a inspeção falhar fechado:
+
+```bash
+npm run inspect:gemma4-literal -- \
+  --artifact ./artifacts/gemma4-e4b-dense.literal.json \
+  --end-to-end-calculation --generation-max-new-tokens 2 \
+  --assert-source-unavailable ./gemma-4-E4B-dense \
+  --output /tmp/gemma4-end-to-end-calculation.json
+```
+
+No E4B real, essa vista contém as 2.709 atribuições forward uma única vez,
+20 atribuições de controle para dois passos, 42 transições KV, todos os 70
+literais numéricos e a partição completa das 2.130 constantes incorporadas.
+Veja
+[`docs/validation/gemma4-e4b-source-removed-end-to-end-calculation-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-end-to-end-calculation-2026-07-18.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 
