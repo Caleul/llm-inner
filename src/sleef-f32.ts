@@ -1,6 +1,6 @@
 /**
- * Scalar transcription of SLEEF `Sleef_tanhf4_u10advsimd` as shipped by the
- * pinned PyTorch wheel. Every helper below mirrors one binary32 ADVSIMD or FMA
+ * Scalar transcriptions of the SLEEF ADVSIMD kernels selected by the pinned
+ * PyTorch wheel. Every helper below mirrors one binary32 ADVSIMD or FMA
  * boundary; the pair representation mirrors SLEEF's `vfloat2` double-float.
  *
  * Authoritative sources:
@@ -18,6 +18,17 @@ const multiply = (left: number, right: number): number => f32(left * right);
 const fma = (left: number, right: number, addend: number): number => f32(left * right + addend);
 const pair = (x: number, y = 0): FloatPair => ({ x: f32(x), y: f32(y) });
 
+/**
+ * First 416 binary32 entries of SLEEF's `Sleef_rempitabsp`.  Entry 408 is
+ * selected by the largest finite F32 exponent and entries 412..415 preserve
+ * the source's Inf/NaN lane behavior.  The literal artifact carries the same
+ * little-endian payload and its SHA-256, so large-angle replay does not depend
+ * on an external SLEEF binary or source checkout.
+ */
+export const SLEEF_REMPITABSP_F32_LE_BASE64 = "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";
+export const SLEEF_REMPITABSP_F32_LE_SHA256 = "9a623b9ff705f726ddb129e4b1c3c0311ac19b86a30667cdd395e6ea98d8c5c5";
+const REMPI_TABLE = decodeF32LeTable(SLEEF_REMPITABSP_F32_LE_BASE64, 416);
+
 export function sleefTanhF32(value: number): number {
   const input = f32(value);
   if (Number.isNaN(input)) return Number.NaN;
@@ -31,10 +42,11 @@ export function sleefTanhF32(value: number): number {
   return input < 0 || Object.is(input, -0) ? -output : output;
 }
 
-/** Exact ADVSIMD u10 sine fast path used by Gemma RoPE angles below 125. */
+/** Exact ADVSIMD u10 sine over the complete finite binary32 argument range. */
 export function sleefSinF32(value: number): number {
   const input = f32(value);
-  assertFastTrigRange(input);
+  if (!Number.isFinite(input)) return Number.NaN;
+  if (Math.abs(input) >= 125) return sleefSinLargeF32(input);
   const quadrantFloat = f32(roundTiesToEven(multiply(input, f32(0.31830988618379067154))));
   const quadrant = Math.trunc(quadrantFloat);
   const first = fma(quadrantFloat, f32(-3.1414794921875), input);
@@ -45,10 +57,11 @@ export function sleefSinF32(value: number): number {
   return Object.is(input, -0) ? -0 : output;
 }
 
-/** Exact ADVSIMD u10 cosine fast path used by Gemma RoPE angles below 125. */
+/** Exact ADVSIMD u10 cosine over the complete finite binary32 argument range. */
 export function sleefCosF32(value: number): number {
   const input = f32(value);
-  assertFastTrigRange(input);
+  if (!Number.isFinite(input)) return Number.NaN;
+  if (Math.abs(input) >= 125) return sleefCosLargeF32(input);
   const rounded = f32(roundTiesToEven(fma(input, f32(0.31830988618379067154), -0.5)));
   const quadrantFloat = fma(rounded, 2, 1);
   const quadrant = Math.trunc(quadrantFloat);
@@ -79,10 +92,95 @@ export function sleefExpF32(value: number): number {
   return scalePowerOfTwo(result, exponent);
 }
 
-function assertFastTrigRange(value: number): void {
-  if (!Number.isFinite(value) || Math.abs(value) >= 125) {
-    throw new Error(`SLEEF ADVSIMD trig argument ${value} requires the unimplemented rempif range reducer.`);
+function sleefSinLargeF32(input: number): number {
+  const reduction = rempiF32(input);
+  let quadrant = reduction.quadrant & 3;
+  quadrant = ((quadrant + quadrant) + (reduction.reduced.x > 0 ? 2 : 1)) >> 2;
+  if ((reduction.quadrant & 1) === 1) {
+    const correction = pair(
+      xorSign(f32(-1.5707963705062866), reduction.reduced.x),
+      xorSign(f32(4.371138828673793e-8), reduction.reduced.x),
+    );
+    reduction.reduced = addPair2(reduction.reduced, correction);
   }
+  const output = sinReducedF32(normalizePair(reduction.reduced));
+  return (quadrant & 1) === 1 ? xorSign(output, -1) : output;
+}
+
+function sleefCosLargeF32(input: number): number {
+  const reduction = rempiF32(input);
+  let quadrant = reduction.quadrant & 3;
+  quadrant = ((quadrant + quadrant) + (reduction.reduced.x > 0 ? 8 : 7)) >> 1;
+  if ((reduction.quadrant & 1) === 0) {
+    const sign = reduction.reduced.x > 0 ? 0 : -1;
+    reduction.reduced = addPair2(reduction.reduced, pair(
+      xorSign(f32(-1.5707963705062866), sign),
+      xorSign(f32(4.371138828673793e-8), sign),
+    ));
+  }
+  const output = sinReducedF32(normalizePair(reduction.reduced));
+  return (quadrant & 2) === 0 ? xorSign(output, -1) : output;
+}
+
+function rempiF32(input: number): { reduced: FloatPair; quadrant: number } {
+  const bits = f32Bits(input);
+  let exponent = ((bits >>> 23) & 0xff) - 0x7f - 25;
+  const scaleExponent = exponent > 65 ? -64 : 0;
+  const scaledInput = f32(input * (2 ** scaleExponent));
+  exponent = Math.max(0, exponent) * 4;
+  if (exponent + 3 >= REMPI_TABLE.length) throw new Error(`SLEEF rempif table index ${exponent} is outside the declared F32 table.`);
+
+  let reduced = multiplyFloatFloatPair(scaledInput, REMPI_TABLE[exponent]!);
+  let sub = rempiSubF32(reduced.x);
+  let quadrant = sub.quadrant;
+  reduced = normalizePair(pair(sub.remainder, reduced.y));
+
+  reduced = addPair2(reduced, multiplyFloatFloatPair(scaledInput, REMPI_TABLE[exponent + 1]!));
+  sub = rempiSubF32(reduced.x);
+  quadrant += sub.quadrant;
+  reduced = normalizePair(pair(sub.remainder, reduced.y));
+
+  reduced = addPair2(reduced, multiplyPairFloat(pair(REMPI_TABLE[exponent + 2]!, REMPI_TABLE[exponent + 3]!), scaledInput));
+  reduced = normalizePair(reduced);
+  reduced = multiplyPair(reduced, pair(f32(6.2831854820251465), f32(-1.7484555314695172e-7)));
+  return { reduced, quadrant };
+}
+
+function rempiSubF32(input: number): { remainder: number; quadrant: number } {
+  const roundedFour = f32(roundTiesToEven(multiply(input, 4)));
+  const roundedOne = f32(roundTiesToEven(input));
+  return {
+    remainder: subtract(input, multiply(roundedFour, f32(0.25))),
+    quadrant: Math.trunc(subtract(roundedFour, multiply(roundedOne, 4))),
+  };
+}
+
+function multiplyFloatFloatPair(left: number, right: number): FloatPair {
+  const product = multiply(left, right);
+  return pair(product, fma(left, right, -product));
+}
+
+function normalizePair(value: FloatPair): FloatPair {
+  const sum = add(value.x, value.y);
+  return pair(sum, add(subtract(value.x, sum), value.y));
+}
+
+function xorSign(value: number, signSource: number): number {
+  return signSource < 0 || Object.is(signSource, -0) ? -value : value;
+}
+
+function f32Bits(value: number): number {
+  const bytes = new ArrayBuffer(4);
+  const view = new DataView(bytes);
+  view.setFloat32(0, value, true);
+  return view.getUint32(0, true);
+}
+
+function decodeF32LeTable(encoded: string, entries: number): Float32Array {
+  const bytes = Buffer.from(encoded, "base64");
+  if (bytes.length !== entries * 4) throw new Error(`SLEEF rempif table has ${bytes.length} bytes; expected ${entries * 4}.`);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  return Float32Array.from({ length: entries }, (_, index) => view.getFloat32(index * 4, true));
 }
 
 function sinReducedF32(reduced: FloatPair): number {

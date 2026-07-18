@@ -502,13 +502,21 @@ probabilidade BF16 e dot ARM com V. Com o checkpoint removido, um forward real
 em token `184`/posição `1` passou as 1.229 atribuições, logits e 24 caches KV
 com erro zero; quatro passos cached geraram `184,3910,531,974` com logits de
 seleção, 96 snapshots KV ao longo dos quatro passos, logits terminais e 24 caches terminais
-também em erro zero. O scalar view expõe `SLEEF_SIN_F32`, `SLEEF_COS_F32`,
+também em erro zero. O loop seguinte inspecionou essa implementação e repetiu
+independentemente a captura/reprodução dos quatro passos, aceitando a fronteira
+textual cached. O scalar view expõe `SLEEF_SIN_F32`, `SLEEF_COS_F32`,
 `SLEEF_TANH_F32`, `SLEEF_EXP_F32`, as árvores ARM e cada cast BF16 dentro das
-fórmulas indexadas. Esta continua sendo evidência candidata, não aceitação do
-checkpoint: multimodal e o range reducer SLEEF completo permanecem abertos.
+fórmulas indexadas. O range reducer SLEEF `rempif` completo também está
+transcrito: a tabela F32 little-endian de 1.664 bytes é incorporada ao contrato
+de todas as 66 operações RoPE e uma comparação real na posição 125 passou as
+1.229 atribuições, logits e caches em tolerância zero com a fonte removida.
+Essa nova fronteira é evidência candidata; o checkpoint continua proibido
+porque a execução diferencial multimodal real permanece aberta.
 Comandos, hash do artefato e métricas estão em
 [`docs/validation/gemma4-e4b-exact-cached-attention-2026-07-18.md`](docs/validation/gemma4-e4b-exact-cached-attention-2026-07-18.md); a fronteira anterior está preservada em
-[`docs/validation/gemma4-e4b-source-dispatched-text-math-2026-07-18.md`](docs/validation/gemma4-e4b-source-dispatched-text-math-2026-07-18.md).
+[`docs/validation/gemma4-e4b-source-dispatched-text-math-2026-07-18.md`](docs/validation/gemma4-e4b-source-dispatched-text-math-2026-07-18.md). O contrato
+full-range e sua validação estão em
+[`docs/validation/gemma4-e4b-full-range-rope-2026-07-18.md`](docs/validation/gemma4-e4b-full-range-rope-2026-07-18.md).
 
 Uma captura posterior de todas as 1.229 atribuições declaradas do Gemma4Text
 torna a divergência localizável sem reabrir o checkpoint durante o candidato.

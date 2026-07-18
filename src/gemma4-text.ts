@@ -1,5 +1,6 @@
 import type { AttentionOp, JsonObject, LayerIR, LinearOp, ModelCatalog, ModelIR, Operation, PreviewOptions, TensorInfo, TensorRef } from "./types.js";
 import { roundF32ToBF16 } from "./utils.js";
+import { SLEEF_REMPITABSP_F32_LE_BASE64, SLEEF_REMPITABSP_F32_LE_SHA256 } from "./sleef-f32.js";
 
 const F32_POLICY = { computeDtype: "model-configured", accumulationDtype: "runtime-defined", outputDtype: "model-configured" } as const;
 const F32_RUNTIME_POLICY = { inputDtype: "F32", computeDtype: "F32", accumulationDtype: "F32", outputDtype: "F32" } as const;
@@ -59,6 +60,19 @@ export const GEMMA4_E4B_PYTORCH_BF16_TRIG_IMPLEMENTATION = {
   sleefSourceCommit: "5a1d179df9cf652951b59010a2d2075372d67f68",
   sineKernel: "Sleef_sinf4_u10advsimd",
   cosineKernel: "Sleef_cosf4_u10advsimd",
+  argumentReduction: {
+    fastRangeMaxExclusive: 125,
+    largeRangeAlgorithm: "SLEEF rempif full binary32 range",
+    tableStorageDtype: "F32",
+    tableByteOrder: "little",
+    tableEntries: 416,
+    tablePayloadBase64: SLEEF_REMPITABSP_F32_LE_BASE64,
+    tablePayloadSha256: SLEEF_REMPITABSP_F32_LE_SHA256,
+  },
+  reducedPolynomial: {
+    evaluation: "ADVSIMD FMA binary32 in declaration order",
+    coefficientsAscending: [-0.16666659712791443, 0.00833307858556509, -0.00019810690719168633, 0.0000026083159809786594],
+  },
 } as const;
 
 export const GEMMA4_E4B_PYTORCH_BF16_ATTENTION_IMPLEMENTATION = {

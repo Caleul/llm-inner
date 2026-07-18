@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
+import { createHash } from "node:crypto";
 import { buildModelIR } from "../src/architecture.js";
 import { compareExecutionTrace, compareGenerationTrace } from "../src/differential.js";
 import { activationF32, attentionF32, elementwiseF32, executeReferenceF32, executeReferenceF64, generateReferenceF32, generateReferenceF64, rmsNormF32, rotaryF32 } from "../src/executor.js";
@@ -39,6 +40,9 @@ test("pinned PyTorch ARM SLEEF tanh transcript preserves authoritative F32 resul
 });
 
 test("pinned PyTorch ARM SLEEF trig and BF16 RoPE casts preserve authoritative results", () => {
+  const rempiPayload = Buffer.from(GEMMA4_E4B_PYTORCH_BF16_TRIG_IMPLEMENTATION.argumentReduction.tablePayloadBase64, "base64");
+  assert.equal(rempiPayload.length, 416 * 4);
+  assert.equal(createHash("sha256").update(rempiPayload).digest("hex"), GEMMA4_E4B_PYTORCH_BF16_TRIG_IMPLEMENTATION.argumentReduction.tablePayloadSha256);
   assert.deepEqual([0, 0.001, 0.1, 0.5, 1, 1.234, 10, 124].map((value) => [sleefSinF32(value), sleefCosF32(value)]), [
     [0, 1],
     [0.0009999999310821295, 0.9999995231628418],
@@ -49,6 +53,23 @@ test("pinned PyTorch ARM SLEEF trig and BF16 RoPE casts preserve authoritative r
     [-0.5440211296081543, -0.83907151222229],
     [-0.995686948299408, -0.09277620166540146],
   ]);
+  assert.deepEqual([125, -125, 126, 255, 256, 1_000, 4_096, 8_192, 32_768, 65_536, 100_000, 1_000_000, 1e10, 3.4e38]
+    .map((value) => [sleefSinF32(value), sleefCosF32(value)]), [
+    [-0.6160404682159424, 0.7877144813537598],
+    [0.6160404682159424, 0.7877144813537598],
+    [0.32999083399772644, 0.9439841508865356],
+    [-0.5063916444778442, -0.862303614616394],
+    [-0.9992080330848694, -0.03979076072573662],
+    [0.8268795609474182, 0.5623790621757507],
+    [-0.5946419835090637, 0.8039906024932861],
+    [-0.9561731815338135, 0.2928018271923065],
+    [0.9278563261032104, 0.3729378283023834],
+    [0.6920654773712158, -0.7218347787857056],
+    [0.03574879840016365, -0.9993607997894287],
+    [-0.349993497133255, 0.9367521405220032],
+    [-0.48750603199005127, 0.8731196522712708],
+    [-0.24408487975597382, 0.9697538614273071],
+  ]);
   const operation = {
     id: "rope", op: "rotary_embedding" as const, input: "x", positionInput: "position_ids", output: "y",
     ropeType: "default", theta: 10_000, rotaryDim: 2, layout: "rotate_half" as const,
@@ -58,7 +79,8 @@ test("pinned PyTorch ARM SLEEF trig and BF16 RoPE casts preserve authoritative r
   };
   const result = rotaryF32({ shape: [1, 1, 1, 2], values: Float32Array.of(0.5, -1) }, [[1]], operation);
   assert.deepEqual([...result.values], [1.109375, -0.119140625]);
-  assert.throws(() => sleefSinF32(125), /requires the unimplemented rempif range reducer/);
+  const largeAngle = rotaryF32({ shape: [1, 1, 1, 2], values: Float32Array.of(0.5, -1) }, [[125]], operation);
+  assert.deepEqual([...largeAngle.values], [-0.22265625, -1.09375]);
 });
 
 test("pinned PyTorch ARM SLEEF exp and BF16 eager attention preserve authoritative results", () => {

@@ -476,6 +476,10 @@ function renderRotary(
     : `${base.output} = ${outputCast(operation)}(F32(F32(${indexed(operation.input, coordinate)} * cosine) ${sign} F32(${indexed(operation.input, [...coordinate.slice(0, 3), paired])} * sine)))`;
   return renderPlain(operation, base, formula, [
     `angle = ${angle}`,
+    ...(operation.trigImplementation ? [
+      `range_reduction = abs(angle) < ${operation.trigImplementation.argumentReduction.fastRangeMaxExclusive} ? SLEEF_CODY_WAITE_F32(angle) : SLEEF_REMPIF_F32(angle, inline_f32_le_table_sha256=${operation.trigImplementation.argumentReduction.tablePayloadSha256})`,
+      `trig_polynomial = ${operation.trigImplementation.reducedPolynomial.evaluation}; coefficients_ascending=[${operation.trigImplementation.reducedPolynomial.coefficientsAscending.map(literal).join(",")}]`,
+    ] : []),
     operation.trigImplementation ? "cosine = BF16(SLEEF_COS_F32(angle))" : "cosine = F32(cos(angle))",
     operation.trigImplementation ? "sine = BF16(SLEEF_SIN_F32(angle))" : "sine = F32(sin(angle))",
   ]);

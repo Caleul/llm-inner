@@ -288,6 +288,19 @@ export interface F32SinCosImplementation {
   sleefSourceCommit: string;
   sineKernel: "Sleef_sinf4_u10advsimd";
   cosineKernel: "Sleef_cosf4_u10advsimd";
+  argumentReduction: {
+    fastRangeMaxExclusive: 125;
+    largeRangeAlgorithm: "SLEEF rempif full binary32 range";
+    tableStorageDtype: "F32";
+    tableByteOrder: "little";
+    tableEntries: 416;
+    tablePayloadBase64: string;
+    tablePayloadSha256: string;
+  };
+  reducedPolynomial: {
+    evaluation: "ADVSIMD FMA binary32 in declaration order";
+    coefficientsAscending: readonly number[];
+  };
 }
 
 export interface F32ExpImplementation {
