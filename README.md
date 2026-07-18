@@ -330,6 +330,17 @@ navegação source-removed lê diretamente o JSON. A regeneração E4B real exp�
 2.709 atribuições e 3.363 arestas sem alterar os diferenciais existentes; veja
 [`docs/validation/gemma4-e4b-source-removed-instantiated-calculation-graph-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-instantiated-calculation-graph-2026-07-18.md).
 
+O schema v8 acrescenta `numericLiterals`: uma tabela deduplicada e diretamente
+endereçável de todo token numérico usado pelas fórmulas forward e greedy. Cada
+entrada preserva o token textual, os bits IEEE-754 F64/F32/BF16, a regra BF16
+round-to-nearest-ties-to-even e todas as definições consumidoras. Assim `0.5`,
+`pi`, epsilons, escalas, softcaps, limites de índice e controles de geração não
+dependem do parser decimal ou das constantes matemáticas do host. O leitor
+reconstrói a tabela do próprio programa e rejeita qualquer bit ou uso alterado;
+`inspect:gemma4-literal --numeric-literal <token>` expõe a entrada sem abrir o
+checkpoint. A evidência do E4B real está em
+[`docs/validation/gemma4-e4b-source-removed-numeric-literals-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-numeric-literals-2026-07-18.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 

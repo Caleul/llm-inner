@@ -107,6 +107,15 @@ fórmulas de wrapper referem o intervalo instanciado no grafo; a navegação e a
 geração consomem essa mesma sequência serializada e falham se outra ordem for
 declarada.
 
+No schema v8, cada token numérico presente nessas fórmulas e nas fórmulas
+greedy também possui uma declaração em `numericLiterals.literals`. O token é
+ligado aos seus consumidores e aos bits F64, F32 e BF16; o cast escrito na
+fórmula seleciona a representação aplicável. BF16 declara explicitamente
+round-to-nearest-ties-to-even. Constantes nomeadas como `pi` carregam os mesmos
+bits, portanto um leitor não pode obter outro valor da biblioteca matemática
+do host. A tabela inteira é derivada e validada fail-closed contra as fórmulas
+serializadas.
+
 Quando a autoridade disponível prova a equação, mas não a árvore de uma
 redução nativa, a fórmula preserva o domínio matemático completo e a entrada
 declara `reproducibility=fail-closed-runtime-reduction` com
