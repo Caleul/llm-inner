@@ -14,6 +14,7 @@ export interface Gemma4LiteralFormulaLanguageContract {
     learnedOperandBindings: "/learnedOperands/assignments";
     learnedIndexLanguage: "/learnedOperands/indexLanguage";
     storageDecoders: "/storageDecoders";
+    denseDecoderLanguage: "/denseDecoderLanguage";
     numericLiteralBits: "/numericLiterals/literals";
     calculationDomains: "/calculationDomains/assignments";
   };
@@ -64,6 +65,7 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
       learnedOperandBindings: "/learnedOperands/assignments",
       learnedIndexLanguage: "/learnedOperands/indexLanguage",
       storageDecoders: "/storageDecoders",
+      denseDecoderLanguage: "/denseDecoderLanguage",
       numericLiteralBits: "/numericLiterals/literals",
       calculationDomains: "/calculationDomains/assignments",
     },
@@ -72,7 +74,7 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
       coordinateOrder: "row-major lexicographic over the complete declared output domain; preview windows never change evaluation",
       inputBinding: "bind orderedInputs positionally at each instantiated call site before evaluating the indexed formula",
       numericTokenBinding: "resolve every decimal or named mathematical token through numericLiterals and select bits by its surrounding F64/F32/BF16 cast",
-      learnedValueBinding: "evaluate learnedOperands.logicalIndices with its embedded integer-expression AST, then execute the matching storageDecoder address and decode programs over the embedded constant bytes",
+      learnedValueBinding: "evaluate learnedOperands.logicalIndices with its embedded integer-expression AST, then execute the matching storageDecoder address and decode expression ASTs under denseDecoderLanguage over the embedded constant bytes",
       generationOrder: "evaluate generation scalarAssignments in array order and iterations in ascending step order until the declared stop predicate",
       invalidOperation: "fail closed before producing an output; never infer a default, host reduction, tensor layout, cast, or missing intrinsic",
     },

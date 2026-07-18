@@ -22,6 +22,9 @@ export interface LiteralTensorReader {
   readTensorBytes(tensor: TensorInfo): Promise<Buffer>;
   /** Optional bounded range read for writers that must handle multi-GiB tensors. */
   readTensorBytesRange?(tensor: TensorInfo, offset: number, byteLength: number): Promise<Buffer>;
+  /** Present on self-contained artifacts so paged replay executes serialized storage programs. */
+  storageDecoders?: readonly LiteralDenseStorageDecodeAssignment[];
+  denseDecoderLanguage?: LiteralDenseDecoderLanguageContract;
 }
 
 export interface LiteralInput {
@@ -77,64 +80,99 @@ export interface LiteralDenseStorageDecodeAssignment {
 
 export interface LiteralDenseElementAddressProgram {
   kind: "row-major-dense-element-address";
-  schemaVersion: 1;
+  schemaVersion: 2;
+  languageId: "exact-safe-integer-expression-v1";
   logicalShape: number[];
   stridesElements: number[];
   indexDomains: Array<{ axis: number; minInclusive: 0; endExclusive: number }>;
   elementBytes: 2 | 4;
   arithmetic: "exact-non-negative-safe-integer";
-  elementOffset: "sum(indices[axis] * stridesElements[axis]) in ascending axis order";
-  byteOffset: "elementOffset * elementBytes";
-  byteLength: "elementBytes";
+  elementOffset: LiteralDenseAxisReductionExpression;
+  byteOffset: LiteralExactIntegerExpression;
+  byteLength: LiteralExactIntegerExpression;
 }
 
-export type LiteralDenseIeeeDecodeProgram =
-  | {
-    kind: "ieee-binary32-bitcast";
-    schemaVersion: 1;
-    read: "uint32-little-endian";
-    resultBits: "sourceBits";
-  }
-  | {
-    kind: "ieee-bfloat16-expand";
-    schemaVersion: 1;
-    read: "uint16-little-endian";
-    resultBits: "sourceBits << 16";
-  }
-  | {
-    kind: "ieee-binary16-expand";
-    schemaVersion: 1;
-    read: "uint16-little-endian";
-    fields: {
-      signMask: 0x8000;
-      signShift: 15;
-      exponentMask: 0x7c00;
-      exponentShift: 10;
-      fractionMask: 0x03ff;
-    };
-    extraction: {
-      sign: "(sourceBits & signMask) >> signShift";
-      exponent: "(sourceBits & exponentMask) >> exponentShift";
-      fraction: "sourceBits & fractionMask";
-    };
-    normal: {
-      predicate: "0 < exponent < 31";
-      resultBits: "(sign << 31) | ((exponent + 112) << 23) | (fraction << 13)";
-    };
-    zero: {
-      predicate: "exponent == 0 && fraction == 0";
-      resultBits: "sign << 31";
-    };
-    subnormal: {
-      predicate: "exponent == 0 && fraction != 0";
-      normalization: "left-shift fraction until bit 10 is one; shiftCount starts at zero";
-      resultBits: "(sign << 31) | ((113 - shiftCount) << 23) | ((normalizedFraction & 0x03ff) << 13)";
-    };
-    infinityOrNaN: {
-      predicate: "exponent == 31";
-      resultBits: "(sign << 31) | 0x7f800000 | (fraction << 13)";
-    };
+export type LiteralExactIntegerExpression =
+  | { op: "literal"; value: number }
+  | { op: "axis-index"; axis: "current" }
+  | { op: "axis-stride-elements"; axis: "current" }
+  | { op: "element-offset" }
+  | { op: "element-bytes" }
+  | { op: "add" | "multiply"; left: LiteralExactIntegerExpression; right: LiteralExactIntegerExpression };
+
+export interface LiteralDenseAxisReductionExpression {
+  op: "reduce-axes";
+  order: "ascending";
+  initial: { op: "literal"; value: 0 };
+  term: LiteralExactIntegerExpression;
+  combine: "safe-add";
+}
+
+export type LiteralU32Expression =
+  | { op: "source-bits" }
+  | { op: "literal-u32"; value: number }
+  | { op: "variable"; name: string }
+  | { op: "bit-and" | "bit-or" | "add-u32" | "subtract-u32" | "shift-left" | "shift-right-unsigned"; left: LiteralU32Expression; right: LiteralU32Expression }
+  | { op: "count-leading-zeros-u32"; value: LiteralU32Expression }
+  | { op: "select-u32"; cases: Array<{ when: LiteralBooleanExpression; value: LiteralU32Expression }>; otherwise: LiteralU32Expression };
+
+export type LiteralBooleanExpression =
+  | { op: "equal-u32" | "not-equal-u32"; left: LiteralU32Expression; right: LiteralU32Expression }
+  | { op: "and-boolean"; left: LiteralBooleanExpression; right: LiteralBooleanExpression };
+
+export interface LiteralDenseIeeeDecodeProgram {
+  kind: "ieee-binary32-bitcast" | "ieee-bfloat16-expand" | "ieee-binary16-expand";
+  schemaVersion: 2;
+  languageId: "u32-bit-expression-v1";
+  read: { op: "read-unsigned-little-endian"; bits: 16 | 32 };
+  bindings: Array<{ name: string; value: LiteralU32Expression }>;
+  resultBits: LiteralU32Expression;
+}
+
+/** Embedded semantics for the two small expression languages used by every dense decoder. */
+export interface LiteralDenseDecoderLanguageContract {
+  kind: "literal-dense-decoder-language-contract";
+  schemaVersion: 1;
+  addressLanguageId: "exact-safe-integer-expression-v1";
+  bitLanguageId: "u32-bit-expression-v1";
+  addressSemantics: {
+    evaluationOrder: "depth-first-left-to-right; reduce-axes visits axes in ascending order";
+    arithmetic: "add and multiply are exact non-negative safe-integer operations; overflow or an out-of-domain index fails closed";
+    bindings: "axis-index and axis-stride-elements bind the current reduce axis; element-offset binds the completed axis reduction; element-bytes binds the declared storage width";
   };
+  bitSemantics: {
+    evaluationOrder: "bindings in array order, then resultBits depth-first-left-to-right; select cases in array order with only the selected value evaluated";
+    arithmetic: "all bit, add, subtract and shift results are unsigned modulo 2^32; shifts require counts 0..31; count-leading-zeros-u32 returns 0..32";
+    bindings: "source-bits is the declared little-endian unsigned storage word; variable reads a previously evaluated unique binding";
+    result: "resultBits is bitcast as IEEE-754 binary32 without numeric conversion";
+  };
+}
+
+export function buildLiteralDenseDecoderLanguageContract(): LiteralDenseDecoderLanguageContract {
+  return {
+    kind: "literal-dense-decoder-language-contract",
+    schemaVersion: 1,
+    addressLanguageId: "exact-safe-integer-expression-v1",
+    bitLanguageId: "u32-bit-expression-v1",
+    addressSemantics: {
+      evaluationOrder: "depth-first-left-to-right; reduce-axes visits axes in ascending order",
+      arithmetic: "add and multiply are exact non-negative safe-integer operations; overflow or an out-of-domain index fails closed",
+      bindings: "axis-index and axis-stride-elements bind the current reduce axis; element-offset binds the completed axis reduction; element-bytes binds the declared storage width",
+    },
+    bitSemantics: {
+      evaluationOrder: "bindings in array order, then resultBits depth-first-left-to-right; select cases in array order with only the selected value evaluated",
+      arithmetic: "all bit, add, subtract and shift results are unsigned modulo 2^32; shifts require counts 0..31; count-leading-zeros-u32 returns 0..32",
+      bindings: "source-bits is the declared little-endian unsigned storage word; variable reads a previously evaluated unique binding",
+      result: "resultBits is bitcast as IEEE-754 binary32 without numeric conversion",
+    },
+  };
+}
+
+export function validateLiteralDenseDecoderLanguageContract(contract: LiteralDenseDecoderLanguageContract): void {
+  if (!isDeepStrictEqual(contract, buildLiteralDenseDecoderLanguageContract())) {
+    throw new Error("Programa literal possui linguagem executável de decoder denso ausente ou divergente.");
+  }
+}
 
 export interface LiteralDenseElementAddress {
   elementOffset: number;
@@ -183,15 +221,26 @@ export function buildLiteralDenseStorageDecodeAssignment(
     byteOrder: "little-endian",
     address: {
       kind: "row-major-dense-element-address",
-      schemaVersion: 1,
+      schemaVersion: 2,
+      languageId: "exact-safe-integer-expression-v1",
       logicalShape: [...constant.logicalShape],
       stridesElements,
       indexDomains: constant.logicalShape.map((endExclusive, axis) => ({ axis, minInclusive: 0 as const, endExclusive })),
       elementBytes,
       arithmetic: "exact-non-negative-safe-integer",
-      elementOffset: "sum(indices[axis] * stridesElements[axis]) in ascending axis order",
-      byteOffset: "elementOffset * elementBytes",
-      byteLength: "elementBytes",
+      elementOffset: {
+        op: "reduce-axes",
+        order: "ascending",
+        initial: { op: "literal", value: 0 },
+        term: {
+          op: "multiply",
+          left: { op: "axis-index", axis: "current" },
+          right: { op: "axis-stride-elements", axis: "current" },
+        },
+        combine: "safe-add",
+      },
+      byteOffset: { op: "multiply", left: { op: "element-offset" }, right: { op: "element-bytes" } },
+      byteLength: { op: "element-bytes" },
     },
     decode: denseIeeeDecodeProgram(constant.storageDtype),
     semantics: "exact IEEE-754 storage decode; no arithmetic narrowing",
@@ -204,10 +253,11 @@ export function evaluateLiteralDenseElementAddress(
   indices: readonly number[],
 ): LiteralDenseElementAddress {
   const address = decoder.address;
-  if (address.kind !== "row-major-dense-element-address" || address.schemaVersion !== 1 ||
-    address.arithmetic !== "exact-non-negative-safe-integer" ||
-    address.elementOffset !== "sum(indices[axis] * stridesElements[axis]) in ascending axis order" ||
-    address.byteOffset !== "elementOffset * elementBytes" || address.byteLength !== "elementBytes" ||
+  if (address.kind !== "row-major-dense-element-address" || address.schemaVersion !== 2 ||
+    address.languageId !== "exact-safe-integer-expression-v1" || address.arithmetic !== "exact-non-negative-safe-integer" ||
+    !isDeepStrictEqual(address.elementOffset, canonicalDenseElementOffsetExpression()) ||
+    !isDeepStrictEqual(address.byteOffset, canonicalDenseByteOffsetExpression()) ||
+    !isDeepStrictEqual(address.byteLength, { op: "element-bytes" }) ||
     indices.length !== address.logicalShape.length || address.stridesElements.length !== address.logicalShape.length ||
     address.indexDomains.length !== address.logicalShape.length) {
     throw new Error(`${decoder.id}: programa de endereço denso inválido.`);
@@ -220,25 +270,78 @@ export function evaluateLiteralDenseElementAddress(
     expectedStride *= address.logicalShape[axis]!;
     if (!Number.isSafeInteger(expectedStride)) throw new Error(`${decoder.output}: shape denso excede inteiros seguros.`);
   }
-  let elementOffset = 0;
   for (let axis = 0; axis < indices.length; axis += 1) {
     const index = indices[axis]!;
     const dimension = address.logicalShape[axis]!;
-    const stride = address.stridesElements[axis]!;
     const domain = address.indexDomains[axis];
     if (!domain || domain.axis !== axis || domain.minInclusive !== 0 || domain.endExclusive !== dimension ||
-      !Number.isSafeInteger(index) || index < 0 || index >= dimension || !Number.isSafeInteger(stride) || stride <= 0) {
+      !Number.isSafeInteger(index) || index < 0 || index >= dimension) {
       throw new Error(`${decoder.output}: índice ${index} fora do eixo ${axis} de tamanho ${dimension}.`);
     }
-    const term = index * stride;
-    elementOffset += term;
-    if (!Number.isSafeInteger(term) || !Number.isSafeInteger(elementOffset)) {
-      throw new Error(`${decoder.output}: offset denso excede inteiros seguros.`);
-    }
   }
-  const byteOffset = elementOffset * address.elementBytes;
-  if (!Number.isSafeInteger(byteOffset)) throw new Error(`${decoder.output}: byte offset denso excede inteiros seguros.`);
-  return { elementOffset, byteOffset, byteLength: address.elementBytes };
+  const elementOffset = evaluateDenseAxisReduction(address.elementOffset, address, indices);
+  const byteOffset = evaluateExactIntegerExpression(address.byteOffset, {
+    address, indices, elementOffset,
+  });
+  const byteLength = evaluateExactIntegerExpression(address.byteLength, {
+    address, indices, elementOffset,
+  });
+  if ((byteLength !== 2 && byteLength !== 4) || byteLength !== address.elementBytes) {
+    throw new Error(`${decoder.id}: programa de byte length denso inválido.`);
+  }
+  return { elementOffset, byteOffset, byteLength };
+}
+
+function evaluateDenseAxisReduction(
+  expression: LiteralDenseAxisReductionExpression,
+  address: LiteralDenseElementAddressProgram,
+  indices: readonly number[],
+): number {
+  if (expression.op !== "reduce-axes" || expression.order !== "ascending" || expression.combine !== "safe-add" ||
+    expression.initial.op !== "literal") throw new Error("Programa de redução de eixos denso inválido.");
+  let accumulator = safeNonNegativeInteger(expression.initial.value, "initial");
+  for (let axis = 0; axis < indices.length; axis += 1) {
+    const term = evaluateExactIntegerExpression(expression.term, { address, indices, axis });
+    accumulator = safeNonNegativeInteger(accumulator + term, "axis safe-add");
+  }
+  return accumulator;
+}
+
+interface LiteralExactIntegerEnvironment {
+  address: LiteralDenseElementAddressProgram;
+  indices: readonly number[];
+  axis?: number;
+  elementOffset?: number;
+}
+
+function evaluateExactIntegerExpression(expression: LiteralExactIntegerExpression, environment: LiteralExactIntegerEnvironment): number {
+  switch (expression.op) {
+    case "literal": return safeNonNegativeInteger(expression.value, expression.op);
+    case "axis-index": {
+      if (expression.axis !== "current" || environment.axis === undefined) throw new Error("axis-index sem eixo atual.");
+      return safeNonNegativeInteger(environment.indices[environment.axis]!, expression.op);
+    }
+    case "axis-stride-elements": {
+      if (expression.axis !== "current" || environment.axis === undefined) throw new Error("axis-stride-elements sem eixo atual.");
+      return safeNonNegativeInteger(environment.address.stridesElements[environment.axis]!, expression.op);
+    }
+    case "element-offset": {
+      if (environment.elementOffset === undefined) throw new Error("element-offset sem redução concluída.");
+      return safeNonNegativeInteger(environment.elementOffset, expression.op);
+    }
+    case "element-bytes": return safeNonNegativeInteger(environment.address.elementBytes, expression.op);
+    case "add": return safeNonNegativeInteger(
+      evaluateExactIntegerExpression(expression.left, environment) + evaluateExactIntegerExpression(expression.right, environment), expression.op,
+    );
+    case "multiply": return safeNonNegativeInteger(
+      evaluateExactIntegerExpression(expression.left, environment) * evaluateExactIntegerExpression(expression.right, environment), expression.op,
+    );
+  }
+}
+
+function safeNonNegativeInteger(value: number, operation: string): number {
+  if (!Number.isSafeInteger(value) || value < 0) throw new Error(`${operation}: aritmética densa excede inteiros seguros não negativos.`);
+  return value;
 }
 
 /** Executes the decoder's embedded bit program for one already-addressed storage element. */
@@ -246,43 +349,57 @@ export function decodeLiteralDenseElementF32(
   decoder: LiteralDenseStorageDecodeAssignment,
   bytes: Buffer,
 ): LiteralDenseDecodedElement {
-  if (bytes.length !== decoder.address.elementBytes) {
+  const read = decoder.decode.read;
+  if (decoder.decode.schemaVersion !== 2 || decoder.decode.languageId !== "u32-bit-expression-v1" ||
+    read.op !== "read-unsigned-little-endian" || bytes.length !== read.bits / 8 || bytes.length !== decoder.address.elementBytes) {
     throw new Error(`${decoder.id}: elemento denso possui ${bytes.length} bytes; esperados ${decoder.address.elementBytes}.`);
   }
-  const sourceBits = bytes.length === 4 ? bytes.readUInt32LE(0) : bytes.readUInt16LE(0);
-  let decodedF32: number;
-  let decodedF32Bits: number;
-  switch (decoder.decode.kind) {
-    case "ieee-binary32-bitcast":
-      if (decoder.operation !== "ieee-f32-little-endian" || decoder.decode.schemaVersion !== 1 ||
-        decoder.decode.read !== "uint32-little-endian" || decoder.decode.resultBits !== "sourceBits" || bytes.length !== 4) {
-        throw new Error(`${decoder.id}: programa binary32 incompatível.`);
-      }
-      decodedF32 = bytes.readFloatLE(0);
-      decodedF32Bits = sourceBits;
-      break;
-    case "ieee-bfloat16-expand":
-      if (decoder.operation !== "ieee-bf16-to-f32" || decoder.decode.schemaVersion !== 1 ||
-        decoder.decode.read !== "uint16-little-endian" || decoder.decode.resultBits !== "sourceBits << 16" || bytes.length !== 2) {
-        throw new Error(`${decoder.id}: programa bfloat16 incompatível.`);
-      }
-      decodedF32 = decodeIeeeBF16ToF32(sourceBits);
-      decodedF32Bits = (sourceBits << 16) >>> 0;
-      break;
-    case "ieee-binary16-expand":
-      if (decoder.operation !== "ieee-f16-to-f32" || !sameBinary16DecodeProgram(decoder.decode) || bytes.length !== 2) {
-        throw new Error(`${decoder.id}: programa binary16 incompatível.`);
-      }
-      decodedF32 = decodeIeeeF16ToF32(sourceBits);
-      decodedF32Bits = ieeeF16ToF32Bits(sourceBits);
-      break;
+  const expectedOperation = decoder.decode.kind === "ieee-binary32-bitcast" ? "ieee-f32-little-endian"
+    : decoder.decode.kind === "ieee-bfloat16-expand" ? "ieee-bf16-to-f32" : "ieee-f16-to-f32";
+  if (decoder.operation !== expectedOperation) throw new Error(`${decoder.id}: programa IEEE incompatível com a operação.`);
+  const sourceBits = read.bits === 32 ? bytes.readUInt32LE(0) : bytes.readUInt16LE(0);
+  const variables = new Map<string, number>();
+  for (const binding of decoder.decode.bindings) {
+    if (!binding.name || variables.has(binding.name)) throw new Error(`${decoder.id}: binding u32 duplicado ou vazio.`);
+    variables.set(binding.name, evaluateU32Expression(binding.value, sourceBits, variables));
   }
+  const decodedF32Bits = evaluateU32Expression(decoder.decode.resultBits, sourceBits, variables);
+  const decodedBytes = Buffer.allocUnsafe(4);
+  decodedBytes.writeUInt32LE(decodedF32Bits);
+  const decodedF32 = decodedBytes.readFloatLE(0);
   return {
     sourceBits,
     sourceBitsHex: `0x${sourceBits.toString(16).padStart(bytes.length * 2, "0")}`,
     decodedF32Bits,
     decodedF32BitsHex: `0x${decodedF32Bits.toString(16).padStart(8, "0")}`,
     decodedF32,
+  };
+}
+
+/** Compiles the serialized u32 expression tree once for bounded paged tensor replay. */
+export function compileLiteralDenseElementF32Decoder(
+  decoder: LiteralDenseStorageDecodeAssignment,
+): (bytes: Buffer, byteOffset: number) => number {
+  const read = decoder.decode.read;
+  if (decoder.decode.schemaVersion !== 2 || decoder.decode.languageId !== "u32-bit-expression-v1" ||
+    read.op !== "read-unsigned-little-endian" || read.bits / 8 !== decoder.address.elementBytes) {
+    throw new Error(`${decoder.id}: programa IEEE executável inválido.`);
+  }
+  const bindingPrograms = decoder.decode.bindings.map((binding) => ({ name: binding.name, evaluate: compileU32Expression(binding.value) }));
+  if (new Set(bindingPrograms.map((binding) => binding.name)).size !== bindingPrograms.length || bindingPrograms.some((binding) => !binding.name)) {
+    throw new Error(`${decoder.id}: bindings u32 duplicados ou vazios.`);
+  }
+  const resultProgram = compileU32Expression(decoder.decode.resultBits);
+  const resultBytes = Buffer.allocUnsafe(4);
+  return (bytes, byteOffset) => {
+    if (!Number.isSafeInteger(byteOffset) || byteOffset < 0 || byteOffset + read.bits / 8 > bytes.length) {
+      throw new Error(`${decoder.id}: offset de elemento fora do buffer paginado.`);
+    }
+    const source = read.bits === 32 ? bytes.readUInt32LE(byteOffset) : bytes.readUInt16LE(byteOffset);
+    const variables = new Map<string, number>();
+    for (const binding of bindingPrograms) variables.set(binding.name, binding.evaluate(source, variables));
+    resultBytes.writeUInt32LE(resultProgram(source, variables));
+    return resultBytes.readFloatLE(0);
   };
 }
 
@@ -986,57 +1103,192 @@ function storageDecoder(constant: LiteralConstant, constants: ReadonlyMap<string
 
 function denseIeeeDecodeProgram(dtype: LiteralDenseStorageDtype): LiteralDenseIeeeDecodeProgram {
   if (dtype === "F32") {
-    return { kind: "ieee-binary32-bitcast", schemaVersion: 1, read: "uint32-little-endian", resultBits: "sourceBits" };
+    return {
+      kind: "ieee-binary32-bitcast", schemaVersion: 2, languageId: "u32-bit-expression-v1",
+      read: { op: "read-unsigned-little-endian", bits: 32 }, bindings: [], resultBits: { op: "source-bits" },
+    };
   }
   if (dtype === "BF16") {
-    return { kind: "ieee-bfloat16-expand", schemaVersion: 1, read: "uint16-little-endian", resultBits: "sourceBits << 16" };
+    return {
+      kind: "ieee-bfloat16-expand", schemaVersion: 2, languageId: "u32-bit-expression-v1",
+      read: { op: "read-unsigned-little-endian", bits: 16 }, bindings: [],
+      resultBits: binaryU32("shift-left", sourceBits(), literalU32(16)),
+    };
   }
+  const variable = (name: string): LiteralU32Expression => ({ op: "variable", name });
+  const equal = (left: LiteralU32Expression, right: LiteralU32Expression): LiteralBooleanExpression => ({ op: "equal-u32", left, right });
+  const signBits = binaryU32("shift-left", variable("sign"), literalU32(31));
+  const normal = binaryU32("bit-or", signBits, binaryU32("bit-or",
+    binaryU32("shift-left", binaryU32("add-u32", variable("exponent"), literalU32(112)), literalU32(23)),
+    binaryU32("shift-left", variable("fraction"), literalU32(13)),
+  ));
+  const subnormal = binaryU32("bit-or", signBits, binaryU32("bit-or",
+    binaryU32("shift-left", binaryU32("subtract-u32", literalU32(113), variable("shiftCount")), literalU32(23)),
+    binaryU32("shift-left", binaryU32("bit-and",
+      binaryU32("shift-left", variable("fraction"), variable("shiftCount")), literalU32(0x03ff),
+    ), literalU32(13)),
+  ));
+  const infinityOrNaN = binaryU32("bit-or", signBits, binaryU32("bit-or",
+    literalU32(0x7f800000), binaryU32("shift-left", variable("fraction"), literalU32(13)),
+  ));
   return {
     kind: "ieee-binary16-expand",
-    schemaVersion: 1,
-    read: "uint16-little-endian",
-    fields: { signMask: 0x8000, signShift: 15, exponentMask: 0x7c00, exponentShift: 10, fractionMask: 0x03ff },
-    extraction: {
-      sign: "(sourceBits & signMask) >> signShift",
-      exponent: "(sourceBits & exponentMask) >> exponentShift",
-      fraction: "sourceBits & fractionMask",
-    },
-    normal: {
-      predicate: "0 < exponent < 31",
-      resultBits: "(sign << 31) | ((exponent + 112) << 23) | (fraction << 13)",
-    },
-    zero: { predicate: "exponent == 0 && fraction == 0", resultBits: "sign << 31" },
-    subnormal: {
-      predicate: "exponent == 0 && fraction != 0",
-      normalization: "left-shift fraction until bit 10 is one; shiftCount starts at zero",
-      resultBits: "(sign << 31) | ((113 - shiftCount) << 23) | ((normalizedFraction & 0x03ff) << 13)",
-    },
-    infinityOrNaN: {
-      predicate: "exponent == 31",
-      resultBits: "(sign << 31) | 0x7f800000 | (fraction << 13)",
+    schemaVersion: 2,
+    languageId: "u32-bit-expression-v1",
+    read: { op: "read-unsigned-little-endian", bits: 16 },
+    bindings: [
+      { name: "sign", value: binaryU32("shift-right-unsigned", sourceBits(), literalU32(15)) },
+      { name: "exponent", value: binaryU32("bit-and", binaryU32("shift-right-unsigned", sourceBits(), literalU32(10)), literalU32(0x1f)) },
+      { name: "fraction", value: binaryU32("bit-and", sourceBits(), literalU32(0x03ff)) },
+      { name: "shiftCount", value: binaryU32("subtract-u32", { op: "count-leading-zeros-u32", value: variable("fraction") }, literalU32(21)) },
+    ],
+    resultBits: {
+      op: "select-u32",
+      cases: [
+        { when: { op: "and-boolean", left: equal(variable("exponent"), literalU32(0)), right: equal(variable("fraction"), literalU32(0)) }, value: signBits },
+        { when: equal(variable("exponent"), literalU32(0)), value: subnormal },
+        { when: equal(variable("exponent"), literalU32(31)), value: infinityOrNaN },
+      ],
+      otherwise: normal,
     },
   };
 }
 
-function sameBinary16DecodeProgram(program: Extract<LiteralDenseIeeeDecodeProgram, { kind: "ieee-binary16-expand" }>): boolean {
-  const expected = denseIeeeDecodeProgram("F16") as Extract<LiteralDenseIeeeDecodeProgram, { kind: "ieee-binary16-expand" }>;
-  return isDeepStrictEqual(program, expected);
+function canonicalDenseElementOffsetExpression(): LiteralDenseAxisReductionExpression {
+  return {
+    op: "reduce-axes", order: "ascending", initial: { op: "literal", value: 0 }, combine: "safe-add",
+    term: {
+      op: "multiply", left: { op: "axis-index", axis: "current" },
+      right: { op: "axis-stride-elements", axis: "current" },
+    },
+  };
 }
 
-function ieeeF16ToF32Bits(sourceBits: number): number {
-  const sign = (sourceBits >>> 15) & 1;
-  const exponent = (sourceBits >>> 10) & 0x1f;
-  const fraction = sourceBits & 0x03ff;
-  if (exponent === 0x1f) return ((sign << 31) | 0x7f800000 | (fraction << 13)) >>> 0;
-  if (exponent !== 0) return ((sign << 31) | ((exponent + 112) << 23) | (fraction << 13)) >>> 0;
-  if (fraction === 0) return (sign << 31) >>> 0;
-  let normalizedFraction = fraction;
-  let shiftCount = 0;
-  while ((normalizedFraction & 0x0400) === 0) {
-    normalizedFraction <<= 1;
-    shiftCount += 1;
+function canonicalDenseByteOffsetExpression(): LiteralExactIntegerExpression {
+  return { op: "multiply", left: { op: "element-offset" }, right: { op: "element-bytes" } };
+}
+
+function sourceBits(): LiteralU32Expression { return { op: "source-bits" }; }
+function literalU32(value: number): LiteralU32Expression { return { op: "literal-u32", value }; }
+function binaryU32(
+  op: Extract<LiteralU32Expression, { left: LiteralU32Expression }>["op"],
+  left: LiteralU32Expression,
+  right: LiteralU32Expression,
+): LiteralU32Expression {
+  return { op, left, right };
+}
+
+function evaluateU32Expression(
+  expression: LiteralU32Expression,
+  source: number,
+  variables: ReadonlyMap<string, number>,
+): number {
+  switch (expression.op) {
+    case "source-bits": return source >>> 0;
+    case "literal-u32": return requiredU32(expression.value, expression.op);
+    case "variable": {
+      const value = variables.get(expression.name);
+      if (value === undefined) throw new Error(`variable: binding u32 ausente ${expression.name}.`);
+      return value;
+    }
+    case "count-leading-zeros-u32": return Math.clz32(evaluateU32Expression(expression.value, source, variables));
+    case "select-u32": {
+      for (const branch of expression.cases) {
+        if (evaluateBooleanExpression(branch.when, source, variables)) return evaluateU32Expression(branch.value, source, variables);
+      }
+      return evaluateU32Expression(expression.otherwise, source, variables);
+    }
+    default: {
+      const left = evaluateU32Expression(expression.left, source, variables);
+      const right = evaluateU32Expression(expression.right, source, variables);
+      switch (expression.op) {
+        case "bit-and": return (left & right) >>> 0;
+        case "bit-or": return (left | right) >>> 0;
+        case "add-u32": return (left + right) >>> 0;
+        case "subtract-u32": return (left - right) >>> 0;
+        case "shift-left": return left << requiredShift(right, expression.op) >>> 0;
+        case "shift-right-unsigned": return left >>> requiredShift(right, expression.op);
+      }
+    }
   }
-  return ((sign << 31) | ((113 - shiftCount) << 23) | ((normalizedFraction & 0x03ff) << 13)) >>> 0;
+}
+
+function evaluateBooleanExpression(
+  expression: LiteralBooleanExpression,
+  source: number,
+  variables: ReadonlyMap<string, number>,
+): boolean {
+  if (expression.op === "and-boolean") {
+    return evaluateBooleanExpression(expression.left, source, variables) && evaluateBooleanExpression(expression.right, source, variables);
+  }
+  const left = evaluateU32Expression(expression.left, source, variables);
+  const right = evaluateU32Expression(expression.right, source, variables);
+  return expression.op === "equal-u32" ? left === right : left !== right;
+}
+
+type CompiledU32Expression = (source: number, variables: ReadonlyMap<string, number>) => number;
+type CompiledBooleanExpression = (source: number, variables: ReadonlyMap<string, number>) => boolean;
+
+function compileU32Expression(expression: LiteralU32Expression): CompiledU32Expression {
+  switch (expression.op) {
+    case "source-bits": return (source) => source >>> 0;
+    case "literal-u32": {
+      const value = requiredU32(expression.value, expression.op);
+      return () => value;
+    }
+    case "variable": return (_source, variables) => {
+      const value = variables.get(expression.name);
+      if (value === undefined) throw new Error(`variable: binding u32 ausente ${expression.name}.`);
+      return value;
+    };
+    case "count-leading-zeros-u32": {
+      const value = compileU32Expression(expression.value);
+      return (source, variables) => Math.clz32(value(source, variables));
+    }
+    case "select-u32": {
+      const cases = expression.cases.map((branch) => ({ when: compileBooleanExpression(branch.when), value: compileU32Expression(branch.value) }));
+      const otherwise = compileU32Expression(expression.otherwise);
+      return (source, variables) => {
+        for (const branch of cases) if (branch.when(source, variables)) return branch.value(source, variables);
+        return otherwise(source, variables);
+      };
+    }
+    default: {
+      const left = compileU32Expression(expression.left);
+      const right = compileU32Expression(expression.right);
+      switch (expression.op) {
+        case "bit-and": return (source, variables) => (left(source, variables) & right(source, variables)) >>> 0;
+        case "bit-or": return (source, variables) => (left(source, variables) | right(source, variables)) >>> 0;
+        case "add-u32": return (source, variables) => (left(source, variables) + right(source, variables)) >>> 0;
+        case "subtract-u32": return (source, variables) => (left(source, variables) - right(source, variables)) >>> 0;
+        case "shift-left": return (source, variables) => left(source, variables) << requiredShift(right(source, variables), expression.op) >>> 0;
+        case "shift-right-unsigned": return (source, variables) => left(source, variables) >>> requiredShift(right(source, variables), expression.op);
+      }
+    }
+  }
+}
+
+function compileBooleanExpression(expression: LiteralBooleanExpression): CompiledBooleanExpression {
+  if (expression.op === "and-boolean") {
+    const left = compileBooleanExpression(expression.left);
+    const right = compileBooleanExpression(expression.right);
+    return (source, variables) => left(source, variables) && right(source, variables);
+  }
+  const left = compileU32Expression(expression.left);
+  const right = compileU32Expression(expression.right);
+  return expression.op === "equal-u32"
+    ? (source, variables) => left(source, variables) === right(source, variables)
+    : (source, variables) => left(source, variables) !== right(source, variables);
+}
+
+function requiredU32(value: number, operation: string): number {
+  if (!Number.isSafeInteger(value) || value < 0 || value > 0xffffffff) throw new Error(`${operation}: literal fora de u32.`);
+  return value >>> 0;
+}
+
+function requiredShift(value: number, operation: string): number {
+  if (!Number.isSafeInteger(value) || value < 0 || value > 31) throw new Error(`${operation}: shift u32 fora de 0..31.`);
+  return value;
 }
 
 function ggmlQ8_0StorageDecoder(constant: LiteralConstant): LiteralGgmlQ8_0StorageDecodeAssignment {

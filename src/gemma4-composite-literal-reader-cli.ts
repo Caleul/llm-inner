@@ -49,6 +49,7 @@ try {
     payloadIntegrityCommitted: artifact.payloadIntegrity !== undefined,
     numericLiterals: artifact.numericLiterals.literals.length,
     formulaLanguage: artifact.formulaLanguage,
+    denseDecoderLanguage: artifact.denseDecoderLanguage,
     calculationGraph: {
       assignments: artifact.calculationGraph.assignments.length,
       firstOperation: artifact.calculationGraph.assignments[0]?.operationId,

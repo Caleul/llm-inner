@@ -387,6 +387,19 @@ constante, e adulterar stride, domínio ou algoritmo IEEE falha fechado. A
 evidência real está em
 [`docs/validation/gemma4-e4b-dense-decoder-program-2026-07-18.md`](docs/validation/gemma4-e4b-dense-decoder-program-2026-07-18.md).
 
+O schema v13 torna esses programas diretamente executáveis, em vez de
+preservar suas equações como strings verificadas pelo leitor. `address` usa a
+AST `exact-safe-integer-expression-v1` para reduzir eixos, multiplicar
+strides e formar o byte range com overflow fail-closed. `decode` usa a AST
+`u32-bit-expression-v1`: leitura little-endian, bindings ordenados, bitwise,
+shifts, `count-leading-zeros-u32` e seleção condicional produzem os bits F32
+que são então bitcast, sem uma conversão de dtype escolhida pelo host. O
+contrato compartilhado `denseDecoderLanguage` incorpora a semântica e a ordem
+de avaliação desses opcodes. A vista escalar, os slices e a composição
+end-to-end carregam o contrato e somente os decoders usados. A evidência real
+está em
+[`docs/validation/gemma4-e4b-executable-dense-decoder-ast-2026-07-18.md`](docs/validation/gemma4-e4b-executable-dense-decoder-ast-2026-07-18.md).
+
 O leitor também pode partir de qualquer saída instanciada e calcular o fecho
 transitivo exato de seus produtores. `--calculation-slice <operation-id>`
 retorna somente as atribuições necessárias ao alvo, ainda em ordem de
@@ -554,8 +567,8 @@ escreve o artefato completo em streaming: ranges Safetensors de 12 MiB são
 codificados em base64 sem acumular o pacote ou uma string de vários GiB na
 heap. O resultado local contém os 2,130 payloads originais
 (15,992,314,836 bytes) e é auditado por `npm run audit:literal`. O hash e
-tamanho da exportação schema v12 atual são registrados em
-[`docs/validation/gemma4-e4b-dense-decoder-program-2026-07-18.md`](docs/validation/gemma4-e4b-dense-decoder-program-2026-07-18.md); sua política numérica
+tamanho da exportação schema v13 atual são registrados em
+[`docs/validation/gemma4-e4b-executable-dense-decoder-ast-2026-07-18.md`](docs/validation/gemma4-e4b-executable-dense-decoder-ast-2026-07-18.md); sua política numérica
 declara fronteiras de resultado BF16, acumuladores F32/F64 e agendas de redução
 por operação do texto, áudio e visão; toda exportação deve registrar seu próprio hash, pois o programa literal
 inclui as políticas numéricas. As 54 projeções/normas K/V locais dos

@@ -152,6 +152,19 @@ normalização da fração fazem parte do JSON. A substituição deve executar e
 programas incorporados; recalcular strides ou selecionar uma conversão apenas
 pelo nome do dtype é comportamento externo proibido.
 
+No schema v13, essas equações deixam de ser strings normativas. O artefato
+incorpora `denseDecoderLanguage`, que fixa a ordem e a semântica das linguagens
+`exact-safe-integer-expression-v1` e `u32-bit-expression-v1`. O programa de
+endereço é uma redução AST por eixo com bindings explícitos para índice,
+stride, element offset e element bytes. O programa IEEE é uma AST u32 com
+leitura little-endian, bindings ordenados, operações bitwise, shifts,
+`count-leading-zeros-u32` e `select-u32`; seus bits finais são bitcast para F32.
+O leitor executa essas ASTs, não um ramo de conversão escolhido por `dtype`.
+Shifts fora de `0..31`, bindings ausentes/duplicados, overflow inteiro, opcode
+desconhecido ou uma alteração no contrato canônico falham antes de retornar o
+literal. A cobertura F16 percorre exaustivamente os 65.536 words possíveis e a
+cobertura BF16 prova `sourceBits << 16` para o mesmo domínio completo.
+
 Quando a autoridade disponível prova a equação, mas não a árvore de uma
 redução nativa, a fórmula preserva o domínio matemático completo e a entrada
 declara `reproducibility=fail-closed-runtime-reduction` com

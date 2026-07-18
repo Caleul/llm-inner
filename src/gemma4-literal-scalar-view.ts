@@ -2,6 +2,7 @@ import type { OpenGemma4CompositeLiteralArtifact } from "./gemma4-composite-lite
 import {
   decodeLiteralDenseElementF32,
   evaluateLiteralDenseElementAddress,
+  type LiteralDenseDecoderLanguageContract,
   type LiteralDenseStorageDecodeAssignment,
 } from "./literal.js";
 import type { DtypePolicy, Operation, ReductionSchedule, TensorRef } from "./types.js";
@@ -72,6 +73,9 @@ export interface Gemma4LiteralScalarView {
   formula: string;
   scalarAssignments: string[];
   learnedScalars: Gemma4LiteralLearnedScalar[];
+  /** Operator meanings plus the exact executable programs used by every substituted learned scalar. */
+  denseDecoderLanguage: LiteralDenseDecoderLanguageContract;
+  storageDecoders: LiteralDenseStorageDecodeAssignment[];
   terms?: Gemma4LiteralScalarTerm[];
   reduction?: {
     bounds: { startInclusive: number; endExclusive: number };
@@ -83,6 +87,12 @@ export interface Gemma4LiteralScalarView {
     provenance?: Extract<Operation, { op: "linear" }>["reductionProvenance"];
   };
 }
+
+export type Gemma4LiteralScalarViewBase = Omit<
+  Gemma4LiteralScalarView,
+  "formula" | "scalarAssignments" | "learnedScalars" | "denseDecoderLanguage" | "storageDecoders"
+>;
+export type Gemma4LiteralRenderedScalarView = Omit<Gemma4LiteralScalarView, "denseDecoderLanguage" | "storageDecoders">;
 
 export interface Gemma4LiteralScalarViewRequest {
   operationId: string;
@@ -172,36 +182,44 @@ export async function renderGemma4LiteralScalarView(
     dtypePolicy: structuredClone(operation.dtypePolicy),
   };
 
+  let rendered: Omit<Gemma4LiteralScalarView, "denseDecoderLanguage" | "storageDecoders">;
   switch (operation.op) {
-    case "linear": return renderLinear(artifact, operation, request, base);
-    case "embedding": return renderEmbedding(artifact, operation, request, base, false);
-    case "per_layer_embedding": return renderEmbedding(artifact, operation, request, base, true);
-    case "rms_norm": return renderRmsNorm(artifact, operation, request, base);
-    case "tensor_scale": return renderTensorScale(artifact, operation, request, base);
-    case "reshape_heads": return renderPlain(operation, base,
+    case "linear": rendered = await renderLinear(artifact, operation, request, base); break;
+    case "embedding": rendered = await renderEmbedding(artifact, operation, request, base, false); break;
+    case "per_layer_embedding": rendered = await renderEmbedding(artifact, operation, request, base, true); break;
+    case "rms_norm": rendered = await renderRmsNorm(artifact, operation, request, base); break;
+    case "tensor_scale": rendered = await renderTensorScale(artifact, operation, request, base); break;
+    case "reshape_heads": rendered = renderPlain(operation, base,
       `${base.output} = ${outputCast(operation)}(${indexed(operation.input, reshapeHeadsInputCoordinate(operation, request.outputCoordinate))})`,
-      ["BHSD[b,h,s,d] aliases input[b,s,h*headDim+d] without arithmetic."]);
-    case "reshape_per_layer": return renderPlain(operation, base,
+      ["BHSD[b,h,s,d] aliases input[b,s,h*headDim+d] without arithmetic."]); break;
+    case "reshape_per_layer": rendered = renderPlain(operation, base,
       `${base.output} = ${outputCast(operation)}(${indexed(operation.input, reshapePerLayerInputCoordinate(operation, request.outputCoordinate))})`,
-      ["[B,S,L,D] aliases input[b,s,l*layerWidth+d] without reordering."]);
-    case "select_per_layer": return renderPlain(operation, base,
+      ["[B,S,L,D] aliases input[b,s,l*layerWidth+d] without reordering."]); break;
+    case "select_per_layer": rendered = renderPlain(operation, base,
       `${base.output} = ${outputCast(operation)}(${indexed(operation.input, selectPerLayerInputCoordinate(operation, request.outputCoordinate))})`,
-      [`The selected layer coordinate is the declared constant ${operation.layerIndex}.`]);
-    case "activation": return renderPlain(operation, base,
-      `${base.output} = ${outputCast(operation)}(${activationFormula(operation, indexed(operation.input, request.outputCoordinate))})`, []);
-    case "elementwise": return renderPlain(operation, base,
-      elementwiseFormula(operation, request.outputCoordinate), []);
-    case "rotary_embedding": return renderRotary(operation, request.outputCoordinate, base);
-    case "scaled_dot_product_attention": return renderAttention(operation, request.outputCoordinate, base);
+      [`The selected layer coordinate is the declared constant ${operation.layerIndex}.`]); break;
+    case "activation": rendered = renderPlain(operation, base,
+      `${base.output} = ${outputCast(operation)}(${activationFormula(operation, indexed(operation.input, request.outputCoordinate))})`, []); break;
+    case "elementwise": rendered = renderPlain(operation, base, elementwiseFormula(operation, request.outputCoordinate), []); break;
+    case "rotary_embedding": rendered = renderRotary(operation, request.outputCoordinate, base); break;
+    case "scaled_dot_product_attention": rendered = renderAttention(operation, request.outputCoordinate, base); break;
   }
+  const decoderIds = new Set(rendered.learnedScalars.map((scalar) => scalar.decoderId));
+  const storageDecoders = artifact.storageDecoders.filter((decoder) => decoderIds.has(decoder.id)).map((decoder) => structuredClone(decoder));
+  if (storageDecoders.length !== decoderIds.size) throw new Error(`${operation.id}: programa de decoder ausente para valor substituído.`);
+  return {
+    ...rendered,
+    denseDecoderLanguage: structuredClone(artifact.denseDecoderLanguage),
+    storageDecoders,
+  };
 }
 
 async function renderLinear(
   artifact: OpenGemma4CompositeLiteralArtifact,
   operation: Extract<Operation, { op: "linear" }>,
   request: Gemma4LiteralScalarViewRequest,
-  base: Omit<Gemma4LiteralScalarView, "formula" | "scalarAssignments" | "learnedScalars">,
-): Promise<Gemma4LiteralScalarView> {
+  base: Gemma4LiteralScalarViewBase,
+): Promise<Gemma4LiteralRenderedScalarView> {
   if (!operation.transposeWeight || operation.weight.shape.length !== 2 || operation.weight.shape[0] !== operation.outFeatures || operation.weight.shape[1] !== operation.inFeatures) {
     throw new Error(`${operation.id}: vista escalar requer weight row-major [out,in] transposto explicitamente.`);
   }
@@ -255,9 +273,9 @@ async function renderEmbedding(
   artifact: OpenGemma4CompositeLiteralArtifact,
   operation: Extract<Operation, { op: "embedding" | "per_layer_embedding" }>,
   request: Gemma4LiteralScalarViewRequest,
-  base: Omit<Gemma4LiteralScalarView, "formula" | "scalarAssignments" | "learnedScalars">,
+  base: Gemma4LiteralScalarViewBase,
   perLayer: boolean,
-): Promise<Gemma4LiteralScalarView> {
+): Promise<Gemma4LiteralRenderedScalarView> {
   const tokenId = request.tokenId;
   if (!Number.isSafeInteger(tokenId) || tokenId! < 0 || tokenId! >= operation.weight.shape[0]!) {
     throw new Error(`${operation.id}: --token-id válido é obrigatório para substituir a linha de embedding.`);
@@ -279,8 +297,8 @@ async function renderRmsNorm(
   artifact: OpenGemma4CompositeLiteralArtifact,
   operation: Extract<Operation, { op: "rms_norm" }>,
   request: Gemma4LiteralScalarViewRequest,
-  base: Omit<Gemma4LiteralScalarView, "formula" | "scalarAssignments" | "learnedScalars">,
-): Promise<Gemma4LiteralScalarView> {
+  base: Gemma4LiteralScalarViewBase,
+): Promise<Gemma4LiteralRenderedScalarView> {
   const feature = last(request.outputCoordinate, operation.id);
   const width = operation.reductionSize ?? operation.weight?.shape[0];
   if (operation.weightTransform !== "none" && (!operation.weight || operation.weight.shape.length !== 1 || width === undefined || feature >= width)) {
@@ -316,8 +334,8 @@ async function renderTensorScale(
   artifact: OpenGemma4CompositeLiteralArtifact,
   operation: Extract<Operation, { op: "tensor_scale" }>,
   request: Gemma4LiteralScalarViewRequest,
-  base: Omit<Gemma4LiteralScalarView, "formula" | "scalarAssignments" | "learnedScalars">,
-): Promise<Gemma4LiteralScalarView> {
+  base: Gemma4LiteralScalarViewBase,
+): Promise<Gemma4LiteralRenderedScalarView> {
   const learned = await readGemma4LiteralLearnedOperandScalar(
     artifact,
     requiredNavigationOperand(base.navigation, "tensor-scale"),
@@ -329,10 +347,10 @@ async function renderTensorScale(
 
 function renderPlain(
   _operation: Operation,
-  base: Omit<Gemma4LiteralScalarView, "formula" | "scalarAssignments" | "learnedScalars">,
+  base: Gemma4LiteralScalarViewBase,
   formula: string,
   prologue: string[],
-): Gemma4LiteralScalarView {
+): Gemma4LiteralRenderedScalarView {
   return { ...base, formula, scalarAssignments: [...prologue, formula], learnedScalars: [] };
 }
 
@@ -532,8 +550,8 @@ function elementwiseFormula(operation: Extract<Operation, { op: "elementwise" }>
 function renderRotary(
   operation: Extract<Operation, { op: "rotary_embedding" }>,
   coordinate: number[],
-  base: Omit<Gemma4LiteralScalarView, "formula" | "scalarAssignments" | "learnedScalars">,
-): Gemma4LiteralScalarView {
+  base: Gemma4LiteralScalarViewBase,
+): Gemma4LiteralRenderedScalarView {
   if (coordinate.length !== 4 || operation.layout !== "rotate_half") throw new Error(`${operation.id}: RoPE rotate_half requer coordenada [b,h,s,d].`);
   const d = coordinate[3]!;
   if (d >= operation.rotaryDim) return renderPlain(operation, base, `${base.output} = ${outputCast(operation)}(${indexed(operation.input, coordinate)})`, []);
@@ -564,8 +582,8 @@ function renderRotary(
 function renderAttention(
   operation: Extract<Operation, { op: "scaled_dot_product_attention" }>,
   coordinate: number[],
-  base: Omit<Gemma4LiteralScalarView, "formula" | "scalarAssignments" | "learnedScalars">,
-): Gemma4LiteralScalarView {
+  base: Gemma4LiteralScalarViewBase,
+): Gemma4LiteralRenderedScalarView {
   if (coordinate.length !== 3) throw new Error(`${operation.id}: saída de atenção requer coordenada compactada [b,q,h*headDim+d].`);
   const [b, q, merged] = coordinate;
   if (merged! >= operation.numAttentionHeads * operation.headDim) throw new Error(`${operation.id}: feature compactada de atenção fora do shape declarado.`);

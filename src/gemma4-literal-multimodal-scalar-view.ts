@@ -8,7 +8,9 @@ import {
   type Gemma4LiteralLearnedScalar,
   type Gemma4LiteralOperationNavigation,
   type Gemma4LiteralScalarTerm,
+  type Gemma4LiteralRenderedScalarView,
   type Gemma4LiteralScalarView,
+  type Gemma4LiteralScalarViewBase,
   type Gemma4LiteralScalarViewRequest,
 } from "./gemma4-literal-scalar-view.js";
 import type { Gemma4VisionAssignment } from "./gemma4-vision.js";
@@ -110,7 +112,7 @@ export async function renderGemma4LiteralMultimodalScalarView(
     dtypePolicy: policyFor(entry.assignment),
   };
   const operation = entry.assignment.operation;
-  let rendered: Gemma4LiteralScalarView | undefined;
+  let rendered: Gemma4LiteralRenderedScalarView | undefined;
   if (operation === "linear" || operation === "clipped-linear") rendered = await renderLinear(artifact, entry, request, base);
   else if (operation === "embedding" || operation === "per-layer-embedding") rendered = await renderEmbedding(artifact, entry, request, base);
   else if (operation === "rms-norm") rendered = await renderRmsNorm(artifact, entry, request, base);
@@ -129,7 +131,22 @@ export async function renderGemma4LiteralMultimodalScalarView(
     const formulas = plainFormulas(artifact, entry, request.outputCoordinate);
     rendered = { ...base, formula: formulas.at(-1)!, scalarAssignments: formulas, learnedScalars: [] };
   }
-  return bindScalarView(rendered, navigation, entry.bindings);
+  return bindScalarView(attachDenseDecoderEvidence(artifact, rendered, entry.assignment.id), navigation, entry.bindings);
+}
+
+function attachDenseDecoderEvidence(
+  artifact: OpenGemma4CompositeLiteralArtifact,
+  view: Gemma4LiteralRenderedScalarView,
+  operationId: string,
+): Gemma4LiteralScalarView {
+  const decoderIds = new Set(view.learnedScalars.map((scalar) => scalar.decoderId));
+  const storageDecoders = artifact.storageDecoders.filter((decoder) => decoderIds.has(decoder.id)).map((decoder) => structuredClone(decoder));
+  if (storageDecoders.length !== decoderIds.size) throw new Error(`${operationId}: programa de decoder ausente para valor substituído.`);
+  return {
+    ...view,
+    denseDecoderLanguage: structuredClone(artifact.denseDecoderLanguage),
+    storageDecoders,
+  };
 }
 
 function assignmentEntries(artifact: OpenGemma4CompositeLiteralArtifact): AssignmentEntry[] {
@@ -212,7 +229,7 @@ async function renderLinear(
   entry: AssignmentEntry,
   request: Gemma4LiteralMultimodalScalarViewRequest,
   base: ScalarBase,
-): Promise<Gemma4LiteralScalarView> {
+): Promise<Gemma4LiteralRenderedScalarView> {
   const assignment = entry.assignment;
   if (base.dtypePolicy.accumulationDtype === "runtime-defined") {
     throw new Error(`${assignment.id}: vista escalar falha fechada porque o kernel nativo ${base.dtypePolicy.computeDtype ?? "desconhecido"} ainda não possui agenda de redução literal.`);
@@ -281,7 +298,7 @@ async function renderLinear(
   };
 }
 
-async function renderEmbedding(artifact: OpenGemma4CompositeLiteralArtifact, entry: AssignmentEntry, request: Gemma4LiteralMultimodalScalarViewRequest, base: ScalarBase): Promise<Gemma4LiteralScalarView> {
+async function renderEmbedding(artifact: OpenGemma4CompositeLiteralArtifact, entry: AssignmentEntry, request: Gemma4LiteralMultimodalScalarViewRequest, base: ScalarBase): Promise<Gemma4LiteralRenderedScalarView> {
   const weight = learnedOperand(artifact, entry, "weight");
   const tokenId = request.tokenId;
   if (!Number.isSafeInteger(tokenId) || tokenId! < 0 || tokenId! >= weight.tensor.shape[0]!) throw new Error(`${entry.assignment.id}: --token-id válido é obrigatório.`);
@@ -297,7 +314,7 @@ async function renderEmbedding(artifact: OpenGemma4CompositeLiteralArtifact, ent
   return { ...base, formula, scalarAssignments: [formula], learnedScalars: [learned] };
 }
 
-async function renderRmsNorm(artifact: OpenGemma4CompositeLiteralArtifact, entry: AssignmentEntry, request: Gemma4LiteralMultimodalScalarViewRequest, base: ScalarBase): Promise<Gemma4LiteralScalarView> {
+async function renderRmsNorm(artifact: OpenGemma4CompositeLiteralArtifact, entry: AssignmentEntry, request: Gemma4LiteralMultimodalScalarViewRequest, base: ScalarBase): Promise<Gemma4LiteralRenderedScalarView> {
   const weight = optionalLearnedOperand(artifact, entry, "normalization-scale");
   const width = weight?.tensor.shape[0] ?? widthForUnscaledNorm(artifact, entry);
   const feature = last(request.outputCoordinate, entry.assignment.id);
@@ -331,7 +348,7 @@ async function renderRmsNorm(artifact: OpenGemma4CompositeLiteralArtifact, entry
   };
 }
 
-async function renderPositionEmbedding(artifact: OpenGemma4CompositeLiteralArtifact, entry: AssignmentEntry, request: Gemma4LiteralMultimodalScalarViewRequest, base: ScalarBase): Promise<Gemma4LiteralScalarView> {
+async function renderPositionEmbedding(artifact: OpenGemma4CompositeLiteralArtifact, entry: AssignmentEntry, request: Gemma4LiteralMultimodalScalarViewRequest, base: ScalarBase): Promise<Gemma4LiteralRenderedScalarView> {
   const position = request.positionCoordinate;
   if (!position || position.some((value) => !Number.isSafeInteger(value) || value < -1)) throw new Error(`${entry.assignment.id}: --position-coordinate x,y é obrigatório.`);
   if ((position[0] === -1) !== (position[1] === -1)) throw new Error(`${entry.assignment.id}: padding exige posição [-1,-1].`);
@@ -353,7 +370,7 @@ async function renderPositionEmbedding(artifact: OpenGemma4CompositeLiteralArtif
   return { ...base, formula, scalarAssignments: [formula], learnedScalars: [x, y] };
 }
 
-async function renderConv2d(artifact: OpenGemma4CompositeLiteralArtifact, entry: AssignmentEntry, request: Gemma4LiteralMultimodalScalarViewRequest, base: ScalarBase): Promise<Gemma4LiteralScalarView> {
+async function renderConv2d(artifact: OpenGemma4CompositeLiteralArtifact, entry: AssignmentEntry, request: Gemma4LiteralMultimodalScalarViewRequest, base: ScalarBase): Promise<Gemma4LiteralRenderedScalarView> {
   if (request.outputCoordinate.length !== 4) throw new Error(`${entry.assignment.id}: Conv2d requer [b,out_channel,time,feature].`);
   const [batch, outputChannel, time, feature] = request.outputCoordinate;
   const weight = learnedOperand(artifact, entry, "convolution-kernel"), inputChannels = weight.tensor.shape[1]!;
@@ -375,7 +392,7 @@ async function renderConv2d(artifact: OpenGemma4CompositeLiteralArtifact, entry:
   return { ...base, formula, scalarAssignments: [...assignments, "acc[-1] = F32(0)", `acc[i] = F32(acc[i-1] + product[i]), i=0..${term - 1} in channel,kernel_time,kernel_feature order`, formula], learnedScalars };
 }
 
-async function renderChannelNorm(artifact: OpenGemma4CompositeLiteralArtifact, entry: AssignmentEntry, request: Gemma4LiteralMultimodalScalarViewRequest, base: ScalarBase): Promise<Gemma4LiteralScalarView> {
+async function renderChannelNorm(artifact: OpenGemma4CompositeLiteralArtifact, entry: AssignmentEntry, request: Gemma4LiteralMultimodalScalarViewRequest, base: ScalarBase): Promise<Gemma4LiteralRenderedScalarView> {
   if (request.outputCoordinate.length !== 4) throw new Error(`${entry.assignment.id}: LayerNorm de canais requer [b,c,t,f].`);
   const weight = learnedOperand(artifact, entry, "normalization-scale"), channel = request.outputCoordinate[1]!, channels = weight.tensor.shape[0]!;
   const learned = await readGemma4LiteralLearnedOperandScalar(
@@ -393,7 +410,7 @@ async function renderChannelNorm(artifact: OpenGemma4CompositeLiteralArtifact, e
   ], learnedScalars: [learned] };
 }
 
-async function renderDepthwise(artifact: OpenGemma4CompositeLiteralArtifact, entry: AssignmentEntry, request: Gemma4LiteralMultimodalScalarViewRequest, base: ScalarBase): Promise<Gemma4LiteralScalarView> {
+async function renderDepthwise(artifact: OpenGemma4CompositeLiteralArtifact, entry: AssignmentEntry, request: Gemma4LiteralMultimodalScalarViewRequest, base: ScalarBase): Promise<Gemma4LiteralRenderedScalarView> {
   if (request.outputCoordinate.length !== 3) throw new Error(`${entry.assignment.id}: depthwise requer [b,t,c].`);
   const [batch, time, channel] = request.outputCoordinate, weight = learnedOperand(artifact, entry, "convolution-kernel"), kernel = weight.tensor.shape[2]!;
   const learnedScalars: Gemma4LiteralLearnedScalar[] = [], assignments: string[] = [];
@@ -410,7 +427,7 @@ async function renderDepthwise(artifact: OpenGemma4CompositeLiteralArtifact, ent
   return { ...base, formula, scalarAssignments: [...assignments, "acc[-1]=F32(0)", `acc[k]=F32(acc[k-1]+product[k]), k=0..${kernel - 1} ascending`, formula], learnedScalars };
 }
 
-async function renderPerDimScale(artifact: OpenGemma4CompositeLiteralArtifact, entry: AssignmentEntry, request: Gemma4LiteralMultimodalScalarViewRequest, base: ScalarBase): Promise<Gemma4LiteralScalarView> {
+async function renderPerDimScale(artifact: OpenGemma4CompositeLiteralArtifact, entry: AssignmentEntry, request: Gemma4LiteralMultimodalScalarViewRequest, base: ScalarBase): Promise<Gemma4LiteralRenderedScalarView> {
   const headDim = artifact.program.audioProgram.tower.headDim;
   const learned = await readGemma4LiteralLearnedOperandScalar(
     artifact,
@@ -649,7 +666,7 @@ function audioContext(artifact: OpenGemma4CompositeLiteralArtifact): number {
   return tower.attentionChunkSize + tower.attentionContextLeft - 1 + tower.attentionContextRight;
 }
 
-type ScalarBase = Omit<Gemma4LiteralScalarView, "formula" | "scalarAssignments" | "learnedScalars">;
+type ScalarBase = Gemma4LiteralScalarViewBase;
 function indexed(name: string, coordinate: ReadonlyArray<number | string>): string { return `${name}[${coordinate.join(",")}]`; }
 function literal(value: number): string { return Object.is(value, -0) ? "-0" : Number(value).toString(); }
 function last(coordinate: number[], id: string): number { if (coordinate.length === 0) throw new Error(`${id}: coordenada vazia.`); return coordinate.at(-1)!; }

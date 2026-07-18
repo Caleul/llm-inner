@@ -37,6 +37,7 @@ import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearF32 } from "..
 import { fingerprintIR } from "../src/trace.js";
 import { auditLiteralArtifact } from "../src/literal-artifact-audit.js";
 import {
+  buildLiteralDenseDecoderLanguageContract,
   buildLiteralDenseStorageDecodeAssignment,
   decodeLiteralDenseElementF32,
   evaluateLiteralDenseElementAddress,
@@ -63,6 +64,17 @@ const fixtureSourceIdentity = (): Gemma4LiteralSourceIdentity => ({
   ],
 });
 
+function referenceF16ToF32Bits(sourceBits: number): number {
+  const sign = sourceBits >>> 15;
+  const exponent = sourceBits >>> 10 & 0x1f;
+  const fraction = sourceBits & 0x03ff;
+  if (exponent === 0x1f) return ((sign << 31) | 0x7f800000 | (fraction << 13)) >>> 0;
+  if (exponent !== 0) return ((sign << 31) | ((exponent + 112) << 23) | (fraction << 13)) >>> 0;
+  if (fraction === 0) return (sign << 31) >>> 0;
+  const shiftCount = Math.clz32(fraction) - 21;
+  return ((sign << 31) | ((113 - shiftCount) << 23) | (((fraction << shiftCount) & 0x03ff) << 13)) >>> 0;
+}
+
 test("dense literal decoders execute serialized row-major addresses and IEEE bit programs", () => {
   const metadata = (storageDtype: "F32" | "F16" | "BF16") => ({
     name: `tensor_${storageDtype.toLowerCase()}`,
@@ -86,7 +98,8 @@ test("dense literal decoders execute serialized row-major addresses and IEEE bit
   const oneF16 = Buffer.alloc(2); oneF16.writeUInt16LE(0x3c00);
   assert.equal(decodeLiteralDenseElementF32(f16, oneF16).decodedF32, 1);
   assert.equal(f16.decode.kind, "ieee-binary16-expand");
-  assert.equal(f16.decode.kind === "ieee-binary16-expand" && f16.decode.fields.signShift, 15);
+  assert.equal(f16.decode.schemaVersion, 2);
+  assert.equal(f16.decode.bindings.map((binding) => binding.name).join(","), "sign,exponent,fraction,shiftCount");
   const subnormalF16 = Buffer.alloc(2); subnormalF16.writeUInt16LE(0x0001);
   assert.deepEqual(decodeLiteralDenseElementF32(f16, subnormalF16), {
     sourceBits: 1, sourceBitsHex: "0x0001", decodedF32Bits: 0x33800000,
@@ -107,6 +120,12 @@ test("dense literal decoders execute serialized row-major addresses and IEEE bit
   assert.equal(decodeLiteralDenseElementF32(bf16, oneBF16).decodedF32, 1);
   assert.equal(decodeLiteralDenseElementF32(bf16, oneBF16).decodedF32BitsHex, "0x3f800000");
   assert.equal(bf16.decode.kind, "ieee-bfloat16-expand");
+  for (let sourceBits = 0; sourceBits <= 0xffff; sourceBits += 1) {
+    const bytes = Buffer.allocUnsafe(2);
+    bytes.writeUInt16LE(sourceBits);
+    assert.equal(decodeLiteralDenseElementF32(f16, bytes).decodedF32Bits, referenceF16ToF32Bits(sourceBits));
+    assert.equal(decodeLiteralDenseElementF32(bf16, bytes).decodedF32Bits, (sourceBits << 16) >>> 0);
+  }
   const altered = structuredClone(f16);
   altered.address.stridesElements[0] = 1;
   assert.throws(() => evaluateLiteralDenseElementAddress(altered, [1, 2]), /stride row-major inválido/);
@@ -258,12 +277,13 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.equal(literal.constants.length, catalog.tensors.size);
   assert.equal(literal.storageDecoders.length, catalog.tensors.size);
   assert.ok(literal.storageDecoders.every((decoder) =>
-    decoder.address.kind === "row-major-dense-element-address" && decoder.address.schemaVersion === 1 &&
+    decoder.address.kind === "row-major-dense-element-address" && decoder.address.schemaVersion === 2 &&
     decoder.address.logicalShape.length === decoder.address.stridesElements.length &&
-    decoder.decode.schemaVersion === 1));
+    decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 12);
+  assert.equal(literal.schemaVersion, 13);
+  assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.languageId, literal.generation.scalarCalculations.formulaLanguage);
@@ -451,11 +471,11 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   alteredStorageAddress.storageDecoders[0]!.address.stridesElements[0] = 1;
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(alteredStorageAddress), /decoder de storage literal/);
   const alteredStorageDecode = structuredClone(literal);
-  alteredStorageDecode.storageDecoders[0]!.decode = {
-    kind: "ieee-binary32-bitcast", schemaVersion: 1, read: "uint32-little-endian", resultBits: "sourceBits",
-  };
-  alteredStorageDecode.storageDecoders[0]!.operation = "ieee-f16-to-f32";
+  alteredStorageDecode.storageDecoders[0]!.decode.resultBits = { op: "literal-u32", value: 0 };
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(alteredStorageDecode), /decoder de storage literal/);
+  const alteredDecoderLanguage = structuredClone(literal);
+  alteredDecoderLanguage.denseDecoderLanguage.bitSemantics.result = "resultBits is numerically converted to binary32" as never;
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(alteredDecoderLanguage), /linguagem executável de decoder denso/);
   const hiddenScalarFormula = structuredClone(literal);
   hiddenScalarFormula.scalarCalculations.assignments.find((entry) =>
     entry.scope === "audio" && entry.definitionId === "audio_subsample_0_conv")!.formula = "opaque_conv2d(input,weight)";
@@ -559,7 +579,8 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 12);
+      assert.equal(artifact.schemaVersion, 13);
+      assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.equal(artifact.constants.size, catalog.tensors.size);
       assert.equal(artifact.program.textProgram.source.path, "embedded://gemma4-composite-literal");
@@ -1017,6 +1038,9 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       });
       assert.equal(queryScale.learnedScalars.length, 1);
       assert.ok(queryScale.formula.includes(queryScale.learnedScalars[0]!.literal));
+      assert.equal(queryScale.denseDecoderLanguage.bitLanguageId, "u32-bit-expression-v1");
+      assert.equal(queryScale.storageDecoders.length, 1);
+      assert.equal(queryScale.storageDecoders[0]!.decode.schemaVersion, 2);
       const depthwise = await renderGemma4LiteralMultimodalScalarView(artifact, {
         operationId: "composite_audio_features/audio_layer_0_conv_depthwise", outputCoordinate: [0, 2, 1],
       });
@@ -1073,6 +1097,7 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       assert.ok(imageSlice.learnedConstants.every((constant) =>
         constant.decoder.id === constant.decoderId && constant.decoder.address.kind === "row-major-dense-element-address" &&
         constant.decoder.decode.kind === "ieee-binary32-bitcast"));
+      assert.deepEqual(imageSlice.denseDecoderLanguage, artifact.denseDecoderLanguage);
       assert.ok(imageSlice.numericLiterals.some((literal) => literal.token === "0.5" && /^0x[0-9a-f]{8}$/.test(literal.binary32Hex)));
       assert.equal(imageSlice.reproducibility.status, "literal");
       assert.deepEqual(imageSlice.reproducibility.failClosedOperationIds, []);
