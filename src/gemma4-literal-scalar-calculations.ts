@@ -23,6 +23,30 @@ export interface Gemma4LiteralScalarReduction {
   schedule?: ReductionSchedule;
 }
 
+export type Gemma4LiteralScalarReductionProgram =
+  | "ARM_NEON_BF16_DOT_F32"
+  | "ORDERED_F32_REDUCE_MAX"
+  | "ORDERED_F32_REDUCE_SUM"
+  | "ORDERED_F32_DOT"
+  | "PYTORCH_F32_VECTOR_REDUCE_MAX"
+  | "PYTORCH_F32_VECTOR_REDUCE_SUM";
+
+/**
+ * Operations such as attention contain several mathematically distinct
+ * reductions. A single assignment-level `reduction` cannot truthfully describe
+ * score dots, maximum, exponential sum, and value dots at once, so the artifact
+ * records every stage in execution order and binds it to an embedded program.
+ */
+export interface Gemma4LiteralScalarReductionStage {
+  id: "score-dot" | "softmax-maximum" | "softmax-exponential-sum" | "context-dot";
+  indices: string[];
+  order: "ascending-lexicographic" | "operation-declared";
+  program: Gemma4LiteralScalarReductionProgram;
+  identity: "-Infinity" | "F32(0)";
+  predicate?: string;
+  schedule?: ReductionSchedule;
+}
+
 /**
  * A coordinate-level formula stored in the artifact itself. The formula may
  * refer only to declared inputs, named predecessors, learned operand roles,
@@ -39,6 +63,7 @@ export interface Gemma4LiteralScalarCalculation {
   formula: string;
   dtypePolicy: DtypePolicy;
   reduction?: Gemma4LiteralScalarReduction;
+  reductionStages?: Gemma4LiteralScalarReductionStage[];
   reproducibility: "literal" | "fail-closed-runtime-reduction";
 }
 
@@ -66,7 +91,11 @@ export function buildGemma4LiteralScalarCalculations(program: Gemma4CompositePro
     const learnedOperandRoles = learned.assignments.find((candidate) =>
       candidate.scope === definition.scope && candidate.definitionId === definition.id)?.operands.map((operand) => operand.role) ?? [];
     const dtypePolicy = domain.domain.dtypePolicy ?? exactPolicy(domain.domain.dtype);
-    const reduction = scalarReduction(definition, program, dtypePolicy);
+    const reductionStages = scalarReductionStages(definition);
+    // Staged operations own several incompatible reductions; retaining one
+    // assignment-level reduction beside them would falsely override the stage
+    // programs (the defect schema v20 is designed to eliminate).
+    const reduction = reductionStages.length === 0 ? scalarReduction(definition, program, dtypePolicy) : undefined;
     const reproducibility = dtypePolicy.accumulationDtype === "runtime-defined" || reduction?.order === "runtime-defined"
       ? "fail-closed-runtime-reduction" as const
       : "literal" as const;
@@ -81,6 +110,7 @@ export function buildGemma4LiteralScalarCalculations(program: Gemma4CompositePro
       formula: scalarFormula(definition, program, domain),
       dtypePolicy: structuredClone(dtypePolicy),
       ...(reduction ? { reduction } : {}),
+      ...(reductionStages.length > 0 ? { reductionStages } : {}),
       reproducibility,
     };
   });
@@ -90,12 +120,31 @@ export function buildGemma4LiteralScalarCalculations(program: Gemma4CompositePro
     if (keys.has(key)) throw new Error(`Cálculo escalar literal Gemma 4 duplicado: ${key}.`);
     keys.add(key);
   }
+  validateClosedReductionFormulas(assignments);
   return {
     kind: "gemma4-literal-scalar-calculations",
     schemaVersion: 1,
     formulaLanguage: "indexed-ieee754-expression-v1",
     assignments,
   };
+}
+
+function validateClosedReductionFormulas(assignments: readonly Gemma4LiteralScalarCalculation[]): void {
+  const opaqueSoftmax = /\b(?:masked_score-max_key|score-max_key|score-max_valid_key|max_k|max_context|sum_k_ascending|sum_context_ascending)\b/;
+  for (const assignment of assignments) {
+    if (opaqueSoftmax.test(assignment.formula)) {
+      throw new Error(`${assignment.scope}:${assignment.definitionId}: fórmula conserva helper opaco de redução softmax.`);
+    }
+    const stages = assignment.reductionStages ?? [];
+    const isAttention = assignment.operation === "scaled_dot_product_attention";
+    const isSoftmax = assignment.operation === "masked-softmax" || assignment.operation === "chunked-relative-attention-softmax";
+    if (isAttention && (stages.length !== 4 || stages.map((stage) => stage.id).join(",") !== "score-dot,softmax-maximum,softmax-exponential-sum,context-dot")) {
+      throw new Error(`${assignment.scope}:${assignment.definitionId}: atenção não declara as quatro reduções escalares em ordem.`);
+    }
+    if (isSoftmax && (stages.length !== 2 || stages.map((stage) => stage.id).join(",") !== "softmax-maximum,softmax-exponential-sum")) {
+      throw new Error(`${assignment.scope}:${assignment.definitionId}: softmax não declara máximo e soma exponencial em ordem.`);
+    }
+  }
 }
 
 export function validateGemma4LiteralScalarCalculations(
@@ -179,7 +228,14 @@ function scalarFormula(definition: Definition, program: Gemma4CompositeProgram, 
     case "reshape-heads": return `${lhs} = row_major_alias(${assignment.inputs[0]})[batch,patch,head*head_dim+head_feature]`;
     case "multidimensional-rope": return `${lhs} = BF16(F32(BF16(${assignment.inputs[0]}[batch,head,patch,paired_feature]*BF16(SLEEF_COS_F32(F32(position[axis]/F32(${program.visionProgram.tower.ropeTheta}**F32(2*pair/(head_dim/2))))))) +/- BF16(${assignment.inputs[0]}[batch,head,patch,rotated_paired_feature]*BF16(SLEEF_SIN_F32(F32(position[axis]/F32(${program.visionProgram.tower.ropeTheta}**F32(2*pair/(head_dim/2))))))))); axis=floor(head_feature/(head_dim/2)), pair=head_feature%(head_dim/4), sign/order follows rotate_half`;
     case "attention-score-matmul": return `${lhs} = ${cast}(REDUCE(head_feature=0..head_dim-1, F32(q[batch,head,query_patch,head_feature]*k[batch,head,key_patch,head_feature])))`;
-    case "masked-softmax": return `${lhs} = ${cast}(padding_key ? F32(0) : F32(SLEEF_EXP_F32(F32(score-max_valid_key(score)))/REDUCE(key_patch=0..patches-1 in ascending order,SLEEF_EXP_F32(F32(score-max_valid_key(score))))))`;
+    case "masked-softmax": {
+      const score = assignment.inputs[0]!, positions = assignment.inputs[1]!;
+      const valid = `${positions}[batch,key_patch,0]!=-1 && ${positions}[batch,key_patch,1]!=-1`;
+      return `${lhs} = ${cast}(${positions}[batch,key_patch,0]==-1 && ${positions}[batch,key_patch,1]==-1 ? F32(0) : F32(exponential[key_patch]/total)); ` +
+        `maximum=ORDERED_F32_REDUCE_MAX(${score}[batch,head,query_patch,key_patch],key_patch=0..patches-1 where ${valid}); ` +
+        `exponential[key_patch]=SLEEF_EXP_F32(F32(${score}[batch,head,query_patch,key_patch]-maximum)); ` +
+        `total=ORDERED_F32_REDUCE_SUM(exponential[key_patch],key_patch=0..patches-1 where ${valid})`;
+    }
     case "attention-value-matmul": return `${lhs} = ${cast}(REDUCE(key_patch=0..patches-1, F32(probability[batch,head,query_patch,key_patch]*value[batch,head,key_patch,head_feature])))`;
     case "gelu-tanh": return `${lhs} = ${cast}(F32(F32(0.5*x)*F32(1+SLEEF_TANH_F32(F32(${Math.sqrt(2 / Math.PI)}*F32(x+F32(0.044715*F32(x*F32(x*x)))))))))`;
     case "multiply": return `${lhs} = ${cast}(F32(${input(0)} * ${input(1)}))`;
@@ -206,7 +262,13 @@ function scalarFormula(definition: Definition, program: Gemma4CompositeProgram, 
     case "relative-attention-shift": return `${lhs} = source[batch,head,block,query_in_block,query_in_block+context-1-key_slot] after declared pad-flatten-slice-reshape; out-of-range source is F32(0)`;
     case "attention-softcap": return `${lhs} = F32(${program.audioProgram.tower.attentionLogitCap}*SLEEF_TANH_F32(F32(${input()}/${program.audioProgram.tower.attentionLogitCap})))`;
     case "chunked-attention-mask": return `${lhs} = eager_additive_mask_entry_is_zero_or_block_padding ? F32(${program.audioProgram.invalidAttentionLogit}) : ${input()}; additive_zero means in-range key with true key mask inside the left context; query padding is ignored before blocked padding`;
-    case "chunked-relative-attention-softmax": return `${lhs} = F32(SLEEF_EXP_F32(F32(score-max_key(score)))/REDUCE(key_slot=0..context-1, SLEEF_EXP_F32(F32(score-max_key(score)))))`;
+    case "chunked-relative-attention-softmax": {
+      const score = assignment.inputs[0]!;
+      return `${lhs} = F32(exponential[key_slot]/total); ` +
+        `maximum=ORDERED_F32_REDUCE_MAX(${score}[batch,head,block,query_in_block,key_slot],key_slot=0..context-1); ` +
+        `exponential[key_slot]=SLEEF_EXP_F32(F32(${score}[batch,head,block,query_in_block,key_slot]-maximum)); ` +
+        "total=ORDERED_F32_REDUCE_SUM(exponential[key_slot],key_slot=0..context-1)";
+    }
     case "chunked-relative-attention-values": return `${lhs} = F32(REDUCE(key_slot=0..context-1, F32(probability[batch,head,block,query_in_block,key_slot]*context_value[batch,head,block,key_slot,head_feature])))`;
     case "cast-bf16": return `${lhs} = BF16(${input()})`;
     case "subsample-mask": return `${lhs} = ${assignment.inputs[0]}[batch,2*frame]`;
@@ -224,7 +286,7 @@ function textFormula(operation: Operation, lhs: string): string {
     case "reshape_per_layer": return `${lhs} = ${operation.input}[batch,sequence,layer*${operation.layerWidth}+feature]`;
     case "select_per_layer": return `${lhs} = ${operation.input}[batch,sequence,${operation.layerIndex},feature]`;
     case "rotary_embedding": return `${lhs} = ${cast}(F32(${operation.input}[...,head_feature]*${operation.rotaryCasts ? "BF16" : "F32"}(SLEEF_COS_F32(position*theta_power(theta=${operation.theta},rotary_dim=${operation.rotaryDim}))) + rotate_${operation.layout}(${operation.input})*${operation.rotaryCasts ? "BF16" : "F32"}(SLEEF_SIN_F32(position*theta_power(theta=${operation.theta},rotary_dim=${operation.rotaryDim})))))`;
-    case "scaled_dot_product_attention": return `${lhs} = ${cast}(REDUCE(key=0..K-1, ${operation.numericImplementation ? "BF16" : "F32"}(F32(SLEEF_EXP_F32(F32(masked_score-max_key(masked_score)))/REDUCE(key=0..K-1,SLEEF_EXP_F32(F32(masked_score-max_key(masked_score)))))*value)); masked_score=${operation.numericImplementation ? "BF16" : "F32"}(F32(REDUCE(head_feature=0..${operation.headDim - 1},F32(q*k))*F32(${operation.scale}))${operation.scoreSoftcap === undefined ? "" : ` passed through F32(${operation.scoreSoftcap}*SLEEF_TANH_F32(score/${operation.scoreSoftcap}))`} + mask))`;
+    case "scaled_dot_product_attention": return textAttentionFormula(operation, lhs, cast);
     case "activation": {
       if (operation.function === "gelu" && operation.approximation === "tanh") return `${lhs} = ${cast}(F32(F32(0.5*input)*F32(1+SLEEF_TANH_F32(F32(${Math.sqrt(2 / Math.PI)}*F32(input+F32(0.044715*F32(input*F32(input*input)))))))))`;
       if (operation.function === "silu" || operation.function === "swish") return `${lhs} = ${cast}(F32(input/F32(1+SLEEF_EXP_F32(F32(-input)))))`;
@@ -238,6 +300,84 @@ function textFormula(operation: Operation, lhs: string): string {
     }
     case "tensor_scale": return `${lhs} = ${cast}(F32(${operation.input}*decode(tensor-scale)[0]))`;
   }
+}
+
+function textAttentionFormula(
+  operation: Extract<Operation, { op: "scaled_dot_product_attention" }>,
+  lhs: string,
+  cast: string,
+): string {
+  const queryHead = `floor(attention_hidden/${operation.headDim})`;
+  const outputFeature = `attention_hidden%${operation.headDim}`;
+  const kvGroup = operation.numAttentionHeads / operation.numKeyValueHeads;
+  if (!Number.isSafeInteger(kvGroup) || kvGroup <= 0) throw new Error(`${operation.id}: GQA inválida para fórmula escalar.`);
+  const kvHead = `floor(${queryHead}/${kvGroup})`;
+  const q = `${operation.query}[batch,${queryHead},sequence,head_feature]`;
+  const k = `${operation.key}[batch,${kvHead},key,head_feature]`;
+  const value = `${operation.value}[batch,${kvHead},key,${outputFeature}]`;
+  const mask = `${operation.maskInput}[batch,0,sequence,key]`;
+  if (operation.numericImplementation) {
+    return `${lhs} = BF16(ARM_NEON_BF16_DOT_F32(reductionStages[context-dot].schedule,probability[key],${value},key=0..K-1)); ` +
+      `score[key]=BF16(F32(BF16(F32(ARM_NEON_BF16_DOT_F32(reductionStages[score-dot].schedule,${q},${k},head_feature=0..${operation.headDim - 1})*F32(${operation.scale})))+${mask})); ` +
+      "maximum=PYTORCH_F32_VECTOR_REDUCE_MAX(score[key],key=0..K-1,lanes=4); " +
+      "exponential[key]=SLEEF_EXP_F32(F32(score[key]-maximum)); " +
+      "total=PYTORCH_F32_VECTOR_REDUCE_SUM(exponential[key],key=0..K-1,lanes=4); " +
+      "probability[key]=BF16(F32(exponential[key]*F32(1/total)))";
+  }
+  const score = operation.scoreSoftcap === undefined
+    ? "scaled_dot[key]"
+    : `F32(F32(${operation.scoreSoftcap})*SLEEF_TANH_F32(F32(scaled_dot[key]/F32(${operation.scoreSoftcap}))))`;
+  return `${lhs} = ${cast}(ORDERED_F32_DOT(probability[key],${value},key=0..K-1)); ` +
+    `dot[key]=ORDERED_F32_DOT(${q},${k},head_feature=0..${operation.headDim - 1}); ` +
+    `scaled_dot[key]=F32(dot[key]*F32(${operation.scale})); score[key]=F32(${score}+${mask}); ` +
+    "maximum=ORDERED_F32_REDUCE_MAX(score[key],key=0..K-1); " +
+    "exponential[key]=SLEEF_EXP_F32(F32(score[key]-maximum)); " +
+    "total=ORDERED_F32_REDUCE_SUM(exponential[key],key=0..K-1); probability[key]=F32(exponential[key]/total)";
+}
+
+function scalarReductionStages(definition: Definition): Gemma4LiteralScalarReductionStage[] {
+  if ("op" in definition.value && definition.value.op === "scaled_dot_product_attention") {
+    const operation = definition.value;
+    const numeric = operation.numericImplementation;
+    return [
+      {
+        id: "score-dot", indices: [`head_feature=0..${operation.headDim - 1}`],
+        order: numeric ? "operation-declared" : "ascending-lexicographic",
+        program: numeric ? "ARM_NEON_BF16_DOT_F32" : "ORDERED_F32_DOT", identity: "F32(0)",
+        ...(numeric ? { schedule: structuredClone(numeric.scoreReduction) } : {}),
+      },
+      {
+        id: "softmax-maximum", indices: ["key=0..K-1"],
+        order: numeric ? "operation-declared" : "ascending-lexicographic",
+        program: numeric ? "PYTORCH_F32_VECTOR_REDUCE_MAX" : "ORDERED_F32_REDUCE_MAX", identity: "-Infinity",
+      },
+      {
+        id: "softmax-exponential-sum", indices: ["key=0..K-1"],
+        order: numeric ? "operation-declared" : "ascending-lexicographic",
+        program: numeric ? "PYTORCH_F32_VECTOR_REDUCE_SUM" : "ORDERED_F32_REDUCE_SUM", identity: "F32(0)",
+      },
+      {
+        id: "context-dot", indices: ["key=0..K-1"],
+        order: numeric ? "operation-declared" : "ascending-lexicographic",
+        program: numeric ? "ARM_NEON_BF16_DOT_F32" : "ORDERED_F32_DOT", identity: "F32(0)",
+        ...(numeric ? { schedule: structuredClone(numeric.contextReduction) } : {}),
+      },
+    ];
+  }
+  if (!("op" in definition.value) && definition.value.operation === "masked-softmax") {
+    const predicate = "pixel_position_ids[batch,key_patch] != [-1,-1]";
+    return [
+      { id: "softmax-maximum", indices: ["key_patch=0..patches-1"], order: "ascending-lexicographic", program: "ORDERED_F32_REDUCE_MAX", identity: "-Infinity", predicate },
+      { id: "softmax-exponential-sum", indices: ["key_patch=0..patches-1"], order: "ascending-lexicographic", program: "ORDERED_F32_REDUCE_SUM", identity: "F32(0)", predicate },
+    ];
+  }
+  if (!("op" in definition.value) && definition.value.operation === "chunked-relative-attention-softmax") {
+    return [
+      { id: "softmax-maximum", indices: ["key_slot=0..context-1"], order: "ascending-lexicographic", program: "ORDERED_F32_REDUCE_MAX", identity: "-Infinity" },
+      { id: "softmax-exponential-sum", indices: ["key_slot=0..context-1"], order: "ascending-lexicographic", program: "ORDERED_F32_REDUCE_SUM", identity: "F32(0)" },
+    ];
+  }
+  return [];
 }
 
 function scalarReduction(definition: Definition, program: Gemma4CompositeProgram, policy: DtypePolicy): Gemma4LiteralScalarReduction | undefined {

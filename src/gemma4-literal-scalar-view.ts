@@ -244,6 +244,9 @@ export function validateGemma4LiteralScalarView(view: Gemma4LiteralScalarView): 
   if (/\b(?:exp|tanh|log|log1p|sqrt|rsqrt|sin|cos)\s*\(/.test(transcript)) {
     throw new Error(`${view.navigation.operationId}: vista escalar ainda contém intrínseco matemático opaco.`);
   }
+  if (/\b(?:masked_score-max_key|score-max_key|score-max_valid_key|max_k|max_context|sum_k_ascending|sum_context_ascending|PYTORCH_F32_VECTOR_(?:MAX|SUM)_PAIRWISE)\b/.test(transcript)) {
+    throw new Error(`${view.navigation.operationId}: vista escalar ainda contém helper opaco de redução softmax.`);
+  }
   for (const scalar of view.learnedScalars) {
     if (!transcript.includes(scalar.literal)) {
       throw new Error(`${view.navigation.operationId}: literal aprendido ${scalar.tensor}[${scalar.indices.join(",")}] não participa do cálculo escalar.`);
@@ -611,28 +614,29 @@ function renderAttention(
   if (operation.numericImplementation) {
     const implementation = operation.numericImplementation;
     const allKeys = "k=0..key_length-1";
-    const formula = `${base.output} = BF16_RNE(ARM_NEON_BF16_DOT_F32_${implementation.contextReduction.horizontalFold}(probability[k], ${operation.value}[${b},${kv},k,${d}], ${allKeys}))`;
+    const formula = `${base.output} = BF16_RNE(ARM_NEON_BF16_DOT_F32(reductionStages[context-dot].schedule, probability[k], ${operation.value}[${b},${kv},k,${d}], ${allKeys}))`;
     return renderPlain(operation, base, formula, [
-      `dot[k] = BF16_RNE(ARM_NEON_BF16_DOT_F32_${implementation.scoreReduction.horizontalFold}(${operation.query}[${b},${h},${q},feature], ${operation.key}[${b},${kv},k,feature], feature=0..${operation.headDim - 1}))`,
+      `dot[k] = BF16_RNE(ARM_NEON_BF16_DOT_F32(reductionStages[score-dot].schedule, ${operation.query}[${b},${h},${q},feature], ${operation.key}[${b},${kv},k,feature], feature=0..${operation.headDim - 1}))`,
       `scaled_dot[k] = BF16_RNE(F32(dot[k] * F32(${literal(operation.scale)})))`,
       `topology_mask[k] = 0 when ${topology}; otherwise -Infinity`,
       `declared_mask[k] = ${operation.maskInput}[${b},${h},${q},k]`,
       "effective_mask[k] = declared_mask[k] when it already defines topology; otherwise F32(topology_mask[k] + declared_mask[k])",
       "score[k] = BF16_RNE(F32(scaled_dot[k] + effective_mask[k]))",
-      `maximum = PYTORCH_F32_VECTOR_MAX_PAIRWISE(score[k], ${allKeys}, lanes=${implementation.softmaxVectorLanes})`,
+      `maximum = PYTORCH_F32_VECTOR_REDUCE_MAX(score[k], ${allKeys}, lanes=${implementation.softmaxVectorLanes})`,
       `exp_score[k] = SLEEF_EXP_F32(F32(score[k] - maximum))`,
-      `total = PYTORCH_F32_VECTOR_SUM_PAIRWISE(exp_score[k], ${allKeys}, lanes=${implementation.softmaxVectorLanes})`,
+      `total = PYTORCH_F32_VECTOR_REDUCE_SUM(exp_score[k], ${allKeys}, lanes=${implementation.softmaxVectorLanes})`,
       "probability[k] = BF16_RNE(F32(exp_score[k] * F32(1 / total)))",
     ]);
   }
-  const formula = `${base.output} = ${outputCast(operation)}(sum_{${topology} in ascending order}(F32(probability[k] * ${operation.value}[${b},${kv},k,${d}])))`;
+  const formula = `${base.output} = ${outputCast(operation)}(ORDERED_F32_DOT(probability[k],${operation.value}[${b},${kv},k,${d}],${topology}))`;
   return renderPlain(operation, base, formula, [
     `dot[k] = F32(sum_{feature=0..${operation.headDim - 1} in ascending order}(F32(${operation.query}[${b},${h},${q},feature] * ${operation.key}[${b},${kv},k,feature])))`,
     `scaled_dot[k] = F32(dot[k] * F32(${literal(operation.scale)}))`,
     `unmasked[k] = ${softcap}`,
     `score[k] = F32(unmasked[k] + ${operation.maskInput}[${b},${h},${q},k])`,
-    `exp_score[k] = SLEEF_EXP_F32(F32(score[k] - F32(max_{${topology}}(score))))`,
-    `total = F32(sum_{${topology} in ascending order}(exp_score[k]))`,
+    `maximum = ORDERED_F32_REDUCE_MAX(score[k],${topology})`,
+    "exp_score[k] = SLEEF_EXP_F32(F32(score[k] - maximum))",
+    `total = ORDERED_F32_REDUCE_SUM(exp_score[k],${topology})`,
     "probability[k] = F32(exp_score[k] / total)",
   ]);
 }

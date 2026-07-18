@@ -5,7 +5,7 @@ import { gemma4LiteralNormalizationReductionPrograms } from "./gemma4-literal-no
 
 export interface Gemma4LiteralFormulaLanguageContract {
   kind: "gemma4-literal-formula-language-contract";
-  schemaVersion: 5;
+  schemaVersion: 6;
   languageId: "indexed-ieee754-expression-v1";
   authority: {
     forwardAssignments: "/scalarCalculations/assignments";
@@ -43,9 +43,115 @@ export interface Gemma4LiteralFormulaLanguageContract {
     operationDeclared: string;
     runtimeDefined: string;
     multipleDomains: string;
+    stagedReductions: string;
     normalizationPrograms: ReturnType<typeof gemma4LiteralNormalizationReductionPrograms>;
+    softmaxPrograms: Gemma4LiteralSoftmaxReductionPrograms;
   };
   intrinsics: Array<{ notation: string; semantics: string }>;
+}
+
+export interface Gemma4LiteralSoftmaxReductionPrograms {
+  kind: "gemma4-literal-softmax-reduction-programs";
+  schemaVersion: 1;
+  orderedF32Maximum: string[];
+  orderedF32Sum: string[];
+  pytorchF32VectorPairwiseMaximum: string[];
+  pytorchF32VectorPairwiseSum: string[];
+}
+
+export type Gemma4LiteralSoftmaxReductionProgramName =
+  | "ORDERED_F32_REDUCE_MAX"
+  | "ORDERED_F32_REDUCE_SUM"
+  | "PYTORCH_F32_VECTOR_REDUCE_MAX"
+  | "PYTORCH_F32_VECTOR_REDUCE_SUM";
+
+export function gemma4LiteralSoftmaxReductionPrograms(): Gemma4LiteralSoftmaxReductionPrograms {
+  return {
+    kind: "gemma4-literal-softmax-reduction-programs",
+    schemaVersion: 1,
+    orderedF32Maximum: [
+      "acc=-Infinity",
+      "for index in the complete declared domain in ascending order: if predicate is absent or true, acc=max(acc,value[index]); NaN is fail-closed",
+      "result=acc; result==-Infinity is fail-closed when the owning softmax requires at least one valid element",
+    ],
+    orderedF32Sum: [
+      "acc=F32(0)",
+      "for index in the complete declared domain in ascending order: if predicate is absent or true, acc=F32(acc+value[index])",
+      "result=acc",
+    ],
+    pytorchF32VectorPairwiseMaximum: [
+      "lanes=4; if length==0 result=-Infinity; if 0<length<4 scan values[0..length-1] with max in ascending order",
+      "otherwise accumulator[lane]=values[lane] for lane=0..3",
+      "for base=4; base<length-(length%4); base+=4: accumulator[lane]=max(accumulator[lane],values[base+lane]) for lane=0..3 ascending",
+      "for lane=0 while base+lane<length: accumulator[lane]=max(accumulator[lane],values[base+lane])",
+      "result=max(accumulator[0],accumulator[1],accumulator[2],accumulator[3]) evaluated left-to-right; NaN is fail-closed",
+    ],
+    pytorchF32VectorPairwiseSum: [
+      "lanes=4; if length==0 result=F32(0); if 0<length<4 scan values[0..length-1] with F32(acc+value) in ascending order",
+      "otherwise accumulator[lane]=values[lane] for lane=0..3",
+      "for base=4; base<length-(length%4); base+=4: accumulator[lane]=F32(accumulator[lane]+values[base+lane]) for lane=0..3 ascending",
+      "for lane=0 while base+lane<length: accumulator[lane]=F32(accumulator[lane]+values[base+lane])",
+      "result=F32(F32(accumulator[0]+accumulator[1])+F32(accumulator[2]+accumulator[3]))",
+    ],
+  };
+}
+
+/** Executes only the canonical serialized contract; altered artifact programs fail closed. */
+export function executeGemma4LiteralSoftmaxReductionProgram(
+  programs: Gemma4LiteralSoftmaxReductionPrograms,
+  name: Gemma4LiteralSoftmaxReductionProgramName,
+  values: readonly number[],
+  predicate?: readonly boolean[],
+): number {
+  if (!isDeepStrictEqual(programs, gemma4LiteralSoftmaxReductionPrograms())) {
+    throw new Error("Programa de redução softmax Gemma 4 ausente ou alterado.");
+  }
+  if (predicate && predicate.length !== values.length) throw new Error("Predicado de redução softmax possui cardinalidade divergente.");
+  if (predicate && name.startsWith("PYTORCH_F32_VECTOR_")) {
+    throw new Error("Programa vetorial PyTorch não aceita compactação implícita por predicado.");
+  }
+  const selected = predicate ? values.filter((_, index) => predicate[index]) : [...values];
+  if (selected.some((value) => Number.isNaN(value))) throw new Error("Redução softmax Gemma 4 não aceita NaN.");
+  if (name === "ORDERED_F32_REDUCE_MAX") return orderedMaximum(selected);
+  if (name === "ORDERED_F32_REDUCE_SUM") return orderedSum(selected);
+  return pytorchPairwiseReduce(selected, name === "PYTORCH_F32_VECTOR_REDUCE_MAX" ? "maximum" : "sum");
+}
+
+function orderedMaximum(values: readonly number[]): number {
+  let result = -Infinity;
+  for (const value of values) result = Math.max(result, value);
+  return result;
+}
+
+function orderedSum(values: readonly number[]): number {
+  let result = Math.fround(0);
+  for (const value of values) result = Math.fround(result + value);
+  return result;
+}
+
+function pytorchPairwiseReduce(values: readonly number[], operation: "maximum" | "sum"): number {
+  if (values.length === 0) return operation === "maximum" ? -Infinity : Math.fround(0);
+  if (values.length < 4) {
+    let result = values[0]!;
+    for (let index = 1; index < values.length; index += 1) {
+      result = operation === "maximum" ? Math.max(result, values[index]!) : Math.fround(result + values[index]!);
+    }
+    return result;
+  }
+  const accumulators = values.slice(0, 4);
+  let index = 4;
+  for (; index < values.length - (values.length % 4); index += 4) for (let lane = 0; lane < 4; lane += 1) {
+    accumulators[lane] = operation === "maximum"
+      ? Math.max(accumulators[lane]!, values[index + lane]!)
+      : Math.fround(accumulators[lane]! + values[index + lane]!);
+  }
+  for (let lane = 0; index + lane < values.length; lane += 1) {
+    accumulators[lane] = operation === "maximum"
+      ? Math.max(accumulators[lane]!, values[index + lane]!)
+      : Math.fround(accumulators[lane]! + values[index + lane]!);
+  }
+  if (operation === "maximum") return Math.max(accumulators[0]!, accumulators[1]!, accumulators[2]!, accumulators[3]!);
+  return Math.fround(Math.fround(accumulators[0]! + accumulators[1]!) + Math.fround(accumulators[2]! + accumulators[3]!));
 }
 
 /**
@@ -58,7 +164,7 @@ export interface Gemma4LiteralFormulaLanguageContract {
 export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormulaLanguageContract {
   return {
     kind: "gemma4-literal-formula-language-contract",
-    schemaVersion: 5,
+    schemaVersion: 6,
     languageId: "indexed-ieee754-expression-v1",
     authority: {
       forwardAssignments: "/scalarCalculations/assignments",
@@ -109,11 +215,17 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
       operationDeclared: "execute the serialized reduction.schedule literally, including product rounding, lane assignment, block/tile order, FMA behavior, fold order, tails, accumulation dtype and output cast",
       runtimeDefined: "not executable: reproducibility must be fail-closed-runtime-reduction and every scalar renderer or replay claiming literal fidelity must reject it",
       multipleDomains: "nested REDUCE domains execute left-to-right as written; a schedule attached to the assignment overrides only the reduction indices named beside it",
+      stagedReductions: "execute reductionStages in array order; each stage binds exactly the indices, identity, predicate, program and optional operation-declared schedule named by the formula",
       normalizationPrograms: gemma4LiteralNormalizationReductionPrograms(),
+      softmaxPrograms: gemma4LiteralSoftmaxReductionPrograms(),
     },
     intrinsics: [
       { notation: "decode(role)[indices]", semantics: "resolve role through the current learnedOperands binding; evaluate its gemma4-learned-index-expression-v1 AST, then execute storageDecoder.address for the exact byte range and storageDecoder.decode for the exact F32 result bits" },
       { notation: "REDUCE(index-domain, expression)", semantics: "evaluate the complete domain using the assignment reduction declaration; absence of a reduction schedule means ascending lexicographic order" },
+      { notation: "ORDERED_F32_REDUCE_MAX, ORDERED_F32_REDUCE_SUM", semantics: "execute reductions.softmaxPrograms.orderedF32Maximum or orderedF32Sum over the complete named stage domain and predicate" },
+      { notation: "PYTORCH_F32_VECTOR_REDUCE_MAX, PYTORCH_F32_VECTOR_REDUCE_SUM", semantics: "execute reductions.softmaxPrograms.pytorchF32VectorPairwiseMaximum or pytorchF32VectorPairwiseSum exactly with four lanes and the serialized tail/fold order" },
+      { notation: "ORDERED_F32_DOT", semantics: "initialize F32(0), visit the complete named index domain in ascending order, materialize each F32 product, and immediately assign acc=F32(acc+product)" },
+      { notation: "ARM_NEON_BF16_DOT_F32", semantics: "execute the owning reductionStages schedule literally; products, lanes, FMA boundaries, block order, tail and horizontal fold are all taken from that serialized schedule" },
       { notation: "exact_product(a*b)", semantics: "retain the exact real product of the two already materialized operands until the immediately enclosing operation-declared FMA/add boundary; it is invalid outside a reduction schedule whose product boundary is fused" },
       { notation: "F32_FMA(acc,a,b)", semantics: "compute exact a*b+acc then round once to IEEE binary32" },
       { notation: "min, max, floor", semantics: "IEEE minimum/maximum over materialized operands and mathematical floor; NaN is invalid unless an assignment explicitly permits it" },

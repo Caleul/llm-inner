@@ -601,12 +601,13 @@ function visionAttentionScoreFormula(artifact: OpenGemma4CompositeLiteralArtifac
 function visionAttentionSoftmaxFormula(assignment: Assignment, coordinate: number[], output: string): string[] {
   if (coordinate.length !== 4) throw new Error(`${assignment.id}: softmax vision requer [b,h,q,k].`);
   const prefix = coordinate.slice(0, 3), key = coordinate[3]!;
+  const positions = assignment.inputs[1]!;
   return [
-    `masked_score[k]=pixel_position_valid(k) ? ${indexed(assignment.inputs[0]!, [...prefix, "k"])} : -Infinity`,
-    "maximum=max_k(masked_score[k])",
-    "exponential[k]=SLEEF_EXP_F32(F32(masked_score[k]-maximum))",
-    "denominator=F32(sum_k_ascending(exponential[k]))",
-    `${output}=${assignmentOutputDtype(assignment) === "BF16" ? "BF16" : "F32"}(F32(exponential[${key}]/denominator))`,
+    `valid[k]=!(${positions}[${coordinate[0]},k,0]==-1 && ${positions}[${coordinate[0]},k,1]==-1)`,
+    `maximum=ORDERED_F32_REDUCE_MAX(${indexed(assignment.inputs[0]!, [...prefix, "k"])},k=0..patches-1 where valid[k])`,
+    `exponential[k]=valid[k] ? SLEEF_EXP_F32(F32(${indexed(assignment.inputs[0]!, [...prefix, "k"])}-maximum)) : F32(0)`,
+    "denominator=ORDERED_F32_REDUCE_SUM(exponential[k],k=0..patches-1 where valid[k])",
+    `${output}=valid[${key}] ? ${assignmentOutputDtype(assignment) === "BF16" ? "BF16" : "F32"}(F32(exponential[${key}]/denominator)) : ${assignmentOutputDtype(assignment) === "BF16" ? "BF16" : "F32"}(0)`,
   ];
 }
 
@@ -661,11 +662,12 @@ function relativeShiftSourceCoordinate(query: number, keySlot: number, context: 
 
 function audioAttentionSoftmaxFormula(assignment: Assignment, coordinate: number[], output: string): string[] {
   if (coordinate.length !== 5) throw new Error(`${assignment.id}: softmax audio requer [b,h,block,query,context].`);
+  const [batch, head, block, query, keySlot] = coordinate;
   return [
-    `maximum=max_context(${assignment.inputs[0]})`,
-    `exponential[k]=SLEEF_EXP_F32(F32(${assignment.inputs[0]}[b,h,block,query,k]-maximum))`,
-    "denominator=F32(sum_context_ascending(exponential[k]))",
-    `${output}=F32(exponential[context]/denominator)`,
+    `maximum=ORDERED_F32_REDUCE_MAX(${assignment.inputs[0]}[${batch},${head},${block},${query},k],k=0..context-1)`,
+    `exponential[k]=SLEEF_EXP_F32(F32(${assignment.inputs[0]}[${batch},${head},${block},${query},k]-maximum))`,
+    "denominator=ORDERED_F32_REDUCE_SUM(exponential[k],k=0..context-1)",
+    `${output}=F32(exponential[${keySlot}]/denominator)`,
   ];
 }
 

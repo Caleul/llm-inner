@@ -20,6 +20,11 @@ import { buildGemma4LiteralGenerationNavigation, renderGemma4LiteralGenerationCa
 import { buildGemma4LiteralCalculationSlice } from "../src/gemma4-literal-calculation-slice.js";
 import { buildGemma4LiteralEndToEndCalculation } from "../src/gemma4-literal-end-to-end-calculation.js";
 import { evaluateGemma4LiteralLearnedOperandIndices } from "../src/gemma4-literal-learned-operands.js";
+import { buildGemma4LiteralScalarCalculations } from "../src/gemma4-literal-scalar-calculations.js";
+import {
+  executeGemma4LiteralSoftmaxReductionProgram,
+  gemma4LiteralSoftmaxReductionPrograms,
+} from "../src/gemma4-literal-formula-language.js";
 import { buildGemma4LiteralSourceIdentity, type Gemma4LiteralSourceIdentity } from "../src/gemma4-literal-source-identity.js";
 import { listGemma4LiteralOperations, renderGemma4LiteralMultimodalScalarView } from "../src/gemma4-literal-multimodal-scalar-view.js";
 import { executeGemma4LiteralVisionF32 } from "../src/gemma4-literal-vision.js";
@@ -39,6 +44,7 @@ import {
 import { probeGemma4LiteralLinearReductionProfiles } from "../src/gemma4-linear-reduction-probe.js";
 import { executeGemma4PagedTextLiteralF32, generateGemma4PagedTextLiteralF32 } from "../src/gemma4-paged-text.js";
 import { executeGemma4VisionF32 } from "../src/gemma4-vision.js";
+import { GEMMA4_E4B_PYTORCH_BF16_ATTENTION_IMPLEMENTATION } from "../src/gemma4-text.js";
 import {
   assertGemma4AuthoritativeRuntime,
   gemma4AuthoritativeExecutionContract,
@@ -409,18 +415,35 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 19);
+  assert.equal(literal.schemaVersion, 20);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   assert.deepEqual(literal.authoritativeExecution, gemma4AuthoritativeExecutionContract());
   assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.languageId, literal.generation.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.authority.numericLiteralBits, "/numericLiterals/literals");
-  assert.equal(literal.formulaLanguage.schemaVersion, 5);
+  assert.equal(literal.formulaLanguage.schemaVersion, 6);
   assert.equal(literal.formulaLanguage.authority.transcendentalPrograms, "/transcendentalPrograms");
   assert.deepEqual(literal.transcendentalPrograms, buildGemma4LiteralTranscendentalPrograms());
   assert.ok(literal.formulaLanguage.reductions.normalizationPrograms.pytorchCpuF32CascadeSum.length >= 4);
   assert.ok(literal.formulaLanguage.reductions.normalizationPrograms.pytorchCpuBf16Welford.length >= 3);
+  assert.deepEqual(literal.formulaLanguage.reductions.softmaxPrograms, gemma4LiteralSoftmaxReductionPrograms());
+  assert.equal(executeGemma4LiteralSoftmaxReductionProgram(
+    literal.formulaLanguage.reductions.softmaxPrograms,
+    "ORDERED_F32_REDUCE_SUM",
+    [1, 2, 3, 4],
+  ), 10);
+  assert.equal(executeGemma4LiteralSoftmaxReductionProgram(
+    literal.formulaLanguage.reductions.softmaxPrograms,
+    "PYTORCH_F32_VECTOR_REDUCE_SUM",
+    [1e20, 1, -1e20, 1, -1e20, 1, 1e20, 1, 3],
+  ), 7);
+  assert.throws(() => executeGemma4LiteralSoftmaxReductionProgram(
+    literal.formulaLanguage.reductions.softmaxPrograms,
+    "PYTORCH_F32_VECTOR_REDUCE_SUM",
+    [1, 2, 3, 4],
+    [true, false, true, true],
+  ), /não aceita compactação implícita/);
   assert.match(literal.formulaLanguage.reductions.runtimeDefined, /not executable/);
   assert.ok(literal.formulaLanguage.intrinsics.some((intrinsic) => intrinsic.notation === "decode(role)[indices]"));
   assert.ok(literal.formulaLanguage.intrinsics.some((intrinsic) => intrinsic.notation === "exact_product(a*b)"));
@@ -436,11 +459,38 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.equal(literal.scalarCalculations.assignments.length, expectedDomainCount);
   assert.ok(literal.scalarCalculations.assignments.every((entry) =>
     entry.outputCoordinates.length > 0 && entry.formula.startsWith(`${entry.output}[`) && entry.orderedInputs.length > 0));
+  assert.ok(literal.scalarCalculations.assignments.every((entry) =>
+    !/masked_score-max_key|score-max_key|score-max_valid_key|max_k|max_context|sum_k_ascending|sum_context_ascending/.test(entry.formula)));
   const visionAttentionCalculation = literal.scalarCalculations.assignments.find((entry) =>
     entry.scope === "vision" && entry.definitionId === "vision_layer_0_attention_scores")!;
   assert.match(visionAttentionCalculation.formula, /head_feature=0\.\.head_dim-1/);
   assert.equal(visionAttentionCalculation.reproducibility, "literal");
   assert.equal(visionAttentionCalculation.reduction?.order, "operation-declared");
+  const visionSoftmaxCalculation = literal.scalarCalculations.assignments.find((entry) =>
+    entry.scope === "vision" && entry.definitionId === "vision_layer_0_attention_weights")!;
+  assert.deepEqual(visionSoftmaxCalculation.reductionStages?.map((stage) => [stage.id, stage.program]), [
+    ["softmax-maximum", "ORDERED_F32_REDUCE_MAX"],
+    ["softmax-exponential-sum", "ORDERED_F32_REDUCE_SUM"],
+  ]);
+  assert.match(visionSoftmaxCalculation.formula, /ORDERED_F32_REDUCE_MAX/);
+  const audioSoftmaxCalculation = literal.scalarCalculations.assignments.find((entry) =>
+    entry.scope === "audio" && entry.definitionId === "audio_layer_0_attention_softmax")!;
+  assert.deepEqual(audioSoftmaxCalculation.reductionStages?.map((stage) => stage.id), ["softmax-maximum", "softmax-exponential-sum"]);
+  const f32TextAttentionCalculation = literal.scalarCalculations.assignments.find((entry) =>
+    entry.scope === "text-layer" && entry.definitionId === "layer_0_attention")!;
+  assert.deepEqual(f32TextAttentionCalculation.reductionStages?.map((stage) => stage.program), [
+    "ORDERED_F32_DOT", "ORDERED_F32_REDUCE_MAX", "ORDERED_F32_REDUCE_SUM", "ORDERED_F32_DOT",
+  ]);
+  const nativeProgram = structuredClone(program);
+  const nativeAttention = nativeProgram.textProgram.layers[0]!.operations.find((operation) => operation.op === "scaled_dot_product_attention");
+  if (!nativeAttention || nativeAttention.op !== "scaled_dot_product_attention") throw new Error("fixture requires text attention");
+  nativeAttention.numericImplementation = structuredClone(GEMMA4_E4B_PYTORCH_BF16_ATTENTION_IMPLEMENTATION);
+  const nativeAttentionCalculation = buildGemma4LiteralScalarCalculations(nativeProgram).assignments.find((entry) =>
+    entry.scope === "text-layer" && entry.definitionId === nativeAttention.id)!;
+  assert.deepEqual(nativeAttentionCalculation.reductionStages?.map((stage) => stage.program), [
+    "ARM_NEON_BF16_DOT_F32", "PYTORCH_F32_VECTOR_REDUCE_MAX", "PYTORCH_F32_VECTOR_REDUCE_SUM", "ARM_NEON_BF16_DOT_F32",
+  ]);
+  assert.match(nativeAttentionCalculation.formula, /reductionStages\[score-dot\]\.schedule/);
   const audioConvCalculation = literal.scalarCalculations.assignments.find((entry) =>
     entry.scope === "audio" && entry.definitionId === "audio_subsample_0_conv")!;
   assert.deepEqual(audioConvCalculation.learnedOperandRoles, ["convolution-kernel"]);
@@ -627,6 +677,9 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   const alteredNumericBits = structuredClone(literal);
   alteredNumericBits.numericLiterals.literals.find((entry) => entry.token === "0.5")!.binary32Hex = "0x00000000";
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(alteredNumericBits), /tabela de bits numéricos/);
+  const alteredSoftmaxProgram = structuredClone(literal);
+  alteredSoftmaxProgram.formulaLanguage.reductions.softmaxPrograms.pytorchF32VectorPairwiseSum[0] = "host reduce";
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(alteredSoftmaxProgram), /linguagem de fórmulas/);
   const hiddenInstantiatedInput = structuredClone(literal);
   hiddenInstantiatedInput.calculationGraph.assignments.find((entry) =>
     entry.operationId === "composite_image_features/vision_layer_0_q")!.orderedInputs[0] = "hidden_reader_binding";
@@ -717,7 +770,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 19);
+      assert.equal(artifact.schemaVersion, 20);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.deepEqual(artifact.authoritativeExecution, gemma4AuthoritativeExecutionContract());
@@ -1140,7 +1193,11 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       assert.ok(visionWeights.scalarAssignments.some((formula) => formula.includes("SLEEF_EXP_F32")));
       assert.equal(visionWeights.transcendentalPrograms.programs.SLEEF_EXP_F32.kernel, "Sleef_expf4_u10advsimd");
       assert.equal(visionWeights.formulaLanguage.authority.transcendentalPrograms, "/transcendentalPrograms");
-      assert.ok(visionWeights.scalarAssignments.some((formula) => formula.includes("sum_k_ascending")));
+      assert.ok(visionWeights.scalarAssignments.some((formula) => formula.includes("ORDERED_F32_REDUCE_MAX")));
+      assert.ok(visionWeights.scalarAssignments.some((formula) => formula.includes("ORDERED_F32_REDUCE_SUM")));
+      const opaqueVisionSoftmax = structuredClone(visionWeights);
+      opaqueVisionSoftmax.scalarAssignments.push("maximum=max_k(masked_score[k])");
+      assert.throws(() => validateGemma4LiteralScalarView(opaqueVisionSoftmax), /helper opaco de redução softmax/);
       const visionContext = await renderGemma4LiteralMultimodalScalarView(artifact, {
         operationId: "composite_image_features/vision_layer_0_attention", outputCoordinate: [0, 0, 0],
       });
@@ -1229,6 +1286,11 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
         operationId: "composite_audio_features/audio_layer_0_attention_mask", outputCoordinate: [0, 0, 0, 0, 0],
       });
       assert.ok(audioMask.scalarAssignments.some((formula) => formula.includes("query_index-key_index")));
+      const audioSoftmax = await renderGemma4LiteralMultimodalScalarView(artifact, {
+        operationId: "composite_audio_features/audio_layer_0_attention_softmax", outputCoordinate: [0, 0, 0, 0, 0],
+      });
+      assert.ok(audioSoftmax.scalarAssignments.some((formula) => formula.includes("ORDERED_F32_REDUCE_MAX")));
+      assert.ok(audioSoftmax.scalarAssignments.some((formula) => formula.includes("ORDERED_F32_REDUCE_SUM")));
 
       const duplicateId = artifact.program.visionProgram.assignments[1]!;
       const originalId = duplicateId.id;
