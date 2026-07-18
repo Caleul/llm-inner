@@ -452,9 +452,11 @@ artefato indexado, lê vetores de norma/escala sob o mesmo orçamento explícito
 e executa PLE, RMSNorm, RoPE, atenção, KV por camada produtora, residual, MLP,
 norma final e projeção de vocabulário com os mesmos kernels escalares F32 do
 executor de referência. Ele nunca abre o checkpoint: recebe somente o leitor
-do JSON literal já indexado. O comando textual deliberadamente não recebe
-entradas visuais, vídeo ou áudio; áudio e vision possuem executores literais
-separados, e suas classes nativas ainda não transcritas continuam fail-closed.
+do JSON literal já indexado. O comando textual standalone não recebe entradas
+multimodais. Para composição, o mesmo interpretador expõe fronteiras distintas
+para os embeddings antes do scatter, a projeção PLE depois do scatter e as
+camadas/epílogo a partir do prelude preparado; esses cálculos não são
+duplicados num executor composite paralelo.
 
 ```bash
 npm run replay:gemma4-paged-text -- \
@@ -469,11 +471,10 @@ regressão atual prova equivalência byte-a-byte de prefill e
 dois passos cached contra o executor eager apenas para a fixture Gemma 4
 registrada após remover os tensores de origem. `--allow-unverified-fidelity`
 é obrigatório para a E4B real atual: ele registra que o replay é diagnóstico
-aproximado, não uma alegação de fidelidade estabelecida. Um prefill E4B real de um token
-mais um decode cached foi executado somente do artefato literal (o diretório
-fonte foi renomeado durante o comando), mas ainda não há comparação com runtime
-autoritativo nem replay multimodal; portanto o marcador de checkpoint Gemma 4
-continua proibido.
+aproximado, não uma alegação de fidelidade estabelecida. Um prefill E4B real de
+um token mais um decode cached foi executado somente do artefato literal. A
+comparação multimodal autoritativa posterior é descrita abaixo; o marcador
+continua proibido porque as torres não são exatas.
 
 Há agora uma comparação nativa separada para esse ramo textual: o capturador
 fixado em Transformers 5.5.0/PyTorch 2.12.1 executa
@@ -558,6 +559,24 @@ execução, navegação e localização diferencial reais sem fonte, mas ainda n
 fidelidade exata nem autorização para o checkpoint. Comandos e métricas estão
 em
 [`docs/validation/gemma4-e4b-source-removed-vision-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-vision-2026-07-18.md).
+
+O caminho literal agora conecta essas torres ao modelo composto inteiro.
+`gemma4-literal-composite.ts` executa embedding PAD, torre e scatter, projeção
+PLE pós-scatter, máscaras visual full/sliding e as 42 camadas textuais somente
+dos payloads incorporados. O mesmo forward alimenta diretamente o interpretador
+das doze atribuições de geração serializadas; multimodalidade ocorre no
+prefill, e decode recebe apenas token, posição e cache declarado.
+
+Uma captura real `[image_token_id, 2]` com imagem `[1,9,768]` vinculou cinco
+fronteiras de prefill, logits de seleção, token/posição, 24 caches pós-decode,
+logits e caches terminais. Com `gemma-4-E4B-dense` ausente, o candidato executou
+todo esse programa e gerou o mesmo token `184` na posição `2`. O embedding
+textual passou em erro zero; `image_features` foi a primeira divergência
+composite (`0.044921875`), os logits de seleção tiveram erro máximo `1.03125`
+e os logits terminais `0.28125`, cosseno `0.9999271922285432`, top-k `0.9` e
+argmax igual. Todos os 24 caches tiveram shape correto, mas divergiram
+numericamente. A evidência é portanto `approximate`, não checkpoint, e está em
+[`docs/validation/gemma4-e4b-source-removed-composite-generation-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-composite-generation-2026-07-18.md).
 
 Uma captura posterior de todas as 1.229 atribuições declaradas do Gemma4Text
 torna a divergência localizável sem reabrir o checkpoint durante o candidato.

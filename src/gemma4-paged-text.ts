@@ -50,28 +50,112 @@ export interface Gemma4PagedTextOptions {
 }
 
 /**
+ * Executes the two token-indexed assignments that precede multimodal scatter.
+ * The returned map contains `hidden_states_0` and `ple_token_identity`; callers
+ * may replace only `hidden_states_0` with the declared image/video/audio
+ * scatter result before continuing through the projection prelude.
+ */
+export async function executeGemma4PagedTextInputEmbeddingsLiteralF32(
+  artifact: OpenGemma4CompositeLiteralArtifact,
+  inputIds: number[][],
+  options: Gemma4PagedTextOptions = {},
+): Promise<ReadonlyMap<string, DenseF32Tensor>> {
+  assertExecutionFidelityAcknowledged(artifact, options);
+  validateInputIds(inputIds);
+  const operations = artifact.program.textProgram.prelude.slice(0, 2);
+  if (operations[0]?.id !== "token_embedding" || operations[1]?.id !== "ple_token_identity") {
+    throw new Error("Gemma 4 paginado requer embedding textual e identidade PLE como as duas primeiras atribuições.");
+  }
+  return (await executePagedOperations(artifact, operations, inputIds, undefined, new Map(), options)).values;
+}
+
+/**
+ * Executes the post-scatter PLE projection assignments from a caller-supplied
+ * `hidden_states_0` and the artifact-produced `ple_token_identity`.
+ */
+export async function executeGemma4PagedTextProjectionPreludeLiteralF32(
+  artifact: OpenGemma4CompositeLiteralArtifact,
+  inputIds: number[][],
+  prepared: ReadonlyMap<string, DenseF32Tensor>,
+  options: Gemma4PagedTextOptions = {},
+): Promise<ReadonlyMap<string, DenseF32Tensor>> {
+  assertExecutionFidelityAcknowledged(artifact, options);
+  validateInputIds(inputIds);
+  requirePreparedPreludeValue(prepared, "hidden_states_0", inputIds);
+  requirePreparedPreludeValue(prepared, "ple_token_identity", inputIds);
+  const values = new Map(prepared);
+  await executePagedOperations(artifact, artifact.program.textProgram.prelude.slice(2), inputIds, undefined, values, options);
+  requirePreparedPreludeValue(values, "ple_inputs", inputIds);
+  return values;
+}
+
+/**
  * Executes the declared Gemma4Text graph directly from an indexed literal
  * artifact. Matrix bytes are decoded a bounded output-row page at a time;
- * vector constants are bounded separately. This deliberately accepts no
- * image, video, or audio values: those tower paths remain fail-closed until
- * their own storage-backed kernels exist.
+ * vector constants are bounded separately. This entry point owns standalone
+ * token text; the prepared-prelude entry point below is the only route by
+ * which the composite executor can enter the same layers after modal scatter.
  */
 export async function executeGemma4PagedTextLiteralF32(
   artifact: OpenGemma4CompositeLiteralArtifact,
   request: Gemma4PagedTextExecutionRequest,
   options: Gemma4PagedTextOptions = {},
 ): Promise<ReferenceF32ExecutionResult> {
-  const maxReadBytes = options.maxReadBytes ?? 16 * 1024 * 1024;
   assertExecutionFidelityAcknowledged(artifact, options);
   const inputIds = request.inputIds;
-  if (inputIds.length === 0 || inputIds.some((row) => row.length === 0 || row.length !== inputIds[0]!.length)) {
-    throw new Error("Gemma 4 paginado requer input_ids não vazio e retangular.");
-  }
+  validateInputIds(inputIds);
   const sequence = inputIds[0]!.length;
   const positions = request.positionIds ?? inputIds.map((row) => row.map((_, index) => index));
   if (positions.length !== inputIds.length || positions.some((row) => row.length !== sequence)) {
     throw new Error("Gemma 4 paginado position_ids deve acompanhar input_ids.");
   }
+  const values = new Map<string, DenseF32Tensor>();
+  return requireCompletedTextExecution(await executePagedOperations(artifact, allTextOperations(artifact), inputIds, positions, values, options, request));
+}
+
+/** Executes text layers and logits from the exact composite prelude values. */
+export async function executeGemma4PagedTextLiteralF32WithPreparedPrelude(
+  artifact: OpenGemma4CompositeLiteralArtifact,
+  request: Gemma4PagedTextExecutionRequest,
+  prepared: ReadonlyMap<string, DenseF32Tensor>,
+  options: Gemma4PagedTextOptions = {},
+): Promise<ReferenceF32ExecutionResult> {
+  assertExecutionFidelityAcknowledged(artifact, options);
+  validateInputIds(request.inputIds);
+  requirePreparedPreludeValue(prepared, "hidden_states_0", request.inputIds);
+  requirePreparedPreludeValue(prepared, "ple_inputs", request.inputIds);
+  const sequence = request.inputIds[0]!.length;
+  const positions = request.positionIds ?? request.inputIds.map((row) => row.map((_, index) => index));
+  if (positions.length !== request.inputIds.length || positions.some((row) => row.length !== sequence)) {
+    throw new Error("Gemma 4 paginado position_ids deve acompanhar input_ids.");
+  }
+  return requireCompletedTextExecution(await executePagedOperations(
+    artifact,
+    [...artifact.program.textProgram.layers.flatMap((layer) => layer.operations), ...artifact.program.textProgram.epilogue],
+    request.inputIds,
+    positions,
+    new Map(prepared),
+    options,
+    request,
+  ));
+}
+
+interface PagedOperationsResult {
+  values: Map<string, DenseF32Tensor>;
+  logits?: DenseF32Tensor;
+  pastKeyValues: ReadonlyMap<number, ReferenceF32KeyValueCache>;
+}
+
+async function executePagedOperations(
+  artifact: OpenGemma4CompositeLiteralArtifact,
+  operations: readonly Operation[],
+  inputIds: number[][],
+  positions: number[][] | undefined,
+  values: Map<string, DenseF32Tensor>,
+  options: Gemma4PagedTextOptions,
+  request: Gemma4PagedTextExecutionRequest = { inputIds },
+): Promise<PagedOperationsResult> {
+  const maxReadBytes = options.maxReadBytes ?? 16 * 1024 * 1024;
   const vectors = new Map<string, Promise<DenseF32Tensor>>();
   const matrix = (reference: TensorRef) => createPagedDenseF32Matrix(tensorInfo(artifact, reference), artifact, maxReadBytes);
   const vector = (reference: TensorRef): Promise<DenseF32Tensor> => {
@@ -82,12 +166,10 @@ export async function executeGemma4PagedTextLiteralF32(
     }
     return result;
   };
-  const values = new Map<string, DenseF32Tensor>();
   const store = (operation: Operation, tensor: DenseF32Tensor): void => {
     values.set(operation.output, operation.dtypePolicy.outputDtype === "BF16" ? roundDenseF32ToBF16(tensor) : tensor);
   };
   const producedCache = new Map<number, ReferenceF32KeyValueCache>();
-  const operations = [...artifact.program.textProgram.prelude, ...artifact.program.textProgram.layers.flatMap((layer) => layer.operations), ...artifact.program.textProgram.epilogue];
   for (const operation of operations) {
     assertPagedF32Policy(operation);
     switch (operation.op) {
@@ -126,6 +208,7 @@ export async function executeGemma4PagedTextLiteralF32(
         store(operation, reshapeHeadsF32(value(values, operation.input), operation.numHeads, operation.headDim));
         break;
       case "rotary_embedding":
+        if (!positions) throw new Error(`${operation.id}: position_ids ausentes na fase textual preparada.`);
         store(operation, rotaryF32(value(values, operation.input), positions, operation));
         break;
       case "scaled_dot_product_attention": {
@@ -164,8 +247,7 @@ export async function executeGemma4PagedTextLiteralF32(
     }
   }
   const logits = values.get("softcapped_logits") ?? values.get("logits");
-  if (!logits) throw new Error("Gemma 4 paginado não produziu logits.");
-  return { values, logits, pastKeyValues: producedCache };
+  return { values, ...(logits ? { logits } : {}), pastKeyValues: producedCache };
 }
 
 /**
@@ -208,6 +290,29 @@ function value(values: ReadonlyMap<string, DenseF32Tensor>, name: string): Dense
   const found = values.get(name);
   if (!found) throw new Error(`Gemma 4 paginado não encontrou intermediário ${name}.`);
   return found;
+}
+
+function allTextOperations(artifact: OpenGemma4CompositeLiteralArtifact): Operation[] {
+  return [...artifact.program.textProgram.prelude, ...artifact.program.textProgram.layers.flatMap((layer) => layer.operations), ...artifact.program.textProgram.epilogue];
+}
+
+function validateInputIds(inputIds: number[][]): void {
+  if (inputIds.length === 0 || inputIds.some((row) => row.length === 0 || row.length !== inputIds[0]!.length || row.some((token) => !Number.isSafeInteger(token) || token < 0))) {
+    throw new Error("Gemma 4 paginado requer input_ids não vazio, retangular e inteiro não negativo.");
+  }
+}
+
+function requirePreparedPreludeValue(values: ReadonlyMap<string, DenseF32Tensor>, name: string, inputIds: number[][]): DenseF32Tensor {
+  const tensor = value(values, name);
+  if (tensor.shape[0] !== inputIds.length || tensor.shape[1] !== inputIds[0]!.length) {
+    throw new Error(`${name}: intermediário preparado não acompanha input_ids em batch/sequence.`);
+  }
+  return tensor;
+}
+
+function requireCompletedTextExecution(result: PagedOperationsResult): ReferenceF32ExecutionResult {
+  if (!result.logits) throw new Error("Gemma 4 paginado não produziu logits.");
+  return { values: result.values, logits: result.logits, pastKeyValues: result.pastKeyValues };
 }
 
 function assertPagedF32Policy(operation: Operation): void {

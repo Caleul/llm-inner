@@ -133,7 +133,7 @@ export function executeGemma4CompositeF32(program: Gemma4CompositeProgram, reque
   validateInputIds(request.inputIds);
   if (request.mmTokenTypeIds !== undefined && request.attentionMask !== undefined) throw new Error("Gemma 4 composite não combina mm_token_type_ids com attentionMask 4-D fornecida pelo chamador; o runtime autoritativo trata essa máscara como uma substituição já preparada.");
   if (request.mmTokenTypeIds !== undefined && request.pastKeyValues !== undefined) throw new Error("Gemma 4 composite requer mm_token_type_ids somente no prefill sem cache; o prepare_inputs_for_generation autoritativo os remove no decode incremental.");
-  const llmInputIds = replaceModalIdsWithPad(request.inputIds, program.contract, textPadTokenId(program.textProgram));
+  const llmInputIds = replaceGemma4MultimodalIdsWithPad(request.inputIds, program.contract, textPadTokenId(program.textProgram));
   const prefix = textPrefixFromProgram(program.textProgram);
   const tokenEmbedding = embedding(llmInputIds, tensor(request.tensors, `${prefix}.embed_tokens.weight`), Math.sqrt(program.contract.text.hiddenSize));
   const pleIdentity = perLayerEmbedding(llmInputIds, tensor(request.tensors, `${prefix}.embed_tokens_per_layer.weight`), program.contract.text.layers, program.contract.text.perLayerInputSize, Math.sqrt(program.contract.text.perLayerInputSize));
@@ -155,7 +155,7 @@ export function executeGemma4CompositeF32(program: Gemma4CompositeProgram, reque
   if (request.pixelValuesVideos !== undefined) {
     const videoTokenId = program.contract.modalities.videoTokenId;
     if (videoTokenId === undefined) throw new Error("Gemma 4 composite recebeu vídeo, mas o contrato não declara video_token_id.");
-    const flattened = flattenVideo(request.pixelValuesVideos, request.videoPositionIds!);
+    const flattened = flattenGemma4VideoInput(request.pixelValuesVideos, request.videoPositionIds!);
     values.set("composite_video_pixels", flattened.pixels);
     values.set("composite_video_position_ids", positionsTensor(flattened.positions));
     const video = executeGemma4VisionF32(program.visionProgram, { pixelValues: flattened.pixels, pixelPositionIds: flattened.positions, tensors: request.tensors });
@@ -186,7 +186,7 @@ export function executeGemma4CompositeF32(program: Gemma4CompositeProgram, reque
   values.set("ple_context_normalized", contextNormalized);
   values.set("ple_combined", pleCombined);
   values.set("ple_inputs", pleInputs);
-  const visionMasks = request.mmTokenTypeIds === undefined ? undefined : visionAttentionMasks(request.mmTokenTypeIds, request.inputIds, program.textProgram);
+  const visionMasks = request.mmTokenTypeIds === undefined ? undefined : buildGemma4VisionAttentionMasks(request.mmTokenTypeIds, request.inputIds, program.textProgram);
   if (visionMasks !== undefined) {
     values.set("vision_block_sequence_ids", visionMasks.blockSequenceIds);
     values.set("full_attention_mask", visionMasks.full);
@@ -282,7 +282,7 @@ function tensor(tensors: ReadonlyMap<string, DenseF32Tensor>, name: string): Den
 function validateInputIds(inputIds: number[][]): void { if (inputIds.length === 0 || inputIds.some((row) => row.length === 0) || inputIds.some((row) => row.length !== inputIds[0]!.length)) throw new Error("Gemma 4 composite requer input_ids não vazio e retangular."); }
 function positionsTensor(positions: readonly (readonly (readonly number[])[])[]): DenseF32Tensor { return { shape: [positions.length, positions[0]?.length ?? 0, 2], values: Float32Array.from(positions.flat(2)) }; }
 
-function visionAttentionMasks(mmTokenTypeIds: number[][], inputIds: number[][], program: ModelIR): { blockSequenceIds: DenseF32Tensor; full: DenseF32Tensor; sliding: DenseF32Tensor; byLayer: ReadonlyMap<number, DenseF32Tensor> } {
+export function buildGemma4VisionAttentionMasks(mmTokenTypeIds: number[][], inputIds: number[][], program: ModelIR): { blockSequenceIds: DenseF32Tensor; full: DenseF32Tensor; sliding: DenseF32Tensor; byLayer: ReadonlyMap<number, DenseF32Tensor> } {
   const sequence = inputIds[0]!.length;
   if (mmTokenTypeIds.length !== inputIds.length || mmTokenTypeIds.some((row) => row.length !== sequence)) throw new Error("Gemma 4 composite mm_token_type_ids deve acompanhar input_ids no shape [batch,sequence].");
   if (mmTokenTypeIds.some((row) => row.some((value) => !Number.isInteger(value)))) throw new Error("Gemma 4 composite mm_token_type_ids requer IDs inteiros.");
@@ -320,7 +320,7 @@ function visionAttentionMasks(mmTokenTypeIds: number[][], inputIds: number[][], 
   return { blockSequenceIds: dense([batch, sequence], blocks), full, sliding, byLayer };
 }
 
-function replaceModalIdsWithPad(inputIds: number[][], contract: Gemma4PackageContract, pad: number): number[][] {
+export function replaceGemma4MultimodalIdsWithPad(inputIds: number[][], contract: Gemma4PackageContract, pad: number): number[][] {
   const ids = new Set<number>([contract.modalities.imageTokenId, contract.modalities.audioTokenId]);
   if (contract.modalities.videoTokenId !== undefined) ids.add(contract.modalities.videoTokenId);
   return inputIds.map((row) => row.map((id) => ids.has(id) ? pad : id));
@@ -357,7 +357,7 @@ function f32(value: number): number { return Math.fround(value); }
 function merge(target: Map<string, DenseF32Tensor>, source: ReadonlyMap<string, DenseF32Tensor>): void { for (const [name, value] of source) target.set(name, value); }
 function prefixValues(values: ReadonlyMap<string, DenseF32Tensor>, prefix: string): Map<string, DenseF32Tensor> { return new Map([...values].map(([name, value]) => [`${prefix}${name}`, value])); }
 
-function flattenVideo(pixels: DenseF32Tensor, positions: number[][][][]): { pixels: DenseF32Tensor; positions: number[][][] } {
+export function flattenGemma4VideoInput(pixels: DenseF32Tensor, positions: number[][][][]): { pixels: DenseF32Tensor; positions: number[][][] } {
   if (pixels.shape.length !== 4) throw new Error("Gemma 4 video requer pixel_values_videos [videos,frames,patches,features].");
   const [videos, frames, patches, features] = pixels.shape as [number, number, number, number];
   if (positions.length !== videos || positions.some((video) => video.length !== frames || video.some((frame) => frame.length !== patches || frame.some((position) => position.length !== 2)))) throw new Error("Gemma 4 video_position_ids não acompanha [videos,frames,patches,2].");

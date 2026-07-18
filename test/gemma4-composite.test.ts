@@ -15,6 +15,7 @@ import {
   writeGemma4CompositeLiteralCalculationProgram,
 } from "../src/gemma4-composite-literal.js";
 import { openGemma4CompositeLiteralArtifact } from "../src/gemma4-composite-literal-reader.js";
+import { executeGemma4LiteralCompositeF32, generateGemma4LiteralCompositeF32 } from "../src/gemma4-literal-composite.js";
 import { listGemma4LiteralOperations, renderGemma4LiteralMultimodalScalarView } from "../src/gemma4-literal-multimodal-scalar-view.js";
 import { executeGemma4LiteralVisionF32 } from "../src/gemma4-literal-vision.js";
 import { listGemma4LiteralTextOperations, renderGemma4LiteralScalarView } from "../src/gemma4-literal-scalar-view.js";
@@ -434,6 +435,11 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
     const catalog = fixture(), program = buildGemma4CompositeProgram(catalog, preview), sourceTensors = materialize(catalog);
     const pixelValues = patterned([1, 4, 12]), pixelPositionIds = [[[0, 0], [1, 0], [0, 1], [1, 1]]];
     const expectedVision = executeGemma4VisionF32(program.visionProgram, { pixelValues, pixelPositionIds, tensors: sourceTensors });
+    const compositeRequest = {
+      inputIds: [[1, 99, 97, 98, 2]], mmTokenTypeIds: [[0, 1, 2, 3, 0]], pixelValues, imagePositionIds: pixelPositionIds,
+      pixelValuesVideos: patterned([1, 1, 4, 12]), videoPositionIds: [[pixelPositionIds[0]!]],
+      inputFeatures: patterned([1, 4, 16]), inputFeaturesMask: [[true, true, true, true]],
+    };
     const output = path.join(root, "tiny.gemma4.literal.json");
     await writeGemma4CompositeLiteralCalculationProgram(program, catalog, {
       async readTensorBytes(info) {
@@ -449,6 +455,25 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       const literalVision = await executeGemma4LiteralVisionF32(artifact, { pixelValues, pixelPositionIds });
       assert.deepEqual(literalVision.imageFeatures, expectedVision.imageFeatures);
       assert.equal(literalVision.values.size, expectedVision.values.size);
+      await assert.rejects(() => executeGemma4LiteralCompositeF32(artifact, compositeRequest), /fidelidade numérica não verificada/);
+      const literalComposite = await executeGemma4LiteralCompositeF32(artifact, compositeRequest, { allowUnverifiedFidelity: true });
+      assert.deepEqual(literalComposite.llmInputIds, [[1, 0, 0, 0, 2]]);
+      assert.deepEqual(literalComposite.values.get("image_features"), expectedVision.imageFeatures);
+      assert.deepEqual(literalComposite.values.get("video_features"), expectedVision.imageFeatures);
+      assert.deepEqual(literalComposite.values.get("audio_features")?.shape, [1, 4]);
+      assert.deepEqual(literalComposite.text.logits.shape, [1, 5, 6]);
+      assert.ok([...literalComposite.text.logits.values].every(Number.isFinite));
+      assert.deepEqual(literalComposite.values.get("ple_inputs")?.shape, [1, 5, 2, 1]);
+      const literalGeneration = await generateGemma4LiteralCompositeF32(artifact, { ...compositeRequest, maxNewTokens: 2 }, { allowUnverifiedFidelity: true });
+      assert.equal(literalGeneration.generatedTokenIds.length, 2);
+      assert.deepEqual(literalGeneration.logits.shape, [1, 1, 6]);
+      assert.equal(literalGeneration.pastKeyValues.size, 2);
+      assert.equal(literalGeneration.assignmentExecutions.length, 2 + 8 * 2 + 2);
+      assert.deepEqual(literalGeneration.compositePrefill.text.logits, literalComposite.text.logits);
+      await assert.rejects(
+        () => executeGemma4LiteralCompositeF32(artifact, { inputIds: [[1]], pixelValues }, { allowUnverifiedFidelity: true }),
+        /pixel_values e image_position_ids juntos/,
+      );
       const embeddingInfo = artifact.constants.get("model.language_model.embed_tokens.weight")!;
       const projectionInfo = artifact.constants.get("model.language_model.layers.0.self_attn.q_proj.weight")!;
       const embedding = createPagedDenseF32Matrix({ name: embeddingInfo.name, storageDtype: embeddingInfo.storageDtype, storageShape: embeddingInfo.storageShape, logicalShape: embeddingInfo.logicalShape }, artifact, 16);
