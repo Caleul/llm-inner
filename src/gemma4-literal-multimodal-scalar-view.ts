@@ -564,10 +564,23 @@ function plainFormulas(artifact: OpenGemma4CompositeLiteralArtifact, entry: Assi
     case "subsample-mask": return [`${output} = ${assignment.inputs[0]}[batch,2*time]`];
     case "reshape-conv-features": return [`${output} = row_major_alias(${assignment.inputs[0]})[${coordinate.join(",")}]`];
     case "placeholder-masks": return [`${output} = tuple(input_ids == image_token_id, input_ids == video_token_id, input_ids == audio_token_id)[${coordinate.join(",")}]`];
-    case "vision-block-sequence-ids": return [`${output} = contiguous_group_id(mm_token_type_ids in {1,2}) else -1 at [${coordinate.join(",")}]`];
+    case "vision-block-sequence-ids": {
+      if (coordinate.length !== 2) throw new Error(`${assignment.id}: grupo vision requer [batch,sequence].`);
+      return [`${output} = CONTIGUOUS_VISION_GROUP_ID(mm_token_type_ids[${coordinate[0]},0..${coordinate[1]}],${coordinate[1]})`];
+    }
     case "causal-attention-mask": return [`${output} = key <= query ? F32(0) : -Infinity`];
-    case "vision-sliding-attention-mask": return [`${output} = key > query-sliding_window and (key<=query or same_nonnegative_vision_block) ? F32(0) : -Infinity`];
-    case "replace-multimodal-ids-with-pad": return [`${output} = is_declared_modal_id(input_ids[${coordinate.join(",")}]) ? pad_token_id : input_ids[${coordinate.join(",")}]`];
+    case "vision-sliding-attention-mask": {
+      if (coordinate.length !== 4) throw new Error(`${assignment.id}: máscara sliding requer [batch,mask_head,query,key].`);
+      const [batch, , query, key] = coordinate;
+      return [`${output} = (${key}>${query}-${artifact.program.textProgram.config.sliding_window} && (${key}<=${query} || (vision_block_sequence_ids[${batch},${query}]>=0 && vision_block_sequence_ids[${batch},${query}]==vision_block_sequence_ids[${batch},${key}]))) ? F32(0) : F32(-Infinity)`];
+    }
+    case "replace-multimodal-ids-with-pad": {
+      const token = `input_ids[${coordinate.join(",")}]`, modalities = artifact.program.contract.modalities;
+      const predicate = [`${token}==${modalities.imageTokenId}`, ...(modalities.videoTokenId === undefined ? [] : [`${token}==${modalities.videoTokenId}`]), `${token}==${modalities.audioTokenId}`].join(" || ");
+      const pad = artifact.program.textProgram.config.pad_token_id;
+      if (typeof pad !== "number" || !Number.isSafeInteger(pad)) throw new Error(`${assignment.id}: pad_token_id inválido.`);
+      return [`${output} = (${predicate}) ? ${pad} : ${token}`];
+    }
     case "vision-feature-program": case "audio-feature-program": case "text-core": return [`${output} = EVALUATE(calculationGraph.assignments where invocationId==${JSON.stringify(assignment.id)} in ordinal order).terminalOutput; every bound assignment is serialized in the artifact`];
     case "video-frame-flatten": return [`${output} = ${assignment.inputs[0]}[floor(${coordinate[0]}/frames),${coordinate[0]} mod frames,${coordinate.slice(1).join(",")}] (row-major alias; no arithmetic)`];
     case "masked-scatter": case "masked-scatter-image-features": case "masked-scatter-audio-features": return [`${output} = placeholder_at(input_ids) ? next_feature_row : prior_embedding; rows consumed in batch-major order with exact cardinality`];

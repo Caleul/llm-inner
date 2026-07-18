@@ -208,10 +208,15 @@ function scalarFormula(definition: Definition, program: Gemma4CompositeProgram, 
   const cast = domain.domain.dtype === "BF16" ? "BF16" : domain.domain.dtype === "F32" ? "F32" : domain.domain.dtype;
   switch (assignment.operation) {
     case "placeholder-masks": return `${lhs} = tuple(input_ids==${program.contract.modalities.imageTokenId}, input_ids==${program.contract.modalities.videoTokenId}, input_ids==${program.contract.modalities.audioTokenId})[batch,sequence]`;
-    case "vision-block-sequence-ids": return `${lhs} = contiguous_group_id(mm_token_type_ids in {1,2}) else -1`;
+    case "vision-block-sequence-ids": return `${lhs} = CONTIGUOUS_VISION_GROUP_ID(mm_token_type_ids[batch,0..sequence],sequence)`;
     case "causal-attention-mask": return `${lhs} = key<=query ? F32(0) : F32(-Infinity)`;
-    case "vision-sliding-attention-mask": return `${lhs} = (key>query-${textSlidingWindow(program)} && (key<=query || same_nonnegative_vision_block)) ? F32(0) : F32(-Infinity)`;
-    case "replace-multimodal-ids-with-pad": return `${lhs} = is_declared_modal_token(input_ids[batch,sequence]) ? ${numericConfig(program.textProgram.config.pad_token_id, "pad_token_id")} : input_ids[batch,sequence]`;
+    case "vision-sliding-attention-mask": return `${lhs} = (key>query-${textSlidingWindow(program)} && (key<=query || (vision_block_sequence_ids[batch,query]>=0 && vision_block_sequence_ids[batch,query]==vision_block_sequence_ids[batch,key]))) ? F32(0) : F32(-Infinity)`;
+    case "replace-multimodal-ids-with-pad": {
+      const modalities = program.contract.modalities;
+      const token = "input_ids[batch,sequence]";
+      const predicate = [`${token}==${modalities.imageTokenId}`, ...(modalities.videoTokenId === undefined ? [] : [`${token}==${modalities.videoTokenId}`]), `${token}==${modalities.audioTokenId}`].join(" || ");
+      return `${lhs} = (${predicate}) ? ${numericConfig(program.textProgram.config.pad_token_id, "pad_token_id")} : ${token}`;
+    }
     case "embedding": return `${lhs} = F32(decode(weight)[input_ids[batch,sequence],feature]*F32(${Math.sqrt(program.contract.text.hiddenSize)}))`;
     case "per-layer-embedding": return `${lhs} = F32(decode(weight)[input_ids[batch,sequence],layer*per_layer_width+feature]*F32(${Math.sqrt(program.contract.text.perLayerInputSize)}))`;
     case "vision-feature-program": case "audio-feature-program": case "text-core": return `${lhs} = EVALUATE(calculationGraph.assignments where invocationId==${JSON.stringify(assignment.id)} in ordinal order, orderedInputs=[${assignment.inputs.join(",")}]).terminalOutput[${domain.domain.axes.map((axis) => axis.name).join(",")}]`;
@@ -224,7 +229,10 @@ function scalarFormula(definition: Definition, program: Gemma4CompositeProgram, 
     case "rms-norm": return `${lhs} = ${cast}(F32(F32(${input()} * PYTORCH_POW_NEGATIVE_HALF_F32(F32(REDUCE(feature=0..width-1,F32(input[...,feature]*input[...,feature]))/width + F32(${rmsEpsilon(definition.scope, program)}))))${assignment.tensors?.length ? "*decode(normalization-scale)[feature]" : ""}))`;
     case "add": case "attention-logit-add": return `${lhs} = ${cast}(F32(${input(0)} + ${input(1)}))`;
     case "pixel-affine": return `${lhs} = F32(2 * F32(${input()} - F32(0.5)))`;
-    case "position-embedding-2d": return `${lhs} = ${cast}(F32(decode(position-table)[0,x,hidden] + decode(position-table)[1,y,hidden])); padding pair (-1,-1) yields 0`;
+    case "position-embedding-2d": {
+      const positions = assignment.inputs[0]!;
+      return `${lhs} = ${positions}[batch,patch,0]==-1 && ${positions}[batch,patch,1]==-1 ? ${cast}(0) : ${cast}(F32(decode(position-table)[0,${positions}[batch,patch,0],hidden] + decode(position-table)[1,${positions}[batch,patch,1],hidden]))`;
+    }
     case "reshape-heads": return `${lhs} = row_major_alias(${assignment.inputs[0]})[batch,patch,head*head_dim+head_feature]`;
     case "multidimensional-rope": return `${lhs} = BF16(F32(BF16(${assignment.inputs[0]}[batch,head,patch,paired_feature]*BF16(SLEEF_COS_F32(F32(position[axis]/F32(${program.visionProgram.tower.ropeTheta}**F32(2*pair/(head_dim/2))))))) +/- BF16(${assignment.inputs[0]}[batch,head,patch,rotated_paired_feature]*BF16(SLEEF_SIN_F32(F32(position[axis]/F32(${program.visionProgram.tower.ropeTheta}**F32(2*pair/(head_dim/2))))))))); axis=floor(head_feature/(head_dim/2)), pair=head_feature%(head_dim/4), sign/order follows rotate_half`;
     case "attention-score-matmul": return `${lhs} = ${cast}(REDUCE(head_feature=0..head_dim-1, F32(q[batch,head,query_patch,head_feature]*k[batch,head,key_patch,head_feature])))`;
@@ -249,7 +257,9 @@ function scalarFormula(definition: Definition, program: Gemma4CompositeProgram, 
     case "conv2d-stride2": return `${lhs} = ${cast}(REDUCE(input_channel=0..channels-1,kernel_time=0..2,kernel_feature=0..2, F32(padded_input[batch,input_channel,2*frame+kernel_time-1,2*feature+kernel_feature-1]*decode(convolution-kernel)[output_channel,input_channel,kernel_time,kernel_feature])))`;
     case "layer-norm-channels": return domain.domain.dtypePolicy?.reduction?.kind === "pytorch-cpu-bf16-welford"
       ? `${lhs} = ${cast}(F32(F32(F32(x*inv_std)+bias)*decode(normalization-scale)[channel])); STRUCT(mean,variance)=REDUCE(channel=0..channels-1,input[batch,channel,frame,feature]); inv_std=F32(1/ARM_SQRT_F32(F32(variance+F32(${program.audioProgram.rmsNormEpsilon})))); bias=F32(-inv_std*mean)`
-      : `${lhs} = ${cast}(F32(F32((x-F32(mean_channels(x)))*PYTORCH_POW_NEGATIVE_HALF_F32(F32(variance_channels(x)+F32(${program.audioProgram.rmsNormEpsilon}))))*decode(normalization-scale)[channel]))`;
+      : `${lhs} = ${cast}(F32(F32(F32(x-mean)*inv_std)*decode(normalization-scale)[channel])); mean_sum=REDUCE(channel=0..channels-1,F32(input[batch,channel,frame,feature])); mean=F32(mean_sum/F32(channels)); ` +
+        `variance_sum=REDUCE(channel=0..channels-1,F32(F32(input[batch,channel,frame,feature]-mean)*F32(input[batch,channel,frame,feature]-mean))); variance=F32(variance_sum/F32(channels)); ` +
+        `inv_std=PYTORCH_POW_NEGATIVE_HALF_F32(F32(variance+F32(${program.audioProgram.rmsNormEpsilon})))`;
     case "relu": return `${lhs} = ${cast}(F32(max(0,${input()})))`;
     case "relative-position-encoding": return `${lhs} = BF16(hidden<${program.audioProgram.tower.hiddenSize / 2} ? SLEEF_SIN_F32(BF16(F32((${Math.floor((program.audioProgram.tower.attentionChunkSize + program.audioProgram.tower.attentionContextLeft - 1 + program.audioProgram.tower.attentionContextRight) / 2)}-relative_position)*BF16(SLEEF_EXP_F32(F32(-(hidden%${program.audioProgram.tower.hiddenSize / 2})*F32(${Math.log(10000) / (program.audioProgram.tower.hiddenSize / 2 - 1)})))))))) : SLEEF_COS_F32(BF16(F32((${Math.floor((program.audioProgram.tower.attentionChunkSize + program.audioProgram.tower.attentionContextLeft - 1 + program.audioProgram.tower.attentionContextRight) / 2)}-relative_position)*BF16(SLEEF_EXP_F32(F32(-(hidden%${program.audioProgram.tower.hiddenSize / 2})*F32(${Math.log(10000) / (program.audioProgram.tower.hiddenSize / 2 - 1)})))))))))`;
     case "clip": return `${lhs} = ${cast}(F32(min(${program.audioProgram.gradientClipping},max(${-program.audioProgram.gradientClipping},${input()}))))`;
@@ -285,7 +295,7 @@ function textFormula(operation: Operation, lhs: string): string {
     case "reshape_heads": return `${lhs} = ${operation.input}[batch,sequence,head*${operation.headDim}+head_feature] as ${operation.layout}`;
     case "reshape_per_layer": return `${lhs} = ${operation.input}[batch,sequence,layer*${operation.layerWidth}+feature]`;
     case "select_per_layer": return `${lhs} = ${operation.input}[batch,sequence,${operation.layerIndex},feature]`;
-    case "rotary_embedding": return `${lhs} = ${cast}(F32(${operation.input}[...,head_feature]*${operation.rotaryCasts ? "BF16" : "F32"}(SLEEF_COS_F32(position*theta_power(theta=${operation.theta},rotary_dim=${operation.rotaryDim}))) + rotate_${operation.layout}(${operation.input})*${operation.rotaryCasts ? "BF16" : "F32"}(SLEEF_SIN_F32(position*theta_power(theta=${operation.theta},rotary_dim=${operation.rotaryDim})))))`;
+    case "rotary_embedding": return textRotaryFormula(operation, lhs, cast);
     case "scaled_dot_product_attention": return textAttentionFormula(operation, lhs, cast);
     case "activation": {
       if (operation.function === "gelu" && operation.approximation === "tanh") return `${lhs} = ${cast}(F32(F32(0.5*input)*F32(1+SLEEF_TANH_F32(F32(${Math.sqrt(2 / Math.PI)}*F32(input+F32(0.044715*F32(input*F32(input*input)))))))))`;
@@ -300,6 +310,36 @@ function textFormula(operation: Operation, lhs: string): string {
     }
     case "tensor_scale": return `${lhs} = ${cast}(F32(${operation.input}*decode(tensor-scale)[0]))`;
   }
+}
+
+function textRotaryFormula(operation: Extract<Operation, { op: "rotary_embedding" }>, lhs: string, cast: string): string {
+  if (operation.layout !== "rotate_half") throw new Error(`${operation.id}: fórmula literal requer RoPE rotate_half.`);
+  const half = operation.rotaryDim / 2;
+  const partial = operation.ropeType === "proportional" ? numericScaling(operation, "partial_rotary_factor") : 1;
+  const factor = operation.ropeType === "proportional" ? optionalNumericScaling(operation, "factor") ?? 1 : 1;
+  const exponentDenominator = operation.ropeType === "proportional" ? "head_dim" : String(operation.rotaryDim);
+  const trigCast = operation.rotaryCasts ? "BF16" : "F32";
+  const direct = `${trigCast}(F32(${operation.input}[batch,head,sequence,head_feature]*cosine))`;
+  const rotated = `${trigCast}(F32(${operation.input}[batch,head,sequence,paired_feature]*sine))`;
+  const minus = operation.rotaryCasts ? `BF16(F32(${direct}-${rotated}))` : `${cast}(F32(${direct}-${rotated}))`;
+  const plus = operation.rotaryCasts ? `BF16(F32(${direct}+${rotated}))` : `${cast}(F32(${direct}+${rotated}))`;
+  return `${lhs} = head_feature>=${operation.rotaryDim} ? ${cast}(${operation.input}[batch,head,sequence,head_feature]) : (head_feature<${half} ? ${minus} : ${plus}); ` +
+    `pair=head_feature%${half}; paired_feature=head_feature<${half} ? head_feature+${half} : head_feature-${half}; ` +
+    `active_pairs=floor(F64(${partial})*F64(head_dim)/F64(2)); angle=pair>=active_pairs ? F32(0) : F32(${operation.positionInput}[batch,sequence]/F32(F32(${operation.theta}**F64(F64(2*pair)/F64(${exponentDenominator})))*F32(${factor}))); ` +
+    `cosine=${trigCast}(SLEEF_COS_F32(angle)); sine=${trigCast}(SLEEF_SIN_F32(angle))`;
+}
+
+function numericScaling(operation: Extract<Operation, { op: "rotary_embedding" }>, key: string): number {
+  const value = operation.scaling?.[key];
+  if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`${operation.id}: ${key} inválido na fórmula RoPE.`);
+  return value;
+}
+
+function optionalNumericScaling(operation: Extract<Operation, { op: "rotary_embedding" }>, key: string): number | undefined {
+  const value = operation.scaling?.[key];
+  if (value === undefined) return undefined;
+  if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`${operation.id}: ${key} inválido na fórmula RoPE.`);
+  return value;
 }
 
 function textAttentionFormula(

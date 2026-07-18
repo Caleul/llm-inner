@@ -22,8 +22,11 @@ import { buildGemma4LiteralEndToEndCalculation } from "../src/gemma4-literal-end
 import { evaluateGemma4LiteralLearnedOperandIndices } from "../src/gemma4-literal-learned-operands.js";
 import { buildGemma4LiteralScalarCalculations } from "../src/gemma4-literal-scalar-calculations.js";
 import {
+  executeGemma4LiteralContiguousVisionGroupId,
   executeGemma4LiteralSoftmaxReductionProgram,
+  gemma4LiteralIndexingPrograms,
   gemma4LiteralSoftmaxReductionPrograms,
+  validateGemma4LiteralFormulaFunctionCoverage,
 } from "../src/gemma4-literal-formula-language.js";
 import { buildGemma4LiteralSourceIdentity, type Gemma4LiteralSourceIdentity } from "../src/gemma4-literal-source-identity.js";
 import { listGemma4LiteralOperations, renderGemma4LiteralMultimodalScalarView } from "../src/gemma4-literal-multimodal-scalar-view.js";
@@ -415,14 +418,27 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 20);
+  assert.equal(literal.schemaVersion, 21);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   assert.deepEqual(literal.authoritativeExecution, gemma4AuthoritativeExecutionContract());
   assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.languageId, literal.generation.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.authority.numericLiteralBits, "/numericLiterals/literals");
-  assert.equal(literal.formulaLanguage.schemaVersion, 6);
+  assert.equal(literal.formulaLanguage.schemaVersion, 7);
+  assert.deepEqual(
+    [-1, 0, 0, -1, 1, 1, -1, 2],
+    [0, 1, 2, 0, 2, 1, 0, 1].map((_, sequence) => executeGemma4LiteralContiguousVisionGroupId(
+      literal.formulaLanguage.indexing.programs,
+      [0, 1, 2, 0, 2, 1, 0, 1],
+      sequence,
+    )),
+  );
+  const alteredIndexingPrograms = structuredClone(gemma4LiteralIndexingPrograms());
+  alteredIndexingPrograms.contiguousVisionGroupId[1] = "group=I32(0)";
+  assert.throws(() => executeGemma4LiteralContiguousVisionGroupId(alteredIndexingPrograms, [1], 0), /ausente ou alterado/);
+  assert.throws(() => executeGemma4LiteralContiguousVisionGroupId(gemma4LiteralIndexingPrograms(), [1], 1), /coordenada válida/);
+  assert.throws(() => validateGemma4LiteralFormulaFunctionCoverage(["y=hidden_runtime_helper(x)"]), /helper opaco/);
   assert.equal(literal.formulaLanguage.authority.transcendentalPrograms, "/transcendentalPrograms");
   assert.deepEqual(literal.transcendentalPrograms, buildGemma4LiteralTranscendentalPrograms());
   assert.ok(literal.formulaLanguage.reductions.normalizationPrograms.pytorchCpuF32CascadeSum.length >= 4);
@@ -457,6 +473,24 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.deepEqual(literal.calculationDomains.assignments.find((entry) => entry.definitionId === "vision_layer_0_attention_scores")?.domain.shape, ["VB", "1", "VP", "VP"]);
   assert.deepEqual(literal.calculationDomains.assignments.find((entry) => entry.definitionId === "audio_layer_0_attention_content_scores")?.domain.shape, ["AB", "1", "ABLOCKS", "2", "2"]);
   assert.equal(literal.scalarCalculations.assignments.length, expectedDomainCount);
+  const serializedFormulas = literal.scalarCalculations.assignments.map((assignment) => assignment.formula);
+  validateGemma4LiteralFormulaFunctionCoverage(serializedFormulas);
+  assert.equal(serializedFormulas.filter((formula) => /\b(?:theta_power|rotate_rotate_half|is_declared_modal_token|contiguous_group_id)\s*\(|same_nonnegative_vision_block/.test(formula)).length, 0);
+  const proportionalRopeFormula = literal.scalarCalculations.assignments.find((entry) =>
+    entry.scope === "text-layer" && entry.definitionId === "layer_0_q_rope")!.formula;
+  assert.match(proportionalRopeFormula, /active_pairs=floor\(F64\(1\)\*F64\(head_dim\)\/F64\(2\)\)/);
+  assert.match(proportionalRopeFormula, /paired_feature=head_feature<2 \? head_feature\+2 : head_feature-2/);
+  assert.match(proportionalRopeFormula, /pair>=active_pairs \? F32\(0\)/);
+  const modalReplacementFormula = literal.scalarCalculations.assignments.find((entry) =>
+    entry.scope === "composite" && entry.definitionId === "composite_pad_substitution")!.formula;
+  assert.match(modalReplacementFormula, /input_ids\[batch,sequence\]==99 \|\| input_ids\[batch,sequence\]==97 \|\| input_ids\[batch,sequence\]==98/);
+  const slidingMaskFormula = literal.scalarCalculations.assignments.find((entry) =>
+    entry.scope === "composite" && entry.definitionId === "composite_sliding_attention_mask")!.formula;
+  assert.match(slidingMaskFormula, /vision_block_sequence_ids\[batch,query\]>=0 && vision_block_sequence_ids\[batch,query\]==vision_block_sequence_ids\[batch,key\]/);
+  const positionEmbeddingFormula = literal.scalarCalculations.assignments.find((entry) =>
+    entry.scope === "vision" && entry.definitionId === "vision_position_embedding")!.formula;
+  assert.match(positionEmbeddingFormula, /pixel_position_ids\[batch,patch,0\]==-1/);
+  assert.doesNotMatch(positionEmbeddingFormula, /padding pair|\[0,x,hidden\]/);
   assert.ok(literal.scalarCalculations.assignments.every((entry) =>
     entry.outputCoordinates.length > 0 && entry.formula.startsWith(`${entry.output}[`) && entry.orderedInputs.length > 0));
   assert.ok(literal.scalarCalculations.assignments.every((entry) =>
@@ -770,7 +804,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 20);
+      assert.equal(artifact.schemaVersion, 21);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.deepEqual(artifact.authoritativeExecution, gemma4AuthoritativeExecutionContract());

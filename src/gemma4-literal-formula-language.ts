@@ -5,7 +5,7 @@ import { gemma4LiteralNormalizationReductionPrograms } from "./gemma4-literal-no
 
 export interface Gemma4LiteralFormulaLanguageContract {
   kind: "gemma4-literal-formula-language-contract";
-  schemaVersion: 6;
+  schemaVersion: 7;
   languageId: "indexed-ieee754-expression-v1";
   authority: {
     forwardAssignments: "/scalarCalculations/assignments";
@@ -35,6 +35,7 @@ export interface Gemma4LiteralFormulaLanguageContract {
     tensorLayout: string;
     bounds: string;
     aliases: string;
+    programs: Gemma4LiteralIndexingPrograms;
   };
   scalarTypes: Array<{ name: "F64" | "F32" | "BF16" | "I32" | "BOOL"; semantics: string }>;
   operators: Array<{ notation: string; semantics: string }>;
@@ -48,6 +49,50 @@ export interface Gemma4LiteralFormulaLanguageContract {
     softmaxPrograms: Gemma4LiteralSoftmaxReductionPrograms;
   };
   intrinsics: Array<{ notation: string; semantics: string }>;
+}
+
+export interface Gemma4LiteralIndexingPrograms {
+  kind: "gemma4-literal-indexing-programs";
+  schemaVersion: 1;
+  contiguousVisionGroupId: string[];
+}
+
+export function gemma4LiteralIndexingPrograms(): Gemma4LiteralIndexingPrograms {
+  return {
+    kind: "gemma4-literal-indexing-programs",
+    schemaVersion: 1,
+    contiguousVisionGroupId: [
+      "require mm_token_type_ids to be an I32 row and sequence to be an in-bounds I32 coordinate",
+      "group=I32(-1); previous_vision=false",
+      "for index=0..sequence in ascending order: vision=(mm_token_type_ids[index]==1 || mm_token_type_ids[index]==2); if vision && !previous_vision then group=I32(group+1); previous_vision=vision",
+      "result=(mm_token_type_ids[sequence]==1 || mm_token_type_ids[sequence]==2) ? group : I32(-1)",
+    ],
+  };
+}
+
+/** Executes only the serialized contiguous-run contract used by every Gemma 4 vision-block mask. */
+export function executeGemma4LiteralContiguousVisionGroupId(
+  programs: Gemma4LiteralIndexingPrograms,
+  mmTokenTypeIds: readonly number[],
+  sequence: number,
+): number {
+  if (!isDeepStrictEqual(programs, gemma4LiteralIndexingPrograms())) {
+    throw new Error("Programa de indexação multimodal Gemma 4 ausente ou alterado.");
+  }
+  if (!Number.isSafeInteger(sequence) || sequence < 0 || sequence >= mmTokenTypeIds.length ||
+    mmTokenTypeIds.some((value) => !Number.isSafeInteger(value))) {
+    throw new Error("Programa de grupos vision Gemma 4 requer linha I32 e coordenada válida.");
+  }
+  let group = -1;
+  let previousVision = false;
+  for (let index = 0; index <= sequence; index += 1) {
+    const type = mmTokenTypeIds[index]!;
+    const vision = type === 1 || type === 2;
+    if (vision && !previousVision) group += 1;
+    previousVision = vision;
+  }
+  const current = mmTokenTypeIds[sequence]!;
+  return current === 1 || current === 2 ? group : -1;
 }
 
 export interface Gemma4LiteralSoftmaxReductionPrograms {
@@ -164,7 +209,7 @@ function pytorchPairwiseReduce(values: readonly number[], operation: "maximum" |
 export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormulaLanguageContract {
   return {
     kind: "gemma4-literal-formula-language-contract",
-    schemaVersion: 6,
+    schemaVersion: 7,
     languageId: "indexed-ieee754-expression-v1",
     authority: {
       forwardAssignments: "/scalarCalculations/assignments",
@@ -194,6 +239,7 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
       tensorLayout: "row-major unless the referenced calculation domain or cache transition declares another layout",
       bounds: "every symbolic coordinate is bounded by calculationDomains; out-of-domain reads are errors unless the formula explicitly defines padding",
       aliases: "reshape, transpose, row_major_alias and indexed predecessor references preserve exact elements and perform no arithmetic cast",
+      programs: gemma4LiteralIndexingPrograms(),
     },
     scalarTypes: [
       { name: "F64", semantics: "IEEE-754 binary64 round-to-nearest ties-to-even; F64(expr) materializes one rounding boundary" },
@@ -233,10 +279,11 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
       { notation: "SLEEF_EXP_F32, SLEEF_SIN_F32, SLEEF_COS_F32, SLEEF_TANH_F32, SLEEF_LOG1P_F32", semantics: "execute the matching finite /transcendentalPrograms program, its exact binary32 constants, pair/FMA subprograms, special-value branches and embedded rempi table; no external SLEEF source, binary or host libm fallback is permitted" },
       { notation: "concat, tuple, STRUCT", semantics: "construct values in argument order without arithmetic conversion; concat uses the axis named by the formula or cache transition" },
       { notation: "row_major_alias, reshape, transpose", semantics: "change only logical indexing/layout exactly as written; preserve every source bit" },
+      { notation: "CONTIGUOUS_VISION_GROUP_ID", semantics: "execute indexing.programs.contiguousVisionGroupId over the declared mm_token_type_ids row through the requested sequence coordinate" },
       { notation: "EVALUATE(reference in ordinal order)", semantics: "inline the finite referenced calculationGraph assignments with positional bindings; it is never a generic architecture or hidden decoder invocation" },
       { notation: "argmax-lowest-token-id", semantics: "scan token IDs in ascending order and replace the winner only on strictly greater F32 logits; equality retains the lowest ID" },
       { notation: "exact_safe_integer", semantics: "perform exact integer arithmetic and fail if the result is not a safe integer or violates its declared input domain" },
-      { notation: "padding/mask/rotate/theta helpers named by a formula", semantics: "use only the explicit index mapping, predicate and constants written in that formula plus its calculation domain; no host or framework default is permitted" },
+      { notation: "padding, mask, modal-token, RoPE pairing and angle expressions", semantics: "these must be written explicitly in each formula from indexed inputs and declared constants; an unregistered function-like helper is invalid" },
     ],
   };
 }
@@ -249,5 +296,29 @@ export function validateGemma4LiteralFormulaLanguageContract(
   if (!isDeepStrictEqual(contract, buildGemma4LiteralFormulaLanguageContract()) ||
     forward.formulaLanguage !== contract.languageId || generation.formulaLanguage !== contract.languageId) {
     throw new Error("Programa literal Gemma 4 possui linguagem de fórmulas ausente ou divergente.");
+  }
+  validateGemma4LiteralFormulaFunctionCoverage([
+    ...forward.assignments.map((assignment) => assignment.formula),
+    ...generation.assignments.flatMap((assignment) => assignment.scalarAssignments),
+  ]);
+}
+
+const REGISTERED_FUNCTIONS = new Set([
+  "ARM_NEON_BF16_DOT_F32", "ARM_SQRT_F32", "BF16", "BOOL", "CONTIGUOUS_VISION_GROUP_ID",
+  "EVALUATE", "F32", "F64", "I32", "ORDERED_F32_DOT", "ORDERED_F32_REDUCE_MAX",
+  "ORDERED_F32_REDUCE_SUM", "PYTORCH_F32_VECTOR_REDUCE_MAX", "PYTORCH_F32_VECTOR_REDUCE_SUM",
+  "PYTORCH_POW_NEGATIVE_HALF_F32", "REDUCE", "SLEEF_COS_F32", "SLEEF_EXP_F32", "SLEEF_LOG1P_F32",
+  "SLEEF_SIN_F32", "SLEEF_TANH_F32", "STRUCT", "concat", "decode", "exact_product",
+  "exact_safe_integer", "floor", "max", "min", "row_major_alias", "tuple",
+]);
+
+/** Rejects formula helpers whose executable meaning is absent from the embedded language contract. */
+export function validateGemma4LiteralFormulaFunctionCoverage(formulas: readonly string[]): void {
+  for (const formula of formulas) {
+    for (const match of formula.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/g)) {
+      if (!REGISTERED_FUNCTIONS.has(match[1]!)) {
+        throw new Error(`Fórmula Gemma 4 contém helper opaco sem programa incorporado: ${match[1]}.`);
+      }
+    }
   }
 }

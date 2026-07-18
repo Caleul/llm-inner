@@ -478,6 +478,17 @@ vistas escalares apontam para cada estágio sem `max_k`, `score-max-*` ou outro
 helper opaco. A exportação real e os replays source-removed estão em
 [`docs/validation/gemma4-e4b-explicit-softmax-reductions-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-softmax-reductions-2026-07-18.md).
 
+O schema v21 fecha os helpers de indexação e RoPE ainda escondidos nas
+fórmulas. Um programa finito incorporado calcula o identificador de cada grupo
+vision contíguo; substituição de tokens multimodais e posição 2D escrevem seus
+predicados e índices diretamente. Todas as 66 atribuições RoPE de texto agora
+declaram par, feature pareada, limite de pares ativos, expoente theta,
+escalonamento proporcional, casts BF16/F32 e a soma/subtração `rotate_half`.
+A validação percorre todas as fórmulas forward e de geração e recusa qualquer
+chamada cujo programa ou semântica não esteja registrado. A exportação real e
+os replays source-removed estão em
+[`docs/validation/gemma4-e4b-explicit-indexing-rope-programs-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-indexing-rope-programs-2026-07-18.md).
+
 O leitor também pode partir de qualquer saída instanciada e calcular o fecho
 transitivo exato de seus produtores. `--calculation-slice <operation-id>`
 retorna somente as atribuições necessárias ao alvo, ainda em ordem de
@@ -645,8 +656,8 @@ escreve o artefato completo em streaming: ranges Safetensors de 12 MiB são
 codificados em base64 sem acumular o pacote ou uma string de vários GiB na
 heap. O resultado local contém os 2,130 payloads originais
 (15,992,314,836 bytes) e é auditado por `npm run audit:literal`. O hash e
-tamanho da exportação schema v20 atual são registrados em
-[`docs/validation/gemma4-e4b-explicit-softmax-reductions-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-softmax-reductions-2026-07-18.md); sua política numérica
+tamanho da exportação schema v21 atual são registrados em
+[`docs/validation/gemma4-e4b-explicit-indexing-rope-programs-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-indexing-rope-programs-2026-07-18.md); sua política numérica
 declara fronteiras de resultado BF16, acumuladores F32/F64 e agendas de redução
 por operação do texto, áudio e visão; toda exportação deve registrar seu próprio hash, pois o programa literal
 inclui as políticas numéricas. As 54 projeções/normas K/V locais dos

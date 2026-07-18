@@ -182,7 +182,7 @@ function generationFormulas(
       `forward_state[0] = STRUCT(logits=${forward.logitsOutput},past_key_values=declared_prefill_cache_outputs)`,
     ];
     case "initialize-position": return ["position[-1] = position_ids supplied ? position_ids[0,input_ids.shape[1]-1] : input_ids.shape[1]-1"];
-    case "capture-selection-logits": return ["selection_logits[step] = forward_state[step].logits (exact F32 alias; no cast)"];
+    case "capture-selection-logits": return ["selection_logits[step] = forward_state[step].logits; exact F32 alias; no cast"];
     case "argmax-lowest-token-id": return [
       `candidate[v] = selection_logits[step][0,current_sequence-1,v], v=0..${vocabSize - 1}; reject if any candidate is non-finite`,
       "best_token[0]=0; best_logit[0]=candidate[0]",
