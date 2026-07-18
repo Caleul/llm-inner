@@ -88,6 +88,15 @@ o domínio/agenda completo de cada redução. A navegação instancia essas mesm
 entradas para imagem e vídeo e a vista escalar as acompanha enquanto substitui
 os valores decodificados.
 
+O schema v6 aplica o mesmo princípio às transições greedy. O artefato inclui
+`generation.scalarCalculations` para as 12 definições de controle e
+`generation.forwardCalculation.operationOrder` para a expansão instanciada do
+forward. `generation.forwardCalculation.cacheTransitions` declara, por camada,
+layout BHSD, operação de atenção, produtor, leitura compartilhada e a fórmula
+de prefill ou concatenação incremental no eixo de sequência. Um leitor pode
+substituir `step` e `max_new_tokens`, mas não pode inventar a fórmula de argmax,
+EOS, posição, cache ou estado forward fora do JSON.
+
 Quando a autoridade disponível prova a equação, mas não a árvore de uma
 redução nativa, a fórmula preserva o domínio matemático completo e a entrada
 declara `reproducibility=fail-closed-runtime-reduction` com

@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import type { Gemma4LiteralGenerationAssignment } from "./gemma4-composite-literal.js";
 import type { OpenGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
 import { listGemma4LiteralOperations } from "./gemma4-literal-multimodal-scalar-view.js";
@@ -105,6 +106,7 @@ export function buildGemma4LiteralGenerationNavigation(
   });
   const declaredForward = listGemma4LiteralOperations(artifact);
   if (declaredForward.length === 0) throw new Error("Programa literal Gemma 4 não possui operações de forward navegáveis.");
+  validateSerializedForwardOrder(artifact, declaredForward);
   const operations = instantiated.map((entry, ordinal) => {
     const forwardExpansion = entry.assignment.operation === "execute-declared-forward"
       ? expansion(declaredForward, "multimodal-prefill")
@@ -149,7 +151,12 @@ export function renderGemma4LiteralGenerationCalculationView(
   const navigation = plan.operations
     .find((entry) => entry.operationId === operationId);
   if (!navigation) throw new Error(`Atribuição de geração Gemma 4 literal não encontrada: ${operationId}.`);
-  const scalarAssignments = formulas(navigation, artifact.program.contract.text.vocabSize, maxNewTokens);
+  const calculation = artifact.generation.scalarCalculations.assignments
+    .find((candidate) => candidate.definitionId === navigation.definitionId);
+  if (!calculation || calculation.operation !== navigation.operation) {
+    throw new Error(`${navigation.definitionId}: cálculo escalar de geração ausente ou incompatível.`);
+  }
+  const scalarAssignments = calculation.scalarAssignments.map((formula) => instantiateFormula(formula, navigation.step, maxNewTokens));
   return {
     kind: "gemma4-literal-generation-calculation-view",
     sourceCheckpointAccessed: false,
@@ -240,69 +247,40 @@ function expansion(
   };
 }
 
-function formulas(
-  navigation: Gemma4LiteralGenerationOperationNavigation,
-  vocabSize: number,
-  maxNewTokens: number,
-): string[] {
-  const step = navigation.step;
-  switch (navigation.operation) {
-    case "execute-declared-forward":
-      return [
-        `expand ${navigation.forwardExpansion!.operationCount} declared forward operations from ${navigation.forwardExpansion!.firstOperationId} through ${navigation.forwardExpansion!.lastOperationId} in dependency order`,
-        "forward_state[0] = declared_multimodal_prefill(input_ids, optional paired modality inputs, optional mm_token_type_ids, embedded_constants)",
-      ];
-    case "initialize-position":
-      return ["position[-1] = position_ids supplied ? position_ids[0,input_ids.shape[1]-1] : input_ids.shape[1]-1"];
-    case "capture-selection-logits":
-      return [`selection_logits[${step}] = forward_state[${step}].logits (exact F32 alias; no cast)`];
-    case "argmax-lowest-token-id":
-      return [
-        `candidate[v] = selection_logits[${step}][0,current_sequence-1,v], v=0..${vocabSize - 1}; reject if any candidate is non-finite`,
-        "best_token[0]=0; best_logit[0]=candidate[0]",
-        `best_token[v]=candidate[v] > best_logit[v-1] ? v : best_token[v-1]; best_logit[v]=max(candidate[v],best_logit[v-1]), v=1..${vocabSize - 1} ascending`,
-        `selected_token[${step}] = best_token[${vocabSize - 1}] (equality retains the earlier, therefore lowest, token ID)`,
-      ];
-    case "append-token":
-      return step === 0
-        ? ["generated_token_ids[0..0] = [selected_token[0]]"]
-        : [`generated_token_ids[0..${step}] = concat(generated_token_ids[0..${step! - 1}], [selected_token[${step}]])`];
-    case "increment-position":
-      return [`position[${step}] = exact_safe_integer(position[${step! - 1}] + 1)`];
-    case "prepare-incremental-forward-inputs":
-      return [
-        `incremental_inputs[${step}].input_ids = [[selected_token[${step}]]]`,
-        `incremental_inputs[${step}].position_ids = [[position[${step}]]]`,
-        `incremental_inputs[${step}].past_key_values = forward_state[${step}].past_key_values; omit all modality inputs, mm_token_type_ids and caller attention mask`,
-      ];
-    case "execute-declared-incremental-forward":
-      return [
-        `expand ${navigation.forwardExpansion!.operationCount} declared forward operations from ${navigation.forwardExpansion!.firstOperationId} through ${navigation.forwardExpansion!.lastOperationId} in cached-incremental mode`,
-        `forward_state[${step! + 1}] = declared_cached_incremental_forward(incremental_inputs[${step}], embedded_constants)`,
-      ];
-    case "append-cache-snapshot":
-      return step === 0
-        ? ["step_past_key_values[0..0] = [forward_state[1].past_key_values] (exact BHSD producer-owned cache alias)"]
-        : [`step_past_key_values[0..${step}] = concat(step_past_key_values[0..${step! - 1}], [forward_state[${step! + 1}].past_key_values])`];
-    case "evaluate-eos-stop":
-      return [`stop_after_step[${step}] = eos_token_id supplied and selected_token[${step}] == eos_token_id; evaluate only after forward_state[${step! + 1}] and its cache exist`];
-    case "select-terminal-logits":
-      return [
-        terminalExecutedStepsFormula(maxNewTokens),
-        "terminal_logits = forward_state[executed_steps].logits",
-      ];
-    case "select-terminal-cache":
-      return [
-        terminalExecutedStepsFormula(maxNewTokens),
-        "terminal_past_key_values = forward_state[executed_steps].past_key_values",
-      ];
+function validateSerializedForwardOrder(
+  artifact: OpenGemma4CompositeLiteralArtifact,
+  navigation: readonly Gemma4LiteralOperationNavigation[],
+): void {
+  const actual = navigation.map((entry) => ({
+    operationId: entry.operationId,
+    definitionId: entry.definitionId ?? entry.operationId,
+    scope: entry.scope,
+    ...(entry.invocationId ? { invocationId: entry.invocationId } : {}),
+  }));
+  if (!isDeepStrictEqual(actual, artifact.generation.forwardCalculation.operationOrder)) {
+    const expected = artifact.generation.forwardCalculation.operationOrder;
+    const mismatch = Array.from({ length: Math.max(actual.length, expected.length) }, (_, index) => index)
+      .find((index) => !isDeepStrictEqual(actual[index], expected[index]));
+    throw new Error(`Ordem forward serializada da geração diverge da navegação completa do artefato em ${mismatch ?? "comprimento"}: esperado=${JSON.stringify(expected[mismatch ?? -1])}, atual=${JSON.stringify(actual[mismatch ?? -1])}.`);
   }
 }
 
-function terminalExecutedStepsFormula(maxNewTokens: number): string {
-  return maxNewTokens === 0
-    ? "executed_steps = 0 because max_new_tokens = 0"
-    : `executed_steps = first s in 0..${maxNewTokens - 1} with stop_after_step[s] == true, mapped to s+1; otherwise ${maxNewTokens}`;
+function instantiateFormula(formula: string, step: number | undefined, maxNewTokens: number): string {
+  if (formula.startsWith("executed_steps = max_new_tokens==0")) {
+    return maxNewTokens === 0
+      ? "executed_steps = 0 because max_new_tokens = 0"
+      : `executed_steps = first s in 0..${maxNewTokens - 1} with stop_after_step[s] == true, mapped to s+1; otherwise ${maxNewTokens}`;
+  }
+  let instantiated = formula.replaceAll("max_new_tokens", String(maxNewTokens));
+  if (step === undefined) return instantiated;
+  instantiated = instantiated
+    .replaceAll("[step+1]", `[${step + 1}]`)
+    .replaceAll("[step-1]", `[${step - 1}]`)
+    .replaceAll("[0..step-1]", step === 0 ? "[]" : `[0..${step - 1}]`)
+    .replaceAll("[0..step]", `[0..${step}]`)
+    .replaceAll("[step]", `[${step}]`)
+    .replaceAll("step==0", `${step}==0`);
+  return instantiated;
 }
 
 function validateMaxNewTokens(value: number): void {

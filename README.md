@@ -305,6 +305,19 @@ endereçável em todas as definições compatíveis sem inventar soma ascendente
 A regeneração, cobertura source-removed e diferenciais de modalidade estão em
 [`docs/validation/gemma4-e4b-source-removed-scalar-calculations-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-scalar-calculations-2026-07-18.md).
 
+O schema v6 estende o mesmo limite para geração. `generation.forwardCalculation`
+serializa a ordem instanciada completa do forward e uma transição KV por camada,
+distinguindo produtores de consumidores que reutilizam o cache do produtor. As
+12 classes de controle greedy possuem fórmulas em
+`generation.scalarCalculations`; a navegação source-removed lê essas fórmulas
+do JSON e rejeita qualquer divergência entre a ordem serializada e as operações
+navegáveis. Prefill e decode incremental referenciam explicitamente os logits
+nomeados e as transições BHSD de append/reuse, sem uma chamada
+`declared_*_forward` ou `generic_decoder` reconstruída pelo leitor.
+A regeneração real, a navegação source-removed, as transições KV e os
+diferenciais estão em
+[`docs/validation/gemma4-e4b-source-removed-generation-calculations-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-generation-calculations-2026-07-18.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 

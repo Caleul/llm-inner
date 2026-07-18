@@ -181,7 +181,7 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.equal(literal.storageDecoders.length, catalog.tensors.size);
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 5);
+  assert.equal(literal.schemaVersion, 6);
   const expectedDomainCount = literal.assignments.composite.length + literal.assignments.vision.length + literal.assignments.audio.length +
     literal.program.textProgram.prelude.length + literal.program.textProgram.layers.reduce((total, layer) => total + layer.operations.length, 0) + literal.assignments.textEpilogue.length;
   assert.equal(literal.calculationDomains.assignments.length, expectedDomainCount);
@@ -245,6 +245,24 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     "generation_incremental_forward", "generation_cache_append", "generation_eos_stop",
     "generation_terminal_logits", "generation_terminal_cache",
   ]);
+  assert.equal(literal.generation.scalarCalculations.assignments.length, literal.generation.assignments.length);
+  assert.deepEqual(
+    literal.generation.scalarCalculations.assignments.map((calculation) => calculation.definitionId),
+    literal.generation.assignments.map((assignment) => assignment.id),
+  );
+  assert.equal(literal.generation.forwardCalculation.operationOrder.length, 224);
+  assert.equal(literal.generation.forwardCalculation.operationOrder[0]?.operationId, "composite_placeholder_masks");
+  assert.equal(literal.generation.forwardCalculation.operationOrder.at(-1)?.operationId, literal.generation.forwardProgram.lastAssignment);
+  assert.deepEqual(literal.generation.forwardCalculation.cacheTransitions.map((transition) => transition.layer), [0, 1]);
+  assert.ok(literal.generation.forwardCalculation.cacheTransitions.every((transition) =>
+    transition.ownership === "producer" && transition.producerLayer === transition.layer));
+  assert.match(literal.generation.forwardCalculation.cacheTransitions[0]!.incremental, /concat\(previous_past_key_values\[0\]\.key/);
+  assert.match(literal.generation.forwardCalculation.cacheTransitions[1]!.incremental, /concat\(previous_past_key_values\[1\]\.key/);
+  const serializedIncrementalForward = literal.generation.scalarCalculations.assignments.find((calculation) =>
+    calculation.definitionId === "generation_incremental_forward")!;
+  assert.equal(serializedIncrementalForward.forwardExpansionReference, "generation.forwardCalculation.operationOrder");
+  assert.equal(serializedIncrementalForward.cacheTransitionReference, "generation.forwardCalculation.cacheTransitions");
+  assert.doesNotMatch(serializedIncrementalForward.formula, /declared_cached_incremental_forward|generic_decoder/);
   assert.match(literal.generation.assignments.find((assignment) => assignment.id === "generation_argmax")!.semantics, /lowest token ID/);
   assert.match(literal.generation.assignments.find((assignment) => assignment.id === "generation_incremental_inputs")!.semantics, /Omit attention_mask, mm_token_type_ids/);
   assert.match(literal.generation.assignments.find((assignment) => assignment.id === "generation_eos_stop")!.semantics, /After incremental logits and cache exist/);
@@ -299,6 +317,13 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   alteredCalculation.reduction!.order = "ascending-lexicographic";
   delete alteredCalculation.reduction!.schedule;
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(alteredReduction), /fórmulas, casts ou reduções escalares/);
+  const opaqueGeneration = structuredClone(literal);
+  opaqueGeneration.generation.scalarCalculations.assignments.find((calculation) =>
+    calculation.definitionId === "generation_prefill")!.formula = "forward_state[0] = generic_decoder(input_ids)";
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(opaqueGeneration), /transições de geração greedy incompletas/);
+  const missingCacheTransition = structuredClone(literal);
+  missingCacheTransition.generation.forwardCalculation.cacheTransitions.pop();
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(missingCacheTransition), /transições de geração greedy incompletas/);
   assert.throws(
     () => generateGemma4CompositeLiteralF32(literal, { inputIds: [[1]], maxNewTokens: 1, pastKeyValues: expected.text.pastKeyValues }),
     /começa em prefill sem pastKeyValues/,
@@ -934,7 +959,10 @@ test("Gemma 4 paged text interpreter replays prefill and cached greedy decode fr
       const incrementalView = renderGemma4LiteralGenerationCalculationView(artifact, 2, "generation_incremental_forward[1]");
       assert.equal(incrementalView.forwardExpansion?.mode, "cached-incremental");
       assert.equal(incrementalView.declaredForwardOperations?.length, generationPlan.declaredForwardOperations.length);
-      assert.ok(incrementalView.formula.includes("embedded_constants"));
+      assert.ok(incrementalView.formula.includes("declared_incremental_cache_outputs"));
+      assert.ok(incrementalView.scalarAssignments.some((formula) => formula.includes("generation.forwardCalculation.operationOrder")));
+      assert.ok(incrementalView.scalarAssignments.some((formula) => formula.includes("generation.forwardCalculation.cacheTransitions")));
+      assert.doesNotMatch(incrementalView.formula, /declared_cached_incremental_forward|generic_decoder/);
       const zeroNavigation = buildGemma4LiteralGenerationNavigation(artifact, 0);
       assert.deepEqual(zeroNavigation.operations.map((entry) => entry.operationId), [
         "generation_prefill", "generation_initial_position", "generation_terminal_logits", "generation_terminal_cache",
