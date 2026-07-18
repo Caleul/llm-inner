@@ -1,4 +1,5 @@
 import { open, stat, type FileHandle } from "node:fs/promises";
+import { isDeepStrictEqual } from "node:util";
 import type {
   Gemma4CompositeLiteralCalculationProgram,
   Gemma4CompositeLiteralInput,
@@ -7,7 +8,7 @@ import type {
   Gemma4CompositeUnreachableConstant,
 } from "./gemma4-composite-literal.js";
 import { validateGemma4CompositeLiteralInputs, validateGemma4CompositeLiteralNumericPolicy, validateGemma4CompositeLiteralStructure } from "./gemma4-composite-literal.js";
-import type { LiteralConstant, LiteralDenseStorageDecodeAssignment, LiteralTensorReader } from "./literal.js";
+import { buildLiteralDenseStorageDecodeAssignment, type LiteralConstant, type LiteralDenseStorageDecodeAssignment, type LiteralTensorReader } from "./literal.js";
 import type { Gemma4CompositeProgram } from "./gemma4-composite.js";
 import { validateGemma4LiteralCalculationDomains, type Gemma4LiteralCalculationDomains } from "./gemma4-literal-domains.js";
 import {
@@ -54,7 +55,7 @@ export interface IndexedLiteralConstant extends Omit<LiteralConstant, "payloadBa
  * fields, so opening a 20 GiB artifact does not build a 20 GiB V8 object.
  */
 export interface Gemma4CompositeLiteralArtifactIndex {
-  schemaVersion: 11;
+  schemaVersion: 12;
   artifact: string;
   artifactBytes: number;
   sourceIdentity: Gemma4LiteralSourceIdentity;
@@ -196,7 +197,7 @@ function buildIndex(
     ? undefined
     : validatePayloadIntegrity(tail.payloadIntegrity, constants);
   return {
-    schemaVersion: 11,
+    schemaVersion: 12,
     artifact,
     artifactBytes,
     sourceIdentity: structuredClone(header.sourceIdentity as Gemma4LiteralSourceIdentity),
@@ -254,7 +255,7 @@ function assertHeader(header: Partial<Gemma4CompositeLiteralCalculationProgram>)
       policy.scalarSemantics === "IEEE-754 binary32; each operation declares ordered-scalar, contiguous blocked-term, separately-rounded F32-lane, or fused-multiply-add reduction and its F32 or BF16 result cast" ||
       policy.scalarSemantics === "IEEE-754 binary32 products; each operation declares its ordered-scalar, contiguous blocked-term, blocked tiled-lane, or interleaved-lane F32/F64 reduction and F32 or BF16 result cast" ||
       policy.scalarSemantics === "IEEE-754 binary32; each operation declares ordered-scalar, contiguous blocked-term, blocked tiled-lane, separately-rounded F32-lane, or fused-multiply-add reduction and its F32 or BF16 result cast");
-  if (header.schemaVersion !== 11 || header.kind !== "gemma4-composite-literal-calculation-program" || header.sourceFormat !== "safetensors" ||
+  if (header.schemaVersion !== 12 || header.kind !== "gemma4-composite-literal-calculation-program" || header.sourceFormat !== "safetensors" ||
     !header.sourceIdentity || !Array.isArray(header.inputs) || !policy || (!f32 && !operationDeclared && !operationAccumulationDeclared)) {
     throw new Error("Artefato literal Gemma 4 possui cabeçalho ou política numérica inválida.");
   }
@@ -272,10 +273,7 @@ function assertDenseConstant(constant: IndexedLiteralConstant): void {
 
 function assertDenseDecoder(decoder: LiteralDenseStorageDecodeAssignment, constants: ReadonlyMap<string, IndexedLiteralConstant>): void {
   const constant = constants.get(decoder.output);
-  const operation = constant?.storageDtype === "F32" ? "ieee-f32-little-endian" : constant?.storageDtype === "F16" ? "ieee-f16-to-f32" : "ieee-bf16-to-f32";
-  if (!constant || decoder.id !== `decode_${constant.name}` || decoder.input !== `${constant.name}:storage` || decoder.operation !== operation ||
-    decoder.storageDtype !== constant.storageDtype || decoder.outputDtype !== "F32" || decoder.byteOrder !== "little-endian" ||
-    decoder.semantics !== "exact IEEE-754 storage decode; no arithmetic narrowing") {
+  if (!constant || !isDeepStrictEqual(decoder, buildLiteralDenseStorageDecodeAssignment(constant))) {
     throw new Error(`${decoder.id}: decoder denso do artefato literal não corresponde à constante declarada.`);
   }
 }

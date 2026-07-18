@@ -72,7 +72,7 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
       coordinateOrder: "row-major lexicographic over the complete declared output domain; preview windows never change evaluation",
       inputBinding: "bind orderedInputs positionally at each instantiated call site before evaluating the indexed formula",
       numericTokenBinding: "resolve every decimal or named mathematical token through numericLiterals and select bits by its surrounding F64/F32/BF16 cast",
-      learnedValueBinding: "evaluate learnedOperands.logicalIndices with its embedded integer-expression AST, then resolve decode(role)[indices] through the matching storageDecoder and embedded constant",
+      learnedValueBinding: "evaluate learnedOperands.logicalIndices with its embedded integer-expression AST, then execute the matching storageDecoder address and decode programs over the embedded constant bytes",
       generationOrder: "evaluate generation scalarAssignments in array order and iterations in ascending step order until the declared stop predicate",
       invalidOperation: "fail closed before producing an output; never infer a default, host reduction, tensor layout, cast, or missing intrinsic",
     },
@@ -105,7 +105,7 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
       multipleDomains: "nested REDUCE domains execute left-to-right as written; a schedule attached to the assignment overrides only the reduction indices named beside it",
     },
     intrinsics: [
-      { notation: "decode(role)[indices]", semantics: "resolve role through the current learnedOperands binding; evaluate its gemma4-learned-index-expression-v1 AST, validate every tensor bound, compute the row-major offset and apply the matching exact storageDecoder to embedded bytes" },
+      { notation: "decode(role)[indices]", semantics: "resolve role through the current learnedOperands binding; evaluate its gemma4-learned-index-expression-v1 AST, then execute storageDecoder.address for the exact byte range and storageDecoder.decode for the exact F32 result bits" },
       { notation: "REDUCE(index-domain, expression)", semantics: "evaluate the complete domain using the assignment reduction declaration; absence of a reduction schedule means ascending lexicographic order" },
       { notation: "F32_FMA(acc,a,b)", semantics: "compute exact a*b+acc then round once to IEEE binary32" },
       { notation: "min, max, floor", semantics: "IEEE minimum/maximum over materialized operands and mathematical floor; NaN is invalid unless an assignment explicitly permits it" },

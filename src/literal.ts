@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import { executeReferenceF32, generateReferenceF32 } from "./executor.js";
 import { adaptGgufDecoderCatalog } from "./gguf-llama.js";
 import { decodeIeeeBF16ToF32, decodeIeeeF16ToF32, roundF32ToBF16 } from "./utils.js";
@@ -67,7 +68,222 @@ export interface LiteralDenseStorageDecodeAssignment {
   storageDtype: LiteralDenseStorageDtype;
   outputDtype: "F32";
   byteOrder: "little-endian";
+  /** Complete logical-index to payload-byte mapping; no reader-owned stride inference is permitted. */
+  address: LiteralDenseElementAddressProgram;
+  /** Bit-level storage conversion sufficient to reproduce the exact F32 result bits. */
+  decode: LiteralDenseIeeeDecodeProgram;
   semantics: "exact IEEE-754 storage decode; no arithmetic narrowing";
+}
+
+export interface LiteralDenseElementAddressProgram {
+  kind: "row-major-dense-element-address";
+  schemaVersion: 1;
+  logicalShape: number[];
+  stridesElements: number[];
+  indexDomains: Array<{ axis: number; minInclusive: 0; endExclusive: number }>;
+  elementBytes: 2 | 4;
+  arithmetic: "exact-non-negative-safe-integer";
+  elementOffset: "sum(indices[axis] * stridesElements[axis]) in ascending axis order";
+  byteOffset: "elementOffset * elementBytes";
+  byteLength: "elementBytes";
+}
+
+export type LiteralDenseIeeeDecodeProgram =
+  | {
+    kind: "ieee-binary32-bitcast";
+    schemaVersion: 1;
+    read: "uint32-little-endian";
+    resultBits: "sourceBits";
+  }
+  | {
+    kind: "ieee-bfloat16-expand";
+    schemaVersion: 1;
+    read: "uint16-little-endian";
+    resultBits: "sourceBits << 16";
+  }
+  | {
+    kind: "ieee-binary16-expand";
+    schemaVersion: 1;
+    read: "uint16-little-endian";
+    fields: {
+      signMask: 0x8000;
+      signShift: 15;
+      exponentMask: 0x7c00;
+      exponentShift: 10;
+      fractionMask: 0x03ff;
+    };
+    extraction: {
+      sign: "(sourceBits & signMask) >> signShift";
+      exponent: "(sourceBits & exponentMask) >> exponentShift";
+      fraction: "sourceBits & fractionMask";
+    };
+    normal: {
+      predicate: "0 < exponent < 31";
+      resultBits: "(sign << 31) | ((exponent + 112) << 23) | (fraction << 13)";
+    };
+    zero: {
+      predicate: "exponent == 0 && fraction == 0";
+      resultBits: "sign << 31";
+    };
+    subnormal: {
+      predicate: "exponent == 0 && fraction != 0";
+      normalization: "left-shift fraction until bit 10 is one; shiftCount starts at zero";
+      resultBits: "(sign << 31) | ((113 - shiftCount) << 23) | ((normalizedFraction & 0x03ff) << 13)";
+    };
+    infinityOrNaN: {
+      predicate: "exponent == 31";
+      resultBits: "(sign << 31) | 0x7f800000 | (fraction << 13)";
+    };
+  };
+
+export interface LiteralDenseElementAddress {
+  elementOffset: number;
+  byteOffset: number;
+  byteLength: 2 | 4;
+}
+
+export interface LiteralDenseDecodedElement {
+  sourceBits: number;
+  sourceBitsHex: string;
+  decodedF32Bits: number;
+  decodedF32BitsHex: string;
+  decodedF32: number;
+}
+
+type LiteralDenseDecoderConstant = Pick<
+  LiteralConstant,
+  "name" | "storageDtype" | "storageShape" | "logicalShape" | "layout" | "byteOrder" | "quantization"
+>;
+
+/** Builds the complete dense address and IEEE conversion program serialized beside one payload. */
+export function buildLiteralDenseStorageDecodeAssignment(
+  constant: LiteralDenseDecoderConstant,
+): LiteralDenseStorageDecodeAssignment {
+  if (constant.quantization || !isSupportedDenseStorageDtype(constant.storageDtype) ||
+    constant.layout !== "row-major" || constant.byteOrder !== "little-endian" ||
+    !sameShape(constant.storageShape, constant.logicalShape) || !validLiteralStorageShape(constant.logicalShape)) {
+    throw new Error(`${constant.name}: decoder denso requer storage IEEE row-major não quantizado.`);
+  }
+  const elementBytes: 2 | 4 = constant.storageDtype === "F32" ? 4 : 2;
+  const stridesElements = new Array<number>(constant.logicalShape.length);
+  let stride = 1;
+  for (let axis = constant.logicalShape.length - 1; axis >= 0; axis -= 1) {
+    stridesElements[axis] = stride;
+    const next = stride * constant.logicalShape[axis]!;
+    if (!Number.isSafeInteger(next)) throw new Error(`${constant.name}: strides densos excedem inteiros seguros.`);
+    stride = next;
+  }
+  return {
+    id: `decode_${constant.name}`,
+    operation: decodeOperationFor(constant.storageDtype),
+    input: `${constant.name}:storage`,
+    output: constant.name,
+    storageDtype: constant.storageDtype,
+    outputDtype: "F32",
+    byteOrder: "little-endian",
+    address: {
+      kind: "row-major-dense-element-address",
+      schemaVersion: 1,
+      logicalShape: [...constant.logicalShape],
+      stridesElements,
+      indexDomains: constant.logicalShape.map((endExclusive, axis) => ({ axis, minInclusive: 0 as const, endExclusive })),
+      elementBytes,
+      arithmetic: "exact-non-negative-safe-integer",
+      elementOffset: "sum(indices[axis] * stridesElements[axis]) in ascending axis order",
+      byteOffset: "elementOffset * elementBytes",
+      byteLength: "elementBytes",
+    },
+    decode: denseIeeeDecodeProgram(constant.storageDtype),
+    semantics: "exact IEEE-754 storage decode; no arithmetic narrowing",
+  };
+}
+
+/** Evaluates only the serialized address program and rejects any missing, unsafe or out-of-domain index. */
+export function evaluateLiteralDenseElementAddress(
+  decoder: LiteralDenseStorageDecodeAssignment,
+  indices: readonly number[],
+): LiteralDenseElementAddress {
+  const address = decoder.address;
+  if (address.kind !== "row-major-dense-element-address" || address.schemaVersion !== 1 ||
+    address.arithmetic !== "exact-non-negative-safe-integer" ||
+    address.elementOffset !== "sum(indices[axis] * stridesElements[axis]) in ascending axis order" ||
+    address.byteOffset !== "elementOffset * elementBytes" || address.byteLength !== "elementBytes" ||
+    indices.length !== address.logicalShape.length || address.stridesElements.length !== address.logicalShape.length ||
+    address.indexDomains.length !== address.logicalShape.length) {
+    throw new Error(`${decoder.id}: programa de endereço denso inválido.`);
+  }
+  let expectedStride = 1;
+  for (let axis = address.logicalShape.length - 1; axis >= 0; axis -= 1) {
+    if (address.stridesElements[axis] !== expectedStride) {
+      throw new Error(`${decoder.id}: stride row-major inválido no eixo ${axis}.`);
+    }
+    expectedStride *= address.logicalShape[axis]!;
+    if (!Number.isSafeInteger(expectedStride)) throw new Error(`${decoder.output}: shape denso excede inteiros seguros.`);
+  }
+  let elementOffset = 0;
+  for (let axis = 0; axis < indices.length; axis += 1) {
+    const index = indices[axis]!;
+    const dimension = address.logicalShape[axis]!;
+    const stride = address.stridesElements[axis]!;
+    const domain = address.indexDomains[axis];
+    if (!domain || domain.axis !== axis || domain.minInclusive !== 0 || domain.endExclusive !== dimension ||
+      !Number.isSafeInteger(index) || index < 0 || index >= dimension || !Number.isSafeInteger(stride) || stride <= 0) {
+      throw new Error(`${decoder.output}: índice ${index} fora do eixo ${axis} de tamanho ${dimension}.`);
+    }
+    const term = index * stride;
+    elementOffset += term;
+    if (!Number.isSafeInteger(term) || !Number.isSafeInteger(elementOffset)) {
+      throw new Error(`${decoder.output}: offset denso excede inteiros seguros.`);
+    }
+  }
+  const byteOffset = elementOffset * address.elementBytes;
+  if (!Number.isSafeInteger(byteOffset)) throw new Error(`${decoder.output}: byte offset denso excede inteiros seguros.`);
+  return { elementOffset, byteOffset, byteLength: address.elementBytes };
+}
+
+/** Executes the decoder's embedded bit program for one already-addressed storage element. */
+export function decodeLiteralDenseElementF32(
+  decoder: LiteralDenseStorageDecodeAssignment,
+  bytes: Buffer,
+): LiteralDenseDecodedElement {
+  if (bytes.length !== decoder.address.elementBytes) {
+    throw new Error(`${decoder.id}: elemento denso possui ${bytes.length} bytes; esperados ${decoder.address.elementBytes}.`);
+  }
+  const sourceBits = bytes.length === 4 ? bytes.readUInt32LE(0) : bytes.readUInt16LE(0);
+  let decodedF32: number;
+  let decodedF32Bits: number;
+  switch (decoder.decode.kind) {
+    case "ieee-binary32-bitcast":
+      if (decoder.operation !== "ieee-f32-little-endian" || decoder.decode.schemaVersion !== 1 ||
+        decoder.decode.read !== "uint32-little-endian" || decoder.decode.resultBits !== "sourceBits" || bytes.length !== 4) {
+        throw new Error(`${decoder.id}: programa binary32 incompatível.`);
+      }
+      decodedF32 = bytes.readFloatLE(0);
+      decodedF32Bits = sourceBits;
+      break;
+    case "ieee-bfloat16-expand":
+      if (decoder.operation !== "ieee-bf16-to-f32" || decoder.decode.schemaVersion !== 1 ||
+        decoder.decode.read !== "uint16-little-endian" || decoder.decode.resultBits !== "sourceBits << 16" || bytes.length !== 2) {
+        throw new Error(`${decoder.id}: programa bfloat16 incompatível.`);
+      }
+      decodedF32 = decodeIeeeBF16ToF32(sourceBits);
+      decodedF32Bits = (sourceBits << 16) >>> 0;
+      break;
+    case "ieee-binary16-expand":
+      if (decoder.operation !== "ieee-f16-to-f32" || !sameBinary16DecodeProgram(decoder.decode) || bytes.length !== 2) {
+        throw new Error(`${decoder.id}: programa binary16 incompatível.`);
+      }
+      decodedF32 = decodeIeeeF16ToF32(sourceBits);
+      decodedF32Bits = ieeeF16ToF32Bits(sourceBits);
+      break;
+  }
+  return {
+    sourceBits,
+    sourceBitsHex: `0x${sourceBits.toString(16).padStart(bytes.length * 2, "0")}`,
+    decodedF32Bits,
+    decodedF32BitsHex: `0x${decodedF32Bits.toString(16).padStart(8, "0")}`,
+    decodedF32,
+  };
 }
 
 /**
@@ -443,8 +659,11 @@ function decodeDenseConstantsAsF32(program: LiteralCalculationProgram): Readonly
       const elements = product(constant.logicalShape);
       const values = new Float32Array(elements);
       for (let index = 0; index < elements; index += 1) {
-        const offset = index * storageByteWidth(constant.storageDtype);
-        values[index] = decodeStoredValueAsF32(bytes, offset, decoder.operation);
+        const offset = index * decoder.address.elementBytes;
+        values[index] = decodeLiteralDenseElementF32(
+          decoder,
+          bytes.subarray(offset, offset + decoder.address.elementBytes),
+        ).decodedF32;
       }
       decoded.set(decoder.output, { shape: [...constant.logicalShape], values });
     }
@@ -639,10 +858,8 @@ function mlxAffineStorageDecoder(
 }
 
 function validateDenseStorageDecoder(decoder: LiteralDenseStorageDecodeAssignment, constant: LiteralConstant): void {
-  if (constant.quantization || !isSupportedDenseStorageDtype(constant.storageDtype) || decoder.id !== `decode_${constant.name}` ||
-    decoder.input !== `${constant.name}:storage` || decoder.operation !== decodeOperationFor(constant.storageDtype) ||
-    decoder.storageDtype !== constant.storageDtype || decoder.outputDtype !== "F32" || decoder.byteOrder !== "little-endian" ||
-    decoder.semantics !== "exact IEEE-754 storage decode; no arithmetic narrowing") {
+  const expected = buildLiteralDenseStorageDecodeAssignment(constant);
+  if (!isDeepStrictEqual(decoder, expected)) {
     throw new Error(`${decoder.id}: decoder de storage literal não corresponde à constante declarada.`);
   }
 }
@@ -764,16 +981,62 @@ function storageDecoder(constant: LiteralConstant, constants: ReadonlyMap<string
     return mlxAffineStorageDecoder(constant, constants);
   }
   if (!isSupportedDenseStorageDtype(constant.storageDtype)) throw new Error(`${constant.name}: constante densa literal não possui dtype IEEE suportado.`);
+  return buildLiteralDenseStorageDecodeAssignment(constant);
+}
+
+function denseIeeeDecodeProgram(dtype: LiteralDenseStorageDtype): LiteralDenseIeeeDecodeProgram {
+  if (dtype === "F32") {
+    return { kind: "ieee-binary32-bitcast", schemaVersion: 1, read: "uint32-little-endian", resultBits: "sourceBits" };
+  }
+  if (dtype === "BF16") {
+    return { kind: "ieee-bfloat16-expand", schemaVersion: 1, read: "uint16-little-endian", resultBits: "sourceBits << 16" };
+  }
   return {
-    id: `decode_${constant.name}`,
-    operation: decodeOperationFor(constant.storageDtype),
-    input: `${constant.name}:storage`,
-    output: constant.name,
-    storageDtype: constant.storageDtype,
-    outputDtype: "F32",
-    byteOrder: "little-endian",
-    semantics: "exact IEEE-754 storage decode; no arithmetic narrowing",
+    kind: "ieee-binary16-expand",
+    schemaVersion: 1,
+    read: "uint16-little-endian",
+    fields: { signMask: 0x8000, signShift: 15, exponentMask: 0x7c00, exponentShift: 10, fractionMask: 0x03ff },
+    extraction: {
+      sign: "(sourceBits & signMask) >> signShift",
+      exponent: "(sourceBits & exponentMask) >> exponentShift",
+      fraction: "sourceBits & fractionMask",
+    },
+    normal: {
+      predicate: "0 < exponent < 31",
+      resultBits: "(sign << 31) | ((exponent + 112) << 23) | (fraction << 13)",
+    },
+    zero: { predicate: "exponent == 0 && fraction == 0", resultBits: "sign << 31" },
+    subnormal: {
+      predicate: "exponent == 0 && fraction != 0",
+      normalization: "left-shift fraction until bit 10 is one; shiftCount starts at zero",
+      resultBits: "(sign << 31) | ((113 - shiftCount) << 23) | ((normalizedFraction & 0x03ff) << 13)",
+    },
+    infinityOrNaN: {
+      predicate: "exponent == 31",
+      resultBits: "(sign << 31) | 0x7f800000 | (fraction << 13)",
+    },
   };
+}
+
+function sameBinary16DecodeProgram(program: Extract<LiteralDenseIeeeDecodeProgram, { kind: "ieee-binary16-expand" }>): boolean {
+  const expected = denseIeeeDecodeProgram("F16") as Extract<LiteralDenseIeeeDecodeProgram, { kind: "ieee-binary16-expand" }>;
+  return isDeepStrictEqual(program, expected);
+}
+
+function ieeeF16ToF32Bits(sourceBits: number): number {
+  const sign = (sourceBits >>> 15) & 1;
+  const exponent = (sourceBits >>> 10) & 0x1f;
+  const fraction = sourceBits & 0x03ff;
+  if (exponent === 0x1f) return ((sign << 31) | 0x7f800000 | (fraction << 13)) >>> 0;
+  if (exponent !== 0) return ((sign << 31) | ((exponent + 112) << 23) | (fraction << 13)) >>> 0;
+  if (fraction === 0) return (sign << 31) >>> 0;
+  let normalizedFraction = fraction;
+  let shiftCount = 0;
+  while ((normalizedFraction & 0x0400) === 0) {
+    normalizedFraction <<= 1;
+    shiftCount += 1;
+  }
+  return ((sign << 31) | ((113 - shiftCount) << 23) | ((normalizedFraction & 0x03ff) << 13)) >>> 0;
 }
 
 function ggmlQ8_0StorageDecoder(constant: LiteralConstant): LiteralGgmlQ8_0StorageDecodeAssignment {

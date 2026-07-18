@@ -18,6 +18,7 @@ export interface Gemma4LiteralRuntimeUnreachableStorage {
   payloadBytes: number;
   decoderId: string;
   decoderOperation: LiteralDenseStorageDecodeAssignment["operation"];
+  decoder: LiteralDenseStorageDecodeAssignment;
   reason: Gemma4CompositeUnreachableConstant["reason"];
   producerLayer: number;
 }
@@ -132,6 +133,7 @@ function runtimeUnreachableStorage(
       payloadBytes: constant.payloadBytes,
       decoderId: decoder.id,
       decoderOperation: decoder.operation,
+      decoder: structuredClone(decoder),
       reason: declaration.reason,
       producerLayer: declaration.producerLayer,
     });

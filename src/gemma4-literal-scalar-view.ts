@@ -1,5 +1,9 @@
 import type { OpenGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
-import type { LiteralDenseStorageDecodeAssignment } from "./literal.js";
+import {
+  decodeLiteralDenseElementF32,
+  evaluateLiteralDenseElementAddress,
+  type LiteralDenseStorageDecodeAssignment,
+} from "./literal.js";
 import type { DtypePolicy, Operation, ReductionSchedule, TensorRef } from "./types.js";
 import type { Gemma4LiteralValueDomain } from "./gemma4-literal-domains.js";
 import {
@@ -13,7 +17,6 @@ import {
   requiredGemma4LiteralScalarCalculation,
   type Gemma4LiteralScalarCalculation,
 } from "./gemma4-literal-scalar-calculations.js";
-import { decodeIeeeBF16ToF32, decodeIeeeF16ToF32 } from "./utils.js";
 
 export interface Gemma4LiteralOperationNavigation {
   operationId: string;
@@ -41,8 +44,11 @@ export interface Gemma4LiteralLearnedScalar {
   tensor: string;
   indices: number[];
   rowMajorIndex: number;
+  storageByteOffset: number;
+  storageElementBytes: 2 | 4;
   storageDtype: "F32" | "F16" | "BF16";
   storageBitsHex: string;
+  decodedF32BitsHex: string;
   decodedF32: number;
   literal: string;
   decoderId: string;
@@ -344,31 +350,25 @@ export async function readGemma4LiteralLearnedScalar(
   if (constant.quantization || constant.layout !== "row-major" || !sameShape(constant.logicalShape, reference.shape) || !sameShape(constant.storageShape, reference.shape) || indices.length !== reference.shape.length) {
     throw new Error(`${reference.name}: vista escalar exige storage denso row-major com shape idêntico.`);
   }
-  let rowMajorIndex = 0;
-  for (let axis = 0; axis < indices.length; axis += 1) {
-    const index = indices[axis]!, dimension = reference.shape[axis]!;
-    if (!Number.isSafeInteger(index) || index < 0 || index >= dimension) throw new Error(`${reference.name}: índice ${index} fora do eixo ${axis} de tamanho ${dimension}.`);
-    rowMajorIndex = rowMajorIndex * dimension + index;
-  }
-  const byteWidth = constant.storageDtype === "F32" ? 4 : constant.storageDtype === "F16" || constant.storageDtype === "BF16" ? 2 : 0;
-  if (byteWidth === 0) throw new Error(`${reference.name}: dtype denso não suportado na vista escalar: ${constant.storageDtype}.`);
+  const address = evaluateLiteralDenseElementAddress(decoder, indices);
   const bytes = await artifact.readTensorBytesRange({
     name: constant.name,
     storageDtype: constant.storageDtype as "F32" | "F16" | "BF16",
     storageShape: constant.storageShape,
     logicalShape: constant.logicalShape,
-  }, rowMajorIndex * byteWidth, byteWidth);
-  if (bytes.length !== byteWidth) throw new Error(`${reference.name}: leitura escalar retornou ${bytes.length} bytes; esperados ${byteWidth}.`);
-  const bits = byteWidth === 4 ? bytes.readUInt32LE(0) : bytes.readUInt16LE(0);
-  const decodedF32 = constant.storageDtype === "F32" ? bytes.readFloatLE(0)
-    : constant.storageDtype === "F16" ? decodeIeeeF16ToF32(bits) : decodeIeeeBF16ToF32(bits);
+  }, address.byteOffset, address.byteLength);
+  const decoded = decodeLiteralDenseElementF32(decoder, bytes);
+  const decodedF32 = decoded.decodedF32;
   if (!Number.isFinite(decodedF32)) throw new Error(`${reference.name}: scalar não finito em [${indices.join(",")}].`);
   return {
     tensor: reference.name,
     indices: [...indices],
-    rowMajorIndex,
+    rowMajorIndex: address.elementOffset,
+    storageByteOffset: address.byteOffset,
+    storageElementBytes: address.byteLength,
     storageDtype: constant.storageDtype as "F32" | "F16" | "BF16",
-    storageBitsHex: `0x${bits.toString(16).padStart(byteWidth * 2, "0")}`,
+    storageBitsHex: decoded.sourceBitsHex,
+    decodedF32BitsHex: decoded.decodedF32BitsHex,
     decodedF32,
     literal: literal(decodedF32),
     decoderId: decoder.id,

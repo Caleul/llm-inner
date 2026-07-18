@@ -142,6 +142,16 @@ avaliador deve resolver a AST, validar cada dimensão contra o shape lógico e
 só então aplicar o decoder e o offset row-major. Um binding ausente, overflow,
 divisor não positivo ou índice fora do tensor é erro antes de qualquer leitura.
 
+No schema v12, o decoder não deixa ao leitor a conversão desse índice em bytes.
+`storageDecoder.address` declara o shape lógico, os strides elementares
+row-major, o domínio de cada eixo, a largura do elemento e as equações de
+element/byte offset. `storageDecoder.decode` declara a leitura little-endian e
+a transformação exata dos bits de F32, BF16 ou F16 nos bits F32. Para F16, os
+quatro casos zero, subnormal, normal e infinito/NaN, suas máscaras e a
+normalização da fração fazem parte do JSON. A substituição deve executar esses
+programas incorporados; recalcular strides ou selecionar uma conversão apenas
+pelo nome do dtype é comportamento externo proibido.
+
 Quando a autoridade disponível prova a equação, mas não a árvore de uma
 redução nativa, a fórmula preserva o domínio matemático completo e a entrada
 declara `reproducibility=fail-closed-runtime-reduction` com

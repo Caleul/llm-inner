@@ -24,6 +24,7 @@ export interface Gemma4LiteralCalculationSliceLearnedConstant {
   tensor: TensorRef;
   decoderId: string;
   decoderOperation: LiteralDenseStorageDecodeAssignment["operation"];
+  decoder: LiteralDenseStorageDecodeAssignment;
   consumers: Gemma4LiteralCalculationSliceLearnedConsumer[];
 }
 
@@ -120,6 +121,7 @@ export function buildGemma4LiteralCalculationSlice(
       tensor: structuredClone(operand.tensor),
       decoderId: operand.decoderId,
       decoderOperation: decoder.operation,
+      decoder: structuredClone(decoder),
       consumers: [],
     };
     constant.consumers.push({

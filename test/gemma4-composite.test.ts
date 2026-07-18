@@ -36,6 +36,11 @@ import { validateGemma4CompositeTraceOptions } from "../src/gemma4-transformers-
 import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearF32 } from "../src/paged-dense.js";
 import { fingerprintIR } from "../src/trace.js";
 import { auditLiteralArtifact } from "../src/literal-artifact-audit.js";
+import {
+  buildLiteralDenseStorageDecodeAssignment,
+  decodeLiteralDenseElementF32,
+  evaluateLiteralDenseElementAddress,
+} from "../src/literal.js";
 import type { DenseF32Tensor, ModelCatalog, TensorInfo } from "../src/types.js";
 
 const preview = { outputRows: 1, inputTerms: 1, includeWeights: false } as const;
@@ -56,6 +61,56 @@ const fixtureSourceIdentity = (): Gemma4LiteralSourceIdentity => ({
       content: { storage: "embedded-tensor-constants", mapping: "safetensors-header-ranges-to-named-constants" },
     },
   ],
+});
+
+test("dense literal decoders execute serialized row-major addresses and IEEE bit programs", () => {
+  const metadata = (storageDtype: "F32" | "F16" | "BF16") => ({
+    name: `tensor_${storageDtype.toLowerCase()}`,
+    storageDtype,
+    storageShape: [2, 3],
+    logicalShape: [2, 3],
+    layout: "row-major" as const,
+    byteOrder: "little-endian" as const,
+  });
+  const f32 = buildLiteralDenseStorageDecodeAssignment(metadata("F32"));
+  assert.deepEqual(f32.address.stridesElements, [3, 1]);
+  assert.deepEqual(evaluateLiteralDenseElementAddress(f32, [1, 2]), {
+    elementOffset: 5, byteOffset: 20, byteLength: 4,
+  });
+  const oneF32 = Buffer.alloc(4); oneF32.writeUInt32LE(0x3f800000);
+  assert.deepEqual(decodeLiteralDenseElementF32(f32, oneF32), {
+    sourceBits: 0x3f800000, sourceBitsHex: "0x3f800000",
+    decodedF32Bits: 0x3f800000, decodedF32BitsHex: "0x3f800000", decodedF32: 1,
+  });
+  const f16 = buildLiteralDenseStorageDecodeAssignment(metadata("F16"));
+  const oneF16 = Buffer.alloc(2); oneF16.writeUInt16LE(0x3c00);
+  assert.equal(decodeLiteralDenseElementF32(f16, oneF16).decodedF32, 1);
+  assert.equal(f16.decode.kind, "ieee-binary16-expand");
+  assert.equal(f16.decode.kind === "ieee-binary16-expand" && f16.decode.fields.signShift, 15);
+  const subnormalF16 = Buffer.alloc(2); subnormalF16.writeUInt16LE(0x0001);
+  assert.deepEqual(decodeLiteralDenseElementF32(f16, subnormalF16), {
+    sourceBits: 1, sourceBitsHex: "0x0001", decodedF32Bits: 0x33800000,
+    decodedF32BitsHex: "0x33800000", decodedF32: 2 ** -24,
+  });
+  const negativeZeroF16 = Buffer.alloc(2); negativeZeroF16.writeUInt16LE(0x8000);
+  const negativeZero = decodeLiteralDenseElementF32(f16, negativeZeroF16);
+  assert.ok(Object.is(negativeZero.decodedF32, -0));
+  assert.equal(negativeZero.decodedF32BitsHex, "0x80000000");
+  const infinityF16 = Buffer.alloc(2); infinityF16.writeUInt16LE(0x7c00);
+  assert.equal(decodeLiteralDenseElementF32(f16, infinityF16).decodedF32, Infinity);
+  const nanF16 = Buffer.alloc(2); nanF16.writeUInt16LE(0x7e00);
+  const nan = decodeLiteralDenseElementF32(f16, nanF16);
+  assert.ok(Number.isNaN(nan.decodedF32));
+  assert.equal(nan.decodedF32BitsHex, "0x7fc00000");
+  const bf16 = buildLiteralDenseStorageDecodeAssignment(metadata("BF16"));
+  const oneBF16 = Buffer.alloc(2); oneBF16.writeUInt16LE(0x3f80);
+  assert.equal(decodeLiteralDenseElementF32(bf16, oneBF16).decodedF32, 1);
+  assert.equal(decodeLiteralDenseElementF32(bf16, oneBF16).decodedF32BitsHex, "0x3f800000");
+  assert.equal(bf16.decode.kind, "ieee-bfloat16-expand");
+  const altered = structuredClone(f16);
+  altered.address.stridesElements[0] = 1;
+  assert.throws(() => evaluateLiteralDenseElementAddress(altered, [1, 2]), /stride row-major inválido/);
+  assert.throws(() => evaluateLiteralDenseElementAddress(f16, [2, 0]), /fora do eixo 0/);
 });
 
 test("Gemma 4 composite trace dispatches every modality through one explicit feature/scatter contract", () => {
@@ -202,9 +257,13 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   }, fixtureSourceIdentity());
   assert.equal(literal.constants.length, catalog.tensors.size);
   assert.equal(literal.storageDecoders.length, catalog.tensors.size);
+  assert.ok(literal.storageDecoders.every((decoder) =>
+    decoder.address.kind === "row-major-dense-element-address" && decoder.address.schemaVersion === 1 &&
+    decoder.address.logicalShape.length === decoder.address.stridesElements.length &&
+    decoder.decode.schemaVersion === 1));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 11);
+  assert.equal(literal.schemaVersion, 12);
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.languageId, literal.generation.scalarCalculations.formulaLanguage);
@@ -388,6 +447,15 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   alteredLearnedDecoder.learnedOperands.assignments.find((entry) =>
     entry.scope === "text-layer" && entry.definitionId === "layer_0_q_proj")!.operands[0]!.decoderId = "decode_wrong_tensor";
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(alteredLearnedDecoder), /papéis ou índices de operandos aprendidos/);
+  const alteredStorageAddress = structuredClone(literal);
+  alteredStorageAddress.storageDecoders[0]!.address.stridesElements[0] = 1;
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(alteredStorageAddress), /decoder de storage literal/);
+  const alteredStorageDecode = structuredClone(literal);
+  alteredStorageDecode.storageDecoders[0]!.decode = {
+    kind: "ieee-binary32-bitcast", schemaVersion: 1, read: "uint32-little-endian", resultBits: "sourceBits",
+  };
+  alteredStorageDecode.storageDecoders[0]!.operation = "ieee-f16-to-f32";
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(alteredStorageDecode), /decoder de storage literal/);
   const hiddenScalarFormula = structuredClone(literal);
   hiddenScalarFormula.scalarCalculations.assignments.find((entry) =>
     entry.scope === "audio" && entry.definitionId === "audio_subsample_0_conv")!.formula = "opaque_conv2d(input,weight)";
@@ -491,7 +559,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 11);
+      assert.equal(artifact.schemaVersion, 12);
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.equal(artifact.constants.size, catalog.tensors.size);
       assert.equal(artifact.program.textProgram.source.path, "embedded://gemma4-composite-literal");
@@ -1002,6 +1070,9 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       assert.ok(imageSlice.learnedConstants.some((constant) => constant.consumers.some((consumer) =>
         consumer.operationId === "composite_image_features/vision_patch_projection" && consumer.role === "weight")));
       assert.ok(imageSlice.learnedConstants.every((constant) => constant.decoderId === `decode_${constant.tensor.name}`));
+      assert.ok(imageSlice.learnedConstants.every((constant) =>
+        constant.decoder.id === constant.decoderId && constant.decoder.address.kind === "row-major-dense-element-address" &&
+        constant.decoder.decode.kind === "ieee-binary32-bitcast"));
       assert.ok(imageSlice.numericLiterals.some((literal) => literal.token === "0.5" && /^0x[0-9a-f]{8}$/.test(literal.binary32Hex)));
       assert.equal(imageSlice.reproducibility.status, "literal");
       assert.deepEqual(imageSlice.reproducibility.failClosedOperationIds, []);
@@ -1033,7 +1104,9 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
         endToEnd.storageCoverage.embeddedConstantCount,
       );
       assert.ok(endToEnd.storageCoverage.runtimeUnreachableConstants.every((entry) =>
-        entry.decoderId === `decode_${entry.tensor.name}` && entry.reason === "shared-kv-consumer-local-kv-is-runtime-unreachable"));
+        entry.decoderId === `decode_${entry.tensor.name}` && entry.decoder.id === entry.decoderId &&
+        entry.decoder.address.kind === "row-major-dense-element-address" &&
+        entry.reason === "shared-kv-consumer-local-kv-is-runtime-unreachable"));
       assert.equal(endToEnd.reproducibility.generationControl, "literal");
       assert.equal(endToEnd.reproducibility.status, "fail-closed-runtime-reduction");
 

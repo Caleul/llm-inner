@@ -375,6 +375,18 @@ e tensor scalar usam um único avaliador dessa AST, em vez de reconstruir
 endereços por tipo de operação. A evidência real source-removed está em
 [`docs/validation/gemma4-e4b-learned-index-program-2026-07-18.md`](docs/validation/gemma4-e4b-learned-index-program-2026-07-18.md).
 
+O schema v12 fecha o restante do caminho índice-lógico-para-bits. Cada decoder
+denso incorpora um programa `address` com shape, strides row-major, domínio de
+cada eixo, bytes por elemento e as equações exatas de element/byte offset. O
+programa `decode` adjacente descreve a transformação bit a bit de F32, F16 ou
+BF16 para os bits F32 resultantes, incluindo zero, subnormal, normal,
+infinito/NaN de binary16. O avaliador de substituição usa esses dois programas
+serializados; não volta a inferir stride, largura ou conversão a partir do
+dtype. Slices e a vista end-to-end carregam o decoder completo de cada
+constante, e adulterar stride, domínio ou algoritmo IEEE falha fechado. A
+evidência real está em
+[`docs/validation/gemma4-e4b-dense-decoder-program-2026-07-18.md`](docs/validation/gemma4-e4b-dense-decoder-program-2026-07-18.md).
+
 O leitor também pode partir de qualquer saída instanciada e calcular o fecho
 transitivo exato de seus produtores. `--calculation-slice <operation-id>`
 retorna somente as atribuições necessárias ao alvo, ainda em ordem de
@@ -541,9 +553,9 @@ identidade imutável explícita e
 escreve o artefato completo em streaming: ranges Safetensors de 12 MiB são
 codificados em base64 sem acumular o pacote ou uma string de vários GiB na
 heap. O resultado local contém os 2,130 payloads originais
-(15,992,314,836 bytes) e é auditado por `npm run audit:literal`. O hash
-`e89442dff45852fd954a03fee9171d80ea26319bd5067c6b6ede92eec1acab0b`
-identifica a exportação schema v11 atual de `21.382.503.979` bytes, cuja política numérica
+(15,992,314,836 bytes) e é auditado por `npm run audit:literal`. O hash e
+tamanho da exportação schema v12 atual são registrados em
+[`docs/validation/gemma4-e4b-dense-decoder-program-2026-07-18.md`](docs/validation/gemma4-e4b-dense-decoder-program-2026-07-18.md); sua política numérica
 declara fronteiras de resultado BF16, acumuladores F32/F64 e agendas de redução
 por operação do texto, áudio e visão; toda exportação deve registrar seu próprio hash, pois o programa literal
 inclui as políticas numéricas. As 54 projeções/normas K/V locais dos
