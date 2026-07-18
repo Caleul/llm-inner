@@ -549,6 +549,21 @@ e o cálculo end-to-end carregam a mesma linguagem e os mesmos programas. A
 prova no pacote real está em
 [`docs/validation/gemma4-e4b-executable-dimension-programs-2026-07-18.md`](docs/validation/gemma4-e4b-executable-dimension-programs-2026-07-18.md).
 
+O schema v27 fecha a mesma dependência interpretativa dentro dos limites de
+redução. Cada linear, normalização, convolução, pooling e atenção de
+texto/visão/áudio passa a carregar `reduction.domains` ou
+`reductionStages[*].domains`: um AST finito liga cada índice a um inteiro
+positivo incorporado ou a um eixo concreto de um `orderedInput`. A instanciação
+do grafo reescreve também esses nomes para o call site real, por exemplo
+`composite_audio_features/audio_layer_0_attention_ac`, sem dispatch por camada.
+O leitor source-removed valida 1.722 domínios para 1.462 reduções e 256 estágios,
+e o diferencial de áudio avaliou 1.138 domínios ativos, incluindo os bounds das
+36 BMM de áudio. Isso torna `in_features`, `width`, `patches`, `context` e
+`head_dim` meros rótulos humanos: nenhum deles pode fornecer implicitamente o
+extent. A ordem escalar Apple Accelerate das 100 BMM continua corretamente
+fail-closed. Contrato, hashes e replay estão em
+[`docs/validation/gemma4-e4b-executable-reduction-domains-2026-07-18.md`](docs/validation/gemma4-e4b-executable-reduction-domains-2026-07-18.md).
+
 O leitor também pode partir de qualquer saída instanciada e calcular o fecho
 transitivo exato de seus produtores. `--calculation-slice <operation-id>`
 retorna somente as atribuições necessárias ao alvo, ainda em ordem de

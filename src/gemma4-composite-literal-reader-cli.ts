@@ -59,6 +59,7 @@ try {
         total + assignment.predecessors.filter((predecessor) => predecessor.producerOperationId !== undefined).length, 0),
       instantiatedInvocations: [...new Set(artifact.calculationGraph.assignments.flatMap((assignment) => assignment.invocationId ? [assignment.invocationId] : []))],
     },
+    reductionDomains: reductionDomainSummary(artifact.calculationGraph.assignments),
     ...(args.assertSourceUnavailable ? { assertedUnavailableSource: args.assertSourceUnavailable, sourceCheckpointAccessed: false } : {}),
   };
   if (args.numericLiteral) {
@@ -114,6 +115,24 @@ try {
 } finally {
   await artifact.close();
 }
+
+function reductionDomainSummary(assignments: OpenedCalculationAssignments): Record<string, number> {
+  let reductions = 0, stages = 0, domains = 0, runtimeDefined = 0;
+  for (const assignment of assignments) {
+    if (assignment.scalarCalculation.reduction) {
+      reductions += 1;
+      domains += assignment.scalarCalculation.reduction.domains.length;
+      if (assignment.scalarCalculation.reduction.order === "runtime-defined") runtimeDefined += 1;
+    }
+    for (const stage of assignment.scalarCalculation.reductionStages ?? []) {
+      stages += 1;
+      domains += stage.domains.length;
+    }
+  }
+  return { reductions, stages, domains, runtimeDefined };
+}
+
+type OpenedCalculationAssignments = Awaited<ReturnType<typeof openGemma4CompositeLiteralArtifact>>["calculationGraph"]["assignments"];
 
 function parseArguments(argv: string[]): Arguments {
   let artifact: string | undefined, tensor: string | undefined, output: string | undefined, assertSourceUnavailable: string | undefined, operationId: string | undefined, generationOperationId: string | undefined, numericLiteral: string | undefined, calculationSliceOperationId: string | undefined;

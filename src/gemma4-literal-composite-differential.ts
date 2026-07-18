@@ -12,6 +12,7 @@ import type {
   DifferentialGenerationComparisonReport,
   DifferentialOperationSample,
 } from "./types.js";
+import { evaluateGemma4LiteralReductionIndexDomains } from "./gemma4-literal-reduction-domains.js";
 
 interface CompositeInputs {
   modality: Gemma4CompositeTraceModality;
@@ -36,6 +37,13 @@ interface SerializedOperation {
 export interface Gemma4LiteralCompositeDifferentialReport {
   prefill: DifferentialCheckpointComparisonReport;
   generation: DifferentialGenerationComparisonReport;
+  reductionDomainEvaluation: {
+    activeAssignments: number;
+    reductions: number;
+    stages: number;
+    domains: number;
+    runtimeDefinedReductions: number;
+  };
 }
 
 /** Compares real image, video, or audio prefill and cached generation with the source absent. */
@@ -103,10 +111,57 @@ export async function compareGemma4LiteralCompositeTrace(options: {
         tolerance,
         ...(options.topK === undefined ? {} : { topK: options.topK }),
       }),
+      reductionDomainEvaluation: evaluateActiveReductionDomains(artifact, candidate.compositePrefill.values, inputs),
     };
   } finally {
     await artifact.close();
   }
+}
+
+function evaluateActiveReductionDomains(
+  artifact: Awaited<ReturnType<typeof openGemma4CompositeLiteralArtifact>>,
+  values: ReadonlyMap<string, DenseF32Tensor>,
+  inputs: CompositeInputs,
+): Gemma4LiteralCompositeDifferentialReport["reductionDomainEvaluation"] {
+  const tensorShapes: Record<string, readonly number[]> = Object.fromEntries([...values].map(([name, tensor]) => [name, tensor.shape]));
+  const activeOutputs = new Set(values.keys());
+  const invocationPrefix = inputs.modality === "image" ? "composite_image_features/"
+    : inputs.modality === "video" ? "composite_video_features/" : "composite_audio_features/";
+  for (const [name, tensor] of values) {
+    const localName = inputs.modality === "video" && name.startsWith("video_") ? name.slice("video_".length) : name;
+    const callSiteName = `${invocationPrefix}${localName}`;
+    tensorShapes[callSiteName] = tensor.shape;
+    activeOutputs.add(callSiteName);
+  }
+  tensorShapes.input_ids = [1, inputs.inputTokens.length];
+  tensorShapes.position_ids = [1, inputs.positionIds.length];
+  tensorShapes.mm_token_type_ids = [1, inputs.mmTokenTypeIds.length];
+  if (inputs.pixelValues) tensorShapes.pixel_values = inputs.pixelValues.shape;
+  if (inputs.pixelValuesVideos) tensorShapes.pixel_values_videos = inputs.pixelValuesVideos.shape;
+  if (inputs.inputFeatures) {
+    tensorShapes.input_features = inputs.inputFeatures.shape;
+    tensorShapes.input_features_mask = [inputs.inputFeatures.shape[0]!, inputs.inputFeatures.shape[1]!];
+  }
+  let activeAssignments = 0, reductions = 0, stages = 0, domains = 0, runtimeDefinedReductions = 0;
+  for (const assignment of artifact.calculationGraph.assignments) {
+    if (!activeOutputs.has(assignment.output)) continue;
+    const reduction = assignment.scalarCalculation.reduction;
+    const reductionStages = assignment.scalarCalculation.reductionStages ?? [];
+    if (!reduction && reductionStages.length === 0) continue;
+    activeAssignments += 1;
+    if (reduction) {
+      evaluateGemma4LiteralReductionIndexDomains(artifact.formulaLanguage.reductions.domainLanguage, reduction.domains, tensorShapes);
+      reductions += 1;
+      domains += reduction.domains.length;
+      if (reduction.order === "runtime-defined") runtimeDefinedReductions += 1;
+    }
+    for (const stage of reductionStages) {
+      evaluateGemma4LiteralReductionIndexDomains(artifact.formulaLanguage.reductions.domainLanguage, stage.domains, tensorShapes);
+      stages += 1;
+      domains += stage.domains.length;
+    }
+  }
+  return { activeAssignments, reductions, stages, domains, runtimeDefinedReductions };
 }
 
 function parseInputs(raw: unknown, inputTokens: number[], positionIds: number[], maxNewTokens: number): CompositeInputs {

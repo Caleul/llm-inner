@@ -17,6 +17,7 @@ import {
 } from "./gemma4-literal-scalar-calculations.js";
 import type { Gemma4VisionAssignment } from "./gemma4-vision.js";
 import type { Operation } from "./types.js";
+import { bindGemma4LiteralReductionIndexDomains } from "./gemma4-literal-reduction-domains.js";
 
 type NonTextAssignment = Gemma4CompositeAssignment | Gemma4VisionAssignment | Gemma4AudioAssignment;
 
@@ -276,6 +277,18 @@ function bindCalculation(
     orderedInputs,
     output,
     formula: bindGemma4LiteralNames(calculation.formula, bindings),
+    ...(calculation.reduction ? {
+      reduction: {
+        ...structuredClone(calculation.reduction),
+        domains: bindGemma4LiteralReductionIndexDomains(calculation.reduction.domains, bindings),
+      },
+    } : {}),
+    ...(calculation.reductionStages ? {
+      reductionStages: calculation.reductionStages.map((stage) => ({
+        ...structuredClone(stage),
+        domains: bindGemma4LiteralReductionIndexDomains(stage.domains, bindings),
+      })),
+    } : {}),
   };
 }
 

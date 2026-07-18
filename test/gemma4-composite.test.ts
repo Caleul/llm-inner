@@ -27,6 +27,10 @@ import {
 import { evaluateGemma4LiteralLearnedOperandIndices } from "../src/gemma4-literal-learned-operands.js";
 import { buildGemma4LiteralScalarCalculations } from "../src/gemma4-literal-scalar-calculations.js";
 import {
+  evaluateGemma4LiteralReductionIndexDomains,
+  gemma4LiteralReductionDomainLanguage,
+} from "../src/gemma4-literal-reduction-domains.js";
+import {
   executeGemma4LiteralAudioRelativeShiftSource,
   executeGemma4LiteralContiguousVisionGroupId,
   executeGemma4LiteralStableTrueCoordinateAtRank,
@@ -429,14 +433,17 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 26);
+  assert.equal(literal.schemaVersion, 27);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   assert.deepEqual(literal.authoritativeExecution, gemma4AuthoritativeExecutionContract());
   assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.languageId, literal.generation.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.authority.numericLiteralBits, "/numericLiterals/literals");
-  assert.equal(literal.formulaLanguage.schemaVersion, 12);
+  assert.equal(literal.formulaLanguage.schemaVersion, 13);
+  assert.equal(literal.scalarCalculations.schemaVersion, 2);
+  assert.deepEqual(literal.formulaLanguage.reductions.domainLanguage, gemma4LiteralReductionDomainLanguage());
+  assert.match(literal.formulaLanguage.evaluation.reductionBinding, /call-site tensor binding/);
   assert.match(literal.formulaLanguage.evaluation.operandClosure, /every source tensor read names one ordered input/);
   assert.match(literal.formulaLanguage.evaluation.dimensionBinding, /safe-integer dimension language/);
   assert.equal(literal.formulaLanguage.indexing.programs.schemaVersion, 3);
@@ -623,16 +630,31 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.ok(visionAttentionCalculation.orderedInputs.every((input) => visionAttentionCalculation.formula.includes(input)));
   assert.equal(visionAttentionCalculation.reproducibility, "literal");
   assert.equal(visionAttentionCalculation.reduction?.order, "operation-declared");
+  assert.deepEqual(visionAttentionCalculation.reduction?.domains, [{
+    index: "head_feature", startInclusive: 0,
+    endExclusive: { kind: "tensor-axis", tensor: "vision_layer_0_q_rotated", axis: 3 }, order: "ascending",
+  }]);
+  assert.deepEqual(evaluateGemma4LiteralReductionIndexDomains(
+    literal.formulaLanguage.reductions.domainLanguage,
+    visionAttentionCalculation.reduction!.domains,
+    { vision_layer_0_q_rotated: [1, 1, 2, 4] },
+  ), [{ index: "head_feature", startInclusive: 0, endExclusive: 4, order: "ascending" }]);
   const visionSoftmaxCalculation = literal.scalarCalculations.assignments.find((entry) =>
     entry.scope === "vision" && entry.definitionId === "vision_layer_0_attention_weights")!;
   assert.deepEqual(visionSoftmaxCalculation.reductionStages?.map((stage) => [stage.id, stage.program]), [
     ["softmax-maximum", "ORDERED_F32_REDUCE_MAX"],
     ["softmax-exponential-sum", "ORDERED_F32_REDUCE_SUM"],
   ]);
+  assert.ok(visionSoftmaxCalculation.reductionStages?.every((stage) =>
+    stage.domains[0]?.endExclusive.kind === "tensor-axis" &&
+    stage.domains[0].endExclusive.tensor === "vision_layer_0_attention_scores" &&
+    stage.domains[0].endExclusive.axis === 3));
   assert.match(visionSoftmaxCalculation.formula, /ORDERED_F32_REDUCE_MAX/);
   const audioSoftmaxCalculation = literal.scalarCalculations.assignments.find((entry) =>
     entry.scope === "audio" && entry.definitionId === "audio_layer_0_attention_softmax")!;
   assert.deepEqual(audioSoftmaxCalculation.reductionStages?.map((stage) => stage.id), ["softmax-maximum", "softmax-exponential-sum"]);
+  assert.ok(audioSoftmaxCalculation.reductionStages?.every((stage) =>
+    stage.domains[0]?.endExclusive.kind === "tensor-axis" && stage.domains[0].endExclusive.axis === 4));
   const f32TextAttentionCalculation = literal.scalarCalculations.assignments.find((entry) =>
     entry.scope === "text-layer" && entry.definitionId === "layer_0_attention")!;
   assert.deepEqual(f32TextAttentionCalculation.reductionStages?.map((stage) => stage.program), [
@@ -648,11 +670,22 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     "ARM_NEON_BF16_DOT_F32", "PYTORCH_F32_VECTOR_REDUCE_MAX", "PYTORCH_F32_VECTOR_REDUCE_SUM", "ARM_NEON_BF16_DOT_F32",
   ]);
   assert.match(nativeAttentionCalculation.formula, /reductionStages\[score-dot\]\.schedule/);
+  assert.deepEqual(nativeAttentionCalculation.reductionStages?.map((stage) => stage.domains[0]?.endExclusive), [
+    { kind: "tensor-axis", tensor: "layer_0_q_rot", axis: 3 },
+    { kind: "tensor-axis", tensor: "attention_mask:full_attention", axis: 3 },
+    { kind: "tensor-axis", tensor: "attention_mask:full_attention", axis: 3 },
+    { kind: "tensor-axis", tensor: "attention_mask:full_attention", axis: 3 },
+  ]);
   const audioConvCalculation = literal.scalarCalculations.assignments.find((entry) =>
     entry.scope === "audio" && entry.definitionId === "audio_subsample_0_conv")!;
   assert.deepEqual(audioConvCalculation.learnedOperandRoles, ["convolution-kernel"]);
   assert.match(audioConvCalculation.formula, /input_channel=0\.\.channels-1,kernel_time=0\.\.2,kernel_feature=0\.\.2/);
   assert.equal(audioConvCalculation.reproducibility, "literal");
+  assert.deepEqual(audioConvCalculation.reduction?.domains.map((domain) => domain.endExclusive), [
+    { kind: "tensor-axis", tensor: "audio_masked_features_4d", axis: 1 },
+    { kind: "constant", value: 3 },
+    { kind: "constant", value: 3 },
+  ]);
   const audioRmsCalculation = literal.scalarCalculations.assignments.find((entry) =>
     entry.scope === "audio" && entry.definitionId === "audio_layer_0_ffn1_pre_norm")!;
   assert.match(audioRmsCalculation.formula, /\*decode\(normalization-scale\)\[output_feature\]/);
@@ -815,6 +848,20 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   const hostDimensionLanguage = structuredClone(literal);
   hostDimensionLanguage.calculationDomains.dimensionLanguage.arithmetic.ceilDivide = "host decides";
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(hostDimensionLanguage), /linguagem de dimensões/);
+  const hostReductionLanguage = structuredClone(literal);
+  hostReductionLanguage.formulaLanguage.reductions.domainLanguage.semantics.tensorAxis = "host decides";
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(hostReductionLanguage), /linguagem de fórmulas/);
+  const unboundReductionDomain = structuredClone(literal);
+  const unboundExtent = unboundReductionDomain.scalarCalculations.assignments.find((entry) =>
+    entry.scope === "vision" && entry.definitionId === "vision_layer_0_attention_scores")!.reduction!.domains[0]!.endExclusive;
+  if (unboundExtent.kind !== "tensor-axis") throw new Error("fixture requires tensor-axis reduction extent");
+  unboundExtent.tensor = "undeclared_attention_input";
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(unboundReductionDomain), /fórmulas, casts ou reduções escalares/);
+  assert.throws(() => evaluateGemma4LiteralReductionIndexDomains(
+    literal.formulaLanguage.reductions.domainLanguage,
+    visionAttentionCalculation.reduction!.domains,
+    {},
+  ), /não pode resolver vision_layer_0_q_rotated\.shape\[3\]/);
   const guessedLearnedRole = structuredClone(literal);
   guessedLearnedRole.learnedOperands.assignments.find((entry) =>
     entry.scope === "vision" && entry.definitionId === "vision_layer_0_q")!.operands[0]!.role = "bias";
@@ -942,7 +989,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 26);
+      assert.equal(artifact.schemaVersion, 27);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.deepEqual(artifact.authoritativeExecution, gemma4AuthoritativeExecutionContract());
@@ -1502,6 +1549,11 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       assert.deepEqual(imageSlice.formulaLanguage, artifact.formulaLanguage);
       assert.deepEqual(imageSlice.dimensionLanguage, artifact.calculationDomains.dimensionLanguage);
       assert.deepEqual(imageSlice.dimensionPrograms, artifact.calculationDomains.dimensionPrograms);
+      const boundImageScore = imageSlice.operations.find((operation) =>
+        operation.operationId === "composite_image_features/vision_layer_0_attention_scores")!;
+      assert.deepEqual(boundImageScore.scalarCalculation.reduction?.domains[0]?.endExclusive, {
+        kind: "tensor-axis", tensor: "composite_image_features/vision_layer_0_q_rotated", axis: 3,
+      });
       assert.ok(imageSlice.numericLiterals.some((literal) => literal.token === "0.5" && /^0x[0-9a-f]{8}$/.test(literal.binary32Hex)));
       assert.equal(imageSlice.reproducibility.status, "literal");
       assert.deepEqual(imageSlice.reproducibility.failClosedOperationIds, []);

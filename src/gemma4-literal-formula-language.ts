@@ -5,10 +5,14 @@ import type {
 } from "./gemma4-literal-generation-calculations.js";
 import type { Gemma4LiteralScalarCalculations } from "./gemma4-literal-scalar-calculations.js";
 import { gemma4LiteralNormalizationReductionPrograms } from "./gemma4-literal-normalization-reduction-view.js";
+import {
+  gemma4LiteralReductionDomainLanguage,
+  type Gemma4LiteralReductionDomainLanguage,
+} from "./gemma4-literal-reduction-domains.js";
 
 export interface Gemma4LiteralFormulaLanguageContract {
   kind: "gemma4-literal-formula-language-contract";
-  schemaVersion: 12;
+  schemaVersion: 13;
   languageId: "indexed-ieee754-expression-v1";
   authority: {
     forwardAssignments: "/scalarCalculations/assignments";
@@ -25,6 +29,7 @@ export interface Gemma4LiteralFormulaLanguageContract {
     calculationDomains: "/calculationDomains/assignments";
     dimensionLanguage: "/calculationDomains/dimensionLanguage";
     dimensionPrograms: "/calculationDomains/dimensionPrograms";
+    reductionDomains: "/scalarCalculations/assignments/*/(reduction|reductionStages/*)/domains";
   };
   evaluation: {
     dependencyOrder: string;
@@ -32,6 +37,7 @@ export interface Gemma4LiteralFormulaLanguageContract {
     inputBinding: string;
     operandClosure: string;
     dimensionBinding: string;
+    reductionBinding: string;
     numericTokenBinding: string;
     learnedValueBinding: string;
     generationOrder: string;
@@ -54,6 +60,7 @@ export interface Gemma4LiteralFormulaLanguageContract {
     runtimeDefined: string;
     multipleDomains: string;
     stagedReductions: string;
+    domainLanguage: Gemma4LiteralReductionDomainLanguage;
     normalizationPrograms: ReturnType<typeof gemma4LiteralNormalizationReductionPrograms>;
     softmaxPrograms: Gemma4LiteralSoftmaxReductionPrograms;
   };
@@ -415,7 +422,7 @@ function pytorchPairwiseReduce(values: readonly number[], operation: "maximum" |
 export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormulaLanguageContract {
   return {
     kind: "gemma4-literal-formula-language-contract",
-    schemaVersion: 12,
+    schemaVersion: 13,
     languageId: "indexed-ieee754-expression-v1",
     authority: {
       forwardAssignments: "/scalarCalculations/assignments",
@@ -432,6 +439,7 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
       calculationDomains: "/calculationDomains/assignments",
       dimensionLanguage: "/calculationDomains/dimensionLanguage",
       dimensionPrograms: "/calculationDomains/dimensionPrograms",
+      reductionDomains: "/scalarCalculations/assignments/*/(reduction|reductionStages/*)/domains",
     },
     evaluation: {
       dependencyOrder: "evaluate instantiated assignments by ascending ordinal; every predecessor must already exist",
@@ -439,6 +447,7 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
       inputBinding: "bind orderedInputs positionally at each instantiated call site before evaluating the indexed formula",
       operandClosure: "every source tensor read names one ordered input and an explicit coordinate expression; free aliases such as input, x, q, k, value, padded_input, ellipsis and prose branch descriptions are invalid",
       dimensionBinding: "resolve every symbolic output bound through calculationDomains.dimensionPrograms and the embedded safe-integer dimension language; missing bindings are invalid and must never be guessed",
+      reductionBinding: "resolve every reduction index interval through its domains entry and reductions.domainLanguage after calculation-graph call-site tensor binding; prose aliases such as width, patches, context, head_dim and in_features never supply an extent",
       numericTokenBinding: "resolve forward, generation and cache-transition decimal or named mathematical tokens through numericLiterals; resolve transcendental-program names through transcendentalPrograms.constants; select bits by the surrounding F64/F32/BF16 cast",
       learnedValueBinding: "evaluate learnedOperands.logicalIndices with its embedded integer-expression AST, then execute the matching storageDecoder address and decode expression ASTs under denseDecoderLanguage over the embedded constant bytes",
       generationOrder: "evaluate generation scalarAssignments in array order and iterations in ascending step order until the declared stop predicate",
@@ -475,6 +484,7 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
       runtimeDefined: "not executable: reproducibility must be fail-closed-runtime-reduction and every scalar renderer or replay claiming literal fidelity must reject it",
       multipleDomains: "nested REDUCE domains execute left-to-right as written; a schedule attached to the assignment overrides only the reduction indices named beside it",
       stagedReductions: "execute reductionStages in array order; each stage binds exactly the indices, identity, predicate, program and optional operation-declared schedule named by the formula",
+      domainLanguage: gemma4LiteralReductionDomainLanguage(),
       normalizationPrograms: gemma4LiteralNormalizationReductionPrograms(),
       softmaxPrograms: gemma4LiteralSoftmaxReductionPrograms(),
     },

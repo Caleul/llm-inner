@@ -13,12 +13,21 @@ import {
 import type { Gemma4VisionAssignment } from "./gemma4-vision.js";
 import type { DtypePolicy, Operation, ReductionSchedule } from "./types.js";
 import { gemma4LiteralReductionUsesExactProducts } from "./gemma4-literal-linear-reduction-view.js";
+import {
+  constantGemma4LiteralReductionExtent,
+  tensorAxisGemma4LiteralReductionExtent,
+  validateGemma4LiteralReductionIndexDomains,
+  type Gemma4LiteralReductionExtent,
+  type Gemma4LiteralReductionIndexDomain,
+} from "./gemma4-literal-reduction-domains.js";
 
 type MultimodalAssignment = Gemma4CompositeAssignment | Gemma4VisionAssignment | Gemma4AudioAssignment;
 
 export interface Gemma4LiteralScalarReduction {
   /** Named scalar index and its complete, non-preview domain. */
   indices: string[];
+  /** Executable binding for every symbolic bound named by `indices`. */
+  domains: Gemma4LiteralReductionIndexDomain[];
   order: "ascending-lexicographic" | "operation-declared" | "runtime-defined";
   schedule?: ReductionSchedule;
 }
@@ -40,6 +49,7 @@ export type Gemma4LiteralScalarReductionProgram =
 export interface Gemma4LiteralScalarReductionStage {
   id: "score-dot" | "softmax-maximum" | "softmax-exponential-sum" | "context-dot";
   indices: string[];
+  domains: Gemma4LiteralReductionIndexDomain[];
   order: "ascending-lexicographic" | "operation-declared";
   program: Gemma4LiteralScalarReductionProgram;
   identity: "-Infinity" | "F32(0)";
@@ -69,7 +79,7 @@ export interface Gemma4LiteralScalarCalculation {
 
 export interface Gemma4LiteralScalarCalculations {
   kind: "gemma4-literal-scalar-calculations";
-  schemaVersion: 1;
+  schemaVersion: 2;
   formulaLanguage: "indexed-ieee754-expression-v1";
   assignments: Gemma4LiteralScalarCalculation[];
 }
@@ -95,7 +105,7 @@ export function buildGemma4LiteralScalarCalculations(program: Gemma4CompositePro
     // Staged operations own several incompatible reductions; retaining one
     // assignment-level reduction beside them would falsely override the stage
     // programs (the defect schema v20 is designed to eliminate).
-    const reduction = reductionStages.length === 0 ? scalarReduction(definition, program, dtypePolicy) : undefined;
+    const reduction = reductionStages.length === 0 ? scalarReduction(definition, program, dtypePolicy, domain) : undefined;
     const reproducibility = dtypePolicy.accumulationDtype === "runtime-defined" || reduction?.order === "runtime-defined"
       ? "fail-closed-runtime-reduction" as const
       : "literal" as const;
@@ -125,7 +135,7 @@ export function buildGemma4LiteralScalarCalculations(program: Gemma4CompositePro
   validateOperandClosedFormulas(assignments);
   return {
     kind: "gemma4-literal-scalar-calculations",
-    schemaVersion: 1,
+    schemaVersion: 2,
     formulaLanguage: "indexed-ieee754-expression-v1",
     assignments,
   };
@@ -209,6 +219,8 @@ function validateClosedReductionFormulas(assignments: readonly Gemma4LiteralScal
       throw new Error(`${assignment.scope}:${assignment.definitionId}: fórmula conserva helper opaco de redução softmax.`);
     }
     const stages = assignment.reductionStages ?? [];
+    if (assignment.reduction) validateReductionDomains(assignment.reduction.indices, assignment.reduction.domains, assignment.orderedInputs, `${assignment.scope}:${assignment.definitionId}`);
+    for (const stage of stages) validateReductionDomains(stage.indices, stage.domains, assignment.orderedInputs, `${assignment.scope}:${assignment.definitionId}:${stage.id}`);
     const isAttention = assignment.operation === "scaled_dot_product_attention";
     const isSoftmax = assignment.operation === "masked-softmax" || assignment.operation === "chunked-relative-attention-softmax";
     if (isAttention && (stages.length !== 4 || stages.map((stage) => stage.id).join(",") !== "score-dot,softmax-maximum,softmax-exponential-sum,context-dot")) {
@@ -224,7 +236,7 @@ export function validateGemma4LiteralScalarCalculations(
   calculations: Gemma4LiteralScalarCalculations,
   program: Gemma4CompositeProgram,
 ): void {
-  if (calculations.kind !== "gemma4-literal-scalar-calculations" || calculations.schemaVersion !== 1 ||
+  if (calculations.kind !== "gemma4-literal-scalar-calculations" || calculations.schemaVersion !== 2 ||
     calculations.formulaLanguage !== "indexed-ieee754-expression-v1") {
     throw new Error("Programa literal Gemma 4 possui cabeçalho de cálculos escalares inválido.");
   }
@@ -530,22 +542,26 @@ function scalarReductionStages(definition: Definition): Gemma4LiteralScalarReduc
     return [
       {
         id: "score-dot", indices: [`head_feature=0..${operation.headDim - 1}`],
+        domains: [reductionDomain("head_feature", tensorAxisGemma4LiteralReductionExtent(operation.query, 3))],
         order: numeric ? "operation-declared" : "ascending-lexicographic",
         program: numeric ? "ARM_NEON_BF16_DOT_F32" : "ORDERED_F32_DOT", identity: "F32(0)",
         ...(numeric ? { schedule: structuredClone(numeric.scoreReduction) } : {}),
       },
       {
         id: "softmax-maximum", indices: ["key=0..K-1"],
+        domains: [reductionDomain("key", tensorAxisGemma4LiteralReductionExtent(operation.maskInput, 3))],
         order: numeric ? "operation-declared" : "ascending-lexicographic",
         program: numeric ? "PYTORCH_F32_VECTOR_REDUCE_MAX" : "ORDERED_F32_REDUCE_MAX", identity: "-Infinity",
       },
       {
         id: "softmax-exponential-sum", indices: ["key=0..K-1"],
+        domains: [reductionDomain("key", tensorAxisGemma4LiteralReductionExtent(operation.maskInput, 3))],
         order: numeric ? "operation-declared" : "ascending-lexicographic",
         program: numeric ? "PYTORCH_F32_VECTOR_REDUCE_SUM" : "ORDERED_F32_REDUCE_SUM", identity: "F32(0)",
       },
       {
         id: "context-dot", indices: ["key=0..K-1"],
+        domains: [reductionDomain("key", tensorAxisGemma4LiteralReductionExtent(operation.maskInput, 3))],
         order: numeric ? "operation-declared" : "ascending-lexicographic",
         program: numeric ? "ARM_NEON_BF16_DOT_F32" : "ORDERED_F32_DOT", identity: "F32(0)",
         ...(numeric ? { schedule: structuredClone(numeric.contextReduction) } : {}),
@@ -555,25 +571,91 @@ function scalarReductionStages(definition: Definition): Gemma4LiteralScalarReduc
   if (!("op" in definition.value) && definition.value.operation === "masked-softmax") {
     const predicate = "pixel_position_ids[batch,key_patch] != [-1,-1]";
     return [
-      { id: "softmax-maximum", indices: ["key_patch=0..patches-1"], order: "ascending-lexicographic", program: "ORDERED_F32_REDUCE_MAX", identity: "-Infinity", predicate },
-      { id: "softmax-exponential-sum", indices: ["key_patch=0..patches-1"], order: "ascending-lexicographic", program: "ORDERED_F32_REDUCE_SUM", identity: "F32(0)", predicate },
+      { id: "softmax-maximum", indices: ["key_patch=0..patches-1"], domains: [reductionDomain("key_patch", tensorAxisGemma4LiteralReductionExtent(definition.inputs[0]!, 3))], order: "ascending-lexicographic", program: "ORDERED_F32_REDUCE_MAX", identity: "-Infinity", predicate },
+      { id: "softmax-exponential-sum", indices: ["key_patch=0..patches-1"], domains: [reductionDomain("key_patch", tensorAxisGemma4LiteralReductionExtent(definition.inputs[0]!, 3))], order: "ascending-lexicographic", program: "ORDERED_F32_REDUCE_SUM", identity: "F32(0)", predicate },
     ];
   }
   if (!("op" in definition.value) && definition.value.operation === "chunked-relative-attention-softmax") {
     return [
-      { id: "softmax-maximum", indices: ["key_slot=0..context-1"], order: "ascending-lexicographic", program: "ORDERED_F32_REDUCE_MAX", identity: "-Infinity" },
-      { id: "softmax-exponential-sum", indices: ["key_slot=0..context-1"], order: "ascending-lexicographic", program: "ORDERED_F32_REDUCE_SUM", identity: "F32(0)" },
+      { id: "softmax-maximum", indices: ["key_slot=0..context-1"], domains: [reductionDomain("key_slot", tensorAxisGemma4LiteralReductionExtent(definition.inputs[0]!, 4))], order: "ascending-lexicographic", program: "ORDERED_F32_REDUCE_MAX", identity: "-Infinity" },
+      { id: "softmax-exponential-sum", indices: ["key_slot=0..context-1"], domains: [reductionDomain("key_slot", tensorAxisGemma4LiteralReductionExtent(definition.inputs[0]!, 4))], order: "ascending-lexicographic", program: "ORDERED_F32_REDUCE_SUM", identity: "F32(0)" },
     ];
   }
   return [];
 }
 
-function scalarReduction(definition: Definition, program: Gemma4CompositeProgram, policy: DtypePolicy): Gemma4LiteralScalarReduction | undefined {
+function scalarReduction(
+  definition: Definition,
+  program: Gemma4CompositeProgram,
+  policy: DtypePolicy,
+  domain: Gemma4LiteralAssignmentDomain,
+): Gemma4LiteralScalarReduction | undefined {
   const indices = reductionIndices(definition, program);
-  if (indices.length === 0) return undefined;
-  if (policy.accumulationDtype === "runtime-defined") return { indices, order: "runtime-defined" };
-  if (policy.reduction) return { indices, order: "operation-declared", schedule: structuredClone(policy.reduction) };
-  return { indices, order: "ascending-lexicographic" };
+  const domains = reductionDomains(definition, program, domain);
+  if (indices.length === 0 && domains.length === 0) return undefined;
+  validateReductionDomains(indices, domains, definition.inputs, `${definition.scope}:${definition.id}`);
+  if (policy.accumulationDtype === "runtime-defined") return { indices, domains, order: "runtime-defined" };
+  if (policy.reduction) return { indices, domains, order: "operation-declared", schedule: structuredClone(policy.reduction) };
+  return { indices, domains, order: "ascending-lexicographic" };
+}
+
+function reductionDomains(
+  definition: Definition,
+  program: Gemma4CompositeProgram,
+  domain: Gemma4LiteralAssignmentDomain,
+): Gemma4LiteralReductionIndexDomain[] {
+  const input = definition.inputs[0]!;
+  switch (definition.operation) {
+    case "linear": case "clipped-linear": case "rms_norm": case "rms-norm":
+      return [reductionDomain(definition.operation.startsWith("rms") ? "reduction_feature" : "input_feature", tensorAxisGemma4LiteralReductionExtent(input, domain.domain.shape.length - 1))];
+    case "conv2d-stride2": return [
+      reductionDomain("input_channel", tensorAxisGemma4LiteralReductionExtent(input, 1)),
+      reductionDomain("kernel_time", constantGemma4LiteralReductionExtent(3)),
+      reductionDomain("kernel_feature", constantGemma4LiteralReductionExtent(3)),
+    ];
+    case "layer-norm-channels": return [reductionDomain("channel", tensorAxisGemma4LiteralReductionExtent(input, 1))];
+    case "causal-depthwise-convolution": {
+      const kernel = "tensors" in definition.value ? definition.value.tensors?.[0]?.shape.at(-1) : undefined;
+      if (!Number.isSafeInteger(kernel) || kernel! <= 0) throw new Error(`${definition.id}: kernel causal sem extent executável.`);
+      return [reductionDomain("kernel_index", constantGemma4LiteralReductionExtent(kernel!))];
+    }
+    case "attention-score-matmul": return [reductionDomain("head_feature", tensorAxisGemma4LiteralReductionExtent(input, 3))];
+    case "chunked-attention-content-matmul": case "relative-attention-position-matmul":
+      return [reductionDomain("head_feature", constantGemma4LiteralReductionExtent(program.audioProgram.tower.headDim))];
+    case "masked-softmax": case "attention-value-matmul":
+      return [reductionDomain("key_patch", tensorAxisGemma4LiteralReductionExtent(input, 3))];
+    case "chunked-relative-attention-softmax": case "chunked-relative-attention-values":
+      return [reductionDomain("key_slot", tensorAxisGemma4LiteralReductionExtent(input, 4))];
+    case "pool-by-position": return [reductionDomain("patch", tensorAxisGemma4LiteralReductionExtent(input, 1))];
+    case "scaled_dot_product_attention": {
+      const operation = definition.value as Extract<Operation, { op: "scaled_dot_product_attention" }>;
+      return [
+        reductionDomain("head_feature", tensorAxisGemma4LiteralReductionExtent(operation.query, 3)),
+        reductionDomain("key", tensorAxisGemma4LiteralReductionExtent(operation.maskInput, 3)),
+      ];
+    }
+    default: return [];
+  }
+}
+
+function reductionDomain(index: string, endExclusive: Gemma4LiteralReductionExtent): Gemma4LiteralReductionIndexDomain {
+  return { index, startInclusive: 0, endExclusive, order: "ascending" };
+}
+
+function validateReductionDomains(
+  indices: readonly string[],
+  domains: readonly Gemma4LiteralReductionIndexDomain[],
+  orderedInputs: readonly string[],
+  owner: string,
+): void {
+  validateGemma4LiteralReductionIndexDomains(domains, owner);
+  if (indices.length !== domains.length || domains.some((domain, position) => !indices[position]?.startsWith(`${domain.index}=0..`))) {
+    throw new Error(`${owner}: índices humanos e domínios executáveis de redução divergem.`);
+  }
+  const unbound = domains.find((domain) => domain.endExclusive.kind === "tensor-axis" && !orderedInputs.includes(domain.endExclusive.tensor));
+  if (unbound?.endExclusive.kind === "tensor-axis") {
+    throw new Error(`${owner}: domínio de redução referencia tensor fora de orderedInputs: ${unbound.endExclusive.tensor}.`);
+  }
 }
 
 function reductionIndices(definition: Definition, program: Gemma4CompositeProgram): string[] {
