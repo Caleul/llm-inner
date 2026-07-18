@@ -3,6 +3,10 @@ import type { LiteralDenseStorageDecodeAssignment } from "./literal.js";
 import type { DtypePolicy, Operation, ReductionSchedule, TensorRef } from "./types.js";
 import type { Gemma4LiteralValueDomain } from "./gemma4-literal-domains.js";
 import type { Gemma4LiteralLearnedOperand } from "./gemma4-literal-learned-operands.js";
+import {
+  requiredGemma4LiteralScalarCalculation,
+  type Gemma4LiteralScalarCalculation,
+} from "./gemma4-literal-scalar-calculations.js";
 import { decodeIeeeBF16ToF32, decodeIeeeF16ToF32 } from "./utils.js";
 
 export interface Gemma4LiteralOperationNavigation {
@@ -17,6 +21,8 @@ export interface Gemma4LiteralOperationNavigation {
   ordinal: number;
   output: string;
   outputDomain: Gemma4LiteralValueDomain;
+  /** Formula template and complete reduction contract serialized in the JSON artifact. */
+  scalarCalculation: Gemma4LiteralScalarCalculation;
   /** Exact learned roles and logical index expressions, when this assignment consumes checkpoint storage. */
   learnedOperands?: Gemma4LiteralLearnedOperand[];
   predecessors: Array<{ input: string; producerOperationId?: string }>;
@@ -101,6 +107,7 @@ export function listGemma4LiteralTextOperations(artifact: OpenGemma4CompositeLit
     ordinal,
     output: entry.operation.output,
     outputDomain: requiredTextDomain(artifact, entry.operation.id),
+    scalarCalculation: requiredGemma4LiteralScalarCalculation(artifact.scalarCalculations, entry.scope, entry.operation.id),
     ...learnedOperandsFor(artifact, entry.scope, entry.operation.id),
     predecessors: operationInputs(entry.operation).map((input) => ({
       input,

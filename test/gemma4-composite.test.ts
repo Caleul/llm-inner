@@ -181,7 +181,7 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.equal(literal.storageDecoders.length, catalog.tensors.size);
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 4);
+  assert.equal(literal.schemaVersion, 5);
   const expectedDomainCount = literal.assignments.composite.length + literal.assignments.vision.length + literal.assignments.audio.length +
     literal.program.textProgram.prelude.length + literal.program.textProgram.layers.reduce((total, layer) => total + layer.operations.length, 0) + literal.assignments.textEpilogue.length;
   assert.equal(literal.calculationDomains.assignments.length, expectedDomainCount);
@@ -191,6 +191,33 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.deepEqual(literal.calculationDomains.assignments.find((entry) => entry.definitionId === "token_embedding")?.domain.shape, ["B", "S", "4"]);
   assert.deepEqual(literal.calculationDomains.assignments.find((entry) => entry.definitionId === "vision_layer_0_attention_scores")?.domain.shape, ["VB", "1", "VP", "VP"]);
   assert.deepEqual(literal.calculationDomains.assignments.find((entry) => entry.definitionId === "audio_layer_0_attention_content_scores")?.domain.shape, ["AB", "1", "ABLOCKS", "2", "2"]);
+  assert.equal(literal.scalarCalculations.assignments.length, expectedDomainCount);
+  assert.ok(literal.scalarCalculations.assignments.every((entry) =>
+    entry.outputCoordinates.length > 0 && entry.formula.startsWith(`${entry.output}[`) && entry.orderedInputs.length > 0));
+  const visionAttentionCalculation = literal.scalarCalculations.assignments.find((entry) =>
+    entry.scope === "vision" && entry.definitionId === "vision_layer_0_attention_scores")!;
+  assert.match(visionAttentionCalculation.formula, /head_feature=0\.\.head_dim-1/);
+  assert.equal(visionAttentionCalculation.reproducibility, "literal");
+  assert.equal(visionAttentionCalculation.reduction?.order, "operation-declared");
+  const audioConvCalculation = literal.scalarCalculations.assignments.find((entry) =>
+    entry.scope === "audio" && entry.definitionId === "audio_subsample_0_conv")!;
+  assert.deepEqual(audioConvCalculation.learnedOperandRoles, ["convolution-kernel"]);
+  assert.match(audioConvCalculation.formula, /input_channel=0\.\.channels-1,kernel_time=0\.\.2,kernel_feature=0\.\.2/);
+  assert.equal(audioConvCalculation.reproducibility, "literal");
+  const audioRmsCalculation = literal.scalarCalculations.assignments.find((entry) =>
+    entry.scope === "audio" && entry.definitionId === "audio_layer_0_ffn1_pre_norm")!;
+  assert.match(audioRmsCalculation.formula, /\*decode\(normalization-scale\)\[feature\]/);
+  assert.doesNotMatch(audioRmsCalculation.formula, /1\+decode\(normalization-scale\)/);
+  const audioGluCalculation = literal.scalarCalculations.assignments.find((entry) =>
+    entry.scope === "audio" && entry.definitionId === "audio_layer_0_conv_glu")!;
+  assert.match(audioGluCalculation.formula, /input\[\.\.\.,hidden\]\/F32\(1\+SLEEF_EXP_F32/);
+  const compositeEmbeddingCalculation = literal.scalarCalculations.assignments.find((entry) =>
+    entry.scope === "composite" && entry.definitionId === "composite_text_embedding")!;
+  assert.match(compositeEmbeddingCalculation.formula, /decode\(weight\).*F32\(2\)/);
+  const textLinearCalculation = literal.scalarCalculations.assignments.find((entry) =>
+    entry.scope === "text-layer" && entry.definitionId === "layer_0_q_proj")!;
+  assert.deepEqual(textLinearCalculation.learnedOperandRoles, ["weight"]);
+  assert.equal(textLinearCalculation.reduction?.schedule?.kind, "ordered-scalar");
   const audioProjectionOperands = literal.learnedOperands.assignments.find((entry) =>
     entry.scope === "audio" && entry.definitionId === "audio_output_projection")?.operands;
   assert.deepEqual(audioProjectionOperands?.map((operand) => [operand.role, operand.logicalIndices]), [
@@ -262,6 +289,16 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   alteredLearnedDecoder.learnedOperands.assignments.find((entry) =>
     entry.scope === "text-layer" && entry.definitionId === "layer_0_q_proj")!.operands[0]!.decoderId = "decode_wrong_tensor";
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(alteredLearnedDecoder), /papéis ou índices de operandos aprendidos/);
+  const hiddenScalarFormula = structuredClone(literal);
+  hiddenScalarFormula.scalarCalculations.assignments.find((entry) =>
+    entry.scope === "audio" && entry.definitionId === "audio_subsample_0_conv")!.formula = "opaque_conv2d(input,weight)";
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(hiddenScalarFormula), /fórmulas, casts ou reduções escalares/);
+  const alteredReduction = structuredClone(literal);
+  const alteredCalculation = alteredReduction.scalarCalculations.assignments.find((entry) =>
+    entry.scope === "text-layer" && entry.definitionId === "layer_0_q_proj")!;
+  alteredCalculation.reduction!.order = "ascending-lexicographic";
+  delete alteredCalculation.reduction!.schedule;
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(alteredReduction), /fórmulas, casts ou reduções escalares/);
   assert.throws(
     () => generateGemma4CompositeLiteralF32(literal, { inputIds: [[1]], maxNewTokens: 1, pastKeyValues: expected.text.pastKeyValues }),
     /começa em prefill sem pastKeyValues/,

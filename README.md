@@ -293,6 +293,18 @@ A regeneração E4B, a partição dos 2.130 tensores e a substituição com o
 checkpoint ausente estão em
 [`docs/validation/gemma4-e4b-source-removed-learned-operands-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-learned-operands-2026-07-18.md).
 
+O schema v5 acrescenta `scalarCalculations` para todas as definições do
+forward composite, vision, audio e text. Cada entrada serializa a fórmula
+indexada, inputs em ordem, coordenadas de saída, papéis aprendidos, casts,
+domínio completo da redução e a agenda numérica. A navegação retorna esse
+contrato diretamente do JSON; ela não depende de reconstruir a equação a
+partir do nome da operação no leitor. As cinco classes de batched matmul cuja
+árvore interna do Apple Accelerate ainda não é autoritativamente conhecida
+continuam marcadas `fail-closed-runtime-reduction`: o schema torna o limite
+endereçável em todas as definições compatíveis sem inventar soma ascendente.
+A regeneração, cobertura source-removed e diferenciais de modalidade estão em
+[`docs/validation/gemma4-e4b-source-removed-scalar-calculations-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-scalar-calculations-2026-07-18.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 

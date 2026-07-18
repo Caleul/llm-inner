@@ -80,6 +80,21 @@ ao decoder e à expressão de índices lógicos correspondente. Rank, shape,
 ordem no array e sufixo de nome podem ser validados, mas não podem selecionar o
 papel semântico durante a auditoria.
 
+A fórmula também é dado do artefato, não comportamento secreto do leitor. O
+Gemma 4 schema v5 inclui `scalarCalculations` com uma entrada para cada
+definição composite, vision, audio e text. A entrada contém `orderedInputs`,
+coordenadas nomeadas, fórmula indexada, papéis aprendidos, política de dtype e
+o domínio/agenda completo de cada redução. A navegação instancia essas mesmas
+entradas para imagem e vídeo e a vista escalar as acompanha enquanto substitui
+os valores decodificados.
+
+Quando a autoridade disponível prova a equação, mas não a árvore de uma
+redução nativa, a fórmula preserva o domínio matemático completo e a entrada
+declara `reproducibility=fail-closed-runtime-reduction` com
+`order=runtime-defined`. Alterar esse limite para uma ordem inventada invalida
+o artefato. Assim, cobertura estrutural não é confundida com fidelidade
+numérica ainda não demonstrada.
+
 ## Critério de aceite
 
 Uma implementação só é candidata a fechar este requisito quando:

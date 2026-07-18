@@ -20,6 +20,10 @@ import {
   type Gemma4LiteralLearnedOperandRole,
   type Gemma4LiteralLearnedOperand,
 } from "./gemma4-literal-learned-operands.js";
+import {
+  requiredGemma4LiteralScalarCalculation,
+  type Gemma4LiteralScalarCalculation,
+} from "./gemma4-literal-scalar-calculations.js";
 
 type Assignment = Gemma4CompositeAssignment | Gemma4VisionAssignment | Gemma4AudioAssignment;
 type NonTextScope = "composite" | "vision" | "audio";
@@ -42,6 +46,7 @@ interface NavigationSeed {
   inputs: string[];
   output: string;
   outputDomain: Gemma4LiteralValueDomain;
+  scalarCalculation: Gemma4LiteralScalarCalculation;
   learnedOperands?: Gemma4LiteralLearnedOperand[];
 }
 
@@ -87,6 +92,7 @@ export function listGemma4LiteralOperations(artifact: OpenGemma4CompositeLiteral
     ordinal,
     output: seed.output,
     outputDomain: seed.outputDomain,
+    scalarCalculation: seed.scalarCalculation,
     ...(seed.learnedOperands ? { learnedOperands: seed.learnedOperands } : {}),
     predecessors: seed.inputs.map((input) => ({ input, ...(producerByOutput.has(input) ? { producerOperationId: producerByOutput.get(input)! } : {}) })),
     consumers: consumersByOutput.get(seed.output) ?? [],
@@ -192,6 +198,7 @@ function navigationSeeds(artifact: OpenGemma4CompositeLiteralArtifact): Navigati
           inputs: entry.predecessors.map((predecessor) => bindName(predecessor.input, textBindings())),
           output: bindName(entry.output, textBindings()),
           outputDomain: entry.outputDomain,
+          scalarCalculation: entry.scalarCalculation,
           ...(entry.learnedOperands ? { learnedOperands: entry.learnedOperands } : {}),
         });
       }
@@ -214,6 +221,7 @@ function seedFromAssignment(entry: AssignmentEntry, artifact: OpenGemma4Composit
     inputs: entry.assignment.inputs.map((input) => bindName(input, entry.bindings)),
     output: bindName(entry.assignment.output, entry.bindings),
     outputDomain: requiredAssignmentDomain(artifact, entry),
+    scalarCalculation: requiredGemma4LiteralScalarCalculation(artifact.scalarCalculations, entry.scope, entry.assignment.id),
     ...learnedOperandsForAssignment(artifact, entry),
   };
 }
