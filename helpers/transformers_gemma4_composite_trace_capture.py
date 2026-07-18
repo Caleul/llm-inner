@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pinned authoritative image-prefill and greedy-decode capture for Gemma 4."""
+"""Pinned authoritative image/video/audio prefill and greedy decode for Gemma 4."""
 from __future__ import annotations
 
 import json
@@ -62,33 +62,47 @@ def run(request: dict[str, Any]) -> dict[str, Any]:
     ).to(device).eval()
     validate(model)
 
+    modality = request.get("modality")
+    profiles = {
+        "image": (model.config.image_token_id, 1, "get_image_features", "image_features", "composite_image_features", "composite_image_scatter"),
+        "video": (model.config.video_token_id, 2, "get_video_features", "video_features", "composite_video_features", "composite_video_scatter"),
+        "audio": (model.config.audio_token_id, 0, "get_audio_features", "audio_features", "composite_audio_features", "composite_audio_scatter"),
+    }
+    if modality not in profiles:
+        raise ValueError("Gemma 4 composite modality must be image, video, or audio.")
+    token_id, token_type_id, modal_method_name, feature_output, feature_operation, scatter_operation = profiles[modality]
     tokens = request["inputTokens"]
     positions = request["positionIds"]
     mm_types = request["mmTokenTypeIds"]
     if not isinstance(tokens, list) or not tokens or len(tokens) != len(positions) or len(tokens) != len(mm_types):
         raise ValueError("Gemma 4 composite tokens, positions, and mm token types must align.")
-    if tokens.count(model.config.image_token_id) != 1 or mm_types.count(1) != 1:
-        raise ValueError("Gemma 4 composite capture requires exactly one image placeholder/type.")
+    if tokens.count(token_id) != 1 or (token_type_id != 0 and mm_types.count(token_type_id) != 1) or (token_type_id == 0 and any(mm_types)):
+        raise ValueError(f"Gemma 4 composite capture requires exactly one {modality} placeholder and compatible token types.")
     input_ids = torch.tensor([tokens], dtype=torch.long, device=device)
     position_ids = torch.tensor([positions], dtype=torch.long, device=device)
     mm_token_type_ids = torch.tensor([mm_types], dtype=torch.long, device=device)
-    pixel_values = dense(request["pixelValues"], device)
-    image_position_ids = torch.tensor(request["imagePositionIds"], dtype=torch.long, device=device)
-
     forward_kwargs = {
         "input_ids": input_ids,
         "position_ids": position_ids,
         "mm_token_type_ids": mm_token_type_ids,
-        "pixel_values": pixel_values,
-        "image_position_ids": image_position_ids,
         "use_cache": True,
     }
+    if modality == "image":
+        forward_kwargs["pixel_values"] = dense(request["pixelValues"], device)
+        forward_kwargs["image_position_ids"] = torch.tensor(request["imagePositionIds"], dtype=torch.long, device=device)
+    elif modality == "video":
+        forward_kwargs["pixel_values_videos"] = dense(request["pixelValuesVideos"], device)
+        forward_kwargs["video_position_ids"] = torch.tensor(request["videoPositionIds"], dtype=torch.long, device=device)
+    else:
+        forward_kwargs["input_features"] = dense(request["inputFeatures"], device)
+        forward_kwargs["input_features_mask"] = torch.tensor(request["inputFeaturesMask"], dtype=torch.bool, device=device)
     with torch.inference_mode():
         baseline = model(**forward_kwargs)
 
     language_model = model.model.language_model
     captured: dict[str, torch.Tensor] = {}
     original_project = language_model.project_per_layer_inputs
+    original_modal = getattr(model.model, modal_method_name)
 
     def language_pre_hook(_module, _args, kwargs):
         if "hidden_states_0" not in captured:
@@ -100,18 +114,28 @@ def run(request: dict[str, Any]) -> dict[str, Any]:
             captured["ple_inputs"] = value.detach()
         return value
 
+    def modal_features(self, *args, **kwargs):
+        output = original_modal(*args, **kwargs)
+        features = output.pooler_output
+        if modality == "audio":
+            features = features[output.attention_mask]
+        captured[feature_output] = features.detach()
+        return output
+
     handle = language_model.register_forward_pre_hook(language_pre_hook, with_kwargs=True)
     language_model.project_per_layer_inputs = types.MethodType(project_per_layer_inputs, language_model)
+    setattr(model.model, modal_method_name, types.MethodType(modal_features, model.model))
     try:
         with torch.inference_mode():
             prefill = model(**forward_kwargs)
     finally:
         handle.remove()
         language_model.project_per_layer_inputs = original_project
+        setattr(model.model, modal_method_name, original_modal)
 
     if not torch.equal(baseline.logits, prefill.logits) or not cache_equal(baseline.past_key_values, prefill.past_key_values):
         raise ValueError("Gemma 4 composite instrumentation changed authoritative logits or cache.")
-    if prefill.image_hidden_states is None or "hidden_states_0" not in captured or "ple_inputs" not in captured:
+    if feature_output not in captured or "hidden_states_0" not in captured or "ple_inputs" not in captured:
         raise ValueError("Gemma 4 composite capture did not observe every required prefill boundary.")
 
     llm_ids = input_ids.clone()
@@ -121,8 +145,8 @@ def run(request: dict[str, Any]) -> dict[str, Any]:
 
     prefill_operations = [
         operation("composite_text_embedding", "composite_text_embeddings", text_embeddings),
-        operation("composite_image_features", "image_features", prefill.image_hidden_states),
-        operation("composite_image_scatter", "hidden_states_0", captured["hidden_states_0"]),
+        operation(feature_operation, feature_output, captured[feature_output]),
+        operation(scatter_operation, "hidden_states_0", captured["hidden_states_0"]),
         operation("composite_ple_combine_scale", "ple_inputs", captured["ple_inputs"]),
         operation("final_logit_softcap", "softcapped_logits", prefill.logits),
     ]
@@ -153,6 +177,7 @@ def run(request: dict[str, Any]) -> dict[str, Any]:
 
     metadata = execution_device_metadata(model, device)
     return {
+        "modality": modality,
         "runtime": "transformers-5.5.0/torch-2.12.1-Gemma4ForConditionalGeneration-CPU-eager",
         **metadata,
         "generatedTokenIds": generated,

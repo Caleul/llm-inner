@@ -11,25 +11,38 @@ function value(argv: string[], name: string, required = true): string | undefine
 
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
-  const imageTokenId = Number(value(argv, "--image-token-id", false) ?? "258880");
+  const modality = value(argv, "--modality", false) ?? "image";
+  if (modality !== "image" && modality !== "video" && modality !== "audio") throw new Error("--modality requer image, video ou audio.");
+  const modalityTokenId = Number(value(argv, "--modality-token-id", false) ??
+    (modality === "image" ? value(argv, "--image-token-id", false) ?? "258880" : modality === "video" ? "258884" : "258881"));
   const textTokenId = Number(value(argv, "--text-token-id", false) ?? "2");
   const maxNewTokens = Number(value(argv, "--max-new-tokens", false) ?? "1");
-  const start = Number(value(argv, "--pixel-start", false) ?? "0");
-  const end = Number(value(argv, "--pixel-end", false) ?? "1");
-  if (![imageTokenId, textTokenId, maxNewTokens].every(Number.isSafeInteger) || imageTokenId < 0 || textTokenId < 0 || maxNewTokens < 0 || !Number.isFinite(start) || !Number.isFinite(end)) {
+  const start = Number(value(argv, modality === "audio" ? "--feature-start" : "--pixel-start", false) ?? (modality === "audio" ? "-0.25" : "0"));
+  const end = Number(value(argv, modality === "audio" ? "--feature-end" : "--pixel-end", false) ?? (modality === "audio" ? "0.25" : "1"));
+  if (![modalityTokenId, textTokenId, maxNewTokens].every(Number.isSafeInteger) || modalityTokenId < 0 || textTokenId < 0 || maxNewTokens < 0 || !Number.isFinite(start) || !Number.isFinite(end)) {
     throw new Error("IDs, maxNewTokens ou faixa de pixels inválidos.");
   }
-  const patches = 9, width = 768, count = patches * width;
-  const pixels = Array.from({ length: count }, (_, index) => Math.fround(start + (end - start) * index / Math.max(count - 1, 1)));
+  const patches = 9, width = 768, frames = Number(value(argv, "--frames", false) ?? "1");
+  if (!Number.isSafeInteger(frames) || frames <= 0) throw new Error("--frames requer inteiro positivo.");
+  const count = modality === "audio" ? frames * 128 : frames * patches * width;
+  const values = Array.from({ length: count }, (_, index) => Math.fround(start + (end - start) * index / Math.max(count - 1, 1)));
   const positions = [Array.from({ length: patches }, (_, index) => [index % 3, Math.floor(index / 3)])];
   await captureGemma4TransformersCompositeTrace({
     source: resolve(value(argv, "--source")!),
     output: resolve(value(argv, "--output")!),
-    inputTokens: [imageTokenId, textTokenId],
+    modality,
+    inputTokens: [modalityTokenId, textTokenId],
     positionIds: [0, 1],
-    mmTokenTypeIds: [1, 0],
-    pixelValues: { shape: [1, patches, width], values: pixels },
-    imagePositionIds: positions,
+    mmTokenTypeIds: [modality === "image" ? 1 : modality === "video" ? 2 : 0, 0],
+    ...(modality === "image" ? { pixelValues: { shape: [1, patches, width], values }, imagePositionIds: positions } : {}),
+    ...(modality === "video" ? {
+      pixelValuesVideos: { shape: [1, frames, patches, width], values },
+      videoPositionIds: [Array.from({ length: frames }, () => positions[0]!.map((position) => [...position]))],
+    } : {}),
+    ...(modality === "audio" ? {
+      inputFeatures: { shape: [1, frames, 128], values },
+      inputFeaturesMask: [Array.from({ length: frames }, () => true)],
+    } : {}),
     maxNewTokens,
     python: resolve(value(argv, "--python")!),
     model: value(argv, "--model")!,

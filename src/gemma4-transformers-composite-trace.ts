@@ -5,6 +5,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { openCatalog } from "./catalog.js";
 import { buildGemma4CompositeProgram } from "./gemma4-composite.js";
+import { gemma4CompositeTraceProfile, type Gemma4CompositeTraceModality } from "./gemma4-composite-trace-profile.js";
 import { fingerprintIR, readGenerationTraceBundle, sha256File, type GenerationTraceBundle } from "./trace.js";
 
 interface SerializedF32Tensor {
@@ -20,6 +21,7 @@ interface SerializedOperation {
 }
 
 interface NativeCompositeCapture {
+  modality: Gemma4CompositeTraceModality;
   runtime: string;
   executionDevice: string;
   executionDeviceDetail: string;
@@ -38,17 +40,22 @@ export interface Gemma4TransformersCompositeTraceOptions {
   inputTokens: number[];
   positionIds: number[];
   mmTokenTypeIds: number[];
-  pixelValues: { shape: number[]; values: number[] };
-  imagePositionIds: number[][][];
+  modality: Gemma4CompositeTraceModality;
+  pixelValues?: { shape: number[]; values: number[] };
+  imagePositionIds?: number[][][];
+  pixelValuesVideos?: { shape: number[]; values: number[] };
+  videoPositionIds?: number[][][][];
+  inputFeatures?: { shape: number[]; values: number[] };
+  inputFeaturesMask?: boolean[][];
   maxNewTokens: number;
   python: string;
   model: string;
   revisionOrChecksum: string;
 }
 
-/** Captures real image-prefill plus cached greedy decode from pinned Transformers. */
+/** Captures real image, video, or audio prefill plus cached greedy decode from pinned Transformers. */
 export async function captureGemma4TransformersCompositeTrace(options: Gemma4TransformersCompositeTraceOptions): Promise<void> {
-  validate(options);
+  validateGemma4CompositeTraceOptions(options);
   const opened = await openCatalog(options.source, false);
   try {
     if (opened.catalog.format !== "safetensors" || opened.catalog.config.model_type !== "gemma4") {
@@ -60,15 +67,20 @@ export async function captureGemma4TransformersCompositeTrace(options: Gemma4Tra
     const program = buildGemma4CompositeProgram(opened.catalog, { outputRows: 1, inputTerms: 1, includeWeights: false });
     const native = await invoke<NativeCompositeCapture>(options.python, {
       source: options.source,
+      modality: options.modality,
       inputTokens: options.inputTokens,
       positionIds: options.positionIds,
       mmTokenTypeIds: options.mmTokenTypeIds,
-      pixelValues: options.pixelValues,
-      imagePositionIds: options.imagePositionIds,
+      ...(options.pixelValues ? { pixelValues: options.pixelValues } : {}),
+      ...(options.imagePositionIds ? { imagePositionIds: options.imagePositionIds } : {}),
+      ...(options.pixelValuesVideos ? { pixelValuesVideos: options.pixelValuesVideos } : {}),
+      ...(options.videoPositionIds ? { videoPositionIds: options.videoPositionIds } : {}),
+      ...(options.inputFeatures ? { inputFeatures: options.inputFeatures } : {}),
+      ...(options.inputFeaturesMask ? { inputFeaturesMask: options.inputFeaturesMask } : {}),
       maxNewTokens: options.maxNewTokens,
       executionDevice: "cpu",
     });
-    if (native.executionDevice !== "cpu" || native.prefillOperations.length !== 5) {
+    if (native.executionDevice !== "cpu" || native.modality !== options.modality || native.prefillOperations.length !== 5) {
       throw new Error("Helper composite não declarou CPU e cinco fronteiras de prefill.");
     }
     const bundle: GenerationTraceBundle & {
@@ -103,11 +115,16 @@ export async function captureGemma4TransformersCompositeTrace(options: Gemma4Tra
         pastKeyValues: native.pastKeyValues,
       },
       compositeInputs: {
+        modality: options.modality,
         inputTokens: [...options.inputTokens],
         positionIds: [...options.positionIds],
         mmTokenTypeIds: [...options.mmTokenTypeIds],
-        pixelValues: { shape: [...options.pixelValues.shape], values: [...options.pixelValues.values] },
-        imagePositionIds: options.imagePositionIds.map((batch) => batch.map((position) => [...position])),
+        ...(options.pixelValues ? { pixelValues: cloneTensor(options.pixelValues) } : {}),
+        ...(options.imagePositionIds ? { imagePositionIds: options.imagePositionIds.map((batch) => batch.map((position) => [...position])) } : {}),
+        ...(options.pixelValuesVideos ? { pixelValuesVideos: cloneTensor(options.pixelValuesVideos) } : {}),
+        ...(options.videoPositionIds ? { videoPositionIds: options.videoPositionIds.map((video) => video.map((frame) => frame.map((position) => [...position]))) } : {}),
+        ...(options.inputFeatures ? { inputFeatures: cloneTensor(options.inputFeatures) } : {}),
+        ...(options.inputFeaturesMask ? { inputFeaturesMask: options.inputFeaturesMask.map((row) => [...row]) } : {}),
         maxNewTokens: options.maxNewTokens,
       },
       prefillOperations: native.prefillOperations,
@@ -122,21 +139,57 @@ export async function captureGemma4TransformersCompositeTrace(options: Gemma4Tra
   }
 }
 
-function validate(options: Gemma4TransformersCompositeTraceOptions): void {
+export function validateGemma4CompositeTraceOptions(options: Gemma4TransformersCompositeTraceOptions): void {
   const vectors = [options.inputTokens, options.positionIds, options.mmTokenTypeIds];
   if (vectors.some((values) => values.length === 0 || values.some((value) => !Number.isSafeInteger(value) || value < 0)) ||
     options.inputTokens.length !== options.positionIds.length || options.inputTokens.length !== options.mmTokenTypeIds.length) {
     throw new Error("Captura composite requer tokens, posições e tipos multimodais inteiros e alinhados.");
   }
-  const validPixelShape = options.pixelValues.shape.length === 3 && options.pixelValues.shape.at(-1) === 768 &&
-    options.pixelValues.shape.every((dimension) => Number.isSafeInteger(dimension) && dimension > 0);
-  const elements = validPixelShape ? options.pixelValues.shape.reduce((total, dimension) => total * dimension, 1) : 0;
-  if (!validPixelShape || elements !== options.pixelValues.values.length ||
-    options.pixelValues.values.some((value) => !Number.isFinite(value)) || options.imagePositionIds.length !== options.pixelValues.shape[0] ||
-    options.imagePositionIds.some((batch) => batch.length !== options.pixelValues.shape[1] || batch.some((position) => position.length !== 2)) ||
-    !Number.isSafeInteger(options.maxNewTokens) || options.maxNewTokens < 0) {
-    throw new Error("Captura composite requer pixel_values F32 [images,patches,768], posições [images,patches,2] e maxNewTokens válido.");
+  if (!Number.isSafeInteger(options.maxNewTokens) || options.maxNewTokens < 0) throw new Error("Captura composite requer maxNewTokens válido.");
+  const profile = gemma4CompositeTraceProfile(options.modality);
+  if (options.mmTokenTypeIds.filter((value) => value === profile.tokenTypeId).length !== (profile.tokenTypeId === 0 ? options.mmTokenTypeIds.length : 1)) {
+    throw new Error(`Captura composite ${options.modality} possui mm_token_type_ids incompatível.`);
   }
+  const provided = [options.pixelValues !== undefined || options.imagePositionIds !== undefined,
+    options.pixelValuesVideos !== undefined || options.videoPositionIds !== undefined,
+    options.inputFeatures !== undefined || options.inputFeaturesMask !== undefined];
+  const expected = options.modality === "image" ? 0 : options.modality === "video" ? 1 : 2;
+  if (provided.filter(Boolean).length !== 1 || !provided[expected]) throw new Error(`Captura composite ${options.modality} requer somente os inputs da modalidade declarada.`);
+  if (options.modality === "image") validateVisionInput(options.pixelValues, options.imagePositionIds, false);
+  if (options.modality === "video") validateVisionInput(options.pixelValuesVideos, options.videoPositionIds, true);
+  if (options.modality === "audio") validateAudioInput(options.inputFeatures, options.inputFeaturesMask);
+}
+
+function validateVisionInput(
+  tensor: { shape: number[]; values: number[] } | undefined,
+  positions: number[][][] | number[][][][] | undefined,
+  video: boolean,
+): void {
+  const rank = video ? 4 : 3;
+  if (!tensor || !positions || tensor.shape.length !== rank || tensor.shape.at(-1) !== 768 ||
+    tensor.shape.some((dimension) => !Number.isSafeInteger(dimension) || dimension <= 0) ||
+    tensor.shape.reduce((total, dimension) => total * dimension, 1) !== tensor.values.length || tensor.values.some((value) => !Number.isFinite(value))) {
+    throw new Error(`Captura composite requer pixels ${video ? "video [videos,frames,patches,768]" : "image [images,patches,768]"} válidos.`);
+  }
+  const flattened = video ? (positions as number[][][][]).flat(1) : positions as number[][][];
+  const batches = video ? tensor.shape[0]! * tensor.shape[1]! : tensor.shape[0]!;
+  const patches = tensor.shape.at(-2)!;
+  if (flattened.length !== batches || flattened.some((batch) => batch.length !== patches || batch.some((position) => position.length !== 2 || position.some((value) => !Number.isSafeInteger(value))))) {
+    throw new Error(`Captura composite requer posições ${video ? "video" : "image"} alinhadas aos pixels.`);
+  }
+}
+
+function validateAudioInput(tensor: { shape: number[]; values: number[] } | undefined, mask: boolean[][] | undefined): void {
+  if (!tensor || !mask || tensor.shape.length !== 3 || tensor.shape[2] !== 128 ||
+    tensor.shape.some((dimension) => !Number.isSafeInteger(dimension) || dimension <= 0) ||
+    tensor.shape.reduce((total, dimension) => total * dimension, 1) !== tensor.values.length || tensor.values.some((value) => !Number.isFinite(value)) ||
+    mask.length !== tensor.shape[0] || mask.some((row) => row.length !== tensor.shape[1] || row.some((value) => typeof value !== "boolean"))) {
+    throw new Error("Captura composite requer input_features [batch,frames,128] e mask alinhada.");
+  }
+}
+
+function cloneTensor(tensor: { shape: number[]; values: number[] }): { shape: number[]; values: number[] } {
+  return { shape: [...tensor.shape], values: [...tensor.values] };
 }
 
 async function invoke<T>(python: string, request: object): Promise<T> {

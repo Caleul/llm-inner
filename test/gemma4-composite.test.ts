@@ -26,11 +26,55 @@ import {
 import { probeGemma4LiteralLinearReductionProfiles } from "../src/gemma4-linear-reduction-probe.js";
 import { executeGemma4PagedTextLiteralF32, generateGemma4PagedTextLiteralF32 } from "../src/gemma4-paged-text.js";
 import { executeGemma4VisionF32 } from "../src/gemma4-vision.js";
+import { gemma4CompositeTraceProfile } from "../src/gemma4-composite-trace-profile.js";
+import { validateGemma4CompositeTraceOptions } from "../src/gemma4-transformers-composite-trace.js";
 import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearF32 } from "../src/paged-dense.js";
 import { fingerprintIR } from "../src/trace.js";
 import type { DenseF32Tensor, ModelCatalog, TensorInfo } from "../src/types.js";
 
 const preview = { outputRows: 1, inputTerms: 1, includeWeights: false } as const;
+
+test("Gemma 4 composite trace dispatches every modality through one explicit feature/scatter contract", () => {
+  assert.deepEqual(gemma4CompositeTraceProfile("image"), {
+    modality: "image", tokenTypeId: 1, featureOutput: "image_features",
+    featureOperationId: "composite_image_features", scatterOperationId: "composite_image_scatter",
+  });
+  assert.deepEqual(gemma4CompositeTraceProfile("video"), {
+    modality: "video", tokenTypeId: 2, featureOutput: "video_features",
+    featureOperationId: "composite_video_features", scatterOperationId: "composite_video_scatter",
+  });
+  assert.deepEqual(gemma4CompositeTraceProfile("audio"), {
+    modality: "audio", tokenTypeId: 0, featureOutput: "audio_features",
+    featureOperationId: "composite_audio_features", scatterOperationId: "composite_audio_scatter",
+  });
+});
+
+test("Gemma 4 composite trace validates each modality shape and rejects mixed routing before source access", () => {
+  const common = { source: "/absent", output: "/tmp/absent", positionIds: [0, 1], maxNewTokens: 1, python: "/python", model: "gemma4", revisionOrChecksum: "revision" };
+  const visionValues = Array(9 * 768).fill(0);
+  const positions = [Array.from({ length: 9 }, (_, index) => [index % 3, Math.floor(index / 3)])];
+  assert.doesNotThrow(() => validateGemma4CompositeTraceOptions({
+    ...common, modality: "image", inputTokens: [258880, 2], mmTokenTypeIds: [1, 0],
+    pixelValues: { shape: [1, 9, 768], values: visionValues }, imagePositionIds: positions,
+  }));
+  assert.doesNotThrow(() => validateGemma4CompositeTraceOptions({
+    ...common, modality: "video", inputTokens: [258884, 2], mmTokenTypeIds: [2, 0],
+    pixelValuesVideos: { shape: [1, 1, 9, 768], values: visionValues }, videoPositionIds: [positions],
+  }));
+  assert.doesNotThrow(() => validateGemma4CompositeTraceOptions({
+    ...common, modality: "audio", inputTokens: [258881, 2], mmTokenTypeIds: [0, 0],
+    inputFeatures: { shape: [1, 1, 128], values: Array(128).fill(0) }, inputFeaturesMask: [[true]],
+  }));
+  assert.throws(() => validateGemma4CompositeTraceOptions({
+    ...common, modality: "video", inputTokens: [258884, 2], mmTokenTypeIds: [1, 0],
+    pixelValuesVideos: { shape: [1, 1, 9, 768], values: visionValues }, videoPositionIds: [positions],
+  }), /mm_token_type_ids incompatível/);
+  assert.throws(() => validateGemma4CompositeTraceOptions({
+    ...common, modality: "audio", inputTokens: [258881, 2], mmTokenTypeIds: [0, 0],
+    pixelValues: { shape: [1, 9, 768], values: visionValues }, imagePositionIds: positions,
+    inputFeatures: { shape: [1, 1, 128], values: Array(128).fill(0) }, inputFeaturesMask: [[true]],
+  }), /requer somente os inputs da modalidade declarada/);
+});
 
 test("Gemma 4 reduction probe CLI rejects unknown and duplicate targeted profile IDs before opening artifacts", () => {
   const fixedArguments = [

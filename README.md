@@ -577,14 +577,22 @@ dos payloads incorporados. O mesmo forward alimenta diretamente o interpretador
 das doze atribuições de geração serializadas; multimodalidade ocorre no
 prefill, e decode recebe apenas token, posição e cache declarado.
 
-Uma captura real `[image_token_id,2]` com imagem `[1,9,768]` vinculou cinco
-fronteiras de prefill, logits de seleção, token/posição, 24 caches pós-decode,
-logits e caches terminais. Com `gemma-4-E4B-dense` ausente, embedding,
-`image_features`, scatter, PLE, logits de prefill, token greedy `184` na posição
-`2`, todos os caches produtores e logits terminais passaram com erro absoluto
-e relativo zero. Prefill e geração são `lossless-within-dtype` para essa
-invocação; a evidência permanece candidata e não supera os limites de vídeo e
-áudio descritos acima.
+O trace composite agora despacha `image`, `video` e `audio` por um contrato de
+modalidade único, que fixa token type, input, feature output e scatter e rejeita
+misturas antes de abrir a fonte. Imagem e vídeo têm invocações reais completas
+`lossless-within-dtype`: cinco fronteiras de prefill, token greedy `184` na
+posição `2`, logits de seleção/terminais e todos os 24 caches pós-decode e
+terminais passaram com erro zero sem o checkpoint. No vídeo, isso fecha a
+fronteira ampla, mas não transforma a igualdade terminal em agenda escalar para
+os dois batched matmuls internos já conhecidos.
+
+Áudio usa o mesmo caminho amplo e localiza a primeira divergência em
+`composite_audio_features [1,2560]` (`maxAbs=0.08203125`) antes de scatter, PLE
+e texto. O token/posição e argmax terminal ainda concordam, mas logits e os 24
+caches divergem, portanto prefill e geração permanecem `approximate`. Isso
+confirma que a lacuna ampla não era wiring composite e preserva o limite
+fail-closed dos 36 `sgemm` nativos. Contrato, comandos, hashes e métricas estão
+em [`docs/validation/gemma4-e4b-modality-class-composite-generation-2026-07-18.md`](docs/validation/gemma4-e4b-modality-class-composite-generation-2026-07-18.md).
 
 Uma captura posterior de todas as 1.229 atribuições declaradas do Gemma4Text
 torna a divergência localizável sem reabrir o checkpoint durante o candidato.
