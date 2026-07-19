@@ -195,6 +195,17 @@ declara `reproducibility=fail-closed-runtime-reduction` com
 o artefato. Assim, cobertura estrutural não é confundida com fidelidade
 numérica ainda não demonstrada.
 
+Uma redução nesse estado ainda deve ser auditável até a fronteira desconhecida.
+Para as cinco classes BMM Gemma 4, a vista de produtos enumera o par de
+endereços de operandos para cada índice solicitado, resolve coordenadas de
+head/chunk e explicita o predicado que transforma padding em zero. O termo
+`REAL_PRODUCT(left * right)` descreve somente o produto matemático antes do
+kernel; ele não autoriza arredondamento, FMA, lane, tile ou fold. A vista deve
+terminar em `status=fail-closed-runtime-reduction`, nomear o provider e declarar
+`productRounding` e `accumulationOrder` como
+`unpublished-provider-boundary`. Ela nunca produz o escalar de saída nem
+substitui a rejeição da vista executável estrita.
+
 ## Critério de aceite
 
 Uma implementação só é candidata a fechar este requisito quando:

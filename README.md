@@ -434,6 +434,19 @@ traces ou headers `no_grad`/runtime divergentes. A regeneração real, auditoria
 source-removed e evidência do desvio dependente do contexto estão em
 [`docs/validation/gemma4-e4b-authoritative-execution-contract-2026-07-18.md`](docs/validation/gemma4-e4b-authoritative-execution-contract-2026-07-18.md).
 
+O leitor source-removed torna essa fronteira navegável sem enfraquecê-la.
+`--list-runtime-reductions` enumera as 100 instâncias por classe autoritativa;
+`--runtime-reduction-audit`, junto de `--operation` e
+`--output-coordinate`, abre os endereços concretos de cada par de operandos,
+predicados de padding e o domínio incorporado. O resultado continua marcado
+`fail-closed-runtime-reduction`: `REAL_PRODUCT` é somente o termo matemático
+auditável, enquanto arredondamento do produto, ordem de acumulação e saída
+permanecem indisponíveis até uma agenda Apple Accelerate geral ser provada.
+Assim a vista estrita continua recusando a operação, mas um leitor pode seguir
+todos os termos conhecidos em vez de receber apenas uma mensagem de erro. A
+prova nas cinco classes reais está em
+[`docs/validation/gemma4-e4b-runtime-reduction-product-navigation-2026-07-19.md`](docs/validation/gemma4-e4b-runtime-reduction-product-navigation-2026-07-19.md).
+
 O schema v17 fixa também a implementação de atenção como `eager` e reproduz o
 contrato de máscara de áudio observado no Transformers 5.5.0 para toda a classe
 compatível. A fonte cria uma máscara **aditiva**, preenche o bloqueio 5-D com

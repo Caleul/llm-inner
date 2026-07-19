@@ -51,7 +51,14 @@ import {
   validateGemma4LiteralFormulaFunctionCoverage,
 } from "../src/gemma4-literal-formula-language.js";
 import { buildGemma4LiteralSourceIdentity, type Gemma4LiteralSourceIdentity } from "../src/gemma4-literal-source-identity.js";
-import { listGemma4LiteralOperations, renderGemma4LiteralMultimodalScalarView } from "../src/gemma4-literal-multimodal-scalar-view.js";
+import {
+  listGemma4LiteralOperations,
+  renderGemma4LiteralMultimodalScalarView,
+} from "../src/gemma4-literal-multimodal-scalar-view.js";
+import {
+  listGemma4LiteralRuntimeReductionOperations,
+  renderGemma4LiteralRuntimeReductionAudit,
+} from "../src/gemma4-literal-runtime-reduction-audit.js";
 import { executeGemma4LiteralVisionF32 } from "../src/gemma4-literal-vision.js";
 import { listGemma4LiteralTextOperations, renderGemma4LiteralScalarView, validateGemma4LiteralScalarView } from "../src/gemma4-literal-scalar-view.js";
 import {
@@ -1709,6 +1716,82 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       });
       assert.ok(audioSoftmax.scalarAssignments.some((formula) => formula.includes("ORDERED_F32_REDUCE_MAX")));
       assert.ok(audioSoftmax.scalarAssignments.some((formula) => formula.includes("ORDERED_F32_REDUCE_SUM")));
+
+      // The real BF16 package dispatches both vision BMM classes to the same
+      // unresolved Apple SGEMM boundary. Promote every compatible fixture
+      // instance together so this test covers the full five-class contract
+      // without introducing any layer-ID allowlist.
+      const visionNativeBmm = artifact.calculationGraph.assignments.filter((assignment) =>
+        assignment.scope === "vision" &&
+        (assignment.operation === "attention-score-matmul" || assignment.operation === "attention-value-matmul"));
+      const originalVisionCalculations = visionNativeBmm.map((assignment) => structuredClone(assignment.scalarCalculation));
+      try {
+        for (const assignment of visionNativeBmm) {
+          assignment.scalarCalculation.dtypePolicy = {
+            inputDtype: "BF16", computeDtype: "pytorch-native-batched-matmul",
+            accumulationDtype: "runtime-defined", outputDtype: "BF16",
+          };
+          assignment.scalarCalculation.reduction = {
+            ...assignment.scalarCalculation.reduction!, order: "runtime-defined",
+          };
+          delete assignment.scalarCalculation.reduction.schedule;
+          assignment.scalarCalculation.reproducibility = "fail-closed-runtime-reduction";
+        }
+        const runtimeReductions = listGemma4LiteralRuntimeReductionOperations(artifact);
+        assert.deepEqual(new Set(runtimeReductions.map((entry) => entry.operationClass)), new Set([
+          "vision-attention-score", "vision-attention-value", "audio-content-attention-score",
+          "audio-position-attention-score", "audio-attention-value",
+        ]));
+        assert.equal(runtimeReductions.length, visionNativeBmm.length + program.audioProgram.tower.layers * 3);
+        assert.ok(runtimeReductions.every((entry) => entry.provider === "Apple Accelerate SGEMM" &&
+          entry.scalarSchedule === "unpublished-fail-closed" &&
+          entry.auditability === "operand-products-addressable-reduction-fail-closed"));
+
+        const imageScoreAudit = renderGemma4LiteralRuntimeReductionAudit(artifact, {
+          operationId: "composite_image_features/vision_layer_0_attention_scores", outputCoordinate: [0, 0, 0, 0],
+        });
+        assert.equal(imageScoreAudit.status, "fail-closed-runtime-reduction");
+        assert.equal(imageScoreAudit.reduction.complete, true);
+        assert.equal(imageScoreAudit.terms.length, program.visionProgram.tower.headDim);
+        assert.equal(imageScoreAudit.terms[1]?.leftOperand, "composite_image_features/vision_layer_0_q_rotated[0,0,0,1]");
+        assert.equal(imageScoreAudit.terms[1]?.rightOperand, "composite_image_features/vision_layer_0_k_rotated[0,0,0,1]");
+        assert.match(imageScoreAudit.nonExecutableResult, /UNPUBLISHED_REDUCTION/);
+
+        assert.throws(() => renderGemma4LiteralRuntimeReductionAudit(artifact, {
+          operationId: "composite_video_features/vision_layer_0_attention", outputCoordinate: [0, 0, 0],
+        }), /redução dinâmica requer inputStart\/inputCount/);
+        const videoValueAudit = renderGemma4LiteralRuntimeReductionAudit(artifact, {
+          operationId: "composite_video_features/vision_layer_0_attention", outputCoordinate: [0, 0, 0],
+          inputStart: 1, inputCount: 2,
+        });
+        assert.equal(videoValueAudit.operationClass, "vision-attention-value");
+        assert.equal(videoValueAudit.reduction.complete, false);
+        assert.deepEqual(videoValueAudit.reduction.renderedWindow, { startInclusive: 1, endExclusive: 3 });
+        assert.equal(videoValueAudit.terms[0]?.leftOperand, "composite_video_features/vision_layer_0_attention_weights[0,0,0,1]");
+
+        const audioContentAudit = renderGemma4LiteralRuntimeReductionAudit(artifact, {
+          operationId: "composite_audio_features/audio_layer_0_attention_content_scores", outputCoordinate: [0, 0, 0, 0, 0],
+        });
+        assert.equal(audioContentAudit.operationClass, "audio-content-attention-score");
+        assert.ok(audioContentAudit.terms.every((term) => term.predicate?.includes("key_index")));
+        const audioPositionAudit = renderGemma4LiteralRuntimeReductionAudit(artifact, {
+          operationId: "composite_audio_features/audio_layer_0_attention_position_scores", outputCoordinate: [0, 0, 0, 0, 0],
+        });
+        assert.equal(audioPositionAudit.operationClass, "audio-position-attention-score");
+        assert.ok(audioPositionAudit.terms.every((term) => term.rightOperand.includes("relative_keys")));
+        const audioValueAudit = renderGemma4LiteralRuntimeReductionAudit(artifact, {
+          operationId: "composite_audio_features/audio_layer_0_attention", outputCoordinate: [0, 0, 0],
+        });
+        assert.equal(audioValueAudit.operationClass, "audio-attention-value");
+        assert.equal(audioValueAudit.reduction.complete, true);
+        assert.ok(audioValueAudit.coordinateAssignments.some((entry) => entry.startsWith("key_index(key_slot)=")));
+        assert.ok(audioValueAudit.terms.every((term) => term.mathematicalProduct.includes("REAL_PRODUCT")));
+        assert.throws(() => renderGemma4LiteralRuntimeReductionAudit(artifact, {
+          operationId: "composite_audio_features/audio_layer_0_q_scale", outputCoordinate: [0, 0, 0],
+        }), /não possui redução runtime-defined/);
+      } finally {
+        visionNativeBmm.forEach((assignment, index) => { assignment.scalarCalculation = originalVisionCalculations[index]!; });
+      }
 
       const duplicateId = artifact.program.visionProgram.assignments[1]!;
       const originalId = duplicateId.id;
