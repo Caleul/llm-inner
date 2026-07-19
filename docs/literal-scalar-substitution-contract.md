@@ -246,6 +246,18 @@ reutilizar o produtor compartilhado. A soma das duas classes precisa ser exatame
 número de constantes do artefato; órfãos, sobreposição ou decoder ausente são
 erro, nunca warning.
 
+No schema v30, a presença opcional de inputs também deixa de ser controle
+secreto do leitor. `forwardControl` declara, em ordem, os grupos completos de
+imagem, vídeo e áudio, as operações e invocações executadas quando presentes e
+o alias identidade exato quando ausentes. Ele seleciona ainda o programa de
+máscaras visual, a máscara aditiva do chamador ou a máscara causal/cache
+textual; fixa inputs incompatíveis; e declara os estados explícitos para
+`position_ids` ausente e `past_key_values` ausente/presente. Tanto replay quanto
+navegação devem interpretar esse objeto. O grafo completo continua contendo
+todas as definições, mas uma invocação avalia somente os ramos selecionados e
+os aliases de ausência serializados — nunca uma decisão reconstruída por
+convenção do host.
+
 ## Programa literal de geração
 
 Logits não completam o produto de geração. O artefato Gemma 4 schema v2 deve

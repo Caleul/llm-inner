@@ -5,6 +5,10 @@ import {
   type Gemma4CompositeExecutionRequest,
 } from "./gemma4-composite.js";
 import type { OpenGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
+import {
+  executeGemma4LiteralForwardControlProgram,
+  gemma4CompositeRequestInputPresence,
+} from "./gemma4-literal-forward-control.js";
 import { executeGemma4LiteralAudioF32 } from "./gemma4-literal-audio.js";
 import {
   executeGemma4LiteralGenerationProgram,
@@ -52,12 +56,11 @@ export async function executeGemma4LiteralCompositeF32(
   options: Gemma4LiteralCompositeExecutionOptions = {},
 ): Promise<Gemma4LiteralCompositeExecutionResult> {
   validateInputIds(request.inputIds);
-  if (request.mmTokenTypeIds !== undefined && request.attentionMask !== undefined) {
-    throw new Error("Gemma 4 literal composite não combina mm_token_type_ids com attentionMask 4-D fornecida.");
-  }
-  if (request.mmTokenTypeIds !== undefined && request.pastKeyValues !== undefined) {
-    throw new Error("Gemma 4 literal composite aceita mm_token_type_ids somente no prefill sem cache.");
-  }
+  const selection = executeGemma4LiteralForwardControlProgram(
+    artifact.forwardControl,
+    artifact.program,
+    gemma4CompositeRequestInputPresence(request),
+  );
   const towerLimit = options.maxTowerTensorBytes ?? 64 * 1024 * 1024;
   if (!Number.isSafeInteger(towerLimit) || towerLimit <= 0) throw new Error("Gemma 4 literal composite requer maxTowerTensorBytes positivo seguro.");
   const text = artifact.program.textProgram;
@@ -68,11 +71,10 @@ export async function executeGemma4LiteralCompositeF32(
   let embeddings = required(values, "hidden_states_0");
   values.set("composite_text_embeddings", embeddings);
 
-  assertPair(request.pixelValues, request.imagePositionIds, "pixel_values", "image_position_ids");
-  if (request.pixelValues && request.imagePositionIds) {
+  if (selection.modalities.image) {
     const image = await executeGemma4LiteralVisionF32(artifact, {
-      pixelValues: request.pixelValues,
-      pixelPositionIds: request.imagePositionIds,
+      pixelValues: request.pixelValues!,
+      pixelPositionIds: request.imagePositionIds!,
     }, { maxTensorBytes: towerLimit });
     merge(values, image.values);
     values.set("image_features", image.imageFeatures);
@@ -80,11 +82,10 @@ export async function executeGemma4LiteralCompositeF32(
   }
   values.set("composite_embeddings_after_image", embeddings);
 
-  assertPair(request.pixelValuesVideos, request.videoPositionIds, "pixel_values_videos", "video_position_ids");
-  if (request.pixelValuesVideos && request.videoPositionIds) {
+  if (selection.modalities.video) {
     const videoTokenId = artifact.program.contract.modalities.videoTokenId;
     if (videoTokenId === undefined) throw new Error("Gemma 4 literal composite recebeu vídeo sem video_token_id declarado.");
-    const flattened = flattenGemma4VideoInput(request.pixelValuesVideos, request.videoPositionIds);
+    const flattened = flattenGemma4VideoInput(request.pixelValuesVideos!, request.videoPositionIds!);
     values.set("composite_video_pixels", flattened.pixels);
     values.set("composite_video_position_ids", positionsTensor(flattened.positions));
     const video = await executeGemma4LiteralVisionF32(artifact, {
@@ -97,11 +98,10 @@ export async function executeGemma4LiteralCompositeF32(
   }
   values.set("composite_embeddings_after_video", embeddings);
 
-  assertPair(request.inputFeatures, request.inputFeaturesMask, "input_features", "input_features_mask");
-  if (request.inputFeatures && request.inputFeaturesMask) {
+  if (selection.modalities.audio) {
     const audio = await executeGemma4LiteralAudioF32(artifact, {
-      inputFeatures: request.inputFeatures,
-      inputFeaturesMask: request.inputFeaturesMask,
+      inputFeatures: request.inputFeatures!,
+      inputFeaturesMask: request.inputFeaturesMask!,
     }, { maxTensorBytes: towerLimit });
     merge(values, audio.values);
     values.set("audio_features", audio.audioFeatures);
@@ -110,17 +110,20 @@ export async function executeGemma4LiteralCompositeF32(
   values.set("hidden_states_0", embeddings);
 
   const prepared = new Map(await executeGemma4PagedTextProjectionPreludeLiteralF32(artifact, llmInputIds, values, options));
-  const masks = request.mmTokenTypeIds === undefined
-    ? undefined
-    : buildGemma4VisionAttentionMasks(request.mmTokenTypeIds, request.inputIds, text);
+  const masks = selection.visionMasks
+    ? buildGemma4VisionAttentionMasks(request.mmTokenTypeIds!, request.inputIds, text)
+    : undefined;
   if (masks) {
     prepared.set("vision_block_sequence_ids", masks.blockSequenceIds);
     prepared.set("full_attention_mask", masks.full);
     prepared.set("sliding_attention_mask", masks.sliding);
   }
+  const selectedPositionIds = selection.positionIdsMode === "caller-i32-values"
+    ? request.positionIds!
+    : request.inputIds.map((row) => row.map((_, sequence) => sequence));
   const executedText = await executeGemma4PagedTextLiteralF32WithPreparedPrelude(artifact, {
     inputIds: request.inputIds,
-    ...(request.positionIds ? { positionIds: request.positionIds } : {}),
+    positionIds: selectedPositionIds,
     ...(request.attentionMask ? { attentionMask: request.attentionMask } : {}),
     ...(masks ? { attentionMasksByLayer: masks.byLayer } : {}),
     ...(request.pastKeyValues ? { pastKeyValues: request.pastKeyValues } : {}),
@@ -150,10 +153,6 @@ function validateInputIds(inputIds: number[][]): void {
   if (inputIds.length === 0 || inputIds.some((row) => row.length === 0 || row.length !== inputIds[0]!.length || row.some((id) => !Number.isSafeInteger(id) || id < 0))) {
     throw new Error("Gemma 4 literal composite requer input_ids não vazio, retangular e inteiro não negativo.");
   }
-}
-
-function assertPair(left: unknown, right: unknown, leftName: string, rightName: string): void {
-  if ((left === undefined) !== (right === undefined)) throw new Error(`Gemma 4 literal composite requer ${leftName} e ${rightName} juntos.`);
 }
 
 function required(values: ReadonlyMap<string, DenseF32Tensor>, name: string): DenseF32Tensor {

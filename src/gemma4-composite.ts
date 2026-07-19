@@ -76,6 +76,14 @@ export interface Gemma4CompositeExecutionResult {
   text: ReferenceF32ExecutionResult;
 }
 
+/** Optional-input branches selected before the numerical executor runs. */
+export interface Gemma4CompositeForwardSelection {
+  modalities: { image: boolean; video: boolean; audio: boolean };
+  visionMasks: boolean;
+  positionIdsMode: "caller-i32-values" | "sequence-index-default";
+  pastKeyValuesMode: "caller-post-rope-producer-cache" | "empty-cache";
+}
+
 export interface Gemma4CompositeGenerationRequest extends Gemma4CompositeExecutionRequest {
   maxNewTokens: number;
   eosTokenId?: number;
@@ -131,10 +139,13 @@ export function buildGemma4CompositeProgram(catalog: ModelCatalog, preview: Prev
 }
 
 /** Executes the composite prelude then enters the existing Gemma4Text F32 path. */
-export function executeGemma4CompositeF32(program: Gemma4CompositeProgram, request: Gemma4CompositeExecutionRequest): Gemma4CompositeExecutionResult {
+export function executeGemma4CompositeF32(
+  program: Gemma4CompositeProgram,
+  request: Gemma4CompositeExecutionRequest,
+  declaredSelection?: Gemma4CompositeForwardSelection,
+): Gemma4CompositeExecutionResult {
   validateInputIds(request.inputIds);
-  if (request.mmTokenTypeIds !== undefined && request.attentionMask !== undefined) throw new Error("Gemma 4 composite não combina mm_token_type_ids com attentionMask 4-D fornecida pelo chamador; o runtime autoritativo trata essa máscara como uma substituição já preparada.");
-  if (request.mmTokenTypeIds !== undefined && request.pastKeyValues !== undefined) throw new Error("Gemma 4 composite requer mm_token_type_ids somente no prefill sem cache; o prepare_inputs_for_generation autoritativo os remove no decode incremental.");
+  const selection = validateCompositeForwardSelection(request, declaredSelection);
   const llmInputIds = replaceGemma4MultimodalIdsWithPad(request.inputIds, program.contract, textPadTokenId(program.textProgram));
   const prefix = textPrefixFromProgram(program.textProgram);
   const tokenEmbedding = embedding(llmInputIds, tensor(request.tensors, `${prefix}.embed_tokens.weight`), Math.sqrt(program.contract.text.hiddenSize));
@@ -144,20 +155,18 @@ export function executeGemma4CompositeF32(program: Gemma4CompositeProgram, reque
   values.set("ple_token_identity", pleIdentity);
   let embeddings = tokenEmbedding;
 
-  if ((request.pixelValues === undefined) !== (request.imagePositionIds === undefined)) throw new Error("Gemma 4 composite requer pixel_values e image_position_ids juntos, ou ambos ausentes.");
-  if (request.pixelValues !== undefined) {
-    const image = executeGemma4VisionF32(program.visionProgram, { pixelValues: request.pixelValues, pixelPositionIds: request.imagePositionIds!, tensors: request.tensors });
+  if (selection.modalities.image) {
+    const image = executeGemma4VisionF32(program.visionProgram, { pixelValues: request.pixelValues!, pixelPositionIds: request.imagePositionIds!, tensors: request.tensors });
     merge(values, image.values);
     values.set("image_features", image.imageFeatures);
     embeddings = scatterGemma4ImageFeaturesF32(embeddings, request.inputIds, program.contract.modalities.imageTokenId, image.imageFeatures);
   }
   values.set("composite_embeddings_after_image", embeddings);
 
-  if ((request.pixelValuesVideos === undefined) !== (request.videoPositionIds === undefined)) throw new Error("Gemma 4 composite requer pixel_values_videos e video_position_ids juntos, ou ambos ausentes.");
-  if (request.pixelValuesVideos !== undefined) {
+  if (selection.modalities.video) {
     const videoTokenId = program.contract.modalities.videoTokenId;
     if (videoTokenId === undefined) throw new Error("Gemma 4 composite recebeu vídeo, mas o contrato não declara video_token_id.");
-    const flattened = flattenGemma4VideoInput(request.pixelValuesVideos, request.videoPositionIds!);
+    const flattened = flattenGemma4VideoInput(request.pixelValuesVideos!, request.videoPositionIds!);
     values.set("composite_video_pixels", flattened.pixels);
     values.set("composite_video_position_ids", positionsTensor(flattened.positions));
     const video = executeGemma4VisionF32(program.visionProgram, { pixelValues: flattened.pixels, pixelPositionIds: flattened.positions, tensors: request.tensors });
@@ -167,9 +176,8 @@ export function executeGemma4CompositeF32(program: Gemma4CompositeProgram, reque
   }
   values.set("composite_embeddings_after_video", embeddings);
 
-  if ((request.inputFeatures === undefined) !== (request.inputFeaturesMask === undefined)) throw new Error("Gemma 4 composite requer input_features e input_features_mask juntos, ou ambos ausentes.");
-  if (request.inputFeatures !== undefined) {
-    const audio = executeGemma4AudioF32(program.audioProgram, { inputFeatures: request.inputFeatures, inputFeaturesMask: request.inputFeaturesMask!, tensors: request.tensors });
+  if (selection.modalities.audio) {
+    const audio = executeGemma4AudioF32(program.audioProgram, { inputFeatures: request.inputFeatures!, inputFeaturesMask: request.inputFeaturesMask!, tensors: request.tensors });
     merge(values, audio.values);
     values.set("audio_features", audio.audioFeatures);
     embeddings = scatterGemma4AudioFeaturesF32(embeddings, request.inputIds, program.contract.modalities.audioTokenId, audio.audioFeatures);
@@ -188,15 +196,18 @@ export function executeGemma4CompositeF32(program: Gemma4CompositeProgram, reque
   values.set("ple_context_normalized", contextNormalized);
   values.set("ple_combined", pleCombined);
   values.set("ple_inputs", pleInputs);
-  const visionMasks = request.mmTokenTypeIds === undefined ? undefined : buildGemma4VisionAttentionMasks(request.mmTokenTypeIds, request.inputIds, program.textProgram);
+  const visionMasks = selection.visionMasks ? buildGemma4VisionAttentionMasks(request.mmTokenTypeIds!, request.inputIds, program.textProgram) : undefined;
   if (visionMasks !== undefined) {
     values.set("vision_block_sequence_ids", visionMasks.blockSequenceIds);
     values.set("full_attention_mask", visionMasks.full);
     values.set("sliding_attention_mask", visionMasks.sliding);
   }
+  const selectedPositionIds = selection.positionIdsMode === "caller-i32-values"
+    ? request.positionIds!
+    : request.inputIds.map((row) => row.map((_, sequence) => sequence));
   const text = executeReferenceF32WithPreparedPrelude(asF32ReferenceProgram(program.textProgram), {
     inputIds: request.inputIds,
-    ...(request.positionIds ? { positionIds: request.positionIds } : {}),
+    positionIds: selectedPositionIds,
     ...(request.attentionMask ? { attentionMask: request.attentionMask } : {}),
     ...(visionMasks ? { attentionMasksByLayer: visionMasks.byLayer } : {}),
     ...(request.pastKeyValues ? { pastKeyValues: request.pastKeyValues } : {}),
@@ -204,6 +215,35 @@ export function executeGemma4CompositeF32(program: Gemma4CompositeProgram, reque
   }, values);
   merge(values, text.values);
   return { values, llmInputIds, text };
+}
+
+function validateCompositeForwardSelection(
+  request: Gemma4CompositeExecutionRequest,
+  declared: Gemma4CompositeForwardSelection | undefined,
+): Gemma4CompositeForwardSelection {
+  const actual: Gemma4CompositeForwardSelection = {
+    modalities: {
+      image: pairedInputPresence(request.pixelValues, request.imagePositionIds, "pixel_values", "image_position_ids"),
+      video: pairedInputPresence(request.pixelValuesVideos, request.videoPositionIds, "pixel_values_videos", "video_position_ids"),
+      audio: pairedInputPresence(request.inputFeatures, request.inputFeaturesMask, "input_features", "input_features_mask"),
+    },
+    visionMasks: request.mmTokenTypeIds !== undefined,
+    positionIdsMode: request.positionIds === undefined ? "sequence-index-default" : "caller-i32-values",
+    pastKeyValuesMode: request.pastKeyValues === undefined ? "empty-cache" : "caller-post-rope-producer-cache",
+  };
+  if (actual.visionMasks && request.attentionMask !== undefined) throw new Error("Gemma 4 composite não combina mm_token_type_ids com attentionMask 4-D fornecida pelo chamador; o runtime autoritativo trata essa máscara como uma substituição já preparada.");
+  if (actual.visionMasks && request.pastKeyValues !== undefined) throw new Error("Gemma 4 composite requer mm_token_type_ids somente no prefill sem cache; o prepare_inputs_for_generation autoritativo os remove no decode incremental.");
+  if (declared && (declared.modalities.image !== actual.modalities.image || declared.modalities.video !== actual.modalities.video ||
+    declared.modalities.audio !== actual.modalities.audio || declared.visionMasks !== actual.visionMasks ||
+    declared.positionIdsMode !== actual.positionIdsMode || declared.pastKeyValuesMode !== actual.pastKeyValuesMode)) {
+    throw new Error("Seleção forward declarada diverge da presença dos inputs Gemma 4.");
+  }
+  return declared ?? actual;
+}
+
+function pairedInputPresence(left: unknown, right: unknown, leftName: string, rightName: string): boolean {
+  if ((left === undefined) !== (right === undefined)) throw new Error(`Gemma 4 composite requer ${leftName} e ${rightName} juntos, ou ambos ausentes.`);
+  return left !== undefined;
 }
 
 /**

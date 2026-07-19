@@ -12,6 +12,7 @@ import type { Gemma4LiteralCacheTransition } from "./gemma4-literal-generation-c
 import type { Gemma4LiteralNumericLiteral } from "./gemma4-literal-numeric-literals.js";
 import type { LiteralDenseStorageDecodeAssignment } from "./literal.js";
 import type { TensorRef } from "./types.js";
+import type { Gemma4LiteralForwardControlProgram } from "./gemma4-literal-forward-control.js";
 
 export interface Gemma4LiteralRuntimeUnreachableStorage {
   tensor: TensorRef;
@@ -28,6 +29,7 @@ export interface Gemma4LiteralEndToEndCalculation {
   sourceCheckpointAccessed: false;
   maxNewTokens: number;
   declaredInputs: Gemma4CompositeLiteralInput[];
+  forwardControl: Gemma4LiteralForwardControlProgram;
   forward: Gemma4LiteralCalculationSlice;
   generation: Gemma4LiteralGenerationCalculationPlan & {
     cacheTransitions: Gemma4LiteralCacheTransition[];
@@ -80,6 +82,7 @@ export function buildGemma4LiteralEndToEndCalculation(
     sourceCheckpointAccessed: false,
     maxNewTokens,
     declaredInputs: structuredClone(artifact.inputs),
+    forwardControl: structuredClone(artifact.forwardControl),
     forward,
     generation: {
       ...generation,

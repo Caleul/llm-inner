@@ -18,6 +18,7 @@ import { openGemma4CompositeLiteralArtifact } from "../src/gemma4-composite-lite
 import { executeGemma4LiteralCompositeF32, generateGemma4LiteralCompositeF32 } from "../src/gemma4-literal-composite.js";
 import { buildGemma4LiteralGenerationNavigation, renderGemma4LiteralGenerationCalculationView } from "../src/gemma4-literal-generation-navigation.js";
 import { selectGemma4LiteralGenerationToken } from "../src/gemma4-literal-generation-control.js";
+import { executeGemma4LiteralForwardControlProgram } from "../src/gemma4-literal-forward-control.js";
 import { buildGemma4LiteralCalculationSlice } from "../src/gemma4-literal-calculation-slice.js";
 import { buildGemma4LiteralEndToEndCalculation } from "../src/gemma4-literal-end-to-end-calculation.js";
 import {
@@ -434,15 +435,36 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 29);
+  assert.equal(literal.schemaVersion, 30);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   assert.deepEqual(literal.authoritativeExecution, gemma4AuthoritativeExecutionContract());
   assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.languageId, literal.generation.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.authority.numericLiteralBits, "/numericLiterals/literals");
-  assert.equal(literal.formulaLanguage.schemaVersion, 15);
+  assert.equal(literal.formulaLanguage.schemaVersion, 16);
   assert.equal(literal.formulaLanguage.authority.generationControlProgram, "/generation/controlProgram");
+  assert.equal(literal.formulaLanguage.authority.forwardControlProgram, "/forwardControl");
+  assert.equal(literal.forwardControl.kind, "gemma4-literal-forward-control-program");
+  const imageSelection = executeGemma4LiteralForwardControlProgram(literal.forwardControl, literal.program, new Set([
+    "input_ids", "pixel_values", "image_position_ids", "mm_token_type_ids",
+  ]));
+  assert.deepEqual(imageSelection.modalities, { image: true, video: false, audio: false });
+  assert.equal(imageSelection.visionMasks, true);
+  assert.equal(imageSelection.attentionMaskMode, "serialized-vision-block-masks");
+  assert.equal(imageSelection.positionIdsMode, "sequence-index-default");
+  assert.equal(imageSelection.pastKeyValuesMode, "empty-cache");
+  assert.deepEqual(imageSelection.inactiveIdentityAssignments.map((entry) => entry.output), [
+    "composite_embeddings_after_video", "hidden_states_0",
+  ]);
+  assert.ok(imageSelection.activeTopLevelOperationIds.includes("composite_image_features"));
+  assert.ok(!imageSelection.activeTopLevelOperationIds.includes("composite_audio_features"));
+  assert.throws(() => executeGemma4LiteralForwardControlProgram(literal.forwardControl, literal.program, new Set([
+    "input_ids", "pixel_values",
+  ])), /pixel_values e image_position_ids juntos/);
+  assert.throws(() => executeGemma4LiteralForwardControlProgram(literal.forwardControl, literal.program, new Set([
+    "input_ids", "mm_token_type_ids", "attention_mask",
+  ])), /não combina mm_token_type_ids com attention_mask/);
   assert.equal(literal.scalarCalculations.schemaVersion, 3);
   assert.equal(literal.formulaLanguage.authority.forwardScalarExecution, "/calculationGraph/assignments/*/scalarCalculation/scalarAssignments");
   assert.ok(literal.scalarCalculations.assignments.every((assignment) =>
@@ -958,6 +980,9 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   const hiddenGenerationControl = structuredClone(literal);
   hiddenGenerationControl.generation.controlProgram.loop.incrementalForward.omittedInputs.pop();
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(hiddenGenerationControl), /transições de geração greedy incompletas/);
+  const hiddenForwardControl = structuredClone(literal);
+  hiddenForwardControl.forwardControl.modalityBranches.find((branch) => branch.modality === "audio")!.inactiveIdentity.input = "host_selected_embedding";
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(hiddenForwardControl), /controle forward, roteamento modal ou aliases de ausência/);
   const missingCacheTransition = structuredClone(literal);
   missingCacheTransition.generation.forwardCalculation.cacheTransitions.pop();
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(missingCacheTransition), /transições de geração greedy incompletas/);
@@ -1032,7 +1057,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 29);
+      assert.equal(artifact.schemaVersion, 30);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.deepEqual(artifact.authoritativeExecution, gemma4AuthoritativeExecutionContract());
@@ -1048,6 +1073,8 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
       assert.equal(artifact.generation.forwardProgram.lastAssignment, "lm_head");
       assert.equal(artifact.generation.outputs.generatedTokenIds, "generated_token_ids");
       assert.equal(artifact.generation.controlProgram.loop.selection.scanOrder, "ascending-token-id");
+      assert.equal(artifact.forwardControl.modalityBranches.length, 3);
+      assert.equal(artifact.formulaLanguage.authority.forwardControlProgram, "/forwardControl");
       assert.equal(artifact.numericLiterals.literals.find((entry) => entry.token === "0.5")?.binary32Hex, "0x3f000000");
       assert.equal(artifact.formulaLanguage.evaluation.dependencyOrder,
         "evaluate instantiated assignments by ascending ordinal; within each assignment evaluate scalarAssignments in array order, where every local and precondition precedes the final output assignment; every predecessor must already exist");

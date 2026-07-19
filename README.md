@@ -593,6 +593,19 @@ incorporadas, sem delegar a geração a `generate`, Transformers ou outro loop d
 host. A prova no pacote real está em
 [`docs/validation/gemma4-e4b-structured-generation-control-2026-07-18.md`](docs/validation/gemma4-e4b-structured-generation-control-2026-07-18.md).
 
+O schema v30 remove também a seleção modal implícita do forward. O novo
+`forwardControl` é um programa estruturado que ordena imagem, vídeo e áudio,
+exige cada par de inputs como `all-present-or-all-absent`, nomeia as operações
+ativas e a invocação expandida de cada torre, e declara aliases identidade sem
+cast quando um ramo está ausente. O mesmo objeto seleciona máscaras visual
+full/sliding versus máscara aditiva do chamador ou causal/cache textual, fixa
+os conflitos de `mm_token_type_ids`, declara o default escalar de
+`position_ids` e distingue cache vazio de cache pós-RoPE fornecido. Replay
+síncrono e paginado interpretam esse programa antes de qualquer torre ou
+camada textual; adulterar um input group, alias, ordem, modo de máscara ou
+default falha fechado. A evidência do pacote real está em
+[`docs/validation/gemma4-e4b-structured-forward-control-2026-07-19.md`](docs/validation/gemma4-e4b-structured-forward-control-2026-07-19.md).
+
 O leitor também pode partir de qualquer saída instanciada e calcular o fecho
 transitivo exato de seus produtores. `--calculation-slice <operation-id>`
 retorna somente as atribuições necessárias ao alvo, ainda em ordem de
@@ -970,6 +983,11 @@ dos payloads incorporados. O mesmo forward alimenta diretamente o programa
 estruturado de geração incorporado no schema v29; multimodalidade ocorre no
 prefill, e decode recebe somente token, posição e cache explicitamente ligados,
 com os demais inputs enumerados como omitidos.
+
+No schema v30, a decisão de executar ou omitir cada torre já não pertence aos
+`if` do executor: `forwardControl` seleciona os três ramos, seus aliases de
+ausência, máscaras, posições e estado de cache diretamente do JSON antes de o
+mesmo forward alimentar o controle greedy.
 
 O trace composite despacha `image`, `video` e `audio` por um contrato de
 modalidade único, que fixa token type, input, feature output e scatter e rejeita

@@ -51,6 +51,7 @@ try {
     numericLiterals: artifact.numericLiterals.literals.length,
     formulaLanguage: artifact.formulaLanguage,
     denseDecoderLanguage: artifact.denseDecoderLanguage,
+    forwardControl: artifact.forwardControl,
     calculationGraph: {
       assignments: artifact.calculationGraph.assignments.length,
       firstOperation: artifact.calculationGraph.assignments[0]?.operationId,
