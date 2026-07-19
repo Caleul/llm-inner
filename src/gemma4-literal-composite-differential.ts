@@ -35,6 +35,7 @@ interface SerializedOperation {
 }
 
 export interface Gemma4LiteralCompositeDifferentialReport {
+  modality: Gemma4CompositeTraceModality;
   prefill: DifferentialCheckpointComparisonReport;
   generation: DifferentialGenerationComparisonReport;
   reductionDomainEvaluation: {
@@ -84,6 +85,7 @@ export async function compareGemma4LiteralCompositeTrace(options: {
   const operations = parseOperations(raw.prefillOperations, inputs.modality);
   const artifact = await openGemma4CompositeLiteralArtifact(options.artifact);
   try {
+    validateTraceSourceIdentity(decoded.bundle.source.files, artifact.sourceIdentity, decoded.reference);
     if (fingerprintIR(artifact.program.textProgram) !== decoded.bundle.irFingerprint) throw new Error("Trace composite não corresponde ao programa textual incorporado.");
     const candidate = await generateGemma4LiteralCompositeF32(artifact, {
       inputIds: [inputs.inputTokens],
@@ -101,6 +103,7 @@ export async function compareGemma4LiteralCompositeTrace(options: {
     const tolerance = { maxAbsoluteError: options.maxAbsoluteError ?? 0, maxRelativeError: options.maxRelativeError ?? 0 };
     const candidateRuntime = decoded.bundle.candidatePolicy.runtime;
     return {
+      modality: inputs.modality,
       prefill: compareCapturedOperationCheckpoints(candidate.compositePrefill.values, { operations }, {
         candidateRuntime,
         tolerance,
@@ -115,6 +118,20 @@ export async function compareGemma4LiteralCompositeTrace(options: {
     };
   } finally {
     await artifact.close();
+  }
+}
+
+function validateTraceSourceIdentity(
+  traceFiles: readonly { path: string; sha256: string }[],
+  artifactIdentity: Awaited<ReturnType<typeof openGemma4CompositeLiteralArtifact>>["sourceIdentity"],
+  reference: { model: string; revisionOrChecksum: string },
+): void {
+  if (reference.model !== artifactIdentity.modelId || reference.revisionOrChecksum !== artifactIdentity.revision) {
+    throw new Error("Trace composite não corresponde ao modelId/revision incorporado no artefato.");
+  }
+  const committed = new Map(artifactIdentity.files.map((file) => [file.path, file.sha256]));
+  if (traceFiles.length === 0 || traceFiles.some((file) => committed.get(file.path) !== file.sha256)) {
+    throw new Error("Trace composite não corresponde aos checksums de source incorporados no artefato.");
   }
 }
 

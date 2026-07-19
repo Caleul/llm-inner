@@ -23,6 +23,7 @@
     "compare:gemma4-literal-audio": "npm run build && node dist/src/gemma4-literal-audio-differential-cli.js",
     "compare:gemma4-literal-vision": "npm run build && node dist/src/gemma4-literal-vision-differential-cli.js",
     "compare:gemma4-literal-composite": "npm run build && node dist/src/gemma4-literal-composite-differential-cli.js",
+    "compare:gemma4-literal-composite-suite": "npm run build && node dist/src/gemma4-literal-composite-modality-suite-cli.js",
     "audit:gemma4": "npm run build && node dist/src/gemma4-contract-cli.js",
     "audit:literal": "npm run build && node dist/src/literal-artifact-audit-cli.js",
     "inspect:gemma4-literal": "npm run build && node dist/src/gemma4-composite-literal-reader-cli.js",

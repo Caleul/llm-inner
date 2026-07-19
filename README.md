@@ -956,22 +956,24 @@ dos payloads incorporados. O mesmo forward alimenta diretamente o interpretador
 das doze atribuições de geração serializadas; multimodalidade ocorre no
 prefill, e decode recebe apenas token, posição e cache declarado.
 
-O trace composite agora despacha `image`, `video` e `audio` por um contrato de
+O trace composite despacha `image`, `video` e `audio` por um contrato de
 modalidade único, que fixa token type, input, feature output e scatter e rejeita
-misturas antes de abrir a fonte. Imagem e vídeo têm invocações reais completas
-`lossless-within-dtype`: cinco fronteiras de prefill, token greedy `184` na
-posição `2`, logits de seleção/terminais e todos os 24 caches pós-decode e
-terminais passaram com erro zero sem o checkpoint. No vídeo, isso fecha a
-fronteira ampla, mas não transforma a igualdade terminal em agenda escalar para
-os dois batched matmuls internos já conhecidos.
+misturas antes de abrir a fonte. `compare:gemma4-literal-composite-suite`
+exige agora as três modalidades exatamente uma vez, sob a mesma identidade e
+runtime autoritativo, com tolerância absoluta/relativa zero. Cada modalidade
+precisa passar as cinco fronteiras de prefill, token/posição greedy, logits
+terminais e todos os caches; um resultado aproximado, trace trocado, modalidade
+ausente ou contagem incompleta de BMM invalida a suite.
 
-Áudio usa o mesmo caminho amplo e localiza a primeira divergência em
-`composite_audio_features [1,2560]` (`maxAbs=0.08203125`) antes de scatter, PLE
-e texto. O token/posição e argmax terminal ainda concordam, mas logits e os 24
-caches divergem, portanto prefill e geração permanecem `approximate`. Isso
-confirma que a lacuna ampla não era wiring composite e preserva o limite
-fail-closed dos 36 `sgemm` nativos. Contrato, comandos, hashes e métricas estão
-em [`docs/validation/gemma4-e4b-modality-class-composite-generation-2026-07-18.md`](docs/validation/gemma4-e4b-modality-class-composite-generation-2026-07-18.md).
+As capturas atuais usam
+`transformers-5.5.0/torch-2.12.1-Gemma4ForConditionalGeneration-CPU-eager-inference-mode`.
+Com a fonte fisicamente ausente, imagem, vídeo e áudio passaram
+`lossless-within-dtype`: token `184` na posição `2`, erros absoluto/relativo
+zero e 24/24 caches por modalidade. A suite também exige e preserva as 100 BMM
+`runtime-defined` (32 imagem, 32 vídeo, 36 áudio); portanto esta cobertura ampla
+não inventa a agenda escalar Apple Accelerate nem declara o checkpoint
+concluído. O contrato, comandos, hashes e métricas estão em
+[`docs/validation/gemma4-e4b-source-removed-modality-suite-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-modality-suite-2026-07-18.md).
 
 Uma captura posterior de todas as 1.229 atribuições declaradas do Gemma4Text
 torna a divergência localizável sem reabrir o checkpoint durante o candidato.
