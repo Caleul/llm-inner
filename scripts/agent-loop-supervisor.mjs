@@ -52,6 +52,7 @@ async function shouldExit(config) {
   if (await exists(absolute(config.stopFile))) return "STOP flag exists";
   const state = await readState(config);
   if (state.completedLoops >= config.maxLoops) return "configured loop budget reached";
+  if (state.consecutiveFailures >= config.maxConsecutiveFailures) return `maximum consecutive failures reached (${state.consecutiveFailures})`;
   if (state.missionStatus === "complete" || state.missionStatus === "blocked") return `mission status is ${state.missionStatus}`;
   return null;
 }

@@ -1283,10 +1283,17 @@ ciclo falhar ou for interrompido deixando alterações ainda não commitadas, o
 runner cria um commit de checkpoint automático e registra a recuperação no
 estado antes de iniciar o agente seguinte; assim uma falha não deixa a árvore
 suja nem paralisa os ciclos seguintes. A resposta transitória `Selected model
-is at capacity` não consome `consecutiveFailures`: o estado passa a
-`waiting_capacity`, aguarda `capacityRetrySeconds` e tenta novamente. Isso
-também vale para a recuperação de um runner encerrado pelo host e evita que o
-supervisor reinicie continuamente contra um worktree sujo.
+is at capacity`, `You've hit your usage limit`, respostas HTTP 429 e mensagens
+equivalentes não consomem um loop nem `consecutiveFailures`: o estado passa a
+`waiting_limit`, restaura o número da sequência e tenta novamente com backoff
+exponencial persistente. A espera começa em
+`transientLimitRetryInitialSeconds`, dobra a cada resposta consecutiva e é
+limitada por `transientLimitRetryMaximumSeconds`; o STOP continua sendo
+observado durante a espera. Um reinício do host preserva `nextRetryAt` no
+estado. Isso também vale para a recuperação de um runner encerrado pelo host e
+evita que o supervisor reinicie continuamente contra um worktree sujo. Se o
+limite de falhas reais for atingido, o supervisor encerra em vez de relançar o
+runner a cada cinco segundos.
 
 Cada instância recebe contexto novo a partir do repositório e do último
 handoff. O protocolo exige que ela complete um milestone substancial e

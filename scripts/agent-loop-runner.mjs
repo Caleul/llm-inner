@@ -4,6 +4,7 @@ import { createWriteStream } from "node:fs";
 import { access, copyFile, mkdir, open, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { spawn } from "node:child_process";
+import { classifyTransientLimit, stateAfterTransientLimit } from "./agent-loop-retry-policy.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 const codex = process.env.CODEX_BIN ?? "/Applications/ChatGPT.app/Contents/Resources/codex";
@@ -79,8 +80,12 @@ async function load() {
   if (!Number.isInteger(config.maxNoProgressMinutes) || config.maxNoProgressMinutes < 1) {
     fail("agent-loop.config.json must declare maxNoProgressMinutes as a positive integer.");
   }
-  if (!Number.isInteger(config.capacityRetrySeconds) || config.capacityRetrySeconds < 1) {
-    fail("agent-loop.config.json must declare capacityRetrySeconds as a positive integer.");
+  if (!Number.isInteger(config.transientLimitRetryInitialSeconds) || config.transientLimitRetryInitialSeconds < 1) {
+    fail("agent-loop.config.json must declare transientLimitRetryInitialSeconds as a positive integer.");
+  }
+  if (!Number.isInteger(config.transientLimitRetryMaximumSeconds)
+    || config.transientLimitRetryMaximumSeconds < config.transientLimitRetryInitialSeconds) {
+    fail("agent-loop.config.json must declare transientLimitRetryMaximumSeconds at least as large as the initial delay.");
   }
   const requiredPaths = [
     config.promptFile,
@@ -278,6 +283,22 @@ function terminateProcessGroup(child, signal) {
   }
 }
 
+const delay = (milliseconds) => new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));
+
+async function waitUntilRetryOrStop(config, nextRetryAt) {
+  while (true) {
+    if (await exists(absolute(config.stopFile))) return false;
+    const remaining = Date.parse(nextRetryAt) - Date.now();
+    if (remaining <= 0) return true;
+    await delay(Math.min(remaining, 5_000));
+  }
+}
+
+function withoutLimitRetry(state) {
+  const { limitRetry: _limitRetry, ...remaining } = state;
+  return remaining;
+}
+
 async function checkpointFailedWork(runId, sequence, reason) {
   if (await cleanGitTree()) return null;
   const startingCommit = (await git(["rev-parse", "HEAD"])).stdout;
@@ -314,7 +335,7 @@ async function runCodex(config, prompt, runId, sequence) {
   return new Promise((done, reject) => {
     const child = spawn(codex, args, { cwd: root, detached: true, stdio: ["pipe", "pipe", "pipe"] });
     let timeoutReason = null;
-    let capacityError = false;
+    let limitError = null;
     let recentOutput = "";
     let lastProgressAt = Date.now();
     let forceKill = null;
@@ -336,8 +357,8 @@ async function runCodex(config, prompt, runId, sequence) {
     }, 5_000);
     const recordProgress = (chunk) => {
       lastProgressAt = Date.now();
-      recentOutput = `${recentOutput}${chunk.toString("utf8")}`.slice(-4096);
-      if (recentOutput.includes("Selected model is at capacity")) capacityError = true;
+      recentOutput = `${recentOutput}${chunk.toString("utf8")}`.slice(-16_384);
+      limitError ??= classifyTransientLimit(recentOutput);
       process.stdout.write(chunk);
       log.write(chunk);
     };
@@ -355,7 +376,7 @@ async function runCodex(config, prompt, runId, sequence) {
       clearInterval(progressWatchdog);
       if (forceKill) clearTimeout(forceKill);
       log.end();
-      done({ code: code ?? 1, signal, timeoutReason, capacityError });
+      done({ code: code ?? 1, signal, timeoutReason, limitError });
     });
     child.stdin.end(prompt);
   });
@@ -378,6 +399,14 @@ async function start(config) {
         await writeJsonAtomically(absolute(config.stateFile), state);
         console.log("Stop flag found; no additional Codex will be started.");
         return;
+      }
+      if (state.status === "waiting_limit" && state.limitRetry?.nextRetryAt) {
+        console.error(`Waiting until ${state.limitRetry.nextRetryAt} after ${state.limitRetry.kind} attempt ${state.limitRetry.attempts}.`);
+        if (!(await waitUntilRetryOrStop(config, state.limitRetry.nextRetryAt))) {
+          state = { ...state, status: "stopped", lastCompletedAt: now() };
+          await writeJsonAtomically(absolute(config.stateFile), state);
+          return;
+        }
       }
       if (config.requireCleanGitBeforeNextLoop && !(await cleanGitTree())) fail("Git tree became dirty before a new loop.");
       const sequence = state.currentSequence + 1;
@@ -413,30 +442,27 @@ async function start(config) {
       }
       if (!accepted) {
         const recoveryReason = result.timeoutReason
-          ?? (result.capacityError ? "selected model is at capacity" : failure);
+          ?? (result.limitError ? `transient provider limit: ${result.limitError}` : failure);
         try {
           recovery = await checkpointFailedWork(runId, sequence, recoveryReason);
         } catch (error) {
           failure = `${failure} Failed-worktree checkpoint failed: ${error.message}`;
         }
-        if (result.capacityError) {
-          state = {
-            ...state,
-            status: "waiting_capacity",
-            lastCompletedAt: now(),
-            lastCapacityWait: {
-              runId,
-              sequence,
-              detectedAt: now(),
-              retryAfterSeconds: config.capacityRetrySeconds,
-            },
-            ...(recovery ? { lastRecovery: recovery } : {}),
-          };
+        if (result.limitError) {
+          state = stateAfterTransientLimit(state, {
+            kind: result.limitError,
+            runId,
+            sequence,
+            detectedAt: now(),
+            initialSeconds: config.transientLimitRetryInitialSeconds,
+            maximumSeconds: config.transientLimitRetryMaximumSeconds,
+          });
+          if (recovery) state = { ...state, lastRecovery: recovery };
           await writeJsonAtomically(absolute(config.stateFile), state);
-          console.error(`Loop ${sequence} could not start because ${recoveryReason}; retrying in ${config.capacityRetrySeconds} seconds.`);
-          await new Promise((resolve) => setTimeout(resolve, config.capacityRetrySeconds * 1000));
+          console.error(`Attempted loop ${sequence} hit ${result.limitError}; sequence and failure counters were restored. Retry ${state.limitRetry.attempts} in ${state.limitRetry.retryAfterSeconds} seconds.`);
           continue;
         }
+        state = withoutLimitRetry(state);
         state = {
           ...state,
           status: "failed",
@@ -450,10 +476,10 @@ async function start(config) {
           console.error(`Stopping after ${state.consecutiveFailures} consecutive failures.`);
           return;
         }
-        await new Promise((resolve) => setTimeout(resolve, config.cooldownSeconds * 1000));
+        await delay(config.cooldownSeconds * 1000);
       } else {
         state = {
-          ...state,
+          ...withoutLimitRetry(state),
           status: accepted.handoff.missionStatus === "continue" ? "idle" : accepted.handoff.missionStatus,
           completedLoops: state.completedLoops + 1,
           consecutiveFailures: 0,
@@ -464,7 +490,7 @@ async function start(config) {
         await writeJsonAtomically(absolute(config.stateFile), state);
         console.log(`Accepted ${accepted.name} at ${accepted.endingCommit}.`);
         if (accepted.handoff.missionStatus !== "continue") return;
-        if (state.completedLoops < config.maxLoops) await new Promise((resolve) => setTimeout(resolve, config.cooldownSeconds * 1000));
+        if (state.completedLoops < config.maxLoops) await delay(config.cooldownSeconds * 1000);
       }
     }
     console.log(`Configured maximum of ${config.maxLoops} completed loops reached.`);
