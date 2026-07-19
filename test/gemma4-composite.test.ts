@@ -101,6 +101,7 @@ import {
   decodeLiteralDenseElementF32,
   evaluateLiteralDenseElementAddress,
 } from "../src/literal.js";
+import { extractGemma4LiteralCoordinateAccesses } from "../src/gemma4-literal-coordinate-accesses.js";
 import type { DenseF32Tensor, ModelCatalog, TensorInfo } from "../src/types.js";
 
 const preview = { outputRows: 1, inputTerms: 1, includeWeights: false } as const;
@@ -132,6 +133,24 @@ test("Gemma 4 embeds one executable F32 runtime-math program class for every for
   assert.throws(() => executeGemma4LiteralTranscendentalProgram(corrupted, "SLEEF_EXP_F32", 1), /transcrição transcendental F32/);
   assert.throws(() => validateGemma4LiteralTranscendentalCoverage(programs, ["y=exp(x)"]), /intrínseco matemático opaco/);
   assert.throws(() => validateGemma4LiteralTranscendentalCoverage(programs, ["y=SLEEF_ERF_F32(x)"]), /sem programa incorporado/);
+});
+
+test("Gemma 4 coordinate navigation parses nested indices without operation or layer dispatch", () => {
+  assert.deepEqual(extractGemma4LiteralCoordinateAccesses("hidden/state", [
+    "term[i]=F32(hidden/state[batch,key_index[i],floor((head*width+i)/2)]*weight[i])",
+    "require key_index[i]<hidden/state.shape[1]",
+  ]), [
+    {
+      kind: "tensor-element",
+      expression: "hidden/state[batch,key_index[i],floor((head*width+i)/2)]",
+      coordinates: ["batch", "key_index[i]", "floor((head*width+i)/2)"],
+    },
+    { kind: "tensor-shape", expression: "hidden/state.shape[1]", axis: "1" },
+  ]);
+  assert.deepEqual(extractGemma4LiteralCoordinateAccesses("cache", ["next=tuple(cache,delta)"]), [
+    { kind: "whole-value", expression: "cache" },
+  ]);
+  assert.throws(() => extractGemma4LiteralCoordinateAccesses("x", ["y=x[batch,key[i]"]), /sem '\]' final/);
 });
 
 test("Gemma 4 authoritative traces bind eager inference mode instead of accepting no-grad drift", () => {
@@ -361,8 +380,8 @@ test("Gemma 4 composite prelude replaces PAD-backed image/video/audio slots befo
   const catalog = fixture();
   const program = buildGemma4CompositeProgram(catalog, preview);
   assert.equal(program.kind, "gemma4-composite-prelude");
-  assert.deepEqual(program.assignments.map((assignment) => assignment.id).slice(0, 8), [
-    "composite_placeholder_masks", "composite_block_sequence_ids", "composite_full_attention_mask", "composite_sliding_attention_mask",
+  assert.deepEqual(program.assignments.map((assignment) => assignment.id).slice(0, 7), [
+    "composite_block_sequence_ids", "composite_full_attention_mask", "composite_sliding_attention_mask",
     "composite_pad_substitution", "composite_text_embedding", "composite_ple_identity", "composite_image_features",
   ]);
   const ids = [[1, 99, 97, 98, 2]];
@@ -447,14 +466,14 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 33);
+  assert.equal(literal.schemaVersion, 34);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   assert.deepEqual(literal.authoritativeExecution, gemma4AuthoritativeExecutionContract());
   assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.languageId, literal.generation.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.authority.numericLiteralBits, "/numericLiterals/literals");
-  assert.equal(literal.formulaLanguage.schemaVersion, 18);
+  assert.equal(literal.formulaLanguage.schemaVersion, 19);
   assert.equal(literal.formulaLanguage.authority.generationControlProgram, "/generation/controlProgram");
   assert.equal(literal.formulaLanguage.authority.forwardControlProgram, "/forwardControl");
   assert.equal(literal.formulaLanguage.authority.inputContract, "/inputContract");
@@ -514,6 +533,7 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   ])), /não combina mm_token_type_ids com attention_mask/);
   assert.equal(literal.scalarCalculations.schemaVersion, 3);
   assert.equal(literal.formulaLanguage.authority.forwardScalarExecution, "/calculationGraph/assignments/*/scalarCalculation/scalarAssignments");
+  assert.equal(literal.formulaLanguage.authority.predecessorCoordinateAccesses, "/calculationGraph/assignments/*/predecessors/*/accesses");
   assert.ok(literal.scalarCalculations.assignments.every((assignment) =>
     assignment.scalarAssignments.at(-1)?.startsWith(`${assignment.output}[`)));
   const orderedVisionRope = literal.scalarCalculations.assignments.find((entry) =>
@@ -692,7 +712,7 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.ok(literal.scalarCalculations.assignments.every((entry) =>
     !/masked_score-max_key|score-max_key|score-max_valid_key|max_k|max_context|sum_k_ascending|sum_context_ascending/.test(entry.formula)));
   const operandClosedOperations = new Set([
-    "placeholder-masks", "embedding", "per-layer-embedding", "per_layer_embedding",
+    "embedding", "per-layer-embedding", "per_layer_embedding",
     "linear", "clipped-linear", "rms-norm", "rms_norm", "activation", "gelu-tanh",
     "elementwise", "tensor_scale",
     "multidimensional-rope", "attention-score-matmul", "attention-value-matmul",
@@ -827,7 +847,8 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.ok(geluScaleLiteral.uses.some((use) => use.section === "forward"));
   assert.ok(literal.numericLiterals.literals.some((entry) =>
     entry.uses.some((use) => use.section === "generation" && use.definitionId === "generation_argmax")));
-  assert.equal(literal.calculationGraph.assignments.length, 224);
+  assert.equal(literal.calculationGraph.assignments.length, 223);
+  assert.equal(literal.calculationGraph.schemaVersion, 2);
   assert.deepEqual(literal.calculationGraph.assignments.map((entry) => entry.ordinal),
     Array.from({ length: literal.calculationGraph.assignments.length }, (_, index) => index));
   assert.equal(literal.calculationGraph.assignments.some((entry) =>
@@ -837,6 +858,11 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.deepEqual(instantiatedImageQ.orderedInputs, ["composite_image_features/vision_layer_0_attn_norm"]);
   assert.equal(instantiatedImageQ.output, "composite_image_features/vision_layer_0_q_linear");
   assert.equal(instantiatedImageQ.predecessors[0]?.producerOperationId, "composite_image_features/vision_layer_0_input_norm");
+  assert.deepEqual(instantiatedImageQ.predecessors[0]?.accesses[0], {
+    kind: "tensor-element",
+    expression: "composite_image_features/vision_layer_0_attn_norm[batch,patch,input_feature]",
+    coordinates: ["batch", "patch", "input_feature"],
+  });
   assert.match(instantiatedImageQ.scalarCalculation.formula, /composite_image_features\/vision_layer_0_attn_norm/);
   assert.equal(instantiatedImageQ.scalarCalculation.output, instantiatedImageQ.output);
   const instantiatedVideoPatch = literal.calculationGraph.assignments.find((entry) =>
@@ -845,6 +871,8 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.equal(instantiatedVideoPatch.outputDomain.shape[0], "VIDEO_BATCH*VIDEO_FRAMES");
   const instantiatedTextAttention = literal.calculationGraph.assignments.find((entry) => entry.operationId === "layer_0_attention")!;
   assert.equal(instantiatedTextAttention.orderedInputs.at(-1), "full_attention_mask");
+  assert.ok(literal.calculationGraph.assignments.every((entry) => entry.predecessors.every((predecessor) =>
+    predecessor.scalarUse === (predecessor.accesses.length === 0 ? "shape-or-control-only" : "addressed"))));
   assert.ok(literal.calculationGraph.assignments.every((entry) => entry.predecessors.every((predecessor) => {
     if (!predecessor.producerOperationId) return true;
     const producer = literal.calculationGraph.assignments.find((candidate) => candidate.operationId === predecessor.producerOperationId)!;
@@ -866,13 +894,13 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     literal.generation.scalarCalculations.assignments.map((calculation) => calculation.definitionId),
     literal.generation.assignments.map((assignment) => assignment.id),
   );
-  assert.equal(literal.generation.forwardCalculation.operationOrder.length, 224);
+  assert.equal(literal.generation.forwardCalculation.operationOrder.length, 223);
   assert.deepEqual(literal.generation.forwardCalculation.operationOrder,
     literal.calculationGraph.assignments.map((entry) => ({
       operationId: entry.operationId, definitionId: entry.definitionId, scope: entry.scope,
       ...(entry.invocationId ? { invocationId: entry.invocationId } : {}),
     })));
-  assert.equal(literal.generation.forwardCalculation.operationOrder[0]?.operationId, "composite_placeholder_masks");
+  assert.equal(literal.generation.forwardCalculation.operationOrder[0]?.operationId, "composite_block_sequence_ids");
   assert.equal(literal.generation.forwardCalculation.operationOrder.at(-1)?.operationId, literal.generation.forwardProgram.lastAssignment);
   assert.deepEqual(literal.generation.forwardCalculation.cacheTransitions.map((transition) => transition.layer), [0, 1]);
   assert.equal(literal.generation.forwardCalculation.schemaVersion, 2);
@@ -1091,6 +1119,12 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   delete hiddenPredecessor.calculationGraph.assignments.find((entry) =>
     entry.operationId === "composite_audio_features/audio_subsample_0_conv")!.predecessors[0]!.producerOperationId;
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(hiddenPredecessor), /grafo instanciado, bindings ou dependências/);
+  const alteredPredecessorCoordinate = structuredClone(literal);
+  alteredPredecessorCoordinate.calculationGraph.assignments.find((entry) =>
+    entry.operationId === "composite_image_features/vision_layer_0_q")!.predecessors[0]!.accesses[0] = {
+      kind: "tensor-element", expression: "wrong[0]", coordinates: ["0"],
+    };
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(alteredPredecessorCoordinate), /grafo instanciado, bindings ou dependências/);
   const opaqueGeneration = structuredClone(literal);
   opaqueGeneration.generation.scalarCalculations.assignments.find((calculation) =>
     calculation.definitionId === "generation_prefill")!.formula = "forward_state[0] = generic_decoder(input_ids)";
@@ -1181,7 +1215,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 33);
+      assert.equal(artifact.schemaVersion, 34);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.deepEqual(artifact.authoritativeExecution, gemma4AuthoritativeExecutionContract());
@@ -1193,7 +1227,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
       assert.equal("payloadBase64" in artifact.constants.get(tensor.name)!, false);
       assert.equal(artifact.payloadIntegrity?.size, catalog.tensors.size);
       assert.equal(artifact.generation.kind, "gemma4-literal-greedy-generation-program");
-      assert.equal(artifact.generation.forwardProgram.firstAssignment, "composite_placeholder_masks");
+      assert.equal(artifact.generation.forwardProgram.firstAssignment, "composite_block_sequence_ids");
       assert.equal(artifact.generation.forwardProgram.lastAssignment, "lm_head");
       assert.equal(artifact.generation.outputs.generatedTokenIds, "generated_token_ids");
       assert.equal(artifact.generation.controlProgram.loop.selection.scanOrder, "ascending-token-id");
@@ -1494,6 +1528,18 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       assert.deepEqual(scalar.learnedScalars.map((entry) => entry.indices), [[1, 0], [1, 1], [1, 2], [1, 3]]);
       assert.ok(scalar.learnedScalars.every((entry) => entry.decoderOperation === "ieee-f32-little-endian" && /^0x[0-9a-f]{8}$/.test(entry.storageBitsHex)));
       assert.ok(scalar.terms?.every((term) => term.formula.includes(term.learned.literal) && !term.formula.includes("weight[")));
+      assert.equal(scalar.predecessorCoordinates[0]?.producerOperationId, "layer_0_input_norm");
+      assert.equal(scalar.predecessorCoordinates[0]?.renderedCoverage, "complete");
+      assert.deepEqual(scalar.predecessorCoordinates[0]?.renderedAccesses.map((access) => access.expression), [
+        "layer_0_attn_norm[0,0,0]", "layer_0_attn_norm[0,0,1]",
+        "layer_0_attn_norm[0,0,2]", "layer_0_attn_norm[0,0,3]",
+      ]);
+      const tamperedPredecessorNavigation = structuredClone(scalar);
+      tamperedPredecessorNavigation.predecessorCoordinates[0]!.renderedAccesses.pop();
+      assert.throws(
+        () => validateGemma4LiteralScalarView(tamperedPredecessorNavigation),
+        /navegação de coordenadas predecessoras ausente ou divergente/,
+      );
 
       const window = await renderGemma4LiteralScalarView(artifact, {
         operationId: "layer_0_q_proj", outputCoordinate: [0, 0, 1], inputStart: 1, inputCount: 2,
@@ -1502,6 +1548,10 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
         bounds: { startInclusive: 0, endExclusive: 4 }, schedule: { kind: "ordered-scalar", indexOrder: "ascending" },
         complete: false, renderedWindow: { startInclusive: 1, endExclusive: 3 }, omittedTerms: 2,
       });
+      assert.equal(window.predecessorCoordinates[0]?.renderedCoverage, "windowed");
+      assert.deepEqual(window.predecessorCoordinates[0]?.renderedAccesses.map((access) => access.expression), [
+        "layer_0_attn_norm[0,0,1]", "layer_0_attn_norm[0,0,2]",
+      ]);
 
       const embeddingScalar = await renderGemma4LiteralScalarView(artifact, {
         operationId: "token_embedding", outputCoordinate: [0, 0, 2], tokenId: 1,
@@ -1755,6 +1805,12 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
         assert.equal(imageScoreAudit.terms.length, program.visionProgram.tower.headDim);
         assert.equal(imageScoreAudit.terms[1]?.leftOperand, "composite_image_features/vision_layer_0_q_rotated[0,0,0,1]");
         assert.equal(imageScoreAudit.terms[1]?.rightOperand, "composite_image_features/vision_layer_0_k_rotated[0,0,0,1]");
+        assert.deepEqual(imageScoreAudit.predecessorCoordinates.map((entry) => [
+          entry.producerOperationId, entry.renderedCoverage, entry.renderedAccesses.filter((access) => access.kind === "tensor-element").length,
+        ]), [
+          ["composite_image_features/vision_layer_0_q_rope", "complete", program.visionProgram.tower.headDim + 1],
+          ["composite_image_features/vision_layer_0_k_rope", "complete", program.visionProgram.tower.headDim + 1],
+        ]);
         assert.match(imageScoreAudit.nonExecutableResult, /UNPUBLISHED_REDUCTION/);
 
         assert.throws(() => renderGemma4LiteralRuntimeReductionAudit(artifact, {
@@ -1766,6 +1822,7 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
         });
         assert.equal(videoValueAudit.operationClass, "vision-attention-value");
         assert.equal(videoValueAudit.reduction.complete, false);
+        assert.ok(videoValueAudit.predecessorCoordinates.every((entry) => entry.renderedCoverage === "windowed"));
         assert.deepEqual(videoValueAudit.reduction.renderedWindow, { startInclusive: 1, endExclusive: 3 });
         assert.equal(videoValueAudit.terms[0]?.leftOperand, "composite_video_features/vision_layer_0_attention_weights[0,0,0,1]");
 
@@ -1979,7 +2036,7 @@ test("Gemma 4 paged text interpreter replays prefill and cached greedy decode fr
       assert.ok(generationNavigation.every((entry) => entry.consumers.every((consumer) =>
         generationOrdinal.get(consumer)! > entry.ordinal)));
       const prefillNavigation = generationNavigation[0]!;
-      assert.equal(prefillNavigation.forwardExpansion?.firstOperationId, "composite_placeholder_masks");
+      assert.equal(prefillNavigation.forwardExpansion?.firstOperationId, "composite_block_sequence_ids");
       assert.equal(prefillNavigation.forwardExpansion?.lastOperationId, program.textProgram.epilogue.at(-1)?.id);
       assert.equal(prefillNavigation.forwardExpansion?.sourceCheckpointAccessed, false);
       assert.equal(prefillNavigation.forwardExpansion?.operationCount, generationPlan.declaredForwardOperations.length);

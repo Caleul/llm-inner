@@ -5,6 +5,10 @@ import type {
   Gemma4LiteralOperationNavigation,
   Gemma4LiteralScalarViewRequest,
 } from "./gemma4-literal-scalar-view.js";
+import {
+  buildGemma4LiteralPredecessorCoordinateNavigation,
+  type Gemma4LiteralPredecessorCoordinateNavigation,
+} from "./gemma4-literal-coordinate-accesses.js";
 
 export type Gemma4LiteralRuntimeReductionOperationClass =
   | "vision-attention-score"
@@ -50,6 +54,7 @@ export interface Gemma4LiteralRuntimeReductionAudit {
   output: string;
   status: "fail-closed-runtime-reduction";
   coordinateAssignments: string[];
+  predecessorCoordinates: Gemma4LiteralPredecessorCoordinateNavigation[];
   termTemplate: {
     reductionIndex: string;
     leftOperand: string;
@@ -168,6 +173,19 @@ export function renderGemma4LiteralRuntimeReductionAudit(
   const outputCast = navigation.scalarCalculation.dtypePolicy.outputDtype ?? "operation-declared";
   const templateLeft = rendered.left(rendered.index), templateRight = rendered.right(rendered.index);
   const templatePredicate = rendered.predicate?.(rendered.index);
+  const complete = !dynamicExtent && window.start === 0 && window.end === rendered.extent;
+  const renderedPrograms = [
+    ...rendered.coordinateAssignments,
+    ...(templatePredicate ? [templatePredicate] : []),
+    templateLeft,
+    templateRight,
+    ...terms.flatMap((term) => [
+      ...(term.predicate ? [term.predicate] : []),
+      term.leftOperand,
+      term.rightOperand,
+      term.mathematicalProduct,
+    ]),
+  ];
   return {
     kind: "gemma4-literal-runtime-reduction-product-audit",
     schemaVersion: 1,
@@ -178,6 +196,11 @@ export function renderGemma4LiteralRuntimeReductionAudit(
     output,
     status: "fail-closed-runtime-reduction",
     coordinateAssignments: rendered.coordinateAssignments,
+    predecessorCoordinates: buildGemma4LiteralPredecessorCoordinateNavigation(
+      navigation.predecessors,
+      renderedPrograms,
+      complete,
+    ),
     termTemplate: {
       reductionIndex: rendered.index,
       leftOperand: templateLeft,
@@ -192,7 +215,7 @@ export function renderGemma4LiteralRuntimeReductionAudit(
       index: rendered.index,
       domain: structuredClone(reduction.domains[0]!),
       renderedWindow: { startInclusive: window.start, endExclusive: window.end },
-      complete: !dynamicExtent && window.start === 0 && window.end === rendered.extent,
+      complete,
       ...(!dynamicExtent ? { omittedTerms: rendered.extent! - terms.length } : {}),
       provider: artifact.authoritativeExecution.unresolvedNativeReduction.provider,
       scalarSchedule: artifact.authoritativeExecution.unresolvedNativeReduction.scalarSchedule,

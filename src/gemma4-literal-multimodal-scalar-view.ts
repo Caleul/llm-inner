@@ -30,6 +30,7 @@ import {
   type Gemma4LiteralScalarCalculation,
 } from "./gemma4-literal-scalar-calculations.js";
 import { executeGemma4LiteralAudioRelativeShiftSource } from "./gemma4-literal-formula-language.js";
+import { buildGemma4LiteralPredecessorCoordinateNavigation } from "./gemma4-literal-coordinate-accesses.js";
 import {
   buildGemma4LiteralLinearReductionAssignments,
   gemma4LiteralScalarProductFormula,
@@ -167,6 +168,11 @@ function attachDenseDecoderEvidence(
     transcendentalPrograms: structuredClone(artifact.transcendentalPrograms),
     denseDecoderLanguage: structuredClone(artifact.denseDecoderLanguage),
     storageDecoders,
+    predecessorCoordinates: buildGemma4LiteralPredecessorCoordinateNavigation(
+      view.navigation.predecessors,
+      view.scalarAssignments,
+      view.reduction?.complete !== false,
+    ),
   };
 }
 
@@ -234,14 +240,20 @@ function bindScalarView(
     const tokenized = placeholders.reduce((current, binding) => current.split(binding.source).join(binding.token), value);
     return placeholders.reduce((current, binding) => current.split(binding.token).join(binding.target), tokenized);
   };
+  const scalarAssignments = view.scalarAssignments.map(replace);
   return {
     ...view,
     navigation,
     output: replace(view.output),
     formula: replace(view.formula),
-    scalarAssignments: view.scalarAssignments.map(replace),
+    scalarAssignments,
     learnedScalars: view.learnedScalars.map((scalar) => ({ ...scalar })),
     ...(view.terms ? { terms: view.terms.map((term) => ({ ...term, input: replace(term.input), formula: replace(term.formula) })) } : {}),
+    predecessorCoordinates: buildGemma4LiteralPredecessorCoordinateNavigation(
+      navigation.predecessors,
+      scalarAssignments,
+      view.reduction?.complete !== false,
+    ),
   };
 }
 
@@ -588,7 +600,6 @@ function plainFormulas(artifact: OpenGemma4CompositeLiteralArtifact, entry: Assi
     case "mask-input-features": return [`${output} = ${assignment.inputs[1]}[batch,time] ? ${inputs[0]} : F32(0)`];
     case "subsample-mask": return [`${output} = ${assignment.inputs[0]}[batch,2*time]`];
     case "reshape-conv-features": return [`${output} = row_major_alias(${assignment.inputs[0]})[${coordinate.join(",")}]`];
-    case "placeholder-masks": return [`${output} = tuple(input_ids == image_token_id, input_ids == video_token_id, input_ids == audio_token_id)[${coordinate.join(",")}]`];
     case "vision-block-sequence-ids": {
       if (coordinate.length !== 2) throw new Error(`${assignment.id}: grupo vision requer [batch,sequence].`);
       return [`${output} = CONTIGUOUS_VISION_GROUP_ID(mm_token_type_ids[${coordinate[0]},0..${coordinate[1]}],${coordinate[1]})`];

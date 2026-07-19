@@ -167,7 +167,6 @@ function buildCompositeDomains(program: Gemma4CompositeProgram): Gemma4LiteralAs
   for (const assignment of program.assignments) {
     let output: Gemma4LiteralValueDomain;
     switch (assignment.operation) {
-      case "placeholder-masks": output = withPolicy(tuple("BOOL", ["3", "B", "S"], ["modality_mask", "batch", "sequence"]), exactPolicy("I32", "comparison", "BOOL")); break;
       case "vision-block-sequence-ids": output = withPolicy(tensor("I32", ["B", "S"], ["batch", "sequence"]), exactPolicy("I32", "exact-integer", "I32")); break;
       case "causal-attention-mask": case "vision-sliding-attention-mask": output = withPolicy(tensor("F32", ["B", "1", "S", "K"], ["batch", "mask_head", "query", "key"]), exactPolicy("I32", "comparison-and-F32-selection", "F32")); break;
       case "replace-multimodal-ids-with-pad": output = withPolicy(tensor("I32", ["B", "S"], ["batch", "sequence"]), exactPolicy("I32", "exact-integer-selection", "I32")); break;

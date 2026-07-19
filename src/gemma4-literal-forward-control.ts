@@ -90,7 +90,6 @@ export function buildGemma4LiteralForwardControlProgram(
     requiredInputs: ["input_ids"],
     executionOrder: {
       beforeModalities: [
-        required("composite_placeholder_masks"),
         required("composite_pad_substitution"),
         required("composite_text_embedding"),
         required("composite_ple_identity"),

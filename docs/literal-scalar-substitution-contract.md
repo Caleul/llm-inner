@@ -303,6 +303,22 @@ e que logits/cache terminais sejam os snapshots do último forward incremental.
 Assim um leitor não pode combinar token, logits e cache vindos de estados
 diferentes e ainda chamar a geração de reprodução literal.
 
+No schema v34, a navegação de uma fórmula até seus predecessores deixa de
+depender de procurar nomes dentro do texto. Cada predecessor do grafo inclui
+`accesses` em ordem da primeira leitura, com uma destas formas:
+
+- `tensor-element`: expressão completa e uma entrada por coordenada;
+- `tensor-shape`: eixo exato consultado pelo programa; ou
+- `whole-value`: leitura estruturada/de controle sem indexação tensorial.
+
+Uma lista vazia só é válida com `scalarUse=shape-or-control-only`; ela declara
+honestamente que o predecessor participa do domínio ou do controle, não da
+expressão escalar. A vista de uma coordenada materializa os mesmos vínculos em
+`predecessorCoordinates`, preserva o `producerOperationId` e distingue
+`complete` de `windowed`. O parser de notação é único para todas as operações,
+shapes, dtypes e layers; uma lista de IDs de atribuição seria incompatível com
+este contrato.
+
 ## Programa literal de geração
 
 Logits não completam o produto de geração. O artefato Gemma 4 schema v2 deve

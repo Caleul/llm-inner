@@ -655,6 +655,21 @@ navegação de 2 passos (agora 22 atribuições) e ambos os replays executam o m
 contrato. A evidência do pacote real está em
 [`docs/validation/gemma4-e4b-greedy-state-chain-2026-07-19.md`](docs/validation/gemma4-e4b-greedy-state-chain-2026-07-19.md).
 
+O schema v34 torna cada aresta do grafo navegável também no nível de
+coordenadas. Cada `calculationGraph.assignments[*].predecessors[*]` incorpora,
+em ordem da primeira leitura, os acessos `tensor-element`, `tensor-shape` ou
+`whole-value` extraídos do programa escalar da própria atribuição. Uma vista
+concreta devolve o mesmo vínculo em `predecessorCoordinates`, com o ID do
+produtor, o template simbólico, os endereços materializados e cobertura
+`complete` ou `windowed`; a auditoria BMM fail-closed usa exatamente o mesmo
+contrato. A construção não despacha por layer ou ID. Ela também removeu uma
+atribuição de placeholder sem consumidores e duas arestas que não participavam
+do cálculo. No pacote real restam 2.708 atribuições, 3.491 predecessores, 3.488
+leituras escalares endereçadas e três dependências somente de shape/controle.
+A prova source-removed, hashes e a suite diferencial das três modalidades
+estão em
+[`docs/validation/gemma4-e4b-predecessor-coordinate-navigation-2026-07-19.md`](docs/validation/gemma4-e4b-predecessor-coordinate-navigation-2026-07-19.md).
+
 O leitor também pode partir de qualquer saída instanciada e calcular o fecho
 transitivo exato de seus produtores. `--calculation-slice <operation-id>`
 retorna somente as atribuições necessárias ao alvo, ainda em ordem de
@@ -1056,6 +1071,14 @@ cache. O output contract verifica `selection_logits[step+1] ==
 step_forward_logits[step]`, o token contra o argmax de seu próprio snapshot e
 o par terminal contra o último forward executado; adulterar somente um lado da
 cadeia falha fechado.
+
+No schema v34, o caminho inverso também é dado: cada input ordenado de uma
+atribuição aponta para o produtor e lista as coordenadas exatas que seu
+programa escalar lê. Vistas concretas materializam esses templates sem apagar
+os bounds da redução; janelas diagnósticas são rotuladas `windowed`, nunca
+confundidas com a redução completa. Dependências que afetam somente dimensão
+ou seleção ficam marcadas `shape-or-control-only` em vez de receberem uma
+leitura tensorial inventada.
 
 O trace composite despacha `image`, `video` e `audio` por um contrato de
 modalidade único, que fixa token type, input, feature output e scatter e rejeita

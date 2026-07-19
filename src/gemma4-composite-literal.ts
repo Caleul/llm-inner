@@ -143,7 +143,7 @@ export interface Gemma4LiteralGreedyGenerationProgram {
   forwardProgram: {
     reference: "program";
     expansionOrder: "composite assignments in array order; vision/audio definitions inline at invocation; prepared text layers then epilogue";
-    firstAssignment: "composite_placeholder_masks";
+    firstAssignment: "composite_block_sequence_ids";
     lastAssignment: "final_logit_softcap" | "lm_head";
   };
   /** Exact instantiated forward order and explicit producer/reuse KV transitions. */
@@ -177,7 +177,7 @@ export interface Gemma4LiteralGreedyGenerationProgram {
  * steps remain distinct, named dependencies in the enclosing program.
  */
 export interface Gemma4CompositeLiteralCalculationProgram extends LiteralStorageBundle {
-  schemaVersion: 33;
+  schemaVersion: 34;
   kind: "gemma4-composite-literal-calculation-program";
   sourceFormat: "safetensors";
   /** Gemma 4 checkpoint is dense; packed/quantized decoder variants are forbidden here. */
@@ -325,7 +325,7 @@ export async function buildGemma4CompositeLiteralCalculationProgram(
   const inputContract = buildGemma4LiteralInputContract(embeddedProgram);
   const outputContract = buildGemma4LiteralOutputContract(embeddedProgram);
   const literal: Gemma4CompositeLiteralCalculationProgram = {
-    schemaVersion: 33,
+    schemaVersion: 34,
     kind: "gemma4-composite-literal-calculation-program",
     sourceFormat: "safetensors",
     sourceIdentity: structuredClone(sourceIdentity),
@@ -394,7 +394,7 @@ export async function writeGemma4CompositeLiteralCalculationProgram(
 
   try {
     await once(stream, "open");
-    await write(`{"schemaVersion":33,"kind":"gemma4-composite-literal-calculation-program","sourceFormat":"safetensors","sourceIdentity":${JSON.stringify(sourceIdentity)},"authoritativeExecution":${JSON.stringify(gemma4AuthoritativeExecutionContract())},"numericPolicy":${JSON.stringify(gemma4CompositeLiteralNumericPolicy(program))},"inputs":${JSON.stringify(literalInputs())},"constants":[`);
+    await write(`{"schemaVersion":34,"kind":"gemma4-composite-literal-calculation-program","sourceFormat":"safetensors","sourceIdentity":${JSON.stringify(sourceIdentity)},"authoritativeExecution":${JSON.stringify(gemma4AuthoritativeExecutionContract())},"numericPolicy":${JSON.stringify(gemma4CompositeLiteralNumericPolicy(program))},"inputs":${JSON.stringify(literalInputs())},"constants":[`);
     for (let index = 0; index < prepared.constants.length; index += 1) {
       const constant = prepared.constants[index]!;
       if (index > 0) await write(",");
@@ -505,7 +505,7 @@ export function generateGemma4CompositeLiteralF32(
  */
 export function validateGemma4CompositeLiteralCalculationProgram(literal: Gemma4CompositeLiteralCalculationProgram): void {
   validateGemma4TextReductionSchedules(literal.program);
-  if (literal.schemaVersion !== 33 || literal.kind !== "gemma4-composite-literal-calculation-program" || literal.sourceFormat !== "safetensors" ||
+  if (literal.schemaVersion !== 34 || literal.kind !== "gemma4-composite-literal-calculation-program" || literal.sourceFormat !== "safetensors" ||
     !sameNumericPolicy(literal.numericPolicy, gemma4CompositeLiteralNumericPolicy(literal.program))) {
     throw new Error("Programa literal Gemma 4 composite possui cabeçalho ou política numérica inválida.");
   }
@@ -659,7 +659,7 @@ export function gemma4LiteralGreedyGenerationProgram(
     forwardProgram: {
       reference: "program",
       expansionOrder: "composite assignments in array order; vision/audio definitions inline at invocation; prepared text layers then epilogue",
-      firstAssignment: "composite_placeholder_masks",
+      firstAssignment: "composite_block_sequence_ids",
       lastAssignment,
     },
     forwardCalculation,

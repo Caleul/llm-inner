@@ -18,12 +18,19 @@ import {
 import type { Gemma4VisionAssignment } from "./gemma4-vision.js";
 import type { Operation } from "./types.js";
 import { bindGemma4LiteralReductionIndexDomains } from "./gemma4-literal-reduction-domains.js";
+import {
+  extractGemma4LiteralCoordinateAccesses,
+  type Gemma4LiteralCoordinateAccess,
+} from "./gemma4-literal-coordinate-accesses.js";
 
 type NonTextAssignment = Gemma4CompositeAssignment | Gemma4VisionAssignment | Gemma4AudioAssignment;
 
 export interface Gemma4LiteralCalculationPredecessor {
   input: string;
   producerOperationId?: string;
+  /** Exact coordinate/shape/value reads made by this assignment's scalar program. */
+  accesses: Gemma4LiteralCoordinateAccess[];
+  scalarUse: "addressed" | "shape-or-control-only";
 }
 
 /**
@@ -49,7 +56,7 @@ export interface Gemma4LiteralInstantiatedCalculation {
 
 export interface Gemma4LiteralCalculationGraph {
   kind: "gemma4-literal-instantiated-calculation-graph";
-  schemaVersion: 1;
+  schemaVersion: 2;
   order: "dependency-order";
   assignments: Gemma4LiteralInstantiatedCalculation[];
 }
@@ -109,10 +116,15 @@ export function buildGemma4LiteralCalculationGraph(program: Gemma4CompositeProgr
     outputDomain: structuredClone(seed.outputDomain),
     scalarCalculation: structuredClone(seed.scalarCalculation),
     ...(seed.learnedOperands ? { learnedOperands: structuredClone(seed.learnedOperands) } : {}),
-    predecessors: seed.inputs.map((input) => ({
-      input,
-      ...(producerByOutput.has(input) ? { producerOperationId: producerByOutput.get(input)! } : {}),
-    })),
+    predecessors: seed.inputs.map((input) => {
+      const accesses = extractGemma4LiteralCoordinateAccesses(input, seed.scalarCalculation.scalarAssignments);
+      return {
+        input,
+        ...(producerByOutput.has(input) ? { producerOperationId: producerByOutput.get(input)! } : {}),
+        accesses,
+        scalarUse: accesses.length === 0 ? "shape-or-control-only" : "addressed",
+      };
+    }),
     consumers: [...(consumersByOutput.get(seed.output) ?? [])],
   }));
   for (const assignment of assignments) for (const predecessor of assignment.predecessors) {
@@ -122,14 +134,14 @@ export function buildGemma4LiteralCalculationGraph(program: Gemma4CompositeProgr
       throw new Error(`${assignment.operationId}: predecessor ${producer.operationId} não antecede o consumidor no grafo literal.`);
     }
   }
-  return { kind: "gemma4-literal-instantiated-calculation-graph", schemaVersion: 1, order: "dependency-order", assignments };
+  return { kind: "gemma4-literal-instantiated-calculation-graph", schemaVersion: 2, order: "dependency-order", assignments };
 }
 
 export function validateGemma4LiteralCalculationGraph(
   graph: Gemma4LiteralCalculationGraph,
   program: Gemma4CompositeProgram,
 ): void {
-  if (graph.kind !== "gemma4-literal-instantiated-calculation-graph" || graph.schemaVersion !== 1 || graph.order !== "dependency-order") {
+  if (graph.kind !== "gemma4-literal-instantiated-calculation-graph" || graph.schemaVersion !== 2 || graph.order !== "dependency-order") {
     throw new Error("Programa literal Gemma 4 possui cabeçalho de grafo de cálculo inválido.");
   }
   if (!isDeepStrictEqual(graph, buildGemma4LiteralCalculationGraph(program))) {

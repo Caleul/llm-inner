@@ -12,7 +12,7 @@ import {
 
 export interface Gemma4LiteralFormulaLanguageContract {
   kind: "gemma4-literal-formula-language-contract";
-  schemaVersion: 18;
+  schemaVersion: 19;
   languageId: "indexed-ieee754-expression-v1";
   authority: {
     forwardAssignments: "/scalarCalculations/assignments";
@@ -23,6 +23,7 @@ export interface Gemma4LiteralFormulaLanguageContract {
     generationAssignments: "/generation/scalarCalculations/assignments";
     generationControlProgram: "/generation/controlProgram";
     instantiatedForwardOrder: "/calculationGraph/assignments";
+    predecessorCoordinateAccesses: "/calculationGraph/assignments/*/predecessors/*/accesses";
     generationForwardOrder: "/generation/forwardCalculation/operationOrder";
     cacheTransitions: "/generation/forwardCalculation/cacheTransitions";
     learnedOperandBindings: "/learnedOperands/assignments";
@@ -38,6 +39,7 @@ export interface Gemma4LiteralFormulaLanguageContract {
   };
   evaluation: {
     dependencyOrder: string;
+    predecessorNavigation: string;
     coordinateOrder: string;
     inputBinding: string;
     operandClosure: string;
@@ -428,7 +430,7 @@ function pytorchPairwiseReduce(values: readonly number[], operation: "maximum" |
 export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormulaLanguageContract {
   return {
     kind: "gemma4-literal-formula-language-contract",
-    schemaVersion: 18,
+    schemaVersion: 19,
     languageId: "indexed-ieee754-expression-v1",
     authority: {
       forwardAssignments: "/scalarCalculations/assignments",
@@ -439,6 +441,7 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
       generationAssignments: "/generation/scalarCalculations/assignments",
       generationControlProgram: "/generation/controlProgram",
       instantiatedForwardOrder: "/calculationGraph/assignments",
+      predecessorCoordinateAccesses: "/calculationGraph/assignments/*/predecessors/*/accesses",
       generationForwardOrder: "/generation/forwardCalculation/operationOrder",
       cacheTransitions: "/generation/forwardCalculation/cacheTransitions",
       learnedOperandBindings: "/learnedOperands/assignments",
@@ -454,6 +457,7 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
     },
     evaluation: {
       dependencyOrder: "evaluate instantiated assignments by ascending ordinal; within each assignment evaluate scalarAssignments in array order, where every local and precondition precedes the final output assignment; every predecessor must already exist",
+      predecessorNavigation: "for each predecessor, accesses lists every distinct tensor-element or tensor-shape expression in first-use order; whole-value marks an unindexed structured/control read, while an empty list with scalarUse=shape-or-control-only declares that the dependency affects domain or branch selection rather than the scalar expression",
       coordinateOrder: "row-major lexicographic over the complete declared output domain; preview windows never change evaluation",
       inputBinding: "bind orderedInputs positionally at each instantiated call site before evaluating the indexed formula",
       operandClosure: "every source tensor read names one ordered input and an explicit coordinate expression; free aliases such as input, x, q, k, value, padded_input, ellipsis and prose branch descriptions are invalid",

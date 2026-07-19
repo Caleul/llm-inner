@@ -31,6 +31,12 @@ import {
   type Gemma4LiteralDimensionExpressionLanguage,
   type Gemma4LiteralDimensionPrograms,
 } from "./gemma4-literal-dimension-programs.js";
+import {
+  buildGemma4LiteralPredecessorCoordinateNavigation,
+  extractGemma4LiteralCoordinateAccesses,
+  type Gemma4LiteralCoordinateAccess,
+  type Gemma4LiteralPredecessorCoordinateNavigation,
+} from "./gemma4-literal-coordinate-accesses.js";
 
 export interface Gemma4LiteralOperationNavigation {
   operationId: string;
@@ -48,7 +54,12 @@ export interface Gemma4LiteralOperationNavigation {
   scalarCalculation: Gemma4LiteralScalarCalculation;
   /** Exact learned roles and logical index expressions, when this assignment consumes checkpoint storage. */
   learnedOperands?: Gemma4LiteralLearnedOperand[];
-  predecessors: Array<{ input: string; producerOperationId?: string }>;
+  predecessors: Array<{
+    input: string;
+    producerOperationId?: string;
+    accesses: Gemma4LiteralCoordinateAccess[];
+    scalarUse: "addressed" | "shape-or-control-only";
+  }>;
   consumers: string[];
   previousOperationId?: string;
   nextOperationId?: string;
@@ -93,6 +104,8 @@ export interface Gemma4LiteralScalarView {
   /** Operator meanings plus the exact executable programs used by every substituted learned scalar. */
   denseDecoderLanguage: LiteralDenseDecoderLanguageContract;
   storageDecoders: LiteralDenseStorageDecodeAssignment[];
+  /** Direct links from this concrete scalar formula to predecessor coordinates. */
+  predecessorCoordinates: Gemma4LiteralPredecessorCoordinateNavigation[];
   terms?: Gemma4LiteralScalarTerm[];
   reduction?: {
     bounds: { startInclusive: number; endExclusive: number };
@@ -107,9 +120,9 @@ export interface Gemma4LiteralScalarView {
 
 export type Gemma4LiteralScalarViewBase = Omit<
   Gemma4LiteralScalarView,
-  "formula" | "scalarAssignments" | "learnedScalars" | "formulaLanguage" | "dimensionLanguage" | "dimensionPrograms" | "transcendentalPrograms" | "denseDecoderLanguage" | "storageDecoders"
+  "formula" | "scalarAssignments" | "learnedScalars" | "formulaLanguage" | "dimensionLanguage" | "dimensionPrograms" | "transcendentalPrograms" | "denseDecoderLanguage" | "storageDecoders" | "predecessorCoordinates"
 >;
-export type Gemma4LiteralRenderedScalarView = Omit<Gemma4LiteralScalarView, "formulaLanguage" | "dimensionLanguage" | "dimensionPrograms" | "transcendentalPrograms" | "denseDecoderLanguage" | "storageDecoders">;
+export type Gemma4LiteralRenderedScalarView = Omit<Gemma4LiteralScalarView, "formulaLanguage" | "dimensionLanguage" | "dimensionPrograms" | "transcendentalPrograms" | "denseDecoderLanguage" | "storageDecoders" | "predecessorCoordinates">;
 
 export interface Gemma4LiteralScalarViewRequest {
   operationId: string;
@@ -138,24 +151,36 @@ export function listGemma4LiteralTextOperations(artifact: OpenGemma4CompositeLit
       consumersByOutput.set(input, consumers);
     }
   }
-  return entries.map((entry, ordinal) => ({
-    operationId: entry.operation.id,
-    operation: entry.operation.op,
-    scope: entry.scope,
-    ...(entry.operation.layer === undefined ? {} : { layer: entry.operation.layer }),
-    ordinal,
-    output: entry.operation.output,
-    outputDomain: requiredTextDomain(artifact, entry.operation.id),
-    scalarCalculation: requiredGemma4LiteralScalarCalculation(artifact.scalarCalculations, entry.scope, entry.operation.id),
-    ...learnedOperandsFor(artifact, entry.scope, entry.operation.id),
-    predecessors: operationInputs(entry.operation).map((input) => ({
-      input,
-      ...(producerByOutput.has(input) ? { producerOperationId: producerByOutput.get(input)! } : {}),
-    })),
-    consumers: consumersByOutput.get(entry.operation.output) ?? [],
-    ...(ordinal === 0 ? {} : { previousOperationId: entries[ordinal - 1]!.operation.id }),
-    ...(ordinal + 1 === entries.length ? {} : { nextOperationId: entries[ordinal + 1]!.operation.id }),
-  }));
+  return entries.map((entry, ordinal) => {
+    const scalarCalculation = requiredGemma4LiteralScalarCalculation(
+      artifact.scalarCalculations,
+      entry.scope,
+      entry.operation.id,
+    );
+    return {
+      operationId: entry.operation.id,
+      operation: entry.operation.op,
+      scope: entry.scope,
+      ...(entry.operation.layer === undefined ? {} : { layer: entry.operation.layer }),
+      ordinal,
+      output: entry.operation.output,
+      outputDomain: requiredTextDomain(artifact, entry.operation.id),
+      scalarCalculation,
+      ...learnedOperandsFor(artifact, entry.scope, entry.operation.id),
+      predecessors: operationInputs(entry.operation).map((input) => {
+        const accesses = extractGemma4LiteralCoordinateAccesses(input, scalarCalculation.scalarAssignments);
+        return {
+          input,
+          ...(producerByOutput.has(input) ? { producerOperationId: producerByOutput.get(input)! } : {}),
+          accesses,
+          scalarUse: accesses.length === 0 ? "shape-or-control-only" as const : "addressed" as const,
+        };
+      }),
+      consumers: consumersByOutput.get(entry.operation.output) ?? [],
+      ...(ordinal === 0 ? {} : { previousOperationId: entries[ordinal - 1]!.operation.id }),
+      ...(ordinal + 1 === entries.length ? {} : { nextOperationId: entries[ordinal + 1]!.operation.id }),
+    };
+  });
 }
 
 function learnedOperandsFor(
@@ -232,6 +257,11 @@ export async function renderGemma4LiteralScalarView(
     transcendentalPrograms: structuredClone(artifact.transcendentalPrograms),
     denseDecoderLanguage: structuredClone(artifact.denseDecoderLanguage),
     storageDecoders,
+    predecessorCoordinates: buildGemma4LiteralPredecessorCoordinateNavigation(
+      selected.predecessors,
+      rendered.scalarAssignments,
+      rendered.reduction?.complete !== false,
+    ),
   };
   validateGemma4LiteralScalarView(result);
   return result;
@@ -246,6 +276,14 @@ export async function renderGemma4LiteralScalarView(
 export function validateGemma4LiteralScalarView(view: Gemma4LiteralScalarView): void {
   validateGemma4LiteralDimensionExpressionLanguage(view.dimensionLanguage);
   validateGemma4LiteralDimensionPrograms(view.dimensionPrograms);
+  const expectedPredecessors = buildGemma4LiteralPredecessorCoordinateNavigation(
+    view.navigation.predecessors,
+    view.scalarAssignments,
+    view.reduction?.complete !== false,
+  );
+  if (JSON.stringify(view.predecessorCoordinates) !== JSON.stringify(expectedPredecessors)) {
+    throw new Error(`${view.navigation.operationId}: navegação de coordenadas predecessoras ausente ou divergente.`);
+  }
   const transcript = [view.formula, ...view.scalarAssignments].join("\n");
   if (/\bdecode\s*\(|\bweight\s*\[|\bbias\s*\[/.test(transcript)) {
     throw new Error(`${view.navigation.operationId}: vista escalar ainda contém referência aprendida simbólica.`);

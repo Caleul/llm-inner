@@ -27,7 +27,6 @@ export interface Gemma4CompositeProgram {
 export interface Gemma4CompositeAssignment {
   id: string;
   operation:
-    | "placeholder-masks"
     | "vision-block-sequence-ids"
     | "causal-attention-mask"
     | "vision-sliding-attention-mask"
@@ -114,11 +113,10 @@ export function buildGemma4CompositeProgram(catalog: ModelCatalog, preview: Prev
   const prefix = textPrefix(catalog);
   const refs = (names: readonly string[]): TensorRef[] => names.map((name) => tensorRef(requireDenseTensor(catalog, name)));
   const assignments: Gemma4CompositeAssignment[] = [
-    { id: "composite_placeholder_masks", operation: "placeholder-masks", inputs: ["input_ids"], output: "composite_image_video_audio_masks", semantics: "input_ids == image_token_id, video_token_id, audio_token_id; masks remain independent for ordered scatter" },
     { id: "composite_block_sequence_ids", operation: "vision-block-sequence-ids", inputs: ["mm_token_type_ids"], output: "vision_block_sequence_ids", semantics: "source get_block_sequence_ids_for_mask: contiguous types 1=image or 2=video receive incrementing group IDs; every other type is -1" },
-    { id: "composite_full_attention_mask", operation: "causal-attention-mask", inputs: ["vision_block_sequence_ids", "past_key_values"], output: "full_attention_mask", semantics: "Gemma 4 full_attention remains causal; vision blocks do not make full-attention layers bidirectional" },
+    { id: "composite_full_attention_mask", operation: "causal-attention-mask", inputs: ["past_key_values"], output: "full_attention_mask", semantics: "Gemma 4 full_attention remains causal; vision blocks do not make full-attention layers bidirectional; cache contributes only the key-length domain" },
     { id: "composite_sliding_attention_mask", operation: "vision-sliding-attention-mask", inputs: ["vision_block_sequence_ids", "past_key_values"], output: "sliding_attention_mask", semantics: "sliding_window AND (causal OR same non-negative vision block), matching create_masks_for_vision_model" },
-    { id: "composite_pad_substitution", operation: "replace-multimodal-ids-with-pad", inputs: ["input_ids", "composite_image_video_audio_masks"], output: "composite_llm_input_ids", semantics: "replace every image/video/audio ID with text_config.pad_token_id before initial text embedding and PLE identity lookup" },
+    { id: "composite_pad_substitution", operation: "replace-multimodal-ids-with-pad", inputs: ["input_ids"], output: "composite_llm_input_ids", semantics: "replace every image/video/audio ID with text_config.pad_token_id before initial text embedding and PLE identity lookup" },
     { id: "composite_text_embedding", operation: "embedding", inputs: ["composite_llm_input_ids"], output: "composite_text_embeddings", tensors: refs([`${prefix}.embed_tokens.weight`]), semantics: "scaled Gemma4Text embedding of PAD-substituted ids" },
     { id: "composite_ple_identity", operation: "per-layer-embedding", inputs: ["composite_llm_input_ids"], output: "ple_token_identity", tensors: refs([`${prefix}.embed_tokens_per_layer.weight`]), semantics: "packed PLE identity uses PAD at all soft-token coordinates" },
     { id: "composite_image_features", operation: "vision-feature-program", inputs: ["pixel_values", "image_position_ids"], output: "image_features", semantics: "registered Gemma4Vision program, including pooling, multimodal RMSNorm and language projection" },

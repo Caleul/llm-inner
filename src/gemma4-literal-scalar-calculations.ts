@@ -255,7 +255,6 @@ function validateExplicitCoordinateFormulas(assignments: readonly Gemma4LiteralS
  */
 function validateOperandClosedFormulas(assignments: readonly Gemma4LiteralScalarCalculation[]): void {
   const forbiddenByOperation = new Map<string, RegExp>([
-    ["placeholder-masks", /\btuple\s*\(/],
     ["linear", /\.\.\./],
     ["clipped-linear", /\.\.\./],
     ["rms-norm", /\binput\b|\.\.\./],
@@ -273,7 +272,7 @@ function validateOperandClosedFormulas(assignments: readonly Gemma4LiteralScalar
     ["causal-depthwise-convolution", /\binput\[/],
   ]);
   const bindEveryOrderedInput = new Set([
-    "placeholder-masks", "embedding", "per-layer-embedding", "per_layer_embedding",
+    "embedding", "per-layer-embedding", "per_layer_embedding",
     "linear", "clipped-linear", "rms-norm", "rms_norm", "activation", "gelu-tanh",
     "elementwise", "tensor_scale",
     "multidimensional-rope", "attention-score-matmul", "attention-value-matmul",
@@ -373,7 +372,6 @@ function scalarFormula(definition: Definition, program: Gemma4CompositeProgram, 
   const input = (index = 0): string => indexed(assignment.inputs[index]!, domain.domain.axes.map((axis) => axis.name));
   const cast = domain.domain.dtype === "BF16" ? "BF16" : domain.domain.dtype === "F32" ? "F32" : domain.domain.dtype;
   switch (assignment.operation) {
-    case "placeholder-masks": return `${lhs} = BOOL(modality_mask==0 ? input_ids[batch,sequence]==${program.contract.modalities.imageTokenId} : modality_mask==1 ? input_ids[batch,sequence]==${program.contract.modalities.videoTokenId} : input_ids[batch,sequence]==${program.contract.modalities.audioTokenId}); require modality_mask>=0 && modality_mask<3`;
     case "vision-block-sequence-ids": return `${lhs} = CONTIGUOUS_VISION_GROUP_ID(mm_token_type_ids[batch,0..sequence],sequence)`;
     case "causal-attention-mask": return `${lhs} = key<=query ? F32(0) : F32(-Infinity)`;
     case "vision-sliding-attention-mask": return `${lhs} = (key>query-${textSlidingWindow(program)} && (key<=query || (vision_block_sequence_ids[batch,query]>=0 && vision_block_sequence_ids[batch,query]==vision_block_sequence_ids[batch,key]))) ? F32(0) : F32(-Infinity)`;
