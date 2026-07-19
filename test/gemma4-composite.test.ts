@@ -17,6 +17,7 @@ import {
 import { openGemma4CompositeLiteralArtifact } from "../src/gemma4-composite-literal-reader.js";
 import { executeGemma4LiteralCompositeF32, generateGemma4LiteralCompositeF32 } from "../src/gemma4-literal-composite.js";
 import { buildGemma4LiteralGenerationNavigation, renderGemma4LiteralGenerationCalculationView } from "../src/gemma4-literal-generation-navigation.js";
+import { selectGemma4LiteralGenerationToken } from "../src/gemma4-literal-generation-control.js";
 import { buildGemma4LiteralCalculationSlice } from "../src/gemma4-literal-calculation-slice.js";
 import { buildGemma4LiteralEndToEndCalculation } from "../src/gemma4-literal-end-to-end-calculation.js";
 import {
@@ -433,14 +434,15 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 28);
+  assert.equal(literal.schemaVersion, 29);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   assert.deepEqual(literal.authoritativeExecution, gemma4AuthoritativeExecutionContract());
   assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.languageId, literal.generation.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.authority.numericLiteralBits, "/numericLiterals/literals");
-  assert.equal(literal.formulaLanguage.schemaVersion, 14);
+  assert.equal(literal.formulaLanguage.schemaVersion, 15);
+  assert.equal(literal.formulaLanguage.authority.generationControlProgram, "/generation/controlProgram");
   assert.equal(literal.scalarCalculations.schemaVersion, 3);
   assert.equal(literal.formulaLanguage.authority.forwardScalarExecution, "/calculationGraph/assignments/*/scalarCalculation/scalarAssignments");
   assert.ok(literal.scalarCalculations.assignments.every((assignment) =>
@@ -805,6 +807,18 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.equal(literal.generation.forwardCalculation.operationOrder.at(-1)?.operationId, literal.generation.forwardProgram.lastAssignment);
   assert.deepEqual(literal.generation.forwardCalculation.cacheTransitions.map((transition) => transition.layer), [0, 1]);
   assert.equal(literal.generation.forwardCalculation.schemaVersion, 2);
+  assert.equal(literal.generation.controlProgram.kind, "gemma4-literal-greedy-control-program");
+  assert.equal(literal.generation.controlProgram.loop.selection.tokenEndExclusive, 6);
+  assert.deepEqual(literal.generation.controlProgram.loop.incrementalForward.omittedInputs, [
+    "attention_mask", "mm_token_type_ids", "pixel_values", "image_position_ids", "pixel_values_videos",
+    "video_position_ids", "input_features", "input_features_mask",
+  ]);
+  assert.equal(selectGemma4LiteralGenerationToken(literal.generation.controlProgram, {
+    shape: [1, 1, 6], values: Float32Array.from([1, 4, 4, 3, 2, 1]),
+  }), 1, "structured argmax must retain the first/lowest exact tie");
+  assert.throws(() => selectGemma4LiteralGenerationToken(literal.generation.controlProgram, {
+    shape: [1, 1, 6], values: Float32Array.from([1, 2, Number.NaN, 3, 4, 5]),
+  }), /rejeita logit não finito/);
   assert.ok(literal.generation.forwardCalculation.cacheTransitions.every((transition) =>
     transition.ownership === "producer" && transition.producerLayer === transition.layer));
   assert.ok(literal.generation.forwardCalculation.cacheTransitions.every((transition) =>
@@ -838,6 +852,13 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.deepEqual([...replay.text.logits.values], [...expected.text.logits.values]);
   assert.deepEqual(generation.generatedTokenIds, expectedGeneration.generatedTokenIds);
   assert.deepEqual([...generation.text.logits.values], [...expectedGeneration.text.logits.values]);
+  const eosGeneration = generateGemma4CompositeLiteralF32(literal, {
+    inputIds: [[1, 99, 2]], mmTokenTypeIds: [[0, 1, 0]],
+    pixelValues: patterned([1, 4, 12]), imagePositionIds: [[[0, 0], [1, 0], [0, 1], [1, 1]]],
+    maxNewTokens: 2, eosTokenId: expectedGeneration.generatedTokenIds[0]!,
+  });
+  assert.deepEqual(eosGeneration.generatedTokenIds, expectedGeneration.generatedTokenIds.slice(0, 1));
+  assert.equal(eosGeneration.stepPastKeyValues.length, 1);
 
   const missingMask = structuredClone(literal);
   missingMask.assignments.composite = missingMask.assignments.composite.filter((assignment) => assignment.id !== "composite_sliding_attention_mask");
@@ -934,6 +955,9 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   opaqueGeneration.generation.scalarCalculations.assignments.find((calculation) =>
     calculation.definitionId === "generation_prefill")!.formula = "forward_state[0] = generic_decoder(input_ids)";
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(opaqueGeneration), /transições de geração greedy incompletas/);
+  const hiddenGenerationControl = structuredClone(literal);
+  hiddenGenerationControl.generation.controlProgram.loop.incrementalForward.omittedInputs.pop();
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(hiddenGenerationControl), /transições de geração greedy incompletas/);
   const missingCacheTransition = structuredClone(literal);
   missingCacheTransition.generation.forwardCalculation.cacheTransitions.pop();
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(missingCacheTransition), /transições de geração greedy incompletas/);
@@ -1008,7 +1032,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 28);
+      assert.equal(artifact.schemaVersion, 29);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.deepEqual(artifact.authoritativeExecution, gemma4AuthoritativeExecutionContract());
@@ -1023,6 +1047,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
       assert.equal(artifact.generation.forwardProgram.firstAssignment, "composite_placeholder_masks");
       assert.equal(artifact.generation.forwardProgram.lastAssignment, "lm_head");
       assert.equal(artifact.generation.outputs.generatedTokenIds, "generated_token_ids");
+      assert.equal(artifact.generation.controlProgram.loop.selection.scanOrder, "ascending-token-id");
       assert.equal(artifact.numericLiterals.literals.find((entry) => entry.token === "0.5")?.binary32Hex, "0x3f000000");
       assert.equal(artifact.formulaLanguage.evaluation.dependencyOrder,
         "evaluate instantiated assignments by ascending ordinal; within each assignment evaluate scalarAssignments in array order, where every local and precondition precedes the final output assignment; every predecessor must already exist");

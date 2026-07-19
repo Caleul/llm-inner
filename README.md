@@ -579,6 +579,20 @@ explicitamente fail-closed quanto à agenda escalar. Contrato, hashes e replay
 source-removed estão em
 [`docs/validation/gemma4-e4b-dependency-ordered-scalar-programs-2026-07-18.md`](docs/validation/gemma4-e4b-dependency-ordered-scalar-programs-2026-07-18.md).
 
+O schema v29 remove o último loop greedy implícito do replay literal. Além da
+vista humana em `generation.scalarCalculations`, o artefato incorpora agora
+`generation.controlProgram`: um programa estruturado que fixa restrições do
+prompt, bindings do prefill, posição inicial, domínio e desempate do argmax,
+append do token, avanço inteiro de posição, inputs deliberadamente omitidos no
+decode, forward incremental, snapshot de cache, momento exato do EOS e seleção
+do estado terminal. Os executores síncrono, paged-text e composite interpretam
+esse mesmo objeto; alterar um campo, remover um input omitido ou trocar a
+cardinalidade do vocabulário falha antes do replay. O programa preserva a lista
+instanciada de 224 operações forward e as transições KV produtor/reuso já
+incorporadas, sem delegar a geração a `generate`, Transformers ou outro loop de
+host. A prova no pacote real está em
+[`docs/validation/gemma4-e4b-structured-generation-control-2026-07-18.md`](docs/validation/gemma4-e4b-structured-generation-control-2026-07-18.md).
+
 O leitor também pode partir de qualquer saída instanciada e calcular o fecho
 transitivo exato de seus produtores. `--calculation-slice <operation-id>`
 retorna somente as atribuições necessárias ao alvo, ainda em ordem de
@@ -952,9 +966,10 @@ internas de batched matmul. A evidência, políticas e navegação escalar estã
 O caminho literal agora conecta essas torres ao modelo composto inteiro.
 `gemma4-literal-composite.ts` executa embedding PAD, torre e scatter, projeção
 PLE pós-scatter, máscaras visual full/sliding e as 42 camadas textuais somente
-dos payloads incorporados. O mesmo forward alimenta diretamente o interpretador
-das doze atribuições de geração serializadas; multimodalidade ocorre no
-prefill, e decode recebe apenas token, posição e cache declarado.
+dos payloads incorporados. O mesmo forward alimenta diretamente o programa
+estruturado de geração incorporado no schema v29; multimodalidade ocorre no
+prefill, e decode recebe somente token, posição e cache explicitamente ligados,
+com os demais inputs enumerados como omitidos.
 
 O trace composite despacha `image`, `video` e `audio` por um contrato de
 modalidade único, que fixa token type, input, feature output e scatter e rejeita

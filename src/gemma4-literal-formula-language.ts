@@ -12,12 +12,13 @@ import {
 
 export interface Gemma4LiteralFormulaLanguageContract {
   kind: "gemma4-literal-formula-language-contract";
-  schemaVersion: 14;
+  schemaVersion: 15;
   languageId: "indexed-ieee754-expression-v1";
   authority: {
     forwardAssignments: "/scalarCalculations/assignments";
     forwardScalarExecution: "/calculationGraph/assignments/*/scalarCalculation/scalarAssignments";
     generationAssignments: "/generation/scalarCalculations/assignments";
+    generationControlProgram: "/generation/controlProgram";
     instantiatedForwardOrder: "/calculationGraph/assignments";
     generationForwardOrder: "/generation/forwardCalculation/operationOrder";
     cacheTransitions: "/generation/forwardCalculation/cacheTransitions";
@@ -423,12 +424,13 @@ function pytorchPairwiseReduce(values: readonly number[], operation: "maximum" |
 export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormulaLanguageContract {
   return {
     kind: "gemma4-literal-formula-language-contract",
-    schemaVersion: 14,
+    schemaVersion: 15,
     languageId: "indexed-ieee754-expression-v1",
     authority: {
       forwardAssignments: "/scalarCalculations/assignments",
       forwardScalarExecution: "/calculationGraph/assignments/*/scalarCalculation/scalarAssignments",
       generationAssignments: "/generation/scalarCalculations/assignments",
+      generationControlProgram: "/generation/controlProgram",
       instantiatedForwardOrder: "/calculationGraph/assignments",
       generationForwardOrder: "/generation/forwardCalculation/operationOrder",
       cacheTransitions: "/generation/forwardCalculation/cacheTransitions",
@@ -452,7 +454,7 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
       reductionBinding: "resolve every reduction index interval through its domains entry and reductions.domainLanguage after calculation-graph call-site tensor binding; prose aliases such as width, patches, context, head_dim and in_features never supply an extent",
       numericTokenBinding: "resolve forward, generation and cache-transition decimal or named mathematical tokens through numericLiterals; resolve transcendental-program names through transcendentalPrograms.constants; select bits by the surrounding F64/F32/BF16 cast",
       learnedValueBinding: "evaluate learnedOperands.logicalIndices with its embedded integer-expression AST, then execute the matching storageDecoder address and decode expression ASTs under denseDecoderLanguage over the embedded constant bytes",
-      generationOrder: "evaluate generation scalarAssignments in array order and iterations in ascending step order until the declared stop predicate",
+      generationOrder: "execute generation.controlProgram; scalarCalculations are its indexed audit rendering and may not replace or override structured control fields",
       cacheTransitionOrder: "for every forward invocation execute cacheTransitions in ascending layer order; within each transition execute prefill or incremental scalarAssignments in array order over its complete BHSD coordinate domain",
       invalidOperation: "fail closed before producing an output; never infer a default, host reduction, tensor layout, cast, or missing intrinsic",
     },

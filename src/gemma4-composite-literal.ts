@@ -20,13 +20,17 @@ import {
 } from "./literal.js";
 import {
   executeGemma4CompositeF32,
-  generateGemma4CompositeF32,
   type Gemma4CompositeExecutionRequest,
   type Gemma4CompositeExecutionResult,
   type Gemma4CompositeGenerationRequest,
   type Gemma4CompositeGenerationResult,
   type Gemma4CompositeProgram,
 } from "./gemma4-composite.js";
+import {
+  buildGemma4LiteralGenerationControlProgram,
+  executeGemma4LiteralGenerationControlProgram,
+  type Gemma4LiteralGenerationControlProgram,
+} from "./gemma4-literal-generation-control.js";
 import type { Gemma4AudioAssignment } from "./gemma4-audio.js";
 import { GEMMA4_E4B_PYTORCH_BF16_TANH_IMPLEMENTATION, GEMMA4_E4B_PYTORCH_BF16_TRIG_IMPLEMENTATION } from "./gemma4-text.js";
 import type { Gemma4VisionAssignment } from "./gemma4-vision.js";
@@ -132,6 +136,8 @@ export interface Gemma4LiteralGreedyGenerationProgram {
   assignments: Gemma4LiteralGenerationAssignment[];
   /** Indexed generation-control formulas stored in the artifact, not rebuilt by its reader. */
   scalarCalculations: Gemma4LiteralGenerationScalarCalculations;
+  /** Normative structured control flow executed by source-removed replay. */
+  controlProgram: Gemma4LiteralGenerationControlProgram;
   outputs: {
     prefillState: "forward_state[0]";
     generatedTokenIds: "generated_token_ids";
@@ -149,7 +155,7 @@ export interface Gemma4LiteralGreedyGenerationProgram {
  * steps remain distinct, named dependencies in the enclosing program.
  */
 export interface Gemma4CompositeLiteralCalculationProgram extends LiteralStorageBundle {
-  schemaVersion: 28;
+  schemaVersion: 29;
   kind: "gemma4-composite-literal-calculation-program";
   sourceFormat: "safetensors";
   /** Gemma 4 checkpoint is dense; packed/quantized decoder variants are forbidden here. */
@@ -288,7 +294,7 @@ export async function buildGemma4CompositeLiteralCalculationProgram(
   const scalarCalculations = buildGemma4LiteralScalarCalculations(embeddedProgram);
   const generation = gemma4LiteralGreedyGenerationProgram(embeddedProgram, calculationGraph);
   const literal: Gemma4CompositeLiteralCalculationProgram = {
-    schemaVersion: 28,
+    schemaVersion: 29,
     kind: "gemma4-composite-literal-calculation-program",
     sourceFormat: "safetensors",
     sourceIdentity: structuredClone(sourceIdentity),
@@ -354,7 +360,7 @@ export async function writeGemma4CompositeLiteralCalculationProgram(
 
   try {
     await once(stream, "open");
-    await write(`{"schemaVersion":28,"kind":"gemma4-composite-literal-calculation-program","sourceFormat":"safetensors","sourceIdentity":${JSON.stringify(sourceIdentity)},"authoritativeExecution":${JSON.stringify(gemma4AuthoritativeExecutionContract())},"numericPolicy":${JSON.stringify(gemma4CompositeLiteralNumericPolicy(program))},"inputs":${JSON.stringify(literalInputs())},"constants":[`);
+    await write(`{"schemaVersion":29,"kind":"gemma4-composite-literal-calculation-program","sourceFormat":"safetensors","sourceIdentity":${JSON.stringify(sourceIdentity)},"authoritativeExecution":${JSON.stringify(gemma4AuthoritativeExecutionContract())},"numericPolicy":${JSON.stringify(gemma4CompositeLiteralNumericPolicy(program))},"inputs":${JSON.stringify(literalInputs())},"constants":[`);
     for (let index = 0; index < prepared.constants.length; index += 1) {
       const constant = prepared.constants[index]!;
       if (index > 0) await write(",");
@@ -430,7 +436,13 @@ export function generateGemma4CompositeLiteralF32(
 ): Gemma4CompositeGenerationResult {
   validateGemma4CompositeLiteralCalculationProgram(literal);
   assertSynchronousCompositeF32Compatibility(literal.program);
-  return generateGemma4CompositeF32(literal.program, { ...request, tensors: decodeLiteralStorageBundleF32(literal) });
+  const tensors = decodeLiteralStorageBundleF32(literal);
+  return executeGemma4LiteralGenerationControlProgram(
+    literal.generation.controlProgram,
+    literal.program,
+    request,
+    (forwardRequest) => executeGemma4CompositeF32(literal.program, { ...forwardRequest, tensors }),
+  );
 }
 
 /**
@@ -440,7 +452,7 @@ export function generateGemma4CompositeLiteralF32(
  */
 export function validateGemma4CompositeLiteralCalculationProgram(literal: Gemma4CompositeLiteralCalculationProgram): void {
   validateGemma4TextReductionSchedules(literal.program);
-  if (literal.schemaVersion !== 28 || literal.kind !== "gemma4-composite-literal-calculation-program" || literal.sourceFormat !== "safetensors" ||
+  if (literal.schemaVersion !== 29 || literal.kind !== "gemma4-composite-literal-calculation-program" || literal.sourceFormat !== "safetensors" ||
     !sameNumericPolicy(literal.numericPolicy, gemma4CompositeLiteralNumericPolicy(literal.program))) {
     throw new Error("Programa literal Gemma 4 composite possui cabeçalho ou política numérica inválida.");
   }
@@ -593,6 +605,7 @@ export function gemma4LiteralGreedyGenerationProgram(
     loop: { iterator: "step", startInclusive: 0, endExclusiveInput: "max_new_tokens", earlyStop: "after incremental forward and cache capture when selected_token[step] == eos_token_id" },
     assignments,
     scalarCalculations: buildGemma4LiteralGenerationScalarCalculations(assignments, forwardCalculation, program.contract.text.vocabSize),
+    controlProgram: buildGemma4LiteralGenerationControlProgram(program),
     outputs: {
       prefillState: "forward_state[0]",
       generatedTokenIds: "generated_token_ids",

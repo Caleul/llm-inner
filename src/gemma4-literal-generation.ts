@@ -4,7 +4,7 @@ import {
   type Gemma4LiteralGreedyGenerationProgram,
 } from "./gemma4-composite-literal.js";
 import type { Gemma4CompositeProgram } from "./gemma4-composite.js";
-import { selectGreedyToken } from "./generation.js";
+import { selectGemma4LiteralGenerationToken } from "./gemma4-literal-generation-control.js";
 import type {
   DenseF32Tensor,
   ReferenceF32ExecutionResult,
@@ -76,89 +76,59 @@ export async function executeGemma4LiteralGenerationProgram<TPrefill extends Gem
   validateRequest(request);
 
   const executions: Gemma4LiteralGenerationAssignmentExecution[] = [];
-  const leading = generation.assignments.filter((assignment) => assignment.iteration === undefined).slice(0, 2);
-  const loop = generation.assignments.filter((assignment) => assignment.iteration !== undefined);
-  const terminal = generation.assignments.filter((assignment) => assignment.iteration === undefined).slice(2);
-  let prefill: ReferenceF32ExecutionResult | undefined;
-  let current: ReferenceF32ExecutionResult | undefined;
-  let position: number | undefined;
-  let incrementalInputs: Gemma4LiteralIncrementalForwardInput | undefined;
-  let selectedToken: number | undefined;
+  const control = generation.controlProgram;
+  const prefillAssignment = requiredAssignment(generation, "execute-declared-forward");
+  const positionAssignment = requiredAssignment(generation, "initialize-position");
+  const selectionAssignment = requiredAssignment(generation, "capture-selection-logits");
+  const argmaxAssignment = requiredAssignment(generation, "argmax-lowest-token-id");
+  const tokenAppendAssignment = requiredAssignment(generation, "append-token");
+  const positionAdvanceAssignment = requiredAssignment(generation, "increment-position");
+  const incrementalInputsAssignment = requiredAssignment(generation, "prepare-incremental-forward-inputs");
+  const incrementalForwardAssignment = requiredAssignment(generation, "execute-declared-incremental-forward");
+  const cacheSnapshotAssignment = requiredAssignment(generation, "append-cache-snapshot");
+  const stopAssignment = requiredAssignment(generation, "evaluate-eos-stop");
+  const terminalLogitsAssignment = requiredAssignment(generation, "select-terminal-logits");
+  const terminalCacheAssignment = requiredAssignment(generation, "select-terminal-cache");
+  const prefill = await executor.prefill(request);
+  let current = prefill;
+  let position = request.positionIds?.[control.initialPosition.whenPositionIdsPresent.batch]?.at(-1)
+    ?? request.inputIds[0]!.length - 1;
+  if (!Number.isSafeInteger(position) || position < 0) throw new Error(`${positionAssignment.id}: posição inicial inválida.`);
+  record(executions, prefillAssignment, undefined, prefill);
+  record(executions, positionAssignment, undefined, position);
   const generatedTokenIds: number[] = [];
   const selectionLogits: DenseF32Tensor[] = [];
   const stepPastKeyValues: Array<ReadonlyMap<number, ReferenceF32KeyValueCache>> = [];
   const steps: Array<{ tokenId: number; positionId: number }> = [];
 
-  for (const assignment of leading) {
-    if (assignment.operation === "execute-declared-forward") {
-      prefill = await executor.prefill(request);
-      current = prefill;
-      record(executions, assignment, undefined, prefill);
-    } else if (assignment.operation === "initialize-position") {
-      position = request.positionIds?.[0]?.at(-1) ?? request.inputIds[0]!.length - 1;
-      record(executions, assignment, undefined, position);
-    } else {
-      throw new Error(`${assignment.id}: atribuição inicial de geração Gemma 4 não é executável nessa posição.`);
+  for (let step: number = control.loop.startInclusive; step < request.maxNewTokens; step += 1) {
+    selectionLogits.push(current.logits);
+    record(executions, selectionAssignment, step, current.logits);
+    const selectedToken = selectGemma4LiteralGenerationToken(control, current.logits);
+    record(executions, argmaxAssignment, step, selectedToken);
+    generatedTokenIds.push(selectedToken);
+    record(executions, tokenAppendAssignment, step, [...generatedTokenIds]);
+    if (!Number.isSafeInteger(position + control.loop.positionAdvance.increment)) {
+      throw new Error(`${positionAdvanceAssignment.id}: avanço de posição excede inteiro seguro.`);
     }
-  }
-  if (!prefill || !current || position === undefined) throw new Error("Programa literal Gemma 4 não inicializou forward e posição.");
-
-  for (let step = 0; step < request.maxNewTokens; step += 1) {
-    let stop = false;
-    for (const assignment of loop) {
-      switch (assignment.operation) {
-        case "capture-selection-logits":
-          selectionLogits.push(current.logits);
-          record(executions, assignment, step, current.logits);
-          break;
-        case "argmax-lowest-token-id":
-          selectedToken = selectGreedyToken(current.logits);
-          record(executions, assignment, step, selectedToken);
-          break;
-        case "append-token":
-          requireSelectedToken(selectedToken, assignment.id);
-          generatedTokenIds.push(selectedToken);
-          record(executions, assignment, step, [...generatedTokenIds]);
-          break;
-        case "increment-position":
-          if (!Number.isSafeInteger(position + 1)) throw new Error(`${assignment.id}: avanço de posição excede inteiro seguro.`);
-          position += 1;
-          record(executions, assignment, step, position);
-          break;
-        case "prepare-incremental-forward-inputs":
-          requireSelectedToken(selectedToken, assignment.id);
-          incrementalInputs = { inputIds: [[selectedToken]], positionIds: [[position]], pastKeyValues: current.pastKeyValues };
-          steps.push({ tokenId: selectedToken, positionId: position });
-          record(executions, assignment, step, incrementalInputs);
-          break;
-        case "execute-declared-incremental-forward":
-          if (!incrementalInputs) throw new Error(`${assignment.id}: entradas incrementais ainda não foram produzidas.`);
-          current = await executor.incremental(incrementalInputs);
-          record(executions, assignment, step, current);
-          break;
-        case "append-cache-snapshot":
-          stepPastKeyValues.push(current.pastKeyValues);
-          record(executions, assignment, step, [...stepPastKeyValues]);
-          break;
-        case "evaluate-eos-stop":
-          requireSelectedToken(selectedToken, assignment.id);
-          stop = request.eosTokenId !== undefined && selectedToken === request.eosTokenId;
-          record(executions, assignment, step, stop);
-          break;
-        default:
-          throw new Error(`${assignment.id}: operação ${assignment.operation} não pertence ao loop de geração Gemma 4.`);
-      }
-    }
+    position += control.loop.positionAdvance.increment;
+    record(executions, positionAdvanceAssignment, step, position);
+    const incrementalInputs: Gemma4LiteralIncrementalForwardInput = {
+      inputIds: [[selectedToken]], positionIds: [[position]], pastKeyValues: current.pastKeyValues,
+    };
+    steps.push({ tokenId: selectedToken, positionId: position });
+    record(executions, incrementalInputsAssignment, step, incrementalInputs);
+    current = await executor.incremental(incrementalInputs);
+    record(executions, incrementalForwardAssignment, step, current);
+    stepPastKeyValues.push(current.pastKeyValues);
+    record(executions, cacheSnapshotAssignment, step, [...stepPastKeyValues]);
+    const stop = request.eosTokenId !== undefined && selectedToken === request.eosTokenId;
+    record(executions, stopAssignment, step, stop);
     if (stop) break;
-    selectedToken = undefined;
-    incrementalInputs = undefined;
   }
 
-  for (const assignment of terminal) {
-    if (assignment.operation === "select-terminal-logits") record(executions, assignment, undefined, current.logits);
-    else if (assignment.operation === "select-terminal-cache") record(executions, assignment, undefined, current.pastKeyValues);
-    else throw new Error(`${assignment.id}: atribuição terminal de geração Gemma 4 não é executável nessa posição.`);
-  }
+  record(executions, terminalLogitsAssignment, undefined, current.logits);
+  record(executions, terminalCacheAssignment, undefined, current.pastKeyValues);
 
   return {
     prefill,
@@ -171,6 +141,15 @@ export async function executeGemma4LiteralGenerationProgram<TPrefill extends Gem
     pastKeyValues: current.pastKeyValues,
     assignmentExecutions: executions,
   };
+}
+
+function requiredAssignment(
+  generation: Gemma4LiteralGreedyGenerationProgram,
+  operation: Gemma4LiteralGenerationAssignment["operation"],
+): Gemma4LiteralGenerationAssignment {
+  const matches = generation.assignments.filter((assignment) => assignment.operation === operation);
+  if (matches.length !== 1) throw new Error(`Programa literal Gemma 4 requer uma atribuição ${operation}; encontrou ${matches.length}.`);
+  return matches[0]!;
 }
 
 function validateRequest(request: Gemma4LiteralGenerationInput): void {
@@ -221,8 +200,4 @@ function instantiateOutput(output: string, step: number | undefined): string {
     .replaceAll("[step+1]", `[${step + 1}]`)
     .replaceAll("[step]", `[${step}]`)
     .replaceAll("[0..step]", `[0..${step}]`);
-}
-
-function requireSelectedToken(value: number | undefined, assignmentId: string): asserts value is number {
-  if (value === undefined) throw new Error(`${assignmentId}: argmax ainda não produziu selected_token.`);
 }
