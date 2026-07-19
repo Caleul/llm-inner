@@ -2,10 +2,18 @@
 
 import { createWriteStream } from "node:fs";
 import { access, copyFile, mkdir, open, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { spawn } from "node:child_process";
 import { buildProviderInvocation, providerAvailability, providerRunPaths, validateProviders } from "./agent-loop-providers.mjs";
 import { classifyTransientLimit, clearProviderRetry, stateAfterTransientLimit } from "./agent-loop-retry-policy.mjs";
+import {
+  OUTCOME,
+  buildAgentTaskPrompt,
+  buildContinuityRecord,
+  classifyObjectiveOutcome,
+  resolveObjectiveStatus,
+} from "./agent-task-contract.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 const command = process.argv[2] ?? "status";
@@ -71,9 +79,6 @@ async function load() {
   validateProviders(config.providers);
   if (typeof config.missionGoal !== "string" || config.missionGoal.trim() === "") {
     fail("agent-loop.config.json must declare a non-empty missionGoal.");
-  }
-  if (config.goalCommand !== "/goal") {
-    fail("agent-loop.config.json must declare goalCommand as /goal.");
   }
   if (!Number.isInteger(config.maxNoProgressMinutes) || config.maxNoProgressMinutes < 1) {
     fail("agent-loop.config.json must declare maxNoProgressMinutes as a positive integer.");
@@ -311,6 +316,7 @@ async function checkpointFailedWork(runId, sequence, reason) {
 async function runProvider(config, provider, prompt, runId, sequence) {
   const runDirectory = absolute(config.runsDirectory);
   const paths = providerRunPaths(runDirectory, runId);
+  paths.promptPath = join(tmpdir(), `llm-inner-gemma-task-${process.pid}-${Date.now()}.md`);
   await writeFile(paths.promptPath, prompt, "utf8");
   const invocation = buildProviderInvocation(provider, {
     root,
@@ -328,7 +334,7 @@ async function runProvider(config, provider, prompt, runId, sequence) {
     args: invocation.args,
     promptPath: paths.promptPath,
   });
-  return new Promise((done) => {
+  const result = await new Promise((done) => {
     const child = spawn(invocation.command, invocation.args, {
       cwd: root,
       detached: true,
@@ -382,14 +388,66 @@ async function runProvider(config, provider, prompt, runId, sequence) {
       clearInterval(progressWatchdog);
       if (forceKill) clearTimeout(forceKill);
       log.end();
-      done({ code: code ?? 1, signal, timeoutReason, limitError });
+      done({ code: code ?? 1, signal, timeoutReason, limitError, recentOutput });
     });
     child.stdin.end(invocation.stdin === "prompt" ? prompt : undefined);
   });
+  await rm(paths.promptPath, { force: true });
+  return { ...result, outputPath: paths.outputPath };
 }
 
-function agentPrompt(masterPrompt, config, state, runId, sequence, previousHandoff) {
-  return `${masterPrompt}\n\n---\n\n${config.goalCommand}\n\n# Mandatory exclusive goal for loop ${sequence}\n\n${config.missionGoal}\n\n---\n\n# Runner invocation context\n\nYou are the single active Codex for loop ${sequence} (${runId}). This exclusive goal overrides generic opportunity selection: select only the largest coherent Gemma 4 artifact-delivery boundary that directly advances it, and leave an evidence-backed blocker only when no such work remains. Apply Clean Code and SOLID pragmatically while completing that product. Do not stop at a micro-change, isolated test, or small commit merely to create a handoff. A successful loop may not consist only of adding the next layer ID to a reduction/profile allowlist or rerunning the same probe for the next assignment; solve the compatible operation class across the artifact or move to another implementable artifact gap. Do not ask for a plan or wait for human input unless an actual external resource or decision is required.\n\nDo every safe, coherent improvement that current evidence reveals. Never write that a future implementation or next loop should perform ordinary work you can perform now. A predecessor's handoff is evidence only: independently review its claimed results, then choose and execute the current loop's own highest-impact artifact work.\n\nA predecessor can propose a candidate acceptance claim, but never certify its own work. Before advancing any claimed gate or reporting an objective achieved, independently inspect the predecessor's diff and rerun or strengthen its evidence. Your independent review, not the implementer's self-assessment, is the authority for accepting the claim.\n\nCurrent state:\n\n\`\`\`json\n${JSON.stringify(state, null, 2)}\n\`\`\`\n\nPrevious accepted handoff: ${previousHandoff ?? "none; this is the first loop"}.\n\nThe external runner, not you, starts the next loop. Before exiting, run every command in agent-loop.config.json.validationCommands, create one local Git commit, and atomically create exactly one handoff named HANDOFF-${String(sequence).padStart(4, "0")}-<UTC timestamp>-<slug>.json in ${config.handoffDirectory}. Its runId must be \`${runId}\`, sequence must be ${sequence}, and endingState.gitCommit must equal the new HEAD commit. The handoff is your final repository-changing action. It must be backward-looking: include only completed results, reproducible validation, known limits and evidence-backed bottlenecks. Do not include nextRecommendedMilestone, nextSteps, or a proposal for the successor.\n`;
+async function readProviderResult(result) {
+  if (result.outputPath && await exists(result.outputPath)) {
+    const message = (await readFile(result.outputPath, "utf8")).trim();
+    if (message) return message;
+  }
+  return (result.recentOutput ?? "").trim();
+}
+
+async function runValidationCommand(command, timeoutMinutes = 60) {
+  return new Promise((done) => {
+    const child = spawn("/bin/zsh", ["-lc", command], {
+      cwd: root,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let output = "";
+    let timedOut = false;
+    const collect = (chunk) => { output = `${output}${chunk.toString("utf8")}`.slice(-32_768); };
+    child.stdout.on("data", collect);
+    child.stderr.on("data", collect);
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      child.kill("SIGTERM");
+    }, timeoutMinutes * 60_000);
+    child.once("error", (error) => {
+      clearTimeout(timeout);
+      done({ command, status: "failed", error: error.message });
+    });
+    child.once("close", (code) => {
+      clearTimeout(timeout);
+      done({
+        command,
+        status: code === 0 && !timedOut ? "passed" : "failed",
+        ...(code === 0 ? {} : { exitCode: code ?? 1 }),
+        ...(timedOut ? { error: `timed out after ${timeoutMinutes} minutes` } : {}),
+        output: output.trim().slice(-4_000),
+      });
+    });
+  });
+}
+
+async function runConfiguredValidation(config) {
+  const results = [];
+  for (const command of config.validationCommands) {
+    results.push(await runValidationCommand(command));
+    if (results.at(-1).status !== "passed") break;
+  }
+  return results;
+}
+
+function continuityName(sequence, createdAt, status) {
+  const timestamp = createdAt.replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+  return `HANDOFF-${String(sequence).padStart(4, "0")}-${timestamp}-gemma-objective-${status}.json`;
 }
 
 async function start(config) {
@@ -419,7 +477,7 @@ async function start(config) {
         continue;
       }
       const provider = availability.available[0];
-      if (config.requireCleanGitBeforeNextLoop && !(await cleanGitTree())) fail("Git tree became dirty before a new loop.");
+      if (config.requireCleanGitBeforeNextLoop && !(await cleanGitTree())) fail("Git tree became dirty before a new task.");
       const sequence = state.currentSequence + 1;
       const runId = `run-${String(sequence).padStart(4, "0")}-${now().replace(/[-:.]/g, "").replace("Z", "Z")}-${provider.id}`;
       const startingCommit = (await git(["rev-parse", "HEAD"])).stdout;
@@ -434,29 +492,54 @@ async function start(config) {
         activeProvider: { id: provider.id, kind: provider.kind, model: provider.model },
       };
       await writeJsonAtomically(absolute(config.stateFile), state);
-      console.log(`Starting logical loop ${sequence} with provider ${provider.id} (${provider.kind}/${provider.model}).`);
-      const result = await runProvider(config, provider, agentPrompt(masterPrompt, config, state, runId, sequence, state.lastHandoff), runId, sequence);
+      console.log(`Starting task ${sequence} with provider ${provider.id} (${provider.kind}/${provider.model}).`);
+      const prompt = buildAgentTaskPrompt(masterPrompt, config.missionGoal);
+      const result = await runProvider(config, provider, prompt, runId, sequence);
       const after = await completedHandoffs(config);
       const created = [...after].filter((name) => !before.has(name));
       let failure = null;
       let accepted = null;
       let recovery = null;
-      if (created.length !== 1) {
-        failure = `Expected exactly one new completed handoff, found ${created.length}. Provider ${provider.id} exit=${result.code}${result.signal ? ` signal=${result.signal}` : ""}${result.spawnError ? ` error=${result.spawnError}` : ""}.`;
-      } else {
-        const name = created[0];
+      if (created.length !== 0) {
+        failure = `The agent wrote ${created.length} operational continuity record(s); product sessions must not inspect or modify controller state.`;
+        for (const name of created) await moveRejected(config, name, failure);
+      } else if (result.code !== 0 || result.timeoutReason || result.spawnError) {
+        failure = result.timeoutReason
+          ?? result.spawnError
+          ?? `Provider ${provider.id} exited with ${result.code}${result.signal ? ` (${result.signal})` : ""}.`;
+      } else if (!result.limitError) {
         try {
-          const handoffPath = join(absolute(config.handoffDirectory), name);
-          const handoff = await readJson(handoffPath);
-          validateHandoffShape(handoff, sequence, runId);
+          const message = await readProviderResult(result);
+          const outcome = classifyObjectiveOutcome(message);
           const endingCommit = (await git(["rev-parse", "HEAD"])).stdout;
-          if (config.requireNewCommitPerLoop && endingCommit === startingCommit) fail("No new Git commit was created for this loop.");
-          if (handoff.endingState.gitCommit !== endingCommit) fail("Handoff endingState.gitCommit does not equal HEAD.");
-          if (config.requireCleanGitBeforeNextLoop && !(await cleanGitTree())) fail("Git tree is dirty after the loop.");
-          accepted = { name, handoff, endingCommit };
+          const repositoryChanged = endingCommit !== startingCommit;
+          const resolved = resolveObjectiveStatus({ outcome, repositoryChanged });
+          if (resolved === OUTCOME.invalid) {
+            fail(`Invalid objective result: marker=${outcome}, repositoryChanged=${repositoryChanged}.`);
+          }
+          if (config.requireCleanGitBeforeNextLoop && !(await cleanGitTree())) {
+            fail("Git tree is dirty after the engineering task.");
+          }
+          const validation = await runConfiguredValidation(config);
+          const failedValidation = validation.find(({ status }) => status !== "passed");
+          if (failedValidation) fail(`Controller validation failed: ${failedValidation.command}.`);
+          const createdAt = now();
+          const record = buildContinuityRecord({
+            sequence,
+            runId,
+            createdAt,
+            status: resolved,
+            summary: message || `Provider ${provider.id} returned no final summary.`,
+            endingCommit,
+            validation,
+            missionGateIds: config.missionGates.filter(({ required }) => required).map(({ id }) => id),
+          });
+          const name = continuityName(sequence, createdAt, resolved);
+          validateHandoffShape(record, sequence, runId);
+          await writeJsonAtomically(join(absolute(config.handoffDirectory), name), record);
+          accepted = { name, handoff: record, endingCommit };
         } catch (error) {
           failure = error.message;
-          await moveRejected(config, name, failure);
         }
       }
       if (!accepted) {
@@ -479,7 +562,7 @@ async function start(config) {
           });
           if (recovery) state = { ...state, lastRecovery: recovery };
           await writeJsonAtomically(absolute(config.stateFile), state);
-          console.error(`Provider ${provider.id} hit ${result.limitError}; logical loop ${sequence} and failure counters were restored. Provider cooldown ${state.limitRetry.attempts} is ${state.limitRetry.retryAfterSeconds} seconds; trying the next available provider.`);
+          console.error(`Provider ${provider.id} hit ${result.limitError}; task ${sequence} and failure counters were restored. Provider cooldown ${state.limitRetry.attempts} is ${state.limitRetry.retryAfterSeconds} seconds; trying the next available provider.`);
           continue;
         }
         state = withoutLimitRetry(state);
@@ -491,7 +574,7 @@ async function start(config) {
           ...(recovery ? { lastRecovery: recovery } : {}),
         };
         await writeJsonAtomically(absolute(config.stateFile), state);
-        console.error(`Loop ${sequence} rejected: ${failure}`);
+        console.error(`Task ${sequence} rejected: ${failure}`);
         if (state.consecutiveFailures >= config.maxConsecutiveFailures) {
           console.error(`Stopping after ${state.consecutiveFailures} consecutive failures.`);
           return;
@@ -513,7 +596,7 @@ async function start(config) {
         if (state.completedLoops < config.maxLoops) await delay(config.cooldownSeconds * 1000);
       }
     }
-    console.log(`Configured maximum of ${config.maxLoops} completed loops reached.`);
+    console.log(`Configured maximum of ${config.maxLoops} completed tasks reached.`);
   } finally {
     await rm(lockPath, { force: true });
   }

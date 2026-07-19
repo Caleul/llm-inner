@@ -44,7 +44,7 @@ export function providerAvailability(providers, retries = {}, at = Date.now()) {
 }
 
 export function buildProviderInvocation(provider, { root, promptPath, outputPath }) {
-  const promptReference = `Read ${promptPath} completely and follow it as the authoritative mission for this autonomous run. Work in ${root}. Do not ask for authorization or wait for interactive input.`;
+  const promptReference = `Read ${promptPath} completely and follow it as the authoritative engineering task. Work in ${root}. Do not ask for authorization or wait for interactive input.`;
   switch (provider.kind) {
     case "codex":
       return {

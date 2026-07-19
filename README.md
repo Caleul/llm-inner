@@ -1255,127 +1255,20 @@ A captura é JSON `schemaVersion: 1`, `kind: "execution"`, e exige:
 
 O comando recusa arquivo ausente/extra, checksum divergente, fingerprint de IR diferente, dtype implícito, operação duplicada, shape/payload inválido e evidência incompleta. A captura ainda precisa ser produzida por hooks verificados no runtime autoritativo; esse mecanismo não transforma o executor escalar em uma referência de Transformers, MLX ou llama.cpp.
 
-## Loop autônomo sequencial
+## Objetivo de engenharia Gemma 4
 
-O loop usa **um Codex por vez**. Ao fim de um ciclo, o agente cria um handoff
-atômico em `.agent-loop/handoffs/completed`; somente o runner externo o valida
-e inicia o próximo. O agente nunca aciona seu sucessor diretamente.
+O foco do repositório é produzir um programa JSON matemático, navegável e
+autossuficiente para o Gemma 4 denso e sem quantização. Pesos e constantes
+aprendidos devem estar embutidos sem perda, com decodificação exata e vistas
+escalares capazes de substituí-los por literais numéricos. Entradas, operações,
+intermediários, transições de cache, logits e geração greedy devem formar um
+grafo ordenado que possa ser reproduzido sem reabrir o checkpoint.
 
-Antes do primeiro uso, configure uma identidade Git local para os commits de
-cada ciclo:
-
-```bash
-git init
-git config user.name "Seu nome"
-git config user.email "seu-email@exemplo.com"
-git add .
-git commit -m "chore: bootstrap autonomous agent loop"
-```
-
-Então execute, a partir da raiz do projeto:
-
-```bash
-npm run loop:start
-```
-
-O limite é de 100 handoffs aceitos, configurado em `agent-loop.config.json`.
-O runner exige árvore Git limpa, um novo commit por ciclo, testes configurados,
-um handoff válido e nenhuma flag `.agent-loop/STOP` antes de iniciar o próximo.
-
-```bash
-npm run loop:status
-npm run loop:stop
-```
-
-`loop:stop` não mata o Codex ativo; ele evita que o sucessor seja iniciado e
-permite que o ciclo atual termine de forma coerente. Os logs e mensagens finais
-de cada ciclo ficam em `.agent-loop/runs/`; estado, handoffs e logs são
-ignorados pelo Git para não violar a exigência de árvore limpa.
-
-### Execução persistente no macOS
-
-Não inicie um loop longo a partir de uma sessão de terminal do Codex: se o
-app-server, a sessão ou o terminal for encerrado, o processo filho também pode
-morrer e deixar um lock stale. Para execução contínua, instale uma única vez o
-LaunchAgent versionado neste repositório:
-
-```bash
-npm run loop:install-launchd
-```
-
-Como este checkout fica em `~/Documents`, conceda antes **Full Disk Access** a
-`/opt/homebrew/bin/node` em **System Settings → Privacy & Security → Full Disk
-Access**. Sem essa permissão TCC, um LaunchAgent iniciado por `launchd` pode
-ficar bloqueado ao abrir `agent-loop.config.json`, mesmo que `node` funcione no
-terminal do Codex. Depois de conceder a permissão, recarregue o serviço com o
-mesmo comando `npm run loop:install-launchd`.
-
-Ele instala `tech.lilka.llm-inner-agent-loop` em `~/Library/LaunchAgents/` e
-executa `scripts/agent-loop-supervisor.mjs`. O supervisor é o pai durável do
-runner: após uma queda inesperada, espera cinco segundos e reinicia o runner,
-que recupera o lock stale. Uma interrupção de host é registrada como
-`interrupted` sem consumir `consecutiveFailures`; falhas reais do agente ainda
-ficam registradas. `.agent-loop/STOP`, orçamento concluído, missão `complete`
-ou `blocked` encerram o supervisor normalmente.
-
-Além do limite total (`maxLoopDurationMinutes`), o runner monitora progresso
-observável do agente ativo. Se não houver stdout ou stderr por
-`maxNoProgressMinutes`, ele encerra todo o grupo de processos do ciclo. Se o
-ciclo falhar ou for interrompido deixando alterações ainda não commitadas, o
-runner cria um commit de checkpoint automático e registra a recuperação no
-estado antes de iniciar o agente seguinte; assim uma falha não deixa a árvore
-suja nem paralisa os ciclos seguintes. A resposta transitória `Selected model
-is at capacity`, `You've hit your usage limit`, respostas HTTP 429 e mensagens
-equivalentes não consomem um loop nem `consecutiveFailures`: o número lógico da
-sequência é restaurado, o provedor recebe um cooldown próprio e o runner tenta
-imediatamente o próximo provedor disponível. Os provedores operam estritamente
-um por vez, na ordem `Sol → Spark → OpenCode → Kiro → Cursor`. Quando todos
-estão indisponíveis, o estado passa a `waiting_limit` e aguarda o menor cooldown.
-O backoff de cada provedor começa em
-`transientLimitRetryInitialSeconds`, dobra a cada resposta consecutiva e é
-limitada por `transientLimitRetryMaximumSeconds`; o STOP continua sendo
-observado durante a espera. Um reinício do host preserva `nextRetryAt` no
-estado. Isso também vale para a recuperação de um runner encerrado pelo host e
-evita que o supervisor reinicie continuamente contra um worktree sujo. Se o
-limite de falhas reais for atingido, o supervisor encerra em vez de relançar o
-runner a cada cinco segundos.
-
-Cada instância recebe contexto novo a partir do repositório e do último
-handoff. O protocolo exige que ela complete um milestone substancial e
-validado — não uma sequência de microalterações — e execute no próprio ciclo
-toda melhoria coerente que a evidência disponível permite. O handoff final é
-somente retrospectivo: resultado, evidência e gargalos reais. Ele não contém
-"próxima implementação", lista de próximos passos nem tarefa para o sucessor.
-
-O runner inicia os ciclos com acesso completo e sem confirmações interativas,
-por autorização explícita do operador. Cada ciclo deve atuar como responsável
-pelo objetivo final: atacar uma fronteira estratégica de fidelidade ou
-validação, conectar as camadas necessárias e evitar encerrar apenas por uma
-microalteração isolada.
-
-O runner prefere Codex `gpt-5.6-sol` com esforço `high`, seguido pelo Codex
-`gpt-5.3-codex-spark`, OpenCode com `opencode/north-mini-code-free`, Kiro com
-`gpt-5.6-sol` e Cursor com `gpt-5.6-sol-high`. Todos são invocados em modo
-não interativo, com as ferramentas previamente autorizadas pelo operador.
-Cada invocação é uma sessão autônoma de engenharia: o agente reavalia o sistema, decide a
-fronteira estratégica de maior impacto e executa uma entrega coesa através das
-camadas necessárias. O sucessor revisa as evidências independentemente e
-escolhe seu próprio trabalho; não recebe uma sequência de microtarefas do
-commit anterior.
-
-`agent-loop.config.json` contém `missionGoal`. O runner injeta essa meta como
-uma seção obrigatória no prompt de **cada** ciclo, antes do contexto operacional;
-ela não é uma sugestão de backlog. O agente atual deve avançá-la ao máximo com
-as evidências disponíveis, e o sucessor deve revisar independentemente o que
-foi provado antes de escolher e executar o próximo avanço.
-
-Cada agente também atua como responsável técnico temporário do repositório:
-deve usar princípios de Clean Code e SOLID pragmaticamente, preservar fronteiras
-claras entre contêiner, quantização, arquitetura, execução e validação, reduzir
-duplicação relevante e deixar contratos, erros e testes mais fáceis de evoluir
-nas sessões seguintes. O handoff é uma evidência técnica curta do que foi
-concluído e do que realmente bloqueia progresso, nunca uma proposta de trabalho
-para o próximo ciclo.
+A arquitetura deve permanecer coesa, extensível e fail-closed, com contratos
+explícitos, Clean Code, SOLID, testes independentes e documentação compatível
+com o comportamento. Evidência de conclusão exige identidade imutável da fonte,
+integridade do artefato, replay com a fonte fisicamente ausente e comparação
+diferencial com um runtime Gemma autoritativo.
 
 ## Política de fidelidade
 

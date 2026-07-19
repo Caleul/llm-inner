@@ -1,171 +1,85 @@
-# llm-inner autonomous ownership contract
+# Gemma literal-export engineering contract
 
-## Autonomous loop boundary
+## Product objective
 
-This repository is advanced by one autonomous agent process at a time. The external
-runner owns process creation, sequencing, state transitions and stop handling.
-An agent must never start another agent or invoke the runner.
+Build a production-quality decompiler for the real dense, unquantized Gemma 4
+Safetensors package. Its primary output is one navigable, self-contained JSON
+program from which a reader can reproduce the model's forward pass and greedy
+generation step by step without reopening the checkpoint.
 
-## Operating posture
+This repository is focused exclusively on Gemma 4. Do not broaden the product
+roadmap to other model families, containers, quantization schemes, benchmarks,
+or generic abstractions unless the change is an immediate prerequisite for the
+Gemma artifact and is exercised by it.
 
-Each invocation is a fresh senior-engineering work session, not a queue worker
-consuming the previous handoff. The agent owns the outcome, diagnoses the
-current system independently, forms an internal high-level plan, makes the
-necessary decisions from repository evidence, and advances the mission as far
-as the available context permits. It executes every coherent improvement that
-the live evidence makes safe and necessary; it does not defer ordinary work to
-a hypothetical successor.
+## Required artifact
 
-The loop prefers `gpt-5.6-sol` at high reasoning effort and can fail over
-sequentially through the provider order declared in `agent-loop.config.json`.
-Use the available reasoning capacity on architecture, semantic boundaries,
-validation strategy, tradeoffs and long-term maintainability — not on slicing a
-single coherent problem into artificial microtasks.
+The JSON must contain or losslessly encode every learned weight, bias, scale,
+and constant needed for replay. A compact Base64 payload is valid only when the
+artifact also declares dtype, bit pattern, endianness, shape, layout, exact
+index-to-value decoding, casts, and accumulation semantics. It must never need
+the original Safetensors files after export.
 
-Do not advance native numeric fidelity by hard-coding one assignment ID per
-loop. When a mismatch repeats across linear layers, derive a source-, shape-,
-dtype- or operation-level dispatch contract and apply it to every compatible
-assignment in one coherent change. If the evidence cannot support that
-generalization, leave the ambiguity fail-closed and advance another concrete
-Gemma 4 artifact-generation or mathematical-navigation gap instead of running
-the same probe against the next layer.
+The program must expose:
 
-## Work-session contract
+- declared inputs such as token IDs, positions, modality inputs, and cache;
+- all dependency-ordered operations and named intermediate values;
+- stable producer and consumer navigation between layers and operations;
+- masks, RoPE, normalization, attention, MLP, cache transitions, logits, and
+  greedy-generation state changes;
+- scalar audit views that substitute addressable learned operands with their
+  decoded numeric literals instead of unexplained placeholders such as
+  `weight[o,i]`;
+- dtype conversions, rounding points, reduction domains, reduction order, and
+  runtime semantics sufficient to reproduce the same outputs;
+- immutable source identity, artifact integrity evidence, source-removed
+  replay, and differential comparison with an authoritative Gemma runtime.
 
-1. Read `agent-loop.config.json`, `.agent-loop/state.json`, the master prompt,
-   the most recent accepted handoff and the current repository state.
-2. Independently map mission gates, architectural risks and validation gaps;
-   do not inherit a narrow task from the previous handoff without re-justifying it.
-3. Select the largest coherent strategic boundary reachable from that evidence,
-   and execute across all adjacent layers needed to close it.
-4. Keep working through related implementation, tests, reports and documentation
-   until the boundary is closed or a genuine higher-level blocker is proven.
-5. Run the configured validation commands and record their real results.
-6. Perform an architectural self-review: cohesion, duplication, dependency
-   direction, naming, error boundaries, testability and extension seams.
-7. Update documentation when behavior, support or architecture changes.
-8. Create one local Git commit for the loop.
-9. Write exactly one concise decision brief atomically to
-  `.agent-loop/handoffs/completed/` as the final repository-changing action.
+Unknown semantics must fail closed. Never call the artifact complete while it
+contains external tensor references, truncated dimensions, preview-only
+weights, implicit configuration, guessed behavior, hidden generic-decoder
+steps, or formulas whose learned values cannot be decoded and substituted.
 
-## Primary deliverable: Safetensors-to-literal-calculation JSON decompilation
+## Work contract
 
-The central product is a decompiler: it receives a `.safetensors` model package
-(and its authoritative metadata/architecture evidence) and emits a lossless
-calculation JSON artifact. This is not merely a tensor catalog, diagram,
-benchmark, trace or differential report. For every supported package, a later
-reader must reproduce the forward pass and generation from only declared input
-variables and that JSON, without reopening the source checkpoint or inferring
-hidden behavior from source code.
+Start by auditing the live repository, generated artifact, tests, and current
+Gemma evidence against the complete product objective. Work from source and
+runtime evidence rather than assumptions.
 
-The artifact must declare an ordered assignment graph: named inputs such as
-`x[i]`, token IDs and positions; every named intermediate such as
-`x_embedding[i]`, `x_med[i]`, `x_alguma_variacao[i]` and
-`x_para_proxima_camada[i]`; its operation and ordered inputs; exact
-tensor/constant values; shapes/layouts/dtypes; casts; accumulation order;
-masks; cache transitions; and final outputs. Names may be improved for the
-actual domain, but every value must have a stable declaration and provenance.
-A downstream assignment, including the input to layer 2, must explicitly
-reference the named result calculated by the preceding layer — never an
-implicit layer shortcut or a hidden generic-decoder invocation.
+If any material gap is present, implement the largest coherent safe boundary
+now. Generalize repeated problems by operation, shape, dtype, layout, or source
+contract; do not hard-code one layer or assignment at a time. Continue through
+implementation, tests, artifact regeneration, validation, documentation, and
+architectural review until that boundary is complete or a genuine external
+blocker is proven. Do not write that a future implementation should perform
+ordinary work that current evidence makes possible.
 
-"Explicit" also applies below the tensor-operation level. The canonical audit
-view must be able to state a calculation by indexed scalar formula, such as
-`y[t,o] = F32(sum_i(F32(x[t,i] * 3.456812134)) + -0.125)`, rather than leaving
-the learned term as an unexplained `weight[o,i]`. A production artifact may
-keep a large weight losslessly encoded as binary/Base64 for scale, but it must
-declare its exact index-to-value decoder and an audit/export mode must be able
-to substitute the decoded value at every referenced index. Matrix operations,
-reductions, attention, normalization, RoPE, quantization and cache updates
-must likewise declare their index domains, order and F32 rounding boundaries.
-See `docs/literal-scalar-substitution-contract.md` and its executable-size
-example before changing this format.
+Apply Clean Code and SOLID pragmatically: keep responsibilities cohesive,
+dependency direction explicit, contracts narrow, extension points additive,
+names domain-specific, errors fail-closed, and tests independent of the
+implementation under test. Remove relevant duplication and update docs when
+behavior or architecture changes.
 
-All weights required for replay must be embedded losslessly in the JSON
-artifact. For large or quantized tensors, an exact binary payload encoded in
-JSON is allowed only when dtype, endianness, shape, layout, packing, scale,
-zero/bias/codebook metadata and a deterministic decoding assignment are also
-declared. The artifact still may not require the original checkpoint.
+Do not inspect or modify hidden orchestration state, process-control scripts,
+execution history, or operational records. They are not product evidence and
+must not influence engineering decisions.
 
-“Model-type agnostic” means the pipeline has a generic Safetensors container
-path and can add explicit semantic adapters or authoritative runtime-graph
-extraction for new architectures. It never means guessing architecture from
-raw weights. If package semantics cannot be established from metadata, a
-registered adapter or an authoritative graph, export must fail closed and name
-the missing semantic contract. Completion requires a generic path that can
-lower every established Safetensors semantic contract into this literal JSON,
-not a collection of architecture-specific prose or external references.
+Before finishing, run `npm run typecheck` and `npm test`. If you changed the
+repository, create exactly one focused local Git commit and leave the worktree
+clean.
 
-## Mandatory checkpoint roadmap
+## Final response protocol
 
-The next product checkpoint is not a generic feature count. It is a real,
-unquantized Gemma 4 Safetensors package transformed into and replayed from a
-lossless literal calculation JSON. Until that checkpoint is proven, it outranks
-new work on unrelated families, quantization variants, container breadth and
-cosmetic infrastructure. The agent has authority to download the required
-official/public model files, `config.json`, tokenizer/configuration metadata,
-and authoritative runtime/source evidence needed to establish its semantics.
+Begin the final response with exactly one of these markers:
 
-Gemma 4 is complete only when the selected immutable dense package has a
-documented source/revision/checksum; every model semantic is explicitly
-lowered; every original weight is embedded losslessly; forward and generation
-can replay after the source checkpoint is unavailable; and an authoritative
-runtime comparison establishes the claimed fidelity. On success, create and
-commit `.agent-loop/checkpoints/gemma4-dense-lossless/` containing a concise
-`manifest.json` and `CHECKPOINT.md` with source identity, artifact hash/path,
-validation commands/results, fidelity evidence, and known limits. Do not create
-this success folder for a partial adapter, synthetic fixture, catalog, or
-source-dependent IR.
+- `OBJECTIVE_COMPLETE:` only when the repository already satisfied every
+  acceptance criterion before this session made any change, no commit was
+  necessary, the worktree is clean, and fresh validation independently proves
+  it. Completion certification is external to any implementation session.
+- `OBJECTIVE_ADVANCED:` whenever this session changed or committed anything,
+  even if the resulting state appears to satisfy the entire objective. Report
+  the completed outcome and exact validation, not proposed future work.
+- `OBJECTIVE_BLOCKED:` only for a genuine external impossibility that prevents
+  both implementation and meaningful validation. Include concrete evidence.
 
-Only after that Gemma 4 checkpoint exists may GLM 5.2 become the primary
-target. Apply the same rules and create and commit
-`.agent-loop/checkpoints/glm-5.2-dense-lossless/` only after a real dense GLM
-5.2 Safetensors package is losslessly exported and independently replayed.
-If a requested family/version/package cannot be acquired or its semantics are
-not authoritatively established, record the exact acquisition/semantic blocker
-and continue the highest-leverage work that unblocks that checkpoint; never
-substitute a smaller, older, quantized, synthetic, or merely similar model and
-call the checkpoint reached.
-
-## Safety and fidelity
-
-- Preserve fail-closed behavior for unsupported model semantics.
-- Never call an export complete when it contains external tensor references,
-  preview-only weights, omitted intermediates, implicit configuration, a
-  mathematical dimension truncated for presentation, or formulas that refer
-  to learned values without a deterministic path to their exact numeric value.
-- An agent that implements an acceptance boundary must not be the authority
-  that declares the boundary or mission achieved. It records a candidate claim,
-  exact evidence and reproducible commands in its handoff. The next loop must
-  independently inspect the diff and rerun or strengthen the evidence before
-  it may accept that claim, advance the roadmap, or report achievement.
-- Never claim validation, equivalence or a commit that did not occur.
-- A handoff is continuity context, not a work diary or a task assignment:
-  retain only the completed outcome, real validation evidence and unresolved
-  bottlenecks. Do not include proposed next implementations or next steps.
-- If an improvement is understandable and safe from the current evidence, make
-  it in the current loop. Leave work only for a genuinely new boundary,
-  external blocker, or a required independent review of the current evidence.
-- Act as an owner of the mission, not as a ticket executor. Reassess the whole
-  system and connect adjacent layers when that removes a material fidelity or
-  validation gap. A passing narrow test alone is not a reason to end a cycle
-  when a larger coherent acceptance boundary remains reachable.
-- Follow Clean Code and SOLID as engineering tools, not ceremony: keep each
-  module focused on one responsibility, make format/architecture/runtime
-  extensions additive behind explicit interfaces, depend on contracts rather
-  than incidental concrete implementations, preserve clear domain names and
-  fail-closed error boundaries, and remove duplication that can drift across
-  supported model paths.
-- Do not hand off because a local edit is complete. Hand off only after either
-  a material mission boundary is closed, the available context has exposed a
-  genuine external/semantic blocker, or the remaining work is a distinct
-  higher-level boundary. Use the context budget to improve the system around
-  the problem rather than reproducing a pattern of adjacent microtasks.
-- A single helper, fixture, assertion, decoder variant, test, or narrow commit
-  is normally an intermediate step. It becomes a handoff boundary only when it
-  closes a material mission gate or exposes a new external/semantic decision.
-- Do not modify `.agent-loop/state.json`, lock files or the runner's run logs.
-- Do not use network resources, credentials or destructive commands unless the
-  current milestone makes that necessary and the repository instructions allow it.
-- If `.agent-loop/STOP` appears, finish only the coherent in-progress work,
-  create the final handoff with `missionStatus: "blocked"`, then exit.
+Never claim completion for work implemented by the same session.

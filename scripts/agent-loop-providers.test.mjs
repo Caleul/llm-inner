@@ -7,8 +7,8 @@ import {
 } from "./agent-loop-providers.mjs";
 
 const root = "/repo";
-const promptPath = "/repo/.agent-loop/runs/run.prompt.md";
-const outputPath = "/repo/.agent-loop/runs/run.last-message.md";
+const promptPath = "/private/tmp/llm-inner-gemma-task.md";
+const outputPath = "/repo/.agent-loop/runs/result.last-message.md";
 
 const providers = [
   { id: "sol", kind: "codex", command: "/bin/codex", model: "gpt-5.6-sol", reasoningEffort: "high" },
@@ -47,4 +47,8 @@ test("builds non-interactive approval-free invocations for every provider", () =
   assert.ok(invocations.cursor.args.includes("--force"));
   assert.ok(invocations.cursor.args.includes("--trust"));
   assert.ok(invocations.cursor.args.every((argument) => !argument.includes("undefined")));
+  for (const invocation of Object.values(invocations).filter(({ stdin }) => stdin === "none")) {
+    assert.ok(invocation.args.some((argument) => argument.includes("authoritative engineering task")));
+    assert.ok(invocation.args.every((argument) => !/autonomous run|loop|handoff/i.test(argument)));
+  }
 });

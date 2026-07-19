@@ -6,8 +6,8 @@ gemma-4-E4B-dense/
 artifacts/
 .DS_Store
 
-# Runtime-owned loop state. The contract and prompt are versioned; a run's
-# state, locks, logs and handoffs are intentionally external to its commit.
+# Runtime-owned task-controller state. Product instructions are versioned;
+# transient state, locks, logs and continuity records are not.
 .agent-loop/state.json
 .agent-loop/lock.json
 .agent-loop/STOP

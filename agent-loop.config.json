@@ -46,8 +46,7 @@
       "model": "gpt-5.6-sol-high"
     }
   ],
-  "goalCommand": "/goal",
-  "missionGoal": "Exclusive active goal: deliver the first product checkpoint, a navigable and self-contained mathematical-calculation export for a real dense Gemma 4 Safetensors package. The export must contain every learned weight, bias, scale and constant losslessly; expose the full ordered calculation and intermediate dataflow; and provide a human-auditable scalar view in which each addressable learned value is decoded and substitutable as its real numeric literal, with dtype bits, casts, reduction order and operation semantics sufficient for a reader to reproduce the same forward and greedy-generation result step by step without the checkpoint. Work directly on the artifact generator, its scalar/navigable representation, decoding/substitution, exact execution semantics, source-removed replay, and evidence strictly required to prove that product. Do not spend a cycle on generic audits, isolated probes, unrelated architecture breadth, infrastructure, or reports unless they are an immediate prerequisite to producing or proving this Gemma 4 artifact. Do not bind, probe, or repair one layer/assignment at a time when the same semantic class exists elsewhere: derive and implement the general operation-, shape-, dtype-, or source-dispatch contract, apply it across every compatible Gemma 4 assignment in the same cycle, then regenerate and validate the whole artifact. If evidence cannot justify a general contract, stop repeating per-layer experiments and advance another implementable artifact-format or navigation gap. Make every safe, coherent improvement now; never defer ordinary work. The next agent independently reviews the evidence and continues the strongest remaining artifact gap. Only after the committed Gemma 4 checkpoint proves this goal may the exclusive active goal switch to the identical GLM 5.2 export.",
+  "missionGoal": "Produce a complete navigable and self-contained mathematical JSON program for the real dense unquantized Gemma 4 Safetensors package. It must embed every required learned weight, bias, scale and constant losslessly; expose every dependency-ordered operation, intermediate value and producer/consumer coordinate; substitute addressable learned operands with exact decoded numeric literals in its scalar audit view; declare dtype bits, casts, rounding and reduction semantics; replay forward and greedy generation while the source checkpoint is physically unavailable; and match an authoritative Gemma runtime at the claimed fidelity. Work exclusively on Gemma 4 and the architecture, Clean Code, SOLID design, tests, documentation and fail-closed validation directly required to complete and prove this artifact.",
   "handoffDirectory": ".agent-loop/handoffs/completed",
   "processingDirectory": ".agent-loop/handoffs/processing",
   "rejectedDirectory": ".agent-loop/handoffs/rejected",
@@ -64,16 +63,13 @@
       "model": "Gemma 4",
       "sourceFormat": "unquantized Safetensors",
       "markerDirectory": ".agent-loop/checkpoints/gemma4-dense-lossless",
-      "requiredEvidence": ["immutable source identity and checksums", "literal artifact with embedded weights", "source-removed forward and generation replay", "authoritative runtime differential comparison"]
-    },
-    {
-      "id": "glm-5.2-dense-lossless",
-      "priority": 2,
-      "model": "GLM 5.2",
-      "sourceFormat": "unquantized Safetensors",
-      "dependsOn": "gemma4-dense-lossless",
-      "markerDirectory": ".agent-loop/checkpoints/glm-5.2-dense-lossless",
-      "requiredEvidence": ["immutable source identity and checksums", "literal artifact with embedded weights", "source-removed forward and generation replay", "authoritative runtime differential comparison"]
+      "requiredEvidence": [
+        "immutable source identity and checksums",
+        "self-contained literal artifact with every learned value embedded",
+        "complete ordered and navigable mathematical program",
+        "source-removed forward and greedy-generation replay",
+        "authoritative runtime differential comparison"
+      ]
     }
   ],
   "handoffPattern": "^HANDOFF-(\\d{4,})-(\\d{8}T\\d{6}Z)-[a-z0-9-]+\\.json$",
@@ -91,83 +87,53 @@
   ],
   "missionGates": [
     {
-      "id": "self-contained-calculation-export",
-      "description": "A lossless literal JSON program contains every dependency-ordered assignment, declared x[i]/token/position input, intermediate variable, constant and numeric policy needed to replay a supported model without its checkpoint. Its scalar teaching/audit view substitutes each addressable learned weight, bias and constant by its exact decoded numeric value in the formula; compact binary payloads remain permitted only when their declared index-to-value decoding rule makes the same substitution independently reproducible.",
+      "id": "gemma4-dense-source-identity",
+      "description": "The real dense unquantized Gemma 4 source has an immutable revision and checksums",
       "required": true
     },
     {
-      "id": "safetensors-semantic-decompilation",
-      "description": "Any Safetensors package whose semantics are established by authoritative metadata, a validated adapter or runtime-graph extraction can be lowered into the self-contained literal JSON program; unknown semantics fail closed rather than being guessed",
+      "id": "gemma4-self-contained-literal-artifact",
+      "description": "The JSON embeds every required learned value and can be consumed without the source checkpoint",
       "required": true
     },
     {
-      "id": "gemma4-dense-lossless-checkpoint",
-      "description": "A real unquantized Gemma 4 Safetensors package has a committed checkpoint manifest proving lossless literal export, source-removed replay, and authoritative differential validation",
+      "id": "gemma4-complete-ordered-calculation",
+      "description": "All forward and greedy-generation operations, intermediates and state transitions are dependency ordered and navigable",
       "required": true
     },
     {
-      "id": "glm-5.2-dense-lossless-checkpoint",
-      "description": "After Gemma 4, a real unquantized GLM 5.2 Safetensors package has the same committed lossless literal-export and replay evidence",
+      "id": "gemma4-exact-learned-value-substitution",
+      "description": "Scalar audit formulas substitute addressable weights, biases, scales and constants with exact decoded numeric literals",
       "required": true
     },
     {
-      "id": "container-abstraction",
-      "description": "Safetensors, MLX and GGUF are isolated behind strict container interfaces",
+      "id": "gemma4-exact-numeric-semantics",
+      "description": "Dtypes, bit patterns, casts, rounding boundaries, index domains and reduction order are explicit and reproducible",
       "required": true
     },
     {
-      "id": "quantization-abstraction",
-      "description": "Quantization is represented by exact schemes rather than bit-width assumptions",
+      "id": "gemma4-source-removed-forward-generation",
+      "description": "Forward and greedy generation replay successfully while the source checkpoint is physically unavailable",
       "required": true
     },
     {
-      "id": "architecture-adapters",
-      "description": "Architectures are reconstructed through explicit validated adapters",
+      "id": "gemma4-authoritative-fidelity",
+      "description": "Intermediate values, logits, cache and generated tokens match an authoritative Gemma runtime at the declared fidelity",
+      "required": true
+    },
+    {
+      "id": "gemma4-manual-navigation",
+      "description": "A reader can follow exact inputs, producer outputs, consumer coordinates and layer transitions step by step",
+      "required": true
+    },
+    {
+      "id": "engineering-quality",
+      "description": "The implementation applies cohesive architecture, Clean Code, SOLID, independent tests and maintainable documentation",
       "required": true
     },
     {
       "id": "fail-closed",
-      "description": "Unknown semantics are rejected rather than approximated",
-      "required": true
-    },
-    {
-      "id": "full-dimensional-ir",
-      "description": "Preview limits never truncate mathematical dimensions",
-      "required": true
-    },
-    {
-      "id": "reference-executor",
-      "description": "The generated IR has a reproducible reference executor",
-      "required": true
-    },
-    {
-      "id": "operation-differential-validation",
-      "description": "Intermediate operations can be compared with an authoritative runtime",
-      "required": true
-    },
-    {
-      "id": "multi-architecture-validation",
-      "description": "At least three materially different model families pass differential validation",
-      "required": true
-    },
-    {
-      "id": "multi-container-validation",
-      "description": "Equivalent models are validated across at least Safetensors, MLX and GGUF",
-      "required": true
-    },
-    {
-      "id": "dense-and-quantized-validation",
-      "description": "Dense and multiple quantized representations are validated",
-      "required": true
-    },
-    {
-      "id": "generation-validation",
-      "description": "KV cache, logits and greedy generation are validated end-to-end",
-      "required": true
-    },
-    {
-      "id": "performance-report",
-      "description": "Parsing, memory, IR generation and execution performance are measured",
+      "description": "Unknown or unproven Gemma semantics are rejected rather than guessed or approximated silently",
       "required": true
     }
   ]
