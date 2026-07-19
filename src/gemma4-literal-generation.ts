@@ -38,6 +38,7 @@ export type Gemma4LiteralGenerationValue =
   | ReferenceF32ExecutionResult
   | Gemma4LiteralIncrementalForwardInput
   | ReadonlyMap<number, ReferenceF32KeyValueCache>
+  | ReadonlyArray<DenseF32Tensor>
   | ReadonlyArray<ReadonlyMap<number, ReferenceF32KeyValueCache>>;
 
 /** One concrete execution of one serialized generation assignment. */
@@ -53,6 +54,8 @@ export interface Gemma4LiteralGenerationAssignmentExecution {
 
 export interface Gemma4LiteralGenerationExecutionResult extends ReferenceF32GenerationResult {
   prefill: ReferenceF32ExecutionResult;
+  /** Complete logits from every incremental forward, paired with stepPastKeyValues. */
+  stepForwardLogits: DenseF32Tensor[];
   /** Dependency-ordered values produced by the artifact's generation program. */
   assignmentExecutions: Gemma4LiteralGenerationAssignmentExecution[];
 }
@@ -85,6 +88,7 @@ export async function executeGemma4LiteralGenerationProgram<TPrefill extends Gem
   const positionAdvanceAssignment = requiredAssignment(generation, "increment-position");
   const incrementalInputsAssignment = requiredAssignment(generation, "prepare-incremental-forward-inputs");
   const incrementalForwardAssignment = requiredAssignment(generation, "execute-declared-incremental-forward");
+  const logitsSnapshotAssignment = requiredAssignment(generation, "append-forward-logits-snapshot");
   const cacheSnapshotAssignment = requiredAssignment(generation, "append-cache-snapshot");
   const stopAssignment = requiredAssignment(generation, "evaluate-eos-stop");
   const terminalLogitsAssignment = requiredAssignment(generation, "select-terminal-logits");
@@ -98,6 +102,7 @@ export async function executeGemma4LiteralGenerationProgram<TPrefill extends Gem
   record(executions, positionAssignment, undefined, position);
   const generatedTokenIds: number[] = [];
   const selectionLogits: DenseF32Tensor[] = [];
+  const stepForwardLogits: DenseF32Tensor[] = [];
   const stepPastKeyValues: Array<ReadonlyMap<number, ReferenceF32KeyValueCache>> = [];
   const steps: Array<{ tokenId: number; positionId: number }> = [];
 
@@ -120,6 +125,8 @@ export async function executeGemma4LiteralGenerationProgram<TPrefill extends Gem
     record(executions, incrementalInputsAssignment, step, incrementalInputs);
     current = await executor.incremental(incrementalInputs);
     record(executions, incrementalForwardAssignment, step, current);
+    stepForwardLogits.push(current.logits);
+    record(executions, logitsSnapshotAssignment, step, [...stepForwardLogits]);
     stepPastKeyValues.push(current.pastKeyValues);
     record(executions, cacheSnapshotAssignment, step, [...stepPastKeyValues]);
     const stop = request.eosTokenId !== undefined && selectedToken === request.eosTokenId;
@@ -136,6 +143,7 @@ export async function executeGemma4LiteralGenerationProgram<TPrefill extends Gem
     generatedTokenIds,
     steps,
     selectionLogits,
+    stepForwardLogits,
     stepPastKeyValues,
     logits: current.logits,
     pastKeyValues: current.pastKeyValues,

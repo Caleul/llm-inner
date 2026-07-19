@@ -163,6 +163,7 @@ export interface Gemma4LiteralGreedyGenerationProgram {
     prefillState: "forward_state[0]";
     generatedTokenIds: "generated_token_ids";
     selectionLogits: "selection_logits";
+    stepForwardLogits: "step_forward_logits";
     stepPastKeyValues: "step_past_key_values";
     terminalLogits: "terminal_logits";
     terminalPastKeyValues: "terminal_past_key_values";
@@ -176,7 +177,7 @@ export interface Gemma4LiteralGreedyGenerationProgram {
  * steps remain distinct, named dependencies in the enclosing program.
  */
 export interface Gemma4CompositeLiteralCalculationProgram extends LiteralStorageBundle {
-  schemaVersion: 32;
+  schemaVersion: 33;
   kind: "gemma4-composite-literal-calculation-program";
   sourceFormat: "safetensors";
   /** Gemma 4 checkpoint is dense; packed/quantized decoder variants are forbidden here. */
@@ -324,7 +325,7 @@ export async function buildGemma4CompositeLiteralCalculationProgram(
   const inputContract = buildGemma4LiteralInputContract(embeddedProgram);
   const outputContract = buildGemma4LiteralOutputContract(embeddedProgram);
   const literal: Gemma4CompositeLiteralCalculationProgram = {
-    schemaVersion: 32,
+    schemaVersion: 33,
     kind: "gemma4-composite-literal-calculation-program",
     sourceFormat: "safetensors",
     sourceIdentity: structuredClone(sourceIdentity),
@@ -393,7 +394,7 @@ export async function writeGemma4CompositeLiteralCalculationProgram(
 
   try {
     await once(stream, "open");
-    await write(`{"schemaVersion":32,"kind":"gemma4-composite-literal-calculation-program","sourceFormat":"safetensors","sourceIdentity":${JSON.stringify(sourceIdentity)},"authoritativeExecution":${JSON.stringify(gemma4AuthoritativeExecutionContract())},"numericPolicy":${JSON.stringify(gemma4CompositeLiteralNumericPolicy(program))},"inputs":${JSON.stringify(literalInputs())},"constants":[`);
+    await write(`{"schemaVersion":33,"kind":"gemma4-composite-literal-calculation-program","sourceFormat":"safetensors","sourceIdentity":${JSON.stringify(sourceIdentity)},"authoritativeExecution":${JSON.stringify(gemma4AuthoritativeExecutionContract())},"numericPolicy":${JSON.stringify(gemma4CompositeLiteralNumericPolicy(program))},"inputs":${JSON.stringify(literalInputs())},"constants":[`);
     for (let index = 0; index < prepared.constants.length; index += 1) {
       const constant = prepared.constants[index]!;
       if (index > 0) await write(",");
@@ -490,6 +491,7 @@ export function generateGemma4CompositeLiteralF32(
     prefill: result.prefill.text,
     generatedTokenIds: result.generatedTokenIds,
     selectionLogits: result.selectionLogits,
+    stepForwardLogits: result.stepForwardLogits,
     stepPastKeyValues: result.stepPastKeyValues,
     terminal: result.text,
   });
@@ -503,7 +505,7 @@ export function generateGemma4CompositeLiteralF32(
  */
 export function validateGemma4CompositeLiteralCalculationProgram(literal: Gemma4CompositeLiteralCalculationProgram): void {
   validateGemma4TextReductionSchedules(literal.program);
-  if (literal.schemaVersion !== 32 || literal.kind !== "gemma4-composite-literal-calculation-program" || literal.sourceFormat !== "safetensors" ||
+  if (literal.schemaVersion !== 33 || literal.kind !== "gemma4-composite-literal-calculation-program" || literal.sourceFormat !== "safetensors" ||
     !sameNumericPolicy(literal.numericPolicy, gemma4CompositeLiteralNumericPolicy(literal.program))) {
     throw new Error("Programa literal Gemma 4 composite possui cabeçalho ou política numérica inválida.");
   }
@@ -631,6 +633,10 @@ export function gemma4LiteralGreedyGenerationProgram(
       semantics: "Execute the same complete declared composite calculation with the incremental inputs. Text attention reads each serialized append-post-rope or reuse-producer cache transition; no generic decoder or source checkpoint is invoked.",
     },
     {
+      id: "generation_logits_append", operation: "append-forward-logits-snapshot", inputs: ["step_forward_logits[0..step-1]", "forward_state[step+1].logits"], output: "step_forward_logits[0..step]", dtype: "F32", shape: "[step+1,1,1,vocab]", iteration,
+      semantics: "Append the exact complete logits tensor produced after the selected token's incremental forward. This snapshot pairs with the cache snapshot from the same forward state and becomes the next step's selection logits.",
+    },
+    {
       id: "generation_cache_append", operation: "append-cache-snapshot", inputs: ["step_past_key_values[0..step-1]", "forward_state[step+1].past_key_values"], output: "step_past_key_values[0..step]", dtype: "STRUCT", shape: "[step+1] of layer->{key,value}", iteration,
       semantics: "Append the exact cache produced after the selected token's incremental forward, preserving BHSD layout and producer-layer ownership.",
     },
@@ -665,6 +671,7 @@ export function gemma4LiteralGreedyGenerationProgram(
       prefillState: "forward_state[0]",
       generatedTokenIds: "generated_token_ids",
       selectionLogits: "selection_logits",
+      stepForwardLogits: "step_forward_logits",
       stepPastKeyValues: "step_past_key_values",
       terminalLogits: "terminal_logits",
       terminalPastKeyValues: "terminal_past_key_values",

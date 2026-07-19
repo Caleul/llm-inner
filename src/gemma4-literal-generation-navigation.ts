@@ -207,8 +207,8 @@ function instantiateAssignments(
   const leading = artifact.generation.assignments.filter((assignment) => assignment.iteration === undefined).slice(0, 2);
   const loop = artifact.generation.assignments.filter((assignment) => assignment.iteration !== undefined);
   const terminal = artifact.generation.assignments.filter((assignment) => assignment.iteration === undefined).slice(2);
-  if (leading.length !== 2 || loop.length !== 8 || terminal.length !== 2) {
-    throw new Error("Programa literal Gemma 4 não possui a estrutura de geração validada 2+8+2.");
+  if (leading.length !== 2 || loop.length !== 9 || terminal.length !== 2) {
+    throw new Error("Programa literal Gemma 4 não possui a estrutura de geração validada 2+9+2.");
   }
   const result = leading.map((assignment) => instantiate(assignment, undefined, "always"));
   for (let step = 0; step < maxNewTokens; step += 1) {
@@ -317,7 +317,7 @@ function instantiateFormula(formula: string, step: number | undefined, maxNewTok
 
 function validateMaxNewTokens(value: number): void {
   if (!Number.isSafeInteger(value) || value < 0) throw new Error("Navegação de geração Gemma 4 requer maxNewTokens inteiro não negativo.");
-  const operations = 4 + value * 8;
+  const operations = 4 + value * 9;
   if (!Number.isSafeInteger(operations) || operations > 1_000_000) {
     throw new Error("Navegação de geração Gemma 4 excede um milhão de operações de controle materializadas.");
   }

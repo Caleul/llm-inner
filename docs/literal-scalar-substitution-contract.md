@@ -282,6 +282,16 @@ um leitor não pode aceitar um logit com vocabulário divergente, um cache de
 consumer, um snapshot omitido ou um terminal selecionado por convenção do
 host. O caminho síncrono e o paginado executam o mesmo objeto serializado.
 
+No schema v33, a mesma regra cobre a cadeia inteira de geração, não apenas suas
+extremidades. `generation_logits_append` preserva os logits F32 completos de
+cada `forward_state[step+1]` em `step_forward_logits[step]`, alinhados ao
+snapshot KV do mesmo estado. O contrato exige que o primeiro logit de seleção
+seja o prefill, que cada seleção posterior seja bitwise idêntica ao snapshot
+anterior, que `generated_token_ids[step]` seja o argmax crescente desse tensor
+e que logits/cache terminais sejam os snapshots do último forward incremental.
+Assim um leitor não pode combinar token, logits e cache vindos de estados
+diferentes e ainda chamar a geração de reprodução literal.
+
 ## Programa literal de geração
 
 Logits não completam o produto de geração. O artefato Gemma 4 schema v2 deve

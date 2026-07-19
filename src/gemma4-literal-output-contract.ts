@@ -5,6 +5,10 @@ import type {
   Gemma4CompositeProgram,
 } from "./gemma4-composite.js";
 import { buildGemma4LiteralInputContract } from "./gemma4-literal-input-contract.js";
+import {
+  buildGemma4LiteralGenerationControlProgram,
+  selectGemma4LiteralGenerationToken,
+} from "./gemma4-literal-generation-control.js";
 import type { DenseF32Tensor, ReferenceF32ExecutionResult, ReferenceF32KeyValueCache } from "./types.js";
 
 export interface Gemma4LiteralOutputTensorContract {
@@ -34,7 +38,7 @@ export interface Gemma4LiteralOutputCacheProducer {
  */
 export interface Gemma4LiteralOutputContract {
   kind: "gemma4-literal-output-contract";
-  schemaVersion: 1;
+  schemaVersion: 2;
   forward: {
     llmInputIds: {
       dtype: "I32";
@@ -61,12 +65,19 @@ export interface Gemma4LiteralOutputContract {
       dtype: "I32";
       shape: ["executed_steps"];
       domain: "0 <= token < vocab_size";
+      source: "argmax-lowest-token-id(selection_logits[step])";
     };
     selectionLogits: {
       output: "selection_logits";
       dtype: "F32";
       shape: ["executed_steps", "1", "selection_sequence", "vocab_size"];
       source: "forward_state[step].logits";
+    };
+    stepForwardLogits: {
+      output: "step_forward_logits";
+      dtype: "F32";
+      shape: ["executed_steps", "1", "1", "vocab_size"];
+      source: "forward_state[step+1].logits";
     };
     stepPastKeyValues: {
       output: "step_past_key_values";
@@ -87,6 +98,7 @@ export interface Gemma4LiteralGenerationOutputState {
   prefill: Pick<ReferenceF32ExecutionResult, "logits" | "pastKeyValues">;
   generatedTokenIds: readonly number[];
   selectionLogits: readonly DenseF32Tensor[];
+  stepForwardLogits: readonly DenseF32Tensor[];
   stepPastKeyValues: readonly ReadonlyMap<number, ReferenceF32KeyValueCache>[];
   terminal: Pick<ReferenceF32ExecutionResult, "logits" | "pastKeyValues">;
 }
@@ -99,7 +111,7 @@ export function buildGemma4LiteralOutputContract(program: Gemma4CompositeProgram
   const input = buildGemma4LiteralInputContract(program);
   return {
     kind: "gemma4-literal-output-contract",
-    schemaVersion: 1,
+    schemaVersion: 2,
     forward: {
       llmInputIds: {
         dtype: "I32",
@@ -157,12 +169,19 @@ export function buildGemma4LiteralOutputContract(program: Gemma4CompositeProgram
         dtype: "I32",
         shape: ["executed_steps"],
         domain: "0 <= token < vocab_size",
+        source: "argmax-lowest-token-id(selection_logits[step])",
       },
       selectionLogits: {
         output: "selection_logits",
         dtype: "F32",
         shape: ["executed_steps", "1", "selection_sequence", "vocab_size"],
         source: "forward_state[step].logits",
+      },
+      stepForwardLogits: {
+        output: "step_forward_logits",
+        dtype: "F32",
+        shape: ["executed_steps", "1", "1", "vocab_size"],
+        source: "forward_state[step+1].logits",
       },
       stepPastKeyValues: {
         output: "step_past_key_values",
@@ -234,7 +253,8 @@ export function executeGemma4LiteralGenerationOutputContract(
 ): void {
   validateGemma4LiteralOutputContract(contract, program);
   const steps = result.generatedTokenIds.length;
-  if (steps > request.maxNewTokens || result.selectionLogits.length !== steps || result.stepPastKeyValues.length !== steps) {
+  if (steps > request.maxNewTokens || result.selectionLogits.length !== steps ||
+    result.stepForwardLogits.length !== steps || result.stepPastKeyValues.length !== steps) {
     throw new Error("Contrato de output Gemma 4 encontrou cardinalidade greedy divergente de executed_steps.");
   }
   if (steps < request.maxNewTokens && (request.eosTokenId === undefined || result.generatedTokenIds.at(-1) !== request.eosTokenId)) {
@@ -247,14 +267,22 @@ export function executeGemma4LiteralGenerationOutputContract(
     throw new Error("Contrato de output Gemma 4 encontrou token greedy fora do vocabulário.");
   }
   const promptSequence = request.inputIds[0]?.length ?? 0;
+  const generationControl = buildGemma4LiteralGenerationControlProgram(program);
   validateDenseTensor(result.prefill.logits, [1, promptSequence, program.contract.text.vocabSize], "forward_state[0].logits");
   validateCache(contract, result.prefill.pastKeyValues, 1, promptSequence, "forward_state[0]");
   for (let step = 0; step < steps; step += 1) {
     const selectionSequence = step === 0 ? promptSequence : 1;
     validateDenseTensor(result.selectionLogits[step]!, [1, selectionSequence, program.contract.text.vocabSize], `selection_logits[${step}]`);
+    if (result.generatedTokenIds[step] !== selectGemma4LiteralGenerationToken(generationControl, result.selectionLogits[step]!)) {
+      throw new Error(`Contrato de output Gemma 4 requer generated_token_ids[${step}] idêntico ao argmax declarado de selection_logits[${step}].`);
+    }
     if (step === 0 && !sameDenseTensor(result.selectionLogits[step]!, result.prefill.logits)) {
       throw new Error("Contrato de output Gemma 4 requer selection_logits[0] idêntico aos logits de prefill.");
     }
+    if (step > 0 && !sameDenseTensor(result.selectionLogits[step]!, result.stepForwardLogits[step - 1]!)) {
+      throw new Error(`Contrato de output Gemma 4 requer selection_logits[${step}] idêntico ao forward_state[${step}].logits.`);
+    }
+    validateDenseTensor(result.stepForwardLogits[step]!, [1, 1, program.contract.text.vocabSize], `step_forward_logits[${step}]`);
     validateCache(contract, result.stepPastKeyValues[step]!, 1, promptSequence + step + 1, `step_past_key_values[${step}]`);
   }
   const terminalSequence = steps === 0 ? promptSequence : 1;
@@ -264,8 +292,9 @@ export function executeGemma4LiteralGenerationOutputContract(
     if (!sameDenseTensor(result.terminal.logits, result.prefill.logits) || !sameCache(result.terminal.pastKeyValues, result.prefill.pastKeyValues)) {
       throw new Error("Contrato de output Gemma 4 requer estado terminal zero-step idêntico ao prefill.");
     }
-  } else if (!sameCache(result.terminal.pastKeyValues, result.stepPastKeyValues.at(-1)!)) {
-    throw new Error("Contrato de output Gemma 4 requer cache terminal idêntico ao último forward incremental.");
+  } else if (!sameDenseTensor(result.terminal.logits, result.stepForwardLogits.at(-1)!) ||
+    !sameCache(result.terminal.pastKeyValues, result.stepPastKeyValues.at(-1)!)) {
+    throw new Error("Contrato de output Gemma 4 requer logits e cache terminais idênticos ao último forward incremental.");
   }
 }
 

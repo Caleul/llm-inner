@@ -41,6 +41,7 @@ export interface Gemma4LiteralEndToEndCalculation {
   outputs: {
     forwardLogits: string;
     generatedTokenIds: string;
+    stepForwardLogits: string;
     terminalLogits: string;
     terminalPastKeyValues: string;
   };
@@ -97,6 +98,7 @@ export function buildGemma4LiteralEndToEndCalculation(
     outputs: {
       forwardLogits: artifact.outputs.logits,
       generatedTokenIds: artifact.generation.outputs.generatedTokenIds,
+      stepForwardLogits: artifact.generation.outputs.stepForwardLogits,
       terminalLogits: artifact.generation.outputs.terminalLogits,
       terminalPastKeyValues: artifact.generation.outputs.terminalPastKeyValues,
     },

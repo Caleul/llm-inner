@@ -13,6 +13,7 @@ export type Gemma4LiteralGenerationOperation =
   | "increment-position"
   | "prepare-incremental-forward-inputs"
   | "execute-declared-incremental-forward"
+  | "append-forward-logits-snapshot"
   | "append-cache-snapshot"
   | "evaluate-eos-stop"
   | "select-terminal-logits"
@@ -307,6 +308,7 @@ function generationFormulas(
       "incremental_past_key_values[step] = execute generation.forwardCalculation.cacheTransitions[*].incremental.scalarAssignments in ascending layer order",
       `forward_state[step+1] = STRUCT(logits=${forward.logitsOutput},past_key_values=incremental_past_key_values[step])`,
     ];
+    case "append-forward-logits-snapshot": return ["step_forward_logits[0..step] = step==0 ? [forward_state[1].logits] : concat(step_forward_logits[0..step-1],[forward_state[step+1].logits]); exact F32 aliases; no cast"];
     case "append-cache-snapshot": return ["step_past_key_values[0..step] = step==0 ? [forward_state[1].past_key_values] : concat(step_past_key_values[0..step-1],[forward_state[step+1].past_key_values])"];
     case "evaluate-eos-stop": return ["stop_after_step[step] = eos_token_id supplied and selected_token[step] == eos_token_id; evaluate after forward_state[step+1] and its cache exist"];
     case "select-terminal-logits": return [

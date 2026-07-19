@@ -440,7 +440,7 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 32);
+  assert.equal(literal.schemaVersion, 33);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   assert.deepEqual(literal.authoritativeExecution, gemma4AuthoritativeExecutionContract());
@@ -851,7 +851,7 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.deepEqual(literal.generation.assignments.map((assignment) => assignment.id), [
     "generation_prefill", "generation_initial_position", "generation_selection_logits", "generation_argmax",
     "generation_token_append", "generation_position_advance", "generation_incremental_inputs",
-    "generation_incremental_forward", "generation_cache_append", "generation_eos_stop",
+    "generation_incremental_forward", "generation_logits_append", "generation_cache_append", "generation_eos_stop",
     "generation_terminal_logits", "generation_terminal_cache",
   ]);
   assert.equal(literal.generation.scalarCalculations.assignments.length, literal.generation.assignments.length);
@@ -870,6 +870,8 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.deepEqual(literal.generation.forwardCalculation.cacheTransitions.map((transition) => transition.layer), [0, 1]);
   assert.equal(literal.generation.forwardCalculation.schemaVersion, 2);
   assert.equal(literal.generation.controlProgram.kind, "gemma4-literal-greedy-control-program");
+  assert.equal(literal.generation.controlProgram.schemaVersion, 2);
+  assert.equal(literal.generation.controlProgram.loop.logitsSnapshot.source, "forward_state[step+1].logits");
   assert.equal(literal.generation.controlProgram.loop.selection.tokenEndExclusive, 6);
   assert.deepEqual(literal.generation.controlProgram.loop.incrementalForward.omittedInputs, [
     "attention_mask", "mm_token_type_ids", "pixel_values", "image_position_ids", "pixel_values_videos",
@@ -914,6 +916,9 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.deepEqual([...replay.text.logits.values], [...expected.text.logits.values]);
   assert.deepEqual(generation.generatedTokenIds, expectedGeneration.generatedTokenIds);
   assert.deepEqual([...generation.text.logits.values], [...expectedGeneration.text.logits.values]);
+  assert.equal(generation.stepForwardLogits.length, 2);
+  assert.deepEqual(generation.stepForwardLogits[0], generation.selectionLogits[1]);
+  assert.deepEqual(generation.stepForwardLogits.at(-1), generation.text.logits);
   const malformedForwardOutput = structuredClone(replay);
   malformedForwardOutput.text.pastKeyValues = new Map([...malformedForwardOutput.text.pastKeyValues].filter(([layer]) => layer !== 0));
   assert.throws(() => executeGemma4LiteralForwardOutputContract(literal.outputContract, literal.program, {
@@ -928,9 +933,54 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     prefill: malformedGenerationOutput.prefill.text,
     generatedTokenIds: malformedGenerationOutput.generatedTokenIds,
     selectionLogits: malformedGenerationOutput.selectionLogits,
+    stepForwardLogits: malformedGenerationOutput.stepForwardLogits,
     stepPastKeyValues: malformedGenerationOutput.stepPastKeyValues,
     terminal: malformedGenerationOutput.text,
   }), /cardinalidade greedy/);
+  const divergentStateChain = structuredClone(generation);
+  divergentStateChain.stepForwardLogits[0] = {
+    shape: [...divergentStateChain.stepForwardLogits[0]!.shape],
+    values: Float32Array.from(divergentStateChain.stepForwardLogits[0]!.values),
+  };
+  divergentStateChain.stepForwardLogits[0]!.values[0] = Math.fround(divergentStateChain.stepForwardLogits[0]!.values[0]! + 1);
+  assert.throws(() => executeGemma4LiteralGenerationOutputContract(literal.outputContract, literal.program, {
+    inputIds: [[1, 99, 2]], maxNewTokens: 2,
+  }, {
+    prefill: divergentStateChain.prefill.text,
+    generatedTokenIds: divergentStateChain.generatedTokenIds,
+    selectionLogits: divergentStateChain.selectionLogits,
+    stepForwardLogits: divergentStateChain.stepForwardLogits,
+    stepPastKeyValues: divergentStateChain.stepPastKeyValues,
+    terminal: divergentStateChain.text,
+  }), /selection_logits\[1\].*forward_state\[1\]/);
+  const divergentTerminalLogits = structuredClone(generation);
+  divergentTerminalLogits.text.logits = {
+    shape: [...divergentTerminalLogits.text.logits.shape],
+    values: Float32Array.from(divergentTerminalLogits.text.logits.values),
+  };
+  divergentTerminalLogits.text.logits.values[0] = Math.fround(divergentTerminalLogits.text.logits.values[0]! + 1);
+  assert.throws(() => executeGemma4LiteralGenerationOutputContract(literal.outputContract, literal.program, {
+    inputIds: [[1, 99, 2]], maxNewTokens: 2,
+  }, {
+    prefill: divergentTerminalLogits.prefill.text,
+    generatedTokenIds: divergentTerminalLogits.generatedTokenIds,
+    selectionLogits: divergentTerminalLogits.selectionLogits,
+    stepForwardLogits: divergentTerminalLogits.stepForwardLogits,
+    stepPastKeyValues: divergentTerminalLogits.stepPastKeyValues,
+    terminal: divergentTerminalLogits.text,
+  }), /logits e cache terminais/);
+  const divergentSelectedToken = structuredClone(generation);
+  divergentSelectedToken.generatedTokenIds[0] = (divergentSelectedToken.generatedTokenIds[0]! + 1) % literal.program.contract.text.vocabSize;
+  assert.throws(() => executeGemma4LiteralGenerationOutputContract(literal.outputContract, literal.program, {
+    inputIds: [[1, 99, 2]], maxNewTokens: 2,
+  }, {
+    prefill: divergentSelectedToken.prefill.text,
+    generatedTokenIds: divergentSelectedToken.generatedTokenIds,
+    selectionLogits: divergentSelectedToken.selectionLogits,
+    stepForwardLogits: divergentSelectedToken.stepForwardLogits,
+    stepPastKeyValues: divergentSelectedToken.stepPastKeyValues,
+    terminal: divergentSelectedToken.text,
+  }), /generated_token_ids\[0\].*argmax/);
   const eosGeneration = generateGemma4CompositeLiteralF32(literal, {
     inputIds: [[1, 99, 2]], mmTokenTypeIds: [[0, 1, 0]],
     pixelValues: patterned([1, 4, 12]), imagePositionIds: [[[0, 0], [1, 0], [0, 1], [1, 1]]],
@@ -938,6 +988,7 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   });
   assert.deepEqual(eosGeneration.generatedTokenIds, expectedGeneration.generatedTokenIds.slice(0, 1));
   assert.equal(eosGeneration.stepPastKeyValues.length, 1);
+  assert.equal(eosGeneration.stepForwardLogits.length, 1);
 
   const missingMask = structuredClone(literal);
   missingMask.assignments.composite = missingMask.assignments.composite.filter((assignment) => assignment.id !== "composite_sliding_attention_mask");
@@ -951,6 +1002,9 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   const hiddenGenerationRule = structuredClone(literal);
   hiddenGenerationRule.generation.assignments = hiddenGenerationRule.generation.assignments.filter((assignment) => assignment.id !== "generation_cache_append");
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(hiddenGenerationRule), /transições de geração greedy incompletas/);
+  const hiddenGenerationLogits = structuredClone(literal);
+  hiddenGenerationLogits.generation.assignments = hiddenGenerationLogits.generation.assignments.filter((assignment) => assignment.id !== "generation_logits_append");
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(hiddenGenerationLogits), /transições de geração greedy incompletas/);
   const missingGenerationInput = structuredClone(literal);
   missingGenerationInput.inputs = missingGenerationInput.inputs.filter((input) => input.name !== "max_new_tokens");
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(missingGenerationInput), /controles de forward e geração/);
@@ -1120,7 +1174,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 32);
+      assert.equal(artifact.schemaVersion, 33);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.deepEqual(artifact.authoritativeExecution, gemma4AuthoritativeExecutionContract());
@@ -1395,7 +1449,9 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       assert.equal(literalGeneration.generatedTokenIds.length, 2);
       assert.deepEqual(literalGeneration.logits.shape, [1, 1, 6]);
       assert.equal(literalGeneration.pastKeyValues.size, 2);
-      assert.equal(literalGeneration.assignmentExecutions.length, 2 + 8 * 2 + 2);
+      assert.equal(literalGeneration.assignmentExecutions.length, 2 + 9 * 2 + 2);
+      assert.deepEqual(literalGeneration.stepForwardLogits[0], literalGeneration.selectionLogits[1]);
+      assert.deepEqual(literalGeneration.stepForwardLogits.at(-1), literalGeneration.logits);
       assert.deepEqual(literalGeneration.compositePrefill.text.logits, literalComposite.text.logits);
       await assert.rejects(
         () => executeGemma4LiteralCompositeF32(artifact, { inputIds: [[1]], pixelValues }, { allowUnverifiedFidelity: true }),
@@ -1704,7 +1760,7 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       assert.equal(endToEnd.maxNewTokens, 2);
       assert.equal(endToEnd.forward.targetOutput, artifact.outputs.logits);
       assert.equal(endToEnd.forward.operationCount, allOperations.length);
-      assert.equal(endToEnd.generation.operations.length, 20);
+      assert.equal(endToEnd.generation.operations.length, 22);
       assert.ok(endToEnd.generation.operations.some((operation) =>
         operation.navigation.operationId === "generation_argmax[1]" &&
         operation.scalarAssignments.some((formula) => formula.includes("candidate[v]"))));
@@ -1773,19 +1829,21 @@ test("Gemma 4 paged text interpreter replays prefill and cached greedy decode fr
       assert.deepEqual(generation.assignmentExecutions.map((execution) => execution.assignmentId), [
         "generation_prefill", "generation_initial_position",
         "generation_selection_logits", "generation_argmax", "generation_token_append", "generation_position_advance",
-        "generation_incremental_inputs", "generation_incremental_forward", "generation_cache_append", "generation_eos_stop",
+        "generation_incremental_inputs", "generation_incremental_forward", "generation_logits_append", "generation_cache_append", "generation_eos_stop",
         "generation_selection_logits", "generation_argmax", "generation_token_append", "generation_position_advance",
-        "generation_incremental_inputs", "generation_incremental_forward", "generation_cache_append", "generation_eos_stop",
+        "generation_incremental_inputs", "generation_incremental_forward", "generation_logits_append", "generation_cache_append", "generation_eos_stop",
         "generation_terminal_logits", "generation_terminal_cache",
       ]);
       assert.deepEqual(generation.assignmentExecutions.map((execution) => execution.output), [
         "forward_state[0]", "position[-1]",
         "selection_logits[0]", "selected_token[0]", "generated_token_ids[0..0]", "position[0]",
-        "incremental_inputs[0]", "forward_state[1]", "step_past_key_values[0..0]", "stop_after_step[0]",
+        "incremental_inputs[0]", "forward_state[1]", "step_forward_logits[0..0]", "step_past_key_values[0..0]", "stop_after_step[0]",
         "selection_logits[1]", "selected_token[1]", "generated_token_ids[0..1]", "position[1]",
-        "incremental_inputs[1]", "forward_state[2]", "step_past_key_values[0..1]", "stop_after_step[1]",
+        "incremental_inputs[1]", "forward_state[2]", "step_forward_logits[0..1]", "step_past_key_values[0..1]", "stop_after_step[1]",
         "terminal_logits", "terminal_past_key_values",
       ]);
+      assert.deepEqual(generation.stepForwardLogits[0], generation.selectionLogits[1]);
+      assert.deepEqual(generation.stepForwardLogits.at(-1), generation.logits);
       assert.equal(generation.assignmentExecutions.find((execution) => execution.output === "selected_token[0]")?.value, generation.generatedTokenIds[0]);
       const eosGeneration = await generateGemma4PagedTextLiteralF32(artifact, {
         inputIds: [[1, 2, 3]], maxNewTokens: 2, eosTokenId: generation.generatedTokenIds[0]!,
@@ -1805,13 +1863,13 @@ test("Gemma 4 paged text interpreter replays prefill and cached greedy decode fr
       const generationPlan = buildGemma4LiteralGenerationNavigation(artifact, 2);
       const generationNavigation = generationPlan.operations;
       assert.equal(generationPlan.sourceCheckpointAccessed, false);
-      assert.equal(generationNavigation.length, 20);
+      assert.equal(generationNavigation.length, 22);
       assert.deepEqual(generationNavigation.map((entry) => entry.operationId), [
         "generation_prefill", "generation_initial_position",
         "generation_selection_logits[0]", "generation_argmax[0]", "generation_token_append[0]", "generation_position_advance[0]",
-        "generation_incremental_inputs[0]", "generation_incremental_forward[0]", "generation_cache_append[0]", "generation_eos_stop[0]",
+        "generation_incremental_inputs[0]", "generation_incremental_forward[0]", "generation_logits_append[0]", "generation_cache_append[0]", "generation_eos_stop[0]",
         "generation_selection_logits[1]", "generation_argmax[1]", "generation_token_append[1]", "generation_position_advance[1]",
-        "generation_incremental_inputs[1]", "generation_incremental_forward[1]", "generation_cache_append[1]", "generation_eos_stop[1]",
+        "generation_incremental_inputs[1]", "generation_incremental_forward[1]", "generation_logits_append[1]", "generation_cache_append[1]", "generation_eos_stop[1]",
         "generation_terminal_logits", "generation_terminal_cache",
       ]);
       assert.deepEqual(

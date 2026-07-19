@@ -93,6 +93,8 @@ export interface Gemma4CompositeGenerationResult {
   prefill: Gemma4CompositeExecutionResult;
   generatedTokenIds: number[];
   selectionLogits: DenseF32Tensor[];
+  /** Logits produced by each completed incremental forward, aligned with stepPastKeyValues. */
+  stepForwardLogits: DenseF32Tensor[];
   stepPastKeyValues: Array<ReadonlyMap<number, ReferenceF32KeyValueCache>>;
   text: ReferenceF32ExecutionResult;
 }
@@ -262,6 +264,7 @@ export function generateGemma4CompositeF32(program: Gemma4CompositeProgram, requ
   let position = request.positionIds?.[0]?.at(-1) ?? request.inputIds[0]!.length - 1;
   const generatedTokenIds: number[] = [];
   const selectionLogits: DenseF32Tensor[] = [];
+  const stepForwardLogits: DenseF32Tensor[] = [];
   const stepPastKeyValues: Array<ReadonlyMap<number, ReferenceF32KeyValueCache>> = [];
   for (let index = 0; index < request.maxNewTokens; index += 1) {
     selectionLogits.push(current.text.logits);
@@ -269,10 +272,11 @@ export function generateGemma4CompositeF32(program: Gemma4CompositeProgram, requ
     generatedTokenIds.push(tokenId);
     position += 1;
     current = executeGemma4CompositeF32(program, { inputIds: [[tokenId]], positionIds: [[position]], pastKeyValues: current.text.pastKeyValues, tensors: request.tensors });
+    stepForwardLogits.push(current.text.logits);
     stepPastKeyValues.push(current.text.pastKeyValues);
     if (tokenId === request.eosTokenId) break;
   }
-  return { prefill, generatedTokenIds, selectionLogits, stepPastKeyValues, text: current.text };
+  return { prefill, generatedTokenIds, selectionLogits, stepForwardLogits, stepPastKeyValues, text: current.text };
 }
 
 function asF32ReferenceProgram(program: ModelIR): ModelIR {

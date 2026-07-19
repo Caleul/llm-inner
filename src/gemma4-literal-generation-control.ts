@@ -10,7 +10,7 @@ import type { DenseF32Tensor } from "./types.js";
 
 export interface Gemma4LiteralGenerationControlProgram {
   kind: "gemma4-literal-greedy-control-program";
-  schemaVersion: 1;
+  schemaVersion: 2;
   forward: {
     operationOrder: "generation.forwardCalculation.operationOrder";
     cacheTransitions: "generation.forwardCalculation.cacheTransitions";
@@ -88,6 +88,11 @@ export interface Gemma4LiteralGenerationControlProgram {
       ];
       outputState: "forward_state[step+1]";
     };
+    logitsSnapshot: {
+      output: "step_forward_logits";
+      source: "forward_state[step+1].logits";
+      order: "append-after-existing";
+    };
     cacheSnapshot: {
       output: "step_past_key_values";
       source: "forward_state[step+1].past_key_values";
@@ -112,7 +117,7 @@ export function buildGemma4LiteralGenerationControlProgram(
 ): Gemma4LiteralGenerationControlProgram {
   return {
     kind: "gemma4-literal-greedy-control-program",
-    schemaVersion: 1,
+    schemaVersion: 2,
     forward: {
       operationOrder: "generation.forwardCalculation.operationOrder",
       cacheTransitions: "generation.forwardCalculation.cacheTransitions",
@@ -168,6 +173,11 @@ export function buildGemma4LiteralGenerationControlProgram(
         ],
         outputState: "forward_state[step+1]",
       },
+      logitsSnapshot: {
+        output: "step_forward_logits",
+        source: "forward_state[step+1].logits",
+        order: "append-after-existing",
+      },
       cacheSnapshot: {
         output: "step_past_key_values",
         source: "forward_state[step+1].past_key_values",
@@ -218,6 +228,7 @@ export function executeGemma4LiteralGenerationControlProgram(
   requireSafePosition(position, control.initialPosition.output);
   const generatedTokenIds: number[] = [];
   const selectionLogits: DenseF32Tensor[] = [];
+  const stepForwardLogits: DenseF32Tensor[] = [];
   const stepPastKeyValues: Gemma4CompositeGenerationResult["stepPastKeyValues"] = [];
   for (let step: number = control.loop.startInclusive; step < maxNewTokens; step += 1) {
     const logits = current.text.logits;
@@ -230,10 +241,11 @@ export function executeGemma4LiteralGenerationControlProgram(
       positionIds: [[position]],
       pastKeyValues: current.text.pastKeyValues,
     });
+    stepForwardLogits.push(current.text.logits);
     stepPastKeyValues.push(current.text.pastKeyValues);
     if (eosTokenId !== undefined && tokenId === eosTokenId) break;
   }
-  return { prefill, generatedTokenIds, selectionLogits, stepPastKeyValues, text: current.text };
+  return { prefill, generatedTokenIds, selectionLogits, stepForwardLogits, stepPastKeyValues, text: current.text };
 }
 
 function validateRequest(

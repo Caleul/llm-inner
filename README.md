@@ -632,6 +632,16 @@ geração; adulterar shape, produtor, propriedade de cache ou relação terminal
 falha fechado. A evidência no pacote real está em
 [`docs/validation/gemma4-e4b-literal-output-contract-2026-07-19.md`](docs/validation/gemma4-e4b-literal-output-contract-2026-07-19.md).
 
+O schema v33 torna a cadeia de estados greedy verificável sem confiar na
+identidade de objetos do executor. Cada forward incremental publica
+`step_forward_logits[step]` junto de `step_past_key_values[step]`; o próximo
+`selection_logits` deve ser bitwise idêntico ao snapshot anterior, cada token
+deve ser o argmax crescente declarado, e logits/cache terminais devem pertencer
+ao mesmo último estado. O programa de geração, o controle estruturado, a
+navegação de 2 passos (agora 22 atribuições) e ambos os replays executam o mesmo
+contrato. A evidência do pacote real está em
+[`docs/validation/gemma4-e4b-greedy-state-chain-2026-07-19.md`](docs/validation/gemma4-e4b-greedy-state-chain-2026-07-19.md).
+
 O leitor também pode partir de qualquer saída instanciada e calcular o fecho
 transitivo exato de seus produtores. `--calculation-slice <operation-id>`
 retorna somente as atribuições necessárias ao alvo, ainda em ordem de
@@ -1027,6 +1037,12 @@ a substituição modal dos IDs, os 24 caches produtores e as relações entre
 prefill, cada snapshot greedy e o estado terminal. O mesmo contrato é exposto
 pela vista `--end-to-end-calculation`, junto dos inputs e controles já
 serializados.
+
+No schema v33, cada estado incremental deixa um snapshot completo de logits e
+cache. O output contract verifica `selection_logits[step+1] ==
+step_forward_logits[step]`, o token contra o argmax de seu próprio snapshot e
+o par terminal contra o último forward executado; adulterar somente um lado da
+cadeia falha fechado.
 
 O trace composite despacha `image`, `video` e `audio` por um contrato de
 modalidade único, que fixa token type, input, feature output e scatter e rejeita

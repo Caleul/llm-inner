@@ -157,6 +157,7 @@ export async function generateGemma4LiteralCompositeF32(
     prefill: generation.prefill,
     generatedTokenIds: generation.generatedTokenIds,
     selectionLogits: generation.selectionLogits,
+    stepForwardLogits: generation.stepForwardLogits,
     stepPastKeyValues: generation.stepPastKeyValues,
     terminal: generation,
   });
