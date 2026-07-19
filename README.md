@@ -606,6 +606,19 @@ camada textual; adulterar um input group, alias, ordem, modo de máscara ou
 default falha fechado. A evidência do pacote real está em
 [`docs/validation/gemma4-e4b-structured-forward-control-2026-07-19.md`](docs/validation/gemma4-e4b-structured-forward-control-2026-07-19.md).
 
+O schema v31 remove a validação implícita dos inputs. `inputContract` declara
+as 13 entradas de forward/geração com representação, rank e eixos; fixa o
+domínio dos tokens e posições, os shapes de `mm_token_type_ids` e máscara
+aditiva, e enumera somente os 24 produtores que podem possuir cache KV BHSD.
+Para imagem e vídeo, o mesmo programa valida largura patchificada `768`,
+coordenadas/padding, pooling `3x3`, ordem de flatten e igualdade entre células
+válidas e placeholders. Para áudio, valida máscara, dois strides 2, 32 canais,
+largura 1.024 da projeção e a cardinalidade de soft tokens após subsampling.
+Replay síncrono e paginado executam o contrato antes do `forwardControl`; ranks,
+buffers, shapes relacionados, cache extra/ausente e cardinalidade divergente
+falham antes de qualquer peso ser lido. A evidência do pacote real está em
+[`docs/validation/gemma4-e4b-literal-input-contract-2026-07-19.md`](docs/validation/gemma4-e4b-literal-input-contract-2026-07-19.md).
+
 O leitor também pode partir de qualquer saída instanciada e calcular o fecho
 transitivo exato de seus produtores. `--calculation-slice <operation-id>`
 retorna somente as atribuições necessárias ao alvo, ainda em ordem de
@@ -988,6 +1001,12 @@ No schema v30, a decisão de executar ou omitir cada torre já não pertence aos
 `if` do executor: `forwardControl` seleciona os três ramos, seus aliases de
 ausência, máscaras, posições e estado de cache diretamente do JSON antes de o
 mesmo forward alimentar o controle greedy.
+
+No schema v31, os valores que selecionam esses ramos também atravessam
+`inputContract` antes do replay. Assim, o leitor não decide por conta própria o
+que significa um tensor de pixels/áudio, quais layers possuem cache, como a
+máscara se relaciona ao cache ou quantos placeholders cada torre deve
+produzir; o JSON contém e executa essas restrições.
 
 O trace composite despacha `image`, `video` e `audio` por um contrato de
 modalidade único, que fixa token type, input, feature output e scatter e rejeita

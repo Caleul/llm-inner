@@ -9,6 +9,7 @@ import {
   executeGemma4LiteralForwardControlProgram,
   gemma4CompositeRequestInputPresence,
 } from "./gemma4-literal-forward-control.js";
+import { executeGemma4LiteralInputContract } from "./gemma4-literal-input-contract.js";
 import { executeGemma4LiteralAudioF32 } from "./gemma4-literal-audio.js";
 import {
   executeGemma4LiteralGenerationProgram,
@@ -55,7 +56,7 @@ export async function executeGemma4LiteralCompositeF32(
   request: Omit<Gemma4CompositeExecutionRequest, "tensors">,
   options: Gemma4LiteralCompositeExecutionOptions = {},
 ): Promise<Gemma4LiteralCompositeExecutionResult> {
-  validateInputIds(request.inputIds);
+  executeGemma4LiteralInputContract(artifact.inputContract, artifact.program, request);
   const selection = executeGemma4LiteralForwardControlProgram(
     artifact.forwardControl,
     artifact.program,
@@ -147,12 +148,6 @@ export async function generateGemma4LiteralCompositeF32(
   });
   if (!compositePrefill) throw new Error("Programa literal composite não produziu o prefill multimodal.");
   return { ...generation, compositePrefill };
-}
-
-function validateInputIds(inputIds: number[][]): void {
-  if (inputIds.length === 0 || inputIds.some((row) => row.length === 0 || row.length !== inputIds[0]!.length || row.some((id) => !Number.isSafeInteger(id) || id < 0))) {
-    throw new Error("Gemma 4 literal composite requer input_ids não vazio, retangular e inteiro não negativo.");
-  }
 }
 
 function required(values: ReadonlyMap<string, DenseF32Tensor>, name: string): DenseF32Tensor {

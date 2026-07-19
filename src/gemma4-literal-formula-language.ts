@@ -12,12 +12,13 @@ import {
 
 export interface Gemma4LiteralFormulaLanguageContract {
   kind: "gemma4-literal-formula-language-contract";
-  schemaVersion: 16;
+  schemaVersion: 17;
   languageId: "indexed-ieee754-expression-v1";
   authority: {
     forwardAssignments: "/scalarCalculations/assignments";
     forwardScalarExecution: "/calculationGraph/assignments/*/scalarCalculation/scalarAssignments";
     forwardControlProgram: "/forwardControl";
+    inputContract: "/inputContract";
     generationAssignments: "/generation/scalarCalculations/assignments";
     generationControlProgram: "/generation/controlProgram";
     instantiatedForwardOrder: "/calculationGraph/assignments";
@@ -426,12 +427,13 @@ function pytorchPairwiseReduce(values: readonly number[], operation: "maximum" |
 export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormulaLanguageContract {
   return {
     kind: "gemma4-literal-formula-language-contract",
-    schemaVersion: 16,
+    schemaVersion: 17,
     languageId: "indexed-ieee754-expression-v1",
     authority: {
       forwardAssignments: "/scalarCalculations/assignments",
       forwardScalarExecution: "/calculationGraph/assignments/*/scalarCalculation/scalarAssignments",
       forwardControlProgram: "/forwardControl",
+      inputContract: "/inputContract",
       generationAssignments: "/generation/scalarCalculations/assignments",
       generationControlProgram: "/generation/controlProgram",
       instantiatedForwardOrder: "/calculationGraph/assignments",

@@ -19,6 +19,7 @@ import { executeGemma4LiteralCompositeF32, generateGemma4LiteralCompositeF32 } f
 import { buildGemma4LiteralGenerationNavigation, renderGemma4LiteralGenerationCalculationView } from "../src/gemma4-literal-generation-navigation.js";
 import { selectGemma4LiteralGenerationToken } from "../src/gemma4-literal-generation-control.js";
 import { executeGemma4LiteralForwardControlProgram } from "../src/gemma4-literal-forward-control.js";
+import { executeGemma4LiteralInputContract } from "../src/gemma4-literal-input-contract.js";
 import { buildGemma4LiteralCalculationSlice } from "../src/gemma4-literal-calculation-slice.js";
 import { buildGemma4LiteralEndToEndCalculation } from "../src/gemma4-literal-end-to-end-calculation.js";
 import {
@@ -435,16 +436,42 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 30);
+  assert.equal(literal.schemaVersion, 31);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   assert.deepEqual(literal.authoritativeExecution, gemma4AuthoritativeExecutionContract());
   assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.languageId, literal.generation.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.authority.numericLiteralBits, "/numericLiterals/literals");
-  assert.equal(literal.formulaLanguage.schemaVersion, 16);
+  assert.equal(literal.formulaLanguage.schemaVersion, 17);
   assert.equal(literal.formulaLanguage.authority.generationControlProgram, "/generation/controlProgram");
   assert.equal(literal.formulaLanguage.authority.forwardControlProgram, "/forwardControl");
+  assert.equal(literal.formulaLanguage.authority.inputContract, "/inputContract");
+  assert.equal(literal.inputContract.kind, "gemma4-literal-input-contract");
+  assert.equal(literal.inputContract.vision.pixelFeatures, 12);
+  assert.equal(literal.inputContract.audio.projectionInputFeatures, 4);
+  assert.deepEqual(literal.inputContract.text.cacheProducers.map((entry) => entry.layer), [0, 1]);
+  const validInputContractRequest = {
+    inputIds: [[1, 99, 97, 98, 2]],
+    mmTokenTypeIds: [[0, 1, 2, 3, 0]],
+    pixelValues: patterned([1, 4, 12]),
+    imagePositionIds: [[[0, 0], [1, 0], [0, 1], [1, 1]]],
+    pixelValuesVideos: patterned([1, 1, 4, 12]),
+    videoPositionIds: [[[[0, 0], [1, 0], [0, 1], [1, 1]]]],
+    inputFeatures: patterned([1, 4, 16]),
+    inputFeaturesMask: [[true, true, true, true]],
+  };
+  assert.doesNotThrow(() => executeGemma4LiteralInputContract(literal.inputContract, literal.program, validInputContractRequest));
+  assert.throws(() => executeGemma4LiteralInputContract(literal.inputContract, literal.program, {
+    ...validInputContractRequest,
+    inputIds: [[1, 99, 99, 97, 98, 2]],
+    mmTokenTypeIds: [[0, 1, 1, 2, 3, 0]],
+  }), /image placeholder count=2 não corresponde a features=1/);
+  assert.throws(() => executeGemma4LiteralInputContract(literal.inputContract, literal.program, {
+    inputIds: [[1, 98, 2]],
+    inputFeatures: patterned([1, 4, 9]),
+    inputFeaturesMask: [[true, true, true, true]],
+  }), /largura de áudio incompatível/);
   assert.equal(literal.forwardControl.kind, "gemma4-literal-forward-control-program");
   const imageSelection = executeGemma4LiteralForwardControlProgram(literal.forwardControl, literal.program, new Set([
     "input_ids", "pixel_values", "image_position_ids", "mm_token_type_ids",
@@ -983,6 +1010,9 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   const hiddenForwardControl = structuredClone(literal);
   hiddenForwardControl.forwardControl.modalityBranches.find((branch) => branch.modality === "audio")!.inactiveIdentity.input = "host_selected_embedding";
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(hiddenForwardControl), /controle forward, roteamento modal ou aliases de ausência/);
+  const hiddenInputContract = structuredClone(literal);
+  hiddenInputContract.inputContract.vision.pixelFeatures += 1;
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(hiddenInputContract), /contrato de inputs, shapes ou cardinalidade/);
   const missingCacheTransition = structuredClone(literal);
   missingCacheTransition.generation.forwardCalculation.cacheTransitions.pop();
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(missingCacheTransition), /transições de geração greedy incompletas/);
@@ -1057,7 +1087,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 30);
+      assert.equal(artifact.schemaVersion, 31);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.deepEqual(artifact.authoritativeExecution, gemma4AuthoritativeExecutionContract());
@@ -1649,6 +1679,7 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
         !("declaredForwardOperations" in operation)));
       assert.equal(endToEnd.generation.cacheTransitions.length, program.textProgram.layers.length);
       assert.ok(endToEnd.declaredInputs.some((input) => input.name === "max_new_tokens" && input.requiredFor.includes("generation")));
+      assert.deepEqual(endToEnd.inputContract, artifact.inputContract);
       assert.equal(endToEnd.numericLiterals.length, artifact.numericLiterals.literals.length);
       assert.equal(endToEnd.storageCoverage.complete, true);
       assert.equal(

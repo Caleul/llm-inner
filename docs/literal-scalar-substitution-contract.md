@@ -258,6 +258,18 @@ todas as definições, mas uma invocação avalia somente os ramos selecionados 
 os aliases de ausência serializados — nunca uma decisão reconstruída por
 convenção do host.
 
+No schema v31, a lista humana de inputs é ligada a um `inputContract`
+executável. O contrato fixa representação, dtype lógico, rank e eixos de todas
+as 13 entradas; domínio de tokens/posições; shapes relativos de posições,
+`mm_token_type_ids` e máscara aditiva; e propriedade/shape BHSD de cada cache
+produtor. As modalidades não dependem de uma validação escondida na torre:
+imagem e vídeo declaram largura patchificada, coordenadas/padding, pooling,
+flatten e cardinalidade de placeholders; áudio declara máscara, dois
+subsamplings stride 2, canais, largura da projeção e cardinalidade após os dois
+slices. O leitor deve validar esse objeto canônico e executá-lo antes do
+`forwardControl`. Adulterar o catálogo, rank, buffer, domínio, shape relacionado,
+propriedade de cache ou cardinalidade é erro, nunca um default do host.
+
 ## Programa literal de geração
 
 Logits não completam o produto de geração. O artefato Gemma 4 schema v2 deve
