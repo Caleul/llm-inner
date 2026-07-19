@@ -1300,16 +1300,19 @@ ficam registradas. `.agent-loop/STOP`, orçamento concluído, missão `complete`
 ou `blocked` encerram o supervisor normalmente.
 
 Além do limite total (`maxLoopDurationMinutes`), o runner monitora progresso
-observável do Codex. Se não houver stdout ou stderr por
+observável do agente ativo. Se não houver stdout ou stderr por
 `maxNoProgressMinutes`, ele encerra todo o grupo de processos do ciclo. Se o
 ciclo falhar ou for interrompido deixando alterações ainda não commitadas, o
 runner cria um commit de checkpoint automático e registra a recuperação no
 estado antes de iniciar o agente seguinte; assim uma falha não deixa a árvore
 suja nem paralisa os ciclos seguintes. A resposta transitória `Selected model
 is at capacity`, `You've hit your usage limit`, respostas HTTP 429 e mensagens
-equivalentes não consomem um loop nem `consecutiveFailures`: o estado passa a
-`waiting_limit`, restaura o número da sequência e tenta novamente com backoff
-exponencial persistente. A espera começa em
+equivalentes não consomem um loop nem `consecutiveFailures`: o número lógico da
+sequência é restaurado, o provedor recebe um cooldown próprio e o runner tenta
+imediatamente o próximo provedor disponível. Os provedores operam estritamente
+um por vez, na ordem `Sol → Spark → OpenCode → Kiro → Cursor`. Quando todos
+estão indisponíveis, o estado passa a `waiting_limit` e aguarda o menor cooldown.
+O backoff de cada provedor começa em
 `transientLimitRetryInitialSeconds`, dobra a cada resposta consecutiva e é
 limitada por `transientLimitRetryMaximumSeconds`; o STOP continua sendo
 observado durante a espera. Um reinício do host preserva `nextRetryAt` no
@@ -1331,8 +1334,11 @@ pelo objetivo final: atacar uma fronteira estratégica de fidelidade ou
 validação, conectar as camadas necessárias e evitar encerrar apenas por uma
 microalteração isolada.
 
-O runner usa `gpt-5.6-sol` com esforço de raciocínio `high`. Cada invocação
-é uma sessão autônoma de engenharia: o agente reavalia o sistema, decide a
+O runner prefere Codex `gpt-5.6-sol` com esforço `high`, seguido pelo Codex
+`gpt-5.3-codex-spark`, OpenCode com `opencode/north-mini-code-free`, Kiro com
+`gpt-5.6-sol` e Cursor com `gpt-5.6-sol-high`. Todos são invocados em modo
+não interativo, com as ferramentas previamente autorizadas pelo operador.
+Cada invocação é uma sessão autônoma de engenharia: o agente reavalia o sistema, decide a
 fronteira estratégica de maior impacto e executa uma entrega coesa através das
 camadas necessárias. O sucessor revisa as evidências independentemente e
 escolhe seu próprio trabalho; não recebe uma sequência de microtarefas do

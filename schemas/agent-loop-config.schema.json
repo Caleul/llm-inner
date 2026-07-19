@@ -12,7 +12,7 @@
     "cooldownSeconds",
     "transientLimitRetryInitialSeconds",
     "transientLimitRetryMaximumSeconds",
-    "agent",
+    "providers",
     "goalCommand",
     "missionGoal",
     "handoffDirectory",
@@ -40,14 +40,26 @@
     "cooldownSeconds": { "type": "integer", "minimum": 0 },
     "transientLimitRetryInitialSeconds": { "type": "integer", "minimum": 1 },
     "transientLimitRetryMaximumSeconds": { "type": "integer", "minimum": 1 },
-    "agent": {
-      "type": "object",
-      "required": ["model", "reasoningEffort"],
-      "properties": {
-        "model": { "type": "string", "minLength": 1 },
-        "reasoningEffort": { "enum": ["low", "medium", "high"] }
-      },
-      "additionalProperties": false
+    "providers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "command", "model"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+          "kind": { "enum": ["codex", "opencode", "kiro", "cursor"] },
+          "command": { "type": "string", "minLength": 1 },
+          "model": { "type": "string", "minLength": 1 },
+          "reasoningEffort": { "enum": ["low", "medium", "high"] },
+          "variant": { "type": "string", "minLength": 1 },
+          "environment": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          }
+        },
+        "additionalProperties": false
+      }
     },
     "goalCommand": { "const": "/goal" },
     "missionGoal": { "type": "string", "minLength": 1 },

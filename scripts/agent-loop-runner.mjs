@@ -4,10 +4,10 @@ import { createWriteStream } from "node:fs";
 import { access, copyFile, mkdir, open, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { spawn } from "node:child_process";
-import { classifyTransientLimit, stateAfterTransientLimit } from "./agent-loop-retry-policy.mjs";
+import { buildProviderInvocation, providerAvailability, providerRunPaths, validateProviders } from "./agent-loop-providers.mjs";
+import { classifyTransientLimit, clearProviderRetry, stateAfterTransientLimit } from "./agent-loop-retry-policy.mjs";
 
 const root = resolve(import.meta.dirname, "..");
-const codex = process.env.CODEX_BIN ?? "/Applications/ChatGPT.app/Contents/Resources/codex";
 const command = process.argv[2] ?? "status";
 
 function absolute(path) {
@@ -68,9 +68,7 @@ async function load() {
   if (config.version !== 1 || !Number.isInteger(config.maxLoops) || config.maxLoops < 1) {
     fail("agent-loop.config.json is not a supported version-1 configuration.");
   }
-  if (!config.agent || typeof config.agent.model !== "string" || !["low", "medium", "high"].includes(config.agent.reasoningEffort)) {
-    fail("agent-loop.config.json must declare an agent model and low, medium, or high reasoningEffort.");
-  }
+  validateProviders(config.providers);
   if (typeof config.missionGoal !== "string" || config.missionGoal.trim() === "") {
     fail("agent-loop.config.json must declare a non-empty missionGoal.");
   }
@@ -120,7 +118,9 @@ async function assertCanRun(config) {
   if (config.requireCleanGitBeforeNextLoop && !(await cleanGitTree())) {
     fail("Git tree is not clean. Commit, stash, or remove unrelated changes before starting the loop.");
   }
-  if (!(await exists(codex))) fail(`Codex executable not found: ${codex}`);
+  for (const provider of config.providers) {
+    if (!(await exists(provider.command))) fail(`Provider executable not found for ${provider.id}: ${provider.command}`);
+  }
 }
 
 function isProcessAlive(pid) {
@@ -308,37 +308,39 @@ async function checkpointFailedWork(runId, sequence, reason) {
   return { runId, sequence, reason, startingCommit, commit, checkpointedAt: now() };
 }
 
-async function runCodex(config, prompt, runId, sequence) {
+async function runProvider(config, provider, prompt, runId, sequence) {
   const runDirectory = absolute(config.runsDirectory);
-  const outputPath = join(runDirectory, `${runId}.last-message.md`);
-  const logPath = join(runDirectory, `${runId}.log`);
+  const paths = providerRunPaths(runDirectory, runId);
+  await writeFile(paths.promptPath, prompt, "utf8");
+  const invocation = buildProviderInvocation(provider, {
+    root,
+    promptPath: paths.promptPath,
+    outputPath: paths.outputPath,
+  });
+  const logPath = paths.logPath;
   const log = createWriteStream(logPath, { flags: "a" });
-  const args = [
-    "exec",
-    "-C", root,
-    "-m", config.agent.model,
-    "-c", `model_reasoning_effort=${JSON.stringify(config.agent.reasoningEffort)}`,
-    // The user explicitly authorizes this autonomous runner to work without
-    // sandboxing or interactive approvals, including repository metadata.
-    "--dangerously-bypass-approvals-and-sandbox",
-    "--color", "never",
-    "--output-last-message", outputPath,
-    "-",
-  ];
-  await writeJsonAtomically(join(runDirectory, `${runId}.json`), {
+  await writeJsonAtomically(paths.metadataPath, {
     runId,
     sequence,
+    provider: { id: provider.id, kind: provider.kind, model: provider.model },
     startedAt: now(),
-    command: codex,
-    args: args.slice(0, -1),
+    command: invocation.command,
+    args: invocation.args,
+    promptPath: paths.promptPath,
   });
-  return new Promise((done, reject) => {
-    const child = spawn(codex, args, { cwd: root, detached: true, stdio: ["pipe", "pipe", "pipe"] });
+  return new Promise((done) => {
+    const child = spawn(invocation.command, invocation.args, {
+      cwd: root,
+      detached: true,
+      stdio: ["pipe", "pipe", "pipe"],
+      env: { ...process.env, ...(provider.environment ?? {}) },
+    });
     let timeoutReason = null;
     let limitError = null;
     let recentOutput = "";
     let lastProgressAt = Date.now();
     let forceKill = null;
+    let settled = false;
     const stopFor = (reason) => {
       if (timeoutReason) return;
       timeoutReason = reason;
@@ -352,7 +354,7 @@ async function runCodex(config, prompt, runId, sequence) {
     );
     const progressWatchdog = setInterval(() => {
       if (Date.now() - lastProgressAt >= config.maxNoProgressMinutes * 60_000) {
-        stopFor(`no Codex stdout/stderr progress for ${config.maxNoProgressMinutes} minutes`);
+        stopFor(`no provider stdout/stderr progress for ${config.maxNoProgressMinutes} minutes`);
       }
     }, 5_000);
     const recordProgress = (chunk) => {
@@ -369,16 +371,20 @@ async function runCodex(config, prompt, runId, sequence) {
       clearInterval(progressWatchdog);
       if (forceKill) clearTimeout(forceKill);
       log.end();
-      reject(error);
+      if (settled) return;
+      settled = true;
+      done({ code: 127, signal: null, timeoutReason: null, limitError: "provider_unavailable", spawnError: error.message });
     });
     child.once("close", (code, signal) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timeout);
       clearInterval(progressWatchdog);
       if (forceKill) clearTimeout(forceKill);
       log.end();
       done({ code: code ?? 1, signal, timeoutReason, limitError });
     });
-    child.stdin.end(prompt);
+    child.stdin.end(invocation.stdin === "prompt" ? prompt : undefined);
   });
 }
 
@@ -400,30 +406,43 @@ async function start(config) {
         console.log("Stop flag found; no additional Codex will be started.");
         return;
       }
-      if (state.status === "waiting_limit" && state.limitRetry?.nextRetryAt) {
-        console.error(`Waiting until ${state.limitRetry.nextRetryAt} after ${state.limitRetry.kind} attempt ${state.limitRetry.attempts}.`);
-        if (!(await waitUntilRetryOrStop(config, state.limitRetry.nextRetryAt))) {
+      const availability = providerAvailability(config.providers, state.providerRetries);
+      if (availability.available.length === 0 && availability.nextRetryAt) {
+        state = { ...state, status: "waiting_limit", nextProviderRetryAt: availability.nextRetryAt };
+        await writeJsonAtomically(absolute(config.stateFile), state);
+        console.error(`All providers are cooling down; waiting until ${availability.nextRetryAt}.`);
+        if (!(await waitUntilRetryOrStop(config, availability.nextRetryAt))) {
           state = { ...state, status: "stopped", lastCompletedAt: now() };
           await writeJsonAtomically(absolute(config.stateFile), state);
           return;
         }
+        continue;
       }
+      const provider = availability.available[0];
       if (config.requireCleanGitBeforeNextLoop && !(await cleanGitTree())) fail("Git tree became dirty before a new loop.");
       const sequence = state.currentSequence + 1;
-      const runId = `run-${String(sequence).padStart(4, "0")}-${now().replace(/[-:.]/g, "").replace("Z", "Z")}`;
+      const runId = `run-${String(sequence).padStart(4, "0")}-${now().replace(/[-:.]/g, "").replace("Z", "Z")}-${provider.id}`;
       const startingCommit = (await git(["rev-parse", "HEAD"])).stdout;
       const before = await completedHandoffs(config);
       const masterPrompt = await readFile(absolute(config.promptFile), "utf8");
-      state = { ...state, status: "running", currentSequence: sequence, lastRunId: runId, lastStartedAt: now() };
+      state = {
+        ...state,
+        status: "running",
+        currentSequence: sequence,
+        lastRunId: runId,
+        lastStartedAt: now(),
+        activeProvider: { id: provider.id, kind: provider.kind, model: provider.model },
+      };
       await writeJsonAtomically(absolute(config.stateFile), state);
-      const result = await runCodex(config, agentPrompt(masterPrompt, config, state, runId, sequence, state.lastHandoff), runId, sequence);
+      console.log(`Starting logical loop ${sequence} with provider ${provider.id} (${provider.kind}/${provider.model}).`);
+      const result = await runProvider(config, provider, agentPrompt(masterPrompt, config, state, runId, sequence, state.lastHandoff), runId, sequence);
       const after = await completedHandoffs(config);
       const created = [...after].filter((name) => !before.has(name));
       let failure = null;
       let accepted = null;
       let recovery = null;
       if (created.length !== 1) {
-        failure = `Expected exactly one new completed handoff, found ${created.length}. Codex exit=${result.code}${result.signal ? ` signal=${result.signal}` : ""}.`;
+        failure = `Expected exactly one new completed handoff, found ${created.length}. Provider ${provider.id} exit=${result.code}${result.signal ? ` signal=${result.signal}` : ""}${result.spawnError ? ` error=${result.spawnError}` : ""}.`;
       } else {
         const name = created[0];
         try {
@@ -451,6 +470,7 @@ async function start(config) {
         if (result.limitError) {
           state = stateAfterTransientLimit(state, {
             kind: result.limitError,
+            providerId: provider.id,
             runId,
             sequence,
             detectedAt: now(),
@@ -459,7 +479,7 @@ async function start(config) {
           });
           if (recovery) state = { ...state, lastRecovery: recovery };
           await writeJsonAtomically(absolute(config.stateFile), state);
-          console.error(`Attempted loop ${sequence} hit ${result.limitError}; sequence and failure counters were restored. Retry ${state.limitRetry.attempts} in ${state.limitRetry.retryAfterSeconds} seconds.`);
+          console.error(`Provider ${provider.id} hit ${result.limitError}; logical loop ${sequence} and failure counters were restored. Provider cooldown ${state.limitRetry.attempts} is ${state.limitRetry.retryAfterSeconds} seconds; trying the next available provider.`);
           continue;
         }
         state = withoutLimitRetry(state);
@@ -479,7 +499,7 @@ async function start(config) {
         await delay(config.cooldownSeconds * 1000);
       } else {
         state = {
-          ...withoutLimitRetry(state),
+          ...withoutLimitRetry(clearProviderRetry(state, provider.id)),
           status: accepted.handoff.missionStatus === "continue" ? "idle" : accepted.handoff.missionStatus,
           completedLoops: state.completedLoops + 1,
           consecutiveFailures: 0,
@@ -507,13 +527,13 @@ async function status(config) {
   console.log(JSON.stringify({
     state,
     maxLoops: config.maxLoops,
-    agent: config.agent,
+    providers: config.providers.map(({ id, kind, model }) => ({ id, kind, model })),
+    activeProvider: state.activeProvider ?? null,
     lockPresent: lock.status !== "absent",
     lockStatus: lock.status,
     lockPid: lock.lock?.pid ?? null,
     orphanedRunDetected: orphaned,
     stopRequested: await exists(absolute(config.stopFile)),
-    codex,
   }, null, 2));
 }
 

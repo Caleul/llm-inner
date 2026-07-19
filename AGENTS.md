@@ -2,7 +2,7 @@
 
 ## Autonomous loop boundary
 
-This repository is advanced by one Codex process at a time. The external
+This repository is advanced by one autonomous agent process at a time. The external
 runner owns process creation, sequencing, state transitions and stop handling.
 An agent must never start another agent or invoke the runner.
 
@@ -16,8 +16,9 @@ as the available context permits. It executes every coherent improvement that
 the live evidence makes safe and necessary; it does not defer ordinary work to
 a hypothetical successor.
 
-The loop is deliberately configured for `gpt-5.6-sol` at high reasoning
-effort. Use that reasoning capacity on architecture, semantic boundaries,
+The loop prefers `gpt-5.6-sol` at high reasoning effort and can fail over
+sequentially through the provider order declared in `agent-loop.config.json`.
+Use the available reasoning capacity on architecture, semantic boundaries,
 validation strategy, tradeoffs and long-term maintainability — not on slicing a
 single coherent problem into artificial microtasks.
 

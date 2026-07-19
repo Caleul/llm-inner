@@ -9,10 +9,43 @@
   "cooldownSeconds": 10,
   "transientLimitRetryInitialSeconds": 60,
   "transientLimitRetryMaximumSeconds": 3600,
-  "agent": {
-    "model": "gpt-5.6-sol",
-    "reasoningEffort": "high"
-  },
+  "providers": [
+    {
+      "id": "sol",
+      "kind": "codex",
+      "command": "/Applications/ChatGPT.app/Contents/Resources/codex",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "high"
+    },
+    {
+      "id": "spark",
+      "kind": "codex",
+      "command": "/Applications/ChatGPT.app/Contents/Resources/codex",
+      "model": "gpt-5.3-codex-spark",
+      "reasoningEffort": "high"
+    },
+    {
+      "id": "opencode",
+      "kind": "opencode",
+      "command": "/Users/caleul/.nvm/versions/node/v24.13.0/bin/opencode",
+      "model": "opencode/north-mini-code-free",
+      "environment": {
+        "XDG_DATA_HOME": "/Users/caleul/.local/share/llm-inner-opencode"
+      }
+    },
+    {
+      "id": "kiro",
+      "kind": "kiro",
+      "command": "/Users/caleul/.local/bin/kiro-cli",
+      "model": "gpt-5.6-sol"
+    },
+    {
+      "id": "cursor",
+      "kind": "cursor",
+      "command": "/Users/caleul/.local/bin/cursor-agent",
+      "model": "gpt-5.6-sol-high"
+    }
+  ],
   "goalCommand": "/goal",
   "missionGoal": "Exclusive active goal: deliver the first product checkpoint, a navigable and self-contained mathematical-calculation export for a real dense Gemma 4 Safetensors package. The export must contain every learned weight, bias, scale and constant losslessly; expose the full ordered calculation and intermediate dataflow; and provide a human-auditable scalar view in which each addressable learned value is decoded and substitutable as its real numeric literal, with dtype bits, casts, reduction order and operation semantics sufficient for a reader to reproduce the same forward and greedy-generation result step by step without the checkpoint. Work directly on the artifact generator, its scalar/navigable representation, decoding/substitution, exact execution semantics, source-removed replay, and evidence strictly required to prove that product. Do not spend a cycle on generic audits, isolated probes, unrelated architecture breadth, infrastructure, or reports unless they are an immediate prerequisite to producing or proving this Gemma 4 artifact. Do not bind, probe, or repair one layer/assignment at a time when the same semantic class exists elsewhere: derive and implement the general operation-, shape-, dtype-, or source-dispatch contract, apply it across every compatible Gemma 4 assignment in the same cycle, then regenerate and validate the whole artifact. If evidence cannot justify a general contract, stop repeating per-layer experiments and advance another implementable artifact-format or navigation gap. Make every safe, coherent improvement now; never defer ordinary work. The next agent independently reviews the evidence and continues the strongest remaining artifact gap. Only after the committed Gemma 4 checkpoint proves this goal may the exclusive active goal switch to the identical GLM 5.2 export.",
   "handoffDirectory": ".agent-loop/handoffs/completed",
