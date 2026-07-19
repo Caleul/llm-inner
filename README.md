@@ -729,6 +729,24 @@ literais numéricos e a partição completa das 2.130 constantes incorporadas.
 Veja
 [`docs/validation/gemma4-e4b-source-removed-end-to-end-calculation-2026-07-18.md`](docs/validation/gemma4-e4b-source-removed-end-to-end-calculation-2026-07-18.md).
 
+O schema v36 remove a interpretação textual que ainda restava na navegação de
+coordenadas do schema v35. Cada acesso `tensor-element` incorpora agora um
+`coordinatePrograms` por eixo, e cada acesso `tensor-shape` incorpora um
+`axisProgram`. A linguagem fechada `gemma4-coordinate-expression-v1` cobre
+inteiros assinados seguros, símbolos e campos de `STRUCT`, arrays inteiros
+indexados, soma/subtração/produto, módulo não negativo, divisão inteira com
+`floor`, ranges inclusivos e o rank estável de placeholders multimodais.
+Bindings ausentes, overflow, divisor zero, tensor ragged, range invertido ou
+helper desconhecido falham antes da navegação; o leitor não precisa analisar a
+string humana `expression` para descobrir um endereço.
+
+No E4B real, o grafo contém 36.495 programas de coordenada para as 2.708
+atribuições, incluindo sete ranges e seis ranks estáveis. A fonte foi removida
+fisicamente durante a verificação integral dos 2.130 payloads, vistas escalar e
+BMM, fecho end-to-end e suite diferencial das três modalidades. A prova e os
+hashes estão em
+[`docs/validation/gemma4-e4b-executable-coordinate-programs-2026-07-19.md`](docs/validation/gemma4-e4b-executable-coordinate-programs-2026-07-19.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 

@@ -65,6 +65,7 @@ try {
     forwardControl: artifact.forwardControl,
     calculationGraph: {
       assignments: artifact.calculationGraph.assignments.length,
+      coordinateLanguage: artifact.calculationGraph.coordinateLanguage,
       firstOperation: artifact.calculationGraph.assignments[0]?.operationId,
       lastOperation: artifact.calculationGraph.assignments.at(-1)?.operationId,
       explicitPredecessorEdges: artifact.calculationGraph.assignments.reduce((total, assignment) =>
@@ -169,17 +170,30 @@ function coordinateNavigationSummary(assignments: OpenedCalculationAssignments):
   let outputWrites = 0, outputShapeAssertions = 0;
   let consumers = 0, addressedConsumers = 0, shapeOrControlOnlyConsumers = 0, consumerAccesses = 0;
   let consumerTensorElementAccesses = 0, consumerTensorShapeAccesses = 0, consumerWholeValueAccesses = 0;
+  let coordinatePrograms = 0, rangePrograms = 0, stablePrefixPrograms = 0;
+  const countProgram = (program: { kind: string }): void => {
+    coordinatePrograms += 1;
+    if (program.kind === "inclusive-range") rangePrograms += 1;
+    if (program.kind === "stable-true-prefix-rank") stablePrefixPrograms += 1;
+  };
   for (const assignment of assignments) {
     outputWrites += 1;
     outputShapeAssertions += assignment.outputCoordinate.shapeAssertions.length;
+    assignment.outputCoordinate.write.coordinatePrograms.forEach(countProgram);
+    assignment.outputCoordinate.shapeAssertions.forEach((access) => countProgram(access.axisProgram));
     for (const consumer of assignment.consumerCoordinates) {
       consumers += 1;
       consumerAccesses += consumer.accesses.length;
       if (consumer.scalarUse === "addressed") addressedConsumers += 1;
       else shapeOrControlOnlyConsumers += 1;
       for (const access of consumer.accesses) {
-        if (access.kind === "tensor-element") consumerTensorElementAccesses += 1;
-        else if (access.kind === "tensor-shape") consumerTensorShapeAccesses += 1;
+        if (access.kind === "tensor-element") {
+          consumerTensorElementAccesses += 1;
+          access.coordinatePrograms.forEach(countProgram);
+        } else if (access.kind === "tensor-shape") {
+          consumerTensorShapeAccesses += 1;
+          countProgram(access.axisProgram);
+        }
         else consumerWholeValueAccesses += 1;
       }
     }
@@ -189,8 +203,13 @@ function coordinateNavigationSummary(assignments: OpenedCalculationAssignments):
     if (predecessor.scalarUse === "addressed") addressed += 1;
     else shapeOrControlOnly += 1;
     for (const access of predecessor.accesses) {
-      if (access.kind === "tensor-element") tensorElementAccesses += 1;
-      else if (access.kind === "tensor-shape") tensorShapeAccesses += 1;
+      if (access.kind === "tensor-element") {
+        tensorElementAccesses += 1;
+        access.coordinatePrograms.forEach(countProgram);
+      } else if (access.kind === "tensor-shape") {
+        tensorShapeAccesses += 1;
+        countProgram(access.axisProgram);
+      }
       else wholeValueAccesses += 1;
     }
   }
@@ -210,6 +229,9 @@ function coordinateNavigationSummary(assignments: OpenedCalculationAssignments):
     consumerTensorElementAccesses,
     consumerTensorShapeAccesses,
     consumerWholeValueAccesses,
+    coordinatePrograms,
+    rangePrograms,
+    stablePrefixPrograms,
   };
 }
 

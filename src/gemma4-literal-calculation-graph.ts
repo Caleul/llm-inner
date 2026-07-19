@@ -22,7 +22,9 @@ import {
   buildGemma4LiteralConsumerCoordinateNavigation,
   buildGemma4LiteralOutputCoordinateNavigation,
   extractGemma4LiteralCoordinateAccesses,
+  gemma4LiteralCoordinateExpressionLanguage,
   type Gemma4LiteralConsumerCoordinateNavigation,
+  type Gemma4LiteralCoordinateExpressionLanguage,
   type Gemma4LiteralCoordinateAccess,
   type Gemma4LiteralOutputCoordinateNavigation,
 } from "./gemma4-literal-coordinate-accesses.js";
@@ -63,8 +65,9 @@ export interface Gemma4LiteralInstantiatedCalculation {
 
 export interface Gemma4LiteralCalculationGraph {
   kind: "gemma4-literal-instantiated-calculation-graph";
-  schemaVersion: 3;
+  schemaVersion: 4;
   order: "dependency-order";
+  coordinateLanguage: Gemma4LiteralCoordinateExpressionLanguage;
   assignments: Gemma4LiteralInstantiatedCalculation[];
 }
 
@@ -151,14 +154,20 @@ export function buildGemma4LiteralCalculationGraph(program: Gemma4CompositeProgr
       throw new Error(`${assignment.operationId}: predecessor ${producer.operationId} não antecede o consumidor no grafo literal.`);
     }
   }
-  return { kind: "gemma4-literal-instantiated-calculation-graph", schemaVersion: 3, order: "dependency-order", assignments };
+  return {
+    kind: "gemma4-literal-instantiated-calculation-graph",
+    schemaVersion: 4,
+    order: "dependency-order",
+    coordinateLanguage: gemma4LiteralCoordinateExpressionLanguage(),
+    assignments,
+  };
 }
 
 export function validateGemma4LiteralCalculationGraph(
   graph: Gemma4LiteralCalculationGraph,
   program: Gemma4CompositeProgram,
 ): void {
-  if (graph.kind !== "gemma4-literal-instantiated-calculation-graph" || graph.schemaVersion !== 3 || graph.order !== "dependency-order") {
+  if (graph.kind !== "gemma4-literal-instantiated-calculation-graph" || graph.schemaVersion !== 4 || graph.order !== "dependency-order") {
     throw new Error("Programa literal Gemma 4 possui cabeçalho de grafo de cálculo inválido.");
   }
   if (!isDeepStrictEqual(graph, buildGemma4LiteralCalculationGraph(program))) {

@@ -104,7 +104,10 @@ import {
 import {
   buildGemma4LiteralConsumerCoordinateNavigation,
   buildGemma4LiteralOutputCoordinateNavigation,
+  evaluateGemma4LiteralCoordinateExpression,
   extractGemma4LiteralCoordinateAccesses,
+  gemma4LiteralCoordinateExpressionLanguage,
+  parseGemma4LiteralCoordinateExpression,
 } from "../src/gemma4-literal-coordinate-accesses.js";
 import type { DenseF32Tensor, ModelCatalog, TensorInfo } from "../src/types.js";
 
@@ -148,8 +151,21 @@ test("Gemma 4 coordinate navigation parses nested indices without operation or l
       kind: "tensor-element",
       expression: "hidden/state[batch,key_index[i],floor((head*width+i)/2)]",
       coordinates: ["batch", "key_index[i]", "floor((head*width+i)/2)"],
+      coordinatePrograms: [
+        { kind: "symbol", name: "batch" },
+        { kind: "indexed-symbol", name: "key_index", indices: [{ kind: "symbol", name: "i" }] },
+        {
+          kind: "floor-divide",
+          left: {
+            kind: "add",
+            left: { kind: "multiply", left: { kind: "symbol", name: "head" }, right: { kind: "symbol", name: "width" } },
+            right: { kind: "symbol", name: "i" },
+          },
+          right: { kind: "constant", value: 2 },
+        },
+      ],
     },
-    { kind: "tensor-shape", expression: "hidden/state.shape[1]", axis: "1" },
+    { kind: "tensor-shape", expression: "hidden/state.shape[1]", axis: "1", axisProgram: { kind: "constant", value: 1 } },
   ]);
   assert.deepEqual(extractGemma4LiteralCoordinateAccesses("cache", ["next=tuple(cache,delta)"]), [
     { kind: "whole-value", expression: "cache" },
@@ -158,22 +174,71 @@ test("Gemma 4 coordinate navigation parses nested indices without operation or l
     "require result.shape[0]==source.shape[0]",
     "result[batch,key_index[i]]=F32(source[batch,i])",
   ]), {
-    write: { kind: "tensor-element", expression: "result[batch,key_index[i]]", coordinates: ["batch", "key_index[i]"] },
-    shapeAssertions: [{ kind: "tensor-shape", expression: "result.shape[0]", axis: "0" }],
+    write: {
+      kind: "tensor-element",
+      expression: "result[batch,key_index[i]]",
+      coordinates: ["batch", "key_index[i]"],
+      coordinatePrograms: [
+        { kind: "symbol", name: "batch" },
+        { kind: "indexed-symbol", name: "key_index", indices: [{ kind: "symbol", name: "i" }] },
+      ],
+    },
+    shapeAssertions: [{ kind: "tensor-shape", expression: "result.shape[0]", axis: "0", axisProgram: { kind: "constant", value: 0 } }],
   });
   assert.deepEqual(buildGemma4LiteralConsumerCoordinateNavigation("result", [{
     operationId: "consumer",
     scalarAssignments: ["next[b,i]=result[b,floor((i+1)/2)]"],
   }]), [{
     operationId: "consumer",
-    accesses: [{ kind: "tensor-element", expression: "result[b,floor((i+1)/2)]", coordinates: ["b", "floor((i+1)/2)"] }],
+    accesses: [{
+      kind: "tensor-element",
+      expression: "result[b,floor((i+1)/2)]",
+      coordinates: ["b", "floor((i+1)/2)"],
+      coordinatePrograms: [
+        { kind: "symbol", name: "b" },
+        {
+          kind: "floor-divide",
+          left: { kind: "add", left: { kind: "symbol", name: "i" }, right: { kind: "constant", value: 1 } },
+          right: { kind: "constant", value: 2 },
+        },
+      ],
+    }],
     scalarUse: "addressed",
   }]);
   assert.deepEqual(extractGemma4LiteralCoordinateAccesses("hidden", [
     "heads[b,h,s,d]=row_major_alias(hidden)[b,s,h*64+d]",
   ]), [{
     kind: "tensor-element", expression: "hidden[b,s,h*64+d]", coordinates: ["b", "s", "h*64+d"],
+    coordinatePrograms: [
+      { kind: "symbol", name: "b" },
+      { kind: "symbol", name: "s" },
+      {
+        kind: "add",
+        left: { kind: "multiply", left: { kind: "symbol", name: "h" }, right: { kind: "constant", value: 64 } },
+        right: { kind: "symbol", name: "d" },
+      },
+    ],
   }]);
+  assert.equal(gemma4LiteralCoordinateExpressionLanguage().id, "gemma4-coordinate-expression-v1");
+  assert.deepEqual(evaluateGemma4LiteralCoordinateExpression(
+    parseGemma4LiteralCoordinateExpression("floor(attention_hidden/256)%4"),
+    { symbols: { attention_hidden: 1793 } },
+  ), 3);
+  assert.deepEqual(evaluateGemma4LiteralCoordinateExpression(
+    parseGemma4LiteralCoordinateExpression("0..patches-1"),
+    { symbols: { patches: 9 } },
+  ), { startInclusive: 0, endInclusive: 8 });
+  assert.equal(evaluateGemma4LiteralCoordinateExpression(
+    parseGemma4LiteralCoordinateExpression("STABLE_TRUE_PREFIX_RANK(input_ids==258880,batch,sequence)"),
+    {
+      symbols: { batch: 1, sequence: 1 },
+      integerTensors: { input_ids: [[258880, 2], [258880, 258880]] },
+    },
+  ), 2);
+  assert.throws(() => parseGemma4LiteralCoordinateExpression("host_index(x)"), /sem programa incorporado/);
+  assert.throws(() => evaluateGemma4LiteralCoordinateExpression(
+    parseGemma4LiteralCoordinateExpression("0..patches-1"), { symbols: { patches: 0 } },
+  ), /Range de coordenada invertido/);
   assert.throws(() => buildGemma4LiteralOutputCoordinateNavigation("result", ["next[i]=result[i]"]), /uma única escrita tensorial/);
   assert.throws(() => buildGemma4LiteralOutputCoordinateNavigation("result", [
     "result[i]=source[i]", "require result.shape[0]==source.shape[0]",
@@ -494,14 +559,14 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 35);
+  assert.equal(literal.schemaVersion, 36);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   assert.deepEqual(literal.authoritativeExecution, gemma4AuthoritativeExecutionContract());
   assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.languageId, literal.generation.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.authority.numericLiteralBits, "/numericLiterals/literals");
-  assert.equal(literal.formulaLanguage.schemaVersion, 20);
+  assert.equal(literal.formulaLanguage.schemaVersion, 21);
   assert.equal(literal.formulaLanguage.authority.generationControlProgram, "/generation/controlProgram");
   assert.equal(literal.formulaLanguage.authority.forwardControlProgram, "/forwardControl");
   assert.equal(literal.formulaLanguage.authority.inputContract, "/inputContract");
@@ -562,6 +627,7 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.equal(literal.scalarCalculations.schemaVersion, 3);
   assert.equal(literal.formulaLanguage.authority.forwardScalarExecution, "/calculationGraph/assignments/*/scalarCalculation/scalarAssignments");
   assert.equal(literal.formulaLanguage.authority.outputCoordinateWrite, "/calculationGraph/assignments/*/outputCoordinate/write");
+  assert.equal(literal.formulaLanguage.authority.coordinateExpressionLanguage, "/calculationGraph/coordinateLanguage");
   assert.equal(literal.formulaLanguage.authority.predecessorCoordinateAccesses, "/calculationGraph/assignments/*/predecessors/*/accesses");
   assert.equal(literal.formulaLanguage.authority.consumerCoordinateAccesses, "/calculationGraph/assignments/*/consumerCoordinates/*/accesses");
   assert.ok(literal.scalarCalculations.assignments.every((assignment) =>
@@ -878,7 +944,8 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.ok(literal.numericLiterals.literals.some((entry) =>
     entry.uses.some((use) => use.section === "generation" && use.definitionId === "generation_argmax")));
   assert.equal(literal.calculationGraph.assignments.length, 223);
-  assert.equal(literal.calculationGraph.schemaVersion, 3);
+  assert.equal(literal.calculationGraph.schemaVersion, 4);
+  assert.deepEqual(literal.calculationGraph.coordinateLanguage, gemma4LiteralCoordinateExpressionLanguage());
   assert.deepEqual(literal.calculationGraph.assignments.map((entry) => entry.ordinal),
     Array.from({ length: literal.calculationGraph.assignments.length }, (_, index) => index));
   assert.equal(literal.calculationGraph.assignments.some((entry) =>
@@ -891,12 +958,22 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     kind: "tensor-element",
     expression: "composite_image_features/vision_layer_0_q_linear[batch,patch,output_feature]",
     coordinates: ["batch", "patch", "output_feature"],
+    coordinatePrograms: [
+      { kind: "symbol", name: "batch" },
+      { kind: "symbol", name: "patch" },
+      { kind: "symbol", name: "output_feature" },
+    ],
   });
   assert.equal(instantiatedImageQ.predecessors[0]?.producerOperationId, "composite_image_features/vision_layer_0_input_norm");
   assert.deepEqual(instantiatedImageQ.predecessors[0]?.accesses[0], {
     kind: "tensor-element",
     expression: "composite_image_features/vision_layer_0_attn_norm[batch,patch,input_feature]",
     coordinates: ["batch", "patch", "input_feature"],
+    coordinatePrograms: [
+      { kind: "symbol", name: "batch" },
+      { kind: "symbol", name: "patch" },
+      { kind: "symbol", name: "input_feature" },
+    ],
   });
   assert.match(instantiatedImageQ.scalarCalculation.formula, /composite_image_features\/vision_layer_0_attn_norm/);
   assert.equal(instantiatedImageQ.scalarCalculation.output, instantiatedImageQ.output);
@@ -923,6 +1000,15 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
       kind: "tensor-element",
       expression: "composite_image_features/vision_layer_0_q_linear[batch,patch,head*head_dim+head_feature]",
       coordinates: ["batch", "patch", "head*head_dim+head_feature"],
+      coordinatePrograms: [
+        { kind: "symbol", name: "batch" },
+        { kind: "symbol", name: "patch" },
+        {
+          kind: "add",
+          left: { kind: "multiply", left: { kind: "symbol", name: "head" }, right: { kind: "symbol", name: "head_dim" } },
+          right: { kind: "symbol", name: "head_feature" },
+        },
+      ],
     }],
     scalarUse: "addressed",
   });
@@ -1170,13 +1256,22 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   const alteredPredecessorCoordinate = structuredClone(literal);
   alteredPredecessorCoordinate.calculationGraph.assignments.find((entry) =>
     entry.operationId === "composite_image_features/vision_layer_0_q")!.predecessors[0]!.accesses[0] = {
-      kind: "tensor-element", expression: "wrong[0]", coordinates: ["0"],
+      kind: "tensor-element", expression: "wrong[0]", coordinates: ["0"], coordinatePrograms: [{ kind: "constant", value: 0 }],
   };
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(alteredPredecessorCoordinate), /grafo instanciado, bindings ou dependências/);
   const alteredOutputCoordinate = structuredClone(literal);
   alteredOutputCoordinate.calculationGraph.assignments.find((entry) =>
     entry.operationId === "composite_image_features/vision_layer_0_q")!.outputCoordinate.write.coordinates[0] = "wrong";
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(alteredOutputCoordinate), /grafo instanciado, bindings ou dependências/);
+  const alteredOutputCoordinateProgram = structuredClone(literal);
+  alteredOutputCoordinateProgram.calculationGraph.assignments.find((entry) =>
+    entry.operationId === "composite_image_features/vision_layer_0_q")!.outputCoordinate.write.coordinatePrograms[0] = {
+      kind: "constant", value: 0,
+  };
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(alteredOutputCoordinateProgram), /grafo instanciado, bindings ou dependências/);
+  const alteredCoordinateLanguage = structuredClone(literal);
+  alteredCoordinateLanguage.calculationGraph.coordinateLanguage.arithmetic.multiply = "host arithmetic";
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(alteredCoordinateLanguage), /grafo instanciado, bindings ou dependências/);
   const alteredConsumerCoordinate = structuredClone(literal);
   alteredConsumerCoordinate.calculationGraph.assignments.find((entry) =>
     entry.operationId === "composite_image_features/vision_layer_0_q")!.consumerCoordinates[0]!.accesses.pop();
@@ -1271,7 +1366,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 35);
+      assert.equal(artifact.schemaVersion, 36);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.deepEqual(artifact.authoritativeExecution, gemma4AuthoritativeExecutionContract());
@@ -1586,6 +1681,9 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       assert.ok(scalar.terms?.every((term) => term.formula.includes(term.learned.literal) && !term.formula.includes("weight[")));
       assert.deepEqual(scalar.renderedOutputCoordinate.write, {
         kind: "tensor-element", expression: "layer_0_q_linear[0,0,1]", coordinates: ["0", "0", "1"],
+        coordinatePrograms: [
+          { kind: "constant", value: 0 }, { kind: "constant", value: 0 }, { kind: "constant", value: 1 },
+        ],
       });
       assert.equal(scalar.predecessorCoordinates[0]?.producerOperationId, "layer_0_input_norm");
       assert.equal(scalar.predecessorCoordinates[0]?.renderedCoverage, "complete");
@@ -1874,6 +1972,7 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
           kind: "tensor-element",
           expression: "composite_image_features/vision_layer_0_attention_scores[0,0,0,0]",
           coordinates: ["0", "0", "0", "0"],
+          coordinatePrograms: Array.from({ length: 4 }, () => ({ kind: "constant" as const, value: 0 })),
         });
         assert.deepEqual(imageScoreAudit.predecessorCoordinates.map((entry) => [
           entry.producerOperationId, entry.renderedCoverage, entry.renderedAccesses.filter((access) => access.kind === "tensor-element").length,
