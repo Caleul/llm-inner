@@ -270,6 +270,18 @@ slices. O leitor deve validar esse objeto canônico e executá-lo antes do
 `forwardControl`. Adulterar o catálogo, rank, buffer, domínio, shape relacionado,
 propriedade de cache ou cardinalidade é erro, nunca um default do host.
 
+No schema v32, `outputContract` torna a fronteira pública do cálculo igualmente
+executável. Para forward, ele liga `hidden_states_0`, `ple_inputs` e logits aos
+produtores declarados, fixa dtype F32, layout row-major e shapes derivados dos
+inputs/configuração, e exige que o estado KV contenha apenas produtores no
+layout BHSD com comprimento `past_sequence + input_sequence`. Para geração,
+ele declara tokens, logits de seleção, snapshots KV e estado terminal como
+funções de `executed_steps`; zero passos deve devolver exatamente o prefill e
+um ou mais passos deve devolver o cache do último forward incremental. Assim,
+um leitor não pode aceitar um logit com vocabulário divergente, um cache de
+consumer, um snapshot omitido ou um terminal selecionado por convenção do
+host. O caminho síncrono e o paginado executam o mesmo objeto serializado.
+
 ## Programa literal de geração
 
 Logits não completam o produto de geração. O artefato Gemma 4 schema v2 deve

@@ -20,6 +20,10 @@ import { buildGemma4LiteralGenerationNavigation, renderGemma4LiteralGenerationCa
 import { selectGemma4LiteralGenerationToken } from "../src/gemma4-literal-generation-control.js";
 import { executeGemma4LiteralForwardControlProgram } from "../src/gemma4-literal-forward-control.js";
 import { executeGemma4LiteralInputContract } from "../src/gemma4-literal-input-contract.js";
+import {
+  executeGemma4LiteralForwardOutputContract,
+  executeGemma4LiteralGenerationOutputContract,
+} from "../src/gemma4-literal-output-contract.js";
 import { buildGemma4LiteralCalculationSlice } from "../src/gemma4-literal-calculation-slice.js";
 import { buildGemma4LiteralEndToEndCalculation } from "../src/gemma4-literal-end-to-end-calculation.js";
 import {
@@ -436,21 +440,30 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 31);
+  assert.equal(literal.schemaVersion, 32);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   assert.deepEqual(literal.authoritativeExecution, gemma4AuthoritativeExecutionContract());
   assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.languageId, literal.generation.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.authority.numericLiteralBits, "/numericLiterals/literals");
-  assert.equal(literal.formulaLanguage.schemaVersion, 17);
+  assert.equal(literal.formulaLanguage.schemaVersion, 18);
   assert.equal(literal.formulaLanguage.authority.generationControlProgram, "/generation/controlProgram");
   assert.equal(literal.formulaLanguage.authority.forwardControlProgram, "/forwardControl");
   assert.equal(literal.formulaLanguage.authority.inputContract, "/inputContract");
+  assert.equal(literal.formulaLanguage.authority.outputContract, "/outputContract");
   assert.equal(literal.inputContract.kind, "gemma4-literal-input-contract");
   assert.equal(literal.inputContract.vision.pixelFeatures, 12);
   assert.equal(literal.inputContract.audio.projectionInputFeatures, 4);
   assert.deepEqual(literal.inputContract.text.cacheProducers.map((entry) => entry.layer), [0, 1]);
+  assert.equal(literal.outputContract.kind, "gemma4-literal-output-contract");
+  assert.deepEqual(literal.outputContract.forward.tensors.map((entry) => [entry.role, entry.name]), [
+    ["embeddings", "hidden_states_0"],
+    ["per-layer-inputs", "ple_inputs"],
+    ["logits", literal.outputs.logits],
+  ]);
+  assert.deepEqual(literal.outputContract.forward.pastKeyValues.producers.map((entry) => entry.layer), [0, 1]);
+  assert.equal(literal.outputContract.generation.terminal.pastKeyValues, "forward_state[executed_steps].past_key_values");
   const validInputContractRequest = {
     inputIds: [[1, 99, 97, 98, 2]],
     mmTokenTypeIds: [[0, 1, 2, 3, 0]],
@@ -901,6 +914,23 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.deepEqual([...replay.text.logits.values], [...expected.text.logits.values]);
   assert.deepEqual(generation.generatedTokenIds, expectedGeneration.generatedTokenIds);
   assert.deepEqual([...generation.text.logits.values], [...expectedGeneration.text.logits.values]);
+  const malformedForwardOutput = structuredClone(replay);
+  malformedForwardOutput.text.pastKeyValues = new Map([...malformedForwardOutput.text.pastKeyValues].filter(([layer]) => layer !== 0));
+  assert.throws(() => executeGemma4LiteralForwardOutputContract(literal.outputContract, literal.program, {
+    inputIds: [[1, 99, 2]], mmTokenTypeIds: [[0, 1, 0]],
+    pixelValues: patterned([1, 4, 12]), imagePositionIds: [[[0, 0], [1, 0], [0, 1], [1, 1]]],
+  }, malformedForwardOutput), /exatamente os caches produtores/);
+  const malformedGenerationOutput = structuredClone(generation);
+  malformedGenerationOutput.stepPastKeyValues.pop();
+  assert.throws(() => executeGemma4LiteralGenerationOutputContract(literal.outputContract, literal.program, {
+    inputIds: [[1, 99, 2]], maxNewTokens: 2,
+  }, {
+    prefill: malformedGenerationOutput.prefill.text,
+    generatedTokenIds: malformedGenerationOutput.generatedTokenIds,
+    selectionLogits: malformedGenerationOutput.selectionLogits,
+    stepPastKeyValues: malformedGenerationOutput.stepPastKeyValues,
+    terminal: malformedGenerationOutput.text,
+  }), /cardinalidade greedy/);
   const eosGeneration = generateGemma4CompositeLiteralF32(literal, {
     inputIds: [[1, 99, 2]], mmTokenTypeIds: [[0, 1, 0]],
     pixelValues: patterned([1, 4, 12]), imagePositionIds: [[[0, 0], [1, 0], [0, 1], [1, 1]]],
@@ -1013,6 +1043,9 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   const hiddenInputContract = structuredClone(literal);
   hiddenInputContract.inputContract.vision.pixelFeatures += 1;
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(hiddenInputContract), /contrato de inputs, shapes ou cardinalidade/);
+  const hiddenOutputContract = structuredClone(literal);
+  hiddenOutputContract.outputContract.forward.tensors.find((entry) => entry.role === "logits")!.shape[2] = "host_vocab_size";
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(hiddenOutputContract), /contrato de outputs, cache ou estado terminal/);
   const missingCacheTransition = structuredClone(literal);
   missingCacheTransition.generation.forwardCalculation.cacheTransitions.pop();
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(missingCacheTransition), /transições de geração greedy incompletas/);
@@ -1087,7 +1120,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 31);
+      assert.equal(artifact.schemaVersion, 32);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.deepEqual(artifact.authoritativeExecution, gemma4AuthoritativeExecutionContract());
@@ -1680,6 +1713,7 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       assert.equal(endToEnd.generation.cacheTransitions.length, program.textProgram.layers.length);
       assert.ok(endToEnd.declaredInputs.some((input) => input.name === "max_new_tokens" && input.requiredFor.includes("generation")));
       assert.deepEqual(endToEnd.inputContract, artifact.inputContract);
+      assert.deepEqual(endToEnd.outputContract, artifact.outputContract);
       assert.equal(endToEnd.numericLiterals.length, artifact.numericLiterals.literals.length);
       assert.equal(endToEnd.storageCoverage.complete, true);
       assert.equal(

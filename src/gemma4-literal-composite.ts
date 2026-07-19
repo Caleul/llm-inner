@@ -10,6 +10,10 @@ import {
   gemma4CompositeRequestInputPresence,
 } from "./gemma4-literal-forward-control.js";
 import { executeGemma4LiteralInputContract } from "./gemma4-literal-input-contract.js";
+import {
+  executeGemma4LiteralForwardOutputContract,
+  executeGemma4LiteralGenerationOutputContract,
+} from "./gemma4-literal-output-contract.js";
 import { executeGemma4LiteralAudioF32 } from "./gemma4-literal-audio.js";
 import {
   executeGemma4LiteralGenerationProgram,
@@ -129,7 +133,9 @@ export async function executeGemma4LiteralCompositeF32(
     ...(masks ? { attentionMasksByLayer: masks.byLayer } : {}),
     ...(request.pastKeyValues ? { pastKeyValues: request.pastKeyValues } : {}),
   }, prepared, options);
-  return { values: executedText.values, llmInputIds, text: executedText };
+  const result = { values: executedText.values, llmInputIds, text: executedText };
+  executeGemma4LiteralForwardOutputContract(artifact.outputContract, artifact.program, request, result);
+  return result;
 }
 
 /** Executes the serialized greedy state machine with multimodal prefill only. */
@@ -147,6 +153,13 @@ export async function generateGemma4LiteralCompositeF32(
     incremental: async (incremental) => (await executeGemma4LiteralCompositeF32(artifact, incremental, options)).text,
   });
   if (!compositePrefill) throw new Error("Programa literal composite não produziu o prefill multimodal.");
+  executeGemma4LiteralGenerationOutputContract(artifact.outputContract, artifact.program, request, {
+    prefill: generation.prefill,
+    generatedTokenIds: generation.generatedTokenIds,
+    selectionLogits: generation.selectionLogits,
+    stepPastKeyValues: generation.stepPastKeyValues,
+    terminal: generation,
+  });
   return { ...generation, compositePrefill };
 }
 

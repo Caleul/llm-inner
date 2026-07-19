@@ -52,6 +52,7 @@ try {
     formulaLanguage: artifact.formulaLanguage,
     denseDecoderLanguage: artifact.denseDecoderLanguage,
     inputContract: artifact.inputContract,
+    outputContract: artifact.outputContract,
     forwardControl: artifact.forwardControl,
     calculationGraph: {
       assignments: artifact.calculationGraph.assignments.length,

@@ -619,6 +619,19 @@ buffers, shapes relacionados, cache extra/ausente e cardinalidade divergente
 falham antes de qualquer peso ser lido. A evidência do pacote real está em
 [`docs/validation/gemma4-e4b-literal-input-contract-2026-07-19.md`](docs/validation/gemma4-e4b-literal-input-contract-2026-07-19.md).
 
+O schema v32 fecha o mesmo limite na saída. `outputContract` declara os três
+tensores públicos do forward (`hidden_states_0`, `ple_inputs` e logits), seus
+produtores, eixos, shapes e layout; fixa a substituição modal observável em
+`llmInputIds`; e enumera somente os produtores KV que podem aparecer no estado
+BHSD pós-RoPE. Na geração, o contrato liga `executed_steps` a tokens, logits de
+seleção e snapshots de cache, valida o crescimento exato da sequência, a parada
+antecipada somente por EOS e a identidade entre cache terminal e o último
+forward incremental (ou prefill quando zero passos são pedidos). Replay
+síncrono e paginado executam esse objeto depois de cada forward e ao fechar a
+geração; adulterar shape, produtor, propriedade de cache ou relação terminal
+falha fechado. A evidência no pacote real está em
+[`docs/validation/gemma4-e4b-literal-output-contract-2026-07-19.md`](docs/validation/gemma4-e4b-literal-output-contract-2026-07-19.md).
+
 O leitor também pode partir de qualquer saída instanciada e calcular o fecho
 transitivo exato de seus produtores. `--calculation-slice <operation-id>`
 retorna somente as atribuições necessárias ao alvo, ainda em ordem de
@@ -1007,6 +1020,13 @@ No schema v31, os valores que selecionam esses ramos também atravessam
 que significa um tensor de pixels/áudio, quais layers possuem cache, como a
 máscara se relaciona ao cache ou quantos placeholders cada torre deve
 produzir; o JSON contém e executa essas restrições.
+
+No schema v32, o resultado também deixa de depender da interpretação do
+leitor. `outputContract` valida os tensores públicos e o mapa de intermediários,
+a substituição modal dos IDs, os 24 caches produtores e as relações entre
+prefill, cada snapshot greedy e o estado terminal. O mesmo contrato é exposto
+pela vista `--end-to-end-calculation`, junto dos inputs e controles já
+serializados.
 
 O trace composite despacha `image`, `video` e `audio` por um contrato de
 modalidade único, que fixa token type, input, feature output e scatter e rejeita
