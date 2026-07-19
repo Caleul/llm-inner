@@ -670,6 +670,25 @@ A prova source-removed, hashes e a suite diferencial das três modalidades
 estão em
 [`docs/validation/gemma4-e4b-predecessor-coordinate-navigation-2026-07-19.md`](docs/validation/gemma4-e4b-predecessor-coordinate-navigation-2026-07-19.md).
 
+O schema v35 fecha a navegação no sentido produtor → consumidor para a classe
+forward inteira. Cada atribuição agora possui `outputCoordinate.write`, a única
+coordenada no lado esquerdo realmente escrita por seu programa escalar, mais
+eventuais invariantes em `shapeAssertions`. `consumerCoordinates` agrupa, por
+ID de consumidor, os endereços exatos em que essa saída é lida. O mesmo parser
+é usado nos dois sentidos; ele também reduz `row_major_alias(x)[...]` ao acesso
+real `x[...]`, sem tabela por operação, shape, dtype ou layer. Vistas escalares
+concretas e auditorias BMM fail-closed expõem `renderedOutputCoordinate`, então
+o leitor pode sair de um predecessor, localizar a escrita intermediária e
+seguir os consumidores seguintes sem interpretar texto livre.
+
+No E4B real, as 2.708 atribuições possuem 2.708 escritas estruturadas; as 3.361
+arestas produtor-consumidor possuem 4.200 acessos downstream (4.142 de
+elemento, 55 de shape e três de valor completo). A redução de aliases também
+elevou os acessos predecessores de elemento de 4.101 para 4.287 e reduziu
+leituras `whole-value` de 189 para três. A prova source-removed, integridade e
+suite diferencial estão em
+[`docs/validation/gemma4-e4b-bidirectional-coordinate-navigation-2026-07-19.md`](docs/validation/gemma4-e4b-bidirectional-coordinate-navigation-2026-07-19.md).
+
 O leitor também pode partir de qualquer saída instanciada e calcular o fecho
 transitivo exato de seus produtores. `--calculation-slice <operation-id>`
 retorna somente as atribuições necessárias ao alvo, ainda em ordem de

@@ -12,7 +12,7 @@ import {
 
 export interface Gemma4LiteralFormulaLanguageContract {
   kind: "gemma4-literal-formula-language-contract";
-  schemaVersion: 19;
+  schemaVersion: 20;
   languageId: "indexed-ieee754-expression-v1";
   authority: {
     forwardAssignments: "/scalarCalculations/assignments";
@@ -23,7 +23,9 @@ export interface Gemma4LiteralFormulaLanguageContract {
     generationAssignments: "/generation/scalarCalculations/assignments";
     generationControlProgram: "/generation/controlProgram";
     instantiatedForwardOrder: "/calculationGraph/assignments";
+    outputCoordinateWrite: "/calculationGraph/assignments/*/outputCoordinate/write";
     predecessorCoordinateAccesses: "/calculationGraph/assignments/*/predecessors/*/accesses";
+    consumerCoordinateAccesses: "/calculationGraph/assignments/*/consumerCoordinates/*/accesses";
     generationForwardOrder: "/generation/forwardCalculation/operationOrder";
     cacheTransitions: "/generation/forwardCalculation/cacheTransitions";
     learnedOperandBindings: "/learnedOperands/assignments";
@@ -40,6 +42,7 @@ export interface Gemma4LiteralFormulaLanguageContract {
   evaluation: {
     dependencyOrder: string;
     predecessorNavigation: string;
+    outputAndConsumerNavigation: string;
     coordinateOrder: string;
     inputBinding: string;
     operandClosure: string;
@@ -430,7 +433,7 @@ function pytorchPairwiseReduce(values: readonly number[], operation: "maximum" |
 export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormulaLanguageContract {
   return {
     kind: "gemma4-literal-formula-language-contract",
-    schemaVersion: 19,
+    schemaVersion: 20,
     languageId: "indexed-ieee754-expression-v1",
     authority: {
       forwardAssignments: "/scalarCalculations/assignments",
@@ -441,7 +444,9 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
       generationAssignments: "/generation/scalarCalculations/assignments",
       generationControlProgram: "/generation/controlProgram",
       instantiatedForwardOrder: "/calculationGraph/assignments",
+      outputCoordinateWrite: "/calculationGraph/assignments/*/outputCoordinate/write",
       predecessorCoordinateAccesses: "/calculationGraph/assignments/*/predecessors/*/accesses",
+      consumerCoordinateAccesses: "/calculationGraph/assignments/*/consumerCoordinates/*/accesses",
       generationForwardOrder: "/generation/forwardCalculation/operationOrder",
       cacheTransitions: "/generation/forwardCalculation/cacheTransitions",
       learnedOperandBindings: "/learnedOperands/assignments",
@@ -458,6 +463,7 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
     evaluation: {
       dependencyOrder: "evaluate instantiated assignments by ascending ordinal; within each assignment evaluate scalarAssignments in array order, where every local and precondition precedes the final output assignment; every predecessor must already exist",
       predecessorNavigation: "for each predecessor, accesses lists every distinct tensor-element or tensor-shape expression in first-use order; whole-value marks an unindexed structured/control read, while an empty list with scalarUse=shape-or-control-only declares that the dependency affects domain or branch selection rather than the scalar expression",
+      outputAndConsumerNavigation: "outputCoordinate.write is the unique left-hand tensor element assigned by the scalar program; shapeAssertions are output-shape invariants, and consumerCoordinates repeats every downstream read grouped by consumer operation so traversal is exact in both dependency directions",
       coordinateOrder: "row-major lexicographic over the complete declared output domain; preview windows never change evaluation",
       inputBinding: "bind orderedInputs positionally at each instantiated call site before evaluating the indexed formula",
       operandClosure: "every source tensor read names one ordered input and an explicit coordinate expression; free aliases such as input, x, q, k, value, padded_input, ellipsis and prose branch descriptions are invalid",

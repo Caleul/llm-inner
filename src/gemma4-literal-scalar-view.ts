@@ -32,9 +32,13 @@ import {
   type Gemma4LiteralDimensionPrograms,
 } from "./gemma4-literal-dimension-programs.js";
 import {
+  buildGemma4LiteralConsumerCoordinateNavigation,
+  buildGemma4LiteralOutputCoordinateNavigation,
   buildGemma4LiteralPredecessorCoordinateNavigation,
   extractGemma4LiteralCoordinateAccesses,
+  type Gemma4LiteralConsumerCoordinateNavigation,
   type Gemma4LiteralCoordinateAccess,
+  type Gemma4LiteralOutputCoordinateNavigation,
   type Gemma4LiteralPredecessorCoordinateNavigation,
 } from "./gemma4-literal-coordinate-accesses.js";
 
@@ -49,6 +53,7 @@ export interface Gemma4LiteralOperationNavigation {
   invocationId?: string;
   ordinal: number;
   output: string;
+  outputCoordinate: Gemma4LiteralOutputCoordinateNavigation;
   outputDomain: Gemma4LiteralValueDomain;
   /** Formula template and complete reduction contract serialized in the JSON artifact. */
   scalarCalculation: Gemma4LiteralScalarCalculation;
@@ -61,6 +66,7 @@ export interface Gemma4LiteralOperationNavigation {
     scalarUse: "addressed" | "shape-or-control-only";
   }>;
   consumers: string[];
+  consumerCoordinates: Gemma4LiteralConsumerCoordinateNavigation[];
   previousOperationId?: string;
   nextOperationId?: string;
 }
@@ -104,6 +110,8 @@ export interface Gemma4LiteralScalarView {
   /** Operator meanings plus the exact executable programs used by every substituted learned scalar. */
   denseDecoderLanguage: LiteralDenseDecoderLanguageContract;
   storageDecoders: LiteralDenseStorageDecodeAssignment[];
+  /** Concrete destination coordinate written by this rendered scalar program. */
+  renderedOutputCoordinate: Gemma4LiteralOutputCoordinateNavigation;
   /** Direct links from this concrete scalar formula to predecessor coordinates. */
   predecessorCoordinates: Gemma4LiteralPredecessorCoordinateNavigation[];
   terms?: Gemma4LiteralScalarTerm[];
@@ -120,9 +128,9 @@ export interface Gemma4LiteralScalarView {
 
 export type Gemma4LiteralScalarViewBase = Omit<
   Gemma4LiteralScalarView,
-  "formula" | "scalarAssignments" | "learnedScalars" | "formulaLanguage" | "dimensionLanguage" | "dimensionPrograms" | "transcendentalPrograms" | "denseDecoderLanguage" | "storageDecoders" | "predecessorCoordinates"
+  "formula" | "scalarAssignments" | "learnedScalars" | "formulaLanguage" | "dimensionLanguage" | "dimensionPrograms" | "transcendentalPrograms" | "denseDecoderLanguage" | "storageDecoders" | "renderedOutputCoordinate" | "predecessorCoordinates"
 >;
-export type Gemma4LiteralRenderedScalarView = Omit<Gemma4LiteralScalarView, "formulaLanguage" | "dimensionLanguage" | "dimensionPrograms" | "transcendentalPrograms" | "denseDecoderLanguage" | "storageDecoders" | "predecessorCoordinates">;
+export type Gemma4LiteralRenderedScalarView = Omit<Gemma4LiteralScalarView, "formulaLanguage" | "dimensionLanguage" | "dimensionPrograms" | "transcendentalPrograms" | "denseDecoderLanguage" | "storageDecoders" | "renderedOutputCoordinate" | "predecessorCoordinates">;
 
 export interface Gemma4LiteralScalarViewRequest {
   operationId: string;
@@ -164,6 +172,7 @@ export function listGemma4LiteralTextOperations(artifact: OpenGemma4CompositeLit
       ...(entry.operation.layer === undefined ? {} : { layer: entry.operation.layer }),
       ordinal,
       output: entry.operation.output,
+      outputCoordinate: buildGemma4LiteralOutputCoordinateNavigation(entry.operation.output, scalarCalculation.scalarAssignments),
       outputDomain: requiredTextDomain(artifact, entry.operation.id),
       scalarCalculation,
       ...learnedOperandsFor(artifact, entry.scope, entry.operation.id),
@@ -177,6 +186,21 @@ export function listGemma4LiteralTextOperations(artifact: OpenGemma4CompositeLit
         };
       }),
       consumers: consumersByOutput.get(entry.operation.output) ?? [],
+      consumerCoordinates: buildGemma4LiteralConsumerCoordinateNavigation(
+        entry.operation.output,
+        (consumersByOutput.get(entry.operation.output) ?? []).map((operationId) => {
+          const consumer = entries.find((candidate) => candidate.operation.id === operationId);
+          if (!consumer) throw new Error(`${entry.operation.id}: consumidor textual ausente ${operationId}.`);
+          return {
+            operationId,
+            scalarAssignments: requiredGemma4LiteralScalarCalculation(
+              artifact.scalarCalculations,
+              consumer.scope,
+              consumer.operation.id,
+            ).scalarAssignments,
+          };
+        }),
+      ),
       ...(ordinal === 0 ? {} : { previousOperationId: entries[ordinal - 1]!.operation.id }),
       ...(ordinal + 1 === entries.length ? {} : { nextOperationId: entries[ordinal + 1]!.operation.id }),
     };
@@ -257,6 +281,10 @@ export async function renderGemma4LiteralScalarView(
     transcendentalPrograms: structuredClone(artifact.transcendentalPrograms),
     denseDecoderLanguage: structuredClone(artifact.denseDecoderLanguage),
     storageDecoders,
+    renderedOutputCoordinate: buildGemma4LiteralOutputCoordinateNavigation(
+      selected.output,
+      rendered.scalarAssignments,
+    ),
     predecessorCoordinates: buildGemma4LiteralPredecessorCoordinateNavigation(
       selected.predecessors,
       rendered.scalarAssignments,
@@ -276,6 +304,10 @@ export async function renderGemma4LiteralScalarView(
 export function validateGemma4LiteralScalarView(view: Gemma4LiteralScalarView): void {
   validateGemma4LiteralDimensionExpressionLanguage(view.dimensionLanguage);
   validateGemma4LiteralDimensionPrograms(view.dimensionPrograms);
+  const expectedOutput = buildGemma4LiteralOutputCoordinateNavigation(view.navigation.output, view.scalarAssignments);
+  if (JSON.stringify(view.renderedOutputCoordinate) !== JSON.stringify(expectedOutput)) {
+    throw new Error(`${view.navigation.operationId}: navegação da coordenada de saída ausente ou divergente.`);
+  }
   const expectedPredecessors = buildGemma4LiteralPredecessorCoordinateNavigation(
     view.navigation.predecessors,
     view.scalarAssignments,

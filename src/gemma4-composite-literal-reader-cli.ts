@@ -71,7 +71,7 @@ try {
         total + assignment.predecessors.filter((predecessor) => predecessor.producerOperationId !== undefined).length, 0),
       instantiatedInvocations: [...new Set(artifact.calculationGraph.assignments.flatMap((assignment) => assignment.invocationId ? [assignment.invocationId] : []))],
     },
-    predecessorCoordinateNavigation: predecessorCoordinateNavigationSummary(artifact.calculationGraph.assignments),
+    coordinateNavigation: coordinateNavigationSummary(artifact.calculationGraph.assignments),
     scalarExecution: scalarExecutionSummary(artifact.calculationGraph.assignments),
     reductionDomains: reductionDomainSummary(artifact.calculationGraph.assignments),
     ...(args.assertSourceUnavailable ? { assertedUnavailableSource: args.assertSourceUnavailable, sourceCheckpointAccessed: false } : {}),
@@ -163,9 +163,27 @@ function scalarExecutionSummary(assignments: OpenedCalculationAssignments): Reco
   return { assignments: assignments.length, statements, localStatements, preconditions, multiStatementAssignments };
 }
 
-function predecessorCoordinateNavigationSummary(assignments: OpenedCalculationAssignments): Record<string, number> {
+function coordinateNavigationSummary(assignments: OpenedCalculationAssignments): Record<string, number> {
   let predecessors = 0, addressed = 0, shapeOrControlOnly = 0;
   let tensorElementAccesses = 0, tensorShapeAccesses = 0, wholeValueAccesses = 0;
+  let outputWrites = 0, outputShapeAssertions = 0;
+  let consumers = 0, addressedConsumers = 0, shapeOrControlOnlyConsumers = 0, consumerAccesses = 0;
+  let consumerTensorElementAccesses = 0, consumerTensorShapeAccesses = 0, consumerWholeValueAccesses = 0;
+  for (const assignment of assignments) {
+    outputWrites += 1;
+    outputShapeAssertions += assignment.outputCoordinate.shapeAssertions.length;
+    for (const consumer of assignment.consumerCoordinates) {
+      consumers += 1;
+      consumerAccesses += consumer.accesses.length;
+      if (consumer.scalarUse === "addressed") addressedConsumers += 1;
+      else shapeOrControlOnlyConsumers += 1;
+      for (const access of consumer.accesses) {
+        if (access.kind === "tensor-element") consumerTensorElementAccesses += 1;
+        else if (access.kind === "tensor-shape") consumerTensorShapeAccesses += 1;
+        else consumerWholeValueAccesses += 1;
+      }
+    }
+  }
   for (const assignment of assignments) for (const predecessor of assignment.predecessors) {
     predecessors += 1;
     if (predecessor.scalarUse === "addressed") addressed += 1;
@@ -176,7 +194,23 @@ function predecessorCoordinateNavigationSummary(assignments: OpenedCalculationAs
       else wholeValueAccesses += 1;
     }
   }
-  return { predecessors, addressed, shapeOrControlOnly, tensorElementAccesses, tensorShapeAccesses, wholeValueAccesses };
+  return {
+    outputWrites,
+    outputShapeAssertions,
+    predecessors,
+    addressed,
+    shapeOrControlOnly,
+    tensorElementAccesses,
+    tensorShapeAccesses,
+    wholeValueAccesses,
+    consumers,
+    addressedConsumers,
+    shapeOrControlOnlyConsumers,
+    consumerAccesses,
+    consumerTensorElementAccesses,
+    consumerTensorShapeAccesses,
+    consumerWholeValueAccesses,
+  };
 }
 
 function parseArguments(argv: string[]): Arguments {

@@ -101,7 +101,11 @@ import {
   decodeLiteralDenseElementF32,
   evaluateLiteralDenseElementAddress,
 } from "../src/literal.js";
-import { extractGemma4LiteralCoordinateAccesses } from "../src/gemma4-literal-coordinate-accesses.js";
+import {
+  buildGemma4LiteralConsumerCoordinateNavigation,
+  buildGemma4LiteralOutputCoordinateNavigation,
+  extractGemma4LiteralCoordinateAccesses,
+} from "../src/gemma4-literal-coordinate-accesses.js";
 import type { DenseF32Tensor, ModelCatalog, TensorInfo } from "../src/types.js";
 
 const preview = { outputRows: 1, inputTerms: 1, includeWeights: false } as const;
@@ -150,6 +154,30 @@ test("Gemma 4 coordinate navigation parses nested indices without operation or l
   assert.deepEqual(extractGemma4LiteralCoordinateAccesses("cache", ["next=tuple(cache,delta)"]), [
     { kind: "whole-value", expression: "cache" },
   ]);
+  assert.deepEqual(buildGemma4LiteralOutputCoordinateNavigation("result", [
+    "require result.shape[0]==source.shape[0]",
+    "result[batch,key_index[i]]=F32(source[batch,i])",
+  ]), {
+    write: { kind: "tensor-element", expression: "result[batch,key_index[i]]", coordinates: ["batch", "key_index[i]"] },
+    shapeAssertions: [{ kind: "tensor-shape", expression: "result.shape[0]", axis: "0" }],
+  });
+  assert.deepEqual(buildGemma4LiteralConsumerCoordinateNavigation("result", [{
+    operationId: "consumer",
+    scalarAssignments: ["next[b,i]=result[b,floor((i+1)/2)]"],
+  }]), [{
+    operationId: "consumer",
+    accesses: [{ kind: "tensor-element", expression: "result[b,floor((i+1)/2)]", coordinates: ["b", "floor((i+1)/2)"] }],
+    scalarUse: "addressed",
+  }]);
+  assert.deepEqual(extractGemma4LiteralCoordinateAccesses("hidden", [
+    "heads[b,h,s,d]=row_major_alias(hidden)[b,s,h*64+d]",
+  ]), [{
+    kind: "tensor-element", expression: "hidden[b,s,h*64+d]", coordinates: ["b", "s", "h*64+d"],
+  }]);
+  assert.throws(() => buildGemma4LiteralOutputCoordinateNavigation("result", ["next[i]=result[i]"]), /uma única escrita tensorial/);
+  assert.throws(() => buildGemma4LiteralOutputCoordinateNavigation("result", [
+    "result[i]=source[i]", "require result.shape[0]==source.shape[0]",
+  ]), /precondição anterior à escrita/);
   assert.throws(() => extractGemma4LiteralCoordinateAccesses("x", ["y=x[batch,key[i]"]), /sem '\]' final/);
 });
 
@@ -466,14 +494,14 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 34);
+  assert.equal(literal.schemaVersion, 35);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   assert.deepEqual(literal.authoritativeExecution, gemma4AuthoritativeExecutionContract());
   assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.languageId, literal.generation.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.authority.numericLiteralBits, "/numericLiterals/literals");
-  assert.equal(literal.formulaLanguage.schemaVersion, 19);
+  assert.equal(literal.formulaLanguage.schemaVersion, 20);
   assert.equal(literal.formulaLanguage.authority.generationControlProgram, "/generation/controlProgram");
   assert.equal(literal.formulaLanguage.authority.forwardControlProgram, "/forwardControl");
   assert.equal(literal.formulaLanguage.authority.inputContract, "/inputContract");
@@ -533,7 +561,9 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   ])), /não combina mm_token_type_ids com attention_mask/);
   assert.equal(literal.scalarCalculations.schemaVersion, 3);
   assert.equal(literal.formulaLanguage.authority.forwardScalarExecution, "/calculationGraph/assignments/*/scalarCalculation/scalarAssignments");
+  assert.equal(literal.formulaLanguage.authority.outputCoordinateWrite, "/calculationGraph/assignments/*/outputCoordinate/write");
   assert.equal(literal.formulaLanguage.authority.predecessorCoordinateAccesses, "/calculationGraph/assignments/*/predecessors/*/accesses");
+  assert.equal(literal.formulaLanguage.authority.consumerCoordinateAccesses, "/calculationGraph/assignments/*/consumerCoordinates/*/accesses");
   assert.ok(literal.scalarCalculations.assignments.every((assignment) =>
     assignment.scalarAssignments.at(-1)?.startsWith(`${assignment.output}[`)));
   const orderedVisionRope = literal.scalarCalculations.assignments.find((entry) =>
@@ -848,7 +878,7 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.ok(literal.numericLiterals.literals.some((entry) =>
     entry.uses.some((use) => use.section === "generation" && use.definitionId === "generation_argmax")));
   assert.equal(literal.calculationGraph.assignments.length, 223);
-  assert.equal(literal.calculationGraph.schemaVersion, 2);
+  assert.equal(literal.calculationGraph.schemaVersion, 3);
   assert.deepEqual(literal.calculationGraph.assignments.map((entry) => entry.ordinal),
     Array.from({ length: literal.calculationGraph.assignments.length }, (_, index) => index));
   assert.equal(literal.calculationGraph.assignments.some((entry) =>
@@ -857,6 +887,11 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     entry.operationId === "composite_image_features/vision_layer_0_q")!;
   assert.deepEqual(instantiatedImageQ.orderedInputs, ["composite_image_features/vision_layer_0_attn_norm"]);
   assert.equal(instantiatedImageQ.output, "composite_image_features/vision_layer_0_q_linear");
+  assert.deepEqual(instantiatedImageQ.outputCoordinate.write, {
+    kind: "tensor-element",
+    expression: "composite_image_features/vision_layer_0_q_linear[batch,patch,output_feature]",
+    coordinates: ["batch", "patch", "output_feature"],
+  });
   assert.equal(instantiatedImageQ.predecessors[0]?.producerOperationId, "composite_image_features/vision_layer_0_input_norm");
   assert.deepEqual(instantiatedImageQ.predecessors[0]?.accesses[0], {
     kind: "tensor-element",
@@ -878,6 +913,19 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     const producer = literal.calculationGraph.assignments.find((candidate) => candidate.operationId === predecessor.producerOperationId)!;
     return producer.ordinal < entry.ordinal && producer.consumers.includes(entry.operationId);
   })));
+  assert.ok(literal.calculationGraph.assignments.every((entry) =>
+    entry.consumerCoordinates.length === entry.consumers.length &&
+    entry.consumerCoordinates.every((consumer) => entry.consumers.includes(consumer.operationId) &&
+      consumer.scalarUse === (consumer.accesses.length === 0 ? "shape-or-control-only" : "addressed"))));
+  assert.deepEqual(instantiatedImageQ.consumerCoordinates[0], {
+    operationId: "composite_image_features/vision_layer_0_q_heads",
+    accesses: [{
+      kind: "tensor-element",
+      expression: "composite_image_features/vision_layer_0_q_linear[batch,patch,head*head_dim+head_feature]",
+      coordinates: ["batch", "patch", "head*head_dim+head_feature"],
+    }],
+    scalarUse: "addressed",
+  });
   assert.deepEqual(literal.inputs.filter((input) => input.usedBy.includes("generation")).map((input) => input.name), [
     "input_ids", "position_ids", "pixel_values", "image_position_ids", "pixel_values_videos", "video_position_ids",
     "input_features", "input_features_mask", "mm_token_type_ids", "max_new_tokens", "eos_token_id",
@@ -1123,8 +1171,16 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   alteredPredecessorCoordinate.calculationGraph.assignments.find((entry) =>
     entry.operationId === "composite_image_features/vision_layer_0_q")!.predecessors[0]!.accesses[0] = {
       kind: "tensor-element", expression: "wrong[0]", coordinates: ["0"],
-    };
+  };
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(alteredPredecessorCoordinate), /grafo instanciado, bindings ou dependências/);
+  const alteredOutputCoordinate = structuredClone(literal);
+  alteredOutputCoordinate.calculationGraph.assignments.find((entry) =>
+    entry.operationId === "composite_image_features/vision_layer_0_q")!.outputCoordinate.write.coordinates[0] = "wrong";
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(alteredOutputCoordinate), /grafo instanciado, bindings ou dependências/);
+  const alteredConsumerCoordinate = structuredClone(literal);
+  alteredConsumerCoordinate.calculationGraph.assignments.find((entry) =>
+    entry.operationId === "composite_image_features/vision_layer_0_q")!.consumerCoordinates[0]!.accesses.pop();
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(alteredConsumerCoordinate), /grafo instanciado, bindings ou dependências/);
   const opaqueGeneration = structuredClone(literal);
   opaqueGeneration.generation.scalarCalculations.assignments.find((calculation) =>
     calculation.definitionId === "generation_prefill")!.formula = "forward_state[0] = generic_decoder(input_ids)";
@@ -1215,7 +1271,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 34);
+      assert.equal(artifact.schemaVersion, 35);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.deepEqual(artifact.authoritativeExecution, gemma4AuthoritativeExecutionContract());
@@ -1528,6 +1584,9 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       assert.deepEqual(scalar.learnedScalars.map((entry) => entry.indices), [[1, 0], [1, 1], [1, 2], [1, 3]]);
       assert.ok(scalar.learnedScalars.every((entry) => entry.decoderOperation === "ieee-f32-little-endian" && /^0x[0-9a-f]{8}$/.test(entry.storageBitsHex)));
       assert.ok(scalar.terms?.every((term) => term.formula.includes(term.learned.literal) && !term.formula.includes("weight[")));
+      assert.deepEqual(scalar.renderedOutputCoordinate.write, {
+        kind: "tensor-element", expression: "layer_0_q_linear[0,0,1]", coordinates: ["0", "0", "1"],
+      });
       assert.equal(scalar.predecessorCoordinates[0]?.producerOperationId, "layer_0_input_norm");
       assert.equal(scalar.predecessorCoordinates[0]?.renderedCoverage, "complete");
       assert.deepEqual(scalar.predecessorCoordinates[0]?.renderedAccesses.map((access) => access.expression), [
@@ -1539,6 +1598,12 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       assert.throws(
         () => validateGemma4LiteralScalarView(tamperedPredecessorNavigation),
         /navegação de coordenadas predecessoras ausente ou divergente/,
+      );
+      const tamperedOutputNavigation = structuredClone(scalar);
+      tamperedOutputNavigation.renderedOutputCoordinate.write.coordinates[0] = "1";
+      assert.throws(
+        () => validateGemma4LiteralScalarView(tamperedOutputNavigation),
+        /navegação da coordenada de saída ausente ou divergente/,
       );
 
       const window = await renderGemma4LiteralScalarView(artifact, {
@@ -1805,6 +1870,11 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
         assert.equal(imageScoreAudit.terms.length, program.visionProgram.tower.headDim);
         assert.equal(imageScoreAudit.terms[1]?.leftOperand, "composite_image_features/vision_layer_0_q_rotated[0,0,0,1]");
         assert.equal(imageScoreAudit.terms[1]?.rightOperand, "composite_image_features/vision_layer_0_k_rotated[0,0,0,1]");
+        assert.deepEqual(imageScoreAudit.renderedOutputCoordinate.write, {
+          kind: "tensor-element",
+          expression: "composite_image_features/vision_layer_0_attention_scores[0,0,0,0]",
+          coordinates: ["0", "0", "0", "0"],
+        });
         assert.deepEqual(imageScoreAudit.predecessorCoordinates.map((entry) => [
           entry.producerOperationId, entry.renderedCoverage, entry.renderedAccesses.filter((access) => access.kind === "tensor-element").length,
         ]), [

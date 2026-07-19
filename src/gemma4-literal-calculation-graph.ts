@@ -19,8 +19,12 @@ import type { Gemma4VisionAssignment } from "./gemma4-vision.js";
 import type { Operation } from "./types.js";
 import { bindGemma4LiteralReductionIndexDomains } from "./gemma4-literal-reduction-domains.js";
 import {
+  buildGemma4LiteralConsumerCoordinateNavigation,
+  buildGemma4LiteralOutputCoordinateNavigation,
   extractGemma4LiteralCoordinateAccesses,
+  type Gemma4LiteralConsumerCoordinateNavigation,
   type Gemma4LiteralCoordinateAccess,
+  type Gemma4LiteralOutputCoordinateNavigation,
 } from "./gemma4-literal-coordinate-accesses.js";
 
 type NonTextAssignment = Gemma4CompositeAssignment | Gemma4VisionAssignment | Gemma4AudioAssignment;
@@ -47,16 +51,19 @@ export interface Gemma4LiteralInstantiatedCalculation {
   invocationId?: string;
   orderedInputs: string[];
   output: string;
+  outputCoordinate: Gemma4LiteralOutputCoordinateNavigation;
   outputDomain: Gemma4LiteralValueDomain;
   scalarCalculation: Gemma4LiteralScalarCalculation;
   learnedOperands?: Gemma4LiteralLearnedOperand[];
   predecessors: Gemma4LiteralCalculationPredecessor[];
   consumers: string[];
+  /** Exact downstream reads of this assignment's output, grouped by consumer. */
+  consumerCoordinates: Gemma4LiteralConsumerCoordinateNavigation[];
 }
 
 export interface Gemma4LiteralCalculationGraph {
   kind: "gemma4-literal-instantiated-calculation-graph";
-  schemaVersion: 2;
+  schemaVersion: 3;
   order: "dependency-order";
   assignments: Gemma4LiteralInstantiatedCalculation[];
 }
@@ -103,6 +110,7 @@ export function buildGemma4LiteralCalculationGraph(program: Gemma4CompositeProgr
     consumers.push(seed.operationId);
     consumersByOutput.set(input, consumers);
   }
+  const seedById = new Map(seeds.map((seed) => [seed.operationId, seed]));
   const assignments = seeds.map((seed, ordinal): Gemma4LiteralInstantiatedCalculation => ({
     ordinal,
     operationId: seed.operationId,
@@ -113,6 +121,7 @@ export function buildGemma4LiteralCalculationGraph(program: Gemma4CompositeProgr
     ...(seed.invocationId ? { invocationId: seed.invocationId } : {}),
     orderedInputs: [...seed.inputs],
     output: seed.output,
+    outputCoordinate: buildGemma4LiteralOutputCoordinateNavigation(seed.output, seed.scalarCalculation.scalarAssignments),
     outputDomain: structuredClone(seed.outputDomain),
     scalarCalculation: structuredClone(seed.scalarCalculation),
     ...(seed.learnedOperands ? { learnedOperands: structuredClone(seed.learnedOperands) } : {}),
@@ -126,6 +135,14 @@ export function buildGemma4LiteralCalculationGraph(program: Gemma4CompositeProgr
       };
     }),
     consumers: [...(consumersByOutput.get(seed.output) ?? [])],
+    consumerCoordinates: buildGemma4LiteralConsumerCoordinateNavigation(
+      seed.output,
+      (consumersByOutput.get(seed.output) ?? []).map((operationId) => {
+        const consumer = seedById.get(operationId);
+        if (!consumer) throw new Error(`${seed.operationId}: consumidor ausente ${operationId}.`);
+        return { operationId, scalarAssignments: consumer.scalarCalculation.scalarAssignments };
+      }),
+    ),
   }));
   for (const assignment of assignments) for (const predecessor of assignment.predecessors) {
     if (!predecessor.producerOperationId) continue;
@@ -134,14 +151,14 @@ export function buildGemma4LiteralCalculationGraph(program: Gemma4CompositeProgr
       throw new Error(`${assignment.operationId}: predecessor ${producer.operationId} não antecede o consumidor no grafo literal.`);
     }
   }
-  return { kind: "gemma4-literal-instantiated-calculation-graph", schemaVersion: 2, order: "dependency-order", assignments };
+  return { kind: "gemma4-literal-instantiated-calculation-graph", schemaVersion: 3, order: "dependency-order", assignments };
 }
 
 export function validateGemma4LiteralCalculationGraph(
   graph: Gemma4LiteralCalculationGraph,
   program: Gemma4CompositeProgram,
 ): void {
-  if (graph.kind !== "gemma4-literal-instantiated-calculation-graph" || graph.schemaVersion !== 2 || graph.order !== "dependency-order") {
+  if (graph.kind !== "gemma4-literal-instantiated-calculation-graph" || graph.schemaVersion !== 3 || graph.order !== "dependency-order") {
     throw new Error("Programa literal Gemma 4 possui cabeçalho de grafo de cálculo inválido.");
   }
   if (!isDeepStrictEqual(graph, buildGemma4LiteralCalculationGraph(program))) {

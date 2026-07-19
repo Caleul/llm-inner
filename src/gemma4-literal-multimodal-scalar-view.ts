@@ -30,7 +30,10 @@ import {
   type Gemma4LiteralScalarCalculation,
 } from "./gemma4-literal-scalar-calculations.js";
 import { executeGemma4LiteralAudioRelativeShiftSource } from "./gemma4-literal-formula-language.js";
-import { buildGemma4LiteralPredecessorCoordinateNavigation } from "./gemma4-literal-coordinate-accesses.js";
+import {
+  buildGemma4LiteralOutputCoordinateNavigation,
+  buildGemma4LiteralPredecessorCoordinateNavigation,
+} from "./gemma4-literal-coordinate-accesses.js";
 import {
   buildGemma4LiteralLinearReductionAssignments,
   gemma4LiteralScalarProductFormula,
@@ -83,6 +86,8 @@ export function listGemma4LiteralOperations(artifact: OpenGemma4CompositeLiteral
     ...(assignment.learnedOperands ? { learnedOperands: structuredClone(assignment.learnedOperands) } : {}),
     predecessors: structuredClone(assignment.predecessors),
     consumers: [...assignment.consumers],
+    outputCoordinate: structuredClone(assignment.outputCoordinate),
+    consumerCoordinates: structuredClone(assignment.consumerCoordinates),
   }));
   return navigation.map((entry, ordinal) => {
     return {
@@ -168,6 +173,10 @@ function attachDenseDecoderEvidence(
     transcendentalPrograms: structuredClone(artifact.transcendentalPrograms),
     denseDecoderLanguage: structuredClone(artifact.denseDecoderLanguage),
     storageDecoders,
+    renderedOutputCoordinate: buildGemma4LiteralOutputCoordinateNavigation(
+      view.navigation.output,
+      view.scalarAssignments,
+    ),
     predecessorCoordinates: buildGemma4LiteralPredecessorCoordinateNavigation(
       view.navigation.predecessors,
       view.scalarAssignments,
@@ -249,6 +258,10 @@ function bindScalarView(
     scalarAssignments,
     learnedScalars: view.learnedScalars.map((scalar) => ({ ...scalar })),
     ...(view.terms ? { terms: view.terms.map((term) => ({ ...term, input: replace(term.input), formula: replace(term.formula) })) } : {}),
+    renderedOutputCoordinate: buildGemma4LiteralOutputCoordinateNavigation(
+      navigation.output,
+      scalarAssignments,
+    ),
     predecessorCoordinates: buildGemma4LiteralPredecessorCoordinateNavigation(
       navigation.predecessors,
       scalarAssignments,

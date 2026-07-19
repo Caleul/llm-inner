@@ -319,6 +319,21 @@ expressão escalar. A vista de uma coordenada materializa os mesmos vínculos em
 shapes, dtypes e layers; uma lista de IDs de atribuição seria incompatível com
 este contrato.
 
+No schema v35, a mesma regra é bidirecional. Toda atribuição declara
+`outputCoordinate.write`, que precisa ser a única ocorrência tensorial do
+output no lado esquerdo de `=`, e `shapeAssertions` para invariantes que leem o
+shape da própria saída. `consumerCoordinates` repete os acessos downstream por
+`operationId`; a lista de consumidores e a lista de vínculos coordenados devem
+ter a mesma cardinalidade e ordem. Uma vista concreta materializa a escrita em
+`renderedOutputCoordinate`, inclusive quando o resultado numérico de uma BMM
+continua fail-closed.
+
+O parser trata a notação incorporada `row_major_alias(x)[i,...]` como leitura
+de `x[i,...]`. Isso não inventa semântica arquitetural: `row_major_alias` já é
+um intrínseco layout-only do contrato de fórmulas. A regra vale para qualquer
+atribuição e elimina a falsa classificação de reshape de heads como leitura do
+tensor inteiro.
+
 ## Programa literal de geração
 
 Logits não completam o produto de geração. O artefato Gemma 4 schema v2 deve

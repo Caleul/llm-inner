@@ -6,7 +6,9 @@ import type {
   Gemma4LiteralScalarViewRequest,
 } from "./gemma4-literal-scalar-view.js";
 import {
+  buildGemma4LiteralOutputCoordinateNavigation,
   buildGemma4LiteralPredecessorCoordinateNavigation,
+  type Gemma4LiteralOutputCoordinateNavigation,
   type Gemma4LiteralPredecessorCoordinateNavigation,
 } from "./gemma4-literal-coordinate-accesses.js";
 
@@ -54,6 +56,7 @@ export interface Gemma4LiteralRuntimeReductionAudit {
   output: string;
   status: "fail-closed-runtime-reduction";
   coordinateAssignments: string[];
+  renderedOutputCoordinate: Gemma4LiteralOutputCoordinateNavigation;
   predecessorCoordinates: Gemma4LiteralPredecessorCoordinateNavigation[];
   termTemplate: {
     reductionIndex: string;
@@ -186,6 +189,7 @@ export function renderGemma4LiteralRuntimeReductionAudit(
       term.mathematicalProduct,
     ]),
   ];
+  const nonExecutableResult = `${output} = ${outputCast}(APPLE_ACCELERATE_SGEMM_UNPUBLISHED_REDUCTION(term[complete declared domain])); intentionally unavailable until one authoritative class-wide scalar schedule is proven`;
   return {
     kind: "gemma4-literal-runtime-reduction-product-audit",
     schemaVersion: 1,
@@ -196,6 +200,10 @@ export function renderGemma4LiteralRuntimeReductionAudit(
     output,
     status: "fail-closed-runtime-reduction",
     coordinateAssignments: rendered.coordinateAssignments,
+    renderedOutputCoordinate: buildGemma4LiteralOutputCoordinateNavigation(
+      navigation.output,
+      [nonExecutableResult],
+    ),
     predecessorCoordinates: buildGemma4LiteralPredecessorCoordinateNavigation(
       navigation.predecessors,
       renderedPrograms,
@@ -223,7 +231,7 @@ export function renderGemma4LiteralRuntimeReductionAudit(
       accumulationOrder: "unpublished-provider-boundary",
       outputCast,
     },
-    nonExecutableResult: `${output} = ${outputCast}(APPLE_ACCELERATE_SGEMM_UNPUBLISHED_REDUCTION(term[complete declared domain])); intentionally unavailable until one authoritative class-wide scalar schedule is proven`,
+    nonExecutableResult,
   };
 }
 
