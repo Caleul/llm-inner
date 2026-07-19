@@ -12,10 +12,11 @@ import {
 
 export interface Gemma4LiteralFormulaLanguageContract {
   kind: "gemma4-literal-formula-language-contract";
-  schemaVersion: 13;
+  schemaVersion: 14;
   languageId: "indexed-ieee754-expression-v1";
   authority: {
     forwardAssignments: "/scalarCalculations/assignments";
+    forwardScalarExecution: "/calculationGraph/assignments/*/scalarCalculation/scalarAssignments";
     generationAssignments: "/generation/scalarCalculations/assignments";
     instantiatedForwardOrder: "/calculationGraph/assignments";
     generationForwardOrder: "/generation/forwardCalculation/operationOrder";
@@ -422,10 +423,11 @@ function pytorchPairwiseReduce(values: readonly number[], operation: "maximum" |
 export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormulaLanguageContract {
   return {
     kind: "gemma4-literal-formula-language-contract",
-    schemaVersion: 13,
+    schemaVersion: 14,
     languageId: "indexed-ieee754-expression-v1",
     authority: {
       forwardAssignments: "/scalarCalculations/assignments",
+      forwardScalarExecution: "/calculationGraph/assignments/*/scalarCalculation/scalarAssignments",
       generationAssignments: "/generation/scalarCalculations/assignments",
       instantiatedForwardOrder: "/calculationGraph/assignments",
       generationForwardOrder: "/generation/forwardCalculation/operationOrder",
@@ -442,7 +444,7 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
       reductionDomains: "/scalarCalculations/assignments/*/(reduction|reductionStages/*)/domains",
     },
     evaluation: {
-      dependencyOrder: "evaluate instantiated assignments by ascending ordinal; every predecessor must already exist",
+      dependencyOrder: "evaluate instantiated assignments by ascending ordinal; within each assignment evaluate scalarAssignments in array order, where every local and precondition precedes the final output assignment; every predecessor must already exist",
       coordinateOrder: "row-major lexicographic over the complete declared output domain; preview windows never change evaluation",
       inputBinding: "bind orderedInputs positionally at each instantiated call site before evaluating the indexed formula",
       operandClosure: "every source tensor read names one ordered input and an explicit coordinate expression; free aliases such as input, x, q, k, value, padded_input, ellipsis and prose branch descriptions are invalid",
@@ -528,7 +530,7 @@ export function validateGemma4LiteralFormulaLanguageContract(
     throw new Error("Programa literal Gemma 4 possui linguagem de fórmulas ausente ou divergente.");
   }
   validateGemma4LiteralFormulaFunctionCoverage([
-    ...forward.assignments.map((assignment) => assignment.formula),
+    ...forward.assignments.flatMap((assignment) => assignment.scalarAssignments),
     ...generation.assignments.flatMap((assignment) => assignment.scalarAssignments),
     ...generationForward.cacheTransitions.flatMap((transition) => [
       ...transition.prefill.scalarAssignments,

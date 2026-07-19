@@ -276,6 +276,7 @@ function bindCalculation(
     ...structuredClone(calculation),
     orderedInputs,
     output,
+    scalarAssignments: calculation.scalarAssignments.map((assignment) => bindGemma4LiteralNames(assignment, bindings)),
     formula: bindGemma4LiteralNames(calculation.formula, bindings),
     ...(calculation.reduction ? {
       reduction: {

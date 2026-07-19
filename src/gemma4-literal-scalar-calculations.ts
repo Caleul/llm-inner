@@ -70,6 +70,13 @@ export interface Gemma4LiteralScalarCalculation {
   output: string;
   outputCoordinates: string[];
   learnedOperandRoles: Gemma4LiteralLearnedOperandRole[];
+  /**
+   * Executable scalar statements in dependency order. `formula` remains the
+   * compact output-first audit rendering, while this array declares every
+   * local coordinate, reduction temporary, precondition, and final output in
+   * the order a checkpoint-independent interpreter must evaluate them.
+   */
+  scalarAssignments: string[];
   formula: string;
   dtypePolicy: DtypePolicy;
   reduction?: Gemma4LiteralScalarReduction;
@@ -79,7 +86,7 @@ export interface Gemma4LiteralScalarCalculation {
 
 export interface Gemma4LiteralScalarCalculations {
   kind: "gemma4-literal-scalar-calculations";
-  schemaVersion: 2;
+  schemaVersion: 3;
   formulaLanguage: "indexed-ieee754-expression-v1";
   assignments: Gemma4LiteralScalarCalculation[];
 }
@@ -109,6 +116,12 @@ export function buildGemma4LiteralScalarCalculations(program: Gemma4CompositePro
     const reproducibility = dtypePolicy.accumulationDtype === "runtime-defined" || reduction?.order === "runtime-defined"
       ? "fail-closed-runtime-reduction" as const
       : "literal" as const;
+    const formula = scalarFormula(definition, program, domain);
+    const scalarAssignments = dependencyOrderedScalarAssignments(
+      formula,
+      definition.output,
+      `${definition.scope}:${definition.id}`,
+    );
     return {
       scope: definition.scope,
       definitionId: definition.id,
@@ -117,7 +130,8 @@ export function buildGemma4LiteralScalarCalculations(program: Gemma4CompositePro
       output: definition.output,
       outputCoordinates: domain.domain.axes.map((axis) => axis.name),
       learnedOperandRoles,
-      formula: scalarFormula(definition, program, domain),
+      scalarAssignments,
+      formula,
       dtypePolicy: structuredClone(dtypePolicy),
       ...(reduction ? { reduction } : {}),
       ...(reductionStages.length > 0 ? { reductionStages } : {}),
@@ -135,10 +149,77 @@ export function buildGemma4LiteralScalarCalculations(program: Gemma4CompositePro
   validateOperandClosedFormulas(assignments);
   return {
     kind: "gemma4-literal-scalar-calculations",
-    schemaVersion: 2,
+    schemaVersion: 3,
     formulaLanguage: "indexed-ieee754-expression-v1",
     assignments,
   };
+}
+
+/**
+ * Forward formulas are intentionally rendered output-first for a reader, but
+ * multi-statement formulas also declare local values used by that output.
+ * Turn that finite presentation into an executable program by evaluating the
+ * already dependency-ordered local/precondition tail before the final output.
+ * This applies to the complete operation class rather than selected layer IDs.
+ */
+function dependencyOrderedScalarAssignments(formula: string, output: string, owner: string): string[] {
+  const presentation = formula.split(";").map((statement) => statement.trim()).filter(Boolean);
+  if (presentation.length === 0 || !new RegExp(`^${escapeRegExp(output)}\\s*\\[`).test(presentation[0]!)) {
+    throw new Error(`${owner}: fórmula escalar não inicia pela saída declarada ${output}.`);
+  }
+  if (presentation.length === 1) return presentation;
+
+  const locals = new Set(presentation.slice(1).flatMap(declaredScalarNames));
+  const executable = [...presentation.slice(1), presentation[0]!];
+  const available = new Set<string>();
+  for (const statement of executable) {
+    const declared = declaredScalarNames(statement);
+    if (!statement.startsWith("require ") && declared.length === 0) {
+      throw new Error(`${owner}: statement escalar não declara destino: ${statement}.`);
+    }
+    const expression = scalarStatementExpression(statement);
+    for (const local of locals) {
+      if (containsIdentifier(expression, local) && !available.has(local)) {
+        throw new Error(`${owner}: atribuição escalar lê ${local} antes de sua declaração.`);
+      }
+    }
+    for (const local of declared) available.add(local);
+  }
+  if (!executable.at(-1)?.startsWith(`${output}[`)) {
+    throw new Error(`${owner}: programa escalar não termina na saída declarada ${output}.`);
+  }
+  return executable;
+}
+
+function declaredScalarNames(statement: string): string[] {
+  if (statement.startsWith("require ")) return [];
+  const struct = statement.match(/^STRUCT\(([^)]+)\)\s*=/);
+  if (struct) {
+    const names = struct[1]!.split(",").map((name) => name.trim());
+    if (names.some((name) => !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name))) {
+      throw new Error(`Declaração escalar STRUCT inválida: ${statement}.`);
+    }
+    return names;
+  }
+  const scalar = statement.match(/^([A-Za-z_][A-Za-z0-9_]*)(?:\[[^=]*\])?\s*=/);
+  return scalar ? [scalar[1]!] : [];
+}
+
+function scalarStatementExpression(statement: string): string {
+  if (statement.startsWith("require ")) return statement.slice("require ".length);
+  const equals = statement.indexOf("=");
+  if (equals < 0) throw new Error(`Atribuição escalar sem '=': ${statement}.`);
+  // Stage IDs such as reductionStages[score-dot] are labels, not reads of the
+  // scalar local `score`; the schedule itself is bound beside the assignment.
+  return statement.slice(equals + 1).replace(/reductionStages\[[^\]]+\]/g, "reductionStage");
+}
+
+function containsIdentifier(value: string, identifier: string): boolean {
+  return new RegExp(`(^|[^A-Za-z0-9_])${escapeRegExp(identifier)}([^A-Za-z0-9_]|$)`).test(value);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function validateExplicitCoordinateFormulas(assignments: readonly Gemma4LiteralScalarCalculation[]): void {
@@ -236,7 +317,7 @@ export function validateGemma4LiteralScalarCalculations(
   calculations: Gemma4LiteralScalarCalculations,
   program: Gemma4CompositeProgram,
 ): void {
-  if (calculations.kind !== "gemma4-literal-scalar-calculations" || calculations.schemaVersion !== 2 ||
+  if (calculations.kind !== "gemma4-literal-scalar-calculations" || calculations.schemaVersion !== 3 ||
     calculations.formulaLanguage !== "indexed-ieee754-expression-v1") {
     throw new Error("Programa literal Gemma 4 possui cabeçalho de cálculos escalares inválido.");
   }

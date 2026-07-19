@@ -59,6 +59,7 @@ try {
         total + assignment.predecessors.filter((predecessor) => predecessor.producerOperationId !== undefined).length, 0),
       instantiatedInvocations: [...new Set(artifact.calculationGraph.assignments.flatMap((assignment) => assignment.invocationId ? [assignment.invocationId] : []))],
     },
+    scalarExecution: scalarExecutionSummary(artifact.calculationGraph.assignments),
     reductionDomains: reductionDomainSummary(artifact.calculationGraph.assignments),
     ...(args.assertSourceUnavailable ? { assertedUnavailableSource: args.assertSourceUnavailable, sourceCheckpointAccessed: false } : {}),
   };
@@ -133,6 +134,18 @@ function reductionDomainSummary(assignments: OpenedCalculationAssignments): Reco
 }
 
 type OpenedCalculationAssignments = Awaited<ReturnType<typeof openGemma4CompositeLiteralArtifact>>["calculationGraph"]["assignments"];
+
+function scalarExecutionSummary(assignments: OpenedCalculationAssignments): Record<string, number> {
+  let statements = 0, localStatements = 0, preconditions = 0, multiStatementAssignments = 0;
+  for (const assignment of assignments) {
+    const scalarAssignments = assignment.scalarCalculation.scalarAssignments;
+    statements += scalarAssignments.length;
+    if (scalarAssignments.length > 1) multiStatementAssignments += 1;
+    localStatements += Math.max(0, scalarAssignments.length - 1);
+    preconditions += scalarAssignments.filter((statement) => statement.startsWith("require ")).length;
+  }
+  return { assignments: assignments.length, statements, localStatements, preconditions, multiStatementAssignments };
+}
 
 function parseArguments(argv: string[]): Arguments {
   let artifact: string | undefined, tensor: string | undefined, output: string | undefined, assertSourceUnavailable: string | undefined, operationId: string | undefined, generationOperationId: string | undefined, numericLiteral: string | undefined, calculationSliceOperationId: string | undefined;

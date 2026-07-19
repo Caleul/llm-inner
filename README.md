@@ -564,6 +564,21 @@ extent. A ordem escalar Apple Accelerate das 100 BMM continua corretamente
 fail-closed. Contrato, hashes e replay estão em
 [`docs/validation/gemma4-e4b-executable-reduction-domains-2026-07-18.md`](docs/validation/gemma4-e4b-executable-reduction-domains-2026-07-18.md).
 
+O schema v28 torna executável também a ordem interna de cada fórmula forward.
+`formula` continua sendo a vista compacta output-first para auditoria humana,
+mas cada definição e cada call site passam a carregar `scalarAssignments`: um
+programa em que coordenadas locais, temporários de redução e `require` aparecem
+antes da atribuição final. A construção cobre todas as classes de operação e
+falha se um temporário for lido antes de ser declarado; o binding do grafo
+instanciado reescreve a mesma sequência sem perder a ordem. No pacote real, as
+2.709 atribuições forward contêm 4.146 statements, dos quais 1.437 são passos
+locais/precondições em 288 programas multistep. Isso elimina a necessidade de
+um leitor reordenar por conta própria `score`, `maximum`, `total`, coordenadas
+RoPE/chunked, Welford e pooling. As 100 BMM Apple Accelerate continuam
+explicitamente fail-closed quanto à agenda escalar. Contrato, hashes e replay
+source-removed estão em
+[`docs/validation/gemma4-e4b-dependency-ordered-scalar-programs-2026-07-18.md`](docs/validation/gemma4-e4b-dependency-ordered-scalar-programs-2026-07-18.md).
+
 O leitor também pode partir de qualquer saída instanciada e calcular o fecho
 transitivo exato de seus produtores. `--calculation-slice <operation-id>`
 retorna somente as atribuições necessárias ao alvo, ainda em ordem de
