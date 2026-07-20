@@ -335,6 +335,19 @@ operandos. Cada redução do `fidelityGate` aponta tanto para
 recibo carrega o mesmo objeto. Isso fecha variação de threads e política de
 algoritmo sem alegar uma agenda escalar ainda não publicada pelo Accelerate.
 
+No schema v53, o mesmo objeto passa a fechar também o estado numérico mutável
+do processo. O adapter configura e atesta a precisão F32 de matmul, o modo
+`warn_only` dos algoritmos determinísticos, dtype e device padrão, capability
+CPU, preservação de subnormais e o modo de arredondamento C `FE_TONEAREST`.
+Como Torch não expõe getter para `set_flush_denormal`, a leitura efetiva é um
+probe comportamental serializado: o menor subnormal IEEE-F32 positivo, com
+bits `0x00000001`, deve conservar os mesmos bits depois de multiplicado por
+um. Configuração indisponível ou qualquer divergência falha antes de receber
+operandos do artefato. Isso impede que variáveis de ambiente como
+`TORCH_ALLOW_TF32_CUBLAS_OVERRIDE` alterem silenciosamente a execução coberta
+pelos recibos, sem promover a agenda nativa `runtime-defined` a uma fórmula
+escalar conhecida.
+
 ## Critério de aceite
 
 Uma implementação só é candidata a fechar este requisito quando:

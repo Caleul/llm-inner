@@ -157,6 +157,19 @@ test("Gemma 4 runtime-reduction provider accepts only its pinned contract and ex
   };
   assert.throws(() => executeGemma4RuntimeReduction(wrongExecutionState, request, [1, 1, 2, 2]), /evidência.*divergente/);
 
+  const wrongNumericState: Gemma4RuntimeReductionProvider = {
+    ...provider,
+    execute(actual) {
+      const result = execution(actual, sampleTensor([1, 1, 2, 2]));
+      result.evidence.runtimeAttestation.runtimeExecutionState = {
+        ...result.evidence.runtimeAttestation.runtimeExecutionState,
+        float32MatmulPrecision: "high",
+      } as unknown as typeof GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE;
+      return result;
+    },
+  };
+  assert.throws(() => executeGemma4RuntimeReduction(wrongNumericState, request, [1, 1, 2, 2]), /evidência.*divergente/);
+
   const mismatchedProgram = fixtureProgram();
   mismatchedProgram.assignments[2]!.operation = "add";
   assert.throws(() => executeGemma4RuntimeReduction(provider, { ...request, program: mismatchedProgram }, [1, 1, 2, 2]), /não corresponde.*BMM/);
@@ -176,12 +189,16 @@ test("Gemma 4 runtime-reduction provider executes the integrity-bound embedded a
     gemma4RuntimeReductionInvocationPrograms(),
   );
   const previousOmpThreads = process.env.OMP_NUM_THREADS;
+  const previousTf32Override = process.env.TORCH_ALLOW_TF32_CUBLAS_OVERRIDE;
   process.env.OMP_NUM_THREADS = "1";
+  process.env.TORCH_ALLOW_TF32_CUBLAS_OVERRIDE = "1";
   try {
     assert.deepEqual(executeGemma4RuntimeReduction(provider, request, [1, 1, 2, 2]), sampleTensor([1, 1, 2, 2]));
   } finally {
     if (previousOmpThreads === undefined) delete process.env.OMP_NUM_THREADS;
     else process.env.OMP_NUM_THREADS = previousOmpThreads;
+    if (previousTf32Override === undefined) delete process.env.TORCH_ALLOW_TF32_CUBLAS_OVERRIDE;
+    else process.env.TORCH_ALLOW_TF32_CUBLAS_OVERRIDE = previousTf32Override;
   }
   assert.equal(provider.executions.length, 1);
   assert.equal(provider.executions[0]!.adapterProgramSha256, GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256);
@@ -189,6 +206,12 @@ test("Gemma 4 runtime-reduction provider executes the integrity-bound embedded a
     GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY);
   assert.deepEqual(provider.executions[0]!.runtimeAttestation.runtimeExecutionState,
     GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE);
+  assert.equal(provider.executions[0]!.runtimeAttestation.runtimeExecutionState.float32MatmulPrecision, "highest");
+  assert.deepEqual(provider.executions[0]!.runtimeAttestation.runtimeExecutionState.subnormalProbe, {
+    encoding: "ieee-f32-little-endian",
+    inputBits: 1,
+    multipliedByOneBits: 1,
+  });
 });
 
 test("Gemma 4 embedded adapter executes every serialized invocation program without hidden class transforms", async () => {

@@ -28,7 +28,7 @@ export interface Gemma4AuthoritativeTraceContext {
 
 export interface Gemma4AuthoritativeExecutionContract {
   kind: "gemma4-authoritative-execution-contract";
-  schemaVersion: 8;
+  schemaVersion: 9;
   canonicalCompositeRuntime: typeof GEMMA4_COMPOSITE_REFERENCE_RUNTIME;
   diagnosticSubprogramRuntimes: {
     audio: typeof GEMMA4_AUDIO_REFERENCE_RUNTIME;
@@ -77,7 +77,7 @@ export interface Gemma4RuntimeReductionAdapterProgram {
   sourceUtf8: string;
 }
 
-export const GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256 = "86b33db05f281013ee4214dd9caa18bc9db2f910a903707493ae2543cee2d6c8" as const;
+export const GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256 = "19c97ea27e525a89de8524140b5271113193027291cc3982b176c8ea82a2345d" as const;
 
 /**
  * Exact host identity for the still-opaque Apple Accelerate reduction path.
@@ -191,10 +191,22 @@ export const GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY = {
  * deterministic-algorithm settings can be changed independently at runtime.
  */
 export const GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   intraopThreads: 10,
   interopThreads: 14,
   deterministicAlgorithms: false,
+  deterministicAlgorithmsWarnOnly: false,
+  float32MatmulPrecision: "highest",
+  defaultDtype: "torch.float32",
+  defaultDevice: "cpu",
+  cpuCapability: "DEFAULT",
+  flushDenormal: false,
+  subnormalProbe: {
+    encoding: "ieee-f32-little-endian",
+    inputBits: 1,
+    multipliedByOneBits: 1,
+  },
+  cFloatingPointRoundingMode: "FE_TONEAREST",
   mkldnnAvailable: false,
   mkldnnEnabled: true,
 } as const;
@@ -236,7 +248,7 @@ export function gemma4AuthoritativeExecutionContract(
   validateGemma4RuntimeReductionAdapterProgram(adapterProgram);
   return {
     kind: "gemma4-authoritative-execution-contract",
-    schemaVersion: 8,
+    schemaVersion: 9,
     canonicalCompositeRuntime: GEMMA4_COMPOSITE_REFERENCE_RUNTIME,
     diagnosticSubprogramRuntimes: {
       audio: GEMMA4_AUDIO_REFERENCE_RUNTIME,

@@ -1059,6 +1059,29 @@ efetivo. A agenda escalar Apple Accelerate continua corretamente fail-closed,
 com `exactReplayClaim=forbidden`. Evidência completa em
 [`docs/validation/gemma4-e4b-runtime-execution-state-2026-07-20.md`](docs/validation/gemma4-e4b-runtime-execution-state-2026-07-20.md).
 
+O schema v53 fecha o estado numérico mutável que ainda podia alterar ou
+reinterpretar o `torch.matmul` sem mudar os cinco campos do v52. O adapter
+agora configura e relê `float32MatmulPrecision=highest`, modo determinístico
+sem `warn_only`, dtype e device padrão, capability CPU, preservação de
+subnormais IEEE-F32 e o modo C `FE_TONEAREST`, além dos campos de threads e
+MKLDNN já existentes. A preservação de denormais é verificada por comportamento:
+o menor subnormal positivo (`bits=1`) continua com `bits=1` depois da
+multiplicação por um. Um teste inicia o helper com
+`TORCH_ALLOW_TF32_CUBLAS_OVERRIDE=1`, que altera o estado inicial do Torch para
+`high`, e prova que o programa incorporado restaura e atesta `highest` antes do
+matmul.
+
+O E4B v53 tem 21.409.366.588 bytes, SHA-256
+`e1fb30baa093263dd4f5400e6fc61847748b18ebc2f851dfba80e761f184a3fe`
+e raiz estrutural
+`ed3cacb5a977bf4861da71003a25cfb174f1a4e46f83a33d1325bdf554c6b7a6`.
+Com checkpoint e adapter do checkout fisicamente ausentes, os 2.130 payloads
+foram revalidados e imagem, vídeo e áudio repetiram prefill, logits, 24 caches
+KV e geração greedy a tolerância zero. Todos os 100 recibos carregam o estado
+numérico v2 fechado. A árvore escalar Apple Accelerate permanece corretamente
+no gate, com `exactReplayClaim=forbidden`. Evidência completa em
+[`docs/validation/gemma4-e4b-runtime-numeric-state-2026-07-20.md`](docs/validation/gemma4-e4b-runtime-numeric-state-2026-07-20.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 

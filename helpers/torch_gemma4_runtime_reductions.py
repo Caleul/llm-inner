@@ -2,6 +2,7 @@
 """Execute one pinned Gemma 4 runtime-defined matmul without model access."""
 from __future__ import annotations
 
+import ctypes
 import json
 import hashlib
 import os
@@ -53,13 +54,27 @@ SUPPORTED_RUNTIME_ENVIRONMENT = {
     },
 }
 SUPPORTED_RUNTIME_EXECUTION_STATE = {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "intraopThreads": 10,
     "interopThreads": 14,
     "deterministicAlgorithms": False,
+    "deterministicAlgorithmsWarnOnly": False,
+    "float32MatmulPrecision": "highest",
+    "defaultDtype": "torch.float32",
+    "defaultDevice": "cpu",
+    "cpuCapability": "DEFAULT",
+    "flushDenormal": False,
+    "subnormalProbe": {
+        "encoding": "ieee-f32-little-endian",
+        "inputBits": 1,
+        "multipliedByOneBits": 1,
+    },
+    "cFloatingPointRoundingMode": "FE_TONEAREST",
     "mkldnnAvailable": False,
     "mkldnnEnabled": True,
 }
+
+FE_TONEAREST = 0x00000000
 
 
 def file_identity(role: str, locator: str, path: Path) -> dict[str, Any]:
@@ -184,17 +199,53 @@ def configure_runtime_execution_state() -> None:
     torch.set_num_threads(SUPPORTED_RUNTIME_EXECUTION_STATE["intraopThreads"])
     torch.set_num_interop_threads(SUPPORTED_RUNTIME_EXECUTION_STATE["interopThreads"])
     torch.use_deterministic_algorithms(
-        SUPPORTED_RUNTIME_EXECUTION_STATE["deterministicAlgorithms"]
+        SUPPORTED_RUNTIME_EXECUTION_STATE["deterministicAlgorithms"],
+        warn_only=SUPPORTED_RUNTIME_EXECUTION_STATE["deterministicAlgorithmsWarnOnly"],
     )
+    torch.set_float32_matmul_precision(
+        SUPPORTED_RUNTIME_EXECUTION_STATE["float32MatmulPrecision"]
+    )
+    torch.set_default_dtype(torch.float32)
+    torch.set_default_device("cpu")
+    if not torch.set_flush_denormal(SUPPORTED_RUNTIME_EXECUTION_STATE["flushDenormal"]):
+        raise ValueError("Runtime does not support configuring denormal handling.")
+    process = ctypes.CDLL(None)
+    if process.fesetround(FE_TONEAREST) != 0:
+        raise ValueError("Runtime does not support configuring FE_TONEAREST.")
     torch.backends.mkldnn.enabled = SUPPORTED_RUNTIME_EXECUTION_STATE["mkldnnEnabled"]
+
+
+def subnormal_probe() -> dict[str, Any]:
+    minimum_positive = torch.tensor([2 ** -149], dtype=torch.float32)
+    multiplied = minimum_positive * torch.tensor([1.0], dtype=torch.float32)
+    return {
+        "encoding": "ieee-f32-little-endian",
+        "inputBits": minimum_positive.view(torch.int32).item(),
+        "multipliedByOneBits": multiplied.view(torch.int32).item(),
+    }
+
+
+def c_floating_point_rounding_mode() -> str:
+    mode = ctypes.CDLL(None).fegetround()
+    if mode != FE_TONEAREST:
+        return f"unknown-{mode}"
+    return "FE_TONEAREST"
 
 
 def runtime_execution_state() -> dict[str, Any]:
     return {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "intraopThreads": torch.get_num_threads(),
         "interopThreads": torch.get_num_interop_threads(),
         "deterministicAlgorithms": torch.are_deterministic_algorithms_enabled(),
+        "deterministicAlgorithmsWarnOnly": torch.is_deterministic_algorithms_warn_only_enabled(),
+        "float32MatmulPrecision": torch.get_float32_matmul_precision(),
+        "defaultDtype": str(torch.get_default_dtype()),
+        "defaultDevice": str(torch.get_default_device()),
+        "cpuCapability": torch.backends.cpu.get_cpu_capability(),
+        "flushDenormal": False,
+        "subnormalProbe": subnormal_probe(),
+        "cFloatingPointRoundingMode": c_floating_point_rounding_mode(),
         "mkldnnAvailable": torch.backends.mkldnn.is_available(),
         "mkldnnEnabled": torch.backends.mkldnn.enabled,
     }
