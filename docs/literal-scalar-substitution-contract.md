@@ -206,6 +206,20 @@ terminar em `status=fail-closed-runtime-reduction`, nomear o provider e declarar
 `unpublished-provider-boundary`. Ela nunca produz o escalar de saída nem
 substitui a rejeição da vista executável estrita.
 
+No schema v38, a ordem dos statements deixa também de esconder a navegação
+entre intermediários internos. Cada cálculo forward incorpora
+`statementDataflow` com uma entrada para cada ordinal de `scalarAssignments`.
+`writes` nomeia o local ou output produzido; `reads` registra cada acesso local
+distinto e o `producerStatementOrdinal` anterior; e
+`consumerStatementOrdinals` fornece as arestas reversas. Um local indexado como
+`score[key]` ou `acc[patch-1]` carrega `coordinates` e os mesmos
+`coordinatePrograms` executáveis do grafo externo. A construção é genérica por
+statement: leitura antes da produção, output terminal ausente/duplicado,
+coordenada malformada, aresta reversa divergente ou binding livre falham antes
+da abertura do artefato. A string continua sendo a autoridade aritmética; o
+dataflow elimina somente a necessidade de reparsá-la para descobrir produtores,
+consumidores e coordenadas dos intermediários.
+
 ## Critério de aceite
 
 Uma implementação só é candidata a fechar este requisito quando:

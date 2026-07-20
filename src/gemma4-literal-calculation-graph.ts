@@ -13,6 +13,7 @@ import {
 } from "./gemma4-literal-learned-operands.js";
 import {
   buildGemma4LiteralScalarCalculations,
+  buildGemma4LiteralScalarStatementDataflow,
   type Gemma4LiteralScalarCalculation,
 } from "./gemma4-literal-scalar-calculations.js";
 import type { Gemma4VisionAssignment } from "./gemma4-vision.js";
@@ -66,7 +67,7 @@ export interface Gemma4LiteralInstantiatedCalculation {
 
 export interface Gemma4LiteralCalculationGraph {
   kind: "gemma4-literal-instantiated-calculation-graph";
-  schemaVersion: 5;
+  schemaVersion: 6;
   order: "dependency-order";
   coordinateLanguage: Gemma4LiteralCoordinateExpressionLanguage;
   assignments: Gemma4LiteralInstantiatedCalculation[];
@@ -158,7 +159,7 @@ export function buildGemma4LiteralCalculationGraph(program: Gemma4CompositeProgr
   assignments.forEach(validateCoordinateClosure);
   return {
     kind: "gemma4-literal-instantiated-calculation-graph",
-    schemaVersion: 5,
+    schemaVersion: 6,
     order: "dependency-order",
     coordinateLanguage: gemma4LiteralCoordinateExpressionLanguage(),
     assignments,
@@ -169,7 +170,7 @@ export function validateGemma4LiteralCalculationGraph(
   graph: Gemma4LiteralCalculationGraph,
   program: Gemma4CompositeProgram,
 ): void {
-  if (graph.kind !== "gemma4-literal-instantiated-calculation-graph" || graph.schemaVersion !== 5 || graph.order !== "dependency-order") {
+  if (graph.kind !== "gemma4-literal-instantiated-calculation-graph" || graph.schemaVersion !== 6 || graph.order !== "dependency-order") {
     throw new Error("Programa literal Gemma 4 possui cabeçalho de grafo de cálculo inválido.");
   }
   if (!isDeepStrictEqual(graph, buildGemma4LiteralCalculationGraph(program))) {
@@ -205,6 +206,14 @@ function validateCoordinateClosure(assignment: Gemma4LiteralInstantiatedCalculat
   assignment.outputCoordinate.shapeAssertions.forEach((access) => validateAccess(access, `${assignment.operationId}:output-shape`));
   assignment.predecessors.forEach((predecessor) => predecessor.accesses.forEach((access) =>
     validateAccess(access, `${assignment.operationId}:${predecessor.input}`)));
+  assignment.scalarCalculation.statementDataflow.forEach((statement) => {
+    [...statement.writes, ...statement.reads].forEach((access) => access.coordinatePrograms?.forEach((program) =>
+      validateGemma4LiteralCoordinateExpressionBindings(
+        program,
+        scope,
+        `${assignment.operationId}:statement-${statement.ordinal}:${access.expression}`,
+      )));
+  });
 }
 
 /**
@@ -342,11 +351,17 @@ function bindCalculation(
   orderedInputs: string[],
   output: string,
 ): Gemma4LiteralScalarCalculation {
+  const scalarAssignments = calculation.scalarAssignments.map((assignment) => bindGemma4LiteralNames(assignment, bindings));
   return {
     ...structuredClone(calculation),
     orderedInputs,
     output,
-    scalarAssignments: calculation.scalarAssignments.map((assignment) => bindGemma4LiteralNames(assignment, bindings)),
+    scalarAssignments,
+    statementDataflow: buildGemma4LiteralScalarStatementDataflow(
+      scalarAssignments,
+      output,
+      `${calculation.scope}:${calculation.definitionId}:instantiated`,
+    ),
     formula: bindGemma4LiteralNames(calculation.formula, bindings),
     ...(calculation.reduction ? {
       reduction: {

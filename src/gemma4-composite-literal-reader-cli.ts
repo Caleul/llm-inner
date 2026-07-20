@@ -154,14 +154,43 @@ type OpenedCalculationAssignments = Awaited<ReturnType<typeof openGemma4Composit
 
 function scalarExecutionSummary(assignments: OpenedCalculationAssignments): Record<string, number> {
   let statements = 0, localStatements = 0, preconditions = 0, multiStatementAssignments = 0;
+  let statementDataflowEntries = 0, localWrites = 0, outputWrites = 0, localReads = 0;
+  let producerEdges = 0, reverseConsumerEdges = 0, indexedLocalAccesses = 0, localCoordinatePrograms = 0;
   for (const assignment of assignments) {
     const scalarAssignments = assignment.scalarCalculation.scalarAssignments;
+    const dataflow = assignment.scalarCalculation.statementDataflow;
     statements += scalarAssignments.length;
     if (scalarAssignments.length > 1) multiStatementAssignments += 1;
     localStatements += Math.max(0, scalarAssignments.length - 1);
     preconditions += scalarAssignments.filter((statement) => statement.startsWith("require ")).length;
+    statementDataflowEntries += dataflow.length;
+    for (const statement of dataflow) {
+      localWrites += statement.writes.filter((write) => write.role === "local").length;
+      outputWrites += statement.writes.filter((write) => write.role === "output").length;
+      localReads += statement.reads.length;
+      producerEdges += statement.reads.length;
+      reverseConsumerEdges += statement.consumerStatementOrdinals.length;
+      for (const access of [...statement.writes, ...statement.reads]) {
+        if (access.kind === "indexed") indexedLocalAccesses += 1;
+        localCoordinatePrograms += access.coordinatePrograms?.length ?? 0;
+      }
+    }
   }
-  return { assignments: assignments.length, statements, localStatements, preconditions, multiStatementAssignments };
+  return {
+    assignments: assignments.length,
+    statements,
+    localStatements,
+    preconditions,
+    multiStatementAssignments,
+    statementDataflowEntries,
+    localWrites,
+    outputWrites,
+    localReads,
+    producerEdges,
+    reverseConsumerEdges,
+    indexedLocalAccesses,
+    localCoordinatePrograms,
+  };
 }
 
 function coordinateNavigationSummary(assignments: OpenedCalculationAssignments): Record<string, number> {

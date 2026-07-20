@@ -775,6 +775,28 @@ Apple Accelerate continuam explicitamente `fail-closed-runtime-reduction`.
 Comandos, contagens e hashes estão em
 [`docs/validation/gemma4-e4b-closed-coordinate-bindings-2026-07-19.md`](docs/validation/gemma4-e4b-closed-coordinate-bindings-2026-07-19.md).
 
+O schema v38 fecha a navegação dentro de cada operação. Embora o schema v28 já
+ordenasse `scalarAssignments`, os locals como `score[key]`, `maximum`,
+`angle`, `paired_feature` e `source_coordinate` ainda não declaravam qual
+statement os produzia nem quais statements os consumiam. Cada cálculo agora
+incorpora `statementDataflow`: writes locais/output, reads ligados ao
+`producerStatementOrdinal`, arestas reversas em `consumerStatementOrdinals` e
+ASTs de coordenada para todos os locals indexados. O construtor aplica o mesmo
+algoritmo a todas as classes e call sites; não existe tabela por layer ou
+assignment ID.
+
+No E4B real são 4.144 entries de dataflow para 4.144 statements, 1.431 writes
+locais, 2.708 writes de output, 1.958 reads/arestas de produtor, 1.931 arestas
+reversas deduplicadas e 9.340 programas de coordenada local. O artefato de
+21.394.548.803 bytes tem SHA-256
+`63e3b8da96d56593c3935176a555614e12fde534833fae391b0e1d13aca5f628`.
+Com o checkpoint fisicamente ausente, o leitor verificou os 2.130 payloads,
+abriu o fecho forward/greedy, substituiu pesos BF16 reais e repetiu imagem,
+vídeo e áudio a tolerância zero. As 100 BMM Apple Accelerate permanecem
+`fail-closed-runtime-reduction`; dataflow explícito não inventa a agenda
+nativa. Comandos, contagens e hashes estão em
+[`docs/validation/gemma4-e4b-scalar-intermediate-dataflow-2026-07-19.md`](docs/validation/gemma4-e4b-scalar-intermediate-dataflow-2026-07-19.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 

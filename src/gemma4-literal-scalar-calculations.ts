@@ -14,6 +14,10 @@ import type { Gemma4VisionAssignment } from "./gemma4-vision.js";
 import type { DtypePolicy, Operation, ReductionSchedule } from "./types.js";
 import { gemma4LiteralReductionUsesExactProducts } from "./gemma4-literal-linear-reduction-view.js";
 import {
+  parseGemma4LiteralCoordinateExpression,
+  type Gemma4LiteralCoordinateExpression,
+} from "./gemma4-literal-coordinate-accesses.js";
+import {
   constantGemma4LiteralReductionExtent,
   tensorAxisGemma4LiteralReductionExtent,
   validateGemma4LiteralReductionIndexDomains,
@@ -77,6 +81,12 @@ export interface Gemma4LiteralScalarCalculation {
    * the order a checkpoint-independent interpreter must evaluate them.
    */
   scalarAssignments: string[];
+  /**
+   * Producer/consumer navigation for every scalar local in
+   * `scalarAssignments`. Indexed locals carry executable coordinate programs,
+   * so a reader never has to recover intra-operation dataflow from strings.
+   */
+  statementDataflow: Gemma4LiteralScalarStatementDataflow[];
   formula: string;
   dtypePolicy: DtypePolicy;
   reduction?: Gemma4LiteralScalarReduction;
@@ -86,9 +96,35 @@ export interface Gemma4LiteralScalarCalculation {
 
 export interface Gemma4LiteralScalarCalculations {
   kind: "gemma4-literal-scalar-calculations";
-  schemaVersion: 3;
+  schemaVersion: 4;
   formulaLanguage: "indexed-ieee754-expression-v1";
   assignments: Gemma4LiteralScalarCalculation[];
+}
+
+export interface Gemma4LiteralScalarStatementAccess {
+  kind: "scalar" | "indexed" | "structured-field";
+  name: string;
+  expression: string;
+  coordinates?: string[];
+  coordinatePrograms?: Gemma4LiteralCoordinateExpression[];
+  field?: string;
+}
+
+export interface Gemma4LiteralScalarStatementWrite extends Gemma4LiteralScalarStatementAccess {
+  role: "local" | "output";
+}
+
+export interface Gemma4LiteralScalarStatementRead extends Gemma4LiteralScalarStatementAccess {
+  producerStatementOrdinal: number;
+}
+
+export interface Gemma4LiteralScalarStatementDataflow {
+  ordinal: number;
+  kind: "assignment" | "require";
+  writes: Gemma4LiteralScalarStatementWrite[];
+  reads: Gemma4LiteralScalarStatementRead[];
+  /** Reverse edges to every later statement which reads a value written here. */
+  consumerStatementOrdinals: number[];
 }
 
 interface Definition {
@@ -122,6 +158,11 @@ export function buildGemma4LiteralScalarCalculations(program: Gemma4CompositePro
       definition.output,
       `${definition.scope}:${definition.id}`,
     );
+    const statementDataflow = buildGemma4LiteralScalarStatementDataflow(
+      scalarAssignments,
+      definition.output,
+      `${definition.scope}:${definition.id}`,
+    );
     return {
       scope: definition.scope,
       definitionId: definition.id,
@@ -131,6 +172,7 @@ export function buildGemma4LiteralScalarCalculations(program: Gemma4CompositePro
       outputCoordinates: domain.domain.axes.map((axis) => axis.name),
       learnedOperandRoles,
       scalarAssignments,
+      statementDataflow,
       formula,
       dtypePolicy: structuredClone(dtypePolicy),
       ...(reduction ? { reduction } : {}),
@@ -149,10 +191,164 @@ export function buildGemma4LiteralScalarCalculations(program: Gemma4CompositePro
   validateOperandClosedFormulas(assignments);
   return {
     kind: "gemma4-literal-scalar-calculations",
-    schemaVersion: 3,
+    schemaVersion: 4,
     formulaLanguage: "indexed-ieee754-expression-v1",
     assignments,
   };
+}
+
+/**
+ * Builds exact local producer/consumer edges without dispatching on operation,
+ * layer, dtype, or shape. The source statement remains the arithmetic
+ * authority; this finite graph makes every named intermediate navigable.
+ */
+export function buildGemma4LiteralScalarStatementDataflow(
+  scalarAssignments: readonly string[],
+  output: string,
+  owner: string,
+): Gemma4LiteralScalarStatementDataflow[] {
+  const declaredByStatement = scalarAssignments.map((statement) =>
+    statement.startsWith(`${output}[`) ? [output] : declaredScalarNames(statement));
+  const localNames = new Set(declaredByStatement.flat().filter((name) => name !== output));
+  const lastProducer = new Map<string, number>();
+  const dataflow: Gemma4LiteralScalarStatementDataflow[] = [];
+
+  for (let ordinal = 0; ordinal < scalarAssignments.length; ordinal += 1) {
+    const statement = scalarAssignments[ordinal]!;
+    const writes = declaredByStatement[ordinal]!.map((name) => ({
+      ...scalarStatementTarget(statement, name),
+      role: name === output ? "output" as const : "local" as const,
+    }));
+    const expression = scalarStatementExpression(statement)
+      .replace(/reductionStages\[[^\]]+\]/g, "reductionStage");
+    const reads = scalarLocalReads(expression, localNames).map((access): Gemma4LiteralScalarStatementRead => {
+      const producerStatementOrdinal = lastProducer.get(access.name);
+      if (producerStatementOrdinal === undefined) {
+        throw new Error(`${owner}: statement ${ordinal} lê local ${access.expression} sem produtor anterior.`);
+      }
+      return { ...access, producerStatementOrdinal };
+    });
+    dataflow.push({
+      ordinal,
+      kind: statement.startsWith("require ") ? "require" : "assignment",
+      writes,
+      reads,
+      consumerStatementOrdinals: [],
+    });
+    for (const name of declaredByStatement[ordinal]!) if (name !== output) lastProducer.set(name, ordinal);
+  }
+
+  for (const statement of dataflow) for (const read of statement.reads) {
+    const producer = dataflow[read.producerStatementOrdinal];
+    if (!producer) throw new Error(`${owner}: produtor escalar ${read.producerStatementOrdinal} ausente.`);
+    if (!producer.consumerStatementOrdinals.includes(statement.ordinal)) {
+      producer.consumerStatementOrdinals.push(statement.ordinal);
+    }
+  }
+  const outputWrites = dataflow.flatMap((statement) => statement.writes.filter((write) => write.role === "output"));
+  if (outputWrites.length !== 1 || dataflow.at(-1)?.writes[0]?.role !== "output") {
+    throw new Error(`${owner}: dataflow escalar requer uma única escrita terminal para ${output}.`);
+  }
+  return dataflow;
+}
+
+function scalarStatementTarget(statement: string, name: string): Gemma4LiteralScalarStatementAccess {
+  if (statement.startsWith("STRUCT(")) return { kind: "scalar", name, expression: name };
+  const equals = statement.indexOf("=");
+  if (equals < 0) throw new Error(`Atribuição escalar sem destino: ${statement}.`);
+  const target = statement.slice(0, equals).trim();
+  if (target === name) return { kind: "scalar", name, expression: name };
+  if (!target.startsWith(`${name}[`) || !target.endsWith("]")) {
+    throw new Error(`Destino escalar não suportado ${target}.`);
+  }
+  const coordinates = splitScalarCoordinates(target.slice(name.length + 1, -1));
+  return {
+    kind: "indexed",
+    name,
+    expression: target,
+    coordinates,
+    coordinatePrograms: coordinates.map(parseGemma4LiteralCoordinateExpression),
+  };
+}
+
+function scalarLocalReads(
+  expression: string,
+  localNames: ReadonlySet<string>,
+): Gemma4LiteralScalarStatementAccess[] {
+  const candidates: Array<{ position: number; access: Gemma4LiteralScalarStatementAccess }> = [];
+  for (const name of localNames) {
+    const pattern = new RegExp(`(^|[^A-Za-z0-9_])(${escapeRegExp(name)})(?![A-Za-z0-9_])`, "g");
+    for (let match = pattern.exec(expression); match; match = pattern.exec(expression)) {
+      const position = match.index + match[1]!.length;
+      const access = scalarLocalAccessAt(expression, name, position);
+      candidates.push({ position, access });
+    }
+  }
+  candidates.sort((left, right) => left.position - right.position || left.access.name.localeCompare(right.access.name));
+  const seen = new Set<string>();
+  return candidates.flatMap(({ access }) => {
+    const key = `${access.kind}:${access.expression}`;
+    if (seen.has(key)) return [];
+    seen.add(key);
+    return [access];
+  });
+}
+
+function scalarLocalAccessAt(
+  expression: string,
+  name: string,
+  start: number,
+): Gemma4LiteralScalarStatementAccess {
+  const suffix = start + name.length;
+  if (expression[suffix] === "[") {
+    const end = matchingSquareBracket(expression, suffix);
+    const rendered = expression.slice(start, end + 1);
+    const coordinates = splitScalarCoordinates(expression.slice(suffix + 1, end));
+    return {
+      kind: "indexed",
+      name,
+      expression: rendered,
+      coordinates,
+      coordinatePrograms: coordinates.map(parseGemma4LiteralCoordinateExpression),
+    };
+  }
+  if (expression[suffix] === ".") {
+    const field = /^[A-Za-z_][A-Za-z0-9_]*/.exec(expression.slice(suffix + 1))?.[0];
+    if (!field) throw new Error(`Campo de local estruturado inválido após ${name}.`);
+    return { kind: "structured-field", name, field, expression: `${name}.${field}` };
+  }
+  return { kind: "scalar", name, expression: name };
+}
+
+function matchingSquareBracket(value: string, open: number): number {
+  let depth = 0;
+  for (let index = open; index < value.length; index += 1) {
+    if (value[index] === "[") depth += 1;
+    else if (value[index] === "]" && --depth === 0) return index;
+  }
+  throw new Error(`Acesso local escalar possui colchete não fechado: ${value.slice(open)}.`);
+}
+
+function splitScalarCoordinates(value: string): string[] {
+  const coordinates: string[] = [];
+  let start = 0;
+  let parentheses = 0;
+  let brackets = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    if (value[index] === "(") parentheses += 1;
+    else if (value[index] === ")") parentheses -= 1;
+    else if (value[index] === "[") brackets += 1;
+    else if (value[index] === "]") brackets -= 1;
+    else if (value[index] === "," && parentheses === 0 && brackets === 0) {
+      coordinates.push(value.slice(start, index).trim());
+      start = index + 1;
+    }
+    if (parentheses < 0 || brackets < 0) throw new Error(`Coordenada local escalar malformada: ${value}.`);
+  }
+  if (parentheses !== 0 || brackets !== 0) throw new Error(`Coordenada local escalar malformada: ${value}.`);
+  coordinates.push(value.slice(start).trim());
+  if (coordinates.some((coordinate) => coordinate.length === 0)) throw new Error(`Coordenada local escalar vazia: ${value}.`);
+  return coordinates;
 }
 
 /**
@@ -316,7 +512,7 @@ export function validateGemma4LiteralScalarCalculations(
   calculations: Gemma4LiteralScalarCalculations,
   program: Gemma4CompositeProgram,
 ): void {
-  if (calculations.kind !== "gemma4-literal-scalar-calculations" || calculations.schemaVersion !== 3 ||
+  if (calculations.kind !== "gemma4-literal-scalar-calculations" || calculations.schemaVersion !== 4 ||
     calculations.formulaLanguage !== "indexed-ieee754-expression-v1") {
     throw new Error("Programa literal Gemma 4 possui cabeçalho de cálculos escalares inválido.");
   }
