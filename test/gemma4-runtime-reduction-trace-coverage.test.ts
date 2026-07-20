@@ -14,6 +14,11 @@ import {
 } from "../src/gemma4-runtime-reduction-provider.js";
 import type { Gemma4VisionProgram } from "../src/gemma4-vision.js";
 import type { DifferentialOperationSample } from "../src/types.js";
+import {
+  GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256,
+  loadGemma4RuntimeReductionAdapterProgram,
+} from "../src/gemma4-authoritative-runtime.js";
+import { Gemma4TorchRuntimeReductionProvider } from "../src/gemma4-torch-runtime-reduction-provider.js";
 
 test("Gemma 4 native-reduction coverage binds both exact operands and native output in program order", () => {
   const program = fixtureProgram();
@@ -91,11 +96,28 @@ test("Gemma 4 runtime-reduction provider accepts only its pinned contract and ex
   assert.throws(() => executeGemma4RuntimeReduction(provider, { ...request, program: mismatchedProgram }, [1, 1, 2, 2]), /não corresponde.*BMM/);
 });
 
+test("Gemma 4 runtime-reduction provider executes the integrity-bound embedded adapter", async () => {
+  const request = {
+    scope: "vision" as const,
+    operationId: "vision_layer_0_attention_scores",
+    operation: "attention-score-matmul" as const,
+    program: fixtureProgram(),
+    operands: [sampleTensor([1, 1, 2, 2]), sampleTensor([1, 1, 2, 2])] as const,
+  };
+  const provider = new Gemma4TorchRuntimeReductionProvider(
+    "venv/bin/python",
+    await loadGemma4RuntimeReductionAdapterProgram(),
+  );
+  assert.deepEqual(executeGemma4RuntimeReduction(provider, request, [1, 1, 2, 2]), sampleTensor([1, 1, 2, 2]));
+  assert.equal(provider.executions.length, 1);
+  assert.equal(provider.executions[0]!.adapterProgramSha256, GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256);
+});
+
 function fixtureProgram(): Gemma4VisionProgram {
   return {
     kind: "gemma4-vision-features",
     sourceFormat: "safetensors",
-    tower: {} as Gemma4VisionProgram["tower"],
+    tower: { attentionHeads: 1, headDim: 2 } as Gemma4VisionProgram["tower"],
     textHiddenSize: 2,
     rmsNormEpsilon: 1e-6,
     runtimeDtype: "BF16",
@@ -140,6 +162,7 @@ function execution(request: Gemma4RuntimeReductionRequest, output: ReturnType<ty
       operationId: request.operationId,
       operation: request.operation,
       sourceCheckpointAccessed: false,
+      adapterProgramSha256: GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256,
       runtimeAttestation: expectedGemma4RuntimeReductionAttestation(),
       orderedOperands: [
         gemma4RuntimeReductionTensorEvidence(request.operands[0]),

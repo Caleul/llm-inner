@@ -11,9 +11,10 @@ async function main(): Promise<void> {
   const argv = process.argv.slice(2), maxTensorMiB = Number(value(argv, "--max-tensor-mib", false) ?? "64"), absolute = Number(value(argv, "--absolute-tolerance", false) ?? "0"), relative = Number(value(argv, "--relative-tolerance", false) ?? "0"), topK = Number(value(argv, "--top-k", false) ?? "10");
   if (!Number.isSafeInteger(maxTensorMiB) || maxTensorMiB <= 0 || !Number.isFinite(absolute) || absolute < 0 || !Number.isFinite(relative) || relative < 0 || !Number.isSafeInteger(topK) || topK <= 0) throw new Error("Opções diferenciais vision inválidas.");
   const report = resolve(value(argv, "--report")!), trace = await readGemma4VisionDifferentialTrace(resolve(value(argv, "--trace")!));
+  const artifact = resolve(value(argv, "--artifact")!);
   const runtimeReductionPython = value(argv, "--runtime-reduction-python", false);
-  const runtimeReductionProvider = runtimeReductionPython ? new Gemma4TorchRuntimeReductionProvider(runtimeReductionPython) : undefined;
-  const result = await compareGemma4LiteralVisionTrace({ artifact: resolve(value(argv, "--artifact")!), trace, maxTensorBytes: maxTensorMiB * 1024 * 1024, maxAbsoluteError: absolute, maxRelativeError: relative, topK, ...(value(argv, "--assert-source-unavailable", false) ? { assertSourceUnavailable: resolve(value(argv, "--assert-source-unavailable")!) } : {}), ...(runtimeReductionProvider ? { runtimeReductionProvider } : {}) });
+  const runtimeReductionProvider = runtimeReductionPython ? await Gemma4TorchRuntimeReductionProvider.fromArtifact(runtimeReductionPython, artifact) : undefined;
+  const result = await compareGemma4LiteralVisionTrace({ artifact, trace, maxTensorBytes: maxTensorMiB * 1024 * 1024, maxAbsoluteError: absolute, maxRelativeError: relative, topK, ...(value(argv, "--assert-source-unavailable", false) ? { assertSourceUnavailable: resolve(value(argv, "--assert-source-unavailable")!) } : {}), ...(runtimeReductionProvider ? { runtimeReductionProvider } : {}) });
   await mkdir(dirname(report), { recursive: true });
   await writeFile(report, `${JSON.stringify({
     kind: "gemma4-embedded-literal-vision-differential", sourceCheckpointAccessed: false,

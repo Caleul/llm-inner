@@ -22,11 +22,12 @@ async function main(): Promise<void> {
     throw new Error("Opções numéricas da suite composite são inválidas.");
   }
   const report = resolve(value(argv, "--report"));
+  const artifact = resolve(value(argv, "--artifact"));
   const runtimeReductionProvider = argv.includes("--runtime-reduction-python")
-    ? new Gemma4TorchRuntimeReductionProvider(value(argv, "--runtime-reduction-python"))
+    ? await Gemma4TorchRuntimeReductionProvider.fromArtifact(value(argv, "--runtime-reduction-python"), artifact)
     : undefined;
   const result = await compareGemma4LiteralCompositeModalitySuite({
-    artifact: resolve(value(argv, "--artifact")),
+    artifact,
     traces: {
       image: resolve(value(argv, "--image-trace")),
       video: resolve(value(argv, "--video-trace")),

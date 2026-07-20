@@ -938,6 +938,23 @@ runtime fixado; não publica a árvore escalar proprietária do SGEMM, portanto 
 Evidência completa em
 [`docs/validation/gemma4-e4b-attested-runtime-reduction-replay-2026-07-20.md`](docs/validation/gemma4-e4b-attested-runtime-reduction-replay-2026-07-20.md).
 
+O schema v46 remove também o arquivo helper do checkout como dependência
+implícita desse replay. `authoritativeExecution` incorpora o programa Python
+UTF-8 completo, seu entrypoint, 7.813 bytes e SHA-256
+`6a2d8ab61c3ae2d2b5ca90c908e1d76ff3761615f0f7c662ae63323b0b611674`;
+a raiz estrutural compromete esses bytes. O provider abre o artefato, valida o
+programa incorporado, materializa-o somente em diretório temporário privado e
+inclui o mesmo hash em cada recibo. Com checkpoint e helper do repositório
+fisicamente ausentes, os 2.130 payloads foram revalidados e imagem, vídeo e
+áudio repetiram prefill e geração a tolerância zero com 100/100 recibos. O E4B
+v46 tem 21.409.286.964 bytes, SHA-256
+`2d16f1c79553841d6b92d08216ca6987105f2e376b88e66a049dd9ff7b8c555f`
+e raiz estrutural
+`1b246b3b11c205119321d6bed483289b7a9e74aeb11b00fa2ecb2ebe674fe093`.
+A agenda escalar proprietária continua no gate fail-closed. Evidência completa
+em
+[`docs/validation/gemma4-e4b-embedded-runtime-reduction-adapter-2026-07-20.md`](docs/validation/gemma4-e4b-embedded-runtime-reduction-adapter-2026-07-20.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 

@@ -1,8 +1,12 @@
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, resolve } from "node:path";
+import {
+  validateGemma4RuntimeReductionAdapterProgram,
+  type Gemma4RuntimeReductionAdapterProgram,
+} from "./gemma4-authoritative-runtime.js";
+import { openGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
 import {
   gemma4RuntimeReductionTensorEvidence,
   type Gemma4RuntimeReductionAttestation,
@@ -34,12 +38,25 @@ export class Gemma4TorchRuntimeReductionProvider implements Gemma4RuntimeReducti
   readonly contractId = "torch-2.12.1-cpu-inference-matmul-v1" as const;
   readonly #executions: Gemma4RuntimeReductionExecution["evidence"][] = [];
   readonly #python: string;
-  readonly #helper: string;
+  readonly #adapterProgram: Gemma4RuntimeReductionAdapterProgram;
 
-  constructor(python: string, helper = resolve(dirname(fileURLToPath(import.meta.url)), "../../helpers/torch_gemma4_runtime_reductions.py")) {
+  constructor(python: string, adapterProgram: Gemma4RuntimeReductionAdapterProgram) {
     if (!python) throw new Error("Provedor PyTorch Gemma 4 requer executável Python explícito.");
+    validateGemma4RuntimeReductionAdapterProgram(adapterProgram);
     this.#python = resolve(python);
-    this.#helper = resolve(helper);
+    this.#adapterProgram = structuredClone(adapterProgram);
+  }
+
+  static async fromArtifact(python: string, artifactPath: string): Promise<Gemma4TorchRuntimeReductionProvider> {
+    const artifact = await openGemma4CompositeLiteralArtifact(artifactPath);
+    try {
+      return new Gemma4TorchRuntimeReductionProvider(
+        python,
+        artifact.authoritativeExecution.unresolvedNativeReduction.executableReplay.adapterProgram,
+      );
+    } finally {
+      await artifact.close();
+    }
   }
 
   get executions(): readonly Gemma4RuntimeReductionExecution["evidence"][] {
@@ -50,8 +67,10 @@ export class Gemma4TorchRuntimeReductionProvider implements Gemma4RuntimeReducti
     const directory = mkdtempSync(join(tmpdir(), "llm-inner-gemma4-runtime-reduction-"));
     try {
       const requestPath = join(directory, "request.json");
+      const helperPath = join(directory, "embedded-runtime-reduction.py");
       writeFileSync(requestPath, JSON.stringify(serializeRequest(request)), "utf8");
-      const child = spawnSync(this.#python, [this.#helper, requestPath], {
+      writeFileSync(helperPath, this.#adapterProgram.sourceUtf8, "utf8");
+      const child = spawnSync(this.#python, [helperPath, requestPath], {
         encoding: "utf8",
         maxBuffer: 128 * 1024 * 1024,
       });
@@ -70,6 +89,7 @@ export class Gemma4TorchRuntimeReductionProvider implements Gemma4RuntimeReducti
           operationId: request.operationId,
           operation: request.operation,
           sourceCheckpointAccessed: false,
+          adapterProgramSha256: this.#adapterProgram.sha256,
           runtimeAttestation: response.runtimeAttestation,
           orderedOperands: [
             gemma4RuntimeReductionTensorEvidence(request.operands[0]),

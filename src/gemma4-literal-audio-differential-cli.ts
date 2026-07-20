@@ -23,10 +23,11 @@ async function main(): Promise<void> {
     !Number.isFinite(relative) || relative < 0 || !Number.isSafeInteger(topK) || topK <= 0) throw new Error("Opções diferenciais de áudio inválidas.");
   const report = resolve(value(argv, "--report")!);
   const trace = await readGemma4AudioDifferentialTrace(resolve(value(argv, "--trace")!));
+  const artifact = resolve(value(argv, "--artifact")!);
   const runtimeReductionPython = value(argv, "--runtime-reduction-python", false);
-  const runtimeReductionProvider = runtimeReductionPython ? new Gemma4TorchRuntimeReductionProvider(runtimeReductionPython) : undefined;
+  const runtimeReductionProvider = runtimeReductionPython ? await Gemma4TorchRuntimeReductionProvider.fromArtifact(runtimeReductionPython, artifact) : undefined;
   const result = await compareGemma4LiteralAudioTrace({
-    artifact: resolve(value(argv, "--artifact")!),
+    artifact,
     trace,
     maxTensorBytes: maxTensorMiB * 1024 * 1024,
     maxAbsoluteError: absolute,

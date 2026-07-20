@@ -21,10 +21,13 @@ async function main(): Promise<void> {
   if (![maxReadMiB, maxTowerTensorMiB, topK].every((entry) => Number.isSafeInteger(entry) && entry > 0) ||
     ![absolute, relative].every((entry) => Number.isFinite(entry) && entry >= 0)) throw new Error("Opções numéricas composite inválidas.");
   const report = resolve(value(argv, "--report")!);
+  const artifact = resolve(value(argv, "--artifact")!);
   const runtimeReductionPython = value(argv, "--runtime-reduction-python", false);
-  const runtimeReductionProvider = runtimeReductionPython ? new Gemma4TorchRuntimeReductionProvider(runtimeReductionPython) : undefined;
+  const runtimeReductionProvider = runtimeReductionPython
+    ? await Gemma4TorchRuntimeReductionProvider.fromArtifact(runtimeReductionPython, artifact)
+    : undefined;
   const comparison = await compareGemma4LiteralCompositeTrace({
-    artifact: resolve(value(argv, "--artifact")!),
+    artifact,
     trace: resolve(value(argv, "--trace")!),
     maxReadBytes: maxReadMiB * 1024 * 1024,
     maxTowerTensorBytes: maxTowerTensorMiB * 1024 * 1024,

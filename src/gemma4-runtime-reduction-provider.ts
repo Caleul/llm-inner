@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
-import { gemma4AuthoritativeExecutionContract } from "./gemma4-authoritative-runtime.js";
+import { GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256 } from "./gemma4-authoritative-runtime.js";
 import type { Gemma4AudioProgram } from "./gemma4-audio.js";
 import type { Gemma4VisionProgram } from "./gemma4-vision.js";
 import type { DenseF32Tensor } from "./types.js";
@@ -52,6 +52,7 @@ export interface Gemma4RuntimeReductionExecutionEvidence {
   operationId: string;
   operation: Gemma4RuntimeReductionRequest["operation"];
   sourceCheckpointAccessed: false;
+  adapterProgramSha256: typeof GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256;
   runtimeAttestation: Gemma4RuntimeReductionAttestation;
   orderedOperands: [Gemma4RuntimeReductionTensorEvidence, Gemma4RuntimeReductionTensorEvidence];
   output: Gemma4RuntimeReductionTensorEvidence;
@@ -63,15 +64,14 @@ export interface Gemma4RuntimeReductionExecution {
 }
 
 export function expectedGemma4RuntimeReductionAttestation(): Gemma4RuntimeReductionAttestation {
-  const replay = gemma4AuthoritativeExecutionContract().unresolvedNativeReduction.executableReplay;
   return {
-    runtime: replay.runtime,
-    torchBuildCommit: replay.torchBuildCommit,
-    executionMode: replay.executionMode,
-    device: replay.device,
-    platform: replay.platform,
-    backend: replay.backend,
-    blasBuildSetting: replay.blasBuildSetting,
+    runtime: "torch-2.12.1",
+    torchBuildCommit: "7269437d655783a26cba32aa88195b741ff496aa",
+    executionMode: "torch.inference_mode",
+    device: "cpu",
+    platform: "Darwin-arm64",
+    backend: "Apple Accelerate SGEMM",
+    blasBuildSetting: "BLAS_INFO=accelerate",
   };
 }
 
@@ -114,6 +114,7 @@ export function executeGemma4RuntimeReduction(
     operationId: request.operationId,
     operation: request.operation,
     sourceCheckpointAccessed: false,
+    adapterProgramSha256: GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256,
     runtimeAttestation: expectedGemma4RuntimeReductionAttestation(),
     orderedOperands: [tensorEvidence(request.operands[0]), tensorEvidence(request.operands[1])],
     output: tensorEvidence(result),

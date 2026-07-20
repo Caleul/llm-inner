@@ -90,7 +90,7 @@ import { executeGemma4VisionF32 } from "../src/gemma4-vision.js";
 import { GEMMA4_E4B_PYTORCH_BF16_ATTENTION_IMPLEMENTATION } from "../src/gemma4-text.js";
 import {
   assertGemma4AuthoritativeRuntime,
-  gemma4AuthoritativeExecutionContract,
+  GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256,
   GEMMA4_AUDIO_REFERENCE_RUNTIME,
   GEMMA4_COMPOSITE_REFERENCE_RUNTIME,
   GEMMA4_VISION_REFERENCE_RUNTIME,
@@ -701,12 +701,16 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 45);
+  assert.equal(literal.schemaVersion, 46);
   assert.equal(literal.payloadIntegrity.length, catalog.tensors.size);
   assert.equal(literal.integrityManifest.sections.length, 24);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
-  assert.deepEqual(literal.authoritativeExecution, gemma4AuthoritativeExecutionContract());
+  assert.equal(literal.authoritativeExecution.schemaVersion, 2);
+  assert.equal(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.adapterProgram.sha256,
+    GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256);
+  assert.match(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.adapterProgram.sourceUtf8,
+    /Execute one pinned Gemma 4 runtime-defined matmul without model access/);
   assert.equal(literal.fidelityGate.status, "blocked-on-runtime-reduction");
   assert.equal(literal.fidelityGate.exactReplayClaim, "forbidden");
   assert.equal(literal.fidelityGate.unresolvedNativeReductionCount, literal.fidelityGate.unresolvedNativeReductions.length);
@@ -1354,6 +1358,9 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   const dishonestRuntime = structuredClone(literal);
   dishonestRuntime.authoritativeExecution.executionMode = "torch.no_grad" as "torch.inference_mode";
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(dishonestRuntime), /contrato autoritativo de execução/);
+  const tamperedAdapter = structuredClone(literal);
+  tamperedAdapter.authoritativeExecution.unresolvedNativeReduction.executableReplay.adapterProgram.sourceUtf8 += "\n# tampered\n";
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(tamperedAdapter), /Adapter de redução Gemma 4 diverge/);
   const external = structuredClone(literal);
   external.program.textProgram.source.path = "/checkpoint/model.safetensors";
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(external), /reteve uma referência de source checkpoint/);
@@ -1573,10 +1580,11 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 45);
+      assert.equal(artifact.schemaVersion, 46);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
-      assert.deepEqual(artifact.authoritativeExecution, gemma4AuthoritativeExecutionContract());
+      assert.equal(artifact.authoritativeExecution.unresolvedNativeReduction.executableReplay.adapterProgram.sha256,
+        GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256);
       assert.equal(artifact.constants.size, catalog.tensors.size);
       assert.equal(artifact.program.textProgram.source.path, "embedded://gemma4-composite-literal");
       const tensor = catalog.tensors.get("model.language_model.layers.0.self_attn.q_proj.weight")!;
