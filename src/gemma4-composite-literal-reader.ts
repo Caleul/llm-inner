@@ -48,6 +48,7 @@ import {
 import type { TensorInfo } from "./types.js";
 import {
   validateGemma4LiteralSourceIdentity,
+  validateGemma4LiteralSourceWeightMappings,
   type Gemma4LiteralSourceIdentity,
 } from "./gemma4-literal-source-identity.js";
 import {
@@ -270,6 +271,15 @@ function buildIndex(
   validateGemma4LiteralInputDeclarationAlignment(tail.inputContract as Gemma4LiteralInputContract, header.inputs as Gemma4CompositeLiteralInput[]);
   validateGemma4LiteralOutputContract(tail.outputContract as Gemma4LiteralOutputContract, tail.program as Gemma4CompositeProgram);
   const payloadIntegrity = validatePayloadIntegrity(tail.payloadIntegrity, constants);
+  validateGemma4LiteralSourceWeightMappings(
+    header.sourceIdentity as Gemma4LiteralSourceIdentity,
+    [...constants.values()].map((constant) => ({
+      name: constant.name,
+      storageDtype: constant.storageDtype,
+      storageShape: constant.storageShape,
+      payloadBytes: constant.payloadBytes,
+    })),
+  );
   if (!tail.integrityManifest) throw new Error("Artefato literal Gemma 4 não declara compromisso estrutural.");
   const constantMetadata = [...constants.values()].map(({ payloadOffset: _offset, payloadBase64Characters: _characters, payloadBytes: _bytes, ...metadata }) => metadata);
   validateGemma4LiteralArtifactIntegrityManifest(

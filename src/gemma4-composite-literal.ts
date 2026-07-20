@@ -95,6 +95,7 @@ import {
 import type { ModelCatalog, Operation, TensorInfo, TensorRef } from "./types.js";
 import {
   validateGemma4LiteralSourceIdentity,
+  validateGemma4LiteralSourceWeightMappings,
   type Gemma4LiteralSourceIdentity,
 } from "./gemma4-literal-source-identity.js";
 import {
@@ -182,7 +183,7 @@ export interface Gemma4LiteralGreedyGenerationProgram {
   };
 }
 
-export const GEMMA4_COMPOSITE_LITERAL_SCHEMA_VERSION = 58 as const;
+export const GEMMA4_COMPOSITE_LITERAL_SCHEMA_VERSION = 59 as const;
 
 /**
  * A source-independent literal program for the complete registered Gemma 4
@@ -406,6 +407,12 @@ export async function writeGemma4CompositeLiteralCalculationProgram(
   validateGemma4LiteralSourceIdentity(sourceIdentity);
   const authoritativeExecution = gemma4AuthoritativeExecutionContract(await loadGemma4RuntimeReductionAdapterProgram());
   const prepared = prepareStreamedDenseLiteral(program, catalog, authoritativeExecution);
+  validateGemma4LiteralSourceWeightMappings(sourceIdentity, prepared.constants.map((constant) => ({
+    name: constant.name,
+    storageDtype: constant.metadata.storageDtype,
+    storageShape: constant.metadata.storageShape,
+    payloadBytes: constant.expectedByteLength,
+  })));
   await mkdir(path.dirname(output), { recursive: true });
   const temporary = `${output}.${process.pid}.${Date.now()}.tmp`;
   const stream = createWriteStream(temporary, { encoding: "utf8", flags: "w" });
@@ -573,6 +580,12 @@ export function validateGemma4CompositeLiteralCalculationProgram(literal: Gemma4
   validateLiteralStorageBundle(literal);
   validateLiteralPayloadIntegrity(literal.constants, literal.payloadIntegrity);
   const constants = new Map<string, LiteralConstant>(literal.constants.map((constant) => [constant.name, constant]));
+  validateGemma4LiteralSourceWeightMappings(literal.sourceIdentity, literal.constants.map((constant) => ({
+    name: constant.name,
+    storageDtype: constant.storageDtype,
+    storageShape: constant.storageShape,
+    payloadBytes: Buffer.from(constant.payloadBase64, "base64").length,
+  })));
   const expectedInputs = literalInputs();
   const requiredInputs = expectedInputs.map((input) => input.name);
   validateGemma4CompositeLiteralInputs(literal.inputs);

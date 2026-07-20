@@ -125,6 +125,15 @@ valores aprendidos continuam incorporados uma única vez em `constants`. Assim,
 o leitor source-removed não depende de documentação externa para descobrir de
 qual pacote vieram a topologia, os controles ou a tokenização declarados.
 
+No schema v59, o compromisso dos Safetensors também se torna reproduzível a
+partir do artefato. Cada shard particiona todos os bytes, em ordem e sem
+lacunas, entre segmentos estruturais Base64 e segmentos ligados pelo nome a
+uma única constante. O prefixo de oito bytes, o JSON exato do header,
+`data_offsets`, dtype, shape e quaisquer gaps/trailers são validados contra a
+constante correspondente. Um leitor pode recompor e re-hashear o arquivo
+inteiro ou uma janela limitada sem abrir o checkpoint; tensor omitido,
+duplicado, deslocado ou com shape/dtype/byte length divergente falha fechado.
+
 No schema v10, `formulaLanguage` incorpora a interpretação normativa de
 `indexed-ieee754-expression-v1`. Seus JSON pointers ligam fórmulas forward e
 greedy à ordem instanciada, domínios, bindings aprendidos, decoders e bits dos

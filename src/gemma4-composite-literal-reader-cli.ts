@@ -6,8 +6,10 @@ import { buildGemma4LiteralGenerationNavigation, renderGemma4LiteralGenerationCa
 import { buildGemma4LiteralCalculationSlice } from "./gemma4-literal-calculation-slice.js";
 import { buildGemma4LiteralEndToEndCalculation } from "./gemma4-literal-end-to-end-calculation.js";
 import {
-  readGemma4LiteralEmbeddedMetadataRange,
+  readGemma4LiteralSourceFileRange,
   summarizeGemma4LiteralSourceIdentity,
+  verifyGemma4LiteralSourceFileReconstruction,
+  type Gemma4LiteralSourceConstantMetadata,
 } from "./gemma4-literal-source-identity.js";
 import {
   listGemma4LiteralOperations,
@@ -45,6 +47,7 @@ interface Arguments {
   sourceFile?: string;
   sourceOffset: number;
   sourceByteLength?: number;
+  verifySourceFiles: boolean;
 }
 
 const args = parseArguments(process.argv.slice(2));
@@ -86,12 +89,32 @@ try {
     reductionDomains: reductionDomainSummary(artifact.calculationGraph.assignments),
     ...(args.assertSourceUnavailable ? { assertedUnavailableSource: args.assertSourceUnavailable, sourceCheckpointAccessed: false } : {}),
   };
+  const sourceConstants = new Map<string, Gemma4LiteralSourceConstantMetadata>([...artifact.constants].map(([name, constant]) => [name, {
+    name,
+    storageDtype: constant.storageDtype,
+    storageShape: [...constant.storageShape],
+    payloadBytes: constant.payloadBytes,
+  }]));
+  const readSourceTensorRange = async (constant: Gemma4LiteralSourceConstantMetadata, offset: number, byteLength: number): Promise<Buffer> => {
+    const indexed = artifact.constants.get(constant.name);
+    if (!indexed) throw new Error(`${constant.name}: constante literal ausente durante reconstrução de source.`);
+    return artifact.readTensorBytesRange(indexed, offset, byteLength);
+  };
   if (args.sourceFile) {
-    result.selectedSourceFile = readGemma4LiteralEmbeddedMetadataRange(
+    result.selectedSourceFile = await readGemma4LiteralSourceFileRange(
       artifact.sourceIdentity,
+      sourceConstants,
+      readSourceTensorRange,
       args.sourceFile,
       args.sourceOffset,
       args.sourceByteLength,
+    );
+  }
+  if (args.verifySourceFiles) {
+    result.sourceFileReconstruction = await verifyGemma4LiteralSourceFileReconstruction(
+      artifact.sourceIdentity,
+      sourceConstants,
+      readSourceTensorRange,
     );
   }
   if (args.numericLiteral) {
@@ -339,7 +362,7 @@ function parseArguments(argv: string[]): Arguments {
   let outputCoordinate: number[] | undefined, tokenId: number | undefined, positionCoordinate: [number, number] | undefined, inputStart: number | undefined, inputCount: number | undefined;
   let generationMaxNewTokens: number | undefined, sourceByteLength: number | undefined;
   let sourceOffset = 0;
-  let offset = 0, byteLength = 4096, verifyPayloads = false, listOperations = false, listRuntimeReductions = false, runtimeReductionAudit = false, showGenerationProgram = false, listGenerationOperations = false, endToEndCalculation = false;
+  let offset = 0, byteLength = 4096, verifyPayloads = false, verifySourceFiles = false, listOperations = false, listRuntimeReductions = false, runtimeReductionAudit = false, showGenerationProgram = false, listGenerationOperations = false, endToEndCalculation = false;
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
     const next = argv[index + 1];
@@ -348,6 +371,7 @@ function parseArguments(argv: string[]): Arguments {
     else if (value === "--offset") { offset = parseInteger(next, "--offset"); index += 1; }
     else if (value === "--byte-length") { byteLength = parseInteger(next, "--byte-length"); index += 1; }
     else if (value === "--verify-payloads") { verifyPayloads = true; }
+    else if (value === "--verify-source-files") { verifySourceFiles = true; }
     else if (value === "--list-operations") { listOperations = true; }
     else if (value === "--list-runtime-reductions") { listRuntimeReductions = true; }
     else if (value === "--runtime-reduction-audit") { runtimeReductionAudit = true; }
@@ -375,8 +399,8 @@ function parseArguments(argv: string[]): Arguments {
     else if (value === "--output") { output = next; index += 1; }
     else throw new Error(`Argumento desconhecido: ${value}.`);
   }
-  if (!artifact) throw new Error("Uso: --artifact <literal.json> [--source-file <path> [--source-offset <bytes> --source-byte-length <bytes>]] [--numeric-literal <token>] [--calculation-slice <operation-id>] [--end-to-end-calculation --generation-max-new-tokens <n>] [--list-operations] [--list-runtime-reductions] [--show-generation-program] [--list-generation-operations --generation-max-new-tokens <n>] [--generation-operation <id> --generation-max-new-tokens <n>] [--operation <id> --output-coordinate <i,j,...> [--runtime-reduction-audit] [--token-id <id>] [--position-coordinate <x,y>] [--input-start <i> --input-count <n>]] [--tensor <nome> --offset <bytes> --byte-length <bytes>] [--verify-payloads --assert-source-unavailable <checkpoint>] [--output <report.json>].");
-  if (assertSourceUnavailable !== undefined && !sourceFile && !verifyPayloads && !operationId && !numericLiteral && !calculationSliceOperationId && !endToEndCalculation && !listOperations && !listRuntimeReductions && !showGenerationProgram && !listGenerationOperations && !generationOperationId) throw new Error("--assert-source-unavailable requer uma operação de inspeção.");
+  if (!artifact) throw new Error("Uso: --artifact <literal.json> [--source-file <path> [--source-offset <bytes> --source-byte-length <bytes>]] [--verify-source-files] [--numeric-literal <token>] [--calculation-slice <operation-id>] [--end-to-end-calculation --generation-max-new-tokens <n>] [--list-operations] [--list-runtime-reductions] [--show-generation-program] [--list-generation-operations --generation-max-new-tokens <n>] [--generation-operation <id> --generation-max-new-tokens <n>] [--operation <id> --output-coordinate <i,j,...> [--runtime-reduction-audit] [--token-id <id>] [--position-coordinate <x,y>] [--input-start <i> --input-count <n>]] [--tensor <nome> --offset <bytes> --byte-length <bytes>] [--verify-payloads --assert-source-unavailable <checkpoint>] [--output <report.json>].");
+  if (assertSourceUnavailable !== undefined && !sourceFile && !verifyPayloads && !verifySourceFiles && !operationId && !numericLiteral && !calculationSliceOperationId && !endToEndCalculation && !listOperations && !listRuntimeReductions && !showGenerationProgram && !listGenerationOperations && !generationOperationId) throw new Error("--assert-source-unavailable requer uma operação de inspeção.");
   if ((tensor === undefined && (offset !== 0 || byteLength !== 4096)) || (tensor !== undefined && (!Number.isSafeInteger(offset) || !Number.isSafeInteger(byteLength) || offset < 0 || byteLength <= 0))) {
     throw new Error("--offset e --byte-length requerem --tensor e valores inteiros positivos.");
   }
@@ -394,7 +418,7 @@ function parseArguments(argv: string[]): Arguments {
   if ((listGenerationOperations || generationOperationId !== undefined || endToEndCalculation) !== (generationMaxNewTokens !== undefined)) throw new Error("Navegação de geração requer --generation-max-new-tokens e uma operação/listagem de geração.");
   if (generationMaxNewTokens !== undefined && generationMaxNewTokens < 0) throw new Error("--generation-max-new-tokens requer inteiro não negativo.");
   return {
-    artifact, ...(tensor ? { tensor } : {}), offset, byteLength, verifyPayloads, listOperations, listRuntimeReductions, runtimeReductionAudit, showGenerationProgram, listGenerationOperations, endToEndCalculation,
+    artifact, ...(tensor ? { tensor } : {}), offset, byteLength, verifyPayloads, verifySourceFiles, listOperations, listRuntimeReductions, runtimeReductionAudit, showGenerationProgram, listGenerationOperations, endToEndCalculation,
     ...(assertSourceUnavailable ? { assertSourceUnavailable } : {}), ...(output ? { output } : {}),
     ...(operationId ? { operationId, outputCoordinate: outputCoordinate! } : {}), ...(tokenId === undefined ? {} : { tokenId }),
     ...(positionCoordinate === undefined ? {} : { positionCoordinate }),
