@@ -131,6 +131,109 @@ export interface Gemma4LiteralSourceFileReconstruction {
   fileCommitments: Array<{ path: string; role: Gemma4LiteralSourceFileRole; bytes: number; sha256: string }>;
 }
 
+/**
+ * Navigable proof that a literal tensor range is the same byte range carried
+ * by one immutable Safetensors source file. The source identity and its
+ * tensor-to-file segment mapping are themselves committed by the artifact
+ * integrity manifest.
+ */
+export interface Gemma4LiteralSourceTensorRangeProvenance {
+  kind: "gemma4-literal-source-tensor-range-provenance";
+  schemaVersion: 1;
+  modelId: string;
+  revision: string;
+  tensor: string;
+  tensorRange: {
+    byteOffset: number;
+    byteLength: number;
+  };
+  sourceFile: {
+    path: string;
+    role: "weights";
+    bytes: number;
+    sha256: string;
+    pointer: string;
+  };
+  safetensorsRange: {
+    byteOffset: number;
+    byteLength: number;
+    segmentPointer: string;
+  };
+  artifactCommitment: {
+    algorithm: "SHA-256";
+    rootSha256: string;
+    sourceIdentitySectionSha256: string;
+    sourceIdentitySectionPointer: string;
+  };
+  mapping: "tensor-relative bytes map to the unique source Safetensors tensor segment at segment.byteOffset + tensorRange.byteOffset";
+}
+
+/** Resolves a literal tensor range back to its exact immutable source bytes. */
+export function buildGemma4LiteralSourceTensorRangeProvenance(
+  identity: Gemma4LiteralSourceIdentity,
+  tensor: string,
+  byteOffset: number,
+  byteLength: number,
+  artifactCommitment: {
+    rootSha256: string;
+    sourceIdentitySectionSha256: string;
+    sourceIdentitySectionIndex: number;
+  },
+): Gemma4LiteralSourceTensorRangeProvenance {
+  validateGemma4LiteralSourceIdentity(identity);
+  if (!tensor || !Number.isSafeInteger(byteOffset) || !Number.isSafeInteger(byteLength) || byteOffset < 0 || byteLength <= 0 ||
+    !Number.isSafeInteger(artifactCommitment.sourceIdentitySectionIndex) || artifactCommitment.sourceIdentitySectionIndex < 0 ||
+    !SHA256.test(artifactCommitment.rootSha256) || !SHA256.test(artifactCommitment.sourceIdentitySectionSha256)) {
+    throw new Error(`${tensor || "tensor"}: range de source ou compromisso estrutural inválido.`);
+  }
+  const matches: Array<{
+    file: Gemma4LiteralSourceFileCommitment;
+    fileIndex: number;
+    segment: Extract<Gemma4LiteralSafetensorsFileSegment, { kind: "tensor-constant" }>;
+    segmentIndex: number;
+  }> = [];
+  identity.files.forEach((file, fileIndex) => {
+    if (file.content.storage !== "embedded-tensor-constants") return;
+    file.content.segments.forEach((segment, segmentIndex) => {
+      if (segment.kind === "tensor-constant" && segment.tensorName === tensor) {
+        matches.push({ file, fileIndex, segment, segmentIndex });
+      }
+    });
+  });
+  const match = matches[0];
+  if (matches.length !== 1 || !match || byteOffset + byteLength > match.segment.byteLength) {
+    throw new Error(`${tensor}: range literal não possui um único mapeamento Safetensors integral.`);
+  }
+  const sourceFilePointer = `/sourceIdentity/files/${match.fileIndex}`;
+  return {
+    kind: "gemma4-literal-source-tensor-range-provenance",
+    schemaVersion: 1,
+    modelId: identity.modelId,
+    revision: identity.revision,
+    tensor,
+    tensorRange: { byteOffset, byteLength },
+    sourceFile: {
+      path: match.file.path,
+      role: "weights",
+      bytes: match.file.bytes,
+      sha256: match.file.sha256,
+      pointer: sourceFilePointer,
+    },
+    safetensorsRange: {
+      byteOffset: match.segment.byteOffset + byteOffset,
+      byteLength,
+      segmentPointer: `${sourceFilePointer}/content/segments/${match.segmentIndex}`,
+    },
+    artifactCommitment: {
+      algorithm: "SHA-256",
+      rootSha256: artifactCommitment.rootSha256,
+      sourceIdentitySectionSha256: artifactCommitment.sourceIdentitySectionSha256,
+      sourceIdentitySectionPointer: `/integrityManifest/sections/${artifactCommitment.sourceIdentitySectionIndex}`,
+    },
+    mapping: "tensor-relative bytes map to the unique source Safetensors tensor segment at segment.byteOffset + tensorRange.byteOffset",
+  };
+}
+
 /** Keeps immutable source identity navigable without expanding large metadata payloads. */
 export function summarizeGemma4LiteralSourceIdentity(
   identity: Gemma4LiteralSourceIdentity,

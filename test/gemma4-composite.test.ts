@@ -61,6 +61,7 @@ import {
   validateGemma4LiteralFormulaFunctionCoverage,
 } from "../src/gemma4-literal-formula-language.js";
 import {
+  buildGemma4LiteralSourceTensorRangeProvenance,
   buildGemma4LiteralSourceIdentity,
   readGemma4LiteralEmbeddedMetadataRange,
   readGemma4LiteralSourceFileRange,
@@ -1761,6 +1762,17 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
       assert.equal(authenticated.integrity.artifactCommitment.rootSha256, artifact.integrityManifest.rootSha256);
       assert.equal(authenticated.integrity.artifactCommitment.payloadIntegritySectionPointer,
         `/integrityManifest/sections/${artifact.integrityManifest.sections.findIndex((section) => section.name === "payloadIntegrity")}`);
+      const sourceFile = artifact.sourceIdentity.files.find((file) => file.role === "weights")!;
+      assert.equal(authenticated.sourceProvenance.sourceFile.path, sourceFile.path);
+      assert.equal(authenticated.sourceProvenance.sourceFile.sha256, sourceFile.sha256);
+      assert.deepEqual(authenticated.sourceProvenance.tensorRange, { byteOffset: 5, byteLength: 23 });
+      assert.equal(authenticated.sourceProvenance.safetensorsRange.byteOffset,
+        (sourceFile.content.storage === "embedded-tensor-constants"
+          ? sourceFile.content.segments.find((segment) => segment.kind === "tensor-constant" && segment.tensorName === tensor.name)!.byteOffset
+          : 0) + 5);
+      assert.equal(authenticated.sourceProvenance.artifactCommitment.rootSha256, artifact.integrityManifest.rootSha256);
+      assert.equal(authenticated.sourceProvenance.artifactCommitment.sourceIdentitySectionPointer,
+        `/integrityManifest/sections/${artifact.integrityManifest.sections.findIndex((section) => section.name === "sourceIdentity")}`);
       assert.equal("payloadBase64" in artifact.constants.get(tensor.name)!, false);
       assert.equal(artifact.payloadIntegrity.size, catalog.tensors.size);
       assert.equal(artifact.integrityManifest.sections.length, 24);
@@ -1875,6 +1887,33 @@ test("Gemma 4 literal payload verifier proves every embedded storage byte before
     assert.throws(
       () => readGemma4LiteralEmbeddedMetadataRange(sourceIdentity, "config.json", 0, sourceSummary.embeddedMetadataBytes + 1),
       /janela de metadata Gemma 4 fora/,
+    );
+    const sourceIdentitySectionIndex = 0;
+    const firstTensor = catalog.tensors.values().next().value!;
+    const provenance = buildGemma4LiteralSourceTensorRangeProvenance(sourceIdentity, firstTensor.name, 1, 2, {
+      rootSha256: "a".repeat(64),
+      sourceIdentitySectionSha256: "b".repeat(64),
+      sourceIdentitySectionIndex,
+    });
+    const weightFile = sourceIdentity.files.find((file) => file.role === "weights")!;
+    const sourceSegment = weightFile.content.storage === "embedded-tensor-constants"
+      ? weightFile.content.segments.find((segment) => segment.kind === "tensor-constant" && segment.tensorName === firstTensor.name)!
+      : undefined;
+    assert.ok(sourceSegment?.kind === "tensor-constant");
+    assert.equal(provenance.safetensorsRange.byteOffset, sourceSegment.byteOffset + 1);
+    assert.equal(provenance.sourceFile.sha256, weightFile.sha256);
+    assert.equal(provenance.artifactCommitment.sourceIdentitySectionPointer, "/integrityManifest/sections/0");
+    assert.throws(
+      () => buildGemma4LiteralSourceTensorRangeProvenance(sourceIdentity, firstTensor.name, firstTensor.byteLength! - 1, 2, {
+        rootSha256: "a".repeat(64), sourceIdentitySectionSha256: "b".repeat(64), sourceIdentitySectionIndex,
+      }),
+      /não possui um único mapeamento Safetensors integral/,
+    );
+    assert.throws(
+      () => buildGemma4LiteralSourceTensorRangeProvenance(sourceIdentity, "missing.tensor", 0, 1, {
+        rootSha256: "a".repeat(64), sourceIdentitySectionSha256: "b".repeat(64), sourceIdentitySectionIndex,
+      }),
+      /não possui um único mapeamento Safetensors integral/,
     );
 
     const verified = await verifyGemma4CompositeLiteralPayloadsAgainstCatalog({ artifact, source, maxReadBytes: 13 });
@@ -2364,6 +2403,13 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       });
       assert.equal(queryScale.learnedScalars[0]!.payloadIntegrity.authenticatedChunks.length, 1);
       assert.equal(queryScale.learnedScalars[0]!.payloadIntegrity.artifactCommitment.rootSha256,
+        artifact.integrityManifest.rootSha256);
+      assert.equal(queryScale.learnedScalars[0]!.sourceProvenance.tensor,
+        "model.audio_tower.layers.0.self_attn.per_dim_scale");
+      assert.equal(queryScale.learnedScalars[0]!.sourceProvenance.tensorRange.byteOffset,
+        queryScale.learnedScalars[0]!.storageByteOffset);
+      assert.equal(queryScale.learnedScalars[0]!.sourceProvenance.sourceFile.role, "weights");
+      assert.equal(queryScale.learnedScalars[0]!.sourceProvenance.artifactCommitment.rootSha256,
         artifact.integrityManifest.rootSha256);
       const depthwise = await renderGemma4LiteralMultimodalScalarView(artifact, {
         operationId: "composite_audio_features/audio_layer_0_conv_depthwise", outputCoordinate: [0, 2, 1],

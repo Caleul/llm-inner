@@ -1,5 +1,6 @@
 import type { OpenGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
 import type { Gemma4LiteralAuthenticatedPayloadRange } from "./gemma4-literal-payload-integrity.js";
+import type { Gemma4LiteralSourceTensorRangeProvenance } from "./gemma4-literal-source-identity.js";
 import {
   decodeLiteralDenseElementF32,
   evaluateLiteralDenseElementAddress,
@@ -87,6 +88,8 @@ export interface Gemma4LiteralLearnedScalar {
   decoderOperation: LiteralDenseStorageDecodeAssignment["operation"];
   /** Exact artifact-integrity chain enforced before this learned value was decoded. */
   payloadIntegrity: Gemma4LiteralAuthenticatedPayloadRange;
+  /** Exact original Safetensors range and immutable source-file commitment for these bits. */
+  sourceProvenance: Gemma4LiteralSourceTensorRangeProvenance;
 }
 
 export interface Gemma4LiteralScalarTerm {
@@ -535,6 +538,7 @@ export async function readGemma4LiteralLearnedScalar(
     decoderId: decoder.id,
     decoderOperation: decoder.operation,
     payloadIntegrity: authenticated.integrity,
+    sourceProvenance: authenticated.sourceProvenance,
   };
 }
 

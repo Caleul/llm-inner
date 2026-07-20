@@ -148,6 +148,7 @@ try {
       byteLength: bytes.length,
       sha256: createHash("sha256").update(bytes).digest("hex"),
       payloadIntegrity: authenticated.integrity,
+      sourceProvenance: authenticated.sourceProvenance,
     };
   }
   if (args.listOperations) result.operations = listGemma4LiteralOperations(artifact);

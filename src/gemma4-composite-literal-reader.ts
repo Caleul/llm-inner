@@ -46,9 +46,11 @@ import {
 } from "./gemma4-literal-numeric-literals.js";
 import type { TensorInfo } from "./types.js";
 import {
+  buildGemma4LiteralSourceTensorRangeProvenance,
   validateGemma4LiteralSourceIdentity,
   validateGemma4LiteralSourceWeightMappings,
   type Gemma4LiteralSourceIdentity,
+  type Gemma4LiteralSourceTensorRangeProvenance,
 } from "./gemma4-literal-source-identity.js";
 import {
   validateGemma4LiteralFormulaLanguageContract,
@@ -145,6 +147,7 @@ export interface OpenGemma4CompositeLiteralArtifact extends Gemma4CompositeLiter
   readTensorBytesRangeWithIntegrity(tensor: TensorInfo, offset: number, byteLength: number): Promise<{
     bytes: Buffer;
     integrity: Gemma4LiteralAuthenticatedPayloadRange;
+    sourceProvenance: Gemma4LiteralSourceTensorRangeProvenance;
   }>;
   close(): Promise<void>;
 }
@@ -199,11 +202,26 @@ export async function openGemma4CompositeLiteralArtifact(artifact: string): Prom
     const tail = parseTailJson(await readStructuralRange(file, cursor, info.size, "cauda estrutural"), "cauda estrutural") as Partial<Gemma4CompositeLiteralCalculationProgram>;
     const index = buildIndex(artifact, info.size, header, tail, constants);
     const payloadReader = new IntegrityVerifiedPayloadReader(file, index.constants, index.payloadIntegrity, index.integrityManifest);
+    const sourceIdentitySectionIndex = index.integrityManifest.sections.findIndex((section) => section.name === "sourceIdentity");
+    const sourceIdentitySection = index.integrityManifest.sections[sourceIdentitySectionIndex];
+    if (sourceIdentitySectionIndex < 0 || !sourceIdentitySection) {
+      throw new Error("Artefato literal Gemma 4 não vincula sourceIdentity ao manifesto estrutural.");
+    }
     return {
       ...index,
       readTensorBytes: (tensor) => payloadReader.readTensorBytes(tensor),
       readTensorBytesRange: (tensor, offset, byteLength) => payloadReader.readTensorBytesRange(tensor, offset, byteLength),
-      readTensorBytesRangeWithIntegrity: (tensor, offset, byteLength) => payloadReader.readTensorBytesRangeWithIntegrity(tensor, offset, byteLength),
+      readTensorBytesRangeWithIntegrity: async (tensor, offset, byteLength) => {
+        const authenticated = await payloadReader.readTensorBytesRangeWithIntegrity(tensor, offset, byteLength);
+        return {
+          ...authenticated,
+          sourceProvenance: buildGemma4LiteralSourceTensorRangeProvenance(index.sourceIdentity, tensor.name, offset, byteLength, {
+            rootSha256: index.integrityManifest.rootSha256,
+            sourceIdentitySectionSha256: sourceIdentitySection.sha256,
+            sourceIdentitySectionIndex,
+          }),
+        };
+      },
       close: async () => { payloadReader.clear(); await file.close(); },
     };
   } catch (error) {
