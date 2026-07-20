@@ -4,6 +4,7 @@ import {
   GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256,
   GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY,
   GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE,
+  GEMMA4_RUNTIME_REDUCTION_PROCESS_ENVIRONMENT,
 } from "./gemma4-authoritative-runtime.js";
 import {
   gemma4RuntimeReductionInvocationProgram,
@@ -46,6 +47,7 @@ export interface Gemma4RuntimeReductionAttestation {
   platform: "Darwin-arm64";
   backend: "Apple Accelerate SGEMM";
   blasBuildSetting: "BLAS_INFO=accelerate";
+  runtimeProcessEnvironment: typeof GEMMA4_RUNTIME_REDUCTION_PROCESS_ENVIRONMENT;
   runtimeEnvironmentIdentity: typeof GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY;
   runtimeExecutionState: typeof GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE;
 }
@@ -86,6 +88,7 @@ export function expectedGemma4RuntimeReductionAttestation(): Gemma4RuntimeReduct
     platform: "Darwin-arm64",
     backend: "Apple Accelerate SGEMM",
     blasBuildSetting: "BLAS_INFO=accelerate",
+    runtimeProcessEnvironment: structuredClone(GEMMA4_RUNTIME_REDUCTION_PROCESS_ENVIRONMENT),
     runtimeEnvironmentIdentity: structuredClone(GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY),
     runtimeExecutionState: structuredClone(GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE),
   };

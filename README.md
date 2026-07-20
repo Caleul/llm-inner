@@ -1082,6 +1082,29 @@ numérico v2 fechado. A árvore escalar Apple Accelerate permanece corretamente
 no gate, com `exactReplayClaim=forbidden`. Evidência completa em
 [`docs/validation/gemma4-e4b-runtime-numeric-state-2026-07-20.md`](docs/validation/gemma4-e4b-runtime-numeric-state-2026-07-20.md).
 
+O schema v54 fecha também o ambiente de lançamento do adapter nativo. O
+provider não herda nenhuma variável do processo pai: o artefato incorpora um
+mapa completo com `inheritance=none`, inicia o Python somente com esse mapa, e
+o adapter o captura antes de importar Torch. Isso exclui alterações ocultas
+por `DYLD_*`, `VECLIB_*`, `OMP_*`, `PYTHON*` e `TORCH*`; os 100 recibos e as
+100 entradas do gate apontam para o mesmo contrato. O teste de integração
+injeta `OMP_NUM_THREADS`, `TORCH_ALLOW_TF32_CUBLAS_OVERRIDE`,
+`VECLIB_MAXIMUM_THREADS` e `DYLD_INSERT_LIBRARIES` hostis no pai e prova que
+nenhuma delas alcança o helper.
+
+O E4B v54 tem 21.409.381.135 bytes, SHA-256
+`f56cd4f125b87aa094ffa2e9b57cd1f0cffef10ba1f9a360f9538b39ce2d7585`
+e raiz estrutural
+`0e452eaf9d365e25b9fa9206670ac29808a3f8688a4b2249af8528ae13995621`.
+Os 15.992.314.836 bytes aprendidos coincidiram com a fonte imutável. Com
+checkpoint e adapter do checkout fisicamente ausentes, os 2.130 payloads e a
+vista escalar foram revalidados; imagem, vídeo e áudio repetiram prefill,
+token greedy `184` na posição `2`, logits e 24 caches KV a tolerância zero.
+Todos os 100 recibos carregam o ambiente sem herança. A agenda escalar Apple
+Accelerate permanece corretamente no gate com `exactReplayClaim=forbidden`.
+Evidência completa em
+[`docs/validation/gemma4-e4b-closed-runtime-process-environment-2026-07-20.md`](docs/validation/gemma4-e4b-closed-runtime-process-environment-2026-07-20.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 

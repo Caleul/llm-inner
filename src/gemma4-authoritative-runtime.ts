@@ -28,7 +28,7 @@ export interface Gemma4AuthoritativeTraceContext {
 
 export interface Gemma4AuthoritativeExecutionContract {
   kind: "gemma4-authoritative-execution-contract";
-  schemaVersion: 9;
+  schemaVersion: 10;
   canonicalCompositeRuntime: typeof GEMMA4_COMPOSITE_REFERENCE_RUNTIME;
   diagnosticSubprogramRuntimes: {
     audio: typeof GEMMA4_AUDIO_REFERENCE_RUNTIME;
@@ -56,6 +56,7 @@ export interface Gemma4AuthoritativeExecutionContract {
       operation: "torch.matmul";
       backend: "Apple Accelerate SGEMM";
       blasBuildSetting: "BLAS_INFO=accelerate";
+      runtimeProcessEnvironment: typeof GEMMA4_RUNTIME_REDUCTION_PROCESS_ENVIRONMENT;
       runtimeEnvironmentIdentity: typeof GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY;
       runtimeExecutionState: typeof GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE;
       checkpointInput: "forbidden";
@@ -77,7 +78,25 @@ export interface Gemma4RuntimeReductionAdapterProgram {
   sourceUtf8: string;
 }
 
-export const GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256 = "19c97ea27e525a89de8524140b5271113193027291cc3982b176c8ea82a2345d" as const;
+export const GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256 = "5fa0286427c92a557a4893219779f6eb11b7229e5f63d49863ed11ad18c74950" as const;
+
+/**
+ * Complete launch environment for the opaque native reduction adapter.  The
+ * provider does not inherit any parent variables, so loader, BLAS, OpenMP,
+ * Python and Torch switches outside this closed map cannot alter dispatch.
+ */
+export const GEMMA4_RUNTIME_REDUCTION_PROCESS_ENVIRONMENT = {
+  schemaVersion: 1,
+  inheritance: "none",
+  variables: {
+    LANG: "C",
+    LC_ALL: "C",
+    PYTHONDONTWRITEBYTECODE: "1",
+    PYTHONHASHSEED: "0",
+    PYTHONNOUSERSITE: "1",
+    __CF_USER_TEXT_ENCODING: "0x1F5:0x0:0x47",
+  },
+} as const;
 
 /**
  * Exact host identity for the still-opaque Apple Accelerate reduction path.
@@ -248,7 +267,7 @@ export function gemma4AuthoritativeExecutionContract(
   validateGemma4RuntimeReductionAdapterProgram(adapterProgram);
   return {
     kind: "gemma4-authoritative-execution-contract",
-    schemaVersion: 9,
+    schemaVersion: 10,
     canonicalCompositeRuntime: GEMMA4_COMPOSITE_REFERENCE_RUNTIME,
     diagnosticSubprogramRuntimes: {
       audio: GEMMA4_AUDIO_REFERENCE_RUNTIME,
@@ -276,6 +295,7 @@ export function gemma4AuthoritativeExecutionContract(
         operation: "torch.matmul",
         backend: "Apple Accelerate SGEMM",
         blasBuildSetting: "BLAS_INFO=accelerate",
+        runtimeProcessEnvironment: structuredClone(GEMMA4_RUNTIME_REDUCTION_PROCESS_ENVIRONMENT),
         runtimeEnvironmentIdentity: structuredClone(GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY),
         runtimeExecutionState: structuredClone(GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE),
         checkpointInput: "forbidden",

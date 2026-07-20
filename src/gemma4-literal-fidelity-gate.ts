@@ -22,6 +22,7 @@ export interface Gemma4LiteralUnresolvedRuntimeReduction {
   outputCoordinatePointer: string;
   invocationProgramId: Gemma4LiteralRuntimeReductionOperationClass;
   invocationProgramPointer: string;
+  runtimeProcessEnvironmentPointer: "/authoritativeExecution/unresolvedNativeReduction/executableReplay/runtimeProcessEnvironment";
   runtimeEnvironmentIdentityPointer: "/authoritativeExecution/unresolvedNativeReduction/executableReplay/runtimeEnvironmentIdentity";
   runtimeExecutionStatePointer: "/authoritativeExecution/unresolvedNativeReduction/executableReplay/runtimeExecutionState";
 }
@@ -76,6 +77,7 @@ export function buildGemma4LiteralFidelityGate(
       outputCoordinatePointer: `/calculationGraph/assignments/${assignment.ordinal}/outputCoordinate`,
       invocationProgramId: invocationProgram.id,
       invocationProgramPointer: `/authoritativeExecution/unresolvedNativeReduction/executableReplay/invocationPrograms/${invocationPrograms.indexOf(invocationProgram)}`,
+      runtimeProcessEnvironmentPointer: "/authoritativeExecution/unresolvedNativeReduction/executableReplay/runtimeProcessEnvironment",
       runtimeEnvironmentIdentityPointer: "/authoritativeExecution/unresolvedNativeReduction/executableReplay/runtimeEnvironmentIdentity",
       runtimeExecutionStatePointer: "/authoritativeExecution/unresolvedNativeReduction/executableReplay/runtimeExecutionState",
     }];

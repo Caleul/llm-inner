@@ -13,6 +13,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
+# Capture the complete launch environment before importing Torch.  The provider
+# deliberately starts this program without inheriting its parent's environment;
+# Torch may add cache variables during import, which are not launch inputs.
+RUNTIME_PROCESS_ENVIRONMENT_AT_START = dict(os.environ)
+
 import torch
 
 
@@ -21,6 +26,18 @@ SUPPORTED_TORCH = "2.12.1"
 SUPPORTED_TORCH_COMMIT = "7269437d655783a26cba32aa88195b741ff496aa"
 SUPPORTED_PLATFORM = "Darwin-arm64"
 SUPPORTED_BLAS_SETTING = "BLAS_INFO=accelerate"
+SUPPORTED_RUNTIME_PROCESS_ENVIRONMENT = {
+    "schemaVersion": 1,
+    "inheritance": "none",
+    "variables": {
+        "LANG": "C",
+        "LC_ALL": "C",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONHASHSEED": "0",
+        "PYTHONNOUSERSITE": "1",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x0:0x47",
+    },
+}
 SUPPORTED_RUNTIME_ENVIRONMENT = {
     "pythonImplementation": "CPython",
     "pythonVersion": "3.14.3",
@@ -251,6 +268,14 @@ def runtime_execution_state() -> dict[str, Any]:
     }
 
 
+def runtime_process_environment() -> dict[str, Any]:
+    return {
+        "schemaVersion": 1,
+        "inheritance": "none",
+        "variables": dict(sorted(RUNTIME_PROCESS_ENVIRONMENT_AT_START.items())),
+    }
+
+
 def tensor(raw: Any, label: str) -> torch.Tensor:
     if not isinstance(raw, dict) or not isinstance(raw.get("shape"), list) or not isinstance(raw.get("values"), list):
         raise ValueError(f"{label} must be a serialized dense tensor.")
@@ -456,6 +481,12 @@ def main() -> None:
             f"Runtime reduction requires torch commit {SUPPORTED_TORCH_COMMIT}; "
             f"received {torch.version.git_version}."
         )
+    process_environment = runtime_process_environment()
+    if process_environment != SUPPORTED_RUNTIME_PROCESS_ENVIRONMENT:
+        raise ValueError(
+            "Runtime reduction process environment diverges from the pinned contract: "
+            f"expected {SUPPORTED_RUNTIME_PROCESS_ENVIRONMENT!r}; received {process_environment!r}."
+        )
     configure_runtime_execution_state()
     execution_state = runtime_execution_state()
     if execution_state != SUPPORTED_RUNTIME_EXECUTION_STATE:
@@ -494,6 +525,7 @@ def main() -> None:
             "platform": actual_platform,
             "backend": "Apple Accelerate SGEMM",
             "blasBuildSetting": SUPPORTED_BLAS_SETTING,
+            "runtimeProcessEnvironment": process_environment,
             "runtimeEnvironmentIdentity": runtime_environment,
             "runtimeExecutionState": execution_state,
         },

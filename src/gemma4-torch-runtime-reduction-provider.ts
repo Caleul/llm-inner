@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
+  GEMMA4_RUNTIME_REDUCTION_PROCESS_ENVIRONMENT,
   validateGemma4RuntimeReductionAdapterProgram,
   type Gemma4RuntimeReductionAdapterProgram,
 } from "./gemma4-authoritative-runtime.js";
@@ -89,6 +90,7 @@ export class Gemma4TorchRuntimeReductionProvider implements Gemma4RuntimeReducti
       writeFileSync(helperPath, this.#adapterProgram.sourceUtf8, "utf8");
       const child = spawnSync(this.#python, [helperPath, requestPath], {
         encoding: "utf8",
+        env: { ...GEMMA4_RUNTIME_REDUCTION_PROCESS_ENVIRONMENT.variables },
         maxBuffer: 128 * 1024 * 1024,
       });
       if (child.error) throw child.error;

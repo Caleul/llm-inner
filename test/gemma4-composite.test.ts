@@ -93,6 +93,7 @@ import {
   GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256,
   GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY,
   GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE,
+  GEMMA4_RUNTIME_REDUCTION_PROCESS_ENVIRONMENT,
   GEMMA4_AUDIO_REFERENCE_RUNTIME,
   GEMMA4_COMPOSITE_REFERENCE_RUNTIME,
   GEMMA4_VISION_REFERENCE_RUNTIME,
@@ -703,14 +704,16 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 53);
+  assert.equal(literal.schemaVersion, 54);
   assert.equal(literal.payloadIntegrity.length, catalog.tensors.size);
   assert.equal(literal.integrityManifest.sections.length, 24);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
-  assert.equal(literal.authoritativeExecution.schemaVersion, 9);
+  assert.equal(literal.authoritativeExecution.schemaVersion, 10);
   assert.equal(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.adapterProgram.sha256,
     GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256);
+  assert.deepEqual(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.runtimeProcessEnvironment,
+    GEMMA4_RUNTIME_REDUCTION_PROCESS_ENVIRONMENT);
   assert.deepEqual(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.runtimeEnvironmentIdentity,
     GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY);
   assert.deepEqual(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.runtimeExecutionState,
@@ -747,6 +750,7 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     entry.outputCoordinatePointer === `/calculationGraph/assignments/${entry.ordinal}/outputCoordinate` &&
     entry.invocationProgramId === entry.operationClass &&
     entry.invocationProgramPointer === `/authoritativeExecution/unresolvedNativeReduction/executableReplay/invocationPrograms/${invocationPrograms.findIndex((program) => program.id === entry.operationClass)}` &&
+    entry.runtimeProcessEnvironmentPointer === "/authoritativeExecution/unresolvedNativeReduction/executableReplay/runtimeProcessEnvironment" &&
     entry.runtimeEnvironmentIdentityPointer === "/authoritativeExecution/unresolvedNativeReduction/executableReplay/runtimeEnvironmentIdentity" &&
     entry.runtimeExecutionStatePointer === "/authoritativeExecution/unresolvedNativeReduction/executableReplay/runtimeExecutionState"));
   assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
@@ -1400,6 +1404,10 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   tamperedInvocationEnvironment.authoritativeExecution.unresolvedNativeReduction.executableReplay
     .invocationPrograms[0]!.environment.towerParameters[0]!.minimumInclusive = 0;
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(tamperedInvocationEnvironment), /Programas de invocação.*divergentes/);
+  const tamperedProcessEnvironment = structuredClone(literal);
+  (tamperedProcessEnvironment.authoritativeExecution.unresolvedNativeReduction.executableReplay
+    .runtimeProcessEnvironment.variables as unknown as { LANG: string }).LANG = "pt_BR.UTF-8";
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(tamperedProcessEnvironment), /contrato autoritativo de execução/);
   const tamperedRuntimeEnvironment = structuredClone(literal);
   tamperedRuntimeEnvironment.authoritativeExecution.unresolvedNativeReduction.executableReplay
     .runtimeEnvironmentIdentity = {
@@ -1633,7 +1641,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 53);
+      assert.equal(artifact.schemaVersion, 54);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.equal(artifact.authoritativeExecution.unresolvedNativeReduction.executableReplay.adapterProgram.sha256,

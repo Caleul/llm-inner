@@ -348,6 +348,17 @@ operandos do artefato. Isso impede que variáveis de ambiente como
 pelos recibos, sem promover a agenda nativa `runtime-defined` a uma fórmula
 escalar conhecida.
 
+No schema v54, o processo que executa o adapter incorporado deixa de herdar o
+ambiente do leitor. `runtimeProcessEnvironment` declara `inheritance=none` e o
+mapa completo de variáveis com que o Python é iniciado. O provider constrói o
+ambiente exclusivamente desse mapa, e o adapter captura e compara o ambiente
+de lançamento antes de importar Torch. Assim, `DYLD_*`, `VECLIB_*`, `OMP_*`,
+`PYTHON*` ou `TORCH*` presentes no processo pai não podem trocar biblioteca,
+dispatch, contagem inicial de threads ou política numérica silenciosamente.
+Cada recibo de redução e cada entrada fail-closed do `fidelityGate` apontam
+para o mesmo contrato. Uma variável extra, ausente ou alterada falha antes da
+leitura dos operandos, sem converter a BMM opaca em semântica escalar conhecida.
+
 ## Critério de aceite
 
 Uma implementação só é candidata a fechar este requisito quando:

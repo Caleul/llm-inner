@@ -19,6 +19,7 @@ import {
   GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256,
   GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY,
   GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE,
+  GEMMA4_RUNTIME_REDUCTION_PROCESS_ENVIRONMENT,
   loadGemma4RuntimeReductionAdapterProgram,
 } from "../src/gemma4-authoritative-runtime.js";
 import { Gemma4TorchRuntimeReductionProvider } from "../src/gemma4-torch-runtime-reduction-provider.js";
@@ -112,6 +113,19 @@ test("Gemma 4 runtime-reduction provider accepts only its pinned contract and ex
   };
   assert.throws(() => executeGemma4RuntimeReduction(wrongEnvironment, request, [1, 1, 2, 2]), /evidência.*divergente/);
 
+  const wrongProcessEnvironment: Gemma4RuntimeReductionProvider = {
+    ...provider,
+    execute(actual) {
+      const result = execution(actual, sampleTensor([1, 1, 2, 2]));
+      result.evidence.runtimeAttestation.runtimeProcessEnvironment = {
+        ...result.evidence.runtimeAttestation.runtimeProcessEnvironment,
+        inheritance: "parent" as "none",
+      };
+      return result;
+    },
+  };
+  assert.throws(() => executeGemma4RuntimeReduction(wrongProcessEnvironment, request, [1, 1, 2, 2]), /evidência.*divergente/);
+
   const wrongRuntimeBinary: Gemma4RuntimeReductionProvider = {
     ...provider,
     execute(actual) {
@@ -190,8 +204,12 @@ test("Gemma 4 runtime-reduction provider executes the integrity-bound embedded a
   );
   const previousOmpThreads = process.env.OMP_NUM_THREADS;
   const previousTf32Override = process.env.TORCH_ALLOW_TF32_CUBLAS_OVERRIDE;
+  const previousVeclibThreads = process.env.VECLIB_MAXIMUM_THREADS;
+  const previousDyldLibraries = process.env.DYLD_INSERT_LIBRARIES;
   process.env.OMP_NUM_THREADS = "1";
   process.env.TORCH_ALLOW_TF32_CUBLAS_OVERRIDE = "1";
+  process.env.VECLIB_MAXIMUM_THREADS = "1";
+  process.env.DYLD_INSERT_LIBRARIES = "/invalid/parent-only.dylib";
   try {
     assert.deepEqual(executeGemma4RuntimeReduction(provider, request, [1, 1, 2, 2]), sampleTensor([1, 1, 2, 2]));
   } finally {
@@ -199,9 +217,15 @@ test("Gemma 4 runtime-reduction provider executes the integrity-bound embedded a
     else process.env.OMP_NUM_THREADS = previousOmpThreads;
     if (previousTf32Override === undefined) delete process.env.TORCH_ALLOW_TF32_CUBLAS_OVERRIDE;
     else process.env.TORCH_ALLOW_TF32_CUBLAS_OVERRIDE = previousTf32Override;
+    if (previousVeclibThreads === undefined) delete process.env.VECLIB_MAXIMUM_THREADS;
+    else process.env.VECLIB_MAXIMUM_THREADS = previousVeclibThreads;
+    if (previousDyldLibraries === undefined) delete process.env.DYLD_INSERT_LIBRARIES;
+    else process.env.DYLD_INSERT_LIBRARIES = previousDyldLibraries;
   }
   assert.equal(provider.executions.length, 1);
   assert.equal(provider.executions[0]!.adapterProgramSha256, GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256);
+  assert.deepEqual(provider.executions[0]!.runtimeAttestation.runtimeProcessEnvironment,
+    GEMMA4_RUNTIME_REDUCTION_PROCESS_ENVIRONMENT);
   assert.deepEqual(provider.executions[0]!.runtimeAttestation.runtimeEnvironmentIdentity,
     GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY);
   assert.deepEqual(provider.executions[0]!.runtimeAttestation.runtimeExecutionState,
