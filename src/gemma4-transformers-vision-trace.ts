@@ -1,10 +1,14 @@
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { openCatalog } from "./catalog.js";
 import { assertGemma4AuthoritativeRuntime } from "./gemma4-authoritative-runtime.js";
+import { buildGemma4RuntimeReductionTraceCoverage } from "./gemma4-runtime-reduction-trace-coverage.js";
+import { buildGemma4VisionProgram } from "./gemma4-vision.js";
+import { sha256File } from "./trace.js";
 import type { Gemma4VisionDifferentialTrace, Gemma4VisionInvocation } from "./gemma4-literal-vision.js";
 import type { DenseF32Tensor, DifferentialOperationSample } from "./types.js";
 
@@ -19,6 +23,10 @@ interface NativeVisionCapture {
   pixelPositionIds: number[][][] | number[][][][];
   operations: Array<{ operationId: string; output: string; tensor: SerializedTensor }>;
 }
+type SerializedVisionTraceReference = Omit<Gemma4VisionDifferentialTrace["reference"], "pixelValues" | "operations"> & {
+  pixelValues: SerializedTensor;
+  operations: NativeVisionCapture["operations"];
+};
 
 export interface Gemma4TransformersVisionTraceOptions {
   source: string;
@@ -47,20 +55,29 @@ export async function captureGemma4TransformersVisionTrace(options: Gemma4Transf
       pixelPositionIds: options.pixelPositionIds,
     });
     assertGemma4AuthoritativeRuntime("vision", native);
+    const operations = native.operations.map((operation): DifferentialOperationSample => ({ operationId: operation.operationId, output: operation.output, tensor: dense(operation.tensor) }));
     const trace: Gemma4VisionDifferentialTrace = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       kind: "gemma4-vision-checkpoints",
       invocation: options.invocation,
-      source: { model: options.model, revisionOrChecksum: options.revisionOrChecksum, containerFormat: "safetensors", quantization: "none; dense BF16 storage" },
+      source: {
+        model: options.model, revisionOrChecksum: options.revisionOrChecksum, containerFormat: "safetensors", quantization: "none; dense BF16 storage",
+        files: [
+          { path: "config.json", sha256: await sha256File(path.join(options.source, "config.json")) },
+          { path: "model.safetensors", sha256: await sha256File(path.join(options.source, "model.safetensors")) },
+        ],
+      },
       reference: {
         runtime: native.runtime,
         executionMode: native.executionMode,
         attentionImplementation: native.attentionImplementation,
         executionDevice: native.executionDevice,
         dtypePolicy: native.dtypePolicy,
+        captureId: randomUUID(),
+        runtimeReductionCoverage: buildGemma4RuntimeReductionTraceCoverage(buildGemma4VisionProgram(opened.catalog), operations),
         pixelValues: dense(native.pixelValues),
         pixelPositionIds: native.pixelPositionIds,
-        operations: native.operations.map((operation): DifferentialOperationSample => ({ operationId: operation.operationId, output: operation.output, tensor: dense(operation.tensor) })),
+        operations,
       },
     };
     await writeFile(options.output, `${JSON.stringify(serializeTrace(trace), null, 2)}\n`, "utf8");
@@ -71,7 +88,7 @@ export async function captureGemma4TransformersVisionTrace(options: Gemma4Transf
 
 export async function readGemma4VisionDifferentialTrace(file: string): Promise<Gemma4VisionDifferentialTrace> {
   const parsed = JSON.parse(await readFile(file, "utf8")) as Record<string, unknown>;
-  const reference = parsed.reference as NativeVisionCapture | undefined;
+  const reference = parsed.reference as SerializedVisionTraceReference | undefined;
   if (!reference?.pixelValues || !Array.isArray(reference.pixelPositionIds) || !Array.isArray(reference.operations)) throw new Error("Trace vision Gemma 4 não possui referência válida.");
   return {
     ...(parsed as unknown as Gemma4VisionDifferentialTrace),

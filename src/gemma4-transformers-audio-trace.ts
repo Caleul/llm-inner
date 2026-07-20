@@ -1,10 +1,14 @@
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { openCatalog } from "./catalog.js";
 import { assertGemma4AuthoritativeRuntime } from "./gemma4-authoritative-runtime.js";
+import { buildGemma4AudioProgram } from "./gemma4-audio.js";
+import { buildGemma4RuntimeReductionTraceCoverage } from "./gemma4-runtime-reduction-trace-coverage.js";
+import { sha256File } from "./trace.js";
 import type { Gemma4AudioDifferentialTrace } from "./gemma4-literal-audio.js";
 import type { DenseF32Tensor, DifferentialOperationSample } from "./types.js";
 
@@ -19,6 +23,10 @@ interface NativeAudioCapture {
   inputFeaturesMask: boolean[][];
   operations: Array<{ operationId: string; output: string; tensor: SerializedTensor }>;
 }
+type SerializedAudioTraceReference = Omit<Gemma4AudioDifferentialTrace["reference"], "inputFeatures" | "operations"> & {
+  inputFeatures: SerializedTensor;
+  operations: NativeAudioCapture["operations"];
+};
 
 export interface Gemma4TransformersAudioTraceOptions {
   source: string;
@@ -49,14 +57,23 @@ export async function captureGemma4TransformersAudioTrace(options: Gemma4Transfo
       inputFeaturesMask: options.inputFeaturesMask,
     });
     assertGemma4AuthoritativeRuntime("audio", native);
+    const operations = native.operations.map((operation): DifferentialOperationSample => ({
+      operationId: operation.operationId,
+      output: operation.output,
+      tensor: dense(operation.tensor),
+    }));
     const trace: Gemma4AudioDifferentialTrace = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       kind: "gemma4-audio-checkpoints",
       source: {
         model: options.model,
         revisionOrChecksum: options.revisionOrChecksum,
         containerFormat: "safetensors",
         quantization: "none; dense BF16 storage",
+        files: [
+          { path: "config.json", sha256: await sha256File(path.join(options.source, "config.json")) },
+          { path: "model.safetensors", sha256: await sha256File(path.join(options.source, "model.safetensors")) },
+        ],
       },
       reference: {
         runtime: native.runtime,
@@ -64,13 +81,11 @@ export async function captureGemma4TransformersAudioTrace(options: Gemma4Transfo
         attentionImplementation: native.attentionImplementation,
         executionDevice: native.executionDevice,
         dtypePolicy: native.dtypePolicy,
+        captureId: randomUUID(),
+        runtimeReductionCoverage: buildGemma4RuntimeReductionTraceCoverage(buildGemma4AudioProgram(opened.catalog), operations),
         inputFeatures: dense(native.inputFeatures),
         inputFeaturesMask: native.inputFeaturesMask,
-        operations: native.operations.map((operation): DifferentialOperationSample => ({
-          operationId: operation.operationId,
-          output: operation.output,
-          tensor: dense(operation.tensor),
-        })),
+        operations,
       },
     };
     await writeFile(options.output, `${JSON.stringify(serializeTrace(trace), null, 2)}\n`, "utf8");
@@ -81,7 +96,7 @@ export async function captureGemma4TransformersAudioTrace(options: Gemma4Transfo
 
 export async function readGemma4AudioDifferentialTrace(file: string): Promise<Gemma4AudioDifferentialTrace> {
   const parsed = JSON.parse(await readFile(file, "utf8")) as Record<string, unknown>;
-  const reference = parsed.reference as NativeAudioCapture | undefined;
+  const reference = parsed.reference as SerializedAudioTraceReference | undefined;
   if (!reference || !reference.inputFeatures || !Array.isArray(reference.operations)) throw new Error("Trace de áudio Gemma 4 não possui referência válida.");
   return {
     ...(parsed as unknown as Gemma4AudioDifferentialTrace),

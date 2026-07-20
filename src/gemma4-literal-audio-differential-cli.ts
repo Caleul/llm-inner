@@ -37,6 +37,7 @@ async function main(): Promise<void> {
     model: trace.source.model,
     revisionOrChecksum: trace.source.revisionOrChecksum,
     referenceRuntime: trace.reference.runtime,
+    traceEvidence: { captureId: trace.reference.captureId, sourceFiles: trace.source.files, runtimeReductionCoverage: trace.reference.runtimeReductionCoverage },
     inputFeatures: { shape: trace.reference.inputFeatures.shape, values: Array.from(trace.reference.inputFeatures.values) },
     inputFeaturesMask: trace.reference.inputFeaturesMask,
     ...result,

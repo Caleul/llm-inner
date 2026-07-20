@@ -276,6 +276,17 @@ vista, enquanto alterar AST, inputs, domínio ou predicado invalida ou muda a
 auditoria de modo observável. A saída continua indisponível quando a agenda do
 provider é `runtime-defined`.
 
+O trace autoritativo usado para investigar essa fronteira também precisa ser
+fechado sobre os operandos reais do kernel. `runtimeReductionCoverage` enumera,
+em ordem do programa, cada BMM `runtime-defined`, sua saída nativa e os dois
+produtores de entrada com shapes capturados. A cobertura é reconstruída do
+programa literal durante o replay source-removed; um checkpoint de Q/K anterior
+ao RoPE, um contexto anterior ao blocking, uma entrada faltante ou um shape
+alterado não pode substituir o operando declarado. O envelope do trace inclui
+nonce de captura e SHA-256 de `config.json` e `model.safetensors`, que precisam
+coincidir com `sourceIdentity`. Essa cobertura autoriza medir hipóteses de
+redução; ela não transforma uma coincidência numérica em agenda do provider.
+
 ## Critério de aceite
 
 Uma implementação só é candidata a fechar este requisito quando:

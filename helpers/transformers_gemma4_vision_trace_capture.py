@@ -82,6 +82,12 @@ def main() -> None:
         scores = torch.matmul(query, key_states.transpose(2, 3)) * scaling
         context, weights = original_eager_attention(module, query, key, value, attention_mask, **kwargs)
         stem = f"vision_layer_{module.layer_idx}"
+        attention_intermediates[f"{stem}_q_rope"] = {
+            "operationId": f"{stem}_q_rope", "output": f"{stem}_q_rotated", "tensor": tensor_payload(query)
+        }
+        attention_intermediates[f"{stem}_k_rope"] = {
+            "operationId": f"{stem}_k_rope", "output": f"{stem}_k_rotated", "tensor": tensor_payload(key_states)
+        }
         attention_intermediates[f"{stem}_attention_scores"] = {
             "operationId": f"{stem}_attention_scores", "output": f"{stem}_attention_scores", "tensor": tensor_payload(scores)
         }
@@ -145,7 +151,8 @@ def main() -> None:
         stem = f"vision_layer_{index}"
         expected_order.extend([
             f"{stem}_input_norm", f"{stem}_q", f"{stem}_q_norm", f"{stem}_k", f"{stem}_k_norm",
-            f"{stem}_v", f"{stem}_v_norm", f"{stem}_attention_scores", f"{stem}_attention_weights",
+            f"{stem}_v", f"{stem}_v_norm", f"{stem}_q_rope", f"{stem}_k_rope",
+            f"{stem}_attention_scores", f"{stem}_attention_weights",
             f"{stem}_attention", f"{stem}_o", f"{stem}_post_attention_norm", f"{stem}_pre_ffn_norm",
             f"{stem}_gate", f"{stem}_up", f"{stem}_down", f"{stem}_post_ffn_norm", f"{stem}_ffn_residual",
         ])

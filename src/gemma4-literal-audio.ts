@@ -10,6 +10,7 @@ import {
   type Gemma4AudioExecutionResult,
 } from "./gemma4-audio.js";
 import { openGemma4CompositeLiteralArtifact, type OpenGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
+import { validateGemma4RuntimeReductionTraceCoverage, type Gemma4RuntimeReductionTraceCoverage } from "./gemma4-runtime-reduction-trace-coverage.js";
 import { readLiteralDenseF32Tensor } from "./paged-dense.js";
 import type { DenseF32Tensor, DifferentialCheckpointComparisonReport, DifferentialOperationSample, TensorInfo, TensorRef } from "./types.js";
 
@@ -19,13 +20,14 @@ export interface Gemma4AudioLiteralExecutionOptions {
 }
 
 export interface Gemma4AudioDifferentialTrace {
-  schemaVersion: 1;
+  schemaVersion: 2;
   kind: "gemma4-audio-checkpoints";
   source: {
     model: string;
     revisionOrChecksum: string;
     containerFormat: "safetensors";
     quantization: "none; dense BF16 storage";
+    files: Array<{ path: "config.json" | "model.safetensors"; sha256: string }>;
   };
   reference: {
     runtime: string;
@@ -33,6 +35,8 @@ export interface Gemma4AudioDifferentialTrace {
     attentionImplementation: "eager";
     executionDevice: "cpu";
     dtypePolicy: string;
+    captureId: string;
+    runtimeReductionCoverage: Gemma4RuntimeReductionTraceCoverage;
     inputFeatures: DenseF32Tensor;
     inputFeaturesMask: boolean[][];
     operations: DifferentialOperationSample[];
@@ -90,6 +94,8 @@ export async function compareGemma4LiteralAudioTrace(options: {
   assertTrace(options.trace);
   const artifact = await openGemma4CompositeLiteralArtifact(options.artifact);
   try {
+    assertTraceSourceIdentity(options.trace, artifact);
+    validateGemma4RuntimeReductionTraceCoverage(options.trace.reference.runtimeReductionCoverage, artifact.program.audioProgram, options.trace.reference.operations);
     const candidate = await executeGemma4LiteralAudioF32(artifact, {
       inputFeatures: options.trace.reference.inputFeatures,
       inputFeaturesMask: options.trace.reference.inputFeaturesMask,
@@ -206,11 +212,22 @@ function assertTrace(trace: Gemma4AudioDifferentialTrace): void {
   assertGemma4AuthoritativeRuntime("audio", trace.reference);
   const input = trace.reference.inputFeatures;
   const elements = input.shape.reduce((total, dimension) => total * dimension, 1);
-  if (trace.schemaVersion !== 1 || trace.kind !== "gemma4-audio-checkpoints" || trace.source.containerFormat !== "safetensors" ||
+  if (trace.schemaVersion !== 2 || trace.kind !== "gemma4-audio-checkpoints" || trace.source.containerFormat !== "safetensors" ||
     trace.source.quantization !== "none; dense BF16 storage" || trace.reference.executionDevice !== "cpu" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(trace.reference.captureId) ||
+    !Array.isArray(trace.source.files) || trace.source.files.length !== 2 || trace.source.files[0]?.path !== "config.json" || trace.source.files[1]?.path !== "model.safetensors" ||
+    trace.source.files.some((file) => !/^[a-f0-9]{64}$/.test(file.sha256)) ||
+    trace.reference.runtimeReductionCoverage?.kind !== "gemma4-runtime-reduction-trace-coverage" ||
     input.shape.length !== 3 || input.values.length !== elements || trace.reference.inputFeaturesMask.length !== input.shape[0] ||
     trace.reference.inputFeaturesMask.some((row) => row.length !== input.shape[1]) || trace.reference.operations.length === 0) {
     throw new Error("Trace diferencial de áudio Gemma 4 inválido.");
+  }
+}
+
+function assertTraceSourceIdentity(trace: Gemma4AudioDifferentialTrace, artifact: OpenGemma4CompositeLiteralArtifact): void {
+  for (const expected of trace.source.files) {
+    const actual = artifact.sourceIdentity.files.find((file) => file.path === expected.path);
+    if (!actual || actual.sha256 !== expected.sha256) throw new Error(`Trace de áudio Gemma 4 diverge da identidade literal em ${expected.path}.`);
   }
 }
 

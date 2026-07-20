@@ -3,6 +3,7 @@ import { access } from "node:fs/promises";
 import { compareCapturedOperationCheckpoints } from "./differential.js";
 import { assertGemma4AuthoritativeRuntime } from "./gemma4-authoritative-runtime.js";
 import { openGemma4CompositeLiteralArtifact, type OpenGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
+import { validateGemma4RuntimeReductionTraceCoverage, type Gemma4RuntimeReductionTraceCoverage } from "./gemma4-runtime-reduction-trace-coverage.js";
 import { executeGemma4VisionF32, type Gemma4VisionExecutionRequest, type Gemma4VisionExecutionResult } from "./gemma4-vision.js";
 import { readLiteralDenseF32Tensor } from "./paged-dense.js";
 import type { DenseF32Tensor, DifferentialCheckpointComparisonReport, DifferentialOperationSample, TensorInfo, TensorRef } from "./types.js";
@@ -15,7 +16,7 @@ export interface Gemma4VisionLiteralExecutionOptions {
 }
 
 export interface Gemma4VisionDifferentialTrace {
-  schemaVersion: 1;
+  schemaVersion: 2;
   kind: "gemma4-vision-checkpoints";
   invocation: Gemma4VisionInvocation;
   source: {
@@ -23,6 +24,7 @@ export interface Gemma4VisionDifferentialTrace {
     revisionOrChecksum: string;
     containerFormat: "safetensors";
     quantization: "none; dense BF16 storage";
+    files: Array<{ path: "config.json" | "model.safetensors"; sha256: string }>;
   };
   reference: {
     runtime: string;
@@ -30,6 +32,8 @@ export interface Gemma4VisionDifferentialTrace {
     attentionImplementation: "eager";
     executionDevice: "cpu";
     dtypePolicy: string;
+    captureId: string;
+    runtimeReductionCoverage: Gemma4RuntimeReductionTraceCoverage;
     pixelValues: DenseF32Tensor;
     pixelPositionIds: number[][][] | number[][][][];
     operations: DifferentialOperationSample[];
@@ -77,6 +81,8 @@ export async function compareGemma4LiteralVisionTrace(options: {
   const flattened = flattenInvocation(options.trace);
   const artifact = await openGemma4CompositeLiteralArtifact(options.artifact);
   try {
+    assertTraceSourceIdentity(options.trace, artifact);
+    validateGemma4RuntimeReductionTraceCoverage(options.trace.reference.runtimeReductionCoverage, artifact.program.visionProgram, options.trace.reference.operations);
     const candidate = await executeGemma4LiteralVisionF32(artifact, flattened, { maxTensorBytes: options.maxTensorBytes });
     return compareCapturedOperationCheckpoints(candidate.values, { operations: options.trace.reference.operations }, {
       candidateRuntime: `llm-inner embedded-literal Gemma4Vision ${options.trace.invocation} BF16-policy scalar executor`,
@@ -121,10 +127,21 @@ function assertTrace(trace: Gemma4VisionDifferentialTrace): void {
     ? [trace.reference.pixelPositionIds.length, (trace.reference.pixelPositionIds as number[][][])[0]?.length]
     : [trace.reference.pixelPositionIds.length, (trace.reference.pixelPositionIds as number[][][][])[0]?.length, (trace.reference.pixelPositionIds as number[][][][])[0]?.[0]?.length];
   const inputPrefix = input.shape.slice(0, -1);
-  if (trace.schemaVersion !== 1 || trace.kind !== "gemma4-vision-checkpoints" || trace.source.containerFormat !== "safetensors" ||
+  if (trace.schemaVersion !== 2 || trace.kind !== "gemma4-vision-checkpoints" || trace.source.containerFormat !== "safetensors" ||
     trace.source.quantization !== "none; dense BF16 storage" || trace.reference.executionDevice !== "cpu" || input.shape.length !== rank ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(trace.reference.captureId) ||
+    !Array.isArray(trace.source.files) || trace.source.files.length !== 2 || trace.source.files[0]?.path !== "config.json" || trace.source.files[1]?.path !== "model.safetensors" ||
+    trace.source.files.some((file) => !/^[a-f0-9]{64}$/.test(file.sha256)) ||
+    trace.reference.runtimeReductionCoverage?.kind !== "gemma4-runtime-reduction-trace-coverage" ||
     input.shape.at(-1) !== 768 || input.values.length !== elements || inputPrefix.some((dimension, index) => dimension !== positionShape[index]) ||
     trace.reference.operations.length === 0) throw new Error("Trace vision Gemma 4 inválido.");
+}
+
+function assertTraceSourceIdentity(trace: Gemma4VisionDifferentialTrace, artifact: OpenGemma4CompositeLiteralArtifact): void {
+  for (const expected of trace.source.files) {
+    const actual = artifact.sourceIdentity.files.find((file) => file.path === expected.path);
+    if (!actual || actual.sha256 !== expected.sha256) throw new Error(`Trace vision Gemma 4 diverge da identidade literal em ${expected.path}.`);
+  }
 }
 
 function sameReference(left: TensorRef, right: TensorRef): boolean {

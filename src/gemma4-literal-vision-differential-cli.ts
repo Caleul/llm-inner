@@ -11,7 +11,14 @@ async function main(): Promise<void> {
   const report = resolve(value(argv, "--report")!), trace = await readGemma4VisionDifferentialTrace(resolve(value(argv, "--trace")!));
   const result = await compareGemma4LiteralVisionTrace({ artifact: resolve(value(argv, "--artifact")!), trace, maxTensorBytes: maxTensorMiB * 1024 * 1024, maxAbsoluteError: absolute, maxRelativeError: relative, topK, ...(value(argv, "--assert-source-unavailable", false) ? { assertSourceUnavailable: resolve(value(argv, "--assert-source-unavailable")!) } : {}) });
   await mkdir(dirname(report), { recursive: true });
-  await writeFile(report, `${JSON.stringify({ kind: "gemma4-embedded-literal-vision-differential", sourceCheckpointAccessed: false, invocation: trace.invocation, model: trace.source.model, revisionOrChecksum: trace.source.revisionOrChecksum, referenceRuntime: trace.reference.runtime, pixelValues: { shape: trace.reference.pixelValues.shape, values: Array.from(trace.reference.pixelValues.values) }, pixelPositionIds: trace.reference.pixelPositionIds, ...result }, null, 2)}\n`, "utf8");
+  await writeFile(report, `${JSON.stringify({
+    kind: "gemma4-embedded-literal-vision-differential", sourceCheckpointAccessed: false,
+    invocation: trace.invocation, model: trace.source.model, revisionOrChecksum: trace.source.revisionOrChecksum,
+    referenceRuntime: trace.reference.runtime,
+    traceEvidence: { captureId: trace.reference.captureId, sourceFiles: trace.source.files, runtimeReductionCoverage: trace.reference.runtimeReductionCoverage },
+    pixelValues: { shape: trace.reference.pixelValues.shape, values: Array.from(trace.reference.pixelValues.values) },
+    pixelPositionIds: trace.reference.pixelPositionIds, ...result,
+  }, null, 2)}\n`, "utf8");
   console.log(`Relatório diferencial Gemma 4 ${trace.invocation} escrito em ${report} (${result.fidelityClass}).`);
 }
 main().catch((error: unknown) => { console.error(error instanceof Error ? error.stack ?? error.message : error); process.exitCode = 1; });

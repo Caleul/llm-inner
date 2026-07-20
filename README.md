@@ -901,6 +901,20 @@ gerações a tolerância zero, preservando as 100 reduções nativas no gate.
 Evidência da regeneração E4B real, auditoria source-removed e regressões está em
 [`docs/validation/gemma4-e4b-serialized-runtime-reduction-audit-2026-07-20.md`](docs/validation/gemma4-e4b-serialized-runtime-reduction-audit-2026-07-20.md).
 
+Os traces autoritativos vision/audio schema v2 fecham a outra metade dessa
+fronteira de auditoria: cada redução BMM nativa precisa trazer sua saída e os
+dois operandos exatos consumidos pelo kernel. Em vision isso inclui Q/K
+**depois** do RoPE, capturados dentro de `eager_attention_forward`; Q/K somente
+normalizados não satisfazem o contrato. O trace incorpora um `captureId`, os
+SHA-256 de `config.json`/`model.safetensors` e
+`runtimeReductionCoverage`, derivado do programa e revalidado contra o
+artefato source-removed. Operando anterior, produtor ausente, shape adulterado,
+output divergente ou identidade de checkpoint diferente falha antes da
+comparação numérica. O E4B real registrou 32/32 fronteiras de vídeo e 36/36 de
+áudio; as agendas Apple Accelerate continuam corretamente no gate como
+`runtime-defined`. Evidência em
+[`docs/validation/gemma4-e4b-native-bmm-operand-traces-2026-07-20.md`](docs/validation/gemma4-e4b-native-bmm-operand-traces-2026-07-20.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 
