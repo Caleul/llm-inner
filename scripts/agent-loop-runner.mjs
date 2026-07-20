@@ -522,7 +522,14 @@ async function start(config) {
           }
           const validation = await runConfiguredValidation(config);
           const failedValidation = validation.find(({ status }) => status !== "passed");
-          if (failedValidation) fail(`Controller validation failed: ${failedValidation.command}.`);
+          if (failedValidation) {
+            const details = [
+              failedValidation.error,
+              Number.isInteger(failedValidation.exitCode) ? `exit=${failedValidation.exitCode}` : null,
+              failedValidation.output,
+            ].filter(Boolean).join("\n");
+            fail(`Controller validation failed: ${failedValidation.command}.${details ? `\n${details}` : ""}`);
+          }
           const createdAt = now();
           const record = buildContinuityRecord({
             sequence,

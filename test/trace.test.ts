@@ -89,7 +89,8 @@ test("Gemma 4 bounded native reduction capture accepts only a declared MLP proje
 });
 
 async function availableTransformersPython(): Promise<string | undefined> {
-  const candidate = process.env.LLM_INNER_TRANSFORMERS_PYTHON ?? "/private/tmp/llm-inner-transformers/bin/python";
+  const candidate = process.env.LLM_INNER_TRANSFORMERS_PYTHON;
+  if (!candidate) return undefined;
   try { await access(candidate); return candidate; } catch { return undefined; }
 }
 
