@@ -137,7 +137,8 @@ try {
   }
   if (selected) {
     const tensor = { name: selected.name, storageDtype: selected.storageDtype, storageShape: selected.storageShape, logicalShape: selected.logicalShape };
-    const bytes = await artifact.readTensorBytesRange(tensor, args.offset, args.byteLength);
+    const authenticated = await artifact.readTensorBytesRangeWithIntegrity(tensor, args.offset, args.byteLength);
+    const bytes = authenticated.bytes;
     result.selectedTensor = {
       name: selected.name,
       storageDtype: selected.storageDtype,
@@ -146,6 +147,7 @@ try {
       offset: args.offset,
       byteLength: bytes.length,
       sha256: createHash("sha256").update(bytes).digest("hex"),
+      payloadIntegrity: authenticated.integrity,
     };
   }
   if (args.listOperations) result.operations = listGemma4LiteralOperations(artifact);

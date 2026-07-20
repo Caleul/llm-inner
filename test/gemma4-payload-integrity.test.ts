@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   assertGemma4LiteralPayloadChunkBytes,
+  buildGemma4LiteralAuthenticatedPayloadRange,
   buildGemma4LiteralPayloadIntegrity,
   GEMMA4_LITERAL_PAYLOAD_CHUNK_BYTES,
   validateGemma4LiteralPayloadIntegrityMetadata,
@@ -33,5 +34,29 @@ test("Gemma 4 payload integrity partitions decoded bytes into ordered gap-free c
   assert.throws(
     () => assertGemma4LiteralPayloadChunkBytes(integrity, integrity.chunking.chunks[0]!, corrupted),
     /diverge do digest incorporado/,
+  );
+
+  const proof = buildGemma4LiteralAuthenticatedPayloadRange(
+    integrity,
+    GEMMA4_LITERAL_PAYLOAD_CHUNK_BYTES - 2,
+    5,
+    7,
+    { rootSha256: "a".repeat(64), payloadIntegritySectionSha256: "b".repeat(64), payloadIntegritySectionIndex: 23 },
+  );
+  assert.deepEqual(proof.authenticatedChunks.map((chunk) => [chunk.ordinal, chunk.pointer]), [
+    [0, "/payloadIntegrity/7/chunking/chunks/0"],
+    [1, "/payloadIntegrity/7/chunking/chunks/1"],
+  ]);
+  assert.equal(proof.payloadCommitment.sha256, integrity.sha256);
+  assert.equal(proof.artifactCommitment.payloadIntegritySectionPointer, "/integrityManifest/sections/23");
+  assert.throws(
+    () => buildGemma4LiteralAuthenticatedPayloadRange(
+      integrity,
+      integrity.payloadBytes,
+      1,
+      7,
+      { rootSha256: "a".repeat(64), payloadIntegritySectionSha256: "b".repeat(64), payloadIntegritySectionIndex: 23 },
+    ),
+    /range autenticado ou compromisso estrutural inválido/,
   );
 });

@@ -1,4 +1,5 @@
 import type { OpenGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
+import type { Gemma4LiteralAuthenticatedPayloadRange } from "./gemma4-literal-payload-integrity.js";
 import {
   decodeLiteralDenseElementF32,
   evaluateLiteralDenseElementAddress,
@@ -84,6 +85,8 @@ export interface Gemma4LiteralLearnedScalar {
   literal: string;
   decoderId: string;
   decoderOperation: LiteralDenseStorageDecodeAssignment["operation"];
+  /** Exact artifact-integrity chain enforced before this learned value was decoded. */
+  payloadIntegrity: Gemma4LiteralAuthenticatedPayloadRange;
 }
 
 export interface Gemma4LiteralScalarTerm {
@@ -509,13 +512,13 @@ export async function readGemma4LiteralLearnedScalar(
     throw new Error(`${reference.name}: vista escalar exige storage denso row-major com shape idêntico.`);
   }
   const address = evaluateLiteralDenseElementAddress(decoder, indices);
-  const bytes = await artifact.readTensorBytesRange({
+  const authenticated = await artifact.readTensorBytesRangeWithIntegrity({
     name: constant.name,
     storageDtype: constant.storageDtype as "F32" | "F16" | "BF16",
     storageShape: constant.storageShape,
     logicalShape: constant.logicalShape,
   }, address.byteOffset, address.byteLength);
-  const decoded = decodeLiteralDenseElementF32(decoder, bytes);
+  const decoded = decodeLiteralDenseElementF32(decoder, authenticated.bytes);
   const decodedF32 = decoded.decodedF32;
   if (!Number.isFinite(decodedF32)) throw new Error(`${reference.name}: scalar não finito em [${indices.join(",")}].`);
   return {
@@ -531,6 +534,7 @@ export async function readGemma4LiteralLearnedScalar(
     literal: literal(decodedF32),
     decoderId: decoder.id,
     decoderOperation: decoder.operation,
+    payloadIntegrity: authenticated.integrity,
   };
 }
 

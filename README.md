@@ -244,6 +244,21 @@ npm run inspect:gemma4-literal -- \
   --output /tmp/q-proj-scalar-view.json
 ```
 
+Cada `learnedScalar` retornado por essa vista agora inclui
+`payloadIntegrity`: o range exato de bytes usado pelo decoder, o SHA-256 do
+payload inteiro, todos os chunks canônicos Base64 que foram autenticados antes
+da leitura e ponteiros JSON para a entrada em `payloadIntegrity` e para a seção
+correspondente do `integrityManifest`. A mesma cadeia é devolvida por
+`--tensor`. Portanto o literal numérico não fica ligado apenas a nome, índice e
+bits de storage: o relatório mostra também como esses bits chegam ao root
+SHA-256 estrutural do próprio artefato. Ranges que cruzam chunks enumeram todos
+os chunks cobertos em ordem; corrupção em qualquer um deles falha antes do
+decode escalar.
+
+A prova foi exercitada no artefato E4B real com o checkpoint fisicamente
+indisponível em
+[`docs/validation/gemma4-e4b-integrity-bound-scalar-provenance-2026-07-20.md`](docs/validation/gemma4-e4b-integrity-bound-scalar-provenance-2026-07-20.md).
+
 Embeddings exigem `--token-id`, pois o token continua sendo uma entrada do
 chamador, não um default inventado. Operações e coordenadas sem contrato
 escalar registrado falham fechado. A execução contra a E4B real com a fonte

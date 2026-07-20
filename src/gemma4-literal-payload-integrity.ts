@@ -23,6 +23,75 @@ export interface Gemma4CompositeLiteralPayloadIntegrityEntry {
   };
 }
 
+export interface Gemma4LiteralAuthenticatedPayloadRange {
+  kind: "gemma4-literal-authenticated-payload-range";
+  schemaVersion: 1;
+  tensor: string;
+  requestedRange: {
+    byteOffset: number;
+    byteLength: number;
+  };
+  payloadCommitment: {
+    payloadBytes: number;
+    sha256: string;
+    pointer: string;
+  };
+  authenticatedChunks: Array<Gemma4LiteralPayloadIntegrityChunk & { pointer: string }>;
+  artifactCommitment: {
+    algorithm: "SHA-256";
+    rootSha256: string;
+    payloadIntegritySectionSha256: string;
+    payloadIntegritySectionPointer: string;
+  };
+  verification: "requested decoded bytes were returned only after every covering canonical Base64 chunk matched its integrity-manifest-bound SHA-256";
+}
+
+/** Describes the exact integrity chain already enforced by an authenticated range read. */
+export function buildGemma4LiteralAuthenticatedPayloadRange(
+  entry: Gemma4CompositeLiteralPayloadIntegrityEntry,
+  byteOffset: number,
+  byteLength: number,
+  payloadIntegrityIndex: number,
+  artifactCommitment: {
+    rootSha256: string;
+    payloadIntegritySectionSha256: string;
+    payloadIntegritySectionIndex: number;
+  },
+): Gemma4LiteralAuthenticatedPayloadRange {
+  validateGemma4LiteralPayloadIntegrityMetadata(entry, entry.name, entry.payloadBytes);
+  if (!Number.isSafeInteger(byteOffset) || !Number.isSafeInteger(byteLength) || byteOffset < 0 || byteLength <= 0 ||
+    byteOffset + byteLength > entry.payloadBytes || !Number.isSafeInteger(payloadIntegrityIndex) || payloadIntegrityIndex < 0 ||
+    !Number.isSafeInteger(artifactCommitment.payloadIntegritySectionIndex) || artifactCommitment.payloadIntegritySectionIndex < 0 ||
+    !isSha256(artifactCommitment.rootSha256) || !isSha256(artifactCommitment.payloadIntegritySectionSha256)) {
+    throw new Error(`${entry.name}: range autenticado ou compromisso estrutural inválido.`);
+  }
+  const first = Math.floor(byteOffset / entry.chunking.chunkBytes);
+  const last = Math.floor((byteOffset + byteLength - 1) / entry.chunking.chunkBytes);
+  const payloadPointer = `/payloadIntegrity/${payloadIntegrityIndex}`;
+  return {
+    kind: "gemma4-literal-authenticated-payload-range",
+    schemaVersion: 1,
+    tensor: entry.name,
+    requestedRange: { byteOffset, byteLength },
+    payloadCommitment: {
+      payloadBytes: entry.payloadBytes,
+      sha256: entry.sha256,
+      pointer: payloadPointer,
+    },
+    authenticatedChunks: entry.chunking.chunks.slice(first, last + 1).map((chunk) => ({
+      ...structuredClone(chunk),
+      pointer: `${payloadPointer}/chunking/chunks/${chunk.ordinal}`,
+    })),
+    artifactCommitment: {
+      algorithm: "SHA-256",
+      rootSha256: artifactCommitment.rootSha256,
+      payloadIntegritySectionSha256: artifactCommitment.payloadIntegritySectionSha256,
+      payloadIntegritySectionPointer: `/integrityManifest/sections/${artifactCommitment.payloadIntegritySectionIndex}`,
+    },
+    verification: "requested decoded bytes were returned only after every covering canonical Base64 chunk matched its integrity-manifest-bound SHA-256",
+  };
+}
+
 /** Builds whole-payload and independently readable chunk commitments. */
 export function buildGemma4LiteralPayloadIntegrity(
   name: string,

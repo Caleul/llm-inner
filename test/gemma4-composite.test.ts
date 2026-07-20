@@ -1752,6 +1752,15 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
       const tensor = catalog.tensors.get("model.language_model.layers.0.self_attn.q_proj.weight")!;
       assert.deepEqual(await artifact.readTensorBytes(tensor), expectedBytes);
       assert.deepEqual(await artifact.readTensorBytesRange(tensor, 5, 23), expectedBytes.subarray(5, 28));
+      const authenticated = await artifact.readTensorBytesRangeWithIntegrity(tensor, 5, 23);
+      assert.deepEqual(authenticated.bytes, expectedBytes.subarray(5, 28));
+      assert.equal(authenticated.integrity.tensor, tensor.name);
+      assert.deepEqual(authenticated.integrity.requestedRange, { byteOffset: 5, byteLength: 23 });
+      assert.equal(authenticated.integrity.authenticatedChunks.length, 1);
+      assert.equal(authenticated.integrity.authenticatedChunks[0]!.pointer.startsWith("/payloadIntegrity/"), true);
+      assert.equal(authenticated.integrity.artifactCommitment.rootSha256, artifact.integrityManifest.rootSha256);
+      assert.equal(authenticated.integrity.artifactCommitment.payloadIntegritySectionPointer,
+        `/integrityManifest/sections/${artifact.integrityManifest.sections.findIndex((section) => section.name === "payloadIntegrity")}`);
       assert.equal("payloadBase64" in artifact.constants.get(tensor.name)!, false);
       assert.equal(artifact.payloadIntegrity.size, catalog.tensors.size);
       assert.equal(artifact.integrityManifest.sections.length, 24);
@@ -2347,6 +2356,15 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       assert.equal(queryScale.denseDecoderLanguage.bitLanguageId, "u32-bit-expression-v1");
       assert.equal(queryScale.storageDecoders.length, 1);
       assert.equal(queryScale.storageDecoders[0]!.decode.schemaVersion, 2);
+      assert.equal(queryScale.learnedScalars[0]!.payloadIntegrity.tensor,
+        "model.audio_tower.layers.0.self_attn.per_dim_scale");
+      assert.deepEqual(queryScale.learnedScalars[0]!.payloadIntegrity.requestedRange, {
+        byteOffset: queryScale.learnedScalars[0]!.storageByteOffset,
+        byteLength: queryScale.learnedScalars[0]!.storageElementBytes,
+      });
+      assert.equal(queryScale.learnedScalars[0]!.payloadIntegrity.authenticatedChunks.length, 1);
+      assert.equal(queryScale.learnedScalars[0]!.payloadIntegrity.artifactCommitment.rootSha256,
+        artifact.integrityManifest.rootSha256);
       const depthwise = await renderGemma4LiteralMultimodalScalarView(artifact, {
         operationId: "composite_audio_features/audio_layer_0_conv_depthwise", outputCoordinate: [0, 2, 1],
       });

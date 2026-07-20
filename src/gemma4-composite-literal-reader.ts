@@ -81,7 +81,9 @@ import {
 } from "./gemma4-literal-fidelity-gate.js";
 import {
   assertGemma4LiteralPayloadChunkBytes,
+  buildGemma4LiteralAuthenticatedPayloadRange,
   validateGemma4LiteralPayloadIntegrityMetadata,
+  type Gemma4LiteralAuthenticatedPayloadRange,
   type Gemma4CompositeLiteralPayloadIntegrityEntry,
   type Gemma4LiteralPayloadIntegrityChunk,
 } from "./gemma4-literal-payload-integrity.js";
@@ -139,6 +141,11 @@ export interface OpenGemma4CompositeLiteralArtifact extends Gemma4CompositeLiter
   readTensorBytes(tensor: TensorInfo): Promise<Buffer>;
   /** Reads an exact storage range without decoding or holding the full tensor. */
   readTensorBytesRange(tensor: TensorInfo, offset: number, byteLength: number): Promise<Buffer>;
+  /** Reads and returns the exact manifest-bound payload proof enforced for that range. */
+  readTensorBytesRangeWithIntegrity(tensor: TensorInfo, offset: number, byteLength: number): Promise<{
+    bytes: Buffer;
+    integrity: Gemma4LiteralAuthenticatedPayloadRange;
+  }>;
   close(): Promise<void>;
 }
 
@@ -191,11 +198,12 @@ export async function openGemma4CompositeLiteralArtifact(artifact: string): Prom
     if (constants.size === 0) throw new Error("Artefato literal Gemma 4 não contém constantes.");
     const tail = parseTailJson(await readStructuralRange(file, cursor, info.size, "cauda estrutural"), "cauda estrutural") as Partial<Gemma4CompositeLiteralCalculationProgram>;
     const index = buildIndex(artifact, info.size, header, tail, constants);
-    const payloadReader = new IntegrityVerifiedPayloadReader(file, index.constants, index.payloadIntegrity);
+    const payloadReader = new IntegrityVerifiedPayloadReader(file, index.constants, index.payloadIntegrity, index.integrityManifest);
     return {
       ...index,
       readTensorBytes: (tensor) => payloadReader.readTensorBytes(tensor),
       readTensorBytesRange: (tensor, offset, byteLength) => payloadReader.readTensorBytesRange(tensor, offset, byteLength),
+      readTensorBytesRangeWithIntegrity: (tensor, offset, byteLength) => payloadReader.readTensorBytesRangeWithIntegrity(tensor, offset, byteLength),
       close: async () => { payloadReader.clear(); await file.close(); },
     };
   } catch (error) {
@@ -409,13 +417,25 @@ function assertDenseDecoder(decoder: LiteralDenseStorageDecodeAssignment, consta
 
 class IntegrityVerifiedPayloadReader {
   private readonly chunkCache = new Map<string, Buffer>();
+  private readonly integrityIndices: ReadonlyMap<string, number>;
+  private readonly payloadIntegritySectionIndex: number;
+  private readonly payloadIntegritySectionSha256: string;
   private static readonly MAX_CACHED_CHUNKS = 4;
 
   constructor(
     private readonly file: FileHandle,
     private readonly constants: ReadonlyMap<string, IndexedLiteralConstant>,
     private readonly integrity: ReadonlyMap<string, Gemma4CompositeLiteralPayloadIntegrityEntry>,
-  ) {}
+    private readonly integrityManifest: Gemma4LiteralArtifactIntegrityManifest,
+  ) {
+    this.integrityIndices = new Map([...integrity.keys()].map((name, index) => [name, index]));
+    this.payloadIntegritySectionIndex = integrityManifest.sections.findIndex((section) => section.name === "payloadIntegrity");
+    const section = integrityManifest.sections[this.payloadIntegritySectionIndex];
+    if (this.payloadIntegritySectionIndex < 0 || !section) {
+      throw new Error("Artefato literal Gemma 4 não vincula payloadIntegrity ao manifesto estrutural.");
+    }
+    this.payloadIntegritySectionSha256 = section.sha256;
+  }
 
   async readTensorBytes(tensor: TensorInfo): Promise<Buffer> {
     const constant = checkedTensor(this.constants, tensor);
@@ -443,6 +463,27 @@ class IntegrityVerifiedPayloadReader {
     const result = Buffer.concat(slices, byteLength);
     if (result.length !== byteLength) throw new Error(`${tensor.name}: leitura autenticada não produziu o range solicitado.`);
     return result;
+  }
+
+  async readTensorBytesRangeWithIntegrity(tensor: TensorInfo, offset: number, byteLength: number): Promise<{
+    bytes: Buffer;
+    integrity: Gemma4LiteralAuthenticatedPayloadRange;
+  }> {
+    const bytes = await this.readTensorBytesRange(tensor, offset, byteLength);
+    const constant = checkedTensor(this.constants, tensor);
+    const entry = this.integrity.get(constant.name);
+    const payloadIntegrityIndex = this.integrityIndices.get(constant.name);
+    if (!entry || payloadIntegrityIndex === undefined) {
+      throw new Error(`${constant.name}: cadeia de integridade do range literal ausente.`);
+    }
+    return {
+      bytes,
+      integrity: buildGemma4LiteralAuthenticatedPayloadRange(entry, offset, byteLength, payloadIntegrityIndex, {
+        rootSha256: this.integrityManifest.rootSha256,
+        payloadIntegritySectionSha256: this.payloadIntegritySectionSha256,
+        payloadIntegritySectionIndex: this.payloadIntegritySectionIndex,
+      }),
+    };
   }
 
   clear(): void { this.chunkCache.clear(); }
