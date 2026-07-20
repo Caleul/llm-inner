@@ -840,6 +840,25 @@ modalidades passaram; as 100 BMM Apple Accelerate permanecem
 `fail-closed-runtime-reduction`. Comandos, hashes e contagens estão em
 [`docs/validation/gemma4-e4b-closed-scalar-statement-environments-2026-07-19.md`](docs/validation/gemma4-e4b-closed-scalar-statement-environments-2026-07-19.md).
 
+O schema v41 torna a integridade parte obrigatória do programa, não uma opção
+do leitor. Cada artefato incorpora um compromisso SHA-256 por payload e um
+`integrityManifest` sobre 23 seções canônicas: identidade imutável, política,
+inputs, metadados de constantes, decoders, programa, atribuições, fórmulas,
+ASTs, navegação, controles forward/greedy, outputs e a tabela completa de
+payloads. Alterar um campo ainda estruturalmente válido, remover a tabela ou
+trocar um digest falha ao abrir; replay em memória também rehasha os bytes
+aprendidos antes de executar.
+
+O E4B real regenerado tem 21.409.228.758 bytes, SHA-256
+`271147d1db4400e272911d603a31e02796e9793766468bbf6041602473820558` e
+raiz estrutural
+`eb1899dfb59bfe44eb9bc3f6f7e489b0436c2dbf95f76f2e96eb05e5d6f4b1b1`.
+Com a fonte fisicamente ausente, todos os 2.130 payloads / 15.992.314.836
+bytes, a substituição escalar e a suite diferencial de imagem, vídeo e áudio
+passaram. As 100 BMM Apple Accelerate continuam explicitamente
+`fail-closed-runtime-reduction`. Evidência completa em
+[`docs/validation/gemma4-e4b-mandatory-artifact-integrity-2026-07-19.md`](docs/validation/gemma4-e4b-mandatory-artifact-integrity-2026-07-19.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 

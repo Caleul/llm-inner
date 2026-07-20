@@ -8,11 +8,16 @@ import type {
   Gemma4CompositeUnreachableConstant,
 } from "./gemma4-composite-literal.js";
 import {
+  gemma4LiteralIntegritySections,
   validateGemma4CompositeLiteralInputs,
   validateGemma4CompositeLiteralNumericPolicy,
   validateGemma4CompositeLiteralStructure,
   validateGemma4LiteralGenerationProgram,
 } from "./gemma4-composite-literal.js";
+import {
+  validateGemma4LiteralArtifactIntegrityManifest,
+  type Gemma4LiteralArtifactIntegrityManifest,
+} from "./gemma4-literal-artifact-integrity.js";
 import {
   buildLiteralDenseStorageDecodeAssignment,
   validateLiteralDenseDecoderLanguageContract,
@@ -88,7 +93,7 @@ export interface IndexedLiteralConstant extends Omit<LiteralConstant, "payloadBa
  * fields, so opening a 20 GiB artifact does not build a 20 GiB V8 object.
  */
 export interface Gemma4CompositeLiteralArtifactIndex {
-  schemaVersion: 40;
+  schemaVersion: 41;
   artifact: string;
   artifactBytes: number;
   sourceIdentity: Gemma4LiteralSourceIdentity;
@@ -113,8 +118,8 @@ export interface Gemma4CompositeLiteralArtifactIndex {
   generation: Gemma4LiteralGreedyGenerationProgram;
   inputs: Gemma4CompositeLiteralInput[];
   numericPolicy: Gemma4CompositeLiteralCalculationProgram["numericPolicy"];
-  /** Optional for compatibility with artifacts emitted before payload commitments. */
-  payloadIntegrity?: ReadonlyMap<string, Gemma4CompositeLiteralPayloadIntegrityEntry>;
+  payloadIntegrity: ReadonlyMap<string, Gemma4CompositeLiteralPayloadIntegrityEntry>;
+  integrityManifest: Gemma4LiteralArtifactIntegrityManifest;
 }
 
 export interface OpenGemma4CompositeLiteralArtifact extends Gemma4CompositeLiteralArtifactIndex {
@@ -253,11 +258,39 @@ function buildIndex(
   validateGemma4LiteralInputContract(tail.inputContract as Gemma4LiteralInputContract, tail.program as Gemma4CompositeProgram);
   validateGemma4LiteralInputDeclarationAlignment(tail.inputContract as Gemma4LiteralInputContract, header.inputs as Gemma4CompositeLiteralInput[]);
   validateGemma4LiteralOutputContract(tail.outputContract as Gemma4LiteralOutputContract, tail.program as Gemma4CompositeProgram);
-  const payloadIntegrity = tail.payloadIntegrity === undefined
-    ? undefined
-    : validatePayloadIntegrity(tail.payloadIntegrity, constants);
+  const payloadIntegrity = validatePayloadIntegrity(tail.payloadIntegrity, constants);
+  if (!tail.integrityManifest) throw new Error("Artefato literal Gemma 4 não declara compromisso estrutural.");
+  const constantMetadata = [...constants.values()].map(({ payloadOffset: _offset, payloadBase64Characters: _characters, payloadBytes: _bytes, ...metadata }) => metadata);
+  validateGemma4LiteralArtifactIntegrityManifest(
+    tail.integrityManifest as Gemma4LiteralArtifactIntegrityManifest,
+    gemma4LiteralIntegritySections({
+      sourceIdentity: header.sourceIdentity,
+      authoritativeExecution: header.authoritativeExecution,
+      numericPolicy: header.numericPolicy,
+      inputs: header.inputs,
+      constants: constantMetadata,
+      unreachableConstants: tail.unreachableConstants,
+      storageDecoders: tail.storageDecoders,
+      denseDecoderLanguage: tail.denseDecoderLanguage,
+      program: tail.program,
+      assignments: tail.assignments,
+      calculationDomains: tail.calculationDomains,
+      learnedOperands: tail.learnedOperands,
+      scalarCalculations: tail.scalarCalculations,
+      formulaLanguage: tail.formulaLanguage,
+      transcendentalPrograms: tail.transcendentalPrograms,
+      numericLiterals: tail.numericLiterals,
+      calculationGraph: tail.calculationGraph,
+      forwardControl: tail.forwardControl,
+      inputContract: tail.inputContract,
+      outputContract: tail.outputContract,
+      outputs: tail.outputs,
+      generation: tail.generation,
+      payloadIntegrity: tail.payloadIntegrity,
+    }),
+  );
   return {
-    schemaVersion: 40,
+    schemaVersion: 41,
     artifact,
     artifactBytes,
     sourceIdentity: structuredClone(header.sourceIdentity as Gemma4LiteralSourceIdentity),
@@ -282,7 +315,8 @@ function buildIndex(
     generation: tail.generation as Gemma4LiteralGreedyGenerationProgram,
     inputs: header.inputs as Gemma4CompositeLiteralInput[],
     numericPolicy: header.numericPolicy as Gemma4CompositeLiteralCalculationProgram["numericPolicy"],
-    ...(payloadIntegrity ? { payloadIntegrity } : {}),
+    payloadIntegrity,
+    integrityManifest: structuredClone(tail.integrityManifest as Gemma4LiteralArtifactIntegrityManifest),
   };
 }
 
@@ -321,7 +355,7 @@ function assertHeader(header: Partial<Gemma4CompositeLiteralCalculationProgram>)
       policy.scalarSemantics === "IEEE-754 binary32; each operation declares ordered-scalar, contiguous blocked-term, separately-rounded F32-lane, or fused-multiply-add reduction and its F32 or BF16 result cast" ||
       policy.scalarSemantics === "IEEE-754 binary32 products; each operation declares its ordered-scalar, contiguous blocked-term, blocked tiled-lane, or interleaved-lane F32/F64 reduction and F32 or BF16 result cast" ||
       policy.scalarSemantics === "IEEE-754 binary32; each operation declares ordered-scalar, contiguous blocked-term, blocked tiled-lane, separately-rounded F32-lane, or fused-multiply-add reduction and its F32 or BF16 result cast");
-  if (header.schemaVersion !== 40 || header.kind !== "gemma4-composite-literal-calculation-program" || header.sourceFormat !== "safetensors" ||
+  if (header.schemaVersion !== 41 || header.kind !== "gemma4-composite-literal-calculation-program" || header.sourceFormat !== "safetensors" ||
     !header.sourceIdentity || !header.authoritativeExecution || !Array.isArray(header.inputs) || !policy || (!f32 && !operationDeclared && !operationAccumulationDeclared)) {
     throw new Error("Artefato literal Gemma 4 possui cabeçalho ou política numérica inválida.");
   }

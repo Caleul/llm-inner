@@ -244,6 +244,16 @@ um `.shape` fora de tensor declarado ou um campo de STRUCT sem contrato falha
 antes de qualquer output. Assim, sintaxe válida não é confundida com semântica
 executável.
 
+No schema v41, `payloadIntegrity` deixa de ser opcional e
+`integrityManifest` compromete as 23 seções não-payload do programa, inclusive
+metadados das constantes, todos os contratos executáveis e a própria tabela de
+digests de payload. A canonicalização é declarada como bytes UTF-8 do
+`JSON.stringify` ECMAScript por seção, em ordem fixa; cada entrada declara
+tamanho e SHA-256, e uma raiz liga a sequência completa. O leitor streaming
+recalcula a raiz sem materializar os payloads de 20 GiB, enquanto a verificação
+source-removed percorre e rehasha cada byte aprendido. Ausência, alteração ou
+reordenação não reconhecida falha antes da navegação ou replay.
+
 ## Critério de aceite
 
 Uma implementação só é candidata a fechar este requisito quando:

@@ -700,7 +700,9 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 40);
+  assert.equal(literal.schemaVersion, 41);
+  assert.equal(literal.payloadIntegrity.length, catalog.tensors.size);
+  assert.equal(literal.integrityManifest.sections.length, 23);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   assert.deepEqual(literal.authoritativeExecution, gemma4AuthoritativeExecutionContract());
@@ -1525,6 +1527,7 @@ test("Gemma 4 composite streamed writer emits an atomic self-contained JSON file
     assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
     assert.equal(Buffer.from(literal.sourceIdentity.files.find((file: { path: string }) => file.path === "config.json").content.payloadBase64, "base64").toString("utf8"), "{}");
     assert.equal(literal.payloadIntegrity.length, catalog.tensors.size);
+    assert.equal(literal.integrityManifest.sections.length, 23);
     const embedded = literal.payloadIntegrity.find((entry: { name: string }) => entry.name === "model.language_model.embed_tokens.weight")!;
     assert.equal(embedded.sha256, createHash("sha256").update(denseF32Bytes(sourceTensors.get(embedded.name)!)).digest("hex"));
 
@@ -1561,7 +1564,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 40);
+      assert.equal(artifact.schemaVersion, 41);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.deepEqual(artifact.authoritativeExecution, gemma4AuthoritativeExecutionContract());
@@ -1571,7 +1574,8 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
       assert.deepEqual(await artifact.readTensorBytes(tensor), expectedBytes);
       assert.deepEqual(await artifact.readTensorBytesRange(tensor, 5, 23), expectedBytes.subarray(5, 28));
       assert.equal("payloadBase64" in artifact.constants.get(tensor.name)!, false);
-      assert.equal(artifact.payloadIntegrity?.size, catalog.tensors.size);
+      assert.equal(artifact.payloadIntegrity.size, catalog.tensors.size);
+      assert.equal(artifact.integrityManifest.sections.length, 23);
       assert.equal(artifact.generation.kind, "gemma4-literal-greedy-generation-program");
       assert.equal(artifact.generation.forwardProgram.firstAssignment, "composite_block_sequence_ids");
       assert.equal(artifact.generation.forwardProgram.lastAssignment, "lm_head");
@@ -1607,6 +1611,12 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
     const corruptedIdentity = path.join(root, "corrupted-identity.gemma4.literal.json");
     await writeFile(corruptedIdentity, raw.replace(`"revision":"${"a".repeat(40)}"`, '"revision":"moving-main"'));
     await assert.rejects(() => openGemma4CompositeLiteralArtifact(corruptedIdentity), /identidade de source inválida/);
+    const corruptedSemanticCommitment = path.join(root, "corrupted-semantic-commitment.gemma4.literal.json");
+    await writeFile(corruptedSemanticCommitment, raw.replace('"modelId":"fixture/tiny-gemma4"', '"modelId":"fixture/tiny-gemma4-mutated"'));
+    await assert.rejects(() => openGemma4CompositeLiteralArtifact(corruptedSemanticCommitment), /compromisso estrutural/);
+    const missingIntegrity = path.join(root, "missing-integrity.gemma4.literal.json");
+    await writeFile(missingIntegrity, raw.replace(/,"integrityManifest":\{.*\}\}\n$/s, "}\n"));
+    await assert.rejects(() => openGemma4CompositeLiteralArtifact(missingIntegrity), /não declara compromisso estrutural/);
     const nonCanonicalMetadata = path.join(root, "non-canonical-metadata.gemma4.literal.json");
     await writeFile(nonCanonicalMetadata, raw.replace('"payloadBase64":"e30="', '"payloadBase64":"e30=\\n"'));
     await assert.rejects(() => openGemma4CompositeLiteralArtifact(nonCanonicalMetadata), /bytes incorporados não correspondem/);
@@ -1654,7 +1664,7 @@ test("Gemma 4 literal payload verifier proves every embedded storage byte before
     await writeFile(corruptIdentity, raw.replace(weightSha, "d".repeat(64)), "utf8");
     await assert.rejects(
       () => verifyGemma4CompositeLiteralPayloadsAgainstCatalog({ artifact: corruptIdentity, source, maxReadBytes: 13 }),
-      /Identidade imutável Gemma 4 diverge/,
+      /compromisso estrutural/,
     );
     await writeFile(corrupt, raw.replace(/("constants":\[\{"name":[\s\S]*?"payloadBase64":")([A-Za-z0-9])/, (_match, prefix: string, first: string) => `${prefix}${first === "A" ? "B" : "A"}`), "utf8");
     await assert.rejects(
@@ -1740,8 +1750,7 @@ test("Gemma 4 literal headers expose and stream-validate operation-declared F64 
       "IEEE-754 binary32 products; each operation declares its ordered-scalar, contiguous blocked-term, blocked tiled-lane, or interleaved-lane F32/F64 reduction and F32 or BF16 result cast",
       "IEEE-754 binary32 products; each operation declares its ordered-scalar or interleaved-lane F32/F64 reduction and F32 or BF16 result cast",
     ));
-    const legacyArtifact = await openGemma4CompositeLiteralArtifact(legacy);
-    await legacyArtifact.close();
+    await assert.rejects(() => openGemma4CompositeLiteralArtifact(legacy), /compromisso estrutural/);
 
     const blockedTiledProgram = buildGemma4CompositeProgram(catalog, preview);
     const blockedTiled = [...blockedTiledProgram.textProgram.prelude, ...blockedTiledProgram.textProgram.layers.flatMap((layer) => layer.operations), ...blockedTiledProgram.textProgram.epilogue]
