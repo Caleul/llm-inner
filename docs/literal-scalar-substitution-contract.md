@@ -317,6 +317,24 @@ a lista fechada antes de cada matmul, e cada recibo carrega a mesma identidade.
 Alterar bytes de um executável/kernel ou trocar a imagem BLAS falha antes da
 redução; a agenda escalar continua deliberadamente `runtime-defined`.
 
+No schema v51, `runtimeDependencyIdentity` fecha o restante do código carregado
+pelo adapter. Nove arquivos nativos são ligados por papel, tamanho e SHA-256;
+as árvores de fontes Python da biblioteca padrão CPython e do pacote Torch são
+canonicalizadas por caminho POSIX relativo, tamanho e SHA-256 de cada folha;
+e a imagem BLAS do dyld shared cache permanece ligada por install name,
+arquitetura e UUID Mach-O. O adapter recalcula a coleção completa antes de
+executar e cada recibo repete a identidade fechada.
+
+No schema v52, `runtimeExecutionState` separa identidade instalada de estado
+efetivo do processo. O programa fixa as contagens intraop/interop, o modo de
+algoritmos determinísticos e os estados de disponibilidade/ativação MKLDNN que
+foram registrados pela captura autoritativa. O adapter configura os campos
+mutáveis, relê todos os campos e rejeita divergência antes de materializar os
+operandos. Cada redução do `fidelityGate` aponta tanto para
+`runtimeEnvironmentIdentity` quanto para `runtimeExecutionState`, e cada
+recibo carrega o mesmo objeto. Isso fecha variação de threads e política de
+algoritmo sem alegar uma agenda escalar ainda não publicada pelo Accelerate.
+
 ## Critério de aceite
 
 Uma implementação só é candidata a fechar este requisito quando:
@@ -475,10 +493,11 @@ expõe esse estado mesmo quando o checkpoint está indisponível.
 
 Um replay que delega uma fronteira `runtime-defined` a um runtime autoritativo
 também precisa ser auditável. O artefato fixa versão, commit de build, modo de
-execução, device, plataforma e backend BLAS. Cada chamada deve corresponder a
-uma única redução do programa e produzir um recibo que vincula ID/classe,
-operandos ordenados e output por shape, bytes IEEE-F32 little-endian e
-SHA-256. Runtime diferente, recibo alterado, valor não finito, shape divergente
-ou cardinalidade diferente do grafo ativo falha fechado. Esse recibo prova qual
-kernel reproduziu o valor; ele não substitui uma árvore escalar ainda não
-publicada.
+execução, device, plataforma, backend BLAS, dependências carregadas e estado
+efetivo de threads/algoritmos. Cada chamada deve corresponder a uma única
+redução do programa e produzir um recibo que vincula ID/classe, operandos
+ordenados e output por shape, bytes IEEE-F32 little-endian e SHA-256. Runtime,
+estado ou dependência diferente, recibo alterado, valor não finito, shape
+divergente ou cardinalidade diferente do grafo ativo falha fechado. Esse
+recibo prova qual kernel e estado reproduziram o valor; ele não substitui uma
+árvore escalar ainda não publicada.

@@ -1038,6 +1038,27 @@ identidade expandida. As 100 agendas escalares Apple Accelerate continuam no
 gate, com `exactReplayClaim=forbidden`. Evidência completa em
 [`docs/validation/gemma4-e4b-runtime-dependency-identity-2026-07-20.md`](docs/validation/gemma4-e4b-runtime-dependency-identity-2026-07-20.md).
 
+O schema v52 fecha o estado efetivo do processo Torch que ainda podia variar
+sem alterar nenhuma identidade binária do v51. `runtimeExecutionState` fixa e
+o adapter configura antes do primeiro matmul `intraopThreads=10`,
+`interopThreads=14`, `deterministicAlgorithms=false`,
+`mkldnnAvailable=false` e `mkldnnEnabled=true`; em seguida ele relê os cinco
+campos e falha se o estado efetivo divergir. O mesmo objeto está no contrato
+autoritativo, na raiz estrutural, no gate navegável e em cada recibo das 100
+reduções nativas. Assim, uma execução com contagem de threads ou política de
+algoritmo diferente não pode reutilizar a identidade de runtime fixada.
+
+O E4B v52 tem 21.409.364.037 bytes, SHA-256
+`4004e48c072e535af1e0fdd86f50b3c4b1bcf1fb6d9f09265db276db230e69c0`
+e raiz estrutural
+`5da4fad4c816f9cd782ee740f0d25c1aee4937b7d56da0ebfd6f9e75c98d4366`.
+Com checkpoint e adapter do checkout fisicamente ausentes, os 2.130 payloads
+foram revalidados e imagem, vídeo e áudio repetiram prefill, logits, 24 caches
+KV e geração greedy a tolerância zero com os 100 recibos ligados ao estado
+efetivo. A agenda escalar Apple Accelerate continua corretamente fail-closed,
+com `exactReplayClaim=forbidden`. Evidência completa em
+[`docs/validation/gemma4-e4b-runtime-execution-state-2026-07-20.md`](docs/validation/gemma4-e4b-runtime-execution-state-2026-07-20.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 

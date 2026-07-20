@@ -52,6 +52,14 @@ SUPPORTED_RUNTIME_ENVIRONMENT = {
         ],
     },
 }
+SUPPORTED_RUNTIME_EXECUTION_STATE = {
+    "schemaVersion": 1,
+    "intraopThreads": 10,
+    "interopThreads": 14,
+    "deterministicAlgorithms": False,
+    "mkldnnAvailable": False,
+    "mkldnnEnabled": True,
+}
 
 
 def file_identity(role: str, locator: str, path: Path) -> dict[str, Any]:
@@ -169,6 +177,26 @@ def runtime_environment_identity(build_config: str) -> dict[str, Any]:
         ).strip(),
         "torchBuildConfigSha256": hashlib.sha256(build_config.encode("utf-8")).hexdigest(),
         "runtimeDependencyIdentity": runtime_dependency_identity(),
+    }
+
+
+def configure_runtime_execution_state() -> None:
+    torch.set_num_threads(SUPPORTED_RUNTIME_EXECUTION_STATE["intraopThreads"])
+    torch.set_num_interop_threads(SUPPORTED_RUNTIME_EXECUTION_STATE["interopThreads"])
+    torch.use_deterministic_algorithms(
+        SUPPORTED_RUNTIME_EXECUTION_STATE["deterministicAlgorithms"]
+    )
+    torch.backends.mkldnn.enabled = SUPPORTED_RUNTIME_EXECUTION_STATE["mkldnnEnabled"]
+
+
+def runtime_execution_state() -> dict[str, Any]:
+    return {
+        "schemaVersion": 1,
+        "intraopThreads": torch.get_num_threads(),
+        "interopThreads": torch.get_num_interop_threads(),
+        "deterministicAlgorithms": torch.are_deterministic_algorithms_enabled(),
+        "mkldnnAvailable": torch.backends.mkldnn.is_available(),
+        "mkldnnEnabled": torch.backends.mkldnn.enabled,
     }
 
 
@@ -377,6 +405,13 @@ def main() -> None:
             f"Runtime reduction requires torch commit {SUPPORTED_TORCH_COMMIT}; "
             f"received {torch.version.git_version}."
         )
+    configure_runtime_execution_state()
+    execution_state = runtime_execution_state()
+    if execution_state != SUPPORTED_RUNTIME_EXECUTION_STATE:
+        raise ValueError(
+            "Runtime reduction execution state diverges from the pinned contract: "
+            f"expected {SUPPORTED_RUNTIME_EXECUTION_STATE!r}; received {execution_state!r}."
+        )
     runtime_environment = runtime_environment_identity(build_config)
     if runtime_environment != SUPPORTED_RUNTIME_ENVIRONMENT:
         raise ValueError(
@@ -409,6 +444,7 @@ def main() -> None:
             "backend": "Apple Accelerate SGEMM",
             "blasBuildSetting": SUPPORTED_BLAS_SETTING,
             "runtimeEnvironmentIdentity": runtime_environment,
+            "runtimeExecutionState": execution_state,
         },
         "output": {"shape": list(result.shape), "values": result.reshape(-1).tolist()},
     }, separators=(",", ":")))

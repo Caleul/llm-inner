@@ -3,6 +3,7 @@ import { isDeepStrictEqual } from "node:util";
 import {
   GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256,
   GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY,
+  GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE,
 } from "./gemma4-authoritative-runtime.js";
 import {
   gemma4RuntimeReductionInvocationProgram,
@@ -46,6 +47,7 @@ export interface Gemma4RuntimeReductionAttestation {
   backend: "Apple Accelerate SGEMM";
   blasBuildSetting: "BLAS_INFO=accelerate";
   runtimeEnvironmentIdentity: typeof GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY;
+  runtimeExecutionState: typeof GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE;
 }
 
 export interface Gemma4RuntimeReductionTensorEvidence {
@@ -85,6 +87,7 @@ export function expectedGemma4RuntimeReductionAttestation(): Gemma4RuntimeReduct
     backend: "Apple Accelerate SGEMM",
     blasBuildSetting: "BLAS_INFO=accelerate",
     runtimeEnvironmentIdentity: structuredClone(GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY),
+    runtimeExecutionState: structuredClone(GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE),
   };
 }
 

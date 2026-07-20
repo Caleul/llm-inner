@@ -28,7 +28,7 @@ export interface Gemma4AuthoritativeTraceContext {
 
 export interface Gemma4AuthoritativeExecutionContract {
   kind: "gemma4-authoritative-execution-contract";
-  schemaVersion: 7;
+  schemaVersion: 8;
   canonicalCompositeRuntime: typeof GEMMA4_COMPOSITE_REFERENCE_RUNTIME;
   diagnosticSubprogramRuntimes: {
     audio: typeof GEMMA4_AUDIO_REFERENCE_RUNTIME;
@@ -57,6 +57,7 @@ export interface Gemma4AuthoritativeExecutionContract {
       backend: "Apple Accelerate SGEMM";
       blasBuildSetting: "BLAS_INFO=accelerate";
       runtimeEnvironmentIdentity: typeof GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY;
+      runtimeExecutionState: typeof GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE;
       checkpointInput: "forbidden";
       operandSource: "dependency-ordered artifact intermediates only";
       adapterProgram: Gemma4RuntimeReductionAdapterProgram;
@@ -76,7 +77,7 @@ export interface Gemma4RuntimeReductionAdapterProgram {
   sourceUtf8: string;
 }
 
-export const GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256 = "6cb4b2d076a08536eabeb4bfaa2a5368de75f88b904aad291fd847e39d725b08" as const;
+export const GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256 = "86b33db05f281013ee4214dd9caa18bc9db2f910a903707493ae2543cee2d6c8" as const;
 
 /**
  * Exact host identity for the still-opaque Apple Accelerate reduction path.
@@ -184,6 +185,20 @@ export const GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY = {
   },
 } as const;
 
+/**
+ * Effective Torch process state used by the authoritative Gemma 4 captures.
+ * Binary and host identity alone do not fix reduction behavior when thread or
+ * deterministic-algorithm settings can be changed independently at runtime.
+ */
+export const GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE = {
+  schemaVersion: 1,
+  intraopThreads: 10,
+  interopThreads: 14,
+  deterministicAlgorithms: false,
+  mkldnnAvailable: false,
+  mkldnnEnabled: true,
+} as const;
+
 /** Loads the build-time adapter once; the emitted artifact embeds it and no longer needs this file. */
 export async function loadGemma4RuntimeReductionAdapterProgram(
   helper = resolve(dirname(fileURLToPath(import.meta.url)), "../../helpers/torch_gemma4_runtime_reductions.py"),
@@ -221,7 +236,7 @@ export function gemma4AuthoritativeExecutionContract(
   validateGemma4RuntimeReductionAdapterProgram(adapterProgram);
   return {
     kind: "gemma4-authoritative-execution-contract",
-    schemaVersion: 7,
+    schemaVersion: 8,
     canonicalCompositeRuntime: GEMMA4_COMPOSITE_REFERENCE_RUNTIME,
     diagnosticSubprogramRuntimes: {
       audio: GEMMA4_AUDIO_REFERENCE_RUNTIME,
@@ -250,6 +265,7 @@ export function gemma4AuthoritativeExecutionContract(
         backend: "Apple Accelerate SGEMM",
         blasBuildSetting: "BLAS_INFO=accelerate",
         runtimeEnvironmentIdentity: structuredClone(GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY),
+        runtimeExecutionState: structuredClone(GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE),
         checkpointInput: "forbidden",
         operandSource: "dependency-ordered artifact intermediates only",
         adapterProgram: structuredClone(adapterProgram),

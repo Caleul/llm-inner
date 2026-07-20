@@ -18,6 +18,7 @@ import type { DifferentialOperationSample } from "../src/types.js";
 import {
   GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256,
   GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY,
+  GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE,
   loadGemma4RuntimeReductionAdapterProgram,
 } from "../src/gemma4-authoritative-runtime.js";
 import { Gemma4TorchRuntimeReductionProvider } from "../src/gemma4-torch-runtime-reduction-provider.js";
@@ -143,6 +144,19 @@ test("Gemma 4 runtime-reduction provider accepts only its pinned contract and ex
   };
   assert.throws(() => executeGemma4RuntimeReduction(wrongPythonSources, request, [1, 1, 2, 2]), /evidência.*divergente/);
 
+  const wrongExecutionState: Gemma4RuntimeReductionProvider = {
+    ...provider,
+    execute(actual) {
+      const result = execution(actual, sampleTensor([1, 1, 2, 2]));
+      result.evidence.runtimeAttestation.runtimeExecutionState = {
+        ...result.evidence.runtimeAttestation.runtimeExecutionState,
+        intraopThreads: 1,
+      } as unknown as typeof GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE;
+      return result;
+    },
+  };
+  assert.throws(() => executeGemma4RuntimeReduction(wrongExecutionState, request, [1, 1, 2, 2]), /evidência.*divergente/);
+
   const mismatchedProgram = fixtureProgram();
   mismatchedProgram.assignments[2]!.operation = "add";
   assert.throws(() => executeGemma4RuntimeReduction(provider, { ...request, program: mismatchedProgram }, [1, 1, 2, 2]), /não corresponde.*BMM/);
@@ -161,11 +175,20 @@ test("Gemma 4 runtime-reduction provider executes the integrity-bound embedded a
     await loadGemma4RuntimeReductionAdapterProgram(),
     gemma4RuntimeReductionInvocationPrograms(),
   );
-  assert.deepEqual(executeGemma4RuntimeReduction(provider, request, [1, 1, 2, 2]), sampleTensor([1, 1, 2, 2]));
+  const previousOmpThreads = process.env.OMP_NUM_THREADS;
+  process.env.OMP_NUM_THREADS = "1";
+  try {
+    assert.deepEqual(executeGemma4RuntimeReduction(provider, request, [1, 1, 2, 2]), sampleTensor([1, 1, 2, 2]));
+  } finally {
+    if (previousOmpThreads === undefined) delete process.env.OMP_NUM_THREADS;
+    else process.env.OMP_NUM_THREADS = previousOmpThreads;
+  }
   assert.equal(provider.executions.length, 1);
   assert.equal(provider.executions[0]!.adapterProgramSha256, GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256);
   assert.deepEqual(provider.executions[0]!.runtimeAttestation.runtimeEnvironmentIdentity,
     GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY);
+  assert.deepEqual(provider.executions[0]!.runtimeAttestation.runtimeExecutionState,
+    GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE);
 });
 
 test("Gemma 4 embedded adapter executes every serialized invocation program without hidden class transforms", async () => {

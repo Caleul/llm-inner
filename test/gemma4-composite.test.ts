@@ -92,6 +92,7 @@ import {
   assertGemma4AuthoritativeRuntime,
   GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256,
   GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY,
+  GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE,
   GEMMA4_AUDIO_REFERENCE_RUNTIME,
   GEMMA4_COMPOSITE_REFERENCE_RUNTIME,
   GEMMA4_VISION_REFERENCE_RUNTIME,
@@ -702,16 +703,18 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 51);
+  assert.equal(literal.schemaVersion, 52);
   assert.equal(literal.payloadIntegrity.length, catalog.tensors.size);
   assert.equal(literal.integrityManifest.sections.length, 24);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
-  assert.equal(literal.authoritativeExecution.schemaVersion, 7);
+  assert.equal(literal.authoritativeExecution.schemaVersion, 8);
   assert.equal(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.adapterProgram.sha256,
     GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256);
   assert.deepEqual(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.runtimeEnvironmentIdentity,
     GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY);
+  assert.deepEqual(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.runtimeExecutionState,
+    GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE);
   assert.match(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.adapterProgram.sourceUtf8,
     /Execute one pinned Gemma 4 runtime-defined matmul without model access/);
   const invocationPrograms = literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.invocationPrograms;
@@ -736,7 +739,7 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     0,
   );
   assert.equal(literal.fidelityGate.status, "blocked-on-runtime-reduction");
-  assert.equal(literal.fidelityGate.schemaVersion, 2);
+  assert.equal(literal.fidelityGate.schemaVersion, 3);
   assert.equal(literal.fidelityGate.exactReplayClaim, "forbidden");
   assert.equal(literal.fidelityGate.unresolvedNativeReductionCount, literal.fidelityGate.unresolvedNativeReductions.length);
   assert.ok(literal.fidelityGate.unresolvedNativeReductions.every((entry) =>
@@ -744,7 +747,8 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     entry.outputCoordinatePointer === `/calculationGraph/assignments/${entry.ordinal}/outputCoordinate` &&
     entry.invocationProgramId === entry.operationClass &&
     entry.invocationProgramPointer === `/authoritativeExecution/unresolvedNativeReduction/executableReplay/invocationPrograms/${invocationPrograms.findIndex((program) => program.id === entry.operationClass)}` &&
-    entry.runtimeEnvironmentIdentityPointer === "/authoritativeExecution/unresolvedNativeReduction/executableReplay/runtimeEnvironmentIdentity"));
+    entry.runtimeEnvironmentIdentityPointer === "/authoritativeExecution/unresolvedNativeReduction/executableReplay/runtimeEnvironmentIdentity" &&
+    entry.runtimeExecutionStatePointer === "/authoritativeExecution/unresolvedNativeReduction/executableReplay/runtimeExecutionState"));
   assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.languageId, literal.generation.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.authority.numericLiteralBits, "/numericLiterals/literals");
@@ -1403,6 +1407,13 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
       operatingSystemBuild: "different-build",
     } as unknown as typeof GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY;
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(tamperedRuntimeEnvironment), /contrato autoritativo de execução/);
+  const tamperedRuntimeExecutionState = structuredClone(literal);
+  tamperedRuntimeExecutionState.authoritativeExecution.unresolvedNativeReduction.executableReplay
+    .runtimeExecutionState = {
+      ...tamperedRuntimeExecutionState.authoritativeExecution.unresolvedNativeReduction.executableReplay.runtimeExecutionState,
+      intraopThreads: 1,
+    } as unknown as typeof GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE;
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(tamperedRuntimeExecutionState), /contrato autoritativo de execução/);
   const external = structuredClone(literal);
   external.program.textProgram.source.path = "/checkpoint/model.safetensors";
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(external), /reteve uma referência de source checkpoint/);
@@ -1622,7 +1633,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 51);
+      assert.equal(artifact.schemaVersion, 52);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.equal(artifact.authoritativeExecution.unresolvedNativeReduction.executableReplay.adapterProgram.sha256,
