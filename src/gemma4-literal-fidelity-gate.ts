@@ -22,6 +22,7 @@ export interface Gemma4LiteralUnresolvedRuntimeReduction {
   outputCoordinatePointer: string;
   invocationProgramId: Gemma4LiteralRuntimeReductionOperationClass;
   invocationProgramPointer: string;
+  runtimeEnvironmentIdentityPointer: "/authoritativeExecution/unresolvedNativeReduction/executableReplay/runtimeEnvironmentIdentity";
 }
 
 /**
@@ -32,7 +33,7 @@ export interface Gemma4LiteralUnresolvedRuntimeReduction {
  */
 export interface Gemma4LiteralFidelityGate {
   kind: "gemma4-literal-fidelity-gate";
-  schemaVersion: 1;
+  schemaVersion: 2;
   status: "blocked-on-runtime-reduction" | "eligible-for-independent-certification";
   exactReplayClaim: "forbidden" | "not-certified";
   provider: Gemma4AuthoritativeExecutionContract["unresolvedNativeReduction"]["provider"];
@@ -74,12 +75,13 @@ export function buildGemma4LiteralFidelityGate(
       outputCoordinatePointer: `/calculationGraph/assignments/${assignment.ordinal}/outputCoordinate`,
       invocationProgramId: invocationProgram.id,
       invocationProgramPointer: `/authoritativeExecution/unresolvedNativeReduction/executableReplay/invocationPrograms/${invocationPrograms.indexOf(invocationProgram)}`,
+      runtimeEnvironmentIdentityPointer: "/authoritativeExecution/unresolvedNativeReduction/executableReplay/runtimeEnvironmentIdentity",
     }];
   });
   const blocked = unresolvedNativeReductions.length > 0;
   return {
     kind: "gemma4-literal-fidelity-gate",
-    schemaVersion: 1,
+    schemaVersion: 2,
     status: blocked ? "blocked-on-runtime-reduction" : "eligible-for-independent-certification",
     exactReplayClaim: blocked ? "forbidden" : "not-certified",
     provider: authority.unresolvedNativeReduction.provider,

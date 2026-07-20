@@ -17,6 +17,7 @@ import type { Gemma4AudioProgram } from "../src/gemma4-audio.js";
 import type { DifferentialOperationSample } from "../src/types.js";
 import {
   GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256,
+  GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY,
   loadGemma4RuntimeReductionAdapterProgram,
 } from "../src/gemma4-authoritative-runtime.js";
 import { Gemma4TorchRuntimeReductionProvider } from "../src/gemma4-torch-runtime-reduction-provider.js";
@@ -97,6 +98,19 @@ test("Gemma 4 runtime-reduction provider accepts only its pinned contract and ex
   };
   assert.throws(() => executeGemma4RuntimeReduction(wrongAttestation, request, [1, 1, 2, 2]), /evidência.*divergente/);
 
+  const wrongEnvironment: Gemma4RuntimeReductionProvider = {
+    ...provider,
+    execute(actual) {
+      const result = execution(actual, sampleTensor([1, 1, 2, 2]));
+      result.evidence.runtimeAttestation.runtimeEnvironmentIdentity = {
+        ...result.evidence.runtimeAttestation.runtimeEnvironmentIdentity,
+        operatingSystemBuild: "different-build",
+      } as unknown as typeof GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY;
+      return result;
+    },
+  };
+  assert.throws(() => executeGemma4RuntimeReduction(wrongEnvironment, request, [1, 1, 2, 2]), /evidência.*divergente/);
+
   const mismatchedProgram = fixtureProgram();
   mismatchedProgram.assignments[2]!.operation = "add";
   assert.throws(() => executeGemma4RuntimeReduction(provider, { ...request, program: mismatchedProgram }, [1, 1, 2, 2]), /não corresponde.*BMM/);
@@ -118,6 +132,8 @@ test("Gemma 4 runtime-reduction provider executes the integrity-bound embedded a
   assert.deepEqual(executeGemma4RuntimeReduction(provider, request, [1, 1, 2, 2]), sampleTensor([1, 1, 2, 2]));
   assert.equal(provider.executions.length, 1);
   assert.equal(provider.executions[0]!.adapterProgramSha256, GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256);
+  assert.deepEqual(provider.executions[0]!.runtimeAttestation.runtimeEnvironmentIdentity,
+    GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY);
 });
 
 test("Gemma 4 embedded adapter executes every serialized invocation program without hidden class transforms", async () => {

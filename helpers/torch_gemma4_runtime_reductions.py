@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import platform
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -16,6 +18,39 @@ SUPPORTED_TORCH = "2.12.1"
 SUPPORTED_TORCH_COMMIT = "7269437d655783a26cba32aa88195b741ff496aa"
 SUPPORTED_PLATFORM = "Darwin-arm64"
 SUPPORTED_BLAS_SETTING = "BLAS_INFO=accelerate"
+SUPPORTED_RUNTIME_ENVIRONMENT = {
+    "pythonImplementation": "CPython",
+    "pythonVersion": "3.14.3",
+    "operatingSystem": "macOS",
+    "operatingSystemVersion": "26.5.2",
+    "operatingSystemBuild": "25F84",
+    "kernelRelease": "25.5.0",
+    "machineModel": "Mac15,10",
+    "cpuBrand": "Apple M3 Max",
+    "torchBuildConfigSha256": "606e3853213dea3faabc6d58b66ed7e419ee4452a6d53c2b27495a2ecc4e07a7",
+}
+
+
+def runtime_environment_identity(build_config: str) -> dict[str, str]:
+    return {
+        "pythonImplementation": platform.python_implementation(),
+        "pythonVersion": platform.python_version(),
+        "operatingSystem": "macOS" if platform.system() == "Darwin" else platform.system(),
+        "operatingSystemVersion": subprocess.check_output(
+            ["/usr/bin/sw_vers", "-productVersion"], text=True
+        ).strip(),
+        "operatingSystemBuild": subprocess.check_output(
+            ["/usr/bin/sw_vers", "-buildVersion"], text=True
+        ).strip(),
+        "kernelRelease": platform.release(),
+        "machineModel": subprocess.check_output(
+            ["/usr/sbin/sysctl", "-n", "hw.model"], text=True
+        ).strip(),
+        "cpuBrand": subprocess.check_output(
+            ["/usr/sbin/sysctl", "-n", "machdep.cpu.brand_string"], text=True
+        ).strip(),
+        "torchBuildConfigSha256": hashlib.sha256(build_config.encode("utf-8")).hexdigest(),
+    }
 
 
 def tensor(raw: Any, label: str) -> torch.Tensor:
@@ -223,6 +258,12 @@ def main() -> None:
             f"Runtime reduction requires torch commit {SUPPORTED_TORCH_COMMIT}; "
             f"received {torch.version.git_version}."
         )
+    runtime_environment = runtime_environment_identity(build_config)
+    if runtime_environment != SUPPORTED_RUNTIME_ENVIRONMENT:
+        raise ValueError(
+            "Runtime reduction environment identity diverges from the pinned contract: "
+            f"expected {SUPPORTED_RUNTIME_ENVIRONMENT!r}; received {runtime_environment!r}."
+        )
     request = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
     if request.get("schemaVersion") != 1 or request.get("contractId") != CONTRACT_ID or request.get("scope") not in ("vision", "audio"):
         raise ValueError("Runtime-reduction request contract is invalid.")
@@ -248,6 +289,7 @@ def main() -> None:
             "platform": actual_platform,
             "backend": "Apple Accelerate SGEMM",
             "blasBuildSetting": SUPPORTED_BLAS_SETTING,
+            "runtimeEnvironmentIdentity": runtime_environment,
         },
         "output": {"shape": list(result.shape), "values": result.reshape(-1).tolist()},
     }, separators=(",", ":")))

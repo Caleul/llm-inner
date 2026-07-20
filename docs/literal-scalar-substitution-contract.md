@@ -297,6 +297,16 @@ ou com origem alterada falha antes de `torch.matmul`. A agenda escalar do SGEMM
 permanece `runtime-defined`; esta versão fecha o ambiente de invocação sem
 confundi-lo com a árvore de redução ainda não publicada.
 
+O schema v49 fecha também a identidade do ambiente que executa esses stages.
+`Darwin-arm64` e o commit de Torch não identificam uma única implementação do
+Apple Accelerate: o dispatch pode mudar entre builds do macOS e gerações de
+CPU. O contrato autoritativo e cada recibo agora fixam implementação/versão do
+CPython, versão e build do macOS, release do kernel, modelo da máquina, marca da
+CPU e SHA-256 da configuração completa do build Torch. O adapter deriva esses
+valores do runtime antes do primeiro `torch.matmul` e falha se qualquer campo
+divergir. Isso torna o replay nativo reproduzível somente no ambiente exato que
+produziu a evidência; não transforma a agenda escalar proprietária em fórmula.
+
 ## Critério de aceite
 
 Uma implementação só é candidata a fechar este requisito quando:

@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
-import { GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256 } from "./gemma4-authoritative-runtime.js";
+import {
+  GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256,
+  GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY,
+} from "./gemma4-authoritative-runtime.js";
 import {
   gemma4RuntimeReductionInvocationProgram,
   gemma4RuntimeReductionInvocationProgramSha256,
@@ -42,6 +45,7 @@ export interface Gemma4RuntimeReductionAttestation {
   platform: "Darwin-arm64";
   backend: "Apple Accelerate SGEMM";
   blasBuildSetting: "BLAS_INFO=accelerate";
+  runtimeEnvironmentIdentity: typeof GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY;
 }
 
 export interface Gemma4RuntimeReductionTensorEvidence {
@@ -80,6 +84,7 @@ export function expectedGemma4RuntimeReductionAttestation(): Gemma4RuntimeReduct
     platform: "Darwin-arm64",
     backend: "Apple Accelerate SGEMM",
     blasBuildSetting: "BLAS_INFO=accelerate",
+    runtimeEnvironmentIdentity: structuredClone(GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY),
   };
 }
 

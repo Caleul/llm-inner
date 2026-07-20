@@ -974,6 +974,26 @@ KV e geração greedy a tolerância zero com 100/100 recibos. As 100 agendas
 escalares Apple Accelerate continuam corretamente fail-closed. Evidência em
 [`docs/validation/gemma4-e4b-declarative-runtime-reduction-environment-2026-07-20.md`](docs/validation/gemma4-e4b-declarative-runtime-reduction-environment-2026-07-20.md).
 
+O schema v49 fecha uma identidade ainda mais externa desse replay. O contrato
+v48 aceitava qualquer host `Darwin-arm64` com o mesmo commit de Torch e
+`BLAS_INFO=accelerate`, embora o dispatch SGEMM possa mudar com o build do
+macOS e a geração da CPU. `runtimeEnvironmentIdentity` agora fixa CPython
+3.14.3, macOS 26.5.2 build `25F84`, kernel `25.5.0`, `Mac15,10` / Apple M3 Max
+e SHA-256 `606e3853...e07a7` da configuração completa do build Torch. O adapter
+incorporado deriva e compara esses campos antes do primeiro `torch.matmul`, e
+cada recibo repete a identidade exata. As 100 entradas do `fidelityGate`
+apontam também para esse contrato de ambiente.
+
+O E4B v49 tem 21.409.339.988 bytes, SHA-256
+`76eaf79b9eb4d8e4e0f651085aa9871767ebc454126e406fa2e90cc220e31ef8`
+e raiz estrutural
+`892684e8a198ceb1f28c4a57bd7020f032b2376334890fc8ac1ec78aa4ce79df`.
+Com checkpoint e adapter do checkout fisicamente ausentes, os 2.130 payloads
+foram revalidados e as três modalidades repetiram prefill, logits, 24 caches KV
+e geração greedy a tolerância zero com 100/100 recibos ligados ao ambiente.
+A árvore escalar proprietária continua corretamente fail-closed. Evidência em
+[`docs/validation/gemma4-e4b-runtime-platform-identity-2026-07-20.md`](docs/validation/gemma4-e4b-runtime-platform-identity-2026-07-20.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 
