@@ -5,6 +5,7 @@ import {
   GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY,
   GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE,
   GEMMA4_RUNTIME_REDUCTION_PROCESS_ENVIRONMENT,
+  type Gemma4RuntimeReductionAttestation,
   type Gemma4RuntimeReductionExecutionProtocol,
   type Gemma4RuntimeReductionExecutableReplayContract,
 } from "./gemma4-authoritative-runtime.js";
@@ -16,6 +17,12 @@ import {
 import type { Gemma4AudioProgram } from "./gemma4-audio.js";
 import type { Gemma4VisionProgram } from "./gemma4-vision.js";
 import type { DenseF32Tensor } from "./types.js";
+import {
+  gemma4RuntimeReductionTranscriptEvidence,
+  serializeGemma4RuntimeReductionRequestEnvelope,
+  serializeGemma4RuntimeReductionResponseEnvelope,
+  type Gemma4RuntimeReductionTranscriptEvidence,
+} from "./gemma4-runtime-reduction-transport.js";
 
 export type Gemma4RuntimeReductionRequest =
   | {
@@ -40,19 +47,6 @@ export type Gemma4RuntimeReductionRequest =
     operands: readonly [DenseF32Tensor, DenseF32Tensor];
   };
 
-export interface Gemma4RuntimeReductionAttestation {
-  runtime: "torch-2.12.1";
-  torchBuildCommit: "7269437d655783a26cba32aa88195b741ff496aa";
-  executionMode: "torch.inference_mode";
-  device: "cpu";
-  platform: "Darwin-arm64";
-  backend: "Apple Accelerate SGEMM";
-  blasBuildSetting: "BLAS_INFO=accelerate";
-  runtimeProcessEnvironment: typeof GEMMA4_RUNTIME_REDUCTION_PROCESS_ENVIRONMENT;
-  runtimeEnvironmentIdentity: typeof GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY;
-  runtimeExecutionState: typeof GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE;
-}
-
 export interface Gemma4RuntimeReductionTensorEvidence {
   encoding: "ieee-f32-little-endian";
   shape: number[];
@@ -61,7 +55,7 @@ export interface Gemma4RuntimeReductionTensorEvidence {
 }
 
 export interface Gemma4RuntimeReductionExecutionEvidence {
-  schemaVersion: 4;
+  schemaVersion: 5;
   contractId: "torch-2.12.1-cpu-inference-matmul-v1";
   scope: Gemma4RuntimeReductionRequest["scope"];
   operationId: string;
@@ -71,6 +65,7 @@ export interface Gemma4RuntimeReductionExecutionEvidence {
   executionProtocolSha256: string;
   invocationProgramId: Gemma4LiteralRuntimeReductionOperationClass;
   invocationProgramSha256: string;
+  executionTranscript: Gemma4RuntimeReductionTranscriptEvidence;
   runtimeAttestation: Gemma4RuntimeReductionAttestation;
   orderedOperands: [Gemma4RuntimeReductionTensorEvidence, Gemma4RuntimeReductionTensorEvidence];
   output: Gemma4RuntimeReductionTensorEvidence;
@@ -85,6 +80,7 @@ export interface Gemma4RuntimeReductionEvidenceContract {
   providerContractId: Gemma4RuntimeReductionExecutableReplayContract["providerContractId"];
   adapterProgramSha256: typeof GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256;
   executionProtocolSha256: string;
+  executionProtocol: Gemma4RuntimeReductionExecutionProtocol;
   invocationPrograms: Gemma4RuntimeReductionExecutableReplayContract["invocationPrograms"];
   runtimeAttestation: Gemma4RuntimeReductionAttestation;
 }
@@ -111,6 +107,7 @@ export function gemma4RuntimeReductionEvidenceContract(
     providerContractId: replay.providerContractId,
     adapterProgramSha256: replay.adapterProgram.sha256,
     executionProtocolSha256: gemma4RuntimeReductionExecutionProtocolSha256(replay.executionProtocol),
+    executionProtocol: structuredClone(replay.executionProtocol),
     invocationPrograms: structuredClone(replay.invocationPrograms),
     runtimeAttestation: {
       runtime: replay.runtime,
@@ -175,8 +172,20 @@ export function executeGemma4RuntimeReduction(
     request.scope,
     request.operation,
   );
+  const requestEnvelope = serializeGemma4RuntimeReductionRequestEnvelope(
+    request,
+    invocation,
+    evidenceContract.executionProtocol,
+  );
+  const responseEnvelope = serializeGemma4RuntimeReductionResponseEnvelope(
+    request,
+    invocation,
+    evidenceContract.runtimeAttestation,
+    result,
+    evidenceContract.executionProtocol,
+  );
   const expectedEvidence: Gemma4RuntimeReductionExecutionEvidence = {
-    schemaVersion: 4,
+    schemaVersion: 5,
     contractId: provider.contractId,
     scope: request.scope,
     operationId: request.operationId,
@@ -186,6 +195,11 @@ export function executeGemma4RuntimeReduction(
     executionProtocolSha256: evidenceContract.executionProtocolSha256,
     invocationProgramId: invocation.id,
     invocationProgramSha256: gemma4RuntimeReductionInvocationProgramSha256(invocation),
+    executionTranscript: gemma4RuntimeReductionTranscriptEvidence(
+      JSON.stringify(requestEnvelope),
+      JSON.stringify(responseEnvelope),
+      evidenceContract.executionProtocol,
+    ),
     runtimeAttestation: structuredClone(evidenceContract.runtimeAttestation),
     orderedOperands: [tensorEvidence(request.operands[0]), tensorEvidence(request.operands[1])],
     output: tensorEvidence(result),

@@ -1141,6 +1141,18 @@ valor não finito divergente; os recibos ligam o protocolo inteiro por SHA-256.
 Evidência da E4B real está em
 [`docs/validation/gemma4-e4b-lossless-runtime-tensor-transport-2026-07-20.md`](docs/validation/gemma4-e4b-lossless-runtime-tensor-transport-2026-07-20.md).
 
+O schema v57 compromete também os envelopes exatos que atravessam essa
+fronteira. `executionProtocol.transcriptCommitment` fixa JSON compacto UTF-8
+sem whitespace ou bytes finais e SHA-256 sobre os bytes do request file e do
+stdout. Cada recibo schema 5 registra tamanho e digest dos dois envelopes; o
+executor reconstrói independentemente o request completo — inclusive programa
+de invocação, ambiente da torre e operandos Base64 — e a response completa
+antes de aceitar a evidência. Alterar somente um parâmetro como
+`attentionContextRight`, acrescentar newline ao stdout ou trocar qualquer hash
+falha fechado. Os 100 recibos source-removed da E4B carregam compromissos
+válidos sob o mesmo protocolo incorporado. Evidência em
+[`docs/validation/gemma4-e4b-runtime-reduction-transcript-commitments-2026-07-20.md`](docs/validation/gemma4-e4b-runtime-reduction-transcript-commitments-2026-07-20.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 

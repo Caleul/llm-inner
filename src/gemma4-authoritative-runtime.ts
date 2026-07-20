@@ -26,9 +26,22 @@ export interface Gemma4AuthoritativeTraceContext {
   attentionImplementation: unknown;
 }
 
+export interface Gemma4RuntimeReductionAttestation {
+  runtime: "torch-2.12.1";
+  torchBuildCommit: "7269437d655783a26cba32aa88195b741ff496aa";
+  executionMode: "torch.inference_mode";
+  device: "cpu";
+  platform: "Darwin-arm64";
+  backend: "Apple Accelerate SGEMM";
+  blasBuildSetting: "BLAS_INFO=accelerate";
+  runtimeProcessEnvironment: typeof GEMMA4_RUNTIME_REDUCTION_PROCESS_ENVIRONMENT;
+  runtimeEnvironmentIdentity: typeof GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY;
+  runtimeExecutionState: typeof GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE;
+}
+
 export interface Gemma4AuthoritativeExecutionContract {
   kind: "gemma4-authoritative-execution-contract";
-  schemaVersion: 12;
+  schemaVersion: 13;
   canonicalCompositeRuntime: typeof GEMMA4_COMPOSITE_REFERENCE_RUNTIME;
   diagnosticSubprogramRuntimes: {
     audio: typeof GEMMA4_AUDIO_REFERENCE_RUNTIME;
@@ -78,7 +91,7 @@ export interface Gemma4RuntimeReductionExecutableReplayContract {
  */
 export interface Gemma4RuntimeReductionExecutionProtocol {
   kind: "gemma4-runtime-reduction-execution-protocol";
-  schemaVersion: 2;
+  schemaVersion: 3;
   runtimeExecutable: {
     language: "python3";
     selection: "caller-supplied-path";
@@ -123,9 +136,18 @@ export interface Gemma4RuntimeReductionExecutionProtocol {
   };
   responseEnvelope: {
     schemaVersion: 2;
-    serialization: "single JSON object on UTF-8 stdout";
+    serialization: "single compact JSON object on UTF-8 stdout without trailing bytes";
     fields: ["schemaVersion", "contractId", "operationId", "scope", "operation", "invocationProgramId", "sourceCheckpointAccessed", "runtimeAttestation", "output"];
     tensors: "executionProtocol.tensorEncoding";
+  };
+  transcriptCommitment: {
+    schemaVersion: 1;
+    encoding: "utf8";
+    hashAlgorithm: "sha256";
+    requestSource: "exact request-file bytes";
+    responseSource: "exact stdout bytes";
+    jsonSerialization: "compact JSON without whitespace or trailing bytes";
+    receiptFields: ["requestBytes", "requestSha256", "responseBytes", "responseSha256"];
   };
 }
 
@@ -140,7 +162,7 @@ export interface Gemma4RuntimeReductionAdapterProgram {
   sourceUtf8: string;
 }
 
-export const GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256 = "c11c6b2d0670c74d999fcf7a19da3f048bd60dfc6e7c742fde38dada70af2d50" as const;
+export const GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256 = "ba7042d6f6771d14d1b1e51c752d147b18146da83e257014a5bfb46af99850ad" as const;
 
 /**
  * Complete launch environment for the opaque native reduction adapter.  The
@@ -295,7 +317,7 @@ export const GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE = {
 export function gemma4RuntimeReductionExecutionProtocol(): Gemma4RuntimeReductionExecutionProtocol {
   return {
     kind: "gemma4-runtime-reduction-execution-protocol",
-    schemaVersion: 2,
+    schemaVersion: 3,
     runtimeExecutable: {
       language: "python3",
       selection: "caller-supplied-path",
@@ -340,9 +362,18 @@ export function gemma4RuntimeReductionExecutionProtocol(): Gemma4RuntimeReductio
     },
     responseEnvelope: {
       schemaVersion: 2,
-      serialization: "single JSON object on UTF-8 stdout",
+      serialization: "single compact JSON object on UTF-8 stdout without trailing bytes",
       fields: ["schemaVersion", "contractId", "operationId", "scope", "operation", "invocationProgramId", "sourceCheckpointAccessed", "runtimeAttestation", "output"],
       tensors: "executionProtocol.tensorEncoding",
+    },
+    transcriptCommitment: {
+      schemaVersion: 1,
+      encoding: "utf8",
+      hashAlgorithm: "sha256",
+      requestSource: "exact request-file bytes",
+      responseSource: "exact stdout bytes",
+      jsonSerialization: "compact JSON without whitespace or trailing bytes",
+      receiptFields: ["requestBytes", "requestSha256", "responseBytes", "responseSha256"],
     },
   };
 }
@@ -396,7 +427,7 @@ export function gemma4AuthoritativeExecutionContract(
   validateGemma4RuntimeReductionAdapterProgram(adapterProgram);
   return {
     kind: "gemma4-authoritative-execution-contract",
-    schemaVersion: 12,
+    schemaVersion: 13,
     canonicalCompositeRuntime: GEMMA4_COMPOSITE_REFERENCE_RUNTIME,
     diagnosticSubprogramRuntimes: {
       audio: GEMMA4_AUDIO_REFERENCE_RUNTIME,

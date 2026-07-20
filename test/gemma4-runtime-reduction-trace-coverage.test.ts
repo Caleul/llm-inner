@@ -37,6 +37,11 @@ import {
   gemma4RuntimeReductionInvocationProgramSha256,
   gemma4RuntimeReductionInvocationPrograms,
 } from "../src/gemma4-runtime-reduction-invocation.js";
+import {
+  gemma4RuntimeReductionTranscriptEvidence,
+  serializeGemma4RuntimeReductionRequestEnvelope,
+  serializeGemma4RuntimeReductionResponseEnvelope,
+} from "../src/gemma4-runtime-reduction-transport.js";
 
 test("Gemma 4 native-reduction coverage binds both exact operands and native output in program order", () => {
   const program = fixtureProgram();
@@ -96,7 +101,7 @@ test("Gemma 4 runtime-reduction provider accepts only its pinned contract and ex
   const wrongShape: Gemma4RuntimeReductionProvider = { ...provider, execute: (actual) => execution(actual, sampleTensor([1, 1, 1, 2])) };
   assert.throws(() => executeGemma4RuntimeReduction(wrongShape, request, [1, 1, 2, 2]), /shape divergente/);
   const nonFinite: Gemma4RuntimeReductionProvider = { ...provider, execute: (actual) => execution(actual, { shape: [1, 1, 2, 2], values: Float32Array.of(0, 0, 0, Infinity) }) };
-  assert.throws(() => executeGemma4RuntimeReduction(nonFinite, request, [1, 1, 2, 2]), /tensor inválido/);
+  assert.throws(() => executeGemma4RuntimeReduction(nonFinite, request, [1, 1, 2, 2]), /tensor.*inválido/);
   const wrongContract = { ...provider, contractId: "wrong" } as unknown as Gemma4RuntimeReductionProvider;
   assert.throws(() => executeGemma4RuntimeReduction(wrongContract, request, [1, 1, 2, 2]), /não corresponde ao contrato/);
   const wrongEvidenceContract = {
@@ -113,6 +118,18 @@ test("Gemma 4 runtime-reduction provider accepts only its pinned contract and ex
   };
   assert.throws(
     () => executeGemma4RuntimeReduction(wrongProtocolDigest, request, [1, 1, 2, 2]),
+    /evidência.*divergente/,
+  );
+  const wrongTranscript: Gemma4RuntimeReductionProvider = {
+    ...provider,
+    execute(actual) {
+      const result = execution(actual, sampleTensor([1, 1, 2, 2]));
+      result.evidence.executionTranscript.requestSha256 = "0".repeat(64);
+      return result;
+    },
+  };
+  assert.throws(
+    () => executeGemma4RuntimeReduction(wrongTranscript, request, [1, 1, 2, 2]),
     /evidência.*divergente/,
   );
 
@@ -239,6 +256,39 @@ test("Gemma 4 runtime-reduction transport preserves exact finite IEEE-F32 bits",
   assert.throws(() => deserializeGemma4RuntimeReductionTensor({
     shape: [2, 2], values: [-0, 2 ** -149, 1, -2.5],
   } as unknown as typeof serialized, protocol.tensorEncoding), /campos não correspondem/);
+});
+
+test("Gemma 4 runtime-reduction transcript binds the exact invocation environment", () => {
+  const protocol = gemma4RuntimeReductionExecutionProtocol();
+  const program = fixtureAudioProgram();
+  const request: Gemma4RuntimeReductionRequest = {
+    scope: "audio",
+    operationId: "audio_content",
+    operation: "chunked-attention-content-matmul",
+    program,
+    operands: [sampleTensor([1, 2, 2]), sampleTensor([1, 2, 2])],
+  };
+  const invocation = gemma4RuntimeReductionInvocationProgram(
+    gemma4RuntimeReductionInvocationPrograms(), request.scope, request.operation,
+  );
+  const original = JSON.stringify(serializeGemma4RuntimeReductionRequestEnvelope(request, invocation, protocol));
+  const changedProgram = structuredClone(program);
+  changedProgram.tower.attentionContextRight = 1;
+  const changed = JSON.stringify(serializeGemma4RuntimeReductionRequestEnvelope(
+    { ...request, program: changedProgram }, invocation, protocol,
+  ));
+  const response = JSON.stringify(serializeGemma4RuntimeReductionResponseEnvelope(
+    request, invocation, expectedGemma4RuntimeReductionAttestation(), sampleTensor([1, 1, 1, 2, 2]), protocol,
+  ));
+
+  const originalEvidence = gemma4RuntimeReductionTranscriptEvidence(original, response, protocol);
+  const changedEvidence = gemma4RuntimeReductionTranscriptEvidence(changed, response, protocol);
+  assert.notEqual(originalEvidence.requestSha256, changedEvidence.requestSha256);
+  assert.equal(originalEvidence.responseSha256, changedEvidence.responseSha256);
+  assert.throws(
+    () => gemma4RuntimeReductionTranscriptEvidence(original, `${response}\n`, protocol),
+    /JSON compacto canônico/,
+  );
 });
 
 test("Gemma 4 runtime-reduction provider executes the integrity-bound embedded adapter", async () => {
@@ -413,10 +463,16 @@ function execution(request: Gemma4RuntimeReductionRequest, output: ReturnType<ty
   const invocationProgram = gemma4RuntimeReductionInvocationProgram(
     gemma4RuntimeReductionInvocationPrograms(), request.scope, request.operation,
   );
+  const executionProtocol = gemma4RuntimeReductionExecutionProtocol();
+  const runtimeAttestation = expectedGemma4RuntimeReductionAttestation();
+  const requestEnvelope = serializeGemma4RuntimeReductionRequestEnvelope(request, invocationProgram, executionProtocol);
+  const responseEnvelope = serializeGemma4RuntimeReductionResponseEnvelope(
+    request, invocationProgram, runtimeAttestation, output, executionProtocol,
+  );
   return {
     output,
     evidence: {
-      schemaVersion: 4,
+      schemaVersion: 5,
       contractId: "torch-2.12.1-cpu-inference-matmul-v1",
       scope: request.scope,
       operationId: request.operationId,
@@ -428,7 +484,10 @@ function execution(request: Gemma4RuntimeReductionRequest, output: ReturnType<ty
       ),
       invocationProgramId: invocationProgram.id,
       invocationProgramSha256: gemma4RuntimeReductionInvocationProgramSha256(invocationProgram),
-      runtimeAttestation: expectedGemma4RuntimeReductionAttestation(),
+      executionTranscript: gemma4RuntimeReductionTranscriptEvidence(
+        JSON.stringify(requestEnvelope), JSON.stringify(responseEnvelope), executionProtocol,
+      ),
+      runtimeAttestation,
       orderedOperands: [
         gemma4RuntimeReductionTensorEvidence(request.operands[0]),
         gemma4RuntimeReductionTensorEvidence(request.operands[1]),
@@ -444,6 +503,7 @@ function fixtureEvidenceContract() {
     providerContractId: "torch-2.12.1-cpu-inference-matmul-v1" as const,
     adapterProgramSha256: GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256,
     executionProtocolSha256: gemma4RuntimeReductionExecutionProtocolSha256(executionProtocol),
+    executionProtocol,
     invocationPrograms: gemma4RuntimeReductionInvocationPrograms(),
     runtimeAttestation: expectedGemma4RuntimeReductionAttestation(),
   };

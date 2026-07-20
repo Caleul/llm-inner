@@ -557,7 +557,7 @@ def main() -> None:
     operands = [tensor(value, f"operand {index}") for index, value in enumerate(request["operands"])]
     with torch.inference_mode():
         invocation_program_id, output = execute_invocation(request, operands)
-    print(json.dumps({
+    sys.stdout.write(json.dumps({
         "schemaVersion": 2,
         "contractId": CONTRACT_ID,
         "operationId": request["operationId"],
