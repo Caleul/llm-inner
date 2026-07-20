@@ -14,7 +14,7 @@ import {
 import {
   gemma4LiteralRuntimeReductionOperationClass,
   type Gemma4LiteralRuntimeReductionOperationClass,
-} from "./gemma4-literal-fidelity-gate.js";
+} from "./gemma4-runtime-reduction-invocation.js";
 import type { Gemma4LiteralScalarExpression } from "./gemma4-literal-scalar-statement-programs.js";
 
 export interface Gemma4LiteralRuntimeReductionOperation {

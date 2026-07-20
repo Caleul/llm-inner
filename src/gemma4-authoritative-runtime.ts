@@ -3,6 +3,11 @@ import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
+import {
+  gemma4RuntimeReductionInvocationPrograms,
+  validateGemma4RuntimeReductionInvocationPrograms,
+  type Gemma4RuntimeReductionInvocationProgram,
+} from "./gemma4-runtime-reduction-invocation.js";
 
 export const GEMMA4_AUDIO_REFERENCE_RUNTIME =
   "transformers-5.5.0/torch-2.12.1-Gemma4Audio-CPU-eager-inference-mode";
@@ -23,7 +28,7 @@ export interface Gemma4AuthoritativeTraceContext {
 
 export interface Gemma4AuthoritativeExecutionContract {
   kind: "gemma4-authoritative-execution-contract";
-  schemaVersion: 2;
+  schemaVersion: 3;
   canonicalCompositeRuntime: typeof GEMMA4_COMPOSITE_REFERENCE_RUNTIME;
   diagnosticSubprogramRuntimes: {
     audio: typeof GEMMA4_AUDIO_REFERENCE_RUNTIME;
@@ -54,13 +59,7 @@ export interface Gemma4AuthoritativeExecutionContract {
       checkpointInput: "forbidden";
       operandSource: "dependency-ordered artifact intermediates only";
       adapterProgram: Gemma4RuntimeReductionAdapterProgram;
-      operationClasses: [
-        { operationClass: "vision-attention-score"; inputDtype: "BF16"; outputDtype: "BF16"; transform: "[B,H,Q,D] @ transpose([B,H,K,D],2,3) -> [B,H,Q,K]" },
-        { operationClass: "vision-attention-value"; inputDtype: "BF16"; outputDtype: "BF16"; transform: "transpose([B,H,Q,K] @ [B,H,K,D],1,2) -> reshape [B,Q,H*D]" },
-        { operationClass: "audio-content-attention-score"; inputDtype: "F32"; outputDtype: "F32"; transform: "block(Q,[B,H,blocks,chunk,D]) @ transpose(context(K),D,key)" },
-        { operationClass: "audio-position-attention-score"; inputDtype: "F32"; outputDtype: "F32"; transform: "reshape(block(Q),[B,H,blocks*chunk,D]) @ transpose(relativeK,H,D,R)" },
-        { operationClass: "audio-attention-value"; inputDtype: "F32"; outputDtype: "F32"; transform: "weights[B,H,blocks,chunk,context] @ context(V) -> transpose/reshape/trim [B,S,H*D]" },
-      ];
+      invocationPrograms: Gemma4RuntimeReductionInvocationProgram[];
     };
   };
 }
@@ -76,7 +75,7 @@ export interface Gemma4RuntimeReductionAdapterProgram {
   sourceUtf8: string;
 }
 
-export const GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256 = "6a2d8ab61c3ae2d2b5ca90c908e1d76ff3761615f0f7c662ae63323b0b611674" as const;
+export const GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256 = "29537b870ca3e28caaec2e03456227a25027822cc6f1ae90a45bfc9769b08594" as const;
 
 /** Loads the build-time adapter once; the emitted artifact embeds it and no longer needs this file. */
 export async function loadGemma4RuntimeReductionAdapterProgram(
@@ -115,7 +114,7 @@ export function gemma4AuthoritativeExecutionContract(
   validateGemma4RuntimeReductionAdapterProgram(adapterProgram);
   return {
     kind: "gemma4-authoritative-execution-contract",
-    schemaVersion: 2,
+    schemaVersion: 3,
     canonicalCompositeRuntime: GEMMA4_COMPOSITE_REFERENCE_RUNTIME,
     diagnosticSubprogramRuntimes: {
       audio: GEMMA4_AUDIO_REFERENCE_RUNTIME,
@@ -146,13 +145,7 @@ export function gemma4AuthoritativeExecutionContract(
         checkpointInput: "forbidden",
         operandSource: "dependency-ordered artifact intermediates only",
         adapterProgram: structuredClone(adapterProgram),
-        operationClasses: [
-          { operationClass: "vision-attention-score", inputDtype: "BF16", outputDtype: "BF16", transform: "[B,H,Q,D] @ transpose([B,H,K,D],2,3) -> [B,H,Q,K]" },
-          { operationClass: "vision-attention-value", inputDtype: "BF16", outputDtype: "BF16", transform: "transpose([B,H,Q,K] @ [B,H,K,D],1,2) -> reshape [B,Q,H*D]" },
-          { operationClass: "audio-content-attention-score", inputDtype: "F32", outputDtype: "F32", transform: "block(Q,[B,H,blocks,chunk,D]) @ transpose(context(K),D,key)" },
-          { operationClass: "audio-position-attention-score", inputDtype: "F32", outputDtype: "F32", transform: "reshape(block(Q),[B,H,blocks*chunk,D]) @ transpose(relativeK,H,D,R)" },
-          { operationClass: "audio-attention-value", inputDtype: "F32", outputDtype: "F32", transform: "weights[B,H,blocks,chunk,context] @ context(V) -> transpose/reshape/trim [B,S,H*D]" },
-        ],
+        invocationPrograms: gemma4RuntimeReductionInvocationPrograms(),
       },
     },
   };
@@ -163,6 +156,7 @@ export function validateGemma4AuthoritativeExecutionContract(
 ): void {
   const adapter = contract.unresolvedNativeReduction.executableReplay.adapterProgram;
   validateGemma4RuntimeReductionAdapterProgram(adapter);
+  validateGemma4RuntimeReductionInvocationPrograms(contract.unresolvedNativeReduction.executableReplay.invocationPrograms);
   const expected = gemma4AuthoritativeExecutionContract(adapter);
   if (!isDeepStrictEqual(contract, expected)) {
     throw new Error("Artefato Gemma 4 não fixa o contrato autoritativo de execução e a fronteira BMM nativa.");

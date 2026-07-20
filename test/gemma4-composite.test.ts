@@ -701,22 +701,29 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 46);
+  assert.equal(literal.schemaVersion, 47);
   assert.equal(literal.payloadIntegrity.length, catalog.tensors.size);
   assert.equal(literal.integrityManifest.sections.length, 24);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
-  assert.equal(literal.authoritativeExecution.schemaVersion, 2);
+  assert.equal(literal.authoritativeExecution.schemaVersion, 3);
   assert.equal(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.adapterProgram.sha256,
     GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256);
   assert.match(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.adapterProgram.sourceUtf8,
     /Execute one pinned Gemma 4 runtime-defined matmul without model access/);
+  const invocationPrograms = literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.invocationPrograms;
+  assert.equal(invocationPrograms.length, 5);
+  assert.deepEqual(invocationPrograms.map((program) => program.id), literal.authoritativeExecution.unresolvedNativeReduction.operationClasses);
+  assert.ok(invocationPrograms.every((program) => program.stages.some((stage) => stage.operation === "matmul") &&
+    !Object.hasOwn(program, "transform")));
   assert.equal(literal.fidelityGate.status, "blocked-on-runtime-reduction");
   assert.equal(literal.fidelityGate.exactReplayClaim, "forbidden");
   assert.equal(literal.fidelityGate.unresolvedNativeReductionCount, literal.fidelityGate.unresolvedNativeReductions.length);
   assert.ok(literal.fidelityGate.unresolvedNativeReductions.every((entry) =>
     entry.scalarCalculationPointer === `/calculationGraph/assignments/${entry.ordinal}/scalarCalculation/reduction` &&
-    entry.outputCoordinatePointer === `/calculationGraph/assignments/${entry.ordinal}/outputCoordinate`));
+    entry.outputCoordinatePointer === `/calculationGraph/assignments/${entry.ordinal}/outputCoordinate` &&
+    entry.invocationProgramId === entry.operationClass &&
+    entry.invocationProgramPointer === `/authoritativeExecution/unresolvedNativeReduction/executableReplay/invocationPrograms/${invocationPrograms.findIndex((program) => program.id === entry.operationClass)}`));
   assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.languageId, literal.generation.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.authority.numericLiteralBits, "/numericLiterals/literals");
@@ -1361,6 +1368,9 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   const tamperedAdapter = structuredClone(literal);
   tamperedAdapter.authoritativeExecution.unresolvedNativeReduction.executableReplay.adapterProgram.sourceUtf8 += "\n# tampered\n";
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(tamperedAdapter), /Adapter de redução Gemma 4 diverge/);
+  const tamperedInvocation = structuredClone(literal);
+  tamperedInvocation.authoritativeExecution.unresolvedNativeReduction.executableReplay.invocationPrograms[0]!.stages.reverse();
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(tamperedInvocation), /Programas de invocação.*divergentes/);
   const external = structuredClone(literal);
   external.program.textProgram.source.path = "/checkpoint/model.safetensors";
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(external), /reteve uma referência de source checkpoint/);
@@ -1580,7 +1590,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 46);
+      assert.equal(artifact.schemaVersion, 47);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.equal(artifact.authoritativeExecution.unresolvedNativeReduction.executableReplay.adapterProgram.sha256,

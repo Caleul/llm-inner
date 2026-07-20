@@ -1,6 +1,12 @@
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256 } from "./gemma4-authoritative-runtime.js";
+import {
+  gemma4RuntimeReductionInvocationProgram,
+  gemma4RuntimeReductionInvocationProgramSha256,
+  gemma4RuntimeReductionInvocationPrograms,
+  type Gemma4LiteralRuntimeReductionOperationClass,
+} from "./gemma4-runtime-reduction-invocation.js";
 import type { Gemma4AudioProgram } from "./gemma4-audio.js";
 import type { Gemma4VisionProgram } from "./gemma4-vision.js";
 import type { DenseF32Tensor } from "./types.js";
@@ -46,13 +52,15 @@ export interface Gemma4RuntimeReductionTensorEvidence {
 }
 
 export interface Gemma4RuntimeReductionExecutionEvidence {
-  schemaVersion: 1;
+  schemaVersion: 2;
   contractId: "torch-2.12.1-cpu-inference-matmul-v1";
   scope: Gemma4RuntimeReductionRequest["scope"];
   operationId: string;
   operation: Gemma4RuntimeReductionRequest["operation"];
   sourceCheckpointAccessed: false;
   adapterProgramSha256: typeof GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256;
+  invocationProgramId: Gemma4LiteralRuntimeReductionOperationClass;
+  invocationProgramSha256: string;
   runtimeAttestation: Gemma4RuntimeReductionAttestation;
   orderedOperands: [Gemma4RuntimeReductionTensorEvidence, Gemma4RuntimeReductionTensorEvidence];
   output: Gemma4RuntimeReductionTensorEvidence;
@@ -108,13 +116,15 @@ export function executeGemma4RuntimeReduction(
     throw new Error(`${request.operationId}: provedor de redução Gemma 4 retornou tensor inválido ou shape divergente.`);
   }
   const expectedEvidence: Gemma4RuntimeReductionExecutionEvidence = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     contractId: provider.contractId,
     scope: request.scope,
     operationId: request.operationId,
     operation: request.operation,
     sourceCheckpointAccessed: false,
     adapterProgramSha256: GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256,
+    invocationProgramId: invocationProgram(request).id,
+    invocationProgramSha256: gemma4RuntimeReductionInvocationProgramSha256(invocationProgram(request)),
     runtimeAttestation: expectedGemma4RuntimeReductionAttestation(),
     orderedOperands: [tensorEvidence(request.operands[0]), tensorEvidence(request.operands[1])],
     output: tensorEvidence(result),
@@ -123,6 +133,14 @@ export function executeGemma4RuntimeReduction(
     throw new Error(`${request.operationId}: evidência do provedor de redução Gemma 4 está incompleta ou divergente.`);
   }
   return result;
+}
+
+function invocationProgram(request: Gemma4RuntimeReductionRequest) {
+  return gemma4RuntimeReductionInvocationProgram(
+    gemma4RuntimeReductionInvocationPrograms(),
+    request.scope,
+    request.operation,
+  );
 }
 
 export function gemma4RuntimeReductionTensorEvidence(tensor: DenseF32Tensor): Gemma4RuntimeReductionTensorEvidence {

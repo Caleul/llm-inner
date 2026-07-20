@@ -15,6 +15,13 @@ import {
   type Gemma4RuntimeReductionRequest,
 } from "./gemma4-runtime-reduction-provider.js";
 import type { DenseF32Tensor } from "./types.js";
+import {
+  gemma4RuntimeReductionInvocationProgram,
+  gemma4RuntimeReductionInvocationProgramSha256,
+  validateGemma4RuntimeReductionInvocationPrograms,
+  type Gemma4LiteralRuntimeReductionOperationClass,
+  type Gemma4RuntimeReductionInvocationProgram,
+} from "./gemma4-runtime-reduction-invocation.js";
 
 interface SerializedTensor { shape: number[]; values: number[] }
 interface HelperResponse {
@@ -23,6 +30,7 @@ interface HelperResponse {
   operationId: string;
   scope: string;
   operation: string;
+  invocationProgramId: Gemma4LiteralRuntimeReductionOperationClass;
   sourceCheckpointAccessed: boolean;
   runtimeAttestation: Gemma4RuntimeReductionAttestation;
   output: SerializedTensor;
@@ -39,12 +47,19 @@ export class Gemma4TorchRuntimeReductionProvider implements Gemma4RuntimeReducti
   readonly #executions: Gemma4RuntimeReductionExecution["evidence"][] = [];
   readonly #python: string;
   readonly #adapterProgram: Gemma4RuntimeReductionAdapterProgram;
+  readonly #invocationPrograms: readonly Gemma4RuntimeReductionInvocationProgram[];
 
-  constructor(python: string, adapterProgram: Gemma4RuntimeReductionAdapterProgram) {
+  constructor(
+    python: string,
+    adapterProgram: Gemma4RuntimeReductionAdapterProgram,
+    invocationPrograms: readonly Gemma4RuntimeReductionInvocationProgram[],
+  ) {
     if (!python) throw new Error("Provedor PyTorch Gemma 4 requer executável Python explícito.");
     validateGemma4RuntimeReductionAdapterProgram(adapterProgram);
     this.#python = resolve(python);
     this.#adapterProgram = structuredClone(adapterProgram);
+    validateGemma4RuntimeReductionInvocationPrograms(invocationPrograms);
+    this.#invocationPrograms = structuredClone(invocationPrograms);
   }
 
   static async fromArtifact(python: string, artifactPath: string): Promise<Gemma4TorchRuntimeReductionProvider> {
@@ -53,6 +68,7 @@ export class Gemma4TorchRuntimeReductionProvider implements Gemma4RuntimeReducti
       return new Gemma4TorchRuntimeReductionProvider(
         python,
         artifact.authoritativeExecution.unresolvedNativeReduction.executableReplay.adapterProgram,
+        artifact.authoritativeExecution.unresolvedNativeReduction.executableReplay.invocationPrograms,
       );
     } finally {
       await artifact.close();
@@ -64,11 +80,12 @@ export class Gemma4TorchRuntimeReductionProvider implements Gemma4RuntimeReducti
   }
 
   execute(request: Gemma4RuntimeReductionRequest): Gemma4RuntimeReductionExecution {
+    const invocationProgram = gemma4RuntimeReductionInvocationProgram(this.#invocationPrograms, request.scope, request.operation);
     const directory = mkdtempSync(join(tmpdir(), "llm-inner-gemma4-runtime-reduction-"));
     try {
       const requestPath = join(directory, "request.json");
       const helperPath = join(directory, "embedded-runtime-reduction.py");
-      writeFileSync(requestPath, JSON.stringify(serializeRequest(request)), "utf8");
+      writeFileSync(requestPath, JSON.stringify(serializeRequest(request, invocationProgram)), "utf8");
       writeFileSync(helperPath, this.#adapterProgram.sourceUtf8, "utf8");
       const child = spawnSync(this.#python, [helperPath, requestPath], {
         encoding: "utf8",
@@ -78,18 +95,20 @@ export class Gemma4TorchRuntimeReductionProvider implements Gemma4RuntimeReducti
       if (child.status !== 0) {
         throw new Error(`${request.operationId}: helper PyTorch encerrou com código ${String(child.status)}: ${child.stderr.trim()}`);
       }
-      const response = parseResponse(child.stdout, request);
+      const response = parseResponse(child.stdout, request, invocationProgram);
       const output = { shape: [...response.output.shape], values: Float32Array.from(response.output.values) };
       const execution: Gemma4RuntimeReductionExecution = {
         output,
         evidence: {
-          schemaVersion: 1,
+          schemaVersion: 2,
           contractId: this.contractId,
           scope: request.scope,
           operationId: request.operationId,
           operation: request.operation,
           sourceCheckpointAccessed: false,
           adapterProgramSha256: this.#adapterProgram.sha256,
+          invocationProgramId: invocationProgram.id,
+          invocationProgramSha256: gemma4RuntimeReductionInvocationProgramSha256(invocationProgram),
           runtimeAttestation: response.runtimeAttestation,
           orderedOperands: [
             gemma4RuntimeReductionTensorEvidence(request.operands[0]),
@@ -106,7 +125,7 @@ export class Gemma4TorchRuntimeReductionProvider implements Gemma4RuntimeReducti
   }
 }
 
-function serializeRequest(request: Gemma4RuntimeReductionRequest): object {
+function serializeRequest(request: Gemma4RuntimeReductionRequest, invocationProgram: Gemma4RuntimeReductionInvocationProgram): object {
   const tower = request.scope === "vision"
     ? {
       attentionHeads: request.program.tower.attentionHeads,
@@ -127,6 +146,7 @@ function serializeRequest(request: Gemma4RuntimeReductionRequest): object {
     scope: request.scope,
     operationId: request.operationId,
     operation: request.operation,
+    invocationProgram,
     tower,
     operands: request.operands.map(serializeTensor),
   };
@@ -136,13 +156,18 @@ function serializeTensor(tensor: DenseF32Tensor): SerializedTensor {
   return { shape: [...tensor.shape], values: Array.from(tensor.values) };
 }
 
-function parseResponse(stdout: string, request: Gemma4RuntimeReductionRequest): HelperResponse {
+function parseResponse(
+  stdout: string,
+  request: Gemma4RuntimeReductionRequest,
+  invocationProgram: Gemma4RuntimeReductionInvocationProgram,
+): HelperResponse {
   let parsed: HelperResponse;
   try { parsed = JSON.parse(stdout) as HelperResponse; } catch (error) {
     throw new Error(`${request.operationId}: helper PyTorch retornou JSON inválido: ${(error as Error).message}`);
   }
   if (parsed.schemaVersion !== 1 || parsed.contractId !== "torch-2.12.1-cpu-inference-matmul-v1" ||
     parsed.operationId !== request.operationId || parsed.scope !== request.scope || parsed.operation !== request.operation ||
+    parsed.invocationProgramId !== invocationProgram.id ||
     parsed.sourceCheckpointAccessed !== false || !parsed.runtimeAttestation || !parsed.output ||
     !Array.isArray(parsed.output.shape) || parsed.output.shape.some((value) => !Number.isSafeInteger(value) || value <= 0) ||
     !Array.isArray(parsed.output.values) || parsed.output.values.some((value) => typeof value !== "number" || !Number.isFinite(value))) {

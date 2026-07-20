@@ -4,14 +4,10 @@ import type {
   Gemma4LiteralCalculationGraph,
   Gemma4LiteralInstantiatedCalculation,
 } from "./gemma4-literal-calculation-graph.js";
-import type { Gemma4LiteralCalculationScope } from "./gemma4-literal-domains.js";
-
-export type Gemma4LiteralRuntimeReductionOperationClass =
-  | "vision-attention-score"
-  | "vision-attention-value"
-  | "audio-content-attention-score"
-  | "audio-position-attention-score"
-  | "audio-attention-value";
+import {
+  gemma4RuntimeReductionInvocationProgram,
+  type Gemma4LiteralRuntimeReductionOperationClass,
+} from "./gemma4-runtime-reduction-invocation.js";
 
 export interface Gemma4LiteralUnresolvedRuntimeReduction {
   ordinal: number;
@@ -24,6 +20,8 @@ export interface Gemma4LiteralUnresolvedRuntimeReduction {
   output: string;
   scalarCalculationPointer: string;
   outputCoordinatePointer: string;
+  invocationProgramId: Gemma4LiteralRuntimeReductionOperationClass;
+  invocationProgramPointer: string;
 }
 
 /**
@@ -49,6 +47,7 @@ export function buildGemma4LiteralFidelityGate(
   authority: Gemma4AuthoritativeExecutionContract,
 ): Gemma4LiteralFidelityGate {
   const declaredClasses = new Set(authority.unresolvedNativeReduction.operationClasses);
+  const invocationPrograms = authority.unresolvedNativeReduction.executableReplay.invocationPrograms;
   const unresolvedNativeReductions = graph.assignments.flatMap((assignment): Gemma4LiteralUnresolvedRuntimeReduction[] => {
     const reduction = assignment.scalarCalculation.reduction;
     if (reduction?.order !== "runtime-defined") return [];
@@ -57,7 +56,8 @@ export function buildGemma4LiteralFidelityGate(
       assignment.outputDomain.dtypePolicy?.accumulationDtype !== "runtime-defined" || reduction.domains.length !== 1) {
       throw new Error(`${assignment.operationId}: redução runtime-defined não está integralmente marcada como fail-closed.`);
     }
-    const operationClass = gemma4LiteralRuntimeReductionOperationClass(assignment.scope, assignment.operation);
+    const invocationProgram = gemma4RuntimeReductionInvocationProgram(invocationPrograms, assignment.scope, assignment.operation);
+    const operationClass = invocationProgram.id;
     if (!declaredClasses.has(operationClass)) {
       throw new Error(`${assignment.operationId}: classe BMM ${operationClass} ausente do contrato autoritativo.`);
     }
@@ -72,6 +72,8 @@ export function buildGemma4LiteralFidelityGate(
       output: assignment.output,
       scalarCalculationPointer: `/calculationGraph/assignments/${assignment.ordinal}/scalarCalculation/reduction`,
       outputCoordinatePointer: `/calculationGraph/assignments/${assignment.ordinal}/outputCoordinate`,
+      invocationProgramId: invocationProgram.id,
+      invocationProgramPointer: `/authoritativeExecution/unresolvedNativeReduction/executableReplay/invocationPrograms/${invocationPrograms.indexOf(invocationProgram)}`,
     }];
   });
   const blocked = unresolvedNativeReductions.length > 0;
@@ -96,16 +98,4 @@ export function validateGemma4LiteralFidelityGate(
   if (!isDeepStrictEqual(gate, buildGemma4LiteralFidelityGate(graph, authority))) {
     throw new Error("Artefato literal Gemma 4 possui gate de fidelidade incompleto ou divergente.");
   }
-}
-
-export function gemma4LiteralRuntimeReductionOperationClass(
-  scope: Gemma4LiteralCalculationScope,
-  operation: string,
-): Gemma4LiteralRuntimeReductionOperationClass {
-  if (scope === "vision" && operation === "attention-score-matmul") return "vision-attention-score";
-  if (scope === "vision" && operation === "attention-value-matmul") return "vision-attention-value";
-  if (scope === "audio" && operation === "chunked-attention-content-matmul") return "audio-content-attention-score";
-  if (scope === "audio" && operation === "relative-attention-position-matmul") return "audio-position-attention-score";
-  if (scope === "audio" && operation === "chunked-relative-attention-values") return "audio-attention-value";
-  throw new Error(`Redução runtime-defined inesperada em ${scope}:${operation}; nenhuma semântica BMM pode ser inferida.`);
 }
