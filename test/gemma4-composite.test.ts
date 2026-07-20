@@ -60,7 +60,12 @@ import {
   gemma4LiteralSoftmaxReductionPrograms,
   validateGemma4LiteralFormulaFunctionCoverage,
 } from "../src/gemma4-literal-formula-language.js";
-import { buildGemma4LiteralSourceIdentity, type Gemma4LiteralSourceIdentity } from "../src/gemma4-literal-source-identity.js";
+import {
+  buildGemma4LiteralSourceIdentity,
+  readGemma4LiteralEmbeddedMetadataRange,
+  summarizeGemma4LiteralSourceIdentity,
+  type Gemma4LiteralSourceIdentity,
+} from "../src/gemma4-literal-source-identity.js";
 import {
   listGemma4LiteralOperations,
   renderGemma4LiteralMultimodalScalarView,
@@ -1774,6 +1779,22 @@ test("Gemma 4 literal payload verifier proves every embedded storage byte before
     const embeddedConfig = sourceIdentity.files.find((file) => file.path === "config.json")!.content;
     assert.equal(embeddedConfig.storage, "embedded-metadata-base64");
     assert.equal(Buffer.from(embeddedConfig.storage === "embedded-metadata-base64" ? embeddedConfig.payloadBase64 : "", "base64").toString("utf8"), JSON.stringify(catalog.config));
+    const sourceSummary = summarizeGemma4LiteralSourceIdentity(sourceIdentity);
+    assert.equal(sourceSummary.totalFiles, 2);
+    assert.equal(sourceSummary.embeddedMetadataBytes, Buffer.byteLength(JSON.stringify(catalog.config)));
+    assert.equal(JSON.stringify(sourceSummary).includes("payloadBase64"), false);
+    assert.deepEqual(
+      Buffer.from(readGemma4LiteralEmbeddedMetadataRange(sourceIdentity, "config.json", 1, 2).dataBase64, "base64"),
+      Buffer.from(JSON.stringify(catalog.config)).subarray(1, 3),
+    );
+    assert.throws(
+      () => readGemma4LiteralEmbeddedMetadataRange(sourceIdentity, "model.safetensors"),
+      /bytes de weights devem ser navegados pelas constantes/,
+    );
+    assert.throws(
+      () => readGemma4LiteralEmbeddedMetadataRange(sourceIdentity, "config.json", 0, sourceSummary.embeddedMetadataBytes + 1),
+      /janela de metadata Gemma 4 fora/,
+    );
 
     const verified = await verifyGemma4CompositeLiteralPayloadsAgainstCatalog({ artifact, source, maxReadBytes: 13 });
     assert.equal(verified.constants, catalog.tensors.size);

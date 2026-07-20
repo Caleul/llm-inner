@@ -207,6 +207,24 @@ redução/cast. Por padrão uma linear expande todos os termos; uma janela só �
 permitida quando `--input-start` e `--input-count` são ambos explícitos, e o
 resultado fica marcado `complete: false` e `omittedTerms > 0`:
 
+O relatório-base resume a identidade imutável sem expandir os payloads Base64
+de metadata; assim `tokenizer.json` continua integralmente incorporado, mas não
+transforma toda inspeção em dezenas de megabytes. `--source-file` navega um
+arquivo de metadata por janela explícita, devolvendo os bytes em Base64, o hash
+SHA-256 da janela e o compromisso de tamanho/hash do arquivo inteiro. Weights
+continuam navegados por `--tensor`, evitando uma segunda autoridade para os
+bytes aprendidos:
+
+```bash
+npm run inspect:gemma4-literal -- \
+  --artifact ./artifacts/gemma4-e4b-dense.literal.json \
+  --source-file tokenizer.json --source-offset 0 --source-byte-length 4096 \
+  --output /tmp/gemma4-tokenizer-window.json
+```
+
+A execução real com o checkpoint fisicamente indisponível está em
+[`docs/validation/gemma4-e4b-bounded-source-identity-navigation-2026-07-20.md`](docs/validation/gemma4-e4b-bounded-source-identity-navigation-2026-07-20.md).
+
 ```bash
 npm run inspect:gemma4-literal -- \
   --artifact ./artifacts/gemma4-e4b-dense.literal.json \

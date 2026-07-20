@@ -6,6 +6,10 @@ import { buildGemma4LiteralGenerationNavigation, renderGemma4LiteralGenerationCa
 import { buildGemma4LiteralCalculationSlice } from "./gemma4-literal-calculation-slice.js";
 import { buildGemma4LiteralEndToEndCalculation } from "./gemma4-literal-end-to-end-calculation.js";
 import {
+  readGemma4LiteralEmbeddedMetadataRange,
+  summarizeGemma4LiteralSourceIdentity,
+} from "./gemma4-literal-source-identity.js";
+import {
   listGemma4LiteralOperations,
   renderGemma4LiteralMultimodalScalarView,
 } from "./gemma4-literal-multimodal-scalar-view.js";
@@ -38,6 +42,9 @@ interface Arguments {
   numericLiteral?: string;
   calculationSliceOperationId?: string;
   endToEndCalculation: boolean;
+  sourceFile?: string;
+  sourceOffset: number;
+  sourceByteLength?: number;
 }
 
 const args = parseArguments(process.argv.slice(2));
@@ -50,7 +57,7 @@ try {
     schemaVersion: artifact.schemaVersion,
     artifact: artifact.artifact,
     artifactBytes: artifact.artifactBytes,
-    sourceIdentity: artifact.sourceIdentity,
+    sourceIdentity: summarizeGemma4LiteralSourceIdentity(artifact.sourceIdentity),
     authoritativeExecution: artifact.authoritativeExecution,
     constants: artifact.constants.size,
     storageDecoders: artifact.storageDecoders.length,
@@ -79,6 +86,14 @@ try {
     reductionDomains: reductionDomainSummary(artifact.calculationGraph.assignments),
     ...(args.assertSourceUnavailable ? { assertedUnavailableSource: args.assertSourceUnavailable, sourceCheckpointAccessed: false } : {}),
   };
+  if (args.sourceFile) {
+    result.selectedSourceFile = readGemma4LiteralEmbeddedMetadataRange(
+      artifact.sourceIdentity,
+      args.sourceFile,
+      args.sourceOffset,
+      args.sourceByteLength,
+    );
+  }
   if (args.numericLiteral) {
     const literal = artifact.numericLiterals.literals.find((entry) => entry.token === args.numericLiteral);
     if (!literal) throw new Error(`Literal numérico não encontrado: ${args.numericLiteral}.`);
@@ -320,9 +335,10 @@ function coordinateNavigationSummary(assignments: OpenedCalculationAssignments):
 }
 
 function parseArguments(argv: string[]): Arguments {
-  let artifact: string | undefined, tensor: string | undefined, output: string | undefined, assertSourceUnavailable: string | undefined, operationId: string | undefined, generationOperationId: string | undefined, numericLiteral: string | undefined, calculationSliceOperationId: string | undefined;
+  let artifact: string | undefined, tensor: string | undefined, output: string | undefined, assertSourceUnavailable: string | undefined, operationId: string | undefined, generationOperationId: string | undefined, numericLiteral: string | undefined, calculationSliceOperationId: string | undefined, sourceFile: string | undefined;
   let outputCoordinate: number[] | undefined, tokenId: number | undefined, positionCoordinate: [number, number] | undefined, inputStart: number | undefined, inputCount: number | undefined;
-  let generationMaxNewTokens: number | undefined;
+  let generationMaxNewTokens: number | undefined, sourceByteLength: number | undefined;
+  let sourceOffset = 0;
   let offset = 0, byteLength = 4096, verifyPayloads = false, listOperations = false, listRuntimeReductions = false, runtimeReductionAudit = false, showGenerationProgram = false, listGenerationOperations = false, endToEndCalculation = false;
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
@@ -348,6 +364,9 @@ function parseArguments(argv: string[]): Arguments {
     else if (value === "--numeric-literal") { numericLiteral = requiredValue(next, "--numeric-literal"); index += 1; }
     else if (value === "--calculation-slice") { calculationSliceOperationId = requiredValue(next, "--calculation-slice"); index += 1; }
     else if (value === "--end-to-end-calculation") { endToEndCalculation = true; }
+    else if (value === "--source-file") { sourceFile = requiredValue(next, "--source-file"); index += 1; }
+    else if (value === "--source-offset") { sourceOffset = parseInteger(next, "--source-offset"); index += 1; }
+    else if (value === "--source-byte-length") { sourceByteLength = parseInteger(next, "--source-byte-length"); index += 1; }
     else if (value === "--assert-source-unavailable") {
       if (!next || next.startsWith("--")) throw new Error("--assert-source-unavailable requer um caminho de checkpoint.");
       assertSourceUnavailable = next;
@@ -356,10 +375,16 @@ function parseArguments(argv: string[]): Arguments {
     else if (value === "--output") { output = next; index += 1; }
     else throw new Error(`Argumento desconhecido: ${value}.`);
   }
-  if (!artifact) throw new Error("Uso: --artifact <literal.json> [--numeric-literal <token>] [--calculation-slice <operation-id>] [--end-to-end-calculation --generation-max-new-tokens <n>] [--list-operations] [--list-runtime-reductions] [--show-generation-program] [--list-generation-operations --generation-max-new-tokens <n>] [--generation-operation <id> --generation-max-new-tokens <n>] [--operation <id> --output-coordinate <i,j,...> [--runtime-reduction-audit] [--token-id <id>] [--position-coordinate <x,y>] [--input-start <i> --input-count <n>]] [--tensor <nome> --offset <bytes> --byte-length <bytes>] [--verify-payloads --assert-source-unavailable <checkpoint>] [--output <report.json>].");
-  if (assertSourceUnavailable !== undefined && !verifyPayloads && !operationId && !numericLiteral && !calculationSliceOperationId && !endToEndCalculation && !listOperations && !listRuntimeReductions && !showGenerationProgram && !listGenerationOperations && !generationOperationId) throw new Error("--assert-source-unavailable requer uma operação de inspeção.");
+  if (!artifact) throw new Error("Uso: --artifact <literal.json> [--source-file <path> [--source-offset <bytes> --source-byte-length <bytes>]] [--numeric-literal <token>] [--calculation-slice <operation-id>] [--end-to-end-calculation --generation-max-new-tokens <n>] [--list-operations] [--list-runtime-reductions] [--show-generation-program] [--list-generation-operations --generation-max-new-tokens <n>] [--generation-operation <id> --generation-max-new-tokens <n>] [--operation <id> --output-coordinate <i,j,...> [--runtime-reduction-audit] [--token-id <id>] [--position-coordinate <x,y>] [--input-start <i> --input-count <n>]] [--tensor <nome> --offset <bytes> --byte-length <bytes>] [--verify-payloads --assert-source-unavailable <checkpoint>] [--output <report.json>].");
+  if (assertSourceUnavailable !== undefined && !sourceFile && !verifyPayloads && !operationId && !numericLiteral && !calculationSliceOperationId && !endToEndCalculation && !listOperations && !listRuntimeReductions && !showGenerationProgram && !listGenerationOperations && !generationOperationId) throw new Error("--assert-source-unavailable requer uma operação de inspeção.");
   if ((tensor === undefined && (offset !== 0 || byteLength !== 4096)) || (tensor !== undefined && (!Number.isSafeInteger(offset) || !Number.isSafeInteger(byteLength) || offset < 0 || byteLength <= 0))) {
     throw new Error("--offset e --byte-length requerem --tensor e valores inteiros positivos.");
+  }
+  if (sourceFile === undefined && (sourceOffset !== 0 || sourceByteLength !== undefined)) {
+    throw new Error("--source-offset e --source-byte-length requerem --source-file.");
+  }
+  if (sourceOffset < 0 || (sourceByteLength !== undefined && sourceByteLength <= 0)) {
+    throw new Error("Janela de --source-file requer inteiros não negativos e byte length positivo.");
   }
   if ((operationId === undefined) !== (outputCoordinate === undefined)) throw new Error("--operation e --output-coordinate devem ser fornecidos juntos.");
   if (runtimeReductionAudit && operationId === undefined) throw new Error("--runtime-reduction-audit requer --operation e --output-coordinate.");
@@ -376,7 +401,8 @@ function parseArguments(argv: string[]): Arguments {
     ...(inputStart === undefined ? {} : { inputStart, inputCount: inputCount! }),
     ...(generationOperationId ? { generationOperationId } : {}),
     ...(generationMaxNewTokens === undefined ? {} : { generationMaxNewTokens }),
-    ...(numericLiteral ? { numericLiteral } : {}),
+    ...(numericLiteral ? { numericLiteral } : {}), ...(sourceFile ? { sourceFile } : {}), sourceOffset,
+    ...(sourceByteLength === undefined ? {} : { sourceByteLength }),
     ...(calculationSliceOperationId ? { calculationSliceOperationId } : {}),
   };
 }

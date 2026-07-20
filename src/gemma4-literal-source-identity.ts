@@ -57,6 +57,107 @@ export interface Gemma4LiteralSourceIdentity {
   files: Gemma4LiteralSourceFileCommitment[];
 }
 
+export interface Gemma4LiteralSourceIdentitySummary
+  extends Omit<Gemma4LiteralSourceIdentity, "files"> {
+  files: Array<
+    Omit<Gemma4LiteralSourceFileCommitment, "content"> & {
+      content:
+        | {
+            storage: "embedded-metadata-base64";
+            encoding: "base64";
+            decode: "base64-to-original-bytes";
+          }
+        | {
+            storage: "embedded-tensor-constants";
+            mapping: "safetensors-header-ranges-to-named-constants";
+          };
+    }
+  >;
+  totalFiles: number;
+  totalBytes: number;
+  embeddedMetadataBytes: number;
+}
+
+export interface Gemma4LiteralEmbeddedMetadataRange {
+  path: string;
+  role: Gemma4LiteralSourceFileRole;
+  sourceBytes: number;
+  sourceSha256: string;
+  offset: number;
+  byteLength: number;
+  sha256: string;
+  encoding: "base64";
+  dataBase64: string;
+}
+
+/** Keeps immutable source identity navigable without expanding large metadata payloads. */
+export function summarizeGemma4LiteralSourceIdentity(
+  identity: Gemma4LiteralSourceIdentity,
+): Gemma4LiteralSourceIdentitySummary {
+  validateGemma4LiteralSourceIdentity(identity);
+  return {
+    modelId: identity.modelId,
+    revision: identity.revision,
+    sourceFormat: identity.sourceFormat,
+    semanticAdapter: identity.semanticAdapter,
+    files: identity.files.map((file) => ({
+      path: file.path,
+      role: file.role,
+      bytes: file.bytes,
+      sha256: file.sha256,
+      content: file.content.storage === "embedded-metadata-base64"
+        ? {
+            storage: file.content.storage,
+            encoding: file.content.encoding,
+            decode: file.content.decode,
+          }
+        : { storage: file.content.storage, mapping: file.content.mapping },
+    })),
+    totalFiles: identity.files.length,
+    totalBytes: identity.files.reduce((total, file) => total + file.bytes, 0),
+    embeddedMetadataBytes: identity.files.reduce((total, file) =>
+      total + (file.content.storage === "embedded-metadata-base64" ? file.bytes : 0), 0),
+  };
+}
+
+/** Decodes one explicit, bounded metadata range entirely from the artifact-owned identity. */
+export function readGemma4LiteralEmbeddedMetadataRange(
+  identity: Gemma4LiteralSourceIdentity,
+  sourcePath: string,
+  offset = 0,
+  requestedByteLength?: number,
+): Gemma4LiteralEmbeddedMetadataRange {
+  validateGemma4LiteralSourceIdentity(identity);
+  const matches = identity.files.filter((file) => file.path === sourcePath);
+  const file = matches[0];
+  if (matches.length !== 1 || !file) {
+    throw new Error(`${sourcePath}: metadata de source Gemma 4 não encontrada.`);
+  }
+  if (file.content.storage !== "embedded-metadata-base64") {
+    throw new Error(`${sourcePath}: bytes de weights devem ser navegados pelas constantes incorporadas.`);
+  }
+  if (!Number.isSafeInteger(offset) || offset < 0 || offset >= file.bytes) {
+    throw new Error(`${sourcePath}: offset de metadata Gemma 4 fora do arquivo incorporado.`);
+  }
+  const byteLength = requestedByteLength ?? Math.min(4096, file.bytes - offset);
+  if (!Number.isSafeInteger(byteLength) || byteLength <= 0 || offset + byteLength > file.bytes) {
+    throw new Error(`${sourcePath}: janela de metadata Gemma 4 fora do arquivo incorporado.`);
+  }
+  const decoded = Buffer.from(file.content.payloadBase64, "base64");
+  const range = decoded.subarray(offset, offset + byteLength);
+  return {
+    path: file.path,
+    role: file.role,
+    sourceBytes: file.bytes,
+    sourceSha256: file.sha256,
+    offset,
+    byteLength: range.length,
+    sha256: createHash("sha256").update(range).digest("hex"),
+    encoding: "base64",
+    dataBase64: range.toString("base64"),
+  };
+}
+
 /**
  * Hashes the exact source package and embeds every top-level JSON metadata
  * file. Safetensors payloads are already embedded as named constants; their
