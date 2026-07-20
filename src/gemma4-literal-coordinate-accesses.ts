@@ -19,6 +19,7 @@ export type Gemma4LiteralCoordinateAccess =
 export type Gemma4LiteralCoordinateScalarExpression =
   | { kind: "constant"; value: number }
   | { kind: "symbol"; name: string }
+  | { kind: "tensor-axis"; tensor: string; axis: Gemma4LiteralCoordinateScalarExpression }
   | { kind: "indexed-symbol"; name: string; indices: Gemma4LiteralCoordinateScalarExpression[] }
   | { kind: "negate"; operand: Gemma4LiteralCoordinateScalarExpression }
   | {
@@ -43,12 +44,13 @@ export type Gemma4LiteralCoordinateExpression =
   };
 
 export interface Gemma4LiteralCoordinateExpressionLanguage {
-  id: "gemma4-coordinate-expression-v1";
-  schemaVersion: 1;
+  id: "gemma4-coordinate-expression-v2";
+  schemaVersion: 2;
   resultType: "signed-safe-integer-or-inclusive-range";
   evaluationOrder: "depth-first-left-to-right";
   bindings: {
     symbol: string;
+    tensorAxis: string;
     indexedSymbol: string;
     stableTruePrefixRank: string;
   };
@@ -66,6 +68,7 @@ export interface Gemma4LiteralCoordinateExpressionLanguage {
 
 export interface Gemma4LiteralCoordinateEnvironment {
   symbols: Readonly<Record<string, number>>;
+  tensorShapes?: Readonly<Record<string, readonly number[]>>;
   integerArrays?: Readonly<Record<string, Gemma4LiteralIntegerArray>>;
   integerTensors?: Readonly<Record<string, readonly (readonly number[])[]>>;
 }
@@ -76,14 +79,24 @@ export type Gemma4LiteralEvaluatedCoordinate =
   | number
   | { startInclusive: number; endInclusive: number };
 
+export interface Gemma4LiteralCoordinateBindingScope {
+  /** Scalar names supplied by output axes and executable reduction domains. */
+  symbols: ReadonlySet<string>;
+  /** Locals assigned before the output write; dotted STRUCT fields share their root. */
+  localRoots: ReadonlySet<string>;
+  /** Declared call-site inputs, predecessors, and the owning output. */
+  tensors: ReadonlySet<string>;
+}
+
 export function gemma4LiteralCoordinateExpressionLanguage(): Gemma4LiteralCoordinateExpressionLanguage {
   return {
-    id: "gemma4-coordinate-expression-v1",
-    schemaVersion: 1,
+    id: "gemma4-coordinate-expression-v2",
+    schemaVersion: 2,
     resultType: "signed-safe-integer-or-inclusive-range",
     evaluationOrder: "depth-first-left-to-right",
     bindings: {
-      symbol: "read the exact signed safe integer bound to the named scalar, including dotted STRUCT fields",
+      symbol: "read an output-axis, reduction-index, or prior local scalar/STRUCT field declared by the owning calculation; caller-defined extent aliases are forbidden",
+      tensorAxis: "evaluate the axis program, then read the exact positive safe integer from the named declared input, predecessor, or output tensor shape",
       indexedSymbol: "evaluate each index left-to-right and read the exact signed safe integer from the named finite integer array",
       stableTruePrefixRank: "compare the named I32 tensor to equals elementwise, then scan the rectangular BOOL mask in stable batch-major order before [batch,sequence]",
     },
@@ -96,7 +109,7 @@ export function gemma4LiteralCoordinateExpressionLanguage(): Gemma4LiteralCoordi
       negate: "exact safe-integer additive inverse",
     },
     range: "inclusive start..end evaluated after both signed safe-integer endpoints; start must not exceed end",
-    invalidOperation: "fail closed on an unknown symbol or tensor, malformed expression, non-integer tensor value, ragged tensor, unsafe arithmetic, zero divisor, invalid stable-rank coordinate, or inverted range",
+    invalidOperation: "fail closed on a free extent alias, unknown symbol or tensor, missing tensor axis, malformed expression, non-integer tensor value, ragged tensor, unsafe arithmetic, zero divisor, invalid stable-rank coordinate, or inverted range",
   };
 }
 
@@ -125,6 +138,20 @@ export function evaluateGemma4LiteralCoordinateExpression(
     return { startInclusive, endInclusive };
   }
   return evaluateCoordinateScalar(expression, environment);
+}
+
+/** Rejects coordinate programs that still require an undeclared host binding. */
+export function validateGemma4LiteralCoordinateExpressionBindings(
+  expression: Gemma4LiteralCoordinateExpression,
+  scope: Gemma4LiteralCoordinateBindingScope,
+  owner: string,
+): void {
+  if (expression.kind === "inclusive-range") {
+    validateCoordinateScalarBindings(expression.start, scope, owner);
+    validateCoordinateScalarBindings(expression.end, scope, owner);
+    return;
+  }
+  validateCoordinateScalarBindings(expression, scope, owner);
 }
 
 export interface Gemma4LiteralPredecessorCoordinateNavigation {
@@ -439,6 +466,10 @@ function parseCoordinateScalar(value: string): Gemma4LiteralCoordinateScalarExpr
       const indices: Gemma4LiteralCoordinateScalarExpression[] = [additive()];
       while (accept(",")) indices.push(additive());
       required("]");
+      if (token.value.endsWith(".shape")) {
+        if (indices.length !== 1) throw new Error(`Shape de coordenada requer um eixo: ${value}.`);
+        return { kind: "tensor-axis", tensor: token.value.slice(0, -".shape".length), axis: indices[0]! };
+      }
       return { kind: "indexed-symbol", name: token.value, indices };
     }
     if (!accept("(")) return { kind: "symbol", name: token.value };
@@ -519,7 +550,8 @@ function coordinateTokens(value: string): CoordinateToken[] {
       continue;
     }
     if (/[A-Za-z_]/.test(character)) {
-      const match = /^[A-Za-z_][A-Za-z0-9_.]*/.exec(value.slice(cursor))![0];
+      const shapePath = /^[A-Za-z_][A-Za-z0-9_./:-]*\.shape(?=\[)/.exec(value.slice(cursor))?.[0];
+      const match = shapePath ?? /^[A-Za-z_][A-Za-z0-9_.]*/.exec(value.slice(cursor))![0];
       tokens.push({ kind: "name", value: match, offset: cursor });
       cursor += match.length;
       continue;
@@ -568,6 +600,15 @@ function evaluateCoordinateScalar(
       if (value === undefined) throw new Error(`Binding de coordenada ausente: ${expression.name}.`);
       return safeSignedInteger(value, expression.name);
     }
+    case "tensor-axis": {
+      const shape = environment.tensorShapes?.[expression.tensor];
+      const axis = evaluateCoordinateScalar(expression.axis, environment);
+      const value = shape?.[axis];
+      if (!shape || axis < 0 || value === undefined || shape.some((dimension) => !Number.isSafeInteger(dimension) || dimension <= 0)) {
+        throw new Error(`${expression.tensor}: programa de coordenada não pode resolver shape[${axis}].`);
+      }
+      return safeSignedInteger(value, `${expression.tensor}.shape[${axis}]`);
+    }
     case "indexed-symbol": {
       let value: number | Gemma4LiteralIntegerArray | undefined = environment.integerArrays?.[expression.name];
       if (!value) throw new Error(`Array de coordenada ausente: ${expression.name}.`);
@@ -615,6 +656,49 @@ function evaluateCoordinateScalar(
       }
       throw new Error("STABLE_TRUE_PREFIX_RANK não alcançou a coordenada declarada.");
     }
+  }
+}
+
+function validateCoordinateScalarBindings(
+  expression: Gemma4LiteralCoordinateScalarExpression,
+  scope: Gemma4LiteralCoordinateBindingScope,
+  owner: string,
+): void {
+  switch (expression.kind) {
+    case "constant": return;
+    case "symbol": {
+      const root = expression.name.split(".")[0]!;
+      if (!scope.symbols.has(expression.name) && !scope.localRoots.has(root)) {
+        throw new Error(`${owner}: programa de coordenada contém binding livre ${expression.name}.`);
+      }
+      return;
+    }
+    case "tensor-axis":
+      if (!scope.tensors.has(expression.tensor)) {
+        throw new Error(`${owner}: programa de coordenada lê shape de tensor não declarado ${expression.tensor}.`);
+      }
+      validateCoordinateScalarBindings(expression.axis, scope, owner);
+      return;
+    case "indexed-symbol":
+      if (!scope.localRoots.has(expression.name)) {
+        throw new Error(`${owner}: programa de coordenada lê array local não declarado ${expression.name}.`);
+      }
+      expression.indices.forEach((index) => validateCoordinateScalarBindings(index, scope, owner));
+      return;
+    case "negate":
+      validateCoordinateScalarBindings(expression.operand, scope, owner);
+      return;
+    case "add": case "subtract": case "multiply": case "modulo": case "floor-divide":
+      validateCoordinateScalarBindings(expression.left, scope, owner);
+      validateCoordinateScalarBindings(expression.right, scope, owner);
+      return;
+    case "stable-true-prefix-rank":
+      if (!scope.tensors.has(expression.tensor)) {
+        throw new Error(`${owner}: STABLE_TRUE_PREFIX_RANK lê tensor não declarado ${expression.tensor}.`);
+      }
+      validateCoordinateScalarBindings(expression.batch, scope, owner);
+      validateCoordinateScalarBindings(expression.sequence, scope, owner);
+      return;
   }
 }
 

@@ -747,6 +747,29 @@ BMM, fecho end-to-end e suite diferencial das três modalidades. A prova e os
 hashes estão em
 [`docs/validation/gemma4-e4b-executable-coordinate-programs-2026-07-19.md`](docs/validation/gemma4-e4b-executable-coordinate-programs-2026-07-19.md).
 
+O schema v37 fecha os bindings desses programas de coordenada. O schema v36
+ainda permitia que nomes como `frames`, `patches`, `pool_cells`, `head_dim`,
+`channels`, `per_layer_width` e `feature` fossem interpretados como escalares
+fornecidos pelo host, mesmo quando não pertenciam aos eixos ou domínios da
+atribuição. A linguagem `gemma4-coordinate-expression-v2` acrescenta o nó
+explícito `tensor-axis`, que resolve somente `shape[axis]` de um input,
+predecessor ou output declarado. O calculation graph schema 5 valida cada
+programa contra os eixos de saída, índices de redução, locals anteriores,
+campos `STRUCT` e tensores do call site; alias livre ou tensor não declarado
+falha durante a construção e durante a abertura do artefato.
+
+No E4B real, as 2.708 atribuições passaram esse fecho sem bindings do chamador.
+O artefato de 21.391.466.420 bytes tem SHA-256
+`2d2129ab31f56f0a4733c9970990b9cdb944f6a8ee3dfbc9fae1c0d382619008`
+e contém 36.505 programas de coordenada, incluindo 14 leituras explícitas de
+eixo de tensor. Com a fonte fisicamente ausente, todos os 2.130 payloads foram
+verificados, uma vista de `layer_0_q_proj[0,0,0]` substituiu pesos BF16 por
+literais numéricos, o fecho forward/greedy de um passo foi aberto e imagem,
+vídeo e áudio repetiram prefill e geração com tolerância zero. As 100 BMM
+Apple Accelerate continuam explicitamente `fail-closed-runtime-reduction`.
+Comandos, contagens e hashes estão em
+[`docs/validation/gemma4-e4b-closed-coordinate-bindings-2026-07-19.md`](docs/validation/gemma4-e4b-closed-coordinate-bindings-2026-07-19.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 

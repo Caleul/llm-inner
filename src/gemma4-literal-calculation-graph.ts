@@ -23,6 +23,7 @@ import {
   buildGemma4LiteralOutputCoordinateNavigation,
   extractGemma4LiteralCoordinateAccesses,
   gemma4LiteralCoordinateExpressionLanguage,
+  validateGemma4LiteralCoordinateExpressionBindings,
   type Gemma4LiteralConsumerCoordinateNavigation,
   type Gemma4LiteralCoordinateExpressionLanguage,
   type Gemma4LiteralCoordinateAccess,
@@ -65,7 +66,7 @@ export interface Gemma4LiteralInstantiatedCalculation {
 
 export interface Gemma4LiteralCalculationGraph {
   kind: "gemma4-literal-instantiated-calculation-graph";
-  schemaVersion: 4;
+  schemaVersion: 5;
   order: "dependency-order";
   coordinateLanguage: Gemma4LiteralCoordinateExpressionLanguage;
   assignments: Gemma4LiteralInstantiatedCalculation[];
@@ -154,9 +155,10 @@ export function buildGemma4LiteralCalculationGraph(program: Gemma4CompositeProgr
       throw new Error(`${assignment.operationId}: predecessor ${producer.operationId} não antecede o consumidor no grafo literal.`);
     }
   }
+  assignments.forEach(validateCoordinateClosure);
   return {
     kind: "gemma4-literal-instantiated-calculation-graph",
-    schemaVersion: 4,
+    schemaVersion: 5,
     order: "dependency-order",
     coordinateLanguage: gemma4LiteralCoordinateExpressionLanguage(),
     assignments,
@@ -167,12 +169,42 @@ export function validateGemma4LiteralCalculationGraph(
   graph: Gemma4LiteralCalculationGraph,
   program: Gemma4CompositeProgram,
 ): void {
-  if (graph.kind !== "gemma4-literal-instantiated-calculation-graph" || graph.schemaVersion !== 4 || graph.order !== "dependency-order") {
+  if (graph.kind !== "gemma4-literal-instantiated-calculation-graph" || graph.schemaVersion !== 5 || graph.order !== "dependency-order") {
     throw new Error("Programa literal Gemma 4 possui cabeçalho de grafo de cálculo inválido.");
   }
   if (!isDeepStrictEqual(graph, buildGemma4LiteralCalculationGraph(program))) {
     throw new Error("Programa literal Gemma 4 possui grafo instanciado, bindings ou dependências ausentes ou divergentes.");
   }
+}
+
+function validateCoordinateClosure(assignment: Gemma4LiteralInstantiatedCalculation): void {
+  const symbols = new Set(assignment.outputDomain.axes.map((axis) => axis.name));
+  const reductions = [assignment.scalarCalculation.reduction, ...(assignment.scalarCalculation.reductionStages ?? [])];
+  for (const reduction of reductions) for (const domain of reduction?.domains ?? []) symbols.add(domain.index);
+  const localRoots = new Set<string>();
+  for (const statement of assignment.scalarCalculation.scalarAssignments) {
+    const scalar = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=/.exec(statement);
+    if (scalar && !statement.trimStart().startsWith(`${assignment.output}[`)) localRoots.add(scalar[1]!);
+    const structure = /^\s*STRUCT\(([^)]*)\)\s*=/.exec(statement);
+    if (structure) for (const field of structure[1]!.split(",").map((value) => value.trim())) {
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(field)) throw new Error(`${assignment.operationId}: binding STRUCT de coordenada inválido ${field}.`);
+      localRoots.add(field);
+    }
+  }
+  const scope = {
+    symbols,
+    localRoots,
+    tensors: new Set([...assignment.orderedInputs, assignment.output]),
+  };
+  const validateAccess = (access: Gemma4LiteralCoordinateAccess, owner: string): void => {
+    if (access.kind === "tensor-element") access.coordinatePrograms.forEach((program) =>
+      validateGemma4LiteralCoordinateExpressionBindings(program, scope, owner));
+    else if (access.kind === "tensor-shape") validateGemma4LiteralCoordinateExpressionBindings(access.axisProgram, scope, owner);
+  };
+  validateAccess(assignment.outputCoordinate.write, `${assignment.operationId}:output`);
+  assignment.outputCoordinate.shapeAssertions.forEach((access) => validateAccess(access, `${assignment.operationId}:output-shape`));
+  assignment.predecessors.forEach((predecessor) => predecessor.accesses.forEach((access) =>
+    validateAccess(access, `${assignment.operationId}:${predecessor.input}`)));
 }
 
 /**

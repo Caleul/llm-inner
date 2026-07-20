@@ -12,7 +12,7 @@ import {
 
 export interface Gemma4LiteralFormulaLanguageContract {
   kind: "gemma4-literal-formula-language-contract";
-  schemaVersion: 21;
+  schemaVersion: 22;
   languageId: "indexed-ieee754-expression-v1";
   authority: {
     forwardAssignments: "/scalarCalculations/assignments";
@@ -434,7 +434,7 @@ function pytorchPairwiseReduce(values: readonly number[], operation: "maximum" |
 export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormulaLanguageContract {
   return {
     kind: "gemma4-literal-formula-language-contract",
-    schemaVersion: 21,
+    schemaVersion: 22,
     languageId: "indexed-ieee754-expression-v1",
     authority: {
       forwardAssignments: "/scalarCalculations/assignments",
@@ -464,7 +464,7 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
     },
     evaluation: {
       dependencyOrder: "evaluate instantiated assignments by ascending ordinal; within each assignment evaluate scalarAssignments in array order, where every local and precondition precedes the final output assignment; every predecessor must already exist",
-      predecessorNavigation: "for each predecessor, accesses lists every distinct tensor-element or tensor-shape expression in first-use order; coordinatePrograms and axisProgram are executable under calculationGraph.coordinateLanguage, whole-value marks an unindexed structured/control read, while an empty list with scalarUse=shape-or-control-only declares that the dependency affects domain or branch selection rather than the scalar expression",
+      predecessorNavigation: "for each predecessor, accesses lists every distinct tensor-element or tensor-shape expression in first-use order; coordinatePrograms and axisProgram are closed under the owning output axes, reduction domains, prior locals and explicit tensor-axis reads in calculationGraph.coordinateLanguage; free host extent aliases are invalid; whole-value marks an unindexed structured/control read, while an empty list with scalarUse=shape-or-control-only declares that the dependency affects domain or branch selection rather than the scalar expression",
       outputAndConsumerNavigation: "outputCoordinate.write is the unique left-hand tensor element assigned by the scalar program and carries executable coordinatePrograms; shapeAssertions carry executable axisProgram values, and consumerCoordinates repeats every downstream read and program grouped by consumer operation so traversal is exact in both dependency directions without parsing the human expression string",
       coordinateOrder: "row-major lexicographic over the complete declared output domain; preview windows never change evaluation",
       inputBinding: "bind orderedInputs positionally at each instantiated call site before evaluating the indexed formula",

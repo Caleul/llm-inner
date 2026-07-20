@@ -382,20 +382,22 @@ function scalarFormula(definition: Definition, program: Gemma4CompositeProgram, 
       return `${lhs} = (${predicate}) ? ${numericConfig(program.textProgram.config.pad_token_id, "pad_token_id")} : ${token}`;
     }
     case "embedding": return `${lhs} = F32(decode(weight)[${assignment.inputs[0]}[batch,sequence],hidden]*F32(${Math.sqrt(program.contract.text.hiddenSize)}))`;
-    case "per-layer-embedding": return `${lhs} = F32(decode(weight)[${assignment.inputs[0]}[batch,sequence],layer*per_layer_width+ple_feature]*F32(${Math.sqrt(program.contract.text.perLayerInputSize)}))`;
+    case "per-layer-embedding": return `${lhs} = F32(decode(weight)[${assignment.inputs[0]}[batch,sequence],layer*${program.contract.text.perLayerInputSize}+ple_feature]*F32(${Math.sqrt(program.contract.text.perLayerInputSize)}))`;
     case "vision-feature-program": case "audio-feature-program": case "text-core": return `${lhs} = EVALUATE(calculationGraph.assignments where invocationId==${JSON.stringify(assignment.id)} in ordinal order, orderedInputs=[${assignment.inputs.join(",")}]).terminalOutput[${domain.domain.axes.map((axis) => axis.name).join(",")}]`;
-    case "video-frame-flatten": return `${lhs} = ${assignment.inputs[0]}[floor(video_frame/frames),video_frame%frames,patch,${domain.domain.axes.at(-1)?.name}]`;
+    case "video-frame-flatten": return `${lhs} = ${assignment.inputs[0]}[floor(video_frame/(${assignment.inputs[0]}.shape[1])),video_frame%(${assignment.inputs[0]}.shape[1]),patch,${domain.domain.axes.at(-1)?.name}]`;
     case "masked-scatter": case "masked-scatter-image-features": case "masked-scatter-audio-features": {
       const token = requiredGemma4LiteralPlaceholderTokenId(assignment);
       const prior = assignment.inputs[0]!, inputIds = assignment.inputs[1]!, features = assignment.inputs[2]!;
+      const feature = domain.domain.axes.at(-1)?.name;
+      if (!feature) throw new Error(`${assignment.id}: masked scatter requer eixo de feature de saída.`);
       const predicate = `${inputIds}[batch,sequence]==${token}`;
-      return `${lhs} = ${predicate} ? ${features}[STABLE_TRUE_PREFIX_RANK(${inputIds}==${token},batch,sequence),feature] : ${prior}[batch,sequence,feature]; ` +
+      return `${lhs} = ${predicate} ? ${features}[STABLE_TRUE_PREFIX_RANK(${inputIds}==${token},batch,sequence),${feature}] : ${prior}[batch,sequence,${feature}]; ` +
         `require ${features}.shape[0]==STABLE_TRUE_COUNT(${inputIds}==${token})`;
     }
     case "linear": return linearFormula(lhs, assignment.inputs[0]!, inputReductionCoordinates(domain), cast, assignment.tensors?.length === 2, false, domain.domain.dtypePolicy?.reduction);
     case "clipped-linear": return linearFormula(lhs, assignment.inputs[0]!, inputReductionCoordinates(domain), cast, false, true, domain.domain.dtypePolicy?.reduction);
     case "scale-f32": return `${lhs} = F32(${input()} * F32(${scalarScale(assignment, program)}))`;
-    case "reshape-per-layer": return `${lhs} = ${assignment.inputs[0]}[batch,sequence,layer*per_layer_width+feature]`;
+    case "reshape-per-layer": return `${lhs} = ${assignment.inputs[0]}[batch,sequence,layer*${program.contract.text.perLayerInputSize}+ple_feature]`;
     case "rms-norm": return rmsNormFormula(
       lhs,
       assignment.inputs[0]!,
@@ -410,20 +412,20 @@ function scalarFormula(definition: Definition, program: Gemma4CompositeProgram, 
       const positions = assignment.inputs[0]!;
       return `${lhs} = ${positions}[batch,patch,0]==-1 && ${positions}[batch,patch,1]==-1 ? ${cast}(0) : ${cast}(F32(decode(position-table)[0,${positions}[batch,patch,0],hidden] + decode(position-table)[1,${positions}[batch,patch,1],hidden]))`;
     }
-    case "reshape-heads": return `${lhs} = row_major_alias(${assignment.inputs[0]})[batch,patch,head*head_dim+head_feature]`;
+    case "reshape-heads": return `${lhs} = row_major_alias(${assignment.inputs[0]})[batch,patch,head*${program.visionProgram.tower.headDim}+head_feature]`;
     case "multidimensional-rope": return visionRotaryFormula(assignment, program, lhs);
     case "attention-score-matmul": return `${lhs} = ${cast}(REDUCE(head_feature=0..${program.visionProgram.tower.headDim - 1}, F32(${assignment.inputs[0]}[batch,head,query_patch,head_feature]*${assignment.inputs[1]}[batch,head,key_patch,head_feature])))`;
     case "masked-softmax": {
       const score = assignment.inputs[0]!, positions = assignment.inputs[1]!;
       const valid = `${positions}[batch,key_patch,0]!=-1 && ${positions}[batch,key_patch,1]!=-1`;
       return `${lhs} = ${cast}(${positions}[batch,key_patch,0]==-1 && ${positions}[batch,key_patch,1]==-1 ? F32(0) : F32(exponential[key_patch]/total)); ` +
-        `maximum=ORDERED_F32_REDUCE_MAX(${score}[batch,head,query_patch,key_patch],key_patch=0..patches-1 where ${valid}); ` +
+        `maximum=ORDERED_F32_REDUCE_MAX(${score}[batch,head,query_patch,key_patch],key_patch=0..${score}.shape[3]-1 where ${valid}); ` +
         `exponential[key_patch]=SLEEF_EXP_F32(F32(${score}[batch,head,query_patch,key_patch]-maximum)); ` +
-        `total=ORDERED_F32_REDUCE_SUM(exponential[key_patch],key_patch=0..patches-1 where ${valid})`;
+        `total=ORDERED_F32_REDUCE_SUM(exponential[key_patch],key_patch=0..${score}.shape[3]-1 where ${valid})`;
     }
     case "attention-value-matmul": {
       const headDim = program.visionProgram.tower.headDim;
-      return `${lhs} = ${cast}(REDUCE(key_patch=0..patches-1, F32(${assignment.inputs[0]}[batch,floor(hidden/${headDim}),patch,key_patch]*${assignment.inputs[1]}[batch,floor(hidden/${headDim}),key_patch,hidden%${headDim}])))`;
+      return `${lhs} = ${cast}(REDUCE(key_patch=0..${assignment.inputs[0]}.shape[3]-1, F32(${assignment.inputs[0]}[batch,floor(hidden/${headDim}),patch,key_patch]*${assignment.inputs[1]}[batch,floor(hidden/${headDim}),key_patch,hidden%${headDim}])))`;
     }
     case "gelu-tanh": {
       const source = input();
@@ -432,12 +434,12 @@ function scalarFormula(definition: Definition, program: Gemma4CompositeProgram, 
     case "multiply": return `${lhs} = ${cast}(F32(${input(0)} * ${input(1)}))`;
     case "pool-by-position": {
       const source = assignment.inputs[0]!, positions = assignment.inputs[1]!, kernel = program.visionProgram.tower.poolingKernelSize;
-      return `${lhs} = ${cast}(acc[patches-1]); pool_slot[patch]=VISION_POOL_SLOT(${positions}[batch,0..patches-1],patch,${kernel},pool_cells); ` +
-        `acc[-1]=F32(0); acc[patch]=pool_slot[patch]==pool_cell ? F32_FMA(acc[patch-1],${source}[batch,patch,hidden],F32(1/F32(${kernel ** 2}))) : acc[patch-1], patch=0..patches-1 ascending`;
+      return `${lhs} = ${cast}(acc[${positions}.shape[1]-1]); pool_slot[patch]=VISION_POOL_SLOT(${positions}[batch,0..${positions}.shape[1]-1],patch,${kernel},floor(${positions}.shape[1]/${kernel ** 2})); ` +
+        `acc[-1]=F32(0); acc[patch]=pool_slot[patch]==pool_cell ? F32_FMA(acc[patch-1],${source}[batch,patch,hidden],F32(1/F32(${kernel ** 2}))) : acc[patch-1], patch=0..${positions}.shape[1]-1 ascending`;
     }
     case "pool-valid-mask": {
       const positions = assignment.inputs[0]!, kernel = program.visionProgram.tower.poolingKernelSize;
-      return `${lhs} = BOOL(VISION_POOL_CELL_HAS_PATCH(${positions}[batch,0..patches-1],pool_cell,${kernel},pool_cells))`;
+      return `${lhs} = BOOL(VISION_POOL_CELL_HAS_PATCH(${positions}[batch,0..${positions}.shape[1]-1],pool_cell,${kernel},floor(${positions}.shape[1]/${kernel ** 2})))`;
     }
     case "strip-padding": {
       const source = assignment.inputs[0]!, mask = assignment.inputs[1]!, row = domain.domain.axes[0]?.name, feature = domain.domain.axes[1]?.name;
@@ -448,7 +450,7 @@ function scalarFormula(definition: Definition, program: Gemma4CompositeProgram, 
     case "mask-input-features": return `${lhs} = ${assignment.inputs[1]}[batch,frame] ? ${input()} : F32(0)`;
     case "reshape-conv-features": return assignment.id === "audio_input_unsqueeze"
       ? `${lhs} = ${assignment.inputs[0]}[batch,frame,feature]; require channel==0`
-      : `${lhs} = ${assignment.inputs[0]}[batch,flattened_channel_feature%channels,frame,floor(flattened_channel_feature/channels)]`;
+      : `${lhs} = ${assignment.inputs[0]}[batch,flattened_channel_feature%${assignment.inputs[0]}.shape[1],frame,floor(flattened_channel_feature/${assignment.inputs[0]}.shape[1])]`;
     case "conv2d-stride2": {
       const source = assignment.inputs[0]!;
       return `${lhs} = ${cast}(REDUCE(input_channel=0..channels-1,kernel_time=0..2,kernel_feature=0..2, F32(((2*frame+kernel_time-1<0 || 2*frame+kernel_time-1>=${source}.shape[2] || 2*feature+kernel_feature-1<0 || 2*feature+kernel_feature-1>=${source}.shape[3]) ? F32(0) : ${source}[batch,input_channel,2*frame+kernel_time-1,2*feature+kernel_feature-1])*decode(convolution-kernel)[channel,input_channel,kernel_time,kernel_feature])))`;
@@ -466,7 +468,7 @@ function scalarFormula(definition: Definition, program: Gemma4CompositeProgram, 
     case "relative-position-encoding": return `${lhs} = BF16(hidden<${program.audioProgram.tower.hiddenSize / 2} ? SLEEF_SIN_F32(BF16(F32((${Math.floor((program.audioProgram.tower.attentionChunkSize + program.audioProgram.tower.attentionContextLeft - 1 + program.audioProgram.tower.attentionContextRight) / 2)}-relative_position)*BF16(SLEEF_EXP_F32(F32(-(hidden%${program.audioProgram.tower.hiddenSize / 2})*F32(${Math.log(10000) / (program.audioProgram.tower.hiddenSize / 2 - 1)})))))))) : SLEEF_COS_F32(BF16(F32((${Math.floor((program.audioProgram.tower.attentionChunkSize + program.audioProgram.tower.attentionContextLeft - 1 + program.audioProgram.tower.attentionContextRight) / 2)}-relative_position)*BF16(SLEEF_EXP_F32(F32(-(hidden%${program.audioProgram.tower.hiddenSize / 2})*F32(${Math.log(10000) / (program.audioProgram.tower.hiddenSize / 2 - 1)})))))))))`;
     case "clip": return `${lhs} = ${cast}(F32(min(${program.audioProgram.gradientClipping},max(${-program.audioProgram.gradientClipping},${input()}))))`;
     case "silu": return `${lhs} = ${cast}(F32(${input()} / F32(1+SLEEF_EXP_F32(F32(-${input()})))))`;
-    case "per-dim-softplus-scale": return `${lhs} = F32(F32(${input()}*F32(${Math.fround(program.audioProgram.tower.headDim ** -0.5 / Math.log(2))}))*BF16(F32(decode(per-dimension-scale)[feature%head_dim]>F32(20) ? decode(per-dimension-scale)[feature%head_dim] : SLEEF_LOG1P_F32(SLEEF_EXP_F32(decode(per-dimension-scale)[feature%head_dim])))))`;
+    case "per-dim-softplus-scale": return `${lhs} = F32(F32(${input()}*F32(${Math.fround(program.audioProgram.tower.headDim ** -0.5 / Math.log(2))}))*BF16(F32(decode(per-dimension-scale)[feature%${program.audioProgram.tower.headDim}]>F32(20) ? decode(per-dimension-scale)[feature%${program.audioProgram.tower.headDim}] : SLEEF_LOG1P_F32(SLEEF_EXP_F32(decode(per-dimension-scale)[feature%${program.audioProgram.tower.headDim}])))))`;
     case "split-gated-linear-unit": return `${lhs} = ${cast}(F32(${assignment.inputs[0]}[batch,frame,hidden]/F32(1+SLEEF_EXP_F32(F32(-${assignment.inputs[0]}[batch,frame,hidden+${program.audioProgram.tower.hiddenSize}])))))`;
     case "causal-depthwise-convolution": {
       const source = assignment.inputs[0]!;
@@ -476,12 +478,12 @@ function scalarFormula(definition: Definition, program: Gemma4CompositeProgram, 
     }
     case "chunked-attention-content-matmul": {
       const query = assignment.inputs[0]!, key = assignment.inputs[1]!, tower = program.audioProgram.tower;
-      return `${lhs} = query_index<sequence_length && key_index>=0 && key_index<sequence_length ? F32(REDUCE(head_feature=0..head_dim-1,F32(${query}[batch,query_index,head*head_dim+head_feature]*${key}[batch,key_index,head*head_dim+head_feature]))) : F32(0); ` +
+      return `${lhs} = query_index<sequence_length && key_index>=0 && key_index<sequence_length ? F32(REDUCE(head_feature=0..${tower.headDim - 1},F32(${query}[batch,query_index,head*${tower.headDim}+head_feature]*${key}[batch,key_index,head*${tower.headDim}+head_feature]))) : F32(0); ` +
         `query_index=block*${tower.attentionChunkSize}+query_in_block; key_index=block*${tower.attentionChunkSize}-${tower.attentionContextLeft - 1}+key_slot; sequence_length=${query}.shape[1]`;
     }
     case "relative-attention-position-matmul": {
-      const query = assignment.inputs[0]!, relative = assignment.inputs[1]!, chunk = program.audioProgram.tower.attentionChunkSize;
-      return `${lhs} = query_index<sequence_length ? F32(REDUCE(head_feature=0..head_dim-1,F32(${query}[batch,query_index,head*head_dim+head_feature]*${relative}[0,relative_position,head*head_dim+head_feature]))) : F32(0); ` +
+      const query = assignment.inputs[0]!, relative = assignment.inputs[1]!, tower = program.audioProgram.tower, chunk = tower.attentionChunkSize;
+      return `${lhs} = query_index<sequence_length ? F32(REDUCE(head_feature=0..${tower.headDim - 1},F32(${query}[batch,query_index,head*${tower.headDim}+head_feature]*${relative}[0,relative_position,head*${tower.headDim}+head_feature]))) : F32(0); ` +
         `query_index=block*${chunk}+query_in_block; sequence_length=${query}.shape[1]`;
     }
     case "relative-attention-shift": {
@@ -523,14 +525,16 @@ export function requiredGemma4LiteralPlaceholderTokenId(assignment: MultimodalAs
 
 function textFormula(operation: Operation, lhs: string, domain: Gemma4LiteralAssignmentDomain): string {
   const cast = operation.dtypePolicy?.outputDtype === "BF16" ? "BF16" : "F32";
+  const finalCoordinate = domain.domain.axes.at(-1)?.name;
+  if (!finalCoordinate) throw new Error(`${operation.id}: cálculo text requer eixo final de saída.`);
   switch (operation.op) {
     case "embedding": return `${lhs} = ${cast}(decode(weight)[${operation.tokenInput}[batch,sequence],hidden]${operation.scale === undefined ? "" : `*F32(${operation.scale})`})`;
     case "per_layer_embedding": return `${lhs} = ${cast}(decode(weight)[${operation.tokenInput}[batch,sequence],layer*${operation.layerWidth}+ple_feature]${operation.scale === undefined ? "" : `*F32(${operation.scale})`})`;
     case "rms_norm": return rmsNormFormula(lhs, operation.input, domain, cast, operation.epsilon, operation.weightTransform);
     case "linear": return linearFormula(lhs, operation.input, inputReductionCoordinates(domain), cast, operation.bias !== undefined, false, operation.dtypePolicy.reduction);
     case "reshape_heads": return `${lhs} = row_major_alias(${operation.input})[batch,sequence,head*${operation.headDim}+head_feature]`;
-    case "reshape_per_layer": return `${lhs} = ${operation.input}[batch,sequence,layer*${operation.layerWidth}+feature]`;
-    case "select_per_layer": return `${lhs} = ${operation.input}[batch,sequence,${operation.layerIndex},feature]`;
+    case "reshape_per_layer": return `${lhs} = ${operation.input}[batch,sequence,layer*${operation.layerWidth}+${finalCoordinate}]`;
+    case "select_per_layer": return `${lhs} = ${operation.input}[batch,sequence,${operation.layerIndex},${finalCoordinate}]`;
     case "rotary_embedding": return textRotaryFormula(operation, lhs, cast);
     case "scaled_dot_product_attention": return textAttentionFormula(operation, lhs, cast);
     case "activation": {

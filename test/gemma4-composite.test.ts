@@ -108,6 +108,7 @@ import {
   extractGemma4LiteralCoordinateAccesses,
   gemma4LiteralCoordinateExpressionLanguage,
   parseGemma4LiteralCoordinateExpression,
+  validateGemma4LiteralCoordinateExpressionBindings,
 } from "../src/gemma4-literal-coordinate-accesses.js";
 import type { DenseF32Tensor, ModelCatalog, TensorInfo } from "../src/types.js";
 
@@ -219,7 +220,7 @@ test("Gemma 4 coordinate navigation parses nested indices without operation or l
       },
     ],
   }]);
-  assert.equal(gemma4LiteralCoordinateExpressionLanguage().id, "gemma4-coordinate-expression-v1");
+  assert.equal(gemma4LiteralCoordinateExpressionLanguage().id, "gemma4-coordinate-expression-v2");
   assert.deepEqual(evaluateGemma4LiteralCoordinateExpression(
     parseGemma4LiteralCoordinateExpression("floor(attention_hidden/256)%4"),
     { symbols: { attention_hidden: 1793 } },
@@ -228,6 +229,28 @@ test("Gemma 4 coordinate navigation parses nested indices without operation or l
     parseGemma4LiteralCoordinateExpression("0..patches-1"),
     { symbols: { patches: 9 } },
   ), { startInclusive: 0, endInclusive: 8 });
+  assert.deepEqual(evaluateGemma4LiteralCoordinateExpression(
+    parseGemma4LiteralCoordinateExpression("floor(video_frame/(pixel_values_videos.shape[1]))"),
+    { symbols: { video_frame: 7 }, tensorShapes: { pixel_values_videos: [2, 4, 3, 8] } },
+  ), 1);
+  const closedScope = {
+    symbols: new Set(["video_frame"]),
+    localRoots: new Set<string>(),
+    tensors: new Set(["pixel_values_videos"]),
+  };
+  validateGemma4LiteralCoordinateExpressionBindings(
+    parseGemma4LiteralCoordinateExpression("floor(video_frame/(pixel_values_videos.shape[1]))"), closedScope, "video-flatten",
+  );
+  assert.throws(() => validateGemma4LiteralCoordinateExpressionBindings(
+    parseGemma4LiteralCoordinateExpression("floor(video_frame/frames)"), closedScope, "video-flatten",
+  ), /binding livre frames/);
+  assert.throws(() => validateGemma4LiteralCoordinateExpressionBindings(
+    parseGemma4LiteralCoordinateExpression("undeclared.shape[0]"), closedScope, "video-flatten",
+  ), /tensor não declarado undeclared/);
+  assert.throws(() => evaluateGemma4LiteralCoordinateExpression(
+    parseGemma4LiteralCoordinateExpression("pixel_values_videos.shape[4]"),
+    { symbols: {}, tensorShapes: { pixel_values_videos: [2, 4, 3, 8] } },
+  ), /não pode resolver shape\[4\]/);
   assert.equal(evaluateGemma4LiteralCoordinateExpression(
     parseGemma4LiteralCoordinateExpression("STABLE_TRUE_PREFIX_RANK(input_ids==258880,batch,sequence)"),
     {
@@ -559,14 +582,14 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 36);
+  assert.equal(literal.schemaVersion, 37);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   assert.deepEqual(literal.authoritativeExecution, gemma4AuthoritativeExecutionContract());
   assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.languageId, literal.generation.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.authority.numericLiteralBits, "/numericLiterals/literals");
-  assert.equal(literal.formulaLanguage.schemaVersion, 21);
+  assert.equal(literal.formulaLanguage.schemaVersion, 22);
   assert.equal(literal.formulaLanguage.authority.generationControlProgram, "/generation/controlProgram");
   assert.equal(literal.formulaLanguage.authority.forwardControlProgram, "/forwardControl");
   assert.equal(literal.formulaLanguage.authority.inputContract, "/inputContract");
@@ -944,7 +967,7 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.ok(literal.numericLiterals.literals.some((entry) =>
     entry.uses.some((use) => use.section === "generation" && use.definitionId === "generation_argmax")));
   assert.equal(literal.calculationGraph.assignments.length, 223);
-  assert.equal(literal.calculationGraph.schemaVersion, 4);
+  assert.equal(literal.calculationGraph.schemaVersion, 5);
   assert.deepEqual(literal.calculationGraph.coordinateLanguage, gemma4LiteralCoordinateExpressionLanguage());
   assert.deepEqual(literal.calculationGraph.assignments.map((entry) => entry.ordinal),
     Array.from({ length: literal.calculationGraph.assignments.length }, (_, index) => index));
@@ -998,14 +1021,14 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     operationId: "composite_image_features/vision_layer_0_q_heads",
     accesses: [{
       kind: "tensor-element",
-      expression: "composite_image_features/vision_layer_0_q_linear[batch,patch,head*head_dim+head_feature]",
-      coordinates: ["batch", "patch", "head*head_dim+head_feature"],
+      expression: "composite_image_features/vision_layer_0_q_linear[batch,patch,head*4+head_feature]",
+      coordinates: ["batch", "patch", "head*4+head_feature"],
       coordinatePrograms: [
         { kind: "symbol", name: "batch" },
         { kind: "symbol", name: "patch" },
         {
           kind: "add",
-          left: { kind: "multiply", left: { kind: "symbol", name: "head" }, right: { kind: "symbol", name: "head_dim" } },
+          left: { kind: "multiply", left: { kind: "symbol", name: "head" }, right: { kind: "constant", value: 4 } },
           right: { kind: "symbol", name: "head_feature" },
         },
       ],
@@ -1366,7 +1389,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 36);
+      assert.equal(artifact.schemaVersion, 37);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.deepEqual(artifact.authoritativeExecution, gemma4AuthoritativeExecutionContract());

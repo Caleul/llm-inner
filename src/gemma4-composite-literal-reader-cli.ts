@@ -170,11 +170,20 @@ function coordinateNavigationSummary(assignments: OpenedCalculationAssignments):
   let outputWrites = 0, outputShapeAssertions = 0;
   let consumers = 0, addressedConsumers = 0, shapeOrControlOnlyConsumers = 0, consumerAccesses = 0;
   let consumerTensorElementAccesses = 0, consumerTensorShapeAccesses = 0, consumerWholeValueAccesses = 0;
-  let coordinatePrograms = 0, rangePrograms = 0, stablePrefixPrograms = 0;
+  let coordinatePrograms = 0, tensorAxisPrograms = 0, rangePrograms = 0, stablePrefixPrograms = 0;
   const countProgram = (program: { kind: string }): void => {
     coordinatePrograms += 1;
     if (program.kind === "inclusive-range") rangePrograms += 1;
     if (program.kind === "stable-true-prefix-rank") stablePrefixPrograms += 1;
+    const visit = (node: unknown): void => {
+      if (!node || typeof node !== "object") return;
+      if ((node as { kind?: string }).kind === "tensor-axis") tensorAxisPrograms += 1;
+      for (const value of Object.values(node)) {
+        if (Array.isArray(value)) value.forEach(visit);
+        else visit(value);
+      }
+    };
+    visit(program);
   };
   for (const assignment of assignments) {
     outputWrites += 1;
@@ -230,6 +239,7 @@ function coordinateNavigationSummary(assignments: OpenedCalculationAssignments):
     consumerTensorShapeAccesses,
     consumerWholeValueAccesses,
     coordinatePrograms,
+    tensorAxisPrograms,
     rangePrograms,
     stablePrefixPrograms,
   };
