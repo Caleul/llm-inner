@@ -7,6 +7,7 @@ import {
 import {
   executeGemma4RuntimeReduction,
   expectedGemma4RuntimeReductionAttestation,
+  gemma4RuntimeReductionExecutionProtocolSha256,
   gemma4RuntimeReductionTensorEvidence,
   type Gemma4RuntimeReductionExecution,
   type Gemma4RuntimeReductionProvider,
@@ -21,10 +22,12 @@ import {
   GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE,
   GEMMA4_RUNTIME_REDUCTION_PROCESS_ENVIRONMENT,
   gemma4AuthoritativeExecutionContract,
+  gemma4RuntimeReductionExecutionProtocol,
   loadGemma4RuntimeReductionAdapterProgram,
 } from "../src/gemma4-authoritative-runtime.js";
 import {
   Gemma4TorchRuntimeReductionProvider,
+  runtimeReductionLaunchContract,
   runtimeReductionSpawnEnvironment,
 } from "../src/gemma4-torch-runtime-reduction-provider.js";
 import {
@@ -101,6 +104,14 @@ test("Gemma 4 runtime-reduction provider accepts only its pinned contract and ex
   assert.throws(
     () => executeGemma4RuntimeReduction(wrongEvidenceContract, request, [1, 1, 2, 2]),
     /contrato de evidência.*diverge/,
+  );
+  const wrongProtocolDigest: Gemma4RuntimeReductionProvider = {
+    ...provider,
+    evidenceContract: { ...provider.evidenceContract, executionProtocolSha256: "0".repeat(64) },
+  };
+  assert.throws(
+    () => executeGemma4RuntimeReduction(wrongProtocolDigest, request, [1, 1, 2, 2]),
+    /evidência.*divergente/,
   );
 
   const wrongAttestation: Gemma4RuntimeReductionProvider = {
@@ -214,6 +225,17 @@ test("Gemma 4 runtime-reduction provider executes the integrity-bound embedded a
     await loadGemma4RuntimeReductionAdapterProgram(),
   ).unresolvedNativeReduction.executableReplay;
   const provider = new Gemma4TorchRuntimeReductionProvider("venv/bin/python", replayContract);
+  assert.deepEqual(runtimeReductionLaunchContract(replayContract), {
+    temporaryDirectoryPrefix: "llm-inner-gemma4-runtime-reduction-",
+    adapterFileName: "embedded-runtime-reduction.py",
+    requestFileName: "request.json",
+    arguments: ["adapter-file", "request-file"],
+    maxOutputBytes: 134_217_728,
+  });
+  const tamperedProtocol = structuredClone(replayContract);
+  tamperedProtocol.executionProtocol.invocation.arguments.reverse();
+  assert.throws(() => runtimeReductionLaunchContract(tamperedProtocol), /Protocolo de execução.*divergente/);
+  assert.throws(() => new Gemma4TorchRuntimeReductionProvider("venv/bin/python", tamperedProtocol), /replay executável incompleto ou divergente/);
   assert.deepEqual(runtimeReductionSpawnEnvironment(replayContract), replayContract.runtimeProcessEnvironment.variables);
   const isolatedEnvironment = runtimeReductionSpawnEnvironment(replayContract);
   isolatedEnvironment.LANG = "mutated-after-materialization";
@@ -249,6 +271,8 @@ test("Gemma 4 runtime-reduction provider executes the integrity-bound embedded a
   }
   assert.equal(provider.executions.length, 1);
   assert.equal(provider.executions[0]!.adapterProgramSha256, GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256);
+  assert.equal(provider.executions[0]!.executionProtocolSha256,
+    gemma4RuntimeReductionExecutionProtocolSha256(replayContract.executionProtocol));
   assert.deepEqual(provider.executions[0]!.runtimeAttestation.runtimeProcessEnvironment,
     GEMMA4_RUNTIME_REDUCTION_PROCESS_ENVIRONMENT);
   assert.deepEqual(provider.executions[0]!.runtimeAttestation.runtimeEnvironmentIdentity,
@@ -364,13 +388,16 @@ function execution(request: Gemma4RuntimeReductionRequest, output: ReturnType<ty
   return {
     output,
     evidence: {
-      schemaVersion: 2,
+      schemaVersion: 3,
       contractId: "torch-2.12.1-cpu-inference-matmul-v1",
       scope: request.scope,
       operationId: request.operationId,
       operation: request.operation,
       sourceCheckpointAccessed: false,
       adapterProgramSha256: GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256,
+      executionProtocolSha256: gemma4RuntimeReductionExecutionProtocolSha256(
+        gemma4RuntimeReductionExecutionProtocol(),
+      ),
       invocationProgramId: invocationProgram.id,
       invocationProgramSha256: gemma4RuntimeReductionInvocationProgramSha256(invocationProgram),
       runtimeAttestation: expectedGemma4RuntimeReductionAttestation(),
@@ -384,9 +411,11 @@ function execution(request: Gemma4RuntimeReductionRequest, output: ReturnType<ty
 }
 
 function fixtureEvidenceContract() {
+  const executionProtocol = gemma4RuntimeReductionExecutionProtocol();
   return {
     providerContractId: "torch-2.12.1-cpu-inference-matmul-v1" as const,
     adapterProgramSha256: GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256,
+    executionProtocolSha256: gemma4RuntimeReductionExecutionProtocolSha256(executionProtocol),
     invocationPrograms: gemma4RuntimeReductionInvocationPrograms(),
     runtimeAttestation: expectedGemma4RuntimeReductionAttestation(),
   };

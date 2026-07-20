@@ -5,6 +5,7 @@ import {
   GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY,
   GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE,
   GEMMA4_RUNTIME_REDUCTION_PROCESS_ENVIRONMENT,
+  type Gemma4RuntimeReductionExecutionProtocol,
   type Gemma4RuntimeReductionExecutableReplayContract,
 } from "./gemma4-authoritative-runtime.js";
 import {
@@ -60,13 +61,14 @@ export interface Gemma4RuntimeReductionTensorEvidence {
 }
 
 export interface Gemma4RuntimeReductionExecutionEvidence {
-  schemaVersion: 2;
+  schemaVersion: 3;
   contractId: "torch-2.12.1-cpu-inference-matmul-v1";
   scope: Gemma4RuntimeReductionRequest["scope"];
   operationId: string;
   operation: Gemma4RuntimeReductionRequest["operation"];
   sourceCheckpointAccessed: false;
   adapterProgramSha256: typeof GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256;
+  executionProtocolSha256: string;
   invocationProgramId: Gemma4LiteralRuntimeReductionOperationClass;
   invocationProgramSha256: string;
   runtimeAttestation: Gemma4RuntimeReductionAttestation;
@@ -82,6 +84,7 @@ export interface Gemma4RuntimeReductionExecution {
 export interface Gemma4RuntimeReductionEvidenceContract {
   providerContractId: Gemma4RuntimeReductionExecutableReplayContract["providerContractId"];
   adapterProgramSha256: typeof GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256;
+  executionProtocolSha256: string;
   invocationPrograms: Gemma4RuntimeReductionExecutableReplayContract["invocationPrograms"];
   runtimeAttestation: Gemma4RuntimeReductionAttestation;
 }
@@ -107,6 +110,7 @@ export function gemma4RuntimeReductionEvidenceContract(
   return {
     providerContractId: replay.providerContractId,
     adapterProgramSha256: replay.adapterProgram.sha256,
+    executionProtocolSha256: gemma4RuntimeReductionExecutionProtocolSha256(replay.executionProtocol),
     invocationPrograms: structuredClone(replay.invocationPrograms),
     runtimeAttestation: {
       runtime: replay.runtime,
@@ -121,6 +125,12 @@ export function gemma4RuntimeReductionEvidenceContract(
       runtimeExecutionState: structuredClone(replay.runtimeExecutionState),
     },
   };
+}
+
+export function gemma4RuntimeReductionExecutionProtocolSha256(
+  protocol: Gemma4RuntimeReductionExecutionProtocol,
+): string {
+  return createHash("sha256").update(JSON.stringify(protocol), "utf8").digest("hex");
 }
 
 /**
@@ -166,13 +176,14 @@ export function executeGemma4RuntimeReduction(
     request.operation,
   );
   const expectedEvidence: Gemma4RuntimeReductionExecutionEvidence = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     contractId: provider.contractId,
     scope: request.scope,
     operationId: request.operationId,
     operation: request.operation,
     sourceCheckpointAccessed: false,
     adapterProgramSha256: evidenceContract.adapterProgramSha256,
+    executionProtocolSha256: evidenceContract.executionProtocolSha256,
     invocationProgramId: invocation.id,
     invocationProgramSha256: gemma4RuntimeReductionInvocationProgramSha256(invocation),
     runtimeAttestation: structuredClone(evidenceContract.runtimeAttestation),

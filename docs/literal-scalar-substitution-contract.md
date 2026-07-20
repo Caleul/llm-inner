@@ -370,6 +370,16 @@ attestation vindos da mesma autoridade. Isso mantém o replay source-removed
 dependente do JSON e do runtime declarado, não de uma segunda configuração
 embutida no leitor.
 
+No schema v55, essa autoridade inclui `executionProtocol`. O protocolo declara
+como o runtime externo é selecionado e atestado, os papéis, nomes, fontes e
+encoding dos arquivos temporários, o diretório de trabalho, a ordem exata de
+argumentos, a origem do ambiente fechado, os canais e limite do subprocesso e
+os campos permitidos nos envelopes request/response e nos tensores. O executor
+deve materializar esses valores do artefato, recusar protocolos desconhecidos e
+campos extras ou ausentes, e vincular cada recibo BMM ao SHA-256 canônico do
+protocolo. A existência de um runtime externo continua explícita; nenhum
+checkpoint, helper ou configuração de launch do checkout pode ser consultado.
+
 ## Critério de aceite
 
 Uma implementação só é candidata a fechar este requisito quando:

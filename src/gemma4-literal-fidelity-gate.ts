@@ -22,6 +22,7 @@ export interface Gemma4LiteralUnresolvedRuntimeReduction {
   outputCoordinatePointer: string;
   invocationProgramId: Gemma4LiteralRuntimeReductionOperationClass;
   invocationProgramPointer: string;
+  executionProtocolPointer: "/authoritativeExecution/unresolvedNativeReduction/executableReplay/executionProtocol";
   runtimeProcessEnvironmentPointer: "/authoritativeExecution/unresolvedNativeReduction/executableReplay/runtimeProcessEnvironment";
   runtimeEnvironmentIdentityPointer: "/authoritativeExecution/unresolvedNativeReduction/executableReplay/runtimeEnvironmentIdentity";
   runtimeExecutionStatePointer: "/authoritativeExecution/unresolvedNativeReduction/executableReplay/runtimeExecutionState";
@@ -35,7 +36,7 @@ export interface Gemma4LiteralUnresolvedRuntimeReduction {
  */
 export interface Gemma4LiteralFidelityGate {
   kind: "gemma4-literal-fidelity-gate";
-  schemaVersion: 3;
+  schemaVersion: 4;
   status: "blocked-on-runtime-reduction" | "eligible-for-independent-certification";
   exactReplayClaim: "forbidden" | "not-certified";
   provider: Gemma4AuthoritativeExecutionContract["unresolvedNativeReduction"]["provider"];
@@ -77,6 +78,7 @@ export function buildGemma4LiteralFidelityGate(
       outputCoordinatePointer: `/calculationGraph/assignments/${assignment.ordinal}/outputCoordinate`,
       invocationProgramId: invocationProgram.id,
       invocationProgramPointer: `/authoritativeExecution/unresolvedNativeReduction/executableReplay/invocationPrograms/${invocationPrograms.indexOf(invocationProgram)}`,
+      executionProtocolPointer: "/authoritativeExecution/unresolvedNativeReduction/executableReplay/executionProtocol",
       runtimeProcessEnvironmentPointer: "/authoritativeExecution/unresolvedNativeReduction/executableReplay/runtimeProcessEnvironment",
       runtimeEnvironmentIdentityPointer: "/authoritativeExecution/unresolvedNativeReduction/executableReplay/runtimeEnvironmentIdentity",
       runtimeExecutionStatePointer: "/authoritativeExecution/unresolvedNativeReduction/executableReplay/runtimeExecutionState",
@@ -85,7 +87,7 @@ export function buildGemma4LiteralFidelityGate(
   const blocked = unresolvedNativeReductions.length > 0;
   return {
     kind: "gemma4-literal-fidelity-gate",
-    schemaVersion: 3,
+    schemaVersion: 4,
     status: blocked ? "blocked-on-runtime-reduction" : "eligible-for-independent-certification",
     exactReplayClaim: blocked ? "forbidden" : "not-certified",
     provider: authority.unresolvedNativeReduction.provider,

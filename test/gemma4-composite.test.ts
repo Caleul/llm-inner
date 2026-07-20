@@ -704,12 +704,12 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 54);
+  assert.equal(literal.schemaVersion, 55);
   assert.equal(literal.payloadIntegrity.length, catalog.tensors.size);
   assert.equal(literal.integrityManifest.sections.length, 24);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
-  assert.equal(literal.authoritativeExecution.schemaVersion, 10);
+  assert.equal(literal.authoritativeExecution.schemaVersion, 11);
   assert.equal(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.adapterProgram.sha256,
     GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256);
   assert.deepEqual(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.runtimeProcessEnvironment,
@@ -718,6 +718,8 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY);
   assert.deepEqual(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.runtimeExecutionState,
     GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE);
+  assert.equal(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.executionProtocol.kind,
+    "gemma4-runtime-reduction-execution-protocol");
   assert.match(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.adapterProgram.sourceUtf8,
     /Execute one pinned Gemma 4 runtime-defined matmul without model access/);
   const invocationPrograms = literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.invocationPrograms;
@@ -742,7 +744,7 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     0,
   );
   assert.equal(literal.fidelityGate.status, "blocked-on-runtime-reduction");
-  assert.equal(literal.fidelityGate.schemaVersion, 3);
+  assert.equal(literal.fidelityGate.schemaVersion, 4);
   assert.equal(literal.fidelityGate.exactReplayClaim, "forbidden");
   assert.equal(literal.fidelityGate.unresolvedNativeReductionCount, literal.fidelityGate.unresolvedNativeReductions.length);
   assert.ok(literal.fidelityGate.unresolvedNativeReductions.every((entry) =>
@@ -750,6 +752,7 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     entry.outputCoordinatePointer === `/calculationGraph/assignments/${entry.ordinal}/outputCoordinate` &&
     entry.invocationProgramId === entry.operationClass &&
     entry.invocationProgramPointer === `/authoritativeExecution/unresolvedNativeReduction/executableReplay/invocationPrograms/${invocationPrograms.findIndex((program) => program.id === entry.operationClass)}` &&
+    entry.executionProtocolPointer === "/authoritativeExecution/unresolvedNativeReduction/executableReplay/executionProtocol" &&
     entry.runtimeProcessEnvironmentPointer === "/authoritativeExecution/unresolvedNativeReduction/executableReplay/runtimeProcessEnvironment" &&
     entry.runtimeEnvironmentIdentityPointer === "/authoritativeExecution/unresolvedNativeReduction/executableReplay/runtimeEnvironmentIdentity" &&
     entry.runtimeExecutionStatePointer === "/authoritativeExecution/unresolvedNativeReduction/executableReplay/runtimeExecutionState"));
@@ -1404,6 +1407,10 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   tamperedInvocationEnvironment.authoritativeExecution.unresolvedNativeReduction.executableReplay
     .invocationPrograms[0]!.environment.towerParameters[0]!.minimumInclusive = 0;
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(tamperedInvocationEnvironment), /Programas de invocação.*divergentes/);
+  const tamperedExecutionProtocol = structuredClone(literal);
+  tamperedExecutionProtocol.authoritativeExecution.unresolvedNativeReduction.executableReplay
+    .executionProtocol.invocation.arguments.reverse();
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(tamperedExecutionProtocol), /contrato autoritativo de execução/);
   const tamperedProcessEnvironment = structuredClone(literal);
   (tamperedProcessEnvironment.authoritativeExecution.unresolvedNativeReduction.executableReplay
     .runtimeProcessEnvironment.variables as unknown as { LANG: string }).LANG = "pt_BR.UTF-8";
@@ -1641,7 +1648,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 54);
+      assert.equal(artifact.schemaVersion, 55);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.equal(artifact.authoritativeExecution.unresolvedNativeReduction.executableReplay.adapterProgram.sha256,

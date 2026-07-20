@@ -2,7 +2,9 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 import {
+  gemma4RuntimeReductionExecutionProtocol,
   validateGemma4RuntimeReductionExecutableReplayContract,
   type Gemma4RuntimeReductionExecutableReplayContract,
 } from "./gemma4-authoritative-runtime.js";
@@ -10,6 +12,7 @@ import { openGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-r
 import {
   gemma4RuntimeReductionTensorEvidence,
   gemma4RuntimeReductionEvidenceContract,
+  gemma4RuntimeReductionExecutionProtocolSha256,
   type Gemma4RuntimeReductionAttestation,
   type Gemma4RuntimeReductionExecution,
   type Gemma4RuntimeReductionEvidenceContract,
@@ -87,33 +90,46 @@ export class Gemma4TorchRuntimeReductionProvider implements Gemma4RuntimeReducti
       request.scope,
       request.operation,
     );
-    const directory = mkdtempSync(join(tmpdir(), "llm-inner-gemma4-runtime-reduction-"));
+    const launch = runtimeReductionLaunchContract(this.#replayContract);
+    const directory = mkdtempSync(join(tmpdir(), launch.temporaryDirectoryPrefix));
     try {
-      const requestPath = join(directory, "request.json");
-      const helperPath = join(directory, "embedded-runtime-reduction.py");
-      writeFileSync(requestPath, JSON.stringify(serializeRequest(request, invocationProgram)), "utf8");
+      const requestPath = join(directory, launch.requestFileName);
+      const helperPath = join(directory, launch.adapterFileName);
+      const requestEnvelope = serializeRequest(request, invocationProgram);
+      assertExactObjectFields(requestEnvelope, this.#replayContract.executionProtocol.requestEnvelope.fields, `${request.operationId}: request envelope`);
+      assertTensorFields(requestEnvelope, this.#replayContract.executionProtocol.requestEnvelope.tensorFields, `${request.operationId}: request envelope`);
+      writeFileSync(requestPath, JSON.stringify(requestEnvelope), "utf8");
       writeFileSync(helperPath, this.#replayContract.adapterProgram.sourceUtf8, "utf8");
-      const child = spawnSync(this.#python, [helperPath, requestPath], {
+      const paths = { "adapter-file": helperPath, "request-file": requestPath } as const;
+      const child = spawnSync(this.#python, launch.arguments.map((argument) => paths[argument]), {
         encoding: "utf8",
+        cwd: directory,
         env: runtimeReductionSpawnEnvironment(this.#replayContract),
-        maxBuffer: 128 * 1024 * 1024,
+        input: "",
+        maxBuffer: launch.maxOutputBytes,
       });
       if (child.error) throw child.error;
       if (child.status !== 0) {
         throw new Error(`${request.operationId}: helper PyTorch encerrou com código ${String(child.status)}: ${child.stderr.trim()}`);
       }
-      const response = parseResponse(child.stdout, request, invocationProgram);
+      const response = parseResponse(
+        child.stdout,
+        request,
+        invocationProgram,
+        this.#replayContract.executionProtocol.responseEnvelope,
+      );
       const output = { shape: [...response.output.shape], values: Float32Array.from(response.output.values) };
       const execution: Gemma4RuntimeReductionExecution = {
         output,
         evidence: {
-          schemaVersion: 2,
+          schemaVersion: 3,
           contractId: this.contractId,
           scope: request.scope,
           operationId: request.operationId,
           operation: request.operation,
           sourceCheckpointAccessed: false,
           adapterProgramSha256: this.#replayContract.adapterProgram.sha256,
+          executionProtocolSha256: gemma4RuntimeReductionExecutionProtocolSha256(this.#replayContract.executionProtocol),
           invocationProgramId: invocationProgram.id,
           invocationProgramSha256: gemma4RuntimeReductionInvocationProgramSha256(invocationProgram),
           runtimeAttestation: response.runtimeAttestation,
@@ -130,6 +146,34 @@ export class Gemma4TorchRuntimeReductionProvider implements Gemma4RuntimeReducti
       rmSync(directory, { recursive: true, force: true });
     }
   }
+}
+
+interface RuntimeReductionLaunchContract {
+  temporaryDirectoryPrefix: string;
+  adapterFileName: string;
+  requestFileName: string;
+  arguments: Array<"adapter-file" | "request-file">;
+  maxOutputBytes: number;
+}
+
+/** Materializes only the launch semantics serialized by the artifact. */
+export function runtimeReductionLaunchContract(
+  replayContract: Pick<Gemma4RuntimeReductionExecutableReplayContract, "executionProtocol">,
+): RuntimeReductionLaunchContract {
+  const protocol = replayContract.executionProtocol;
+  if (!isDeepStrictEqual(protocol, gemma4RuntimeReductionExecutionProtocol())) {
+    throw new Error("Protocolo de execução da redução Gemma 4 não é suportado ou está divergente.");
+  }
+  const adapter = protocol.files.find((file) => file.role === "adapter");
+  const request = protocol.files.find((file) => file.role === "request");
+  if (!adapter || !request) throw new Error("Protocolo de execução da redução Gemma 4 não declara arquivos adapter/request.");
+  return {
+    temporaryDirectoryPrefix: protocol.temporaryDirectory.prefix,
+    adapterFileName: adapter.name,
+    requestFileName: request.name,
+    arguments: [...protocol.invocation.arguments],
+    maxOutputBytes: protocol.invocation.maxOutputBytes,
+  };
 }
 
 /** Materializes only the closed environment serialized by the artifact. */
@@ -187,11 +231,14 @@ function parseResponse(
   stdout: string,
   request: Gemma4RuntimeReductionRequest,
   invocationProgram: Gemma4RuntimeReductionInvocationProgram,
+  protocol: Gemma4RuntimeReductionExecutableReplayContract["executionProtocol"]["responseEnvelope"],
 ): HelperResponse {
   let parsed: HelperResponse;
   try { parsed = JSON.parse(stdout) as HelperResponse; } catch (error) {
     throw new Error(`${request.operationId}: helper PyTorch retornou JSON inválido: ${(error as Error).message}`);
   }
+  assertExactObjectFields(parsed, protocol.fields, `${request.operationId}: response envelope`);
+  assertExactObjectFields(parsed.output, protocol.tensorFields, `${request.operationId}: response output`);
   if (parsed.schemaVersion !== 1 || parsed.contractId !== "torch-2.12.1-cpu-inference-matmul-v1" ||
     parsed.operationId !== request.operationId || parsed.scope !== request.scope || parsed.operation !== request.operation ||
     parsed.invocationProgramId !== invocationProgram.id ||
@@ -201,4 +248,23 @@ function parseResponse(
     throw new Error(`${request.operationId}: helper PyTorch retornou envelope incompatível.`);
   }
   return parsed;
+}
+
+function assertTensorFields(
+  envelope: object,
+  expected: readonly string[],
+  location: string,
+): void {
+  const operands = (envelope as { operands?: unknown }).operands;
+  if (!Array.isArray(operands) || operands.length !== 2) throw new Error(`${location}: operands inválidos.`);
+  for (const [index, operand] of operands.entries()) {
+    assertExactObjectFields(operand, expected, `${location}: operand ${index}`);
+  }
+}
+
+function assertExactObjectFields(value: unknown, expected: readonly string[], location: string): void {
+  if (!value || typeof value !== "object" || Array.isArray(value) ||
+    JSON.stringify(Object.keys(value)) !== JSON.stringify(expected)) {
+    throw new Error(`${location}: campos não correspondem ao protocolo serializado.`);
+  }
 }

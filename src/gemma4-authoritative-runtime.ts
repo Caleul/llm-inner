@@ -28,7 +28,7 @@ export interface Gemma4AuthoritativeTraceContext {
 
 export interface Gemma4AuthoritativeExecutionContract {
   kind: "gemma4-authoritative-execution-contract";
-  schemaVersion: 10;
+  schemaVersion: 11;
   canonicalCompositeRuntime: typeof GEMMA4_COMPOSITE_REFERENCE_RUNTIME;
   diagnosticSubprogramRuntimes: {
     audio: typeof GEMMA4_AUDIO_REFERENCE_RUNTIME;
@@ -64,10 +64,57 @@ export interface Gemma4RuntimeReductionExecutableReplayContract {
   runtimeProcessEnvironment: typeof GEMMA4_RUNTIME_REDUCTION_PROCESS_ENVIRONMENT;
   runtimeEnvironmentIdentity: typeof GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY;
   runtimeExecutionState: typeof GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE;
+  executionProtocol: Gemma4RuntimeReductionExecutionProtocol;
   checkpointInput: "forbidden";
   operandSource: "dependency-ordered artifact intermediates only";
   adapterProgram: Gemma4RuntimeReductionAdapterProgram;
   invocationPrograms: Gemma4RuntimeReductionInvocationProgram[];
+}
+
+/**
+ * Artifact-owned subprocess and JSON transport semantics for the embedded
+ * adapter. The runtime binary stays an external execution dependency, but its
+ * selection and attested identity are explicit rather than reader convention.
+ */
+export interface Gemma4RuntimeReductionExecutionProtocol {
+  kind: "gemma4-runtime-reduction-execution-protocol";
+  schemaVersion: 1;
+  runtimeExecutable: {
+    language: "python3";
+    selection: "caller-supplied-path";
+    identityAttestation: "runtimeEnvironmentIdentity";
+  };
+  temporaryDirectory: {
+    system: "os.tmpdir";
+    prefix: "llm-inner-gemma4-runtime-reduction-";
+    workingDirectory: "temporary-directory";
+    cleanup: "recursive-finally";
+  };
+  files: [
+    { role: "adapter"; name: "embedded-runtime-reduction.py"; encoding: "utf8"; source: "adapterProgram.sourceUtf8" },
+    { role: "request"; name: "request.json"; encoding: "utf8"; source: "requestEnvelope" },
+  ];
+  invocation: {
+    mode: "synchronous-subprocess";
+    arguments: ["adapter-file", "request-file"];
+    environment: "runtimeProcessEnvironment.variables";
+    stdin: "empty";
+    stdout: "single-json-utf8-object";
+    stderr: "utf8-diagnostic";
+    maxOutputBytes: 134_217_728;
+  };
+  requestEnvelope: {
+    schemaVersion: 1;
+    serialization: "ECMAScript JSON.stringify UTF-8";
+    fields: ["schemaVersion", "contractId", "scope", "operationId", "operation", "invocationProgram", "tower", "operands"];
+    tensorFields: ["shape", "values"];
+  };
+  responseEnvelope: {
+    schemaVersion: 1;
+    serialization: "single JSON object on UTF-8 stdout";
+    fields: ["schemaVersion", "contractId", "operationId", "scope", "operation", "invocationProgramId", "sourceCheckpointAccessed", "runtimeAttestation", "output"];
+    tensorFields: ["shape", "values"];
+  };
 }
 
 export interface Gemma4RuntimeReductionAdapterProgram {
@@ -233,6 +280,49 @@ export const GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE = {
   mkldnnEnabled: true,
 } as const;
 
+export function gemma4RuntimeReductionExecutionProtocol(): Gemma4RuntimeReductionExecutionProtocol {
+  return {
+    kind: "gemma4-runtime-reduction-execution-protocol",
+    schemaVersion: 1,
+    runtimeExecutable: {
+      language: "python3",
+      selection: "caller-supplied-path",
+      identityAttestation: "runtimeEnvironmentIdentity",
+    },
+    temporaryDirectory: {
+      system: "os.tmpdir",
+      prefix: "llm-inner-gemma4-runtime-reduction-",
+      workingDirectory: "temporary-directory",
+      cleanup: "recursive-finally",
+    },
+    files: [
+      { role: "adapter", name: "embedded-runtime-reduction.py", encoding: "utf8", source: "adapterProgram.sourceUtf8" },
+      { role: "request", name: "request.json", encoding: "utf8", source: "requestEnvelope" },
+    ],
+    invocation: {
+      mode: "synchronous-subprocess",
+      arguments: ["adapter-file", "request-file"],
+      environment: "runtimeProcessEnvironment.variables",
+      stdin: "empty",
+      stdout: "single-json-utf8-object",
+      stderr: "utf8-diagnostic",
+      maxOutputBytes: 134_217_728,
+    },
+    requestEnvelope: {
+      schemaVersion: 1,
+      serialization: "ECMAScript JSON.stringify UTF-8",
+      fields: ["schemaVersion", "contractId", "scope", "operationId", "operation", "invocationProgram", "tower", "operands"],
+      tensorFields: ["shape", "values"],
+    },
+    responseEnvelope: {
+      schemaVersion: 1,
+      serialization: "single JSON object on UTF-8 stdout",
+      fields: ["schemaVersion", "contractId", "operationId", "scope", "operation", "invocationProgramId", "sourceCheckpointAccessed", "runtimeAttestation", "output"],
+      tensorFields: ["shape", "values"],
+    },
+  };
+}
+
 /** Loads the build-time adapter once; the emitted artifact embeds it and no longer needs this file. */
 export async function loadGemma4RuntimeReductionAdapterProgram(
   helper = resolve(dirname(fileURLToPath(import.meta.url)), "../../helpers/torch_gemma4_runtime_reductions.py"),
@@ -282,7 +372,7 @@ export function gemma4AuthoritativeExecutionContract(
   validateGemma4RuntimeReductionAdapterProgram(adapterProgram);
   return {
     kind: "gemma4-authoritative-execution-contract",
-    schemaVersion: 10,
+    schemaVersion: 11,
     canonicalCompositeRuntime: GEMMA4_COMPOSITE_REFERENCE_RUNTIME,
     diagnosticSubprogramRuntimes: {
       audio: GEMMA4_AUDIO_REFERENCE_RUNTIME,
@@ -313,6 +403,7 @@ export function gemma4AuthoritativeExecutionContract(
         runtimeProcessEnvironment: structuredClone(GEMMA4_RUNTIME_REDUCTION_PROCESS_ENVIRONMENT),
         runtimeEnvironmentIdentity: structuredClone(GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY),
         runtimeExecutionState: structuredClone(GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE),
+        executionProtocol: gemma4RuntimeReductionExecutionProtocol(),
         checkpointInput: "forbidden",
         operandSource: "dependency-ordered artifact intermediates only",
         adapterProgram: structuredClone(adapterProgram),

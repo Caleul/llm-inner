@@ -1118,6 +1118,18 @@ de ambiente ou mutação de uma cópia devolvida falha fechado ou permanece
 isolada. A validação está em
 [`docs/validation/gemma4-e4b-artifact-owned-runtime-replay-2026-07-20.md`](docs/validation/gemma4-e4b-artifact-owned-runtime-replay-2026-07-20.md).
 
+O schema v55 torna também o protocolo de execução parte dessa autoridade. O
+JSON fixa a seleção explícita do runtime Python, os dois arquivos temporários,
+o diretório de trabalho, a ordem dos argumentos, a origem do ambiente fechado,
+stdin/stdout/stderr, o limite de saída e os campos exatos dos envelopes JSON e
+dos tensores. O provider materializa esses valores a partir do artefato, rejeita
+campos extras ou ausentes e inclui o SHA-256 do protocolo em cada recibo BMM.
+Todos os 100 recibos source-removed da suite multimodal carregaram o mesmo
+digest `01b0cdd4a07e2e473dd0c3ae783ae3237ea77bdbd5ff9ff738f67ca2341fd559`.
+Alterar ordem de argumentos, nomes de arquivo ou envelope falha antes do
+adapter. A evidência real está em
+[`docs/validation/gemma4-e4b-artifact-owned-execution-protocol-2026-07-20.md`](docs/validation/gemma4-e4b-artifact-owned-execution-protocol-2026-07-20.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 
@@ -1245,7 +1257,7 @@ escreve o artefato completo em streaming: ranges Safetensors de 12 MiB são
 codificados em base64 sem acumular o pacote ou uma string de vários GiB na
 heap. O resultado local contém os 2,130 payloads originais
 (15,992,314,836 bytes) e é auditado por `npm run audit:literal`. O hash e
-tamanho da exportação schema v25 atual são registrados em
+tamanho de uma exportação anterior schema v25 estão registrados em
 [`docs/validation/gemma4-e4b-explicit-operand-bindings-2026-07-18.md`](docs/validation/gemma4-e4b-explicit-operand-bindings-2026-07-18.md); sua política numérica
 declara fronteiras de resultado BF16, acumuladores F32/F64 e agendas de redução
 por operação do texto, áudio e visão; toda exportação deve registrar seu próprio hash, pois o programa literal
