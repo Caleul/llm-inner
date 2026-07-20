@@ -2562,3 +2562,31 @@ npm run compare:gemma4-real-ui
 Abra `http://127.0.0.1:8787`, informe o prompt e a quantidade de tokens. Cada
 passo executa o Transformers eager BF16 e o caminho F64 sem arredondamento
 intermediário, escolhe os tokens independentemente e compara os 262.144 logits.
+
+### Gerador de fórmulas fisicamente planas
+
+`generateGemma4FlatFormulaObject` substitui recursivamente funções de operação,
+desenrola reduções fixas, resolve pesos alcançados como literais e aceita
+somente `x[...]` como variável livre. O resultado possui exatamente o formato:
+
+```json
+{
+  "calc_final_0": "(((-1/4) * x[0]) + (-1.125 * x[1]))"
+}
+```
+
+O CLI aplica o mesmo contrato ao artefato real:
+
+```bash
+npm run generate:gemma4-flat-formulas -- \
+  --family terminal_logit --dimension 0 \
+  --batch 0 --sequence 5 \
+  --max-characters 1000000000 \
+  --output /tmp/gemma4-flat-0.json
+```
+
+Ele falha antes de escrever JSON parcial quando a expansão não cabe no limite.
+No E4B, somente `terminal_logit[0]` requer conservadoramente pelo menos
+`1,160623467963383e247` caracteres, mesmo antes de desenrolar reduções. O
+programa também rejeita qualquer closure que ainda deixe PLE, máscara, posição,
+cache, peso ou nome de camada como variável livre.
