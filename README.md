@@ -2539,3 +2539,26 @@ O diferencial vetorizado pode ser executado com:
 Ele compara o eager BF16 com operações F64 sem casts F32/BF16 intermediários,
 partindo das mesmas fronteiras de embedding/PLE e aplicando BF16 RNE somente
 nos logits terminais.
+
+O programa pode ser projetado para um arquivo SSA navegável, com uma atribuição
+final por dimensão e subexpressões compartilhadas executadas uma única vez:
+
+```bash
+npm run export:gemma4-real-ssa
+```
+
+O resultado padrão é
+`artifacts/gemma4-e4b-dense.real-simplified.ssa.json`. Ele contém 542.655
+statements, 1.321 funções e 264.704 outputs `calc_*`. A memória de constantes
+é o artefato literal autenticado declarado em `constantMemory`; portanto o
+checkpoint Safetensors original não é consultado.
+
+A geração greedy diferencial possui uma interface local funcional:
+
+```bash
+npm run compare:gemma4-real-ui
+```
+
+Abra `http://127.0.0.1:8787`, informe o prompt e a quantidade de tokens. Cada
+passo executa o Transformers eager BF16 e o caminho F64 sem arredondamento
+intermediário, escolhe os tokens independentemente e compara os 262.144 logits.

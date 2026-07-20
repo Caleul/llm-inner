@@ -1,0 +1,56 @@
+{
+  "kind": "gemma4-real-simplified-ssa-example",
+  "schemaVersion": 1,
+  "fullArtifact": "artifacts/gemma4-e4b-dense.real-simplified.ssa.json",
+  "fullArtifactSha256": "ce2516604b8457ced0270a67242938f30664e85786431ed6336332654743b69e",
+  "semantics": "gemma4-exact-real-simplified-v1",
+  "statements": [
+    {
+      "target": "sha256:81602cb890a78473dbe6b5ceb559a24f306b5fc272d586bce33d5e1fb377c0a3",
+      "expression": "12/1",
+      "node": {
+        "id": "sha256:81602cb890a78473dbe6b5ceb559a24f306b5fc272d586bce33d5e1fb377c0a3",
+        "kind": "rational",
+        "value": { "numerator": "12", "denominator": "1" }
+      }
+    },
+    {
+      "target": "sha256:9aa811a30256330e0d55a9a772143d5e6377f96a316586f63cd8548c905aa5af",
+      "expression": "constant(\"model.language_model.layers.0.input_layernorm.weight\", [sha256:b6150c18a13ad77a102fdd16a78c52746447364897c64d0c17efde4b0320d6ad], \"decode_model.language_model.layers.0.input_layernorm.weight\")",
+      "node": {
+        "id": "sha256:9aa811a30256330e0d55a9a772143d5e6377f96a316586f63cd8548c905aa5af",
+        "kind": "learned-rational-element",
+        "tensor": "model.language_model.layers.0.input_layernorm.weight",
+        "storageDtype": "BF16",
+        "coordinates": ["sha256:b6150c18a13ad77a102fdd16a78c52746447364897c64d0c17efde4b0320d6ad"],
+        "decoderId": "decode_model.language_model.layers.0.input_layernorm.weight"
+      }
+    },
+    {
+      "target": "sha256:0ae1937fc37bdfa4c1c6ce91d92f0d90e65a7d61fb64d21b3dad486059dddcc6",
+      "expression": "(sha256:0d4e591e0fe05ae56bf9b5d1f43695d1a6660e7ec5048014ccaa181f12b325cb + sha256:4db8bf563c0084bcd3788b27efd726441fa8f43fdff74aa339d19317b1f83996)",
+      "node": {
+        "id": "sha256:0ae1937fc37bdfa4c1c6ce91d92f0d90e65a7d61fb64d21b3dad486059dddcc6",
+        "kind": "add",
+        "arguments": [
+          "sha256:0d4e591e0fe05ae56bf9b5d1f43695d1a6660e7ec5048014ccaa181f12b325cb",
+          "sha256:4db8bf563c0084bcd3788b27efd726441fa8f43fdff74aa339d19317b1f83996"
+        ]
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "assignment": "calc_final_hidden_dimension_0",
+      "value": "sha256:7ae0f299c04732334e19d49bcd1c87544664f1a49a0971aa8cef305a173b97be",
+      "parameters": ["batch", "sequence"],
+      "finalQuantization": "BF16-round-to-nearest-ties-to-even"
+    },
+    {
+      "assignment": "calc_terminal_logit_0",
+      "value": "sha256:67ccdf77bbc3cc5db926b5035a45a45a56e26ae65f2fbf90c0f6b6ad937a95d0",
+      "parameters": ["batch", "sequence"],
+      "finalQuantization": "BF16-round-to-nearest-ties-to-even"
+    }
+  ]
+}
