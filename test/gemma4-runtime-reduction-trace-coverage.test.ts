@@ -4,7 +4,14 @@ import {
   buildGemma4RuntimeReductionTraceCoverage,
   validateGemma4RuntimeReductionTraceCoverage,
 } from "../src/gemma4-runtime-reduction-trace-coverage.js";
-import { executeGemma4RuntimeReduction, type Gemma4RuntimeReductionProvider } from "../src/gemma4-runtime-reduction-provider.js";
+import {
+  executeGemma4RuntimeReduction,
+  expectedGemma4RuntimeReductionAttestation,
+  gemma4RuntimeReductionTensorEvidence,
+  type Gemma4RuntimeReductionExecution,
+  type Gemma4RuntimeReductionProvider,
+  type Gemma4RuntimeReductionRequest,
+} from "../src/gemma4-runtime-reduction-provider.js";
 import type { Gemma4VisionProgram } from "../src/gemma4-vision.js";
 import type { DifferentialOperationSample } from "../src/types.js";
 
@@ -54,19 +61,34 @@ test("Gemma 4 runtime-reduction provider accepts only its pinned contract and ex
   };
   const provider: Gemma4RuntimeReductionProvider = {
     contractId: "torch-2.12.1-cpu-inference-matmul-v1",
+    executions: [],
     execute(actual) {
       assert.equal(actual, request);
-      return sampleTensor([1, 1, 2, 2], 3.5);
+      return execution(actual, sampleTensor([1, 1, 2, 2], 3.5));
     },
   };
   assert.deepEqual(executeGemma4RuntimeReduction(provider, request, [1, 1, 2, 2]), sampleTensor([1, 1, 2, 2], 3.5));
 
-  const wrongShape: Gemma4RuntimeReductionProvider = { ...provider, execute: () => sampleTensor([1, 1, 1, 2]) };
+  const wrongShape: Gemma4RuntimeReductionProvider = { ...provider, execute: (actual) => execution(actual, sampleTensor([1, 1, 1, 2])) };
   assert.throws(() => executeGemma4RuntimeReduction(wrongShape, request, [1, 1, 2, 2]), /shape divergente/);
-  const nonFinite: Gemma4RuntimeReductionProvider = { ...provider, execute: () => ({ shape: [1, 1, 2, 2], values: Float32Array.of(0, 0, 0, Infinity) }) };
+  const nonFinite: Gemma4RuntimeReductionProvider = { ...provider, execute: (actual) => execution(actual, { shape: [1, 1, 2, 2], values: Float32Array.of(0, 0, 0, Infinity) }) };
   assert.throws(() => executeGemma4RuntimeReduction(nonFinite, request, [1, 1, 2, 2]), /tensor inválido/);
   const wrongContract = { ...provider, contractId: "wrong" } as unknown as Gemma4RuntimeReductionProvider;
   assert.throws(() => executeGemma4RuntimeReduction(wrongContract, request, [1, 1, 2, 2]), /não corresponde ao contrato/);
+
+  const wrongAttestation: Gemma4RuntimeReductionProvider = {
+    ...provider,
+    execute(actual) {
+      const result = execution(actual, sampleTensor([1, 1, 2, 2]));
+      result.evidence.runtimeAttestation.platform = "Linux-x86_64" as "Darwin-arm64";
+      return result;
+    },
+  };
+  assert.throws(() => executeGemma4RuntimeReduction(wrongAttestation, request, [1, 1, 2, 2]), /evidência.*divergente/);
+
+  const mismatchedProgram = fixtureProgram();
+  mismatchedProgram.assignments[2]!.operation = "add";
+  assert.throws(() => executeGemma4RuntimeReduction(provider, { ...request, program: mismatchedProgram }, [1, 1, 2, 2]), /não corresponde.*BMM/);
 });
 
 function fixtureProgram(): Gemma4VisionProgram {
@@ -106,4 +128,24 @@ function sample(operationId: string, output: string, shape: number[]): Different
 
 function sampleTensor(shape: number[], value = 0) {
   return { shape, values: new Float32Array(shape.reduce((total, dimension) => total * dimension, 1)).fill(value) };
+}
+
+function execution(request: Gemma4RuntimeReductionRequest, output: ReturnType<typeof sampleTensor>): Gemma4RuntimeReductionExecution {
+  return {
+    output,
+    evidence: {
+      schemaVersion: 1,
+      contractId: "torch-2.12.1-cpu-inference-matmul-v1",
+      scope: request.scope,
+      operationId: request.operationId,
+      operation: request.operation,
+      sourceCheckpointAccessed: false,
+      runtimeAttestation: expectedGemma4RuntimeReductionAttestation(),
+      orderedOperands: [
+        gemma4RuntimeReductionTensorEvidence(request.operands[0]),
+        gemma4RuntimeReductionTensorEvidence(request.operands[1]),
+      ],
+      output: gemma4RuntimeReductionTensorEvidence(output),
+    },
+  };
 }

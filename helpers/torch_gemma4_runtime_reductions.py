@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import platform
 import sys
 from pathlib import Path
 from typing import Any
@@ -13,6 +14,9 @@ import torch.nn.functional as F
 
 CONTRACT_ID = "torch-2.12.1-cpu-inference-matmul-v1"
 SUPPORTED_TORCH = "2.12.1"
+SUPPORTED_TORCH_COMMIT = "7269437d655783a26cba32aa88195b741ff496aa"
+SUPPORTED_PLATFORM = "Darwin-arm64"
+SUPPORTED_BLAS_SETTING = "BLAS_INFO=accelerate"
 
 
 def tensor(raw: Any, label: str) -> torch.Tensor:
@@ -92,6 +96,18 @@ def audio(request: dict[str, Any], left: torch.Tensor, right: torch.Tensor) -> t
 def main() -> None:
     if torch.__version__.split("+")[0] != SUPPORTED_TORCH:
         raise ValueError(f"Runtime reduction requires torch=={SUPPORTED_TORCH}; received {torch.__version__}.")
+    build_config = torch.__config__.show()
+    actual_platform = f"{platform.system()}-{platform.machine()}"
+    if actual_platform != SUPPORTED_PLATFORM or SUPPORTED_BLAS_SETTING not in build_config:
+        raise ValueError(
+            f"Runtime reduction requires {SUPPORTED_PLATFORM} with {SUPPORTED_BLAS_SETTING}; "
+            f"received {actual_platform}."
+        )
+    if torch.version.git_version != SUPPORTED_TORCH_COMMIT:
+        raise ValueError(
+            f"Runtime reduction requires torch commit {SUPPORTED_TORCH_COMMIT}; "
+            f"received {torch.version.git_version}."
+        )
     request = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
     if request.get("schemaVersion") != 1 or request.get("contractId") != CONTRACT_ID or request.get("scope") not in ("vision", "audio"):
         raise ValueError("Runtime-reduction request contract is invalid.")
@@ -104,7 +120,19 @@ def main() -> None:
     print(json.dumps({
         "schemaVersion": 1,
         "contractId": CONTRACT_ID,
+        "operationId": request["operationId"],
+        "scope": request["scope"],
+        "operation": request["operation"],
         "sourceCheckpointAccessed": False,
+        "runtimeAttestation": {
+            "runtime": f"torch-{SUPPORTED_TORCH}",
+            "torchBuildCommit": torch.version.git_version,
+            "executionMode": "torch.inference_mode",
+            "device": "cpu",
+            "platform": actual_platform,
+            "backend": "Apple Accelerate SGEMM",
+            "blasBuildSetting": SUPPORTED_BLAS_SETTING,
+        },
         "output": {"shape": list(result.shape), "values": result.reshape(-1).tolist()},
     }, separators=(",", ":")))
 

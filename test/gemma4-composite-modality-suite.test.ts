@@ -28,6 +28,13 @@ test("Gemma 4 modality suite requires zero-tolerance image, video, and audio gen
   const inventedScheduleCoverage = structuredClone(evidence);
   inventedScheduleCoverage[2]!.comparison.reductionDomainEvaluation.runtimeDefinedReductions = 35;
   assert.throws(() => buildGemma4LiteralCompositeModalitySuiteReport(inventedScheduleCoverage), /100 BMM runtime-defined/);
+  const malformedReplay = structuredClone(evidence);
+  malformedReplay[0]!.comparison.runtimeReductionReplay = {
+    contractId: "torch-2.12.1-cpu-inference-matmul-v1",
+    executionCount: 0,
+    executions: [],
+  };
+  assert.throws(() => buildGemma4LiteralCompositeModalitySuiteReport(malformedReplay), /replay nativo incompleto/);
 });
 
 function fixture(modality: "image" | "video" | "audio", runtimeDefinedReductions: number): Gemma4LiteralCompositeModalityEvidence {
@@ -76,6 +83,7 @@ function fixture(modality: "image" | "video" | "audio", runtimeDefinedReductions
         domains: 1,
         runtimeDefinedReductions,
       },
+      runtimeReductionReplay: null,
     },
   };
 }

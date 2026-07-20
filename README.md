@@ -915,6 +915,29 @@ comparação numérica. O E4B real registrou 32/32 fronteiras de vídeo e 36/36 
 `runtime-defined`. Evidência em
 [`docs/validation/gemma4-e4b-native-bmm-operand-traces-2026-07-20.md`](docs/validation/gemma4-e4b-native-bmm-operand-traces-2026-07-20.md).
 
+O schema v45 transforma o replay executável dessas 100 fronteiras em evidência
+fail-closed. O contrato incorporado fixa não apenas `torch-2.12.1`, mas o
+commit de build `7269437d655783a26cba32aa88195b741ff496aa`,
+`Darwin-arm64`, `torch.inference_mode`, CPU e `BLAS_INFO=accelerate`. O helper
+recusa outro build, plataforma ou BLAS antes do primeiro matmul. Cada execução
+devolve e o chamador revalida um recibo com classe/ID da operação serializada,
+os dois operandos ordenados e o output comprometidos por shape, bytes F32
+little-endian e SHA-256. A comparação composite exige que os recibos tenham a
+mesma cardinalidade das reduções ativas: 32 para imagem, 32 para vídeo e 36
+para áudio.
+
+O E4B v45 tem 21.409.278.550 bytes, SHA-256
+`46f99fa94d5cd06e73ad72ce2e1a6152377e72cb577810dc98238a9b3c85a157`
+e raiz estrutural
+`7c30fc8d70a6c563ed30edb2d65246963ed7234949549b9b0a1ea3ae78ac97b3`.
+Com a fonte fisicamente ausente, 2.130 payloads foram rehashados e imagem,
+vídeo e áudio repetiram prefill, logits, cache e geração greedy a tolerância
+zero, com 100/100 recibos atestados. Isso prova replay source-removed pelo
+runtime fixado; não publica a árvore escalar proprietária do SGEMM, portanto o
+`fidelityGate` continua corretamente com `exactReplayClaim=forbidden`.
+Evidência completa em
+[`docs/validation/gemma4-e4b-attested-runtime-reduction-replay-2026-07-20.md`](docs/validation/gemma4-e4b-attested-runtime-reduction-replay-2026-07-20.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 

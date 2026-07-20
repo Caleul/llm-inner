@@ -3,14 +3,24 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Gemma4RuntimeReductionProvider, Gemma4RuntimeReductionRequest } from "./gemma4-runtime-reduction-provider.js";
+import {
+  gemma4RuntimeReductionTensorEvidence,
+  type Gemma4RuntimeReductionAttestation,
+  type Gemma4RuntimeReductionExecution,
+  type Gemma4RuntimeReductionProvider,
+  type Gemma4RuntimeReductionRequest,
+} from "./gemma4-runtime-reduction-provider.js";
 import type { DenseF32Tensor } from "./types.js";
 
 interface SerializedTensor { shape: number[]; values: number[] }
 interface HelperResponse {
   schemaVersion: number;
   contractId: string;
+  operationId: string;
+  scope: string;
+  operation: string;
   sourceCheckpointAccessed: boolean;
+  runtimeAttestation: Gemma4RuntimeReductionAttestation;
   output: SerializedTensor;
 }
 
@@ -22,6 +32,7 @@ interface HelperResponse {
  */
 export class Gemma4TorchRuntimeReductionProvider implements Gemma4RuntimeReductionProvider {
   readonly contractId = "torch-2.12.1-cpu-inference-matmul-v1" as const;
+  readonly #executions: Gemma4RuntimeReductionExecution["evidence"][] = [];
   readonly #python: string;
   readonly #helper: string;
 
@@ -31,7 +42,11 @@ export class Gemma4TorchRuntimeReductionProvider implements Gemma4RuntimeReducti
     this.#helper = resolve(helper);
   }
 
-  execute(request: Gemma4RuntimeReductionRequest): DenseF32Tensor {
+  get executions(): readonly Gemma4RuntimeReductionExecution["evidence"][] {
+    return structuredClone(this.#executions);
+  }
+
+  execute(request: Gemma4RuntimeReductionRequest): Gemma4RuntimeReductionExecution {
     const directory = mkdtempSync(join(tmpdir(), "llm-inner-gemma4-runtime-reduction-"));
     try {
       const requestPath = join(directory, "request.json");
@@ -44,8 +59,27 @@ export class Gemma4TorchRuntimeReductionProvider implements Gemma4RuntimeReducti
       if (child.status !== 0) {
         throw new Error(`${request.operationId}: helper PyTorch encerrou com código ${String(child.status)}: ${child.stderr.trim()}`);
       }
-      const response = parseResponse(child.stdout, request.operationId);
-      return { shape: [...response.output.shape], values: Float32Array.from(response.output.values) };
+      const response = parseResponse(child.stdout, request);
+      const output = { shape: [...response.output.shape], values: Float32Array.from(response.output.values) };
+      const execution: Gemma4RuntimeReductionExecution = {
+        output,
+        evidence: {
+          schemaVersion: 1,
+          contractId: this.contractId,
+          scope: request.scope,
+          operationId: request.operationId,
+          operation: request.operation,
+          sourceCheckpointAccessed: false,
+          runtimeAttestation: response.runtimeAttestation,
+          orderedOperands: [
+            gemma4RuntimeReductionTensorEvidence(request.operands[0]),
+            gemma4RuntimeReductionTensorEvidence(request.operands[1]),
+          ],
+          output: gemma4RuntimeReductionTensorEvidence(output),
+        },
+      };
+      this.#executions.push(structuredClone(execution.evidence));
+      return execution;
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
@@ -82,14 +116,17 @@ function serializeTensor(tensor: DenseF32Tensor): SerializedTensor {
   return { shape: [...tensor.shape], values: Array.from(tensor.values) };
 }
 
-function parseResponse(stdout: string, operationId: string): HelperResponse {
+function parseResponse(stdout: string, request: Gemma4RuntimeReductionRequest): HelperResponse {
   let parsed: HelperResponse;
   try { parsed = JSON.parse(stdout) as HelperResponse; } catch (error) {
-    throw new Error(`${operationId}: helper PyTorch retornou JSON inválido: ${(error as Error).message}`);
+    throw new Error(`${request.operationId}: helper PyTorch retornou JSON inválido: ${(error as Error).message}`);
   }
   if (parsed.schemaVersion !== 1 || parsed.contractId !== "torch-2.12.1-cpu-inference-matmul-v1" ||
-    parsed.sourceCheckpointAccessed !== false || !parsed.output || !Array.isArray(parsed.output.shape) || !Array.isArray(parsed.output.values)) {
-    throw new Error(`${operationId}: helper PyTorch retornou envelope incompatível.`);
+    parsed.operationId !== request.operationId || parsed.scope !== request.scope || parsed.operation !== request.operation ||
+    parsed.sourceCheckpointAccessed !== false || !parsed.runtimeAttestation || !parsed.output ||
+    !Array.isArray(parsed.output.shape) || parsed.output.shape.some((value) => !Number.isSafeInteger(value) || value <= 0) ||
+    !Array.isArray(parsed.output.values) || parsed.output.values.some((value) => typeof value !== "number" || !Number.isFinite(value))) {
+    throw new Error(`${request.operationId}: helper PyTorch retornou envelope incompatível.`);
   }
   return parsed;
 }

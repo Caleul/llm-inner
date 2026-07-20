@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { compareGemma4LiteralVisionTrace } from "./gemma4-literal-vision.js";
 import { Gemma4TorchRuntimeReductionProvider } from "./gemma4-torch-runtime-reduction-provider.js";
+import { gemma4RuntimeReductionReplayEvidence } from "./gemma4-runtime-reduction-provider.js";
 import { readGemma4VisionDifferentialTrace } from "./gemma4-transformers-vision-trace.js";
 
 function value(argv: string[], name: string, required = true): string | undefined { const index = argv.indexOf(name); if (index < 0) { if (required) throw new Error(`Valor ausente para ${name}.`); return undefined; } const result = argv[index + 1]; if (!result || result.startsWith("--")) throw new Error(`Valor ausente para ${name}.`); return result; }
@@ -19,6 +20,7 @@ async function main(): Promise<void> {
     invocation: trace.invocation, model: trace.source.model, revisionOrChecksum: trace.source.revisionOrChecksum,
     referenceRuntime: trace.reference.runtime,
     runtimeReductionProvider: runtimeReductionProvider?.contractId ?? null,
+    runtimeReductionReplay: runtimeReductionProvider ? gemma4RuntimeReductionReplayEvidence(runtimeReductionProvider, 0) : null,
     traceEvidence: { captureId: trace.reference.captureId, sourceFiles: trace.source.files, runtimeReductionCoverage: trace.reference.runtimeReductionCoverage },
     pixelValues: { shape: trace.reference.pixelValues.shape, values: Array.from(trace.reference.pixelValues.values) },
     pixelPositionIds: trace.reference.pixelPositionIds, ...result,

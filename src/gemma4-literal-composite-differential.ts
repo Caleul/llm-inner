@@ -13,7 +13,11 @@ import type {
   DifferentialOperationSample,
 } from "./types.js";
 import { evaluateGemma4LiteralReductionIndexDomains } from "./gemma4-literal-reduction-domains.js";
-import type { Gemma4RuntimeReductionProvider } from "./gemma4-runtime-reduction-provider.js";
+import {
+  gemma4RuntimeReductionReplayEvidence,
+  type Gemma4RuntimeReductionProvider,
+  type Gemma4RuntimeReductionReplayEvidence,
+} from "./gemma4-runtime-reduction-provider.js";
 
 interface CompositeInputs {
   modality: Gemma4CompositeTraceModality;
@@ -46,6 +50,7 @@ export interface Gemma4LiteralCompositeDifferentialReport {
     domains: number;
     runtimeDefinedReductions: number;
   };
+  runtimeReductionReplay: Gemma4RuntimeReductionReplayEvidence | null;
 }
 
 /** Compares real image, video, or audio prefill and cached generation with the source absent. */
@@ -89,6 +94,7 @@ export async function compareGemma4LiteralCompositeTrace(options: {
   try {
     validateTraceSourceIdentity(decoded.bundle.source.files, artifact.sourceIdentity, decoded.reference);
     if (fingerprintIR(artifact.program.textProgram) !== decoded.bundle.irFingerprint) throw new Error("Trace composite não corresponde ao programa textual incorporado.");
+    const replayStart = options.runtimeReductionProvider?.executions.length ?? 0;
     const candidate = await generateGemma4LiteralCompositeF32(artifact, {
       inputIds: [inputs.inputTokens],
       positionIds: [inputs.positionIds],
@@ -105,6 +111,16 @@ export async function compareGemma4LiteralCompositeTrace(options: {
     });
     const tolerance = { maxAbsoluteError: options.maxAbsoluteError ?? 0, maxRelativeError: options.maxRelativeError ?? 0 };
     const candidateRuntime = decoded.bundle.candidatePolicy.runtime;
+    const reductionDomainEvaluation = evaluateActiveReductionDomains(artifact, candidate.compositePrefill.values, inputs);
+    const runtimeReductionReplay = options.runtimeReductionProvider
+      ? gemma4RuntimeReductionReplayEvidence(options.runtimeReductionProvider, replayStart)
+      : null;
+    if (runtimeReductionReplay && runtimeReductionReplay.executionCount !== reductionDomainEvaluation.runtimeDefinedReductions) {
+      throw new Error(
+        `Replay composite executou ${runtimeReductionReplay.executionCount} reduções nativas, ` +
+        `mas o grafo ativo declara ${reductionDomainEvaluation.runtimeDefinedReductions}.`,
+      );
+    }
     return {
       modality: inputs.modality,
       prefill: compareCapturedOperationCheckpoints(candidate.compositePrefill.values, { operations }, {
@@ -117,7 +133,8 @@ export async function compareGemma4LiteralCompositeTrace(options: {
         tolerance,
         ...(options.topK === undefined ? {} : { topK: options.topK }),
       }),
-      reductionDomainEvaluation: evaluateActiveReductionDomains(artifact, candidate.compositePrefill.values, inputs),
+      reductionDomainEvaluation,
+      runtimeReductionReplay,
     };
   } finally {
     await artifact.close();

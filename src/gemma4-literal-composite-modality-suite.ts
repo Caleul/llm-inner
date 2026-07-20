@@ -1,10 +1,14 @@
+import { isDeepStrictEqual } from "node:util";
 import { sha256File } from "./trace.js";
 import {
   compareGemma4LiteralCompositeTrace,
   type Gemma4LiteralCompositeDifferentialReport,
 } from "./gemma4-literal-composite-differential.js";
 import type { Gemma4CompositeTraceModality } from "./gemma4-composite-trace-profile.js";
-import type { Gemma4RuntimeReductionProvider } from "./gemma4-runtime-reduction-provider.js";
+import {
+  expectedGemma4RuntimeReductionAttestation,
+  type Gemma4RuntimeReductionProvider,
+} from "./gemma4-runtime-reduction-provider.js";
 
 const MODALITIES = ["image", "video", "audio"] as const;
 
@@ -112,6 +116,15 @@ export function buildGemma4LiteralCompositeModalitySuiteReport(
     if (comparison.reductionDomainEvaluation.runtimeDefinedReductions <= 0) {
       throw new Error(`Suite Gemma 4 ${entry.modality} não registrou sua fronteira BMM runtime-defined.`);
     }
+    const replay = comparison.runtimeReductionReplay;
+    if (replay && (replay.contractId !== "torch-2.12.1-cpu-inference-matmul-v1" ||
+      replay.executionCount !== comparison.reductionDomainEvaluation.runtimeDefinedReductions ||
+      replay.executions.length !== replay.executionCount ||
+      new Set(replay.executions.map((execution) => execution.operationId)).size !== replay.executionCount ||
+      replay.executions.some((execution) => execution.sourceCheckpointAccessed !== false ||
+        !isDeepStrictEqual(execution.runtimeAttestation, expectedGemma4RuntimeReductionAttestation())))) {
+      throw new Error(`Suite Gemma 4 ${entry.modality} possui replay nativo incompleto ou não atestado.`);
+    }
     const identity = identities[index]!;
     if (identity.model !== expected.model || identity.revisionOrChecksum !== expected.revisionOrChecksum ||
       identity.runtime !== expected.runtime || comparison.generation.candidateRuntime !== modalities[0]!.comparison.generation.candidateRuntime) {
@@ -122,6 +135,10 @@ export function buildGemma4LiteralCompositeModalitySuiteReport(
     total + entry.comparison.reductionDomainEvaluation.runtimeDefinedReductions, 0);
   if (runtimeDefinedReductions !== 100) {
     throw new Error(`Suite Gemma 4 esperava cobrir as 100 BMM runtime-defined, encontrou ${runtimeDefinedReductions}.`);
+  }
+  const replayEntries = modalities.filter((entry) => entry.comparison.runtimeReductionReplay !== null);
+  if (replayEntries.length !== 0 && replayEntries.length !== MODALITIES.length) {
+    throw new Error("Suite Gemma 4 não aceita evidência de replay nativo em somente parte das modalidades.");
   }
   return {
     kind: "gemma4-embedded-literal-composite-modality-suite",

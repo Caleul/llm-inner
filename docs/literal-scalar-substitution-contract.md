@@ -440,3 +440,15 @@ Cada passo nomeia dtype, shape, inputs e output. O leitor streaming deriva o
 contrato canônico do próprio programa incorporado e rejeita uma atribuição,
 ordem, semântica, input ou output divergente. `--show-generation-program`
 expõe esse estado mesmo quando o checkpoint está indisponível.
+
+## Replay atestado de reduções nativas
+
+Um replay que delega uma fronteira `runtime-defined` a um runtime autoritativo
+também precisa ser auditável. O artefato fixa versão, commit de build, modo de
+execução, device, plataforma e backend BLAS. Cada chamada deve corresponder a
+uma única redução do programa e produzir um recibo que vincula ID/classe,
+operandos ordenados e output por shape, bytes IEEE-F32 little-endian e
+SHA-256. Runtime diferente, recibo alterado, valor não finito, shape divergente
+ou cardinalidade diferente do grafo ativo falha fechado. Esse recibo prova qual
+kernel reproduziu o valor; ele não substitui uma árvore escalar ainda não
+publicada.

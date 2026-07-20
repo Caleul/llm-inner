@@ -38,10 +38,13 @@ export interface Gemma4AuthoritativeExecutionContract {
     executableReplay: {
       providerContractId: "torch-2.12.1-cpu-inference-matmul-v1";
       runtime: "torch-2.12.1";
+      torchBuildCommit: "7269437d655783a26cba32aa88195b741ff496aa";
       executionMode: "torch.inference_mode";
       device: "cpu";
+      platform: "Darwin-arm64";
       operation: "torch.matmul";
       backend: "Apple Accelerate SGEMM";
+      blasBuildSetting: "BLAS_INFO=accelerate";
       checkpointInput: "forbidden";
       operandSource: "dependency-ordered artifact intermediates only";
       operationClasses: [
@@ -79,10 +82,13 @@ export function gemma4AuthoritativeExecutionContract(): Gemma4AuthoritativeExecu
       executableReplay: {
         providerContractId: "torch-2.12.1-cpu-inference-matmul-v1",
         runtime: "torch-2.12.1",
+        torchBuildCommit: "7269437d655783a26cba32aa88195b741ff496aa",
         executionMode: "torch.inference_mode",
         device: "cpu",
+        platform: "Darwin-arm64",
         operation: "torch.matmul",
         backend: "Apple Accelerate SGEMM",
+        blasBuildSetting: "BLAS_INFO=accelerate",
         checkpointInput: "forbidden",
         operandSource: "dependency-ordered artifact intermediates only",
         operationClasses: [
