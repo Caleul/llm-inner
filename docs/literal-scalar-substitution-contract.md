@@ -380,6 +380,19 @@ campos extras ou ausentes, e vincular cada recibo BMM ao SHA-256 canônico do
 protocolo. A existência de um runtime externo continua explícita; nenhum
 checkpoint, helper ou configuração de launch do checkout pode ser consultado.
 
+O schema v56 fecha o transporte numérico dentro desse protocolo. Operandos e
+outputs BMM deixam de usar arrays de números JSON, que não preservam o bit de
+sinal de `-0` e não declaram uma representação binária. Cada tensor agora é um
+envelope fechado com `dtype=F32`, bit pattern IEEE-754 binary32, byte order
+little-endian, layout row-major contíguo, shape, `byteLength` e payload Base64
+RFC 4648 canônico com padding obrigatório. O índice lógico usa
+`4 * row-major-linear-index(shape, coordinate)` como offset de byte. Provider e
+adapter verificam campos, cardinalidade, tamanho, canonicalidade Base64 e
+finitude antes da BMM; a resposta usa exatamente o mesmo decoder. Assim, zero
+assinado e subnormais atravessam a fronteira por seus bits, não por uma
+conversão decimal dependente de JSON. O digest do protocolo ligado a cada
+recibo cobre integralmente esse contrato.
+
 ## Critério de aceite
 
 Uma implementação só é candidata a fechar este requisito quando:

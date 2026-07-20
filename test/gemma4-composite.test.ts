@@ -704,12 +704,12 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 55);
+  assert.equal(literal.schemaVersion, 56);
   assert.equal(literal.payloadIntegrity.length, catalog.tensors.size);
   assert.equal(literal.integrityManifest.sections.length, 24);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
-  assert.equal(literal.authoritativeExecution.schemaVersion, 11);
+  assert.equal(literal.authoritativeExecution.schemaVersion, 12);
   assert.equal(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.adapterProgram.sha256,
     GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256);
   assert.deepEqual(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.runtimeProcessEnvironment,
@@ -720,6 +720,19 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE);
   assert.equal(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.executionProtocol.kind,
     "gemma4-runtime-reduction-execution-protocol");
+  assert.equal(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.executionProtocol.schemaVersion, 2);
+  assert.deepEqual(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.executionProtocol.tensorEncoding, {
+    kind: "gemma4-runtime-reduction-dense-tensor",
+    schemaVersion: 1,
+    fields: ["dtype", "bitPattern", "byteOrder", "layout", "shape", "byteLength", "dataBase64"],
+    dtype: "F32",
+    bitPattern: "IEEE-754 binary32",
+    byteOrder: "little-endian",
+    layout: "row-major-contiguous",
+    indexToByteOffset: "4 * row-major-linear-index(shape, coordinate)",
+    payloadEncoding: "RFC4648 canonical base64 with required padding",
+    finiteValues: "required",
+  });
   assert.match(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.adapterProgram.sourceUtf8,
     /Execute one pinned Gemma 4 runtime-defined matmul without model access/);
   const invocationPrograms = literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.invocationPrograms;
@@ -1411,6 +1424,10 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   tamperedExecutionProtocol.authoritativeExecution.unresolvedNativeReduction.executableReplay
     .executionProtocol.invocation.arguments.reverse();
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(tamperedExecutionProtocol), /contrato autoritativo de execução/);
+  const tamperedTensorEncoding = structuredClone(literal);
+  tamperedTensorEncoding.authoritativeExecution.unresolvedNativeReduction.executableReplay
+    .executionProtocol.tensorEncoding.byteOrder = "big-endian" as "little-endian";
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(tamperedTensorEncoding), /contrato autoritativo de execução/);
   const tamperedProcessEnvironment = structuredClone(literal);
   (tamperedProcessEnvironment.authoritativeExecution.unresolvedNativeReduction.executableReplay
     .runtimeProcessEnvironment.variables as unknown as { LANG: string }).LANG = "pt_BR.UTF-8";
@@ -1648,7 +1665,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 55);
+      assert.equal(artifact.schemaVersion, 56);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.equal(artifact.authoritativeExecution.unresolvedNativeReduction.executableReplay.adapterProgram.sha256,

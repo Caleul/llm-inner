@@ -27,7 +27,15 @@ import {
   type Gemma4RuntimeReductionInvocationProgram,
 } from "./gemma4-runtime-reduction-invocation.js";
 
-interface SerializedTensor { shape: number[]; values: number[] }
+export interface Gemma4RuntimeReductionSerializedTensor {
+  dtype: "F32";
+  bitPattern: "IEEE-754 binary32";
+  byteOrder: "little-endian";
+  layout: "row-major-contiguous";
+  shape: number[];
+  byteLength: number;
+  dataBase64: string;
+}
 interface HelperResponse {
   schemaVersion: number;
   contractId: string;
@@ -37,7 +45,7 @@ interface HelperResponse {
   invocationProgramId: Gemma4LiteralRuntimeReductionOperationClass;
   sourceCheckpointAccessed: boolean;
   runtimeAttestation: Gemma4RuntimeReductionAttestation;
-  output: SerializedTensor;
+  output: Gemma4RuntimeReductionSerializedTensor;
 }
 
 /**
@@ -95,9 +103,9 @@ export class Gemma4TorchRuntimeReductionProvider implements Gemma4RuntimeReducti
     try {
       const requestPath = join(directory, launch.requestFileName);
       const helperPath = join(directory, launch.adapterFileName);
-      const requestEnvelope = serializeRequest(request, invocationProgram);
+      const requestEnvelope = serializeRequest(request, invocationProgram, this.#replayContract.executionProtocol.tensorEncoding);
       assertExactObjectFields(requestEnvelope, this.#replayContract.executionProtocol.requestEnvelope.fields, `${request.operationId}: request envelope`);
-      assertTensorFields(requestEnvelope, this.#replayContract.executionProtocol.requestEnvelope.tensorFields, `${request.operationId}: request envelope`);
+      assertTensorFields(requestEnvelope, this.#replayContract.executionProtocol.tensorEncoding.fields, `${request.operationId}: request envelope`);
       writeFileSync(requestPath, JSON.stringify(requestEnvelope), "utf8");
       writeFileSync(helperPath, this.#replayContract.adapterProgram.sourceUtf8, "utf8");
       const paths = { "adapter-file": helperPath, "request-file": requestPath } as const;
@@ -116,13 +124,17 @@ export class Gemma4TorchRuntimeReductionProvider implements Gemma4RuntimeReducti
         child.stdout,
         request,
         invocationProgram,
-        this.#replayContract.executionProtocol.responseEnvelope,
+        this.#replayContract.executionProtocol,
       );
-      const output = { shape: [...response.output.shape], values: Float32Array.from(response.output.values) };
+      const output = deserializeGemma4RuntimeReductionTensor(
+        response.output,
+        this.#replayContract.executionProtocol.tensorEncoding,
+        `${request.operationId}: response output`,
+      );
       const execution: Gemma4RuntimeReductionExecution = {
         output,
         evidence: {
-          schemaVersion: 3,
+          schemaVersion: 4,
           contractId: this.contractId,
           scope: request.scope,
           operationId: request.operationId,
@@ -187,17 +199,22 @@ export function runtimeReductionSpawnEnvironment(
   return { ...environment.variables };
 }
 
-function serializeRequest(request: Gemma4RuntimeReductionRequest, invocationProgram: Gemma4RuntimeReductionInvocationProgram): object {
+function serializeRequest(
+  request: Gemma4RuntimeReductionRequest,
+  invocationProgram: Gemma4RuntimeReductionInvocationProgram,
+  tensorEncoding: Gemma4RuntimeReductionExecutableReplayContract["executionProtocol"]["tensorEncoding"],
+): object {
   const tower = serializeInvocationEnvironment(request, invocationProgram);
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     contractId: "torch-2.12.1-cpu-inference-matmul-v1",
     scope: request.scope,
     operationId: request.operationId,
     operation: request.operation,
     invocationProgram,
     tower,
-    operands: request.operands.map(serializeTensor),
+    operands: request.operands.map((tensor, index) =>
+      serializeGemma4RuntimeReductionTensor(tensor, tensorEncoding, `${request.operationId}: operand ${index}`)),
   };
 }
 
@@ -223,28 +240,93 @@ function serializeInvocationEnvironment(
   return result;
 }
 
-function serializeTensor(tensor: DenseF32Tensor): SerializedTensor {
-  return { shape: [...tensor.shape], values: Array.from(tensor.values) };
+export function serializeGemma4RuntimeReductionTensor(
+  tensor: DenseF32Tensor,
+  contract: Gemma4RuntimeReductionExecutableReplayContract["executionProtocol"]["tensorEncoding"] =
+    gemma4RuntimeReductionExecutionProtocol().tensorEncoding,
+  label = "runtime-reduction tensor",
+): Gemma4RuntimeReductionSerializedTensor {
+  assertSupportedTensorEncoding(contract);
+  const elements = tensor.shape.reduce((total, dimension) => total * dimension, 1);
+  if (!tensor.shape.length || tensor.shape.some((dimension) => !Number.isSafeInteger(dimension) || dimension <= 0) ||
+    !Number.isSafeInteger(elements) || elements !== tensor.values.length || tensor.values.some((value) => !Number.isFinite(value))) {
+    throw new Error(`${label}: tensor F32 inválido para transporte lossless.`);
+  }
+  const payload = Buffer.allocUnsafe(elements * 4);
+  tensor.values.forEach((value, index) => payload.writeFloatLE(value, index * 4));
+  return {
+    dtype: "F32",
+    bitPattern: "IEEE-754 binary32",
+    byteOrder: "little-endian",
+    layout: "row-major-contiguous",
+    shape: [...tensor.shape],
+    byteLength: payload.byteLength,
+    dataBase64: payload.toString("base64"),
+  };
+}
+
+export function deserializeGemma4RuntimeReductionTensor(
+  serialized: Gemma4RuntimeReductionSerializedTensor,
+  contract: Gemma4RuntimeReductionExecutableReplayContract["executionProtocol"]["tensorEncoding"] =
+    gemma4RuntimeReductionExecutionProtocol().tensorEncoding,
+  label = "runtime-reduction tensor",
+): DenseF32Tensor {
+  assertSupportedTensorEncoding(contract);
+  assertExactObjectFields(serialized, contract.fields, label);
+  if (serialized.dtype !== contract.dtype || serialized.bitPattern !== contract.bitPattern ||
+    serialized.byteOrder !== contract.byteOrder || serialized.layout !== contract.layout ||
+    !Array.isArray(serialized.shape) || !serialized.shape.length ||
+    serialized.shape.some((dimension) => !Number.isSafeInteger(dimension) || dimension <= 0) ||
+    !Number.isSafeInteger(serialized.byteLength) || serialized.byteLength < 0 ||
+    typeof serialized.dataBase64 !== "string" || !isCanonicalBase64(serialized.dataBase64)) {
+    throw new Error(`${label}: envelope F32 incompatível com o protocolo serializado.`);
+  }
+  const elements = serialized.shape.reduce((total, dimension) => total * dimension, 1);
+  const expectedBytes = elements * 4;
+  if (!Number.isSafeInteger(elements) || !Number.isSafeInteger(expectedBytes) || serialized.byteLength !== expectedBytes) {
+    throw new Error(`${label}: shape e byteLength não correspondem.`);
+  }
+  const payload = Buffer.from(serialized.dataBase64, "base64");
+  if (payload.byteLength !== expectedBytes || payload.toString("base64") !== serialized.dataBase64) {
+    throw new Error(`${label}: payload Base64 não é canônico ou possui tamanho divergente.`);
+  }
+  const values = new Float32Array(elements);
+  for (let index = 0; index < elements; index += 1) {
+    const value = payload.readFloatLE(index * 4);
+    if (!Number.isFinite(value)) throw new Error(`${label}: payload contém valor F32 não finito.`);
+    values[index] = value;
+  }
+  return { shape: [...serialized.shape], values };
+}
+
+function assertSupportedTensorEncoding(
+  contract: Gemma4RuntimeReductionExecutableReplayContract["executionProtocol"]["tensorEncoding"],
+): void {
+  if (!isDeepStrictEqual(contract, gemma4RuntimeReductionExecutionProtocol().tensorEncoding)) {
+    throw new Error("Encoding de tensor da redução Gemma 4 não é suportado ou está divergente.");
+  }
+}
+
+function isCanonicalBase64(value: string): boolean {
+  return value.length % 4 === 0 && /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value);
 }
 
 function parseResponse(
   stdout: string,
   request: Gemma4RuntimeReductionRequest,
   invocationProgram: Gemma4RuntimeReductionInvocationProgram,
-  protocol: Gemma4RuntimeReductionExecutableReplayContract["executionProtocol"]["responseEnvelope"],
+  protocol: Gemma4RuntimeReductionExecutableReplayContract["executionProtocol"],
 ): HelperResponse {
   let parsed: HelperResponse;
   try { parsed = JSON.parse(stdout) as HelperResponse; } catch (error) {
     throw new Error(`${request.operationId}: helper PyTorch retornou JSON inválido: ${(error as Error).message}`);
   }
-  assertExactObjectFields(parsed, protocol.fields, `${request.operationId}: response envelope`);
-  assertExactObjectFields(parsed.output, protocol.tensorFields, `${request.operationId}: response output`);
-  if (parsed.schemaVersion !== 1 || parsed.contractId !== "torch-2.12.1-cpu-inference-matmul-v1" ||
+  assertExactObjectFields(parsed, protocol.responseEnvelope.fields, `${request.operationId}: response envelope`);
+  assertExactObjectFields(parsed.output, protocol.tensorEncoding.fields, `${request.operationId}: response output`);
+  if (parsed.schemaVersion !== 2 || parsed.contractId !== "torch-2.12.1-cpu-inference-matmul-v1" ||
     parsed.operationId !== request.operationId || parsed.scope !== request.scope || parsed.operation !== request.operation ||
     parsed.invocationProgramId !== invocationProgram.id ||
-    parsed.sourceCheckpointAccessed !== false || !parsed.runtimeAttestation || !parsed.output ||
-    !Array.isArray(parsed.output.shape) || parsed.output.shape.some((value) => !Number.isSafeInteger(value) || value <= 0) ||
-    !Array.isArray(parsed.output.values) || parsed.output.values.some((value) => typeof value !== "number" || !Number.isFinite(value))) {
+    parsed.sourceCheckpointAccessed !== false || !parsed.runtimeAttestation || !parsed.output) {
     throw new Error(`${request.operationId}: helper PyTorch retornou envelope incompatível.`);
   }
   return parsed;

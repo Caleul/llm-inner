@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import ctypes
+import base64
 import json
 import hashlib
+import math
 import os
 import platform
 import re
+import struct
 import subprocess
 import sys
 from pathlib import Path
@@ -276,16 +279,61 @@ def runtime_process_environment() -> dict[str, Any]:
     }
 
 
+TENSOR_FIELDS = {
+    "dtype", "bitPattern", "byteOrder", "layout", "shape", "byteLength", "dataBase64"
+}
+
+
 def tensor(raw: Any, label: str) -> torch.Tensor:
-    if not isinstance(raw, dict) or not isinstance(raw.get("shape"), list) or not isinstance(raw.get("values"), list):
-        raise ValueError(f"{label} must be a serialized dense tensor.")
+    exact_object(raw, TENSOR_FIELDS, label)
+    if (
+        raw["dtype"] != "F32"
+        or raw["bitPattern"] != "IEEE-754 binary32"
+        or raw["byteOrder"] != "little-endian"
+        or raw["layout"] != "row-major-contiguous"
+        or not isinstance(raw["shape"], list)
+        or not isinstance(raw["byteLength"], int)
+        or isinstance(raw["byteLength"], bool)
+        or not isinstance(raw["dataBase64"], str)
+    ):
+        raise ValueError(f"{label} must use the declared dense F32 transport.")
     shape = raw["shape"]
-    if any(not isinstance(value, int) or value <= 0 for value in shape):
+    if not shape or any(not isinstance(value, int) or isinstance(value, bool) or value <= 0 for value in shape):
         raise ValueError(f"{label} has an invalid shape.")
-    result = torch.tensor(raw["values"], dtype=torch.float32)
-    if result.numel() != torch.tensor(shape).prod().item() or not torch.isfinite(result).all():
+    elements = math.prod(shape)
+    expected_bytes = elements * 4
+    try:
+        payload = base64.b64decode(raw["dataBase64"], validate=True)
+    except (ValueError, base64.binascii.Error) as error:
+        raise ValueError(f"{label} has invalid base64.") from error
+    if (
+        raw["byteLength"] != expected_bytes
+        or len(payload) != expected_bytes
+        or base64.b64encode(payload).decode("ascii") != raw["dataBase64"]
+    ):
+        raise ValueError(f"{label} payload length or canonical base64 is invalid.")
+    bit_values = struct.unpack(f"<{elements}i", payload)
+    result = torch.tensor(bit_values, dtype=torch.int32).view(torch.float32)
+    if result.numel() != elements or not torch.isfinite(result).all():
         raise ValueError(f"{label} has an invalid payload.")
     return result.reshape(shape)
+
+
+def serialized_tensor(value: torch.Tensor) -> dict[str, Any]:
+    result = value.detach().to(device="cpu", dtype=torch.float32).contiguous()
+    if not torch.isfinite(result).all():
+        raise ValueError("Runtime-reduction output contains a non-finite value.")
+    bits = result.reshape(-1).view(torch.int32).tolist()
+    payload = struct.pack(f"<{len(bits)}i", *bits)
+    return {
+        "dtype": "F32",
+        "bitPattern": "IEEE-754 binary32",
+        "byteOrder": "little-endian",
+        "layout": "row-major-contiguous",
+        "shape": list(result.shape),
+        "byteLength": len(payload),
+        "dataBase64": base64.b64encode(payload).decode("ascii"),
+    }
 
 
 def exact_object(value: Any, required: set[str], label: str) -> dict[str, Any]:
@@ -501,16 +549,16 @@ def main() -> None:
             f"expected {SUPPORTED_RUNTIME_ENVIRONMENT!r}; received {runtime_environment!r}."
         )
     request = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-    if request.get("schemaVersion") != 1 or request.get("contractId") != CONTRACT_ID or request.get("scope") not in ("vision", "audio"):
+    exact_object(request, {"schemaVersion", "contractId", "scope", "operationId", "operation", "invocationProgram", "tower", "operands"}, "request envelope")
+    if request.get("schemaVersion") != 2 or request.get("contractId") != CONTRACT_ID or request.get("scope") not in ("vision", "audio"):
         raise ValueError("Runtime-reduction request contract is invalid.")
     if not isinstance(request.get("operationId"), str) or not request["operationId"] or not isinstance(request.get("operands"), list) or len(request["operands"]) != 2:
         raise ValueError("Runtime-reduction operation and operands are invalid.")
     operands = [tensor(value, f"operand {index}") for index, value in enumerate(request["operands"])]
     with torch.inference_mode():
         invocation_program_id, output = execute_invocation(request, operands)
-    result = output.detach().to(device="cpu", dtype=torch.float32).contiguous()
     print(json.dumps({
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "contractId": CONTRACT_ID,
         "operationId": request["operationId"],
         "scope": request["scope"],
@@ -529,7 +577,7 @@ def main() -> None:
             "runtimeEnvironmentIdentity": runtime_environment,
             "runtimeExecutionState": execution_state,
         },
-        "output": {"shape": list(result.shape), "values": result.reshape(-1).tolist()},
+        "output": serialized_tensor(output),
     }, separators=(",", ":")))
 
 

@@ -28,7 +28,7 @@ export interface Gemma4AuthoritativeTraceContext {
 
 export interface Gemma4AuthoritativeExecutionContract {
   kind: "gemma4-authoritative-execution-contract";
-  schemaVersion: 11;
+  schemaVersion: 12;
   canonicalCompositeRuntime: typeof GEMMA4_COMPOSITE_REFERENCE_RUNTIME;
   diagnosticSubprogramRuntimes: {
     audio: typeof GEMMA4_AUDIO_REFERENCE_RUNTIME;
@@ -78,7 +78,7 @@ export interface Gemma4RuntimeReductionExecutableReplayContract {
  */
 export interface Gemma4RuntimeReductionExecutionProtocol {
   kind: "gemma4-runtime-reduction-execution-protocol";
-  schemaVersion: 1;
+  schemaVersion: 2;
   runtimeExecutable: {
     language: "python3";
     selection: "caller-supplied-path";
@@ -103,23 +103,35 @@ export interface Gemma4RuntimeReductionExecutionProtocol {
     stderr: "utf8-diagnostic";
     maxOutputBytes: 134_217_728;
   };
-  requestEnvelope: {
+  tensorEncoding: {
+    kind: "gemma4-runtime-reduction-dense-tensor";
     schemaVersion: 1;
+    fields: ["dtype", "bitPattern", "byteOrder", "layout", "shape", "byteLength", "dataBase64"];
+    dtype: "F32";
+    bitPattern: "IEEE-754 binary32";
+    byteOrder: "little-endian";
+    layout: "row-major-contiguous";
+    indexToByteOffset: "4 * row-major-linear-index(shape, coordinate)";
+    payloadEncoding: "RFC4648 canonical base64 with required padding";
+    finiteValues: "required";
+  };
+  requestEnvelope: {
+    schemaVersion: 2;
     serialization: "ECMAScript JSON.stringify UTF-8";
     fields: ["schemaVersion", "contractId", "scope", "operationId", "operation", "invocationProgram", "tower", "operands"];
-    tensorFields: ["shape", "values"];
+    tensors: "executionProtocol.tensorEncoding";
   };
   responseEnvelope: {
-    schemaVersion: 1;
+    schemaVersion: 2;
     serialization: "single JSON object on UTF-8 stdout";
     fields: ["schemaVersion", "contractId", "operationId", "scope", "operation", "invocationProgramId", "sourceCheckpointAccessed", "runtimeAttestation", "output"];
-    tensorFields: ["shape", "values"];
+    tensors: "executionProtocol.tensorEncoding";
   };
 }
 
 export interface Gemma4RuntimeReductionAdapterProgram {
   kind: "gemma4-runtime-reduction-adapter-program";
-  schemaVersion: 1;
+  schemaVersion: 2;
   language: "python3";
   encoding: "utf8";
   entrypoint: "main";
@@ -128,7 +140,7 @@ export interface Gemma4RuntimeReductionAdapterProgram {
   sourceUtf8: string;
 }
 
-export const GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256 = "5fa0286427c92a557a4893219779f6eb11b7229e5f63d49863ed11ad18c74950" as const;
+export const GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256 = "c11c6b2d0670c74d999fcf7a19da3f048bd60dfc6e7c742fde38dada70af2d50" as const;
 
 /**
  * Complete launch environment for the opaque native reduction adapter.  The
@@ -283,7 +295,7 @@ export const GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE = {
 export function gemma4RuntimeReductionExecutionProtocol(): Gemma4RuntimeReductionExecutionProtocol {
   return {
     kind: "gemma4-runtime-reduction-execution-protocol",
-    schemaVersion: 1,
+    schemaVersion: 2,
     runtimeExecutable: {
       language: "python3",
       selection: "caller-supplied-path",
@@ -308,17 +320,29 @@ export function gemma4RuntimeReductionExecutionProtocol(): Gemma4RuntimeReductio
       stderr: "utf8-diagnostic",
       maxOutputBytes: 134_217_728,
     },
-    requestEnvelope: {
+    tensorEncoding: {
+      kind: "gemma4-runtime-reduction-dense-tensor",
       schemaVersion: 1,
+      fields: ["dtype", "bitPattern", "byteOrder", "layout", "shape", "byteLength", "dataBase64"],
+      dtype: "F32",
+      bitPattern: "IEEE-754 binary32",
+      byteOrder: "little-endian",
+      layout: "row-major-contiguous",
+      indexToByteOffset: "4 * row-major-linear-index(shape, coordinate)",
+      payloadEncoding: "RFC4648 canonical base64 with required padding",
+      finiteValues: "required",
+    },
+    requestEnvelope: {
+      schemaVersion: 2,
       serialization: "ECMAScript JSON.stringify UTF-8",
       fields: ["schemaVersion", "contractId", "scope", "operationId", "operation", "invocationProgram", "tower", "operands"],
-      tensorFields: ["shape", "values"],
+      tensors: "executionProtocol.tensorEncoding",
     },
     responseEnvelope: {
-      schemaVersion: 1,
+      schemaVersion: 2,
       serialization: "single JSON object on UTF-8 stdout",
       fields: ["schemaVersion", "contractId", "operationId", "scope", "operation", "invocationProgramId", "sourceCheckpointAccessed", "runtimeAttestation", "output"],
-      tensorFields: ["shape", "values"],
+      tensors: "executionProtocol.tensorEncoding",
     },
   };
 }
@@ -338,7 +362,7 @@ export function buildGemma4RuntimeReductionAdapterProgram(sourceUtf8: string): G
   }
   return {
     kind: "gemma4-runtime-reduction-adapter-program",
-    schemaVersion: 1,
+    schemaVersion: 2,
     language: "python3",
     encoding: "utf8",
     entrypoint: "main",
@@ -372,7 +396,7 @@ export function gemma4AuthoritativeExecutionContract(
   validateGemma4RuntimeReductionAdapterProgram(adapterProgram);
   return {
     kind: "gemma4-authoritative-execution-contract",
-    schemaVersion: 11,
+    schemaVersion: 12,
     canonicalCompositeRuntime: GEMMA4_COMPOSITE_REFERENCE_RUNTIME,
     diagnosticSubprogramRuntimes: {
       audio: GEMMA4_AUDIO_REFERENCE_RUNTIME,

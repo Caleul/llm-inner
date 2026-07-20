@@ -26,9 +26,11 @@ import {
   loadGemma4RuntimeReductionAdapterProgram,
 } from "../src/gemma4-authoritative-runtime.js";
 import {
+  deserializeGemma4RuntimeReductionTensor,
   Gemma4TorchRuntimeReductionProvider,
   runtimeReductionLaunchContract,
   runtimeReductionSpawnEnvironment,
+  serializeGemma4RuntimeReductionTensor,
 } from "../src/gemma4-torch-runtime-reduction-provider.js";
 import {
   gemma4RuntimeReductionInvocationProgram,
@@ -213,6 +215,32 @@ test("Gemma 4 runtime-reduction provider accepts only its pinned contract and ex
   assert.throws(() => executeGemma4RuntimeReduction(provider, { ...request, program: mismatchedProgram }, [1, 1, 2, 2]), /não corresponde.*BMM/);
 });
 
+test("Gemma 4 runtime-reduction transport preserves exact finite IEEE-F32 bits", () => {
+  const protocol = gemma4RuntimeReductionExecutionProtocol();
+  const input = tensorValues([2, 2], [-0, 2 ** -149, 1, -2.5]);
+  const serialized = serializeGemma4RuntimeReductionTensor(input, protocol.tensorEncoding);
+
+  assert.deepEqual(Object.keys(serialized), protocol.tensorEncoding.fields);
+  assert.equal(serialized.byteLength, 16);
+  assert.equal(Buffer.from(serialized.dataBase64, "base64").toString("hex"), "00000080010000000000803f000020c0");
+  const decoded = deserializeGemma4RuntimeReductionTensor(serialized, protocol.tensorEncoding);
+  assert.deepEqual(decoded.shape, [2, 2]);
+  assert.equal(Object.is(decoded.values[0], -0), true);
+  assert.equal(decoded.values[1], 2 ** -149);
+  assert.equal(decoded.values[2], 1);
+  assert.equal(decoded.values[3], -2.5);
+
+  const wrongLength = structuredClone(serialized);
+  wrongLength.byteLength = 12;
+  assert.throws(() => deserializeGemma4RuntimeReductionTensor(wrongLength, protocol.tensorEncoding), /shape e byteLength/);
+  const nonCanonical = structuredClone(serialized);
+  nonCanonical.dataBase64 = `${nonCanonical.dataBase64}\n`;
+  assert.throws(() => deserializeGemma4RuntimeReductionTensor(nonCanonical, protocol.tensorEncoding), /envelope F32 incompatível/);
+  assert.throws(() => deserializeGemma4RuntimeReductionTensor({
+    shape: [2, 2], values: [-0, 2 ** -149, 1, -2.5],
+  } as unknown as typeof serialized, protocol.tensorEncoding), /campos não correspondem/);
+});
+
 test("Gemma 4 runtime-reduction provider executes the integrity-bound embedded adapter", async () => {
   const request = {
     scope: "vision" as const,
@@ -388,7 +416,7 @@ function execution(request: Gemma4RuntimeReductionRequest, output: ReturnType<ty
   return {
     output,
     evidence: {
-      schemaVersion: 3,
+      schemaVersion: 4,
       contractId: "torch-2.12.1-cpu-inference-matmul-v1",
       scope: request.scope,
       operationId: request.operationId,

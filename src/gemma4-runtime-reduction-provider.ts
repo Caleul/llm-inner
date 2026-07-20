@@ -61,7 +61,7 @@ export interface Gemma4RuntimeReductionTensorEvidence {
 }
 
 export interface Gemma4RuntimeReductionExecutionEvidence {
-  schemaVersion: 3;
+  schemaVersion: 4;
   contractId: "torch-2.12.1-cpu-inference-matmul-v1";
   scope: Gemma4RuntimeReductionRequest["scope"];
   operationId: string;
@@ -176,7 +176,7 @@ export function executeGemma4RuntimeReduction(
     request.operation,
   );
   const expectedEvidence: Gemma4RuntimeReductionExecutionEvidence = {
-    schemaVersion: 3,
+    schemaVersion: 4,
     contractId: provider.contractId,
     scope: request.scope,
     operationId: request.operationId,

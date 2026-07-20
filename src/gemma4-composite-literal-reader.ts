@@ -8,6 +8,7 @@ import type {
   Gemma4CompositeUnreachableConstant,
 } from "./gemma4-composite-literal.js";
 import {
+  GEMMA4_COMPOSITE_LITERAL_SCHEMA_VERSION,
   gemma4LiteralIntegritySections,
   validateGemma4CompositeLiteralInputs,
   validateGemma4CompositeLiteralNumericPolicy,
@@ -97,7 +98,7 @@ export interface IndexedLiteralConstant extends Omit<LiteralConstant, "payloadBa
  * fields, so opening a 20 GiB artifact does not build a 20 GiB V8 object.
  */
 export interface Gemma4CompositeLiteralArtifactIndex {
-  schemaVersion: 55;
+  schemaVersion: typeof GEMMA4_COMPOSITE_LITERAL_SCHEMA_VERSION;
   artifact: string;
   artifactBytes: number;
   sourceIdentity: Gemma4LiteralSourceIdentity;
@@ -301,7 +302,7 @@ function buildIndex(
     }),
   );
   return {
-    schemaVersion: 55,
+    schemaVersion: GEMMA4_COMPOSITE_LITERAL_SCHEMA_VERSION,
     artifact,
     artifactBytes,
     sourceIdentity: structuredClone(header.sourceIdentity as Gemma4LiteralSourceIdentity),
@@ -367,7 +368,7 @@ function assertHeader(header: Partial<Gemma4CompositeLiteralCalculationProgram>)
       policy.scalarSemantics === "IEEE-754 binary32; each operation declares ordered-scalar, contiguous blocked-term, separately-rounded F32-lane, or fused-multiply-add reduction and its F32 or BF16 result cast" ||
       policy.scalarSemantics === "IEEE-754 binary32 products; each operation declares its ordered-scalar, contiguous blocked-term, blocked tiled-lane, or interleaved-lane F32/F64 reduction and F32 or BF16 result cast" ||
       policy.scalarSemantics === "IEEE-754 binary32; each operation declares ordered-scalar, contiguous blocked-term, blocked tiled-lane, separately-rounded F32-lane, or fused-multiply-add reduction and its F32 or BF16 result cast");
-  if (header.schemaVersion !== 55 || header.kind !== "gemma4-composite-literal-calculation-program" || header.sourceFormat !== "safetensors" ||
+  if (header.schemaVersion !== GEMMA4_COMPOSITE_LITERAL_SCHEMA_VERSION || header.kind !== "gemma4-composite-literal-calculation-program" || header.sourceFormat !== "safetensors" ||
     !header.sourceIdentity || !header.authoritativeExecution || !Array.isArray(header.inputs) || !policy || (!f32 && !operationDeclared && !operationAccumulationDeclared)) {
     throw new Error("Artefato literal Gemma 4 possui cabeçalho ou política numérica inválida.");
   }

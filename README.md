@@ -1130,6 +1130,17 @@ Alterar ordem de argumentos, nomes de arquivo ou envelope falha antes do
 adapter. A evidência real está em
 [`docs/validation/gemma4-e4b-artifact-owned-execution-protocol-2026-07-20.md`](docs/validation/gemma4-e4b-artifact-owned-execution-protocol-2026-07-20.md).
 
+O schema v56 torna o transporte dos operandos e outputs BMM literalmente
+lossless. Os arrays decimais JSON foram substituídos por payloads Base64 com
+`dtype=F32`, bits IEEE-754 binary32, little-endian, layout row-major contíguo,
+shape, byte length, fórmula de endereço e Base64 RFC 4648 canônico declarados
+no próprio `executionProtocol`. Isso preserva inclusive o bit de sinal de `-0`
+e o menor subnormal positivo, que uma conversão decimal JSON não podia garantir.
+Provider e adapter recusam campos extras, encoding, tamanho, cardinalidade ou
+valor não finito divergente; os recibos ligam o protocolo inteiro por SHA-256.
+Evidência da E4B real está em
+[`docs/validation/gemma4-e4b-lossless-runtime-tensor-transport-2026-07-20.md`](docs/validation/gemma4-e4b-lossless-runtime-tensor-transport-2026-07-20.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 
