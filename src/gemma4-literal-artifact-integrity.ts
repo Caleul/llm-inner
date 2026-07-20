@@ -19,6 +19,7 @@ export const GEMMA4_LITERAL_INTEGRITY_SECTION_NAMES = [
   "transcendentalPrograms",
   "numericLiterals",
   "calculationGraph",
+  "fidelityGate",
   "forwardControl",
   "inputContract",
   "outputContract",

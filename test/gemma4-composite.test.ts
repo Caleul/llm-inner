@@ -69,6 +69,7 @@ import {
   listGemma4LiteralRuntimeReductionOperations,
   renderGemma4LiteralRuntimeReductionAudit,
 } from "../src/gemma4-literal-runtime-reduction-audit.js";
+import { buildGemma4LiteralFidelityGate } from "../src/gemma4-literal-fidelity-gate.js";
 import { executeGemma4LiteralVisionF32 } from "../src/gemma4-literal-vision.js";
 import { listGemma4LiteralTextOperations, renderGemma4LiteralScalarView, validateGemma4LiteralScalarView } from "../src/gemma4-literal-scalar-view.js";
 import {
@@ -700,12 +701,18 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 41);
+  assert.equal(literal.schemaVersion, 42);
   assert.equal(literal.payloadIntegrity.length, catalog.tensors.size);
-  assert.equal(literal.integrityManifest.sections.length, 23);
+  assert.equal(literal.integrityManifest.sections.length, 24);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   assert.deepEqual(literal.authoritativeExecution, gemma4AuthoritativeExecutionContract());
+  assert.equal(literal.fidelityGate.status, "blocked-on-runtime-reduction");
+  assert.equal(literal.fidelityGate.exactReplayClaim, "forbidden");
+  assert.equal(literal.fidelityGate.unresolvedNativeReductionCount, literal.fidelityGate.unresolvedNativeReductions.length);
+  assert.ok(literal.fidelityGate.unresolvedNativeReductions.every((entry) =>
+    entry.scalarCalculationPointer === `/calculationGraph/assignments/${entry.ordinal}/scalarCalculation/reduction` &&
+    entry.outputCoordinatePointer === `/calculationGraph/assignments/${entry.ordinal}/outputCoordinate`));
   assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.languageId, literal.generation.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.authority.numericLiteralBits, "/numericLiterals/literals");
@@ -1527,7 +1534,7 @@ test("Gemma 4 composite streamed writer emits an atomic self-contained JSON file
     assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
     assert.equal(Buffer.from(literal.sourceIdentity.files.find((file: { path: string }) => file.path === "config.json").content.payloadBase64, "base64").toString("utf8"), "{}");
     assert.equal(literal.payloadIntegrity.length, catalog.tensors.size);
-    assert.equal(literal.integrityManifest.sections.length, 23);
+    assert.equal(literal.integrityManifest.sections.length, 24);
     const embedded = literal.payloadIntegrity.find((entry: { name: string }) => entry.name === "model.language_model.embed_tokens.weight")!;
     assert.equal(embedded.sha256, createHash("sha256").update(denseF32Bytes(sourceTensors.get(embedded.name)!)).digest("hex"));
 
@@ -1564,7 +1571,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 41);
+      assert.equal(artifact.schemaVersion, 42);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.deepEqual(artifact.authoritativeExecution, gemma4AuthoritativeExecutionContract());
@@ -1575,7 +1582,9 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
       assert.deepEqual(await artifact.readTensorBytesRange(tensor, 5, 23), expectedBytes.subarray(5, 28));
       assert.equal("payloadBase64" in artifact.constants.get(tensor.name)!, false);
       assert.equal(artifact.payloadIntegrity.size, catalog.tensors.size);
-      assert.equal(artifact.integrityManifest.sections.length, 23);
+      assert.equal(artifact.integrityManifest.sections.length, 24);
+      assert.equal(artifact.fidelityGate.exactReplayClaim, "forbidden");
+      assert.equal(artifact.fidelityGate.unresolvedNativeReductionCount, artifact.fidelityGate.unresolvedNativeReductions.length);
       assert.equal(artifact.generation.kind, "gemma4-literal-greedy-generation-program");
       assert.equal(artifact.generation.forwardProgram.firstAssignment, "composite_block_sequence_ids");
       assert.equal(artifact.generation.forwardProgram.lastAssignment, "lm_head");
@@ -1614,6 +1623,9 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
     const corruptedSemanticCommitment = path.join(root, "corrupted-semantic-commitment.gemma4.literal.json");
     await writeFile(corruptedSemanticCommitment, raw.replace('"modelId":"fixture/tiny-gemma4"', '"modelId":"fixture/tiny-gemma4-mutated"'));
     await assert.rejects(() => openGemma4CompositeLiteralArtifact(corruptedSemanticCommitment), /compromisso estrutural/);
+    const corruptedFidelityGate = path.join(root, "corrupted-fidelity-gate.gemma4.literal.json");
+    await writeFile(corruptedFidelityGate, raw.replace('"exactReplayClaim":"forbidden"', '"exactReplayClaim":"not-certified"'));
+    await assert.rejects(() => openGemma4CompositeLiteralArtifact(corruptedFidelityGate), /gate de fidelidade/);
     const missingIntegrity = path.join(root, "missing-integrity.gemma4.literal.json");
     await writeFile(missingIntegrity, raw.replace(/,"integrityManifest":\{.*\}\}\n$/s, "}\n"));
     await assert.rejects(() => openGemma4CompositeLiteralArtifact(missingIntegrity), /não declara compromisso estrutural/);
@@ -2142,6 +2154,7 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
         assignment.scope === "vision" &&
         (assignment.operation === "attention-score-matmul" || assignment.operation === "attention-value-matmul"));
       const originalVisionCalculations = visionNativeBmm.map((assignment) => structuredClone(assignment.scalarCalculation));
+      const originalVisionOutputPolicies = visionNativeBmm.map((assignment) => structuredClone(assignment.outputDomain.dtypePolicy));
       try {
         for (const assignment of visionNativeBmm) {
           assignment.scalarCalculation.dtypePolicy = {
@@ -2153,6 +2166,7 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
           };
           delete assignment.scalarCalculation.reduction.schedule;
           assignment.scalarCalculation.reproducibility = "fail-closed-runtime-reduction";
+          assignment.outputDomain.dtypePolicy = structuredClone(assignment.scalarCalculation.dtypePolicy);
         }
         const runtimeReductions = listGemma4LiteralRuntimeReductionOperations(artifact);
         assert.deepEqual(new Set(runtimeReductions.map((entry) => entry.operationClass)), new Set([
@@ -2163,6 +2177,14 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
         assert.ok(runtimeReductions.every((entry) => entry.provider === "Apple Accelerate SGEMM" &&
           entry.scalarSchedule === "unpublished-fail-closed" &&
           entry.auditability === "operand-products-addressable-reduction-fail-closed"));
+        const fidelityGate = buildGemma4LiteralFidelityGate(artifact.calculationGraph, artifact.authoritativeExecution);
+        assert.equal(fidelityGate.status, "blocked-on-runtime-reduction");
+        assert.equal(fidelityGate.exactReplayClaim, "forbidden");
+        assert.equal(fidelityGate.unresolvedNativeReductionCount, runtimeReductions.length);
+        assert.deepEqual(
+          fidelityGate.unresolvedNativeReductions.map((entry) => entry.operationId),
+          runtimeReductions.map((entry) => entry.operationId),
+        );
 
         const imageScoreAudit = renderGemma4LiteralRuntimeReductionAudit(artifact, {
           operationId: "composite_image_features/vision_layer_0_attention_scores", outputCoordinate: [0, 0, 0, 0],
@@ -2220,7 +2242,10 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
           operationId: "composite_audio_features/audio_layer_0_q_scale", outputCoordinate: [0, 0, 0],
         }), /não possui redução runtime-defined/);
       } finally {
-        visionNativeBmm.forEach((assignment, index) => { assignment.scalarCalculation = originalVisionCalculations[index]!; });
+        visionNativeBmm.forEach((assignment, index) => {
+          assignment.scalarCalculation = originalVisionCalculations[index]!;
+          assignment.outputDomain.dtypePolicy = originalVisionOutputPolicies[index]!;
+        });
       }
 
       const duplicateId = artifact.program.visionProgram.assignments[1]!;

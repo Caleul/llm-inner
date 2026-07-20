@@ -254,6 +254,15 @@ recalcula a raiz sem materializar os payloads de 20 GiB, enquanto a verificaçã
 source-removed percorre e rehasha cada byte aprendido. Ausência, alteração ou
 reordenação não reconhecida falha antes da navegação ou replay.
 
+No schema v42, `fidelityGate` é a 24a seção comprometida pelo manifesto. O gate
+é reconstruído a partir de `calculationGraph` e `authoritativeExecution` e
+enumera toda redução `runtime-defined` com classe, ordinal, IDs, output e JSON
+Pointers para a semântica escalar e a coordenada navegável. Redução fora das
+cinco classes autoritativas, marcação fail-closed incompleta ou qualquer
+alteração da lista é rejeitada. Lista não vazia obriga
+`exactReplayClaim=forbidden`; lista vazia declara somente elegibilidade para
+uma certificação independente com replay source-removed e diferencial fresco.
+
 ## Critério de aceite
 
 Uma implementação só é candidata a fechar este requisito quando:

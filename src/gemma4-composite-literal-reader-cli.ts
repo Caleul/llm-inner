@@ -73,6 +73,7 @@ try {
         total + assignment.predecessors.filter((predecessor) => predecessor.producerOperationId !== undefined).length, 0),
       instantiatedInvocations: [...new Set(artifact.calculationGraph.assignments.flatMap((assignment) => assignment.invocationId ? [assignment.invocationId] : []))],
     },
+    fidelityGate: artifact.fidelityGate,
     coordinateNavigation: coordinateNavigationSummary(artifact.calculationGraph.assignments),
     scalarExecution: scalarExecutionSummary(artifact.calculationGraph.assignments),
     reductionDomains: reductionDomainSummary(artifact.calculationGraph.assignments),

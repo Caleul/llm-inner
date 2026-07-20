@@ -11,13 +11,10 @@ import {
   type Gemma4LiteralOutputCoordinateNavigation,
   type Gemma4LiteralPredecessorCoordinateNavigation,
 } from "./gemma4-literal-coordinate-accesses.js";
-
-export type Gemma4LiteralRuntimeReductionOperationClass =
-  | "vision-attention-score"
-  | "vision-attention-value"
-  | "audio-content-attention-score"
-  | "audio-position-attention-score"
-  | "audio-attention-value";
+import {
+  gemma4LiteralRuntimeReductionOperationClass,
+  type Gemma4LiteralRuntimeReductionOperationClass,
+} from "./gemma4-literal-fidelity-gate.js";
 
 export interface Gemma4LiteralRuntimeReductionOperation {
   operationId: string;
@@ -99,7 +96,7 @@ export function listGemma4LiteralRuntimeReductionOperations(
   const operations = listGemma4LiteralOperations(artifact).flatMap((navigation): Gemma4LiteralRuntimeReductionOperation[] => {
     const reduction = navigation.scalarCalculation.reduction;
     if (reduction?.order !== "runtime-defined") return [];
-    const operationClass = runtimeReductionOperationClass(navigation.scope, navigation.operation);
+    const operationClass = gemma4LiteralRuntimeReductionOperationClass(navigation.scope, navigation.operation);
     if (!declaredClasses.has(operationClass)) {
       throw new Error(`${navigation.operationId}: classe BMM ${operationClass} ausente do contrato autoritativo.`);
     }
@@ -146,7 +143,7 @@ export function renderGemma4LiteralRuntimeReductionAudit(
     throw new Error(`${request.operationId}: operação não possui redução runtime-defined para auditoria fail-closed.`);
   }
   if (reduction.domains.length !== 1) throw new Error(`${request.operationId}: auditoria BMM requer um único domínio de redução.`);
-  const operationClass = runtimeReductionOperationClass(navigation.scope, navigation.operation);
+  const operationClass = gemma4LiteralRuntimeReductionOperationClass(navigation.scope, navigation.operation);
   if (!artifact.authoritativeExecution.unresolvedNativeReduction.operationClasses.includes(operationClass)) {
     throw new Error(`${request.operationId}: classe ${operationClass} não pertence à fronteira autoritativa incorporada.`);
   }
@@ -235,18 +232,6 @@ export function renderGemma4LiteralRuntimeReductionAudit(
   };
 }
 
-function runtimeReductionOperationClass(
-  scope: Gemma4LiteralOperationNavigation["scope"],
-  operation: string,
-): Gemma4LiteralRuntimeReductionOperationClass {
-  if (scope === "vision" && operation === "attention-score-matmul") return "vision-attention-score";
-  if (scope === "vision" && operation === "attention-value-matmul") return "vision-attention-value";
-  if (scope === "audio" && operation === "chunked-attention-content-matmul") return "audio-content-attention-score";
-  if (scope === "audio" && operation === "relative-attention-position-matmul") return "audio-position-attention-score";
-  if (scope === "audio" && operation === "chunked-relative-attention-values") return "audio-attention-value";
-  throw new Error(`Redução runtime-defined inesperada em ${scope}:${operation}; nenhuma semântica BMM pode ser inferida.`);
-}
-
 function runtimeReductionOperands(
   artifact: OpenGemma4CompositeLiteralArtifact,
   navigation: Gemma4LiteralOperationNavigation,
@@ -256,7 +241,7 @@ function runtimeReductionOperands(
   if (inputs.length !== 2) throw new Error(`${navigation.operationId}: BMM requer exatamente dois orderedInputs.`);
   const [left, right] = inputs as [string, string];
   const tower = artifact.program.audioProgram.tower;
-  switch (runtimeReductionOperationClass(navigation.scope, navigation.operation)) {
+  switch (gemma4LiteralRuntimeReductionOperationClass(navigation.scope, navigation.operation)) {
     case "vision-attention-score": {
       requireCoordinateRank(coordinate, 4, navigation.operationId, "[batch,head,query_patch,key_patch]");
       const [batch, head, query, key] = coordinate;

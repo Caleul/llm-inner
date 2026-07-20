@@ -859,6 +859,24 @@ passaram. As 100 BMM Apple Accelerate continuam explicitamente
 `fail-closed-runtime-reduction`. Evidência completa em
 [`docs/validation/gemma4-e4b-mandatory-artifact-integrity-2026-07-19.md`](docs/validation/gemma4-e4b-mandatory-artifact-integrity-2026-07-19.md).
 
+O schema v42 incorpora um `fidelityGate` derivado do grafo canônico e coberto
+pelo manifesto de integridade. Ele enumera cada redução nativa cuja agenda
+escalar ainda é desconhecida, com classe de operação, ordinal, IDs de definição
+e invocação, output e JSON Pointers para a redução e sua coordenada. Qualquer
+divergência entre o gate, o grafo e o contrato autoritativo falha ao construir
+ou abrir o artefato. Enquanto a lista não estiver vazia, o próprio programa
+declara `exactReplayClaim=forbidden`; uma lista vazia seria apenas elegível para
+certificação independente, nunca autocertificada pela sessão que a produziu.
+
+No E4B real, o gate compromete exatamente as 100 BMM Apple Accelerate nas cinco
+classes autoritativas. O artefato tem 21.409.281.213 bytes, SHA-256
+`b5b826dae8a89001c437341c82a4bf4c828d79a065bdeb66be40667ffb90a72f`
+e raiz estrutural
+`ffe0578f74c82226d9eb6fb71f2035580fe8dcf52cf20cf84b685118134f5910`.
+Payloads, vista escalar e a suite diferencial das três modalidades foram
+executados com a fonte fisicamente ausente. Evidência completa em
+[`docs/validation/gemma4-e4b-integrity-bound-fidelity-gate-2026-07-19.md`](docs/validation/gemma4-e4b-integrity-bound-fidelity-gate-2026-07-19.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 
