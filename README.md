@@ -2501,3 +2501,41 @@ O núcleo é agnóstico ao contêiner e à quantização por usar backends separ
 ## Regra de igualdade
 
 O IR não declara igualdade bitwise apenas por ter os mesmos pesos. Para reproduzir o runtime original também são necessários dtype de cálculo, dtype de acumulação, ordem das reduções, máscara, RoPE, cache KV e arredondamentos. O campo `fidelity` mantém a validação diferencial como requisito obrigatório.
+
+## Programa global real simplificado (schema 61)
+
+O schema 61 preserva o programa IEEE anterior como baseline e acrescenta
+`realSimplifiedProgram`, com semântica `gemma4-exact-real-simplified-v1`.
+Nesse programa, cada valor BF16/F16/F32 aprendido é interpretado como o número
+racional diádico exato codificado pelos bits incorporados. Casts e
+arredondamentos IEEE intermediários são removidos; `exp`, `sin`, `cos`, `tanh`,
+`log1p` e `sqrt` denotam as funções matemáticas reais, e a quantização ocorre
+somente na fronteira pública declarada.
+
+O JSON contém uma função para cada uma das 2.560 dimensões de
+`final_hidden_states` e para cada um dos 262.144 logits. As funções compõem um
+DAG de operações content-addressed: isso é matematicamente equivalente à
+substituição integral, mas evita duplicar fisicamente a mesma subexpressão até
+esgotar memória. Os únicos inputs livres da closure textual são
+`hidden_states_0`, `ple_inputs`, posições, máscaras e cache; pesos continuam no
+artefato e são lidos como racionais, não como variáveis.
+
+As 100 reduções antes marcadas `runtime-defined` também possuem definições
+autônomas como somas finitas reais de produtos sobre seus operandos (32 de
+imagem, 32 de vídeo e 36 de áudio). Assim, a representação simplificada não
+contém uma fronteira `unpublished-provider-boundary`; a ordem do kernel nativo
+continua somente no baseline IEEE. A nova representação é deliberadamente uma
+candidata numérica e não promete paridade bitwise sem validação diferencial.
+
+O diferencial vetorizado pode ser executado com:
+
+```bash
+./venv/bin/python scripts/gemma4-real-differential.py \
+  --source ./gemma-4-E4B-dense \
+  --input-ids 2,818,5279,529,7001,563 \
+  --output /tmp/gemma4-real-differential.json
+```
+
+Ele compara o eager BF16 com operações F64 sem casts F32/BF16 intermediários,
+partindo das mesmas fronteiras de embedding/PLE e aplicando BF16 RNE somente
+nos logits terminais.

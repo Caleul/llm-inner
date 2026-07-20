@@ -90,6 +90,18 @@ try {
         total + assignment.predecessors.filter((predecessor) => predecessor.producerOperationId !== undefined).length, 0),
       instantiatedInvocations: [...new Set(artifact.calculationGraph.assignments.flatMap((assignment) => assignment.invocationId ? [assignment.invocationId] : []))],
     },
+    realSimplifiedProgram: {
+      semantics: artifact.realSimplifiedProgram.semantics,
+      inputBoundaries: artifact.realSimplifiedProgram.inputBoundaries,
+      expressionNodes: artifact.realSimplifiedProgram.expressionGraph.nodes.length,
+      operationFunctions: artifact.realSimplifiedProgram.operationFunctions.length,
+      outputFunctions: artifact.realSimplifiedProgram.outputFunctions.length,
+      outputFamilies: Object.fromEntries([...new Set(artifact.realSimplifiedProgram.outputFunctions.map((entry) => entry.name))].map((name) => [
+        name,
+        artifact.realSimplifiedProgram.outputFunctions.filter((entry) => entry.name === name).length,
+      ])),
+      coverage: artifact.realSimplifiedProgram.coverage,
+    },
     fidelityGate: artifact.fidelityGate,
     coordinateNavigation: coordinateNavigationSummary(artifact.calculationGraph.assignments),
     scalarExecution: scalarExecutionSummary(artifact.calculationGraph.assignments),

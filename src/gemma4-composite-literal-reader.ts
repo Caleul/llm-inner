@@ -89,12 +89,17 @@ import {
   type Gemma4CompositeLiteralPayloadIntegrityEntry,
   type Gemma4LiteralPayloadIntegrityChunk,
 } from "./gemma4-literal-payload-integrity.js";
+import {
+  validateGemma4ParametricExactRealProgram,
+  validateGemma4ParametricExactRealAlignment,
+  type Gemma4ParametricExactRealProgram,
+} from "./gemma4-parametric-global-real-program.js";
 
 const CONSTANTS_MARKER = Buffer.from(",\"constants\":[", "ascii");
 const PAYLOAD_MARKER = Buffer.from(",\"payloadBase64\":\"", "ascii");
 const QUOTE = '"'.charCodeAt(0);
 const SCAN_CHUNK_BYTES = 1024 * 1024;
-const MAX_STRUCTURAL_JSON_BYTES = 64 * 1024 * 1024;
+const MAX_STRUCTURAL_JSON_BYTES = 512 * 1024 * 1024;
 
 export interface IndexedLiteralConstant extends Omit<LiteralConstant, "payloadBase64"> {
   payloadOffset: number;
@@ -126,6 +131,7 @@ export interface Gemma4CompositeLiteralArtifactIndex {
   transcendentalPrograms: Gemma4LiteralTranscendentalPrograms;
   numericLiterals: Gemma4LiteralNumericLiterals;
   calculationGraph: Gemma4LiteralCalculationGraph;
+  realSimplifiedProgram: Gemma4ParametricExactRealProgram;
   fidelityGate: Gemma4LiteralFidelityGate;
   forwardControl: Gemma4LiteralForwardControlProgram;
   inputContract: Gemma4LiteralInputContract;
@@ -247,7 +253,7 @@ function buildIndex(
   tail: Partial<Gemma4CompositeLiteralCalculationProgram>,
   constants: ReadonlyMap<string, IndexedLiteralConstant>,
 ): Gemma4CompositeLiteralArtifactIndex {
-  if (!Array.isArray(tail.storageDecoders) || !tail.denseDecoderLanguage || !Array.isArray(tail.unreachableConstants) || !tail.program || !tail.assignments || !tail.calculationDomains || !tail.learnedOperands || !tail.scalarCalculations || !tail.formulaLanguage || !tail.transcendentalPrograms || !tail.numericLiterals || !tail.calculationGraph || !tail.fidelityGate || !tail.forwardControl || !tail.inputContract || !tail.outputContract || !tail.outputs || !tail.generation) {
+  if (!Array.isArray(tail.storageDecoders) || !tail.denseDecoderLanguage || !Array.isArray(tail.unreachableConstants) || !tail.program || !tail.assignments || !tail.calculationDomains || !tail.learnedOperands || !tail.scalarCalculations || !tail.formulaLanguage || !tail.transcendentalPrograms || !tail.numericLiterals || !tail.calculationGraph || !tail.realSimplifiedProgram || !tail.fidelityGate || !tail.forwardControl || !tail.inputContract || !tail.outputContract || !tail.outputs || !tail.generation) {
     throw new Error("Artefato literal Gemma 4 não declara a cauda semântica completa.");
   }
   const storageDecoders = tail.storageDecoders as LiteralDenseStorageDecodeAssignment[];
@@ -293,6 +299,14 @@ function buildIndex(
     (tail.generation as Gemma4LiteralGreedyGenerationProgram).forwardCalculation,
   );
   validateGemma4LiteralCalculationGraph(tail.calculationGraph as Gemma4LiteralCalculationGraph, tail.program as Gemma4CompositeProgram);
+  validateGemma4ParametricExactRealAlignment(
+    tail.realSimplifiedProgram as Gemma4ParametricExactRealProgram,
+    tail.calculationGraph as Gemma4LiteralCalculationGraph,
+    {
+      final_hidden_dimension: { dimensions: (tail.program as Gemma4CompositeProgram).textProgram.architecture.hiddenSize, finalQuantization: "BF16-round-to-nearest-ties-to-even" },
+      terminal_logit: { dimensions: (tail.program as Gemma4CompositeProgram).textProgram.architecture.vocabSize ?? 0, finalQuantization: "BF16-round-to-nearest-ties-to-even" },
+    },
+  );
   validateGemma4LiteralFidelityGate(
     tail.fidelityGate as Gemma4LiteralFidelityGate,
     tail.calculationGraph as Gemma4LiteralCalculationGraph,
@@ -334,6 +348,7 @@ function buildIndex(
       transcendentalPrograms: tail.transcendentalPrograms,
       numericLiterals: tail.numericLiterals,
       calculationGraph: tail.calculationGraph,
+      realSimplifiedProgram: tail.realSimplifiedProgram,
       fidelityGate: tail.fidelityGate,
       forwardControl: tail.forwardControl,
       inputContract: tail.inputContract,
@@ -362,6 +377,7 @@ function buildIndex(
     transcendentalPrograms: tail.transcendentalPrograms as Gemma4LiteralTranscendentalPrograms,
     numericLiterals: tail.numericLiterals as Gemma4LiteralNumericLiterals,
     calculationGraph: tail.calculationGraph as Gemma4LiteralCalculationGraph,
+    realSimplifiedProgram: tail.realSimplifiedProgram as Gemma4ParametricExactRealProgram,
     fidelityGate: tail.fidelityGate as Gemma4LiteralFidelityGate,
     forwardControl: tail.forwardControl as Gemma4LiteralForwardControlProgram,
     inputContract: tail.inputContract as Gemma4LiteralInputContract,

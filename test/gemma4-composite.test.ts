@@ -749,9 +749,18 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 60);
+  assert.equal(literal.schemaVersion, 61);
   assert.equal(literal.payloadIntegrity.length, catalog.tensors.size);
-  assert.equal(literal.integrityManifest.sections.length, 24);
+  assert.equal(literal.integrityManifest.sections.length, 25);
+  assert.equal(literal.realSimplifiedProgram.semantics, "gemma4-exact-real-simplified-v1");
+  assert.equal(literal.realSimplifiedProgram.outputFunctions.length,
+    program.textProgram.architecture.hiddenSize + program.textProgram.architecture.vocabSize!);
+  assert.ok(literal.realSimplifiedProgram.outputFunctions.every((output) => output.finalQuantization === "BF16-round-to-nearest-ties-to-even"));
+  assert.equal(literal.realSimplifiedProgram.coverage.unresolvedRuntimeReductions, 0);
+  assert.equal(literal.realSimplifiedProgram.coverage.intermediateIeeeRoundingNodes, 0);
+  const brokenRealQuantization = structuredClone(literal);
+  brokenRealQuantization.realSimplifiedProgram.outputFunctions.at(-1)!.finalQuantization = "F32-round-to-nearest-ties-to-even";
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(brokenRealQuantization), /uma função por dimensão pública/);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   const brokenSourceCoverage = structuredClone(literal);
@@ -1704,7 +1713,7 @@ test("Gemma 4 composite streamed writer emits an atomic self-contained JSON file
     assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
     assert.equal(Buffer.from(literal.sourceIdentity.files.find((file: { path: string }) => file.path === "config.json").content.payloadBase64, "base64").toString("utf8"), "{}");
     assert.equal(literal.payloadIntegrity.length, catalog.tensors.size);
-    assert.equal(literal.integrityManifest.sections.length, 24);
+    assert.equal(literal.integrityManifest.sections.length, 25);
     const embedded = literal.payloadIntegrity.find((entry: { name: string }) => entry.name === "model.language_model.embed_tokens.weight")!;
     assert.equal(embedded.sha256, createHash("sha256").update(denseF32Bytes(sourceTensors.get(embedded.name)!)).digest("hex"));
     assert.equal(embedded.chunking.coverage, "ordered-gap-free-decoded-payload-bytes");
@@ -1743,7 +1752,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 60);
+      assert.equal(artifact.schemaVersion, 61);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.equal(artifact.authoritativeExecution.unresolvedNativeReduction.executableReplay.adapterProgram.sha256,
@@ -1775,7 +1784,9 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
         `/integrityManifest/sections/${artifact.integrityManifest.sections.findIndex((section) => section.name === "sourceIdentity")}`);
       assert.equal("payloadBase64" in artifact.constants.get(tensor.name)!, false);
       assert.equal(artifact.payloadIntegrity.size, catalog.tensors.size);
-      assert.equal(artifact.integrityManifest.sections.length, 24);
+      assert.equal(artifact.integrityManifest.sections.length, 25);
+      assert.equal(artifact.realSimplifiedProgram.semantics, "gemma4-exact-real-simplified-v1");
+      assert.ok(artifact.realSimplifiedProgram.outputFunctions.every((output) => output.finalQuantization === "BF16-round-to-nearest-ties-to-even"));
       assert.equal(artifact.fidelityGate.exactReplayClaim, "forbidden");
       assert.equal(artifact.fidelityGate.unresolvedNativeReductionCount, artifact.fidelityGate.unresolvedNativeReductions.length);
       assert.equal(artifact.generation.kind, "gemma4-literal-greedy-generation-program");

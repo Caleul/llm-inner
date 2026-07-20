@@ -127,6 +127,12 @@ import {
   type Gemma4CompositeLiteralPayloadIntegrityEntry,
   type Gemma4LiteralPayloadIntegrityChunk,
 } from "./gemma4-literal-payload-integrity.js";
+import {
+  buildGemma4ParametricExactRealProgram,
+  validateGemma4ParametricExactRealAlignment,
+  validateGemma4ParametricExactRealProgram,
+  type Gemma4ParametricExactRealProgram,
+} from "./gemma4-parametric-global-real-program.js";
 
 export type { Gemma4CompositeLiteralPayloadIntegrityEntry } from "./gemma4-literal-payload-integrity.js";
 
@@ -189,7 +195,7 @@ export interface Gemma4LiteralGreedyGenerationProgram {
   };
 }
 
-export const GEMMA4_COMPOSITE_LITERAL_SCHEMA_VERSION = 60 as const;
+export const GEMMA4_COMPOSITE_LITERAL_SCHEMA_VERSION = 61 as const;
 
 /**
  * A source-independent literal program for the complete registered Gemma 4
@@ -260,6 +266,8 @@ export interface Gemma4CompositeLiteralCalculationProgram extends LiteralStorage
   numericLiterals: Gemma4LiteralNumericLiterals;
   /** Fully instantiated, dependency-ordered forward graph with all subprogram call-site bindings. */
   calculationGraph: Gemma4LiteralCalculationGraph;
+  /** Closed exact-real output functions with learned storage decoded as rational constants. */
+  realSimplifiedProgram: Gemma4ParametricExactRealProgram;
   /** Integrity-bound, graph-derived prohibition against overclaiming unresolved native reductions. */
   fidelityGate: Gemma4LiteralFidelityGate;
   /** Normative optional-input routing and identity aliases for the composite forward. */
@@ -333,6 +341,7 @@ export async function buildGemma4CompositeLiteralCalculationProgram(
   });
   const embeddedProgram = embeddedCompositeProgram(program);
   const calculationGraph = buildGemma4LiteralCalculationGraph(embeddedProgram);
+  const realSimplifiedProgram = buildCompositeExactRealProgram(embeddedProgram, calculationGraph);
   const authoritativeExecution = gemma4AuthoritativeExecutionContract(await loadGemma4RuntimeReductionAdapterProgram());
   const fidelityGate = buildGemma4LiteralFidelityGate(calculationGraph, authoritativeExecution);
   const scalarCalculations = buildGemma4LiteralScalarCalculations(embeddedProgram);
@@ -368,6 +377,7 @@ export async function buildGemma4CompositeLiteralCalculationProgram(
     transcendentalPrograms: buildGemma4LiteralTranscendentalPrograms(),
     numericLiterals: buildGemma4LiteralNumericLiterals(scalarCalculations, generation.scalarCalculations, generation.forwardCalculation),
     calculationGraph,
+    realSimplifiedProgram,
     fidelityGate,
     forwardControl,
     inputContract,
@@ -452,6 +462,7 @@ export async function writeGemma4CompositeLiteralCalculationProgram(
       transcendentalPrograms: prepared.transcendentalPrograms,
       numericLiterals: prepared.numericLiterals,
       calculationGraph: prepared.calculationGraph,
+      realSimplifiedProgram: prepared.realSimplifiedProgram,
       fidelityGate: prepared.fidelityGate,
       forwardControl: prepared.forwardControl,
       inputContract: prepared.inputContract,
@@ -461,7 +472,7 @@ export async function writeGemma4CompositeLiteralCalculationProgram(
       payloadIntegrity,
     };
     const integrityManifest = buildGemma4LiteralArtifactIntegrityManifest(gemma4LiteralIntegritySections(integritySource));
-    await write(`],"unreachableConstants":${JSON.stringify(prepared.unreachableConstants)},"storageDecoders":${JSON.stringify(prepared.storageDecoders)},"denseDecoderLanguage":${JSON.stringify(prepared.denseDecoderLanguage)},"program":${JSON.stringify(prepared.embeddedProgram)},"assignments":${JSON.stringify(prepared.assignments)},"calculationDomains":${JSON.stringify(prepared.calculationDomains)},"learnedOperands":${JSON.stringify(prepared.learnedOperands)},"scalarCalculations":${JSON.stringify(prepared.scalarCalculations)},"formulaLanguage":${JSON.stringify(prepared.formulaLanguage)},"transcendentalPrograms":${JSON.stringify(prepared.transcendentalPrograms)},"numericLiterals":${JSON.stringify(prepared.numericLiterals)},"calculationGraph":${JSON.stringify(prepared.calculationGraph)},"fidelityGate":${JSON.stringify(prepared.fidelityGate)},"forwardControl":${JSON.stringify(prepared.forwardControl)},"inputContract":${JSON.stringify(prepared.inputContract)},"outputContract":${JSON.stringify(prepared.outputContract)},"outputs":${JSON.stringify(prepared.outputs)},"generation":${JSON.stringify(prepared.generation)},"payloadIntegrity":${JSON.stringify(payloadIntegrity)},"integrityManifest":${JSON.stringify(integrityManifest)}}\n`);
+    await write(`],"unreachableConstants":${JSON.stringify(prepared.unreachableConstants)},"storageDecoders":${JSON.stringify(prepared.storageDecoders)},"denseDecoderLanguage":${JSON.stringify(prepared.denseDecoderLanguage)},"program":${JSON.stringify(prepared.embeddedProgram)},"assignments":${JSON.stringify(prepared.assignments)},"calculationDomains":${JSON.stringify(prepared.calculationDomains)},"learnedOperands":${JSON.stringify(prepared.learnedOperands)},"scalarCalculations":${JSON.stringify(prepared.scalarCalculations)},"formulaLanguage":${JSON.stringify(prepared.formulaLanguage)},"transcendentalPrograms":${JSON.stringify(prepared.transcendentalPrograms)},"numericLiterals":${JSON.stringify(prepared.numericLiterals)},"calculationGraph":${JSON.stringify(prepared.calculationGraph)},"realSimplifiedProgram":${JSON.stringify(prepared.realSimplifiedProgram)},"fidelityGate":${JSON.stringify(prepared.fidelityGate)},"forwardControl":${JSON.stringify(prepared.forwardControl)},"inputContract":${JSON.stringify(prepared.inputContract)},"outputContract":${JSON.stringify(prepared.outputContract)},"outputs":${JSON.stringify(prepared.outputs)},"generation":${JSON.stringify(prepared.generation)},"payloadIntegrity":${JSON.stringify(payloadIntegrity)},"integrityManifest":${JSON.stringify(integrityManifest)}}\n`);
     stream.end();
     await once(stream, "finish");
     await rename(temporary, output);
@@ -603,6 +614,10 @@ export function validateGemma4CompositeLiteralCalculationProgram(literal: Gemma4
   ]);
   validateGemma4LiteralNumericLiterals(literal.numericLiterals, literal.scalarCalculations, literal.generation.scalarCalculations, literal.generation.forwardCalculation);
   validateGemma4LiteralCalculationGraph(literal.calculationGraph, literal.program);
+  validateGemma4ParametricExactRealAlignment(literal.realSimplifiedProgram, literal.calculationGraph, {
+    final_hidden_dimension: { dimensions: literal.program.textProgram.architecture.hiddenSize, finalQuantization: "BF16-round-to-nearest-ties-to-even" },
+    terminal_logit: { dimensions: literal.program.textProgram.architecture.vocabSize ?? 0, finalQuantization: "BF16-round-to-nearest-ties-to-even" },
+  });
   validateGemma4LiteralFidelityGate(literal.fidelityGate, literal.calculationGraph, literal.authoritativeExecution);
   validateGemma4LiteralForwardControlProgram(literal.forwardControl, literal.program);
   validateGemma4LiteralInputContract(literal.inputContract, literal.program);
@@ -656,6 +671,7 @@ export function gemma4LiteralIntegritySections(source: {
   transcendentalPrograms: unknown;
   numericLiterals: unknown;
   calculationGraph: unknown;
+  realSimplifiedProgram: unknown;
   fidelityGate: unknown;
   forwardControl: unknown;
   inputContract: unknown;
@@ -685,6 +701,7 @@ export function gemma4LiteralIntegritySections(source: {
     transcendentalPrograms: source.transcendentalPrograms,
     numericLiterals: source.numericLiterals,
     calculationGraph: source.calculationGraph,
+    realSimplifiedProgram: source.realSimplifiedProgram,
     fidelityGate: source.fidelityGate,
     forwardControl: source.forwardControl,
     inputContract: source.inputContract,
@@ -1062,12 +1079,51 @@ interface PreparedStreamedDenseLiteral {
   transcendentalPrograms: Gemma4LiteralTranscendentalPrograms;
   numericLiterals: Gemma4LiteralNumericLiterals;
   calculationGraph: Gemma4LiteralCalculationGraph;
+  realSimplifiedProgram: Gemma4ParametricExactRealProgram;
   fidelityGate: Gemma4LiteralFidelityGate;
   forwardControl: Gemma4LiteralForwardControlProgram;
   inputContract: Gemma4LiteralInputContract;
   outputContract: Gemma4LiteralOutputContract;
   outputs: Gemma4CompositeLiteralCalculationProgram["outputs"];
   generation: Gemma4LiteralGreedyGenerationProgram;
+}
+
+const GEMMA4_EXACT_REAL_INPUT_BOUNDARIES = new Set([
+  "hidden_states_0",
+  "ple_inputs",
+  "position_ids",
+  "sliding_attention_mask",
+  "full_attention_mask",
+  "past_key_values",
+]);
+
+function buildCompositeExactRealProgram(
+  program: Gemma4CompositeProgram,
+  graph: Gemma4LiteralCalculationGraph,
+): Gemma4ParametricExactRealProgram {
+  const hiddenSize = program.textProgram.architecture.hiddenSize;
+  const vocabSize = program.textProgram.architecture.vocabSize;
+  if (!vocabSize) throw new Error("Programa Gemma 4 requer vocabulário para funções reais terminais.");
+  const logitsOperation = program.outputs.logits === "softcapped_logits" ? "final_logit_softcap" : "lm_head";
+  const runtimeReductionOperations = graph.assignments
+    .filter((assignment) => assignment.scalarCalculation.reduction?.order === "runtime-defined")
+    .map((assignment) => assignment.operationId);
+  return buildGemma4ParametricExactRealProgram(graph, [
+    {
+      name: "final_hidden_dimension",
+      operationId: "final_norm",
+      dimensions: hiddenSize,
+      parameterAxes: ["batch", "sequence"],
+      finalQuantization: "BF16-round-to-nearest-ties-to-even",
+    },
+    {
+      name: "terminal_logit",
+      operationId: logitsOperation,
+      dimensions: vocabSize,
+      parameterAxes: ["batch", "sequence"],
+      finalQuantization: "BF16-round-to-nearest-ties-to-even",
+    },
+  ], GEMMA4_EXACT_REAL_INPUT_BOUNDARIES, runtimeReductionOperations);
 }
 
 /** Builds and validates all non-payload state before opening the output file. */
@@ -1106,6 +1162,7 @@ function prepareStreamedDenseLiteral(
   const learnedOperands = buildGemma4LiteralLearnedOperandBindings(embeddedProgram);
   const scalarCalculations = buildGemma4LiteralScalarCalculations(embeddedProgram);
   const calculationGraph = buildGemma4LiteralCalculationGraph(embeddedProgram);
+  const realSimplifiedProgram = buildCompositeExactRealProgram(embeddedProgram, calculationGraph);
   const fidelityGate = buildGemma4LiteralFidelityGate(calculationGraph, authoritativeExecution);
   const forwardControl = buildGemma4LiteralForwardControlProgram(embeddedProgram);
   const inputContract = buildGemma4LiteralInputContract(embeddedProgram);
@@ -1124,6 +1181,7 @@ function prepareStreamedDenseLiteral(
   ]);
   validateGemma4LiteralNumericLiterals(numericLiterals, scalarCalculations, generation.scalarCalculations, generation.forwardCalculation);
   validateGemma4LiteralCalculationGraph(calculationGraph, embeddedProgram);
+  validateGemma4ParametricExactRealProgram(realSimplifiedProgram);
   validateGemma4LiteralFidelityGate(fidelityGate, calculationGraph, authoritativeExecution);
   validateGemma4LiteralForwardControlProgram(forwardControl, embeddedProgram);
   validateGemma4LiteralInputContract(inputContract, embeddedProgram);
@@ -1144,6 +1202,7 @@ function prepareStreamedDenseLiteral(
     transcendentalPrograms,
     numericLiterals,
     calculationGraph,
+    realSimplifiedProgram,
     fidelityGate,
     forwardControl,
     inputContract,

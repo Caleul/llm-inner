@@ -27,6 +27,7 @@
     "audit:gemma4": "npm run build && node dist/src/gemma4-contract-cli.js",
     "audit:literal": "npm run build && node dist/src/literal-artifact-audit-cli.js",
     "inspect:gemma4-literal": "npm run build && node dist/src/gemma4-composite-literal-reader-cli.js",
+    "compile:gemma4-real": "npm run build && node dist/src/gemma4-global-real-cli.js",
     "replay:gemma4-paged-text": "npm run build && node dist/src/gemma4-paged-text-cli.js",
     "probe:gemma4-linear-reduction": "npm run build && node dist/src/gemma4-linear-reduction-probe-cli.js",
     "benchmark:native": "npm run build && node dist/src/benchmark-cli.js",
