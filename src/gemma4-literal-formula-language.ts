@@ -12,12 +12,13 @@ import {
 
 export interface Gemma4LiteralFormulaLanguageContract {
   kind: "gemma4-literal-formula-language-contract";
-  schemaVersion: 23;
+  schemaVersion: 24;
   languageId: "indexed-ieee754-expression-v1";
   authority: {
     forwardAssignments: "/scalarCalculations/assignments";
     forwardScalarExecution: "/calculationGraph/assignments/*/scalarCalculation/scalarAssignments";
     forwardScalarDataflow: "/calculationGraph/assignments/*/scalarCalculation/statementDataflow";
+    forwardScalarPrograms: "/calculationGraph/assignments/*/scalarCalculation/statementPrograms";
     forwardControlProgram: "/forwardControl";
     inputContract: "/inputContract";
     outputContract: "/outputContract";
@@ -65,6 +66,17 @@ export interface Gemma4LiteralFormulaLanguageContract {
     bounds: string;
     aliases: string;
     programs: Gemma4LiteralIndexingPrograms;
+  };
+  scalarPrograms: {
+    authority: string;
+    nodeKinds: string;
+    evaluationOrder: string;
+    calls: string;
+    namedArguments: string;
+    filteredDomains: string;
+    orderedLoops: string;
+    evaluateInvocation: string;
+    sourceRendering: string;
   };
   scalarTypes: Array<{ name: "F64" | "F32" | "BF16" | "I32" | "BOOL"; semantics: string }>;
   operators: Array<{ notation: string; semantics: string }>;
@@ -436,12 +448,13 @@ function pytorchPairwiseReduce(values: readonly number[], operation: "maximum" |
 export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormulaLanguageContract {
   return {
     kind: "gemma4-literal-formula-language-contract",
-    schemaVersion: 23,
+    schemaVersion: 24,
     languageId: "indexed-ieee754-expression-v1",
     authority: {
       forwardAssignments: "/scalarCalculations/assignments",
       forwardScalarExecution: "/calculationGraph/assignments/*/scalarCalculation/scalarAssignments",
       forwardScalarDataflow: "/calculationGraph/assignments/*/scalarCalculation/statementDataflow",
+      forwardScalarPrograms: "/calculationGraph/assignments/*/scalarCalculation/statementPrograms",
       forwardControlProgram: "/forwardControl",
       inputContract: "/inputContract",
       outputContract: "/outputContract",
@@ -466,7 +479,7 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
       reductionDomains: "/scalarCalculations/assignments/*/(reduction|reductionStages/*)/domains",
     },
     evaluation: {
-      dependencyOrder: "evaluate instantiated assignments by ascending ordinal; within each assignment evaluate scalarAssignments in array order, where every local and precondition precedes the final output assignment; every predecessor must already exist",
+      dependencyOrder: "evaluate instantiated assignments by ascending ordinal; within each assignment evaluate statementPrograms in ordinal order, where every local and precondition precedes the final output assignment; scalarAssignments is the audit rendering and every predecessor must already exist",
       scalarIntermediateNavigation: "statementDataflow has one entry per scalarAssignments ordinal; writes identifies each local or terminal output coordinate, reads binds every distinct local access to its earlier producerStatementOrdinal, coordinatePrograms are executable under calculationGraph.coordinateLanguage, and consumerStatementOrdinals are the exact reverse edges",
       predecessorNavigation: "for each predecessor, accesses lists every distinct tensor-element or tensor-shape expression in first-use order; coordinatePrograms and axisProgram are closed under the owning output axes, reduction domains, prior locals and explicit tensor-axis reads in calculationGraph.coordinateLanguage; free host extent aliases are invalid; whole-value marks an unindexed structured/control read, while an empty list with scalarUse=shape-or-control-only declares that the dependency affects domain or branch selection rather than the scalar expression",
       outputAndConsumerNavigation: "outputCoordinate.write is the unique left-hand tensor element assigned by the scalar program and carries executable coordinatePrograms; shapeAssertions carry executable axisProgram values, and consumerCoordinates repeats every downstream read and program grouped by consumer operation so traversal is exact in both dependency directions without parsing the human expression string",
@@ -489,6 +502,17 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
       bounds: "every symbolic coordinate is bounded by calculationDomains; out-of-domain reads are errors unless the formula explicitly defines padding",
       aliases: "reshape, transpose, row_major_alias and indexed predecessor references preserve exact elements and perform no arithmetic cast",
       programs: gemma4LiteralIndexingPrograms(),
+    },
+    scalarPrograms: {
+      authority: "statementPrograms[*].expression is the executable syntax authority for its same-ordinal scalarAssignments audit rendering",
+      nodeKinds: "literal, identifier, array, unary, binary, conditional, call, index, member, range-inclusive, named-argument, filtered-domain, ordered-loop and evaluate-invocation are a closed tagged union; an unknown kind is invalid",
+      evaluationOrder: "evaluate child nodes left-to-right; binary && and || short-circuit, conditional evaluates only its selected branch, index coordinates are evaluated in axis order and explicit casts round immediately",
+      calls: "call evaluates its callee then positional arguments left-to-right; the callee must resolve to an intrinsic, cast, reduction program, decoder, indexing program or transcendental program registered by this artifact",
+      namedArguments: "named-argument binds a reduction index, range, lane count or schedule label by exact name inside the owning registered call; duplicate or unrecognized names are invalid",
+      filteredDomains: "filtered-domain enumerates its range in declared order and evaluates the predicate at each bound index; false coordinates are skipped without evaluating the reduction body",
+      orderedLoops: "ordered-loop enumerates its inclusive domain in ascending order and evaluates body once per index; loop-carried indexed locals observe only values written by earlier iterations",
+      evaluateInvocation: "evaluate-invocation selects calculationGraph assignments whose invocationId equals predicateValue, executes them by ascending ordinal with orderedInputs bound positionally, and reads terminalOutput at terminalCoordinates",
+      sourceRendering: "source is non-authoritative audit text and must correspond byte-for-byte to scalarAssignments[ordinal]; readers execute the tagged tree and never reparse source",
     },
     scalarTypes: [
       { name: "F64", semantics: "IEEE-754 binary64 round-to-nearest ties-to-even; F64(expr) materializes one rounding boundary" },

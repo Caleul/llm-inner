@@ -30,6 +30,7 @@ import {
   type Gemma4LiteralCoordinateAccess,
   type Gemma4LiteralOutputCoordinateNavigation,
 } from "./gemma4-literal-coordinate-accesses.js";
+import { bindGemma4LiteralScalarStatementPrograms } from "./gemma4-literal-scalar-statement-programs.js";
 
 type NonTextAssignment = Gemma4CompositeAssignment | Gemma4VisionAssignment | Gemma4AudioAssignment;
 
@@ -67,7 +68,7 @@ export interface Gemma4LiteralInstantiatedCalculation {
 
 export interface Gemma4LiteralCalculationGraph {
   kind: "gemma4-literal-instantiated-calculation-graph";
-  schemaVersion: 6;
+  schemaVersion: 7;
   order: "dependency-order";
   coordinateLanguage: Gemma4LiteralCoordinateExpressionLanguage;
   assignments: Gemma4LiteralInstantiatedCalculation[];
@@ -159,7 +160,7 @@ export function buildGemma4LiteralCalculationGraph(program: Gemma4CompositeProgr
   assignments.forEach(validateCoordinateClosure);
   return {
     kind: "gemma4-literal-instantiated-calculation-graph",
-    schemaVersion: 6,
+    schemaVersion: 7,
     order: "dependency-order",
     coordinateLanguage: gemma4LiteralCoordinateExpressionLanguage(),
     assignments,
@@ -170,7 +171,7 @@ export function validateGemma4LiteralCalculationGraph(
   graph: Gemma4LiteralCalculationGraph,
   program: Gemma4CompositeProgram,
 ): void {
-  if (graph.kind !== "gemma4-literal-instantiated-calculation-graph" || graph.schemaVersion !== 6 || graph.order !== "dependency-order") {
+  if (graph.kind !== "gemma4-literal-instantiated-calculation-graph" || graph.schemaVersion !== 7 || graph.order !== "dependency-order") {
     throw new Error("Programa literal Gemma 4 possui cabeçalho de grafo de cálculo inválido.");
   }
   if (!isDeepStrictEqual(graph, buildGemma4LiteralCalculationGraph(program))) {
@@ -361,6 +362,11 @@ function bindCalculation(
       scalarAssignments,
       output,
       `${calculation.scope}:${calculation.definitionId}:instantiated`,
+    ),
+    statementPrograms: bindGemma4LiteralScalarStatementPrograms(
+      calculation.statementPrograms,
+      bindings,
+      scalarAssignments,
     ),
     formula: bindGemma4LiteralNames(calculation.formula, bindings),
     ...(calculation.reduction ? {

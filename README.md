@@ -797,6 +797,28 @@ vídeo e áudio a tolerância zero. As 100 BMM Apple Accelerate permanecem
 nativa. Comandos, contagens e hashes estão em
 [`docs/validation/gemma4-e4b-scalar-intermediate-dataflow-2026-07-19.md`](docs/validation/gemma4-e4b-scalar-intermediate-dataflow-2026-07-19.md).
 
+O schema v39 remove a última necessidade de reparsar essas fórmulas forward.
+Cada ordinal agora incorpora `statementPrograms`, uma árvore sintática fechada
+com destinos, literals, identifiers, arrays, casts/calls, índices, membros,
+operadores unários/binários, condicionais, ranges, argumentos nomeados,
+domínios filtrados, loops ascendentes e invocações composite. A string
+`scalarAssignments[ordinal]` continua como rendering humano, mas a árvore é a
+autoridade executável e precisa corresponder exatamente a ela. O binding de
+call site é estrutural, de modo que caminhos como
+`composite_image_features/vision_layer_0_q` permanecem um identificador e não
+são reinterpretados como divisão.
+
+No E4B real, os 4.144 statements produziram 4.144 programas e 118.780 nós de
+expressão, incluindo 1.718 calls de redução/FMA/dot, dois loops ascendentes e
+64 domínios filtrados. A construção de todas as classes também encontrou e
+corrigiu os parênteses desequilibrados na fórmula de posição relativa de áudio.
+O artefato de 21.406.708.755 bytes tem SHA-256
+`942a33a61a7380bf8e0f12a916fc47dc183c7b678706e78e73e3b066b19a35d5`.
+Payloads, vista escalar, fecho forward/greedy e a suite diferencial das três
+modalidades passaram com a fonte fisicamente ausente. As 100 BMM Apple
+Accelerate continuam `fail-closed-runtime-reduction`. A prova completa está em
+[`docs/validation/gemma4-e4b-executable-scalar-statement-programs-2026-07-19.md`](docs/validation/gemma4-e4b-executable-scalar-statement-programs-2026-07-19.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 

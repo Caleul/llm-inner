@@ -24,6 +24,10 @@ import {
   type Gemma4LiteralReductionExtent,
   type Gemma4LiteralReductionIndexDomain,
 } from "./gemma4-literal-reduction-domains.js";
+import {
+  buildGemma4LiteralScalarStatementPrograms,
+  type Gemma4LiteralScalarStatementProgram,
+} from "./gemma4-literal-scalar-statement-programs.js";
 
 type MultimodalAssignment = Gemma4CompositeAssignment | Gemma4VisionAssignment | Gemma4AudioAssignment;
 
@@ -87,6 +91,8 @@ export interface Gemma4LiteralScalarCalculation {
    * so a reader never has to recover intra-operation dataflow from strings.
    */
   statementDataflow: Gemma4LiteralScalarStatementDataflow[];
+  /** Closed syntax trees for execution without reparsing `scalarAssignments`. */
+  statementPrograms: Gemma4LiteralScalarStatementProgram[];
   formula: string;
   dtypePolicy: DtypePolicy;
   reduction?: Gemma4LiteralScalarReduction;
@@ -96,7 +102,7 @@ export interface Gemma4LiteralScalarCalculation {
 
 export interface Gemma4LiteralScalarCalculations {
   kind: "gemma4-literal-scalar-calculations";
-  schemaVersion: 4;
+  schemaVersion: 5;
   formulaLanguage: "indexed-ieee754-expression-v1";
   assignments: Gemma4LiteralScalarCalculation[];
 }
@@ -163,6 +169,11 @@ export function buildGemma4LiteralScalarCalculations(program: Gemma4CompositePro
       definition.output,
       `${definition.scope}:${definition.id}`,
     );
+    const statementPrograms = buildGemma4LiteralScalarStatementPrograms(
+      scalarAssignments,
+      definition.output,
+      `${definition.scope}:${definition.id}`,
+    );
     return {
       scope: definition.scope,
       definitionId: definition.id,
@@ -173,6 +184,7 @@ export function buildGemma4LiteralScalarCalculations(program: Gemma4CompositePro
       learnedOperandRoles,
       scalarAssignments,
       statementDataflow,
+      statementPrograms,
       formula,
       dtypePolicy: structuredClone(dtypePolicy),
       ...(reduction ? { reduction } : {}),
@@ -191,7 +203,7 @@ export function buildGemma4LiteralScalarCalculations(program: Gemma4CompositePro
   validateOperandClosedFormulas(assignments);
   return {
     kind: "gemma4-literal-scalar-calculations",
-    schemaVersion: 4,
+    schemaVersion: 5,
     formulaLanguage: "indexed-ieee754-expression-v1",
     assignments,
   };
@@ -512,7 +524,7 @@ export function validateGemma4LiteralScalarCalculations(
   calculations: Gemma4LiteralScalarCalculations,
   program: Gemma4CompositeProgram,
 ): void {
-  if (calculations.kind !== "gemma4-literal-scalar-calculations" || calculations.schemaVersion !== 4 ||
+  if (calculations.kind !== "gemma4-literal-scalar-calculations" || calculations.schemaVersion !== 5 ||
     calculations.formulaLanguage !== "indexed-ieee754-expression-v1") {
     throw new Error("Programa literal Gemma 4 possui cabeçalho de cálculos escalares inválido.");
   }
@@ -661,7 +673,13 @@ function scalarFormula(definition: Definition, program: Gemma4CompositeProgram, 
         `inv_std=PYTORCH_POW_NEGATIVE_HALF_F32(F32(variance+F32(${program.audioProgram.rmsNormEpsilon})))`;
     }
     case "relu": return `${lhs} = ${cast}(F32(max(0,${input()})))`;
-    case "relative-position-encoding": return `${lhs} = BF16(hidden<${program.audioProgram.tower.hiddenSize / 2} ? SLEEF_SIN_F32(BF16(F32((${Math.floor((program.audioProgram.tower.attentionChunkSize + program.audioProgram.tower.attentionContextLeft - 1 + program.audioProgram.tower.attentionContextRight) / 2)}-relative_position)*BF16(SLEEF_EXP_F32(F32(-(hidden%${program.audioProgram.tower.hiddenSize / 2})*F32(${Math.log(10000) / (program.audioProgram.tower.hiddenSize / 2 - 1)})))))))) : SLEEF_COS_F32(BF16(F32((${Math.floor((program.audioProgram.tower.attentionChunkSize + program.audioProgram.tower.attentionContextLeft - 1 + program.audioProgram.tower.attentionContextRight) / 2)}-relative_position)*BF16(SLEEF_EXP_F32(F32(-(hidden%${program.audioProgram.tower.hiddenSize / 2})*F32(${Math.log(10000) / (program.audioProgram.tower.hiddenSize / 2 - 1)})))))))))`;
+    case "relative-position-encoding": {
+      const half = program.audioProgram.tower.hiddenSize / 2;
+      const center = Math.floor((program.audioProgram.tower.attentionChunkSize + program.audioProgram.tower.attentionContextLeft - 1 + program.audioProgram.tower.attentionContextRight) / 2);
+      const scale = Math.log(10000) / (half - 1);
+      const angle = `BF16(F32((${center}-relative_position)*BF16(SLEEF_EXP_F32(F32(-(hidden%${half})*F32(${scale}))))))`;
+      return `${lhs} = BF16(hidden<${half} ? SLEEF_SIN_F32(${angle}) : SLEEF_COS_F32(${angle}))`;
+    }
     case "clip": return `${lhs} = ${cast}(F32(min(${program.audioProgram.gradientClipping},max(${-program.audioProgram.gradientClipping},${input()}))))`;
     case "silu": return `${lhs} = ${cast}(F32(${input()} / F32(1+SLEEF_EXP_F32(F32(-${input()})))))`;
     case "per-dim-softplus-scale": return `${lhs} = F32(F32(${input()}*F32(${Math.fround(program.audioProgram.tower.headDim ** -0.5 / Math.log(2))}))*BF16(F32(decode(per-dimension-scale)[feature%${program.audioProgram.tower.headDim}]>F32(20) ? decode(per-dimension-scale)[feature%${program.audioProgram.tower.headDim}] : SLEEF_LOG1P_F32(SLEEF_EXP_F32(decode(per-dimension-scale)[feature%${program.audioProgram.tower.headDim}])))))`;

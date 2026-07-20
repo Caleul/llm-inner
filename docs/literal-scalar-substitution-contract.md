@@ -216,9 +216,22 @@ distinto e o `producerStatementOrdinal` anterior; e
 `coordinatePrograms` executáveis do grafo externo. A construção é genérica por
 statement: leitura antes da produção, output terminal ausente/duplicado,
 coordenada malformada, aresta reversa divergente ou binding livre falham antes
-da abertura do artefato. A string continua sendo a autoridade aritmética; o
-dataflow elimina somente a necessidade de reparsá-la para descobrir produtores,
-consumidores e coordenadas dos intermediários.
+da abertura do artefato. A string continua sendo o rendering auditável nesse
+schema; o dataflow elimina somente a necessidade de reparsá-la para descobrir
+produtores, consumidores e coordenadas dos intermediários.
+
+No schema v39, `statementPrograms` remove também a necessidade de reparsar a
+string para descobrir a aritmética. Cada entry tem o mesmo ordinal e source de
+`scalarAssignments`, targets estruturados e uma expressão em tagged union
+fechada. A linguagem cobre literals, identifiers, arrays, unary/binary,
+conditional, call, index, member, range-inclusive, named-argument,
+filtered-domain, ordered-loop e evaluate-invocation. Ordem dos filhos,
+short-circuit, branch selection, casts, binding de redução, filtro, loop e
+invocação composite são declarados por `formulaLanguage.scalarPrograms`.
+`source` é somente o rendering humano; a AST é a autoridade executável.
+Alterar qualquer nó, manter uma string sem AST equivalente, introduzir um kind
+desconhecido ou reinterpretar `/` de um ID instanciado como divisão falha
+fechado.
 
 ## Critério de aceite
 

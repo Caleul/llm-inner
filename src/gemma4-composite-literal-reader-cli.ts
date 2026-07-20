@@ -156,6 +156,24 @@ function scalarExecutionSummary(assignments: OpenedCalculationAssignments): Reco
   let statements = 0, localStatements = 0, preconditions = 0, multiStatementAssignments = 0;
   let statementDataflowEntries = 0, localWrites = 0, outputWrites = 0, localReads = 0;
   let producerEdges = 0, reverseConsumerEdges = 0, indexedLocalAccesses = 0, localCoordinatePrograms = 0;
+  let statementPrograms = 0, expressionNodes = 0, reductionCalls = 0, orderedLoops = 0, filteredDomains = 0, evaluateInvocations = 0;
+  const countExpression = (node: unknown): void => {
+    if (!node || typeof node !== "object") return;
+    const kind = (node as { kind?: string }).kind;
+    if (kind) expressionNodes += 1;
+    if (kind === "ordered-loop") orderedLoops += 1;
+    if (kind === "filtered-domain") filteredDomains += 1;
+    if (kind === "evaluate-invocation") evaluateInvocations += 1;
+    if (kind === "call") {
+      const callee = (node as { callee?: { kind?: string; name?: string } }).callee;
+      if (callee?.kind === "identifier" && /(?:REDUCE|DOT|FMA)/.test(callee.name ?? "")) reductionCalls += 1;
+    }
+    for (const [key, value] of Object.entries(node)) {
+      if (key === "kind") continue;
+      if (Array.isArray(value)) value.forEach(countExpression);
+      else countExpression(value);
+    }
+  };
   for (const assignment of assignments) {
     const scalarAssignments = assignment.scalarCalculation.scalarAssignments;
     const dataflow = assignment.scalarCalculation.statementDataflow;
@@ -163,6 +181,11 @@ function scalarExecutionSummary(assignments: OpenedCalculationAssignments): Reco
     if (scalarAssignments.length > 1) multiStatementAssignments += 1;
     localStatements += Math.max(0, scalarAssignments.length - 1);
     preconditions += scalarAssignments.filter((statement) => statement.startsWith("require ")).length;
+    statementPrograms += assignment.scalarCalculation.statementPrograms.length;
+    assignment.scalarCalculation.statementPrograms.forEach((statement) => {
+      statement.targets.forEach((target) => target.coordinates.forEach(countExpression));
+      countExpression(statement.expression);
+    });
     statementDataflowEntries += dataflow.length;
     for (const statement of dataflow) {
       localWrites += statement.writes.filter((write) => write.role === "local").length;
@@ -190,6 +213,12 @@ function scalarExecutionSummary(assignments: OpenedCalculationAssignments): Reco
     reverseConsumerEdges,
     indexedLocalAccesses,
     localCoordinatePrograms,
+    statementPrograms,
+    expressionNodes,
+    reductionCalls,
+    orderedLoops,
+    filteredDomains,
+    evaluateInvocations,
   };
 }
 
