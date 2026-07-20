@@ -7,6 +7,7 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /Gerar e comparar/);
   assert.match(gemma4RealCompareHtml, /Original — BF16/);
   assert.match(gemma4RealCompareHtml, /Simplificado — F64 vetorizado/);
+  assert.match(gemma4RealCompareHtml, /Threads/);
   assert.match(gemma4RealCompareHtml, /\/api\/compare/);
 });
 

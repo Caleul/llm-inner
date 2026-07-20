@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { Gemma4ParametricExactRealProgram } from "../src/gemma4-parametric-global-real-program.js";
 import { evaluateGemma4ParametricOutput } from "../src/gemma4-parametric-real-evaluator.js";
-import { composeGemma4ParametricReverse } from "../src/gemma4-parametric-reverse-composer.js";
+import { closeGemma4ParametricReverseTextInputs, composeGemma4ParametricReverse } from "../src/gemma4-parametric-reverse-composer.js";
 import { Gemma4ParametricRealBuilder } from "../src/gemma4-parametric-real-expression.js";
 
 test("expande operações paramétricas da saída para a entrada preservando o valor", async () => {
@@ -31,4 +31,24 @@ test("expande operações paramétricas da saída para a entrada preservando o v
 test("não cancela x/x sem prova de não-zero", () => {
   const builder = new Gemma4ParametricRealBuilder(), zero = builder.integerConstant(0), x = builder.inputElement("x", [zero]);
   assert.equal(builder.requiredNode(builder.divide(x, x)).kind, "divide");
+});
+
+test("fecha boundaries textuais em um único vetor x e dobra posição e máscara", () => {
+  const builder = new Gemma4ParametricRealBuilder(), zero = builder.integerConstant(0), one = builder.integerConstant(1);
+  const hidden = builder.inputElement("hidden_states_0", [zero, one, zero]);
+  const ple = builder.inputElement("ple_inputs", [zero, one, one, zero]);
+  const position = builder.inputElement("position_ids", [zero, one], "integer");
+  const mask = builder.inputElement("full_attention_mask", [zero, zero, one, zero]);
+  const root = builder.add(hidden, ple, position, mask);
+  const closed = closeGemma4ParametricReverseTextInputs({
+    kind: "gemma4-parametric-reverse-algebraic-composition", schemaVersion: 1,
+    output: { family: "y", dimension: 0, parameters: {} }, graph: builder.build(), root,
+    steps: [], remainingFunctionCalls: [],
+  }, { sequenceLength: 2, hiddenSize: 3, layers: 2, pleFeatures: 2 });
+  assert.equal(closed.inputVector.length, 14);
+  assert.deepEqual(closed.inputVector.foldedInputs, ["position_ids", "full_attention_mask", "sliding_attention_mask"]);
+  const inputs = closed.graph.nodes.filter((node) => node.kind === "input-element");
+  assert.equal(inputs.length, 2);
+  assert.ok(inputs.every((node) => node.tensor === "x"));
+  assert.deepEqual(inputs.map((node) => (closed.graph.nodes.find((candidate) => candidate.id === node.coordinates[0]) as { value: number }).value).sort((left, right) => left - right), [3, 12]);
 });

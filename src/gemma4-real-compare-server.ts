@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { gemma4RealCompareHtml } from "./gemma4-real-compare-ui.js";
 
-export interface Gemma4RealComparisonRequest { prompt: string; maxNewTokens: number }
+export interface Gemma4RealComparisonRequest { prompt: string; maxNewTokens: number; threads?: number }
 export interface Gemma4RealComparisonRunnerOptions { source: string; python: string; helper: string }
 
 export async function runGemma4RealComparison(request: Gemma4RealComparisonRequest, options: Gemma4RealComparisonRunnerOptions): Promise<unknown> {
@@ -14,7 +14,7 @@ export async function runGemma4RealComparison(request: Gemma4RealComparisonReque
   const directory = await mkdtemp(join(tmpdir(), "gemma4-real-compare-"));
   const output = join(directory, "report.json");
   try {
-    await runProcess(options.python, [options.helper, "--source", options.source, "--prompt", request.prompt, "--max-new-tokens", String(request.maxNewTokens), "--output", output]);
+    await runProcess(options.python, [options.helper, "--source", options.source, "--prompt", request.prompt, "--max-new-tokens", String(request.maxNewTokens), "--threads", String(request.threads ?? 0), "--output", output]);
     return JSON.parse(await readFile(output, "utf8")) as unknown;
   } finally {
     await rm(directory, { recursive: true, force: true });
@@ -40,6 +40,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
 function validateRequest(request: Gemma4RealComparisonRequest): void {
   if (typeof request.prompt !== "string" || request.prompt.length === 0 || request.prompt.length > 16_384) throw new Error("prompt deve conter entre 1 e 16.384 caracteres.");
   if (!Number.isSafeInteger(request.maxNewTokens) || request.maxNewTokens < 1 || request.maxNewTokens > 64) throw new Error("maxNewTokens deve estar entre 1 e 64.");
+  if (request.threads !== undefined && (!Number.isSafeInteger(request.threads) || request.threads < 0 || request.threads > 256)) throw new Error("threads deve estar entre 0 e 256.");
 }
 
 async function readBody(request: IncomingMessage): Promise<string> {

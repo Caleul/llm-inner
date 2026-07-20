@@ -30,7 +30,7 @@ export const gemma4RealCompareHtml = `<!doctype html>
   <section class="panel">
     <label for="prompt">Prompt</label>
     <textarea id="prompt">The capital of France is</textarea>
-    <div class="actions"><div class="field"><label for="tokens">Novos tokens</label><input id="tokens" type="number" min="1" max="64" value="3"></div>
+    <div class="actions"><div class="field"><label for="tokens">Novos tokens</label><input id="tokens" type="number" min="1" max="64" value="3"></div><div class="field"><label for="threads">Threads (0 = automático)</label><input id="threads" type="number" min="0" max="256" value="0"></div>
       <button id="run">Gerar e comparar</button><span id="status">Pronto.</span></div>
   </section>
   <div class="grid">
@@ -46,12 +46,12 @@ const esc = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&
 run.addEventListener('click', async () => {
   run.disabled=true; q('status').textContent='Carregando o modelo e calculando os dois caminhos…'; q('summary').hidden=true;
   try {
-    const response=await fetch('/api/compare',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({prompt:q('prompt').value,maxNewTokens:Number(q('tokens').value)})});
+    const response=await fetch('/api/compare',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({prompt:q('prompt').value,maxNewTokens:Number(q('tokens').value),threads:Number(q('threads').value)})});
     const data=await response.json(); if(!response.ok) throw new Error(data.error || 'Falha desconhecida');
     q('baselineText').textContent=data.baselineFullText; q('candidateText').textContent=data.candidateFullText;
     q('baselineTokens').textContent=JSON.stringify(data.baselineGeneratedTokenIds); q('candidateTokens').textContent=JSON.stringify(data.candidateGeneratedTokenIds);
     q('verdict').className=data.generatedTokensEqual?'ok':'bad'; q('verdict').textContent=data.generatedTokensEqual?'Todos os tokens gerados coincidiram.':'Primeira divergência no passo '+data.firstDivergentStep+'.';
-    q('steps').innerHTML=data.steps.map(s=>'<tr><td>'+s.step+'</td><td>'+s.baselineToken+' / '+s.candidateToken+'</td><td>'+(s.metrics.argmaxEqual?'igual':'diferente')+'</td><td>'+(100*s.metrics.divergenceRate).toFixed(4)+'%</td><td>'+s.metrics.maxAbsError+'</td><td>'+s.baselineSeconds.toFixed(3)+'s / '+s.candidateSeconds.toFixed(3)+'s</td></tr>').join('');
+    q('steps').innerHTML=data.steps.map(s=>'<tr><td>'+s.step+'</td><td>'+s.baselineToken+' / '+s.candidateToken+'</td><td>'+(s.metrics.argmaxEqual?'igual':'diferente')+'</td><td>'+(100*s.metrics.divergenceRate).toFixed(4)+'%</td><td>'+s.metrics.maxAbsError+'</td><td>'+s.baselineSeconds.toFixed(3)+'s / '+s.candidateSeconds.toFixed(3)+'s ('+(s.baselineSeconds/s.candidateSeconds).toFixed(2)+'×)</td></tr>').join('');
     q('json').textContent=JSON.stringify(data,null,2); q('summary').hidden=false; q('status').textContent='Concluído em '+data.elapsedSeconds.toFixed(2)+'s.';
   } catch(error) { q('status').textContent='Erro: '+error.message; }
   finally { run.disabled=false; }

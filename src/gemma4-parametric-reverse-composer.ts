@@ -22,6 +22,22 @@ export interface Gemma4ParametricReverseComposition {
   remainingFunctionCalls: string[];
 }
 
+export interface Gemma4ClosedTextInputContract {
+  sequenceLength: number;
+  hiddenSize: number;
+  layers: number;
+  pleFeatures: number;
+}
+
+export interface Gemma4ClosedTextInputComposition extends Gemma4ParametricReverseComposition {
+  inputVector: {
+    tensor: "x";
+    length: number;
+    segments: Array<{ source: "hidden_states_0" | "ple_inputs"; offset: number; shape: number[] }>;
+    foldedInputs: string[];
+  };
+}
+
 /** Expands the closest-to-output operation, simplifies through the canonical builder, then repeats. */
 export function composeGemma4ParametricReverse(
   program: Gemma4ParametricExactRealProgram,
@@ -77,6 +93,74 @@ export function composeGemma4ParametricReverse(
   return { kind: "gemma4-parametric-reverse-algebraic-composition", schemaVersion: 1, output: { family: output.name, dimension: output.fixedDimension, parameters: { ...parameters } }, graph, root, steps, remainingFunctionCalls: [...new Set(graph.nodes.filter((node): node is Extract<Gemma4ParametricRealNode, { kind: "function-call" }> => node.kind === "function-call").map((node) => node.functionId))].sort() };
 }
 
+/**
+ * Closes the fixed text-only structural inputs and exposes the two numerical
+ * boundaries through one row-major x vector. Learned elements remain immutable
+ * constants owned by the artifact, never members of x.
+ */
+export function closeGemma4ParametricReverseTextInputs(
+  composition: Gemma4ParametricReverseComposition,
+  contract: Gemma4ClosedTextInputContract,
+): Gemma4ClosedTextInputComposition {
+  const { sequenceLength, hiddenSize, layers, pleFeatures } = contract;
+  if (![sequenceLength, hiddenSize, layers, pleFeatures].every((value) => Number.isSafeInteger(value) && value > 0)) {
+    throw new Error("Contrato de fechamento x requer dimensões inteiras positivas.");
+  }
+  const shapes = new Map<string, number[]>([
+    ["hidden_states_0", [1, sequenceLength, hiddenSize]],
+    ["ple_inputs", [1, sequenceLength, layers, pleFeatures]],
+    ["position_ids", [1, sequenceLength]],
+    ["full_attention_mask", [1, 1, sequenceLength, sequenceLength]],
+    ["sliding_attention_mask", [1, 1, sequenceLength, sequenceLength]],
+  ]);
+  const hiddenLength = sequenceLength * hiddenSize;
+  const segments: Gemma4ClosedTextInputComposition["inputVector"]["segments"] = [
+    { source: "hidden_states_0", offset: 0, shape: shapes.get("hidden_states_0")! },
+    { source: "ple_inputs", offset: hiddenLength, shape: shapes.get("ple_inputs")! },
+  ];
+  const builder = new Gemma4ParametricRealBuilder(), translated = new Map<string, string>();
+  const dependency = (id: string): string => required(translated, id);
+  const linearIndex = (coordinates: readonly string[], shape: readonly number[], offset: number): string => {
+    if (coordinates.length !== shape.length) throw new Error(`Coordenadas x incompatíveis: ${coordinates.length} != ${shape.length}.`);
+    let result = builder.integerConstant(0);
+    for (let axis = 0; axis < shape.length; axis += 1) {
+      result = builder.integerBinary("integer-add", builder.integerBinary("integer-multiply", result, builder.integerConstant(shape[axis]!)), dependency(coordinates[axis]!));
+    }
+    return builder.integerBinary("integer-add", builder.integerConstant(offset), result);
+  };
+  for (const node of composition.graph.nodes) {
+    let result: string;
+    if (node.kind === "tensor-axis" && shapes.has(node.tensor)) {
+      const shape = shapes.get(node.tensor)!;
+      if (node.axis >= shape.length) throw new Error(`${node.tensor}: eixo ${node.axis} fora do fechamento x.`);
+      result = builder.integerConstant(shape[node.axis]!);
+    } else if (node.kind === "input-element" && (node.tensor === "hidden_states_0" || node.tensor === "ple_inputs")) {
+      const segment = segments.find((entry) => entry.source === node.tensor)!;
+      result = builder.inputElement("x", [linearIndex(node.coordinates, segment.shape, segment.offset)], node.valueType);
+    } else if (node.kind === "input-element" && node.tensor === "position_ids") {
+      if (node.coordinates.length !== 2) throw new Error("position_ids requer [batch,sequence].");
+      result = dependency(node.coordinates[1]!);
+    } else if (node.kind === "input-element" && (node.tensor === "full_attention_mask" || node.tensor === "sliding_attention_mask")) {
+      if (node.coordinates.length !== 4) throw new Error(`${node.tensor} requer [batch,head,query,key].`);
+      const query = dependency(node.coordinates[2]!), key = dependency(node.coordinates[3]!);
+      result = builder.select(builder.compare("less-equal", key, query), builder.rational(0), builder.negativeInfinity());
+    } else {
+      result = rebuildParametric(node, builder, dependency, new Map());
+    }
+    translated.set(node.id, result);
+  }
+  const root = required(translated, composition.root), graph = builder.build();
+  const unexpected = [...new Set(graph.nodes.filter((node): node is Extract<Gemma4ParametricRealNode, { kind: "input-element" }> => node.kind === "input-element" && node.tensor !== "x").map((node) => node.tensor))];
+  if (unexpected.length) throw new Error(`Fechamento x deixou inputs livres: ${unexpected.join(", ")}.`);
+  return {
+    ...composition, graph, root,
+    inputVector: {
+      tensor: "x", length: hiddenLength + sequenceLength * layers * pleFeatures,
+      segments, foldedInputs: ["position_ids", "full_attention_mask", "sliding_attention_mask"],
+    },
+  };
+}
+
 function rebuildParametric(node: Gemma4ParametricRealNode, builder: Gemma4ParametricRealBuilder, dependency: (id: string) => string, substitutions: ReadonlyMap<string, string>): string {
   const substituted = substitutions.get(node.id); if (substituted) return substituted;
   switch (node.kind) {
@@ -98,4 +182,4 @@ function reachableIds(graph: Gemma4ParametricRealExpressionGraph, root: string):
   while (stack.length) { const id = stack.pop()!; if (visited.has(id)) continue; visited.add(id); const node = nodes.get(id); if (node) stack.push(...parametricNodeDependencies(node)); }
   return visited;
 }
-function required(map: ReadonlyMap<string, Gemma4ParametricRealNode>, id: string): Gemma4ParametricRealNode { const node = map.get(id); if (!node) throw new Error(`${id}: nó paramétrico ausente na composição reversa.`); return node; }
+function required<T>(map: ReadonlyMap<string, T>, id: string): T { const value = map.get(id); if (value === undefined) throw new Error(`${id}: valor paramétrico ausente na composição reversa.`); return value; }

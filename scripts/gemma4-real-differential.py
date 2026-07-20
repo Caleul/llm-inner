@@ -22,6 +22,7 @@ def parse_args():
     parser.add_argument("--output", required=True)
     parser.add_argument("--logit-chunk", type=int, default=8192)
     parser.add_argument("--inspect-logit", type=int, action="append", default=[])
+    parser.add_argument("--threads", type=int, default=0)
     return parser.parse_args()
 
 
@@ -172,6 +173,10 @@ def exact_next(model, input_ids):
 args = parse_args()
 if args.max_new_tokens < 1 or args.max_new_tokens > 256:
     raise ValueError("--max-new-tokens must be between 1 and 256")
+if args.threads < 0:
+    raise ValueError("--threads must be zero (runtime default) or a positive integer")
+if args.threads:
+    torch.set_num_threads(args.threads)
 EXACT_LOGIT_CHUNK = args.logit_chunk
 started = time.time()
 torch.set_grad_enabled(False)
@@ -224,13 +229,14 @@ for step in range(args.max_new_tokens):
 
 report = {
     "kind": "gemma4-exact-real-simplified-differential",
-    "schemaVersion": 3,
+    "schemaVersion": 4,
     "source": str(Path(args.source).resolve()),
     "inputIds": [parsed_input_ids],
     "prompt": args.prompt,
     "baseline": "Transformers eager BF16 with declared intermediate rounding",
     "candidate": "F64 tensor operations from common BF16 embedding/PLE boundaries; BF16 RNE only at terminal logits",
     "maxNewTokens": args.max_new_tokens,
+    "executionThreads": torch.get_num_threads(),
     "baselineGeneratedTokenIds": baseline_generated,
     "candidateGeneratedTokenIds": candidate_generated,
     "baselineGeneratedText": tokenizer.decode(baseline_generated, skip_special_tokens=True),
