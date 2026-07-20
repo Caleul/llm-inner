@@ -157,6 +157,7 @@ function scalarExecutionSummary(assignments: OpenedCalculationAssignments): Reco
   let statementDataflowEntries = 0, localWrites = 0, outputWrites = 0, localReads = 0;
   let producerEdges = 0, reverseConsumerEdges = 0, indexedLocalAccesses = 0, localCoordinatePrograms = 0;
   let statementPrograms = 0, expressionNodes = 0, reductionCalls = 0, orderedLoops = 0, filteredDomains = 0, evaluateInvocations = 0;
+  let statementEnvironments = 0, orderedInputBindings = 0, localBindings = 0, reductionBindings = 0, intrinsicBindings = 0, memberAccessBindings = 0;
   const countExpression = (node: unknown): void => {
     if (!node || typeof node !== "object") return;
     const kind = (node as { kind?: string }).kind;
@@ -182,6 +183,13 @@ function scalarExecutionSummary(assignments: OpenedCalculationAssignments): Reco
     localStatements += Math.max(0, scalarAssignments.length - 1);
     preconditions += scalarAssignments.filter((statement) => statement.startsWith("require ")).length;
     statementPrograms += assignment.scalarCalculation.statementPrograms.length;
+    const environment = assignment.scalarCalculation.statementEnvironment;
+    statementEnvironments += 1;
+    orderedInputBindings += environment.orderedInputs.length;
+    localBindings += environment.locals.length;
+    reductionBindings += environment.reductions.length;
+    intrinsicBindings += environment.intrinsics.length;
+    memberAccessBindings += environment.memberAccesses.length;
     assignment.scalarCalculation.statementPrograms.forEach((statement) => {
       statement.targets.forEach((target) => target.coordinates.forEach(countExpression));
       countExpression(statement.expression);
@@ -214,6 +222,12 @@ function scalarExecutionSummary(assignments: OpenedCalculationAssignments): Reco
     indexedLocalAccesses,
     localCoordinatePrograms,
     statementPrograms,
+    statementEnvironments,
+    orderedInputBindings,
+    localBindings,
+    reductionBindings,
+    intrinsicBindings,
+    memberAccessBindings,
     expressionNodes,
     reductionCalls,
     orderedLoops,

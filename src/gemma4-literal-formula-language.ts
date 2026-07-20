@@ -9,16 +9,18 @@ import {
   gemma4LiteralReductionDomainLanguage,
   type Gemma4LiteralReductionDomainLanguage,
 } from "./gemma4-literal-reduction-domains.js";
+import { GEMMA4_LITERAL_REGISTERED_FUNCTIONS } from "./gemma4-literal-scalar-statement-programs.js";
 
 export interface Gemma4LiteralFormulaLanguageContract {
   kind: "gemma4-literal-formula-language-contract";
-  schemaVersion: 24;
+  schemaVersion: 25;
   languageId: "indexed-ieee754-expression-v1";
   authority: {
     forwardAssignments: "/scalarCalculations/assignments";
     forwardScalarExecution: "/calculationGraph/assignments/*/scalarCalculation/scalarAssignments";
     forwardScalarDataflow: "/calculationGraph/assignments/*/scalarCalculation/statementDataflow";
     forwardScalarPrograms: "/calculationGraph/assignments/*/scalarCalculation/statementPrograms";
+    forwardScalarEnvironment: "/calculationGraph/assignments/*/scalarCalculation/statementEnvironment";
     forwardControlProgram: "/forwardControl";
     inputContract: "/inputContract";
     outputContract: "/outputContract";
@@ -77,6 +79,7 @@ export interface Gemma4LiteralFormulaLanguageContract {
     orderedLoops: string;
     evaluateInvocation: string;
     sourceRendering: string;
+    symbolResolution: string;
   };
   scalarTypes: Array<{ name: "F64" | "F32" | "BF16" | "I32" | "BOOL"; semantics: string }>;
   operators: Array<{ notation: string; semantics: string }>;
@@ -448,13 +451,14 @@ function pytorchPairwiseReduce(values: readonly number[], operation: "maximum" |
 export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormulaLanguageContract {
   return {
     kind: "gemma4-literal-formula-language-contract",
-    schemaVersion: 24,
+    schemaVersion: 25,
     languageId: "indexed-ieee754-expression-v1",
     authority: {
       forwardAssignments: "/scalarCalculations/assignments",
       forwardScalarExecution: "/calculationGraph/assignments/*/scalarCalculation/scalarAssignments",
       forwardScalarDataflow: "/calculationGraph/assignments/*/scalarCalculation/statementDataflow",
       forwardScalarPrograms: "/calculationGraph/assignments/*/scalarCalculation/statementPrograms",
+      forwardScalarEnvironment: "/calculationGraph/assignments/*/scalarCalculation/statementEnvironment",
       forwardControlProgram: "/forwardControl",
       inputContract: "/inputContract",
       outputContract: "/outputContract",
@@ -513,6 +517,7 @@ export function buildGemma4LiteralFormulaLanguageContract(): Gemma4LiteralFormul
       orderedLoops: "ordered-loop enumerates its inclusive domain in ascending order and evaluates body once per index; loop-carried indexed locals observe only values written by earlier iterations",
       evaluateInvocation: "evaluate-invocation selects calculationGraph assignments whose invocationId equals predicateValue, executes them by ascending ordinal with orderedInputs bound positionally, and reads terminalOutput at terminalCoordinates",
       sourceRendering: "source is non-authoritative audit text and must correspond byte-for-byte to scalarAssignments[ordinal]; readers execute the tagged tree and never reparse source",
+      symbolResolution: "statementEnvironment is the closed lexical scope: every identifier resolves to an output coordinate, positional ordered input, prior local producer, reduction index or extent, learned operand role, registered intrinsic, special value or registered structured member; unknown and shadowed host bindings are invalid",
     },
     scalarTypes: [
       { name: "F64", semantics: "IEEE-754 binary64 round-to-nearest ties-to-even; F64(expr) materializes one rounding boundary" },
@@ -589,21 +594,11 @@ export function validateGemma4LiteralFormulaLanguageContract(
   ]);
 }
 
-const REGISTERED_FUNCTIONS = new Set([
-  "ARM_NEON_BF16_DOT_F32", "ARM_SQRT_F32", "AUDIO_RELATIVE_SHIFT_SOURCE", "BF16", "BOOL", "CONTIGUOUS_VISION_GROUP_ID",
-  "EVALUATE", "F32", "F32_FMA", "F64", "I32", "ORDERED_F32_DOT", "ORDERED_F32_REDUCE_MAX",
-  "ORDERED_F32_REDUCE_SUM", "PYTORCH_F32_VECTOR_REDUCE_MAX", "PYTORCH_F32_VECTOR_REDUCE_SUM",
-  "PYTORCH_POW_NEGATIVE_HALF_F32", "REDUCE", "SLEEF_COS_F32", "SLEEF_EXP_F32", "SLEEF_LOG1P_F32",
-  "SLEEF_SIN_F32", "SLEEF_TANH_F32", "STABLE_TRUE_COORDINATE_AT_RANK", "STABLE_TRUE_COUNT",
-  "STABLE_TRUE_PREFIX_RANK", "STRUCT", "VISION_POOL_CELL_HAS_PATCH", "VISION_POOL_SLOT", "concat", "decode", "exact_product",
-  "exact_safe_integer", "floor", "max", "min", "row_major_alias", "tuple",
-]);
-
 /** Rejects formula helpers whose executable meaning is absent from the embedded language contract. */
 export function validateGemma4LiteralFormulaFunctionCoverage(formulas: readonly string[]): void {
   for (const formula of formulas) {
     for (const match of formula.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/g)) {
-      if (!REGISTERED_FUNCTIONS.has(match[1]!)) {
+      if (!GEMMA4_LITERAL_REGISTERED_FUNCTIONS.has(match[1]!)) {
         throw new Error(`Fórmula Gemma 4 contém helper opaco sem programa incorporado: ${match[1]}.`);
       }
     }

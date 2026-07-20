@@ -37,6 +37,68 @@ export interface Gemma4LiteralScalarStatementProgram {
   expression: Gemma4LiteralScalarExpression;
 }
 
+export interface Gemma4LiteralScalarReductionBinding {
+  index: string;
+  source: "assignment" | "stage";
+  stageId?: string;
+  domainOrdinal: number;
+  /** Human range aliases are bound to the executable domain beside the calculation. */
+  extentAlias?: string;
+}
+
+export interface Gemma4LiteralScalarStatementEnvironment {
+  kind: "gemma4-literal-scalar-statement-environment";
+  schemaVersion: 1;
+  outputCoordinates: string[];
+  orderedInputs: Array<{ position: number; name: string }>;
+  locals: Array<{ name: string; producerStatementOrdinal: number }>;
+  reductions: Gemma4LiteralScalarReductionBinding[];
+  learnedOperandRoles: string[];
+  intrinsics: string[];
+  specialValues: ["Infinity"];
+  memberAccesses: Array<{
+    target: string;
+    member: string;
+    contract: "tensor-shape" | "reduction-stage-schedule" | "registered-structured-result";
+  }>;
+}
+
+export interface Gemma4LiteralScalarStatementEnvironmentContext {
+  output: string;
+  outputCoordinates: readonly string[];
+  orderedInputs: readonly string[];
+  learnedOperandRoles: readonly string[];
+  reductions: ReadonlyArray<{
+    indices: readonly string[];
+    source: "assignment" | "stage";
+    stageId?: string;
+  }>;
+}
+
+export const GEMMA4_LITERAL_REGISTERED_FUNCTIONS = new Set([
+  "ARM_NEON_BF16_DOT_F32", "ARM_SQRT_F32", "AUDIO_RELATIVE_SHIFT_SOURCE", "BF16", "BOOL", "CONTIGUOUS_VISION_GROUP_ID",
+  "EVALUATE", "F32", "F32_FMA", "F64", "I32", "ORDERED_F32_DOT", "ORDERED_F32_REDUCE_MAX",
+  "ORDERED_F32_REDUCE_SUM", "PYTORCH_F32_VECTOR_REDUCE_MAX", "PYTORCH_F32_VECTOR_REDUCE_SUM",
+  "PYTORCH_POW_NEGATIVE_HALF_F32", "REDUCE", "SLEEF_COS_F32", "SLEEF_EXP_F32", "SLEEF_LOG1P_F32",
+  "SLEEF_SIN_F32", "SLEEF_TANH_F32", "STABLE_TRUE_COORDINATE_AT_RANK", "STABLE_TRUE_COUNT",
+  "STABLE_TRUE_PREFIX_RANK", "STRUCT", "VISION_POOL_CELL_HAS_PATCH", "VISION_POOL_SLOT", "concat", "decode", "exact_product",
+  "exact_safe_integer", "floor", "max", "min", "row_major_alias", "tuple",
+]);
+
+const STRUCTURED_RESULT_MEMBERS = new Map<string, ReadonlySet<string>>([
+  ["AUDIO_RELATIVE_SHIFT_SOURCE", new Set(["valid", "query_in_block", "relative_index"])],
+  ["STABLE_TRUE_COORDINATE_AT_RANK", new Set(["batch", "sequence"])],
+]);
+
+const REDUCTION_INTRINSICS_WITH_NAMED_ARGUMENTS = new Set([
+  "ARM_NEON_BF16_DOT_F32", "ORDERED_F32_DOT", "ORDERED_F32_REDUCE_MAX", "ORDERED_F32_REDUCE_SUM",
+  "PYTORCH_F32_VECTOR_REDUCE_MAX", "PYTORCH_F32_VECTOR_REDUCE_SUM", "REDUCE",
+]);
+
+const VECTOR_REDUCTION_INTRINSICS = new Set([
+  "PYTORCH_F32_VECTOR_REDUCE_MAX", "PYTORCH_F32_VECTOR_REDUCE_SUM",
+]);
+
 interface Token {
   kind: "number" | "string" | "identifier" | "operator" | "punctuation" | "eof";
   value: string;
@@ -80,6 +142,217 @@ export function validateGemma4LiteralScalarStatementPrograms(
   if (!isDeepStrictEqual(programs, expected)) {
     throw new Error(`${owner}: programa sintático escalar ausente ou divergente.`);
   }
+}
+
+/**
+ * Builds and validates the complete lexical environment for one scalar
+ * program. Syntax alone is not executable: every identifier, helper, member,
+ * reduction extent and learned role must resolve to artifact data.
+ */
+export function buildGemma4LiteralScalarStatementEnvironment(
+  programs: readonly Gemma4LiteralScalarStatementProgram[],
+  context: Gemma4LiteralScalarStatementEnvironmentContext,
+  owner: string,
+): Gemma4LiteralScalarStatementEnvironment {
+  const reductions = reductionBindings(context.reductions, owner);
+  const outputCoordinates = uniqueNames(context.outputCoordinates, `${owner}: coordenadas de saída`);
+  const orderedInputNames = uniqueNames(context.orderedInputs, `${owner}: orderedInputs`);
+  const learnedOperandRoles = uniqueNames(context.learnedOperandRoles, `${owner}: learnedOperandRoles`);
+  const reductionIndices = new Set(reductions.map((binding) => binding.index));
+  const extentAliases = new Set(reductions.flatMap((binding) => binding.extentAlias ? [binding.extentAlias] : []));
+  const stageIds = new Set(context.reductions.flatMap((binding) => binding.stageId ? [binding.stageId] : []));
+  const localProducer = new Map<string, number>();
+  const localBindings: Gemma4LiteralScalarStatementEnvironment["locals"] = [];
+  const structuredLocalContracts = new Map<string, string>();
+  const intrinsics = new Set<string>();
+  const memberAccesses = new Map<string, Gemma4LiteralScalarStatementEnvironment["memberAccesses"][number]>();
+  const baseSymbols = new Set([...outputCoordinates, ...reductionIndices, ...extentAliases, ...orderedInputNames]);
+
+  const visit = (
+    expression: Gemma4LiteralScalarExpression,
+    availableLocals: ReadonlySet<string>,
+    lexicalSymbols: ReadonlySet<string>,
+    position: string,
+  ): void => {
+    switch (expression.kind) {
+      case "literal": return;
+      case "identifier": {
+        if (expression.name === "Infinity" || baseSymbols.has(expression.name) || availableLocals.has(expression.name) || lexicalSymbols.has(expression.name)) return;
+        throw new Error(`${owner}: identificador escalar livre ${expression.name} em ${position}.`);
+      }
+      case "array": expression.elements.forEach((element, index) => visit(element, availableLocals, lexicalSymbols, `${position}.elements[${index}]`)); return;
+      case "unary": visit(expression.operand, availableLocals, lexicalSymbols, `${position}.operand`); return;
+      case "binary":
+        visit(expression.left, availableLocals, lexicalSymbols, `${position}.left`);
+        visit(expression.right, availableLocals, lexicalSymbols, `${position}.right`);
+        return;
+      case "conditional":
+        visit(expression.condition, availableLocals, lexicalSymbols, `${position}.condition`);
+        visit(expression.whenTrue, availableLocals, lexicalSymbols, `${position}.whenTrue`);
+        visit(expression.whenFalse, availableLocals, lexicalSymbols, `${position}.whenFalse`);
+        return;
+      case "call": {
+        if (expression.callee.kind !== "identifier" || !GEMMA4_LITERAL_REGISTERED_FUNCTIONS.has(expression.callee.name)) {
+          throw new Error(`${owner}: callee escalar não registrado em ${position}.`);
+        }
+        const callee = expression.callee.name;
+        intrinsics.add(callee);
+        if (callee === "decode") {
+          if (expression.arguments.length !== 1 || expression.arguments[0]?.kind !== "identifier" ||
+            !learnedOperandRoles.includes(expression.arguments[0].name)) {
+            throw new Error(`${owner}: decode em ${position} não referencia um learnedOperandRole declarado.`);
+          }
+          return;
+        }
+        expression.arguments.forEach((argument, index) => {
+          if (argument.kind === "named-argument") {
+            if (!REDUCTION_INTRINSICS_WITH_NAMED_ARGUMENTS.has(callee)) {
+              throw new Error(`${owner}: intrinsic ${callee} não aceita argumento nomeado em ${position}.`);
+            }
+            if (argument.name === "lanes" && (!VECTOR_REDUCTION_INTRINSICS.has(callee) ||
+              argument.value.kind !== "literal" || argument.value.literalType !== "number" || argument.value.source !== "4")) {
+              throw new Error(`${owner}: lanes só pode fixar quatro lanes no redutor vetorial registrado em ${position}.`);
+            }
+            if (argument.name !== "lanes" && !reductionIndices.has(argument.name)) {
+              throw new Error(`${owner}: argumento nomeado ${argument.name} não possui domínio de redução em ${position}.`);
+            }
+            visit(argument.value, availableLocals, lexicalSymbols, `${position}.arguments[${index}].value`);
+          } else visit(argument, availableLocals, lexicalSymbols, `${position}.arguments[${index}]`);
+        });
+        return;
+      }
+      case "index": {
+        if (expression.target.kind === "identifier" && expression.target.name === "reductionStages") {
+          if (expression.coordinates.length !== 1 || expression.coordinates[0]?.kind !== "identifier" || !stageIds.has(expression.coordinates[0].name)) {
+            throw new Error(`${owner}: acesso reductionStages inválido em ${position}.`);
+          }
+        } else visit(expression.target, availableLocals, lexicalSymbols, `${position}.target`);
+        expression.coordinates.forEach((coordinate, index) => {
+          if (expression.target.kind === "identifier" && expression.target.name === "reductionStages") return;
+          visit(coordinate, availableLocals, lexicalSymbols, `${position}.coordinates[${index}]`);
+        });
+        return;
+      }
+      case "member": {
+        visitMember(expression, availableLocals, lexicalSymbols, position);
+        return;
+      }
+      case "range-inclusive":
+        visit(expression.start, availableLocals, lexicalSymbols, `${position}.start`);
+        visit(expression.end, availableLocals, lexicalSymbols, `${position}.end`);
+        return;
+      case "filtered-domain":
+        visit(expression.domain, availableLocals, lexicalSymbols, `${position}.domain`);
+        visit(expression.predicate, availableLocals, lexicalSymbols, `${position}.predicate`);
+        return;
+      case "named-argument": throw new Error(`${owner}: argumento nomeado fora de call em ${position}.`);
+      case "ordered-loop": {
+        visit(expression.domain, availableLocals, lexicalSymbols, `${position}.domain`);
+        const nested = new Set(lexicalSymbols);
+        nested.add(expression.index);
+        visit(expression.body, availableLocals, nested, `${position}.body`);
+        return;
+      }
+      case "evaluate-invocation":
+        for (const input of expression.orderedInputs) if (!orderedInputNames.includes(input)) {
+          throw new Error(`${owner}: EVALUATE referencia orderedInput livre ${input}.`);
+        }
+        expression.terminalCoordinates.forEach((coordinate, index) =>
+          visit(coordinate, availableLocals, lexicalSymbols, `${position}.terminalCoordinates[${index}]`));
+        return;
+    }
+  };
+
+  const visitMember = (
+    expression: Extract<Gemma4LiteralScalarExpression, { kind: "member" }>,
+    availableLocals: ReadonlySet<string>,
+    lexicalSymbols: ReadonlySet<string>,
+    position: string,
+  ): void => {
+    let target: string;
+    let contract: Gemma4LiteralScalarStatementEnvironment["memberAccesses"][number]["contract"];
+    if (expression.member === "shape" && expression.target.kind === "identifier" &&
+      (orderedInputNames.includes(expression.target.name) || expression.target.name === context.output)) {
+      target = expression.target.name;
+      contract = "tensor-shape";
+    } else if (expression.member === "schedule" && expression.target.kind === "index" &&
+      expression.target.target.kind === "identifier" && expression.target.target.name === "reductionStages") {
+      visit(expression.target, availableLocals, lexicalSymbols, `${position}.target`);
+      target = "reductionStages";
+      contract = "reduction-stage-schedule";
+    } else if (expression.target.kind === "identifier" && availableLocals.has(expression.target.name)) {
+      const producer = structuredLocalContracts.get(expression.target.name);
+      if (!producer || !STRUCTURED_RESULT_MEMBERS.get(producer)?.has(expression.member)) {
+        throw new Error(`${owner}: membro ${expression.member} não registrado para ${expression.target.name} em ${position}.`);
+      }
+      target = expression.target.name;
+      contract = "registered-structured-result";
+    } else {
+      throw new Error(`${owner}: acesso de membro ${expression.member} não resolvido em ${position}.`);
+    }
+    memberAccesses.set(`${target}.${expression.member}:${contract}`, { target, member: expression.member, contract });
+  };
+
+  for (const program of programs) {
+    const available = new Set(localProducer.keys());
+    program.targets.forEach((target, targetIndex) => target.coordinates.forEach((coordinate, coordinateIndex) =>
+      visit(coordinate, available, new Set(), `statementPrograms[${program.ordinal}].targets[${targetIndex}].coordinates[${coordinateIndex}]`)));
+    visit(program.expression, available, new Set(), `statementPrograms[${program.ordinal}].expression`);
+    const structuredProducer = program.expression.kind === "call" && program.expression.callee.kind === "identifier" &&
+      STRUCTURED_RESULT_MEMBERS.has(program.expression.callee.name) ? program.expression.callee.name : undefined;
+    for (const target of program.targets) if (target.role === "local") {
+      localProducer.set(target.name, program.ordinal);
+      localBindings.push({ name: target.name, producerStatementOrdinal: program.ordinal });
+      if (structuredProducer) structuredLocalContracts.set(target.name, structuredProducer);
+      else structuredLocalContracts.delete(target.name);
+    }
+  }
+
+  return {
+    kind: "gemma4-literal-scalar-statement-environment",
+    schemaVersion: 1,
+    outputCoordinates,
+    orderedInputs: orderedInputNames.map((name, position) => ({ position, name })),
+    locals: localBindings,
+    reductions,
+    learnedOperandRoles,
+    intrinsics: [...intrinsics].sort(),
+    specialValues: ["Infinity"],
+    memberAccesses: [...memberAccesses.values()],
+  };
+}
+
+function reductionBindings(
+  reductions: Gemma4LiteralScalarStatementEnvironmentContext["reductions"],
+  owner: string,
+): Gemma4LiteralScalarReductionBinding[] {
+  const result: Gemma4LiteralScalarReductionBinding[] = [];
+  for (const reduction of reductions) reduction.indices.forEach((source, domainOrdinal) => {
+    const match = /^([A-Za-z_][A-Za-z0-9_]*)=0\.\.(?:([A-Za-z_][A-Za-z0-9_]*)-1|([0-9]+)(?:-1)?)$/.exec(source);
+    if (!match) throw new Error(`${owner}: índice de redução não possui range fechado reconhecível: ${source}.`);
+    result.push({
+      index: match[1]!,
+      source: reduction.source,
+      ...(reduction.stageId ? { stageId: reduction.stageId } : {}),
+      domainOrdinal,
+      ...(match[2] ? { extentAlias: match[2] } : {}),
+    });
+  });
+  const keys = new Set<string>();
+  for (const binding of result) {
+    const key = `${binding.source}:${binding.stageId ?? ""}:${binding.index}`;
+    if (keys.has(key)) throw new Error(`${owner}: binding de redução duplicado ${key}.`);
+    keys.add(key);
+  }
+  return result;
+}
+
+function uniqueNames(values: readonly string[], owner: string): string[] {
+  const result = [...values];
+  if (result.some((value) => !/^[A-Za-z_][A-Za-z0-9_/:.-]*$/.test(value)) || new Set(result).size !== result.length) {
+    throw new Error(`${owner} possui nomes inválidos ou duplicados.`);
+  }
+  return result;
 }
 
 /** Binds call-site tensor names structurally, preserving `/` inside identifiers. */

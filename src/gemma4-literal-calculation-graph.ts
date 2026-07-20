@@ -30,7 +30,10 @@ import {
   type Gemma4LiteralCoordinateAccess,
   type Gemma4LiteralOutputCoordinateNavigation,
 } from "./gemma4-literal-coordinate-accesses.js";
-import { bindGemma4LiteralScalarStatementPrograms } from "./gemma4-literal-scalar-statement-programs.js";
+import {
+  bindGemma4LiteralScalarStatementPrograms,
+  buildGemma4LiteralScalarStatementEnvironment,
+} from "./gemma4-literal-scalar-statement-programs.js";
 
 type NonTextAssignment = Gemma4CompositeAssignment | Gemma4VisionAssignment | Gemma4AudioAssignment;
 
@@ -68,7 +71,7 @@ export interface Gemma4LiteralInstantiatedCalculation {
 
 export interface Gemma4LiteralCalculationGraph {
   kind: "gemma4-literal-instantiated-calculation-graph";
-  schemaVersion: 7;
+  schemaVersion: 8;
   order: "dependency-order";
   coordinateLanguage: Gemma4LiteralCoordinateExpressionLanguage;
   assignments: Gemma4LiteralInstantiatedCalculation[];
@@ -160,7 +163,7 @@ export function buildGemma4LiteralCalculationGraph(program: Gemma4CompositeProgr
   assignments.forEach(validateCoordinateClosure);
   return {
     kind: "gemma4-literal-instantiated-calculation-graph",
-    schemaVersion: 7,
+    schemaVersion: 8,
     order: "dependency-order",
     coordinateLanguage: gemma4LiteralCoordinateExpressionLanguage(),
     assignments,
@@ -171,7 +174,7 @@ export function validateGemma4LiteralCalculationGraph(
   graph: Gemma4LiteralCalculationGraph,
   program: Gemma4CompositeProgram,
 ): void {
-  if (graph.kind !== "gemma4-literal-instantiated-calculation-graph" || graph.schemaVersion !== 7 || graph.order !== "dependency-order") {
+  if (graph.kind !== "gemma4-literal-instantiated-calculation-graph" || graph.schemaVersion !== 8 || graph.order !== "dependency-order") {
     throw new Error("Programa literal Gemma 4 possui cabeçalho de grafo de cálculo inválido.");
   }
   if (!isDeepStrictEqual(graph, buildGemma4LiteralCalculationGraph(program))) {
@@ -353,6 +356,19 @@ function bindCalculation(
   output: string,
 ): Gemma4LiteralScalarCalculation {
   const scalarAssignments = calculation.scalarAssignments.map((assignment) => bindGemma4LiteralNames(assignment, bindings));
+  const statementPrograms = bindGemma4LiteralScalarStatementPrograms(
+    calculation.statementPrograms,
+    bindings,
+    scalarAssignments,
+  );
+  const reduction = calculation.reduction ? {
+    ...structuredClone(calculation.reduction),
+    domains: bindGemma4LiteralReductionIndexDomains(calculation.reduction.domains, bindings),
+  } : undefined;
+  const reductionStages = calculation.reductionStages?.map((stage) => ({
+    ...structuredClone(stage),
+    domains: bindGemma4LiteralReductionIndexDomains(stage.domains, bindings),
+  }));
   return {
     ...structuredClone(calculation),
     orderedInputs,
@@ -363,24 +379,24 @@ function bindCalculation(
       output,
       `${calculation.scope}:${calculation.definitionId}:instantiated`,
     ),
-    statementPrograms: bindGemma4LiteralScalarStatementPrograms(
-      calculation.statementPrograms,
-      bindings,
-      scalarAssignments,
+    statementPrograms,
+    statementEnvironment: buildGemma4LiteralScalarStatementEnvironment(
+      statementPrograms,
+      {
+        output,
+        outputCoordinates: calculation.outputCoordinates,
+        orderedInputs,
+        learnedOperandRoles: calculation.learnedOperandRoles,
+        reductions: [
+          ...(reduction ? [{ indices: reduction.indices, source: "assignment" as const }] : []),
+          ...(reductionStages ?? []).map((stage) => ({ indices: stage.indices, source: "stage" as const, stageId: stage.id })),
+        ],
+      },
+      `${calculation.scope}:${calculation.definitionId}:instantiated`,
     ),
     formula: bindGemma4LiteralNames(calculation.formula, bindings),
-    ...(calculation.reduction ? {
-      reduction: {
-        ...structuredClone(calculation.reduction),
-        domains: bindGemma4LiteralReductionIndexDomains(calculation.reduction.domains, bindings),
-      },
-    } : {}),
-    ...(calculation.reductionStages ? {
-      reductionStages: calculation.reductionStages.map((stage) => ({
-        ...structuredClone(stage),
-        domains: bindGemma4LiteralReductionIndexDomains(stage.domains, bindings),
-      })),
-    } : {}),
+    ...(reduction ? { reduction } : {}),
+    ...(reductionStages ? { reductionStages } : {}),
   };
 }
 

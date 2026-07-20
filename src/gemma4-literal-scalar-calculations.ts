@@ -25,7 +25,9 @@ import {
   type Gemma4LiteralReductionIndexDomain,
 } from "./gemma4-literal-reduction-domains.js";
 import {
+  buildGemma4LiteralScalarStatementEnvironment,
   buildGemma4LiteralScalarStatementPrograms,
+  type Gemma4LiteralScalarStatementEnvironment,
   type Gemma4LiteralScalarStatementProgram,
 } from "./gemma4-literal-scalar-statement-programs.js";
 
@@ -93,6 +95,8 @@ export interface Gemma4LiteralScalarCalculation {
   statementDataflow: Gemma4LiteralScalarStatementDataflow[];
   /** Closed syntax trees for execution without reparsing `scalarAssignments`. */
   statementPrograms: Gemma4LiteralScalarStatementProgram[];
+  /** Closed lexical bindings for every identifier and member in the syntax trees. */
+  statementEnvironment: Gemma4LiteralScalarStatementEnvironment;
   formula: string;
   dtypePolicy: DtypePolicy;
   reduction?: Gemma4LiteralScalarReduction;
@@ -102,7 +106,7 @@ export interface Gemma4LiteralScalarCalculation {
 
 export interface Gemma4LiteralScalarCalculations {
   kind: "gemma4-literal-scalar-calculations";
-  schemaVersion: 5;
+  schemaVersion: 6;
   formulaLanguage: "indexed-ieee754-expression-v1";
   assignments: Gemma4LiteralScalarCalculation[];
 }
@@ -174,6 +178,20 @@ export function buildGemma4LiteralScalarCalculations(program: Gemma4CompositePro
       definition.output,
       `${definition.scope}:${definition.id}`,
     );
+    const statementEnvironment = buildGemma4LiteralScalarStatementEnvironment(
+      statementPrograms,
+      {
+        output: definition.output,
+        outputCoordinates: domain.domain.axes.map((axis) => axis.name),
+        orderedInputs: definition.inputs,
+        learnedOperandRoles,
+        reductions: [
+          ...(reduction ? [{ indices: reduction.indices, source: "assignment" as const }] : []),
+          ...reductionStages.map((stage) => ({ indices: stage.indices, source: "stage" as const, stageId: stage.id })),
+        ],
+      },
+      `${definition.scope}:${definition.id}`,
+    );
     return {
       scope: definition.scope,
       definitionId: definition.id,
@@ -185,6 +203,7 @@ export function buildGemma4LiteralScalarCalculations(program: Gemma4CompositePro
       scalarAssignments,
       statementDataflow,
       statementPrograms,
+      statementEnvironment,
       formula,
       dtypePolicy: structuredClone(dtypePolicy),
       ...(reduction ? { reduction } : {}),
@@ -203,7 +222,7 @@ export function buildGemma4LiteralScalarCalculations(program: Gemma4CompositePro
   validateOperandClosedFormulas(assignments);
   return {
     kind: "gemma4-literal-scalar-calculations",
-    schemaVersion: 5,
+    schemaVersion: 6,
     formulaLanguage: "indexed-ieee754-expression-v1",
     assignments,
   };
@@ -524,7 +543,7 @@ export function validateGemma4LiteralScalarCalculations(
   calculations: Gemma4LiteralScalarCalculations,
   program: Gemma4CompositeProgram,
 ): void {
-  if (calculations.kind !== "gemma4-literal-scalar-calculations" || calculations.schemaVersion !== 5 ||
+  if (calculations.kind !== "gemma4-literal-scalar-calculations" || calculations.schemaVersion !== 6 ||
     calculations.formulaLanguage !== "indexed-ieee754-expression-v1") {
     throw new Error("Programa literal Gemma 4 possui cabeçalho de cálculos escalares inválido.");
   }
@@ -682,7 +701,11 @@ function scalarFormula(definition: Definition, program: Gemma4CompositeProgram, 
     }
     case "clip": return `${lhs} = ${cast}(F32(min(${program.audioProgram.gradientClipping},max(${-program.audioProgram.gradientClipping},${input()}))))`;
     case "silu": return `${lhs} = ${cast}(F32(${input()} / F32(1+SLEEF_EXP_F32(F32(-${input()})))))`;
-    case "per-dim-softplus-scale": return `${lhs} = F32(F32(${input()}*F32(${Math.fround(program.audioProgram.tower.headDim ** -0.5 / Math.log(2))}))*BF16(F32(decode(per-dimension-scale)[feature%${program.audioProgram.tower.headDim}]>F32(20) ? decode(per-dimension-scale)[feature%${program.audioProgram.tower.headDim}] : SLEEF_LOG1P_F32(SLEEF_EXP_F32(decode(per-dimension-scale)[feature%${program.audioProgram.tower.headDim}])))))`;
+    case "per-dim-softplus-scale": {
+      const feature = domain.domain.axes.at(-1)?.name;
+      if (!feature) throw new Error(`${assignment.id}: escala por dimensão requer eixo final explícito.`);
+      return `${lhs} = F32(F32(${input()}*F32(${Math.fround(program.audioProgram.tower.headDim ** -0.5 / Math.log(2))}))*BF16(F32(decode(per-dimension-scale)[${feature}%${program.audioProgram.tower.headDim}]>F32(20) ? decode(per-dimension-scale)[${feature}%${program.audioProgram.tower.headDim}] : SLEEF_LOG1P_F32(SLEEF_EXP_F32(decode(per-dimension-scale)[${feature}%${program.audioProgram.tower.headDim}])))))`;
+    }
     case "split-gated-linear-unit": return `${lhs} = ${cast}(F32(${assignment.inputs[0]}[batch,frame,hidden]/F32(1+SLEEF_EXP_F32(F32(-${assignment.inputs[0]}[batch,frame,hidden+${program.audioProgram.tower.hiddenSize}])))))`;
     case "causal-depthwise-convolution": {
       const source = assignment.inputs[0]!;
@@ -774,7 +797,7 @@ function textRotaryFormula(operation: Extract<Operation, { op: "rotary_embedding
   const half = operation.rotaryDim / 2;
   const partial = operation.ropeType === "proportional" ? numericScaling(operation, "partial_rotary_factor") : 1;
   const factor = operation.ropeType === "proportional" ? optionalNumericScaling(operation, "factor") ?? 1 : 1;
-  const exponentDenominator = operation.ropeType === "proportional" ? "head_dim" : String(operation.rotaryDim);
+  const exponentDenominator = String(operation.rotaryDim);
   const trigCast = operation.rotaryCasts ? "BF16" : "F32";
   const direct = `${trigCast}(F32(${operation.input}[batch,head,sequence,head_feature]*cosine))`;
   const rotated = `${trigCast}(F32(${operation.input}[batch,head,sequence,paired_feature]*sine))`;
@@ -782,7 +805,7 @@ function textRotaryFormula(operation: Extract<Operation, { op: "rotary_embedding
   const plus = operation.rotaryCasts ? `BF16(F32(${direct}+${rotated}))` : `${cast}(F32(${direct}+${rotated}))`;
   return `${lhs} = head_feature>=${operation.rotaryDim} ? ${cast}(${operation.input}[batch,head,sequence,head_feature]) : (head_feature<${half} ? ${minus} : ${plus}); ` +
     `pair=head_feature%${half}; paired_feature=head_feature<${half} ? head_feature+${half} : head_feature-${half}; ` +
-    `active_pairs=floor(F64(${partial})*F64(head_dim)/F64(2)); angle=pair>=active_pairs ? F32(0) : F32(${operation.positionInput}[batch,sequence]/F32(F32(${operation.theta}**F64(F64(2*pair)/F64(${exponentDenominator})))*F32(${factor}))); ` +
+    `active_pairs=floor(F64(${partial})*F64(${operation.rotaryDim})/F64(2)); angle=pair>=active_pairs ? F32(0) : F32(${operation.positionInput}[batch,sequence]/F32(F32(${operation.theta}**F64(F64(2*pair)/F64(${exponentDenominator})))*F32(${factor}))); ` +
     `cosine=${trigCast}(SLEEF_COS_F32(angle)); sine=${trigCast}(SLEEF_SIN_F32(angle))`;
 }
 

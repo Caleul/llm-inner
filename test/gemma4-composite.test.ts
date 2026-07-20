@@ -38,6 +38,7 @@ import {
 } from "../src/gemma4-literal-scalar-calculations.js";
 import {
   bindGemma4LiteralScalarStatementPrograms,
+  buildGemma4LiteralScalarStatementEnvironment,
   buildGemma4LiteralScalarStatementPrograms,
   parseGemma4LiteralScalarExpression,
   validateGemma4LiteralScalarStatementPrograms,
@@ -163,6 +164,30 @@ test("Gemma 4 scalar statement programs embed closed syntax trees and reject tex
   assert.equal(programs[1]?.expression.kind, "call");
   assert.equal(programs[2]?.expression.kind, "conditional");
   assert.doesNotThrow(() => validateGemma4LiteralScalarStatementPrograms(programs, assignments, "out", "fixture:syntax"));
+  const environment = buildGemma4LiteralScalarStatementEnvironment(programs, {
+    output: "out",
+    outputCoordinates: ["batch", "hidden"],
+    orderedInputs: ["input", "mask"],
+    learnedOperandRoles: ["weight"],
+    reductions: [{ indices: ["key=0..K-1"], source: "assignment" }],
+  }, "fixture:syntax");
+  assert.deepEqual(environment.orderedInputs, [{ position: 0, name: "input" }, { position: 1, name: "mask" }]);
+  assert.deepEqual(environment.reductions, [{
+    index: "key", source: "assignment", domainOrdinal: 0, extentAlias: "K",
+  }]);
+  assert.ok(environment.intrinsics.includes("decode"));
+  const freeIdentifier = buildGemma4LiteralScalarStatementPrograms([
+    "out[batch] = F32(host_value)",
+  ], "out", "fixture:free-identifier");
+  assert.throws(() => buildGemma4LiteralScalarStatementEnvironment(freeIdentifier, {
+    output: "out", outputCoordinates: ["batch"], orderedInputs: [], learnedOperandRoles: [], reductions: [],
+  }, "fixture:free-identifier"), /identificador escalar livre host_value/);
+  const unknownMember = buildGemma4LiteralScalarStatementPrograms([
+    "out[batch] = input.host_stride",
+  ], "out", "fixture:unknown-member");
+  assert.throws(() => buildGemma4LiteralScalarStatementEnvironment(unknownMember, {
+    output: "out", outputCoordinates: ["batch"], orderedInputs: ["input"], learnedOperandRoles: [], reductions: [],
+  }, "fixture:unknown-member"), /acesso de membro host_stride não resolvido/);
   const boundAssignments = assignments.map((source) => source.replaceAll("input", "invocation/input"));
   const bound = bindGemma4LiteralScalarStatementPrograms(programs, new Map([["input", "invocation/input"]]), boundAssignments);
   assert.equal(bound[0]?.source, boundAssignments[0]);
@@ -675,14 +700,14 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 39);
+  assert.equal(literal.schemaVersion, 40);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
   assert.deepEqual(literal.authoritativeExecution, gemma4AuthoritativeExecutionContract());
   assert.equal(literal.formulaLanguage.languageId, literal.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.languageId, literal.generation.scalarCalculations.formulaLanguage);
   assert.equal(literal.formulaLanguage.authority.numericLiteralBits, "/numericLiterals/literals");
-  assert.equal(literal.formulaLanguage.schemaVersion, 24);
+  assert.equal(literal.formulaLanguage.schemaVersion, 25);
   assert.equal(literal.formulaLanguage.authority.generationControlProgram, "/generation/controlProgram");
   assert.equal(literal.formulaLanguage.authority.forwardControlProgram, "/forwardControl");
   assert.equal(literal.formulaLanguage.authority.inputContract, "/inputContract");
@@ -740,10 +765,11 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.throws(() => executeGemma4LiteralForwardControlProgram(literal.forwardControl, literal.program, new Set([
     "input_ids", "mm_token_type_ids", "attention_mask",
   ])), /não combina mm_token_type_ids com attention_mask/);
-  assert.equal(literal.scalarCalculations.schemaVersion, 5);
+  assert.equal(literal.scalarCalculations.schemaVersion, 6);
   assert.equal(literal.formulaLanguage.authority.forwardScalarExecution, "/calculationGraph/assignments/*/scalarCalculation/scalarAssignments");
   assert.equal(literal.formulaLanguage.authority.forwardScalarDataflow, "/calculationGraph/assignments/*/scalarCalculation/statementDataflow");
   assert.equal(literal.formulaLanguage.authority.forwardScalarPrograms, "/calculationGraph/assignments/*/scalarCalculation/statementPrograms");
+  assert.equal(literal.formulaLanguage.authority.forwardScalarEnvironment, "/calculationGraph/assignments/*/scalarCalculation/statementEnvironment");
   assert.equal(literal.formulaLanguage.authority.outputCoordinateWrite, "/calculationGraph/assignments/*/outputCoordinate/write");
   assert.equal(literal.formulaLanguage.authority.coordinateExpressionLanguage, "/calculationGraph/coordinateLanguage");
   assert.equal(literal.formulaLanguage.authority.predecessorCoordinateAccesses, "/calculationGraph/assignments/*/predecessors/*/accesses");
@@ -769,6 +795,9 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     assignment.statementPrograms.length === assignment.scalarAssignments.length &&
     assignment.statementPrograms.every((statement, ordinal) =>
       statement.ordinal === ordinal && statement.source === assignment.scalarAssignments[ordinal])));
+  assert.ok(literal.scalarCalculations.assignments.every((assignment) =>
+    assignment.statementEnvironment.schemaVersion === 1 &&
+    assignment.statementEnvironment.orderedInputs.map((entry) => entry.name).join("\0") === assignment.orderedInputs.join("\0")));
   const attentionDataflow = orderedTextAttention.statementDataflow;
   assert.deepEqual(attentionDataflow[3]?.reads.map((read) => [read.expression, read.producerStatementOrdinal]), [
     ["score[key]", 2],
@@ -916,7 +945,7 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.equal(serializedFormulas.filter((formula) => /\b(?:theta_power|rotate_rotate_half|is_declared_modal_token|contiguous_group_id)\s*\(|same_nonnegative_vision_block/.test(formula)).length, 0);
   const proportionalRopeFormula = literal.scalarCalculations.assignments.find((entry) =>
     entry.scope === "text-layer" && entry.definitionId === "layer_0_q_rope")!.formula;
-  assert.match(proportionalRopeFormula, /active_pairs=floor\(F64\(1\)\*F64\(head_dim\)\/F64\(2\)\)/);
+  assert.match(proportionalRopeFormula, /active_pairs=floor\(F64\(1\)\*F64\(4\)\/F64\(2\)\)/);
   assert.match(proportionalRopeFormula, /paired_feature=head_feature<2 \? head_feature\+2 : head_feature-2/);
   assert.match(proportionalRopeFormula, /pair>=active_pairs \? F32\(0\)/);
   const modalReplacementFormula = literal.scalarCalculations.assignments.find((entry) =>
@@ -1095,7 +1124,7 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.ok(literal.numericLiterals.literals.some((entry) =>
     entry.uses.some((use) => use.section === "generation" && use.definitionId === "generation_argmax")));
   assert.equal(literal.calculationGraph.assignments.length, 223);
-  assert.equal(literal.calculationGraph.schemaVersion, 7);
+  assert.equal(literal.calculationGraph.schemaVersion, 8);
   assert.deepEqual(literal.calculationGraph.coordinateLanguage, gemma4LiteralCoordinateExpressionLanguage());
   assert.deepEqual(literal.calculationGraph.assignments.map((entry) => entry.ordinal),
     Array.from({ length: literal.calculationGraph.assignments.length }, (_, index) => index));
@@ -1365,6 +1394,11 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     entry.scope === "text-layer" && entry.definitionId === "layer_0_attention")!
     .statementPrograms[2]!.source += " ";
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(dishonestScalarSyntax), /fórmulas, casts ou reduções escalares/);
+  const dishonestScalarEnvironment = structuredClone(literal);
+  dishonestScalarEnvironment.scalarCalculations.assignments.find((entry) =>
+    entry.scope === "text-layer" && entry.definitionId === "layer_0_attention")!
+    .statementEnvironment.intrinsics.pop();
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(dishonestScalarEnvironment), /fórmulas, casts ou reduções escalares/);
   const guessedLearnedRole = structuredClone(literal);
   guessedLearnedRole.learnedOperands.assignments.find((entry) =>
     entry.scope === "vision" && entry.definitionId === "vision_layer_0_q")!.operands[0]!.role = "bias";
@@ -1527,7 +1561,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 39);
+      assert.equal(artifact.schemaVersion, 40);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.deepEqual(artifact.authoritativeExecution, gemma4AuthoritativeExecutionContract());

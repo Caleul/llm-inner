@@ -819,6 +819,27 @@ modalidades passaram com a fonte fisicamente ausente. As 100 BMM Apple
 Accelerate continuam `fail-closed-runtime-reduction`. A prova completa está em
 [`docs/validation/gemma4-e4b-executable-scalar-statement-programs-2026-07-19.md`](docs/validation/gemma4-e4b-executable-scalar-statement-programs-2026-07-19.md).
 
+O schema v40 fecha também o ambiente léxico dessas árvores. Cada cálculo
+incorpora `statementEnvironment` com coordenadas de saída, `orderedInputs`
+posicionais, produtores locais, índices e aliases de extent ligados aos
+domínios executáveis, papéis aprendidos aceitos por `decode`, intrinsics e
+contratos de membro. Identificador livre, helper desconhecido, role aprendida
+ausente, stage de redução inválido, membro host ou local estruturado sem
+contrato falha durante a construção e novamente ao abrir o artefato. O binding
+é reconstruído em cada call site, portanto os nomes instanciados de imagem,
+vídeo e áudio não dependem do source TypeScript.
+
+No E4B real são 2.708 ambientes: 3.491 bindings de input, 1.431 de locals,
+1.722 de redução, 10.727 de intrinsic e 211 acessos de membro. A auditoria
+também eliminou os aliases livres `feature` na escala por dimensão de áudio e
+`head_dim` no RoPE textual, substituindo-os pelo eixo final e `rotaryDim`
+declarados. O artefato de 21.409.225.548 bytes tem SHA-256
+`f0e8a36902b1bbb65c1f85ca32347b5cdfc05ae694a6a74af12cd3b8179543b7`.
+Com a fonte fisicamente ausente, os 2.130 payloads, a vista escalar e as três
+modalidades passaram; as 100 BMM Apple Accelerate permanecem
+`fail-closed-runtime-reduction`. Comandos, hashes e contagens estão em
+[`docs/validation/gemma4-e4b-closed-scalar-statement-environments-2026-07-19.md`](docs/validation/gemma4-e4b-closed-scalar-statement-environments-2026-07-19.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 

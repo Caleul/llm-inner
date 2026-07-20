@@ -233,6 +233,17 @@ Alterar qualquer nó, manter uma string sem AST equivalente, introduzir um kind
 desconhecido ou reinterpretar `/` de um ID instanciado como divisão falha
 fechado.
 
+No schema v40, a AST deixa de depender de um ambiente de nomes implícito.
+`statementEnvironment` enumera as coordenadas de output, inputs posicionais,
+produtores locais, índices/extent aliases ligados a `reduction.domains`, roles
+aprendidas, intrinsics, valores especiais e acessos de membro registrados.
+Esse ambiente é reconstruído após o binding de cada call site. Um identifier
+que não pertença a uma dessas classes, um `decode(role)` sem binding aprendido,
+um helper ou named argument não registrado, um `reductionStages[id]` ausente,
+um `.shape` fora de tensor declarado ou um campo de STRUCT sem contrato falha
+antes de qualquer output. Assim, sintaxe válida não é confundida com semântica
+executável.
+
 ## Critério de aceite
 
 Uma implementação só é candidata a fechar este requisito quando:
