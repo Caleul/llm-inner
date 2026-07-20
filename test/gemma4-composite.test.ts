@@ -701,7 +701,7 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 42);
+  assert.equal(literal.schemaVersion, 43);
   assert.equal(literal.payloadIntegrity.length, catalog.tensors.size);
   assert.equal(literal.integrityManifest.sections.length, 24);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
@@ -1023,7 +1023,7 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.equal(visionAttentionCalculation.reduction?.order, "operation-declared");
   assert.deepEqual(visionAttentionCalculation.reduction?.domains, [{
     index: "head_feature", startInclusive: 0,
-    endExclusive: { kind: "tensor-axis", tensor: "vision_layer_0_q_rotated", axis: 3 }, order: "ascending",
+    endExclusive: { kind: "constant", value: program.visionProgram.tower.headDim }, order: "ascending",
   }]);
   assert.deepEqual(evaluateGemma4LiteralReductionIndexDomains(
     literal.formulaLanguage.reductions.domainLanguage,
@@ -1380,15 +1380,17 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(hostReductionLanguage), /linguagem de fórmulas/);
   const unboundReductionDomain = structuredClone(literal);
   const unboundExtent = unboundReductionDomain.scalarCalculations.assignments.find((entry) =>
-    entry.scope === "vision" && entry.definitionId === "vision_layer_0_attention_scores")!.reduction!.domains[0]!.endExclusive;
+    entry.scope === "vision" && entry.definitionId === "vision_layer_0_attention")!.reduction!.domains[0]!.endExclusive;
   if (unboundExtent.kind !== "tensor-axis") throw new Error("fixture requires tensor-axis reduction extent");
   unboundExtent.tensor = "undeclared_attention_input";
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(unboundReductionDomain), /fórmulas, casts ou reduções escalares/);
+  const visionAttentionValueCalculation = literal.scalarCalculations.assignments.find((entry) =>
+    entry.scope === "vision" && entry.definitionId === "vision_layer_0_attention")!;
   assert.throws(() => evaluateGemma4LiteralReductionIndexDomains(
     literal.formulaLanguage.reductions.domainLanguage,
-    visionAttentionCalculation.reduction!.domains,
+    visionAttentionValueCalculation.reduction!.domains,
     {},
-  ), /não pode resolver vision_layer_0_q_rotated\.shape\[3\]/);
+  ), /não pode resolver vision_layer_0_attention_weights\.shape\[3\]/);
   const reversedScalarProgram = structuredClone(literal);
   reversedScalarProgram.scalarCalculations.assignments.find((entry) =>
     entry.scope === "text-layer" && entry.definitionId === "layer_0_attention")!.scalarAssignments.reverse();
@@ -1571,7 +1573,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 42);
+      assert.equal(artifact.schemaVersion, 43);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.deepEqual(artifact.authoritativeExecution, gemma4AuthoritativeExecutionContract());
@@ -2207,6 +2209,17 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
           ["composite_image_features/vision_layer_0_k_rope", "complete", program.visionProgram.tower.headDim + 1],
         ]);
         assert.match(imageScoreAudit.nonExecutableResult, /UNPUBLISHED_REDUCTION/);
+        const originalVisionHeadDim = artifact.program.visionProgram.tower.headDim;
+        artifact.program.visionProgram.tower.headDim = originalVisionHeadDim + 1;
+        try {
+          const metadataIndependentScoreAudit = renderGemma4LiteralRuntimeReductionAudit(artifact, {
+            operationId: "composite_image_features/vision_layer_0_attention_scores", outputCoordinate: [0, 0, 0, 0],
+          });
+          assert.deepEqual(metadataIndependentScoreAudit.terms, imageScoreAudit.terms,
+            "runtime-reduction audit must execute the serialized scalar program instead of tower metadata");
+        } finally {
+          artifact.program.visionProgram.tower.headDim = originalVisionHeadDim;
+        }
 
         assert.throws(() => renderGemma4LiteralRuntimeReductionAudit(artifact, {
           operationId: "composite_video_features/vision_layer_0_attention", outputCoordinate: [0, 0, 0],
@@ -2236,7 +2249,7 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
         });
         assert.equal(audioValueAudit.operationClass, "audio-attention-value");
         assert.equal(audioValueAudit.reduction.complete, true);
-        assert.ok(audioValueAudit.coordinateAssignments.some((entry) => entry.startsWith("key_index(key_slot)=")));
+        assert.ok(audioValueAudit.coordinateAssignments.some((entry) => entry.startsWith("key_index=") && entry.includes("key_slot")));
         assert.ok(audioValueAudit.terms.every((term) => term.mathematicalProduct.includes("REAL_PRODUCT")));
         assert.throws(() => renderGemma4LiteralRuntimeReductionAudit(artifact, {
           operationId: "composite_audio_features/audio_layer_0_q_scale", outputCoordinate: [0, 0, 0],
@@ -2280,7 +2293,7 @@ test("Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding an
       const boundImageScore = imageSlice.operations.find((operation) =>
         operation.operationId === "composite_image_features/vision_layer_0_attention_scores")!;
       assert.deepEqual(boundImageScore.scalarCalculation.reduction?.domains[0]?.endExclusive, {
-        kind: "tensor-axis", tensor: "composite_image_features/vision_layer_0_q_rotated", axis: 3,
+        kind: "constant", value: program.visionProgram.tower.headDim,
       });
       assert.ok(imageSlice.numericLiterals.some((literal) => literal.token === "0.5" && /^0x[0-9a-f]{8}$/.test(literal.binary32Hex)));
       assert.equal(imageSlice.reproducibility.status, "literal");

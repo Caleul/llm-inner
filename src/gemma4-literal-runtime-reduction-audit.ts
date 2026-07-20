@@ -15,6 +15,7 @@ import {
   gemma4LiteralRuntimeReductionOperationClass,
   type Gemma4LiteralRuntimeReductionOperationClass,
 } from "./gemma4-literal-fidelity-gate.js";
+import type { Gemma4LiteralScalarExpression } from "./gemma4-literal-scalar-statement-programs.js";
 
 export interface Gemma4LiteralRuntimeReductionOperation {
   operationId: string;
@@ -88,7 +89,7 @@ interface RuntimeReductionOperands {
   predicate?: (index: number | string) => string;
 }
 
-/** Lists the complete operation-class-dispatched native BMM boundary. */
+/** Lists the complete operation-classified native BMM boundary. */
 export function listGemma4LiteralRuntimeReductionOperations(
   artifact: OpenGemma4CompositeLiteralArtifact,
 ): Gemma4LiteralRuntimeReductionOperation[] {
@@ -147,7 +148,7 @@ export function renderGemma4LiteralRuntimeReductionAudit(
   if (!artifact.authoritativeExecution.unresolvedNativeReduction.operationClasses.includes(operationClass)) {
     throw new Error(`${request.operationId}: classe ${operationClass} não pertence à fronteira autoritativa incorporada.`);
   }
-  const rendered = runtimeReductionOperands(artifact, navigation, request.outputCoordinate);
+  const rendered = runtimeReductionOperands(navigation, request.outputCoordinate);
   const dynamicExtent = rendered.extent === undefined;
   if (dynamicExtent && (request.inputStart === undefined || request.inputCount === undefined)) {
     throw new Error(`${request.operationId}: redução dinâmica requer inputStart/inputCount para selecionar uma janela auditável.`);
@@ -233,88 +234,258 @@ export function renderGemma4LiteralRuntimeReductionAudit(
 }
 
 function runtimeReductionOperands(
-  artifact: OpenGemma4CompositeLiteralArtifact,
   navigation: Gemma4LiteralOperationNavigation,
   coordinate: number[],
 ): RuntimeReductionOperands {
-  const inputs = navigation.scalarCalculation.orderedInputs;
-  if (inputs.length !== 2) throw new Error(`${navigation.operationId}: BMM requer exatamente dois orderedInputs.`);
-  const [left, right] = inputs as [string, string];
-  const tower = artifact.program.audioProgram.tower;
-  switch (gemma4LiteralRuntimeReductionOperationClass(navigation.scope, navigation.operation)) {
-    case "vision-attention-score": {
-      requireCoordinateRank(coordinate, 4, navigation.operationId, "[batch,head,query_patch,key_patch]");
-      const [batch, head, query, key] = coordinate;
-      if (head! >= artifact.program.visionProgram.tower.attentionHeads) throw new Error(`${navigation.operationId}: head ${head} fora do domínio.`);
-      return {
-        index: "head_feature", extent: artifact.program.visionProgram.tower.headDim, coordinateAssignments: [],
-        left: (feature) => indexed(left, [batch!, head!, query!, feature]),
-        right: (feature) => indexed(right, [batch!, head!, key!, feature]),
-      };
+  const calculation = navigation.scalarCalculation;
+  const reduction = calculation.reduction;
+  if (!reduction || reduction.domains.length !== 1) throw new Error(`${navigation.operationId}: BMM requer um domínio de redução serializado.`);
+  if (calculation.orderedInputs.length !== 2) throw new Error(`${navigation.operationId}: BMM requer exatamente dois orderedInputs.`);
+  if (coordinate.length !== calculation.outputCoordinates.length) {
+    throw new Error(`${navigation.operationId}: auditoria BMM requer coordenada [${calculation.outputCoordinates.join(",")}].`);
+  }
+  navigation.outputDomain.shape.forEach((size, axis) => {
+    if (/^[0-9]+$/.test(size) && coordinate[axis]! >= Number(size)) {
+      throw new Error(`${navigation.operationId}: coordenada ${calculation.outputCoordinates[axis]}=${coordinate[axis]} fora do domínio 0..${Number(size) - 1}.`);
     }
-    case "vision-attention-value": {
-      requireCoordinateRank(coordinate, 3, navigation.operationId, "[batch,query_patch,hidden]");
-      const [batch, query, hidden] = coordinate, headDim = artifact.program.visionProgram.tower.headDim;
-      if (hidden! >= artifact.program.visionProgram.tower.hiddenSize) throw new Error(`${navigation.operationId}: hidden ${hidden} fora do domínio.`);
-      const head = Math.floor(hidden! / headDim), headFeature = hidden! % headDim;
-      return {
-        index: "key_patch",
-        coordinateAssignments: [`head=floor(${hidden}/${headDim})=${head}`, `head_feature=${hidden}%${headDim}=${headFeature}`],
-        left: (key) => indexed(left, [batch!, head, query!, key]),
-        right: (key) => indexed(right, [batch!, head, key, headFeature]),
-      };
+  });
+  const index = reduction.domains[0]!.index;
+  if (index !== "head_feature" && index !== "key_patch" && index !== "key_slot") {
+    throw new Error(`${navigation.operationId}: índice BMM serializado não reconhecido: ${index}.`);
+  }
+  const outputSymbols = new Map(calculation.outputCoordinates.map((name, position) => [name, String(coordinate[position]!) ]));
+  const localPrograms = new Map<string, Gemma4LiteralScalarExpression>();
+  const outputProgram = calculation.statementPrograms.find((program) => program.targets.some((target) => target.role === "output"));
+  if (!outputProgram || outputProgram !== calculation.statementPrograms.at(-1)) {
+    throw new Error(`${navigation.operationId}: BMM não possui escrita terminal serializada.`);
+  }
+  for (const program of calculation.statementPrograms.slice(0, -1)) {
+    if (program.kind !== "assignment" || program.targets.length !== 1 || program.targets[0]!.role !== "local" || program.targets[0]!.coordinates.length !== 0) {
+      throw new Error(`${navigation.operationId}: prelude BMM contém statement não escalar.`);
     }
-    case "audio-content-attention-score": {
-      requireCoordinateRank(coordinate, 5, navigation.operationId, "[batch,head,block,query_in_block,key_slot]");
-      const [batch, head, block, query, keySlot] = coordinate;
-      assertAudioAttentionCoordinate(artifact, navigation.operationId, head!, query!, keySlot!, audioContext(artifact));
-      const queryIndex = block! * tower.attentionChunkSize + query!;
-      const keyIndex = block! * tower.attentionChunkSize - (tower.attentionContextLeft - 1) + keySlot!;
-      const predicate = `query_index<${left}.shape[1] && 0<=key_index && key_index<${right}.shape[1]`;
-      return {
-        index: "head_feature", extent: tower.headDim,
-        coordinateAssignments: [`query_index=${queryIndex}`, `key_index=${keyIndex}`],
-        left: (feature) => indexed(left, [batch!, queryIndex, `${head}*${tower.headDim}+${feature}`]),
-        right: (feature) => indexed(right, [batch!, keyIndex, `${head}*${tower.headDim}+${feature}`]),
-        predicate: () => predicate,
-      };
-    }
-    case "audio-position-attention-score": {
-      requireCoordinateRank(coordinate, 5, navigation.operationId, "[batch,head,block,query_in_block,relative_position]");
-      const [batch, head, block, query, relative] = coordinate, relativeLength = Math.floor(audioContext(artifact) / 2) + 1;
-      if (head! >= tower.attentionHeads || query! >= tower.attentionChunkSize || relative! >= relativeLength) {
-        throw new Error(`${navigation.operationId}: coordenada de score posicional fora do domínio.`);
+    localPrograms.set(program.targets[0]!.name, program.expression);
+  }
+  const located = locateSerializedReduction(outputProgram.expression, navigation.operationId);
+  if (located.index !== index) throw new Error(`${navigation.operationId}: índice REDUCE diverge do domínio serializado.`);
+  const inputAccesses = calculation.orderedInputs.map((input) => {
+    const accesses = collectTensorAccesses(located.term, input);
+    if (accesses.length !== 1) throw new Error(`${navigation.operationId}: termo BMM requer um único acesso ao input ${input}; encontrou ${accesses.length}.`);
+    return accesses[0]!;
+  });
+  const renderEnvironment = (reductionIndex: number | string): ScalarRenderEnvironment => ({
+    symbols: new Map([...outputSymbols, [index, String(reductionIndex)]]),
+    locals: localPrograms,
+    stack: new Set(),
+  });
+  const renderAccess = (access: Extract<Gemma4LiteralScalarExpression, { kind: "index" }>, reductionIndex: number | string): string =>
+    renderTensorAccess(access, renderEnvironment(reductionIndex));
+  const renderPredicate = (reductionIndex: number | string): string => {
+    const environment = renderEnvironment(reductionIndex);
+    const namedLocals = { ...environment, locals: new Map<string, Gemma4LiteralScalarExpression>() };
+    return located.predicates.map((predicate) => renderScalarExpression(predicate, namedLocals).text).join(" && ");
+  };
+  const coordinateAssignments = [...localPrograms].map(([name, expression]) =>
+    `${name}=${renderScalarExpression(expression, renderEnvironment(index)).text}`);
+  const extent = reduction.domains[0]!.endExclusive.kind === "constant"
+    ? reduction.domains[0]!.endExclusive.value
+    : undefined;
+  return {
+    index,
+    ...(extent === undefined ? {} : { extent }),
+    coordinateAssignments,
+    left: (reductionIndex) => renderAccess(inputAccesses[0]!, reductionIndex),
+    right: (reductionIndex) => renderAccess(inputAccesses[1]!, reductionIndex),
+    ...(located.predicates.length === 0 ? {} : { predicate: renderPredicate }),
+  };
+}
+
+interface LocatedSerializedReduction {
+  index: string;
+  term: Gemma4LiteralScalarExpression;
+  predicates: Gemma4LiteralScalarExpression[];
+}
+
+function locateSerializedReduction(expression: Gemma4LiteralScalarExpression, owner: string): LocatedSerializedReduction {
+  const found: LocatedSerializedReduction[] = [];
+  const visit = (current: Gemma4LiteralScalarExpression, predicates: Gemma4LiteralScalarExpression[]): void => {
+    if (current.kind === "conditional") {
+      const trueCount = countReductionCalls(current.whenTrue), falseCount = countReductionCalls(current.whenFalse);
+      if (trueCount === 1 && falseCount === 0 && isSerializedZero(current.whenFalse)) {
+        visit(current.whenTrue, [...predicates, current.condition]);
+        return;
       }
-      const queryIndex = block! * tower.attentionChunkSize + query!, predicate = `query_index<${left}.shape[1]`;
-      return {
-        index: "head_feature", extent: tower.headDim, coordinateAssignments: [`query_index=${queryIndex}`],
-        left: (feature) => indexed(left, [batch!, queryIndex, `${head}*${tower.headDim}+${feature}`]),
-        right: (feature) => indexed(right, [0, relative!, `${head}*${tower.headDim}+${feature}`]),
-        predicate: () => predicate,
-      };
     }
-    case "audio-attention-value": {
-      requireCoordinateRank(coordinate, 3, navigation.operationId, "[batch,frame,hidden]");
-      const [batch, frame, hidden] = coordinate;
-      if (hidden! >= tower.hiddenSize) throw new Error(`${navigation.operationId}: hidden ${hidden} fora do domínio.`);
-      const head = Math.floor(hidden! / tower.headDim), headFeature = hidden! % tower.headDim;
-      const block = Math.floor(frame! / tower.attentionChunkSize), query = frame! % tower.attentionChunkSize;
-      return {
-        index: "key_slot", extent: audioContext(artifact),
-        coordinateAssignments: [
-          `head=floor(${hidden}/${tower.headDim})=${head}`,
-          `head_feature=${hidden}%${tower.headDim}=${headFeature}`,
-          `block=floor(${frame}/${tower.attentionChunkSize})=${block}`,
-          `query_in_block=${frame}%${tower.attentionChunkSize}=${query}`,
-          `key_index(key_slot)=${block}*${tower.attentionChunkSize}-${tower.attentionContextLeft - 1}+key_slot`,
-        ],
-        left: (keySlot) => indexed(left, [batch!, head, block, query, keySlot]),
-        right: (keySlot) => indexed(right, [batch!, `${block}*${tower.attentionChunkSize}-${tower.attentionContextLeft - 1}+${keySlot}`, hidden!]),
-        predicate: (keySlot) => `0<=${block}*${tower.attentionChunkSize}-${tower.attentionContextLeft - 1}+${keySlot} && ${block}*${tower.attentionChunkSize}-${tower.attentionContextLeft - 1}+${keySlot}<${right}.shape[1]`,
-      };
+    if (current.kind === "call" && current.callee.kind === "identifier" && current.callee.name === "REDUCE") {
+      const binding = current.arguments[0], rawTerm = current.arguments[1];
+      if (current.arguments.length !== 2 || binding?.kind !== "named-argument" || !rawTerm) {
+        throw new Error(`${owner}: REDUCE BMM serializado requer binding e termo.`);
+      }
+      if (rawTerm.kind === "conditional" && isSerializedZero(rawTerm.whenFalse)) {
+        found.push({ index: binding.name, term: rawTerm.whenTrue, predicates: [...predicates, rawTerm.condition] });
+      } else found.push({ index: binding.name, term: rawTerm, predicates });
+      return;
     }
+    for (const child of scalarExpressionChildren(current)) visit(child, predicates);
+  };
+  visit(expression, []);
+  if (found.length !== 1) throw new Error(`${owner}: programa BMM requer exatamente um REDUCE serializado; encontrou ${found.length}.`);
+  return found[0]!;
+}
+
+function countReductionCalls(expression: Gemma4LiteralScalarExpression): number {
+  const self = expression.kind === "call" && expression.callee.kind === "identifier" && expression.callee.name === "REDUCE" ? 1 : 0;
+  return self + scalarExpressionChildren(expression).reduce((total, child) => total + countReductionCalls(child), 0);
+}
+
+function isSerializedZero(expression: Gemma4LiteralScalarExpression): boolean {
+  if (expression.kind === "literal") return expression.literalType === "number" && Number(expression.source) === 0;
+  return expression.kind === "call" && expression.callee.kind === "identifier" &&
+    (expression.callee.name === "F32" || expression.callee.name === "BF16") && expression.arguments.length === 1 && isSerializedZero(expression.arguments[0]!);
+}
+
+function collectTensorAccesses(
+  expression: Gemma4LiteralScalarExpression,
+  tensor: string,
+): Array<Extract<Gemma4LiteralScalarExpression, { kind: "index" }>> {
+  const result: Array<Extract<Gemma4LiteralScalarExpression, { kind: "index" }>> = [];
+  const visit = (current: Gemma4LiteralScalarExpression): void => {
+    if (current.kind === "index" && current.target.kind === "identifier" && current.target.name === tensor) result.push(current);
+    scalarExpressionChildren(current).forEach(visit);
+  };
+  visit(expression);
+  return result;
+}
+
+function scalarExpressionChildren(expression: Gemma4LiteralScalarExpression): Gemma4LiteralScalarExpression[] {
+  switch (expression.kind) {
+    case "literal": case "identifier": case "evaluate-invocation": return [];
+    case "array": return expression.elements;
+    case "unary": return [expression.operand];
+    case "binary": return [expression.left, expression.right];
+    case "conditional": return [expression.condition, expression.whenTrue, expression.whenFalse];
+    case "call": return [expression.callee, ...expression.arguments];
+    case "index": return [expression.target, ...expression.coordinates];
+    case "member": return [expression.target];
+    case "range-inclusive": return [expression.start, expression.end];
+    case "filtered-domain": return [expression.domain, expression.predicate];
+    case "named-argument": return [expression.value];
+    case "ordered-loop": return [expression.body, expression.domain];
   }
 }
+
+interface ScalarRenderEnvironment {
+  symbols: ReadonlyMap<string, string>;
+  locals: ReadonlyMap<string, Gemma4LiteralScalarExpression>;
+  stack: Set<string>;
+}
+
+interface RenderedScalarExpression {
+  text: string;
+  number?: number;
+  boolean?: boolean;
+}
+
+function renderScalarExpression(
+  expression: Gemma4LiteralScalarExpression,
+  environment: ScalarRenderEnvironment,
+): RenderedScalarExpression {
+  switch (expression.kind) {
+    case "literal": {
+      if (expression.literalType === "number") return renderedNumber(Number(expression.source));
+      if (expression.literalType === "boolean") return { text: expression.source, boolean: expression.source === "true" };
+      return { text: expression.source };
+    }
+    case "identifier": {
+      const symbol = environment.symbols.get(expression.name);
+      if (symbol !== undefined) return numericText(symbol);
+      const local = environment.locals.get(expression.name);
+      if (!local) return { text: expression.name };
+      if (environment.stack.has(expression.name)) throw new Error(`Programa BMM possui local recursivo ${expression.name}.`);
+      environment.stack.add(expression.name);
+      try { return renderScalarExpression(local, environment); } finally { environment.stack.delete(expression.name); }
+    }
+    case "unary": {
+      const operand = renderScalarExpression(expression.operand, environment);
+      if (expression.operator === "-" && operand.number !== undefined) return renderedNumber(-operand.number);
+      if (expression.operator === "+" && operand.number !== undefined) return renderedNumber(operand.number);
+      if (expression.operator === "!" && operand.boolean !== undefined) return { text: String(!operand.boolean), boolean: !operand.boolean };
+      return { text: `${expression.operator}${parenthesize(operand.text)}` };
+    }
+    case "binary": return renderBinaryExpression(expression.operator,
+      renderScalarExpression(expression.left, environment), renderScalarExpression(expression.right, environment));
+    case "call": {
+      const callee = renderScalarExpression(expression.callee, environment).text;
+      const arguments_ = expression.arguments.map((argument) => renderScalarExpression(argument, environment));
+      if (callee === "floor" && arguments_.length === 1 && arguments_[0]!.number !== undefined) return renderedNumber(Math.floor(arguments_[0]!.number));
+      return { text: `${callee}(${arguments_.map((argument) => argument.text).join(",")})` };
+    }
+    case "index": {
+      const target = renderScalarExpression(expression.target, environment).text;
+      const coordinates = expression.coordinates.map((coordinate) => renderScalarExpression(coordinate, environment).text);
+      return { text: `${target}[${coordinates.join(",")}]` };
+    }
+    case "member": return { text: `${renderScalarExpression(expression.target, environment).text}.${expression.member}` };
+    case "conditional": {
+      const condition = renderScalarExpression(expression.condition, environment).text;
+      const whenTrue = renderScalarExpression(expression.whenTrue, environment).text;
+      const whenFalse = renderScalarExpression(expression.whenFalse, environment).text;
+      return { text: `${condition} ? ${whenTrue} : ${whenFalse}` };
+    }
+    case "array": return { text: `[${expression.elements.map((entry) => renderScalarExpression(entry, environment).text).join(",")}]` };
+    case "range-inclusive": return { text: `${renderScalarExpression(expression.start, environment).text}..${renderScalarExpression(expression.end, environment).text}` };
+    case "filtered-domain": return { text: `${renderScalarExpression(expression.domain, environment).text} where ${renderScalarExpression(expression.predicate, environment).text}` };
+    case "named-argument": return { text: `${expression.name}=${renderScalarExpression(expression.value, environment).text}` };
+    case "ordered-loop": return { text: `${renderScalarExpression(expression.body, environment).text},${expression.index}=${renderScalarExpression(expression.domain, environment).text} ascending` };
+    case "evaluate-invocation": throw new Error("Programa BMM não aceita EVALUATE na redução nativa.");
+  }
+}
+
+function renderTensorAccess(
+  access: Extract<Gemma4LiteralScalarExpression, { kind: "index" }>,
+  environment: ScalarRenderEnvironment,
+): string {
+  const target = renderScalarExpression(access.target, environment).text;
+  const coordinates = access.coordinates.map((coordinate) => renderScalarExpression(coordinate, environment));
+  for (const coordinate of coordinates) if (coordinate.number !== undefined && !Number.isSafeInteger(coordinate.number)) {
+    throw new Error(`Programa BMM produziu coordenada não inteira segura: ${coordinate.number}.`);
+  }
+  return `${target}[${coordinates.map((coordinate) => coordinate.text).join(",")}]`;
+}
+
+function renderBinaryExpression(operator: string, left: RenderedScalarExpression, right: RenderedScalarExpression): RenderedScalarExpression {
+  if (left.number !== undefined && right.number !== undefined) {
+    switch (operator) {
+      case "+": return renderedNumber(left.number + right.number);
+      case "-": return renderedNumber(left.number - right.number);
+      case "*": return renderedNumber(left.number * right.number);
+      case "/": return renderedNumber(left.number / right.number);
+      case "%": return renderedNumber(left.number % right.number);
+      case "**": return renderedNumber(left.number ** right.number);
+      case "<": return renderedBoolean(left.number < right.number);
+      case "<=": return renderedBoolean(left.number <= right.number);
+      case ">": return renderedBoolean(left.number > right.number);
+      case ">=": return renderedBoolean(left.number >= right.number);
+      case "==": return renderedBoolean(left.number === right.number);
+      case "!=": return renderedBoolean(left.number !== right.number);
+    }
+  }
+  if (operator === "&&" && left.boolean !== undefined) return left.boolean ? right : renderedBoolean(false);
+  if (operator === "||" && left.boolean !== undefined) return left.boolean ? renderedBoolean(true) : right;
+  return { text: `${parenthesize(left.text)}${operator}${parenthesize(right.text)}` };
+}
+
+function numericText(value: string): RenderedScalarExpression {
+  const number = Number(value);
+  return Number.isFinite(number) ? renderedNumber(number) : { text: value };
+}
+
+function renderedNumber(value: number): RenderedScalarExpression {
+  if (!Number.isFinite(value)) throw new Error(`Programa BMM produziu número não finito: ${value}.`);
+  return { text: String(value), number: value };
+}
+
+function renderedBoolean(value: boolean): RenderedScalarExpression { return { text: String(value), boolean: value }; }
+function parenthesize(value: string): string { return /^-?[A-Za-z0-9_./:-]+$/.test(value) ? value : `(${value})`; }
 
 function explicitDynamicReductionWindow(request: Gemma4LiteralScalarViewRequest, id: string): { start: number; end: number } {
   const start = request.inputStart!, count = request.inputCount!;
@@ -331,29 +502,6 @@ function reductionWindow(request: Gemma4LiteralScalarViewRequest, width: number,
     throw new Error(`${id}: janela ${start}+${count} fora de 0..${width}.`);
   }
   return { start, end: start + count };
-}
-
-function requireCoordinateRank(coordinate: number[], rank: number, id: string, axes: string): void {
-  if (coordinate.length !== rank) throw new Error(`${id}: auditoria BMM requer coordenada ${axes}.`);
-}
-
-function assertAudioAttentionCoordinate(
-  artifact: OpenGemma4CompositeLiteralArtifact,
-  id: string,
-  head: number,
-  query: number,
-  keySlot: number,
-  keyExtent: number,
-): void {
-  const tower = artifact.program.audioProgram.tower;
-  if (head >= tower.attentionHeads || query >= tower.attentionChunkSize || keySlot >= keyExtent) {
-    throw new Error(`${id}: coordenada de atenção audio fora do domínio.`);
-  }
-}
-
-function audioContext(artifact: OpenGemma4CompositeLiteralArtifact): number {
-  const tower = artifact.program.audioProgram.tower;
-  return tower.attentionChunkSize + tower.attentionContextLeft - 1 + tower.attentionContextRight;
 }
 
 function indexed(name: string, coordinate: ReadonlyArray<number | string>): string {

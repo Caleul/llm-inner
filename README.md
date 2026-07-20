@@ -877,6 +877,30 @@ Payloads, vista escalar e a suite diferencial das três modalidades foram
 executados com a fonte fisicamente ausente. Evidência completa em
 [`docs/validation/gemma4-e4b-integrity-bound-fidelity-gate-2026-07-19.md`](docs/validation/gemma4-e4b-integrity-bound-fidelity-gate-2026-07-19.md).
 
+O schema v43 remove a última reconstrução por classe da auditoria de produtos
+BMM. A vista source-removed agora lê `statementPrograms`, `orderedInputs`,
+`outputCoordinates` e o domínio de redução diretamente de cada atribuição do
+`calculationGraph`; executa o prelude escalar serializado, localiza o único
+`REDUCE` e seus predicados e materializa os dois endereços de operandos sem
+consultar `headDim`, chunk, contexto ou outro metadado da torre no leitor. Os
+extents arquiteturalmente fixos de score visual, score de áudio e value de
+áudio são constantes do domínio serializado. Somente o número de patches do
+value BMM visual permanece corretamente dependente do shape e exige uma janela
+explícita sem shapes de runtime. A fronteira Apple Accelerate continua
+fail-closed; esta mudança torna auditável a entrada completa dessa fronteira,
+sem inventar sua árvore de acumulação.
+
+O E4B v43 tem 21.409.277.259 bytes, SHA-256
+`8dbfd9e22126b5286d94f6a2906cfe31b392e2056ef80c7559b97c51a426461e`
+e raiz estrutural
+`20ec2149a01250b350c174336627c33ee8c28924c5a2b1af7469a524b2c34c08`.
+Os 2.130 payloads e 15.992.314.836 bytes aprendidos foram revalidados com a
+fonte presente e ausente. A suite source-removed repetiu 3/3 prefill e 3/3
+gerações a tolerância zero, preservando as 100 reduções nativas no gate.
+
+Evidência da regeneração E4B real, auditoria source-removed e regressões está em
+[`docs/validation/gemma4-e4b-serialized-runtime-reduction-audit-2026-07-20.md`](docs/validation/gemma4-e4b-serialized-runtime-reduction-audit-2026-07-20.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 

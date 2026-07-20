@@ -263,6 +263,19 @@ alteração da lista é rejeitada. Lista não vazia obriga
 `exactReplayClaim=forbidden`; lista vazia declara somente elegibilidade para
 uma certificação independente com replay source-removed e diferencial fresco.
 
+No schema v43, a auditoria dos produtos de uma redução nativa não recebe mais
+uma fórmula paralela codificada no leitor. Ela localiza o único `REDUCE` no
+`statementPrograms` incorporado, resolve os locals escalares anteriores em
+ordem, associa os dois acessos indexados aos `orderedInputs`, liga a coordenada
+solicitada aos `outputCoordinates` e usa o `endExclusive` do domínio de redução
+como única autoridade do extent. Predicados de padding vêm da própria AST
+condicional. Extents fixos de arquitetura são constantes serializadas; extents
+dependentes de tensor exigem uma janela explícita quando os shapes de runtime
+não foram fornecidos. Alterar metadados redundantes da torre não pode mudar a
+vista, enquanto alterar AST, inputs, domínio ou predicado invalida ou muda a
+auditoria de modo observável. A saída continua indisponível quando a agenda do
+provider é `runtime-defined`.
+
 ## Critério de aceite
 
 Uma implementação só é candidata a fechar este requisito quando:

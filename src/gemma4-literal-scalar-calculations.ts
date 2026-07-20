@@ -939,13 +939,15 @@ function reductionDomains(
       if (!Number.isSafeInteger(kernel) || kernel! <= 0) throw new Error(`${definition.id}: kernel causal sem extent executável.`);
       return [reductionDomain("kernel_index", constantGemma4LiteralReductionExtent(kernel!))];
     }
-    case "attention-score-matmul": return [reductionDomain("head_feature", tensorAxisGemma4LiteralReductionExtent(input, 3))];
+    case "attention-score-matmul": return [reductionDomain("head_feature", constantGemma4LiteralReductionExtent(program.visionProgram.tower.headDim))];
     case "chunked-attention-content-matmul": case "relative-attention-position-matmul":
       return [reductionDomain("head_feature", constantGemma4LiteralReductionExtent(program.audioProgram.tower.headDim))];
     case "masked-softmax": case "attention-value-matmul":
       return [reductionDomain("key_patch", tensorAxisGemma4LiteralReductionExtent(input, 3))];
-    case "chunked-relative-attention-softmax": case "chunked-relative-attention-values":
+    case "chunked-relative-attention-softmax":
       return [reductionDomain("key_slot", tensorAxisGemma4LiteralReductionExtent(input, 4))];
+    case "chunked-relative-attention-values":
+      return [reductionDomain("key_slot", constantGemma4LiteralReductionExtent(audioAttentionContext(program)))];
     case "pool-by-position": return [reductionDomain("patch", tensorAxisGemma4LiteralReductionExtent(input, 1))];
     case "scaled_dot_product_attention": {
       const operation = definition.value as Extract<Operation, { op: "scaled_dot_product_attention" }>;
