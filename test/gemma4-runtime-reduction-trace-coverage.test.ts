@@ -116,16 +116,32 @@ test("Gemma 4 runtime-reduction provider accepts only its pinned contract and ex
     execute(actual) {
       const result = execution(actual, sampleTensor([1, 1, 2, 2]));
       const identity = structuredClone(result.evidence.runtimeAttestation.runtimeEnvironmentIdentity);
-      const files = identity.runtimeBinaryIdentity.files as unknown as Array<(typeof identity.runtimeBinaryIdentity.files)[number]>;
+      const files = identity.runtimeDependencyIdentity.files as unknown as Array<(typeof identity.runtimeDependencyIdentity.files)[number]>;
       files[0] = {
         ...files[0]!,
         sha256: "0".repeat(64),
-      } as (typeof identity.runtimeBinaryIdentity.files)[number];
+      } as (typeof identity.runtimeDependencyIdentity.files)[number];
       result.evidence.runtimeAttestation.runtimeEnvironmentIdentity = identity;
       return result;
     },
   };
   assert.throws(() => executeGemma4RuntimeReduction(wrongRuntimeBinary, request, [1, 1, 2, 2]), /evidência.*divergente/);
+
+  const wrongPythonSources: Gemma4RuntimeReductionProvider = {
+    ...provider,
+    execute(actual) {
+      const result = execution(actual, sampleTensor([1, 1, 2, 2]));
+      const identity = structuredClone(result.evidence.runtimeAttestation.runtimeEnvironmentIdentity);
+      const sourceTrees = identity.runtimeDependencyIdentity.pythonSourceTrees as unknown as Array<(typeof identity.runtimeDependencyIdentity.pythonSourceTrees)[number]>;
+      sourceTrees[1] = {
+        ...sourceTrees[1]!,
+        sha256: "0".repeat(64),
+      } as (typeof identity.runtimeDependencyIdentity.pythonSourceTrees)[number];
+      result.evidence.runtimeAttestation.runtimeEnvironmentIdentity = identity;
+      return result;
+    },
+  };
+  assert.throws(() => executeGemma4RuntimeReduction(wrongPythonSources, request, [1, 1, 2, 2]), /evidência.*divergente/);
 
   const mismatchedProgram = fixtureProgram();
   mismatchedProgram.assignments[2]!.operation = "add";

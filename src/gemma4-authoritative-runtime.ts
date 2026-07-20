@@ -28,7 +28,7 @@ export interface Gemma4AuthoritativeTraceContext {
 
 export interface Gemma4AuthoritativeExecutionContract {
   kind: "gemma4-authoritative-execution-contract";
-  schemaVersion: 6;
+  schemaVersion: 7;
   canonicalCompositeRuntime: typeof GEMMA4_COMPOSITE_REFERENCE_RUNTIME;
   diagnosticSubprogramRuntimes: {
     audio: typeof GEMMA4_AUDIO_REFERENCE_RUNTIME;
@@ -76,7 +76,7 @@ export interface Gemma4RuntimeReductionAdapterProgram {
   sourceUtf8: string;
 }
 
-export const GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256 = "705474b719aaecb639400a0997e2309eee02de223a779feaedf6bfe9d1648e1f" as const;
+export const GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256 = "6cb4b2d076a08536eabeb4bfaa2a5368de75f88b904aad291fd847e39d725b08" as const;
 
 /**
  * Exact host identity for the still-opaque Apple Accelerate reduction path.
@@ -93,7 +93,7 @@ export const GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY = {
   machineModel: "Mac15,10",
   cpuBrand: "Apple M3 Max",
   torchBuildConfigSha256: "606e3853213dea3faabc6d58b66ed7e419ee4452a6d53c2b27495a2ecc4e07a7",
-  runtimeBinaryIdentity: {
+  runtimeDependencyIdentity: {
     schemaVersion: 1,
     files: [
       {
@@ -125,6 +125,52 @@ export const GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY = {
         locator: "torch.package/lib/libc10.dylib",
         bytes: 1_072_704,
         sha256: "935940fedf52ad9d3aa40f1570ec4e6529b6be7d860bf0daaced344927d7e657",
+      },
+      {
+        role: "torch-core-library",
+        locator: "torch.package/lib/libtorch.dylib",
+        bytes: 16_752,
+        sha256: "4eab0bfaef1b14044359cefebb0030f1dcc5ad5f757d514a2aa7fff6dd08b032",
+      },
+      {
+        role: "torch-shared-memory-library",
+        locator: "torch.package/lib/libshm.dylib",
+        bytes: 64_016,
+        sha256: "43e8d43211fdbc270a2a5a6d580ed0344f74f5f15cf34f8abe5da6f958323dfe",
+      },
+      {
+        role: "openmp-runtime-library",
+        locator: "torch.package/lib/libomp.dylib",
+        bytes: 856_096,
+        sha256: "6256bee09e93c28d71c65711cc69224d69994c6965648b628b70a22772fe98d4",
+      },
+      {
+        role: "torch-global-dependencies-library",
+        locator: "torch.package/lib/libtorch_global_deps.dylib",
+        bytes: 16_760,
+        sha256: "63504e19a4f955eb4abe956a3f90578e343b033be75f26aa168aa4991db437fd",
+      },
+    ],
+    pythonSourceTrees: [
+      {
+        role: "cpython-standard-library",
+        locator: "os.__file__/..",
+        includeSuffixes: [".py", ".pyi"],
+        excludePathParts: ["__pycache__", "site-packages"],
+        canonicalLeafEncoding: "relative-posix-path\\0byte-count\\0sha256-hex\\n",
+        files: 1_848,
+        bytes: 35_754_693,
+        sha256: "3179ebdc3d1f5bbb1f3612d64fd0feb137af43688523c8c6eb0ff12eb9b4254d",
+      },
+      {
+        role: "torch-python-package",
+        locator: "torch.__file__/..",
+        includeSuffixes: [".py", ".pyi"],
+        excludePathParts: ["__pycache__"],
+        canonicalLeafEncoding: "relative-posix-path\\0byte-count\\0sha256-hex\\n",
+        files: 2_230,
+        bytes: 46_148_427,
+        sha256: "31caad9097d0c18d1ea1067589d973544965f4e91d27f223c865608ffbc9c8e7",
       },
     ],
     sharedCacheImages: [
@@ -175,7 +221,7 @@ export function gemma4AuthoritativeExecutionContract(
   validateGemma4RuntimeReductionAdapterProgram(adapterProgram);
   return {
     kind: "gemma4-authoritative-execution-contract",
-    schemaVersion: 6,
+    schemaVersion: 7,
     canonicalCompositeRuntime: GEMMA4_COMPOSITE_REFERENCE_RUNTIME,
     diagnosticSubprogramRuntimes: {
       audio: GEMMA4_AUDIO_REFERENCE_RUNTIME,

@@ -1015,6 +1015,29 @@ binários. A árvore escalar Apple Accelerate permanece corretamente no gate.
 Evidência completa em
 [`docs/validation/gemma4-e4b-runtime-binary-identity-2026-07-20.md`](docs/validation/gemma4-e4b-runtime-binary-identity-2026-07-20.md).
 
+O schema v51 fecha a identidade do código interpretado e das bibliotecas
+empacotadas que ainda ficavam fora do subconjunto binário v50. O contrato
+`runtimeDependencyIdentity` fixa nove arquivos nativos: CPython, `torch._C`,
+`libtorch_python`, `libtorch_cpu`, `libc10`, `libtorch`, `libshm`, `libomp` e
+`libtorch_global_deps`. Ele também compromete, por árvore canônica de caminho,
+tamanho e SHA-256 por folha, os 1.848 arquivos-fonte da biblioteca padrão
+CPython e os 2.230 arquivos-fonte do pacote Torch. O adapter incorporado
+recalcula os 4.078 arquivos / 81.903.120 bytes e todos os binários antes do
+primeiro `torch.matmul`; arquivo ausente, extra dentro dos sufixos declarados,
+alterado ou reordenado muda a raiz e falha fechado. A identidade do
+`libBLAS.dylib` no dyld shared cache permanece presa ao UUID Mach-O.
+
+O E4B v51 tem 21.409.350.146 bytes, SHA-256
+`33070a641fdd2d891310a789e4bc7508ebb6ccb0469d29d5577e9339a4ee5099`
+e raiz estrutural
+`0c97380a3ae5d6599e29c4b45eda9d6c546a6c3e58259292f674a74be591a41c`.
+Com checkpoint e adapter do checkout fisicamente ausentes, os 2.130 payloads
+foram revalidados e imagem, vídeo e áudio repetiram prefill, logits, 24 caches
+KV e geração greedy a tolerância zero com 32 + 32 + 36 recibos ligados à
+identidade expandida. As 100 agendas escalares Apple Accelerate continuam no
+gate, com `exactReplayClaim=forbidden`. Evidência completa em
+[`docs/validation/gemma4-e4b-runtime-dependency-identity-2026-07-20.md`](docs/validation/gemma4-e4b-runtime-dependency-identity-2026-07-20.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 

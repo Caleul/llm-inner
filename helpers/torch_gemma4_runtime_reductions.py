@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import hashlib
+import os
 import platform
 import re
 import subprocess
@@ -29,7 +30,7 @@ SUPPORTED_RUNTIME_ENVIRONMENT = {
     "machineModel": "Mac15,10",
     "cpuBrand": "Apple M3 Max",
     "torchBuildConfigSha256": "606e3853213dea3faabc6d58b66ed7e419ee4452a6d53c2b27495a2ecc4e07a7",
-    "runtimeBinaryIdentity": {
+    "runtimeDependencyIdentity": {
         "schemaVersion": 1,
         "files": [
             {"role": "cpython-runtime", "locator": "sys.base_prefix/Python", "bytes": 5438400, "sha256": "e5728c35bdc26dee85e45b3fb94780afc1c9f97ced6b0af64d54e4eab3422e0a"},
@@ -37,6 +38,14 @@ SUPPORTED_RUNTIME_ENVIRONMENT = {
             {"role": "torch-python-library", "locator": "torch.package/lib/libtorch_python.dylib", "bytes": 29929032, "sha256": "cb0f00560a29f0ff82cc125013c4fe5dfd544fba9cc728aa922efa56cd047557"},
             {"role": "torch-cpu-kernel-library", "locator": "torch.package/lib/libtorch_cpu.dylib", "bytes": 248507328, "sha256": "791f549846676c37c778a6bb043b6fafae54d3d32112a782a388be4ba6e6d52f"},
             {"role": "torch-tensor-runtime-library", "locator": "torch.package/lib/libc10.dylib", "bytes": 1072704, "sha256": "935940fedf52ad9d3aa40f1570ec4e6529b6be7d860bf0daaced344927d7e657"},
+            {"role": "torch-core-library", "locator": "torch.package/lib/libtorch.dylib", "bytes": 16752, "sha256": "4eab0bfaef1b14044359cefebb0030f1dcc5ad5f757d514a2aa7fff6dd08b032"},
+            {"role": "torch-shared-memory-library", "locator": "torch.package/lib/libshm.dylib", "bytes": 64016, "sha256": "43e8d43211fdbc270a2a5a6d580ed0344f74f5f15cf34f8abe5da6f958323dfe"},
+            {"role": "openmp-runtime-library", "locator": "torch.package/lib/libomp.dylib", "bytes": 856096, "sha256": "6256bee09e93c28d71c65711cc69224d69994c6965648b628b70a22772fe98d4"},
+            {"role": "torch-global-dependencies-library", "locator": "torch.package/lib/libtorch_global_deps.dylib", "bytes": 16760, "sha256": "63504e19a4f955eb4abe956a3f90578e343b033be75f26aa168aa4991db437fd"},
+        ],
+        "pythonSourceTrees": [
+            {"role": "cpython-standard-library", "locator": "os.__file__/..", "includeSuffixes": [".py", ".pyi"], "excludePathParts": ["__pycache__", "site-packages"], "canonicalLeafEncoding": "relative-posix-path\\0byte-count\\0sha256-hex\\n", "files": 1848, "bytes": 35754693, "sha256": "3179ebdc3d1f5bbb1f3612d64fd0feb137af43688523c8c6eb0ff12eb9b4254d"},
+            {"role": "torch-python-package", "locator": "torch.__file__/..", "includeSuffixes": [".py", ".pyi"], "excludePathParts": ["__pycache__"], "canonicalLeafEncoding": "relative-posix-path\\0byte-count\\0sha256-hex\\n", "files": 2230, "bytes": 46148427, "sha256": "31caad9097d0c18d1ea1067589d973544965f4e91d27f223c865608ffbc9c8e7"},
         ],
         "sharedCacheImages": [
             {"role": "accelerate-blas", "installName": "/System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib", "architecture": "arm64e", "machoUuid": "F078C775-D8DC-3C4D-879F-A9BB228DBE06"},
@@ -58,7 +67,45 @@ def file_identity(role: str, locator: str, path: Path) -> dict[str, Any]:
     }
 
 
-def runtime_binary_identity() -> dict[str, Any]:
+def source_tree_identity(
+    role: str,
+    locator: str,
+    root: Path,
+    include_suffixes: tuple[str, ...],
+    exclude_path_parts: tuple[str, ...],
+) -> dict[str, Any]:
+    digest = hashlib.sha256()
+    files = 0
+    total_bytes = 0
+    candidates = sorted(root.rglob("*"), key=lambda path: path.relative_to(root).as_posix())
+    for path in candidates:
+        relative = path.relative_to(root)
+        if (
+            not path.is_file()
+            or path.suffix not in include_suffixes
+            or any(part in exclude_path_parts for part in relative.parts)
+        ):
+            continue
+        payload = path.read_bytes()
+        leaf_sha256 = hashlib.sha256(payload).hexdigest()
+        digest.update(
+            f"{relative.as_posix()}\0{len(payload)}\0{leaf_sha256}\n".encode("utf-8")
+        )
+        files += 1
+        total_bytes += len(payload)
+    return {
+        "role": role,
+        "locator": locator,
+        "includeSuffixes": list(include_suffixes),
+        "excludePathParts": list(exclude_path_parts),
+        "canonicalLeafEncoding": "relative-posix-path\\0byte-count\\0sha256-hex\\n",
+        "files": files,
+        "bytes": total_bytes,
+        "sha256": digest.hexdigest(),
+    }
+
+
+def runtime_dependency_identity() -> dict[str, Any]:
     torch_root = Path(torch.__file__).resolve().parent
     blas_install_name = "/System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib"
     uuid_output = subprocess.check_output(
@@ -76,6 +123,20 @@ def runtime_binary_identity() -> dict[str, Any]:
             file_identity("torch-python-library", "torch.package/lib/libtorch_python.dylib", torch_root / "lib" / "libtorch_python.dylib"),
             file_identity("torch-cpu-kernel-library", "torch.package/lib/libtorch_cpu.dylib", torch_root / "lib" / "libtorch_cpu.dylib"),
             file_identity("torch-tensor-runtime-library", "torch.package/lib/libc10.dylib", torch_root / "lib" / "libc10.dylib"),
+            file_identity("torch-core-library", "torch.package/lib/libtorch.dylib", torch_root / "lib" / "libtorch.dylib"),
+            file_identity("torch-shared-memory-library", "torch.package/lib/libshm.dylib", torch_root / "lib" / "libshm.dylib"),
+            file_identity("openmp-runtime-library", "torch.package/lib/libomp.dylib", torch_root / "lib" / "libomp.dylib"),
+            file_identity("torch-global-dependencies-library", "torch.package/lib/libtorch_global_deps.dylib", torch_root / "lib" / "libtorch_global_deps.dylib"),
+        ],
+        "pythonSourceTrees": [
+            source_tree_identity(
+                "cpython-standard-library", "os.__file__/..", Path(os.__file__).resolve().parent,
+                (".py", ".pyi"), ("__pycache__", "site-packages"),
+            ),
+            source_tree_identity(
+                "torch-python-package", "torch.__file__/..", torch_root,
+                (".py", ".pyi"), ("__pycache__",),
+            ),
         ],
         "sharedCacheImages": [
             {
@@ -107,7 +168,7 @@ def runtime_environment_identity(build_config: str) -> dict[str, Any]:
             ["/usr/sbin/sysctl", "-n", "machdep.cpu.brand_string"], text=True
         ).strip(),
         "torchBuildConfigSha256": hashlib.sha256(build_config.encode("utf-8")).hexdigest(),
-        "runtimeBinaryIdentity": runtime_binary_identity(),
+        "runtimeDependencyIdentity": runtime_dependency_identity(),
     }
 
 
