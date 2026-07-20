@@ -28,7 +28,7 @@ export interface Gemma4AuthoritativeTraceContext {
 
 export interface Gemma4AuthoritativeExecutionContract {
   kind: "gemma4-authoritative-execution-contract";
-  schemaVersion: 5;
+  schemaVersion: 6;
   canonicalCompositeRuntime: typeof GEMMA4_COMPOSITE_REFERENCE_RUNTIME;
   diagnosticSubprogramRuntimes: {
     audio: typeof GEMMA4_AUDIO_REFERENCE_RUNTIME;
@@ -76,7 +76,7 @@ export interface Gemma4RuntimeReductionAdapterProgram {
   sourceUtf8: string;
 }
 
-export const GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256 = "77e3b2ba6c0d57aff3470447db85b1994262917ead82ada084d86b62544def34" as const;
+export const GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256 = "705474b719aaecb639400a0997e2309eee02de223a779feaedf6bfe9d1648e1f" as const;
 
 /**
  * Exact host identity for the still-opaque Apple Accelerate reduction path.
@@ -93,6 +93,49 @@ export const GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY = {
   machineModel: "Mac15,10",
   cpuBrand: "Apple M3 Max",
   torchBuildConfigSha256: "606e3853213dea3faabc6d58b66ed7e419ee4452a6d53c2b27495a2ecc4e07a7",
+  runtimeBinaryIdentity: {
+    schemaVersion: 1,
+    files: [
+      {
+        role: "cpython-runtime",
+        locator: "sys.base_prefix/Python",
+        bytes: 5_438_400,
+        sha256: "e5728c35bdc26dee85e45b3fb94780afc1c9f97ced6b0af64d54e4eab3422e0a",
+      },
+      {
+        role: "torch-python-extension",
+        locator: "torch._C.__file__",
+        bytes: 50_232,
+        sha256: "c48ade47e58bf4d28f4f41bd59b5be4b37e4931b36a1a90c44e9d8f5cb6ee434",
+      },
+      {
+        role: "torch-python-library",
+        locator: "torch.package/lib/libtorch_python.dylib",
+        bytes: 29_929_032,
+        sha256: "cb0f00560a29f0ff82cc125013c4fe5dfd544fba9cc728aa922efa56cd047557",
+      },
+      {
+        role: "torch-cpu-kernel-library",
+        locator: "torch.package/lib/libtorch_cpu.dylib",
+        bytes: 248_507_328,
+        sha256: "791f549846676c37c778a6bb043b6fafae54d3d32112a782a388be4ba6e6d52f",
+      },
+      {
+        role: "torch-tensor-runtime-library",
+        locator: "torch.package/lib/libc10.dylib",
+        bytes: 1_072_704,
+        sha256: "935940fedf52ad9d3aa40f1570ec4e6529b6be7d860bf0daaced344927d7e657",
+      },
+    ],
+    sharedCacheImages: [
+      {
+        role: "accelerate-blas",
+        installName: "/System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib",
+        architecture: "arm64e",
+        machoUuid: "F078C775-D8DC-3C4D-879F-A9BB228DBE06",
+      },
+    ],
+  },
 } as const;
 
 /** Loads the build-time adapter once; the emitted artifact embeds it and no longer needs this file. */
@@ -132,7 +175,7 @@ export function gemma4AuthoritativeExecutionContract(
   validateGemma4RuntimeReductionAdapterProgram(adapterProgram);
   return {
     kind: "gemma4-authoritative-execution-contract",
-    schemaVersion: 5,
+    schemaVersion: 6,
     canonicalCompositeRuntime: GEMMA4_COMPOSITE_REFERENCE_RUNTIME,
     diagnosticSubprogramRuntimes: {
       audio: GEMMA4_AUDIO_REFERENCE_RUNTIME,

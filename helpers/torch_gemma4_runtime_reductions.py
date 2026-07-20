@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import hashlib
 import platform
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -28,10 +29,66 @@ SUPPORTED_RUNTIME_ENVIRONMENT = {
     "machineModel": "Mac15,10",
     "cpuBrand": "Apple M3 Max",
     "torchBuildConfigSha256": "606e3853213dea3faabc6d58b66ed7e419ee4452a6d53c2b27495a2ecc4e07a7",
+    "runtimeBinaryIdentity": {
+        "schemaVersion": 1,
+        "files": [
+            {"role": "cpython-runtime", "locator": "sys.base_prefix/Python", "bytes": 5438400, "sha256": "e5728c35bdc26dee85e45b3fb94780afc1c9f97ced6b0af64d54e4eab3422e0a"},
+            {"role": "torch-python-extension", "locator": "torch._C.__file__", "bytes": 50232, "sha256": "c48ade47e58bf4d28f4f41bd59b5be4b37e4931b36a1a90c44e9d8f5cb6ee434"},
+            {"role": "torch-python-library", "locator": "torch.package/lib/libtorch_python.dylib", "bytes": 29929032, "sha256": "cb0f00560a29f0ff82cc125013c4fe5dfd544fba9cc728aa922efa56cd047557"},
+            {"role": "torch-cpu-kernel-library", "locator": "torch.package/lib/libtorch_cpu.dylib", "bytes": 248507328, "sha256": "791f549846676c37c778a6bb043b6fafae54d3d32112a782a388be4ba6e6d52f"},
+            {"role": "torch-tensor-runtime-library", "locator": "torch.package/lib/libc10.dylib", "bytes": 1072704, "sha256": "935940fedf52ad9d3aa40f1570ec4e6529b6be7d860bf0daaced344927d7e657"},
+        ],
+        "sharedCacheImages": [
+            {"role": "accelerate-blas", "installName": "/System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib", "architecture": "arm64e", "machoUuid": "F078C775-D8DC-3C4D-879F-A9BB228DBE06"},
+        ],
+    },
 }
 
 
-def runtime_environment_identity(build_config: str) -> dict[str, str]:
+def file_identity(role: str, locator: str, path: Path) -> dict[str, Any]:
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        while chunk := source.read(1024 * 1024):
+            digest.update(chunk)
+    return {
+        "role": role,
+        "locator": locator,
+        "bytes": path.stat().st_size,
+        "sha256": digest.hexdigest(),
+    }
+
+
+def runtime_binary_identity() -> dict[str, Any]:
+    torch_root = Path(torch.__file__).resolve().parent
+    blas_install_name = "/System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib"
+    uuid_output = subprocess.check_output(
+        ["/usr/bin/dyld_info", "-uuid", blas_install_name], text=True
+    )
+    uuid_match = re.search(r"[0-9A-F]{8}(?:-[0-9A-F]{4}){3}-[0-9A-F]{12}", uuid_output)
+    architecture_match = re.search(r"\[([^\]]+)\]", uuid_output)
+    if uuid_match is None or architecture_match is None:
+        raise ValueError("Accelerate libBLAS Mach-O identity is unavailable.")
+    return {
+        "schemaVersion": 1,
+        "files": [
+            file_identity("cpython-runtime", "sys.base_prefix/Python", Path(sys.base_prefix).resolve() / "Python"),
+            file_identity("torch-python-extension", "torch._C.__file__", Path(torch._C.__file__).resolve()),
+            file_identity("torch-python-library", "torch.package/lib/libtorch_python.dylib", torch_root / "lib" / "libtorch_python.dylib"),
+            file_identity("torch-cpu-kernel-library", "torch.package/lib/libtorch_cpu.dylib", torch_root / "lib" / "libtorch_cpu.dylib"),
+            file_identity("torch-tensor-runtime-library", "torch.package/lib/libc10.dylib", torch_root / "lib" / "libc10.dylib"),
+        ],
+        "sharedCacheImages": [
+            {
+                "role": "accelerate-blas",
+                "installName": blas_install_name,
+                "architecture": architecture_match.group(1),
+                "machoUuid": uuid_match.group(0),
+            },
+        ],
+    }
+
+
+def runtime_environment_identity(build_config: str) -> dict[str, Any]:
     return {
         "pythonImplementation": platform.python_implementation(),
         "pythonVersion": platform.python_version(),
@@ -50,6 +107,7 @@ def runtime_environment_identity(build_config: str) -> dict[str, str]:
             ["/usr/sbin/sysctl", "-n", "machdep.cpu.brand_string"], text=True
         ).strip(),
         "torchBuildConfigSha256": hashlib.sha256(build_config.encode("utf-8")).hexdigest(),
+        "runtimeBinaryIdentity": runtime_binary_identity(),
     }
 
 

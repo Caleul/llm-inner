@@ -111,6 +111,22 @@ test("Gemma 4 runtime-reduction provider accepts only its pinned contract and ex
   };
   assert.throws(() => executeGemma4RuntimeReduction(wrongEnvironment, request, [1, 1, 2, 2]), /evidência.*divergente/);
 
+  const wrongRuntimeBinary: Gemma4RuntimeReductionProvider = {
+    ...provider,
+    execute(actual) {
+      const result = execution(actual, sampleTensor([1, 1, 2, 2]));
+      const identity = structuredClone(result.evidence.runtimeAttestation.runtimeEnvironmentIdentity);
+      const files = identity.runtimeBinaryIdentity.files as unknown as Array<(typeof identity.runtimeBinaryIdentity.files)[number]>;
+      files[0] = {
+        ...files[0]!,
+        sha256: "0".repeat(64),
+      } as (typeof identity.runtimeBinaryIdentity.files)[number];
+      result.evidence.runtimeAttestation.runtimeEnvironmentIdentity = identity;
+      return result;
+    },
+  };
+  assert.throws(() => executeGemma4RuntimeReduction(wrongRuntimeBinary, request, [1, 1, 2, 2]), /evidência.*divergente/);
+
   const mismatchedProgram = fixtureProgram();
   mismatchedProgram.assignments[2]!.operation = "add";
   assert.throws(() => executeGemma4RuntimeReduction(provider, { ...request, program: mismatchedProgram }, [1, 1, 2, 2]), /não corresponde.*BMM/);

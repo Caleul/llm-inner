@@ -994,6 +994,27 @@ e geração greedy a tolerância zero com 100/100 recibos ligados ao ambiente.
 A árvore escalar proprietária continua corretamente fail-closed. Evidência em
 [`docs/validation/gemma4-e4b-runtime-platform-identity-2026-07-20.md`](docs/validation/gemma4-e4b-runtime-platform-identity-2026-07-20.md).
 
+O schema v50 fecha a identidade binária por baixo das versões do schema v49.
+O adapter agora rehasha o runtime CPython, `torch._C`,
+`libtorch_python.dylib`, `libtorch_cpu.dylib` e `libc10.dylib`, comparando
+tamanho e SHA-256 antes de executar. Como o Accelerate reside no dyld shared
+cache, `libBLAS.dylib` é fixado por install name, arquitetura `arm64e` e Mach-O
+UUID `F078C775-D8DC-3C4D-879F-A9BB228DBE06`. Esses campos estão dentro de
+`runtimeEnvironmentIdentity`, da raiz de integridade e de cada um dos 100
+recibos; um build byte-diferente não pode mais satisfazer apenas versões e
+configuração iguais.
+
+O E4B v50 tem 21.409.344.765 bytes, SHA-256
+`4d334b8358b1f0fd19a30882d017b0eb9d0c8dd6d8fa38d60cc16346cde268d6`
+e raiz estrutural
+`eef690cf2c58ace5c59632598c03dd7a3d97c039a349e9992ccdd85ec73be7c2`.
+Com checkpoint e adapter do checkout fisicamente ausentes, os 2.130 payloads
+foram revalidados e imagem, vídeo e áudio repetiram prefill, logits, 24 caches
+KV e geração greedy a tolerância zero com 100/100 recibos ligados também aos
+binários. A árvore escalar Apple Accelerate permanece corretamente no gate.
+Evidência completa em
+[`docs/validation/gemma4-e4b-runtime-binary-identity-2026-07-20.md`](docs/validation/gemma4-e4b-runtime-binary-identity-2026-07-20.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 

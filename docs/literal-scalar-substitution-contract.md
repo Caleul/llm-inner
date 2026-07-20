@@ -307,6 +307,16 @@ valores do runtime antes do primeiro `torch.matmul` e falha se qualquer campo
 divergir. Isso torna o replay nativo reproduzível somente no ambiente exato que
 produziu a evidência; não transforma a agenda escalar proprietária em fórmula.
 
+O schema v50 torna essa identidade resistente a builds binários diferentes que
+declarem as mesmas versões. `runtimeBinaryIdentity` fixa tamanho e SHA-256 do
+runtime CPython, da extensão `torch._C`, de `libtorch_python.dylib`,
+`libtorch_cpu.dylib` e `libc10.dylib`. Para o `libBLAS.dylib` mantido no dyld
+shared cache do macOS, onde não existe um arquivo comum para rehash, fixa o
+install name, a arquitetura `arm64e` e o Mach-O UUID. O adapter deriva e compara
+a lista fechada antes de cada matmul, e cada recibo carrega a mesma identidade.
+Alterar bytes de um executável/kernel ou trocar a imagem BLAS falha antes da
+redução; a agenda escalar continua deliberadamente `runtime-defined`.
+
 ## Critério de aceite
 
 Uma implementação só é candidata a fechar este requisito quando:
