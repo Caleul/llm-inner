@@ -21,6 +21,7 @@ def parse_args():
     parser.add_argument("--max-new-tokens", type=int, default=1)
     parser.add_argument("--output", required=True)
     parser.add_argument("--logit-chunk", type=int, default=8192)
+    parser.add_argument("--inspect-logit", type=int, action="append", default=[])
     return parser.parse_args()
 
 
@@ -120,6 +121,23 @@ def top_logits(values, count=10):
     ]
 
 
+def inspected_logits(baseline, candidate, dimensions):
+    inspected = []
+    for dimension in dimensions:
+        if dimension < 0 or dimension >= baseline.numel():
+            raise ValueError(f"--inspect-logit {dimension} is outside [0, {baseline.numel()})")
+        baseline_value = float(baseline[dimension].item())
+        candidate_value = float(candidate[dimension].item())
+        inspected.append({
+            "dimension": dimension,
+            "baseline": baseline_value,
+            "candidate": candidate_value,
+            "absoluteError": abs(candidate_value - baseline_value),
+            "equalAfterFinalBf16": candidate_value == baseline_value,
+        })
+    return inspected
+
+
 def baseline_next(model, input_ids):
     started = time.perf_counter()
     output = model(input_ids=input_ids, use_cache=True, logits_to_keep=1)
@@ -199,13 +217,14 @@ for step in range(args.max_new_tokens):
         "baselineSeconds": baseline_seconds,
         "candidateSeconds": candidate_seconds,
         "metrics": comparison,
+        "inspectedLogits": inspected_logits(baseline_logits, candidate_logits, args.inspect_logit),
         "baselineTopLogits": top_logits(baseline_logits),
         "candidateTopLogits": top_logits(candidate_logits),
     })
 
 report = {
     "kind": "gemma4-exact-real-simplified-differential",
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "source": str(Path(args.source).resolve()),
     "inputIds": [parsed_input_ids],
     "prompt": args.prompt,
