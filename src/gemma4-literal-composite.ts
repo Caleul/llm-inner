@@ -20,6 +20,7 @@ import {
   type Gemma4LiteralGenerationExecutionResult,
 } from "./gemma4-literal-generation.js";
 import { executeGemma4LiteralVisionF32 } from "./gemma4-literal-vision.js";
+import type { Gemma4RuntimeReductionProvider } from "./gemma4-runtime-reduction-provider.js";
 import {
   executeGemma4PagedTextInputEmbeddingsLiteralF32,
   executeGemma4PagedTextLiteralF32WithPreparedPrelude,
@@ -33,6 +34,7 @@ import type { DenseF32Tensor, ReferenceF32ExecutionResult } from "./types.js";
 export interface Gemma4LiteralCompositeExecutionOptions extends Gemma4PagedTextOptions {
   /** Largest fully decoded tensor used by either multimodal tower. */
   maxTowerTensorBytes?: number;
+  runtimeReductionProvider?: Gemma4RuntimeReductionProvider;
 }
 
 export interface Gemma4LiteralCompositeExecutionResult {
@@ -80,7 +82,10 @@ export async function executeGemma4LiteralCompositeF32(
     const image = await executeGemma4LiteralVisionF32(artifact, {
       pixelValues: request.pixelValues!,
       pixelPositionIds: request.imagePositionIds!,
-    }, { maxTensorBytes: towerLimit });
+    }, {
+      maxTensorBytes: towerLimit,
+      ...(options.runtimeReductionProvider ? { runtimeReductionProvider: options.runtimeReductionProvider } : {}),
+    });
     merge(values, image.values);
     values.set("image_features", image.imageFeatures);
     embeddings = scatterGemma4ImageFeaturesF32(embeddings, request.inputIds, artifact.program.contract.modalities.imageTokenId, image.imageFeatures);
@@ -96,7 +101,10 @@ export async function executeGemma4LiteralCompositeF32(
     const video = await executeGemma4LiteralVisionF32(artifact, {
       pixelValues: flattened.pixels,
       pixelPositionIds: flattened.positions,
-    }, { maxTensorBytes: towerLimit });
+    }, {
+      maxTensorBytes: towerLimit,
+      ...(options.runtimeReductionProvider ? { runtimeReductionProvider: options.runtimeReductionProvider } : {}),
+    });
     merge(values, prefixValues(video.values, "video_"));
     values.set("video_features", video.imageFeatures);
     embeddings = scatterGemma4ImageFeaturesF32(embeddings, request.inputIds, videoTokenId, video.imageFeatures);
@@ -107,7 +115,10 @@ export async function executeGemma4LiteralCompositeF32(
     const audio = await executeGemma4LiteralAudioF32(artifact, {
       inputFeatures: request.inputFeatures!,
       inputFeaturesMask: request.inputFeaturesMask!,
-    }, { maxTensorBytes: towerLimit });
+    }, {
+      maxTensorBytes: towerLimit,
+      ...(options.runtimeReductionProvider ? { runtimeReductionProvider: options.runtimeReductionProvider } : {}),
+    });
     merge(values, audio.values);
     values.set("audio_features", audio.audioFeatures);
     embeddings = scatterGemma4AudioFeaturesF32(embeddings, request.inputIds, artifact.program.contract.modalities.audioTokenId, audio.audioFeatures);

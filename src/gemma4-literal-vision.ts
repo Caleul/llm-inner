@@ -4,6 +4,7 @@ import { compareCapturedOperationCheckpoints } from "./differential.js";
 import { assertGemma4AuthoritativeRuntime } from "./gemma4-authoritative-runtime.js";
 import { openGemma4CompositeLiteralArtifact, type OpenGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
 import { validateGemma4RuntimeReductionTraceCoverage, type Gemma4RuntimeReductionTraceCoverage } from "./gemma4-runtime-reduction-trace-coverage.js";
+import type { Gemma4RuntimeReductionProvider } from "./gemma4-runtime-reduction-provider.js";
 import { executeGemma4VisionF32, type Gemma4VisionExecutionRequest, type Gemma4VisionExecutionResult } from "./gemma4-vision.js";
 import { readLiteralDenseF32Tensor } from "./paged-dense.js";
 import type { DenseF32Tensor, DifferentialCheckpointComparisonReport, DifferentialOperationSample, TensorInfo, TensorRef } from "./types.js";
@@ -13,6 +14,7 @@ export type Gemma4VisionInvocation = "image" | "video";
 export interface Gemma4VisionLiteralExecutionOptions {
   /** Largest single decoded tensor allocation. The complete model is never read as one buffer. */
   maxTensorBytes?: number;
+  runtimeReductionProvider?: Gemma4RuntimeReductionProvider;
 }
 
 export interface Gemma4VisionDifferentialTrace {
@@ -59,7 +61,11 @@ export async function executeGemma4LiteralVisionF32(
     const info = literalTensorInfo(artifact, reference);
     tensors.set(reference.name, await readLiteralDenseF32Tensor(info, artifact, maxTensorBytes));
   }
-  return executeGemma4VisionF32(artifact.program.visionProgram, { ...request, tensors });
+  return executeGemma4VisionF32(artifact.program.visionProgram, {
+    ...request,
+    tensors,
+    ...(options.runtimeReductionProvider ? { runtimeReductionProvider: options.runtimeReductionProvider } : {}),
+  });
 }
 
 /** Source-removed image or video comparison at authoritative tower boundaries. */
@@ -71,6 +77,7 @@ export async function compareGemma4LiteralVisionTrace(options: {
   maxRelativeError?: number;
   topK?: number;
   assertSourceUnavailable?: string;
+  runtimeReductionProvider?: Gemma4RuntimeReductionProvider;
 }): Promise<DifferentialCheckpointComparisonReport> {
   if (options.assertSourceUnavailable) {
     let exists = true;
@@ -83,7 +90,10 @@ export async function compareGemma4LiteralVisionTrace(options: {
   try {
     assertTraceSourceIdentity(options.trace, artifact);
     validateGemma4RuntimeReductionTraceCoverage(options.trace.reference.runtimeReductionCoverage, artifact.program.visionProgram, options.trace.reference.operations);
-    const candidate = await executeGemma4LiteralVisionF32(artifact, flattened, { maxTensorBytes: options.maxTensorBytes });
+    const candidate = await executeGemma4LiteralVisionF32(artifact, flattened, {
+      maxTensorBytes: options.maxTensorBytes,
+      ...(options.runtimeReductionProvider ? { runtimeReductionProvider: options.runtimeReductionProvider } : {}),
+    });
     return compareCapturedOperationCheckpoints(candidate.values, { operations: options.trace.reference.operations }, {
       candidateRuntime: `llm-inner embedded-literal Gemma4Vision ${options.trace.invocation} BF16-policy scalar executor`,
       ...(options.topK === undefined ? {} : { topK: options.topK }),

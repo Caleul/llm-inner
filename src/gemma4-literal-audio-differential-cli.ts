@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { compareGemma4LiteralAudioTrace } from "./gemma4-literal-audio.js";
+import { Gemma4TorchRuntimeReductionProvider } from "./gemma4-torch-runtime-reduction-provider.js";
 import { readGemma4AudioDifferentialTrace } from "./gemma4-transformers-audio-trace.js";
 
 function value(argv: string[], name: string, required = true): string | undefined {
@@ -21,6 +22,8 @@ async function main(): Promise<void> {
     !Number.isFinite(relative) || relative < 0 || !Number.isSafeInteger(topK) || topK <= 0) throw new Error("Opções diferenciais de áudio inválidas.");
   const report = resolve(value(argv, "--report")!);
   const trace = await readGemma4AudioDifferentialTrace(resolve(value(argv, "--trace")!));
+  const runtimeReductionPython = value(argv, "--runtime-reduction-python", false);
+  const runtimeReductionProvider = runtimeReductionPython ? new Gemma4TorchRuntimeReductionProvider(runtimeReductionPython) : undefined;
   const result = await compareGemma4LiteralAudioTrace({
     artifact: resolve(value(argv, "--artifact")!),
     trace,
@@ -29,6 +32,7 @@ async function main(): Promise<void> {
     maxRelativeError: relative,
     topK,
     ...(value(argv, "--assert-source-unavailable", false) ? { assertSourceUnavailable: resolve(value(argv, "--assert-source-unavailable")!) } : {}),
+    ...(runtimeReductionProvider ? { runtimeReductionProvider } : {}),
   });
   await mkdir(dirname(report), { recursive: true });
   await writeFile(report, `${JSON.stringify({
@@ -37,6 +41,7 @@ async function main(): Promise<void> {
     model: trace.source.model,
     revisionOrChecksum: trace.source.revisionOrChecksum,
     referenceRuntime: trace.reference.runtime,
+    runtimeReductionProvider: runtimeReductionProvider?.contractId ?? null,
     traceEvidence: { captureId: trace.reference.captureId, sourceFiles: trace.source.files, runtimeReductionCoverage: trace.reference.runtimeReductionCoverage },
     inputFeatures: { shape: trace.reference.inputFeatures.shape, values: Array.from(trace.reference.inputFeatures.values) },
     inputFeaturesMask: trace.reference.inputFeaturesMask,

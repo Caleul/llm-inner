@@ -11,12 +11,14 @@ import {
 } from "./gemma4-audio.js";
 import { openGemma4CompositeLiteralArtifact, type OpenGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
 import { validateGemma4RuntimeReductionTraceCoverage, type Gemma4RuntimeReductionTraceCoverage } from "./gemma4-runtime-reduction-trace-coverage.js";
+import type { Gemma4RuntimeReductionProvider } from "./gemma4-runtime-reduction-provider.js";
 import { readLiteralDenseF32Tensor } from "./paged-dense.js";
 import type { DenseF32Tensor, DifferentialCheckpointComparisonReport, DifferentialOperationSample, TensorInfo, TensorRef } from "./types.js";
 
 export interface Gemma4AudioLiteralExecutionOptions {
   /** Largest single decoded tensor allocation. The complete model is never read as one buffer. */
   maxTensorBytes?: number;
+  runtimeReductionProvider?: Gemma4RuntimeReductionProvider;
 }
 
 export interface Gemma4AudioDifferentialTrace {
@@ -73,7 +75,11 @@ export async function executeGemma4LiteralAudioF32(
     const info = literalTensorInfo(artifact, reference);
     tensors.set(reference.name, await readLiteralDenseF32Tensor(info, artifact, maxTensorBytes));
   }
-  return executeGemma4AudioF32(artifact.program.audioProgram, { ...request, tensors });
+  return executeGemma4AudioF32(artifact.program.audioProgram, {
+    ...request,
+    tensors,
+    ...(options.runtimeReductionProvider ? { runtimeReductionProvider: options.runtimeReductionProvider } : {}),
+  });
 }
 
 /** Source-removed comparison at authoritative module boundaries and output. */
@@ -85,6 +91,7 @@ export async function compareGemma4LiteralAudioTrace(options: {
   maxRelativeError?: number;
   topK?: number;
   assertSourceUnavailable?: string;
+  runtimeReductionProvider?: Gemma4RuntimeReductionProvider;
 }): Promise<Gemma4AudioDifferentialComparisonReport> {
   if (options.assertSourceUnavailable) {
     let exists = true;
@@ -99,7 +106,10 @@ export async function compareGemma4LiteralAudioTrace(options: {
     const candidate = await executeGemma4LiteralAudioF32(artifact, {
       inputFeatures: options.trace.reference.inputFeatures,
       inputFeaturesMask: options.trace.reference.inputFeaturesMask,
-    }, { maxTensorBytes: options.maxTensorBytes });
+    }, {
+      maxTensorBytes: options.maxTensorBytes,
+      ...(options.runtimeReductionProvider ? { runtimeReductionProvider: options.runtimeReductionProvider } : {}),
+    });
     const comparison = compareCapturedOperationCheckpoints(candidate.values, { operations: options.trace.reference.operations }, {
       candidateRuntime: "llm-inner embedded-literal Gemma4Audio BF16-policy scalar executor",
       ...(options.topK === undefined ? {} : { topK: options.topK }),

@@ -13,6 +13,7 @@ import type {
   DifferentialOperationSample,
 } from "./types.js";
 import { evaluateGemma4LiteralReductionIndexDomains } from "./gemma4-literal-reduction-domains.js";
+import type { Gemma4RuntimeReductionProvider } from "./gemma4-runtime-reduction-provider.js";
 
 interface CompositeInputs {
   modality: Gemma4CompositeTraceModality;
@@ -58,6 +59,7 @@ export async function compareGemma4LiteralCompositeTrace(options: {
   topK?: number;
   assertSourceUnavailable?: string;
   allowUnverifiedFidelity?: boolean;
+  runtimeReductionProvider?: Gemma4RuntimeReductionProvider;
 }): Promise<Gemma4LiteralCompositeDifferentialReport> {
   if (![options.maxReadBytes, options.maxTowerTensorBytes].every((value) => Number.isSafeInteger(value) && value > 0)) {
     throw new Error("Comparação composite requer limites de leitura positivos seguros.");
@@ -99,6 +101,7 @@ export async function compareGemma4LiteralCompositeTrace(options: {
       maxReadBytes: options.maxReadBytes,
       maxTowerTensorBytes: options.maxTowerTensorBytes,
       ...(options.allowUnverifiedFidelity ? { allowUnverifiedFidelity: true } : {}),
+      ...(options.runtimeReductionProvider ? { runtimeReductionProvider: options.runtimeReductionProvider } : {}),
     });
     const tolerance = { maxAbsoluteError: options.maxAbsoluteError ?? 0, maxRelativeError: options.maxRelativeError ?? 0 };
     const candidateRuntime = decoded.bundle.candidatePolicy.runtime;

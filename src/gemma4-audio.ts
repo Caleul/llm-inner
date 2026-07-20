@@ -1,5 +1,6 @@
 import { inspectGemma4PackageContract, type Gemma4AudioTowerContract } from "./gemma4-contract.js";
 import { pytorchCpuCascadeSquareSumF32, pytorchPowNegativeHalfF32 } from "./executor.js";
+import { executeGemma4RuntimeReduction, type Gemma4RuntimeReductionProvider } from "./gemma4-runtime-reduction-provider.js";
 import { armNeonBf16DotF32, pytorchCpuBf16GemmIlp4F32, pytorchCpuBf16WelfordMomentsF32 } from "./native-reductions.js";
 import { roundDenseF32ToBF16 } from "./paged-dense.js";
 import { sleefCosF32, sleefExpF32, sleefSinF32, sleefTanhF32 } from "./sleef-f32.js";
@@ -79,6 +80,8 @@ export interface Gemma4AudioExecutionRequest {
   /** [batch][frames], true only for real audio frames. */
   inputFeaturesMask: readonly boolean[][];
   tensors: ReadonlyMap<string, DenseF32Tensor>;
+  /** Exact pinned runtime path for assignments whose scalar schedule is unpublished. */
+  runtimeReductionProvider?: Gemma4RuntimeReductionProvider;
 }
 
 export interface Gemma4AudioExecutionResult {
@@ -148,6 +151,9 @@ export function buildGemma4AudioProgram(catalog: ModelCatalog): Gemma4AudioProgr
 
 /** Executes every declared audio assignment with scalar IEEE binary32 boundaries. */
 export function executeGemma4AudioF32(program: Gemma4AudioProgram, request: Gemma4AudioExecutionRequest): Gemma4AudioExecutionResult {
+  if (request.runtimeReductionProvider && program.runtimeDtype !== "BF16") {
+    throw new Error("Provedor nativo Gemma 4 audio requer o programa BF16 autoritativo.");
+  }
   validateInput(request);
   const values = new Map<string, DenseF32Tensor>();
   const prefix = "model.audio_tower";
@@ -177,7 +183,7 @@ export function executeGemma4AudioF32(program: Gemma4AudioProgram, request: Gemm
   const flat = put("audio_subsample_flat", flattenConv(secondActivated));
   put("audio_hidden_0", project(flat, get(`${prefix}.subsample_conv_projection.input_proj_linear.weight`)));
   const positions = put("audio_relative_positions", relativePositions(program.tower));
-  for (let layer = 0; layer < program.tower.layers; layer += 1) executeLayer(values, layer, program, outputMask, positions, request.tensors, put, project, normalize);
+  for (let layer = 0; layer < program.tower.layers; layer += 1) executeLayer(values, layer, program, outputMask, positions, request.tensors, put, project, normalize, request.runtimeReductionProvider);
   const output = put("audio_output_projected", project(values.get(`audio_hidden_${program.tower.layers}`)!, get(`${prefix}.output_proj.weight`), get(`${prefix}.output_proj.bias`)));
   const normalizedOutput = put("audio_output_normalized", normalize(output));
   const projected = put("audio_projected_features", project(normalizedOutput, get("model.embed_audio.embedding_projection.weight")));
@@ -263,6 +269,7 @@ function executeLayer(
   put: (name: string, value: DenseF32Tensor) => DenseF32Tensor,
   project: (input: DenseF32Tensor, weight: DenseF32Tensor, bias?: DenseF32Tensor) => DenseF32Tensor,
   normalize: (input: DenseF32Tensor, weight?: DenseF32Tensor) => DenseF32Tensor,
+  runtimeReductionProvider?: Gemma4RuntimeReductionProvider,
 ): void {
   const get = (name: string): DenseF32Tensor => tensor(tensors, name);
   const base = `model.audio_tower.layers.${layer}`;
@@ -294,15 +301,31 @@ function executeLayer(
   const relativeKeys = put(`audio_layer_${layer}_relative_keys`, project(positions, get(`${base}.self_attn.relative_k_proj.weight`)));
   const qScaled = put(`audio_layer_${layer}_q_scaled`, scaleAttentionQuery(q, get(`${base}.self_attn.per_dim_scale`), program.tower.headDim));
   const kScaled = put(`audio_layer_${layer}_k_scaled`, scale(k, f32(Math.log1p(Math.exp(1)) / Math.log(2))));
-  const contentScores = put(`audio_layer_${layer}_attention_ac`, chunkedAttentionContentScores(qScaled, kScaled, program));
-  const positionScores = put(`audio_layer_${layer}_attention_bd_unshifted`, relativeAttentionPositionScores(qScaled, relativeKeys, program));
+  const layout = audioAttentionLayout(qScaled, program);
+  const contentScores = put(`audio_layer_${layer}_attention_ac`, runtimeReductionProvider
+    ? executeGemma4RuntimeReduction(runtimeReductionProvider, {
+      scope: "audio", operationId: `audio_layer_${layer}_attention_content_scores`, operation: "chunked-attention-content-matmul",
+      program, operands: [qScaled, kScaled],
+    }, [layout.batch, layout.heads, layout.blocks, layout.chunk, layout.context])
+    : chunkedAttentionContentScores(qScaled, kScaled, program));
+  const positionScores = put(`audio_layer_${layer}_attention_bd_unshifted`, runtimeReductionProvider
+    ? executeGemma4RuntimeReduction(runtimeReductionProvider, {
+      scope: "audio", operationId: `audio_layer_${layer}_attention_position_scores`, operation: "relative-attention-position-matmul",
+      program, operands: [qScaled, relativeKeys],
+    }, [layout.batch, layout.heads, layout.blocks, layout.chunk, layout.relativeLength])
+    : relativeAttentionPositionScores(qScaled, relativeKeys, program));
   const derivedAttention = executeGemma4AudioDerivedAttentionStagesF32(program, contentScores, positionScores, outputMask);
   put(`audio_layer_${layer}_attention_bd`, derivedAttention.shiftedPositionScores);
   put(`audio_layer_${layer}_attention_logits`, derivedAttention.logits);
   put(`audio_layer_${layer}_attention_softcapped`, derivedAttention.softcapped);
   const scores = put(`audio_layer_${layer}_attention_scores`, derivedAttention.maskedScores);
   const weights = put(`audio_layer_${layer}_attention_weights`, chunkedAttentionSoftmax(scores));
-  const context = put(`audio_layer_${layer}_attention_context`, chunkedAttentionValues(weights, v, program));
+  const context = put(`audio_layer_${layer}_attention_context`, runtimeReductionProvider
+    ? executeGemma4RuntimeReduction(runtimeReductionProvider, {
+      scope: "audio", operationId: `audio_layer_${layer}_attention`, operation: "chunked-relative-attention-values",
+      program, operands: [weights, v],
+    }, [layout.batch, layout.sequence, layout.width])
+    : chunkedAttentionValues(weights, v, program));
   const contextBf16 = put(`audio_layer_${layer}_attention_context_bf16`, context);
   const projected = put(`audio_layer_${layer}_attention_projected`, clippedProject("self_attn.post", contextBf16));
   const attnClip = put(`audio_layer_${layer}_attn_clipped_out`, clip(projected, program.gradientClipping));

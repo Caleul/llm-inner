@@ -1,5 +1,6 @@
 import { inspectGemma4PackageContract, type Gemma4VisionTowerContract } from "./gemma4-contract.js";
 import { pytorchCpuCascadeSquareSumF32, pytorchPowNegativeHalfF32 } from "./executor.js";
+import { executeGemma4RuntimeReduction, type Gemma4RuntimeReductionProvider } from "./gemma4-runtime-reduction-provider.js";
 import { armNeonBf16DotF32 } from "./native-reductions.js";
 import { roundDenseF32ToBF16 } from "./paged-dense.js";
 import { sleefCosF32, sleefExpF32, sleefSinF32, sleefTanhF32 } from "./sleef-f32.js";
@@ -77,6 +78,8 @@ export interface Gemma4VisionExecutionRequest {
   pixelPositionIds: number[][][];
   /** Exact F32 materialization of every tensor referenced by the program. */
   tensors: ReadonlyMap<string, DenseF32Tensor>;
+  /** Exact pinned runtime path for assignments whose scalar schedule is unpublished. */
+  runtimeReductionProvider?: Gemma4RuntimeReductionProvider;
 }
 
 export interface Gemma4VisionExecutionResult {
@@ -151,6 +154,9 @@ export function buildGemma4VisionProgram(catalog: ModelCatalog): Gemma4VisionPro
 
 /** Executes the program's image branch with scalar binary32 boundaries. */
 export function executeGemma4VisionF32(program: Gemma4VisionProgram, request: Gemma4VisionExecutionRequest): Gemma4VisionExecutionResult {
+  if (request.runtimeReductionProvider && program.runtimeDtype !== "BF16") {
+    throw new Error("Provedor nativo Gemma 4 vision requer o programa BF16 autoritativo.");
+  }
   validatePixels(program, request.pixelValues, request.pixelPositionIds);
   const values = new Map<string, DenseF32Tensor>();
   const prefix = "model.vision_tower";
@@ -188,9 +194,21 @@ export function executeGemma4VisionF32(program: Gemma4VisionProgram, request: Ge
     const vHeads = put(`vision_layer_${layer}_v_heads`, reshapeHeads(vLinear, program.tower.attentionHeads, program.tower.headDim));
     const v = put(`vision_layer_${layer}_v_normalized`, normalize(vHeads));
     const nativeBf16 = program.runtimeDtype === "BF16";
-    const scores = put(`vision_layer_${layer}_attention_scores`, attentionScores(q, k, nativeBf16));
+    const scoresShape = [q.shape[0]!, q.shape[1]!, q.shape[2]!, k.shape[2]!] as const;
+    const scores = put(`vision_layer_${layer}_attention_scores`, request.runtimeReductionProvider
+      ? executeGemma4RuntimeReduction(request.runtimeReductionProvider, {
+        scope: "vision", operationId: `vision_layer_${layer}_attention_scores`, operation: "attention-score-matmul",
+        program, operands: [q, k],
+      }, scoresShape)
+      : attentionScores(q, k, nativeBf16));
     const weights = put(`vision_layer_${layer}_attention_weights`, maskedSoftmax(scores, padding, nativeBf16));
-    const context = put(`vision_layer_${layer}_attention_context`, attentionValues(weights, v, nativeBf16));
+    const contextShape = [weights.shape[0]!, weights.shape[2]!, v.shape[1]! * v.shape[3]!] as const;
+    const context = put(`vision_layer_${layer}_attention_context`, request.runtimeReductionProvider
+      ? executeGemma4RuntimeReduction(request.runtimeReductionProvider, {
+        scope: "vision", operationId: `vision_layer_${layer}_attention`, operation: "attention-value-matmul",
+        program, operands: [weights, v],
+      }, contextShape)
+      : attentionValues(weights, v, nativeBf16));
     const attnProjected = put(`vision_layer_${layer}_attention_projected`, clippedProject("self_attn.o_proj", context));
     const postAttention = put(`vision_layer_${layer}_post_attention_normalized`, normalize(attnProjected, get(`${base}.post_attention_layernorm.weight`)));
     const afterAttention = put(`vision_layer_${layer}_after_attention`, add(hidden, postAttention));

@@ -4,6 +4,7 @@ import {
   type Gemma4LiteralCompositeDifferentialReport,
 } from "./gemma4-literal-composite-differential.js";
 import type { Gemma4CompositeTraceModality } from "./gemma4-composite-trace-profile.js";
+import type { Gemma4RuntimeReductionProvider } from "./gemma4-runtime-reduction-provider.js";
 
 const MODALITIES = ["image", "video", "audio"] as const;
 
@@ -50,6 +51,7 @@ export async function compareGemma4LiteralCompositeModalitySuite(options: {
   topK: number;
   assertSourceUnavailable: string;
   allowUnverifiedFidelity: true;
+  runtimeReductionProvider?: Gemma4RuntimeReductionProvider;
 }): Promise<Gemma4LiteralCompositeModalitySuiteReport> {
   if (options.maxAbsoluteError !== 0 || options.maxRelativeError !== 0) {
     throw new Error("Suite de modalidades Gemma 4 requer tolerância absoluta e relativa zero.");
@@ -70,6 +72,7 @@ export async function compareGemma4LiteralCompositeModalitySuite(options: {
       topK: options.topK,
       assertSourceUnavailable: options.assertSourceUnavailable,
       allowUnverifiedFidelity: true,
+      ...(options.runtimeReductionProvider ? { runtimeReductionProvider: options.runtimeReductionProvider } : {}),
     });
     modalities.push({ modality, trace, traceSha256: await sha256File(trace), comparison });
   }

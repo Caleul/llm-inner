@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { compareGemma4LiteralCompositeModalitySuite } from "./gemma4-literal-composite-modality-suite.js";
+import { Gemma4TorchRuntimeReductionProvider } from "./gemma4-torch-runtime-reduction-provider.js";
 
 function value(argv: string[], name: string): string {
   const index = argv.indexOf(name);
@@ -21,6 +22,9 @@ async function main(): Promise<void> {
     throw new Error("Opções numéricas da suite composite são inválidas.");
   }
   const report = resolve(value(argv, "--report"));
+  const runtimeReductionProvider = argv.includes("--runtime-reduction-python")
+    ? new Gemma4TorchRuntimeReductionProvider(value(argv, "--runtime-reduction-python"))
+    : undefined;
   const result = await compareGemma4LiteralCompositeModalitySuite({
     artifact: resolve(value(argv, "--artifact")),
     traces: {
@@ -35,6 +39,7 @@ async function main(): Promise<void> {
     topK,
     assertSourceUnavailable: resolve(value(argv, "--assert-source-unavailable")),
     allowUnverifiedFidelity: true,
+    ...(runtimeReductionProvider ? { runtimeReductionProvider } : {}),
   });
   await mkdir(dirname(report), { recursive: true });
   await writeFile(report, `${JSON.stringify(result, null, 2)}\n`, "utf8");

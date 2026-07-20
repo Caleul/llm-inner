@@ -4,6 +4,7 @@ import {
   buildGemma4RuntimeReductionTraceCoverage,
   validateGemma4RuntimeReductionTraceCoverage,
 } from "../src/gemma4-runtime-reduction-trace-coverage.js";
+import { executeGemma4RuntimeReduction, type Gemma4RuntimeReductionProvider } from "../src/gemma4-runtime-reduction-provider.js";
 import type { Gemma4VisionProgram } from "../src/gemma4-vision.js";
 import type { DifferentialOperationSample } from "../src/types.js";
 
@@ -43,6 +44,31 @@ test("Gemma 4 native-reduction coverage fails closed for an earlier or tampered 
   );
 });
 
+test("Gemma 4 runtime-reduction provider accepts only its pinned contract and exact output shape", () => {
+  const request = {
+    scope: "vision" as const,
+    operationId: "vision_layer_0_attention_scores",
+    operation: "attention-score-matmul" as const,
+    program: fixtureProgram(),
+    operands: [sampleTensor([1, 1, 2, 2]), sampleTensor([1, 1, 2, 2])] as const,
+  };
+  const provider: Gemma4RuntimeReductionProvider = {
+    contractId: "torch-2.12.1-cpu-inference-matmul-v1",
+    execute(actual) {
+      assert.equal(actual, request);
+      return sampleTensor([1, 1, 2, 2], 3.5);
+    },
+  };
+  assert.deepEqual(executeGemma4RuntimeReduction(provider, request, [1, 1, 2, 2]), sampleTensor([1, 1, 2, 2], 3.5));
+
+  const wrongShape: Gemma4RuntimeReductionProvider = { ...provider, execute: () => sampleTensor([1, 1, 1, 2]) };
+  assert.throws(() => executeGemma4RuntimeReduction(wrongShape, request, [1, 1, 2, 2]), /shape divergente/);
+  const nonFinite: Gemma4RuntimeReductionProvider = { ...provider, execute: () => ({ shape: [1, 1, 2, 2], values: Float32Array.of(0, 0, 0, Infinity) }) };
+  assert.throws(() => executeGemma4RuntimeReduction(nonFinite, request, [1, 1, 2, 2]), /tensor inválido/);
+  const wrongContract = { ...provider, contractId: "wrong" } as unknown as Gemma4RuntimeReductionProvider;
+  assert.throws(() => executeGemma4RuntimeReduction(wrongContract, request, [1, 1, 2, 2]), /não corresponde ao contrato/);
+});
+
 function fixtureProgram(): Gemma4VisionProgram {
   return {
     kind: "gemma4-vision-features",
@@ -75,5 +101,9 @@ function fixtureOperations(): DifferentialOperationSample[] {
 }
 
 function sample(operationId: string, output: string, shape: number[]): DifferentialOperationSample {
-  return { operationId, output, tensor: { shape, values: new Float32Array(shape.reduce((total, dimension) => total * dimension, 1)) } };
+  return { operationId, output, tensor: sampleTensor(shape) };
+}
+
+function sampleTensor(shape: number[], value = 0) {
+  return { shape, values: new Float32Array(shape.reduce((total, dimension) => total * dimension, 1)).fill(value) };
 }

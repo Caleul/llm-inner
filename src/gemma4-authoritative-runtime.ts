@@ -35,6 +35,23 @@ export interface Gemma4AuthoritativeExecutionContract {
       "audio-position-attention-score",
       "audio-attention-value",
     ];
+    executableReplay: {
+      providerContractId: "torch-2.12.1-cpu-inference-matmul-v1";
+      runtime: "torch-2.12.1";
+      executionMode: "torch.inference_mode";
+      device: "cpu";
+      operation: "torch.matmul";
+      backend: "Apple Accelerate SGEMM";
+      checkpointInput: "forbidden";
+      operandSource: "dependency-ordered artifact intermediates only";
+      operationClasses: [
+        { operationClass: "vision-attention-score"; inputDtype: "BF16"; outputDtype: "BF16"; transform: "[B,H,Q,D] @ transpose([B,H,K,D],2,3) -> [B,H,Q,K]" },
+        { operationClass: "vision-attention-value"; inputDtype: "BF16"; outputDtype: "BF16"; transform: "transpose([B,H,Q,K] @ [B,H,K,D],1,2) -> reshape [B,Q,H*D]" },
+        { operationClass: "audio-content-attention-score"; inputDtype: "F32"; outputDtype: "F32"; transform: "block(Q,[B,H,blocks,chunk,D]) @ transpose(context(K),D,key)" },
+        { operationClass: "audio-position-attention-score"; inputDtype: "F32"; outputDtype: "F32"; transform: "reshape(block(Q),[B,H,blocks*chunk,D]) @ transpose(relativeK,H,D,R)" },
+        { operationClass: "audio-attention-value"; inputDtype: "F32"; outputDtype: "F32"; transform: "weights[B,H,blocks,chunk,context] @ context(V) -> transpose/reshape/trim [B,S,H*D]" },
+      ];
+    };
   };
 }
 
@@ -59,6 +76,23 @@ export function gemma4AuthoritativeExecutionContract(): Gemma4AuthoritativeExecu
         "audio-position-attention-score",
         "audio-attention-value",
       ],
+      executableReplay: {
+        providerContractId: "torch-2.12.1-cpu-inference-matmul-v1",
+        runtime: "torch-2.12.1",
+        executionMode: "torch.inference_mode",
+        device: "cpu",
+        operation: "torch.matmul",
+        backend: "Apple Accelerate SGEMM",
+        checkpointInput: "forbidden",
+        operandSource: "dependency-ordered artifact intermediates only",
+        operationClasses: [
+          { operationClass: "vision-attention-score", inputDtype: "BF16", outputDtype: "BF16", transform: "[B,H,Q,D] @ transpose([B,H,K,D],2,3) -> [B,H,Q,K]" },
+          { operationClass: "vision-attention-value", inputDtype: "BF16", outputDtype: "BF16", transform: "transpose([B,H,Q,K] @ [B,H,K,D],1,2) -> reshape [B,Q,H*D]" },
+          { operationClass: "audio-content-attention-score", inputDtype: "F32", outputDtype: "F32", transform: "block(Q,[B,H,blocks,chunk,D]) @ transpose(context(K),D,key)" },
+          { operationClass: "audio-position-attention-score", inputDtype: "F32", outputDtype: "F32", transform: "reshape(block(Q),[B,H,blocks*chunk,D]) @ transpose(relativeK,H,D,R)" },
+          { operationClass: "audio-attention-value", inputDtype: "F32", outputDtype: "F32", transform: "weights[B,H,blocks,chunk,context] @ context(V) -> transpose/reshape/trim [B,S,H*D]" },
+        ],
+      },
     },
   };
 }

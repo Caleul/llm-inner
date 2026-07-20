@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { compareGemma4LiteralCompositeTrace } from "./gemma4-literal-composite-differential.js";
+import { Gemma4TorchRuntimeReductionProvider } from "./gemma4-torch-runtime-reduction-provider.js";
 
 function value(argv: string[], name: string, required = true): string | undefined {
   const index = argv.indexOf(name);
@@ -20,6 +21,8 @@ async function main(): Promise<void> {
   if (![maxReadMiB, maxTowerTensorMiB, topK].every((entry) => Number.isSafeInteger(entry) && entry > 0) ||
     ![absolute, relative].every((entry) => Number.isFinite(entry) && entry >= 0)) throw new Error("Opções numéricas composite inválidas.");
   const report = resolve(value(argv, "--report")!);
+  const runtimeReductionPython = value(argv, "--runtime-reduction-python", false);
+  const runtimeReductionProvider = runtimeReductionPython ? new Gemma4TorchRuntimeReductionProvider(runtimeReductionPython) : undefined;
   const comparison = await compareGemma4LiteralCompositeTrace({
     artifact: resolve(value(argv, "--artifact")!),
     trace: resolve(value(argv, "--trace")!),
@@ -30,12 +33,14 @@ async function main(): Promise<void> {
     topK,
     ...(value(argv, "--assert-source-unavailable", false) ? { assertSourceUnavailable: resolve(value(argv, "--assert-source-unavailable")!) } : {}),
     ...(argv.includes("--allow-unverified-fidelity") ? { allowUnverifiedFidelity: true } : {}),
+    ...(runtimeReductionProvider ? { runtimeReductionProvider } : {}),
   });
   await mkdir(dirname(report), { recursive: true });
   await writeFile(report, `${JSON.stringify({
     kind: "gemma4-embedded-literal-composite-generation-differential",
     sourceCheckpointAccessed: false,
     candidateFidelityAcknowledged: argv.includes("--allow-unverified-fidelity"),
+    runtimeReductionProvider: runtimeReductionProvider?.contractId ?? null,
     ...comparison,
   }, null, 2)}\n`, "utf8");
   console.log(`Relatório composite Gemma 4 escrito em ${report} (prefill=${comparison.prefill.fidelityClass}, generation=${comparison.generation.fidelityClass}).`);
