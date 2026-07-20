@@ -31,6 +31,7 @@
     "compare:gemma4-real-ui": "npm run build && node dist/src/gemma4-real-compare-server-cli.js",
     "export:gemma4-real-ssa": "npm run build && node --max-old-space-size=6144 dist/src/gemma4-real-ssa-export-cli.js",
     "generate:gemma4-flat-formulas": "npm run build && node --max-old-space-size=6144 dist/src/gemma4-flat-formula-cli.js",
+    "compose:gemma4-reverse": "npm run build && node --max-old-space-size=6144 dist/src/gemma4-parametric-reverse-cli.js",
     "replay:gemma4-paged-text": "npm run build && node dist/src/gemma4-paged-text-cli.js",
     "probe:gemma4-linear-reduction": "npm run build && node dist/src/gemma4-linear-reduction-probe-cli.js",
     "benchmark:native": "npm run build && node dist/src/benchmark-cli.js",

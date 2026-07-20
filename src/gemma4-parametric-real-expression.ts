@@ -113,7 +113,6 @@ export class Gemma4ParametricRealBuilder {
 
   divide(numerator: string, denominator: string): string {
     this.requiredNode(numerator); this.requiredNode(denominator);
-    if (numerator === denominator) return this.rational(1n);
     return this.#intern({ kind: "divide", numerator, denominator });
   }
 

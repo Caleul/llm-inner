@@ -11,6 +11,7 @@ export type Gemma4RealUnaryFunction =
   | "log1p"
   | "sin"
   | "cos"
+  | "tan"
   | "tanh"
   | "sqrt"
   | "floor";
@@ -99,6 +100,19 @@ export class Gemma4RealExpressionBuilder {
       if (isRationalOne(coefficient)) normalized.push(term);
       else normalized.push(this.multiply(this.#rationalValue(coefficient), term));
     }
+    const trigSquares = new Map<string, Partial<Record<"sin" | "cos", number>>>();
+    normalized.forEach((id, index) => {
+      const square = this.#trigonometricSquare(id);
+      if (square) trigSquares.set(square.argument, { ...(trigSquares.get(square.argument) ?? {}), [square.function]: index });
+    });
+    const removed = new Set<number>();
+    for (const pair of trigSquares.values()) if (pair.sin !== undefined && pair.cos !== undefined) {
+      removed.add(pair.sin); removed.add(pair.cos); constantNumerator += constantDenominator;
+    }
+    if (removed.size) {
+      const retained = normalized.filter((_id, index) => !removed.has(index));
+      normalized.length = 0; normalized.push(...retained);
+    }
     if (constantNumerator !== 0n) normalized.push(this.rational(constantNumerator, constantDenominator));
     normalized.sort((left, right) => left.localeCompare(right, "en"));
     if (normalized.length === 0) return this.rational(0n);
@@ -159,7 +173,9 @@ export class Gemma4RealExpressionBuilder {
     if (left.kind === "rational" && right.kind === "rational") return this.#rationalValue(divideRationals(left.value, right.value));
     if (left.kind === "rational" && BigInt(left.value.numerator) === 0n) return left.id;
     if (right.kind === "rational" && isRationalOne(right.value)) return left.id;
-    if (numerator === denominator) return this.rational(1n);
+    if (left.kind === "unary-function" && left.function === "sin" && right.kind === "unary-function" && right.function === "cos" && left.argument === right.argument) {
+      return this.unaryFunction("tan", left.argument);
+    }
     return this.#intern({ kind: "divide", numerator, denominator });
   }
 
@@ -185,7 +201,20 @@ export class Gemma4RealExpressionBuilder {
   }
 
   unaryFunction(function_: Gemma4RealUnaryFunction, argument: string): string {
-    this.requiredNode(argument);
+    const node = this.requiredNode(argument);
+    if (node.kind === "rational" && node.value.numerator === "0") {
+      if (function_ === "cos" || function_ === "exp") return this.rational(1n);
+      if (function_ === "sin" || function_ === "tan" || function_ === "tanh" || function_ === "log1p" || function_ === "sqrt" || function_ === "abs" || function_ === "floor") return argument;
+    }
+    if (function_ === "abs") {
+      if (node.kind === "rational") return this.rational(abs(BigInt(node.value.numerator)), node.value.denominator);
+      if (node.kind === "unary-function" && node.function === "abs") return argument;
+    }
+    if (function_ === "sqrt" && node.kind === "integer-power" && node.exponent === 2) return this.unaryFunction("abs", node.base);
+    const negative = this.#negativeTerm(argument);
+    if (negative && function_ === "abs") return this.unaryFunction("abs", negative);
+    if (negative && function_ === "cos") return this.unaryFunction("cos", negative);
+    if (negative && (function_ === "sin" || function_ === "tan" || function_ === "tanh")) return this.negate(this.unaryFunction(function_, negative));
     return this.#intern({ kind: "unary-function", function: function_, argument });
   }
 
@@ -237,6 +266,24 @@ export class Gemma4RealExpressionBuilder {
 
   #rationalValue(value: Gemma4ExactRational): string {
     return this.#intern({ kind: "rational", value: normalizeGemma4ExactRational(BigInt(value.numerator), BigInt(value.denominator)) });
+  }
+
+  #negativeTerm(id: string): string | undefined {
+    const node = this.requiredNode(id);
+    if (node.kind !== "multiply" || node.arguments.length < 2) return undefined;
+    const coefficient = this.requiredNode(node.arguments[0]!);
+    if (coefficient.kind !== "rational" || coefficient.value.numerator !== "-1" || coefficient.value.denominator !== "1") return undefined;
+    const rest = node.arguments.slice(1);
+    return rest.length === 1 ? rest[0]! : this.#intern({ kind: "multiply", arguments: rest });
+  }
+
+  #trigonometricSquare(id: string): { function: "sin" | "cos"; argument: string } | undefined {
+    const node = this.requiredNode(id);
+    if (node.kind !== "integer-power" || node.exponent !== 2) return undefined;
+    const base = this.requiredNode(node.base);
+    return base.kind === "unary-function" && (base.function === "sin" || base.function === "cos")
+      ? { function: base.function, argument: base.argument }
+      : undefined;
   }
 
   #orderedExtremum(kind: "minimum" | "maximum", arguments_: readonly string[]): string {

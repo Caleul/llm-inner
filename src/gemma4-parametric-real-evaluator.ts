@@ -185,10 +185,10 @@ function numeric(value: Scalar): number { if (typeof value !== "number") throw n
 function truthy(value: Scalar): boolean { return typeof value === "boolean" ? value : value !== 0; }
 function exactInteger(value: Scalar, id: string): number { const number = numeric(value); if (!Number.isSafeInteger(number)) throw new Error(`${id}: inteiro seguro esperado, recebeu ${number}.`); return number; }
 
-function unary(function_: "abs" | "exp" | "sin" | "cos" | "tanh" | "log1p" | "sqrt" | "floor", value: number): number {
+function unary(function_: "abs" | "exp" | "sin" | "cos" | "tan" | "tanh" | "log1p" | "sqrt" | "floor", value: number): number {
   switch (function_) {
     case "abs": return Math.abs(value);
-    case "exp": return Math.exp(value); case "sin": return Math.sin(value); case "cos": return Math.cos(value);
+    case "exp": return Math.exp(value); case "sin": return Math.sin(value); case "cos": return Math.cos(value); case "tan": return Math.tan(value);
     case "tanh": return Math.tanh(value); case "log1p": return Math.log1p(value); case "sqrt": return Math.sqrt(value); case "floor": return Math.floor(value);
   }
 }

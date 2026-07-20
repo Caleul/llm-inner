@@ -93,6 +93,7 @@ function evaluateNode(
         case "log1p": return Math.log1p(argument);
         case "sin": return Math.sin(argument);
         case "cos": return Math.cos(argument);
+        case "tan": return Math.tan(argument);
         case "tanh": return Math.tanh(argument);
         case "sqrt": return Math.sqrt(argument);
         case "floor": return Math.floor(argument);

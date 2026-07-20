@@ -36,17 +36,16 @@ npm run generate:gemma4-flat-formulas -- \
   --output /tmp/gemma4-flat-0.json
 ```
 
-O gerador encerrou antes de criar o output com
-`Gemma4FlatFormulaLimitError`. O limite inferior calculado para uma única saída
-foi:
+O gerador de substituição direta encerrou antes de criar o output com
+`Gemma4FlatFormulaLimitError`. A contagem sintática para uma única saída, sem o
+compositor algébrico incremental posterior, foi:
 
 ```text
 116062346796338308752997934553607335983728807481071013950327619967671906464343599050451016040528689516202661364868372029602719669765209175032636251894417389728416809703305487867853204236639021418631389099447899717221761037530525462058440739293505148 caracteres
 ```
 
-Essa estimativa mantém cada redução como um único nó. Desenrolar os produtos e
-substituir os pesos, como exige o formato final, aumenta o resultado. Assim, o
-gerador pedido existe e é exercitado, mas o arquivo integral com 262.144
-strings fisicamente expandidas não pode ser materializado em armazenamento
-real. Qualquer representação finita do modelo completo precisa preservar
-compartilhamento interno, como SSA, `let` ou chamadas auxiliares.
+Essa estimativa mantém cada redução como um único nó, mas conta substituições
+sem simplificar entre camadas. Portanto ela mede a estratégia ingênua e não
+prova o tamanho mínimo da fórmula matematicamente normalizada. O compositor
+reverso incremental de `gemma4-e4b-reverse-algebraic-composition-2026-07-20.md`
+substitui essa extrapolação por medições reais após cada simplificação.

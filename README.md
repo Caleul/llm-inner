@@ -2585,8 +2585,26 @@ npm run generate:gemma4-flat-formulas -- \
   --output /tmp/gemma4-flat-0.json
 ```
 
-Ele falha antes de escrever JSON parcial quando a expansão não cabe no limite.
-No E4B, somente `terminal_logit[0]` requer conservadoramente pelo menos
-`1,160623467963383e247` caracteres, mesmo antes de desenrolar reduções. O
-programa também rejeita qualquer closure que ainda deixe PLE, máscara, posição,
-cache, peso ou nome de camada como variável livre.
+Ele falha antes de escrever JSON parcial quando a expansão sintática direta não
+cabe no limite. A estimativa original de `1,160623467963383e247` caracteres
+para `terminal_logit[0]` não considera composição algébrica incremental e não é
+um limite inferior da fórmula já simplificada. O programa também rejeita
+qualquer closure que ainda deixe PLE, máscara, posição, cache, peso ou nome de
+camada como variável livre.
+
+### Composição reversa com simplificação incremental
+
+O compositor paramétrico parte de um output fixo, expande a função mais próxima
+da saída e reconstrói o grafo pelo simplificador canônico antes de avançar:
+
+```bash
+npm run compose:gemma4-reverse -- \
+  --family terminal_logit --dimension 0 \
+  --batch 0 --sequence 5 --steps 8 \
+  --output /tmp/gemma4-reverse-logit-0-step8.json
+```
+
+O simplificador conhece racionalização, combinação de termos e identidades
+exatas como `sin(x)/cos(x)=tan(x)`, `sin(x)^2+cos(x)^2=1`, paridade de
+seno/cosseno/tangente/tanh e `sqrt(x^2)=abs(x)`. Regras dependentes de domínio
+não são aplicadas sem prova; `x/x` não é cancelado se `x` puder ser zero.
