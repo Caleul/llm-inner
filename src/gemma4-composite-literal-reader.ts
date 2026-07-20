@@ -4,7 +4,6 @@ import type {
   Gemma4CompositeLiteralCalculationProgram,
   Gemma4CompositeLiteralInput,
   Gemma4LiteralGreedyGenerationProgram,
-  Gemma4CompositeLiteralPayloadIntegrityEntry,
   Gemma4CompositeUnreachableConstant,
 } from "./gemma4-composite-literal.js";
 import {
@@ -80,6 +79,12 @@ import {
   validateGemma4LiteralFidelityGate,
   type Gemma4LiteralFidelityGate,
 } from "./gemma4-literal-fidelity-gate.js";
+import {
+  assertGemma4LiteralPayloadChunkBytes,
+  validateGemma4LiteralPayloadIntegrityMetadata,
+  type Gemma4CompositeLiteralPayloadIntegrityEntry,
+  type Gemma4LiteralPayloadIntegrityChunk,
+} from "./gemma4-literal-payload-integrity.js";
 
 const CONSTANTS_MARKER = Buffer.from(",\"constants\":[", "ascii");
 const PAYLOAD_MARKER = Buffer.from(",\"payloadBase64\":\"", "ascii");
@@ -186,11 +191,12 @@ export async function openGemma4CompositeLiteralArtifact(artifact: string): Prom
     if (constants.size === 0) throw new Error("Artefato literal Gemma 4 não contém constantes.");
     const tail = parseTailJson(await readStructuralRange(file, cursor, info.size, "cauda estrutural"), "cauda estrutural") as Partial<Gemma4CompositeLiteralCalculationProgram>;
     const index = buildIndex(artifact, info.size, header, tail, constants);
+    const payloadReader = new IntegrityVerifiedPayloadReader(file, index.constants, index.payloadIntegrity);
     return {
       ...index,
-      readTensorBytes: (tensor) => readTensorBytes(file, index.constants, tensor),
-      readTensorBytesRange: (tensor, offset, byteLength) => readTensorBytesRange(file, index.constants, tensor, offset, byteLength),
-      close: async () => file.close(),
+      readTensorBytes: (tensor) => payloadReader.readTensorBytes(tensor),
+      readTensorBytesRange: (tensor, offset, byteLength) => payloadReader.readTensorBytesRange(tensor, offset, byteLength),
+      close: async () => { payloadReader.clear(); await file.close(); },
     };
   } catch (error) {
     await file.close();
@@ -355,11 +361,11 @@ function validatePayloadIntegrity(
     if (!entry || typeof entry !== "object") throw new Error("Artefato literal Gemma 4 possui compromisso de integridade inválido.");
     const candidate = entry as Partial<Gemma4CompositeLiteralPayloadIntegrityEntry>;
     const constant = candidate.name ? constants.get(candidate.name) : undefined;
-    if (!constant || integrity.has(constant.name) || candidate.payloadBytes !== constant.payloadBytes ||
-      typeof candidate.sha256 !== "string" || !/^[a-f0-9]{64}$/.test(candidate.sha256)) {
+    if (!constant || integrity.has(constant.name)) {
       throw new Error(`${candidate.name ?? "constante"}: compromisso de integridade de payload inválido.`);
     }
-    integrity.set(constant.name, { name: constant.name, payloadBytes: constant.payloadBytes, sha256: candidate.sha256 });
+    validateGemma4LiteralPayloadIntegrityMetadata(candidate as Gemma4CompositeLiteralPayloadIntegrityEntry, constant.name, constant.payloadBytes);
+    integrity.set(constant.name, structuredClone(candidate as Gemma4CompositeLiteralPayloadIntegrityEntry));
   }
   if (integrity.size !== constants.size) throw new Error("Artefato literal Gemma 4 não possui compromisso para toda constante incorporada.");
   return integrity;
@@ -401,32 +407,75 @@ function assertDenseDecoder(decoder: LiteralDenseStorageDecodeAssignment, consta
   }
 }
 
-async function readTensorBytes(file: FileHandle, constants: ReadonlyMap<string, IndexedLiteralConstant>, tensor: TensorInfo): Promise<Buffer> {
-  const constant = checkedTensor(constants, tensor);
-  return readTensorBytesRange(file, constants, tensor, 0, constant.payloadBytes);
-}
+class IntegrityVerifiedPayloadReader {
+  private readonly chunkCache = new Map<string, Buffer>();
+  private static readonly MAX_CACHED_CHUNKS = 4;
 
-async function readTensorBytesRange(
-  file: FileHandle,
-  constants: ReadonlyMap<string, IndexedLiteralConstant>,
-  tensor: TensorInfo,
-  offset: number,
-  byteLength: number,
-): Promise<Buffer> {
-  const constant = checkedTensor(constants, tensor);
-  if (!Number.isSafeInteger(offset) || !Number.isSafeInteger(byteLength) || offset < 0 || byteLength < 0 || offset + byteLength > constant.payloadBytes) {
-    throw new Error(`${tensor.name}: range literal fora do payload incorporado.`);
+  constructor(
+    private readonly file: FileHandle,
+    private readonly constants: ReadonlyMap<string, IndexedLiteralConstant>,
+    private readonly integrity: ReadonlyMap<string, Gemma4CompositeLiteralPayloadIntegrityEntry>,
+  ) {}
+
+  async readTensorBytes(tensor: TensorInfo): Promise<Buffer> {
+    const constant = checkedTensor(this.constants, tensor);
+    return this.readTensorBytesRange(tensor, 0, constant.payloadBytes);
   }
-  if (byteLength === 0) return Buffer.alloc(0);
-  const firstGroup = Math.floor(offset / 3);
-  const lastGroupExclusive = Math.ceil((offset + byteLength) / 3);
-  const encoded = await readRange(file, constant.payloadOffset + firstGroup * 4, constant.payloadOffset + lastGroupExclusive * 4);
-  if (!/^[A-Za-z0-9+/=]+$/.test(encoded.toString("ascii"))) throw new Error(`${tensor.name}: payload literal contém base64 inválido.`);
-  const decoded = Buffer.from(encoded.toString("ascii"), "base64");
-  const relativeOffset = offset - firstGroup * 3;
-  const result = decoded.subarray(relativeOffset, relativeOffset + byteLength);
-  if (result.length !== byteLength) throw new Error(`${tensor.name}: base64 literal não decodificou o range solicitado.`);
-  return Buffer.from(result);
+
+  async readTensorBytesRange(tensor: TensorInfo, offset: number, byteLength: number): Promise<Buffer> {
+    const constant = checkedTensor(this.constants, tensor);
+    if (!Number.isSafeInteger(offset) || !Number.isSafeInteger(byteLength) || offset < 0 || byteLength < 0 || offset + byteLength > constant.payloadBytes) {
+      throw new Error(`${tensor.name}: range literal fora do payload incorporado.`);
+    }
+    if (byteLength === 0) return Buffer.alloc(0);
+    const integrity = this.integrity.get(constant.name);
+    if (!integrity) throw new Error(`${constant.name}: compromisso incorporado ausente durante leitura.`);
+    const first = Math.floor(offset / integrity.chunking.chunkBytes);
+    const last = Math.floor((offset + byteLength - 1) / integrity.chunking.chunkBytes);
+    const slices: Buffer[] = [];
+    for (let ordinal = first; ordinal <= last; ordinal += 1) {
+      const chunk = integrity.chunking.chunks[ordinal]!;
+      const bytes = await this.readVerifiedChunk(constant, integrity, chunk);
+      const sliceStart = Math.max(offset, chunk.byteOffset) - chunk.byteOffset;
+      const sliceEnd = Math.min(offset + byteLength, chunk.byteOffset + chunk.byteLength) - chunk.byteOffset;
+      slices.push(bytes.subarray(sliceStart, sliceEnd));
+    }
+    const result = Buffer.concat(slices, byteLength);
+    if (result.length !== byteLength) throw new Error(`${tensor.name}: leitura autenticada não produziu o range solicitado.`);
+    return result;
+  }
+
+  clear(): void { this.chunkCache.clear(); }
+
+  private async readVerifiedChunk(
+    constant: IndexedLiteralConstant,
+    integrity: Gemma4CompositeLiteralPayloadIntegrityEntry,
+    chunk: Gemma4LiteralPayloadIntegrityChunk,
+  ): Promise<Buffer> {
+    const key = `${constant.name}\0${chunk.ordinal}`;
+    const cached = this.chunkCache.get(key);
+    if (cached) {
+      this.chunkCache.delete(key);
+      this.chunkCache.set(key, cached);
+      return cached;
+    }
+    if (chunk.byteOffset % 3 !== 0) throw new Error(`${constant.name}: chunk literal ${chunk.ordinal} não está alinhado ao Base64.`);
+    const encodedOffset = constant.payloadOffset + chunk.byteOffset / 3 * 4;
+    const encodedCharacters = Math.ceil(chunk.byteLength / 3) * 4;
+    const encodedBytes = await readRange(this.file, encodedOffset, encodedOffset + encodedCharacters);
+    const encoded = encodedBytes.toString("ascii");
+    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)) throw new Error(`${constant.name}: chunk literal ${chunk.ordinal} contém Base64 inválido.`);
+    const bytes = Buffer.from(encoded, "base64");
+    if (bytes.length !== chunk.byteLength || bytes.toString("base64") !== encoded) {
+      throw new Error(`${constant.name}: chunk literal ${chunk.ordinal} não usa Base64 RFC 4648 canônico.`);
+    }
+    assertGemma4LiteralPayloadChunkBytes(integrity, chunk, bytes);
+    this.chunkCache.set(key, bytes);
+    while (this.chunkCache.size > IntegrityVerifiedPayloadReader.MAX_CACHED_CHUNKS) {
+      this.chunkCache.delete(this.chunkCache.keys().next().value!);
+    }
+    return bytes;
+  }
 }
 
 function checkedTensor(constants: ReadonlyMap<string, IndexedLiteralConstant>, tensor: TensorInfo): IndexedLiteralConstant {

@@ -120,9 +120,15 @@ import {
   validateGemma4LiteralFidelityGate,
   type Gemma4LiteralFidelityGate,
 } from "./gemma4-literal-fidelity-gate.js";
+import {
+  buildGemma4LiteralPayloadIntegrity,
+  GEMMA4_LITERAL_PAYLOAD_CHUNK_BYTES,
+  payloadIntegrityEntry,
+  type Gemma4CompositeLiteralPayloadIntegrityEntry,
+  type Gemma4LiteralPayloadIntegrityChunk,
+} from "./gemma4-literal-payload-integrity.js";
 
-/** Divisible by three so every non-final base64 chunk has no padding. */
-const BASE64_CHUNK_BYTES = 12 * 1024 * 1024;
+export type { Gemma4CompositeLiteralPayloadIntegrityEntry } from "./gemma4-literal-payload-integrity.js";
 
 export interface Gemma4CompositeLiteralInput {
   name: string;
@@ -183,7 +189,7 @@ export interface Gemma4LiteralGreedyGenerationProgram {
   };
 }
 
-export const GEMMA4_COMPOSITE_LITERAL_SCHEMA_VERSION = 59 as const;
+export const GEMMA4_COMPOSITE_LITERAL_SCHEMA_VERSION = 60 as const;
 
 /**
  * A source-independent literal program for the complete registered Gemma 4
@@ -274,17 +280,6 @@ export interface Gemma4CompositeUnreachableConstant {
   name: string;
   reason: "shared-kv-consumer-local-kv-is-runtime-unreachable";
   producerLayer: number;
-}
-
-/**
- * A source-independent integrity commitment for one embedded storage payload.
- * It is written only after the streamed bytes have been read and is therefore
- * usable after the original checkpoint has been removed.
- */
-export interface Gemma4CompositeLiteralPayloadIntegrityEntry {
-  name: string;
-  payloadBytes: number;
-  sha256: string;
 }
 
 /**
@@ -436,7 +431,7 @@ export async function writeGemma4CompositeLiteralCalculationProgram(
       await write(`${JSON.stringify(constant.metadata).slice(0, -1)},"payloadBase64":"`);
       const payload = await writeBase64Payload(constant, reader, write);
       embeddedPayloadBytes += payload.bytes;
-      payloadIntegrity.push({ name: constant.name, payloadBytes: payload.bytes, sha256: payload.sha256 });
+      payloadIntegrity.push(payload.integrity);
       await write("\"}");
     }
     const integritySource = {
@@ -489,30 +484,38 @@ async function writeBase64Payload(
   constant: StreamedDenseConstant,
   reader: LiteralTensorReader,
   write: (chunk: string) => Promise<void>,
-): Promise<{ bytes: number; sha256: string }> {
+): Promise<{ bytes: number; integrity: Gemma4CompositeLiteralPayloadIntegrityEntry }> {
   const digest = createHash("sha256");
+  const chunks: Gemma4LiteralPayloadIntegrityChunk[] = [];
   if (reader.readTensorBytesRange) {
     let offset = 0;
     while (offset < constant.expectedByteLength) {
-      const byteLength = Math.min(BASE64_CHUNK_BYTES, constant.expectedByteLength - offset);
+      const byteLength = Math.min(GEMMA4_LITERAL_PAYLOAD_CHUNK_BYTES, constant.expectedByteLength - offset);
       const bytes = await reader.readTensorBytesRange(constant.tensor, offset, byteLength);
       if (bytes.length !== byteLength) throw new Error(`${constant.name}: leitor literal retornou ${bytes.length} bytes no range ${offset}, esperados ${byteLength}.`);
       // Base64 alphabet is JSON-safe; the quote delimiters are emitted by the
       // caller. Every non-final chunk is 3-byte aligned by the constant above.
       await write(bytes.toString("base64"));
       digest.update(bytes);
+      chunks.push({
+        ordinal: chunks.length,
+        byteOffset: offset,
+        byteLength,
+        sha256: createHash("sha256").update(bytes).digest("hex"),
+      });
       offset += byteLength;
     }
-    return { bytes: offset, sha256: digest.digest("hex") };
+    return { bytes: offset, integrity: payloadIntegrityEntry(constant.name, offset, digest.digest("hex"), chunks) };
   }
-  if (constant.expectedByteLength > BASE64_CHUNK_BYTES) {
+  if (constant.expectedByteLength > GEMMA4_LITERAL_PAYLOAD_CHUNK_BYTES) {
     throw new Error(`${constant.name}: exportação literal de tensor grande requer readTensorBytesRange; o leitor não pode formar um base64 multi-GiB inteiro.`);
   }
   const bytes = await reader.readTensorBytes(constant.tensor);
   if (bytes.length !== constant.expectedByteLength) throw new Error(`${constant.name}: leitor literal retornou ${bytes.length} bytes, esperados ${constant.expectedByteLength}.`);
   await write(bytes.toString("base64"));
   digest.update(bytes);
-  return { bytes: bytes.length, sha256: digest.digest("hex") };
+  chunks.push({ ordinal: 0, byteOffset: 0, byteLength: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex") });
+  return { bytes: bytes.length, integrity: payloadIntegrityEntry(constant.name, bytes.length, digest.digest("hex"), chunks) };
 }
 
 /** Replays prefill solely from the literal's embedded bytes and assignments. */
@@ -694,7 +697,7 @@ export function gemma4LiteralIntegritySections(source: {
 
 function literalPayloadIntegrity(constant: LiteralConstant): Gemma4CompositeLiteralPayloadIntegrityEntry {
   const bytes = Buffer.from(constant.payloadBase64, "base64");
-  return { name: constant.name, payloadBytes: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex") };
+  return buildGemma4LiteralPayloadIntegrity(constant.name, bytes);
 }
 
 function validateLiteralPayloadIntegrity(

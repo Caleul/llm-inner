@@ -748,7 +748,7 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 59);
+  assert.equal(literal.schemaVersion, 60);
   assert.equal(literal.payloadIntegrity.length, catalog.tensors.size);
   assert.equal(literal.integrityManifest.sections.length, 24);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
@@ -1706,6 +1706,8 @@ test("Gemma 4 composite streamed writer emits an atomic self-contained JSON file
     assert.equal(literal.integrityManifest.sections.length, 24);
     const embedded = literal.payloadIntegrity.find((entry: { name: string }) => entry.name === "model.language_model.embed_tokens.weight")!;
     assert.equal(embedded.sha256, createHash("sha256").update(denseF32Bytes(sourceTensors.get(embedded.name)!)).digest("hex"));
+    assert.equal(embedded.chunking.coverage, "ordered-gap-free-decoded-payload-bytes");
+    assert.equal(embedded.chunking.chunks.length, 1);
 
     sourceTensors.clear();
     const replay = executeGemma4CompositeLiteralF32(literal, { inputIds: [[1, 99, 2]], mmTokenTypeIds: [[0, 1, 0]], pixelValues: patterned([1, 4, 12]), imagePositionIds: [[[0, 0], [1, 0], [0, 1], [1, 1]]] });
@@ -1740,7 +1742,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 59);
+      assert.equal(artifact.schemaVersion, 60);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.equal(artifact.authoritativeExecution.unresolvedNativeReduction.executableReplay.adapterProgram.sha256,
@@ -1799,6 +1801,21 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
     const missingIntegrity = path.join(root, "missing-integrity.gemma4.literal.json");
     await writeFile(missingIntegrity, raw.replace(/,"integrityManifest":\{.*\}\}\n$/s, "}\n"));
     await assert.rejects(() => openGemma4CompositeLiteralArtifact(missingIntegrity), /não declara compromisso estrutural/);
+    const corruptedPayload = path.join(root, "corrupted-payload.gemma4.literal.json");
+    await writeFile(corruptedPayload, raw.replace(
+      /("constants":\[\{"name":[\s\S]*?"payloadBase64":")([A-Za-z0-9])/,
+      (_match, prefix: string, first: string) => `${prefix}${first === "A" ? "B" : "A"}`,
+    ));
+    const corruptedArtifact = await openGemma4CompositeLiteralArtifact(corruptedPayload);
+    try {
+      const first = corruptedArtifact.constants.values().next().value!;
+      await assert.rejects(
+        () => corruptedArtifact.readTensorBytesRange(first, 0, 1),
+        /chunk literal 0 diverge do digest incorporado/,
+      );
+    } finally {
+      await corruptedArtifact.close();
+    }
     const nonCanonicalMetadata = path.join(root, "non-canonical-metadata.gemma4.literal.json");
     await writeFile(nonCanonicalMetadata, raw.replace('"payloadBase64":"e30="', '"payloadBase64":"e30=\\n"'));
     await assert.rejects(() => openGemma4CompositeLiteralArtifact(nonCanonicalMetadata), /bytes incorporados não correspondem/);
@@ -1888,7 +1905,7 @@ test("Gemma 4 literal payload verifier proves every embedded storage byte before
     await writeFile(corrupt, raw.replace(/("constants":\[\{"name":[\s\S]*?"payloadBase64":")([A-Za-z0-9])/, (_match, prefix: string, first: string) => `${prefix}${first === "A" ? "B" : "A"}`), "utf8");
     await assert.rejects(
       () => verifyGemma4CompositeLiteralPayloadsAgainstCatalog({ artifact: corrupt, source, maxReadBytes: 13 }),
-      /payload literal diverge do Safetensors/,
+      /chunk literal 0 diverge do digest incorporado/,
     );
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -1940,7 +1957,7 @@ test("Gemma 4 literal artifact verifies its embedded payload commitments after s
     await writeFile(corrupt, raw.replace(/("constants":\[\{"name":[\s\S]*?"payloadBase64":")([A-Za-z0-9])/, (_match, prefix: string, first: string) => `${prefix}${first === "A" ? "B" : "A"}`), "utf8");
     await assert.rejects(
       () => verifyGemma4CompositeLiteralEmbeddedPayloadIntegrity({ artifact: corrupt, maxReadBytes: 13 }),
-      /payload literal diverge do digest incorporado/,
+      /chunk literal 0 diverge do digest incorporado/,
     );
   } finally {
     await rm(root, { recursive: true, force: true });

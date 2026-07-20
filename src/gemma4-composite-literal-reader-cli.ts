@@ -67,6 +67,13 @@ try {
     embeddedTextSource: artifact.program.textProgram.source.path,
     sourceFormat: "safetensors",
     payloadIntegrityCommitted: true,
+    payloadReadVerification: {
+      semantics: "every returned range is decoded from canonical RFC 4648 Base64 and authenticated against every covered ordered chunk before use",
+      constants: artifact.payloadIntegrity.size,
+      chunks: [...artifact.payloadIntegrity.values()].reduce((total, entry) => total + entry.chunking.chunks.length, 0),
+      chunkBytes: [...new Set([...artifact.payloadIntegrity.values()].map((entry) => entry.chunking.chunkBytes))],
+      algorithm: [...new Set([...artifact.payloadIntegrity.values()].map((entry) => entry.chunking.algorithm))],
+    },
     integrityManifest: artifact.integrityManifest,
     numericLiterals: artifact.numericLiterals.literals.length,
     formulaLanguage: artifact.formulaLanguage,
