@@ -126,20 +126,7 @@ export class Gemma4TorchRuntimeReductionProvider implements Gemma4RuntimeReducti
 }
 
 function serializeRequest(request: Gemma4RuntimeReductionRequest, invocationProgram: Gemma4RuntimeReductionInvocationProgram): object {
-  const tower = request.scope === "vision"
-    ? {
-      attentionHeads: request.program.tower.attentionHeads,
-      headDim: request.program.tower.headDim,
-      runtimeDtype: request.program.runtimeDtype,
-    }
-    : {
-      attentionHeads: request.program.tower.attentionHeads,
-      headDim: request.program.tower.headDim,
-      attentionChunkSize: request.program.tower.attentionChunkSize,
-      attentionContextLeft: request.program.tower.attentionContextLeft,
-      attentionContextRight: request.program.tower.attentionContextRight,
-      runtimeDtype: request.program.runtimeDtype,
-    };
+  const tower = serializeInvocationEnvironment(request, invocationProgram);
   return {
     schemaVersion: 1,
     contractId: "torch-2.12.1-cpu-inference-matmul-v1",
@@ -150,6 +137,28 @@ function serializeRequest(request: Gemma4RuntimeReductionRequest, invocationProg
     tower,
     operands: request.operands.map(serializeTensor),
   };
+}
+
+function serializeInvocationEnvironment(
+  request: Gemma4RuntimeReductionRequest,
+  invocationProgram: Gemma4RuntimeReductionInvocationProgram,
+): Record<string, number | string> {
+  const tower = request.program.tower as unknown as Record<string, unknown>;
+  const runtimeDtype = request.program.runtimeDtype;
+  const runtimeContract = invocationProgram.environment.runtimeDtype;
+  if (runtimeContract.source !== "program.runtimeDtype" || runtimeDtype !== runtimeContract.equals) {
+    throw new Error(`${request.operationId}: dtype do ambiente de invocação diverge do programa serializado.`);
+  }
+  const result: Record<string, number | string> = { runtimeDtype };
+  for (const binding of invocationProgram.environment.towerParameters) {
+    const value = tower[binding.name];
+    if (binding.source !== `program.tower.${binding.name}` || binding.numericDomain !== "safe-integer" ||
+      !Number.isSafeInteger(value) || (value as number) < binding.minimumInclusive) {
+      throw new Error(`${request.operationId}: parâmetro ${binding.name} não satisfaz o ambiente de invocação serializado.`);
+    }
+    result[binding.name] = value as number;
+  }
+  return result;
 }
 
 function serializeTensor(tensor: DenseF32Tensor): SerializedTensor {

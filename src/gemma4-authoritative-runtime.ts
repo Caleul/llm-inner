@@ -28,7 +28,7 @@ export interface Gemma4AuthoritativeTraceContext {
 
 export interface Gemma4AuthoritativeExecutionContract {
   kind: "gemma4-authoritative-execution-contract";
-  schemaVersion: 3;
+  schemaVersion: 4;
   canonicalCompositeRuntime: typeof GEMMA4_COMPOSITE_REFERENCE_RUNTIME;
   diagnosticSubprogramRuntimes: {
     audio: typeof GEMMA4_AUDIO_REFERENCE_RUNTIME;
@@ -75,7 +75,7 @@ export interface Gemma4RuntimeReductionAdapterProgram {
   sourceUtf8: string;
 }
 
-export const GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256 = "29537b870ca3e28caaec2e03456227a25027822cc6f1ae90a45bfc9769b08594" as const;
+export const GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256 = "b20bc36807dda69dd34fb9b47bada84abb0969f696e949b0cc8ad0ae9ddb302b" as const;
 
 /** Loads the build-time adapter once; the emitted artifact embeds it and no longer needs this file. */
 export async function loadGemma4RuntimeReductionAdapterProgram(
@@ -114,7 +114,7 @@ export function gemma4AuthoritativeExecutionContract(
   validateGemma4RuntimeReductionAdapterProgram(adapterProgram);
   return {
     kind: "gemma4-authoritative-execution-contract",
-    schemaVersion: 3,
+    schemaVersion: 4,
     canonicalCompositeRuntime: GEMMA4_COMPOSITE_REFERENCE_RUNTIME,
     diagnosticSubprogramRuntimes: {
       audio: GEMMA4_AUDIO_REFERENCE_RUNTIME,

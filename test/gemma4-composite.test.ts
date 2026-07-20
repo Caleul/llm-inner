@@ -701,12 +701,12 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 47);
+  assert.equal(literal.schemaVersion, 48);
   assert.equal(literal.payloadIntegrity.length, catalog.tensors.size);
   assert.equal(literal.integrityManifest.sections.length, 24);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
   assert.equal(literal.sourceIdentity.modelId, "fixture/tiny-gemma4");
-  assert.equal(literal.authoritativeExecution.schemaVersion, 3);
+  assert.equal(literal.authoritativeExecution.schemaVersion, 4);
   assert.equal(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.adapterProgram.sha256,
     GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256);
   assert.match(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.adapterProgram.sourceUtf8,
@@ -716,6 +716,22 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   assert.deepEqual(invocationPrograms.map((program) => program.id), literal.authoritativeExecution.unresolvedNativeReduction.operationClasses);
   assert.ok(invocationPrograms.every((program) => program.stages.some((stage) => stage.operation === "matmul") &&
     !Object.hasOwn(program, "transform")));
+  assert.ok(invocationPrograms.every((program) =>
+    program.environment.runtimeDtype.source === "program.runtimeDtype" &&
+    program.environment.runtimeDtype.equals === "BF16" &&
+    program.environment.towerParameters.every((binding) =>
+      binding.source === `program.tower.${binding.name}` && binding.numericDomain === "safe-integer")));
+  assert.deepEqual(
+    invocationPrograms.find((program) => program.id === "vision-attention-score")!.environment.towerParameters,
+    ["attentionHeads", "headDim"].map((name) => ({
+      name, source: `program.tower.${name}`, numericDomain: "safe-integer", minimumInclusive: 1,
+    })),
+  );
+  assert.equal(
+    invocationPrograms.find((program) => program.id === "audio-attention-value")!.environment.towerParameters
+      .find((binding) => binding.name === "attentionContextRight")!.minimumInclusive,
+    0,
+  );
   assert.equal(literal.fidelityGate.status, "blocked-on-runtime-reduction");
   assert.equal(literal.fidelityGate.exactReplayClaim, "forbidden");
   assert.equal(literal.fidelityGate.unresolvedNativeReductionCount, literal.fidelityGate.unresolvedNativeReductions.length);
@@ -1371,6 +1387,10 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
   const tamperedInvocation = structuredClone(literal);
   tamperedInvocation.authoritativeExecution.unresolvedNativeReduction.executableReplay.invocationPrograms[0]!.stages.reverse();
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(tamperedInvocation), /Programas de invocação.*divergentes/);
+  const tamperedInvocationEnvironment = structuredClone(literal);
+  tamperedInvocationEnvironment.authoritativeExecution.unresolvedNativeReduction.executableReplay
+    .invocationPrograms[0]!.environment.towerParameters[0]!.minimumInclusive = 0;
+  assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(tamperedInvocationEnvironment), /Programas de invocação.*divergentes/);
   const external = structuredClone(literal);
   external.program.textProgram.source.path = "/checkpoint/model.safetensors";
   assert.throws(() => validateGemma4CompositeLiteralCalculationProgram(external), /reteve uma referência de source checkpoint/);
@@ -1590,7 +1610,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 47);
+      assert.equal(artifact.schemaVersion, 48);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.equal(artifact.authoritativeExecution.unresolvedNativeReduction.executableReplay.adapterProgram.sha256,

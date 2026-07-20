@@ -955,6 +955,25 @@ A agenda escalar proprietária continua no gate fail-closed. Evidência completa
 em
 [`docs/validation/gemma4-e4b-embedded-runtime-reduction-adapter-2026-07-20.md`](docs/validation/gemma4-e4b-embedded-runtime-reduction-adapter-2026-07-20.md).
 
+O schema v48 remove a reconstrução por escopo que ainda existia na preparação
+do adapter incorporado. Cada um dos cinco `invocationPrograms` schema v2 agora
+declara o binding de `program.runtimeDtype`, todos os parâmetros de torre que
+consome, seus caminhos de origem, domínio inteiro seguro e limite inferior. O
+provider TypeScript serializa esse ambiente percorrendo somente as declarações
+do programa; o adapter Python aplica os mesmos contratos antes de executar os
+stages. Não há mais um branch host `vision`/`audio` que escolha parâmetros, nem
+uma exceção oculta para o contexto direito de áudio.
+
+O E4B v48 tem 21.409.324.470 bytes, SHA-256
+`97f7cea6d0b2b183ae6936ea8ade402501bae2cbadc92b703335cb51a105c420`
+e raiz estrutural
+`eaa70f0d3a464829bd6ba19b894043160e0ffad9faf0852699e92b1eacab9894`.
+Com checkpoint e adapter do checkout fisicamente ausentes, os 2.130 payloads
+foram revalidados e imagem, vídeo e áudio repetiram prefill, logits, 24 caches
+KV e geração greedy a tolerância zero com 100/100 recibos. As 100 agendas
+escalares Apple Accelerate continuam corretamente fail-closed. Evidência em
+[`docs/validation/gemma4-e4b-declarative-runtime-reduction-environment-2026-07-20.md`](docs/validation/gemma4-e4b-declarative-runtime-reduction-environment-2026-07-20.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 

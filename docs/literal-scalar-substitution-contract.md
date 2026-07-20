@@ -287,6 +287,16 @@ nonce de captura e SHA-256 de `config.json` e `model.safetensors`, que precisam
 coincidir com `sourceIdentity`. Essa cobertura autoriza medir hipóteses de
 redução; ela não transforma uma coincidência numérica em agenda do provider.
 
+No schema v48, a preparação executável dessas reduções deixa de reconstruir o
+ambiente por classe no host. Cada `invocationProgram` schema v2 declara o dtype
+de runtime e uma lista fechada de bindings de torre com `source`, domínio
+`safe-integer` e `minimumInclusive`. O provider materializa somente esses
+bindings a partir do programa Gemma 4 e o adapter incorporado revalida as mesmas
+declarações antes dos stages. Binding ausente, extra, duplicado, fora do domínio
+ou com origem alterada falha antes de `torch.matmul`. A agenda escalar do SGEMM
+permanece `runtime-defined`; esta versão fecha o ambiente de invocação sem
+confundi-lo com a árvore de redução ainda não publicada.
+
 ## Critério de aceite
 
 Uma implementação só é candidata a fechar este requisito quando:

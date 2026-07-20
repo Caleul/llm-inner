@@ -163,8 +163,8 @@ def execute_stage(stage: Any, values: dict[str, torch.Tensor], tower: dict[str, 
 
 def execute_invocation(request: dict[str, Any], operands: list[torch.Tensor]) -> tuple[str, torch.Tensor]:
     program = request.get("invocationProgram")
-    exact_object(program, {"kind", "schemaVersion", "id", "scope", "graphOperation", "orderedOperands", "towerParameters", "stages", "output"}, "invocation program")
-    if program["kind"] != "gemma4-runtime-reduction-invocation-program" or program["schemaVersion"] != 1 or program["scope"] != request["scope"] or program["graphOperation"] != request["operation"]:
+    exact_object(program, {"kind", "schemaVersion", "id", "scope", "graphOperation", "orderedOperands", "environment", "stages", "output"}, "invocation program")
+    if program["kind"] != "gemma4-runtime-reduction-invocation-program" or program["schemaVersion"] != 2 or program["scope"] != request["scope"] or program["graphOperation"] != request["operation"]:
         raise ValueError("Invocation program identity is incompatible.")
     ordered = program["orderedOperands"]
     if not isinstance(ordered, list) or len(ordered) != 2:
@@ -175,12 +175,27 @@ def execute_invocation(request: dict[str, Any], operands: list[torch.Tensor]) ->
         if declaration["ordinal"] != index or declaration["name"] != f"operand_{index}" or declaration["dtype"] not in ("BF16", "F32") or not isinstance(declaration["layout"], str) or operand.ndim != len(declaration["layout"].split(",")):
             raise ValueError("Invocation operand declaration is incompatible.")
         values[declaration["name"]] = operand
+    environment = exact_object(program["environment"], {"runtimeDtype", "towerParameters"}, "invocation environment")
+    runtime_dtype = exact_object(environment["runtimeDtype"], {"source", "equals"}, "runtime dtype binding")
+    if runtime_dtype != {"source": "program.runtimeDtype", "equals": "BF16"}:
+        raise ValueError("Invocation runtime dtype binding is invalid.")
     tower = request.get("tower")
-    parameters = program["towerParameters"]
-    if not isinstance(tower, dict) or not isinstance(parameters, list) or len(set(parameters)) != len(parameters) or set(tower) != set(parameters) | {"runtimeDtype"} or tower.get("runtimeDtype") != "BF16":
+    parameters = environment["towerParameters"]
+    if not isinstance(tower, dict) or not isinstance(parameters, list):
         raise ValueError("Invocation tower parameters are invalid.")
-    if any(not isinstance(tower.get(name), int) or tower[name] < (0 if name == "attentionContextRight" else 1) for name in parameters):
-        raise ValueError("Invocation tower parameter value is invalid.")
+    names: list[str] = []
+    for parameter in parameters:
+        exact_object(parameter, {"name", "source", "numericDomain", "minimumInclusive"}, "tower parameter binding")
+        name = parameter["name"]
+        minimum = parameter["minimumInclusive"]
+        if not isinstance(name, str) or parameter["source"] != f"program.tower.{name}" or parameter["numericDomain"] != "safe-integer" or minimum not in (0, 1):
+            raise ValueError("Invocation tower parameter binding is invalid.")
+        names.append(name)
+        value = tower.get(name)
+        if not isinstance(value, int) or isinstance(value, bool) or value < minimum or value > (1 << 53) - 1:
+            raise ValueError("Invocation tower parameter value is invalid.")
+    if len(set(names)) != len(names) or set(tower) != set(names) | {"runtimeDtype"} or tower.get("runtimeDtype") != runtime_dtype["equals"]:
+        raise ValueError("Invocation tower environment is incomplete or divergent.")
     stages = program["stages"]
     if not isinstance(stages, list) or not stages or len({stage.get("id") for stage in stages if isinstance(stage, dict)}) != len(stages):
         raise ValueError("Invocation stages are invalid or duplicated.")

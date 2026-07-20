@@ -16,6 +16,13 @@ export type Gemma4RuntimeReductionTowerParameter =
   | "attentionContextLeft"
   | "attentionContextRight";
 
+export interface Gemma4RuntimeReductionTowerParameterBinding {
+  name: Gemma4RuntimeReductionTowerParameter;
+  source: `program.tower.${Gemma4RuntimeReductionTowerParameter}`;
+  numericDomain: "safe-integer";
+  minimumInclusive: 0 | 1;
+}
+
 export type Gemma4RuntimeReductionDimension =
   | { kind: "constant"; value: number }
   | { kind: "tensor-axis"; tensor: string; axis: number }
@@ -35,7 +42,7 @@ export type Gemma4RuntimeReductionInvocationStage =
 
 export interface Gemma4RuntimeReductionInvocationProgram {
   kind: "gemma4-runtime-reduction-invocation-program";
-  schemaVersion: 1;
+  schemaVersion: 2;
   id: Gemma4LiteralRuntimeReductionOperationClass;
   scope: "vision" | "audio";
   graphOperation: string;
@@ -43,7 +50,10 @@ export interface Gemma4RuntimeReductionInvocationProgram {
     { ordinal: 0; name: "operand_0"; role: string; dtype: "BF16" | "F32"; layout: string },
     { ordinal: 1; name: "operand_1"; role: string; dtype: "BF16" | "F32"; layout: string },
   ];
-  towerParameters: Gemma4RuntimeReductionTowerParameter[];
+  environment: {
+    runtimeDtype: { source: "program.runtimeDtype"; equals: "BF16" };
+    towerParameters: Gemma4RuntimeReductionTowerParameterBinding[];
+  };
   stages: Gemma4RuntimeReductionInvocationStage[];
   output: { value: string; dtype: "F32"; layout: string };
 }
@@ -61,6 +71,26 @@ const subtract = (left: Gemma4RuntimeReductionDimension, right: Gemma4RuntimeRed
 const multiply = (left: Gemma4RuntimeReductionDimension, right: Gemma4RuntimeReductionDimension): Gemma4RuntimeReductionDimension => arithmetic("multiply", left, right);
 const ceilDivide = (left: Gemma4RuntimeReductionDimension, right: Gemma4RuntimeReductionDimension): Gemma4RuntimeReductionDimension => arithmetic("ceil-divide", left, right);
 const exactDivide = (left: Gemma4RuntimeReductionDimension, right: Gemma4RuntimeReductionDimension): Gemma4RuntimeReductionDimension => arithmetic("exact-divide", left, right);
+const positiveTowerParameter = (name: Gemma4RuntimeReductionTowerParameter): Gemma4RuntimeReductionTowerParameterBinding => ({
+  name,
+  source: `program.tower.${name}`,
+  numericDomain: "safe-integer",
+  minimumInclusive: 1,
+});
+const nonNegativeTowerParameter = (name: "attentionContextRight"): Gemma4RuntimeReductionTowerParameterBinding => ({
+  name,
+  source: `program.tower.${name}`,
+  numericDomain: "safe-integer",
+  minimumInclusive: 0,
+});
+const environment = (
+  names: Gemma4RuntimeReductionTowerParameter[],
+): Gemma4RuntimeReductionInvocationProgram["environment"] => ({
+  runtimeDtype: { source: "program.runtimeDtype", equals: "BF16" },
+  towerParameters: names.map((name) => name === "attentionContextRight"
+    ? nonNegativeTowerParameter(name)
+    : positiveTowerParameter(name)),
+});
 
 const heads = tower("attentionHeads"), dim = tower("headDim"), chunk = tower("attentionChunkSize");
 const past = subtract(tower("attentionContextLeft"), c(1));
@@ -92,13 +122,13 @@ function contextStages(input: "operand_1", role: "key" | "value"): Gemma4Runtime
 export function gemma4RuntimeReductionInvocationPrograms(): Gemma4RuntimeReductionInvocationProgram[] {
   return [
     {
-      kind: "gemma4-runtime-reduction-invocation-program", schemaVersion: 1,
+      kind: "gemma4-runtime-reduction-invocation-program", schemaVersion: 2,
       id: "vision-attention-score", scope: "vision", graphOperation: "attention-score-matmul",
       orderedOperands: [
         { ordinal: 0, name: "operand_0", role: "post-rope-query", dtype: "BF16", layout: "B,H,Q,D" },
         { ordinal: 1, name: "operand_1", role: "post-rope-key", dtype: "BF16", layout: "B,H,K,D" },
       ],
-      towerParameters: ["attentionHeads", "headDim"],
+      environment: environment(["attentionHeads", "headDim"]),
       stages: [
         { id: "query_bf16", operation: "cast", input: "operand_0", output: "query_bf16", dtype: "BF16" },
         { id: "key_bf16", operation: "cast", input: "operand_1", output: "key_bf16", dtype: "BF16" },
@@ -109,13 +139,13 @@ export function gemma4RuntimeReductionInvocationPrograms(): Gemma4RuntimeReducti
       output: { value: "output", dtype: "F32", layout: "B,H,Q,K" },
     },
     {
-      kind: "gemma4-runtime-reduction-invocation-program", schemaVersion: 1,
+      kind: "gemma4-runtime-reduction-invocation-program", schemaVersion: 2,
       id: "vision-attention-value", scope: "vision", graphOperation: "attention-value-matmul",
       orderedOperands: [
         { ordinal: 0, name: "operand_0", role: "attention-weights", dtype: "BF16", layout: "B,H,Q,K" },
         { ordinal: 1, name: "operand_1", role: "normalized-value", dtype: "BF16", layout: "B,H,K,D" },
       ],
-      towerParameters: ["attentionHeads", "headDim"],
+      environment: environment(["attentionHeads", "headDim"]),
       stages: [
         { id: "weights_bf16", operation: "cast", input: "operand_0", output: "weights_bf16", dtype: "BF16" },
         { id: "value_bf16", operation: "cast", input: "operand_1", output: "value_bf16", dtype: "BF16" },
@@ -128,13 +158,13 @@ export function gemma4RuntimeReductionInvocationPrograms(): Gemma4RuntimeReducti
       output: { value: "output", dtype: "F32", layout: "B,Q,H*D" },
     },
     {
-      kind: "gemma4-runtime-reduction-invocation-program", schemaVersion: 1,
+      kind: "gemma4-runtime-reduction-invocation-program", schemaVersion: 2,
       id: "audio-content-attention-score", scope: "audio", graphOperation: "chunked-attention-content-matmul",
       orderedOperands: [
         { ordinal: 0, name: "operand_0", role: "scaled-query", dtype: "F32", layout: "B,S,H*D" },
         { ordinal: 1, name: "operand_1", role: "scaled-key", dtype: "F32", layout: "B,S,H*D" },
       ],
-      towerParameters: ["attentionHeads", "headDim", "attentionChunkSize", "attentionContextLeft", "attentionContextRight"],
+      environment: environment(["attentionHeads", "headDim", "attentionChunkSize", "attentionContextLeft", "attentionContextRight"]),
       stages: [
         ...queryStages(), ...contextStages("operand_1", "key"),
         { id: "key_bmm_layout", operation: "permute", input: "key_context", output: "key_bmm", axes: [0, 3, 1, 4, 2] },
@@ -143,13 +173,13 @@ export function gemma4RuntimeReductionInvocationPrograms(): Gemma4RuntimeReducti
       output: { value: "output", dtype: "F32", layout: "B,H,blocks,chunk,context" },
     },
     {
-      kind: "gemma4-runtime-reduction-invocation-program", schemaVersion: 1,
+      kind: "gemma4-runtime-reduction-invocation-program", schemaVersion: 2,
       id: "audio-position-attention-score", scope: "audio", graphOperation: "relative-attention-position-matmul",
       orderedOperands: [
         { ordinal: 0, name: "operand_0", role: "scaled-query", dtype: "F32", layout: "B,S,H*D" },
         { ordinal: 1, name: "operand_1", role: "relative-key", dtype: "F32", layout: "1,R,H*D" },
       ],
-      towerParameters: ["attentionHeads", "headDim", "attentionChunkSize", "attentionContextLeft", "attentionContextRight"],
+      environment: environment(["attentionHeads", "headDim", "attentionChunkSize", "attentionContextLeft", "attentionContextRight"]),
       stages: [
         ...queryStages(),
         { id: "query_flatten_chunks", operation: "reshape", input: "query_bmm", output: "query_flat", shape: [axis("query_bmm", 0), axis("query_bmm", 1), multiply(axis("query_bmm", 2), axis("query_bmm", 3)), axis("query_bmm", 4)] },
@@ -161,13 +191,13 @@ export function gemma4RuntimeReductionInvocationPrograms(): Gemma4RuntimeReducti
       output: { value: "output", dtype: "F32", layout: "B,H,blocks,chunk,R" },
     },
     {
-      kind: "gemma4-runtime-reduction-invocation-program", schemaVersion: 1,
+      kind: "gemma4-runtime-reduction-invocation-program", schemaVersion: 2,
       id: "audio-attention-value", scope: "audio", graphOperation: "chunked-relative-attention-values",
       orderedOperands: [
         { ordinal: 0, name: "operand_0", role: "attention-weights", dtype: "F32", layout: "B,H,blocks,chunk,context" },
         { ordinal: 1, name: "operand_1", role: "value", dtype: "F32", layout: "B,S,H*D" },
       ],
-      towerParameters: ["attentionHeads", "headDim", "attentionChunkSize", "attentionContextLeft", "attentionContextRight"],
+      environment: environment(["attentionHeads", "headDim", "attentionChunkSize", "attentionContextLeft", "attentionContextRight"]),
       stages: [
         ...contextStages("operand_1", "value"),
         { id: "value_bmm_layout", operation: "permute", input: "value_context", output: "value_bmm", axes: [0, 3, 1, 2, 4] },
