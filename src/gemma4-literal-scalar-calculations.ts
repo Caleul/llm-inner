@@ -450,7 +450,7 @@ function scalarFormula(definition: Definition, program: Gemma4CompositeProgram, 
     case "mask-input-features": return `${lhs} = ${assignment.inputs[1]}[batch,frame] ? ${input()} : F32(0)`;
     case "reshape-conv-features": return assignment.id === "audio_input_unsqueeze"
       ? `${lhs} = ${assignment.inputs[0]}[batch,frame,feature]; require channel==0`
-      : `${lhs} = ${assignment.inputs[0]}[batch,flattened_channel_feature%${assignment.inputs[0]}.shape[1],frame,floor(flattened_channel_feature/${assignment.inputs[0]}.shape[1])]`;
+      : `${lhs} = ${assignment.inputs[0]}[batch,flattened_channel_feature%${assignment.inputs[0]}.shape[1],frame,floor(flattened_channel_feature/(${assignment.inputs[0]}.shape[1]))]`;
     case "conv2d-stride2": {
       const source = assignment.inputs[0]!;
       return `${lhs} = ${cast}(REDUCE(input_channel=0..channels-1,kernel_time=0..2,kernel_feature=0..2, F32(((2*frame+kernel_time-1<0 || 2*frame+kernel_time-1>=${source}.shape[2] || 2*feature+kernel_feature-1<0 || 2*feature+kernel_feature-1>=${source}.shape[3]) ? F32(0) : ${source}[batch,input_channel,2*frame+kernel_time-1,2*feature+kernel_feature-1])*decode(convolution-kernel)[channel,input_channel,kernel_time,kernel_feature])))`;

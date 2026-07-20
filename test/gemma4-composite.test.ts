@@ -233,6 +233,13 @@ test("Gemma 4 coordinate navigation parses nested indices without operation or l
     parseGemma4LiteralCoordinateExpression("floor(video_frame/(pixel_values_videos.shape[1]))"),
     { symbols: { video_frame: 7 }, tensorShapes: { pixel_values_videos: [2, 4, 3, 8] } },
   ), 1);
+  assert.deepEqual(evaluateGemma4LiteralCoordinateExpression(
+    parseGemma4LiteralCoordinateExpression("floor(flattened_channel_feature/(composite_audio_features/audio_subsample_1.shape[1]))"),
+    {
+      symbols: { flattened_channel_feature: 67 },
+      tensorShapes: { "composite_audio_features/audio_subsample_1": [1, 32, 4, 8] },
+    },
+  ), 2);
   const closedScope = {
     symbols: new Set(["video_frame"]),
     localRoots: new Set<string>(),
@@ -240,6 +247,15 @@ test("Gemma 4 coordinate navigation parses nested indices without operation or l
   };
   validateGemma4LiteralCoordinateExpressionBindings(
     parseGemma4LiteralCoordinateExpression("floor(video_frame/(pixel_values_videos.shape[1]))"), closedScope, "video-flatten",
+  );
+  validateGemma4LiteralCoordinateExpressionBindings(
+    parseGemma4LiteralCoordinateExpression("floor(flattened_channel_feature/(composite_audio_features/audio_subsample_1.shape[1]))"),
+    {
+      symbols: new Set(["flattened_channel_feature"]),
+      localRoots: new Set<string>(),
+      tensors: new Set(["composite_audio_features/audio_subsample_1"]),
+    },
+    "audio-unfold",
   );
   assert.throws(() => validateGemma4LiteralCoordinateExpressionBindings(
     parseGemma4LiteralCoordinateExpression("floor(video_frame/frames)"), closedScope, "video-flatten",

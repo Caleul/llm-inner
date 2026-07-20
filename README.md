@@ -740,6 +740,11 @@ Bindings ausentes, overflow, divisor zero, tensor ragged, range invertido ou
 helper desconhecido falham antes da navegação; o leitor não precisa analisar a
 string humana `expression` para descobrir um endereço.
 
+Como `/` também separa os segmentos dos nomes de tensores compostos, cada
+operando `tensor/path.shape[axis]` usado em uma divisão `floor` é delimitado
+por parênteses. Isso mantém a divisão e o caminho lexicalmente inequívocos e
+faz a construção falhar fechado se um gerador emitir a forma ambígua.
+
 No E4B real, o grafo contém 36.495 programas de coordenada para as 2.708
 atribuições, incluindo sete ranges e seis ranks estáveis. A fonte foi removida
 fisicamente durante a verificação integral dos 2.130 payloads, vistas escalar e
@@ -759,8 +764,8 @@ campos `STRUCT` e tensores do call site; alias livre ou tensor não declarado
 falha durante a construção e durante a abertura do artefato.
 
 No E4B real, as 2.708 atribuições passaram esse fecho sem bindings do chamador.
-O artefato de 21.391.466.420 bytes tem SHA-256
-`2d2129ab31f56f0a4733c9970990b9cdb944f6a8ee3dfbc9fae1c0d382619008`
+O artefato de 21.391.466.484 bytes tem SHA-256
+`88b82835fa012291b4797740dc760e3f059c85b7af816e9d758c2aa3ded311eb`
 e contém 36.505 programas de coordenada, incluindo 14 leituras explícitas de
 eixo de tensor. Com a fonte fisicamente ausente, todos os 2.130 payloads foram
 verificados, uma vista de `layer_0_q_proj[0,0,0]` substituiu pesos BF16 por
