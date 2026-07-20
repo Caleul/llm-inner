@@ -704,7 +704,7 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     decoder.decode.schemaVersion === 2));
   assert.equal(JSON.stringify(literal).includes(catalog.source), false);
   assert.equal(literal.program.textProgram.source.path, "embedded://gemma4-composite-literal");
-  assert.equal(literal.schemaVersion, 57);
+  assert.equal(literal.schemaVersion, 58);
   assert.equal(literal.payloadIntegrity.length, catalog.tensors.size);
   assert.equal(literal.integrityManifest.sections.length, 24);
   assert.deepEqual(literal.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
@@ -720,7 +720,7 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE);
   assert.equal(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.executionProtocol.kind,
     "gemma4-runtime-reduction-execution-protocol");
-  assert.equal(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.executionProtocol.schemaVersion, 3);
+  assert.equal(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.executionProtocol.schemaVersion, 4);
   assert.deepEqual(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.executionProtocol.transcriptCommitment, {
     schemaVersion: 1,
     encoding: "utf8",
@@ -729,6 +729,16 @@ test("Gemma 4 composite literal embeds every tower weight and replays multimodal
     responseSource: "exact stdout bytes",
     jsonSerialization: "compact JSON without whitespace or trailing bytes",
     receiptFields: ["requestBytes", "requestSha256", "responseBytes", "responseSha256"],
+  });
+  assert.deepEqual(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.executionProtocol.replayCommitment, {
+    schemaVersion: 1,
+    encoding: "utf8",
+    hashAlgorithm: "sha256",
+    executionOrder: "provider-append-order",
+    receiptSerialization: "ECMAScript JSON.stringify",
+    receiptSeparator: "LF after every receipt including the final receipt",
+    committedSource: "complete execution receipts in execution order",
+    evidenceFields: ["schemaVersion", "contractId", "executionCount", "executionOrder", "operationIds", "receiptCommitment", "executions"],
   });
   assert.deepEqual(literal.authoritativeExecution.unresolvedNativeReduction.executableReplay.executionProtocol.tensorEncoding, {
     kind: "gemma4-runtime-reduction-dense-tensor",
@@ -1674,7 +1684,7 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
 
     const artifact = await openGemma4CompositeLiteralArtifact(output);
     try {
-      assert.equal(artifact.schemaVersion, 57);
+      assert.equal(artifact.schemaVersion, 58);
       assert.deepEqual(artifact.denseDecoderLanguage, buildLiteralDenseDecoderLanguageContract());
       assert.equal(artifact.sourceIdentity.revision, "a".repeat(40));
       assert.equal(artifact.authoritativeExecution.unresolvedNativeReduction.executableReplay.adapterProgram.sha256,

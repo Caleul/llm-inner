@@ -2,13 +2,16 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildGemma4RuntimeReductionTraceCoverage,
+  gemma4RuntimeReductionOperationIds,
   validateGemma4RuntimeReductionTraceCoverage,
 } from "../src/gemma4-runtime-reduction-trace-coverage.js";
 import {
+  buildGemma4RuntimeReductionReplayEvidence,
   executeGemma4RuntimeReduction,
   expectedGemma4RuntimeReductionAttestation,
   gemma4RuntimeReductionExecutionProtocolSha256,
   gemma4RuntimeReductionTensorEvidence,
+  validateGemma4RuntimeReductionReplayEvidence,
   type Gemma4RuntimeReductionExecution,
   type Gemma4RuntimeReductionProvider,
   type Gemma4RuntimeReductionRequest,
@@ -58,6 +61,7 @@ test("Gemma 4 native-reduction coverage binds both exact operands and native out
       { input: "vision_layer_0_k_rotated", producerOperationId: "vision_layer_0_k_rope", shape: [1, 1, 2, 2] },
     ],
   }]);
+  assert.deepEqual(gemma4RuntimeReductionOperationIds(program), ["vision_layer_0_attention_scores"]);
   validateGemma4RuntimeReductionTraceCoverage(coverage, program, operations);
 });
 
@@ -288,6 +292,53 @@ test("Gemma 4 runtime-reduction transcript binds the exact invocation environmen
   assert.throws(
     () => gemma4RuntimeReductionTranscriptEvidence(original, `${response}\n`, protocol),
     /JSON compacto canônico/,
+  );
+});
+
+test("Gemma 4 runtime-reduction replay commits every receipt in artifact-declared operation order", () => {
+  const protocol = gemma4RuntimeReductionExecutionProtocol();
+  const request: Gemma4RuntimeReductionRequest = {
+    scope: "vision",
+    operationId: "vision_layer_0_attention_scores",
+    operation: "attention-score-matmul",
+    program: fixtureProgram(),
+    operands: [sampleTensor([1, 1, 2, 2]), sampleTensor([1, 1, 2, 2])],
+  };
+  const first = execution(request, sampleTensor([1, 1, 2, 2])).evidence;
+  const second = structuredClone(first);
+  second.operationId = "vision_layer_1_attention_scores";
+  const replay = buildGemma4RuntimeReductionReplayEvidence(
+    "torch-2.12.1-cpu-inference-matmul-v1",
+    [first, second],
+    protocol,
+  );
+
+  assert.deepEqual(replay.operationIds, [first.operationId, second.operationId]);
+  assert.equal(replay.executionOrder, "provider-append-order");
+  assert.ok(replay.receiptCommitment.bytes > 0);
+  assert.match(replay.receiptCommitment.sha256, /^[a-f0-9]{64}$/);
+  validateGemma4RuntimeReductionReplayEvidence(replay, replay.operationIds, protocol);
+
+  const reordered = structuredClone(replay);
+  reordered.executions.reverse();
+  assert.throws(
+    () => validateGemma4RuntimeReductionReplayEvidence(reordered, replay.operationIds, protocol),
+    /ordem completa de reduções/,
+  );
+  assert.throws(
+    () => validateGemma4RuntimeReductionReplayEvidence(replay, [...replay.operationIds].reverse(), protocol),
+    /ordem completa de reduções/,
+  );
+  const divergentProtocol = buildGemma4RuntimeReductionReplayEvidence(
+    replay.contractId,
+    replay.executions.map((entry, index) => index === 1
+      ? { ...entry, executionProtocolSha256: "0".repeat(64) }
+      : entry),
+    protocol,
+  );
+  assert.throws(
+    () => validateGemma4RuntimeReductionReplayEvidence(divergentProtocol, replay.operationIds, protocol),
+    /ordem completa de reduções/,
   );
 });
 

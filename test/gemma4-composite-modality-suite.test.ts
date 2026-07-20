@@ -11,6 +11,7 @@ const candidate = "llm-inner embedded-literal Gemma4 composite BF16-policy execu
 test("Gemma 4 modality suite requires zero-tolerance image, video, and audio generation evidence", () => {
   const evidence = [fixture("image", 32), fixture("video", 32), fixture("audio", 36)];
   const report = buildGemma4LiteralCompositeModalitySuiteReport(evidence);
+  assert.equal(report.schemaVersion, 2);
   assert.deepEqual(report.summary, {
     modalityCount: 3,
     zeroTolerancePrefillPasses: 3,
@@ -30,8 +31,20 @@ test("Gemma 4 modality suite requires zero-tolerance image, video, and audio gen
   assert.throws(() => buildGemma4LiteralCompositeModalitySuiteReport(inventedScheduleCoverage), /100 BMM runtime-defined/);
   const malformedReplay = structuredClone(evidence);
   malformedReplay[0]!.comparison.runtimeReductionReplay = {
+    schemaVersion: 1,
     contractId: "torch-2.12.1-cpu-inference-matmul-v1",
     executionCount: 0,
+    executionOrder: "provider-append-order",
+    operationIds: [],
+    receiptCommitment: {
+      schemaVersion: 1,
+      encoding: "utf8",
+      hashAlgorithm: "sha256",
+      receiptSerialization: "ECMAScript JSON.stringify",
+      receiptSeparator: "LF after every receipt including the final receipt",
+      bytes: 0,
+      sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    },
     executions: [],
   };
   assert.throws(() => buildGemma4LiteralCompositeModalitySuiteReport(malformedReplay), /replay nativo incompleto/);
@@ -82,6 +95,7 @@ function fixture(modality: "image" | "video" | "audio", runtimeDefinedReductions
         stages: 0,
         domains: 1,
         runtimeDefinedReductions,
+        runtimeDefinedOperationIds: Array.from({ length: runtimeDefinedReductions }, (_, index) => `${modality}-runtime-${index}`),
       },
       runtimeReductionReplay: null,
     },

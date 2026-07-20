@@ -91,7 +91,7 @@ export interface Gemma4RuntimeReductionExecutableReplayContract {
  */
 export interface Gemma4RuntimeReductionExecutionProtocol {
   kind: "gemma4-runtime-reduction-execution-protocol";
-  schemaVersion: 3;
+  schemaVersion: 4;
   runtimeExecutable: {
     language: "python3";
     selection: "caller-supplied-path";
@@ -148,6 +148,16 @@ export interface Gemma4RuntimeReductionExecutionProtocol {
     responseSource: "exact stdout bytes";
     jsonSerialization: "compact JSON without whitespace or trailing bytes";
     receiptFields: ["requestBytes", "requestSha256", "responseBytes", "responseSha256"];
+  };
+  replayCommitment: {
+    schemaVersion: 1;
+    encoding: "utf8";
+    hashAlgorithm: "sha256";
+    executionOrder: "provider-append-order";
+    receiptSerialization: "ECMAScript JSON.stringify";
+    receiptSeparator: "LF after every receipt including the final receipt";
+    committedSource: "complete execution receipts in execution order";
+    evidenceFields: ["schemaVersion", "contractId", "executionCount", "executionOrder", "operationIds", "receiptCommitment", "executions"];
   };
 }
 
@@ -317,7 +327,7 @@ export const GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE = {
 export function gemma4RuntimeReductionExecutionProtocol(): Gemma4RuntimeReductionExecutionProtocol {
   return {
     kind: "gemma4-runtime-reduction-execution-protocol",
-    schemaVersion: 3,
+    schemaVersion: 4,
     runtimeExecutable: {
       language: "python3",
       selection: "caller-supplied-path",
@@ -374,6 +384,16 @@ export function gemma4RuntimeReductionExecutionProtocol(): Gemma4RuntimeReductio
       responseSource: "exact stdout bytes",
       jsonSerialization: "compact JSON without whitespace or trailing bytes",
       receiptFields: ["requestBytes", "requestSha256", "responseBytes", "responseSha256"],
+    },
+    replayCommitment: {
+      schemaVersion: 1,
+      encoding: "utf8",
+      hashAlgorithm: "sha256",
+      executionOrder: "provider-append-order",
+      receiptSerialization: "ECMAScript JSON.stringify",
+      receiptSeparator: "LF after every receipt including the final receipt",
+      committedSource: "complete execution receipts in execution order",
+      evidenceFields: ["schemaVersion", "contractId", "executionCount", "executionOrder", "operationIds", "receiptCommitment", "executions"],
     },
   };
 }

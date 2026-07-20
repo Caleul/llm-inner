@@ -182,7 +182,7 @@ export interface Gemma4LiteralGreedyGenerationProgram {
   };
 }
 
-export const GEMMA4_COMPOSITE_LITERAL_SCHEMA_VERSION = 57 as const;
+export const GEMMA4_COMPOSITE_LITERAL_SCHEMA_VERSION = 58 as const;
 
 /**
  * A source-independent literal program for the complete registered Gemma 4

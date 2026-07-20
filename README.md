@@ -1153,6 +1153,18 @@ falha fechado. Os 100 recibos source-removed da E4B carregam compromissos
 válidos sob o mesmo protocolo incorporado. Evidência em
 [`docs/validation/gemma4-e4b-runtime-reduction-transcript-commitments-2026-07-20.md`](docs/validation/gemma4-e4b-runtime-reduction-transcript-commitments-2026-07-20.md).
 
+O schema v58 fecha a ordem agregada desses recibos. O
+`executionProtocol.replayCommitment` declara `provider-append-order`, a
+serialização `JSON.stringify` de cada recibo completo, um `LF` após cada
+registro e SHA-256 sobre o transcript concatenado. Cada relatório de replay
+carrega a lista ordenada de `operationIds`, byte count, digest e os recibos que
+reconstroem esse digest. A comparação composite deriva do programa incorporado
+as 32 operações de imagem/vídeo ou 36 de áudio e exige igualdade posicional;
+contagem correta com operação omitida, duplicada ou reordenada falha fechado.
+O replay source-removed real cobriu as 100 BMM em ordem e manteve comparação de
+prefill e geração a tolerância zero. Evidência em
+[`docs/validation/gemma4-e4b-ordered-runtime-replay-commitment-2026-07-20.md`](docs/validation/gemma4-e4b-ordered-runtime-replay-commitment-2026-07-20.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 

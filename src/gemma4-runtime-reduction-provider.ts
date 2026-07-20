@@ -5,6 +5,7 @@ import {
   GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY,
   GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE,
   GEMMA4_RUNTIME_REDUCTION_PROCESS_ENVIRONMENT,
+  gemma4RuntimeReductionExecutionProtocol,
   type Gemma4RuntimeReductionAttestation,
   type Gemma4RuntimeReductionExecutionProtocol,
   type Gemma4RuntimeReductionExecutableReplayContract,
@@ -142,8 +143,20 @@ export interface Gemma4RuntimeReductionProvider {
 }
 
 export interface Gemma4RuntimeReductionReplayEvidence {
+  schemaVersion: 1;
   contractId: "torch-2.12.1-cpu-inference-matmul-v1";
   executionCount: number;
+  executionOrder: "provider-append-order";
+  operationIds: string[];
+  receiptCommitment: {
+    schemaVersion: 1;
+    encoding: "utf8";
+    hashAlgorithm: "sha256";
+    receiptSerialization: "ECMAScript JSON.stringify";
+    receiptSeparator: "LF after every receipt including the final receipt";
+    bytes: number;
+    sha256: string;
+  };
   executions: Gemma4RuntimeReductionExecutionEvidence[];
 }
 
@@ -222,7 +235,55 @@ export function gemma4RuntimeReductionReplayEvidence(
     throw new Error("Ordinal inicial de evidência de redução Gemma 4 inválido.");
   }
   const executions = structuredClone(provider.executions.slice(startOrdinal));
-  return { contractId: provider.contractId, executionCount: executions.length, executions };
+  return buildGemma4RuntimeReductionReplayEvidence(
+    provider.contractId,
+    executions,
+    provider.evidenceContract.executionProtocol,
+  );
+}
+
+export function buildGemma4RuntimeReductionReplayEvidence(
+  contractId: Gemma4RuntimeReductionReplayEvidence["contractId"],
+  executions: readonly Gemma4RuntimeReductionExecutionEvidence[],
+  protocol: Gemma4RuntimeReductionExecutionProtocol,
+): Gemma4RuntimeReductionReplayEvidence {
+  assertReplayCommitmentContract(protocol);
+  const copied = structuredClone([...executions]);
+  const receiptUtf8 = copied.map((execution) => `${JSON.stringify(execution)}\n`).join("");
+  return {
+    schemaVersion: 1,
+    contractId,
+    executionCount: copied.length,
+    executionOrder: "provider-append-order",
+    operationIds: copied.map((execution) => execution.operationId),
+    receiptCommitment: {
+      schemaVersion: 1,
+      encoding: "utf8",
+      hashAlgorithm: "sha256",
+      receiptSerialization: "ECMAScript JSON.stringify",
+      receiptSeparator: "LF after every receipt including the final receipt",
+      bytes: Buffer.byteLength(receiptUtf8, "utf8"),
+      sha256: createHash("sha256").update(receiptUtf8, "utf8").digest("hex"),
+    },
+    executions: copied,
+  };
+}
+
+export function validateGemma4RuntimeReductionReplayEvidence(
+  evidence: Gemma4RuntimeReductionReplayEvidence,
+  expectedOperationIds: readonly string[],
+  protocol: Gemma4RuntimeReductionExecutionProtocol,
+): void {
+  const rebuilt = buildGemma4RuntimeReductionReplayEvidence(evidence.contractId, evidence.executions, protocol);
+  const protocolSha256 = gemma4RuntimeReductionExecutionProtocolSha256(protocol);
+  const expectedIds = [...expectedOperationIds];
+  if (!isDeepStrictEqual(evidence, rebuilt) || !isDeepStrictEqual(evidence.operationIds, expectedIds) ||
+    expectedIds.some((operationId) => !operationId) || new Set(expectedIds).size !== expectedIds.length ||
+    evidence.executions.some((execution, index) => execution.schemaVersion !== 5 ||
+      execution.contractId !== evidence.contractId || execution.operationId !== expectedIds[index] ||
+      execution.executionProtocolSha256 !== protocolSha256)) {
+    throw new Error("Replay nativo Gemma 4 não corresponde à ordem completa de reduções declarada pelo artefato.");
+  }
 }
 
 function assertProgramOperation(request: Gemma4RuntimeReductionRequest): void {
@@ -243,4 +304,10 @@ function tensorEvidence(tensor: DenseF32Tensor): Gemma4RuntimeReductionTensorEvi
     bytes: bytes.byteLength,
     sha256: createHash("sha256").update(bytes).digest("hex"),
   };
+}
+
+function assertReplayCommitmentContract(protocol: Gemma4RuntimeReductionExecutionProtocol): void {
+  if (!isDeepStrictEqual(protocol.replayCommitment, gemma4RuntimeReductionExecutionProtocol().replayCommitment)) {
+    throw new Error("Compromisso agregado do replay nativo Gemma 4 não é suportado ou está divergente.");
+  }
 }

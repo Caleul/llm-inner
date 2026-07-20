@@ -379,6 +379,14 @@ deve materializar esses valores do artefato, recusar protocolos desconhecidos e
 campos extras ou ausentes, e vincular cada recibo BMM ao SHA-256 canônico do
 protocolo. A existência de um runtime externo continua explícita; nenhum
 checkpoint, helper ou configuração de launch do checkout pode ser consultado.
+Um recibo isolado, porém, não prova sozinho que o replay percorreu todas as reduções na
+ordem do programa. No schema v58, `executionProtocol.replayCommitment` fecha
+essa fronteira: os recibos completos são serializados por `JSON.stringify` em
+`provider-append-order`, cada um terminado por `LF`, e o relatório registra o
+byte count e SHA-256 do transcript. A lista ordenada de `operationIds` deve ser
+idêntica à sequência `runtime-defined` derivada das atribuições da modalidade
+incorporada. Omissão, duplicação, reordenação, digest divergente ou recibo
+ligado a outro protocolo falha fechado antes de aceitar o diferencial.
 
 O schema v56 fecha o transporte numérico dentro desse protocolo. Operandos e
 outputs BMM deixam de usar arrays de números JSON, que não preservam o bit de

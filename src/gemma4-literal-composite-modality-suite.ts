@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
+import { gemma4RuntimeReductionExecutionProtocol } from "./gemma4-authoritative-runtime.js";
 import { sha256File } from "./trace.js";
 import {
   compareGemma4LiteralCompositeTrace,
@@ -7,6 +8,7 @@ import {
 import type { Gemma4CompositeTraceModality } from "./gemma4-composite-trace-profile.js";
 import {
   expectedGemma4RuntimeReductionAttestation,
+  validateGemma4RuntimeReductionReplayEvidence,
   type Gemma4RuntimeReductionProvider,
 } from "./gemma4-runtime-reduction-provider.js";
 
@@ -21,7 +23,7 @@ export interface Gemma4LiteralCompositeModalityEvidence {
 
 export interface Gemma4LiteralCompositeModalitySuiteReport {
   kind: "gemma4-embedded-literal-composite-modality-suite";
-  schemaVersion: 1;
+  schemaVersion: 2;
   sourceCheckpointAccessed: false;
   candidateFidelityAcknowledged: true;
   fidelityClaim: "candidate-modality-coverage-with-runtime-defined-reductions";
@@ -117,13 +119,23 @@ export function buildGemma4LiteralCompositeModalitySuiteReport(
       throw new Error(`Suite Gemma 4 ${entry.modality} não registrou sua fronteira BMM runtime-defined.`);
     }
     const replay = comparison.runtimeReductionReplay;
-    if (replay && (replay.contractId !== "torch-2.12.1-cpu-inference-matmul-v1" ||
-      replay.executionCount !== comparison.reductionDomainEvaluation.runtimeDefinedReductions ||
-      replay.executions.length !== replay.executionCount ||
-      new Set(replay.executions.map((execution) => execution.operationId)).size !== replay.executionCount ||
-      replay.executions.some((execution) => execution.sourceCheckpointAccessed !== false ||
-        !isDeepStrictEqual(execution.runtimeAttestation, expectedGemma4RuntimeReductionAttestation())))) {
-      throw new Error(`Suite Gemma 4 ${entry.modality} possui replay nativo incompleto ou não atestado.`);
+    if (replay) {
+      try {
+        validateGemma4RuntimeReductionReplayEvidence(
+          replay,
+          comparison.reductionDomainEvaluation.runtimeDefinedOperationIds,
+          gemma4RuntimeReductionExecutionProtocol(),
+        );
+      } catch {
+        throw new Error(`Suite Gemma 4 ${entry.modality} possui replay nativo incompleto ou não atestado.`);
+      }
+      if (replay.contractId !== "torch-2.12.1-cpu-inference-matmul-v1" ||
+        replay.executionCount !== comparison.reductionDomainEvaluation.runtimeDefinedReductions ||
+        replay.executions.length !== replay.executionCount ||
+        replay.executions.some((execution) => execution.sourceCheckpointAccessed !== false ||
+          !isDeepStrictEqual(execution.runtimeAttestation, expectedGemma4RuntimeReductionAttestation()))) {
+        throw new Error(`Suite Gemma 4 ${entry.modality} possui replay nativo incompleto ou não atestado.`);
+      }
     }
     const identity = identities[index]!;
     if (identity.model !== expected.model || identity.revisionOrChecksum !== expected.revisionOrChecksum ||
@@ -142,7 +154,7 @@ export function buildGemma4LiteralCompositeModalitySuiteReport(
   }
   return {
     kind: "gemma4-embedded-literal-composite-modality-suite",
-    schemaVersion: 1,
+    schemaVersion: 2,
     sourceCheckpointAccessed: false,
     candidateFidelityAcknowledged: true,
     fidelityClaim: "candidate-modality-coverage-with-runtime-defined-reductions",

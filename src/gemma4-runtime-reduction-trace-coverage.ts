@@ -38,6 +38,18 @@ export interface Gemma4RuntimeReductionTraceCoverage {
   entries: Gemma4RuntimeReductionTraceEntry[];
 }
 
+/** Exact artifact-declared execution order for every opaque native reduction. */
+export function gemma4RuntimeReductionOperationIds(program: RuntimeReductionProgram): string[] {
+  const operationIds = program.assignments
+    .filter((assignment) => assignment.dtypePolicy?.accumulationDtype === "runtime-defined")
+    .map((assignment) => assignment.id);
+  if (operationIds.length === 0 || operationIds.some((operationId) => !operationId) ||
+    new Set(operationIds).size !== operationIds.length) {
+    throw new Error(`${program.kind}: ordem das reduções runtime-defined está vazia ou possui operationId inválido/duplicado.`);
+  }
+  return operationIds;
+}
+
 export function buildGemma4RuntimeReductionTraceCoverage(
   program: RuntimeReductionProgram,
   operations: readonly DifferentialOperationSample[],
@@ -67,7 +79,10 @@ export function buildGemma4RuntimeReductionTraceCoverage(
       orderedOperands,
     }];
   });
-  if (entries.length === 0) throw new Error(`${program.kind}: programa não contém reduções runtime-defined para cobertura.`);
+  const expectedOrder = gemma4RuntimeReductionOperationIds(program);
+  if (!isDeepStrictEqual(entries.map((entry) => entry.operationId), expectedOrder)) {
+    throw new Error(`${program.kind}: cobertura não preserva a ordem declarada das reduções runtime-defined.`);
+  }
   return { kind: "gemma4-runtime-reduction-trace-coverage", schemaVersion: 1, entries };
 }
 

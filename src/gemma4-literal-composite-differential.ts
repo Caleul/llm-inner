@@ -13,8 +13,10 @@ import type {
   DifferentialOperationSample,
 } from "./types.js";
 import { evaluateGemma4LiteralReductionIndexDomains } from "./gemma4-literal-reduction-domains.js";
+import { gemma4RuntimeReductionOperationIds } from "./gemma4-runtime-reduction-trace-coverage.js";
 import {
   gemma4RuntimeReductionReplayEvidence,
+  validateGemma4RuntimeReductionReplayEvidence,
   type Gemma4RuntimeReductionProvider,
   type Gemma4RuntimeReductionReplayEvidence,
 } from "./gemma4-runtime-reduction-provider.js";
@@ -49,6 +51,7 @@ export interface Gemma4LiteralCompositeDifferentialReport {
     stages: number;
     domains: number;
     runtimeDefinedReductions: number;
+    runtimeDefinedOperationIds: string[];
   };
   runtimeReductionReplay: Gemma4RuntimeReductionReplayEvidence | null;
 }
@@ -119,6 +122,13 @@ export async function compareGemma4LiteralCompositeTrace(options: {
       throw new Error(
         `Replay composite executou ${runtimeReductionReplay.executionCount} reduções nativas, ` +
         `mas o grafo ativo declara ${reductionDomainEvaluation.runtimeDefinedReductions}.`,
+      );
+    }
+    if (runtimeReductionReplay) {
+      validateGemma4RuntimeReductionReplayEvidence(
+        runtimeReductionReplay,
+        reductionDomainEvaluation.runtimeDefinedOperationIds,
+        artifact.authoritativeExecution.unresolvedNativeReduction.executableReplay.executionProtocol,
       );
     }
     return {
@@ -198,7 +208,14 @@ function evaluateActiveReductionDomains(
       domains += stage.domains.length;
     }
   }
-  return { activeAssignments, reductions, stages, domains, runtimeDefinedReductions };
+  const runtimeProgram = inputs.modality === "audio" ? artifact.program.audioProgram : artifact.program.visionProgram;
+  const runtimeDefinedOperationIds = gemma4RuntimeReductionOperationIds(runtimeProgram);
+  if (runtimeDefinedOperationIds.length !== runtimeDefinedReductions) {
+    throw new Error(
+      `Grafo ativo declara ${runtimeDefinedReductions} reduções runtime-defined, mas o programa da modalidade declara ${runtimeDefinedOperationIds.length} operações.`,
+    );
+  }
+  return { activeAssignments, reductions, stages, domains, runtimeDefinedReductions, runtimeDefinedOperationIds };
 }
 
 function parseInputs(raw: unknown, inputTokens: number[], positionIds: number[], maxNewTokens: number): CompositeInputs {
