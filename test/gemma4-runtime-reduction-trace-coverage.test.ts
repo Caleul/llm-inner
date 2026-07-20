@@ -20,9 +20,13 @@ import {
   GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY,
   GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE,
   GEMMA4_RUNTIME_REDUCTION_PROCESS_ENVIRONMENT,
+  gemma4AuthoritativeExecutionContract,
   loadGemma4RuntimeReductionAdapterProgram,
 } from "../src/gemma4-authoritative-runtime.js";
-import { Gemma4TorchRuntimeReductionProvider } from "../src/gemma4-torch-runtime-reduction-provider.js";
+import {
+  Gemma4TorchRuntimeReductionProvider,
+  runtimeReductionSpawnEnvironment,
+} from "../src/gemma4-torch-runtime-reduction-provider.js";
 import {
   gemma4RuntimeReductionInvocationProgram,
   gemma4RuntimeReductionInvocationProgramSha256,
@@ -75,6 +79,7 @@ test("Gemma 4 runtime-reduction provider accepts only its pinned contract and ex
   };
   const provider: Gemma4RuntimeReductionProvider = {
     contractId: "torch-2.12.1-cpu-inference-matmul-v1",
+    evidenceContract: fixtureEvidenceContract(),
     executions: [],
     execute(actual) {
       assert.equal(actual, request);
@@ -89,6 +94,14 @@ test("Gemma 4 runtime-reduction provider accepts only its pinned contract and ex
   assert.throws(() => executeGemma4RuntimeReduction(nonFinite, request, [1, 1, 2, 2]), /tensor inválido/);
   const wrongContract = { ...provider, contractId: "wrong" } as unknown as Gemma4RuntimeReductionProvider;
   assert.throws(() => executeGemma4RuntimeReduction(wrongContract, request, [1, 1, 2, 2]), /não corresponde ao contrato/);
+  const wrongEvidenceContract = {
+    ...provider,
+    evidenceContract: { ...provider.evidenceContract, providerContractId: "wrong" },
+  } as unknown as Gemma4RuntimeReductionProvider;
+  assert.throws(
+    () => executeGemma4RuntimeReduction(wrongEvidenceContract, request, [1, 1, 2, 2]),
+    /contrato de evidência.*diverge/,
+  );
 
   const wrongAttestation: Gemma4RuntimeReductionProvider = {
     ...provider,
@@ -197,11 +210,23 @@ test("Gemma 4 runtime-reduction provider executes the integrity-bound embedded a
     program: fixtureProgram(),
     operands: [sampleTensor([1, 1, 2, 2]), sampleTensor([1, 1, 2, 2])] as const,
   };
-  const provider = new Gemma4TorchRuntimeReductionProvider(
-    "venv/bin/python",
+  const replayContract = gemma4AuthoritativeExecutionContract(
     await loadGemma4RuntimeReductionAdapterProgram(),
-    gemma4RuntimeReductionInvocationPrograms(),
-  );
+  ).unresolvedNativeReduction.executableReplay;
+  const provider = new Gemma4TorchRuntimeReductionProvider("venv/bin/python", replayContract);
+  assert.deepEqual(runtimeReductionSpawnEnvironment(replayContract), replayContract.runtimeProcessEnvironment.variables);
+  const isolatedEnvironment = runtimeReductionSpawnEnvironment(replayContract);
+  isolatedEnvironment.LANG = "mutated-after-materialization";
+  assert.equal(replayContract.runtimeProcessEnvironment.variables.LANG, "C");
+  const isolatedEvidence = provider.evidenceContract;
+  (isolatedEvidence.runtimeAttestation.runtimeProcessEnvironment.variables as { LANG: string }).LANG = "mutated-reader-copy";
+  assert.equal(provider.evidenceContract.runtimeAttestation.runtimeProcessEnvironment.variables.LANG, "C");
+  assert.throws(() => runtimeReductionSpawnEnvironment({
+    runtimeProcessEnvironment: {
+      ...replayContract.runtimeProcessEnvironment,
+      inheritance: "parent",
+    } as unknown as typeof replayContract.runtimeProcessEnvironment,
+  }), /não é um mapa fechado/);
   const previousOmpThreads = process.env.OMP_NUM_THREADS;
   const previousTf32Override = process.env.TORCH_ALLOW_TF32_CUBLAS_OVERRIDE;
   const previousVeclibThreads = process.env.VECLIB_MAXIMUM_THREADS;
@@ -239,11 +264,10 @@ test("Gemma 4 runtime-reduction provider executes the integrity-bound embedded a
 });
 
 test("Gemma 4 embedded adapter executes every serialized invocation program without hidden class transforms", async () => {
-  const provider = new Gemma4TorchRuntimeReductionProvider(
-    "venv/bin/python",
+  const replayContract = gemma4AuthoritativeExecutionContract(
     await loadGemma4RuntimeReductionAdapterProgram(),
-    gemma4RuntimeReductionInvocationPrograms(),
-  );
+  ).unresolvedNativeReduction.executableReplay;
+  const provider = new Gemma4TorchRuntimeReductionProvider("venv/bin/python", replayContract);
   const vision = fixtureProgram();
   vision.assignments.push({
     id: "vision_layer_0_attention",
@@ -356,5 +380,14 @@ function execution(request: Gemma4RuntimeReductionRequest, output: ReturnType<ty
       ],
       output: gemma4RuntimeReductionTensorEvidence(output),
     },
+  };
+}
+
+function fixtureEvidenceContract() {
+  return {
+    providerContractId: "torch-2.12.1-cpu-inference-matmul-v1" as const,
+    adapterProgramSha256: GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256,
+    invocationPrograms: gemma4RuntimeReductionInvocationPrograms(),
+    runtimeAttestation: expectedGemma4RuntimeReductionAttestation(),
   };
 }

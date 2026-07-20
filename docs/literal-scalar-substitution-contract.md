@@ -359,6 +359,17 @@ Cada recibo de redução e cada entrada fail-closed do `fidelityGate` apontam
 para o mesmo contrato. Uma variável extra, ausente ou alterada falha antes da
 leitura dos operandos, sem converter a BMM opaca em semântica escalar conhecida.
 
+O executor desse schema deve tratar `executableReplay` como uma única
+autoridade pertencente ao artefato. Adapter, programas de invocação, ambiente
+de lançamento e expectativa dos recibos são derivados desse objeto depois da
+validação de integridade; não podem ser recompostos a partir de constantes do
+checkout durante launch ou validação de recibos. A implementação ainda deve
+rejeitar um schema/runtime que não suporta. O provider expõe somente uma cópia isolada do contrato de evidência,
+e a validação liga cada recibo ao SHA-256 do adapter, programa de invocação e
+attestation vindos da mesma autoridade. Isso mantém o replay source-removed
+dependente do JSON e do runtime declarado, não de uma segunda configuração
+embutida no leitor.
+
 ## Critério de aceite
 
 Uma implementação só é candidata a fechar este requisito quando:

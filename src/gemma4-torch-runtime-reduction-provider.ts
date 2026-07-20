@@ -3,15 +3,16 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
-  GEMMA4_RUNTIME_REDUCTION_PROCESS_ENVIRONMENT,
-  validateGemma4RuntimeReductionAdapterProgram,
-  type Gemma4RuntimeReductionAdapterProgram,
+  validateGemma4RuntimeReductionExecutableReplayContract,
+  type Gemma4RuntimeReductionExecutableReplayContract,
 } from "./gemma4-authoritative-runtime.js";
 import { openGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
 import {
   gemma4RuntimeReductionTensorEvidence,
+  gemma4RuntimeReductionEvidenceContract,
   type Gemma4RuntimeReductionAttestation,
   type Gemma4RuntimeReductionExecution,
+  type Gemma4RuntimeReductionEvidenceContract,
   type Gemma4RuntimeReductionProvider,
   type Gemma4RuntimeReductionRequest,
 } from "./gemma4-runtime-reduction-provider.js";
@@ -19,7 +20,6 @@ import type { DenseF32Tensor } from "./types.js";
 import {
   gemma4RuntimeReductionInvocationProgram,
   gemma4RuntimeReductionInvocationProgramSha256,
-  validateGemma4RuntimeReductionInvocationPrograms,
   type Gemma4LiteralRuntimeReductionOperationClass,
   type Gemma4RuntimeReductionInvocationProgram,
 } from "./gemma4-runtime-reduction-invocation.js";
@@ -47,20 +47,18 @@ export class Gemma4TorchRuntimeReductionProvider implements Gemma4RuntimeReducti
   readonly contractId = "torch-2.12.1-cpu-inference-matmul-v1" as const;
   readonly #executions: Gemma4RuntimeReductionExecution["evidence"][] = [];
   readonly #python: string;
-  readonly #adapterProgram: Gemma4RuntimeReductionAdapterProgram;
-  readonly #invocationPrograms: readonly Gemma4RuntimeReductionInvocationProgram[];
+  readonly #replayContract: Gemma4RuntimeReductionExecutableReplayContract;
+  readonly #evidenceContract: Gemma4RuntimeReductionEvidenceContract;
 
   constructor(
     python: string,
-    adapterProgram: Gemma4RuntimeReductionAdapterProgram,
-    invocationPrograms: readonly Gemma4RuntimeReductionInvocationProgram[],
+    replayContract: Gemma4RuntimeReductionExecutableReplayContract,
   ) {
     if (!python) throw new Error("Provedor PyTorch Gemma 4 requer executável Python explícito.");
-    validateGemma4RuntimeReductionAdapterProgram(adapterProgram);
+    validateGemma4RuntimeReductionExecutableReplayContract(replayContract);
     this.#python = resolve(python);
-    this.#adapterProgram = structuredClone(adapterProgram);
-    validateGemma4RuntimeReductionInvocationPrograms(invocationPrograms);
-    this.#invocationPrograms = structuredClone(invocationPrograms);
+    this.#replayContract = structuredClone(replayContract);
+    this.#evidenceContract = gemma4RuntimeReductionEvidenceContract(this.#replayContract);
   }
 
   static async fromArtifact(python: string, artifactPath: string): Promise<Gemma4TorchRuntimeReductionProvider> {
@@ -68,8 +66,7 @@ export class Gemma4TorchRuntimeReductionProvider implements Gemma4RuntimeReducti
     try {
       return new Gemma4TorchRuntimeReductionProvider(
         python,
-        artifact.authoritativeExecution.unresolvedNativeReduction.executableReplay.adapterProgram,
-        artifact.authoritativeExecution.unresolvedNativeReduction.executableReplay.invocationPrograms,
+        artifact.authoritativeExecution.unresolvedNativeReduction.executableReplay,
       );
     } finally {
       await artifact.close();
@@ -80,17 +77,25 @@ export class Gemma4TorchRuntimeReductionProvider implements Gemma4RuntimeReducti
     return structuredClone(this.#executions);
   }
 
+  get evidenceContract(): Gemma4RuntimeReductionEvidenceContract {
+    return structuredClone(this.#evidenceContract);
+  }
+
   execute(request: Gemma4RuntimeReductionRequest): Gemma4RuntimeReductionExecution {
-    const invocationProgram = gemma4RuntimeReductionInvocationProgram(this.#invocationPrograms, request.scope, request.operation);
+    const invocationProgram = gemma4RuntimeReductionInvocationProgram(
+      this.#replayContract.invocationPrograms,
+      request.scope,
+      request.operation,
+    );
     const directory = mkdtempSync(join(tmpdir(), "llm-inner-gemma4-runtime-reduction-"));
     try {
       const requestPath = join(directory, "request.json");
       const helperPath = join(directory, "embedded-runtime-reduction.py");
       writeFileSync(requestPath, JSON.stringify(serializeRequest(request, invocationProgram)), "utf8");
-      writeFileSync(helperPath, this.#adapterProgram.sourceUtf8, "utf8");
+      writeFileSync(helperPath, this.#replayContract.adapterProgram.sourceUtf8, "utf8");
       const child = spawnSync(this.#python, [helperPath, requestPath], {
         encoding: "utf8",
-        env: { ...GEMMA4_RUNTIME_REDUCTION_PROCESS_ENVIRONMENT.variables },
+        env: runtimeReductionSpawnEnvironment(this.#replayContract),
         maxBuffer: 128 * 1024 * 1024,
       });
       if (child.error) throw child.error;
@@ -108,7 +113,7 @@ export class Gemma4TorchRuntimeReductionProvider implements Gemma4RuntimeReducti
           operationId: request.operationId,
           operation: request.operation,
           sourceCheckpointAccessed: false,
-          adapterProgramSha256: this.#adapterProgram.sha256,
+          adapterProgramSha256: this.#replayContract.adapterProgram.sha256,
           invocationProgramId: invocationProgram.id,
           invocationProgramSha256: gemma4RuntimeReductionInvocationProgramSha256(invocationProgram),
           runtimeAttestation: response.runtimeAttestation,
@@ -125,6 +130,17 @@ export class Gemma4TorchRuntimeReductionProvider implements Gemma4RuntimeReducti
       rmSync(directory, { recursive: true, force: true });
     }
   }
+}
+
+/** Materializes only the closed environment serialized by the artifact. */
+export function runtimeReductionSpawnEnvironment(
+  replayContract: Pick<Gemma4RuntimeReductionExecutableReplayContract, "runtimeProcessEnvironment">,
+): Record<string, string> {
+  const environment = replayContract.runtimeProcessEnvironment;
+  if (environment.schemaVersion !== 1 || environment.inheritance !== "none") {
+    throw new Error("Ambiente de processo da redução Gemma 4 não é um mapa fechado suportado.");
+  }
+  return { ...environment.variables };
 }
 
 function serializeRequest(request: Gemma4RuntimeReductionRequest, invocationProgram: Gemma4RuntimeReductionInvocationProgram): object {

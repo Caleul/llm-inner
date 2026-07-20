@@ -46,25 +46,28 @@ export interface Gemma4AuthoritativeExecutionContract {
       "audio-position-attention-score",
       "audio-attention-value",
     ];
-    executableReplay: {
-      providerContractId: "torch-2.12.1-cpu-inference-matmul-v1";
-      runtime: "torch-2.12.1";
-      torchBuildCommit: "7269437d655783a26cba32aa88195b741ff496aa";
-      executionMode: "torch.inference_mode";
-      device: "cpu";
-      platform: "Darwin-arm64";
-      operation: "torch.matmul";
-      backend: "Apple Accelerate SGEMM";
-      blasBuildSetting: "BLAS_INFO=accelerate";
-      runtimeProcessEnvironment: typeof GEMMA4_RUNTIME_REDUCTION_PROCESS_ENVIRONMENT;
-      runtimeEnvironmentIdentity: typeof GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY;
-      runtimeExecutionState: typeof GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE;
-      checkpointInput: "forbidden";
-      operandSource: "dependency-ordered artifact intermediates only";
-      adapterProgram: Gemma4RuntimeReductionAdapterProgram;
-      invocationPrograms: Gemma4RuntimeReductionInvocationProgram[];
-    };
+    executableReplay: Gemma4RuntimeReductionExecutableReplayContract;
   };
+}
+
+/** Complete artifact-owned contract needed to launch and attest one opaque BMM. */
+export interface Gemma4RuntimeReductionExecutableReplayContract {
+  providerContractId: "torch-2.12.1-cpu-inference-matmul-v1";
+  runtime: "torch-2.12.1";
+  torchBuildCommit: "7269437d655783a26cba32aa88195b741ff496aa";
+  executionMode: "torch.inference_mode";
+  device: "cpu";
+  platform: "Darwin-arm64";
+  operation: "torch.matmul";
+  backend: "Apple Accelerate SGEMM";
+  blasBuildSetting: "BLAS_INFO=accelerate";
+  runtimeProcessEnvironment: typeof GEMMA4_RUNTIME_REDUCTION_PROCESS_ENVIRONMENT;
+  runtimeEnvironmentIdentity: typeof GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY;
+  runtimeExecutionState: typeof GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE;
+  checkpointInput: "forbidden";
+  operandSource: "dependency-ordered artifact intermediates only";
+  adapterProgram: Gemma4RuntimeReductionAdapterProgram;
+  invocationPrograms: Gemma4RuntimeReductionInvocationProgram[];
 }
 
 export interface Gemma4RuntimeReductionAdapterProgram {
@@ -261,6 +264,18 @@ export function validateGemma4RuntimeReductionAdapterProgram(program: Gemma4Runt
   }
 }
 
+export function validateGemma4RuntimeReductionExecutableReplayContract(
+  contract: Gemma4RuntimeReductionExecutableReplayContract,
+): void {
+  validateGemma4RuntimeReductionAdapterProgram(contract.adapterProgram);
+  validateGemma4RuntimeReductionInvocationPrograms(contract.invocationPrograms);
+  const expected = gemma4AuthoritativeExecutionContract(contract.adapterProgram)
+    .unresolvedNativeReduction.executableReplay;
+  if (!isDeepStrictEqual(contract, expected)) {
+    throw new Error("Artefato Gemma 4 não fixa o contrato autoritativo de execução: replay executável incompleto ou divergente.");
+  }
+}
+
 export function gemma4AuthoritativeExecutionContract(
   adapterProgram: Gemma4RuntimeReductionAdapterProgram,
 ): Gemma4AuthoritativeExecutionContract {
@@ -311,8 +326,7 @@ export function validateGemma4AuthoritativeExecutionContract(
   contract: Gemma4AuthoritativeExecutionContract,
 ): void {
   const adapter = contract.unresolvedNativeReduction.executableReplay.adapterProgram;
-  validateGemma4RuntimeReductionAdapterProgram(adapter);
-  validateGemma4RuntimeReductionInvocationPrograms(contract.unresolvedNativeReduction.executableReplay.invocationPrograms);
+  validateGemma4RuntimeReductionExecutableReplayContract(contract.unresolvedNativeReduction.executableReplay);
   const expected = gemma4AuthoritativeExecutionContract(adapter);
   if (!isDeepStrictEqual(contract, expected)) {
     throw new Error("Artefato Gemma 4 não fixa o contrato autoritativo de execução e a fronteira BMM nativa.");

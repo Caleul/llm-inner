@@ -1105,6 +1105,19 @@ Accelerate permanece corretamente no gate com `exactReplayClaim=forbidden`.
 Evidência completa em
 [`docs/validation/gemma4-e4b-closed-runtime-process-environment-2026-07-20.md`](docs/validation/gemma4-e4b-closed-runtime-process-environment-2026-07-20.md).
 
+O replay v54 também consome esse contrato a partir do próprio artefato. O
+reader entrega ao provider o objeto `executableReplay` completo, e o provider
+deriva dele o source do adapter, os programas de invocação, o mapa exato do
+processo e a expectativa de cada recibo. A execução não volta a importar o
+mapa de ambiente ou as identidades esperadas do checkout para lançar o helper
+ou validar seus recibos. O validador de compatibilidade continua recusando um
+schema/runtime não suportado. O contrato público do provider expõe uma cópia isolada dessa autoridade
+para que a validação de ID, SHA-256 do adapter, programa de invocação e
+attestation use os mesmos dados serializados. Alteração do contrato, herança
+de ambiente ou mutação de uma cópia devolvida falha fechado ou permanece
+isolada. A validação está em
+[`docs/validation/gemma4-e4b-artifact-owned-runtime-replay-2026-07-20.md`](docs/validation/gemma4-e4b-artifact-owned-runtime-replay-2026-07-20.md).
+
 A regeneração real e a verificação integral com a fonte indisponível estão em
 [`docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md`](docs/validation/gemma4-e4b-literal-generation-program-2026-07-17.md).
 
