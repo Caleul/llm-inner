@@ -48,6 +48,7 @@ interface ThreeWayCase {
     mlxDecoderQuantizationLayers?: string;
     mlxDecoderQuantizationStrategy?: "exact-bf16" | "single-stage-affine-q8-calibrated-v1" | "experimental-affine-q8";
     mlxDecoderGateUpProjectionStrategy?: "separate-projections" | "concatenated-affine-q8-v1";
+    mlxDecoderGateUpSplitStrategy?: "separate-projections" | "static-index-take-v1";
     linearReferenceDispatches?: number;
     wholeNativeBf16Dispatches?: number;
     processRssBytes?: number;
@@ -277,6 +278,7 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.mlxDecoderQuantizationLayers === undefined ? {} : { mlxDecoderQuantizationLayers: entry.direct.mlxDecoderQuantizationLayers }),
         ...(entry.direct.mlxDecoderQuantizationStrategy === undefined ? {} : { mlxDecoderQuantizationStrategy: entry.direct.mlxDecoderQuantizationStrategy }),
         ...(entry.direct.mlxDecoderGateUpProjectionStrategy === undefined ? {} : { mlxDecoderGateUpProjectionStrategy: entry.direct.mlxDecoderGateUpProjectionStrategy }),
+        ...(entry.direct.mlxDecoderGateUpSplitStrategy === undefined ? {} : { mlxDecoderGateUpSplitStrategy: entry.direct.mlxDecoderGateUpSplitStrategy }),
         ...(entry.direct.linearReferenceDispatches === undefined ? {} : { linearReferenceDispatches: entry.direct.linearReferenceDispatches }),
         ...(entry.direct.wholeNativeBf16Dispatches === undefined ? {} : { wholeNativeBf16Dispatches: entry.direct.wholeNativeBf16Dispatches }),
         ...(entry.direct.processRssBytes === undefined ? {} : { processRssBytes: entry.direct.processRssBytes }),

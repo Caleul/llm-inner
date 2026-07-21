@@ -396,10 +396,8 @@ def execute_decoder_layer_mlx(pool, shards, inputs, per_layer, positions, mask, 
         gate_up = matrix_project(ffn_input, weights["gate_up"])
         if incremental_fixed_shape:
             paired = gate_up.reshape((1, 1, 2, intermediate_size))
-            gate_selector = mx.array([1.0, 0.0], dtype=mx.float32).reshape((1, 1, 2, 1))
-            up_selector = mx.array([0.0, 1.0], dtype=mx.float32).reshape((1, 1, 2, 1))
-            gate = mx.sum(paired * gate_selector, axis=2)
-            up = mx.sum(paired * up_selector, axis=2)
+            gate = mx.take(paired, mx.array(0, dtype=mx.int32), axis=2)
+            up = mx.take(paired, mx.array(1, dtype=mx.int32), axis=2)
         else:
             gate, up = mx.split(gate_up, 2, axis=-1)
     else:

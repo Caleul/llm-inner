@@ -2802,6 +2802,20 @@ para `6.1974 s` (`-12.58%`) e o throughput subiu de `18.0553` para
 `36 ms/token`; o ganho concentrou-se no prefill e no primeiro passo, sem mudar
 a política Q8 calibrada das 42 camadas.
 
+No decode incremental compilado, as duas metades dessa projeção concatenada
+agora são recuperadas por índices estáticos com `mx.take`, em vez de criar dois
+seletores F32, multiplicar o tensor inteiro por ambos e reduzir o eixo de duas
+entradas. Esse lowering é publicado como `static-index-take-v1` em
+`mlxDecoderGateUpSplitStrategy`; ele não altera coeficientes nem executa
+aritmética sobre os valores separados. Em três repetições quentes de 16 tokens,
+a média estacionária caiu de `35.7471 ms/token` para `35.2534 ms/token`
+(`-1.38%`), preservando o hash terminal
+`b768fc66f5cae39a4e48100052a94ab99b4525b3f8a27d9365253744e1866a6b`.
+A calibração completa posterior preservou novamente `32/32` prompts,
+`128/128` tokens e zero divergências raiz; nessa execução, o runtime direto
+somou `7.2801 s` (`17.5821 tok/s`) e foi `19.4390×` mais rápido que a
+referência original medida no mesmo processo.
+
 Para localizar quais camadas participam dessa compensação numérica, o mesmo
 modo aceita `--direct-mlx-decoder-quantization-layers` com índices e faixas
 inclusivas, por exemplo `0-19,21-41`. A especificação é normalizada, validada
