@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Script } from "node:vm";
 import { gemma4RealCompareHtml } from "../src/gemma4-real-compare-ui.js";
-import { createGemma4RealComparisonServer, parseGemma4RealServerOptions } from "../src/gemma4-real-compare-server.js";
+import { computeDirectLogitAgreement, createGemma4RealComparisonServer, parseGemma4RealServerOptions } from "../src/gemma4-real-compare-server.js";
 
 test("interface diferencial contém controles e apresentação dos dois executores", () => {
   assert.match(gemma4RealCompareHtml, /Enviar e comparar/);
@@ -32,6 +32,9 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /Executor direto ausente: gere ou informe o bundle compilado/);
   assert.match(gemma4RealCompareHtml, /clearComparison/);
   assert.match(gemma4RealCompareHtml, /AbortController/);
+  assert.match(gemma4RealCompareHtml, /Direto: Δlogit \/ Δmargem \/ top-K/);
+  assert.match(gemma4RealCompareHtml, /divergência direta top-K/);
+  assert.match(gemma4RealCompareHtml, /compatibilidade:.*direto:/);
   assert.match(gemma4RealCompareHtml, /prefixo KV/);
   assert.match(gemma4RealCompareHtml, /\/api\/compare-stream/);
   assert.match(gemma4RealCompareHtml, /Aquecendo o forward compilado no Metal/);
@@ -47,6 +50,24 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /Threads/);
   assert.match(gemma4RealCompareHtml, /\/api\/compare/);
   const embedded = gemma4RealCompareHtml.match(/<script>([\s\S]*)<\/script>/)?.[1]; assert.ok(embedded); assert.doesNotThrow(() => new Script(embedded), "JavaScript embutido deve ser sintaticamente executável pelo navegador");
+});
+
+test("métricas top-K diretas quantificam logit escolhido, margem greedy e sobreposição", () => {
+  const agreement = computeDirectLogitAgreement(
+    [
+      { baselineToken: 7, baselineTopLogits: [{ tokenId: 7, logit: 10 }, { tokenId: 8, logit: 9 }, { tokenId: 9, logit: 8 }] },
+      { baselineToken: 8, baselineTopLogits: [{ tokenId: 8, logit: 5 }, { tokenId: 7, logit: 4 }] },
+      { baselineToken: 1, baselineTopLogits: [{ tokenId: 1, logit: 7 }, { tokenId: 2, logit: 6 }] },
+    ],
+    [
+      { tokenId: 7, topLogits: [{ tokenId: 7, value: 9.75 }, { tokenId: 8, value: 8.75 }, { tokenId: 9, value: 8.25 }] },
+      { tokenId: 9, topLogits: [{ tokenId: 9, value: 5.1 }, { tokenId: 8, value: 4.8 }] },
+      { tokenId: 2, topLogits: [{ tokenId: 2, value: 8 }, { tokenId: 1, value: 7.5 }] },
+    ],
+  );
+  assert.equal(agreement.reportedSteps, 3); assert.equal(agreement.measuredSteps, 2); assert.equal(agreement.rootDivergences, 1); assert.equal(agreement.postDivergenceSteps, 1); assert.equal(agreement.selectedLogitMeasuredSteps, 2); assert.ok(Math.abs(agreement.meanBaselineArgmaxLogitAbsError! - 0.225) < 1e-12); assert.equal(agreement.maxBaselineArgmaxLogitAbsError, 0.25);
+  assert.equal(agreement.marginMeasuredSteps, 2); assert.ok(Math.abs(agreement.meanGreedyMarginAbsError! - 0.35) < 1e-12); assert.ok(Math.abs(agreement.maxGreedyMarginAbsError! - 0.7) < 1e-12);
+  assert.equal(agreement.meanTopKOverlapRate, 0.75); assert.equal(agreement.maxTopKCommonLogitAbsError, 0.25); assert.deepEqual(agreement.steps.map((step) => [step.contextsEqualBeforeStep, step.topKOverlapCount, step.topK]), [[true, 3, 3], [true, 1, 2], [false, 0, 2]]);
 });
 
 test("servidor integra geração direta persistente e decodifica seus tokens", async () => {

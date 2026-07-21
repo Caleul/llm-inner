@@ -65,6 +65,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
         const report = await worker.compareTokens(body, inputIds) as ComparisonReport;
         if (!direct) return json(response, 200, { ...report, prompt: body.prompt, conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null });
         const directReport = await direct.send({ inputIds, maxNewTokens: body.maxNewTokens, ...(body.sessionId === undefined ? {} : { sessionId: body.sessionId }) }) as DirectReport;
+        attachDirectLogitAgreement(report, directReport);
         const [generated, full] = await Promise.all([worker.decode(directReport.generatedTokenIds), worker.decode(directReport.fullTokenIds)]);
         directReport.generatedText = generated.text; directReport.fullText = full.text;
         directReport.tokensEqualBaseline = arraysEqual(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
@@ -85,6 +86,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
           const directPromise = direct.send({ inputIds, maxNewTokens: body.maxNewTokens, stream: true, ...(body.sessionId === undefined ? {} : { sessionId: body.sessionId }) }, (event) => writeNdjson(response, { type: "direct-token", event })) as Promise<DirectReport>;
           const [report, directReport] = await Promise.all([referencePromise, directPromise]);
           if (clientDisconnected || response.destroyed) return;
+          attachDirectLogitAgreement(report, directReport);
           const [generated, full] = await Promise.all([worker.decode(directReport.generatedTokenIds), worker.decode(directReport.fullTokenIds)]);
           directReport.generatedText = generated.text; directReport.fullText = full.text;
           directReport.tokensEqualBaseline = arraysEqual(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
@@ -142,11 +144,64 @@ class PersistentJsonlWorker {
   #fail(error: Error): void { this.ready = false; this.#readyReject(error); for (const pending of this.pending.values()) pending.reject(error); this.pending.clear(); }
 }
 
-interface ComparisonReport { inputIds?: number[][]; baselineGeneratedTokenIds: number[] }
+interface ComparisonReport { inputIds?: number[][]; baselineGeneratedTokenIds: number[]; steps?: Array<{ baselineToken?: number; baselineTopLogits?: unknown }> }
 interface DirectReport { generatedTokenIds: number[]; fullTokenIds: number[]; generatedText?: string; fullText?: string; tokensEqualBaseline?: boolean; firstDivergentStep?: number | null; [key: string]: unknown }
+export interface DirectLogitStepAgreement { step: number; contextsEqualBeforeStep: boolean; baselineArgmaxToken: number | null; directArgmaxToken: number | null; baselineArgmaxLogitAbsError: number | null; greedyMarginAbsError: number | null; topK: number; topKOverlapCount: number; topKOverlapRate: number | null; topKCommonLogitMaxAbsError: number | null }
+export interface DirectLogitAgreement { reportedSteps: number; measuredSteps: number; rootDivergences: number; postDivergenceSteps: number; selectedLogitMeasuredSteps: number; meanBaselineArgmaxLogitAbsError: number | null; maxBaselineArgmaxLogitAbsError: number | null; marginMeasuredSteps: number; meanGreedyMarginAbsError: number | null; maxGreedyMarginAbsError: number | null; meanTopKOverlapRate: number | null; maxTopKCommonLogitAbsError: number | null; steps: DirectLogitStepAgreement[] }
 function arraysEqual(left: readonly number[], right: readonly number[]): boolean { return left.length === right.length && left.every((value, index) => value === right[index]); }
 function firstDivergence(left: readonly number[], right: readonly number[]): number | null { const length = Math.max(left.length, right.length); for (let index = 0; index < length; index += 1) if (left[index] !== right[index]) return index; return null; }
 function declaresChatTemplate(source: string): boolean { try { const parsed = JSON.parse(readFileSync(join(source, "tokenizer_config.json"), "utf8")) as { chat_template?: unknown }; return typeof parsed.chat_template === "string" && parsed.chat_template.length > 0; } catch { return false; } }
+
+export function computeDirectLogitAgreement(baselineSteps: ReadonlyArray<{ baselineToken?: number; baselineTopLogits?: unknown }>, directSteps: ReadonlyArray<{ tokenId?: number; topLogits?: unknown }>): DirectLogitAgreement {
+  const steps: DirectLogitStepAgreement[] = [];
+  let contextsEqual = true;
+  for (let step = 0; step < Math.min(baselineSteps.length, directSteps.length); step += 1) {
+    const baseline = normalizeTopLogits(baselineSteps[step]!.baselineTopLogits), direct = normalizeTopLogits(directSteps[step]!.topLogits);
+    if (baseline.length === 0 || direct.length === 0) continue;
+    const baselineMap = new Map(baseline.map((entry) => [entry.tokenId, entry.value])), directMap = new Map(direct.map((entry) => [entry.tokenId, entry.value]));
+    const topK = Math.min(baseline.length, direct.length), baselineTopK = baseline.slice(0, topK), directTopK = direct.slice(0, topK);
+    const directTopIds = new Set(directTopK.map((entry) => entry.tokenId)), common = baselineTopK.filter((entry) => directTopIds.has(entry.tokenId));
+    const commonErrors = common.map((entry) => Math.abs(entry.value - directMap.get(entry.tokenId)!));
+    const baselineArgmaxToken = Number.isSafeInteger(baselineSteps[step]!.baselineToken) ? baselineSteps[step]!.baselineToken! : baseline[0]!.tokenId;
+    const directArgmaxToken = Number.isSafeInteger(directSteps[step]!.tokenId) ? directSteps[step]!.tokenId! : direct[0]!.tokenId;
+    const baselineArgmaxLogit = baselineMap.get(baselineArgmaxToken), directArgmaxLogit = directMap.get(baselineArgmaxToken);
+    const baselineMargin = baseline.length >= 2 ? baseline[0]!.value - baseline[1]!.value : undefined, directMargin = direct.length >= 2 ? direct[0]!.value - direct[1]!.value : undefined;
+    steps.push({
+      step, contextsEqualBeforeStep: contextsEqual, baselineArgmaxToken, directArgmaxToken,
+      baselineArgmaxLogitAbsError: !contextsEqual || baselineArgmaxLogit === undefined || directArgmaxLogit === undefined ? null : Math.abs(baselineArgmaxLogit - directArgmaxLogit),
+      greedyMarginAbsError: !contextsEqual || baselineMargin === undefined || directMargin === undefined ? null : Math.abs(baselineMargin - directMargin),
+      topK, topKOverlapCount: contextsEqual ? common.length : 0, topKOverlapRate: !contextsEqual || topK === 0 ? null : common.length / topK,
+      topKCommonLogitMaxAbsError: !contextsEqual || commonErrors.length === 0 ? null : Math.max(...commonErrors),
+    });
+    if (baselineArgmaxToken !== directArgmaxToken) contextsEqual = false;
+  }
+  const comparableSteps = steps.filter((step) => step.contextsEqualBeforeStep);
+  const selectedErrors = comparableSteps.flatMap((step) => step.baselineArgmaxLogitAbsError === null ? [] : [step.baselineArgmaxLogitAbsError]);
+  const marginErrors = comparableSteps.flatMap((step) => step.greedyMarginAbsError === null ? [] : [step.greedyMarginAbsError]);
+  const overlapRates = comparableSteps.flatMap((step) => step.topKOverlapRate === null ? [] : [step.topKOverlapRate]);
+  const commonErrors = comparableSteps.flatMap((step) => step.topKCommonLogitMaxAbsError === null ? [] : [step.topKCommonLogitMaxAbsError]);
+  return {
+    reportedSteps: steps.length, measuredSteps: comparableSteps.length, rootDivergences: comparableSteps.filter((step) => step.baselineArgmaxToken !== step.directArgmaxToken).length, postDivergenceSteps: steps.length - comparableSteps.length, selectedLogitMeasuredSteps: selectedErrors.length,
+    meanBaselineArgmaxLogitAbsError: meanOrNull(selectedErrors), maxBaselineArgmaxLogitAbsError: maxOrNull(selectedErrors),
+    marginMeasuredSteps: marginErrors.length, meanGreedyMarginAbsError: meanOrNull(marginErrors), maxGreedyMarginAbsError: maxOrNull(marginErrors),
+    meanTopKOverlapRate: meanOrNull(overlapRates), maxTopKCommonLogitAbsError: maxOrNull(commonErrors), steps,
+  };
+}
+
+function attachDirectLogitAgreement(report: ComparisonReport, direct: DirectReport): void {
+  if (!Array.isArray(report.steps) || !Array.isArray(direct.steps)) return;
+  direct.logitAgreement = computeDirectLogitAgreement(report.steps, direct.steps as Array<{ tokenId?: number; topLogits?: unknown }>);
+}
+function normalizeTopLogits(value: unknown): Array<{ tokenId: number; value: number }> {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") return [];
+    const candidate = entry as { tokenId?: unknown; logit?: unknown; value?: unknown }, numeric = typeof candidate.logit === "number" ? candidate.logit : candidate.value;
+    return Number.isSafeInteger(candidate.tokenId) && typeof numeric === "number" && Number.isFinite(numeric) ? [{ tokenId: candidate.tokenId as number, value: numeric }] : [];
+  });
+}
+function meanOrNull(values: readonly number[]): number | null { return values.length === 0 ? null : values.reduce((sum, value) => sum + value, 0) / values.length; }
+function maxOrNull(values: readonly number[]): number | null { return values.length === 0 ? null : Math.max(...values); }
 
 async function resolveComparisonInput(worker: Gemma4PersistentComparisonWorker, request: Gemma4RealComparisonRequest, sessions: Map<number, SessionInput>): Promise<number[]> {
   const mode = request.conversationMode ?? "raw";

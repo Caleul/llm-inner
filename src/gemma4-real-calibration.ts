@@ -1,6 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { createGemma4RealComparisonServer, parseGemma4RealServerOptions, type Gemma4RealComparisonRunnerOptions } from "./gemma4-real-compare-server.js";
+import { createGemma4RealComparisonServer, parseGemma4RealServerOptions, type DirectLogitAgreement, type Gemma4RealComparisonRunnerOptions } from "./gemma4-real-compare-server.js";
 
 export const GEMMA4_CALIBRATION_PROMPTS = [
   "The capital of France is",
@@ -94,6 +94,7 @@ interface ThreeWayCase {
     fusedAttentionSeconds?: number;
     tokensEqualBaseline: boolean;
     firstDivergentStep: number | null;
+    logitAgreement?: DirectLogitAgreement;
     steps: Array<{ step: number; tokenId: number; forwardSeconds: number; topLogits: unknown }>;
   };
 }
@@ -104,7 +105,7 @@ export interface Gemma4ThreeWayCalibrationReport {
   source: string;
   configuration: Record<string, unknown>;
   initialization: Record<string, unknown>;
-  summary: Record<string, number>;
+  summary: Record<string, number | null>;
   cases: Array<Record<string, unknown>>;
 }
 
@@ -150,6 +151,13 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
   const compatibilityPromptsEqual = cases.filter((entry) => entry.generatedTokensEqual).length;
   const directPromptsEqual = cases.filter((entry) => entry.direct.tokensEqualBaseline).length;
   const promptsThreeWayEqual = cases.filter((entry) => entry.generatedTokensEqual && entry.direct.tokensEqualBaseline).length;
+  const directReportedLogitSteps = cases.flatMap((entry) => entry.direct.logitAgreement?.steps ?? []);
+  const directLogitSteps = directReportedLogitSteps.filter((step) => step.contextsEqualBeforeStep);
+  const directRootDivergences = directLogitSteps.filter((step) => step.baselineArgmaxToken !== step.directArgmaxToken).length;
+  const selectedLogitErrors = directLogitSteps.flatMap((step) => step.baselineArgmaxLogitAbsError === null ? [] : [step.baselineArgmaxLogitAbsError]);
+  const marginErrors = directLogitSteps.flatMap((step) => step.greedyMarginAbsError === null ? [] : [step.greedyMarginAbsError]);
+  const topKOverlapRates = directLogitSteps.flatMap((step) => step.topKOverlapRate === null ? [] : [step.topKOverlapRate]);
+  const commonTopKErrors = directLogitSteps.flatMap((step) => step.topKCommonLogitMaxAbsError === null ? [] : [step.topKCommonLogitMaxAbsError]);
   const directBackend = options.runner.directLinearBackend ?? "mlx";
   return {
     kind: "gemma4-three-way-calibration",
@@ -172,6 +180,19 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
       compatibilityTokenAgreementRate: compatibilityEqualSteps / totalSteps,
       directEqualTokenSteps: directEqualSteps,
       directTokenAgreementRate: directEqualSteps / totalSteps,
+      directLogitReportedSteps: directReportedLogitSteps.length,
+      directLogitMeasuredSteps: directLogitSteps.length,
+      directRootDivergences,
+      directComparableTokenAgreementRate: directLogitSteps.length === 0 ? null : (directLogitSteps.length - directRootDivergences) / directLogitSteps.length,
+      directPostDivergenceSteps: directReportedLogitSteps.length - directLogitSteps.length,
+      directSelectedLogitMeasuredSteps: selectedLogitErrors.length,
+      directMeanBaselineArgmaxLogitAbsError: meanOrNull(selectedLogitErrors),
+      directMaxBaselineArgmaxLogitAbsError: maxOrNull(selectedLogitErrors),
+      directMarginMeasuredSteps: marginErrors.length,
+      directMeanGreedyMarginAbsError: meanOrNull(marginErrors),
+      directMaxGreedyMarginAbsError: maxOrNull(marginErrors),
+      directMeanTopKOverlapRate: meanOrNull(topKOverlapRates),
+      directMaxTopKCommonLogitAbsError: maxOrNull(commonTopKErrors),
       baselineSeconds,
       compatibilitySeconds,
       directSeconds,
@@ -188,6 +209,7 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
       baseline: { tokenIds: entry.baselineGeneratedTokenIds, text: entry.baselineGeneratedText, seconds: entry.performance.baselineSeconds, tokensPerSecond: entry.performance.baselineTokensPerSecond },
       compatibility: { tokenIds: entry.candidateGeneratedTokenIds, text: entry.candidateGeneratedText, tokensEqualBaseline: entry.generatedTokensEqual, firstDivergentStep: entry.firstDivergentStep, seconds: entry.performance.candidateSeconds, tokensPerSecond: entry.performance.candidateTokensPerSecond },
       direct: { tokenIds: entry.direct.generatedTokenIds, text: entry.direct.generatedText, tokensEqualBaseline: entry.direct.tokensEqualBaseline, firstDivergentStep: entry.direct.firstDivergentStep, seconds: entry.direct.elapsedSeconds, tokensPerSecond: entry.direct.tokensPerSecond, linearThreads: entry.direct.linearThreads,
+        ...(entry.direct.logitAgreement === undefined ? {} : { logitAgreement: entry.direct.logitAgreement }),
         ...(entry.direct.maxReadMiB === undefined ? {} : { maxReadMiB: entry.direct.maxReadMiB }),
         ...(entry.direct.finalHeadReadMiB === undefined ? {} : { finalHeadReadMiB: entry.direct.finalHeadReadMiB }),
         ...(entry.direct.linearReferenceDispatches === undefined ? {} : { linearReferenceDispatches: entry.direct.linearReferenceDispatches }),
@@ -295,3 +317,5 @@ function assertThreeWayCase(value: ThreeWayCase | { error?: string }, prompt: st
 function equalTokenSteps(reference: readonly number[], candidate: readonly number[]): number {
   return reference.reduce((equal, token, index) => equal + Number(token === candidate[index]), 0);
 }
+function meanOrNull(values: readonly number[]): number | null { return values.length === 0 ? null : values.reduce((sum, value) => sum + value, 0) / values.length; }
+function maxOrNull(values: readonly number[]): number | null { return values.length === 0 ? null : Math.max(...values); }

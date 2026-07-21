@@ -455,6 +455,65 @@ registra o resultado cancelado na sessão HTTP. Uma tentativa seguinte falha
 fechada na verificação de prefixo dos caches internos e recompõe o contexto
 quando necessário.
 
+## Divergência top-K e corpus ampliado 32×4
+
+Igualdade de token isolada não mede quão perto a decisão ficou de mudar. O
+servidor passou a normalizar `logit` do Transformers e `value`/`logit` do worker
+direto e publica, por passo:
+
+- erro absoluto do logit escolhido pelo baseline;
+- erro absoluto da margem greedy entre primeiro e segundo lugares;
+- interseção e taxa de sobreposição entre os top-K disponíveis;
+- maior erro de logit entre IDs comuns ao top-K.
+
+A medição mantém uma máquina de estado de contexto. O primeiro token diferente
+ainda é comparável porque ambos os runtimes receberam os mesmos IDs; ele conta
+como `rootDivergence`. Passos posteriores no mesmo prompt recebem
+`contextsEqualBeforeStep: false`, permanecem no resultado textual, mas são
+excluídos das métricas numéricas. Isso impede que uma escolha diferente seja
+contada novamente como deriva de logits em contextos já distintos.
+
+A matriz persistida
+`artifacts/gemma4-three-way-calibration-32x4-mlx-resident-logit-metrics.json`
+usa os prompts versionados em `artifacts/gemma4-calibration-prompts-32.json`.
+São 32 prompts por quatro tokens, oito vezes as decisões do corpus 8×2:
+
+- SHA-256 do relatório:
+  `42757e7f9980f571ffc2c7a4d8c87b6a6ad6285cb0ac16f8ae6983c214475480`;
+- SHA-256 do corpus:
+  `23008073aafff2afcabbb548ef24a19672f69564f78a9bb9ec2450105e9846a2`;
+- direto e original produziram 124/128 tokens iguais e 30/32 sequências
+  integralmente iguais;
+- 126 decisões tinham contextos iguais; 124 delas conservaram o argmax,
+  acordo comparável de `98,4127%`;
+- houve duas divergências-raiz e dois passos posteriores de cascata;
+- a sobreposição top-5 média foi `96,6667%`;
+- erro médio/máximo no logit escolhido: `0,045635 / 0,25`;
+- erro médio/máximo na margem greedy: `0,056300 / 0,25`;
+- o direto atingiu `10,7231 token/s`, contra `1,4779 token/s` do Transformers,
+  razão agregada de `7,2556x`;
+- o caminho de compatibilidade obteve 121/128 tokens e 29/32 sequências iguais.
+
+As duas divergências-raiz foram determinísticas em duas execuções. Em
+`A capital de Portugal é`, o segundo passo tinha margem baseline `0,125`; o
+Metal arredondou os dois candidatos para `26,625` e o desempate escolheu o
+menor ID. Em `Traduza para inglês: boa noite`, o quarto passo repetiu o padrão:
+margem baseline `0,125`, empate direto em `21,125`.
+
+Controles causais nos prompts sensíveis mostraram:
+
+- `directFinalHead=f32` não alterou a divergência;
+- `directFusedPlePrelude=real` não alterou a divergência;
+- desligar decoder stack, token forward e geração residente não alterou a
+  divergência;
+- o backend direto PyTorch recuperou `42053`, a margem `0,125` e 2/2 tokens.
+
+Logo, a diferença sensível está na árvore de acumulação compartilhada pelo
+backend MLX/Metal, não no template, cache, head terminal, prelude PLE ou fusão
+do grafo. O resultado amplo demonstra baixa divergência, mas contradiz uma
+alegação de paridade total para prompts arbitrários; a interface agora expõe
+essa distinção diretamente.
+
 Transformers eager, o cálculo de compatibilidade e o runtime direto mantêm
 caches independentes. Isso é necessário porque comparar uma continuação
 incremental contra um controle que recompõe o prefixo inteiro usa árvores de

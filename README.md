@@ -2584,6 +2584,26 @@ a interface exibe esse limite em vez de atribuir eventual qualidade textual à
 compilação. Trocar o modo inicia uma nova sessão para impedir mistura de
 contratos de tokenização.
 
+Além de igualdade do argmax, cada passo agora compara os top logits do runtime
+direto com os do Transformers: erro absoluto do logit escolhido, variação da
+margem entre primeiro e segundo lugares, erro máximo entre IDs comuns e
+sobreposição top-K. A comparação marca até qual passo os contextos ainda eram
+iguais; depois da primeira escolha diferente, os próximos tokens são
+classificados como cascata e não como novas divergências numéricas.
+
+O corpus ampliado e reproduzível pode ser executado com:
+
+```bash
+npm run calibrate:gemma4-real -- \
+  --output ./artifacts/gemma4-three-way-calibration-32x4-mlx-resident-logit-metrics.json \
+  --prompts-json ./artifacts/gemma4-calibration-prompts-32.json \
+  --tokens 4 --request-threads 1 \
+  --precision f32 --rounding-policy none
+```
+
+Ele cobre 32 prompts em inglês, português e espanhol, completions factuais,
+matemática, código, Unicode e repetição, totalizando 128 tokens gerados.
+
 ### Gerador de fórmulas fisicamente planas
 
 `generateGemma4FlatFormulaObject` substitui recursivamente funções de operação,
