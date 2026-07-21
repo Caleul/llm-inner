@@ -307,6 +307,52 @@ Evidência promovida:
 
 - `artifacts/gemma4-three-way-calibration-8x2-mlx-ple-prelude-cascade.json`.
 
+## Forward textual único de IDs de token até o vetor final
+
+O caminho textual compilado passou a aceitar diretamente `input_ids`, posições,
+máscaras e cache KV em uma única requisição binária. Dentro do worker persistente,
+a mesma chamada executa:
+
+1. lookup e escala BF16 do embedding textual;
+2. lookup e escala BF16 da identidade PLE por camada;
+3. projeção e normalização reproduzível do prelude PLE;
+4. as 42 camadas decoder com RoPE, attention, MLP, PLE e cache;
+5. norma final, vocabulary head e tanh softcap;
+6. publicação somente do vetor de logits da última posição e do novo cache KV.
+
+O embedding PLE possui `5.637.144.576` bytes, acima do limite de um `uint32`.
+Por isso, a nova variante do protocolo usa comprimento `uint64` nos quatro
+descritores do prelude, sem alterar os descritores de 36 bytes dos kernels
+anteriores. Os dois embeddings são lidos por linhas BF16 autenticadas diretamente
+do shard, arredondados RNE após a escala e mantidos em um LRU de no máximo 4.096
+linhas efetivamente visitadas. Isso evita pedir ao Metal que indexe a matriz completa de
+5,64 GB e não materializa o embedding em F32.
+
+Como a geração greedy só consome `logits[:, -1, :]`, a chamada integral não
+transporta mais hidden states nem logits das posições anteriores. No corpus 8x2,
+o tráfego teórico de logits caiu de `79.691.776` para `16.777.216` bytes
+(`-78,95%`), além de eliminar `778.240` bytes de hidden states.
+
+Na calibração final 8x2:
+
+- 8/8 prompts e 16/16 tokens do compilado coincidiram com o original;
+- cada token executou exatamente um forward `token IDs -> logits/cache`;
+- o throughput direto foi `5,9126 token/s`, `6,4307x` o baseline da mesma rodada;
+- contra o prelude separado (`4,9591 token/s`), houve ganho de `19,23%`;
+- o tempo agregado caiu de `3,2264 s` para `2,7061 s`, redução de `16,13%`;
+- os incrementais ficaram entre `0,0749 s` e `0,0803 s`;
+- não houve despacho separado de embedding, prelude PLE ou vocabulary head.
+
+Uma prova contínua de 16 tokens gerou, nos três runtimes,
+`" a city that is full of history and culture. It is a city that is"`, com os
+16/16 IDs iguais. O compilado levou `1,6583 s` (`9,6486 token/s`); seus 15
+forwards incrementais permaneceram entre `0,0755 s` e `0,0815 s`.
+
+Evidências promovidas:
+
+- `artifacts/gemma4-three-way-calibration-8x2-mlx-token-forward-terminal.json`;
+- `artifacts/gemma4-three-way-france-16-token-forward.json`.
+
 ## Paginação independente da projeção terminal
 
 Depois das fusões de attention, MLP e PLE, o `lm_head` passou a responder por

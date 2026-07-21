@@ -15,7 +15,7 @@ import {
   executeGemma4LiteralGenerationProgram,
   type Gemma4LiteralGenerationExecutionResult,
 } from "./gemma4-literal-generation.js";
-import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearBatchF32, pagedLinearF32, readPagedDenseF32Vector, roundDenseF32ToBF16, type PagedFusedDecoderStackResult, type PagedLinearTileKernel } from "./paged-dense.js";
+import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearBatchF32, pagedLinearF32, readPagedDenseF32Vector, roundDenseF32ToBF16, type PagedFusedDecoderStackResult, type PagedFusedTokenForwardRequest, type PagedLinearTileKernel } from "./paged-dense.js";
 import type {
   DenseF32Tensor,
   Operation,
@@ -72,6 +72,8 @@ export interface Gemma4PagedTextOptions {
   fusedPleRounding?: "bf16" | "real";
   /** Experimental projection -> norm -> token combine fusion before decoder layers. */
   fusedPlePreludeRounding?: "bf16" | "real";
+  /** Text-only token IDs -> embeddings -> decoder -> logits in one native request. */
+  fusedTokenForwardRounding?: "bf16";
 }
 
 /**
@@ -135,6 +137,20 @@ export async function executeGemma4PagedTextLiteralF32(
     throw new Error("Gemma 4 paginado position_ids deve acompanhar input_ids.");
   }
   const values = new Map<string, DenseF32Tensor>();
+  if (options.fusedTokenForwardRounding && options.linearTileKernel?.fusedTokenForwardStorageReferences) {
+    if (!options.fusedDecoderStackRounding || !options.linearTileKernel.fusedDecoderStackStorageReferences) throw new Error("Forward textual integral requer a pilha decoder nativa habilitada.");
+    const tokenForwardPrelude = matchFusedTokenForwardPrelude(artifact, inputIds, options.maxReadBytes ?? 16 * 1024 * 1024, options.fusedTokenForwardRounding);
+    return requireCompletedTextExecution(await executePagedOperations(
+      artifact,
+      [...artifact.program.textProgram.layers.flatMap((layer) => layer.operations), ...artifact.program.textProgram.epilogue],
+      inputIds,
+      positions,
+      values,
+      options,
+      request,
+      tokenForwardPrelude,
+    ));
+  }
   return requireCompletedTextExecution(await executePagedOperations(artifact, allTextOperations(artifact), inputIds, positions, values, options, request));
 }
 
@@ -179,6 +195,7 @@ async function executePagedOperations(
   values: Map<string, DenseF32Tensor>,
   options: Gemma4PagedTextOptions,
   request: Gemma4PagedTextExecutionRequest = { inputIds },
+  tokenForwardPrelude?: Pick<PagedFusedTokenForwardRequest, "tokenIds" | "prelude">,
 ): Promise<PagedOperationsResult> {
   const maxReadBytes = options.maxReadBytes ?? 16 * 1024 * 1024;
   const tensorReader = options.tensorReader ?? artifact;
@@ -220,9 +237,10 @@ async function executePagedOperations(
           if (stack) {
             if (!positions) throw new Error(`${operation.id}: pilha decoder fundida requer posições declaradas.`);
             for (const stackOperation of stack.operations) assertPagedF32Policy(stackOperation);
-            const input = value(values, operation.input), perLayerInputs = value(values, stack.perLayerInput);
-            if (input.shape.length !== 3 || perLayerInputs.shape.length !== 4 || input.shape[0] !== perLayerInputs.shape[0] || input.shape[1] !== perLayerInputs.shape[1] || perLayerInputs.shape[2] !== stack.layers.length || perLayerInputs.shape[3] !== stack.perLayerWidth) throw new Error(`${operation.id}: pilha decoder requer tensores [B,S,H] e [B,S,L,P].`);
-            const [batch, querySequence, hiddenSize] = input.shape as [number, number, number];
+            const input = tokenForwardPrelude ? undefined : value(values, operation.input), perLayerInputs = tokenForwardPrelude ? undefined : value(values, stack.perLayerInput);
+            if (!tokenForwardPrelude && (input!.shape.length !== 3 || perLayerInputs!.shape.length !== 4 || input!.shape[0] !== perLayerInputs!.shape[0] || input!.shape[1] !== perLayerInputs!.shape[1] || perLayerInputs!.shape[2] !== stack.layers.length || perLayerInputs!.shape[3] !== stack.perLayerWidth)) throw new Error(`${operation.id}: pilha decoder requer tensores [B,S,H] e [B,S,L,P].`);
+            const [batch, querySequence, hiddenSize] = tokenForwardPrelude ? [inputIds.length, inputIds[0]!.length, tokenForwardPrelude.prelude.tokenEmbeddingWeight.logicalShape[1]!] : input!.shape as [number, number, number];
+            if (tokenForwardPrelude && (tokenForwardPrelude.tokenIds.length !== batch * querySequence || tokenForwardPrelude.prelude.perLayerEmbeddingWeight.logicalShape[1] !== stack.layers.length * stack.perLayerWidth)) throw new Error(`${operation.id}: prelude textual não acompanha a pilha decoder.`);
             if (positions.length !== batch || positions.some((row) => row.length !== querySequence)) throw new Error(`${operation.id}: posições incompatíveis com a pilha decoder.`);
             const positionValues = new Int32Array(batch * querySequence);
             for (let b = 0; b < batch; b += 1) for (let s = 0; s < querySequence; s += 1) {
@@ -274,13 +292,23 @@ async function executePagedOperations(
                 intermediateSize: fused.ffn.gate.outFeatures, perLayerWidth: stack.perLayerWidth, inputNormEpsilon: fused.inputNorm.epsilon, postAttentionNormEpsilon: fused.postAttentionNorm.epsilon, preFfnNormEpsilon: fused.ffn.preNorm.epsilon, postFfnNormEpsilon: fused.ffn.postNorm.epsilon, pleNormEpsilon: fused.ple.norm.epsilon,
               };
             });
-            const stackRequest = { input: input.values, perLayerInputs: perLayerInputs.values, positions: positionValues, batch, querySequence, hiddenSize, numLayers: stack.layers.length, perLayerWidth: stack.perLayerWidth, layers, rounding: options.fusedDecoderStackRounding } as const;
-            const epilogue = options.linearTileKernel.fusedDecoderStackEpilogueStorageReferences ? matchFusedDecoderEpilogue(operations, operationIndex + stack.operations.length, stack.layers.at(-1)!.ple.scalar.output) : undefined;
-            const result: PagedFusedDecoderStackResult & { logits?: Float32Array } = epilogue
-              ? await options.linearTileKernel.fusedDecoderStackEpilogueStorageReferences!({ ...stackRequest, epilogue: { normWeight: tensorInfo(artifact, epilogue.norm.weight!), normEpsilon: epilogue.norm.epsilon, headWeight: tensorInfo(artifact, epilogue.head.weight), vocabularySize: epilogue.head.outFeatures, softcap: epilogue.softcap.scalar! } })
-              : await options.linearTileKernel.fusedDecoderStackStorageReferences(stackRequest);
-            if (result.hidden.length !== input.values.length || result.hidden.some((entry) => !Number.isFinite(entry))) throw new Error(`${operation.id}: pilha decoder retornou vetor inválido.`);
-            store(stack.layers.at(-1)!.ple.scalar, { shape: [...input.shape], values: result.hidden });
+            const stackRequest = { input: input?.values ?? new Float32Array(), perLayerInputs: perLayerInputs?.values ?? new Float32Array(), positions: positionValues, batch, querySequence, hiddenSize, numLayers: stack.layers.length, perLayerWidth: stack.perLayerWidth, layers, rounding: options.fusedDecoderStackRounding } as const;
+            const epilogueKernelAvailable = tokenForwardPrelude ? options.linearTileKernel.fusedTokenForwardStorageReferences !== undefined : options.linearTileKernel.fusedDecoderStackEpilogueStorageReferences !== undefined;
+            const epilogue = epilogueKernelAvailable ? matchFusedDecoderEpilogue(operations, operationIndex + stack.operations.length, stack.layers.at(-1)!.ple.scalar.output) : undefined;
+            let result: PagedFusedDecoderStackResult & { logits?: Float32Array };
+            if (tokenForwardPrelude) {
+              if (!epilogue) throw new Error(`${operation.id}: forward textual integral requer epílogo fundido.`);
+              const tokenResult = await options.linearTileKernel.fusedTokenForwardStorageReferences!({ ...stackRequest, ...tokenForwardPrelude, epilogue: { normWeight: tensorInfo(artifact, epilogue.norm.weight!), normEpsilon: epilogue.norm.epsilon, headWeight: tensorInfo(artifact, epilogue.head.weight), vocabularySize: epilogue.head.outFeatures, softcap: epilogue.softcap.scalar! } });
+              result = { hidden: new Float32Array(), caches: tokenResult.caches, logits: tokenResult.logits };
+            } else if (epilogue) {
+              result = await options.linearTileKernel.fusedDecoderStackEpilogueStorageReferences!({ ...stackRequest, epilogue: { normWeight: tensorInfo(artifact, epilogue.norm.weight!), normEpsilon: epilogue.norm.epsilon, headWeight: tensorInfo(artifact, epilogue.head.weight), vocabularySize: epilogue.head.outFeatures, softcap: epilogue.softcap.scalar! } });
+            } else {
+              result = await options.linearTileKernel.fusedDecoderStackStorageReferences(stackRequest);
+            }
+            if (!tokenForwardPrelude) {
+              if (result.hidden.length !== batch * querySequence * hiddenSize || result.hidden.some((entry) => !Number.isFinite(entry))) throw new Error(`${operation.id}: pilha decoder retornou vetor inválido.`);
+              store(stack.layers.at(-1)!.ple.scalar, { shape: [batch, querySequence, hiddenSize], values: result.hidden });
+            }
             const expectedProducers = layers.filter((layer) => layer.producesKeyValue);
             if (result.caches.length !== expectedProducers.length) throw new Error(`${operation.id}: pilha decoder retornou quantidade de caches inválida.`);
             for (let index = 0; index < expectedProducers.length; index += 1) {
@@ -290,8 +318,9 @@ async function executePagedOperations(
               producedCache.set(expected.layerIndex, { key: { shape: [batch, expected.keyValueHeads, keySequence, expected.headDim], values: actual.key }, value: { shape: [batch, expected.keyValueHeads, keySequence, expected.headDim], values: actual.value } });
             }
             if (epilogue) {
-              if (!result.logits || result.logits.length !== batch * querySequence * epilogue.head.outFeatures || result.logits.some((entry) => !Number.isFinite(entry))) throw new Error(`${operation.id}: pilha decoder integral retornou logits inválidos.`);
-              values.set(epilogue.softcap.output, { shape: [batch, querySequence, epilogue.head.outFeatures], values: result.logits });
+              const logitSequence = tokenForwardPrelude ? 1 : querySequence;
+              if (!result.logits || result.logits.length !== batch * logitSequence * epilogue.head.outFeatures || result.logits.some((entry) => !Number.isFinite(entry))) throw new Error(`${operation.id}: pilha decoder integral retornou logits inválidos.`);
+              values.set(epilogue.softcap.output, { shape: [batch, logitSequence, epilogue.head.outFeatures], values: result.logits });
             }
             operationIndex += stack.operations.length + (epilogue?.operations.length ?? 0) - 1;
             break;
@@ -756,6 +785,30 @@ function matchFusedPlePrelude(operations: readonly Operation[], index: number, p
   const matched = operations.slice(index, index + 6);
   if (rounding === "bf16" && matched.some((operation) => operation.dtypePolicy.outputDtype !== "BF16")) return undefined;
   return { operations: matched, contextScale, reshape, norm, combineScale, tokenIdentityInput: combine.inputs[1]! };
+}
+
+function matchFusedTokenForwardPrelude(artifact: OpenGemma4CompositeLiteralArtifact, inputIds: number[][], maxReadBytes: number, rounding: "bf16"): Pick<PagedFusedTokenForwardRequest, "tokenIds" | "prelude"> {
+  const operations = artifact.program.textProgram.prelude;
+  const tokenEmbedding = operations[0], perLayerEmbedding = operations[1], projection = operations[2];
+  if (operations.length !== 8 || tokenEmbedding?.op !== "embedding" || perLayerEmbedding?.op !== "per_layer_embedding" || projection?.op !== "linear") throw new Error("Forward textual integral requer o prelude Gemma 4 canônico de oito operações.");
+  const fused = matchFusedPlePrelude(operations, 2, projection, rounding);
+  if (!fused || fused.operations.length !== 6 || projection.input !== tokenEmbedding.output || fused.tokenIdentityInput !== perLayerEmbedding.output || perLayerEmbedding.numLayers !== fused.reshape.numLayers || perLayerEmbedding.layerWidth !== fused.reshape.layerWidth || !Number.isFinite(tokenEmbedding.scale) || !Number.isFinite(perLayerEmbedding.scale) || tokenEmbedding.weight.storageDtype !== "BF16" || perLayerEmbedding.weight.storageDtype !== "BF16" || projection.weight.storageDtype !== "BF16" || fused.norm.weight?.storageDtype !== "BF16" || tokenEmbedding.weight.shape.length !== 2 || perLayerEmbedding.weight.shape.length !== 2 || tokenEmbedding.weight.shape[0] !== perLayerEmbedding.weight.shape[0] || tokenEmbedding.weight.shape[1] !== projection.inFeatures || perLayerEmbedding.weight.shape[1] !== fused.reshape.numLayers * fused.reshape.layerWidth) throw new Error("Forward textual integral encontrou embeddings ou PLE incompatíveis.");
+  const tokenIds = new Int32Array(inputIds.length * inputIds[0]!.length);
+  let cursor = 0;
+  for (const row of inputIds) for (const token of row) {
+    if (token >= tokenEmbedding.weight.shape[0]!) throw new Error(`Token fora do vocabulário do forward integral: ${token}.`);
+    tokenIds[cursor++] = token;
+  }
+  return {
+    tokenIds,
+    prelude: {
+      tokenEmbeddingWeight: tensorInfo(artifact, tokenEmbedding.weight), tokenEmbeddingScale: tokenEmbedding.scale!,
+      perLayerEmbeddingWeight: tensorInfo(artifact, perLayerEmbedding.weight), perLayerEmbeddingScale: perLayerEmbedding.scale!,
+      projectionWeight: tensorInfo(artifact, projection.weight), normWeight: tensorInfo(artifact, fused.norm.weight!),
+      contextScale: fused.contextScale.scalar!, combineScale: fused.combineScale.scalar!, epsilon: fused.norm.epsilon,
+      maxReadBytes, rounding,
+    },
+  };
 }
 
 function assertFusedSourceCache(key: DenseF32Tensor, valueTensor: DenseF32Tensor, batch: number, heads: number, headDim: number, operationId: string): void {

@@ -35,6 +35,7 @@ export interface PagedLinearTileKernel {
   fusedDecoderLayerStorageReferences?: ((request: PagedFusedDecoderLayerRequest) => Promise<PagedFusedDecoderLayerResult>) | undefined;
   fusedDecoderStackStorageReferences?: ((request: PagedFusedDecoderStackRequest) => Promise<PagedFusedDecoderStackResult>) | undefined;
   fusedDecoderStackEpilogueStorageReferences?: ((request: PagedFusedDecoderStackEpilogueRequest) => Promise<PagedFusedDecoderStackEpilogueResult>) | undefined;
+  fusedTokenForwardStorageReferences?: ((request: PagedFusedTokenForwardRequest) => Promise<PagedFusedTokenForwardResult>) | undefined;
 }
 
 export interface PagedFusedFfnRequest {
@@ -205,6 +206,28 @@ export interface PagedFusedDecoderStackEpilogueRequest extends PagedFusedDecoder
 }
 
 export interface PagedFusedDecoderStackEpilogueResult extends PagedFusedDecoderStackResult {
+  logits: Float32Array;
+}
+
+export interface PagedFusedTokenForwardRequest extends Omit<PagedFusedDecoderStackEpilogueRequest, "input" | "perLayerInputs"> {
+  tokenIds: Int32Array;
+  prelude: {
+    tokenEmbeddingWeight: TensorInfo;
+    tokenEmbeddingScale: number;
+    perLayerEmbeddingWeight: TensorInfo;
+    perLayerEmbeddingScale: number;
+    projectionWeight: TensorInfo;
+    normWeight: TensorInfo;
+    contextScale: number;
+    combineScale: number;
+    epsilon: number;
+    maxReadBytes: number;
+    rounding: "bf16";
+  };
+}
+
+export interface PagedFusedTokenForwardResult {
+  caches: readonly PagedFusedDecoderStackCache[];
   logits: Float32Array;
 }
 

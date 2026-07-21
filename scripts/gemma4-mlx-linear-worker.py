@@ -2,6 +2,7 @@
 """Persistent MLX Metal worker for F32 inputs and dense F32/F16/BF16 weights."""
 
 import argparse
+from collections import OrderedDict
 import math
 from pathlib import Path
 import struct
@@ -13,11 +14,15 @@ import numpy as np
 
 FUSED_DECODER_STACK_FLAG = 0x00200000
 FUSED_DECODER_STACK_EPILOGUE_FLAG = 0x00080000
+FUSED_TOKEN_FORWARD_FLAG = 0x00040000
 FUSED_PLE_PRELUDE_FLAG = 0x01000000
 _widened_tensor_cache = {}
 _widened_tensor_cache_hits = 0
 _widened_tensor_cache_bytes = 0
 _shard_sizes = {}
+_binary_files = {}
+_embedding_row_cache = OrderedDict()
+EMBEDDING_ROW_CACHE_LIMIT = 4096
 
 
 def read_exact(size):
@@ -40,10 +45,13 @@ def write_float_tensor(tensor):
     sys.stdout.buffer.write(payload)
 
 
-def read_whole_tensor(pool, shards, expected_shape, widen=True, required_dtype=None):
+def read_whole_tensor(pool, shards, expected_shape, widen=True, required_dtype=None, large_descriptor=False):
     global _widened_tensor_cache_hits, _widened_tensor_cache_bytes
-    metadata = read_exact(36)
-    request_dtype, first, second, byte_offset, byte_length, start_output, shard_length, name_length = struct.unpack("<IIIQIIII", metadata)
+    metadata = read_exact(40 if large_descriptor else 36)
+    if large_descriptor:
+        request_dtype, first, second, byte_offset, byte_length, start_output, shard_length, name_length = struct.unpack("<IIIQQIII", metadata)
+    else:
+        request_dtype, first, second, byte_offset, byte_length, start_output, shard_length, name_length = struct.unpack("<IIIQIIII", metadata)
     if request_dtype not in (0, 1, 2) or (first, second) != expected_shape or start_output != 0:
         raise ValueError("MLX decoder stack tensor descriptor is invalid")
     if shard_length < 1 or shard_length > 4096 or name_length < 1 or name_length > 4096:
@@ -80,6 +88,66 @@ def read_whole_tensor(pool, shards, expected_shape, widen=True, required_dtype=N
             _widened_tensor_cache_hits += 1
         return result
     return tensor
+
+
+def round_numpy_f32_to_bf16(values):
+    contiguous = np.ascontiguousarray(values, dtype=np.float32)
+    bits = contiguous.view(np.uint32)
+    rounded = bits + np.uint32(0x7fff) + ((bits >> np.uint32(16)) & np.uint32(1))
+    return ((rounded >> np.uint32(16)) << np.uint32(16)).view(np.float32)
+
+
+def read_scaled_bf16_embedding_rows(pool, shards, expected_shape, token_ids, scale):
+    metadata = read_exact(40)
+    request_dtype, first, second, byte_offset, byte_length, start_output, shard_length, name_length = struct.unpack("<IIIQQIII", metadata)
+    if request_dtype != 1 or (first, second) != expected_shape or start_output != 0 or byte_length != first * second * 2:
+        raise ValueError("MLX token forward embedding descriptor is invalid")
+    if shard_length < 1 or shard_length > 4096 or name_length < 1 or name_length > 4096:
+        raise ValueError("MLX token forward embedding identity length is invalid")
+    shard = bytes(read_exact(shard_length)).decode("utf-8")
+    tensor_name = bytes(read_exact(name_length)).decode("utf-8")
+    if Path(shard).name != shard or not tensor_name:
+        raise ValueError("MLX token forward embedding identity is invalid")
+    path = (pool / shard).resolve()
+    if path.parent != pool:
+        raise ValueError("MLX token forward embedding escapes its shard")
+    shard_size = _shard_sizes.get(path)
+    if shard_size is None:
+        shard_size = path.stat().st_size
+        _shard_sizes[path] = shard_size
+    if byte_offset + byte_length > shard_size:
+        raise ValueError("MLX token forward embedding range exceeds its shard")
+    if path not in shards:
+        shards[path] = mx.load(str(path))
+    tensor = shards[path].get(tensor_name)
+    if tensor is None or tensor.shape != expected_shape or tensor.dtype != mx.bfloat16:
+        raise ValueError(f"{tensor_name}: MLX token forward embedding identity diverges")
+    flat_tokens = token_ids.reshape(-1)
+    unique_rows = {}
+    row_bytes = second * 2
+    source = _binary_files.get(path)
+    if source is None:
+        source = path.open("rb")
+        _binary_files[path] = source
+    for token in np.unique(flat_tokens):
+        cache_key = (path, tensor_name, int(token), np.float32(scale).tobytes())
+        row = _embedding_row_cache.get(cache_key)
+        if row is None:
+            source.seek(byte_offset + int(token) * row_bytes)
+            payload = source.read(row_bytes)
+            if len(payload) != row_bytes:
+                raise ValueError("MLX token forward embedding row is truncated")
+            bits = np.frombuffer(payload, dtype="<u2").astype(np.uint32) << np.uint32(16)
+            product = np.multiply(bits.view(np.float32), np.float32(scale), dtype=np.float32)
+            row = round_numpy_f32_to_bf16(product)
+            _embedding_row_cache[cache_key] = row
+            if len(_embedding_row_cache) > EMBEDDING_ROW_CACHE_LIMIT:
+                _embedding_row_cache.popitem(last=False)
+        else:
+            _embedding_row_cache.move_to_end(cache_key)
+        unique_rows[int(token)] = row
+    values = np.stack([unique_rows[int(token)] for token in flat_tokens], axis=0)
+    return mx.array(values.reshape((*token_ids.shape, second)))
 
 
 def rms_norm_real(tensor, weight, epsilon):
@@ -127,6 +195,23 @@ def rms_norm_cpu_cascade_f32(tensor, weight, epsilon):
     normalized = np.multiply(vectors, scales[:, None], dtype=np.float32)
     normalized = np.multiply(normalized, np.asarray(weight, dtype=np.float32)[None, :], dtype=np.float32)
     return normalized.reshape(tensor.shape)
+
+
+def execute_ple_prelude_values(inputs, token_identity, projection_weight, norm_weight, rows, num_layers, per_layer_width, context_scale, combine_scale, epsilon, tile_output_rows):
+    boundary = lambda value: value.astype(mx.bfloat16).astype(mx.float32)
+    outputs = num_layers * per_layer_width
+    context_tiles = [
+        mx.matmul(inputs, projection_weight[start:start + tile_output_rows].T)
+        for start in range(0, outputs, tile_output_rows)
+    ]
+    mx.eval(*context_tiles)
+    context = boundary(mx.concatenate(context_tiles, axis=1))
+    context = boundary(context * mx.array(context_scale, dtype=mx.float32)).reshape((rows, num_layers, per_layer_width))
+    mx.eval(context, norm_weight)
+    normalized_values = rms_norm_cpu_cascade_f32(np.asarray(context, dtype=np.float32), np.asarray(norm_weight, dtype=np.float32), epsilon)
+    normalized = boundary(mx.array(normalized_values))
+    combined = boundary(normalized + token_identity)
+    return boundary(combined * mx.array(combine_scale, dtype=mx.float32)).reshape((rows, outputs))
 
 
 def rope_real(tensor, positions, rope_kind, theta, rotary_dim, proportional_pairs, proportional_factor):
@@ -214,18 +299,35 @@ def execute_decoder_layer_mlx(pool, shards, inputs, per_layer, positions, mask, 
     return result, key, value, valid
 
 
-def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, native_bf16_ple, fused_epilogue):
+def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, native_bf16_ple, fused_epilogue, fused_token_forward):
     if native_bf16_ple:
         raise ValueError("MLX decoder stack does not support native-bf16-ple")
     cache_hits_before = _widened_tensor_cache_hits
     query_sequence, per_layer_width = struct.unpack("<II", read_exact(8))
     if not query_sequence or not per_layer_width:
         raise ValueError("MLX decoder stack topology is invalid")
-    input_bytes = read_exact(batch * query_sequence * hidden_size * 4)
-    per_layer_bytes = read_exact(batch * query_sequence * num_layers * per_layer_width * 4)
+    rows = batch * query_sequence
+    if fused_token_forward:
+        descriptor_count, rounding, tile_output_rows, vocabulary_size, token_scale, per_layer_scale, context_scale, combine_scale = struct.unpack("<IIIIffff", read_exact(32))
+        epsilon = struct.unpack("<f", read_exact(4))[0]
+        if descriptor_count != 4 or rounding != 0 or not tile_output_rows or not vocabulary_size or not all(math.isfinite(value) for value in (token_scale, per_layer_scale, context_scale, combine_scale, epsilon)) or epsilon <= 0:
+            raise ValueError("MLX token forward prelude metadata is invalid")
+        token_ids = np.frombuffer(read_exact(rows * 4), dtype=np.int32).reshape(batch, query_sequence)
+        if (token_ids < 0).any() or (token_ids >= vocabulary_size).any():
+            raise ValueError("MLX token forward token id is outside the vocabulary")
+        result = read_scaled_bf16_embedding_rows(pool, shards, (vocabulary_size, hidden_size), token_ids, token_scale)
+        token_identity = read_scaled_bf16_embedding_rows(pool, shards, (vocabulary_size, num_layers * per_layer_width), token_ids, per_layer_scale).reshape((rows, num_layers, per_layer_width))
+        projection_weight = read_whole_tensor(pool, shards, (num_layers * per_layer_width, hidden_size), widen=False, required_dtype=mx.bfloat16, large_descriptor=True)
+        norm_weight = read_whole_tensor(pool, shards, (per_layer_width, 1), large_descriptor=True).reshape((per_layer_width,))
+        result = result.reshape((rows, hidden_size))
+        all_per_layer = execute_ple_prelude_values(result, token_identity, projection_weight, norm_weight, rows, num_layers, per_layer_width, context_scale, combine_scale, epsilon, tile_output_rows).reshape((batch, query_sequence, num_layers, per_layer_width))
+        result = result.reshape((batch, query_sequence, hidden_size))
+    else:
+        input_bytes = read_exact(rows * hidden_size * 4)
+        per_layer_bytes = read_exact(rows * num_layers * per_layer_width * 4)
+        result = mx.array(np.frombuffer(input_bytes, dtype=np.float32).reshape(batch, query_sequence, hidden_size))
+        all_per_layer = mx.array(np.frombuffer(per_layer_bytes, dtype=np.float32).reshape(batch, query_sequence, num_layers, per_layer_width))
     position_bytes = read_exact(batch * query_sequence * 4)
-    result = mx.array(np.frombuffer(input_bytes, dtype=np.float32).reshape(batch, query_sequence, hidden_size))
-    all_per_layer = mx.array(np.frombuffer(per_layer_bytes, dtype=np.float32).reshape(batch, query_sequence, num_layers, per_layer_width))
     positions = mx.array(np.frombuffer(position_bytes, dtype=np.int32).reshape(batch, query_sequence))
     produced_caches, ordered_caches = {}, []
     all_valid = mx.array(True)
@@ -288,7 +390,8 @@ def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, 
     if epilogue is not None:
         norm_weight, head_weight, norm_epsilon, softcap = epilogue
         boundary = lambda value: value.astype(mx.bfloat16).astype(mx.float32)
-        final_hidden = boundary(rms_norm_real(result, norm_weight, norm_epsilon))
+        epilogue_input = result[:, -1:, :] if fused_token_forward else result
+        final_hidden = boundary(rms_norm_real(epilogue_input, norm_weight, norm_epsilon))
         raw_logits = mx.matmul(final_hidden.astype(mx.bfloat16), head_weight.T).astype(mx.float32)
         logits = boundary(mx.tanh(boundary(raw_logits / mx.array(softcap, dtype=mx.float32))))
         logits = boundary(logits * mx.array(softcap, dtype=mx.float32))
@@ -296,7 +399,8 @@ def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, 
         mx.eval(logits, logits_valid)
         if not bool(np.asarray(logits_valid).item()):
             raise ValueError("MLX decoder stack epilogue produced non-finite output")
-    write_float_tensor(result)
+    if not fused_token_forward:
+        write_float_tensor(result)
     for key, value in ordered_caches:
         write_float_tensor(key)
         write_float_tensor(value)
@@ -323,19 +427,12 @@ def execute_ple_prelude_request(pool, shards, rows, outputs, features):
     token_identity = mx.array(np.frombuffer(token_bytes, dtype=np.float32).reshape(rows, num_layers, per_layer_width))
     projection_weight = read_whole_tensor(pool, shards, (outputs, features), widen=False)
     norm_weight = read_whole_tensor(pool, shards, (per_layer_width, 1)).reshape((per_layer_width,))
-    boundary = (lambda value: value.astype(mx.bfloat16).astype(mx.float32)) if rounding == 0 else (lambda value: value)
-    context_tiles = [
-        mx.matmul(inputs, projection_weight[start:start + tile_output_rows].T)
-        for start in range(0, outputs, tile_output_rows)
-    ]
-    mx.eval(*context_tiles)
-    context = boundary(mx.concatenate(context_tiles, axis=1))
-    context = boundary(context * mx.array(context_scale, dtype=mx.float32)).reshape((rows, num_layers, per_layer_width))
-    mx.eval(context, norm_weight)
-    normalized_values = rms_norm_cpu_cascade_f32(np.asarray(context, dtype=np.float32), np.asarray(norm_weight, dtype=np.float32), epsilon)
-    normalized = boundary(mx.array(normalized_values))
-    combined = boundary(normalized + token_identity)
-    result = boundary(combined * mx.array(combine_scale, dtype=mx.float32)).reshape((rows, outputs))
+    if rounding == 0:
+        result = execute_ple_prelude_values(inputs, token_identity, projection_weight, norm_weight, rows, num_layers, per_layer_width, context_scale, combine_scale, epsilon, tile_output_rows)
+    else:
+        context = mx.matmul(inputs, projection_weight.T) * mx.array(context_scale, dtype=mx.float32)
+        context = context.reshape((rows, num_layers, per_layer_width))
+        result = ((rms_norm_real(context, norm_weight, epsilon) + token_identity) * mx.array(combine_scale, dtype=mx.float32)).reshape((rows, outputs))
     valid = mx.all(mx.isfinite(result))
     mx.eval(result, valid)
     if not bool(np.asarray(valid).item()):
@@ -382,10 +479,13 @@ def main():
         fused_decoder_stack = bool(encoded_dtype & FUSED_DECODER_STACK_FLAG)
         if fused_decoder_stack:
             fused_epilogue = bool(encoded_dtype & FUSED_DECODER_STACK_EPILOGUE_FLAG)
-            expected_code = FUSED_DECODER_STACK_FLAG | (FUSED_DECODER_STACK_EPILOGUE_FLAG if fused_epilogue else 0)
+            fused_token_forward = bool(encoded_dtype & FUSED_TOKEN_FORWARD_FLAG)
+            expected_code = FUSED_DECODER_STACK_FLAG | (FUSED_DECODER_STACK_EPILOGUE_FLAG if fused_epilogue else 0) | (FUSED_TOKEN_FORWARD_FLAG if fused_token_forward else 0)
             if referenced or batched or fused_mlp or native_attention or fused_attention or dtype_code != expected_code:
                 raise ValueError("MLX decoder stack flags are invalid")
-            execute_decoder_stack_request(pool, shards, rows, outputs, features, native_bf16, fused_epilogue)
+            if fused_token_forward and not fused_epilogue:
+                raise ValueError("MLX token forward requires the fused epilogue")
+            execute_decoder_stack_request(pool, shards, rows, outputs, features, native_bf16, fused_epilogue, fused_token_forward)
             continue
         if not referenced:
             raise ValueError("MLX worker requires a referenced tile")

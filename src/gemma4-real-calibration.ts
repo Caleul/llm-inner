@@ -57,6 +57,8 @@ interface ThreeWayCase {
     fusedDecoderStackRounding?: "off" | "native-bf16" | "native-bf16-ple";
     fusedDecoderStackDispatches?: number;
     fusedDecoderStackEpilogueDispatches?: number;
+    fusedTokenForwardRounding?: "off" | "bf16";
+    fusedTokenForwardDispatches?: number;
     fusedDecoderStackGateUpPairs?: number;
     fusedDecoderStackWidenedCacheHits?: number;
     widenedTensorCacheEntries?: number;
@@ -150,7 +152,7 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
     source: options.runner.source,
     configuration: {
       prompts: cases.length, tokensPerPrompt: options.maxNewTokens, requestThreads: options.requestThreads,
-      directThreads: options.runner.directThreads, directMaxReadMiB: options.runner.directMaxReadMiB ?? 16, directFinalHeadReadMiB: options.runner.directFinalHeadReadMiB ?? (directBackend === "pytorch" ? 32 : options.runner.directMaxReadMiB ?? 16), directLinearBackend: directBackend, directFusedMlp: options.runner.directFusedMlp ?? (directBackend === "pytorch" ? "native-bf16" : "real"), directFusedFfn: options.runner.directFusedFfn ?? (directBackend === "pytorch" ? "native-bf16" : "off"), directFusedDecoderLayer: options.runner.directFusedDecoderLayer ?? (directBackend === "pytorch" ? "native-bf16" : "off"), directFusedDecoderStack: options.runner.directFusedDecoderStack ?? "native-bf16", directFusedPle: options.runner.directFusedPle ?? (directBackend === "pytorch" ? "bf16" : "off"), directFusedPlePrelude: options.runner.directFusedPlePrelude ?? (directBackend === "mlx" ? "bf16" : "off"), directFinalHead: options.runner.directFinalHead ?? (directBackend === "pytorch" ? "native-bf16-stream" : "native-bf16-whole"), directNativeAttention: options.runner.directNativeAttention ?? (directBackend === "pytorch" ? "real" : "off"), directFusedAttention: options.runner.directFusedAttention ?? (directBackend === "pytorch" ? "native-bf16" : "off"), precision: options.precision, roundingPolicy: options.roundingPolicy,
+      directThreads: options.runner.directThreads, directMaxReadMiB: options.runner.directMaxReadMiB ?? 16, directFinalHeadReadMiB: options.runner.directFinalHeadReadMiB ?? (directBackend === "pytorch" ? 32 : options.runner.directMaxReadMiB ?? 16), directLinearBackend: directBackend, directFusedMlp: options.runner.directFusedMlp ?? (directBackend === "pytorch" ? "native-bf16" : "real"), directFusedFfn: options.runner.directFusedFfn ?? (directBackend === "pytorch" ? "native-bf16" : "off"), directFusedDecoderLayer: options.runner.directFusedDecoderLayer ?? (directBackend === "pytorch" ? "native-bf16" : "off"), directFusedDecoderStack: options.runner.directFusedDecoderStack ?? "native-bf16", directFusedPle: options.runner.directFusedPle ?? (directBackend === "pytorch" ? "bf16" : "off"), directFusedPlePrelude: options.runner.directFusedPlePrelude ?? (directBackend === "mlx" ? "bf16" : "off"), directFusedTokenForward: options.runner.directFusedTokenForward ?? (directBackend === "mlx" && options.runner.directFusedDecoderStack !== "off" ? "bf16" : "off"), directFinalHead: options.runner.directFinalHead ?? (directBackend === "pytorch" ? "native-bf16-stream" : "native-bf16-whole"), directNativeAttention: options.runner.directNativeAttention ?? (directBackend === "pytorch" ? "real" : "off"), directFusedAttention: options.runner.directFusedAttention ?? (directBackend === "pytorch" ? "native-bf16" : "off"), precision: options.precision, roundingPolicy: options.roundingPolicy,
     },
     initialization: status,
     summary: {
@@ -198,6 +200,8 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.fusedDecoderStackRounding === undefined ? {} : { fusedDecoderStackRounding: entry.direct.fusedDecoderStackRounding }),
         ...(entry.direct.fusedDecoderStackDispatches === undefined ? {} : { fusedDecoderStackDispatches: entry.direct.fusedDecoderStackDispatches }),
         ...(entry.direct.fusedDecoderStackEpilogueDispatches === undefined ? {} : { fusedDecoderStackEpilogueDispatches: entry.direct.fusedDecoderStackEpilogueDispatches }),
+        ...(entry.direct.fusedTokenForwardRounding === undefined ? {} : { fusedTokenForwardRounding: entry.direct.fusedTokenForwardRounding }),
+        ...(entry.direct.fusedTokenForwardDispatches === undefined ? {} : { fusedTokenForwardDispatches: entry.direct.fusedTokenForwardDispatches }),
         ...(entry.direct.fusedDecoderStackGateUpPairs === undefined ? {} : { fusedDecoderStackGateUpPairs: entry.direct.fusedDecoderStackGateUpPairs }),
         ...(entry.direct.fusedDecoderStackWidenedCacheHits === undefined ? {} : { fusedDecoderStackWidenedCacheHits: entry.direct.fusedDecoderStackWidenedCacheHits }),
         ...(entry.direct.widenedTensorCacheEntries === undefined ? {} : { widenedTensorCacheEntries: entry.direct.widenedTensorCacheEntries }),
