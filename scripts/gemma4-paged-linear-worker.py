@@ -300,7 +300,7 @@ def main():
                 if not referenced or batched or native_bf16 or pool is None:
                     raise ValueError("fused MLP requires referenced non-batched storage")
                 rounding = struct.unpack("<I", read_exact(4))[0]
-                if rounding not in (0, 1):
+                if rounding not in (0, 1, 2):
                     raise ValueError("fused MLP rounding policy is invalid")
                 matrices = []
                 shapes = []
@@ -327,24 +327,39 @@ def main():
                         mappings[path] = mmap.mmap(files[path].fileno(), 0, access=mmap.ACCESS_READ)
                     if byte_offset + byte_length > mappings[path].size():
                         raise ValueError("fused MLP range exceeds shard")
-                    matrices.append(torch.frombuffer(mappings[path], dtype=storage_dtype, count=output_count * input_count, offset=byte_offset).reshape(output_count, input_count).float())
+                    matrix = torch.frombuffer(mappings[path], dtype=storage_dtype, count=output_count * input_count, offset=byte_offset).reshape(output_count, input_count)
+                    if rounding == 2 and request_dtype != 1:
+                        raise ValueError("native BF16 fused MLP requires BF16 storage")
+                    matrices.append(matrix if rounding == 2 else matrix.float())
                     shapes.append((output_count, input_count))
                 if shapes[0] != shapes[1] or shapes[0][1] != features or shapes[2] != (outputs, shapes[0][0]):
                     raise ValueError("fused MLP matrix shapes are incompatible")
                 inputs = torch.frombuffer(input_bytes, dtype=torch.float32).reshape(rows, features)
-                boundary = (lambda value: value.to(torch.bfloat16).float()) if rounding == 0 else (lambda value: value)
-                gate = boundary(torch.mm(inputs, matrices[0].transpose(0, 1)))
-                up = boundary(torch.mm(inputs, matrices[1].transpose(0, 1)))
-                cube = (gate * gate) * gate
-                inner = torch.tensor(math.sqrt(2 / math.pi), dtype=torch.float32) * (gate + torch.tensor(0.044715, dtype=torch.float32) * cube)
-                activated = boundary((torch.tensor(0.5, dtype=torch.float32) * gate) * (torch.tensor(1.0, dtype=torch.float32) + torch.tanh(inner)))
-                hidden = boundary(activated * up)
-                result = boundary(torch.mm(hidden, matrices[2].transpose(0, 1))).contiguous()
+                if rounding == 2:
+                    native_inputs = inputs.to(torch.bfloat16)
+                    gate = torch.mm(native_inputs, matrices[0].transpose(0, 1))
+                    up = torch.mm(native_inputs, matrices[1].transpose(0, 1))
+                    activated = torch.nn.functional.gelu(gate, approximate="tanh")
+                    hidden = activated * up
+                    result = torch.mm(hidden, matrices[2].transpose(0, 1)).float().contiguous()
+                else:
+                    boundary = (lambda value: value.to(torch.bfloat16).float()) if rounding == 0 else (lambda value: value)
+                    gate = boundary(torch.mm(inputs, matrices[0].transpose(0, 1)))
+                    up = boundary(torch.mm(inputs, matrices[1].transpose(0, 1)))
+                    cube = (gate * gate) * gate
+                    inner = torch.tensor(math.sqrt(2 / math.pi), dtype=torch.float32) * (gate + torch.tensor(0.044715, dtype=torch.float32) * cube)
+                    activated = boundary((torch.tensor(0.5, dtype=torch.float32) * gate) * (torch.tensor(1.0, dtype=torch.float32) + torch.tanh(inner)))
+                    hidden = boundary(activated * up)
+                    result = boundary(torch.mm(hidden, matrices[2].transpose(0, 1))).contiguous()
                 payload = result.numpy().tobytes(order="C")
                 sys.stdout.buffer.write(struct.pack("<I", len(payload)))
                 sys.stdout.buffer.write(payload)
                 sys.stdout.buffer.flush()
-                del inputs, matrices, shapes, gate, up, cube, inner, activated, hidden, result, payload
+                if rounding == 2:
+                    del native_inputs
+                else:
+                    del boundary, cube, inner
+                del inputs, matrices, shapes, gate, up, activated, hidden, result, payload
                 continue
             if batched:
                 if not referenced or native_bf16 or pool is None or outputs < 2 or outputs > 256:

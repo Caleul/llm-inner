@@ -48,7 +48,7 @@ interface ThreeWayCase {
     processMaxRssKiB?: number;
     linearBatchDispatches?: number;
     linearBatchedProjectionTiles?: number;
-    fusedMlpRounding?: "off" | "bf16" | "real";
+    fusedMlpRounding?: "off" | "bf16" | "real" | "native-bf16";
     fusedMlpDispatches?: number;
     fusedPleRounding?: "off" | "bf16" | "real";
     fusedPlePreludeRounding?: "off" | "bf16" | "real";
@@ -59,6 +59,13 @@ interface ThreeWayCase {
     nativeAttentionDispatches?: number;
     fusedAttentionRounding?: "off" | "bf16" | "real";
     fusedAttentionDispatches?: number;
+    referenceSeconds?: number;
+    batchSeconds?: number;
+    fusedMlpSeconds?: number;
+    fusedPleSeconds?: number;
+    fusedPlePreludeSeconds?: number;
+    nativeAttentionSeconds?: number;
+    fusedAttentionSeconds?: number;
     tokensEqualBaseline: boolean;
     firstDivergentStep: number | null;
     steps: Array<{ step: number; tokenId: number; forwardSeconds: number; topLogits: unknown }>;
@@ -123,7 +130,7 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
     source: options.runner.source,
     configuration: {
       prompts: cases.length, tokensPerPrompt: options.maxNewTokens, requestThreads: options.requestThreads,
-      directThreads: options.runner.directThreads, directMaxReadMiB: options.runner.directMaxReadMiB ?? 16, directFinalHeadReadMiB: options.runner.directFinalHeadReadMiB ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? 32 : options.runner.directMaxReadMiB ?? 16), directLinearBackend: options.runner.directLinearBackend ?? "pytorch", directFusedMlp: options.runner.directFusedMlp ?? "real", directFusedPle: options.runner.directFusedPle ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "bf16" : "off"), directFusedPlePrelude: options.runner.directFusedPlePrelude ?? "off", directFinalHead: options.runner.directFinalHead ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "f32"), directNativeAttention: options.runner.directNativeAttention ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "real" : "off"), directFusedAttention: options.runner.directFusedAttention ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "bf16" : "off"), precision: options.precision, roundingPolicy: options.roundingPolicy,
+      directThreads: options.runner.directThreads, directMaxReadMiB: options.runner.directMaxReadMiB ?? 16, directFinalHeadReadMiB: options.runner.directFinalHeadReadMiB ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? 32 : options.runner.directMaxReadMiB ?? 16), directLinearBackend: options.runner.directLinearBackend ?? "pytorch", directFusedMlp: options.runner.directFusedMlp ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "real"), directFusedPle: options.runner.directFusedPle ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "bf16" : "off"), directFusedPlePrelude: options.runner.directFusedPlePrelude ?? "off", directFinalHead: options.runner.directFinalHead ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "f32"), directNativeAttention: options.runner.directNativeAttention ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "real" : "off"), directFusedAttention: options.runner.directFusedAttention ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "bf16" : "off"), precision: options.precision, roundingPolicy: options.roundingPolicy,
     },
     initialization: status,
     summary: {
@@ -173,6 +180,13 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.nativeAttentionDispatches === undefined ? {} : { nativeAttentionDispatches: entry.direct.nativeAttentionDispatches }),
         ...(entry.direct.fusedAttentionRounding === undefined ? {} : { fusedAttentionRounding: entry.direct.fusedAttentionRounding }),
         ...(entry.direct.fusedAttentionDispatches === undefined ? {} : { fusedAttentionDispatches: entry.direct.fusedAttentionDispatches }),
+        ...(entry.direct.referenceSeconds === undefined ? {} : { referenceSeconds: entry.direct.referenceSeconds }),
+        ...(entry.direct.batchSeconds === undefined ? {} : { batchSeconds: entry.direct.batchSeconds }),
+        ...(entry.direct.fusedMlpSeconds === undefined ? {} : { fusedMlpSeconds: entry.direct.fusedMlpSeconds }),
+        ...(entry.direct.fusedPleSeconds === undefined ? {} : { fusedPleSeconds: entry.direct.fusedPleSeconds }),
+        ...(entry.direct.fusedPlePreludeSeconds === undefined ? {} : { fusedPlePreludeSeconds: entry.direct.fusedPlePreludeSeconds }),
+        ...(entry.direct.nativeAttentionSeconds === undefined ? {} : { nativeAttentionSeconds: entry.direct.nativeAttentionSeconds }),
+        ...(entry.direct.fusedAttentionSeconds === undefined ? {} : { fusedAttentionSeconds: entry.direct.fusedAttentionSeconds }),
         forwardSeconds: entry.direct.steps.map((step) => step.forwardSeconds) },
       steps: entry.steps.map((step, index) => ({
         step: step.step, contextsEqualBeforeStep: step.contextsEqualBeforeStep,

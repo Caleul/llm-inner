@@ -40,6 +40,13 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
   #fusedPlePreludeDispatches = 0;
   #nativeAttentionDispatches = 0;
   #fusedAttentionDispatches = 0;
+  #referenceSeconds = 0;
+  #batchSeconds = 0;
+  #fusedMlpSeconds = 0;
+  #fusedPleSeconds = 0;
+  #fusedPlePreludeSeconds = 0;
+  #nativeAttentionSeconds = 0;
+  #fusedAttentionSeconds = 0;
 
   constructor(options: { python: string; helper: string; threads: number; binaryPool?: string; storageTensors?: ReadonlyMap<string, TensorInfo>; backend?: "pytorch" | "mlx"; mlxHelper?: string }) {
     if (endianness() !== "LE") throw new Error("Kernel linear binário requer host little-endian.");
@@ -92,11 +99,12 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     if (this.#active) throw new Error("Worker linear persistente não aceita tiles concorrentes no mesmo canal.");
     if (input.length !== rows * inFeatures) throw new Error("Tile linear possui shape incompatível.");
     this.#active = true;
+    const started = performance.now();
     try {
       const header = Buffer.allocUnsafe(16); header.writeUInt32LE(rows, 0); header.writeUInt32LE(outputCount, 4); header.writeUInt32LE(inFeatures, 8); header.writeUInt32LE(dtype, 12);
       await this.#write(header); await this.#write(Buffer.from(input.buffer, input.byteOffset, input.byteLength)); await this.#write(weight);
       return await this.#readResult(rows, outputCount);
-    } finally { this.#active = false; }
+    } finally { this.#referenceSeconds += (performance.now() - started) / 1000; this.#active = false; }
   }
 
   async #requestReference(input: Float32Array, tensor: TensorInfo, startOutput: number, outputCount: number, rows: number, nativeBf16 = false): Promise<Float32Array> {
@@ -113,6 +121,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     if (!Number.isSafeInteger(byteOffset) || !Number.isSafeInteger(byteLength) || byteLength < 1) throw new Error(`${tensor.name}: intervalo binário referenciado inválido.`);
     const shard = Buffer.from(stored.shard, "utf8"); if (shard.length === 0 || shard.length > 4096) throw new Error(`${tensor.name}: nome de shard inválido.`);
     this.#active = true;
+    const started = performance.now();
     try {
       this.#referenceDispatches += 1;
       const header = Buffer.allocUnsafe(16); header.writeUInt32LE(rows, 0); header.writeUInt32LE(outputCount, 4); header.writeUInt32LE(inFeatures!, 8); header.writeUInt32LE((STORAGE_REFERENCE_FLAG + (nativeBf16 ? STORAGE_NATIVE_BF16_FLAG : 0) + dtype) >>> 0, 12);
@@ -120,7 +129,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
       const metadata = Buffer.allocUnsafe(24); metadata.writeBigUInt64LE(BigInt(byteOffset), 0); metadata.writeUInt32LE(byteLength, 8); metadata.writeUInt32LE(startOutput, 12); metadata.writeUInt32LE(shard.length, 16); metadata.writeUInt32LE(name.length, 20);
       await this.#write(header); await this.#write(Buffer.from(input.buffer, input.byteOffset, input.byteLength)); await this.#write(metadata); await this.#write(shard); await this.#write(name);
       return await this.#readResult(rows, outputCount);
-    } finally { this.#active = false; }
+    } finally { this.#referenceSeconds += (performance.now() - started) / 1000; this.#active = false; }
   }
 
   async #requestReferences(input: Float32Array, requests: readonly PagedLinearStorageReference[], rows: number): Promise<readonly Float32Array[]> {
@@ -130,6 +139,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     const inFeatures = prepared[0]!.inFeatures;
     if (prepared.some((entry) => entry.inFeatures !== inFeatures)) throw new Error("Worker linear em lote requer o mesmo número de features.");
     this.#active = true;
+    const started = performance.now();
     try {
       this.#batchDispatches += 1; this.#batchedProjectionTiles += prepared.length;
       const header = Buffer.allocUnsafe(16); header.writeUInt32LE(rows, 0); header.writeUInt32LE(prepared.length, 4); header.writeUInt32LE(inFeatures, 8); header.writeUInt32LE((STORAGE_REFERENCE_FLAG + STORAGE_REFERENCE_BATCH_FLAG) >>> 0, 12);
@@ -141,25 +151,26 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
       const results: Float32Array[] = [];
       for (const entry of prepared) results.push(await this.#readResult(rows, entry.outputCount));
       return results;
-    } finally { this.#active = false; }
+    } finally { this.#batchSeconds += (performance.now() - started) / 1000; this.#active = false; }
   }
 
-  async #requestGatedMlp(input: Float32Array, gateTensor: TensorInfo, upTensor: TensorInfo, downTensor: TensorInfo, rows: number, rounding: "bf16" | "real"): Promise<Float32Array> {
+  async #requestGatedMlp(input: Float32Array, gateTensor: TensorInfo, upTensor: TensorInfo, downTensor: TensorInfo, rows: number, rounding: "bf16" | "real" | "native-bf16"): Promise<Float32Array> {
     if (this.#active) throw new Error("Worker linear persistente não aceita subgrafos concorrentes no mesmo canal.");
     const gate = this.#prepareWholeMatrix(gateTensor), up = this.#prepareWholeMatrix(upTensor), down = this.#prepareWholeMatrix(downTensor);
     if (gate.inFeatures !== up.inFeatures || gate.outputCount !== up.outputCount || down.inFeatures !== gate.outputCount || input.length !== rows * gate.inFeatures) throw new Error("Subgrafo MLP requer gate/up paralelos e down_proj compatível.");
     this.#active = true;
+    const started = performance.now();
     try {
       this.#fusedMlpDispatches += 1;
       const header = Buffer.allocUnsafe(16); header.writeUInt32LE(rows, 0); header.writeUInt32LE(down.outputCount, 4); header.writeUInt32LE(gate.inFeatures, 8); header.writeUInt32LE((STORAGE_REFERENCE_FLAG + STORAGE_REFERENCE_MLP_FLAG) >>> 0, 12);
-      const policy = Buffer.allocUnsafe(4); policy.writeUInt32LE(rounding === "bf16" ? 0 : 1, 0);
+      const policy = Buffer.allocUnsafe(4); policy.writeUInt32LE(rounding === "bf16" ? 0 : rounding === "real" ? 1 : 2, 0);
       await this.#write(header); await this.#write(Buffer.from(input.buffer, input.byteOffset, input.byteLength)); await this.#write(policy);
       for (const entry of [gate, up, down]) {
         const metadata = Buffer.allocUnsafe(36); metadata.writeUInt32LE(entry.dtype, 0); metadata.writeUInt32LE(entry.outputCount, 4); metadata.writeUInt32LE(entry.inFeatures, 8); metadata.writeBigUInt64LE(BigInt(entry.byteOffset), 12); metadata.writeUInt32LE(entry.byteLength, 20); metadata.writeUInt32LE(0, 24); metadata.writeUInt32LE(entry.shard.length, 28); metadata.writeUInt32LE(entry.name.length, 32);
         await this.#write(metadata); await this.#write(entry.shard); await this.#write(entry.name);
       }
       return await this.#readResult(rows, down.outputCount);
-    } finally { this.#active = false; }
+    } finally { this.#fusedMlpSeconds += (performance.now() - started) / 1000; this.#active = false; }
   }
 
   async #requestAttention(request: PagedNativeAttentionRequest): Promise<Float32Array> {
@@ -168,6 +179,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     if (dimensions.some((value) => !Number.isSafeInteger(value) || value < 1) || request.queryHeads % request.keyValueHeads !== 0 || (request.maskHeads !== 1 && request.maskHeads !== request.queryHeads) || !Number.isFinite(request.scale)) throw new Error("Attention nativa recebeu topologia inválida.");
     if (request.query.length !== request.batch * request.queryHeads * request.querySequence * request.headDim || request.key.length !== request.batch * request.keyValueHeads * request.keySequence * request.headDim || request.value.length !== request.key.length || request.mask.length !== request.batch * request.maskHeads * request.querySequence * request.keySequence) throw new Error("Attention nativa recebeu payload incompatível com a topologia.");
     this.#active = true;
+    const started = performance.now();
     try {
       this.#nativeAttentionDispatches += 1;
       const header = Buffer.allocUnsafe(16); header.writeUInt32LE(request.batch, 0); header.writeUInt32LE(request.queryHeads, 4); header.writeUInt32LE(request.keyValueHeads, 8); header.writeUInt32LE(NATIVE_ATTENTION_FLAG, 12);
@@ -175,7 +187,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
       await this.#write(header); await this.#write(metadata);
       for (const values of [request.query, request.key, request.value, request.mask]) await this.#write(Buffer.from(values.buffer, values.byteOffset, values.byteLength));
       return await this.#readResult(request.batch * request.querySequence, request.queryHeads * request.headDim);
-    } finally { this.#active = false; }
+    } finally { this.#nativeAttentionSeconds += (performance.now() - started) / 1000; this.#active = false; }
   }
 
   async #requestFusedPle(request: PagedFusedPleRequest): Promise<Float32Array> {
@@ -184,6 +196,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     const descriptors = [request.gateWeight, request.projectionWeight, request.normWeight, request.layerScalar].map((tensor) => this.#prepareWholeTensor(tensor));
     if (descriptors[0]!.dimensions[0] !== request.perLayerWidth || descriptors[0]!.dimensions[1] !== request.hiddenSize || descriptors[1]!.dimensions[0] !== request.hiddenSize || descriptors[1]!.dimensions[1] !== request.perLayerWidth || descriptors[2]!.dimensions[0] !== request.hiddenSize || descriptors[2]!.dimensions[1] !== 1 || descriptors[3]!.dimensions[0] !== 1 || descriptors[3]!.dimensions[1] !== 1) throw new Error("Subgrafo PLE recebeu pesos incompatíveis.");
     this.#active = true;
+    const started = performance.now();
     try {
       this.#fusedPleDispatches += 1;
       const header = Buffer.allocUnsafe(16); header.writeUInt32LE(request.rows, 0); header.writeUInt32LE(request.hiddenSize, 4); header.writeUInt32LE(request.hiddenSize, 8); header.writeUInt32LE(FUSED_PLE_FLAG, 12);
@@ -195,7 +208,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
         await this.#write(descriptor); await this.#write(entry.shard); await this.#write(entry.name);
       }
       return await this.#readResult(request.rows, request.hiddenSize);
-    } finally { this.#active = false; }
+    } finally { this.#fusedPleSeconds += (performance.now() - started) / 1000; this.#active = false; }
   }
 
   async #requestFusedPlePrelude(request: PagedFusedPlePreludeRequest): Promise<Float32Array> {
@@ -205,6 +218,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     const descriptors = [request.projectionWeight, request.normWeight].map((tensor) => this.#prepareWholeTensor(tensor));
     if (descriptors[0]!.dimensions[0] !== packedWidth || descriptors[0]!.dimensions[1] !== request.hiddenSize || descriptors[1]!.dimensions[0] !== request.perLayerWidth || descriptors[1]!.dimensions[1] !== 1) throw new Error("Prelude PLE recebeu pesos incompatíveis.");
     this.#active = true;
+    const started = performance.now();
     try {
       this.#fusedPlePreludeDispatches += 1;
       const header = Buffer.allocUnsafe(16); header.writeUInt32LE(request.rows, 0); header.writeUInt32LE(packedWidth, 4); header.writeUInt32LE(request.hiddenSize, 8); header.writeUInt32LE(FUSED_PLE_PRELUDE_FLAG, 12);
@@ -218,7 +232,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
         await this.#write(descriptor); await this.#write(entry.shard); await this.#write(entry.name);
       }
       return await this.#readResult(request.rows, packedWidth);
-    } finally { this.#active = false; }
+    } finally { this.#fusedPlePreludeSeconds += (performance.now() - started) / 1000; this.#active = false; }
   }
 
   async #requestFusedAttention(request: PagedFusedAttentionRequest): Promise<PagedFusedAttentionResult> {
@@ -234,6 +248,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     if (request.input.length !== inputElements || request.positions.length !== request.batch * request.querySequence || request.mask.length !== maskElements || request.sourceKey.length !== sourceElements || request.sourceValue.length !== sourceElements || request.mask.some((value) => Number.isNaN(value) || value === Infinity) || !Number.isFinite(request.epsilon) || request.epsilon <= 0 || !Number.isFinite(request.scale) || !Number.isFinite(request.theta) || request.theta <= 0 || !Number.isFinite(request.proportionalFactor) || request.proportionalFactor <= 0 || (request.rounding !== "bf16" && request.rounding !== "real")) throw new Error("Subgrafo de attention recebeu payload inválido.");
     const descriptors = [request.queryWeight, request.queryNorm, request.outputWeight, ...(request.producesKeyValue ? [request.keyWeight!, request.keyNorm!, ...(request.valueWeight ? [request.valueWeight] : [])] : [])].map((tensor) => this.#prepareWholeTensor(tensor));
     this.#active = true;
+    const started = performance.now();
     try {
       this.#fusedAttentionDispatches += 1;
       const header = Buffer.allocUnsafe(16); header.writeUInt32LE(request.batch, 0); header.writeUInt32LE(request.queryHeads, 4); header.writeUInt32LE(request.keyValueHeads, 8); header.writeUInt32LE(FUSED_ATTENTION_FLAG, 12);
@@ -255,7 +270,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
       const key = await this.#readResult(request.batch * request.keyValueHeads * totalKeySequence, request.headDim);
       const value = await this.#readResult(request.batch * request.keyValueHeads * totalKeySequence, request.headDim);
       return { projected, key, value };
-    } finally { this.#active = false; }
+    } finally { this.#fusedAttentionSeconds += (performance.now() - started) / 1000; this.#active = false; }
   }
 
   #prepareWholeTensor(tensor: TensorInfo) {
@@ -294,8 +309,8 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     return { dtype, outputCount, inFeatures: inFeatures!, byteOffset, byteLength, startOutput, shard, name };
   }
 
-  dispatchMetrics(): { referenceDispatches: number; wholeNativeBf16Dispatches: number; batchDispatches: number; batchedProjectionTiles: number; fusedMlpDispatches: number; fusedPleDispatches: number; fusedPlePreludeDispatches: number; nativeAttentionDispatches: number; fusedAttentionDispatches: number } {
-    return { referenceDispatches: this.#referenceDispatches, wholeNativeBf16Dispatches: this.#wholeNativeBf16Dispatches, batchDispatches: this.#batchDispatches, batchedProjectionTiles: this.#batchedProjectionTiles, fusedMlpDispatches: this.#fusedMlpDispatches, fusedPleDispatches: this.#fusedPleDispatches, fusedPlePreludeDispatches: this.#fusedPlePreludeDispatches, nativeAttentionDispatches: this.#nativeAttentionDispatches, fusedAttentionDispatches: this.#fusedAttentionDispatches };
+  dispatchMetrics(): { referenceDispatches: number; wholeNativeBf16Dispatches: number; batchDispatches: number; batchedProjectionTiles: number; fusedMlpDispatches: number; fusedPleDispatches: number; fusedPlePreludeDispatches: number; nativeAttentionDispatches: number; fusedAttentionDispatches: number; referenceSeconds: number; batchSeconds: number; fusedMlpSeconds: number; fusedPleSeconds: number; fusedPlePreludeSeconds: number; nativeAttentionSeconds: number; fusedAttentionSeconds: number } {
+    return { referenceDispatches: this.#referenceDispatches, wholeNativeBf16Dispatches: this.#wholeNativeBf16Dispatches, batchDispatches: this.#batchDispatches, batchedProjectionTiles: this.#batchedProjectionTiles, fusedMlpDispatches: this.#fusedMlpDispatches, fusedPleDispatches: this.#fusedPleDispatches, fusedPlePreludeDispatches: this.#fusedPlePreludeDispatches, nativeAttentionDispatches: this.#nativeAttentionDispatches, fusedAttentionDispatches: this.#fusedAttentionDispatches, referenceSeconds: this.#referenceSeconds, batchSeconds: this.#batchSeconds, fusedMlpSeconds: this.#fusedMlpSeconds, fusedPleSeconds: this.#fusedPleSeconds, fusedPlePreludeSeconds: this.#fusedPlePreludeSeconds, nativeAttentionSeconds: this.#nativeAttentionSeconds, fusedAttentionSeconds: this.#fusedAttentionSeconds };
   }
 
   async #readResult(rows: number, outputCount: number): Promise<Float32Array> {

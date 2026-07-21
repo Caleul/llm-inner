@@ -71,6 +71,13 @@ async function generate(inputIds: number[], maxNewTokens: number): Promise<Recor
     nativeAttentionDispatches: dispatchesAfter.nativeAttentionDispatches - dispatchesBefore.nativeAttentionDispatches,
     fusedAttentionRounding: args.fusedAttentionRounding,
     fusedAttentionDispatches: dispatchesAfter.fusedAttentionDispatches - dispatchesBefore.fusedAttentionDispatches,
+    referenceSeconds: dispatchesAfter.referenceSeconds - dispatchesBefore.referenceSeconds,
+    batchSeconds: dispatchesAfter.batchSeconds - dispatchesBefore.batchSeconds,
+    fusedMlpSeconds: dispatchesAfter.fusedMlpSeconds - dispatchesBefore.fusedMlpSeconds,
+    fusedPleSeconds: dispatchesAfter.fusedPleSeconds - dispatchesBefore.fusedPleSeconds,
+    fusedPlePreludeSeconds: dispatchesAfter.fusedPlePreludeSeconds - dispatchesBefore.fusedPlePreludeSeconds,
+    nativeAttentionSeconds: dispatchesAfter.nativeAttentionSeconds - dispatchesBefore.nativeAttentionSeconds,
+    fusedAttentionSeconds: dispatchesAfter.fusedAttentionSeconds - dispatchesBefore.fusedAttentionSeconds,
     processRssBytes: process.memoryUsage().rss, processMaxRssKiB: process.resourceUsage().maxRSS,
   };
 }
@@ -83,7 +90,7 @@ function validateTokens(value: unknown): number {
   if (!Number.isSafeInteger(value) || (value as number) < 1 || (value as number) > 64) throw new Error("maxNewTokens deve estar entre 1 e 64.");
   return value as number;
 }
-function parseArguments(argv: string[]): { artifact: string; binaryPool: string; python: string; linearHelper: string; mlxHelper: string; linearBackend: "pytorch" | "mlx"; fusedMlpRounding: "off" | "bf16" | "real"; fusedPleRounding: "off" | "bf16" | "real"; fusedPlePreludeRounding: "off" | "bf16" | "real"; finalHeadCompute: "f32" | "native-bf16" | "native-bf16-whole"; nativeAttentionRounding: "off" | "bf16" | "real"; fusedAttentionRounding: "off" | "bf16" | "real"; threads: number; maxReadBytes: number; finalHeadMaxReadBytes: number } {
+function parseArguments(argv: string[]): { artifact: string; binaryPool: string; python: string; linearHelper: string; mlxHelper: string; linearBackend: "pytorch" | "mlx"; fusedMlpRounding: "off" | "bf16" | "real" | "native-bf16"; fusedPleRounding: "off" | "bf16" | "real"; fusedPlePreludeRounding: "off" | "bf16" | "real"; finalHeadCompute: "f32" | "native-bf16" | "native-bf16-whole"; nativeAttentionRounding: "off" | "bf16" | "real"; fusedAttentionRounding: "off" | "bf16" | "real"; threads: number; maxReadBytes: number; finalHeadMaxReadBytes: number } {
   const values = new Map<string, string>();
   for (let index = 0; index < argv.length; index += 2) { const flag = argv[index], value = argv[index + 1]; if (!flag?.startsWith("--") || value === undefined || values.has(flag)) throw new Error(`Argumento inválido: ${flag ?? "fim"}.`); values.set(flag, value); }
   const known = new Set(["--artifact", "--binary-pool", "--python", "--linear-helper", "--mlx-helper", "--linear-backend", "--fused-mlp", "--fused-ple", "--fused-ple-prelude", "--final-head", "--final-head-read-mib", "--native-attention", "--fused-attention", "--threads", "--max-read-mib"]); for (const flag of values.keys()) if (!known.has(flag)) throw new Error(`Flag desconhecida: ${flag}.`);
@@ -92,7 +99,8 @@ function parseArguments(argv: string[]): { artifact: string; binaryPool: string;
   const linearBackend = values.get("--linear-backend") ?? "pytorch"; if (linearBackend !== "pytorch" && linearBackend !== "mlx") throw new Error("--linear-backend deve ser pytorch ou mlx.");
   const finalHeadReadMiB = Number(values.get("--final-head-read-mib") ?? (linearBackend === "pytorch" ? "32" : String(maxReadMiB)));
   if (!Number.isSafeInteger(threads) || threads < 1 || threads > 256 || !Number.isSafeInteger(maxReadMiB) || maxReadMiB < 1 || maxReadMiB > 1024 || !Number.isSafeInteger(finalHeadReadMiB) || finalHeadReadMiB < 1 || finalHeadReadMiB > 1024) throw new Error("threads/max-read-mib/final-head-read-mib inválidos.");
-  const fusedMlpRounding = values.get("--fused-mlp") ?? "real"; if (fusedMlpRounding !== "off" && fusedMlpRounding !== "bf16" && fusedMlpRounding !== "real") throw new Error("--fused-mlp deve ser off, bf16 ou real.");
+  const fusedMlpRounding = values.get("--fused-mlp") ?? (linearBackend === "pytorch" ? "native-bf16" : "real"); if (fusedMlpRounding !== "off" && fusedMlpRounding !== "bf16" && fusedMlpRounding !== "real" && fusedMlpRounding !== "native-bf16") throw new Error("--fused-mlp deve ser off, bf16, real ou native-bf16.");
+  if (linearBackend === "mlx" && fusedMlpRounding === "native-bf16") throw new Error("--fused-mlp native-bf16 requer --linear-backend pytorch.");
   const fusedPleRounding = values.get("--fused-ple") ?? (linearBackend === "pytorch" ? "bf16" : "off"); if (fusedPleRounding !== "off" && fusedPleRounding !== "bf16" && fusedPleRounding !== "real") throw new Error("--fused-ple deve ser off, bf16 ou real.");
   if (linearBackend === "mlx" && fusedPleRounding !== "off") throw new Error("--fused-ple requer --linear-backend pytorch.");
   const fusedPlePreludeRounding = values.get("--fused-ple-prelude") ?? "off"; if (fusedPlePreludeRounding !== "off" && fusedPlePreludeRounding !== "bf16" && fusedPlePreludeRounding !== "real") throw new Error("--fused-ple-prelude deve ser off, bf16 ou real.");

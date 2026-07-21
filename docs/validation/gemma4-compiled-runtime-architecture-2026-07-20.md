@@ -484,12 +484,11 @@ worker. O RSS isolado do processo direto aumentou de aproximadamente 280 MB
 para 807 MB porque três matrizes completas são ampliadas temporariamente para
 F32. Esse é um trade-off explícito de memória por throughput.
 
-O modo `real` foi promovido como padrão do backend direto por corresponder à
-simplificação sem arredondamentos internos solicitada e não reduzir o acordo de
-tokens no corpus. A interface mostra `fusedMlpRounding` e
-`fusedMlpDispatches`; `--direct-fused-mlp off|bf16|real` mantém a comparação
-reprodutível. O worker MLX também executou o subgrafo real, preservou o token
-`184` e produziu hash próprio `aa9d1d10...03669e04`.
+Naquela etapa, o modo `real` foi promovido por corresponder à simplificação sem
+arredondamentos internos e não reduzir o acordo de tokens. Ele continua como
+controle matemático explícito. A interface mostra `fusedMlpRounding` e
+`fusedMlpDispatches`; o worker MLX também executou o subgrafo real, preservou o
+token `184` e produziu hash próprio `aa9d1d10...03669e04`.
 
 Comando da MLP real com head F32 usado na comparação acima:
 
@@ -503,6 +502,49 @@ npm run calibrate:gemma4-real -- \
   --direct-final-head f32 \
   --precision f32 --rounding-policy none
 ```
+
+## MLP compilada sobre storage BF16 nativo
+
+A telemetria acumulada por classe mostrou que, depois do aquecimento, a MLP
+real ainda consumia cerca de `0,61 s` dos `1,00 s` necessários para dois tokens.
+O motivo era estrutural: cada uma das três matrizes BF16 de cada camada era
+ampliada integralmente para F32 antes dos GEMMs. O modo `native-bf16` mantém os
+pesos diretamente no `mmap`, converte somente o vetor de entrada, executa
+`gate_proj`, `up_proj`, GELU aproximada, produto e `down_proj` dentro de uma
+única chamada PyTorch BF16 e devolve o resultado ampliado para F32. Nenhuma
+cópia F32 completa dos pesos é materializada.
+
+Em quatro pedidos persistentes `[2]` de dois tokens, o primeiro serviu de
+aquecimento. Nos pedidos seguintes, a classe MLP caiu de aproximadamente
+`0,61 s` para `0,135 s`; o pedido completo caiu de aproximadamente `1,00 s`
+para `0,51–0,53 s`. Os tokens continuaram `[184,3910]`. O hash terminal mudou
+de `1f65253f...c4bdd0` para
+`9ff19b2b063fc96c7cec7e970749afc2b7b8cbc4611c3a894b60e069be2c582d`,
+registrando que o kernel nativo possui ordem de acumulação distinta do modo
+real.
+
+No corpus 8×2 instrumentado sob a mesma revisão:
+
+- controle `real`: `1,1694 token/s`, 7/8 prompts e 15/16 tokens;
+- `native-bf16`: `1,5618 token/s`, os mesmos 7/8 prompts e 15/16 tokens;
+- ganho direto: 33,55%;
+- razão do nativo contra o baseline da própria execução: `2,8140x`;
+- tempo MLP acumulado: `6,0648 s → 2,5183 s`, redução de 58,48% incluindo o
+  primeiro prompt frio.
+
+`native-bf16` passa a ser o padrão PyTorch porque preservou a taxa de acordo e
+remove a ampliação que dominava o runtime. O modo `real` permanece disponível
+para a função sem arredondamentos intermediários; `bf16` mantém o controle
+anterior com boundaries explícitas; `off` conserva as operações separadas.
+MLX permanece em `real`. A seleção é reproduzível por
+`--fused-mlp off|bf16|real|native-bf16` no worker e
+`--direct-fused-mlp ...` no comparador.
+
+Os relatórios e a interface agora também expõem tempo acumulado de referências,
+attention, MLP e PLE. Evidência persistida:
+
+- `artifacts/gemma4-three-way-calibration-8x2-real-mlp-profile-control.json`;
+- `artifacts/gemma4-three-way-calibration-8x2-native-bf16-mlp.json`.
 
 ## Subgrafo Q/K/V, RoPE, attention e projeção O
 

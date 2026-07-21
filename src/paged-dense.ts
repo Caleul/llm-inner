@@ -25,7 +25,7 @@ export interface PagedLinearTileKernel {
   multiplyStorageReferenceNativeBf16?: ((input: Float32Array, tensor: TensorInfo, startOutput: number, outputCount: number, rows: number) => Promise<Float32Array>) | undefined;
   multiplyWholeStorageReferenceNativeBf16?: ((input: Float32Array, tensor: TensorInfo, rows: number) => Promise<Float32Array>) | undefined;
   multiplyStorageReferences?: ((input: Float32Array, requests: readonly PagedLinearStorageReference[], rows: number) => Promise<readonly Float32Array[]>) | undefined;
-  fusedGatedMlpStorageReference?: ((input: Float32Array, gate: TensorInfo, up: TensorInfo, down: TensorInfo, rows: number, rounding: "bf16" | "real") => Promise<Float32Array>) | undefined;
+  fusedGatedMlpStorageReference?: ((input: Float32Array, gate: TensorInfo, up: TensorInfo, down: TensorInfo, rows: number, rounding: "bf16" | "real" | "native-bf16") => Promise<Float32Array>) | undefined;
   fusedPleStorageReferences?: ((request: PagedFusedPleRequest) => Promise<Float32Array>) | undefined;
   fusedPlePreludeStorageReference?: ((request: PagedFusedPlePreludeRequest) => Promise<Float32Array>) | undefined;
   attention?: ((request: PagedNativeAttentionRequest) => Promise<Float32Array>) | undefined;

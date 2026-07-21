@@ -55,7 +55,7 @@ export interface Gemma4PagedTextOptions {
   /** Optional compiled binary constant-pool reader replacing base64 payload reads. */
   tensorReader?: Pick<LiteralTensorReader, "readTensorBytesRange">;
   /** Opt-in whole-MLP native subgraph; real removes the internal BF16 boundaries. */
-  fusedMlpRounding?: "bf16" | "real";
+  fusedMlpRounding?: "bf16" | "real" | "native-bf16";
   /** Final vocabulary projection compute path; BF16 is the allowed final rounding boundary. */
   finalHeadCompute?: "f32" | "native-bf16" | "native-bf16-whole";
   /** Optional native QK/softmax/PV kernel; real removes its internal BF16 boundaries. */
@@ -326,7 +326,7 @@ async function executePagedOperations(
             const outputValues = await options.linearTileKernel.fusedGatedMlpStorageReference(input.values, tensorInfo(artifact, operation.weight), tensorInfo(artifact, fused.up.weight), tensorInfo(artifact, fused.down.weight), rows, options.fusedMlpRounding);
             if (outputValues.length !== rows * fused.down.outFeatures || outputValues.some((entry) => !Number.isFinite(entry))) throw new Error(`${options.linearTileKernel.backend}: subgrafo MLP retornou saída inválida.`);
             const output = { shape: [...input.shape.slice(0, -1), fused.down.outFeatures], values: outputValues };
-            if (options.fusedMlpRounding === "bf16") store(fused.down, output); else values.set(fused.down.output, output);
+            if (options.fusedMlpRounding === "real") values.set(fused.down.output, output); else store(fused.down, output);
             operationIndex += 4;
             break;
           }
