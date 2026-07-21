@@ -73,7 +73,8 @@ def read_whole_tensor(pool, files, mappings, expected_shape, widen=True, require
 
 
 def rms_norm_real(tensor, weight, epsilon):
-    scale = torch.rsqrt(torch.mean(tensor * tensor, dim=-1, keepdim=True) + torch.tensor(epsilon, dtype=torch.float32))
+    mean_squared = torch.mean(tensor * tensor, dim=-1, keepdim=True) + torch.tensor(epsilon, dtype=torch.float32)
+    scale = torch.pow(mean_squared, torch.tensor(-0.5, dtype=torch.float32))
     normalized = tensor * scale
     return normalized if weight is None else normalized * weight
 

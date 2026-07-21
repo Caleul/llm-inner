@@ -273,6 +273,47 @@ npm run calibrate:gemma4-real -- \
   --precision f32 --rounding-policy none
 ```
 
+## RMSNorm fiel e fechamento do corpus híbrido 32×4
+
+O único desvio raiz restante do seletor híbrido foi isolado no decode com KV
+cache de `Traduza para inglês: boa noite`. A referência incremental escolhia o
+token `1983` com logit `21,25`, acima do token `512` em `21,125`; o verificador
+PyTorch compilado empatava ambos em `21,125` e, pelo desempate do argmax,
+selecionava `512`.
+
+O rastreamento por camada confirmou embeddings de entrada bit a bit idênticos
+e a primeira diferença já na camada 0. A causa era uma substituição apenas
+algebricamente equivalente no worker: `torch.rsqrt(mean_squared)` no lugar do
+`torch.pow(mean_squared, -0.5)` usado deliberadamente pelo RMSNorm do Gemma 4
+em Transformers. Essa troca altera a redução F32 em ULPs e pode atravessar uma
+fronteira BF16 em camadas posteriores. O worker PyTorch agora usa a mesma
+operação `pow(-0.5)` em todos os RMSNorms; não há regra por prompt, token,
+camada ou dimensão.
+
+No controle sensível 2×4, `A capital de Portugal é` e
+`Traduza para inglês: boa noite` fecharam `8/8` decisões, `2/2` prompts e zero
+divergências raiz. No corpus versionado completo de 32 prompts × 4 tokens:
+
+- o seletor híbrido preservou `32/32` prompts e `128/128` tokens do
+  Transformers eager BF16;
+- não houve divergência raiz nem passo posterior a divergência;
+- três prompts acionaram o verificador PyTorch (`9,375%`), mantendo o Metal
+  como caminho selecionado nos outros 29;
+- o erro absoluto médio no logit argmax foi `0,0439453125`, com máximo `0,25`;
+- o overlap top-10 médio foi `0,965625`;
+- o throughput híbrido foi `2,3082 token/s` contra `0,9427 token/s` do
+  baseline na mesma execução, razão `2,4486x`.
+
+Essa prova fecha a divergência observada no corpus, não uma garantia universal
+para qualquer prompt ou comprimento. A interface continua expondo margem,
+fallback, backend selecionado, logits e métricas para que novos casos sensíveis
+falhem de modo visível e mensurável.
+
+Evidência:
+
+- `artifacts/gemma4-three-way-calibration-32x4-mlx-hybrid-margin0-rms-pow.json`;
+- `artifacts/gemma4-calibration-prompts-32.json`.
+
 ## Prelude PLE compilado com redução reproduzível
 
 O backend MLX absorve agora o prelude PLE completo em uma única requisição
