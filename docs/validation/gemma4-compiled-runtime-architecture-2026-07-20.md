@@ -117,6 +117,31 @@ autenticados, mas ainda não são interpretados diretamente por um executor
 próprio. Remover `model.safetensors` e medir a execução do DAG são condições
 necessárias para alegar a LLM efetivamente compilada no formato final.
 
+## Primeiro replay sem checkpoint
+
+O executor existente `gemma4-paged-text.ts` foi aplicado ao artefato literal
+real com a entrada mínima `[2]`. Ele acessou somente
+`artifacts/gemma4-e4b-dense.literal.json`, produziu logits completos de shape
+`[1,1,262144]` e caches das 24 camadas produtoras de KV. O relatório declara
+explicitamente `sourceCheckpointAccessed: false`.
+
+Esse replay levou `126.290 ms` e atingiu `2.639.136 KiB` de RSS máximo. A causa
+observada está em `pagedLinearF32`: produtos densos são executados como loops
+escalares JavaScript, embora os pesos sejam corretamente lidos em páginas.
+Conectar esse caminho diretamente à interface provaria independência do
+checkpoint, mas violaria o objetivo de desempenho. O próximo backend deve
+preservar o leitor literal e substituir os lineares por tiles enviados a um
+kernel nativo persistente e multithread; a mesma API paginada continua sendo a
+fronteira de constant pool.
+
+O replay foi repetido com relatório de seleção terminal. Ele retornou
+`terminalArgmax: 184`; Transformers BF16 também selecionou `184`. Os dez maiores
+logits coincidiram valor por valor, inclusive o empate `18,875` dos tokens `184`
+e `198`. A repetição levou `126.147 ms` e `2.742.592 KiB` de RSS máximo. Isso
+prova paridade do topo para esta entrada mínima, mas não amplia essa evidência
+para prompts arbitrários nem resolve o status de fidelidade não verificada
+declarado pelo artefato.
+
 A UI real foi exercitada via Playwright contra o bundle. Ela gerou dois tokens,
 mostrou texto, ids, igualdade do argmax, divergência dos logits, erro máximo,
 tokens/s, razão de desempenho, threads e pico RSS.

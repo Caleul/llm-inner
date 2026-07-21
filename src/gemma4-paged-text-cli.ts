@@ -3,6 +3,7 @@ import { writeFile } from "node:fs/promises";
 import { openGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
 import type { Gemma4LiteralGenerationAssignmentExecution, Gemma4LiteralGenerationValue } from "./gemma4-literal-generation.js";
 import { executeGemma4PagedTextLiteralF32, generateGemma4PagedTextLiteralF32 } from "./gemma4-paged-text.js";
+import { rankGemma4TerminalLogits } from "./gemma4-terminal-logits.js";
 import type { DenseF32Tensor, ReferenceF32ExecutionResult, ReferenceF32KeyValueCache } from "./types.js";
 
 interface Arguments {
@@ -25,6 +26,7 @@ try {
     ? await executeGemma4PagedTextLiteralF32(artifact, request, { maxReadBytes: args.maxReadBytes, allowUnverifiedFidelity: args.allowUnverifiedFidelity })
     : await generateGemma4PagedTextLiteralF32(artifact, { ...request, maxNewTokens: args.maxNewTokens, ...(args.eosTokenId === undefined ? {} : { eosTokenId: args.eosTokenId }) }, { maxReadBytes: args.maxReadBytes, allowUnverifiedFidelity: args.allowUnverifiedFidelity });
   const logits = result.logits;
+  const terminal = rankGemma4TerminalLogits(logits);
   const hash = createHash("sha256").update(Buffer.from(logits.values.buffer, logits.values.byteOffset, logits.values.byteLength)).digest("hex");
   const report = {
     kind: "gemma4-paged-text-literal-replay",
@@ -42,6 +44,8 @@ try {
     ...("assignmentExecutions" in result ? { generationProgramExecution: result.assignmentExecutions.map(summarizeAssignmentExecution) } : {}),
     logitsShape: logits.shape,
     logitsSha256: hash,
+    terminalArgmax: terminal[0]!.tokenId,
+    terminalTopLogits: terminal,
     kvProducerLayers: [...result.pastKeyValues.keys()],
     elapsedMilliseconds: Math.round((performance.now() - started) * 1000) / 1000,
     rssBefore,
