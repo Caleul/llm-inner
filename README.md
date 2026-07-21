@@ -2845,6 +2845,27 @@ compilado durante 32 prompts × 4 tokens. O runtime selecionado preservou
 `model.safetensors` empacotado e a fonte original possuem o mesmo SHA-256
 `43fb96cec3045b72852c787540300dc5b258634b7a025f7c80355ac0788b9651`.
 
+O `lm_head` Q8 também possui um caminho autocontido de decisão certificada.
+Na carga, o worker calcula o resíduo entre cada peso BF16 e sua reconstrução
+Q8 por grupo. Para cada token, limita o erro do produto escalar pelo menor dos
+limites de Hölder `||x_g||₁ ||e_g||∞` e Cauchy-Schwarz
+`||x_g||₂ ||e_g||₂`, somados entre os grupos. Como `tanh`, o softcap e o
+arredondamento BF16 são monotônicos, o limite superior é propagado até o logit
+final. O argmax Q8 só é aceito quando o logit BF16 exato do candidato é
+estritamente maior que todos esses limites superiores; caso contrário, o
+próprio worker calcula o `lm_head` BF16 completo, sem consultar o Transformers
+ou outro modelo-oráculo. A interface expõe as duas contagens como
+`quantizedHeadCertifiedSteps` e `quantizedHeadExactFallbackSteps`.
+
+Na calibração local de 21 de julho de 2026 com os 32 prompts versionados × 4
+tokens, Q8 em `gate+up` e no `lm_head`, 98/128 decisões foram certificadas e
+30/128 usaram o fallback BF16 local. O resultado preservou 32/32 prompts e
+128/128 tokens, com zero divergências raiz. O caminho direto somou 7,3714 s,
+ou 17,3645 tokens/s, contra 0,7096 tokens/s do original na mesma execução
+(24,4693×). Isso é evidência para esse corpus, não prova universal para prompts
+arbitrários; a interface continua executando e comparando ambos para cada
+entrada solicitada.
+
 ### Gerador de fórmulas fisicamente planas
 
 `generateGemma4FlatFormulaObject` substitui recursivamente funções de operação,

@@ -70,6 +70,8 @@ interface ThreeWayCase {
     gpuRankedTokenSteps?: number;
     fullLogitTransfersAvoided?: number;
     terminalLogitVectorBytes?: number;
+    quantizedHeadCertifiedSteps?: number;
+    quantizedHeadExactFallbackSteps?: number;
     ropeFactorBuilds?: number;
     ropeFactorBuildsAvoided?: number;
     topologyMaskBuilds?: number;
@@ -292,6 +294,8 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.gpuRankedTokenSteps === undefined ? {} : { gpuRankedTokenSteps: entry.direct.gpuRankedTokenSteps }),
         ...(entry.direct.fullLogitTransfersAvoided === undefined ? {} : { fullLogitTransfersAvoided: entry.direct.fullLogitTransfersAvoided }),
         ...(entry.direct.terminalLogitVectorBytes === undefined ? {} : { terminalLogitVectorBytes: entry.direct.terminalLogitVectorBytes }),
+        ...(entry.direct.quantizedHeadCertifiedSteps === undefined ? {} : { quantizedHeadCertifiedSteps: entry.direct.quantizedHeadCertifiedSteps }),
+        ...(entry.direct.quantizedHeadExactFallbackSteps === undefined ? {} : { quantizedHeadExactFallbackSteps: entry.direct.quantizedHeadExactFallbackSteps }),
         ...(entry.direct.ropeFactorBuilds === undefined ? {} : { ropeFactorBuilds: entry.direct.ropeFactorBuilds }),
         ...(entry.direct.ropeFactorBuildsAvoided === undefined ? {} : { ropeFactorBuildsAvoided: entry.direct.ropeFactorBuildsAvoided }),
         ...(entry.direct.topologyMaskBuilds === undefined ? {} : { topologyMaskBuilds: entry.direct.topologyMaskBuilds }),

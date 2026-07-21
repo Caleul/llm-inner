@@ -317,13 +317,14 @@ def read_decoder_layer_weights(pool, shards, hidden_size, config):
 
 def matrix_contract(value):
     if isinstance(value, tuple):
-        return (tuple((tuple(entry.shape), str(entry.dtype)) for entry in value[:3]), value[3], value[4])
+        extra = tuple((tuple(entry.shape), str(entry.dtype)) for entry in value[5:])
+        return (tuple((tuple(entry.shape), str(entry.dtype)) for entry in value[:3]), value[3], value[4], extra)
     return (tuple(value.shape), str(value.dtype))
 
 
 def matrix_project(value, weight):
     if isinstance(weight, tuple):
-        quantized, scales, biases, group_size, bits = weight
+        quantized, scales, biases, group_size, bits = weight[:5]
         return mx.quantized_matmul(value, quantized, scales, biases, transpose=True, group_size=group_size, bits=bits).astype(mx.float32)
     return mx.matmul(value, weight.T).astype(mx.float32)
 
@@ -421,8 +422,9 @@ def compile_incremental_decoder_step(pool, shards, layer_plans, epilogue, roundi
                 produced[layer_index] = (key, value)
                 next_keys.append(key)
                 next_values.append(value)
-        logits = execute_decoder_epilogue(result, epilogue, rounding=rounding)
-        return result, logits, tuple(next_keys), tuple(next_values), all_valid
+        raw_logits = execute_decoder_head(result, epilogue, rounding=rounding)
+        logits = finalize_decoder_logits(raw_logits, epilogue, rounding=rounding)
+        return result, raw_logits, logits, tuple(next_keys), tuple(next_values), all_valid
 
     return mx.compile(execute, shapeless=True), producer_layers
 
@@ -458,18 +460,43 @@ def execute_decoder_epilogue(result, epilogue, terminal_only=True, rounding="nat
     return finalize_decoder_logits(execute_decoder_head(result, epilogue, terminal_only, rounding), epilogue, rounding)
 
 
-def incremental_topology_mask(config, key_sequence, absolute_position):
-    values = np.zeros((1, config["mask_heads"], 1, key_sequence), dtype=np.float32)
-    first_key = max(0, absolute_position - config["sliding_window"] + 1) if config["sliding_window"] else 0
-    last_key = min(absolute_position, key_sequence - 1) if config["causal"] else key_sequence - 1
-    if first_key:
-        values[..., :first_key] = -np.inf
-    if last_key + 1 < key_sequence:
-        values[..., last_key + 1:] = -np.inf
-    return mx.array(values)
+def build_quantized_head(head_weight, group_size, bits, chunk_rows=4096):
+    quantized, scales, biases = mx.quantize(head_weight, group_size=group_size, bits=bits)
+    mx.eval(quantized, scales, biases)
+    error_chunks = []
+    for first in range(0, head_weight.shape[0], chunk_rows):
+        last = min(head_weight.shape[0], first + chunk_rows)
+        dequantized = mx.dequantize(quantized[first:last], scales[first:last], biases[first:last], group_size=group_size, bits=bits, dtype=mx.float32)
+        exact = head_weight[first:last].astype(mx.float32)
+        residual = (exact - dequantized).reshape((last - first, head_weight.shape[1] // group_size, group_size))
+        group_max_errors = mx.max(mx.abs(residual), axis=2)
+        group_l2_errors = mx.sqrt(mx.sum(residual * residual, axis=2))
+        mx.eval(group_max_errors, group_l2_errors)
+        error_chunks.append((group_max_errors, group_l2_errors))
+    max_errors = mx.concatenate(tuple(entry[0] for entry in error_chunks), axis=0)
+    l2_errors = mx.concatenate(tuple(entry[1] for entry in error_chunks), axis=0)
+    mx.eval(max_errors, l2_errors)
+    return quantized, scales, biases, group_size, bits, head_weight, max_errors, l2_errors
 
 
-def rank_terminal_logits(logits, top_k):
+def quantized_head_error_bounds(result, epilogue, rounding):
+    norm_weight, head_weight, norm_epsilon, softcap = epilogue
+    if not isinstance(head_weight, tuple) or len(head_weight) != 8:
+        return None
+    group_size, exact_weight, max_errors, l2_errors = head_weight[3], head_weight[5], head_weight[6], head_weight[7]
+    real = rounding == "real"
+    boundary = (lambda value: value) if real else (lambda value: value.astype(mx.bfloat16).astype(mx.float32))
+    final_hidden = boundary(rms_norm_real(result[:, -1:, :], norm_weight, norm_epsilon))
+    head_input = final_hidden if real else final_hidden.astype(mx.bfloat16)
+    grouped = head_input.astype(mx.float32).reshape((1, 1, exact_weight.shape[1] // group_size, group_size))
+    grouped_l1 = mx.sum(mx.abs(grouped), axis=3)
+    grouped_l2 = mx.sqrt(mx.sum(grouped * grouped, axis=3))
+    linf_bound = mx.matmul(grouped_l1, max_errors.T)
+    l2_bound = mx.matmul(grouped_l2, l2_errors.T)
+    return mx.minimum(linf_bound, l2_bound)
+
+
+def rank_exact_logits(logits, top_k):
     values = logits.reshape((-1,))
     selected_value = mx.argmax(values)
     candidates_value = mx.argpartition(values, -top_k)[-top_k:]
@@ -485,6 +512,53 @@ def rank_terminal_logits(logits, top_k):
     return selected, candidates[ordered], candidate_logits[ordered]
 
 
+def incremental_topology_mask(config, key_sequence, absolute_position):
+    values = np.zeros((1, config["mask_heads"], 1, key_sequence), dtype=np.float32)
+    first_key = max(0, absolute_position - config["sliding_window"] + 1) if config["sliding_window"] else 0
+    last_key = min(absolute_position, key_sequence - 1) if config["causal"] else key_sequence - 1
+    if first_key:
+        values[..., :first_key] = -np.inf
+    if last_key + 1 < key_sequence:
+        values[..., last_key + 1:] = -np.inf
+    return mx.array(values)
+
+
+def rank_terminal_logits(logits, raw_logits, top_k, result=None, epilogue=None, rounding="native-bf16"):
+    error_bounds = None if result is None or epilogue is None else quantized_head_error_bounds(result, epilogue, rounding)
+    if error_bounds is None:
+        selected, candidates, candidate_logits = rank_exact_logits(logits, top_k)
+        return selected, candidates, candidate_logits, logits, False, False
+    values = logits.reshape((-1,))
+    certificate_k = min(values.size, max(top_k, 16))
+    candidates_value = mx.argpartition(values, -certificate_k)[-certificate_k:]
+    exact_weight = epilogue[1][5]
+    candidate_weight = mx.take(exact_weight, candidates_value, axis=0)
+    exact_epilogue = (epilogue[0], candidate_weight, epilogue[2], epilogue[3])
+    exact_candidate_raw = execute_decoder_head(result, exact_epilogue, rounding=rounding)
+    exact_candidate_values = finalize_decoder_logits(exact_candidate_raw, exact_epilogue, rounding=rounding).reshape((-1,))
+    best_offset = mx.argmax(exact_candidate_values)
+    best_token = candidates_value[best_offset]
+    best_logit = exact_candidate_values[best_offset]
+    upper_bounds = finalize_decoder_logits(raw_logits + error_bounds, epilogue, rounding=rounding).reshape((-1,))
+    vocabulary = mx.arange(values.size, dtype=mx.int32)
+    maximum_other = mx.max(mx.where(vocabulary == best_token, mx.array(-math.inf, dtype=mx.float32), upper_bounds))
+    finite_value = mx.all(mx.isfinite(values)) & mx.all(mx.isfinite(error_bounds)) & mx.all(mx.isfinite(exact_candidate_values))
+    mx.eval(best_token, best_logit, maximum_other, candidates_value, exact_candidate_values, finite_value)
+    if not bool(np.asarray(finite_value).item()):
+        raise ValueError("MLX certified quantized head produced non-finite values")
+    certified = float(np.asarray(best_logit).item()) > float(np.asarray(maximum_other).item())
+    if not certified:
+        exact_epilogue = (epilogue[0], exact_weight, epilogue[2], epilogue[3])
+        exact_logits = execute_decoder_epilogue(result, exact_epilogue, rounding=rounding)
+        selected, candidates, candidate_logits = rank_exact_logits(exact_logits, top_k)
+        return selected, candidates, candidate_logits, exact_logits, False, True
+    candidate_ids = np.asarray(candidates_value, dtype=np.int32)
+    exact_values = np.asarray(exact_candidate_values, dtype=np.float32)
+    ordered = np.lexsort((candidate_ids, -exact_values))[:top_k]
+    selected = int(np.asarray(best_token).item())
+    return selected, candidate_ids[ordered], exact_values[ordered], logits, True, False
+
+
 def prefill_topology_mask(config, query_sequence):
     values = np.zeros((1, config["mask_heads"], query_sequence, query_sequence), dtype=np.float32)
     for query in range(query_sequence):
@@ -497,7 +571,7 @@ def prefill_topology_mask(config, query_sequence):
     return mx.array(values)
 
 
-def emit_resident_generation(model, result, produced_caches, logits, first_forward_seconds, max_new_tokens, eos_token_id, top_k, cache_hits_before, input_token_ids, session_id=None, stream=False, prefix_tokens_reused=0, prefill_tokens_computed=None, initial_rope_factor_context=None, initial_topology_mask_builds=0, initial_topology_mask_uses=0, initial_kv_prefix_validation_scans_avoided=0):
+def emit_resident_generation(model, result, produced_caches, raw_logits, logits, first_forward_seconds, max_new_tokens, eos_token_id, top_k, cache_hits_before, input_token_ids, session_id=None, stream=False, prefix_tokens_reused=0, prefill_tokens_computed=None, initial_rope_factor_context=None, initial_topology_mask_builds=0, initial_topology_mask_uses=0, initial_kv_prefix_validation_scans_avoided=0):
     global _resident_generation_session
     generated_ids, forward_seconds, top_ids, top_values = [], [first_forward_seconds], [], []
     terminal_values = None
@@ -505,8 +579,11 @@ def emit_resident_generation(model, result, produced_caches, logits, first_forwa
     rope_factor_uses = 0 if initial_rope_factor_context is None else initial_rope_factor_context["uses"]
     topology_mask_builds, topology_mask_uses = initial_topology_mask_builds, initial_topology_mask_uses
     kv_prefix_validation_scans_avoided = initial_kv_prefix_validation_scans_avoided
+    quantized_head_certified_steps, quantized_head_exact_fallback_steps = 0, 0
     while len(generated_ids) < max_new_tokens:
-        token_id, ranked_ids, ranked_values = rank_terminal_logits(logits, top_k)
+        token_id, ranked_ids, ranked_values, selected_logits, certified, exact_fallback = rank_terminal_logits(logits, raw_logits, top_k, result, model["epilogue"], model["rounding"])
+        quantized_head_certified_steps += int(certified)
+        quantized_head_exact_fallback_steps += int(exact_fallback)
         generated_ids.append(token_id)
         top_ids.append(ranked_ids)
         top_values.append(ranked_values)
@@ -516,7 +593,7 @@ def emit_resident_generation(model, result, produced_caches, logits, first_forwa
             sys.stdout.buffer.write(ranked_values.astype(np.float32).tobytes(order="C"))
             sys.stdout.buffer.flush()
         if len(generated_ids) == max_new_tokens or token_id == eos_token_id:
-            terminal_values = np.asarray(logits, dtype=np.float32).reshape(-1)
+            terminal_values = np.asarray(selected_logits, dtype=np.float32).reshape(-1)
             break
         incremental_started = time.perf_counter()
         incremental_ids = np.array([[token_id]], dtype=np.int32)
@@ -539,12 +616,12 @@ def emit_resident_generation(model, result, produced_caches, logits, first_forwa
         source_keys = tuple(produced_caches[layer][0] for layer in model["producer_layers"])
         source_values = tuple(produced_caches[layer][1] for layer in model["producer_layers"])
         per_layer_inputs = tuple(all_per_layer[:, :, layer_index, :] for layer_index in range(len(model["layer_plans"])))
-        result, logits, next_keys, next_values, all_valid = model["execute_incremental_decoder_step"](result, per_layer_inputs, positions, source_keys, source_values, tuple(layer_masks))
+        result, raw_logits, logits, next_keys, next_values, all_valid = model["execute_incremental_decoder_step"](result, per_layer_inputs, positions, source_keys, source_values, tuple(layer_masks))
         produced_caches = {layer: (next_keys[offset], next_values[offset]) for offset, layer in enumerate(model["producer_layers"])}
         rope_factor_builds += model["rope_factor_builds_per_step"]
         rope_factor_uses += model["rope_factor_uses_per_step"]
         kv_prefix_validation_scans_avoided += sum(1 for key in source_keys if key.shape[2])
-        evaluation = [logits, all_valid]
+        evaluation = [raw_logits, logits, all_valid]
         for key, value in produced_caches.values():
             evaluation.extend((key, value))
         mx.eval(*evaluation)
@@ -566,7 +643,7 @@ def emit_resident_generation(model, result, produced_caches, logits, first_forwa
     computed = len(np.asarray(input_token_ids).reshape(-1)) if prefill_tokens_computed is None else prefill_tokens_computed
     cached_context_tokens = len(_resident_generation_session["token_ids"]) if session_id is not None else len(np.asarray(input_token_ids).reshape(-1)) + len(generated_ids) - 1
     compiled_incremental_decoder_steps = max(0, len(generated_ids) - 1)
-    profile = np.array((1, len(generated_ids), max(0, len(generated_ids) - 1), terminal_values.nbytes, rope_factor_builds, max(0, rope_factor_uses - rope_factor_builds), topology_mask_builds, max(0, topology_mask_uses - topology_mask_builds), len(generated_ids), kv_prefix_validation_scans_avoided, compiled_incremental_decoder_steps, 1 if model["incremental_compiler_cache_hit"] else 0, _widened_tensor_cache_hits - cache_hits_before, len(_widened_tensor_cache), _widened_tensor_cache_bytes, resident_kv_bytes, prefix_tokens_reused, computed, 1 if prefix_tokens_reused else 0, cached_context_tokens), dtype=np.float32)
+    profile = np.array((1, len(generated_ids), max(0, len(generated_ids) - 1), terminal_values.nbytes, rope_factor_builds, max(0, rope_factor_uses - rope_factor_builds), topology_mask_builds, max(0, topology_mask_uses - topology_mask_builds), len(generated_ids), kv_prefix_validation_scans_avoided, compiled_incremental_decoder_steps, 1 if model["incremental_compiler_cache_hit"] else 0, _widened_tensor_cache_hits - cache_hits_before, len(_widened_tensor_cache), _widened_tensor_cache_bytes, resident_kv_bytes, prefix_tokens_reused, computed, 1 if prefix_tokens_reused else 0, cached_context_tokens, quantized_head_certified_steps, quantized_head_exact_fallback_steps), dtype=np.float32)
     write_float_tensor(mx.array(profile))
     sys.stdout.buffer.flush()
 
@@ -630,14 +707,15 @@ def execute_compiled_token_generation(pool, shards, token_ids, max_new_tokens, e
             produced_caches[layer_index] = (key, value)
             if source_key.shape[2]:
                 kv_prefix_validation_scans_avoided += 1
-    logits = execute_decoder_epilogue(result, model["epilogue"], rounding=model["rounding"])
-    evaluation = [logits, all_valid]
+    raw_logits = execute_decoder_head(result, model["epilogue"], rounding=model["rounding"])
+    logits = finalize_decoder_logits(raw_logits, model["epilogue"], rounding=model["rounding"])
+    evaluation = [raw_logits, logits, all_valid]
     for key, value in produced_caches.values():
         evaluation.extend((key, value))
     mx.eval(*evaluation)
     if not bool(np.asarray(all_valid).item()):
         raise ValueError("MLX compiled generation prefill produced non-finite state")
-    emit_resident_generation(model, result, produced_caches, logits, time.perf_counter() - started, max_new_tokens, eos_token_id, top_k, cache_hits_before, token_ids, session_id, stream, cached_count, current_token_ids.shape[1], rope_factor_context, len(topology_masks), topology_mask_uses, kv_prefix_validation_scans_avoided)
+    emit_resident_generation(model, result, produced_caches, raw_logits, logits, time.perf_counter() - started, max_new_tokens, eos_token_id, top_k, cache_hits_before, token_ids, session_id, stream, cached_count, current_token_ids.shape[1], rope_factor_context, len(topology_masks), topology_mask_uses, kv_prefix_validation_scans_avoided)
 
 
 def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, native_bf16_ple, fused_epilogue, fused_token_forward, fused_token_generation):
@@ -739,9 +817,7 @@ def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, 
         if _head_quantization != "off":
             head_bits = 8 if _head_quantization == "q8" else 4
             group_size = 64
-            quantized, scales, biases = mx.quantize(head_weight, group_size=group_size, bits=head_bits)
-            mx.eval(quantized, scales, biases)
-            head_weight = (quantized, scales, biases, group_size, head_bits)
+            head_weight = build_quantized_head(head_weight, group_size, head_bits)
         epilogue = (final_norm_weight, head_weight, norm_epsilon, softcap)
     evaluation = [result, all_valid]
     for key, value in ordered_caches:
@@ -749,16 +825,17 @@ def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, 
     mx.eval(*evaluation)
     if not bool(np.asarray(all_valid).item()):
         raise ValueError("MLX decoder stack produced non-finite output")
-    logits = None
+    raw_logits, logits = None, None
     if epilogue is not None:
-        logits = execute_decoder_epilogue(result, epilogue, fused_token_forward, rounding)
+        raw_logits = execute_decoder_head(result, epilogue, fused_token_forward, rounding)
+        logits = finalize_decoder_logits(raw_logits, epilogue, rounding)
         if generation is None:
             logits_valid = mx.all(mx.isfinite(logits))
             mx.eval(logits, logits_valid)
             if not bool(np.asarray(logits_valid).item()):
                 raise ValueError("MLX decoder stack epilogue produced non-finite output")
         else:
-            mx.eval(logits)
+            mx.eval(raw_logits, logits)
     if generation is not None:
         global _resident_generation_model
         compile_signature = incremental_compile_signature(layer_plans, epilogue, rounding)
@@ -771,7 +848,7 @@ def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, 
         rope_factor_uses_per_step = sum(1 + int(config["produces_kv"]) for config, _ in layer_plans)
         rope_factor_builds_per_step = len({(config["head_dim"], config["rope_kind"], config["theta"], config["rotary_dim"], config["proportional_pairs"], config["proportional_factor"], rounding != "real") for config, _ in layer_plans})
         _resident_generation_model = {"pool": pool, "shards": shards, "execute_token_prelude": execute_token_prelude, "execute_incremental_decoder_step": execute_incremental_decoder_step, "producer_layers": producer_layers, "compile_signature": compile_signature, "incremental_compiler_cache_hit": incremental_compiler_cache_hit, "rope_factor_uses_per_step": rope_factor_uses_per_step, "rope_factor_builds_per_step": rope_factor_builds_per_step, "layer_plans": layer_plans, "epilogue": epilogue, "vocabulary_size": vocabulary_size, "prompt_length": query_sequence, "rounding": rounding}
-        emit_resident_generation(_resident_generation_model, result, produced_caches, logits, time.perf_counter() - request_started, generation["max_new_tokens"], generation["eos_token_id"], generation["top_k"], cache_hits_before, token_ids, initial_rope_factor_context=rope_factor_context, initial_topology_mask_builds=num_layers, initial_topology_mask_uses=num_layers)
+        emit_resident_generation(_resident_generation_model, result, produced_caches, raw_logits, logits, time.perf_counter() - request_started, generation["max_new_tokens"], generation["eos_token_id"], generation["top_k"], cache_hits_before, token_ids, initial_rope_factor_context=rope_factor_context, initial_topology_mask_builds=num_layers, initial_topology_mask_uses=num_layers)
         return
     if not fused_token_forward:
         write_float_tensor(result)

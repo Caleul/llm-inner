@@ -34,6 +34,15 @@ test("calibração três-vias agrega acordo token a token e throughput", () => {
   assert.deepEqual(report.cases[0]?.direct, { tokenIds: [7, 8], text: "a", tokensEqualBaseline: true, firstDivergentStep: null, seconds: 1, tokensPerSecond: 2, linearThreads: 4, fusedDecoderStackEpilogueDispatches: 2, residentGeneration: "on", fusedTokenGenerationDispatches: 1, externalForwardRequests: 1, kvCacheTransportBytes: 0, residentKvBytes: 512, terminalLogitMaterializations: 1, gpuRankedTokenSteps: 2, fullLogitTransfersAvoided: 1, terminalLogitVectorBytes: 1024, ropeFactorBuilds: 2, ropeFactorBuildsAvoided: 82, topologyMaskBuilds: 4, topologyMaskBuildsAvoided: 80, redundantLogitFiniteScansAvoided: 2, kvPrefixValidationScansAvoided: 14, compiledIncrementalDecoderSteps: 1, incrementalCompilerCacheHit: true, fusedDecoderStackGateUpPairs: 42, fusedDecoderStackWidenedCacheHits: 588, widenedTensorCacheEntries: 294, widenedTensorCacheBytes: 1024, fusedDecoderStackAttentionSeconds: 0.2, fusedDecoderStackFfnSeconds: 0.5, fusedDecoderStackPleSeconds: 0.1, forwardSeconds: [0.6, 0.4] });
 });
 
+test("calibração preserva métricas da cabeça quantizada certificada", () => {
+  const report = summarizeGemma4ThreeWayCalibration([
+    { ...baseCase, direct: { ...baseCase.direct, quantizedHeadCertifiedSteps: 1, quantizedHeadExactFallbackSteps: 1 } },
+  ], { maxNewTokens: 2, requestThreads: 1, precision: "f32", roundingPolicy: "none", runner: { source: "/model", python: "python", helper: "helper", directThreads: 4 } }, { ready: true });
+  const direct = report.cases[0]?.direct as { quantizedHeadCertifiedSteps?: number; quantizedHeadExactFallbackSteps?: number };
+  assert.equal(direct.quantizedHeadCertifiedSteps, 1);
+  assert.equal(direct.quantizedHeadExactFallbackSteps, 1);
+});
+
 test("opções da calibração validam corpus e preservam opções do runtime", async () => {
   const directory = await mkdtemp(join(tmpdir(), "gemma4-calibration-options-"));
   const prompts = join(directory, "prompts.json");

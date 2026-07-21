@@ -265,6 +265,8 @@ export interface PagedFusedTokenGenerationResult {
   prefillTokensComputed: number;
   sessionCacheHit: boolean;
   cachedContextTokens: number;
+  quantizedHeadCertifiedSteps: number;
+  quantizedHeadExactFallbackSteps: number;
 }
 
 export interface PagedTokenGenerationEvent {
