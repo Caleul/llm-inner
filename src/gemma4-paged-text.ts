@@ -78,6 +78,8 @@ export interface Gemma4PagedTextOptions {
   fusedDecoderStackRounding?: "real" | "native-bf16" | "native-bf16-ple";
   /** Required authorization of the complete persisted real closure at dispatch. */
   vectorizedRealExecutionGuard?: Gemma4VectorizedRealExecutionGuard;
+  /** Plan-ordered executable output program bound once during worker startup. */
+  vectorizedRealCompiledOutputOperations?: readonly Operation[];
   /** Final vocabulary projection compute path; BF16 is the allowed final rounding boundary. */
   finalHeadCompute?: "f32" | "native-bf16" | "native-bf16-stream" | "native-bf16-whole";
   /** Optional native QK/softmax/PV kernel; real removes its internal BF16 boundaries. */
@@ -186,9 +188,10 @@ export async function executeGemma4PagedTextLiteralF32(
   if (options.fusedTokenForwardRounding && options.linearTileKernel?.fusedTokenForwardStorageReferences) {
     if (!options.fusedDecoderStackRounding || !options.linearTileKernel.fusedDecoderStackStorageReferences) throw new Error("Forward textual integral requer a pilha decoder nativa habilitada.");
     const tokenForwardPrelude = matchFusedTokenForwardPrelude(artifact, inputIds, options.maxReadBytes ?? 16 * 1024 * 1024, options.fusedTokenForwardRounding);
+    const outputOperations = options.vectorizedRealCompiledOutputOperations ?? [...artifact.program.textProgram.layers.flatMap((layer) => layer.operations), ...artifact.program.textProgram.epilogue];
     return requireCompletedTextExecution(await executePagedOperations(
       artifact,
-      [...artifact.program.textProgram.layers.flatMap((layer) => layer.operations), ...artifact.program.textProgram.epilogue],
+      outputOperations,
       inputIds,
       positions,
       values,
@@ -384,7 +387,8 @@ async function executePagedOperations(
             if (options.fusedDecoderStackRounding === "real") {
               if (!options.vectorizedRealExecutionGuard) throw new Error(`${operation.id}: pilha real requer autorização do plano persistido.`);
               if (!epilogue) throw new Error(`${operation.id}: pilha real requer a closure global completa até logits.`);
-              options.vectorizedRealExecutionGuard.authorize([...stack.operations, ...epilogue.operations].map((entry) => ({ id: entry.id, op: entry.op, output: entry.output })));
+              if (operations !== options.vectorizedRealCompiledOutputOperations) throw new Error(`${operation.id}: hot path real não recebeu o programa de saída persistido.`);
+              options.vectorizedRealExecutionGuard.authorizeCompiledOutputProgram(operations);
             }
             let result: PagedFusedDecoderStackResult & { logits?: Float32Array };
             if (tokenForwardPrelude && nativeGeneration) {
@@ -1008,6 +1012,8 @@ export async function generateGemma4PagedTextLiteralNativeF32(
   if (!options.fusedTokenForwardRounding || !options.fusedDecoderStackRounding || !kernel?.fusedTokenGenerationStorageReferences) throw new Error("Geração nativa residente requer token forward e decoder stack MLX habilitados.");
   let result: PagedFusedTokenGenerationResult | undefined;
   if (kernel.compiledTokenGenerationReady?.() && kernel.compiledTokenGeneration) {
+    if (!options.vectorizedRealExecutionGuard || !options.vectorizedRealCompiledOutputOperations) throw new Error("Geração real compilada requer unidade de saída persistida.");
+    options.vectorizedRealExecutionGuard.authorizeCompiledOutputProgram(options.vectorizedRealCompiledOutputOperations);
     const tokenIds = new Int32Array(request.inputIds[0]!);
     result = await kernel.compiledTokenGeneration(tokenIds, request.maxNewTokens, topK, { ...generationOptions, ...(request.eosTokenId === undefined ? {} : { eosTokenId: request.eosTokenId }) });
   } else {
@@ -1015,7 +1021,7 @@ export async function generateGemma4PagedTextLiteralNativeF32(
     const tokenForwardPrelude = matchFusedTokenForwardPrelude(artifact, request.inputIds, options.maxReadBytes ?? 16 * 1024 * 1024, options.fusedTokenForwardRounding);
     const execution = await executePagedOperations(
       artifact,
-      [...artifact.program.textProgram.layers.flatMap((layer) => layer.operations), ...artifact.program.textProgram.epilogue],
+      options.vectorizedRealCompiledOutputOperations ?? [...artifact.program.textProgram.layers.flatMap((layer) => layer.operations), ...artifact.program.textProgram.epilogue],
       request.inputIds,
       positions,
       new Map(),

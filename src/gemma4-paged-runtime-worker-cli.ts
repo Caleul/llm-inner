@@ -10,6 +10,7 @@ import { executeGemma4PagedTextEpilogueLiteralF32, executeGemma4PagedTextHiddenL
 import { selectGemma4LiteralGenerationToken } from "./gemma4-literal-generation-control.js";
 import { rankGemma4TerminalLogits } from "./gemma4-terminal-logits.js";
 import { assertGemma4VectorizedRealLoweringPlanMatches, Gemma4VectorizedRealExecutionGuard, type Gemma4VectorizedRealLoweringPlan } from "./gemma4-vectorized-real-lowering.js";
+import type { Operation } from "./types.js";
 
 const args = parseArguments(process.argv.slice(2));
 const initializationStarted = performance.now();
@@ -19,6 +20,7 @@ const artifact = args.artifactIndex
 const pool = await Gemma4BinaryConstantPool.open(args.binaryPool);
 let vectorizedRealLowering: Gemma4VectorizedRealLoweringPlan["contract"] | undefined;
 let vectorizedRealExecutionGuard: Gemma4VectorizedRealExecutionGuard | undefined;
+let vectorizedRealCompiledOutputOperations: readonly Operation[] | undefined;
 if (args.fusedDecoderStackRounding === "real") {
   const planInfo = await stat(args.realLoweringPlan!);
   if (!planInfo.isFile() || planInfo.size < 1 || planInfo.size > 16 * 1024 * 1024) throw new Error("Plano de lowering real persistido deve ter entre 1 byte e 16 MiB.");
@@ -31,10 +33,30 @@ if (args.fusedDecoderStackRounding === "real") {
   }
   vectorizedRealLowering = persisted.contract;
   vectorizedRealExecutionGuard = new Gemma4VectorizedRealExecutionGuard(persisted);
+  const availableOutputOperations = [...artifact.program.textProgram.layers.flatMap((layer) => layer.operations), ...artifact.program.textProgram.epilogue];
+  const operationsById = new Map(availableOutputOperations.map((operation) => [operation.id, operation]));
+  if (operationsById.size !== availableOutputOperations.length || availableOutputOperations.length !== persisted.functionBindings.length) {
+    throw new Error("Programa textual runtime não corresponde um-a-um à closure compilada persistida.");
+  }
+  const compiledOutputOperations = persisted.functionBindings.map((binding) => {
+    const operation = operationsById.get(binding.operationId);
+    if (!operation) throw new Error(`${binding.operationId}: operação do programa de saída compilado ausente no runtime.`);
+    return operation;
+  });
+  vectorizedRealCompiledOutputOperations = vectorizedRealExecutionGuard.bindCompiledOutputProgram(compiledOutputOperations);
 }
 const createLinear = () => new Gemma4PagedNativeLinearWorker({ python: args.python, helper: args.linearHelper, threads: args.threads, binaryPool: args.binaryPool, storageTensors: pool.catalog.tensors, backend: args.linearBackend, mlxHelper: args.mlxHelper, mlxHeadQuantization: args.mlxHeadQuantization, mlxDecoderQuantization: args.mlxDecoderQuantization });
 let linear = createLinear();
-const createExecutionOptions = () => ({ maxReadBytes: args.maxReadBytes, finalHeadMaxReadBytes: args.finalHeadMaxReadBytes, allowUnverifiedFidelity: true, tensorReader: pool, linearTileKernel: linear, finalHeadCompute: args.finalHeadCompute, ...(vectorizedRealExecutionGuard ? { vectorizedRealExecutionGuard } : {}), ...(args.fusedMlpRounding === "off" ? {} : { fusedMlpRounding: args.fusedMlpRounding }), ...(args.fusedFfnRounding === "off" ? {} : { fusedFfnRounding: args.fusedFfnRounding }), ...(args.fusedDecoderLayerRounding === "off" ? {} : { fusedDecoderLayerRounding: args.fusedDecoderLayerRounding }), ...(args.fusedDecoderStackRounding === "off" ? {} : { fusedDecoderStackRounding: args.fusedDecoderStackRounding }), ...(args.fusedPleRounding === "off" ? {} : { fusedPleRounding: args.fusedPleRounding }), ...(args.fusedPlePreludeRounding === "off" ? {} : { fusedPlePreludeRounding: args.fusedPlePreludeRounding }), ...(args.fusedTokenForwardRounding === "off" ? {} : { fusedTokenForwardRounding: args.fusedTokenForwardRounding }), ...(args.nativeAttentionRounding === "off" ? {} : { nativeAttentionRounding: args.nativeAttentionRounding }), ...(args.fusedAttentionRounding === "off" ? {} : { fusedAttentionRounding: args.fusedAttentionRounding }) });
+const createExecutionOptions = () => ({
+  maxReadBytes: args.maxReadBytes, finalHeadMaxReadBytes: args.finalHeadMaxReadBytes,
+  allowUnverifiedFidelity: true, tensorReader: pool, linearTileKernel: linear, finalHeadCompute: args.finalHeadCompute,
+  ...(vectorizedRealExecutionGuard && vectorizedRealCompiledOutputOperations ? { vectorizedRealExecutionGuard, vectorizedRealCompiledOutputOperations } : {}),
+  ...(args.fusedMlpRounding === "off" ? {} : { fusedMlpRounding: args.fusedMlpRounding }), ...(args.fusedFfnRounding === "off" ? {} : { fusedFfnRounding: args.fusedFfnRounding }),
+  ...(args.fusedDecoderLayerRounding === "off" ? {} : { fusedDecoderLayerRounding: args.fusedDecoderLayerRounding }), ...(args.fusedDecoderStackRounding === "off" ? {} : { fusedDecoderStackRounding: args.fusedDecoderStackRounding }),
+  ...(args.fusedPleRounding === "off" ? {} : { fusedPleRounding: args.fusedPleRounding }), ...(args.fusedPlePreludeRounding === "off" ? {} : { fusedPlePreludeRounding: args.fusedPlePreludeRounding }),
+  ...(args.fusedTokenForwardRounding === "off" ? {} : { fusedTokenForwardRounding: args.fusedTokenForwardRounding }), ...(args.nativeAttentionRounding === "off" ? {} : { nativeAttentionRounding: args.nativeAttentionRounding }),
+  ...(args.fusedAttentionRounding === "off" ? {} : { fusedAttentionRounding: args.fusedAttentionRounding }),
+});
 let options = createExecutionOptions();
 process.stdout.write(`${JSON.stringify({ ready: true, initializationSeconds: (performance.now() - initializationStarted) / 1000, artifactOpenStrategy: "runtimeIndexSchemaVersion" in artifact ? "authenticated-execution-index-v2" : args.artifactIndex ? "authenticated-runtime-index-v1" : "streamed-literal-scan-v1", ...(args.artifactIndex ? { artifactIndexSha256: args.artifactIndex.sha256 } : {}), backend: "paged-binary-native", linearBackend: linear.backend, mlxHeadQuantization: args.mlxHeadQuantization, fusedMlpRounding: args.fusedMlpRounding, fusedFfnRounding: args.fusedFfnRounding, fusedDecoderLayerRounding: args.fusedDecoderLayerRounding, fusedDecoderStackRounding: args.fusedDecoderStackRounding, fusedPleRounding: args.fusedPleRounding, fusedPlePreludeRounding: args.fusedPlePreludeRounding, fusedTokenForwardRounding: args.fusedTokenForwardRounding, residentGeneration: args.residentGeneration, finalHeadCompute: args.finalHeadCompute, nativeAttentionRounding: args.nativeAttentionRounding, fusedAttentionRounding: args.fusedAttentionRounding, threads: args.threads, maxReadMiB: args.maxReadBytes / (1024 * 1024), finalHeadReadMiB: args.finalHeadMaxReadBytes / (1024 * 1024), ...(vectorizedRealLowering ? { vectorizedRealLowering } : {}) })}\n`);
 

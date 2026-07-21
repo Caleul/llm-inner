@@ -15,6 +15,9 @@ test("vincula cada closure real autenticada a uma família vetorizada de kernel"
   assert.equal(contract.source.globalClosureFunctions, operations.length);
   assert.equal(contract.execution.intermediateBf16Boundaries, 0);
   assert.equal(contract.execution.directlyLoadsStandaloneSsaFile, false);
+  assert.equal(contract.execution.directlyExecutesGlobalFormula, true);
+  assert.equal(contract.compiledOutputProgram.logicalDispatchesPerForward, 1);
+  assert.equal(contract.compiledOutputProgram.outputFunctions, 1);
   assert.deepEqual(contract.source.outputFamilies, { terminal_logits: { dimensions: 1, operationId: "operation_0", parameters: [], finalQuantization: "BF16-round-to-nearest-ties-to-even" } });
   assert.match(contract.source.outputBindingsSha256, /^[0-9a-f]{64}$/);
   assert.deepEqual(Object.values(contract.coverage.kernels), operations.map(() => 1));
@@ -61,13 +64,16 @@ test("autoriza somente o despacho completo e ordenado da closure global", () => 
   const { program, graph, manifest } = fixture();
   const plan = buildGemma4VectorizedRealLoweringPlan(program, graph, manifest), guard = new Gemma4VectorizedRealExecutionGuard(plan);
   const operations = plan.functionBindings.map((binding) => ({ id: binding.operationId, op: binding.operation, output: binding.output }));
-  const receipt = guard.authorize(operations);
+  const compiled = guard.bindCompiledOutputProgram(operations);
+  const receipt = guard.authorizeCompiledOutputProgram(compiled);
   assert.equal(receipt.completeGlobalClosure, true); assert.equal(receipt.dispatchedFunctions, operations.length);
   assert.equal(receipt.completeOutputFunctions, true); assert.equal(receipt.outputFunctions, 1); assert.equal(receipt.outputBindingsSha256, plan.contract.source.outputBindingsSha256);
+  assert.equal(receipt.directlyExecutedGlobalFormula, true); assert.equal(receipt.logicalOutputProgramDispatches, 1);
   assert.equal(guard.summary()?.authorizedDispatches, 1); assert.match(receipt.orderedDispatchSha256, /^[0-9a-f]{64}$/);
-  assert.throws(() => guard.authorize(operations.slice(1)), /plano exige/);
+  assert.throws(() => guard.bindCompiledOutputProgram(operations.slice(1)), /plano exige/);
   const reordered = structuredClone(operations); [reordered[0], reordered[1]] = [reordered[1]!, reordered[0]!];
-  assert.throws(() => guard.authorize(reordered), /diverge do binding persistido/);
+  assert.throws(() => guard.bindCompiledOutputProgram(reordered), /diverge do binding persistido/);
+  assert.throws(() => guard.authorizeCompiledOutputProgram(structuredClone(operations)), /não usa a unidade/);
 });
 
 function fixture(): {

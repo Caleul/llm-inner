@@ -9,10 +9,10 @@ import { validateGemma4VectorizedRealLoweringPlan, type Gemma4VectorizedRealLowe
 export interface Gemma4CompiledBundleManifest {
   kind: "gemma4-compiled-shared-dag-bundle";
   schemaVersion: 2 | 3;
-  execution: "vectorized-literal-runtime-with-global-formula-reference";
+  execution: "compiled-parametric-output-program-runtime";
   runtimeLowering: {
     engine: "mlx-f32-real-decoder-stack-v1";
-    directlyExecutesGlobalFormula: false;
+    directlyExecutesGlobalFormula: true;
     executesPersistedLoweringPlan: true;
     plan: "vectorized-real-lowering.json";
     functionBindingsSha256: string;
@@ -20,7 +20,8 @@ export interface Gemma4CompiledBundleManifest {
     standaloneSsaOutputsSha256: string;
     outputFunctions: number;
     realSimplifiedProgramSha256: string;
-    globalFormulaRole: "algebraic-source-and-scalar-reference";
+    globalFormulaRole: "compiled-executable-shared-dag";
+    compiledOutputProgram: Gemma4VectorizedRealLoweringPlan["contract"]["compiledOutputProgram"];
   };
   formula: { family: string; dimension: number; root: string; expressionNodes: number; inputTensor: "x"; inputLength: number; file: string };
   globalProgram?: { file: string; terminalLogits: number; constantPool: string };
@@ -63,14 +64,14 @@ export async function createGemma4CompiledBundle(options: { graph: string; globa
   files.push({ role: "global-formulas", file: "global-formulas.ssa.json", bytes: info.size, sha256: await sha256File(destination) });
   const globalProgram: NonNullable<Gemma4CompiledBundleManifest["globalProgram"]> = { file: "global-formulas.ssa.json", terminalLogits, constantPool: "constants.literal.json" };
   const manifest: Gemma4CompiledBundleManifest = {
-    kind: "gemma4-compiled-shared-dag-bundle", schemaVersion: runtimeIndexDescriptor ? 3 : 2, execution: "vectorized-literal-runtime-with-global-formula-reference",
+    kind: "gemma4-compiled-shared-dag-bundle", schemaVersion: runtimeIndexDescriptor ? 3 : 2, execution: "compiled-parametric-output-program-runtime",
     runtimeLowering: {
-      engine: "mlx-f32-real-decoder-stack-v1", directlyExecutesGlobalFormula: false, executesPersistedLoweringPlan: true,
+      engine: "mlx-f32-real-decoder-stack-v1", directlyExecutesGlobalFormula: true, executesPersistedLoweringPlan: true,
       plan: "vectorized-real-lowering.json", functionBindingsSha256: loweringPlan.contract.functionBindingsSha256,
       outputBindingsSha256: loweringPlan.contract.source.outputBindingsSha256, standaloneSsaOutputsSha256,
       outputFunctions: loweringPlan.contract.source.outputFunctions,
       realSimplifiedProgramSha256: loweringPlan.contract.source.realSimplifiedProgramSha256,
-      globalFormulaRole: "algebraic-source-and-scalar-reference",
+      globalFormulaRole: "compiled-executable-shared-dag", compiledOutputProgram: loweringPlan.contract.compiledOutputProgram,
     },
     formula: { family: summary.output.family, dimension: summary.output.dimension, root: summary.root, expressionNodes: summary.expressionNodes, inputTensor: "x", inputLength: summary.inputVector.length, file: "formula.graph.json" },
     globalProgram,
@@ -87,7 +88,7 @@ export async function bindGemma4VectorizedRealLoweringPlan(bundleDirectory: stri
   const plan = await readLoweringPlan(source);
   const manifestPath = join(bundle, "manifest.json");
   const current = JSON.parse(await readFile(manifestPath, "utf8")) as Record<string, unknown> & { files?: Gemma4CompiledBundleManifest["files"] };
-  if (current.kind !== "gemma4-compiled-shared-dag-bundle" || current.execution !== "vectorized-literal-runtime-with-global-formula-reference" || !Array.isArray(current.files)) {
+  if (current.kind !== "gemma4-compiled-shared-dag-bundle" || (current.execution !== "vectorized-literal-runtime-with-global-formula-reference" && current.execution !== "compiled-parametric-output-program-runtime") || !Array.isArray(current.files)) {
     throw new Error("Bundle existente não possui manifesto Gemma 4 compilado atualizável.");
   }
   const globalFile = current.files.find((entry) => entry.role === "global-formulas");
@@ -105,13 +106,14 @@ export async function bindGemma4VectorizedRealLoweringPlan(bundleDirectory: stri
     ...current,
     schemaVersion: current.runtimeIndex ? 3 : 2,
     runtimeLowering: {
-      engine: "mlx-f32-real-decoder-stack-v1", directlyExecutesGlobalFormula: false, executesPersistedLoweringPlan: true,
+      engine: "mlx-f32-real-decoder-stack-v1", directlyExecutesGlobalFormula: true, executesPersistedLoweringPlan: true,
       plan: "vectorized-real-lowering.json", functionBindingsSha256: plan.contract.functionBindingsSha256,
       outputBindingsSha256: plan.contract.source.outputBindingsSha256, standaloneSsaOutputsSha256: plan.contract.source.standaloneSsaOutputsSha256,
       outputFunctions: plan.contract.source.outputFunctions,
       realSimplifiedProgramSha256: plan.contract.source.realSimplifiedProgramSha256,
-      globalFormulaRole: "algebraic-source-and-scalar-reference",
+      globalFormulaRole: "compiled-executable-shared-dag", compiledOutputProgram: plan.contract.compiledOutputProgram,
     },
+    execution: "compiled-parametric-output-program-runtime",
     files: [...existing, { role: "vectorized-real-lowering" as const, file: "vectorized-real-lowering.json", bytes: info.size, sha256 }],
   } as Gemma4CompiledBundleManifest;
   const temporary = `${manifestPath}.next-${process.pid}`;
@@ -124,7 +126,7 @@ export async function bindGemma4VectorizedRealLoweringPlan(bundleDirectory: stri
 export async function bindGemma4LiteralRuntimeIndex(bundleDirectory: string): Promise<Gemma4CompiledBundleManifest> {
   const bundle = resolve(bundleDirectory), manifestPath = join(bundle, "manifest.json"), destination = join(bundle, "constants.runtime-index.json");
   const current = JSON.parse(await readFile(manifestPath, "utf8")) as Record<string, unknown> & { files?: Gemma4CompiledBundleManifest["files"]; runtimeIndex?: Gemma4CompiledBundleManifest["runtimeIndex"] };
-  if (current.kind !== "gemma4-compiled-shared-dag-bundle" || current.execution !== "vectorized-literal-runtime-with-global-formula-reference" || !Array.isArray(current.files)) throw new Error("Bundle existente não possui manifesto Gemma 4 compilado atualizável.");
+  if (current.kind !== "gemma4-compiled-shared-dag-bundle" || current.execution !== "compiled-parametric-output-program-runtime" || !Array.isArray(current.files)) throw new Error("Bundle existente não possui manifesto Gemma 4 compilado atualizável.");
   const constantFile = current.files.find((entry) => entry.role === "constant-pool");
   const loweringFile = current.files.find((entry) => entry.role === "vectorized-real-lowering");
   if (!constantFile || constantFile.file !== "constants.literal.json" || !/^[0-9a-f]{64}$/.test(constantFile.sha256)) throw new Error("Bundle existente não vincula o constant pool literal esperado.");

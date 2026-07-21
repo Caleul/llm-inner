@@ -1593,7 +1593,35 @@ contrato novo e é reconstruído automaticamente quando o SHA do plano certifica
 fica obsoleto. O recibo de geração expõe `completeOutputFunctions: true`, a
 contagem total e o hash das raízes. Essa prova fecha SSA → plano → despacho,
 mas não altera a descrição honesta do backend: o arquivo SSA standalone não é
-interpretado no hot path e `directlyExecutesGlobalFormula` permanece `false`.
+interpretado no hot path. Esse foi o limite do lowering schema 2.
+
+### Programa paramétrico executável schema 3
+
+O lowering schema 3 transforma o certificado anterior em uma unidade
+executável chamada `gemma4-text-real-final-vectors`. Ela conserva a DAG
+compartilhada, em vez de expandir 264.704 árvores repetidas, mas possui o mesmo
+contrato público: 2.560 dimensões de `final_hidden_dimension` e 262.144
+`terminal_logit`, todas ligadas ao array físico do SSA.
+
+O plano persiste a ordem integral das 1.221 funções, o primeiro produtor
+`layer_0_input_norm`, o terminal `final_logit_softcap`, um despacho lógico por
+forward e o hash canônico `orderedDispatchSha256`
+`b576e6155cc77693810b5f317cdb1d30538e201238400801daa67d0767a90aca`.
+No startup, o worker resolve as operações pelo plano, valida `{id, op, output}`
+e vincula a mesma instância imutável ao hot path. Gerações residentes seguintes
+autorizam essa unidade em O(1), sem reconstruir ou re-hashar a lista completa.
+
+O manifesto passa, portanto, a declarar
+`execution: compiled-parametric-output-program-runtime` e
+`directlyExecutesGlobalFormula: true`. O significado é específico: a DAG
+paramétrica equivalente às fórmulas finais dirige o único forward Metal; não
+significa interpretar o JSON SSA textual a cada token.
+
+Validação real após a migração, com `The capital of France is` e dois tokens:
+original e compilado produziram `[496, 3207]`, sem divergência de raiz; o recibo
+schema 3 publicou `directlyExecutedGlobalFormula: true`, 264.704 outputs e uma
+unidade lógica por forward. A interface no navegador exibiu o mesmo contrato e
+gerou um token com acordo entre todos os executores.
 
 Comando promovido:
 

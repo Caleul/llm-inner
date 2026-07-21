@@ -32,15 +32,16 @@ export interface Gemma4VectorizedRealFunctionBinding {
 
 export interface Gemma4VectorizedRealLoweringContract {
   kind: "gemma4-vectorized-real-lowering-contract";
-  schemaVersion: 2;
+  schemaVersion: 3;
   semantics: "gemma4-exact-real-simplified-v1";
   execution: {
     engine: "mlx-f32-real-decoder-stack-v1";
-    mode: "architectural-vector-lowering";
+    mode: "compiled-parametric-output-program";
     intermediateBf16Boundaries: 0;
     finalQuantization: "BF16-round-to-nearest-ties-to-even";
     directlyLoadsStandaloneSsaFile: false;
     sourceProgramValidated: true;
+    directlyExecutesGlobalFormula: true;
   };
   source: {
     artifactIntegritySha256: string;
@@ -68,11 +69,21 @@ export interface Gemma4VectorizedRealLoweringContract {
     kernels: Record<Gemma4VectorizedRealOperation, number>;
   };
   functionBindingsSha256: string;
+  compiledOutputProgram: {
+    id: "gemma4-text-real-final-vectors";
+    semantics: "shared-dag-parametric-output-functions-v1";
+    logicalDispatchesPerForward: 1;
+    operationFunctions: number;
+    outputFunctions: number;
+    firstOperationId: string;
+    terminalOperationId: string;
+    orderedDispatchSha256: string;
+  };
 }
 
 export interface Gemma4VectorizedRealLoweringPlan {
   kind: "gemma4-vectorized-real-lowering-plan";
-  schemaVersion: 2;
+  schemaVersion: 3;
   contract: Gemma4VectorizedRealLoweringContract;
   functionBindings: Gemma4VectorizedRealFunctionBinding[];
 }
@@ -85,9 +96,12 @@ export interface Gemma4VectorizedRealDispatchedOperation {
 
 export interface Gemma4VectorizedRealExecutionReceipt {
   kind: "gemma4-vectorized-real-execution-receipt";
-  schemaVersion: 2;
+  schemaVersion: 3;
   completeGlobalClosure: true;
   completeOutputFunctions: true;
+  directlyExecutedGlobalFormula: true;
+  compiledOutputProgramId: "gemma4-text-real-final-vectors";
+  logicalOutputProgramDispatches: 1;
   dispatchedFunctions: number;
   outputFunctions: number;
   firstOrdinal: number;
@@ -111,13 +125,45 @@ export class Gemma4VectorizedRealExecutionGuard {
   readonly #plan: Gemma4VectorizedRealLoweringPlan;
   #authorizedDispatches = 0;
   #lastReceipt?: Gemma4VectorizedRealExecutionReceipt;
+  #boundOperations?: readonly Gemma4VectorizedRealDispatchedOperation[];
 
   constructor(plan: Gemma4VectorizedRealLoweringPlan) {
     validateGemma4VectorizedRealLoweringPlan(plan);
     this.#plan = plan;
   }
 
-  authorize(operations: readonly Gemma4VectorizedRealDispatchedOperation[]): Gemma4VectorizedRealExecutionReceipt {
+  bindCompiledOutputProgram<T extends Gemma4VectorizedRealDispatchedOperation>(operations: readonly T[]): readonly T[] {
+    this.#validateOperations(operations);
+    this.#boundOperations = operations;
+    return operations;
+  }
+
+  authorizeCompiledOutputProgram(operations: readonly Gemma4VectorizedRealDispatchedOperation[]): Gemma4VectorizedRealExecutionReceipt {
+    if (operations !== this.#boundOperations) {
+      throw new Error("Despacho real não usa a unidade de saída compilada e vinculada no startup.");
+    }
+    const receipt: Gemma4VectorizedRealExecutionReceipt = {
+      kind: "gemma4-vectorized-real-execution-receipt",
+      schemaVersion: 3,
+      completeGlobalClosure: true,
+      completeOutputFunctions: true,
+      directlyExecutedGlobalFormula: true,
+      compiledOutputProgramId: this.#plan.contract.compiledOutputProgram.id,
+      logicalOutputProgramDispatches: 1,
+      dispatchedFunctions: operations.length,
+      outputFunctions: this.#plan.contract.source.outputFunctions,
+      firstOrdinal: this.#plan.functionBindings[0]!.ordinal,
+      lastOrdinal: this.#plan.functionBindings.at(-1)!.ordinal,
+      functionBindingsSha256: this.#plan.contract.functionBindingsSha256,
+      outputBindingsSha256: this.#plan.contract.source.outputBindingsSha256,
+      orderedDispatchSha256: this.#plan.contract.compiledOutputProgram.orderedDispatchSha256,
+    };
+    this.#authorizedDispatches += 1;
+    this.#lastReceipt = receipt;
+    return receipt;
+  }
+
+  #validateOperations(operations: readonly Gemma4VectorizedRealDispatchedOperation[]): void {
     if (operations.length !== this.#plan.functionBindings.length) {
       throw new Error(`Despacho real cobre ${operations.length} operações, mas o plano exige ${this.#plan.functionBindings.length}.`);
     }
@@ -128,23 +174,11 @@ export class Gemma4VectorizedRealExecutionGuard {
         throw new Error(`Despacho real diverge do binding persistido na posição ${index}: ${operation.id}.`);
       }
     }
-    const first = this.#plan.functionBindings[0]!, last = this.#plan.functionBindings.at(-1)!;
-    const receipt: Gemma4VectorizedRealExecutionReceipt = {
-      kind: "gemma4-vectorized-real-execution-receipt",
-      schemaVersion: 2,
-      completeGlobalClosure: true,
-      completeOutputFunctions: true,
-      dispatchedFunctions: operations.length,
-      outputFunctions: this.#plan.contract.source.outputFunctions,
-      firstOrdinal: first.ordinal,
-      lastOrdinal: last.ordinal,
-      functionBindingsSha256: this.#plan.contract.functionBindingsSha256,
-      outputBindingsSha256: this.#plan.contract.source.outputBindingsSha256,
-      orderedDispatchSha256: createHash("sha256").update(JSON.stringify(operations), "utf8").digest("hex"),
-    };
-    this.#authorizedDispatches += 1;
-    this.#lastReceipt = receipt;
-    return receipt;
+    const canonical = operations.map((operation) => ({ id: operation.id, op: operation.op, output: operation.output }));
+    const hash = createHash("sha256").update(JSON.stringify(canonical), "utf8").digest("hex");
+    if (hash !== this.#plan.contract.compiledOutputProgram.orderedDispatchSha256) {
+      throw new Error("Despacho real diverge do hash da unidade de saída compilada.");
+    }
   }
 
   summary(): Gemma4VectorizedRealExecutionSummary | undefined {
@@ -245,17 +279,19 @@ export function buildGemma4VectorizedRealLoweringPlan(
     }
   }
   outputHash.update("]"); standaloneSsaOutputHash.update("]");
+  const dispatchBindings = bindings.map((binding) => ({ id: binding.operationId, op: binding.operation, output: binding.output }));
   const contract: Gemma4VectorizedRealLoweringContract = {
     kind: "gemma4-vectorized-real-lowering-contract",
-    schemaVersion: 2,
+    schemaVersion: 3,
     semantics: "gemma4-exact-real-simplified-v1",
     execution: {
       engine: "mlx-f32-real-decoder-stack-v1",
-      mode: "architectural-vector-lowering",
+      mode: "compiled-parametric-output-program",
       intermediateBf16Boundaries: 0,
       finalQuantization: "BF16-round-to-nearest-ties-to-even",
       directlyLoadsStandaloneSsaFile: false,
       sourceProgramValidated: true,
+      directlyExecutesGlobalFormula: true,
     },
     source: {
       artifactIntegritySha256: integrityManifest.rootSha256,
@@ -278,25 +314,38 @@ export function buildGemma4VectorizedRealLoweringPlan(
       kernels: kernelCounts,
     },
     functionBindingsSha256: createHash("sha256").update(JSON.stringify(bindings), "utf8").digest("hex"),
+    compiledOutputProgram: {
+      id: "gemma4-text-real-final-vectors",
+      semantics: "shared-dag-parametric-output-functions-v1",
+      logicalDispatchesPerForward: 1,
+      operationFunctions: bindings.length,
+      outputFunctions: program.outputFunctions.length,
+      firstOperationId: bindings[0]!.operationId,
+      terminalOperationId: bindings.at(-1)!.operationId,
+      orderedDispatchSha256: createHash("sha256").update(JSON.stringify(dispatchBindings), "utf8").digest("hex"),
+    },
   };
-  return { kind: "gemma4-vectorized-real-lowering-plan", schemaVersion: 2, contract, functionBindings: bindings };
+  return { kind: "gemma4-vectorized-real-lowering-plan", schemaVersion: 3, contract, functionBindings: bindings };
 }
 
 export function validateGemma4VectorizedRealLoweringPlan(value: unknown): asserts value is Gemma4VectorizedRealLoweringPlan {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Plano de lowering vetorizado real deve ser um objeto.");
   const plan = value as Partial<Gemma4VectorizedRealLoweringPlan>;
   const contract = plan.contract;
-  if (plan.kind !== "gemma4-vectorized-real-lowering-plan" || plan.schemaVersion !== 2 || !contract ||
-    contract.kind !== "gemma4-vectorized-real-lowering-contract" || contract.schemaVersion !== 2 ||
+  if (plan.kind !== "gemma4-vectorized-real-lowering-plan" || plan.schemaVersion !== 3 || !contract ||
+    contract.kind !== "gemma4-vectorized-real-lowering-contract" || contract.schemaVersion !== 3 ||
     contract.semantics !== "gemma4-exact-real-simplified-v1" || contract.execution?.engine !== "mlx-f32-real-decoder-stack-v1" ||
     contract.execution.intermediateBf16Boundaries !== 0 || contract.execution.finalQuantization !== "BF16-round-to-nearest-ties-to-even" ||
-    contract.execution.directlyLoadsStandaloneSsaFile !== false || contract.execution.sourceProgramValidated !== true ||
+    contract.execution.mode !== "compiled-parametric-output-program" || contract.execution.directlyLoadsStandaloneSsaFile !== false || contract.execution.sourceProgramValidated !== true || contract.execution.directlyExecutesGlobalFormula !== true ||
     contract.coverage?.unresolvedRuntimeReductions !== 0 || contract.coverage.intermediateIeeeRoundingNodes !== 0 ||
     contract.coverage.unsupportedOperations !== 0 || contract.coverage.globalClosuresDependingOnStandaloneReductions !== 0 ||
     !Array.isArray(plan.functionBindings) || plan.functionBindings.length !== contract.source?.globalClosureFunctions ||
     !Number.isSafeInteger(contract.source.outputFunctions) || contract.source.outputFunctions < 1 ||
     !/^[0-9a-f]{64}$/.test(contract.source.outputBindingsSha256) || !/^[0-9a-f]{64}$/.test(contract.source.standaloneSsaOutputsSha256) ||
-    !validOutputFamilies(contract.source.outputFamilies, contract.source.outputFunctions)) {
+    !validOutputFamilies(contract.source.outputFamilies, contract.source.outputFunctions) || !contract.compiledOutputProgram ||
+    contract.compiledOutputProgram.id !== "gemma4-text-real-final-vectors" || contract.compiledOutputProgram.semantics !== "shared-dag-parametric-output-functions-v1" ||
+    contract.compiledOutputProgram.logicalDispatchesPerForward !== 1 || contract.compiledOutputProgram.operationFunctions !== plan.functionBindings.length ||
+    contract.compiledOutputProgram.outputFunctions !== contract.source.outputFunctions || !/^[0-9a-f]{64}$/.test(contract.compiledOutputProgram.orderedDispatchSha256)) {
     throw new Error("Plano de lowering vetorizado real possui contrato ou cobertura incompleta.");
   }
   const seenFunctions = new Set<string>();
@@ -311,8 +360,11 @@ export function validateGemma4VectorizedRealLoweringPlan(value: unknown): assert
     seenFunctions.add(binding.functionId);
     kernelCounts[binding.operation] += 1;
   }
+  const dispatchBindings = plan.functionBindings.map((binding) => ({ id: binding.operationId, op: binding.operation, output: binding.output }));
   if (!isDeepStrictEqual(kernelCounts, contract.coverage.kernels) ||
     createHash("sha256").update(JSON.stringify(plan.functionBindings), "utf8").digest("hex") !== contract.functionBindingsSha256 ||
+    createHash("sha256").update(JSON.stringify(dispatchBindings), "utf8").digest("hex") !== contract.compiledOutputProgram.orderedDispatchSha256 ||
+    contract.compiledOutputProgram.firstOperationId !== plan.functionBindings[0]?.operationId || contract.compiledOutputProgram.terminalOperationId !== plan.functionBindings.at(-1)?.operationId ||
     !/^[0-9a-f]{64}$/.test(contract.source.artifactIntegritySha256) || !/^[0-9a-f]{64}$/.test(contract.source.realSimplifiedProgramSha256)) {
     throw new Error("Plano de lowering vetorizado real diverge de seus compromissos e contagens.");
   }

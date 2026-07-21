@@ -2582,7 +2582,7 @@ softcap dos logits. O relatório direto publica
 hash dos bindings e SHA-256 da sequência efetivamente despachada. Omissão,
 reordenação ou substituição de qualquer operação falha antes do kernel Metal.
 
-O plano vetorial schema 2 fecha também a ligação que antes terminava nas
+O plano vetorial schema 3 fecha também a ligação que antes terminava nas
 operações intermediárias. As 264.704 funções públicas são validadas uma a uma:
 cada raiz precisa ser uma chamada da operação realmente presente na closure,
 as dimensões de cada família precisam ser contíguas desde zero e os parâmetros
@@ -2598,9 +2598,17 @@ montagem ou atualização do bundle relê esse trecho em streaming e recusa SSA
 alterado, truncado ou vindo de outro plano. O recibo de cada geração publica
 `completeOutputFunctions`, a contagem e o mesmo hash. Isso prova que o caminho
 vetorial cobre todas as fórmulas finais persistidas sem carregar 430 MiB no hot
-path. O manifesto ainda mantém `directlyExecutesGlobalFormula: false`: a
-execução é um lowering vetorial autenticado, não um interpretador textual do
-arquivo SSA, e essa distinção continua explícita.
+path. O schema 3 compila essas raízes em uma unidade paramétrica compartilhada
+`gemma4-text-real-final-vectors`: o plano ordena as 1.221 operações da closure,
+compromete a projeção `{id, op, output}` por
+`orderedDispatchSha256` e declara um único despacho lógico por forward. No
+startup, o worker resolve as operações do artefato na ordem do plano, valida a
+unidade integral uma vez e conserva a mesma identidade no hot path residente.
+Por isso o manifesto agora declara honestamente
+`directlyExecutesGlobalFormula: true`: não porque interprete os 430 MiB de SSA,
+mas porque a DAG paramétrica compilada — equivalente às 264.704 raízes — passa
+a dirigir a execução, em vez de servir apenas como certificado de uma lista
+reconstruída pelo runtime.
 
 A geração greedy diferencial possui uma interface local funcional:
 

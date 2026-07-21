@@ -172,7 +172,7 @@ function validateRuntimeSnapshot(snapshot: Gemma4PagedRuntimeIndexSnapshot, arti
   if (snapshot.realLowering) {
     assertSha256(snapshot.realLowering.planSha256, "SHA-256 do plano de lowering");
     const contract = snapshot.realLowering.contract, realSection = snapshot.integrityManifest.sections.find((entry) => entry.name === "realSimplifiedProgram");
-    if (contract?.kind !== "gemma4-vectorized-real-lowering-contract" || contract.schemaVersion !== 2 ||
+    if (contract?.kind !== "gemma4-vectorized-real-lowering-contract" || contract.schemaVersion !== 3 || contract.execution?.directlyExecutesGlobalFormula !== true ||
       contract.source?.artifactIntegritySha256 !== snapshot.integrityManifest.rootSha256 ||
       contract.source.realSimplifiedProgramSha256 !== realSection?.sha256 || !/^[0-9a-f]{64}$/.test(contract.functionBindingsSha256) ||
       !/^[0-9a-f]{64}$/.test(contract.source.outputBindingsSha256) || !/^[0-9a-f]{64}$/.test(contract.source.standaloneSsaOutputsSha256) ||
