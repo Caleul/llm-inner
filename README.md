@@ -2622,6 +2622,21 @@ que os consomem. As contagens construídas e evitadas aparecem na UI e nos
 relatórios de calibração, permitindo distinguir redução algébrica real de uma
 simples alegação de otimização.
 
+Depois do prefill, as 42 camadas do decoder incremental são capturadas como uma
+única função `mx.compile(..., shapeless=True)`. Batch e comprimento da query
+permanecem `1 × 1`, enquanto o comprimento do cache K/V é dinâmico; a atenção
+GQA usa a forma agrupada `[kv_heads, groups, query, key]`, sem materializar
+`repeat` dos heads K/V. O campo `compiledIncrementalDecoderSteps` do relatório
+e da UI conta somente os passos realmente atravessados por esse grafo (o
+primeiro token ainda vem do prefill).
+
+A forma agrupada preserva a função matemática, mas pode alterar a árvore de
+redução em ponto flutuante. Por isso a validação de qualidade separa a primeira
+decisão divergente das divergências em cascata e reporta empates/margens do
+top-2; igualdade do hash terminal não é prometida no modo sem arredondamentos
+intermediários. O custo único de compilação pertence ao warm-up e não deve ser
+misturado ao throughput aquecido.
+
 O caminho residente mantém ainda um invariante de validação incremental: cada
 novo segmento K/V é verificado antes de entrar no cache, portanto os passos
 seguintes não percorrem novamente o prefixo já comprovado. Os logits continuam

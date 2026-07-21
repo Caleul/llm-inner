@@ -74,6 +74,7 @@ interface ThreeWayCase {
     topologyMaskBuildsAvoided?: number;
     redundantLogitFiniteScansAvoided?: number;
     kvPrefixValidationScansAvoided?: number;
+    compiledIncrementalDecoderSteps?: number;
     fusedDecoderStackGateUpPairs?: number;
     fusedDecoderStackWidenedCacheHits?: number;
     widenedTensorCacheEntries?: number;
@@ -290,6 +291,7 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.topologyMaskBuildsAvoided === undefined ? {} : { topologyMaskBuildsAvoided: entry.direct.topologyMaskBuildsAvoided }),
         ...(entry.direct.redundantLogitFiniteScansAvoided === undefined ? {} : { redundantLogitFiniteScansAvoided: entry.direct.redundantLogitFiniteScansAvoided }),
         ...(entry.direct.kvPrefixValidationScansAvoided === undefined ? {} : { kvPrefixValidationScansAvoided: entry.direct.kvPrefixValidationScansAvoided }),
+        ...(entry.direct.compiledIncrementalDecoderSteps === undefined ? {} : { compiledIncrementalDecoderSteps: entry.direct.compiledIncrementalDecoderSteps }),
         ...(entry.direct.fusedDecoderStackGateUpPairs === undefined ? {} : { fusedDecoderStackGateUpPairs: entry.direct.fusedDecoderStackGateUpPairs }),
         ...(entry.direct.fusedDecoderStackWidenedCacheHits === undefined ? {} : { fusedDecoderStackWidenedCacheHits: entry.direct.fusedDecoderStackWidenedCacheHits }),
         ...(entry.direct.widenedTensorCacheEntries === undefined ? {} : { widenedTensorCacheEntries: entry.direct.widenedTensorCacheEntries }),

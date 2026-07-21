@@ -258,6 +258,7 @@ export interface PagedFusedTokenGenerationResult {
   topologyMaskBuildsAvoided: number;
   redundantLogitFiniteScansAvoided: number;
   kvPrefixValidationScansAvoided: number;
+  compiledIncrementalDecoderSteps: number;
   residentKvBytes: number;
   prefixTokensReused: number;
   prefillTokensComputed: number;

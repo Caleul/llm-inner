@@ -237,7 +237,7 @@ def execute_ple_prelude_values(inputs, token_identity, projection_weight, norm_w
     return boundary(combined * mx.array(combine_scale, dtype=mx.float32)).reshape((rows, outputs))
 
 
-def rope_real(tensor, positions, rope_kind, theta, rotary_dim, proportional_pairs, proportional_factor, round_bf16=True, factor_context=None):
+def rope_real(tensor, positions, rope_kind, theta, rotary_dim, proportional_pairs, proportional_factor, round_bf16=True, factor_context=None, compile_safe=False):
     boundary = (lambda value: value.astype(mx.bfloat16).astype(mx.float32)) if round_bf16 else (lambda value: value)
     head_dim, half = tensor.shape[-1], rotary_dim // 2
     factor_key = (head_dim, rope_kind, theta, rotary_dim, proportional_pairs, proportional_factor, round_bf16)
@@ -258,10 +258,16 @@ def rope_real(tensor, positions, rope_kind, theta, rotary_dim, proportional_pair
             factor_context["factors"][factor_key] = factors
             factor_context["builds"] += 1
     cosine, sine = factors
-    first, second = tensor[..., :half], tensor[..., half:rotary_dim]
+    if compile_safe:
+        first = mx.take(tensor, mx.array(np.arange(half, dtype=np.int32)), axis=-1)
+        second = mx.take(tensor, mx.array(np.arange(half, rotary_dim, dtype=np.int32)), axis=-1)
+        remainder = None if rotary_dim == head_dim else mx.take(tensor, mx.array(np.arange(rotary_dim, head_dim, dtype=np.int32)), axis=-1)
+    else:
+        first, second = tensor[..., :half], tensor[..., half:rotary_dim]
+        remainder = None if rotary_dim == head_dim else tensor[..., rotary_dim:]
     rotated_first = boundary(boundary(first * cosine) - boundary(second * sine))
     rotated_second = boundary(boundary(second * cosine) + boundary(first * sine))
-    return mx.concatenate((rotated_first, rotated_second, tensor[..., rotary_dim:]), axis=-1)
+    return mx.concatenate((rotated_first, rotated_second), axis=-1) if remainder is None else mx.concatenate((rotated_first, rotated_second, remainder), axis=-1)
 
 
 def read_decoder_layer_weights(pool, shards, hidden_size, config):
@@ -293,8 +299,8 @@ def read_decoder_layer_weights(pool, shards, hidden_size, config):
     return weights
 
 
-def execute_decoder_layer_mlx(pool, shards, inputs, per_layer, positions, mask, source_key, source_value, config, weights=None, rope_factor_context=None, source_cache_validated=False):
-    batch, query_sequence, hidden_size = inputs.shape
+def execute_decoder_layer_mlx(pool, shards, inputs, per_layer, positions, mask, source_key, source_value, config, weights=None, rope_factor_context=None, source_cache_validated=False, compile_safe_rope=False, incremental_fixed_shape=False):
+    batch, query_sequence, hidden_size = (1, 1, weights["input_norm"].shape[0]) if incremental_fixed_shape else inputs.shape
     query_heads, key_value_heads, head_dim = config["query_heads"], config["key_value_heads"], config["head_dim"]
     produces_kv, value_from_key = config["produces_kv"], config["value_from_key"]
     intermediate_size, per_layer_width = config["intermediate_size"], config["per_layer_width"]
@@ -306,11 +312,11 @@ def execute_decoder_layer_mlx(pool, shards, inputs, per_layer, positions, mask, 
     input_norm_weight, query_weight, query_norm, output_weight = weights["input_norm"], weights["query"], weights["query_norm"], weights["output"]
     normalized_input = boundary(rms_norm_real(inputs, input_norm_weight, config["input_epsilon"]))
     query = mx.transpose(boundary(project(normalized_input, query_weight)).reshape((batch, query_sequence, query_heads, head_dim)), (0, 2, 1, 3))
-    query = rope_real(boundary(rms_norm_real(query, query_norm, config["attention_epsilon"])), positions, config["rope_kind"], config["theta"], config["rotary_dim"], config["proportional_pairs"], config["proportional_factor"], not real, rope_factor_context)
+    query = rope_real(boundary(rms_norm_real(query, query_norm, config["attention_epsilon"])), positions, config["rope_kind"], config["theta"], config["rotary_dim"], config["proportional_pairs"], config["proportional_factor"], not real, rope_factor_context, compile_safe_rope)
     if produces_kv:
         key_weight, key_norm = weights["key"], weights["key_norm"]
         current_key_heads = mx.transpose(boundary(project(normalized_input, key_weight)).reshape((batch, query_sequence, key_value_heads, head_dim)), (0, 2, 1, 3))
-        current_key = rope_real(boundary(rms_norm_real(current_key_heads, key_norm, config["attention_epsilon"])), positions, config["rope_kind"], config["theta"], config["rotary_dim"], config["proportional_pairs"], config["proportional_factor"], not real, rope_factor_context)
+        current_key = rope_real(boundary(rms_norm_real(current_key_heads, key_norm, config["attention_epsilon"])), positions, config["rope_kind"], config["theta"], config["rotary_dim"], config["proportional_pairs"], config["proportional_factor"], not real, rope_factor_context, compile_safe_rope)
         if value_from_key:
             current_value = boundary(rms_norm_real(current_key_heads, None, config["attention_epsilon"]))
         else:
@@ -322,11 +328,20 @@ def execute_decoder_layer_mlx(pool, shards, inputs, per_layer, positions, mask, 
     else:
         key, value = source_key, source_value
     group = query_heads // key_value_heads
-    attention_key = key if group == 1 else mx.repeat(key, group, axis=1)
-    attention_value = value if group == 1 else mx.repeat(value, group, axis=1)
-    scores = mx.matmul(query, mx.swapaxes(attention_key, -1, -2)) * mx.array(config["scale"], dtype=mx.float32) + mask
-    probabilities = mx.softmax(scores, axis=-1)
-    context = mx.transpose(mx.matmul(probabilities, attention_value), (0, 2, 1, 3)).reshape((batch, query_sequence, query_heads * head_dim))
+    if incremental_fixed_shape and group != 1:
+        grouped_query = query.reshape((1, key_value_heads, group, 1, head_dim))
+        grouped_key, grouped_value = mx.expand_dims(key, axis=2), mx.expand_dims(value, axis=2)
+        grouped_mask = mask if config["mask_heads"] == 1 else mask.reshape((1, key_value_heads, group, 1, -1))
+        scores = mx.matmul(grouped_query, mx.swapaxes(grouped_key, -1, -2)) * mx.array(config["scale"], dtype=mx.float32) + grouped_mask
+        probabilities = mx.softmax(scores, axis=-1)
+        attention_context = mx.matmul(probabilities, grouped_value).reshape((1, query_heads, 1, head_dim))
+    else:
+        attention_key = key if group == 1 else mx.repeat(key, group, axis=1)
+        attention_value = value if group == 1 else mx.repeat(value, group, axis=1)
+        scores = mx.matmul(query, mx.swapaxes(attention_key, -1, -2)) * mx.array(config["scale"], dtype=mx.float32) + mask
+        probabilities = mx.softmax(scores, axis=-1)
+        attention_context = mx.matmul(probabilities, attention_value)
+    context = mx.transpose(attention_context, (0, 2, 1, 3)).reshape((batch, query_sequence, query_heads * head_dim))
     attention_projected = boundary(project(context, output_weight))
     post_attention_norm_weight, pre_ffn_norm_weight = weights["post_attention_norm"], weights["pre_ffn_norm"]
     gate_weight, up_weight, down_weight, post_ffn_norm_weight = weights["gate"], weights["up"], weights["down"], weights["post_ffn_norm"]
@@ -354,6 +369,32 @@ def execute_decoder_layer_mlx(pool, shards, inputs, per_layer, positions, mask, 
         validation_value = current_value if source_cache_validated else value
         valid = valid & mx.all(mx.isfinite(validation_key)) & mx.all(mx.isfinite(validation_value))
     return result, key, value, valid, weights
+
+
+def compile_incremental_decoder_step(pool, shards, layer_plans):
+    producer_layers = tuple(config["layer_index"] for config, _ in layer_plans if config["produces_kv"])
+    producer_offsets = {layer_index: offset for offset, layer_index in enumerate(producer_layers)}
+
+    def execute(inputs, per_layer_inputs, positions, source_keys, source_values, masks):
+        result, next_keys, next_values, produced = inputs, [], [], {}
+        all_valid = mx.array(True)
+        rope_factor_context = {"factors": {}, "builds": 0, "uses": 0}
+        for layer_index, (config, weights) in enumerate(layer_plans):
+            source_layer = layer_index if config["produces_kv"] else config["producer_layer"]
+            if config["produces_kv"]:
+                source_offset = producer_offsets[source_layer]
+                source_key, source_value = source_keys[source_offset], source_values[source_offset]
+            else:
+                source_key, source_value = produced[source_layer]
+            result, key, value, valid, _ = execute_decoder_layer_mlx(pool, shards, result, per_layer_inputs[layer_index], positions, masks[layer_index], source_key, source_value, config, weights, rope_factor_context, True, True, True)
+            all_valid = all_valid & valid
+            if config["produces_kv"]:
+                produced[layer_index] = (key, value)
+                next_keys.append(key)
+                next_values.append(value)
+        return result, tuple(next_keys), tuple(next_values), all_valid
+
+    return mx.compile(execute, shapeless=True), producer_layers
 
 
 def execute_decoder_epilogue(result, epilogue, terminal_only=True, rounding="native-bf16"):
@@ -433,15 +474,11 @@ def emit_resident_generation(model, result, produced_caches, logits, first_forwa
         result, all_per_layer = model["execute_token_prelude"](incremental_ids)
         absolute_position = model["prompt_length"] + len(generated_ids) - 1
         positions = mx.array(np.array([[absolute_position]], dtype=np.int32))
-        next_caches, all_valid = {}, mx.array(True)
-        rope_factor_context = {"factors": {}, "builds": 0, "uses": 0}
-        topology_masks = {}
+        topology_masks, layer_masks = {}, []
         for layer_index, (config, weights) in enumerate(model["layer_plans"]):
-            if config["produces_kv"]:
-                source_key, source_value = produced_caches[layer_index]
-            else:
-                source_key, source_value = next_caches[config["producer_layer"]]
-            key_sequence = source_key.shape[2] + (1 if config["produces_kv"] else 0)
+            source_layer = layer_index if config["produces_kv"] else config["producer_layer"]
+            source_key = produced_caches[source_layer][0]
+            key_sequence = source_key.shape[2] + 1
             topology_key = (config["mask_heads"], key_sequence, config["sliding_window"], config["causal"])
             mask = topology_masks.get(topology_key)
             topology_mask_uses += 1
@@ -449,15 +486,15 @@ def emit_resident_generation(model, result, produced_caches, logits, first_forwa
                 mask = incremental_topology_mask(config, key_sequence, absolute_position)
                 topology_masks[topology_key] = mask
                 topology_mask_builds += 1
-            result, key, value, valid, _ = execute_decoder_layer_mlx(model["pool"], model["shards"], result, all_per_layer[:, :, layer_index, :], positions, mask, source_key, source_value, config, weights, rope_factor_context, True)
-            all_valid = all_valid & valid
-            if config["produces_kv"]:
-                next_caches[layer_index] = (key, value)
-                if source_key.shape[2]:
-                    kv_prefix_validation_scans_avoided += 1
-        rope_factor_builds += rope_factor_context["builds"]
-        rope_factor_uses += rope_factor_context["uses"]
-        produced_caches = next_caches
+            layer_masks.append(mask)
+        source_keys = tuple(produced_caches[layer][0] for layer in model["producer_layers"])
+        source_values = tuple(produced_caches[layer][1] for layer in model["producer_layers"])
+        per_layer_inputs = tuple(all_per_layer[:, :, layer_index, :] for layer_index in range(len(model["layer_plans"])))
+        result, next_keys, next_values, all_valid = model["execute_incremental_decoder_step"](result, per_layer_inputs, positions, source_keys, source_values, tuple(layer_masks))
+        produced_caches = {layer: (next_keys[offset], next_values[offset]) for offset, layer in enumerate(model["producer_layers"])}
+        rope_factor_builds += model["rope_factor_builds_per_step"]
+        rope_factor_uses += model["rope_factor_uses_per_step"]
+        kv_prefix_validation_scans_avoided += sum(1 for key in source_keys if key.shape[2])
         logits = execute_decoder_epilogue(result, model["epilogue"], rounding=model["rounding"])
         evaluation = [logits, all_valid]
         for key, value in produced_caches.values():
@@ -480,7 +517,8 @@ def emit_resident_generation(model, result, produced_caches, logits, first_forwa
     write_bytes(hashlib.sha256(np.asarray(terminal_values, dtype=np.float32).tobytes(order="C")).digest())
     computed = len(np.asarray(input_token_ids).reshape(-1)) if prefill_tokens_computed is None else prefill_tokens_computed
     cached_context_tokens = len(_resident_generation_session["token_ids"]) if session_id is not None else len(np.asarray(input_token_ids).reshape(-1)) + len(generated_ids) - 1
-    profile = np.array((1, len(generated_ids), max(0, len(generated_ids) - 1), terminal_values.nbytes, rope_factor_builds, max(0, rope_factor_uses - rope_factor_builds), topology_mask_builds, max(0, topology_mask_uses - topology_mask_builds), len(generated_ids), kv_prefix_validation_scans_avoided, _widened_tensor_cache_hits - cache_hits_before, len(_widened_tensor_cache), _widened_tensor_cache_bytes, resident_kv_bytes, prefix_tokens_reused, computed, 1 if prefix_tokens_reused else 0, cached_context_tokens), dtype=np.float32)
+    compiled_incremental_decoder_steps = max(0, len(generated_ids) - 1)
+    profile = np.array((1, len(generated_ids), max(0, len(generated_ids) - 1), terminal_values.nbytes, rope_factor_builds, max(0, rope_factor_uses - rope_factor_builds), topology_mask_builds, max(0, topology_mask_uses - topology_mask_builds), len(generated_ids), kv_prefix_validation_scans_avoided, compiled_incremental_decoder_steps, _widened_tensor_cache_hits - cache_hits_before, len(_widened_tensor_cache), _widened_tensor_cache_bytes, resident_kv_bytes, prefix_tokens_reused, computed, 1 if prefix_tokens_reused else 0, cached_context_tokens), dtype=np.float32)
     write_float_tensor(mx.array(profile))
     sys.stdout.buffer.flush()
 
@@ -668,7 +706,10 @@ def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, 
             mx.eval(logits)
     if generation is not None:
         global _resident_generation_model
-        _resident_generation_model = {"pool": pool, "shards": shards, "execute_token_prelude": execute_token_prelude, "layer_plans": layer_plans, "epilogue": epilogue, "vocabulary_size": vocabulary_size, "prompt_length": query_sequence, "rounding": rounding}
+        execute_incremental_decoder_step, producer_layers = compile_incremental_decoder_step(pool, shards, layer_plans)
+        rope_factor_uses_per_step = sum(1 + int(config["produces_kv"]) for config, _ in layer_plans)
+        rope_factor_builds_per_step = len({(config["head_dim"], config["rope_kind"], config["theta"], config["rotary_dim"], config["proportional_pairs"], config["proportional_factor"], rounding != "real") for config, _ in layer_plans})
+        _resident_generation_model = {"pool": pool, "shards": shards, "execute_token_prelude": execute_token_prelude, "execute_incremental_decoder_step": execute_incremental_decoder_step, "producer_layers": producer_layers, "rope_factor_uses_per_step": rope_factor_uses_per_step, "rope_factor_builds_per_step": rope_factor_builds_per_step, "layer_plans": layer_plans, "epilogue": epilogue, "vocabulary_size": vocabulary_size, "prompt_length": query_sequence, "rounding": rounding}
         emit_resident_generation(_resident_generation_model, result, produced_caches, logits, time.perf_counter() - request_started, generation["max_new_tokens"], generation["eos_token_id"], generation["top_k"], cache_hits_before, token_ids, initial_rope_factor_context=rope_factor_context, initial_topology_mask_builds=num_layers, initial_topology_mask_uses=num_layers)
         return
     if not fused_token_forward:
