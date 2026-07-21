@@ -17,13 +17,17 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
   #closedError?: Error;
   #active = false;
 
-  constructor(options: { python: string; helper: string; threads: number; binaryPool?: string; storageTensors?: ReadonlyMap<string, TensorInfo> }) {
+  constructor(options: { python: string; helper: string; threads: number; binaryPool?: string; storageTensors?: ReadonlyMap<string, TensorInfo>; backend?: "pytorch" | "mlx"; mlxHelper?: string }) {
     if (endianness() !== "LE") throw new Error("Kernel linear binário requer host little-endian.");
     if (!Number.isSafeInteger(options.threads) || options.threads < 1) throw new Error("threads do kernel linear deve ser positivo.");
     if ((options.binaryPool === undefined) !== (options.storageTensors === undefined)) throw new Error("Kernel linear mmap requer pool binário e catálogo juntos.");
     this.#storageTensors = options.storageTensors;
-    this.backend = options.binaryPool ? "persistent-pytorch-mmap-f32-tile" : "persistent-pytorch-f32-tile";
-    const arguments_ = [options.helper, "--threads", String(options.threads), ...(options.binaryPool ? ["--binary-pool", resolve(options.binaryPool)] : [])];
+    const backend = options.backend ?? "pytorch";
+    if (backend === "mlx" && !options.binaryPool) throw new Error("Kernel MLX requer pool binário referenciado.");
+    const helper = backend === "mlx" ? options.mlxHelper : options.helper;
+    if (!helper) throw new Error(`Kernel ${backend} requer helper executável.`);
+    this.backend = backend === "mlx" ? "persistent-mlx-metal-mmap-f32-tile" : options.binaryPool ? "persistent-pytorch-mmap-f32-tile" : "persistent-pytorch-f32-tile";
+    const arguments_ = [helper, "--threads", String(options.threads), ...(options.binaryPool ? ["--binary-pool", resolve(options.binaryPool)] : [])];
     this.child = spawn(options.python, arguments_, { stdio: ["pipe", "pipe", "pipe"] });
     if (options.binaryPool) this.multiplyStorageReference = (input, tensor, startOutput, outputCount, rows) => this.#requestReference(input, tensor, startOutput, outputCount, rows);
     this.child.stdout.on("data", (chunk: Buffer) => { this.#buffer = Buffer.concat([this.#buffer, chunk]); this.#wake(); });
@@ -69,8 +73,9 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     this.#active = true;
     try {
       const header = Buffer.allocUnsafe(16); header.writeUInt32LE(rows, 0); header.writeUInt32LE(outputCount, 4); header.writeUInt32LE(inFeatures!, 8); header.writeUInt32LE((STORAGE_REFERENCE_FLAG + dtype) >>> 0, 12);
-      const metadata = Buffer.allocUnsafe(16); metadata.writeBigUInt64LE(BigInt(byteOffset), 0); metadata.writeUInt32LE(byteLength, 8); metadata.writeUInt32LE(shard.length, 12);
-      await this.#write(header); await this.#write(Buffer.from(input.buffer, input.byteOffset, input.byteLength)); await this.#write(metadata); await this.#write(shard);
+      const name = Buffer.from(stored.name, "utf8"); if (name.length === 0 || name.length > 4096) throw new Error(`${tensor.name}: nome de tensor inválido.`);
+      const metadata = Buffer.allocUnsafe(24); metadata.writeBigUInt64LE(BigInt(byteOffset), 0); metadata.writeUInt32LE(byteLength, 8); metadata.writeUInt32LE(startOutput, 12); metadata.writeUInt32LE(shard.length, 16); metadata.writeUInt32LE(name.length, 20);
+      await this.#write(header); await this.#write(Buffer.from(input.buffer, input.byteOffset, input.byteLength)); await this.#write(metadata); await this.#write(shard); await this.#write(name);
       return await this.#readResult(rows, outputCount);
     } finally { this.#active = false; }
   }

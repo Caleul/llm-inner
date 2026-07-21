@@ -233,6 +233,34 @@ pool dentro de cada forward e a fragmentação do grafo em muitas chamadas de
 kernel. O próximo limite coerente é fundir mais do programa compilado dentro do
 worker nativo sem reintroduzir arredondamentos intermediários implicitamente.
 
+## Backend MLX/Metal experimental
+
+O protocolo referenciado agora inclui, além do shard e intervalo binário, o
+nome do tensor e a coordenada inicial do tile. Isso permite ao worker
+`persistent-mlx-metal-mmap-f32-tile` localizar diretamente o tensor BF16 no
+Safetensors, manter os shards carregados de forma preguiçosa e executar
+`F32 × BF16 → F32` no Metal sem transportar matrizes pelo JavaScript.
+
+Na validação isolada de `[2]`, MLX e PyTorch escolheram o token `184`. O MLX
+reduziu o primeiro forward de `9,913 s` para `2,989 s`, mas o forward repetido
+ficou em `0,838 s`, contra `0,783 s` no PyTorch. O SHA-256 terminal também
+divergiu (`f91b...` contra `39dd...`) porque as reduções não são bit a bit
+idênticas; por exemplo, o token `198` mudou de `18,75` para `18,875`.
+
+No corpus completo `gemma4-three-way-calibration-8x2-mlx.json`, o MLX manteve
+7/8 prompts e 15/16 posições iguais ao baseline, a mesma taxa de acordo do
+backend direto PyTorch. A divergência passou a ser o segundo token da tradução
+para português; o empate do prompt da Lua voltou a escolher o token do
+baseline. Na repetição final persistida, o throughput direto agregado foi
+`0,5023 token/s`, contra `0,8860 token/s` do baseline aquecido, razão
+`0,5669x`. O PyTorch mmap havia alcançado `0,5234 token/s` em sua execução
+separada; como o baseline variou com aquecimento e cache entre ensaios, a
+comparação mais segura entre os backends é o throughput direto absoluto, não a
+razão cruzada. O processo MLX também atingiu cerca de `2,5 GB` de RSS no ensaio
+isolado. Por isso a interface aceita
+`--direct-linear-backend mlx`, exibe o backend efetivo, mas preserva PyTorch
+como padrão até que fusão de operações torne o Metal vantajoso no agregado.
+
 Comando reprodutível:
 
 ```bash
@@ -243,3 +271,8 @@ npm run calibrate:gemma4-real -- \
   --direct-threads 8 --direct-max-read-mib 16 \
   --precision f32 --rounding-policy none
 ```
+
+Para reproduzir a variante MLX/Metal, acrescente
+`--direct-linear-backend mlx`; o relatório registra a implementação efetiva em
+`initialization.direct.linearBackend` e a seleção em
+`configuration.directLinearBackend`.

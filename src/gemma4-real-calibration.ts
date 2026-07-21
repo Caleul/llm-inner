@@ -104,7 +104,7 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
     source: options.runner.source,
     configuration: {
       prompts: cases.length, tokensPerPrompt: options.maxNewTokens, requestThreads: options.requestThreads,
-      directThreads: options.runner.directThreads, precision: options.precision, roundingPolicy: options.roundingPolicy,
+      directThreads: options.runner.directThreads, directLinearBackend: options.runner.directLinearBackend ?? "pytorch", precision: options.precision, roundingPolicy: options.roundingPolicy,
     },
     initialization: status,
     summary: {

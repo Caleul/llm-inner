@@ -41,6 +41,7 @@ test("servidor diferencial valida opções reprodutíveis", () => {
   const options = parseGemma4RealServerOptions(["--source", "./model", "--port", "9000", "--host", "localhost"]);
   assert.equal(options.port, 9000); assert.equal(options.host, "localhost"); assert.match(options.source, /\/model$/);
   assert.throws(() => parseGemma4RealServerOptions(["--port", "0"]), /--port inválido/);
+  assert.throws(() => parseGemma4RealServerOptions(["--direct-linear-backend", "metal"]), /pytorch ou mlx/);
   assert.throws(() => parseGemma4RealServerOptions(["--unknown", "x"]), /Flag desconhecida/);
 });
 

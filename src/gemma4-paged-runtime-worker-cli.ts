@@ -12,7 +12,7 @@ const args = parseArguments(process.argv.slice(2));
 const initializationStarted = performance.now();
 const artifact = await openGemma4CompositeLiteralArtifact(args.artifact);
 const pool = await Gemma4BinaryConstantPool.open(args.binaryPool);
-const linear = new Gemma4PagedNativeLinearWorker({ python: args.python, helper: args.linearHelper, threads: args.threads, binaryPool: args.binaryPool, storageTensors: pool.catalog.tensors });
+const linear = new Gemma4PagedNativeLinearWorker({ python: args.python, helper: args.linearHelper, threads: args.threads, binaryPool: args.binaryPool, storageTensors: pool.catalog.tensors, backend: args.linearBackend, mlxHelper: args.mlxHelper });
 const options = { maxReadBytes: args.maxReadBytes, allowUnverifiedFidelity: true, tensorReader: pool, linearTileKernel: linear };
 process.stdout.write(`${JSON.stringify({ ready: true, initializationSeconds: (performance.now() - initializationStarted) / 1000, backend: "paged-binary-native", linearBackend: linear.backend, threads: args.threads })}\n`);
 
@@ -64,12 +64,13 @@ function validateTokens(value: unknown): number {
   if (!Number.isSafeInteger(value) || (value as number) < 1 || (value as number) > 64) throw new Error("maxNewTokens deve estar entre 1 e 64.");
   return value as number;
 }
-function parseArguments(argv: string[]): { artifact: string; binaryPool: string; python: string; linearHelper: string; threads: number; maxReadBytes: number } {
+function parseArguments(argv: string[]): { artifact: string; binaryPool: string; python: string; linearHelper: string; mlxHelper: string; linearBackend: "pytorch" | "mlx"; threads: number; maxReadBytes: number } {
   const values = new Map<string, string>();
   for (let index = 0; index < argv.length; index += 2) { const flag = argv[index], value = argv[index + 1]; if (!flag?.startsWith("--") || value === undefined || values.has(flag)) throw new Error(`Argumento inválido: ${flag ?? "fim"}.`); values.set(flag, value); }
-  const known = new Set(["--artifact", "--binary-pool", "--python", "--linear-helper", "--threads", "--max-read-mib"]); for (const flag of values.keys()) if (!known.has(flag)) throw new Error(`Flag desconhecida: ${flag}.`);
+  const known = new Set(["--artifact", "--binary-pool", "--python", "--linear-helper", "--mlx-helper", "--linear-backend", "--threads", "--max-read-mib"]); for (const flag of values.keys()) if (!known.has(flag)) throw new Error(`Flag desconhecida: ${flag}.`);
   const required = (flag: string): string => { const value = values.get(flag); if (!value) throw new Error(`${flag} é obrigatório.`); return resolve(value); };
   const threads = Number(values.get("--threads") ?? "8"), maxReadMiB = Number(values.get("--max-read-mib") ?? "16");
   if (!Number.isSafeInteger(threads) || threads < 1 || threads > 256 || !Number.isSafeInteger(maxReadMiB) || maxReadMiB < 1 || maxReadMiB > 1024) throw new Error("threads/max-read-mib inválidos.");
-  return { artifact: required("--artifact"), binaryPool: required("--binary-pool"), python: values.get("--python") ?? resolve("venv/bin/python"), linearHelper: resolve(values.get("--linear-helper") ?? "scripts/gemma4-paged-linear-worker.py"), threads, maxReadBytes: maxReadMiB * 1024 * 1024 };
+  const linearBackend = values.get("--linear-backend") ?? "pytorch"; if (linearBackend !== "pytorch" && linearBackend !== "mlx") throw new Error("--linear-backend deve ser pytorch ou mlx.");
+  return { artifact: required("--artifact"), binaryPool: required("--binary-pool"), python: values.get("--python") ?? resolve("venv/bin/python"), linearHelper: resolve(values.get("--linear-helper") ?? "scripts/gemma4-paged-linear-worker.py"), mlxHelper: resolve(values.get("--mlx-helper") ?? "scripts/gemma4-mlx-linear-worker.py"), linearBackend, threads, maxReadBytes: maxReadMiB * 1024 * 1024 };
 }

@@ -55,13 +55,16 @@ def main():
             if referenced:
                 if pool is None:
                     raise ValueError("referenced tile requires --binary-pool")
-                metadata = read_exact(16)
-                byte_offset, byte_length, shard_length = struct.unpack("<QII", metadata)
-                if shard_length < 1 or shard_length > 4096:
-                    raise ValueError("referenced tile shard length is invalid")
+                metadata = read_exact(24)
+                byte_offset, byte_length, start_output, shard_length, name_length = struct.unpack("<QIIII", metadata)
+                if shard_length < 1 or shard_length > 4096 or name_length < 1 or name_length > 4096:
+                    raise ValueError("referenced tile identity length is invalid")
                 shard = bytes(read_exact(shard_length)).decode("utf-8")
+                tensor_name = bytes(read_exact(name_length)).decode("utf-8")
                 if not shard or Path(shard).name != shard:
                     raise ValueError("referenced tile shard must be a basename")
+                if not tensor_name:
+                    raise ValueError("referenced tile tensor name is empty")
                 if byte_length != expected_weight_bytes:
                     raise ValueError(f"referenced tile has {byte_length} bytes; expected {expected_weight_bytes}")
                 path = (pool / shard).resolve()
