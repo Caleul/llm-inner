@@ -60,6 +60,8 @@ export interface Gemma4PagedTextOptions {
   nativeAttentionRounding?: "bf16" | "real";
   /** Whole Q/K/V -> norm/RoPE -> attention -> O subgraph with explicit boundary policy. */
   fusedAttentionRounding?: "bf16" | "real";
+  /** Whole per-layer-input gate -> projection -> norm -> residual subgraph. */
+  fusedPleRounding?: "bf16" | "real";
 }
 
 /**
@@ -209,6 +211,21 @@ async function executePagedOperations(
         store(operation, reshapePerLayerF32(value(values, operation.input), operation.numLayers, operation.layerWidth));
         break;
       case "select_per_layer":
+        if (options.fusedPleRounding && options.linearTileKernel?.fusedPleStorageReferences) {
+          const fused = matchFusedPle(operations, operationIndex, operation, options.fusedPleRounding);
+          if (fused) {
+            for (const fusedOperation of fused.operations) assertPagedF32Policy(fusedOperation);
+            const input = value(values, fused.gate.input), perLayerInput = selectPerLayerF32(value(values, operation.input), operation);
+            if (input.shape.length !== 3 || perLayerInput.shape.length !== 3 || input.shape[0] !== perLayerInput.shape[0] || input.shape[1] !== perLayerInput.shape[1]) throw new Error(`${operation.id}: subgrafo PLE requer tensores [B,S,H] e [B,S,P].`);
+            const rows = input.shape[0]! * input.shape[1]!, hiddenSize = input.shape[2]!, perLayerWidth = perLayerInput.shape[2]!;
+            const outputValues = await options.linearTileKernel.fusedPleStorageReferences({ input: input.values, perLayerInput: perLayerInput.values, gateWeight: tensorInfo(artifact, fused.gate.weight), projectionWeight: tensorInfo(artifact, fused.projection.weight), normWeight: tensorInfo(artifact, fused.norm.weight!), layerScalar: tensorInfo(artifact, fused.scalar.scalar), rows, hiddenSize, perLayerWidth, epsilon: fused.norm.epsilon, rounding: options.fusedPleRounding });
+            if (outputValues.length !== input.values.length || outputValues.some((entry) => !Number.isFinite(entry))) throw new Error(`${options.linearTileKernel.backend}: subgrafo PLE retornou saída inválida.`);
+            const output = { shape: [...input.shape], values: outputValues };
+            if (options.fusedPleRounding === "bf16") store(fused.scalar, output); else values.set(fused.scalar.output, output);
+            operationIndex += fused.operations.length - 1;
+            break;
+          }
+        }
         store(operation, selectPerLayerF32(value(values, operation.input), operation));
         break;
       case "tensor_scale":
@@ -372,6 +389,8 @@ type ReshapeHeadsOperation = Extract<Operation, { op: "reshape_heads" }>;
 type RmsNormOperation = Extract<Operation, { op: "rms_norm" }>;
 type RotaryOperation = Extract<Operation, { op: "rotary_embedding" }>;
 type AttentionOperation = Extract<Operation, { op: "scaled_dot_product_attention" }>;
+type SelectPerLayerOperation = Extract<Operation, { op: "select_per_layer" }>;
+type TensorScaleOperation = Extract<Operation, { op: "tensor_scale" }>;
 
 interface FusedAttentionMatch {
   operations: readonly Operation[];
@@ -435,6 +454,15 @@ function matchFusedGatedMlp(operations: readonly Operation[], index: number, gat
   if (up.input !== gate.input || !up.transposeWeight || up.bias || activation.input !== gate.output || activation.function !== "gelu" || activation.approximation !== "tanh" || multiply.kind !== "multiply" || multiply.inputs.length !== 2 || multiply.inputs[0] !== activation.output || multiply.inputs[1] !== up.output || down.input !== multiply.output || !down.transposeWeight || down.bias) return undefined;
   if ([gate, up, activation, multiply, down].some((operation) => operation.dtypePolicy.outputDtype !== "BF16")) return undefined;
   return { up, down, operations: [up, activation, multiply, down] };
+}
+
+function matchFusedPle(operations: readonly Operation[], index: number, select: SelectPerLayerOperation, rounding: "bf16" | "real"): { operations: readonly Operation[]; gate: LinearOperation; projection: LinearOperation; norm: RmsNormOperation; scalar: TensorScaleOperation } | undefined {
+  const gate = operations[index + 1], activation = operations[index + 2], multiply = operations[index + 3], projection = operations[index + 4], norm = operations[index + 5], residual = operations[index + 6], scalar = operations[index + 7];
+  if (gate?.op !== "linear" || activation?.op !== "activation" || multiply?.op !== "elementwise" || projection?.op !== "linear" || norm?.op !== "rms_norm" || residual?.op !== "elementwise" || scalar?.op !== "tensor_scale") return undefined;
+  if (!gate.transposeWeight || gate.bias || gate.outFeatures !== select.layerWidth || activation.input !== gate.output || activation.function !== "gelu" || activation.approximation !== "tanh" || multiply.kind !== "multiply" || multiply.inputs.length !== 2 || multiply.inputs[0] !== activation.output || multiply.inputs[1] !== select.output || projection.input !== multiply.output || !projection.transposeWeight || projection.bias || projection.inFeatures !== select.layerWidth || projection.outFeatures !== gate.inFeatures || norm.input !== projection.output || !norm.weight || norm.weightTransform !== "direct" || norm.weight.shape.length !== 1 || norm.weight.shape[0] !== projection.outFeatures || residual.kind !== "add" || residual.inputs.length !== 2 || residual.inputs[0] !== gate.input || residual.inputs[1] !== norm.output || scalar.input !== residual.output || scalar.scalar.shape.length !== 1 || scalar.scalar.shape[0] !== 1) return undefined;
+  const matched = operations.slice(index, index + 8);
+  if (rounding === "bf16" && matched.some((operation) => operation.dtypePolicy.outputDtype !== "BF16")) return undefined;
+  return { operations: matched, gate, projection, norm, scalar };
 }
 
 function assertFusedSourceCache(key: DenseF32Tensor, valueTensor: DenseF32Tensor, batch: number, heads: number, headDim: number, operationId: string): void {

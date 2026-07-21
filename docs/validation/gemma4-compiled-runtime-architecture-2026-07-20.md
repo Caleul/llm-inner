@@ -273,6 +273,70 @@ npm run calibrate:gemma4-real -- \
   --precision f32 --rounding-policy none
 ```
 
+## Subgrafo PLE completo por camada
+
+Depois das fusões de attention e MLP, cada uma das 42 camadas ainda executava
+o caminho de per-layer input em oito operações separadas:
+
+```text
+select_per_layer -> gate -> GELU -> multiply(ple_input) -> projection
+                 -> RMSNorm -> residual -> layer_scalar
+```
+
+As duas projeções atravessavam Node/PyTorch separadamente, totalizando 84
+despachos lineares por forward. O modo `fusedPleRounding` reconhece a cadeia
+por dependências, shapes, função de ativação, norma, residual e scalar — não
+por nomes fixos — e envia o hidden state, o slice PLE e quatro referências
+`mmap` autenticadas para o worker multithread. O retorno é diretamente
+`hidden_states_{layer+1}`.
+
+As políticas disponíveis são:
+
+- `off`: executor anterior, operação por operação;
+- `bf16`: preserva todas as fronteiras BF16 declaradas dentro da cadeia;
+- `real`: remove os arredondamentos internos da cadeia e conserva apenas as
+  fronteiras externas.
+
+Para `[2]` com dois tokens, `bf16` preservou `[184,3910]`, todos os top logits
+e o SHA-256 terminal
+`1f65253f2759208e828a710a3f8f574d713b5b0b170f1c6174f20aee95c4bdd0`.
+As 168 projeções PLE separadas tornaram-se 84 subgrafos, e os despachos
+lineares de referência caíram de 338 para 170. O forward quente caiu de
+`0,5347 s` para `0,5106 s`.
+
+No corpus 8×2:
+
+- `bf16`: `1,1907 token/s`, 7/8 prompts e 15/16 tokens iguais ao baseline;
+- `real`: `1,1731 token/s`, os mesmos 7/8 prompts e 15/16 tokens;
+- controle anterior sem fusão PLE: `1,1194 token/s`;
+- ganho de `bf16` contra esse controle: 6,37%;
+- razão de `bf16` contra o baseline da própria execução: `2,1262x`.
+
+O modo `bf16` foi promovido como padrão PyTorch porque é bit a bit equivalente
+no teste isolado, não adicionou divergência ao corpus e foi mais rápido que
+`real`. MLX permanece em `off`. A interface mostra `fusedPleRounding` e
+`fusedPleDispatches`; `--direct-fused-ple off|bf16|real` mantém o A/B.
+
+O perfil promovido agora possui somente 85 lineares referenciadas por forward:
+81 páginas do `lm_head` e quatro operações do prelude. O PLE de camada deixou
+de aparecer nessa contagem. Somando 42 MLPs, 42 attentions e 42 PLEs fundidos,
+o runtime executa aproximadamente 211 travessias do worker por forward, contra
+253 antes desta fusão.
+
+Comando promovido:
+
+```bash
+npm run calibrate:gemma4-real -- \
+  --source ./artifacts/gemma4-compiled-global-runtime-bundle \
+  --output ./artifacts/gemma4-three-way-calibration-8x2-fused-ple-bf16.json \
+  --tokens 2 --request-threads 1 \
+  --direct-threads 8 --direct-max-read-mib 16 \
+  --direct-linear-backend pytorch --direct-fused-mlp real \
+  --direct-fused-ple bf16 --direct-final-head native-bf16 \
+  --direct-native-attention real --direct-fused-attention bf16 \
+  --precision f32 --rounding-policy none
+```
+
 Para reproduzir a variante MLX/Metal, acrescente
 `--direct-linear-backend mlx`; o relatório registra a implementação efetiva em
 `initialization.direct.linearBackend` e a seleção em

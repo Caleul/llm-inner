@@ -48,6 +48,8 @@ interface ThreeWayCase {
     linearBatchedProjectionTiles?: number;
     fusedMlpRounding?: "off" | "bf16" | "real";
     fusedMlpDispatches?: number;
+    fusedPleRounding?: "off" | "bf16" | "real";
+    fusedPleDispatches?: number;
     finalHeadCompute?: "f32" | "native-bf16" | "native-bf16-whole";
     nativeAttentionRounding?: "off" | "bf16" | "real";
     nativeAttentionDispatches?: number;
@@ -117,7 +119,7 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
     source: options.runner.source,
     configuration: {
       prompts: cases.length, tokensPerPrompt: options.maxNewTokens, requestThreads: options.requestThreads,
-      directThreads: options.runner.directThreads, directLinearBackend: options.runner.directLinearBackend ?? "pytorch", directFusedMlp: options.runner.directFusedMlp ?? "real", directFinalHead: options.runner.directFinalHead ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "f32"), directNativeAttention: options.runner.directNativeAttention ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "real" : "off"), directFusedAttention: options.runner.directFusedAttention ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "bf16" : "off"), precision: options.precision, roundingPolicy: options.roundingPolicy,
+      directThreads: options.runner.directThreads, directLinearBackend: options.runner.directLinearBackend ?? "pytorch", directFusedMlp: options.runner.directFusedMlp ?? "real", directFusedPle: options.runner.directFusedPle ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "bf16" : "off"), directFinalHead: options.runner.directFinalHead ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "f32"), directNativeAttention: options.runner.directNativeAttention ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "real" : "off"), directFusedAttention: options.runner.directFusedAttention ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "bf16" : "off"), precision: options.precision, roundingPolicy: options.roundingPolicy,
     },
     initialization: status,
     summary: {
@@ -156,6 +158,8 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.linearBatchedProjectionTiles === undefined ? {} : { linearBatchedProjectionTiles: entry.direct.linearBatchedProjectionTiles }),
         ...(entry.direct.fusedMlpRounding === undefined ? {} : { fusedMlpRounding: entry.direct.fusedMlpRounding }),
         ...(entry.direct.fusedMlpDispatches === undefined ? {} : { fusedMlpDispatches: entry.direct.fusedMlpDispatches }),
+        ...(entry.direct.fusedPleRounding === undefined ? {} : { fusedPleRounding: entry.direct.fusedPleRounding }),
+        ...(entry.direct.fusedPleDispatches === undefined ? {} : { fusedPleDispatches: entry.direct.fusedPleDispatches }),
         ...(entry.direct.finalHeadCompute === undefined ? {} : { finalHeadCompute: entry.direct.finalHeadCompute }),
         ...(entry.direct.nativeAttentionRounding === undefined ? {} : { nativeAttentionRounding: entry.direct.nativeAttentionRounding }),
         ...(entry.direct.nativeAttentionDispatches === undefined ? {} : { nativeAttentionDispatches: entry.direct.nativeAttentionDispatches }),

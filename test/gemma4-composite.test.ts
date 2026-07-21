@@ -108,7 +108,7 @@ import {
 } from "../src/gemma4-authoritative-runtime.js";
 import { gemma4CompositeTraceProfile } from "../src/gemma4-composite-trace-profile.js";
 import { validateGemma4CompositeTraceOptions } from "../src/gemma4-transformers-composite-trace.js";
-import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearF32, type PagedFusedAttentionRequest, type PagedNativeAttentionRequest } from "../src/paged-dense.js";
+import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearF32, type PagedFusedAttentionRequest, type PagedFusedPleRequest, type PagedNativeAttentionRequest } from "../src/paged-dense.js";
 import { fingerprintIR } from "../src/trace.js";
 import { auditLiteralArtifact } from "../src/literal-artifact-audit.js";
 import {
@@ -2723,6 +2723,22 @@ test("Gemma 4 paged text interpreter replays prefill and cached greedy decode fr
       assert.equal(fusedAttentionRequests.length, program.textProgram.layers.length);
       assert.ok(fusedAttentionRequests.every((request) => request.rounding === "real" && request.producesKeyValue));
       assert.ok(fusedAttentionRequests.every((request) => request.mask.some((entry) => entry === -Infinity)), "fused attention receives materialized causal/sliding topology");
+      const fusedPleRequests: PagedFusedPleRequest[] = [];
+      await executeGemma4PagedTextLiteralF32(artifact, { inputIds: [[1, 2, 3]] }, {
+        maxReadBytes: 64,
+        allowUnverifiedFidelity: true,
+        fusedPleRounding: "real",
+        linearTileKernel: {
+          backend: "test-fused-ple",
+          multiply: scalarTileMultiply,
+          async fusedPleStorageReferences(request) {
+            fusedPleRequests.push(request);
+            return Float32Array.from(request.input);
+          },
+        },
+      });
+      assert.equal(fusedPleRequests.length, program.textProgram.layers.length);
+      assert.ok(fusedPleRequests.every((request) => request.rounding === "real" && request.perLayerInput.length === request.rows * request.perLayerWidth));
       const generation = await generateGemma4PagedTextLiteralF32(artifact, { inputIds: [[1, 2, 3]], maxNewTokens: 2 }, { maxReadBytes: 64, allowUnverifiedFidelity: true });
       assert.deepEqual(replay.logits.values, expected.text.logits.values);
       assert.deepEqual(generation.generatedTokenIds, expectedGeneration.generatedTokenIds);
