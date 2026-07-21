@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { pagedLinearF32, type PagedDenseF32Matrix, type PagedLinearTileKernel } from "../src/paged-dense.js";
+import { pagedLinearBatchF32, pagedLinearF32, type PagedDenseF32Matrix, type PagedLinearTileKernel } from "../src/paged-dense.js";
 
 const matrix: PagedDenseF32Matrix = {
   tensor: { name: "weight", storageDtype: "F32", storageShape: [2, 2], logicalShape: [2, 2] },
@@ -61,4 +61,25 @@ test("kernel nativo referenciado evita transportar bytes da matriz pelo JavaScri
   };
   const result = await pagedLinearF32({ shape: [1, 2], values: Float32Array.from([1, 2]) }, referencedMatrix, { tileKernel: kernel });
   assert.equal(referenceCalls, 1); assert.deepEqual([...result.values], [11, 17]);
+});
+
+test("duas projeções com a mesma entrada compartilham um único despacho referenciado", async () => {
+  const gate: PagedDenseF32Matrix = { ...matrix, tensor: { ...matrix.tensor, name: "gate", shard: "model.safetensors", byteOffset: 64, byteLength: 16 } };
+  const up: PagedDenseF32Matrix = { ...matrix, tensor: { ...matrix.tensor, name: "up", shard: "model.safetensors", byteOffset: 80, byteLength: 16 } };
+  let batchCalls = 0;
+  const kernel: PagedLinearTileKernel = {
+    backend: "batch-reference", async multiply() { throw new Error("não deve executar projeção isolada"); },
+    async multiplyStorageReferences(input, requests, rows) {
+      batchCalls += 1; assert.deepEqual([...input], [1, 2]); assert.equal(rows, 1);
+      assert.deepEqual(requests.map(({ tensor, startOutput, outputCount }) => [tensor.name, startOutput, outputCount]), [["gate", 0, 2], ["up", 0, 2]]);
+      return [Float32Array.from([11, 17]), Float32Array.from([23, 29])];
+    },
+  };
+  const result = await pagedLinearBatchF32({ shape: [1, 2], values: Float32Array.from([1, 2]) }, [gate, up], [{ tileKernel: kernel }, { tileKernel: kernel }]);
+  assert.equal(batchCalls, 1); assert.deepEqual(result.map((entry) => [...entry.values]), [[11, 17], [23, 29]]);
+});
+
+test("linear em lote rejeita resposta truncada antes de publicar saída parcial", async () => {
+  const kernel: PagedLinearTileKernel = { backend: "broken-batch", async multiply() { throw new Error("não usado"); }, async multiplyStorageReferences() { return [Float32Array.from([1, 2])]; } };
+  await assert.rejects(() => pagedLinearBatchF32({ shape: [1, 2], values: Float32Array.from([1, 2]) }, [matrix, matrix], [{ tileKernel: kernel }, { tileKernel: kernel }]), /retornou 1 tiles; esperados 2/);
 });

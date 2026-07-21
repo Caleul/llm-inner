@@ -45,8 +45,47 @@ def main():
             if not rows or not outputs or not features:
                 raise ValueError("tile dimensions must be positive")
             referenced = bool(encoded_dtype & 0x80000000)
-            dtype_code = encoded_dtype & 0x7fffffff
+            batched = bool(encoded_dtype & 0x40000000)
+            dtype_code = encoded_dtype & 0x3fffffff
             input_bytes = read_exact(rows * features * 4)
+            if batched:
+                if not referenced or pool is None or outputs < 2 or outputs > 256:
+                    raise ValueError("batched tile requires 2..256 referenced projections")
+                inputs = torch.frombuffer(input_bytes, dtype=torch.float32).reshape(rows, features)
+                results = []
+                for _ in range(outputs):
+                    metadata = read_exact(32)
+                    request_dtype, output_count, byte_offset, byte_length, start_output, shard_length, name_length = struct.unpack("<IIQIIII", metadata)
+                    if request_dtype not in (0, 1, 2) or not output_count:
+                        raise ValueError("batched tile request is invalid")
+                    if shard_length < 1 or shard_length > 4096 or name_length < 1 or name_length > 4096:
+                        raise ValueError("batched tile identity length is invalid")
+                    shard = bytes(read_exact(shard_length)).decode("utf-8")
+                    tensor_name = bytes(read_exact(name_length)).decode("utf-8")
+                    if Path(shard).name != shard or not tensor_name:
+                        raise ValueError("batched tile identity is invalid")
+                    storage_dtype = (torch.float32, torch.bfloat16, torch.float16)[request_dtype]
+                    element_bytes = 4 if request_dtype == 0 else 2
+                    if byte_length != output_count * features * element_bytes:
+                        raise ValueError(f"{tensor_name}: batched tile byte length is invalid")
+                    path = (pool / shard).resolve()
+                    if path.parent != pool:
+                        raise ValueError("batched tile escapes binary pool")
+                    if path not in mappings:
+                        files[path] = path.open("rb")
+                        mappings[path] = mmap.mmap(files[path].fileno(), 0, access=mmap.ACCESS_READ)
+                    if byte_offset + byte_length > mappings[path].size():
+                        raise ValueError("batched tile range exceeds shard")
+                    weights = torch.frombuffer(mappings[path], dtype=storage_dtype, count=output_count * features, offset=byte_offset).reshape(output_count, features).float()
+                    results.append(torch.mm(inputs, weights.transpose(0, 1)).contiguous())
+                    del weights
+                for result in results:
+                    payload = result.numpy().tobytes(order="C")
+                    sys.stdout.buffer.write(struct.pack("<I", len(payload)))
+                    sys.stdout.buffer.write(payload)
+                sys.stdout.buffer.flush()
+                del inputs, results, result, payload
+                continue
             if dtype_code not in (0, 1, 2):
                 raise ValueError(f"unknown storage dtype code {dtype_code}")
             storage_dtype = (torch.float32, torch.bfloat16, torch.float16)[dtype_code]

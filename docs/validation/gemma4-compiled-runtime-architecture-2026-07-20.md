@@ -276,3 +276,31 @@ Para reproduzir a variante MLX/Metal, acrescente
 `--direct-linear-backend mlx`; o relatório registra a implementação efetiva em
 `initialization.direct.linearBackend` e a seleção em
 `configuration.directLinearBackend`.
+
+## Fusão de projeções com entrada compartilhada
+
+O executor reconhece agora duas operações lineares adjacentes com a mesma
+entrada, shape e paginação. No Gemma 4 isso cobre `gate_proj + up_proj` em cada
+MLP. As duas saídas continuam sendo tensores independentes e preservam suas
+fronteiras F32, mas o vetor de entrada, as identidades do pool e os pedidos dos
+tiles atravessam o protocolo em um único lote. PyTorch agenda os dois GEMMs no
+mesmo ciclo do worker; MLX avalia os dois resultados em uma única barreira.
+
+O relatório direto expõe `linearReferenceDispatches`,
+`linearBatchDispatches` e `linearBatchedProjectionTiles`, e a interface mostra
+os lotes efetivamente usados. Para dois tokens por prompt foram 966 despachos
+isolados, 336 despachos em lote e 672 tiles de projeção dentro desses lotes.
+Sem a fusão seriam 1.638 despachos; com ela são 1.302, redução de 20,5%.
+
+A calibração `gemma4-three-way-calibration-8x2-batched.json` preservou os
+mesmos 7/8 prompts e 15/16 decisões de token do backend PyTorch anterior. O
+SHA-256 terminal isolado de `[2]` permaneceu
+`39ddaa04d2e4b36d66f72ba1be4db9420387a48a05f6757ae9683e67a4fe73cf`.
+O throughput agregado, porém, ficou em `0,5221 token/s`, contra
+`0,5234 token/s` antes: diferença compatível com ruído. Portanto o transporte
+foi reduzido, mas os GEMMs continuam sendo o custo dominante. Uma tentativa de
+concatenar os dois pesos em um único GEMM MLX também foi descartada porque
+piorou o forward quente isolado de `0,789 s` para `1,140 s`, apesar de manter o
+mesmo hash. O próximo limite deve fundir a região MLP inteira — projeções,
+GELU, multiplicação e `down_proj` — evitando materializar intermediários fora
+do worker.

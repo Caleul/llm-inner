@@ -22,6 +22,13 @@ export interface PagedLinearTileKernel {
   multiply(input: Float32Array, weight: Float32Array, rows: number, outputCount: number, inFeatures: number): Promise<Float32Array>;
   multiplyStorage?(input: Float32Array, weight: Buffer, storageDtype: "F32" | "F16" | "BF16", rows: number, outputCount: number, inFeatures: number): Promise<Float32Array>;
   multiplyStorageReference?: ((input: Float32Array, tensor: TensorInfo, startOutput: number, outputCount: number, rows: number) => Promise<Float32Array>) | undefined;
+  multiplyStorageReferences?: ((input: Float32Array, requests: readonly PagedLinearStorageReference[], rows: number) => Promise<readonly Float32Array[]>) | undefined;
+}
+
+export interface PagedLinearStorageReference {
+  tensor: TensorInfo;
+  startOutput: number;
+  outputCount: number;
 }
 
 /**
@@ -199,6 +206,45 @@ export async function pagedLinearF32(
     }
   }
   return { shape: [...input.shape.slice(0, -1), outFeatures], values: result };
+}
+
+/**
+ * Executes equal-shaped projections that consume the same input through one
+ * referenced native dispatch per output tile. The outputs stay independent;
+ * only transport and kernel scheduling are fused.
+ */
+export async function pagedLinearBatchF32(
+  input: DenseF32Tensor,
+  weights: readonly PagedDenseF32Matrix[],
+  options: readonly { outputDtype?: "F32" | "BF16"; tileKernel: PagedLinearTileKernel }[],
+): Promise<readonly DenseF32Tensor[]> {
+  if (weights.length < 2 || options.length !== weights.length) throw new Error("Linear paginado em lote requer ao menos duas matrizes e uma política por matriz.");
+  const kernel = options[0]!.tileKernel;
+  if (!kernel.multiplyStorageReferences || options.some((entry) => entry.tileKernel !== kernel)) throw new Error("Linear paginado em lote requer um único kernel referenciado com suporte a lote.");
+  const [outFeatures, inFeatures] = weights[0]!.shape;
+  if (input.shape.length < 1 || input.shape.at(-1) !== inFeatures) throw new Error("Linear paginado em lote recebeu entrada incompatível.");
+  if (weights.some((weight) => weight.shape[0] !== outFeatures || weight.shape[1] !== inFeatures || weight.maxReadBytes !== weights[0]!.maxReadBytes)) throw new Error("Linear paginado em lote requer matrizes com shape e paginação idênticos.");
+  const rows = input.values.length / inFeatures;
+  const results = weights.map(() => new Float32Array(rows * outFeatures));
+  const storageBytes = (weight: PagedDenseF32Matrix) => weight.tensor.storageDtype === "F32" ? 4 : 2;
+  const elementBytes = storageBytes(weights[0]!);
+  if (weights.some((weight) => storageBytes(weight) !== elementBytes)) throw new Error("Linear paginado em lote requer largura de armazenamento idêntica.");
+  const chunkRows = Math.max(1, Math.floor(weights[0]!.maxReadBytes / (inFeatures * elementBytes)));
+  for (let firstOutput = 0; firstOutput < outFeatures; firstOutput += chunkRows) {
+    const outputCount = Math.min(chunkRows, outFeatures - firstOutput);
+    const tiles = await kernel.multiplyStorageReferences(input.values, weights.map((weight) => ({ tensor: weight.tensor, startOutput: firstOutput, outputCount })), rows);
+    if (tiles.length !== weights.length) throw new Error(`${kernel.backend}: kernel linear em lote retornou ${tiles.length} tiles; esperados ${weights.length}.`);
+    for (let projection = 0; projection < tiles.length; projection += 1) {
+      const tile = tiles[projection]!;
+      if (tile.length !== rows * outputCount || tile.some((value) => !Number.isFinite(value))) throw new Error(`${kernel.backend}: kernel linear em lote retornou tile inválido.`);
+      const result = results[projection]!, outputDtype = options[projection]!.outputDtype;
+      for (let row = 0; row < rows; row += 1) for (let output = 0; output < outputCount; output += 1) {
+        const value = tile[row * outputCount + output]!;
+        result[row * outFeatures + firstOutput + output] = outputDtype === "BF16" ? roundF32ToBF16(value) : Math.fround(value);
+      }
+    }
+  }
+  return results.map((values) => ({ shape: [...input.shape.slice(0, -1), outFeatures], values }));
 }
 
 /** Ordered F32 products and F32 additions: the generic scalar reference contract. */

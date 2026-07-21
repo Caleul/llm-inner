@@ -41,12 +41,50 @@ def main():
             return
         rows, outputs, features, encoded_dtype = struct.unpack("<IIII", header)
         referenced = bool(encoded_dtype & 0x80000000)
-        dtype_code = encoded_dtype & 0x7fffffff
         if not rows or not outputs or not features or not referenced:
             raise ValueError("MLX worker requires a positive referenced tile")
+        batched = bool(encoded_dtype & 0x40000000)
+        dtype_code = encoded_dtype & 0x3fffffff
+        input_bytes = read_exact(rows * features * 4)
+        if batched:
+            if outputs < 2 or outputs > 256:
+                raise ValueError("batched tile requires 2..256 projections")
+            inputs = mx.array(np.frombuffer(input_bytes, dtype=np.float32).reshape(rows, features))
+            results = []
+            for _ in range(outputs):
+                metadata = read_exact(32)
+                request_dtype, output_count, _, byte_length, start_output, shard_length, name_length = struct.unpack("<IIQIIII", metadata)
+                if request_dtype not in (0, 1, 2) or not output_count:
+                    raise ValueError("batched tile request is invalid")
+                if shard_length < 1 or shard_length > 4096 or name_length < 1 or name_length > 4096:
+                    raise ValueError("batched tile identity length is invalid")
+                shard = bytes(read_exact(shard_length)).decode("utf-8")
+                tensor_name = bytes(read_exact(name_length)).decode("utf-8")
+                if Path(shard).name != shard or not tensor_name:
+                    raise ValueError("batched tile identity is invalid")
+                path = (pool / shard).resolve()
+                if path.parent != pool:
+                    raise ValueError("batched tile escapes binary pool")
+                if path not in shards:
+                    shards[path] = mx.load(str(path))
+                weight = shards[path].get(tensor_name)
+                expected_dtype = (mx.float32, mx.bfloat16, mx.float16)[request_dtype]
+                element_bytes = 4 if request_dtype == 0 else 2
+                if weight is None or weight.ndim != 2 or weight.shape[1] != features or weight.dtype != expected_dtype:
+                    raise ValueError(f"{tensor_name}: MLX tensor identity diverges from batch request")
+                if start_output + output_count > weight.shape[0] or byte_length != output_count * features * element_bytes:
+                    raise ValueError(f"{tensor_name}: MLX batch range diverges from request")
+                results.append(mx.matmul(inputs, weight[start_output:start_output + output_count].T))
+            mx.eval(*results)
+            for result in results:
+                payload = np.asarray(result, dtype=np.float32).tobytes(order="C")
+                sys.stdout.buffer.write(struct.pack("<I", len(payload)))
+                sys.stdout.buffer.write(payload)
+            sys.stdout.buffer.flush()
+            del inputs, results, result, payload
+            continue
         if dtype_code not in (0, 1, 2):
             raise ValueError(f"unknown storage dtype code {dtype_code}")
-        input_bytes = read_exact(rows * features * 4)
         metadata = read_exact(24)
         _, byte_length, start_output, shard_length, name_length = struct.unpack("<QIIII", metadata)
         if shard_length < 1 or shard_length > 4096 or name_length < 1 or name_length > 4096:

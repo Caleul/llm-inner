@@ -15,7 +15,7 @@ import {
   executeGemma4LiteralGenerationProgram,
   type Gemma4LiteralGenerationExecutionResult,
 } from "./gemma4-literal-generation.js";
-import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearF32, readPagedDenseF32Vector, roundDenseF32ToBF16, type PagedLinearTileKernel } from "./paged-dense.js";
+import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearBatchF32, pagedLinearF32, readPagedDenseF32Vector, roundDenseF32ToBF16, type PagedLinearTileKernel } from "./paged-dense.js";
 import type {
   DenseF32Tensor,
   Operation,
@@ -176,7 +176,8 @@ async function executePagedOperations(
     values.set(operation.output, operation.dtypePolicy.outputDtype === "BF16" ? roundDenseF32ToBF16(tensor) : tensor);
   };
   const producedCache = new Map<number, ReferenceF32KeyValueCache>();
-  for (const operation of operations) {
+  for (let operationIndex = 0; operationIndex < operations.length; operationIndex += 1) {
+    const operation = operations[operationIndex]!;
     assertPagedF32Policy(operation);
     switch (operation.op) {
       case "embedding":
@@ -203,6 +204,18 @@ async function executePagedOperations(
         break;
       case "linear":
         if (!operation.transposeWeight || operation.bias) throw new Error(`${operation.id}: executor Gemma 4 paginado requer linear [out,in] sem bias.`);
+        if (options.linearTileKernel?.multiplyStorageReferences) {
+          const next = operations[operationIndex + 1];
+          if (isFusibleSharedInputLinear(operation, next)) {
+            assertPagedF32Policy(next);
+            const outputs = await pagedLinearBatchF32(value(values, operation.input), [matrix(operation.weight), matrix(next.weight)], [
+              { outputDtype: operation.dtypePolicy.outputDtype === "BF16" ? "BF16" : "F32", tileKernel: options.linearTileKernel },
+              { outputDtype: next.dtypePolicy.outputDtype === "BF16" ? "BF16" : "F32", tileKernel: options.linearTileKernel },
+            ]);
+            store(operation, outputs[0]!); store(next, outputs[1]!); operationIndex += 1;
+            break;
+          }
+        }
         store(operation, await pagedLinearF32(value(values, operation.input), matrix(operation.weight), {
           outputDtype: operation.dtypePolicy.outputDtype === "BF16" ? "BF16" : "F32",
           accumulationDtype: operation.dtypePolicy.accumulationDtype === "F64" ? "F64" : "F32",
@@ -255,6 +268,10 @@ async function executePagedOperations(
   }
   const logits = values.get("softcapped_logits") ?? values.get("logits");
   return { values, ...(logits ? { logits } : {}), pastKeyValues: producedCache };
+}
+
+function isFusibleSharedInputLinear(left: Extract<Operation, { op: "linear" }>, right: Operation | undefined): right is Extract<Operation, { op: "linear" }> {
+  return right?.op === "linear" && right.input === left.input && right.transposeWeight && !right.bias;
 }
 
 /**

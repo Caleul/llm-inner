@@ -2,20 +2,25 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { once } from "node:events";
 import { endianness } from "node:os";
 import { resolve } from "node:path";
-import type { PagedLinearTileKernel } from "./paged-dense.js";
+import type { PagedLinearStorageReference, PagedLinearTileKernel } from "./paged-dense.js";
 import type { TensorInfo } from "./types.js";
 
 const STORAGE_REFERENCE_FLAG = 0x8000_0000;
+const STORAGE_REFERENCE_BATCH_FLAG = 0x4000_0000;
 
 export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
   readonly backend: string;
   readonly child: ChildProcessWithoutNullStreams;
   readonly multiplyStorageReference?: PagedLinearTileKernel["multiplyStorageReference"];
+  readonly multiplyStorageReferences?: PagedLinearTileKernel["multiplyStorageReferences"];
   readonly #storageTensors: ReadonlyMap<string, TensorInfo> | undefined;
   #buffer = Buffer.alloc(0);
   #waiting: Array<() => void> = [];
   #closedError?: Error;
   #active = false;
+  #referenceDispatches = 0;
+  #batchDispatches = 0;
+  #batchedProjectionTiles = 0;
 
   constructor(options: { python: string; helper: string; threads: number; binaryPool?: string; storageTensors?: ReadonlyMap<string, TensorInfo>; backend?: "pytorch" | "mlx"; mlxHelper?: string }) {
     if (endianness() !== "LE") throw new Error("Kernel linear binário requer host little-endian.");
@@ -29,7 +34,10 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     this.backend = backend === "mlx" ? "persistent-mlx-metal-mmap-f32-tile" : options.binaryPool ? "persistent-pytorch-mmap-f32-tile" : "persistent-pytorch-f32-tile";
     const arguments_ = [helper, "--threads", String(options.threads), ...(options.binaryPool ? ["--binary-pool", resolve(options.binaryPool)] : [])];
     this.child = spawn(options.python, arguments_, { stdio: ["pipe", "pipe", "pipe"] });
-    if (options.binaryPool) this.multiplyStorageReference = (input, tensor, startOutput, outputCount, rows) => this.#requestReference(input, tensor, startOutput, outputCount, rows);
+    if (options.binaryPool) {
+      this.multiplyStorageReference = (input, tensor, startOutput, outputCount, rows) => this.#requestReference(input, tensor, startOutput, outputCount, rows);
+      this.multiplyStorageReferences = (input, requests, rows) => this.#requestReferences(input, requests, rows);
+    }
     this.child.stdout.on("data", (chunk: Buffer) => { this.#buffer = Buffer.concat([this.#buffer, chunk]); this.#wake(); });
     const errors: Buffer[] = []; this.child.stderr.on("data", (chunk: Buffer) => { if (Buffer.concat(errors).length < 1024 * 1024) errors.push(chunk); });
     this.child.once("error", (error) => this.#fail(error));
@@ -72,12 +80,53 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     const shard = Buffer.from(stored.shard, "utf8"); if (shard.length === 0 || shard.length > 4096) throw new Error(`${tensor.name}: nome de shard inválido.`);
     this.#active = true;
     try {
+      this.#referenceDispatches += 1;
       const header = Buffer.allocUnsafe(16); header.writeUInt32LE(rows, 0); header.writeUInt32LE(outputCount, 4); header.writeUInt32LE(inFeatures!, 8); header.writeUInt32LE((STORAGE_REFERENCE_FLAG + dtype) >>> 0, 12);
       const name = Buffer.from(stored.name, "utf8"); if (name.length === 0 || name.length > 4096) throw new Error(`${tensor.name}: nome de tensor inválido.`);
       const metadata = Buffer.allocUnsafe(24); metadata.writeBigUInt64LE(BigInt(byteOffset), 0); metadata.writeUInt32LE(byteLength, 8); metadata.writeUInt32LE(startOutput, 12); metadata.writeUInt32LE(shard.length, 16); metadata.writeUInt32LE(name.length, 20);
       await this.#write(header); await this.#write(Buffer.from(input.buffer, input.byteOffset, input.byteLength)); await this.#write(metadata); await this.#write(shard); await this.#write(name);
       return await this.#readResult(rows, outputCount);
     } finally { this.#active = false; }
+  }
+
+  async #requestReferences(input: Float32Array, requests: readonly PagedLinearStorageReference[], rows: number): Promise<readonly Float32Array[]> {
+    if (this.#active) throw new Error("Worker linear persistente não aceita tiles concorrentes no mesmo canal.");
+    if (requests.length < 2 || requests.length > 256) throw new Error("Worker linear em lote requer entre 2 e 256 referências.");
+    const prepared = requests.map((request) => this.#prepareReference(request, rows, input.length));
+    const inFeatures = prepared[0]!.inFeatures;
+    if (prepared.some((entry) => entry.inFeatures !== inFeatures)) throw new Error("Worker linear em lote requer o mesmo número de features.");
+    this.#active = true;
+    try {
+      this.#batchDispatches += 1; this.#batchedProjectionTiles += prepared.length;
+      const header = Buffer.allocUnsafe(16); header.writeUInt32LE(rows, 0); header.writeUInt32LE(prepared.length, 4); header.writeUInt32LE(inFeatures, 8); header.writeUInt32LE((STORAGE_REFERENCE_FLAG + STORAGE_REFERENCE_BATCH_FLAG) >>> 0, 12);
+      await this.#write(header); await this.#write(Buffer.from(input.buffer, input.byteOffset, input.byteLength));
+      for (const entry of prepared) {
+        const metadata = Buffer.allocUnsafe(32); metadata.writeUInt32LE(entry.dtype, 0); metadata.writeUInt32LE(entry.outputCount, 4); metadata.writeBigUInt64LE(BigInt(entry.byteOffset), 8); metadata.writeUInt32LE(entry.byteLength, 16); metadata.writeUInt32LE(entry.startOutput, 20); metadata.writeUInt32LE(entry.shard.length, 24); metadata.writeUInt32LE(entry.name.length, 28);
+        await this.#write(metadata); await this.#write(entry.shard); await this.#write(entry.name);
+      }
+      const results: Float32Array[] = [];
+      for (const entry of prepared) results.push(await this.#readResult(rows, entry.outputCount));
+      return results;
+    } finally { this.#active = false; }
+  }
+
+  #prepareReference(request: PagedLinearStorageReference, rows: number, inputLength: number) {
+    const { tensor, startOutput, outputCount } = request;
+    const stored = this.#storageTensors?.get(tensor.name);
+    if (!stored || stored.storageDtype !== tensor.storageDtype || stored.storageShape.length !== tensor.storageShape.length || stored.storageShape.some((value, index) => value !== tensor.storageShape[index]) || stored.logicalShape.length !== tensor.logicalShape.length || stored.logicalShape.some((value, index) => value !== tensor.logicalShape[index])) throw new Error(`${tensor.name}: catálogo mmap diverge do operando literal.`);
+    if (stored.quantization || (stored.storageDtype !== "F32" && stored.storageDtype !== "F16" && stored.storageDtype !== "BF16") || stored.storageShape.length !== 2 || !stored.shard || stored.byteOffset === undefined) throw new Error(`${tensor.name}: referência nativa requer matriz densa F32/F16/BF16 com shard e offset.`);
+    const [totalOutputs, inFeatures] = stored.storageShape;
+    if (!Number.isSafeInteger(startOutput) || !Number.isSafeInteger(outputCount) || startOutput < 0 || outputCount < 1 || startOutput + outputCount > totalOutputs! || inputLength !== rows * inFeatures!) throw new Error(`${tensor.name}: tile referenciado possui shape incompatível.`);
+    const dtype = stored.storageDtype === "F32" ? 0 : stored.storageDtype === "BF16" ? 1 : 2;
+    const elementBytes = stored.storageDtype === "F32" ? 4 : 2, byteLength = outputCount * inFeatures! * elementBytes;
+    const byteOffset = stored.byteOffset + startOutput * inFeatures! * elementBytes;
+    const shard = Buffer.from(stored.shard, "utf8"), name = Buffer.from(stored.name, "utf8");
+    if (!Number.isSafeInteger(byteOffset) || !Number.isSafeInteger(byteLength) || byteLength < 1 || shard.length < 1 || shard.length > 4096 || name.length < 1 || name.length > 4096) throw new Error(`${tensor.name}: identidade binária referenciada inválida.`);
+    return { dtype, outputCount, inFeatures: inFeatures!, byteOffset, byteLength, startOutput, shard, name };
+  }
+
+  dispatchMetrics(): { referenceDispatches: number; batchDispatches: number; batchedProjectionTiles: number } {
+    return { referenceDispatches: this.#referenceDispatches, batchDispatches: this.#batchDispatches, batchedProjectionTiles: this.#batchedProjectionTiles };
   }
 
   async #readResult(rows: number, outputCount: number): Promise<Float32Array> {

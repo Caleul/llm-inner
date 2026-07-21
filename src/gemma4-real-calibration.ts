@@ -40,6 +40,9 @@ interface ThreeWayCase {
     elapsedSeconds: number;
     tokensPerSecond: number;
     linearThreads: number;
+    linearReferenceDispatches?: number;
+    linearBatchDispatches?: number;
+    linearBatchedProjectionTiles?: number;
     tokensEqualBaseline: boolean;
     firstDivergentStep: number | null;
     steps: Array<{ step: number; tokenId: number; forwardSeconds: number; topLogits: unknown }>;
@@ -134,7 +137,11 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
       threeWayTokensEqual: entry.generatedTokensEqual && entry.direct.tokensEqualBaseline,
       baseline: { tokenIds: entry.baselineGeneratedTokenIds, text: entry.baselineGeneratedText, seconds: entry.performance.baselineSeconds, tokensPerSecond: entry.performance.baselineTokensPerSecond },
       compatibility: { tokenIds: entry.candidateGeneratedTokenIds, text: entry.candidateGeneratedText, tokensEqualBaseline: entry.generatedTokensEqual, firstDivergentStep: entry.firstDivergentStep, seconds: entry.performance.candidateSeconds, tokensPerSecond: entry.performance.candidateTokensPerSecond },
-      direct: { tokenIds: entry.direct.generatedTokenIds, text: entry.direct.generatedText, tokensEqualBaseline: entry.direct.tokensEqualBaseline, firstDivergentStep: entry.direct.firstDivergentStep, seconds: entry.direct.elapsedSeconds, tokensPerSecond: entry.direct.tokensPerSecond, linearThreads: entry.direct.linearThreads, forwardSeconds: entry.direct.steps.map((step) => step.forwardSeconds) },
+      direct: { tokenIds: entry.direct.generatedTokenIds, text: entry.direct.generatedText, tokensEqualBaseline: entry.direct.tokensEqualBaseline, firstDivergentStep: entry.direct.firstDivergentStep, seconds: entry.direct.elapsedSeconds, tokensPerSecond: entry.direct.tokensPerSecond, linearThreads: entry.direct.linearThreads,
+        ...(entry.direct.linearReferenceDispatches === undefined ? {} : { linearReferenceDispatches: entry.direct.linearReferenceDispatches }),
+        ...(entry.direct.linearBatchDispatches === undefined ? {} : { linearBatchDispatches: entry.direct.linearBatchDispatches }),
+        ...(entry.direct.linearBatchedProjectionTiles === undefined ? {} : { linearBatchedProjectionTiles: entry.direct.linearBatchedProjectionTiles }),
+        forwardSeconds: entry.direct.steps.map((step) => step.forwardSeconds) },
       steps: entry.steps.map((step, index) => ({
         step: step.step, contextsEqualBeforeStep: step.contextsEqualBeforeStep,
         baselineToken: step.baselineToken, compatibilityToken: step.candidateToken, directToken: entry.direct.steps[index]?.tokenId,

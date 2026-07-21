@@ -31,6 +31,7 @@ for await (const line of lines) {
 await linear.close(); await pool.close(); await artifact.close();
 
 async function generate(inputIds: number[], maxNewTokens: number): Promise<Record<string, unknown>> {
+  const dispatchesBefore = linear.dispatchMetrics();
   const started = performance.now(), generatedTokenIds: number[] = [], steps: Array<Record<string, unknown>> = [];
   let forwardStarted = performance.now();
   let current = await executeGemma4PagedTextLiteralF32(artifact, { inputIds: [inputIds] }, options);
@@ -46,12 +47,16 @@ async function generate(inputIds: number[], maxNewTokens: number): Promise<Recor
   }
   const elapsedSeconds = (performance.now() - started) / 1000;
   const terminalBytes = Buffer.from(current.logits.values.buffer, current.logits.values.byteOffset, current.logits.values.byteLength);
+  const dispatchesAfter = linear.dispatchMetrics();
   return {
     kind: "gemma4-paged-binary-native-generation", schemaVersion: 2, backend: "paged-binary-native", linearBackend: linear.backend,
     sourceCheckpointAccessed: false, compatibilityBinaryWeightsAccessed: true,
     inputIds, maxNewTokens, generatedTokenIds, fullTokenIds: [...inputIds, ...generatedTokenIds], steps,
     terminalLogitsSha256: createHash("sha256").update(terminalBytes).digest("hex"),
     elapsedSeconds, tokensPerSecond: maxNewTokens / elapsedSeconds, linearThreads: args.threads,
+    linearReferenceDispatches: dispatchesAfter.referenceDispatches - dispatchesBefore.referenceDispatches,
+    linearBatchDispatches: dispatchesAfter.batchDispatches - dispatchesBefore.batchDispatches,
+    linearBatchedProjectionTiles: dispatchesAfter.batchedProjectionTiles - dispatchesBefore.batchedProjectionTiles,
     processRssBytes: process.memoryUsage().rss, processMaxRssKiB: process.resourceUsage().maxRSS,
   };
 }
