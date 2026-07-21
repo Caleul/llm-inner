@@ -186,7 +186,7 @@ export interface PagedFusedDecoderStackRequest {
   numLayers: number;
   perLayerWidth: number;
   layers: readonly PagedFusedDecoderStackLayerRequest[];
-  rounding: "native-bf16" | "native-bf16-ple";
+  rounding: "real" | "native-bf16" | "native-bf16-ple";
 }
 
 export interface PagedFusedDecoderStackCache {

@@ -268,8 +268,8 @@ def main():
                 if referenced or batched or fused_mlp or native_attention or fused_attention or fused_ple or fused_ple_prelude or fused_ffn or fused_decoder_layer or dtype_code != 0 or pool is None:
                     raise ValueError("fused decoder stack flags are invalid")
                 batch, num_layers, hidden_size = rows, outputs, features
-                query_sequence, per_layer_width = struct.unpack("<II", read_exact(8))
-                if not query_sequence or not per_layer_width:
+                query_sequence, per_layer_width, rounding = struct.unpack("<III", read_exact(12))
+                if not query_sequence or not per_layer_width or rounding not in (0, 2) or (native_bf16 != (rounding == 2)):
                     raise ValueError("fused decoder stack topology is invalid")
                 input_bytes = read_exact(batch * query_sequence * hidden_size * 4)
                 per_layer_bytes = read_exact(batch * query_sequence * num_layers * per_layer_width * 4)

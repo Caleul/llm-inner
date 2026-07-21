@@ -10,7 +10,7 @@ export interface Gemma4RealComparisonRequest { prompt: string; maxNewTokens: num
 export interface Gemma4RealComparisonRunnerOptions {
   source: string; python: string; helper: string;
   compiledProgram?: Gemma4CompiledProgramStatus;
-  literalArtifact?: string; binaryPool?: string; directWorker?: string; directLinearHelper?: string; directMlxHelper?: string; directLinearBackend?: "pytorch" | "mlx"; directFusedMlp?: "off" | "bf16" | "real" | "native-bf16"; directFusedFfn?: "off" | "native-bf16"; directFusedDecoderLayer?: "off" | "native-bf16"; directFusedDecoderStack?: "off" | "native-bf16" | "native-bf16-ple"; directFusedPle?: "off" | "bf16" | "real"; directFusedPlePrelude?: "off" | "bf16" | "real"; directFusedTokenForward?: "off" | "bf16"; directResidentGeneration?: "off" | "on"; directFinalHead?: "f32" | "native-bf16" | "native-bf16-stream" | "native-bf16-whole"; directNativeAttention?: "off" | "bf16" | "real"; directFusedAttention?: "off" | "bf16" | "real" | "native-bf16"; directThreads?: number; directMaxReadMiB?: number; directFinalHeadReadMiB?: number; directVerificationMargin?: number;
+  literalArtifact?: string; binaryPool?: string; directWorker?: string; directLinearHelper?: string; directMlxHelper?: string; directLinearBackend?: "pytorch" | "mlx"; directFusedMlp?: "off" | "bf16" | "real" | "native-bf16"; directFusedFfn?: "off" | "native-bf16"; directFusedDecoderLayer?: "off" | "native-bf16"; directFusedDecoderStack?: "off" | "real" | "native-bf16" | "native-bf16-ple"; directFusedPle?: "off" | "bf16" | "real"; directFusedPlePrelude?: "off" | "bf16" | "real"; directFusedTokenForward?: "off" | "bf16"; directResidentGeneration?: "off" | "on"; directFinalHead?: "f32" | "native-bf16" | "native-bf16-stream" | "native-bf16-whole"; directNativeAttention?: "off" | "bf16" | "real"; directFusedAttention?: "off" | "bf16" | "real" | "native-bf16"; directThreads?: number; directMaxReadMiB?: number; directFinalHeadReadMiB?: number; directVerificationMargin?: number;
 }
 
 export interface Gemma4CompiledProgramStatus {
@@ -365,9 +365,10 @@ export function parseGemma4RealServerOptions(arguments_: readonly string[]): Gem
   const directFusedDecoderLayer = values.get("--direct-fused-decoder-layer") ?? (directLinearBackend === "pytorch" ? "native-bf16" : "off");
   if (directFusedDecoderLayer !== "off" && directFusedDecoderLayer !== "native-bf16") throw new Error("--direct-fused-decoder-layer deve ser off ou native-bf16.");
   if (directLinearBackend === "mlx" && directFusedDecoderLayer !== "off") throw new Error("--direct-fused-decoder-layer requer backend pytorch.");
-  const directFusedDecoderStack = values.get("--direct-fused-decoder-stack") ?? "native-bf16";
-  if (directFusedDecoderStack !== "off" && directFusedDecoderStack !== "native-bf16" && directFusedDecoderStack !== "native-bf16-ple") throw new Error("--direct-fused-decoder-stack deve ser off, native-bf16 ou native-bf16-ple.");
+  const directFusedDecoderStack = values.get("--direct-fused-decoder-stack") ?? (directLinearBackend === "mlx" ? "real" : "native-bf16");
+  if (directFusedDecoderStack !== "off" && directFusedDecoderStack !== "real" && directFusedDecoderStack !== "native-bf16" && directFusedDecoderStack !== "native-bf16-ple") throw new Error("--direct-fused-decoder-stack deve ser off, real, native-bf16 ou native-bf16-ple.");
   if (directLinearBackend === "mlx" && directFusedDecoderStack === "native-bf16-ple") throw new Error("--direct-fused-decoder-stack native-bf16-ple requer backend pytorch.");
+  if (directLinearBackend !== "mlx" && directFusedDecoderStack === "real") throw new Error("--direct-fused-decoder-stack real requer backend mlx.");
   const directFusedPle = values.get("--direct-fused-ple") ?? (directLinearBackend === "pytorch" ? "bf16" : "off");
   if (directFusedPle !== "off" && directFusedPle !== "bf16" && directFusedPle !== "real") throw new Error("--direct-fused-ple deve ser off, bf16 ou real.");
   if (directLinearBackend === "mlx" && directFusedPle !== "off") throw new Error("--direct-fused-ple requer backend pytorch.");

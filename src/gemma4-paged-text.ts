@@ -64,7 +64,7 @@ export interface Gemma4PagedTextOptions {
   /** Complete decoder layer from input norm through PLE scalar in one native dispatch. */
   fusedDecoderLayerRounding?: "native-bf16";
   /** Complete ordered decoder stack in one native dispatch. */
-  fusedDecoderStackRounding?: "native-bf16" | "native-bf16-ple";
+  fusedDecoderStackRounding?: "real" | "native-bf16" | "native-bf16-ple";
   /** Final vocabulary projection compute path; BF16 is the allowed final rounding boundary. */
   finalHeadCompute?: "f32" | "native-bf16" | "native-bf16-stream" | "native-bf16-whole";
   /** Optional native QK/softmax/PV kernel; real removes its internal BF16 boundaries. */
@@ -371,7 +371,9 @@ async function executePagedOperations(
             }
             if (!tokenForwardPrelude) {
               if (result.hidden.length !== batch * querySequence * hiddenSize || result.hidden.some((entry) => !Number.isFinite(entry))) throw new Error(`${operation.id}: pilha decoder retornou vetor inválido.`);
-              store(stack.layers.at(-1)!.ple.scalar, { shape: [batch, querySequence, hiddenSize], values: result.hidden });
+              const hidden = { shape: [batch, querySequence, hiddenSize], values: result.hidden };
+              if (options.fusedDecoderStackRounding === "real") values.set(stack.layers.at(-1)!.ple.scalar.output, hidden);
+              else store(stack.layers.at(-1)!.ple.scalar, hidden);
             }
             const expectedProducers = layers.filter((layer) => layer.producesKeyValue);
             if (result.caches.length !== expectedProducers.length) throw new Error(`${operation.id}: pilha decoder retornou quantidade de caches inválida.`);

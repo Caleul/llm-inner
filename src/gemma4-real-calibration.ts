@@ -54,7 +54,7 @@ interface ThreeWayCase {
     fusedFfnDispatches?: number;
     fusedDecoderLayerRounding?: "off" | "native-bf16";
     fusedDecoderLayerDispatches?: number;
-    fusedDecoderStackRounding?: "off" | "native-bf16" | "native-bf16-ple";
+    fusedDecoderStackRounding?: "off" | "real" | "native-bf16" | "native-bf16-ple";
     fusedDecoderStackDispatches?: number;
     fusedDecoderStackEpilogueDispatches?: number;
     fusedTokenForwardRounding?: "off" | "bf16";
