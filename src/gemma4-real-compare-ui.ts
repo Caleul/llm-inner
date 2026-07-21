@@ -11,7 +11,7 @@ export const gemma4RealCompareHtml = `<!doctype html>
     h1 { font-size:clamp(24px,4vw,40px); margin:0 0 8px; } .sub { color:#9ca6ba; margin:0 0 28px; }
     .panel,.result { background:#121620; border:1px solid #252c3b; border-radius:14px; padding:18px; }
     label { display:block; font-size:13px; color:#abb5c8; margin-bottom:7px; } textarea { width:100%; min-height:110px; resize:vertical; }
-    textarea,input { color:#f6f7fb; background:#090c12; border:1px solid #343d50; border-radius:9px; padding:11px; font:inherit; }
+    textarea,input,select { color:#f6f7fb; background:#090c12; border:1px solid #343d50; border-radius:9px; padding:11px; font:inherit; }
     .actions { display:flex; gap:12px; align-items:end; margin-top:14px; } .field { width:150px; }
     button { border:0; border-radius:9px; padding:12px 18px; background:#7c5cff; color:white; font-weight:700; cursor:pointer; }
     button:disabled { opacity:.5; cursor:wait; } #status { color:#aeb8cb; font-size:13px; }
@@ -26,18 +26,18 @@ export const gemma4RealCompareHtml = `<!doctype html>
 </head>
 <body><main>
   <h1>Gemma 4: execução diferencial real</h1>
-  <p class="sub">Transformers eager BF16 contra o executor vetorizado da semântica SSA em F64, sem arredondamento intermediário e com BF16 RNE apenas nos logits terminais.</p>
+  <p class="sub">Transformers eager BF16 contra o backend de compatibilidade da matemática recomposta, com precisão e checkpoints de arredondamento configuráveis. O executor direto do SSA ainda está em construção.</p>
   <section class="panel">
     <label for="prompt">Prompt</label>
     <textarea id="prompt">The capital of France is</textarea>
-    <div class="actions"><div class="field"><label for="tokens">Novos tokens</label><input id="tokens" type="number" min="1" max="64" value="3"></div><div class="field"><label for="threads">Threads (0 = automático)</label><input id="threads" type="number" min="0" max="256" value="0"></div>
+    <div class="actions"><div class="field"><label for="tokens">Novos tokens</label><input id="tokens" type="number" min="1" max="64" value="3"></div><div class="field"><label for="threads">Threads (0 = automático)</label><input id="threads" type="number" min="0" max="256" value="0"></div><div class="field"><label for="precision">Precisão compilada</label><select id="precision"><option value="f32">F32</option><option value="f64">F64</option></select></div><div class="field"><label for="rounding">Arredondamento</label><select id="rounding"><option value="none">Somente final</option><option value="layer-bf16">BF16 por camada</option><option value="operation-bf16">BF16 por operação</option></select></div>
       <button id="run">Gerar e comparar</button><span id="status">Pronto.</span></div>
   </section>
   <div class="grid">
     <section class="result"><h2>Original — BF16</h2><div id="baselineText" class="text">—</div><div id="baselineTokens" class="tokens"></div></section>
-    <section class="result"><h2>Simplificado — F64 vetorizado → BF16 final</h2><div id="candidateText" class="text">—</div><div id="candidateTokens" class="tokens"></div></section>
+    <section class="result"><h2 id="candidateTitle">Compilado (compatibilidade) — F32/F64 → BF16 final</h2><div id="candidateText" class="text">—</div><div id="candidateTokens" class="tokens"></div></section>
   </div>
-  <section class="panel summary" id="summary" hidden><strong id="verdict"></strong><table><thead><tr><th>Passo</th><th>Tokens</th><th>Argmax</th><th>Logits BF16 divergentes</th><th>Erro máx.</th><th>Tempo original / simplificado</th></tr></thead><tbody id="steps"></tbody></table>
+  <section class="panel summary" id="summary" hidden><strong id="verdict"></strong><div id="performance" class="tokens"></div><table><thead><tr><th>Passo</th><th>Tokens</th><th>Argmax</th><th>Logits BF16 divergentes</th><th>Erro máx.</th><th>Tempo original / simplificado</th></tr></thead><tbody id="steps"></tbody></table>
     <details><summary>Relatório JSON completo</summary><pre id="json"></pre></details></section>
 </main>
 <script>
@@ -46,11 +46,13 @@ const esc = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&
 run.addEventListener('click', async () => {
   run.disabled=true; q('status').textContent='Carregando o modelo e calculando os dois caminhos…'; q('summary').hidden=true;
   try {
-    const response=await fetch('/api/compare',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({prompt:q('prompt').value,maxNewTokens:Number(q('tokens').value),threads:Number(q('threads').value)})});
+    const response=await fetch('/api/compare',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({prompt:q('prompt').value,maxNewTokens:Number(q('tokens').value),threads:Number(q('threads').value),precision:q('precision').value,roundingPolicy:q('rounding').value})});
     const data=await response.json(); if(!response.ok) throw new Error(data.error || 'Falha desconhecida');
     q('baselineText').textContent=data.baselineFullText; q('candidateText').textContent=data.candidateFullText;
+    q('candidateTitle').textContent='Compilado (compatibilidade) — '+data.candidatePrecision.toUpperCase()+' / '+data.roundingPolicy+' → BF16 final';
     q('baselineTokens').textContent=JSON.stringify(data.baselineGeneratedTokenIds); q('candidateTokens').textContent=JSON.stringify(data.candidateGeneratedTokenIds);
     q('verdict').className=data.generatedTokensEqual?'ok':'bad'; q('verdict').textContent=data.generatedTokensEqual?'Todos os tokens gerados coincidiram.':'Primeira divergência no passo '+data.firstDivergentStep+'.';
+    q('performance').textContent='Threads: '+data.executionThreads+' · original: '+data.performance.baselineTokensPerSecond.toFixed(2)+' tok/s · simplificado: '+data.performance.candidateTokensPerSecond.toFixed(2)+' tok/s · razão: '+data.performance.candidateSpeedup.toFixed(2)+'× · pico RSS do processo: '+(data.performance.processPeakRssBytes/1073741824).toFixed(2)+' GiB';
     q('steps').innerHTML=data.steps.map(s=>'<tr><td>'+s.step+'</td><td>'+s.baselineToken+' / '+s.candidateToken+'</td><td>'+(s.metrics.argmaxEqual?'igual':'diferente')+'</td><td>'+(100*s.metrics.divergenceRate).toFixed(4)+'%</td><td>'+s.metrics.maxAbsError+'</td><td>'+s.baselineSeconds.toFixed(3)+'s / '+s.candidateSeconds.toFixed(3)+'s ('+(s.baselineSeconds/s.candidateSeconds).toFixed(2)+'×)</td></tr>').join('');
     q('json').textContent=JSON.stringify(data,null,2); q('summary').hidden=false; q('status').textContent='Concluído em '+data.elapsedSeconds.toFixed(2)+'s.';
   } catch(error) { q('status').textContent='Erro: '+error.message; }
