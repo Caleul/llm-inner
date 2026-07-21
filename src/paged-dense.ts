@@ -32,6 +32,7 @@ export interface PagedLinearTileKernel {
   attention?: ((request: PagedNativeAttentionRequest) => Promise<Float32Array>) | undefined;
   fusedAttentionStorageReferences?: ((request: PagedFusedAttentionRequest) => Promise<PagedFusedAttentionResult>) | undefined;
   fusedDecoderLayerStorageReferences?: ((request: PagedFusedDecoderLayerRequest) => Promise<PagedFusedDecoderLayerResult>) | undefined;
+  fusedDecoderStackStorageReferences?: ((request: PagedFusedDecoderStackRequest) => Promise<PagedFusedDecoderStackResult>) | undefined;
 }
 
 export interface PagedFusedFfnRequest {
@@ -160,6 +161,35 @@ export interface PagedFusedDecoderLayerResult {
   hidden: Float32Array;
   key?: Float32Array;
   value?: Float32Array;
+}
+
+export interface PagedFusedDecoderStackLayerRequest extends Omit<PagedFusedDecoderLayerRequest, "input" | "perLayerInput" | "positions" | "rounding"> {
+  layerIndex: number;
+  sharedProducerLayer?: number;
+}
+
+export interface PagedFusedDecoderStackRequest {
+  input: Float32Array;
+  perLayerInputs: Float32Array;
+  positions: Int32Array;
+  batch: number;
+  querySequence: number;
+  hiddenSize: number;
+  numLayers: number;
+  perLayerWidth: number;
+  layers: readonly PagedFusedDecoderStackLayerRequest[];
+  rounding: "native-bf16";
+}
+
+export interface PagedFusedDecoderStackCache {
+  layerIndex: number;
+  key: Float32Array;
+  value: Float32Array;
+}
+
+export interface PagedFusedDecoderStackResult {
+  hidden: Float32Array;
+  caches: readonly PagedFusedDecoderStackCache[];
 }
 
 export interface PagedLinearStorageReference {

@@ -729,6 +729,42 @@ interface mostra política, contagem e tempo da camada completa. Evidência:
 - `artifacts/gemma4-three-way-calibration-8x2-fused-ffn-native-bf16.json`;
 - `artifacts/gemma4-three-way-calibration-8x2-fused-decoder-layer-native-bf16.json`.
 
+## Pilha decoder integral em um despacho
+
+As 42 camadas consecutivas agora também são reconhecidas como uma única pilha
+compilada. O runtime envia uma vez o estado inicial, as posições e o tensor PLE
+`[B,S,42,P]`; cada camada seleciona sua fatia PLE e alimenta diretamente a
+seguinte dentro do worker nativo. Produtores de KV recebem o cache anterior e
+publicam o cache atualizado; camadas consumidoras reutilizam esse resultado
+internamente pelo índice explícito do produtor.
+
+Assim, um forward completo passa de 42 despachos de camada para um despacho da
+pilha, sem remover nenhuma RMSNorm, fronteira BF16, RoPE, softmax, residual,
+PLE ou transição de cache. O matcher falha fechado se a sequência de camadas,
+dependência residual, largura PLE, índice ou propriedade de cache divergir do
+programa Gemma 4 declarado.
+
+No ensaio `[2]` de dois tokens, a pilha preservou `[184,3910]` e o SHA-256
+terminal
+`71eeb041bc97c6674686eb4dc99887cca8a50a7cb4947e42c3a63a0bb58e9e2d`,
+usando dois despachos de pilha e zero despachos individuais de camada.
+
+No corpus 8x2:
+
+- controle por camada: `1,9194 token/s`, 7/8 prompts e 15/16 tokens;
+- pilha integral: `1,9945 token/s`, os mesmos 7/8 e 15/16 tokens;
+- ganho sobre o controle: 3,91%;
+- razão contra o baseline da própria execução: `3,8221x`;
+- tempo direto total: `8,3361 s -> 8,0221 s`;
+- despachos do corpo decoder: `672 -> 16`.
+
+`native-bf16` passa a ser o padrão PyTorch para `--fused-decoder-stack`;
+`off` mantém o caminho por camada para A/B e MLX permanece em `off`. A
+interface expõe política, despachos e tempo da pilha. Evidência:
+
+- `artifacts/gemma4-three-way-calibration-8x2-fused-decoder-layer-native-bf16.json`;
+- `artifacts/gemma4-three-way-calibration-8x2-fused-decoder-stack-native-bf16.json`.
+
 ## Head terminal BF16 nativo
 
 O tensor compartilhado por embedding e `lm_head` possui shape

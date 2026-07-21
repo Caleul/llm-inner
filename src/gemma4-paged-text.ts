@@ -60,6 +60,8 @@ export interface Gemma4PagedTextOptions {
   fusedFfnRounding?: "native-bf16";
   /** Complete decoder layer from input norm through PLE scalar in one native dispatch. */
   fusedDecoderLayerRounding?: "native-bf16";
+  /** Complete ordered decoder stack in one native dispatch. */
+  fusedDecoderStackRounding?: "native-bf16";
   /** Final vocabulary projection compute path; BF16 is the allowed final rounding boundary. */
   finalHeadCompute?: "f32" | "native-bf16" | "native-bf16-whole";
   /** Optional native QK/softmax/PV kernel; real removes its internal BF16 boundaries. */
@@ -213,6 +215,80 @@ async function executePagedOperations(
         }), operation.numLayers, operation.layerWidth));
         break;
       case "rms_norm":
+        if (options.fusedDecoderStackRounding && options.linearTileKernel?.fusedDecoderStackStorageReferences) {
+          const stack = matchFusedDecoderStack(operations, operationIndex, operation);
+          if (stack) {
+            if (!positions) throw new Error(`${operation.id}: pilha decoder fundida requer posições declaradas.`);
+            for (const stackOperation of stack.operations) assertPagedF32Policy(stackOperation);
+            const input = value(values, operation.input), perLayerInputs = value(values, stack.perLayerInput);
+            if (input.shape.length !== 3 || perLayerInputs.shape.length !== 4 || input.shape[0] !== perLayerInputs.shape[0] || input.shape[1] !== perLayerInputs.shape[1] || perLayerInputs.shape[2] !== stack.layers.length || perLayerInputs.shape[3] !== stack.perLayerWidth) throw new Error(`${operation.id}: pilha decoder requer tensores [B,S,H] e [B,S,L,P].`);
+            const [batch, querySequence, hiddenSize] = input.shape as [number, number, number];
+            if (positions.length !== batch || positions.some((row) => row.length !== querySequence)) throw new Error(`${operation.id}: posições incompatíveis com a pilha decoder.`);
+            const positionValues = new Int32Array(batch * querySequence);
+            for (let b = 0; b < batch; b += 1) for (let s = 0; s < querySequence; s += 1) {
+              const position = positions[b]![s]!;
+              if (!Number.isSafeInteger(position) || position < -2_147_483_648 || position > 2_147_483_647) throw new Error(`${operation.id}: posição ${position} excede o protocolo Int32 da pilha.`);
+              positionValues[b * querySequence + s] = position;
+            }
+            const layers = stack.layers.map((fused, layerIndex) => {
+              const attention = fused.attention.attention;
+              if (attention.layer !== layerIndex) throw new Error(`${attention.id}: índice incompatível com a pilha decoder.`);
+              const topologyMask = request.attentionMasksByLayer?.get(layerIndex);
+              let sourceKey: DenseF32Tensor | undefined, sourceValue: DenseF32Tensor | undefined, sourceSequence = 0, sharedProducerLayer: number | undefined;
+              if (attention.kvSharing) {
+                sharedProducerLayer = attention.kvSharing.producerLayer;
+                if (sharedProducerLayer === undefined || sharedProducerLayer >= layerIndex) throw new Error(`${attention.id}: produtor KV compartilhado inválido.`);
+                const previous = request.pastKeyValues?.get(sharedProducerLayer);
+                if (request.pastKeyValues && !previous) throw new Error(`${attention.id}: pastKeyValues não contém o produtor ${sharedProducerLayer}.`);
+                if (previous) {
+                  assertFusedSourceCache(previous.key, previous.value, batch, attention.numKeyValueHeads, attention.headDim, attention.id);
+                  sourceSequence = previous.key.shape[2]!;
+                }
+                sourceSequence += querySequence;
+              } else {
+                const previous = request.pastKeyValues?.get(layerIndex);
+                if (request.pastKeyValues && !previous) throw new Error(`${attention.id}: pastKeyValues não contém a camada ${layerIndex}.`);
+                if (previous) {
+                  assertFusedSourceCache(previous.key, previous.value, batch, attention.numKeyValueHeads, attention.headDim, attention.id);
+                  sourceKey = previous.key; sourceValue = previous.value; sourceSequence = previous.key.shape[2]!;
+                }
+              }
+              const producesKeyValue = sharedProducerLayer === undefined;
+              const keySequence = sourceSequence + (producesKeyValue ? querySequence : 0), pastLength = producesKeyValue ? sourceSequence : sourceSequence - querySequence;
+              const declaredMask = topologyMask ?? request.attentionMask;
+              const nativeMask = topologyMask ? topologyMask : materializeAttentionTopologyMask(declaredMask, attention, batch, querySequence, keySequence, pastLength);
+              assertNativeAttentionMask(nativeMask, batch, attention.numAttentionHeads, querySequence, keySequence, attention.id);
+              const half = fused.attention.queryRope.rotaryDim / 2;
+              const proportionalPairs = fused.attention.queryRope.ropeType === "proportional" ? Math.floor(Number(fused.attention.queryRope.scaling?.partial_rotary_factor) * attention.headDim / 2) : half;
+              const proportionalFactor = fused.attention.queryRope.ropeType === "proportional" ? Number(fused.attention.queryRope.scaling?.factor ?? 1) : 1;
+              return {
+                layerIndex, ...(sharedProducerLayer === undefined ? {} : { sharedProducerLayer }), mask: nativeMask.values,
+                sourceKey: sourceKey?.values ?? new Float32Array(), sourceValue: sourceValue?.values ?? new Float32Array(),
+                inputNormWeight: tensorInfo(artifact, fused.inputNorm.weight!), queryWeight: tensorInfo(artifact, fused.query.weight), queryNorm: tensorInfo(artifact, fused.attention.queryNorm.weight!), outputWeight: tensorInfo(artifact, fused.attention.output.weight),
+                ...(fused.attention.key ? { keyWeight: tensorInfo(artifact, fused.attention.key.weight), keyNorm: tensorInfo(artifact, fused.attention.keyNorm!.weight!) } : {}),
+                ...(fused.attention.value ? { valueWeight: tensorInfo(artifact, fused.attention.value.weight) } : {}),
+                postAttentionNormWeight: tensorInfo(artifact, fused.postAttentionNorm.weight!), preFfnNormWeight: tensorInfo(artifact, fused.ffn.preNorm.weight!), gateWeight: tensorInfo(artifact, fused.ffn.gate.weight), upWeight: tensorInfo(artifact, fused.ffn.up.weight), downWeight: tensorInfo(artifact, fused.ffn.down.weight), postFfnNormWeight: tensorInfo(artifact, fused.ffn.postNorm.weight!),
+                pleGateWeight: tensorInfo(artifact, fused.ple.gate.weight), pleProjectionWeight: tensorInfo(artifact, fused.ple.projection.weight), pleNormWeight: tensorInfo(artifact, fused.ple.norm.weight!), layerScalar: tensorInfo(artifact, fused.ple.scalar.scalar),
+                batch, querySequence, sourceSequence, hiddenSize, queryHeads: attention.numAttentionHeads, keyValueHeads: attention.numKeyValueHeads, headDim: attention.headDim, maskHeads: nativeMask.shape[1]!, producesKeyValue, valueFromKey: fused.attention.valueFromKey,
+                epsilon: fused.attention.queryNorm.epsilon, scale: attention.scale, ropeType: fused.attention.queryRope.ropeType, theta: fused.attention.queryRope.theta, rotaryDim: fused.attention.queryRope.rotaryDim, proportionalPairs, proportionalFactor,
+                intermediateSize: fused.ffn.gate.outFeatures, perLayerWidth: stack.perLayerWidth, inputNormEpsilon: fused.inputNorm.epsilon, postAttentionNormEpsilon: fused.postAttentionNorm.epsilon, preFfnNormEpsilon: fused.ffn.preNorm.epsilon, postFfnNormEpsilon: fused.ffn.postNorm.epsilon, pleNormEpsilon: fused.ple.norm.epsilon,
+              };
+            });
+            const result = await options.linearTileKernel.fusedDecoderStackStorageReferences({ input: input.values, perLayerInputs: perLayerInputs.values, positions: positionValues, batch, querySequence, hiddenSize, numLayers: stack.layers.length, perLayerWidth: stack.perLayerWidth, layers, rounding: options.fusedDecoderStackRounding });
+            if (result.hidden.length !== input.values.length || result.hidden.some((entry) => !Number.isFinite(entry))) throw new Error(`${operation.id}: pilha decoder retornou vetor inválido.`);
+            store(stack.layers.at(-1)!.ple.scalar, { shape: [...input.shape], values: result.hidden });
+            const expectedProducers = layers.filter((layer) => layer.producesKeyValue);
+            if (result.caches.length !== expectedProducers.length) throw new Error(`${operation.id}: pilha decoder retornou quantidade de caches inválida.`);
+            for (let index = 0; index < expectedProducers.length; index += 1) {
+              const expected = expectedProducers[index]!, actual = result.caches[index]!, keySequence = expected.sourceSequence + querySequence;
+              const cacheElements = batch * expected.keyValueHeads * keySequence * expected.headDim;
+              if (actual.layerIndex !== expected.layerIndex || actual.key.length !== cacheElements || actual.value.length !== cacheElements || actual.key.some((entry) => !Number.isFinite(entry)) || actual.value.some((entry) => !Number.isFinite(entry))) throw new Error(`${operation.id}: pilha decoder retornou cache ${expected.layerIndex} inválido.`);
+              producedCache.set(expected.layerIndex, { key: { shape: [batch, expected.keyValueHeads, keySequence, expected.headDim], values: actual.key }, value: { shape: [batch, expected.keyValueHeads, keySequence, expected.headDim], values: actual.value } });
+            }
+            operationIndex += stack.operations.length - 1;
+            break;
+          }
+        }
         if (options.fusedDecoderLayerRounding && options.linearTileKernel?.fusedDecoderLayerStorageReferences) {
           const fused = matchFusedDecoderLayer(operations, operationIndex, operation);
           if (fused) {
@@ -533,6 +609,13 @@ interface FusedDecoderLayerMatch {
   ple: ReturnType<typeof matchFusedPle> & {};
 }
 
+interface FusedDecoderStackMatch {
+  operations: readonly Operation[];
+  layers: readonly FusedDecoderLayerMatch[];
+  perLayerInput: string;
+  perLayerWidth: number;
+}
+
 function matchFusedAttention(operations: readonly Operation[], index: number, query: LinearOperation): FusedAttentionMatch | undefined {
   const queryHeads = operations[index + 1], queryNorm = operations[index + 2], queryRope = operations[index + 3];
   if (!isHeadsAfter(queryHeads, query) || !isWeightedNormAfter(queryNorm, queryHeads) || !isRopeAfter(queryRope, queryNorm)) return undefined;
@@ -614,6 +697,21 @@ function matchFusedDecoderLayer(operations: readonly Operation[], index: number,
   if (!ple || ple.gate.input !== ffn.residual.output || ple.scalar.output === undefined) return undefined;
   const matched = operations.slice(index, pleStart + ple.operations.length);
   return { operations: matched, inputNorm, query, attention, postAttentionNorm, attentionResidual, ffn, pleSelect: select, ple };
+}
+
+function matchFusedDecoderStack(operations: readonly Operation[], index: number, inputNorm: RmsNormOperation): FusedDecoderStackMatch | undefined {
+  const layers: FusedDecoderLayerMatch[] = [];
+  let cursor = index, currentNorm: RmsNormOperation | undefined = inputNorm, expectedInput = inputNorm.input, perLayerInput: string | undefined, perLayerWidth: number | undefined, declaredLayers: number | undefined;
+  while (currentNorm) {
+    const layer = matchFusedDecoderLayer(operations, cursor, currentNorm);
+    if (!layer || layer.inputNorm.input !== expectedInput || layer.attention.attention.layer !== layers.length || layer.pleSelect.layerIndex !== layers.length) break;
+    perLayerInput ??= layer.pleSelect.input; perLayerWidth ??= layer.pleSelect.layerWidth; declaredLayers ??= layer.pleSelect.numLayers;
+    if (layer.pleSelect.input !== perLayerInput || layer.pleSelect.layerWidth !== perLayerWidth || layer.pleSelect.numLayers !== declaredLayers) return undefined;
+    layers.push(layer); cursor += layer.operations.length; expectedInput = layer.ple.scalar.output;
+    const next = operations[cursor]; currentNorm = next?.op === "rms_norm" ? next : undefined;
+  }
+  if (!perLayerInput || perLayerWidth === undefined || declaredLayers === undefined || layers.length !== declaredLayers || layers.length < 2) return undefined;
+  return { operations: operations.slice(index, cursor), layers, perLayerInput, perLayerWidth };
 }
 
 function matchFusedPle(operations: readonly Operation[], index: number, select: SelectPerLayerOperation, rounding: "bf16" | "real"): { operations: readonly Operation[]; gate: LinearOperation; projection: LinearOperation; norm: RmsNormOperation; scalar: TensorScaleOperation } | undefined {

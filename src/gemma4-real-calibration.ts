@@ -54,6 +54,8 @@ interface ThreeWayCase {
     fusedFfnDispatches?: number;
     fusedDecoderLayerRounding?: "off" | "native-bf16";
     fusedDecoderLayerDispatches?: number;
+    fusedDecoderStackRounding?: "off" | "native-bf16";
+    fusedDecoderStackDispatches?: number;
     fusedPleRounding?: "off" | "bf16" | "real";
     fusedPlePreludeRounding?: "off" | "bf16" | "real";
     fusedPleDispatches?: number;
@@ -68,6 +70,7 @@ interface ThreeWayCase {
     fusedMlpSeconds?: number;
     fusedFfnSeconds?: number;
     fusedDecoderLayerSeconds?: number;
+    fusedDecoderStackSeconds?: number;
     fusedPleSeconds?: number;
     fusedPlePreludeSeconds?: number;
     nativeAttentionSeconds?: number;
@@ -136,7 +139,7 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
     source: options.runner.source,
     configuration: {
       prompts: cases.length, tokensPerPrompt: options.maxNewTokens, requestThreads: options.requestThreads,
-      directThreads: options.runner.directThreads, directMaxReadMiB: options.runner.directMaxReadMiB ?? 16, directFinalHeadReadMiB: options.runner.directFinalHeadReadMiB ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? 32 : options.runner.directMaxReadMiB ?? 16), directLinearBackend: options.runner.directLinearBackend ?? "pytorch", directFusedMlp: options.runner.directFusedMlp ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "real"), directFusedFfn: options.runner.directFusedFfn ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "off"), directFusedDecoderLayer: options.runner.directFusedDecoderLayer ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "off"), directFusedPle: options.runner.directFusedPle ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "bf16" : "off"), directFusedPlePrelude: options.runner.directFusedPlePrelude ?? "off", directFinalHead: options.runner.directFinalHead ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "f32"), directNativeAttention: options.runner.directNativeAttention ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "real" : "off"), directFusedAttention: options.runner.directFusedAttention ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "off"), precision: options.precision, roundingPolicy: options.roundingPolicy,
+      directThreads: options.runner.directThreads, directMaxReadMiB: options.runner.directMaxReadMiB ?? 16, directFinalHeadReadMiB: options.runner.directFinalHeadReadMiB ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? 32 : options.runner.directMaxReadMiB ?? 16), directLinearBackend: options.runner.directLinearBackend ?? "pytorch", directFusedMlp: options.runner.directFusedMlp ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "real"), directFusedFfn: options.runner.directFusedFfn ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "off"), directFusedDecoderLayer: options.runner.directFusedDecoderLayer ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "off"), directFusedDecoderStack: options.runner.directFusedDecoderStack ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "off"), directFusedPle: options.runner.directFusedPle ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "bf16" : "off"), directFusedPlePrelude: options.runner.directFusedPlePrelude ?? "off", directFinalHead: options.runner.directFinalHead ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "f32"), directNativeAttention: options.runner.directNativeAttention ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "real" : "off"), directFusedAttention: options.runner.directFusedAttention ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "off"), precision: options.precision, roundingPolicy: options.roundingPolicy,
     },
     initialization: status,
     summary: {
@@ -181,6 +184,8 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.fusedFfnDispatches === undefined ? {} : { fusedFfnDispatches: entry.direct.fusedFfnDispatches }),
         ...(entry.direct.fusedDecoderLayerRounding === undefined ? {} : { fusedDecoderLayerRounding: entry.direct.fusedDecoderLayerRounding }),
         ...(entry.direct.fusedDecoderLayerDispatches === undefined ? {} : { fusedDecoderLayerDispatches: entry.direct.fusedDecoderLayerDispatches }),
+        ...(entry.direct.fusedDecoderStackRounding === undefined ? {} : { fusedDecoderStackRounding: entry.direct.fusedDecoderStackRounding }),
+        ...(entry.direct.fusedDecoderStackDispatches === undefined ? {} : { fusedDecoderStackDispatches: entry.direct.fusedDecoderStackDispatches }),
         ...(entry.direct.fusedPleRounding === undefined ? {} : { fusedPleRounding: entry.direct.fusedPleRounding }),
         ...(entry.direct.fusedPlePreludeRounding === undefined ? {} : { fusedPlePreludeRounding: entry.direct.fusedPlePreludeRounding }),
         ...(entry.direct.fusedPleDispatches === undefined ? {} : { fusedPleDispatches: entry.direct.fusedPleDispatches }),
@@ -195,6 +200,7 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.fusedMlpSeconds === undefined ? {} : { fusedMlpSeconds: entry.direct.fusedMlpSeconds }),
         ...(entry.direct.fusedFfnSeconds === undefined ? {} : { fusedFfnSeconds: entry.direct.fusedFfnSeconds }),
         ...(entry.direct.fusedDecoderLayerSeconds === undefined ? {} : { fusedDecoderLayerSeconds: entry.direct.fusedDecoderLayerSeconds }),
+        ...(entry.direct.fusedDecoderStackSeconds === undefined ? {} : { fusedDecoderStackSeconds: entry.direct.fusedDecoderStackSeconds }),
         ...(entry.direct.fusedPleSeconds === undefined ? {} : { fusedPleSeconds: entry.direct.fusedPleSeconds }),
         ...(entry.direct.fusedPlePreludeSeconds === undefined ? {} : { fusedPlePreludeSeconds: entry.direct.fusedPlePreludeSeconds }),
         ...(entry.direct.nativeAttentionSeconds === undefined ? {} : { nativeAttentionSeconds: entry.direct.nativeAttentionSeconds }),
