@@ -29,7 +29,7 @@ test("empacota grafo fechado, constant pool e tokenizer sem caminhos externos", 
   }));
   for (const file of ["tokenizer.json", "tokenizer_config.json", "generation_config.json", "config.json"]) await writeFile(join(tokenizer, file), `{${JSON.stringify(file)}:true}`);
   try {
-    const manifest = await createGemma4CompiledBundle({ graph, globalSsa, realLoweringPlan: lowering, constantArtifact: constants, tokenizerDirectory: tokenizer, outputDirectory: output });
+    const manifest = await createGemma4CompiledBundle({ graph, globalSsa, realLoweringPlan: lowering, constantArtifact: constants, tokenizerDirectory: tokenizer, outputDirectory: output, createRuntimeIndex: false });
     assert.equal(manifest.formula.root, "sha256:a"); assert.equal(manifest.formula.inputLength, 3); assert.equal(manifest.formula.expressionNodes, 1);
     assert.deepEqual(manifest.runtimeLowering, { engine: "mlx-f32-real-decoder-stack-v1", directlyExecutesGlobalFormula: false, executesPersistedLoweringPlan: true, plan: "vectorized-real-lowering.json", functionBindingsSha256, realSimplifiedProgramSha256: "b".repeat(64), globalFormulaRole: "algebraic-source-and-scalar-reference" });
     assert.equal(manifest.schemaVersion, 2); assert.equal(manifest.files.length, 8); assert.ok(manifest.files.every((entry) => !entry.file.includes(directory)));

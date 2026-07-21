@@ -2598,6 +2598,20 @@ runtime direto resolve todas as referências relativas ao mesmo diretório. Use
 explícita. Se um `--compiled-bundle` não contiver constantes, pesos, tokenizer
 e config, a inicialização falha fechada.
 
+Bundles novos também incluem `constants.runtime-index.json`, uma visão
+estrutural autenticada do JSON literal sem os 20 GiB de payloads Base64. Para
+atualizar um bundle anterior uma única vez:
+
+```bash
+npm run index:gemma4-compiled -- \
+  --bundle ./artifacts/gemma4-compiled-global-runtime-bundle
+```
+
+O manifesto schema 3 vincula o índice ao SHA-256 do constant pool, ao próprio
+SHA-256 do índice e à raiz de integridade estrutural. Cada worker reexecuta as
+validações semânticas sobre essa visão antes de gerar; ele não confia em cache
+local nem precisa varrer novamente `constants.literal.json`.
+
 A interface executa Transformers eager BF16, a recomposição F32/F64 e o runtime
 compilado MLX/Metal, escolhe os tokens independentemente e compara os
 resultados e tempos. O endpoint `POST /api/compare-stream` entrega NDJSON por
@@ -2622,8 +2636,9 @@ tokenização; o processo Transformers de aproximadamente 9 GiB permanece em
 estado `unloaded`. No modo isolado, a stream publica `direct-complete`, inicia a
 referência (`reference-loading`), conclui a comparação e encerra novamente o
 processo de referência, preservando o próximo turno compilado sem pressão desse
-modelo residente. O verificador PyTorch da política de margem também é lazy e
-só existe durante um fallback efetivamente disparado. O relatório distingue
+modelo residente. O verificador PyTorch da política de margem também é lazy
+até o primeiro fallback; depois disso seu índice autenticado permanece pronto,
+enquanto o kernel pesado é reciclado após cada uso. O relatório distingue
 `referenceStartupSeconds`, `referenceComputeSeconds`, `referenceColdStart` e
 `referenceReleased`. Como a passagem da referência pode expulsar páginas do
 constant pool compilado do cache do sistema, o servidor repagina um prefill e

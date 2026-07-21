@@ -1,4 +1,6 @@
-import { open, stat, type FileHandle } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { createReadStream } from "node:fs";
+import { open, readFile, rename, stat, writeFile, type FileHandle } from "node:fs/promises";
 import { isDeepStrictEqual } from "node:util";
 import type {
   Gemma4CompositeLiteralCalculationProgram,
@@ -100,6 +102,18 @@ const PAYLOAD_MARKER = Buffer.from(",\"payloadBase64\":\"", "ascii");
 const QUOTE = '"'.charCodeAt(0);
 const SCAN_CHUNK_BYTES = 1024 * 1024;
 const MAX_STRUCTURAL_JSON_BYTES = 512 * 1024 * 1024;
+const MAX_RUNTIME_INDEX_BYTES = 1024 * 1024 * 1024;
+
+export interface Gemma4LiteralRuntimeIndexDescriptor { file: string; bytes: number; sha256: string; constantPoolSha256: string; integrityRootSha256: string }
+
+interface Gemma4LiteralRuntimeIndexSnapshot {
+  kind: "gemma4-literal-runtime-index";
+  schemaVersion: 1;
+  artifact: { bytes: number; sha256: string; integrityRootSha256: string };
+  header: Partial<Gemma4CompositeLiteralCalculationProgram>;
+  constants: IndexedLiteralConstant[];
+  tail: Partial<Gemma4CompositeLiteralCalculationProgram>;
+}
 
 export interface IndexedLiteralConstant extends Omit<LiteralConstant, "payloadBase64"> {
   payloadOffset: number;
@@ -163,7 +177,8 @@ export interface OpenGemma4CompositeLiteralArtifact extends Gemma4CompositeLiter
  * base64 field has a deliberately unambiguous quote terminator, letting this
  * scanner retain only constant metadata and the final structural tail.
  */
-export async function openGemma4CompositeLiteralArtifact(artifact: string): Promise<OpenGemma4CompositeLiteralArtifact> {
+export async function openGemma4CompositeLiteralArtifact(artifact: string, runtimeIndex?: { path: string; sha256: string; constantPoolSha256: string }): Promise<OpenGemma4CompositeLiteralArtifact> {
+  if (runtimeIndex) return openGemma4CompositeLiteralArtifactFromRuntimeIndex(artifact, runtimeIndex);
   const info = await stat(artifact);
   if (!info.isFile() || info.size <= 0) throw new Error(`Artefato literal Gemma 4 inválido: ${artifact}.`);
   const file = await open(artifact, "r");
@@ -207,33 +222,81 @@ export async function openGemma4CompositeLiteralArtifact(artifact: string): Prom
     if (constants.size === 0) throw new Error("Artefato literal Gemma 4 não contém constantes.");
     const tail = parseTailJson(await readStructuralRange(file, cursor, info.size, "cauda estrutural"), "cauda estrutural") as Partial<Gemma4CompositeLiteralCalculationProgram>;
     const index = buildIndex(artifact, info.size, header, tail, constants);
-    const payloadReader = new IntegrityVerifiedPayloadReader(file, index.constants, index.payloadIntegrity, index.integrityManifest);
-    const sourceIdentitySectionIndex = index.integrityManifest.sections.findIndex((section) => section.name === "sourceIdentity");
-    const sourceIdentitySection = index.integrityManifest.sections[sourceIdentitySectionIndex];
-    if (sourceIdentitySectionIndex < 0 || !sourceIdentitySection) {
-      throw new Error("Artefato literal Gemma 4 não vincula sourceIdentity ao manifesto estrutural.");
-    }
-    return {
-      ...index,
-      readTensorBytes: (tensor) => payloadReader.readTensorBytes(tensor),
-      readTensorBytesRange: (tensor, offset, byteLength) => payloadReader.readTensorBytesRange(tensor, offset, byteLength),
-      readTensorBytesRangeWithIntegrity: async (tensor, offset, byteLength) => {
-        const authenticated = await payloadReader.readTensorBytesRangeWithIntegrity(tensor, offset, byteLength);
-        return {
-          ...authenticated,
-          sourceProvenance: buildGemma4LiteralSourceTensorRangeProvenance(index.sourceIdentity, tensor.name, offset, byteLength, {
-            rootSha256: index.integrityManifest.rootSha256,
-            sourceIdentitySectionSha256: sourceIdentitySection.sha256,
-            sourceIdentitySectionIndex,
-          }),
-        };
-      },
-      close: async () => { payloadReader.clear(); await file.close(); },
-    };
+    return attachPayloadReader(file, index);
   } catch (error) {
     await file.close();
     throw error;
   }
+}
+
+export async function createGemma4LiteralRuntimeIndex(artifact: string, output: string, constantPoolSha256: string): Promise<Gemma4LiteralRuntimeIndexDescriptor> {
+  assertSha256(constantPoolSha256, "SHA-256 do constant pool");
+  const opened = await openGemma4CompositeLiteralArtifact(artifact);
+  try {
+    const snapshot: Gemma4LiteralRuntimeIndexSnapshot = {
+      kind: "gemma4-literal-runtime-index", schemaVersion: 1,
+      artifact: { bytes: opened.artifactBytes, sha256: constantPoolSha256, integrityRootSha256: opened.integrityManifest.rootSha256 },
+      header: {
+        schemaVersion: opened.schemaVersion, kind: "gemma4-composite-literal-calculation-program", sourceFormat: "safetensors",
+        sourceIdentity: opened.sourceIdentity, authoritativeExecution: opened.authoritativeExecution, inputs: opened.inputs, numericPolicy: opened.numericPolicy,
+      },
+      constants: [...opened.constants.values()],
+      tail: {
+        storageDecoders: opened.storageDecoders, denseDecoderLanguage: opened.denseDecoderLanguage, unreachableConstants: opened.unreachableConstants,
+        program: opened.program, assignments: opened.assignments, calculationDomains: opened.calculationDomains, learnedOperands: opened.learnedOperands,
+        scalarCalculations: opened.scalarCalculations, formulaLanguage: opened.formulaLanguage, transcendentalPrograms: opened.transcendentalPrograms,
+        numericLiterals: opened.numericLiterals, calculationGraph: opened.calculationGraph, realSimplifiedProgram: opened.realSimplifiedProgram,
+        fidelityGate: opened.fidelityGate, forwardControl: opened.forwardControl, inputContract: opened.inputContract, outputContract: opened.outputContract,
+        outputs: opened.outputs, generation: opened.generation, payloadIntegrity: [...opened.payloadIntegrity.values()], integrityManifest: opened.integrityManifest,
+      },
+    };
+    const temporary = `${output}.next-${process.pid}`;
+    await writeFile(temporary, `${JSON.stringify(snapshot)}\n`, { encoding: "utf8", flag: "wx" });
+    await rename(temporary, output);
+    const info = await stat(output), sha256 = await sha256File(output);
+    return { file: output, bytes: info.size, sha256, constantPoolSha256, integrityRootSha256: opened.integrityManifest.rootSha256 };
+  } finally { await opened.close(); }
+}
+
+async function openGemma4CompositeLiteralArtifactFromRuntimeIndex(artifact: string, runtimeIndex: { path: string; sha256: string; constantPoolSha256: string }): Promise<OpenGemma4CompositeLiteralArtifact> {
+  assertSha256(runtimeIndex.sha256, "SHA-256 do índice runtime"); assertSha256(runtimeIndex.constantPoolSha256, "SHA-256 do constant pool");
+  const [artifactInfo, indexInfo, actualIndexSha256] = await Promise.all([stat(artifact), stat(runtimeIndex.path), sha256File(runtimeIndex.path)]);
+  if (!artifactInfo.isFile() || artifactInfo.size <= 0) throw new Error(`Artefato literal Gemma 4 inválido: ${artifact}.`);
+  if (!indexInfo.isFile() || indexInfo.size <= 0 || indexInfo.size > MAX_RUNTIME_INDEX_BYTES) throw new Error("Índice runtime Gemma 4 deve ter entre 1 byte e 1 GiB.");
+  if (actualIndexSha256 !== runtimeIndex.sha256) throw new Error("Índice runtime Gemma 4 diverge do SHA-256 declarado.");
+  const snapshot = JSON.parse(await readFile(runtimeIndex.path, "utf8")) as Partial<Gemma4LiteralRuntimeIndexSnapshot>;
+  if (snapshot.kind !== "gemma4-literal-runtime-index" || snapshot.schemaVersion !== 1 || !snapshot.artifact || snapshot.artifact.bytes !== artifactInfo.size || snapshot.artifact.sha256 !== runtimeIndex.constantPoolSha256 || !Array.isArray(snapshot.constants) || !snapshot.header || !snapshot.tail) {
+    throw new Error("Índice runtime Gemma 4 não corresponde ao constant pool declarado.");
+  }
+  assertSha256(snapshot.artifact.integrityRootSha256, "raiz de integridade do índice runtime");
+  const constants = new Map<string, IndexedLiteralConstant>();
+  for (const constant of snapshot.constants) {
+    assertDenseConstant(constant);
+    if (constants.has(constant.name)) throw new Error(`Índice runtime Gemma 4 contém constante duplicada: ${constant.name}.`);
+    constants.set(constant.name, constant);
+  }
+  const index = buildIndex(artifact, artifactInfo.size, snapshot.header, snapshot.tail, constants);
+  if (index.integrityManifest.rootSha256 !== snapshot.artifact.integrityRootSha256) throw new Error("Índice runtime Gemma 4 diverge da raiz estrutural declarada.");
+  const file = await open(artifact, "r");
+  try { return attachPayloadReader(file, index); }
+  catch (error) { await file.close(); throw error; }
+}
+
+function attachPayloadReader(file: FileHandle, index: Gemma4CompositeLiteralArtifactIndex): OpenGemma4CompositeLiteralArtifact {
+  const payloadReader = new IntegrityVerifiedPayloadReader(file, index.constants, index.payloadIntegrity, index.integrityManifest);
+  const sourceIdentitySectionIndex = index.integrityManifest.sections.findIndex((section) => section.name === "sourceIdentity");
+  const sourceIdentitySection = index.integrityManifest.sections[sourceIdentitySectionIndex];
+  if (sourceIdentitySectionIndex < 0 || !sourceIdentitySection) throw new Error("Artefato literal Gemma 4 não vincula sourceIdentity ao manifesto estrutural.");
+  return {
+    ...index,
+    readTensorBytes: (tensor) => payloadReader.readTensorBytes(tensor),
+    readTensorBytesRange: (tensor, offset, byteLength) => payloadReader.readTensorBytesRange(tensor, offset, byteLength),
+    readTensorBytesRangeWithIntegrity: async (tensor, offset, byteLength) => {
+      const authenticated = await payloadReader.readTensorBytesRangeWithIntegrity(tensor, offset, byteLength);
+      return { ...authenticated, sourceProvenance: buildGemma4LiteralSourceTensorRangeProvenance(index.sourceIdentity, tensor.name, offset, byteLength, { rootSha256: index.integrityManifest.rootSha256, sourceIdentitySectionSha256: sourceIdentitySection.sha256, sourceIdentitySectionIndex }) };
+    },
+    close: async () => { payloadReader.clear(); await file.close(); },
+  };
 }
 
 /** Lets an opened artifact participate in existing storage-reader contracts. */
@@ -626,3 +689,5 @@ async function readStructuralRange(file: FileHandle, start: number, end: number,
 function validShape(shape: readonly number[]): boolean { return shape.every((dimension) => Number.isInteger(dimension) && dimension > 0); }
 function sameShape(left: readonly number[], right: readonly number[]): boolean { return left.length === right.length && left.every((value, index) => value === right[index]); }
 function product(shape: readonly number[]): number { return shape.reduce((total, dimension) => total * dimension, 1); }
+function assertSha256(value: string, label: string): void { if (!/^[0-9a-f]{64}$/.test(value)) throw new Error(`${label} inválido.`); }
+async function sha256File(path: string): Promise<string> { const digest = createHash("sha256"); for await (const chunk of createReadStream(path)) digest.update(chunk as Buffer); return digest.digest("hex"); }

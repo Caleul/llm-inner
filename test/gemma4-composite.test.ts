@@ -14,7 +14,7 @@ import {
   validateGemma4CompositeLiteralCalculationProgram,
   writeGemma4CompositeLiteralCalculationProgram,
 } from "../src/gemma4-composite-literal.js";
-import { openGemma4CompositeLiteralArtifact } from "../src/gemma4-composite-literal-reader.js";
+import { createGemma4LiteralRuntimeIndex, openGemma4CompositeLiteralArtifact } from "../src/gemma4-composite-literal-reader.js";
 import { executeGemma4LiteralCompositeF32, generateGemma4LiteralCompositeF32 } from "../src/gemma4-literal-composite.js";
 import { buildGemma4LiteralGenerationNavigation, renderGemma4LiteralGenerationCalculationView } from "../src/gemma4-literal-generation-navigation.js";
 import { selectGemma4LiteralGenerationToken } from "../src/gemma4-literal-generation-control.js";
@@ -1803,6 +1803,17 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
     } finally {
       await artifact.close();
     }
+    const runtimeIndexPath = path.join(root, "tiny.gemma4.runtime-index.json");
+    const constantPoolSha256 = createHash("sha256").update(await readFile(output)).digest("hex");
+    const runtimeIndex = await createGemma4LiteralRuntimeIndex(output, runtimeIndexPath, constantPoolSha256);
+    const indexed = await openGemma4CompositeLiteralArtifact(output, { path: runtimeIndexPath, sha256: runtimeIndex.sha256, constantPoolSha256 });
+    try {
+      const tensor = catalog.tensors.get("model.language_model.layers.0.self_attn.q_proj.weight")!;
+      assert.equal(indexed.integrityManifest.rootSha256, runtimeIndex.integrityRootSha256);
+      assert.deepEqual(await indexed.readTensorBytesRange(tensor, 5, 23), expectedBytes.subarray(5, 28));
+    } finally { await indexed.close(); }
+    await assert.rejects(() => openGemma4CompositeLiteralArtifact(output, { path: runtimeIndexPath, sha256: "0".repeat(64), constantPoolSha256 }), /diverge do SHA-256/);
+    await assert.rejects(() => openGemma4CompositeLiteralArtifact(output, { path: runtimeIndexPath, sha256: runtimeIndex.sha256, constantPoolSha256: "f".repeat(64) }), /não corresponde ao constant pool/);
     const corrupted = path.join(root, "corrupted.gemma4.literal.json");
     const raw = await readFile(output, "utf8");
     await writeFile(corrupted, raw.replace('"semantics":"exact IEEE-754 storage decode; no arithmetic narrowing"', '"semantics":"invalid"'));

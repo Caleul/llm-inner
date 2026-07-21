@@ -2,11 +2,12 @@ import { createHash } from "node:crypto";
 import { constants as fsConstants, createReadStream, createWriteStream } from "node:fs";
 import { copyFile, mkdir, open, readFile, rename, stat, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
+import { createGemma4LiteralRuntimeIndex } from "./gemma4-composite-literal-reader.js";
 import { validateGemma4VectorizedRealLoweringPlan, type Gemma4VectorizedRealLoweringPlan } from "./gemma4-vectorized-real-lowering.js";
 
 export interface Gemma4CompiledBundleManifest {
   kind: "gemma4-compiled-shared-dag-bundle";
-  schemaVersion: 2;
+  schemaVersion: 2 | 3;
   execution: "vectorized-literal-runtime-with-global-formula-reference";
   runtimeLowering: {
     engine: "mlx-f32-real-decoder-stack-v1";
@@ -19,10 +20,11 @@ export interface Gemma4CompiledBundleManifest {
   };
   formula: { family: string; dimension: number; root: string; expressionNodes: number; inputTensor: "x"; inputLength: number; file: string };
   globalProgram?: { file: string; terminalLogits: number; constantPool: string };
-  files: Array<{ role: "formula-graph" | "global-formulas" | "vectorized-real-lowering" | "constant-pool" | "runtime-weights" | "tokenizer" | "tokenizer-config" | "generation-config" | "model-config"; file: string; bytes: number; sha256: string }>;
+  runtimeIndex?: { file: "constants.runtime-index.json"; schemaVersion: 1; constantPoolSha256: string; integrityRootSha256: string };
+  files: Array<{ role: "formula-graph" | "global-formulas" | "vectorized-real-lowering" | "constant-pool" | "literal-runtime-index" | "runtime-weights" | "tokenizer" | "tokenizer-config" | "generation-config" | "model-config"; file: string; bytes: number; sha256: string }>;
 }
 
-export async function createGemma4CompiledBundle(options: { graph: string; globalSsa: string; realLoweringPlan: string; runtimeModel?: string; constantArtifact: string; tokenizerDirectory: string; outputDirectory: string }): Promise<Gemma4CompiledBundleManifest> {
+export async function createGemma4CompiledBundle(options: { graph: string; globalSsa: string; realLoweringPlan: string; runtimeModel?: string; constantArtifact: string; tokenizerDirectory: string; outputDirectory: string; createRuntimeIndex?: boolean }): Promise<Gemma4CompiledBundleManifest> {
   const graph = resolve(options.graph), constants = resolve(options.constantArtifact), tokenizerDirectory = resolve(options.tokenizerDirectory), output = resolve(options.outputDirectory);
   await mkdir(output);
   const summary = await readClosedGraphSummary(graph);
@@ -44,6 +46,9 @@ export async function createGemma4CompiledBundle(options: { graph: string; globa
     await copyFile(source.source, join(output, source.file), fsConstants.COPYFILE_FICLONE);
     files.push({ role: source.role, file: source.file, bytes: info.size, sha256: await sha256File(source.source) });
   }
+  const constantFile = files.find((entry) => entry.role === "constant-pool")!;
+  const runtimeIndexDescriptor = options.createRuntimeIndex === false ? undefined : await createGemma4LiteralRuntimeIndex(join(output, constantFile.file), join(output, "constants.runtime-index.json"), constantFile.sha256);
+  if (runtimeIndexDescriptor) files.push({ role: "literal-runtime-index", file: "constants.runtime-index.json", bytes: runtimeIndexDescriptor.bytes, sha256: runtimeIndexDescriptor.sha256 });
   const destination = join(output, "global-formulas.ssa.json");
   await copyPortableGlobalSsa(resolve(options.globalSsa), destination);
   const info = await stat(destination), terminalLogits = await countOccurrences(destination, '"assignment":"calc_terminal_logit_');
@@ -51,7 +56,7 @@ export async function createGemma4CompiledBundle(options: { graph: string; globa
   files.push({ role: "global-formulas", file: "global-formulas.ssa.json", bytes: info.size, sha256: await sha256File(destination) });
   const globalProgram: NonNullable<Gemma4CompiledBundleManifest["globalProgram"]> = { file: "global-formulas.ssa.json", terminalLogits, constantPool: "constants.literal.json" };
   const manifest: Gemma4CompiledBundleManifest = {
-    kind: "gemma4-compiled-shared-dag-bundle", schemaVersion: 2, execution: "vectorized-literal-runtime-with-global-formula-reference",
+    kind: "gemma4-compiled-shared-dag-bundle", schemaVersion: runtimeIndexDescriptor ? 3 : 2, execution: "vectorized-literal-runtime-with-global-formula-reference",
     runtimeLowering: {
       engine: "mlx-f32-real-decoder-stack-v1", directlyExecutesGlobalFormula: false, executesPersistedLoweringPlan: true,
       plan: "vectorized-real-lowering.json", functionBindingsSha256: loweringPlan.contract.functionBindingsSha256,
@@ -60,6 +65,7 @@ export async function createGemma4CompiledBundle(options: { graph: string; globa
     },
     formula: { family: summary.output.family, dimension: summary.output.dimension, root: summary.root, expressionNodes: summary.expressionNodes, inputTensor: "x", inputLength: summary.inputVector.length, file: "formula.graph.json" },
     globalProgram,
+    ...(runtimeIndexDescriptor ? { runtimeIndex: { file: "constants.runtime-index.json" as const, schemaVersion: 1 as const, constantPoolSha256: constantFile.sha256, integrityRootSha256: runtimeIndexDescriptor.integrityRootSha256 } } : {}),
     files,
   };
   await writeFile(join(output, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
@@ -80,7 +86,7 @@ export async function bindGemma4VectorizedRealLoweringPlan(bundleDirectory: stri
   const existing = current.files.filter((entry) => entry.role !== "vectorized-real-lowering");
   const manifest = {
     ...current,
-    schemaVersion: 2,
+    schemaVersion: current.runtimeIndex ? 3 : 2,
     runtimeLowering: {
       engine: "mlx-f32-real-decoder-stack-v1", directlyExecutesGlobalFormula: false, executesPersistedLoweringPlan: true,
       plan: "vectorized-real-lowering.json", functionBindingsSha256: plan.contract.functionBindingsSha256,
@@ -88,6 +94,26 @@ export async function bindGemma4VectorizedRealLoweringPlan(bundleDirectory: stri
       globalFormulaRole: "algebraic-source-and-scalar-reference",
     },
     files: [...existing, { role: "vectorized-real-lowering" as const, file: "vectorized-real-lowering.json", bytes: info.size, sha256 }],
+  } as Gemma4CompiledBundleManifest;
+  const temporary = `${manifestPath}.next-${process.pid}`;
+  await writeFile(temporary, `${JSON.stringify(manifest, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
+  await rename(temporary, manifestPath);
+  return manifest;
+}
+
+/** Atomically adds the validated literal structural index to an existing compiled bundle. */
+export async function bindGemma4LiteralRuntimeIndex(bundleDirectory: string): Promise<Gemma4CompiledBundleManifest> {
+  const bundle = resolve(bundleDirectory), manifestPath = join(bundle, "manifest.json"), destination = join(bundle, "constants.runtime-index.json");
+  const current = JSON.parse(await readFile(manifestPath, "utf8")) as Record<string, unknown> & { files?: Gemma4CompiledBundleManifest["files"]; runtimeIndex?: Gemma4CompiledBundleManifest["runtimeIndex"] };
+  if (current.kind !== "gemma4-compiled-shared-dag-bundle" || current.execution !== "vectorized-literal-runtime-with-global-formula-reference" || !Array.isArray(current.files)) throw new Error("Bundle existente não possui manifesto Gemma 4 compilado atualizável.");
+  const constantFile = current.files.find((entry) => entry.role === "constant-pool");
+  if (!constantFile || constantFile.file !== "constants.literal.json" || !/^[0-9a-f]{64}$/.test(constantFile.sha256)) throw new Error("Bundle existente não vincula o constant pool literal esperado.");
+  if (current.runtimeIndex || current.files.some((entry) => entry.role === "literal-runtime-index")) throw new Error("Bundle existente já declara índice runtime literal.");
+  const descriptor = await createGemma4LiteralRuntimeIndex(join(bundle, constantFile.file), destination, constantFile.sha256);
+  const manifest = {
+    ...current, schemaVersion: 3,
+    runtimeIndex: { file: "constants.runtime-index.json", schemaVersion: 1, constantPoolSha256: constantFile.sha256, integrityRootSha256: descriptor.integrityRootSha256 },
+    files: [...current.files, { role: "literal-runtime-index" as const, file: "constants.runtime-index.json", bytes: descriptor.bytes, sha256: descriptor.sha256 }],
   } as Gemma4CompiledBundleManifest;
   const temporary = `${manifestPath}.next-${process.pid}`;
   await writeFile(temporary, `${JSON.stringify(manifest, null, 2)}\n`, { encoding: "utf8", flag: "wx" });

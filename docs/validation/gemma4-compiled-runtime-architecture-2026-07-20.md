@@ -64,8 +64,10 @@ O bundle `artifacts/gemma4-compiled-global-runtime-bundle` contém:
   `calc_terminal_logit_n` sobre o DAG compartilhado;
 - `formula.graph.json`: closure algébrica fechada da dimensão zero;
 - `constants.literal.json`: constant pool autenticado;
+- `constants.runtime-index.json`: visão estrutural autenticada, sem payloads
+  Base64, para inicialização dos workers;
 - tokenizer, configurações e pesos de compatibilidade do backend PyTorch;
-- `manifest.json`: tamanhos e SHA-256 de oito arquivos.
+- `manifest.json`: tamanhos e SHA-256 de dez arquivos.
 
 O caminho absoluto do constant pool no SSA foi substituído por
 `constants.literal.json`. Assim, servidor, tokenizer e pesos podem ser abertos
@@ -1479,6 +1481,25 @@ verificação e produziu os mesmos 8/8 tokens do original. O fallback seguinte,
 PyTorch ocioso ocupava cerca de 108 MiB de RSS, em vez dos 8,69 GiB deixados
 pelo helper que acabara de executar o modelo. O status publica o ciclo como
 `retained-index-restarted-kernel-v1`.
+
+O bundle passou também ao schema 3 com um índice runtime portátil de
+357.706.569 bytes. O índice contém o cabeçalho, metadados/offsets das
+constantes e toda a cauda semântica, mas não duplica os payloads Base64. Seu
+descritor vincula SHA-256 próprio
+`4532c98eb00c07911c574698f186b84602e0b725b7b4b2de065742dbf24f20a6`,
+SHA-256 do constant pool
+`869e9081c23a5cf150891dc50878a4dc7d2f3dd9cffe57c9982e07ffe4e23001`
+e raiz estrutural
+`1ca883a379c53f50077d536ac5c4f3704e0469d9d02048c8c6ea00ff2d758ba6`.
+
+Abrir isoladamente o verificador PyTorch caiu de `12,7416 s` para `7,0194 s`.
+Na API completa, o primeiro fallback de oito tokens em
+`Traduza para inglês: boa noite` caiu de `24,5481 s` para `16,6445 s`
+(`32,20%`), mantendo 8/8 tokens iguais. O fallback recorrente seguinte ficou
+em `1,8525 s`, também com 8/8 tokens iguais. A otimização remove a varredura
+de 20 GiB, mas não oculta os aproximadamente sete segundos ainda gastos no
+parse de 341 MiB e na revalidação estrutural; esses custos continuam
+publicados como `initializationSeconds`.
 
 ## Núcleo de attention nativo sem arredondamentos internos
 
