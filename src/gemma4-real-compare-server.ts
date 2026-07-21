@@ -9,7 +9,7 @@ import { gemma4RealCompareHtml } from "./gemma4-real-compare-ui.js";
 export interface Gemma4RealComparisonRequest { prompt: string; maxNewTokens: number; threads?: number; precision?: "f32" | "f64"; roundingPolicy?: "none" | "layer-bf16" | "operation-bf16" }
 export interface Gemma4RealComparisonRunnerOptions {
   source: string; python: string; helper: string;
-  literalArtifact?: string; binaryPool?: string; directWorker?: string; directLinearHelper?: string; directMlxHelper?: string; directLinearBackend?: "pytorch" | "mlx"; directFusedMlp?: "off" | "bf16" | "real"; directThreads?: number; directMaxReadMiB?: number;
+  literalArtifact?: string; binaryPool?: string; directWorker?: string; directLinearHelper?: string; directMlxHelper?: string; directLinearBackend?: "pytorch" | "mlx"; directFusedMlp?: "off" | "bf16" | "real"; directFinalHead?: "f32" | "native-bf16"; directThreads?: number; directMaxReadMiB?: number;
 }
 
 export async function runGemma4RealComparison(request: Gemma4RealComparisonRequest, options: Gemma4RealComparisonRunnerOptions): Promise<unknown> {
@@ -27,7 +27,7 @@ export async function runGemma4RealComparison(request: Gemma4RealComparisonReque
 export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRunnerOptions) {
   const worker = new Gemma4PersistentComparisonWorker(options);
   const direct = options.literalArtifact && options.binaryPool
-    ? new PersistentJsonlWorker(process.execPath, [options.directWorker ?? resolve("dist/src/gemma4-paged-runtime-worker-cli.js"), "--artifact", options.literalArtifact, "--binary-pool", options.binaryPool, "--python", options.python, "--linear-helper", options.directLinearHelper ?? resolve("scripts/gemma4-paged-linear-worker.py"), "--mlx-helper", options.directMlxHelper ?? resolve("scripts/gemma4-mlx-linear-worker.py"), "--linear-backend", options.directLinearBackend ?? "pytorch", "--fused-mlp", options.directFusedMlp ?? "real", "--threads", String(options.directThreads ?? 8), "--max-read-mib", String(options.directMaxReadMiB ?? 16)], "Gemma 4 literal direto")
+    ? new PersistentJsonlWorker(process.execPath, [options.directWorker ?? resolve("dist/src/gemma4-paged-runtime-worker-cli.js"), "--artifact", options.literalArtifact, "--binary-pool", options.binaryPool, "--python", options.python, "--linear-helper", options.directLinearHelper ?? resolve("scripts/gemma4-paged-linear-worker.py"), "--mlx-helper", options.directMlxHelper ?? resolve("scripts/gemma4-mlx-linear-worker.py"), "--linear-backend", options.directLinearBackend ?? "pytorch", "--fused-mlp", options.directFusedMlp ?? "real", "--final-head", options.directFinalHead ?? ((options.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "f32"), "--threads", String(options.directThreads ?? 8), "--max-read-mib", String(options.directMaxReadMiB ?? 16)], "Gemma 4 literal direto")
     : undefined;
   const server = createServer(async (request, response) => {
     try {
@@ -136,7 +136,7 @@ export function parseGemma4RealServerOptions(arguments_: readonly string[]): Gem
     if (!flag?.startsWith("--") || value === undefined || values.has(flag)) throw new Error(`Argumento inválido: ${flag ?? "fim"}.`);
     values.set(flag, value);
   }
-  const known = new Set(["--source", "--python", "--helper", "--port", "--host", "--literal-artifact", "--binary-pool", "--direct-worker", "--direct-linear-helper", "--direct-mlx-helper", "--direct-linear-backend", "--direct-fused-mlp", "--direct-threads", "--direct-max-read-mib"]); for (const key of values.keys()) if (!known.has(key)) throw new Error(`Flag desconhecida: ${key}.`);
+  const known = new Set(["--source", "--python", "--helper", "--port", "--host", "--literal-artifact", "--binary-pool", "--direct-worker", "--direct-linear-helper", "--direct-mlx-helper", "--direct-linear-backend", "--direct-fused-mlp", "--direct-final-head", "--direct-threads", "--direct-max-read-mib"]); for (const key of values.keys()) if (!known.has(key)) throw new Error(`Flag desconhecida: ${key}.`);
   const port = Number(values.get("--port") ?? "8787"); if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) throw new Error("--port inválido.");
   const source = resolve(values.get("--source") ?? "gemma-4-E4B-dense"), inferredLiteral = join(source, "constants.literal.json");
   const literalArtifact = values.get("--literal-artifact") ? resolve(values.get("--literal-artifact")!) : existsSync(inferredLiteral) ? inferredLiteral : undefined;
@@ -148,9 +148,12 @@ export function parseGemma4RealServerOptions(arguments_: readonly string[]): Gem
   if (directLinearBackend !== "pytorch" && directLinearBackend !== "mlx") throw new Error("--direct-linear-backend deve ser pytorch ou mlx.");
   const directFusedMlp = values.get("--direct-fused-mlp") ?? "real";
   if (directFusedMlp !== "off" && directFusedMlp !== "bf16" && directFusedMlp !== "real") throw new Error("--direct-fused-mlp deve ser off, bf16 ou real.");
+  const directFinalHead = values.get("--direct-final-head") ?? (directLinearBackend === "pytorch" ? "native-bf16" : "f32");
+  if (directFinalHead !== "f32" && directFinalHead !== "native-bf16") throw new Error("--direct-final-head deve ser f32 ou native-bf16.");
+  if (directLinearBackend === "mlx" && directFinalHead === "native-bf16") throw new Error("--direct-final-head native-bf16 requer backend pytorch.");
   return {
     source, python: values.get("--python") ?? (existsSync("venv/bin/python") ? resolve("venv/bin/python") : "python3"),
     helper: resolve(values.get("--helper") ?? "scripts/gemma4-real-differential.py"), port, host: values.get("--host") ?? "127.0.0.1",
-    ...(literalArtifact && binaryPool ? { literalArtifact, binaryPool, directWorker: resolve(values.get("--direct-worker") ?? "dist/src/gemma4-paged-runtime-worker-cli.js"), directLinearHelper: resolve(values.get("--direct-linear-helper") ?? "scripts/gemma4-paged-linear-worker.py"), directMlxHelper: resolve(values.get("--direct-mlx-helper") ?? "scripts/gemma4-mlx-linear-worker.py"), directLinearBackend, directFusedMlp, directThreads, directMaxReadMiB } : {}),
+    ...(literalArtifact && binaryPool ? { literalArtifact, binaryPool, directWorker: resolve(values.get("--direct-worker") ?? "dist/src/gemma4-paged-runtime-worker-cli.js"), directLinearHelper: resolve(values.get("--direct-linear-helper") ?? "scripts/gemma4-paged-linear-worker.py"), directMlxHelper: resolve(values.get("--direct-mlx-helper") ?? "scripts/gemma4-mlx-linear-worker.py"), directLinearBackend, directFusedMlp, directFinalHead, directThreads, directMaxReadMiB } : {}),
   };
 }

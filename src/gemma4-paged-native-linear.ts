@@ -8,11 +8,13 @@ import type { TensorInfo } from "./types.js";
 const STORAGE_REFERENCE_FLAG = 0x8000_0000;
 const STORAGE_REFERENCE_BATCH_FLAG = 0x4000_0000;
 const STORAGE_REFERENCE_MLP_FLAG = 0x2000_0000;
+const STORAGE_NATIVE_BF16_FLAG = 0x1000_0000;
 
 export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
   readonly backend: string;
   readonly child: ChildProcessWithoutNullStreams;
   readonly multiplyStorageReference?: PagedLinearTileKernel["multiplyStorageReference"];
+  readonly multiplyStorageReferenceNativeBf16?: PagedLinearTileKernel["multiplyStorageReferenceNativeBf16"];
   readonly multiplyStorageReferences?: PagedLinearTileKernel["multiplyStorageReferences"];
   readonly fusedGatedMlpStorageReference?: PagedLinearTileKernel["fusedGatedMlpStorageReference"];
   readonly #storageTensors: ReadonlyMap<string, TensorInfo> | undefined;
@@ -39,6 +41,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     this.child = spawn(options.python, arguments_, { stdio: ["pipe", "pipe", "pipe"] });
     if (options.binaryPool) {
       this.multiplyStorageReference = (input, tensor, startOutput, outputCount, rows) => this.#requestReference(input, tensor, startOutput, outputCount, rows);
+      if (backend === "pytorch") this.multiplyStorageReferenceNativeBf16 = (input, tensor, startOutput, outputCount, rows) => this.#requestReference(input, tensor, startOutput, outputCount, rows, true);
       this.multiplyStorageReferences = (input, requests, rows) => this.#requestReferences(input, requests, rows);
       this.fusedGatedMlpStorageReference = (input, gate, up, down, rows, rounding) => this.#requestGatedMlp(input, gate, up, down, rows, rounding);
     }
@@ -70,11 +73,12 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     } finally { this.#active = false; }
   }
 
-  async #requestReference(input: Float32Array, tensor: TensorInfo, startOutput: number, outputCount: number, rows: number): Promise<Float32Array> {
+  async #requestReference(input: Float32Array, tensor: TensorInfo, startOutput: number, outputCount: number, rows: number, nativeBf16 = false): Promise<Float32Array> {
     if (this.#active) throw new Error("Worker linear persistente não aceita tiles concorrentes no mesmo canal.");
     const stored = this.#storageTensors?.get(tensor.name);
     if (!stored || stored.storageDtype !== tensor.storageDtype || stored.storageShape.length !== tensor.storageShape.length || stored.storageShape.some((value, index) => value !== tensor.storageShape[index]) || stored.logicalShape.length !== tensor.logicalShape.length || stored.logicalShape.some((value, index) => value !== tensor.logicalShape[index])) throw new Error(`${tensor.name}: catálogo mmap diverge do operando literal.`);
     if (stored.quantization || (stored.storageDtype !== "F32" && stored.storageDtype !== "F16" && stored.storageDtype !== "BF16") || stored.storageShape.length !== 2 || !stored.shard || stored.byteOffset === undefined) throw new Error(`${tensor.name}: referência nativa requer matriz densa F32/F16/BF16 com shard e offset.`);
+    if (nativeBf16 && stored.storageDtype !== "BF16") throw new Error(`${tensor.name}: GEMM BF16 nativo requer storage BF16.`);
     const [totalOutputs, inFeatures] = stored.storageShape;
     if (!Number.isSafeInteger(startOutput) || !Number.isSafeInteger(outputCount) || startOutput < 0 || outputCount < 1 || startOutput + outputCount > totalOutputs! || input.length !== rows * inFeatures!) throw new Error(`${tensor.name}: tile referenciado possui shape incompatível.`);
     const dtype = stored.storageDtype === "F32" ? 0 : stored.storageDtype === "BF16" ? 1 : 2;
@@ -85,7 +89,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     this.#active = true;
     try {
       this.#referenceDispatches += 1;
-      const header = Buffer.allocUnsafe(16); header.writeUInt32LE(rows, 0); header.writeUInt32LE(outputCount, 4); header.writeUInt32LE(inFeatures!, 8); header.writeUInt32LE((STORAGE_REFERENCE_FLAG + dtype) >>> 0, 12);
+      const header = Buffer.allocUnsafe(16); header.writeUInt32LE(rows, 0); header.writeUInt32LE(outputCount, 4); header.writeUInt32LE(inFeatures!, 8); header.writeUInt32LE((STORAGE_REFERENCE_FLAG + (nativeBf16 ? STORAGE_NATIVE_BF16_FLAG : 0) + dtype) >>> 0, 12);
       const name = Buffer.from(stored.name, "utf8"); if (name.length === 0 || name.length > 4096) throw new Error(`${tensor.name}: nome de tensor inválido.`);
       const metadata = Buffer.allocUnsafe(24); metadata.writeBigUInt64LE(BigInt(byteOffset), 0); metadata.writeUInt32LE(byteLength, 8); metadata.writeUInt32LE(startOutput, 12); metadata.writeUInt32LE(shard.length, 16); metadata.writeUInt32LE(name.length, 20);
       await this.#write(header); await this.#write(Buffer.from(input.buffer, input.byteOffset, input.byteLength)); await this.#write(metadata); await this.#write(shard); await this.#write(name);

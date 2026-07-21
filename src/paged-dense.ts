@@ -22,6 +22,7 @@ export interface PagedLinearTileKernel {
   multiply(input: Float32Array, weight: Float32Array, rows: number, outputCount: number, inFeatures: number): Promise<Float32Array>;
   multiplyStorage?(input: Float32Array, weight: Buffer, storageDtype: "F32" | "F16" | "BF16", rows: number, outputCount: number, inFeatures: number): Promise<Float32Array>;
   multiplyStorageReference?: ((input: Float32Array, tensor: TensorInfo, startOutput: number, outputCount: number, rows: number) => Promise<Float32Array>) | undefined;
+  multiplyStorageReferenceNativeBf16?: ((input: Float32Array, tensor: TensorInfo, startOutput: number, outputCount: number, rows: number) => Promise<Float32Array>) | undefined;
   multiplyStorageReferences?: ((input: Float32Array, requests: readonly PagedLinearStorageReference[], rows: number) => Promise<readonly Float32Array[]>) | undefined;
   fusedGatedMlpStorageReference?: ((input: Float32Array, gate: TensorInfo, up: TensorInfo, down: TensorInfo, rows: number, rounding: "bf16" | "real") => Promise<Float32Array>) | undefined;
 }
@@ -161,6 +162,7 @@ export async function pagedLinearF32(
     accumulationDtype?: "F32" | "F64";
     reduction?: ReductionSchedule;
     tileKernel?: PagedLinearTileKernel;
+    nativeBf16?: boolean;
   } = {},
 ): Promise<DenseF32Tensor> {
   if (input.shape.length < 1) throw new Error("Linear paginado requer entrada com dimensão de features.");
@@ -173,7 +175,10 @@ export async function pagedLinearF32(
   for (let firstOutput = 0; firstOutput < outFeatures; firstOutput += chunkRows) {
     const outputCount = Math.min(chunkRows, outFeatures - firstOutput);
     if (options.tileKernel) {
-      const tile = options.tileKernel.multiplyStorageReference
+      if (options.nativeBf16 && !options.tileKernel.multiplyStorageReferenceNativeBf16) throw new Error(`${options.tileKernel.backend}: kernel não oferece GEMM BF16 nativo.`);
+      const tile = options.nativeBf16
+        ? await options.tileKernel.multiplyStorageReferenceNativeBf16!(input.values, weight.tensor, firstOutput, outputCount, rows)
+        : options.tileKernel.multiplyStorageReference
         ? await options.tileKernel.multiplyStorageReference(input.values, weight.tensor, firstOutput, outputCount, rows)
         : options.tileKernel.multiplyStorage && weight.readStorageRows
         ? await options.tileKernel.multiplyStorage(input.values, await weight.readStorageRows(firstOutput, outputCount), weight.tensor.storageDtype as "F32" | "F16" | "BF16", rows, outputCount, inFeatures)

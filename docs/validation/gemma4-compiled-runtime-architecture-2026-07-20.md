@@ -269,7 +269,7 @@ npm run calibrate:gemma4-real -- \
   --output ./artifacts/gemma4-three-way-calibration-8x2-mmap.json \
   --tokens 2 --request-threads 1 \
   --direct-threads 8 --direct-max-read-mib 16 \
-  --direct-fused-mlp off \
+  --direct-fused-mlp off --direct-final-head f32 \
   --precision f32 --rounding-policy none
 ```
 
@@ -350,7 +350,7 @@ tokens no corpus. A interface mostra `fusedMlpRounding` e
 reprodutível. O worker MLX também executou o subgrafo real, preservou o token
 `184` e produziu hash próprio `aa9d1d10...03669e04`.
 
-Comando do modo promovido:
+Comando da MLP real com head F32 usado na comparação acima:
 
 ```bash
 npm run calibrate:gemma4-real -- \
@@ -359,5 +359,52 @@ npm run calibrate:gemma4-real -- \
   --tokens 2 --request-threads 1 \
   --direct-threads 8 --direct-max-read-mib 16 \
   --direct-linear-backend pytorch --direct-fused-mlp real \
+  --direct-final-head f32 \
+  --precision f32 --rounding-policy none
+```
+
+## Head terminal BF16 nativo
+
+O tensor compartilhado por embedding e `lm_head` possui shape
+`[262144,2560]` e 1.342.177.280 bytes BF16. Ele é mais de 128 vezes maior que
+cada projeção Q/O da primeira camada. O caminho anterior paginava esse tensor
+em aproximadamente 80 tiles por forward, ampliava cada tile para F32 e então
+executava o GEMM.
+
+O modo `native-bf16` mantém os pesos em BF16, converte somente o vetor final
+para BF16 e usa o GEMM BF16 nativo do PyTorch. O resultado volta como F32 para
+softcap, ranking, hash e seleção do token. A mudança é limitada ao
+`lm_head`, que já constitui a fronteira final de arredondamento permitida; as
+funções compostas internas continuam no modo MLP `real`.
+
+Para `[2]`, o token `184` e os top logits permaneceram, o forward quente caiu
+de `0,6364 s` para `0,6015 s` e o hash terminal passou para
+`ad4c001b...7cce850`, coerente com a redução BF16 final. Na matriz 8×2,
+`gemma4-three-way-calibration-8x2-native-bf16-head.json` registrou:
+
+- `0,7676 token/s`, 4,9% acima do head F32 fundido;
+- 47,0% acima dos `0,5221 token/s` anteriores à fusão MLP;
+- razão `1,3670x` contra o baseline na mesma execução;
+- os mesmos 7/8 prompts e 15/16 tokens, sem nova divergência.
+
+O primeiro passo da tradução reproduziu vários logits exatamente iguais ao
+baseline. No segundo, `1217` e `564` empataram em `22,5` no direto e o critério
+greedy escolheu o menor ID `564`; o baseline ainda separou os dois por `0,125`.
+Isso mantém a divergência localizada antes do head terminal.
+
+`native-bf16` foi promovido como padrão quando o backend é PyTorch; MLX mantém
+head F32. A interface exibe `finalHeadCompute`, e
+`--direct-final-head f32|native-bf16` preserva o A/B explícito.
+
+Comando promovido:
+
+```bash
+npm run calibrate:gemma4-real -- \
+  --source ./artifacts/gemma4-compiled-global-runtime-bundle \
+  --output ./artifacts/gemma4-three-way-calibration-8x2-native-bf16-head.json \
+  --tokens 2 --request-threads 1 \
+  --direct-threads 8 --direct-max-read-mib 16 \
+  --direct-linear-backend pytorch --direct-fused-mlp real \
+  --direct-final-head native-bf16 \
   --precision f32 --rounding-policy none
 ```

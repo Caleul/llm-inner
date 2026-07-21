@@ -45,6 +45,7 @@ interface ThreeWayCase {
     linearBatchedProjectionTiles?: number;
     fusedMlpRounding?: "off" | "bf16" | "real";
     fusedMlpDispatches?: number;
+    finalHeadCompute?: "f32" | "native-bf16";
     tokensEqualBaseline: boolean;
     firstDivergentStep: number | null;
     steps: Array<{ step: number; tokenId: number; forwardSeconds: number; topLogits: unknown }>;
@@ -109,7 +110,7 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
     source: options.runner.source,
     configuration: {
       prompts: cases.length, tokensPerPrompt: options.maxNewTokens, requestThreads: options.requestThreads,
-      directThreads: options.runner.directThreads, directLinearBackend: options.runner.directLinearBackend ?? "pytorch", directFusedMlp: options.runner.directFusedMlp ?? "real", precision: options.precision, roundingPolicy: options.roundingPolicy,
+      directThreads: options.runner.directThreads, directLinearBackend: options.runner.directLinearBackend ?? "pytorch", directFusedMlp: options.runner.directFusedMlp ?? "real", directFinalHead: options.runner.directFinalHead ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "f32"), precision: options.precision, roundingPolicy: options.roundingPolicy,
     },
     initialization: status,
     summary: {
@@ -145,6 +146,7 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.linearBatchedProjectionTiles === undefined ? {} : { linearBatchedProjectionTiles: entry.direct.linearBatchedProjectionTiles }),
         ...(entry.direct.fusedMlpRounding === undefined ? {} : { fusedMlpRounding: entry.direct.fusedMlpRounding }),
         ...(entry.direct.fusedMlpDispatches === undefined ? {} : { fusedMlpDispatches: entry.direct.fusedMlpDispatches }),
+        ...(entry.direct.finalHeadCompute === undefined ? {} : { finalHeadCompute: entry.direct.finalHeadCompute }),
         forwardSeconds: entry.direct.steps.map((step) => step.forwardSeconds) },
       steps: entry.steps.map((step, index) => ({
         step: step.step, contextsEqualBeforeStep: step.contextsEqualBeforeStep,

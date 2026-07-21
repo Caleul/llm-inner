@@ -48,10 +48,11 @@ def main():
             referenced = bool(encoded_dtype & 0x80000000)
             batched = bool(encoded_dtype & 0x40000000)
             fused_mlp = bool(encoded_dtype & 0x20000000)
-            dtype_code = encoded_dtype & 0x1fffffff
+            native_bf16 = bool(encoded_dtype & 0x10000000)
+            dtype_code = encoded_dtype & 0x0fffffff
             input_bytes = read_exact(rows * features * 4)
             if fused_mlp:
-                if not referenced or batched or pool is None:
+                if not referenced or batched or native_bf16 or pool is None:
                     raise ValueError("fused MLP requires referenced non-batched storage")
                 rounding = struct.unpack("<I", read_exact(4))[0]
                 if rounding not in (0, 1):
@@ -101,7 +102,7 @@ def main():
                 del inputs, matrices, shapes, gate, up, cube, inner, activated, hidden, result, payload
                 continue
             if batched:
-                if not referenced or pool is None or outputs < 2 or outputs > 256:
+                if not referenced or native_bf16 or pool is None or outputs < 2 or outputs > 256:
                     raise ValueError("batched tile requires 2..256 referenced projections")
                 inputs = torch.frombuffer(input_bytes, dtype=torch.float32).reshape(rows, features)
                 results = []
@@ -141,6 +142,8 @@ def main():
             if dtype_code not in (0, 1, 2):
                 raise ValueError(f"unknown storage dtype code {dtype_code}")
             storage_dtype = (torch.float32, torch.bfloat16, torch.float16)[dtype_code]
+            if native_bf16 and (not referenced or dtype_code != 1):
+                raise ValueError("native BF16 GEMM requires referenced BF16 storage")
             element_bytes = 4 if dtype_code == 0 else 2
             expected_weight_bytes = outputs * features * element_bytes
             if referenced:
@@ -166,7 +169,9 @@ def main():
                     mappings[path] = mmap.mmap(files[path].fileno(), 0, access=mmap.ACCESS_READ)
                 if byte_offset + byte_length > mappings[path].size():
                     raise ValueError("referenced tile range exceeds shard")
-                weights = torch.frombuffer(mappings[path], dtype=storage_dtype, count=outputs * features, offset=byte_offset).reshape(outputs, features).float()
+                weights = torch.frombuffer(mappings[path], dtype=storage_dtype, count=outputs * features, offset=byte_offset).reshape(outputs, features)
+                if not native_bf16:
+                    weights = weights.float()
             else:
                 weight_bytes = read_exact(expected_weight_bytes)
                 if weight_bytes is None:
@@ -175,7 +180,11 @@ def main():
             if input_bytes is None:
                 raise EOFError("truncated tile input")
             inputs = torch.frombuffer(input_bytes, dtype=torch.float32).reshape(rows, features)
+            if native_bf16:
+                inputs = inputs.to(torch.bfloat16)
             result = torch.mm(inputs, weights.transpose(0, 1)).contiguous()
+            if native_bf16:
+                result = result.float().contiguous()
             payload = result.numpy().tobytes(order="C")
             sys.stdout.buffer.write(struct.pack("<I", len(payload)))
             sys.stdout.buffer.write(payload)

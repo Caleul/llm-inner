@@ -46,8 +46,11 @@ def main():
             raise ValueError("MLX worker requires a positive referenced tile")
         batched = bool(encoded_dtype & 0x40000000)
         fused_mlp = bool(encoded_dtype & 0x20000000)
-        dtype_code = encoded_dtype & 0x1fffffff
+        native_bf16 = bool(encoded_dtype & 0x10000000)
+        dtype_code = encoded_dtype & 0x0fffffff
         input_bytes = read_exact(rows * features * 4)
+        if native_bf16:
+            raise ValueError("native BF16 GEMM is available only in the PyTorch worker")
         if fused_mlp:
             if batched:
                 raise ValueError("fused MLP cannot also be batched")

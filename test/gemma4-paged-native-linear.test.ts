@@ -83,3 +83,17 @@ test("linear em lote rejeita resposta truncada antes de publicar saída parcial"
   const kernel: PagedLinearTileKernel = { backend: "broken-batch", async multiply() { throw new Error("não usado"); }, async multiplyStorageReferences() { return [Float32Array.from([1, 2])]; } };
   await assert.rejects(() => pagedLinearBatchF32({ shape: [1, 2], values: Float32Array.from([1, 2]) }, [matrix, matrix], [{ tileKernel: kernel }, { tileKernel: kernel }]), /retornou 1 tiles; esperados 2/);
 });
+
+test("projeção terminal opta explicitamente pelo GEMM BF16 nativo", async () => {
+  const referencedMatrix: PagedDenseF32Matrix = { ...matrix, tensor: { name: "head", storageDtype: "BF16", storageShape: [2, 2], logicalShape: [2, 2], shard: "model.safetensors", byteOffset: 128, byteLength: 8 } };
+  let nativeCalls = 0;
+  const kernel: PagedLinearTileKernel = {
+    backend: "native-bf16", async multiply() { throw new Error("não deve ampliar para F32"); },
+    async multiplyStorageReferenceNativeBf16(input, tensor, startOutput, outputCount, rows) {
+      nativeCalls += 1; assert.equal(tensor.name, "head"); assert.deepEqual([startOutput, outputCount, rows], [0, 2, 1]); assert.deepEqual([...input], [1, 2]);
+      return Float32Array.from([11, 17]);
+    },
+  };
+  const result = await pagedLinearF32({ shape: [1, 2], values: Float32Array.from([1, 2]) }, referencedMatrix, { tileKernel: kernel, nativeBf16: true, outputDtype: "BF16" });
+  assert.equal(nativeCalls, 1); assert.deepEqual([...result.values], [11, 17]);
+});

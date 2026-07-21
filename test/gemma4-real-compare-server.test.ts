@@ -15,6 +15,7 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /linearBackend/);
   assert.match(gemma4RealCompareHtml, /lotes lineares/);
   assert.match(gemma4RealCompareHtml, /MLPs fundidos/);
+  assert.match(gemma4RealCompareHtml, /head:/);
   assert.match(gemma4RealCompareHtml, /Threads/);
   assert.match(gemma4RealCompareHtml, /\/api\/compare/);
 });
@@ -45,7 +46,9 @@ test("servidor diferencial valida opções reprodutíveis", () => {
   assert.throws(() => parseGemma4RealServerOptions(["--port", "0"]), /--port inválido/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-linear-backend", "metal"]), /pytorch ou mlx/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-mlp", "always"]), /off, bf16 ou real/);
-  assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool"]).directFusedMlp, "real");
+  assert.throws(() => parseGemma4RealServerOptions(["--direct-final-head", "fp16"]), /f32 ou native-bf16/);
+  const directDefaults = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool"]);
+  assert.equal(directDefaults.directFusedMlp, "real"); assert.equal(directDefaults.directFinalHead, "native-bf16");
   assert.throws(() => parseGemma4RealServerOptions(["--unknown", "x"]), /Flag desconhecida/);
 });
 

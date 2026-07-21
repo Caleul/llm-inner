@@ -54,6 +54,8 @@ export interface Gemma4PagedTextOptions {
   tensorReader?: Pick<LiteralTensorReader, "readTensorBytesRange">;
   /** Opt-in whole-MLP native subgraph; real removes the internal BF16 boundaries. */
   fusedMlpRounding?: "bf16" | "real";
+  /** Final vocabulary projection compute path; BF16 is the allowed final rounding boundary. */
+  finalHeadCompute?: "f32" | "native-bf16";
 }
 
 /**
@@ -236,6 +238,7 @@ async function executePagedOperations(
           accumulationDtype: operation.dtypePolicy.accumulationDtype === "F64" ? "F64" : "F32",
           ...(operation.dtypePolicy.reduction ? { reduction: operation.dtypePolicy.reduction } : {}),
           ...(options.linearTileKernel ? { tileKernel: options.linearTileKernel } : {}),
+          ...(operation.id === "lm_head" && options.finalHeadCompute === "native-bf16" ? { nativeBf16: true } : {}),
         }));
         break;
       case "reshape_heads":
