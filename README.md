@@ -2591,11 +2591,24 @@ sobreposição top-K. A comparação marca até qual passo os contextos ainda er
 iguais; depois da primeira escolha diferente, os próximos tokens são
 classificados como cascata e não como novas divergências numéricas.
 
+O runtime MLX também aplica uma seleção híbrida independente da resposta
+original. Por padrão, `--direct-verification-margin 0` identifica qualquer
+empate no top-2 do próprio Metal e recalcula a requisição completa no backend
+compilado PyTorch sobre o mesmo artefato literal e constant pool. Tokens Metal
+emitidos durante streaming são marcados como provisórios; o relatório final
+declara `selectedBackend`, `fallbackTriggered`, a margem observada e os tempos
+separados de Metal, verificação e execução híbrida. Margens ausentes ou
+malformadas falham de modo fechado e também acionam a verificação. O limiar é
+configurável e `--direct-verification-margin off` desabilita o segundo backend.
+Essa política reduz empates dependentes da árvore de redução, mas continua
+sendo medida contra o Transformers: um segundo backend BF16 pode preservar o
+mesmo empate e, portanto, não é apresentado como prova geral de paridade.
+
 O corpus ampliado e reproduzível pode ser executado com:
 
 ```bash
 npm run calibrate:gemma4-real -- \
-  --output ./artifacts/gemma4-three-way-calibration-32x4-mlx-resident-logit-metrics.json \
+  --output ./artifacts/gemma4-three-way-calibration-32x4-mlx-hybrid-margin0.json \
   --prompts-json ./artifacts/gemma4-calibration-prompts-32.json \
   --tokens 4 --request-threads 1 \
   --precision f32 --rounding-policy none
@@ -2603,6 +2616,13 @@ npm run calibrate:gemma4-real -- \
 
 Ele cobre 32 prompts em inglês, português e espanhol, completions factuais,
 matemática, código, Unicode e repetição, totalizando 128 tokens gerados.
+No relatório `mlx-hybrid-margin0`, 3/32 prompts acionaram a verificação. O
+resultado selecionado coincidiu com o baseline em 127/128 decisões (99,21875%)
+e em 31/32 prompts completos, sem passos de cascata, contra 124/128 e 30/32 no
+caminho Metal isolado. O throughput agregado selecionado foi 7,34 tokens/s,
+5,75× o baseline de 1,28 tokens/s. A divergência restante é um empate preservado
+pelos dois backends compilados; ela permanece visível no relatório, não é
+resolvida por uma regra de ID específica ao corpus.
 
 ### Gerador de fórmulas fisicamente planas
 

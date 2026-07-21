@@ -95,6 +95,17 @@ interface ThreeWayCase {
     tokensEqualBaseline: boolean;
     firstDivergentStep: number | null;
     logitAgreement?: DirectLogitAgreement;
+    selectionPolicy?: string;
+    selectedBackend?: "mlx" | "pytorch";
+    fallbackTriggered?: boolean;
+    fallbackReason?: string;
+    fastPathMinimumMargin?: number | null;
+    verificationMarginThreshold?: number;
+    fastPathSeconds?: number;
+    verificationSeconds?: number;
+    workerVerificationSeconds?: number;
+    hybridSeconds?: number;
+    fastPath?: { generatedTokenIds?: number[]; elapsedSeconds?: number; tokensPerSecond?: number; linearBackend?: string };
     steps: Array<{ step: number; tokenId: number; forwardSeconds: number; topLogits: unknown }>;
   };
 }
@@ -119,7 +130,7 @@ export async function runGemma4ThreeWayCalibration(options: Gemma4CalibrationCli
     const address = server.address();
     if (!address || typeof address === "string") throw new Error("Servidor de calibração não expôs uma porta TCP.");
     const endpoint = `http://127.0.0.1:${address.port}`;
-    const status = await waitUntilReady(endpoint);
+    let status = await waitUntilReady(endpoint);
     const cases: ThreeWayCase[] = [];
     for (const prompt of options.prompts) {
       const response = await fetch(`${endpoint}/api/compare`, {
@@ -132,6 +143,7 @@ export async function runGemma4ThreeWayCalibration(options: Gemma4CalibrationCli
       assertThreeWayCase(body, prompt);
       cases.push(body);
     }
+    status = await fetch(`${endpoint}/api/status`).then((response) => response.json()) as Record<string, unknown>;
     const report = summarizeGemma4ThreeWayCalibration(cases, options, status);
     await writeFile(options.output, `${JSON.stringify(report, null, 2)}\n`);
     return report;
@@ -150,6 +162,7 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
   const directSeconds = cases.reduce((total, entry) => total + entry.direct.elapsedSeconds, 0);
   const compatibilityPromptsEqual = cases.filter((entry) => entry.generatedTokensEqual).length;
   const directPromptsEqual = cases.filter((entry) => entry.direct.tokensEqualBaseline).length;
+  const directFallbackPrompts = cases.filter((entry) => entry.direct.fallbackTriggered === true).length;
   const promptsThreeWayEqual = cases.filter((entry) => entry.generatedTokensEqual && entry.direct.tokensEqualBaseline).length;
   const directReportedLogitSteps = cases.flatMap((entry) => entry.direct.logitAgreement?.steps ?? []);
   const directLogitSteps = directReportedLogitSteps.filter((step) => step.contextsEqualBeforeStep);
@@ -165,7 +178,7 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
     source: options.runner.source,
     configuration: {
       prompts: cases.length, tokensPerPrompt: options.maxNewTokens, requestThreads: options.requestThreads,
-      directThreads: options.runner.directThreads, directMaxReadMiB: options.runner.directMaxReadMiB ?? 16, directFinalHeadReadMiB: options.runner.directFinalHeadReadMiB ?? (directBackend === "pytorch" ? 32 : options.runner.directMaxReadMiB ?? 16), directLinearBackend: directBackend, directFusedMlp: options.runner.directFusedMlp ?? (directBackend === "pytorch" ? "native-bf16" : "real"), directFusedFfn: options.runner.directFusedFfn ?? (directBackend === "pytorch" ? "native-bf16" : "off"), directFusedDecoderLayer: options.runner.directFusedDecoderLayer ?? (directBackend === "pytorch" ? "native-bf16" : "off"), directFusedDecoderStack: options.runner.directFusedDecoderStack ?? "native-bf16", directFusedPle: options.runner.directFusedPle ?? (directBackend === "pytorch" ? "bf16" : "off"), directFusedPlePrelude: options.runner.directFusedPlePrelude ?? (directBackend === "mlx" ? "bf16" : "off"), directFusedTokenForward: options.runner.directFusedTokenForward ?? (directBackend === "mlx" && options.runner.directFusedDecoderStack !== "off" ? "bf16" : "off"), directResidentGeneration: options.runner.directResidentGeneration ?? (directBackend === "mlx" && options.runner.directFusedDecoderStack !== "off" ? "on" : "off"), directFinalHead: options.runner.directFinalHead ?? (directBackend === "pytorch" ? "native-bf16-stream" : "native-bf16-whole"), directNativeAttention: options.runner.directNativeAttention ?? (directBackend === "pytorch" ? "real" : "off"), directFusedAttention: options.runner.directFusedAttention ?? (directBackend === "pytorch" ? "native-bf16" : "off"), precision: options.precision, roundingPolicy: options.roundingPolicy,
+      directThreads: options.runner.directThreads, directMaxReadMiB: options.runner.directMaxReadMiB ?? 16, directFinalHeadReadMiB: options.runner.directFinalHeadReadMiB ?? (directBackend === "pytorch" ? 32 : options.runner.directMaxReadMiB ?? 16), directLinearBackend: directBackend, directVerificationMargin: options.runner.directVerificationMargin ?? null, directFusedMlp: options.runner.directFusedMlp ?? (directBackend === "pytorch" ? "native-bf16" : "real"), directFusedFfn: options.runner.directFusedFfn ?? (directBackend === "pytorch" ? "native-bf16" : "off"), directFusedDecoderLayer: options.runner.directFusedDecoderLayer ?? (directBackend === "pytorch" ? "native-bf16" : "off"), directFusedDecoderStack: options.runner.directFusedDecoderStack ?? "native-bf16", directFusedPle: options.runner.directFusedPle ?? (directBackend === "pytorch" ? "bf16" : "off"), directFusedPlePrelude: options.runner.directFusedPlePrelude ?? (directBackend === "mlx" ? "bf16" : "off"), directFusedTokenForward: options.runner.directFusedTokenForward ?? (directBackend === "mlx" && options.runner.directFusedDecoderStack !== "off" ? "bf16" : "off"), directResidentGeneration: options.runner.directResidentGeneration ?? (directBackend === "mlx" && options.runner.directFusedDecoderStack !== "off" ? "on" : "off"), directFinalHead: options.runner.directFinalHead ?? (directBackend === "pytorch" ? "native-bf16-stream" : "native-bf16-whole"), directNativeAttention: options.runner.directNativeAttention ?? (directBackend === "pytorch" ? "real" : "off"), directFusedAttention: options.runner.directFusedAttention ?? (directBackend === "pytorch" ? "native-bf16" : "off"), precision: options.precision, roundingPolicy: options.roundingPolicy,
     },
     initialization: status,
     summary: {
@@ -175,6 +188,8 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
       compatibilityPromptAgreementRate: compatibilityPromptsEqual / cases.length,
       directPromptsEqual,
       directPromptAgreementRate: directPromptsEqual / cases.length,
+      directFallbackPrompts,
+      directFallbackRate: directFallbackPrompts / cases.length,
       comparedTokenSteps: totalSteps,
       compatibilityEqualTokenSteps: compatibilityEqualSteps,
       compatibilityTokenAgreementRate: compatibilityEqualSteps / totalSteps,
@@ -209,6 +224,17 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
       baseline: { tokenIds: entry.baselineGeneratedTokenIds, text: entry.baselineGeneratedText, seconds: entry.performance.baselineSeconds, tokensPerSecond: entry.performance.baselineTokensPerSecond },
       compatibility: { tokenIds: entry.candidateGeneratedTokenIds, text: entry.candidateGeneratedText, tokensEqualBaseline: entry.generatedTokensEqual, firstDivergentStep: entry.firstDivergentStep, seconds: entry.performance.candidateSeconds, tokensPerSecond: entry.performance.candidateTokensPerSecond },
       direct: { tokenIds: entry.direct.generatedTokenIds, text: entry.direct.generatedText, tokensEqualBaseline: entry.direct.tokensEqualBaseline, firstDivergentStep: entry.direct.firstDivergentStep, seconds: entry.direct.elapsedSeconds, tokensPerSecond: entry.direct.tokensPerSecond, linearThreads: entry.direct.linearThreads,
+        ...(entry.direct.selectionPolicy === undefined ? {} : { selectionPolicy: entry.direct.selectionPolicy }),
+        ...(entry.direct.selectedBackend === undefined ? {} : { selectedBackend: entry.direct.selectedBackend }),
+        ...(entry.direct.fallbackTriggered === undefined ? {} : { fallbackTriggered: entry.direct.fallbackTriggered }),
+        ...(entry.direct.fallbackReason === undefined ? {} : { fallbackReason: entry.direct.fallbackReason }),
+        ...(entry.direct.fastPathMinimumMargin === undefined ? {} : { fastPathMinimumMargin: entry.direct.fastPathMinimumMargin }),
+        ...(entry.direct.verificationMarginThreshold === undefined ? {} : { verificationMarginThreshold: entry.direct.verificationMarginThreshold }),
+        ...(entry.direct.fastPathSeconds === undefined ? {} : { fastPathSeconds: entry.direct.fastPathSeconds }),
+        ...(entry.direct.verificationSeconds === undefined ? {} : { verificationSeconds: entry.direct.verificationSeconds }),
+        ...(entry.direct.workerVerificationSeconds === undefined ? {} : { workerVerificationSeconds: entry.direct.workerVerificationSeconds }),
+        ...(entry.direct.hybridSeconds === undefined ? {} : { hybridSeconds: entry.direct.hybridSeconds }),
+        ...(entry.direct.fastPath === undefined ? {} : { fastPath: { tokenIds: entry.direct.fastPath.generatedTokenIds, seconds: entry.direct.fastPath.elapsedSeconds, tokensPerSecond: entry.direct.fastPath.tokensPerSecond, linearBackend: entry.direct.fastPath.linearBackend } }),
         ...(entry.direct.logitAgreement === undefined ? {} : { logitAgreement: entry.direct.logitAgreement }),
         ...(entry.direct.maxReadMiB === undefined ? {} : { maxReadMiB: entry.direct.maxReadMiB }),
         ...(entry.direct.finalHeadReadMiB === undefined ? {} : { finalHeadReadMiB: entry.direct.finalHeadReadMiB }),
@@ -295,10 +321,11 @@ export async function parseGemma4CalibrationCliOptions(argv: readonly string[]):
 }
 
 async function waitUntilReady(endpoint: string): Promise<Record<string, unknown>> {
-  const deadline = Date.now() + 120_000;
+  const deadline = Date.now() + 240_000;
   while (Date.now() < deadline) {
     const response = await fetch(`${endpoint}/api/status`);
     const status = await response.json() as Record<string, unknown>;
+    if (typeof status.error === "string") throw new Error(`Inicialização dos workers falhou: ${status.error}`);
     if (status.ready === true) {
       const direct = status.direct as Record<string, unknown> | undefined;
       if (direct?.enabled !== true) throw new Error("Calibração três-vias requer o backend compilado direto habilitado.");
@@ -306,7 +333,7 @@ async function waitUntilReady(endpoint: string): Promise<Record<string, unknown>
     }
     await new Promise((accept) => setTimeout(accept, 100));
   }
-  throw new Error("Workers persistentes não ficaram prontos em 120 segundos.");
+  throw new Error("Workers persistentes não ficaram prontos em 240 segundos.");
 }
 
 function assertThreeWayCase(value: ThreeWayCase | { error?: string }, prompt: string): asserts value is ThreeWayCase {

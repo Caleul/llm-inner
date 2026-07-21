@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Script } from "node:vm";
 import { gemma4RealCompareHtml } from "../src/gemma4-real-compare-ui.js";
-import { computeDirectLogitAgreement, createGemma4RealComparisonServer, parseGemma4RealServerOptions } from "../src/gemma4-real-compare-server.js";
+import { assessDirectVerification, computeDirectLogitAgreement, createGemma4RealComparisonServer, parseGemma4RealServerOptions } from "../src/gemma4-real-compare-server.js";
 
 test("interface diferencial contém controles e apresentação dos dois executores", () => {
   assert.match(gemma4RealCompareHtml, /Enviar e comparar/);
@@ -134,7 +134,9 @@ test("servidor diferencial valida opções reprodutíveis", () => {
   assert.throws(() => parseGemma4RealServerOptions(["--direct-native-attention", "auto"]), /off, bf16 ou real/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-attention", "always"]), /off, bf16, real ou native-bf16/);
   const directDefaults = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool"]);
-  assert.equal(directDefaults.directThreads, 10); assert.equal(directDefaults.directMaxReadMiB, 16); assert.equal(directDefaults.directFinalHeadReadMiB, 16);
+  assert.equal(directDefaults.directThreads, 10); assert.equal(directDefaults.directMaxReadMiB, 16); assert.equal(directDefaults.directFinalHeadReadMiB, 16); assert.equal(directDefaults.directVerificationMargin, 0);
+  assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-verification-margin", "off"]).directVerificationMargin, undefined);
+  assert.throws(() => parseGemma4RealServerOptions(["--direct-verification-margin", "-1"]), /finito não negativo/);
   assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-linear-backend", "pytorch", "--direct-fused-decoder-stack", "native-bf16-ple"]).directFusedDecoderStack, "native-bf16-ple");
   const splitTiles = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-max-read-mib", "16", "--direct-final-head-read-mib", "32"]);
   assert.equal(splitTiles.directFinalHeadReadMiB, 32);
@@ -143,7 +145,7 @@ test("servidor diferencial valida opções reprodutíveis", () => {
   const mlxDefaults = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-linear-backend", "mlx"]);
   assert.equal(mlxDefaults.directFinalHeadReadMiB, 16); assert.equal(mlxDefaults.directFusedMlp, "real"); assert.equal(mlxDefaults.directFusedFfn, "off"); assert.equal(mlxDefaults.directFusedDecoderLayer, "off"); assert.equal(mlxDefaults.directFusedDecoderStack, "native-bf16"); assert.equal(mlxDefaults.directFusedPle, "off"); assert.equal(mlxDefaults.directFusedPlePrelude, "bf16"); assert.equal(mlxDefaults.directFusedTokenForward, "bf16"); assert.equal(mlxDefaults.directResidentGeneration, "on"); assert.equal(mlxDefaults.directFinalHead, "native-bf16-whole"); assert.equal(mlxDefaults.directNativeAttention, "off"); assert.equal(mlxDefaults.directFusedAttention, "off");
   const pytorchDefaults = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-linear-backend", "pytorch"]);
-  assert.equal(pytorchDefaults.directFinalHeadReadMiB, 32); assert.equal(pytorchDefaults.directFusedMlp, "native-bf16"); assert.equal(pytorchDefaults.directFusedFfn, "native-bf16"); assert.equal(pytorchDefaults.directFusedDecoderLayer, "native-bf16"); assert.equal(pytorchDefaults.directFusedDecoderStack, "native-bf16"); assert.equal(pytorchDefaults.directFusedPle, "bf16"); assert.equal(pytorchDefaults.directFusedPlePrelude, "off"); assert.equal(pytorchDefaults.directFusedTokenForward, "off"); assert.equal(pytorchDefaults.directResidentGeneration, "off"); assert.equal(pytorchDefaults.directFinalHead, "native-bf16-stream"); assert.equal(pytorchDefaults.directNativeAttention, "real"); assert.equal(pytorchDefaults.directFusedAttention, "native-bf16");
+  assert.equal(pytorchDefaults.directFinalHeadReadMiB, 32); assert.equal(pytorchDefaults.directVerificationMargin, undefined); assert.equal(pytorchDefaults.directFusedMlp, "native-bf16"); assert.equal(pytorchDefaults.directFusedFfn, "native-bf16"); assert.equal(pytorchDefaults.directFusedDecoderLayer, "native-bf16"); assert.equal(pytorchDefaults.directFusedDecoderStack, "native-bf16"); assert.equal(pytorchDefaults.directFusedPle, "bf16"); assert.equal(pytorchDefaults.directFusedPlePrelude, "off"); assert.equal(pytorchDefaults.directFusedTokenForward, "off"); assert.equal(pytorchDefaults.directResidentGeneration, "off"); assert.equal(pytorchDefaults.directFinalHead, "native-bf16-stream"); assert.equal(pytorchDefaults.directNativeAttention, "real"); assert.equal(pytorchDefaults.directFusedAttention, "native-bf16");
   assert.throws(() => parseGemma4RealServerOptions(["--direct-linear-backend", "mlx", "--direct-fused-mlp", "native-bf16"]), /requer backend pytorch/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-linear-backend", "mlx", "--direct-fused-ffn", "native-bf16"]), /requer backend pytorch/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-linear-backend", "mlx", "--direct-fused-decoder-layer", "native-bf16"]), /requer backend pytorch/);
@@ -181,4 +183,36 @@ readline.createInterface({input:process.stdin}).on("line",line=>{const request=J
     await new Promise<void>((accept, reject) => server.close((error) => error ? reject(error) : accept()));
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+test("verificação seletiva é fail-closed e usa somente a margem do caminho rápido", () => {
+  const report = (topLogits: unknown, generatedTokenIds = [7]) => ({ generatedTokenIds, fullTokenIds: [2, ...generatedTokenIds], steps: generatedTokenIds.map((tokenId) => ({ tokenId, topLogits })) });
+  assert.deepEqual(assessDirectVerification(report([{ tokenId: 7, value: 2 }, { tokenId: 8, value: 2 }]), 0), { trigger: true, reason: "margin-at-or-below-threshold", minimumMargin: 0, marginThreshold: 0 });
+  assert.deepEqual(assessDirectVerification(report([{ tokenId: 7, value: 2.125 }, { tokenId: 8, value: 2 }]), 0), { trigger: false, reason: "margin-at-or-below-threshold", minimumMargin: 0.125, marginThreshold: 0 });
+  assert.deepEqual(assessDirectVerification(report([], [7]), 0), { trigger: true, reason: "margin-unavailable", minimumMargin: null, marginThreshold: 0 });
+  assert.throws(() => createGemma4RealComparisonServer({ source: ".", python: "python", helper: "helper", directLinearBackend: "pytorch", directVerificationMargin: 0 }), /requer backend MLX/);
+});
+
+test("servidor substitui empate Metal pelo resultado do verificador compilado", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "gemma4-selective-verification-test-"));
+  const transformer = join(directory, "transformer.mjs"), direct = join(directory, "direct.mjs");
+  await writeFile(transformer, `import readline from "node:readline";
+console.log(JSON.stringify({ready:true}));
+readline.createInterface({input:process.stdin}).on("line",line=>{const r=JSON.parse(line);const report=r.mode==='encode'?{tokenIds:[2,99]}:r.mode==='decode'?{text:r.tokenIds.join('|')}:{baselineGeneratedTokenIds:[7],candidateGeneratedTokenIds:[7],baselineGeneratedText:'7',candidateGeneratedText:'7',generatedTokensEqual:true,firstDivergentStep:null,inputIds:[[2,99]],steps:[{step:0,baselineToken:7,candidateToken:7,baselineTopLogits:[{tokenId:7,logit:2.125},{tokenId:8,logit:2}],candidateTopLogits:[],metrics:{argmaxEqual:true,divergenceRate:0,maxAbsError:0},baselineSeconds:1,candidateSeconds:1}],performance:{baselineSeconds:1,candidateSeconds:1,baselineTokensPerSecond:1,candidateTokensPerSecond:1,candidateSpeedup:1,processPeakRssBytes:0},executionThreads:1,candidatePrecision:'f32',roundingPolicy:'none'};console.log(JSON.stringify({id:r.id,report}));});\n`);
+  await writeFile(direct, `import readline from "node:readline";
+const args=process.argv,backend=args[args.indexOf('--linear-backend')+1];console.log(JSON.stringify({ready:true,linearBackend:backend}));
+readline.createInterface({input:process.stdin}).on("line",line=>{const r=JSON.parse(line),token=backend==='pytorch'?7:8,top=backend==='pytorch'?[{tokenId:7,value:2.125},{tokenId:8,value:2}]:[{tokenId:8,value:2},{tokenId:7,value:2}],report={generatedTokenIds:[token],fullTokenIds:[...r.inputIds,token],elapsedSeconds:0.01,tokensPerSecond:100,linearThreads:4,linearBackend:backend,steps:[{step:0,tokenId:token,forwardSeconds:0.01,topLogits:top}]};if(r.stream)console.log(JSON.stringify({id:r.id,event:{type:'token',step:0,tokenId:token,forwardSeconds:0.01,topLogits:top}}));console.log(JSON.stringify({id:r.id,report}));});\n`);
+  const server = createGemma4RealComparisonServer({ source: directory, python: process.execPath, helper: transformer, literalArtifact: "literal.json", binaryPool: directory, directWorker: direct, directLinearHelper: "unused.py", directVerificationMargin: 0 });
+  await new Promise<void>((accept) => server.listen(0, "127.0.0.1", accept));
+  try {
+    const address = server.address(); if (!address || typeof address === "string") throw new Error("Endereço HTTP ausente.");
+    const endpoint = `http://127.0.0.1:${address.port}`;
+    let status: { ready?: boolean; direct?: { verification?: { ready?: boolean; marginThreshold?: number } } } = {};
+    for (let index = 0; index < 50 && (!status.ready || !status.direct?.verification?.ready); index += 1) { status = await fetch(`${endpoint}/api/status`).then((response) => response.json()) as typeof status; await new Promise((accept) => setTimeout(accept, 10)); }
+    assert.equal(status.direct?.verification?.ready, true); assert.equal(status.direct?.verification?.marginThreshold, 0);
+    const response = await fetch(`${endpoint}/api/compare-stream`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt: "empate", maxNewTokens: 1 }) });
+    const messages = (await response.text()).trim().split("\n").map((line) => JSON.parse(line) as { type: string; provisional?: boolean; data?: { direct: Record<string, unknown> } });
+    assert.deepEqual(messages.map((message) => message.type), ["direct-token", "direct-fallback", "result"]); assert.equal(messages[0]?.provisional, true);
+    const selected = messages[2]!.data!.direct; assert.deepEqual(selected.generatedTokenIds, [7]); assert.equal(selected.selectedBackend, "pytorch"); assert.equal(selected.fallbackTriggered, true); assert.equal(selected.fastPathMinimumMargin, 0); assert.deepEqual((selected.fastPath as { generatedTokenIds: number[] }).generatedTokenIds, [8]); assert.equal(selected.tokensEqualBaseline, true);
+  } finally { await new Promise<void>((accept, reject) => server.close((error) => error ? reject(error) : accept())); await rm(directory, { recursive: true, force: true }); }
 });

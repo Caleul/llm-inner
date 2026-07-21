@@ -18,7 +18,7 @@ test("calibração três-vias agrega acordo token a token e throughput", () => {
   assert.deepEqual(report.summary, {
     promptsThreeWayEqual: 0, promptThreeWayAgreementRate: 0,
     compatibilityPromptsEqual: 0, compatibilityPromptAgreementRate: 0,
-    directPromptsEqual: 1, directPromptAgreementRate: 1, comparedTokenSteps: 2,
+    directPromptsEqual: 1, directPromptAgreementRate: 1, directFallbackPrompts: 0, directFallbackRate: 0, comparedTokenSteps: 2,
     compatibilityEqualTokenSteps: 1, compatibilityTokenAgreementRate: 0.5,
     directEqualTokenSteps: 2, directTokenAgreementRate: 1,
     directLogitReportedSteps: 0, directLogitMeasuredSteps: 0, directRootDivergences: 0, directComparableTokenAgreementRate: null, directPostDivergenceSteps: 0, directSelectedLogitMeasuredSteps: 0,
