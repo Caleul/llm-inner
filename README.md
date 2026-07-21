@@ -2608,6 +2608,15 @@ executores mantêm seus próprios KV caches e só reutilizam um prefixo quando o
 IDs anteriores coincidem exatamente; as métricas mostram quantos tokens foram
 reaproveitados e quantos precisaram de novo prefill.
 
+O agendamento padrão da interface é **Isolada (fiel)**: primeiro executa e
+entrega o texto do runtime compilado sem cálculo concorrente e só então roda o
+original e a recomposição de compatibilidade. O relatório separa a latência da
+fase compilada, a fase de referência e o tempo de parede total. **Paralela
+(stress)** continua disponível para medir deliberadamente a contenção de CPU,
+GPU e memória unificada; seus tempos não devem ser tratados como a latência
+isolada de inferência. A API aceita `measurementSchedule: "isolated" |
+"parallel"`, usando `isolated` quando o campo é omitido.
+
 Na geração residente, o `argmax` e o top-K do vetor final de 262.144 logits são
 calculados no MLX/Metal. Em passos não terminais, apenas o token e os candidatos
 top-K atravessam para a CPU; o vetor F32 completo (1 MiB) é materializado uma

@@ -8,7 +8,7 @@ import { dirname, join, resolve } from "node:path";
 import { gemma4RealCompareHtml } from "./gemma4-real-compare-ui.js";
 import { validateGemma4VectorizedRealLoweringPlan } from "./gemma4-vectorized-real-lowering.js";
 
-export interface Gemma4RealComparisonRequest { prompt: string; maxNewTokens: number; threads?: number; precision?: "f32" | "f64"; roundingPolicy?: "none" | "layer-bf16" | "operation-bf16"; sessionId?: number; continueSession?: boolean; conversationMode?: "raw" | "chat" }
+export interface Gemma4RealComparisonRequest { prompt: string; maxNewTokens: number; threads?: number; precision?: "f32" | "f64"; roundingPolicy?: "none" | "layer-bf16" | "operation-bf16"; sessionId?: number; continueSession?: boolean; conversationMode?: "raw" | "chat"; measurementSchedule?: "isolated" | "parallel" }
 export interface Gemma4RealComparisonRunnerOptions {
   source: string; python: string; helper: string;
   compiledProgram?: Gemma4CompiledProgramStatus;
@@ -77,16 +77,29 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
         const body = JSON.parse(await readBody(request)) as Gemma4RealComparisonRequest;
         validateRequest(body);
         const inputIds = await resolveComparisonInput(worker, body, sessionInputs);
-        const report = await worker.compareTokens(body, inputIds) as ComparisonReport;
-        if (!direct) return json(response, 200, { ...report, prompt: body.prompt, conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null });
-        const directReport = await executeSelectedDirect(direct, verification, options.directVerificationMargin, { inputIds, maxNewTokens: body.maxNewTokens, ...(body.sessionId === undefined ? {} : { sessionId: body.sessionId }) });
+        const comparisonStarted = performance.now();
+        const schedule = body.measurementSchedule ?? "isolated";
+        if (!direct) {
+          const report = await worker.compareTokens(body, inputIds) as ComparisonReport;
+          return json(response, 200, { ...report, prompt: body.prompt, conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null, comparisonTiming: { schedule: "reference-only", totalWallSeconds: elapsedSeconds(comparisonStarted) } });
+        }
+        const executeDirect = () => executeSelectedDirect(direct, verification, options.directVerificationMargin, { inputIds, maxNewTokens: body.maxNewTokens, ...(body.sessionId === undefined ? {} : { sessionId: body.sessionId }) });
+        let report: ComparisonReport, directReport: DirectReport, directPhaseSeconds: number, referencePhaseSeconds: number;
+        if (schedule === "isolated") {
+          const directStarted = performance.now(); directReport = await executeDirect(); directPhaseSeconds = elapsedSeconds(directStarted);
+          const referenceStarted = performance.now(); report = await worker.compareTokens(body, inputIds) as ComparisonReport; referencePhaseSeconds = elapsedSeconds(referenceStarted);
+        } else {
+          const directStarted = performance.now(), referenceStarted = performance.now();
+          [report, directReport] = await Promise.all([worker.compareTokens(body, inputIds) as Promise<ComparisonReport>, executeDirect()]);
+          directPhaseSeconds = elapsedSeconds(directStarted); referencePhaseSeconds = elapsedSeconds(referenceStarted);
+        }
         attachDirectLogitAgreement(report, directReport);
         const [generated, full] = await Promise.all([worker.decode(directReport.generatedTokenIds), worker.decode(directReport.fullTokenIds)]);
         directReport.generatedText = generated.text; directReport.fullText = full.text;
         directReport.tokensEqualBaseline = arraysEqual(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
         directReport.firstDivergentStep = firstDivergence(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
         if (body.sessionId !== undefined) rememberSession(sessionInputs, body.sessionId, directReport.fullTokenIds, body.conversationMode ?? "raw");
-        return json(response, 200, { ...report, prompt: body.prompt, conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), direct: directReport });
+        return json(response, 200, { ...report, prompt: body.prompt, conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), direct: directReport, comparisonTiming: { schedule, directPhaseSeconds, referencePhaseSeconds, totalWallSeconds: elapsedSeconds(comparisonStarted) } });
       }
       if (request.method === "POST" && request.url === "/api/compare-stream") {
         await initialize;
@@ -97,17 +110,31 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
         let clientDisconnected = false; response.once("close", () => { if (!response.writableEnded) clientDisconnected = true; });
         response.writeHead(200, { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" });
         try {
-          const referencePromise = worker.compareTokens(body, inputIds) as Promise<ComparisonReport>;
-          const directPromise = executeSelectedDirect(direct, verification, options.directVerificationMargin, { inputIds, maxNewTokens: body.maxNewTokens, stream: true, ...(body.sessionId === undefined ? {} : { sessionId: body.sessionId }) }, (event) => writeNdjson(response, { type: "direct-token", provisional: verification !== undefined, event }), (assessment) => writeNdjson(response, { type: "direct-fallback", ...assessment }), () => !clientDisconnected);
-          const [report, directReport] = await Promise.all([referencePromise, directPromise]);
+          const comparisonStarted = performance.now(), schedule = body.measurementSchedule ?? "isolated";
+          const executeDirect = () => executeSelectedDirect(direct, verification, options.directVerificationMargin, { inputIds, maxNewTokens: body.maxNewTokens, stream: true, ...(body.sessionId === undefined ? {} : { sessionId: body.sessionId }) }, (event) => writeNdjson(response, { type: "direct-token", provisional: verification !== undefined, event }), (assessment) => writeNdjson(response, { type: "direct-fallback", ...assessment }), () => !clientDisconnected);
+          let report: ComparisonReport, directReport: DirectReport, directPhaseSeconds: number, referencePhaseSeconds: number;
+          if (schedule === "isolated") {
+            const directStarted = performance.now(); directReport = await executeDirect(); directPhaseSeconds = elapsedSeconds(directStarted);
+            if (clientDisconnected || response.destroyed) return;
+            const [generated, full] = await Promise.all([worker.decode(directReport.generatedTokenIds), worker.decode(directReport.fullTokenIds)]);
+            directReport.generatedText = generated.text; directReport.fullText = full.text;
+            writeNdjson(response, { type: "direct-complete", data: { generatedText: generated.text, generatedTokenIds: directReport.generatedTokenIds, directPhaseSeconds } });
+            const referenceStarted = performance.now(); report = await worker.compareTokens(body, inputIds) as ComparisonReport; referencePhaseSeconds = elapsedSeconds(referenceStarted);
+          } else {
+            const directStarted = performance.now(), referenceStarted = performance.now();
+            [report, directReport] = await Promise.all([worker.compareTokens(body, inputIds) as Promise<ComparisonReport>, executeDirect()]);
+            directPhaseSeconds = elapsedSeconds(directStarted); referencePhaseSeconds = elapsedSeconds(referenceStarted);
+          }
           if (clientDisconnected || response.destroyed) return;
           attachDirectLogitAgreement(report, directReport);
-          const [generated, full] = await Promise.all([worker.decode(directReport.generatedTokenIds), worker.decode(directReport.fullTokenIds)]);
-          directReport.generatedText = generated.text; directReport.fullText = full.text;
+          if (directReport.generatedText === undefined || directReport.fullText === undefined) {
+            const [generated, full] = await Promise.all([worker.decode(directReport.generatedTokenIds), worker.decode(directReport.fullTokenIds)]);
+            directReport.generatedText = generated.text; directReport.fullText = full.text;
+          }
           directReport.tokensEqualBaseline = arraysEqual(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
           directReport.firstDivergentStep = firstDivergence(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
           if (body.sessionId !== undefined) rememberSession(sessionInputs, body.sessionId, directReport.fullTokenIds, body.conversationMode ?? "raw");
-          writeNdjson(response, { type: "result", data: { ...report, prompt: body.prompt, conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), direct: directReport } }); response.end(); return;
+          writeNdjson(response, { type: "result", data: { ...report, prompt: body.prompt, conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), direct: directReport, comparisonTiming: { schedule, directPhaseSeconds, referencePhaseSeconds, totalWallSeconds: elapsedSeconds(comparisonStarted) } } }); response.end(); return;
         } catch (error) {
           writeNdjson(response, { type: "error", error: error instanceof Error ? error.message : String(error) }); response.end(); return;
         }
@@ -225,6 +252,7 @@ export interface DirectLogitStepAgreement { step: number; contextsEqualBeforeSte
 export interface DirectLogitAgreement { reportedSteps: number; measuredSteps: number; rootDivergences: number; postDivergenceSteps: number; selectedLogitMeasuredSteps: number; meanBaselineArgmaxLogitAbsError: number | null; maxBaselineArgmaxLogitAbsError: number | null; marginMeasuredSteps: number; meanGreedyMarginAbsError: number | null; maxGreedyMarginAbsError: number | null; meanTopKOverlapRate: number | null; maxTopKCommonLogitAbsError: number | null; steps: DirectLogitStepAgreement[] }
 function arraysEqual(left: readonly number[], right: readonly number[]): boolean { return left.length === right.length && left.every((value, index) => value === right[index]); }
 function firstDivergence(left: readonly number[], right: readonly number[]): number | null { const length = Math.max(left.length, right.length); for (let index = 0; index < length; index += 1) if (left[index] !== right[index]) return index; return null; }
+function elapsedSeconds(started: number): number { return (performance.now() - started) / 1000; }
 function declaresChatTemplate(source: string): boolean { try { const parsed = JSON.parse(readFileSync(join(source, "tokenizer_config.json"), "utf8")) as { chat_template?: unknown }; return typeof parsed.chat_template === "string" && parsed.chat_template.length > 0; } catch { return false; } }
 
 export function computeDirectLogitAgreement(baselineSteps: ReadonlyArray<{ baselineToken?: number; baselineTopLogits?: unknown }>, directSteps: ReadonlyArray<{ tokenId?: number; topLogits?: unknown }>): DirectLogitAgreement {
@@ -306,6 +334,7 @@ function validateRequest(request: Gemma4RealComparisonRequest): void {
   if (request.continueSession !== undefined && typeof request.continueSession !== "boolean") throw new Error("continueSession deve ser booleano.");
   if (request.continueSession && request.sessionId === undefined) throw new Error("continueSession requer sessionId.");
   if (request.conversationMode !== undefined && request.conversationMode !== "raw" && request.conversationMode !== "chat") throw new Error("conversationMode deve ser raw ou chat.");
+  if (request.measurementSchedule !== undefined && request.measurementSchedule !== "isolated" && request.measurementSchedule !== "parallel") throw new Error("measurementSchedule deve ser isolated ou parallel.");
 }
 
 async function readBody(request: IncomingMessage): Promise<string> {

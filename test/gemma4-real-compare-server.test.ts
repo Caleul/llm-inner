@@ -51,6 +51,10 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /decoder→logits compilado/);
   assert.match(gemma4RealCompareHtml, /compiledIncrementalDecoderSteps/);
   assert.match(gemma4RealCompareHtml, /incrementalCompilerCacheHit/);
+  assert.match(gemma4RealCompareHtml, /Isolada \(fiel\)/);
+  assert.match(gemma4RealCompareHtml, /Paralela \(stress\)/);
+  assert.match(gemma4RealCompareHtml, /direct-complete/);
+  assert.match(gemma4RealCompareHtml, /parede total/);
   assert.match(gemma4RealCompareHtml, /fases stack attn\/FFN\/PLE/);
   assert.match(gemma4RealCompareHtml, /fases stack: fundidas no grafo Metal/);
   assert.match(gemma4RealCompareHtml, /PLEs fundidos/);
@@ -121,12 +125,14 @@ readline.createInterface({input:process.stdin}).on("line",line=>{const r=JSON.pa
     const endpoint = `http://127.0.0.1:${address.port}/api/compare-stream`;
     const stream = async (prompt: string, continueSession: boolean) => {
       const response = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt, maxNewTokens: 1, sessionId: 41, continueSession, conversationMode: "chat" }) });
-      assert.equal(response.status, 200); const lines = (await response.text()).trim().split("\n").map((line) => JSON.parse(line) as { type: string; event?: { tokenId: number }; data?: { chatTemplate: string; direct: { receivedInputIds: number[]; sessionCacheHit: boolean; prefixTokensReused: number } } }); return lines;
+      assert.equal(response.status, 200); const lines = (await response.text()).trim().split("\n").map((line) => JSON.parse(line) as { type: string; event?: { tokenId: number }; data?: { chatTemplate?: string; generatedText?: string; direct?: { receivedInputIds: number[]; sessionCacheHit: boolean; prefixTokensReused: number }; comparisonTiming?: { schedule: string; directPhaseSeconds: number; referencePhaseSeconds: number; totalWallSeconds: number } } }); return lines;
     };
-    const first = await stream("primeiro", false); assert.deepEqual(first.map((entry) => entry.type), ["direct-token", "result"]); assert.equal(first[0]!.event!.tokenId, 7); assert.deepEqual(first[1]!.data!.direct.receivedInputIds, [2, 105]); assert.equal(first[1]!.data!.chatTemplate, "llm-inner-gemma4-it-text-turn-v1");
-    const second = await stream(" continuação", true); assert.deepEqual(second.map((entry) => entry.type), ["direct-token", "result"]); assert.equal(second[0]!.event!.tokenId, 8); assert.deepEqual(second[1]!.data!.direct.receivedInputIds, [2, 105, 7, 106, 105]); assert.equal(second[1]!.data!.direct.sessionCacheHit, true); assert.equal(second[1]!.data!.direct.prefixTokensReused, 3);
+    const first = await stream("primeiro", false); assert.deepEqual(first.map((entry) => entry.type), ["direct-token", "direct-complete", "result"]); assert.equal(first[0]!.event!.tokenId, 7); assert.equal(first[1]!.data!.generatedText, "7"); assert.deepEqual(first[2]!.data!.direct!.receivedInputIds, [2, 105]); assert.equal(first[2]!.data!.chatTemplate, "llm-inner-gemma4-it-text-turn-v1"); assert.equal(first[2]!.data!.comparisonTiming!.schedule, "isolated"); assert.ok(first[2]!.data!.comparisonTiming!.directPhaseSeconds >= 0); assert.ok(first[2]!.data!.comparisonTiming!.referencePhaseSeconds >= 0); assert.ok(first[2]!.data!.comparisonTiming!.totalWallSeconds >= first[2]!.data!.comparisonTiming!.directPhaseSeconds);
+    const second = await stream(" continuação", true); assert.deepEqual(second.map((entry) => entry.type), ["direct-token", "direct-complete", "result"]); assert.equal(second[0]!.event!.tokenId, 8); assert.deepEqual(second[2]!.data!.direct!.receivedInputIds, [2, 105, 7, 106, 105]); assert.equal(second[2]!.data!.direct!.sessionCacheHit, true); assert.equal(second[2]!.data!.direct!.prefixTokensReused, 3);
+    const parallelResponse = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt: "stress", maxNewTokens: 1, measurementSchedule: "parallel" }) });
+    const parallel = (await parallelResponse.text()).trim().split("\n").map((line) => JSON.parse(line) as { type: string; data?: { comparisonTiming?: { schedule: string } } }); assert.deepEqual(parallel.map((entry) => entry.type), ["direct-token", "result"]); assert.equal(parallel.at(-1)!.data!.comparisonTiming!.schedule, "parallel");
     const controller = new AbortController(); const cancelled = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, signal: controller.signal, body: JSON.stringify({ prompt: "cancelar", maxNewTokens: 1, sessionId: 41, continueSession: true, conversationMode: "chat" }) }); const reader = cancelled.body!.getReader(); await reader.read(); controller.abort(); await new Promise((resolve) => setTimeout(resolve, 80));
-    const retry = await stream("retry", true); assert.deepEqual(retry.at(-1)!.data!.direct.receivedInputIds, [2, 105, 7, 106, 105, 8, 999]);
+    const retry = await stream("retry", true); assert.deepEqual(retry.at(-1)!.data!.direct!.receivedInputIds, [2, 105, 7, 106, 105, 8, 999]);
   } finally { await new Promise<void>((accept, reject) => server.close((error) => error ? reject(error) : accept())); await rm(directory, { recursive: true, force: true }); }
 });
 
@@ -206,14 +212,16 @@ readline.createInterface({input:process.stdin}).on("line",line=>{const request=J
   try {
     const address = server.address(); if (!address || typeof address === "string") throw new Error("Endereço HTTP de teste ausente.");
     const endpoint = `http://127.0.0.1:${address.port}/api/compare`;
-    const request = (prompt: string, threads: number) => fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt, maxNewTokens: 1, threads }) }).then((response) => response.json()) as Promise<{ prompt: string; requests: number; threads: number }>;
-    assert.deepEqual(await request("primeiro", 2), { prompt: "primeiro", requests: 1, threads: 2, conversationMode: "raw", chatTemplate: null });
-    assert.deepEqual(await request("segundo", 4), { prompt: "segundo", requests: 2, threads: 4, conversationMode: "raw", chatTemplate: null });
+    const request = (prompt: string, threads: number) => fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt, maxNewTokens: 1, threads }) }).then((response) => response.json()) as Promise<{ prompt: string; requests: number; threads: number; conversationMode: string; chatTemplate: null; comparisonTiming: { schedule: string; totalWallSeconds: number } }>;
+    const first = await request("primeiro", 2); assert.deepEqual({ ...first, comparisonTiming: undefined }, { prompt: "primeiro", requests: 1, threads: 2, conversationMode: "raw", chatTemplate: null, comparisonTiming: undefined }); assert.equal(first.comparisonTiming.schedule, "reference-only"); assert.ok(first.comparisonTiming.totalWallSeconds >= 0);
+    const second = await request("segundo", 4); assert.deepEqual({ ...second, comparisonTiming: undefined }, { prompt: "segundo", requests: 2, threads: 4, conversationMode: "raw", chatTemplate: null, comparisonTiming: undefined }); assert.equal(second.comparisonTiming.schedule, "reference-only");
     const invalid = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt: "inválido", maxNewTokens: 1, precision: "f16" }) });
     assert.equal(invalid.status, 400);
     assert.deepEqual(await invalid.json(), { error: "precision deve ser f32 ou f64." });
     const invalidSession = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt: "continuação", maxNewTokens: 1, continueSession: true }) });
     assert.equal(invalidSession.status, 400); assert.deepEqual(await invalidSession.json(), { error: "continueSession requer sessionId." });
+    const invalidSchedule = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt: "x", maxNewTokens: 1, measurementSchedule: "mixed" }) });
+    assert.equal(invalidSchedule.status, 400); assert.deepEqual(await invalidSchedule.json(), { error: "measurementSchedule deve ser isolated ou parallel." });
   } finally {
     await new Promise<void>((accept, reject) => server.close((error) => error ? reject(error) : accept()));
     await rm(directory, { recursive: true, force: true });
@@ -247,7 +255,7 @@ readline.createInterface({input:process.stdin}).on("line",line=>{const r=JSON.pa
     assert.equal(status.direct?.verification?.ready, true); assert.equal(status.direct?.verification?.marginThreshold, 0);
     const response = await fetch(`${endpoint}/api/compare-stream`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt: "empate", maxNewTokens: 1 }) });
     const messages = (await response.text()).trim().split("\n").map((line) => JSON.parse(line) as { type: string; provisional?: boolean; data?: { direct: Record<string, unknown> } });
-    assert.deepEqual(messages.map((message) => message.type), ["direct-token", "direct-fallback", "result"]); assert.equal(messages[0]?.provisional, true);
-    const selected = messages[2]!.data!.direct; assert.deepEqual(selected.generatedTokenIds, [7]); assert.equal(selected.selectedBackend, "pytorch"); assert.equal(selected.fallbackTriggered, true); assert.equal(selected.fastPathMinimumMargin, 0); assert.deepEqual((selected.fastPath as { generatedTokenIds: number[] }).generatedTokenIds, [8]); assert.equal(selected.tokensEqualBaseline, true); assert.equal(selected.selectiveVerification, true); assert.deepEqual(selected.sensitiveSteps, [0]); assert.equal(selected.verificationHeadSteps, 1);
+    assert.deepEqual(messages.map((message) => message.type), ["direct-token", "direct-fallback", "direct-complete", "result"]); assert.equal(messages[0]?.provisional, true);
+    const selected = messages[3]!.data!.direct; assert.deepEqual(selected.generatedTokenIds, [7]); assert.equal(selected.selectedBackend, "pytorch"); assert.equal(selected.fallbackTriggered, true); assert.equal(selected.fastPathMinimumMargin, 0); assert.deepEqual((selected.fastPath as { generatedTokenIds: number[] }).generatedTokenIds, [8]); assert.equal(selected.tokensEqualBaseline, true); assert.equal(selected.selectiveVerification, true); assert.deepEqual(selected.sensitiveSteps, [0]); assert.equal(selected.verificationHeadSteps, 1);
   } finally { await new Promise<void>((accept, reject) => server.close((error) => error ? reject(error) : accept())); await rm(directory, { recursive: true, force: true }); }
 });
