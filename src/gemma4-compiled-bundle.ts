@@ -6,13 +6,18 @@ import { basename, join, resolve } from "node:path";
 export interface Gemma4CompiledBundleManifest {
   kind: "gemma4-compiled-shared-dag-bundle";
   schemaVersion: 1;
-  execution: "shared-dag-constant-pool-multithread-logit-tiles";
+  execution: "vectorized-literal-runtime-with-global-formula-reference";
+  runtimeLowering: {
+    engine: "paged-literal-vectorized";
+    directlyExecutesGlobalFormula: false;
+    globalFormulaRole: "algebraic-source-and-scalar-reference";
+  };
   formula: { family: string; dimension: number; root: string; expressionNodes: number; inputTensor: "x"; inputLength: number; file: string };
   globalProgram?: { file: string; terminalLogits: number; constantPool: string };
   files: Array<{ role: "formula-graph" | "global-formulas" | "constant-pool" | "runtime-weights" | "tokenizer" | "tokenizer-config" | "generation-config" | "model-config"; file: string; bytes: number; sha256: string }>;
 }
 
-export async function createGemma4CompiledBundle(options: { graph: string; globalSsa?: string; runtimeModel?: string; constantArtifact: string; tokenizerDirectory: string; outputDirectory: string }): Promise<Gemma4CompiledBundleManifest> {
+export async function createGemma4CompiledBundle(options: { graph: string; globalSsa: string; runtimeModel?: string; constantArtifact: string; tokenizerDirectory: string; outputDirectory: string }): Promise<Gemma4CompiledBundleManifest> {
   const graph = resolve(options.graph), constants = resolve(options.constantArtifact), tokenizerDirectory = resolve(options.tokenizerDirectory), output = resolve(options.outputDirectory);
   await mkdir(output);
   const summary = await readClosedGraphSummary(graph);
@@ -32,19 +37,17 @@ export async function createGemma4CompiledBundle(options: { graph: string; globa
     await copyFile(source.source, join(output, source.file), fsConstants.COPYFILE_FICLONE);
     files.push({ role: source.role, file: source.file, bytes: info.size, sha256: await sha256File(source.source) });
   }
-  let globalProgram: Gemma4CompiledBundleManifest["globalProgram"];
-  if (options.globalSsa) {
-    const destination = join(output, "global-formulas.ssa.json");
-    await copyPortableGlobalSsa(resolve(options.globalSsa), destination);
-    const info = await stat(destination), terminalLogits = await countOccurrences(destination, '"assignment":"calc_terminal_logit_');
-    if (terminalLogits === 0) throw new Error("SSA global não contém logits terminais.");
-    files.push({ role: "global-formulas", file: "global-formulas.ssa.json", bytes: info.size, sha256: await sha256File(destination) });
-    globalProgram = { file: "global-formulas.ssa.json", terminalLogits, constantPool: "constants.literal.json" };
-  }
+  const destination = join(output, "global-formulas.ssa.json");
+  await copyPortableGlobalSsa(resolve(options.globalSsa), destination);
+  const info = await stat(destination), terminalLogits = await countOccurrences(destination, '"assignment":"calc_terminal_logit_');
+  if (terminalLogits === 0) throw new Error("SSA global não contém logits terminais.");
+  files.push({ role: "global-formulas", file: "global-formulas.ssa.json", bytes: info.size, sha256: await sha256File(destination) });
+  const globalProgram: NonNullable<Gemma4CompiledBundleManifest["globalProgram"]> = { file: "global-formulas.ssa.json", terminalLogits, constantPool: "constants.literal.json" };
   const manifest: Gemma4CompiledBundleManifest = {
-    kind: "gemma4-compiled-shared-dag-bundle", schemaVersion: 1, execution: "shared-dag-constant-pool-multithread-logit-tiles",
+    kind: "gemma4-compiled-shared-dag-bundle", schemaVersion: 1, execution: "vectorized-literal-runtime-with-global-formula-reference",
+    runtimeLowering: { engine: "paged-literal-vectorized", directlyExecutesGlobalFormula: false, globalFormulaRole: "algebraic-source-and-scalar-reference" },
     formula: { family: summary.output.family, dimension: summary.output.dimension, root: summary.root, expressionNodes: summary.expressionNodes, inputTensor: "x", inputLength: summary.inputVector.length, file: "formula.graph.json" },
-    ...(globalProgram ? { globalProgram } : {}),
+    globalProgram,
     files,
   };
   await writeFile(join(output, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, { encoding: "utf8", flag: "wx" });

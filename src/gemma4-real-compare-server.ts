@@ -9,7 +9,17 @@ import { gemma4RealCompareHtml } from "./gemma4-real-compare-ui.js";
 export interface Gemma4RealComparisonRequest { prompt: string; maxNewTokens: number; threads?: number; precision?: "f32" | "f64"; roundingPolicy?: "none" | "layer-bf16" | "operation-bf16"; sessionId?: number; continueSession?: boolean; conversationMode?: "raw" | "chat" }
 export interface Gemma4RealComparisonRunnerOptions {
   source: string; python: string; helper: string;
+  compiledProgram?: Gemma4CompiledProgramStatus;
   literalArtifact?: string; binaryPool?: string; directWorker?: string; directLinearHelper?: string; directMlxHelper?: string; directLinearBackend?: "pytorch" | "mlx"; directFusedMlp?: "off" | "bf16" | "real" | "native-bf16"; directFusedFfn?: "off" | "native-bf16"; directFusedDecoderLayer?: "off" | "native-bf16"; directFusedDecoderStack?: "off" | "native-bf16" | "native-bf16-ple"; directFusedPle?: "off" | "bf16" | "real"; directFusedPlePrelude?: "off" | "bf16" | "real"; directFusedTokenForward?: "off" | "bf16"; directResidentGeneration?: "off" | "on"; directFinalHead?: "f32" | "native-bf16" | "native-bf16-stream" | "native-bf16-whole"; directNativeAttention?: "off" | "bf16" | "real"; directFusedAttention?: "off" | "bf16" | "real" | "native-bf16"; directThreads?: number; directMaxReadMiB?: number; directFinalHeadReadMiB?: number; directVerificationMargin?: number;
+}
+
+export interface Gemma4CompiledProgramStatus {
+  bundle: string;
+  execution: "vectorized-literal-runtime-with-global-formula-reference";
+  formulaSemantics: "gemma4-exact-real-simplified-v1";
+  globalFormula: { file: string; sha256: string; terminalLogits: number; role: "algebraic-source-and-scalar-reference" };
+  constantPool: { file: string; sha256: string };
+  directRuntime: { engine: "paged-literal-vectorized"; directlyExecutesGlobalFormula: false };
 }
 
 const GEMMA4_CHAT_TEMPLATE = "llm-inner-gemma4-it-text-turn-v1";
@@ -58,7 +68,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
   const server = createServer(async (request, response) => {
     try {
       if (request.method === "GET" && request.url === "/") return send(response, 200, "text/html; charset=utf-8", gemma4RealCompareHtml);
-      if (request.method === "GET" && request.url === "/api/status") return json(response, 200, { ready: worker?.ready === true && (!direct || direct.ready), source: options.source, runtime: "persistent-jsonl", chatTemplate: GEMMA4_CHAT_TEMPLATE, checkpointChatTemplateDeclared, initializationSeconds: worker?.initializationSeconds, ...(initializationError ? { error: initializationError.message } : {}), direct: direct ? { enabled: true, artifact: options.literalArtifact, binaryPool: options.binaryPool, sourceIndependentBundle: options.literalArtifact !== undefined && options.binaryPool === dirname(options.literalArtifact), ...direct.readyMetadata, ready: direct.ready, initializationSeconds: direct.initializationSeconds, warmupSeconds: directWarmupSeconds, warmupComplete: directWarmupSeconds !== undefined, verification: verification ? { enabled: true, backend: "pytorch", marginThreshold: options.directVerificationMargin, ...verification.readyMetadata, ready: verification.ready, initializationSeconds: verification.initializationSeconds, warmupComplete: false } : { enabled: false } } : { enabled: false } });
+      if (request.method === "GET" && request.url === "/api/status") return json(response, 200, { ready: worker?.ready === true && (!direct || direct.ready), source: options.source, runtime: "persistent-jsonl", chatTemplate: GEMMA4_CHAT_TEMPLATE, checkpointChatTemplateDeclared, initializationSeconds: worker?.initializationSeconds, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), ...(initializationError ? { error: initializationError.message } : {}), direct: direct ? { enabled: true, artifact: options.literalArtifact, binaryPool: options.binaryPool, sourceIndependentBundle: options.literalArtifact !== undefined && options.binaryPool === dirname(options.literalArtifact), ...direct.readyMetadata, ready: direct.ready, initializationSeconds: direct.initializationSeconds, warmupSeconds: directWarmupSeconds, warmupComplete: directWarmupSeconds !== undefined, verification: verification ? { enabled: true, backend: "pytorch", marginThreshold: options.directVerificationMargin, ...verification.readyMetadata, ready: verification.ready, initializationSeconds: verification.initializationSeconds, warmupComplete: false } : { enabled: false } } : { enabled: false } });
       if (request.method === "POST" && request.url === "/api/compare") {
         await initialize;
         if (!worker) throw new Error("Comparador original não foi inicializado.");
@@ -74,7 +84,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
         directReport.tokensEqualBaseline = arraysEqual(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
         directReport.firstDivergentStep = firstDivergence(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
         if (body.sessionId !== undefined) rememberSession(sessionInputs, body.sessionId, directReport.fullTokenIds, body.conversationMode ?? "raw");
-        return json(response, 200, { ...report, prompt: body.prompt, conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null, direct: directReport });
+        return json(response, 200, { ...report, prompt: body.prompt, conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), direct: directReport });
       }
       if (request.method === "POST" && request.url === "/api/compare-stream") {
         await initialize;
@@ -95,7 +105,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
           directReport.tokensEqualBaseline = arraysEqual(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
           directReport.firstDivergentStep = firstDivergence(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
           if (body.sessionId !== undefined) rememberSession(sessionInputs, body.sessionId, directReport.fullTokenIds, body.conversationMode ?? "raw");
-          writeNdjson(response, { type: "result", data: { ...report, prompt: body.prompt, conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null, direct: directReport } }); response.end(); return;
+          writeNdjson(response, { type: "result", data: { ...report, prompt: body.prompt, conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), direct: directReport } }); response.end(); return;
         } catch (error) {
           writeNdjson(response, { type: "error", error: error instanceof Error ? error.message : String(error) }); response.end(); return;
         }
@@ -331,8 +341,8 @@ export function parseGemma4RealServerOptions(arguments_: readonly string[]): Gem
   const known = new Set(["--source", "--compiled-bundle", "--python", "--helper", "--port", "--host", "--literal-artifact", "--binary-pool", "--direct-worker", "--direct-linear-helper", "--direct-mlx-helper", "--direct-linear-backend", "--direct-fused-mlp", "--direct-fused-ffn", "--direct-fused-decoder-layer", "--direct-fused-decoder-stack", "--direct-fused-ple", "--direct-fused-ple-prelude", "--direct-fused-token-forward", "--direct-resident-generation", "--direct-final-head", "--direct-final-head-read-mib", "--direct-native-attention", "--direct-fused-attention", "--direct-threads", "--direct-max-read-mib", "--direct-verification-margin"]); for (const key of values.keys()) if (!known.has(key)) throw new Error(`Flag desconhecida: ${key}.`);
   const port = Number(values.get("--port") ?? "8787"); if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) throw new Error("--port inválido.");
   const compiledBundle = resolve(values.get("--compiled-bundle") ?? "artifacts/gemma4-compiled-global-runtime-bundle");
-  const bundleReady = existsSync(join(compiledBundle, "constants.literal.json")) && existsSync(join(compiledBundle, "model.safetensors")) && existsSync(join(compiledBundle, "tokenizer.json")) && existsSync(join(compiledBundle, "config.json"));
-  if (values.has("--compiled-bundle") && !bundleReady) throw new Error("--compiled-bundle não contém constants.literal.json, model.safetensors, tokenizer.json e config.json.");
+  const bundleReady = existsSync(join(compiledBundle, "constants.literal.json")) && existsSync(join(compiledBundle, "model.safetensors")) && existsSync(join(compiledBundle, "tokenizer.json")) && existsSync(join(compiledBundle, "config.json")) && existsSync(join(compiledBundle, "manifest.json")) && existsSync(join(compiledBundle, "global-formulas.ssa.json"));
+  if (values.has("--compiled-bundle") && !bundleReady) throw new Error("--compiled-bundle não contém constants.literal.json, model.safetensors, tokenizer.json, config.json, manifest.json e global-formulas.ssa.json.");
   const source = resolve(values.get("--source") ?? (bundleReady ? compiledBundle : "gemma-4-E4B-dense")), inferredLiteral = join(source, "constants.literal.json");
   const literalArtifact = values.get("--literal-artifact") ? resolve(values.get("--literal-artifact")!) : existsSync(inferredLiteral) ? inferredLiteral : (values.has("--compiled-bundle") || !values.has("--source")) && bundleReady ? join(compiledBundle, "constants.literal.json") : undefined;
   const artifactPool = literalArtifact ? dirname(literalArtifact) : undefined;
@@ -382,6 +392,27 @@ export function parseGemma4RealServerOptions(arguments_: readonly string[]): Gem
   return {
     source, python: values.get("--python") ?? (existsSync("venv/bin/python") ? resolve("venv/bin/python") : "python3"),
     helper: resolve(values.get("--helper") ?? "scripts/gemma4-real-differential.py"), port, host: values.get("--host") ?? "127.0.0.1",
+    ...(bundleReady ? { compiledProgram: readCompiledProgramStatus(compiledBundle) } : {}),
     ...(literalArtifact && binaryPool ? { literalArtifact, binaryPool, directWorker: resolve(values.get("--direct-worker") ?? "dist/src/gemma4-paged-runtime-worker-cli.js"), directLinearHelper: resolve(values.get("--direct-linear-helper") ?? "scripts/gemma4-paged-linear-worker.py"), directMlxHelper: resolve(values.get("--direct-mlx-helper") ?? "scripts/gemma4-mlx-linear-worker.py"), directLinearBackend, directFusedMlp, directFusedFfn, directFusedDecoderLayer, directFusedDecoderStack, directFusedPle, directFusedPlePrelude, directFusedTokenForward, directResidentGeneration, directFinalHead, directNativeAttention, directFusedAttention, directThreads, directMaxReadMiB, directFinalHeadReadMiB, ...(directVerificationMargin === undefined ? {} : { directVerificationMargin }) } : {}),
+  };
+}
+
+function readCompiledProgramStatus(bundle: string): Gemma4CompiledProgramStatus {
+  const manifest = JSON.parse(readFileSync(join(bundle, "manifest.json"), "utf8")) as {
+    kind?: unknown; execution?: unknown; runtimeLowering?: { engine?: unknown; directlyExecutesGlobalFormula?: unknown; globalFormulaRole?: unknown };
+    globalProgram?: { file?: unknown; terminalLogits?: unknown; constantPool?: unknown }; files?: Array<{ role?: unknown; file?: unknown; sha256?: unknown }>;
+  };
+  const globalProgram = manifest.globalProgram, globalFile = manifest.files?.find((entry) => entry.role === "global-formulas"), constantFile = manifest.files?.find((entry) => entry.role === "constant-pool");
+  if (manifest.kind !== "gemma4-compiled-shared-dag-bundle" || manifest.execution !== "vectorized-literal-runtime-with-global-formula-reference" ||
+    manifest.runtimeLowering?.engine !== "paged-literal-vectorized" || manifest.runtimeLowering.directlyExecutesGlobalFormula !== false || manifest.runtimeLowering.globalFormulaRole !== "algebraic-source-and-scalar-reference" ||
+    globalProgram?.file !== globalFile?.file || globalProgram?.constantPool !== constantFile?.file || !Number.isSafeInteger(globalProgram?.terminalLogits) ||
+    typeof globalFile?.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(globalFile.sha256) || typeof constantFile?.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(constantFile.sha256)) {
+    throw new Error("Manifesto do bundle compilado não declara honestamente a fórmula global e o lowering executado.");
+  }
+  return {
+    bundle, execution: manifest.execution, formulaSemantics: "gemma4-exact-real-simplified-v1",
+    globalFormula: { file: globalFile.file as string, sha256: globalFile.sha256, terminalLogits: globalProgram!.terminalLogits as number, role: "algebraic-source-and-scalar-reference" },
+    constantPool: { file: constantFile.file as string, sha256: constantFile.sha256 },
+    directRuntime: { engine: "paged-literal-vectorized", directlyExecutesGlobalFormula: false },
   };
 }

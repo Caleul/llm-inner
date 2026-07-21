@@ -165,9 +165,11 @@ test("servidor diferencial valida opções reprodutíveis", () => {
 test("bundle compilado fornece modelo, constantes e tokenizer sem o diretório original", async () => {
   const directory = await mkdtemp(join(tmpdir(), "gemma4-compiled-bundle-options-"));
   try {
-    await Promise.all(["constants.literal.json", "model.safetensors", "tokenizer.json", "config.json"].map((file) => writeFile(join(directory, file), "fixture")));
+    await Promise.all(["constants.literal.json", "model.safetensors", "tokenizer.json", "config.json", "global-formulas.ssa.json"].map((file) => writeFile(join(directory, file), "fixture")));
+    await writeFile(join(directory, "manifest.json"), JSON.stringify({ kind: "gemma4-compiled-shared-dag-bundle", execution: "vectorized-literal-runtime-with-global-formula-reference", runtimeLowering: { engine: "paged-literal-vectorized", directlyExecutesGlobalFormula: false, globalFormulaRole: "algebraic-source-and-scalar-reference" }, globalProgram: { file: "global-formulas.ssa.json", terminalLogits: 2, constantPool: "constants.literal.json" }, files: [{ role: "global-formulas", file: "global-formulas.ssa.json", sha256: "a".repeat(64) }, { role: "constant-pool", file: "constants.literal.json", sha256: "b".repeat(64) }] }));
     const bundled = parseGemma4RealServerOptions(["--compiled-bundle", directory]);
     assert.equal(bundled.source, directory); assert.equal(bundled.literalArtifact, join(directory, "constants.literal.json")); assert.equal(bundled.binaryPool, directory);
+    assert.equal(bundled.compiledProgram?.directRuntime.directlyExecutesGlobalFormula, false); assert.equal(bundled.compiledProgram?.globalFormula.sha256, "a".repeat(64));
     const split = parseGemma4RealServerOptions(["--source", "./authoritative", "--compiled-bundle", directory]);
     assert.match(split.source, /\/authoritative$/); assert.equal(split.literalArtifact, join(directory, "constants.literal.json")); assert.equal(split.binaryPool, directory);
   } finally { await rm(directory, { recursive: true, force: true }); }

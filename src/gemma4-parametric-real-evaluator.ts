@@ -4,6 +4,7 @@ import type {
   Gemma4ParametricOutputFunction,
 } from "./gemma4-parametric-global-real-program.js";
 import type { Gemma4ParametricRealNode } from "./gemma4-parametric-real-expression.js";
+import { parametricNodeDependencies } from "./gemma4-parametric-real-expression.js";
 import type { OpenGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
 import { decodeIeeeBF16ToF32, decodeIeeeF16ToF32 } from "./utils.js";
 
@@ -22,6 +23,8 @@ export interface Gemma4ParametricEvaluationContext {
   inputs: Gemma4ParametricTensorProvider;
   learned: Gemma4ParametricLearnedProvider;
   parameters: Readonly<Record<string, number>>;
+  /** Bounds retained by the scalar interpreter; eviction never changes the result. */
+  maximumMemoEntries?: number;
 }
 
 /** Bounded, integrity-verified learned-rational provider backed only by the literal artifact. */
@@ -88,6 +91,8 @@ class ParametricEvaluator {
   readonly #nodes: ReadonlyMap<string, Gemma4ParametricRealNode>;
   readonly #functions: ReadonlyMap<string, Gemma4ParametricOperationFunction>;
   readonly #memo = new Map<string, Promise<Scalar>>();
+  readonly #freeEnvironments: ReadonlyMap<string, FreeEnvironment>;
+  readonly #maximumMemoEntries: number;
 
   constructor(
     program: Gemma4ParametricExactRealProgram,
@@ -95,14 +100,21 @@ class ParametricEvaluator {
   ) {
     this.#nodes = new Map(program.expressionGraph.nodes.map((node) => [node.id, node]));
     this.#functions = new Map(program.operationFunctions.map((entry) => [entry.functionId, entry]));
+    this.#freeEnvironments = buildFreeEnvironments(program.expressionGraph.nodes);
+    this.#maximumMemoEntries = context.maximumMemoEntries ?? 250_000;
+    if (!Number.isSafeInteger(this.#maximumMemoEntries) || this.#maximumMemoEntries < 1) {
+      throw new Error("Limite de memoização paramétrica inválido.");
+    }
   }
 
   evaluate(id: string, parameters: ReadonlyMap<string, number> = new Map(Object.entries(this.context.parameters)), bounds: ReadonlyMap<string, number> = new Map()): Promise<Scalar> {
-    const key = `${id}|p:${stableEnvironment(parameters)}|b:${stableEnvironment(bounds)}`;
+    const free = required(this.#freeEnvironments, id, "ambiente livre");
+    const key = `${id}|p:${stableEnvironment(parameters, free.parameters)}|b:${stableEnvironment(bounds, free.bounds)}`;
     let result = this.#memo.get(key);
     if (!result) {
       result = this.#evaluateNode(required(this.#nodes, id, "nó"), parameters, bounds);
       this.#memo.set(key, result);
+      if (this.#memo.size > this.#maximumMemoEntries) this.#memo.delete(this.#memo.keys().next().value!);
     }
     return result;
   }
@@ -177,8 +189,27 @@ function required<K, V>(map: ReadonlyMap<K, V>, key: K, kind: string): V {
   return value;
 }
 
-function stableEnvironment(environment: ReadonlyMap<string, number>): string {
-  return [...environment].sort(([left], [right]) => left.localeCompare(right, "en")).map(([name, value]) => `${name}=${value}`).join(",");
+interface FreeEnvironment { parameters: ReadonlySet<string>; bounds: ReadonlySet<string> }
+
+function buildFreeEnvironments(nodes: readonly Gemma4ParametricRealNode[]): ReadonlyMap<string, FreeEnvironment> {
+  const result = new Map<string, FreeEnvironment>();
+  for (const node of nodes) {
+    const parameters = new Set<string>(), bounds = new Set<string>();
+    if (node.kind === "integer-parameter") parameters.add(node.name);
+    else if (node.kind === "integer-bound-index") bounds.add(node.name);
+    for (const dependency of parametricNodeDependencies(node)) {
+      const free = required(result, dependency, "ambiente livre dependente");
+      free.parameters.forEach((name) => parameters.add(name));
+      free.bounds.forEach((name) => bounds.add(name));
+    }
+    if (node.kind === "finite-sum" || node.kind === "finite-maximum") bounds.delete(node.index);
+    result.set(node.id, { parameters, bounds });
+  }
+  return result;
+}
+
+function stableEnvironment(environment: ReadonlyMap<string, number>, names: ReadonlySet<string>): string {
+  return [...names].sort((left, right) => left.localeCompare(right, "en")).map((name) => `${name}=${required(environment, name, "valor de ambiente")}`).join(",");
 }
 
 function numeric(value: Scalar): number { if (typeof value !== "number") throw new Error("Valor real esperado; boolean recebido."); return value; }
