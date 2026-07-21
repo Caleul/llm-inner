@@ -11,6 +11,12 @@ import time
 import torch
 
 
+_widened_tensor_cache = {}
+_widened_tensor_cache_hits = 0
+_widened_tensor_cache_bytes = 0
+_MAX_WIDENED_CACHE_SOURCE_BYTES = 2 * 1024 * 1024
+
+
 def read_exact(size):
     chunks = bytearray(size)
     view = memoryview(chunks)
@@ -26,6 +32,7 @@ def read_exact(size):
 
 
 def read_whole_tensor(pool, files, mappings, expected_shape, widen=True, required_dtype=None, return_reference=False):
+    global _widened_tensor_cache_hits, _widened_tensor_cache_bytes
     metadata = read_exact(36)
     request_dtype, first, second, byte_offset, byte_length, start_output, shard_length, name_length = struct.unpack("<IIIQIIII", metadata)
     if request_dtype not in (0, 1, 2) or (first, second) != expected_shape or start_output != 0:
@@ -51,7 +58,17 @@ def read_whole_tensor(pool, files, mappings, expected_shape, widen=True, require
     if byte_offset + byte_length > mappings[path].size():
         raise ValueError("fused attention tensor range exceeds shard")
     tensor = torch.frombuffer(mappings[path], dtype=storage_dtype, count=first * second, offset=byte_offset).reshape(first, second)
-    result = tensor.float() if widen else tensor
+    if widen and storage_dtype != torch.float32 and byte_length <= _MAX_WIDENED_CACHE_SOURCE_BYTES:
+        cache_key = (path, byte_offset, byte_length, first, second, storage_dtype)
+        result = _widened_tensor_cache.get(cache_key)
+        if result is None:
+            result = tensor.float().contiguous()
+            _widened_tensor_cache[cache_key] = result
+            _widened_tensor_cache_bytes += result.numel() * result.element_size()
+        else:
+            _widened_tensor_cache_hits += 1
+    else:
+        result = tensor.float() if widen else tensor
     return (result, (path, byte_offset, byte_length, storage_dtype)) if return_reference else result
 
 
@@ -176,7 +193,8 @@ def execute_decoder_layer(pool, files, mappings, inputs, per_layer, positions, m
     ple_projected = boundary(torch.matmul(ple_gated.to(torch.bfloat16) if native_ple else ple_gated, ple_projection_weight.transpose(0, 1)).float())
     ple_normalized = boundary(rms_norm_real(ple_projected, ple_norm_weight, config["ple_epsilon"]))
     result = boundary(boundary(after_mlp + ple_normalized) * layer_scalar).contiguous()
-    if not torch.isfinite(result).all() or not torch.isfinite(key).all() or not torch.isfinite(value).all():
+    validate_cache = config["validate_outputs"] or produces_kv
+    if not torch.isfinite(result).all() or (validate_cache and (not torch.isfinite(key).all() or not torch.isfinite(value).all())):
         raise ValueError("fused decoder layer produced non-finite output")
     return result, key, value, (attention_seconds, ffn_seconds, time.perf_counter() - ple_started, fused_gate_up)
 
@@ -259,7 +277,8 @@ def main():
                 all_per_layer = torch.frombuffer(per_layer_bytes, dtype=torch.float32).reshape(batch, query_sequence, num_layers, per_layer_width)
                 positions = torch.frombuffer(position_bytes, dtype=torch.int32).reshape(batch, query_sequence)
                 produced_caches, ordered_caches = {}, []
-                stack_profile = torch.zeros(4, dtype=torch.float32)
+                stack_profile = [0.0] * 4
+                cache_hits_before = _widened_tensor_cache_hits
                 for expected_layer in range(num_layers):
                     metadata = read_exact(96)
                     layer_index, shared_plus_one, query_heads, key_value_heads, source_sequence, head_dim, mask_heads, value_from_key, rope_kind, rotary_dim, proportional_pairs, intermediate_size, descriptor_count = struct.unpack("<IIIIIIIIIIIII", metadata[:52])
@@ -294,9 +313,10 @@ def main():
                         else:
                             source_key = torch.empty((batch, key_value_heads, 0, head_dim), dtype=torch.float32)
                             source_value = torch.empty((batch, key_value_heads, 0, head_dim), dtype=torch.float32)
-                    config = {"query_heads": query_heads, "key_value_heads": key_value_heads, "head_dim": head_dim, "produces_kv": produces_kv, "value_from_key": value_from_key, "intermediate_size": intermediate_size, "per_layer_width": per_layer_width, "input_epsilon": input_epsilon, "attention_epsilon": attention_epsilon, "post_attention_epsilon": post_attention_epsilon, "pre_ffn_epsilon": pre_ffn_epsilon, "post_ffn_epsilon": post_ffn_epsilon, "ple_epsilon": ple_epsilon, "scale": scale, "rope_kind": rope_kind, "theta": theta, "rotary_dim": rotary_dim, "proportional_pairs": proportional_pairs, "proportional_factor": proportional_factor, "native_ple": native_bf16}
+                    config = {"query_heads": query_heads, "key_value_heads": key_value_heads, "head_dim": head_dim, "produces_kv": produces_kv, "value_from_key": value_from_key, "intermediate_size": intermediate_size, "per_layer_width": per_layer_width, "input_epsilon": input_epsilon, "attention_epsilon": attention_epsilon, "post_attention_epsilon": post_attention_epsilon, "pre_ffn_epsilon": pre_ffn_epsilon, "post_ffn_epsilon": post_ffn_epsilon, "ple_epsilon": ple_epsilon, "scale": scale, "rope_kind": rope_kind, "theta": theta, "rotary_dim": rotary_dim, "proportional_pairs": proportional_pairs, "proportional_factor": proportional_factor, "native_ple": native_bf16, "validate_outputs": False}
                     result, key, value, layer_profile = execute_decoder_layer(pool, files, mappings, result, all_per_layer[:, :, layer_index, :], positions, mask, source_key, source_value, config)
-                    stack_profile += torch.tensor(layer_profile, dtype=torch.float32)
+                    for profile_index, profile_value in enumerate(layer_profile):
+                        stack_profile[profile_index] += profile_value
                     if produces_kv:
                         produced_caches[layer_index] = (key, value)
                         ordered_caches.append((key, value))
@@ -304,7 +324,8 @@ def main():
                 for key, value in ordered_caches:
                     write_float_tensor(key)
                     write_float_tensor(value)
-                write_float_tensor(stack_profile)
+                stack_profile.extend((_widened_tensor_cache_hits - cache_hits_before, len(_widened_tensor_cache), _widened_tensor_cache_bytes))
+                write_float_tensor(torch.tensor(stack_profile, dtype=torch.float32))
                 sys.stdout.buffer.flush()
                 del result, all_per_layer, positions, produced_caches, ordered_caches, stack_profile
                 continue
@@ -342,7 +363,7 @@ def main():
                 else:
                     source_key = torch.empty((batch, key_value_heads, 0, head_dim), dtype=torch.float32)
                     source_value = torch.empty((batch, key_value_heads, 0, head_dim), dtype=torch.float32)
-                config = {"query_heads": query_heads, "key_value_heads": key_value_heads, "head_dim": head_dim, "produces_kv": produces_kv, "value_from_key": value_from_key, "intermediate_size": intermediate_size, "per_layer_width": per_layer_width, "input_epsilon": input_epsilon, "attention_epsilon": attention_epsilon, "post_attention_epsilon": post_attention_epsilon, "pre_ffn_epsilon": pre_ffn_epsilon, "post_ffn_epsilon": post_ffn_epsilon, "ple_epsilon": ple_epsilon, "scale": scale, "rope_kind": rope_kind, "theta": theta, "rotary_dim": rotary_dim, "proportional_pairs": proportional_pairs, "proportional_factor": proportional_factor, "native_ple": False}
+                config = {"query_heads": query_heads, "key_value_heads": key_value_heads, "head_dim": head_dim, "produces_kv": produces_kv, "value_from_key": value_from_key, "intermediate_size": intermediate_size, "per_layer_width": per_layer_width, "input_epsilon": input_epsilon, "attention_epsilon": attention_epsilon, "post_attention_epsilon": post_attention_epsilon, "pre_ffn_epsilon": pre_ffn_epsilon, "post_ffn_epsilon": post_ffn_epsilon, "ple_epsilon": ple_epsilon, "scale": scale, "rope_kind": rope_kind, "theta": theta, "rotary_dim": rotary_dim, "proportional_pairs": proportional_pairs, "proportional_factor": proportional_factor, "native_ple": False, "validate_outputs": True}
                 result, key, value, _ = execute_decoder_layer(pool, files, mappings, inputs, per_layer, positions, mask, source_key, source_value, config)
                 write_float_tensor(result)
                 if produces_kv:

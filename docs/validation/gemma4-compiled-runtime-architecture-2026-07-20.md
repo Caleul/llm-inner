@@ -917,6 +917,45 @@ Evidência:
 - `artifacts/gemma4-three-way-calibration-8x2-stack-gate-up-10t-control.json`;
 - `artifacts/gemma4-three-way-calibration-8x2-stack-native-ple-10t.json`.
 
+## Cache das constantes compiladas da pilha
+
+As constantes BF16 pequenas que a pilha fiel usa em aritmética F32 agora são
+alargadas uma única vez e mantidas pelo worker persistente. A chave liga shard,
+intervalo autenticado, shape e dtype; assim, dois tensores diferentes nunca
+compartilham um valor apenas por terem o mesmo nome ou tamanho. Matrizes com
+payload de origem acima de 2 MiB continuam diretamente no `mmap`, impedindo
+que o cache replique os pesos grandes de attention, FFN e vocabulary head.
+
+O perfil binário da pilha passou a publicar acertos, entradas residentes e
+bytes F32. Esses dados atravessam o worker JSONL, o relatório de calibração e a
+interface. No corpus 8x2, o estado estabilizou em 402 entradas / 222.430.368
+bytes (212,13 MiB) e registrou 6.030 acertos. A validação de finitude continua
+checando o resultado de cada camada, mas cada cache KV passa a ser verificado
+somente quando sua camada proprietária o produz. Consumidores shared-KV não
+repetem a varredura do mesmo cache já aprovado.
+
+O caminho preservou os mesmos 7/8 prompts e 15/16 tokens do controle. Na prova
+isolada repetida, `[2,818,5279,529,7001,563]` continuou gerando `[496,3207]` e
+o SHA-256 terminal permaneceu
+`4dd07a5fd3052fba67ea38f0359a85dbf7e97e80b3e4710bb13f615dcdf34aa8`.
+No corpus final, a fase PLE caiu de `0,4225 s` para `0,3381 s` (-20,0%). A
+variação simultânea de attention/FFN absorveu esse ganho: a pilha ficou em
+`3,5269 s` contra `3,5212 s` e o throughput total em `2,0864` contra `2,0953
+token/s`. Portanto esta etapa comprova a eliminação de alargamentos repetidos,
+mas não é apresentada como aceleração global; os números absolutos ficaram
+dentro do ruído do ensaio.
+
+Uma alternativa híbrida que enviava cada FFN ao Metal/MLX foi rejeitada: o
+microbenchmark de GEMM isolado parecia favorável, mas 42 sincronizações
+CPU/GPU elevaram o FFN quente de cerca de `0,21 s` para `0,44 s`. Buffers BF16
+reutilizáveis para os FFNs também foram removidos da versão final porque o
+corpus não demonstrou ganho estável.
+
+Evidência:
+
+- `artifacts/gemma4-three-way-calibration-8x2-stack-cached-constants-10t.json`;
+- `artifacts/gemma4-three-way-calibration-8x2-stack-gate-up-10t-control.json`.
+
 ## Núcleo de attention nativo sem arredondamentos internos
 
 O executor direto passou a reconhecer a operação compilada de attention como

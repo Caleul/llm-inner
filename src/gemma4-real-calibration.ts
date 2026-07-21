@@ -57,6 +57,9 @@ interface ThreeWayCase {
     fusedDecoderStackRounding?: "off" | "native-bf16" | "native-bf16-ple";
     fusedDecoderStackDispatches?: number;
     fusedDecoderStackGateUpPairs?: number;
+    fusedDecoderStackWidenedCacheHits?: number;
+    widenedTensorCacheEntries?: number;
+    widenedTensorCacheBytes?: number;
     fusedPleRounding?: "off" | "bf16" | "real";
     fusedPlePreludeRounding?: "off" | "bf16" | "real";
     fusedPleDispatches?: number;
@@ -193,6 +196,9 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.fusedDecoderStackRounding === undefined ? {} : { fusedDecoderStackRounding: entry.direct.fusedDecoderStackRounding }),
         ...(entry.direct.fusedDecoderStackDispatches === undefined ? {} : { fusedDecoderStackDispatches: entry.direct.fusedDecoderStackDispatches }),
         ...(entry.direct.fusedDecoderStackGateUpPairs === undefined ? {} : { fusedDecoderStackGateUpPairs: entry.direct.fusedDecoderStackGateUpPairs }),
+        ...(entry.direct.fusedDecoderStackWidenedCacheHits === undefined ? {} : { fusedDecoderStackWidenedCacheHits: entry.direct.fusedDecoderStackWidenedCacheHits }),
+        ...(entry.direct.widenedTensorCacheEntries === undefined ? {} : { widenedTensorCacheEntries: entry.direct.widenedTensorCacheEntries }),
+        ...(entry.direct.widenedTensorCacheBytes === undefined ? {} : { widenedTensorCacheBytes: entry.direct.widenedTensorCacheBytes }),
         ...(entry.direct.fusedPleRounding === undefined ? {} : { fusedPleRounding: entry.direct.fusedPleRounding }),
         ...(entry.direct.fusedPlePreludeRounding === undefined ? {} : { fusedPlePreludeRounding: entry.direct.fusedPlePreludeRounding }),
         ...(entry.direct.fusedPleDispatches === undefined ? {} : { fusedPleDispatches: entry.direct.fusedPleDispatches }),
