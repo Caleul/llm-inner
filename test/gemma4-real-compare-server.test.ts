@@ -15,11 +15,12 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /linearBackend/);
   assert.match(gemma4RealCompareHtml, /lotes lineares/);
   assert.match(gemma4RealCompareHtml, /MLPs fundidos/);
+  assert.match(gemma4RealCompareHtml, /FFNs completos/);
   assert.match(gemma4RealCompareHtml, /PLEs fundidos/);
   assert.match(gemma4RealCompareHtml, /head:/);
   assert.match(gemma4RealCompareHtml, /attention core:/);
   assert.match(gemma4RealCompareHtml, /attention fused:/);
-  assert.match(gemma4RealCompareHtml, /tempo worker ref\/attn\/MLP\/PLE/);
+  assert.match(gemma4RealCompareHtml, /tempo worker ref\/attn\/MLP\/FFN\/PLE/);
   assert.match(gemma4RealCompareHtml, /Threads/);
   assert.match(gemma4RealCompareHtml, /\/api\/compare/);
 });
@@ -50,6 +51,7 @@ test("servidor diferencial valida opções reprodutíveis", () => {
   assert.throws(() => parseGemma4RealServerOptions(["--port", "0"]), /--port inválido/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-linear-backend", "metal"]), /pytorch ou mlx/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-mlp", "always"]), /off, bf16, real ou native-bf16/);
+  assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-ffn", "real"]), /off ou native-bf16/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-ple", "always"]), /off, bf16 ou real/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-ple-prelude", "always"]), /off, bf16 ou real/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-final-head", "fp16"]), /f32, native-bf16 ou native-bf16-whole/);
@@ -60,10 +62,11 @@ test("servidor diferencial valida opções reprodutíveis", () => {
   const splitTiles = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-max-read-mib", "16", "--direct-final-head-read-mib", "32"]);
   assert.equal(splitTiles.directFinalHeadReadMiB, 32);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-final-head-read-mib", "0"]), /Configuração direta inválida/);
-  assert.equal(directDefaults.directFusedMlp, "native-bf16"); assert.equal(directDefaults.directFusedPle, "bf16"); assert.equal(directDefaults.directFusedPlePrelude, "off"); assert.equal(directDefaults.directFinalHead, "native-bf16"); assert.equal(directDefaults.directNativeAttention, "real"); assert.equal(directDefaults.directFusedAttention, "native-bf16");
+  assert.equal(directDefaults.directFusedMlp, "native-bf16"); assert.equal(directDefaults.directFusedFfn, "native-bf16"); assert.equal(directDefaults.directFusedPle, "bf16"); assert.equal(directDefaults.directFusedPlePrelude, "off"); assert.equal(directDefaults.directFinalHead, "native-bf16"); assert.equal(directDefaults.directNativeAttention, "real"); assert.equal(directDefaults.directFusedAttention, "native-bf16");
   const mlxDefaults = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-linear-backend", "mlx"]);
-  assert.equal(mlxDefaults.directFinalHeadReadMiB, 16); assert.equal(mlxDefaults.directFusedMlp, "real"); assert.equal(mlxDefaults.directFusedPle, "off"); assert.equal(mlxDefaults.directFinalHead, "f32"); assert.equal(mlxDefaults.directNativeAttention, "off"); assert.equal(mlxDefaults.directFusedAttention, "off");
+  assert.equal(mlxDefaults.directFinalHeadReadMiB, 16); assert.equal(mlxDefaults.directFusedMlp, "real"); assert.equal(mlxDefaults.directFusedFfn, "off"); assert.equal(mlxDefaults.directFusedPle, "off"); assert.equal(mlxDefaults.directFinalHead, "f32"); assert.equal(mlxDefaults.directNativeAttention, "off"); assert.equal(mlxDefaults.directFusedAttention, "off");
   assert.throws(() => parseGemma4RealServerOptions(["--direct-linear-backend", "mlx", "--direct-fused-mlp", "native-bf16"]), /requer backend pytorch/);
+  assert.throws(() => parseGemma4RealServerOptions(["--direct-linear-backend", "mlx", "--direct-fused-ffn", "native-bf16"]), /requer backend pytorch/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-linear-backend", "mlx", "--direct-fused-attention", "native-bf16"]), /requer backend pytorch/);
   assert.throws(() => parseGemma4RealServerOptions(["--unknown", "x"]), /Flag desconhecida/);
 });

@@ -642,6 +642,53 @@ separado. A flag é
 - `artifacts/gemma4-three-way-calibration-8x2-native-bf16-mlp.json`;
 - `artifacts/gemma4-three-way-calibration-8x2-native-bf16-attention.json`.
 
+## Bloco FFN compilado até o residual
+
+Depois das projeções BF16 nativas, a MLP isolada ainda devolvia o tensor
+`down_proj` ao JavaScript. O executor paginado calculava separadamente
+`pre_ffn_norm`, `post_ffn_norm` e o residual, materializando oito resultados
+intermediários por camada mesmo quando somente `layer_n_after_mlp` era usado
+pela continuação do grafo.
+
+O subgrafo FFN fecha, em um único despacho persistente:
+
+```text
+pre_ffn_norm -> gate/up -> GELU -> multiply -> down
+             -> post_ffn_norm -> residual
+```
+
+Ele recebe o vetor anterior e referências autenticadas para as duas normas e
+as três matrizes da MLP. Gate, up e down continuam executando sobre storage
+BF16 nativo; as duas RMSNorm e cada boundary BF16 permanecem explícitas. O
+retorno é diretamente `layer_n_after_mlp`, portanto gate, up, ativação, produto,
+down e as duas normas não atravessam mais o canal JavaScript.
+
+Também foi medido um caminho que tratava gate/up contíguos como uma matriz
+única. Embora o microbenchmark do GEMM isolado mostrasse 7–11% de ganho e saída
+bit a bit igual, no corpus ele caiu para `1,6932 token/s` e aumentou o tempo da
+MLP para `2,5379 s`. A variante foi descartada e não integra o runtime.
+
+No ensaio persistente `[2]` de dois tokens, o FFN completo preservou os tokens
+`[184,3910]` e o SHA-256 terminal
+`71eeb041bc97c6674686eb4dc99887cca8a50a7cb4947e42c3a63a0bb58e9e2d`.
+Pedidos aquecidos típicos passaram de aproximadamente `0,415–0,416 s` para
+`0,401–0,406 s`.
+
+No corpus 8×2:
+
+- controle: `1,7380 token/s`, 7/8 prompts e 15/16 tokens;
+- FFN completo: `1,8092 token/s`, os mesmos 7/8 e 15/16 tokens;
+- ganho direto: 4,10%;
+- razão contra o baseline da própria execução: `3,3341x`;
+- tempo direto total: `9,2062 s -> 8,8439 s`.
+
+`native-bf16` passa a ser o padrão PyTorch para `--fused-ffn`; `off` preserva
+o caminho anterior para A/B e MLX permanece em `off`. A interface mostra
+política, despachos e tempo do FFN separadamente. Evidência:
+
+- `artifacts/gemma4-three-way-calibration-8x2-native-bf16-attention.json`;
+- `artifacts/gemma4-three-way-calibration-8x2-fused-ffn-native-bf16.json`.
+
 ## Head terminal BF16 nativo
 
 O tensor compartilhado por embedding e `lm_head` possui shape

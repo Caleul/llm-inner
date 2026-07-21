@@ -56,6 +56,8 @@ export interface Gemma4PagedTextOptions {
   tensorReader?: Pick<LiteralTensorReader, "readTensorBytesRange">;
   /** Opt-in whole-MLP native subgraph; real removes the internal BF16 boundaries. */
   fusedMlpRounding?: "bf16" | "real" | "native-bf16";
+  /** Pre-FFN norm, native BF16 gated MLP, post-FFN norm and residual in one worker dispatch. */
+  fusedFfnRounding?: "native-bf16";
   /** Final vocabulary projection compute path; BF16 is the allowed final rounding boundary. */
   finalHeadCompute?: "f32" | "native-bf16" | "native-bf16-whole";
   /** Optional native QK/softmax/PV kernel; real removes its internal BF16 boundaries. */
@@ -209,6 +211,33 @@ async function executePagedOperations(
         }), operation.numLayers, operation.layerWidth));
         break;
       case "rms_norm":
+        if (options.fusedFfnRounding && options.linearTileKernel?.fusedFfnStorageReferences) {
+          const fused = matchFusedFfn(operations, operationIndex, operation);
+          if (fused) {
+            for (const fusedOperation of fused.operations) assertPagedF32Policy(fusedOperation);
+            const input = value(values, operation.input);
+            if (input.shape.length !== 3 || input.shape[2] !== fused.gate.inFeatures) throw new Error(`${operation.id}: subgrafo FFN requer entrada [B,S,H].`);
+            const rows = input.shape[0]! * input.shape[1]!;
+            const outputValues = await options.linearTileKernel.fusedFfnStorageReferences({
+              input: input.values,
+              preNormWeight: tensorInfo(artifact, operation.weight!),
+              gateWeight: tensorInfo(artifact, fused.gate.weight),
+              upWeight: tensorInfo(artifact, fused.up.weight),
+              downWeight: tensorInfo(artifact, fused.down.weight),
+              postNormWeight: tensorInfo(artifact, fused.postNorm.weight!),
+              rows,
+              hiddenSize: fused.gate.inFeatures,
+              intermediateSize: fused.gate.outFeatures,
+              preNormEpsilon: operation.epsilon,
+              postNormEpsilon: fused.postNorm.epsilon,
+              rounding: options.fusedFfnRounding,
+            });
+            if (outputValues.length !== input.values.length || outputValues.some((entry) => !Number.isFinite(entry))) throw new Error(`${options.linearTileKernel.backend}: subgrafo FFN retornou saída inválida.`);
+            store(fused.residual, { shape: [...input.shape], values: outputValues });
+            operationIndex += fused.operations.length - 1;
+            break;
+          }
+        }
         store(operation, rmsNormF32(value(values, operation.input), operation.weight ? await vector(operation.weight) : undefined, operation));
         break;
       case "reshape_per_layer":
@@ -475,6 +504,17 @@ function matchFusedGatedMlp(operations: readonly Operation[], index: number, gat
   if (up.input !== gate.input || !up.transposeWeight || up.bias || activation.input !== gate.output || activation.function !== "gelu" || activation.approximation !== "tanh" || multiply.kind !== "multiply" || multiply.inputs.length !== 2 || multiply.inputs[0] !== activation.output || multiply.inputs[1] !== up.output || down.input !== multiply.output || !down.transposeWeight || down.bias) return undefined;
   if ([gate, up, activation, multiply, down].some((operation) => operation.dtypePolicy.outputDtype !== "BF16")) return undefined;
   return { up, down, operations: [up, activation, multiply, down] };
+}
+
+function matchFusedFfn(operations: readonly Operation[], index: number, preNorm: RmsNormOperation): { operations: readonly Operation[]; gate: LinearOperation; up: LinearOperation; down: LinearOperation; postNorm: RmsNormOperation; residual: ElementwiseOperation } | undefined {
+  const gate = operations[index + 1], up = operations[index + 2], activation = operations[index + 3], multiply = operations[index + 4], down = operations[index + 5], postNorm = operations[index + 6], residual = operations[index + 7];
+  if (!preNorm.weight || preNorm.weightTransform !== "direct" || preNorm.weight.shape.length !== 1 || gate?.op !== "linear" || up?.op !== "linear" || activation?.op !== "activation" || multiply?.op !== "elementwise" || down?.op !== "linear" || postNorm?.op !== "rms_norm" || residual?.op !== "elementwise") return undefined;
+  if (gate.input !== preNorm.output || up.input !== preNorm.output || !gate.transposeWeight || gate.bias || !up.transposeWeight || up.bias || gate.inFeatures !== up.inFeatures || gate.outFeatures !== up.outFeatures || preNorm.weight.shape[0] !== gate.inFeatures) return undefined;
+  if (activation.input !== gate.output || activation.function !== "gelu" || activation.approximation !== "tanh" || multiply.kind !== "multiply" || multiply.inputs.length !== 2 || multiply.inputs[0] !== activation.output || multiply.inputs[1] !== up.output || down.input !== multiply.output || !down.transposeWeight || down.bias || down.inFeatures !== gate.outFeatures || down.outFeatures !== gate.inFeatures) return undefined;
+  if (postNorm.input !== down.output || !postNorm.weight || postNorm.weightTransform !== "direct" || postNorm.weight.shape.length !== 1 || postNorm.weight.shape[0] !== gate.inFeatures || residual.kind !== "add" || residual.inputs.length !== 2 || residual.inputs[0] !== preNorm.input || residual.inputs[1] !== postNorm.output) return undefined;
+  const matched = operations.slice(index, index + 8);
+  if (matched.some((entry) => entry.dtypePolicy.outputDtype !== "BF16")) return undefined;
+  return { operations: matched, gate, up, down, postNorm, residual };
 }
 
 function matchFusedPle(operations: readonly Operation[], index: number, select: SelectPerLayerOperation, rounding: "bf16" | "real"): { operations: readonly Operation[]; gate: LinearOperation; projection: LinearOperation; norm: RmsNormOperation; scalar: TensorScaleOperation } | undefined {

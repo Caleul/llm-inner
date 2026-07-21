@@ -26,10 +26,26 @@ export interface PagedLinearTileKernel {
   multiplyWholeStorageReferenceNativeBf16?: ((input: Float32Array, tensor: TensorInfo, rows: number) => Promise<Float32Array>) | undefined;
   multiplyStorageReferences?: ((input: Float32Array, requests: readonly PagedLinearStorageReference[], rows: number) => Promise<readonly Float32Array[]>) | undefined;
   fusedGatedMlpStorageReference?: ((input: Float32Array, gate: TensorInfo, up: TensorInfo, down: TensorInfo, rows: number, rounding: "bf16" | "real" | "native-bf16") => Promise<Float32Array>) | undefined;
+  fusedFfnStorageReferences?: ((request: PagedFusedFfnRequest) => Promise<Float32Array>) | undefined;
   fusedPleStorageReferences?: ((request: PagedFusedPleRequest) => Promise<Float32Array>) | undefined;
   fusedPlePreludeStorageReference?: ((request: PagedFusedPlePreludeRequest) => Promise<Float32Array>) | undefined;
   attention?: ((request: PagedNativeAttentionRequest) => Promise<Float32Array>) | undefined;
   fusedAttentionStorageReferences?: ((request: PagedFusedAttentionRequest) => Promise<PagedFusedAttentionResult>) | undefined;
+}
+
+export interface PagedFusedFfnRequest {
+  input: Float32Array;
+  preNormWeight: TensorInfo;
+  gateWeight: TensorInfo;
+  upWeight: TensorInfo;
+  downWeight: TensorInfo;
+  postNormWeight: TensorInfo;
+  rows: number;
+  hiddenSize: number;
+  intermediateSize: number;
+  preNormEpsilon: number;
+  postNormEpsilon: number;
+  rounding: "native-bf16";
 }
 
 export interface PagedFusedPleRequest {

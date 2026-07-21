@@ -124,9 +124,10 @@ def main():
             fused_attention = bool(encoded_dtype & 0x04000000)
             fused_ple = bool(encoded_dtype & 0x02000000)
             fused_ple_prelude = bool(encoded_dtype & 0x01000000)
-            dtype_code = encoded_dtype & 0x00ffffff
+            fused_ffn = bool(encoded_dtype & 0x00800000)
+            dtype_code = encoded_dtype & 0x007fffff
             if fused_attention:
-                if referenced or batched or fused_mlp or native_bf16 or native_attention or fused_ple or fused_ple_prelude or dtype_code != 0 or pool is None:
+                if referenced or batched or fused_mlp or native_bf16 or native_attention or fused_ple or fused_ple_prelude or fused_ffn or dtype_code != 0 or pool is None:
                     raise ValueError("fused attention flags are invalid")
                 batch, query_heads, key_value_heads = rows, outputs, features
                 metadata = read_exact(80)
@@ -200,7 +201,7 @@ def main():
                 del inputs, positions, mask, source_key, source_value, query_weight, query_norm, output_weight, query, key_weight, key_norm, value_weight, current_key_heads, current_key, current_value, key, value, attention_key, attention_value, scores, probabilities, context, projected, boundary, project
                 continue
             if fused_ple:
-                if referenced or batched or fused_mlp or native_bf16 or native_attention or fused_attention or fused_ple_prelude or dtype_code != 0 or pool is None or outputs != features:
+                if referenced or batched or fused_mlp or native_bf16 or native_attention or fused_attention or fused_ple_prelude or fused_ffn or dtype_code != 0 or pool is None or outputs != features:
                     raise ValueError("fused PLE flags are invalid")
                 per_layer_width, descriptor_count, rounding = struct.unpack("<III", read_exact(12))
                 epsilon = struct.unpack("<f", read_exact(4))[0]
@@ -231,7 +232,7 @@ def main():
                 del inputs, per_layer, gate_weight, projection_weight, norm_weight, layer_scalar, boundary, gate, cube, inner, activated, gated, projected, normalized, residual, result
                 continue
             if fused_ple_prelude:
-                if referenced or batched or fused_mlp or native_bf16 or native_attention or fused_attention or fused_ple or dtype_code != 0 or pool is None:
+                if referenced or batched or fused_mlp or native_bf16 or native_attention or fused_attention or fused_ple or fused_ffn or dtype_code != 0 or pool is None:
                     raise ValueError("fused PLE prelude flags are invalid")
                 metadata = read_exact(32)
                 num_layers, per_layer_width, descriptor_count, rounding = struct.unpack("<IIII", metadata[:16])
@@ -259,7 +260,7 @@ def main():
                 del inputs, token_identity, projection_weight, norm_weight, boundary, context, normalized, combined, result
                 continue
             if native_attention:
-                if referenced or batched or fused_mlp or native_bf16 or fused_attention or fused_ple or fused_ple_prelude or dtype_code != 0:
+                if referenced or batched or fused_mlp or native_bf16 or fused_attention or fused_ple or fused_ple_prelude or fused_ffn or dtype_code != 0:
                     raise ValueError("native attention flags are invalid")
                 batch, query_heads, key_value_heads = rows, outputs, features
                 metadata = read_exact(32)
@@ -301,8 +302,36 @@ def main():
                 del query, key, value, mask, scores, probabilities, context, result, payload
                 continue
             input_bytes = read_exact(rows * features * 4)
+            if fused_ffn:
+                if not referenced or batched or fused_mlp or native_bf16 or native_attention or fused_attention or fused_ple or fused_ple_prelude or dtype_code != 0 or pool is None or outputs != features:
+                    raise ValueError("fused FFN flags are invalid")
+                intermediate_size, pre_epsilon, post_epsilon = struct.unpack("<Iff", read_exact(12))
+                if not intermediate_size or not math.isfinite(pre_epsilon) or pre_epsilon <= 0 or not math.isfinite(post_epsilon) or post_epsilon <= 0:
+                    raise ValueError("fused FFN metadata is invalid")
+                inputs = torch.frombuffer(input_bytes, dtype=torch.float32).reshape(rows, features)
+                pre_norm_weight = read_whole_tensor(pool, files, mappings, (features, 1)).reshape(features)
+                gate_weight = read_whole_tensor(pool, files, mappings, (intermediate_size, features), widen=False, required_dtype=torch.bfloat16)
+                up_weight = read_whole_tensor(pool, files, mappings, (intermediate_size, features), widen=False, required_dtype=torch.bfloat16)
+                down_weight = read_whole_tensor(pool, files, mappings, (features, intermediate_size), widen=False, required_dtype=torch.bfloat16)
+                post_norm_weight = read_whole_tensor(pool, files, mappings, (features, 1)).reshape(features)
+                boundary = lambda value: value.to(torch.bfloat16).float()
+                normalized_input = boundary(rms_norm_real(inputs, pre_norm_weight, pre_epsilon))
+                native_input = normalized_input.to(torch.bfloat16)
+                gate = torch.mm(native_input, gate_weight.transpose(0, 1))
+                up = torch.mm(native_input, up_weight.transpose(0, 1))
+                activated = torch.nn.functional.gelu(gate, approximate="tanh")
+                hidden = activated * up
+                projected = torch.mm(hidden, down_weight.transpose(0, 1)).float()
+                normalized_output = boundary(rms_norm_real(projected, post_norm_weight, post_epsilon))
+                result = boundary(inputs + normalized_output).contiguous()
+                if not torch.isfinite(result).all():
+                    raise ValueError("fused FFN produced non-finite output")
+                write_float_tensor(result)
+                sys.stdout.buffer.flush()
+                del inputs, pre_norm_weight, gate_weight, up_weight, down_weight, post_norm_weight, boundary, normalized_input, native_input, gate, up, activated, hidden, projected, normalized_output, result
+                continue
             if fused_mlp:
-                if not referenced or batched or native_bf16 or pool is None:
+                if not referenced or batched or native_bf16 or fused_ffn or pool is None:
                     raise ValueError("fused MLP requires referenced non-batched storage")
                 rounding = struct.unpack("<I", read_exact(4))[0]
                 if rounding not in (0, 1, 2):

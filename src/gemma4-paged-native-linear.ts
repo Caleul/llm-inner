@@ -2,7 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { once } from "node:events";
 import { endianness } from "node:os";
 import { resolve } from "node:path";
-import type { PagedFusedAttentionRequest, PagedFusedAttentionResult, PagedFusedPlePreludeRequest, PagedFusedPleRequest, PagedLinearStorageReference, PagedLinearTileKernel, PagedNativeAttentionRequest } from "./paged-dense.js";
+import type { PagedFusedAttentionRequest, PagedFusedAttentionResult, PagedFusedFfnRequest, PagedFusedPlePreludeRequest, PagedFusedPleRequest, PagedLinearStorageReference, PagedLinearTileKernel, PagedNativeAttentionRequest } from "./paged-dense.js";
 import type { TensorInfo } from "./types.js";
 
 const STORAGE_REFERENCE_FLAG = 0x8000_0000;
@@ -13,6 +13,7 @@ const NATIVE_ATTENTION_FLAG = 0x0800_0000;
 const FUSED_ATTENTION_FLAG = 0x0400_0000;
 const FUSED_PLE_FLAG = 0x0200_0000;
 const FUSED_PLE_PRELUDE_FLAG = 0x0100_0000;
+const FUSED_FFN_FLAG = 0x0080_0000;
 
 export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
   readonly backend: string;
@@ -22,6 +23,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
   readonly multiplyWholeStorageReferenceNativeBf16?: PagedLinearTileKernel["multiplyWholeStorageReferenceNativeBf16"];
   readonly multiplyStorageReferences?: PagedLinearTileKernel["multiplyStorageReferences"];
   readonly fusedGatedMlpStorageReference?: PagedLinearTileKernel["fusedGatedMlpStorageReference"];
+  readonly fusedFfnStorageReferences?: PagedLinearTileKernel["fusedFfnStorageReferences"];
   readonly fusedPleStorageReferences?: PagedLinearTileKernel["fusedPleStorageReferences"];
   readonly fusedPlePreludeStorageReference?: PagedLinearTileKernel["fusedPlePreludeStorageReference"];
   readonly attention?: PagedLinearTileKernel["attention"];
@@ -36,6 +38,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
   #batchDispatches = 0;
   #batchedProjectionTiles = 0;
   #fusedMlpDispatches = 0;
+  #fusedFfnDispatches = 0;
   #fusedPleDispatches = 0;
   #fusedPlePreludeDispatches = 0;
   #nativeAttentionDispatches = 0;
@@ -43,6 +46,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
   #referenceSeconds = 0;
   #batchSeconds = 0;
   #fusedMlpSeconds = 0;
+  #fusedFfnSeconds = 0;
   #fusedPleSeconds = 0;
   #fusedPlePreludeSeconds = 0;
   #nativeAttentionSeconds = 0;
@@ -74,6 +78,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
       if (backend === "pytorch") {
         this.attention = (request) => this.#requestAttention(request);
         this.fusedAttentionStorageReferences = (request) => this.#requestFusedAttention(request);
+        this.fusedFfnStorageReferences = (request) => this.#requestFfn(request);
         this.fusedPleStorageReferences = (request) => this.#requestFusedPle(request);
         this.fusedPlePreludeStorageReference = (request) => this.#requestFusedPlePrelude(request);
       }
@@ -171,6 +176,27 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
       }
       return await this.#readResult(rows, down.outputCount);
     } finally { this.#fusedMlpSeconds += (performance.now() - started) / 1000; this.#active = false; }
+  }
+
+  async #requestFfn(request: PagedFusedFfnRequest): Promise<Float32Array> {
+    if (this.#active) throw new Error("Worker linear persistente não aceita subgrafos concorrentes no mesmo canal.");
+    const descriptors = [request.preNormWeight, request.gateWeight, request.upWeight, request.downWeight, request.postNormWeight].map((tensor) => this.#prepareWholeTensor(tensor));
+    const [preNorm, gate, up, down, postNorm] = descriptors;
+    if (!Number.isSafeInteger(request.rows) || request.rows < 1 || !Number.isSafeInteger(request.hiddenSize) || request.hiddenSize < 1 || !Number.isSafeInteger(request.intermediateSize) || request.intermediateSize < 1 || request.input.length !== request.rows * request.hiddenSize || !Number.isFinite(request.preNormEpsilon) || request.preNormEpsilon <= 0 || !Number.isFinite(request.postNormEpsilon) || request.postNormEpsilon <= 0 || request.rounding !== "native-bf16") throw new Error("Subgrafo FFN recebeu topologia inválida.");
+    if (preNorm!.dimensions[0] !== request.hiddenSize || preNorm!.dimensions[1] !== 1 || gate!.dimensions[0] !== request.intermediateSize || gate!.dimensions[1] !== request.hiddenSize || up!.dimensions[0] !== request.intermediateSize || up!.dimensions[1] !== request.hiddenSize || down!.dimensions[0] !== request.hiddenSize || down!.dimensions[1] !== request.intermediateSize || postNorm!.dimensions[0] !== request.hiddenSize || postNorm!.dimensions[1] !== 1 || gate!.dtype !== 1 || up!.dtype !== 1 || down!.dtype !== 1) throw new Error("Subgrafo FFN requer normas e matrizes BF16 compatíveis.");
+    this.#active = true;
+    const started = performance.now();
+    try {
+      this.#fusedFfnDispatches += 1;
+      const header = Buffer.allocUnsafe(16); header.writeUInt32LE(request.rows, 0); header.writeUInt32LE(request.hiddenSize, 4); header.writeUInt32LE(request.hiddenSize, 8); header.writeUInt32LE((STORAGE_REFERENCE_FLAG + FUSED_FFN_FLAG) >>> 0, 12);
+      const metadata = Buffer.allocUnsafe(12); metadata.writeUInt32LE(request.intermediateSize, 0); metadata.writeFloatLE(request.preNormEpsilon, 4); metadata.writeFloatLE(request.postNormEpsilon, 8);
+      await this.#write(header); await this.#write(Buffer.from(request.input.buffer, request.input.byteOffset, request.input.byteLength)); await this.#write(metadata);
+      for (const entry of descriptors) {
+        const descriptor = Buffer.allocUnsafe(36); descriptor.writeUInt32LE(entry.dtype, 0); descriptor.writeUInt32LE(entry.dimensions[0], 4); descriptor.writeUInt32LE(entry.dimensions[1], 8); descriptor.writeBigUInt64LE(BigInt(entry.byteOffset), 12); descriptor.writeUInt32LE(entry.byteLength, 20); descriptor.writeUInt32LE(0, 24); descriptor.writeUInt32LE(entry.shard.length, 28); descriptor.writeUInt32LE(entry.name.length, 32);
+        await this.#write(descriptor); await this.#write(entry.shard); await this.#write(entry.name);
+      }
+      return await this.#readResult(request.rows, request.hiddenSize);
+    } finally { this.#fusedFfnSeconds += (performance.now() - started) / 1000; this.#active = false; }
   }
 
   async #requestAttention(request: PagedNativeAttentionRequest): Promise<Float32Array> {
@@ -309,8 +335,8 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     return { dtype, outputCount, inFeatures: inFeatures!, byteOffset, byteLength, startOutput, shard, name };
   }
 
-  dispatchMetrics(): { referenceDispatches: number; wholeNativeBf16Dispatches: number; batchDispatches: number; batchedProjectionTiles: number; fusedMlpDispatches: number; fusedPleDispatches: number; fusedPlePreludeDispatches: number; nativeAttentionDispatches: number; fusedAttentionDispatches: number; referenceSeconds: number; batchSeconds: number; fusedMlpSeconds: number; fusedPleSeconds: number; fusedPlePreludeSeconds: number; nativeAttentionSeconds: number; fusedAttentionSeconds: number } {
-    return { referenceDispatches: this.#referenceDispatches, wholeNativeBf16Dispatches: this.#wholeNativeBf16Dispatches, batchDispatches: this.#batchDispatches, batchedProjectionTiles: this.#batchedProjectionTiles, fusedMlpDispatches: this.#fusedMlpDispatches, fusedPleDispatches: this.#fusedPleDispatches, fusedPlePreludeDispatches: this.#fusedPlePreludeDispatches, nativeAttentionDispatches: this.#nativeAttentionDispatches, fusedAttentionDispatches: this.#fusedAttentionDispatches, referenceSeconds: this.#referenceSeconds, batchSeconds: this.#batchSeconds, fusedMlpSeconds: this.#fusedMlpSeconds, fusedPleSeconds: this.#fusedPleSeconds, fusedPlePreludeSeconds: this.#fusedPlePreludeSeconds, nativeAttentionSeconds: this.#nativeAttentionSeconds, fusedAttentionSeconds: this.#fusedAttentionSeconds };
+  dispatchMetrics(): { referenceDispatches: number; wholeNativeBf16Dispatches: number; batchDispatches: number; batchedProjectionTiles: number; fusedMlpDispatches: number; fusedFfnDispatches: number; fusedPleDispatches: number; fusedPlePreludeDispatches: number; nativeAttentionDispatches: number; fusedAttentionDispatches: number; referenceSeconds: number; batchSeconds: number; fusedMlpSeconds: number; fusedFfnSeconds: number; fusedPleSeconds: number; fusedPlePreludeSeconds: number; nativeAttentionSeconds: number; fusedAttentionSeconds: number } {
+    return { referenceDispatches: this.#referenceDispatches, wholeNativeBf16Dispatches: this.#wholeNativeBf16Dispatches, batchDispatches: this.#batchDispatches, batchedProjectionTiles: this.#batchedProjectionTiles, fusedMlpDispatches: this.#fusedMlpDispatches, fusedFfnDispatches: this.#fusedFfnDispatches, fusedPleDispatches: this.#fusedPleDispatches, fusedPlePreludeDispatches: this.#fusedPlePreludeDispatches, nativeAttentionDispatches: this.#nativeAttentionDispatches, fusedAttentionDispatches: this.#fusedAttentionDispatches, referenceSeconds: this.#referenceSeconds, batchSeconds: this.#batchSeconds, fusedMlpSeconds: this.#fusedMlpSeconds, fusedFfnSeconds: this.#fusedFfnSeconds, fusedPleSeconds: this.#fusedPleSeconds, fusedPlePreludeSeconds: this.#fusedPlePreludeSeconds, nativeAttentionSeconds: this.#nativeAttentionSeconds, fusedAttentionSeconds: this.#fusedAttentionSeconds };
   }
 
   async #readResult(rows: number, outputCount: number): Promise<Float32Array> {
