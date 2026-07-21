@@ -7,12 +7,14 @@ import type { TensorInfo } from "./types.js";
 
 const STORAGE_REFERENCE_FLAG = 0x8000_0000;
 const STORAGE_REFERENCE_BATCH_FLAG = 0x4000_0000;
+const STORAGE_REFERENCE_MLP_FLAG = 0x2000_0000;
 
 export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
   readonly backend: string;
   readonly child: ChildProcessWithoutNullStreams;
   readonly multiplyStorageReference?: PagedLinearTileKernel["multiplyStorageReference"];
   readonly multiplyStorageReferences?: PagedLinearTileKernel["multiplyStorageReferences"];
+  readonly fusedGatedMlpStorageReference?: PagedLinearTileKernel["fusedGatedMlpStorageReference"];
   readonly #storageTensors: ReadonlyMap<string, TensorInfo> | undefined;
   #buffer = Buffer.alloc(0);
   #waiting: Array<() => void> = [];
@@ -21,6 +23,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
   #referenceDispatches = 0;
   #batchDispatches = 0;
   #batchedProjectionTiles = 0;
+  #fusedMlpDispatches = 0;
 
   constructor(options: { python: string; helper: string; threads: number; binaryPool?: string; storageTensors?: ReadonlyMap<string, TensorInfo>; backend?: "pytorch" | "mlx"; mlxHelper?: string }) {
     if (endianness() !== "LE") throw new Error("Kernel linear binário requer host little-endian.");
@@ -37,6 +40,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     if (options.binaryPool) {
       this.multiplyStorageReference = (input, tensor, startOutput, outputCount, rows) => this.#requestReference(input, tensor, startOutput, outputCount, rows);
       this.multiplyStorageReferences = (input, requests, rows) => this.#requestReferences(input, requests, rows);
+      this.fusedGatedMlpStorageReference = (input, gate, up, down, rows, rounding) => this.#requestGatedMlp(input, gate, up, down, rows, rounding);
     }
     this.child.stdout.on("data", (chunk: Buffer) => { this.#buffer = Buffer.concat([this.#buffer, chunk]); this.#wake(); });
     const errors: Buffer[] = []; this.child.stderr.on("data", (chunk: Buffer) => { if (Buffer.concat(errors).length < 1024 * 1024) errors.push(chunk); });
@@ -110,6 +114,34 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     } finally { this.#active = false; }
   }
 
+  async #requestGatedMlp(input: Float32Array, gateTensor: TensorInfo, upTensor: TensorInfo, downTensor: TensorInfo, rows: number, rounding: "bf16" | "real"): Promise<Float32Array> {
+    if (this.#active) throw new Error("Worker linear persistente não aceita subgrafos concorrentes no mesmo canal.");
+    const gate = this.#prepareWholeMatrix(gateTensor), up = this.#prepareWholeMatrix(upTensor), down = this.#prepareWholeMatrix(downTensor);
+    if (gate.inFeatures !== up.inFeatures || gate.outputCount !== up.outputCount || down.inFeatures !== gate.outputCount || input.length !== rows * gate.inFeatures) throw new Error("Subgrafo MLP requer gate/up paralelos e down_proj compatível.");
+    this.#active = true;
+    try {
+      this.#fusedMlpDispatches += 1;
+      const header = Buffer.allocUnsafe(16); header.writeUInt32LE(rows, 0); header.writeUInt32LE(down.outputCount, 4); header.writeUInt32LE(gate.inFeatures, 8); header.writeUInt32LE((STORAGE_REFERENCE_FLAG + STORAGE_REFERENCE_MLP_FLAG) >>> 0, 12);
+      const policy = Buffer.allocUnsafe(4); policy.writeUInt32LE(rounding === "bf16" ? 0 : 1, 0);
+      await this.#write(header); await this.#write(Buffer.from(input.buffer, input.byteOffset, input.byteLength)); await this.#write(policy);
+      for (const entry of [gate, up, down]) {
+        const metadata = Buffer.allocUnsafe(36); metadata.writeUInt32LE(entry.dtype, 0); metadata.writeUInt32LE(entry.outputCount, 4); metadata.writeUInt32LE(entry.inFeatures, 8); metadata.writeBigUInt64LE(BigInt(entry.byteOffset), 12); metadata.writeUInt32LE(entry.byteLength, 20); metadata.writeUInt32LE(0, 24); metadata.writeUInt32LE(entry.shard.length, 28); metadata.writeUInt32LE(entry.name.length, 32);
+        await this.#write(metadata); await this.#write(entry.shard); await this.#write(entry.name);
+      }
+      return await this.#readResult(rows, down.outputCount);
+    } finally { this.#active = false; }
+  }
+
+  #prepareWholeMatrix(tensor: TensorInfo) {
+    const stored = this.#storageTensors?.get(tensor.name);
+    if (!stored || stored.storageDtype !== tensor.storageDtype || stored.storageShape.length !== tensor.storageShape.length || stored.storageShape.some((value, index) => value !== tensor.storageShape[index]) || stored.logicalShape.length !== tensor.logicalShape.length || stored.logicalShape.some((value, index) => value !== tensor.logicalShape[index])) throw new Error(`${tensor.name}: catálogo mmap diverge do subgrafo literal.`);
+    if (stored.quantization || (stored.storageDtype !== "F32" && stored.storageDtype !== "F16" && stored.storageDtype !== "BF16") || stored.storageShape.length !== 2 || !stored.shard || stored.byteOffset === undefined) throw new Error(`${tensor.name}: subgrafo nativo requer matriz densa F32/F16/BF16.`);
+    const [outputCount, inFeatures] = stored.storageShape, dtype = stored.storageDtype === "F32" ? 0 : stored.storageDtype === "BF16" ? 1 : 2;
+    const byteLength = outputCount! * inFeatures! * (stored.storageDtype === "F32" ? 4 : 2), shard = Buffer.from(stored.shard, "utf8"), name = Buffer.from(stored.name, "utf8");
+    if (!Number.isSafeInteger(byteLength) || byteLength < 1 || shard.length < 1 || shard.length > 4096 || name.length < 1 || name.length > 4096) throw new Error(`${tensor.name}: identidade do subgrafo nativo inválida.`);
+    return { dtype, outputCount: outputCount!, inFeatures: inFeatures!, byteOffset: stored.byteOffset, byteLength, shard, name };
+  }
+
   #prepareReference(request: PagedLinearStorageReference, rows: number, inputLength: number) {
     const { tensor, startOutput, outputCount } = request;
     const stored = this.#storageTensors?.get(tensor.name);
@@ -125,8 +157,8 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     return { dtype, outputCount, inFeatures: inFeatures!, byteOffset, byteLength, startOutput, shard, name };
   }
 
-  dispatchMetrics(): { referenceDispatches: number; batchDispatches: number; batchedProjectionTiles: number } {
-    return { referenceDispatches: this.#referenceDispatches, batchDispatches: this.#batchDispatches, batchedProjectionTiles: this.#batchedProjectionTiles };
+  dispatchMetrics(): { referenceDispatches: number; batchDispatches: number; batchedProjectionTiles: number; fusedMlpDispatches: number } {
+    return { referenceDispatches: this.#referenceDispatches, batchDispatches: this.#batchDispatches, batchedProjectionTiles: this.#batchedProjectionTiles, fusedMlpDispatches: this.#fusedMlpDispatches };
   }
 
   async #readResult(rows: number, outputCount: number): Promise<Float32Array> {

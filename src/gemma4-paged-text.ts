@@ -52,6 +52,8 @@ export interface Gemma4PagedTextOptions {
   linearTileKernel?: PagedLinearTileKernel;
   /** Optional compiled binary constant-pool reader replacing base64 payload reads. */
   tensorReader?: Pick<LiteralTensorReader, "readTensorBytesRange">;
+  /** Opt-in whole-MLP native subgraph; real removes the internal BF16 boundaries. */
+  fusedMlpRounding?: "bf16" | "real";
 }
 
 /**
@@ -204,6 +206,19 @@ async function executePagedOperations(
         break;
       case "linear":
         if (!operation.transposeWeight || operation.bias) throw new Error(`${operation.id}: executor Gemma 4 paginado requer linear [out,in] sem bias.`);
+        if (options.fusedMlpRounding && options.linearTileKernel?.fusedGatedMlpStorageReference) {
+          const fused = matchFusedGatedMlp(operations, operationIndex, operation);
+          if (fused) {
+            for (const fusedOperation of fused.operations) assertPagedF32Policy(fusedOperation);
+            const input = value(values, operation.input), rows = input.values.length / operation.inFeatures;
+            const outputValues = await options.linearTileKernel.fusedGatedMlpStorageReference(input.values, tensorInfo(artifact, operation.weight), tensorInfo(artifact, fused.up.weight), tensorInfo(artifact, fused.down.weight), rows, options.fusedMlpRounding);
+            if (outputValues.length !== rows * fused.down.outFeatures || outputValues.some((entry) => !Number.isFinite(entry))) throw new Error(`${options.linearTileKernel.backend}: subgrafo MLP retornou saída inválida.`);
+            const output = { shape: [...input.shape.slice(0, -1), fused.down.outFeatures], values: outputValues };
+            if (options.fusedMlpRounding === "bf16") store(fused.down, output); else values.set(fused.down.output, output);
+            operationIndex += 4;
+            break;
+          }
+        }
         if (options.linearTileKernel?.multiplyStorageReferences) {
           const next = operations[operationIndex + 1];
           if (isFusibleSharedInputLinear(operation, next)) {
@@ -272,6 +287,15 @@ async function executePagedOperations(
 
 function isFusibleSharedInputLinear(left: Extract<Operation, { op: "linear" }>, right: Operation | undefined): right is Extract<Operation, { op: "linear" }> {
   return right?.op === "linear" && right.input === left.input && right.transposeWeight && !right.bias;
+}
+
+type LinearOperation = Extract<Operation, { op: "linear" }>;
+function matchFusedGatedMlp(operations: readonly Operation[], index: number, gate: LinearOperation): { up: LinearOperation; down: LinearOperation; operations: readonly Operation[] } | undefined {
+  const up = operations[index + 1], activation = operations[index + 2], multiply = operations[index + 3], down = operations[index + 4];
+  if (up?.op !== "linear" || activation?.op !== "activation" || multiply?.op !== "elementwise" || down?.op !== "linear") return undefined;
+  if (up.input !== gate.input || !up.transposeWeight || up.bias || activation.input !== gate.output || activation.function !== "gelu" || activation.approximation !== "tanh" || multiply.kind !== "multiply" || multiply.inputs.length !== 2 || multiply.inputs[0] !== activation.output || multiply.inputs[1] !== up.output || down.input !== multiply.output || !down.transposeWeight || down.bias) return undefined;
+  if ([gate, up, activation, multiply, down].some((operation) => operation.dtypePolicy.outputDtype !== "BF16")) return undefined;
+  return { up, down, operations: [up, activation, multiply, down] };
 }
 
 /**

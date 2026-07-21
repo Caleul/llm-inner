@@ -23,6 +23,7 @@ export interface PagedLinearTileKernel {
   multiplyStorage?(input: Float32Array, weight: Buffer, storageDtype: "F32" | "F16" | "BF16", rows: number, outputCount: number, inFeatures: number): Promise<Float32Array>;
   multiplyStorageReference?: ((input: Float32Array, tensor: TensorInfo, startOutput: number, outputCount: number, rows: number) => Promise<Float32Array>) | undefined;
   multiplyStorageReferences?: ((input: Float32Array, requests: readonly PagedLinearStorageReference[], rows: number) => Promise<readonly Float32Array[]>) | undefined;
+  fusedGatedMlpStorageReference?: ((input: Float32Array, gate: TensorInfo, up: TensorInfo, down: TensorInfo, rows: number, rounding: "bf16" | "real") => Promise<Float32Array>) | undefined;
 }
 
 export interface PagedLinearStorageReference {

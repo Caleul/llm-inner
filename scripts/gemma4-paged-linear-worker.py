@@ -2,6 +2,7 @@
 """Persistent binary F32 tile matmul worker for the paged Gemma runtime."""
 
 import argparse
+import math
 import mmap
 from pathlib import Path
 import struct
@@ -46,8 +47,59 @@ def main():
                 raise ValueError("tile dimensions must be positive")
             referenced = bool(encoded_dtype & 0x80000000)
             batched = bool(encoded_dtype & 0x40000000)
-            dtype_code = encoded_dtype & 0x3fffffff
+            fused_mlp = bool(encoded_dtype & 0x20000000)
+            dtype_code = encoded_dtype & 0x1fffffff
             input_bytes = read_exact(rows * features * 4)
+            if fused_mlp:
+                if not referenced or batched or pool is None:
+                    raise ValueError("fused MLP requires referenced non-batched storage")
+                rounding = struct.unpack("<I", read_exact(4))[0]
+                if rounding not in (0, 1):
+                    raise ValueError("fused MLP rounding policy is invalid")
+                matrices = []
+                shapes = []
+                for _ in range(3):
+                    metadata = read_exact(36)
+                    request_dtype, output_count, input_count, byte_offset, byte_length, start_output, shard_length, name_length = struct.unpack("<IIIQIIII", metadata)
+                    if request_dtype not in (0, 1, 2) or not output_count or not input_count or start_output != 0:
+                        raise ValueError("fused MLP matrix descriptor is invalid")
+                    if shard_length < 1 or shard_length > 4096 or name_length < 1 or name_length > 4096:
+                        raise ValueError("fused MLP identity length is invalid")
+                    shard = bytes(read_exact(shard_length)).decode("utf-8")
+                    tensor_name = bytes(read_exact(name_length)).decode("utf-8")
+                    if Path(shard).name != shard or not tensor_name:
+                        raise ValueError("fused MLP identity is invalid")
+                    storage_dtype = (torch.float32, torch.bfloat16, torch.float16)[request_dtype]
+                    element_bytes = 4 if request_dtype == 0 else 2
+                    if byte_length != output_count * input_count * element_bytes:
+                        raise ValueError(f"{tensor_name}: fused MLP byte length is invalid")
+                    path = (pool / shard).resolve()
+                    if path.parent != pool:
+                        raise ValueError("fused MLP escapes binary pool")
+                    if path not in mappings:
+                        files[path] = path.open("rb")
+                        mappings[path] = mmap.mmap(files[path].fileno(), 0, access=mmap.ACCESS_READ)
+                    if byte_offset + byte_length > mappings[path].size():
+                        raise ValueError("fused MLP range exceeds shard")
+                    matrices.append(torch.frombuffer(mappings[path], dtype=storage_dtype, count=output_count * input_count, offset=byte_offset).reshape(output_count, input_count).float())
+                    shapes.append((output_count, input_count))
+                if shapes[0] != shapes[1] or shapes[0][1] != features or shapes[2] != (outputs, shapes[0][0]):
+                    raise ValueError("fused MLP matrix shapes are incompatible")
+                inputs = torch.frombuffer(input_bytes, dtype=torch.float32).reshape(rows, features)
+                boundary = (lambda value: value.to(torch.bfloat16).float()) if rounding == 0 else (lambda value: value)
+                gate = boundary(torch.mm(inputs, matrices[0].transpose(0, 1)))
+                up = boundary(torch.mm(inputs, matrices[1].transpose(0, 1)))
+                cube = (gate * gate) * gate
+                inner = torch.tensor(math.sqrt(2 / math.pi), dtype=torch.float32) * (gate + torch.tensor(0.044715, dtype=torch.float32) * cube)
+                activated = boundary((torch.tensor(0.5, dtype=torch.float32) * gate) * (torch.tensor(1.0, dtype=torch.float32) + torch.tanh(inner)))
+                hidden = boundary(activated * up)
+                result = boundary(torch.mm(hidden, matrices[2].transpose(0, 1))).contiguous()
+                payload = result.numpy().tobytes(order="C")
+                sys.stdout.buffer.write(struct.pack("<I", len(payload)))
+                sys.stdout.buffer.write(payload)
+                sys.stdout.buffer.flush()
+                del inputs, matrices, shapes, gate, up, cube, inner, activated, hidden, result, payload
+                continue
             if batched:
                 if not referenced or pool is None or outputs < 2 or outputs > 256:
                     raise ValueError("batched tile requires 2..256 referenced projections")

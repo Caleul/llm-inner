@@ -2,6 +2,7 @@
 """Persistent MLX Metal worker for F32 inputs and dense F32/F16/BF16 weights."""
 
 import argparse
+import math
 from pathlib import Path
 import struct
 import sys
@@ -44,8 +45,58 @@ def main():
         if not rows or not outputs or not features or not referenced:
             raise ValueError("MLX worker requires a positive referenced tile")
         batched = bool(encoded_dtype & 0x40000000)
-        dtype_code = encoded_dtype & 0x3fffffff
+        fused_mlp = bool(encoded_dtype & 0x20000000)
+        dtype_code = encoded_dtype & 0x1fffffff
         input_bytes = read_exact(rows * features * 4)
+        if fused_mlp:
+            if batched:
+                raise ValueError("fused MLP cannot also be batched")
+            rounding = struct.unpack("<I", read_exact(4))[0]
+            if rounding not in (0, 1):
+                raise ValueError("fused MLP rounding policy is invalid")
+            matrices = []
+            shapes = []
+            for _ in range(3):
+                metadata = read_exact(36)
+                request_dtype, output_count, input_count, _, byte_length, start_output, shard_length, name_length = struct.unpack("<IIIQIIII", metadata)
+                if request_dtype not in (0, 1, 2) or not output_count or not input_count or start_output != 0:
+                    raise ValueError("fused MLP matrix descriptor is invalid")
+                if shard_length < 1 or shard_length > 4096 or name_length < 1 or name_length > 4096:
+                    raise ValueError("fused MLP identity length is invalid")
+                shard = bytes(read_exact(shard_length)).decode("utf-8")
+                tensor_name = bytes(read_exact(name_length)).decode("utf-8")
+                if Path(shard).name != shard or not tensor_name:
+                    raise ValueError("fused MLP identity is invalid")
+                path = (pool / shard).resolve()
+                if path.parent != pool:
+                    raise ValueError("fused MLP escapes binary pool")
+                if path not in shards:
+                    shards[path] = mx.load(str(path))
+                weight = shards[path].get(tensor_name)
+                expected_dtype = (mx.float32, mx.bfloat16, mx.float16)[request_dtype]
+                element_bytes = 4 if request_dtype == 0 else 2
+                if weight is None or weight.shape != (output_count, input_count) or weight.dtype != expected_dtype or byte_length != output_count * input_count * element_bytes:
+                    raise ValueError(f"{tensor_name}: fused MLP tensor identity diverges")
+                matrices.append(weight)
+                shapes.append((output_count, input_count))
+            if shapes[0] != shapes[1] or shapes[0][1] != features or shapes[2] != (outputs, shapes[0][0]):
+                raise ValueError("fused MLP matrix shapes are incompatible")
+            inputs = mx.array(np.frombuffer(input_bytes, dtype=np.float32).reshape(rows, features))
+            boundary = (lambda value: value.astype(mx.bfloat16).astype(mx.float32)) if rounding == 0 else (lambda value: value)
+            gate = boundary(mx.matmul(inputs, matrices[0].T))
+            up = boundary(mx.matmul(inputs, matrices[1].T))
+            cube = (gate * gate) * gate
+            inner = mx.array(math.sqrt(2 / math.pi), dtype=mx.float32) * (gate + mx.array(0.044715, dtype=mx.float32) * cube)
+            activated = boundary((mx.array(0.5, dtype=mx.float32) * gate) * (mx.array(1.0, dtype=mx.float32) + mx.tanh(inner)))
+            hidden = boundary(activated * up)
+            result = boundary(mx.matmul(hidden, matrices[2].T))
+            mx.eval(result)
+            payload = np.asarray(result, dtype=np.float32).tobytes(order="C")
+            sys.stdout.buffer.write(struct.pack("<I", len(payload)))
+            sys.stdout.buffer.write(payload)
+            sys.stdout.buffer.flush()
+            del inputs, matrices, shapes, gate, up, cube, inner, activated, hidden, result, payload
+            continue
         if batched:
             if outputs < 2 or outputs > 256:
                 raise ValueError("batched tile requires 2..256 projections")

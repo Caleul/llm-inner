@@ -269,6 +269,7 @@ npm run calibrate:gemma4-real -- \
   --output ./artifacts/gemma4-three-way-calibration-8x2-mmap.json \
   --tokens 2 --request-threads 1 \
   --direct-threads 8 --direct-max-read-mib 16 \
+  --direct-fused-mlp off \
   --precision f32 --rounding-policy none
 ```
 
@@ -304,3 +305,59 @@ piorou o forward quente isolado de `0,789 s` para `1,140 s`, apesar de manter o
 mesmo hash. O próximo limite deve fundir a região MLP inteira — projeções,
 GELU, multiplicação e `down_proj` — evitando materializar intermediários fora
 do worker.
+
+## Subgrafo MLP compilado
+
+O runtime reconhece agora a sequência estrutural
+`gate_proj → GELU(tanh)`, `up_proj`, multiplicação e `down_proj` e a executa
+como uma única chamada nativa por camada. O protocolo transmite somente o
+vetor de entrada e as identidades autenticadas das três matrizes. Gate, up,
+ativação e produto deixam de ser materializados no JavaScript; apenas o vetor
+final da MLP retorna ao executor.
+
+Há três políticas A/B:
+
+- `off` mantém as operações separadas;
+- `bf16` reproduz as quatro fronteiras BF16 internas;
+- `real` elimina os arredondamentos internos e avalia a composição matemática
+  em F32, arredondando somente nas fronteiras posteriores do grafo.
+
+O modo BF16 preservou, para `[2]`, o SHA-256 terminal anterior
+`39ddaa04d2e4b36d66f72ba1be4db9420387a48a05f6757ae9683e67a4fe73cf`.
+O forward quente caiu de `0,7597 s` para `0,6393 s`. O modo real escolheu o
+mesmo token `184`, mas produziu o hash `35dc338f...afb81f`, evidenciando a
+remoção das fronteiras. Seu forward quente foi `0,6364 s`.
+
+Nos oito prompts × dois tokens:
+
+- `off`: `0,5221 token/s`, 7/8 prompts e 15/16 tokens iguais;
+- `bf16`: `0,7272 token/s`, os mesmos 7/8 e 15/16, ganho de 39,3%;
+- `real`: `0,7314 token/s`, os mesmos 7/8 e 15/16, ganho de 40,1% e razão
+  `1,3141x` contra o baseline medido na mesma execução.
+
+A única divergência dos dois modos fundidos permaneceu no segundo token de
+`Translate to Portuguese: Good morning` (`1217` no baseline, `564` no
+direto). Cada geração de dois tokens passou de 1.302 despachos lineares para
+630 despachos lineares mais 84 subgrafos MLP, redução de 45,2% nas chamadas ao
+worker. O RSS isolado do processo direto aumentou de aproximadamente 280 MB
+para 807 MB porque três matrizes completas são ampliadas temporariamente para
+F32. Esse é um trade-off explícito de memória por throughput.
+
+O modo `real` foi promovido como padrão do backend direto por corresponder à
+simplificação sem arredondamentos internos solicitada e não reduzir o acordo de
+tokens no corpus. A interface mostra `fusedMlpRounding` e
+`fusedMlpDispatches`; `--direct-fused-mlp off|bf16|real` mantém a comparação
+reprodutível. O worker MLX também executou o subgrafo real, preservou o token
+`184` e produziu hash próprio `aa9d1d10...03669e04`.
+
+Comando do modo promovido:
+
+```bash
+npm run calibrate:gemma4-real -- \
+  --source ./artifacts/gemma4-compiled-global-runtime-bundle \
+  --output ./artifacts/gemma4-three-way-calibration-8x2-fused-mlp-real.json \
+  --tokens 2 --request-threads 1 \
+  --direct-threads 8 --direct-max-read-mib 16 \
+  --direct-linear-backend pytorch --direct-fused-mlp real \
+  --precision f32 --rounding-policy none
+```

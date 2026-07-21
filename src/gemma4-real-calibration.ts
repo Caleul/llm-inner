@@ -43,6 +43,8 @@ interface ThreeWayCase {
     linearReferenceDispatches?: number;
     linearBatchDispatches?: number;
     linearBatchedProjectionTiles?: number;
+    fusedMlpRounding?: "off" | "bf16" | "real";
+    fusedMlpDispatches?: number;
     tokensEqualBaseline: boolean;
     firstDivergentStep: number | null;
     steps: Array<{ step: number; tokenId: number; forwardSeconds: number; topLogits: unknown }>;
@@ -107,7 +109,7 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
     source: options.runner.source,
     configuration: {
       prompts: cases.length, tokensPerPrompt: options.maxNewTokens, requestThreads: options.requestThreads,
-      directThreads: options.runner.directThreads, directLinearBackend: options.runner.directLinearBackend ?? "pytorch", precision: options.precision, roundingPolicy: options.roundingPolicy,
+      directThreads: options.runner.directThreads, directLinearBackend: options.runner.directLinearBackend ?? "pytorch", directFusedMlp: options.runner.directFusedMlp ?? "real", precision: options.precision, roundingPolicy: options.roundingPolicy,
     },
     initialization: status,
     summary: {
@@ -141,6 +143,8 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.linearReferenceDispatches === undefined ? {} : { linearReferenceDispatches: entry.direct.linearReferenceDispatches }),
         ...(entry.direct.linearBatchDispatches === undefined ? {} : { linearBatchDispatches: entry.direct.linearBatchDispatches }),
         ...(entry.direct.linearBatchedProjectionTiles === undefined ? {} : { linearBatchedProjectionTiles: entry.direct.linearBatchedProjectionTiles }),
+        ...(entry.direct.fusedMlpRounding === undefined ? {} : { fusedMlpRounding: entry.direct.fusedMlpRounding }),
+        ...(entry.direct.fusedMlpDispatches === undefined ? {} : { fusedMlpDispatches: entry.direct.fusedMlpDispatches }),
         forwardSeconds: entry.direct.steps.map((step) => step.forwardSeconds) },
       steps: entry.steps.map((step, index) => ({
         step: step.step, contextsEqualBeforeStep: step.contextsEqualBeforeStep,
