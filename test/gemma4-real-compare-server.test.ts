@@ -48,6 +48,7 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /attention fused:/);
   assert.match(gemma4RealCompareHtml, /tempo worker ref\/head\/attn\/MLP\/FFN\/layer\/stack\/PLE/);
   assert.match(gemma4RealCompareHtml, /heads verificados/);
+  assert.match(gemma4RealCompareHtml, /bundle compilado autocontido/);
   assert.match(gemma4RealCompareHtml, /Threads/);
   assert.match(gemma4RealCompareHtml, /\/api\/compare/);
   const embedded = gemma4RealCompareHtml.match(/<script>([\s\S]*)<\/script>/)?.[1]; assert.ok(embedded); assert.doesNotThrow(() => new Script(embedded), "JavaScript embutido deve ser sintaticamente executável pelo navegador");
@@ -159,6 +160,18 @@ test("servidor diferencial valida opções reprodutíveis", () => {
   assert.throws(() => parseGemma4RealServerOptions(["--direct-linear-backend", "pytorch", "--direct-fused-token-forward", "bf16"]), /requer backend mlx/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-linear-backend", "mlx", "--direct-resident-generation", "on", "--direct-fused-token-forward", "off"]), /token forward MLX bf16/);
   assert.throws(() => parseGemma4RealServerOptions(["--unknown", "x"]), /Flag desconhecida/);
+});
+
+test("bundle compilado fornece modelo, constantes e tokenizer sem o diretório original", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "gemma4-compiled-bundle-options-"));
+  try {
+    await Promise.all(["constants.literal.json", "model.safetensors", "tokenizer.json", "config.json"].map((file) => writeFile(join(directory, file), "fixture")));
+    const bundled = parseGemma4RealServerOptions(["--compiled-bundle", directory]);
+    assert.equal(bundled.source, directory); assert.equal(bundled.literalArtifact, join(directory, "constants.literal.json")); assert.equal(bundled.binaryPool, directory);
+    const split = parseGemma4RealServerOptions(["--source", "./authoritative", "--compiled-bundle", directory]);
+    assert.match(split.source, /\/authoritative$/); assert.equal(split.literalArtifact, join(directory, "constants.literal.json")); assert.equal(split.binaryPool, directory);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+  assert.throws(() => parseGemma4RealServerOptions(["--compiled-bundle", join(tmpdir(), "gemma4-missing-bundle")]), /não contém constants/);
 });
 
 test("servidor reutiliza um worker carregado para múltiplos prompts", async () => {

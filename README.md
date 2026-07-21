@@ -2560,10 +2560,16 @@ npm run compare:gemma4-real-ui
 ```
 
 Abra `http://127.0.0.1:8787`, informe o prompt e a quantidade de tokens. A
-opção padrão detecta
-`artifacts/gemma4-compiled-global-runtime-bundle/constants.literal.json` e usa
-`gemma-4-E4B-dense` como pool binário; se o bundle não existir, o botão fica
-desabilitado com uma mensagem acionável em vez de abrir uma comparação parcial.
+opção padrão detecta `artifacts/gemma4-compiled-global-runtime-bundle` e usa o
+próprio diretório como fonte do Transformers, constant pool, pesos do runtime e
+tokenizer. Assim, a interface não reabre `gemma-4-E4B-dense`; o baseline lê a
+cópia byte a byte idêntica de `model.safetensors` empacotada no bundle e o
+runtime direto resolve todas as referências relativas ao mesmo diretório. Use
+`--compiled-bundle <diretório>` para selecionar outro pacote autocontido, ou
+`--source` mais `--literal-artifact`/`--binary-pool` para uma comparação
+explícita. Se um `--compiled-bundle` não contiver constantes, pesos, tokenizer
+e config, a inicialização falha fechada.
+
 A interface executa Transformers eager BF16, a recomposição F32/F64 e o runtime
 compilado MLX/Metal, escolhe os tokens independentemente e compara os
 resultados e tempos. O endpoint `POST /api/compare-stream` entrega NDJSON por
@@ -2628,6 +2634,14 @@ divergência terminal. O throughput agregado selecionado foi 2,8396 tokens/s,
 2,8698× o baseline de 0,9895 token/s na mesma execução. Essa calibração é
 evidência sobre o corpus versionado, não garantia universal para qualquer
 prompt.
+
+O relatório versionado
+`artifacts/gemma4-three-way-calibration-32x4-self-contained-bundle.json`
+confirma que `source`, `literalArtifact` e `binaryPool` apontaram para o bundle
+compilado durante 32 prompts × 4 tokens. O runtime selecionado preservou
+`32/32` prompts e `128/128` tokens, sem divergência raiz. O
+`model.safetensors` empacotado e a fonte original possuem o mesmo SHA-256
+`43fb96cec3045b72852c787540300dc5b258634b7a025f7c80355ac0788b9651`.
 
 ### Gerador de fórmulas fisicamente planas
 

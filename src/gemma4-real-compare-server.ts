@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { existsSync, readFileSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { gemma4RealCompareHtml } from "./gemma4-real-compare-ui.js";
 
 export interface Gemma4RealComparisonRequest { prompt: string; maxNewTokens: number; threads?: number; precision?: "f32" | "f64"; roundingPolicy?: "none" | "layer-bf16" | "operation-bf16"; sessionId?: number; continueSession?: boolean; conversationMode?: "raw" | "chat" }
@@ -58,7 +58,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
   const server = createServer(async (request, response) => {
     try {
       if (request.method === "GET" && request.url === "/") return send(response, 200, "text/html; charset=utf-8", gemma4RealCompareHtml);
-      if (request.method === "GET" && request.url === "/api/status") return json(response, 200, { ready: worker?.ready === true && (!direct || direct.ready), source: options.source, runtime: "persistent-jsonl", chatTemplate: GEMMA4_CHAT_TEMPLATE, checkpointChatTemplateDeclared, initializationSeconds: worker?.initializationSeconds, ...(initializationError ? { error: initializationError.message } : {}), direct: direct ? { enabled: true, ...direct.readyMetadata, ready: direct.ready, initializationSeconds: direct.initializationSeconds, warmupSeconds: directWarmupSeconds, warmupComplete: directWarmupSeconds !== undefined, verification: verification ? { enabled: true, backend: "pytorch", marginThreshold: options.directVerificationMargin, ...verification.readyMetadata, ready: verification.ready, initializationSeconds: verification.initializationSeconds, warmupComplete: false } : { enabled: false } } : { enabled: false } });
+      if (request.method === "GET" && request.url === "/api/status") return json(response, 200, { ready: worker?.ready === true && (!direct || direct.ready), source: options.source, runtime: "persistent-jsonl", chatTemplate: GEMMA4_CHAT_TEMPLATE, checkpointChatTemplateDeclared, initializationSeconds: worker?.initializationSeconds, ...(initializationError ? { error: initializationError.message } : {}), direct: direct ? { enabled: true, artifact: options.literalArtifact, binaryPool: options.binaryPool, sourceIndependentBundle: options.literalArtifact !== undefined && options.binaryPool === dirname(options.literalArtifact), ...direct.readyMetadata, ready: direct.ready, initializationSeconds: direct.initializationSeconds, warmupSeconds: directWarmupSeconds, warmupComplete: directWarmupSeconds !== undefined, verification: verification ? { enabled: true, backend: "pytorch", marginThreshold: options.directVerificationMargin, ...verification.readyMetadata, ready: verification.ready, initializationSeconds: verification.initializationSeconds, warmupComplete: false } : { enabled: false } } : { enabled: false } });
       if (request.method === "POST" && request.url === "/api/compare") {
         await initialize;
         if (!worker) throw new Error("Comparador original não foi inicializado.");
@@ -328,11 +328,15 @@ export function parseGemma4RealServerOptions(arguments_: readonly string[]): Gem
     if (!flag?.startsWith("--") || value === undefined || values.has(flag)) throw new Error(`Argumento inválido: ${flag ?? "fim"}.`);
     values.set(flag, value);
   }
-  const known = new Set(["--source", "--python", "--helper", "--port", "--host", "--literal-artifact", "--binary-pool", "--direct-worker", "--direct-linear-helper", "--direct-mlx-helper", "--direct-linear-backend", "--direct-fused-mlp", "--direct-fused-ffn", "--direct-fused-decoder-layer", "--direct-fused-decoder-stack", "--direct-fused-ple", "--direct-fused-ple-prelude", "--direct-fused-token-forward", "--direct-resident-generation", "--direct-final-head", "--direct-final-head-read-mib", "--direct-native-attention", "--direct-fused-attention", "--direct-threads", "--direct-max-read-mib", "--direct-verification-margin"]); for (const key of values.keys()) if (!known.has(key)) throw new Error(`Flag desconhecida: ${key}.`);
+  const known = new Set(["--source", "--compiled-bundle", "--python", "--helper", "--port", "--host", "--literal-artifact", "--binary-pool", "--direct-worker", "--direct-linear-helper", "--direct-mlx-helper", "--direct-linear-backend", "--direct-fused-mlp", "--direct-fused-ffn", "--direct-fused-decoder-layer", "--direct-fused-decoder-stack", "--direct-fused-ple", "--direct-fused-ple-prelude", "--direct-fused-token-forward", "--direct-resident-generation", "--direct-final-head", "--direct-final-head-read-mib", "--direct-native-attention", "--direct-fused-attention", "--direct-threads", "--direct-max-read-mib", "--direct-verification-margin"]); for (const key of values.keys()) if (!known.has(key)) throw new Error(`Flag desconhecida: ${key}.`);
   const port = Number(values.get("--port") ?? "8787"); if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) throw new Error("--port inválido.");
-  const source = resolve(values.get("--source") ?? "gemma-4-E4B-dense"), inferredLiteral = join(source, "constants.literal.json"), bundledLiteral = resolve("artifacts/gemma4-compiled-global-runtime-bundle/constants.literal.json");
-  const literalArtifact = values.get("--literal-artifact") ? resolve(values.get("--literal-artifact")!) : existsSync(inferredLiteral) ? inferredLiteral : !values.has("--source") && existsSync(bundledLiteral) ? bundledLiteral : undefined;
-  const binaryPool = values.get("--binary-pool") ? resolve(values.get("--binary-pool")!) : literalArtifact && existsSync(join(source, "model.safetensors")) ? source : undefined;
+  const compiledBundle = resolve(values.get("--compiled-bundle") ?? "artifacts/gemma4-compiled-global-runtime-bundle");
+  const bundleReady = existsSync(join(compiledBundle, "constants.literal.json")) && existsSync(join(compiledBundle, "model.safetensors")) && existsSync(join(compiledBundle, "tokenizer.json")) && existsSync(join(compiledBundle, "config.json"));
+  if (values.has("--compiled-bundle") && !bundleReady) throw new Error("--compiled-bundle não contém constants.literal.json, model.safetensors, tokenizer.json e config.json.");
+  const source = resolve(values.get("--source") ?? (bundleReady ? compiledBundle : "gemma-4-E4B-dense")), inferredLiteral = join(source, "constants.literal.json");
+  const literalArtifact = values.get("--literal-artifact") ? resolve(values.get("--literal-artifact")!) : existsSync(inferredLiteral) ? inferredLiteral : (values.has("--compiled-bundle") || !values.has("--source")) && bundleReady ? join(compiledBundle, "constants.literal.json") : undefined;
+  const artifactPool = literalArtifact ? dirname(literalArtifact) : undefined;
+  const binaryPool = values.get("--binary-pool") ? resolve(values.get("--binary-pool")!) : artifactPool && existsSync(join(artifactPool, "model.safetensors")) ? artifactPool : literalArtifact && existsSync(join(source, "model.safetensors")) ? source : undefined;
   if ((literalArtifact === undefined) !== (binaryPool === undefined)) throw new Error("Backend direto requer --literal-artifact e --binary-pool juntos.");
   const directLinearBackend = values.get("--direct-linear-backend") ?? "mlx";
   if (directLinearBackend !== "pytorch" && directLinearBackend !== "mlx") throw new Error("--direct-linear-backend deve ser pytorch ou mlx.");

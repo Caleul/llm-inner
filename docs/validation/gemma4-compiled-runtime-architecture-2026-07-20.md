@@ -348,6 +348,38 @@ Evidência:
 - `artifacts/gemma4-three-way-calibration-32x4-mlx-selective-head-verifier.json`;
 - `artifacts/gemma4-three-way-calibration-32x4-mlx-hybrid-margin0-rms-pow.json`.
 
+## Interface executada pelo bundle autocontido
+
+A resolução padrão da interface agora escolhe
+`artifacts/gemma4-compiled-global-runtime-bundle` como fonte comum quando o
+pacote está presente. O Transformers autoritativo lê `config.json`, tokenizer
+e a cópia empacotada de `model.safetensors`; o runtime compilado abre
+`constants.literal.json` e resolve suas referências de pesos no mesmo
+diretório. O caminho original `gemma-4-E4B-dense` não participa dessa
+execução. Um pacote indicado por `--compiled-bundle` que não contenha os quatro
+arquivos obrigatórios falha antes de iniciar workers.
+
+O `model.safetensors` do bundle e o arquivo original possuem o mesmo SHA-256:
+`43fb96cec3045b72852c787540300dc5b258634b7a025f7c80355ac0788b9651`.
+A calibração autocontida 32×4 registrou explicitamente os três caminhos no
+relatório e obteve:
+
+- `sourceIndependentBundle: true`;
+- `32/32` prompts e `128/128` tokens diretos iguais ao Transformers;
+- zero divergências raiz e zero passos em cascata;
+- os mesmos três fallbacks seletivos e `5` heads PyTorch do controle;
+- `3,0689 token/s` no runtime direto e razão `2,7641x` sobre o baseline desta
+  execução.
+
+O throughput é evidência da execução, não uma melhora atribuída à cópia dos
+arquivos. O avanço desta etapa é de portabilidade e causalidade: a interface
+agora mede e executa o mesmo pacote compilado que pode ser movido como unidade.
+
+Evidência:
+
+- `artifacts/gemma4-three-way-calibration-32x4-self-contained-bundle.json`;
+- `artifacts/gemma4-compiled-global-runtime-bundle/manifest.json`.
+
 ## Prelude PLE compilado com redução reproduzível
 
 O backend MLX absorve agora o prelude PLE completo em uma única requisição
