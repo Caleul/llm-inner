@@ -2,6 +2,7 @@
 """Real greedy generation: E4B IEEE-BF16 versus no-intermediate-rounding."""
 
 import argparse
+from collections import OrderedDict
 import json
 import platform
 import resource
@@ -17,6 +18,8 @@ from transformers.models.gemma4 import modeling_gemma4
 EXACT_LOGIT_CHUNK = 8192
 REAL_DTYPE = torch.float64
 ROUNDING_POLICY = "none"
+COMPARISON_SESSION_LIMIT = 4
+COMPARISON_SESSIONS = OrderedDict()
 
 
 def parse_args():
@@ -203,7 +206,7 @@ def load_runtime(source, threads, logit_chunk):
     return model, AutoTokenizer.from_pretrained(source)
 
 
-def compare_request(model, tokenizer, source, prompt, input_ids, max_new_tokens, inspect_logit, threads=0, precision="f64", rounding_policy="none"):
+def compare_request(model, tokenizer, source, prompt, input_ids, max_new_tokens, inspect_logit, threads=0, precision="f64", rounding_policy="none", session_id=None):
     global REAL_DTYPE, ROUNDING_POLICY
     if max_new_tokens < 1 or max_new_tokens > 256:
         raise ValueError("maxNewTokens must be between 1 and 256")
@@ -225,13 +228,19 @@ def compare_request(model, tokenizer, source, prompt, input_ids, max_new_tokens,
         parsed_input_ids = [int(token) for token in token_text.split(",")]
     if not parsed_input_ids or any(token < 0 for token in parsed_input_ids):
         raise ValueError("inputIds requires comma-separated non-negative integers")
+    if session_id is not None and (not isinstance(session_id, int) or isinstance(session_id, bool) or session_id < 1 or session_id > 0xffffffff):
+        raise ValueError("sessionId must be an integer between 1 and 4294967295")
     baseline_ids, candidate_ids = list(parsed_input_ids), list(parsed_input_ids)
     baseline_generated, candidate_generated, steps = [], [], []
-    baseline_cache, candidate_cache = None, None
+    session = COMPARISON_SESSIONS.get(session_id) if session_id is not None else None
+    baseline_reused = len(session["baseline_token_ids"]) if session is not None and len(session["baseline_token_ids"]) < len(parsed_input_ids) and parsed_input_ids[:len(session["baseline_token_ids"])] == session["baseline_token_ids"] else 0
+    candidate_reused = len(session["candidate_token_ids"]) if session is not None and len(session["candidate_token_ids"]) < len(parsed_input_ids) and parsed_input_ids[:len(session["candidate_token_ids"])] == session["candidate_token_ids"] else 0
+    baseline_cache = session["baseline_cache"] if baseline_reused else None
+    candidate_cache = session["candidate_cache"] if candidate_reused else None
     for step in range(max_new_tokens):
         contexts_equal = baseline_ids == candidate_ids
-        baseline_input = baseline_ids if step == 0 else [baseline_ids[-1]]
-        candidate_input = candidate_ids if step == 0 else [candidate_ids[-1]]
+        baseline_input = baseline_ids[baseline_reused:] if step == 0 and baseline_reused else baseline_ids if step == 0 else [baseline_ids[-1]]
+        candidate_input = candidate_ids[candidate_reused:] if step == 0 and candidate_reused else candidate_ids if step == 0 else [candidate_ids[-1]]
         baseline_logits, baseline_cache, baseline_seconds = baseline_next(model, torch.tensor([baseline_input], dtype=torch.long), baseline_cache)
         candidate_logits, candidate_cache, candidate_seconds = exact_next(model, torch.tensor([candidate_input], dtype=torch.long), candidate_cache, len(candidate_ids) - len(candidate_input))
         comparison = metrics(baseline_logits, candidate_logits)
@@ -252,8 +261,13 @@ def compare_request(model, tokenizer, source, prompt, input_ids, max_new_tokens,
     candidate_total = sum(entry["candidateSeconds"] for entry in steps)
     peak_rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     peak_rss_bytes = int(peak_rss if platform.system() == "Darwin" else peak_rss * 1024)
+    if session_id is not None:
+        COMPARISON_SESSIONS.pop(session_id, None)
+        COMPARISON_SESSIONS[session_id] = {"baseline_token_ids": baseline_ids[:-1], "candidate_token_ids": candidate_ids[:-1], "baseline_cache": baseline_cache, "candidate_cache": candidate_cache}
+        while len(COMPARISON_SESSIONS) > COMPARISON_SESSION_LIMIT:
+            COMPARISON_SESSIONS.popitem(last=False)
     return {
-        "kind": "gemma4-exact-real-simplified-differential", "schemaVersion": 6,
+        "kind": "gemma4-exact-real-simplified-differential", "schemaVersion": 7,
         "source": str(Path(source).resolve()), "inputIds": [parsed_input_ids], "prompt": prompt,
         "baseline": "Transformers eager BF16 with declared intermediate rounding",
         "candidate": f"{precision.upper()} tensor operations from common BF16 embedding/PLE boundaries; BF16 RNE only at terminal logits",
@@ -266,6 +280,8 @@ def compare_request(model, tokenizer, source, prompt, input_ids, max_new_tokens,
         "generatedTokensEqual": baseline_generated == candidate_generated,
         "firstDivergentStep": next((entry["step"] for entry in steps if entry["baselineToken"] != entry["candidateToken"]), None),
         "steps": steps, "elapsedSeconds": time.time() - started,
+        "sessionId": session_id, "baselinePrefixTokensReused": baseline_reused, "candidatePrefixTokensReused": candidate_reused,
+        "baselinePrefillTokensComputed": len(parsed_input_ids) - baseline_reused, "candidatePrefillTokensComputed": len(parsed_input_ids) - candidate_reused,
         "performance": {
             "baselineSeconds": baseline_total, "candidateSeconds": candidate_total,
             "baselineTokensPerSecond": max_new_tokens / baseline_total,
@@ -291,8 +307,14 @@ def main():
                     if not isinstance(token_ids, list) or any(not isinstance(token, int) or token < 0 for token in token_ids):
                         raise ValueError("tokenIds must be an array of non-negative integers")
                     report = {"text": tokenizer.decode(token_ids, skip_special_tokens=True)}
+                elif request.get("mode") == "encode":
+                    text = request.get("text")
+                    add_special_tokens = request.get("addSpecialTokens", True)
+                    if not isinstance(text, str) or not text or not isinstance(add_special_tokens, bool):
+                        raise ValueError("encode requires non-empty text and boolean addSpecialTokens")
+                    report = {"tokenIds": tokenizer.encode(text, add_special_tokens=add_special_tokens)}
                 else:
-                    report = compare_request(model, tokenizer, args.source, request.get("prompt"), request.get("inputIds"), int(request.get("maxNewTokens", 1)), request.get("inspectLogit", []), int(request.get("threads", 0)), request.get("precision", "f64"), request.get("roundingPolicy", "none"))
+                    report = compare_request(model, tokenizer, args.source, request.get("prompt"), request.get("inputIds"), int(request.get("maxNewTokens", 1)), request.get("inspectLogit", []), int(request.get("threads", 0)), request.get("precision", "f64"), request.get("roundingPolicy", "none"), request.get("sessionId"))
                 print(json.dumps({"id": request.get("id"), "report": report}), flush=True)
             except Exception as error:
                 print(json.dumps({"id": request.get("id") if "request" in locals() else None, "error": str(error)}), flush=True)

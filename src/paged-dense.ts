@@ -38,7 +38,7 @@ export interface PagedLinearTileKernel {
   fusedTokenForwardStorageReferences?: ((request: PagedFusedTokenForwardRequest) => Promise<PagedFusedTokenForwardResult>) | undefined;
   fusedTokenGenerationStorageReferences?: ((request: PagedFusedTokenGenerationRequest) => Promise<PagedFusedTokenGenerationResult>) | undefined;
   compiledTokenGenerationReady?: (() => boolean) | undefined;
-  compiledTokenGeneration?: ((tokenIds: Int32Array, maxNewTokens: number, topK: number, eosTokenId?: number) => Promise<PagedFusedTokenGenerationResult>) | undefined;
+  compiledTokenGeneration?: ((tokenIds: Int32Array, maxNewTokens: number, topK: number, options?: PagedCompiledTokenGenerationOptions) => Promise<PagedFusedTokenGenerationResult>) | undefined;
 }
 
 export interface PagedFusedFfnRequest {
@@ -249,6 +249,24 @@ export interface PagedFusedTokenGenerationResult {
   topLogits: Float32Array;
   terminalLogitsSha256: string;
   residentKvBytes: number;
+  prefixTokensReused: number;
+  prefillTokensComputed: number;
+  sessionCacheHit: boolean;
+  cachedContextTokens: number;
+}
+
+export interface PagedTokenGenerationEvent {
+  step: number;
+  tokenId: number;
+  forwardSeconds: number;
+  topTokenIds: Int32Array;
+  topLogits: Float32Array;
+}
+
+export interface PagedCompiledTokenGenerationOptions {
+  eosTokenId?: number;
+  sessionId?: number;
+  onToken?: (event: PagedTokenGenerationEvent) => void;
 }
 
 export interface PagedLinearStorageReference {

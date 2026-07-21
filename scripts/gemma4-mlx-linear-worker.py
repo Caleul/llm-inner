@@ -19,6 +19,9 @@ FUSED_DECODER_STACK_EPILOGUE_FLAG = 0x00080000
 FUSED_TOKEN_FORWARD_FLAG = 0x00040000
 FUSED_TOKEN_GENERATION_FLAG = 0x00020000
 COMPILED_TOKEN_GENERATION_FLAG = 0x00010000
+SESSION_TOKEN_GENERATION_FLAG = 0x00008000
+STREAM_TOKEN_GENERATION_FLAG = 0x00004000
+STREAM_TOKEN_FRAME = 0x544F4B4E
 FUSED_PLE_PRELUDE_FLAG = 0x01000000
 _widened_tensor_cache = {}
 _widened_tensor_cache_hits = 0
@@ -27,6 +30,7 @@ _shard_sizes = {}
 _binary_files = {}
 _embedding_row_cache = OrderedDict()
 _resident_generation_model = None
+_resident_generation_session = None
 EMBEDDING_ROW_CACHE_LIMIT = 4096
 
 
@@ -381,7 +385,8 @@ def prefill_topology_mask(config, query_sequence):
     return mx.array(values)
 
 
-def emit_resident_generation(model, result, produced_caches, logits, first_forward_seconds, max_new_tokens, eos_token_id, top_k, cache_hits_before):
+def emit_resident_generation(model, result, produced_caches, logits, first_forward_seconds, max_new_tokens, eos_token_id, top_k, cache_hits_before, input_token_ids, session_id=None, stream=False, prefix_tokens_reused=0, prefill_tokens_computed=None):
+    global _resident_generation_session
     generated_ids, forward_seconds, top_ids, top_values = [], [first_forward_seconds], [], []
     terminal_values = None
     while len(generated_ids) < max_new_tokens:
@@ -389,6 +394,11 @@ def emit_resident_generation(model, result, produced_caches, logits, first_forwa
         generated_ids.append(token_id)
         top_ids.append(ranked_ids)
         top_values.append(ranked_values)
+        if stream:
+            sys.stdout.buffer.write(struct.pack("<IIf", STREAM_TOKEN_FRAME, token_id, forward_seconds[-1]))
+            sys.stdout.buffer.write(ranked_ids.astype(np.int32).tobytes(order="C"))
+            sys.stdout.buffer.write(ranked_values.astype(np.float32).tobytes(order="C"))
+            sys.stdout.buffer.flush()
         if len(generated_ids) == max_new_tokens or token_id == eos_token_id:
             break
         incremental_started = time.perf_counter()
@@ -419,17 +429,38 @@ def emit_resident_generation(model, result, produced_caches, logits, first_forwa
             raise ValueError("MLX resident generation produced non-finite state")
         forward_seconds.append(time.perf_counter() - incremental_started)
     resident_kv_bytes = sum((key.size + value.size) * 4 for key, value in produced_caches.values())
-    write_bytes(np.asarray(generated_ids, dtype=np.int32).tobytes(order="C"))
-    write_bytes(np.asarray(forward_seconds, dtype=np.float32).tobytes(order="C"))
-    write_bytes(np.stack(top_ids).astype(np.int32).tobytes(order="C"))
-    write_bytes(np.stack(top_values).astype(np.float32).tobytes(order="C"))
+    if session_id is not None:
+        cached_tokens = np.concatenate((np.asarray(input_token_ids, dtype=np.int32).reshape(-1), np.asarray(generated_ids[:-1], dtype=np.int32)))
+        _resident_generation_session = {"id": session_id, "token_ids": cached_tokens, "caches": produced_caches}
+    if stream:
+        sys.stdout.buffer.write(struct.pack("<I", 0))
+    else:
+        write_bytes(np.asarray(generated_ids, dtype=np.int32).tobytes(order="C"))
+        write_bytes(np.asarray(forward_seconds, dtype=np.float32).tobytes(order="C"))
+        write_bytes(np.stack(top_ids).astype(np.int32).tobytes(order="C"))
+        write_bytes(np.stack(top_values).astype(np.float32).tobytes(order="C"))
     write_bytes(hashlib.sha256(np.asarray(terminal_values, dtype=np.float32).tobytes(order="C")).digest())
-    profile = np.array((0, 0, 0, 0, _widened_tensor_cache_hits - cache_hits_before, len(_widened_tensor_cache), _widened_tensor_cache_bytes, resident_kv_bytes), dtype=np.float32)
+    computed = len(np.asarray(input_token_ids).reshape(-1)) if prefill_tokens_computed is None else prefill_tokens_computed
+    cached_context_tokens = len(_resident_generation_session["token_ids"]) if session_id is not None else len(np.asarray(input_token_ids).reshape(-1)) + len(generated_ids) - 1
+    profile = np.array((0, 0, 0, 0, _widened_tensor_cache_hits - cache_hits_before, len(_widened_tensor_cache), _widened_tensor_cache_bytes, resident_kv_bytes, prefix_tokens_reused, computed, 1 if prefix_tokens_reused else 0, cached_context_tokens), dtype=np.float32)
     write_float_tensor(mx.array(profile))
     sys.stdout.buffer.flush()
 
 
-def execute_compiled_token_generation(pool, shards, token_ids, max_new_tokens, eos_token_id, top_k):
+def continuation_topology_mask(config, query_sequence, key_sequence, absolute_start):
+    values = np.zeros((1, config["mask_heads"], query_sequence, key_sequence), dtype=np.float32)
+    for query in range(query_sequence):
+        absolute_position = absolute_start + query
+        first_key = max(0, absolute_position - config["sliding_window"] + 1) if config["sliding_window"] else 0
+        last_key = min(absolute_position, key_sequence - 1) if config["causal"] else key_sequence - 1
+        if first_key:
+            values[..., query, :first_key] = -np.inf
+        if last_key + 1 < key_sequence:
+            values[..., query, last_key + 1:] = -np.inf
+    return mx.array(values)
+
+
+def execute_compiled_token_generation(pool, shards, token_ids, max_new_tokens, eos_token_id, top_k, session_id=None, stream=False):
     model = _resident_generation_model
     if model is None:
         raise ValueError("MLX resident generation model is not compiled")
@@ -438,17 +469,28 @@ def execute_compiled_token_generation(pool, shards, token_ids, max_new_tokens, e
     if eos_token_id is not None and (eos_token_id < 0 or eos_token_id >= model["vocabulary_size"]):
         raise ValueError("MLX compiled generation EOS is outside the vocabulary")
     cache_hits_before, started = _widened_tensor_cache_hits, time.perf_counter()
+    global _resident_generation_session
     model["prompt_length"] = token_ids.shape[1]
-    result, all_per_layer = model["execute_token_prelude"](token_ids)
-    positions = mx.array(np.arange(token_ids.shape[1], dtype=np.int32).reshape(1, -1))
+    reusable = _resident_generation_session if session_id is not None and _resident_generation_session is not None and _resident_generation_session["id"] == session_id else None
+    cached_count = len(reusable["token_ids"]) if reusable is not None else 0
+    if reusable is not None and (cached_count >= token_ids.shape[1] or not np.array_equal(token_ids.reshape(-1)[:cached_count], reusable["token_ids"])):
+        reusable = None
+        cached_count = 0
+    current_token_ids = token_ids[:, cached_count:] if reusable is not None else token_ids
+    result, all_per_layer = model["execute_token_prelude"](current_token_ids)
+    positions = mx.array(np.arange(cached_count, token_ids.shape[1], dtype=np.int32).reshape(1, -1))
     produced_caches, all_valid = {}, mx.array(True)
     for layer_index, (config, weights) in enumerate(model["layer_plans"]):
         if config["produces_kv"]:
-            source_key = mx.zeros((1, config["key_value_heads"], 0, config["head_dim"]), dtype=mx.float32)
-            source_value = mx.zeros((1, config["key_value_heads"], 0, config["head_dim"]), dtype=mx.float32)
+            if reusable is not None:
+                source_key, source_value = reusable["caches"][layer_index]
+            else:
+                source_key = mx.zeros((1, config["key_value_heads"], 0, config["head_dim"]), dtype=mx.float32)
+                source_value = mx.zeros((1, config["key_value_heads"], 0, config["head_dim"]), dtype=mx.float32)
         else:
             source_key, source_value = produced_caches[config["producer_layer"]]
-        mask = prefill_topology_mask(config, token_ids.shape[1])
+        key_sequence = source_key.shape[2] + (current_token_ids.shape[1] if config["produces_kv"] else 0)
+        mask = continuation_topology_mask(config, current_token_ids.shape[1], key_sequence, cached_count) if reusable is not None else prefill_topology_mask(config, token_ids.shape[1])
         result, key, value, valid, _ = execute_decoder_layer_mlx(pool, shards, result, all_per_layer[:, :, layer_index, :], positions, mask, source_key, source_value, config, weights)
         all_valid = all_valid & valid
         if config["produces_kv"]:
@@ -461,7 +503,7 @@ def execute_compiled_token_generation(pool, shards, token_ids, max_new_tokens, e
     mx.eval(*evaluation)
     if not bool(np.asarray(logits_valid & all_valid).item()):
         raise ValueError("MLX compiled generation prefill produced non-finite state")
-    emit_resident_generation(model, result, produced_caches, logits, time.perf_counter() - started, max_new_tokens, eos_token_id, top_k, cache_hits_before)
+    emit_resident_generation(model, result, produced_caches, logits, time.perf_counter() - started, max_new_tokens, eos_token_id, top_k, cache_hits_before, token_ids, session_id, stream, cached_count, current_token_ids.shape[1])
 
 
 def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, native_bf16_ple, fused_epilogue, fused_token_forward, fused_token_generation):
@@ -575,7 +617,7 @@ def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, 
     if generation is not None:
         global _resident_generation_model
         _resident_generation_model = {"pool": pool, "shards": shards, "execute_token_prelude": execute_token_prelude, "layer_plans": layer_plans, "epilogue": epilogue, "vocabulary_size": vocabulary_size, "prompt_length": query_sequence}
-        emit_resident_generation(_resident_generation_model, result, produced_caches, logits, time.perf_counter() - request_started, generation["max_new_tokens"], generation["eos_token_id"], generation["top_k"], cache_hits_before)
+        emit_resident_generation(_resident_generation_model, result, produced_caches, logits, time.perf_counter() - request_started, generation["max_new_tokens"], generation["eos_token_id"], generation["top_k"], cache_hits_before, token_ids)
         return
     if not fused_token_forward:
         write_float_tensor(result)
@@ -656,13 +698,19 @@ def main():
             continue
         compiled_token_generation = bool(encoded_dtype & COMPILED_TOKEN_GENERATION_FLAG)
         if compiled_token_generation:
-            if referenced or batched or fused_mlp or native_bf16 or native_attention or fused_attention or dtype_code != COMPILED_TOKEN_GENERATION_FLAG:
+            session_generation = bool(encoded_dtype & SESSION_TOKEN_GENERATION_FLAG)
+            stream_generation = bool(encoded_dtype & STREAM_TOKEN_GENERATION_FLAG)
+            expected_code = COMPILED_TOKEN_GENERATION_FLAG | (SESSION_TOKEN_GENERATION_FLAG if session_generation else 0) | (STREAM_TOKEN_GENERATION_FLAG if stream_generation else 0)
+            if referenced or batched or fused_mlp or native_bf16 or native_attention or fused_attention or dtype_code != expected_code:
                 raise ValueError("MLX compiled generation flags are invalid")
             if not rows or not outputs or not features or outputs > 4096 or features > 64:
                 raise ValueError("MLX compiled generation topology is invalid")
             eos_plus_one = struct.unpack("<I", read_exact(4))[0]
+            session_id = struct.unpack("<I", read_exact(4))[0] if session_generation else None
+            if session_generation and session_id == 0:
+                raise ValueError("MLX compiled generation session id is invalid")
             token_ids = np.frombuffer(read_exact(rows * 4), dtype=np.int32).reshape(1, rows)
-            execute_compiled_token_generation(pool, shards, token_ids, outputs, None if eos_plus_one == 0 else eos_plus_one - 1, features)
+            execute_compiled_token_generation(pool, shards, token_ids, outputs, None if eos_plus_one == 0 else eos_plus_one - 1, features, session_id, stream_generation)
             continue
         fused_decoder_stack = bool(encoded_dtype & FUSED_DECODER_STACK_FLAG)
         if fused_decoder_stack:

@@ -16,7 +16,7 @@ import {
   type Gemma4LiteralGenerationExecutionResult,
 } from "./gemma4-literal-generation.js";
 import { validateGemma4LiteralGenerationProgram } from "./gemma4-composite-literal.js";
-import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearBatchF32, pagedLinearF32, readPagedDenseF32Vector, roundDenseF32ToBF16, type PagedFusedDecoderStackResult, type PagedFusedTokenForwardRequest, type PagedFusedTokenGenerationResult, type PagedLinearTileKernel } from "./paged-dense.js";
+import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearBatchF32, pagedLinearF32, readPagedDenseF32Vector, roundDenseF32ToBF16, type PagedCompiledTokenGenerationOptions, type PagedFusedDecoderStackResult, type PagedFusedTokenForwardRequest, type PagedFusedTokenGenerationResult, type PagedLinearTileKernel } from "./paged-dense.js";
 import type {
   DenseF32Tensor,
   Operation,
@@ -85,6 +85,10 @@ export interface Gemma4PagedNativeGenerationResult {
   topLogits: Array<Array<{ tokenId: number; value: number }>>;
   terminalLogitsSha256: string;
   residentKvBytes: number;
+  prefixTokensReused: number;
+  prefillTokensComputed: number;
+  sessionCacheHit: boolean;
+  cachedContextTokens: number;
 }
 
 /**
@@ -910,6 +914,7 @@ export async function generateGemma4PagedTextLiteralNativeF32(
   request: Gemma4PagedTextGenerationRequest,
   options: Gemma4PagedTextOptions = {},
   topK = 5,
+  generationOptions: PagedCompiledTokenGenerationOptions = {},
 ): Promise<Gemma4PagedNativeGenerationResult> {
   assertExecutionFidelityAcknowledged(artifact, options);
   if (!validatedNativeGenerationArtifacts.has(artifact)) {
@@ -928,8 +933,9 @@ export async function generateGemma4PagedTextLiteralNativeF32(
   let result: PagedFusedTokenGenerationResult | undefined;
   if (kernel.compiledTokenGenerationReady?.() && kernel.compiledTokenGeneration) {
     const tokenIds = new Int32Array(request.inputIds[0]!);
-    result = await kernel.compiledTokenGeneration(tokenIds, request.maxNewTokens, topK, request.eosTokenId);
+    result = await kernel.compiledTokenGeneration(tokenIds, request.maxNewTokens, topK, { ...generationOptions, ...(request.eosTokenId === undefined ? {} : { eosTokenId: request.eosTokenId }) });
   } else {
+    if (generationOptions.sessionId !== undefined || generationOptions.onToken !== undefined) throw new Error("Sessão e streaming exigem que o plano nativo esteja previamente compilado.");
     const tokenForwardPrelude = matchFusedTokenForwardPrelude(artifact, request.inputIds, options.maxReadBytes ?? 16 * 1024 * 1024, options.fusedTokenForwardRounding);
     const execution = await executePagedOperations(
       artifact,
@@ -946,13 +952,17 @@ export async function generateGemma4PagedTextLiteralNativeF32(
   }
   if (!result) throw new Error("Geração nativa residente não retornou resultado.");
   const count = result.generatedTokenIds.length;
-  if (count < 1 || count > request.maxNewTokens || result.forwardSeconds.length !== count || result.topTokenIds.length !== count * topK || result.topLogits.length !== count * topK || !/^[0-9a-f]{64}$/.test(result.terminalLogitsSha256) || !Number.isSafeInteger(result.residentKvBytes) || result.residentKvBytes < 0 || result.generatedTokenIds.some((token) => token < 0 || token >= artifact.program.contract.text.vocabSize) || result.topTokenIds.some((token) => token < 0 || token >= artifact.program.contract.text.vocabSize) || result.forwardSeconds.some((seconds) => !Number.isFinite(seconds) || seconds < 0) || result.topLogits.some((value) => !Number.isFinite(value))) throw new Error("Geração nativa residente retornou payload incompatível.");
+  if (count < 1 || count > request.maxNewTokens || result.forwardSeconds.length !== count || result.topTokenIds.length !== count * topK || result.topLogits.length !== count * topK || !/^[0-9a-f]{64}$/.test(result.terminalLogitsSha256) || !Number.isSafeInteger(result.residentKvBytes) || result.residentKvBytes < 0 || !Number.isSafeInteger(result.prefixTokensReused) || result.prefixTokensReused < 0 || !Number.isSafeInteger(result.prefillTokensComputed) || result.prefillTokensComputed < 1 || typeof result.sessionCacheHit !== "boolean" || !Number.isSafeInteger(result.cachedContextTokens) || result.cachedContextTokens < 1 || result.generatedTokenIds.some((token) => token < 0 || token >= artifact.program.contract.text.vocabSize) || result.topTokenIds.some((token) => token < 0 || token >= artifact.program.contract.text.vocabSize) || result.forwardSeconds.some((seconds) => !Number.isFinite(seconds) || seconds < 0) || result.topLogits.some((value) => !Number.isFinite(value))) throw new Error("Geração nativa residente retornou payload incompatível.");
   return {
     generatedTokenIds: [...result.generatedTokenIds],
     forwardSeconds: [...result.forwardSeconds],
     topLogits: Array.from({ length: count }, (_, step) => Array.from({ length: topK }, (_, rank) => ({ tokenId: result.topTokenIds[step * topK + rank]!, value: result.topLogits[step * topK + rank]! }))),
     terminalLogitsSha256: result.terminalLogitsSha256,
     residentKvBytes: result.residentKvBytes,
+    prefixTokensReused: result.prefixTokensReused,
+    prefillTokensComputed: result.prefillTokensComputed,
+    sessionCacheHit: result.sessionCacheHit,
+    cachedContextTokens: result.cachedContextTokens,
   };
 }
 

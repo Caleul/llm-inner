@@ -410,6 +410,60 @@ npm run calibrate:gemma4-real -- \
   --precision f32 --rounding-policy none
 ```
 
+## Sessão de chat com prefixo KV e streaming real
+
+A geração residente deixou de ser uma resposta atômica. O worker MLX agora
+emite um frame binário por token assim que o argmax termina e só depois publica
+o hash terminal e o perfil agregado. O runtime converte cada frame em uma linha
+JSONL `event`; `/api/compare-stream` repassa essas linhas como NDJSON, e a
+interface atualiza imediatamente a coluna do compilado antes de receber o
+relatório final. O callback é drenado de forma fail-safe: mesmo se o consumidor
+falhar, o runtime consome o restante da resposta binária antes de devolver o
+erro, preservando o alinhamento do canal persistente.
+
+Uma sessão identificada mantém o KV cache dentro de cada executor. O servidor
+guarda os IDs completos do turno anterior e tokeniza a nova mensagem sem um
+novo BOS. A reutilização só ocorre quando o novo vetor começa exatamente pelo
+prefixo associado à sessão e ainda possui ao menos um token novo. Se ID,
+comprimento ou qualquer token divergir, o worker abandona o cache e executa um
+prefill integral. O protocolo não transporta K/V: envia somente `sessionId`, os
+IDs completos e os parâmetros de geração.
+
+Transformers eager, o cálculo de compatibilidade e o runtime direto mantêm
+caches independentes. Isso é necessário porque comparar uma continuação
+incremental contra um controle que recompõe o prefixo inteiro usa árvores de
+execução diferentes e pode alterar bits de logits mesmo quando os tokens são
+iguais. A comparação da interface agora usa a mesma semântica autoregressiva
+nos três caminhos e publica `baselinePrefixTokensReused`,
+`candidatePrefixTokensReused`, `prefixTokensReused`, `prefillTokensComputed`,
+`sessionCacheHit` e `cachedContextTokens`.
+
+A validação real de dois turnos começou com `The capital of France is` e
+quatro tokens. Os eventos chegaram antes do relatório como
+`[496,3207,600,563]`, idênticos aos três resultados finais. No turno seguinte,
+` full of` foi acrescentado à sessão:
+
+- os três executores reutilizaram 9 tokens e calcularam somente 3 tokens de
+  prefill;
+- streaming, direto, compatibilidade e Transformers produziram exatamente
+  `[4083,532,6540,236761]`;
+- o direto permaneceu em uma requisição externa e zero bytes de transporte KV;
+- o direto levou `0,3899 s`, contra `1,4570 s` do baseline medido na mesma
+  continuação.
+
+Um controle direto mais longo isolou o custo de prefill: depois de 32 tokens
+gerados, a continuação reutilizou 37 tokens e calculou 2, enquanto uma nova
+sessão calculou os 39. Ambas selecionaram exatamente
+`[529,28605,236761,1030]`; o tempo caiu de `0,3645 s` para `0,2651 s`, redução
+de `27,3%`. O hash terminal não foi usado como critério entre esses dois casos,
+pois cache incremental e prefill integral são ordens de execução distintas; a
+prova de chat acima compara corretamente os três runtimes com cache incremental.
+
+Evidência persistida:
+
+- `artifacts/gemma4-chat-session-stream-validation.json`.
+- `artifacts/gemma4-resident-prefix-stream-32-validation.json`.
+
 ## Paginação independente da projeção terminal
 
 Depois das fusões de attention, MLP e PLE, o `lm_head` passou a responder por

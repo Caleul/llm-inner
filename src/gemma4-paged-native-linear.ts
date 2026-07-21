@@ -2,7 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { once } from "node:events";
 import { endianness } from "node:os";
 import { resolve } from "node:path";
-import type { PagedFusedAttentionRequest, PagedFusedAttentionResult, PagedFusedDecoderLayerRequest, PagedFusedDecoderLayerResult, PagedFusedDecoderStackEpilogueRequest, PagedFusedDecoderStackEpilogueResult, PagedFusedDecoderStackRequest, PagedFusedDecoderStackResult, PagedFusedFfnRequest, PagedFusedPlePreludeRequest, PagedFusedPleRequest, PagedFusedTokenForwardRequest, PagedFusedTokenForwardResult, PagedFusedTokenGenerationRequest, PagedFusedTokenGenerationResult, PagedLinearStorageReference, PagedLinearTileKernel, PagedNativeAttentionRequest } from "./paged-dense.js";
+import type { PagedCompiledTokenGenerationOptions, PagedFusedAttentionRequest, PagedFusedAttentionResult, PagedFusedDecoderLayerRequest, PagedFusedDecoderLayerResult, PagedFusedDecoderStackEpilogueRequest, PagedFusedDecoderStackEpilogueResult, PagedFusedDecoderStackRequest, PagedFusedDecoderStackResult, PagedFusedFfnRequest, PagedFusedPlePreludeRequest, PagedFusedPleRequest, PagedFusedTokenForwardRequest, PagedFusedTokenForwardResult, PagedFusedTokenGenerationRequest, PagedFusedTokenGenerationResult, PagedLinearStorageReference, PagedLinearTileKernel, PagedNativeAttentionRequest } from "./paged-dense.js";
 import type { TensorInfo } from "./types.js";
 
 const STORAGE_REFERENCE_FLAG = 0x8000_0000;
@@ -21,6 +21,9 @@ const FUSED_DECODER_STACK_EPILOGUE_FLAG = 0x0008_0000;
 const FUSED_TOKEN_FORWARD_FLAG = 0x0004_0000;
 const FUSED_TOKEN_GENERATION_FLAG = 0x0002_0000;
 const COMPILED_TOKEN_GENERATION_FLAG = 0x0001_0000;
+const SESSION_TOKEN_GENERATION_FLAG = 0x0000_8000;
+const STREAM_TOKEN_GENERATION_FLAG = 0x0000_4000;
+const STREAM_TOKEN_FRAME = 0x544f_4b4e;
 
 export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
   readonly backend: string;
@@ -120,7 +123,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
         this.fusedTokenForwardStorageReferences = (request) => this.#requestTokenForward(request);
         this.fusedTokenGenerationStorageReferences = (request) => this.#requestTokenGeneration(request);
         this.compiledTokenGenerationReady = () => this.#compiledTokenGenerationReady;
-        this.compiledTokenGeneration = (tokenIds, maxNewTokens, topK, eosTokenId) => this.#requestCompiledTokenGeneration(tokenIds, maxNewTokens, topK, eosTokenId);
+        this.compiledTokenGeneration = (tokenIds, maxNewTokens, topK, generationOptions) => this.#requestCompiledTokenGeneration(tokenIds, maxNewTokens, topK, generationOptions);
         this.fusedPlePreludeStorageReference = (request) => this.#requestFusedPlePrelude(request);
       }
       if (backend === "pytorch") {
@@ -302,17 +305,21 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     return result.generation;
   }
 
-  async #requestCompiledTokenGeneration(tokenIds: Int32Array, maxNewTokens: number, topK: number, eosTokenId?: number): Promise<PagedFusedTokenGenerationResult> {
+  async #requestCompiledTokenGeneration(tokenIds: Int32Array, maxNewTokens: number, topK: number, options: PagedCompiledTokenGenerationOptions = {}): Promise<PagedFusedTokenGenerationResult> {
+    const { eosTokenId, sessionId, onToken } = options;
     if (!this.#compiledTokenGenerationReady) throw new Error("Plano nativo de geração ainda não foi compilado.");
-    if (this.#active || tokenIds.length < 1 || !Number.isSafeInteger(maxNewTokens) || maxNewTokens < 1 || maxNewTokens > 4096 || !Number.isSafeInteger(topK) || topK < 1 || topK > 64 || tokenIds.some((token) => token < 0) || (eosTokenId !== undefined && (!Number.isSafeInteger(eosTokenId) || eosTokenId < 0))) throw new Error("Requisição ao plano nativo compilado é inválida.");
+    if (this.#active || tokenIds.length < 1 || !Number.isSafeInteger(maxNewTokens) || maxNewTokens < 1 || maxNewTokens > 4096 || !Number.isSafeInteger(topK) || topK < 1 || topK > 64 || tokenIds.some((token) => token < 0) || (eosTokenId !== undefined && (!Number.isSafeInteger(eosTokenId) || eosTokenId < 0)) || (sessionId !== undefined && (!Number.isSafeInteger(sessionId) || sessionId < 1 || sessionId > 0xffff_ffff)) || (onToken !== undefined && typeof onToken !== "function")) throw new Error("Requisição ao plano nativo compilado é inválida.");
     this.#active = true;
     const started = performance.now();
     try {
       this.#fusedTokenGenerationDispatches += 1;
-      const header = Buffer.allocUnsafe(16); header.writeUInt32LE(tokenIds.length, 0); header.writeUInt32LE(maxNewTokens, 4); header.writeUInt32LE(topK, 8); header.writeUInt32LE(COMPILED_TOKEN_GENERATION_FLAG, 12);
+      const flags = COMPILED_TOKEN_GENERATION_FLAG + (sessionId === undefined ? 0 : SESSION_TOKEN_GENERATION_FLAG) + (onToken === undefined ? 0 : STREAM_TOKEN_GENERATION_FLAG);
+      const header = Buffer.allocUnsafe(16); header.writeUInt32LE(tokenIds.length, 0); header.writeUInt32LE(maxNewTokens, 4); header.writeUInt32LE(topK, 8); header.writeUInt32LE(flags, 12);
       const metadata = Buffer.allocUnsafe(4); metadata.writeUInt32LE(eosTokenId === undefined ? 0 : eosTokenId + 1, 0);
-      await this.#write(header); await this.#write(metadata); await this.#write(Buffer.from(tokenIds.buffer, tokenIds.byteOffset, tokenIds.byteLength));
-      return await this.#readTokenGenerationResult(maxNewTokens, topK);
+      await this.#write(header); await this.#write(metadata);
+      if (sessionId !== undefined) { const session = Buffer.allocUnsafe(4); session.writeUInt32LE(sessionId, 0); await this.#write(session); }
+      await this.#write(Buffer.from(tokenIds.buffer, tokenIds.byteOffset, tokenIds.byteLength));
+      return onToken ? await this.#readStreamingTokenGenerationResult(maxNewTokens, topK, onToken) : await this.#readTokenGenerationResult(maxNewTokens, topK);
     } finally { this.#fusedDecoderStackSeconds += (performance.now() - started) / 1000; this.#active = false; }
   }
 
@@ -614,13 +621,40 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     const topTokenIds = await this.#readInt32Vector(generatedTokenIds.length * topK, true);
     const topLogits = await this.#readFloat32Vector(generatedTokenIds.length * topK);
     const terminalHash = await this.#readPayload(32);
-    const profile = await this.#readResult(1, 8);
-    const widenedCacheHits = profile[4]!, widenedCacheEntries = profile[5]!, widenedCacheBytes = profile[6]!, residentKvBytes = profile[7]!;
-    if (profile.some((value) => !Number.isFinite(value) || value < 0) || !Number.isInteger(widenedCacheHits) || !Number.isInteger(widenedCacheEntries) || !Number.isSafeInteger(widenedCacheBytes) || !Number.isSafeInteger(residentKvBytes)) throw new Error("Worker linear retornou perfil inválido para a geração residente.");
+    const profile = await this.#readGenerationProfile();
+    const { widenedCacheHits, widenedCacheEntries, widenedCacheBytes, residentKvBytes, prefixTokensReused, prefillTokensComputed, sessionCacheHit, cachedContextTokens } = profile;
     this.#fusedDecoderStackWidenedCacheHits += widenedCacheHits;
     this.#widenedTensorCacheEntries = widenedCacheEntries;
     this.#widenedTensorCacheBytes = widenedCacheBytes;
-    return { generatedTokenIds, forwardSeconds, topTokenIds, topLogits, terminalLogitsSha256: terminalHash.toString("hex"), residentKvBytes };
+    return { generatedTokenIds, forwardSeconds, topTokenIds, topLogits, terminalLogitsSha256: terminalHash.toString("hex"), residentKvBytes, prefixTokensReused, prefillTokensComputed, sessionCacheHit, cachedContextTokens };
+  }
+
+  async #readStreamingTokenGenerationResult(maxNewTokens: number, topK: number, onToken: NonNullable<PagedCompiledTokenGenerationOptions["onToken"]>): Promise<PagedFusedTokenGenerationResult> {
+    const tokens: number[] = [], seconds: number[] = [], ids: number[] = [], logits: number[] = []; let callbackError: Error | undefined;
+    while (true) {
+      const marker = (await this.#read(4)).readUInt32LE(0);
+      if (marker === 0) break;
+      if (marker !== STREAM_TOKEN_FRAME || tokens.length >= maxNewTokens) throw new Error("Worker linear retornou frame de token inválido.");
+      const scalar = await this.#read(8), tokenId = scalar.readUInt32LE(0), forwardSeconds = scalar.readFloatLE(4);
+      const topTokenBytes = await this.#read(topK * 4), topLogitBytes = await this.#read(topK * 4);
+      const topTokenCopy = new Uint8Array(topTokenBytes.length), topLogitCopy = new Uint8Array(topLogitBytes.length); topTokenCopy.set(topTokenBytes); topLogitCopy.set(topLogitBytes);
+      const topTokenIds = new Int32Array(topTokenCopy.buffer), topLogits = new Float32Array(topLogitCopy.buffer), step = tokens.length;
+      if (!Number.isSafeInteger(tokenId) || !Number.isFinite(forwardSeconds) || forwardSeconds < 0 || topTokenIds.some((value) => value < 0) || topLogits.some((value) => !Number.isFinite(value))) throw new Error("Worker linear retornou dados inválidos no frame de token.");
+      tokens.push(tokenId); seconds.push(forwardSeconds); ids.push(...topTokenIds); logits.push(...topLogits);
+      if (!callbackError) try { onToken({ step, tokenId, forwardSeconds, topTokenIds, topLogits }); } catch (error) { callbackError = error instanceof Error ? error : new Error(String(error)); }
+    }
+    if (tokens.length < 1) throw new Error("Worker linear encerrou streaming sem tokens.");
+    const terminalHash = await this.#readPayload(32), profile = await this.#readGenerationProfile();
+    this.#fusedDecoderStackWidenedCacheHits += profile.widenedCacheHits; this.#widenedTensorCacheEntries = profile.widenedCacheEntries; this.#widenedTensorCacheBytes = profile.widenedCacheBytes;
+    if (callbackError) throw callbackError;
+    return { generatedTokenIds: Int32Array.from(tokens), forwardSeconds: Float32Array.from(seconds), topTokenIds: Int32Array.from(ids), topLogits: Float32Array.from(logits), terminalLogitsSha256: terminalHash.toString("hex"), residentKvBytes: profile.residentKvBytes, prefixTokensReused: profile.prefixTokensReused, prefillTokensComputed: profile.prefillTokensComputed, sessionCacheHit: profile.sessionCacheHit, cachedContextTokens: profile.cachedContextTokens };
+  }
+
+  async #readGenerationProfile(): Promise<{ widenedCacheHits: number; widenedCacheEntries: number; widenedCacheBytes: number; residentKvBytes: number; prefixTokensReused: number; prefillTokensComputed: number; sessionCacheHit: boolean; cachedContextTokens: number }> {
+    const profile = await this.#readResult(1, 12);
+    const [widenedCacheHits, widenedCacheEntries, widenedCacheBytes, residentKvBytes, prefixTokensReused, prefillTokensComputed, sessionCacheHit, cachedContextTokens] = profile.subarray(4);
+    if (profile.some((value) => !Number.isFinite(value) || value < 0) || [widenedCacheHits, widenedCacheEntries, widenedCacheBytes, residentKvBytes, prefixTokensReused, prefillTokensComputed, sessionCacheHit, cachedContextTokens].some((value) => !Number.isSafeInteger(value)) || (sessionCacheHit !== 0 && sessionCacheHit !== 1)) throw new Error("Worker linear retornou perfil inválido para a geração residente.");
+    return { widenedCacheHits: widenedCacheHits!, widenedCacheEntries: widenedCacheEntries!, widenedCacheBytes: widenedCacheBytes!, residentKvBytes: residentKvBytes!, prefixTokensReused: prefixTokensReused!, prefillTokensComputed: prefillTokensComputed!, sessionCacheHit: sessionCacheHit === 1, cachedContextTokens: cachedContextTokens! };
   }
 
   async #readInt32Vector(maxOrExactCount: number, exact: boolean): Promise<Int32Array> {

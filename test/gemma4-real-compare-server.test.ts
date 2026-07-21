@@ -3,6 +3,7 @@ import test from "node:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Script } from "node:vm";
 import { gemma4RealCompareHtml } from "../src/gemma4-real-compare-ui.js";
 import { createGemma4RealComparisonServer, parseGemma4RealServerOptions } from "../src/gemma4-real-compare-server.js";
 
@@ -22,6 +23,9 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /gerações residentes/);
   assert.match(gemma4RealCompareHtml, /chamadas externas/);
   assert.match(gemma4RealCompareHtml, /transporte KV/);
+  assert.match(gemma4RealCompareHtml, /Continuar sessão compilada/);
+  assert.match(gemma4RealCompareHtml, /prefixo KV/);
+  assert.match(gemma4RealCompareHtml, /\/api\/compare-stream/);
   assert.match(gemma4RealCompareHtml, /Aquecendo o forward compilado no Metal/);
   assert.match(gemma4RealCompareHtml, /gate\+up unidos/);
   assert.match(gemma4RealCompareHtml, /cache de constantes F32/);
@@ -34,6 +38,7 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /tempo worker ref\/head\/attn\/MLP\/FFN\/layer\/stack\/PLE/);
   assert.match(gemma4RealCompareHtml, /Threads/);
   assert.match(gemma4RealCompareHtml, /\/api\/compare/);
+  const embedded = gemma4RealCompareHtml.match(/<script>([\s\S]*)<\/script>/)?.[1]; assert.ok(embedded); assert.doesNotThrow(() => new Script(embedded), "JavaScript embutido deve ser sintaticamente executável pelo navegador");
 });
 
 test("servidor integra geração direta persistente e decodifica seus tokens", async () => {
@@ -41,7 +46,7 @@ test("servidor integra geração direta persistente e decodifica seus tokens", a
   const transformer = join(directory, "transformer.mjs"), direct = join(directory, "direct.mjs");
   await writeFile(transformer, `import readline from "node:readline";
 console.log(JSON.stringify({ready:true,initializationSeconds:0.1}));
-readline.createInterface({input:process.stdin}).on("line",line=>{const r=JSON.parse(line);const report=r.mode==='decode'?{text:r.tokenIds.join('|')}:{inputIds:[[2]],baselineGeneratedTokenIds:[7]};console.log(JSON.stringify({id:r.id,report}));});\n`);
+readline.createInterface({input:process.stdin}).on("line",line=>{const r=JSON.parse(line);const report=r.mode==='decode'?{text:r.tokenIds.join('|')}:r.mode==='encode'?{tokenIds:[2]}:{inputIds:[[2]],baselineGeneratedTokenIds:[7]};console.log(JSON.stringify({id:r.id,report}));});\n`);
   await writeFile(direct, `import readline from "node:readline";
 console.log(JSON.stringify({ready:true,initializationSeconds:0.2}));
 let requests=0; readline.createInterface({input:process.stdin}).on("line",line=>{const r=JSON.parse(line);requests++;console.log(JSON.stringify({id:r.id,report:{generatedTokenIds:[7],fullTokenIds:[2,7],elapsedSeconds:1,tokensPerSecond:1,linearThreads:4,requests}}));});\n`);
@@ -55,6 +60,29 @@ let requests=0; readline.createInterface({input:process.stdin}).on("line",line=>
     assert.deepEqual(body.direct, { generatedTokenIds: [7], fullTokenIds: [2, 7], elapsedSeconds: 1, tokensPerSecond: 1, linearThreads: 4, requests: 2, generatedText: "7", fullText: "2|7", tokensEqualBaseline: true, firstDivergentStep: null });
     const status = await fetch(`http://127.0.0.1:${address.port}/api/status`).then((entry) => entry.json()) as { ready: boolean; direct: { warmupComplete: boolean; warmupSeconds: number } };
     assert.equal(status.ready, true); assert.equal(status.direct.warmupComplete, true); assert.ok(status.direct.warmupSeconds >= 0);
+  } finally { await new Promise<void>((accept, reject) => server.close((error) => error ? reject(error) : accept())); await rm(directory, { recursive: true, force: true }); }
+});
+
+test("streaming entrega tokens antes do relatório e reutiliza prefixo comprovado da sessão", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "gemma4-stream-session-test-"));
+  const transformer = join(directory, "transformer.mjs"), direct = join(directory, "direct.mjs");
+  await writeFile(transformer, `import readline from "node:readline";
+console.log(JSON.stringify({ready:true}));
+readline.createInterface({input:process.stdin}).on("line",line=>{const r=JSON.parse(line);let report;if(r.mode==='encode')report={tokenIds:r.addSpecialTokens?[2]:[9]};else if(r.mode==='decode')report={text:r.tokenIds.join('|')};else{const ids=String(r.inputIds).split(',').map(Number),token=ids.length>1?8:7;report={inputIds:[ids],baselineGeneratedTokenIds:[token],generatedTokensEqual:true,steps:[],performance:{baselineTokensPerSecond:1,candidateTokensPerSecond:1,candidateSpeedup:1,processPeakRssBytes:0},executionThreads:1,candidatePrecision:'f32',roundingPolicy:'none'};}console.log(JSON.stringify({id:r.id,report}));});\n`);
+  await writeFile(direct, `import readline from "node:readline";
+console.log(JSON.stringify({ready:true}));
+let warmed=false;readline.createInterface({input:process.stdin}).on("line",line=>{const r=JSON.parse(line),token=r.inputIds.length>1?8:7;if(r.stream)console.log(JSON.stringify({id:r.id,event:{type:'token',step:0,tokenId:token,forwardSeconds:0.01,topLogits:[]}}));const hit=r.inputIds.length>1;console.log(JSON.stringify({id:r.id,report:{generatedTokenIds:[token],fullTokenIds:[...r.inputIds,token],elapsedSeconds:0.01,tokensPerSecond:100,linearThreads:4,sessionCacheHit:hit,prefixTokensReused:hit?2:0,prefillTokensComputed:hit?r.inputIds.length-2:r.inputIds.length,cachedContextTokens:r.inputIds.length,receivedInputIds:r.inputIds}}));warmed=true;});\n`);
+  const server = createGemma4RealComparisonServer({ source: directory, python: process.execPath, helper: transformer, literalArtifact: "literal.json", binaryPool: directory, directWorker: direct, directLinearHelper: "unused.py" });
+  await new Promise<void>((accept) => server.listen(0, "127.0.0.1", accept));
+  try {
+    const address = server.address(); if (!address || typeof address === "string") throw new Error("Endereço HTTP ausente.");
+    const endpoint = `http://127.0.0.1:${address.port}/api/compare-stream`;
+    const stream = async (prompt: string, continueSession: boolean) => {
+      const response = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt, maxNewTokens: 1, sessionId: 41, continueSession }) });
+      assert.equal(response.status, 200); const lines = (await response.text()).trim().split("\n").map((line) => JSON.parse(line) as { type: string; event?: { tokenId: number }; data?: { direct: { receivedInputIds: number[]; sessionCacheHit: boolean; prefixTokensReused: number } } }); return lines;
+    };
+    const first = await stream("primeiro", false); assert.deepEqual(first.map((entry) => entry.type), ["direct-token", "result"]); assert.equal(first[0]!.event!.tokenId, 7); assert.deepEqual(first[1]!.data!.direct.receivedInputIds, [2]);
+    const second = await stream(" continuação", true); assert.deepEqual(second.map((entry) => entry.type), ["direct-token", "result"]); assert.equal(second[0]!.event!.tokenId, 8); assert.deepEqual(second[1]!.data!.direct.receivedInputIds, [2, 7, 9]); assert.equal(second[1]!.data!.direct.sessionCacheHit, true); assert.equal(second[1]!.data!.direct.prefixTokensReused, 2);
   } finally { await new Promise<void>((accept, reject) => server.close((error) => error ? reject(error) : accept())); await rm(directory, { recursive: true, force: true }); }
 });
 
@@ -104,7 +132,7 @@ test("servidor reutiliza um worker carregado para múltiplos prompts", async () 
   const helper = join(directory, "worker.mjs");
   await writeFile(helper, `import readline from "node:readline";
 let requests=0; console.log(JSON.stringify({ready:true}));
-readline.createInterface({input:process.stdin}).on("line",line=>{const request=JSON.parse(line); requests++; console.log(JSON.stringify({id:request.id,report:{prompt:request.prompt,requests,threads:request.threads}}));});\n`);
+readline.createInterface({input:process.stdin}).on("line",line=>{const request=JSON.parse(line); const report=request.mode==='encode'?{tokenIds:[2]}:(requests++,{prompt:request.prompt,requests,threads:request.threads}); console.log(JSON.stringify({id:request.id,report}));});\n`);
   const server = createGemma4RealComparisonServer({ source: directory, python: process.execPath, helper });
   await new Promise<void>((accept) => server.listen(0, "127.0.0.1", accept));
   try {
@@ -116,6 +144,8 @@ readline.createInterface({input:process.stdin}).on("line",line=>{const request=J
     const invalid = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt: "inválido", maxNewTokens: 1, precision: "f16" }) });
     assert.equal(invalid.status, 400);
     assert.deepEqual(await invalid.json(), { error: "precision deve ser f32 ou f64." });
+    const invalidSession = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt: "continuação", maxNewTokens: 1, continueSession: true }) });
+    assert.equal(invalidSession.status, 400); assert.deepEqual(await invalidSession.json(), { error: "continueSession requer sessionId." });
   } finally {
     await new Promise<void>((accept, reject) => server.close((error) => error ? reject(error) : accept()));
     await rm(directory, { recursive: true, force: true });

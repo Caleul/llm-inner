@@ -2559,9 +2559,15 @@ A geração greedy diferencial possui uma interface local funcional:
 npm run compare:gemma4-real-ui
 ```
 
-Abra `http://127.0.0.1:8787`, informe o prompt e a quantidade de tokens. Cada
-passo executa o Transformers eager BF16 e o caminho F64 sem arredondamento
-intermediário, escolhe os tokens independentemente e compara os 262.144 logits.
+Abra `http://127.0.0.1:8787`, informe o prompt e a quantidade de tokens. A
+interface executa Transformers eager BF16, a recomposição F32/F64 e o runtime
+compilado MLX/Metal, escolhe os tokens independentemente e compara os
+resultados e tempos. O endpoint `POST /api/compare-stream` entrega NDJSON por
+token enquanto a geração direta ainda está em curso. Depois do primeiro turno,
+marque **Continuar sessão compilada** e informe apenas o texto novo: os três
+executores mantêm seus próprios KV caches e só reutilizam um prefixo quando os
+IDs anteriores coincidem exatamente; as métricas mostram quantos tokens foram
+reaproveitados e quantos precisaram de novo prefill.
 
 ### Gerador de fórmulas fisicamente planas
 

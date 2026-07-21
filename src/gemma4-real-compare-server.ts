@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { gemma4RealCompareHtml } from "./gemma4-real-compare-ui.js";
 
-export interface Gemma4RealComparisonRequest { prompt: string; maxNewTokens: number; threads?: number; precision?: "f32" | "f64"; roundingPolicy?: "none" | "layer-bf16" | "operation-bf16" }
+export interface Gemma4RealComparisonRequest { prompt: string; maxNewTokens: number; threads?: number; precision?: "f32" | "f64"; roundingPolicy?: "none" | "layer-bf16" | "operation-bf16"; sessionId?: number; continueSession?: boolean }
 export interface Gemma4RealComparisonRunnerOptions {
   source: string; python: string; helper: string;
   literalArtifact?: string; binaryPool?: string; directWorker?: string; directLinearHelper?: string; directMlxHelper?: string; directLinearBackend?: "pytorch" | "mlx"; directFusedMlp?: "off" | "bf16" | "real" | "native-bf16"; directFusedFfn?: "off" | "native-bf16"; directFusedDecoderLayer?: "off" | "native-bf16"; directFusedDecoderStack?: "off" | "native-bf16" | "native-bf16-ple"; directFusedPle?: "off" | "bf16" | "real"; directFusedPlePrelude?: "off" | "bf16" | "real"; directFusedTokenForward?: "off" | "bf16"; directResidentGeneration?: "off" | "on"; directFinalHead?: "f32" | "native-bf16" | "native-bf16-stream" | "native-bf16-whole"; directNativeAttention?: "off" | "bf16" | "real"; directFusedAttention?: "off" | "bf16" | "real" | "native-bf16"; directThreads?: number; directMaxReadMiB?: number; directFinalHeadReadMiB?: number;
@@ -32,6 +32,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
     ? new PersistentJsonlWorker(process.execPath, [options.directWorker ?? resolve("dist/src/gemma4-paged-runtime-worker-cli.js"), "--artifact", options.literalArtifact, "--binary-pool", options.binaryPool, "--python", options.python, "--linear-helper", options.directLinearHelper ?? resolve("scripts/gemma4-paged-linear-worker.py"), "--mlx-helper", options.directMlxHelper ?? resolve("scripts/gemma4-mlx-linear-worker.py"), "--linear-backend", directBackend, "--fused-mlp", options.directFusedMlp ?? (directBackend === "pytorch" ? "native-bf16" : "real"), "--fused-ffn", options.directFusedFfn ?? (directBackend === "pytorch" ? "native-bf16" : "off"), "--fused-decoder-layer", options.directFusedDecoderLayer ?? (directBackend === "pytorch" ? "native-bf16" : "off"), "--fused-decoder-stack", options.directFusedDecoderStack ?? "native-bf16", "--fused-ple", options.directFusedPle ?? (directBackend === "pytorch" ? "bf16" : "off"), "--fused-ple-prelude", options.directFusedPlePrelude ?? (directBackend === "mlx" ? "bf16" : "off"), "--fused-token-forward", directTokenForward, "--resident-generation", directResidentGeneration, "--final-head", options.directFinalHead ?? (directBackend === "pytorch" ? "native-bf16-stream" : "native-bf16-whole"), "--native-attention", options.directNativeAttention ?? (directBackend === "pytorch" ? "real" : "off"), "--fused-attention", options.directFusedAttention ?? (directBackend === "pytorch" ? "native-bf16" : "off"), "--threads", String(options.directThreads ?? 10), "--max-read-mib", String(options.directMaxReadMiB ?? 16), "--final-head-read-mib", String(options.directFinalHeadReadMiB ?? (directBackend === "pytorch" ? 32 : options.directMaxReadMiB ?? 16))], "Gemma 4 literal direto")
     : undefined;
   let worker: Gemma4PersistentComparisonWorker | undefined, initializationError: Error | undefined, closed = false;
+  const sessionInputs = new Map<number, number[]>();
   let directWarmupSeconds: number | undefined;
   const initialize = (async () => {
     try {
@@ -56,15 +57,37 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
         if (!worker) throw new Error("Comparador original não foi inicializado.");
         const body = JSON.parse(await readBody(request)) as Gemma4RealComparisonRequest;
         validateRequest(body);
-        const report = await worker.compare(body) as ComparisonReport;
-        if (!direct) return json(response, 200, report);
-        const inputIds = report.inputIds?.[0]; if (!inputIds) throw new Error("Comparador original não retornou inputIds para o backend direto.");
-        const directReport = await direct.send({ inputIds, maxNewTokens: body.maxNewTokens }) as DirectReport;
+        const inputIds = await resolveComparisonInput(worker, body, sessionInputs);
+        const report = await worker.compareTokens(body, inputIds) as ComparisonReport;
+        if (!direct) return json(response, 200, { ...report, prompt: body.prompt });
+        const directReport = await direct.send({ inputIds, maxNewTokens: body.maxNewTokens, ...(body.sessionId === undefined ? {} : { sessionId: body.sessionId }) }) as DirectReport;
         const [generated, full] = await Promise.all([worker.decode(directReport.generatedTokenIds), worker.decode(directReport.fullTokenIds)]);
         directReport.generatedText = generated.text; directReport.fullText = full.text;
         directReport.tokensEqualBaseline = arraysEqual(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
         directReport.firstDivergentStep = firstDivergence(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
-        return json(response, 200, { ...report, direct: directReport });
+        if (body.sessionId !== undefined) rememberSession(sessionInputs, body.sessionId, directReport.fullTokenIds);
+        return json(response, 200, { ...report, prompt: body.prompt, direct: directReport });
+      }
+      if (request.method === "POST" && request.url === "/api/compare-stream") {
+        await initialize;
+        if (!worker || !direct) throw new Error("Streaming comparativo requer os executores original e direto.");
+        const body = JSON.parse(await readBody(request)) as Gemma4RealComparisonRequest;
+        validateRequest(body);
+        const inputIds = await resolveComparisonInput(worker, body, sessionInputs);
+        response.writeHead(200, { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" });
+        try {
+          const referencePromise = worker.compareTokens(body, inputIds) as Promise<ComparisonReport>;
+          const directPromise = direct.send({ inputIds, maxNewTokens: body.maxNewTokens, stream: true, ...(body.sessionId === undefined ? {} : { sessionId: body.sessionId }) }, (event) => writeNdjson(response, { type: "direct-token", event })) as Promise<DirectReport>;
+          const [report, directReport] = await Promise.all([referencePromise, directPromise]);
+          const [generated, full] = await Promise.all([worker.decode(directReport.generatedTokenIds), worker.decode(directReport.fullTokenIds)]);
+          directReport.generatedText = generated.text; directReport.fullText = full.text;
+          directReport.tokensEqualBaseline = arraysEqual(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
+          directReport.firstDivergentStep = firstDivergence(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
+          if (body.sessionId !== undefined) rememberSession(sessionInputs, body.sessionId, directReport.fullTokenIds);
+          writeNdjson(response, { type: "result", data: { ...report, prompt: body.prompt, direct: directReport } }); response.end(); return;
+        } catch (error) {
+          writeNdjson(response, { type: "error", error: error instanceof Error ? error.message : String(error) }); response.end(); return;
+        }
       }
       return json(response, 404, { error: "Rota não encontrada." });
     } catch (error) {
@@ -81,13 +104,15 @@ class Gemma4PersistentComparisonWorker {
   get ready(): boolean { return this.transport.ready; }
   get initializationSeconds(): number | undefined { return this.transport.initializationSeconds; }
   compare(request: Gemma4RealComparisonRequest): Promise<unknown> { return this.transport.send(request); }
+  compareTokens(request: Gemma4RealComparisonRequest, inputIds: readonly number[]): Promise<unknown> { return this.transport.send({ ...request, prompt: undefined, inputIds: inputIds.join(",") }); }
+  encode(text: string, addSpecialTokens: boolean): Promise<{ tokenIds: number[] }> { return this.transport.send({ mode: "encode", text, addSpecialTokens }) as Promise<{ tokenIds: number[] }>; }
   decode(tokenIds: number[]): Promise<{ text: string }> { return this.transport.send({ mode: "decode", tokenIds }) as Promise<{ text: string }>; }
   close(): void { this.transport.close(); }
 }
 
 class PersistentJsonlWorker {
   readonly child: ChildProcessWithoutNullStreams;
-  readonly pending = new Map<number, { accept(value: unknown): void; reject(error: Error): void }>();
+  readonly pending = new Map<number, { accept(value: unknown): void; reject(error: Error): void; onEvent?: (event: unknown) => void }>();
   ready = false; initializationSeconds?: number; readyMetadata: Record<string, unknown> = {};
   #nextId = 1; #stdout = ""; #readyAccept!: () => void; #readyReject!: (error: Error) => void; readonly #readyPromise: Promise<void>;
   constructor(command: string, arguments_: string[], readonly label: string) {
@@ -98,14 +123,14 @@ class PersistentJsonlWorker {
     this.child.once("error", (error) => this.#fail(error));
     this.child.once("close", (code) => this.#fail(new Error(`${label} encerrou com código ${code}: ${Buffer.concat(errors).toString("utf8").trim()}`)));
   }
-  async send(payload: object): Promise<unknown> { await this.#readyPromise; const id = this.#nextId++; const result = new Promise<unknown>((accept, reject) => this.pending.set(id, { accept, reject })); this.child.stdin.write(`${JSON.stringify({ id, ...payload })}\n`); return result; }
+  async send(payload: object, onEvent?: (event: unknown) => void): Promise<unknown> { await this.#readyPromise; const id = this.#nextId++; const result = new Promise<unknown>((accept, reject) => this.pending.set(id, { accept, reject, ...(onEvent ? { onEvent } : {}) })); this.child.stdin.write(`${JSON.stringify({ id, ...payload })}\n`); return result; }
   close(): void { if (!this.child.killed) this.child.kill("SIGTERM"); }
   #consume(chunk: string): void {
     this.#stdout += chunk; if (this.#stdout.length > 64 * 1024 * 1024) return this.#fail(new Error(`${this.label} excedeu 64 MiB sem delimitar resposta.`));
     while (true) { const newline = this.#stdout.indexOf("\n"); if (newline < 0) break; const line = this.#stdout.slice(0, newline); this.#stdout = this.#stdout.slice(newline + 1); if (!line) continue;
-      let message: { ready?: boolean; initializationSeconds?: number; id?: number; report?: unknown; error?: string }; try { message = JSON.parse(line) as typeof message; } catch (error) { return this.#fail(new Error(`${this.label} retornou JSON inválido: ${error instanceof Error ? error.message : String(error)}`)); }
+      let message: { ready?: boolean; initializationSeconds?: number; id?: number; report?: unknown; event?: unknown; error?: string }; try { message = JSON.parse(line) as typeof message; } catch (error) { return this.#fail(new Error(`${this.label} retornou JSON inválido: ${error instanceof Error ? error.message : String(error)}`)); }
       if (message.ready) { this.ready = true; this.readyMetadata = { ...message }; if (message.initializationSeconds !== undefined) this.initializationSeconds = message.initializationSeconds; this.#readyAccept(); continue; }
-      if (!Number.isSafeInteger(message.id)) return this.#fail(new Error(`${this.label} respondeu sem id válido.`)); const pending = this.pending.get(message.id!); if (!pending) return this.#fail(new Error(`${this.label} respondeu id desconhecido ${message.id}.`)); this.pending.delete(message.id!); if (message.error) pending.reject(new Error(message.error)); else pending.accept(message.report);
+      if (!Number.isSafeInteger(message.id)) return this.#fail(new Error(`${this.label} respondeu sem id válido.`)); const pending = this.pending.get(message.id!); if (!pending) return this.#fail(new Error(`${this.label} respondeu id desconhecido ${message.id}.`)); if (message.event !== undefined) { pending.onEvent?.(message.event); continue; } this.pending.delete(message.id!); if (message.error) pending.reject(new Error(message.error)); else pending.accept(message.report);
     }
   }
   #fail(error: Error): void { this.ready = false; this.#readyReject(error); for (const pending of this.pending.values()) pending.reject(error); this.pending.clear(); }
@@ -116,12 +141,30 @@ interface DirectReport { generatedTokenIds: number[]; fullTokenIds: number[]; ge
 function arraysEqual(left: readonly number[], right: readonly number[]): boolean { return left.length === right.length && left.every((value, index) => value === right[index]); }
 function firstDivergence(left: readonly number[], right: readonly number[]): number | null { const length = Math.max(left.length, right.length); for (let index = 0; index < length; index += 1) if (left[index] !== right[index]) return index; return null; }
 
+async function resolveComparisonInput(worker: Gemma4PersistentComparisonWorker, request: Gemma4RealComparisonRequest, sessions: Map<number, number[]>): Promise<number[]> {
+  if (request.continueSession) {
+    const prefix = sessions.get(request.sessionId!); if (!prefix) throw new Error("Sessão de chat inexistente ou expirada.");
+    const suffix = await worker.encode(request.prompt, false); validateEncodedIds(suffix.tokenIds);
+    return [...prefix, ...suffix.tokenIds];
+  }
+  if (request.sessionId !== undefined) sessions.delete(request.sessionId);
+  const encoded = await worker.encode(request.prompt, true); validateEncodedIds(encoded.tokenIds); return [...encoded.tokenIds];
+}
+function validateEncodedIds(value: unknown): asserts value is number[] { if (!Array.isArray(value) || value.length < 1 || value.some((token) => !Number.isSafeInteger(token) || token < 0)) throw new Error("Tokenizer retornou inputIds inválidos."); }
+function rememberSession(sessions: Map<number, number[]>, sessionId: number, fullTokenIds: readonly number[]): void {
+  validateEncodedIds(fullTokenIds); sessions.delete(sessionId); sessions.set(sessionId, [...fullTokenIds]);
+  while (sessions.size > 32) sessions.delete(sessions.keys().next().value!);
+}
+
 function validateRequest(request: Gemma4RealComparisonRequest): void {
   if (typeof request.prompt !== "string" || request.prompt.length === 0 || request.prompt.length > 16_384) throw new Error("prompt deve conter entre 1 e 16.384 caracteres.");
   if (!Number.isSafeInteger(request.maxNewTokens) || request.maxNewTokens < 1 || request.maxNewTokens > 64) throw new Error("maxNewTokens deve estar entre 1 e 64.");
   if (request.threads !== undefined && (!Number.isSafeInteger(request.threads) || request.threads < 0 || request.threads > 256)) throw new Error("threads deve estar entre 0 e 256.");
   if (request.precision !== undefined && request.precision !== "f32" && request.precision !== "f64") throw new Error("precision deve ser f32 ou f64.");
   if (request.roundingPolicy !== undefined && request.roundingPolicy !== "none" && request.roundingPolicy !== "layer-bf16" && request.roundingPolicy !== "operation-bf16") throw new Error("roundingPolicy deve ser none, layer-bf16 ou operation-bf16.");
+  if (request.sessionId !== undefined && (!Number.isSafeInteger(request.sessionId) || request.sessionId < 1 || request.sessionId > 0xffff_ffff)) throw new Error("sessionId deve estar entre 1 e 4.294.967.295.");
+  if (request.continueSession !== undefined && typeof request.continueSession !== "boolean") throw new Error("continueSession deve ser booleano.");
+  if (request.continueSession && request.sessionId === undefined) throw new Error("continueSession requer sessionId.");
 }
 
 async function readBody(request: IncomingMessage): Promise<string> {
@@ -148,6 +191,7 @@ function send(response: ServerResponse, status: number, type: string, body: stri
   response.writeHead(status, { "content-type": type, "content-length": Buffer.byteLength(body), "cache-control": "no-store" }); response.end(body);
 }
 function json(response: ServerResponse, status: number, value: unknown): void { send(response, status, "application/json; charset=utf-8", `${JSON.stringify(value)}\n`); }
+function writeNdjson(response: ServerResponse, value: unknown): void { if (!response.destroyed && !response.writableEnded) response.write(`${JSON.stringify(value)}\n`); }
 
 export function parseGemma4RealServerOptions(arguments_: readonly string[]): Gemma4RealComparisonRunnerOptions & { port: number; host: string } {
   const values = new Map<string, string>();

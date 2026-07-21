@@ -18,11 +18,12 @@ process.stdout.write(`${JSON.stringify({ ready: true, initializationSeconds: (pe
 
 const lines = createInterface({ input: process.stdin, crlfDelay: Infinity });
 for await (const line of lines) {
-  let request: { id?: unknown; inputIds?: unknown; maxNewTokens?: unknown } = {};
+  let request: { id?: unknown; inputIds?: unknown; maxNewTokens?: unknown; sessionId?: unknown; stream?: unknown } = {};
   try {
     request = JSON.parse(line) as typeof request;
     const inputIds = validateIds(request.inputIds), maxNewTokens = validateTokens(request.maxNewTokens);
-    const report = await generate(inputIds, maxNewTokens);
+    const sessionId = validateSessionId(request.sessionId), stream = validateStream(request.stream);
+    const report = await generate(inputIds, maxNewTokens, sessionId, stream ? (event) => process.stdout.write(`${JSON.stringify({ id: request.id, event: { type: "token", ...event } })}\n`) : undefined);
     process.stdout.write(`${JSON.stringify({ id: request.id, report })}\n`);
   } catch (error) {
     process.stdout.write(`${JSON.stringify({ id: request.id, error: error instanceof Error ? error.message : String(error) })}\n`);
@@ -30,17 +31,17 @@ for await (const line of lines) {
 }
 await linear.close(); await pool.close(); await artifact.close();
 
-async function generate(inputIds: number[], maxNewTokens: number): Promise<Record<string, unknown>> {
+async function generate(inputIds: number[], maxNewTokens: number, sessionId?: number, onToken?: (event: Record<string, unknown>) => void): Promise<Record<string, unknown>> {
   const dispatchesBefore = linear.dispatchMetrics();
   const started = performance.now(), generatedTokenIds: number[] = [], steps: Array<Record<string, unknown>> = [];
   if (args.residentGeneration === "on") {
-    const generated = await generateGemma4PagedTextLiteralNativeF32(artifact, { inputIds: [inputIds], maxNewTokens }, options);
+    const generated = await generateGemma4PagedTextLiteralNativeF32(artifact, { inputIds: [inputIds], maxNewTokens }, options, 5, { ...(sessionId === undefined ? {} : { sessionId }), ...(onToken === undefined ? {} : { onToken: (event) => onToken({ step: event.step, tokenId: event.tokenId, forwardSeconds: event.forwardSeconds, topLogits: Array.from(event.topTokenIds, (tokenId, rank) => ({ tokenId, value: event.topLogits[rank]! })) }) }) });
     const elapsedSeconds = (performance.now() - started) / 1000, dispatchesAfter = linear.dispatchMetrics();
     for (let step = 0; step < generated.generatedTokenIds.length; step += 1) {
       generatedTokenIds.push(generated.generatedTokenIds[step]!);
       steps.push({ step, tokenId: generated.generatedTokenIds[step], contextLength: inputIds.length + step, forwardSeconds: generated.forwardSeconds[step], topLogits: generated.topLogits[step] });
     }
-    return buildReport(inputIds, maxNewTokens, generatedTokenIds, steps, generated.terminalLogitsSha256, elapsedSeconds, dispatchesBefore, dispatchesAfter, { residentKvBytes: generated.residentKvBytes, kvCacheTransportBytes: 0, externalForwardRequests: 1 });
+    return buildReport(inputIds, maxNewTokens, generatedTokenIds, steps, generated.terminalLogitsSha256, elapsedSeconds, dispatchesBefore, dispatchesAfter, { residentKvBytes: generated.residentKvBytes, kvCacheTransportBytes: 0, externalForwardRequests: 1, prefixTokensReused: generated.prefixTokensReused, prefillTokensComputed: generated.prefillTokensComputed, sessionCacheHit: generated.sessionCacheHit, cachedContextTokens: generated.cachedContextTokens });
   }
   let forwardStarted = performance.now();
   let current = await executeGemma4PagedTextLiteralF32(artifact, { inputIds: [inputIds] }, options);
@@ -62,7 +63,7 @@ async function generate(inputIds: number[], maxNewTokens: number): Promise<Recor
 
 function buildReport(inputIds: number[], maxNewTokens: number, generatedTokenIds: number[], steps: Array<Record<string, unknown>>, terminalLogitsSha256: string, elapsedSeconds: number, dispatchesBefore: ReturnType<typeof linear.dispatchMetrics>, dispatchesAfter: ReturnType<typeof linear.dispatchMetrics>, transport: Record<string, unknown>): Record<string, unknown> {
   return {
-    kind: "gemma4-paged-binary-native-generation", schemaVersion: 2, backend: "paged-binary-native", linearBackend: linear.backend,
+    kind: "gemma4-paged-binary-native-generation", schemaVersion: 3, backend: "paged-binary-native", linearBackend: linear.backend,
     sourceCheckpointAccessed: false, compatibilityBinaryWeightsAccessed: true,
     inputIds, maxNewTokens, generatedTokenIds, fullTokenIds: [...inputIds, ...generatedTokenIds], steps,
     terminalLogitsSha256,
@@ -126,6 +127,16 @@ function validateIds(value: unknown): number[] {
 function validateTokens(value: unknown): number {
   if (!Number.isSafeInteger(value) || (value as number) < 1 || (value as number) > 64) throw new Error("maxNewTokens deve estar entre 1 e 64.");
   return value as number;
+}
+function validateSessionId(value: unknown): number | undefined {
+  if (value === undefined) return undefined;
+  if (!Number.isSafeInteger(value) || (value as number) < 1 || (value as number) > 0xffff_ffff) throw new Error("sessionId deve ser inteiro entre 1 e 4.294.967.295.");
+  return value as number;
+}
+function validateStream(value: unknown): boolean {
+  if (value === undefined) return false;
+  if (typeof value !== "boolean") throw new Error("stream deve ser booleano.");
+  return value;
 }
 function parseArguments(argv: string[]): { artifact: string; binaryPool: string; python: string; linearHelper: string; mlxHelper: string; linearBackend: "pytorch" | "mlx"; fusedMlpRounding: "off" | "bf16" | "real" | "native-bf16"; fusedFfnRounding: "off" | "native-bf16"; fusedDecoderLayerRounding: "off" | "native-bf16"; fusedDecoderStackRounding: "off" | "native-bf16" | "native-bf16-ple"; fusedPleRounding: "off" | "bf16" | "real"; fusedPlePreludeRounding: "off" | "bf16" | "real"; fusedTokenForwardRounding: "off" | "bf16"; residentGeneration: "off" | "on"; finalHeadCompute: "f32" | "native-bf16" | "native-bf16-stream" | "native-bf16-whole"; nativeAttentionRounding: "off" | "bf16" | "real"; fusedAttentionRounding: "off" | "bf16" | "real" | "native-bf16"; threads: number; maxReadBytes: number; finalHeadMaxReadBytes: number } {
   const values = new Map<string, string>();
