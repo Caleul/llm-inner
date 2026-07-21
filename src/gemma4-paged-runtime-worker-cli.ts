@@ -55,6 +55,7 @@ async function generate(inputIds: number[], maxNewTokens: number): Promise<Recor
     terminalLogitsSha256: createHash("sha256").update(terminalBytes).digest("hex"),
     elapsedSeconds, tokensPerSecond: maxNewTokens / elapsedSeconds, linearThreads: args.threads,
     linearReferenceDispatches: dispatchesAfter.referenceDispatches - dispatchesBefore.referenceDispatches,
+    wholeNativeBf16Dispatches: dispatchesAfter.wholeNativeBf16Dispatches - dispatchesBefore.wholeNativeBf16Dispatches,
     linearBatchDispatches: dispatchesAfter.batchDispatches - dispatchesBefore.batchDispatches,
     linearBatchedProjectionTiles: dispatchesAfter.batchedProjectionTiles - dispatchesBefore.batchedProjectionTiles,
     fusedMlpRounding: args.fusedMlpRounding,
@@ -76,7 +77,7 @@ function validateTokens(value: unknown): number {
   if (!Number.isSafeInteger(value) || (value as number) < 1 || (value as number) > 64) throw new Error("maxNewTokens deve estar entre 1 e 64.");
   return value as number;
 }
-function parseArguments(argv: string[]): { artifact: string; binaryPool: string; python: string; linearHelper: string; mlxHelper: string; linearBackend: "pytorch" | "mlx"; fusedMlpRounding: "off" | "bf16" | "real"; finalHeadCompute: "f32" | "native-bf16"; nativeAttentionRounding: "off" | "bf16" | "real"; fusedAttentionRounding: "off" | "bf16" | "real"; threads: number; maxReadBytes: number } {
+function parseArguments(argv: string[]): { artifact: string; binaryPool: string; python: string; linearHelper: string; mlxHelper: string; linearBackend: "pytorch" | "mlx"; fusedMlpRounding: "off" | "bf16" | "real"; finalHeadCompute: "f32" | "native-bf16" | "native-bf16-whole"; nativeAttentionRounding: "off" | "bf16" | "real"; fusedAttentionRounding: "off" | "bf16" | "real"; threads: number; maxReadBytes: number } {
   const values = new Map<string, string>();
   for (let index = 0; index < argv.length; index += 2) { const flag = argv[index], value = argv[index + 1]; if (!flag?.startsWith("--") || value === undefined || values.has(flag)) throw new Error(`Argumento inválido: ${flag ?? "fim"}.`); values.set(flag, value); }
   const known = new Set(["--artifact", "--binary-pool", "--python", "--linear-helper", "--mlx-helper", "--linear-backend", "--fused-mlp", "--final-head", "--native-attention", "--fused-attention", "--threads", "--max-read-mib"]); for (const flag of values.keys()) if (!known.has(flag)) throw new Error(`Flag desconhecida: ${flag}.`);
@@ -85,8 +86,8 @@ function parseArguments(argv: string[]): { artifact: string; binaryPool: string;
   if (!Number.isSafeInteger(threads) || threads < 1 || threads > 256 || !Number.isSafeInteger(maxReadMiB) || maxReadMiB < 1 || maxReadMiB > 1024) throw new Error("threads/max-read-mib inválidos.");
   const linearBackend = values.get("--linear-backend") ?? "pytorch"; if (linearBackend !== "pytorch" && linearBackend !== "mlx") throw new Error("--linear-backend deve ser pytorch ou mlx.");
   const fusedMlpRounding = values.get("--fused-mlp") ?? "real"; if (fusedMlpRounding !== "off" && fusedMlpRounding !== "bf16" && fusedMlpRounding !== "real") throw new Error("--fused-mlp deve ser off, bf16 ou real.");
-  const finalHeadCompute = values.get("--final-head") ?? (linearBackend === "pytorch" ? "native-bf16" : "f32"); if (finalHeadCompute !== "f32" && finalHeadCompute !== "native-bf16") throw new Error("--final-head deve ser f32 ou native-bf16.");
-  if (linearBackend === "mlx" && finalHeadCompute === "native-bf16") throw new Error("--final-head native-bf16 requer --linear-backend pytorch.");
+  const finalHeadCompute = values.get("--final-head") ?? (linearBackend === "pytorch" ? "native-bf16" : "f32"); if (finalHeadCompute !== "f32" && finalHeadCompute !== "native-bf16" && finalHeadCompute !== "native-bf16-whole") throw new Error("--final-head deve ser f32, native-bf16 ou native-bf16-whole.");
+  if (linearBackend === "mlx" && finalHeadCompute !== "f32") throw new Error("--final-head BF16 requer --linear-backend pytorch.");
   const nativeAttentionRounding = values.get("--native-attention") ?? (linearBackend === "pytorch" ? "real" : "off"); if (nativeAttentionRounding !== "off" && nativeAttentionRounding !== "bf16" && nativeAttentionRounding !== "real") throw new Error("--native-attention deve ser off, bf16 ou real.");
   if (linearBackend === "mlx" && nativeAttentionRounding !== "off") throw new Error("--native-attention requer --linear-backend pytorch.");
   const fusedAttentionRounding = values.get("--fused-attention") ?? (linearBackend === "pytorch" ? "bf16" : "off"); if (fusedAttentionRounding !== "off" && fusedAttentionRounding !== "bf16" && fusedAttentionRounding !== "real") throw new Error("--fused-attention deve ser off, bf16 ou real.");

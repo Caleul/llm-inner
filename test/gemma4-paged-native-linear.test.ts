@@ -97,3 +97,17 @@ test("projeção terminal opta explicitamente pelo GEMM BF16 nativo", async () =
   const result = await pagedLinearF32({ shape: [1, 2], values: Float32Array.from([1, 2]) }, referencedMatrix, { tileKernel: kernel, nativeBf16: true, outputDtype: "BF16" });
   assert.equal(nativeCalls, 1); assert.deepEqual([...result.values], [11, 17]);
 });
+
+test("projeção terminal integral ignora a paginação e despacha toda a matriz BF16", async () => {
+  const referencedMatrix: PagedDenseF32Matrix = { ...matrix, maxReadBytes: 4, tensor: { name: "head", storageDtype: "BF16", storageShape: [2, 2], logicalShape: [2, 2], shard: "model.safetensors", byteOffset: 128, byteLength: 8 } };
+  let wholeCalls = 0;
+  const kernel: PagedLinearTileKernel = {
+    backend: "native-bf16-whole", async multiply() { throw new Error("não deve paginar"); },
+    async multiplyWholeStorageReferenceNativeBf16(input, tensor, rows) {
+      wholeCalls += 1; assert.equal(tensor.name, "head"); assert.equal(rows, 1); assert.deepEqual([...input], [1, 2]);
+      return Float32Array.from([11, 17]);
+    },
+  };
+  const result = await pagedLinearF32({ shape: [1, 2], values: Float32Array.from([1, 2]) }, referencedMatrix, { tileKernel: kernel, nativeBf16: true, wholeNativeBf16: true, outputDtype: "BF16" });
+  assert.equal(wholeCalls, 1); assert.deepEqual([...result.values], [11, 17]);
+});

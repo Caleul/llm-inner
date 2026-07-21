@@ -41,11 +41,14 @@ interface ThreeWayCase {
     tokensPerSecond: number;
     linearThreads: number;
     linearReferenceDispatches?: number;
+    wholeNativeBf16Dispatches?: number;
+    processRssBytes?: number;
+    processMaxRssKiB?: number;
     linearBatchDispatches?: number;
     linearBatchedProjectionTiles?: number;
     fusedMlpRounding?: "off" | "bf16" | "real";
     fusedMlpDispatches?: number;
-    finalHeadCompute?: "f32" | "native-bf16";
+    finalHeadCompute?: "f32" | "native-bf16" | "native-bf16-whole";
     nativeAttentionRounding?: "off" | "bf16" | "real";
     nativeAttentionDispatches?: number;
     fusedAttentionRounding?: "off" | "bf16" | "real";
@@ -146,6 +149,9 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
       compatibility: { tokenIds: entry.candidateGeneratedTokenIds, text: entry.candidateGeneratedText, tokensEqualBaseline: entry.generatedTokensEqual, firstDivergentStep: entry.firstDivergentStep, seconds: entry.performance.candidateSeconds, tokensPerSecond: entry.performance.candidateTokensPerSecond },
       direct: { tokenIds: entry.direct.generatedTokenIds, text: entry.direct.generatedText, tokensEqualBaseline: entry.direct.tokensEqualBaseline, firstDivergentStep: entry.direct.firstDivergentStep, seconds: entry.direct.elapsedSeconds, tokensPerSecond: entry.direct.tokensPerSecond, linearThreads: entry.direct.linearThreads,
         ...(entry.direct.linearReferenceDispatches === undefined ? {} : { linearReferenceDispatches: entry.direct.linearReferenceDispatches }),
+        ...(entry.direct.wholeNativeBf16Dispatches === undefined ? {} : { wholeNativeBf16Dispatches: entry.direct.wholeNativeBf16Dispatches }),
+        ...(entry.direct.processRssBytes === undefined ? {} : { processRssBytes: entry.direct.processRssBytes }),
+        ...(entry.direct.processMaxRssKiB === undefined ? {} : { processMaxRssKiB: entry.direct.processMaxRssKiB }),
         ...(entry.direct.linearBatchDispatches === undefined ? {} : { linearBatchDispatches: entry.direct.linearBatchDispatches }),
         ...(entry.direct.linearBatchedProjectionTiles === undefined ? {} : { linearBatchedProjectionTiles: entry.direct.linearBatchedProjectionTiles }),
         ...(entry.direct.fusedMlpRounding === undefined ? {} : { fusedMlpRounding: entry.direct.fusedMlpRounding }),

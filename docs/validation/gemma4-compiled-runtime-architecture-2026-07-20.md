@@ -451,7 +451,8 @@ Isso mantém a divergência localizada antes do head terminal.
 
 `native-bf16` foi promovido como padrão quando o backend é PyTorch; MLX mantém
 head F32. A interface exibe `finalHeadCompute`, e
-`--direct-final-head f32|native-bf16` preserva o A/B explícito.
+`--direct-final-head f32|native-bf16|native-bf16-whole` preserva o A/B
+explícito. O terceiro modo é a variante integral experimental descrita abaixo.
 
 Comando promovido:
 
@@ -465,6 +466,37 @@ npm run calibrate:gemma4-real -- \
   --direct-final-head native-bf16 \
   --precision f32 --rounding-policy none
 ```
+
+## Head terminal BF16 integral experimental
+
+O modo `native-bf16-whole` envia a matriz completa do `lm_head`, com shape
+`[262144,2560]`, a uma única GEMM BF16 multithread por forward. O protocolo
+continua referenciando o `mmap`: nenhum peso é serializado pelo JavaScript e a
+saída permanece um vetor F32 de 262.144 logits. O modo anterior
+`native-bf16` permanece disponível e divide a mesma matriz em 81 páginas de
+até 16 MiB.
+
+Para `[2]` com dois tokens, os dois modos produziram `[184,3910]` e o mesmo
+SHA-256 terminal completo,
+`1f65253f2759208e828a710a3f8f574d713b5b0b170f1c6174f20aee95c4bdd0`.
+O integral reduziu os despachos lineares de 338 para 178: foram dois despachos
+integrais no lugar de 162 páginas do head. O forward quente mediu `0,5310 s`
+no integral e `0,5347 s` no controle paginado.
+
+No corpus 8×2, ambos preservaram 7/8 prompts e 15/16 tokens contra o baseline.
+Entretanto, o integral levou `14,8215 s` (`1,0795 token/s`) e o paginado
+`14,2936 s` (`1,1194 token/s`). Assim, a chamada integral ficou 3,56% mais
+lenta nesta máquina, apesar de reduzir 160 travessias de processo no corpus.
+A inferência observada é que os tiles menores aproveitaram melhor cache e
+localidade ao percorrer os 1,342 GB de pesos.
+
+Por essa razão, `native-bf16` continua sendo o padrão PyTorch. O modo integral
+é mantido como experimento reproduzível e aparece na interface com a métrica
+`wholeNativeBf16Dispatches`; ele não é apresentado como aceleração comprovada.
+Relatórios A/B:
+
+- `artifacts/gemma4-three-way-calibration-8x2-whole-native-bf16-head.json`;
+- `artifacts/gemma4-three-way-calibration-8x2-tiled-native-bf16-head-control.json`.
 
 ## Núcleo de attention nativo sem arredondamentos internos
 

@@ -17,6 +17,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
   readonly child: ChildProcessWithoutNullStreams;
   readonly multiplyStorageReference?: PagedLinearTileKernel["multiplyStorageReference"];
   readonly multiplyStorageReferenceNativeBf16?: PagedLinearTileKernel["multiplyStorageReferenceNativeBf16"];
+  readonly multiplyWholeStorageReferenceNativeBf16?: PagedLinearTileKernel["multiplyWholeStorageReferenceNativeBf16"];
   readonly multiplyStorageReferences?: PagedLinearTileKernel["multiplyStorageReferences"];
   readonly fusedGatedMlpStorageReference?: PagedLinearTileKernel["fusedGatedMlpStorageReference"];
   readonly attention?: PagedLinearTileKernel["attention"];
@@ -27,6 +28,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
   #closedError?: Error;
   #active = false;
   #referenceDispatches = 0;
+  #wholeNativeBf16Dispatches = 0;
   #batchDispatches = 0;
   #batchedProjectionTiles = 0;
   #fusedMlpDispatches = 0;
@@ -47,7 +49,13 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     this.child = spawn(options.python, arguments_, { stdio: ["pipe", "pipe", "pipe"] });
     if (options.binaryPool) {
       this.multiplyStorageReference = (input, tensor, startOutput, outputCount, rows) => this.#requestReference(input, tensor, startOutput, outputCount, rows);
-      if (backend === "pytorch") this.multiplyStorageReferenceNativeBf16 = (input, tensor, startOutput, outputCount, rows) => this.#requestReference(input, tensor, startOutput, outputCount, rows, true);
+      if (backend === "pytorch") {
+        this.multiplyStorageReferenceNativeBf16 = (input, tensor, startOutput, outputCount, rows) => this.#requestReference(input, tensor, startOutput, outputCount, rows, true);
+        this.multiplyWholeStorageReferenceNativeBf16 = (input, tensor, rows) => {
+          this.#wholeNativeBf16Dispatches += 1;
+          return this.#requestReference(input, tensor, 0, tensor.storageShape[0]!, rows, true);
+        };
+      }
       this.multiplyStorageReferences = (input, requests, rows) => this.#requestReferences(input, requests, rows);
       this.fusedGatedMlpStorageReference = (input, gate, up, down, rows, rounding) => this.#requestGatedMlp(input, gate, up, down, rows, rounding);
       if (backend === "pytorch") {
@@ -235,8 +243,8 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     return { dtype, outputCount, inFeatures: inFeatures!, byteOffset, byteLength, startOutput, shard, name };
   }
 
-  dispatchMetrics(): { referenceDispatches: number; batchDispatches: number; batchedProjectionTiles: number; fusedMlpDispatches: number; nativeAttentionDispatches: number; fusedAttentionDispatches: number } {
-    return { referenceDispatches: this.#referenceDispatches, batchDispatches: this.#batchDispatches, batchedProjectionTiles: this.#batchedProjectionTiles, fusedMlpDispatches: this.#fusedMlpDispatches, nativeAttentionDispatches: this.#nativeAttentionDispatches, fusedAttentionDispatches: this.#fusedAttentionDispatches };
+  dispatchMetrics(): { referenceDispatches: number; wholeNativeBf16Dispatches: number; batchDispatches: number; batchedProjectionTiles: number; fusedMlpDispatches: number; nativeAttentionDispatches: number; fusedAttentionDispatches: number } {
+    return { referenceDispatches: this.#referenceDispatches, wholeNativeBf16Dispatches: this.#wholeNativeBf16Dispatches, batchDispatches: this.#batchDispatches, batchedProjectionTiles: this.#batchedProjectionTiles, fusedMlpDispatches: this.#fusedMlpDispatches, nativeAttentionDispatches: this.#nativeAttentionDispatches, fusedAttentionDispatches: this.#fusedAttentionDispatches };
   }
 
   async #readResult(rows: number, outputCount: number): Promise<Float32Array> {

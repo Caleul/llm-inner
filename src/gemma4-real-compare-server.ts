@@ -9,7 +9,7 @@ import { gemma4RealCompareHtml } from "./gemma4-real-compare-ui.js";
 export interface Gemma4RealComparisonRequest { prompt: string; maxNewTokens: number; threads?: number; precision?: "f32" | "f64"; roundingPolicy?: "none" | "layer-bf16" | "operation-bf16" }
 export interface Gemma4RealComparisonRunnerOptions {
   source: string; python: string; helper: string;
-  literalArtifact?: string; binaryPool?: string; directWorker?: string; directLinearHelper?: string; directMlxHelper?: string; directLinearBackend?: "pytorch" | "mlx"; directFusedMlp?: "off" | "bf16" | "real"; directFinalHead?: "f32" | "native-bf16"; directNativeAttention?: "off" | "bf16" | "real"; directFusedAttention?: "off" | "bf16" | "real"; directThreads?: number; directMaxReadMiB?: number;
+  literalArtifact?: string; binaryPool?: string; directWorker?: string; directLinearHelper?: string; directMlxHelper?: string; directLinearBackend?: "pytorch" | "mlx"; directFusedMlp?: "off" | "bf16" | "real"; directFinalHead?: "f32" | "native-bf16" | "native-bf16-whole"; directNativeAttention?: "off" | "bf16" | "real"; directFusedAttention?: "off" | "bf16" | "real"; directThreads?: number; directMaxReadMiB?: number;
 }
 
 export async function runGemma4RealComparison(request: Gemma4RealComparisonRequest, options: Gemma4RealComparisonRunnerOptions): Promise<unknown> {
@@ -149,8 +149,8 @@ export function parseGemma4RealServerOptions(arguments_: readonly string[]): Gem
   const directFusedMlp = values.get("--direct-fused-mlp") ?? "real";
   if (directFusedMlp !== "off" && directFusedMlp !== "bf16" && directFusedMlp !== "real") throw new Error("--direct-fused-mlp deve ser off, bf16 ou real.");
   const directFinalHead = values.get("--direct-final-head") ?? (directLinearBackend === "pytorch" ? "native-bf16" : "f32");
-  if (directFinalHead !== "f32" && directFinalHead !== "native-bf16") throw new Error("--direct-final-head deve ser f32 ou native-bf16.");
-  if (directLinearBackend === "mlx" && directFinalHead === "native-bf16") throw new Error("--direct-final-head native-bf16 requer backend pytorch.");
+  if (directFinalHead !== "f32" && directFinalHead !== "native-bf16" && directFinalHead !== "native-bf16-whole") throw new Error("--direct-final-head deve ser f32, native-bf16 ou native-bf16-whole.");
+  if (directLinearBackend === "mlx" && directFinalHead !== "f32") throw new Error("--direct-final-head BF16 requer backend pytorch.");
   const directNativeAttention = values.get("--direct-native-attention") ?? (directLinearBackend === "pytorch" ? "real" : "off");
   if (directNativeAttention !== "off" && directNativeAttention !== "bf16" && directNativeAttention !== "real") throw new Error("--direct-native-attention deve ser off, bf16 ou real.");
   if (directLinearBackend === "mlx" && directNativeAttention !== "off") throw new Error("--direct-native-attention requer backend pytorch.");
