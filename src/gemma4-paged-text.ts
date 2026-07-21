@@ -56,6 +56,8 @@ export interface Gemma4PagedTextOptions {
   fusedMlpRounding?: "bf16" | "real";
   /** Final vocabulary projection compute path; BF16 is the allowed final rounding boundary. */
   finalHeadCompute?: "f32" | "native-bf16";
+  /** Optional native QK/softmax/PV kernel; real removes its internal BF16 boundaries. */
+  nativeAttentionRounding?: "bf16" | "real";
 }
 
 /**
@@ -179,6 +181,10 @@ async function executePagedOperations(
   const store = (operation: Operation, tensor: DenseF32Tensor): void => {
     values.set(operation.output, operation.dtypePolicy.outputDtype === "BF16" ? roundDenseF32ToBF16(tensor) : tensor);
   };
+  const executeAndStoreAttention = async (operation: Extract<Operation, { op: "scaled_dot_product_attention" }>, query: DenseF32Tensor, key: DenseF32Tensor, valueTensor: DenseF32Tensor, mask: DenseF32Tensor | undefined, pastLength: number, maskDefinesTopology: boolean): Promise<void> => {
+    const result = await attentionWithOptionalNative(query, key, valueTensor, operation, mask, pastLength, maskDefinesTopology, options.linearTileKernel, options.nativeAttentionRounding);
+    if (result.native && options.nativeAttentionRounding === "real") values.set(operation.output, result.tensor); else store(operation, result.tensor);
+  };
   const producedCache = new Map<number, ReferenceF32KeyValueCache>();
   for (let operationIndex = 0; operationIndex < operations.length; operationIndex += 1) {
     const operation = operations[operationIndex]!;
@@ -258,7 +264,7 @@ async function executePagedOperations(
           const shared = producedCache.get(producer);
           if (!shared) throw new Error(`${operation.id}: KV compartilhado não encontrou cache do produtor ${producer}.`);
           const query = value(values, operation.query);
-          store(operation, attentionF32(query, shared.key, shared.value, operation, topologyMask ?? request.attentionMask, sharedPastLength(operation.id, shared, query), topologyMask !== undefined));
+          await executeAndStoreAttention(operation, query, shared.key, shared.value, topologyMask ?? request.attentionMask, sharedPastLength(operation.id, shared, query), topologyMask !== undefined);
           break;
         }
         const currentKey = value(values, operation.key);
@@ -268,7 +274,7 @@ async function executePagedOperations(
         if (previous) assertCompatibleCache(previous, currentKey, currentValue, operation.id);
         const key = previous ? concatSequenceF32(previous.key, currentKey) : currentKey;
         const valueTensor = previous ? concatSequenceF32(previous.value, currentValue) : currentValue;
-        store(operation, attentionF32(value(values, operation.query), key, valueTensor, operation, topologyMask ?? request.attentionMask, previous?.key.shape[2] ?? 0, topologyMask !== undefined));
+        await executeAndStoreAttention(operation, value(values, operation.query), key, valueTensor, topologyMask ?? request.attentionMask, previous?.key.shape[2] ?? 0, topologyMask !== undefined);
         producedCache.set(operation.layer, { key, value: valueTensor });
         break;
       }
@@ -299,6 +305,45 @@ function matchFusedGatedMlp(operations: readonly Operation[], index: number, gat
   if (up.input !== gate.input || !up.transposeWeight || up.bias || activation.input !== gate.output || activation.function !== "gelu" || activation.approximation !== "tanh" || multiply.kind !== "multiply" || multiply.inputs.length !== 2 || multiply.inputs[0] !== activation.output || multiply.inputs[1] !== up.output || down.input !== multiply.output || !down.transposeWeight || down.bias) return undefined;
   if ([gate, up, activation, multiply, down].some((operation) => operation.dtypePolicy.outputDtype !== "BF16")) return undefined;
   return { up, down, operations: [up, activation, multiply, down] };
+}
+
+async function attentionWithOptionalNative(
+  query: DenseF32Tensor,
+  key: DenseF32Tensor,
+  valueTensor: DenseF32Tensor,
+  operation: Extract<Operation, { op: "scaled_dot_product_attention" }>,
+  mask: DenseF32Tensor | undefined,
+  pastLength: number,
+  maskDefinesTopology: boolean,
+  kernel: PagedLinearTileKernel | undefined,
+  rounding: "bf16" | "real" | undefined,
+): Promise<{ tensor: DenseF32Tensor; native: boolean }> {
+  if (!rounding || !kernel?.attention) return { tensor: attentionF32(query, key, valueTensor, operation, mask, pastLength, maskDefinesTopology), native: false };
+  if (query.shape.length !== 4 || key.shape.length !== 4 || valueTensor.shape.length !== 4) throw new Error(`${operation.id}: attention nativa requer tensores BHSD.`);
+  const [batch, queryHeads, querySequence, headDim] = query.shape as [number, number, number, number];
+  const [keyBatch, keyValueHeads, keySequence, keyDim] = key.shape as [number, number, number, number];
+  if (batch !== keyBatch || queryHeads !== operation.numAttentionHeads || keyValueHeads !== operation.numKeyValueHeads || headDim !== operation.headDim || keyDim !== headDim || valueTensor.shape.length !== 4 || valueTensor.shape.some((dimension, index) => dimension !== key.shape[index])) throw new Error(`${operation.id}: topologia da attention nativa é incompatível.`);
+  if (mask) {
+    const [maskBatch, maskHeads, maskQuery, maskKey] = mask.shape;
+    if (mask.shape.length !== 4 || maskBatch !== batch || (maskHeads !== 1 && maskHeads !== queryHeads) || maskQuery !== querySequence || maskKey !== keySequence || mask.values.some((entry) => Number.isNaN(entry) || entry === Infinity)) throw new Error(`${operation.id}: máscara da attention nativa é incompatível.`);
+  }
+  const nativeMask = maskDefinesTopology && mask ? mask : materializeAttentionTopologyMask(mask, operation, batch, querySequence, keySequence, pastLength);
+  const values = await kernel.attention({ query: query.values, key: key.values, value: valueTensor.values, mask: nativeMask.values, batch, queryHeads, keyValueHeads, querySequence, keySequence, headDim, maskHeads: nativeMask.shape[1]!, scale: operation.scale, rounding });
+  if (values.length !== batch * querySequence * queryHeads * headDim || values.some((entry) => !Number.isFinite(entry))) throw new Error(`${operation.id}: attention nativa retornou saída inválida.`);
+  return { tensor: { shape: [batch, querySequence, queryHeads * headDim], values }, native: true };
+}
+
+function materializeAttentionTopologyMask(mask: DenseF32Tensor | undefined, operation: Extract<Operation, { op: "scaled_dot_product_attention" }>, batch: number, querySequence: number, keySequence: number, pastLength: number): DenseF32Tensor {
+  const maskHeads = mask?.shape[1] ?? 1, values = new Float32Array(batch * maskHeads * querySequence * keySequence);
+  for (let b = 0; b < batch; b += 1) for (let h = 0; h < maskHeads; h += 1) for (let q = 0; q < querySequence; q += 1) for (let k = 0; k < keySequence; k += 1) {
+    const absoluteQuery = pastLength + q;
+    const firstKey = operation.slidingWindow === undefined ? 0 : Math.max(0, absoluteQuery - operation.slidingWindow + 1);
+    const lastKey = operation.causal ? Math.min(absoluteQuery, keySequence - 1) : keySequence - 1;
+    const topology = k >= firstKey && k <= lastKey ? 0 : -Infinity;
+    const declared = mask ? mask.values[((b * maskHeads + h) * querySequence + q) * keySequence + k]! : 0;
+    values[((b * maskHeads + h) * querySequence + q) * keySequence + k] = Math.fround(topology + declared);
+  }
+  return { shape: [batch, maskHeads, querySequence, keySequence], values };
 }
 
 /**

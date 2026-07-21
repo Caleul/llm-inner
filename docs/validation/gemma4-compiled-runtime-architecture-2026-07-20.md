@@ -408,3 +408,59 @@ npm run calibrate:gemma4-real -- \
   --direct-final-head native-bf16 \
   --precision f32 --rounding-policy none
 ```
+
+## Núcleo de attention nativo sem arredondamentos internos
+
+O executor direto passou a reconhecer a operação compilada de attention como
+um subgrafo único. Query, key, value e a máscara topológica materializada
+atravessam o protocolo binário uma vez; o worker PyTorch executa
+`QKᵀ → escala → máscara → softmax → PV` e devolve somente o contexto. Causalidade,
+sliding window, cache KV e grouped-query attention continuam sendo derivados da
+topologia declarada pelo programa literal, sem consultar o checkpoint-fonte.
+
+Há três políticas reprodutíveis:
+
+- `off` conserva o executor JavaScript;
+- `bf16` reproduz as fronteiras BF16 internas do eager;
+- `real` compõe score, softmax e contexto em F32, sem arredondamentos
+  intermediários no subgrafo.
+
+Na entrada isolada `[2]`, o modo `bf16` preservou byte a byte o hash terminal
+promovido pelo head nativo,
+`ad4c001ba081c40685082e45a2c88dfa0372915f966de052a9de80cee7cce850`, e
+selecionou o token `184`. O forward quente caiu de `0,6015 s` para `0,5419 s`.
+O modo `real` também selecionou `184`; com sequência unitária, onde softmax é
+trivial, produziu o mesmo hash e levou `0,5686 s`. A execução do CLI sem flag
+confirmou `nativeAttentionRounding: real` e 42 despachos nativos para um forward.
+
+Nas matrizes 8×2:
+
+- `bf16`: `1,0379 token/s`, 7/8 prompts e 15/16 tokens iguais ao baseline;
+- `real`: `1,0585 token/s`, os mesmos 7/8 prompts e 15/16 tokens;
+- `real` atingiu razão `1,8430x` contra o baseline medido na mesma execução;
+- cada prompt de dois tokens executou 84 subgrafos nativos de attention.
+
+A única divergência permaneceu no segundo token de
+`Translate to Portuguese: Good morning`: `[236764,1217]` no baseline e
+`[236764,564]` no direto. Como baseline, cache de páginas e estado térmico
+variaram entre ensaios, os throughputs absolutos acima devem ser lidos junto
+dos próprios relatórios, e não como uma garantia universal de aceleração.
+
+O modo `real` foi promovido como padrão do backend PyTorch por corresponder à
+composição matemática sem arredondamentos internos solicitada, não perder
+acordo no corpus e ser o mais rápido dos dois modos nativos na repetição final.
+MLX permanece em `off`; `--direct-native-attention off|bf16|real` mantém o A/B
+explícito. A interface mostra a política e a contagem efetiva de despachos.
+
+Comando promovido:
+
+```bash
+npm run calibrate:gemma4-real -- \
+  --source ./artifacts/gemma4-compiled-global-runtime-bundle \
+  --output ./artifacts/gemma4-three-way-calibration-8x2-native-attention-real.json \
+  --tokens 2 --request-threads 1 \
+  --direct-threads 8 --direct-max-read-mib 16 \
+  --direct-linear-backend pytorch --direct-fused-mlp real \
+  --direct-final-head native-bf16 --direct-native-attention real \
+  --precision f32 --rounding-policy none
+```

@@ -47,7 +47,10 @@ def main():
         batched = bool(encoded_dtype & 0x40000000)
         fused_mlp = bool(encoded_dtype & 0x20000000)
         native_bf16 = bool(encoded_dtype & 0x10000000)
-        dtype_code = encoded_dtype & 0x0fffffff
+        native_attention = bool(encoded_dtype & 0x08000000)
+        dtype_code = encoded_dtype & 0x07ffffff
+        if native_attention:
+            raise ValueError("native attention is available only in the PyTorch worker")
         input_bytes = read_exact(rows * features * 4)
         if native_bf16:
             raise ValueError("native BF16 GEMM is available only in the PyTorch worker")

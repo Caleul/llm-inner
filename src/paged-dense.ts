@@ -25,6 +25,23 @@ export interface PagedLinearTileKernel {
   multiplyStorageReferenceNativeBf16?: ((input: Float32Array, tensor: TensorInfo, startOutput: number, outputCount: number, rows: number) => Promise<Float32Array>) | undefined;
   multiplyStorageReferences?: ((input: Float32Array, requests: readonly PagedLinearStorageReference[], rows: number) => Promise<readonly Float32Array[]>) | undefined;
   fusedGatedMlpStorageReference?: ((input: Float32Array, gate: TensorInfo, up: TensorInfo, down: TensorInfo, rows: number, rounding: "bf16" | "real") => Promise<Float32Array>) | undefined;
+  attention?: ((request: PagedNativeAttentionRequest) => Promise<Float32Array>) | undefined;
+}
+
+export interface PagedNativeAttentionRequest {
+  query: Float32Array;
+  key: Float32Array;
+  value: Float32Array;
+  mask: Float32Array;
+  batch: number;
+  queryHeads: number;
+  keyValueHeads: number;
+  querySequence: number;
+  keySequence: number;
+  headDim: number;
+  maskHeads: number;
+  scale: number;
+  rounding: "bf16" | "real";
 }
 
 export interface PagedLinearStorageReference {

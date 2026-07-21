@@ -49,7 +49,50 @@ def main():
             batched = bool(encoded_dtype & 0x40000000)
             fused_mlp = bool(encoded_dtype & 0x20000000)
             native_bf16 = bool(encoded_dtype & 0x10000000)
-            dtype_code = encoded_dtype & 0x0fffffff
+            native_attention = bool(encoded_dtype & 0x08000000)
+            dtype_code = encoded_dtype & 0x07ffffff
+            if native_attention:
+                if referenced or batched or fused_mlp or native_bf16 or dtype_code != 0:
+                    raise ValueError("native attention flags are invalid")
+                batch, query_heads, key_value_heads = rows, outputs, features
+                metadata = read_exact(32)
+                query_sequence, key_sequence, head_dim, mask_heads, rounding = struct.unpack("<IIIII", metadata[:20])
+                scale = struct.unpack("<f", metadata[20:24])[0]
+                if not query_sequence or not key_sequence or not head_dim or not mask_heads or query_heads % key_value_heads or mask_heads not in (1, query_heads) or rounding not in (0, 1) or not math.isfinite(scale):
+                    raise ValueError("native attention topology is invalid")
+                query_bytes = read_exact(batch * query_heads * query_sequence * head_dim * 4)
+                key_bytes = read_exact(batch * key_value_heads * key_sequence * head_dim * 4)
+                value_bytes = read_exact(batch * key_value_heads * key_sequence * head_dim * 4)
+                mask_bytes = read_exact(batch * mask_heads * query_sequence * key_sequence * 4)
+                query = torch.frombuffer(query_bytes, dtype=torch.float32).reshape(batch, query_heads, query_sequence, head_dim)
+                key = torch.frombuffer(key_bytes, dtype=torch.float32).reshape(batch, key_value_heads, key_sequence, head_dim)
+                value = torch.frombuffer(value_bytes, dtype=torch.float32).reshape(batch, key_value_heads, key_sequence, head_dim)
+                mask = torch.frombuffer(mask_bytes, dtype=torch.float32).reshape(batch, mask_heads, query_sequence, key_sequence)
+                if torch.isnan(mask).any() or torch.isposinf(mask).any():
+                    raise ValueError("native attention mask is invalid")
+                group = query_heads // key_value_heads
+                if group != 1:
+                    key = key.repeat_interleave(group, dim=1)
+                    value = value.repeat_interleave(group, dim=1)
+                if rounding == 0:
+                    query, key, value = query.to(torch.bfloat16), key.to(torch.bfloat16), value.to(torch.bfloat16)
+                    scores = (torch.matmul(query, key.transpose(-1, -2)).float() * torch.tensor(scale, dtype=torch.float32)).to(torch.bfloat16)
+                    scores = (scores + mask.to(torch.bfloat16)).to(torch.bfloat16)
+                    probabilities = torch.softmax(scores.float(), dim=-1).to(torch.bfloat16)
+                    context = torch.matmul(probabilities, value).to(torch.bfloat16).float()
+                else:
+                    scores = torch.matmul(query, key.transpose(-1, -2)) * torch.tensor(scale, dtype=torch.float32) + mask
+                    probabilities = torch.softmax(scores, dim=-1)
+                    context = torch.matmul(probabilities, value)
+                result = context.permute(0, 2, 1, 3).contiguous().reshape(batch * query_sequence, query_heads * head_dim)
+                if not torch.isfinite(result).all():
+                    raise ValueError("native attention produced non-finite output")
+                payload = result.numpy().tobytes(order="C")
+                sys.stdout.buffer.write(struct.pack("<I", len(payload)))
+                sys.stdout.buffer.write(payload)
+                sys.stdout.buffer.flush()
+                del query, key, value, mask, scores, probabilities, context, result, payload
+                continue
             input_bytes = read_exact(rows * features * 4)
             if fused_mlp:
                 if not referenced or batched or native_bf16 or pool is None:

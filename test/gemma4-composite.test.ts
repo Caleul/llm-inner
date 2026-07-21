@@ -108,7 +108,7 @@ import {
 } from "../src/gemma4-authoritative-runtime.js";
 import { gemma4CompositeTraceProfile } from "../src/gemma4-composite-trace-profile.js";
 import { validateGemma4CompositeTraceOptions } from "../src/gemma4-transformers-composite-trace.js";
-import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearF32 } from "../src/paged-dense.js";
+import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearF32, type PagedNativeAttentionRequest } from "../src/paged-dense.js";
 import { fingerprintIR } from "../src/trace.js";
 import { auditLiteralArtifact } from "../src/literal-artifact-audit.js";
 import {
@@ -2685,6 +2685,31 @@ test("Gemma 4 paged text interpreter replays prefill and cached greedy decode fr
         /fidelidade numérica não verificada/,
       );
       const replay = await executeGemma4PagedTextLiteralF32(artifact, { inputIds: [[1, 2, 3]] }, { maxReadBytes: 64, allowUnverifiedFidelity: true });
+      const nativeAttentionRequests: PagedNativeAttentionRequest[] = [];
+      await executeGemma4PagedTextLiteralF32(artifact, { inputIds: [[1, 2, 3]] }, {
+        maxReadBytes: 64,
+        allowUnverifiedFidelity: true,
+        nativeAttentionRounding: "real",
+        linearTileKernel: {
+          backend: "test-native-attention",
+          async multiply(input, weight, rows, outputCount, inFeatures) {
+            const result = new Float32Array(rows * outputCount);
+            for (let row = 0; row < rows; row += 1) for (let output = 0; output < outputCount; output += 1) {
+              let sum = Math.fround(0);
+              for (let feature = 0; feature < inFeatures; feature += 1) sum = Math.fround(sum + Math.fround(input[row * inFeatures + feature]! * weight[output * inFeatures + feature]!));
+              result[row * outputCount + output] = sum;
+            }
+            return result;
+          },
+          async attention(request) {
+            nativeAttentionRequests.push(request);
+            return new Float32Array(request.batch * request.querySequence * request.queryHeads * request.headDim);
+          },
+        },
+      });
+      assert.equal(nativeAttentionRequests.length, program.textProgram.layers.length);
+      assert.ok(nativeAttentionRequests.every((request) => request.rounding === "real"));
+      assert.ok(nativeAttentionRequests.every((request) => request.mask.some((entry) => entry === -Infinity)), "native attention receives materialized causal/sliding topology");
       const generation = await generateGemma4PagedTextLiteralF32(artifact, { inputIds: [[1, 2, 3]], maxNewTokens: 2 }, { maxReadBytes: 64, allowUnverifiedFidelity: true });
       assert.deepEqual(replay.logits.values, expected.text.logits.values);
       assert.deepEqual(generation.generatedTokenIds, expectedGeneration.generatedTokenIds);

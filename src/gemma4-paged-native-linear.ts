@@ -2,13 +2,14 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { once } from "node:events";
 import { endianness } from "node:os";
 import { resolve } from "node:path";
-import type { PagedLinearStorageReference, PagedLinearTileKernel } from "./paged-dense.js";
+import type { PagedLinearStorageReference, PagedLinearTileKernel, PagedNativeAttentionRequest } from "./paged-dense.js";
 import type { TensorInfo } from "./types.js";
 
 const STORAGE_REFERENCE_FLAG = 0x8000_0000;
 const STORAGE_REFERENCE_BATCH_FLAG = 0x4000_0000;
 const STORAGE_REFERENCE_MLP_FLAG = 0x2000_0000;
 const STORAGE_NATIVE_BF16_FLAG = 0x1000_0000;
+const NATIVE_ATTENTION_FLAG = 0x0800_0000;
 
 export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
   readonly backend: string;
@@ -17,6 +18,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
   readonly multiplyStorageReferenceNativeBf16?: PagedLinearTileKernel["multiplyStorageReferenceNativeBf16"];
   readonly multiplyStorageReferences?: PagedLinearTileKernel["multiplyStorageReferences"];
   readonly fusedGatedMlpStorageReference?: PagedLinearTileKernel["fusedGatedMlpStorageReference"];
+  readonly attention?: PagedLinearTileKernel["attention"];
   readonly #storageTensors: ReadonlyMap<string, TensorInfo> | undefined;
   #buffer = Buffer.alloc(0);
   #waiting: Array<() => void> = [];
@@ -26,6 +28,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
   #batchDispatches = 0;
   #batchedProjectionTiles = 0;
   #fusedMlpDispatches = 0;
+  #nativeAttentionDispatches = 0;
 
   constructor(options: { python: string; helper: string; threads: number; binaryPool?: string; storageTensors?: ReadonlyMap<string, TensorInfo>; backend?: "pytorch" | "mlx"; mlxHelper?: string }) {
     if (endianness() !== "LE") throw new Error("Kernel linear binário requer host little-endian.");
@@ -44,6 +47,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
       if (backend === "pytorch") this.multiplyStorageReferenceNativeBf16 = (input, tensor, startOutput, outputCount, rows) => this.#requestReference(input, tensor, startOutput, outputCount, rows, true);
       this.multiplyStorageReferences = (input, requests, rows) => this.#requestReferences(input, requests, rows);
       this.fusedGatedMlpStorageReference = (input, gate, up, down, rows, rounding) => this.#requestGatedMlp(input, gate, up, down, rows, rounding);
+      if (backend === "pytorch") this.attention = (request) => this.#requestAttention(request);
     }
     this.child.stdout.on("data", (chunk: Buffer) => { this.#buffer = Buffer.concat([this.#buffer, chunk]); this.#wake(); });
     const errors: Buffer[] = []; this.child.stderr.on("data", (chunk: Buffer) => { if (Buffer.concat(errors).length < 1024 * 1024) errors.push(chunk); });
@@ -136,6 +140,22 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     } finally { this.#active = false; }
   }
 
+  async #requestAttention(request: PagedNativeAttentionRequest): Promise<Float32Array> {
+    if (this.#active) throw new Error("Worker nativo persistente não aceita attention concorrente no mesmo canal.");
+    const dimensions = [request.batch, request.queryHeads, request.keyValueHeads, request.querySequence, request.keySequence, request.headDim, request.maskHeads];
+    if (dimensions.some((value) => !Number.isSafeInteger(value) || value < 1) || request.queryHeads % request.keyValueHeads !== 0 || (request.maskHeads !== 1 && request.maskHeads !== request.queryHeads) || !Number.isFinite(request.scale)) throw new Error("Attention nativa recebeu topologia inválida.");
+    if (request.query.length !== request.batch * request.queryHeads * request.querySequence * request.headDim || request.key.length !== request.batch * request.keyValueHeads * request.keySequence * request.headDim || request.value.length !== request.key.length || request.mask.length !== request.batch * request.maskHeads * request.querySequence * request.keySequence) throw new Error("Attention nativa recebeu payload incompatível com a topologia.");
+    this.#active = true;
+    try {
+      this.#nativeAttentionDispatches += 1;
+      const header = Buffer.allocUnsafe(16); header.writeUInt32LE(request.batch, 0); header.writeUInt32LE(request.queryHeads, 4); header.writeUInt32LE(request.keyValueHeads, 8); header.writeUInt32LE(NATIVE_ATTENTION_FLAG, 12);
+      const metadata = Buffer.alloc(32); metadata.writeUInt32LE(request.querySequence, 0); metadata.writeUInt32LE(request.keySequence, 4); metadata.writeUInt32LE(request.headDim, 8); metadata.writeUInt32LE(request.maskHeads, 12); metadata.writeUInt32LE(request.rounding === "bf16" ? 0 : 1, 16); metadata.writeFloatLE(request.scale, 20);
+      await this.#write(header); await this.#write(metadata);
+      for (const values of [request.query, request.key, request.value, request.mask]) await this.#write(Buffer.from(values.buffer, values.byteOffset, values.byteLength));
+      return await this.#readResult(request.batch * request.querySequence, request.queryHeads * request.headDim);
+    } finally { this.#active = false; }
+  }
+
   #prepareWholeMatrix(tensor: TensorInfo) {
     const stored = this.#storageTensors?.get(tensor.name);
     if (!stored || stored.storageDtype !== tensor.storageDtype || stored.storageShape.length !== tensor.storageShape.length || stored.storageShape.some((value, index) => value !== tensor.storageShape[index]) || stored.logicalShape.length !== tensor.logicalShape.length || stored.logicalShape.some((value, index) => value !== tensor.logicalShape[index])) throw new Error(`${tensor.name}: catálogo mmap diverge do subgrafo literal.`);
@@ -161,8 +181,8 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     return { dtype, outputCount, inFeatures: inFeatures!, byteOffset, byteLength, startOutput, shard, name };
   }
 
-  dispatchMetrics(): { referenceDispatches: number; batchDispatches: number; batchedProjectionTiles: number; fusedMlpDispatches: number } {
-    return { referenceDispatches: this.#referenceDispatches, batchDispatches: this.#batchDispatches, batchedProjectionTiles: this.#batchedProjectionTiles, fusedMlpDispatches: this.#fusedMlpDispatches };
+  dispatchMetrics(): { referenceDispatches: number; batchDispatches: number; batchedProjectionTiles: number; fusedMlpDispatches: number; nativeAttentionDispatches: number } {
+    return { referenceDispatches: this.#referenceDispatches, batchDispatches: this.#batchDispatches, batchedProjectionTiles: this.#batchedProjectionTiles, fusedMlpDispatches: this.#fusedMlpDispatches, nativeAttentionDispatches: this.#nativeAttentionDispatches };
   }
 
   async #readResult(rows: number, outputCount: number): Promise<Float32Array> {
