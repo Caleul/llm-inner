@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { openGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
 import { Gemma4BinaryConstantPool } from "./gemma4-binary-constant-pool.js";
 import { Gemma4PagedNativeLinearWorker } from "./gemma4-paged-native-linear.js";
-import { executeGemma4PagedTextLiteralF32 } from "./gemma4-paged-text.js";
+import { executeGemma4PagedTextLiteralF32, generateGemma4PagedTextLiteralNativeF32 } from "./gemma4-paged-text.js";
 import { selectGemma4LiteralGenerationToken } from "./gemma4-literal-generation-control.js";
 import { rankGemma4TerminalLogits } from "./gemma4-terminal-logits.js";
 
@@ -14,7 +14,7 @@ const artifact = await openGemma4CompositeLiteralArtifact(args.artifact);
 const pool = await Gemma4BinaryConstantPool.open(args.binaryPool);
 const linear = new Gemma4PagedNativeLinearWorker({ python: args.python, helper: args.linearHelper, threads: args.threads, binaryPool: args.binaryPool, storageTensors: pool.catalog.tensors, backend: args.linearBackend, mlxHelper: args.mlxHelper });
 const options = { maxReadBytes: args.maxReadBytes, finalHeadMaxReadBytes: args.finalHeadMaxReadBytes, allowUnverifiedFidelity: true, tensorReader: pool, linearTileKernel: linear, finalHeadCompute: args.finalHeadCompute, ...(args.fusedMlpRounding === "off" ? {} : { fusedMlpRounding: args.fusedMlpRounding }), ...(args.fusedFfnRounding === "off" ? {} : { fusedFfnRounding: args.fusedFfnRounding }), ...(args.fusedDecoderLayerRounding === "off" ? {} : { fusedDecoderLayerRounding: args.fusedDecoderLayerRounding }), ...(args.fusedDecoderStackRounding === "off" ? {} : { fusedDecoderStackRounding: args.fusedDecoderStackRounding }), ...(args.fusedPleRounding === "off" ? {} : { fusedPleRounding: args.fusedPleRounding }), ...(args.fusedPlePreludeRounding === "off" ? {} : { fusedPlePreludeRounding: args.fusedPlePreludeRounding }), ...(args.fusedTokenForwardRounding === "off" ? {} : { fusedTokenForwardRounding: args.fusedTokenForwardRounding }), ...(args.nativeAttentionRounding === "off" ? {} : { nativeAttentionRounding: args.nativeAttentionRounding }), ...(args.fusedAttentionRounding === "off" ? {} : { fusedAttentionRounding: args.fusedAttentionRounding }) };
-process.stdout.write(`${JSON.stringify({ ready: true, initializationSeconds: (performance.now() - initializationStarted) / 1000, backend: "paged-binary-native", linearBackend: linear.backend, fusedMlpRounding: args.fusedMlpRounding, fusedFfnRounding: args.fusedFfnRounding, fusedDecoderLayerRounding: args.fusedDecoderLayerRounding, fusedDecoderStackRounding: args.fusedDecoderStackRounding, fusedPleRounding: args.fusedPleRounding, fusedPlePreludeRounding: args.fusedPlePreludeRounding, fusedTokenForwardRounding: args.fusedTokenForwardRounding, finalHeadCompute: args.finalHeadCompute, nativeAttentionRounding: args.nativeAttentionRounding, fusedAttentionRounding: args.fusedAttentionRounding, threads: args.threads, maxReadMiB: args.maxReadBytes / (1024 * 1024), finalHeadReadMiB: args.finalHeadMaxReadBytes / (1024 * 1024) })}\n`);
+process.stdout.write(`${JSON.stringify({ ready: true, initializationSeconds: (performance.now() - initializationStarted) / 1000, backend: "paged-binary-native", linearBackend: linear.backend, fusedMlpRounding: args.fusedMlpRounding, fusedFfnRounding: args.fusedFfnRounding, fusedDecoderLayerRounding: args.fusedDecoderLayerRounding, fusedDecoderStackRounding: args.fusedDecoderStackRounding, fusedPleRounding: args.fusedPleRounding, fusedPlePreludeRounding: args.fusedPlePreludeRounding, fusedTokenForwardRounding: args.fusedTokenForwardRounding, residentGeneration: args.residentGeneration, finalHeadCompute: args.finalHeadCompute, nativeAttentionRounding: args.nativeAttentionRounding, fusedAttentionRounding: args.fusedAttentionRounding, threads: args.threads, maxReadMiB: args.maxReadBytes / (1024 * 1024), finalHeadReadMiB: args.finalHeadMaxReadBytes / (1024 * 1024) })}\n`);
 
 const lines = createInterface({ input: process.stdin, crlfDelay: Infinity });
 for await (const line of lines) {
@@ -33,6 +33,15 @@ await linear.close(); await pool.close(); await artifact.close();
 async function generate(inputIds: number[], maxNewTokens: number): Promise<Record<string, unknown>> {
   const dispatchesBefore = linear.dispatchMetrics();
   const started = performance.now(), generatedTokenIds: number[] = [], steps: Array<Record<string, unknown>> = [];
+  if (args.residentGeneration === "on") {
+    const generated = await generateGemma4PagedTextLiteralNativeF32(artifact, { inputIds: [inputIds], maxNewTokens }, options);
+    const elapsedSeconds = (performance.now() - started) / 1000, dispatchesAfter = linear.dispatchMetrics();
+    for (let step = 0; step < generated.generatedTokenIds.length; step += 1) {
+      generatedTokenIds.push(generated.generatedTokenIds[step]!);
+      steps.push({ step, tokenId: generated.generatedTokenIds[step], contextLength: inputIds.length + step, forwardSeconds: generated.forwardSeconds[step], topLogits: generated.topLogits[step] });
+    }
+    return buildReport(inputIds, maxNewTokens, generatedTokenIds, steps, generated.terminalLogitsSha256, elapsedSeconds, dispatchesBefore, dispatchesAfter, { residentKvBytes: generated.residentKvBytes, kvCacheTransportBytes: 0, externalForwardRequests: 1 });
+  }
   let forwardStarted = performance.now();
   let current = await executeGemma4PagedTextLiteralF32(artifact, { inputIds: [inputIds] }, options);
   let forwardSeconds = (performance.now() - forwardStarted) / 1000;
@@ -48,12 +57,18 @@ async function generate(inputIds: number[], maxNewTokens: number): Promise<Recor
   const elapsedSeconds = (performance.now() - started) / 1000;
   const terminalBytes = Buffer.from(current.logits.values.buffer, current.logits.values.byteOffset, current.logits.values.byteLength);
   const dispatchesAfter = linear.dispatchMetrics();
+  return buildReport(inputIds, maxNewTokens, generatedTokenIds, steps, createHash("sha256").update(terminalBytes).digest("hex"), elapsedSeconds, dispatchesBefore, dispatchesAfter, { externalForwardRequests: generatedTokenIds.length });
+}
+
+function buildReport(inputIds: number[], maxNewTokens: number, generatedTokenIds: number[], steps: Array<Record<string, unknown>>, terminalLogitsSha256: string, elapsedSeconds: number, dispatchesBefore: ReturnType<typeof linear.dispatchMetrics>, dispatchesAfter: ReturnType<typeof linear.dispatchMetrics>, transport: Record<string, unknown>): Record<string, unknown> {
   return {
     kind: "gemma4-paged-binary-native-generation", schemaVersion: 2, backend: "paged-binary-native", linearBackend: linear.backend,
     sourceCheckpointAccessed: false, compatibilityBinaryWeightsAccessed: true,
     inputIds, maxNewTokens, generatedTokenIds, fullTokenIds: [...inputIds, ...generatedTokenIds], steps,
-    terminalLogitsSha256: createHash("sha256").update(terminalBytes).digest("hex"),
+    terminalLogitsSha256,
     elapsedSeconds, tokensPerSecond: maxNewTokens / elapsedSeconds, linearThreads: args.threads,
+    residentGeneration: args.residentGeneration,
+    ...transport,
     maxReadMiB: args.maxReadBytes / (1024 * 1024),
     finalHeadReadMiB: args.finalHeadMaxReadBytes / (1024 * 1024),
     linearReferenceDispatches: dispatchesAfter.referenceDispatches - dispatchesBefore.referenceDispatches,
@@ -72,6 +87,7 @@ async function generate(inputIds: number[], maxNewTokens: number): Promise<Recor
     fusedDecoderStackEpilogueDispatches: dispatchesAfter.fusedDecoderStackEpilogueDispatches - dispatchesBefore.fusedDecoderStackEpilogueDispatches,
     fusedTokenForwardRounding: args.fusedTokenForwardRounding,
     fusedTokenForwardDispatches: dispatchesAfter.fusedTokenForwardDispatches - dispatchesBefore.fusedTokenForwardDispatches,
+    fusedTokenGenerationDispatches: dispatchesAfter.fusedTokenGenerationDispatches - dispatchesBefore.fusedTokenGenerationDispatches,
     fusedDecoderStackGateUpPairs: dispatchesAfter.fusedDecoderStackGateUpPairs - dispatchesBefore.fusedDecoderStackGateUpPairs,
     fusedDecoderStackWidenedCacheHits: dispatchesAfter.fusedDecoderStackWidenedCacheHits - dispatchesBefore.fusedDecoderStackWidenedCacheHits,
     widenedTensorCacheEntries: dispatchesAfter.widenedTensorCacheEntries,
@@ -111,10 +127,10 @@ function validateTokens(value: unknown): number {
   if (!Number.isSafeInteger(value) || (value as number) < 1 || (value as number) > 64) throw new Error("maxNewTokens deve estar entre 1 e 64.");
   return value as number;
 }
-function parseArguments(argv: string[]): { artifact: string; binaryPool: string; python: string; linearHelper: string; mlxHelper: string; linearBackend: "pytorch" | "mlx"; fusedMlpRounding: "off" | "bf16" | "real" | "native-bf16"; fusedFfnRounding: "off" | "native-bf16"; fusedDecoderLayerRounding: "off" | "native-bf16"; fusedDecoderStackRounding: "off" | "native-bf16" | "native-bf16-ple"; fusedPleRounding: "off" | "bf16" | "real"; fusedPlePreludeRounding: "off" | "bf16" | "real"; fusedTokenForwardRounding: "off" | "bf16"; finalHeadCompute: "f32" | "native-bf16" | "native-bf16-stream" | "native-bf16-whole"; nativeAttentionRounding: "off" | "bf16" | "real"; fusedAttentionRounding: "off" | "bf16" | "real" | "native-bf16"; threads: number; maxReadBytes: number; finalHeadMaxReadBytes: number } {
+function parseArguments(argv: string[]): { artifact: string; binaryPool: string; python: string; linearHelper: string; mlxHelper: string; linearBackend: "pytorch" | "mlx"; fusedMlpRounding: "off" | "bf16" | "real" | "native-bf16"; fusedFfnRounding: "off" | "native-bf16"; fusedDecoderLayerRounding: "off" | "native-bf16"; fusedDecoderStackRounding: "off" | "native-bf16" | "native-bf16-ple"; fusedPleRounding: "off" | "bf16" | "real"; fusedPlePreludeRounding: "off" | "bf16" | "real"; fusedTokenForwardRounding: "off" | "bf16"; residentGeneration: "off" | "on"; finalHeadCompute: "f32" | "native-bf16" | "native-bf16-stream" | "native-bf16-whole"; nativeAttentionRounding: "off" | "bf16" | "real"; fusedAttentionRounding: "off" | "bf16" | "real" | "native-bf16"; threads: number; maxReadBytes: number; finalHeadMaxReadBytes: number } {
   const values = new Map<string, string>();
   for (let index = 0; index < argv.length; index += 2) { const flag = argv[index], value = argv[index + 1]; if (!flag?.startsWith("--") || value === undefined || values.has(flag)) throw new Error(`Argumento inválido: ${flag ?? "fim"}.`); values.set(flag, value); }
-  const known = new Set(["--artifact", "--binary-pool", "--python", "--linear-helper", "--mlx-helper", "--linear-backend", "--fused-mlp", "--fused-ffn", "--fused-decoder-layer", "--fused-decoder-stack", "--fused-ple", "--fused-ple-prelude", "--fused-token-forward", "--final-head", "--final-head-read-mib", "--native-attention", "--fused-attention", "--threads", "--max-read-mib"]); for (const flag of values.keys()) if (!known.has(flag)) throw new Error(`Flag desconhecida: ${flag}.`);
+  const known = new Set(["--artifact", "--binary-pool", "--python", "--linear-helper", "--mlx-helper", "--linear-backend", "--fused-mlp", "--fused-ffn", "--fused-decoder-layer", "--fused-decoder-stack", "--fused-ple", "--fused-ple-prelude", "--fused-token-forward", "--resident-generation", "--final-head", "--final-head-read-mib", "--native-attention", "--fused-attention", "--threads", "--max-read-mib"]); for (const flag of values.keys()) if (!known.has(flag)) throw new Error(`Flag desconhecida: ${flag}.`);
   const required = (flag: string): string => { const value = values.get(flag); if (!value) throw new Error(`${flag} é obrigatório.`); return resolve(value); };
   const threads = Number(values.get("--threads") ?? "10"), maxReadMiB = Number(values.get("--max-read-mib") ?? "16");
   const linearBackend = values.get("--linear-backend") ?? "mlx"; if (linearBackend !== "pytorch" && linearBackend !== "mlx") throw new Error("--linear-backend deve ser pytorch ou mlx.");
@@ -134,11 +150,13 @@ function parseArguments(argv: string[]): { artifact: string; binaryPool: string;
   const fusedTokenForwardRounding = values.get("--fused-token-forward") ?? (linearBackend === "mlx" && fusedDecoderStackRounding !== "off" ? "bf16" : "off"); if (fusedTokenForwardRounding !== "off" && fusedTokenForwardRounding !== "bf16") throw new Error("--fused-token-forward deve ser off ou bf16.");
   if (linearBackend !== "mlx" && fusedTokenForwardRounding !== "off") throw new Error("--fused-token-forward requer --linear-backend mlx.");
   if (fusedDecoderStackRounding === "off" && fusedTokenForwardRounding !== "off") throw new Error("--fused-token-forward requer --fused-decoder-stack habilitado.");
+  const residentGeneration = values.get("--resident-generation") ?? (fusedTokenForwardRounding === "bf16" ? "on" : "off"); if (residentGeneration !== "off" && residentGeneration !== "on") throw new Error("--resident-generation deve ser off ou on.");
+  if (residentGeneration === "on" && (linearBackend !== "mlx" || fusedTokenForwardRounding !== "bf16")) throw new Error("--resident-generation on requer token forward MLX bf16.");
   const finalHeadCompute = values.get("--final-head") ?? (linearBackend === "pytorch" ? "native-bf16-stream" : "native-bf16-whole"); if (finalHeadCompute !== "f32" && finalHeadCompute !== "native-bf16" && finalHeadCompute !== "native-bf16-stream" && finalHeadCompute !== "native-bf16-whole") throw new Error("--final-head deve ser f32, native-bf16, native-bf16-stream ou native-bf16-whole.");
   if (linearBackend === "mlx" && finalHeadCompute !== "f32" && finalHeadCompute !== "native-bf16-whole") throw new Error("--final-head no backend MLX deve ser f32 ou native-bf16-whole.");
   const nativeAttentionRounding = values.get("--native-attention") ?? (linearBackend === "pytorch" ? "real" : "off"); if (nativeAttentionRounding !== "off" && nativeAttentionRounding !== "bf16" && nativeAttentionRounding !== "real") throw new Error("--native-attention deve ser off, bf16 ou real.");
   if (linearBackend === "mlx" && nativeAttentionRounding !== "off") throw new Error("--native-attention requer --linear-backend pytorch.");
   const fusedAttentionRounding = values.get("--fused-attention") ?? (linearBackend === "pytorch" ? "native-bf16" : "off"); if (fusedAttentionRounding !== "off" && fusedAttentionRounding !== "bf16" && fusedAttentionRounding !== "real" && fusedAttentionRounding !== "native-bf16") throw new Error("--fused-attention deve ser off, bf16, real ou native-bf16.");
   if (linearBackend === "mlx" && fusedAttentionRounding !== "off") throw new Error("--fused-attention requer --linear-backend pytorch.");
-  return { artifact: required("--artifact"), binaryPool: required("--binary-pool"), python: values.get("--python") ?? resolve("venv/bin/python"), linearHelper: resolve(values.get("--linear-helper") ?? "scripts/gemma4-paged-linear-worker.py"), mlxHelper: resolve(values.get("--mlx-helper") ?? "scripts/gemma4-mlx-linear-worker.py"), linearBackend, fusedMlpRounding, fusedFfnRounding, fusedDecoderLayerRounding, fusedDecoderStackRounding, fusedPleRounding, fusedPlePreludeRounding, fusedTokenForwardRounding, finalHeadCompute, nativeAttentionRounding, fusedAttentionRounding, threads, maxReadBytes: maxReadMiB * 1024 * 1024, finalHeadMaxReadBytes: finalHeadReadMiB * 1024 * 1024 };
+  return { artifact: required("--artifact"), binaryPool: required("--binary-pool"), python: values.get("--python") ?? resolve("venv/bin/python"), linearHelper: resolve(values.get("--linear-helper") ?? "scripts/gemma4-paged-linear-worker.py"), mlxHelper: resolve(values.get("--mlx-helper") ?? "scripts/gemma4-mlx-linear-worker.py"), linearBackend, fusedMlpRounding, fusedFfnRounding, fusedDecoderLayerRounding, fusedDecoderStackRounding, fusedPleRounding, fusedPlePreludeRounding, fusedTokenForwardRounding, residentGeneration, finalHeadCompute, nativeAttentionRounding, fusedAttentionRounding, threads, maxReadBytes: maxReadMiB * 1024 * 1024, finalHeadMaxReadBytes: finalHeadReadMiB * 1024 * 1024 };
 }

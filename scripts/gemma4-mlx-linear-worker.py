@@ -3,10 +3,12 @@
 
 import argparse
 from collections import OrderedDict
+import hashlib
 import math
 from pathlib import Path
 import struct
 import sys
+import time
 
 import mlx.core as mx
 import numpy as np
@@ -15,6 +17,8 @@ import numpy as np
 FUSED_DECODER_STACK_FLAG = 0x00200000
 FUSED_DECODER_STACK_EPILOGUE_FLAG = 0x00080000
 FUSED_TOKEN_FORWARD_FLAG = 0x00040000
+FUSED_TOKEN_GENERATION_FLAG = 0x00020000
+COMPILED_TOKEN_GENERATION_FLAG = 0x00010000
 FUSED_PLE_PRELUDE_FLAG = 0x01000000
 _widened_tensor_cache = {}
 _widened_tensor_cache_hits = 0
@@ -22,6 +26,7 @@ _widened_tensor_cache_bytes = 0
 _shard_sizes = {}
 _binary_files = {}
 _embedding_row_cache = OrderedDict()
+_resident_generation_model = None
 EMBEDDING_ROW_CACHE_LIMIT = 4096
 
 
@@ -41,6 +46,11 @@ def read_exact(size):
 
 def write_float_tensor(tensor):
     payload = np.asarray(tensor, dtype=np.float32).tobytes(order="C")
+    sys.stdout.buffer.write(struct.pack("<I", len(payload)))
+    sys.stdout.buffer.write(payload)
+
+
+def write_bytes(payload):
     sys.stdout.buffer.write(struct.pack("<I", len(payload)))
     sys.stdout.buffer.write(payload)
 
@@ -97,7 +107,7 @@ def round_numpy_f32_to_bf16(values):
     return ((rounded >> np.uint32(16)) << np.uint32(16)).view(np.float32)
 
 
-def read_scaled_bf16_embedding_rows(pool, shards, expected_shape, token_ids, scale):
+def read_bf16_embedding_reference(pool, shards, expected_shape):
     metadata = read_exact(40)
     request_dtype, first, second, byte_offset, byte_length, start_output, shard_length, name_length = struct.unpack("<IIIQQIII", metadata)
     if request_dtype != 1 or (first, second) != expected_shape or start_output != 0 or byte_length != first * second * 2:
@@ -122,6 +132,11 @@ def read_scaled_bf16_embedding_rows(pool, shards, expected_shape, token_ids, sca
     tensor = shards[path].get(tensor_name)
     if tensor is None or tensor.shape != expected_shape or tensor.dtype != mx.bfloat16:
         raise ValueError(f"{tensor_name}: MLX token forward embedding identity diverges")
+    return path, tensor_name, byte_offset, second
+
+
+def materialize_scaled_bf16_embedding_rows(reference, token_ids, scale):
+    path, tensor_name, byte_offset, second = reference
     flat_tokens = token_ids.reshape(-1)
     unique_rows = {}
     row_bytes = second * 2
@@ -148,6 +163,10 @@ def read_scaled_bf16_embedding_rows(pool, shards, expected_shape, token_ids, sca
         unique_rows[int(token)] = row
     values = np.stack([unique_rows[int(token)] for token in flat_tokens], axis=0)
     return mx.array(values.reshape((*token_ids.shape, second)))
+
+
+def read_scaled_bf16_embedding_rows(pool, shards, expected_shape, token_ids, scale):
+    return materialize_scaled_bf16_embedding_rows(read_bf16_embedding_reference(pool, shards, expected_shape), token_ids, scale)
 
 
 def rms_norm_real(tensor, weight, epsilon):
@@ -232,29 +251,56 @@ def rope_real(tensor, positions, rope_kind, theta, rotary_dim, proportional_pair
     return mx.concatenate((rotated_first, rotated_second, tensor[..., rotary_dim:]), axis=-1)
 
 
-def execute_decoder_layer_mlx(pool, shards, inputs, per_layer, positions, mask, source_key, source_value, config):
+def read_decoder_layer_weights(pool, shards, hidden_size, config):
+    query_heads, key_value_heads, head_dim = config["query_heads"], config["key_value_heads"], config["head_dim"]
+    intermediate_size, per_layer_width = config["intermediate_size"], config["per_layer_width"]
+    weights = {
+        "input_norm": read_whole_tensor(pool, shards, (hidden_size, 1)).reshape((hidden_size,)),
+        "query": read_whole_tensor(pool, shards, (query_heads * head_dim, hidden_size), widen=False, required_dtype=mx.bfloat16),
+        "query_norm": read_whole_tensor(pool, shards, (head_dim, 1)).reshape((head_dim,)),
+        "output": read_whole_tensor(pool, shards, (hidden_size, query_heads * head_dim), widen=False, required_dtype=mx.bfloat16),
+    }
+    if config["produces_kv"]:
+        weights["key"] = read_whole_tensor(pool, shards, (key_value_heads * head_dim, hidden_size), widen=False, required_dtype=mx.bfloat16)
+        weights["key_norm"] = read_whole_tensor(pool, shards, (head_dim, 1)).reshape((head_dim,))
+        if not config["value_from_key"]:
+            weights["value"] = read_whole_tensor(pool, shards, (key_value_heads * head_dim, hidden_size), widen=False, required_dtype=mx.bfloat16)
+    weights.update({
+        "post_attention_norm": read_whole_tensor(pool, shards, (hidden_size, 1)).reshape((hidden_size,)),
+        "pre_ffn_norm": read_whole_tensor(pool, shards, (hidden_size, 1)).reshape((hidden_size,)),
+        "gate": read_whole_tensor(pool, shards, (intermediate_size, hidden_size), widen=False, required_dtype=mx.bfloat16),
+        "up": read_whole_tensor(pool, shards, (intermediate_size, hidden_size), widen=False, required_dtype=mx.bfloat16),
+        "down": read_whole_tensor(pool, shards, (hidden_size, intermediate_size), widen=False, required_dtype=mx.bfloat16),
+        "post_ffn_norm": read_whole_tensor(pool, shards, (hidden_size, 1)).reshape((hidden_size,)),
+        "ple_gate": read_whole_tensor(pool, shards, (per_layer_width, hidden_size)),
+        "ple_projection": read_whole_tensor(pool, shards, (hidden_size, per_layer_width)),
+        "ple_norm": read_whole_tensor(pool, shards, (hidden_size, 1)).reshape((hidden_size,)),
+        "layer_scalar": read_whole_tensor(pool, shards, (1, 1)).reshape(()),
+    })
+    return weights
+
+
+def execute_decoder_layer_mlx(pool, shards, inputs, per_layer, positions, mask, source_key, source_value, config, weights=None):
     batch, query_sequence, hidden_size = inputs.shape
     query_heads, key_value_heads, head_dim = config["query_heads"], config["key_value_heads"], config["head_dim"]
     produces_kv, value_from_key = config["produces_kv"], config["value_from_key"]
     intermediate_size, per_layer_width = config["intermediate_size"], config["per_layer_width"]
     boundary = lambda value: value.astype(mx.bfloat16).astype(mx.float32)
     project = lambda value, weight: mx.matmul(value.astype(mx.bfloat16), weight.T).astype(mx.float32)
-    input_norm_weight = read_whole_tensor(pool, shards, (hidden_size, 1)).reshape((hidden_size,))
-    query_weight = read_whole_tensor(pool, shards, (query_heads * head_dim, hidden_size), widen=False, required_dtype=mx.bfloat16)
-    query_norm = read_whole_tensor(pool, shards, (head_dim, 1)).reshape((head_dim,))
-    output_weight = read_whole_tensor(pool, shards, (hidden_size, query_heads * head_dim), widen=False, required_dtype=mx.bfloat16)
+    if weights is None:
+        weights = read_decoder_layer_weights(pool, shards, hidden_size, config)
+    input_norm_weight, query_weight, query_norm, output_weight = weights["input_norm"], weights["query"], weights["query_norm"], weights["output"]
     normalized_input = boundary(rms_norm_real(inputs, input_norm_weight, config["input_epsilon"]))
     query = mx.transpose(boundary(project(normalized_input, query_weight)).reshape((batch, query_sequence, query_heads, head_dim)), (0, 2, 1, 3))
     query = rope_real(boundary(rms_norm_real(query, query_norm, config["attention_epsilon"])), positions, config["rope_kind"], config["theta"], config["rotary_dim"], config["proportional_pairs"], config["proportional_factor"])
     if produces_kv:
-        key_weight = read_whole_tensor(pool, shards, (key_value_heads * head_dim, hidden_size), widen=False, required_dtype=mx.bfloat16)
-        key_norm = read_whole_tensor(pool, shards, (head_dim, 1)).reshape((head_dim,))
+        key_weight, key_norm = weights["key"], weights["key_norm"]
         current_key_heads = mx.transpose(boundary(project(normalized_input, key_weight)).reshape((batch, query_sequence, key_value_heads, head_dim)), (0, 2, 1, 3))
         current_key = rope_real(boundary(rms_norm_real(current_key_heads, key_norm, config["attention_epsilon"])), positions, config["rope_kind"], config["theta"], config["rotary_dim"], config["proportional_pairs"], config["proportional_factor"])
         if value_from_key:
             current_value = boundary(rms_norm_real(current_key_heads, None, config["attention_epsilon"]))
         else:
-            value_weight = read_whole_tensor(pool, shards, (key_value_heads * head_dim, hidden_size), widen=False, required_dtype=mx.bfloat16)
+            value_weight = weights["value"]
             current_value = mx.transpose(boundary(project(normalized_input, value_weight)).reshape((batch, query_sequence, key_value_heads, head_dim)), (0, 2, 1, 3))
             current_value = boundary(rms_norm_real(current_value, None, config["attention_epsilon"]))
         key = mx.concatenate((source_key, current_key), axis=2)
@@ -268,12 +314,8 @@ def execute_decoder_layer_mlx(pool, shards, inputs, per_layer, positions, mask, 
     probabilities = mx.softmax(scores, axis=-1)
     context = mx.transpose(mx.matmul(probabilities, attention_value), (0, 2, 1, 3)).reshape((batch, query_sequence, query_heads * head_dim))
     attention_projected = boundary(project(context, output_weight))
-    post_attention_norm_weight = read_whole_tensor(pool, shards, (hidden_size, 1)).reshape((hidden_size,))
-    pre_ffn_norm_weight = read_whole_tensor(pool, shards, (hidden_size, 1)).reshape((hidden_size,))
-    gate_weight = read_whole_tensor(pool, shards, (intermediate_size, hidden_size), widen=False, required_dtype=mx.bfloat16)
-    up_weight = read_whole_tensor(pool, shards, (intermediate_size, hidden_size), widen=False, required_dtype=mx.bfloat16)
-    down_weight = read_whole_tensor(pool, shards, (hidden_size, intermediate_size), widen=False, required_dtype=mx.bfloat16)
-    post_ffn_norm_weight = read_whole_tensor(pool, shards, (hidden_size, 1)).reshape((hidden_size,))
+    post_attention_norm_weight, pre_ffn_norm_weight = weights["post_attention_norm"], weights["pre_ffn_norm"]
+    gate_weight, up_weight, down_weight, post_ffn_norm_weight = weights["gate"], weights["up"], weights["down"], weights["post_ffn_norm"]
     after_attention = boundary(inputs + boundary(rms_norm_real(attention_projected, post_attention_norm_weight, config["post_attention_epsilon"])))
     ffn_input = boundary(rms_norm_real(after_attention, pre_ffn_norm_weight, config["pre_ffn_epsilon"])).astype(mx.bfloat16)
     gate, up = mx.matmul(ffn_input, gate_weight.T), mx.matmul(ffn_input, up_weight.T)
@@ -282,10 +324,7 @@ def execute_decoder_layer_mlx(pool, shards, inputs, per_layer, positions, mask, 
     hidden = (mx.array(0.5, dtype=mx.float32) * gate) * (mx.array(1.0, dtype=mx.float32) + mx.tanh(inner)) * up
     ffn_projected = mx.matmul(hidden.astype(mx.bfloat16), down_weight.T).astype(mx.float32)
     after_mlp = boundary(after_attention + boundary(rms_norm_real(ffn_projected, post_ffn_norm_weight, config["post_ffn_epsilon"])))
-    ple_gate_weight = read_whole_tensor(pool, shards, (per_layer_width, hidden_size))
-    ple_projection_weight = read_whole_tensor(pool, shards, (hidden_size, per_layer_width))
-    ple_norm_weight = read_whole_tensor(pool, shards, (hidden_size, 1)).reshape((hidden_size,))
-    layer_scalar = read_whole_tensor(pool, shards, (1, 1)).reshape(())
+    ple_gate_weight, ple_projection_weight, ple_norm_weight, layer_scalar = weights["ple_gate"], weights["ple_projection"], weights["ple_norm"], weights["layer_scalar"]
     ple_gate = boundary(mx.matmul(after_mlp, ple_gate_weight.T))
     cube = (ple_gate * ple_gate) * ple_gate
     inner = mx.array(math.sqrt(2 / math.pi), dtype=mx.float32) * (ple_gate + mx.array(0.044715, dtype=mx.float32) * cube)
@@ -296,17 +335,145 @@ def execute_decoder_layer_mlx(pool, shards, inputs, per_layer, positions, mask, 
     valid = mx.all(mx.isfinite(result))
     if produces_kv:
         valid = valid & mx.all(mx.isfinite(key)) & mx.all(mx.isfinite(value))
-    return result, key, value, valid
+    return result, key, value, valid, weights
 
 
-def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, native_bf16_ple, fused_epilogue, fused_token_forward):
+def execute_decoder_epilogue(result, epilogue, terminal_only=True):
+    norm_weight, head_weight, norm_epsilon, softcap = epilogue
+    boundary = lambda value: value.astype(mx.bfloat16).astype(mx.float32)
+    epilogue_input = result[:, -1:, :] if terminal_only else result
+    final_hidden = boundary(rms_norm_real(epilogue_input, norm_weight, norm_epsilon))
+    raw_logits = mx.matmul(final_hidden.astype(mx.bfloat16), head_weight.T).astype(mx.float32)
+    logits = boundary(mx.tanh(boundary(raw_logits / mx.array(softcap, dtype=mx.float32))))
+    return boundary(logits * mx.array(softcap, dtype=mx.float32))
+
+
+def incremental_topology_mask(config, key_sequence, absolute_position):
+    values = np.zeros((1, config["mask_heads"], 1, key_sequence), dtype=np.float32)
+    first_key = max(0, absolute_position - config["sliding_window"] + 1) if config["sliding_window"] else 0
+    last_key = min(absolute_position, key_sequence - 1) if config["causal"] else key_sequence - 1
+    if first_key:
+        values[..., :first_key] = -np.inf
+    if last_key + 1 < key_sequence:
+        values[..., last_key + 1:] = -np.inf
+    return mx.array(values)
+
+
+def rank_terminal_logits(logits, top_k):
+    values = np.asarray(logits, dtype=np.float32).reshape(-1)
+    if not np.isfinite(values).all():
+        raise ValueError("MLX resident generation produced non-finite logits")
+    selected = int(np.argmax(values))
+    candidates = np.argpartition(values, -top_k)[-top_k:]
+    ordered = candidates[np.lexsort((candidates, -values[candidates]))]
+    return selected, ordered.astype(np.int32), values[ordered].astype(np.float32), values
+
+
+def prefill_topology_mask(config, query_sequence):
+    values = np.zeros((1, config["mask_heads"], query_sequence, query_sequence), dtype=np.float32)
+    for query in range(query_sequence):
+        first_key = max(0, query - config["sliding_window"] + 1) if config["sliding_window"] else 0
+        last_key = query if config["causal"] else query_sequence - 1
+        if first_key:
+            values[..., query, :first_key] = -np.inf
+        if last_key + 1 < query_sequence:
+            values[..., query, last_key + 1:] = -np.inf
+    return mx.array(values)
+
+
+def emit_resident_generation(model, result, produced_caches, logits, first_forward_seconds, max_new_tokens, eos_token_id, top_k, cache_hits_before):
+    generated_ids, forward_seconds, top_ids, top_values = [], [first_forward_seconds], [], []
+    terminal_values = None
+    while len(generated_ids) < max_new_tokens:
+        token_id, ranked_ids, ranked_values, terminal_values = rank_terminal_logits(logits, top_k)
+        generated_ids.append(token_id)
+        top_ids.append(ranked_ids)
+        top_values.append(ranked_values)
+        if len(generated_ids) == max_new_tokens or token_id == eos_token_id:
+            break
+        incremental_started = time.perf_counter()
+        incremental_ids = np.array([[token_id]], dtype=np.int32)
+        result, all_per_layer = model["execute_token_prelude"](incremental_ids)
+        absolute_position = model["prompt_length"] + len(generated_ids) - 1
+        positions = mx.array(np.array([[absolute_position]], dtype=np.int32))
+        next_caches, all_valid = {}, mx.array(True)
+        for layer_index, (config, weights) in enumerate(model["layer_plans"]):
+            if config["produces_kv"]:
+                source_key, source_value = produced_caches[layer_index]
+            else:
+                source_key, source_value = next_caches[config["producer_layer"]]
+            key_sequence = source_key.shape[2] + (1 if config["produces_kv"] else 0)
+            mask = incremental_topology_mask(config, key_sequence, absolute_position)
+            result, key, value, valid, _ = execute_decoder_layer_mlx(model["pool"], model["shards"], result, all_per_layer[:, :, layer_index, :], positions, mask, source_key, source_value, config, weights)
+            all_valid = all_valid & valid
+            if config["produces_kv"]:
+                next_caches[layer_index] = (key, value)
+        produced_caches = next_caches
+        logits = execute_decoder_epilogue(result, model["epilogue"])
+        logits_valid = mx.all(mx.isfinite(logits))
+        evaluation = [logits, logits_valid, all_valid]
+        for key, value in produced_caches.values():
+            evaluation.extend((key, value))
+        mx.eval(*evaluation)
+        if not bool(np.asarray(logits_valid & all_valid).item()):
+            raise ValueError("MLX resident generation produced non-finite state")
+        forward_seconds.append(time.perf_counter() - incremental_started)
+    resident_kv_bytes = sum((key.size + value.size) * 4 for key, value in produced_caches.values())
+    write_bytes(np.asarray(generated_ids, dtype=np.int32).tobytes(order="C"))
+    write_bytes(np.asarray(forward_seconds, dtype=np.float32).tobytes(order="C"))
+    write_bytes(np.stack(top_ids).astype(np.int32).tobytes(order="C"))
+    write_bytes(np.stack(top_values).astype(np.float32).tobytes(order="C"))
+    write_bytes(hashlib.sha256(np.asarray(terminal_values, dtype=np.float32).tobytes(order="C")).digest())
+    profile = np.array((0, 0, 0, 0, _widened_tensor_cache_hits - cache_hits_before, len(_widened_tensor_cache), _widened_tensor_cache_bytes, resident_kv_bytes), dtype=np.float32)
+    write_float_tensor(mx.array(profile))
+    sys.stdout.buffer.flush()
+
+
+def execute_compiled_token_generation(pool, shards, token_ids, max_new_tokens, eos_token_id, top_k):
+    model = _resident_generation_model
+    if model is None:
+        raise ValueError("MLX resident generation model is not compiled")
+    if (token_ids < 0).any() or (token_ids >= model["vocabulary_size"]).any():
+        raise ValueError("MLX compiled generation token id is outside the vocabulary")
+    if eos_token_id is not None and (eos_token_id < 0 or eos_token_id >= model["vocabulary_size"]):
+        raise ValueError("MLX compiled generation EOS is outside the vocabulary")
+    cache_hits_before, started = _widened_tensor_cache_hits, time.perf_counter()
+    model["prompt_length"] = token_ids.shape[1]
+    result, all_per_layer = model["execute_token_prelude"](token_ids)
+    positions = mx.array(np.arange(token_ids.shape[1], dtype=np.int32).reshape(1, -1))
+    produced_caches, all_valid = {}, mx.array(True)
+    for layer_index, (config, weights) in enumerate(model["layer_plans"]):
+        if config["produces_kv"]:
+            source_key = mx.zeros((1, config["key_value_heads"], 0, config["head_dim"]), dtype=mx.float32)
+            source_value = mx.zeros((1, config["key_value_heads"], 0, config["head_dim"]), dtype=mx.float32)
+        else:
+            source_key, source_value = produced_caches[config["producer_layer"]]
+        mask = prefill_topology_mask(config, token_ids.shape[1])
+        result, key, value, valid, _ = execute_decoder_layer_mlx(pool, shards, result, all_per_layer[:, :, layer_index, :], positions, mask, source_key, source_value, config, weights)
+        all_valid = all_valid & valid
+        if config["produces_kv"]:
+            produced_caches[layer_index] = (key, value)
+    logits = execute_decoder_epilogue(result, model["epilogue"])
+    logits_valid = mx.all(mx.isfinite(logits))
+    evaluation = [logits, logits_valid, all_valid]
+    for key, value in produced_caches.values():
+        evaluation.extend((key, value))
+    mx.eval(*evaluation)
+    if not bool(np.asarray(logits_valid & all_valid).item()):
+        raise ValueError("MLX compiled generation prefill produced non-finite state")
+    emit_resident_generation(model, result, produced_caches, logits, time.perf_counter() - started, max_new_tokens, eos_token_id, top_k, cache_hits_before)
+
+
+def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, native_bf16_ple, fused_epilogue, fused_token_forward, fused_token_generation):
     if native_bf16_ple:
         raise ValueError("MLX decoder stack does not support native-bf16-ple")
     cache_hits_before = _widened_tensor_cache_hits
+    request_started = time.perf_counter()
     query_sequence, per_layer_width = struct.unpack("<II", read_exact(8))
     if not query_sequence or not per_layer_width:
         raise ValueError("MLX decoder stack topology is invalid")
     rows = batch * query_sequence
+    generation = None
     if fused_token_forward:
         descriptor_count, rounding, tile_output_rows, vocabulary_size, token_scale, per_layer_scale, context_scale, combine_scale = struct.unpack("<IIIIffff", read_exact(32))
         epsilon = struct.unpack("<f", read_exact(4))[0]
@@ -315,13 +482,22 @@ def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, 
         token_ids = np.frombuffer(read_exact(rows * 4), dtype=np.int32).reshape(batch, query_sequence)
         if (token_ids < 0).any() or (token_ids >= vocabulary_size).any():
             raise ValueError("MLX token forward token id is outside the vocabulary")
-        result = read_scaled_bf16_embedding_rows(pool, shards, (vocabulary_size, hidden_size), token_ids, token_scale)
-        token_identity = read_scaled_bf16_embedding_rows(pool, shards, (vocabulary_size, num_layers * per_layer_width), token_ids, per_layer_scale).reshape((rows, num_layers, per_layer_width))
+        if fused_token_generation:
+            max_new_tokens, eos_plus_one, top_k = struct.unpack("<III", read_exact(12))
+            if batch != 1 or not max_new_tokens or max_new_tokens > 4096 or not top_k or top_k > 64 or eos_plus_one > vocabulary_size:
+                raise ValueError("MLX resident generation metadata is invalid")
+            generation = {"max_new_tokens": max_new_tokens, "eos_token_id": None if eos_plus_one == 0 else eos_plus_one - 1, "top_k": top_k}
+        token_embedding_reference = read_bf16_embedding_reference(pool, shards, (vocabulary_size, hidden_size))
+        per_layer_embedding_reference = read_bf16_embedding_reference(pool, shards, (vocabulary_size, num_layers * per_layer_width))
         projection_weight = read_whole_tensor(pool, shards, (num_layers * per_layer_width, hidden_size), widen=False, required_dtype=mx.bfloat16, large_descriptor=True)
-        norm_weight = read_whole_tensor(pool, shards, (per_layer_width, 1), large_descriptor=True).reshape((per_layer_width,))
-        result = result.reshape((rows, hidden_size))
-        all_per_layer = execute_ple_prelude_values(result, token_identity, projection_weight, norm_weight, rows, num_layers, per_layer_width, context_scale, combine_scale, epsilon, tile_output_rows).reshape((batch, query_sequence, num_layers, per_layer_width))
-        result = result.reshape((batch, query_sequence, hidden_size))
+        prelude_norm_weight = read_whole_tensor(pool, shards, (per_layer_width, 1), large_descriptor=True).reshape((per_layer_width,))
+        def execute_token_prelude(current_token_ids):
+            current_rows = current_token_ids.size
+            current_result = materialize_scaled_bf16_embedding_rows(token_embedding_reference, current_token_ids, token_scale).reshape((current_rows, hidden_size))
+            current_identity = materialize_scaled_bf16_embedding_rows(per_layer_embedding_reference, current_token_ids, per_layer_scale).reshape((current_rows, num_layers, per_layer_width))
+            current_per_layer = execute_ple_prelude_values(current_result, current_identity, projection_weight, prelude_norm_weight, current_rows, num_layers, per_layer_width, context_scale, combine_scale, epsilon, tile_output_rows)
+            return current_result.reshape((*current_token_ids.shape, hidden_size)), current_per_layer.reshape((*current_token_ids.shape, num_layers, per_layer_width))
+        result, all_per_layer = execute_token_prelude(token_ids)
     else:
         input_bytes = read_exact(rows * hidden_size * 4)
         per_layer_bytes = read_exact(rows * num_layers * per_layer_width * 4)
@@ -329,7 +505,7 @@ def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, 
         all_per_layer = mx.array(np.frombuffer(per_layer_bytes, dtype=np.float32).reshape(batch, query_sequence, num_layers, per_layer_width))
     position_bytes = read_exact(batch * query_sequence * 4)
     positions = mx.array(np.frombuffer(position_bytes, dtype=np.int32).reshape(batch, query_sequence))
-    produced_caches, ordered_caches = {}, []
+    produced_caches, ordered_caches, layer_plans = {}, [], []
     all_valid = mx.array(True)
     for expected_layer in range(num_layers):
         metadata = read_exact(96)
@@ -337,6 +513,8 @@ def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, 
         attention_epsilon, scale = struct.unpack("<ff", metadata[52:60])
         theta = struct.unpack("<d", metadata[60:68])[0]
         proportional_factor, input_epsilon, post_attention_epsilon, pre_ffn_epsilon, post_ffn_epsilon, ple_epsilon = struct.unpack("<ffffff", metadata[68:92])
+        topology = struct.unpack("<I", metadata[92:96])[0]
+        causal, sliding_window = bool(topology & 0x80000000), topology & 0x7fffffff
         shared = shared_plus_one != 0
         producer_layer = shared_plus_one - 1
         produces_kv = not shared
@@ -366,8 +544,9 @@ def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, 
             else:
                 source_key = mx.zeros((batch, key_value_heads, 0, head_dim), dtype=mx.float32)
                 source_value = mx.zeros((batch, key_value_heads, 0, head_dim), dtype=mx.float32)
-        config = {"query_heads": query_heads, "key_value_heads": key_value_heads, "head_dim": head_dim, "produces_kv": produces_kv, "value_from_key": value_from_key, "intermediate_size": intermediate_size, "per_layer_width": per_layer_width, "input_epsilon": input_epsilon, "attention_epsilon": attention_epsilon, "post_attention_epsilon": post_attention_epsilon, "pre_ffn_epsilon": pre_ffn_epsilon, "post_ffn_epsilon": post_ffn_epsilon, "ple_epsilon": ple_epsilon, "scale": scale, "rope_kind": rope_kind, "theta": theta, "rotary_dim": rotary_dim, "proportional_pairs": proportional_pairs, "proportional_factor": proportional_factor}
-        result, key, value, valid = execute_decoder_layer_mlx(pool, shards, result, all_per_layer[:, :, layer_index, :], positions, mask, source_key, source_value, config)
+        config = {"layer_index": layer_index, "producer_layer": producer_layer if shared else None, "query_heads": query_heads, "key_value_heads": key_value_heads, "head_dim": head_dim, "mask_heads": mask_heads, "causal": causal, "sliding_window": sliding_window, "produces_kv": produces_kv, "value_from_key": value_from_key, "intermediate_size": intermediate_size, "per_layer_width": per_layer_width, "input_epsilon": input_epsilon, "attention_epsilon": attention_epsilon, "post_attention_epsilon": post_attention_epsilon, "pre_ffn_epsilon": pre_ffn_epsilon, "post_ffn_epsilon": post_ffn_epsilon, "ple_epsilon": ple_epsilon, "scale": scale, "rope_kind": rope_kind, "theta": theta, "rotary_dim": rotary_dim, "proportional_pairs": proportional_pairs, "proportional_factor": proportional_factor}
+        result, key, value, valid, weights = execute_decoder_layer_mlx(pool, shards, result, all_per_layer[:, :, layer_index, :], positions, mask, source_key, source_value, config)
+        layer_plans.append((config, weights))
         all_valid = all_valid & valid
         if produces_kv:
             produced_caches[layer_index] = (key, value)
@@ -377,9 +556,9 @@ def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, 
         vocabulary_size, norm_epsilon, softcap = struct.unpack("<Iff", read_exact(12))
         if not vocabulary_size or not math.isfinite(norm_epsilon) or norm_epsilon <= 0 or not math.isfinite(softcap) or softcap <= 0:
             raise ValueError("MLX decoder stack epilogue metadata is invalid")
-        norm_weight = read_whole_tensor(pool, shards, (hidden_size, 1)).reshape((hidden_size,))
+        final_norm_weight = read_whole_tensor(pool, shards, (hidden_size, 1)).reshape((hidden_size,))
         head_weight = read_whole_tensor(pool, shards, (vocabulary_size, hidden_size), widen=False, required_dtype=mx.bfloat16)
-        epilogue = (norm_weight, head_weight, norm_epsilon, softcap)
+        epilogue = (final_norm_weight, head_weight, norm_epsilon, softcap)
     evaluation = [result, all_valid]
     for key, value in ordered_caches:
         evaluation.extend((key, value))
@@ -388,17 +567,16 @@ def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, 
         raise ValueError("MLX decoder stack produced non-finite output")
     logits = None
     if epilogue is not None:
-        norm_weight, head_weight, norm_epsilon, softcap = epilogue
-        boundary = lambda value: value.astype(mx.bfloat16).astype(mx.float32)
-        epilogue_input = result[:, -1:, :] if fused_token_forward else result
-        final_hidden = boundary(rms_norm_real(epilogue_input, norm_weight, norm_epsilon))
-        raw_logits = mx.matmul(final_hidden.astype(mx.bfloat16), head_weight.T).astype(mx.float32)
-        logits = boundary(mx.tanh(boundary(raw_logits / mx.array(softcap, dtype=mx.float32))))
-        logits = boundary(logits * mx.array(softcap, dtype=mx.float32))
+        logits = execute_decoder_epilogue(result, epilogue, fused_token_forward)
         logits_valid = mx.all(mx.isfinite(logits))
         mx.eval(logits, logits_valid)
         if not bool(np.asarray(logits_valid).item()):
             raise ValueError("MLX decoder stack epilogue produced non-finite output")
+    if generation is not None:
+        global _resident_generation_model
+        _resident_generation_model = {"pool": pool, "shards": shards, "execute_token_prelude": execute_token_prelude, "layer_plans": layer_plans, "epilogue": epilogue, "vocabulary_size": vocabulary_size, "prompt_length": query_sequence}
+        emit_resident_generation(_resident_generation_model, result, produced_caches, logits, time.perf_counter() - request_started, generation["max_new_tokens"], generation["eos_token_id"], generation["top_k"], cache_hits_before)
+        return
     if not fused_token_forward:
         write_float_tensor(result)
     for key, value in ordered_caches:
@@ -476,16 +654,29 @@ def main():
                 raise ValueError("MLX fused PLE prelude flags are invalid")
             execute_ple_prelude_request(pool, shards, rows, outputs, features)
             continue
+        compiled_token_generation = bool(encoded_dtype & COMPILED_TOKEN_GENERATION_FLAG)
+        if compiled_token_generation:
+            if referenced or batched or fused_mlp or native_bf16 or native_attention or fused_attention or dtype_code != COMPILED_TOKEN_GENERATION_FLAG:
+                raise ValueError("MLX compiled generation flags are invalid")
+            if not rows or not outputs or not features or outputs > 4096 or features > 64:
+                raise ValueError("MLX compiled generation topology is invalid")
+            eos_plus_one = struct.unpack("<I", read_exact(4))[0]
+            token_ids = np.frombuffer(read_exact(rows * 4), dtype=np.int32).reshape(1, rows)
+            execute_compiled_token_generation(pool, shards, token_ids, outputs, None if eos_plus_one == 0 else eos_plus_one - 1, features)
+            continue
         fused_decoder_stack = bool(encoded_dtype & FUSED_DECODER_STACK_FLAG)
         if fused_decoder_stack:
             fused_epilogue = bool(encoded_dtype & FUSED_DECODER_STACK_EPILOGUE_FLAG)
             fused_token_forward = bool(encoded_dtype & FUSED_TOKEN_FORWARD_FLAG)
-            expected_code = FUSED_DECODER_STACK_FLAG | (FUSED_DECODER_STACK_EPILOGUE_FLAG if fused_epilogue else 0) | (FUSED_TOKEN_FORWARD_FLAG if fused_token_forward else 0)
+            fused_token_generation = bool(encoded_dtype & FUSED_TOKEN_GENERATION_FLAG)
+            expected_code = FUSED_DECODER_STACK_FLAG | (FUSED_DECODER_STACK_EPILOGUE_FLAG if fused_epilogue else 0) | (FUSED_TOKEN_FORWARD_FLAG if fused_token_forward else 0) | (FUSED_TOKEN_GENERATION_FLAG if fused_token_generation else 0)
             if referenced or batched or fused_mlp or native_attention or fused_attention or dtype_code != expected_code:
                 raise ValueError("MLX decoder stack flags are invalid")
             if fused_token_forward and not fused_epilogue:
                 raise ValueError("MLX token forward requires the fused epilogue")
-            execute_decoder_stack_request(pool, shards, rows, outputs, features, native_bf16, fused_epilogue, fused_token_forward)
+            if fused_token_generation and not fused_token_forward:
+                raise ValueError("MLX resident generation requires token forward")
+            execute_decoder_stack_request(pool, shards, rows, outputs, features, native_bf16, fused_epilogue, fused_token_forward, fused_token_generation)
             continue
         if not referenced:
             raise ValueError("MLX worker requires a referenced tile")

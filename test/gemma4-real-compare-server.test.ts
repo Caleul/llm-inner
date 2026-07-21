@@ -19,6 +19,9 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /Decoder layers completas/);
   assert.match(gemma4RealCompareHtml, /Pilhas decoder completas/);
   assert.match(gemma4RealCompareHtml, /pilhas até logits/);
+  assert.match(gemma4RealCompareHtml, /gerações residentes/);
+  assert.match(gemma4RealCompareHtml, /chamadas externas/);
+  assert.match(gemma4RealCompareHtml, /transporte KV/);
   assert.match(gemma4RealCompareHtml, /Aquecendo o forward compilado no Metal/);
   assert.match(gemma4RealCompareHtml, /gate\+up unidos/);
   assert.match(gemma4RealCompareHtml, /cache de constantes F32/);
@@ -67,6 +70,7 @@ test("servidor diferencial valida opções reprodutíveis", () => {
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-ple", "always"]), /off, bf16 ou real/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-ple-prelude", "always"]), /off, bf16 ou real/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-token-forward", "always"]), /off ou bf16/);
+  assert.throws(() => parseGemma4RealServerOptions(["--direct-resident-generation", "always"]), /off ou on/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-final-head", "fp16"]), /f32, native-bf16, native-bf16-stream ou native-bf16-whole/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-native-attention", "auto"]), /off, bf16 ou real/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-attention", "always"]), /off, bf16, real ou native-bf16/);
@@ -76,20 +80,22 @@ test("servidor diferencial valida opções reprodutíveis", () => {
   const splitTiles = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-max-read-mib", "16", "--direct-final-head-read-mib", "32"]);
   assert.equal(splitTiles.directFinalHeadReadMiB, 32);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-final-head-read-mib", "0"]), /Configuração direta inválida/);
-  assert.equal(directDefaults.directLinearBackend, "mlx"); assert.equal(directDefaults.directFusedMlp, "real"); assert.equal(directDefaults.directFusedFfn, "off"); assert.equal(directDefaults.directFusedDecoderLayer, "off"); assert.equal(directDefaults.directFusedDecoderStack, "native-bf16"); assert.equal(directDefaults.directFusedPle, "off"); assert.equal(directDefaults.directFusedPlePrelude, "bf16"); assert.equal(directDefaults.directFusedTokenForward, "bf16"); assert.equal(directDefaults.directFinalHead, "native-bf16-whole"); assert.equal(directDefaults.directNativeAttention, "off"); assert.equal(directDefaults.directFusedAttention, "off");
+  assert.equal(directDefaults.directLinearBackend, "mlx"); assert.equal(directDefaults.directFusedMlp, "real"); assert.equal(directDefaults.directFusedFfn, "off"); assert.equal(directDefaults.directFusedDecoderLayer, "off"); assert.equal(directDefaults.directFusedDecoderStack, "native-bf16"); assert.equal(directDefaults.directFusedPle, "off"); assert.equal(directDefaults.directFusedPlePrelude, "bf16"); assert.equal(directDefaults.directFusedTokenForward, "bf16"); assert.equal(directDefaults.directResidentGeneration, "on"); assert.equal(directDefaults.directFinalHead, "native-bf16-whole"); assert.equal(directDefaults.directNativeAttention, "off"); assert.equal(directDefaults.directFusedAttention, "off");
   const mlxDefaults = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-linear-backend", "mlx"]);
-  assert.equal(mlxDefaults.directFinalHeadReadMiB, 16); assert.equal(mlxDefaults.directFusedMlp, "real"); assert.equal(mlxDefaults.directFusedFfn, "off"); assert.equal(mlxDefaults.directFusedDecoderLayer, "off"); assert.equal(mlxDefaults.directFusedDecoderStack, "native-bf16"); assert.equal(mlxDefaults.directFusedPle, "off"); assert.equal(mlxDefaults.directFusedPlePrelude, "bf16"); assert.equal(mlxDefaults.directFusedTokenForward, "bf16"); assert.equal(mlxDefaults.directFinalHead, "native-bf16-whole"); assert.equal(mlxDefaults.directNativeAttention, "off"); assert.equal(mlxDefaults.directFusedAttention, "off");
+  assert.equal(mlxDefaults.directFinalHeadReadMiB, 16); assert.equal(mlxDefaults.directFusedMlp, "real"); assert.equal(mlxDefaults.directFusedFfn, "off"); assert.equal(mlxDefaults.directFusedDecoderLayer, "off"); assert.equal(mlxDefaults.directFusedDecoderStack, "native-bf16"); assert.equal(mlxDefaults.directFusedPle, "off"); assert.equal(mlxDefaults.directFusedPlePrelude, "bf16"); assert.equal(mlxDefaults.directFusedTokenForward, "bf16"); assert.equal(mlxDefaults.directResidentGeneration, "on"); assert.equal(mlxDefaults.directFinalHead, "native-bf16-whole"); assert.equal(mlxDefaults.directNativeAttention, "off"); assert.equal(mlxDefaults.directFusedAttention, "off");
   const pytorchDefaults = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-linear-backend", "pytorch"]);
-  assert.equal(pytorchDefaults.directFinalHeadReadMiB, 32); assert.equal(pytorchDefaults.directFusedMlp, "native-bf16"); assert.equal(pytorchDefaults.directFusedFfn, "native-bf16"); assert.equal(pytorchDefaults.directFusedDecoderLayer, "native-bf16"); assert.equal(pytorchDefaults.directFusedDecoderStack, "native-bf16"); assert.equal(pytorchDefaults.directFusedPle, "bf16"); assert.equal(pytorchDefaults.directFusedPlePrelude, "off"); assert.equal(pytorchDefaults.directFusedTokenForward, "off"); assert.equal(pytorchDefaults.directFinalHead, "native-bf16-stream"); assert.equal(pytorchDefaults.directNativeAttention, "real"); assert.equal(pytorchDefaults.directFusedAttention, "native-bf16");
+  assert.equal(pytorchDefaults.directFinalHeadReadMiB, 32); assert.equal(pytorchDefaults.directFusedMlp, "native-bf16"); assert.equal(pytorchDefaults.directFusedFfn, "native-bf16"); assert.equal(pytorchDefaults.directFusedDecoderLayer, "native-bf16"); assert.equal(pytorchDefaults.directFusedDecoderStack, "native-bf16"); assert.equal(pytorchDefaults.directFusedPle, "bf16"); assert.equal(pytorchDefaults.directFusedPlePrelude, "off"); assert.equal(pytorchDefaults.directFusedTokenForward, "off"); assert.equal(pytorchDefaults.directResidentGeneration, "off"); assert.equal(pytorchDefaults.directFinalHead, "native-bf16-stream"); assert.equal(pytorchDefaults.directNativeAttention, "real"); assert.equal(pytorchDefaults.directFusedAttention, "native-bf16");
   assert.throws(() => parseGemma4RealServerOptions(["--direct-linear-backend", "mlx", "--direct-fused-mlp", "native-bf16"]), /requer backend pytorch/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-linear-backend", "mlx", "--direct-fused-ffn", "native-bf16"]), /requer backend pytorch/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-linear-backend", "mlx", "--direct-fused-decoder-layer", "native-bf16"]), /requer backend pytorch/);
   assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-linear-backend", "mlx", "--direct-fused-decoder-stack", "native-bf16"]).directFusedDecoderStack, "native-bf16");
-  assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-linear-backend", "mlx", "--direct-fused-decoder-stack", "off"]).directFusedTokenForward, "off");
+  const stackOff = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-linear-backend", "mlx", "--direct-fused-decoder-stack", "off"]);
+  assert.equal(stackOff.directFusedTokenForward, "off"); assert.equal(stackOff.directResidentGeneration, "off");
   assert.throws(() => parseGemma4RealServerOptions(["--direct-linear-backend", "mlx", "--direct-fused-decoder-stack", "off", "--direct-fused-token-forward", "bf16"]), /decoder stack habilitada/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-linear-backend", "mlx", "--direct-fused-decoder-stack", "native-bf16-ple"]), /requer backend pytorch/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-linear-backend", "mlx", "--direct-fused-attention", "native-bf16"]), /requer backend pytorch/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-linear-backend", "pytorch", "--direct-fused-token-forward", "bf16"]), /requer backend mlx/);
+  assert.throws(() => parseGemma4RealServerOptions(["--direct-linear-backend", "mlx", "--direct-resident-generation", "on", "--direct-fused-token-forward", "off"]), /token forward MLX bf16/);
   assert.throws(() => parseGemma4RealServerOptions(["--unknown", "x"]), /Flag desconhecida/);
 });
 

@@ -353,6 +353,63 @@ Evidências promovidas:
 - `artifacts/gemma4-three-way-calibration-8x2-mlx-token-forward-terminal.json`;
 - `artifacts/gemma4-three-way-france-16-token-forward.json`.
 
+## Geração inteira em uma chamada com KV residente
+
+O caminho textual compilado agora pode executar também o controle
+autoregressivo dentro do worker MLX. A primeira requisição autentica e compila
+os descritores do artefato; as requisições seguintes contêm somente os IDs do
+prompt, `maxNewTokens`, `topK` e o EOS opcional. Embeddings, PLE, as 42 camadas,
+norma/head/softcap, argmax com desempate pelo menor ID e append do próximo token
+permanecem no mesmo processo. Os caches K/V nunca voltam ao Node durante a
+geração.
+
+O resultado compacto contém os IDs emitidos, duração de cada forward, top-K de
+cada seleção, SHA-256 dos logits BF16 terminais e o tamanho do KV residente. A
+interface expõe `externalForwardRequests`, `kvCacheTransportBytes`,
+`residentKvBytes`, `residentGeneration` e
+`fusedTokenGenerationDispatches`. Assim, uma geração textual inteira registra
+uma chamada externa e zero bytes de transporte do KV.
+
+O corpus real de oito prompts por dois tokens em
+`gemma4-three-way-calibration-8x2-mlx-resident-generation.json` registrou:
+
+- 8/8 prompts e 16/16 tokens diretos iguais ao Transformers eager BF16;
+- `8,2855 token/s` no compilado contra `0,9255 token/s` no baseline, razão
+  `8,9521x`;
+- uma única chamada externa por prompt e zero bytes de KV transportado;
+- somente um despacho de geração residente por prompt após o warm-up.
+
+No ensaio contínuo aquecido de 16 tokens, a rota residente produziu os mesmos
+16 IDs e o mesmo SHA-256 terminal
+`5ed4dc16c6b7f7828844552fff90aaf5680bfbdff9e4be69ea730e5a6dba1f3e`
+da rota não residente. O tempo caiu de `1,2479 s` (`12,8217 token/s`) para
+`0,9083 s` (`17,6160 token/s`), redução de `27,22%` e ganho de `37,39%` em
+throughput. Os 15 incrementais residentes ficaram entre `0,0521 s` e
+`0,0531 s`.
+
+A prova três-vias persistida em
+`gemma4-three-way-france-16-resident-generation.json` confirmou os mesmos
+16/16 IDs e o texto completo nos três runtimes. Incluindo o primeiro prefill
+daquele tamanho após o warm-up, o compilado levou `0,9986 s`
+(`16,0220 token/s`) contra `5,9252 s` (`2,7003 token/s`) do Transformers,
+razão `5,9333x`.
+
+Comando reprodutível:
+
+```bash
+npm run calibrate:gemma4-real -- \
+  --source ./gemma-4-E4B-dense \
+  --literal-artifact ./artifacts/gemma4-compiled-global-runtime-bundle/constants.literal.json \
+  --binary-pool ./gemma-4-E4B-dense \
+  --output ./artifacts/gemma4-three-way-calibration-8x2-mlx-resident-generation.json \
+  --tokens 2 --request-threads 1 \
+  --direct-linear-backend mlx --direct-threads 10 \
+  --direct-fused-decoder-stack native-bf16 \
+  --direct-fused-token-forward bf16 \
+  --direct-resident-generation on \
+  --precision f32 --rounding-policy none
+```
+
 ## Paginação independente da projeção terminal
 
 Depois das fusões de attention, MLP e PLE, o `lm_head` passou a responder por

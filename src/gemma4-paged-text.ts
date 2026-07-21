@@ -15,7 +15,8 @@ import {
   executeGemma4LiteralGenerationProgram,
   type Gemma4LiteralGenerationExecutionResult,
 } from "./gemma4-literal-generation.js";
-import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearBatchF32, pagedLinearF32, readPagedDenseF32Vector, roundDenseF32ToBF16, type PagedFusedDecoderStackResult, type PagedFusedTokenForwardRequest, type PagedLinearTileKernel } from "./paged-dense.js";
+import { validateGemma4LiteralGenerationProgram } from "./gemma4-composite-literal.js";
+import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearBatchF32, pagedLinearF32, readPagedDenseF32Vector, roundDenseF32ToBF16, type PagedFusedDecoderStackResult, type PagedFusedTokenForwardRequest, type PagedFusedTokenGenerationResult, type PagedLinearTileKernel } from "./paged-dense.js";
 import type {
   DenseF32Tensor,
   Operation,
@@ -25,6 +26,8 @@ import type {
   TensorRef,
 } from "./types.js";
 import type { LiteralTensorReader } from "./literal.js";
+
+const validatedNativeGenerationArtifacts = new WeakSet<OpenGemma4CompositeLiteralArtifact>();
 
 export interface Gemma4PagedTextExecutionRequest {
   inputIds: number[][];
@@ -74,6 +77,14 @@ export interface Gemma4PagedTextOptions {
   fusedPlePreludeRounding?: "bf16" | "real";
   /** Text-only token IDs -> embeddings -> decoder -> logits in one native request. */
   fusedTokenForwardRounding?: "bf16";
+}
+
+export interface Gemma4PagedNativeGenerationResult {
+  generatedTokenIds: number[];
+  forwardSeconds: number[];
+  topLogits: Array<Array<{ tokenId: number; value: number }>>;
+  terminalLogitsSha256: string;
+  residentKvBytes: number;
 }
 
 /**
@@ -185,6 +196,7 @@ interface PagedOperationsResult {
   values: Map<string, DenseF32Tensor>;
   logits?: DenseF32Tensor;
   pastKeyValues: ReadonlyMap<number, ReferenceF32KeyValueCache>;
+  nativeGeneration?: PagedFusedTokenGenerationResult;
 }
 
 async function executePagedOperations(
@@ -196,6 +208,7 @@ async function executePagedOperations(
   options: Gemma4PagedTextOptions,
   request: Gemma4PagedTextExecutionRequest = { inputIds },
   tokenForwardPrelude?: Pick<PagedFusedTokenForwardRequest, "tokenIds" | "prelude">,
+  nativeGeneration?: { maxNewTokens: number; eosTokenId?: number; topK: number },
 ): Promise<PagedOperationsResult> {
   const maxReadBytes = options.maxReadBytes ?? 16 * 1024 * 1024;
   const tensorReader = options.tensorReader ?? artifact;
@@ -280,7 +293,7 @@ async function executePagedOperations(
               const proportionalPairs = fused.attention.queryRope.ropeType === "proportional" ? Math.floor(Number(fused.attention.queryRope.scaling?.partial_rotary_factor) * attention.headDim / 2) : half;
               const proportionalFactor = fused.attention.queryRope.ropeType === "proportional" ? Number(fused.attention.queryRope.scaling?.factor ?? 1) : 1;
               return {
-                layerIndex, ...(sharedProducerLayer === undefined ? {} : { sharedProducerLayer }), mask: nativeMask.values,
+                layerIndex, ...(sharedProducerLayer === undefined ? {} : { sharedProducerLayer }), causal: attention.causal, ...(attention.slidingWindow === undefined ? {} : { slidingWindow: attention.slidingWindow }), mask: nativeMask.values,
                 sourceKey: sourceKey?.values ?? new Float32Array(), sourceValue: sourceValue?.values ?? new Float32Array(),
                 inputNormWeight: tensorInfo(artifact, fused.inputNorm.weight!), queryWeight: tensorInfo(artifact, fused.query.weight), queryNorm: tensorInfo(artifact, fused.attention.queryNorm.weight!), outputWeight: tensorInfo(artifact, fused.attention.output.weight),
                 ...(fused.attention.key ? { keyWeight: tensorInfo(artifact, fused.attention.key.weight), keyNorm: tensorInfo(artifact, fused.attention.keyNorm!.weight!) } : {}),
@@ -296,7 +309,11 @@ async function executePagedOperations(
             const epilogueKernelAvailable = tokenForwardPrelude ? options.linearTileKernel.fusedTokenForwardStorageReferences !== undefined : options.linearTileKernel.fusedDecoderStackEpilogueStorageReferences !== undefined;
             const epilogue = epilogueKernelAvailable ? matchFusedDecoderEpilogue(operations, operationIndex + stack.operations.length, stack.layers.at(-1)!.ple.scalar.output) : undefined;
             let result: PagedFusedDecoderStackResult & { logits?: Float32Array };
-            if (tokenForwardPrelude) {
+            if (tokenForwardPrelude && nativeGeneration) {
+              if (!epilogue || !options.linearTileKernel.fusedTokenGenerationStorageReferences) throw new Error(`${operation.id}: geração textual residente requer epílogo e kernel nativo fundidos.`);
+              const generated = await options.linearTileKernel.fusedTokenGenerationStorageReferences({ ...stackRequest, ...tokenForwardPrelude, ...nativeGeneration, epilogue: { normWeight: tensorInfo(artifact, epilogue.norm.weight!), normEpsilon: epilogue.norm.epsilon, headWeight: tensorInfo(artifact, epilogue.head.weight), vocabularySize: epilogue.head.outFeatures, softcap: epilogue.softcap.scalar! } });
+              return { values, pastKeyValues: producedCache, nativeGeneration: generated };
+            } else if (tokenForwardPrelude) {
               if (!epilogue) throw new Error(`${operation.id}: forward textual integral requer epílogo fundido.`);
               const tokenResult = await options.linearTileKernel.fusedTokenForwardStorageReferences!({ ...stackRequest, ...tokenForwardPrelude, epilogue: { normWeight: tensorInfo(artifact, epilogue.norm.weight!), normEpsilon: epilogue.norm.epsilon, headWeight: tensorInfo(artifact, epilogue.head.weight), vocabularySize: epilogue.head.outFeatures, softcap: epilogue.softcap.scalar! } });
               result = { hidden: new Float32Array(), caches: tokenResult.caches, logits: tokenResult.logits };
@@ -881,6 +898,62 @@ export async function generateGemma4PagedTextLiteralF32(
     prefill: (prefill) => executeGemma4PagedTextLiteralF32(artifact, prefill, options),
     incremental: (incremental) => executeGemma4PagedTextLiteralF32(artifact, incremental, options),
   });
+}
+
+/**
+ * Executes the complete textual greedy loop inside the native worker. The
+ * prompt crosses the process boundary once; KV state, argmax and subsequent
+ * token forwards remain resident until the requested generation terminates.
+ */
+export async function generateGemma4PagedTextLiteralNativeF32(
+  artifact: OpenGemma4CompositeLiteralArtifact,
+  request: Gemma4PagedTextGenerationRequest,
+  options: Gemma4PagedTextOptions = {},
+  topK = 5,
+): Promise<Gemma4PagedNativeGenerationResult> {
+  assertExecutionFidelityAcknowledged(artifact, options);
+  if (!validatedNativeGenerationArtifacts.has(artifact)) {
+    validateGemma4LiteralGenerationProgram(artifact.generation, artifact.program);
+    validatedNativeGenerationArtifacts.add(artifact);
+  }
+  validateInputIds(request.inputIds);
+  if (request.inputIds.length !== 1 || request.attentionMask || request.attentionMasksByLayer || request.pastKeyValues) throw new Error("Geração nativa residente requer um único prompt sem máscara nem cache externos.");
+  if (!Number.isSafeInteger(request.maxNewTokens) || request.maxNewTokens < 1 || request.maxNewTokens > 4096) throw new Error("Geração nativa residente requer maxNewTokens entre 1 e 4.096.");
+  if (request.eosTokenId !== undefined && (!Number.isSafeInteger(request.eosTokenId) || request.eosTokenId < 0 || request.eosTokenId >= artifact.program.contract.text.vocabSize)) throw new Error("Geração nativa residente recebeu eosTokenId fora do vocabulário.");
+  if (!Number.isSafeInteger(topK) || topK < 1 || topK > 64) throw new Error("Geração nativa residente requer topK entre 1 e 64.");
+  const positions = request.positionIds ?? request.inputIds.map((row) => row.map((_, index) => index));
+  if (positions.length !== 1 || positions[0]!.some((position, index) => position !== index)) throw new Error("Geração nativa residente requer posições canônicas contíguas iniciadas em zero.");
+  const kernel = options.linearTileKernel;
+  if (!options.fusedTokenForwardRounding || !options.fusedDecoderStackRounding || !kernel?.fusedTokenGenerationStorageReferences) throw new Error("Geração nativa residente requer token forward e decoder stack MLX habilitados.");
+  let result: PagedFusedTokenGenerationResult | undefined;
+  if (kernel.compiledTokenGenerationReady?.() && kernel.compiledTokenGeneration) {
+    const tokenIds = new Int32Array(request.inputIds[0]!);
+    result = await kernel.compiledTokenGeneration(tokenIds, request.maxNewTokens, topK, request.eosTokenId);
+  } else {
+    const tokenForwardPrelude = matchFusedTokenForwardPrelude(artifact, request.inputIds, options.maxReadBytes ?? 16 * 1024 * 1024, options.fusedTokenForwardRounding);
+    const execution = await executePagedOperations(
+      artifact,
+      [...artifact.program.textProgram.layers.flatMap((layer) => layer.operations), ...artifact.program.textProgram.epilogue],
+      request.inputIds,
+      positions,
+      new Map(),
+      options,
+      request,
+      tokenForwardPrelude,
+      { maxNewTokens: request.maxNewTokens, ...(request.eosTokenId === undefined ? {} : { eosTokenId: request.eosTokenId }), topK },
+    );
+    result = execution.nativeGeneration;
+  }
+  if (!result) throw new Error("Geração nativa residente não retornou resultado.");
+  const count = result.generatedTokenIds.length;
+  if (count < 1 || count > request.maxNewTokens || result.forwardSeconds.length !== count || result.topTokenIds.length !== count * topK || result.topLogits.length !== count * topK || !/^[0-9a-f]{64}$/.test(result.terminalLogitsSha256) || !Number.isSafeInteger(result.residentKvBytes) || result.residentKvBytes < 0 || result.generatedTokenIds.some((token) => token < 0 || token >= artifact.program.contract.text.vocabSize) || result.topTokenIds.some((token) => token < 0 || token >= artifact.program.contract.text.vocabSize) || result.forwardSeconds.some((seconds) => !Number.isFinite(seconds) || seconds < 0) || result.topLogits.some((value) => !Number.isFinite(value))) throw new Error("Geração nativa residente retornou payload incompatível.");
+  return {
+    generatedTokenIds: [...result.generatedTokenIds],
+    forwardSeconds: [...result.forwardSeconds],
+    topLogits: Array.from({ length: count }, (_, step) => Array.from({ length: topK }, (_, rank) => ({ tokenId: result.topTokenIds[step * topK + rank]!, value: result.topLogits[step * topK + rank]! }))),
+    terminalLogitsSha256: result.terminalLogitsSha256,
+    residentKvBytes: result.residentKvBytes,
+  };
 }
 
 function tensorInfo(artifact: OpenGemma4CompositeLiteralArtifact, reference: TensorRef): TensorInfo {

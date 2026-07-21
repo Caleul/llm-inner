@@ -36,6 +36,9 @@ export interface PagedLinearTileKernel {
   fusedDecoderStackStorageReferences?: ((request: PagedFusedDecoderStackRequest) => Promise<PagedFusedDecoderStackResult>) | undefined;
   fusedDecoderStackEpilogueStorageReferences?: ((request: PagedFusedDecoderStackEpilogueRequest) => Promise<PagedFusedDecoderStackEpilogueResult>) | undefined;
   fusedTokenForwardStorageReferences?: ((request: PagedFusedTokenForwardRequest) => Promise<PagedFusedTokenForwardResult>) | undefined;
+  fusedTokenGenerationStorageReferences?: ((request: PagedFusedTokenGenerationRequest) => Promise<PagedFusedTokenGenerationResult>) | undefined;
+  compiledTokenGenerationReady?: (() => boolean) | undefined;
+  compiledTokenGeneration?: ((tokenIds: Int32Array, maxNewTokens: number, topK: number, eosTokenId?: number) => Promise<PagedFusedTokenGenerationResult>) | undefined;
 }
 
 export interface PagedFusedFfnRequest {
@@ -169,6 +172,8 @@ export interface PagedFusedDecoderLayerResult {
 export interface PagedFusedDecoderStackLayerRequest extends Omit<PagedFusedDecoderLayerRequest, "input" | "perLayerInput" | "positions" | "rounding"> {
   layerIndex: number;
   sharedProducerLayer?: number;
+  causal: boolean;
+  slidingWindow?: number;
 }
 
 export interface PagedFusedDecoderStackRequest {
@@ -229,6 +234,21 @@ export interface PagedFusedTokenForwardRequest extends Omit<PagedFusedDecoderSta
 export interface PagedFusedTokenForwardResult {
   caches: readonly PagedFusedDecoderStackCache[];
   logits: Float32Array;
+}
+
+export interface PagedFusedTokenGenerationRequest extends PagedFusedTokenForwardRequest {
+  maxNewTokens: number;
+  eosTokenId?: number;
+  topK: number;
+}
+
+export interface PagedFusedTokenGenerationResult {
+  generatedTokenIds: Int32Array;
+  forwardSeconds: Float32Array;
+  topTokenIds: Int32Array;
+  topLogits: Float32Array;
+  terminalLogitsSha256: string;
+  residentKvBytes: number;
 }
 
 export interface PagedLinearStorageReference {
