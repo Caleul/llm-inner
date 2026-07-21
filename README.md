@@ -2565,10 +2565,11 @@ npm run compile:gemma4-vector-lowering -- \
 Isso grava `vectorized-real-lowering.json`, adiciona seu SHA-256 ao manifesto
 v2 do bundle e vincula as 1.221 closures globais às nove famílias de kernels
 MLX/Metal. O worker no modo `real` não aceita um certificado calculado apenas
-em memória: ele carrega esse plano, recalcula o lowering a partir do programa
-autenticado embutido em `constants.literal.json` e exige igualdade integral
-antes de gerar o primeiro token. O SSA standalone de 430 MB continua sendo a
-representação navegável; ele não é reparsed no hot path de geração.
+em memória: ele carrega o plano, verifica seu SHA-256 e exige que contrato,
+bindings, raiz do artefato e SHA da seção `realSimplifiedProgram` coincidam com
+o certificado produzido após a validação integral do JSON. O SSA standalone de
+430 MB continua sendo a representação navegável; ele não é reparsed no hot
+path de geração.
 
 Ao criar um bundle novo, passe o mesmo plano com
 `bundle:gemma4-compiled -- --real-lowering-plan <arquivo> ...`; bundles sem o
@@ -2598,9 +2599,11 @@ runtime direto resolve todas as referências relativas ao mesmo diretório. Use
 explícita. Se um `--compiled-bundle` não contiver constantes, pesos, tokenizer
 e config, a inicialização falha fechada.
 
-Bundles novos também incluem `constants.runtime-index.json`, uma visão
-estrutural autenticada do JSON literal sem os 20 GiB de payloads Base64. Para
-atualizar um bundle anterior uma única vez:
+Bundles novos também incluem `constants.runtime-index.json`, uma projeção de
+execução autenticada schema 2 de aproximadamente 2,71 MiB. Ela contém somente
+programa textual, metadados/offsets das constantes, geração, manifesto de
+integridade e certificado do lowering. O JSON auditável de 20 GiB continua no
+bundle, mas não é aberto no hot path. Para criar ou atualizar a projeção:
 
 ```bash
 npm run index:gemma4-compiled -- \
@@ -2608,9 +2611,11 @@ npm run index:gemma4-compiled -- \
 ```
 
 O manifesto schema 3 vincula o índice ao SHA-256 do constant pool, ao próprio
-SHA-256 do índice e à raiz de integridade estrutural. Cada worker reexecuta as
-validações semânticas sobre essa visão antes de gerar; ele não confia em cache
-local nem precisa varrer novamente `constants.literal.json`.
+SHA-256 do índice e à raiz de integridade estrutural. Na compilação, o gerador
+abre e valida integralmente o artefato; no runtime, cada seção materializada é
+rehashada e comparada ao compromisso correspondente. Assim o worker não confia
+em cache local, não repete validações sobre 270 MiB de fórmulas e não precisa
+varrer novamente `constants.literal.json`.
 
 A interface executa Transformers eager BF16, a recomposição F32/F64 e o runtime
 compilado MLX/Metal, escolhe os tokens independentemente e compara os

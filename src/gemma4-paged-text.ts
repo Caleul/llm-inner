@@ -10,7 +10,9 @@ import {
   selectPerLayerF32,
   tensorScaleF32,
 } from "./executor.js";
-import type { OpenGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
+import type { IndexedLiteralConstant } from "./gemma4-composite-literal-reader.js";
+import type { Gemma4LiteralGreedyGenerationProgram } from "./gemma4-composite-literal.js";
+import type { Gemma4CompositeProgram } from "./gemma4-composite.js";
 import {
   executeGemma4LiteralGenerationProgram,
   type Gemma4LiteralGenerationExecutionResult,
@@ -28,7 +30,15 @@ import type {
 import type { LiteralTensorReader } from "./literal.js";
 import type { Gemma4VectorizedRealExecutionGuard } from "./gemma4-vectorized-real-lowering.js";
 
-const validatedNativeGenerationArtifacts = new WeakSet<OpenGemma4CompositeLiteralArtifact>();
+export interface Gemma4PagedTextArtifact {
+  constants: ReadonlyMap<string, IndexedLiteralConstant>;
+  program: Gemma4CompositeProgram;
+  generation: Gemma4LiteralGreedyGenerationProgram;
+  generationValidation?: "artifact-integrity-section-v1";
+  readTensorBytesRange?: LiteralTensorReader["readTensorBytesRange"];
+}
+
+const validatedNativeGenerationArtifacts = new WeakSet<Gemma4PagedTextArtifact>();
 
 export interface Gemma4PagedTextExecutionRequest {
   inputIds: number[][];
@@ -119,7 +129,7 @@ export interface Gemma4PagedTextHiddenResult {
  * scatter result before continuing through the projection prelude.
  */
 export async function executeGemma4PagedTextInputEmbeddingsLiteralF32(
-  artifact: OpenGemma4CompositeLiteralArtifact,
+  artifact: Gemma4PagedTextArtifact,
   inputIds: number[][],
   options: Gemma4PagedTextOptions = {},
 ): Promise<ReadonlyMap<string, DenseF32Tensor>> {
@@ -137,7 +147,7 @@ export async function executeGemma4PagedTextInputEmbeddingsLiteralF32(
  * `hidden_states_0` and the artifact-produced `ple_token_identity`.
  */
 export async function executeGemma4PagedTextProjectionPreludeLiteralF32(
-  artifact: OpenGemma4CompositeLiteralArtifact,
+  artifact: Gemma4PagedTextArtifact,
   inputIds: number[][],
   prepared: ReadonlyMap<string, DenseF32Tensor>,
   options: Gemma4PagedTextOptions = {},
@@ -160,7 +170,7 @@ export async function executeGemma4PagedTextProjectionPreludeLiteralF32(
  * which the composite executor can enter the same layers after modal scatter.
  */
 export async function executeGemma4PagedTextLiteralF32(
-  artifact: OpenGemma4CompositeLiteralArtifact,
+  artifact: Gemma4PagedTextArtifact,
   request: Gemma4PagedTextExecutionRequest,
   options: Gemma4PagedTextOptions = {},
 ): Promise<ReferenceF32ExecutionResult> {
@@ -192,7 +202,7 @@ export async function executeGemma4PagedTextLiteralF32(
 
 /** Executes embeddings and the complete decoder stack without the vocabulary epilogue. */
 export async function executeGemma4PagedTextHiddenLiteralF32(
-  artifact: OpenGemma4CompositeLiteralArtifact,
+  artifact: Gemma4PagedTextArtifact,
   request: Gemma4PagedTextExecutionRequest,
   options: Gemma4PagedTextOptions = {},
 ): Promise<Gemma4PagedTextHiddenResult> {
@@ -211,7 +221,7 @@ export async function executeGemma4PagedTextHiddenLiteralF32(
 
 /** Executes only final_norm, lm_head and softcap from a decoder-owned hidden tensor. */
 export async function executeGemma4PagedTextEpilogueLiteralF32(
-  artifact: OpenGemma4CompositeLiteralArtifact,
+  artifact: Gemma4PagedTextArtifact,
   inputIds: number[][],
   hidden: DenseF32Tensor,
   options: Gemma4PagedTextOptions = {},
@@ -229,7 +239,7 @@ export async function executeGemma4PagedTextEpilogueLiteralF32(
 
 /** Executes text layers and logits from the exact composite prelude values. */
 export async function executeGemma4PagedTextLiteralF32WithPreparedPrelude(
-  artifact: OpenGemma4CompositeLiteralArtifact,
+  artifact: Gemma4PagedTextArtifact,
   request: Gemma4PagedTextExecutionRequest,
   prepared: ReadonlyMap<string, DenseF32Tensor>,
   options: Gemma4PagedTextOptions = {},
@@ -262,7 +272,7 @@ interface PagedOperationsResult {
 }
 
 async function executePagedOperations(
-  artifact: OpenGemma4CompositeLiteralArtifact,
+  artifact: Gemma4PagedTextArtifact,
   operations: readonly Operation[],
   inputIds: number[][],
   positions: number[][] | undefined,
@@ -273,7 +283,8 @@ async function executePagedOperations(
   nativeGeneration?: { maxNewTokens: number; eosTokenId?: number; topK: number },
 ): Promise<PagedOperationsResult> {
   const maxReadBytes = options.maxReadBytes ?? 16 * 1024 * 1024;
-  const tensorReader = options.tensorReader ?? artifact;
+  const tensorReader = options.tensorReader ?? (artifact.readTensorBytesRange ? { readTensorBytesRange: artifact.readTensorBytesRange } : undefined);
+  if (!tensorReader) throw new Error("Execução paginada requer tensorReader binário ou leitor literal autenticado.");
   const vectors = new Map<string, Promise<DenseF32Tensor>>();
   const matrix = (reference: TensorRef, readBytes = maxReadBytes) => createPagedDenseF32Matrix(tensorInfo(artifact, reference), tensorReader, readBytes);
   const vector = (reference: TensorRef): Promise<DenseF32Tensor> => {
@@ -873,7 +884,7 @@ function matchFusedPlePrelude(operations: readonly Operation[], index: number, p
   return { operations: matched, contextScale, reshape, norm, combineScale, tokenIdentityInput: combine.inputs[1]! };
 }
 
-function matchFusedTokenForwardPrelude(artifact: OpenGemma4CompositeLiteralArtifact, inputIds: number[][], maxReadBytes: number, rounding: "bf16"): Pick<PagedFusedTokenForwardRequest, "tokenIds" | "prelude"> {
+function matchFusedTokenForwardPrelude(artifact: Gemma4PagedTextArtifact, inputIds: number[][], maxReadBytes: number, rounding: "bf16"): Pick<PagedFusedTokenForwardRequest, "tokenIds" | "prelude"> {
   const operations = artifact.program.textProgram.prelude;
   const tokenEmbedding = operations[0], perLayerEmbedding = operations[1], projection = operations[2];
   if (operations.length !== 8 || tokenEmbedding?.op !== "embedding" || perLayerEmbedding?.op !== "per_layer_embedding" || projection?.op !== "linear") throw new Error("Forward textual integral requer o prelude Gemma 4 canônico de oito operações.");
@@ -948,7 +959,7 @@ function materializeAttentionTopologyMask(mask: DenseF32Tensor | undefined, oper
  * into a replay claim just because the embedded program is executable.
  */
 function assertExecutionFidelityAcknowledged(
-  artifact: OpenGemma4CompositeLiteralArtifact,
+  artifact: Gemma4PagedTextArtifact,
   options: Gemma4PagedTextOptions,
 ): void {
   if (artifact.program.textProgram.fidelity.exactByConstruction || options.allowUnverifiedFidelity) return;
@@ -959,7 +970,7 @@ function assertExecutionFidelityAcknowledged(
 
 /** Greedy cached decode through the same source-independent text-only path. */
 export async function generateGemma4PagedTextLiteralF32(
-  artifact: OpenGemma4CompositeLiteralArtifact,
+  artifact: Gemma4PagedTextArtifact,
   request: Gemma4PagedTextGenerationRequest,
   options: Gemma4PagedTextOptions = {},
 ): Promise<Gemma4LiteralGenerationExecutionResult> {
@@ -975,7 +986,7 @@ export async function generateGemma4PagedTextLiteralF32(
  * token forwards remain resident until the requested generation terminates.
  */
 export async function generateGemma4PagedTextLiteralNativeF32(
-  artifact: OpenGemma4CompositeLiteralArtifact,
+  artifact: Gemma4PagedTextArtifact,
   request: Gemma4PagedTextGenerationRequest,
   options: Gemma4PagedTextOptions = {},
   topK = 5,
@@ -983,7 +994,7 @@ export async function generateGemma4PagedTextLiteralNativeF32(
 ): Promise<Gemma4PagedNativeGenerationResult> {
   assertExecutionFidelityAcknowledged(artifact, options);
   if (!validatedNativeGenerationArtifacts.has(artifact)) {
-    validateGemma4LiteralGenerationProgram(artifact.generation, artifact.program);
+    if (artifact.generationValidation !== "artifact-integrity-section-v1") validateGemma4LiteralGenerationProgram(artifact.generation, artifact.program);
     validatedNativeGenerationArtifacts.add(artifact);
   }
   validateInputIds(request.inputIds);
@@ -1043,7 +1054,7 @@ export async function generateGemma4PagedTextLiteralNativeF32(
   };
 }
 
-function tensorInfo(artifact: OpenGemma4CompositeLiteralArtifact, reference: TensorRef): TensorInfo {
+function tensorInfo(artifact: Gemma4PagedTextArtifact, reference: TensorRef): TensorInfo {
   const constant = artifact.constants.get(reference.name);
   if (!constant || reference.quantization || constant.storageDtype !== reference.storageDtype ||
     constant.logicalShape.length !== reference.shape.length || constant.logicalShape.some((value, index) => value !== reference.shape[index])) {
@@ -1058,7 +1069,7 @@ function value(values: ReadonlyMap<string, DenseF32Tensor>, name: string): Dense
   return found;
 }
 
-function allTextOperations(artifact: OpenGemma4CompositeLiteralArtifact): Operation[] {
+function allTextOperations(artifact: Gemma4PagedTextArtifact): Operation[] {
   return [...artifact.program.textProgram.prelude, ...artifact.program.textProgram.layers.flatMap((layer) => layer.operations), ...artifact.program.textProgram.epilogue];
 }
 

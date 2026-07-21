@@ -15,6 +15,7 @@ import {
   writeGemma4CompositeLiteralCalculationProgram,
 } from "../src/gemma4-composite-literal.js";
 import { createGemma4LiteralRuntimeIndex, openGemma4CompositeLiteralArtifact } from "../src/gemma4-composite-literal-reader.js";
+import { createGemma4PagedRuntimeIndex, openGemma4PagedRuntimeArtifact } from "../src/gemma4-paged-runtime-index.js";
 import { executeGemma4LiteralCompositeF32, generateGemma4LiteralCompositeF32 } from "../src/gemma4-literal-composite.js";
 import { buildGemma4LiteralGenerationNavigation, renderGemma4LiteralGenerationCalculationView } from "../src/gemma4-literal-generation-navigation.js";
 import { selectGemma4LiteralGenerationToken } from "../src/gemma4-literal-generation-control.js";
@@ -1814,6 +1815,20 @@ test("Gemma 4 streamed literal artifact indexes exact tensor ranges after its ch
     } finally { await indexed.close(); }
     await assert.rejects(() => openGemma4CompositeLiteralArtifact(output, { path: runtimeIndexPath, sha256: "0".repeat(64), constantPoolSha256 }), /diverge do SHA-256/);
     await assert.rejects(() => openGemma4CompositeLiteralArtifact(output, { path: runtimeIndexPath, sha256: runtimeIndex.sha256, constantPoolSha256: "f".repeat(64) }), /não corresponde ao constant pool/);
+    const pagedIndexPath = path.join(root, "tiny.gemma4.paged-runtime-index.json");
+    const pagedIndex = await createGemma4PagedRuntimeIndex(output, pagedIndexPath, constantPoolSha256);
+    assert.equal(pagedIndex.schemaVersion, 2); assert.ok(pagedIndex.bytes < runtimeIndex.bytes);
+    const paged = await openGemma4PagedRuntimeArtifact(output, { path: pagedIndexPath, sha256: pagedIndex.sha256, constantPoolSha256 });
+    try {
+      assert.ok("runtimeIndexSchemaVersion" in paged); assert.equal(paged.runtimeIndexSchemaVersion, 2);
+      assert.equal(paged.constants.size, catalog.tensors.size); assert.deepEqual(paged.program, indexed.program); assert.equal(paged.generationValidation, "artifact-integrity-section-v1");
+    } finally { await paged.close(); }
+    const tamperedPagedIndexPath = path.join(root, "tampered.gemma4.paged-runtime-index.json");
+    const pagedRaw = await readFile(pagedIndexPath, "utf8"), hiddenSize = /"hiddenSize":(\d+)/.exec(pagedRaw);
+    assert.ok(hiddenSize); const tamperedPagedRaw = pagedRaw.replace(hiddenSize[0], `"hiddenSize":${Number(hiddenSize[1]) + 1}`);
+    await writeFile(tamperedPagedIndexPath, tamperedPagedRaw);
+    const tamperedPagedSha256 = createHash("sha256").update(tamperedPagedRaw).digest("hex");
+    await assert.rejects(() => openGemma4PagedRuntimeArtifact(output, { path: tamperedPagedIndexPath, sha256: tamperedPagedSha256, constantPoolSha256 }), /seção autenticada program/);
     const corrupted = path.join(root, "corrupted.gemma4.literal.json");
     const raw = await readFile(output, "utf8");
     await writeFile(corrupted, raw.replace('"semantics":"exact IEEE-754 storage decode; no arithmetic narrowing"', '"semantics":"invalid"'));

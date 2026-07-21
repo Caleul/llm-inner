@@ -64,8 +64,8 @@ O bundle `artifacts/gemma4-compiled-global-runtime-bundle` contém:
   `calc_terminal_logit_n` sobre o DAG compartilhado;
 - `formula.graph.json`: closure algébrica fechada da dimensão zero;
 - `constants.literal.json`: constant pool autenticado;
-- `constants.runtime-index.json`: visão estrutural autenticada, sem payloads
-  Base64, para inicialização dos workers;
+- `constants.runtime-index.json`: projeção de execução autenticada schema 2,
+  sem payloads Base64 nem seções de auditoria que o worker não executa;
 - tokenizer, configurações e pesos de compatibilidade do backend PyTorch;
 - `manifest.json`: tamanhos e SHA-256 de dez arquivos.
 
@@ -1500,6 +1500,30 @@ em `1,8525 s`, também com 8/8 tokens iguais. A otimização remove a varredura
 de 20 GiB, mas não oculta os aproximadamente sete segundos ainda gastos no
 parse de 341 MiB e na revalidação estrutural; esses custos continuam
 publicados como `initializationSeconds`.
+
+### Projeção de execução autenticada schema 2
+
+O índice estrutural schema 1 acima foi substituído por uma projeção específica
+do executor. O arquivo caiu de `357.706.569` para `2.839.062` bytes
+(`125,99x` menor). Permanecem materializados somente `program`, `generation`,
+metadados das 2.130 constantes, o manifesto de integridade e o certificado do
+plano real. O JSON literal de 20 GiB e o SSA continuam sendo os artefatos
+auditáveis e navegáveis; nenhum deles é necessário para inicializar o worker.
+
+A projeção não é um cache confiado. Na criação, o artefato completo e o plano
+são validados integralmente. Na abertura, o worker verifica o SHA-256 do
+arquivo, seu vínculo ao constant pool, a raiz do manifesto e os compromissos
+das três seções efetivamente executadas. Para o modo `real`, verifica ainda o
+SHA-256 do plano e a igualdade do contrato com a raiz estrutural e com o SHA da
+seção `realSimplifiedProgram`. Alterar uma seção e recalcular apenas o SHA do
+índice falha antes do backend ser criado.
+
+No bundle real, cinco aberturas isoladas ficaram entre `12,12 ms` e
+`18,37 ms`. A inicialização publicada pelo worker MLX foi `0,0330 s`, contra
+`7,0194 s` no schema 1 (`99,53%` menor), e seu warm-up completo ficou em
+`2,1458 s`. No primeiro fallback do prompt `Traduza para inglês: boa noite`, o
+worker PyTorch também inicializou em `0,0333 s`; a verificação caiu de
+`16,6445 s` para `3,2451 s`, mantendo os mesmos 8/8 tokens do Transformers.
 
 ## Núcleo de attention nativo sem arredondamentos internos
 

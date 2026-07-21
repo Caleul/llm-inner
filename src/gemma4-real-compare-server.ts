@@ -21,7 +21,7 @@ export interface Gemma4CompiledProgramStatus {
   formulaSemantics: "gemma4-exact-real-simplified-v1";
   globalFormula: { file: string; sha256: string; terminalLogits: number; role: "algebraic-source-and-scalar-reference" };
   constantPool: { file: string; sha256: string };
-  runtimeIndex?: { file: string; sha256: string; constantPoolSha256: string; integrityRootSha256: string };
+  runtimeIndex?: { file: string; schemaVersion: 1 | 2; sha256: string; constantPoolSha256: string; integrityRootSha256: string };
   directRuntime: { engine: "mlx-f32-real-decoder-stack-v1"; directlyExecutesGlobalFormula: false; executesPersistedLoweringPlan: true; plan: { file: string; sha256: string; functionBindingsSha256: string; realSimplifiedProgramSha256: string } };
 }
 
@@ -514,7 +514,7 @@ function readCompiledProgramStatus(bundle: string): Gemma4CompiledProgramStatus 
     globalProgram?: { file?: unknown; terminalLogits?: unknown; constantPool?: unknown }; runtimeIndex?: { file?: unknown; schemaVersion?: unknown; constantPoolSha256?: unknown; integrityRootSha256?: unknown }; files?: Array<{ role?: unknown; file?: unknown; sha256?: unknown }>;
   };
   const globalProgram = manifest.globalProgram, globalFile = manifest.files?.find((entry) => entry.role === "global-formulas"), constantFile = manifest.files?.find((entry) => entry.role === "constant-pool"), planFile = manifest.files?.find((entry) => entry.role === "vectorized-real-lowering"), runtimeIndexFile = manifest.files?.find((entry) => entry.role === "literal-runtime-index"), declaredRuntimeIndex = manifest.runtimeIndex;
-  const runtimeIndexValid = manifest.schemaVersion === 2 ? declaredRuntimeIndex === undefined && runtimeIndexFile === undefined : manifest.schemaVersion === 3 && declaredRuntimeIndex?.file === runtimeIndexFile?.file && declaredRuntimeIndex?.schemaVersion === 1 && declaredRuntimeIndex?.constantPoolSha256 === constantFile?.sha256 && typeof declaredRuntimeIndex?.integrityRootSha256 === "string" && /^[0-9a-f]{64}$/.test(declaredRuntimeIndex.integrityRootSha256) && typeof runtimeIndexFile?.sha256 === "string" && /^[0-9a-f]{64}$/.test(runtimeIndexFile.sha256) && existsSync(join(bundle, runtimeIndexFile.file as string));
+  const runtimeIndexValid = manifest.schemaVersion === 2 ? declaredRuntimeIndex === undefined && runtimeIndexFile === undefined : manifest.schemaVersion === 3 && declaredRuntimeIndex?.file === runtimeIndexFile?.file && (declaredRuntimeIndex?.schemaVersion === 1 || declaredRuntimeIndex?.schemaVersion === 2) && declaredRuntimeIndex?.constantPoolSha256 === constantFile?.sha256 && typeof declaredRuntimeIndex?.integrityRootSha256 === "string" && /^[0-9a-f]{64}$/.test(declaredRuntimeIndex.integrityRootSha256) && typeof runtimeIndexFile?.sha256 === "string" && /^[0-9a-f]{64}$/.test(runtimeIndexFile.sha256) && existsSync(join(bundle, runtimeIndexFile.file as string));
   if (manifest.kind !== "gemma4-compiled-shared-dag-bundle" || (manifest.schemaVersion !== 2 && manifest.schemaVersion !== 3) || !runtimeIndexValid || manifest.execution !== "vectorized-literal-runtime-with-global-formula-reference" ||
     manifest.runtimeLowering?.engine !== "mlx-f32-real-decoder-stack-v1" || manifest.runtimeLowering.directlyExecutesGlobalFormula !== false || manifest.runtimeLowering.executesPersistedLoweringPlan !== true || manifest.runtimeLowering.globalFormulaRole !== "algebraic-source-and-scalar-reference" ||
     manifest.runtimeLowering.plan !== "vectorized-real-lowering.json" || planFile?.file !== "vectorized-real-lowering.json" || typeof planFile.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(planFile.sha256) ||
@@ -528,14 +528,15 @@ function readCompiledProgramStatus(bundle: string): Gemma4CompiledProgramStatus 
   if (createHash("sha256").update(planBytes).digest("hex") !== planFile.sha256) throw new Error("Plano de lowering do bundle diverge do SHA-256 declarado no manifesto.");
   const plan = JSON.parse(planBytes.toString("utf8")) as unknown;
   validateGemma4VectorizedRealLoweringPlan(plan);
-  if (plan.contract.functionBindingsSha256 !== manifest.runtimeLowering.functionBindingsSha256 || plan.contract.source.realSimplifiedProgramSha256 !== manifest.runtimeLowering.realSimplifiedProgramSha256) {
+  if (plan.contract.functionBindingsSha256 !== manifest.runtimeLowering.functionBindingsSha256 || plan.contract.source.realSimplifiedProgramSha256 !== manifest.runtimeLowering.realSimplifiedProgramSha256 ||
+    (manifest.schemaVersion === 3 && plan.contract.source.artifactIntegritySha256 !== manifest.runtimeIndex?.integrityRootSha256)) {
     throw new Error("Plano de lowering do bundle diverge dos compromissos declarados no manifesto.");
   }
   return {
     bundle, execution: manifest.execution, formulaSemantics: "gemma4-exact-real-simplified-v1",
     globalFormula: { file: globalFile.file as string, sha256: globalFile.sha256, terminalLogits: globalProgram!.terminalLogits as number, role: "algebraic-source-and-scalar-reference" },
     constantPool: { file: constantFile.file as string, sha256: constantFile.sha256 },
-    ...(manifest.schemaVersion === 3 ? { runtimeIndex: { file: manifest.runtimeIndex!.file as string, sha256: runtimeIndexFile!.sha256 as string, constantPoolSha256: manifest.runtimeIndex!.constantPoolSha256 as string, integrityRootSha256: manifest.runtimeIndex!.integrityRootSha256 as string } } : {}),
+    ...(manifest.schemaVersion === 3 ? { runtimeIndex: { file: manifest.runtimeIndex!.file as string, schemaVersion: manifest.runtimeIndex!.schemaVersion as 1 | 2, sha256: runtimeIndexFile!.sha256 as string, constantPoolSha256: manifest.runtimeIndex!.constantPoolSha256 as string, integrityRootSha256: manifest.runtimeIndex!.integrityRootSha256 as string } } : {}),
     directRuntime: { engine: "mlx-f32-real-decoder-stack-v1", directlyExecutesGlobalFormula: false, executesPersistedLoweringPlan: true, plan: { file: planFile.file as string, sha256: planFile.sha256, functionBindingsSha256: manifest.runtimeLowering.functionBindingsSha256, realSimplifiedProgramSha256: manifest.runtimeLowering.realSimplifiedProgramSha256 } },
   };
 }

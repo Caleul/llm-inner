@@ -77,6 +77,43 @@ export function validateGemma4LiteralArtifactIntegrityManifest(
   }
 }
 
+/**
+ * Validates the manifest as a self-contained commitment without requiring all
+ * committed sections to be materialized. Runtime projections use this before
+ * checking only the sections they actually execute.
+ */
+export function validateGemma4LiteralArtifactIntegrityCommitment(
+  manifest: Gemma4LiteralArtifactIntegrityManifest,
+): void {
+  if (manifest.kind !== "gemma4-literal-artifact-integrity-manifest" || manifest.schemaVersion !== 1 ||
+    manifest.algorithm !== "SHA-256" ||
+    manifest.canonicalization !== "UTF-8 bytes of ECMAScript JSON.stringify for each named section, in declared order" ||
+    !Array.isArray(manifest.sections) || manifest.sections.length !== GEMMA4_LITERAL_INTEGRITY_SECTION_NAMES.length) {
+    throw new Error("Manifesto de integridade literal Gemma 4 inválido.");
+  }
+  for (let index = 0; index < GEMMA4_LITERAL_INTEGRITY_SECTION_NAMES.length; index += 1) {
+    const expectedName = GEMMA4_LITERAL_INTEGRITY_SECTION_NAMES[index], entry = manifest.sections[index];
+    if (!entry || entry.name !== expectedName || !Number.isSafeInteger(entry.canonicalBytes) || entry.canonicalBytes < 0 || !/^[0-9a-f]{64}$/.test(entry.sha256)) {
+      throw new Error(`Manifesto de integridade literal Gemma 4 diverge na seção ${expectedName}.`);
+    }
+  }
+  if (!/^[0-9a-f]{64}$/.test(manifest.rootSha256) || rootDigest(manifest.sections) !== manifest.rootSha256) {
+    throw new Error("Manifesto de integridade literal Gemma 4 diverge da raiz declarada.");
+  }
+}
+
+/** Proves that one materialized runtime section is the artifact-committed value. */
+export function validateGemma4LiteralArtifactIntegritySection(
+  manifest: Gemma4LiteralArtifactIntegrityManifest,
+  name: Gemma4LiteralIntegritySectionName,
+  value: unknown,
+): void {
+  const expected = manifest.sections.find((entry) => entry.name === name), actual = digestSection(name, value);
+  if (!expected || !isDeepStrictEqual(expected, actual)) {
+    throw new Error(`Projeção runtime Gemma 4 diverge da seção autenticada ${name}.`);
+  }
+}
+
 function digestSection(
   name: Gemma4LiteralIntegritySectionName,
   value: unknown,

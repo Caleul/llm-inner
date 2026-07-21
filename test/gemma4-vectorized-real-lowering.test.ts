@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
 import type { Gemma4LiteralArtifactIntegrityManifest } from "../src/gemma4-literal-artifact-integrity.js";
 import type { Gemma4LiteralCalculationGraph } from "../src/gemma4-literal-calculation-graph.js";
 import type { Gemma4ParametricExactRealProgram } from "../src/gemma4-parametric-global-real-program.js";
 import { assertGemma4VectorizedRealLoweringPlanMatches, buildGemma4VectorizedRealLoweringContract, buildGemma4VectorizedRealLoweringPlan, Gemma4VectorizedRealExecutionGuard, validateGemma4VectorizedRealLoweringPlan } from "../src/gemma4-vectorized-real-lowering.js";
+import { assertGemma4VectorizedRealLoweringPlanMatchesRuntime } from "../src/gemma4-paged-runtime-index.js";
 
 const operations = ["activation", "elementwise", "linear", "reshape_heads", "rms_norm", "rotary_embedding", "scaled_dot_product_attention", "select_per_layer", "tensor_scale"];
 
@@ -35,6 +37,16 @@ test("plano persistido precisa preservar cada binding e coincidir integralmente 
   const stale = structuredClone(plan);
   stale.contract.source.artifactIntegritySha256 = "c".repeat(64);
   assert.throws(() => assertGemma4VectorizedRealLoweringPlanMatches(stale, program, graph, manifest), /não corresponde ao programa real autenticado/);
+});
+
+test("certificado runtime compacto preserva raiz, programa real e SHA do plano", () => {
+  const { program, graph, manifest } = fixture(), plan = buildGemma4VectorizedRealLoweringPlan(program, graph, manifest);
+  const planSha256 = createHash("sha256").update(JSON.stringify(plan)).digest("hex");
+  const artifact = { integrityManifest: manifest, realLowering: { planSha256, contract: plan.contract } };
+  assert.doesNotThrow(() => assertGemma4VectorizedRealLoweringPlanMatchesRuntime(structuredClone(plan), planSha256, artifact));
+  assert.throws(() => assertGemma4VectorizedRealLoweringPlanMatchesRuntime(structuredClone(plan), "c".repeat(64), artifact), /certificado runtime autenticado/);
+  const stale = structuredClone(plan); stale.contract.source.realSimplifiedProgramSha256 = "d".repeat(64);
+  assert.throws(() => assertGemma4VectorizedRealLoweringPlanMatchesRuntime(stale, createHash("sha256").update(JSON.stringify(stale)).digest("hex"), artifact), /certificado runtime autenticado/);
 });
 
 test("autoriza somente o despacho completo e ordenado da closure global", () => {

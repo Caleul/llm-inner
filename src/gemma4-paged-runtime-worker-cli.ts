@@ -3,6 +3,7 @@ import { readFile, stat } from "node:fs/promises";
 import { createInterface } from "node:readline";
 import { join, resolve } from "node:path";
 import { openGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
+import { assertGemma4VectorizedRealLoweringPlanMatchesRuntime, openGemma4PagedRuntimeArtifact } from "./gemma4-paged-runtime-index.js";
 import { Gemma4BinaryConstantPool } from "./gemma4-binary-constant-pool.js";
 import { Gemma4PagedNativeLinearWorker } from "./gemma4-paged-native-linear.js";
 import { executeGemma4PagedTextEpilogueLiteralF32, executeGemma4PagedTextHiddenLiteralF32, executeGemma4PagedTextLiteralF32, generateGemma4PagedTextLiteralNativeF32 } from "./gemma4-paged-text.js";
@@ -12,15 +13,22 @@ import { assertGemma4VectorizedRealLoweringPlanMatches, Gemma4VectorizedRealExec
 
 const args = parseArguments(process.argv.slice(2));
 const initializationStarted = performance.now();
-const artifact = await openGemma4CompositeLiteralArtifact(args.artifact, args.artifactIndex);
+const artifact = args.artifactIndex
+  ? await openGemma4PagedRuntimeArtifact(args.artifact, args.artifactIndex)
+  : await openGemma4CompositeLiteralArtifact(args.artifact);
 const pool = await Gemma4BinaryConstantPool.open(args.binaryPool);
 let vectorizedRealLowering: Gemma4VectorizedRealLoweringPlan["contract"] | undefined;
 let vectorizedRealExecutionGuard: Gemma4VectorizedRealExecutionGuard | undefined;
 if (args.fusedDecoderStackRounding === "real") {
   const planInfo = await stat(args.realLoweringPlan!);
   if (!planInfo.isFile() || planInfo.size < 1 || planInfo.size > 16 * 1024 * 1024) throw new Error("Plano de lowering real persistido deve ter entre 1 byte e 16 MiB.");
-  const persisted = JSON.parse(await readFile(args.realLoweringPlan!, "utf8")) as unknown;
-  assertGemma4VectorizedRealLoweringPlanMatches(persisted, artifact.realSimplifiedProgram, artifact.calculationGraph, artifact.integrityManifest);
+  const persistedBytes = await readFile(args.realLoweringPlan!);
+  const persisted = JSON.parse(persistedBytes.toString("utf8")) as unknown;
+  if ("runtimeIndexSchemaVersion" in artifact) {
+    assertGemma4VectorizedRealLoweringPlanMatchesRuntime(persisted, createHash("sha256").update(persistedBytes).digest("hex"), artifact);
+  } else {
+    assertGemma4VectorizedRealLoweringPlanMatches(persisted, artifact.realSimplifiedProgram, artifact.calculationGraph, artifact.integrityManifest);
+  }
   vectorizedRealLowering = persisted.contract;
   vectorizedRealExecutionGuard = new Gemma4VectorizedRealExecutionGuard(persisted);
 }
@@ -28,7 +36,7 @@ const createLinear = () => new Gemma4PagedNativeLinearWorker({ python: args.pyth
 let linear = createLinear();
 const createExecutionOptions = () => ({ maxReadBytes: args.maxReadBytes, finalHeadMaxReadBytes: args.finalHeadMaxReadBytes, allowUnverifiedFidelity: true, tensorReader: pool, linearTileKernel: linear, finalHeadCompute: args.finalHeadCompute, ...(vectorizedRealExecutionGuard ? { vectorizedRealExecutionGuard } : {}), ...(args.fusedMlpRounding === "off" ? {} : { fusedMlpRounding: args.fusedMlpRounding }), ...(args.fusedFfnRounding === "off" ? {} : { fusedFfnRounding: args.fusedFfnRounding }), ...(args.fusedDecoderLayerRounding === "off" ? {} : { fusedDecoderLayerRounding: args.fusedDecoderLayerRounding }), ...(args.fusedDecoderStackRounding === "off" ? {} : { fusedDecoderStackRounding: args.fusedDecoderStackRounding }), ...(args.fusedPleRounding === "off" ? {} : { fusedPleRounding: args.fusedPleRounding }), ...(args.fusedPlePreludeRounding === "off" ? {} : { fusedPlePreludeRounding: args.fusedPlePreludeRounding }), ...(args.fusedTokenForwardRounding === "off" ? {} : { fusedTokenForwardRounding: args.fusedTokenForwardRounding }), ...(args.nativeAttentionRounding === "off" ? {} : { nativeAttentionRounding: args.nativeAttentionRounding }), ...(args.fusedAttentionRounding === "off" ? {} : { fusedAttentionRounding: args.fusedAttentionRounding }) });
 let options = createExecutionOptions();
-process.stdout.write(`${JSON.stringify({ ready: true, initializationSeconds: (performance.now() - initializationStarted) / 1000, artifactOpenStrategy: args.artifactIndex ? "authenticated-runtime-index-v1" : "streamed-literal-scan-v1", ...(args.artifactIndex ? { artifactIndexSha256: args.artifactIndex.sha256 } : {}), backend: "paged-binary-native", linearBackend: linear.backend, fusedMlpRounding: args.fusedMlpRounding, fusedFfnRounding: args.fusedFfnRounding, fusedDecoderLayerRounding: args.fusedDecoderLayerRounding, fusedDecoderStackRounding: args.fusedDecoderStackRounding, fusedPleRounding: args.fusedPleRounding, fusedPlePreludeRounding: args.fusedPlePreludeRounding, fusedTokenForwardRounding: args.fusedTokenForwardRounding, residentGeneration: args.residentGeneration, finalHeadCompute: args.finalHeadCompute, nativeAttentionRounding: args.nativeAttentionRounding, fusedAttentionRounding: args.fusedAttentionRounding, threads: args.threads, maxReadMiB: args.maxReadBytes / (1024 * 1024), finalHeadReadMiB: args.finalHeadMaxReadBytes / (1024 * 1024), ...(vectorizedRealLowering ? { vectorizedRealLowering } : {}) })}\n`);
+process.stdout.write(`${JSON.stringify({ ready: true, initializationSeconds: (performance.now() - initializationStarted) / 1000, artifactOpenStrategy: "runtimeIndexSchemaVersion" in artifact ? "authenticated-execution-index-v2" : args.artifactIndex ? "authenticated-runtime-index-v1" : "streamed-literal-scan-v1", ...(args.artifactIndex ? { artifactIndexSha256: args.artifactIndex.sha256 } : {}), backend: "paged-binary-native", linearBackend: linear.backend, fusedMlpRounding: args.fusedMlpRounding, fusedFfnRounding: args.fusedFfnRounding, fusedDecoderLayerRounding: args.fusedDecoderLayerRounding, fusedDecoderStackRounding: args.fusedDecoderStackRounding, fusedPleRounding: args.fusedPleRounding, fusedPlePreludeRounding: args.fusedPlePreludeRounding, fusedTokenForwardRounding: args.fusedTokenForwardRounding, residentGeneration: args.residentGeneration, finalHeadCompute: args.finalHeadCompute, nativeAttentionRounding: args.nativeAttentionRounding, fusedAttentionRounding: args.fusedAttentionRounding, threads: args.threads, maxReadMiB: args.maxReadBytes / (1024 * 1024), finalHeadReadMiB: args.finalHeadMaxReadBytes / (1024 * 1024), ...(vectorizedRealLowering ? { vectorizedRealLowering } : {}) })}\n`);
 
 const lines = createInterface({ input: process.stdin, crlfDelay: Infinity });
 for await (const line of lines) {
