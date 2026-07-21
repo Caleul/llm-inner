@@ -61,7 +61,7 @@ export interface Gemma4PagedTextOptions {
   /** Optional native QK/softmax/PV kernel; real removes its internal BF16 boundaries. */
   nativeAttentionRounding?: "bf16" | "real";
   /** Whole Q/K/V -> norm/RoPE -> attention -> O subgraph with explicit boundary policy. */
-  fusedAttentionRounding?: "bf16" | "real";
+  fusedAttentionRounding?: "bf16" | "real" | "native-bf16";
   /** Whole per-layer-input gate -> projection -> norm -> residual subgraph. */
   fusedPleRounding?: "bf16" | "real";
   /** Experimental projection -> norm -> token combine fusion before decoder layers. */

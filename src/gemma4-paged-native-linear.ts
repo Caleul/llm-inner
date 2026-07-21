@@ -245,7 +245,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     const inputElements = request.batch * request.querySequence * request.hiddenSize;
     const sourceElements = request.batch * request.keyValueHeads * request.sourceSequence * request.headDim;
     const maskElements = request.batch * request.maskHeads * request.querySequence * totalKeySequence;
-    if (request.input.length !== inputElements || request.positions.length !== request.batch * request.querySequence || request.mask.length !== maskElements || request.sourceKey.length !== sourceElements || request.sourceValue.length !== sourceElements || request.mask.some((value) => Number.isNaN(value) || value === Infinity) || !Number.isFinite(request.epsilon) || request.epsilon <= 0 || !Number.isFinite(request.scale) || !Number.isFinite(request.theta) || request.theta <= 0 || !Number.isFinite(request.proportionalFactor) || request.proportionalFactor <= 0 || (request.rounding !== "bf16" && request.rounding !== "real")) throw new Error("Subgrafo de attention recebeu payload inválido.");
+    if (request.input.length !== inputElements || request.positions.length !== request.batch * request.querySequence || request.mask.length !== maskElements || request.sourceKey.length !== sourceElements || request.sourceValue.length !== sourceElements || request.mask.some((value) => Number.isNaN(value) || value === Infinity) || !Number.isFinite(request.epsilon) || request.epsilon <= 0 || !Number.isFinite(request.scale) || !Number.isFinite(request.theta) || request.theta <= 0 || !Number.isFinite(request.proportionalFactor) || request.proportionalFactor <= 0 || (request.rounding !== "bf16" && request.rounding !== "real" && request.rounding !== "native-bf16")) throw new Error("Subgrafo de attention recebeu payload inválido.");
     const descriptors = [request.queryWeight, request.queryNorm, request.outputWeight, ...(request.producesKeyValue ? [request.keyWeight!, request.keyNorm!, ...(request.valueWeight ? [request.valueWeight] : [])] : [])].map((tensor) => this.#prepareWholeTensor(tensor));
     this.#active = true;
     const started = performance.now();
@@ -255,7 +255,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
       const metadata = Buffer.alloc(80);
       [request.querySequence, request.sourceSequence, request.hiddenSize, request.headDim, request.maskHeads, request.producesKeyValue ? 1 : 0, request.valueFromKey ? 1 : 0, request.ropeType === "default" ? 0 : 1, request.rotaryDim, request.proportionalPairs, descriptors.length].forEach((value, index) => metadata.writeUInt32LE(value, index * 4));
       metadata.writeFloatLE(request.epsilon, 44); metadata.writeFloatLE(request.scale, 48); metadata.writeDoubleLE(request.theta, 52); metadata.writeFloatLE(request.proportionalFactor, 60);
-      metadata.writeUInt32LE(request.rounding === "bf16" ? 0 : 1, 64);
+      metadata.writeUInt32LE(request.rounding === "bf16" ? 0 : request.rounding === "real" ? 1 : 2, 64);
       await this.#write(header); await this.#write(metadata);
       await this.#write(Buffer.from(request.input.buffer, request.input.byteOffset, request.input.byteLength));
       await this.#write(Buffer.from(request.positions.buffer, request.positions.byteOffset, request.positions.byteLength));

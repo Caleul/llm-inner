@@ -584,10 +584,11 @@ No corpus de oito prompts × dois tokens:
 O modo real reintroduziu a divergência do segundo token de
 `Write one short sentence about the Moon:` (`818` no baseline, `3689` no
 direto), além da divergência já observada na tradução. Como a meta exige baixa
-divergência, ele permanece experimental. `bf16` foi promovido como padrão
-PyTorch: reduz as fronteiras de processo sem degradar o corpus atual. MLX
-permanece em `off`. A interface exibe separadamente o núcleo e o subgrafo, suas
-políticas, despachos e lineares restantes.
+divergência, ele permanece experimental. Naquela etapa, `bf16` foi promovido:
+reduziu as fronteiras de processo sem degradar o corpus. Ele continua como
+controle com pesos ampliados. MLX permanece em `off`. A interface exibe
+separadamente o núcleo e o subgrafo, suas políticas, despachos e lineares
+restantes.
 
 Comando promovido:
 
@@ -602,6 +603,44 @@ npm run calibrate:gemma4-real -- \
   --direct-fused-attention bf16 \
   --precision f32 --rounding-policy none
 ```
+
+## Projeções de attention sobre storage BF16 nativo
+
+Depois da MLP nativa, a telemetria mostrou que o subgrafo de attention era a
+maior classe aquecida restante, com aproximadamente `0,163 s` por pedido de
+dois tokens. Embora Q/K/V/O já estivessem fundidos com normas, RoPE, máscara,
+softmax e cache KV, suas matrizes BF16 ainda eram ampliadas integralmente para
+F32 a cada camada.
+
+O modo `native-bf16` mantém Q/K/V/O no `mmap` e executa somente esses quatro
+GEMMs em BF16 nativo. Os resultados de cada projeção voltam a F32 nas mesmas
+boundaries BF16 do modo anterior. RMSNorm, RoPE, scores, máscara, softmax,
+contexto e cache KV permanecem no caminho já validado; portanto a otimização
+não transforma softmax ou cache em uma aproximação nova.
+
+No ensaio persistente `[2]` de dois tokens, a attention aquecida caiu de cerca
+de `0,163 s` para `0,070 s`; o pedido completo típico passou de `0,51–0,53 s`
+para `0,41–0,42 s`. Os tokens permaneceram `[184,3910]`. O SHA-256 terminal
+passou para
+`71eeb041bc97c6674686eb4dc99887cca8a50a7cb4947e42c3a63a0bb58e9e2d`,
+identificando a ordem de acumulação do kernel nativo.
+
+No corpus 8×2:
+
+- controle com attention `bf16`: `1,5618 token/s`, 7/8 prompts e 15/16 tokens;
+- attention `native-bf16`: `1,7380 token/s`, os mesmos 7/8 e 15/16 tokens;
+- ganho direto: 11,28%;
+- razão contra o baseline da própria execução: `3,1651x`;
+- tempo acumulado de attention: `2,0630 s → 1,0379 s`, redução de 49,70%.
+
+`native-bf16` passa a ser o padrão PyTorch. `bf16` conserva o controle anterior,
+`real` conserva a composição sem boundaries internas e `off` conserva o caminho
+separado. A flag é
+`--fused-attention off|bf16|real|native-bf16` no worker ou
+`--direct-fused-attention ...` no comparador. Evidência:
+
+- `artifacts/gemma4-three-way-calibration-8x2-native-bf16-mlp.json`;
+- `artifacts/gemma4-three-way-calibration-8x2-native-bf16-attention.json`.
 
 ## Head terminal BF16 nativo
 

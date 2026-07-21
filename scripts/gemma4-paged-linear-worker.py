@@ -24,7 +24,7 @@ def read_exact(size):
     return chunks
 
 
-def read_whole_tensor(pool, files, mappings, expected_shape, widen=True):
+def read_whole_tensor(pool, files, mappings, expected_shape, widen=True, required_dtype=None):
     metadata = read_exact(36)
     request_dtype, first, second, byte_offset, byte_length, start_output, shard_length, name_length = struct.unpack("<IIIQIIII", metadata)
     if request_dtype not in (0, 1, 2) or (first, second) != expected_shape or start_output != 0:
@@ -36,6 +36,8 @@ def read_whole_tensor(pool, files, mappings, expected_shape, widen=True):
     if Path(shard).name != shard or not tensor_name:
         raise ValueError("fused attention tensor identity is invalid")
     storage_dtype = (torch.float32, torch.bfloat16, torch.float16)[request_dtype]
+    if required_dtype is not None and storage_dtype != required_dtype:
+        raise ValueError(f"{tensor_name}: fused tensor storage dtype is incompatible")
     element_bytes = 4 if request_dtype == 0 else 2
     if byte_length != first * second * element_bytes:
         raise ValueError(f"{tensor_name}: fused attention tensor byte length is invalid")
@@ -135,7 +137,7 @@ def main():
                 rounding = struct.unpack("<I", metadata[64:68])[0]
                 total_key_sequence = source_sequence + (query_sequence if produces_kv else 0)
                 expected_descriptors = 3 + (2 + (0 if value_from_key else 1) if produces_kv else 0)
-                if not batch or not query_heads or not key_value_heads or not query_sequence or not hidden_size or not head_dim or not mask_heads or total_key_sequence < 1 or query_heads % key_value_heads or mask_heads not in (1, query_heads) or produces_kv not in (0, 1) or value_from_key not in (0, 1) or (not produces_kv and value_from_key) or rope_kind not in (0, 1) or rounding not in (0, 1) or not rotary_dim or rotary_dim > head_dim or rotary_dim % 2 or proportional_pairs > rotary_dim // 2 or descriptor_count != expected_descriptors or not math.isfinite(epsilon) or epsilon <= 0 or not math.isfinite(scale) or not math.isfinite(theta) or theta <= 0 or not math.isfinite(proportional_factor) or proportional_factor <= 0:
+                if not batch or not query_heads or not key_value_heads or not query_sequence or not hidden_size or not head_dim or not mask_heads or total_key_sequence < 1 or query_heads % key_value_heads or mask_heads not in (1, query_heads) or produces_kv not in (0, 1) or value_from_key not in (0, 1) or (not produces_kv and value_from_key) or rope_kind not in (0, 1) or rounding not in (0, 1, 2) or not rotary_dim or rotary_dim > head_dim or rotary_dim % 2 or proportional_pairs > rotary_dim // 2 or descriptor_count != expected_descriptors or not math.isfinite(epsilon) or epsilon <= 0 or not math.isfinite(scale) or not math.isfinite(theta) or theta <= 0 or not math.isfinite(proportional_factor) or proportional_factor <= 0:
                     raise ValueError("fused attention topology is invalid")
                 if not produces_kv and source_sequence < query_sequence:
                     raise ValueError("shared fused attention cache is shorter than query")
@@ -156,23 +158,26 @@ def main():
                 else:
                     source_key = torch.empty((batch, key_value_heads, 0, head_dim), dtype=torch.float32)
                     source_value = torch.empty((batch, key_value_heads, 0, head_dim), dtype=torch.float32)
-                query_weight = read_whole_tensor(pool, files, mappings, (query_heads * head_dim, hidden_size))
+                native_projections = rounding == 2
+                required_projection_dtype = torch.bfloat16 if native_projections else None
+                query_weight = read_whole_tensor(pool, files, mappings, (query_heads * head_dim, hidden_size), widen=not native_projections, required_dtype=required_projection_dtype)
                 query_norm = read_whole_tensor(pool, files, mappings, (head_dim, 1)).reshape(head_dim)
-                output_weight = read_whole_tensor(pool, files, mappings, (hidden_size, query_heads * head_dim))
-                boundary = (lambda tensor: tensor.to(torch.bfloat16).float()) if rounding == 0 else (lambda tensor: tensor)
-                query = boundary(torch.matmul(inputs, query_weight.transpose(0, 1))).reshape(batch, query_sequence, query_heads, head_dim).permute(0, 2, 1, 3)
-                query = rope_real(boundary(rms_norm_real(query, query_norm, epsilon)), positions, rope_kind, theta, rotary_dim, proportional_pairs, proportional_factor, rounding == 0)
+                output_weight = read_whole_tensor(pool, files, mappings, (hidden_size, query_heads * head_dim), widen=not native_projections, required_dtype=required_projection_dtype)
+                boundary = (lambda tensor: tensor.to(torch.bfloat16).float()) if rounding in (0, 2) else (lambda tensor: tensor)
+                project = (lambda tensor, weight: torch.matmul(tensor.to(torch.bfloat16), weight.transpose(0, 1)).float()) if native_projections else (lambda tensor, weight: torch.matmul(tensor, weight.transpose(0, 1)))
+                query = boundary(project(inputs, query_weight)).reshape(batch, query_sequence, query_heads, head_dim).permute(0, 2, 1, 3)
+                query = rope_real(boundary(rms_norm_real(query, query_norm, epsilon)), positions, rope_kind, theta, rotary_dim, proportional_pairs, proportional_factor, rounding in (0, 2))
                 key_weight = key_norm = value_weight = current_key_heads = current_key = current_value = None
                 if produces_kv:
-                    key_weight = read_whole_tensor(pool, files, mappings, (key_value_heads * head_dim, hidden_size))
+                    key_weight = read_whole_tensor(pool, files, mappings, (key_value_heads * head_dim, hidden_size), widen=not native_projections, required_dtype=required_projection_dtype)
                     key_norm = read_whole_tensor(pool, files, mappings, (head_dim, 1)).reshape(head_dim)
-                    current_key_heads = boundary(torch.matmul(inputs, key_weight.transpose(0, 1))).reshape(batch, query_sequence, key_value_heads, head_dim).permute(0, 2, 1, 3)
-                    current_key = rope_real(boundary(rms_norm_real(current_key_heads, key_norm, epsilon)), positions, rope_kind, theta, rotary_dim, proportional_pairs, proportional_factor, rounding == 0)
+                    current_key_heads = boundary(project(inputs, key_weight)).reshape(batch, query_sequence, key_value_heads, head_dim).permute(0, 2, 1, 3)
+                    current_key = rope_real(boundary(rms_norm_real(current_key_heads, key_norm, epsilon)), positions, rope_kind, theta, rotary_dim, proportional_pairs, proportional_factor, rounding in (0, 2))
                     if value_from_key:
                         current_value = boundary(rms_norm_real(current_key_heads, None, epsilon))
                     else:
-                        value_weight = read_whole_tensor(pool, files, mappings, (key_value_heads * head_dim, hidden_size))
-                        current_value = boundary(torch.matmul(inputs, value_weight.transpose(0, 1))).reshape(batch, query_sequence, key_value_heads, head_dim).permute(0, 2, 1, 3)
+                        value_weight = read_whole_tensor(pool, files, mappings, (key_value_heads * head_dim, hidden_size), widen=not native_projections, required_dtype=required_projection_dtype)
+                        current_value = boundary(project(inputs, value_weight)).reshape(batch, query_sequence, key_value_heads, head_dim).permute(0, 2, 1, 3)
                         current_value = boundary(rms_norm_real(current_value, None, epsilon))
                     key = torch.cat((source_key, current_key), dim=2)
                     value = torch.cat((source_value, current_value), dim=2)
@@ -184,7 +189,7 @@ def main():
                 scores = torch.matmul(query, attention_key.transpose(-1, -2)) * torch.tensor(scale, dtype=torch.float32) + mask
                 probabilities = torch.softmax(scores, dim=-1)
                 context = torch.matmul(probabilities, attention_value).permute(0, 2, 1, 3).contiguous().reshape(batch, query_sequence, query_heads * head_dim)
-                projected = boundary(torch.matmul(context, output_weight.transpose(0, 1)))
+                projected = boundary(project(context, output_weight))
                 if not torch.isfinite(projected).all() or not torch.isfinite(key).all() or not torch.isfinite(value).all():
                     raise ValueError("fused attention produced non-finite output")
                 write_float_tensor(projected)
@@ -192,7 +197,7 @@ def main():
                     write_float_tensor(key)
                     write_float_tensor(value)
                 sys.stdout.buffer.flush()
-                del inputs, positions, mask, source_key, source_value, query_weight, query_norm, output_weight, query, key_weight, key_norm, value_weight, current_key_heads, current_key, current_value, key, value, attention_key, attention_value, scores, probabilities, context, projected, boundary
+                del inputs, positions, mask, source_key, source_value, query_weight, query_norm, output_weight, query, key_weight, key_norm, value_weight, current_key_heads, current_key, current_value, key, value, attention_key, attention_value, scores, probabilities, context, projected, boundary, project
                 continue
             if fused_ple:
                 if referenced or batched or fused_mlp or native_bf16 or native_attention or fused_attention or fused_ple_prelude or dtype_code != 0 or pool is None or outputs != features:

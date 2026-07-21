@@ -107,7 +107,7 @@ export interface PagedFusedAttentionRequest {
   rotaryDim: number;
   proportionalPairs: number;
   proportionalFactor: number;
-  rounding: "bf16" | "real";
+  rounding: "bf16" | "real" | "native-bf16";
 }
 
 export interface PagedFusedAttentionResult {
