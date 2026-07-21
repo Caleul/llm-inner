@@ -1,8 +1,12 @@
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { openGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
+import { Gemma4BinaryConstantPool } from "./gemma4-binary-constant-pool.js";
 import type { Gemma4LiteralGenerationAssignmentExecution, Gemma4LiteralGenerationValue } from "./gemma4-literal-generation.js";
 import { executeGemma4PagedTextLiteralF32, generateGemma4PagedTextLiteralF32 } from "./gemma4-paged-text.js";
+import { Gemma4PagedNativeLinearWorker } from "./gemma4-paged-native-linear.js";
 import { rankGemma4TerminalLogits } from "./gemma4-terminal-logits.js";
 import type { DenseF32Tensor, ReferenceF32ExecutionResult, ReferenceF32KeyValueCache } from "./types.js";
 
@@ -13,18 +17,26 @@ interface Arguments {
   eosTokenId?: number;
   maxReadBytes: number;
   allowUnverifiedFidelity: boolean;
+  nativeLinear: boolean;
+  threads: number;
+  python: string;
+  linearHelper: string;
+  binaryPool?: string;
   output?: string;
 }
 
 const args = parseArguments(process.argv.slice(2));
 const artifact = await openGemma4CompositeLiteralArtifact(args.artifact);
+const binaryPool = args.binaryPool ? await Gemma4BinaryConstantPool.open(args.binaryPool) : undefined;
+const linearWorker = args.nativeLinear ? new Gemma4PagedNativeLinearWorker({ python: args.python, helper: args.linearHelper, threads: args.threads }) : undefined;
 const started = performance.now();
 const rssBefore = process.memoryUsage().rss;
 try {
   const request = { inputIds: [args.inputIds] };
+  const executionOptions = { maxReadBytes: args.maxReadBytes, allowUnverifiedFidelity: args.allowUnverifiedFidelity, ...(linearWorker ? { linearTileKernel: linearWorker } : {}), ...(binaryPool ? { tensorReader: binaryPool } : {}) };
   const result = args.maxNewTokens === 0
-    ? await executeGemma4PagedTextLiteralF32(artifact, request, { maxReadBytes: args.maxReadBytes, allowUnverifiedFidelity: args.allowUnverifiedFidelity })
-    : await generateGemma4PagedTextLiteralF32(artifact, { ...request, maxNewTokens: args.maxNewTokens, ...(args.eosTokenId === undefined ? {} : { eosTokenId: args.eosTokenId }) }, { maxReadBytes: args.maxReadBytes, allowUnverifiedFidelity: args.allowUnverifiedFidelity });
+    ? await executeGemma4PagedTextLiteralF32(artifact, request, executionOptions)
+    : await generateGemma4PagedTextLiteralF32(artifact, { ...request, maxNewTokens: args.maxNewTokens, ...(args.eosTokenId === undefined ? {} : { eosTokenId: args.eosTokenId }) }, executionOptions);
   const logits = result.logits;
   const terminal = rankGemma4TerminalLogits(logits);
   const hash = createHash("sha256").update(Buffer.from(logits.values.buffer, logits.values.byteOffset, logits.values.byteLength)).digest("hex");
@@ -33,12 +45,16 @@ try {
     artifact: artifact.artifact,
     artifactBytes: artifact.artifactBytes,
     sourceCheckpointAccessed: false,
-    executionFidelity: artifact.program.textProgram.fidelity.exactByConstruction
+    compatibilityBinaryWeightsAccessed: binaryPool !== undefined,
+    constantPoolBackend: binaryPool?.backend ?? "literal-json-base64",
+    executionFidelity: linearWorker ? "approximate-persistent-pytorch-f32-linear" : artifact.program.textProgram.fidelity.exactByConstruction
       ? "exact-by-construction"
       : "unverified-fidelity-explicitly-acknowledged",
     executionScope: "text-only; image/video/audio inputs are intentionally unsupported by this command",
     inputIds: args.inputIds,
     maxReadBytes: args.maxReadBytes,
+    linearBackend: linearWorker?.backend ?? "scalar-declared-reduction",
+    linearThreads: linearWorker ? args.threads : 1,
     maxNewTokens: args.maxNewTokens,
     ...("generatedTokenIds" in result ? { generatedTokenIds: result.generatedTokenIds } : {}),
     ...("assignmentExecutions" in result ? { generationProgramExecution: result.assignmentExecutions.map(summarizeAssignmentExecution) } : {}),
@@ -58,12 +74,15 @@ try {
   if (args.output) await writeFile(args.output, json);
   else process.stdout.write(json);
 } finally {
+  if (linearWorker) await linearWorker.close();
+  if (binaryPool) await binaryPool.close();
   await artifact.close();
 }
 
 function parseArguments(argv: string[]): Arguments {
   let artifact: string | undefined, inputIds: number[] | undefined, output: string | undefined, eosTokenId: number | undefined;
-  let maxNewTokens = 0, maxReadMiB = 16, allowUnverifiedFidelity = false;
+  let maxNewTokens = 0, maxReadMiB = 16, allowUnverifiedFidelity = false, nativeLinear = false, threads = 1;
+  let python = existsSync("venv/bin/python") ? resolve("venv/bin/python") : "python3", linearHelper = resolve("scripts/gemma4-paged-linear-worker.py"), binaryPool: string | undefined;
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index], next = argv[index + 1];
     if (value === "--artifact") { artifact = next; index += 1; }
@@ -72,15 +91,20 @@ function parseArguments(argv: string[]): Arguments {
     else if (value === "--eos-token-id") { eosTokenId = parseInteger(next, value); index += 1; }
     else if (value === "--max-read-mib") { maxReadMiB = parseInteger(next, value); index += 1; }
     else if (value === "--allow-unverified-fidelity") { allowUnverifiedFidelity = true; }
+    else if (value === "--native-linear") { nativeLinear = true; }
+    else if (value === "--threads") { threads = parseInteger(next, value); index += 1; }
+    else if (value === "--python") { if (!next) throw new Error(`${value} requer caminho.`); python = next; index += 1; }
+    else if (value === "--linear-helper") { if (!next) throw new Error(`${value} requer caminho.`); linearHelper = resolve(next); index += 1; }
+    else if (value === "--binary-pool") { if (!next) throw new Error(`${value} requer diretório.`); binaryPool = resolve(next); index += 1; }
     else if (value === "--output") { output = next; index += 1; }
     else throw new Error(`Argumento desconhecido: ${value}.`);
   }
-  if (!artifact || !inputIds || inputIds.length === 0 || maxNewTokens < 0 || maxReadMiB <= 0) {
-    throw new Error("Uso: --artifact <literal.json> --input-ids <id,id,...> [--max-new-tokens N] [--eos-token-id N] [--max-read-mib N] [--allow-unverified-fidelity] [--output report.json].");
+  if (!artifact || !inputIds || inputIds.length === 0 || maxNewTokens < 0 || maxReadMiB <= 0 || threads < 1) {
+    throw new Error("Uso: --artifact <literal.json> --input-ids <id,id,...> [--max-new-tokens N] [--max-read-mib N] [--native-linear --threads N] [--allow-unverified-fidelity] [--output report.json].");
   }
   const maxReadBytes = maxReadMiB * 1024 * 1024;
   if (!Number.isSafeInteger(maxReadBytes)) throw new Error("--max-read-mib excede limite seguro.");
-  return { artifact, inputIds, maxNewTokens, ...(eosTokenId === undefined ? {} : { eosTokenId }), maxReadBytes, allowUnverifiedFidelity, ...(output ? { output } : {}) };
+  return { artifact, inputIds, maxNewTokens, ...(eosTokenId === undefined ? {} : { eosTokenId }), maxReadBytes, allowUnverifiedFidelity, nativeLinear, threads, python, linearHelper, ...(binaryPool ? { binaryPool } : {}), ...(output ? { output } : {}) };
 }
 
 function parseIds(value: string | undefined): number[] {
@@ -111,8 +135,12 @@ function summarizeGenerationValue(value: Gemma4LiteralGenerationValue): unknown 
   if (Array.isArray(value)) {
     const entries = value as unknown[];
     if (entries.length === 0 || typeof entries[0] === "number") return [...entries as number[]];
-    const snapshots = entries as Array<ReadonlyMap<number, ReferenceF32KeyValueCache>>;
-    return { cacheSnapshots: snapshots.length, terminal: summarizeCache(snapshots.at(-1)!) };
+    if (entries.every(isTensor)) return (entries as DenseF32Tensor[]).map(summarizeTensor);
+    if (entries.every((entry) => entry instanceof Map)) {
+      const snapshots = entries as Array<ReadonlyMap<number, ReferenceF32KeyValueCache>>;
+      return { cacheSnapshots: snapshots.length, terminal: summarizeCache(snapshots.at(-1)!) };
+    }
+    throw new Error("Array de atribuição do programa de geração Gemma 4 não reconhecido.");
   }
   if (value instanceof Map) return summarizeCache(value);
   if (isTensor(value)) return summarizeTensor(value);
@@ -141,6 +169,6 @@ function summarizeCache(cache: ReadonlyMap<number, ReferenceF32KeyValueCache>): 
   };
 }
 
-function isTensor(value: Gemma4LiteralGenerationValue): value is DenseF32Tensor {
+function isTensor(value: unknown): value is DenseF32Tensor {
   return typeof value === "object" && value !== null && "shape" in value && "values" in value;
 }

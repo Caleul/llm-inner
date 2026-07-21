@@ -15,7 +15,7 @@ import {
   executeGemma4LiteralGenerationProgram,
   type Gemma4LiteralGenerationExecutionResult,
 } from "./gemma4-literal-generation.js";
-import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearF32, readPagedDenseF32Vector, roundDenseF32ToBF16 } from "./paged-dense.js";
+import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearF32, readPagedDenseF32Vector, roundDenseF32ToBF16, type PagedLinearTileKernel } from "./paged-dense.js";
 import type {
   DenseF32Tensor,
   Operation,
@@ -24,6 +24,7 @@ import type {
   TensorInfo,
   TensorRef,
 } from "./types.js";
+import type { LiteralTensorReader } from "./literal.js";
 
 export interface Gemma4PagedTextExecutionRequest {
   inputIds: number[][];
@@ -47,6 +48,10 @@ export interface Gemma4PagedTextOptions {
    * established exact execution contract.
    */
   allowUnverifiedFidelity?: boolean;
+  /** Optional approximate native tile kernel; the scalar schedule remains the fidelity reference. */
+  linearTileKernel?: PagedLinearTileKernel;
+  /** Optional compiled binary constant-pool reader replacing base64 payload reads. */
+  tensorReader?: Pick<LiteralTensorReader, "readTensorBytesRange">;
 }
 
 /**
@@ -156,12 +161,13 @@ async function executePagedOperations(
   request: Gemma4PagedTextExecutionRequest = { inputIds },
 ): Promise<PagedOperationsResult> {
   const maxReadBytes = options.maxReadBytes ?? 16 * 1024 * 1024;
+  const tensorReader = options.tensorReader ?? artifact;
   const vectors = new Map<string, Promise<DenseF32Tensor>>();
-  const matrix = (reference: TensorRef) => createPagedDenseF32Matrix(tensorInfo(artifact, reference), artifact, maxReadBytes);
+  const matrix = (reference: TensorRef) => createPagedDenseF32Matrix(tensorInfo(artifact, reference), tensorReader, maxReadBytes);
   const vector = (reference: TensorRef): Promise<DenseF32Tensor> => {
     let result = vectors.get(reference.name);
     if (!result) {
-      result = readPagedDenseF32Vector(tensorInfo(artifact, reference), artifact, maxReadBytes);
+      result = readPagedDenseF32Vector(tensorInfo(artifact, reference), tensorReader, maxReadBytes);
       vectors.set(reference.name, result);
     }
     return result;
@@ -201,6 +207,7 @@ async function executePagedOperations(
           outputDtype: operation.dtypePolicy.outputDtype === "BF16" ? "BF16" : "F32",
           accumulationDtype: operation.dtypePolicy.accumulationDtype === "F64" ? "F64" : "F32",
           ...(operation.dtypePolicy.reduction ? { reduction: operation.dtypePolicy.reduction } : {}),
+          ...(options.linearTileKernel ? { tileKernel: options.linearTileKernel } : {}),
         }));
         break;
       case "reshape_heads":

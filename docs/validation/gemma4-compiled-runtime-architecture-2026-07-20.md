@@ -142,6 +142,33 @@ prova paridade do topo para esta entrada mínima, mas não amplia essa evidênci
 para prompts arbitrários nem resolve o status de fidelidade não verificada
 declarado pelo artefato.
 
+## Kernel nativo e constant pool binário
+
+Um worker PyTorch persistente passou a receber tiles por protocolo binário. O
+Node conserva a leitura indexada e a validação de tensor; o worker executa
+`F32 input × BF16 weight` depois de ampliar o peso dentro do runtime nativo. O
+canal aceita threads configuráveis e não serializa arrays numéricos como JSON.
+
+Resultados para `[2]`, sempre com `argmax 184`:
+
+- JSON base64 + linear escalar: `126,15 s`;
+- JSON base64 + tile PyTorch F32: `70,65 s`;
+- pool Safetensors indexado + tile F32 expandido no Node: `22,21 s`;
+- pool Safetensors indexado + bytes BF16 crus: `7,96 s`.
+
+O último caminho é `15,85x` mais rápido que o replay escalar. Uma página de
+64 MiB regrediu para `9,30 s`; 16 MiB permanece o melhor valor observado. A
+entrada textual `[2,818,5279,529,7001,563]` (`The capital of France is`) gerou
+`496` e, após o forward incremental com cache, selecionou `3207` como próximo
+argmax. Isso coincide com `a city` no original. Os dois forwards levaram
+`17,34 s` e o pico RSS foi `2.607.712 KiB`.
+
+O pool binário atual é o `model.safetensors` interno do bundle e o relatório
+marca `compatibilityBinaryWeightsAccessed: true`; ele não deve ser confundido
+com eliminação dos pesos. O formato final deve manter apenas um pool binário
+autenticado, eliminando a duplicação do payload base64 e o rótulo de
+compatibilidade.
+
 A UI real foi exercitada via Playwright contra o bundle. Ela gerou dois tokens,
 mostrou texto, ids, igualdade do argmax, divergência dos logits, erro máximo,
 tokens/s, razão de desempenho, threads e pico RSS.

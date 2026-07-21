@@ -14,6 +14,13 @@ export interface PagedDenseF32Matrix {
   readonly shape: readonly [number, number];
   readonly maxReadBytes: number;
   readRows(startRow: number, rowCount: number): Promise<DenseF32Tensor>;
+  readStorageRows?(startRow: number, rowCount: number): Promise<Buffer>;
+}
+
+export interface PagedLinearTileKernel {
+  readonly backend: string;
+  multiply(input: Float32Array, weight: Float32Array, rows: number, outputCount: number, inFeatures: number): Promise<Float32Array>;
+  multiplyStorage?(input: Float32Array, weight: Buffer, storageDtype: "F32" | "F16" | "BF16", rows: number, outputCount: number, inFeatures: number): Promise<Float32Array>;
 }
 
 /**
@@ -89,7 +96,7 @@ export function createPagedDenseF32Matrix(
     tensor,
     shape: [rows, columns],
     maxReadBytes,
-    async readRows(startRow, rowCount) {
+    async readStorageRows(startRow, rowCount) {
       if (!Number.isInteger(startRow) || !Number.isInteger(rowCount) || startRow < 0 || rowCount <= 0 || startRow + rowCount > rows) {
         throw new Error(`${tensor.name}: intervalo de linhas inválido ${startRow}+${rowCount}.`);
       }
@@ -97,6 +104,10 @@ export function createPagedDenseF32Matrix(
       if (byteLength > maxReadBytes) throw new Error(`${tensor.name}: leitura de ${byteLength} bytes excede maxReadBytes=${maxReadBytes}.`);
       const bytes = await reader.readTensorBytesRange!(tensor, startRow * rowBytes, byteLength);
       if (bytes.length !== byteLength) throw new Error(`${tensor.name}: leitor paginado retornou ${bytes.length} bytes; esperados ${byteLength}.`);
+      return bytes;
+    },
+    async readRows(startRow, rowCount) {
+      const bytes = await this.readStorageRows!(startRow, rowCount);
       return { shape: [rowCount, columns], values: decodeDenseRows(bytes, storageDtype) };
     },
   };
@@ -140,6 +151,7 @@ export async function pagedLinearF32(
     outputDtype?: "F32" | "BF16";
     accumulationDtype?: "F32" | "F64";
     reduction?: ReductionSchedule;
+    tileKernel?: PagedLinearTileKernel;
   } = {},
 ): Promise<DenseF32Tensor> {
   if (input.shape.length < 1) throw new Error("Linear paginado requer entrada com dimensão de features.");
@@ -151,6 +163,17 @@ export async function pagedLinearF32(
   const chunkRows = Math.max(1, Math.floor(weight.maxReadBytes / rowBytes));
   for (let firstOutput = 0; firstOutput < outFeatures; firstOutput += chunkRows) {
     const outputCount = Math.min(chunkRows, outFeatures - firstOutput);
+    if (options.tileKernel) {
+      const tile = options.tileKernel.multiplyStorage && weight.readStorageRows
+        ? await options.tileKernel.multiplyStorage(input.values, await weight.readStorageRows(firstOutput, outputCount), weight.tensor.storageDtype as "F32" | "F16" | "BF16", rows, outputCount, inFeatures)
+        : await options.tileKernel.multiply(input.values, (await weight.readRows(firstOutput, outputCount)).values, rows, outputCount, inFeatures);
+      if (tile.length !== rows * outputCount || tile.some((value) => !Number.isFinite(value))) throw new Error(`${options.tileKernel.backend}: kernel linear retornou tile inválido.`);
+      for (let row = 0; row < rows; row += 1) for (let output = 0; output < outputCount; output += 1) {
+        const value = tile[row * outputCount + output]!;
+        result[row * outFeatures + firstOutput + output] = options.outputDtype === "BF16" ? roundF32ToBF16(value) : Math.fround(value);
+      }
+      continue;
+    }
     const stored = await weight.readRows(firstOutput, outputCount);
     for (let row = 0; row < rows; row += 1) for (let output = 0; output < outputCount; output += 1) {
       const sum = options.reduction?.kind === "ordered-fma"
