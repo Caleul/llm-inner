@@ -111,3 +111,17 @@ test("projeção terminal integral ignora a paginação e despacha toda a matriz
   const result = await pagedLinearF32({ shape: [1, 2], values: Float32Array.from([1, 2]) }, referencedMatrix, { tileKernel: kernel, nativeBf16: true, wholeNativeBf16: true, outputDtype: "BF16" });
   assert.equal(wholeCalls, 1); assert.deepEqual([...result.values], [11, 17]);
 });
+
+test("projeção terminal envia a paginação inteira para um único despacho do worker", async () => {
+  const referencedMatrix: PagedDenseF32Matrix = { ...matrix, maxReadBytes: 4, tensor: { name: "head", storageDtype: "BF16", storageShape: [2, 2], logicalShape: [2, 2], shard: "model.safetensors", byteOffset: 128, byteLength: 8 } };
+  let streamedCalls = 0;
+  const kernel: PagedLinearTileKernel = {
+    backend: "native-bf16-stream", async multiply() { throw new Error("não deve paginar no JavaScript"); },
+    async multiplyWholeStorageReferenceNativeBf16Tiled(input, tensor, rows, maxReadBytes) {
+      streamedCalls += 1; assert.equal(tensor.name, "head"); assert.equal(rows, 1); assert.equal(maxReadBytes, 4); assert.deepEqual([...input], [1, 2]);
+      return Float32Array.from([11, 17]);
+    },
+  };
+  const result = await pagedLinearF32({ shape: [1, 2], values: Float32Array.from([1, 2]) }, referencedMatrix, { tileKernel: kernel, nativeBf16: true, streamedNativeBf16: true, outputDtype: "BF16" });
+  assert.equal(streamedCalls, 1); assert.deepEqual([...result.values], [11, 17]);
+});

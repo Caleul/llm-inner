@@ -60,12 +60,14 @@ interface ThreeWayCase {
     fusedPlePreludeRounding?: "off" | "bf16" | "real";
     fusedPleDispatches?: number;
     fusedPlePreludeDispatches?: number;
-    finalHeadCompute?: "f32" | "native-bf16" | "native-bf16-whole";
+    finalHeadCompute?: "f32" | "native-bf16" | "native-bf16-stream" | "native-bf16-whole";
+    streamedNativeBf16Dispatches?: number;
     nativeAttentionRounding?: "off" | "bf16" | "real";
     nativeAttentionDispatches?: number;
     fusedAttentionRounding?: "off" | "bf16" | "real" | "native-bf16";
     fusedAttentionDispatches?: number;
     referenceSeconds?: number;
+    streamedNativeBf16Seconds?: number;
     batchSeconds?: number;
     fusedMlpSeconds?: number;
     fusedFfnSeconds?: number;
@@ -139,7 +141,7 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
     source: options.runner.source,
     configuration: {
       prompts: cases.length, tokensPerPrompt: options.maxNewTokens, requestThreads: options.requestThreads,
-      directThreads: options.runner.directThreads, directMaxReadMiB: options.runner.directMaxReadMiB ?? 16, directFinalHeadReadMiB: options.runner.directFinalHeadReadMiB ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? 32 : options.runner.directMaxReadMiB ?? 16), directLinearBackend: options.runner.directLinearBackend ?? "pytorch", directFusedMlp: options.runner.directFusedMlp ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "real"), directFusedFfn: options.runner.directFusedFfn ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "off"), directFusedDecoderLayer: options.runner.directFusedDecoderLayer ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "off"), directFusedDecoderStack: options.runner.directFusedDecoderStack ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "off"), directFusedPle: options.runner.directFusedPle ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "bf16" : "off"), directFusedPlePrelude: options.runner.directFusedPlePrelude ?? "off", directFinalHead: options.runner.directFinalHead ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "f32"), directNativeAttention: options.runner.directNativeAttention ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "real" : "off"), directFusedAttention: options.runner.directFusedAttention ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "off"), precision: options.precision, roundingPolicy: options.roundingPolicy,
+      directThreads: options.runner.directThreads, directMaxReadMiB: options.runner.directMaxReadMiB ?? 16, directFinalHeadReadMiB: options.runner.directFinalHeadReadMiB ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? 32 : options.runner.directMaxReadMiB ?? 16), directLinearBackend: options.runner.directLinearBackend ?? "pytorch", directFusedMlp: options.runner.directFusedMlp ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "real"), directFusedFfn: options.runner.directFusedFfn ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "off"), directFusedDecoderLayer: options.runner.directFusedDecoderLayer ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "off"), directFusedDecoderStack: options.runner.directFusedDecoderStack ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "off"), directFusedPle: options.runner.directFusedPle ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "bf16" : "off"), directFusedPlePrelude: options.runner.directFusedPlePrelude ?? "off", directFinalHead: options.runner.directFinalHead ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16-stream" : "f32"), directNativeAttention: options.runner.directNativeAttention ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "real" : "off"), directFusedAttention: options.runner.directFusedAttention ?? ((options.runner.directLinearBackend ?? "pytorch") === "pytorch" ? "native-bf16" : "off"), precision: options.precision, roundingPolicy: options.roundingPolicy,
     },
     initialization: status,
     summary: {
@@ -191,11 +193,13 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.fusedPleDispatches === undefined ? {} : { fusedPleDispatches: entry.direct.fusedPleDispatches }),
         ...(entry.direct.fusedPlePreludeDispatches === undefined ? {} : { fusedPlePreludeDispatches: entry.direct.fusedPlePreludeDispatches }),
         ...(entry.direct.finalHeadCompute === undefined ? {} : { finalHeadCompute: entry.direct.finalHeadCompute }),
+        ...(entry.direct.streamedNativeBf16Dispatches === undefined ? {} : { streamedNativeBf16Dispatches: entry.direct.streamedNativeBf16Dispatches }),
         ...(entry.direct.nativeAttentionRounding === undefined ? {} : { nativeAttentionRounding: entry.direct.nativeAttentionRounding }),
         ...(entry.direct.nativeAttentionDispatches === undefined ? {} : { nativeAttentionDispatches: entry.direct.nativeAttentionDispatches }),
         ...(entry.direct.fusedAttentionRounding === undefined ? {} : { fusedAttentionRounding: entry.direct.fusedAttentionRounding }),
         ...(entry.direct.fusedAttentionDispatches === undefined ? {} : { fusedAttentionDispatches: entry.direct.fusedAttentionDispatches }),
         ...(entry.direct.referenceSeconds === undefined ? {} : { referenceSeconds: entry.direct.referenceSeconds }),
+        ...(entry.direct.streamedNativeBf16Seconds === undefined ? {} : { streamedNativeBf16Seconds: entry.direct.streamedNativeBf16Seconds }),
         ...(entry.direct.batchSeconds === undefined ? {} : { batchSeconds: entry.direct.batchSeconds }),
         ...(entry.direct.fusedMlpSeconds === undefined ? {} : { fusedMlpSeconds: entry.direct.fusedMlpSeconds }),
         ...(entry.direct.fusedFfnSeconds === undefined ? {} : { fusedFfnSeconds: entry.direct.fusedFfnSeconds }),

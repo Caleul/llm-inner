@@ -843,6 +843,41 @@ Relatórios A/B:
 - `artifacts/gemma4-three-way-calibration-8x2-whole-native-bf16-head.json`;
 - `artifacts/gemma4-three-way-calibration-8x2-tiled-native-bf16-head-control.json`.
 
+## Head BF16 paginado em fluxo único
+
+O modo `native-bf16-stream` mantém a paginação de 32 MiB que superou o GEMM
+integral, mas move o loop de tiles para dentro do worker persistente. O
+JavaScript envia uma única entrada e uma referência autenticada para a matriz;
+o worker percorre o `mmap` em tiles BF16 e devolve cada bloco de logits pelo
+mesmo fluxo binário assim que o GEMM termina. Não há matriz de 1,342 GB
+materializada nem vetor terminal duplicado no worker.
+
+Essa organização conserva exatamente os mesmos GEMMs e boundaries do modo
+`native-bf16`. Para `[2]` com dois tokens, ambos produziram `[184,3910]` e o
+SHA-256 terminal
+`71eeb041bc97c6674686eb4dc99887cca8a50a7cb4947e42c3a63a0bb58e9e2d`.
+O novo caminho realizou dois despachos de head e reduziu os demais despachos
+referenciados de 90 para 8.
+
+No controle térmico 8x2:
+
+- head paginado pelo JavaScript: `2,0087 token/s`;
+- head paginado no fluxo único: `2,0272 token/s`;
+- ganho direto: 0,92%, com os mesmos 7/8 prompts e 15/16 tokens;
+- tempo direto total: `7,9655 s -> 7,8926 s`;
+- travessias referenciadas/stream do corpus: `720 -> 64 + 16`, redução de
+  88,89% nas chamadas totais desse caminho;
+- tempo atribuído ao head permaneceu praticamente igual, cerca de `0,60 s`;
+- pico RSS permaneceu na mesma faixa: `2.583.456 -> 2.596.608 KiB`.
+
+`native-bf16-stream` passa a ser o padrão PyTorch. `native-bf16` mantém o A/B
+paginado pelo JavaScript, `native-bf16-whole` mantém o experimento integral e
+MLX continua em `f32`. A interface mostra separadamente despachos e tempo do
+head em fluxo único. Evidência:
+
+- `artifacts/gemma4-three-way-calibration-8x2-paged-native-bf16-head-current-control.json`;
+- `artifacts/gemma4-three-way-calibration-8x2-streamed-native-bf16-head.json`.
+
 ## Núcleo de attention nativo sem arredondamentos internos
 
 O executor direto passou a reconhecer a operação compilada de attention como

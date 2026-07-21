@@ -63,7 +63,7 @@ export interface Gemma4PagedTextOptions {
   /** Complete ordered decoder stack in one native dispatch. */
   fusedDecoderStackRounding?: "native-bf16";
   /** Final vocabulary projection compute path; BF16 is the allowed final rounding boundary. */
-  finalHeadCompute?: "f32" | "native-bf16" | "native-bf16-whole";
+  finalHeadCompute?: "f32" | "native-bf16" | "native-bf16-stream" | "native-bf16-whole";
   /** Optional native QK/softmax/PV kernel; real removes its internal BF16 boundaries. */
   nativeAttentionRounding?: "bf16" | "real";
   /** Whole Q/K/V -> norm/RoPE -> attention -> O subgraph with explicit boundary policy. */
@@ -521,6 +521,7 @@ async function executePagedOperations(
           ...(operation.dtypePolicy.reduction ? { reduction: operation.dtypePolicy.reduction } : {}),
           ...(options.linearTileKernel ? { tileKernel: options.linearTileKernel } : {}),
           ...(operation.id === "lm_head" && options.finalHeadCompute !== undefined && options.finalHeadCompute !== "f32" ? { nativeBf16: true } : {}),
+          ...(operation.id === "lm_head" && options.finalHeadCompute === "native-bf16-stream" ? { streamedNativeBf16: true } : {}),
           ...(operation.id === "lm_head" && options.finalHeadCompute === "native-bf16-whole" ? { wholeNativeBf16: true } : {}),
         }));
         break;

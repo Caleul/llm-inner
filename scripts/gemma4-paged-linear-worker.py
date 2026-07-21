@@ -197,7 +197,38 @@ def main():
             fused_ffn = bool(encoded_dtype & 0x00800000)
             fused_decoder_layer = bool(encoded_dtype & 0x00400000)
             fused_decoder_stack = bool(encoded_dtype & 0x00200000)
-            dtype_code = encoded_dtype & 0x001fffff
+            streamed_native_bf16 = bool(encoded_dtype & 0x00100000)
+            dtype_code = encoded_dtype & 0x000fffff
+            if streamed_native_bf16:
+                if not referenced or not native_bf16 or batched or fused_mlp or native_attention or fused_attention or fused_ple or fused_ple_prelude or fused_ffn or fused_decoder_layer or fused_decoder_stack or dtype_code != 1 or pool is None:
+                    raise ValueError("streamed native BF16 flags are invalid")
+                input_bytes = read_exact(rows * features * 4)
+                byte_offset, byte_length, start_output, max_read_bytes, shard_length, name_length = struct.unpack("<QIIIII", read_exact(28))
+                if start_output != 0 or byte_length != outputs * features * 2 or max_read_bytes < features * 2 or shard_length < 1 or shard_length > 4096 or name_length < 1 or name_length > 4096:
+                    raise ValueError("streamed native BF16 metadata is invalid")
+                shard = bytes(read_exact(shard_length)).decode("utf-8")
+                tensor_name = bytes(read_exact(name_length)).decode("utf-8")
+                if Path(shard).name != shard or not tensor_name:
+                    raise ValueError("streamed native BF16 identity is invalid")
+                path = (pool / shard).resolve()
+                if path.parent != pool:
+                    raise ValueError("streamed native BF16 tensor escapes binary pool")
+                if path not in mappings:
+                    files[path] = path.open("rb")
+                    mappings[path] = mmap.mmap(files[path].fileno(), 0, access=mmap.ACCESS_READ)
+                if byte_offset + byte_length > mappings[path].size():
+                    raise ValueError("streamed native BF16 tensor range exceeds shard")
+                inputs = torch.frombuffer(input_bytes, dtype=torch.float32).reshape(rows, features).to(torch.bfloat16)
+                chunk_rows = max(1, max_read_bytes // (features * 2))
+                for first_output in range(0, outputs, chunk_rows):
+                    output_count = min(chunk_rows, outputs - first_output)
+                    weights = torch.frombuffer(mappings[path], dtype=torch.bfloat16, count=output_count * features, offset=byte_offset + first_output * features * 2).reshape(output_count, features)
+                    tile = torch.mm(inputs, weights.transpose(0, 1)).float().contiguous()
+                    write_float_tensor(tile)
+                    del weights, tile
+                sys.stdout.buffer.flush()
+                del inputs
+                continue
             if fused_decoder_stack:
                 if referenced or batched or fused_mlp or native_bf16 or native_attention or fused_attention or fused_ple or fused_ple_prelude or fused_ffn or fused_decoder_layer or dtype_code != 0 or pool is None:
                     raise ValueError("fused decoder stack flags are invalid")

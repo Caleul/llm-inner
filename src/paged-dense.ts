@@ -24,6 +24,7 @@ export interface PagedLinearTileKernel {
   multiplyStorageReference?: ((input: Float32Array, tensor: TensorInfo, startOutput: number, outputCount: number, rows: number) => Promise<Float32Array>) | undefined;
   multiplyStorageReferenceNativeBf16?: ((input: Float32Array, tensor: TensorInfo, startOutput: number, outputCount: number, rows: number) => Promise<Float32Array>) | undefined;
   multiplyWholeStorageReferenceNativeBf16?: ((input: Float32Array, tensor: TensorInfo, rows: number) => Promise<Float32Array>) | undefined;
+  multiplyWholeStorageReferenceNativeBf16Tiled?: ((input: Float32Array, tensor: TensorInfo, rows: number, maxReadBytes: number) => Promise<Float32Array>) | undefined;
   multiplyStorageReferences?: ((input: Float32Array, requests: readonly PagedLinearStorageReference[], rows: number) => Promise<readonly Float32Array[]>) | undefined;
   fusedGatedMlpStorageReference?: ((input: Float32Array, gate: TensorInfo, up: TensorInfo, down: TensorInfo, rows: number, rounding: "bf16" | "real" | "native-bf16") => Promise<Float32Array>) | undefined;
   fusedFfnStorageReferences?: ((request: PagedFusedFfnRequest) => Promise<Float32Array>) | undefined;
@@ -329,6 +330,7 @@ export async function pagedLinearF32(
     tileKernel?: PagedLinearTileKernel;
     nativeBf16?: boolean;
     wholeNativeBf16?: boolean;
+    streamedNativeBf16?: boolean;
   } = {},
 ): Promise<DenseF32Tensor> {
   if (input.shape.length < 1) throw new Error("Linear paginado requer entrada com dimensão de features.");
@@ -336,6 +338,14 @@ export async function pagedLinearF32(
   if (input.shape.at(-1) !== inFeatures) throw new Error(`Linear paginado: entrada ${input.shape.at(-1)} incompatível com weight ${outFeatures}x${inFeatures}.`);
   const rows = input.values.length / inFeatures;
   const result = new Float32Array(rows * outFeatures);
+  if (options.streamedNativeBf16) {
+    if (!options.nativeBf16 || options.wholeNativeBf16) throw new Error("GEMM BF16 paginado no worker requer somente nativeBf16.");
+    if (!options.tileKernel?.multiplyWholeStorageReferenceNativeBf16Tiled) throw new Error(`${options.tileKernel?.backend ?? "kernel ausente"}: kernel não oferece GEMM BF16 paginado integral.`);
+    const output = await options.tileKernel.multiplyWholeStorageReferenceNativeBf16Tiled(input.values, weight.tensor, rows, weight.maxReadBytes);
+    if (output.length !== result.length || output.some((value) => !Number.isFinite(value))) throw new Error(`${options.tileKernel.backend}: kernel linear paginado integral retornou saída inválida.`);
+    for (let index = 0; index < output.length; index += 1) result[index] = options.outputDtype === "BF16" ? roundF32ToBF16(output[index]!) : Math.fround(output[index]!);
+    return { shape: [...input.shape.slice(0, -1), outFeatures], values: result };
+  }
   if (options.wholeNativeBf16) {
     if (!options.nativeBf16) throw new Error("GEMM BF16 integral requer nativeBf16.");
     if (!options.tileKernel?.multiplyWholeStorageReferenceNativeBf16) throw new Error(`${options.tileKernel?.backend ?? "kernel ausente"}: kernel não oferece GEMM BF16 integral.`);

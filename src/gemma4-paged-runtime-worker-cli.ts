@@ -58,6 +58,7 @@ async function generate(inputIds: number[], maxNewTokens: number): Promise<Recor
     finalHeadReadMiB: args.finalHeadMaxReadBytes / (1024 * 1024),
     linearReferenceDispatches: dispatchesAfter.referenceDispatches - dispatchesBefore.referenceDispatches,
     wholeNativeBf16Dispatches: dispatchesAfter.wholeNativeBf16Dispatches - dispatchesBefore.wholeNativeBf16Dispatches,
+    streamedNativeBf16Dispatches: dispatchesAfter.streamedNativeBf16Dispatches - dispatchesBefore.streamedNativeBf16Dispatches,
     linearBatchDispatches: dispatchesAfter.batchDispatches - dispatchesBefore.batchDispatches,
     linearBatchedProjectionTiles: dispatchesAfter.batchedProjectionTiles - dispatchesBefore.batchedProjectionTiles,
     fusedMlpRounding: args.fusedMlpRounding,
@@ -78,6 +79,7 @@ async function generate(inputIds: number[], maxNewTokens: number): Promise<Recor
     fusedAttentionRounding: args.fusedAttentionRounding,
     fusedAttentionDispatches: dispatchesAfter.fusedAttentionDispatches - dispatchesBefore.fusedAttentionDispatches,
     referenceSeconds: dispatchesAfter.referenceSeconds - dispatchesBefore.referenceSeconds,
+    streamedNativeBf16Seconds: dispatchesAfter.streamedNativeBf16Seconds - dispatchesBefore.streamedNativeBf16Seconds,
     batchSeconds: dispatchesAfter.batchSeconds - dispatchesBefore.batchSeconds,
     fusedMlpSeconds: dispatchesAfter.fusedMlpSeconds - dispatchesBefore.fusedMlpSeconds,
     fusedFfnSeconds: dispatchesAfter.fusedFfnSeconds - dispatchesBefore.fusedFfnSeconds,
@@ -99,7 +101,7 @@ function validateTokens(value: unknown): number {
   if (!Number.isSafeInteger(value) || (value as number) < 1 || (value as number) > 64) throw new Error("maxNewTokens deve estar entre 1 e 64.");
   return value as number;
 }
-function parseArguments(argv: string[]): { artifact: string; binaryPool: string; python: string; linearHelper: string; mlxHelper: string; linearBackend: "pytorch" | "mlx"; fusedMlpRounding: "off" | "bf16" | "real" | "native-bf16"; fusedFfnRounding: "off" | "native-bf16"; fusedDecoderLayerRounding: "off" | "native-bf16"; fusedDecoderStackRounding: "off" | "native-bf16"; fusedPleRounding: "off" | "bf16" | "real"; fusedPlePreludeRounding: "off" | "bf16" | "real"; finalHeadCompute: "f32" | "native-bf16" | "native-bf16-whole"; nativeAttentionRounding: "off" | "bf16" | "real"; fusedAttentionRounding: "off" | "bf16" | "real" | "native-bf16"; threads: number; maxReadBytes: number; finalHeadMaxReadBytes: number } {
+function parseArguments(argv: string[]): { artifact: string; binaryPool: string; python: string; linearHelper: string; mlxHelper: string; linearBackend: "pytorch" | "mlx"; fusedMlpRounding: "off" | "bf16" | "real" | "native-bf16"; fusedFfnRounding: "off" | "native-bf16"; fusedDecoderLayerRounding: "off" | "native-bf16"; fusedDecoderStackRounding: "off" | "native-bf16"; fusedPleRounding: "off" | "bf16" | "real"; fusedPlePreludeRounding: "off" | "bf16" | "real"; finalHeadCompute: "f32" | "native-bf16" | "native-bf16-stream" | "native-bf16-whole"; nativeAttentionRounding: "off" | "bf16" | "real"; fusedAttentionRounding: "off" | "bf16" | "real" | "native-bf16"; threads: number; maxReadBytes: number; finalHeadMaxReadBytes: number } {
   const values = new Map<string, string>();
   for (let index = 0; index < argv.length; index += 2) { const flag = argv[index], value = argv[index + 1]; if (!flag?.startsWith("--") || value === undefined || values.has(flag)) throw new Error(`Argumento inválido: ${flag ?? "fim"}.`); values.set(flag, value); }
   const known = new Set(["--artifact", "--binary-pool", "--python", "--linear-helper", "--mlx-helper", "--linear-backend", "--fused-mlp", "--fused-ffn", "--fused-decoder-layer", "--fused-decoder-stack", "--fused-ple", "--fused-ple-prelude", "--final-head", "--final-head-read-mib", "--native-attention", "--fused-attention", "--threads", "--max-read-mib"]); for (const flag of values.keys()) if (!known.has(flag)) throw new Error(`Flag desconhecida: ${flag}.`);
@@ -120,7 +122,7 @@ function parseArguments(argv: string[]): { artifact: string; binaryPool: string;
   if (linearBackend === "mlx" && fusedPleRounding !== "off") throw new Error("--fused-ple requer --linear-backend pytorch.");
   const fusedPlePreludeRounding = values.get("--fused-ple-prelude") ?? "off"; if (fusedPlePreludeRounding !== "off" && fusedPlePreludeRounding !== "bf16" && fusedPlePreludeRounding !== "real") throw new Error("--fused-ple-prelude deve ser off, bf16 ou real.");
   if (linearBackend === "mlx" && fusedPlePreludeRounding !== "off") throw new Error("--fused-ple-prelude requer --linear-backend pytorch.");
-  const finalHeadCompute = values.get("--final-head") ?? (linearBackend === "pytorch" ? "native-bf16" : "f32"); if (finalHeadCompute !== "f32" && finalHeadCompute !== "native-bf16" && finalHeadCompute !== "native-bf16-whole") throw new Error("--final-head deve ser f32, native-bf16 ou native-bf16-whole.");
+  const finalHeadCompute = values.get("--final-head") ?? (linearBackend === "pytorch" ? "native-bf16-stream" : "f32"); if (finalHeadCompute !== "f32" && finalHeadCompute !== "native-bf16" && finalHeadCompute !== "native-bf16-stream" && finalHeadCompute !== "native-bf16-whole") throw new Error("--final-head deve ser f32, native-bf16, native-bf16-stream ou native-bf16-whole.");
   if (linearBackend === "mlx" && finalHeadCompute !== "f32") throw new Error("--final-head BF16 requer --linear-backend pytorch.");
   const nativeAttentionRounding = values.get("--native-attention") ?? (linearBackend === "pytorch" ? "real" : "off"); if (nativeAttentionRounding !== "off" && nativeAttentionRounding !== "bf16" && nativeAttentionRounding !== "real") throw new Error("--native-attention deve ser off, bf16 ou real.");
   if (linearBackend === "mlx" && nativeAttentionRounding !== "off") throw new Error("--native-attention requer --linear-backend pytorch.");
