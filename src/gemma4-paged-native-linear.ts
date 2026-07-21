@@ -80,11 +80,17 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     if (backend === "mlx" && !options.binaryPool) throw new Error("Kernel MLX requer pool binário referenciado.");
     const helper = backend === "mlx" ? options.mlxHelper : options.helper;
     if (!helper) throw new Error(`Kernel ${backend} requer helper executável.`);
-    this.backend = backend === "mlx" ? "persistent-mlx-metal-mmap-f32-tile" : options.binaryPool ? "persistent-pytorch-mmap-f32-tile" : "persistent-pytorch-f32-tile";
+    this.backend = backend === "mlx" ? "persistent-mlx-metal-full-stack" : options.binaryPool ? "persistent-pytorch-mmap-f32-tile" : "persistent-pytorch-f32-tile";
     const arguments_ = [helper, "--threads", String(options.threads), ...(options.binaryPool ? ["--binary-pool", resolve(options.binaryPool)] : [])];
     this.child = spawn(options.python, arguments_, { stdio: ["pipe", "pipe", "pipe"] });
     if (options.binaryPool) {
       this.multiplyStorageReference = (input, tensor, startOutput, outputCount, rows) => this.#requestReference(input, tensor, startOutput, outputCount, rows);
+      if (backend === "mlx") {
+        this.multiplyWholeStorageReferenceNativeBf16 = (input, tensor, rows) => {
+          this.#wholeNativeBf16Dispatches += 1;
+          return this.#requestReference(input, tensor, 0, tensor.storageShape[0]!, rows, true);
+        };
+      }
       if (backend === "pytorch") {
         this.multiplyStorageReferenceNativeBf16 = (input, tensor, startOutput, outputCount, rows) => this.#requestReference(input, tensor, startOutput, outputCount, rows, true);
         this.multiplyWholeStorageReferenceNativeBf16 = (input, tensor, rows) => {
@@ -95,18 +101,19 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
       }
       this.multiplyStorageReferences = (input, requests, rows) => this.#requestReferences(input, requests, rows);
       this.fusedGatedMlpStorageReference = (input, gate, up, down, rows, rounding) => this.#requestGatedMlp(input, gate, up, down, rows, rounding);
+      this.fusedDecoderStackStorageReferences = (request) => this.#requestDecoderStack(request);
       if (backend === "pytorch") {
         this.attention = (request) => this.#requestAttention(request);
         this.fusedAttentionStorageReferences = (request) => this.#requestFusedAttention(request);
         this.fusedFfnStorageReferences = (request) => this.#requestFfn(request);
         this.fusedDecoderLayerStorageReferences = (request) => this.#requestDecoderLayer(request);
-        this.fusedDecoderStackStorageReferences = (request) => this.#requestDecoderStack(request);
         this.fusedPleStorageReferences = (request) => this.#requestFusedPle(request);
         this.fusedPlePreludeStorageReference = (request) => this.#requestFusedPlePrelude(request);
       }
     }
     this.child.stdout.on("data", (chunk: Buffer) => { this.#buffer = Buffer.concat([this.#buffer, chunk]); this.#wake(); });
     const errors: Buffer[] = []; this.child.stderr.on("data", (chunk: Buffer) => { if (Buffer.concat(errors).length < 1024 * 1024) errors.push(chunk); });
+    this.child.stdin.on("error", () => undefined);
     this.child.once("error", (error) => this.#fail(error));
     this.child.once("close", (code) => this.#fail(new Error(`Worker linear encerrou com código ${code}: ${Buffer.concat(errors).toString("utf8").trim()}`)));
   }

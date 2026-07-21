@@ -956,6 +956,73 @@ Evidência:
 - `artifacts/gemma4-three-way-calibration-8x2-stack-cached-constants-10t.json`;
 - `artifacts/gemma4-three-way-calibration-8x2-stack-gate-up-10t-control.json`.
 
+## Pilha decoder integral no Metal
+
+O backend MLX agora recebe a pilha completa das 42 camadas em um único
+despacho binário. O worker resolve as matrizes autenticadas diretamente do
+bundle fechado, compõe norms, Q/K/V, RoPE, máscaras, attention, FFN/GELU, PLE,
+resíduos e escalares em um grafo lazy e sincroniza o Metal somente uma vez no
+fim da pilha. Os caches KV proprietários também são devolvidos no mesmo
+despacho; consumidores shared-KV reutilizam o nó já produzido no grafo.
+
+Essa é a forma executável da composição matemática global. Ela remove
+fronteiras de orquestração e materializações intermediárias, mas não elimina
+as matrizes densas arbitrárias: uma matriz aprendida full-rank ainda precisa
+participar de sua multiplicação, salvo se aceitarmos aproximação, esparsidade
+ou nova parametrização. Portanto o ganho demonstrado aqui vem da composição e
+do agendamento integral, não de uma alegação incorreta de que todos os pesos
+podem ser reduzidos a poucos coeficientes escalares.
+
+As projeções BF16 permanecem nativas, enquanto constantes pequenas usadas em
+F32 são alargadas uma vez e armazenadas no worker. A vocabulary head inteira
+também passou a executar em uma única GEMM BF16 no Metal. O protocolo valida
+topologia, shapes, dtype, limites do shard, máscaras, relações shared-KV e
+finitude antes de publicar qualquer resultado. O backend PyTorch continua
+disponível por flag como controle e fallback explícito.
+
+Uma prova quente de duas gerações para
+`[2,818,5279,529,7001,563]` produziu `[496,3207]` nas duas execuções. A segunda
+atingiu `3,4740 token/s`, com `0,1705 s` nas duas pilhas, dois despachos de head
+e somente dez despachos referenciados totais. O SHA-256 terminal MLX foi
+`01bd2dc9a6806578b9d6a3e7cae67600d9bafd327841a64b6f3e2731a8f56498`.
+Ele difere do controle PyTorch porque a ordem de acumulação dos kernels Metal
+não é bit a bit idêntica; a validade de qualidade é medida separadamente pelos
+tokens e pelo corpus diferencial.
+
+No corpus final 8x2, executado com os novos padrões da interface:
+
+- o direto MLX produziu os mesmos 8/8 prompts e 16/16 tokens do original;
+- o throughput direto foi `2,2250 token/s`, contra `2,0864 token/s` do controle
+  PyTorch com cache, ganho de 6,64%;
+- a pilha agregada caiu de `3,5269 s` para `2,3563 s`, redução de 33,19%;
+- o direto ficou 4,3064 vezes acima do baseline medido na mesma execução;
+- foram 16 pilhas integrais, 16 heads integrais e 80 despachos referenciados em
+  todo o corpus;
+- o cache estabilizou em 402 entradas / 222.430.368 bytes e registrou 6.030
+  acertos;
+- o pico RSS subiu de `2.624.240` para `2.835.168 KiB`, custo de `210.928 KiB`
+  (aproximadamente 206 MiB) para manter constantes e o grafo no backend Metal.
+
+`mlx + native-bf16 + native-bf16-whole` passa a ser o caminho direto padrão
+do CLI, servidor, calibração e interface. A interface identifica a pilha
+integral, mostra o backend real, despachos, cache, RSS, throughput e igualdade
+de tokens, e não apresenta os tempos internos de attention/FFN/PLE como zeros:
+no MLX essas fases estão fundidas no mesmo grafo e não são sincronizadas
+separadamente.
+
+A superfície HTTP foi exercitada de ponta a ponta com os defaults promovidos.
+Para o prompt `Hello`, original, compatibilidade e direto geraram
+`[236764,108]`. O direto identificou
+`persistent-mlx-metal-full-stack`, executou duas pilhas integrais e duas heads
+integrais e mediu `1,9988 token/s` nessa primeira requisição fria. Assim, a
+prova cobre a mesma rota usada pelo botão da interface, incluindo tokenização,
+geração greedy, decodificação de tokens e publicação das métricas.
+
+Evidência:
+
+- `artifacts/gemma4-three-way-calibration-8x2-mlx-full-stack.json`;
+- `artifacts/gemma4-three-way-calibration-8x2-stack-cached-constants-10t.json`.
+
 ## Núcleo de attention nativo sem arredondamentos internos
 
 O executor direto passou a reconhecer a operação compilada de attention como
