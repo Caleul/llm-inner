@@ -26,6 +26,7 @@ import type {
   TensorRef,
 } from "./types.js";
 import type { LiteralTensorReader } from "./literal.js";
+import type { Gemma4VectorizedRealExecutionGuard } from "./gemma4-vectorized-real-lowering.js";
 
 const validatedNativeGenerationArtifacts = new WeakSet<OpenGemma4CompositeLiteralArtifact>();
 
@@ -65,6 +66,8 @@ export interface Gemma4PagedTextOptions {
   fusedDecoderLayerRounding?: "native-bf16";
   /** Complete ordered decoder stack in one native dispatch. */
   fusedDecoderStackRounding?: "real" | "native-bf16" | "native-bf16-ple";
+  /** Required authorization of the complete persisted real closure at dispatch. */
+  vectorizedRealExecutionGuard?: Gemma4VectorizedRealExecutionGuard;
   /** Final vocabulary projection compute path; BF16 is the allowed final rounding boundary. */
   finalHeadCompute?: "f32" | "native-bf16" | "native-bf16-stream" | "native-bf16-whole";
   /** Optional native QK/softmax/PV kernel; real removes its internal BF16 boundaries. */
@@ -355,6 +358,11 @@ async function executePagedOperations(
             const stackRequest = { input: input?.values ?? new Float32Array(), perLayerInputs: perLayerInputs?.values ?? new Float32Array(), positions: positionValues, batch, querySequence, hiddenSize, numLayers: stack.layers.length, perLayerWidth: stack.perLayerWidth, layers, rounding: options.fusedDecoderStackRounding } as const;
             const epilogueKernelAvailable = tokenForwardPrelude ? options.linearTileKernel.fusedTokenForwardStorageReferences !== undefined : options.linearTileKernel.fusedDecoderStackEpilogueStorageReferences !== undefined;
             const epilogue = epilogueKernelAvailable ? matchFusedDecoderEpilogue(operations, operationIndex + stack.operations.length, stack.layers.at(-1)!.ple.scalar.output) : undefined;
+            if (options.fusedDecoderStackRounding === "real") {
+              if (!options.vectorizedRealExecutionGuard) throw new Error(`${operation.id}: pilha real requer autorização do plano persistido.`);
+              if (!epilogue) throw new Error(`${operation.id}: pilha real requer a closure global completa até logits.`);
+              options.vectorizedRealExecutionGuard.authorize([...stack.operations, ...epilogue.operations].map((entry) => ({ id: entry.id, op: entry.op, output: entry.output })));
+            }
             let result: PagedFusedDecoderStackResult & { logits?: Float32Array };
             if (tokenForwardPrelude && nativeGeneration) {
               if (!epilogue || !options.linearTileKernel.fusedTokenGenerationStorageReferences) throw new Error(`${operation.id}: geração textual residente requer epílogo e kernel nativo fundidos.`);

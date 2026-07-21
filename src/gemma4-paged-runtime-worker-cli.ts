@@ -8,22 +8,24 @@ import { Gemma4PagedNativeLinearWorker } from "./gemma4-paged-native-linear.js";
 import { executeGemma4PagedTextEpilogueLiteralF32, executeGemma4PagedTextHiddenLiteralF32, executeGemma4PagedTextLiteralF32, generateGemma4PagedTextLiteralNativeF32 } from "./gemma4-paged-text.js";
 import { selectGemma4LiteralGenerationToken } from "./gemma4-literal-generation-control.js";
 import { rankGemma4TerminalLogits } from "./gemma4-terminal-logits.js";
-import { assertGemma4VectorizedRealLoweringPlanMatches, type Gemma4VectorizedRealLoweringPlan } from "./gemma4-vectorized-real-lowering.js";
+import { assertGemma4VectorizedRealLoweringPlanMatches, Gemma4VectorizedRealExecutionGuard, type Gemma4VectorizedRealLoweringPlan } from "./gemma4-vectorized-real-lowering.js";
 
 const args = parseArguments(process.argv.slice(2));
 const initializationStarted = performance.now();
 const artifact = await openGemma4CompositeLiteralArtifact(args.artifact);
 const pool = await Gemma4BinaryConstantPool.open(args.binaryPool);
 let vectorizedRealLowering: Gemma4VectorizedRealLoweringPlan["contract"] | undefined;
+let vectorizedRealExecutionGuard: Gemma4VectorizedRealExecutionGuard | undefined;
 if (args.fusedDecoderStackRounding === "real") {
   const planInfo = await stat(args.realLoweringPlan!);
   if (!planInfo.isFile() || planInfo.size < 1 || planInfo.size > 16 * 1024 * 1024) throw new Error("Plano de lowering real persistido deve ter entre 1 byte e 16 MiB.");
   const persisted = JSON.parse(await readFile(args.realLoweringPlan!, "utf8")) as unknown;
   assertGemma4VectorizedRealLoweringPlanMatches(persisted, artifact.realSimplifiedProgram, artifact.calculationGraph, artifact.integrityManifest);
   vectorizedRealLowering = persisted.contract;
+  vectorizedRealExecutionGuard = new Gemma4VectorizedRealExecutionGuard(persisted);
 }
 const linear = new Gemma4PagedNativeLinearWorker({ python: args.python, helper: args.linearHelper, threads: args.threads, binaryPool: args.binaryPool, storageTensors: pool.catalog.tensors, backend: args.linearBackend, mlxHelper: args.mlxHelper });
-const options = { maxReadBytes: args.maxReadBytes, finalHeadMaxReadBytes: args.finalHeadMaxReadBytes, allowUnverifiedFidelity: true, tensorReader: pool, linearTileKernel: linear, finalHeadCompute: args.finalHeadCompute, ...(args.fusedMlpRounding === "off" ? {} : { fusedMlpRounding: args.fusedMlpRounding }), ...(args.fusedFfnRounding === "off" ? {} : { fusedFfnRounding: args.fusedFfnRounding }), ...(args.fusedDecoderLayerRounding === "off" ? {} : { fusedDecoderLayerRounding: args.fusedDecoderLayerRounding }), ...(args.fusedDecoderStackRounding === "off" ? {} : { fusedDecoderStackRounding: args.fusedDecoderStackRounding }), ...(args.fusedPleRounding === "off" ? {} : { fusedPleRounding: args.fusedPleRounding }), ...(args.fusedPlePreludeRounding === "off" ? {} : { fusedPlePreludeRounding: args.fusedPlePreludeRounding }), ...(args.fusedTokenForwardRounding === "off" ? {} : { fusedTokenForwardRounding: args.fusedTokenForwardRounding }), ...(args.nativeAttentionRounding === "off" ? {} : { nativeAttentionRounding: args.nativeAttentionRounding }), ...(args.fusedAttentionRounding === "off" ? {} : { fusedAttentionRounding: args.fusedAttentionRounding }) };
+const options = { maxReadBytes: args.maxReadBytes, finalHeadMaxReadBytes: args.finalHeadMaxReadBytes, allowUnverifiedFidelity: true, tensorReader: pool, linearTileKernel: linear, finalHeadCompute: args.finalHeadCompute, ...(vectorizedRealExecutionGuard ? { vectorizedRealExecutionGuard } : {}), ...(args.fusedMlpRounding === "off" ? {} : { fusedMlpRounding: args.fusedMlpRounding }), ...(args.fusedFfnRounding === "off" ? {} : { fusedFfnRounding: args.fusedFfnRounding }), ...(args.fusedDecoderLayerRounding === "off" ? {} : { fusedDecoderLayerRounding: args.fusedDecoderLayerRounding }), ...(args.fusedDecoderStackRounding === "off" ? {} : { fusedDecoderStackRounding: args.fusedDecoderStackRounding }), ...(args.fusedPleRounding === "off" ? {} : { fusedPleRounding: args.fusedPleRounding }), ...(args.fusedPlePreludeRounding === "off" ? {} : { fusedPlePreludeRounding: args.fusedPlePreludeRounding }), ...(args.fusedTokenForwardRounding === "off" ? {} : { fusedTokenForwardRounding: args.fusedTokenForwardRounding }), ...(args.nativeAttentionRounding === "off" ? {} : { nativeAttentionRounding: args.nativeAttentionRounding }), ...(args.fusedAttentionRounding === "off" ? {} : { fusedAttentionRounding: args.fusedAttentionRounding }) };
 process.stdout.write(`${JSON.stringify({ ready: true, initializationSeconds: (performance.now() - initializationStarted) / 1000, backend: "paged-binary-native", linearBackend: linear.backend, fusedMlpRounding: args.fusedMlpRounding, fusedFfnRounding: args.fusedFfnRounding, fusedDecoderLayerRounding: args.fusedDecoderLayerRounding, fusedDecoderStackRounding: args.fusedDecoderStackRounding, fusedPleRounding: args.fusedPleRounding, fusedPlePreludeRounding: args.fusedPlePreludeRounding, fusedTokenForwardRounding: args.fusedTokenForwardRounding, residentGeneration: args.residentGeneration, finalHeadCompute: args.finalHeadCompute, nativeAttentionRounding: args.nativeAttentionRounding, fusedAttentionRounding: args.fusedAttentionRounding, threads: args.threads, maxReadMiB: args.maxReadBytes / (1024 * 1024), finalHeadReadMiB: args.finalHeadMaxReadBytes / (1024 * 1024), ...(vectorizedRealLowering ? { vectorizedRealLowering } : {}) })}\n`);
 
 const lines = createInterface({ input: process.stdin, crlfDelay: Infinity });
@@ -138,6 +140,7 @@ function buildReport(inputIds: number[], maxNewTokens: number, generatedTokenIds
     fusedDecoderLayerDispatches: dispatchesAfter.fusedDecoderLayerDispatches - dispatchesBefore.fusedDecoderLayerDispatches,
     fusedDecoderStackRounding: args.fusedDecoderStackRounding,
     ...(vectorizedRealLowering ? { vectorizedRealLowering } : {}),
+    ...(vectorizedRealExecutionGuard?.summary() ? { vectorizedRealExecution: vectorizedRealExecutionGuard.summary() } : {}),
     fusedDecoderStackDispatches: dispatchesAfter.fusedDecoderStackDispatches - dispatchesBefore.fusedDecoderStackDispatches,
     fusedDecoderStackEpilogueDispatches: dispatchesAfter.fusedDecoderStackEpilogueDispatches - dispatchesBefore.fusedDecoderStackEpilogueDispatches,
     fusedTokenForwardRounding: args.fusedTokenForwardRounding,

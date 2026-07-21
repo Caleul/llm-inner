@@ -69,6 +69,75 @@ export interface Gemma4VectorizedRealLoweringPlan {
   functionBindings: Gemma4VectorizedRealFunctionBinding[];
 }
 
+export interface Gemma4VectorizedRealDispatchedOperation {
+  id: string;
+  op: string;
+  output: string;
+}
+
+export interface Gemma4VectorizedRealExecutionReceipt {
+  kind: "gemma4-vectorized-real-execution-receipt";
+  schemaVersion: 1;
+  completeGlobalClosure: true;
+  dispatchedFunctions: number;
+  firstOrdinal: number;
+  lastOrdinal: number;
+  functionBindingsSha256: string;
+  orderedDispatchSha256: string;
+}
+
+export interface Gemma4VectorizedRealExecutionSummary extends Gemma4VectorizedRealExecutionReceipt {
+  authorizedDispatches: number;
+}
+
+/**
+ * Authorizes the exact operation sequence crossing into the fused Metal hot
+ * path. Startup validation proves the persisted plan matches the artifact;
+ * this guard additionally proves that the actual dispatch consumes the whole
+ * global closure, in order, without an omitted or substituted operation.
+ */
+export class Gemma4VectorizedRealExecutionGuard {
+  readonly #plan: Gemma4VectorizedRealLoweringPlan;
+  #authorizedDispatches = 0;
+  #lastReceipt?: Gemma4VectorizedRealExecutionReceipt;
+
+  constructor(plan: Gemma4VectorizedRealLoweringPlan) {
+    validateGemma4VectorizedRealLoweringPlan(plan);
+    this.#plan = plan;
+  }
+
+  authorize(operations: readonly Gemma4VectorizedRealDispatchedOperation[]): Gemma4VectorizedRealExecutionReceipt {
+    if (operations.length !== this.#plan.functionBindings.length) {
+      throw new Error(`Despacho real cobre ${operations.length} operações, mas o plano exige ${this.#plan.functionBindings.length}.`);
+    }
+    for (let index = 0; index < operations.length; index += 1) {
+      const operation = operations[index]!, binding = this.#plan.functionBindings[index]!;
+      if (operation.id !== binding.operationId || operation.op !== binding.operation || operation.output !== binding.output ||
+        (index > 0 && binding.ordinal <= this.#plan.functionBindings[index - 1]!.ordinal)) {
+        throw new Error(`Despacho real diverge do binding persistido na posição ${index}: ${operation.id}.`);
+      }
+    }
+    const first = this.#plan.functionBindings[0]!, last = this.#plan.functionBindings.at(-1)!;
+    const receipt: Gemma4VectorizedRealExecutionReceipt = {
+      kind: "gemma4-vectorized-real-execution-receipt",
+      schemaVersion: 1,
+      completeGlobalClosure: true,
+      dispatchedFunctions: operations.length,
+      firstOrdinal: first.ordinal,
+      lastOrdinal: last.ordinal,
+      functionBindingsSha256: this.#plan.contract.functionBindingsSha256,
+      orderedDispatchSha256: createHash("sha256").update(JSON.stringify(operations), "utf8").digest("hex"),
+    };
+    this.#authorizedDispatches += 1;
+    this.#lastReceipt = receipt;
+    return receipt;
+  }
+
+  summary(): Gemma4VectorizedRealExecutionSummary | undefined {
+    return this.#lastReceipt ? { ...this.#lastReceipt, authorizedDispatches: this.#authorizedDispatches } : undefined;
+  }
+}
+
 /**
  * Fail-closed certificate connecting the authenticated scalar/parametric
  * program to the operation families implemented by the vectorized MLX stack.

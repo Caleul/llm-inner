@@ -2574,6 +2574,13 @@ Ao criar um bundle novo, passe o mesmo plano com
 `bundle:gemma4-compiled -- --real-lowering-plan <arquivo> ...`; bundles sem o
 plano persistido não são reconhecidos como prontos pela interface.
 
+Além da validação de inicialização, cada entrada no hot path real deve cobrir
+exatamente as 1.221 operações da closure global, na ordem dos bindings e até o
+softcap dos logits. O relatório direto publica
+`vectorizedRealExecution`: quantidade autorizada, primeiro/último ordinal,
+hash dos bindings e SHA-256 da sequência efetivamente despachada. Omissão,
+reordenação ou substituição de qualquer operação falha antes do kernel Metal.
+
 A geração greedy diferencial possui uma interface local funcional:
 
 ```bash

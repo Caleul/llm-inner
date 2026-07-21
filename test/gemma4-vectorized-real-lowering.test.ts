@@ -3,7 +3,7 @@ import test from "node:test";
 import type { Gemma4LiteralArtifactIntegrityManifest } from "../src/gemma4-literal-artifact-integrity.js";
 import type { Gemma4LiteralCalculationGraph } from "../src/gemma4-literal-calculation-graph.js";
 import type { Gemma4ParametricExactRealProgram } from "../src/gemma4-parametric-global-real-program.js";
-import { assertGemma4VectorizedRealLoweringPlanMatches, buildGemma4VectorizedRealLoweringContract, buildGemma4VectorizedRealLoweringPlan, validateGemma4VectorizedRealLoweringPlan } from "../src/gemma4-vectorized-real-lowering.js";
+import { assertGemma4VectorizedRealLoweringPlanMatches, buildGemma4VectorizedRealLoweringContract, buildGemma4VectorizedRealLoweringPlan, Gemma4VectorizedRealExecutionGuard, validateGemma4VectorizedRealLoweringPlan } from "../src/gemma4-vectorized-real-lowering.js";
 
 const operations = ["activation", "elementwise", "linear", "reshape_heads", "rms_norm", "rotary_embedding", "scaled_dot_product_attention", "select_per_layer", "tensor_scale"];
 
@@ -35,6 +35,18 @@ test("plano persistido precisa preservar cada binding e coincidir integralmente 
   const stale = structuredClone(plan);
   stale.contract.source.artifactIntegritySha256 = "c".repeat(64);
   assert.throws(() => assertGemma4VectorizedRealLoweringPlanMatches(stale, program, graph, manifest), /não corresponde ao programa real autenticado/);
+});
+
+test("autoriza somente o despacho completo e ordenado da closure global", () => {
+  const { program, graph, manifest } = fixture();
+  const plan = buildGemma4VectorizedRealLoweringPlan(program, graph, manifest), guard = new Gemma4VectorizedRealExecutionGuard(plan);
+  const operations = plan.functionBindings.map((binding) => ({ id: binding.operationId, op: binding.operation, output: binding.output }));
+  const receipt = guard.authorize(operations);
+  assert.equal(receipt.completeGlobalClosure, true); assert.equal(receipt.dispatchedFunctions, operations.length);
+  assert.equal(guard.summary()?.authorizedDispatches, 1); assert.match(receipt.orderedDispatchSha256, /^[0-9a-f]{64}$/);
+  assert.throws(() => guard.authorize(operations.slice(1)), /plano exige/);
+  const reordered = structuredClone(operations); [reordered[0], reordered[1]] = [reordered[1]!, reordered[0]!];
+  assert.throws(() => guard.authorize(reordered), /diverge do binding persistido/);
 });
 
 function fixture(): {
