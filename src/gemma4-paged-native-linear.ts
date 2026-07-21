@@ -2,7 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { once } from "node:events";
 import { endianness } from "node:os";
 import { resolve } from "node:path";
-import type { PagedFusedAttentionRequest, PagedFusedAttentionResult, PagedFusedDecoderLayerRequest, PagedFusedDecoderLayerResult, PagedFusedDecoderStackRequest, PagedFusedDecoderStackResult, PagedFusedFfnRequest, PagedFusedPlePreludeRequest, PagedFusedPleRequest, PagedLinearStorageReference, PagedLinearTileKernel, PagedNativeAttentionRequest } from "./paged-dense.js";
+import type { PagedFusedAttentionRequest, PagedFusedAttentionResult, PagedFusedDecoderLayerRequest, PagedFusedDecoderLayerResult, PagedFusedDecoderStackEpilogueRequest, PagedFusedDecoderStackEpilogueResult, PagedFusedDecoderStackRequest, PagedFusedDecoderStackResult, PagedFusedFfnRequest, PagedFusedPlePreludeRequest, PagedFusedPleRequest, PagedLinearStorageReference, PagedLinearTileKernel, PagedNativeAttentionRequest } from "./paged-dense.js";
 import type { TensorInfo } from "./types.js";
 
 const STORAGE_REFERENCE_FLAG = 0x8000_0000;
@@ -17,6 +17,7 @@ const FUSED_FFN_FLAG = 0x0080_0000;
 const FUSED_DECODER_LAYER_FLAG = 0x0040_0000;
 const FUSED_DECODER_STACK_FLAG = 0x0020_0000;
 const STORAGE_NATIVE_BF16_STREAM_FLAG = 0x0010_0000;
+const FUSED_DECODER_STACK_EPILOGUE_FLAG = 0x0008_0000;
 
 export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
   readonly backend: string;
@@ -30,6 +31,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
   readonly fusedFfnStorageReferences?: PagedLinearTileKernel["fusedFfnStorageReferences"];
   readonly fusedDecoderLayerStorageReferences?: PagedLinearTileKernel["fusedDecoderLayerStorageReferences"];
   readonly fusedDecoderStackStorageReferences?: PagedLinearTileKernel["fusedDecoderStackStorageReferences"];
+  readonly fusedDecoderStackEpilogueStorageReferences?: PagedLinearTileKernel["fusedDecoderStackEpilogueStorageReferences"];
   readonly fusedPleStorageReferences?: PagedLinearTileKernel["fusedPleStorageReferences"];
   readonly fusedPlePreludeStorageReference?: PagedLinearTileKernel["fusedPlePreludeStorageReference"];
   readonly attention?: PagedLinearTileKernel["attention"];
@@ -48,6 +50,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
   #fusedFfnDispatches = 0;
   #fusedDecoderLayerDispatches = 0;
   #fusedDecoderStackDispatches = 0;
+  #fusedDecoderStackEpilogueDispatches = 0;
   #fusedPleDispatches = 0;
   #fusedPlePreludeDispatches = 0;
   #nativeAttentionDispatches = 0;
@@ -80,7 +83,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     if (backend === "mlx" && !options.binaryPool) throw new Error("Kernel MLX requer pool binário referenciado.");
     const helper = backend === "mlx" ? options.mlxHelper : options.helper;
     if (!helper) throw new Error(`Kernel ${backend} requer helper executável.`);
-    this.backend = backend === "mlx" ? "persistent-mlx-metal-full-stack" : options.binaryPool ? "persistent-pytorch-mmap-f32-tile" : "persistent-pytorch-f32-tile";
+    this.backend = backend === "mlx" ? "persistent-mlx-metal-full-forward" : options.binaryPool ? "persistent-pytorch-mmap-f32-tile" : "persistent-pytorch-f32-tile";
     const arguments_ = [helper, "--threads", String(options.threads), ...(options.binaryPool ? ["--binary-pool", resolve(options.binaryPool)] : [])];
     this.child = spawn(options.python, arguments_, { stdio: ["pipe", "pipe", "pipe"] });
     if (options.binaryPool) {
@@ -102,6 +105,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
       this.multiplyStorageReferences = (input, requests, rows) => this.#requestReferences(input, requests, rows);
       this.fusedGatedMlpStorageReference = (input, gate, up, down, rows, rounding) => this.#requestGatedMlp(input, gate, up, down, rows, rounding);
       this.fusedDecoderStackStorageReferences = (request) => this.#requestDecoderStack(request);
+      if (backend === "mlx") this.fusedDecoderStackEpilogueStorageReferences = (request) => this.#requestDecoderStackEpilogue(request);
       if (backend === "pytorch") {
         this.attention = (request) => this.#requestAttention(request);
         this.fusedAttentionStorageReferences = (request) => this.#requestFusedAttention(request);
@@ -253,6 +257,16 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
   }
 
   async #requestDecoderStack(request: PagedFusedDecoderStackRequest): Promise<PagedFusedDecoderStackResult> {
+    return this.#requestDecoderStackCore(request);
+  }
+
+  async #requestDecoderStackEpilogue(request: PagedFusedDecoderStackEpilogueRequest): Promise<PagedFusedDecoderStackEpilogueResult> {
+    const result = await this.#requestDecoderStackCore(request, request.epilogue);
+    if (!result.logits) throw new Error("Worker linear não retornou logits da pilha decoder integral.");
+    return { hidden: result.hidden, caches: result.caches, logits: result.logits };
+  }
+
+  async #requestDecoderStackCore(request: PagedFusedDecoderStackRequest, epilogue?: PagedFusedDecoderStackEpilogueRequest["epilogue"]): Promise<PagedFusedDecoderStackResult & { logits?: Float32Array }> {
     if (this.#active) throw new Error("Worker linear persistente não aceita pilhas decoder concorrentes no mesmo canal.");
     const dimensions = [request.batch, request.querySequence, request.hiddenSize, request.numLayers, request.perLayerWidth];
     if (dimensions.some((value) => !Number.isSafeInteger(value) || value < 1) || request.layers.length !== request.numLayers || request.input.length !== request.batch * request.querySequence * request.hiddenSize || request.perLayerInputs.length !== request.batch * request.querySequence * request.numLayers * request.perLayerWidth || request.positions.length !== request.batch * request.querySequence || (request.rounding !== "native-bf16" && request.rounding !== "native-bf16-ple")) throw new Error("Pilha decoder fundida recebeu topologia global inválida.");
@@ -263,11 +277,14 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
       const descriptors = [layer.inputNormWeight, layer.queryWeight, layer.queryNorm, layer.outputWeight, ...(layer.producesKeyValue ? [layer.keyWeight!, layer.keyNorm!, ...(layer.valueWeight ? [layer.valueWeight] : [])] : []), layer.postAttentionNormWeight, layer.preFfnNormWeight, layer.gateWeight, layer.upWeight, layer.downWeight, layer.postFfnNormWeight, layer.pleGateWeight, layer.pleProjectionWeight, layer.pleNormWeight, layer.layerScalar].map((tensor) => this.#prepareWholeTensor(tensor));
       return { layer, descriptors, totalKeySequence };
     });
+    const preparedEpilogue = epilogue ? [epilogue.normWeight, epilogue.headWeight].map((tensor) => this.#prepareWholeTensor(tensor)) : undefined;
+    if (epilogue && (!Number.isSafeInteger(epilogue.vocabularySize) || epilogue.vocabularySize < 1 || !Number.isFinite(epilogue.normEpsilon) || epilogue.normEpsilon <= 0 || !Number.isFinite(epilogue.softcap) || epilogue.softcap <= 0 || preparedEpilogue![0]!.dtype !== 1 || preparedEpilogue![0]!.dimensions[0] !== request.hiddenSize || preparedEpilogue![0]!.dimensions[1] !== 1 || preparedEpilogue![1]!.dtype !== 1 || preparedEpilogue![1]!.dimensions[0] !== epilogue.vocabularySize || preparedEpilogue![1]!.dimensions[1] !== request.hiddenSize)) throw new Error("Epílogo da pilha decoder recebeu norma, head ou escala incompatível.");
     this.#active = true;
     const started = performance.now();
     try {
       this.#fusedDecoderStackDispatches += 1;
-      const header = Buffer.allocUnsafe(16); header.writeUInt32LE(request.batch, 0); header.writeUInt32LE(request.numLayers, 4); header.writeUInt32LE(request.hiddenSize, 8); header.writeUInt32LE((FUSED_DECODER_STACK_FLAG + (request.rounding === "native-bf16-ple" ? STORAGE_NATIVE_BF16_FLAG : 0)) >>> 0, 12);
+      if (epilogue) this.#fusedDecoderStackEpilogueDispatches += 1;
+      const header = Buffer.allocUnsafe(16); header.writeUInt32LE(request.batch, 0); header.writeUInt32LE(request.numLayers, 4); header.writeUInt32LE(request.hiddenSize, 8); header.writeUInt32LE((FUSED_DECODER_STACK_FLAG + (epilogue ? FUSED_DECODER_STACK_EPILOGUE_FLAG : 0) + (request.rounding === "native-bf16-ple" ? STORAGE_NATIVE_BF16_FLAG : 0)) >>> 0, 12);
       const globalMetadata = Buffer.allocUnsafe(8); globalMetadata.writeUInt32LE(request.querySequence, 0); globalMetadata.writeUInt32LE(request.perLayerWidth, 4);
       await this.#write(header); await this.#write(globalMetadata);
       await this.#write(Buffer.from(request.input.buffer, request.input.byteOffset, request.input.byteLength));
@@ -288,6 +305,14 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
           await this.#write(descriptor); await this.#write(entry.shard); await this.#write(entry.name);
         }
       }
+      if (epilogue) {
+        const metadata = Buffer.allocUnsafe(12); metadata.writeUInt32LE(epilogue.vocabularySize, 0); metadata.writeFloatLE(epilogue.normEpsilon, 4); metadata.writeFloatLE(epilogue.softcap, 8);
+        await this.#write(metadata);
+        for (const entry of preparedEpilogue!) {
+          const descriptor = Buffer.allocUnsafe(36); descriptor.writeUInt32LE(entry.dtype, 0); descriptor.writeUInt32LE(entry.dimensions[0], 4); descriptor.writeUInt32LE(entry.dimensions[1], 8); descriptor.writeBigUInt64LE(BigInt(entry.byteOffset), 12); descriptor.writeUInt32LE(entry.byteLength, 20); descriptor.writeUInt32LE(0, 24); descriptor.writeUInt32LE(entry.shard.length, 28); descriptor.writeUInt32LE(entry.name.length, 32);
+          await this.#write(descriptor); await this.#write(entry.shard); await this.#write(entry.name);
+        }
+      }
       const hidden = await this.#readResult(request.batch * request.querySequence, request.hiddenSize);
       const caches = [];
       for (const { layer, totalKeySequence } of prepared) if (layer.producesKeyValue) {
@@ -295,6 +320,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
         const value = await this.#readResult(request.batch * layer.keyValueHeads * totalKeySequence, layer.headDim);
         caches.push({ layerIndex: layer.layerIndex, key, value });
       }
+      const logits = epilogue ? await this.#readResult(request.batch * request.querySequence, epilogue.vocabularySize) : undefined;
       const profile = await this.#readResult(1, 7);
       const attentionSeconds = profile[0]!, ffnSeconds = profile[1]!, pleSeconds = profile[2]!, fusedGateUpPairs = profile[3]!, widenedCacheHits = profile[4]!, widenedCacheEntries = profile[5]!, widenedCacheBytes = profile[6]!;
       if (profile.some((value) => !Number.isFinite(value) || value < 0) || !Number.isInteger(fusedGateUpPairs) || fusedGateUpPairs > request.numLayers || !Number.isInteger(widenedCacheHits) || !Number.isInteger(widenedCacheEntries) || !Number.isSafeInteger(widenedCacheBytes)) throw new Error("Worker linear retornou perfil inválido para a pilha decoder.");
@@ -305,7 +331,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
       this.#fusedDecoderStackWidenedCacheHits += widenedCacheHits;
       this.#widenedTensorCacheEntries = widenedCacheEntries;
       this.#widenedTensorCacheBytes = widenedCacheBytes;
-      return { hidden, caches };
+      return { hidden, caches, ...(logits ? { logits } : {}) };
     } finally { this.#fusedDecoderStackSeconds += (performance.now() - started) / 1000; this.#active = false; }
   }
 
@@ -478,8 +504,8 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     return { dtype, outputCount, inFeatures: inFeatures!, byteOffset, byteLength, startOutput, shard, name };
   }
 
-  dispatchMetrics(): { referenceDispatches: number; wholeNativeBf16Dispatches: number; streamedNativeBf16Dispatches: number; batchDispatches: number; batchedProjectionTiles: number; fusedMlpDispatches: number; fusedFfnDispatches: number; fusedDecoderLayerDispatches: number; fusedDecoderStackDispatches: number; fusedDecoderStackGateUpPairs: number; fusedDecoderStackWidenedCacheHits: number; widenedTensorCacheEntries: number; widenedTensorCacheBytes: number; fusedPleDispatches: number; fusedPlePreludeDispatches: number; nativeAttentionDispatches: number; fusedAttentionDispatches: number; referenceSeconds: number; streamedNativeBf16Seconds: number; batchSeconds: number; fusedMlpSeconds: number; fusedFfnSeconds: number; fusedDecoderLayerSeconds: number; fusedDecoderStackSeconds: number; fusedDecoderStackAttentionSeconds: number; fusedDecoderStackFfnSeconds: number; fusedDecoderStackPleSeconds: number; fusedPleSeconds: number; fusedPlePreludeSeconds: number; nativeAttentionSeconds: number; fusedAttentionSeconds: number } {
-    return { referenceDispatches: this.#referenceDispatches, wholeNativeBf16Dispatches: this.#wholeNativeBf16Dispatches, streamedNativeBf16Dispatches: this.#streamedNativeBf16Dispatches, batchDispatches: this.#batchDispatches, batchedProjectionTiles: this.#batchedProjectionTiles, fusedMlpDispatches: this.#fusedMlpDispatches, fusedFfnDispatches: this.#fusedFfnDispatches, fusedDecoderLayerDispatches: this.#fusedDecoderLayerDispatches, fusedDecoderStackDispatches: this.#fusedDecoderStackDispatches, fusedDecoderStackGateUpPairs: this.#fusedDecoderStackGateUpPairs, fusedDecoderStackWidenedCacheHits: this.#fusedDecoderStackWidenedCacheHits, widenedTensorCacheEntries: this.#widenedTensorCacheEntries, widenedTensorCacheBytes: this.#widenedTensorCacheBytes, fusedPleDispatches: this.#fusedPleDispatches, fusedPlePreludeDispatches: this.#fusedPlePreludeDispatches, nativeAttentionDispatches: this.#nativeAttentionDispatches, fusedAttentionDispatches: this.#fusedAttentionDispatches, referenceSeconds: this.#referenceSeconds, streamedNativeBf16Seconds: this.#streamedNativeBf16Seconds, batchSeconds: this.#batchSeconds, fusedMlpSeconds: this.#fusedMlpSeconds, fusedFfnSeconds: this.#fusedFfnSeconds, fusedDecoderLayerSeconds: this.#fusedDecoderLayerSeconds, fusedDecoderStackSeconds: this.#fusedDecoderStackSeconds, fusedDecoderStackAttentionSeconds: this.#fusedDecoderStackAttentionSeconds, fusedDecoderStackFfnSeconds: this.#fusedDecoderStackFfnSeconds, fusedDecoderStackPleSeconds: this.#fusedDecoderStackPleSeconds, fusedPleSeconds: this.#fusedPleSeconds, fusedPlePreludeSeconds: this.#fusedPlePreludeSeconds, nativeAttentionSeconds: this.#nativeAttentionSeconds, fusedAttentionSeconds: this.#fusedAttentionSeconds };
+  dispatchMetrics(): { referenceDispatches: number; wholeNativeBf16Dispatches: number; streamedNativeBf16Dispatches: number; batchDispatches: number; batchedProjectionTiles: number; fusedMlpDispatches: number; fusedFfnDispatches: number; fusedDecoderLayerDispatches: number; fusedDecoderStackDispatches: number; fusedDecoderStackEpilogueDispatches: number; fusedDecoderStackGateUpPairs: number; fusedDecoderStackWidenedCacheHits: number; widenedTensorCacheEntries: number; widenedTensorCacheBytes: number; fusedPleDispatches: number; fusedPlePreludeDispatches: number; nativeAttentionDispatches: number; fusedAttentionDispatches: number; referenceSeconds: number; streamedNativeBf16Seconds: number; batchSeconds: number; fusedMlpSeconds: number; fusedFfnSeconds: number; fusedDecoderLayerSeconds: number; fusedDecoderStackSeconds: number; fusedDecoderStackAttentionSeconds: number; fusedDecoderStackFfnSeconds: number; fusedDecoderStackPleSeconds: number; fusedPleSeconds: number; fusedPlePreludeSeconds: number; nativeAttentionSeconds: number; fusedAttentionSeconds: number } {
+    return { referenceDispatches: this.#referenceDispatches, wholeNativeBf16Dispatches: this.#wholeNativeBf16Dispatches, streamedNativeBf16Dispatches: this.#streamedNativeBf16Dispatches, batchDispatches: this.#batchDispatches, batchedProjectionTiles: this.#batchedProjectionTiles, fusedMlpDispatches: this.#fusedMlpDispatches, fusedFfnDispatches: this.#fusedFfnDispatches, fusedDecoderLayerDispatches: this.#fusedDecoderLayerDispatches, fusedDecoderStackDispatches: this.#fusedDecoderStackDispatches, fusedDecoderStackEpilogueDispatches: this.#fusedDecoderStackEpilogueDispatches, fusedDecoderStackGateUpPairs: this.#fusedDecoderStackGateUpPairs, fusedDecoderStackWidenedCacheHits: this.#fusedDecoderStackWidenedCacheHits, widenedTensorCacheEntries: this.#widenedTensorCacheEntries, widenedTensorCacheBytes: this.#widenedTensorCacheBytes, fusedPleDispatches: this.#fusedPleDispatches, fusedPlePreludeDispatches: this.#fusedPlePreludeDispatches, nativeAttentionDispatches: this.#nativeAttentionDispatches, fusedAttentionDispatches: this.#fusedAttentionDispatches, referenceSeconds: this.#referenceSeconds, streamedNativeBf16Seconds: this.#streamedNativeBf16Seconds, batchSeconds: this.#batchSeconds, fusedMlpSeconds: this.#fusedMlpSeconds, fusedFfnSeconds: this.#fusedFfnSeconds, fusedDecoderLayerSeconds: this.#fusedDecoderLayerSeconds, fusedDecoderStackSeconds: this.#fusedDecoderStackSeconds, fusedDecoderStackAttentionSeconds: this.#fusedDecoderStackAttentionSeconds, fusedDecoderStackFfnSeconds: this.#fusedDecoderStackFfnSeconds, fusedDecoderStackPleSeconds: this.#fusedDecoderStackPleSeconds, fusedPleSeconds: this.#fusedPleSeconds, fusedPlePreludeSeconds: this.#fusedPlePreludeSeconds, nativeAttentionSeconds: this.#nativeAttentionSeconds, fusedAttentionSeconds: this.#fusedAttentionSeconds };
   }
 
   async #readResult(rows: number, outputCount: number): Promise<Float32Array> {

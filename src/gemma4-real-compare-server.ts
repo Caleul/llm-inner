@@ -25,16 +25,33 @@ export async function runGemma4RealComparison(request: Gemma4RealComparisonReque
 }
 
 export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRunnerOptions) {
-  const worker = new Gemma4PersistentComparisonWorker(options);
   const directBackend = options.directLinearBackend ?? "mlx";
   const direct = options.literalArtifact && options.binaryPool
     ? new PersistentJsonlWorker(process.execPath, [options.directWorker ?? resolve("dist/src/gemma4-paged-runtime-worker-cli.js"), "--artifact", options.literalArtifact, "--binary-pool", options.binaryPool, "--python", options.python, "--linear-helper", options.directLinearHelper ?? resolve("scripts/gemma4-paged-linear-worker.py"), "--mlx-helper", options.directMlxHelper ?? resolve("scripts/gemma4-mlx-linear-worker.py"), "--linear-backend", directBackend, "--fused-mlp", options.directFusedMlp ?? (directBackend === "pytorch" ? "native-bf16" : "real"), "--fused-ffn", options.directFusedFfn ?? (directBackend === "pytorch" ? "native-bf16" : "off"), "--fused-decoder-layer", options.directFusedDecoderLayer ?? (directBackend === "pytorch" ? "native-bf16" : "off"), "--fused-decoder-stack", options.directFusedDecoderStack ?? "native-bf16", "--fused-ple", options.directFusedPle ?? (directBackend === "pytorch" ? "bf16" : "off"), "--fused-ple-prelude", options.directFusedPlePrelude ?? "off", "--final-head", options.directFinalHead ?? (directBackend === "pytorch" ? "native-bf16-stream" : "native-bf16-whole"), "--native-attention", options.directNativeAttention ?? (directBackend === "pytorch" ? "real" : "off"), "--fused-attention", options.directFusedAttention ?? (directBackend === "pytorch" ? "native-bf16" : "off"), "--threads", String(options.directThreads ?? 10), "--max-read-mib", String(options.directMaxReadMiB ?? 16), "--final-head-read-mib", String(options.directFinalHeadReadMiB ?? (directBackend === "pytorch" ? 32 : options.directMaxReadMiB ?? 16))], "Gemma 4 literal direto")
     : undefined;
+  let worker: Gemma4PersistentComparisonWorker | undefined, initializationError: Error | undefined, closed = false;
+  let directWarmupSeconds: number | undefined;
+  const initialize = (async () => {
+    try {
+      if (direct && directBackend === "mlx") {
+        const started = performance.now();
+        await direct.send({ inputIds: [2], maxNewTokens: 1 });
+        directWarmupSeconds = (performance.now() - started) / 1000;
+      }
+      if (!closed) worker = new Gemma4PersistentComparisonWorker(options);
+    } catch (error) {
+      initializationError = error instanceof Error ? error : new Error(String(error));
+      throw initializationError;
+    }
+  })();
+  void initialize.catch(() => undefined);
   const server = createServer(async (request, response) => {
     try {
       if (request.method === "GET" && request.url === "/") return send(response, 200, "text/html; charset=utf-8", gemma4RealCompareHtml);
-      if (request.method === "GET" && request.url === "/api/status") return json(response, 200, { ready: worker.ready && (!direct || direct.ready), source: options.source, runtime: "persistent-jsonl", initializationSeconds: worker.initializationSeconds, direct: direct ? { enabled: true, ready: direct.ready, initializationSeconds: direct.initializationSeconds, ...direct.readyMetadata } : { enabled: false } });
+      if (request.method === "GET" && request.url === "/api/status") return json(response, 200, { ready: worker?.ready === true && (!direct || direct.ready), source: options.source, runtime: "persistent-jsonl", initializationSeconds: worker?.initializationSeconds, ...(initializationError ? { error: initializationError.message } : {}), direct: direct ? { enabled: true, ...direct.readyMetadata, ready: direct.ready, initializationSeconds: direct.initializationSeconds, warmupSeconds: directWarmupSeconds, warmupComplete: directWarmupSeconds !== undefined } : { enabled: false } });
       if (request.method === "POST" && request.url === "/api/compare") {
+        await initialize;
+        if (!worker) throw new Error("Comparador original não foi inicializado.");
         const body = JSON.parse(await readBody(request)) as Gemma4RealComparisonRequest;
         validateRequest(body);
         const report = await worker.compare(body) as ComparisonReport;
@@ -52,7 +69,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
       return json(response, 400, { error: error instanceof Error ? error.message : String(error) });
     }
   });
-  server.once("close", () => { worker.close(); direct?.close(); });
+  server.once("close", () => { closed = true; worker?.close(); direct?.close(); void initialize.catch(() => undefined); });
   return server;
 }
 

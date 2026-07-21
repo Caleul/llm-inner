@@ -56,6 +56,7 @@ interface ThreeWayCase {
     fusedDecoderLayerDispatches?: number;
     fusedDecoderStackRounding?: "off" | "native-bf16" | "native-bf16-ple";
     fusedDecoderStackDispatches?: number;
+    fusedDecoderStackEpilogueDispatches?: number;
     fusedDecoderStackGateUpPairs?: number;
     fusedDecoderStackWidenedCacheHits?: number;
     widenedTensorCacheEntries?: number;
@@ -196,6 +197,7 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.fusedDecoderLayerDispatches === undefined ? {} : { fusedDecoderLayerDispatches: entry.direct.fusedDecoderLayerDispatches }),
         ...(entry.direct.fusedDecoderStackRounding === undefined ? {} : { fusedDecoderStackRounding: entry.direct.fusedDecoderStackRounding }),
         ...(entry.direct.fusedDecoderStackDispatches === undefined ? {} : { fusedDecoderStackDispatches: entry.direct.fusedDecoderStackDispatches }),
+        ...(entry.direct.fusedDecoderStackEpilogueDispatches === undefined ? {} : { fusedDecoderStackEpilogueDispatches: entry.direct.fusedDecoderStackEpilogueDispatches }),
         ...(entry.direct.fusedDecoderStackGateUpPairs === undefined ? {} : { fusedDecoderStackGateUpPairs: entry.direct.fusedDecoderStackGateUpPairs }),
         ...(entry.direct.fusedDecoderStackWidenedCacheHits === undefined ? {} : { fusedDecoderStackWidenedCacheHits: entry.direct.fusedDecoderStackWidenedCacheHits }),
         ...(entry.direct.widenedTensorCacheEntries === undefined ? {} : { widenedTensorCacheEntries: entry.direct.widenedTensorCacheEntries }),

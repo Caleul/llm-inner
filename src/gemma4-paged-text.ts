@@ -15,7 +15,7 @@ import {
   executeGemma4LiteralGenerationProgram,
   type Gemma4LiteralGenerationExecutionResult,
 } from "./gemma4-literal-generation.js";
-import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearBatchF32, pagedLinearF32, readPagedDenseF32Vector, roundDenseF32ToBF16, type PagedLinearTileKernel } from "./paged-dense.js";
+import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearBatchF32, pagedLinearF32, readPagedDenseF32Vector, roundDenseF32ToBF16, type PagedFusedDecoderStackResult, type PagedLinearTileKernel } from "./paged-dense.js";
 import type {
   DenseF32Tensor,
   Operation,
@@ -274,7 +274,11 @@ async function executePagedOperations(
                 intermediateSize: fused.ffn.gate.outFeatures, perLayerWidth: stack.perLayerWidth, inputNormEpsilon: fused.inputNorm.epsilon, postAttentionNormEpsilon: fused.postAttentionNorm.epsilon, preFfnNormEpsilon: fused.ffn.preNorm.epsilon, postFfnNormEpsilon: fused.ffn.postNorm.epsilon, pleNormEpsilon: fused.ple.norm.epsilon,
               };
             });
-            const result = await options.linearTileKernel.fusedDecoderStackStorageReferences({ input: input.values, perLayerInputs: perLayerInputs.values, positions: positionValues, batch, querySequence, hiddenSize, numLayers: stack.layers.length, perLayerWidth: stack.perLayerWidth, layers, rounding: options.fusedDecoderStackRounding });
+            const stackRequest = { input: input.values, perLayerInputs: perLayerInputs.values, positions: positionValues, batch, querySequence, hiddenSize, numLayers: stack.layers.length, perLayerWidth: stack.perLayerWidth, layers, rounding: options.fusedDecoderStackRounding } as const;
+            const epilogue = options.linearTileKernel.fusedDecoderStackEpilogueStorageReferences ? matchFusedDecoderEpilogue(operations, operationIndex + stack.operations.length, stack.layers.at(-1)!.ple.scalar.output) : undefined;
+            const result: PagedFusedDecoderStackResult & { logits?: Float32Array } = epilogue
+              ? await options.linearTileKernel.fusedDecoderStackEpilogueStorageReferences!({ ...stackRequest, epilogue: { normWeight: tensorInfo(artifact, epilogue.norm.weight!), normEpsilon: epilogue.norm.epsilon, headWeight: tensorInfo(artifact, epilogue.head.weight), vocabularySize: epilogue.head.outFeatures, softcap: epilogue.softcap.scalar! } })
+              : await options.linearTileKernel.fusedDecoderStackStorageReferences(stackRequest);
             if (result.hidden.length !== input.values.length || result.hidden.some((entry) => !Number.isFinite(entry))) throw new Error(`${operation.id}: pilha decoder retornou vetor inválido.`);
             store(stack.layers.at(-1)!.ple.scalar, { shape: [...input.shape], values: result.hidden });
             const expectedProducers = layers.filter((layer) => layer.producesKeyValue);
@@ -285,7 +289,11 @@ async function executePagedOperations(
               if (actual.layerIndex !== expected.layerIndex || actual.key.length !== cacheElements || actual.value.length !== cacheElements || actual.key.some((entry) => !Number.isFinite(entry)) || actual.value.some((entry) => !Number.isFinite(entry))) throw new Error(`${operation.id}: pilha decoder retornou cache ${expected.layerIndex} inválido.`);
               producedCache.set(expected.layerIndex, { key: { shape: [batch, expected.keyValueHeads, keySequence, expected.headDim], values: actual.key }, value: { shape: [batch, expected.keyValueHeads, keySequence, expected.headDim], values: actual.value } });
             }
-            operationIndex += stack.operations.length - 1;
+            if (epilogue) {
+              if (!result.logits || result.logits.length !== batch * querySequence * epilogue.head.outFeatures || result.logits.some((entry) => !Number.isFinite(entry))) throw new Error(`${operation.id}: pilha decoder integral retornou logits inválidos.`);
+              values.set(epilogue.softcap.output, { shape: [batch, querySequence, epilogue.head.outFeatures], values: result.logits });
+            }
+            operationIndex += stack.operations.length + (epilogue?.operations.length ?? 0) - 1;
             break;
           }
         }
@@ -617,6 +625,13 @@ interface FusedDecoderStackMatch {
   perLayerWidth: number;
 }
 
+interface FusedDecoderEpilogueMatch {
+  operations: readonly Operation[];
+  norm: RmsNormOperation;
+  head: LinearOperation;
+  softcap: ElementwiseOperation;
+}
+
 function matchFusedAttention(operations: readonly Operation[], index: number, query: LinearOperation): FusedAttentionMatch | undefined {
   const queryHeads = operations[index + 1], queryNorm = operations[index + 2], queryRope = operations[index + 3];
   if (!isHeadsAfter(queryHeads, query) || !isWeightedNormAfter(queryNorm, queryHeads) || !isRopeAfter(queryRope, queryNorm)) return undefined;
@@ -713,6 +728,16 @@ function matchFusedDecoderStack(operations: readonly Operation[], index: number,
   }
   if (!perLayerInput || perLayerWidth === undefined || declaredLayers === undefined || layers.length !== declaredLayers || layers.length < 2) return undefined;
   return { operations: operations.slice(index, cursor), layers, perLayerInput, perLayerWidth };
+}
+
+function matchFusedDecoderEpilogue(operations: readonly Operation[], index: number, expectedInput: string | undefined): FusedDecoderEpilogueMatch | undefined {
+  const norm = operations[index], head = operations[index + 1], softcap = operations[index + 2];
+  if (!expectedInput || norm?.op !== "rms_norm" || head?.op !== "linear" || softcap?.op !== "elementwise") return undefined;
+  if (norm.input !== expectedInput || !norm.weight || norm.weight.storageDtype !== "BF16" || norm.weightTransform !== "direct" || norm.weight.shape.length !== 1 || !Number.isFinite(norm.epsilon) || norm.epsilon <= 0) return undefined;
+  if (head.input !== norm.output || head.weight.storageDtype !== "BF16" || !head.transposeWeight || head.bias || head.inFeatures !== norm.weight.shape[0] || head.outFeatures < 1) return undefined;
+  if (softcap.kind !== "tanh_softcap" || softcap.inputs.length !== 1 || softcap.inputs[0] !== head.output || !Number.isFinite(softcap.scalar) || softcap.scalar! <= 0) return undefined;
+  if (norm.dtypePolicy.outputDtype !== "BF16" || head.dtypePolicy.inputDtype !== "BF16" || head.dtypePolicy.outputDtype !== "BF16" || softcap.dtypePolicy.outputDtype !== "BF16" || softcap.tanhSoftcapCasts?.afterDivide !== "BF16" || softcap.tanhSoftcapCasts.afterTanh !== "BF16" || softcap.tanhSoftcapCasts.afterMultiply !== "BF16") return undefined;
+  return { operations: [norm, head, softcap], norm, head, softcap };
 }
 
 function matchFusedPle(operations: readonly Operation[], index: number, select: SelectPerLayerOperation, rounding: "bf16" | "real"): { operations: readonly Operation[]; gate: LinearOperation; projection: LinearOperation; norm: RmsNormOperation; scalar: TensorScaleOperation } | undefined {

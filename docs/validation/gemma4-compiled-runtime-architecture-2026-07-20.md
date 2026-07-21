@@ -1023,6 +1023,62 @@ Evidência:
 - `artifacts/gemma4-three-way-calibration-8x2-mlx-full-stack.json`;
 - `artifacts/gemma4-three-way-calibration-8x2-stack-cached-constants-10t.json`.
 
+## Forward compilado até os logits
+
+A fronteira compilada passou a reconhecer também o epílogo textual exato que
+sucede a 42ª camada: `final_norm -> lm_head -> tanh_softcap`. A fusão só é
+ativada quando o programa literal prova todas as dependências, shapes, pesos
+BF16, ausência de bias, norma direta, escala positiva e os três casts BF16 do
+softcap. O worker recebe os dois novos tensores pelo mesmo protocolo autenticado
+e devolve diretamente `softcapped_logits`; o JavaScript não executa mais a
+norma final nem abre um segundo despacho para a matriz `[262144,2560]`.
+
+Decoder e epílogo formam um único despacho de forward. Internamente, o worker
+sincroniza o decoder antes de materializar a head, e então sincroniza os logits.
+Essa divisão preserva a composição matemática, mas impede que o grafo lazy
+retenha simultaneamente todas as matrizes das 42 camadas e os 1,25 GiB da head.
+Uma versão experimental com uma única sincronização Metal preservou os mesmos
+tokens, porém elevou o pico transitório quando o Transformers original estava
+residente; ela foi substituída pela execução em duas fases dentro do mesmo
+despacho para a interface permanecer utilizável na máquina de validação.
+
+O carregamento do servidor agora segue a mesma restrição de memória de forma
+determinística. Primeiro o backend MLX executa um warm-up real com `[2]`,
+preenche o cache das 403 constantes e compila os kernels; somente depois o
+worker Transformers é iniciado. `/api/status` publica `warmupComplete` e
+`warmupSeconds`. Carregar o original antes da primeira compilação Metal levou o
+processo comparativo a ultrapassar a pressão de memória do host; a ordem
+promovida foi validada com os dois workers residentes e não altera as métricas
+por requisição, que continuam calculadas por deltas.
+
+No corpus final 8x2:
+
+- o direto preservou 8/8 prompts e 16/16 tokens do original;
+- o throughput passou de `2,2250` para `4,6476 token/s`, ganho de 108,88%
+  contra a pilha Metal anterior;
+- o tempo direto agregado caiu de `7,1911 s` para `3,4427 s`, redução de
+  52,13%;
+- a razão contra o baseline medido na mesma execução foi `5,0308x`;
+- os 16 despachos separados de head foram eliminados: `whole head 16 -> 0`;
+- os despachos referenciados caíram de 80 para 64, enquanto 16/16 forwards
+  publicaram logits pelo despacho integral;
+- o pico RSS direto foi `3.148.112 KiB`, aproximadamente 306 MiB acima do
+  controle Metal anterior, em troca da head e dos kernels residentes;
+- o warm-up isolado levou `14,0874 s`, fora das métricas de geração.
+
+A rota HTTP real também foi executada por oito tokens com crescimento do KV
+cache. Para `The capital of France is`, original, compatibilidade e compilado
+geraram exatamente `[496,3207,600,563,2587,529,4083,532]`. O direto completou
+em `1,0406 s` (`7,6878 token/s`); depois do prefill de `0,4622 s`, os sete
+forwards incrementais permaneceram entre `0,0761` e `0,0919 s`. Foram oito
+forwards integrais, nenhuma head separada e nenhuma divergência de token.
+
+Evidência:
+
+- `artifacts/gemma4-three-way-calibration-8x2-mlx-full-forward.json`;
+- `artifacts/gemma4-three-way-calibration-8x2-mlx-full-stack.json`;
+- prova HTTP de oito tokens preservada como artefato de entrega.
+
 ## Núcleo de attention nativo sem arredondamentos internos
 
 O executor direto passou a reconhecer a operação compilada de attention como

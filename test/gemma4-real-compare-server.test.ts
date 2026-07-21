@@ -10,7 +10,7 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /Gerar e comparar/);
   assert.match(gemma4RealCompareHtml, /Original — BF16/);
   assert.match(gemma4RealCompareHtml, /Compilado \(compatibilidade\) — F32\/F64/);
-  assert.match(gemma4RealCompareHtml, /Compilado direto — pool binário \+ pilha integral/);
+  assert.match(gemma4RealCompareHtml, /Compilado direto — forward integral até logits/);
   assert.match(gemma4RealCompareHtml, /Tokens orig\. \/ compat\. \/ direto/);
   assert.match(gemma4RealCompareHtml, /linearBackend/);
   assert.match(gemma4RealCompareHtml, /lotes lineares/);
@@ -18,6 +18,8 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /FFNs completos/);
   assert.match(gemma4RealCompareHtml, /Decoder layers completas/);
   assert.match(gemma4RealCompareHtml, /Pilhas decoder completas/);
+  assert.match(gemma4RealCompareHtml, /pilhas até logits/);
+  assert.match(gemma4RealCompareHtml, /Aquecendo o forward compilado no Metal/);
   assert.match(gemma4RealCompareHtml, /gate\+up unidos/);
   assert.match(gemma4RealCompareHtml, /cache de constantes F32/);
   assert.match(gemma4RealCompareHtml, /fases stack attn\/FFN\/PLE/);
@@ -39,7 +41,7 @@ console.log(JSON.stringify({ready:true,initializationSeconds:0.1}));
 readline.createInterface({input:process.stdin}).on("line",line=>{const r=JSON.parse(line);const report=r.mode==='decode'?{text:r.tokenIds.join('|')}:{inputIds:[[2]],baselineGeneratedTokenIds:[7]};console.log(JSON.stringify({id:r.id,report}));});\n`);
   await writeFile(direct, `import readline from "node:readline";
 console.log(JSON.stringify({ready:true,initializationSeconds:0.2}));
-readline.createInterface({input:process.stdin}).on("line",line=>{const r=JSON.parse(line);console.log(JSON.stringify({id:r.id,report:{generatedTokenIds:[7],fullTokenIds:[2,7],elapsedSeconds:1,tokensPerSecond:1,linearThreads:4}}));});\n`);
+let requests=0; readline.createInterface({input:process.stdin}).on("line",line=>{const r=JSON.parse(line);requests++;console.log(JSON.stringify({id:r.id,report:{generatedTokenIds:[7],fullTokenIds:[2,7],elapsedSeconds:1,tokensPerSecond:1,linearThreads:4,requests}}));});\n`);
   const server = createGemma4RealComparisonServer({ source: directory, python: process.execPath, helper: transformer, literalArtifact: "literal.json", binaryPool: directory, directWorker: direct, directLinearHelper: "unused.py", directThreads: 4 });
   await new Promise<void>((accept) => server.listen(0, "127.0.0.1", accept));
   try {
@@ -47,7 +49,9 @@ readline.createInterface({input:process.stdin}).on("line",line=>{const r=JSON.pa
     const response = await fetch(`http://127.0.0.1:${address.port}/api/compare`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt: "x", maxNewTokens: 1 }) });
     assert.equal(response.status, 200);
     const body = await response.json() as { direct: { generatedText: string; fullText: string; tokensEqualBaseline: boolean; firstDivergentStep: number | null } };
-    assert.deepEqual(body.direct, { generatedTokenIds: [7], fullTokenIds: [2, 7], elapsedSeconds: 1, tokensPerSecond: 1, linearThreads: 4, generatedText: "7", fullText: "2|7", tokensEqualBaseline: true, firstDivergentStep: null });
+    assert.deepEqual(body.direct, { generatedTokenIds: [7], fullTokenIds: [2, 7], elapsedSeconds: 1, tokensPerSecond: 1, linearThreads: 4, requests: 2, generatedText: "7", fullText: "2|7", tokensEqualBaseline: true, firstDivergentStep: null });
+    const status = await fetch(`http://127.0.0.1:${address.port}/api/status`).then((entry) => entry.json()) as { ready: boolean; direct: { warmupComplete: boolean; warmupSeconds: number } };
+    assert.equal(status.ready, true); assert.equal(status.direct.warmupComplete, true); assert.ok(status.direct.warmupSeconds >= 0);
   } finally { await new Promise<void>((accept, reject) => server.close((error) => error ? reject(error) : accept())); await rm(directory, { recursive: true, force: true }); }
 });
 

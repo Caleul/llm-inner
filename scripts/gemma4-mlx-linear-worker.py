@@ -12,6 +12,7 @@ import numpy as np
 
 
 FUSED_DECODER_STACK_FLAG = 0x00200000
+FUSED_DECODER_STACK_EPILOGUE_FLAG = 0x00080000
 _widened_tensor_cache = {}
 _widened_tensor_cache_hits = 0
 _widened_tensor_cache_bytes = 0
@@ -170,7 +171,7 @@ def execute_decoder_layer_mlx(pool, shards, inputs, per_layer, positions, mask, 
     return result, key, value, valid
 
 
-def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, native_bf16_ple):
+def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, native_bf16_ple, fused_epilogue):
     if native_bf16_ple:
         raise ValueError("MLX decoder stack does not support native-bf16-ple")
     cache_hits_before = _widened_tensor_cache_hits
@@ -226,16 +227,38 @@ def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, 
         if produces_kv:
             produced_caches[layer_index] = (key, value)
             ordered_caches.append((key, value))
+    epilogue = None
+    if fused_epilogue:
+        vocabulary_size, norm_epsilon, softcap = struct.unpack("<Iff", read_exact(12))
+        if not vocabulary_size or not math.isfinite(norm_epsilon) or norm_epsilon <= 0 or not math.isfinite(softcap) or softcap <= 0:
+            raise ValueError("MLX decoder stack epilogue metadata is invalid")
+        norm_weight = read_whole_tensor(pool, shards, (hidden_size, 1)).reshape((hidden_size,))
+        head_weight = read_whole_tensor(pool, shards, (vocabulary_size, hidden_size), widen=False, required_dtype=mx.bfloat16)
+        epilogue = (norm_weight, head_weight, norm_epsilon, softcap)
     evaluation = [result, all_valid]
     for key, value in ordered_caches:
         evaluation.extend((key, value))
     mx.eval(*evaluation)
     if not bool(np.asarray(all_valid).item()):
         raise ValueError("MLX decoder stack produced non-finite output")
+    logits = None
+    if epilogue is not None:
+        norm_weight, head_weight, norm_epsilon, softcap = epilogue
+        boundary = lambda value: value.astype(mx.bfloat16).astype(mx.float32)
+        final_hidden = boundary(rms_norm_real(result, norm_weight, norm_epsilon))
+        raw_logits = mx.matmul(final_hidden.astype(mx.bfloat16), head_weight.T).astype(mx.float32)
+        logits = boundary(mx.tanh(boundary(raw_logits / mx.array(softcap, dtype=mx.float32))))
+        logits = boundary(logits * mx.array(softcap, dtype=mx.float32))
+        logits_valid = mx.all(mx.isfinite(logits))
+        mx.eval(logits, logits_valid)
+        if not bool(np.asarray(logits_valid).item()):
+            raise ValueError("MLX decoder stack epilogue produced non-finite output")
     write_float_tensor(result)
     for key, value in ordered_caches:
         write_float_tensor(key)
         write_float_tensor(value)
+    if logits is not None:
+        write_float_tensor(logits)
     profile = np.array((0, 0, 0, 0, _widened_tensor_cache_hits - cache_hits_before, len(_widened_tensor_cache), _widened_tensor_cache_bytes), dtype=np.float32)
     write_float_tensor(mx.array(profile))
     sys.stdout.buffer.flush()
@@ -272,9 +295,11 @@ def main():
             raise ValueError("native attention is available only in the PyTorch worker")
         fused_decoder_stack = bool(encoded_dtype & FUSED_DECODER_STACK_FLAG)
         if fused_decoder_stack:
-            if referenced or batched or fused_mlp or native_attention or fused_attention or dtype_code != FUSED_DECODER_STACK_FLAG:
+            fused_epilogue = bool(encoded_dtype & FUSED_DECODER_STACK_EPILOGUE_FLAG)
+            expected_code = FUSED_DECODER_STACK_FLAG | (FUSED_DECODER_STACK_EPILOGUE_FLAG if fused_epilogue else 0)
+            if referenced or batched or fused_mlp or native_attention or fused_attention or dtype_code != expected_code:
                 raise ValueError("MLX decoder stack flags are invalid")
-            execute_decoder_stack_request(pool, shards, rows, outputs, features, native_bf16)
+            execute_decoder_stack_request(pool, shards, rows, outputs, features, native_bf16, fused_epilogue)
             continue
         if not referenced:
             raise ValueError("MLX worker requires a referenced tile")

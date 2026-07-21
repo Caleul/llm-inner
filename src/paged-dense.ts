@@ -34,6 +34,7 @@ export interface PagedLinearTileKernel {
   fusedAttentionStorageReferences?: ((request: PagedFusedAttentionRequest) => Promise<PagedFusedAttentionResult>) | undefined;
   fusedDecoderLayerStorageReferences?: ((request: PagedFusedDecoderLayerRequest) => Promise<PagedFusedDecoderLayerResult>) | undefined;
   fusedDecoderStackStorageReferences?: ((request: PagedFusedDecoderStackRequest) => Promise<PagedFusedDecoderStackResult>) | undefined;
+  fusedDecoderStackEpilogueStorageReferences?: ((request: PagedFusedDecoderStackEpilogueRequest) => Promise<PagedFusedDecoderStackEpilogueResult>) | undefined;
 }
 
 export interface PagedFusedFfnRequest {
@@ -191,6 +192,20 @@ export interface PagedFusedDecoderStackCache {
 export interface PagedFusedDecoderStackResult {
   hidden: Float32Array;
   caches: readonly PagedFusedDecoderStackCache[];
+}
+
+export interface PagedFusedDecoderStackEpilogueRequest extends PagedFusedDecoderStackRequest {
+  epilogue: {
+    normWeight: TensorInfo;
+    normEpsilon: number;
+    headWeight: TensorInfo;
+    vocabularySize: number;
+    softcap: number;
+  };
+}
+
+export interface PagedFusedDecoderStackEpilogueResult extends PagedFusedDecoderStackResult {
+  logits: Float32Array;
 }
 
 export interface PagedLinearStorageReference {

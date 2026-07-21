@@ -69,6 +69,7 @@ async function generate(inputIds: number[], maxNewTokens: number): Promise<Recor
     fusedDecoderLayerDispatches: dispatchesAfter.fusedDecoderLayerDispatches - dispatchesBefore.fusedDecoderLayerDispatches,
     fusedDecoderStackRounding: args.fusedDecoderStackRounding,
     fusedDecoderStackDispatches: dispatchesAfter.fusedDecoderStackDispatches - dispatchesBefore.fusedDecoderStackDispatches,
+    fusedDecoderStackEpilogueDispatches: dispatchesAfter.fusedDecoderStackEpilogueDispatches - dispatchesBefore.fusedDecoderStackEpilogueDispatches,
     fusedDecoderStackGateUpPairs: dispatchesAfter.fusedDecoderStackGateUpPairs - dispatchesBefore.fusedDecoderStackGateUpPairs,
     fusedDecoderStackWidenedCacheHits: dispatchesAfter.fusedDecoderStackWidenedCacheHits - dispatchesBefore.fusedDecoderStackWidenedCacheHits,
     widenedTensorCacheEntries: dispatchesAfter.widenedTensorCacheEntries,
