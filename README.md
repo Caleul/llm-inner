@@ -2727,6 +2727,25 @@ sobreposição top-K. A comparação marca até qual passo os contextos ainda er
 iguais; depois da primeira escolha diferente, os próximos tokens são
 classificados como cascata e não como novas divergências numéricas.
 
+O hot path MLX quantiza seletivamente em Q8 as matrizes `gate_proj` e
+`up_proj` das 42 FFNs (`--direct-mlx-decoder-quantization q8-ffn-gate-up`, o
+padrão). Pesos de atenção, `down_proj` e a cabeça final permanecem BF16; o head
+Q8 pode ser reativado explicitamente com `--direct-mlx-head-quantization q8`,
+mas não faz parte da política validada. A seleção é materializada uma vez ao
+carregar os pesos residentes e `mx.quantized_matmul` participa da mesma closure
+incremental compilada; o relatório e a UI publicam separadamente
+`mlxDecoderQuantization` e `mlxHeadQuantization`. Os modos mais agressivos
+(`q8-ffn`, `q8-ffn-down`, `q8-attention`, `q8-all`) continuam disponíveis para
+experimentos, sem alegação de paridade.
+
+Na calibração oficial de 8 prompts × 8 tokens, head BF16 mais `gate+up` Q8
+produziu 64/64 tokens iguais ao Transformers, zero divergências raiz, erro
+máximo de `0.25` no logit escolhido e sobreposição top-5 média de `95.625%`.
+O executor direto alcançou `24.09 tok/s` contra `1.83 tok/s` da referência,
+razão de throughput `13.20×`, com o verificador seletivo desabilitado para medir
+somente o fast path. Esse corpus é evidência finita, não uma promessa de
+igualdade para todo prompt.
+
 O runtime MLX também aplica uma seleção híbrida independente da resposta
 original. Por padrão, `--direct-verification-margin 0` identifica qualquer
 empate no top-2 do próprio Metal. O verificador PyTorch sempre recompõe o
@@ -2757,9 +2776,11 @@ O corpus ampliado e reproduzível pode ser executado com:
 
 ```bash
 npm run calibrate:gemma4-real -- \
-  --output ./artifacts/gemma4-three-way-calibration-32x4-mlx-selective-head-verifier.json \
-  --prompts-json ./artifacts/gemma4-calibration-prompts-32.json \
-  --tokens 4 --request-threads 1 \
+  --output ./artifacts/gemma4-q8-decoder-gate-up-head-off-calibration.json \
+  --tokens 8 --request-threads 1 \
+  --direct-mlx-head-quantization off \
+  --direct-mlx-decoder-quantization q8-ffn-gate-up \
+  --direct-verification-margin off \
   --precision f32 --rounding-policy none
 ```
 

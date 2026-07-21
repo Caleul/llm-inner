@@ -43,6 +43,7 @@ interface ThreeWayCase {
     maxReadMiB?: number;
     finalHeadReadMiB?: number;
     mlxHeadQuantization?: "off" | "q8" | "q4";
+    mlxDecoderQuantization?: Gemma4RealComparisonRunnerOptions["directMlxDecoderQuantization"];
     linearReferenceDispatches?: number;
     wholeNativeBf16Dispatches?: number;
     processRssBytes?: number;
@@ -172,6 +173,7 @@ export async function runGemma4ThreeWayCalibration(options: Gemma4CalibrationCli
 
 export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], options: { maxNewTokens: number; requestThreads: number; precision: "f32" | "f64"; roundingPolicy: "none" | "layer-bf16" | "operation-bf16"; runner: Gemma4RealComparisonRunnerOptions }, status: Record<string, unknown>): Gemma4ThreeWayCalibrationReport {
   if (cases.length === 0) throw new Error("Calibração requer ao menos um caso.");
+  options = { ...options, runner: { ...options.runner, directMlxHeadQuantization: options.runner.directMlxHeadQuantization ?? "off" } };
   const totalSteps = cases.reduce((total, entry) => total + entry.baselineGeneratedTokenIds.length, 0);
   const compatibilityEqualSteps = cases.reduce((total, entry) => total + equalTokenSteps(entry.baselineGeneratedTokenIds, entry.candidateGeneratedTokenIds), 0);
   const directEqualSteps = cases.reduce((total, entry) => total + equalTokenSteps(entry.baselineGeneratedTokenIds, entry.direct.generatedTokenIds), 0);
@@ -196,6 +198,7 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
     source: options.runner.source,
     configuration: {
       prompts: cases.length, tokensPerPrompt: options.maxNewTokens, requestThreads: options.requestThreads,
+      directMlxDecoderQuantization: options.runner.directMlxDecoderQuantization ?? (directBackend === "mlx" ? "q8-ffn-gate-up" : "off"),
       directThreads: options.runner.directThreads, directMaxReadMiB: options.runner.directMaxReadMiB ?? 16, directFinalHeadReadMiB: options.runner.directFinalHeadReadMiB ?? (directBackend === "pytorch" ? 32 : options.runner.directMaxReadMiB ?? 16), directLinearBackend: directBackend, directMlxHeadQuantization: options.runner.directMlxHeadQuantization ?? (directBackend === "mlx" ? "q8" : "off"), directVerificationMargin: options.runner.directVerificationMargin ?? null, directFusedMlp: options.runner.directFusedMlp ?? (directBackend === "pytorch" ? "native-bf16" : "real"), directFusedFfn: options.runner.directFusedFfn ?? (directBackend === "pytorch" ? "native-bf16" : "off"), directFusedDecoderLayer: options.runner.directFusedDecoderLayer ?? (directBackend === "pytorch" ? "native-bf16" : "off"), directFusedDecoderStack: options.runner.directFusedDecoderStack ?? "native-bf16", directFusedPle: options.runner.directFusedPle ?? (directBackend === "pytorch" ? "bf16" : "off"), directFusedPlePrelude: options.runner.directFusedPlePrelude ?? (directBackend === "mlx" ? "bf16" : "off"), directFusedTokenForward: options.runner.directFusedTokenForward ?? (directBackend === "mlx" && options.runner.directFusedDecoderStack !== "off" ? "bf16" : "off"), directResidentGeneration: options.runner.directResidentGeneration ?? (directBackend === "mlx" && options.runner.directFusedDecoderStack !== "off" ? "on" : "off"), directFinalHead: options.runner.directFinalHead ?? (directBackend === "pytorch" ? "native-bf16-stream" : "native-bf16-whole"), directNativeAttention: options.runner.directNativeAttention ?? (directBackend === "pytorch" ? "real" : "off"), directFusedAttention: options.runner.directFusedAttention ?? (directBackend === "pytorch" ? "native-bf16" : "off"), precision: options.precision, roundingPolicy: options.roundingPolicy,
     },
     initialization: status,
@@ -262,6 +265,7 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.maxReadMiB === undefined ? {} : { maxReadMiB: entry.direct.maxReadMiB }),
         ...(entry.direct.finalHeadReadMiB === undefined ? {} : { finalHeadReadMiB: entry.direct.finalHeadReadMiB }),
         ...(entry.direct.mlxHeadQuantization === undefined ? {} : { mlxHeadQuantization: entry.direct.mlxHeadQuantization }),
+        ...(entry.direct.mlxDecoderQuantization === undefined ? {} : { mlxDecoderQuantization: entry.direct.mlxDecoderQuantization }),
         ...(entry.direct.linearReferenceDispatches === undefined ? {} : { linearReferenceDispatches: entry.direct.linearReferenceDispatches }),
         ...(entry.direct.wholeNativeBf16Dispatches === undefined ? {} : { wholeNativeBf16Dispatches: entry.direct.wholeNativeBf16Dispatches }),
         ...(entry.direct.processRssBytes === undefined ? {} : { processRssBytes: entry.direct.processRssBytes }),

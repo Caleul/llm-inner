@@ -32,6 +32,7 @@ _embedding_row_cache = OrderedDict()
 _resident_generation_model = None
 _resident_generation_session = None
 _head_quantization = "off"
+_decoder_quantization = "off"
 EMBEDDING_ROW_CACHE_LIMIT = 4096
 
 
@@ -297,7 +298,34 @@ def read_decoder_layer_weights(pool, shards, hidden_size, config):
         "ple_norm": read_whole_tensor(pool, shards, (hidden_size, 1)).reshape((hidden_size,)),
         "layer_scalar": read_whole_tensor(pool, shards, (1, 1)).reshape(()),
     })
+    selected = set()
+    quantize_gate_up = _decoder_quantization in ("q8-ffn", "q8-all", "q8-ffn-gate-up")
+    quantize_gate_up = quantize_gate_up or (_decoder_quantization == "q8-ffn-gate-up-first-half" and config["layer_index"] < 21)
+    quantize_gate_up = quantize_gate_up or (_decoder_quantization == "q8-ffn-gate-up-last-half" and config["layer_index"] >= 21)
+    if quantize_gate_up:
+        selected.update(("gate", "up"))
+    if _decoder_quantization in ("q8-ffn", "q8-all", "q8-ffn-down"):
+        selected.add("down")
+    if _decoder_quantization in ("q8-attention", "q8-all"):
+        selected.update(("query", "key", "value", "output"))
+    for name in sorted(selected.intersection(weights)):
+        quantized, scales, biases = mx.quantize(weights[name], group_size=64, bits=8)
+        mx.eval(quantized, scales, biases)
+        weights[name] = (quantized, scales, biases, 64, 8)
     return weights
+
+
+def matrix_contract(value):
+    if isinstance(value, tuple):
+        return (tuple((tuple(entry.shape), str(entry.dtype)) for entry in value[:3]), value[3], value[4])
+    return (tuple(value.shape), str(value.dtype))
+
+
+def matrix_project(value, weight):
+    if isinstance(weight, tuple):
+        quantized, scales, biases, group_size, bits = weight
+        return mx.quantized_matmul(value, quantized, scales, biases, transpose=True, group_size=group_size, bits=bits).astype(mx.float32)
+    return mx.matmul(value, weight.T).astype(mx.float32)
 
 
 def execute_decoder_layer_mlx(pool, shards, inputs, per_layer, positions, mask, source_key, source_value, config, weights=None, rope_factor_context=None, source_cache_validated=False, compile_safe_rope=False, incremental_fixed_shape=False):
@@ -307,7 +335,7 @@ def execute_decoder_layer_mlx(pool, shards, inputs, per_layer, positions, mask, 
     intermediate_size, per_layer_width = config["intermediate_size"], config["per_layer_width"]
     real = config.get("rounding") == "real"
     boundary = (lambda value: value) if real else (lambda value: value.astype(mx.bfloat16).astype(mx.float32))
-    project = (lambda value, weight: mx.matmul(value, weight.T).astype(mx.float32)) if real else (lambda value, weight: mx.matmul(value.astype(mx.bfloat16), weight.T).astype(mx.float32))
+    project = (lambda value, weight: matrix_project(value, weight)) if real else (lambda value, weight: matrix_project(value.astype(mx.bfloat16), weight))
     if weights is None:
         weights = read_decoder_layer_weights(pool, shards, hidden_size, config)
     input_norm_weight, query_weight, query_norm, output_weight = weights["input_norm"], weights["query"], weights["query_norm"], weights["output"]
@@ -350,11 +378,11 @@ def execute_decoder_layer_mlx(pool, shards, inputs, per_layer, positions, mask, 
     ffn_input = boundary(rms_norm_real(after_attention, pre_ffn_norm_weight, config["pre_ffn_epsilon"]))
     if not real:
         ffn_input = ffn_input.astype(mx.bfloat16)
-    gate, up = mx.matmul(ffn_input, gate_weight.T), mx.matmul(ffn_input, up_weight.T)
+    gate, up = matrix_project(ffn_input, gate_weight), matrix_project(ffn_input, up_weight)
     cube = (gate * gate) * gate
     inner = mx.array(math.sqrt(2 / math.pi), dtype=mx.float32) * (gate + mx.array(0.044715, dtype=mx.float32) * cube)
     hidden = (mx.array(0.5, dtype=mx.float32) * gate) * (mx.array(1.0, dtype=mx.float32) + mx.tanh(inner)) * up
-    ffn_projected = mx.matmul(hidden if real else hidden.astype(mx.bfloat16), down_weight.T).astype(mx.float32)
+    ffn_projected = matrix_project(hidden if real else hidden.astype(mx.bfloat16), down_weight)
     after_mlp = boundary(after_attention + boundary(rms_norm_real(ffn_projected, post_ffn_norm_weight, config["post_ffn_epsilon"])))
     ple_gate_weight, ple_projection_weight, ple_norm_weight, layer_scalar = weights["ple_gate"], weights["ple_projection"], weights["ple_norm"], weights["layer_scalar"]
     ple_gate = boundary(mx.matmul(after_mlp, ple_gate_weight.T))
@@ -401,8 +429,8 @@ def compile_incremental_decoder_step(pool, shards, layer_plans, epilogue, roundi
 
 def incremental_compile_signature(layer_plans, epilogue, rounding):
     topology = tuple(tuple(sorted(config.items())) for config, _ in layer_plans)
-    weight_contracts = tuple(tuple((name, tuple(value.shape), str(value.dtype)) for name, value in sorted(weights.items())) for _, weights in layer_plans)
-    head_contract = (tuple((tuple(value.shape), str(value.dtype)) for value in epilogue[1][:3]), epilogue[1][3], epilogue[1][4]) if isinstance(epilogue[1], tuple) else (tuple(epilogue[1].shape), str(epilogue[1].dtype))
+    weight_contracts = tuple(tuple((name, matrix_contract(value)) for name, value in sorted(weights.items())) for _, weights in layer_plans)
+    head_contract = matrix_contract(epilogue[1])
     epilogue_contract = (tuple(epilogue[0].shape), str(epilogue[0].dtype), head_contract, epilogue[2], epilogue[3])
     return rounding, topology, weight_contracts, epilogue_contract
 
@@ -414,10 +442,7 @@ def execute_decoder_head(result, epilogue, terminal_only=True, rounding="native-
     epilogue_input = result[:, -1:, :] if terminal_only else result
     final_hidden = boundary(rms_norm_real(epilogue_input, norm_weight, norm_epsilon))
     head_input = final_hidden if real else final_hidden.astype(mx.bfloat16)
-    if isinstance(head_weight, tuple):
-        quantized, scales, biases, group_size, bits = head_weight
-        return mx.quantized_matmul(head_input, quantized, scales, biases, transpose=True, group_size=group_size, bits=bits).astype(mx.float32)
-    return mx.matmul(head_input, head_weight.T).astype(mx.float32)
+    return matrix_project(head_input, head_weight)
 
 
 def finalize_decoder_logits(raw_logits, epilogue, rounding="native-bf16"):
@@ -791,13 +816,15 @@ def execute_ple_prelude_request(pool, shards, rows, outputs, features):
 
 
 def main():
-    global _head_quantization
+    global _head_quantization, _decoder_quantization
     parser = argparse.ArgumentParser()
     parser.add_argument("--threads", type=int, required=True)
     parser.add_argument("--binary-pool", required=True)
     parser.add_argument("--head-quantization", choices=("off", "q8", "q4"), default="off")
+    parser.add_argument("--decoder-quantization", choices=("off", "q8-ffn", "q8-ffn-gate-up", "q8-ffn-gate-up-first-half", "q8-ffn-gate-up-last-half", "q8-ffn-down", "q8-attention", "q8-all"), default="off")
     args = parser.parse_args()
     _head_quantization = args.head_quantization
+    _decoder_quantization = args.decoder_quantization
     if args.threads < 1:
         raise ValueError("--threads must be positive")
     pool = Path(args.binary_pool).resolve()

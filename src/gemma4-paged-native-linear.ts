@@ -25,6 +25,8 @@ const SESSION_TOKEN_GENERATION_FLAG = 0x0000_8000;
 const STREAM_TOKEN_GENERATION_FLAG = 0x0000_4000;
 const STREAM_TOKEN_FRAME = 0x544f_4b4e;
 
+export type Gemma4MlxDecoderQuantization = "off" | "q8-ffn" | "q8-ffn-gate-up" | "q8-ffn-gate-up-first-half" | "q8-ffn-gate-up-last-half" | "q8-ffn-down" | "q8-attention" | "q8-all";
+
 export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
   readonly backend: string;
   readonly child: ChildProcessWithoutNullStreams;
@@ -87,7 +89,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
   #nativeAttentionSeconds = 0;
   #fusedAttentionSeconds = 0;
 
-  constructor(options: { python: string; helper: string; threads: number; binaryPool?: string; storageTensors?: ReadonlyMap<string, TensorInfo>; backend?: "pytorch" | "mlx"; mlxHelper?: string; mlxHeadQuantization?: "off" | "q8" | "q4" }) {
+  constructor(options: { python: string; helper: string; threads: number; binaryPool?: string; storageTensors?: ReadonlyMap<string, TensorInfo>; backend?: "pytorch" | "mlx"; mlxHelper?: string; mlxHeadQuantization?: "off" | "q8" | "q4"; mlxDecoderQuantization?: Gemma4MlxDecoderQuantization }) {
     if (endianness() !== "LE") throw new Error("Kernel linear binário requer host little-endian.");
     if (!Number.isSafeInteger(options.threads) || options.threads < 1) throw new Error("threads do kernel linear deve ser positivo.");
     if ((options.binaryPool === undefined) !== (options.storageTensors === undefined)) throw new Error("Kernel linear mmap requer pool binário e catálogo juntos.");
@@ -98,8 +100,9 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     if (!helper) throw new Error(`Kernel ${backend} requer helper executável.`);
     this.backend = backend === "mlx" ? "persistent-mlx-metal-full-forward" : options.binaryPool ? "persistent-pytorch-mmap-f32-tile" : "persistent-pytorch-f32-tile";
     const mlxHeadQuantization = options.mlxHeadQuantization ?? "off";
-    if (backend !== "mlx" && mlxHeadQuantization !== "off") throw new Error("Quantização do head requer kernel MLX.");
-    const arguments_ = [helper, "--threads", String(options.threads), ...(options.binaryPool ? ["--binary-pool", resolve(options.binaryPool)] : []), ...(backend === "mlx" ? ["--head-quantization", mlxHeadQuantization] : [])];
+    const mlxDecoderQuantization = options.mlxDecoderQuantization ?? "off";
+    if (backend !== "mlx" && (mlxHeadQuantization !== "off" || mlxDecoderQuantization !== "off")) throw new Error("Quantização do head/decoder requer kernel MLX.");
+    const arguments_ = [helper, "--threads", String(options.threads), ...(options.binaryPool ? ["--binary-pool", resolve(options.binaryPool)] : []), ...(backend === "mlx" ? ["--head-quantization", mlxHeadQuantization, "--decoder-quantization", mlxDecoderQuantization] : [])];
     this.child = spawn(options.python, arguments_, { stdio: ["pipe", "pipe", "pipe"] });
     if (options.binaryPool) {
       this.multiplyStorageReference = (input, tensor, startOutput, outputCount, rows) => this.#requestReference(input, tensor, startOutput, outputCount, rows);
