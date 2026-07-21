@@ -2560,14 +2560,29 @@ npm run compare:gemma4-real-ui
 ```
 
 Abra `http://127.0.0.1:8787`, informe o prompt e a quantidade de tokens. A
-interface executa Transformers eager BF16, a recomposição F32/F64 e o runtime
+opção padrão detecta
+`artifacts/gemma4-compiled-global-runtime-bundle/constants.literal.json` e usa
+`gemma-4-E4B-dense` como pool binário; se o bundle não existir, o botão fica
+desabilitado com uma mensagem acionável em vez de abrir uma comparação parcial.
+A interface executa Transformers eager BF16, a recomposição F32/F64 e o runtime
 compilado MLX/Metal, escolhe os tokens independentemente e compara os
 resultados e tempos. O endpoint `POST /api/compare-stream` entrega NDJSON por
-token enquanto a geração direta ainda está em curso. Depois do primeiro turno,
-marque **Continuar sessão compilada** e informe apenas o texto novo: os três
+token enquanto a geração direta ainda está em curso. A interface mantém uma
+sessão entre envios, possui cancelamento que drena os workers sem avançar a
+conversa e oferece **Nova conversa** para descartar o prefixo atual. Os três
 executores mantêm seus próprios KV caches e só reutilizam um prefixo quando os
 IDs anteriores coincidem exatamente; as métricas mostram quantos tokens foram
 reaproveitados e quantos precisaram de novo prefill.
+
+O modo padrão, **Conclusão bruta (fiel)**, envia o texto literalmente porque o
+`gemma-4-E4B-dense/tokenizer_config.json` possui `chat_template: null`. O modo
+**Chat IT (experimental)** aplica, igualmente aos três executores, o contrato
+textual comprovado pelo `chat_template.jinja` do checkpoint instrucional local:
+`<|turn>user\n...<turn|>\n<|turn>model\n`. Isso permite testar a mecânica de
+conversa, mas não transforma os pesos densos base em pesos instruction-tuned;
+a interface exibe esse limite em vez de atribuir eventual qualidade textual à
+compilação. Trocar o modo inicia uma nova sessão para impedir mistura de
+contratos de tokenização.
 
 ### Gerador de fórmulas fisicamente planas
 

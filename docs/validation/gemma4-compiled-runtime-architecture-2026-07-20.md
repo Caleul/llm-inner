@@ -429,6 +429,32 @@ comprimento ou qualquer token divergir, o worker abandona o cache e executa um
 prefill integral. O protocolo não transporta K/V: envia somente `sessionId`, os
 IDs completos e os parâmetros de geração.
 
+O servidor agora explicita dois contratos de entrada. `raw` preserva o texto
+literal e é o padrão correto para `gemma-4-E4B-dense`, cujo
+`tokenizer_config.json` declara `chat_template: null`. `chat` usa o subconjunto
+textual do template do checkpoint local `gemma-4-E4B-it-MLX-4bit`: BOS somente
+no primeiro turno, `<|turn>user\n`, conteúdo sem espaços externos,
+`<turn|>\n` e `<|turn>model\n`; uma continuação fecha antes o turno do modelo
+com `<turn|>\n`. `transformers.apply_chat_template` produziu exatamente a
+mesma string e os mesmos 16 IDs para `What is the capital of France?`. O status
+HTTP publica tanto o identificador do template aplicado quanto se ele foi
+declarado pelo próprio checkpoint. A sessão rejeita uma troca de contrato.
+
+Uma prova real com 24 tokens mostrou o limite do checkpoint, não do executor:
+original e compilado direto repetiram a pergunta três vezes com os mesmos
+24/24 IDs; o direto levou `1,5459 s`, contra `10,2394 s` do Transformers
+(`6,62x`). Na continuação, original e direto continuaram iguais em 24/24 IDs,
+reutilizando 39 tokens e calculando 19 de prefill. O caminho de compatibilidade
+divergiu nessa continuação, evidência que a interface preserva como diagnóstico
+separado. Como os pesos densos não são instruction-tuned, o seletor marca
+`chat` como experimental e mantém `raw` como padrão fiel.
+
+Se o cliente cancelar o stream, o servidor ainda drena original, compatibilidade
+e direto para preservar seus protocolos persistentes, porém não decodifica nem
+registra o resultado cancelado na sessão HTTP. Uma tentativa seguinte falha
+fechada na verificação de prefixo dos caches internos e recompõe o contexto
+quando necessário.
+
 Transformers eager, o cálculo de compatibilidade e o runtime direto mantêm
 caches independentes. Isso é necessário porque comparar uma continuação
 incremental contra um controle que recompõe o prefixo inteiro usa árvores de

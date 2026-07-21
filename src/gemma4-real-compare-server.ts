@@ -1,16 +1,19 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { gemma4RealCompareHtml } from "./gemma4-real-compare-ui.js";
 
-export interface Gemma4RealComparisonRequest { prompt: string; maxNewTokens: number; threads?: number; precision?: "f32" | "f64"; roundingPolicy?: "none" | "layer-bf16" | "operation-bf16"; sessionId?: number; continueSession?: boolean }
+export interface Gemma4RealComparisonRequest { prompt: string; maxNewTokens: number; threads?: number; precision?: "f32" | "f64"; roundingPolicy?: "none" | "layer-bf16" | "operation-bf16"; sessionId?: number; continueSession?: boolean; conversationMode?: "raw" | "chat" }
 export interface Gemma4RealComparisonRunnerOptions {
   source: string; python: string; helper: string;
   literalArtifact?: string; binaryPool?: string; directWorker?: string; directLinearHelper?: string; directMlxHelper?: string; directLinearBackend?: "pytorch" | "mlx"; directFusedMlp?: "off" | "bf16" | "real" | "native-bf16"; directFusedFfn?: "off" | "native-bf16"; directFusedDecoderLayer?: "off" | "native-bf16"; directFusedDecoderStack?: "off" | "native-bf16" | "native-bf16-ple"; directFusedPle?: "off" | "bf16" | "real"; directFusedPlePrelude?: "off" | "bf16" | "real"; directFusedTokenForward?: "off" | "bf16"; directResidentGeneration?: "off" | "on"; directFinalHead?: "f32" | "native-bf16" | "native-bf16-stream" | "native-bf16-whole"; directNativeAttention?: "off" | "bf16" | "real"; directFusedAttention?: "off" | "bf16" | "real" | "native-bf16"; directThreads?: number; directMaxReadMiB?: number; directFinalHeadReadMiB?: number;
 }
+
+const GEMMA4_CHAT_TEMPLATE = "llm-inner-gemma4-it-text-turn-v1";
+interface SessionInput { tokenIds: number[]; mode: "raw" | "chat" }
 
 export async function runGemma4RealComparison(request: Gemma4RealComparisonRequest, options: Gemma4RealComparisonRunnerOptions): Promise<unknown> {
   validateRequest(request);
@@ -26,13 +29,14 @@ export async function runGemma4RealComparison(request: Gemma4RealComparisonReque
 
 export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRunnerOptions) {
   const directBackend = options.directLinearBackend ?? "mlx";
+  const checkpointChatTemplateDeclared = declaresChatTemplate(options.source);
   const directTokenForward = options.directFusedTokenForward ?? (directBackend === "mlx" && options.directFusedDecoderStack !== "off" ? "bf16" : "off");
   const directResidentGeneration = options.directResidentGeneration ?? (directTokenForward === "bf16" ? "on" : "off");
   const direct = options.literalArtifact && options.binaryPool
     ? new PersistentJsonlWorker(process.execPath, [options.directWorker ?? resolve("dist/src/gemma4-paged-runtime-worker-cli.js"), "--artifact", options.literalArtifact, "--binary-pool", options.binaryPool, "--python", options.python, "--linear-helper", options.directLinearHelper ?? resolve("scripts/gemma4-paged-linear-worker.py"), "--mlx-helper", options.directMlxHelper ?? resolve("scripts/gemma4-mlx-linear-worker.py"), "--linear-backend", directBackend, "--fused-mlp", options.directFusedMlp ?? (directBackend === "pytorch" ? "native-bf16" : "real"), "--fused-ffn", options.directFusedFfn ?? (directBackend === "pytorch" ? "native-bf16" : "off"), "--fused-decoder-layer", options.directFusedDecoderLayer ?? (directBackend === "pytorch" ? "native-bf16" : "off"), "--fused-decoder-stack", options.directFusedDecoderStack ?? "native-bf16", "--fused-ple", options.directFusedPle ?? (directBackend === "pytorch" ? "bf16" : "off"), "--fused-ple-prelude", options.directFusedPlePrelude ?? (directBackend === "mlx" ? "bf16" : "off"), "--fused-token-forward", directTokenForward, "--resident-generation", directResidentGeneration, "--final-head", options.directFinalHead ?? (directBackend === "pytorch" ? "native-bf16-stream" : "native-bf16-whole"), "--native-attention", options.directNativeAttention ?? (directBackend === "pytorch" ? "real" : "off"), "--fused-attention", options.directFusedAttention ?? (directBackend === "pytorch" ? "native-bf16" : "off"), "--threads", String(options.directThreads ?? 10), "--max-read-mib", String(options.directMaxReadMiB ?? 16), "--final-head-read-mib", String(options.directFinalHeadReadMiB ?? (directBackend === "pytorch" ? 32 : options.directMaxReadMiB ?? 16))], "Gemma 4 literal direto")
     : undefined;
   let worker: Gemma4PersistentComparisonWorker | undefined, initializationError: Error | undefined, closed = false;
-  const sessionInputs = new Map<number, number[]>();
+  const sessionInputs = new Map<number, SessionInput>();
   let directWarmupSeconds: number | undefined;
   const initialize = (async () => {
     try {
@@ -51,7 +55,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
   const server = createServer(async (request, response) => {
     try {
       if (request.method === "GET" && request.url === "/") return send(response, 200, "text/html; charset=utf-8", gemma4RealCompareHtml);
-      if (request.method === "GET" && request.url === "/api/status") return json(response, 200, { ready: worker?.ready === true && (!direct || direct.ready), source: options.source, runtime: "persistent-jsonl", initializationSeconds: worker?.initializationSeconds, ...(initializationError ? { error: initializationError.message } : {}), direct: direct ? { enabled: true, ...direct.readyMetadata, ready: direct.ready, initializationSeconds: direct.initializationSeconds, warmupSeconds: directWarmupSeconds, warmupComplete: directWarmupSeconds !== undefined } : { enabled: false } });
+      if (request.method === "GET" && request.url === "/api/status") return json(response, 200, { ready: worker?.ready === true && (!direct || direct.ready), source: options.source, runtime: "persistent-jsonl", chatTemplate: GEMMA4_CHAT_TEMPLATE, checkpointChatTemplateDeclared, initializationSeconds: worker?.initializationSeconds, ...(initializationError ? { error: initializationError.message } : {}), direct: direct ? { enabled: true, ...direct.readyMetadata, ready: direct.ready, initializationSeconds: direct.initializationSeconds, warmupSeconds: directWarmupSeconds, warmupComplete: directWarmupSeconds !== undefined } : { enabled: false } });
       if (request.method === "POST" && request.url === "/api/compare") {
         await initialize;
         if (!worker) throw new Error("Comparador original não foi inicializado.");
@@ -59,14 +63,14 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
         validateRequest(body);
         const inputIds = await resolveComparisonInput(worker, body, sessionInputs);
         const report = await worker.compareTokens(body, inputIds) as ComparisonReport;
-        if (!direct) return json(response, 200, { ...report, prompt: body.prompt });
+        if (!direct) return json(response, 200, { ...report, prompt: body.prompt, conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null });
         const directReport = await direct.send({ inputIds, maxNewTokens: body.maxNewTokens, ...(body.sessionId === undefined ? {} : { sessionId: body.sessionId }) }) as DirectReport;
         const [generated, full] = await Promise.all([worker.decode(directReport.generatedTokenIds), worker.decode(directReport.fullTokenIds)]);
         directReport.generatedText = generated.text; directReport.fullText = full.text;
         directReport.tokensEqualBaseline = arraysEqual(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
         directReport.firstDivergentStep = firstDivergence(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
-        if (body.sessionId !== undefined) rememberSession(sessionInputs, body.sessionId, directReport.fullTokenIds);
-        return json(response, 200, { ...report, prompt: body.prompt, direct: directReport });
+        if (body.sessionId !== undefined) rememberSession(sessionInputs, body.sessionId, directReport.fullTokenIds, body.conversationMode ?? "raw");
+        return json(response, 200, { ...report, prompt: body.prompt, conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null, direct: directReport });
       }
       if (request.method === "POST" && request.url === "/api/compare-stream") {
         await initialize;
@@ -74,17 +78,19 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
         const body = JSON.parse(await readBody(request)) as Gemma4RealComparisonRequest;
         validateRequest(body);
         const inputIds = await resolveComparisonInput(worker, body, sessionInputs);
+        let clientDisconnected = false; response.once("close", () => { if (!response.writableEnded) clientDisconnected = true; });
         response.writeHead(200, { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" });
         try {
           const referencePromise = worker.compareTokens(body, inputIds) as Promise<ComparisonReport>;
           const directPromise = direct.send({ inputIds, maxNewTokens: body.maxNewTokens, stream: true, ...(body.sessionId === undefined ? {} : { sessionId: body.sessionId }) }, (event) => writeNdjson(response, { type: "direct-token", event })) as Promise<DirectReport>;
           const [report, directReport] = await Promise.all([referencePromise, directPromise]);
+          if (clientDisconnected || response.destroyed) return;
           const [generated, full] = await Promise.all([worker.decode(directReport.generatedTokenIds), worker.decode(directReport.fullTokenIds)]);
           directReport.generatedText = generated.text; directReport.fullText = full.text;
           directReport.tokensEqualBaseline = arraysEqual(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
           directReport.firstDivergentStep = firstDivergence(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
-          if (body.sessionId !== undefined) rememberSession(sessionInputs, body.sessionId, directReport.fullTokenIds);
-          writeNdjson(response, { type: "result", data: { ...report, prompt: body.prompt, direct: directReport } }); response.end(); return;
+          if (body.sessionId !== undefined) rememberSession(sessionInputs, body.sessionId, directReport.fullTokenIds, body.conversationMode ?? "raw");
+          writeNdjson(response, { type: "result", data: { ...report, prompt: body.prompt, conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null, direct: directReport } }); response.end(); return;
         } catch (error) {
           writeNdjson(response, { type: "error", error: error instanceof Error ? error.message : String(error) }); response.end(); return;
         }
@@ -140,19 +146,23 @@ interface ComparisonReport { inputIds?: number[][]; baselineGeneratedTokenIds: n
 interface DirectReport { generatedTokenIds: number[]; fullTokenIds: number[]; generatedText?: string; fullText?: string; tokensEqualBaseline?: boolean; firstDivergentStep?: number | null; [key: string]: unknown }
 function arraysEqual(left: readonly number[], right: readonly number[]): boolean { return left.length === right.length && left.every((value, index) => value === right[index]); }
 function firstDivergence(left: readonly number[], right: readonly number[]): number | null { const length = Math.max(left.length, right.length); for (let index = 0; index < length; index += 1) if (left[index] !== right[index]) return index; return null; }
+function declaresChatTemplate(source: string): boolean { try { const parsed = JSON.parse(readFileSync(join(source, "tokenizer_config.json"), "utf8")) as { chat_template?: unknown }; return typeof parsed.chat_template === "string" && parsed.chat_template.length > 0; } catch { return false; } }
 
-async function resolveComparisonInput(worker: Gemma4PersistentComparisonWorker, request: Gemma4RealComparisonRequest, sessions: Map<number, number[]>): Promise<number[]> {
+async function resolveComparisonInput(worker: Gemma4PersistentComparisonWorker, request: Gemma4RealComparisonRequest, sessions: Map<number, SessionInput>): Promise<number[]> {
+  const mode = request.conversationMode ?? "raw";
   if (request.continueSession) {
-    const prefix = sessions.get(request.sessionId!); if (!prefix) throw new Error("Sessão de chat inexistente ou expirada.");
-    const suffix = await worker.encode(request.prompt, false); validateEncodedIds(suffix.tokenIds);
-    return [...prefix, ...suffix.tokenIds];
+    const session = sessions.get(request.sessionId!); if (!session) throw new Error("Sessão de chat inexistente ou expirada.");
+    if (session.mode !== mode) throw new Error("conversationMode não pode mudar durante uma sessão.");
+    const suffix = await worker.encode(mode === "chat" ? formatGemma4ChatTurn(request.prompt, false) : request.prompt, false); validateEncodedIds(suffix.tokenIds);
+    return [...session.tokenIds, ...suffix.tokenIds];
   }
   if (request.sessionId !== undefined) sessions.delete(request.sessionId);
-  const encoded = await worker.encode(request.prompt, true); validateEncodedIds(encoded.tokenIds); return [...encoded.tokenIds];
+  const encoded = await worker.encode(mode === "chat" ? formatGemma4ChatTurn(request.prompt, true) : request.prompt, true); validateEncodedIds(encoded.tokenIds); return [...encoded.tokenIds];
 }
+function formatGemma4ChatTurn(prompt: string, first: boolean): string { return `${first ? "" : "<turn|>\n"}<|turn>user\n${prompt.trim()}<turn|>\n<|turn>model\n`; }
 function validateEncodedIds(value: unknown): asserts value is number[] { if (!Array.isArray(value) || value.length < 1 || value.some((token) => !Number.isSafeInteger(token) || token < 0)) throw new Error("Tokenizer retornou inputIds inválidos."); }
-function rememberSession(sessions: Map<number, number[]>, sessionId: number, fullTokenIds: readonly number[]): void {
-  validateEncodedIds(fullTokenIds); sessions.delete(sessionId); sessions.set(sessionId, [...fullTokenIds]);
+function rememberSession(sessions: Map<number, SessionInput>, sessionId: number, fullTokenIds: readonly number[], mode: "raw" | "chat" = "raw"): void {
+  validateEncodedIds(fullTokenIds); sessions.delete(sessionId); sessions.set(sessionId, { tokenIds: [...fullTokenIds], mode });
   while (sessions.size > 32) sessions.delete(sessions.keys().next().value!);
 }
 
@@ -165,6 +175,7 @@ function validateRequest(request: Gemma4RealComparisonRequest): void {
   if (request.sessionId !== undefined && (!Number.isSafeInteger(request.sessionId) || request.sessionId < 1 || request.sessionId > 0xffff_ffff)) throw new Error("sessionId deve estar entre 1 e 4.294.967.295.");
   if (request.continueSession !== undefined && typeof request.continueSession !== "boolean") throw new Error("continueSession deve ser booleano.");
   if (request.continueSession && request.sessionId === undefined) throw new Error("continueSession requer sessionId.");
+  if (request.conversationMode !== undefined && request.conversationMode !== "raw" && request.conversationMode !== "chat") throw new Error("conversationMode deve ser raw ou chat.");
 }
 
 async function readBody(request: IncomingMessage): Promise<string> {
@@ -202,8 +213,8 @@ export function parseGemma4RealServerOptions(arguments_: readonly string[]): Gem
   }
   const known = new Set(["--source", "--python", "--helper", "--port", "--host", "--literal-artifact", "--binary-pool", "--direct-worker", "--direct-linear-helper", "--direct-mlx-helper", "--direct-linear-backend", "--direct-fused-mlp", "--direct-fused-ffn", "--direct-fused-decoder-layer", "--direct-fused-decoder-stack", "--direct-fused-ple", "--direct-fused-ple-prelude", "--direct-fused-token-forward", "--direct-resident-generation", "--direct-final-head", "--direct-final-head-read-mib", "--direct-native-attention", "--direct-fused-attention", "--direct-threads", "--direct-max-read-mib"]); for (const key of values.keys()) if (!known.has(key)) throw new Error(`Flag desconhecida: ${key}.`);
   const port = Number(values.get("--port") ?? "8787"); if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) throw new Error("--port inválido.");
-  const source = resolve(values.get("--source") ?? "gemma-4-E4B-dense"), inferredLiteral = join(source, "constants.literal.json");
-  const literalArtifact = values.get("--literal-artifact") ? resolve(values.get("--literal-artifact")!) : existsSync(inferredLiteral) ? inferredLiteral : undefined;
+  const source = resolve(values.get("--source") ?? "gemma-4-E4B-dense"), inferredLiteral = join(source, "constants.literal.json"), bundledLiteral = resolve("artifacts/gemma4-compiled-global-runtime-bundle/constants.literal.json");
+  const literalArtifact = values.get("--literal-artifact") ? resolve(values.get("--literal-artifact")!) : existsSync(inferredLiteral) ? inferredLiteral : !values.has("--source") && existsSync(bundledLiteral) ? bundledLiteral : undefined;
   const binaryPool = values.get("--binary-pool") ? resolve(values.get("--binary-pool")!) : literalArtifact && existsSync(join(source, "model.safetensors")) ? source : undefined;
   if ((literalArtifact === undefined) !== (binaryPool === undefined)) throw new Error("Backend direto requer --literal-artifact e --binary-pool juntos.");
   const directLinearBackend = values.get("--direct-linear-backend") ?? "mlx";
