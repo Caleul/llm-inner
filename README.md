@@ -2617,6 +2617,19 @@ GPU e memória unificada; seus tempos não devem ser tratados como a latência
 isolada de inferência. A API aceita `measurementSchedule: "isolated" |
 "parallel"`, usando `isolated` quando o campo é omitido.
 
+A prontidão inicial carrega somente o runtime compilado e um worker dedicado de
+tokenização; o processo Transformers de aproximadamente 9 GiB permanece em
+estado `unloaded`. No modo isolado, a stream publica `direct-complete`, inicia a
+referência (`reference-loading`), conclui a comparação e encerra novamente o
+processo de referência, preservando o próximo turno compilado sem pressão desse
+modelo residente. O verificador PyTorch da política de margem também é lazy e
+só existe durante um fallback efetivamente disparado. O relatório distingue
+`referenceStartupSeconds`, `referenceComputeSeconds`, `referenceColdStart` e
+`referenceReleased`. Como a passagem da referência pode expulsar páginas do
+constant pool compilado do cache do sistema, o servidor repagina um prefill e
+um decode curtos depois de encerrar a referência; `directRecoverySeconds` mede
+essa recuperação, executada depois que o texto compilado já foi entregue.
+
 Na geração residente, o `argmax` e o top-K do vetor final de 262.144 logits são
 calculados no MLX/Metal. Em passos não terminais, apenas o token e os candidatos
 top-K atravessam para a CPU; o vetor F32 completo (1 MiB) é materializado uma

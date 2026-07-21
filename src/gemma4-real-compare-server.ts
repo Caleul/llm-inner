@@ -10,7 +10,7 @@ import { validateGemma4VectorizedRealLoweringPlan } from "./gemma4-vectorized-re
 
 export interface Gemma4RealComparisonRequest { prompt: string; maxNewTokens: number; threads?: number; precision?: "f32" | "f64"; roundingPolicy?: "none" | "layer-bf16" | "operation-bf16"; sessionId?: number; continueSession?: boolean; conversationMode?: "raw" | "chat"; measurementSchedule?: "isolated" | "parallel" }
 export interface Gemma4RealComparisonRunnerOptions {
-  source: string; python: string; helper: string;
+  source: string; python: string; helper: string; tokenizerHelper?: string;
   compiledProgram?: Gemma4CompiledProgramStatus;
   literalArtifact?: string; binaryPool?: string; directWorker?: string; directLinearHelper?: string; directMlxHelper?: string; directLinearBackend?: "pytorch" | "mlx"; directFusedMlp?: "off" | "bf16" | "real" | "native-bf16"; directFusedFfn?: "off" | "native-bf16"; directFusedDecoderLayer?: "off" | "native-bf16"; directFusedDecoderStack?: "off" | "real" | "native-bf16" | "native-bf16-ple"; directFusedPle?: "off" | "bf16" | "real"; directFusedPlePrelude?: "off" | "bf16" | "real"; directFusedTokenForward?: "off" | "bf16"; directResidentGeneration?: "off" | "on"; directFinalHead?: "f32" | "native-bf16" | "native-bf16-stream" | "native-bf16-whole"; directNativeAttention?: "off" | "bf16" | "real"; directFusedAttention?: "off" | "bf16" | "real" | "native-bf16"; directThreads?: number; directMaxReadMiB?: number; directFinalHeadReadMiB?: number; directVerificationMargin?: number;
 }
@@ -49,18 +49,56 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
   const direct = options.literalArtifact && options.binaryPool
     ? new PersistentJsonlWorker(process.execPath, directWorkerArguments(options, directBackend), "Gemma 4 literal direto")
     : undefined;
+  const tokenizer = new Gemma4PersistentTokenizerWorker(options);
   const verificationEnabled = direct !== undefined && directBackend === "mlx" && options.directVerificationMargin !== undefined;
-  let verification: PersistentJsonlWorker | undefined;
-  let worker: Gemma4PersistentComparisonWorker | undefined, initializationError: Error | undefined, closed = false;
+  let verification: PersistentJsonlWorker | undefined, verificationInitialization: Promise<PersistentJsonlWorker> | undefined;
+  let worker: Gemma4PersistentComparisonWorker | undefined, referenceInitialization: Promise<Gemma4PersistentComparisonWorker> | undefined, initializationError: Error | undefined, referenceError: Error | undefined, closed = false, referenceLeases = 0, referenceReleaseRequested = false;
   const sessionInputs = new Map<number, SessionInput>();
   let directWarmupSeconds: number | undefined;
+  const getReferenceWorker = (): Promise<Gemma4PersistentComparisonWorker> => {
+    if (referenceInitialization) return referenceInitialization;
+    referenceInitialization = (async () => {
+      try {
+        if (closed) throw new Error("Servidor encerrado antes de inicializar a referência.");
+        const candidate = new Gemma4PersistentComparisonWorker(options); worker = candidate;
+        await candidate.whenReady(); return candidate;
+      } catch (error) {
+        referenceError = error instanceof Error ? error : new Error(String(error)); throw referenceError;
+      }
+    })();
+    void referenceInitialization.catch(() => undefined);
+    return referenceInitialization;
+  };
+  const acquireReferenceWorker = async (): Promise<{ worker: Gemma4PersistentComparisonWorker; coldStart: boolean; startupSeconds: number; release(dispose: boolean): void }> => {
+    const coldStart = !worker?.ready, started = performance.now(); referenceLeases += 1;
+    try {
+      const acquired = await getReferenceWorker(); let released = false;
+      return { worker: acquired, coldStart, startupSeconds: elapsedSeconds(started), release(dispose: boolean) {
+        if (released) return; released = true; if (dispose) referenceReleaseRequested = true; referenceLeases -= 1;
+        if (referenceLeases === 0 && referenceReleaseRequested) {
+          worker?.close(); worker = undefined; referenceInitialization = undefined; referenceError = undefined; referenceReleaseRequested = false;
+        }
+      } };
+    } catch (error) { referenceLeases -= 1; throw error; }
+  };
+  const getVerificationWorker = (): Promise<PersistentJsonlWorker> => {
+    if (!verificationEnabled) return Promise.reject(new Error("Verificação direta não está habilitada."));
+    if (verificationInitialization) return verificationInitialization;
+    verificationInitialization = (async () => {
+      const candidate = new PersistentJsonlWorker(process.execPath, directWorkerArguments(options, "pytorch"), "Gemma 4 literal verificador PyTorch"); verification = candidate;
+      await candidate.whenReady(); return candidate;
+    })();
+    void verificationInitialization.catch(() => undefined);
+    return verificationInitialization;
+  };
+  const releaseVerificationWorker = (): void => { verification?.close(); verification = undefined; verificationInitialization = undefined; };
+  const verificationProvider = verificationEnabled ? { get: getVerificationWorker, release: releaseVerificationWorker } : undefined;
   const initialize = (async () => {
     try {
+      const tokenizerReady = tokenizer.whenReady();
       if (direct && directBackend === "mlx") directWarmupSeconds = await warmupDirectWorker(direct, directResidentGeneration === "on" ? 2 : 1);
-      if (verificationEnabled) {
-        verification = new PersistentJsonlWorker(process.execPath, directWorkerArguments(options, "pytorch"), "Gemma 4 literal verificador PyTorch");
-      }
-      if (!closed) worker = new Gemma4PersistentComparisonWorker(options);
+      await tokenizerReady;
+      if (!direct) await getReferenceWorker();
     } catch (error) {
       initializationError = error instanceof Error ? error : new Error(String(error));
       throw initializationError;
@@ -70,71 +108,79 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
   const server = createServer(async (request, response) => {
     try {
       if (request.method === "GET" && request.url === "/") return send(response, 200, "text/html; charset=utf-8", gemma4RealCompareHtml);
-      if (request.method === "GET" && request.url === "/api/status") return json(response, 200, { ready: worker?.ready === true && (!direct || direct.ready), source: options.source, runtime: "persistent-jsonl", chatTemplate: GEMMA4_CHAT_TEMPLATE, checkpointChatTemplateDeclared, initializationSeconds: worker?.initializationSeconds, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), ...(initializationError ? { error: initializationError.message } : {}), direct: direct ? { enabled: true, artifact: options.literalArtifact, binaryPool: options.binaryPool, sourceIndependentBundle: options.literalArtifact !== undefined && options.binaryPool === dirname(options.literalArtifact), ...direct.readyMetadata, ready: direct.ready, initializationSeconds: direct.initializationSeconds, warmupSeconds: directWarmupSeconds, warmupComplete: directWarmupSeconds !== undefined, verification: verification ? { enabled: true, backend: "pytorch", marginThreshold: options.directVerificationMargin, ...verification.readyMetadata, ready: verification.ready, initializationSeconds: verification.initializationSeconds, warmupComplete: false } : { enabled: false } } : { enabled: false } });
+      if (request.method === "GET" && request.url === "/api/status") return json(response, 200, { ready: tokenizer.ready && (!direct ? worker?.ready === true : direct.ready && directWarmupSeconds !== undefined), source: options.source, runtime: "persistent-jsonl", chatTemplate: GEMMA4_CHAT_TEMPLATE, checkpointChatTemplateDeclared, tokenizer: { ready: tokenizer.ready, initializationSeconds: tokenizer.initializationSeconds, helper: options.tokenizerHelper }, reference: { state: worker?.ready ? "ready" : referenceInitialization ? "initializing" : "unloaded", initializationSeconds: worker?.initializationSeconds, ...(referenceError ? { error: referenceError.message } : {}) }, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), ...(initializationError ? { error: initializationError.message } : {}), direct: direct ? { enabled: true, artifact: options.literalArtifact, binaryPool: options.binaryPool, sourceIndependentBundle: options.literalArtifact !== undefined && options.binaryPool === dirname(options.literalArtifact), ...direct.readyMetadata, ready: direct.ready, initializationSeconds: direct.initializationSeconds, warmupSeconds: directWarmupSeconds, warmupComplete: directWarmupSeconds !== undefined, verification: verificationEnabled ? { enabled: true, backend: "pytorch", marginThreshold: options.directVerificationMargin, state: verification?.ready ? "ready" : verificationInitialization ? "initializing" : "unloaded", ...verification?.readyMetadata, ready: verification?.ready ?? false, initializationSeconds: verification?.initializationSeconds, warmupComplete: false } : { enabled: false } } : { enabled: false } });
       if (request.method === "POST" && request.url === "/api/compare") {
         await initialize;
-        if (!worker) throw new Error("Comparador original não foi inicializado.");
         const body = JSON.parse(await readBody(request)) as Gemma4RealComparisonRequest;
         validateRequest(body);
-        const inputIds = await resolveComparisonInput(worker, body, sessionInputs);
+        const inputIds = await resolveComparisonInput(tokenizer, body, sessionInputs);
         const comparisonStarted = performance.now();
         const schedule = body.measurementSchedule ?? "isolated";
         if (!direct) {
-          const report = await worker.compareTokens(body, inputIds) as ComparisonReport;
+          const lease = await acquireReferenceWorker(); let report: ComparisonReport;
+          try { report = await lease.worker.compareTokens(body, inputIds) as ComparisonReport; } finally { lease.release(false); }
           return json(response, 200, { ...report, prompt: body.prompt, conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null, comparisonTiming: { schedule: "reference-only", totalWallSeconds: elapsedSeconds(comparisonStarted) } });
         }
-        const executeDirect = () => executeSelectedDirect(direct, verification, options.directVerificationMargin, { inputIds, maxNewTokens: body.maxNewTokens, ...(body.sessionId === undefined ? {} : { sessionId: body.sessionId }) });
-        let report: ComparisonReport, directReport: DirectReport, directPhaseSeconds: number, referencePhaseSeconds: number;
+        const executeDirect = () => executeSelectedDirect(direct, verificationProvider, options.directVerificationMargin, { inputIds, maxNewTokens: body.maxNewTokens, ...(body.sessionId === undefined ? {} : { sessionId: body.sessionId }) });
+        let report: ComparisonReport, directReport: DirectReport, directPhaseSeconds: number, referencePhaseSeconds: number, referenceStartupSeconds: number, referenceComputeSeconds: number, referenceColdStart: boolean, directRecoverySeconds = 0;
         if (schedule === "isolated") {
           const directStarted = performance.now(); directReport = await executeDirect(); directPhaseSeconds = elapsedSeconds(directStarted);
-          const referenceStarted = performance.now(); report = await worker.compareTokens(body, inputIds) as ComparisonReport; referencePhaseSeconds = elapsedSeconds(referenceStarted);
+          const referenceStarted = performance.now(), lease = await acquireReferenceWorker(); referenceStartupSeconds = lease.startupSeconds; referenceColdStart = lease.coldStart;
+          const computeStarted = performance.now(); try { report = await lease.worker.compareTokens(body, inputIds) as ComparisonReport; } finally { lease.release(true); } referenceComputeSeconds = elapsedSeconds(computeStarted); referencePhaseSeconds = elapsedSeconds(referenceStarted);
         } else {
+          const lease = await acquireReferenceWorker(); referenceStartupSeconds = lease.startupSeconds; referenceColdStart = lease.coldStart;
           const directStarted = performance.now(), referenceStarted = performance.now();
-          [report, directReport] = await Promise.all([worker.compareTokens(body, inputIds) as Promise<ComparisonReport>, executeDirect()]);
-          directPhaseSeconds = elapsedSeconds(directStarted); referencePhaseSeconds = elapsedSeconds(referenceStarted);
+          try { [report, directReport] = await Promise.all([lease.worker.compareTokens(body, inputIds) as Promise<ComparisonReport>, executeDirect()]); } finally { lease.release(true); }
+          directPhaseSeconds = elapsedSeconds(directStarted); referenceComputeSeconds = elapsedSeconds(referenceStarted); referencePhaseSeconds = referenceStartupSeconds + referenceComputeSeconds;
         }
+        directRecoverySeconds = await recoverDirectWorker(direct);
         attachDirectLogitAgreement(report, directReport);
-        const [generated, full] = await Promise.all([worker.decode(directReport.generatedTokenIds), worker.decode(directReport.fullTokenIds)]);
+        const [generated, full] = await Promise.all([tokenizer.decode(directReport.generatedTokenIds), tokenizer.decode(directReport.fullTokenIds)]);
         directReport.generatedText = generated.text; directReport.fullText = full.text;
         directReport.tokensEqualBaseline = arraysEqual(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
         directReport.firstDivergentStep = firstDivergence(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
         if (body.sessionId !== undefined) rememberSession(sessionInputs, body.sessionId, directReport.fullTokenIds, body.conversationMode ?? "raw");
-        return json(response, 200, { ...report, prompt: body.prompt, conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), direct: directReport, comparisonTiming: { schedule, directPhaseSeconds, referencePhaseSeconds, totalWallSeconds: elapsedSeconds(comparisonStarted) } });
+        return json(response, 200, { ...report, prompt: body.prompt, conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), direct: directReport, comparisonTiming: { schedule, directPhaseSeconds, referenceColdStart, referenceStartupSeconds, referenceComputeSeconds, referencePhaseSeconds, referenceReleased: true, directRecoverySeconds, totalWallSeconds: elapsedSeconds(comparisonStarted) } });
       }
       if (request.method === "POST" && request.url === "/api/compare-stream") {
         await initialize;
-        if (!worker || !direct) throw new Error("Streaming comparativo requer os executores original e direto.");
+        if (!direct) throw new Error("Streaming comparativo requer o executor direto.");
         const body = JSON.parse(await readBody(request)) as Gemma4RealComparisonRequest;
         validateRequest(body);
-        const inputIds = await resolveComparisonInput(worker, body, sessionInputs);
+        const inputIds = await resolveComparisonInput(tokenizer, body, sessionInputs);
         let clientDisconnected = false; response.once("close", () => { if (!response.writableEnded) clientDisconnected = true; });
         response.writeHead(200, { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" });
         try {
           const comparisonStarted = performance.now(), schedule = body.measurementSchedule ?? "isolated";
-          const executeDirect = () => executeSelectedDirect(direct, verification, options.directVerificationMargin, { inputIds, maxNewTokens: body.maxNewTokens, stream: true, ...(body.sessionId === undefined ? {} : { sessionId: body.sessionId }) }, (event) => writeNdjson(response, { type: "direct-token", provisional: verification !== undefined, event }), (assessment) => writeNdjson(response, { type: "direct-fallback", ...assessment }), () => !clientDisconnected);
-          let report: ComparisonReport, directReport: DirectReport, directPhaseSeconds: number, referencePhaseSeconds: number;
+          const executeDirect = () => executeSelectedDirect(direct, verificationProvider, options.directVerificationMargin, { inputIds, maxNewTokens: body.maxNewTokens, stream: true, ...(body.sessionId === undefined ? {} : { sessionId: body.sessionId }) }, (event) => writeNdjson(response, { type: "direct-token", provisional: verificationEnabled, event }), (assessment) => writeNdjson(response, { type: "direct-fallback", ...assessment }), () => !clientDisconnected);
+          let report: ComparisonReport, directReport: DirectReport, directPhaseSeconds: number, referencePhaseSeconds: number, referenceStartupSeconds: number, referenceComputeSeconds: number, referenceColdStart: boolean, directRecoverySeconds = 0;
           if (schedule === "isolated") {
             const directStarted = performance.now(); directReport = await executeDirect(); directPhaseSeconds = elapsedSeconds(directStarted);
             if (clientDisconnected || response.destroyed) return;
-            const [generated, full] = await Promise.all([worker.decode(directReport.generatedTokenIds), worker.decode(directReport.fullTokenIds)]);
+            const [generated, full] = await Promise.all([tokenizer.decode(directReport.generatedTokenIds), tokenizer.decode(directReport.fullTokenIds)]);
             directReport.generatedText = generated.text; directReport.fullText = full.text;
             writeNdjson(response, { type: "direct-complete", data: { generatedText: generated.text, generatedTokenIds: directReport.generatedTokenIds, directPhaseSeconds } });
-            const referenceStarted = performance.now(); report = await worker.compareTokens(body, inputIds) as ComparisonReport; referencePhaseSeconds = elapsedSeconds(referenceStarted);
+            writeNdjson(response, { type: "reference-loading", coldStart: !worker?.ready });
+            const referenceStarted = performance.now(), lease = await acquireReferenceWorker(); referenceStartupSeconds = lease.startupSeconds; referenceColdStart = lease.coldStart;
+            const computeStarted = performance.now(); try { report = await lease.worker.compareTokens(body, inputIds) as ComparisonReport; } finally { lease.release(true); } referenceComputeSeconds = elapsedSeconds(computeStarted); referencePhaseSeconds = elapsedSeconds(referenceStarted);
           } else {
+            writeNdjson(response, { type: "reference-loading", coldStart: !worker?.ready });
+            const lease = await acquireReferenceWorker(); referenceStartupSeconds = lease.startupSeconds; referenceColdStart = lease.coldStart;
             const directStarted = performance.now(), referenceStarted = performance.now();
-            [report, directReport] = await Promise.all([worker.compareTokens(body, inputIds) as Promise<ComparisonReport>, executeDirect()]);
-            directPhaseSeconds = elapsedSeconds(directStarted); referencePhaseSeconds = elapsedSeconds(referenceStarted);
+            try { [report, directReport] = await Promise.all([lease.worker.compareTokens(body, inputIds) as Promise<ComparisonReport>, executeDirect()]); } finally { lease.release(true); }
+            directPhaseSeconds = elapsedSeconds(directStarted); referenceComputeSeconds = elapsedSeconds(referenceStarted); referencePhaseSeconds = referenceStartupSeconds + referenceComputeSeconds;
           }
+          writeNdjson(response, { type: "direct-rewarming" }); directRecoverySeconds = await recoverDirectWorker(direct);
           if (clientDisconnected || response.destroyed) return;
           attachDirectLogitAgreement(report, directReport);
           if (directReport.generatedText === undefined || directReport.fullText === undefined) {
-            const [generated, full] = await Promise.all([worker.decode(directReport.generatedTokenIds), worker.decode(directReport.fullTokenIds)]);
+            const [generated, full] = await Promise.all([tokenizer.decode(directReport.generatedTokenIds), tokenizer.decode(directReport.fullTokenIds)]);
             directReport.generatedText = generated.text; directReport.fullText = full.text;
           }
           directReport.tokensEqualBaseline = arraysEqual(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
           directReport.firstDivergentStep = firstDivergence(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
           if (body.sessionId !== undefined) rememberSession(sessionInputs, body.sessionId, directReport.fullTokenIds, body.conversationMode ?? "raw");
-          writeNdjson(response, { type: "result", data: { ...report, prompt: body.prompt, conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), direct: directReport, comparisonTiming: { schedule, directPhaseSeconds, referencePhaseSeconds, totalWallSeconds: elapsedSeconds(comparisonStarted) } } }); response.end(); return;
+          writeNdjson(response, { type: "result", data: { ...report, prompt: body.prompt, conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), direct: directReport, comparisonTiming: { schedule, directPhaseSeconds, referenceColdStart, referenceStartupSeconds, referenceComputeSeconds, referencePhaseSeconds, referenceReleased: true, directRecoverySeconds, totalWallSeconds: elapsedSeconds(comparisonStarted) } } }); response.end(); return;
         } catch (error) {
           writeNdjson(response, { type: "error", error: error instanceof Error ? error.message : String(error) }); response.end(); return;
         }
@@ -144,7 +190,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
       return json(response, 400, { error: error instanceof Error ? error.message : String(error) });
     }
   });
-  server.once("close", () => { closed = true; worker?.close(); direct?.close(); verification?.close(); void initialize.catch(() => undefined); });
+  server.once("close", () => { closed = true; tokenizer.close(); worker?.close(); direct?.close(); verification?.close(); void initialize.catch(() => undefined); });
   return server;
 }
 
@@ -164,6 +210,10 @@ async function warmupDirectWorker(worker: PersistentJsonlWorker, maxNewTokens: n
   return (performance.now() - started) / 1000;
 }
 
+async function recoverDirectWorker(worker: PersistentJsonlWorker): Promise<number> {
+  const started = performance.now(); await worker.send({ inputIds: [2], maxNewTokens: 2 }); return elapsedSeconds(started);
+}
+
 interface DirectMarginAssessment { trigger: boolean; reason: "margin-at-or-below-threshold" | "margin-unavailable"; minimumMargin: number | null; marginThreshold: number; sensitiveSteps: number[] }
 
 export function assessDirectVerification(report: DirectReport, marginThreshold: number): DirectMarginAssessment {
@@ -179,19 +229,22 @@ export function assessDirectVerification(report: DirectReport, marginThreshold: 
   return { trigger: sensitiveSteps.length > 0, reason: "margin-at-or-below-threshold", minimumMargin, marginThreshold, sensitiveSteps };
 }
 
-async function executeSelectedDirect(primary: PersistentJsonlWorker, verification: PersistentJsonlWorker | undefined, marginThreshold: number | undefined, payload: { inputIds: number[]; maxNewTokens: number; sessionId?: number; stream?: boolean }, onEvent?: (event: unknown) => void, onFallback?: (assessment: DirectMarginAssessment) => void, shouldVerify: () => boolean = () => true): Promise<DirectReport> {
+async function executeSelectedDirect(primary: PersistentJsonlWorker, verificationProvider: { get(): Promise<PersistentJsonlWorker>; release(): void } | undefined, marginThreshold: number | undefined, payload: { inputIds: number[]; maxNewTokens: number; sessionId?: number; stream?: boolean }, onEvent?: (event: unknown) => void, onFallback?: (assessment: DirectMarginAssessment) => void, shouldVerify: () => boolean = () => true): Promise<DirectReport> {
   const started = performance.now();
   const fast = await primary.send(payload, onEvent) as DirectReport;
-  if (!verification || marginThreshold === undefined) return fast;
+  if (!verificationProvider || marginThreshold === undefined) return fast;
   const assessment = assessDirectVerification(fast, marginThreshold);
   const fastPathSeconds = (performance.now() - started) / 1000;
   if (!assessment.trigger) return Object.assign(fast, { selectionPolicy: "margin-verified-pytorch-v1", selectedBackend: "mlx", fallbackTriggered: false, fastPathMinimumMargin: assessment.minimumMargin, verificationMarginThreshold: marginThreshold, fastPathSeconds });
   if (!shouldVerify()) return fast;
   onFallback?.(assessment);
+  const verification = await verificationProvider.get();
   const selectiveRequest = assessment.reason === "margin-at-or-below-threshold" && assessment.sensitiveSteps.length > 0 && typeof fast.terminalLogitsSha256 === "string" && /^[0-9a-f]{64}$/.test(fast.terminalLogitsSha256)
     ? { verificationFastPath: { generatedTokenIds: fast.generatedTokenIds, sensitiveSteps: assessment.sensitiveSteps, terminalLogitsSha256: fast.terminalLogitsSha256 } }
     : {};
-  const verified = await verification.send({ inputIds: payload.inputIds, maxNewTokens: payload.maxNewTokens, ...selectiveRequest, ...(payload.sessionId === undefined ? {} : { sessionId: payload.sessionId }) }) as DirectReport;
+  let verified: DirectReport;
+  try { verified = await verification.send({ inputIds: payload.inputIds, maxNewTokens: payload.maxNewTokens, ...selectiveRequest, ...(payload.sessionId === undefined ? {} : { sessionId: payload.sessionId }) }) as DirectReport; }
+  finally { verificationProvider.release(); }
   if (verified.selectiveVerification === true && Array.isArray(verified.steps) && Array.isArray(fast.steps)) {
     verified.steps = verified.steps.map((step, index) => step?.verificationSkipped === true && fast.steps![index]
       ? { ...fast.steps![index], ...(step.forwardSeconds === undefined ? {} : { forwardSeconds: step.forwardSeconds }), verificationSkipped: true }
@@ -212,8 +265,25 @@ class Gemma4PersistentComparisonWorker {
   constructor(options: Gemma4RealComparisonRunnerOptions) { this.transport = new PersistentJsonlWorker(options.python, [options.helper, "--source", options.source, "--serve-jsonl"], "Gemma 4 Transformers"); }
   get ready(): boolean { return this.transport.ready; }
   get initializationSeconds(): number | undefined { return this.transport.initializationSeconds; }
+  whenReady(): Promise<void> { return this.transport.whenReady(); }
   compare(request: Gemma4RealComparisonRequest): Promise<unknown> { return this.transport.send(request); }
   compareTokens(request: Gemma4RealComparisonRequest, inputIds: readonly number[]): Promise<unknown> { return this.transport.send({ ...request, prompt: undefined, inputIds: inputIds.join(",") }); }
+  encode(text: string, addSpecialTokens: boolean): Promise<{ tokenIds: number[] }> { return this.transport.send({ mode: "encode", text, addSpecialTokens }) as Promise<{ tokenIds: number[] }>; }
+  decode(tokenIds: number[]): Promise<{ text: string }> { return this.transport.send({ mode: "decode", tokenIds }) as Promise<{ text: string }>; }
+  close(): void { this.transport.close(); }
+}
+
+interface Gemma4TokenizerTransport {
+  encode(text: string, addSpecialTokens: boolean): Promise<{ tokenIds: number[] }>;
+  decode(tokenIds: number[]): Promise<{ text: string }>;
+}
+
+class Gemma4PersistentTokenizerWorker implements Gemma4TokenizerTransport {
+  readonly transport: PersistentJsonlWorker;
+  constructor(options: Gemma4RealComparisonRunnerOptions) { this.transport = new PersistentJsonlWorker(options.python, [options.tokenizerHelper ?? resolve("scripts/gemma4-tokenizer-jsonl.py"), "--source", options.source], "Gemma 4 tokenizer"); }
+  get ready(): boolean { return this.transport.ready; }
+  get initializationSeconds(): number | undefined { return this.transport.initializationSeconds; }
+  whenReady(): Promise<void> { return this.transport.whenReady(); }
   encode(text: string, addSpecialTokens: boolean): Promise<{ tokenIds: number[] }> { return this.transport.send({ mode: "encode", text, addSpecialTokens }) as Promise<{ tokenIds: number[] }>; }
   decode(tokenIds: number[]): Promise<{ text: string }> { return this.transport.send({ mode: "decode", tokenIds }) as Promise<{ text: string }>; }
   close(): void { this.transport.close(); }
@@ -234,6 +304,7 @@ class PersistentJsonlWorker {
     this.child.once("close", (code) => this.#fail(new Error(`${label} encerrou com código ${code}: ${Buffer.concat(errors).toString("utf8").trim()}`)));
   }
   async send(payload: object, onEvent?: (event: unknown) => void): Promise<unknown> { await this.#readyPromise; const id = this.#nextId++; const result = new Promise<unknown>((accept, reject) => this.pending.set(id, { accept, reject, ...(onEvent ? { onEvent } : {}) })); this.child.stdin.write(`${JSON.stringify({ id, ...payload })}\n`); return result; }
+  whenReady(): Promise<void> { return this.#readyPromise; }
   close(): void { if (!this.child.killed) this.child.kill("SIGTERM"); }
   #consume(chunk: string): void {
     this.#stdout += chunk; if (this.#stdout.length > 64 * 1024 * 1024) return this.#fail(new Error(`${this.label} excedeu 64 MiB sem delimitar resposta.`));
@@ -306,7 +377,7 @@ function normalizeTopLogits(value: unknown): Array<{ tokenId: number; value: num
 function meanOrNull(values: readonly number[]): number | null { return values.length === 0 ? null : values.reduce((sum, value) => sum + value, 0) / values.length; }
 function maxOrNull(values: readonly number[]): number | null { return values.length === 0 ? null : Math.max(...values); }
 
-async function resolveComparisonInput(worker: Gemma4PersistentComparisonWorker, request: Gemma4RealComparisonRequest, sessions: Map<number, SessionInput>): Promise<number[]> {
+async function resolveComparisonInput(worker: Gemma4TokenizerTransport, request: Gemma4RealComparisonRequest, sessions: Map<number, SessionInput>): Promise<number[]> {
   const mode = request.conversationMode ?? "raw";
   if (request.continueSession) {
     const session = sessions.get(request.sessionId!); if (!session) throw new Error("Sessão de chat inexistente ou expirada.");
@@ -370,7 +441,7 @@ export function parseGemma4RealServerOptions(arguments_: readonly string[]): Gem
     if (!flag?.startsWith("--") || value === undefined || values.has(flag)) throw new Error(`Argumento inválido: ${flag ?? "fim"}.`);
     values.set(flag, value);
   }
-  const known = new Set(["--source", "--compiled-bundle", "--python", "--helper", "--port", "--host", "--literal-artifact", "--binary-pool", "--direct-worker", "--direct-linear-helper", "--direct-mlx-helper", "--direct-linear-backend", "--direct-fused-mlp", "--direct-fused-ffn", "--direct-fused-decoder-layer", "--direct-fused-decoder-stack", "--direct-fused-ple", "--direct-fused-ple-prelude", "--direct-fused-token-forward", "--direct-resident-generation", "--direct-final-head", "--direct-final-head-read-mib", "--direct-native-attention", "--direct-fused-attention", "--direct-threads", "--direct-max-read-mib", "--direct-verification-margin"]); for (const key of values.keys()) if (!known.has(key)) throw new Error(`Flag desconhecida: ${key}.`);
+  const known = new Set(["--source", "--compiled-bundle", "--python", "--helper", "--tokenizer-helper", "--port", "--host", "--literal-artifact", "--binary-pool", "--direct-worker", "--direct-linear-helper", "--direct-mlx-helper", "--direct-linear-backend", "--direct-fused-mlp", "--direct-fused-ffn", "--direct-fused-decoder-layer", "--direct-fused-decoder-stack", "--direct-fused-ple", "--direct-fused-ple-prelude", "--direct-fused-token-forward", "--direct-resident-generation", "--direct-final-head", "--direct-final-head-read-mib", "--direct-native-attention", "--direct-fused-attention", "--direct-threads", "--direct-max-read-mib", "--direct-verification-margin"]); for (const key of values.keys()) if (!known.has(key)) throw new Error(`Flag desconhecida: ${key}.`);
   const port = Number(values.get("--port") ?? "8787"); if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) throw new Error("--port inválido.");
   const compiledBundle = resolve(values.get("--compiled-bundle") ?? "artifacts/gemma4-compiled-global-runtime-bundle");
   const bundleReady = existsSync(join(compiledBundle, "constants.literal.json")) && existsSync(join(compiledBundle, "model.safetensors")) && existsSync(join(compiledBundle, "tokenizer.json")) && existsSync(join(compiledBundle, "config.json")) && existsSync(join(compiledBundle, "manifest.json")) && existsSync(join(compiledBundle, "global-formulas.ssa.json")) && existsSync(join(compiledBundle, "vectorized-real-lowering.json"));
@@ -424,7 +495,7 @@ export function parseGemma4RealServerOptions(arguments_: readonly string[]): Gem
   if (directLinearBackend === "mlx" && directFusedAttention !== "off") throw new Error("--direct-fused-attention requer backend pytorch.");
   return {
     source, python: values.get("--python") ?? (existsSync("venv/bin/python") ? resolve("venv/bin/python") : "python3"),
-    helper: resolve(values.get("--helper") ?? "scripts/gemma4-real-differential.py"), port, host: values.get("--host") ?? "127.0.0.1",
+    helper: resolve(values.get("--helper") ?? "scripts/gemma4-real-differential.py"), tokenizerHelper: resolve(values.get("--tokenizer-helper") ?? "scripts/gemma4-tokenizer-jsonl.py"), port, host: values.get("--host") ?? "127.0.0.1",
     ...(bundleReady ? { compiledProgram: readCompiledProgramStatus(compiledBundle) } : {}),
     ...(literalArtifact && binaryPool ? { literalArtifact, binaryPool, directWorker: resolve(values.get("--direct-worker") ?? "dist/src/gemma4-paged-runtime-worker-cli.js"), directLinearHelper: resolve(values.get("--direct-linear-helper") ?? "scripts/gemma4-paged-linear-worker.py"), directMlxHelper: resolve(values.get("--direct-mlx-helper") ?? "scripts/gemma4-mlx-linear-worker.py"), directLinearBackend, directFusedMlp, directFusedFfn, directFusedDecoderLayer, directFusedDecoderStack, directFusedPle, directFusedPlePrelude, directFusedTokenForward, directResidentGeneration, directFinalHead, directNativeAttention, directFusedAttention, directThreads, directMaxReadMiB, directFinalHeadReadMiB, ...(directVerificationMargin === undefined ? {} : { directVerificationMargin }) } : {}),
   };
