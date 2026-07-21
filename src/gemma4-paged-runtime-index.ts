@@ -172,9 +172,11 @@ function validateRuntimeSnapshot(snapshot: Gemma4PagedRuntimeIndexSnapshot, arti
   if (snapshot.realLowering) {
     assertSha256(snapshot.realLowering.planSha256, "SHA-256 do plano de lowering");
     const contract = snapshot.realLowering.contract, realSection = snapshot.integrityManifest.sections.find((entry) => entry.name === "realSimplifiedProgram");
-    if (contract?.kind !== "gemma4-vectorized-real-lowering-contract" || contract.schemaVersion !== 1 ||
+    if (contract?.kind !== "gemma4-vectorized-real-lowering-contract" || contract.schemaVersion !== 2 ||
       contract.source?.artifactIntegritySha256 !== snapshot.integrityManifest.rootSha256 ||
-      contract.source.realSimplifiedProgramSha256 !== realSection?.sha256 || !/^[0-9a-f]{64}$/.test(contract.functionBindingsSha256)) {
+      contract.source.realSimplifiedProgramSha256 !== realSection?.sha256 || !/^[0-9a-f]{64}$/.test(contract.functionBindingsSha256) ||
+      !/^[0-9a-f]{64}$/.test(contract.source.outputBindingsSha256) || !/^[0-9a-f]{64}$/.test(contract.source.standaloneSsaOutputsSha256) ||
+      Object.values(contract.source.outputFamilies ?? {}).reduce((sum, family) => sum + (Number.isSafeInteger(family.dimensions) ? family.dimensions : 0), 0) !== contract.source.outputFunctions) {
       throw new Error("Certificado de lowering do índice runtime paginado é inválido.");
     }
   }

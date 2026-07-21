@@ -1568,6 +1568,33 @@ acordo no corpus e ser o mais rápido dos dois modos nativos na repetição fina
 MLX permanece em `off`; `--direct-native-attention off|bf16|real` mantém o A/B
 explícito. A interface mostra a política e a contagem efetiva de despachos.
 
+## Compromisso executável das dimensões finais
+
+O lowering vetorial schema 1 autenticava as 1.221 funções da closure global,
+mas não carregava no recibo uma prova específica das 264.704 raízes públicas.
+O schema 2 acrescenta duas ligações independentes:
+
+- `outputBindingsSha256` compromete nome, operação produtora, dimensão fixa,
+  coordenadas, parâmetros, raiz e quantização de cada função final;
+- `standaloneSsaOutputsSha256` compromete os objetos serializados no array
+  `outputs` de `global-formulas.ssa.json`.
+
+A compilação exige que cada raiz seja uma `function-call` da operação realmente
+despachada e que as dimensões sejam contíguas. No artefato Gemma 4 atual, a
+cobertura é 2.560 funções de `final_hidden_dimension` ligadas a `final_norm` e
+262.144 funções de `terminal_logit` ligadas a `final_logit_softcap`. Os hashes
+são, respectivamente,
+`221e0d09ee3fe663254223e06f1e6c8b965ef28c12a8188b1f5c3bb1c6b4f0d8` e
+`8545e86dbfd50fad57471015c39ac80b4b1ec49e6d6ac5c25f8a3cd679dde9f0`.
+
+O empacotador verifica o segundo hash lendo o SSA em streaming; não confia
+somente na contagem de nomes `calc_terminal_logit_n`. O índice runtime inclui o
+contrato novo e é reconstruído automaticamente quando o SHA do plano certificado
+fica obsoleto. O recibo de geração expõe `completeOutputFunctions: true`, a
+contagem total e o hash das raízes. Essa prova fecha SSA → plano → despacho,
+mas não altera a descrição honesta do backend: o arquivo SSA standalone não é
+interpretado no hot path e `directlyExecutesGlobalFormula` permanece `false`.
+
 Comando promovido:
 
 ```bash

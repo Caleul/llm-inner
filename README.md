@@ -2582,6 +2582,26 @@ softcap dos logits. O relatório direto publica
 hash dos bindings e SHA-256 da sequência efetivamente despachada. Omissão,
 reordenação ou substituição de qualquer operação falha antes do kernel Metal.
 
+O plano vetorial schema 2 fecha também a ligação que antes terminava nas
+operações intermediárias. As 264.704 funções públicas são validadas uma a uma:
+cada raiz precisa ser uma chamada da operação realmente presente na closure,
+as dimensões de cada família precisam ser contíguas desde zero e os parâmetros
+e a quantização final não podem variar. O plano atual cobre 2.560 dimensões de
+`final_hidden_dimension` e 262.144 `terminal_logit`, comprometidas por
+`outputBindingsSha256`
+`221e0d09ee3fe663254223e06f1e6c8b965ef28c12a8188b1f5c3bb1c6b4f0d8`.
+
+Além do compromisso semântico, `standaloneSsaOutputsSha256`
+`8545e86dbfd50fad57471015c39ac80b4b1ec49e6d6ac5c25f8a3cd679dde9f0`
+é calculado sobre o array `outputs` físico de `global-formulas.ssa.json`. A
+montagem ou atualização do bundle relê esse trecho em streaming e recusa SSA
+alterado, truncado ou vindo de outro plano. O recibo de cada geração publica
+`completeOutputFunctions`, a contagem e o mesmo hash. Isso prova que o caminho
+vetorial cobre todas as fórmulas finais persistidas sem carregar 430 MiB no hot
+path. O manifesto ainda mantém `directlyExecutesGlobalFormula: false`: a
+execução é um lowering vetorial autenticado, não um interpretador textual do
+arquivo SSA, e essa distinção continua explícita.
+
 A geração greedy diferencial possui uma interface local funcional:
 
 ```bash

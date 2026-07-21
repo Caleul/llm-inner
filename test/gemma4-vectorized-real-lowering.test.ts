@@ -15,6 +15,8 @@ test("vincula cada closure real autenticada a uma família vetorizada de kernel"
   assert.equal(contract.source.globalClosureFunctions, operations.length);
   assert.equal(contract.execution.intermediateBf16Boundaries, 0);
   assert.equal(contract.execution.directlyLoadsStandaloneSsaFile, false);
+  assert.deepEqual(contract.source.outputFamilies, { terminal_logits: { dimensions: 1, operationId: "operation_0", parameters: [], finalQuantization: "BF16-round-to-nearest-ties-to-even" } });
+  assert.match(contract.source.outputBindingsSha256, /^[0-9a-f]{64}$/);
   assert.deepEqual(Object.values(contract.coverage.kernels), operations.map(() => 1));
   assert.match(contract.functionBindingsSha256, /^[0-9a-f]{64}$/);
   assert.equal(buildGemma4VectorizedRealLoweringContract(program, graph, manifest).functionBindingsSha256, contract.functionBindingsSha256);
@@ -24,6 +26,12 @@ test("falha fechado quando a closure contém operação sem lowering", () => {
   const { program, graph, manifest } = fixture();
   graph.assignments[0]!.operation = "unknown_runtime_operator";
   assert.throws(() => buildGemma4VectorizedRealLoweringContract(program, graph, manifest), /operação sem lowering vetorizado/);
+});
+
+test("falha fechado quando calc_final não chama exatamente a operação despachada", () => {
+  const { program, graph, manifest } = fixture();
+  program.outputFunctions[0]!.root = "rational:one";
+  assert.throws(() => buildGemma4VectorizedRealLoweringPlan(program, graph, manifest), /saída final não está ligada/);
 });
 
 test("plano persistido precisa preservar cada binding e coincidir integralmente com o artefato", () => {
@@ -55,6 +63,7 @@ test("autoriza somente o despacho completo e ordenado da closure global", () => 
   const operations = plan.functionBindings.map((binding) => ({ id: binding.operationId, op: binding.operation, output: binding.output }));
   const receipt = guard.authorize(operations);
   assert.equal(receipt.completeGlobalClosure, true); assert.equal(receipt.dispatchedFunctions, operations.length);
+  assert.equal(receipt.completeOutputFunctions, true); assert.equal(receipt.outputFunctions, 1); assert.equal(receipt.outputBindingsSha256, plan.contract.source.outputBindingsSha256);
   assert.equal(guard.summary()?.authorizedDispatches, 1); assert.match(receipt.orderedDispatchSha256, /^[0-9a-f]{64}$/);
   assert.throws(() => guard.authorize(operations.slice(1)), /plano exige/);
   const reordered = structuredClone(operations); [reordered[0], reordered[1]] = [reordered[1]!, reordered[0]!];
@@ -72,9 +81,9 @@ function fixture(): {
   }));
   const program = {
     kind: "gemma4-parametric-exact-real-simplified-program", schemaVersion: 1, semantics: "gemma4-exact-real-simplified-v1", inputBoundaries: [],
-    expressionGraph: { kind: "gemma4-parametric-real-expression-graph", schemaVersion: 1, nodes: [{ id: "rational:one", kind: "rational", numerator: "1", denominator: "1" }] },
+    expressionGraph: { kind: "gemma4-parametric-real-expression-graph", schemaVersion: 1, nodes: [{ id: "rational:one", kind: "rational", numerator: "1", denominator: "1" }, { id: "call:output", kind: "function-call", functionId: "op:0", arguments: [] }] },
     operationFunctions,
-    outputFunctions: [{ name: "terminal_logits", operationId: "operation_0", fixedDimension: 0, coordinate: [], parameters: [], root: "rational:one", finalQuantization: "BF16-round-to-nearest-ties-to-even" }],
+    outputFunctions: [{ name: "terminal_logits", operationId: "operation_0", fixedDimension: 0, coordinate: [], parameters: [], root: "call:output", finalQuantization: "BF16-round-to-nearest-ties-to-even" }],
     coverage: { sourceAssignments: operations.length, compiledOperationTemplates: operations.length, learnedRationalTableReads: 0, runtimeDefinedReductionsLowered: 0, unresolvedRuntimeReductions: 0, intermediateIeeeRoundingNodes: 0 },
   } as unknown as Gemma4ParametricExactRealProgram;
   const graph = {
