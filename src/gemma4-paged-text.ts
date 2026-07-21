@@ -62,6 +62,8 @@ export interface Gemma4PagedTextOptions {
   fusedAttentionRounding?: "bf16" | "real";
   /** Whole per-layer-input gate -> projection -> norm -> residual subgraph. */
   fusedPleRounding?: "bf16" | "real";
+  /** Experimental projection -> norm -> token combine fusion before decoder layers. */
+  fusedPlePreludeRounding?: "bf16" | "real";
 }
 
 /**
@@ -233,6 +235,21 @@ async function executePagedOperations(
         break;
       case "linear":
         if (!operation.transposeWeight || operation.bias) throw new Error(`${operation.id}: executor Gemma 4 paginado requer linear [out,in] sem bias.`);
+        if (options.fusedPlePreludeRounding && options.linearTileKernel?.fusedPlePreludeStorageReference) {
+          const fused = matchFusedPlePrelude(operations, operationIndex, operation, options.fusedPlePreludeRounding);
+          if (fused) {
+            for (const fusedOperation of fused.operations) assertPagedF32Policy(fusedOperation);
+            const input = value(values, operation.input), tokenIdentity = value(values, fused.tokenIdentityInput);
+            if (input.shape.length !== 3 || tokenIdentity.shape.length !== 4 || input.shape[0] !== tokenIdentity.shape[0] || input.shape[1] !== tokenIdentity.shape[1]) throw new Error(`${operation.id}: prelude PLE requer entrada [B,S,H] e identidade [B,S,L,P].`);
+            const rows = input.shape[0]! * input.shape[1]!, hiddenSize = input.shape[2]!;
+            const outputValues = await options.linearTileKernel.fusedPlePreludeStorageReference({ input: input.values, tokenIdentity: tokenIdentity.values, projectionWeight: tensorInfo(artifact, operation.weight), normWeight: tensorInfo(artifact, fused.norm.weight!), rows, hiddenSize, numLayers: fused.reshape.numLayers, perLayerWidth: fused.reshape.layerWidth, contextScale: fused.contextScale.scalar!, combineScale: fused.combineScale.scalar!, epsilon: fused.norm.epsilon, maxReadBytes, rounding: options.fusedPlePreludeRounding });
+            if (outputValues.length !== tokenIdentity.values.length || outputValues.some((entry) => !Number.isFinite(entry))) throw new Error(`${options.linearTileKernel.backend}: prelude PLE fundido retornou saída inválida.`);
+            const output = { shape: [...tokenIdentity.shape], values: outputValues };
+            if (options.fusedPlePreludeRounding === "bf16") store(fused.combineScale, output); else values.set(fused.combineScale.output, output);
+            operationIndex += fused.operations.length - 1;
+            break;
+          }
+        }
         if (options.fusedAttentionRounding && options.linearTileKernel?.fusedAttentionStorageReferences) {
           const fused = matchFusedAttention(operations, operationIndex, operation);
           if (fused) {
@@ -391,6 +408,8 @@ type RotaryOperation = Extract<Operation, { op: "rotary_embedding" }>;
 type AttentionOperation = Extract<Operation, { op: "scaled_dot_product_attention" }>;
 type SelectPerLayerOperation = Extract<Operation, { op: "select_per_layer" }>;
 type TensorScaleOperation = Extract<Operation, { op: "tensor_scale" }>;
+type ReshapePerLayerOperation = Extract<Operation, { op: "reshape_per_layer" }>;
+type ElementwiseOperation = Extract<Operation, { op: "elementwise" }>;
 
 interface FusedAttentionMatch {
   operations: readonly Operation[];
@@ -463,6 +482,15 @@ function matchFusedPle(operations: readonly Operation[], index: number, select: 
   const matched = operations.slice(index, index + 8);
   if (rounding === "bf16" && matched.some((operation) => operation.dtypePolicy.outputDtype !== "BF16")) return undefined;
   return { operations: matched, gate, projection, norm, scalar };
+}
+
+function matchFusedPlePrelude(operations: readonly Operation[], index: number, projection: LinearOperation, rounding: "bf16" | "real"): { operations: readonly Operation[]; contextScale: ElementwiseOperation; reshape: ReshapePerLayerOperation; norm: RmsNormOperation; combineScale: ElementwiseOperation; tokenIdentityInput: string } | undefined {
+  const contextScale = operations[index + 1], reshape = operations[index + 2], norm = operations[index + 3], combine = operations[index + 4], combineScale = operations[index + 5];
+  if (contextScale?.op !== "elementwise" || reshape?.op !== "reshape_per_layer" || norm?.op !== "rms_norm" || combine?.op !== "elementwise" || combineScale?.op !== "elementwise") return undefined;
+  if (!projection.transposeWeight || projection.bias || contextScale.kind !== "scale" || contextScale.inputs.length !== 1 || contextScale.inputs[0] !== projection.output || contextScale.scalar === undefined || !Number.isFinite(contextScale.scalar) || reshape.input !== contextScale.output || reshape.numLayers * reshape.layerWidth !== projection.outFeatures || norm.input !== reshape.output || !norm.weight || norm.weightTransform !== "direct" || norm.weight.shape.length !== 1 || norm.weight.shape[0] !== reshape.layerWidth || combine.kind !== "add" || combine.inputs.length !== 2 || combine.inputs[0] !== norm.output || combineScale.kind !== "scale" || combineScale.inputs.length !== 1 || combineScale.inputs[0] !== combine.output || combineScale.scalar === undefined || !Number.isFinite(combineScale.scalar)) return undefined;
+  const matched = operations.slice(index, index + 6);
+  if (rounding === "bf16" && matched.some((operation) => operation.dtypePolicy.outputDtype !== "BF16")) return undefined;
+  return { operations: matched, contextScale, reshape, norm, combineScale, tokenIdentityInput: combine.inputs[1]! };
 }
 
 function assertFusedSourceCache(key: DenseF32Tensor, valueTensor: DenseF32Tensor, batch: number, heads: number, headDim: number, operationId: string): void {

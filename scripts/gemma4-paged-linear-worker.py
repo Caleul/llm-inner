@@ -24,7 +24,7 @@ def read_exact(size):
     return chunks
 
 
-def read_whole_tensor(pool, files, mappings, expected_shape):
+def read_whole_tensor(pool, files, mappings, expected_shape, widen=True):
     metadata = read_exact(36)
     request_dtype, first, second, byte_offset, byte_length, start_output, shard_length, name_length = struct.unpack("<IIIQIIII", metadata)
     if request_dtype not in (0, 1, 2) or (first, second) != expected_shape or start_output != 0:
@@ -47,8 +47,8 @@ def read_whole_tensor(pool, files, mappings, expected_shape):
         mappings[path] = mmap.mmap(files[path].fileno(), 0, access=mmap.ACCESS_READ)
     if byte_offset + byte_length > mappings[path].size():
         raise ValueError("fused attention tensor range exceeds shard")
-    tensor = torch.frombuffer(mappings[path], dtype=storage_dtype, count=first * second, offset=byte_offset).reshape(first, second).float()
-    return tensor
+    tensor = torch.frombuffer(mappings[path], dtype=storage_dtype, count=first * second, offset=byte_offset).reshape(first, second)
+    return tensor.float() if widen else tensor
 
 
 def rms_norm_real(tensor, weight, epsilon):
@@ -121,9 +121,10 @@ def main():
             native_attention = bool(encoded_dtype & 0x08000000)
             fused_attention = bool(encoded_dtype & 0x04000000)
             fused_ple = bool(encoded_dtype & 0x02000000)
-            dtype_code = encoded_dtype & 0x01ffffff
+            fused_ple_prelude = bool(encoded_dtype & 0x01000000)
+            dtype_code = encoded_dtype & 0x00ffffff
             if fused_attention:
-                if referenced or batched or fused_mlp or native_bf16 or native_attention or fused_ple or dtype_code != 0 or pool is None:
+                if referenced or batched or fused_mlp or native_bf16 or native_attention or fused_ple or fused_ple_prelude or dtype_code != 0 or pool is None:
                     raise ValueError("fused attention flags are invalid")
                 batch, query_heads, key_value_heads = rows, outputs, features
                 metadata = read_exact(80)
@@ -194,7 +195,7 @@ def main():
                 del inputs, positions, mask, source_key, source_value, query_weight, query_norm, output_weight, query, key_weight, key_norm, value_weight, current_key_heads, current_key, current_value, key, value, attention_key, attention_value, scores, probabilities, context, projected, boundary
                 continue
             if fused_ple:
-                if referenced or batched or fused_mlp or native_bf16 or native_attention or fused_attention or dtype_code != 0 or pool is None or outputs != features:
+                if referenced or batched or fused_mlp or native_bf16 or native_attention or fused_attention or fused_ple_prelude or dtype_code != 0 or pool is None or outputs != features:
                     raise ValueError("fused PLE flags are invalid")
                 per_layer_width, descriptor_count, rounding = struct.unpack("<III", read_exact(12))
                 epsilon = struct.unpack("<f", read_exact(4))[0]
@@ -224,8 +225,36 @@ def main():
                 sys.stdout.buffer.flush()
                 del inputs, per_layer, gate_weight, projection_weight, norm_weight, layer_scalar, boundary, gate, cube, inner, activated, gated, projected, normalized, residual, result
                 continue
+            if fused_ple_prelude:
+                if referenced or batched or fused_mlp or native_bf16 or native_attention or fused_attention or fused_ple or dtype_code != 0 or pool is None:
+                    raise ValueError("fused PLE prelude flags are invalid")
+                metadata = read_exact(32)
+                num_layers, per_layer_width, descriptor_count, rounding = struct.unpack("<IIII", metadata[:16])
+                context_scale, combine_scale, epsilon = struct.unpack("<fff", metadata[16:28])
+                tile_output_rows = struct.unpack("<I", metadata[28:32])[0]
+                if not num_layers or not per_layer_width or outputs != num_layers * per_layer_width or descriptor_count != 2 or rounding not in (0, 1) or not tile_output_rows or not math.isfinite(context_scale) or not math.isfinite(combine_scale) or not math.isfinite(epsilon) or epsilon <= 0:
+                    raise ValueError("fused PLE prelude metadata is invalid")
+                input_bytes = read_exact(rows * features * 4)
+                token_bytes = read_exact(rows * outputs * 4)
+                inputs = torch.frombuffer(input_bytes, dtype=torch.float32).reshape(rows, features)
+                token_identity = torch.frombuffer(token_bytes, dtype=torch.float32).reshape(rows, num_layers, per_layer_width)
+                projection_weight = read_whole_tensor(pool, files, mappings, (outputs, features), widen=False)
+                norm_weight = read_whole_tensor(pool, files, mappings, (per_layer_width, 1)).reshape(per_layer_width)
+                boundary = (lambda value: value.to(torch.bfloat16).float()) if rounding == 0 else (lambda value: value)
+                context = torch.cat([torch.mm(inputs, projection_weight[start:start + tile_output_rows].float().transpose(0, 1)) for start in range(0, outputs, tile_output_rows)], dim=1)
+                context = boundary(context)
+                context = boundary(context * torch.tensor(context_scale, dtype=torch.float32)).reshape(rows, num_layers, per_layer_width)
+                normalized = boundary(rms_norm_real(context, norm_weight, epsilon))
+                combined = boundary(normalized + token_identity)
+                result = boundary(combined * torch.tensor(combine_scale, dtype=torch.float32)).reshape(rows, outputs).contiguous()
+                if not torch.isfinite(result).all():
+                    raise ValueError("fused PLE prelude produced non-finite output")
+                write_float_tensor(result)
+                sys.stdout.buffer.flush()
+                del inputs, token_identity, projection_weight, norm_weight, boundary, context, normalized, combined, result
+                continue
             if native_attention:
-                if referenced or batched or fused_mlp or native_bf16 or fused_attention or fused_ple or dtype_code != 0:
+                if referenced or batched or fused_mlp or native_bf16 or fused_attention or fused_ple or fused_ple_prelude or dtype_code != 0:
                     raise ValueError("native attention flags are invalid")
                 batch, query_heads, key_value_heads = rows, outputs, features
                 metadata = read_exact(32)

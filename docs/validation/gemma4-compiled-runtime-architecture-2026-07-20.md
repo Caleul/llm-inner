@@ -273,6 +273,47 @@ npm run calibrate:gemma4-real -- \
   --precision f32 --rounding-policy none
 ```
 
+## Prelude PLE fundido experimental
+
+As quatro lineares referenciadas que restam além do `lm_head` pertencem a uma
+única projeção do hidden state para `[42,256]`, seguida por escala, reshape,
+RMSNorm, soma com o embedding PLE do token e escala final. O modo
+`fusedPlePreludeRounding` compõe essas seis operações numa travessia do worker.
+Ele autentica a projeção `[10752,2560]` e a norma `[256]` no `mmap`, recebe os
+dois vetores de entrada e devolve diretamente `ple_inputs`.
+
+A primeira implementação ampliava e multiplicava os 55 MB de pesos de uma vez.
+Como o `lm_head` já mostrara perda de localidade em matrizes grandes, uma segunda
+implementação manteve uma única travessia de processo, mas reproduziu dentro do
+worker os blocos de até 16 MiB usados pelo executor paginado.
+
+No caso isolado `[2]` com dois tokens, o modo BF16 cacheado preservou tokens,
+top logits e o SHA-256 terminal
+`1f65253f2759208e828a710a3f8f574d713b5b0b170f1c6174f20aee95c4bdd0`.
+As referências caíram de 170 para 162 e dois preludes fundidos substituíram as
+oito páginas. O forward quente isolado mediu `0,5000 s`, contra `0,5106 s` sem
+a fusão.
+
+O corpus 8×2, porém, contradisse a amostra isolada:
+
+- controle promovido, prelude `off`: `1,1907 token/s`;
+- prelude `bf16` cacheado: `1,1662 token/s`;
+- PLE e prelude `real`: `1,1666 token/s`;
+- todos mantiveram 7/8 prompts e 15/16 tokens iguais ao baseline.
+
+Logo, eliminar três travessias por forward não compensou o custo de compor a
+projeção e o pós-processamento nesse worker. O prelude fica disponível como
+experimento explícito em
+`--direct-fused-ple-prelude off|bf16|real`, mas o padrão é `off`. Isso é
+independente de `--direct-fused-ple`, cujo `bf16` continua promovido para as 42
+camadas. A interface separa política e contagem do prelude para não confundir
+uma redução estrutural com aceleração comprovada.
+
+Relatórios:
+
+- `artifacts/gemma4-three-way-calibration-8x2-fused-ple-prelude-bf16-experimental.json`;
+- `artifacts/gemma4-three-way-calibration-8x2-fused-ple-prelude-real-experimental.json`.
+
 ## Subgrafo PLE completo por camada
 
 Depois das fusões de attention e MLP, cada uma das 42 camadas ainda executava

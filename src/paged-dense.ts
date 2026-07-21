@@ -27,6 +27,7 @@ export interface PagedLinearTileKernel {
   multiplyStorageReferences?: ((input: Float32Array, requests: readonly PagedLinearStorageReference[], rows: number) => Promise<readonly Float32Array[]>) | undefined;
   fusedGatedMlpStorageReference?: ((input: Float32Array, gate: TensorInfo, up: TensorInfo, down: TensorInfo, rows: number, rounding: "bf16" | "real") => Promise<Float32Array>) | undefined;
   fusedPleStorageReferences?: ((request: PagedFusedPleRequest) => Promise<Float32Array>) | undefined;
+  fusedPlePreludeStorageReference?: ((request: PagedFusedPlePreludeRequest) => Promise<Float32Array>) | undefined;
   attention?: ((request: PagedNativeAttentionRequest) => Promise<Float32Array>) | undefined;
   fusedAttentionStorageReferences?: ((request: PagedFusedAttentionRequest) => Promise<PagedFusedAttentionResult>) | undefined;
 }
@@ -42,6 +43,22 @@ export interface PagedFusedPleRequest {
   hiddenSize: number;
   perLayerWidth: number;
   epsilon: number;
+  rounding: "bf16" | "real";
+}
+
+export interface PagedFusedPlePreludeRequest {
+  input: Float32Array;
+  tokenIdentity: Float32Array;
+  projectionWeight: TensorInfo;
+  normWeight: TensorInfo;
+  rows: number;
+  hiddenSize: number;
+  numLayers: number;
+  perLayerWidth: number;
+  contextScale: number;
+  combineScale: number;
+  epsilon: number;
+  maxReadBytes: number;
   rounding: "bf16" | "real";
 }
 

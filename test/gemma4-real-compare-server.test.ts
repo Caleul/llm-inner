@@ -50,11 +50,12 @@ test("servidor diferencial valida opções reprodutíveis", () => {
   assert.throws(() => parseGemma4RealServerOptions(["--direct-linear-backend", "metal"]), /pytorch ou mlx/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-mlp", "always"]), /off, bf16 ou real/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-ple", "always"]), /off, bf16 ou real/);
+  assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-ple-prelude", "always"]), /off, bf16 ou real/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-final-head", "fp16"]), /f32, native-bf16 ou native-bf16-whole/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-native-attention", "auto"]), /off, bf16 ou real/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-attention", "always"]), /off, bf16 ou real/);
   const directDefaults = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool"]);
-  assert.equal(directDefaults.directFusedMlp, "real"); assert.equal(directDefaults.directFusedPle, "bf16"); assert.equal(directDefaults.directFinalHead, "native-bf16"); assert.equal(directDefaults.directNativeAttention, "real"); assert.equal(directDefaults.directFusedAttention, "bf16");
+  assert.equal(directDefaults.directFusedMlp, "real"); assert.equal(directDefaults.directFusedPle, "bf16"); assert.equal(directDefaults.directFusedPlePrelude, "off"); assert.equal(directDefaults.directFinalHead, "native-bf16"); assert.equal(directDefaults.directNativeAttention, "real"); assert.equal(directDefaults.directFusedAttention, "bf16");
   const mlxDefaults = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-linear-backend", "mlx"]);
   assert.equal(mlxDefaults.directFusedPle, "off"); assert.equal(mlxDefaults.directFinalHead, "f32"); assert.equal(mlxDefaults.directNativeAttention, "off"); assert.equal(mlxDefaults.directFusedAttention, "off");
   assert.throws(() => parseGemma4RealServerOptions(["--unknown", "x"]), /Flag desconhecida/);
