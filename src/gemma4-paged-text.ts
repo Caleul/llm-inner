@@ -58,6 +58,8 @@ export interface Gemma4PagedTextOptions {
   finalHeadCompute?: "f32" | "native-bf16";
   /** Optional native QK/softmax/PV kernel; real removes its internal BF16 boundaries. */
   nativeAttentionRounding?: "bf16" | "real";
+  /** Whole Q/K/V -> norm/RoPE -> attention -> O subgraph with explicit boundary policy. */
+  fusedAttentionRounding?: "bf16" | "real";
 }
 
 /**
@@ -214,6 +216,72 @@ async function executePagedOperations(
         break;
       case "linear":
         if (!operation.transposeWeight || operation.bias) throw new Error(`${operation.id}: executor Gemma 4 paginado requer linear [out,in] sem bias.`);
+        if (options.fusedAttentionRounding && options.linearTileKernel?.fusedAttentionStorageReferences) {
+          const fused = matchFusedAttention(operations, operationIndex, operation);
+          if (fused) {
+            if (!positions || fused.attention.layer === undefined) throw new Error(`${operation.id}: subgrafo de attention requer posições e camada declaradas.`);
+            for (const fusedOperation of fused.operations) assertPagedF32Policy(fusedOperation);
+            const input = value(values, operation.input);
+            if (input.shape.length !== 3) throw new Error(`${operation.id}: subgrafo de attention requer entrada [B,S,H].`);
+            const [batch, querySequence, hiddenSize] = input.shape as [number, number, number];
+            if (positions.length !== batch || positions.some((row) => row.length !== querySequence)) throw new Error(`${operation.id}: posições incompatíveis com o subgrafo de attention.`);
+            const topologyMask = request.attentionMasksByLayer?.get(fused.attention.layer);
+            let sourceKey: DenseF32Tensor | undefined, sourceValue: DenseF32Tensor | undefined, sourceSequence = 0;
+            if (fused.attention.kvSharing) {
+              const producer = fused.attention.kvSharing.producerLayer;
+              if (producer === undefined) throw new Error(`${fused.attention.id}: KV compartilhado sem produtor declarado.`);
+              const shared = producedCache.get(producer);
+              if (!shared) throw new Error(`${fused.attention.id}: KV compartilhado não encontrou cache do produtor ${producer}.`);
+              assertFusedSourceCache(shared.key, shared.value, batch, fused.attention.numKeyValueHeads, fused.attention.headDim, fused.attention.id);
+              sourceKey = shared.key; sourceValue = shared.value; sourceSequence = shared.key.shape[2]!;
+            } else {
+              const previous = request.pastKeyValues?.get(fused.attention.layer);
+              if (request.pastKeyValues && !previous) throw new Error(`${fused.attention.id}: pastKeyValues não contém a camada ${fused.attention.layer}.`);
+              if (previous) {
+                assertFusedSourceCache(previous.key, previous.value, batch, fused.attention.numKeyValueHeads, fused.attention.headDim, fused.attention.id);
+                sourceKey = previous.key; sourceValue = previous.value; sourceSequence = previous.key.shape[2]!;
+              }
+            }
+            const producesKeyValue = !fused.attention.kvSharing;
+            const keySequence = sourceSequence + (producesKeyValue ? querySequence : 0);
+            const pastLength = producesKeyValue ? sourceSequence : sourceSequence - querySequence;
+            if (pastLength < 0) throw new Error(`${fused.attention.id}: cache compartilhado é menor que a consulta atual.`);
+            const declaredMask = topologyMask ?? request.attentionMask;
+            const nativeMask = topologyMask ? topologyMask : materializeAttentionTopologyMask(declaredMask, fused.attention, batch, querySequence, keySequence, pastLength);
+            assertNativeAttentionMask(nativeMask, batch, fused.attention.numAttentionHeads, querySequence, keySequence, fused.attention.id);
+            const positionValues = new Int32Array(batch * querySequence);
+            for (let b = 0; b < batch; b += 1) for (let s = 0; s < querySequence; s += 1) {
+              const position = positions[b]![s]!;
+              if (!Number.isSafeInteger(position) || position < -2_147_483_648 || position > 2_147_483_647) throw new Error(`${operation.id}: posição ${position} excede o protocolo Int32 do subgrafo.`);
+              positionValues[b * querySequence + s] = position;
+            }
+            const half = fused.queryRope.rotaryDim / 2;
+            const proportionalPairs = fused.queryRope.ropeType === "proportional" ? Math.floor(Number(fused.queryRope.scaling?.partial_rotary_factor) * fused.attention.headDim / 2) : half;
+            const proportionalFactor = fused.queryRope.ropeType === "proportional" ? Number(fused.queryRope.scaling?.factor ?? 1) : 1;
+            const result = await options.linearTileKernel.fusedAttentionStorageReferences({
+              input: input.values, positions: positionValues, mask: nativeMask.values,
+              sourceKey: sourceKey?.values ?? new Float32Array(), sourceValue: sourceValue?.values ?? new Float32Array(),
+              queryWeight: tensorInfo(artifact, operation.weight), queryNorm: tensorInfo(artifact, fused.queryNorm.weight!), outputWeight: tensorInfo(artifact, fused.output.weight),
+              ...(fused.key ? { keyWeight: tensorInfo(artifact, fused.key.weight), keyNorm: tensorInfo(artifact, fused.keyNorm!.weight!) } : {}),
+              ...(fused.value ? { valueWeight: tensorInfo(artifact, fused.value.weight) } : {}),
+              batch, querySequence, sourceSequence, hiddenSize, queryHeads: fused.attention.numAttentionHeads, keyValueHeads: fused.attention.numKeyValueHeads, headDim: fused.attention.headDim, maskHeads: nativeMask.shape[1]!,
+              producesKeyValue, valueFromKey: fused.valueFromKey, epsilon: fused.queryNorm.epsilon, scale: fused.attention.scale,
+              ropeType: fused.queryRope.ropeType, theta: fused.queryRope.theta, rotaryDim: fused.queryRope.rotaryDim, proportionalPairs, proportionalFactor, rounding: options.fusedAttentionRounding,
+            });
+            if (result.projected.length !== batch * querySequence * fused.output.outFeatures || result.projected.some((entry) => !Number.isFinite(entry))) throw new Error(`${operation.id}: subgrafo de attention retornou projeção inválida.`);
+            values.set(fused.output.output, { shape: [batch, querySequence, fused.output.outFeatures], values: result.projected });
+            if (producesKeyValue) {
+              const cacheElements = batch * fused.attention.numKeyValueHeads * keySequence * fused.attention.headDim;
+              if (!result.key || !result.value || result.key.length !== cacheElements || result.value.length !== cacheElements || result.key.some((entry) => !Number.isFinite(entry)) || result.value.some((entry) => !Number.isFinite(entry))) throw new Error(`${operation.id}: subgrafo de attention retornou cache KV inválido.`);
+              producedCache.set(fused.attention.layer, {
+                key: { shape: [batch, fused.attention.numKeyValueHeads, keySequence, fused.attention.headDim], values: result.key },
+                value: { shape: [batch, fused.attention.numKeyValueHeads, keySequence, fused.attention.headDim], values: result.value },
+              });
+            }
+            operationIndex += fused.operations.length - 1;
+            break;
+          }
+        }
         if (options.fusedMlpRounding && options.linearTileKernel?.fusedGatedMlpStorageReference) {
           const fused = matchFusedGatedMlp(operations, operationIndex, operation);
           if (fused) {
@@ -299,12 +367,77 @@ function isFusibleSharedInputLinear(left: Extract<Operation, { op: "linear" }>, 
 }
 
 type LinearOperation = Extract<Operation, { op: "linear" }>;
+type ReshapeHeadsOperation = Extract<Operation, { op: "reshape_heads" }>;
+type RmsNormOperation = Extract<Operation, { op: "rms_norm" }>;
+type RotaryOperation = Extract<Operation, { op: "rotary_embedding" }>;
+type AttentionOperation = Extract<Operation, { op: "scaled_dot_product_attention" }>;
+
+interface FusedAttentionMatch {
+  operations: readonly Operation[];
+  queryNorm: RmsNormOperation;
+  queryRope: RotaryOperation & { ropeType: "default" | "proportional" };
+  key?: LinearOperation;
+  keyNorm?: RmsNormOperation;
+  value?: LinearOperation;
+  valueFromKey: boolean;
+  attention: AttentionOperation;
+  output: LinearOperation;
+}
+
+function matchFusedAttention(operations: readonly Operation[], index: number, query: LinearOperation): FusedAttentionMatch | undefined {
+  const queryHeads = operations[index + 1], queryNorm = operations[index + 2], queryRope = operations[index + 3];
+  if (!isHeadsAfter(queryHeads, query) || !isWeightedNormAfter(queryNorm, queryHeads) || !isRopeAfter(queryRope, queryNorm)) return undefined;
+  if (queryRope.ropeType !== "default" && queryRope.ropeType !== "proportional") return undefined;
+  let cursor = index + 4;
+  let key: LinearOperation | undefined, keyHeads: ReshapeHeadsOperation | undefined, keyNorm: RmsNormOperation | undefined, keyRope: RotaryOperation | undefined;
+  let value: LinearOperation | undefined, valueNorm: RmsNormOperation | undefined, valueFromKey = false;
+  if (operations[cursor]?.op !== "scaled_dot_product_attention") {
+    const possibleKey = operations[cursor], possibleKeyHeads = operations[cursor + 1], possibleKeyNorm = operations[cursor + 2], possibleKeyRope = operations[cursor + 3];
+    if (possibleKey?.op !== "linear" || possibleKey.input !== query.input || !possibleKey.transposeWeight || possibleKey.bias || !isHeadsAfter(possibleKeyHeads, possibleKey) || !isWeightedNormAfter(possibleKeyNorm, possibleKeyHeads) || !isRopeAfter(possibleKeyRope, possibleKeyNorm)) return undefined;
+    if (possibleKeyRope.ropeType !== queryRope.ropeType || possibleKeyRope.theta !== queryRope.theta || possibleKeyRope.rotaryDim !== queryRope.rotaryDim || JSON.stringify(possibleKeyRope.scaling) !== JSON.stringify(queryRope.scaling)) return undefined;
+    key = possibleKey; keyHeads = possibleKeyHeads; keyNorm = possibleKeyNorm; keyRope = possibleKeyRope; cursor += 4;
+    const possibleValue = operations[cursor];
+    if (possibleValue?.op === "linear") {
+      const possibleValueHeads = operations[cursor + 1], possibleValueNorm = operations[cursor + 2];
+      if (possibleValue.input !== query.input || !possibleValue.transposeWeight || possibleValue.bias || !isHeadsAfter(possibleValueHeads, possibleValue) || possibleValueNorm?.op !== "rms_norm" || possibleValueNorm.input !== possibleValueHeads.output || possibleValueNorm.weight || possibleValueNorm.weightTransform !== "none") return undefined;
+      value = possibleValue; valueNorm = possibleValueNorm; cursor += 3;
+    } else {
+      if (possibleValue?.op !== "rms_norm" || possibleValue.input !== keyHeads.output || possibleValue.weight || possibleValue.weightTransform !== "none") return undefined;
+      valueNorm = possibleValue; valueFromKey = true; cursor += 1;
+    }
+  }
+  const attention = operations[cursor], output = operations[cursor + 1];
+  if (attention?.op !== "scaled_dot_product_attention" || output?.op !== "linear" || !output.transposeWeight || output.bias || output.input !== attention.output || attention.query !== queryRope.output) return undefined;
+  if (queryHeads.numHeads !== attention.numAttentionHeads || queryHeads.headDim !== attention.headDim || query.outFeatures !== attention.numAttentionHeads * attention.headDim || output.inFeatures !== query.outFeatures || query.inFeatures !== output.outFeatures) return undefined;
+  if (key) {
+    if (attention.kvSharing || !keyHeads || !keyNorm || !keyRope || !valueNorm || attention.key !== keyRope.output || attention.value !== valueNorm.output || keyHeads.numHeads !== attention.numKeyValueHeads || keyHeads.headDim !== attention.headDim || key.outFeatures !== attention.numKeyValueHeads * attention.headDim || value && value.outFeatures !== key.outFeatures || queryNorm.epsilon !== keyNorm.epsilon || queryNorm.epsilon !== valueNorm.epsilon) return undefined;
+  } else if (!attention.kvSharing) return undefined;
+  const matched = operations.slice(index, cursor + 2);
+  return { operations: matched, queryNorm, queryRope: queryRope as FusedAttentionMatch["queryRope"], ...(key && keyNorm ? { key, keyNorm } : {}), ...(value ? { value } : {}), valueFromKey, attention, output };
+}
+
+function isHeadsAfter(operation: Operation | undefined, linear: LinearOperation): operation is ReshapeHeadsOperation {
+  return operation?.op === "reshape_heads" && operation.layout === "BHSD" && operation.input === linear.output && operation.numHeads * operation.headDim === linear.outFeatures;
+}
+
+function isWeightedNormAfter(operation: Operation | undefined, input: ReshapeHeadsOperation): operation is RmsNormOperation {
+  return operation?.op === "rms_norm" && operation.input === input.output && operation.weight !== undefined && operation.weightTransform === "direct" && operation.weight.shape.length === 1 && operation.weight.shape[0] === input.headDim;
+}
+
+function isRopeAfter(operation: Operation | undefined, input: RmsNormOperation): operation is RotaryOperation {
+  return operation?.op === "rotary_embedding" && operation.input === input.output && operation.layout === "rotate_half";
+}
+
 function matchFusedGatedMlp(operations: readonly Operation[], index: number, gate: LinearOperation): { up: LinearOperation; down: LinearOperation; operations: readonly Operation[] } | undefined {
   const up = operations[index + 1], activation = operations[index + 2], multiply = operations[index + 3], down = operations[index + 4];
   if (up?.op !== "linear" || activation?.op !== "activation" || multiply?.op !== "elementwise" || down?.op !== "linear") return undefined;
   if (up.input !== gate.input || !up.transposeWeight || up.bias || activation.input !== gate.output || activation.function !== "gelu" || activation.approximation !== "tanh" || multiply.kind !== "multiply" || multiply.inputs.length !== 2 || multiply.inputs[0] !== activation.output || multiply.inputs[1] !== up.output || down.input !== multiply.output || !down.transposeWeight || down.bias) return undefined;
   if ([gate, up, activation, multiply, down].some((operation) => operation.dtypePolicy.outputDtype !== "BF16")) return undefined;
   return { up, down, operations: [up, activation, multiply, down] };
+}
+
+function assertFusedSourceCache(key: DenseF32Tensor, valueTensor: DenseF32Tensor, batch: number, heads: number, headDim: number, operationId: string): void {
+  if (key.shape.length !== 4 || valueTensor.shape.length !== 4 || key.shape[0] !== batch || key.shape[1] !== heads || key.shape[3] !== headDim || valueTensor.shape.some((dimension, index) => dimension !== key.shape[index]) || key.shape[2]! < 0) throw new Error(`${operationId}: cache KV é incompatível com o subgrafo de attention.`);
 }
 
 async function attentionWithOptionalNative(
@@ -323,14 +456,16 @@ async function attentionWithOptionalNative(
   const [batch, queryHeads, querySequence, headDim] = query.shape as [number, number, number, number];
   const [keyBatch, keyValueHeads, keySequence, keyDim] = key.shape as [number, number, number, number];
   if (batch !== keyBatch || queryHeads !== operation.numAttentionHeads || keyValueHeads !== operation.numKeyValueHeads || headDim !== operation.headDim || keyDim !== headDim || valueTensor.shape.length !== 4 || valueTensor.shape.some((dimension, index) => dimension !== key.shape[index])) throw new Error(`${operation.id}: topologia da attention nativa é incompatível.`);
-  if (mask) {
-    const [maskBatch, maskHeads, maskQuery, maskKey] = mask.shape;
-    if (mask.shape.length !== 4 || maskBatch !== batch || (maskHeads !== 1 && maskHeads !== queryHeads) || maskQuery !== querySequence || maskKey !== keySequence || mask.values.some((entry) => Number.isNaN(entry) || entry === Infinity)) throw new Error(`${operation.id}: máscara da attention nativa é incompatível.`);
-  }
+  if (mask) assertNativeAttentionMask(mask, batch, queryHeads, querySequence, keySequence, operation.id);
   const nativeMask = maskDefinesTopology && mask ? mask : materializeAttentionTopologyMask(mask, operation, batch, querySequence, keySequence, pastLength);
   const values = await kernel.attention({ query: query.values, key: key.values, value: valueTensor.values, mask: nativeMask.values, batch, queryHeads, keyValueHeads, querySequence, keySequence, headDim, maskHeads: nativeMask.shape[1]!, scale: operation.scale, rounding });
   if (values.length !== batch * querySequence * queryHeads * headDim || values.some((entry) => !Number.isFinite(entry))) throw new Error(`${operation.id}: attention nativa retornou saída inválida.`);
   return { tensor: { shape: [batch, querySequence, queryHeads * headDim], values }, native: true };
+}
+
+function assertNativeAttentionMask(mask: DenseF32Tensor, batch: number, queryHeads: number, querySequence: number, keySequence: number, operationId: string): void {
+  const [maskBatch, maskHeads, maskQuery, maskKey] = mask.shape;
+  if (mask.shape.length !== 4 || maskBatch !== batch || (maskHeads !== 1 && maskHeads !== queryHeads) || maskQuery !== querySequence || maskKey !== keySequence || mask.values.length !== batch * maskHeads! * querySequence * keySequence || mask.values.some((entry) => Number.isNaN(entry) || entry === Infinity)) throw new Error(`${operationId}: máscara da attention nativa é incompatível.`);
 }
 
 function materializeAttentionTopologyMask(mask: DenseF32Tensor | undefined, operation: Extract<Operation, { op: "scaled_dot_product_attention" }>, batch: number, querySequence: number, keySequence: number, pastLength: number): DenseF32Tensor {

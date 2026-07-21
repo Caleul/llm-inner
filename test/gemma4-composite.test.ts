@@ -108,7 +108,7 @@ import {
 } from "../src/gemma4-authoritative-runtime.js";
 import { gemma4CompositeTraceProfile } from "../src/gemma4-composite-trace-profile.js";
 import { validateGemma4CompositeTraceOptions } from "../src/gemma4-transformers-composite-trace.js";
-import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearF32, type PagedNativeAttentionRequest } from "../src/paged-dense.js";
+import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearF32, type PagedFusedAttentionRequest, type PagedNativeAttentionRequest } from "../src/paged-dense.js";
 import { fingerprintIR } from "../src/trace.js";
 import { auditLiteralArtifact } from "../src/literal-artifact-audit.js";
 import {
@@ -2692,15 +2692,7 @@ test("Gemma 4 paged text interpreter replays prefill and cached greedy decode fr
         nativeAttentionRounding: "real",
         linearTileKernel: {
           backend: "test-native-attention",
-          async multiply(input, weight, rows, outputCount, inFeatures) {
-            const result = new Float32Array(rows * outputCount);
-            for (let row = 0; row < rows; row += 1) for (let output = 0; output < outputCount; output += 1) {
-              let sum = Math.fround(0);
-              for (let feature = 0; feature < inFeatures; feature += 1) sum = Math.fround(sum + Math.fround(input[row * inFeatures + feature]! * weight[output * inFeatures + feature]!));
-              result[row * outputCount + output] = sum;
-            }
-            return result;
-          },
+          multiply: scalarTileMultiply,
           async attention(request) {
             nativeAttentionRequests.push(request);
             return new Float32Array(request.batch * request.querySequence * request.queryHeads * request.headDim);
@@ -2710,6 +2702,27 @@ test("Gemma 4 paged text interpreter replays prefill and cached greedy decode fr
       assert.equal(nativeAttentionRequests.length, program.textProgram.layers.length);
       assert.ok(nativeAttentionRequests.every((request) => request.rounding === "real"));
       assert.ok(nativeAttentionRequests.every((request) => request.mask.some((entry) => entry === -Infinity)), "native attention receives materialized causal/sliding topology");
+      const fusedAttentionRequests: PagedFusedAttentionRequest[] = [];
+      await executeGemma4PagedTextLiteralF32(artifact, { inputIds: [[1, 2, 3]] }, {
+        maxReadBytes: 64,
+        allowUnverifiedFidelity: true,
+        fusedAttentionRounding: "real",
+        linearTileKernel: {
+          backend: "test-fused-attention",
+          multiply: scalarTileMultiply,
+          async fusedAttentionStorageReferences(request) {
+            fusedAttentionRequests.push(request);
+            const projected = new Float32Array(request.batch * request.querySequence * request.hiddenSize);
+            if (!request.producesKeyValue) return { projected };
+            const sequence = request.sourceSequence + request.querySequence;
+            const elements = request.batch * request.keyValueHeads * sequence * request.headDim;
+            return { projected, key: new Float32Array(elements), value: new Float32Array(elements) };
+          },
+        },
+      });
+      assert.equal(fusedAttentionRequests.length, program.textProgram.layers.length);
+      assert.ok(fusedAttentionRequests.every((request) => request.rounding === "real" && request.producesKeyValue));
+      assert.ok(fusedAttentionRequests.every((request) => request.mask.some((entry) => entry === -Infinity)), "fused attention receives materialized causal/sliding topology");
       const generation = await generateGemma4PagedTextLiteralF32(artifact, { inputIds: [[1, 2, 3]], maxNewTokens: 2 }, { maxReadBytes: 64, allowUnverifiedFidelity: true });
       assert.deepEqual(replay.logits.values, expected.text.logits.values);
       assert.deepEqual(generation.generatedTokenIds, expectedGeneration.generatedTokenIds);
@@ -3384,6 +3397,15 @@ function fixture(options: { layers?: number; layerTypes?: Array<"sliding_attenti
 }
 
 function patterned(shape: number[]): DenseF32Tensor { return { shape, values: Float32Array.from({ length: shape.reduce((total, dimension) => total * dimension, 1) }, (_, index) => Math.fround((index % 9 + 1) / 25)) }; }
+async function scalarTileMultiply(input: Float32Array, weight: Float32Array, rows: number, outputCount: number, inFeatures: number): Promise<Float32Array> {
+  const result = new Float32Array(rows * outputCount);
+  for (let row = 0; row < rows; row += 1) for (let output = 0; output < outputCount; output += 1) {
+    let sum = Math.fround(0);
+    for (let feature = 0; feature < inFeatures; feature += 1) sum = Math.fround(sum + Math.fround(input[row * inFeatures + feature]! * weight[output * inFeatures + feature]!));
+    result[row * outputCount + output] = sum;
+  }
+  return result;
+}
 function materialize(catalog: ModelCatalog): Map<string, DenseF32Tensor> { const result = new Map<string, DenseF32Tensor>(); for (const entry of catalog.tensors.values()) { const size = entry.logicalShape.reduce((total, dimension) => total * dimension, 1) || 1; const values = new Float32Array(size); if (entry.name.endsWith("input_min") || entry.name.endsWith("output_min")) values[0] = -100; else if (entry.name.endsWith("input_max") || entry.name.endsWith("output_max")) values[0] = 100; else if (entry.name.endsWith("norm.weight")) values.fill(1); else if (entry.name.endsWith("layer_scalar")) values.fill(1); else for (let index = 0; index < size; index += 1) values[index] = Math.fround((index % 5 + 1) / 50); result.set(entry.name, { shape: [...entry.logicalShape], values }); } return result; }
 async function writeFixtureSafetensors(directory: string, catalog: ModelCatalog, tensors: ReadonlyMap<string, DenseF32Tensor>): Promise<void> {
   await mkdir(directory, { recursive: true });

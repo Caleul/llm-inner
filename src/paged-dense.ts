@@ -26,6 +26,7 @@ export interface PagedLinearTileKernel {
   multiplyStorageReferences?: ((input: Float32Array, requests: readonly PagedLinearStorageReference[], rows: number) => Promise<readonly Float32Array[]>) | undefined;
   fusedGatedMlpStorageReference?: ((input: Float32Array, gate: TensorInfo, up: TensorInfo, down: TensorInfo, rows: number, rounding: "bf16" | "real") => Promise<Float32Array>) | undefined;
   attention?: ((request: PagedNativeAttentionRequest) => Promise<Float32Array>) | undefined;
+  fusedAttentionStorageReferences?: ((request: PagedFusedAttentionRequest) => Promise<PagedFusedAttentionResult>) | undefined;
 }
 
 export interface PagedNativeAttentionRequest {
@@ -42,6 +43,44 @@ export interface PagedNativeAttentionRequest {
   maskHeads: number;
   scale: number;
   rounding: "bf16" | "real";
+}
+
+export interface PagedFusedAttentionRequest {
+  input: Float32Array;
+  positions: Int32Array;
+  mask: Float32Array;
+  sourceKey: Float32Array;
+  sourceValue: Float32Array;
+  queryWeight: TensorInfo;
+  queryNorm: TensorInfo;
+  outputWeight: TensorInfo;
+  keyWeight?: TensorInfo;
+  keyNorm?: TensorInfo;
+  valueWeight?: TensorInfo;
+  batch: number;
+  querySequence: number;
+  sourceSequence: number;
+  hiddenSize: number;
+  queryHeads: number;
+  keyValueHeads: number;
+  headDim: number;
+  maskHeads: number;
+  producesKeyValue: boolean;
+  valueFromKey: boolean;
+  epsilon: number;
+  scale: number;
+  ropeType: "default" | "proportional";
+  theta: number;
+  rotaryDim: number;
+  proportionalPairs: number;
+  proportionalFactor: number;
+  rounding: "bf16" | "real";
+}
+
+export interface PagedFusedAttentionResult {
+  projected: Float32Array;
+  key?: Float32Array;
+  value?: Float32Array;
 }
 
 export interface PagedLinearStorageReference {

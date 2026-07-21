@@ -48,7 +48,10 @@ def main():
         fused_mlp = bool(encoded_dtype & 0x20000000)
         native_bf16 = bool(encoded_dtype & 0x10000000)
         native_attention = bool(encoded_dtype & 0x08000000)
-        dtype_code = encoded_dtype & 0x07ffffff
+        fused_attention = bool(encoded_dtype & 0x04000000)
+        dtype_code = encoded_dtype & 0x03ffffff
+        if fused_attention:
+            raise ValueError("fused attention is available only in the PyTorch worker")
         if native_attention:
             raise ValueError("native attention is available only in the PyTorch worker")
         input_bytes = read_exact(rows * features * 4)

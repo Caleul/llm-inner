@@ -24,6 +24,75 @@ def read_exact(size):
     return chunks
 
 
+def read_whole_tensor(pool, files, mappings, expected_shape):
+    metadata = read_exact(36)
+    request_dtype, first, second, byte_offset, byte_length, start_output, shard_length, name_length = struct.unpack("<IIIQIIII", metadata)
+    if request_dtype not in (0, 1, 2) or (first, second) != expected_shape or start_output != 0:
+        raise ValueError("fused attention tensor descriptor is invalid")
+    if shard_length < 1 or shard_length > 4096 or name_length < 1 or name_length > 4096:
+        raise ValueError("fused attention tensor identity length is invalid")
+    shard = bytes(read_exact(shard_length)).decode("utf-8")
+    tensor_name = bytes(read_exact(name_length)).decode("utf-8")
+    if Path(shard).name != shard or not tensor_name:
+        raise ValueError("fused attention tensor identity is invalid")
+    storage_dtype = (torch.float32, torch.bfloat16, torch.float16)[request_dtype]
+    element_bytes = 4 if request_dtype == 0 else 2
+    if byte_length != first * second * element_bytes:
+        raise ValueError(f"{tensor_name}: fused attention tensor byte length is invalid")
+    path = (pool / shard).resolve()
+    if path.parent != pool:
+        raise ValueError("fused attention tensor escapes binary pool")
+    if path not in mappings:
+        files[path] = path.open("rb")
+        mappings[path] = mmap.mmap(files[path].fileno(), 0, access=mmap.ACCESS_READ)
+    if byte_offset + byte_length > mappings[path].size():
+        raise ValueError("fused attention tensor range exceeds shard")
+    tensor = torch.frombuffer(mappings[path], dtype=storage_dtype, count=first * second, offset=byte_offset).reshape(first, second).float()
+    return tensor
+
+
+def rms_norm_real(tensor, weight, epsilon):
+    scale = torch.rsqrt(torch.mean(tensor * tensor, dim=-1, keepdim=True) + torch.tensor(epsilon, dtype=torch.float32))
+    normalized = tensor * scale
+    return normalized if weight is None else normalized * weight
+
+
+def rope_real(tensor, positions, rope_kind, theta, rotary_dim, proportional_pairs, proportional_factor, bf16_boundaries=False):
+    head_dim = tensor.shape[-1]
+    half = rotary_dim // 2
+    pairs = torch.arange(half, dtype=torch.float32)
+    denominator_width = head_dim if rope_kind == 1 else rotary_dim
+    denominator = torch.pow(torch.tensor(theta, dtype=torch.float32), (torch.tensor(2.0, dtype=torch.float32) * pairs) / torch.tensor(denominator_width, dtype=torch.float32))
+    if rope_kind == 1:
+        denominator = denominator * torch.tensor(proportional_factor, dtype=torch.float32)
+    angles = positions[:, None, :, None].float() / denominator[None, None, None, :]
+    if rope_kind == 1 and proportional_pairs < half:
+        active = (pairs < proportional_pairs)[None, None, None, :]
+        angles = torch.where(active, angles, torch.zeros_like(angles))
+    cosine, sine = torch.cos(angles), torch.sin(angles)
+    if bf16_boundaries:
+        cosine, sine = cosine.to(torch.bfloat16).float(), sine.to(torch.bfloat16).float()
+    result = tensor.clone()
+    first, second = tensor[..., :half], tensor[..., half:rotary_dim]
+    direct_first, rotated_first = first * cosine, second * sine
+    direct_second, rotated_second = second * cosine, first * sine
+    if bf16_boundaries:
+        direct_first, rotated_first = direct_first.to(torch.bfloat16).float(), rotated_first.to(torch.bfloat16).float()
+        direct_second, rotated_second = direct_second.to(torch.bfloat16).float(), rotated_second.to(torch.bfloat16).float()
+        result[..., :half] = (direct_first - rotated_first).to(torch.bfloat16).float()
+        result[..., half:rotary_dim] = (direct_second + rotated_second).to(torch.bfloat16).float()
+    else:
+        result[..., :half] = direct_first - rotated_first
+        result[..., half:rotary_dim] = direct_second + rotated_second
+    return result
+
+
+def write_float_tensor(tensor):
+    payload = tensor.contiguous().numpy().tobytes(order="C")
+    sys.stdout.buffer.write(struct.pack("<I", len(payload)))
+    sys.stdout.buffer.write(payload)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--threads", type=int, required=True)
@@ -50,9 +119,81 @@ def main():
             fused_mlp = bool(encoded_dtype & 0x20000000)
             native_bf16 = bool(encoded_dtype & 0x10000000)
             native_attention = bool(encoded_dtype & 0x08000000)
-            dtype_code = encoded_dtype & 0x07ffffff
+            fused_attention = bool(encoded_dtype & 0x04000000)
+            dtype_code = encoded_dtype & 0x03ffffff
+            if fused_attention:
+                if referenced or batched or fused_mlp or native_bf16 or native_attention or dtype_code != 0 or pool is None:
+                    raise ValueError("fused attention flags are invalid")
+                batch, query_heads, key_value_heads = rows, outputs, features
+                metadata = read_exact(80)
+                query_sequence, source_sequence, hidden_size, head_dim, mask_heads, produces_kv, value_from_key, rope_kind, rotary_dim, proportional_pairs, descriptor_count = struct.unpack("<IIIIIIIIIII", metadata[:44])
+                epsilon, scale = struct.unpack("<ff", metadata[44:52])
+                theta = struct.unpack("<d", metadata[52:60])[0]
+                proportional_factor = struct.unpack("<f", metadata[60:64])[0]
+                rounding = struct.unpack("<I", metadata[64:68])[0]
+                total_key_sequence = source_sequence + (query_sequence if produces_kv else 0)
+                expected_descriptors = 3 + (2 + (0 if value_from_key else 1) if produces_kv else 0)
+                if not batch or not query_heads or not key_value_heads or not query_sequence or not hidden_size or not head_dim or not mask_heads or total_key_sequence < 1 or query_heads % key_value_heads or mask_heads not in (1, query_heads) or produces_kv not in (0, 1) or value_from_key not in (0, 1) or (not produces_kv and value_from_key) or rope_kind not in (0, 1) or rounding not in (0, 1) or not rotary_dim or rotary_dim > head_dim or rotary_dim % 2 or proportional_pairs > rotary_dim // 2 or descriptor_count != expected_descriptors or not math.isfinite(epsilon) or epsilon <= 0 or not math.isfinite(scale) or not math.isfinite(theta) or theta <= 0 or not math.isfinite(proportional_factor) or proportional_factor <= 0:
+                    raise ValueError("fused attention topology is invalid")
+                if not produces_kv and source_sequence < query_sequence:
+                    raise ValueError("shared fused attention cache is shorter than query")
+                input_bytes = read_exact(batch * query_sequence * hidden_size * 4)
+                position_bytes = read_exact(batch * query_sequence * 4)
+                mask_bytes = read_exact(batch * mask_heads * query_sequence * total_key_sequence * 4)
+                source_elements = batch * key_value_heads * source_sequence * head_dim
+                source_key_bytes = read_exact(source_elements * 4)
+                source_value_bytes = read_exact(source_elements * 4)
+                inputs = torch.frombuffer(input_bytes, dtype=torch.float32).reshape(batch, query_sequence, hidden_size)
+                positions = torch.frombuffer(position_bytes, dtype=torch.int32).reshape(batch, query_sequence)
+                mask = torch.frombuffer(mask_bytes, dtype=torch.float32).reshape(batch, mask_heads, query_sequence, total_key_sequence)
+                if torch.isnan(mask).any() or torch.isposinf(mask).any():
+                    raise ValueError("fused attention mask is invalid")
+                if source_sequence:
+                    source_key = torch.frombuffer(source_key_bytes, dtype=torch.float32).reshape(batch, key_value_heads, source_sequence, head_dim)
+                    source_value = torch.frombuffer(source_value_bytes, dtype=torch.float32).reshape(batch, key_value_heads, source_sequence, head_dim)
+                else:
+                    source_key = torch.empty((batch, key_value_heads, 0, head_dim), dtype=torch.float32)
+                    source_value = torch.empty((batch, key_value_heads, 0, head_dim), dtype=torch.float32)
+                query_weight = read_whole_tensor(pool, files, mappings, (query_heads * head_dim, hidden_size))
+                query_norm = read_whole_tensor(pool, files, mappings, (head_dim, 1)).reshape(head_dim)
+                output_weight = read_whole_tensor(pool, files, mappings, (hidden_size, query_heads * head_dim))
+                boundary = (lambda tensor: tensor.to(torch.bfloat16).float()) if rounding == 0 else (lambda tensor: tensor)
+                query = boundary(torch.matmul(inputs, query_weight.transpose(0, 1))).reshape(batch, query_sequence, query_heads, head_dim).permute(0, 2, 1, 3)
+                query = rope_real(boundary(rms_norm_real(query, query_norm, epsilon)), positions, rope_kind, theta, rotary_dim, proportional_pairs, proportional_factor, rounding == 0)
+                key_weight = key_norm = value_weight = current_key_heads = current_key = current_value = None
+                if produces_kv:
+                    key_weight = read_whole_tensor(pool, files, mappings, (key_value_heads * head_dim, hidden_size))
+                    key_norm = read_whole_tensor(pool, files, mappings, (head_dim, 1)).reshape(head_dim)
+                    current_key_heads = boundary(torch.matmul(inputs, key_weight.transpose(0, 1))).reshape(batch, query_sequence, key_value_heads, head_dim).permute(0, 2, 1, 3)
+                    current_key = rope_real(boundary(rms_norm_real(current_key_heads, key_norm, epsilon)), positions, rope_kind, theta, rotary_dim, proportional_pairs, proportional_factor, rounding == 0)
+                    if value_from_key:
+                        current_value = boundary(rms_norm_real(current_key_heads, None, epsilon))
+                    else:
+                        value_weight = read_whole_tensor(pool, files, mappings, (key_value_heads * head_dim, hidden_size))
+                        current_value = boundary(torch.matmul(inputs, value_weight.transpose(0, 1))).reshape(batch, query_sequence, key_value_heads, head_dim).permute(0, 2, 1, 3)
+                        current_value = boundary(rms_norm_real(current_value, None, epsilon))
+                    key = torch.cat((source_key, current_key), dim=2)
+                    value = torch.cat((source_value, current_value), dim=2)
+                else:
+                    key, value = source_key, source_value
+                group = query_heads // key_value_heads
+                attention_key = key.repeat_interleave(group, dim=1) if group != 1 else key
+                attention_value = value.repeat_interleave(group, dim=1) if group != 1 else value
+                scores = torch.matmul(query, attention_key.transpose(-1, -2)) * torch.tensor(scale, dtype=torch.float32) + mask
+                probabilities = torch.softmax(scores, dim=-1)
+                context = torch.matmul(probabilities, attention_value).permute(0, 2, 1, 3).contiguous().reshape(batch, query_sequence, query_heads * head_dim)
+                projected = boundary(torch.matmul(context, output_weight.transpose(0, 1)))
+                if not torch.isfinite(projected).all() or not torch.isfinite(key).all() or not torch.isfinite(value).all():
+                    raise ValueError("fused attention produced non-finite output")
+                write_float_tensor(projected)
+                if produces_kv:
+                    write_float_tensor(key)
+                    write_float_tensor(value)
+                sys.stdout.buffer.flush()
+                del inputs, positions, mask, source_key, source_value, query_weight, query_norm, output_weight, query, key_weight, key_norm, value_weight, current_key_heads, current_key, current_value, key, value, attention_key, attention_value, scores, probabilities, context, projected, boundary
+                continue
             if native_attention:
-                if referenced or batched or fused_mlp or native_bf16 or dtype_code != 0:
+                if referenced or batched or fused_mlp or native_bf16 or fused_attention or dtype_code != 0:
                     raise ValueError("native attention flags are invalid")
                 batch, query_heads, key_value_heads = rows, outputs, features
                 metadata = read_exact(32)

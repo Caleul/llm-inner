@@ -363,6 +363,63 @@ npm run calibrate:gemma4-real -- \
   --precision f32 --rounding-policy none
 ```
 
+## Subgrafo Q/K/V, RoPE, attention e projeção O
+
+O perfil do runtime promovido mostrou 315 despachos lineares por forward:
+146 pertenciam às projeções Q/K/V/O, 84 ao PLE, 81 ao `lm_head` e quatro ao
+prelude. Somadas às 42 chamadas do núcleo nativo, as projeções e a attention
+atravessavam a fronteira Node/PyTorch 188 vezes por forward.
+
+O compositor reconhece agora, por dependências e shapes em vez de IDs fixos, a
+região `Q → reshape → QNorm → RoPE`, o ramo produtor `K/V` quando presente, o
+cache KV compartilhado quando não presente, `attention → O`. O worker recebe
+os pesos como referências mmap autenticadas, posições, máscara e cache anterior;
+devolve a projeção O e, somente para camadas produtoras, o cache completo
+atualizado. Assim as 24 produtoras e as 18 consumidoras de KV compartilhado
+usam uma chamada nativa cada.
+
+Há três políticas A/B:
+
+- `off` conserva as projeções separadas e o núcleo nativo anterior;
+- `bf16` funde a região, mas preserva as fronteiras BF16 de Q/K/V,
+  normalizações, RoPE e O, mantendo o núcleo de attention em F32 real;
+- `real` remove também essas fronteiras BF16 dentro da região fundida.
+
+Para `[2]` e dois tokens, `bf16` preservou os tokens `[184,3910]` e o SHA-256
+terminal do controle,
+`1f65253f2759208e828a710a3f8f574d713b5b0b170f1c6174f20aee95c4bdd0`.
+Os despachos lineares caíram de 630 para 338, o núcleo separado de attention
+de 84 para zero e o novo subgrafo executou 84 vezes.
+
+No corpus de oito prompts × dois tokens:
+
+- controle `off`: `1,0507 token/s`, 7/8 prompts e 15/16 tokens iguais;
+- fundido `bf16`: `1,1173 token/s`, os mesmos 7/8 e 15/16, ganho de 6,34%;
+- `bf16` atingiu `1,9678x` o baseline medido na mesma execução;
+- fundido `real`: `1,1141 token/s`, mas caiu para 6/8 prompts e 14/16 tokens.
+
+O modo real reintroduziu a divergência do segundo token de
+`Write one short sentence about the Moon:` (`818` no baseline, `3689` no
+direto), além da divergência já observada na tradução. Como a meta exige baixa
+divergência, ele permanece experimental. `bf16` foi promovido como padrão
+PyTorch: reduz as fronteiras de processo sem degradar o corpus atual. MLX
+permanece em `off`. A interface exibe separadamente o núcleo e o subgrafo, suas
+políticas, despachos e lineares restantes.
+
+Comando promovido:
+
+```bash
+npm run calibrate:gemma4-real -- \
+  --source ./artifacts/gemma4-compiled-global-runtime-bundle \
+  --output ./artifacts/gemma4-three-way-calibration-8x2-fused-attention-bf16.json \
+  --tokens 2 --request-threads 1 \
+  --direct-threads 8 --direct-max-read-mib 16 \
+  --direct-linear-backend pytorch --direct-fused-mlp real \
+  --direct-final-head native-bf16 --direct-native-attention real \
+  --direct-fused-attention bf16 \
+  --precision f32 --rounding-policy none
+```
+
 ## Head terminal BF16 nativo
 
 O tensor compartilhado por embedding e `lm_head` possui shape
