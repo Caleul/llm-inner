@@ -2608,6 +2608,13 @@ executores mantêm seus próprios KV caches e só reutilizam um prefixo quando o
 IDs anteriores coincidem exatamente; as métricas mostram quantos tokens foram
 reaproveitados e quantos precisaram de novo prefill.
 
+Na geração residente, o `argmax` e o top-K do vetor final de 262.144 logits são
+calculados no MLX/Metal. Em passos não terminais, apenas o token e os candidatos
+top-K atravessam para a CPU; o vetor F32 completo (1 MiB) é materializado uma
+única vez, no passo terminal, para preservar o SHA-256 auditável. A interface
+publica quantos passos foram ranqueados na GPU e quantas transferências de vetor
+completo foram evitadas.
+
 O modo padrão, **Conclusão bruta (fiel)**, envia o texto literalmente porque o
 `gemma-4-E4B-dense/tokenizer_config.json` possui `chat_template: null`. O modo
 **Chat IT (experimental)** aplica, igualmente aos três executores, o contrato

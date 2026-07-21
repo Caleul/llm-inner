@@ -248,6 +248,10 @@ export interface PagedFusedTokenGenerationResult {
   topTokenIds: Int32Array;
   topLogits: Float32Array;
   terminalLogitsSha256: string;
+  terminalLogitMaterializations: number;
+  gpuRankedTokenSteps: number;
+  fullLogitTransfersAvoided: number;
+  terminalLogitVectorBytes: number;
   residentKvBytes: number;
   prefixTokensReused: number;
   prefillTokensComputed: number;

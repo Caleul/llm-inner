@@ -42,6 +42,8 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /Aquecendo o forward compilado no Metal/);
   assert.match(gemma4RealCompareHtml, /gate\+up unidos/);
   assert.match(gemma4RealCompareHtml, /cache de constantes F32/);
+  assert.match(gemma4RealCompareHtml, /ranking final GPU/);
+  assert.match(gemma4RealCompareHtml, /fullLogitTransfersAvoided/);
   assert.match(gemma4RealCompareHtml, /fases stack attn\/FFN\/PLE/);
   assert.match(gemma4RealCompareHtml, /fases stack: fundidas no grafo Metal/);
   assert.match(gemma4RealCompareHtml, /PLEs fundidos/);

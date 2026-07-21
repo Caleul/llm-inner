@@ -369,13 +369,19 @@ def incremental_topology_mask(config, key_sequence, absolute_position):
 
 
 def rank_terminal_logits(logits, top_k):
-    values = np.asarray(logits, dtype=np.float32).reshape(-1)
-    if not np.isfinite(values).all():
+    values = logits.reshape((-1,))
+    selected_value = mx.argmax(values)
+    candidates_value = mx.argpartition(values, -top_k)[-top_k:]
+    candidate_logits_value = values[candidates_value]
+    finite_value = mx.all(mx.isfinite(values))
+    mx.eval(selected_value, candidates_value, candidate_logits_value, finite_value)
+    if not bool(np.asarray(finite_value).item()):
         raise ValueError("MLX resident generation produced non-finite logits")
-    selected = int(np.argmax(values))
-    candidates = np.argpartition(values, -top_k)[-top_k:]
-    ordered = candidates[np.lexsort((candidates, -values[candidates]))]
-    return selected, ordered.astype(np.int32), values[ordered].astype(np.float32), values
+    selected = int(np.asarray(selected_value).item())
+    candidates = np.asarray(candidates_value, dtype=np.int32)
+    candidate_logits = np.asarray(candidate_logits_value, dtype=np.float32)
+    ordered = np.lexsort((candidates, -candidate_logits))
+    return selected, candidates[ordered], candidate_logits[ordered]
 
 
 def prefill_topology_mask(config, query_sequence):
@@ -395,7 +401,7 @@ def emit_resident_generation(model, result, produced_caches, logits, first_forwa
     generated_ids, forward_seconds, top_ids, top_values = [], [first_forward_seconds], [], []
     terminal_values = None
     while len(generated_ids) < max_new_tokens:
-        token_id, ranked_ids, ranked_values, terminal_values = rank_terminal_logits(logits, top_k)
+        token_id, ranked_ids, ranked_values = rank_terminal_logits(logits, top_k)
         generated_ids.append(token_id)
         top_ids.append(ranked_ids)
         top_values.append(ranked_values)
@@ -405,6 +411,7 @@ def emit_resident_generation(model, result, produced_caches, logits, first_forwa
             sys.stdout.buffer.write(ranked_values.astype(np.float32).tobytes(order="C"))
             sys.stdout.buffer.flush()
         if len(generated_ids) == max_new_tokens or token_id == eos_token_id:
+            terminal_values = np.asarray(logits, dtype=np.float32).reshape(-1)
             break
         incremental_started = time.perf_counter()
         incremental_ids = np.array([[token_id]], dtype=np.int32)
@@ -447,7 +454,7 @@ def emit_resident_generation(model, result, produced_caches, logits, first_forwa
     write_bytes(hashlib.sha256(np.asarray(terminal_values, dtype=np.float32).tobytes(order="C")).digest())
     computed = len(np.asarray(input_token_ids).reshape(-1)) if prefill_tokens_computed is None else prefill_tokens_computed
     cached_context_tokens = len(_resident_generation_session["token_ids"]) if session_id is not None else len(np.asarray(input_token_ids).reshape(-1)) + len(generated_ids) - 1
-    profile = np.array((0, 0, 0, 0, _widened_tensor_cache_hits - cache_hits_before, len(_widened_tensor_cache), _widened_tensor_cache_bytes, resident_kv_bytes, prefix_tokens_reused, computed, 1 if prefix_tokens_reused else 0, cached_context_tokens), dtype=np.float32)
+    profile = np.array((1, len(generated_ids), max(0, len(generated_ids) - 1), terminal_values.nbytes, _widened_tensor_cache_hits - cache_hits_before, len(_widened_tensor_cache), _widened_tensor_cache_bytes, resident_kv_bytes, prefix_tokens_reused, computed, 1 if prefix_tokens_reused else 0, cached_context_tokens), dtype=np.float32)
     write_float_tensor(mx.array(profile))
     sys.stdout.buffer.flush()
 

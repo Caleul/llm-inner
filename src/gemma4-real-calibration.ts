@@ -64,6 +64,10 @@ interface ThreeWayCase {
     externalForwardRequests?: number;
     kvCacheTransportBytes?: number;
     residentKvBytes?: number;
+    terminalLogitMaterializations?: number;
+    gpuRankedTokenSteps?: number;
+    fullLogitTransfersAvoided?: number;
+    terminalLogitVectorBytes?: number;
     fusedDecoderStackGateUpPairs?: number;
     fusedDecoderStackWidenedCacheHits?: number;
     widenedTensorCacheEntries?: number;
@@ -270,6 +274,10 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.externalForwardRequests === undefined ? {} : { externalForwardRequests: entry.direct.externalForwardRequests }),
         ...(entry.direct.kvCacheTransportBytes === undefined ? {} : { kvCacheTransportBytes: entry.direct.kvCacheTransportBytes }),
         ...(entry.direct.residentKvBytes === undefined ? {} : { residentKvBytes: entry.direct.residentKvBytes }),
+        ...(entry.direct.terminalLogitMaterializations === undefined ? {} : { terminalLogitMaterializations: entry.direct.terminalLogitMaterializations }),
+        ...(entry.direct.gpuRankedTokenSteps === undefined ? {} : { gpuRankedTokenSteps: entry.direct.gpuRankedTokenSteps }),
+        ...(entry.direct.fullLogitTransfersAvoided === undefined ? {} : { fullLogitTransfersAvoided: entry.direct.fullLogitTransfersAvoided }),
+        ...(entry.direct.terminalLogitVectorBytes === undefined ? {} : { terminalLogitVectorBytes: entry.direct.terminalLogitVectorBytes }),
         ...(entry.direct.fusedDecoderStackGateUpPairs === undefined ? {} : { fusedDecoderStackGateUpPairs: entry.direct.fusedDecoderStackGateUpPairs }),
         ...(entry.direct.fusedDecoderStackWidenedCacheHits === undefined ? {} : { fusedDecoderStackWidenedCacheHits: entry.direct.fusedDecoderStackWidenedCacheHits }),
         ...(entry.direct.widenedTensorCacheEntries === undefined ? {} : { widenedTensorCacheEntries: entry.direct.widenedTensorCacheEntries }),

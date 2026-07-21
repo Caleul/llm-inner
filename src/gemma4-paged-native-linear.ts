@@ -622,11 +622,11 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     const topLogits = await this.#readFloat32Vector(generatedTokenIds.length * topK);
     const terminalHash = await this.#readPayload(32);
     const profile = await this.#readGenerationProfile();
-    const { widenedCacheHits, widenedCacheEntries, widenedCacheBytes, residentKvBytes, prefixTokensReused, prefillTokensComputed, sessionCacheHit, cachedContextTokens } = profile;
+    const { terminalLogitMaterializations, gpuRankedTokenSteps, fullLogitTransfersAvoided, terminalLogitVectorBytes, widenedCacheHits, widenedCacheEntries, widenedCacheBytes, residentKvBytes, prefixTokensReused, prefillTokensComputed, sessionCacheHit, cachedContextTokens } = profile;
     this.#fusedDecoderStackWidenedCacheHits += widenedCacheHits;
     this.#widenedTensorCacheEntries = widenedCacheEntries;
     this.#widenedTensorCacheBytes = widenedCacheBytes;
-    return { generatedTokenIds, forwardSeconds, topTokenIds, topLogits, terminalLogitsSha256: terminalHash.toString("hex"), residentKvBytes, prefixTokensReused, prefillTokensComputed, sessionCacheHit, cachedContextTokens };
+    return { generatedTokenIds, forwardSeconds, topTokenIds, topLogits, terminalLogitsSha256: terminalHash.toString("hex"), terminalLogitMaterializations, gpuRankedTokenSteps, fullLogitTransfersAvoided, terminalLogitVectorBytes, residentKvBytes, prefixTokensReused, prefillTokensComputed, sessionCacheHit, cachedContextTokens };
   }
 
   async #readStreamingTokenGenerationResult(maxNewTokens: number, topK: number, onToken: NonNullable<PagedCompiledTokenGenerationOptions["onToken"]>): Promise<PagedFusedTokenGenerationResult> {
@@ -647,14 +647,15 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     const terminalHash = await this.#readPayload(32), profile = await this.#readGenerationProfile();
     this.#fusedDecoderStackWidenedCacheHits += profile.widenedCacheHits; this.#widenedTensorCacheEntries = profile.widenedCacheEntries; this.#widenedTensorCacheBytes = profile.widenedCacheBytes;
     if (callbackError) throw callbackError;
-    return { generatedTokenIds: Int32Array.from(tokens), forwardSeconds: Float32Array.from(seconds), topTokenIds: Int32Array.from(ids), topLogits: Float32Array.from(logits), terminalLogitsSha256: terminalHash.toString("hex"), residentKvBytes: profile.residentKvBytes, prefixTokensReused: profile.prefixTokensReused, prefillTokensComputed: profile.prefillTokensComputed, sessionCacheHit: profile.sessionCacheHit, cachedContextTokens: profile.cachedContextTokens };
+    return { generatedTokenIds: Int32Array.from(tokens), forwardSeconds: Float32Array.from(seconds), topTokenIds: Int32Array.from(ids), topLogits: Float32Array.from(logits), terminalLogitsSha256: terminalHash.toString("hex"), terminalLogitMaterializations: profile.terminalLogitMaterializations, gpuRankedTokenSteps: profile.gpuRankedTokenSteps, fullLogitTransfersAvoided: profile.fullLogitTransfersAvoided, terminalLogitVectorBytes: profile.terminalLogitVectorBytes, residentKvBytes: profile.residentKvBytes, prefixTokensReused: profile.prefixTokensReused, prefillTokensComputed: profile.prefillTokensComputed, sessionCacheHit: profile.sessionCacheHit, cachedContextTokens: profile.cachedContextTokens };
   }
 
-  async #readGenerationProfile(): Promise<{ widenedCacheHits: number; widenedCacheEntries: number; widenedCacheBytes: number; residentKvBytes: number; prefixTokensReused: number; prefillTokensComputed: number; sessionCacheHit: boolean; cachedContextTokens: number }> {
+  async #readGenerationProfile(): Promise<{ terminalLogitMaterializations: number; gpuRankedTokenSteps: number; fullLogitTransfersAvoided: number; terminalLogitVectorBytes: number; widenedCacheHits: number; widenedCacheEntries: number; widenedCacheBytes: number; residentKvBytes: number; prefixTokensReused: number; prefillTokensComputed: number; sessionCacheHit: boolean; cachedContextTokens: number }> {
     const profile = await this.#readResult(1, 12);
+    const [terminalLogitMaterializations, gpuRankedTokenSteps, fullLogitTransfersAvoided, terminalLogitVectorBytes] = profile;
     const [widenedCacheHits, widenedCacheEntries, widenedCacheBytes, residentKvBytes, prefixTokensReused, prefillTokensComputed, sessionCacheHit, cachedContextTokens] = profile.subarray(4);
-    if (profile.some((value) => !Number.isFinite(value) || value < 0) || [widenedCacheHits, widenedCacheEntries, widenedCacheBytes, residentKvBytes, prefixTokensReused, prefillTokensComputed, sessionCacheHit, cachedContextTokens].some((value) => !Number.isSafeInteger(value)) || (sessionCacheHit !== 0 && sessionCacheHit !== 1)) throw new Error("Worker linear retornou perfil inválido para a geração residente.");
-    return { widenedCacheHits: widenedCacheHits!, widenedCacheEntries: widenedCacheEntries!, widenedCacheBytes: widenedCacheBytes!, residentKvBytes: residentKvBytes!, prefixTokensReused: prefixTokensReused!, prefillTokensComputed: prefillTokensComputed!, sessionCacheHit: sessionCacheHit === 1, cachedContextTokens: cachedContextTokens! };
+    if (profile.some((value) => !Number.isFinite(value) || value < 0) || [terminalLogitMaterializations, gpuRankedTokenSteps, fullLogitTransfersAvoided, terminalLogitVectorBytes, widenedCacheHits, widenedCacheEntries, widenedCacheBytes, residentKvBytes, prefixTokensReused, prefillTokensComputed, sessionCacheHit, cachedContextTokens].some((value) => !Number.isSafeInteger(value)) || (sessionCacheHit !== 0 && sessionCacheHit !== 1)) throw new Error("Worker linear retornou perfil inválido para a geração residente.");
+    return { terminalLogitMaterializations: terminalLogitMaterializations!, gpuRankedTokenSteps: gpuRankedTokenSteps!, fullLogitTransfersAvoided: fullLogitTransfersAvoided!, terminalLogitVectorBytes: terminalLogitVectorBytes!, widenedCacheHits: widenedCacheHits!, widenedCacheEntries: widenedCacheEntries!, widenedCacheBytes: widenedCacheBytes!, residentKvBytes: residentKvBytes!, prefixTokensReused: prefixTokensReused!, prefillTokensComputed: prefillTokensComputed!, sessionCacheHit: sessionCacheHit === 1, cachedContextTokens: cachedContextTokens! };
   }
 
   async #readInt32Vector(maxOrExactCount: number, exact: boolean): Promise<Int32Array> {
