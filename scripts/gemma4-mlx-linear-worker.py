@@ -13,6 +13,7 @@ import numpy as np
 
 FUSED_DECODER_STACK_FLAG = 0x00200000
 FUSED_DECODER_STACK_EPILOGUE_FLAG = 0x00080000
+FUSED_PLE_PRELUDE_FLAG = 0x01000000
 _widened_tensor_cache = {}
 _widened_tensor_cache_hits = 0
 _widened_tensor_cache_bytes = 0
@@ -84,6 +85,48 @@ def read_whole_tensor(pool, shards, expected_shape, widen=True, required_dtype=N
 def rms_norm_real(tensor, weight, epsilon):
     normalized = tensor * mx.rsqrt(mx.mean(tensor * tensor, axis=-1, keepdims=True) + mx.array(epsilon, dtype=mx.float32))
     return normalized if weight is None else normalized * weight
+
+
+def rms_norm_cpu_cascade_f32(tensor, weight, epsilon):
+    """Replay the artifact-declared PyTorch ARM F32 cascade without reassociation."""
+    vectors = np.asarray(tensor, dtype=np.float32).reshape(-1, tensor.shape[-1])
+    width = vectors.shape[1]
+    lanes, registers, levels = 4, 4, 4
+    if width % (lanes * registers):
+        raise ValueError("MLX fused PLE prelude cascade width is incompatible")
+    unit_count = width // (lanes * registers)
+    level_power = max(4, math.ceil(math.log2(unit_count)) >> 2)
+    level_step, level_mask = 1 << level_power, (1 << level_power) - 1
+    accumulators = np.zeros((levels, vectors.shape[0], registers, lanes), dtype=np.float32)
+    units = vectors.reshape(vectors.shape[0], unit_count, registers, lanes)
+    unit = 0
+    while unit + level_step <= unit_count:
+        for _ in range(level_step):
+            squared = np.multiply(units[:, unit], units[:, unit], dtype=np.float32)
+            accumulators[0] = np.add(accumulators[0], squared, dtype=np.float32)
+            unit += 1
+        for level in range(1, levels):
+            accumulators[level] = np.add(accumulators[level], accumulators[level - 1], dtype=np.float32)
+            accumulators[level - 1].fill(0)
+            if unit & (level_mask << (level * level_power)):
+                break
+    while unit < unit_count:
+        squared = np.multiply(units[:, unit], units[:, unit], dtype=np.float32)
+        accumulators[0] = np.add(accumulators[0], squared, dtype=np.float32)
+        unit += 1
+    for level in range(1, levels):
+        accumulators[0] = np.add(accumulators[0], accumulators[level], dtype=np.float32)
+    for register in range(1, registers):
+        accumulators[0, :, 0] = np.add(accumulators[0, :, 0], accumulators[0, :, register], dtype=np.float32)
+    sums = np.zeros(vectors.shape[0], dtype=np.float32)
+    for lane in range(lanes):
+        sums = np.add(sums, accumulators[0, :, 0, lane], dtype=np.float32)
+    means = np.divide(sums, np.float32(width), dtype=np.float32)
+    rooted = np.array([np.float32(math.sqrt(float(np.float32(value + np.float32(epsilon))))) for value in means], dtype=np.float32)
+    scales = np.divide(np.float32(1.0), rooted, dtype=np.float32)
+    normalized = np.multiply(vectors, scales[:, None], dtype=np.float32)
+    normalized = np.multiply(normalized, np.asarray(weight, dtype=np.float32)[None, :], dtype=np.float32)
+    return normalized.reshape(tensor.shape)
 
 
 def rope_real(tensor, positions, rope_kind, theta, rotary_dim, proportional_pairs, proportional_factor):
@@ -264,6 +307,43 @@ def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, 
     sys.stdout.buffer.flush()
 
 
+def execute_ple_prelude_request(pool, shards, rows, outputs, features):
+    metadata = read_exact(32)
+    num_layers, per_layer_width, descriptor_count, rounding = struct.unpack("<IIII", metadata[:16])
+    context_scale, combine_scale, epsilon = struct.unpack("<fff", metadata[16:28])
+    tile_output_rows = struct.unpack("<I", metadata[28:32])[0]
+    if (not num_layers or not per_layer_width or outputs != num_layers * per_layer_width
+            or descriptor_count != 2 or rounding not in (0, 1) or not tile_output_rows
+            or not math.isfinite(context_scale) or not math.isfinite(combine_scale)
+            or not math.isfinite(epsilon) or epsilon <= 0):
+        raise ValueError("MLX fused PLE prelude metadata is invalid")
+    input_bytes = read_exact(rows * features * 4)
+    token_bytes = read_exact(rows * outputs * 4)
+    inputs = mx.array(np.frombuffer(input_bytes, dtype=np.float32).reshape(rows, features))
+    token_identity = mx.array(np.frombuffer(token_bytes, dtype=np.float32).reshape(rows, num_layers, per_layer_width))
+    projection_weight = read_whole_tensor(pool, shards, (outputs, features), widen=False)
+    norm_weight = read_whole_tensor(pool, shards, (per_layer_width, 1)).reshape((per_layer_width,))
+    boundary = (lambda value: value.astype(mx.bfloat16).astype(mx.float32)) if rounding == 0 else (lambda value: value)
+    context_tiles = [
+        mx.matmul(inputs, projection_weight[start:start + tile_output_rows].T)
+        for start in range(0, outputs, tile_output_rows)
+    ]
+    mx.eval(*context_tiles)
+    context = boundary(mx.concatenate(context_tiles, axis=1))
+    context = boundary(context * mx.array(context_scale, dtype=mx.float32)).reshape((rows, num_layers, per_layer_width))
+    mx.eval(context, norm_weight)
+    normalized_values = rms_norm_cpu_cascade_f32(np.asarray(context, dtype=np.float32), np.asarray(norm_weight, dtype=np.float32), epsilon)
+    normalized = boundary(mx.array(normalized_values))
+    combined = boundary(normalized + token_identity)
+    result = boundary(combined * mx.array(combine_scale, dtype=mx.float32)).reshape((rows, outputs))
+    valid = mx.all(mx.isfinite(result))
+    mx.eval(result, valid)
+    if not bool(np.asarray(valid).item()):
+        raise ValueError("MLX fused PLE prelude produced non-finite output")
+    write_float_tensor(result)
+    sys.stdout.buffer.flush()
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--threads", type=int, required=True)
@@ -293,6 +373,12 @@ def main():
             raise ValueError("fused attention is available only in the PyTorch worker")
         if native_attention:
             raise ValueError("native attention is available only in the PyTorch worker")
+        fused_ple_prelude = bool(encoded_dtype & FUSED_PLE_PRELUDE_FLAG)
+        if fused_ple_prelude:
+            if referenced or batched or fused_mlp or native_bf16 or native_attention or fused_attention or dtype_code != FUSED_PLE_PRELUDE_FLAG:
+                raise ValueError("MLX fused PLE prelude flags are invalid")
+            execute_ple_prelude_request(pool, shards, rows, outputs, features)
+            continue
         fused_decoder_stack = bool(encoded_dtype & FUSED_DECODER_STACK_FLAG)
         if fused_decoder_stack:
             fused_epilogue = bool(encoded_dtype & FUSED_DECODER_STACK_EPILOGUE_FLAG)

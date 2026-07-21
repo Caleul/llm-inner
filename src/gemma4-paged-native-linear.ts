@@ -105,7 +105,10 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
       this.multiplyStorageReferences = (input, requests, rows) => this.#requestReferences(input, requests, rows);
       this.fusedGatedMlpStorageReference = (input, gate, up, down, rows, rounding) => this.#requestGatedMlp(input, gate, up, down, rows, rounding);
       this.fusedDecoderStackStorageReferences = (request) => this.#requestDecoderStack(request);
-      if (backend === "mlx") this.fusedDecoderStackEpilogueStorageReferences = (request) => this.#requestDecoderStackEpilogue(request);
+      if (backend === "mlx") {
+        this.fusedDecoderStackEpilogueStorageReferences = (request) => this.#requestDecoderStackEpilogue(request);
+        this.fusedPlePreludeStorageReference = (request) => this.#requestFusedPlePrelude(request);
+      }
       if (backend === "pytorch") {
         this.attention = (request) => this.#requestAttention(request);
         this.fusedAttentionStorageReferences = (request) => this.#requestFusedAttention(request);

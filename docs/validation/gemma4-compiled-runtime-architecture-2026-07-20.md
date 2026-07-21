@@ -273,6 +273,40 @@ npm run calibrate:gemma4-real -- \
   --precision f32 --rounding-policy none
 ```
 
+## Prelude PLE compilado com redução reproduzível
+
+O backend MLX absorve agora o prelude PLE completo em uma única requisição
+binária por forward: projeção de contexto, escala, reshape por camada, RMSNorm,
+soma com a identidade aprendida por token e escala final. A interface ativa
+`bf16` por padrão no backend MLX e publica tanto a política quanto a contagem e
+o tempo desses despachos.
+
+A primeira composição experimental executou a projeção `[10752,2560]` como uma
+única GEMM e usou a redução genérica de `mx.mean`. Embora reduzisse o transporte,
+ela alterou o segundo token do prompt sobre a Lua de `818` para `3689`. A versão
+promovida mantém uma única fronteira externa, mas preserva internamente os
+quatro blocos de projeção definidos por `maxReadBytes` e reproduz a árvore
+`pytorch-cpu-f32-cascade-sum` declarada pelo artefato. No caso limítrofe, os
+logits de `818` e `3689` voltaram a empatar em `23,375`; o desempate greedy pelo
+menor token selecionou `818`, como no original.
+
+Na calibração 8x2 final:
+
+- o compilado preservou 8/8 prompts e 16/16 tokens do original;
+- o throughput direto foi `4,9591 token/s`, `5,4130x` o baseline da mesma
+  execução;
+- contra o forward integral anterior (`4,6476 token/s`), houve ganho de 6,70%;
+- o tempo agregado direto caiu de `3,4427 s` para `3,2264 s`, redução de 6,28%;
+- 64 despachos lineares referenciados foram substituídos por 16 preludes PLE;
+- o cache de constantes passou de 403 para 404 entradas e de `222.440.608` para
+  `222.441.632` bytes, sem ampliar a matriz de projeção BF16 para F32;
+- os forwards incrementais dos oito prompts ficaram entre `0,0792 s` e
+  `0,0918 s`.
+
+Evidência promovida:
+
+- `artifacts/gemma4-three-way-calibration-8x2-mlx-ple-prelude-cascade.json`.
+
 ## Paginação independente da projeção terminal
 
 Depois das fusões de attention, MLP e PLE, o `lm_head` passou a responder por
