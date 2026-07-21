@@ -43,6 +43,7 @@ interface ThreeWayCase {
     maxReadMiB?: number;
     finalHeadReadMiB?: number;
     mlxHeadQuantization?: "off" | "q8" | "q4";
+    mlxHeadQuantizationStrategy?: "exact-bf16" | "two-stage-residual-affine-certified-v1";
     mlxDecoderQuantization?: Gemma4RealComparisonRunnerOptions["directMlxDecoderQuantization"];
     linearReferenceDispatches?: number;
     wholeNativeBf16Dispatches?: number;
@@ -175,7 +176,8 @@ export async function runGemma4ThreeWayCalibration(options: Gemma4CalibrationCli
 
 export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], options: { maxNewTokens: number; requestThreads: number; precision: "f32" | "f64"; roundingPolicy: "none" | "layer-bf16" | "operation-bf16"; runner: Gemma4RealComparisonRunnerOptions }, status: Record<string, unknown>): Gemma4ThreeWayCalibrationReport {
   if (cases.length === 0) throw new Error("Calibração requer ao menos um caso.");
-  options = { ...options, runner: { ...options.runner, directMlxHeadQuantization: options.runner.directMlxHeadQuantization ?? "off" } };
+  const directBackend = options.runner.directLinearBackend ?? "mlx";
+  options = { ...options, runner: { ...options.runner, directMlxHeadQuantization: options.runner.directMlxHeadQuantization ?? (directBackend === "mlx" ? "q8" : "off") } };
   const totalSteps = cases.reduce((total, entry) => total + entry.baselineGeneratedTokenIds.length, 0);
   const compatibilityEqualSteps = cases.reduce((total, entry) => total + equalTokenSteps(entry.baselineGeneratedTokenIds, entry.candidateGeneratedTokenIds), 0);
   const directEqualSteps = cases.reduce((total, entry) => total + equalTokenSteps(entry.baselineGeneratedTokenIds, entry.direct.generatedTokenIds), 0);
@@ -193,7 +195,6 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
   const marginErrors = directLogitSteps.flatMap((step) => step.greedyMarginAbsError === null ? [] : [step.greedyMarginAbsError]);
   const topKOverlapRates = directLogitSteps.flatMap((step) => step.topKOverlapRate === null ? [] : [step.topKOverlapRate]);
   const commonTopKErrors = directLogitSteps.flatMap((step) => step.topKCommonLogitMaxAbsError === null ? [] : [step.topKCommonLogitMaxAbsError]);
-  const directBackend = options.runner.directLinearBackend ?? "mlx";
   return {
     kind: "gemma4-three-way-calibration",
     schemaVersion: 1,
@@ -267,6 +268,7 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.maxReadMiB === undefined ? {} : { maxReadMiB: entry.direct.maxReadMiB }),
         ...(entry.direct.finalHeadReadMiB === undefined ? {} : { finalHeadReadMiB: entry.direct.finalHeadReadMiB }),
         ...(entry.direct.mlxHeadQuantization === undefined ? {} : { mlxHeadQuantization: entry.direct.mlxHeadQuantization }),
+        ...(entry.direct.mlxHeadQuantizationStrategy === undefined ? {} : { mlxHeadQuantizationStrategy: entry.direct.mlxHeadQuantizationStrategy }),
         ...(entry.direct.mlxDecoderQuantization === undefined ? {} : { mlxDecoderQuantization: entry.direct.mlxDecoderQuantization }),
         ...(entry.direct.linearReferenceDispatches === undefined ? {} : { linearReferenceDispatches: entry.direct.linearReferenceDispatches }),
         ...(entry.direct.wholeNativeBf16Dispatches === undefined ? {} : { wholeNativeBf16Dispatches: entry.direct.wholeNativeBf16Dispatches }),

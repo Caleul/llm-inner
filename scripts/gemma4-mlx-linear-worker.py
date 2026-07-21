@@ -325,7 +325,11 @@ def matrix_contract(value):
 def matrix_project(value, weight):
     if isinstance(weight, tuple):
         quantized, scales, biases, group_size, bits = weight[:5]
-        return mx.quantized_matmul(value, quantized, scales, biases, transpose=True, group_size=group_size, bits=bits).astype(mx.float32)
+        projected = mx.quantized_matmul(value, quantized, scales, biases, transpose=True, group_size=group_size, bits=bits).astype(mx.float32)
+        if len(weight) == 11:
+            correction_quantized, correction_scales, correction_biases = weight[5:8]
+            projected = projected + mx.quantized_matmul(value, correction_quantized, correction_scales, correction_biases, transpose=True, group_size=group_size, bits=bits).astype(mx.float32)
+        return projected
     return mx.matmul(value, weight.T).astype(mx.float32)
 
 
@@ -463,27 +467,34 @@ def execute_decoder_epilogue(result, epilogue, terminal_only=True, rounding="nat
 def build_quantized_head(head_weight, group_size, bits, chunk_rows=4096):
     quantized, scales, biases = mx.quantize(head_weight, group_size=group_size, bits=bits)
     mx.eval(quantized, scales, biases)
-    error_chunks = []
+    correction_chunks, error_chunks = [], []
     for first in range(0, head_weight.shape[0], chunk_rows):
         last = min(head_weight.shape[0], first + chunk_rows)
         dequantized = mx.dequantize(quantized[first:last], scales[first:last], biases[first:last], group_size=group_size, bits=bits, dtype=mx.float32)
         exact = head_weight[first:last].astype(mx.float32)
-        residual = (exact - dequantized).reshape((last - first, head_weight.shape[1] // group_size, group_size))
-        group_max_errors = mx.max(mx.abs(residual), axis=2)
-        group_l2_errors = mx.sqrt(mx.sum(residual * residual, axis=2))
-        mx.eval(group_max_errors, group_l2_errors)
+        residual = exact - dequantized
+        correction_quantized, correction_scales, correction_biases = mx.quantize(residual, group_size=group_size, bits=bits)
+        correction = mx.dequantize(correction_quantized, correction_scales, correction_biases, group_size=group_size, bits=bits, dtype=mx.float32)
+        remaining = (residual - correction).reshape((last - first, head_weight.shape[1] // group_size, group_size))
+        group_max_errors = mx.max(mx.abs(remaining), axis=2)
+        group_l2_errors = mx.sqrt(mx.sum(remaining * remaining, axis=2))
+        mx.eval(correction_quantized, correction_scales, correction_biases, group_max_errors, group_l2_errors)
+        correction_chunks.append((correction_quantized, correction_scales, correction_biases))
         error_chunks.append((group_max_errors, group_l2_errors))
+    correction_quantized = mx.concatenate(tuple(entry[0] for entry in correction_chunks), axis=0)
+    correction_scales = mx.concatenate(tuple(entry[1] for entry in correction_chunks), axis=0)
+    correction_biases = mx.concatenate(tuple(entry[2] for entry in correction_chunks), axis=0)
     max_errors = mx.concatenate(tuple(entry[0] for entry in error_chunks), axis=0)
     l2_errors = mx.concatenate(tuple(entry[1] for entry in error_chunks), axis=0)
-    mx.eval(max_errors, l2_errors)
-    return quantized, scales, biases, group_size, bits, head_weight, max_errors, l2_errors
+    mx.eval(correction_quantized, correction_scales, correction_biases, max_errors, l2_errors)
+    return quantized, scales, biases, group_size, bits, correction_quantized, correction_scales, correction_biases, head_weight, max_errors, l2_errors
 
 
 def quantized_head_error_bounds(result, epilogue, rounding):
     norm_weight, head_weight, norm_epsilon, softcap = epilogue
-    if not isinstance(head_weight, tuple) or len(head_weight) != 8:
+    if not isinstance(head_weight, tuple) or len(head_weight) != 11:
         return None
-    group_size, exact_weight, max_errors, l2_errors = head_weight[3], head_weight[5], head_weight[6], head_weight[7]
+    group_size, exact_weight, max_errors, l2_errors = head_weight[3], head_weight[8], head_weight[9], head_weight[10]
     real = rounding == "real"
     boundary = (lambda value: value) if real else (lambda value: value.astype(mx.bfloat16).astype(mx.float32))
     final_hidden = boundary(rms_norm_real(result[:, -1:, :], norm_weight, norm_epsilon))
@@ -531,7 +542,7 @@ def rank_terminal_logits(logits, raw_logits, top_k, result=None, epilogue=None, 
     values = logits.reshape((-1,))
     certificate_k = min(values.size, max(top_k, 16))
     candidates_value = mx.argpartition(values, -certificate_k)[-certificate_k:]
-    exact_weight = epilogue[1][5]
+    exact_weight = epilogue[1][8]
     candidate_weight = mx.take(exact_weight, candidates_value, axis=0)
     exact_epilogue = (epilogue[0], candidate_weight, epilogue[2], epilogue[3])
     exact_candidate_raw = execute_decoder_head(result, exact_epilogue, rounding=rounding)

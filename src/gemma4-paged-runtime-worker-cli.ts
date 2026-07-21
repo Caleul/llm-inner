@@ -197,6 +197,7 @@ function buildReport(inputIds: number[], maxNewTokens: number, generatedTokenIds
     fusedPlePreludeDispatches: dispatchesAfter.fusedPlePreludeDispatches - dispatchesBefore.fusedPlePreludeDispatches,
     finalHeadCompute: args.finalHeadCompute,
     mlxHeadQuantization: args.mlxHeadQuantization,
+    mlxHeadQuantizationStrategy: args.mlxHeadQuantization === "off" ? "exact-bf16" : "two-stage-residual-affine-certified-v1",
     mlxDecoderQuantization: args.mlxDecoderQuantization,
     nativeAttentionRounding: args.nativeAttentionRounding,
     nativeAttentionDispatches: dispatchesAfter.nativeAttentionDispatches - dispatchesBefore.nativeAttentionDispatches,

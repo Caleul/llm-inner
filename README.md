@@ -2771,12 +2771,13 @@ classificados como cascata e não como novas divergências numéricas.
 
 O hot path MLX quantiza seletivamente em Q8 as matrizes `gate_proj` e
 `up_proj` das 42 FFNs (`--direct-mlx-decoder-quantization q8-ffn-gate-up`, o
-padrão). Pesos de atenção, `down_proj` e a cabeça final permanecem BF16; o head
-Q8 pode ser reativado explicitamente com `--direct-mlx-head-quantization q8`,
-mas não faz parte da política validada. A seleção é materializada uma vez ao
-carregar os pesos residentes e `mx.quantized_matmul` participa da mesma closure
-incremental compilada; o relatório e a UI publicam separadamente
-`mlxDecoderQuantization` e `mlxHeadQuantization`. Os modos mais agressivos
+padrão). Pesos de atenção e `down_proj` permanecem BF16; a cabeça final usa por
+padrão Q8 hierárquico certificado (`--direct-mlx-head-quantization q8`) e
+recalcula localmente a projeção BF16 completa quando o limite não prova o
+argmax. A seleção é materializada uma vez ao carregar os pesos residentes e
+`mx.quantized_matmul` participa da mesma closure incremental compilada; o
+relatório e a UI publicam separadamente `mlxDecoderQuantization`,
+`mlxHeadQuantization` e `mlxHeadQuantizationStrategy`. Os modos mais agressivos
 (`q8-ffn`, `q8-ffn-down`, `q8-attention`, `q8-all`) continuam disponíveis para
 experimentos, sem alegação de paridade.
 
@@ -2818,9 +2819,10 @@ O corpus ampliado e reproduzível pode ser executado com:
 
 ```bash
 npm run calibrate:gemma4-real -- \
-  --output ./artifacts/gemma4-q8-decoder-gate-up-head-off-calibration.json \
-  --tokens 8 --request-threads 1 \
-  --direct-mlx-head-quantization off \
+  --output ./artifacts/gemma4-q8-residual-head-calibration.json \
+  --prompts-json ./artifacts/gemma4-calibration-prompts-32.json \
+  --tokens 4 --request-threads 1 \
+  --direct-mlx-head-quantization q8 \
   --direct-mlx-decoder-quantization q8-ffn-gate-up \
   --direct-verification-margin off \
   --precision f32 --rounding-policy none
@@ -2845,26 +2847,30 @@ compilado durante 32 prompts × 4 tokens. O runtime selecionado preservou
 `model.safetensors` empacotado e a fonte original possuem o mesmo SHA-256
 `43fb96cec3045b72852c787540300dc5b258634b7a025f7c80355ac0788b9651`.
 
-O `lm_head` Q8 também possui um caminho autocontido de decisão certificada.
-Na carga, o worker calcula o resíduo entre cada peso BF16 e sua reconstrução
-Q8 por grupo. Para cada token, limita o erro do produto escalar pelo menor dos
-limites de Hölder `||x_g||₁ ||e_g||∞` e Cauchy-Schwarz
-`||x_g||₂ ||e_g||₂`, somados entre os grupos. Como `tanh`, o softcap e o
+O `lm_head` Q8 possui um caminho autocontido de decisão certificada. Na carga,
+o worker decompõe cada peso BF16 como `W = Q8₀(W) + Q8₁(W-Q8₀(W)) + ε`.
+O forward soma as duas projeções Q8 e, para cada token, limita apenas o produto
+escalar do resíduo restante `ε` pelo menor dos limites de Hölder
+`||x_g||₁ ||ε_g||∞` e Cauchy-Schwarz
+`||x_g||₂ ||ε_g||₂`, somados entre os grupos. Como `tanh`, o softcap e o
 arredondamento BF16 são monotônicos, o limite superior é propagado até o logit
-final. O argmax Q8 só é aceito quando o logit BF16 exato do candidato é
+final. O argmax hierárquico só é aceito quando o logit BF16 exato do candidato é
 estritamente maior que todos esses limites superiores; caso contrário, o
 próprio worker calcula o `lm_head` BF16 completo, sem consultar o Transformers
 ou outro modelo-oráculo. A interface expõe as duas contagens como
-`quantizedHeadCertifiedSteps` e `quantizedHeadExactFallbackSteps`.
+`quantizedHeadCertifiedSteps` e `quantizedHeadExactFallbackSteps`, além de
+declarar `two-stage-residual-affine-certified-v1` como estratégia.
 
 Na calibração local de 21 de julho de 2026 com os 32 prompts versionados × 4
-tokens, Q8 em `gate+up` e no `lm_head`, 98/128 decisões foram certificadas e
-30/128 usaram o fallback BF16 local. O resultado preservou 32/32 prompts e
-128/128 tokens, com zero divergências raiz. O caminho direto somou 7,3714 s,
-ou 17,3645 tokens/s, contra 0,7096 tokens/s do original na mesma execução
-(24,4693×). Isso é evidência para esse corpus, não prova universal para prompts
-arbitrários; a interface continua executando e comparando ambos para cada
-entrada solicitada.
+tokens, Q8 em `gate+up` e no `lm_head`, 125/128 decisões foram certificadas e
+3/128 usaram o fallback BF16 local. O resultado preservou 32/32 prompts e
+128/128 tokens, com zero divergências raiz. O caminho direto somou 7,0893 s,
+ou 18,0553 tokens/s, contra 1,0362 tokens/s do original na mesma execução
+(17,4242×). Contra a calibração imediatamente anterior da cabeça Q8 em um
+único estágio, os fallbacks caíram de 30 para 3 e o throughput direto subiu de
+17,3645 para 18,0553 tokens/s. Isso é evidência para esse corpus, não prova
+universal para prompts arbitrários; a interface continua executando e
+comparando ambos para cada entrada solicitada.
 
 ### Gerador de fórmulas fisicamente planas
 

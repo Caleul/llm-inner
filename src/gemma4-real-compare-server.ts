@@ -46,7 +46,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
   const directBackend = options.directLinearBackend ?? "mlx";
   options = {
     ...options,
-    directMlxHeadQuantization: options.directMlxHeadQuantization ?? "off",
+    directMlxHeadQuantization: options.directMlxHeadQuantization ?? (directBackend === "mlx" ? "q8" : "off"),
     directMlxDecoderQuantization: options.directMlxDecoderQuantization ?? (directBackend === "mlx" ? "q8-ffn-gate-up" : "off"),
   };
   if (options.directVerificationMargin !== undefined && (!Number.isFinite(options.directVerificationMargin) || options.directVerificationMargin < 0)) throw new Error("directVerificationMargin deve ser finita e não negativa.");
@@ -498,7 +498,7 @@ export function parseGemma4RealServerOptions(arguments_: readonly string[]): Gem
   const compiledProgram = bundleReady ? readCompiledProgramStatus(compiledBundle) : undefined;
   const directLinearBackend = values.get("--direct-linear-backend") ?? "mlx";
   if (directLinearBackend !== "pytorch" && directLinearBackend !== "mlx") throw new Error("--direct-linear-backend deve ser pytorch ou mlx.");
-  const directMlxHeadQuantization = values.get("--direct-mlx-head-quantization") ?? "off";
+  const directMlxHeadQuantization = values.get("--direct-mlx-head-quantization") ?? (directLinearBackend === "mlx" ? "q8" : "off");
   if (directMlxHeadQuantization !== "off" && directMlxHeadQuantization !== "q8" && directMlxHeadQuantization !== "q4") throw new Error("--direct-mlx-head-quantization deve ser off, q8 ou q4.");
   if (directLinearBackend !== "mlx" && directMlxHeadQuantization !== "off") throw new Error("--direct-mlx-head-quantization requer backend MLX.");
   const directMlxDecoderQuantization = values.get("--direct-mlx-decoder-quantization") ?? (directLinearBackend === "mlx" ? "q8-ffn-gate-up" : "off");

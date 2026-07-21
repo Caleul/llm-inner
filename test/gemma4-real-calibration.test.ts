@@ -15,7 +15,7 @@ const baseCase = {
 
 test("calibração três-vias agrega acordo token a token e throughput", () => {
   const report = summarizeGemma4ThreeWayCalibration([baseCase], { maxNewTokens: 2, requestThreads: 1, precision: "f32", roundingPolicy: "none", runner: { source: "/model", python: "python", helper: "helper", directThreads: 4 } }, { ready: true });
-  assert.equal(report.configuration.directMlxHeadQuantization, "off");
+  assert.equal(report.configuration.directMlxHeadQuantization, "q8");
   assert.equal(report.configuration.directMlxDecoderQuantization, "q8-ffn-gate-up");
   assert.deepEqual(report.summary, {
     promptsThreeWayEqual: 0, promptThreeWayAgreementRate: 0,
@@ -36,9 +36,10 @@ test("calibração três-vias agrega acordo token a token e throughput", () => {
 
 test("calibração preserva métricas da cabeça quantizada certificada", () => {
   const report = summarizeGemma4ThreeWayCalibration([
-    { ...baseCase, direct: { ...baseCase.direct, quantizedHeadCertifiedSteps: 1, quantizedHeadExactFallbackSteps: 1 } },
+    { ...baseCase, direct: { ...baseCase.direct, mlxHeadQuantizationStrategy: "two-stage-residual-affine-certified-v1" as const, quantizedHeadCertifiedSteps: 1, quantizedHeadExactFallbackSteps: 1 } },
   ], { maxNewTokens: 2, requestThreads: 1, precision: "f32", roundingPolicy: "none", runner: { source: "/model", python: "python", helper: "helper", directThreads: 4 } }, { ready: true });
-  const direct = report.cases[0]?.direct as { quantizedHeadCertifiedSteps?: number; quantizedHeadExactFallbackSteps?: number };
+  const direct = report.cases[0]?.direct as { mlxHeadQuantizationStrategy?: string; quantizedHeadCertifiedSteps?: number; quantizedHeadExactFallbackSteps?: number };
+  assert.equal(direct.mlxHeadQuantizationStrategy, "two-stage-residual-affine-certified-v1");
   assert.equal(direct.quantizedHeadCertifiedSteps, 1);
   assert.equal(direct.quantizedHeadExactFallbackSteps, 1);
 });
