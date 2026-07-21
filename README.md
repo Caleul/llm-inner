@@ -2785,6 +2785,25 @@ mais agressivos
 (`q8-ffn`, `q8-ffn-down`, `q8-attention`, `q8-all`) continuam disponíveis para
 experimentos, sem alegação de paridade.
 
+Para localizar quais camadas participam dessa compensação numérica, o mesmo
+modo aceita `--direct-mlx-decoder-quantization-layers` com índices e faixas
+inclusivas, por exemplo `0-19,21-41`. A especificação é normalizada, validada
+contra as 42 camadas e encaminhada até o worker Metal; o relatório e a UI
+publicam `mlxDecoderQuantizationLayers`. Uma máscara explícita recebe a
+estratégia `experimental-affine-q8` até passar pelo corpus completo, enquanto
+o padrão sem máscara continua significando todas as camadas e mantém
+`single-stage-affine-q8-calibrated-v1`.
+
+A ablação de sensibilidade confirmou que a compensação atravessa a pilha:
+usar somente `0-20` ou somente `21-41` divergiu em pelo menos um dos dois
+prompts-limite; retirar individualmente as camadas 0, 1, 21 ou 41 também
+divergiu. Retirar apenas a camada 20 preservou esses dois casos, mas falhou no
+corpus 32×4: `31/32` prompts, `124/128` tokens e uma divergência raiz no passo
+zero de `The first month of the year is` (token de referência `1024`, token da
+máscara `496`). Apesar de elevar o throughput medido de `18.06` para
+`21.75 tok/s`, a máscara não foi promovida porque velocidade sem paridade não
+atende ao contrato. O padrão permanece nas 42 FFNs.
+
 Na calibração oficial de 8 prompts × 8 tokens, head BF16 mais `gate+up` Q8
 produziu 64/64 tokens iguais ao Transformers, zero divergências raiz, erro
 máximo de `0.25` no logit escolhido e sobreposição top-5 média de `95.625%`.

@@ -6,6 +6,7 @@ from collections import OrderedDict
 import hashlib
 import math
 from pathlib import Path
+import re
 import struct
 import sys
 import time
@@ -33,6 +34,7 @@ _resident_generation_model = None
 _resident_generation_session = None
 _head_quantization = "off"
 _decoder_quantization = "off"
+_decoder_quantization_layers = None
 EMBEDDING_ROW_CACHE_LIMIT = 4096
 
 
@@ -299,7 +301,8 @@ def read_decoder_layer_weights(pool, shards, hidden_size, config):
         "layer_scalar": read_whole_tensor(pool, shards, (1, 1)).reshape(()),
     })
     selected = set()
-    quantize_gate_up = _decoder_quantization in ("q8-ffn", "q8-all", "q8-ffn-gate-up")
+    quantize_gate_up = _decoder_quantization in ("q8-ffn", "q8-all")
+    quantize_gate_up = quantize_gate_up or (_decoder_quantization == "q8-ffn-gate-up" and (_decoder_quantization_layers is None or config["layer_index"] in _decoder_quantization_layers))
     quantize_gate_up = quantize_gate_up or (_decoder_quantization == "q8-ffn-gate-up-first-half" and config["layer_index"] < 21)
     quantize_gate_up = quantize_gate_up or (_decoder_quantization == "q8-ffn-gate-up-last-half" and config["layer_index"] >= 21)
     if quantize_gate_up:
@@ -903,16 +906,37 @@ def execute_ple_prelude_request(pool, shards, rows, outputs, features):
     sys.stdout.buffer.flush()
 
 
+def parse_decoder_quantization_layers(value):
+    layers = set()
+    for part in value.split(","):
+        match = re.fullmatch(r"(\d+)(?:-(\d+))?", part)
+        if match is None:
+            raise ValueError(f"invalid decoder quantization layer range: {part}")
+        start = int(match.group(1))
+        end = int(match.group(2) or match.group(1))
+        if start > end or start < 0 or end > 41:
+            raise ValueError(f"decoder quantization layers must be between 0 and 41: {part}")
+        layers.update(range(start, end + 1))
+    if not layers:
+        raise ValueError("decoder quantization layers cannot be empty")
+    return frozenset(layers)
+
+
 def main():
-    global _head_quantization, _decoder_quantization
+    global _head_quantization, _decoder_quantization, _decoder_quantization_layers
     parser = argparse.ArgumentParser()
     parser.add_argument("--threads", type=int, required=True)
     parser.add_argument("--binary-pool", required=True)
     parser.add_argument("--head-quantization", choices=("off", "q8", "q4"), default="off")
     parser.add_argument("--decoder-quantization", choices=("off", "q8-ffn", "q8-ffn-gate-up", "q8-ffn-gate-up-first-half", "q8-ffn-gate-up-last-half", "q8-ffn-down", "q8-attention", "q8-all"), default="off")
+    parser.add_argument("--decoder-quantization-layers")
     args = parser.parse_args()
     _head_quantization = args.head_quantization
     _decoder_quantization = args.decoder_quantization
+    if args.decoder_quantization_layers is not None:
+        if _decoder_quantization != "q8-ffn-gate-up":
+            raise ValueError("--decoder-quantization-layers requires --decoder-quantization q8-ffn-gate-up")
+        _decoder_quantization_layers = parse_decoder_quantization_layers(args.decoder_quantization_layers)
     if args.threads < 1:
         raise ValueError("--threads must be positive")
     pool = Path(args.binary_pool).resolve()
