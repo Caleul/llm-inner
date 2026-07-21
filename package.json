@@ -34,6 +34,7 @@
     "generate:gemma4-flat-formulas": "npm run build && node --max-old-space-size=6144 dist/src/gemma4-flat-formula-cli.js",
     "compose:gemma4-reverse": "npm run build && node --max-old-space-size=6144 dist/src/gemma4-parametric-reverse-cli.js",
     "bundle:gemma4-compiled": "npm run build && node dist/src/gemma4-compiled-bundle-cli.js",
+    "compile:gemma4-vector-lowering": "npm run build && node dist/src/gemma4-vectorized-real-lowering-cli.js",
     "replay:gemma4-paged-text": "npm run build && node dist/src/gemma4-paged-text-cli.js",
     "probe:gemma4-linear-reduction": "npm run build && node dist/src/gemma4-linear-reduction-probe-cli.js",
     "benchmark:native": "npm run build && node dist/src/benchmark-cli.js",

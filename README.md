@@ -2553,6 +2553,27 @@ statements, 1.321 funções e 264.704 outputs `calc_*`. A memória de constantes
 é o artefato literal autenticado declarado em `constantMemory`; portanto o
 checkpoint Safetensors original não é consultado.
 
+O lowering vetorizado correspondente é compilado para um plano compacto e
+persistente antes de iniciar o runtime:
+
+```bash
+npm run compile:gemma4-vector-lowering -- \
+  --artifact artifacts/gemma4-compiled-global-runtime-bundle/constants.literal.json \
+  --bind-bundle artifacts/gemma4-compiled-global-runtime-bundle
+```
+
+Isso grava `vectorized-real-lowering.json`, adiciona seu SHA-256 ao manifesto
+v2 do bundle e vincula as 1.221 closures globais às nove famílias de kernels
+MLX/Metal. O worker no modo `real` não aceita um certificado calculado apenas
+em memória: ele carrega esse plano, recalcula o lowering a partir do programa
+autenticado embutido em `constants.literal.json` e exige igualdade integral
+antes de gerar o primeiro token. O SSA standalone de 430 MB continua sendo a
+representação navegável; ele não é reparsed no hot path de geração.
+
+Ao criar um bundle novo, passe o mesmo plano com
+`bundle:gemma4-compiled -- --real-lowering-plan <arquivo> ...`; bundles sem o
+plano persistido não são reconhecidos como prontos pela interface.
+
 A geração greedy diferencial possui uma interface local funcional:
 
 ```bash

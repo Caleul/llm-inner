@@ -1,21 +1,27 @@
 import { createHash } from "node:crypto";
+import { readFile, stat } from "node:fs/promises";
 import { createInterface } from "node:readline";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { openGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
 import { Gemma4BinaryConstantPool } from "./gemma4-binary-constant-pool.js";
 import { Gemma4PagedNativeLinearWorker } from "./gemma4-paged-native-linear.js";
 import { executeGemma4PagedTextEpilogueLiteralF32, executeGemma4PagedTextHiddenLiteralF32, executeGemma4PagedTextLiteralF32, generateGemma4PagedTextLiteralNativeF32 } from "./gemma4-paged-text.js";
 import { selectGemma4LiteralGenerationToken } from "./gemma4-literal-generation-control.js";
 import { rankGemma4TerminalLogits } from "./gemma4-terminal-logits.js";
-import { buildGemma4VectorizedRealLoweringContract } from "./gemma4-vectorized-real-lowering.js";
+import { assertGemma4VectorizedRealLoweringPlanMatches, type Gemma4VectorizedRealLoweringPlan } from "./gemma4-vectorized-real-lowering.js";
 
 const args = parseArguments(process.argv.slice(2));
 const initializationStarted = performance.now();
 const artifact = await openGemma4CompositeLiteralArtifact(args.artifact);
 const pool = await Gemma4BinaryConstantPool.open(args.binaryPool);
-const vectorizedRealLowering = args.fusedDecoderStackRounding === "real"
-  ? buildGemma4VectorizedRealLoweringContract(artifact.realSimplifiedProgram, artifact.calculationGraph, artifact.integrityManifest)
-  : undefined;
+let vectorizedRealLowering: Gemma4VectorizedRealLoweringPlan["contract"] | undefined;
+if (args.fusedDecoderStackRounding === "real") {
+  const planInfo = await stat(args.realLoweringPlan!);
+  if (!planInfo.isFile() || planInfo.size < 1 || planInfo.size > 16 * 1024 * 1024) throw new Error("Plano de lowering real persistido deve ter entre 1 byte e 16 MiB.");
+  const persisted = JSON.parse(await readFile(args.realLoweringPlan!, "utf8")) as unknown;
+  assertGemma4VectorizedRealLoweringPlanMatches(persisted, artifact.realSimplifiedProgram, artifact.calculationGraph, artifact.integrityManifest);
+  vectorizedRealLowering = persisted.contract;
+}
 const linear = new Gemma4PagedNativeLinearWorker({ python: args.python, helper: args.linearHelper, threads: args.threads, binaryPool: args.binaryPool, storageTensors: pool.catalog.tensors, backend: args.linearBackend, mlxHelper: args.mlxHelper });
 const options = { maxReadBytes: args.maxReadBytes, finalHeadMaxReadBytes: args.finalHeadMaxReadBytes, allowUnverifiedFidelity: true, tensorReader: pool, linearTileKernel: linear, finalHeadCompute: args.finalHeadCompute, ...(args.fusedMlpRounding === "off" ? {} : { fusedMlpRounding: args.fusedMlpRounding }), ...(args.fusedFfnRounding === "off" ? {} : { fusedFfnRounding: args.fusedFfnRounding }), ...(args.fusedDecoderLayerRounding === "off" ? {} : { fusedDecoderLayerRounding: args.fusedDecoderLayerRounding }), ...(args.fusedDecoderStackRounding === "off" ? {} : { fusedDecoderStackRounding: args.fusedDecoderStackRounding }), ...(args.fusedPleRounding === "off" ? {} : { fusedPleRounding: args.fusedPleRounding }), ...(args.fusedPlePreludeRounding === "off" ? {} : { fusedPlePreludeRounding: args.fusedPlePreludeRounding }), ...(args.fusedTokenForwardRounding === "off" ? {} : { fusedTokenForwardRounding: args.fusedTokenForwardRounding }), ...(args.nativeAttentionRounding === "off" ? {} : { nativeAttentionRounding: args.nativeAttentionRounding }), ...(args.fusedAttentionRounding === "off" ? {} : { fusedAttentionRounding: args.fusedAttentionRounding }) };
 process.stdout.write(`${JSON.stringify({ ready: true, initializationSeconds: (performance.now() - initializationStarted) / 1000, backend: "paged-binary-native", linearBackend: linear.backend, fusedMlpRounding: args.fusedMlpRounding, fusedFfnRounding: args.fusedFfnRounding, fusedDecoderLayerRounding: args.fusedDecoderLayerRounding, fusedDecoderStackRounding: args.fusedDecoderStackRounding, fusedPleRounding: args.fusedPleRounding, fusedPlePreludeRounding: args.fusedPlePreludeRounding, fusedTokenForwardRounding: args.fusedTokenForwardRounding, residentGeneration: args.residentGeneration, finalHeadCompute: args.finalHeadCompute, nativeAttentionRounding: args.nativeAttentionRounding, fusedAttentionRounding: args.fusedAttentionRounding, threads: args.threads, maxReadMiB: args.maxReadBytes / (1024 * 1024), finalHeadReadMiB: args.finalHeadMaxReadBytes / (1024 * 1024), ...(vectorizedRealLowering ? { vectorizedRealLowering } : {}) })}\n`);
@@ -200,10 +206,10 @@ function validateVerificationFastPath(value: unknown, maxNewTokens: number): Ver
   if (typeof terminalLogitsSha256 !== "string" || !/^[0-9a-f]{64}$/.test(terminalLogitsSha256)) throw new Error("verificationFastPath.terminalLogitsSha256 deve ser SHA-256 hexadecimal minúsculo.");
   return { generatedTokenIds: generatedTokenIds as number[], sensitiveSteps: normalizedSteps, terminalLogitsSha256 };
 }
-function parseArguments(argv: string[]): { artifact: string; binaryPool: string; python: string; linearHelper: string; mlxHelper: string; linearBackend: "pytorch" | "mlx"; fusedMlpRounding: "off" | "bf16" | "real" | "native-bf16"; fusedFfnRounding: "off" | "native-bf16"; fusedDecoderLayerRounding: "off" | "native-bf16"; fusedDecoderStackRounding: "off" | "real" | "native-bf16" | "native-bf16-ple"; fusedPleRounding: "off" | "bf16" | "real"; fusedPlePreludeRounding: "off" | "bf16" | "real"; fusedTokenForwardRounding: "off" | "bf16"; residentGeneration: "off" | "on"; finalHeadCompute: "f32" | "native-bf16" | "native-bf16-stream" | "native-bf16-whole"; nativeAttentionRounding: "off" | "bf16" | "real"; fusedAttentionRounding: "off" | "bf16" | "real" | "native-bf16"; threads: number; maxReadBytes: number; finalHeadMaxReadBytes: number } {
+function parseArguments(argv: string[]): { artifact: string; binaryPool: string; realLoweringPlan?: string; python: string; linearHelper: string; mlxHelper: string; linearBackend: "pytorch" | "mlx"; fusedMlpRounding: "off" | "bf16" | "real" | "native-bf16"; fusedFfnRounding: "off" | "native-bf16"; fusedDecoderLayerRounding: "off" | "native-bf16"; fusedDecoderStackRounding: "off" | "real" | "native-bf16" | "native-bf16-ple"; fusedPleRounding: "off" | "bf16" | "real"; fusedPlePreludeRounding: "off" | "bf16" | "real"; fusedTokenForwardRounding: "off" | "bf16"; residentGeneration: "off" | "on"; finalHeadCompute: "f32" | "native-bf16" | "native-bf16-stream" | "native-bf16-whole"; nativeAttentionRounding: "off" | "bf16" | "real"; fusedAttentionRounding: "off" | "bf16" | "real" | "native-bf16"; threads: number; maxReadBytes: number; finalHeadMaxReadBytes: number } {
   const values = new Map<string, string>();
   for (let index = 0; index < argv.length; index += 2) { const flag = argv[index], value = argv[index + 1]; if (!flag?.startsWith("--") || value === undefined || values.has(flag)) throw new Error(`Argumento inválido: ${flag ?? "fim"}.`); values.set(flag, value); }
-  const known = new Set(["--artifact", "--binary-pool", "--python", "--linear-helper", "--mlx-helper", "--linear-backend", "--fused-mlp", "--fused-ffn", "--fused-decoder-layer", "--fused-decoder-stack", "--fused-ple", "--fused-ple-prelude", "--fused-token-forward", "--resident-generation", "--final-head", "--final-head-read-mib", "--native-attention", "--fused-attention", "--threads", "--max-read-mib"]); for (const flag of values.keys()) if (!known.has(flag)) throw new Error(`Flag desconhecida: ${flag}.`);
+  const known = new Set(["--artifact", "--binary-pool", "--real-lowering-plan", "--python", "--linear-helper", "--mlx-helper", "--linear-backend", "--fused-mlp", "--fused-ffn", "--fused-decoder-layer", "--fused-decoder-stack", "--fused-ple", "--fused-ple-prelude", "--fused-token-forward", "--resident-generation", "--final-head", "--final-head-read-mib", "--native-attention", "--fused-attention", "--threads", "--max-read-mib"]); for (const flag of values.keys()) if (!known.has(flag)) throw new Error(`Flag desconhecida: ${flag}.`);
   const required = (flag: string): string => { const value = values.get(flag); if (!value) throw new Error(`${flag} é obrigatório.`); return resolve(value); };
   const threads = Number(values.get("--threads") ?? "10"), maxReadMiB = Number(values.get("--max-read-mib") ?? "16");
   const linearBackend = values.get("--linear-backend") ?? "mlx"; if (linearBackend !== "pytorch" && linearBackend !== "mlx") throw new Error("--linear-backend deve ser pytorch ou mlx.");
@@ -232,5 +238,7 @@ function parseArguments(argv: string[]): { artifact: string; binaryPool: string;
   if (linearBackend === "mlx" && nativeAttentionRounding !== "off") throw new Error("--native-attention requer --linear-backend pytorch.");
   const fusedAttentionRounding = values.get("--fused-attention") ?? (linearBackend === "pytorch" ? "native-bf16" : "off"); if (fusedAttentionRounding !== "off" && fusedAttentionRounding !== "bf16" && fusedAttentionRounding !== "real" && fusedAttentionRounding !== "native-bf16") throw new Error("--fused-attention deve ser off, bf16, real ou native-bf16.");
   if (linearBackend === "mlx" && fusedAttentionRounding !== "off") throw new Error("--fused-attention requer --linear-backend pytorch.");
-  return { artifact: required("--artifact"), binaryPool: required("--binary-pool"), python: values.get("--python") ?? resolve("venv/bin/python"), linearHelper: resolve(values.get("--linear-helper") ?? "scripts/gemma4-paged-linear-worker.py"), mlxHelper: resolve(values.get("--mlx-helper") ?? "scripts/gemma4-mlx-linear-worker.py"), linearBackend, fusedMlpRounding, fusedFfnRounding, fusedDecoderLayerRounding, fusedDecoderStackRounding, fusedPleRounding, fusedPlePreludeRounding, fusedTokenForwardRounding, residentGeneration, finalHeadCompute, nativeAttentionRounding, fusedAttentionRounding, threads, maxReadBytes: maxReadMiB * 1024 * 1024, finalHeadMaxReadBytes: finalHeadReadMiB * 1024 * 1024 };
+  const binaryPool = required("--binary-pool");
+  const realLoweringPlan = fusedDecoderStackRounding === "real" ? resolve(values.get("--real-lowering-plan") ?? join(binaryPool, "vectorized-real-lowering.json")) : undefined;
+  return { artifact: required("--artifact"), binaryPool, ...(realLoweringPlan ? { realLoweringPlan } : {}), python: values.get("--python") ?? resolve("venv/bin/python"), linearHelper: resolve(values.get("--linear-helper") ?? "scripts/gemma4-paged-linear-worker.py"), mlxHelper: resolve(values.get("--mlx-helper") ?? "scripts/gemma4-mlx-linear-worker.py"), linearBackend, fusedMlpRounding, fusedFfnRounding, fusedDecoderLayerRounding, fusedDecoderStackRounding, fusedPleRounding, fusedPlePreludeRounding, fusedTokenForwardRounding, residentGeneration, finalHeadCompute, nativeAttentionRounding, fusedAttentionRounding, threads, maxReadBytes: maxReadMiB * 1024 * 1024, finalHeadMaxReadBytes: finalHeadReadMiB * 1024 * 1024 };
 }

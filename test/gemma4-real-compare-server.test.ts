@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -127,7 +128,7 @@ test("servidor diferencial valida opções reprodutíveis", () => {
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-mlp", "always"]), /off, bf16, real ou native-bf16/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-ffn", "real"]), /off ou native-bf16/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-decoder-layer", "real"]), /off ou native-bf16/);
-  assert.equal(parseGemma4RealServerOptions(["--direct-fused-decoder-stack", "real"]).directFusedDecoderStack, "real");
+  assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-fused-decoder-stack", "real"]).directFusedDecoderStack, "real");
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-ple", "always"]), /off, bf16 ou real/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-ple-prelude", "always"]), /off, bf16 ou real/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-token-forward", "always"]), /off ou bf16/);
@@ -168,12 +169,18 @@ test("bundle compilado fornece modelo, constantes e tokenizer sem o diretório o
   const directory = await mkdtemp(join(tmpdir(), "gemma4-compiled-bundle-options-"));
   try {
     await Promise.all(["constants.literal.json", "model.safetensors", "tokenizer.json", "config.json", "global-formulas.ssa.json"].map((file) => writeFile(join(directory, file), "fixture")));
-    await writeFile(join(directory, "manifest.json"), JSON.stringify({ kind: "gemma4-compiled-shared-dag-bundle", execution: "vectorized-literal-runtime-with-global-formula-reference", runtimeLowering: { engine: "paged-literal-vectorized", directlyExecutesGlobalFormula: false, globalFormulaRole: "algebraic-source-and-scalar-reference" }, globalProgram: { file: "global-formulas.ssa.json", terminalLogits: 2, constantPool: "constants.literal.json" }, files: [{ role: "global-formulas", file: "global-formulas.ssa.json", sha256: "a".repeat(64) }, { role: "constant-pool", file: "constants.literal.json", sha256: "b".repeat(64) }] }));
+    const functionBindings = [{ functionId: "op:0", operationId: "operation_0", ordinal: 0, output: "value_0", operation: "activation", kernel: "mlx-real-activation", root: "root:0", predecessorFunctions: [] }];
+    const functionBindingsSha256 = createHash("sha256").update(JSON.stringify(functionBindings)).digest("hex"), realSimplifiedProgramSha256 = "e".repeat(64);
+    const planBytes = Buffer.from(JSON.stringify({ kind: "gemma4-vectorized-real-lowering-plan", schemaVersion: 1, contract: { kind: "gemma4-vectorized-real-lowering-contract", schemaVersion: 1, semantics: "gemma4-exact-real-simplified-v1", execution: { engine: "mlx-f32-real-decoder-stack-v1", mode: "architectural-vector-lowering", intermediateBf16Boundaries: 0, finalQuantization: "BF16-round-to-nearest-ties-to-even", directlyLoadsStandaloneSsaFile: false, sourceProgramValidated: true }, source: { artifactIntegritySha256: "f".repeat(64), realSimplifiedProgramSha256, sourceAssignments: 1, expressionNodes: 1, operationFunctions: 1, globalClosureFunctions: 1, standaloneRuntimeReductions: 0, outputFunctions: 1 }, coverage: { unresolvedRuntimeReductions: 0, intermediateIeeeRoundingNodes: 0, unsupportedOperations: 0, globalClosuresDependingOnStandaloneReductions: 0, kernels: { activation: 1, elementwise: 0, linear: 0, reshape_heads: 0, rms_norm: 0, rotary_embedding: 0, scaled_dot_product_attention: 0, select_per_layer: 0, tensor_scale: 0 } }, functionBindingsSha256 }, functionBindings }));
+    const planSha256 = createHash("sha256").update(planBytes).digest("hex"); await writeFile(join(directory, "vectorized-real-lowering.json"), planBytes);
+    await writeFile(join(directory, "manifest.json"), JSON.stringify({ kind: "gemma4-compiled-shared-dag-bundle", schemaVersion: 2, execution: "vectorized-literal-runtime-with-global-formula-reference", runtimeLowering: { engine: "mlx-f32-real-decoder-stack-v1", directlyExecutesGlobalFormula: false, executesPersistedLoweringPlan: true, plan: "vectorized-real-lowering.json", functionBindingsSha256, realSimplifiedProgramSha256, globalFormulaRole: "algebraic-source-and-scalar-reference" }, globalProgram: { file: "global-formulas.ssa.json", terminalLogits: 2, constantPool: "constants.literal.json" }, files: [{ role: "global-formulas", file: "global-formulas.ssa.json", sha256: "a".repeat(64) }, { role: "constant-pool", file: "constants.literal.json", sha256: "b".repeat(64) }, { role: "vectorized-real-lowering", file: "vectorized-real-lowering.json", sha256: planSha256 }] }));
     const bundled = parseGemma4RealServerOptions(["--compiled-bundle", directory]);
     assert.equal(bundled.source, directory); assert.equal(bundled.literalArtifact, join(directory, "constants.literal.json")); assert.equal(bundled.binaryPool, directory);
-    assert.equal(bundled.compiledProgram?.directRuntime.directlyExecutesGlobalFormula, false); assert.equal(bundled.compiledProgram?.globalFormula.sha256, "a".repeat(64));
+    assert.equal(bundled.compiledProgram?.directRuntime.executesPersistedLoweringPlan, true); assert.equal(bundled.compiledProgram?.directRuntime.plan.sha256, planSha256); assert.equal(bundled.compiledProgram?.globalFormula.sha256, "a".repeat(64));
     const split = parseGemma4RealServerOptions(["--source", "./authoritative", "--compiled-bundle", directory]);
     assert.match(split.source, /\/authoritative$/); assert.equal(split.literalArtifact, join(directory, "constants.literal.json")); assert.equal(split.binaryPool, directory);
+    await writeFile(join(directory, "vectorized-real-lowering.json"), "tampered");
+    assert.throws(() => parseGemma4RealServerOptions(["--compiled-bundle", directory]), /diverge do SHA-256/);
   } finally { await rm(directory, { recursive: true, force: true }); }
   assert.throws(() => parseGemma4RealServerOptions(["--compiled-bundle", join(tmpdir(), "gemma4-missing-bundle")]), /não contém constants/);
 });

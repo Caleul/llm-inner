@@ -3,7 +3,7 @@ import test from "node:test";
 import type { Gemma4LiteralArtifactIntegrityManifest } from "../src/gemma4-literal-artifact-integrity.js";
 import type { Gemma4LiteralCalculationGraph } from "../src/gemma4-literal-calculation-graph.js";
 import type { Gemma4ParametricExactRealProgram } from "../src/gemma4-parametric-global-real-program.js";
-import { buildGemma4VectorizedRealLoweringContract } from "../src/gemma4-vectorized-real-lowering.js";
+import { assertGemma4VectorizedRealLoweringPlanMatches, buildGemma4VectorizedRealLoweringContract, buildGemma4VectorizedRealLoweringPlan, validateGemma4VectorizedRealLoweringPlan } from "../src/gemma4-vectorized-real-lowering.js";
 
 const operations = ["activation", "elementwise", "linear", "reshape_heads", "rms_norm", "rotary_embedding", "scaled_dot_product_attention", "select_per_layer", "tensor_scale"];
 
@@ -22,6 +22,19 @@ test("falha fechado quando a closure contém operação sem lowering", () => {
   const { program, graph, manifest } = fixture();
   graph.assignments[0]!.operation = "unknown_runtime_operator";
   assert.throws(() => buildGemma4VectorizedRealLoweringContract(program, graph, manifest), /operação sem lowering vetorizado/);
+});
+
+test("plano persistido precisa preservar cada binding e coincidir integralmente com o artefato", () => {
+  const { program, graph, manifest } = fixture();
+  const plan = buildGemma4VectorizedRealLoweringPlan(program, graph, manifest);
+  validateGemma4VectorizedRealLoweringPlan(structuredClone(plan));
+  assert.doesNotThrow(() => assertGemma4VectorizedRealLoweringPlanMatches(structuredClone(plan), program, graph, manifest));
+  const tampered = structuredClone(plan);
+  tampered.functionBindings[0]!.output = "tampered";
+  assert.throws(() => validateGemma4VectorizedRealLoweringPlan(tampered), /compromissos e contagens/);
+  const stale = structuredClone(plan);
+  stale.contract.source.artifactIntegritySha256 = "c".repeat(64);
+  assert.throws(() => assertGemma4VectorizedRealLoweringPlanMatches(stale, program, graph, manifest), /não corresponde ao programa real autenticado/);
 });
 
 function fixture(): {

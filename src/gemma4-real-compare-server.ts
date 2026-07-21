@@ -1,10 +1,12 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { createHash } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { existsSync, readFileSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { gemma4RealCompareHtml } from "./gemma4-real-compare-ui.js";
+import { validateGemma4VectorizedRealLoweringPlan } from "./gemma4-vectorized-real-lowering.js";
 
 export interface Gemma4RealComparisonRequest { prompt: string; maxNewTokens: number; threads?: number; precision?: "f32" | "f64"; roundingPolicy?: "none" | "layer-bf16" | "operation-bf16"; sessionId?: number; continueSession?: boolean; conversationMode?: "raw" | "chat" }
 export interface Gemma4RealComparisonRunnerOptions {
@@ -19,7 +21,7 @@ export interface Gemma4CompiledProgramStatus {
   formulaSemantics: "gemma4-exact-real-simplified-v1";
   globalFormula: { file: string; sha256: string; terminalLogits: number; role: "algebraic-source-and-scalar-reference" };
   constantPool: { file: string; sha256: string };
-  directRuntime: { engine: "paged-literal-vectorized"; directlyExecutesGlobalFormula: false };
+  directRuntime: { engine: "mlx-f32-real-decoder-stack-v1"; directlyExecutesGlobalFormula: false; executesPersistedLoweringPlan: true; plan: { file: string; sha256: string; functionBindingsSha256: string; realSimplifiedProgramSha256: string } };
 }
 
 const GEMMA4_CHAT_TEMPLATE = "llm-inner-gemma4-it-text-turn-v1";
@@ -122,7 +124,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
 function directWorkerArguments(options: Gemma4RealComparisonRunnerOptions, backend: "pytorch" | "mlx"): string[] {
   if (!options.literalArtifact || !options.binaryPool) throw new Error("Worker direto requer artefato literal e pool binário.");
   const primary = backend === (options.directLinearBackend ?? "mlx");
-  const decoderStack = primary ? options.directFusedDecoderStack ?? "native-bf16" : "native-bf16";
+  const decoderStack = primary ? options.directFusedDecoderStack ?? (backend === "mlx" ? "real" : "native-bf16") : "native-bf16";
   const tokenForward = backend === "mlx" ? (primary ? options.directFusedTokenForward ?? (decoderStack !== "off" ? "bf16" : "off") : "bf16") : "off";
   const residentGeneration = backend === "mlx" ? (primary ? options.directResidentGeneration ?? (tokenForward === "bf16" ? "on" : "off") : "on") : "off";
   return [options.directWorker ?? resolve("dist/src/gemma4-paged-runtime-worker-cli.js"), "--artifact", options.literalArtifact, "--binary-pool", options.binaryPool, "--python", options.python, "--linear-helper", options.directLinearHelper ?? resolve("scripts/gemma4-paged-linear-worker.py"), "--mlx-helper", options.directMlxHelper ?? resolve("scripts/gemma4-mlx-linear-worker.py"), "--linear-backend", backend, "--fused-mlp", primary ? options.directFusedMlp ?? (backend === "pytorch" ? "native-bf16" : "real") : "native-bf16", "--fused-ffn", primary ? options.directFusedFfn ?? (backend === "pytorch" ? "native-bf16" : "off") : "native-bf16", "--fused-decoder-layer", primary ? options.directFusedDecoderLayer ?? (backend === "pytorch" ? "native-bf16" : "off") : "native-bf16", "--fused-decoder-stack", decoderStack, "--fused-ple", primary ? options.directFusedPle ?? (backend === "pytorch" ? "bf16" : "off") : "bf16", "--fused-ple-prelude", primary ? options.directFusedPlePrelude ?? (backend === "mlx" ? "bf16" : "off") : "off", "--fused-token-forward", tokenForward, "--resident-generation", residentGeneration, "--final-head", primary ? options.directFinalHead ?? (backend === "pytorch" ? "native-bf16-stream" : "native-bf16-whole") : "native-bf16-stream", "--native-attention", primary ? options.directNativeAttention ?? (backend === "pytorch" ? "real" : "off") : "real", "--fused-attention", primary ? options.directFusedAttention ?? (backend === "pytorch" ? "native-bf16" : "off") : "native-bf16", "--threads", String(options.directThreads ?? 10), "--max-read-mib", String(options.directMaxReadMiB ?? 16), "--final-head-read-mib", String(primary ? options.directFinalHeadReadMiB ?? (backend === "pytorch" ? 32 : options.directMaxReadMiB ?? 16) : 32)];
@@ -341,8 +343,8 @@ export function parseGemma4RealServerOptions(arguments_: readonly string[]): Gem
   const known = new Set(["--source", "--compiled-bundle", "--python", "--helper", "--port", "--host", "--literal-artifact", "--binary-pool", "--direct-worker", "--direct-linear-helper", "--direct-mlx-helper", "--direct-linear-backend", "--direct-fused-mlp", "--direct-fused-ffn", "--direct-fused-decoder-layer", "--direct-fused-decoder-stack", "--direct-fused-ple", "--direct-fused-ple-prelude", "--direct-fused-token-forward", "--direct-resident-generation", "--direct-final-head", "--direct-final-head-read-mib", "--direct-native-attention", "--direct-fused-attention", "--direct-threads", "--direct-max-read-mib", "--direct-verification-margin"]); for (const key of values.keys()) if (!known.has(key)) throw new Error(`Flag desconhecida: ${key}.`);
   const port = Number(values.get("--port") ?? "8787"); if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) throw new Error("--port inválido.");
   const compiledBundle = resolve(values.get("--compiled-bundle") ?? "artifacts/gemma4-compiled-global-runtime-bundle");
-  const bundleReady = existsSync(join(compiledBundle, "constants.literal.json")) && existsSync(join(compiledBundle, "model.safetensors")) && existsSync(join(compiledBundle, "tokenizer.json")) && existsSync(join(compiledBundle, "config.json")) && existsSync(join(compiledBundle, "manifest.json")) && existsSync(join(compiledBundle, "global-formulas.ssa.json"));
-  if (values.has("--compiled-bundle") && !bundleReady) throw new Error("--compiled-bundle não contém constants.literal.json, model.safetensors, tokenizer.json, config.json, manifest.json e global-formulas.ssa.json.");
+  const bundleReady = existsSync(join(compiledBundle, "constants.literal.json")) && existsSync(join(compiledBundle, "model.safetensors")) && existsSync(join(compiledBundle, "tokenizer.json")) && existsSync(join(compiledBundle, "config.json")) && existsSync(join(compiledBundle, "manifest.json")) && existsSync(join(compiledBundle, "global-formulas.ssa.json")) && existsSync(join(compiledBundle, "vectorized-real-lowering.json"));
+  if (values.has("--compiled-bundle") && !bundleReady) throw new Error("--compiled-bundle não contém constants.literal.json, model.safetensors, tokenizer.json, config.json, manifest.json, global-formulas.ssa.json e vectorized-real-lowering.json.");
   const source = resolve(values.get("--source") ?? (bundleReady ? compiledBundle : "gemma-4-E4B-dense")), inferredLiteral = join(source, "constants.literal.json");
   const literalArtifact = values.get("--literal-artifact") ? resolve(values.get("--literal-artifact")!) : existsSync(inferredLiteral) ? inferredLiteral : (values.has("--compiled-bundle") || !values.has("--source")) && bundleReady ? join(compiledBundle, "constants.literal.json") : undefined;
   const artifactPool = literalArtifact ? dirname(literalArtifact) : undefined;
@@ -400,20 +402,30 @@ export function parseGemma4RealServerOptions(arguments_: readonly string[]): Gem
 
 function readCompiledProgramStatus(bundle: string): Gemma4CompiledProgramStatus {
   const manifest = JSON.parse(readFileSync(join(bundle, "manifest.json"), "utf8")) as {
-    kind?: unknown; execution?: unknown; runtimeLowering?: { engine?: unknown; directlyExecutesGlobalFormula?: unknown; globalFormulaRole?: unknown };
+    kind?: unknown; schemaVersion?: unknown; execution?: unknown; runtimeLowering?: { engine?: unknown; directlyExecutesGlobalFormula?: unknown; executesPersistedLoweringPlan?: unknown; plan?: unknown; functionBindingsSha256?: unknown; realSimplifiedProgramSha256?: unknown; globalFormulaRole?: unknown };
     globalProgram?: { file?: unknown; terminalLogits?: unknown; constantPool?: unknown }; files?: Array<{ role?: unknown; file?: unknown; sha256?: unknown }>;
   };
-  const globalProgram = manifest.globalProgram, globalFile = manifest.files?.find((entry) => entry.role === "global-formulas"), constantFile = manifest.files?.find((entry) => entry.role === "constant-pool");
-  if (manifest.kind !== "gemma4-compiled-shared-dag-bundle" || manifest.execution !== "vectorized-literal-runtime-with-global-formula-reference" ||
-    manifest.runtimeLowering?.engine !== "paged-literal-vectorized" || manifest.runtimeLowering.directlyExecutesGlobalFormula !== false || manifest.runtimeLowering.globalFormulaRole !== "algebraic-source-and-scalar-reference" ||
+  const globalProgram = manifest.globalProgram, globalFile = manifest.files?.find((entry) => entry.role === "global-formulas"), constantFile = manifest.files?.find((entry) => entry.role === "constant-pool"), planFile = manifest.files?.find((entry) => entry.role === "vectorized-real-lowering");
+  if (manifest.kind !== "gemma4-compiled-shared-dag-bundle" || manifest.schemaVersion !== 2 || manifest.execution !== "vectorized-literal-runtime-with-global-formula-reference" ||
+    manifest.runtimeLowering?.engine !== "mlx-f32-real-decoder-stack-v1" || manifest.runtimeLowering.directlyExecutesGlobalFormula !== false || manifest.runtimeLowering.executesPersistedLoweringPlan !== true || manifest.runtimeLowering.globalFormulaRole !== "algebraic-source-and-scalar-reference" ||
+    manifest.runtimeLowering.plan !== "vectorized-real-lowering.json" || planFile?.file !== "vectorized-real-lowering.json" || typeof planFile.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(planFile.sha256) ||
+    typeof manifest.runtimeLowering.functionBindingsSha256 !== "string" || !/^[0-9a-f]{64}$/.test(manifest.runtimeLowering.functionBindingsSha256) ||
+    typeof manifest.runtimeLowering.realSimplifiedProgramSha256 !== "string" || !/^[0-9a-f]{64}$/.test(manifest.runtimeLowering.realSimplifiedProgramSha256) ||
     globalProgram?.file !== globalFile?.file || globalProgram?.constantPool !== constantFile?.file || !Number.isSafeInteger(globalProgram?.terminalLogits) ||
     typeof globalFile?.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(globalFile.sha256) || typeof constantFile?.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(constantFile.sha256)) {
     throw new Error("Manifesto do bundle compilado não declara honestamente a fórmula global e o lowering executado.");
+  }
+  const planBytes = readFileSync(join(bundle, "vectorized-real-lowering.json"));
+  if (createHash("sha256").update(planBytes).digest("hex") !== planFile.sha256) throw new Error("Plano de lowering do bundle diverge do SHA-256 declarado no manifesto.");
+  const plan = JSON.parse(planBytes.toString("utf8")) as unknown;
+  validateGemma4VectorizedRealLoweringPlan(plan);
+  if (plan.contract.functionBindingsSha256 !== manifest.runtimeLowering.functionBindingsSha256 || plan.contract.source.realSimplifiedProgramSha256 !== manifest.runtimeLowering.realSimplifiedProgramSha256) {
+    throw new Error("Plano de lowering do bundle diverge dos compromissos declarados no manifesto.");
   }
   return {
     bundle, execution: manifest.execution, formulaSemantics: "gemma4-exact-real-simplified-v1",
     globalFormula: { file: globalFile.file as string, sha256: globalFile.sha256, terminalLogits: globalProgram!.terminalLogits as number, role: "algebraic-source-and-scalar-reference" },
     constantPool: { file: constantFile.file as string, sha256: constantFile.sha256 },
-    directRuntime: { engine: "paged-literal-vectorized", directlyExecutesGlobalFormula: false },
+    directRuntime: { engine: "mlx-f32-real-decoder-stack-v1", directlyExecutesGlobalFormula: false, executesPersistedLoweringPlan: true, plan: { file: planFile.file as string, sha256: planFile.sha256, functionBindingsSha256: manifest.runtimeLowering.functionBindingsSha256, realSimplifiedProgramSha256: manifest.runtimeLowering.realSimplifiedProgramSha256 } },
   };
 }

@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import type { Gemma4LiteralArtifactIntegrityManifest } from "./gemma4-literal-artifact-integrity.js";
 import type { Gemma4LiteralCalculationGraph } from "./gemma4-literal-calculation-graph.js";
 import type { Gemma4ParametricExactRealProgram } from "./gemma4-parametric-global-real-program.js";
@@ -16,6 +17,18 @@ const KERNEL_BY_OPERATION = {
 } as const;
 
 export type Gemma4VectorizedRealOperation = keyof typeof KERNEL_BY_OPERATION;
+export type Gemma4VectorizedRealKernel = typeof KERNEL_BY_OPERATION[Gemma4VectorizedRealOperation];
+
+export interface Gemma4VectorizedRealFunctionBinding {
+  functionId: string;
+  operationId: string;
+  ordinal: number;
+  output: string;
+  operation: Gemma4VectorizedRealOperation;
+  kernel: Gemma4VectorizedRealKernel;
+  root: string;
+  predecessorFunctions: string[];
+}
 
 export interface Gemma4VectorizedRealLoweringContract {
   kind: "gemma4-vectorized-real-lowering-contract";
@@ -49,6 +62,13 @@ export interface Gemma4VectorizedRealLoweringContract {
   functionBindingsSha256: string;
 }
 
+export interface Gemma4VectorizedRealLoweringPlan {
+  kind: "gemma4-vectorized-real-lowering-plan";
+  schemaVersion: 1;
+  contract: Gemma4VectorizedRealLoweringContract;
+  functionBindings: Gemma4VectorizedRealFunctionBinding[];
+}
+
 /**
  * Fail-closed certificate connecting the authenticated scalar/parametric
  * program to the operation families implemented by the vectorized MLX stack.
@@ -61,6 +81,15 @@ export function buildGemma4VectorizedRealLoweringContract(
   graph: Gemma4LiteralCalculationGraph,
   integrityManifest: Gemma4LiteralArtifactIntegrityManifest,
 ): Gemma4VectorizedRealLoweringContract {
+  return buildGemma4VectorizedRealLoweringPlan(program, graph, integrityManifest).contract;
+}
+
+/** Produces the compact, persistable dispatch plan consumed at worker startup. */
+export function buildGemma4VectorizedRealLoweringPlan(
+  program: Gemma4ParametricExactRealProgram,
+  graph: Gemma4LiteralCalculationGraph,
+  integrityManifest: Gemma4LiteralArtifactIntegrityManifest,
+): Gemma4VectorizedRealLoweringPlan {
   if (program.semantics !== "gemma4-exact-real-simplified-v1" ||
     program.coverage.unresolvedRuntimeReductions !== 0 ||
     program.coverage.intermediateIeeeRoundingNodes !== 0) {
@@ -75,7 +104,7 @@ export function buildGemma4VectorizedRealLoweringContract(
   const global = program.operationFunctions.filter((entry) => entry.closureKind === "global-output-closure");
   const standalone = program.operationFunctions.filter((entry) => entry.closureKind === "standalone-runtime-reduction");
   const kernelCounts = Object.fromEntries(Object.keys(KERNEL_BY_OPERATION).map((operation) => [operation, 0])) as Record<Gemma4VectorizedRealOperation, number>;
-  const bindings = global.map((entry) => {
+  const bindings: Gemma4VectorizedRealFunctionBinding[] = global.map((entry) => {
     const assignment = assignments.get(entry.operationId);
     if (!assignment || assignment.ordinal !== entry.ordinal || assignment.output !== entry.output) {
       throw new Error(`${entry.functionId}: função real não corresponde ao grafo literal autenticado.`);
@@ -105,7 +134,7 @@ export function buildGemma4VectorizedRealLoweringContract(
   if (program.outputFunctions.some((output) => output.finalQuantization !== "BF16-round-to-nearest-ties-to-even")) {
     throw new Error("Lowering vetorizado real requer BF16 somente nas saídas públicas finais.");
   }
-  return {
+  const contract: Gemma4VectorizedRealLoweringContract = {
     kind: "gemma4-vectorized-real-lowering-contract",
     schemaVersion: 1,
     semantics: "gemma4-exact-real-simplified-v1",
@@ -136,4 +165,49 @@ export function buildGemma4VectorizedRealLoweringContract(
     },
     functionBindingsSha256: createHash("sha256").update(JSON.stringify(bindings), "utf8").digest("hex"),
   };
+  return { kind: "gemma4-vectorized-real-lowering-plan", schemaVersion: 1, contract, functionBindings: bindings };
+}
+
+export function validateGemma4VectorizedRealLoweringPlan(value: unknown): asserts value is Gemma4VectorizedRealLoweringPlan {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Plano de lowering vetorizado real deve ser um objeto.");
+  const plan = value as Partial<Gemma4VectorizedRealLoweringPlan>;
+  const contract = plan.contract;
+  if (plan.kind !== "gemma4-vectorized-real-lowering-plan" || plan.schemaVersion !== 1 || !contract ||
+    contract.kind !== "gemma4-vectorized-real-lowering-contract" || contract.schemaVersion !== 1 ||
+    contract.semantics !== "gemma4-exact-real-simplified-v1" || contract.execution?.engine !== "mlx-f32-real-decoder-stack-v1" ||
+    contract.execution.intermediateBf16Boundaries !== 0 || contract.execution.finalQuantization !== "BF16-round-to-nearest-ties-to-even" ||
+    contract.execution.directlyLoadsStandaloneSsaFile !== false || contract.execution.sourceProgramValidated !== true ||
+    contract.coverage?.unresolvedRuntimeReductions !== 0 || contract.coverage.intermediateIeeeRoundingNodes !== 0 ||
+    contract.coverage.unsupportedOperations !== 0 || contract.coverage.globalClosuresDependingOnStandaloneReductions !== 0 ||
+    !Array.isArray(plan.functionBindings) || plan.functionBindings.length !== contract.source?.globalClosureFunctions) {
+    throw new Error("Plano de lowering vetorizado real possui contrato ou cobertura incompleta.");
+  }
+  const seenFunctions = new Set<string>();
+  const kernelCounts = Object.fromEntries(Object.keys(KERNEL_BY_OPERATION).map((operation) => [operation, 0])) as Record<Gemma4VectorizedRealOperation, number>;
+  for (const binding of plan.functionBindings) {
+    if (!binding || typeof binding !== "object" || typeof binding.functionId !== "string" || seenFunctions.has(binding.functionId) ||
+      typeof binding.operationId !== "string" || !Number.isSafeInteger(binding.ordinal) || binding.ordinal < 0 || typeof binding.output !== "string" ||
+      !(binding.operation in KERNEL_BY_OPERATION) || binding.kernel !== KERNEL_BY_OPERATION[binding.operation] || typeof binding.root !== "string" ||
+      !Array.isArray(binding.predecessorFunctions) || binding.predecessorFunctions.some((entry) => typeof entry !== "string")) {
+      throw new Error("Plano de lowering vetorizado real contém binding inválido ou duplicado.");
+    }
+    seenFunctions.add(binding.functionId);
+    kernelCounts[binding.operation] += 1;
+  }
+  if (!isDeepStrictEqual(kernelCounts, contract.coverage.kernels) ||
+    createHash("sha256").update(JSON.stringify(plan.functionBindings), "utf8").digest("hex") !== contract.functionBindingsSha256 ||
+    !/^[0-9a-f]{64}$/.test(contract.source.artifactIntegritySha256) || !/^[0-9a-f]{64}$/.test(contract.source.realSimplifiedProgramSha256)) {
+    throw new Error("Plano de lowering vetorizado real diverge de seus compromissos e contagens.");
+  }
+}
+
+export function assertGemma4VectorizedRealLoweringPlanMatches(
+  persisted: unknown,
+  program: Gemma4ParametricExactRealProgram,
+  graph: Gemma4LiteralCalculationGraph,
+  integrityManifest: Gemma4LiteralArtifactIntegrityManifest,
+): asserts persisted is Gemma4VectorizedRealLoweringPlan {
+  validateGemma4VectorizedRealLoweringPlan(persisted);
+  const expected = buildGemma4VectorizedRealLoweringPlan(program, graph, integrityManifest);
+  if (!isDeepStrictEqual(persisted, expected)) throw new Error("Plano de lowering persistido não corresponde ao programa real autenticado do artefato.");
 }
