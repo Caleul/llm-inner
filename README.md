@@ -2700,8 +2700,9 @@ completo foram evitadas.
 
 O head de vocabulário usa por padrão o peso BF16 autenticado sem quantização,
 preservando a política promovida pela calibração atual. A opção Q8 affine,
-`group_size=64`, é calculada deterministicamente quando selecionada e reduz o
-custo da matriz `262144 × 2560`; `--direct-mlx-head-quantization off|q8|q4`
+`group_size=64`, é calculada deterministicamente quando selecionada e oferece
+uma representação alternativa da matriz `262144 × 2560`;
+`--direct-mlx-head-quantization off|q8|q4`
 permite comparar os modos, e a UI e o relatório registram
 `mlxHeadQuantization`. Q4 permanece apenas experimental: divergiu em uma
 decisão sensível. Na calibração Q8 de oito prompts
@@ -2771,10 +2772,11 @@ classificados como cascata e não como novas divergências numéricas.
 
 O hot path MLX quantiza seletivamente em Q8 as matrizes `gate_proj` e
 `up_proj` das 42 FFNs (`--direct-mlx-decoder-quantization q8-ffn-gate-up`, o
-padrão). Pesos de atenção e `down_proj` permanecem BF16; a cabeça final usa por
-padrão Q8 hierárquico certificado (`--direct-mlx-head-quantization q8`) e
-recalcula localmente a projeção BF16 completa quando o limite não prova o
-argmax. A seleção é materializada uma vez ao carregar os pesos residentes e
+padrão). Pesos de atenção, `down_proj` e a cabeça final permanecem BF16 exatos
+por padrão (`--direct-mlx-head-quantization off`). O modo opcional Q8 usa a
+decomposição hierárquica certificada e recalcula localmente a projeção BF16
+completa quando o limite não prova o argmax. A seleção é materializada uma vez
+ao carregar os pesos residentes e
 `mx.quantized_matmul` participa da mesma closure incremental compilada; o
 relatório e a UI publicam separadamente `mlxDecoderQuantization`,
 `mlxDecoderQuantizationStrategy`, `mlxHeadQuantization` e
@@ -2925,6 +2927,17 @@ ou 18,0553 tokens/s, contra 1,0362 tokens/s do original na mesma execução
 17,3645 para 18,0553 tokens/s. Isso é evidência para esse corpus, não prova
 universal para prompts arbitrários; a interface continua executando e
 comparando ambos para cada entrada solicitada.
+
+A calibração seguinte manteve Q8 apenas em `gate+up` e restaurou o `lm_head`
+BF16 exato. Ela preservou novamente `32/32` prompts, `128/128` tokens e zero
+divergências raiz, elevou a sobreposição top-K média de `96,5625%` para
+`96,71875%` e eliminou toda a lógica de certificado/fallback da cabeça. O tempo
+direto agregado caiu de `7,2801 s` (`17,5821 tok/s`) para `5,6213 s`
+(`22,7704 tok/s`) nas calibrações consecutivas, e o microbenchmark quente de
+16 tokens caiu de `35,3246 ms/token` para `34,6816 ms/token` (`-1,82%`). Por
+ser simultaneamente mais exato, mais simples e mais rápido nessa máquina, o
+head BF16 passou a ser o padrão da interface e da calibração; Q8 e Q4 continuam
+disponíveis apenas por flag para experimentos reproduzíveis.
 
 A escolha Q8 do decoder também foi comparada diretamente com `gate/up` BF16 e
 com uma decomposição experimental de dois estágios
