@@ -2777,7 +2777,11 @@ recalcula localmente a projeção BF16 completa quando o limite não prova o
 argmax. A seleção é materializada uma vez ao carregar os pesos residentes e
 `mx.quantized_matmul` participa da mesma closure incremental compilada; o
 relatório e a UI publicam separadamente `mlxDecoderQuantization`,
-`mlxHeadQuantization` e `mlxHeadQuantizationStrategy`. Os modos mais agressivos
+`mlxDecoderQuantizationStrategy`, `mlxHeadQuantization` e
+`mlxHeadQuantizationStrategy`. O modo padrão declara
+`single-stage-affine-q8-calibrated-v1`: ele é uma política selecionada por
+calibração diferencial, não uma certificação matemática do decoder. Os modos
+mais agressivos
 (`q8-ffn`, `q8-ffn-down`, `q8-attention`, `q8-all`) continuam disponíveis para
 experimentos, sem alegação de paridade.
 
@@ -2871,6 +2875,20 @@ ou 18,0553 tokens/s, contra 1,0362 tokens/s do original na mesma execução
 17,3645 para 18,0553 tokens/s. Isso é evidência para esse corpus, não prova
 universal para prompts arbitrários; a interface continua executando e
 comparando ambos para cada entrada solicitada.
+
+A escolha Q8 do decoder também foi comparada diretamente com `gate/up` BF16 e
+com uma decomposição experimental de dois estágios
+`W = Q8₀(W) + Q8₁(W-Q8₀(W))`. No mesmo corpus de 32 prompts × 4 tokens, o
+decoder BF16 preservou apenas 30/32 prompts e 124/128 tokens, com divergências
+raiz nos passos 1 de `Translate to Portuguese: Good morning` e 3 de
+`Traduza para inglês: boa noite`; seu throughput agregado foi 17,9001
+tokens/s. O Q8 simples preservou 32/32 e 128/128 a 18,0553 tokens/s. O modo
+residual repetiu as duas divergências BF16 nos prompts sensíveis e foi mais
+lento no smoke (`1,5611 s` contra `1,3470 s` do Q8 simples), portanto foi
+removido em vez de ser publicado como uma opção aparentemente mais fiel. Isso
+mostra que, no contrato real sem arredondamentos BF16 intermediários, aproximar
+isoladamente cada matriz do peso BF16 não garante maior proximidade do argmax
+Transformers; a política precisa continuar sendo validada ponta a ponta.
 
 ### Gerador de fórmulas fisicamente planas
 
