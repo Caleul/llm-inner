@@ -315,6 +315,12 @@ def read_decoder_layer_weights(pool, shards, hidden_size, config):
         quantized, scales, biases = mx.quantize(weights[name], group_size=64, bits=8)
         mx.eval(quantized, scales, biases)
         weights[name] = (quantized, scales, biases, 64, 8)
+    if isinstance(weights["gate"], tuple) and isinstance(weights["up"], tuple):
+        gate_up = tuple(mx.concatenate((weights["gate"][index], weights["up"][index]), axis=0) for index in range(3))
+        mx.eval(*gate_up)
+        weights["gate_up"] = (*gate_up, 64, 8)
+        del weights["gate"]
+        del weights["up"]
     return weights
 
 
@@ -381,12 +387,25 @@ def execute_decoder_layer_mlx(pool, shards, inputs, per_layer, positions, mask, 
     context = mx.transpose(attention_context, (0, 2, 1, 3)).reshape((batch, query_sequence, query_heads * head_dim))
     attention_projected = boundary(project(context, output_weight))
     post_attention_norm_weight, pre_ffn_norm_weight = weights["post_attention_norm"], weights["pre_ffn_norm"]
-    gate_weight, up_weight, down_weight, post_ffn_norm_weight = weights["gate"], weights["up"], weights["down"], weights["post_ffn_norm"]
+    gate_weight, up_weight, down_weight, post_ffn_norm_weight = weights.get("gate"), weights.get("up"), weights["down"], weights["post_ffn_norm"]
     after_attention = boundary(inputs + boundary(rms_norm_real(attention_projected, post_attention_norm_weight, config["post_attention_epsilon"])))
     ffn_input = boundary(rms_norm_real(after_attention, pre_ffn_norm_weight, config["pre_ffn_epsilon"]))
     if not real:
         ffn_input = ffn_input.astype(mx.bfloat16)
-    gate, up = matrix_project(ffn_input, gate_weight), matrix_project(ffn_input, up_weight)
+    if "gate_up" in weights:
+        gate_up = matrix_project(ffn_input, weights["gate_up"])
+        if incremental_fixed_shape:
+            paired = gate_up.reshape((1, 1, 2, intermediate_size))
+            gate_selector = mx.array([1.0, 0.0], dtype=mx.float32).reshape((1, 1, 2, 1))
+            up_selector = mx.array([0.0, 1.0], dtype=mx.float32).reshape((1, 1, 2, 1))
+            gate = mx.sum(paired * gate_selector, axis=2)
+            up = mx.sum(paired * up_selector, axis=2)
+        else:
+            gate, up = mx.split(gate_up, 2, axis=-1)
+    else:
+        if gate_weight is None or up_weight is None:
+            raise ValueError("MLX decoder gate/up projection contract is incomplete")
+        gate, up = matrix_project(ffn_input, gate_weight), matrix_project(ffn_input, up_weight)
     cube = (gate * gate) * gate
     inner = mx.array(math.sqrt(2 / math.pi), dtype=mx.float32) * (gate + mx.array(0.044715, dtype=mx.float32) * cube)
     hidden = (mx.array(0.5, dtype=mx.float32) * gate) * (mx.array(1.0, dtype=mx.float32) + mx.tanh(inner)) * up

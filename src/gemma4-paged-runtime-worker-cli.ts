@@ -201,6 +201,7 @@ function buildReport(inputIds: number[], maxNewTokens: number, generatedTokenIds
     mlxDecoderQuantization: args.mlxDecoderQuantization,
     ...(args.mlxDecoderQuantizationLayers === undefined ? {} : { mlxDecoderQuantizationLayers: args.mlxDecoderQuantizationLayers }),
     mlxDecoderQuantizationStrategy: args.mlxDecoderQuantization === "off" ? "exact-bf16" : args.mlxDecoderQuantization === "q8-ffn-gate-up" && args.mlxDecoderQuantizationLayers === undefined ? "single-stage-affine-q8-calibrated-v1" : "experimental-affine-q8",
+    mlxDecoderGateUpProjectionStrategy: args.mlxDecoderQuantization === "off" || args.mlxDecoderQuantization === "q8-ffn-down" || args.mlxDecoderQuantization === "q8-attention" ? "separate-projections" : "concatenated-affine-q8-v1",
     nativeAttentionRounding: args.nativeAttentionRounding,
     nativeAttentionDispatches: dispatchesAfter.nativeAttentionDispatches - dispatchesBefore.nativeAttentionDispatches,
     fusedAttentionRounding: args.fusedAttentionRounding,

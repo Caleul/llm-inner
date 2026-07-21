@@ -2785,6 +2785,23 @@ mais agressivos
 (`q8-ffn`, `q8-ffn-down`, `q8-attention`, `q8-all`) continuam disponíveis para
 experimentos, sem alegação de paridade.
 
+As projeções Q8 `gate` e `up` compartilham a mesma entrada e são materializadas
+residentemente como uma única matriz de códigos, escalas e biases concatenada
+por linhas. Cada FFN executa um `quantized_matmul` e separa matematicamente as
+duas metades antes da GELU gated; como os grupos de quantização não cruzam
+linhas, cada coeficiente e parâmetro afim permanece inalterado. Relatórios e a
+UI identificam esse lowering como `concatenated-affine-q8-v1` em
+`mlxDecoderGateUpProjectionStrategy`.
+
+Na calibração ampliada de 32 prompts × 4 tokens, essa projeção preservou
+`32/32` prompts, `128/128` tokens e zero divergências raiz. O erro absoluto do
+logit escolhido permaneceu em `0.0595703125` na média e `0.25` no máximo. Sob
+o mesmo corpus e configuração, o tempo direto agregado caiu de `7.0893 s`
+para `6.1974 s` (`-12.58%`) e o throughput subiu de `18.0553` para
+`20.6537 tok/s` (`+14.39%`). O decode estacionário continuou próximo de
+`36 ms/token`; o ganho concentrou-se no prefill e no primeiro passo, sem mudar
+a política Q8 calibrada das 42 camadas.
+
 Para localizar quais camadas participam dessa compensação numérica, o mesmo
 modo aceita `--direct-mlx-decoder-quantization-layers` com índices e faixas
 inclusivas, por exemplo `0-19,21-41`. A especificação é normalizada, validada

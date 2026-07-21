@@ -17,6 +17,7 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /linearBackend/);
   assert.match(gemma4RealCompareHtml, /lotes lineares/);
   assert.match(gemma4RealCompareHtml, /MLPs fundidos/);
+  assert.match(gemma4RealCompareHtml, /projeção gate\/up/);
   assert.match(gemma4RealCompareHtml, /programa final direto/);
   assert.match(gemma4RealCompareHtml, /despacho lógico\/forward/);
   assert.match(gemma4RealCompareHtml, /dimensões finais vinculadas/);
