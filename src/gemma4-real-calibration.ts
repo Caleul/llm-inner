@@ -75,6 +75,7 @@ interface ThreeWayCase {
     redundantLogitFiniteScansAvoided?: number;
     kvPrefixValidationScansAvoided?: number;
     compiledIncrementalDecoderSteps?: number;
+    incrementalCompilerCacheHit?: boolean;
     fusedDecoderStackGateUpPairs?: number;
     fusedDecoderStackWidenedCacheHits?: number;
     widenedTensorCacheEntries?: number;
@@ -292,6 +293,7 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.redundantLogitFiniteScansAvoided === undefined ? {} : { redundantLogitFiniteScansAvoided: entry.direct.redundantLogitFiniteScansAvoided }),
         ...(entry.direct.kvPrefixValidationScansAvoided === undefined ? {} : { kvPrefixValidationScansAvoided: entry.direct.kvPrefixValidationScansAvoided }),
         ...(entry.direct.compiledIncrementalDecoderSteps === undefined ? {} : { compiledIncrementalDecoderSteps: entry.direct.compiledIncrementalDecoderSteps }),
+        ...(entry.direct.incrementalCompilerCacheHit === undefined ? {} : { incrementalCompilerCacheHit: entry.direct.incrementalCompilerCacheHit }),
         ...(entry.direct.fusedDecoderStackGateUpPairs === undefined ? {} : { fusedDecoderStackGateUpPairs: entry.direct.fusedDecoderStackGateUpPairs }),
         ...(entry.direct.fusedDecoderStackWidenedCacheHits === undefined ? {} : { fusedDecoderStackWidenedCacheHits: entry.direct.fusedDecoderStackWidenedCacheHits }),
         ...(entry.direct.widenedTensorCacheEntries === undefined ? {} : { widenedTensorCacheEntries: entry.direct.widenedTensorCacheEntries }),

@@ -371,7 +371,7 @@ def execute_decoder_layer_mlx(pool, shards, inputs, per_layer, positions, mask, 
     return result, key, value, valid, weights
 
 
-def compile_incremental_decoder_step(pool, shards, layer_plans):
+def compile_incremental_decoder_step(pool, shards, layer_plans, epilogue, rounding):
     producer_layers = tuple(config["layer_index"] for config, _ in layer_plans if config["produces_kv"])
     producer_offsets = {layer_index: offset for offset, layer_index in enumerate(producer_layers)}
 
@@ -392,9 +392,17 @@ def compile_incremental_decoder_step(pool, shards, layer_plans):
                 produced[layer_index] = (key, value)
                 next_keys.append(key)
                 next_values.append(value)
-        return result, tuple(next_keys), tuple(next_values), all_valid
+        logits = execute_decoder_epilogue(result, epilogue, rounding=rounding)
+        return result, logits, tuple(next_keys), tuple(next_values), all_valid
 
     return mx.compile(execute, shapeless=True), producer_layers
+
+
+def incremental_compile_signature(layer_plans, epilogue, rounding):
+    topology = tuple(tuple(sorted(config.items())) for config, _ in layer_plans)
+    weight_contracts = tuple(tuple((name, tuple(value.shape), str(value.dtype)) for name, value in sorted(weights.items())) for _, weights in layer_plans)
+    epilogue_contract = (tuple(epilogue[0].shape), str(epilogue[0].dtype), tuple(epilogue[1].shape), str(epilogue[1].dtype), epilogue[2], epilogue[3])
+    return rounding, topology, weight_contracts, epilogue_contract
 
 
 def execute_decoder_epilogue(result, epilogue, terminal_only=True, rounding="native-bf16"):
@@ -490,12 +498,11 @@ def emit_resident_generation(model, result, produced_caches, logits, first_forwa
         source_keys = tuple(produced_caches[layer][0] for layer in model["producer_layers"])
         source_values = tuple(produced_caches[layer][1] for layer in model["producer_layers"])
         per_layer_inputs = tuple(all_per_layer[:, :, layer_index, :] for layer_index in range(len(model["layer_plans"])))
-        result, next_keys, next_values, all_valid = model["execute_incremental_decoder_step"](result, per_layer_inputs, positions, source_keys, source_values, tuple(layer_masks))
+        result, logits, next_keys, next_values, all_valid = model["execute_incremental_decoder_step"](result, per_layer_inputs, positions, source_keys, source_values, tuple(layer_masks))
         produced_caches = {layer: (next_keys[offset], next_values[offset]) for offset, layer in enumerate(model["producer_layers"])}
         rope_factor_builds += model["rope_factor_builds_per_step"]
         rope_factor_uses += model["rope_factor_uses_per_step"]
         kv_prefix_validation_scans_avoided += sum(1 for key in source_keys if key.shape[2])
-        logits = execute_decoder_epilogue(result, model["epilogue"], rounding=model["rounding"])
         evaluation = [logits, all_valid]
         for key, value in produced_caches.values():
             evaluation.extend((key, value))
@@ -518,7 +525,7 @@ def emit_resident_generation(model, result, produced_caches, logits, first_forwa
     computed = len(np.asarray(input_token_ids).reshape(-1)) if prefill_tokens_computed is None else prefill_tokens_computed
     cached_context_tokens = len(_resident_generation_session["token_ids"]) if session_id is not None else len(np.asarray(input_token_ids).reshape(-1)) + len(generated_ids) - 1
     compiled_incremental_decoder_steps = max(0, len(generated_ids) - 1)
-    profile = np.array((1, len(generated_ids), max(0, len(generated_ids) - 1), terminal_values.nbytes, rope_factor_builds, max(0, rope_factor_uses - rope_factor_builds), topology_mask_builds, max(0, topology_mask_uses - topology_mask_builds), len(generated_ids), kv_prefix_validation_scans_avoided, compiled_incremental_decoder_steps, _widened_tensor_cache_hits - cache_hits_before, len(_widened_tensor_cache), _widened_tensor_cache_bytes, resident_kv_bytes, prefix_tokens_reused, computed, 1 if prefix_tokens_reused else 0, cached_context_tokens), dtype=np.float32)
+    profile = np.array((1, len(generated_ids), max(0, len(generated_ids) - 1), terminal_values.nbytes, rope_factor_builds, max(0, rope_factor_uses - rope_factor_builds), topology_mask_builds, max(0, topology_mask_uses - topology_mask_builds), len(generated_ids), kv_prefix_validation_scans_avoided, compiled_incremental_decoder_steps, 1 if model["incremental_compiler_cache_hit"] else 0, _widened_tensor_cache_hits - cache_hits_before, len(_widened_tensor_cache), _widened_tensor_cache_bytes, resident_kv_bytes, prefix_tokens_reused, computed, 1 if prefix_tokens_reused else 0, cached_context_tokens), dtype=np.float32)
     write_float_tensor(mx.array(profile))
     sys.stdout.buffer.flush()
 
@@ -544,6 +551,7 @@ def execute_compiled_token_generation(pool, shards, token_ids, max_new_tokens, e
         raise ValueError("MLX compiled generation token id is outside the vocabulary")
     if eos_token_id is not None and (eos_token_id < 0 or eos_token_id >= model["vocabulary_size"]):
         raise ValueError("MLX compiled generation EOS is outside the vocabulary")
+    model["incremental_compiler_cache_hit"] = True
     cache_hits_before, started = _widened_tensor_cache_hits, time.perf_counter()
     global _resident_generation_session
     model["prompt_length"] = token_ids.shape[1]
@@ -706,10 +714,16 @@ def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, 
             mx.eval(logits)
     if generation is not None:
         global _resident_generation_model
-        execute_incremental_decoder_step, producer_layers = compile_incremental_decoder_step(pool, shards, layer_plans)
+        compile_signature = incremental_compile_signature(layer_plans, epilogue, rounding)
+        previous_model = _resident_generation_model
+        incremental_compiler_cache_hit = previous_model is not None and previous_model.get("compile_signature") == compile_signature
+        if incremental_compiler_cache_hit:
+            execute_incremental_decoder_step, producer_layers = previous_model["execute_incremental_decoder_step"], previous_model["producer_layers"]
+        else:
+            execute_incremental_decoder_step, producer_layers = compile_incremental_decoder_step(pool, shards, layer_plans, epilogue, rounding)
         rope_factor_uses_per_step = sum(1 + int(config["produces_kv"]) for config, _ in layer_plans)
         rope_factor_builds_per_step = len({(config["head_dim"], config["rope_kind"], config["theta"], config["rotary_dim"], config["proportional_pairs"], config["proportional_factor"], rounding != "real") for config, _ in layer_plans})
-        _resident_generation_model = {"pool": pool, "shards": shards, "execute_token_prelude": execute_token_prelude, "execute_incremental_decoder_step": execute_incremental_decoder_step, "producer_layers": producer_layers, "rope_factor_uses_per_step": rope_factor_uses_per_step, "rope_factor_builds_per_step": rope_factor_builds_per_step, "layer_plans": layer_plans, "epilogue": epilogue, "vocabulary_size": vocabulary_size, "prompt_length": query_sequence, "rounding": rounding}
+        _resident_generation_model = {"pool": pool, "shards": shards, "execute_token_prelude": execute_token_prelude, "execute_incremental_decoder_step": execute_incremental_decoder_step, "producer_layers": producer_layers, "compile_signature": compile_signature, "incremental_compiler_cache_hit": incremental_compiler_cache_hit, "rope_factor_uses_per_step": rope_factor_uses_per_step, "rope_factor_builds_per_step": rope_factor_builds_per_step, "layer_plans": layer_plans, "epilogue": epilogue, "vocabulary_size": vocabulary_size, "prompt_length": query_sequence, "rounding": rounding}
         emit_resident_generation(_resident_generation_model, result, produced_caches, logits, time.perf_counter() - request_started, generation["max_new_tokens"], generation["eos_token_id"], generation["top_k"], cache_hits_before, token_ids, initial_rope_factor_context=rope_factor_context, initial_topology_mask_builds=num_layers, initial_topology_mask_uses=num_layers)
         return
     if not fused_token_forward:

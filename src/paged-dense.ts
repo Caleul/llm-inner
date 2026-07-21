@@ -259,6 +259,7 @@ export interface PagedFusedTokenGenerationResult {
   redundantLogitFiniteScansAvoided: number;
   kvPrefixValidationScansAvoided: number;
   compiledIncrementalDecoderSteps: number;
+  incrementalCompilerCacheHit: boolean;
   residentKvBytes: number;
   prefixTokensReused: number;
   prefillTokensComputed: number;

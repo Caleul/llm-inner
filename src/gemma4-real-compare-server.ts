@@ -133,6 +133,7 @@ function directWorkerArguments(options: Gemma4RealComparisonRunnerOptions, backe
 async function warmupDirectWorker(worker: PersistentJsonlWorker, maxNewTokens: number): Promise<number> {
   const started = performance.now();
   await worker.send({ inputIds: [2], maxNewTokens });
+  if (maxNewTokens > 1) await worker.send({ inputIds: [2, 2, 2, 2, 2, 2, 2, 2], maxNewTokens });
   return (performance.now() - started) / 1000;
 }
 

@@ -48,8 +48,9 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /ropeFactorBuildsAvoided/);
   assert.match(gemma4RealCompareHtml, /validações redundantes evitadas/);
   assert.match(gemma4RealCompareHtml, /kvPrefixValidationScansAvoided/);
-  assert.match(gemma4RealCompareHtml, /decoder incremental compilado/);
+  assert.match(gemma4RealCompareHtml, /decoder→logits compilado/);
   assert.match(gemma4RealCompareHtml, /compiledIncrementalDecoderSteps/);
+  assert.match(gemma4RealCompareHtml, /incrementalCompilerCacheHit/);
   assert.match(gemma4RealCompareHtml, /fases stack attn\/FFN\/PLE/);
   assert.match(gemma4RealCompareHtml, /fases stack: fundidas no grafo Metal/);
   assert.match(gemma4RealCompareHtml, /PLEs fundidos/);
@@ -98,7 +99,7 @@ let requests=0; readline.createInterface({input:process.stdin}).on("line",line=>
     const response = await fetch(`http://127.0.0.1:${address.port}/api/compare`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt: "x", maxNewTokens: 1 }) });
     assert.equal(response.status, 200);
     const body = await response.json() as { direct: { generatedText: string; fullText: string; tokensEqualBaseline: boolean; firstDivergentStep: number | null } };
-    assert.deepEqual(body.direct, { generatedTokenIds: [7], fullTokenIds: [2, 7], elapsedSeconds: 1, tokensPerSecond: 1, linearThreads: 4, requests: 2, generatedText: "7", fullText: "2|7", tokensEqualBaseline: true, firstDivergentStep: null });
+    assert.deepEqual(body.direct, { generatedTokenIds: [7], fullTokenIds: [2, 7], elapsedSeconds: 1, tokensPerSecond: 1, linearThreads: 4, requests: 3, generatedText: "7", fullText: "2|7", tokensEqualBaseline: true, firstDivergentStep: null });
     const status = await fetch(`http://127.0.0.1:${address.port}/api/status`).then((entry) => entry.json()) as { ready: boolean; chatTemplate: string; checkpointChatTemplateDeclared: boolean; direct: { warmupComplete: boolean; warmupSeconds: number } };
     assert.equal(status.ready, true); assert.equal(status.chatTemplate, "llm-inner-gemma4-it-text-turn-v1"); assert.equal(status.checkpointChatTemplateDeclared, false); assert.equal(status.direct.warmupComplete, true); assert.ok(status.direct.warmupSeconds >= 0);
   } finally { await new Promise<void>((accept, reject) => server.close((error) => error ? reject(error) : accept())); await rm(directory, { recursive: true, force: true }); }

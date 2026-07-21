@@ -2622,13 +2622,27 @@ que os consomem. As contagens construídas e evitadas aparecem na UI e nos
 relatórios de calibração, permitindo distinguir redução algébrica real de uma
 simples alegação de otimização.
 
-Depois do prefill, as 42 camadas do decoder incremental são capturadas como uma
-única função `mx.compile(..., shapeless=True)`. Batch e comprimento da query
-permanecem `1 × 1`, enquanto o comprimento do cache K/V é dinâmico; a atenção
-GQA usa a forma agrupada `[kv_heads, groups, query, key]`, sem materializar
-`repeat` dos heads K/V. O campo `compiledIncrementalDecoderSteps` do relatório
-e da UI conta somente os passos realmente atravessados por esse grafo (o
-primeiro token ainda vem do prefill).
+Depois do prelude de embedding/PLE, o hot path incremental é capturado como uma
+única função `mx.compile(..., shapeless=True)`: executa as 42 camadas, norma
+final, projeção das 262.144 dimensões de vocabulário e softcap, e devolve logits
+mais o próximo KV cache. Batch e comprimento da query permanecem `1 × 1`,
+enquanto o comprimento do cache K/V é dinâmico; a atenção GQA usa a forma agrupada
+`[kv_heads, groups, query, key]`, sem materializar `repeat` dos heads K/V. O
+campo `compiledIncrementalDecoderSteps` do relatório e da UI conta somente os
+passos `decoder → logits` realmente atravessados por esse grafo (o primeiro
+token ainda vem do prefill).
+
+A closure compilada permanece residente no worker entre prompts. O campo
+`incrementalCompilerCacheHit` prova se a requisição reutilizou essa closure. A
+interface executa dois warm-ups: o primeiro compila a função e o segundo força
+a especialização estrutural do KV dinâmico, impedindo que a primeira mensagem
+do usuário absorva esse custo único.
+
+As tabelas completas de embedding não são capturadas pela closure: fazê-lo
+melhora o benchmark isolado, mas aumenta a pressão sobre memória unificada e
+degrada o executor direto quando a interface roda Transformers e compatibilidade
+em paralelo. O prelude continua fora do grafo até existir um lowering paginado
+que não mantenha as tabelas completas como constantes compiladas.
 
 A forma agrupada preserva a função matemática, mas pode alterar a árvore de
 redução em ponto flutuante. Por isso a validação de qualidade separa a primeira
