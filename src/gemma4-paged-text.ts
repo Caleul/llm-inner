@@ -61,7 +61,7 @@ export interface Gemma4PagedTextOptions {
   /** Complete decoder layer from input norm through PLE scalar in one native dispatch. */
   fusedDecoderLayerRounding?: "native-bf16";
   /** Complete ordered decoder stack in one native dispatch. */
-  fusedDecoderStackRounding?: "native-bf16";
+  fusedDecoderStackRounding?: "native-bf16" | "native-bf16-ple";
   /** Final vocabulary projection compute path; BF16 is the allowed final rounding boundary. */
   finalHeadCompute?: "f32" | "native-bf16" | "native-bf16-stream" | "native-bf16-whole";
   /** Optional native QK/softmax/PV kernel; real removes its internal BF16 boundaries. */

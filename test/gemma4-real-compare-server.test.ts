@@ -18,6 +18,8 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /FFNs completos/);
   assert.match(gemma4RealCompareHtml, /Decoder layers completas/);
   assert.match(gemma4RealCompareHtml, /Pilhas decoder completas/);
+  assert.match(gemma4RealCompareHtml, /gate\+up unidos/);
+  assert.match(gemma4RealCompareHtml, /fases stack attn\/FFN\/PLE/);
   assert.match(gemma4RealCompareHtml, /PLEs fundidos/);
   assert.match(gemma4RealCompareHtml, /head:/);
   assert.match(gemma4RealCompareHtml, /attention core:/);
@@ -55,14 +57,15 @@ test("servidor diferencial valida opções reprodutíveis", () => {
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-mlp", "always"]), /off, bf16, real ou native-bf16/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-ffn", "real"]), /off ou native-bf16/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-decoder-layer", "real"]), /off ou native-bf16/);
-  assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-decoder-stack", "real"]), /off ou native-bf16/);
+  assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-decoder-stack", "real"]), /off, native-bf16 ou native-bf16-ple/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-ple", "always"]), /off, bf16 ou real/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-ple-prelude", "always"]), /off, bf16 ou real/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-final-head", "fp16"]), /f32, native-bf16, native-bf16-stream ou native-bf16-whole/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-native-attention", "auto"]), /off, bf16 ou real/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-attention", "always"]), /off, bf16, real ou native-bf16/);
   const directDefaults = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool"]);
-  assert.equal(directDefaults.directMaxReadMiB, 16); assert.equal(directDefaults.directFinalHeadReadMiB, 32);
+  assert.equal(directDefaults.directThreads, 10); assert.equal(directDefaults.directMaxReadMiB, 16); assert.equal(directDefaults.directFinalHeadReadMiB, 32);
+  assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-fused-decoder-stack", "native-bf16-ple"]).directFusedDecoderStack, "native-bf16-ple");
   const splitTiles = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-max-read-mib", "16", "--direct-final-head-read-mib", "32"]);
   assert.equal(splitTiles.directFinalHeadReadMiB, 32);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-final-head-read-mib", "0"]), /Configuração direta inválida/);

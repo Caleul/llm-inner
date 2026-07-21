@@ -878,6 +878,45 @@ head em fluxo único. Evidência:
 - `artifacts/gemma4-three-way-calibration-8x2-paged-native-bf16-head-current-control.json`;
 - `artifacts/gemma4-three-way-calibration-8x2-streamed-native-bf16-head.json`.
 
+## FFN unido e perfil interno da pilha decoder
+
+O worker passou a devolver, no mesmo despacho binário, a decomposição do tempo
+da pilha em attention, FFN e PLE. No corpus 8x2 com dez threads, os totais do
+controle fiel foram `0,8717 s`, `2,1746 s` e `0,4225 s`, respectivamente. O
+FFN representa aproximadamente 62% dos `3,5212 s` da pilha e é o alvo
+dominante das próximas fusões.
+
+As matrizes BF16 `gate_proj` e `up_proj` de cada uma das 42 camadas são
+adjacentes no pool autenticado. Para forwards com mais de uma linha, o worker
+as enxerga como uma única matriz `[20480,2560]` e executa uma GEMM, separando o
+resultado em gate/up sem copiar pesos. Ensaios independentes com uma e seis
+linhas confirmaram igualdade bit a bit com as duas GEMMs. Para a continuação
+unitária, onde a GEMM unida foi ligeiramente pior, o runtime conserva as duas
+operações. O corpus registrou 336 pares unidos: 42 por prompt inicial.
+
+Um sweep quente no M3 Max preservou os tokens e o SHA terminal em 4, 8, 10 e
+14 threads. Dez threads minimizaram a pilha (`~0,349 s`, contra `~0,376 s` em
+oito e `~0,383 s` em quatorze), coerente com os dez núcleos de desempenho da
+máquina. Por isso o padrão direto passou de oito para dez threads, mantendo a
+flag explícita para outras máquinas.
+
+Contra o relatório anterior de oito threads, o controle 8x2 atualizado passou
+de `2,0272` para `2,0953 token/s` (+3,36%) e reduziu a pilha agregada de
+`3,8130` para `3,5212 s` (-7,65%), mantendo 7/8 prompts e 15/16 tokens iguais
+ao baseline. O pico RSS foi `2.609.664 KiB`.
+
+O modo experimental `native-bf16-ple` também executa as duas projeções PLE em
+BF16 nativo. Ele reduziu a fase PLE agregada de `0,4225` para `0,3155 s`
+(-25,3%) e atingiu 8/8 prompts e 16/16 tokens no corpus, mas o ensaio pareado
+não melhorou o tempo total (`2,0373 token/s`) por variação nas fases FFN/head.
+Consequentemente ele permanece disponível para A/B, enquanto `native-bf16`
+continua sendo o padrão fiel.
+
+Evidência:
+
+- `artifacts/gemma4-three-way-calibration-8x2-stack-gate-up-10t-control.json`;
+- `artifacts/gemma4-three-way-calibration-8x2-stack-native-ple-10t.json`.
+
 ## Núcleo de attention nativo sem arredondamentos internos
 
 O executor direto passou a reconhecer a operação compilada de attention como

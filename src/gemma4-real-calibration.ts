@@ -54,8 +54,9 @@ interface ThreeWayCase {
     fusedFfnDispatches?: number;
     fusedDecoderLayerRounding?: "off" | "native-bf16";
     fusedDecoderLayerDispatches?: number;
-    fusedDecoderStackRounding?: "off" | "native-bf16";
+    fusedDecoderStackRounding?: "off" | "native-bf16" | "native-bf16-ple";
     fusedDecoderStackDispatches?: number;
+    fusedDecoderStackGateUpPairs?: number;
     fusedPleRounding?: "off" | "bf16" | "real";
     fusedPlePreludeRounding?: "off" | "bf16" | "real";
     fusedPleDispatches?: number;
@@ -73,6 +74,9 @@ interface ThreeWayCase {
     fusedFfnSeconds?: number;
     fusedDecoderLayerSeconds?: number;
     fusedDecoderStackSeconds?: number;
+    fusedDecoderStackAttentionSeconds?: number;
+    fusedDecoderStackFfnSeconds?: number;
+    fusedDecoderStackPleSeconds?: number;
     fusedPleSeconds?: number;
     fusedPlePreludeSeconds?: number;
     nativeAttentionSeconds?: number;
@@ -188,6 +192,7 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.fusedDecoderLayerDispatches === undefined ? {} : { fusedDecoderLayerDispatches: entry.direct.fusedDecoderLayerDispatches }),
         ...(entry.direct.fusedDecoderStackRounding === undefined ? {} : { fusedDecoderStackRounding: entry.direct.fusedDecoderStackRounding }),
         ...(entry.direct.fusedDecoderStackDispatches === undefined ? {} : { fusedDecoderStackDispatches: entry.direct.fusedDecoderStackDispatches }),
+        ...(entry.direct.fusedDecoderStackGateUpPairs === undefined ? {} : { fusedDecoderStackGateUpPairs: entry.direct.fusedDecoderStackGateUpPairs }),
         ...(entry.direct.fusedPleRounding === undefined ? {} : { fusedPleRounding: entry.direct.fusedPleRounding }),
         ...(entry.direct.fusedPlePreludeRounding === undefined ? {} : { fusedPlePreludeRounding: entry.direct.fusedPlePreludeRounding }),
         ...(entry.direct.fusedPleDispatches === undefined ? {} : { fusedPleDispatches: entry.direct.fusedPleDispatches }),
@@ -205,6 +210,9 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.fusedFfnSeconds === undefined ? {} : { fusedFfnSeconds: entry.direct.fusedFfnSeconds }),
         ...(entry.direct.fusedDecoderLayerSeconds === undefined ? {} : { fusedDecoderLayerSeconds: entry.direct.fusedDecoderLayerSeconds }),
         ...(entry.direct.fusedDecoderStackSeconds === undefined ? {} : { fusedDecoderStackSeconds: entry.direct.fusedDecoderStackSeconds }),
+        ...(entry.direct.fusedDecoderStackAttentionSeconds === undefined ? {} : { fusedDecoderStackAttentionSeconds: entry.direct.fusedDecoderStackAttentionSeconds }),
+        ...(entry.direct.fusedDecoderStackFfnSeconds === undefined ? {} : { fusedDecoderStackFfnSeconds: entry.direct.fusedDecoderStackFfnSeconds }),
+        ...(entry.direct.fusedDecoderStackPleSeconds === undefined ? {} : { fusedDecoderStackPleSeconds: entry.direct.fusedDecoderStackPleSeconds }),
         ...(entry.direct.fusedPleSeconds === undefined ? {} : { fusedPleSeconds: entry.direct.fusedPleSeconds }),
         ...(entry.direct.fusedPlePreludeSeconds === undefined ? {} : { fusedPlePreludeSeconds: entry.direct.fusedPlePreludeSeconds }),
         ...(entry.direct.nativeAttentionSeconds === undefined ? {} : { nativeAttentionSeconds: entry.direct.nativeAttentionSeconds }),
