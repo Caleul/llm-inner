@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Script } from "node:vm";
 import { gemma4RealCompareHtml } from "../src/gemma4-real-compare-ui.js";
-import { assessDirectVerification, computeDirectLogitAgreement, createGemma4RealComparisonServer, parseGemma4RealServerOptions } from "../src/gemma4-real-compare-server.js";
+import { assessDirectVerification, computeDirectExecutionMetrics, computeDirectLogitAgreement, createGemma4RealComparisonServer, parseGemma4RealServerOptions } from "../src/gemma4-real-compare-server.js";
 
 test("interface diferencial contém controles e apresentação dos dois executores", () => {
   assert.match(gemma4RealCompareHtml, /Enviar e comparar/);
@@ -38,6 +38,8 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /divergência direta top-K/);
   assert.match(gemma4RealCompareHtml, /compatibilidade:.*direto:/);
   assert.match(gemma4RealCompareHtml, /prefixo KV/);
+  assert.match(gemma4RealCompareHtml, /Primeiro token/);
+  assert.match(gemma4RealCompareHtml, /prefillAvoidedRate/);
   assert.match(gemma4RealCompareHtml, /\/api\/compare-stream/);
   assert.match(gemma4RealCompareHtml, /Aquecendo o forward compilado no Metal/);
   assert.match(gemma4RealCompareHtml, /gate\+up unidos/);
@@ -70,6 +72,20 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /Threads/);
   assert.match(gemma4RealCompareHtml, /\/api\/compare/);
   const embedded = gemma4RealCompareHtml.match(/<script>([\s\S]*)<\/script>/)?.[1]; assert.ok(embedded); assert.doesNotThrow(() => new Script(embedded), "JavaScript embutido deve ser sintaticamente executável pelo navegador");
+});
+
+test("métricas diretas separam primeiro token, decode, speedup e prefill evitado", () => {
+  const metrics = computeDirectExecutionMetrics({
+    generatedTokenIds: [7, 8, 9], fullTokenIds: [2, 3, 7, 8, 9], elapsedSeconds: 0.25,
+    sessionCacheHit: true, prefixTokensReused: 6, prefillTokensComputed: 2, tokensEqualBaseline: true,
+    steps: [{ forwardSeconds: 0.12 }, { forwardSeconds: 0.04 }, { forwardSeconds: 0.03 }],
+  }, 8, 2, 0.13);
+  assert.deepEqual(metrics, {
+    inputTokens: 8, generatedTokens: 3, firstTokenForwardSeconds: 0.12, firstTokenWallSeconds: 0.13,
+    decodeForwardSeconds: 0.07, totalForwardSeconds: 0.19, sessionCacheHit: true,
+    prefixTokensReused: 6, prefillTokensComputed: 2, prefillAvoidedRate: 0.75,
+    baselineSpeedup: 8, tokensEqualBaseline: true,
+  });
 });
 
 test("métricas top-K diretas quantificam logit escolhido, margem greedy e sobreposição", () => {
@@ -131,11 +147,11 @@ readline.createInterface({input:process.stdin}).on("line",line=>{const r=JSON.pa
     assert.equal(initialStatus.tokenizer?.ready, true); assert.equal(initialStatus.reference?.state, "unloaded");
     const stream = async (prompt: string, continueSession: boolean) => {
       const response = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt, maxNewTokens: 1, sessionId: 41, continueSession, conversationMode: "chat" }) });
-      assert.equal(response.status, 200); const lines = (await response.text()).trim().split("\n").map((line) => JSON.parse(line) as { type: string; event?: { tokenId: number }; data?: { chatTemplate?: string; generatedText?: string; direct?: { receivedInputIds: number[]; sessionCacheHit: boolean; prefixTokensReused: number }; comparisonTiming?: { schedule: string; directPhaseSeconds: number; referencePhaseSeconds: number; referenceReleased: boolean; directRecoverySeconds: number; totalWallSeconds: number } } }); return lines;
+      assert.equal(response.status, 200); const lines = (await response.text()).trim().split("\n").map((line) => JSON.parse(line) as { type: string; serverElapsedSeconds?: number; event?: { tokenId: number }; data?: { chatTemplate?: string; generatedText?: string; direct?: { receivedInputIds: number[]; sessionCacheHit: boolean; prefixTokensReused: number }; directExecutionMetrics?: { inputTokens: number; firstTokenWallSeconds: number | null; prefixTokensReused: number; prefillTokensComputed: number; prefillAvoidedRate: number; tokensEqualBaseline: boolean }; comparisonTiming?: { schedule: string; directPhaseSeconds: number; referencePhaseSeconds: number; referenceReleased: boolean; directRecoverySeconds: number; totalWallSeconds: number } } }); return lines;
     };
-    const first = await stream("primeiro", false); assert.deepEqual(first.map((entry) => entry.type), ["direct-token", "direct-complete", "reference-loading", "direct-rewarming", "result"]); assert.equal(first[0]!.event!.tokenId, 7); assert.equal(first[1]!.data!.generatedText, "7"); assert.deepEqual(first[4]!.data!.direct!.receivedInputIds, [2, 105]); assert.equal(first[4]!.data!.chatTemplate, "llm-inner-gemma4-it-text-turn-v1"); assert.equal(first[4]!.data!.comparisonTiming!.schedule, "isolated"); assert.equal(first[4]!.data!.comparisonTiming!.referenceReleased, true); assert.ok(first[4]!.data!.comparisonTiming!.directRecoverySeconds >= 0); assert.ok(first[4]!.data!.comparisonTiming!.directPhaseSeconds >= 0); assert.ok(first[4]!.data!.comparisonTiming!.referencePhaseSeconds >= 0); assert.ok(first[4]!.data!.comparisonTiming!.totalWallSeconds >= first[4]!.data!.comparisonTiming!.directPhaseSeconds);
+    const first = await stream("primeiro", false); assert.deepEqual(first.map((entry) => entry.type), ["direct-token", "direct-complete", "reference-loading", "direct-rewarming", "result"]); assert.equal(first[0]!.event!.tokenId, 7); assert.ok(first[0]!.serverElapsedSeconds! >= 0); assert.equal(first[1]!.data!.generatedText, "7"); assert.deepEqual(first[4]!.data!.direct!.receivedInputIds, [2, 105]); assert.equal(first[4]!.data!.chatTemplate, "llm-inner-gemma4-it-text-turn-v1"); assert.deepEqual(first[4]!.data!.directExecutionMetrics, { inputTokens: 2, generatedTokens: 1, firstTokenForwardSeconds: null, firstTokenWallSeconds: first[4]!.data!.directExecutionMetrics!.firstTokenWallSeconds, decodeForwardSeconds: 0, totalForwardSeconds: 0, sessionCacheHit: false, prefixTokensReused: 0, prefillTokensComputed: 2, prefillAvoidedRate: 0, baselineSpeedup: null, tokensEqualBaseline: true }); assert.ok(first[4]!.data!.directExecutionMetrics!.firstTokenWallSeconds! >= 0); assert.equal(first[4]!.data!.comparisonTiming!.schedule, "isolated"); assert.equal(first[4]!.data!.comparisonTiming!.referenceReleased, true); assert.ok(first[4]!.data!.comparisonTiming!.directRecoverySeconds >= 0); assert.ok(first[4]!.data!.comparisonTiming!.directPhaseSeconds >= 0); assert.ok(first[4]!.data!.comparisonTiming!.referencePhaseSeconds >= 0); assert.ok(first[4]!.data!.comparisonTiming!.totalWallSeconds >= first[4]!.data!.comparisonTiming!.directPhaseSeconds);
     const releasedStatus = await fetch(`http://127.0.0.1:${address.port}/api/status`).then((response) => response.json()) as { reference: { state: string } }; assert.equal(releasedStatus.reference.state, "unloaded");
-    const second = await stream(" continuação", true); assert.deepEqual(second.map((entry) => entry.type), ["direct-token", "direct-complete", "reference-loading", "direct-rewarming", "result"]); assert.equal(second[0]!.event!.tokenId, 8); assert.deepEqual(second[4]!.data!.direct!.receivedInputIds, [2, 105, 7, 106, 105]); assert.equal(second[4]!.data!.direct!.sessionCacheHit, true); assert.equal(second[4]!.data!.direct!.prefixTokensReused, 3);
+    const second = await stream(" continuação", true); assert.deepEqual(second.map((entry) => entry.type), ["direct-token", "direct-complete", "reference-loading", "direct-rewarming", "result"]); assert.equal(second[0]!.event!.tokenId, 8); assert.deepEqual(second[4]!.data!.direct!.receivedInputIds, [2, 105, 7, 106, 105]); assert.equal(second[4]!.data!.direct!.sessionCacheHit, true); assert.equal(second[4]!.data!.direct!.prefixTokensReused, 3); assert.equal(second[4]!.data!.directExecutionMetrics!.prefixTokensReused, 3); assert.equal(second[4]!.data!.directExecutionMetrics!.prefillTokensComputed, 2); assert.equal(second[4]!.data!.directExecutionMetrics!.prefillAvoidedRate, 0.6); assert.equal(second[4]!.data!.directExecutionMetrics!.tokensEqualBaseline, true);
     const parallelResponse = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt: "stress", maxNewTokens: 1, measurementSchedule: "parallel" }) });
     const parallel = (await parallelResponse.text()).trim().split("\n").map((line) => JSON.parse(line) as { type: string; data?: { comparisonTiming?: { schedule: string } } }); assert.deepEqual(parallel.map((entry) => entry.type), ["reference-loading", "direct-token", "direct-rewarming", "result"]); assert.equal(parallel.at(-1)!.data!.comparisonTiming!.schedule, "parallel");
     const controller = new AbortController(); const cancelled = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, signal: controller.signal, body: JSON.stringify({ prompt: "cancelar", maxNewTokens: 1, sessionId: 41, continueSession: true, conversationMode: "chat" }) }); const reader = cancelled.body!.getReader(); await reader.read(); controller.abort(); await new Promise((resolve) => setTimeout(resolve, 80));

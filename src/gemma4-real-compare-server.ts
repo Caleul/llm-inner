@@ -155,7 +155,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
         directReport.tokensEqualBaseline = arraysEqual(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
         directReport.firstDivergentStep = firstDivergence(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
         if (body.sessionId !== undefined) rememberSession(sessionInputs, body.sessionId, directReport.fullTokenIds, body.conversationMode ?? "raw");
-        return json(response, 200, { ...report, prompt: body.prompt, conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), direct: directReport, comparisonTiming: { schedule, directPhaseSeconds, referenceColdStart, referenceStartupSeconds, referenceComputeSeconds, referencePhaseSeconds, referenceReleased: true, directRecoverySeconds, totalWallSeconds: elapsedSeconds(comparisonStarted) } });
+        return json(response, 200, { ...report, prompt: body.prompt, conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), direct: directReport, directExecutionMetrics: computeDirectExecutionMetrics(directReport, inputIds.length, report.performance?.baselineSeconds), comparisonTiming: { schedule, directPhaseSeconds, referenceColdStart, referenceStartupSeconds, referenceComputeSeconds, referencePhaseSeconds, referenceReleased: true, directRecoverySeconds, totalWallSeconds: elapsedSeconds(comparisonStarted) } });
       }
       if (request.method === "POST" && request.url === "/api/compare-stream") {
         await initialize;
@@ -167,10 +167,14 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
         response.writeHead(200, { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" });
         try {
           const comparisonStarted = performance.now(), schedule = body.measurementSchedule ?? "isolated";
-          const executeDirect = () => executeSelectedDirect(direct, verificationProvider, options.directVerificationMargin, { inputIds, maxNewTokens: body.maxNewTokens, stream: true, ...(body.sessionId === undefined ? {} : { sessionId: body.sessionId }) }, (event) => writeNdjson(response, { type: "direct-token", provisional: verificationEnabled, event }), (assessment) => writeNdjson(response, { type: "direct-fallback", ...assessment }), () => !clientDisconnected);
+          let directExecutionStarted = comparisonStarted, firstTokenWallSeconds: number | undefined;
+          const executeDirect = () => executeSelectedDirect(direct, verificationProvider, options.directVerificationMargin, { inputIds, maxNewTokens: body.maxNewTokens, stream: true, ...(body.sessionId === undefined ? {} : { sessionId: body.sessionId }) }, (event) => {
+            firstTokenWallSeconds ??= elapsedSeconds(directExecutionStarted);
+            writeNdjson(response, { type: "direct-token", provisional: verificationEnabled, event, serverElapsedSeconds: elapsedSeconds(directExecutionStarted) });
+          }, (assessment) => writeNdjson(response, { type: "direct-fallback", ...assessment }), () => !clientDisconnected);
           let report: ComparisonReport, directReport: DirectReport, directPhaseSeconds: number, referencePhaseSeconds: number, referenceStartupSeconds: number, referenceComputeSeconds: number, referenceColdStart: boolean, directRecoverySeconds = 0;
           if (schedule === "isolated") {
-            const directStarted = performance.now(); directReport = await executeDirect(); directPhaseSeconds = elapsedSeconds(directStarted);
+            const directStarted = performance.now(); directExecutionStarted = directStarted; directReport = await executeDirect(); directPhaseSeconds = elapsedSeconds(directStarted);
             if (clientDisconnected || response.destroyed) return;
             const [generated, full] = await Promise.all([tokenizer.decode(directReport.generatedTokenIds), tokenizer.decode(directReport.fullTokenIds)]);
             directReport.generatedText = generated.text; directReport.fullText = full.text;
@@ -181,7 +185,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
           } else {
             writeNdjson(response, { type: "reference-loading", coldStart: !worker?.ready });
             const lease = await acquireReferenceWorker(); referenceStartupSeconds = lease.startupSeconds; referenceColdStart = lease.coldStart;
-            const directStarted = performance.now(), referenceStarted = performance.now();
+            const directStarted = performance.now(), referenceStarted = performance.now(); directExecutionStarted = directStarted;
             try { [report, directReport] = await Promise.all([lease.worker.compareTokens(body, inputIds) as Promise<ComparisonReport>, executeDirect()]); } finally { lease.release(true); }
             directPhaseSeconds = elapsedSeconds(directStarted); referenceComputeSeconds = elapsedSeconds(referenceStarted); referencePhaseSeconds = referenceStartupSeconds + referenceComputeSeconds;
           }
@@ -195,7 +199,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
           directReport.tokensEqualBaseline = arraysEqual(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
           directReport.firstDivergentStep = firstDivergence(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
           if (body.sessionId !== undefined) rememberSession(sessionInputs, body.sessionId, directReport.fullTokenIds, body.conversationMode ?? "raw");
-          writeNdjson(response, { type: "result", data: { ...report, prompt: body.prompt, conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), direct: directReport, comparisonTiming: { schedule, directPhaseSeconds, referenceColdStart, referenceStartupSeconds, referenceComputeSeconds, referencePhaseSeconds, referenceReleased: true, directRecoverySeconds, totalWallSeconds: elapsedSeconds(comparisonStarted) } } }); response.end(); return;
+          writeNdjson(response, { type: "result", data: { ...report, prompt: body.prompt, conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), direct: directReport, directExecutionMetrics: computeDirectExecutionMetrics(directReport, inputIds.length, report.performance?.baselineSeconds, firstTokenWallSeconds), comparisonTiming: { schedule, directPhaseSeconds, referenceColdStart, referenceStartupSeconds, referenceComputeSeconds, referencePhaseSeconds, referenceReleased: true, directRecoverySeconds, totalWallSeconds: elapsedSeconds(comparisonStarted) } } }); response.end(); return;
         } catch (error) {
           writeNdjson(response, { type: "error", error: error instanceof Error ? error.message : String(error) }); response.end(); return;
         }
@@ -336,13 +340,34 @@ class PersistentJsonlWorker {
   #fail(error: Error): void { this.ready = false; this.#readyReject(error); for (const pending of this.pending.values()) pending.reject(error); this.pending.clear(); }
 }
 
-interface ComparisonReport { inputIds?: number[][]; baselineGeneratedTokenIds: number[]; steps?: Array<{ baselineToken?: number; baselineTopLogits?: unknown }> }
+interface ComparisonReport { inputIds?: number[][]; baselineGeneratedTokenIds: number[]; steps?: Array<{ baselineToken?: number; baselineTopLogits?: unknown }>; performance?: { baselineSeconds?: number } }
 interface DirectReport { generatedTokenIds: number[]; fullTokenIds: number[]; generatedText?: string; fullText?: string; tokensEqualBaseline?: boolean; firstDivergentStep?: number | null; terminalLogitsSha256?: string; selectiveVerification?: boolean; steps?: Array<{ forwardSeconds?: number; verificationSkipped?: boolean; [key: string]: unknown }>; [key: string]: unknown }
+export interface DirectExecutionMetrics { inputTokens: number; generatedTokens: number; firstTokenForwardSeconds: number | null; firstTokenWallSeconds: number | null; decodeForwardSeconds: number; totalForwardSeconds: number; sessionCacheHit: boolean; prefixTokensReused: number; prefillTokensComputed: number; prefillAvoidedRate: number; baselineSpeedup: number | null; tokensEqualBaseline: boolean }
 export interface DirectLogitStepAgreement { step: number; contextsEqualBeforeStep: boolean; baselineArgmaxToken: number | null; directArgmaxToken: number | null; baselineArgmaxLogitAbsError: number | null; greedyMarginAbsError: number | null; topK: number; topKOverlapCount: number; topKOverlapRate: number | null; topKCommonLogitMaxAbsError: number | null }
 export interface DirectLogitAgreement { reportedSteps: number; measuredSteps: number; rootDivergences: number; postDivergenceSteps: number; selectedLogitMeasuredSteps: number; meanBaselineArgmaxLogitAbsError: number | null; maxBaselineArgmaxLogitAbsError: number | null; marginMeasuredSteps: number; meanGreedyMarginAbsError: number | null; maxGreedyMarginAbsError: number | null; meanTopKOverlapRate: number | null; maxTopKCommonLogitAbsError: number | null; steps: DirectLogitStepAgreement[] }
 function arraysEqual(left: readonly number[], right: readonly number[]): boolean { return left.length === right.length && left.every((value, index) => value === right[index]); }
 function firstDivergence(left: readonly number[], right: readonly number[]): number | null { const length = Math.max(left.length, right.length); for (let index = 0; index < length; index += 1) if (left[index] !== right[index]) return index; return null; }
 function elapsedSeconds(started: number): number { return (performance.now() - started) / 1000; }
+
+export function computeDirectExecutionMetrics(direct: DirectReport, inputTokens: number, baselineSeconds?: number, firstTokenWallSeconds?: number): DirectExecutionMetrics {
+  const forwardSeconds = Array.isArray(direct.steps) ? direct.steps.flatMap((step) => typeof step.forwardSeconds === "number" && Number.isFinite(step.forwardSeconds) && step.forwardSeconds >= 0 ? [step.forwardSeconds] : []) : [];
+  const prefixTokensReused = nonNegativeInteger(direct.prefixTokensReused), prefillTokensComputed = nonNegativeInteger(direct.prefillTokensComputed);
+  const prefillDomain = prefixTokensReused + prefillTokensComputed;
+  const elapsed = typeof direct.elapsedSeconds === "number" && Number.isFinite(direct.elapsedSeconds) && direct.elapsedSeconds > 0 ? direct.elapsedSeconds : undefined;
+  return {
+    inputTokens, generatedTokens: direct.generatedTokenIds.length,
+    firstTokenForwardSeconds: forwardSeconds[0] ?? null,
+    firstTokenWallSeconds: firstTokenWallSeconds !== undefined && Number.isFinite(firstTokenWallSeconds) && firstTokenWallSeconds >= 0 ? firstTokenWallSeconds : null,
+    decodeForwardSeconds: forwardSeconds.slice(1).reduce((sum, value) => sum + value, 0),
+    totalForwardSeconds: forwardSeconds.reduce((sum, value) => sum + value, 0),
+    sessionCacheHit: direct.sessionCacheHit === true, prefixTokensReused, prefillTokensComputed,
+    prefillAvoidedRate: prefillDomain === 0 ? 0 : prefixTokensReused / prefillDomain,
+    baselineSpeedup: elapsed !== undefined && baselineSeconds !== undefined && Number.isFinite(baselineSeconds) && baselineSeconds >= 0 ? baselineSeconds / elapsed : null,
+    tokensEqualBaseline: direct.tokensEqualBaseline === true,
+  };
+}
+
+function nonNegativeInteger(value: unknown): number { return Number.isSafeInteger(value) && (value as number) >= 0 ? value as number : 0; }
 function declaresChatTemplate(source: string): boolean { try { const parsed = JSON.parse(readFileSync(join(source, "tokenizer_config.json"), "utf8")) as { chat_template?: unknown }; return typeof parsed.chat_template === "string" && parsed.chat_template.length > 0; } catch { return false; } }
 
 export function computeDirectLogitAgreement(baselineSteps: ReadonlyArray<{ baselineToken?: number; baselineTopLogits?: unknown }>, directSteps: ReadonlyArray<{ tokenId?: number; topLogits?: unknown }>): DirectLogitAgreement {

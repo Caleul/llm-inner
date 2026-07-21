@@ -2625,7 +2625,20 @@ sessão entre envios, possui cancelamento que drena os workers sem avançar a
 conversa e oferece **Nova conversa** para descartar o prefixo atual. Os três
 executores mantêm seus próprios KV caches e só reutilizam um prefixo quando os
 IDs anteriores coincidem exatamente; as métricas mostram quantos tokens foram
-reaproveitados e quantos precisaram de novo prefill.
+reaproveitados e quantos precisaram de novo prefill. O resumo visual separa
+paridade token a token, tempo até o primeiro token do executor, aceleração
+contra o Transformers e percentual de prefill evitado. O mesmo contrato é
+publicado como `directExecutionMetrics`, com `firstTokenForwardSeconds`,
+`firstTokenWallSeconds`, tempo dos decodes seguintes, reutilização KV e
+`baselineSpeedup`, para que testes e clientes não precisem extrair números do
+texto técnico da interface.
+
+Uma validação real em dois turnos no modo chat gerou 8/8 tokens iguais ao
+Transformers. No segundo turno, 17 tokens do prefixo foram reutilizados, 18
+foram calculados e 48,6% do domínio de prefill foi evitado. O painel do
+navegador mostrou primeiro token em 130,7 ms e 7,62x contra o baseline naquela
+execução isolada. Esses tempos descrevem o ensaio, não uma garantia universal;
+a paridade e as métricas são recalculadas para cada prompt enviado.
 
 O agendamento padrão da interface é **Isolada (fiel)**: primeiro executa e
 entrega o texto do runtime compilado sem cálculo concorrente e só então roda o
@@ -2657,12 +2670,13 @@ top-K atravessam para a CPU; o vetor F32 completo (1 MiB) é materializado uma
 publica quantos passos foram ranqueados na GPU e quantas transferências de vetor
 completo foram evitadas.
 
-O head de vocabulário usa por padrão quantização affine Q8, `group_size=64`,
-calculada deterministicamente a partir do peso BF16 autenticado quando a closure
-residente é criada. Isso reduz o custo da matriz `262144 × 2560` sem alterar as
-demais camadas. `--direct-mlx-head-quantization off|q8|q4` permite comparar os
-modos; a UI e o relatório registram `mlxHeadQuantization`. Q4 permanece apenas
-experimental: divergiu em uma decisão sensível. Na calibração Q8 de oito prompts
+O head de vocabulário usa por padrão o peso BF16 autenticado sem quantização,
+preservando a política promovida pela calibração atual. A opção Q8 affine,
+`group_size=64`, é calculada deterministicamente quando selecionada e reduz o
+custo da matriz `262144 × 2560`; `--direct-mlx-head-quantization off|q8|q4`
+permite comparar os modos, e a UI e o relatório registram
+`mlxHeadQuantization`. Q4 permanece apenas experimental: divergiu em uma
+decisão sensível. Na calibração Q8 de oito prompts
 e oito tokens, o caminho direto reproduziu 64/64 tokens do Transformers, sem
 divergência raiz, com 96,56% de sobreposição top-K média e 21,13 tok/s contra
 1,91 tok/s do baseline (11,08×). Essa matriz é evidência amostral, não prova de
