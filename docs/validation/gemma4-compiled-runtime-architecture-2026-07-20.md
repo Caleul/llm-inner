@@ -273,6 +273,42 @@ npm run calibrate:gemma4-real -- \
   --precision f32 --rounding-policy none
 ```
 
+## Paginação independente da projeção terminal
+
+Depois das fusões de attention, MLP e PLE, o `lm_head` passou a responder por
+81 das 85 leituras lineares referenciadas de cada forward com páginas gerais de
+16 MiB. Uma varredura isolada de 4, 8, 16, 24, 32 e 64 MiB preservou os tokens
+`[184,3910]` e o SHA-256 terminal
+`1f65253f2759208e828a710a3f8f574d713b5b0b170f1c6174f20aee95c4bdd0`.
+Como alterar o limite global também mudava as quatro leituras do prelude, o
+executor ganhou `finalHeadMaxReadBytes`: somente a operação `lm_head` usa esse
+limite, enquanto todas as demais matrizes mantêm `maxReadBytes`.
+
+Em dois workers persistentes, com seis pedidos `[2]` de dois tokens e o primeiro
+descartado como aquecimento, `16/16 MiB` teve mediana total de `1,0088 s` e
+`16/32 MiB` teve `0,9868 s`, redução de 2,18%. Ambos mantiveram os mesmos tokens
+e hash terminal; os despachos lineares caíram de 170 para 90 por pedido. A
+mediana do segundo forward foi praticamente estável (`0,4873 s` contra
+`0,4870 s`), portanto a decisão também foi validada no corpus completo.
+
+No corpus 8×2 sob a mesma revisão:
+
+- controle `16/16 MiB`: `1,1607 token/s`, 7/8 prompts e 15/16 tokens;
+- candidato `16/32 MiB`: `1,1713 token/s`, 7/8 prompts e 15/16 tokens;
+- ganho de throughput do candidato: 0,91%;
+- contagem por prompt de dois tokens: 170 → 90 despachos referenciados.
+
+Assim, PyTorch usa por padrão 16 MiB para o grafo e 32 MiB apenas para o head.
+MLX conserva o limite geral porque não participou desta calibração. As flags
+`--max-read-mib` e `--final-head-read-mib` no worker, e
+`--direct-max-read-mib` e `--direct-final-head-read-mib` no comparador, deixam
+o A/B explícito. A API, os relatórios e a interface mostram ambos os valores.
+
+Evidência persistida:
+
+- `artifacts/gemma4-three-way-calibration-8x2-split-head-16-control.json`;
+- `artifacts/gemma4-three-way-calibration-8x2-split-head-32.json`.
+
 ## Prelude PLE fundido experimental
 
 As quatro lineares referenciadas que restam além do `lm_head` pertencem a uma

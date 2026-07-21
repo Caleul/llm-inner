@@ -42,6 +42,8 @@ export interface Gemma4PagedTextGenerationRequest extends Gemma4PagedTextExecuti
 export interface Gemma4PagedTextOptions {
   /** Maximum decoded literal-storage range held by one matrix/vector read. */
   maxReadBytes?: number;
+  /** Independent page size for the terminal vocabulary projection. */
+  finalHeadMaxReadBytes?: number;
   /**
    * Required only when the embedded program declares unresolved numerical
    * fidelity. This keeps a diagnostic candidate replay from looking like an
@@ -175,7 +177,7 @@ async function executePagedOperations(
   const maxReadBytes = options.maxReadBytes ?? 16 * 1024 * 1024;
   const tensorReader = options.tensorReader ?? artifact;
   const vectors = new Map<string, Promise<DenseF32Tensor>>();
-  const matrix = (reference: TensorRef) => createPagedDenseF32Matrix(tensorInfo(artifact, reference), tensorReader, maxReadBytes);
+  const matrix = (reference: TensorRef, readBytes = maxReadBytes) => createPagedDenseF32Matrix(tensorInfo(artifact, reference), tensorReader, readBytes);
   const vector = (reference: TensorRef): Promise<DenseF32Tensor> => {
     let result = vectors.get(reference.name);
     if (!result) {
@@ -341,7 +343,7 @@ async function executePagedOperations(
             break;
           }
         }
-        store(operation, await pagedLinearF32(value(values, operation.input), matrix(operation.weight), {
+        store(operation, await pagedLinearF32(value(values, operation.input), matrix(operation.weight, operation.id === "lm_head" ? options.finalHeadMaxReadBytes ?? maxReadBytes : maxReadBytes), {
           outputDtype: operation.dtypePolicy.outputDtype === "BF16" ? "BF16" : "F32",
           accumulationDtype: operation.dtypePolicy.accumulationDtype === "F64" ? "F64" : "F32",
           ...(operation.dtypePolicy.reduction ? { reduction: operation.dtypePolicy.reduction } : {}),

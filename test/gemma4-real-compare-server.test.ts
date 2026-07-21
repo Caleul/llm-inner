@@ -55,9 +55,13 @@ test("servidor diferencial valida opções reprodutíveis", () => {
   assert.throws(() => parseGemma4RealServerOptions(["--direct-native-attention", "auto"]), /off, bf16 ou real/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-attention", "always"]), /off, bf16 ou real/);
   const directDefaults = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool"]);
+  assert.equal(directDefaults.directMaxReadMiB, 16); assert.equal(directDefaults.directFinalHeadReadMiB, 32);
+  const splitTiles = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-max-read-mib", "16", "--direct-final-head-read-mib", "32"]);
+  assert.equal(splitTiles.directFinalHeadReadMiB, 32);
+  assert.throws(() => parseGemma4RealServerOptions(["--direct-final-head-read-mib", "0"]), /Configuração direta inválida/);
   assert.equal(directDefaults.directFusedMlp, "real"); assert.equal(directDefaults.directFusedPle, "bf16"); assert.equal(directDefaults.directFusedPlePrelude, "off"); assert.equal(directDefaults.directFinalHead, "native-bf16"); assert.equal(directDefaults.directNativeAttention, "real"); assert.equal(directDefaults.directFusedAttention, "bf16");
   const mlxDefaults = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-linear-backend", "mlx"]);
-  assert.equal(mlxDefaults.directFusedPle, "off"); assert.equal(mlxDefaults.directFinalHead, "f32"); assert.equal(mlxDefaults.directNativeAttention, "off"); assert.equal(mlxDefaults.directFusedAttention, "off");
+  assert.equal(mlxDefaults.directFinalHeadReadMiB, 16); assert.equal(mlxDefaults.directFusedPle, "off"); assert.equal(mlxDefaults.directFinalHead, "f32"); assert.equal(mlxDefaults.directNativeAttention, "off"); assert.equal(mlxDefaults.directFusedAttention, "off");
   assert.throws(() => parseGemma4RealServerOptions(["--unknown", "x"]), /Flag desconhecida/);
 });
 
