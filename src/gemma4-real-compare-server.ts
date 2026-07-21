@@ -6,6 +6,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { gemma4RealCompareHtml } from "./gemma4-real-compare-ui.js";
+import { readGemma4GlobalSsaOutput, type Gemma4GlobalSsaOutput } from "./gemma4-global-ssa-output-reader.js";
 import { normalizeGemma4DecoderQuantizationLayers, type Gemma4MlxDecoderQuantization } from "./gemma4-paged-native-linear.js";
 import { validateGemma4VectorizedRealLoweringPlan, type Gemma4VectorizedRealLoweringPlan } from "./gemma4-vectorized-real-lowering.js";
 
@@ -25,6 +26,7 @@ export interface Gemma4CompiledProgramStatus {
   globalFormula: { file: string; sha256: string; terminalLogits: number; role: "compiled-executable-shared-dag" };
   constantPool: { file: string; sha256: string };
   exampleFormula: { key: string; family: string; dimension: number; root: string; expressionNodes: number; inputTensor: "x"; inputLength: number; file: string; sha256: string };
+  terminalLogitOutputs: { offset: number; dimensions: number; operationId: string; finalQuantization: "BF16-round-to-nearest-ties-to-even" };
   runtimeIndex?: { file: string; schemaVersion: 1 | 2; sha256: string; constantPoolSha256: string; integrityRootSha256: string };
   directRuntime: { engine: "mlx-f32-real-decoder-stack-v1"; directlyExecutesGlobalFormula: true; executesPersistedLoweringPlan: true; compiledOutputProgram: Gemma4VectorizedRealLoweringPlan["contract"]["compiledOutputProgram"]; plan: { file: string; sha256: string; functionBindingsSha256: string; outputBindingsSha256: string; standaloneSsaOutputsSha256: string; outputFunctions: number; realSimplifiedProgramSha256: string } };
 }
@@ -68,6 +70,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
   let verification: PersistentJsonlWorker | undefined, verificationInitialization: Promise<PersistentJsonlWorker> | undefined;
   let worker: Gemma4PersistentComparisonWorker | undefined, referenceInitialization: Promise<Gemma4PersistentComparisonWorker> | undefined, initializationError: Error | undefined, referenceError: Error | undefined, closed = false, referenceLeases = 0, referenceReleaseRequested = false;
   const sessionInputs = new Map<number, SessionInput>();
+  const finalFormulaCache = new Map<number, Promise<Gemma4GlobalSsaOutput>>();
   let directWarmupSeconds: number | undefined;
   const getReferenceWorker = (): Promise<Gemma4PersistentComparisonWorker> => {
     if (referenceInitialization) return referenceInitialization;
@@ -130,6 +133,27 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
   const server = createServer(async (request, response) => {
     try {
       if (request.method === "GET" && request.url === "/") return send(response, 200, "text/html; charset=utf-8", gemma4RealCompareHtml);
+      if (request.method === "GET" && request.url?.split("?", 1)[0] === "/api/final-formula") {
+        if (!options.compiledProgram) return json(response, 404, { error: "Bundle compilado não está disponível." });
+        const url = new URL(request.url, "http://127.0.0.1"), rawDimension = url.searchParams.get("dimension"), dimension = Number(rawDimension);
+        const outputs = options.compiledProgram.terminalLogitOutputs;
+        if (rawDimension === null || !/^\d+$/.test(rawDimension) || !Number.isSafeInteger(dimension) || dimension < 0 || dimension >= outputs.dimensions) throw new Error(`dimension deve estar entre 0 e ${outputs.dimensions - 1}.`);
+        let pending = finalFormulaCache.get(dimension);
+        if (!pending) {
+          const path = join(options.compiledProgram.bundle, options.compiledProgram.globalFormula.file);
+          pending = readGemma4GlobalSsaOutput(path, outputs.offset + dimension); finalFormulaCache.set(dimension, pending);
+          void pending.catch(() => finalFormulaCache.delete(dimension));
+        }
+        const binding = await pending, expectedAssignment = `calc_terminal_logit_${dimension}`;
+        if (binding.assignment !== expectedAssignment || binding.finalQuantization !== outputs.finalQuantization) throw new Error(`Binding final ${dimension} diverge do contrato terminal_logit.`);
+        await tokenizer.whenReady(); const decoded = await tokenizer.decode([dimension]);
+        return json(response, 200, {
+          key: `calc_final_${dimension}`, family: "terminal_logit", dimension, token: { id: dimension, text: decoded.text },
+          expression: `BF16_RNE(EVAL_EXACT_DAG(\"${binding.value}\", x))`, root: binding.value, parameters: binding.parameters, coordinate: binding.coordinate,
+          finalQuantization: binding.finalQuantization, onlyFreeInput: "x", globalFormulaSha256: options.compiledProgram.globalFormula.sha256,
+          outputBindingsSha256: options.compiledProgram.directRuntime.plan.outputBindingsSha256,
+        });
+      }
       if (request.method === "GET" && request.url === "/api/status") return json(response, 200, { ready: tokenizer.ready && (!direct ? worker?.ready === true : direct.ready && directWarmupSeconds !== undefined), source: options.source, runtime: "persistent-jsonl", chatTemplate: GEMMA4_CHAT_TEMPLATE, checkpointChatTemplateDeclared, tokenizer: { ready: tokenizer.ready, initializationSeconds: tokenizer.initializationSeconds, helper: options.tokenizerHelper }, reference: { state: worker?.ready ? "ready" : referenceInitialization ? "initializing" : "unloaded", initializationSeconds: worker?.initializationSeconds, ...(referenceError ? { error: referenceError.message } : {}) }, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), ...(initializationError ? { error: initializationError.message } : {}), direct: direct ? { enabled: true, artifact: options.literalArtifact, binaryPool: options.binaryPool, sourceIndependentBundle: options.literalArtifact !== undefined && options.binaryPool === dirname(options.literalArtifact), ...direct.readyMetadata, ready: direct.ready, initializationSeconds: direct.initializationSeconds, warmupSeconds: directWarmupSeconds, warmupComplete: directWarmupSeconds !== undefined, verification: verificationEnabled ? { enabled: true, backend: "pytorch", lifecycle: "retained-index-restarted-kernel-v1", marginThreshold: options.directVerificationMargin, state: verification?.ready ? "ready" : verificationInitialization ? "initializing" : "unloaded", ...verification?.readyMetadata, ready: verification?.ready ?? false, initializationSeconds: verification?.initializationSeconds, warmupComplete: verification?.ready ?? false } : { enabled: false } } : { enabled: false } });
       if (request.method === "POST" && request.url === "/api/compare") {
         await initialize;
@@ -588,6 +612,8 @@ function readCompiledProgramStatus(bundle: string): Gemma4CompiledProgramStatus 
   if (createHash("sha256").update(planBytes).digest("hex") !== planFile.sha256) throw new Error("Plano de lowering do bundle diverge do SHA-256 declarado no manifesto.");
   const plan = JSON.parse(planBytes.toString("utf8")) as unknown;
   validateGemma4VectorizedRealLoweringPlan(plan);
+  let terminalLogitOffset = 0; const outputFamilies = Object.entries(plan.contract.source.outputFamilies), terminalLogitFamily = plan.contract.source.outputFamilies.terminal_logit;
+  for (const [name, family] of outputFamilies) { if (name === "terminal_logit") break; terminalLogitOffset += family.dimensions; }
   if (plan.contract.functionBindingsSha256 !== manifest.runtimeLowering.functionBindingsSha256 || plan.contract.source.outputBindingsSha256 !== manifest.runtimeLowering.outputBindingsSha256 ||
     plan.contract.source.standaloneSsaOutputsSha256 !== manifest.runtimeLowering.standaloneSsaOutputsSha256 || plan.contract.source.outputFunctions !== manifest.runtimeLowering.outputFunctions ||
     plan.contract.source.outputFamilies.terminal_logit?.dimensions !== globalProgram!.terminalLogits || plan.contract.source.realSimplifiedProgramSha256 !== manifest.runtimeLowering.realSimplifiedProgramSha256 ||
@@ -600,6 +626,7 @@ function readCompiledProgramStatus(bundle: string): Gemma4CompiledProgramStatus 
     globalFormula: { file: globalFile.file as string, sha256: globalFile.sha256, terminalLogits: globalProgram!.terminalLogits as number, role: "compiled-executable-shared-dag" },
     constantPool: { file: constantFile.file as string, sha256: constantFile.sha256 },
     exampleFormula: { key: `calc_final_${formula.dimension}`, family: formula.family, dimension: formula.dimension as number, root: formula.root as string, expressionNodes: formula.expressionNodes as number, inputTensor: "x", inputLength: formula.inputLength as number, file: formula.file as string, sha256: formulaFile.sha256 as string },
+    terminalLogitOutputs: { offset: terminalLogitOffset, dimensions: terminalLogitFamily!.dimensions, operationId: terminalLogitFamily!.operationId, finalQuantization: terminalLogitFamily!.finalQuantization },
     ...(manifest.schemaVersion === 3 ? { runtimeIndex: { file: manifest.runtimeIndex!.file as string, schemaVersion: manifest.runtimeIndex!.schemaVersion as 1 | 2, sha256: runtimeIndexFile!.sha256 as string, constantPoolSha256: manifest.runtimeIndex!.constantPoolSha256 as string, integrityRootSha256: manifest.runtimeIndex!.integrityRootSha256 as string } } : {}),
     directRuntime: { engine: "mlx-f32-real-decoder-stack-v1", directlyExecutesGlobalFormula: true, executesPersistedLoweringPlan: true, compiledOutputProgram: plan.contract.compiledOutputProgram, plan: { file: planFile.file as string, sha256: planFile.sha256, functionBindingsSha256: manifest.runtimeLowering.functionBindingsSha256, outputBindingsSha256: manifest.runtimeLowering.outputBindingsSha256, standaloneSsaOutputsSha256: manifest.runtimeLowering.standaloneSsaOutputsSha256, outputFunctions: manifest.runtimeLowering.outputFunctions as number, realSimplifiedProgramSha256: manifest.runtimeLowering.realSimplifiedProgramSha256 } },
   };

@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Script } from "node:vm";
 import { gemma4RealCompareHtml } from "../src/gemma4-real-compare-ui.js";
-import { assessDirectVerification, computeDirectExecutionMetrics, computeDirectLogitAgreement, createGemma4RealComparisonServer, parseGemma4RealServerOptions } from "../src/gemma4-real-compare-server.js";
+import { assessDirectVerification, computeDirectExecutionMetrics, computeDirectLogitAgreement, createGemma4RealComparisonServer, parseGemma4RealServerOptions, type Gemma4CompiledProgramStatus } from "../src/gemma4-real-compare-server.js";
 
 test("interface diferencial contém controles e apresentação dos dois executores", () => {
   assert.match(gemma4RealCompareHtml, /Enviar e comparar/);
@@ -20,7 +20,9 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /projeção gate\/up/);
   assert.match(gemma4RealCompareHtml, /head BF16 exato: sem aproximação ou fallback/);
   assert.match(gemma4RealCompareHtml, /programa final direto/);
-  assert.match(gemma4RealCompareHtml, /Exemplo de uma dimensão final compilada/);
+  assert.match(gemma4RealCompareHtml, /Inspetor das dimensões finais compiladas/);
+  assert.match(gemma4RealCompareHtml, /Dimensão \/ token ID/);
+  assert.match(gemma4RealCompareHtml, /\/api\/final-formula/);
   assert.match(gemma4RealCompareHtml, /EVAL_EXACT_DAG/);
   assert.match(gemma4RealCompareHtml, /única entrada variável/);
   assert.match(gemma4RealCompareHtml, /despacho lógico\/forward/);
@@ -275,6 +277,30 @@ readline.createInterface({input:process.stdin}).on("line",line=>{const request=J
     await new Promise<void>((accept, reject) => server.close((error) => error ? reject(error) : accept()));
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+test("endpoint final liga qualquer dimensão de logit ao token decodificado", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "gemma4-final-formula-server-")), helper = join(directory, "worker.mjs"), globalFile = join(directory, "global-formulas.ssa.json");
+  const root = (digit: string) => `sha256:${digit.repeat(64)}`;
+  const output = (family: string, dimension: number, digit: string) => ({ assignment: `calc_${family}_${dimension}`, value: root(digit), parameters: ["batch", "sequence"], coordinate: [root("a"), root("b"), root(digit)], finalQuantization: "BF16-round-to-nearest-ties-to-even" });
+  await writeFile(globalFile, JSON.stringify({ statements: [], functions: [], outputs: [output("final_hidden_dimension", 0, "1"), output("terminal_logit", 0, "2"), output("terminal_logit", 1, "3")] }));
+  await writeFile(helper, `import readline from "node:readline"; console.log(JSON.stringify({ready:true})); readline.createInterface({input:process.stdin}).on("line",line=>{const r=JSON.parse(line);const report=r.mode==='decode'?{text:'token:'+r.tokenIds[0]}:r.mode==='encode'?{tokenIds:[2]}:{inputIds:[[2]],baselineGeneratedTokenIds:[1]};console.log(JSON.stringify({id:r.id,report}));});\n`);
+  const compiledProgram: Gemma4CompiledProgramStatus = {
+    bundle: directory, execution: "compiled-parametric-output-program-runtime", formulaSemantics: "gemma4-exact-real-simplified-v1",
+    globalFormula: { file: "global-formulas.ssa.json", sha256: "4".repeat(64), terminalLogits: 2, role: "compiled-executable-shared-dag" }, constantPool: { file: "constants.literal.json", sha256: "5".repeat(64) },
+    exampleFormula: { key: "calc_final_0", family: "terminal_logit", dimension: 0, root: root("2"), expressionNodes: 1, inputTensor: "x", inputLength: 1, file: "formula.graph.json", sha256: "6".repeat(64) },
+    terminalLogitOutputs: { offset: 1, dimensions: 2, operationId: "final", finalQuantization: "BF16-round-to-nearest-ties-to-even" },
+    directRuntime: { engine: "mlx-f32-real-decoder-stack-v1", directlyExecutesGlobalFormula: true, executesPersistedLoweringPlan: true, compiledOutputProgram: { id: "gemma4-text-real-final-vectors", semantics: "shared-dag-parametric-output-functions-v1", logicalDispatchesPerForward: 1, operationFunctions: 1, outputFunctions: 3, firstOperationId: "first", terminalOperationId: "final", orderedDispatchSha256: "7".repeat(64) }, plan: { file: "vectorized-real-lowering.json", sha256: "8".repeat(64), functionBindingsSha256: "9".repeat(64), outputBindingsSha256: "a".repeat(64), standaloneSsaOutputsSha256: "b".repeat(64), outputFunctions: 3, realSimplifiedProgramSha256: "c".repeat(64) } },
+  };
+  const server = createGemma4RealComparisonServer({ source: directory, python: process.execPath, helper, tokenizerHelper: helper, compiledProgram });
+  await new Promise<void>((accept) => server.listen(0, "127.0.0.1", accept));
+  try {
+    const address = server.address(); if (!address || typeof address === "string") throw new Error("Endereço HTTP de teste ausente.");
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/final-formula?dimension=1`); assert.equal(response.status, 200);
+    const formula = await response.json() as { key: string; root: string; token: { id: number; text: string }; onlyFreeInput: string };
+    assert.equal(formula.key, "calc_final_1"); assert.equal(formula.root, root("3")); assert.deepEqual(formula.token, { id: 1, text: "token:1" }); assert.equal(formula.onlyFreeInput, "x");
+    const invalid = await fetch(`http://127.0.0.1:${address.port}/api/final-formula?dimension=2`); assert.equal(invalid.status, 400); assert.deepEqual(await invalid.json(), { error: "dimension deve estar entre 0 e 1." });
+  } finally { await new Promise<void>((accept) => server.close(() => accept())); await rm(directory, { recursive: true, force: true }); }
 });
 
 test("verificação seletiva é fail-closed e usa somente a margem do caminho rápido", () => {
