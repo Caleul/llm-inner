@@ -15,6 +15,7 @@ const baseCase = {
 
 test("calibração três-vias agrega acordo token a token e throughput", () => {
   const report = summarizeGemma4ThreeWayCalibration([baseCase], { maxNewTokens: 2, requestThreads: 1, precision: "f32", roundingPolicy: "none", runner: { source: "/model", python: "python", helper: "helper", directThreads: 4 } }, { ready: true });
+  assert.equal(report.configuration.directMlxHeadQuantization, "q8");
   assert.deepEqual(report.summary, {
     promptsThreeWayEqual: 0, promptThreeWayAgreementRate: 0,
     compatibilityPromptsEqual: 0, compatibilityPromptAgreementRate: 0,

@@ -87,7 +87,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
   #nativeAttentionSeconds = 0;
   #fusedAttentionSeconds = 0;
 
-  constructor(options: { python: string; helper: string; threads: number; binaryPool?: string; storageTensors?: ReadonlyMap<string, TensorInfo>; backend?: "pytorch" | "mlx"; mlxHelper?: string }) {
+  constructor(options: { python: string; helper: string; threads: number; binaryPool?: string; storageTensors?: ReadonlyMap<string, TensorInfo>; backend?: "pytorch" | "mlx"; mlxHelper?: string; mlxHeadQuantization?: "off" | "q8" | "q4" }) {
     if (endianness() !== "LE") throw new Error("Kernel linear binário requer host little-endian.");
     if (!Number.isSafeInteger(options.threads) || options.threads < 1) throw new Error("threads do kernel linear deve ser positivo.");
     if ((options.binaryPool === undefined) !== (options.storageTensors === undefined)) throw new Error("Kernel linear mmap requer pool binário e catálogo juntos.");
@@ -97,7 +97,9 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     const helper = backend === "mlx" ? options.mlxHelper : options.helper;
     if (!helper) throw new Error(`Kernel ${backend} requer helper executável.`);
     this.backend = backend === "mlx" ? "persistent-mlx-metal-full-forward" : options.binaryPool ? "persistent-pytorch-mmap-f32-tile" : "persistent-pytorch-f32-tile";
-    const arguments_ = [helper, "--threads", String(options.threads), ...(options.binaryPool ? ["--binary-pool", resolve(options.binaryPool)] : [])];
+    const mlxHeadQuantization = options.mlxHeadQuantization ?? "off";
+    if (backend !== "mlx" && mlxHeadQuantization !== "off") throw new Error("Quantização do head requer kernel MLX.");
+    const arguments_ = [helper, "--threads", String(options.threads), ...(options.binaryPool ? ["--binary-pool", resolve(options.binaryPool)] : []), ...(backend === "mlx" ? ["--head-quantization", mlxHeadQuantization] : [])];
     this.child = spawn(options.python, arguments_, { stdio: ["pipe", "pipe", "pipe"] });
     if (options.binaryPool) {
       this.multiplyStorageReference = (input, tensor, startOutput, outputCount, rows) => this.#requestReference(input, tensor, startOutput, outputCount, rows);

@@ -158,10 +158,12 @@ test("servidor diferencial valida opções reprodutíveis", () => {
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-token-forward", "always"]), /off ou bf16/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-resident-generation", "always"]), /off ou on/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-final-head", "fp16"]), /f32, native-bf16, native-bf16-stream ou native-bf16-whole/);
+  assert.throws(() => parseGemma4RealServerOptions(["--direct-mlx-head-quantization", "q2"]), /off, q8 ou q4/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-native-attention", "auto"]), /off, bf16 ou real/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-attention", "always"]), /off, bf16, real ou native-bf16/);
   const directDefaults = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool"]);
   assert.equal(directDefaults.directThreads, 10); assert.equal(directDefaults.directMaxReadMiB, 16); assert.equal(directDefaults.directFinalHeadReadMiB, 16); assert.equal(directDefaults.directVerificationMargin, 0);
+  assert.equal(directDefaults.directMlxHeadQuantization, "q8");
   assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-verification-margin", "off"]).directVerificationMargin, undefined);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-verification-margin", "-1"]), /finito não negativo/);
   assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-linear-backend", "pytorch", "--direct-fused-decoder-stack", "native-bf16-ple"]).directFusedDecoderStack, "native-bf16-ple");

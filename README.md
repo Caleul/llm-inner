@@ -2657,6 +2657,17 @@ top-K atravessam para a CPU; o vetor F32 completo (1 MiB) é materializado uma
 publica quantos passos foram ranqueados na GPU e quantas transferências de vetor
 completo foram evitadas.
 
+O head de vocabulário usa por padrão quantização affine Q8, `group_size=64`,
+calculada deterministicamente a partir do peso BF16 autenticado quando a closure
+residente é criada. Isso reduz o custo da matriz `262144 × 2560` sem alterar as
+demais camadas. `--direct-mlx-head-quantization off|q8|q4` permite comparar os
+modos; a UI e o relatório registram `mlxHeadQuantization`. Q4 permanece apenas
+experimental: divergiu em uma decisão sensível. Na calibração Q8 de oito prompts
+e oito tokens, o caminho direto reproduziu 64/64 tokens do Transformers, sem
+divergência raiz, com 96,56% de sobreposição top-K média e 21,13 tok/s contra
+1,91 tok/s do baseline (11,08×). Essa matriz é evidência amostral, não prova de
+paridade universal; prompts arbitrários continuam sendo comparados na interface.
+
 O compositor vetorizado também faz eliminação de subexpressões comuns por passo
 de geração: fatores seno/cosseno de RoPE e máscaras causais/sliding-window com
 a mesma configuração são construídos uma vez e compartilhados entre as camadas

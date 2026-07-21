@@ -31,6 +31,7 @@ _binary_files = {}
 _embedding_row_cache = OrderedDict()
 _resident_generation_model = None
 _resident_generation_session = None
+_head_quantization = "off"
 EMBEDDING_ROW_CACHE_LIMIT = 4096
 
 
@@ -401,20 +402,35 @@ def compile_incremental_decoder_step(pool, shards, layer_plans, epilogue, roundi
 def incremental_compile_signature(layer_plans, epilogue, rounding):
     topology = tuple(tuple(sorted(config.items())) for config, _ in layer_plans)
     weight_contracts = tuple(tuple((name, tuple(value.shape), str(value.dtype)) for name, value in sorted(weights.items())) for _, weights in layer_plans)
-    epilogue_contract = (tuple(epilogue[0].shape), str(epilogue[0].dtype), tuple(epilogue[1].shape), str(epilogue[1].dtype), epilogue[2], epilogue[3])
+    head_contract = (tuple((tuple(value.shape), str(value.dtype)) for value in epilogue[1][:3]), epilogue[1][3], epilogue[1][4]) if isinstance(epilogue[1], tuple) else (tuple(epilogue[1].shape), str(epilogue[1].dtype))
+    epilogue_contract = (tuple(epilogue[0].shape), str(epilogue[0].dtype), head_contract, epilogue[2], epilogue[3])
     return rounding, topology, weight_contracts, epilogue_contract
 
 
-def execute_decoder_epilogue(result, epilogue, terminal_only=True, rounding="native-bf16"):
+def execute_decoder_head(result, epilogue, terminal_only=True, rounding="native-bf16"):
     norm_weight, head_weight, norm_epsilon, softcap = epilogue
     real = rounding == "real"
     boundary = (lambda value: value) if real else (lambda value: value.astype(mx.bfloat16).astype(mx.float32))
     epilogue_input = result[:, -1:, :] if terminal_only else result
     final_hidden = boundary(rms_norm_real(epilogue_input, norm_weight, norm_epsilon))
-    raw_logits = mx.matmul(final_hidden if real else final_hidden.astype(mx.bfloat16), head_weight.T).astype(mx.float32)
+    head_input = final_hidden if real else final_hidden.astype(mx.bfloat16)
+    if isinstance(head_weight, tuple):
+        quantized, scales, biases, group_size, bits = head_weight
+        return mx.quantized_matmul(head_input, quantized, scales, biases, transpose=True, group_size=group_size, bits=bits).astype(mx.float32)
+    return mx.matmul(head_input, head_weight.T).astype(mx.float32)
+
+
+def finalize_decoder_logits(raw_logits, epilogue, rounding="native-bf16"):
+    softcap = epilogue[3]
+    real = rounding == "real"
+    boundary = (lambda value: value) if real else (lambda value: value.astype(mx.bfloat16).astype(mx.float32))
     logits = boundary(mx.tanh(boundary(raw_logits / mx.array(softcap, dtype=mx.float32))))
     result = boundary(logits * mx.array(softcap, dtype=mx.float32))
     return result.astype(mx.bfloat16).astype(mx.float32) if real else result
+
+
+def execute_decoder_epilogue(result, epilogue, terminal_only=True, rounding="native-bf16"):
+    return finalize_decoder_logits(execute_decoder_head(result, epilogue, terminal_only, rounding), epilogue, rounding)
 
 
 def incremental_topology_mask(config, key_sequence, absolute_position):
@@ -695,6 +711,12 @@ def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, 
             raise ValueError("MLX decoder stack epilogue metadata is invalid")
         final_norm_weight = read_whole_tensor(pool, shards, (hidden_size, 1)).reshape((hidden_size,))
         head_weight = read_whole_tensor(pool, shards, (vocabulary_size, hidden_size), widen=False, required_dtype=mx.bfloat16)
+        if _head_quantization != "off":
+            head_bits = 8 if _head_quantization == "q8" else 4
+            group_size = 64
+            quantized, scales, biases = mx.quantize(head_weight, group_size=group_size, bits=head_bits)
+            mx.eval(quantized, scales, biases)
+            head_weight = (quantized, scales, biases, group_size, head_bits)
         epilogue = (final_norm_weight, head_weight, norm_epsilon, softcap)
     evaluation = [result, all_valid]
     for key, value in ordered_caches:
@@ -769,10 +791,13 @@ def execute_ple_prelude_request(pool, shards, rows, outputs, features):
 
 
 def main():
+    global _head_quantization
     parser = argparse.ArgumentParser()
     parser.add_argument("--threads", type=int, required=True)
     parser.add_argument("--binary-pool", required=True)
+    parser.add_argument("--head-quantization", choices=("off", "q8", "q4"), default="off")
     args = parser.parse_args()
+    _head_quantization = args.head_quantization
     if args.threads < 1:
         raise ValueError("--threads must be positive")
     pool = Path(args.binary_pool).resolve()
