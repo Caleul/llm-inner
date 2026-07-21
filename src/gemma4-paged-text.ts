@@ -58,6 +58,8 @@ export interface Gemma4PagedTextOptions {
   fusedMlpRounding?: "bf16" | "real" | "native-bf16";
   /** Pre-FFN norm, native BF16 gated MLP, post-FFN norm and residual in one worker dispatch. */
   fusedFfnRounding?: "native-bf16";
+  /** Complete decoder layer from input norm through PLE scalar in one native dispatch. */
+  fusedDecoderLayerRounding?: "native-bf16";
   /** Final vocabulary projection compute path; BF16 is the allowed final rounding boundary. */
   finalHeadCompute?: "f32" | "native-bf16" | "native-bf16-whole";
   /** Optional native QK/softmax/PV kernel; real removes its internal BF16 boundaries. */
@@ -211,6 +213,71 @@ async function executePagedOperations(
         }), operation.numLayers, operation.layerWidth));
         break;
       case "rms_norm":
+        if (options.fusedDecoderLayerRounding && options.linearTileKernel?.fusedDecoderLayerStorageReferences) {
+          const fused = matchFusedDecoderLayer(operations, operationIndex, operation);
+          if (fused) {
+            const attention = fused.attention.attention;
+            if (!positions || attention.layer === undefined) throw new Error(`${operation.id}: decoder layer fundida requer posições e camada declaradas.`);
+            for (const fusedOperation of fused.operations) assertPagedF32Policy(fusedOperation);
+            const input = value(values, operation.input), perLayerInput = selectPerLayerF32(value(values, fused.pleSelect.input), fused.pleSelect);
+            if (input.shape.length !== 3 || perLayerInput.shape.length !== 3 || input.shape[0] !== perLayerInput.shape[0] || input.shape[1] !== perLayerInput.shape[1]) throw new Error(`${operation.id}: decoder layer fundida requer tensores [B,S,H] e [B,S,P].`);
+            const [batch, querySequence, hiddenSize] = input.shape as [number, number, number];
+            if (hiddenSize !== fused.query.inFeatures || positions.length !== batch || positions.some((row) => row.length !== querySequence)) throw new Error(`${operation.id}: shapes incompatíveis com a decoder layer fundida.`);
+            const topologyMask = request.attentionMasksByLayer?.get(attention.layer);
+            let sourceKey: DenseF32Tensor | undefined, sourceValue: DenseF32Tensor | undefined, sourceSequence = 0;
+            if (attention.kvSharing) {
+              const producer = attention.kvSharing.producerLayer;
+              if (producer === undefined) throw new Error(`${attention.id}: KV compartilhado sem produtor declarado.`);
+              const shared = producedCache.get(producer);
+              if (!shared) throw new Error(`${attention.id}: KV compartilhado não encontrou cache do produtor ${producer}.`);
+              assertFusedSourceCache(shared.key, shared.value, batch, attention.numKeyValueHeads, attention.headDim, attention.id);
+              sourceKey = shared.key; sourceValue = shared.value; sourceSequence = shared.key.shape[2]!;
+            } else {
+              const previous = request.pastKeyValues?.get(attention.layer);
+              if (request.pastKeyValues && !previous) throw new Error(`${attention.id}: pastKeyValues não contém a camada ${attention.layer}.`);
+              if (previous) {
+                assertFusedSourceCache(previous.key, previous.value, batch, attention.numKeyValueHeads, attention.headDim, attention.id);
+                sourceKey = previous.key; sourceValue = previous.value; sourceSequence = previous.key.shape[2]!;
+              }
+            }
+            const producesKeyValue = !attention.kvSharing;
+            const keySequence = sourceSequence + (producesKeyValue ? querySequence : 0), pastLength = producesKeyValue ? sourceSequence : sourceSequence - querySequence;
+            if (pastLength < 0) throw new Error(`${attention.id}: cache compartilhado é menor que a consulta atual.`);
+            const declaredMask = topologyMask ?? request.attentionMask;
+            const nativeMask = topologyMask ? topologyMask : materializeAttentionTopologyMask(declaredMask, attention, batch, querySequence, keySequence, pastLength);
+            assertNativeAttentionMask(nativeMask, batch, attention.numAttentionHeads, querySequence, keySequence, attention.id);
+            const positionValues = new Int32Array(batch * querySequence);
+            for (let b = 0; b < batch; b += 1) for (let s = 0; s < querySequence; s += 1) {
+              const position = positions[b]![s]!;
+              if (!Number.isSafeInteger(position) || position < -2_147_483_648 || position > 2_147_483_647) throw new Error(`${operation.id}: posição ${position} excede o protocolo Int32 do subgrafo.`);
+              positionValues[b * querySequence + s] = position;
+            }
+            const half = fused.attention.queryRope.rotaryDim / 2;
+            const proportionalPairs = fused.attention.queryRope.ropeType === "proportional" ? Math.floor(Number(fused.attention.queryRope.scaling?.partial_rotary_factor) * attention.headDim / 2) : half;
+            const proportionalFactor = fused.attention.queryRope.ropeType === "proportional" ? Number(fused.attention.queryRope.scaling?.factor ?? 1) : 1;
+            const result = await options.linearTileKernel.fusedDecoderLayerStorageReferences({
+              input: input.values, perLayerInput: perLayerInput.values, positions: positionValues, mask: nativeMask.values,
+              sourceKey: sourceKey?.values ?? new Float32Array(), sourceValue: sourceValue?.values ?? new Float32Array(),
+              inputNormWeight: tensorInfo(artifact, operation.weight!), queryWeight: tensorInfo(artifact, fused.query.weight), queryNorm: tensorInfo(artifact, fused.attention.queryNorm.weight!), outputWeight: tensorInfo(artifact, fused.attention.output.weight),
+              ...(fused.attention.key ? { keyWeight: tensorInfo(artifact, fused.attention.key.weight), keyNorm: tensorInfo(artifact, fused.attention.keyNorm!.weight!) } : {}),
+              ...(fused.attention.value ? { valueWeight: tensorInfo(artifact, fused.attention.value.weight) } : {}),
+              postAttentionNormWeight: tensorInfo(artifact, fused.postAttentionNorm.weight!), preFfnNormWeight: tensorInfo(artifact, fused.ffn.preNorm.weight!), gateWeight: tensorInfo(artifact, fused.ffn.gate.weight), upWeight: tensorInfo(artifact, fused.ffn.up.weight), downWeight: tensorInfo(artifact, fused.ffn.down.weight), postFfnNormWeight: tensorInfo(artifact, fused.ffn.postNorm.weight!),
+              pleGateWeight: tensorInfo(artifact, fused.ple.gate.weight), pleProjectionWeight: tensorInfo(artifact, fused.ple.projection.weight), pleNormWeight: tensorInfo(artifact, fused.ple.norm.weight!), layerScalar: tensorInfo(artifact, fused.ple.scalar.scalar),
+              batch, querySequence, sourceSequence, hiddenSize, queryHeads: attention.numAttentionHeads, keyValueHeads: attention.numKeyValueHeads, headDim: attention.headDim, maskHeads: nativeMask.shape[1]!, producesKeyValue, valueFromKey: fused.attention.valueFromKey,
+              epsilon: fused.attention.queryNorm.epsilon, scale: attention.scale, ropeType: fused.attention.queryRope.ropeType, theta: fused.attention.queryRope.theta, rotaryDim: fused.attention.queryRope.rotaryDim, proportionalPairs, proportionalFactor,
+              intermediateSize: fused.ffn.gate.outFeatures, perLayerWidth: fused.pleSelect.layerWidth, inputNormEpsilon: operation.epsilon, postAttentionNormEpsilon: fused.postAttentionNorm.epsilon, preFfnNormEpsilon: fused.ffn.preNorm.epsilon, postFfnNormEpsilon: fused.ffn.postNorm.epsilon, pleNormEpsilon: fused.ple.norm.epsilon, rounding: options.fusedDecoderLayerRounding,
+            });
+            if (result.hidden.length !== input.values.length || result.hidden.some((entry) => !Number.isFinite(entry))) throw new Error(`${operation.id}: decoder layer fundida retornou vetor inválido.`);
+            store(fused.ple.scalar, { shape: [...input.shape], values: result.hidden });
+            if (producesKeyValue) {
+              const cacheElements = batch * attention.numKeyValueHeads * keySequence * attention.headDim;
+              if (!result.key || !result.value || result.key.length !== cacheElements || result.value.length !== cacheElements || result.key.some((entry) => !Number.isFinite(entry)) || result.value.some((entry) => !Number.isFinite(entry))) throw new Error(`${operation.id}: decoder layer fundida retornou cache KV inválido.`);
+              producedCache.set(attention.layer, { key: { shape: [batch, attention.numKeyValueHeads, keySequence, attention.headDim], values: result.key }, value: { shape: [batch, attention.numKeyValueHeads, keySequence, attention.headDim], values: result.value } });
+            }
+            operationIndex += fused.operations.length - 1;
+            break;
+          }
+        }
         if (options.fusedFfnRounding && options.linearTileKernel?.fusedFfnStorageReferences) {
           const fused = matchFusedFfn(operations, operationIndex, operation);
           if (fused) {
@@ -454,6 +521,18 @@ interface FusedAttentionMatch {
   output: LinearOperation;
 }
 
+interface FusedDecoderLayerMatch {
+  operations: readonly Operation[];
+  inputNorm: RmsNormOperation;
+  query: LinearOperation;
+  attention: FusedAttentionMatch;
+  postAttentionNorm: RmsNormOperation;
+  attentionResidual: ElementwiseOperation;
+  ffn: ReturnType<typeof matchFusedFfn> & {};
+  pleSelect: SelectPerLayerOperation;
+  ple: ReturnType<typeof matchFusedPle> & {};
+}
+
 function matchFusedAttention(operations: readonly Operation[], index: number, query: LinearOperation): FusedAttentionMatch | undefined {
   const queryHeads = operations[index + 1], queryNorm = operations[index + 2], queryRope = operations[index + 3];
   if (!isHeadsAfter(queryHeads, query) || !isWeightedNormAfter(queryNorm, queryHeads) || !isRopeAfter(queryRope, queryNorm)) return undefined;
@@ -506,7 +585,7 @@ function matchFusedGatedMlp(operations: readonly Operation[], index: number, gat
   return { up, down, operations: [up, activation, multiply, down] };
 }
 
-function matchFusedFfn(operations: readonly Operation[], index: number, preNorm: RmsNormOperation): { operations: readonly Operation[]; gate: LinearOperation; up: LinearOperation; down: LinearOperation; postNorm: RmsNormOperation; residual: ElementwiseOperation } | undefined {
+function matchFusedFfn(operations: readonly Operation[], index: number, preNorm: RmsNormOperation): { operations: readonly Operation[]; preNorm: RmsNormOperation; gate: LinearOperation; up: LinearOperation; down: LinearOperation; postNorm: RmsNormOperation; residual: ElementwiseOperation } | undefined {
   const gate = operations[index + 1], up = operations[index + 2], activation = operations[index + 3], multiply = operations[index + 4], down = operations[index + 5], postNorm = operations[index + 6], residual = operations[index + 7];
   if (!preNorm.weight || preNorm.weightTransform !== "direct" || preNorm.weight.shape.length !== 1 || gate?.op !== "linear" || up?.op !== "linear" || activation?.op !== "activation" || multiply?.op !== "elementwise" || down?.op !== "linear" || postNorm?.op !== "rms_norm" || residual?.op !== "elementwise") return undefined;
   if (gate.input !== preNorm.output || up.input !== preNorm.output || !gate.transposeWeight || gate.bias || !up.transposeWeight || up.bias || gate.inFeatures !== up.inFeatures || gate.outFeatures !== up.outFeatures || preNorm.weight.shape[0] !== gate.inFeatures) return undefined;
@@ -514,7 +593,27 @@ function matchFusedFfn(operations: readonly Operation[], index: number, preNorm:
   if (postNorm.input !== down.output || !postNorm.weight || postNorm.weightTransform !== "direct" || postNorm.weight.shape.length !== 1 || postNorm.weight.shape[0] !== gate.inFeatures || residual.kind !== "add" || residual.inputs.length !== 2 || residual.inputs[0] !== preNorm.input || residual.inputs[1] !== postNorm.output) return undefined;
   const matched = operations.slice(index, index + 8);
   if (matched.some((entry) => entry.dtypePolicy.outputDtype !== "BF16")) return undefined;
-  return { operations: matched, gate, up, down, postNorm, residual };
+  return { operations: matched, preNorm, gate, up, down, postNorm, residual };
+}
+
+function matchFusedDecoderLayer(operations: readonly Operation[], index: number, inputNorm: RmsNormOperation): FusedDecoderLayerMatch | undefined {
+  if (!inputNorm.weight || inputNorm.weightTransform !== "direct" || inputNorm.weight.shape.length !== 1) return undefined;
+  const query = operations[index + 1];
+  if (query?.op !== "linear" || query.input !== inputNorm.output) return undefined;
+  const attention = matchFusedAttention(operations, index + 1, query);
+  if (!attention) return undefined;
+  const attentionEnd = index + 1 + attention.operations.length;
+  const postAttentionNorm = operations[attentionEnd], attentionResidual = operations[attentionEnd + 1], preFfnNorm = operations[attentionEnd + 2];
+  if (postAttentionNorm?.op !== "rms_norm" || postAttentionNorm.input !== attention.output.output || !postAttentionNorm.weight || postAttentionNorm.weightTransform !== "direct" || postAttentionNorm.weight.shape.length !== 1 || postAttentionNorm.weight.shape[0] !== query.inFeatures || attentionResidual?.op !== "elementwise" || attentionResidual.kind !== "add" || attentionResidual.inputs.length !== 2 || attentionResidual.inputs[0] !== inputNorm.input || attentionResidual.inputs[1] !== postAttentionNorm.output || preFfnNorm?.op !== "rms_norm" || preFfnNorm.input !== attentionResidual.output) return undefined;
+  const ffn = matchFusedFfn(operations, attentionEnd + 2, preFfnNorm);
+  if (!ffn) return undefined;
+  const pleStart = attentionEnd + 2 + ffn.operations.length;
+  const select = operations[pleStart];
+  if (select?.op !== "select_per_layer") return undefined;
+  const ple = matchFusedPle(operations, pleStart, select, "bf16");
+  if (!ple || ple.gate.input !== ffn.residual.output || ple.scalar.output === undefined) return undefined;
+  const matched = operations.slice(index, pleStart + ple.operations.length);
+  return { operations: matched, inputNorm, query, attention, postAttentionNorm, attentionResidual, ffn, pleSelect: select, ple };
 }
 
 function matchFusedPle(operations: readonly Operation[], index: number, select: SelectPerLayerOperation, rounding: "bf16" | "real"): { operations: readonly Operation[]; gate: LinearOperation; projection: LinearOperation; norm: RmsNormOperation; scalar: TensorScaleOperation } | undefined {

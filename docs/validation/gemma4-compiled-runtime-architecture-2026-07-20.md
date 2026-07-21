@@ -689,6 +689,46 @@ política, despachos e tempo do FFN separadamente. Evidência:
 - `artifacts/gemma4-three-way-calibration-8x2-native-bf16-attention.json`;
 - `artifacts/gemma4-three-way-calibration-8x2-fused-ffn-native-bf16.json`.
 
+## Camada decoder completa BF16 nativa
+
+O compositor reverso agora reconhece o subgrafo integral de cada uma das 42
+camadas e substitui suas 32 operações IR por um único despacho persistente:
+
+```text
+input norm -> Q/K/V -> RoPE -> attention -> O -> post-attention norm/residual
+           -> pre-FFN norm -> gate/up/GELU/multiply/down
+           -> post-FFN norm/residual -> PLE -> scalar
+```
+
+O despacho recebe o estado da camada, a entrada PLE, posições, máscara, cache
+KV e referências autenticadas para todas as matrizes e normas. As fronteiras
+BF16, RoPE, softmax, resíduos e atualização do cache continuam explícitas, mas
+os tensores intermediários deixam de atravessar o canal JavaScript. A saída é
+diretamente o escalar final da camada, acompanhada apenas do novo cache K/V.
+
+No ensaio persistente `[2]` de dois tokens, a camada completa preservou os
+tokens `[184,3910]` e o mesmo SHA-256 terminal
+`71eeb041bc97c6674686eb4dc99887cca8a50a7cb4947e42c3a63a0bb58e9e2d`.
+Em um prompt real, `The capital of France is`, original e direto produziram os
+tokens `[496,3207]`, isto é, ` a city`.
+
+No corpus 8x2:
+
+- controle com FFN completo: `1,8092 token/s`, 7/8 prompts e 15/16 tokens;
+- camada decoder completa: `1,9194 token/s`, os mesmos 7/8 e 15/16 tokens;
+- ganho sobre o controle: 6,09%;
+- razão contra o baseline da própria execução: `3,5741x`;
+- tempo direto total: `8,8439 s -> 8,3361 s`;
+- 672 despachos de camada completa e zero despachos separados de atenção,
+  FFN ou PLE.
+
+`native-bf16` passa a ser o padrão PyTorch para `--fused-decoder-layer`;
+`off` preserva o caminho anterior para A/B e MLX permanece em `off`. A
+interface mostra política, contagem e tempo da camada completa. Evidência:
+
+- `artifacts/gemma4-three-way-calibration-8x2-fused-ffn-native-bf16.json`;
+- `artifacts/gemma4-three-way-calibration-8x2-fused-decoder-layer-native-bf16.json`.
+
 ## Head terminal BF16 nativo
 
 O tensor compartilhado por embedding e `lm_head` possui shape

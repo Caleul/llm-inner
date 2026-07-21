@@ -31,6 +31,7 @@ export interface PagedLinearTileKernel {
   fusedPlePreludeStorageReference?: ((request: PagedFusedPlePreludeRequest) => Promise<Float32Array>) | undefined;
   attention?: ((request: PagedNativeAttentionRequest) => Promise<Float32Array>) | undefined;
   fusedAttentionStorageReferences?: ((request: PagedFusedAttentionRequest) => Promise<PagedFusedAttentionResult>) | undefined;
+  fusedDecoderLayerStorageReferences?: ((request: PagedFusedDecoderLayerRequest) => Promise<PagedFusedDecoderLayerResult>) | undefined;
 }
 
 export interface PagedFusedFfnRequest {
@@ -128,6 +129,35 @@ export interface PagedFusedAttentionRequest {
 
 export interface PagedFusedAttentionResult {
   projected: Float32Array;
+  key?: Float32Array;
+  value?: Float32Array;
+}
+
+export interface PagedFusedDecoderLayerRequest extends PagedFusedAttentionRequest {
+  perLayerInput: Float32Array;
+  inputNormWeight: TensorInfo;
+  postAttentionNormWeight: TensorInfo;
+  preFfnNormWeight: TensorInfo;
+  gateWeight: TensorInfo;
+  upWeight: TensorInfo;
+  downWeight: TensorInfo;
+  postFfnNormWeight: TensorInfo;
+  pleGateWeight: TensorInfo;
+  pleProjectionWeight: TensorInfo;
+  pleNormWeight: TensorInfo;
+  layerScalar: TensorInfo;
+  intermediateSize: number;
+  perLayerWidth: number;
+  inputNormEpsilon: number;
+  postAttentionNormEpsilon: number;
+  preFfnNormEpsilon: number;
+  postFfnNormEpsilon: number;
+  pleNormEpsilon: number;
+  rounding: "native-bf16";
+}
+
+export interface PagedFusedDecoderLayerResult {
+  hidden: Float32Array;
   key?: Float32Array;
   value?: Float32Array;
 }

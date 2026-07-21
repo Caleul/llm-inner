@@ -125,9 +125,110 @@ def main():
             fused_ple = bool(encoded_dtype & 0x02000000)
             fused_ple_prelude = bool(encoded_dtype & 0x01000000)
             fused_ffn = bool(encoded_dtype & 0x00800000)
-            dtype_code = encoded_dtype & 0x007fffff
+            fused_decoder_layer = bool(encoded_dtype & 0x00400000)
+            dtype_code = encoded_dtype & 0x003fffff
+            if fused_decoder_layer:
+                if referenced or batched or fused_mlp or native_bf16 or native_attention or fused_attention or fused_ple or fused_ple_prelude or fused_ffn or dtype_code != 0 or pool is None:
+                    raise ValueError("fused decoder layer flags are invalid")
+                batch, query_heads, key_value_heads = rows, outputs, features
+                metadata = read_exact(96)
+                query_sequence, source_sequence, hidden_size, head_dim, mask_heads, produces_kv, value_from_key, rope_kind, rotary_dim, proportional_pairs, intermediate_size, per_layer_width, descriptor_count = struct.unpack("<IIIIIIIIIIIII", metadata[:52])
+                attention_epsilon, scale = struct.unpack("<ff", metadata[52:60])
+                theta = struct.unpack("<d", metadata[60:68])[0]
+                proportional_factor, input_epsilon, post_attention_epsilon, pre_ffn_epsilon, post_ffn_epsilon, ple_epsilon = struct.unpack("<ffffff", metadata[68:92])
+                total_key_sequence = source_sequence + (query_sequence if produces_kv else 0)
+                expected_descriptors = 14 + (2 + (0 if value_from_key else 1) if produces_kv else 0)
+                epsilons = (attention_epsilon, input_epsilon, post_attention_epsilon, pre_ffn_epsilon, post_ffn_epsilon, ple_epsilon)
+                if not batch or not query_heads or not key_value_heads or not query_sequence or not hidden_size or not head_dim or not mask_heads or not intermediate_size or not per_layer_width or total_key_sequence < 1 or query_heads % key_value_heads or mask_heads not in (1, query_heads) or produces_kv not in (0, 1) or value_from_key not in (0, 1) or (not produces_kv and value_from_key) or rope_kind not in (0, 1) or not rotary_dim or rotary_dim > head_dim or rotary_dim % 2 or proportional_pairs > rotary_dim // 2 or descriptor_count != expected_descriptors or any(not math.isfinite(value) or value <= 0 for value in epsilons) or not math.isfinite(scale) or not math.isfinite(theta) or theta <= 0 or not math.isfinite(proportional_factor) or proportional_factor <= 0:
+                    raise ValueError("fused decoder layer topology is invalid")
+                if not produces_kv and source_sequence < query_sequence:
+                    raise ValueError("shared decoder layer cache is shorter than query")
+                input_bytes = read_exact(batch * query_sequence * hidden_size * 4)
+                per_layer_bytes = read_exact(batch * query_sequence * per_layer_width * 4)
+                position_bytes = read_exact(batch * query_sequence * 4)
+                mask_bytes = read_exact(batch * mask_heads * query_sequence * total_key_sequence * 4)
+                source_key_bytes = read_exact(batch * key_value_heads * source_sequence * head_dim * 4)
+                source_value_bytes = read_exact(batch * key_value_heads * source_sequence * head_dim * 4)
+                inputs = torch.frombuffer(input_bytes, dtype=torch.float32).reshape(batch, query_sequence, hidden_size)
+                per_layer = torch.frombuffer(per_layer_bytes, dtype=torch.float32).reshape(batch, query_sequence, per_layer_width)
+                positions = torch.frombuffer(position_bytes, dtype=torch.int32).reshape(batch, query_sequence)
+                mask = torch.frombuffer(mask_bytes, dtype=torch.float32).reshape(batch, mask_heads, query_sequence, total_key_sequence)
+                if torch.isnan(mask).any() or torch.isposinf(mask).any():
+                    raise ValueError("fused decoder layer mask is invalid")
+                if source_sequence:
+                    source_key = torch.frombuffer(source_key_bytes, dtype=torch.float32).reshape(batch, key_value_heads, source_sequence, head_dim)
+                    source_value = torch.frombuffer(source_value_bytes, dtype=torch.float32).reshape(batch, key_value_heads, source_sequence, head_dim)
+                else:
+                    source_key = torch.empty((batch, key_value_heads, 0, head_dim), dtype=torch.float32)
+                    source_value = torch.empty((batch, key_value_heads, 0, head_dim), dtype=torch.float32)
+                boundary = lambda tensor: tensor.to(torch.bfloat16).float()
+                project = lambda tensor, weight: torch.matmul(tensor.to(torch.bfloat16), weight.transpose(0, 1)).float()
+                input_norm_weight = read_whole_tensor(pool, files, mappings, (hidden_size, 1)).reshape(hidden_size)
+                query_weight = read_whole_tensor(pool, files, mappings, (query_heads * head_dim, hidden_size), widen=False, required_dtype=torch.bfloat16)
+                query_norm = read_whole_tensor(pool, files, mappings, (head_dim, 1)).reshape(head_dim)
+                output_weight = read_whole_tensor(pool, files, mappings, (hidden_size, query_heads * head_dim), widen=False, required_dtype=torch.bfloat16)
+                normalized_input = boundary(rms_norm_real(inputs, input_norm_weight, input_epsilon))
+                query = boundary(project(normalized_input, query_weight)).reshape(batch, query_sequence, query_heads, head_dim).permute(0, 2, 1, 3)
+                query = rope_real(boundary(rms_norm_real(query, query_norm, attention_epsilon)), positions, rope_kind, theta, rotary_dim, proportional_pairs, proportional_factor, True)
+                key_weight = key_norm = value_weight = current_key_heads = current_key = current_value = None
+                if produces_kv:
+                    key_weight = read_whole_tensor(pool, files, mappings, (key_value_heads * head_dim, hidden_size), widen=False, required_dtype=torch.bfloat16)
+                    key_norm = read_whole_tensor(pool, files, mappings, (head_dim, 1)).reshape(head_dim)
+                    current_key_heads = boundary(project(normalized_input, key_weight)).reshape(batch, query_sequence, key_value_heads, head_dim).permute(0, 2, 1, 3)
+                    current_key = rope_real(boundary(rms_norm_real(current_key_heads, key_norm, attention_epsilon)), positions, rope_kind, theta, rotary_dim, proportional_pairs, proportional_factor, True)
+                    if value_from_key:
+                        current_value = boundary(rms_norm_real(current_key_heads, None, attention_epsilon))
+                    else:
+                        value_weight = read_whole_tensor(pool, files, mappings, (key_value_heads * head_dim, hidden_size), widen=False, required_dtype=torch.bfloat16)
+                        current_value = boundary(project(normalized_input, value_weight)).reshape(batch, query_sequence, key_value_heads, head_dim).permute(0, 2, 1, 3)
+                        current_value = boundary(rms_norm_real(current_value, None, attention_epsilon))
+                    key = torch.cat((source_key, current_key), dim=2)
+                    value = torch.cat((source_value, current_value), dim=2)
+                else:
+                    key, value = source_key, source_value
+                group = query_heads // key_value_heads
+                attention_key = key if group == 1 else key.repeat_interleave(group, dim=1)
+                attention_value = value if group == 1 else value.repeat_interleave(group, dim=1)
+                scores = torch.matmul(query, attention_key.transpose(-1, -2)) * torch.tensor(scale, dtype=torch.float32) + mask
+                probabilities = torch.softmax(scores, dim=-1)
+                context = torch.matmul(probabilities, attention_value).permute(0, 2, 1, 3).contiguous().reshape(batch, query_sequence, query_heads * head_dim)
+                attention_projected = boundary(project(context, output_weight))
+                post_attention_norm_weight = read_whole_tensor(pool, files, mappings, (hidden_size, 1)).reshape(hidden_size)
+                pre_ffn_norm_weight = read_whole_tensor(pool, files, mappings, (hidden_size, 1)).reshape(hidden_size)
+                gate_weight = read_whole_tensor(pool, files, mappings, (intermediate_size, hidden_size), widen=False, required_dtype=torch.bfloat16)
+                up_weight = read_whole_tensor(pool, files, mappings, (intermediate_size, hidden_size), widen=False, required_dtype=torch.bfloat16)
+                down_weight = read_whole_tensor(pool, files, mappings, (hidden_size, intermediate_size), widen=False, required_dtype=torch.bfloat16)
+                post_ffn_norm_weight = read_whole_tensor(pool, files, mappings, (hidden_size, 1)).reshape(hidden_size)
+                after_attention = boundary(inputs + boundary(rms_norm_real(attention_projected, post_attention_norm_weight, post_attention_epsilon)))
+                ffn_input = boundary(rms_norm_real(after_attention, pre_ffn_norm_weight, pre_ffn_epsilon)).to(torch.bfloat16)
+                gate = torch.mm(ffn_input.reshape(batch * query_sequence, hidden_size), gate_weight.transpose(0, 1))
+                up = torch.mm(ffn_input.reshape(batch * query_sequence, hidden_size), up_weight.transpose(0, 1))
+                hidden = torch.nn.functional.gelu(gate, approximate="tanh") * up
+                ffn_projected = torch.mm(hidden, down_weight.transpose(0, 1)).float().reshape(batch, query_sequence, hidden_size)
+                after_mlp = boundary(after_attention + boundary(rms_norm_real(ffn_projected, post_ffn_norm_weight, post_ffn_epsilon)))
+                ple_gate_weight = read_whole_tensor(pool, files, mappings, (per_layer_width, hidden_size))
+                ple_projection_weight = read_whole_tensor(pool, files, mappings, (hidden_size, per_layer_width))
+                ple_norm_weight = read_whole_tensor(pool, files, mappings, (hidden_size, 1)).reshape(hidden_size)
+                layer_scalar = read_whole_tensor(pool, files, mappings, (1, 1)).reshape(())
+                ple_gate = boundary(torch.matmul(after_mlp, ple_gate_weight.transpose(0, 1)))
+                cube = (ple_gate * ple_gate) * ple_gate
+                inner = torch.tensor(math.sqrt(2 / math.pi), dtype=torch.float32) * (ple_gate + torch.tensor(0.044715, dtype=torch.float32) * cube)
+                ple_activated = boundary((torch.tensor(0.5, dtype=torch.float32) * ple_gate) * (torch.tensor(1.0, dtype=torch.float32) + torch.tanh(inner)))
+                ple_gated = boundary(ple_activated * per_layer)
+                ple_projected = boundary(torch.matmul(ple_gated, ple_projection_weight.transpose(0, 1)))
+                ple_normalized = boundary(rms_norm_real(ple_projected, ple_norm_weight, ple_epsilon))
+                result = boundary(boundary(after_mlp + ple_normalized) * layer_scalar).contiguous()
+                if not torch.isfinite(result).all() or not torch.isfinite(key).all() or not torch.isfinite(value).all():
+                    raise ValueError("fused decoder layer produced non-finite output")
+                write_float_tensor(result)
+                if produces_kv:
+                    write_float_tensor(key)
+                    write_float_tensor(value)
+                sys.stdout.buffer.flush()
+                del inputs, per_layer, positions, mask, source_key, source_value, boundary, project, input_norm_weight, query_weight, query_norm, output_weight, normalized_input, query, key_weight, key_norm, value_weight, current_key_heads, current_key, current_value, key, value, attention_key, attention_value, scores, probabilities, context, attention_projected, post_attention_norm_weight, pre_ffn_norm_weight, gate_weight, up_weight, down_weight, post_ffn_norm_weight, after_attention, ffn_input, gate, up, hidden, ffn_projected, after_mlp, ple_gate_weight, ple_projection_weight, ple_norm_weight, layer_scalar, ple_gate, cube, inner, ple_activated, ple_gated, ple_projected, ple_normalized, result
+                continue
             if fused_attention:
-                if referenced or batched or fused_mlp or native_bf16 or native_attention or fused_ple or fused_ple_prelude or fused_ffn or dtype_code != 0 or pool is None:
+                if referenced or batched or fused_mlp or native_bf16 or native_attention or fused_ple or fused_ple_prelude or fused_ffn or fused_decoder_layer or dtype_code != 0 or pool is None:
                     raise ValueError("fused attention flags are invalid")
                 batch, query_heads, key_value_heads = rows, outputs, features
                 metadata = read_exact(80)
