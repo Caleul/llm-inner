@@ -21,6 +21,7 @@ export interface PagedLinearTileKernel {
   readonly backend: string;
   multiply(input: Float32Array, weight: Float32Array, rows: number, outputCount: number, inFeatures: number): Promise<Float32Array>;
   multiplyStorage?(input: Float32Array, weight: Buffer, storageDtype: "F32" | "F16" | "BF16", rows: number, outputCount: number, inFeatures: number): Promise<Float32Array>;
+  multiplyStorageReference?: ((input: Float32Array, tensor: TensorInfo, startOutput: number, outputCount: number, rows: number) => Promise<Float32Array>) | undefined;
 }
 
 /**
@@ -164,7 +165,9 @@ export async function pagedLinearF32(
   for (let firstOutput = 0; firstOutput < outFeatures; firstOutput += chunkRows) {
     const outputCount = Math.min(chunkRows, outFeatures - firstOutput);
     if (options.tileKernel) {
-      const tile = options.tileKernel.multiplyStorage && weight.readStorageRows
+      const tile = options.tileKernel.multiplyStorageReference
+        ? await options.tileKernel.multiplyStorageReference(input.values, weight.tensor, firstOutput, outputCount, rows)
+        : options.tileKernel.multiplyStorage && weight.readStorageRows
         ? await options.tileKernel.multiplyStorage(input.values, await weight.readStorageRows(firstOutput, outputCount), weight.tensor.storageDtype as "F32" | "F16" | "BF16", rows, outputCount, inFeatures)
         : await options.tileKernel.multiply(input.values, (await weight.readRows(firstOutput, outputCount)).values, rows, outputCount, inFeatures);
       if (tile.length !== rows * outputCount || tile.some((value) => !Number.isFinite(value))) throw new Error(`${options.tileKernel.backend}: kernel linear retornou tile inválido.`);

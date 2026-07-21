@@ -189,3 +189,57 @@ relatório JSON completo de cada caminho.
 A UI real foi exercitada via Playwright contra o bundle. Ela gerou dois tokens,
 mostrou texto, ids, igualdade do argmax, divergência dos logits, erro máximo,
 tokens/s, razão de desempenho, threads e pico RSS.
+
+## Calibração três-vias e pool binário mapeado
+
+`npm run calibrate:gemma4-real` executa um corpus inteiro através da mesma API
+persistente usada pela interface. O relatório preserva, por prompt e etapa,
+IDs e texto dos três executores, primeira divergência, top logits, tempos de
+forward, throughput e custo de inicialização. Isso evita usar dois prompts
+isolados como evidência de equivalência global.
+
+O primeiro perfil amplo revelou que o worker direto transportava todos os
+tiles de peso do Node para o PyTorch em cada forward. O backend
+`persistent-pytorch-mmap-f32-tile` agora valida nome, dtype e shape contra o
+catálogo do pool compilado e envia somente vetor de entrada, shard e intervalo
+binário. O processo PyTorch abre cada shard uma vez com `mmap`; nenhuma matriz
+linear atravessa o pipe ou é materializada no JavaScript.
+
+Com oito prompts e dois tokens por prompt, a matriz
+`gemma4-three-way-calibration-8x2-mmap.json` registrou:
+
+- executor direto igual ao baseline em 7/8 prompts e 15/16 posições de token;
+- modo compatível igual em 6/8 prompts e 14/16 posições;
+- throughput direto agregado de 0,5234 token/s contra 0,5453 token/s do
+  baseline, razão 0,9599x;
+- antes do `mmap`, o mesmo corpus direto entregava 0,1226 token/s e razão
+  0,2441x, portanto a remoção do transporte de matrizes produziu 4,27x sobre
+  o backend direto anterior;
+- uma execução direta isolada de `[2]` preservou token `184`, os mesmos top
+  logits e SHA-256 terminal nas passagens fria e repetida; o forward caiu de
+  9,713 s para 0,755 s quando as páginas já estavam residentes.
+
+A única divergência direta ocorreu no segundo token de
+`Write one short sentence about the Moon:`. O baseline empatou os tokens `818`
+e `3689` em `23,375`; seu desempate escolheu `818`. O cálculo direto produziu
+`3689 = 23,375` e `818 = 23,25`, escolhendo `3689`. Portanto a amostra localiza
+uma fronteira de arredondamento sensível a empate, não uma diferença grande de
+distribuição, mas ela continua sendo divergência observável e não pode ser
+declarada equivalente.
+
+O resultado ainda não atende a meta de ser centenas de vezes mais rápido. O
+próximo custo dominante é a conversão BF16 para F32 de praticamente todo o
+pool dentro de cada forward e a fragmentação do grafo em muitas chamadas de
+kernel. O próximo limite coerente é fundir mais do programa compilado dentro do
+worker nativo sem reintroduzir arredondamentos intermediários implicitamente.
+
+Comando reprodutível:
+
+```bash
+npm run calibrate:gemma4-real -- \
+  --source ./artifacts/gemma4-compiled-global-runtime-bundle \
+  --output ./artifacts/gemma4-three-way-calibration-8x2-mmap.json \
+  --tokens 2 --request-threads 1 \
+  --direct-threads 8 --direct-max-read-mib 16 \
+  --precision f32 --rounding-policy none
+```

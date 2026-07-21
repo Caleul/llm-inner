@@ -28,7 +28,7 @@ interface Arguments {
 const args = parseArguments(process.argv.slice(2));
 const artifact = await openGemma4CompositeLiteralArtifact(args.artifact);
 const binaryPool = args.binaryPool ? await Gemma4BinaryConstantPool.open(args.binaryPool) : undefined;
-const linearWorker = args.nativeLinear ? new Gemma4PagedNativeLinearWorker({ python: args.python, helper: args.linearHelper, threads: args.threads }) : undefined;
+const linearWorker = args.nativeLinear ? new Gemma4PagedNativeLinearWorker({ python: args.python, helper: args.linearHelper, threads: args.threads, ...(binaryPool && args.binaryPool ? { binaryPool: args.binaryPool, storageTensors: binaryPool.catalog.tensors } : {}) }) : undefined;
 const started = performance.now();
 const rssBefore = process.memoryUsage().rss;
 try {

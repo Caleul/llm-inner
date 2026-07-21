@@ -1,20 +1,31 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { once } from "node:events";
 import { endianness } from "node:os";
+import { resolve } from "node:path";
 import type { PagedLinearTileKernel } from "./paged-dense.js";
+import type { TensorInfo } from "./types.js";
+
+const STORAGE_REFERENCE_FLAG = 0x8000_0000;
 
 export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
-  readonly backend = "persistent-pytorch-f32-tile";
+  readonly backend: string;
   readonly child: ChildProcessWithoutNullStreams;
+  readonly multiplyStorageReference?: PagedLinearTileKernel["multiplyStorageReference"];
+  readonly #storageTensors: ReadonlyMap<string, TensorInfo> | undefined;
   #buffer = Buffer.alloc(0);
   #waiting: Array<() => void> = [];
   #closedError?: Error;
   #active = false;
 
-  constructor(options: { python: string; helper: string; threads: number }) {
+  constructor(options: { python: string; helper: string; threads: number; binaryPool?: string; storageTensors?: ReadonlyMap<string, TensorInfo> }) {
     if (endianness() !== "LE") throw new Error("Kernel linear binário requer host little-endian.");
     if (!Number.isSafeInteger(options.threads) || options.threads < 1) throw new Error("threads do kernel linear deve ser positivo.");
-    this.child = spawn(options.python, [options.helper, "--threads", String(options.threads)], { stdio: ["pipe", "pipe", "pipe"] });
+    if ((options.binaryPool === undefined) !== (options.storageTensors === undefined)) throw new Error("Kernel linear mmap requer pool binário e catálogo juntos.");
+    this.#storageTensors = options.storageTensors;
+    this.backend = options.binaryPool ? "persistent-pytorch-mmap-f32-tile" : "persistent-pytorch-f32-tile";
+    const arguments_ = [options.helper, "--threads", String(options.threads), ...(options.binaryPool ? ["--binary-pool", resolve(options.binaryPool)] : [])];
+    this.child = spawn(options.python, arguments_, { stdio: ["pipe", "pipe", "pipe"] });
+    if (options.binaryPool) this.multiplyStorageReference = (input, tensor, startOutput, outputCount, rows) => this.#requestReference(input, tensor, startOutput, outputCount, rows);
     this.child.stdout.on("data", (chunk: Buffer) => { this.#buffer = Buffer.concat([this.#buffer, chunk]); this.#wake(); });
     const errors: Buffer[] = []; this.child.stderr.on("data", (chunk: Buffer) => { if (Buffer.concat(errors).length < 1024 * 1024) errors.push(chunk); });
     this.child.once("error", (error) => this.#fail(error));
@@ -39,11 +50,36 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     try {
       const header = Buffer.allocUnsafe(16); header.writeUInt32LE(rows, 0); header.writeUInt32LE(outputCount, 4); header.writeUInt32LE(inFeatures, 8); header.writeUInt32LE(dtype, 12);
       await this.#write(header); await this.#write(Buffer.from(input.buffer, input.byteOffset, input.byteLength)); await this.#write(weight);
-      const size = (await this.#read(4)).readUInt32LE(0), expected = rows * outputCount * 4;
-      if (size !== expected) throw new Error(`Worker linear retornou ${size} bytes; esperados ${expected}.`);
-      const bytes = await this.#read(size), copy = new Uint8Array(size); copy.set(bytes);
-      return new Float32Array(copy.buffer);
+      return await this.#readResult(rows, outputCount);
     } finally { this.#active = false; }
+  }
+
+  async #requestReference(input: Float32Array, tensor: TensorInfo, startOutput: number, outputCount: number, rows: number): Promise<Float32Array> {
+    if (this.#active) throw new Error("Worker linear persistente não aceita tiles concorrentes no mesmo canal.");
+    const stored = this.#storageTensors?.get(tensor.name);
+    if (!stored || stored.storageDtype !== tensor.storageDtype || stored.storageShape.length !== tensor.storageShape.length || stored.storageShape.some((value, index) => value !== tensor.storageShape[index]) || stored.logicalShape.length !== tensor.logicalShape.length || stored.logicalShape.some((value, index) => value !== tensor.logicalShape[index])) throw new Error(`${tensor.name}: catálogo mmap diverge do operando literal.`);
+    if (stored.quantization || (stored.storageDtype !== "F32" && stored.storageDtype !== "F16" && stored.storageDtype !== "BF16") || stored.storageShape.length !== 2 || !stored.shard || stored.byteOffset === undefined) throw new Error(`${tensor.name}: referência nativa requer matriz densa F32/F16/BF16 com shard e offset.`);
+    const [totalOutputs, inFeatures] = stored.storageShape;
+    if (!Number.isSafeInteger(startOutput) || !Number.isSafeInteger(outputCount) || startOutput < 0 || outputCount < 1 || startOutput + outputCount > totalOutputs! || input.length !== rows * inFeatures!) throw new Error(`${tensor.name}: tile referenciado possui shape incompatível.`);
+    const dtype = stored.storageDtype === "F32" ? 0 : stored.storageDtype === "BF16" ? 1 : 2;
+    const elementBytes = stored.storageDtype === "F32" ? 4 : 2, byteLength = outputCount * inFeatures! * elementBytes;
+    const byteOffset = stored.byteOffset + startOutput * inFeatures! * elementBytes;
+    if (!Number.isSafeInteger(byteOffset) || !Number.isSafeInteger(byteLength) || byteLength < 1) throw new Error(`${tensor.name}: intervalo binário referenciado inválido.`);
+    const shard = Buffer.from(stored.shard, "utf8"); if (shard.length === 0 || shard.length > 4096) throw new Error(`${tensor.name}: nome de shard inválido.`);
+    this.#active = true;
+    try {
+      const header = Buffer.allocUnsafe(16); header.writeUInt32LE(rows, 0); header.writeUInt32LE(outputCount, 4); header.writeUInt32LE(inFeatures!, 8); header.writeUInt32LE((STORAGE_REFERENCE_FLAG + dtype) >>> 0, 12);
+      const metadata = Buffer.allocUnsafe(16); metadata.writeBigUInt64LE(BigInt(byteOffset), 0); metadata.writeUInt32LE(byteLength, 8); metadata.writeUInt32LE(shard.length, 12);
+      await this.#write(header); await this.#write(Buffer.from(input.buffer, input.byteOffset, input.byteLength)); await this.#write(metadata); await this.#write(shard);
+      return await this.#readResult(rows, outputCount);
+    } finally { this.#active = false; }
+  }
+
+  async #readResult(rows: number, outputCount: number): Promise<Float32Array> {
+    const size = (await this.#read(4)).readUInt32LE(0), expected = rows * outputCount * 4;
+    if (size !== expected) throw new Error(`Worker linear retornou ${size} bytes; esperados ${expected}.`);
+    const bytes = await this.#read(size), copy = new Uint8Array(size); copy.set(bytes);
+    return new Float32Array(copy.buffer);
   }
 
   async close(): Promise<void> { if (!this.child.stdin.destroyed) this.child.stdin.end(); if (this.child.exitCode === null) await once(this.child, "close"); }

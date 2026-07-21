@@ -11,6 +11,8 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /Original — BF16/);
   assert.match(gemma4RealCompareHtml, /Compilado \(compatibilidade\) — F32\/F64/);
   assert.match(gemma4RealCompareHtml, /Compilado direto — pool binário/);
+  assert.match(gemma4RealCompareHtml, /Tokens orig\. \/ compat\. \/ direto/);
+  assert.match(gemma4RealCompareHtml, /linearBackend/);
   assert.match(gemma4RealCompareHtml, /Threads/);
   assert.match(gemma4RealCompareHtml, /\/api\/compare/);
 });

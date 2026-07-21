@@ -12,9 +12,9 @@ const args = parseArguments(process.argv.slice(2));
 const initializationStarted = performance.now();
 const artifact = await openGemma4CompositeLiteralArtifact(args.artifact);
 const pool = await Gemma4BinaryConstantPool.open(args.binaryPool);
-const linear = new Gemma4PagedNativeLinearWorker({ python: args.python, helper: args.linearHelper, threads: args.threads });
+const linear = new Gemma4PagedNativeLinearWorker({ python: args.python, helper: args.linearHelper, threads: args.threads, binaryPool: args.binaryPool, storageTensors: pool.catalog.tensors });
 const options = { maxReadBytes: args.maxReadBytes, allowUnverifiedFidelity: true, tensorReader: pool, linearTileKernel: linear };
-process.stdout.write(`${JSON.stringify({ ready: true, initializationSeconds: (performance.now() - initializationStarted) / 1000, backend: "paged-binary-native", threads: args.threads })}\n`);
+process.stdout.write(`${JSON.stringify({ ready: true, initializationSeconds: (performance.now() - initializationStarted) / 1000, backend: "paged-binary-native", linearBackend: linear.backend, threads: args.threads })}\n`);
 
 const lines = createInterface({ input: process.stdin, crlfDelay: Infinity });
 for await (const line of lines) {
@@ -47,7 +47,7 @@ async function generate(inputIds: number[], maxNewTokens: number): Promise<Recor
   const elapsedSeconds = (performance.now() - started) / 1000;
   const terminalBytes = Buffer.from(current.logits.values.buffer, current.logits.values.byteOffset, current.logits.values.byteLength);
   return {
-    kind: "gemma4-paged-binary-native-generation", schemaVersion: 1, backend: "paged-binary-native",
+    kind: "gemma4-paged-binary-native-generation", schemaVersion: 2, backend: "paged-binary-native", linearBackend: linear.backend,
     sourceCheckpointAccessed: false, compatibilityBinaryWeightsAccessed: true,
     inputIds, maxNewTokens, generatedTokenIds, fullTokenIds: [...inputIds, ...generatedTokenIds], steps,
     terminalLogitsSha256: createHash("sha256").update(terminalBytes).digest("hex"),

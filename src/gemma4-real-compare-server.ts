@@ -32,7 +32,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
   const server = createServer(async (request, response) => {
     try {
       if (request.method === "GET" && request.url === "/") return send(response, 200, "text/html; charset=utf-8", gemma4RealCompareHtml);
-      if (request.method === "GET" && request.url === "/api/status") return json(response, 200, { ready: worker.ready && (!direct || direct.ready), source: options.source, runtime: "persistent-jsonl", initializationSeconds: worker.initializationSeconds, direct: direct ? { enabled: true, ready: direct.ready, initializationSeconds: direct.initializationSeconds } : { enabled: false } });
+      if (request.method === "GET" && request.url === "/api/status") return json(response, 200, { ready: worker.ready && (!direct || direct.ready), source: options.source, runtime: "persistent-jsonl", initializationSeconds: worker.initializationSeconds, direct: direct ? { enabled: true, ready: direct.ready, initializationSeconds: direct.initializationSeconds, ...direct.readyMetadata } : { enabled: false } });
       if (request.method === "POST" && request.url === "/api/compare") {
         const body = JSON.parse(await readBody(request)) as Gemma4RealComparisonRequest;
         validateRequest(body);
@@ -68,7 +68,7 @@ class Gemma4PersistentComparisonWorker {
 class PersistentJsonlWorker {
   readonly child: ChildProcessWithoutNullStreams;
   readonly pending = new Map<number, { accept(value: unknown): void; reject(error: Error): void }>();
-  ready = false; initializationSeconds?: number;
+  ready = false; initializationSeconds?: number; readyMetadata: Record<string, unknown> = {};
   #nextId = 1; #stdout = ""; #readyAccept!: () => void; #readyReject!: (error: Error) => void; readonly #readyPromise: Promise<void>;
   constructor(command: string, arguments_: string[], readonly label: string) {
     this.#readyPromise = new Promise<void>((accept, reject) => { this.#readyAccept = accept; this.#readyReject = reject; });
@@ -84,7 +84,7 @@ class PersistentJsonlWorker {
     this.#stdout += chunk; if (this.#stdout.length > 64 * 1024 * 1024) return this.#fail(new Error(`${this.label} excedeu 64 MiB sem delimitar resposta.`));
     while (true) { const newline = this.#stdout.indexOf("\n"); if (newline < 0) break; const line = this.#stdout.slice(0, newline); this.#stdout = this.#stdout.slice(newline + 1); if (!line) continue;
       let message: { ready?: boolean; initializationSeconds?: number; id?: number; report?: unknown; error?: string }; try { message = JSON.parse(line) as typeof message; } catch (error) { return this.#fail(new Error(`${this.label} retornou JSON inválido: ${error instanceof Error ? error.message : String(error)}`)); }
-      if (message.ready) { this.ready = true; if (message.initializationSeconds !== undefined) this.initializationSeconds = message.initializationSeconds; this.#readyAccept(); continue; }
+      if (message.ready) { this.ready = true; this.readyMetadata = { ...message }; if (message.initializationSeconds !== undefined) this.initializationSeconds = message.initializationSeconds; this.#readyAccept(); continue; }
       if (!Number.isSafeInteger(message.id)) return this.#fail(new Error(`${this.label} respondeu sem id válido.`)); const pending = this.pending.get(message.id!); if (!pending) return this.#fail(new Error(`${this.label} respondeu id desconhecido ${message.id}.`)); this.pending.delete(message.id!); if (message.error) pending.reject(new Error(message.error)); else pending.accept(message.report);
     }
   }

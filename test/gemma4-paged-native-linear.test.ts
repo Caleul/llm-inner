@@ -44,3 +44,21 @@ test("kernel nativo recebe bytes BF16 sem expansão JavaScript", async () => {
   const result = await pagedLinearF32({ shape: [1, 2], values: Float32Array.from([1, 2]) }, storageMatrix, { tileKernel: kernel });
   assert.equal(storageCalls, 1); assert.deepEqual([...result.values], [11, 17]);
 });
+
+test("kernel nativo referenciado evita transportar bytes da matriz pelo JavaScript", async () => {
+  const referencedMatrix: PagedDenseF32Matrix = {
+    ...matrix,
+    tensor: { name: "weight", storageDtype: "BF16", storageShape: [2, 2], logicalShape: [2, 2], shard: "model.safetensors", byteOffset: 128, byteLength: 8 },
+    async readRows() { throw new Error("não deve ler o pool em JavaScript"); },
+  };
+  let referenceCalls = 0;
+  const kernel: PagedLinearTileKernel = {
+    backend: "mmap-reference", async multiply() { throw new Error("não deve transportar matriz"); },
+    async multiplyStorageReference(input, tensor, startOutput, outputCount, rows) {
+      referenceCalls += 1; assert.equal(tensor, referencedMatrix.tensor); assert.deepEqual([startOutput, outputCount, rows], [0, 2, 1]); assert.deepEqual([...input], [1, 2]);
+      return Float32Array.from([11, 17]);
+    },
+  };
+  const result = await pagedLinearF32({ shape: [1, 2], values: Float32Array.from([1, 2]) }, referencedMatrix, { tileKernel: kernel });
+  assert.equal(referenceCalls, 1); assert.deepEqual([...result.values], [11, 17]);
+});
