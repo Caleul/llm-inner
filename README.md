@@ -2939,6 +2939,16 @@ ser simultaneamente mais exato, mais simples e mais rápido nessa máquina, o
 head BF16 passou a ser o padrão da interface e da calibração; Q8 e Q4 continuam
 disponíveis apenas por flag para experimentos reproduzíveis.
 
+A interface também publica agora uma dimensão final concreta do bundle no
+formato `calc_final_0(x) = BF16_RNE(EVAL_EXACT_DAG(root, x))`. O painel não
+inventa uma abreviação externa: `root`, quantidade de nós, comprimento de `x`,
+arquivo `formula.graph.json` e seu SHA-256 vêm do manifesto validado no startup.
+Esse grafo fechado possui somente `x[i]` como entrada variável; pesos e
+constantes são números fixos do `constants.literal.json`. A forma DAG é a
+representação executável da função objetiva. A expansão textual plana da mesma
+função é evitada na UI porque duplicaria subexpressões compartilhadas em escala
+astronômica, sem reduzir o cálculo que o Metal efetivamente executa.
+
 A escolha Q8 do decoder também foi comparada diretamente com `gate/up` BF16 e
 com uma decomposição experimental de dois estágios
 `W = Q8₀(W) + Q8₁(W-Q8₀(W))`. No mesmo corpus de 32 prompts × 4 tokens, o
