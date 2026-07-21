@@ -2622,6 +2622,12 @@ que os consomem. As contagens construídas e evitadas aparecem na UI e nos
 relatórios de calibração, permitindo distinguir redução algébrica real de uma
 simples alegação de otimização.
 
+O caminho residente mantém ainda um invariante de validação incremental: cada
+novo segmento K/V é verificado antes de entrar no cache, portanto os passos
+seguintes não percorrem novamente o prefixo já comprovado. Os logits continuam
+falhando para `NaN`/`Inf`, mas a mesma varredura não é repetida antes e durante
+o ranking. A UI publica ambas as quantidades de validações redundantes evitadas.
+
 O modo padrão, **Conclusão bruta (fiel)**, envia o texto literalmente porque o
 `gemma-4-E4B-dense/tokenizer_config.json` possui `chat_template: null`. O modo
 **Chat IT (experimental)** aplica, igualmente aos três executores, o contrato

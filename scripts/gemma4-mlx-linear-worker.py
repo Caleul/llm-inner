@@ -293,7 +293,7 @@ def read_decoder_layer_weights(pool, shards, hidden_size, config):
     return weights
 
 
-def execute_decoder_layer_mlx(pool, shards, inputs, per_layer, positions, mask, source_key, source_value, config, weights=None, rope_factor_context=None):
+def execute_decoder_layer_mlx(pool, shards, inputs, per_layer, positions, mask, source_key, source_value, config, weights=None, rope_factor_context=None, source_cache_validated=False):
     batch, query_sequence, hidden_size = inputs.shape
     query_heads, key_value_heads, head_dim = config["query_heads"], config["key_value_heads"], config["head_dim"]
     produces_kv, value_from_key = config["produces_kv"], config["value_from_key"]
@@ -350,7 +350,9 @@ def execute_decoder_layer_mlx(pool, shards, inputs, per_layer, positions, mask, 
     result = boundary(boundary(after_mlp + ple_normalized) * layer_scalar)
     valid = mx.all(mx.isfinite(result))
     if produces_kv:
-        valid = valid & mx.all(mx.isfinite(key)) & mx.all(mx.isfinite(value))
+        validation_key = current_key if source_cache_validated else key
+        validation_value = current_value if source_cache_validated else value
+        valid = valid & mx.all(mx.isfinite(validation_key)) & mx.all(mx.isfinite(validation_value))
     return result, key, value, valid, weights
 
 
@@ -405,13 +407,14 @@ def prefill_topology_mask(config, query_sequence):
     return mx.array(values)
 
 
-def emit_resident_generation(model, result, produced_caches, logits, first_forward_seconds, max_new_tokens, eos_token_id, top_k, cache_hits_before, input_token_ids, session_id=None, stream=False, prefix_tokens_reused=0, prefill_tokens_computed=None, initial_rope_factor_context=None, initial_topology_mask_builds=0, initial_topology_mask_uses=0):
+def emit_resident_generation(model, result, produced_caches, logits, first_forward_seconds, max_new_tokens, eos_token_id, top_k, cache_hits_before, input_token_ids, session_id=None, stream=False, prefix_tokens_reused=0, prefill_tokens_computed=None, initial_rope_factor_context=None, initial_topology_mask_builds=0, initial_topology_mask_uses=0, initial_kv_prefix_validation_scans_avoided=0):
     global _resident_generation_session
     generated_ids, forward_seconds, top_ids, top_values = [], [first_forward_seconds], [], []
     terminal_values = None
     rope_factor_builds = 0 if initial_rope_factor_context is None else initial_rope_factor_context["builds"]
     rope_factor_uses = 0 if initial_rope_factor_context is None else initial_rope_factor_context["uses"]
     topology_mask_builds, topology_mask_uses = initial_topology_mask_builds, initial_topology_mask_uses
+    kv_prefix_validation_scans_avoided = initial_kv_prefix_validation_scans_avoided
     while len(generated_ids) < max_new_tokens:
         token_id, ranked_ids, ranked_values = rank_terminal_logits(logits, top_k)
         generated_ids.append(token_id)
@@ -446,20 +449,21 @@ def emit_resident_generation(model, result, produced_caches, logits, first_forwa
                 mask = incremental_topology_mask(config, key_sequence, absolute_position)
                 topology_masks[topology_key] = mask
                 topology_mask_builds += 1
-            result, key, value, valid, _ = execute_decoder_layer_mlx(model["pool"], model["shards"], result, all_per_layer[:, :, layer_index, :], positions, mask, source_key, source_value, config, weights, rope_factor_context)
+            result, key, value, valid, _ = execute_decoder_layer_mlx(model["pool"], model["shards"], result, all_per_layer[:, :, layer_index, :], positions, mask, source_key, source_value, config, weights, rope_factor_context, True)
             all_valid = all_valid & valid
             if config["produces_kv"]:
                 next_caches[layer_index] = (key, value)
+                if source_key.shape[2]:
+                    kv_prefix_validation_scans_avoided += 1
         rope_factor_builds += rope_factor_context["builds"]
         rope_factor_uses += rope_factor_context["uses"]
         produced_caches = next_caches
         logits = execute_decoder_epilogue(result, model["epilogue"], rounding=model["rounding"])
-        logits_valid = mx.all(mx.isfinite(logits))
-        evaluation = [logits, logits_valid, all_valid]
+        evaluation = [logits, all_valid]
         for key, value in produced_caches.values():
             evaluation.extend((key, value))
         mx.eval(*evaluation)
-        if not bool(np.asarray(logits_valid & all_valid).item()):
+        if not bool(np.asarray(all_valid).item()):
             raise ValueError("MLX resident generation produced non-finite state")
         forward_seconds.append(time.perf_counter() - incremental_started)
     resident_kv_bytes = sum((key.size + value.size) * 4 for key, value in produced_caches.values())
@@ -476,7 +480,7 @@ def emit_resident_generation(model, result, produced_caches, logits, first_forwa
     write_bytes(hashlib.sha256(np.asarray(terminal_values, dtype=np.float32).tobytes(order="C")).digest())
     computed = len(np.asarray(input_token_ids).reshape(-1)) if prefill_tokens_computed is None else prefill_tokens_computed
     cached_context_tokens = len(_resident_generation_session["token_ids"]) if session_id is not None else len(np.asarray(input_token_ids).reshape(-1)) + len(generated_ids) - 1
-    profile = np.array((1, len(generated_ids), max(0, len(generated_ids) - 1), terminal_values.nbytes, rope_factor_builds, max(0, rope_factor_uses - rope_factor_builds), topology_mask_builds, max(0, topology_mask_uses - topology_mask_builds), _widened_tensor_cache_hits - cache_hits_before, len(_widened_tensor_cache), _widened_tensor_cache_bytes, resident_kv_bytes, prefix_tokens_reused, computed, 1 if prefix_tokens_reused else 0, cached_context_tokens), dtype=np.float32)
+    profile = np.array((1, len(generated_ids), max(0, len(generated_ids) - 1), terminal_values.nbytes, rope_factor_builds, max(0, rope_factor_uses - rope_factor_builds), topology_mask_builds, max(0, topology_mask_uses - topology_mask_builds), len(generated_ids), kv_prefix_validation_scans_avoided, _widened_tensor_cache_hits - cache_hits_before, len(_widened_tensor_cache), _widened_tensor_cache_bytes, resident_kv_bytes, prefix_tokens_reused, computed, 1 if prefix_tokens_reused else 0, cached_context_tokens), dtype=np.float32)
     write_float_tensor(mx.array(profile))
     sys.stdout.buffer.flush()
 
@@ -516,6 +520,7 @@ def execute_compiled_token_generation(pool, shards, token_ids, max_new_tokens, e
     produced_caches, all_valid = {}, mx.array(True)
     rope_factor_context = {"factors": {}, "builds": 0, "uses": 0}
     topology_masks, topology_mask_uses = {}, 0
+    kv_prefix_validation_scans_avoided = 0
     for layer_index, (config, weights) in enumerate(model["layer_plans"]):
         if config["produces_kv"]:
             if reusable is not None:
@@ -532,19 +537,20 @@ def execute_compiled_token_generation(pool, shards, token_ids, max_new_tokens, e
         if mask is None:
             mask = continuation_topology_mask(config, current_token_ids.shape[1], key_sequence, cached_count) if reusable is not None else prefill_topology_mask(config, token_ids.shape[1])
             topology_masks[topology_key] = mask
-        result, key, value, valid, _ = execute_decoder_layer_mlx(pool, shards, result, all_per_layer[:, :, layer_index, :], positions, mask, source_key, source_value, config, weights, rope_factor_context)
+        result, key, value, valid, _ = execute_decoder_layer_mlx(pool, shards, result, all_per_layer[:, :, layer_index, :], positions, mask, source_key, source_value, config, weights, rope_factor_context, True)
         all_valid = all_valid & valid
         if config["produces_kv"]:
             produced_caches[layer_index] = (key, value)
+            if source_key.shape[2]:
+                kv_prefix_validation_scans_avoided += 1
     logits = execute_decoder_epilogue(result, model["epilogue"], rounding=model["rounding"])
-    logits_valid = mx.all(mx.isfinite(logits))
-    evaluation = [logits, logits_valid, all_valid]
+    evaluation = [logits, all_valid]
     for key, value in produced_caches.values():
         evaluation.extend((key, value))
     mx.eval(*evaluation)
-    if not bool(np.asarray(logits_valid & all_valid).item()):
+    if not bool(np.asarray(all_valid).item()):
         raise ValueError("MLX compiled generation prefill produced non-finite state")
-    emit_resident_generation(model, result, produced_caches, logits, time.perf_counter() - started, max_new_tokens, eos_token_id, top_k, cache_hits_before, token_ids, session_id, stream, cached_count, current_token_ids.shape[1], rope_factor_context, len(topology_masks), topology_mask_uses)
+    emit_resident_generation(model, result, produced_caches, logits, time.perf_counter() - started, max_new_tokens, eos_token_id, top_k, cache_hits_before, token_ids, session_id, stream, cached_count, current_token_ids.shape[1], rope_factor_context, len(topology_masks), topology_mask_uses, kv_prefix_validation_scans_avoided)
 
 
 def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, native_bf16_ple, fused_epilogue, fused_token_forward, fused_token_generation):
@@ -653,10 +659,13 @@ def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, 
     logits = None
     if epilogue is not None:
         logits = execute_decoder_epilogue(result, epilogue, fused_token_forward, rounding)
-        logits_valid = mx.all(mx.isfinite(logits))
-        mx.eval(logits, logits_valid)
-        if not bool(np.asarray(logits_valid).item()):
-            raise ValueError("MLX decoder stack epilogue produced non-finite output")
+        if generation is None:
+            logits_valid = mx.all(mx.isfinite(logits))
+            mx.eval(logits, logits_valid)
+            if not bool(np.asarray(logits_valid).item()):
+                raise ValueError("MLX decoder stack epilogue produced non-finite output")
+        else:
+            mx.eval(logits)
     if generation is not None:
         global _resident_generation_model
         _resident_generation_model = {"pool": pool, "shards": shards, "execute_token_prelude": execute_token_prelude, "layer_plans": layer_plans, "epilogue": epilogue, "vocabulary_size": vocabulary_size, "prompt_length": query_sequence, "rounding": rounding}

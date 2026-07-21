@@ -256,6 +256,8 @@ export interface PagedFusedTokenGenerationResult {
   ropeFactorBuildsAvoided: number;
   topologyMaskBuilds: number;
   topologyMaskBuildsAvoided: number;
+  redundantLogitFiniteScansAvoided: number;
+  kvPrefixValidationScansAvoided: number;
   residentKvBytes: number;
   prefixTokensReused: number;
   prefillTokensComputed: number;
