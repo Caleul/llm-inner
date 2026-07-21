@@ -286,7 +286,13 @@ def main():
         for line in sys.stdin:
             try:
                 request = json.loads(line)
-                report = compare_request(model, tokenizer, args.source, request.get("prompt"), request.get("inputIds"), int(request.get("maxNewTokens", 1)), request.get("inspectLogit", []), int(request.get("threads", 0)), request.get("precision", "f64"), request.get("roundingPolicy", "none"))
+                if request.get("mode") == "decode":
+                    token_ids = request.get("tokenIds")
+                    if not isinstance(token_ids, list) or any(not isinstance(token, int) or token < 0 for token in token_ids):
+                        raise ValueError("tokenIds must be an array of non-negative integers")
+                    report = {"text": tokenizer.decode(token_ids, skip_special_tokens=True)}
+                else:
+                    report = compare_request(model, tokenizer, args.source, request.get("prompt"), request.get("inputIds"), int(request.get("maxNewTokens", 1)), request.get("inspectLogit", []), int(request.get("threads", 0)), request.get("precision", "f64"), request.get("roundingPolicy", "none"))
                 print(json.dumps({"id": request.get("id"), "report": report}), flush=True)
             except Exception as error:
                 print(json.dumps({"id": request.get("id") if "request" in locals() else None, "error": str(error)}), flush=True)

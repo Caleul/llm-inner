@@ -169,6 +169,23 @@ com eliminação dos pesos. O formato final deve manter apenas um pool binário
 autenticado, eliminando a duplicação do payload base64 e o rótulo de
 compatibilidade.
 
+## Interface com três executores persistentes
+
+O servidor agora abre dois processos de longa duração: o comparador
+Transformers mantém modelo/tokenizer e o worker literal mantém programa,
+constant pool e kernel linear. A mesma entrada tokenizada alimenta original,
+compatibilidade sem arredondamentos e backend direto. Os IDs diretos retornam
+ao tokenizer persistente para decodificação, fechando prompt → token IDs →
+forward → argmax → KV cache → decode → texto.
+
+Na interface real, `The capital of France is` produziu `[496,3207]` e
+`The capital of France is a city` nos três caminhos. O direto levou `14,05 s`
+para os dois tokens na execução visual aquecida. Uma segunda requisição, sem
+reinicializar processos, gerou `four.` para `Two plus two equals` com IDs
+`[2390,236761]` em todos os caminhos e `14,77 s` no direto. A UI apresenta
+textos, IDs, igualdade, primeira divergência, tokens/s, tempo, threads e o
+relatório JSON completo de cada caminho.
+
 A UI real foi exercitada via Playwright contra o bundle. Ela gerou dois tokens,
 mostrou texto, ids, igualdade do argmax, divergência dos logits, erro máximo,
 tokens/s, razão de desempenho, threads e pico RSS.

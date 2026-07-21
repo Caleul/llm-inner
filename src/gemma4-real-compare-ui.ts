@@ -15,7 +15,7 @@ export const gemma4RealCompareHtml = `<!doctype html>
     .actions { display:flex; gap:12px; align-items:end; margin-top:14px; } .field { width:150px; }
     button { border:0; border-radius:9px; padding:12px 18px; background:#7c5cff; color:white; font-weight:700; cursor:pointer; }
     button:disabled { opacity:.5; cursor:wait; } #status { color:#aeb8cb; font-size:13px; }
-    .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:16px; } .result h2 { margin:0 0 12px; font-size:17px; }
+    .grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin-top:16px; } .result h2 { margin:0 0 12px; font-size:17px; }
     .text { white-space:pre-wrap; min-height:72px; padding:12px; background:#090c12; border-radius:8px; }
     .tokens { color:#9eabca; overflow-wrap:anywhere; font-family:ui-monospace,monospace; font-size:12px; margin-top:10px; }
     .summary { margin-top:16px; } .ok { color:#65d394; } .bad { color:#ff7b89; }
@@ -26,7 +26,7 @@ export const gemma4RealCompareHtml = `<!doctype html>
 </head>
 <body><main>
   <h1>Gemma 4: execução diferencial real</h1>
-  <p class="sub">Transformers eager BF16 contra o backend de compatibilidade da matemática recomposta, com precisão e checkpoints de arredondamento configuráveis. O executor direto do SSA ainda está em construção.</p>
+  <p class="sub">Transformers eager BF16, matemática recomposta de compatibilidade e executor compilado direto sobre constant pool binário, com geração e KV cache reais.</p>
   <section class="panel">
     <label for="prompt">Prompt</label>
     <textarea id="prompt">The capital of France is</textarea>
@@ -36,6 +36,7 @@ export const gemma4RealCompareHtml = `<!doctype html>
   <div class="grid">
     <section class="result"><h2>Original — BF16</h2><div id="baselineText" class="text">—</div><div id="baselineTokens" class="tokens"></div></section>
     <section class="result"><h2 id="candidateTitle">Compilado (compatibilidade) — F32/F64 → BF16 final</h2><div id="candidateText" class="text">—</div><div id="candidateTokens" class="tokens"></div></section>
+    <section class="result" id="directPanel" hidden><h2>Compilado direto — pool binário + tiles nativos</h2><div id="directText" class="text">—</div><div id="directTokens" class="tokens"></div></section>
   </div>
   <section class="panel summary" id="summary" hidden><strong id="verdict"></strong><div id="performance" class="tokens"></div><table><thead><tr><th>Passo</th><th>Tokens</th><th>Argmax</th><th>Logits BF16 divergentes</th><th>Erro máx.</th><th>Tempo original / simplificado</th></tr></thead><tbody id="steps"></tbody></table>
     <details><summary>Relatório JSON completo</summary><pre id="json"></pre></details></section>
@@ -44,17 +45,18 @@ export const gemma4RealCompareHtml = `<!doctype html>
 const q = id => document.getElementById(id), run=q('run');
 const esc = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 run.addEventListener('click', async () => {
-  run.disabled=true; q('status').textContent='Carregando o modelo e calculando os dois caminhos…'; q('summary').hidden=true;
+  const requestStarted=Date.now(); run.disabled=true; q('status').textContent='Calculando os executores persistentes…'; q('summary').hidden=true; q('directPanel').hidden=true;
   try {
     const response=await fetch('/api/compare',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({prompt:q('prompt').value,maxNewTokens:Number(q('tokens').value),threads:Number(q('threads').value),precision:q('precision').value,roundingPolicy:q('rounding').value})});
     const data=await response.json(); if(!response.ok) throw new Error(data.error || 'Falha desconhecida');
     q('baselineText').textContent=data.baselineFullText; q('candidateText').textContent=data.candidateFullText;
     q('candidateTitle').textContent='Compilado (compatibilidade) — '+data.candidatePrecision.toUpperCase()+' / '+data.roundingPolicy+' → BF16 final';
     q('baselineTokens').textContent=JSON.stringify(data.baselineGeneratedTokenIds); q('candidateTokens').textContent=JSON.stringify(data.candidateGeneratedTokenIds);
-    q('verdict').className=data.generatedTokensEqual?'ok':'bad'; q('verdict').textContent=data.generatedTokensEqual?'Todos os tokens gerados coincidiram.':'Primeira divergência no passo '+data.firstDivergentStep+'.';
-    q('performance').textContent='Threads: '+data.executionThreads+' · original: '+data.performance.baselineTokensPerSecond.toFixed(2)+' tok/s · simplificado: '+data.performance.candidateTokensPerSecond.toFixed(2)+' tok/s · razão: '+data.performance.candidateSpeedup.toFixed(2)+'× · pico RSS do processo: '+(data.performance.processPeakRssBytes/1073741824).toFixed(2)+' GiB';
+    if(data.direct){q('directPanel').hidden=false;q('directText').textContent=data.direct.fullText;q('directTokens').textContent=JSON.stringify(data.direct.generatedTokenIds);}
+    const allEqual=data.generatedTokensEqual&&(!data.direct||data.direct.tokensEqualBaseline); q('verdict').className=allEqual?'ok':'bad'; q('verdict').textContent=allEqual?'Todos os executores geraram os mesmos tokens.':'Há divergência: compatibilidade no passo '+data.firstDivergentStep+'; direto no passo '+(data.direct?.firstDivergentStep??'—')+'.';
+    q('performance').textContent='Threads compat.: '+data.executionThreads+' · original: '+data.performance.baselineTokensPerSecond.toFixed(2)+' tok/s · compat.: '+data.performance.candidateTokensPerSecond.toFixed(2)+' tok/s · razão compat.: '+data.performance.candidateSpeedup.toFixed(2)+'×'+(data.direct?' · direto: '+data.direct.tokensPerSecond.toFixed(2)+' tok/s em '+data.direct.elapsedSeconds.toFixed(2)+'s · threads diretas: '+data.direct.linearThreads:'')+' · pico RSS compat.: '+(data.performance.processPeakRssBytes/1073741824).toFixed(2)+' GiB';
     q('steps').innerHTML=data.steps.map(s=>'<tr><td>'+s.step+'</td><td>'+s.baselineToken+' / '+s.candidateToken+'</td><td>'+(s.metrics.argmaxEqual?'igual':'diferente')+'</td><td>'+(100*s.metrics.divergenceRate).toFixed(4)+'%</td><td>'+s.metrics.maxAbsError+'</td><td>'+s.baselineSeconds.toFixed(3)+'s / '+s.candidateSeconds.toFixed(3)+'s ('+(s.baselineSeconds/s.candidateSeconds).toFixed(2)+'×)</td></tr>').join('');
-    q('json').textContent=JSON.stringify(data,null,2); q('summary').hidden=false; q('status').textContent='Concluído em '+data.elapsedSeconds.toFixed(2)+'s.';
+    q('json').textContent=JSON.stringify(data,null,2); q('summary').hidden=false; q('status').textContent='Concluído em '+((Date.now()-requestStarted)/1000).toFixed(2)+'s totais.';
   } catch(error) { q('status').textContent='Erro: '+error.message; }
   finally { run.disabled=false; }
 });

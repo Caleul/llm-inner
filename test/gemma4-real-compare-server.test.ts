@@ -10,9 +10,29 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /Gerar e comparar/);
   assert.match(gemma4RealCompareHtml, /Original — BF16/);
   assert.match(gemma4RealCompareHtml, /Compilado \(compatibilidade\) — F32\/F64/);
-  assert.match(gemma4RealCompareHtml, /executor direto do SSA ainda está em construção/);
+  assert.match(gemma4RealCompareHtml, /Compilado direto — pool binário/);
   assert.match(gemma4RealCompareHtml, /Threads/);
   assert.match(gemma4RealCompareHtml, /\/api\/compare/);
+});
+
+test("servidor integra geração direta persistente e decodifica seus tokens", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "gemma4-direct-worker-test-"));
+  const transformer = join(directory, "transformer.mjs"), direct = join(directory, "direct.mjs");
+  await writeFile(transformer, `import readline from "node:readline";
+console.log(JSON.stringify({ready:true,initializationSeconds:0.1}));
+readline.createInterface({input:process.stdin}).on("line",line=>{const r=JSON.parse(line);const report=r.mode==='decode'?{text:r.tokenIds.join('|')}:{inputIds:[[2]],baselineGeneratedTokenIds:[7]};console.log(JSON.stringify({id:r.id,report}));});\n`);
+  await writeFile(direct, `import readline from "node:readline";
+console.log(JSON.stringify({ready:true,initializationSeconds:0.2}));
+readline.createInterface({input:process.stdin}).on("line",line=>{const r=JSON.parse(line);console.log(JSON.stringify({id:r.id,report:{generatedTokenIds:[7],fullTokenIds:[2,7],elapsedSeconds:1,tokensPerSecond:1,linearThreads:4}}));});\n`);
+  const server = createGemma4RealComparisonServer({ source: directory, python: process.execPath, helper: transformer, literalArtifact: "literal.json", binaryPool: directory, directWorker: direct, directLinearHelper: "unused.py", directThreads: 4 });
+  await new Promise<void>((accept) => server.listen(0, "127.0.0.1", accept));
+  try {
+    const address = server.address(); if (!address || typeof address === "string") throw new Error("Endereço HTTP de teste ausente.");
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/compare`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt: "x", maxNewTokens: 1 }) });
+    assert.equal(response.status, 200);
+    const body = await response.json() as { direct: { generatedText: string; fullText: string; tokensEqualBaseline: boolean; firstDivergentStep: number | null } };
+    assert.deepEqual(body.direct, { generatedTokenIds: [7], fullTokenIds: [2, 7], elapsedSeconds: 1, tokensPerSecond: 1, linearThreads: 4, generatedText: "7", fullText: "2|7", tokensEqualBaseline: true, firstDivergentStep: null });
+  } finally { await new Promise<void>((accept, reject) => server.close((error) => error ? reject(error) : accept())); await rm(directory, { recursive: true, force: true }); }
 });
 
 test("servidor diferencial valida opções reprodutíveis", () => {
