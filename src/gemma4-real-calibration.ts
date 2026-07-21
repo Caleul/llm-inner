@@ -105,6 +105,11 @@ interface ThreeWayCase {
     verificationSeconds?: number;
     workerVerificationSeconds?: number;
     hybridSeconds?: number;
+    selectiveVerification?: boolean;
+    sensitiveSteps?: number[];
+    trustedFastPathSteps?: number;
+    verificationHeadSteps?: number;
+    verificationDivergenceStep?: number | null;
     fastPath?: { generatedTokenIds?: number[]; elapsedSeconds?: number; tokensPerSecond?: number; linearBackend?: string };
     steps: Array<{ step: number; tokenId: number; forwardSeconds: number; topLogits: unknown }>;
   };
@@ -234,6 +239,11 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.verificationSeconds === undefined ? {} : { verificationSeconds: entry.direct.verificationSeconds }),
         ...(entry.direct.workerVerificationSeconds === undefined ? {} : { workerVerificationSeconds: entry.direct.workerVerificationSeconds }),
         ...(entry.direct.hybridSeconds === undefined ? {} : { hybridSeconds: entry.direct.hybridSeconds }),
+        ...(entry.direct.selectiveVerification === undefined ? {} : { selectiveVerification: entry.direct.selectiveVerification }),
+        ...(entry.direct.sensitiveSteps === undefined ? {} : { sensitiveSteps: entry.direct.sensitiveSteps }),
+        ...(entry.direct.trustedFastPathSteps === undefined ? {} : { trustedFastPathSteps: entry.direct.trustedFastPathSteps }),
+        ...(entry.direct.verificationHeadSteps === undefined ? {} : { verificationHeadSteps: entry.direct.verificationHeadSteps }),
+        ...(entry.direct.verificationDivergenceStep === undefined ? {} : { verificationDivergenceStep: entry.direct.verificationDivergenceStep }),
         ...(entry.direct.fastPath === undefined ? {} : { fastPath: { tokenIds: entry.direct.fastPath.generatedTokenIds, seconds: entry.direct.fastPath.elapsedSeconds, tokensPerSecond: entry.direct.fastPath.tokensPerSecond, linearBackend: entry.direct.fastPath.linearBackend } }),
         ...(entry.direct.logitAgreement === undefined ? {} : { logitAgreement: entry.direct.logitAgreement }),
         ...(entry.direct.maxReadMiB === undefined ? {} : { maxReadMiB: entry.direct.maxReadMiB }),

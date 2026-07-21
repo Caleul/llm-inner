@@ -91,6 +91,12 @@ export interface Gemma4PagedNativeGenerationResult {
   cachedContextTokens: number;
 }
 
+export interface Gemma4PagedTextHiddenResult {
+  values: ReadonlyMap<string, DenseF32Tensor>;
+  hidden: DenseF32Tensor;
+  pastKeyValues: ReadonlyMap<number, ReferenceF32KeyValueCache>;
+}
+
 /**
  * Executes the two token-indexed assignments that precede multimodal scatter.
  * The returned map contains `hidden_states_0` and `ple_token_identity`; callers
@@ -167,6 +173,43 @@ export async function executeGemma4PagedTextLiteralF32(
     ));
   }
   return requireCompletedTextExecution(await executePagedOperations(artifact, allTextOperations(artifact), inputIds, positions, values, options, request));
+}
+
+/** Executes embeddings and the complete decoder stack without the vocabulary epilogue. */
+export async function executeGemma4PagedTextHiddenLiteralF32(
+  artifact: OpenGemma4CompositeLiteralArtifact,
+  request: Gemma4PagedTextExecutionRequest,
+  options: Gemma4PagedTextOptions = {},
+): Promise<Gemma4PagedTextHiddenResult> {
+  assertExecutionFidelityAcknowledged(artifact, options);
+  if (options.fusedTokenForwardRounding) throw new Error("Forward oculto Gemma 4 não aceita token-forward fundido com epílogo.");
+  validateInputIds(request.inputIds);
+  const sequence = request.inputIds[0]!.length;
+  const positions = request.positionIds ?? request.inputIds.map((row) => row.map((_, index) => index));
+  if (positions.length !== request.inputIds.length || positions.some((row) => row.length !== sequence)) throw new Error("Gemma 4 paginado position_ids deve acompanhar input_ids.");
+  const operations = [...artifact.program.textProgram.prelude, ...artifact.program.textProgram.layers.flatMap((layer) => layer.operations)];
+  const result = await executePagedOperations(artifact, operations, request.inputIds, positions, new Map(), options, request);
+  const hiddenOutput = artifact.program.textProgram.layers.at(-1)?.operations.at(-1)?.output;
+  if (!hiddenOutput) throw new Error("Programa Gemma 4 não declarou saída final do decoder.");
+  return { values: result.values, hidden: value(result.values, hiddenOutput), pastKeyValues: result.pastKeyValues };
+}
+
+/** Executes only final_norm, lm_head and softcap from a decoder-owned hidden tensor. */
+export async function executeGemma4PagedTextEpilogueLiteralF32(
+  artifact: OpenGemma4CompositeLiteralArtifact,
+  inputIds: number[][],
+  hidden: DenseF32Tensor,
+  options: Gemma4PagedTextOptions = {},
+): Promise<DenseF32Tensor> {
+  assertExecutionFidelityAcknowledged(artifact, options);
+  validateInputIds(inputIds);
+  const epilogue = artifact.program.textProgram.epilogue;
+  const firstOperation = epilogue[0];
+  const inputName = firstOperation?.op === "rms_norm" ? firstOperation.input : undefined;
+  if (!inputName || hidden.shape.length !== 3 || hidden.shape[0] !== inputIds.length || hidden.shape[1] !== inputIds[0]!.length) throw new Error("Epílogo Gemma 4 recebeu hidden incompatível.");
+  const result = await executePagedOperations(artifact, epilogue, inputIds, undefined, new Map([[inputName, hidden]]), options);
+  if (!result.logits) throw new Error("Epílogo Gemma 4 não produziu logits.");
+  return result.logits;
 }
 
 /** Executes text layers and logits from the exact composite prelude values. */

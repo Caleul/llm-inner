@@ -47,6 +47,7 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /attention core:/);
   assert.match(gemma4RealCompareHtml, /attention fused:/);
   assert.match(gemma4RealCompareHtml, /tempo worker ref\/head\/attn\/MLP\/FFN\/layer\/stack\/PLE/);
+  assert.match(gemma4RealCompareHtml, /heads verificados/);
   assert.match(gemma4RealCompareHtml, /Threads/);
   assert.match(gemma4RealCompareHtml, /\/api\/compare/);
   const embedded = gemma4RealCompareHtml.match(/<script>([\s\S]*)<\/script>/)?.[1]; assert.ok(embedded); assert.doesNotThrow(() => new Script(embedded), "JavaScript embutido deve ser sintaticamente executável pelo navegador");
@@ -187,9 +188,9 @@ readline.createInterface({input:process.stdin}).on("line",line=>{const request=J
 
 test("verificação seletiva é fail-closed e usa somente a margem do caminho rápido", () => {
   const report = (topLogits: unknown, generatedTokenIds = [7]) => ({ generatedTokenIds, fullTokenIds: [2, ...generatedTokenIds], steps: generatedTokenIds.map((tokenId) => ({ tokenId, topLogits })) });
-  assert.deepEqual(assessDirectVerification(report([{ tokenId: 7, value: 2 }, { tokenId: 8, value: 2 }]), 0), { trigger: true, reason: "margin-at-or-below-threshold", minimumMargin: 0, marginThreshold: 0 });
-  assert.deepEqual(assessDirectVerification(report([{ tokenId: 7, value: 2.125 }, { tokenId: 8, value: 2 }]), 0), { trigger: false, reason: "margin-at-or-below-threshold", minimumMargin: 0.125, marginThreshold: 0 });
-  assert.deepEqual(assessDirectVerification(report([], [7]), 0), { trigger: true, reason: "margin-unavailable", minimumMargin: null, marginThreshold: 0 });
+  assert.deepEqual(assessDirectVerification(report([{ tokenId: 7, value: 2 }, { tokenId: 8, value: 2 }]), 0), { trigger: true, reason: "margin-at-or-below-threshold", minimumMargin: 0, marginThreshold: 0, sensitiveSteps: [0] });
+  assert.deepEqual(assessDirectVerification(report([{ tokenId: 7, value: 2.125 }, { tokenId: 8, value: 2 }]), 0), { trigger: false, reason: "margin-at-or-below-threshold", minimumMargin: 0.125, marginThreshold: 0, sensitiveSteps: [] });
+  assert.deepEqual(assessDirectVerification(report([], [7]), 0), { trigger: true, reason: "margin-unavailable", minimumMargin: null, marginThreshold: 0, sensitiveSteps: [] });
   assert.throws(() => createGemma4RealComparisonServer({ source: ".", python: "python", helper: "helper", directLinearBackend: "pytorch", directVerificationMargin: 0 }), /requer backend MLX/);
 });
 
@@ -201,7 +202,7 @@ console.log(JSON.stringify({ready:true}));
 readline.createInterface({input:process.stdin}).on("line",line=>{const r=JSON.parse(line);const report=r.mode==='encode'?{tokenIds:[2,99]}:r.mode==='decode'?{text:r.tokenIds.join('|')}:{baselineGeneratedTokenIds:[7],candidateGeneratedTokenIds:[7],baselineGeneratedText:'7',candidateGeneratedText:'7',generatedTokensEqual:true,firstDivergentStep:null,inputIds:[[2,99]],steps:[{step:0,baselineToken:7,candidateToken:7,baselineTopLogits:[{tokenId:7,logit:2.125},{tokenId:8,logit:2}],candidateTopLogits:[],metrics:{argmaxEqual:true,divergenceRate:0,maxAbsError:0},baselineSeconds:1,candidateSeconds:1}],performance:{baselineSeconds:1,candidateSeconds:1,baselineTokensPerSecond:1,candidateTokensPerSecond:1,candidateSpeedup:1,processPeakRssBytes:0},executionThreads:1,candidatePrecision:'f32',roundingPolicy:'none'};console.log(JSON.stringify({id:r.id,report}));});\n`);
   await writeFile(direct, `import readline from "node:readline";
 const args=process.argv,backend=args[args.indexOf('--linear-backend')+1];console.log(JSON.stringify({ready:true,linearBackend:backend}));
-readline.createInterface({input:process.stdin}).on("line",line=>{const r=JSON.parse(line),token=backend==='pytorch'?7:8,top=backend==='pytorch'?[{tokenId:7,value:2.125},{tokenId:8,value:2}]:[{tokenId:8,value:2},{tokenId:7,value:2}],report={generatedTokenIds:[token],fullTokenIds:[...r.inputIds,token],elapsedSeconds:0.01,tokensPerSecond:100,linearThreads:4,linearBackend:backend,steps:[{step:0,tokenId:token,forwardSeconds:0.01,topLogits:top}]};if(r.stream)console.log(JSON.stringify({id:r.id,event:{type:'token',step:0,tokenId:token,forwardSeconds:0.01,topLogits:top}}));console.log(JSON.stringify({id:r.id,report}));});\n`);
+readline.createInterface({input:process.stdin}).on("line",line=>{const r=JSON.parse(line),token=backend==='pytorch'?7:8,top=backend==='pytorch'?[{tokenId:7,value:2.125},{tokenId:8,value:2}]:[{tokenId:8,value:2},{tokenId:7,value:2}],report={generatedTokenIds:[token],fullTokenIds:[...r.inputIds,token],elapsedSeconds:0.01,tokensPerSecond:100,linearThreads:4,linearBackend:backend,terminalLogitsSha256:'${"0".repeat(64)}',steps:[{step:0,tokenId:token,forwardSeconds:0.01,topLogits:top}],...(r.verificationFastPath?{selectiveVerification:true,sensitiveSteps:r.verificationFastPath.sensitiveSteps,trustedFastPathSteps:0,verificationHeadSteps:1,verificationDivergenceStep:0}:{})};if(r.stream)console.log(JSON.stringify({id:r.id,event:{type:'token',step:0,tokenId:token,forwardSeconds:0.01,topLogits:top}}));console.log(JSON.stringify({id:r.id,report}));});\n`);
   const server = createGemma4RealComparisonServer({ source: directory, python: process.execPath, helper: transformer, literalArtifact: "literal.json", binaryPool: directory, directWorker: direct, directLinearHelper: "unused.py", directVerificationMargin: 0 });
   await new Promise<void>((accept) => server.listen(0, "127.0.0.1", accept));
   try {
@@ -213,6 +214,6 @@ readline.createInterface({input:process.stdin}).on("line",line=>{const r=JSON.pa
     const response = await fetch(`${endpoint}/api/compare-stream`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt: "empate", maxNewTokens: 1 }) });
     const messages = (await response.text()).trim().split("\n").map((line) => JSON.parse(line) as { type: string; provisional?: boolean; data?: { direct: Record<string, unknown> } });
     assert.deepEqual(messages.map((message) => message.type), ["direct-token", "direct-fallback", "result"]); assert.equal(messages[0]?.provisional, true);
-    const selected = messages[2]!.data!.direct; assert.deepEqual(selected.generatedTokenIds, [7]); assert.equal(selected.selectedBackend, "pytorch"); assert.equal(selected.fallbackTriggered, true); assert.equal(selected.fastPathMinimumMargin, 0); assert.deepEqual((selected.fastPath as { generatedTokenIds: number[] }).generatedTokenIds, [8]); assert.equal(selected.tokensEqualBaseline, true);
+    const selected = messages[2]!.data!.direct; assert.deepEqual(selected.generatedTokenIds, [7]); assert.equal(selected.selectedBackend, "pytorch"); assert.equal(selected.fallbackTriggered, true); assert.equal(selected.fastPathMinimumMargin, 0); assert.deepEqual((selected.fastPath as { generatedTokenIds: number[] }).generatedTokenIds, [8]); assert.equal(selected.tokensEqualBaseline, true); assert.equal(selected.selectiveVerification, true); assert.deepEqual(selected.sensitiveSteps, [0]); assert.equal(selected.verificationHeadSteps, 1);
   } finally { await new Promise<void>((accept, reject) => server.close((error) => error ? reject(error) : accept())); await rm(directory, { recursive: true, force: true }); }
 });

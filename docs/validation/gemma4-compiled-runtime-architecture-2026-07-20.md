@@ -314,6 +314,40 @@ Evidência:
 - `artifacts/gemma4-three-way-calibration-32x4-mlx-hybrid-margin0-rms-pow.json`;
 - `artifacts/gemma4-calibration-prompts-32.json`.
 
+## Verificação seletiva da cabeça de vocabulário
+
+O fallback PyTorch continua executando embeddings, as 42 camadas e o cache KV
+em cada passo incremental, inclusive quando aceita o token produzido pelo
+Metal. A separação nova entre `decoder hidden` e `epilogue` evita, porém, a
+multiplicação terminal `[2560,262144]` nos passos cuja margem Metal excede o
+limiar. Se um passo sensível divergir, o verificador calcula todos os heads
+posteriores; se margem, passos ou SHA-256 terminal forem inválidos, o servidor
+usa a verificação integral.
+
+No mesmo corpus de 32 prompts × 4 tokens, a política seletiva registrou:
+
+- `32/32` prompts e `128/128` tokens iguais ao Transformers eager BF16;
+- zero divergências raiz e zero passos posteriores a divergência;
+- três fallbacks, com `5` heads PyTorch calculados em vez de `12`;
+- tempo direto agregado de `45,0763 s`, contra `55,4536 s` no controle de head
+  integral, redução de `18,71%`;
+- throughput de `2,8396 token/s`, contra `2,3082 token/s`, ganho de `23,02%`;
+- razão direta/baseline de `2,8698x`, contra `2,4486x` no controle;
+- soma do tempo interno dos verificadores de `3,7355 s`, contra `9,4421 s`,
+  redução de `60,44%`.
+
+Nos fallbacks individuais, Lua verificou 1 head e confiou 3 passos ao Metal;
+Portugal detectou divergência no passo 1 e verificou os 3 heads restantes;
+tradução detectou divergência no passo terminal e verificou apenas esse head.
+A interface publica `sensitiveSteps`, `verificationHeadSteps`,
+`trustedFastPathSteps` e `verificationDivergenceStep` para tornar essa decisão
+auditável.
+
+Evidência:
+
+- `artifacts/gemma4-three-way-calibration-32x4-mlx-selective-head-verifier.json`;
+- `artifacts/gemma4-three-way-calibration-32x4-mlx-hybrid-margin0-rms-pow.json`.
+
 ## Prelude PLE compilado com redução reproduzível
 
 O backend MLX absorve agora o prelude PLE completo em uma única requisição

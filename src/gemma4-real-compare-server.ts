@@ -124,18 +124,19 @@ async function warmupDirectWorker(worker: PersistentJsonlWorker, maxNewTokens: n
   return (performance.now() - started) / 1000;
 }
 
-interface DirectMarginAssessment { trigger: boolean; reason: "margin-at-or-below-threshold" | "margin-unavailable"; minimumMargin: number | null; marginThreshold: number }
+interface DirectMarginAssessment { trigger: boolean; reason: "margin-at-or-below-threshold" | "margin-unavailable"; minimumMargin: number | null; marginThreshold: number; sensitiveSteps: number[] }
 
 export function assessDirectVerification(report: DirectReport, marginThreshold: number): DirectMarginAssessment {
-  if (!Array.isArray(report.steps) || report.steps.length !== report.generatedTokenIds.length) return { trigger: true, reason: "margin-unavailable", minimumMargin: null, marginThreshold };
+  if (!Array.isArray(report.steps) || report.steps.length !== report.generatedTokenIds.length) return { trigger: true, reason: "margin-unavailable", minimumMargin: null, marginThreshold, sensitiveSteps: [] };
   const margins = report.steps.map((step) => {
     if (!step || typeof step !== "object") return undefined;
     const top = normalizeTopLogits((step as { topLogits?: unknown }).topLogits);
     return top.length >= 2 ? top[0]!.value - top[1]!.value : undefined;
   });
-  if (margins.some((margin) => margin === undefined || !Number.isFinite(margin) || margin! < 0)) return { trigger: true, reason: "margin-unavailable", minimumMargin: null, marginThreshold };
+  if (margins.some((margin) => margin === undefined || !Number.isFinite(margin) || margin! < 0)) return { trigger: true, reason: "margin-unavailable", minimumMargin: null, marginThreshold, sensitiveSteps: [] };
   const minimumMargin = Math.min(...margins as number[]);
-  return { trigger: minimumMargin <= marginThreshold, reason: "margin-at-or-below-threshold", minimumMargin, marginThreshold };
+  const sensitiveSteps = (margins as number[]).flatMap((margin, step) => margin <= marginThreshold ? [step] : []);
+  return { trigger: sensitiveSteps.length > 0, reason: "margin-at-or-below-threshold", minimumMargin, marginThreshold, sensitiveSteps };
 }
 
 async function executeSelectedDirect(primary: PersistentJsonlWorker, verification: PersistentJsonlWorker | undefined, marginThreshold: number | undefined, payload: { inputIds: number[]; maxNewTokens: number; sessionId?: number; stream?: boolean }, onEvent?: (event: unknown) => void, onFallback?: (assessment: DirectMarginAssessment) => void, shouldVerify: () => boolean = () => true): Promise<DirectReport> {
@@ -147,7 +148,15 @@ async function executeSelectedDirect(primary: PersistentJsonlWorker, verificatio
   if (!assessment.trigger) return Object.assign(fast, { selectionPolicy: "margin-verified-pytorch-v1", selectedBackend: "mlx", fallbackTriggered: false, fastPathMinimumMargin: assessment.minimumMargin, verificationMarginThreshold: marginThreshold, fastPathSeconds });
   if (!shouldVerify()) return fast;
   onFallback?.(assessment);
-  const verified = await verification.send({ inputIds: payload.inputIds, maxNewTokens: payload.maxNewTokens, ...(payload.sessionId === undefined ? {} : { sessionId: payload.sessionId }) }) as DirectReport;
+  const selectiveRequest = assessment.reason === "margin-at-or-below-threshold" && assessment.sensitiveSteps.length > 0 && typeof fast.terminalLogitsSha256 === "string" && /^[0-9a-f]{64}$/.test(fast.terminalLogitsSha256)
+    ? { verificationFastPath: { generatedTokenIds: fast.generatedTokenIds, sensitiveSteps: assessment.sensitiveSteps, terminalLogitsSha256: fast.terminalLogitsSha256 } }
+    : {};
+  const verified = await verification.send({ inputIds: payload.inputIds, maxNewTokens: payload.maxNewTokens, ...selectiveRequest, ...(payload.sessionId === undefined ? {} : { sessionId: payload.sessionId }) }) as DirectReport;
+  if (verified.selectiveVerification === true && Array.isArray(verified.steps) && Array.isArray(fast.steps)) {
+    verified.steps = verified.steps.map((step, index) => step?.verificationSkipped === true && fast.steps![index]
+      ? { ...fast.steps![index], ...(step.forwardSeconds === undefined ? {} : { forwardSeconds: step.forwardSeconds }), verificationSkipped: true }
+      : step);
+  }
   const hybridSeconds = (performance.now() - started) / 1000;
   return Object.assign(verified, {
     selectionPolicy: "margin-verified-pytorch-v1", selectedBackend: "pytorch", fallbackTriggered: true, fallbackReason: assessment.reason,
@@ -198,7 +207,7 @@ class PersistentJsonlWorker {
 }
 
 interface ComparisonReport { inputIds?: number[][]; baselineGeneratedTokenIds: number[]; steps?: Array<{ baselineToken?: number; baselineTopLogits?: unknown }> }
-interface DirectReport { generatedTokenIds: number[]; fullTokenIds: number[]; generatedText?: string; fullText?: string; tokensEqualBaseline?: boolean; firstDivergentStep?: number | null; [key: string]: unknown }
+interface DirectReport { generatedTokenIds: number[]; fullTokenIds: number[]; generatedText?: string; fullText?: string; tokensEqualBaseline?: boolean; firstDivergentStep?: number | null; terminalLogitsSha256?: string; selectiveVerification?: boolean; steps?: Array<{ forwardSeconds?: number; verificationSkipped?: boolean; [key: string]: unknown }>; [key: string]: unknown }
 export interface DirectLogitStepAgreement { step: number; contextsEqualBeforeStep: boolean; baselineArgmaxToken: number | null; directArgmaxToken: number | null; baselineArgmaxLogitAbsError: number | null; greedyMarginAbsError: number | null; topK: number; topKOverlapCount: number; topKOverlapRate: number | null; topKCommonLogitMaxAbsError: number | null }
 export interface DirectLogitAgreement { reportedSteps: number; measuredSteps: number; rootDivergences: number; postDivergenceSteps: number; selectedLogitMeasuredSteps: number; meanBaselineArgmaxLogitAbsError: number | null; maxBaselineArgmaxLogitAbsError: number | null; marginMeasuredSteps: number; meanGreedyMarginAbsError: number | null; maxGreedyMarginAbsError: number | null; meanTopKOverlapRate: number | null; maxTopKCommonLogitAbsError: number | null; steps: DirectLogitStepAgreement[] }
 function arraysEqual(left: readonly number[], right: readonly number[]): boolean { return left.length === right.length && left.every((value, index) => value === right[index]); }

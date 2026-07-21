@@ -2593,8 +2593,12 @@ classificados como cascata e não como novas divergências numéricas.
 
 O runtime MLX também aplica uma seleção híbrida independente da resposta
 original. Por padrão, `--direct-verification-margin 0` identifica qualquer
-empate no top-2 do próprio Metal e recalcula a requisição completa no backend
-compilado PyTorch sobre o mesmo artefato literal e constant pool. Tokens Metal
+empate no top-2 do próprio Metal. O verificador PyTorch sempre recompõe o
+decoder e o cache na mesma ordem incremental, mas só calcula a cabeça de
+262.144 logits nos passos sensíveis. Passos com margem segura reutilizam o
+token Metal; depois da primeira divergência confirmada, todas as cabeças
+seguintes são recalculadas porque o contexto mudou. Margens ou hashes ausentes
+mantêm o fallback integral, sem aceitar uma verificação parcial. Tokens Metal
 emitidos durante streaming são marcados como provisórios; o relatório final
 declara `selectedBackend`, `fallbackTriggered`, a margem observada e os tempos
 separados de Metal, verificação e execução híbrida. Margens ausentes ou
@@ -2608,7 +2612,7 @@ O corpus ampliado e reproduzível pode ser executado com:
 
 ```bash
 npm run calibrate:gemma4-real -- \
-  --output ./artifacts/gemma4-three-way-calibration-32x4-mlx-hybrid-margin0.json \
+  --output ./artifacts/gemma4-three-way-calibration-32x4-mlx-selective-head-verifier.json \
   --prompts-json ./artifacts/gemma4-calibration-prompts-32.json \
   --tokens 4 --request-threads 1 \
   --precision f32 --rounding-policy none
@@ -2616,13 +2620,14 @@ npm run calibrate:gemma4-real -- \
 
 Ele cobre 32 prompts em inglês, português e espanhol, completions factuais,
 matemática, código, Unicode e repetição, totalizando 128 tokens gerados.
-No relatório `mlx-hybrid-margin0`, 3/32 prompts acionaram a verificação. O
-resultado selecionado coincidiu com o baseline em 127/128 decisões (99,21875%)
-e em 31/32 prompts completos, sem passos de cascata, contra 124/128 e 30/32 no
-caminho Metal isolado. O throughput agregado selecionado foi 7,34 tokens/s,
-5,75× o baseline de 1,28 tokens/s. A divergência restante é um empate preservado
-pelos dois backends compilados; ela permanece visível no relatório, não é
-resolvida por uma regra de ID específica ao corpus.
+No relatório seletivo atual, 3/32 prompts acionaram a verificação. O resultado
+selecionado coincidiu com o baseline em 128/128 decisões e 32/32 prompts, sem
+divergências raiz. Os fallbacks calcularam 5 cabeças de vocabulário em vez de
+12: 1 no caso sem divergência, 3 após uma divergência no passo 1 e 1 numa
+divergência terminal. O throughput agregado selecionado foi 2,8396 tokens/s,
+2,8698× o baseline de 0,9895 token/s na mesma execução. Essa calibração é
+evidência sobre o corpus versionado, não garantia universal para qualquer
+prompt.
 
 ### Gerador de fórmulas fisicamente planas
 

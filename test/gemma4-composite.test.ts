@@ -93,7 +93,7 @@ import {
   verifyGemma4CompositeLiteralPayloadsAgainstCatalog,
 } from "../src/gemma4-composite-literal-payload-verification.js";
 import { probeGemma4LiteralLinearReductionProfiles } from "../src/gemma4-linear-reduction-probe.js";
-import { executeGemma4PagedTextLiteralF32, generateGemma4PagedTextLiteralF32 } from "../src/gemma4-paged-text.js";
+import { executeGemma4PagedTextEpilogueLiteralF32, executeGemma4PagedTextHiddenLiteralF32, executeGemma4PagedTextLiteralF32, generateGemma4PagedTextLiteralF32 } from "../src/gemma4-paged-text.js";
 import { executeGemma4VisionF32 } from "../src/gemma4-vision.js";
 import { GEMMA4_E4B_PYTORCH_BF16_ATTENTION_IMPLEMENTATION } from "../src/gemma4-text.js";
 import {
@@ -2685,6 +2685,11 @@ test("Gemma 4 paged text interpreter replays prefill and cached greedy decode fr
         /fidelidade numérica não verificada/,
       );
       const replay = await executeGemma4PagedTextLiteralF32(artifact, { inputIds: [[1, 2, 3]] }, { maxReadBytes: 64, allowUnverifiedFidelity: true });
+      const hidden = await executeGemma4PagedTextHiddenLiteralF32(artifact, { inputIds: [[1, 2, 3]] }, { maxReadBytes: 64, allowUnverifiedFidelity: true });
+      const splitReplay = await executeGemma4PagedTextEpilogueLiteralF32(artifact, [[1, 2, 3]], hidden.hidden, { maxReadBytes: 64, allowUnverifiedFidelity: true });
+      assert.deepEqual(splitReplay.shape, replay.logits.shape);
+      assert.deepEqual([...splitReplay.values], [...replay.logits.values], "decoder oculto + epílogo deve equivaler ao forward integral");
+      assert.equal(hidden.pastKeyValues.size, replay.pastKeyValues.size);
       const nativeAttentionRequests: PagedNativeAttentionRequest[] = [];
       await executeGemma4PagedTextLiteralF32(artifact, { inputIds: [[1, 2, 3]] }, {
         maxReadBytes: 64,
