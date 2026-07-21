@@ -237,18 +237,27 @@ def execute_ple_prelude_values(inputs, token_identity, projection_weight, norm_w
     return boundary(combined * mx.array(combine_scale, dtype=mx.float32)).reshape((rows, outputs))
 
 
-def rope_real(tensor, positions, rope_kind, theta, rotary_dim, proportional_pairs, proportional_factor, round_bf16=True):
+def rope_real(tensor, positions, rope_kind, theta, rotary_dim, proportional_pairs, proportional_factor, round_bf16=True, factor_context=None):
     boundary = (lambda value: value.astype(mx.bfloat16).astype(mx.float32)) if round_bf16 else (lambda value: value)
     head_dim, half = tensor.shape[-1], rotary_dim // 2
-    pairs = mx.arange(half, dtype=mx.float32)
-    denominator_width = head_dim if rope_kind == 1 else rotary_dim
-    denominator = mx.power(mx.array(theta, dtype=mx.float32), (mx.array(2.0, dtype=mx.float32) * pairs) / mx.array(denominator_width, dtype=mx.float32))
-    if rope_kind == 1:
-        denominator = denominator * mx.array(proportional_factor, dtype=mx.float32)
-    angles = positions[:, None, :, None].astype(mx.float32) / denominator[None, None, None, :]
-    if rope_kind == 1 and proportional_pairs < half:
-        angles = mx.where((pairs < proportional_pairs)[None, None, None, :], angles, mx.zeros_like(angles))
-    cosine, sine = boundary(mx.cos(angles)), boundary(mx.sin(angles))
+    factor_key = (head_dim, rope_kind, theta, rotary_dim, proportional_pairs, proportional_factor, round_bf16)
+    factors = factor_context["factors"].get(factor_key) if factor_context is not None else None
+    if factor_context is not None:
+        factor_context["uses"] += 1
+    if factors is None:
+        pairs = mx.arange(half, dtype=mx.float32)
+        denominator_width = head_dim if rope_kind == 1 else rotary_dim
+        denominator = mx.power(mx.array(theta, dtype=mx.float32), (mx.array(2.0, dtype=mx.float32) * pairs) / mx.array(denominator_width, dtype=mx.float32))
+        if rope_kind == 1:
+            denominator = denominator * mx.array(proportional_factor, dtype=mx.float32)
+        angles = positions[:, None, :, None].astype(mx.float32) / denominator[None, None, None, :]
+        if rope_kind == 1 and proportional_pairs < half:
+            angles = mx.where((pairs < proportional_pairs)[None, None, None, :], angles, mx.zeros_like(angles))
+        factors = boundary(mx.cos(angles)), boundary(mx.sin(angles))
+        if factor_context is not None:
+            factor_context["factors"][factor_key] = factors
+            factor_context["builds"] += 1
+    cosine, sine = factors
     first, second = tensor[..., :half], tensor[..., half:rotary_dim]
     rotated_first = boundary(boundary(first * cosine) - boundary(second * sine))
     rotated_second = boundary(boundary(second * cosine) + boundary(first * sine))
@@ -284,7 +293,7 @@ def read_decoder_layer_weights(pool, shards, hidden_size, config):
     return weights
 
 
-def execute_decoder_layer_mlx(pool, shards, inputs, per_layer, positions, mask, source_key, source_value, config, weights=None):
+def execute_decoder_layer_mlx(pool, shards, inputs, per_layer, positions, mask, source_key, source_value, config, weights=None, rope_factor_context=None):
     batch, query_sequence, hidden_size = inputs.shape
     query_heads, key_value_heads, head_dim = config["query_heads"], config["key_value_heads"], config["head_dim"]
     produces_kv, value_from_key = config["produces_kv"], config["value_from_key"]
@@ -297,11 +306,11 @@ def execute_decoder_layer_mlx(pool, shards, inputs, per_layer, positions, mask, 
     input_norm_weight, query_weight, query_norm, output_weight = weights["input_norm"], weights["query"], weights["query_norm"], weights["output"]
     normalized_input = boundary(rms_norm_real(inputs, input_norm_weight, config["input_epsilon"]))
     query = mx.transpose(boundary(project(normalized_input, query_weight)).reshape((batch, query_sequence, query_heads, head_dim)), (0, 2, 1, 3))
-    query = rope_real(boundary(rms_norm_real(query, query_norm, config["attention_epsilon"])), positions, config["rope_kind"], config["theta"], config["rotary_dim"], config["proportional_pairs"], config["proportional_factor"], not real)
+    query = rope_real(boundary(rms_norm_real(query, query_norm, config["attention_epsilon"])), positions, config["rope_kind"], config["theta"], config["rotary_dim"], config["proportional_pairs"], config["proportional_factor"], not real, rope_factor_context)
     if produces_kv:
         key_weight, key_norm = weights["key"], weights["key_norm"]
         current_key_heads = mx.transpose(boundary(project(normalized_input, key_weight)).reshape((batch, query_sequence, key_value_heads, head_dim)), (0, 2, 1, 3))
-        current_key = rope_real(boundary(rms_norm_real(current_key_heads, key_norm, config["attention_epsilon"])), positions, config["rope_kind"], config["theta"], config["rotary_dim"], config["proportional_pairs"], config["proportional_factor"], not real)
+        current_key = rope_real(boundary(rms_norm_real(current_key_heads, key_norm, config["attention_epsilon"])), positions, config["rope_kind"], config["theta"], config["rotary_dim"], config["proportional_pairs"], config["proportional_factor"], not real, rope_factor_context)
         if value_from_key:
             current_value = boundary(rms_norm_real(current_key_heads, None, config["attention_epsilon"]))
         else:
@@ -396,10 +405,13 @@ def prefill_topology_mask(config, query_sequence):
     return mx.array(values)
 
 
-def emit_resident_generation(model, result, produced_caches, logits, first_forward_seconds, max_new_tokens, eos_token_id, top_k, cache_hits_before, input_token_ids, session_id=None, stream=False, prefix_tokens_reused=0, prefill_tokens_computed=None):
+def emit_resident_generation(model, result, produced_caches, logits, first_forward_seconds, max_new_tokens, eos_token_id, top_k, cache_hits_before, input_token_ids, session_id=None, stream=False, prefix_tokens_reused=0, prefill_tokens_computed=None, initial_rope_factor_context=None, initial_topology_mask_builds=0, initial_topology_mask_uses=0):
     global _resident_generation_session
     generated_ids, forward_seconds, top_ids, top_values = [], [first_forward_seconds], [], []
     terminal_values = None
+    rope_factor_builds = 0 if initial_rope_factor_context is None else initial_rope_factor_context["builds"]
+    rope_factor_uses = 0 if initial_rope_factor_context is None else initial_rope_factor_context["uses"]
+    topology_mask_builds, topology_mask_uses = initial_topology_mask_builds, initial_topology_mask_uses
     while len(generated_ids) < max_new_tokens:
         token_id, ranked_ids, ranked_values = rank_terminal_logits(logits, top_k)
         generated_ids.append(token_id)
@@ -419,17 +431,27 @@ def emit_resident_generation(model, result, produced_caches, logits, first_forwa
         absolute_position = model["prompt_length"] + len(generated_ids) - 1
         positions = mx.array(np.array([[absolute_position]], dtype=np.int32))
         next_caches, all_valid = {}, mx.array(True)
+        rope_factor_context = {"factors": {}, "builds": 0, "uses": 0}
+        topology_masks = {}
         for layer_index, (config, weights) in enumerate(model["layer_plans"]):
             if config["produces_kv"]:
                 source_key, source_value = produced_caches[layer_index]
             else:
                 source_key, source_value = next_caches[config["producer_layer"]]
             key_sequence = source_key.shape[2] + (1 if config["produces_kv"] else 0)
-            mask = incremental_topology_mask(config, key_sequence, absolute_position)
-            result, key, value, valid, _ = execute_decoder_layer_mlx(model["pool"], model["shards"], result, all_per_layer[:, :, layer_index, :], positions, mask, source_key, source_value, config, weights)
+            topology_key = (config["mask_heads"], key_sequence, config["sliding_window"], config["causal"])
+            mask = topology_masks.get(topology_key)
+            topology_mask_uses += 1
+            if mask is None:
+                mask = incremental_topology_mask(config, key_sequence, absolute_position)
+                topology_masks[topology_key] = mask
+                topology_mask_builds += 1
+            result, key, value, valid, _ = execute_decoder_layer_mlx(model["pool"], model["shards"], result, all_per_layer[:, :, layer_index, :], positions, mask, source_key, source_value, config, weights, rope_factor_context)
             all_valid = all_valid & valid
             if config["produces_kv"]:
                 next_caches[layer_index] = (key, value)
+        rope_factor_builds += rope_factor_context["builds"]
+        rope_factor_uses += rope_factor_context["uses"]
         produced_caches = next_caches
         logits = execute_decoder_epilogue(result, model["epilogue"], rounding=model["rounding"])
         logits_valid = mx.all(mx.isfinite(logits))
@@ -454,7 +476,7 @@ def emit_resident_generation(model, result, produced_caches, logits, first_forwa
     write_bytes(hashlib.sha256(np.asarray(terminal_values, dtype=np.float32).tobytes(order="C")).digest())
     computed = len(np.asarray(input_token_ids).reshape(-1)) if prefill_tokens_computed is None else prefill_tokens_computed
     cached_context_tokens = len(_resident_generation_session["token_ids"]) if session_id is not None else len(np.asarray(input_token_ids).reshape(-1)) + len(generated_ids) - 1
-    profile = np.array((1, len(generated_ids), max(0, len(generated_ids) - 1), terminal_values.nbytes, _widened_tensor_cache_hits - cache_hits_before, len(_widened_tensor_cache), _widened_tensor_cache_bytes, resident_kv_bytes, prefix_tokens_reused, computed, 1 if prefix_tokens_reused else 0, cached_context_tokens), dtype=np.float32)
+    profile = np.array((1, len(generated_ids), max(0, len(generated_ids) - 1), terminal_values.nbytes, rope_factor_builds, max(0, rope_factor_uses - rope_factor_builds), topology_mask_builds, max(0, topology_mask_uses - topology_mask_builds), _widened_tensor_cache_hits - cache_hits_before, len(_widened_tensor_cache), _widened_tensor_cache_bytes, resident_kv_bytes, prefix_tokens_reused, computed, 1 if prefix_tokens_reused else 0, cached_context_tokens), dtype=np.float32)
     write_float_tensor(mx.array(profile))
     sys.stdout.buffer.flush()
 
@@ -492,6 +514,8 @@ def execute_compiled_token_generation(pool, shards, token_ids, max_new_tokens, e
     result, all_per_layer = model["execute_token_prelude"](current_token_ids)
     positions = mx.array(np.arange(cached_count, token_ids.shape[1], dtype=np.int32).reshape(1, -1))
     produced_caches, all_valid = {}, mx.array(True)
+    rope_factor_context = {"factors": {}, "builds": 0, "uses": 0}
+    topology_masks, topology_mask_uses = {}, 0
     for layer_index, (config, weights) in enumerate(model["layer_plans"]):
         if config["produces_kv"]:
             if reusable is not None:
@@ -502,8 +526,13 @@ def execute_compiled_token_generation(pool, shards, token_ids, max_new_tokens, e
         else:
             source_key, source_value = produced_caches[config["producer_layer"]]
         key_sequence = source_key.shape[2] + (current_token_ids.shape[1] if config["produces_kv"] else 0)
-        mask = continuation_topology_mask(config, current_token_ids.shape[1], key_sequence, cached_count) if reusable is not None else prefill_topology_mask(config, token_ids.shape[1])
-        result, key, value, valid, _ = execute_decoder_layer_mlx(pool, shards, result, all_per_layer[:, :, layer_index, :], positions, mask, source_key, source_value, config, weights)
+        topology_key = (config["mask_heads"], key_sequence, config["sliding_window"], config["causal"])
+        mask = topology_masks.get(topology_key)
+        topology_mask_uses += 1
+        if mask is None:
+            mask = continuation_topology_mask(config, current_token_ids.shape[1], key_sequence, cached_count) if reusable is not None else prefill_topology_mask(config, token_ids.shape[1])
+            topology_masks[topology_key] = mask
+        result, key, value, valid, _ = execute_decoder_layer_mlx(pool, shards, result, all_per_layer[:, :, layer_index, :], positions, mask, source_key, source_value, config, weights, rope_factor_context)
         all_valid = all_valid & valid
         if config["produces_kv"]:
             produced_caches[layer_index] = (key, value)
@@ -515,7 +544,7 @@ def execute_compiled_token_generation(pool, shards, token_ids, max_new_tokens, e
     mx.eval(*evaluation)
     if not bool(np.asarray(logits_valid & all_valid).item()):
         raise ValueError("MLX compiled generation prefill produced non-finite state")
-    emit_resident_generation(model, result, produced_caches, logits, time.perf_counter() - started, max_new_tokens, eos_token_id, top_k, cache_hits_before, token_ids, session_id, stream, cached_count, current_token_ids.shape[1])
+    emit_resident_generation(model, result, produced_caches, logits, time.perf_counter() - started, max_new_tokens, eos_token_id, top_k, cache_hits_before, token_ids, session_id, stream, cached_count, current_token_ids.shape[1], rope_factor_context, len(topology_masks), topology_mask_uses)
 
 
 def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, native_bf16_ple, fused_epilogue, fused_token_forward, fused_token_generation):
@@ -561,6 +590,7 @@ def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, 
     position_bytes = read_exact(batch * query_sequence * 4)
     positions = mx.array(np.frombuffer(position_bytes, dtype=np.int32).reshape(batch, query_sequence))
     produced_caches, ordered_caches, layer_plans = {}, [], []
+    rope_factor_context = {"factors": {}, "builds": 0, "uses": 0}
     all_valid = mx.array(True)
     for expected_layer in range(num_layers):
         metadata = read_exact(96)
@@ -600,7 +630,7 @@ def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, 
                 source_key = mx.zeros((batch, key_value_heads, 0, head_dim), dtype=mx.float32)
                 source_value = mx.zeros((batch, key_value_heads, 0, head_dim), dtype=mx.float32)
         config = {"layer_index": layer_index, "producer_layer": producer_layer if shared else None, "query_heads": query_heads, "key_value_heads": key_value_heads, "head_dim": head_dim, "mask_heads": mask_heads, "causal": causal, "sliding_window": sliding_window, "produces_kv": produces_kv, "value_from_key": value_from_key, "intermediate_size": intermediate_size, "per_layer_width": per_layer_width, "input_epsilon": input_epsilon, "attention_epsilon": attention_epsilon, "post_attention_epsilon": post_attention_epsilon, "pre_ffn_epsilon": pre_ffn_epsilon, "post_ffn_epsilon": post_ffn_epsilon, "ple_epsilon": ple_epsilon, "scale": scale, "rope_kind": rope_kind, "theta": theta, "rotary_dim": rotary_dim, "proportional_pairs": proportional_pairs, "proportional_factor": proportional_factor, "rounding": rounding}
-        result, key, value, valid, weights = execute_decoder_layer_mlx(pool, shards, result, all_per_layer[:, :, layer_index, :], positions, mask, source_key, source_value, config)
+        result, key, value, valid, weights = execute_decoder_layer_mlx(pool, shards, result, all_per_layer[:, :, layer_index, :], positions, mask, source_key, source_value, config, rope_factor_context=rope_factor_context)
         layer_plans.append((config, weights))
         all_valid = all_valid & valid
         if produces_kv:
@@ -630,7 +660,7 @@ def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, 
     if generation is not None:
         global _resident_generation_model
         _resident_generation_model = {"pool": pool, "shards": shards, "execute_token_prelude": execute_token_prelude, "layer_plans": layer_plans, "epilogue": epilogue, "vocabulary_size": vocabulary_size, "prompt_length": query_sequence, "rounding": rounding}
-        emit_resident_generation(_resident_generation_model, result, produced_caches, logits, time.perf_counter() - request_started, generation["max_new_tokens"], generation["eos_token_id"], generation["top_k"], cache_hits_before, token_ids)
+        emit_resident_generation(_resident_generation_model, result, produced_caches, logits, time.perf_counter() - request_started, generation["max_new_tokens"], generation["eos_token_id"], generation["top_k"], cache_hits_before, token_ids, initial_rope_factor_context=rope_factor_context, initial_topology_mask_builds=num_layers, initial_topology_mask_uses=num_layers)
         return
     if not fused_token_forward:
         write_float_tensor(result)

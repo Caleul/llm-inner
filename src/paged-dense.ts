@@ -252,6 +252,10 @@ export interface PagedFusedTokenGenerationResult {
   gpuRankedTokenSteps: number;
   fullLogitTransfersAvoided: number;
   terminalLogitVectorBytes: number;
+  ropeFactorBuilds: number;
+  ropeFactorBuildsAvoided: number;
+  topologyMaskBuilds: number;
+  topologyMaskBuildsAvoided: number;
   residentKvBytes: number;
   prefixTokensReused: number;
   prefillTokensComputed: number;

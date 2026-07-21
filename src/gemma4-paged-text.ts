@@ -91,6 +91,10 @@ export interface Gemma4PagedNativeGenerationResult {
   gpuRankedTokenSteps: number;
   fullLogitTransfersAvoided: number;
   terminalLogitVectorBytes: number;
+  ropeFactorBuilds: number;
+  ropeFactorBuildsAvoided: number;
+  topologyMaskBuilds: number;
+  topologyMaskBuildsAvoided: number;
   residentKvBytes: number;
   prefixTokensReused: number;
   prefillTokensComputed: number;
@@ -1009,7 +1013,7 @@ export async function generateGemma4PagedTextLiteralNativeF32(
   }
   if (!result) throw new Error("Geração nativa residente não retornou resultado.");
   const count = result.generatedTokenIds.length;
-  if (count < 1 || count > request.maxNewTokens || result.forwardSeconds.length !== count || result.topTokenIds.length !== count * topK || result.topLogits.length !== count * topK || !/^[0-9a-f]{64}$/.test(result.terminalLogitsSha256) || !Number.isSafeInteger(result.terminalLogitMaterializations) || result.terminalLogitMaterializations < 0 || !Number.isSafeInteger(result.gpuRankedTokenSteps) || result.gpuRankedTokenSteps < 0 || !Number.isSafeInteger(result.fullLogitTransfersAvoided) || result.fullLogitTransfersAvoided < 0 || !Number.isSafeInteger(result.terminalLogitVectorBytes) || result.terminalLogitVectorBytes < 0 || !Number.isSafeInteger(result.residentKvBytes) || result.residentKvBytes < 0 || !Number.isSafeInteger(result.prefixTokensReused) || result.prefixTokensReused < 0 || !Number.isSafeInteger(result.prefillTokensComputed) || result.prefillTokensComputed < 1 || typeof result.sessionCacheHit !== "boolean" || !Number.isSafeInteger(result.cachedContextTokens) || result.cachedContextTokens < 1 || result.generatedTokenIds.some((token) => token < 0 || token >= artifact.program.contract.text.vocabSize) || result.topTokenIds.some((token) => token < 0 || token >= artifact.program.contract.text.vocabSize) || result.forwardSeconds.some((seconds) => !Number.isFinite(seconds) || seconds < 0) || result.topLogits.some((value) => !Number.isFinite(value))) throw new Error("Geração nativa residente retornou payload incompatível.");
+  if (count < 1 || count > request.maxNewTokens || result.forwardSeconds.length !== count || result.topTokenIds.length !== count * topK || result.topLogits.length !== count * topK || !/^[0-9a-f]{64}$/.test(result.terminalLogitsSha256) || !Number.isSafeInteger(result.terminalLogitMaterializations) || result.terminalLogitMaterializations < 0 || !Number.isSafeInteger(result.gpuRankedTokenSteps) || result.gpuRankedTokenSteps < 0 || !Number.isSafeInteger(result.fullLogitTransfersAvoided) || result.fullLogitTransfersAvoided < 0 || !Number.isSafeInteger(result.terminalLogitVectorBytes) || result.terminalLogitVectorBytes < 0 || !Number.isSafeInteger(result.ropeFactorBuilds) || result.ropeFactorBuilds < 0 || !Number.isSafeInteger(result.ropeFactorBuildsAvoided) || result.ropeFactorBuildsAvoided < 0 || !Number.isSafeInteger(result.topologyMaskBuilds) || result.topologyMaskBuilds < 0 || !Number.isSafeInteger(result.topologyMaskBuildsAvoided) || result.topologyMaskBuildsAvoided < 0 || !Number.isSafeInteger(result.residentKvBytes) || result.residentKvBytes < 0 || !Number.isSafeInteger(result.prefixTokensReused) || result.prefixTokensReused < 0 || !Number.isSafeInteger(result.prefillTokensComputed) || result.prefillTokensComputed < 1 || typeof result.sessionCacheHit !== "boolean" || !Number.isSafeInteger(result.cachedContextTokens) || result.cachedContextTokens < 1 || result.generatedTokenIds.some((token) => token < 0 || token >= artifact.program.contract.text.vocabSize) || result.topTokenIds.some((token) => token < 0 || token >= artifact.program.contract.text.vocabSize) || result.forwardSeconds.some((seconds) => !Number.isFinite(seconds) || seconds < 0) || result.topLogits.some((value) => !Number.isFinite(value))) throw new Error("Geração nativa residente retornou payload incompatível.");
   return {
     generatedTokenIds: [...result.generatedTokenIds],
     forwardSeconds: [...result.forwardSeconds],
@@ -1019,6 +1023,10 @@ export async function generateGemma4PagedTextLiteralNativeF32(
     gpuRankedTokenSteps: result.gpuRankedTokenSteps,
     fullLogitTransfersAvoided: result.fullLogitTransfersAvoided,
     terminalLogitVectorBytes: result.terminalLogitVectorBytes,
+    ropeFactorBuilds: result.ropeFactorBuilds,
+    ropeFactorBuildsAvoided: result.ropeFactorBuildsAvoided,
+    topologyMaskBuilds: result.topologyMaskBuilds,
+    topologyMaskBuildsAvoided: result.topologyMaskBuildsAvoided,
     residentKvBytes: result.residentKvBytes,
     prefixTokensReused: result.prefixTokensReused,
     prefillTokensComputed: result.prefillTokensComputed,

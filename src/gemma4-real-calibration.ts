@@ -68,6 +68,10 @@ interface ThreeWayCase {
     gpuRankedTokenSteps?: number;
     fullLogitTransfersAvoided?: number;
     terminalLogitVectorBytes?: number;
+    ropeFactorBuilds?: number;
+    ropeFactorBuildsAvoided?: number;
+    topologyMaskBuilds?: number;
+    topologyMaskBuildsAvoided?: number;
     fusedDecoderStackGateUpPairs?: number;
     fusedDecoderStackWidenedCacheHits?: number;
     widenedTensorCacheEntries?: number;
@@ -278,6 +282,10 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.gpuRankedTokenSteps === undefined ? {} : { gpuRankedTokenSteps: entry.direct.gpuRankedTokenSteps }),
         ...(entry.direct.fullLogitTransfersAvoided === undefined ? {} : { fullLogitTransfersAvoided: entry.direct.fullLogitTransfersAvoided }),
         ...(entry.direct.terminalLogitVectorBytes === undefined ? {} : { terminalLogitVectorBytes: entry.direct.terminalLogitVectorBytes }),
+        ...(entry.direct.ropeFactorBuilds === undefined ? {} : { ropeFactorBuilds: entry.direct.ropeFactorBuilds }),
+        ...(entry.direct.ropeFactorBuildsAvoided === undefined ? {} : { ropeFactorBuildsAvoided: entry.direct.ropeFactorBuildsAvoided }),
+        ...(entry.direct.topologyMaskBuilds === undefined ? {} : { topologyMaskBuilds: entry.direct.topologyMaskBuilds }),
+        ...(entry.direct.topologyMaskBuildsAvoided === undefined ? {} : { topologyMaskBuildsAvoided: entry.direct.topologyMaskBuildsAvoided }),
         ...(entry.direct.fusedDecoderStackGateUpPairs === undefined ? {} : { fusedDecoderStackGateUpPairs: entry.direct.fusedDecoderStackGateUpPairs }),
         ...(entry.direct.fusedDecoderStackWidenedCacheHits === undefined ? {} : { fusedDecoderStackWidenedCacheHits: entry.direct.fusedDecoderStackWidenedCacheHits }),
         ...(entry.direct.widenedTensorCacheEntries === undefined ? {} : { widenedTensorCacheEntries: entry.direct.widenedTensorCacheEntries }),

@@ -2615,6 +2615,13 @@ top-K atravessam para a CPU; o vetor F32 completo (1 MiB) é materializado uma
 publica quantos passos foram ranqueados na GPU e quantas transferências de vetor
 completo foram evitadas.
 
+O compositor vetorizado também faz eliminação de subexpressões comuns por passo
+de geração: fatores seno/cosseno de RoPE e máscaras causais/sliding-window com
+a mesma configuração são construídos uma vez e compartilhados entre as camadas
+que os consomem. As contagens construídas e evitadas aparecem na UI e nos
+relatórios de calibração, permitindo distinguir redução algébrica real de uma
+simples alegação de otimização.
+
 O modo padrão, **Conclusão bruta (fiel)**, envia o texto literalmente porque o
 `gemma-4-E4B-dense/tokenizer_config.json` possui `chat_template: null`. O modo
 **Chat IT (experimental)** aplica, igualmente aos três executores, o contrato

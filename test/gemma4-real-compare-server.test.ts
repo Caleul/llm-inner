@@ -44,6 +44,8 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /cache de constantes F32/);
   assert.match(gemma4RealCompareHtml, /ranking final GPU/);
   assert.match(gemma4RealCompareHtml, /fullLogitTransfersAvoided/);
+  assert.match(gemma4RealCompareHtml, /CSE RoPE/);
+  assert.match(gemma4RealCompareHtml, /ropeFactorBuildsAvoided/);
   assert.match(gemma4RealCompareHtml, /fases stack attn\/FFN\/PLE/);
   assert.match(gemma4RealCompareHtml, /fases stack: fundidas no grafo Metal/);
   assert.match(gemma4RealCompareHtml, /PLEs fundidos/);
