@@ -2713,6 +2713,15 @@ Essa política reduz empates dependentes da árvore de redução, mas continua
 sendo medida contra o Transformers: um segundo backend BF16 pode preservar o
 mesmo empate e, portanto, não é apresentado como prova geral de paridade.
 
+Depois do primeiro fallback, o servidor mantém o índice autenticado do
+artefato literal já aberto, mas reinicia o kernel linear PyTorch após cada
+verificação. Isso evita reler e reindexar os 20 GiB de `constants.literal.json`
+nos empates seguintes e, ao mesmo tempo, libera as páginas e buffers pesados
+do cálculo anterior. `/api/status` identifica esse ciclo como
+`retained-index-restarted-kernel-v1`; o primeiro empate ainda inclui a
+inicialização fria, enquanto `verificationSeconds` mede explicitamente o custo
+recorrente dos próximos empates.
+
 O corpus ampliado e reproduzível pode ser executado com:
 
 ```bash

@@ -91,7 +91,11 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
     void verificationInitialization.catch(() => undefined);
     return verificationInitialization;
   };
-  const releaseVerificationWorker = (): void => { verification?.close(); verification = undefined; verificationInitialization = undefined; };
+  const releaseVerificationWorker = async (): Promise<void> => {
+    if (!verification?.ready) return;
+    try { await verification.send({ control: "trim-memory" }); }
+    catch { verification.close(); verification = undefined; verificationInitialization = undefined; }
+  };
   const verificationProvider = verificationEnabled ? { get: getVerificationWorker, release: releaseVerificationWorker } : undefined;
   const initialize = (async () => {
     try {
@@ -108,7 +112,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
   const server = createServer(async (request, response) => {
     try {
       if (request.method === "GET" && request.url === "/") return send(response, 200, "text/html; charset=utf-8", gemma4RealCompareHtml);
-      if (request.method === "GET" && request.url === "/api/status") return json(response, 200, { ready: tokenizer.ready && (!direct ? worker?.ready === true : direct.ready && directWarmupSeconds !== undefined), source: options.source, runtime: "persistent-jsonl", chatTemplate: GEMMA4_CHAT_TEMPLATE, checkpointChatTemplateDeclared, tokenizer: { ready: tokenizer.ready, initializationSeconds: tokenizer.initializationSeconds, helper: options.tokenizerHelper }, reference: { state: worker?.ready ? "ready" : referenceInitialization ? "initializing" : "unloaded", initializationSeconds: worker?.initializationSeconds, ...(referenceError ? { error: referenceError.message } : {}) }, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), ...(initializationError ? { error: initializationError.message } : {}), direct: direct ? { enabled: true, artifact: options.literalArtifact, binaryPool: options.binaryPool, sourceIndependentBundle: options.literalArtifact !== undefined && options.binaryPool === dirname(options.literalArtifact), ...direct.readyMetadata, ready: direct.ready, initializationSeconds: direct.initializationSeconds, warmupSeconds: directWarmupSeconds, warmupComplete: directWarmupSeconds !== undefined, verification: verificationEnabled ? { enabled: true, backend: "pytorch", marginThreshold: options.directVerificationMargin, state: verification?.ready ? "ready" : verificationInitialization ? "initializing" : "unloaded", ...verification?.readyMetadata, ready: verification?.ready ?? false, initializationSeconds: verification?.initializationSeconds, warmupComplete: false } : { enabled: false } } : { enabled: false } });
+      if (request.method === "GET" && request.url === "/api/status") return json(response, 200, { ready: tokenizer.ready && (!direct ? worker?.ready === true : direct.ready && directWarmupSeconds !== undefined), source: options.source, runtime: "persistent-jsonl", chatTemplate: GEMMA4_CHAT_TEMPLATE, checkpointChatTemplateDeclared, tokenizer: { ready: tokenizer.ready, initializationSeconds: tokenizer.initializationSeconds, helper: options.tokenizerHelper }, reference: { state: worker?.ready ? "ready" : referenceInitialization ? "initializing" : "unloaded", initializationSeconds: worker?.initializationSeconds, ...(referenceError ? { error: referenceError.message } : {}) }, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), ...(initializationError ? { error: initializationError.message } : {}), direct: direct ? { enabled: true, artifact: options.literalArtifact, binaryPool: options.binaryPool, sourceIndependentBundle: options.literalArtifact !== undefined && options.binaryPool === dirname(options.literalArtifact), ...direct.readyMetadata, ready: direct.ready, initializationSeconds: direct.initializationSeconds, warmupSeconds: directWarmupSeconds, warmupComplete: directWarmupSeconds !== undefined, verification: verificationEnabled ? { enabled: true, backend: "pytorch", lifecycle: "retained-index-restarted-kernel-v1", marginThreshold: options.directVerificationMargin, state: verification?.ready ? "ready" : verificationInitialization ? "initializing" : "unloaded", ...verification?.readyMetadata, ready: verification?.ready ?? false, initializationSeconds: verification?.initializationSeconds, warmupComplete: verification?.ready ?? false } : { enabled: false } } : { enabled: false } });
       if (request.method === "POST" && request.url === "/api/compare") {
         await initialize;
         const body = JSON.parse(await readBody(request)) as Gemma4RealComparisonRequest;
@@ -229,7 +233,7 @@ export function assessDirectVerification(report: DirectReport, marginThreshold: 
   return { trigger: sensitiveSteps.length > 0, reason: "margin-at-or-below-threshold", minimumMargin, marginThreshold, sensitiveSteps };
 }
 
-async function executeSelectedDirect(primary: PersistentJsonlWorker, verificationProvider: { get(): Promise<PersistentJsonlWorker>; release(): void } | undefined, marginThreshold: number | undefined, payload: { inputIds: number[]; maxNewTokens: number; sessionId?: number; stream?: boolean }, onEvent?: (event: unknown) => void, onFallback?: (assessment: DirectMarginAssessment) => void, shouldVerify: () => boolean = () => true): Promise<DirectReport> {
+async function executeSelectedDirect(primary: PersistentJsonlWorker, verificationProvider: { get(): Promise<PersistentJsonlWorker>; release(): Promise<void> } | undefined, marginThreshold: number | undefined, payload: { inputIds: number[]; maxNewTokens: number; sessionId?: number; stream?: boolean }, onEvent?: (event: unknown) => void, onFallback?: (assessment: DirectMarginAssessment) => void, shouldVerify: () => boolean = () => true): Promise<DirectReport> {
   const started = performance.now();
   const fast = await primary.send(payload, onEvent) as DirectReport;
   if (!verificationProvider || marginThreshold === undefined) return fast;
@@ -244,7 +248,7 @@ async function executeSelectedDirect(primary: PersistentJsonlWorker, verificatio
     : {};
   let verified: DirectReport;
   try { verified = await verification.send({ inputIds: payload.inputIds, maxNewTokens: payload.maxNewTokens, ...selectiveRequest, ...(payload.sessionId === undefined ? {} : { sessionId: payload.sessionId }) }) as DirectReport; }
-  finally { verificationProvider.release(); }
+  finally { await verificationProvider.release(); }
   if (verified.selectiveVerification === true && Array.isArray(verified.steps) && Array.isArray(fast.steps)) {
     verified.steps = verified.steps.map((step, index) => step?.verificationSkipped === true && fast.steps![index]
       ? { ...fast.steps![index], ...(step.forwardSeconds === undefined ? {} : { forwardSeconds: step.forwardSeconds }), verificationSkipped: true }

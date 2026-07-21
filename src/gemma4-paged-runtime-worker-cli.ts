@@ -24,15 +24,26 @@ if (args.fusedDecoderStackRounding === "real") {
   vectorizedRealLowering = persisted.contract;
   vectorizedRealExecutionGuard = new Gemma4VectorizedRealExecutionGuard(persisted);
 }
-const linear = new Gemma4PagedNativeLinearWorker({ python: args.python, helper: args.linearHelper, threads: args.threads, binaryPool: args.binaryPool, storageTensors: pool.catalog.tensors, backend: args.linearBackend, mlxHelper: args.mlxHelper });
-const options = { maxReadBytes: args.maxReadBytes, finalHeadMaxReadBytes: args.finalHeadMaxReadBytes, allowUnverifiedFidelity: true, tensorReader: pool, linearTileKernel: linear, finalHeadCompute: args.finalHeadCompute, ...(vectorizedRealExecutionGuard ? { vectorizedRealExecutionGuard } : {}), ...(args.fusedMlpRounding === "off" ? {} : { fusedMlpRounding: args.fusedMlpRounding }), ...(args.fusedFfnRounding === "off" ? {} : { fusedFfnRounding: args.fusedFfnRounding }), ...(args.fusedDecoderLayerRounding === "off" ? {} : { fusedDecoderLayerRounding: args.fusedDecoderLayerRounding }), ...(args.fusedDecoderStackRounding === "off" ? {} : { fusedDecoderStackRounding: args.fusedDecoderStackRounding }), ...(args.fusedPleRounding === "off" ? {} : { fusedPleRounding: args.fusedPleRounding }), ...(args.fusedPlePreludeRounding === "off" ? {} : { fusedPlePreludeRounding: args.fusedPlePreludeRounding }), ...(args.fusedTokenForwardRounding === "off" ? {} : { fusedTokenForwardRounding: args.fusedTokenForwardRounding }), ...(args.nativeAttentionRounding === "off" ? {} : { nativeAttentionRounding: args.nativeAttentionRounding }), ...(args.fusedAttentionRounding === "off" ? {} : { fusedAttentionRounding: args.fusedAttentionRounding }) };
+const createLinear = () => new Gemma4PagedNativeLinearWorker({ python: args.python, helper: args.linearHelper, threads: args.threads, binaryPool: args.binaryPool, storageTensors: pool.catalog.tensors, backend: args.linearBackend, mlxHelper: args.mlxHelper });
+let linear = createLinear();
+const createExecutionOptions = () => ({ maxReadBytes: args.maxReadBytes, finalHeadMaxReadBytes: args.finalHeadMaxReadBytes, allowUnverifiedFidelity: true, tensorReader: pool, linearTileKernel: linear, finalHeadCompute: args.finalHeadCompute, ...(vectorizedRealExecutionGuard ? { vectorizedRealExecutionGuard } : {}), ...(args.fusedMlpRounding === "off" ? {} : { fusedMlpRounding: args.fusedMlpRounding }), ...(args.fusedFfnRounding === "off" ? {} : { fusedFfnRounding: args.fusedFfnRounding }), ...(args.fusedDecoderLayerRounding === "off" ? {} : { fusedDecoderLayerRounding: args.fusedDecoderLayerRounding }), ...(args.fusedDecoderStackRounding === "off" ? {} : { fusedDecoderStackRounding: args.fusedDecoderStackRounding }), ...(args.fusedPleRounding === "off" ? {} : { fusedPleRounding: args.fusedPleRounding }), ...(args.fusedPlePreludeRounding === "off" ? {} : { fusedPlePreludeRounding: args.fusedPlePreludeRounding }), ...(args.fusedTokenForwardRounding === "off" ? {} : { fusedTokenForwardRounding: args.fusedTokenForwardRounding }), ...(args.nativeAttentionRounding === "off" ? {} : { nativeAttentionRounding: args.nativeAttentionRounding }), ...(args.fusedAttentionRounding === "off" ? {} : { fusedAttentionRounding: args.fusedAttentionRounding }) });
+let options = createExecutionOptions();
 process.stdout.write(`${JSON.stringify({ ready: true, initializationSeconds: (performance.now() - initializationStarted) / 1000, backend: "paged-binary-native", linearBackend: linear.backend, fusedMlpRounding: args.fusedMlpRounding, fusedFfnRounding: args.fusedFfnRounding, fusedDecoderLayerRounding: args.fusedDecoderLayerRounding, fusedDecoderStackRounding: args.fusedDecoderStackRounding, fusedPleRounding: args.fusedPleRounding, fusedPlePreludeRounding: args.fusedPlePreludeRounding, fusedTokenForwardRounding: args.fusedTokenForwardRounding, residentGeneration: args.residentGeneration, finalHeadCompute: args.finalHeadCompute, nativeAttentionRounding: args.nativeAttentionRounding, fusedAttentionRounding: args.fusedAttentionRounding, threads: args.threads, maxReadMiB: args.maxReadBytes / (1024 * 1024), finalHeadReadMiB: args.finalHeadMaxReadBytes / (1024 * 1024), ...(vectorizedRealLowering ? { vectorizedRealLowering } : {}) })}\n`);
 
 const lines = createInterface({ input: process.stdin, crlfDelay: Infinity });
 for await (const line of lines) {
-  let request: { id?: unknown; inputIds?: unknown; maxNewTokens?: unknown; sessionId?: unknown; stream?: unknown; verificationFastPath?: unknown } = {};
+  let request: { id?: unknown; control?: unknown; inputIds?: unknown; maxNewTokens?: unknown; sessionId?: unknown; stream?: unknown; verificationFastPath?: unknown } = {};
   try {
     request = JSON.parse(line) as typeof request;
+    if (request.control === "trim-memory") {
+      if (args.linearBackend !== "pytorch") throw new Error("trim-memory requer backend PyTorch.");
+      await linear.close();
+      linear = createLinear();
+      options = createExecutionOptions();
+      process.stdout.write(`${JSON.stringify({ id: request.id, report: { trimmed: true, strategy: "restart-linear-kernel", processRssBytes: process.memoryUsage().rss, processMaxRssKiB: process.resourceUsage().maxRSS } })}\n`);
+      continue;
+    }
+    if (request.control !== undefined) throw new Error("Controle de worker desconhecido.");
     const inputIds = validateIds(request.inputIds), maxNewTokens = validateTokens(request.maxNewTokens);
     const sessionId = validateSessionId(request.sessionId), stream = validateStream(request.stream), verificationFastPath = validateVerificationFastPath(request.verificationFastPath, maxNewTokens);
     const report = verificationFastPath

@@ -1462,6 +1462,24 @@ Evidência:
 - `artifacts/gemma4-three-way-calibration-8x2-mlx-full-stack.json`;
 - prova HTTP de oito tokens preservada como artefato de entrega.
 
+## Verificador recorrente sem reindexar o artefato literal
+
+O fallback seletivo mantém agora o processo Node que já autenticou e indexou
+`constants.literal.json`, mas encerra e recria o kernel linear PyTorch depois
+de cada verificação. A separação é importante: descartar o processo inteiro
+obrigava a nova varredura dos 20 GiB no empate seguinte; manter o kernel após
+o forward deixou aproximadamente 8,69 GiB residentes no host mesmo depois de
+aconselhar o descarte das páginas `mmap`.
+
+Na rota HTTP real, com oito tokens e a mesma política fail-closed, o primeiro
+empate em `Traduza para inglês: boa noite` levou `24,5481 s` na fase de
+verificação e produziu os mesmos 8/8 tokens do original. O fallback seguinte,
+`Write one short sentence about the Moon:`, reutilizou o índice e caiu para
+`1,8401 s`, também com 8/8 tokens iguais. Depois da reciclagem, o novo helper
+PyTorch ocioso ocupava cerca de 108 MiB de RSS, em vez dos 8,69 GiB deixados
+pelo helper que acabara de executar o modelo. O status publica o ciclo como
+`retained-index-restarted-kernel-v1`.
+
 ## Núcleo de attention nativo sem arredondamentos internos
 
 O executor direto passou a reconhecer a operação compilada de attention como
