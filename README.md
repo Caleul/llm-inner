@@ -2693,7 +2693,8 @@ a paridade e as métricas são recalculadas para cada prompt enviado.
 O agendamento padrão da interface é **Isolada (fiel)**: primeiro executa e
 entrega o texto do runtime compilado sem cálculo concorrente e só então roda o
 original e a recomposição de compatibilidade. O relatório separa a latência da
-fase compilada, a fase de referência e o tempo de parede total. **Paralela
+fase compilada, a fase de referência e o tempo de parede até publicar o
+resultado. **Paralela
 (stress)** continua disponível para medir deliberadamente a contenção de CPU,
 GPU e memória unificada; seus tempos não devem ser tratados como a latência
 isolada de inferência. A API aceita `measurementSchedule: "isolated" |
@@ -2722,8 +2723,13 @@ enquanto o kernel pesado é reciclado após cada uso. O relatório distingue
 constant pool compilado do cache do sistema, o servidor repagina um prefill de
 um token e outro de oito tokens, ambos com decode, depois de encerrar a
 referência. O segundo shape restaura também o grafo de prefill mult-token em
-vez de deixar o próximo prompt pagar sua recompilação; `directRecoverySeconds`
-mede essa recuperação, executada depois que o texto compilado já foi entregue.
+vez de deixar o próximo prompt pagar sua recompilação. No endpoint síncrono
+`/api/compare`, `directRecoverySeconds` ainda mede essa recuperação antes da
+resposta. No `/api/compare-stream`, o resultado é publicado imediatamente após
+a comparação e a recuperação é agendada em background; o relatório marca
+`backgroundRecoveryScheduled`, e o próximo uso do executor aguarda somente a
+parte ainda pendente em `directBackgroundRecoveryWaitSeconds` (com a duração
+integral em `awaitedBackgroundRecoverySeconds`).
 Quando a política seletiva usa o verificador exato persistente, sua carga e seu
 aquecimento ocorrem antes do aquecimento Metal final. Assim o verificador de
 maior pressão de memória não deixa o primeiro prompt real com o prefill

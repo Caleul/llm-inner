@@ -305,7 +305,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
             firstTokenWallSeconds ??= elapsedSeconds(directExecutionStarted);
             decodedStream.push(event, { type: "direct-token", provisional: verificationEnabled, serverElapsedSeconds: elapsedSeconds(directExecutionStarted) });
           }, (assessment) => decodedStream.write({ type: "direct-fallback", ...assessment }), () => !clientDisconnected, (prefill) => decodedStream.write({ type: "direct-verification-prefill", ...prefill }));
-          let report: ComparisonReport, directReport: DirectReport, directPhaseSeconds: number, referencePhaseSeconds: number, referenceStartupSeconds: number, referenceComputeSeconds: number, referenceColdStart: boolean, directRecoverySeconds = 0;
+          let report: ComparisonReport, directReport: DirectReport, directPhaseSeconds: number, referencePhaseSeconds: number, referenceStartupSeconds: number, referenceComputeSeconds: number, referenceColdStart: boolean;
           if (schedule === "isolated") {
             const directStarted = performance.now(); directExecutionStarted = directStarted; directReport = await executeDirect(); directPhaseSeconds = elapsedSeconds(directStarted);
             if (clientDisconnected || response.destroyed) return;
@@ -324,7 +324,6 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
             directPhaseSeconds = elapsedSeconds(directStarted); referenceComputeSeconds = elapsedSeconds(referenceStarted); referencePhaseSeconds = referenceStartupSeconds + referenceComputeSeconds;
           }
           await decodedStream.flush();
-          writeNdjson(response, { type: "direct-rewarming" }); directRecoverySeconds = await recoverDirectWorker(direct);
           if (clientDisconnected || response.destroyed) return;
           attachDirectLogitAgreement(report, directReport);
           if (directReport.generatedText === undefined || directReport.fullText === undefined) {
@@ -335,7 +334,9 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
           directReport.firstDivergentStep = firstDivergence(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
           attachDirectFallbackOutcome(directReport, report.baselineGeneratedTokenIds);
           if (body.sessionId !== undefined) rememberSession(sessionInputs, body.sessionId, directReport.fullTokenIds, body.conversationMode ?? "raw");
-          writeNdjson(response, { type: "result", data: { ...report, prompt: body.prompt, conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), direct: directReport, directExecutionMetrics: computeDirectExecutionMetrics(directReport, inputIds.length, report.performance?.baselineSeconds, firstTokenWallSeconds), comparisonTiming: { schedule, directBackgroundRecoveryWaitSeconds: directRecoveryWait.waitedSeconds, ...(directRecoveryWait.recoverySeconds === undefined ? {} : { awaitedBackgroundRecoverySeconds: directRecoveryWait.recoverySeconds }), directPhaseSeconds, referenceColdStart, referenceStartupSeconds, referenceComputeSeconds, referencePhaseSeconds, referenceReleased: true, directRecoverySeconds, totalWallSeconds: elapsedSeconds(comparisonStarted) } } }); response.end(); return;
+          writeNdjson(response, { type: "direct-rewarming", background: true });
+          const backgroundRecoveryScheduled = scheduleDirectBackgroundRecovery();
+          writeNdjson(response, { type: "result", data: { ...report, prompt: body.prompt, conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), direct: directReport, directExecutionMetrics: computeDirectExecutionMetrics(directReport, inputIds.length, report.performance?.baselineSeconds, firstTokenWallSeconds), comparisonTiming: { schedule, directBackgroundRecoveryWaitSeconds: directRecoveryWait.waitedSeconds, ...(directRecoveryWait.recoverySeconds === undefined ? {} : { awaitedBackgroundRecoverySeconds: directRecoveryWait.recoverySeconds }), backgroundRecoveryScheduled, directPhaseSeconds, referenceColdStart, referenceStartupSeconds, referenceComputeSeconds, referencePhaseSeconds, referenceReleased: true, totalWallSeconds: elapsedSeconds(comparisonStarted) } } }); response.end(); return;
         } catch (error) {
           writeNdjson(response, { type: "error", error: error instanceof Error ? error.message : String(error) }); response.end(); return;
         }
