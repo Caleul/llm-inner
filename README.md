@@ -3141,6 +3141,22 @@ do cálculo anterior. `/api/status` identifica esse ciclo como
 inicialização fria, enquanto `verificationSeconds` mede explicitamente o custo
 recorrente dos próximos empates.
 
+A verificação seletiva também encerra a recomposição exata depois do último
+passo sensível quando esse passo confirma o token Metal e nenhuma captura
+diagnóstica está ativa. O sufixo restante já possui margens estritamente acima
+do limiar e mantém o mesmo contexto, portanto seus tokens, passos e SHA-256
+terminal são reutilizados do caminho rápido autenticado. Qualquer divergência
+continua executando todos os passos seguintes e recalculando suas cabeças; os
+diagnósticos por camada também permanecem integrais. O relatório, a calibração
+e a interface publicam `verificationDecoderSteps`,
+`verificationDecoderStepsAvoided` e `verificationEarlyExitStep`. Em
+`The first month of the year is` com oito tokens, o empate no passo zero foi
+confirmado sem divergência: o verificador executou um forward, evitou sete e
+preservou os mesmos oito tokens e o mesmo hash terminal do caminho rápido. A
+latência absoluta desse fallback permanece dominada pelo prefill e pela
+cabeça exata iniciais, portanto a contagem de trabalho evitado não é apresentada
+como um speedup universal.
+
 O corpus ampliado e reproduzível pode ser executado com:
 
 ```bash

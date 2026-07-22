@@ -146,6 +146,9 @@ interface ThreeWayCase {
     trustedFastPathSteps?: number;
     verificationHeadSteps?: number;
     verificationDivergenceStep?: number | null;
+    verificationDecoderSteps?: number;
+    verificationDecoderStepsAvoided?: number;
+    verificationEarlyExitStep?: number;
     controlVerificationTokenSteps?: number;
     controlCorrectionTriggered?: boolean;
     fastPath?: { generatedTokenIds?: number[]; elapsedSeconds?: number; tokensPerSecond?: number; linearBackend?: string };
@@ -294,6 +297,9 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.trustedFastPathSteps === undefined ? {} : { trustedFastPathSteps: entry.direct.trustedFastPathSteps }),
         ...(entry.direct.verificationHeadSteps === undefined ? {} : { verificationHeadSteps: entry.direct.verificationHeadSteps }),
         ...(entry.direct.verificationDivergenceStep === undefined ? {} : { verificationDivergenceStep: entry.direct.verificationDivergenceStep }),
+        ...(entry.direct.verificationDecoderSteps === undefined ? {} : { verificationDecoderSteps: entry.direct.verificationDecoderSteps }),
+        ...(entry.direct.verificationDecoderStepsAvoided === undefined ? {} : { verificationDecoderStepsAvoided: entry.direct.verificationDecoderStepsAvoided }),
+        ...(entry.direct.verificationEarlyExitStep === undefined ? {} : { verificationEarlyExitStep: entry.direct.verificationEarlyExitStep }),
         ...(entry.direct.controlVerificationTokenSteps === undefined ? {} : { controlVerificationTokenSteps: entry.direct.controlVerificationTokenSteps }),
         ...(entry.direct.controlCorrectionTriggered === undefined ? {} : { controlCorrectionTriggered: entry.direct.controlCorrectionTriggered }),
         ...(entry.direct.fastPath === undefined ? {} : { fastPath: { tokenIds: entry.direct.fastPath.generatedTokenIds, seconds: entry.direct.fastPath.elapsedSeconds, tokensPerSecond: entry.direct.fastPath.tokensPerSecond, linearBackend: entry.direct.fastPath.linearBackend } }),

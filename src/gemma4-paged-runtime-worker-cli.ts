@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { createInterface } from "node:readline";
+import { planGemma4SelectiveVerificationTail } from "./gemma4-selective-verification.js";
 import { join, resolve } from "node:path";
 import { openGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
 import { assertGemma4VectorizedRealLoweringPlanMatchesRuntime, openGemma4PagedRuntimeArtifact } from "./gemma4-paged-runtime-index.js";
@@ -162,6 +163,8 @@ async function generateSelectiveVerification(inputIds: number[], maxNewTokens: n
     } }),
   } : options;
   let current = await executeGemma4PagedTextHiddenLiteralF32(artifact, { inputIds: [inputIds] }, executionOptions);
+  let verificationDecoderSteps = 1, verificationEarlyExitStep: number | null = null, verificationDecoderStepsAvoided = 0;
+  const lastSensitiveStep = fast.sensitiveSteps.at(-1)!;
   let forwardSeconds = (performance.now() - forwardStarted) / 1000, terminalLogitsSha256 = fast.terminalLogitsSha256, divergenceStep: number | null = null;
   for (let step = 0; step < fast.generatedTokenIds.length; step += 1) {
     const verify = divergenceStep !== null || sensitive.has(step);
@@ -180,14 +183,34 @@ async function generateSelectiveVerification(inputIds: number[], maxNewTokens: n
     generatedTokenIds.push(tokenId);
     steps.push({ step, tokenId, contextLength: inputIds.length + step, forwardSeconds, topLogits, verificationSkipped });
     if (tokenId === eosTokenId || step + 1 === maxNewTokens) break;
+    const trustedTail = planGemma4SelectiveVerificationTail({
+      fastGeneratedTokenIds: fast.generatedTokenIds,
+      fastTerminalLogitsSha256: fast.terminalLogitsSha256,
+      inputLength: inputIds.length,
+      currentStep: step,
+      lastSensitiveStep,
+      divergenceStep,
+      captureEnabled: captureLayerHidden || captureLayerStages !== undefined,
+    });
+    if (trustedTail) {
+      generatedTokenIds.push(...trustedTail.generatedTokenIds);
+      steps.push(...trustedTail.steps);
+      terminalLogitsSha256 = trustedTail.terminalLogitsSha256;
+      verificationEarlyExitStep = trustedTail.earlyExitStep;
+      verificationDecoderStepsAvoided = trustedTail.decoderStepsAvoided;
+      break;
+    }
     forwardStarted = performance.now();
     current = await executeGemma4PagedTextHiddenLiteralF32(artifact, { inputIds: [[tokenId]], positionIds: [[inputIds.length + step]], pastKeyValues: current.pastKeyValues }, executionOptions);
+    verificationDecoderSteps += 1;
     forwardSeconds = (performance.now() - forwardStarted) / 1000;
   }
   const elapsedSeconds = (performance.now() - started) / 1000, dispatchesAfter = linear.dispatchMetrics();
   return buildReport(inputIds, maxNewTokens, generatedTokenIds, steps, terminalLogitsSha256, elapsedSeconds, dispatchesBefore, dispatchesAfter, {
     selectiveVerification: true, sensitiveSteps: fast.sensitiveSteps, trustedFastPathSteps: steps.filter((step) => step.verificationSkipped === true).length,
-    verificationHeadSteps: steps.filter((step) => step.verificationSkipped === false).length, verificationDivergenceStep: divergenceStep, externalForwardRequests: generatedTokenIds.length,
+    verificationHeadSteps: steps.filter((step) => step.verificationSkipped === false).length, verificationDivergenceStep: divergenceStep, externalForwardRequests: verificationDecoderSteps,
+    verificationDecoderSteps, verificationDecoderStepsAvoided,
+    ...(verificationEarlyExitStep === null ? {} : { verificationEarlyExitStep }),
     ...(captureLayerHidden ? { layerHiddenEncoding: "terminal-token-f32le-base64", layerHiddenCaptures, layerHiddenFullEncoding: "whole-tensor-f32le-base64", layerHiddenFullCaptures } : {}),
     ...(captureLayerStages === undefined ? {} : { layerStageEncoding: "whole-tensor-f32le-base64", layerStageLayer: captureLayerStages, layerStageCaptures }),
   });
