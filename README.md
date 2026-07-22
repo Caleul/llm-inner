@@ -2749,11 +2749,26 @@ SHA-256 terminais bit a bit. O prefill agregado caiu de `2,0980 s` para
 `5,3185 s`; o ganho total pequeno é reportado sem tratá-lo como mudança de
 ordem de grandeza.
 
-As alternativas aproximadas maiores foram rejeitadas. Q8 também na projeção
-FFN `down` atingiu `26,0676 tok/s`, mas preservou somente 127/128 decisões. Q8
-na atenção das camadas 21–41 preservou 125/128; mesmo o bloco 37–41 preservou
-somente 124/128 no corpus completo. Por isso `down` e atenção permanecem BF16
-no caminho publicado, apesar do throughput experimental maior.
+As alternativas aproximadas maiores continuam rejeitadas como padrão, mas agora
+podem ser reproduzidas diretamente com os modos compostos experimentais
+`q8-ffn-gate-up-down` e `q8-ffn-gate-up-attention`. Ambos mantêm o gate/up Q8
+calibrado e acrescentam, respectivamente, a projeção FFN `down` ou as projeções
+de atenção Q/K/V/O. Em 32 prompts × 4 tokens, `down` atingiu `26,0374 tok/s`
+(`+8,06%` contra o controle de `24,0955 tok/s`) e reduziu o grafo compilado de
+`3,0354 s` para `2,6832 s` (`-11,60%`), mas preservou 127/128 decisões, com uma
+divergência raiz em uma escolha cuja margem original era `0,125`. Dividir as
+42 camadas em `0–9`, `10–20`, `21–30` e `31–41` não isolou um bloco seguro:
+cada quarto sozinho ainda inverteu essa decisão sensível.
+
+O composto de atenção atingiu `26,0050 tok/s` (`+7,93%`) e `4,9221 s` totais
+(`-7,34%`), porém preservou 117/128 posições depois de três divergências raiz.
+Os relatórios integrais estão em
+`artifacts/gemma4-three-way-calibration-32x4-q8-gate-up-down.json` e
+`artifacts/gemma4-three-way-calibration-32x4-q8-gate-up-attention.json`.
+Consequentemente o padrão permanece `q8-ffn-gate-up`: 128/128 tokens e zero
+divergências raiz no mesmo corpus. A UI identifica os compostos como
+`experimental-affine-q8`, para que um ganho de benchmark nunca pareça uma
+garantia de qualidade.
 
 Para reproduzir o modo na interface:
 

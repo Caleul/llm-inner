@@ -302,16 +302,18 @@ def read_decoder_layer_weights(pool, shards, hidden_size, config):
         "layer_scalar": read_whole_tensor(pool, shards, (1, 1)).reshape(()),
     })
     selected = set()
-    quantize_gate_up = _decoder_quantization in ("q8-ffn", "q8-all")
+    quantize_gate_up = _decoder_quantization in ("q8-ffn", "q8-all", "q8-ffn-gate-up-attention", "q8-ffn-gate-up-down")
     quantize_gate_up = quantize_gate_up or (_decoder_quantization == "q8-ffn-gate-up" and (_decoder_quantization_layers is None or config["layer_index"] in _decoder_quantization_layers))
     quantize_gate_up = quantize_gate_up or _decoder_quantization == "q4-ffn-gate-up"
     quantize_gate_up = quantize_gate_up or (_decoder_quantization == "q8-ffn-gate-up-first-half" and config["layer_index"] < 21)
     quantize_gate_up = quantize_gate_up or (_decoder_quantization == "q8-ffn-gate-up-last-half" and config["layer_index"] >= 21)
     if quantize_gate_up:
         selected.update(("gate", "up"))
-    if _decoder_quantization in ("q8-ffn", "q8-all", "q8-ffn-down"):
+    quantize_down = _decoder_quantization in ("q8-ffn", "q8-all", "q8-ffn-down")
+    quantize_down = quantize_down or (_decoder_quantization == "q8-ffn-gate-up-down" and (_decoder_quantization_layers is None or config["layer_index"] in _decoder_quantization_layers))
+    if quantize_down:
         selected.add("down")
-    if _decoder_quantization in ("q8-attention", "q8-all"):
+    if _decoder_quantization in ("q8-attention", "q8-all", "q8-ffn-gate-up-attention"):
         selected.update(("query", "key", "value", "output"))
     for name in sorted(selected.intersection(weights)):
         q4_layer = _decoder_quantization == "q4-ffn-gate-up" and (_decoder_quantization_layers is None or config["layer_index"] in _decoder_quantization_layers)
@@ -1021,14 +1023,14 @@ def main():
     parser.add_argument("--threads", type=int, required=True)
     parser.add_argument("--binary-pool", required=True)
     parser.add_argument("--head-quantization", choices=("off", "q8", "q8-shortlist", "q4"), default="off")
-    parser.add_argument("--decoder-quantization", choices=("off", "q8-ffn", "q8-ffn-gate-up", "q4-ffn-gate-up", "q8-ffn-gate-up-first-half", "q8-ffn-gate-up-last-half", "q8-ffn-down", "q8-attention", "q8-all"), default="off")
+    parser.add_argument("--decoder-quantization", choices=("off", "q8-ffn", "q8-ffn-gate-up", "q8-ffn-gate-up-attention", "q8-ffn-gate-up-down", "q4-ffn-gate-up", "q8-ffn-gate-up-first-half", "q8-ffn-gate-up-last-half", "q8-ffn-down", "q8-attention", "q8-all"), default="off")
     parser.add_argument("--decoder-quantization-layers")
     args = parser.parse_args()
     _head_quantization = args.head_quantization
     _decoder_quantization = args.decoder_quantization
     if args.decoder_quantization_layers is not None:
-        if _decoder_quantization not in ("q8-ffn-gate-up", "q4-ffn-gate-up"):
-            raise ValueError("--decoder-quantization-layers requires --decoder-quantization q8-ffn-gate-up or q4-ffn-gate-up")
+        if _decoder_quantization not in ("q8-ffn-gate-up", "q8-ffn-gate-up-down", "q4-ffn-gate-up"):
+            raise ValueError("--decoder-quantization-layers requires --decoder-quantization q8-ffn-gate-up, q8-ffn-gate-up-down, or q4-ffn-gate-up")
         _decoder_quantization_layers = parse_decoder_quantization_layers(args.decoder_quantization_layers)
     if args.threads < 1:
         raise ValueError("--threads must be positive")
