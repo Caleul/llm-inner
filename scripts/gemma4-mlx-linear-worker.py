@@ -22,6 +22,7 @@ FUSED_TOKEN_GENERATION_FLAG = 0x00020000
 COMPILED_TOKEN_GENERATION_FLAG = 0x00010000
 SESSION_TOKEN_GENERATION_FLAG = 0x00008000
 STREAM_TOKEN_GENERATION_FLAG = 0x00004000
+CONTROL_TOKEN_GENERATION_FLAG = 0x00002000
 STREAM_TOKEN_FRAME = 0x544F4B4E
 FUSED_PLE_PRELUDE_FLAG = 0x01000000
 _widened_tensor_cache = {}
@@ -31,6 +32,7 @@ _shard_sizes = {}
 _binary_files = {}
 _embedding_row_cache = OrderedDict()
 _resident_generation_model = None
+_resident_generation_control_model = None
 _resident_generation_session = None
 _head_quantization = "off"
 _decoder_quantization = "off"
@@ -301,6 +303,8 @@ def read_decoder_layer_weights(pool, shards, hidden_size, config):
         "ple_norm": read_whole_tensor(pool, shards, (hidden_size, 1)).reshape((hidden_size,)),
         "layer_scalar": read_whole_tensor(pool, shards, (1, 1)).reshape(()),
     })
+    if _decoder_quantization == "q8-ffn-gate-up-down":
+        weights["down_control"] = weights["down"]
     selected = set()
     quantize_gate_up = _decoder_quantization in ("q8-ffn", "q8-all", "q8-ffn-gate-up-attention", "q8-ffn-gate-up-down")
     quantize_gate_up = quantize_gate_up or (_decoder_quantization == "q8-ffn-gate-up" and (_decoder_quantization_layers is None or config["layer_index"] in _decoder_quantization_layers))
@@ -757,10 +761,12 @@ def continuation_topology_mask(config, query_sequence, key_sequence, absolute_st
     return mx.array(values)
 
 
-def execute_compiled_token_generation(pool, shards, token_ids, max_new_tokens, eos_token_id, top_k, session_id=None, stream=False):
-    model = _resident_generation_model
+def execute_compiled_token_generation(pool, shards, token_ids, max_new_tokens, eos_token_id, top_k, session_id=None, stream=False, control=False):
+    model = _resident_generation_control_model if control else _resident_generation_model
     if model is None:
-        raise ValueError("MLX resident generation model is not compiled")
+        raise ValueError("MLX resident control generation model is not compiled" if control else "MLX resident generation model is not compiled")
+    if control and session_id is not None:
+        raise ValueError("MLX resident control generation does not accept a session id")
     if (token_ids < 0).any() or (token_ids >= model["vocabulary_size"]).any():
         raise ValueError("MLX compiled generation token id is outside the vocabulary")
     if eos_token_id is not None and (eos_token_id < 0 or eos_token_id >= model["vocabulary_size"]):
@@ -946,7 +952,7 @@ def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, 
         else:
             mx.eval(raw_logits, logits)
     if generation is not None:
-        global _resident_generation_model
+        global _resident_generation_model, _resident_generation_control_model
         compile_signature = incremental_compile_signature(layer_plans, epilogue, rounding)
         previous_model = _resident_generation_model
         incremental_compiler_cache_hit = previous_model is not None and previous_model.get("compile_signature") == compile_signature
@@ -957,6 +963,26 @@ def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, 
         rope_factor_uses_per_step = sum(1 + int(config["produces_kv"]) for config, _ in layer_plans)
         rope_factor_builds_per_step = len({(config["head_dim"], config["rope_kind"], config["theta"], config["rotary_dim"], config["proportional_pairs"], config["proportional_factor"], rounding != "real") for config, _ in layer_plans})
         _resident_generation_model = {"pool": pool, "shards": shards, "execute_token_prelude": execute_token_prelude, "execute_incremental_decoder_step": execute_incremental_decoder_step, "producer_layers": producer_layers, "compile_signature": compile_signature, "incremental_compiler_cache_hit": incremental_compiler_cache_hit, "rope_factor_uses_per_step": rope_factor_uses_per_step, "rope_factor_builds_per_step": rope_factor_builds_per_step, "layer_plans": layer_plans, "epilogue": epilogue, "vocabulary_size": vocabulary_size, "prompt_length": query_sequence, "rounding": rounding, "token_prelude_cache": OrderedDict()}
+        control_layer_plans = []
+        for config, weights in layer_plans:
+            if "down_control" not in weights:
+                control_layer_plans = []
+                break
+            control_weights = {name: value for name, value in weights.items() if name != "down_control"}
+            control_weights["down"] = weights["down_control"]
+            del weights["down_control"]
+            control_layer_plans.append((config, control_weights))
+        if control_layer_plans:
+            control_signature = incremental_compile_signature(control_layer_plans, epilogue, rounding)
+            previous_control = _resident_generation_control_model
+            control_cache_hit = previous_control is not None and previous_control.get("compile_signature") == control_signature
+            if control_cache_hit:
+                control_incremental_step, control_producers = previous_control["execute_incremental_decoder_step"], previous_control["producer_layers"]
+            else:
+                control_incremental_step, control_producers = compile_incremental_decoder_step(pool, shards, control_layer_plans, epilogue, rounding)
+            _resident_generation_control_model = {**_resident_generation_model, "execute_incremental_decoder_step": control_incremental_step, "producer_layers": control_producers, "compile_signature": control_signature, "incremental_compiler_cache_hit": control_cache_hit, "layer_plans": control_layer_plans, "token_prelude_cache": OrderedDict()}
+        else:
+            _resident_generation_control_model = None
         emit_resident_generation(_resident_generation_model, result, produced_caches, raw_logits, logits, time.perf_counter() - request_started, generation["max_new_tokens"], generation["eos_token_id"], generation["top_k"], cache_hits_before, token_ids, initial_rope_factor_context=rope_factor_context, initial_topology_mask_builds=num_layers, initial_topology_mask_uses=num_layers)
         return
     if not fused_token_forward:
@@ -1066,7 +1092,8 @@ def main():
         if compiled_token_generation:
             session_generation = bool(encoded_dtype & SESSION_TOKEN_GENERATION_FLAG)
             stream_generation = bool(encoded_dtype & STREAM_TOKEN_GENERATION_FLAG)
-            expected_code = COMPILED_TOKEN_GENERATION_FLAG | (SESSION_TOKEN_GENERATION_FLAG if session_generation else 0) | (STREAM_TOKEN_GENERATION_FLAG if stream_generation else 0)
+            control_generation = bool(encoded_dtype & CONTROL_TOKEN_GENERATION_FLAG)
+            expected_code = COMPILED_TOKEN_GENERATION_FLAG | (SESSION_TOKEN_GENERATION_FLAG if session_generation else 0) | (STREAM_TOKEN_GENERATION_FLAG if stream_generation else 0) | (CONTROL_TOKEN_GENERATION_FLAG if control_generation else 0)
             if referenced or batched or fused_mlp or native_bf16 or native_attention or fused_attention or dtype_code != expected_code:
                 raise ValueError("MLX compiled generation flags are invalid")
             if not rows or not outputs or not features or outputs > 4096 or features > 64:
@@ -1076,7 +1103,7 @@ def main():
             if session_generation and session_id == 0:
                 raise ValueError("MLX compiled generation session id is invalid")
             token_ids = np.frombuffer(read_exact(rows * 4), dtype=np.int32).reshape(1, rows)
-            execute_compiled_token_generation(pool, shards, token_ids, outputs, None if eos_plus_one == 0 else eos_plus_one - 1, features, session_id, stream_generation)
+            execute_compiled_token_generation(pool, shards, token_ids, outputs, None if eos_plus_one == 0 else eos_plus_one - 1, features, session_id, stream_generation, control_generation)
             continue
         fused_decoder_stack = bool(encoded_dtype & FUSED_DECODER_STACK_FLAG)
         if fused_decoder_stack:

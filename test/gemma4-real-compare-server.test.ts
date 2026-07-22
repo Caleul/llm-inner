@@ -20,6 +20,7 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /projeção gate\/up/);
   assert.match(gemma4RealCompareHtml, /head BF16 exato: sem aproximação ou fallback/);
   assert.match(gemma4RealCompareHtml, /head Q8 rápido: shortlist top-16 refinada com pesos BF16 exatos \(experimental\)/);
+  assert.match(gemma4RealCompareHtml, /runtime MLX calibrado/);
   assert.match(gemma4RealCompareHtml, /programa final direto/);
   assert.match(gemma4RealCompareHtml, /mapa executado/);
   assert.match(gemma4RealCompareHtml, /Inspetor das dimensões finais compiladas/);
@@ -213,12 +214,15 @@ test("servidor diferencial valida opções reprodutíveis", () => {
   assert.equal(q4Layers.directMlxDecoderQuantization, "q4-ffn-gate-up"); assert.equal(q4Layers.directMlxDecoderQuantizationLayers, "0-9");
   assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-mlx-decoder-quantization", "q8-ffn-gate-up-attention"]).directMlxDecoderQuantization, "q8-ffn-gate-up-attention");
   const q8GateUpDownLayers = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-mlx-decoder-quantization", "q8-ffn-gate-up-down", "--direct-mlx-decoder-quantization-layers", "10-20"]);
-  assert.equal(q8GateUpDownLayers.directMlxDecoderQuantization, "q8-ffn-gate-up-down"); assert.equal(q8GateUpDownLayers.directMlxDecoderQuantizationLayers, "10-20");
+  assert.equal(q8GateUpDownLayers.directMlxDecoderQuantization, "q8-ffn-gate-up-down"); assert.equal(q8GateUpDownLayers.directMlxDecoderQuantizationLayers, "10-20"); assert.equal(q8GateUpDownLayers.directVerificationMargin, 0.125); assert.equal(q8GateUpDownLayers.directVerificationBackend, "mlx-shared-control");
   assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-mlx-decoder-quantization-layers", "3,1-2,2"]).directMlxDecoderQuantizationLayers, "1-3");
   assert.throws(() => parseGemma4RealServerOptions(["--direct-mlx-decoder-quantization-layers", "42"]), /entre 0 e 41/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-mlx-decoder-quantization", "off", "--direct-mlx-decoder-quantization-layers", "0"]), /requer q8-ffn-gate-up, q8-ffn-gate-up-down ou q4-ffn-gate-up/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-mlx-decoder-quantization", "q2"]), /modo inválido/);
   assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-verification-margin", "off"]).directVerificationMargin, undefined);
+  assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-verification-backend", "mlx-control"]).directVerificationBackend, "mlx-control");
+  assert.throws(() => parseGemma4RealServerOptions(["--direct-verification-backend", "cuda"]), /pytorch, mlx-control ou mlx-shared-control/);
+  assert.throws(() => parseGemma4RealServerOptions(["--direct-linear-backend", "pytorch", "--direct-verification-backend", "mlx-control"]), /requer backend mlx/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-verification-margin", "-1"]), /finito não negativo/);
   assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-linear-backend", "pytorch", "--direct-fused-decoder-stack", "native-bf16-ple"]).directFusedDecoderStack, "native-bf16-ple");
   const splitTiles = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-max-read-mib", "16", "--direct-final-head-read-mib", "32"]);
@@ -365,5 +369,28 @@ let generations=0;readline.createInterface({input:process.stdin}).on("line",line
     const secondResponse = await fetch(`${endpoint}/api/compare`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt: "outro empate", maxNewTokens: 1 }) });
     const second = await secondResponse.json() as { direct: Record<string, unknown> };
     assert.equal(second.direct.workerPid, selected.workerPid); assert.equal(second.direct.workerGenerations, 2); assert.deepEqual(second.direct.generatedTokenIds, [7]); assert.equal(second.direct.tokensEqualBaseline, true);
+  } finally { await new Promise<void>((accept, reject) => server.close((error) => error ? reject(error) : accept())); await rm(directory, { recursive: true, force: true }); }
+});
+
+test("modo down recupera margem sensível no mesmo worker MLX compilado", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "gemma4-mlx-control-verification-test-"));
+  const transformer = join(directory, "transformer.mjs"), direct = join(directory, "direct.mjs");
+  await writeFile(transformer, `import readline from "node:readline";
+console.log(JSON.stringify({ready:true}));
+readline.createInterface({input:process.stdin}).on("line",line=>{const r=JSON.parse(line);const report=r.mode==='encode'?{tokenIds:[2,99]}:r.mode==='decode'?{text:r.tokenIds.join('|')}:{baselineGeneratedTokenIds:[7],candidateGeneratedTokenIds:[7],baselineGeneratedText:'7',candidateGeneratedText:'7',generatedTokensEqual:true,firstDivergentStep:null,inputIds:[[2,99]],steps:[{step:0,baselineToken:7,candidateToken:7,baselineTopLogits:[{tokenId:7,logit:2.125},{tokenId:8,logit:2}],candidateTopLogits:[],metrics:{argmaxEqual:true,divergenceRate:0,maxAbsError:0},baselineSeconds:1,candidateSeconds:1}],performance:{baselineSeconds:1,candidateSeconds:1,baselineTokensPerSecond:1,candidateTokensPerSecond:1,candidateSpeedup:1,processPeakRssBytes:0},executionThreads:1,candidatePrecision:'f32',roundingPolicy:'none'};console.log(JSON.stringify({id:r.id,report}));});\n`);
+  await writeFile(direct, `import readline from "node:readline";
+const args=process.argv,backend=args[args.indexOf('--linear-backend')+1],decoder=args[args.indexOf('--mlx-decoder-quantization')+1];console.log(JSON.stringify({ready:true,linearBackend:backend,mlxDecoderQuantization:decoder}));
+let generations=0;readline.createInterface({input:process.stdin}).on("line",line=>{const r=JSON.parse(line);generations++;const control=r.verificationControl===true,token=control?7:8,top=control?[{tokenId:7,value:2.125},{tokenId:8,value:2}]:[{tokenId:8,value:2},{tokenId:7,value:2}],report={generatedTokenIds:[token],fullTokenIds:[...r.inputIds,token],elapsedSeconds:0.01,tokensPerSecond:100,linearThreads:4,linearBackend:backend,workerPid:process.pid,workerGenerations:generations,terminalLogitsSha256:'${"0".repeat(64)}',steps:[{step:0,tokenId:token,forwardSeconds:0.01,topLogits:top}]};if(r.stream)console.log(JSON.stringify({id:r.id,event:{type:'token',step:0,tokenId:token,forwardSeconds:0.01,topLogits:top}}));console.log(JSON.stringify({id:r.id,report}));});\n`);
+  const server = createGemma4RealComparisonServer({ source: directory, python: process.execPath, helper: transformer, tokenizerHelper: transformer, literalArtifact: "literal.json", binaryPool: directory, directWorker: direct, directLinearHelper: "unused.py", directMlxDecoderQuantization: "q8-ffn-gate-up-down", directVerificationMargin: 0.125, directVerificationBackend: "mlx-shared-control" });
+  await new Promise<void>((accept) => server.listen(0, "127.0.0.1", accept));
+  try {
+    const address = server.address(); if (!address || typeof address === "string") throw new Error("Endereço HTTP ausente.");
+    const endpoint = `http://127.0.0.1:${address.port}`;
+    let status: { ready?: boolean; direct?: { verification?: { backend?: string; lifecycle?: string; warmupComplete?: boolean } } } = {};
+    for (let index = 0; index < 50 && !status.ready; index += 1) { status = await fetch(`${endpoint}/api/status`).then((response) => response.json()) as typeof status; await new Promise((accept) => setTimeout(accept, 10)); }
+    assert.equal(status.direct?.verification?.backend, "mlx-shared-control"); assert.equal(status.direct?.verification?.lifecycle, "shared-worker-compiled-control-v1"); assert.equal(status.direct?.verification?.warmupComplete, true);
+    const response = await fetch(`${endpoint}/api/compare`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt: "margem sensível", maxNewTokens: 1 }) });
+    const result = await response.json() as { direct: Record<string, unknown> };
+    assert.deepEqual(result.direct.generatedTokenIds, [7]); assert.equal(result.direct.selectedBackend, "mlx-shared-control"); assert.equal(result.direct.selectionPolicy, "margin-verified-mlx-shared-control-v1"); assert.equal(result.direct.fallbackTriggered, true); assert.equal(result.direct.fastPathMinimumMargin, 0); assert.deepEqual((result.direct.fastPath as { generatedTokenIds: number[] }).generatedTokenIds, [8]); assert.equal(result.direct.tokensEqualBaseline, true); assert.equal(result.direct.selectiveVerification, undefined); assert.equal(result.direct.controlVerificationTokenSteps, 1); assert.equal(result.direct.controlCorrectionTriggered, true);
   } finally { await new Promise<void>((accept, reject) => server.close((error) => error ? reject(error) : accept())); await rm(directory, { recursive: true, force: true }); }
 });

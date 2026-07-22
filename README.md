@@ -2770,6 +2770,27 @@ divergências raiz no mesmo corpus. A UI identifica os compostos como
 `experimental-affine-q8`, para que um ganho de benchmark nunca pareça uma
 garantia de qualidade.
 
+O composto `q8-ffn-gate-up-down` ativa por padrão uma recuperação de margem
+baixa no mesmo worker MLX. O fast path Q8 calcula primeiro todos os tokens; se
+a diferença entre os dois maiores logits for menor ou igual a `0,125`, o worker
+reexecuta apenas o prefixo necessário com `down_proj` BF16. Gate/up, atenção,
+embeddings, head, constant pool e processo são compartilhados, evitando a
+duplicação integral do modelo. Se o prefixo BF16 confirmar os tokens Q8, o
+restante do resultado rápido é mantido; se houver troca, o controle gera a
+continuação corrigida. A política aparece como
+`margin-verified-mlx-shared-control-v1` e pode ser escolhida explicitamente com
+`--direct-verification-backend mlx-shared-control`.
+
+Na matriz 32×4 final, 14/32 prompts cruzaram o limiar e 36/128 passos foram
+confirmados pelo controle compartilhado. Ele corrigiu a única troca real e
+restaurou 128/128 tokens e zero divergências raiz; o custo total híbrido foi
+`8,2859 s`, ou `15,4478 tok/s` (`13,4846×` o baseline PyTorch). Portanto essa
+política demonstra recuperação autônoma sem usar o Transformers como oráculo,
+mas ainda é mais lenta que o controle publicado de `24,0955 tok/s` no corpus
+completo. Ela permanece experimental e não altera o padrão `q8-ffn-gate-up`.
+O relatório está em
+`artifacts/gemma4-three-way-calibration-32x4-q8-down-shared-control.json`.
+
 Para reproduzir o modo na interface:
 
 ```bash

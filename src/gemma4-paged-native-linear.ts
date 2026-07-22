@@ -23,6 +23,7 @@ const FUSED_TOKEN_GENERATION_FLAG = 0x0002_0000;
 const COMPILED_TOKEN_GENERATION_FLAG = 0x0001_0000;
 const SESSION_TOKEN_GENERATION_FLAG = 0x0000_8000;
 const STREAM_TOKEN_GENERATION_FLAG = 0x0000_4000;
+const CONTROL_TOKEN_GENERATION_FLAG = 0x0000_2000;
 const STREAM_TOKEN_FRAME = 0x544f_4b4e;
 
 export type Gemma4MlxDecoderQuantization = "off" | "q8-ffn" | "q8-ffn-gate-up" | "q8-ffn-gate-up-attention" | "q8-ffn-gate-up-down" | "q4-ffn-gate-up" | "q8-ffn-gate-up-first-half" | "q8-ffn-gate-up-last-half" | "q8-ffn-down" | "q8-attention" | "q8-all";
@@ -345,14 +346,14 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
   }
 
   async #requestCompiledTokenGeneration(tokenIds: Int32Array, maxNewTokens: number, topK: number, options: PagedCompiledTokenGenerationOptions = {}): Promise<PagedFusedTokenGenerationResult> {
-    const { eosTokenId, sessionId, onToken } = options;
+    const { eosTokenId, sessionId, controlDecoder = false, onToken } = options;
     if (!this.#compiledTokenGenerationReady) throw new Error("Plano nativo de geração ainda não foi compilado.");
-    if (this.#active || tokenIds.length < 1 || !Number.isSafeInteger(maxNewTokens) || maxNewTokens < 1 || maxNewTokens > 4096 || !Number.isSafeInteger(topK) || topK < 1 || topK > 64 || tokenIds.some((token) => token < 0) || (eosTokenId !== undefined && (!Number.isSafeInteger(eosTokenId) || eosTokenId < 0)) || (sessionId !== undefined && (!Number.isSafeInteger(sessionId) || sessionId < 1 || sessionId > 0xffff_ffff)) || (onToken !== undefined && typeof onToken !== "function")) throw new Error("Requisição ao plano nativo compilado é inválida.");
+    if (this.#active || tokenIds.length < 1 || !Number.isSafeInteger(maxNewTokens) || maxNewTokens < 1 || maxNewTokens > 4096 || !Number.isSafeInteger(topK) || topK < 1 || topK > 64 || tokenIds.some((token) => token < 0) || (eosTokenId !== undefined && (!Number.isSafeInteger(eosTokenId) || eosTokenId < 0)) || (sessionId !== undefined && (!Number.isSafeInteger(sessionId) || sessionId < 1 || sessionId > 0xffff_ffff)) || typeof controlDecoder !== "boolean" || (controlDecoder && sessionId !== undefined) || (onToken !== undefined && typeof onToken !== "function")) throw new Error("Requisição ao plano nativo compilado é inválida.");
     this.#active = true;
     const started = performance.now();
     try {
       this.#fusedTokenGenerationDispatches += 1;
-      const flags = COMPILED_TOKEN_GENERATION_FLAG + (sessionId === undefined ? 0 : SESSION_TOKEN_GENERATION_FLAG) + (onToken === undefined ? 0 : STREAM_TOKEN_GENERATION_FLAG);
+      const flags = COMPILED_TOKEN_GENERATION_FLAG + (sessionId === undefined ? 0 : SESSION_TOKEN_GENERATION_FLAG) + (onToken === undefined ? 0 : STREAM_TOKEN_GENERATION_FLAG) + (controlDecoder ? CONTROL_TOKEN_GENERATION_FLAG : 0);
       const header = Buffer.allocUnsafe(16); header.writeUInt32LE(tokenIds.length, 0); header.writeUInt32LE(maxNewTokens, 4); header.writeUInt32LE(topK, 8); header.writeUInt32LE(flags, 12);
       const metadata = Buffer.allocUnsafe(4); metadata.writeUInt32LE(eosTokenId === undefined ? 0 : eosTokenId + 1, 0);
       await this.#write(header); await this.#write(metadata);

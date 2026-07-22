@@ -16,7 +16,7 @@ export interface Gemma4RealComparisonRunnerOptions {
   compiledProgram?: Gemma4CompiledProgramStatus;
   directMlxDecoderQuantization?: Gemma4MlxDecoderQuantization;
   directMlxDecoderQuantizationLayers?: string;
-  literalArtifact?: string; binaryPool?: string; directArtifactIndex?: string; directArtifactIndexSha256?: string; directArtifactSha256?: string; directWorker?: string; directLinearHelper?: string; directMlxHelper?: string; directLinearBackend?: "pytorch" | "mlx"; directMlxHeadQuantization?: "off" | "q8" | "q8-shortlist" | "q4"; directFusedMlp?: "off" | "bf16" | "real" | "native-bf16"; directFusedFfn?: "off" | "native-bf16"; directFusedDecoderLayer?: "off" | "native-bf16"; directFusedDecoderStack?: "off" | "real" | "native-bf16" | "native-bf16-ple"; directFusedPle?: "off" | "bf16" | "real"; directFusedPlePrelude?: "off" | "bf16" | "real"; directFusedTokenForward?: "off" | "bf16"; directResidentGeneration?: "off" | "on"; directFinalHead?: "f32" | "native-bf16" | "native-bf16-stream" | "native-bf16-whole"; directNativeAttention?: "off" | "bf16" | "real"; directFusedAttention?: "off" | "bf16" | "real" | "native-bf16"; directThreads?: number; directMaxReadMiB?: number; directFinalHeadReadMiB?: number; directVerificationMargin?: number;
+  literalArtifact?: string; binaryPool?: string; directArtifactIndex?: string; directArtifactIndexSha256?: string; directArtifactSha256?: string; directWorker?: string; directLinearHelper?: string; directMlxHelper?: string; directLinearBackend?: "pytorch" | "mlx"; directMlxHeadQuantization?: "off" | "q8" | "q8-shortlist" | "q4"; directFusedMlp?: "off" | "bf16" | "real" | "native-bf16"; directFusedFfn?: "off" | "native-bf16"; directFusedDecoderLayer?: "off" | "native-bf16"; directFusedDecoderStack?: "off" | "real" | "native-bf16" | "native-bf16-ple"; directFusedPle?: "off" | "bf16" | "real"; directFusedPlePrelude?: "off" | "bf16" | "real"; directFusedTokenForward?: "off" | "bf16"; directResidentGeneration?: "off" | "on"; directFinalHead?: "f32" | "native-bf16" | "native-bf16-stream" | "native-bf16-whole"; directNativeAttention?: "off" | "bf16" | "real"; directFusedAttention?: "off" | "bf16" | "real" | "native-bf16"; directThreads?: number; directMaxReadMiB?: number; directFinalHeadReadMiB?: number; directVerificationMargin?: number; directVerificationBackend?: "pytorch" | "mlx-control" | "mlx-shared-control";
 }
 
 export interface Gemma4CompiledProgramStatus {
@@ -57,6 +57,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
     directMlxHeadQuantization: options.directMlxHeadQuantization ?? "off",
     directMlxDecoderQuantization: options.directMlxDecoderQuantization ?? (directBackend === "mlx" ? "q8-ffn-gate-up" : "off"),
   };
+  options.directVerificationBackend ??= options.directMlxDecoderQuantization === "q8-ffn-gate-up-down" ? "mlx-shared-control" : "pytorch";
   if (options.directVerificationMargin !== undefined && (!Number.isFinite(options.directVerificationMargin) || options.directVerificationMargin < 0)) throw new Error("directVerificationMargin deve ser finita e não negativa.");
   if (options.directVerificationMargin !== undefined && directBackend !== "mlx") throw new Error("directVerificationMargin requer backend MLX.");
   if (options.directMlxDecoderQuantizationLayers !== undefined) {
@@ -67,11 +68,11 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
   const directTokenForward = options.directFusedTokenForward ?? (directBackend === "mlx" && options.directFusedDecoderStack !== "off" ? "bf16" : "off");
   const directResidentGeneration = options.directResidentGeneration ?? (directTokenForward === "bf16" ? "on" : "off");
   const direct = options.literalArtifact && options.binaryPool
-    ? new PersistentJsonlWorker(process.execPath, directWorkerArguments(options, directBackend), "Gemma 4 literal direto")
+    ? new PersistentJsonlWorker(process.execPath, directWorkerArguments(options, directBackend, true), "Gemma 4 literal direto")
     : undefined;
   const tokenizer = new Gemma4PersistentTokenizerWorker(options);
   const verificationEnabled = direct !== undefined && directBackend === "mlx" && options.directVerificationMargin !== undefined;
-  let verification: PersistentJsonlWorker | undefined, verificationInitialization: Promise<PersistentJsonlWorker> | undefined;
+  let verification: PersistentJsonlWorker | undefined, verificationInitialization: Promise<PersistentJsonlWorker> | undefined, verificationWarmupSeconds: number | undefined;
   let worker: Gemma4PersistentComparisonWorker | undefined, referenceInitialization: Promise<Gemma4PersistentComparisonWorker> | undefined, initializationError: Error | undefined, referenceError: Error | undefined, closed = false, referenceLeases = 0, referenceReleaseRequested = false;
   const sessionInputs = new Map<number, SessionInput>();
   const finalFormulaCache = new Map<number, Promise<Gemma4GlobalSsaOutput>>();
@@ -106,18 +107,36 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
     if (!verificationEnabled) return Promise.reject(new Error("Verificação direta não está habilitada."));
     if (verificationInitialization) return verificationInitialization;
     verificationInitialization = (async () => {
-      const candidate = new PersistentJsonlWorker(process.execPath, directWorkerArguments(options, "pytorch"), "Gemma 4 literal verificador PyTorch"); verification = candidate;
-      await candidate.whenReady(); return candidate;
+      const backend = options.directVerificationBackend === "mlx-control" ? "mlx" : "pytorch";
+      const label = backend === "mlx" ? "Gemma 4 literal verificador MLX calibrado" : "Gemma 4 literal verificador PyTorch";
+      const candidate = new PersistentJsonlWorker(process.execPath, directWorkerArguments(options, backend, false), label); verification = candidate;
+      await candidate.whenReady();
+      if (backend === "mlx") verificationWarmupSeconds = await warmupDirectWorker(candidate, 2);
+      return candidate;
     })();
     void verificationInitialization.catch(() => undefined);
     return verificationInitialization;
   };
   const releaseVerificationWorker = async (): Promise<void> => {
     if (!verification?.ready) return;
+    if (options.directVerificationBackend === "mlx-control") return;
     try { await verification.send({ control: "trim-memory" }); }
     catch { verification.close(); verification = undefined; verificationInitialization = undefined; }
   };
-  const verificationProvider = verificationEnabled ? { get: getVerificationWorker, release: releaseVerificationWorker } : undefined;
+  const verificationProvider = verificationEnabled ? { ...(options.directVerificationBackend === "mlx-shared-control" ? {} : { get: getVerificationWorker, release: releaseVerificationWorker }), backend: options.directVerificationBackend!, selectiveHeads: options.directVerificationBackend === "pytorch" } : undefined;
+  const directVerificationStatus = (): Record<string, unknown> => {
+    if (!verificationEnabled) return { enabled: false };
+    if (options.directVerificationBackend === "mlx-shared-control") return {
+      enabled: true, backend: "mlx-shared-control", executionBackend: direct?.readyMetadata.backend, lifecycle: "shared-worker-compiled-control-v1", marginThreshold: options.directVerificationMargin,
+      state: direct?.ready ? "ready" : "initializing", ready: direct?.ready ?? false, initializationSeconds: direct?.initializationSeconds, warmupSeconds: directWarmupSeconds, warmupComplete: directWarmupSeconds !== undefined,
+    };
+    return {
+      enabled: true, ...verification?.readyMetadata, backend: options.directVerificationBackend, executionBackend: verification?.readyMetadata.backend,
+      lifecycle: options.directVerificationBackend === "mlx-control" ? "persistent-compiled-control-v1" : "retained-index-restarted-kernel-v1", marginThreshold: options.directVerificationMargin,
+      state: verification?.ready ? "ready" : verificationInitialization ? "initializing" : "unloaded", ready: verification?.ready ?? false, initializationSeconds: verification?.initializationSeconds,
+      warmupSeconds: verificationWarmupSeconds, warmupComplete: options.directVerificationBackend === "mlx-control" ? verificationWarmupSeconds !== undefined : verification?.ready ?? false,
+    };
+  };
   const initialize = (async () => {
     try {
       const tokenizerReady = tokenizer.whenReady();
@@ -126,6 +145,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
         if (options.compiledProgram && (options.directFusedDecoderStack ?? "real") === "real") assertDirectFinalFormulaProgram(direct.readyMetadata, options.compiledProgram.finalFormulaMap);
         direct.readyMetadata.mlxDecoderQuantization = options.directMlxDecoderQuantization ?? "q8-ffn-gate-up";
         if (options.directMlxDecoderQuantizationLayers !== undefined) direct.readyMetadata.mlxDecoderQuantizationLayers = options.directMlxDecoderQuantizationLayers;
+        if (verificationEnabled && options.directVerificationBackend === "mlx-control") await getVerificationWorker();
       }
       await tokenizerReady;
       if (!direct) await getReferenceWorker();
@@ -160,7 +180,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
           outputBindingsSha256: options.compiledProgram.directRuntime.plan.outputBindingsSha256,
         });
       }
-      if (request.method === "GET" && request.url === "/api/status") return json(response, 200, { ready: tokenizer.ready && (!direct ? worker?.ready === true : direct.ready && directWarmupSeconds !== undefined), source: options.source, runtime: "persistent-jsonl", chatTemplate: GEMMA4_CHAT_TEMPLATE, chatContract: { source: GEMMA4_CHAT_CONTRACT_SOURCE, startOfTurnToken: { text: "<|turn>", id: GEMMA4_CHAT_SOT_TOKEN_ID }, endOfTurnToken: { text: "<turn|>", id: GEMMA4_CHAT_EOT_TOKEN_ID }, generationStopsAtEndOfTurn: true }, checkpointChatTemplateDeclared, tokenizer: { ready: tokenizer.ready, initializationSeconds: tokenizer.initializationSeconds, helper: options.tokenizerHelper }, reference: { state: worker?.ready ? "ready" : referenceInitialization ? "initializing" : "unloaded", initializationSeconds: worker?.initializationSeconds, ...(referenceError ? { error: referenceError.message } : {}) }, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), ...(initializationError ? { error: initializationError.message } : {}), direct: direct ? { enabled: true, artifact: options.literalArtifact, binaryPool: options.binaryPool, sourceIndependentBundle: options.literalArtifact !== undefined && options.binaryPool === dirname(options.literalArtifact), ...direct.readyMetadata, ready: direct.ready, initializationSeconds: direct.initializationSeconds, warmupSeconds: directWarmupSeconds, warmupComplete: directWarmupSeconds !== undefined, verification: verificationEnabled ? { enabled: true, backend: "pytorch", lifecycle: "retained-index-restarted-kernel-v1", marginThreshold: options.directVerificationMargin, state: verification?.ready ? "ready" : verificationInitialization ? "initializing" : "unloaded", ...verification?.readyMetadata, ready: verification?.ready ?? false, initializationSeconds: verification?.initializationSeconds, warmupComplete: verification?.ready ?? false } : { enabled: false } } : { enabled: false } });
+      if (request.method === "GET" && request.url === "/api/status") return json(response, 200, { ready: tokenizer.ready && (!direct ? worker?.ready === true : direct.ready && directWarmupSeconds !== undefined && (options.directVerificationBackend !== "mlx-control" || !verificationEnabled || verificationWarmupSeconds !== undefined)), source: options.source, runtime: "persistent-jsonl", chatTemplate: GEMMA4_CHAT_TEMPLATE, chatContract: { source: GEMMA4_CHAT_CONTRACT_SOURCE, startOfTurnToken: { text: "<|turn>", id: GEMMA4_CHAT_SOT_TOKEN_ID }, endOfTurnToken: { text: "<turn|>", id: GEMMA4_CHAT_EOT_TOKEN_ID }, generationStopsAtEndOfTurn: true }, checkpointChatTemplateDeclared, tokenizer: { ready: tokenizer.ready, initializationSeconds: tokenizer.initializationSeconds, helper: options.tokenizerHelper }, reference: { state: worker?.ready ? "ready" : referenceInitialization ? "initializing" : "unloaded", initializationSeconds: worker?.initializationSeconds, ...(referenceError ? { error: referenceError.message } : {}) }, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), ...(initializationError ? { error: initializationError.message } : {}), direct: direct ? { enabled: true, artifact: options.literalArtifact, binaryPool: options.binaryPool, sourceIndependentBundle: options.literalArtifact !== undefined && options.binaryPool === dirname(options.literalArtifact), ...direct.readyMetadata, ready: direct.ready, initializationSeconds: direct.initializationSeconds, warmupSeconds: directWarmupSeconds, warmupComplete: directWarmupSeconds !== undefined, verification: directVerificationStatus() } : { enabled: false } });
       if (request.method === "POST" && request.url === "/api/compare") {
         await initialize;
         const body = JSON.parse(await readBody(request)) as Gemma4RealComparisonRequest;
@@ -250,19 +270,20 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
   return server;
 }
 
-function directWorkerArguments(options: Gemma4RealComparisonRunnerOptions, backend: "pytorch" | "mlx"): string[] {
+function directWorkerArguments(options: Gemma4RealComparisonRunnerOptions, backend: "pytorch" | "mlx", primary: boolean): string[] {
   if (!options.literalArtifact || !options.binaryPool) throw new Error("Worker direto requer artefato literal e pool binário.");
-  const primary = backend === (options.directLinearBackend ?? "mlx");
-  const decoderStack = primary ? options.directFusedDecoderStack ?? (backend === "mlx" ? "real" : "native-bf16") : "native-bf16";
-  const tokenForward = backend === "mlx" ? (primary ? options.directFusedTokenForward ?? (decoderStack !== "off" ? "bf16" : "off") : "bf16") : "off";
-  const residentGeneration = backend === "mlx" ? (primary ? options.directResidentGeneration ?? (tokenForward === "bf16" ? "on" : "off") : "on") : "off";
+  const compiledControl = !primary && backend === "mlx";
+  const accelerated = primary || compiledControl;
+  const decoderStack = accelerated ? options.directFusedDecoderStack ?? (backend === "mlx" ? "real" : "native-bf16") : "native-bf16";
+  const tokenForward = backend === "mlx" ? options.directFusedTokenForward ?? (decoderStack !== "off" ? "bf16" : "off") : "off";
+  const residentGeneration = backend === "mlx" ? options.directResidentGeneration ?? (tokenForward === "bf16" ? "on" : "off") : "off";
   const runtimeIndex = [
     ...(options.directArtifactIndex && options.directArtifactIndexSha256 && options.directArtifactSha256 ? ["--artifact-index", options.directArtifactIndex, "--artifact-index-sha256", options.directArtifactIndexSha256, "--artifact-sha256", options.directArtifactSha256] : []),
-    "--mlx-decoder-quantization", primary ? options.directMlxDecoderQuantization ?? (backend === "mlx" ? "q8-ffn-gate-up" : "off") : "off",
+    "--mlx-decoder-quantization", primary ? options.directMlxDecoderQuantization ?? (backend === "mlx" ? "q8-ffn-gate-up" : "off") : compiledControl ? "q8-ffn-gate-up" : "off",
     ...(primary && options.directMlxDecoderQuantizationLayers !== undefined ? ["--mlx-decoder-quantization-layers", options.directMlxDecoderQuantizationLayers] : []),
   ];
-  const finalFormulaProgram = primary && decoderStack === "real" && options.compiledProgram ? ["--final-formula-map", join(options.compiledProgram.bundle, options.compiledProgram.finalFormulaMap.file), "--final-formula-map-sha256", options.compiledProgram.finalFormulaMap.sha256, "--final-formula-functions", String(options.compiledProgram.finalFormulaMap.functions), "--final-formula-roots-sha256", options.compiledProgram.finalFormulaMap.orderedRootsSha256] : [];
-  return [options.directWorker ?? resolve("dist/src/gemma4-paged-runtime-worker-cli.js"), "--artifact", options.literalArtifact, ...runtimeIndex, ...finalFormulaProgram, "--binary-pool", options.binaryPool, "--python", options.python, "--linear-helper", options.directLinearHelper ?? resolve("scripts/gemma4-paged-linear-worker.py"), "--mlx-helper", options.directMlxHelper ?? resolve("scripts/gemma4-mlx-linear-worker.py"), "--linear-backend", backend, "--mlx-head-quantization", primary ? options.directMlxHeadQuantization ?? "off" : "off", "--fused-mlp", primary ? options.directFusedMlp ?? (backend === "pytorch" ? "native-bf16" : "real") : "native-bf16", "--fused-ffn", primary ? options.directFusedFfn ?? (backend === "pytorch" ? "native-bf16" : "off") : "native-bf16", "--fused-decoder-layer", primary ? options.directFusedDecoderLayer ?? (backend === "pytorch" ? "native-bf16" : "off") : "native-bf16", "--fused-decoder-stack", decoderStack, "--fused-ple", primary ? options.directFusedPle ?? (backend === "pytorch" ? "bf16" : "off") : "bf16", "--fused-ple-prelude", primary ? options.directFusedPlePrelude ?? (backend === "mlx" ? "bf16" : "off") : "off", "--fused-token-forward", tokenForward, "--resident-generation", residentGeneration, "--final-head", primary ? options.directFinalHead ?? (backend === "pytorch" ? "native-bf16-stream" : "native-bf16-whole") : "native-bf16-stream", "--native-attention", primary ? options.directNativeAttention ?? (backend === "pytorch" ? "real" : "off") : "real", "--fused-attention", primary ? options.directFusedAttention ?? (backend === "pytorch" ? "native-bf16" : "off") : "native-bf16", "--threads", String(options.directThreads ?? 10), "--max-read-mib", String(options.directMaxReadMiB ?? 16), "--final-head-read-mib", String(primary ? options.directFinalHeadReadMiB ?? (backend === "pytorch" ? 32 : options.directMaxReadMiB ?? 16) : 32)];
+  const finalFormulaProgram = accelerated && decoderStack === "real" && options.compiledProgram ? ["--final-formula-map", join(options.compiledProgram.bundle, options.compiledProgram.finalFormulaMap.file), "--final-formula-map-sha256", options.compiledProgram.finalFormulaMap.sha256, "--final-formula-functions", String(options.compiledProgram.finalFormulaMap.functions), "--final-formula-roots-sha256", options.compiledProgram.finalFormulaMap.orderedRootsSha256] : [];
+  return [options.directWorker ?? resolve("dist/src/gemma4-paged-runtime-worker-cli.js"), "--artifact", options.literalArtifact, ...runtimeIndex, ...finalFormulaProgram, "--binary-pool", options.binaryPool, "--python", options.python, "--linear-helper", options.directLinearHelper ?? resolve("scripts/gemma4-paged-linear-worker.py"), "--mlx-helper", options.directMlxHelper ?? resolve("scripts/gemma4-mlx-linear-worker.py"), "--linear-backend", backend, "--mlx-head-quantization", accelerated ? options.directMlxHeadQuantization ?? "off" : "off", "--fused-mlp", accelerated ? options.directFusedMlp ?? (backend === "mlx" ? "real" : "native-bf16") : "native-bf16", "--fused-ffn", accelerated ? options.directFusedFfn ?? (backend === "mlx" ? "off" : "native-bf16") : "native-bf16", "--fused-decoder-layer", accelerated ? options.directFusedDecoderLayer ?? (backend === "mlx" ? "off" : "native-bf16") : "native-bf16", "--fused-decoder-stack", decoderStack, "--fused-ple", accelerated ? options.directFusedPle ?? (backend === "mlx" ? "off" : "bf16") : "bf16", "--fused-ple-prelude", accelerated ? options.directFusedPlePrelude ?? (backend === "mlx" ? "bf16" : "off") : "off", "--fused-token-forward", tokenForward, "--resident-generation", residentGeneration, "--final-head", accelerated ? options.directFinalHead ?? (backend === "mlx" ? "native-bf16-whole" : "native-bf16-stream") : "native-bf16-stream", "--native-attention", accelerated ? options.directNativeAttention ?? (backend === "mlx" ? "off" : "real") : "real", "--fused-attention", accelerated ? options.directFusedAttention ?? (backend === "mlx" ? "off" : "native-bf16") : "native-bf16", "--threads", String(options.directThreads ?? 10), "--max-read-mib", String(options.directMaxReadMiB ?? 16), "--final-head-read-mib", String(accelerated ? options.directFinalHeadReadMiB ?? (backend === "mlx" ? options.directMaxReadMiB ?? 16 : 32) : 32)];
 }
 
 async function warmupDirectWorker(worker: PersistentJsonlWorker, maxNewTokens: number): Promise<number> {
@@ -291,7 +312,7 @@ export function assessDirectVerification(report: DirectReport, marginThreshold: 
   return { trigger: sensitiveSteps.length > 0, reason: "margin-at-or-below-threshold", minimumMargin, marginThreshold, sensitiveSteps };
 }
 
-async function executeSelectedDirect(primary: PersistentJsonlWorker, verificationProvider: { get(): Promise<PersistentJsonlWorker>; release(): Promise<void> } | undefined, marginThreshold: number | undefined, payload: { inputIds: number[]; maxNewTokens: number; eosTokenId?: number; sessionId?: number; stream?: boolean }, onEvent?: (event: unknown) => void, onFallback?: (assessment: DirectMarginAssessment) => void, shouldVerify: () => boolean = () => true): Promise<DirectReport> {
+async function executeSelectedDirect(primary: PersistentJsonlWorker, verificationProvider: { get?(): Promise<PersistentJsonlWorker>; release?(): Promise<void>; backend: "pytorch" | "mlx-control" | "mlx-shared-control"; selectiveHeads: boolean } | undefined, marginThreshold: number | undefined, payload: { inputIds: number[]; maxNewTokens: number; eosTokenId?: number; sessionId?: number; stream?: boolean }, onEvent?: (event: unknown) => void, onFallback?: (assessment: DirectMarginAssessment & { verificationBackend: "pytorch" | "mlx-control" | "mlx-shared-control" }) => void, shouldVerify: () => boolean = () => true): Promise<DirectReport> {
   const started = performance.now();
   const fast = await primary.send(payload, onEvent) as DirectReport;
   if (!verificationProvider || marginThreshold === undefined) return fast;
@@ -299,14 +320,25 @@ async function executeSelectedDirect(primary: PersistentJsonlWorker, verificatio
   const fastPathSeconds = (performance.now() - started) / 1000;
   if (!assessment.trigger) return Object.assign(fast, { selectionPolicy: "margin-verified-pytorch-v1", selectedBackend: "mlx", fallbackTriggered: false, fastPathMinimumMargin: assessment.minimumMargin, verificationMarginThreshold: marginThreshold, fastPathSeconds });
   if (!shouldVerify()) return fast;
-  onFallback?.(assessment);
-  const verification = await verificationProvider.get();
-  const selectiveRequest = assessment.reason === "margin-at-or-below-threshold" && assessment.sensitiveSteps.length > 0 && typeof fast.terminalLogitsSha256 === "string" && /^[0-9a-f]{64}$/.test(fast.terminalLogitsSha256)
+  onFallback?.({ ...assessment, verificationBackend: verificationProvider.backend });
+  const selectiveRequest = verificationProvider.selectiveHeads && assessment.reason === "margin-at-or-below-threshold" && assessment.sensitiveSteps.length > 0 && typeof fast.terminalLogitsSha256 === "string" && /^[0-9a-f]{64}$/.test(fast.terminalLogitsSha256)
     ? { verificationFastPath: { generatedTokenIds: fast.generatedTokenIds, sensitiveSteps: assessment.sensitiveSteps, terminalLogitsSha256: fast.terminalLogitsSha256 } }
     : {};
   let verified: DirectReport;
-  try { verified = await verification.send({ inputIds: payload.inputIds, maxNewTokens: payload.maxNewTokens, ...selectiveRequest, ...(payload.eosTokenId === undefined ? {} : { eosTokenId: payload.eosTokenId }), ...(payload.sessionId === undefined ? {} : { sessionId: payload.sessionId }) }) as DirectReport; }
-  finally { await verificationProvider.release(); }
+  if (verificationProvider.backend === "mlx-shared-control") {
+    const verifiedTokenSteps = assessment.sensitiveSteps.at(-1)! + 1;
+    const prefix = await primary.send({ inputIds: payload.inputIds, maxNewTokens: verifiedTokenSteps, verificationControl: true, ...(payload.eosTokenId === undefined ? {} : { eosTokenId: payload.eosTokenId }) }) as DirectReport;
+    const prefixMatches = arraysEqual(prefix.generatedTokenIds, fast.generatedTokenIds.slice(0, prefix.generatedTokenIds.length)) && prefix.generatedTokenIds.length === Math.min(verifiedTokenSteps, fast.generatedTokenIds.length);
+    if (prefixMatches) verified = { ...fast, ...(fast.steps ? { steps: fast.steps.map((step) => ({ ...step })) } : {}), controlVerificationTokenSteps: prefix.generatedTokenIds.length, controlCorrectionTriggered: false };
+    else {
+      verified = verifiedTokenSteps >= payload.maxNewTokens ? prefix : await primary.send({ inputIds: payload.inputIds, maxNewTokens: payload.maxNewTokens, verificationControl: true, ...(payload.eosTokenId === undefined ? {} : { eosTokenId: payload.eosTokenId }) }) as DirectReport;
+      Object.assign(verified, { controlVerificationTokenSteps: verifiedTokenSteps, controlCorrectionTriggered: true });
+    }
+  } else {
+    const verification = await verificationProvider.get!();
+    try { verified = await verification.send({ inputIds: payload.inputIds, maxNewTokens: payload.maxNewTokens, ...selectiveRequest, ...(payload.eosTokenId === undefined ? {} : { eosTokenId: payload.eosTokenId }), ...(payload.sessionId === undefined ? {} : { sessionId: payload.sessionId }) }) as DirectReport; }
+    finally { await verificationProvider.release!(); }
+  }
   if (verified.selectiveVerification === true && Array.isArray(verified.steps) && Array.isArray(fast.steps)) {
     verified.steps = verified.steps.map((step, index) => step?.verificationSkipped === true && fast.steps![index]
       ? { ...fast.steps![index], ...(step.forwardSeconds === undefined ? {} : { forwardSeconds: step.forwardSeconds }), verificationSkipped: true }
@@ -314,7 +346,7 @@ async function executeSelectedDirect(primary: PersistentJsonlWorker, verificatio
   }
   const hybridSeconds = (performance.now() - started) / 1000;
   return Object.assign(verified, {
-    selectionPolicy: "margin-verified-pytorch-v1", selectedBackend: "pytorch", fallbackTriggered: true, fallbackReason: assessment.reason,
+    selectionPolicy: verificationProvider.backend === "mlx-shared-control" ? "margin-verified-mlx-shared-control-v1" : verificationProvider.backend === "mlx-control" ? "margin-verified-mlx-control-v1" : "margin-verified-pytorch-v1", selectedBackend: verificationProvider.backend, fallbackTriggered: true, fallbackReason: assessment.reason,
     fastPathMinimumMargin: assessment.minimumMargin, verificationMarginThreshold: marginThreshold, fastPathSeconds,
     verificationSeconds: Math.max(0, hybridSeconds - fastPathSeconds), workerVerificationSeconds: verified.elapsedSeconds,
     hybridSeconds, elapsedSeconds: hybridSeconds, tokensPerSecond: verified.generatedTokenIds.length / hybridSeconds,
@@ -533,7 +565,7 @@ export function parseGemma4RealServerOptions(arguments_: readonly string[]): Gem
     if (!flag?.startsWith("--") || value === undefined || values.has(flag)) throw new Error(`Argumento inválido: ${flag ?? "fim"}.`);
     values.set(flag, value);
   }
-  const known = new Set(["--source", "--compiled-bundle", "--python", "--helper", "--tokenizer-helper", "--port", "--host", "--literal-artifact", "--binary-pool", "--direct-worker", "--direct-linear-helper", "--direct-mlx-helper", "--direct-linear-backend", "--direct-mlx-head-quantization", "--direct-mlx-decoder-quantization", "--direct-mlx-decoder-quantization-layers", "--direct-fused-mlp", "--direct-fused-ffn", "--direct-fused-decoder-layer", "--direct-fused-decoder-stack", "--direct-fused-ple", "--direct-fused-ple-prelude", "--direct-fused-token-forward", "--direct-resident-generation", "--direct-final-head", "--direct-final-head-read-mib", "--direct-native-attention", "--direct-fused-attention", "--direct-threads", "--direct-max-read-mib", "--direct-verification-margin"]); for (const key of values.keys()) if (!known.has(key)) throw new Error(`Flag desconhecida: ${key}.`);
+  const known = new Set(["--source", "--compiled-bundle", "--python", "--helper", "--tokenizer-helper", "--port", "--host", "--literal-artifact", "--binary-pool", "--direct-worker", "--direct-linear-helper", "--direct-mlx-helper", "--direct-linear-backend", "--direct-mlx-head-quantization", "--direct-mlx-decoder-quantization", "--direct-mlx-decoder-quantization-layers", "--direct-fused-mlp", "--direct-fused-ffn", "--direct-fused-decoder-layer", "--direct-fused-decoder-stack", "--direct-fused-ple", "--direct-fused-ple-prelude", "--direct-fused-token-forward", "--direct-resident-generation", "--direct-final-head", "--direct-final-head-read-mib", "--direct-native-attention", "--direct-fused-attention", "--direct-threads", "--direct-max-read-mib", "--direct-verification-margin", "--direct-verification-backend"]); for (const key of values.keys()) if (!known.has(key)) throw new Error(`Flag desconhecida: ${key}.`);
   const port = Number(values.get("--port") ?? "8787"); if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) throw new Error("--port inválido.");
   const compiledBundle = resolve(values.get("--compiled-bundle") ?? "artifacts/gemma4-compiled-global-runtime-bundle");
   const bundleReady = existsSync(join(compiledBundle, "constants.literal.json")) && existsSync(join(compiledBundle, "model.safetensors")) && existsSync(join(compiledBundle, "tokenizer.json")) && existsSync(join(compiledBundle, "config.json")) && existsSync(join(compiledBundle, "manifest.json")) && existsSync(join(compiledBundle, "global-formulas.ssa.json")) && existsSync(join(compiledBundle, "final-formulas.json")) && existsSync(join(compiledBundle, "vectorized-real-lowering.json"));
@@ -554,10 +586,14 @@ export function parseGemma4RealServerOptions(arguments_: readonly string[]): Gem
   if (directLinearBackend !== "mlx" && directMlxDecoderQuantization !== "off") throw new Error("--direct-mlx-decoder-quantization requer backend MLX.");
   const directMlxDecoderQuantizationLayers = values.has("--direct-mlx-decoder-quantization-layers") ? normalizeGemma4DecoderQuantizationLayers(values.get("--direct-mlx-decoder-quantization-layers")!) : undefined;
   if (directMlxDecoderQuantizationLayers !== undefined && directMlxDecoderQuantization !== "q8-ffn-gate-up" && directMlxDecoderQuantization !== "q8-ffn-gate-up-down" && directMlxDecoderQuantization !== "q4-ffn-gate-up") throw new Error("--direct-mlx-decoder-quantization-layers requer q8-ffn-gate-up, q8-ffn-gate-up-down ou q4-ffn-gate-up.");
-  const verificationMarginValue = values.get("--direct-verification-margin") ?? (directLinearBackend === "mlx" ? "0" : "off");
+  const verificationMarginValue = values.get("--direct-verification-margin") ?? (directLinearBackend === "mlx" ? directMlxDecoderQuantization === "q8-ffn-gate-up-down" ? "0.125" : "0" : "off");
   const directVerificationMargin = verificationMarginValue === "off" ? undefined : Number(verificationMarginValue);
   if (directVerificationMargin !== undefined && (!Number.isFinite(directVerificationMargin) || directVerificationMargin < 0)) throw new Error("--direct-verification-margin deve ser off ou número finito não negativo.");
   if (directLinearBackend !== "mlx" && directVerificationMargin !== undefined) throw new Error("--direct-verification-margin requer backend mlx.");
+  const directVerificationBackend = values.get("--direct-verification-backend") ?? (directMlxDecoderQuantization === "q8-ffn-gate-up-down" ? "mlx-shared-control" : "pytorch");
+  if (directVerificationBackend !== "pytorch" && directVerificationBackend !== "mlx-control" && directVerificationBackend !== "mlx-shared-control") throw new Error("--direct-verification-backend deve ser pytorch, mlx-control ou mlx-shared-control.");
+  if ((directVerificationBackend === "mlx-control" || directVerificationBackend === "mlx-shared-control") && directLinearBackend !== "mlx") throw new Error(`--direct-verification-backend ${directVerificationBackend} requer backend mlx.`);
+  if (directVerificationBackend === "mlx-shared-control" && directMlxDecoderQuantization !== "q8-ffn-gate-up-down") throw new Error("--direct-verification-backend mlx-shared-control requer decoder q8-ffn-gate-up-down.");
   const directThreads = Number(values.get("--direct-threads") ?? "10"), directMaxReadMiB = Number(values.get("--direct-max-read-mib") ?? "16"), directFinalHeadReadMiB = Number(values.get("--direct-final-head-read-mib") ?? (directLinearBackend === "pytorch" ? "32" : String(directMaxReadMiB)));
   if (!Number.isSafeInteger(directThreads) || directThreads < 1 || directThreads > 256 || !Number.isSafeInteger(directMaxReadMiB) || directMaxReadMiB < 1 || directMaxReadMiB > 1024 || !Number.isSafeInteger(directFinalHeadReadMiB) || directFinalHeadReadMiB < 1 || directFinalHeadReadMiB > 1024) throw new Error("Configuração direta inválida.");
   const directFusedMlp = values.get("--direct-fused-mlp") ?? (directLinearBackend === "pytorch" ? "native-bf16" : "real");
@@ -600,7 +636,7 @@ export function parseGemma4RealServerOptions(arguments_: readonly string[]): Gem
     directMlxDecoderQuantization,
     ...(directMlxDecoderQuantizationLayers === undefined ? {} : { directMlxDecoderQuantizationLayers }),
     ...(compiledProgram ? { compiledProgram } : {}),
-    ...(literalArtifact && binaryPool ? { literalArtifact, binaryPool, ...(compiledProgram?.runtimeIndex && literalArtifact === join(compiledBundle, compiledProgram.constantPool.file) ? { directArtifactIndex: join(compiledBundle, compiledProgram.runtimeIndex.file), directArtifactIndexSha256: compiledProgram.runtimeIndex.sha256, directArtifactSha256: compiledProgram.runtimeIndex.constantPoolSha256 } : {}), directWorker: resolve(values.get("--direct-worker") ?? "dist/src/gemma4-paged-runtime-worker-cli.js"), directLinearHelper: resolve(values.get("--direct-linear-helper") ?? "scripts/gemma4-paged-linear-worker.py"), directMlxHelper: resolve(values.get("--direct-mlx-helper") ?? "scripts/gemma4-mlx-linear-worker.py"), directLinearBackend, directMlxHeadQuantization, directFusedMlp, directFusedFfn, directFusedDecoderLayer, directFusedDecoderStack, directFusedPle, directFusedPlePrelude, directFusedTokenForward, directResidentGeneration, directFinalHead, directNativeAttention, directFusedAttention, directThreads, directMaxReadMiB, directFinalHeadReadMiB, ...(directVerificationMargin === undefined ? {} : { directVerificationMargin }) } : {}),
+    ...(literalArtifact && binaryPool ? { literalArtifact, binaryPool, ...(compiledProgram?.runtimeIndex && literalArtifact === join(compiledBundle, compiledProgram.constantPool.file) ? { directArtifactIndex: join(compiledBundle, compiledProgram.runtimeIndex.file), directArtifactIndexSha256: compiledProgram.runtimeIndex.sha256, directArtifactSha256: compiledProgram.runtimeIndex.constantPoolSha256 } : {}), directWorker: resolve(values.get("--direct-worker") ?? "dist/src/gemma4-paged-runtime-worker-cli.js"), directLinearHelper: resolve(values.get("--direct-linear-helper") ?? "scripts/gemma4-paged-linear-worker.py"), directMlxHelper: resolve(values.get("--direct-mlx-helper") ?? "scripts/gemma4-mlx-linear-worker.py"), directLinearBackend, directMlxHeadQuantization, directFusedMlp, directFusedFfn, directFusedDecoderLayer, directFusedDecoderStack, directFusedPle, directFusedPlePrelude, directFusedTokenForward, directResidentGeneration, directFinalHead, directNativeAttention, directFusedAttention, directThreads, directMaxReadMiB, directFinalHeadReadMiB, directVerificationBackend, ...(directVerificationMargin === undefined ? {} : { directVerificationMargin }) } : {}),
   };
 }
 

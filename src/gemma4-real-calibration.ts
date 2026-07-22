@@ -132,7 +132,7 @@ interface ThreeWayCase {
     firstDivergentStep: number | null;
     logitAgreement?: DirectLogitAgreement;
     selectionPolicy?: string;
-    selectedBackend?: "mlx" | "pytorch";
+    selectedBackend?: "mlx" | "pytorch" | "mlx-control" | "mlx-shared-control";
     fallbackTriggered?: boolean;
     fallbackReason?: string;
     fastPathMinimumMargin?: number | null;
@@ -146,6 +146,8 @@ interface ThreeWayCase {
     trustedFastPathSteps?: number;
     verificationHeadSteps?: number;
     verificationDivergenceStep?: number | null;
+    controlVerificationTokenSteps?: number;
+    controlCorrectionTriggered?: boolean;
     fastPath?: { generatedTokenIds?: number[]; elapsedSeconds?: number; tokensPerSecond?: number; linearBackend?: string };
     steps: Array<{ step: number; tokenId: number; forwardSeconds: number; topLogits: unknown }>;
   };
@@ -206,6 +208,8 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
   const compatibilityPromptsEqual = cases.filter((entry) => entry.generatedTokensEqual).length;
   const directPromptsEqual = cases.filter((entry) => entry.direct.tokensEqualBaseline).length;
   const directFallbackPrompts = cases.filter((entry) => entry.direct.fallbackTriggered === true).length;
+  const directControlCorrectionPrompts = cases.filter((entry) => entry.direct.controlCorrectionTriggered === true).length;
+  const directControlVerifiedTokenSteps = cases.reduce((total, entry) => total + (entry.direct.controlVerificationTokenSteps ?? 0), 0);
   const promptsThreeWayEqual = cases.filter((entry) => entry.generatedTokensEqual && entry.direct.tokensEqualBaseline).length;
   const directReportedLogitSteps = cases.flatMap((entry) => entry.direct.logitAgreement?.steps ?? []);
   const directLogitSteps = directReportedLogitSteps.filter((step) => step.contextsEqualBeforeStep);
@@ -222,7 +226,7 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
       prompts: cases.length, tokensPerPrompt: options.maxNewTokens, requestThreads: options.requestThreads,
       directMlxDecoderQuantization: options.runner.directMlxDecoderQuantization ?? (directBackend === "mlx" ? "q8-ffn-gate-up" : "off"),
       ...(options.runner.directMlxDecoderQuantizationLayers === undefined ? {} : { directMlxDecoderQuantizationLayers: options.runner.directMlxDecoderQuantizationLayers }),
-      directThreads: options.runner.directThreads, directMaxReadMiB: options.runner.directMaxReadMiB ?? 16, directFinalHeadReadMiB: options.runner.directFinalHeadReadMiB ?? (directBackend === "pytorch" ? 32 : options.runner.directMaxReadMiB ?? 16), directLinearBackend: directBackend, directMlxHeadQuantization: options.runner.directMlxHeadQuantization ?? "off", directVerificationMargin: options.runner.directVerificationMargin ?? null, directFusedMlp: options.runner.directFusedMlp ?? (directBackend === "pytorch" ? "native-bf16" : "real"), directFusedFfn: options.runner.directFusedFfn ?? (directBackend === "pytorch" ? "native-bf16" : "off"), directFusedDecoderLayer: options.runner.directFusedDecoderLayer ?? (directBackend === "pytorch" ? "native-bf16" : "off"), directFusedDecoderStack: options.runner.directFusedDecoderStack ?? "native-bf16", directFusedPle: options.runner.directFusedPle ?? (directBackend === "pytorch" ? "bf16" : "off"), directFusedPlePrelude: options.runner.directFusedPlePrelude ?? (directBackend === "mlx" ? "bf16" : "off"), directFusedTokenForward: options.runner.directFusedTokenForward ?? (directBackend === "mlx" && options.runner.directFusedDecoderStack !== "off" ? "bf16" : "off"), directResidentGeneration: options.runner.directResidentGeneration ?? (directBackend === "mlx" && options.runner.directFusedDecoderStack !== "off" ? "on" : "off"), directFinalHead: options.runner.directFinalHead ?? (directBackend === "pytorch" ? "native-bf16-stream" : "native-bf16-whole"), directNativeAttention: options.runner.directNativeAttention ?? (directBackend === "pytorch" ? "real" : "off"), directFusedAttention: options.runner.directFusedAttention ?? (directBackend === "pytorch" ? "native-bf16" : "off"), precision: options.precision, roundingPolicy: options.roundingPolicy,
+      directThreads: options.runner.directThreads, directMaxReadMiB: options.runner.directMaxReadMiB ?? 16, directFinalHeadReadMiB: options.runner.directFinalHeadReadMiB ?? (directBackend === "pytorch" ? 32 : options.runner.directMaxReadMiB ?? 16), directLinearBackend: directBackend, directMlxHeadQuantization: options.runner.directMlxHeadQuantization ?? "off", directVerificationMargin: options.runner.directVerificationMargin ?? null, directVerificationBackend: options.runner.directVerificationBackend ?? "pytorch", directFusedMlp: options.runner.directFusedMlp ?? (directBackend === "pytorch" ? "native-bf16" : "real"), directFusedFfn: options.runner.directFusedFfn ?? (directBackend === "pytorch" ? "native-bf16" : "off"), directFusedDecoderLayer: options.runner.directFusedDecoderLayer ?? (directBackend === "pytorch" ? "native-bf16" : "off"), directFusedDecoderStack: options.runner.directFusedDecoderStack ?? "native-bf16", directFusedPle: options.runner.directFusedPle ?? (directBackend === "pytorch" ? "bf16" : "off"), directFusedPlePrelude: options.runner.directFusedPlePrelude ?? (directBackend === "mlx" ? "bf16" : "off"), directFusedTokenForward: options.runner.directFusedTokenForward ?? (directBackend === "mlx" && options.runner.directFusedDecoderStack !== "off" ? "bf16" : "off"), directResidentGeneration: options.runner.directResidentGeneration ?? (directBackend === "mlx" && options.runner.directFusedDecoderStack !== "off" ? "on" : "off"), directFinalHead: options.runner.directFinalHead ?? (directBackend === "pytorch" ? "native-bf16-stream" : "native-bf16-whole"), directNativeAttention: options.runner.directNativeAttention ?? (directBackend === "pytorch" ? "real" : "off"), directFusedAttention: options.runner.directFusedAttention ?? (directBackend === "pytorch" ? "native-bf16" : "off"), precision: options.precision, roundingPolicy: options.roundingPolicy,
     },
     initialization: status,
     summary: {
@@ -234,6 +238,8 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
       directPromptAgreementRate: directPromptsEqual / cases.length,
       directFallbackPrompts,
       directFallbackRate: directFallbackPrompts / cases.length,
+      directControlCorrectionPrompts,
+      directControlVerifiedTokenSteps,
       comparedTokenSteps: totalSteps,
       compatibilityEqualTokenSteps: compatibilityEqualSteps,
       compatibilityTokenAgreementRate: compatibilityEqualSteps / totalSteps,
@@ -288,6 +294,8 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.trustedFastPathSteps === undefined ? {} : { trustedFastPathSteps: entry.direct.trustedFastPathSteps }),
         ...(entry.direct.verificationHeadSteps === undefined ? {} : { verificationHeadSteps: entry.direct.verificationHeadSteps }),
         ...(entry.direct.verificationDivergenceStep === undefined ? {} : { verificationDivergenceStep: entry.direct.verificationDivergenceStep }),
+        ...(entry.direct.controlVerificationTokenSteps === undefined ? {} : { controlVerificationTokenSteps: entry.direct.controlVerificationTokenSteps }),
+        ...(entry.direct.controlCorrectionTriggered === undefined ? {} : { controlCorrectionTriggered: entry.direct.controlCorrectionTriggered }),
         ...(entry.direct.fastPath === undefined ? {} : { fastPath: { tokenIds: entry.direct.fastPath.generatedTokenIds, seconds: entry.direct.fastPath.elapsedSeconds, tokensPerSecond: entry.direct.fastPath.tokensPerSecond, linearBackend: entry.direct.fastPath.linearBackend } }),
         ...(entry.direct.logitAgreement === undefined ? {} : { logitAgreement: entry.direct.logitAgreement }),
         ...(entry.direct.maxReadMiB === undefined ? {} : { maxReadMiB: entry.direct.maxReadMiB }),

@@ -70,7 +70,7 @@ process.stdout.write(`${JSON.stringify({ ready: true, initializationSeconds: (pe
 
 const lines = createInterface({ input: process.stdin, crlfDelay: Infinity });
 for await (const line of lines) {
-  let request: { id?: unknown; control?: unknown; inputIds?: unknown; maxNewTokens?: unknown; eosTokenId?: unknown; sessionId?: unknown; stream?: unknown; verificationFastPath?: unknown } = {};
+  let request: { id?: unknown; control?: unknown; inputIds?: unknown; maxNewTokens?: unknown; eosTokenId?: unknown; sessionId?: unknown; stream?: unknown; verificationFastPath?: unknown; verificationControl?: unknown } = {};
   try {
     request = JSON.parse(line) as typeof request;
     if (request.control === "trim-memory") {
@@ -83,10 +83,12 @@ for await (const line of lines) {
     }
     if (request.control !== undefined) throw new Error("Controle de worker desconhecido.");
     const inputIds = validateIds(request.inputIds), maxNewTokens = validateTokens(request.maxNewTokens), eosTokenId = validateEosTokenId(request.eosTokenId);
-    const sessionId = validateSessionId(request.sessionId), stream = validateStream(request.stream), verificationFastPath = validateVerificationFastPath(request.verificationFastPath, maxNewTokens);
+    const sessionId = validateSessionId(request.sessionId), stream = validateStream(request.stream), verificationFastPath = validateVerificationFastPath(request.verificationFastPath, maxNewTokens), verificationControl = validateVerificationControl(request.verificationControl);
+    if (verificationFastPath && verificationControl) throw new Error("verificationFastPath e verificationControl são mutuamente exclusivos.");
+    if (verificationControl && (args.linearBackend !== "mlx" || args.mlxDecoderQuantization !== "q8-ffn-gate-up-down" || sessionId !== undefined || stream)) throw new Error("verificationControl requer decoder MLX q8-ffn-gate-up-down sem sessão nem streaming.");
     const report = verificationFastPath
       ? await generateSelectiveVerification(inputIds, maxNewTokens, verificationFastPath, eosTokenId)
-      : await generate(inputIds, maxNewTokens, eosTokenId, sessionId, stream ? (event) => process.stdout.write(`${JSON.stringify({ id: request.id, event: { type: "token", ...event } })}\n`) : undefined);
+      : await generate(inputIds, maxNewTokens, eosTokenId, sessionId, stream ? (event) => process.stdout.write(`${JSON.stringify({ id: request.id, event: { type: "token", ...event } })}\n`) : undefined, verificationControl);
     process.stdout.write(`${JSON.stringify({ id: request.id, report })}\n`);
   } catch (error) {
     process.stdout.write(`${JSON.stringify({ id: request.id, error: error instanceof Error ? error.message : String(error) })}\n`);
@@ -94,11 +96,11 @@ for await (const line of lines) {
 }
 await linear.close(); await pool.close(); await artifact.close();
 
-async function generate(inputIds: number[], maxNewTokens: number, eosTokenId?: number, sessionId?: number, onToken?: (event: Record<string, unknown>) => void): Promise<Record<string, unknown>> {
+async function generate(inputIds: number[], maxNewTokens: number, eosTokenId?: number, sessionId?: number, onToken?: (event: Record<string, unknown>) => void, controlDecoder = false): Promise<Record<string, unknown>> {
   const dispatchesBefore = linear.dispatchMetrics();
   const started = performance.now(), generatedTokenIds: number[] = [], steps: Array<Record<string, unknown>> = [];
   if (args.residentGeneration === "on") {
-    const generated = await generateGemma4PagedTextLiteralNativeF32(artifact, { inputIds: [inputIds], maxNewTokens, ...(eosTokenId === undefined ? {} : { eosTokenId }) }, options, 5, { ...(sessionId === undefined ? {} : { sessionId }), ...(onToken === undefined ? {} : { onToken: (event) => onToken({ step: event.step, tokenId: event.tokenId, forwardSeconds: event.forwardSeconds, topLogits: Array.from(event.topTokenIds, (tokenId, rank) => ({ tokenId, value: event.topLogits[rank]! })) }) }) });
+    const generated = await generateGemma4PagedTextLiteralNativeF32(artifact, { inputIds: [inputIds], maxNewTokens, ...(eosTokenId === undefined ? {} : { eosTokenId }) }, options, 5, { ...(sessionId === undefined ? {} : { sessionId }), ...(controlDecoder ? { controlDecoder: true } : {}), ...(onToken === undefined ? {} : { onToken: (event) => onToken({ step: event.step, tokenId: event.tokenId, forwardSeconds: event.forwardSeconds, topLogits: Array.from(event.topTokenIds, (tokenId, rank) => ({ tokenId, value: event.topLogits[rank]! })) }) }) });
     const elapsedSeconds = (performance.now() - started) / 1000, dispatchesAfter = linear.dispatchMetrics();
     for (let step = 0; step < generated.generatedTokenIds.length; step += 1) {
       generatedTokenIds.push(generated.generatedTokenIds[step]!);
@@ -260,6 +262,11 @@ function validateSessionId(value: unknown): number | undefined {
 function validateStream(value: unknown): boolean {
   if (value === undefined) return false;
   if (typeof value !== "boolean") throw new Error("stream deve ser booleano.");
+  return value;
+}
+function validateVerificationControl(value: unknown): boolean {
+  if (value === undefined) return false;
+  if (typeof value !== "boolean") throw new Error("verificationControl deve ser booleano.");
   return value;
 }
 function validateVerificationFastPath(value: unknown, maxNewTokens: number): VerificationFastPath | undefined {

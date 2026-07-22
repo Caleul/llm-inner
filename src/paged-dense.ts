@@ -289,6 +289,7 @@ export interface PagedTokenGenerationEvent {
 export interface PagedCompiledTokenGenerationOptions {
   eosTokenId?: number;
   sessionId?: number;
+  controlDecoder?: boolean;
   onToken?: (event: PagedTokenGenerationEvent) => void;
 }
 
