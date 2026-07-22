@@ -346,7 +346,7 @@ def matrix_project(value, weight):
     return mx.matmul(value, weight.T).astype(mx.float32)
 
 
-def execute_decoder_layer_mlx(pool, shards, inputs, per_layer, positions, mask, source_key, source_value, config, weights=None, rope_factor_context=None, source_cache_validated=False, compile_safe_rope=False, incremental_fixed_shape=False):
+def execute_decoder_layer_mlx(pool, shards, inputs, per_layer, positions, mask, source_key, source_value, config, weights=None, rope_factor_context=None, source_cache_validated=False, compile_safe_rope=False, incremental_fixed_shape=False, defer_result_validation=False):
     batch, query_sequence, hidden_size = (1, 1, weights["input_norm"].shape[0]) if incremental_fixed_shape else inputs.shape
     query_heads, key_value_heads, head_dim = config["query_heads"], config["key_value_heads"], config["head_dim"]
     produces_kv, value_from_key = config["produces_kv"], config["value_from_key"]
@@ -421,7 +421,7 @@ def execute_decoder_layer_mlx(pool, shards, inputs, per_layer, positions, mask, 
     ple_projected = boundary(mx.matmul(boundary(ple_activated * per_layer), ple_projection_weight.T))
     ple_normalized = boundary(rms_norm_real(ple_projected, ple_norm_weight, config["ple_epsilon"]))
     result = boundary(boundary(after_mlp + ple_normalized) * layer_scalar)
-    valid = mx.all(mx.isfinite(result))
+    valid = mx.array(True) if defer_result_validation else mx.all(mx.isfinite(result))
     if produces_kv:
         validation_key = current_key if source_cache_validated else key
         validation_value = current_value if source_cache_validated else value
@@ -444,12 +444,16 @@ def compile_incremental_decoder_step(pool, shards, layer_plans, epilogue, roundi
                 source_key, source_value = source_keys[source_offset], source_values[source_offset]
             else:
                 source_key, source_value = produced[source_layer]
-            result, key, value, valid, _ = execute_decoder_layer_mlx(pool, shards, result, per_layer_inputs[layer_index], positions, masks[layer_index], source_key, source_value, config, weights, rope_factor_context, True, True, True)
+            result, key, value, valid, _ = execute_decoder_layer_mlx(pool, shards, result, per_layer_inputs[layer_index], positions, masks[layer_index], source_key, source_value, config, weights, rope_factor_context, True, True, True, True)
             all_valid = all_valid & valid
             if config["produces_kv"]:
                 produced[layer_index] = (key, value)
                 next_keys.append(key)
                 next_values.append(value)
+        # A non-finite residual propagates through the remaining normalization,
+        # projection, and residual chain. Validate the terminal state once and
+        # only the newly appended KV rows before they become reusable cache.
+        all_valid = all_valid & mx.all(mx.isfinite(result))
         raw_logits = execute_decoder_head(result, epilogue, rounding=rounding)
         logits = finalize_decoder_logits(raw_logits, epilogue, rounding=rounding)
         return result, raw_logits, logits, tuple(next_keys), tuple(next_values), all_valid
@@ -732,7 +736,8 @@ def emit_resident_generation(model, result, produced_caches, raw_logits, logits,
     computed = len(np.asarray(input_token_ids).reshape(-1)) if prefill_tokens_computed is None else prefill_tokens_computed
     cached_context_tokens = len(_resident_generation_session["token_ids"]) if session_id is not None else len(np.asarray(input_token_ids).reshape(-1)) + len(generated_ids) - 1
     compiled_incremental_decoder_steps = max(0, len(generated_ids) - 1)
-    profile = np.array((1, len(generated_ids), max(0, len(generated_ids) - 1), terminal_values.nbytes, rope_factor_builds, max(0, rope_factor_uses - rope_factor_builds), topology_mask_builds, max(0, topology_mask_uses - topology_mask_builds), len(generated_ids), kv_prefix_validation_scans_avoided, compiled_incremental_decoder_steps, 1 if model["incremental_compiler_cache_hit"] else 0, _widened_tensor_cache_hits - cache_hits_before, len(_widened_tensor_cache), _widened_tensor_cache_bytes, resident_kv_bytes, prefix_tokens_reused, computed, 1 if prefix_tokens_reused else 0, cached_context_tokens, quantized_head_certified_steps, quantized_head_exact_fallback_steps, token_prelude_cache_hits, token_prelude_cache_misses, first_forward_seconds, sum(forward_seconds[1:]), token_prelude_seconds, compiled_decoder_graph_seconds, token_selection_seconds, terminal_logit_transfer_seconds), dtype=np.float32)
+    decoder_layer_validity_scans_avoided = compiled_incremental_decoder_steps * max(0, len(model["layer_plans"]) - 1)
+    profile = np.array((1, len(generated_ids), max(0, len(generated_ids) - 1), terminal_values.nbytes, rope_factor_builds, max(0, rope_factor_uses - rope_factor_builds), topology_mask_builds, max(0, topology_mask_uses - topology_mask_builds), len(generated_ids), kv_prefix_validation_scans_avoided, compiled_incremental_decoder_steps, 1 if model["incremental_compiler_cache_hit"] else 0, _widened_tensor_cache_hits - cache_hits_before, len(_widened_tensor_cache), _widened_tensor_cache_bytes, resident_kv_bytes, prefix_tokens_reused, computed, 1 if prefix_tokens_reused else 0, cached_context_tokens, quantized_head_certified_steps, quantized_head_exact_fallback_steps, token_prelude_cache_hits, token_prelude_cache_misses, first_forward_seconds, sum(forward_seconds[1:]), token_prelude_seconds, compiled_decoder_graph_seconds, token_selection_seconds, terminal_logit_transfer_seconds, decoder_layer_validity_scans_avoided), dtype=np.float32)
     write_float_tensor(mx.array(profile))
     sys.stdout.buffer.flush()
 

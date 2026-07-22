@@ -92,6 +92,7 @@ interface ThreeWayCase {
     topologyMaskBuildsAvoided?: number;
     redundantLogitFiniteScansAvoided?: number;
     kvPrefixValidationScansAvoided?: number;
+    decoderLayerValidityScansAvoided?: number;
     compiledIncrementalDecoderSteps?: number;
     incrementalCompilerCacheHit?: boolean;
     fusedDecoderStackGateUpPairs?: number;
@@ -331,6 +332,7 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.topologyMaskBuildsAvoided === undefined ? {} : { topologyMaskBuildsAvoided: entry.direct.topologyMaskBuildsAvoided }),
         ...(entry.direct.redundantLogitFiniteScansAvoided === undefined ? {} : { redundantLogitFiniteScansAvoided: entry.direct.redundantLogitFiniteScansAvoided }),
         ...(entry.direct.kvPrefixValidationScansAvoided === undefined ? {} : { kvPrefixValidationScansAvoided: entry.direct.kvPrefixValidationScansAvoided }),
+        ...(entry.direct.decoderLayerValidityScansAvoided === undefined ? {} : { decoderLayerValidityScansAvoided: entry.direct.decoderLayerValidityScansAvoided }),
         ...(entry.direct.compiledIncrementalDecoderSteps === undefined ? {} : { compiledIncrementalDecoderSteps: entry.direct.compiledIncrementalDecoderSteps }),
         ...(entry.direct.incrementalCompilerCacheHit === undefined ? {} : { incrementalCompilerCacheHit: entry.direct.incrementalCompilerCacheHit }),
         ...(entry.direct.fusedDecoderStackGateUpPairs === undefined ? {} : { fusedDecoderStackGateUpPairs: entry.direct.fusedDecoderStackGateUpPairs }),

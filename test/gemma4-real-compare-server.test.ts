@@ -61,6 +61,7 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /ropeFactorBuildsAvoided/);
   assert.match(gemma4RealCompareHtml, /validações redundantes evitadas/);
   assert.match(gemma4RealCompareHtml, /kvPrefixValidationScansAvoided/);
+  assert.match(gemma4RealCompareHtml, /decoderLayerValidityScansAvoided/);
   assert.match(gemma4RealCompareHtml, /decoder→logits compilado/);
   assert.match(gemma4RealCompareHtml, /compiledIncrementalDecoderSteps/);
   assert.match(gemma4RealCompareHtml, /incrementalCompilerCacheHit/);
