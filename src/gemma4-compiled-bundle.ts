@@ -5,6 +5,7 @@ import { basename, join, resolve } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { createGemma4PagedRuntimeIndex, openGemma4PagedRuntimeArtifact } from "./gemma4-paged-runtime-index.js";
 import { validateGemma4VectorizedRealLoweringPlan, type Gemma4VectorizedRealLoweringPlan } from "./gemma4-vectorized-real-lowering.js";
+import { writeGemma4FinalFormulaMap } from "./gemma4-final-formula-map.js";
 
 export interface Gemma4CompiledBundleManifest {
   kind: "gemma4-compiled-shared-dag-bundle";
@@ -25,8 +26,9 @@ export interface Gemma4CompiledBundleManifest {
   };
   formula: { family: string; dimension: number; root: string; expressionNodes: number; inputTensor: "x"; inputLength: number; file: string };
   globalProgram?: { file: string; terminalLogits: number; constantPool: string };
+  finalFormulaMap?: { file: "final-formulas.json"; functions: number; inputTensor: "x"; evaluator: "BF16_RNE(EVAL_EXACT_DAG(root,x))"; globalFormulaSha256: string };
   runtimeIndex?: { file: "constants.runtime-index.json"; schemaVersion: 1 | 2; constantPoolSha256: string; integrityRootSha256: string };
-  files: Array<{ role: "formula-graph" | "global-formulas" | "vectorized-real-lowering" | "constant-pool" | "literal-runtime-index" | "runtime-weights" | "tokenizer" | "tokenizer-config" | "generation-config" | "model-config"; file: string; bytes: number; sha256: string }>;
+  files: Array<{ role: "formula-graph" | "global-formulas" | "final-formulas" | "vectorized-real-lowering" | "constant-pool" | "literal-runtime-index" | "runtime-weights" | "tokenizer" | "tokenizer-config" | "generation-config" | "model-config"; file: string; bytes: number; sha256: string }>;
 }
 
 export async function createGemma4CompiledBundle(options: { graph: string; globalSsa: string; realLoweringPlan: string; runtimeModel?: string; constantArtifact: string; tokenizerDirectory: string; outputDirectory: string; createRuntimeIndex?: boolean }): Promise<Gemma4CompiledBundleManifest> {
@@ -62,6 +64,12 @@ export async function createGemma4CompiledBundle(options: { graph: string; globa
   const terminalLogits = loweringPlan.contract.source.outputFamilies.terminal_logit?.dimensions ?? 0;
   if (terminalLogits === 0) throw new Error("Plano vetorizado não contém logits terminais.");
   files.push({ role: "global-formulas", file: "global-formulas.ssa.json", bytes: info.size, sha256: await sha256File(destination) });
+  const globalFile = files.at(-1)!;
+  const terminalLogitOffset = outputFamilyOffset(loweringPlan, "terminal_logit");
+  const finalFormulaFile = join(output, "final-formulas.json");
+  await writeGemma4FinalFormulaMap(destination, finalFormulaFile, terminalLogitOffset, terminalLogits);
+  const finalFormulaInfo = await stat(finalFormulaFile);
+  files.push({ role: "final-formulas", file: "final-formulas.json", bytes: finalFormulaInfo.size, sha256: await sha256File(finalFormulaFile) });
   const globalProgram: NonNullable<Gemma4CompiledBundleManifest["globalProgram"]> = { file: "global-formulas.ssa.json", terminalLogits, constantPool: "constants.literal.json" };
   const manifest: Gemma4CompiledBundleManifest = {
     kind: "gemma4-compiled-shared-dag-bundle", schemaVersion: runtimeIndexDescriptor ? 3 : 2, execution: "compiled-parametric-output-program-runtime",
@@ -75,10 +83,29 @@ export async function createGemma4CompiledBundle(options: { graph: string; globa
     },
     formula: { family: summary.output.family, dimension: summary.output.dimension, root: summary.root, expressionNodes: summary.expressionNodes, inputTensor: "x", inputLength: summary.inputVector.length, file: "formula.graph.json" },
     globalProgram,
+    finalFormulaMap: { file: "final-formulas.json", functions: terminalLogits, inputTensor: "x", evaluator: "BF16_RNE(EVAL_EXACT_DAG(root,x))", globalFormulaSha256: globalFile.sha256 },
     ...(runtimeIndexDescriptor ? { runtimeIndex: { file: "constants.runtime-index.json" as const, schemaVersion: runtimeIndexDescriptor.schemaVersion, constantPoolSha256: constantFile.sha256, integrityRootSha256: runtimeIndexDescriptor.integrityRootSha256 } } : {}),
     files,
   };
   await writeFile(join(output, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
+  return manifest;
+}
+
+export async function bindGemma4FinalFormulaMap(bundleDirectory: string): Promise<Gemma4CompiledBundleManifest> {
+  const bundle = resolve(bundleDirectory), manifestPath = join(bundle, "manifest.json");
+  const current = JSON.parse(await readFile(manifestPath, "utf8")) as Gemma4CompiledBundleManifest;
+  const globalFile = current.files?.find((entry) => entry.role === "global-formulas"), planFile = current.files?.find((entry) => entry.role === "vectorized-real-lowering");
+  if (current.kind !== "gemma4-compiled-shared-dag-bundle" || !current.globalProgram || !globalFile || !planFile || current.runtimeLowering?.plan !== planFile.file) throw new Error("Bundle compilado não contém SSA e plano vetorial autenticados.");
+  if (await sha256File(join(bundle, globalFile.file)) !== globalFile.sha256) throw new Error("SSA global diverge do manifesto antes de gerar fórmulas finais.");
+  const plan = await readLoweringPlan(join(bundle, planFile.file)), family = plan.contract.source.outputFamilies.terminal_logit;
+  if (!family || family.dimensions !== current.globalProgram.terminalLogits) throw new Error("Plano vetorial diverge da quantidade de logits do bundle.");
+  const destination = join(bundle, "final-formulas.json"), temporary = `${destination}.next-${process.pid}`;
+  try { await writeGemma4FinalFormulaMap(join(bundle, globalFile.file), temporary, outputFamilyOffset(plan, "terminal_logit"), family.dimensions); await rename(temporary, destination); }
+  catch (error) { await rm(temporary, { force: true }); throw error; }
+  const info = await stat(destination), descriptor = { role: "final-formulas" as const, file: "final-formulas.json", bytes: info.size, sha256: await sha256File(destination) };
+  const manifest: Gemma4CompiledBundleManifest = { ...current, finalFormulaMap: { file: "final-formulas.json", functions: family.dimensions, inputTensor: "x", evaluator: "BF16_RNE(EVAL_EXACT_DAG(root,x))", globalFormulaSha256: globalFile.sha256 }, files: [...current.files.filter((entry) => entry.role !== "final-formulas"), descriptor] };
+  const manifestTemporary = `${manifestPath}.next-${process.pid}`;
+  await writeFile(manifestTemporary, `${JSON.stringify(manifest, null, 2)}\n`, { encoding: "utf8", flag: "wx" }); await rename(manifestTemporary, manifestPath);
   return manifest;
 }
 
@@ -248,4 +275,13 @@ async function countOccurrences(path: string, needle: string): Promise<number> {
 
 async function sha256File(path: string): Promise<string> {
   const digest = createHash("sha256"); for await (const chunk of createReadStream(path)) digest.update(chunk as Buffer); return digest.digest("hex");
+}
+
+function outputFamilyOffset(plan: Gemma4VectorizedRealLoweringPlan, selected: string): number {
+  let offset = 0;
+  for (const [name, family] of Object.entries(plan.contract.source.outputFamilies)) {
+    if (name === selected) return offset;
+    offset += family.dimensions;
+  }
+  throw new Error(`Plano vetorial não contém família ${selected}.`);
 }

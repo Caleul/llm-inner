@@ -37,8 +37,10 @@ test("empacota grafo fechado, constant pool e tokenizer sem caminhos externos", 
     const manifest = await createGemma4CompiledBundle({ graph, globalSsa, realLoweringPlan: lowering, constantArtifact: constants, tokenizerDirectory: tokenizer, outputDirectory: output, createRuntimeIndex: false });
     assert.equal(manifest.formula.root, "sha256:a"); assert.equal(manifest.formula.inputLength, 3); assert.equal(manifest.formula.expressionNodes, 1);
     assert.deepEqual(manifest.runtimeLowering, { engine: "mlx-f32-real-decoder-stack-v1", directlyExecutesGlobalFormula: true, executesPersistedLoweringPlan: true, plan: "vectorized-real-lowering.json", functionBindingsSha256, outputBindingsSha256, standaloneSsaOutputsSha256, outputFunctions: 1, realSimplifiedProgramSha256: "b".repeat(64), globalFormulaRole: "compiled-executable-shared-dag", compiledOutputProgram });
-    assert.equal(manifest.schemaVersion, 2); assert.equal(manifest.files.length, 8); assert.ok(manifest.files.every((entry) => !entry.file.includes(directory)));
+    assert.equal(manifest.schemaVersion, 2); assert.equal(manifest.files.length, 9); assert.ok(manifest.files.every((entry) => !entry.file.includes(directory)));
     assert.deepEqual(manifest.globalProgram, { file: "global-formulas.ssa.json", terminalLogits: 1, constantPool: "constants.literal.json" });
+    assert.deepEqual(manifest.finalFormulaMap, { file: "final-formulas.json", functions: 1, inputTensor: "x", evaluator: "BF16_RNE(EVAL_EXACT_DAG(root,x))", globalFormulaSha256: manifest.files.find((entry) => entry.role === "global-formulas")!.sha256 });
+    assert.deepEqual(JSON.parse(await readFile(join(output, "final-formulas.json"), "utf8")), { calc_final_0: "BF16_RNE(EVAL_EXACT_DAG(\"root:output\", x))" });
     assert.match(await readFile(join(output, "global-formulas.ssa.json"), "utf8"), /"artifact":"constants\.literal\.json"/);
     assert.deepEqual(JSON.parse(await readFile(join(output, "vectorized-real-lowering.json"), "utf8")), JSON.parse(await readFile(lowering, "utf8")));
     assert.deepEqual(JSON.parse(await readFile(join(output, "manifest.json"), "utf8")), manifest);

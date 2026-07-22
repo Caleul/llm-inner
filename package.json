@@ -33,6 +33,7 @@
     "promote:gemma4-calibration": "npm run build && node dist/src/gemma4-calibration-promotion-cli.js",
     "export:gemma4-real-ssa": "npm run build && node --max-old-space-size=6144 dist/src/gemma4-real-ssa-export-cli.js",
     "generate:gemma4-flat-formulas": "npm run build && node --max-old-space-size=6144 dist/src/gemma4-flat-formula-cli.js",
+    "generate:gemma4-final-formula-map": "npm run build && node dist/src/gemma4-final-formula-map-cli.js",
     "compose:gemma4-reverse": "npm run build && node --max-old-space-size=6144 dist/src/gemma4-parametric-reverse-cli.js",
     "bundle:gemma4-compiled": "npm run build && node dist/src/gemma4-compiled-bundle-cli.js",
     "index:gemma4-compiled": "npm run build && node --max-old-space-size=4096 dist/src/gemma4-literal-runtime-index-cli.js",

@@ -2950,6 +2950,26 @@ ser simultaneamente mais exato, mais simples e mais rápido nessa máquina, o
 head BF16 passou a ser o padrão da interface e da calibração; Q8 e Q4 continuam
 disponíveis apenas por flag para experimentos reproduzíveis.
 
+A materialização final agora grava também `final-formulas.json` com exatamente
+262.144 propriedades no formato solicitado:
+
+```json
+{
+  "calc_final_0": "BF16_RNE(EVAL_EXACT_DAG(\"sha256:...\", x))",
+  "calc_final_1": "BF16_RNE(EVAL_EXACT_DAG(\"sha256:...\", x))"
+}
+```
+
+Cada raiz referencia a DAG matemática autenticada no próprio bundle; `x` é a
+única variável livre. O arquivo é produzido em streaming, vinculado ao SHA-256
+de `global-formulas.ssa.json` e incluído no manifesto com contagem, tamanho e
+SHA-256 próprios. Para adicionar ou regenerar o mapa em um bundle existente:
+
+```bash
+npm run generate:gemma4-final-formula-map -- \
+  --bundle artifacts/gemma4-compiled-global-runtime-bundle
+```
+
 A interface publica uma função final concreta do bundle no formato
 `calc_final_n(x) = BF16_RNE(EVAL_EXACT_DAG(root_n, x))`. O inspetor aceita
 qualquer dimensão `n` de `0` a `262143`, lê somente seu binding no
