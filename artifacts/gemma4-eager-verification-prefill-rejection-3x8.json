@@ -1,0 +1,79 @@
+{
+  "kind": "gemma4-verification-prefill-policy-calibration",
+  "schemaVersion": 1,
+  "createdAt": "2026-07-22",
+  "decision": {
+    "selectedPolicy": "sensitive-margin-triggered",
+    "rejectedPolicy": "eager-before-compiled-generation",
+    "reason": "Eager exact prefill preserved token IDs but contended with the compiled Metal path and increased latency for late fallback, early fallback, and safe prompts at both tested thread counts."
+  },
+  "configuration": {
+    "tokensPerPrompt": 8,
+    "warmRepetitionsPerPrompt": 2,
+    "verificationMargin": 0,
+    "compiledThreads": 8,
+    "directMlxDecoderQuantization": "q8-ffn-gate-up",
+    "directMlxDecoderQuantizationLayers": "0-20",
+    "conversationMode": "raw",
+    "isolatedSessionPerRequest": true
+  },
+  "sources": {
+    "authoritativeTokenIds": {
+      "file": "gemma4-q8-layers-0-20-margin0-calibration-32x8.json",
+      "sha256": "e4a81deb3e8e2aa68ddb30698e40334720123cd019d697e28e38c0d77eeaedfe",
+      "authoritativePromptsInProbe": 2
+    }
+  },
+  "results": [
+    {
+      "policy": "sensitive-margin-triggered",
+      "verificationThreads": 8,
+      "meanSeconds": {
+        "lateFallback": 1.831299521,
+        "earlyFallback": 1.316813625,
+        "safe": 0.36931775
+      }
+    },
+    {
+      "policy": "eager-before-compiled-generation",
+      "verificationThreads": 8,
+      "meanSeconds": {
+        "lateFallback": 3.2815083125,
+        "earlyFallback": 1.862228958,
+        "safe": 0.7741597915
+      }
+    },
+    {
+      "policy": "eager-before-compiled-generation",
+      "verificationThreads": 4,
+      "meanSeconds": {
+        "lateFallback": 3.8964611045,
+        "earlyFallback": 3.933535208,
+        "safe": 0.98146825
+      }
+    }
+  ],
+  "tokenParity": [
+    {
+      "class": "lateFallback",
+      "prompt": "The capital of France is",
+      "tokenIds": [496, 3207, 600, 563, 2587, 529, 4083, 532],
+      "equalAcrossPolicies": true,
+      "matchesAuthoritative": true
+    },
+    {
+      "class": "earlyFallback",
+      "prompt": "The largest ocean is",
+      "tokenIds": [506, 14225, 18414, 236764, 837, 13526, 1003, 236743],
+      "equalAcrossPolicies": true
+    },
+    {
+      "class": "safe",
+      "prompt": "Translate to Portuguese: Good morning",
+      "tokenIds": [236764, 1217, 659, 611, 236881, 107, 40414, 531],
+      "equalAcrossPolicies": true,
+      "matchesAuthoritative": true
+    }
+  ],
+  "claimBoundary": "This machine-local calibration rejects eager exact prefill for the recorded workload only. It does not prove that no future resource-isolated prefill implementation can improve latency."
+}

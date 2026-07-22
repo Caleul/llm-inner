@@ -3275,6 +3275,17 @@ preservou os oito tokens e o hash terminal. Como controle negativo,
 `The capital of France is` teve margem mínima `0,125`, não iniciou prefill
 exato e executou em `0,2330 s` contra `0,8600 s` da referência (`3,6914×`).
 
+Iniciar esse prefill antes de existir uma margem sensível também foi medido e
+rejeitado. Em duas repetições aquecidas de três classes de prompt, o modo eager
+preservou todos os token IDs, mas com oito threads elevou a média do fallback
+tardio de `1,8313 s` para `3,2815 s`, a do fallback inicial de `1,3168 s` para
+`1,8622 s` e a do caminho seguro de `0,3693 s` para `0,7742 s`. Reduzir o
+verificador eager para quatro threads piorou novamente as três classes. A
+causa observada é contenção entre o prefill exato e o caminho Metal compilado;
+por isso o runtime continua iniciando trabalho exato somente após o evento de
+margem sensível. A evidência reproduzível e seu limite de afirmação estão em
+`artifacts/gemma4-eager-verification-prefill-rejection-3x8.json`.
+
 O corpus ampliado e reproduzível pode ser executado com:
 
 ```bash

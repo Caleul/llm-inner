@@ -26,6 +26,23 @@ test("evidência do default de oito threads vincula corpus e tokens autoritativo
   assert.ok(selected.lateTieSeconds < ten.lateTieSeconds); assert.ok(selected.rootCorrectionSeconds < ten.rootCorrectionSeconds);
 });
 
+test("evidência rejeita prefill exato eager quando ele preserva tokens mas piora todas as classes de latência", async () => {
+  const artifact = JSON.parse(await readFile("artifacts/gemma4-eager-verification-prefill-rejection-3x8.json", "utf8")) as any;
+  assert.equal(artifact.decision.selectedPolicy, "sensitive-margin-triggered");
+  assert.equal(artifact.decision.rejectedPolicy, "eager-before-compiled-generation");
+  assert.equal(artifact.configuration.warmRepetitionsPerPrompt, 2);
+  assert.ok(artifact.tokenParity.every((entry: { equalAcrossPolicies: boolean }) => entry.equalAcrossPolicies));
+  assert.equal(artifact.tokenParity.filter((entry: { matchesAuthoritative?: boolean }) => entry.matchesAuthoritative).length, 2);
+  const digest = createHash("sha256").update(await readFile(`artifacts/${artifact.sources.authoritativeTokenIds.file}`)).digest("hex");
+  assert.equal(digest, artifact.sources.authoritativeTokenIds.sha256);
+  const selected = artifact.results.find((entry: { policy: string }) => entry.policy === artifact.decision.selectedPolicy);
+  for (const rejected of artifact.results.filter((entry: { policy: string }) => entry.policy === artifact.decision.rejectedPolicy)) {
+    assert.ok(rejected.meanSeconds.lateFallback > selected.meanSeconds.lateFallback);
+    assert.ok(rejected.meanSeconds.earlyFallback > selected.meanSeconds.earlyFallback);
+    assert.ok(rejected.meanSeconds.safe > selected.meanSeconds.safe);
+  }
+});
+
 test("calibração três-vias agrega acordo token a token e throughput", () => {
   const report = summarizeGemma4ThreeWayCalibration([baseCase], { maxNewTokens: 2, requestThreads: 1, precision: "f32", roundingPolicy: "none", runner: { source: "/model", python: "python", helper: "helper", directThreads: 4 } }, { ready: true });
   assert.equal(report.configuration.directMlxHeadQuantization, "off");
