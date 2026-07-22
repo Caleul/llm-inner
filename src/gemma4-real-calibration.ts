@@ -46,8 +46,8 @@ interface ThreeWayCase {
     mlxHeadQuantizationStrategy?: "exact-bf16" | "two-stage-residual-affine-certified-v1";
     mlxDecoderQuantization?: Gemma4RealComparisonRunnerOptions["directMlxDecoderQuantization"];
     mlxDecoderQuantizationLayers?: string;
-    mlxDecoderQuantizationStrategy?: "exact-bf16" | "single-stage-affine-q8-calibrated-v1" | "experimental-affine-q8";
-    mlxDecoderGateUpProjectionStrategy?: "separate-projections" | "concatenated-affine-q8-v1";
+    mlxDecoderQuantizationStrategy?: "exact-bf16" | "single-stage-affine-q8-calibrated-v1" | "experimental-affine-q8" | "experimental-affine-q4";
+    mlxDecoderGateUpProjectionStrategy?: "separate-projections" | "concatenated-affine-q8-v1" | "concatenated-affine-q4-v1";
     mlxDecoderGateUpSplitStrategy?: "separate-projections" | "static-index-take-v1";
     linearReferenceDispatches?: number;
     wholeNativeBf16Dispatches?: number;

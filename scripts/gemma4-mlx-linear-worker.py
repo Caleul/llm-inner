@@ -303,6 +303,7 @@ def read_decoder_layer_weights(pool, shards, hidden_size, config):
     selected = set()
     quantize_gate_up = _decoder_quantization in ("q8-ffn", "q8-all")
     quantize_gate_up = quantize_gate_up or (_decoder_quantization == "q8-ffn-gate-up" and (_decoder_quantization_layers is None or config["layer_index"] in _decoder_quantization_layers))
+    quantize_gate_up = quantize_gate_up or _decoder_quantization == "q4-ffn-gate-up"
     quantize_gate_up = quantize_gate_up or (_decoder_quantization == "q8-ffn-gate-up-first-half" and config["layer_index"] < 21)
     quantize_gate_up = quantize_gate_up or (_decoder_quantization == "q8-ffn-gate-up-last-half" and config["layer_index"] >= 21)
     if quantize_gate_up:
@@ -312,13 +313,15 @@ def read_decoder_layer_weights(pool, shards, hidden_size, config):
     if _decoder_quantization in ("q8-attention", "q8-all"):
         selected.update(("query", "key", "value", "output"))
     for name in sorted(selected.intersection(weights)):
-        quantized, scales, biases = mx.quantize(weights[name], group_size=64, bits=8)
+        q4_layer = _decoder_quantization == "q4-ffn-gate-up" and (_decoder_quantization_layers is None or config["layer_index"] in _decoder_quantization_layers)
+        bits = 4 if q4_layer and name in ("gate", "up") else 8
+        quantized, scales, biases = mx.quantize(weights[name], group_size=64, bits=bits)
         mx.eval(quantized, scales, biases)
-        weights[name] = (quantized, scales, biases, 64, 8)
+        weights[name] = (quantized, scales, biases, 64, bits)
     if isinstance(weights["gate"], tuple) and isinstance(weights["up"], tuple):
         gate_up = tuple(mx.concatenate((weights["gate"][index], weights["up"][index]), axis=0) for index in range(3))
         mx.eval(*gate_up)
-        weights["gate_up"] = (*gate_up, 64, 8)
+        weights["gate_up"] = (*gate_up, 64, weights["gate"][4])
         del weights["gate"]
         del weights["up"]
     return weights
@@ -950,14 +953,14 @@ def main():
     parser.add_argument("--threads", type=int, required=True)
     parser.add_argument("--binary-pool", required=True)
     parser.add_argument("--head-quantization", choices=("off", "q8", "q4"), default="off")
-    parser.add_argument("--decoder-quantization", choices=("off", "q8-ffn", "q8-ffn-gate-up", "q8-ffn-gate-up-first-half", "q8-ffn-gate-up-last-half", "q8-ffn-down", "q8-attention", "q8-all"), default="off")
+    parser.add_argument("--decoder-quantization", choices=("off", "q8-ffn", "q8-ffn-gate-up", "q4-ffn-gate-up", "q8-ffn-gate-up-first-half", "q8-ffn-gate-up-last-half", "q8-ffn-down", "q8-attention", "q8-all"), default="off")
     parser.add_argument("--decoder-quantization-layers")
     args = parser.parse_args()
     _head_quantization = args.head_quantization
     _decoder_quantization = args.decoder_quantization
     if args.decoder_quantization_layers is not None:
-        if _decoder_quantization != "q8-ffn-gate-up":
-            raise ValueError("--decoder-quantization-layers requires --decoder-quantization q8-ffn-gate-up")
+        if _decoder_quantization not in ("q8-ffn-gate-up", "q4-ffn-gate-up"):
+            raise ValueError("--decoder-quantization-layers requires --decoder-quantization q8-ffn-gate-up or q4-ffn-gate-up")
         _decoder_quantization_layers = parse_decoder_quantization_layers(args.decoder_quantization_layers)
     if args.threads < 1:
         raise ValueError("--threads must be positive")

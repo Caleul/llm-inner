@@ -25,7 +25,7 @@ const SESSION_TOKEN_GENERATION_FLAG = 0x0000_8000;
 const STREAM_TOKEN_GENERATION_FLAG = 0x0000_4000;
 const STREAM_TOKEN_FRAME = 0x544f_4b4e;
 
-export type Gemma4MlxDecoderQuantization = "off" | "q8-ffn" | "q8-ffn-gate-up" | "q8-ffn-gate-up-first-half" | "q8-ffn-gate-up-last-half" | "q8-ffn-down" | "q8-attention" | "q8-all";
+export type Gemma4MlxDecoderQuantization = "off" | "q8-ffn" | "q8-ffn-gate-up" | "q4-ffn-gate-up" | "q8-ffn-gate-up-first-half" | "q8-ffn-gate-up-last-half" | "q8-ffn-down" | "q8-attention" | "q8-all";
 
 export function normalizeGemma4DecoderQuantizationLayers(value: string): string {
   const layers = new Set<number>();
@@ -134,7 +134,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     const mlxDecoderQuantization = options.mlxDecoderQuantization ?? "off";
     const mlxDecoderQuantizationLayers = options.mlxDecoderQuantizationLayers === undefined ? undefined : normalizeGemma4DecoderQuantizationLayers(options.mlxDecoderQuantizationLayers);
     if (backend !== "mlx" && (mlxHeadQuantization !== "off" || mlxDecoderQuantization !== "off")) throw new Error("Quantização do head/decoder requer kernel MLX.");
-    if (mlxDecoderQuantizationLayers !== undefined && (backend !== "mlx" || mlxDecoderQuantization !== "q8-ffn-gate-up")) throw new Error("Seleção de camadas Q8 requer decoder q8-ffn-gate-up no backend MLX.");
+    if (mlxDecoderQuantizationLayers !== undefined && (backend !== "mlx" || (mlxDecoderQuantization !== "q8-ffn-gate-up" && mlxDecoderQuantization !== "q4-ffn-gate-up"))) throw new Error("Seleção de camadas quantizadas requer decoder q8-ffn-gate-up ou q4-ffn-gate-up no backend MLX.");
     const arguments_ = [helper, "--threads", String(options.threads), ...(options.binaryPool ? ["--binary-pool", resolve(options.binaryPool)] : []), ...(backend === "mlx" ? ["--head-quantization", mlxHeadQuantization, "--decoder-quantization", mlxDecoderQuantization, ...(mlxDecoderQuantizationLayers === undefined ? [] : ["--decoder-quantization-layers", mlxDecoderQuantizationLayers])] : [])];
     this.child = spawn(options.python, arguments_, { stdio: ["pipe", "pipe", "pipe"] });
     if (options.binaryPool) {

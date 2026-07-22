@@ -2859,6 +2859,18 @@ aproximadamente `0.107 s` por prompt, a seleção `0.0022–0.0026 s` e a
 transferência terminal menos de `0.000003 s`. Assim, novas otimizações devem
 atacar o forward incremental, não a transferência ou o ranking top-k.
 
+O worker MLX também aceita o modo experimental
+`--direct-mlx-decoder-quantization q4-ffn-gate-up`, opcionalmente limitado por
+`--direct-mlx-decoder-quantization-layers`. As camadas selecionadas usam Q4 em
+`gate/up`; as demais continuam Q8, e o relatório identifica o caminho como
+`experimental-affine-q4`/`concatenated-affine-q4-v1`. Ele não é o padrão: Q4
+nas 42 camadas elevou o caminho sensível de `22,73` para `24,04 tok/s`, mas
+causou uma divergência raiz em 12 decisões. No corpus de 8 prompts × 4 tokens,
+as faixas `0–20` e `0–9` causaram, respectivamente, 4 e 3 divergências raiz.
+O fallback PyTorch recuperou 12/12 tokens no corpus sensível, porém reduziu o
+throughput híbrido a `4,96 tok/s`. O runtime promovido permanece Q8 até existir
+uma seleção ou certificação que preserve a paridade em calibração ampliada.
+
 Na calibração oficial de 8 prompts × 8 tokens, head BF16 mais `gate+up` Q8
 produziu 64/64 tokens iguais ao Transformers, zero divergências raiz, erro
 máximo de `0.25` no logit escolhido e sobreposição top-5 média de `95.625%`.
