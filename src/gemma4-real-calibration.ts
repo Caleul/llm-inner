@@ -75,6 +75,7 @@ interface ThreeWayCase {
     gpuRankedTokenSteps?: number;
     fullLogitTransfersAvoided?: number;
     terminalLogitVectorBytes?: number;
+    terminalLogitsSha256?: string;
     quantizedHeadCertifiedSteps?: number;
     quantizedHeadExactFallbackSteps?: number;
     ropeFactorBuilds?: number;
@@ -305,6 +306,7 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.gpuRankedTokenSteps === undefined ? {} : { gpuRankedTokenSteps: entry.direct.gpuRankedTokenSteps }),
         ...(entry.direct.fullLogitTransfersAvoided === undefined ? {} : { fullLogitTransfersAvoided: entry.direct.fullLogitTransfersAvoided }),
         ...(entry.direct.terminalLogitVectorBytes === undefined ? {} : { terminalLogitVectorBytes: entry.direct.terminalLogitVectorBytes }),
+        ...(entry.direct.terminalLogitsSha256 === undefined ? {} : { terminalLogitsSha256: entry.direct.terminalLogitsSha256 }),
         ...(entry.direct.quantizedHeadCertifiedSteps === undefined ? {} : { quantizedHeadCertifiedSteps: entry.direct.quantizedHeadCertifiedSteps }),
         ...(entry.direct.quantizedHeadExactFallbackSteps === undefined ? {} : { quantizedHeadExactFallbackSteps: entry.direct.quantizedHeadExactFallbackSteps }),
         ...(entry.direct.ropeFactorBuilds === undefined ? {} : { ropeFactorBuilds: entry.direct.ropeFactorBuilds }),

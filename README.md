@@ -2837,6 +2837,17 @@ máscara `496`). Apesar de elevar o throughput medido de `18.06` para
 `21.75 tok/s`, a máscara não foi promovida porque velocidade sem paridade não
 atende ao contrato. O padrão permanece nas 42 FFNs.
 
+Toda tentativa de otimização pode ser promovida pelo gate reprodutível
+`npm run promote:gemma4-calibration --`. Ele recebe dois relatórios completos,
+por exemplo `--baseline baseline.json --candidate candidate.json
+--min-throughput-gain-percent 2 --output promotion.json`, e falha com código
+não zero se qualquer condição não for satisfeita. O gate exige o mesmo corpus,
+zero divergências raiz, paridade de todos os tokens contra a referência,
+identidade dos tokens compilados e do SHA-256 do vetor terminal de logits por
+prompt, além do ganho mínimo configurado. Relatórios de calibração agora
+preservam `terminalLogitsSha256`; artefatos antigos ou incompletos são
+rejeitados em vez de serem promovidos sem identidade numérica suficiente.
+
 Na calibração oficial de 8 prompts × 8 tokens, head BF16 mais `gate+up` Q8
 produziu 64/64 tokens iguais ao Transformers, zero divergências raiz, erro
 máximo de `0.25` no logit escolhido e sobreposição top-5 média de `95.625%`.
