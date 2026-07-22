@@ -2728,6 +2728,24 @@ No controle pareado de 8 prompts × 4 tokens desta implementação,
 Transformers medido no mesmo processo. Essa evidência finita não promove a
 shortlist a uma garantia para prompts arbitrários.
 
+O prefill compilado consolida também as verificações de finitude. Em vez de
+reter uma redução `isfinite/all` depois de cada uma das 42 camadas, ele valida
+uma vez o hidden state terminal e todos os caches K/V que formam o estado
+residente exportado. O decode incremental conserva a verificação por passo e
+examina somente as extensões recém-adicionadas aos caches. No relatório
+`artifacts/gemma4-three-way-calibration-32x4-prefill-validity.json`, essa
+mudança preservou 32/32 prompts, 128/128 tokens, zero divergências raiz e os 32
+SHA-256 terminais bit a bit. O prefill agregado caiu de `2,0980 s` para
+`2,0676 s` (`-1,45%`), enquanto o tempo direto total caiu de `5,3305 s` para
+`5,3185 s`; o ganho total pequeno é reportado sem tratá-lo como mudança de
+ordem de grandeza.
+
+As alternativas aproximadas maiores foram rejeitadas. Q8 também na projeção
+FFN `down` atingiu `26,0676 tok/s`, mas preservou somente 127/128 decisões. Q8
+na atenção das camadas 21–41 preservou 125/128; mesmo o bloco 37–41 preservou
+somente 124/128 no corpus completo. Por isso `down` e atenção permanecem BF16
+no caminho publicado, apesar do throughput experimental maior.
+
 Para reproduzir o modo na interface:
 
 ```bash

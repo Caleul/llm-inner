@@ -771,7 +771,7 @@ def execute_compiled_token_generation(pool, shards, token_ids, max_new_tokens, e
     result, all_per_layer = model["execute_token_prelude"](current_token_ids)
     cache_prefill_token_prelude_rows(model, current_token_ids, result, all_per_layer)
     positions = mx.array(np.arange(cached_count, token_ids.shape[1], dtype=np.int32).reshape(1, -1))
-    produced_caches, all_valid = {}, mx.array(True)
+    produced_caches = {}
     rope_factor_context = {"factors": {}, "builds": 0, "uses": 0}
     topology_masks, topology_mask_uses = {}, 0
     kv_prefix_validation_scans_avoided = 0
@@ -791,12 +791,18 @@ def execute_compiled_token_generation(pool, shards, token_ids, max_new_tokens, e
         if mask is None:
             mask = continuation_topology_mask(config, current_token_ids.shape[1], key_sequence, cached_count) if reusable is not None else prefill_topology_mask(config, token_ids.shape[1])
             topology_masks[topology_key] = mask
-        result, key, value, valid, _ = execute_decoder_layer_mlx(pool, shards, result, all_per_layer[:, :, layer_index, :], positions, mask, source_key, source_value, config, weights, rope_factor_context, True)
-        all_valid = all_valid & valid
+        result, key, value, _valid, _ = execute_decoder_layer_mlx(pool, shards, result, all_per_layer[:, :, layer_index, :], positions, mask, source_key, source_value, config, weights, rope_factor_context, True)
         if config["produces_kv"]:
             produced_caches[layer_index] = (key, value)
             if source_key.shape[2]:
                 kv_prefix_validation_scans_avoided += 1
+    # Every non-finite decoder result propagates through the following RMSNorm,
+    # residual, and projection chain. Validate the only resident prefill state
+    # once here instead of scheduling the same reduction after all 42 layers.
+    all_valid = mx.all(mx.isfinite(result))
+    appended_tokens = current_token_ids.shape[1]
+    for key, value in produced_caches.values():
+        all_valid = all_valid & mx.all(mx.isfinite(key[..., -appended_tokens:, :])) & mx.all(mx.isfinite(value[..., -appended_tokens:, :]))
     raw_logits = execute_decoder_head(result, model["epilogue"], rounding=model["rounding"])
     logits = finalize_decoder_logits(raw_logits, model["epilogue"], rounding=model["rounding"])
     evaluation = [raw_logits, logits, all_valid]
@@ -852,7 +858,6 @@ def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, 
     positions = mx.array(np.frombuffer(position_bytes, dtype=np.int32).reshape(batch, query_sequence))
     produced_caches, ordered_caches, layer_plans = {}, [], []
     rope_factor_context = {"factors": {}, "builds": 0, "uses": 0}
-    all_valid = mx.array(True)
     for expected_layer in range(num_layers):
         metadata = read_exact(96)
         layer_index, shared_plus_one, query_heads, key_value_heads, source_sequence, head_dim, mask_heads, value_from_key, rope_kind, rotary_dim, proportional_pairs, intermediate_size, descriptor_count = struct.unpack("<IIIIIIIIIIIII", metadata[:52])
@@ -891,12 +896,17 @@ def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, 
                 source_key = mx.zeros((batch, key_value_heads, 0, head_dim), dtype=mx.float32)
                 source_value = mx.zeros((batch, key_value_heads, 0, head_dim), dtype=mx.float32)
         config = {"layer_index": layer_index, "producer_layer": producer_layer if shared else None, "query_heads": query_heads, "key_value_heads": key_value_heads, "head_dim": head_dim, "mask_heads": mask_heads, "causal": causal, "sliding_window": sliding_window, "produces_kv": produces_kv, "value_from_key": value_from_key, "intermediate_size": intermediate_size, "per_layer_width": per_layer_width, "input_epsilon": input_epsilon, "attention_epsilon": attention_epsilon, "post_attention_epsilon": post_attention_epsilon, "pre_ffn_epsilon": pre_ffn_epsilon, "post_ffn_epsilon": post_ffn_epsilon, "ple_epsilon": ple_epsilon, "scale": scale, "rope_kind": rope_kind, "theta": theta, "rotary_dim": rotary_dim, "proportional_pairs": proportional_pairs, "proportional_factor": proportional_factor, "rounding": rounding}
-        result, key, value, valid, weights = execute_decoder_layer_mlx(pool, shards, result, all_per_layer[:, :, layer_index, :], positions, mask, source_key, source_value, config, rope_factor_context=rope_factor_context)
+        result, key, value, _valid, weights = execute_decoder_layer_mlx(pool, shards, result, all_per_layer[:, :, layer_index, :], positions, mask, source_key, source_value, config, rope_factor_context=rope_factor_context)
         layer_plans.append((config, weights))
-        all_valid = all_valid & valid
         if produces_kv:
             produced_caches[layer_index] = (key, value)
             ordered_caches.append((key, value))
+    # The exported prefill state is exactly the terminal hidden vector plus the
+    # producer-owned caches. One terminal check preserves the fail-closed
+    # contract without retaining a reduction node for every intermediate layer.
+    all_valid = mx.all(mx.isfinite(result))
+    for key, value in ordered_caches:
+        all_valid = all_valid & mx.all(mx.isfinite(key)) & mx.all(mx.isfinite(value))
     epilogue = None
     if fused_epilogue:
         vocabulary_size, norm_epsilon, softcap = struct.unpack("<Iff", read_exact(12))
