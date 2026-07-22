@@ -3096,12 +3096,28 @@ entrega esses compromissos ao worker, que valida as 262.144 chaves, a forma de
 cada `F_n(x)` e a ordem das raízes antes do warm-up. O worker publica
 `finalFormulaProgram.execution = vectorized-shared-dag-output-program` no
 status e em cada geração; a interface não fica pronta se esse vínculo divergir.
+
+O bundle schema 4 inclui também `final-formulas.runtime.json`. Esse arquivo
+deixa `EVAL_EXACT_DAG` de ser apenas uma notação no mapa: ele enumera as 29
+primitivas aceitas pelo SSA, define resolução de raízes, binding lexical das
+closures, ordem crescente das reduções finitas, ausência de arredondamento IEEE
+intermediário, BF16-RNE final e o lowering Metal que calcula as dimensões em
+paralelo. O contrato contém os SHA-256 de `final-formulas.json`,
+`global-formulas.ssa.json`, `constants.literal.json` e
+`vectorized-real-lowering.json`. O worker valida o arquivo e cruza todos esses
+compromissos antes do warm-up; cada relatório de geração publica o SHA-256 do
+mesmo runtime autenticado. Assim, trocar apenas o mapa, pesos, SSA, semântica ou
+plano de execução faz o startup falhar fechado.
+
 Para adicionar ou regenerar o mapa em um bundle existente:
 
 ```bash
 npm run generate:gemma4-final-formula-map -- \
   --bundle artifacts/gemma4-compiled-global-runtime-bundle
 ```
+
+O comando regenera o mapa e o runtime e publica por último o manifesto schema
+4; qualquer interrupção ou divergência intermediária permanece fail-closed.
 
 A interface publica uma função final concreta do bundle no formato
 `calc_final_n(x) = BF16_RNE(EVAL_EXACT_DAG(root_n, x))`. O inspetor aceita

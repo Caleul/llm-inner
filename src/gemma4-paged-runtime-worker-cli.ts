@@ -11,6 +11,7 @@ import { selectGemma4LiteralGenerationToken } from "./gemma4-literal-generation-
 import { rankGemma4TerminalLogits } from "./gemma4-terminal-logits.js";
 import { assertGemma4VectorizedRealLoweringPlanMatches, Gemma4VectorizedRealExecutionGuard, type Gemma4VectorizedRealLoweringPlan } from "./gemma4-vectorized-real-lowering.js";
 import { validateGemma4FinalFormulaMapFile, type Gemma4FinalFormulaMapValidation } from "./gemma4-final-formula-map.js";
+import { validateGemma4FinalFormulaRuntimeFile } from "./gemma4-final-formula-runtime.js";
 import type { Operation } from "./types.js";
 
 const args = parseArguments(process.argv.slice(2));
@@ -20,12 +21,14 @@ const artifact = args.artifactIndex
   : await openGemma4CompositeLiteralArtifact(args.artifact);
 const pool = await Gemma4BinaryConstantPool.open(args.binaryPool);
 let vectorizedRealLowering: Gemma4VectorizedRealLoweringPlan["contract"] | undefined;
+let vectorizedRealLoweringSha256: string | undefined;
 let vectorizedRealExecutionGuard: Gemma4VectorizedRealExecutionGuard | undefined;
 let vectorizedRealCompiledOutputOperations: readonly Operation[] | undefined;
 if (args.fusedDecoderStackRounding === "real") {
   const planInfo = await stat(args.realLoweringPlan!);
   if (!planInfo.isFile() || planInfo.size < 1 || planInfo.size > 16 * 1024 * 1024) throw new Error("Plano de lowering real persistido deve ter entre 1 byte e 16 MiB.");
   const persistedBytes = await readFile(args.realLoweringPlan!);
+  vectorizedRealLoweringSha256 = createHash("sha256").update(persistedBytes).digest("hex");
   const persisted = JSON.parse(persistedBytes.toString("utf8")) as unknown;
   if ("runtimeIndexSchemaVersion" in artifact) {
     assertGemma4VectorizedRealLoweringPlanMatchesRuntime(persisted, createHash("sha256").update(persistedBytes).digest("hex"), artifact);
@@ -46,12 +49,19 @@ if (args.fusedDecoderStackRounding === "real") {
   });
   vectorizedRealCompiledOutputOperations = vectorizedRealExecutionGuard.bindCompiledOutputProgram(compiledOutputOperations);
 }
-let finalFormulaProgram: (Gemma4FinalFormulaMapValidation & { execution: "vectorized-shared-dag-output-program" }) | undefined;
+let finalFormulaProgram: (Gemma4FinalFormulaMapValidation & { execution: "vectorized-shared-dag-output-program"; evaluator: "EVAL_EXACT_DAG"; runtimeContractSha256: string }) | undefined;
 if (args.finalFormulaMap) {
   const validated = await validateGemma4FinalFormulaMapFile(args.finalFormulaMap.path, args.finalFormulaMap);
+  if (!args.finalFormulaRuntime) throw new Error("Mapa final requer runtime EVAL_EXACT_DAG autenticado.");
+  const runtime = await validateGemma4FinalFormulaRuntimeFile(args.finalFormulaRuntime.path, args.finalFormulaRuntime.fileSha256);
   const terminalLogits = vectorizedRealLowering?.source.outputFamilies.terminal_logit?.dimensions;
-  if (!vectorizedRealExecutionGuard || terminalLogits !== validated.functions) throw new Error("Mapa final autenticado não corresponde ao programa vetorial executável.");
-  finalFormulaProgram = { ...validated, execution: "vectorized-shared-dag-output-program" };
+  if (!vectorizedRealExecutionGuard || terminalLogits !== validated.functions || runtime.output.functions !== validated.functions ||
+    runtime.artifacts.formulaMap.sha256 !== validated.fileSha256 || runtime.artifacts.formulaMap.orderedRootsSha256 !== validated.orderedRootsSha256 ||
+    runtime.artifacts.loweringPlan.sha256 !== vectorizedRealLoweringSha256 || runtime.artifacts.loweringPlan.functionBindingsSha256 !== vectorizedRealLowering?.functionBindingsSha256 ||
+    runtime.artifacts.loweringPlan.outputBindingsSha256 !== vectorizedRealLowering?.source.outputBindingsSha256 || runtime.artifacts.loweringPlan.realSimplifiedProgramSha256 !== vectorizedRealLowering?.source.realSimplifiedProgramSha256 ||
+    JSON.stringify(runtime.execution.compiledOutputProgram) !== JSON.stringify(vectorizedRealLowering?.compiledOutputProgram) ||
+    (args.artifactIndex && runtime.artifacts.constantPool.sha256 !== args.artifactIndex.constantPoolSha256)) throw new Error("Runtime EVAL_EXACT_DAG não corresponde ao mapa, constantes e programa vetorial executável.");
+  finalFormulaProgram = { ...validated, execution: "vectorized-shared-dag-output-program", evaluator: "EVAL_EXACT_DAG", runtimeContractSha256: runtime.fileSha256 };
 }
 const createLinear = () => new Gemma4PagedNativeLinearWorker({ python: args.python, helper: args.linearHelper, threads: args.threads, binaryPool: args.binaryPool, storageTensors: pool.catalog.tensors, backend: args.linearBackend, mlxHelper: args.mlxHelper, mlxHeadQuantization: args.mlxHeadQuantization, mlxDecoderQuantization: args.mlxDecoderQuantization, ...(args.mlxDecoderQuantizationLayers === undefined ? {} : { mlxDecoderQuantizationLayers: args.mlxDecoderQuantizationLayers }) });
 let linear = createLinear();
@@ -283,10 +293,10 @@ function validateVerificationFastPath(value: unknown, maxNewTokens: number): Ver
   if (typeof terminalLogitsSha256 !== "string" || !/^[0-9a-f]{64}$/.test(terminalLogitsSha256)) throw new Error("verificationFastPath.terminalLogitsSha256 deve ser SHA-256 hexadecimal minúsculo.");
   return { generatedTokenIds: generatedTokenIds as number[], sensitiveSteps: normalizedSteps, terminalLogitsSha256 };
 }
-function parseArguments(argv: string[]): { artifact: string; artifactIndex?: { path: string; sha256: string; constantPoolSha256: string }; binaryPool: string; realLoweringPlan?: string; finalFormulaMap?: { path: string; fileSha256: string; functions: number; orderedRootsSha256: string }; python: string; linearHelper: string; mlxHelper: string; linearBackend: "pytorch" | "mlx"; mlxHeadQuantization: "off" | "q8" | "q8-shortlist" | "q4"; mlxDecoderQuantization: Gemma4MlxDecoderQuantization; mlxDecoderQuantizationLayers?: string; fusedMlpRounding: "off" | "bf16" | "real" | "native-bf16"; fusedFfnRounding: "off" | "native-bf16"; fusedDecoderLayerRounding: "off" | "native-bf16"; fusedDecoderStackRounding: "off" | "real" | "native-bf16" | "native-bf16-ple"; fusedPleRounding: "off" | "bf16" | "real"; fusedPlePreludeRounding: "off" | "bf16" | "real"; fusedTokenForwardRounding: "off" | "bf16"; residentGeneration: "off" | "on"; finalHeadCompute: "f32" | "native-bf16" | "native-bf16-stream" | "native-bf16-whole"; nativeAttentionRounding: "off" | "bf16" | "real"; fusedAttentionRounding: "off" | "bf16" | "real" | "native-bf16"; threads: number; maxReadBytes: number; finalHeadMaxReadBytes: number } {
+function parseArguments(argv: string[]): { artifact: string; artifactIndex?: { path: string; sha256: string; constantPoolSha256: string }; binaryPool: string; realLoweringPlan?: string; finalFormulaMap?: { path: string; fileSha256: string; functions: number; orderedRootsSha256: string }; finalFormulaRuntime?: { path: string; fileSha256: string }; python: string; linearHelper: string; mlxHelper: string; linearBackend: "pytorch" | "mlx"; mlxHeadQuantization: "off" | "q8" | "q8-shortlist" | "q4"; mlxDecoderQuantization: Gemma4MlxDecoderQuantization; mlxDecoderQuantizationLayers?: string; fusedMlpRounding: "off" | "bf16" | "real" | "native-bf16"; fusedFfnRounding: "off" | "native-bf16"; fusedDecoderLayerRounding: "off" | "native-bf16"; fusedDecoderStackRounding: "off" | "real" | "native-bf16" | "native-bf16-ple"; fusedPleRounding: "off" | "bf16" | "real"; fusedPlePreludeRounding: "off" | "bf16" | "real"; fusedTokenForwardRounding: "off" | "bf16"; residentGeneration: "off" | "on"; finalHeadCompute: "f32" | "native-bf16" | "native-bf16-stream" | "native-bf16-whole"; nativeAttentionRounding: "off" | "bf16" | "real"; fusedAttentionRounding: "off" | "bf16" | "real" | "native-bf16"; threads: number; maxReadBytes: number; finalHeadMaxReadBytes: number } {
   const values = new Map<string, string>();
   for (let index = 0; index < argv.length; index += 2) { const flag = argv[index], value = argv[index + 1]; if (!flag?.startsWith("--") || value === undefined || values.has(flag)) throw new Error(`Argumento inválido: ${flag ?? "fim"}.`); values.set(flag, value); }
-  const known = new Set(["--artifact", "--artifact-index", "--artifact-index-sha256", "--artifact-sha256", "--binary-pool", "--real-lowering-plan", "--final-formula-map", "--final-formula-map-sha256", "--final-formula-functions", "--final-formula-roots-sha256", "--python", "--linear-helper", "--mlx-helper", "--linear-backend", "--mlx-head-quantization", "--mlx-decoder-quantization", "--mlx-decoder-quantization-layers", "--fused-mlp", "--fused-ffn", "--fused-decoder-layer", "--fused-decoder-stack", "--fused-ple", "--fused-ple-prelude", "--fused-token-forward", "--resident-generation", "--final-head", "--final-head-read-mib", "--native-attention", "--fused-attention", "--threads", "--max-read-mib"]); for (const flag of values.keys()) if (!known.has(flag)) throw new Error(`Flag desconhecida: ${flag}.`);
+  const known = new Set(["--artifact", "--artifact-index", "--artifact-index-sha256", "--artifact-sha256", "--binary-pool", "--real-lowering-plan", "--final-formula-map", "--final-formula-map-sha256", "--final-formula-functions", "--final-formula-roots-sha256", "--final-formula-runtime", "--final-formula-runtime-sha256", "--python", "--linear-helper", "--mlx-helper", "--linear-backend", "--mlx-head-quantization", "--mlx-decoder-quantization", "--mlx-decoder-quantization-layers", "--fused-mlp", "--fused-ffn", "--fused-decoder-layer", "--fused-decoder-stack", "--fused-ple", "--fused-ple-prelude", "--fused-token-forward", "--resident-generation", "--final-head", "--final-head-read-mib", "--native-attention", "--fused-attention", "--threads", "--max-read-mib"]); for (const flag of values.keys()) if (!known.has(flag)) throw new Error(`Flag desconhecida: ${flag}.`);
   const required = (flag: string): string => { const value = values.get(flag); if (!value) throw new Error(`${flag} é obrigatório.`); return resolve(value); };
   const threads = Number(values.get("--threads") ?? "10"), maxReadMiB = Number(values.get("--max-read-mib") ?? "16");
   const linearBackend = values.get("--linear-backend") ?? "mlx"; if (linearBackend !== "pytorch" && linearBackend !== "mlx") throw new Error("--linear-backend deve ser pytorch ou mlx.");
@@ -331,5 +341,9 @@ function parseArguments(argv: string[]): { artifact: string; artifactIndex?: { p
   const finalFormulaFunctions = finalFormulaValues[2] === undefined ? undefined : Number(finalFormulaValues[2]);
   if (finalFormulaValues[0] !== undefined && (fusedDecoderStackRounding !== "real" || !/^[0-9a-f]{64}$/.test(finalFormulaValues[1]!) || !Number.isSafeInteger(finalFormulaFunctions) || finalFormulaFunctions! < 1 || !/^[0-9a-f]{64}$/.test(finalFormulaValues[3]!))) throw new Error("Contrato CLI do mapa final é inválido ou não usa lowering real.");
   const finalFormulaMap = finalFormulaValues[0] === undefined ? undefined : { path: resolve(finalFormulaValues[0]), fileSha256: finalFormulaValues[1]!, functions: finalFormulaFunctions!, orderedRootsSha256: finalFormulaValues[3]! };
-  return { artifact: required("--artifact"), ...(artifactIndex ? { artifactIndex } : {}), binaryPool, ...(realLoweringPlan ? { realLoweringPlan } : {}), ...(finalFormulaMap ? { finalFormulaMap } : {}), python: values.get("--python") ?? resolve("venv/bin/python"), linearHelper: resolve(values.get("--linear-helper") ?? "scripts/gemma4-paged-linear-worker.py"), mlxHelper: resolve(values.get("--mlx-helper") ?? "scripts/gemma4-mlx-linear-worker.py"), linearBackend, mlxHeadQuantization, mlxDecoderQuantization, ...(mlxDecoderQuantizationLayers === undefined ? {} : { mlxDecoderQuantizationLayers }), fusedMlpRounding, fusedFfnRounding, fusedDecoderLayerRounding, fusedDecoderStackRounding, fusedPleRounding, fusedPlePreludeRounding, fusedTokenForwardRounding, residentGeneration, finalHeadCompute, nativeAttentionRounding, fusedAttentionRounding, threads, maxReadBytes: maxReadMiB * 1024 * 1024, finalHeadMaxReadBytes: finalHeadReadMiB * 1024 * 1024 };
+  const finalRuntimeValues = [values.get("--final-formula-runtime"), values.get("--final-formula-runtime-sha256")];
+  if (finalRuntimeValues.some((value) => value !== undefined) && finalRuntimeValues.some((value) => value === undefined)) throw new Error("Flags do runtime final devem ser informadas juntas.");
+  const finalFormulaRuntime = finalRuntimeValues[0] === undefined ? undefined : { path: resolve(finalRuntimeValues[0]), fileSha256: finalRuntimeValues[1]! };
+  if ((finalFormulaMap === undefined) !== (finalFormulaRuntime === undefined) || (finalFormulaRuntime && !/^[0-9a-f]{64}$/.test(finalFormulaRuntime.fileSha256))) throw new Error("Mapa e runtime final autenticado devem ser informados juntos.");
+  return { artifact: required("--artifact"), ...(artifactIndex ? { artifactIndex } : {}), binaryPool, ...(realLoweringPlan ? { realLoweringPlan } : {}), ...(finalFormulaMap ? { finalFormulaMap } : {}), ...(finalFormulaRuntime ? { finalFormulaRuntime } : {}), python: values.get("--python") ?? resolve("venv/bin/python"), linearHelper: resolve(values.get("--linear-helper") ?? "scripts/gemma4-paged-linear-worker.py"), mlxHelper: resolve(values.get("--mlx-helper") ?? "scripts/gemma4-mlx-linear-worker.py"), linearBackend, mlxHeadQuantization, mlxDecoderQuantization, ...(mlxDecoderQuantizationLayers === undefined ? {} : { mlxDecoderQuantizationLayers }), fusedMlpRounding, fusedFfnRounding, fusedDecoderLayerRounding, fusedDecoderStackRounding, fusedPleRounding, fusedPlePreludeRounding, fusedTokenForwardRounding, residentGeneration, finalHeadCompute, nativeAttentionRounding, fusedAttentionRounding, threads, maxReadBytes: maxReadMiB * 1024 * 1024, finalHeadMaxReadBytes: finalHeadReadMiB * 1024 * 1024 };
 }

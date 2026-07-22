@@ -6,10 +6,11 @@ import { isDeepStrictEqual } from "node:util";
 import { createGemma4PagedRuntimeIndex, openGemma4PagedRuntimeArtifact } from "./gemma4-paged-runtime-index.js";
 import { validateGemma4VectorizedRealLoweringPlan, type Gemma4VectorizedRealLoweringPlan } from "./gemma4-vectorized-real-lowering.js";
 import { writeGemma4FinalFormulaMap } from "./gemma4-final-formula-map.js";
+import { GEMMA4_FINAL_FORMULA_NODE_SEMANTICS, writeGemma4FinalFormulaRuntime, type Gemma4FinalFormulaRuntimeContract, type Gemma4FinalFormulaRuntimeDescriptor } from "./gemma4-final-formula-runtime.js";
 
 export interface Gemma4CompiledBundleManifest {
   kind: "gemma4-compiled-shared-dag-bundle";
-  schemaVersion: 2 | 3;
+  schemaVersion: 4;
   execution: "compiled-parametric-output-program-runtime";
   runtimeLowering: {
     engine: "mlx-f32-real-decoder-stack-v1";
@@ -27,8 +28,9 @@ export interface Gemma4CompiledBundleManifest {
   formula: { family: string; dimension: number; root: string; expressionNodes: number; inputTensor: "x"; inputLength: number; file: string };
   globalProgram?: { file: string; terminalLogits: number; constantPool: string };
   finalFormulaMap?: { file: "final-formulas.json"; functions: number; inputTensor: "x"; evaluator: "BF16_RNE(EVAL_EXACT_DAG(root,x))"; globalFormulaSha256: string; orderedRootsSha256: string };
+  finalFormulaRuntime?: Gemma4FinalFormulaRuntimeDescriptor;
   runtimeIndex?: { file: "constants.runtime-index.json"; schemaVersion: 1 | 2; constantPoolSha256: string; integrityRootSha256: string };
-  files: Array<{ role: "formula-graph" | "global-formulas" | "final-formulas" | "vectorized-real-lowering" | "constant-pool" | "literal-runtime-index" | "runtime-weights" | "tokenizer" | "tokenizer-config" | "generation-config" | "model-config"; file: string; bytes: number; sha256: string }>;
+  files: Array<{ role: "formula-graph" | "global-formulas" | "final-formulas" | "final-formula-runtime" | "vectorized-real-lowering" | "constant-pool" | "literal-runtime-index" | "runtime-weights" | "tokenizer" | "tokenizer-config" | "generation-config" | "model-config"; file: string; bytes: number; sha256: string }>;
 }
 
 export async function createGemma4CompiledBundle(options: { graph: string; globalSsa: string; realLoweringPlan: string; runtimeModel?: string; constantArtifact: string; tokenizerDirectory: string; outputDirectory: string; createRuntimeIndex?: boolean }): Promise<Gemma4CompiledBundleManifest> {
@@ -69,10 +71,14 @@ export async function createGemma4CompiledBundle(options: { graph: string; globa
   const finalFormulaFile = join(output, "final-formulas.json");
   const finalFormulaMap = await writeGemma4FinalFormulaMap(destination, finalFormulaFile, terminalLogitOffset, terminalLogits);
   const finalFormulaInfo = await stat(finalFormulaFile);
-  files.push({ role: "final-formulas", file: "final-formulas.json", bytes: finalFormulaInfo.size, sha256: await sha256File(finalFormulaFile) });
+  const finalFormulaDescriptor = { role: "final-formulas" as const, file: "final-formulas.json", bytes: finalFormulaInfo.size, sha256: await sha256File(finalFormulaFile) };
+  files.push(finalFormulaDescriptor);
+  const finalFormulaRuntime = await writeGemma4FinalFormulaRuntime(join(output, "final-formulas.runtime.json"), finalFormulaRuntimeContract({ summary, loweringPlan, loweringFile, globalFile, constantFile, finalFormulaDescriptor, finalFormulaMap, terminalLogits }));
+  const finalFormulaRuntimeInfo = await stat(join(output, finalFormulaRuntime.file));
+  files.push({ role: "final-formula-runtime", file: finalFormulaRuntime.file, bytes: finalFormulaRuntimeInfo.size, sha256: finalFormulaRuntime.sha256 });
   const globalProgram: NonNullable<Gemma4CompiledBundleManifest["globalProgram"]> = { file: "global-formulas.ssa.json", terminalLogits, constantPool: "constants.literal.json" };
   const manifest: Gemma4CompiledBundleManifest = {
-    kind: "gemma4-compiled-shared-dag-bundle", schemaVersion: runtimeIndexDescriptor ? 3 : 2, execution: "compiled-parametric-output-program-runtime",
+    kind: "gemma4-compiled-shared-dag-bundle", schemaVersion: 4, execution: "compiled-parametric-output-program-runtime",
     runtimeLowering: {
       engine: "mlx-f32-real-decoder-stack-v1", directlyExecutesGlobalFormula: true, executesPersistedLoweringPlan: true,
       plan: "vectorized-real-lowering.json", functionBindingsSha256: loweringPlan.contract.functionBindingsSha256,
@@ -84,6 +90,7 @@ export async function createGemma4CompiledBundle(options: { graph: string; globa
     formula: { family: summary.output.family, dimension: summary.output.dimension, root: summary.root, expressionNodes: summary.expressionNodes, inputTensor: "x", inputLength: summary.inputVector.length, file: "formula.graph.json" },
     globalProgram,
     finalFormulaMap: { file: "final-formulas.json", functions: terminalLogits, inputTensor: "x", evaluator: "BF16_RNE(EVAL_EXACT_DAG(root,x))", globalFormulaSha256: globalFile.sha256, orderedRootsSha256: finalFormulaMap.orderedRootsSha256 },
+    finalFormulaRuntime,
     ...(runtimeIndexDescriptor ? { runtimeIndex: { file: "constants.runtime-index.json" as const, schemaVersion: runtimeIndexDescriptor.schemaVersion, constantPoolSha256: constantFile.sha256, integrityRootSha256: runtimeIndexDescriptor.integrityRootSha256 } } : {}),
     files,
   };
@@ -94,8 +101,8 @@ export async function createGemma4CompiledBundle(options: { graph: string; globa
 export async function bindGemma4FinalFormulaMap(bundleDirectory: string): Promise<Gemma4CompiledBundleManifest> {
   const bundle = resolve(bundleDirectory), manifestPath = join(bundle, "manifest.json");
   const current = JSON.parse(await readFile(manifestPath, "utf8")) as Gemma4CompiledBundleManifest;
-  const globalFile = current.files?.find((entry) => entry.role === "global-formulas"), planFile = current.files?.find((entry) => entry.role === "vectorized-real-lowering");
-  if (current.kind !== "gemma4-compiled-shared-dag-bundle" || !current.globalProgram || !globalFile || !planFile || current.runtimeLowering?.plan !== planFile.file) throw new Error("Bundle compilado não contém SSA e plano vetorial autenticados.");
+  const globalFile = current.files?.find((entry) => entry.role === "global-formulas"), planFile = current.files?.find((entry) => entry.role === "vectorized-real-lowering"), constantFile = current.files?.find((entry) => entry.role === "constant-pool");
+  if (current.kind !== "gemma4-compiled-shared-dag-bundle" || !current.globalProgram || !globalFile || !planFile || !constantFile || current.runtimeLowering?.plan !== planFile.file || current.formula?.inputTensor !== "x") throw new Error("Bundle compilado não contém SSA, constantes e plano vetorial autenticados.");
   if (await sha256File(join(bundle, globalFile.file)) !== globalFile.sha256) throw new Error("SSA global diverge do manifesto antes de gerar fórmulas finais.");
   const plan = await readLoweringPlan(join(bundle, planFile.file)), family = plan.contract.source.outputFamilies.terminal_logit;
   if (!family || family.dimensions !== current.globalProgram.terminalLogits) throw new Error("Plano vetorial diverge da quantidade de logits do bundle.");
@@ -104,7 +111,17 @@ export async function bindGemma4FinalFormulaMap(bundleDirectory: string): Promis
   try { finalFormulaMap = await writeGemma4FinalFormulaMap(join(bundle, globalFile.file), temporary, outputFamilyOffset(plan, "terminal_logit"), family.dimensions); await rename(temporary, destination); }
   catch (error) { await rm(temporary, { force: true }); throw error; }
   const info = await stat(destination), descriptor = { role: "final-formulas" as const, file: "final-formulas.json", bytes: info.size, sha256: await sha256File(destination) };
-  const manifest: Gemma4CompiledBundleManifest = { ...current, finalFormulaMap: { file: "final-formulas.json", functions: family.dimensions, inputTensor: "x", evaluator: "BF16_RNE(EVAL_EXACT_DAG(root,x))", globalFormulaSha256: globalFile.sha256, orderedRootsSha256: finalFormulaMap.orderedRootsSha256 }, files: [...current.files.filter((entry) => entry.role !== "final-formulas"), descriptor] };
+  const runtimePath = join(bundle, "final-formulas.runtime.json"), runtimeTemporary = `${runtimePath}.next-${process.pid}`;
+  let finalFormulaRuntime: Gemma4FinalFormulaRuntimeDescriptor;
+  try {
+    finalFormulaRuntime = await writeGemma4FinalFormulaRuntime(runtimeTemporary, finalFormulaRuntimeContract({
+      summary: { output: { family: current.formula.family, dimension: current.formula.dimension }, root: current.formula.root, expressionNodes: current.formula.expressionNodes, remainingFunctionCalls: [], inputVector: { tensor: "x", length: current.formula.inputLength } },
+      loweringPlan: plan, loweringFile: planFile, globalFile, constantFile, finalFormulaDescriptor: descriptor, finalFormulaMap, terminalLogits: family.dimensions,
+    }));
+    await rename(runtimeTemporary, runtimePath);
+  } catch (error) { await rm(runtimeTemporary, { force: true }); throw error; }
+  const runtimeInfo = await stat(runtimePath), runtimeDescriptor = { role: "final-formula-runtime" as const, file: "final-formulas.runtime.json", bytes: runtimeInfo.size, sha256: finalFormulaRuntime.sha256 };
+  const manifest: Gemma4CompiledBundleManifest = { ...current, schemaVersion: 4, finalFormulaMap: { file: "final-formulas.json", functions: family.dimensions, inputTensor: "x", evaluator: "BF16_RNE(EVAL_EXACT_DAG(root,x))", globalFormulaSha256: globalFile.sha256, orderedRootsSha256: finalFormulaMap.orderedRootsSha256 }, finalFormulaRuntime, files: [...current.files.filter((entry) => entry.role !== "final-formulas" && entry.role !== "final-formula-runtime"), descriptor, runtimeDescriptor] };
   const manifestTemporary = `${manifestPath}.next-${process.pid}`;
   await writeFile(manifestTemporary, `${JSON.stringify(manifest, null, 2)}\n`, { encoding: "utf8", flag: "wx" }); await rename(manifestTemporary, manifestPath);
   return manifest;
@@ -132,7 +149,7 @@ export async function bindGemma4VectorizedRealLoweringPlan(bundleDirectory: stri
   const existing = current.files.filter((entry) => entry.role !== "vectorized-real-lowering");
   const manifest = {
     ...current,
-    schemaVersion: current.runtimeIndex ? 3 : 2,
+    schemaVersion: current.finalFormulaRuntime ? 4 : current.runtimeIndex ? 3 : 2,
     runtimeLowering: {
       engine: "mlx-f32-real-decoder-stack-v1", directlyExecutesGlobalFormula: true, executesPersistedLoweringPlan: true,
       plan: "vectorized-real-lowering.json", functionBindingsSha256: plan.contract.functionBindingsSha256,
@@ -143,17 +160,17 @@ export async function bindGemma4VectorizedRealLoweringPlan(bundleDirectory: stri
     },
     execution: "compiled-parametric-output-program-runtime",
     files: [...existing, { role: "vectorized-real-lowering" as const, file: "vectorized-real-lowering.json", bytes: info.size, sha256 }],
-  } as Gemma4CompiledBundleManifest;
+  } as unknown as Gemma4CompiledBundleManifest;
   const temporary = `${manifestPath}.next-${process.pid}`;
   await writeFile(temporary, `${JSON.stringify(manifest, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
   await rename(temporary, manifestPath);
-  return manifest;
+  return current.finalFormulaMap ? bindGemma4FinalFormulaMap(bundle) : manifest;
 }
 
 /** Atomically adds or upgrades the authenticated execution index in a compiled bundle. */
 export async function bindGemma4LiteralRuntimeIndex(bundleDirectory: string): Promise<Gemma4CompiledBundleManifest> {
   const bundle = resolve(bundleDirectory), manifestPath = join(bundle, "manifest.json"), destination = join(bundle, "constants.runtime-index.json");
-  const current = JSON.parse(await readFile(manifestPath, "utf8")) as Record<string, unknown> & { files?: Gemma4CompiledBundleManifest["files"]; runtimeIndex?: Gemma4CompiledBundleManifest["runtimeIndex"] };
+  const current = JSON.parse(await readFile(manifestPath, "utf8")) as Record<string, unknown> & { files?: Gemma4CompiledBundleManifest["files"]; runtimeIndex?: Gemma4CompiledBundleManifest["runtimeIndex"]; finalFormulaRuntime?: Gemma4CompiledBundleManifest["finalFormulaRuntime"] };
   if (current.kind !== "gemma4-compiled-shared-dag-bundle" || current.execution !== "compiled-parametric-output-program-runtime" || !Array.isArray(current.files)) throw new Error("Bundle existente não possui manifesto Gemma 4 compilado atualizável.");
   const constantFile = current.files.find((entry) => entry.role === "constant-pool");
   const loweringFile = current.files.find((entry) => entry.role === "vectorized-real-lowering");
@@ -179,10 +196,10 @@ export async function bindGemma4LiteralRuntimeIndex(bundleDirectory: string): Pr
   const descriptor = await createGemma4PagedRuntimeIndex(join(bundle, constantFile.file), destination, constantFile.sha256, { path: join(bundle, loweringFile.file), sha256: loweringFile.sha256 });
   const files = current.files.filter((entry) => entry.role !== "literal-runtime-index");
   const manifest = {
-    ...current, schemaVersion: 3,
+    ...current, schemaVersion: current.finalFormulaRuntime ? 4 : 3,
     runtimeIndex: { file: "constants.runtime-index.json", schemaVersion: descriptor.schemaVersion, constantPoolSha256: constantFile.sha256, integrityRootSha256: descriptor.integrityRootSha256 },
     files: [...files, { role: "literal-runtime-index" as const, file: "constants.runtime-index.json", bytes: descriptor.bytes, sha256: descriptor.sha256 }],
-  } as Gemma4CompiledBundleManifest;
+  } as unknown as Gemma4CompiledBundleManifest;
   const temporary = `${manifestPath}.next-${process.pid}`;
   await writeFile(temporary, `${JSON.stringify(manifest, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
   await rename(temporary, manifestPath);
@@ -247,6 +264,37 @@ interface ClosedGraphSummary {
   expressionNodes: number;
   remainingFunctionCalls: string[];
   inputVector: { tensor: "x"; length: number };
+}
+
+function finalFormulaRuntimeContract(values: {
+  summary: ClosedGraphSummary;
+  loweringPlan: Gemma4VectorizedRealLoweringPlan;
+  loweringFile: { file: string; sha256: string };
+  globalFile: { file: string; sha256: string };
+  constantFile: { file: string; sha256: string };
+  finalFormulaDescriptor: { file: string; sha256: string };
+  finalFormulaMap: { orderedRootsSha256: string };
+  terminalLogits: number;
+}): Gemma4FinalFormulaRuntimeContract {
+  const { summary, loweringPlan: plan, loweringFile, globalFile, constantFile, finalFormulaDescriptor, finalFormulaMap, terminalLogits } = values;
+  return {
+    kind: "gemma4-final-formula-runtime", schemaVersion: 1, evaluator: "EVAL_EXACT_DAG", semantics: "gemma4-exact-real-simplified-v1", publicFormula: "BF16_RNE(EVAL_EXACT_DAG(root,x))",
+    input: { tensor: "x", length: summary.inputVector.length, onlyFreeInput: true },
+    output: { family: "terminal_logit", functions: terminalLogits, finalQuantization: "BF16-round-to-nearest-ties-to-even" },
+    artifacts: {
+      formulaMap: { file: "final-formulas.json", sha256: finalFormulaDescriptor.sha256, orderedRootsSha256: finalFormulaMap.orderedRootsSha256 },
+      globalSsa: { file: "global-formulas.ssa.json", sha256: globalFile.sha256, standaloneOutputsSha256: plan.contract.source.standaloneSsaOutputsSha256 },
+      constantPool: { file: "constants.literal.json", sha256: constantFile.sha256 },
+      loweringPlan: { file: "vectorized-real-lowering.json", sha256: loweringFile.sha256, functionBindingsSha256: plan.contract.functionBindingsSha256, outputBindingsSha256: plan.contract.source.outputBindingsSha256, realSimplifiedProgramSha256: plan.contract.source.realSimplifiedProgramSha256 },
+    },
+    evaluation: {
+      rootResolution: "calc_final_n -> ordered terminal_logit output root -> dependency-ordered SSA node",
+      functionCalls: "lexical parameter binding followed by evaluation of the referenced operation-function root",
+      reductionOrder: "ascending integer index; arguments retain serialized order", intermediateIeeeRounding: "none",
+      nodeSemantics: GEMMA4_FINAL_FORMULA_NODE_SEMANTICS,
+    },
+    execution: { engine: "mlx-f32-real-decoder-stack-v1", mode: "compiled-parametric-output-program", parallelism: "metal-vectorized-output-dimensions", compiledOutputProgram: plan.contract.compiledOutputProgram },
+  };
 }
 
 async function readClosedGraphSummary(path: string): Promise<ClosedGraphSummary> {

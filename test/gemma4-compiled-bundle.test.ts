@@ -38,10 +38,14 @@ test("empacota grafo fechado, constant pool e tokenizer sem caminhos externos", 
     const manifest = await createGemma4CompiledBundle({ graph, globalSsa, realLoweringPlan: lowering, constantArtifact: constants, tokenizerDirectory: tokenizer, outputDirectory: output, createRuntimeIndex: false });
     assert.equal(manifest.formula.root, "sha256:a"); assert.equal(manifest.formula.inputLength, 3); assert.equal(manifest.formula.expressionNodes, 1);
     assert.deepEqual(manifest.runtimeLowering, { engine: "mlx-f32-real-decoder-stack-v1", directlyExecutesGlobalFormula: true, executesPersistedLoweringPlan: true, plan: "vectorized-real-lowering.json", functionBindingsSha256, outputBindingsSha256, standaloneSsaOutputsSha256, outputFunctions: 1, realSimplifiedProgramSha256: "b".repeat(64), globalFormulaRole: "compiled-executable-shared-dag", compiledOutputProgram });
-    assert.equal(manifest.schemaVersion, 2); assert.equal(manifest.files.length, 9); assert.ok(manifest.files.every((entry) => !entry.file.includes(directory)));
+    assert.equal(manifest.schemaVersion, 4); assert.equal(manifest.files.length, 10); assert.ok(manifest.files.every((entry) => !entry.file.includes(directory)));
     assert.deepEqual(manifest.globalProgram, { file: "global-formulas.ssa.json", terminalLogits: 1, constantPool: "constants.literal.json" });
     assert.deepEqual(manifest.finalFormulaMap, { file: "final-formulas.json", functions: 1, inputTensor: "x", evaluator: "BF16_RNE(EVAL_EXACT_DAG(root,x))", globalFormulaSha256: manifest.files.find((entry) => entry.role === "global-formulas")!.sha256, orderedRootsSha256: createHash("sha256").update(`0:${outputRoot}\n`).digest("hex") });
     assert.deepEqual(JSON.parse(await readFile(join(output, "final-formulas.json"), "utf8")), { calc_final_0: `BF16_RNE(EVAL_EXACT_DAG("${outputRoot}", x))` });
+    const runtime = JSON.parse(await readFile(join(output, "final-formulas.runtime.json"), "utf8"));
+    assert.equal(runtime.evaluator, "EVAL_EXACT_DAG"); assert.equal(runtime.input.length, 3); assert.equal(runtime.output.functions, 1); assert.equal(runtime.execution.parallelism, "metal-vectorized-output-dimensions");
+    assert.equal(runtime.artifacts.formulaMap.sha256, manifest.files.find((entry) => entry.role === "final-formulas")!.sha256); assert.equal(runtime.artifacts.loweringPlan.sha256, manifest.files.find((entry) => entry.role === "vectorized-real-lowering")!.sha256);
+    assert.equal(manifest.finalFormulaRuntime?.sha256, manifest.files.find((entry) => entry.role === "final-formula-runtime")!.sha256);
     assert.match(await readFile(join(output, "global-formulas.ssa.json"), "utf8"), /"artifact":"constants\.literal\.json"/);
     assert.deepEqual(JSON.parse(await readFile(join(output, "vectorized-real-lowering.json"), "utf8")), JSON.parse(await readFile(lowering, "utf8")));
     assert.deepEqual(JSON.parse(await readFile(join(output, "manifest.json"), "utf8")), manifest);
