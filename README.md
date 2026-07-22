@@ -2871,6 +2871,20 @@ O fallback PyTorch recuperou 12/12 tokens no corpus sensível, porém reduziu o
 throughput híbrido a `4,96 tok/s`. O runtime promovido permanece Q8 até existir
 uma seleção ou certificação que preserve a paridade em calibração ampliada.
 
+O prelude textual incremental preserva a redução CPU BF16 declarada e, por
+isso, não é reassociado artificialmente dentro do grafo Metal. Como suas duas
+saídas dependem apenas do token e dos pesos imutáveis, o worker mantém um LRU
+exato de 1.024 tokens com o embedding oculto e as entradas PLE já calculadas.
+O prefill alimenta esse cache e o decode reutiliza a entrada sem novo produto
+matricial ou RMSNorm. O protocolo publica `tokenPreludeCacheHits`,
+`tokenPreludeCacheMisses`, `tokenPreludeSeconds` e
+`compiledDecoderGraphSeconds`, exigindo que hits mais misses coincidam com os
+passos incrementais compilados. Em duas execuções consecutivas do mesmo prompt
+com 4 tokens, a primeira já reutilizou um token do prefill (`1 hit / 2 misses`)
+e consumiu `0.00420 s` de prelude; a segunda registrou `3 hits / 0 misses` e
+`0.0000066 s`. O tempo incremental total caiu de `0.10668 s` para `0.10014 s`,
+mantendo 8/8 tokens e zero divergências raiz.
+
 Na calibração oficial de 8 prompts × 8 tokens, head BF16 mais `gate+up` Q8
 produziu 64/64 tokens iguais ao Transformers, zero divergências raiz, erro
 máximo de `0.25` no logit escolhido e sobreposição top-5 média de `95.625%`.

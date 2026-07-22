@@ -78,8 +78,12 @@ interface ThreeWayCase {
     terminalLogitsSha256?: string;
     quantizedHeadCertifiedSteps?: number;
     quantizedHeadExactFallbackSteps?: number;
+    tokenPreludeCacheHits?: number;
+    tokenPreludeCacheMisses?: number;
     prefillSeconds?: number;
     incrementalDecoderSeconds?: number;
+    tokenPreludeSeconds?: number;
+    compiledDecoderGraphSeconds?: number;
     tokenSelectionSeconds?: number;
     terminalLogitTransferSeconds?: number;
     ropeFactorBuilds?: number;
@@ -313,8 +317,12 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.terminalLogitsSha256 === undefined ? {} : { terminalLogitsSha256: entry.direct.terminalLogitsSha256 }),
         ...(entry.direct.quantizedHeadCertifiedSteps === undefined ? {} : { quantizedHeadCertifiedSteps: entry.direct.quantizedHeadCertifiedSteps }),
         ...(entry.direct.quantizedHeadExactFallbackSteps === undefined ? {} : { quantizedHeadExactFallbackSteps: entry.direct.quantizedHeadExactFallbackSteps }),
+        ...(entry.direct.tokenPreludeCacheHits === undefined ? {} : { tokenPreludeCacheHits: entry.direct.tokenPreludeCacheHits }),
+        ...(entry.direct.tokenPreludeCacheMisses === undefined ? {} : { tokenPreludeCacheMisses: entry.direct.tokenPreludeCacheMisses }),
         ...(entry.direct.prefillSeconds === undefined ? {} : { prefillSeconds: entry.direct.prefillSeconds }),
         ...(entry.direct.incrementalDecoderSeconds === undefined ? {} : { incrementalDecoderSeconds: entry.direct.incrementalDecoderSeconds }),
+        ...(entry.direct.tokenPreludeSeconds === undefined ? {} : { tokenPreludeSeconds: entry.direct.tokenPreludeSeconds }),
+        ...(entry.direct.compiledDecoderGraphSeconds === undefined ? {} : { compiledDecoderGraphSeconds: entry.direct.compiledDecoderGraphSeconds }),
         ...(entry.direct.tokenSelectionSeconds === undefined ? {} : { tokenSelectionSeconds: entry.direct.tokenSelectionSeconds }),
         ...(entry.direct.terminalLogitTransferSeconds === undefined ? {} : { terminalLogitTransferSeconds: entry.direct.terminalLogitTransferSeconds }),
         ...(entry.direct.ropeFactorBuilds === undefined ? {} : { ropeFactorBuilds: entry.direct.ropeFactorBuilds }),

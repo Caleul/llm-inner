@@ -267,8 +267,12 @@ export interface PagedFusedTokenGenerationResult {
   cachedContextTokens: number;
   quantizedHeadCertifiedSteps: number;
   quantizedHeadExactFallbackSteps: number;
+  tokenPreludeCacheHits: number;
+  tokenPreludeCacheMisses: number;
   prefillSeconds: number;
   incrementalDecoderSeconds: number;
+  tokenPreludeSeconds: number;
+  compiledDecoderGraphSeconds: number;
   tokenSelectionSeconds: number;
   terminalLogitTransferSeconds: number;
 }

@@ -36,6 +36,7 @@ _head_quantization = "off"
 _decoder_quantization = "off"
 _decoder_quantization_layers = None
 EMBEDDING_ROW_CACHE_LIMIT = 4096
+TOKEN_PRELUDE_CACHE_LIMIT = 1024
 
 
 def read_exact(size):
@@ -605,6 +606,30 @@ def prefill_topology_mask(config, query_sequence):
     return mx.array(values)
 
 
+def execute_cached_incremental_token_prelude(model, token_id):
+    cache = model["token_prelude_cache"]
+    cached = cache.get(token_id)
+    if cached is not None:
+        cache.move_to_end(token_id)
+        return cached[0], cached[1], True
+    token_ids = np.array([[token_id]], dtype=np.int32)
+    result, all_per_layer = model["execute_token_prelude"](token_ids)
+    cache[token_id] = (result, all_per_layer)
+    if len(cache) > TOKEN_PRELUDE_CACHE_LIMIT:
+        cache.popitem(last=False)
+    return result, all_per_layer, False
+
+
+def cache_prefill_token_prelude_rows(model, token_ids, result, all_per_layer):
+    cache = model["token_prelude_cache"]
+    for index, token_id in enumerate(np.asarray(token_ids, dtype=np.int32).reshape(-1)):
+        token = int(token_id)
+        cache[token] = (result[:, index:index + 1, :], all_per_layer[:, index:index + 1, :, :])
+        cache.move_to_end(token)
+    while len(cache) > TOKEN_PRELUDE_CACHE_LIMIT:
+        cache.popitem(last=False)
+
+
 def emit_resident_generation(model, result, produced_caches, raw_logits, logits, first_forward_seconds, max_new_tokens, eos_token_id, top_k, cache_hits_before, input_token_ids, session_id=None, stream=False, prefix_tokens_reused=0, prefill_tokens_computed=None, initial_rope_factor_context=None, initial_topology_mask_builds=0, initial_topology_mask_uses=0, initial_kv_prefix_validation_scans_avoided=0):
     global _resident_generation_session
     generated_ids, forward_seconds, top_ids, top_values = [], [first_forward_seconds], [], []
@@ -615,6 +640,8 @@ def emit_resident_generation(model, result, produced_caches, raw_logits, logits,
     kv_prefix_validation_scans_avoided = initial_kv_prefix_validation_scans_avoided
     quantized_head_certified_steps, quantized_head_exact_fallback_steps = 0, 0
     token_selection_seconds, terminal_logit_transfer_seconds = 0.0, 0.0
+    token_prelude_cache_hits, token_prelude_cache_misses = 0, 0
+    token_prelude_seconds, compiled_decoder_graph_seconds = 0.0, 0.0
     while len(generated_ids) < max_new_tokens:
         selection_started = time.perf_counter()
         token_id, ranked_ids, ranked_values, selected_logits, certified, exact_fallback = rank_terminal_logits(logits, raw_logits, top_k, result, model["epilogue"], model["rounding"])
@@ -635,8 +662,11 @@ def emit_resident_generation(model, result, produced_caches, raw_logits, logits,
             terminal_logit_transfer_seconds += time.perf_counter() - transfer_started
             break
         incremental_started = time.perf_counter()
-        incremental_ids = np.array([[token_id]], dtype=np.int32)
-        result, all_per_layer = model["execute_token_prelude"](incremental_ids)
+        prelude_started = time.perf_counter()
+        result, all_per_layer, prelude_cache_hit = execute_cached_incremental_token_prelude(model, token_id)
+        token_prelude_seconds += time.perf_counter() - prelude_started
+        token_prelude_cache_hits += int(prelude_cache_hit)
+        token_prelude_cache_misses += int(not prelude_cache_hit)
         absolute_position = model["prompt_length"] + len(generated_ids) - 1
         positions = mx.array(np.array([[absolute_position]], dtype=np.int32))
         topology_masks, layer_masks = {}, []
@@ -655,6 +685,7 @@ def emit_resident_generation(model, result, produced_caches, raw_logits, logits,
         source_keys = tuple(produced_caches[layer][0] for layer in model["producer_layers"])
         source_values = tuple(produced_caches[layer][1] for layer in model["producer_layers"])
         per_layer_inputs = tuple(all_per_layer[:, :, layer_index, :] for layer_index in range(len(model["layer_plans"])))
+        decoder_graph_started = time.perf_counter()
         result, raw_logits, logits, next_keys, next_values, all_valid = model["execute_incremental_decoder_step"](result, per_layer_inputs, positions, source_keys, source_values, tuple(layer_masks))
         produced_caches = {layer: (next_keys[offset], next_values[offset]) for offset, layer in enumerate(model["producer_layers"])}
         rope_factor_builds += model["rope_factor_builds_per_step"]
@@ -666,6 +697,7 @@ def emit_resident_generation(model, result, produced_caches, raw_logits, logits,
         mx.eval(*evaluation)
         if not bool(np.asarray(all_valid).item()):
             raise ValueError("MLX resident generation produced non-finite state")
+        compiled_decoder_graph_seconds += time.perf_counter() - decoder_graph_started
         forward_seconds.append(time.perf_counter() - incremental_started)
     resident_kv_bytes = sum((key.size + value.size) * 4 for key, value in produced_caches.values())
     if session_id is not None:
@@ -682,7 +714,7 @@ def emit_resident_generation(model, result, produced_caches, raw_logits, logits,
     computed = len(np.asarray(input_token_ids).reshape(-1)) if prefill_tokens_computed is None else prefill_tokens_computed
     cached_context_tokens = len(_resident_generation_session["token_ids"]) if session_id is not None else len(np.asarray(input_token_ids).reshape(-1)) + len(generated_ids) - 1
     compiled_incremental_decoder_steps = max(0, len(generated_ids) - 1)
-    profile = np.array((1, len(generated_ids), max(0, len(generated_ids) - 1), terminal_values.nbytes, rope_factor_builds, max(0, rope_factor_uses - rope_factor_builds), topology_mask_builds, max(0, topology_mask_uses - topology_mask_builds), len(generated_ids), kv_prefix_validation_scans_avoided, compiled_incremental_decoder_steps, 1 if model["incremental_compiler_cache_hit"] else 0, _widened_tensor_cache_hits - cache_hits_before, len(_widened_tensor_cache), _widened_tensor_cache_bytes, resident_kv_bytes, prefix_tokens_reused, computed, 1 if prefix_tokens_reused else 0, cached_context_tokens, quantized_head_certified_steps, quantized_head_exact_fallback_steps, first_forward_seconds, sum(forward_seconds[1:]), token_selection_seconds, terminal_logit_transfer_seconds), dtype=np.float32)
+    profile = np.array((1, len(generated_ids), max(0, len(generated_ids) - 1), terminal_values.nbytes, rope_factor_builds, max(0, rope_factor_uses - rope_factor_builds), topology_mask_builds, max(0, topology_mask_uses - topology_mask_builds), len(generated_ids), kv_prefix_validation_scans_avoided, compiled_incremental_decoder_steps, 1 if model["incremental_compiler_cache_hit"] else 0, _widened_tensor_cache_hits - cache_hits_before, len(_widened_tensor_cache), _widened_tensor_cache_bytes, resident_kv_bytes, prefix_tokens_reused, computed, 1 if prefix_tokens_reused else 0, cached_context_tokens, quantized_head_certified_steps, quantized_head_exact_fallback_steps, token_prelude_cache_hits, token_prelude_cache_misses, first_forward_seconds, sum(forward_seconds[1:]), token_prelude_seconds, compiled_decoder_graph_seconds, token_selection_seconds, terminal_logit_transfer_seconds), dtype=np.float32)
     write_float_tensor(mx.array(profile))
     sys.stdout.buffer.flush()
 
@@ -719,6 +751,7 @@ def execute_compiled_token_generation(pool, shards, token_ids, max_new_tokens, e
         cached_count = 0
     current_token_ids = token_ids[:, cached_count:] if reusable is not None else token_ids
     result, all_per_layer = model["execute_token_prelude"](current_token_ids)
+    cache_prefill_token_prelude_rows(model, current_token_ids, result, all_per_layer)
     positions = mx.array(np.arange(cached_count, token_ids.shape[1], dtype=np.int32).reshape(1, -1))
     produced_caches, all_valid = {}, mx.array(True)
     rope_factor_context = {"factors": {}, "builds": 0, "uses": 0}
@@ -886,7 +919,7 @@ def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, 
             execute_incremental_decoder_step, producer_layers = compile_incremental_decoder_step(pool, shards, layer_plans, epilogue, rounding)
         rope_factor_uses_per_step = sum(1 + int(config["produces_kv"]) for config, _ in layer_plans)
         rope_factor_builds_per_step = len({(config["head_dim"], config["rope_kind"], config["theta"], config["rotary_dim"], config["proportional_pairs"], config["proportional_factor"], rounding != "real") for config, _ in layer_plans})
-        _resident_generation_model = {"pool": pool, "shards": shards, "execute_token_prelude": execute_token_prelude, "execute_incremental_decoder_step": execute_incremental_decoder_step, "producer_layers": producer_layers, "compile_signature": compile_signature, "incremental_compiler_cache_hit": incremental_compiler_cache_hit, "rope_factor_uses_per_step": rope_factor_uses_per_step, "rope_factor_builds_per_step": rope_factor_builds_per_step, "layer_plans": layer_plans, "epilogue": epilogue, "vocabulary_size": vocabulary_size, "prompt_length": query_sequence, "rounding": rounding}
+        _resident_generation_model = {"pool": pool, "shards": shards, "execute_token_prelude": execute_token_prelude, "execute_incremental_decoder_step": execute_incremental_decoder_step, "producer_layers": producer_layers, "compile_signature": compile_signature, "incremental_compiler_cache_hit": incremental_compiler_cache_hit, "rope_factor_uses_per_step": rope_factor_uses_per_step, "rope_factor_builds_per_step": rope_factor_builds_per_step, "layer_plans": layer_plans, "epilogue": epilogue, "vocabulary_size": vocabulary_size, "prompt_length": query_sequence, "rounding": rounding, "token_prelude_cache": OrderedDict()}
         emit_resident_generation(_resident_generation_model, result, produced_caches, raw_logits, logits, time.perf_counter() - request_started, generation["max_new_tokens"], generation["eos_token_id"], generation["top_k"], cache_hits_before, token_ids, initial_rope_factor_context=rope_factor_context, initial_topology_mask_builds=num_layers, initial_topology_mask_uses=num_layers)
         return
     if not fused_token_forward:
