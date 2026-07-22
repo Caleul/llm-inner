@@ -1,0 +1,65 @@
+{
+  "kind": "gemma4-kv-rewind-thread-calibration",
+  "schemaVersion": 1,
+  "createdAt": "2026-07-22",
+  "configuration": {
+    "tokensPerPrompt": 8,
+    "selectedThreads": 8,
+    "verificationMargin": 0,
+    "directMlxDecoderQuantization": "q8-ffn-gate-up",
+    "directMlxDecoderQuantizationLayers": "0-20",
+    "continuationPolicy": "margin-verified-pytorch-root-mlx-continuation-v1"
+  },
+  "sources": {
+    "prompts": {
+      "file": "gemma4-calibration-prompts-32.json",
+      "sha256": "23008073aafff2afcabbb548ef24a19672f69564f78a9bb9ec2450105e9846a2"
+    },
+    "authoritativeTokenIds": {
+      "file": "gemma4-q8-layers-0-20-margin0-calibration-32x8.json",
+      "sha256": "e4a81deb3e8e2aa68ddb30698e40334720123cd019d697e28e38c0d77eeaedfe",
+      "field": "cases[*].baseline.tokenIds"
+    }
+  },
+  "threadSweep": {
+    "repetitionsPerPrompt": 2,
+    "prompts": [
+      "The capital of France is",
+      "The largest ocean is",
+      "Translate to Portuguese: Good morning"
+    ],
+    "results": [
+      { "threads": 4, "lateTieSeconds": 1.668524104, "rootCorrectionSeconds": 1.173855417, "safeSeconds": 0.349680792 },
+      { "threads": 6, "lateTieSeconds": 1.621756125, "rootCorrectionSeconds": 1.120971917, "safeSeconds": 0.34574525 },
+      { "threads": 8, "lateTieSeconds": 1.606479438, "rootCorrectionSeconds": 1.092087022, "safeSeconds": 0.347874604 },
+      { "threads": 10, "lateTieSeconds": 1.682526584, "rootCorrectionSeconds": 1.141589604, "safeSeconds": 0.342998313 },
+      { "threads": 12, "lateTieSeconds": 1.717229396, "rootCorrectionSeconds": 1.147558479, "safeSeconds": 0.347638542 }
+    ]
+  },
+  "canonicalCorpus": {
+    "prompts": 32,
+    "promptsEqual": 32,
+    "comparedTokenSteps": 256,
+    "equalTokenSteps": 256,
+    "compiledSeconds": 18.359559833,
+    "safePrompts": 23,
+    "fallbackPrompts": 9,
+    "rootDivergences": 2,
+    "compiledContinuationsAccepted": 2,
+    "compiledContinuationPrefixRetries": 0,
+    "compiledContinuationsRejected": 0,
+    "verificationDecoderSteps": 31,
+    "fallbackCases": [
+      { "index": 0, "prompt": "The capital of France is", "seconds": 1.725941583, "verificationDecoderSteps": 7 },
+      { "index": 2, "prompt": "Write one short sentence about the Moon:", "seconds": 0.698377667, "verificationDecoderSteps": 1 },
+      { "index": 12, "prompt": "In JavaScript, Array.isArray([]) returns", "seconds": 1.544075625, "verificationDecoderSteps": 6 },
+      { "index": 17, "prompt": "A capital de Portugal é", "seconds": 0.868326042, "verificationDivergenceStep": 1, "verificationDecoderSteps": 1, "compiledContinuationAccepted": true, "compiledContinuationPrefixTokensReused": 7, "compiledContinuationPrefillTokensComputed": 1 },
+      { "index": 18, "prompt": "Traduza para inglês: boa noite", "seconds": 1.228168, "verificationDivergenceStep": 3, "verificationDecoderSteps": 3, "compiledContinuationAccepted": true, "compiledContinuationPrefixTokensReused": 12, "compiledContinuationPrefillTokensComputed": 1 },
+      { "index": 25, "prompt": "The binary representation of decimal 5 is", "seconds": 1.547629875, "verificationDecoderSteps": 6 },
+      { "index": 26, "prompt": "A leap year usually has", "seconds": 1.426621666, "verificationDecoderSteps": 6 },
+      { "index": 27, "prompt": "The first month of the year is", "seconds": 0.50471125, "verificationDecoderSteps": 0 },
+      { "index": 29, "prompt": "Once upon a time in a distant galaxy,", "seconds": 0.726958542, "verificationDecoderSteps": 1 }
+    ]
+  },
+  "claimBoundary": "This machine-local calibration proves the recorded corpus and thread sweep only; it does not prove parity or speedup for every prompt."
+}

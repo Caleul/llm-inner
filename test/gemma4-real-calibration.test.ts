@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { parseGemma4CalibrationCliOptions, summarizeGemma4ThreeWayCalibration } from "../src/gemma4-real-calibration.js";
@@ -12,6 +13,18 @@ const baseCase = {
   steps: [{ step: 0, contextsEqualBeforeStep: true, baselineToken: 7, candidateToken: 7, baselineTopLogits: [], candidateTopLogits: [] }, { step: 1, contextsEqualBeforeStep: true, baselineToken: 8, candidateToken: 9, baselineTopLogits: [], candidateTopLogits: [] }],
   direct: { generatedTokenIds: [7, 8], generatedText: "a", elapsedSeconds: 1, tokensPerSecond: 2, linearThreads: 4, parallelExecutionBackend: "metal-vectorized-kernels" as const, configuredHostThreads: 4, hostThreadSettingApplied: false, metalCommandStreams: 1, parallelTerminalOutputDimensions: 262_144, fusedDecoderStackEpilogueDispatches: 2, residentGeneration: "on" as const, fusedTokenGenerationDispatches: 1, externalForwardRequests: 1, kvCacheTransportBytes: 0, residentKvBytes: 512, terminalLogitMaterializations: 1, gpuRankedTokenSteps: 2, fullLogitTransfersAvoided: 1, terminalLogitVectorBytes: 1024, ropeFactorBuilds: 2, ropeFactorBuildsAvoided: 82, topologyMaskBuilds: 4, topologyMaskBuildsAvoided: 80, redundantLogitFiniteScansAvoided: 2, kvPrefixValidationScansAvoided: 14, decoderLayerValidityScansAvoided: 41, compiledIncrementalDecoderSteps: 1, incrementalCompilerCacheHit: true, fusedDecoderStackGateUpPairs: 42, fusedDecoderStackWidenedCacheHits: 588, widenedTensorCacheEntries: 294, widenedTensorCacheBytes: 1024, fusedDecoderStackAttentionSeconds: 0.2, fusedDecoderStackFfnSeconds: 0.5, fusedDecoderStackPleSeconds: 0.1, tokensEqualBaseline: true, firstDivergentStep: null, steps: [{ step: 0, tokenId: 7, forwardSeconds: 0.6, topLogits: [] }, { step: 1, tokenId: 8, forwardSeconds: 0.4, topLogits: [] }] },
 };
+
+test("evidência do default de oito threads vincula corpus e tokens autoritativos", async () => {
+  const artifact = JSON.parse(await readFile("artifacts/gemma4-kv-rewind-thread8-calibration-32x8.json", "utf8")) as any;
+  assert.equal(artifact.configuration.selectedThreads, 8);
+  assert.deepEqual([artifact.canonicalCorpus.promptsEqual, artifact.canonicalCorpus.equalTokenSteps, artifact.canonicalCorpus.rootDivergences, artifact.canonicalCorpus.compiledContinuationsAccepted, artifact.canonicalCorpus.compiledContinuationPrefixRetries, artifact.canonicalCorpus.compiledContinuationsRejected], [32, 256, 2, 2, 0, 0]);
+  const digest = async (path: string) => createHash("sha256").update(await readFile(path)).digest("hex");
+  assert.equal(await digest(`artifacts/${artifact.sources.prompts.file}`), artifact.sources.prompts.sha256);
+  assert.equal(await digest(`artifacts/${artifact.sources.authoritativeTokenIds.file}`), artifact.sources.authoritativeTokenIds.sha256);
+  const selected = artifact.threadSweep.results.find((entry: { threads: number }) => entry.threads === artifact.configuration.selectedThreads);
+  const ten = artifact.threadSweep.results.find((entry: { threads: number }) => entry.threads === 10);
+  assert.ok(selected.lateTieSeconds < ten.lateTieSeconds); assert.ok(selected.rootCorrectionSeconds < ten.rootCorrectionSeconds);
+});
 
 test("calibração três-vias agrega acordo token a token e throughput", () => {
   const report = summarizeGemma4ThreeWayCalibration([baseCase], { maxNewTokens: 2, requestThreads: 1, precision: "f32", roundingPolicy: "none", runner: { source: "/model", python: "python", helper: "helper", directThreads: 4 } }, { ready: true });

@@ -289,7 +289,7 @@ test("servidor diferencial valida opções reprodutíveis", () => {
   assert.throws(() => parseGemma4RealServerOptions(["--direct-native-attention", "auto"]), /off, bf16 ou real/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-attention", "always"]), /off, bf16, real ou native-bf16/);
   const directDefaults = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool"]);
-  assert.equal(directDefaults.directThreads, 10); assert.equal(directDefaults.directMaxReadMiB, 16); assert.equal(directDefaults.directFinalHeadReadMiB, 16); assert.equal(directDefaults.directVerificationMargin, 0);
+  assert.equal(directDefaults.directThreads, 8); assert.equal(directDefaults.directMaxReadMiB, 16); assert.equal(directDefaults.directFinalHeadReadMiB, 16); assert.equal(directDefaults.directVerificationMargin, 0);
   assert.equal(directDefaults.directMlxHeadQuantization, "off");
   assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-mlx-head-quantization", "q8-shortlist"]).directMlxHeadQuantization, "q8-shortlist");
   assert.equal(directDefaults.directMlxDecoderQuantization, "q8-ffn-gate-up");

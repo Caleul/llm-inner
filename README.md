@@ -3216,6 +3216,19 @@ compilado agregado caiu de aproximadamente `5,35 s` para `4,81 s` nessa
 comparação, mas o caso que exigiu retry regrediu cerca de `0,15 s`. Portanto o
 ganho é tratado como condicionado às margens, não como monotônico por prompt.
 
+O paralelismo do worker direto e do verificador exato foi calibrado em
+`4/6/8/10/12` threads, com duas repetições por configuração. O default agora é
+`8`: no empate tardio `The capital of France is`, reduziu a média de `1,683 s`
+para `1,607 s`; na correção com retomada de `The largest ocean is`, de
+`1,142 s` para `1,092 s`. O prompt sem fallback variou de `0,343 s` para
+`0,348 s`, dentro do ruído observado. Depois da mudança, o corpus canônico
+preservou `32/32` prompts e `256/256` tokens contra os IDs BF16 autoritativos,
+com nove fallbacks, duas correções de raiz, duas retomadas aceitas, zero retries
+e zero rejeições. O total compilado aquecido foi `18,360 s`; os números de
+microbenchmark são evidência desta máquina, não um limiar portátil. A evidência
+estruturada está em
+`artifacts/gemma4-kv-rewind-thread8-calibration-32x8.json`.
+
 No primeiro passo do fallback, o hidden do prefill contém uma posição por token
 de entrada, mas `final_norm`, `lm_head` e o softcap são independentes entre
 posições e a seleção greedy lê somente a última. O verificador agora recorta
