@@ -271,14 +271,16 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
         try {
           const comparisonStarted = performance.now(), schedule = body.measurementSchedule ?? "isolated";
           let directExecutionStarted = comparisonStarted, firstTokenWallSeconds: number | undefined;
+          const decodedStream = new DecodedTokenNdjsonStream(tokenizer, response);
           const executeDirect = () => executeSelectedDirect(direct, verificationProvider, options.directVerificationMargin, { inputIds, maxNewTokens: body.maxNewTokens, stream: true, ...(body.conversationMode === "chat" ? { eosTokenId: GEMMA4_CHAT_EOT_TOKEN_ID } : {}), ...(body.sessionId === undefined ? {} : { sessionId: body.sessionId }) }, (event) => {
             firstTokenWallSeconds ??= elapsedSeconds(directExecutionStarted);
-            writeNdjson(response, { type: "direct-token", provisional: verificationEnabled, event, serverElapsedSeconds: elapsedSeconds(directExecutionStarted) });
-          }, (assessment) => writeNdjson(response, { type: "direct-fallback", ...assessment }), () => !clientDisconnected, (prefill) => writeNdjson(response, { type: "direct-verification-prefill", ...prefill }));
+            decodedStream.push(event, { type: "direct-token", provisional: verificationEnabled, serverElapsedSeconds: elapsedSeconds(directExecutionStarted) });
+          }, (assessment) => decodedStream.write({ type: "direct-fallback", ...assessment }), () => !clientDisconnected, (prefill) => decodedStream.write({ type: "direct-verification-prefill", ...prefill }));
           let report: ComparisonReport, directReport: DirectReport, directPhaseSeconds: number, referencePhaseSeconds: number, referenceStartupSeconds: number, referenceComputeSeconds: number, referenceColdStart: boolean, directRecoverySeconds = 0;
           if (schedule === "isolated") {
             const directStarted = performance.now(); directExecutionStarted = directStarted; directReport = await executeDirect(); directPhaseSeconds = elapsedSeconds(directStarted);
             if (clientDisconnected || response.destroyed) return;
+            await decodedStream.flush();
             const [generated, full] = await Promise.all([tokenizer.decode(directReport.generatedTokenIds), tokenizer.decode(directReport.fullTokenIds)]);
             directReport.generatedText = generated.text; directReport.fullText = full.text;
             writeNdjson(response, { type: "direct-complete", data: { generatedText: generated.text, generatedTokenIds: directReport.generatedTokenIds, directPhaseSeconds } });
@@ -292,6 +294,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
             try { [report, directReport] = await Promise.all([lease.worker.compareTokens(body, inputIds, chatStopToken(body)) as Promise<ComparisonReport>, executeDirect()]); } finally { lease.release(true); }
             directPhaseSeconds = elapsedSeconds(directStarted); referenceComputeSeconds = elapsedSeconds(referenceStarted); referencePhaseSeconds = referenceStartupSeconds + referenceComputeSeconds;
           }
+          await decodedStream.flush();
           writeNdjson(response, { type: "direct-rewarming" }); directRecoverySeconds = await recoverDirectWorker(direct);
           if (clientDisconnected || response.destroyed) return;
           attachDirectLogitAgreement(report, directReport);
@@ -318,16 +321,18 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
         response.writeHead(200, { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" });
         try {
           const generationStarted = performance.now(); let firstTokenWallSeconds: number | undefined;
+          const decodedStream = new DecodedTokenNdjsonStream(tokenizer, response);
           const directReport = await executeSelectedDirect(direct, verificationProvider, options.directVerificationMargin, {
             inputIds, maxNewTokens: body.maxNewTokens, stream: true,
             ...(body.conversationMode === "chat" ? { eosTokenId: GEMMA4_CHAT_EOT_TOKEN_ID } : {}),
             ...(body.sessionId === undefined ? {} : { sessionId: body.sessionId }),
           }, (event) => {
             firstTokenWallSeconds ??= elapsedSeconds(generationStarted);
-            writeNdjson(response, { type: "direct-token", provisional: verificationEnabled, event, serverElapsedSeconds: elapsedSeconds(generationStarted) });
-          }, (assessment) => writeNdjson(response, { type: "direct-fallback", ...assessment }), () => !clientDisconnected, (prefill) => writeNdjson(response, { type: "direct-verification-prefill", ...prefill }));
+            decodedStream.push(event, { type: "direct-token", provisional: verificationEnabled, serverElapsedSeconds: elapsedSeconds(generationStarted) });
+          }, (assessment) => decodedStream.write({ type: "direct-fallback", ...assessment }), () => !clientDisconnected, (prefill) => decodedStream.write({ type: "direct-verification-prefill", ...prefill }));
           const directPhaseSeconds = elapsedSeconds(generationStarted);
           if (clientDisconnected || response.destroyed) return;
+          await decodedStream.flush();
           const [generated, full] = await Promise.all([tokenizer.decode(directReport.generatedTokenIds), tokenizer.decode(directReport.fullTokenIds)]);
           directReport.generatedText = generated.text; directReport.fullText = full.text;
           if (body.sessionId !== undefined) rememberSession(sessionInputs, body.sessionId, directReport.fullTokenIds, body.conversationMode ?? "raw");
@@ -699,6 +704,26 @@ function send(response: ServerResponse, status: number, type: string, body: stri
 }
 function json(response: ServerResponse, status: number, value: unknown): void { send(response, status, "application/json; charset=utf-8", `${JSON.stringify(value)}\n`); }
 function writeNdjson(response: ServerResponse, value: unknown): void { if (!response.destroyed && !response.writableEnded) response.write(`${JSON.stringify(value)}\n`); }
+
+class DecodedTokenNdjsonStream {
+  readonly tokenIds: number[] = [];
+  #decodedText = "";
+  #pending: Promise<void> = Promise.resolve();
+  constructor(readonly tokenizer: Gemma4TokenizerTransport, readonly response: ServerResponse) {}
+  push(event: unknown, envelope: Record<string, unknown>): void {
+    if (!event || typeof event !== "object" || Array.isArray(event) || !Number.isSafeInteger((event as { tokenId?: unknown }).tokenId) || ((event as { tokenId: number }).tokenId) < 0) throw new Error("Evento streaming direto não contém tokenId válido.");
+    this.tokenIds.push((event as { tokenId: number }).tokenId); const prefix = [...this.tokenIds];
+    this.#pending = this.#pending.then(async () => {
+      const decoded = await this.tokenizer.decode(prefix);
+      if (typeof decoded.text !== "string") throw new Error("Tokenizer não retornou texto streaming válido.");
+      const textReset = !decoded.text.startsWith(this.#decodedText), deltaText = textReset ? decoded.text : decoded.text.slice(this.#decodedText.length);
+      this.#decodedText = decoded.text;
+      writeNdjson(this.response, { ...envelope, event, generatedTokenIds: prefix, generatedText: decoded.text, deltaText, textReset });
+    });
+  }
+  write(value: unknown): void { this.#pending = this.#pending.then(() => writeNdjson(this.response, value)); }
+  flush(): Promise<void> { return this.#pending; }
+}
 
 export function parseGemma4RealServerOptions(arguments_: readonly string[]): Gemma4RealComparisonRunnerOptions & { port: number; host: string } {
   const values = new Map<string, string>();

@@ -3369,6 +3369,17 @@ adquire o worker Transformers original. Seu relatório marca
 paridade nem como divergência. O texto final continua vindo do mapeamento dos IDs
 de token gerados pela função terminal compilada.
 
+Cada evento `direct-token` inclui também o prefixo cumulativo
+`generatedTokenIds`, o texto autoritativo desse prefixo em `generatedText`, o
+sufixo incremental `deltaText` e `textReset`. O servidor serializa as chamadas ao
+tokenizer para manter a ordem dos eventos e publica `direct-complete` somente
+depois de todas elas. A interface cria uma única resposta do assistente no
+primeiro prefixo textual e atualiza essa mesma bolha; se a verificação seletiva
+substituir tokens provisórios, `direct-complete` substitui seu conteúdo pelo texto
+selecionado final. `generatedText` é a fonte de verdade; `deltaText` é apenas uma
+conveniência para consumidores incrementais, e `textReset: true` indica que a
+normalização do tokenizer exige substituir o texto acumulado em vez de anexá-lo.
+
 A escolha Q8 do decoder também foi comparada diretamente com `gate/up` BF16 e
 com uma decomposição experimental de dois estágios
 `W = Q8₀(W) + Q8₁(W-Q8₀(W))`. No mesmo corpus de 32 prompts × 4 tokens, o
