@@ -3013,6 +3013,25 @@ Essa política reduz empates dependentes da árvore de redução, mas continua
 sendo medida contra o Transformers: um segundo backend BF16 pode preservar o
 mesmo empate e, portanto, não é apresentado como prova geral de paridade.
 
+O verificador PyTorch reutiliza uma única implementação da atenção eager BF16
+tanto no kernel isolado quanto na pilha decoder: Q/K/V entram em BF16, o BMM de
+scores é escalado e somado à máscara com saída BF16, o softmax é calculado em
+F32 e estreitado para BF16, e o BMM de contexto também retorna BF16. Antes
+dessa unificação, a pilha mantinha scores, probabilidades e contexto em F32 e
+podia confirmar incorretamente um empate do caminho real. O caso
+`2 + 2 =` × 3 tokens reproduziu o defeito: o fast path escolhia `108`, enquanto
+o Transformers escolhia `236761` no terceiro passo; o verificador corrigido
+agora seleciona `236761` sem consultar o token da referência.
+
+Na calibração posterior de 32 prompts × 4 tokens, o resultado selecionado
+preservou `32/32` prompts, `128/128` tokens e zero divergências raiz. Dois
+prompts acionaram o fallback sem precisar de correção. O runtime direto somou
+`9,1177 s` (`14,0386 tok/s`) contra `107,8191 s` (`1,1872 tok/s`) do
+Transformers, uma razão agregada de `11,8252×`; o erro máximo do logit escolhido
+foi `0,25` e a sobreposição top-K média `96,71875%`. O relatório reproduzível é
+`artifacts/gemma4-bf16-attention-fallback-calibration-32x4.json`. Esses números
+são evidência finita do corpus versionado, não garantia universal.
+
 Depois do primeiro fallback, o servidor mantém o índice autenticado do
 artefato literal já aberto, mas reinicia o kernel linear PyTorch após cada
 verificação. Isso evita reler e reindexar os 20 GiB de `constants.literal.json`

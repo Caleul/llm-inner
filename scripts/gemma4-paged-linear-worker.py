@@ -109,6 +109,16 @@ def rope_real(tensor, positions, rope_kind, theta, rotary_dim, proportional_pair
     return result
 
 
+def eager_bf16_attention(query, key, value, mask, scale):
+    query = query.to(torch.bfloat16)
+    key = key.to(torch.bfloat16)
+    value = value.to(torch.bfloat16)
+    scores = (torch.matmul(query, key.transpose(-1, -2)).float() * torch.tensor(scale, dtype=torch.float32)).to(torch.bfloat16)
+    scores = (scores + mask.to(torch.bfloat16)).to(torch.bfloat16)
+    probabilities = torch.softmax(scores.float(), dim=-1).to(torch.bfloat16)
+    return torch.matmul(probabilities, value).to(torch.bfloat16).float()
+
+
 def write_float_tensor(tensor):
     payload = tensor.contiguous().numpy().tobytes(order="C")
     sys.stdout.buffer.write(struct.pack("<I", len(payload)))
@@ -152,9 +162,7 @@ def execute_decoder_layer(pool, files, mappings, inputs, per_layer, positions, m
     group = query_heads // key_value_heads
     attention_key = key if group == 1 else key.repeat_interleave(group, dim=1)
     attention_value = value if group == 1 else value.repeat_interleave(group, dim=1)
-    scores = torch.matmul(query, attention_key.transpose(-1, -2)) * torch.tensor(config["scale"], dtype=torch.float32) + mask
-    probabilities = torch.softmax(scores, dim=-1)
-    context = torch.matmul(probabilities, attention_value).permute(0, 2, 1, 3).contiguous().reshape(batch, query_sequence, query_heads * head_dim)
+    context = eager_bf16_attention(query, attention_key, attention_value, mask, config["scale"]).permute(0, 2, 1, 3).contiguous().reshape(batch, query_sequence, query_heads * head_dim)
     attention_projected = boundary(project(context, output_weight))
     attention_seconds = time.perf_counter() - attention_started
     ffn_started = time.perf_counter()
@@ -530,11 +538,7 @@ def main():
                     key = key.repeat_interleave(group, dim=1)
                     value = value.repeat_interleave(group, dim=1)
                 if rounding == 0:
-                    query, key, value = query.to(torch.bfloat16), key.to(torch.bfloat16), value.to(torch.bfloat16)
-                    scores = (torch.matmul(query, key.transpose(-1, -2)).float() * torch.tensor(scale, dtype=torch.float32)).to(torch.bfloat16)
-                    scores = (scores + mask.to(torch.bfloat16)).to(torch.bfloat16)
-                    probabilities = torch.softmax(scores.float(), dim=-1).to(torch.bfloat16)
-                    context = torch.matmul(probabilities, value).to(torch.bfloat16).float()
+                    context = eager_bf16_attention(query, key, value, mask, scale)
                 else:
                     scores = torch.matmul(query, key.transpose(-1, -2)) * torch.tensor(scale, dtype=torch.float32) + mask
                     probabilities = torch.softmax(scores, dim=-1)
@@ -546,7 +550,7 @@ def main():
                 sys.stdout.buffer.write(struct.pack("<I", len(payload)))
                 sys.stdout.buffer.write(payload)
                 sys.stdout.buffer.flush()
-                del query, key, value, mask, scores, probabilities, context, result, payload
+                del query, key, value, mask, context, result, payload
                 continue
             input_bytes = read_exact(rows * features * 4)
             if fused_ffn:
