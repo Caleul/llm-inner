@@ -3105,11 +3105,16 @@ npm run generate:gemma4-final-formula-map -- \
 
 A interface publica uma função final concreta do bundle no formato
 `calc_final_n(x) = BF16_RNE(EVAL_EXACT_DAG(root_n, x))`. O inspetor aceita
-qualquer dimensão `n` de `0` a `262143`, lê somente seu binding no
-`global-formulas.ssa.json`, valida família, quantização e raiz, e decodifica o
-mesmo `n` como token do vocabulário. Assim é possível navegar de uma dimensão
-matemática até o texto que ela seleciona sem carregar os 411 MiB do SSA na
-memória ou no navegador. A dimensão `0` continua exibida imediatamente com
+qualquer dimensão `n` de `0` a `262143`, lê seu binding no
+`global-formulas.ssa.json`, valida família, quantização e raiz, resolve o hash
+até o nó matemático autenticado, localiza a closure chamada e expande um
+fragmento limitado do corpo com valores e operações concretos. Chamadas para
+outras closures permanecem identificadas por `functionId` no mesmo SSA em vez
+de serem apresentadas como folhas desconhecidas. O leitor faz isso por
+streaming e mantém em cache as dimensões já consultadas; não materializa os
+411 MiB do programa em memória. O mesmo `n` é decodificado como token do
+vocabulário, permitindo navegar da dimensão matemática até o texto que ela
+seleciona. A dimensão `0` continua exibida imediatamente com
 quantidade de nós, comprimento de `x`, arquivo `formula.graph.json` e seu
 SHA-256 vindos do manifesto validado no startup. O grafo fechado possui somente
 `x[i]` como entrada variável; pesos e constantes são números fixos do

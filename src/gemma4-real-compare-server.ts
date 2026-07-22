@@ -6,7 +6,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { gemma4RealCompareHtml } from "./gemma4-real-compare-ui.js";
-import { readGemma4GlobalSsaOutput, type Gemma4GlobalSsaOutput } from "./gemma4-global-ssa-output-reader.js";
+import { readGemma4GlobalSsaOutput, resolveGemma4GlobalSsaRoot, type Gemma4GlobalSsaOutput, type Gemma4GlobalSsaRootResolution } from "./gemma4-global-ssa-output-reader.js";
 import { normalizeGemma4DecoderQuantizationLayers, type Gemma4MlxDecoderQuantization } from "./gemma4-paged-native-linear.js";
 import { validateGemma4VectorizedRealLoweringPlan, type Gemma4VectorizedRealLoweringPlan } from "./gemma4-vectorized-real-lowering.js";
 
@@ -76,6 +76,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
   let worker: Gemma4PersistentComparisonWorker | undefined, referenceInitialization: Promise<Gemma4PersistentComparisonWorker> | undefined, initializationError: Error | undefined, referenceError: Error | undefined, closed = false, referenceLeases = 0, referenceReleaseRequested = false;
   const sessionInputs = new Map<number, SessionInput>();
   const finalFormulaCache = new Map<number, Promise<Gemma4GlobalSsaOutput>>();
+  const finalFormulaResolutionCache = new Map<string, Promise<Gemma4GlobalSsaRootResolution>>();
   let directWarmupSeconds: number | undefined;
   const getReferenceWorker = (): Promise<Gemma4PersistentComparisonWorker> => {
     if (referenceInitialization) return referenceInitialization;
@@ -171,10 +172,27 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
         }
         const binding = await pending, expectedAssignment = `calc_terminal_logit_${dimension}`;
         if (binding.assignment !== expectedAssignment || binding.finalQuantization !== outputs.finalQuantization) throw new Error(`Binding final ${dimension} diverge do contrato terminal_logit.`);
+        const globalPath = join(options.compiledProgram.bundle, options.compiledProgram.globalFormula.file);
+        let resolution = finalFormulaResolutionCache.get(binding.value);
+        if (!resolution) {
+          resolution = resolveGemma4GlobalSsaRoot(globalPath, binding.value); finalFormulaResolutionCache.set(binding.value, resolution);
+          void resolution.catch(() => finalFormulaResolutionCache.delete(binding.value));
+        }
+        const resolved = await resolution;
         await tokenizer.whenReady(); const decoded = await tokenizer.decode([dimension]);
         return json(response, 200, {
           key: `calc_final_${dimension}`, family: "terminal_logit", dimension, token: { id: dimension, text: decoded.text },
           expression: `BF16_RNE(EVAL_EXACT_DAG(\"${binding.value}\", x))`, root: binding.value, parameters: binding.parameters, coordinate: binding.coordinate,
+          resolvedMath: {
+            expression: resolved.root.expression, node: resolved.root.node, dependencies: resolved.dependencies, fragment: resolved.fragment,
+            ...(resolved.calledFunction ? { operation: {
+              functionId: resolved.calledFunction.functionId, operationId: resolved.calledFunction.operationId, output: resolved.calledFunction.output,
+              parameters: resolved.calledFunction.parameters, argumentRoots: resolved.dependencies, bodyRoot: resolved.calledFunction.root,
+              bodyExpression: resolved.calledFunction.body.expression, bodyNode: resolved.calledFunction.body.node, bodyDependencies: resolved.calledFunction.bodyDependencies,
+              bodyFragment: resolved.calledFunction.bodyFragment,
+              predecessorFunctions: resolved.calledFunction.predecessorFunctions, operandBoundaries: resolved.calledFunction.operandBoundaries,
+            } } : {}),
+          },
           formulaMap: { file: options.compiledProgram.finalFormulaMap.file, key: `calc_final_${dimension}`, sha256: options.compiledProgram.finalFormulaMap.sha256 },
           finalQuantization: binding.finalQuantization, onlyFreeInput: "x", globalFormulaSha256: options.compiledProgram.globalFormula.sha256,
           outputBindingsSha256: options.compiledProgram.directRuntime.plan.outputBindingsSha256,

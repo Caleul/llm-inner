@@ -314,8 +314,21 @@ readline.createInterface({input:process.stdin}).on("line",line=>{const request=J
 test("endpoint final liga qualquer dimensão de logit ao token decodificado", async () => {
   const directory = await mkdtemp(join(tmpdir(), "gemma4-final-formula-server-")), helper = join(directory, "worker.mjs"), globalFile = join(directory, "global-formulas.ssa.json");
   const root = (digit: string) => `sha256:${digit.repeat(64)}`;
+  const node = <T extends Record<string, unknown>>(payload: T) => ({ id: `sha256:${createHash("sha256").update(JSON.stringify(payload)).digest("hex")}`, ...payload });
+  const outputFeature = node({ kind: "integer-constant", value: 1 });
+  const scale = node({ kind: "rational", value: { numerator: "30", denominator: "1" } });
+  const body = node({ kind: "multiply", arguments: [outputFeature.id, scale.id] });
+  const call = node({ kind: "function-call", functionId: "operation:final_logit_softcap", arguments: [outputFeature.id] });
   const output = (family: string, dimension: number, digit: string) => ({ assignment: `calc_${family}_${dimension}`, value: root(digit), parameters: ["batch", "sequence"], coordinate: [root("a"), root("b"), root(digit)], finalQuantization: "BF16-round-to-nearest-ties-to-even" });
-  await writeFile(globalFile, JSON.stringify({ statements: [], functions: [], outputs: [output("final_hidden_dimension", 0, "1"), output("terminal_logit", 0, "2"), output("terminal_logit", 1, "3")] }));
+  await writeFile(globalFile, JSON.stringify({
+    statements: [
+      { target: outputFeature.id, expression: "1", node: outputFeature }, { target: scale.id, expression: "30", node: scale },
+      { target: body.id, expression: `(${outputFeature.id} * ${scale.id})`, node: body },
+      { target: call.id, expression: `operation:final_logit_softcap(${outputFeature.id})`, node: call },
+    ],
+    functions: [{ functionId: "operation:final_logit_softcap", operationId: "final_logit_softcap", ordinal: 1, output: "softcapped_logits", parameters: [{ name: "output_feature", node: outputFeature.id }], root: body.id, predecessorFunctions: ["operation:lm_head"], closureKind: "global-output-closure", operandBoundaries: [] }],
+    outputs: [output("final_hidden_dimension", 0, "1"), output("terminal_logit", 0, "2"), { ...output("terminal_logit", 1, "3"), value: call.id }],
+  }));
   await writeFile(helper, `import readline from "node:readline"; console.log(JSON.stringify({ready:true})); readline.createInterface({input:process.stdin}).on("line",line=>{const r=JSON.parse(line);const report=r.mode==='decode'?{text:'token:'+r.tokenIds[0]}:r.mode==='encode'?{tokenIds:[2]}:{inputIds:[[2]],baselineGeneratedTokenIds:[1]};console.log(JSON.stringify({id:r.id,report}));});\n`);
   const compiledProgram: Gemma4CompiledProgramStatus = {
     bundle: directory, execution: "compiled-parametric-output-program-runtime", formulaSemantics: "gemma4-exact-real-simplified-v1",
@@ -330,8 +343,11 @@ test("endpoint final liga qualquer dimensão de logit ao token decodificado", as
   try {
     const address = server.address(); if (!address || typeof address === "string") throw new Error("Endereço HTTP de teste ausente.");
     const response = await fetch(`http://127.0.0.1:${address.port}/api/final-formula?dimension=1`); assert.equal(response.status, 200);
-    const formula = await response.json() as { key: string; root: string; token: { id: number; text: string }; onlyFreeInput: string; formulaMap: { file: string; key: string; sha256: string } };
-    assert.equal(formula.key, "calc_final_1"); assert.equal(formula.root, root("3")); assert.deepEqual(formula.token, { id: 1, text: "token:1" }); assert.equal(formula.onlyFreeInput, "x"); assert.deepEqual(formula.formulaMap, { file: "final-formulas.json", key: "calc_final_1", sha256: "d".repeat(64) });
+    const formula = await response.json() as { key: string; root: string; token: { id: number; text: string }; onlyFreeInput: string; formulaMap: { file: string; key: string; sha256: string }; resolvedMath: { expression: string; node: { kind: string }; operation: { operationId: string; bodyExpression: string; bodyNode: { kind: string }; bodyFragment: { expandedExpression: string; truncated: boolean } } } };
+    assert.equal(formula.key, "calc_final_1"); assert.equal(formula.root, call.id); assert.deepEqual(formula.token, { id: 1, text: "token:1" }); assert.equal(formula.onlyFreeInput, "x"); assert.deepEqual(formula.formulaMap, { file: "final-formulas.json", key: "calc_final_1", sha256: "d".repeat(64) });
+    assert.equal(formula.resolvedMath.expression, `operation:final_logit_softcap(${outputFeature.id})`); assert.equal(formula.resolvedMath.node.kind, "function-call");
+    assert.equal(formula.resolvedMath.operation.operationId, "final_logit_softcap"); assert.equal(formula.resolvedMath.operation.bodyExpression, `(${outputFeature.id} * ${scale.id})`); assert.equal(formula.resolvedMath.operation.bodyNode.kind, "multiply");
+    assert.equal(formula.resolvedMath.operation.bodyFragment.expandedExpression, "((1) * (30))"); assert.equal(formula.resolvedMath.operation.bodyFragment.truncated, false);
     const invalid = await fetch(`http://127.0.0.1:${address.port}/api/final-formula?dimension=2`); assert.equal(invalid.status, 400); assert.deepEqual(await invalid.json(), { error: "dimension deve estar entre 0 e 1." });
   } finally { await new Promise<void>((accept) => server.close(() => accept())); await rm(directory, { recursive: true, force: true }); }
 });
