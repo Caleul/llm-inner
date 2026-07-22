@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { pagedLinearBatchF32, pagedLinearF32, type PagedDenseF32Matrix, type PagedLinearTileKernel } from "../src/paged-dense.js";
+import { PAGED_DECODER_ATTENTION_STAGE_NAMES, PAGED_DECODER_LAYER_STAGE_NAMES, PAGED_DECODER_PLE_STAGE_NAMES, pagedLinearBatchF32, pagedLinearF32, type PagedDenseF32Matrix, type PagedLinearTileKernel } from "../src/paged-dense.js";
 
 const matrix: PagedDenseF32Matrix = {
   tensor: { name: "weight", storageDtype: "F32", storageShape: [2, 2], logicalShape: [2, 2] },
@@ -10,6 +10,12 @@ const matrix: PagedDenseF32Matrix = {
     return { shape: [2, 2], values: Float32Array.from([3, 4, 5, 6]) };
   },
 };
+
+test("checkpoints diagnósticos cobrem macro, atenção e PLE em ordem estável", () => {
+  assert.deepEqual(PAGED_DECODER_LAYER_STAGE_NAMES, ["layer_input", "input_norm", "attention_output", "post_attention_norm", "attention_residual", "pre_ffn_norm", "mlp_output", "post_ffn_norm", "mlp_residual", "ple_projection", "ple_norm", "layer_output"]);
+  assert.deepEqual(PAGED_DECODER_ATTENTION_STAGE_NAMES, ["q_projection", "q_norm", "q_rope", "k_projection", "v_projection", "k_norm", "k_rope", "v_norm", "attention_context"]);
+  assert.deepEqual(PAGED_DECODER_PLE_STAGE_NAMES, ["ple_input", "ple_gate", "ple_activation", "ple_gated"]);
+});
 
 test("linear paginado delega um tile completo ao kernel nativo opt-in", async () => {
   let calls = 0;

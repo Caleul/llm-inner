@@ -188,7 +188,17 @@ export interface PagedFusedDecoderStackRequest {
   layers: readonly PagedFusedDecoderStackLayerRequest[];
   rounding: "real" | "native-bf16" | "native-bf16-ple";
   captureLayerHidden?: boolean;
+  captureLayerStages?: number;
 }
+
+export const PAGED_DECODER_LAYER_STAGE_NAMES = [
+  "layer_input", "input_norm", "attention_output", "post_attention_norm", "attention_residual", "pre_ffn_norm",
+  "mlp_output", "post_ffn_norm", "mlp_residual", "ple_projection", "ple_norm", "layer_output",
+] as const;
+export const PAGED_DECODER_ATTENTION_STAGE_NAMES = [
+  "q_projection", "q_norm", "q_rope", "k_projection", "v_projection", "k_norm", "k_rope", "v_norm", "attention_context",
+] as const;
+export const PAGED_DECODER_PLE_STAGE_NAMES = ["ple_input", "ple_gate", "ple_activation", "ple_gated"] as const;
 
 export interface PagedFusedDecoderStackCache {
   layerIndex: number;
@@ -200,6 +210,9 @@ export interface PagedFusedDecoderStackResult {
   hidden: Float32Array;
   caches: readonly PagedFusedDecoderStackCache[];
   layerHidden?: readonly Float32Array[];
+  layerStages?: { layerIndex: number; names: typeof PAGED_DECODER_LAYER_STAGE_NAMES; values: readonly Float32Array[] };
+  attentionStages?: { layerIndex: number; names: typeof PAGED_DECODER_ATTENTION_STAGE_NAMES; values: readonly Float32Array[] };
+  pleStages?: { layerIndex: number; names: typeof PAGED_DECODER_PLE_STAGE_NAMES; values: readonly Float32Array[] };
 }
 
 export interface PagedFusedDecoderStackEpilogueRequest extends PagedFusedDecoderStackRequest {

@@ -80,7 +80,7 @@ process.stdout.write(`${JSON.stringify({ ready: true, initializationSeconds: (pe
 
 const lines = createInterface({ input: process.stdin, crlfDelay: Infinity });
 for await (const line of lines) {
-  let request: { id?: unknown; control?: unknown; inputIds?: unknown; maxNewTokens?: unknown; eosTokenId?: unknown; sessionId?: unknown; stream?: unknown; verificationFastPath?: unknown; verificationControl?: unknown; captureLayerHidden?: unknown } = {};
+  let request: { id?: unknown; control?: unknown; inputIds?: unknown; maxNewTokens?: unknown; eosTokenId?: unknown; sessionId?: unknown; stream?: unknown; verificationFastPath?: unknown; verificationControl?: unknown; captureLayerHidden?: unknown; captureLayerStages?: unknown } = {};
   try {
     request = JSON.parse(line) as typeof request;
     if (request.control === "trim-memory") {
@@ -93,12 +93,12 @@ for await (const line of lines) {
     }
     if (request.control !== undefined) throw new Error("Controle de worker desconhecido.");
     const inputIds = validateIds(request.inputIds), maxNewTokens = validateTokens(request.maxNewTokens), eosTokenId = validateEosTokenId(request.eosTokenId);
-    const sessionId = validateSessionId(request.sessionId), stream = validateStream(request.stream), verificationFastPath = validateVerificationFastPath(request.verificationFastPath, maxNewTokens), verificationControl = validateVerificationControl(request.verificationControl), captureLayerHidden = validateCaptureLayerHidden(request.captureLayerHidden);
+    const sessionId = validateSessionId(request.sessionId), stream = validateStream(request.stream), verificationFastPath = validateVerificationFastPath(request.verificationFastPath, maxNewTokens), verificationControl = validateVerificationControl(request.verificationControl), captureLayerHidden = validateCaptureLayerHidden(request.captureLayerHidden), captureLayerStages = validateCaptureLayerStages(request.captureLayerStages);
     if (verificationFastPath && verificationControl) throw new Error("verificationFastPath e verificationControl são mutuamente exclusivos.");
     if (verificationControl && (args.linearBackend !== "mlx" || args.mlxDecoderQuantization !== "q8-ffn-gate-up-down" || sessionId !== undefined || stream)) throw new Error("verificationControl requer decoder MLX q8-ffn-gate-up-down sem sessão nem streaming.");
-    if (captureLayerHidden && (!verificationFastPath || args.linearBackend !== "pytorch" || sessionId !== undefined || stream)) throw new Error("captureLayerHidden requer verificationFastPath no backend PyTorch sem sessão nem streaming.");
+    if ((captureLayerHidden || captureLayerStages !== undefined) && (!verificationFastPath || args.linearBackend !== "pytorch" || sessionId !== undefined || stream)) throw new Error("Captura decoder requer verificationFastPath no backend PyTorch sem sessão nem streaming.");
     const report = verificationFastPath
-      ? await generateSelectiveVerification(inputIds, maxNewTokens, verificationFastPath, eosTokenId, captureLayerHidden)
+      ? await generateSelectiveVerification(inputIds, maxNewTokens, verificationFastPath, eosTokenId, captureLayerHidden, captureLayerStages)
       : await generate(inputIds, maxNewTokens, eosTokenId, sessionId, stream ? (event) => process.stdout.write(`${JSON.stringify({ id: request.id, event: { type: "token", ...event } })}\n`) : undefined, verificationControl);
     process.stdout.write(`${JSON.stringify({ id: request.id, report })}\n`);
   } catch (error) {
@@ -143,13 +143,24 @@ interface VerificationFastPath {
   terminalLogitsSha256: string;
 }
 
-async function generateSelectiveVerification(inputIds: number[], maxNewTokens: number, fast: VerificationFastPath, eosTokenId?: number, captureLayerHidden = false): Promise<Record<string, unknown>> {
+async function generateSelectiveVerification(inputIds: number[], maxNewTokens: number, fast: VerificationFastPath, eosTokenId?: number, captureLayerHidden = false, captureLayerStages?: number): Promise<Record<string, unknown>> {
   if (args.linearBackend !== "pytorch" || args.residentGeneration !== "off" || args.fusedTokenForwardRounding !== "off") throw new Error("Verificação seletiva requer backend PyTorch não residente.");
   const dispatchesBefore = linear.dispatchMetrics(), started = performance.now();
   const sensitive = new Set(fast.sensitiveSteps), generatedTokenIds: number[] = [], steps: Array<Record<string, unknown>> = [];
   let forwardStarted = performance.now();
   const layerHiddenCaptures: string[][] = [];
-  const executionOptions = captureLayerHidden ? { ...options, onDecoderLayerHidden: (layers: readonly Float32Array[]) => layerHiddenCaptures.push(layers.map(encodeTerminalHidden)) } : options;
+  const layerHiddenFullCaptures: string[][] = [];
+  const layerStageCaptures: Array<{ names: readonly string[]; values: string[]; attentionNames?: readonly string[]; attentionValues?: string[]; pleNames?: readonly string[]; pleValues?: string[] }> = [];
+  const executionOptions = captureLayerHidden || captureLayerStages !== undefined ? {
+    ...options,
+    ...(captureLayerHidden ? { onDecoderLayerHidden: (layers: readonly Float32Array[]) => { layerHiddenCaptures.push(layers.map(encodeTerminalHidden)); layerHiddenFullCaptures.push(layers.map(encodeWholeF32)); } } : {}),
+    ...(captureLayerStages === undefined ? {} : { decoderLayerStageCapture: {
+      layerIndex: captureLayerStages,
+      accept: (names: readonly string[], values: readonly Float32Array[]) => layerStageCaptures.push({ names, values: values.map(encodeWholeF32) }),
+      acceptAttention: (names: readonly string[], values: readonly Float32Array[]) => Object.assign(layerStageCaptures.at(-1)!, { attentionNames: names, attentionValues: values.map(encodeWholeF32) }),
+      acceptPle: (names: readonly string[], values: readonly Float32Array[]) => Object.assign(layerStageCaptures.at(-1)!, { pleNames: names, pleValues: values.map(encodeWholeF32) }),
+    } }),
+  } : options;
   let current = await executeGemma4PagedTextHiddenLiteralF32(artifact, { inputIds: [inputIds] }, executionOptions);
   let forwardSeconds = (performance.now() - forwardStarted) / 1000, terminalLogitsSha256 = fast.terminalLogitsSha256, divergenceStep: number | null = null;
   for (let step = 0; step < fast.generatedTokenIds.length; step += 1) {
@@ -177,7 +188,8 @@ async function generateSelectiveVerification(inputIds: number[], maxNewTokens: n
   return buildReport(inputIds, maxNewTokens, generatedTokenIds, steps, terminalLogitsSha256, elapsedSeconds, dispatchesBefore, dispatchesAfter, {
     selectiveVerification: true, sensitiveSteps: fast.sensitiveSteps, trustedFastPathSteps: steps.filter((step) => step.verificationSkipped === true).length,
     verificationHeadSteps: steps.filter((step) => step.verificationSkipped === false).length, verificationDivergenceStep: divergenceStep, externalForwardRequests: generatedTokenIds.length,
-    ...(captureLayerHidden ? { layerHiddenEncoding: "terminal-token-f32le-base64", layerHiddenCaptures } : {}),
+    ...(captureLayerHidden ? { layerHiddenEncoding: "terminal-token-f32le-base64", layerHiddenCaptures, layerHiddenFullEncoding: "whole-tensor-f32le-base64", layerHiddenFullCaptures } : {}),
+    ...(captureLayerStages === undefined ? {} : { layerStageEncoding: "whole-tensor-f32le-base64", layerStageLayer: captureLayerStages, layerStageCaptures }),
   });
 }
 
@@ -185,6 +197,9 @@ function encodeTerminalHidden(values: Float32Array): string {
   const hiddenSize = artifact.program.contract.text.hiddenSize;
   const terminal = values.subarray(values.length - hiddenSize);
   return Buffer.from(terminal.buffer, terminal.byteOffset, terminal.byteLength).toString("base64");
+}
+function encodeWholeF32(values: Float32Array): string {
+  return Buffer.from(values.buffer, values.byteOffset, values.byteLength).toString("base64");
 }
 
 function buildReport(inputIds: number[], maxNewTokens: number, generatedTokenIds: number[], steps: Array<Record<string, unknown>>, terminalLogitsSha256: string, elapsedSeconds: number, dispatchesBefore: ReturnType<typeof linear.dispatchMetrics>, dispatchesAfter: ReturnType<typeof linear.dispatchMetrics>, transport: Record<string, unknown>): Record<string, unknown> {
@@ -288,6 +303,11 @@ function validateCaptureLayerHidden(value: unknown): boolean {
   if (value === undefined) return false;
   if (typeof value !== "boolean") throw new Error("captureLayerHidden deve ser booleano.");
   return value;
+}
+function validateCaptureLayerStages(value: unknown): number | undefined {
+  if (value === undefined) return undefined;
+  if (!Number.isSafeInteger(value) || (value as number) < 0 || (value as number) >= 42) throw new Error("captureLayerStages deve estar entre 0 e 41.");
+  return value as number;
 }
 function validateVerificationControl(value: unknown): boolean {
   if (value === undefined) return false;

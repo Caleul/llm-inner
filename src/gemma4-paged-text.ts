@@ -18,7 +18,7 @@ import {
   type Gemma4LiteralGenerationExecutionResult,
 } from "./gemma4-literal-generation.js";
 import { validateGemma4LiteralGenerationProgram } from "./gemma4-composite-literal.js";
-import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearBatchF32, pagedLinearF32, readPagedDenseF32Vector, roundDenseF32ToBF16, type PagedCompiledTokenGenerationOptions, type PagedFusedDecoderStackResult, type PagedFusedTokenForwardRequest, type PagedFusedTokenGenerationResult, type PagedLinearTileKernel } from "./paged-dense.js";
+import { createPagedDenseF32Matrix, pagedEmbeddingF32, pagedLinearBatchF32, pagedLinearF32, readPagedDenseF32Vector, roundDenseF32ToBF16, type PAGED_DECODER_ATTENTION_STAGE_NAMES, type PAGED_DECODER_LAYER_STAGE_NAMES, type PAGED_DECODER_PLE_STAGE_NAMES, type PagedCompiledTokenGenerationOptions, type PagedFusedDecoderStackResult, type PagedFusedTokenForwardRequest, type PagedFusedTokenGenerationResult, type PagedLinearTileKernel } from "./paged-dense.js";
 import type {
   DenseF32Tensor,
   Operation,
@@ -94,6 +94,13 @@ export interface Gemma4PagedTextOptions {
   fusedTokenForwardRounding?: "bf16";
   /** Diagnostic-only capture of the hidden vector after every decoder layer. */
   onDecoderLayerHidden?: (layers: readonly Float32Array[]) => void;
+  /** Diagnostic-only capture of hidden-sized macro checkpoints within one decoder layer. */
+  decoderLayerStageCapture?: {
+    layerIndex: number;
+    accept(names: typeof PAGED_DECODER_LAYER_STAGE_NAMES, values: readonly Float32Array[]): void;
+    acceptAttention(names: typeof PAGED_DECODER_ATTENTION_STAGE_NAMES, values: readonly Float32Array[]): void;
+    acceptPle(names: typeof PAGED_DECODER_PLE_STAGE_NAMES, values: readonly Float32Array[]): void;
+  };
 }
 
 export interface Gemma4PagedNativeGenerationResult {
@@ -394,7 +401,7 @@ async function executePagedOperations(
                 intermediateSize: fused.ffn.gate.outFeatures, perLayerWidth: stack.perLayerWidth, inputNormEpsilon: fused.inputNorm.epsilon, postAttentionNormEpsilon: fused.postAttentionNorm.epsilon, preFfnNormEpsilon: fused.ffn.preNorm.epsilon, postFfnNormEpsilon: fused.ffn.postNorm.epsilon, pleNormEpsilon: fused.ple.norm.epsilon,
               };
             });
-            const stackRequest = { input: input?.values ?? new Float32Array(), perLayerInputs: perLayerInputs?.values ?? new Float32Array(), positions: positionValues, batch, querySequence, hiddenSize, numLayers: stack.layers.length, perLayerWidth: stack.perLayerWidth, layers, rounding: options.fusedDecoderStackRounding, ...(options.onDecoderLayerHidden ? { captureLayerHidden: true } : {}) } as const;
+            const stackRequest = { input: input?.values ?? new Float32Array(), perLayerInputs: perLayerInputs?.values ?? new Float32Array(), positions: positionValues, batch, querySequence, hiddenSize, numLayers: stack.layers.length, perLayerWidth: stack.perLayerWidth, layers, rounding: options.fusedDecoderStackRounding, ...(options.onDecoderLayerHidden ? { captureLayerHidden: true } : {}), ...(options.decoderLayerStageCapture ? { captureLayerStages: options.decoderLayerStageCapture.layerIndex } : {}) } as const;
             const epilogueKernelAvailable = tokenForwardPrelude ? options.linearTileKernel.fusedTokenForwardStorageReferences !== undefined : options.linearTileKernel.fusedDecoderStackEpilogueStorageReferences !== undefined;
             const epilogue = epilogueKernelAvailable ? matchFusedDecoderEpilogue(operations, operationIndex + stack.operations.length, stack.layers.at(-1)!.ple.scalar.output) : undefined;
             if (options.fusedDecoderStackRounding === "real") {
@@ -420,6 +427,14 @@ async function executePagedOperations(
             if (options.onDecoderLayerHidden) {
               if (!result.layerHidden || result.layerHidden.length !== stack.layers.length || result.layerHidden.some((entry) => entry.length !== batch * querySequence * hiddenSize || entry.some((value) => !Number.isFinite(value)))) throw new Error(`${operation.id}: captura por camada da pilha decoder é inválida.`);
               options.onDecoderLayerHidden(result.layerHidden);
+            }
+            if (options.decoderLayerStageCapture) {
+              if (!result.layerStages || result.layerStages.layerIndex !== options.decoderLayerStageCapture.layerIndex || result.layerStages.values.length !== result.layerStages.names.length || result.layerStages.values.some((entry) => entry.length !== batch * querySequence * hiddenSize || entry.some((value) => !Number.isFinite(value)))) throw new Error(`${operation.id}: checkpoints internos da camada decoder são inválidos.`);
+              options.decoderLayerStageCapture.accept(result.layerStages.names, result.layerStages.values);
+              if (!result.attentionStages || result.attentionStages.layerIndex !== options.decoderLayerStageCapture.layerIndex || result.attentionStages.values.length !== result.attentionStages.names.length || result.attentionStages.values.some((entry) => entry.length === 0 || entry.some((value) => !Number.isFinite(value)))) throw new Error(`${operation.id}: checkpoints internos da atenção são inválidos.`);
+              options.decoderLayerStageCapture.acceptAttention(result.attentionStages.names, result.attentionStages.values);
+              if (!result.pleStages || result.pleStages.layerIndex !== options.decoderLayerStageCapture.layerIndex || result.pleStages.values.length !== result.pleStages.names.length || result.pleStages.values.some((entry) => entry.length !== batch * querySequence * stack.perLayerWidth || entry.some((value) => !Number.isFinite(value)))) throw new Error(`${operation.id}: checkpoints internos da PLE são inválidos.`);
+              options.decoderLayerStageCapture.acceptPle(result.pleStages.names, result.pleStages.values);
             }
             if (!tokenForwardPrelude) {
               if (result.hidden.length !== batch * querySequence * hiddenSize || result.hidden.some((entry) => !Number.isFinite(entry))) throw new Error(`${operation.id}: pilha decoder retornou vetor inválido.`);

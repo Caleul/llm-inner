@@ -73,10 +73,10 @@ def read_whole_tensor(pool, files, mappings, expected_shape, widen=True, require
 
 
 def rms_norm_real(tensor, weight, epsilon):
-    mean_squared = tensor.pow(2).mean(dim=-1, keepdim=True) + torch.tensor(epsilon, dtype=torch.float32)
-    scale = torch.pow(mean_squared, torch.tensor(-0.5, dtype=torch.float32))
-    normalized = tensor * scale
-    return normalized if weight is None else normalized * weight
+    hidden_states = tensor.float()
+    mean_squared = hidden_states.pow(2).mean(dim=-1, keepdim=True) + epsilon
+    normalized = hidden_states * torch.pow(mean_squared, -0.5)
+    return normalized if weight is None else normalized * weight.float()
 
 
 def rope_real(tensor, positions, rope_kind, theta, rotary_dim, proportional_pairs, proportional_factor, bf16_boundaries=False, sequence_before_heads=False):
@@ -143,26 +143,49 @@ def execute_decoder_layer(pool, files, mappings, inputs, per_layer, positions, m
     value_from_key = config["value_from_key"]
     intermediate_size = config["intermediate_size"]
     per_layer_width = config["per_layer_width"]
+    capture_stages = config.get("capture_stages", False)
+    stage_values = []
+    attention_stage_values = []
+    ple_stage_values = []
+    capture = lambda tensor: stage_values.append(tensor.float().clone()) if capture_stages else None
+    capture_attention = lambda tensor: attention_stage_values.append(tensor.float().clone()) if capture_stages else None
+    capture_ple = lambda tensor: ple_stage_values.append(tensor.float().clone()) if capture_stages else None
     boundary = lambda tensor: tensor.to(torch.bfloat16).float()
     project = lambda tensor, weight: torch.matmul(tensor.to(torch.bfloat16), weight.transpose(0, 1)).float()
     input_norm_weight = read_whole_tensor(pool, files, mappings, (hidden_size, 1)).reshape(hidden_size)
     query_weight = read_whole_tensor(pool, files, mappings, (query_heads * head_dim, hidden_size), widen=False, required_dtype=torch.bfloat16)
     query_norm = read_whole_tensor(pool, files, mappings, (head_dim, 1)).reshape(head_dim)
     output_weight = read_whole_tensor(pool, files, mappings, (hidden_size, query_heads * head_dim), widen=False, required_dtype=torch.bfloat16)
+    capture(inputs)
     normalized_input = boundary(rms_norm_real(inputs, input_norm_weight, config["input_epsilon"]))
+    capture(normalized_input)
     query = boundary(project(normalized_input, query_weight)).reshape(batch, query_sequence, query_heads, head_dim)
-    query = rope_real(boundary(rms_norm_real(query, query_norm, config["attention_epsilon"])), positions, config["rope_kind"], config["theta"], config["rotary_dim"], config["proportional_pairs"], config["proportional_factor"], True, True).transpose(1, 2)
+    capture_attention(query)
+    normalized_query = boundary(rms_norm_real(query, query_norm, config["attention_epsilon"]))
+    capture_attention(normalized_query)
+    query = rope_real(normalized_query, positions, config["rope_kind"], config["theta"], config["rotary_dim"], config["proportional_pairs"], config["proportional_factor"], True, True)
+    capture_attention(query)
+    query = query.transpose(1, 2)
     if produces_kv:
         key_weight = read_whole_tensor(pool, files, mappings, (key_value_heads * head_dim, hidden_size), widen=False, required_dtype=torch.bfloat16)
         key_norm = read_whole_tensor(pool, files, mappings, (head_dim, 1)).reshape(head_dim)
         current_key_heads = boundary(project(normalized_input, key_weight)).reshape(batch, query_sequence, key_value_heads, head_dim)
-        current_key = rope_real(boundary(rms_norm_real(current_key_heads, key_norm, config["attention_epsilon"])), positions, config["rope_kind"], config["theta"], config["rotary_dim"], config["proportional_pairs"], config["proportional_factor"], True, True).transpose(1, 2)
+        capture_attention(current_key_heads)
         if value_from_key:
-            current_value = boundary(rms_norm_real(current_key_heads, None, config["attention_epsilon"])).transpose(1, 2)
+            current_value = boundary(rms_norm_real(current_key_heads, None, config["attention_epsilon"]))
         else:
             value_weight = read_whole_tensor(pool, files, mappings, (key_value_heads * head_dim, hidden_size), widen=False, required_dtype=torch.bfloat16)
-            current_value = boundary(project(normalized_input, value_weight)).reshape(batch, query_sequence, key_value_heads, head_dim)
-            current_value = boundary(rms_norm_real(current_value, None, config["attention_epsilon"])).transpose(1, 2)
+            current_value_heads = boundary(project(normalized_input, value_weight)).reshape(batch, query_sequence, key_value_heads, head_dim)
+            capture_attention(current_value_heads)
+            current_value = boundary(rms_norm_real(current_value_heads, None, config["attention_epsilon"]))
+        normalized_key = boundary(rms_norm_real(current_key_heads, key_norm, config["attention_epsilon"]))
+        capture_attention(normalized_key)
+        current_key = rope_real(normalized_key, positions, config["rope_kind"], config["theta"], config["rotary_dim"], config["proportional_pairs"], config["proportional_factor"], True, True)
+        capture_attention(current_key)
+        if not value_from_key:
+            capture_attention(current_value)
+        current_key = current_key.transpose(1, 2)
+        current_value = current_value.transpose(1, 2)
         key = torch.cat((source_key, current_key), dim=2)
         value = torch.cat((source_value, current_value), dim=2)
     else:
@@ -171,7 +194,9 @@ def execute_decoder_layer(pool, files, mappings, inputs, per_layer, positions, m
     attention_key = repeat_key_value(key, group)
     attention_value = repeat_key_value(value, group)
     context = eager_bf16_attention(query, attention_key, attention_value, mask, config["scale"]).permute(0, 2, 1, 3).contiguous().reshape(batch, query_sequence, query_heads * head_dim)
+    capture_attention(context)
     attention_projected = boundary(project(context, output_weight))
+    capture(attention_projected)
     attention_seconds = time.perf_counter() - attention_started
     ffn_started = time.perf_counter()
     post_attention_norm_weight = read_whole_tensor(pool, files, mappings, (hidden_size, 1)).reshape(hidden_size)
@@ -180,8 +205,12 @@ def execute_decoder_layer(pool, files, mappings, inputs, per_layer, positions, m
     up_weight, up_reference = read_whole_tensor(pool, files, mappings, (intermediate_size, hidden_size), widen=False, required_dtype=torch.bfloat16, return_reference=True)
     down_weight = read_whole_tensor(pool, files, mappings, (hidden_size, intermediate_size), widen=False, required_dtype=torch.bfloat16)
     post_ffn_norm_weight = read_whole_tensor(pool, files, mappings, (hidden_size, 1)).reshape(hidden_size)
-    after_attention = boundary(inputs + boundary(rms_norm_real(attention_projected, post_attention_norm_weight, config["post_attention_epsilon"])))
+    post_attention_normalized = boundary(rms_norm_real(attention_projected, post_attention_norm_weight, config["post_attention_epsilon"]))
+    capture(post_attention_normalized)
+    after_attention = boundary(inputs + post_attention_normalized)
+    capture(after_attention)
     ffn_input = boundary(rms_norm_real(after_attention, pre_ffn_norm_weight, config["pre_ffn_epsilon"])).to(torch.bfloat16)
+    capture(ffn_input)
     flattened_ffn = ffn_input.reshape(batch * query_sequence, hidden_size)
     gate_path, gate_offset, gate_length, gate_dtype = gate_reference
     up_path, up_offset, up_length, up_dtype = up_reference
@@ -194,7 +223,11 @@ def execute_decoder_layer(pool, files, mappings, inputs, per_layer, positions, m
         up = torch.mm(flattened_ffn, up_weight.transpose(0, 1))
     hidden = torch.nn.functional.gelu(gate, approximate="tanh") * up
     ffn_projected = torch.mm(hidden, down_weight.transpose(0, 1)).float().reshape(batch, query_sequence, hidden_size)
-    after_mlp = boundary(after_attention + boundary(rms_norm_real(ffn_projected, post_ffn_norm_weight, config["post_ffn_epsilon"])))
+    capture(ffn_projected)
+    post_ffn_normalized = boundary(rms_norm_real(ffn_projected, post_ffn_norm_weight, config["post_ffn_epsilon"]))
+    capture(post_ffn_normalized)
+    after_mlp = boundary(after_attention + post_ffn_normalized)
+    capture(after_mlp)
     ffn_seconds = time.perf_counter() - ffn_started
     ple_started = time.perf_counter()
     native_ple = config["native_ple"]
@@ -202,16 +235,23 @@ def execute_decoder_layer(pool, files, mappings, inputs, per_layer, positions, m
     ple_projection_weight = read_whole_tensor(pool, files, mappings, (hidden_size, per_layer_width), widen=not native_ple, required_dtype=torch.bfloat16 if native_ple else None)
     ple_norm_weight = read_whole_tensor(pool, files, mappings, (hidden_size, 1)).reshape(hidden_size)
     layer_scalar = read_whole_tensor(pool, files, mappings, (1, 1)).reshape(())
+    capture_ple(per_layer)
     ple_gate = boundary(torch.matmul(after_mlp.to(torch.bfloat16) if native_ple else after_mlp, ple_gate_weight.transpose(0, 1)).float())
+    capture_ple(ple_gate)
     ple_activated = torch.nn.functional.gelu(ple_gate.to(torch.bfloat16), approximate="tanh").float()
+    capture_ple(ple_activated)
     ple_gated = boundary(ple_activated * per_layer)
+    capture_ple(ple_gated)
     ple_projected = boundary(torch.matmul(ple_gated.to(torch.bfloat16) if native_ple else ple_gated, ple_projection_weight.transpose(0, 1)).float())
+    capture(ple_projected)
     ple_normalized = boundary(rms_norm_real(ple_projected, ple_norm_weight, config["ple_epsilon"]))
+    capture(ple_normalized)
     result = boundary(boundary(after_mlp + ple_normalized) * layer_scalar).contiguous()
+    capture(result)
     validate_cache = config["validate_outputs"] or produces_kv
     if not torch.isfinite(result).all() or (validate_cache and (not torch.isfinite(key).all() or not torch.isfinite(value).all())):
         raise ValueError("fused decoder layer produced non-finite output")
-    return result, key, value, (attention_seconds, ffn_seconds, time.perf_counter() - ple_started, fused_gate_up)
+    return result, key, value, (attention_seconds, ffn_seconds, time.perf_counter() - ple_started, fused_gate_up), stage_values, attention_stage_values, ple_stage_values
 
 
 def main():
@@ -286,15 +326,18 @@ def main():
                     raise ValueError("fused decoder stack flags are invalid")
                 batch, num_layers, hidden_size = rows, outputs, features
                 query_sequence, per_layer_width, rounding = struct.unpack("<III", read_exact(12))
+                capture_all_layers, capture_stage_layer = struct.unpack("<II", read_exact(8)) if capture_decoder_layer_hidden else (0, 0xffffffff)
                 if not query_sequence or not per_layer_width or rounding not in (0, 2) or (native_bf16 != (rounding == 2)):
                     raise ValueError("fused decoder stack topology is invalid")
+                if capture_all_layers not in (0, 1) or (capture_stage_layer != 0xffffffff and capture_stage_layer >= num_layers):
+                    raise ValueError("fused decoder stack capture metadata is invalid")
                 input_bytes = read_exact(batch * query_sequence * hidden_size * 4)
                 per_layer_bytes = read_exact(batch * query_sequence * num_layers * per_layer_width * 4)
                 position_bytes = read_exact(batch * query_sequence * 4)
                 result = torch.frombuffer(input_bytes, dtype=torch.float32).reshape(batch, query_sequence, hidden_size)
                 all_per_layer = torch.frombuffer(per_layer_bytes, dtype=torch.float32).reshape(batch, query_sequence, num_layers, per_layer_width)
                 positions = torch.frombuffer(position_bytes, dtype=torch.int32).reshape(batch, query_sequence)
-                produced_caches, ordered_caches, layer_hidden = {}, [], []
+                produced_caches, ordered_caches, layer_hidden, layer_stages, layer_attention_stages, layer_ple_stages = {}, [], [], [], [], []
                 stack_profile = [0.0] * 4
                 cache_hits_before = _widened_tensor_cache_hits
                 for expected_layer in range(num_layers):
@@ -331,10 +374,14 @@ def main():
                         else:
                             source_key = torch.empty((batch, key_value_heads, 0, head_dim), dtype=torch.float32)
                             source_value = torch.empty((batch, key_value_heads, 0, head_dim), dtype=torch.float32)
-                    config = {"query_heads": query_heads, "key_value_heads": key_value_heads, "head_dim": head_dim, "produces_kv": produces_kv, "value_from_key": value_from_key, "intermediate_size": intermediate_size, "per_layer_width": per_layer_width, "input_epsilon": input_epsilon, "attention_epsilon": attention_epsilon, "post_attention_epsilon": post_attention_epsilon, "pre_ffn_epsilon": pre_ffn_epsilon, "post_ffn_epsilon": post_ffn_epsilon, "ple_epsilon": ple_epsilon, "scale": scale, "rope_kind": rope_kind, "theta": theta, "rotary_dim": rotary_dim, "proportional_pairs": proportional_pairs, "proportional_factor": proportional_factor, "native_ple": native_bf16, "validate_outputs": False}
-                    result, key, value, layer_profile = execute_decoder_layer(pool, files, mappings, result, all_per_layer[:, :, layer_index, :], positions, mask, source_key, source_value, config)
-                    if capture_decoder_layer_hidden:
+                    config = {"query_heads": query_heads, "key_value_heads": key_value_heads, "head_dim": head_dim, "produces_kv": produces_kv, "value_from_key": value_from_key, "intermediate_size": intermediate_size, "per_layer_width": per_layer_width, "input_epsilon": input_epsilon, "attention_epsilon": attention_epsilon, "post_attention_epsilon": post_attention_epsilon, "pre_ffn_epsilon": pre_ffn_epsilon, "post_ffn_epsilon": post_ffn_epsilon, "ple_epsilon": ple_epsilon, "scale": scale, "rope_kind": rope_kind, "theta": theta, "rotary_dim": rotary_dim, "proportional_pairs": proportional_pairs, "proportional_factor": proportional_factor, "native_ple": native_bf16, "validate_outputs": False, "capture_stages": layer_index == capture_stage_layer}
+                    result, key, value, layer_profile, captured_stages, captured_attention_stages, captured_ple_stages = execute_decoder_layer(pool, files, mappings, result, all_per_layer[:, :, layer_index, :], positions, mask, source_key, source_value, config)
+                    if capture_all_layers:
                         layer_hidden.append(result.clone())
+                    if captured_stages:
+                        layer_stages = captured_stages
+                        layer_attention_stages = captured_attention_stages
+                        layer_ple_stages = captured_ple_stages
                     for profile_index, profile_value in enumerate(layer_profile):
                         stack_profile[profile_index] += profile_value
                     if produces_kv:
@@ -343,13 +390,19 @@ def main():
                 write_float_tensor(result)
                 for hidden in layer_hidden:
                     write_float_tensor(hidden)
+                for stage in layer_stages:
+                    write_float_tensor(stage)
+                for stage in layer_attention_stages:
+                    write_float_tensor(stage)
+                for stage in layer_ple_stages:
+                    write_float_tensor(stage)
                 for key, value in ordered_caches:
                     write_float_tensor(key)
                     write_float_tensor(value)
                 stack_profile.extend((_widened_tensor_cache_hits - cache_hits_before, len(_widened_tensor_cache), _widened_tensor_cache_bytes))
                 write_float_tensor(torch.tensor(stack_profile, dtype=torch.float32))
                 sys.stdout.buffer.flush()
-                del result, all_per_layer, positions, produced_caches, ordered_caches, layer_hidden, stack_profile
+                del result, all_per_layer, positions, produced_caches, ordered_caches, layer_hidden, layer_stages, layer_attention_stages, layer_ple_stages, stack_profile
                 continue
             if fused_decoder_layer:
                 if referenced or batched or fused_mlp or native_bf16 or native_attention or fused_attention or fused_ple or fused_ple_prelude or fused_ffn or fused_decoder_stack or dtype_code != 0 or pool is None:
@@ -386,7 +439,7 @@ def main():
                     source_key = torch.empty((batch, key_value_heads, 0, head_dim), dtype=torch.float32)
                     source_value = torch.empty((batch, key_value_heads, 0, head_dim), dtype=torch.float32)
                 config = {"query_heads": query_heads, "key_value_heads": key_value_heads, "head_dim": head_dim, "produces_kv": produces_kv, "value_from_key": value_from_key, "intermediate_size": intermediate_size, "per_layer_width": per_layer_width, "input_epsilon": input_epsilon, "attention_epsilon": attention_epsilon, "post_attention_epsilon": post_attention_epsilon, "pre_ffn_epsilon": pre_ffn_epsilon, "post_ffn_epsilon": post_ffn_epsilon, "ple_epsilon": ple_epsilon, "scale": scale, "rope_kind": rope_kind, "theta": theta, "rotary_dim": rotary_dim, "proportional_pairs": proportional_pairs, "proportional_factor": proportional_factor, "native_ple": False, "validate_outputs": True}
-                result, key, value, _ = execute_decoder_layer(pool, files, mappings, inputs, per_layer, positions, mask, source_key, source_value, config)
+                result, key, value, _, _, _, _ = execute_decoder_layer(pool, files, mappings, inputs, per_layer, positions, mask, source_key, source_value, config)
                 write_float_tensor(result)
                 if produces_kv:
                     write_float_tensor(key)
@@ -512,10 +565,11 @@ def main():
                 token_bytes = read_exact(rows * outputs * 4)
                 inputs = torch.frombuffer(input_bytes, dtype=torch.float32).reshape(rows, features)
                 token_identity = torch.frombuffer(token_bytes, dtype=torch.float32).reshape(rows, num_layers, per_layer_width)
-                projection_weight = read_whole_tensor(pool, files, mappings, (outputs, features), widen=False)
+                projection_weight = read_whole_tensor(pool, files, mappings, (outputs, features), widen=False, required_dtype=torch.bfloat16)
                 norm_weight = read_whole_tensor(pool, files, mappings, (per_layer_width, 1)).reshape(per_layer_width)
                 boundary = (lambda value: value.to(torch.bfloat16).float()) if rounding == 0 else (lambda value: value)
-                context = torch.cat([torch.mm(inputs, projection_weight[start:start + tile_output_rows].float().transpose(0, 1)) for start in range(0, outputs, tile_output_rows)], dim=1)
+                native_inputs = inputs.to(torch.bfloat16)
+                context = torch.cat([torch.mm(native_inputs, projection_weight[start:start + tile_output_rows].transpose(0, 1)) for start in range(0, outputs, tile_output_rows)], dim=1)
                 context = boundary(context)
                 context = boundary(context * torch.tensor(context_scale, dtype=torch.float32)).reshape(rows, num_layers, per_layer_width)
                 normalized = boundary(rms_norm_real(context, norm_weight, epsilon))
@@ -525,7 +579,7 @@ def main():
                     raise ValueError("fused PLE prelude produced non-finite output")
                 write_float_tensor(result)
                 sys.stdout.buffer.flush()
-                del inputs, token_identity, projection_weight, norm_weight, boundary, context, normalized, combined, result
+                del inputs, token_identity, projection_weight, norm_weight, boundary, native_inputs, context, normalized, combined, result
                 continue
             if native_attention:
                 if referenced or batched or fused_mlp or native_bf16 or fused_attention or fused_ple or fused_ple_prelude or fused_ffn or dtype_code != 0:

@@ -3079,6 +3079,30 @@ Para localizar diferenças sem onerar a geração normal, `POST
 passo, o vetor terminal após cada camada da referência e do verificador. A
 codificação publicada é `terminal-token-f32le-base64`; a captura é autenticada
 pelo mesmo índice do bundle e só é habilitada no backend PyTorch diagnóstico.
+Quando `captureLayerStages` seleciona uma camada de `0` a `41`, o mesmo endpoint
+inclui tensores completos para 12 fronteiras macro, nove fronteiras internas da
+atenção e quatro fronteiras da PLE (`ple_input`, gate, ativação e produto). Para
+manter a resposta abaixo do limite do canal persistente, o diagnóstico
+tensorial é deliberadamente limitado a 16 tokens de entrada e oito novos; a
+geração normal e a interface não recebem esse limite.
+
+Essa captura encontrou duas diferenças físicas adicionais. Primeiro, o
+RMSNorm do verificador construía o expoente `-0.5` como tensor, enquanto o
+Transformers chama literalmente `torch.pow(mean_squared, -0.5)`. Depois desse
+alinhamento, o caso `A leap year usually has` voltou a selecionar `886` no
+empate BF16. Segundo, `Write one short sentence about the Moon:` divergia na
+camada 7 porque o prelude PLE ampliava a projeção BF16 para F32 antes do
+`matmul`; mantendo entrada e peso em BF16 nativo, `ple_input`, gate, GELU e
+produto ficaram bit a bit iguais e o segundo token voltou de `3689` para `818`.
+
+A calibração posterior de 32 prompts × 8 tokens, com margem seletiva `0.25`,
+preservou `32/32` prompts e `256/256` tokens, sem divergência raiz ou passo após
+divergência. Vinte e três prompts acionaram verificação em 45 passos. O runtime
+direto somou `54,0952 s` (`4,7324 tok/s`) contra `139,4139 s`
+(`1,8363 tok/s`) do Transformers, razão agregada de `2,5772×`. O relatório é
+`artifacts/gemma4-native-ple-prelude-margin025-calibration-32x8.json`; como toda
+matriz finita, ele sustenta a promoção conservadora da margem padrão, mas não
+prova equivalência universal para qualquer prompt possível.
 
 Depois do primeiro fallback, o servidor mantém o índice autenticado do
 artefato literal já aberto, mas reinicia o kernel linear PyTorch após cada

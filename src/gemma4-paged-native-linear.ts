@@ -2,7 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { once } from "node:events";
 import { endianness } from "node:os";
 import { resolve } from "node:path";
-import type { PagedCompiledTokenGenerationOptions, PagedFusedAttentionRequest, PagedFusedAttentionResult, PagedFusedDecoderLayerRequest, PagedFusedDecoderLayerResult, PagedFusedDecoderStackEpilogueRequest, PagedFusedDecoderStackEpilogueResult, PagedFusedDecoderStackRequest, PagedFusedDecoderStackResult, PagedFusedFfnRequest, PagedFusedPlePreludeRequest, PagedFusedPleRequest, PagedFusedTokenForwardRequest, PagedFusedTokenForwardResult, PagedFusedTokenGenerationRequest, PagedFusedTokenGenerationResult, PagedLinearStorageReference, PagedLinearTileKernel, PagedNativeAttentionRequest } from "./paged-dense.js";
+import { PAGED_DECODER_ATTENTION_STAGE_NAMES, PAGED_DECODER_LAYER_STAGE_NAMES, PAGED_DECODER_PLE_STAGE_NAMES, type PagedCompiledTokenGenerationOptions, type PagedFusedAttentionRequest, type PagedFusedAttentionResult, type PagedFusedDecoderLayerRequest, type PagedFusedDecoderLayerResult, type PagedFusedDecoderStackEpilogueRequest, type PagedFusedDecoderStackEpilogueResult, type PagedFusedDecoderStackRequest, type PagedFusedDecoderStackResult, type PagedFusedFfnRequest, type PagedFusedPlePreludeRequest, type PagedFusedPleRequest, type PagedFusedTokenForwardRequest, type PagedFusedTokenForwardResult, type PagedFusedTokenGenerationRequest, type PagedFusedTokenGenerationResult, type PagedLinearStorageReference, type PagedLinearTileKernel, type PagedNativeAttentionRequest } from "./paged-dense.js";
 import type { TensorInfo } from "./types.js";
 
 const STORAGE_REFERENCE_FLAG = 0x8000_0000;
@@ -373,7 +373,8 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     if (this.#active) throw new Error("Worker linear persistente não aceita pilhas decoder concorrentes no mesmo canal.");
     const dimensions = [request.batch, request.querySequence, request.hiddenSize, request.numLayers, request.perLayerWidth];
     const expectedTokens = request.batch * request.querySequence;
-    if (dimensions.some((value) => !Number.isSafeInteger(value) || value < 1) || request.layers.length !== request.numLayers || (tokenForward ? request.input.length !== 0 || request.perLayerInputs.length !== 0 || tokenForward.tokenIds.length !== expectedTokens : request.input.length !== expectedTokens * request.hiddenSize || request.perLayerInputs.length !== expectedTokens * request.numLayers * request.perLayerWidth) || request.positions.length !== expectedTokens || (request.rounding !== "real" && request.rounding !== "native-bf16" && request.rounding !== "native-bf16-ple") || (request.captureLayerHidden !== undefined && typeof request.captureLayerHidden !== "boolean") || (request.captureLayerHidden === true && (generation !== undefined || this.backend !== "persistent-pytorch-mmap-f32-tile")) || (tokenForward && (!epilogue || tokenForward.prelude.rounding !== "bf16")) || (generation && (!tokenForward || request.batch !== 1 || !Number.isSafeInteger(generation.maxNewTokens) || generation.maxNewTokens < 1 || generation.maxNewTokens > 4096 || !Number.isSafeInteger(generation.topK) || generation.topK < 1 || generation.topK > 64 || (generation.eosTokenId !== undefined && (!Number.isSafeInteger(generation.eosTokenId) || generation.eosTokenId < 0))))) throw new Error("Pilha decoder fundida recebeu topologia global inválida.");
+    const captureEnabled = request.captureLayerHidden === true || request.captureLayerStages !== undefined;
+    if (dimensions.some((value) => !Number.isSafeInteger(value) || value < 1) || request.layers.length !== request.numLayers || (tokenForward ? request.input.length !== 0 || request.perLayerInputs.length !== 0 || tokenForward.tokenIds.length !== expectedTokens : request.input.length !== expectedTokens * request.hiddenSize || request.perLayerInputs.length !== expectedTokens * request.numLayers * request.perLayerWidth) || request.positions.length !== expectedTokens || (request.rounding !== "real" && request.rounding !== "native-bf16" && request.rounding !== "native-bf16-ple") || (request.captureLayerHidden !== undefined && typeof request.captureLayerHidden !== "boolean") || (request.captureLayerStages !== undefined && (!Number.isSafeInteger(request.captureLayerStages) || request.captureLayerStages < 0 || request.captureLayerStages >= request.numLayers)) || (captureEnabled && (generation !== undefined || tokenForward !== undefined || this.backend !== "persistent-pytorch-mmap-f32-tile")) || (tokenForward && (!epilogue || tokenForward.prelude.rounding !== "bf16")) || (generation && (!tokenForward || request.batch !== 1 || !Number.isSafeInteger(generation.maxNewTokens) || generation.maxNewTokens < 1 || generation.maxNewTokens > 4096 || !Number.isSafeInteger(generation.topK) || generation.topK < 1 || generation.topK > 64 || (generation.eosTokenId !== undefined && (!Number.isSafeInteger(generation.eosTokenId) || generation.eosTokenId < 0))))) throw new Error("Pilha decoder fundida recebeu topologia global inválida.");
     const prepared = request.layers.map((layer, index) => {
       const shared = layer.sharedProducerLayer !== undefined;
       const totalKeySequence = layer.sourceSequence + (layer.producesKeyValue ? request.querySequence : 0);
@@ -396,9 +397,12 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
       if (epilogue) this.#fusedDecoderStackEpilogueDispatches += 1;
       if (tokenForward) this.#fusedTokenForwardDispatches += 1;
       if (generation) this.#fusedTokenGenerationDispatches += 1;
-      const header = Buffer.allocUnsafe(16); header.writeUInt32LE(request.batch, 0); header.writeUInt32LE(request.numLayers, 4); header.writeUInt32LE(request.hiddenSize, 8); header.writeUInt32LE((FUSED_DECODER_STACK_FLAG + (epilogue ? FUSED_DECODER_STACK_EPILOGUE_FLAG : 0) + (tokenForward ? FUSED_TOKEN_FORWARD_FLAG : 0) + (generation ? FUSED_TOKEN_GENERATION_FLAG : 0) + (request.captureLayerHidden ? CAPTURE_DECODER_LAYER_HIDDEN_FLAG : 0) + (request.rounding === "native-bf16-ple" ? STORAGE_NATIVE_BF16_FLAG : 0)) >>> 0, 12);
+      const header = Buffer.allocUnsafe(16); header.writeUInt32LE(request.batch, 0); header.writeUInt32LE(request.numLayers, 4); header.writeUInt32LE(request.hiddenSize, 8); header.writeUInt32LE((FUSED_DECODER_STACK_FLAG + (epilogue ? FUSED_DECODER_STACK_EPILOGUE_FLAG : 0) + (tokenForward ? FUSED_TOKEN_FORWARD_FLAG : 0) + (generation ? FUSED_TOKEN_GENERATION_FLAG : 0) + (captureEnabled ? CAPTURE_DECODER_LAYER_HIDDEN_FLAG : 0) + (request.rounding === "native-bf16-ple" ? STORAGE_NATIVE_BF16_FLAG : 0)) >>> 0, 12);
       const globalMetadata = Buffer.allocUnsafe(12); globalMetadata.writeUInt32LE(request.querySequence, 0); globalMetadata.writeUInt32LE(request.perLayerWidth, 4); globalMetadata.writeUInt32LE(request.rounding === "native-bf16" ? 0 : request.rounding === "real" ? 1 : 2, 8);
       await this.#write(header); await this.#write(globalMetadata);
+      if (captureEnabled) {
+        const captureMetadata = Buffer.allocUnsafe(8); captureMetadata.writeUInt32LE(request.captureLayerHidden ? 1 : 0, 0); captureMetadata.writeUInt32LE(request.captureLayerStages ?? 0xffff_ffff, 4); await this.#write(captureMetadata);
+      }
       if (tokenForward) {
         const prelude = tokenForward.prelude, storageBytes = prelude.projectionWeight.storageDtype === "F32" ? 4 : 2;
         const metadata = Buffer.allocUnsafe(32); metadata.writeUInt32LE(preparedPrelude!.length, 0); metadata.writeUInt32LE(0, 4); metadata.writeUInt32LE(Math.max(1, Math.floor(prelude.maxReadBytes / (request.hiddenSize * storageBytes))), 8); metadata.writeUInt32LE(preparedPrelude![0]!.dimensions[0], 12); metadata.writeFloatLE(prelude.tokenEmbeddingScale, 16); metadata.writeFloatLE(prelude.perLayerEmbeddingScale, 20); metadata.writeFloatLE(prelude.contextScale, 24); metadata.writeFloatLE(prelude.combineScale, 28);
@@ -452,6 +456,18 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
       const hidden = tokenForward ? new Float32Array() : await this.#readResult(request.batch * request.querySequence, request.hiddenSize);
       const layerHidden: Float32Array[] | undefined = request.captureLayerHidden ? [] : undefined;
       if (layerHidden) for (let layer = 0; layer < request.numLayers; layer += 1) layerHidden.push(await this.#readResult(request.batch * request.querySequence, request.hiddenSize));
+      const layerStageValues: Float32Array[] | undefined = request.captureLayerStages === undefined ? undefined : [];
+      if (layerStageValues) for (const _name of PAGED_DECODER_LAYER_STAGE_NAMES) layerStageValues.push(await this.#readResult(request.batch * request.querySequence, request.hiddenSize));
+      const attentionStageValues: Float32Array[] | undefined = request.captureLayerStages === undefined ? undefined : [];
+      if (attentionStageValues) {
+        const target = prepared[request.captureLayerStages!]!;
+        if (!target.layer.producesKeyValue || target.layer.valueFromKey) throw new Error("Captura interna de atenção requer camada produtora com projeção V independente.");
+        const queryElements = request.batch * request.querySequence * target.layer.queryHeads * target.layer.headDim;
+        const keyValueElements = request.batch * request.querySequence * target.layer.keyValueHeads * target.layer.headDim;
+        for (let index = 0; index < PAGED_DECODER_ATTENTION_STAGE_NAMES.length; index += 1) attentionStageValues.push(await this.#readResult(1, index < 3 || index === PAGED_DECODER_ATTENTION_STAGE_NAMES.length - 1 ? queryElements : keyValueElements));
+      }
+      const pleStageValues: Float32Array[] | undefined = request.captureLayerStages === undefined ? undefined : [];
+      if (pleStageValues) for (const _name of PAGED_DECODER_PLE_STAGE_NAMES) pleStageValues.push(await this.#readResult(request.batch * request.querySequence, request.perLayerWidth));
       const caches = [];
       for (const { layer, totalKeySequence } of prepared) if (layer.producesKeyValue) {
         const key = await this.#readResult(request.batch * layer.keyValueHeads * totalKeySequence, layer.headDim);
@@ -469,7 +485,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
       this.#fusedDecoderStackWidenedCacheHits += widenedCacheHits;
       this.#widenedTensorCacheEntries = widenedCacheEntries;
       this.#widenedTensorCacheBytes = widenedCacheBytes;
-      return { hidden, caches, ...(layerHidden ? { layerHidden } : {}), ...(logits ? { logits } : {}) };
+      return { hidden, caches, ...(layerHidden ? { layerHidden } : {}), ...(layerStageValues ? { layerStages: { layerIndex: request.captureLayerStages!, names: PAGED_DECODER_LAYER_STAGE_NAMES, values: layerStageValues } } : {}), ...(attentionStageValues ? { attentionStages: { layerIndex: request.captureLayerStages!, names: PAGED_DECODER_ATTENTION_STAGE_NAMES, values: attentionStageValues } } : {}), ...(pleStageValues ? { pleStages: { layerIndex: request.captureLayerStages!, names: PAGED_DECODER_PLE_STAGE_NAMES, values: pleStageValues } } : {}), ...(logits ? { logits } : {}) };
     } finally { this.#fusedDecoderStackSeconds += (performance.now() - started) / 1000; this.#active = false; }
   }
 

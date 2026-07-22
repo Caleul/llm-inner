@@ -21,6 +21,12 @@ REAL_DTYPE = torch.float64
 ROUNDING_POLICY = "none"
 COMPARISON_SESSION_LIMIT = 4
 COMPARISON_SESSIONS = OrderedDict()
+DECODER_LAYER_STAGE_NAMES = (
+    "layer_input", "input_norm", "attention_output", "post_attention_norm", "attention_residual", "pre_ffn_norm",
+    "mlp_output", "post_ffn_norm", "mlp_residual", "ple_projection", "ple_norm", "layer_output",
+)
+DECODER_ATTENTION_STAGE_NAMES = ("q_projection", "q_norm", "q_rope", "k_projection", "v_projection", "k_norm", "k_rope", "v_norm", "attention_context")
+DECODER_PLE_STAGE_NAMES = ("ple_input", "ple_gate", "ple_activation", "ple_gated")
 
 
 def parse_args():
@@ -165,20 +171,91 @@ def inspected_logits(baseline, candidate, dimensions):
     return inspected
 
 
-def baseline_next(model, input_ids, cache=None, capture_layer_hidden=False):
+def baseline_next(model, input_ids, cache=None, capture_layer_hidden=False, capture_layer_stages=None):
     started = time.perf_counter()
     layer_hidden = []
+    layer_stages = {}
+    attention_stages = {}
+    ple_stages = {}
     hooks = []
+    original_apply_rotary = None
     if capture_layer_hidden:
         for layer in model.model.language_model.layers[: model.config.get_text_config().num_hidden_layers]:
             hooks.append(layer.register_forward_hook(lambda _module, _inputs, output: layer_hidden.append((output[0] if isinstance(output, tuple) else output).detach())))
+    if capture_layer_stages is not None:
+        layer = model.model.language_model.layers[capture_layer_stages]
+        attention_active = False
+        rotary_calls = 0
+        def store(name, value):
+            tensor = value[0] if isinstance(value, tuple) else value
+            layer_stages[name] = tensor.detach()
+        def store_attention(name, value):
+            tensor = value[0] if isinstance(value, tuple) else value
+            attention_stages[name] = tensor.detach()
+        def store_ple(name, value):
+            tensor = value[0] if isinstance(value, tuple) else value
+            ple_stages[name] = tensor.detach()
+        def begin_attention(_module, _inputs):
+            nonlocal attention_active, rotary_calls
+            attention_active, rotary_calls = True, 0
+        def begin_layer(_module, inputs):
+            store("layer_input", inputs[0])
+            store_ple("ple_input", inputs[1])
+        def end_attention(_module, _inputs, output):
+            nonlocal attention_active
+            store("attention_output", output)
+            attention_active = False
+        original_apply_rotary = modeling_gemma4.apply_rotary_pos_emb
+        def capture_rotary(*args, **kwargs):
+            nonlocal rotary_calls
+            output = original_apply_rotary(*args, **kwargs)
+            if attention_active:
+                if rotary_calls >= 2:
+                    raise ValueError("target attention applied RoPE more than twice")
+                store_attention("q_rope" if rotary_calls == 0 else "k_rope", output)
+                rotary_calls += 1
+            return output
+        modeling_gemma4.apply_rotary_pos_emb = capture_rotary
+        hooks.extend((
+            layer.register_forward_pre_hook(begin_layer),
+            layer.input_layernorm.register_forward_hook(lambda _module, _inputs, output: store("input_norm", output)),
+            layer.self_attn.register_forward_pre_hook(begin_attention),
+            layer.self_attn.register_forward_hook(end_attention),
+            layer.post_attention_layernorm.register_forward_hook(lambda _module, _inputs, output: store("post_attention_norm", output)),
+            layer.pre_feedforward_layernorm.register_forward_pre_hook(lambda _module, inputs: store("attention_residual", inputs[0])),
+            layer.pre_feedforward_layernorm.register_forward_hook(lambda _module, _inputs, output: store("pre_ffn_norm", output)),
+            layer.mlp.register_forward_hook(lambda _module, _inputs, output: store("mlp_output", output)),
+            layer.post_feedforward_layernorm.register_forward_hook(lambda _module, _inputs, output: store("post_ffn_norm", output)),
+            layer.per_layer_input_gate.register_forward_pre_hook(lambda _module, inputs: store("mlp_residual", inputs[0])),
+            layer.per_layer_input_gate.register_forward_hook(lambda _module, _inputs, output: store_ple("ple_gate", output)),
+            layer.act_fn.register_forward_hook(lambda _module, _inputs, output: store_ple("ple_activation", output)),
+            layer.per_layer_projection.register_forward_pre_hook(lambda _module, inputs: store_ple("ple_gated", inputs[0])),
+            layer.per_layer_projection.register_forward_hook(lambda _module, _inputs, output: store("ple_projection", output)),
+            layer.post_per_layer_input_norm.register_forward_hook(lambda _module, _inputs, output: store("ple_norm", output)),
+            layer.register_forward_hook(lambda _module, _inputs, output: store("layer_output", output)),
+            layer.self_attn.q_proj.register_forward_hook(lambda _module, _inputs, output: store_attention("q_projection", output)),
+            layer.self_attn.q_norm.register_forward_hook(lambda _module, _inputs, output: store_attention("q_norm", output)),
+            layer.self_attn.k_proj.register_forward_hook(lambda _module, _inputs, output: store_attention("k_projection", output)),
+            layer.self_attn.v_proj.register_forward_hook(lambda _module, _inputs, output: store_attention("v_projection", output)),
+            layer.self_attn.k_norm.register_forward_hook(lambda _module, _inputs, output: store_attention("k_norm", output)),
+            layer.self_attn.v_norm.register_forward_hook(lambda _module, _inputs, output: store_attention("v_norm", output)),
+            layer.self_attn.o_proj.register_forward_pre_hook(lambda _module, inputs: store_attention("attention_context", inputs[0])),
+        ))
     try:
         output = model(input_ids=input_ids, past_key_values=cache, use_cache=True, logits_to_keep=1)
     finally:
+        if original_apply_rotary is not None:
+            modeling_gemma4.apply_rotary_pos_emb = original_apply_rotary
         for hook in hooks:
             hook.remove()
     logits = output.logits[0, -1].float().cpu()
-    return logits, output.past_key_values, time.perf_counter() - started, layer_hidden
+    if capture_layer_stages is not None and tuple(layer_stages) != DECODER_LAYER_STAGE_NAMES:
+        raise ValueError(f"decoder layer stage capture order is incomplete: {tuple(layer_stages)}")
+    if capture_layer_stages is not None and tuple(attention_stages) != DECODER_ATTENTION_STAGE_NAMES:
+        raise ValueError(f"decoder attention stage capture order is incomplete: {tuple(attention_stages)}")
+    if capture_layer_stages is not None and tuple(ple_stages) != DECODER_PLE_STAGE_NAMES:
+        raise ValueError(f"decoder PLE stage capture order is incomplete: {tuple(ple_stages)}")
+    return logits, output.past_key_values, time.perf_counter() - started, layer_hidden, layer_stages, attention_stages, ple_stages
 
 
 def exact_next(model, input_ids, cache=None, position_start=0, capture_layer_hidden=False):
@@ -227,7 +304,7 @@ def load_runtime(source, threads, logit_chunk):
     return model, AutoTokenizer.from_pretrained(source)
 
 
-def compare_request(model, tokenizer, source, prompt, input_ids, max_new_tokens, inspect_logit, threads=0, precision="f64", rounding_policy="none", session_id=None, eos_token_id=None, capture_layer_hidden=False):
+def compare_request(model, tokenizer, source, prompt, input_ids, max_new_tokens, inspect_logit, threads=0, precision="f64", rounding_policy="none", session_id=None, eos_token_id=None, capture_layer_hidden=False, capture_layer_stages=None):
     global REAL_DTYPE, ROUNDING_POLICY
     if max_new_tokens < 1 or max_new_tokens > 256:
         raise ValueError("maxNewTokens must be between 1 and 256")
@@ -242,6 +319,8 @@ def compare_request(model, tokenizer, source, prompt, input_ids, max_new_tokens,
         raise ValueError("roundingPolicy must be none, layer-bf16 or operation-bf16")
     if not isinstance(capture_layer_hidden, bool):
         raise ValueError("captureLayerHidden must be boolean")
+    if capture_layer_stages is not None and (not isinstance(capture_layer_stages, int) or isinstance(capture_layer_stages, bool) or capture_layer_stages < 0 or capture_layer_stages >= model.config.get_text_config().num_hidden_layers):
+        raise ValueError("captureLayerStages must identify an existing decoder layer")
     ROUNDING_POLICY = rounding_policy
     started = time.time()
     if prompt is not None:
@@ -266,7 +345,7 @@ def compare_request(model, tokenizer, source, prompt, input_ids, max_new_tokens,
         contexts_equal = baseline_ids == candidate_ids
         baseline_input = baseline_ids[baseline_reused:] if step == 0 and baseline_reused else baseline_ids if step == 0 else [baseline_ids[-1]]
         candidate_input = candidate_ids[candidate_reused:] if step == 0 and candidate_reused else candidate_ids if step == 0 else [candidate_ids[-1]]
-        baseline_logits, baseline_cache, baseline_seconds, baseline_layer_hidden = baseline_next(model, torch.tensor([baseline_input], dtype=torch.long), baseline_cache, capture_layer_hidden)
+        baseline_logits, baseline_cache, baseline_seconds, baseline_layer_hidden, baseline_layer_stages, baseline_attention_stages, baseline_ple_stages = baseline_next(model, torch.tensor([baseline_input], dtype=torch.long), baseline_cache, capture_layer_hidden, capture_layer_stages)
         candidate_logits, candidate_cache, candidate_seconds, candidate_layer_hidden = exact_next(model, torch.tensor([candidate_input], dtype=torch.long), candidate_cache, len(candidate_ids) - len(candidate_input), capture_layer_hidden)
         comparison = metrics(baseline_logits, candidate_logits)
         baseline_token, candidate_token = comparison["baselineArgmax"], comparison["candidateArgmax"]
@@ -282,6 +361,10 @@ def compare_request(model, tokenizer, source, prompt, input_ids, max_new_tokens,
             "metrics": comparison, "inspectedLogits": inspected_logits(baseline_logits, candidate_logits, inspect_logit),
             "baselineTopLogits": top_logits(baseline_logits), "candidateTopLogits": top_logits(candidate_logits),
             **({"layerHiddenEncoding": "terminal-token-f32le-base64", "baselineLayerHidden": encode_terminal_hidden(baseline_layer_hidden), "candidateLayerHidden": encode_terminal_hidden(candidate_layer_hidden)} if capture_layer_hidden else {}),
+            **({"layerHiddenFullEncoding": "whole-tensor-f32le-base64", "baselineLayerHiddenFull": [base64.b64encode(value.float().cpu().contiguous().numpy().tobytes()).decode("ascii") for value in baseline_layer_hidden], "candidateLayerHiddenFull": [base64.b64encode(value.float().cpu().contiguous().numpy().tobytes()).decode("ascii") for value in candidate_layer_hidden]} if capture_layer_hidden else {}),
+            **({"layerStageEncoding": "whole-tensor-f32le-base64", "layerStageLayer": capture_layer_stages, "baselineLayerStages": {name: base64.b64encode(baseline_layer_stages[name].float().cpu().contiguous().numpy().tobytes()).decode("ascii") for name in DECODER_LAYER_STAGE_NAMES}} if capture_layer_stages is not None else {}),
+            **({"attentionStageEncoding": "whole-tensor-f32le-base64", "baselineAttentionStages": {name: base64.b64encode(baseline_attention_stages[name].float().cpu().contiguous().numpy().tobytes()).decode("ascii") for name in DECODER_ATTENTION_STAGE_NAMES}} if capture_layer_stages is not None else {}),
+            **({"pleStageEncoding": "whole-tensor-f32le-base64", "baselinePleStages": {name: base64.b64encode(baseline_ple_stages[name].float().cpu().contiguous().numpy().tobytes()).decode("ascii") for name in DECODER_PLE_STAGE_NAMES}} if capture_layer_stages is not None else {}),
         })
         if baseline_token == eos_token_id:
             break
@@ -342,7 +425,7 @@ def main():
                         raise ValueError("encode requires non-empty text and boolean addSpecialTokens")
                     report = {"tokenIds": tokenizer.encode(text, add_special_tokens=add_special_tokens)}
                 else:
-                    report = compare_request(model, tokenizer, args.source, request.get("prompt"), request.get("inputIds"), int(request.get("maxNewTokens", 1)), request.get("inspectLogit", []), int(request.get("threads", 0)), request.get("precision", "f64"), request.get("roundingPolicy", "none"), request.get("sessionId"), request.get("eosTokenId"), request.get("captureLayerHidden", False))
+                    report = compare_request(model, tokenizer, args.source, request.get("prompt"), request.get("inputIds"), int(request.get("maxNewTokens", 1)), request.get("inspectLogit", []), int(request.get("threads", 0)), request.get("precision", "f64"), request.get("roundingPolicy", "none"), request.get("sessionId"), request.get("eosTokenId"), request.get("captureLayerHidden", False), request.get("captureLayerStages"))
                 print(json.dumps({"id": request.get("id"), "report": report}), flush=True)
             except Exception as error:
                 print(json.dumps({"id": request.get("id") if "request" in locals() else None, "error": str(error)}), flush=True)

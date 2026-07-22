@@ -8,10 +8,22 @@ test("worker PyTorch preserva a redução pow(-0.5) do RMSNorm Gemma 4", async (
   const end = source.indexOf("\ndef ", start + 1);
   assert.ok(start >= 0 && end > start, "função rms_norm_real ausente");
   const body = source.slice(start, end);
-  assert.match(body, /tensor\.pow\(2\)\.mean\(dim=-1, keepdim=True\)/);
+  assert.match(body, /hidden_states\.pow\(2\)\.mean\(dim=-1, keepdim=True\)/);
   assert.doesNotMatch(body, /tensor \* tensor/);
-  assert.match(body, /torch\.pow\(mean_squared, torch\.tensor\(-0\.5, dtype=torch\.float32\)\)/);
+  assert.match(body, /torch\.pow\(mean_squared, -0\.5\)/);
+  assert.doesNotMatch(body, /torch\.tensor\(-0\.5/);
   assert.doesNotMatch(body, /torch\.rsqrt/);
+});
+
+test("prelude PLE usa matmul BF16 nativo sem ampliar pesos para F32", async () => {
+  const source = await readFile(new URL("./gemma4-paged-linear-worker.py", import.meta.url), "utf8");
+  const start = source.indexOf("if fused_ple_prelude:");
+  const end = source.indexOf("if fused_token_forward:", start);
+  const body = source.slice(start, end);
+  assert.match(body, /required_dtype=torch\.bfloat16/);
+  assert.match(body, /native_inputs = inputs\.to\(torch\.bfloat16\)/);
+  assert.match(body, /torch\.mm\(native_inputs, projection_weight\[/);
+  assert.doesNotMatch(body, /projection_weight\[[^\n]+\.float\(\)/);
 });
 
 test("worker PyTorch compartilha as fronteiras eager BF16 entre atenção isolada e decoder stack", async () => {
@@ -46,7 +58,9 @@ test("worker PyTorch preserva BSHD até RoPE e usa o repeat_kv físico do Transf
   const end = source.indexOf("\ndef ", start + 1);
   assert.ok(start >= 0 && end > start, "função execute_decoder_layer ausente");
   const body = source.slice(start, end);
-  assert.match(body, /reshape\(batch, query_sequence, query_heads, head_dim\)\n    query = rope_real\([^\n]+, True, True\)\.transpose\(1, 2\)/);
+  assert.match(body, /reshape\(batch, query_sequence, query_heads, head_dim\)/);
+  assert.match(body, /query = rope_real\([^\n]+, True, True\)/);
+  assert.match(body, /query = query\.transpose\(1, 2\)/);
   assert.match(body, /attention_key = repeat_key_value\(key, group\)/);
   assert.match(body, /attention_value = repeat_key_value\(value, group\)/);
   const repeatStart = source.indexOf("def repeat_key_value(");
