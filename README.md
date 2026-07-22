@@ -3172,6 +3172,19 @@ prompt possível; o verificador autoritativo continua fail-closed.
 O resumo versionado e os SHA-256 dos relatórios comparados estão em
 `artifacts/gemma4-q8-layer-boundary-promotion-32x8.json`.
 
+Uma varredura posterior testou três blocos tardios e a remoção individual de
+cada uma das 20 camadas quantizadas. Os blocos tardios foram rejeitados por
+criarem divergências com margem positiva. Remover a camada 3 reduziu os prompts
+com empate de sete para cinco, mas introduziu um segundo empate no passo 7 da
+tradução e derrubou o híbrido para `7,9908 tok/s`. Remover a camada 15 reduziu
+os fallbacks para seis e preservou 256/256 tokens, porém no controle pareado de
+duas repetições alcançou em média `11,5837 tok/s`, abaixo dos `12,6558 tok/s`
+de `0-19`, além de elevar o tempo médio de verificação de `7,7483 s` para
+`9,0602 s`. A contagem de fallbacks isolada não mede o trabalho exato: posição
+e quantidade de passos sensíveis determinam se o verificador pode encerrar
+cedo. O default `0-19` foi mantido. A evidência reproduzível está em
+`artifacts/gemma4-sparse-q8-boundary-rejection-32x8.json`.
+
 O servidor agora aquece uma vez o verificador PyTorch BF16 antes de publicar o
 estado pronto e mantém seu kernel linear mmap residente. Isso preserva o índice
 autenticado, os descritores e o hot path nativo entre empates, sem compartilhar

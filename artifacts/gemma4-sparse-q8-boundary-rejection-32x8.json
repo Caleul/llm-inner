@@ -1,0 +1,84 @@
+{
+  "kind": "gemma4-sparse-q8-boundary-rejection",
+  "schemaVersion": 1,
+  "createdAt": "2026-07-22",
+  "configuration": {
+    "prompts": 32,
+    "tokensPerPrompt": 8,
+    "directThreads": 8,
+    "verificationMargin": 0,
+    "decoderQuantization": "q8-ffn-gate-up"
+  },
+  "sources": {
+    "prompts": {
+      "file": "gemma4-calibration-prompts-32.json",
+      "sha256": "23008073aafff2afcabbb548ef24a19672f69564f78a9bb9ec2450105e9846a2"
+    },
+    "currentPromotion": {
+      "file": "gemma4-q8-layer-boundary-promotion-32x8.json",
+      "sha256": "6ebe370fdef43ad30008cbe58dbb4f158bb1cf491c7c2ff3969a9fb5ede11bb2"
+    },
+    "authoritativeTokenIds": {
+      "file": "gemma4-q8-layers-0-19-margin0-calibration-32x8.json",
+      "sha256": "f288da6904f0079f5d5bd06546c37dfaa32c5816ac21e5db98797afffcbceb4e",
+      "field": "cases[*].baseline.tokenIds"
+    }
+  },
+  "lateBlockSweep": [
+    { "quantizedLayers": "0-19,21-30", "sensitivePromptsEqual": 4, "sensitivePrompts": 7, "tieSteps": 7, "silentDivergences": 1 },
+    { "quantizedLayers": "0-19,31-36", "sensitivePromptsEqual": 4, "sensitivePrompts": 7, "tieSteps": 3, "silentDivergences": 2 },
+    { "quantizedLayers": "0-19,37-41", "sensitivePromptsEqual": 4, "sensitivePrompts": 7, "tieSteps": 6, "silentDivergences": 1 }
+  ],
+  "singleLayerRemovalSweep": {
+    "testedRemovedLayers": 20,
+    "safeCandidates": [
+      { "removedLayer": 3, "quantizedLayers": "0-2,4-19", "sensitivePromptsEqual": 6, "sensitivePrompts": 7, "tieSteps": 5, "silentDivergences": 0 },
+      { "removedLayer": 15, "quantizedLayers": "0-14,16-19", "sensitivePromptsEqual": 6, "sensitivePrompts": 7, "tieSteps": 5, "silentDivergences": 0 }
+    ]
+  },
+  "fullCorpusFastPath": [
+    { "quantizedLayers": "0-2,4-19", "promptsEqual": 31, "prompts": 32, "tiePrompts": 5, "tieSteps": 6, "silentDivergences": 0, "tokensPerSecond": 20.741476247172102 },
+    { "quantizedLayers": "0-14,16-19", "promptsEqual": 31, "prompts": 32, "tiePrompts": 6, "tieSteps": 7, "silentDivergences": 0, "tokensPerSecond": 21.594883894241228 }
+  ],
+  "hybridPairedControl": {
+    "current": {
+      "quantizedLayers": "0-19",
+      "promptsEqual": 32,
+      "equalTokenSteps": 256,
+      "fallbackPrompts": 7,
+      "repetitions": [
+        { "tokensPerSecond": 11.764607370526459, "verificationSeconds": 8.405693791999994 },
+        { "tokensPerSecond": 13.546902123532362, "verificationSeconds": 7.090988333999994 }
+      ],
+      "meanTokensPerSecond": 12.65575474702941,
+      "meanVerificationSeconds": 7.748341062999994
+    },
+    "candidate": {
+      "quantizedLayers": "0-14,16-19",
+      "promptsEqual": 32,
+      "equalTokenSteps": 256,
+      "fallbackPrompts": 6,
+      "repetitions": [
+        { "tokensPerSecond": 11.765844413804126, "verificationSeconds": 8.322779832 },
+        { "tokensPerSecond": 11.40159945521718, "verificationSeconds": 9.797672542 }
+      ],
+      "meanTokensPerSecond": 11.583721934510654,
+      "meanVerificationSeconds": 9.060226187
+    },
+    "rejectedCandidate": {
+      "quantizedLayers": "0-2,4-19",
+      "promptsEqual": 32,
+      "equalTokenSteps": 256,
+      "fallbackPrompts": 5,
+      "tokensPerSecond": 7.990791061036167,
+      "verificationSeconds": 19.859537875,
+      "reason": "A second sensitive step at token 7 prevented early verifier exit."
+    }
+  },
+  "decision": {
+    "selectedQuantizedLayers": "0-19",
+    "rejectedSparseBoundaries": ["0-2,4-19", "0-14,16-19"],
+    "reason": "Fallback count alone did not predict exact work. The current boundary retained higher paired hybrid throughput and lower mean verification time."
+  },
+  "claimBoundary": "This finite sweep rejects the recorded sparse boundaries. It does not prove that no other layer subset can improve arbitrary prompts."
+}

@@ -64,6 +64,22 @@ test("evidência promove a fronteira Q8 0-19 com menos fallbacks e paridade inte
   assert.equal(digest, artifact.sources.prompts.sha256);
 });
 
+test("evidência rejeita fronteiras Q8 esparsas que reduzem fallbacks mas pioram o híbrido", async () => {
+  const artifact = JSON.parse(await readFile("artifacts/gemma4-sparse-q8-boundary-rejection-32x8.json", "utf8")) as any;
+  assert.equal(artifact.lateBlockSweep.every((entry: any) => entry.silentDivergences > 0), true);
+  assert.equal(artifact.singleLayerRemovalSweep.testedRemovedLayers, 20);
+  assert.equal(artifact.singleLayerRemovalSweep.safeCandidates.every((entry: any) => entry.silentDivergences === 0), true);
+  const { current, candidate, rejectedCandidate } = artifact.hybridPairedControl;
+  assert.deepEqual([current.promptsEqual, current.equalTokenSteps, candidate.promptsEqual, candidate.equalTokenSteps, rejectedCandidate.promptsEqual, rejectedCandidate.equalTokenSteps], [32, 256, 32, 256, 32, 256]);
+  assert.ok(candidate.fallbackPrompts < current.fallbackPrompts);
+  assert.ok(candidate.meanTokensPerSecond < current.meanTokensPerSecond);
+  assert.ok(candidate.meanVerificationSeconds > current.meanVerificationSeconds);
+  assert.ok(rejectedCandidate.tokensPerSecond < current.meanTokensPerSecond);
+  assert.equal(artifact.decision.selectedQuantizedLayers, "0-19");
+  const digest = createHash("sha256").update(await readFile(`artifacts/${artifact.sources.prompts.file}`)).digest("hex");
+  assert.equal(digest, artifact.sources.prompts.sha256);
+});
+
 test("calibração três-vias agrega acordo token a token e throughput", () => {
   const report = summarizeGemma4ThreeWayCalibration([baseCase], { maxNewTokens: 2, requestThreads: 1, precision: "f32", roundingPolicy: "none", runner: { source: "/model", python: "python", helper: "helper", directThreads: 4 } }, { ready: true });
   assert.equal(report.configuration.directMlxHeadQuantization, "off");
