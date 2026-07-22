@@ -26,12 +26,6 @@ export class Gemma4VerificationSessionCache<State> {
 
   resolve(sessionId: number, inputIds: readonly number[], truncateState?: (state: State, prefixTokens: number) => State): Gemma4VerificationSessionCacheHit<State> | undefined {
     validateSessionId(sessionId); validateTokenIds(inputIds, "Entrada da sessão");
-    const ownEntry = this.#entries.get(sessionId);
-    if (ownEntry && ownEntry.tokenIds.length <= inputIds.length && ownEntry.tokenIds.every((token, index) => inputIds[index] === token)) {
-      this.#touch(sessionId, ownEntry);
-      return this.#hit(sessionId, ownEntry, inputIds, ownEntry.tokenIds.length, ownEntry.state, "session");
-    }
-
     let best: { sourceSessionId: number; entry: Gemma4VerificationSessionCacheEntry<State>; prefixTokens: number } | undefined;
     for (const [sourceSessionId, entry] of this.#entries) {
       let prefixTokens = commonPrefixLength(entry.tokenIds, inputIds);
@@ -39,11 +33,22 @@ export class Gemma4VerificationSessionCache<State> {
       if (prefixTokens < 1 || (prefixTokens < entry.tokenIds.length && !truncateState)) continue;
       if (!best || prefixTokens > best.prefixTokens || (prefixTokens === best.prefixTokens && (sourceSessionId === sessionId || best.sourceSessionId !== sessionId))) best = { sourceSessionId, entry, prefixTokens };
     }
-    if (!best) { if (ownEntry) this.#entries.delete(sessionId); return undefined; }
+    if (!best) return undefined;
     const state = best.prefixTokens === best.entry.tokenIds.length ? best.entry.state : truncateState!(best.entry.state, best.prefixTokens);
-    if (ownEntry && best.sourceSessionId !== sessionId) this.#entries.delete(sessionId);
     if (this.#entries.has(best.sourceSessionId)) this.#touch(best.sourceSessionId, best.entry);
     return this.#hit(best.sourceSessionId, best.entry, inputIds, best.prefixTokens, state, best.sourceSessionId === sessionId ? "session" : "shared-prefix");
+  }
+
+  resolveExact(sessionId: number, inputIds: readonly number[]): Gemma4VerificationSessionCacheHit<State> | undefined {
+    validateSessionId(sessionId); validateTokenIds(inputIds, "Contexto exato da sessão");
+    let best: { sourceSessionId: number; entry: Gemma4VerificationSessionCacheEntry<State> } | undefined;
+    for (const [sourceSessionId, entry] of this.#entries) {
+      if (entry.tokenIds.length !== inputIds.length || !entry.tokenIds.every((token, index) => inputIds[index] === token)) continue;
+      if (!best || sourceSessionId === sessionId || best.sourceSessionId !== sessionId) best = { sourceSessionId, entry };
+    }
+    if (!best) return undefined;
+    this.#touch(best.sourceSessionId, best.entry);
+    return this.#hit(best.sourceSessionId, best.entry, inputIds, inputIds.length, best.entry.state, best.sourceSessionId === sessionId ? "session" : "shared-prefix");
   }
 
   #hit(sourceSessionId: number, entry: Gemma4VerificationSessionCacheEntry<State>, inputIds: readonly number[], prefixTokens: number, state: State, cacheScope: "session" | "shared-prefix"): Gemma4VerificationSessionCacheHit<State> {

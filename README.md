@@ -3370,6 +3370,26 @@ logits terminais. No caminho híbrido real, outra sessão do prompt
 os oito IDs iguais ao modelo original. A evidência completa e os limites da
 afirmação estão em `artifacts/gemma4-cross-session-prefix-promotion.json`.
 
+Quando uma sessão anterior já verificou exatamente os tokens que precedem o
+primeiro passo sensível, o worker não reconstrói esse trecho token por token.
+Ele procura a igualdade integral de `inputIds + tokens confiáveis anteriores`,
+reutiliza o `hidden` e os KVs residentes desse comprimento exato e executa
+somente a cabeça BF16 do passo sensível. Não existe batching novo nem mudança
+de kernel: se o contexto integral não estiver residente, o caminho anterior é
+mantido. A interface publica `verificationExactContextCacheHit` e
+`verificationTrustedPrefixStepsReused`; a matriz agrega os hits e os passos
+do decoder eliminados.
+
+Em duas repetições isoladas do caso sensível no passo 3, o replay exato caiu de
+`0,844765 s` para `0,059848 s` (`-92,92%`), eliminando quatro forwards do
+decoder e preservando o SHA-256 integral dos logits
+`553f0621…0015424`. No caminho completo aquecido, oito tokens foram gerados em
+média em `0,575211 s`. Uma execução adicional de `/api/compare` manteve os
+mesmos `8/8` IDs do modelo original e levou `3,230467 s` no compilado contra
+`8,371437 s` do baseline naquela coleta (`2,5914×`). A evidência e o limite —
+o primeiro contexto ainda precisa ser calculado — estão em
+`artifacts/gemma4-exact-sensitive-context-promotion.json`.
+
 Iniciar esse prefill antes de existir uma margem sensível também foi medido e
 rejeitado. Em duas repetições aquecidas de três classes de prompt, o modo eager
 preservou todos os token IDs, mas com oito threads elevou a média do fallback

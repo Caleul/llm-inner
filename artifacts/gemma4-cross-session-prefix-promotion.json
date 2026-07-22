@@ -5,11 +5,11 @@
   "sources": {
     "sessionCache": {
       "file": "src/gemma4-verification-session-cache.ts",
-      "sha256": "61ec15b36d507b710c9009dfa6e89c456bd2bf49f032f5e01bc2458f2e1e215c"
+      "sha256": "491047c47736055e0c9925a7906db1712ac2d2152097b118203fac376996fd81"
     },
     "verificationWorker": {
       "file": "src/gemma4-paged-runtime-worker-cli.ts",
-      "sha256": "8e80aba97cbd259c1df83b7997fad6136add38669b4304a3892e41650edc7945"
+      "sha256": "c9b998c42d008e6f76825c8e06214da29ee972abf9aa57debe26b7720abd8a3c"
     },
     "runtimeIndex": {
       "file": "artifacts/gemma4-compiled-global-runtime-bundle/constants.runtime-index.json",

@@ -1,0 +1,123 @@
+{
+  "kind": "gemma4-exact-sensitive-context-promotion",
+  "schemaVersion": 1,
+  "recordedAt": "2026-07-22",
+  "sources": {
+    "sessionCache": {
+      "file": "src/gemma4-verification-session-cache.ts",
+      "sha256": "491047c47736055e0c9925a7906db1712ac2d2152097b118203fac376996fd81"
+    },
+    "verificationWorker": {
+      "file": "src/gemma4-paged-runtime-worker-cli.ts",
+      "sha256": "c9b998c42d008e6f76825c8e06214da29ee972abf9aa57debe26b7720abd8a3c"
+    },
+    "comparisonServer": {
+      "file": "src/gemma4-real-compare-server.ts",
+      "sha256": "ee084b998077ec18f637fdce091033356a9f5ca77cd31855e557437239c1d4c7"
+    },
+    "runtimeIndex": {
+      "file": "artifacts/gemma4-compiled-global-runtime-bundle/constants.runtime-index.json",
+      "sha256": "a63159a92e27024862b478cd14fe80c283ab27ce32243e9c008d8d6a9c7847b4"
+    }
+  },
+  "configuration": {
+    "prompt": "Traduza para inglês: boa noite",
+    "inputIds": [2, 2035, 25593, 2275, 1642, 101008, 236787, 39197, 51362],
+    "maxNewTokens": 8,
+    "sensitiveStep": 3,
+    "trustedPrefixTokenIds": [236764, 6913, 4280],
+    "threads": 8,
+    "decoderQuantization": "q8-ffn-gate-up",
+    "quantizedLayers": "0-19",
+    "verificationMargin": 0,
+    "verificationBackend": "persistent-pytorch-mmap-f32-tile"
+  },
+  "safetyContract": {
+    "lookup": "exact-token-context-equality-only",
+    "context": "inputIds concatenated with every trusted generated token before the first sensitive step",
+    "acceptedState": "resident hidden and KV produced for exactly the requested context length",
+    "rejectedShortcut": "batching uncached trusted tokens into a new multi-token forward",
+    "reason": "The optimization reuses an already authoritative execution state and therefore changes neither kernel shape nor numerical reduction order."
+  },
+  "isolatedExactWorker": {
+    "control": [
+      {
+        "elapsedSeconds": 0.8399392079999998,
+        "decoderSteps": 4,
+        "headSteps": 1,
+        "generatedTokenIds": [236764, 6913, 4280, 1983]
+      },
+      {
+        "elapsedSeconds": 0.8495899159999999,
+        "decoderSteps": 4,
+        "headSteps": 1,
+        "generatedTokenIds": [236764, 6913, 4280, 1983]
+      }
+    ],
+    "candidate": [
+      {
+        "elapsedSeconds": 0.06021795800000018,
+        "exactContextCacheHit": true,
+        "trustedPrefixStepsReused": 3,
+        "decoderSteps": 0,
+        "headSteps": 1,
+        "generatedTokenIds": [236764, 6913, 4280, 1983]
+      },
+      {
+        "elapsedSeconds": 0.059477542000000085,
+        "exactContextCacheHit": true,
+        "trustedPrefixStepsReused": 3,
+        "decoderSteps": 0,
+        "headSteps": 1,
+        "generatedTokenIds": [236764, 6913, 4280, 1983]
+      }
+    ],
+    "controlMeanSeconds": 0.8447645619999998,
+    "candidateMeanSeconds": 0.05984775000000013,
+    "latencyReductionRate": 0.9291545210439354,
+    "controlTerminalLogitsSha256": "553f0621ced57ededa21b7f9451c912d9d8dee6fe5a891bb5bf5ab7870015424",
+    "candidateTerminalLogitsSha256": "553f0621ced57ededa21b7f9451c912d9d8dee6fe5a891bb5bf5ab7870015424"
+  },
+  "liveCompiledOnly": {
+    "cachePopulationSeconds": 8.366913584000002,
+    "warmExactContextRepetitions": [
+      {
+        "elapsedSeconds": 0.5746102910000008,
+        "workerVerificationSeconds": 0.07854858299999978,
+        "verificationPrefillWaitSeconds": 0,
+        "decoderSteps": 0
+      },
+      {
+        "elapsedSeconds": 0.575811250000028,
+        "workerVerificationSeconds": 0.07895199999999022,
+        "verificationPrefillWaitSeconds": 0,
+        "decoderSteps": 0
+      }
+    ],
+    "warmMeanSeconds": 0.5752107705000145,
+    "generatedTokenIds": [236764, 6913, 4280, 1983, 23667, 569, 236743, 236800]
+  },
+  "liveOriginalComparison": {
+    "endpoint": "/api/compare",
+    "baselineGeneratedTokenIds": [236764, 6913, 4280, 1983, 23667, 569, 236743, 236800],
+    "compiledGeneratedTokenIds": [236764, 6913, 4280, 1983, 23667, 569, 236743, 236800],
+    "tokensEqual": true,
+    "firstDivergentStep": null,
+    "baselineModelSeconds": 8.371436707908288,
+    "compiledDirectSeconds": 3.2304670829999957,
+    "compiledVsBaselineSpeedup": 2.5914013338696815,
+    "exactContextCacheHit": true,
+    "trustedPrefixStepsReused": 3,
+    "verificationDecoderSteps": 0,
+    "verificationHeadSteps": 1
+  },
+  "interface": {
+    "singleReportMetrics": ["verificationExactContextCacheHit", "verificationTrustedPrefixStepsReused"],
+    "matrixMetrics": ["verificationExactContextHitPrompts", "verificationTrustedPrefixStepsReused"]
+  },
+  "decision": {
+    "selectedPolicy": "reuse-exact-sensitive-context-before-head",
+    "defaultEnabled": true,
+    "claimBoundary": "This proves exact terminal-logit and token parity plus lower latency for repeated token-identical sensitive contexts in the measured runtime. It does not accelerate the first unseen sensitive context and does not prove universal equivalence or portable speedup."
+  }
+}

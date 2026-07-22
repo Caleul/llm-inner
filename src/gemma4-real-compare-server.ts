@@ -464,7 +464,7 @@ async function executeSelectedDirect(primary: PersistentJsonlWorker, verificatio
       const startedAt = performance.now();
       const generatedTokenIds = streamedGeneratedTokenIds.slice(0, sensitive.step + 1);
       if (generatedTokenIds.length !== sensitive.step + 1) return;
-      const verifyPrefix = verificationPrefixAheadEnabled && hasVerificationCachedPrefix(verificationCachedSessions, payload.sessionId!, payload.inputIds);
+      const verifyPrefix = verificationPrefixAheadEnabled && hasVerificationCachedPrefix(verificationCachedSessions, payload.sessionId!, payload.inputIds, generatedTokenIds.slice(0, sensitive.step));
       const promise = verificationProvider!.get!()
         .then((verification) => verification.send(verifyPrefix
           ? { inputIds: payload.inputIds, maxNewTokens: generatedTokenIds.length, sessionId: payload.sessionId, verificationFastPath: { generatedTokenIds, sensitiveSteps: [sensitive.step], stopAfterDivergence: true } }
@@ -576,9 +576,11 @@ async function executeSelectedDirect(primary: PersistentJsonlWorker, verificatio
   });
 }
 
-function hasVerificationCachedPrefix(sessions: Map<number, readonly number[]>, sessionId: number, inputIds: readonly number[]): boolean {
+export function hasVerificationCachedPrefix(sessions: Map<number, readonly number[]>, sessionId: number, inputIds: readonly number[], trustedGeneratedTokenIds: readonly number[] = []): boolean {
   const cached = sessions.get(sessionId);
-  return cached !== undefined && cached.length <= inputIds.length && arraysEqual(cached, inputIds.slice(0, cached.length));
+  if (cached !== undefined && cached.length <= inputIds.length && arraysEqual(cached, inputIds.slice(0, cached.length))) return true;
+  const exactContext = [...inputIds, ...trustedGeneratedTokenIds];
+  return [...sessions.values()].some((entry) => arraysEqual(entry, exactContext));
 }
 
 function rememberVerificationCachedSession(sessions: Map<number, readonly number[]>, sessionId: number, cachedInputIds: readonly number[]): void {

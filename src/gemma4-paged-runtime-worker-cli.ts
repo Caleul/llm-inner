@@ -193,7 +193,11 @@ async function generateSelectiveVerification(inputIds: number[], maxNewTokens: n
       acceptPle: (names: readonly string[], values: readonly Float32Array[]) => Object.assign(layerStageCaptures.at(-1)!, { pleNames: names, pleValues: values.map(encodeWholeF32) }),
     } }),
   } : options;
-  const cached = sessionId === undefined ? undefined : verificationSessionCache.resolve(sessionId, inputIds, truncateVerificationState);
+  const leadingTrustedSteps = fast.sensitiveSteps[0]!;
+  const exactContextInputIds = leadingTrustedSteps === 0 ? inputIds : [...inputIds, ...fast.generatedTokenIds.slice(0, leadingTrustedSteps)];
+  const exactContextCached = sessionId === undefined || leadingTrustedSteps === 0 ? undefined : verificationSessionCache.resolveExact(sessionId, exactContextInputIds);
+  const cached = exactContextCached ?? (sessionId === undefined ? undefined : verificationSessionCache.resolve(sessionId, inputIds, truncateVerificationState));
+  const verificationInputIds = exactContextCached ? exactContextInputIds : inputIds;
   const suffixTokenIds = cached?.suffixTokenIds ?? inputIds;
   let current: VerificationCachedState, currentInputIds: number[], verificationDecoderSteps: number;
   if (cached && suffixTokenIds.length === 0) {
@@ -205,7 +209,7 @@ async function generateSelectiveVerification(inputIds: number[], maxNewTokens: n
       ...(cached ? { positionIds: [currentInputIds.map((_token, index) => cached.prefixTokensReused + index)], pastKeyValues: cached.state.pastKeyValues } : {}),
     }, executionOptions);
   }
-  const currentContextTokens = [...inputIds];
+  const currentContextTokens = [...verificationInputIds];
   let verificationEarlyExitStep: number | null = null, verificationDecoderStepsAvoided = 0, verificationHeadPositionsComputed = 0, verificationHeadPositionsAvoided = 0, verificationStoppedAfterDivergence = false;
   const lastSensitiveStep = fast.sensitiveSteps.at(-1)!;
   let forwardSeconds = (performance.now() - forwardStarted) / 1000, terminalLogitsSha256 = fast.terminalLogitsSha256 ?? "", divergenceStep: number | null = null;
@@ -247,6 +251,7 @@ async function generateSelectiveVerification(inputIds: number[], maxNewTokens: n
       verificationDecoderStepsAvoided = trustedTail.decoderStepsAvoided;
       break;
     }
+    if (exactContextCached && step < leadingTrustedSteps) continue;
     forwardStarted = performance.now();
     current = await executeGemma4PagedTextHiddenLiteralF32(artifact, { inputIds: [[tokenId]], positionIds: [[inputIds.length + step]], pastKeyValues: current.pastKeyValues }, executionOptions);
     currentInputIds = [tokenId]; currentContextTokens.push(tokenId);
@@ -260,6 +265,8 @@ async function generateSelectiveVerification(inputIds: number[], maxNewTokens: n
     verificationHeadSteps: steps.filter((step) => step.verificationSkipped === false).length, verificationDivergenceStep: divergenceStep, externalForwardRequests: verificationDecoderSteps,
     verificationDecoderSteps, verificationDecoderStepsAvoided,
     verificationHeadPositionsComputed, verificationHeadPositionsAvoided,
+    verificationExactContextCacheHit: exactContextCached !== undefined,
+    verificationTrustedPrefixStepsReused: exactContextCached ? leadingTrustedSteps : 0,
     verificationSessionCacheHit: cached !== undefined,
     verificationCacheScope: cached?.cacheScope,
     verificationCacheSourceSessionId: cached?.sourceSessionId,

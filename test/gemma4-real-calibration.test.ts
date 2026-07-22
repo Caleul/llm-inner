@@ -84,6 +84,19 @@ test("evidência promove o maior prefixo exato entre sessões sem alterar logits
   assert.equal(artifact.decision.selectedPolicy, "cross-session-longest-exact-token-prefix");
 });
 
+test("evidência promove contexto sensível exato sem replay do decoder", async () => {
+  const artifact = JSON.parse(await readFile("artifacts/gemma4-exact-sensitive-context-promotion.json", "utf8")) as any;
+  const digest = async (path: string) => createHash("sha256").update(await readFile(path)).digest("hex");
+  for (const source of [artifact.sources.sessionCache, artifact.sources.verificationWorker, artifact.sources.comparisonServer, artifact.sources.runtimeIndex]) assert.equal(await digest(source.file), source.sha256);
+  assert.equal(artifact.isolatedExactWorker.controlTerminalLogitsSha256, artifact.isolatedExactWorker.candidateTerminalLogitsSha256);
+  assert.ok(artifact.isolatedExactWorker.candidate.every((entry: any) => entry.exactContextCacheHit && entry.trustedPrefixStepsReused === 3 && entry.decoderSteps === 0 && entry.headSteps === 1));
+  assert.ok(artifact.isolatedExactWorker.candidateMeanSeconds < artifact.isolatedExactWorker.controlMeanSeconds);
+  assert.ok(artifact.isolatedExactWorker.latencyReductionRate > 0.9);
+  assert.deepEqual(artifact.liveOriginalComparison.compiledGeneratedTokenIds, artifact.liveOriginalComparison.baselineGeneratedTokenIds);
+  assert.ok(artifact.liveOriginalComparison.compiledDirectSeconds < artifact.liveOriginalComparison.baselineModelSeconds);
+  assert.equal(artifact.decision.selectedPolicy, "reuse-exact-sensitive-context-before-head");
+});
+
 test("evidência promove a fronteira Q8 0-19 com menos fallbacks e paridade integral", async () => {
   const artifact = JSON.parse(await readFile("artifacts/gemma4-q8-layer-boundary-promotion-32x8.json", "utf8")) as any;
   assert.deepEqual([artifact.configuration.prompts, artifact.configuration.tokensPerPrompt, artifact.configuration.decoderQuantization, artifact.configuration.verificationMargin], [32, 8, "q8-ffn-gate-up", 0]);

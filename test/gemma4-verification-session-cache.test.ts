@@ -9,7 +9,7 @@ test("cache exato prioriza o prefixo token a token da mesma sessão", () => {
   assert.equal(cache.residentBytes, 128);
   assert.deepEqual(cache.resolve(8, [1, 2, 3]), { state: { id: "exact" }, currentInputIds: [3], suffixTokenIds: [], prefixTokensReused: 3, cachedContextTokens: 3, cacheScope: "shared-prefix", sourceSessionId: 7 });
   assert.equal(cache.resolve(7, [1, 9, 3]), undefined);
-  assert.equal(cache.sessions, 0);
+  assert.equal(cache.sessions, 1);
 });
 
 test("cache exato trunca o maior prefixo compartilhado e sempre recompõe o hidden terminal", () => {
@@ -26,6 +26,15 @@ test("cache exato trunca o maior prefixo compartilhado e sempre recompõe o hidd
 
   const shorter = cache.resolve(4, [2, 10], (state, prefixTokens) => ({ id: `${state.id}:${prefixTokens}` }));
   assert.deepEqual(shorter, { state: { id: "first:1" }, currentInputIds: [], suffixTokenIds: [10], prefixTokensReused: 1, cachedContextTokens: 1, cacheScope: "shared-prefix", sourceSessionId: 1 });
+});
+
+test("cache exato prefere o contexto compartilhado mais longo e resolve somente igualdade integral", () => {
+  const cache = new Gemma4VerificationSessionCache<{ id: string }>();
+  cache.update(1, [2, 10], [10], { id: "own-short" }, 10);
+  cache.update(2, [2, 10, 11, 12], [12], { id: "shared-exact" }, 20);
+  assert.deepEqual(cache.resolveExact(1, [2, 10, 11, 12]), { state: { id: "shared-exact" }, currentInputIds: [12], suffixTokenIds: [], prefixTokensReused: 4, cachedContextTokens: 4, cacheScope: "shared-prefix", sourceSessionId: 2 });
+  assert.equal(cache.resolveExact(1, [2, 10, 11]), undefined);
+  assert.deepEqual(cache.resolve(1, [2, 10, 11, 12, 13]), { state: { id: "shared-exact" }, currentInputIds: [12], suffixTokenIds: [13], prefixTokensReused: 4, cachedContextTokens: 4, cacheScope: "shared-prefix", sourceSessionId: 2 });
 });
 
 test("cache exato limita sessões por LRU e valida o estado residente", () => {
