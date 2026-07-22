@@ -53,6 +53,17 @@ test("evidência do corte de prefill terminal preserva corpus e correção de ra
   assert.equal(await digest(`artifacts/${artifact.sources.authoritativeTokenIds.file}`), artifact.sources.authoritativeTokenIds.sha256);
 });
 
+test("evidência promove a fronteira Q8 0-19 com menos fallbacks e paridade integral", async () => {
+  const artifact = JSON.parse(await readFile("artifacts/gemma4-q8-layer-boundary-promotion-32x8.json", "utf8")) as any;
+  assert.deepEqual([artifact.configuration.prompts, artifact.configuration.tokensPerPrompt, artifact.configuration.decoderQuantization, artifact.configuration.verificationMargin], [32, 8, "q8-ffn-gate-up", 0]);
+  assert.deepEqual([artifact.promoted.quantizedLayers, artifact.promoted.promptsEqual, artifact.promoted.equalTokenSteps, artifact.promoted.comparedTokenSteps, artifact.promoted.rootDivergences], ["0-19", 32, 256, 256, 0]);
+  assert.ok(artifact.promoted.fallbackPrompts < artifact.previous.fallbackPrompts);
+  assert.ok(artifact.promoted.directVsBaselineThroughputRatio > 1);
+  assert.equal(artifact.decision.selectedQuantizedLayers, "0-19");
+  const digest = createHash("sha256").update(await readFile(`artifacts/${artifact.sources.prompts.file}`)).digest("hex");
+  assert.equal(digest, artifact.sources.prompts.sha256);
+});
+
 test("calibração três-vias agrega acordo token a token e throughput", () => {
   const report = summarizeGemma4ThreeWayCalibration([baseCase], { maxNewTokens: 2, requestThreads: 1, precision: "f32", roundingPolicy: "none", runner: { source: "/model", python: "python", helper: "helper", directThreads: 4 } }, { ready: true });
   assert.equal(report.configuration.directMlxHeadQuantization, "off");

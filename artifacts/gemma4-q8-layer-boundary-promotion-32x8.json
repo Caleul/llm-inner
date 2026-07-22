@@ -1,0 +1,54 @@
+{
+  "kind": "gemma4-q8-layer-boundary-promotion",
+  "schemaVersion": 1,
+  "createdAt": "2026-07-22",
+  "configuration": {
+    "prompts": 32,
+    "tokensPerPrompt": 8,
+    "directThreads": 8,
+    "verificationMargin": 0,
+    "decoderQuantization": "q8-ffn-gate-up"
+  },
+  "sources": {
+    "prompts": {
+      "file": "gemma4-calibration-prompts-32.json",
+      "sha256": "23008073aafff2afcabbb548ef24a19672f69564f78a9bb9ec2450105e9846a2"
+    },
+    "previousCalibration": {
+      "file": "gemma4-q8-layers-0-20-margin0-calibration-32x8.json",
+      "sha256": "e4a81deb3e8e2aa68ddb30698e40334720123cd019d697e28e38c0d77eeaedfe"
+    },
+    "promotedCalibration": {
+      "file": "gemma4-q8-layers-0-19-margin0-calibration-32x8.json",
+      "sha256": "f288da6904f0079f5d5bd06546c37dfaa32c5816ac21e5db98797afffcbceb4e"
+    }
+  },
+  "previous": {
+    "quantizedLayers": "0-20",
+    "promptsEqual": 32,
+    "equalTokenSteps": 256,
+    "comparedTokenSteps": 256,
+    "rootDivergences": 0,
+    "fallbackPrompts": 9
+  },
+  "promoted": {
+    "quantizedLayers": "0-19",
+    "promptsEqual": 32,
+    "equalTokenSteps": 256,
+    "comparedTokenSteps": 256,
+    "rootDivergences": 0,
+    "fallbackPrompts": 7,
+    "directSeconds": 20.86671649999995,
+    "directTokensPerSecond": 12.268341308034765,
+    "baselineSeconds": 388.61548899824265,
+    "baselineTokensPerSecond": 0.6587488333517186,
+    "directVsBaselineThroughputRatio": 18.623701002419025,
+    "rootCorrections": 3,
+    "compiledContinuationsAccepted": 3
+  },
+  "decision": {
+    "selectedQuantizedLayers": "0-19",
+    "reason": "Preserves all 256 authoritative token decisions while reducing exact fallback prompts from nine to seven."
+  },
+  "claimBoundary": "This finite 32x8 calibration promotes the measured Q8 layer boundary. Arbitrary prompts remain protected by fail-closed exact verification."
+}

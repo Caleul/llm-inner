@@ -3150,16 +3150,27 @@ somente a camada 21 já reproduz `1651, 496`. Sem fallback, `0-20` alcançou
 `21,7130 tok/s` e `12,5295×`, mas expôs dois empates adicionais em português.
 Ambos tinham margem rápida exatamente zero.
 
-Por isso o perfil padrão agora combina `q8-ffn-gate-up` apenas em `0-20` com
-margem seletiva `0`: o cálculo compilado decide sozinho sempre que os dois
-melhores logits BF16 são distintos e chama o verificador PyTorch somente em
-empates. Na matriz completa, isso preservou `32/32` prompts e `256/256` tokens,
-com nove prompts verificados, zero divergências raiz e `6,4107 tok/s` contra
-`1,5795 tok/s` da referência, razão de `4,0586×`. O relatório é
+O primeiro perfil promovido combinava `q8-ffn-gate-up` em `0-20` com margem
+seletiva `0`. Na matriz completa, preservou `32/32` prompts e `256/256` tokens,
+mas verificou nove prompts. O relatório histórico é
 `artifacts/gemma4-q8-layers-0-20-margin0-calibration-32x8.json`. Um controle MLX
-persistente sem Q8 foi testado nos nove empates e rejeitado: ficou em `7/9`
-prompts e piorou inclusive um caso que o caminho rápido já acertava. Assim ele
-não substitui o verificador autoritativo.
+persistente sem Q8 foi testado nesses empates e rejeitado: ficou em `7/9`
+prompts e piorou inclusive um caso que o caminho rápido já acertava.
+
+Uma nova varredura da fronteira removeu a camada 20 do conjunto quantizado. O
+perfil padrão atual usa `0-19` com a mesma margem `0`: o cálculo compilado decide
+sozinho quando os dois melhores logits BF16 são distintos e chama o verificador
+PyTorch somente em empates. A calibração oficial de 32 prompts × 8 tokens
+preservou `32/32` prompts, `256/256` tokens e zero divergências raiz, reduzindo
+os fallbacks de nove para sete. O caminho selecionado somou `20,8667 s`
+(`12,2683 tok/s`) contra `388,6155 s` (`0,6587 tok/s`) da referência naquela
+execução, razão `18,6237×`. Três raízes rápidas divergentes foram corrigidas e
+suas continuações retornaram ao MLX. O relatório integral é
+`artifacts/gemma4-q8-layers-0-19-margin0-calibration-32x8.json`. Como toda matriz
+finita, ela promove uma política medida, não uma garantia universal para todo
+prompt possível; o verificador autoritativo continua fail-closed.
+O resumo versionado e os SHA-256 dos relatórios comparados estão em
+`artifacts/gemma4-q8-layer-boundary-promotion-32x8.json`.
 
 O servidor agora aquece uma vez o verificador PyTorch BF16 antes de publicar o
 estado pronto e mantém seu kernel linear mmap residente. Isso preserva o índice
