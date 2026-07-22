@@ -36,15 +36,16 @@ test("calibração três-vias agrega acordo token a token e throughput", () => {
 
 test("calibração preserva métricas da cabeça quantizada certificada", () => {
   const report = summarizeGemma4ThreeWayCalibration([
-    { ...baseCase, direct: { ...baseCase.direct, mlxHeadQuantizationStrategy: "two-stage-residual-affine-certified-v1" as const, mlxDecoderQuantizationStrategy: "single-stage-affine-q8-calibrated-v1" as const, mlxDecoderGateUpProjectionStrategy: "concatenated-affine-q8-v1" as const, mlxDecoderGateUpSplitStrategy: "static-index-take-v1" as const, quantizedHeadCertifiedSteps: 1, quantizedHeadExactFallbackSteps: 1 } },
+    { ...baseCase, direct: { ...baseCase.direct, prefillSeconds: 0.6, incrementalDecoderSeconds: 0.3, tokenSelectionSeconds: 0.09, terminalLogitTransferSeconds: 0.01, mlxHeadQuantizationStrategy: "two-stage-residual-affine-certified-v1" as const, mlxDecoderQuantizationStrategy: "single-stage-affine-q8-calibrated-v1" as const, mlxDecoderGateUpProjectionStrategy: "concatenated-affine-q8-v1" as const, mlxDecoderGateUpSplitStrategy: "static-index-take-v1" as const, quantizedHeadCertifiedSteps: 1, quantizedHeadExactFallbackSteps: 1 } },
   ], { maxNewTokens: 2, requestThreads: 1, precision: "f32", roundingPolicy: "none", runner: { source: "/model", python: "python", helper: "helper", directThreads: 4 } }, { ready: true });
-  const direct = report.cases[0]?.direct as { mlxHeadQuantizationStrategy?: string; mlxDecoderQuantizationStrategy?: string; mlxDecoderGateUpProjectionStrategy?: string; mlxDecoderGateUpSplitStrategy?: string; quantizedHeadCertifiedSteps?: number; quantizedHeadExactFallbackSteps?: number };
+  const direct = report.cases[0]?.direct as { prefillSeconds?: number; incrementalDecoderSeconds?: number; tokenSelectionSeconds?: number; terminalLogitTransferSeconds?: number; mlxHeadQuantizationStrategy?: string; mlxDecoderQuantizationStrategy?: string; mlxDecoderGateUpProjectionStrategy?: string; mlxDecoderGateUpSplitStrategy?: string; quantizedHeadCertifiedSteps?: number; quantizedHeadExactFallbackSteps?: number };
   assert.equal(direct.mlxHeadQuantizationStrategy, "two-stage-residual-affine-certified-v1");
   assert.equal(direct.mlxDecoderQuantizationStrategy, "single-stage-affine-q8-calibrated-v1");
   assert.equal(direct.mlxDecoderGateUpProjectionStrategy, "concatenated-affine-q8-v1");
   assert.equal(direct.mlxDecoderGateUpSplitStrategy, "static-index-take-v1");
   assert.equal(direct.quantizedHeadCertifiedSteps, 1);
   assert.equal(direct.quantizedHeadExactFallbackSteps, 1);
+  assert.deepEqual([direct.prefillSeconds, direct.incrementalDecoderSeconds, direct.tokenSelectionSeconds, direct.terminalLogitTransferSeconds], [0.6, 0.3, 0.09, 0.01]);
 });
 
 test("opções da calibração validam corpus e preservam opções do runtime", async () => {

@@ -267,6 +267,10 @@ export interface PagedFusedTokenGenerationResult {
   cachedContextTokens: number;
   quantizedHeadCertifiedSteps: number;
   quantizedHeadExactFallbackSteps: number;
+  prefillSeconds: number;
+  incrementalDecoderSeconds: number;
+  tokenSelectionSeconds: number;
+  terminalLogitTransferSeconds: number;
 }
 
 export interface PagedTokenGenerationEvent {

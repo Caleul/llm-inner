@@ -611,8 +611,11 @@ def emit_resident_generation(model, result, produced_caches, raw_logits, logits,
     topology_mask_builds, topology_mask_uses = initial_topology_mask_builds, initial_topology_mask_uses
     kv_prefix_validation_scans_avoided = initial_kv_prefix_validation_scans_avoided
     quantized_head_certified_steps, quantized_head_exact_fallback_steps = 0, 0
+    token_selection_seconds, terminal_logit_transfer_seconds = 0.0, 0.0
     while len(generated_ids) < max_new_tokens:
+        selection_started = time.perf_counter()
         token_id, ranked_ids, ranked_values, selected_logits, certified, exact_fallback = rank_terminal_logits(logits, raw_logits, top_k, result, model["epilogue"], model["rounding"])
+        token_selection_seconds += time.perf_counter() - selection_started
         quantized_head_certified_steps += int(certified)
         quantized_head_exact_fallback_steps += int(exact_fallback)
         generated_ids.append(token_id)
@@ -624,7 +627,9 @@ def emit_resident_generation(model, result, produced_caches, raw_logits, logits,
             sys.stdout.buffer.write(ranked_values.astype(np.float32).tobytes(order="C"))
             sys.stdout.buffer.flush()
         if len(generated_ids) == max_new_tokens or token_id == eos_token_id:
+            transfer_started = time.perf_counter()
             terminal_values = np.asarray(selected_logits, dtype=np.float32).reshape(-1)
+            terminal_logit_transfer_seconds += time.perf_counter() - transfer_started
             break
         incremental_started = time.perf_counter()
         incremental_ids = np.array([[token_id]], dtype=np.int32)
@@ -674,7 +679,7 @@ def emit_resident_generation(model, result, produced_caches, raw_logits, logits,
     computed = len(np.asarray(input_token_ids).reshape(-1)) if prefill_tokens_computed is None else prefill_tokens_computed
     cached_context_tokens = len(_resident_generation_session["token_ids"]) if session_id is not None else len(np.asarray(input_token_ids).reshape(-1)) + len(generated_ids) - 1
     compiled_incremental_decoder_steps = max(0, len(generated_ids) - 1)
-    profile = np.array((1, len(generated_ids), max(0, len(generated_ids) - 1), terminal_values.nbytes, rope_factor_builds, max(0, rope_factor_uses - rope_factor_builds), topology_mask_builds, max(0, topology_mask_uses - topology_mask_builds), len(generated_ids), kv_prefix_validation_scans_avoided, compiled_incremental_decoder_steps, 1 if model["incremental_compiler_cache_hit"] else 0, _widened_tensor_cache_hits - cache_hits_before, len(_widened_tensor_cache), _widened_tensor_cache_bytes, resident_kv_bytes, prefix_tokens_reused, computed, 1 if prefix_tokens_reused else 0, cached_context_tokens, quantized_head_certified_steps, quantized_head_exact_fallback_steps), dtype=np.float32)
+    profile = np.array((1, len(generated_ids), max(0, len(generated_ids) - 1), terminal_values.nbytes, rope_factor_builds, max(0, rope_factor_uses - rope_factor_builds), topology_mask_builds, max(0, topology_mask_uses - topology_mask_builds), len(generated_ids), kv_prefix_validation_scans_avoided, compiled_incremental_decoder_steps, 1 if model["incremental_compiler_cache_hit"] else 0, _widened_tensor_cache_hits - cache_hits_before, len(_widened_tensor_cache), _widened_tensor_cache_bytes, resident_kv_bytes, prefix_tokens_reused, computed, 1 if prefix_tokens_reused else 0, cached_context_tokens, quantized_head_certified_steps, quantized_head_exact_fallback_steps, first_forward_seconds, sum(forward_seconds[1:]), token_selection_seconds, terminal_logit_transfer_seconds), dtype=np.float32)
     write_float_tensor(mx.array(profile))
     sys.stdout.buffer.flush()
 

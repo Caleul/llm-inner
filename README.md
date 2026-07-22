@@ -2848,6 +2848,17 @@ prompt, além do ganho mínimo configurado. Relatórios de calibração agora
 preservam `terminalLogitsSha256`; artefatos antigos ou incompletos são
 rejeitados em vez de serem promovidos sem identidade numérica suficiente.
 
+O perfil da geração residente separa `prefillSeconds`,
+`incrementalDecoderSeconds`, `tokenSelectionSeconds` e
+`terminalLogitTransferSeconds`. Esses quatro tempos atravessam o protocolo
+binário, o relatório JSON, a calibração e a interface, permitindo distinguir o
+custo do grafo decoder do ranking e da transferência final. Na medição sensível
+de 3 prompts × 4 tokens que validou o contrato, o caminho direto manteve 12/12
+tokens, zero divergências raiz e nenhum fallback; o decoder incremental somou
+aproximadamente `0.107 s` por prompt, a seleção `0.0022–0.0026 s` e a
+transferência terminal menos de `0.000003 s`. Assim, novas otimizações devem
+atacar o forward incremental, não a transferência ou o ranking top-k.
+
 Na calibração oficial de 8 prompts × 8 tokens, head BF16 mais `gate+up` Q8
 produziu 64/64 tokens iguais ao Transformers, zero divergências raiz, erro
 máximo de `0.25` no logit escolhido e sobreposição top-5 média de `95.625%`.

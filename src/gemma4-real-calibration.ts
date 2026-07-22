@@ -78,6 +78,10 @@ interface ThreeWayCase {
     terminalLogitsSha256?: string;
     quantizedHeadCertifiedSteps?: number;
     quantizedHeadExactFallbackSteps?: number;
+    prefillSeconds?: number;
+    incrementalDecoderSeconds?: number;
+    tokenSelectionSeconds?: number;
+    terminalLogitTransferSeconds?: number;
     ropeFactorBuilds?: number;
     ropeFactorBuildsAvoided?: number;
     topologyMaskBuilds?: number;
@@ -309,6 +313,10 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.terminalLogitsSha256 === undefined ? {} : { terminalLogitsSha256: entry.direct.terminalLogitsSha256 }),
         ...(entry.direct.quantizedHeadCertifiedSteps === undefined ? {} : { quantizedHeadCertifiedSteps: entry.direct.quantizedHeadCertifiedSteps }),
         ...(entry.direct.quantizedHeadExactFallbackSteps === undefined ? {} : { quantizedHeadExactFallbackSteps: entry.direct.quantizedHeadExactFallbackSteps }),
+        ...(entry.direct.prefillSeconds === undefined ? {} : { prefillSeconds: entry.direct.prefillSeconds }),
+        ...(entry.direct.incrementalDecoderSeconds === undefined ? {} : { incrementalDecoderSeconds: entry.direct.incrementalDecoderSeconds }),
+        ...(entry.direct.tokenSelectionSeconds === undefined ? {} : { tokenSelectionSeconds: entry.direct.tokenSelectionSeconds }),
+        ...(entry.direct.terminalLogitTransferSeconds === undefined ? {} : { terminalLogitTransferSeconds: entry.direct.terminalLogitTransferSeconds }),
         ...(entry.direct.ropeFactorBuilds === undefined ? {} : { ropeFactorBuilds: entry.direct.ropeFactorBuilds }),
         ...(entry.direct.ropeFactorBuildsAvoided === undefined ? {} : { ropeFactorBuildsAvoided: entry.direct.ropeFactorBuildsAvoided }),
         ...(entry.direct.topologyMaskBuilds === undefined ? {} : { topologyMaskBuilds: entry.direct.topologyMaskBuilds }),

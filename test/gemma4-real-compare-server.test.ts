@@ -72,6 +72,7 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /parede total/);
   assert.match(gemma4RealCompareHtml, /fases stack attn\/FFN\/PLE/);
   assert.match(gemma4RealCompareHtml, /fases stack: fundidas no grafo Metal/);
+  assert.match(gemma4RealCompareHtml, /fases compiladas prefill\/decoder incremental\/seleção\/transferência terminal/);
   assert.match(gemma4RealCompareHtml, /PLEs fundidos/);
   assert.match(gemma4RealCompareHtml, /head:/);
   assert.match(gemma4RealCompareHtml, /attention core:/);
