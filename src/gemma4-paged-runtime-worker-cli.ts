@@ -80,7 +80,7 @@ process.stdout.write(`${JSON.stringify({ ready: true, initializationSeconds: (pe
 
 const lines = createInterface({ input: process.stdin, crlfDelay: Infinity });
 for await (const line of lines) {
-  let request: { id?: unknown; control?: unknown; inputIds?: unknown; maxNewTokens?: unknown; eosTokenId?: unknown; sessionId?: unknown; stream?: unknown; verificationFastPath?: unknown; verificationControl?: unknown } = {};
+  let request: { id?: unknown; control?: unknown; inputIds?: unknown; maxNewTokens?: unknown; eosTokenId?: unknown; sessionId?: unknown; stream?: unknown; verificationFastPath?: unknown; verificationControl?: unknown; captureLayerHidden?: unknown } = {};
   try {
     request = JSON.parse(line) as typeof request;
     if (request.control === "trim-memory") {
@@ -93,11 +93,12 @@ for await (const line of lines) {
     }
     if (request.control !== undefined) throw new Error("Controle de worker desconhecido.");
     const inputIds = validateIds(request.inputIds), maxNewTokens = validateTokens(request.maxNewTokens), eosTokenId = validateEosTokenId(request.eosTokenId);
-    const sessionId = validateSessionId(request.sessionId), stream = validateStream(request.stream), verificationFastPath = validateVerificationFastPath(request.verificationFastPath, maxNewTokens), verificationControl = validateVerificationControl(request.verificationControl);
+    const sessionId = validateSessionId(request.sessionId), stream = validateStream(request.stream), verificationFastPath = validateVerificationFastPath(request.verificationFastPath, maxNewTokens), verificationControl = validateVerificationControl(request.verificationControl), captureLayerHidden = validateCaptureLayerHidden(request.captureLayerHidden);
     if (verificationFastPath && verificationControl) throw new Error("verificationFastPath e verificationControl são mutuamente exclusivos.");
     if (verificationControl && (args.linearBackend !== "mlx" || args.mlxDecoderQuantization !== "q8-ffn-gate-up-down" || sessionId !== undefined || stream)) throw new Error("verificationControl requer decoder MLX q8-ffn-gate-up-down sem sessão nem streaming.");
+    if (captureLayerHidden && (!verificationFastPath || args.linearBackend !== "pytorch" || sessionId !== undefined || stream)) throw new Error("captureLayerHidden requer verificationFastPath no backend PyTorch sem sessão nem streaming.");
     const report = verificationFastPath
-      ? await generateSelectiveVerification(inputIds, maxNewTokens, verificationFastPath, eosTokenId)
+      ? await generateSelectiveVerification(inputIds, maxNewTokens, verificationFastPath, eosTokenId, captureLayerHidden)
       : await generate(inputIds, maxNewTokens, eosTokenId, sessionId, stream ? (event) => process.stdout.write(`${JSON.stringify({ id: request.id, event: { type: "token", ...event } })}\n`) : undefined, verificationControl);
     process.stdout.write(`${JSON.stringify({ id: request.id, report })}\n`);
   } catch (error) {
@@ -142,12 +143,14 @@ interface VerificationFastPath {
   terminalLogitsSha256: string;
 }
 
-async function generateSelectiveVerification(inputIds: number[], maxNewTokens: number, fast: VerificationFastPath, eosTokenId?: number): Promise<Record<string, unknown>> {
+async function generateSelectiveVerification(inputIds: number[], maxNewTokens: number, fast: VerificationFastPath, eosTokenId?: number, captureLayerHidden = false): Promise<Record<string, unknown>> {
   if (args.linearBackend !== "pytorch" || args.residentGeneration !== "off" || args.fusedTokenForwardRounding !== "off") throw new Error("Verificação seletiva requer backend PyTorch não residente.");
   const dispatchesBefore = linear.dispatchMetrics(), started = performance.now();
   const sensitive = new Set(fast.sensitiveSteps), generatedTokenIds: number[] = [], steps: Array<Record<string, unknown>> = [];
   let forwardStarted = performance.now();
-  let current = await executeGemma4PagedTextHiddenLiteralF32(artifact, { inputIds: [inputIds] }, options);
+  const layerHiddenCaptures: string[][] = [];
+  const executionOptions = captureLayerHidden ? { ...options, onDecoderLayerHidden: (layers: readonly Float32Array[]) => layerHiddenCaptures.push(layers.map(encodeTerminalHidden)) } : options;
+  let current = await executeGemma4PagedTextHiddenLiteralF32(artifact, { inputIds: [inputIds] }, executionOptions);
   let forwardSeconds = (performance.now() - forwardStarted) / 1000, terminalLogitsSha256 = fast.terminalLogitsSha256, divergenceStep: number | null = null;
   for (let step = 0; step < fast.generatedTokenIds.length; step += 1) {
     const verify = divergenceStep !== null || sensitive.has(step);
@@ -167,14 +170,21 @@ async function generateSelectiveVerification(inputIds: number[], maxNewTokens: n
     steps.push({ step, tokenId, contextLength: inputIds.length + step, forwardSeconds, topLogits, verificationSkipped });
     if (tokenId === eosTokenId || step + 1 === maxNewTokens) break;
     forwardStarted = performance.now();
-    current = await executeGemma4PagedTextHiddenLiteralF32(artifact, { inputIds: [[tokenId]], positionIds: [[inputIds.length + step]], pastKeyValues: current.pastKeyValues }, options);
+    current = await executeGemma4PagedTextHiddenLiteralF32(artifact, { inputIds: [[tokenId]], positionIds: [[inputIds.length + step]], pastKeyValues: current.pastKeyValues }, executionOptions);
     forwardSeconds = (performance.now() - forwardStarted) / 1000;
   }
   const elapsedSeconds = (performance.now() - started) / 1000, dispatchesAfter = linear.dispatchMetrics();
   return buildReport(inputIds, maxNewTokens, generatedTokenIds, steps, terminalLogitsSha256, elapsedSeconds, dispatchesBefore, dispatchesAfter, {
     selectiveVerification: true, sensitiveSteps: fast.sensitiveSteps, trustedFastPathSteps: steps.filter((step) => step.verificationSkipped === true).length,
     verificationHeadSteps: steps.filter((step) => step.verificationSkipped === false).length, verificationDivergenceStep: divergenceStep, externalForwardRequests: generatedTokenIds.length,
+    ...(captureLayerHidden ? { layerHiddenEncoding: "terminal-token-f32le-base64", layerHiddenCaptures } : {}),
   });
+}
+
+function encodeTerminalHidden(values: Float32Array): string {
+  const hiddenSize = artifact.program.contract.text.hiddenSize;
+  const terminal = values.subarray(values.length - hiddenSize);
+  return Buffer.from(terminal.buffer, terminal.byteOffset, terminal.byteLength).toString("base64");
 }
 
 function buildReport(inputIds: number[], maxNewTokens: number, generatedTokenIds: number[], steps: Array<Record<string, unknown>>, terminalLogitsSha256: string, elapsedSeconds: number, dispatchesBefore: ReturnType<typeof linear.dispatchMetrics>, dispatchesAfter: ReturnType<typeof linear.dispatchMetrics>, transport: Record<string, unknown>): Record<string, unknown> {
@@ -272,6 +282,11 @@ function validateSessionId(value: unknown): number | undefined {
 function validateStream(value: unknown): boolean {
   if (value === undefined) return false;
   if (typeof value !== "boolean") throw new Error("stream deve ser booleano.");
+  return value;
+}
+function validateCaptureLayerHidden(value: unknown): boolean {
+  if (value === undefined) return false;
+  if (typeof value !== "boolean") throw new Error("captureLayerHidden deve ser booleano.");
   return value;
 }
 function validateVerificationControl(value: unknown): boolean {

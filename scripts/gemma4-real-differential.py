@@ -2,6 +2,7 @@
 """Real greedy generation: E4B IEEE-BF16 versus no-intermediate-rounding."""
 
 import argparse
+import base64
 from collections import OrderedDict
 import json
 import platform
@@ -83,7 +84,7 @@ def boundary_values(text, input_ids):
     return embeddings.detach(), text.project_per_layer_inputs(embeddings, raw_per_layer).detach()
 
 
-def exact_text_forward(text, hidden, per_layer, position_start=0, cache=None):
+def exact_text_forward(text, hidden, per_layer, position_start=0, cache=None, capture_layer_hidden=False):
     hidden = hidden.to(REAL_DTYPE)
     per_layer = per_layer.to(REAL_DTYPE)
     cache = cache if cache is not None else DynamicCache(config=text.config)
@@ -102,6 +103,7 @@ def exact_text_forward(text, hidden, per_layer, position_start=0, cache=None):
         frequencies = positions[:, None] * inv_frequency[None, :]
         embedding = torch.cat((frequencies, frequencies), dim=-1).unsqueeze(0)
         position_embeddings[layer_type] = (embedding.cos(), embedding.sin())
+    layer_hidden = []
     for index, layer in enumerate(text.layers[: text.config.num_hidden_layers]):
         hidden = layer(
             hidden,
@@ -113,7 +115,9 @@ def exact_text_forward(text, hidden, per_layer, position_start=0, cache=None):
         )
         if ROUNDING_POLICY == "layer-bf16":
             hidden = hidden.to(torch.bfloat16).to(REAL_DTYPE)
-    return text.norm(hidden), cache
+        if capture_layer_hidden:
+            layer_hidden.append(hidden.detach())
+    return text.norm(hidden), cache, layer_hidden
 
 
 def metrics(baseline, candidate):
@@ -161,14 +165,23 @@ def inspected_logits(baseline, candidate, dimensions):
     return inspected
 
 
-def baseline_next(model, input_ids, cache=None):
+def baseline_next(model, input_ids, cache=None, capture_layer_hidden=False):
     started = time.perf_counter()
-    output = model(input_ids=input_ids, past_key_values=cache, use_cache=True, logits_to_keep=1)
+    layer_hidden = []
+    hooks = []
+    if capture_layer_hidden:
+        for layer in model.model.language_model.layers[: model.config.get_text_config().num_hidden_layers]:
+            hooks.append(layer.register_forward_hook(lambda _module, _inputs, output: layer_hidden.append((output[0] if isinstance(output, tuple) else output).detach())))
+    try:
+        output = model(input_ids=input_ids, past_key_values=cache, use_cache=True, logits_to_keep=1)
+    finally:
+        for hook in hooks:
+            hook.remove()
     logits = output.logits[0, -1].float().cpu()
-    return logits, output.past_key_values, time.perf_counter() - started
+    return logits, output.past_key_values, time.perf_counter() - started, layer_hidden
 
 
-def exact_next(model, input_ids, cache=None, position_start=0):
+def exact_next(model, input_ids, cache=None, position_start=0, capture_layer_hidden=False):
     text = model.model.language_model
     started = time.perf_counter()
     hidden_boundary, per_layer_boundary = boundary_values(text, input_ids)
@@ -179,7 +192,7 @@ def exact_next(model, input_ids, cache=None, position_start=0):
     modeling_gemma4.Gemma4RMSNorm.forward = exact_rms_norm
     modeling_gemma4.eager_attention_forward = exact_eager_attention
     try:
-        final_hidden, cache = exact_text_forward(text, hidden_boundary, per_layer_boundary, position_start, cache)
+        final_hidden, cache, layer_hidden = exact_text_forward(text, hidden_boundary, per_layer_boundary, position_start, cache, capture_layer_hidden)
         exact_logits = exact_linear(model.lm_head, final_hidden[:, -1:, :])[0, -1]
         softcap = model.config.get_text_config().final_logit_softcapping
         if softcap is not None:
@@ -189,7 +202,15 @@ def exact_next(model, input_ids, cache=None, position_start=0):
         torch.nn.Linear.forward = original_linear
         modeling_gemma4.Gemma4RMSNorm.forward = original_norm
         modeling_gemma4.eager_attention_forward = original_attention
-    return logits, cache, time.perf_counter() - started
+    return logits, cache, time.perf_counter() - started, layer_hidden
+
+
+def encode_terminal_hidden(layers):
+    encoded = []
+    for hidden in layers:
+        terminal = hidden[0, -1].float().cpu().contiguous()
+        encoded.append(base64.b64encode(terminal.numpy().tobytes()).decode("ascii"))
+    return encoded
 
 
 def load_runtime(source, threads, logit_chunk):
@@ -206,7 +227,7 @@ def load_runtime(source, threads, logit_chunk):
     return model, AutoTokenizer.from_pretrained(source)
 
 
-def compare_request(model, tokenizer, source, prompt, input_ids, max_new_tokens, inspect_logit, threads=0, precision="f64", rounding_policy="none", session_id=None, eos_token_id=None):
+def compare_request(model, tokenizer, source, prompt, input_ids, max_new_tokens, inspect_logit, threads=0, precision="f64", rounding_policy="none", session_id=None, eos_token_id=None, capture_layer_hidden=False):
     global REAL_DTYPE, ROUNDING_POLICY
     if max_new_tokens < 1 or max_new_tokens > 256:
         raise ValueError("maxNewTokens must be between 1 and 256")
@@ -219,6 +240,8 @@ def compare_request(model, tokenizer, source, prompt, input_ids, max_new_tokens,
     REAL_DTYPE = torch.float32 if precision == "f32" else torch.float64
     if rounding_policy not in ("none", "layer-bf16", "operation-bf16"):
         raise ValueError("roundingPolicy must be none, layer-bf16 or operation-bf16")
+    if not isinstance(capture_layer_hidden, bool):
+        raise ValueError("captureLayerHidden must be boolean")
     ROUNDING_POLICY = rounding_policy
     started = time.time()
     if prompt is not None:
@@ -243,8 +266,8 @@ def compare_request(model, tokenizer, source, prompt, input_ids, max_new_tokens,
         contexts_equal = baseline_ids == candidate_ids
         baseline_input = baseline_ids[baseline_reused:] if step == 0 and baseline_reused else baseline_ids if step == 0 else [baseline_ids[-1]]
         candidate_input = candidate_ids[candidate_reused:] if step == 0 and candidate_reused else candidate_ids if step == 0 else [candidate_ids[-1]]
-        baseline_logits, baseline_cache, baseline_seconds = baseline_next(model, torch.tensor([baseline_input], dtype=torch.long), baseline_cache)
-        candidate_logits, candidate_cache, candidate_seconds = exact_next(model, torch.tensor([candidate_input], dtype=torch.long), candidate_cache, len(candidate_ids) - len(candidate_input))
+        baseline_logits, baseline_cache, baseline_seconds, baseline_layer_hidden = baseline_next(model, torch.tensor([baseline_input], dtype=torch.long), baseline_cache, capture_layer_hidden)
+        candidate_logits, candidate_cache, candidate_seconds, candidate_layer_hidden = exact_next(model, torch.tensor([candidate_input], dtype=torch.long), candidate_cache, len(candidate_ids) - len(candidate_input), capture_layer_hidden)
         comparison = metrics(baseline_logits, candidate_logits)
         baseline_token, candidate_token = comparison["baselineArgmax"], comparison["candidateArgmax"]
         baseline_ids.append(baseline_token); candidate_ids.append(candidate_token)
@@ -258,6 +281,7 @@ def compare_request(model, tokenizer, source, prompt, input_ids, max_new_tokens,
             "baselineSeconds": baseline_seconds, "candidateSeconds": candidate_seconds,
             "metrics": comparison, "inspectedLogits": inspected_logits(baseline_logits, candidate_logits, inspect_logit),
             "baselineTopLogits": top_logits(baseline_logits), "candidateTopLogits": top_logits(candidate_logits),
+            **({"layerHiddenEncoding": "terminal-token-f32le-base64", "baselineLayerHidden": encode_terminal_hidden(baseline_layer_hidden), "candidateLayerHidden": encode_terminal_hidden(candidate_layer_hidden)} if capture_layer_hidden else {}),
         })
         if baseline_token == eos_token_id:
             break
@@ -318,7 +342,7 @@ def main():
                         raise ValueError("encode requires non-empty text and boolean addSpecialTokens")
                     report = {"tokenIds": tokenizer.encode(text, add_special_tokens=add_special_tokens)}
                 else:
-                    report = compare_request(model, tokenizer, args.source, request.get("prompt"), request.get("inputIds"), int(request.get("maxNewTokens", 1)), request.get("inspectLogit", []), int(request.get("threads", 0)), request.get("precision", "f64"), request.get("roundingPolicy", "none"), request.get("sessionId"), request.get("eosTokenId"))
+                    report = compare_request(model, tokenizer, args.source, request.get("prompt"), request.get("inputIds"), int(request.get("maxNewTokens", 1)), request.get("inspectLogit", []), int(request.get("threads", 0)), request.get("precision", "f64"), request.get("roundingPolicy", "none"), request.get("sessionId"), request.get("eosTokenId"), request.get("captureLayerHidden", False))
                 print(json.dumps({"id": request.get("id"), "report": report}), flush=True)
             except Exception as error:
                 print(json.dumps({"id": request.get("id") if "request" in locals() else None, "error": str(error)}), flush=True)

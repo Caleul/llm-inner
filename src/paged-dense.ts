@@ -187,6 +187,7 @@ export interface PagedFusedDecoderStackRequest {
   perLayerWidth: number;
   layers: readonly PagedFusedDecoderStackLayerRequest[];
   rounding: "real" | "native-bf16" | "native-bf16-ple";
+  captureLayerHidden?: boolean;
 }
 
 export interface PagedFusedDecoderStackCache {
@@ -198,6 +199,7 @@ export interface PagedFusedDecoderStackCache {
 export interface PagedFusedDecoderStackResult {
   hidden: Float32Array;
   caches: readonly PagedFusedDecoderStackCache[];
+  layerHidden?: readonly Float32Array[];
 }
 
 export interface PagedFusedDecoderStackEpilogueRequest extends PagedFusedDecoderStackRequest {

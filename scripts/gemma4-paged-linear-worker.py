@@ -113,10 +113,10 @@ def eager_bf16_attention(query, key, value, mask, scale):
     query = query.to(torch.bfloat16)
     key = key.to(torch.bfloat16)
     value = value.to(torch.bfloat16)
-    scores = (torch.matmul(query, key.transpose(-1, -2)).float() * torch.tensor(scale, dtype=torch.float32)).to(torch.bfloat16)
-    scores = (scores + mask.to(torch.bfloat16)).to(torch.bfloat16)
-    probabilities = torch.softmax(scores.float(), dim=-1).to(torch.bfloat16)
-    return torch.matmul(probabilities, value).to(torch.bfloat16).float()
+    scores = torch.matmul(query, key.transpose(-1, -2)) * scale
+    scores = scores + mask.to(torch.bfloat16)
+    probabilities = torch.softmax(scores, dim=-1, dtype=torch.float32).to(query.dtype)
+    return torch.matmul(probabilities, value).float()
 
 
 def repeat_key_value(hidden_states, groups):
@@ -203,9 +203,7 @@ def execute_decoder_layer(pool, files, mappings, inputs, per_layer, positions, m
     ple_norm_weight = read_whole_tensor(pool, files, mappings, (hidden_size, 1)).reshape(hidden_size)
     layer_scalar = read_whole_tensor(pool, files, mappings, (1, 1)).reshape(())
     ple_gate = boundary(torch.matmul(after_mlp.to(torch.bfloat16) if native_ple else after_mlp, ple_gate_weight.transpose(0, 1)).float())
-    cube = (ple_gate * ple_gate) * ple_gate
-    inner = torch.tensor(math.sqrt(2 / math.pi), dtype=torch.float32) * (ple_gate + torch.tensor(0.044715, dtype=torch.float32) * cube)
-    ple_activated = boundary((torch.tensor(0.5, dtype=torch.float32) * ple_gate) * (torch.tensor(1.0, dtype=torch.float32) + torch.tanh(inner)))
+    ple_activated = torch.nn.functional.gelu(ple_gate.to(torch.bfloat16), approximate="tanh").float()
     ple_gated = boundary(ple_activated * per_layer)
     ple_projected = boundary(torch.matmul(ple_gated.to(torch.bfloat16) if native_ple else ple_gated, ple_projection_weight.transpose(0, 1)).float())
     ple_normalized = boundary(rms_norm_real(ple_projected, ple_norm_weight, config["ple_epsilon"]))
@@ -248,8 +246,11 @@ def main():
             fused_ffn = bool(encoded_dtype & 0x00800000)
             fused_decoder_layer = bool(encoded_dtype & 0x00400000)
             fused_decoder_stack = bool(encoded_dtype & 0x00200000)
+            capture_decoder_layer_hidden = bool(encoded_dtype & 0x00001000)
             streamed_native_bf16 = bool(encoded_dtype & 0x00100000)
-            dtype_code = encoded_dtype & 0x000fffff
+            dtype_code = (encoded_dtype & 0x000fffff) & ~0x00001000
+            if capture_decoder_layer_hidden and not fused_decoder_stack:
+                raise ValueError("decoder layer capture requires fused decoder stack")
             if streamed_native_bf16:
                 if not referenced or not native_bf16 or batched or fused_mlp or native_attention or fused_attention or fused_ple or fused_ple_prelude or fused_ffn or fused_decoder_layer or fused_decoder_stack or dtype_code != 1 or pool is None:
                     raise ValueError("streamed native BF16 flags are invalid")
@@ -293,7 +294,7 @@ def main():
                 result = torch.frombuffer(input_bytes, dtype=torch.float32).reshape(batch, query_sequence, hidden_size)
                 all_per_layer = torch.frombuffer(per_layer_bytes, dtype=torch.float32).reshape(batch, query_sequence, num_layers, per_layer_width)
                 positions = torch.frombuffer(position_bytes, dtype=torch.int32).reshape(batch, query_sequence)
-                produced_caches, ordered_caches = {}, []
+                produced_caches, ordered_caches, layer_hidden = {}, [], []
                 stack_profile = [0.0] * 4
                 cache_hits_before = _widened_tensor_cache_hits
                 for expected_layer in range(num_layers):
@@ -332,19 +333,23 @@ def main():
                             source_value = torch.empty((batch, key_value_heads, 0, head_dim), dtype=torch.float32)
                     config = {"query_heads": query_heads, "key_value_heads": key_value_heads, "head_dim": head_dim, "produces_kv": produces_kv, "value_from_key": value_from_key, "intermediate_size": intermediate_size, "per_layer_width": per_layer_width, "input_epsilon": input_epsilon, "attention_epsilon": attention_epsilon, "post_attention_epsilon": post_attention_epsilon, "pre_ffn_epsilon": pre_ffn_epsilon, "post_ffn_epsilon": post_ffn_epsilon, "ple_epsilon": ple_epsilon, "scale": scale, "rope_kind": rope_kind, "theta": theta, "rotary_dim": rotary_dim, "proportional_pairs": proportional_pairs, "proportional_factor": proportional_factor, "native_ple": native_bf16, "validate_outputs": False}
                     result, key, value, layer_profile = execute_decoder_layer(pool, files, mappings, result, all_per_layer[:, :, layer_index, :], positions, mask, source_key, source_value, config)
+                    if capture_decoder_layer_hidden:
+                        layer_hidden.append(result.clone())
                     for profile_index, profile_value in enumerate(layer_profile):
                         stack_profile[profile_index] += profile_value
                     if produces_kv:
                         produced_caches[layer_index] = (key, value)
                         ordered_caches.append((key, value))
                 write_float_tensor(result)
+                for hidden in layer_hidden:
+                    write_float_tensor(hidden)
                 for key, value in ordered_caches:
                     write_float_tensor(key)
                     write_float_tensor(value)
                 stack_profile.extend((_widened_tensor_cache_hits - cache_hits_before, len(_widened_tensor_cache), _widened_tensor_cache_bytes))
                 write_float_tensor(torch.tensor(stack_profile, dtype=torch.float32))
                 sys.stdout.buffer.flush()
-                del result, all_per_layer, positions, produced_caches, ordered_caches, stack_profile
+                del result, all_per_layer, positions, produced_caches, ordered_caches, layer_hidden, stack_profile
                 continue
             if fused_decoder_layer:
                 if referenced or batched or fused_mlp or native_bf16 or native_attention or fused_attention or fused_ple or fused_ple_prelude or fused_ffn or fused_decoder_stack or dtype_code != 0 or pool is None:

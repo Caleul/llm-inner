@@ -3060,6 +3060,26 @@ matmul com posições, e Q/K/V preservam BSHD até norm/RoPE antes do
 incompatíveis do contrato, mas não eliminaram sozinhos as duas divergências de
 oito tokens; elas permanecem visíveis, sem promoção indevida de paridade.
 
+Uma captura opt-in posterior localizou o primeiro caso: o caminho rápido já
+escolhia `818`, mas o verificador executava a PLE com projeções ampliadas para
+F32. O fallback PyTorch agora usa `native-bf16-ple`, preserva as projeções e a
+GELU da PLE em BF16 e também escolhe `818`. A repetição integral de 32 prompts
+× 8 tokens passou de `30/32` para `31/32` prompts e de `252/256` para
+`254/256` tokens iguais, com uma divergência raiz em vez de duas. O runtime
+direto somou `18,1738 s` (`14,0862 tok/s`) contra `138,4578 s`
+(`1,8489 tok/s`) da referência, uma razão agregada de `7,6185×`. O limite
+restante é `A leap year usually has`: a referência termina com empate BF16
+entre os tokens `886` e `1651` e seleciona `886`, enquanto os dois runtimes
+compilados escolhem `1651`. O relatório está em
+`artifacts/gemma4-native-ple-fallback-calibration-32x8.json`; como os anteriores,
+ele é evidência finita do corpus, não garantia universal.
+
+Para localizar diferenças sem onerar a geração normal, `POST
+/api/diagnose-layers` executa um prompt raw sem sessão e devolve, para cada
+passo, o vetor terminal após cada camada da referência e do verificador. A
+codificação publicada é `terminal-token-f32le-base64`; a captura é autenticada
+pelo mesmo índice do bundle e só é habilitada no backend PyTorch diagnóstico.
+
 Depois do primeiro fallback, o servidor mantém o índice autenticado do
 artefato literal já aberto, mas reinicia o kernel linear PyTorch após cada
 verificação. Isso evita reler e reindexar os 20 GiB de `constants.literal.json`

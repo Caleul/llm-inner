@@ -11,7 +11,7 @@ import { validateGemma4FinalFormulaRuntime } from "./gemma4-final-formula-runtim
 import { normalizeGemma4DecoderQuantizationLayers, type Gemma4MlxDecoderQuantization } from "./gemma4-paged-native-linear.js";
 import { validateGemma4VectorizedRealLoweringPlan, type Gemma4VectorizedRealLoweringPlan } from "./gemma4-vectorized-real-lowering.js";
 
-export interface Gemma4RealComparisonRequest { prompt: string; maxNewTokens: number; threads?: number; precision?: "f32" | "f64"; roundingPolicy?: "none" | "layer-bf16" | "operation-bf16"; sessionId?: number; continueSession?: boolean; conversationMode?: "raw" | "chat"; measurementSchedule?: "isolated" | "parallel" }
+export interface Gemma4RealComparisonRequest { prompt: string; maxNewTokens: number; threads?: number; precision?: "f32" | "f64"; roundingPolicy?: "none" | "layer-bf16" | "operation-bf16"; sessionId?: number; continueSession?: boolean; conversationMode?: "raw" | "chat"; measurementSchedule?: "isolated" | "parallel"; captureLayerHidden?: boolean }
 export interface Gemma4RealComparisonRunnerOptions {
   source: string; python: string; helper: string; tokenizerHelper?: string;
   compiledProgram?: Gemma4CompiledProgramStatus;
@@ -202,6 +202,28 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
         });
       }
       if (request.method === "GET" && request.url === "/api/status") return json(response, 200, { ready: tokenizer.ready && (!direct ? worker?.ready === true : direct.ready && directWarmupSeconds !== undefined && (options.directVerificationBackend !== "mlx-control" || !verificationEnabled || verificationWarmupSeconds !== undefined)), source: options.source, runtime: "persistent-jsonl", chatTemplate: GEMMA4_CHAT_TEMPLATE, chatContract: { source: GEMMA4_CHAT_CONTRACT_SOURCE, startOfTurnToken: { text: "<|turn>", id: GEMMA4_CHAT_SOT_TOKEN_ID }, endOfTurnToken: { text: "<turn|>", id: GEMMA4_CHAT_EOT_TOKEN_ID }, generationStopsAtEndOfTurn: true }, checkpointChatTemplateDeclared, tokenizer: { ready: tokenizer.ready, initializationSeconds: tokenizer.initializationSeconds, helper: options.tokenizerHelper }, reference: { state: worker?.ready ? "ready" : referenceInitialization ? "initializing" : "unloaded", initializationSeconds: worker?.initializationSeconds, ...(referenceError ? { error: referenceError.message } : {}) }, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), ...(initializationError ? { error: initializationError.message } : {}), direct: direct ? { enabled: true, artifact: options.literalArtifact, binaryPool: options.binaryPool, sourceIndependentBundle: options.literalArtifact !== undefined && options.binaryPool === dirname(options.literalArtifact), ...direct.readyMetadata, ready: direct.ready, initializationSeconds: direct.initializationSeconds, warmupSeconds: directWarmupSeconds, warmupComplete: directWarmupSeconds !== undefined, verification: directVerificationStatus() } : { enabled: false } });
+      if (request.method === "POST" && request.url === "/api/diagnose-layers") {
+        await initialize;
+        const body = JSON.parse(await readBody(request)) as Gemma4RealComparisonRequest;
+        validateRequest(body);
+        if (!direct || !verificationEnabled || options.directVerificationBackend !== "pytorch") throw new Error("Diagnóstico por camada requer execução compilada MLX com verificador PyTorch habilitado.");
+        if (body.sessionId !== undefined || body.continueSession || body.conversationMode === "chat") throw new Error("Diagnóstico por camada aceita somente prompts raw sem sessão.");
+        const inputIds = await resolveComparisonInput(tokenizer, body, sessionInputs);
+        const fast = await direct.send({ inputIds, maxNewTokens: body.maxNewTokens }) as DirectReport;
+        if (typeof fast.terminalLogitsSha256 !== "string" || !Array.isArray(fast.generatedTokenIds)) throw new Error("Execução rápida não retornou contrato verificável para diagnóstico.");
+        const verificationWorker = await getVerificationWorker(), lease = await acquireReferenceWorker();
+        let reference: ComparisonReport, verifier: DirectReport;
+        try {
+          [reference, verifier] = await Promise.all([
+            lease.worker.compareTokens({ ...body, captureLayerHidden: true }, inputIds) as Promise<ComparisonReport>,
+            verificationWorker.send({ inputIds, maxNewTokens: body.maxNewTokens, captureLayerHidden: true, verificationFastPath: { generatedTokenIds: fast.generatedTokenIds, sensitiveSteps: fast.generatedTokenIds.map((_token, step) => step), terminalLogitsSha256: fast.terminalLogitsSha256 } }) as Promise<DirectReport>,
+          ]);
+        } finally {
+          lease.release(true);
+          await releaseVerificationWorker();
+        }
+        return json(response, 200, { kind: "gemma4-decoder-layer-differential", schemaVersion: 1, prompt: body.prompt, inputIds, fastGeneratedTokenIds: fast.generatedTokenIds, reference, verifier });
+      }
       if (request.method === "POST" && request.url === "/api/compare") {
         await initialize;
         const body = JSON.parse(await readBody(request)) as Gemma4RealComparisonRequest;
@@ -297,7 +319,7 @@ function directWorkerArguments(options: Gemma4RealComparisonRunnerOptions, backe
   if (!options.literalArtifact || !options.binaryPool) throw new Error("Worker direto requer artefato literal e pool binário.");
   const compiledControl = !primary && backend === "mlx";
   const accelerated = primary || compiledControl;
-  const decoderStack = accelerated ? options.directFusedDecoderStack ?? (backend === "mlx" ? "real" : "native-bf16") : "native-bf16";
+  const decoderStack = accelerated ? options.directFusedDecoderStack ?? (backend === "mlx" ? "real" : "native-bf16") : "native-bf16-ple";
   const tokenForward = backend === "mlx" ? options.directFusedTokenForward ?? (decoderStack !== "off" ? "bf16" : "off") : "off";
   const residentGeneration = backend === "mlx" ? options.directResidentGeneration ?? (tokenForward === "bf16" ? "on" : "off") : "off";
   const runtimeIndex = [
@@ -563,6 +585,7 @@ function validateRequest(request: Gemma4RealComparisonRequest): void {
   if (request.conversationMode !== undefined && request.conversationMode !== "raw" && request.conversationMode !== "chat") throw new Error("conversationMode deve ser raw ou chat.");
   if (request.conversationMode === "chat" && (request.prompt.includes("<|turn>") || request.prompt.includes("<turn|>"))) throw new Error("prompt de chat não pode conter os delimitadores reservados <|turn> ou <turn|>.");
   if (request.measurementSchedule !== undefined && request.measurementSchedule !== "isolated" && request.measurementSchedule !== "parallel") throw new Error("measurementSchedule deve ser isolated ou parallel.");
+  if (request.captureLayerHidden !== undefined && typeof request.captureLayerHidden !== "boolean") throw new Error("captureLayerHidden deve ser booleano.");
 }
 
 async function readBody(request: IncomingMessage): Promise<string> {

@@ -92,6 +92,8 @@ export interface Gemma4PagedTextOptions {
   fusedPlePreludeRounding?: "bf16" | "real";
   /** Text-only token IDs -> embeddings -> decoder -> logits in one native request. */
   fusedTokenForwardRounding?: "bf16";
+  /** Diagnostic-only capture of the hidden vector after every decoder layer. */
+  onDecoderLayerHidden?: (layers: readonly Float32Array[]) => void;
 }
 
 export interface Gemma4PagedNativeGenerationResult {
@@ -392,7 +394,7 @@ async function executePagedOperations(
                 intermediateSize: fused.ffn.gate.outFeatures, perLayerWidth: stack.perLayerWidth, inputNormEpsilon: fused.inputNorm.epsilon, postAttentionNormEpsilon: fused.postAttentionNorm.epsilon, preFfnNormEpsilon: fused.ffn.preNorm.epsilon, postFfnNormEpsilon: fused.ffn.postNorm.epsilon, pleNormEpsilon: fused.ple.norm.epsilon,
               };
             });
-            const stackRequest = { input: input?.values ?? new Float32Array(), perLayerInputs: perLayerInputs?.values ?? new Float32Array(), positions: positionValues, batch, querySequence, hiddenSize, numLayers: stack.layers.length, perLayerWidth: stack.perLayerWidth, layers, rounding: options.fusedDecoderStackRounding } as const;
+            const stackRequest = { input: input?.values ?? new Float32Array(), perLayerInputs: perLayerInputs?.values ?? new Float32Array(), positions: positionValues, batch, querySequence, hiddenSize, numLayers: stack.layers.length, perLayerWidth: stack.perLayerWidth, layers, rounding: options.fusedDecoderStackRounding, ...(options.onDecoderLayerHidden ? { captureLayerHidden: true } : {}) } as const;
             const epilogueKernelAvailable = tokenForwardPrelude ? options.linearTileKernel.fusedTokenForwardStorageReferences !== undefined : options.linearTileKernel.fusedDecoderStackEpilogueStorageReferences !== undefined;
             const epilogue = epilogueKernelAvailable ? matchFusedDecoderEpilogue(operations, operationIndex + stack.operations.length, stack.layers.at(-1)!.ple.scalar.output) : undefined;
             if (options.fusedDecoderStackRounding === "real") {
@@ -414,6 +416,10 @@ async function executePagedOperations(
               result = await options.linearTileKernel.fusedDecoderStackEpilogueStorageReferences!({ ...stackRequest, epilogue: { normWeight: tensorInfo(artifact, epilogue.norm.weight!), normEpsilon: epilogue.norm.epsilon, headWeight: tensorInfo(artifact, epilogue.head.weight), vocabularySize: epilogue.head.outFeatures, softcap: epilogue.softcap.scalar! } });
             } else {
               result = await options.linearTileKernel.fusedDecoderStackStorageReferences(stackRequest);
+            }
+            if (options.onDecoderLayerHidden) {
+              if (!result.layerHidden || result.layerHidden.length !== stack.layers.length || result.layerHidden.some((entry) => entry.length !== batch * querySequence * hiddenSize || entry.some((value) => !Number.isFinite(value)))) throw new Error(`${operation.id}: captura por camada da pilha decoder é inválida.`);
+              options.onDecoderLayerHidden(result.layerHidden);
             }
             if (!tokenForwardPrelude) {
               if (result.hidden.length !== batch * querySequence * hiddenSize || result.hidden.some((entry) => !Number.isFinite(entry))) throw new Error(`${operation.id}: pilha decoder retornou vetor inválido.`);
