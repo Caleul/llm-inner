@@ -56,6 +56,9 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /Primeiro token/);
   assert.match(gemma4RealCompareHtml, /prefillAvoidedRate/);
   assert.match(gemma4RealCompareHtml, /\/api\/compare-stream/);
+  assert.match(gemma4RealCompareHtml, /\/api\/generate-stream/);
+  assert.match(gemma4RealCompareHtml, /Somente LLM compilada/);
+  assert.match(gemma4RealCompareHtml, /referência permaneceu descarregada/);
   assert.match(gemma4RealCompareHtml, /Aquecendo o forward compilado no Metal/);
   assert.match(gemma4RealCompareHtml, /gate\+up unidos/);
   assert.match(gemma4RealCompareHtml, /cache de constantes F32/);
@@ -178,6 +181,7 @@ test("métricas diretas separam primeiro token, decode, speedup e prefill evitad
     prefixTokensReused: 6, prefillTokensComputed: 2, prefillAvoidedRate: 0.75,
     baselineSpeedup: 8, tokensEqualBaseline: true,
   });
+  assert.equal(computeDirectExecutionMetrics({ generatedTokenIds: [7], fullTokenIds: [2, 7] }, 1, undefined, 0.1, false).tokensEqualBaseline, null);
 });
 
 test("métricas top-K diretas quantificam logit escolhido, margem greedy e sobreposição", () => {
@@ -237,6 +241,13 @@ let generations=0;readline.createInterface({input:process.stdin}).on("line",line
     let initialStatus: { ready?: boolean; reference?: { state?: string }; tokenizer?: { ready?: boolean } } = {};
     for (let index = 0; index < 100 && !initialStatus.ready; index += 1) { initialStatus = await fetch(`http://127.0.0.1:${address.port}/api/status`).then((response) => response.json()) as typeof initialStatus; await new Promise((accept) => setTimeout(accept, 5)); }
     assert.equal(initialStatus.tokenizer?.ready, true); assert.equal(initialStatus.reference?.state, "unloaded");
+    const compiledStream = async (prompt: string, continueSession: boolean) => {
+      const response = await fetch(`http://127.0.0.1:${address.port}/api/generate-stream`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt, maxNewTokens: 1, sessionId: 91, continueSession, conversationMode: "chat" }) });
+      assert.equal(response.status, 200); return (await response.text()).trim().split("\n").map((line) => JSON.parse(line) as { type: string; data?: { executionMode?: string; referenceExecuted?: boolean; direct?: { receivedInputIds: number[]; sessionCacheHit: boolean; prefixTokensReused: number }; directExecutionMetrics?: { tokensEqualBaseline: boolean | null; baselineSpeedup: number | null }; comparisonTiming?: { schedule: string } } });
+    };
+    const compiledFirst = await compiledStream("primeiro", false); assert.deepEqual(compiledFirst.map((entry) => entry.type), ["direct-token", "direct-complete", "result"]); assert.equal(compiledFirst.at(-1)!.data!.executionMode, "compiled-only"); assert.equal(compiledFirst.at(-1)!.data!.referenceExecuted, false); assert.equal(compiledFirst.at(-1)!.data!.directExecutionMetrics!.tokensEqualBaseline, null); assert.equal(compiledFirst.at(-1)!.data!.directExecutionMetrics!.baselineSpeedup, null); assert.equal(compiledFirst.at(-1)!.data!.comparisonTiming!.schedule, "compiled-only");
+    const compiledSecond = await compiledStream("continuação", true); assert.deepEqual(compiledSecond.at(-1)!.data!.direct!.receivedInputIds, [2, 105, 106, 105]); assert.equal(compiledSecond.at(-1)!.data!.direct!.sessionCacheHit, true); assert.equal(compiledSecond.at(-1)!.data!.direct!.prefixTokensReused, 3);
+    const compiledStatus = await fetch(`http://127.0.0.1:${address.port}/api/status`).then((response) => response.json()) as { reference: { state: string } }; assert.equal(compiledStatus.reference.state, "unloaded");
     const stream = async (prompt: string, continueSession: boolean) => {
       const response = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt, maxNewTokens: 1, sessionId: 41, continueSession, conversationMode: "chat" }) });
       assert.equal(response.status, 200); const lines = (await response.text()).trim().split("\n").map((line) => JSON.parse(line) as { type: string; serverElapsedSeconds?: number; event?: { tokenId: number }; data?: { chatTemplate?: string; generatedText?: string; direct?: { receivedInputIds: number[]; receivedEosTokenId: number; sessionCacheHit: boolean; prefixTokensReused: number; workerGenerations: number }; directExecutionMetrics?: { inputTokens: number; firstTokenWallSeconds: number | null; prefixTokensReused: number; prefillTokensComputed: number; prefillAvoidedRate: number; tokensEqualBaseline: boolean }; comparisonTiming?: { schedule: string; directPhaseSeconds: number; referencePhaseSeconds: number; referenceReleased: boolean; directRecoverySeconds: number; totalWallSeconds: number } } }); return lines;

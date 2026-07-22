@@ -308,6 +308,41 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
           writeNdjson(response, { type: "error", error: error instanceof Error ? error.message : String(error) }); response.end(); return;
         }
       }
+      if (request.method === "POST" && request.url === "/api/generate-stream") {
+        await initialize;
+        if (!direct) throw new Error("Streaming compilado requer o executor direto.");
+        const body = JSON.parse(await readBody(request)) as Gemma4RealComparisonRequest;
+        validateRequest(body);
+        const inputIds = await resolveComparisonInput(tokenizer, body, sessionInputs);
+        let clientDisconnected = false; response.once("close", () => { if (!response.writableEnded) clientDisconnected = true; });
+        response.writeHead(200, { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" });
+        try {
+          const generationStarted = performance.now(); let firstTokenWallSeconds: number | undefined;
+          const directReport = await executeSelectedDirect(direct, verificationProvider, options.directVerificationMargin, {
+            inputIds, maxNewTokens: body.maxNewTokens, stream: true,
+            ...(body.conversationMode === "chat" ? { eosTokenId: GEMMA4_CHAT_EOT_TOKEN_ID } : {}),
+            ...(body.sessionId === undefined ? {} : { sessionId: body.sessionId }),
+          }, (event) => {
+            firstTokenWallSeconds ??= elapsedSeconds(generationStarted);
+            writeNdjson(response, { type: "direct-token", provisional: verificationEnabled, event, serverElapsedSeconds: elapsedSeconds(generationStarted) });
+          }, (assessment) => writeNdjson(response, { type: "direct-fallback", ...assessment }), () => !clientDisconnected, (prefill) => writeNdjson(response, { type: "direct-verification-prefill", ...prefill }));
+          const directPhaseSeconds = elapsedSeconds(generationStarted);
+          if (clientDisconnected || response.destroyed) return;
+          const [generated, full] = await Promise.all([tokenizer.decode(directReport.generatedTokenIds), tokenizer.decode(directReport.fullTokenIds)]);
+          directReport.generatedText = generated.text; directReport.fullText = full.text;
+          if (body.sessionId !== undefined) rememberSession(sessionInputs, body.sessionId, directReport.fullTokenIds, body.conversationMode ?? "raw");
+          writeNdjson(response, { type: "direct-complete", data: { generatedText: generated.text, generatedTokenIds: directReport.generatedTokenIds, directPhaseSeconds } });
+          writeNdjson(response, { type: "result", data: {
+            executionMode: "compiled-only", referenceExecuted: false, prompt: body.prompt,
+            conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null,
+            ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), direct: directReport,
+            directExecutionMetrics: computeDirectExecutionMetrics(directReport, inputIds.length, undefined, firstTokenWallSeconds, false),
+            comparisonTiming: { schedule: "compiled-only", directPhaseSeconds, totalWallSeconds: elapsedSeconds(generationStarted) },
+          } }); response.end(); return;
+        } catch (error) {
+          writeNdjson(response, { type: "error", error: error instanceof Error ? error.message : String(error) }); response.end(); return;
+        }
+      }
       return json(response, 404, { error: "Rota não encontrada." });
     } catch (error) {
       return json(response, 400, { error: error instanceof Error ? error.message : String(error) });
@@ -508,7 +543,7 @@ class PersistentJsonlWorker {
 
 interface ComparisonReport { inputIds?: number[][]; baselineGeneratedTokenIds: number[]; steps?: Array<{ baselineToken?: number; baselineTopLogits?: unknown }>; performance?: { baselineSeconds?: number } }
 interface DirectReport { generatedTokenIds: number[]; fullTokenIds: number[]; generatedText?: string; fullText?: string; tokensEqualBaseline?: boolean; firstDivergentStep?: number | null; terminalLogitsSha256?: string; selectiveVerification?: boolean; steps?: Array<{ forwardSeconds?: number; verificationSkipped?: boolean; [key: string]: unknown }>; [key: string]: unknown }
-export interface DirectExecutionMetrics { inputTokens: number; generatedTokens: number; firstTokenForwardSeconds: number | null; firstTokenWallSeconds: number | null; decodeForwardSeconds: number; totalForwardSeconds: number; sessionCacheHit: boolean; prefixTokensReused: number; prefillTokensComputed: number; prefillAvoidedRate: number; baselineSpeedup: number | null; tokensEqualBaseline: boolean }
+export interface DirectExecutionMetrics { inputTokens: number; generatedTokens: number; firstTokenForwardSeconds: number | null; firstTokenWallSeconds: number | null; decodeForwardSeconds: number; totalForwardSeconds: number; sessionCacheHit: boolean; prefixTokensReused: number; prefillTokensComputed: number; prefillAvoidedRate: number; baselineSpeedup: number | null; tokensEqualBaseline: boolean | null }
 export interface DirectLogitStepAgreement { step: number; contextsEqualBeforeStep: boolean; baselineArgmaxToken: number | null; directArgmaxToken: number | null; baselineArgmaxLogitAbsError: number | null; greedyMarginAbsError: number | null; topK: number; topKOverlapCount: number; topKOverlapRate: number | null; topKCommonLogitMaxAbsError: number | null }
 export interface DirectLogitAgreement { reportedSteps: number; measuredSteps: number; rootDivergences: number; postDivergenceSteps: number; selectedLogitMeasuredSteps: number; meanBaselineArgmaxLogitAbsError: number | null; maxBaselineArgmaxLogitAbsError: number | null; marginMeasuredSteps: number; meanGreedyMarginAbsError: number | null; maxGreedyMarginAbsError: number | null; meanTopKOverlapRate: number | null; maxTopKCommonLogitAbsError: number | null; steps: DirectLogitStepAgreement[] }
 function arraysEqual(left: readonly number[], right: readonly number[]): boolean { return left.length === right.length && left.every((value, index) => value === right[index]); }
@@ -532,7 +567,7 @@ export function assertDirectFinalFormulaProgram(metadata: Record<string, unknown
   if (value.execution !== "vectorized-shared-dag-output-program" || value.evaluator !== runtime.evaluator || value.runtimeContractSha256 !== runtime.sha256 || value.functions !== expected.functions || value.fileSha256 !== expected.sha256 || value.orderedRootsSha256 !== expected.orderedRootsSha256) throw new Error("Worker compilado publicou vínculo divergente para final-formulas.json ou seu runtime EVAL_EXACT_DAG.");
 }
 
-export function computeDirectExecutionMetrics(direct: DirectReport, inputTokens: number, baselineSeconds?: number, firstTokenWallSeconds?: number): DirectExecutionMetrics {
+export function computeDirectExecutionMetrics(direct: DirectReport, inputTokens: number, baselineSeconds?: number, firstTokenWallSeconds?: number, comparisonAvailable = true): DirectExecutionMetrics {
   const forwardSeconds = Array.isArray(direct.steps) ? direct.steps.flatMap((step) => typeof step.forwardSeconds === "number" && Number.isFinite(step.forwardSeconds) && step.forwardSeconds >= 0 ? [step.forwardSeconds] : []) : [];
   const prefixTokensReused = nonNegativeInteger(direct.prefixTokensReused), prefillTokensComputed = nonNegativeInteger(direct.prefillTokensComputed);
   const prefillDomain = prefixTokensReused + prefillTokensComputed;
@@ -546,7 +581,7 @@ export function computeDirectExecutionMetrics(direct: DirectReport, inputTokens:
     sessionCacheHit: direct.sessionCacheHit === true, prefixTokensReused, prefillTokensComputed,
     prefillAvoidedRate: prefillDomain === 0 ? 0 : prefixTokensReused / prefillDomain,
     baselineSpeedup: elapsed !== undefined && baselineSeconds !== undefined && Number.isFinite(baselineSeconds) && baselineSeconds >= 0 ? baselineSeconds / elapsed : null,
-    tokensEqualBaseline: direct.tokensEqualBaseline === true,
+    tokensEqualBaseline: comparisonAvailable ? direct.tokensEqualBaseline === true : null,
   };
 }
 

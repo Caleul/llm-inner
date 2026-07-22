@@ -3357,6 +3357,18 @@ objetiva. A expansão textual plana da mesma função é evitada na UI porque
 duplicaria subexpressões compartilhadas em escala astronômica, sem reduzir o
 cálculo que o Metal efetivamente executa.
 
+A interface oferece dois contratos de execução. `Comparar original × compilada`
+continua sendo o modo de validação: executa prompts arbitrários nos dois caminhos
+e publica paridade, divergência e speedup. `Somente LLM compilada` usa
+`POST /api/generate-stream`, aplica o mesmo tokenizer e o mesmo template de chat,
+reutiliza o KV cache da sessão, transmite tokens conforme são produzidos e mantém
+a política de verificação seletiva de margens sensíveis. Esse caminho nunca
+adquire o worker Transformers original. Seu relatório marca
+`executionMode: "compiled-only"`, `referenceExecuted: false` e
+`tokensEqualBaseline: null`; ausência de comparação não é apresentada como
+paridade nem como divergência. O texto final continua vindo do mapeamento dos IDs
+de token gerados pela função terminal compilada.
+
 A escolha Q8 do decoder também foi comparada diretamente com `gate/up` BF16 e
 com uma decomposição experimental de dois estágios
 `W = Q8₀(W) + Q8₁(W-Q8₀(W))`. No mesmo corpus de 32 prompts × 4 tokens, o
