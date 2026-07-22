@@ -1,0 +1,120 @@
+{
+  "kind": "gemma4-cached-prefix-ahead-promotion",
+  "schemaVersion": 1,
+  "recordedAt": "2026-07-22",
+  "sources": {
+    "prompts": {
+      "file": "gemma4-calibration-prompts-32.json",
+      "sha256": "23008073aafff2afcabbb548ef24a19672f69564f78a9bb9ec2450105e9846a2"
+    },
+    "authoritativeTokenIds": {
+      "file": "gemma4-q8-layers-0-19-margin0-calibration-32x8.json",
+      "sha256": "f288da6904f0079f5d5bd06546c37dfaa32c5816ac21e5db98797afffcbceb4e"
+    }
+  },
+  "configuration": {
+    "prompt": "The first month of the year is",
+    "maxNewTokens": 8,
+    "threads": 8,
+    "decoderQuantization": "q8-ffn-gate-up",
+    "quantizedLayers": "0-19",
+    "verificationMargin": 0,
+    "sessionPolicy": "same-session-id-with-identical-input",
+    "warmRepetitionsPerPolicy": 2,
+    "cachePopulationRepetitionExcludedFromAggregate": true
+  },
+  "authoritativeGeneratedTokenIds": [1024, 532, 625, 236858, 236751, 990, 531, 1769],
+  "cacheMiss": {
+    "selectedPolicy": "sensitive-event-prefill-only",
+    "verificationPrefixAhead": false,
+    "reason": "Running exact prefix verification concurrently with an uncached Metal prefill caused severe resource contention in the rejected prototype."
+  },
+  "pairedBenchmark": {
+    "control": {
+      "directVerificationPrefixAhead": false,
+      "repetitions": [
+        {
+          "elapsedSeconds": 1.0417706670000006,
+          "fastPathSeconds": 0.347994834000001,
+          "verificationSeconds": 0.6937758329999997,
+          "workerVerificationSeconds": 0.07284708300000056,
+          "verificationPrefillAheadSeconds": 0.0004175829999985581,
+          "verificationPrefillWaitSeconds": 0,
+          "compiledContinuationSeconds": 0.6195399160000016,
+          "generatedTokenIds": [1024, 532, 625, 236858, 236751, 990, 531, 1769]
+        },
+        {
+          "elapsedSeconds": 1.0365620839999974,
+          "fastPathSeconds": 0.34260504199999925,
+          "verificationSeconds": 0.6939570419999981,
+          "workerVerificationSeconds": 0.06685070800000176,
+          "verificationPrefillAheadSeconds": 0.00027808400000139954,
+          "verificationPrefillWaitSeconds": 0,
+          "compiledContinuationSeconds": 0.6259409999999952,
+          "generatedTokenIds": [1024, 532, 625, 236858, 236751, 990, 531, 1769]
+        }
+      ],
+      "meanElapsedSeconds": 1.039166375499999,
+      "tokensPerSecond": 7.698478500279389
+    },
+    "candidate": {
+      "directVerificationPrefixAhead": true,
+      "repetitions": [
+        {
+          "elapsedSeconds": 0.989213832999998,
+          "fastPathSeconds": 0.3542584999999999,
+          "verificationSeconds": 0.6349553329999981,
+          "workerVerificationSeconds": 0.08052558299999873,
+          "verificationPrefixAhead": true,
+          "verificationPrefixAheadStep": 0,
+          "verificationPrefixAheadTokenSteps": 1,
+          "verificationPrefillAheadSeconds": 0.08161337500000082,
+          "verificationPrefillOverlapSeconds": 0.08161337500000082,
+          "verificationPrefillWaitSeconds": 0,
+          "compiledContinuationSeconds": 0.6336565840000004,
+          "generatedTokenIds": [1024, 532, 625, 236858, 236751, 990, 531, 1769]
+        },
+        {
+          "elapsedSeconds": 0.9698988339999997,
+          "fastPathSeconds": 0.34965229199999887,
+          "verificationSeconds": 0.6202465420000007,
+          "workerVerificationSeconds": 0.06901629200000024,
+          "verificationPrefixAhead": true,
+          "verificationPrefixAheadStep": 0,
+          "verificationPrefixAheadTokenSteps": 1,
+          "verificationPrefillAheadSeconds": 0.06950262499999735,
+          "verificationPrefillOverlapSeconds": 0.06950262499999735,
+          "verificationPrefillWaitSeconds": 0,
+          "compiledContinuationSeconds": 0.6196245409999974,
+          "generatedTokenIds": [1024, 532, 625, 236858, 236751, 990, 531, 1769]
+        }
+      ],
+      "meanElapsedSeconds": 0.9795563334999988,
+      "tokensPerSecond": 8.1669626609586
+    },
+    "latencyReductionRate": 0.05736332834221902,
+    "throughputGainRate": 0.06085412340402185,
+    "equalTokenSteps": 32,
+    "comparedTokenSteps": 32
+  },
+  "liveOriginalComparison": {
+    "endpoint": "/api/compare-stream",
+    "generatedTokensEqual": true,
+    "baselineGeneratedTokenIds": [1024, 532, 625, 236858, 236751, 990, 531, 1769],
+    "compiledGeneratedTokenIds": [1024, 532, 625, 236858, 236751, 990, 531, 1769],
+    "cachedCandidate": {
+      "verificationPrefixAhead": true,
+      "verificationPrefixAheadStep": 0,
+      "verificationPrefixAheadTokenSteps": 1,
+      "verificationPrefillAheadSeconds": 0.14739487499999815,
+      "verificationPrefillOverlapSeconds": 0.14739487499999815,
+      "verificationPrefillWaitSeconds": 0
+    }
+  },
+  "decision": {
+    "selectedPolicy": "cached-session-sensitive-prefix-ahead",
+    "defaultEnabled": true,
+    "safetyBoundary": "Reuse the prefix result only when it covers every sensitive Metal step; otherwise perform the complete exact selective replay.",
+    "claimBoundary": "This paired single-prompt measurement proves the optimization path and token parity for the measured input, not universal model equivalence or a portable speedup."
+  }
+}

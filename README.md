@@ -3317,6 +3317,27 @@ preservou os oito tokens e o hash terminal. Como controle negativo,
 `The capital of France is` teve margem mínima `0,125`, não iniciou prefill
 exato e executou em `0,2330 s` contra `0,8600 s` da referência (`3,6914×`).
 
+Depois que a sessão já possui um prefixo KV exato, o evento sensível passa a
+antecipar também a cabeça seletiva desse prefixo, em vez de antecipar somente
+o prefill. O pedido não inventa um hash terminal: o próprio worker exato o
+calcula ao fechar o último passo solicitado. O resultado antecipado só é
+reutilizado se cobrir **todos** os passos sensíveis do relatório Metal; se uma
+margem sensível posterior aparecer, o servidor descarta esse atalho e executa
+o replay seletivo integral. Em cache miss continua valendo a política anterior,
+de prefill-only, porque sobrepor o decoder exato ao prefill Metal mostrou forte
+contenção.
+
+No controle pareado de duas repetições aquecidas de
+`The first month of the year is`, oito tokens e a mesma sessão exata, a
+antecipação do prefixo reduziu a média de `1,0392 s` para `0,9796 s`
+(`-5,74%`) e elevou o throughput de `7,6985` para `8,1670 tok/s` (`+6,09%`).
+Os `69–82 ms` da cabeça exata foram totalmente sobrepostos, com espera zero,
+e os `32/32` tokens das repetições permaneceram iguais aos IDs autoritativos.
+Uma chamada adicional pelo `/api/compare-stream` confirmou os mesmos oito IDs
+contra o runtime original. A evidência, os hashes das fontes e o limite da
+afirmação estão em
+`artifacts/gemma4-cached-prefix-ahead-promotion-8-token.json`.
+
 Iniciar esse prefill antes de existir uma margem sensível também foi medido e
 rejeitado. Em duas repetições aquecidas de três classes de prompt, o modo eager
 preservou todos os token IDs, mas com oito threads elevou a média do fallback

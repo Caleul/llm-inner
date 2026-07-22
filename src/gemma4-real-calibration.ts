@@ -153,6 +153,9 @@ interface ThreeWayCase {
     verificationHeadPositionsComputed?: number;
     verificationHeadPositionsAvoided?: number;
     verificationPrefillAhead?: boolean;
+    verificationPrefixAhead?: boolean;
+    verificationPrefixAheadStep?: number;
+    verificationPrefixAheadTokenSteps?: number;
     verificationPrefillAheadSeconds?: number;
     verificationPrefillAheadWorkerSeconds?: number;
     verificationPrefillOverlapSeconds?: number;
@@ -321,6 +324,9 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.verificationHeadPositionsComputed === undefined ? {} : { verificationHeadPositionsComputed: entry.direct.verificationHeadPositionsComputed }),
         ...(entry.direct.verificationHeadPositionsAvoided === undefined ? {} : { verificationHeadPositionsAvoided: entry.direct.verificationHeadPositionsAvoided }),
         ...(entry.direct.verificationPrefillAhead === undefined ? {} : { verificationPrefillAhead: entry.direct.verificationPrefillAhead }),
+        ...(entry.direct.verificationPrefixAhead === undefined ? {} : { verificationPrefixAhead: entry.direct.verificationPrefixAhead }),
+        ...(entry.direct.verificationPrefixAheadStep === undefined ? {} : { verificationPrefixAheadStep: entry.direct.verificationPrefixAheadStep }),
+        ...(entry.direct.verificationPrefixAheadTokenSteps === undefined ? {} : { verificationPrefixAheadTokenSteps: entry.direct.verificationPrefixAheadTokenSteps }),
         ...(entry.direct.verificationPrefillAheadSeconds === undefined ? {} : { verificationPrefillAheadSeconds: entry.direct.verificationPrefillAheadSeconds }),
         ...(entry.direct.verificationPrefillAheadWorkerSeconds === undefined ? {} : { verificationPrefillAheadWorkerSeconds: entry.direct.verificationPrefillAheadWorkerSeconds }),
         ...(entry.direct.verificationPrefillOverlapSeconds === undefined ? {} : { verificationPrefillOverlapSeconds: entry.direct.verificationPrefillOverlapSeconds }),

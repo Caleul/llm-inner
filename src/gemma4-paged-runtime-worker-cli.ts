@@ -147,7 +147,7 @@ async function generate(inputIds: number[], maxNewTokens: number, eosTokenId?: n
 interface VerificationFastPath {
   generatedTokenIds: number[];
   sensitiveSteps: number[];
-  terminalLogitsSha256: string;
+  terminalLogitsSha256?: string;
   stopAfterDivergence: boolean;
 }
 
@@ -206,7 +206,7 @@ async function generateSelectiveVerification(inputIds: number[], maxNewTokens: n
   const currentContextTokens = [...inputIds];
   let verificationEarlyExitStep: number | null = null, verificationDecoderStepsAvoided = 0, verificationHeadPositionsComputed = 0, verificationHeadPositionsAvoided = 0, verificationStoppedAfterDivergence = false;
   const lastSensitiveStep = fast.sensitiveSteps.at(-1)!;
-  let forwardSeconds = (performance.now() - forwardStarted) / 1000, terminalLogitsSha256 = fast.terminalLogitsSha256, divergenceStep: number | null = null;
+  let forwardSeconds = (performance.now() - forwardStarted) / 1000, terminalLogitsSha256 = fast.terminalLogitsSha256 ?? "", divergenceStep: number | null = null;
   for (let step = 0; step < fast.generatedTokenIds.length; step += 1) {
     const verify = divergenceStep !== null || sensitive.has(step);
     let tokenId = fast.generatedTokenIds[step]!, topLogits: unknown[] = [], verificationSkipped = true;
@@ -228,7 +228,7 @@ async function generateSelectiveVerification(inputIds: number[], maxNewTokens: n
     steps.push({ step, tokenId, contextLength: inputIds.length + step, forwardSeconds, topLogits, verificationSkipped });
     if (fast.stopAfterDivergence && divergenceStep === step) { verificationStoppedAfterDivergence = true; break; }
     if (tokenId === eosTokenId || step + 1 === maxNewTokens) break;
-    const trustedTail = planGemma4SelectiveVerificationTail({
+    const trustedTail = fast.terminalLogitsSha256 === undefined ? null : planGemma4SelectiveVerificationTail({
       fastGeneratedTokenIds: fast.generatedTokenIds,
       fastTerminalLogitsSha256: fast.terminalLogitsSha256,
       inputLength: inputIds.length,
@@ -415,9 +415,11 @@ function validateVerificationFastPath(value: unknown, maxNewTokens: number): Ver
   if (!Array.isArray(sensitiveSteps) || sensitiveSteps.length === 0 || sensitiveSteps.some((step) => !Number.isSafeInteger(step) || (step as number) < 0 || (step as number) >= generatedTokenIds.length)) throw new Error("verificationFastPath.sensitiveSteps deve conter passos gerados válidos.");
   const normalizedSteps = [...sensitiveSteps] as number[];
   if (normalizedSteps.some((step, index) => index > 0 && step <= normalizedSteps[index - 1]!)) throw new Error("verificationFastPath.sensitiveSteps deve estar ordenado e sem duplicatas.");
-  if (typeof terminalLogitsSha256 !== "string" || !/^[0-9a-f]{64}$/.test(terminalLogitsSha256)) throw new Error("verificationFastPath.terminalLogitsSha256 deve ser SHA-256 hexadecimal minúsculo.");
+  const closesAtVerifiedPrefix = generatedTokenIds.length === maxNewTokens && normalizedSteps.at(-1) === generatedTokenIds.length - 1;
+  if (terminalLogitsSha256 !== undefined && (typeof terminalLogitsSha256 !== "string" || !/^[0-9a-f]{64}$/.test(terminalLogitsSha256))) throw new Error("verificationFastPath.terminalLogitsSha256 deve ser SHA-256 hexadecimal minúsculo.");
+  if (terminalLogitsSha256 === undefined && !closesAtVerifiedPrefix) throw new Error("verificationFastPath sem hash terminal deve terminar no último passo sensível verificado.");
   if (stopAfterDivergence !== undefined && typeof stopAfterDivergence !== "boolean") throw new Error("verificationFastPath.stopAfterDivergence deve ser booleano.");
-  return { generatedTokenIds: generatedTokenIds as number[], sensitiveSteps: normalizedSteps, terminalLogitsSha256, stopAfterDivergence: stopAfterDivergence === true };
+  return { generatedTokenIds: generatedTokenIds as number[], sensitiveSteps: normalizedSteps, ...(terminalLogitsSha256 === undefined ? {} : { terminalLogitsSha256 }), stopAfterDivergence: stopAfterDivergence === true };
 }
 function parseArguments(argv: string[]): { artifact: string; artifactIndex?: { path: string; sha256: string; constantPoolSha256: string }; binaryPool: string; realLoweringPlan?: string; finalFormulaMap?: { path: string; fileSha256: string; functions: number; orderedRootsSha256: string }; finalFormulaRuntime?: { path: string; fileSha256: string }; python: string; linearHelper: string; mlxHelper: string; linearBackend: "pytorch" | "mlx"; mlxHeadQuantization: "off" | "q8" | "q8-shortlist" | "q4"; mlxDecoderQuantization: Gemma4MlxDecoderQuantization; mlxDecoderQuantizationLayers?: string; fusedMlpRounding: "off" | "bf16" | "real" | "native-bf16"; fusedFfnRounding: "off" | "native-bf16"; fusedDecoderLayerRounding: "off" | "native-bf16"; fusedDecoderStackRounding: "off" | "real" | "native-bf16" | "native-bf16-ple"; fusedPleRounding: "off" | "bf16" | "real"; fusedPlePreludeRounding: "off" | "bf16" | "real"; fusedTokenForwardRounding: "off" | "bf16"; residentGeneration: "off" | "on"; finalHeadCompute: "f32" | "native-bf16" | "native-bf16-stream" | "native-bf16-whole"; nativeAttentionRounding: "off" | "bf16" | "real"; fusedAttentionRounding: "off" | "bf16" | "real" | "native-bf16"; threads: number; maxReadBytes: number; finalHeadMaxReadBytes: number } {
   const values = new Map<string, string>();
