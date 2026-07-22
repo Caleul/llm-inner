@@ -97,6 +97,23 @@ test("evidência promove contexto sensível exato sem replay do decoder", async 
   assert.equal(artifact.decision.selectedPolicy, "reuse-exact-sensitive-context-before-head");
 });
 
+test("evidência adia prefill exato sem cache e preserva antecipação do contexto exato", async () => {
+  const artifact = JSON.parse(await readFile("artifacts/gemma4-uncached-prefill-defer-promotion.json", "utf8")) as any;
+  const digest = async (path: string) => createHash("sha256").update(await readFile(path)).digest("hex");
+  for (const source of Object.values(artifact.sources) as Array<{ file: string; sha256: string }>) assert.equal(await digest(source.file), source.sha256);
+  assert.equal(artifact.pairedBenchmark.allGeneratedTokensEqual, true);
+  assert.equal(artifact.pairedBenchmark.allTerminalLogitsSha256Equal, true);
+  assert.ok(artifact.pairedBenchmark.candidate.meanElapsedSeconds < artifact.pairedBenchmark.control.meanElapsedSeconds);
+  assert.ok(artifact.pairedBenchmark.meanWallReductionRate > 0.2);
+  assert.deepEqual(artifact.pairedBenchmark.candidate.uncachedPrefillDeferred, [true, true]);
+  assert.equal(artifact.cachedExactContext.verificationPrefixAhead, true);
+  assert.equal(artifact.cachedExactContext.verificationExactContextCacheHit, true);
+  assert.equal(artifact.cachedExactContext.verificationDecoderSteps, 0);
+  assert.deepEqual(artifact.authoritativeComparison.compiledGeneratedTokenIds, artifact.authoritativeComparison.baselineGeneratedTokenIds);
+  assert.equal(artifact.authoritativeComparison.tokensEqual, true);
+  assert.equal(artifact.decision.selectedDefault, "defer-uncached-prefill");
+});
+
 test("evidência promove a fronteira Q8 0-19 com menos fallbacks e paridade integral", async () => {
   const artifact = JSON.parse(await readFile("artifacts/gemma4-q8-layer-boundary-promotion-32x8.json", "utf8")) as any;
   assert.deepEqual([artifact.configuration.prompts, artifact.configuration.tokensPerPrompt, artifact.configuration.decoderQuantization, artifact.configuration.verificationMargin], [32, 8, "q8-ffn-gate-up", 0]);

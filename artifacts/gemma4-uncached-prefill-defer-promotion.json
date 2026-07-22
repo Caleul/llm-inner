@@ -1,0 +1,91 @@
+{
+  "kind": "gemma4-uncached-verification-prefill-policy-promotion",
+  "schemaVersion": 1,
+  "capturedAt": "2026-07-22T19:05:57Z",
+  "machineScope": "local-apple-silicon-single-process-paired-samples",
+  "sources": {
+    "comparisonServer": {
+      "file": "src/gemma4-real-compare-server.ts",
+      "sha256": "158f72ebbdc364b055832355d890235aea4ac51b57d5d6e38ec28c03630715ce"
+    },
+    "comparisonUi": {
+      "file": "src/gemma4-real-compare-ui.ts",
+      "sha256": "0c41410f429d34ae6aec2fd60a109a49c7db2ac338c76b1754a24a9898b1d15b"
+    },
+    "serverTest": {
+      "file": "test/gemma4-real-compare-server.test.ts",
+      "sha256": "c238f94628c73c93d67f0958841be0cc6b5514250f09d8ca212c858ef796b730"
+    },
+    "runtimeIndex": {
+      "file": "artifacts/gemma4-compiled-global-runtime-bundle/constants.runtime-index.json",
+      "sha256": "a63159a92e27024862b478cd14fe80c283ab27ce32243e9c008d8d6a9c7847b4"
+    }
+  },
+  "request": {
+    "prompt": "Traduza para inglês: boa noite",
+    "conversationMode": "raw",
+    "maxNewTokens": 8,
+    "freshServerPerSample": true,
+    "terminalLogitsSha256": "02a8e5046419706b589c093ef6006dfd503e2063f3fc0e45fa8ff259020f564d",
+    "generatedTokenIds": [236764, 6913, 4280, 1983, 23667, 569, 236743, 236800]
+  },
+  "pairedBenchmark": {
+    "control": {
+      "policy": "uncached-prefill-ahead",
+      "flag": "--direct-verification-uncached-prefill-ahead on",
+      "elapsedSeconds": [7.394825166999999, 7.735217792000001],
+      "fastPathSeconds": [0.5827054590000007, 2.0712897919999995],
+      "prefillAheadSeconds": [4.5239974589999985, 2.807070625],
+      "prefillOverlapSeconds": [0.1723535419999971, 0.17857250000000022],
+      "prefillWaitSeconds": [4.351643917000001, 2.628498125],
+      "meanElapsedSeconds": 7.5650214795
+    },
+    "candidate": {
+      "policy": "defer-uncached-prefill",
+      "flag": "--direct-verification-uncached-prefill-ahead off",
+      "elapsedSeconds": [6.934606958000001, 4.5994023340000005],
+      "fastPathSeconds": [1.5362403749999975, 0.5538552089999994],
+      "workerVerificationSeconds": [3.8496924999999975, 2.4459212079999997],
+      "uncachedPrefillDeferred": [true, true],
+      "meanElapsedSeconds": 5.767004646
+    },
+    "meanWallReductionRate": 0.23767504670969386,
+    "meanSpeedup": 1.3117765536650132,
+    "allGeneratedTokensEqual": true,
+    "allTerminalLogitsSha256Equal": true
+  },
+  "cachedExactContext": {
+    "elapsedSeconds": 1.7435089579999985,
+    "fastPathSeconds": 1.5389322079999983,
+    "verificationSeconds": 0.2045767500000002,
+    "verificationPrefixAhead": true,
+    "verificationExactContextCacheHit": true,
+    "verificationTrustedPrefixStepsReused": 3,
+    "verificationDecoderSteps": 0,
+    "verificationHeadPositionsComputed": 1,
+    "prefillOverlapSeconds": 0.1671656660000008,
+    "prefillWaitSeconds": 0.0002715840000018943,
+    "generatedTokensEqual": true,
+    "terminalLogitsSha256Equal": true
+  },
+  "authoritativeComparison": {
+    "endpoint": "/api/compare",
+    "measurementSchedule": "isolated",
+    "baselineGeneratedTokenIds": [236764, 6913, 4280, 1983, 23667, 569, 236743, 236800],
+    "compiledGeneratedTokenIds": [236764, 6913, 4280, 1983, 23667, 569, 236743, 236800],
+    "tokensEqual": true,
+    "firstDivergentStep": null,
+    "baselineSeconds": 3.031479166005738,
+    "compiledSeconds": 7.036280374999999,
+    "compiledVsBaselineThroughputRatio": 0.4308354705103318,
+    "uncachedPrefillDeferred": true,
+    "verificationDecoderSteps": 4,
+    "verificationHeadPositionsComputed": 1
+  },
+  "decision": {
+    "selectedDefault": "defer-uncached-prefill",
+    "cachedExactContextPrefixAheadPreserved": true,
+    "controlRemainsAvailableByFlag": true,
+    "reason": "Both paired samples preserved tokens and terminal logits while deferring uncached exact work removed mandatory post-overlap waits and reduced mean wall time by 23.77%."
+  }
+}

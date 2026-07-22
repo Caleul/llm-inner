@@ -3294,16 +3294,30 @@ expõem esse corte exato; não há shortlist nem aproximação do vocabulário.
 
 Quando a geração possui `sessionId`, o evento streaming do próprio Metal já
 inclui as top logits do passo. Se a margem desse passo está dentro do limiar, o
-servidor inicia imediatamente um `verificationPrefill` PyTorch em paralelo com
-os próximos passos Metal. Esse comando calcula somente hidden e KV exatos,
-autentica o prefixo no cache da sessão e não escolhe tokens. Depois do relatório
-Metal completo, a política seletiva permanece inalterada e usa o estado apenas
-se o fallback realmente foi confirmado. Eventos com logits ausentes ou
-malformadas não antecipam trabalho; prompts com margem segura não executam o
-prefill PyTorch. A interface recebe `direct-verification-prefill` enquanto a
-sobreposição ocorre e o relatório publica `verificationPrefillAheadSeconds`,
-`verificationPrefillOverlapSeconds`, `verificationPrefillWaitSeconds` e as
-contagens de tokens calculados/reutilizados.
+servidor verifica primeiro se existe um contexto KV exato que permita antecipar
+a cabeça seletiva sem recomputar o decoder. Esse hit continua em paralelo com
+os próximos passos Metal. Em cache miss, o default adia o prefill PyTorch até o
+caminho Metal terminar, evitando que os dois runtimes disputem CPU e memória;
+o relatório marca a decisão como `verificationUncachedPrefillDeferred`. A
+política anterior permanece reproduzível com
+`--direct-verification-uncached-prefill-ahead on`. Eventos com logits ausentes
+ou malformadas não antecipam trabalho, e prompts com margem segura não executam
+o verificador. A interface recebe `direct-verification-prefill` somente quando
+trabalho exato realmente começa em paralelo e publica as contagens de prompts
+adiados, tempos de sobreposição/espera e tokens calculados/reutilizados.
+
+Em duas medições pareadas com processo novo, o prefill concorrente terminou em
+média em `7,5650 s`; adiar o cache miss terminou em `5,7670 s`, redução de
+`23,77%` (`1,3118×`). O controle deixou `4,3516 s` e `2,6285 s` de espera após
+a pequena sobreposição. Todos os casos produziram os mesmos oito IDs e o mesmo
+SHA-256 terminal. Uma chamada posterior com contexto sensível idêntico manteve
+a antecipação seletiva: reutilizou três passos confiáveis, executou zero passos
+de decoder exato e esperou apenas `0,00027 s`. A comparação autoritativa também
+preservou `8/8` tokens, embora esse primeiro cache miss isolado ainda tenha sido
+mais lento que o tempo interno da referência (`7,0363 s` contra `3,0315 s`). A
+promoção reduz uma regressão comprovada, mas não demonstra que todo prompt novo
+já supera o runtime original. Evidência completa:
+`artifacts/gemma4-uncached-prefill-defer-promotion.json`.
 
 O verificador exato também mantém um cache LRU de prefixos por `sessionId`.
 Ele só reutiliza o hidden state terminal e os K/V BF16 quando todos os tokens
