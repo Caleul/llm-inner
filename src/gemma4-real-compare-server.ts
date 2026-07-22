@@ -463,7 +463,7 @@ async function executeSelectedDirect(primary: PersistentJsonlWorker, verificatio
   if (!shouldVerify()) return fast;
   onFallback?.({ ...assessment, verificationBackend: verificationProvider.backend });
   const selectiveRequest = verificationProvider.selectiveHeads && assessment.reason === "margin-at-or-below-threshold" && assessment.sensitiveSteps.length > 0 && typeof fast.terminalLogitsSha256 === "string" && /^[0-9a-f]{64}$/.test(fast.terminalLogitsSha256)
-    ? { verificationFastPath: { generatedTokenIds: fast.generatedTokenIds, sensitiveSteps: assessment.sensitiveSteps, terminalLogitsSha256: fast.terminalLogitsSha256 } }
+    ? { verificationFastPath: { generatedTokenIds: fast.generatedTokenIds, sensitiveSteps: assessment.sensitiveSteps, terminalLogitsSha256: fast.terminalLogitsSha256, stopAfterDivergence: verificationProvider.backend === "pytorch" } }
     : {};
   let verified: DirectReport;
   if (verificationProvider.backend === "mlx-shared-control") {
@@ -480,7 +480,25 @@ async function executeSelectedDirect(primary: PersistentJsonlWorker, verificatio
     let prefillReport: VerificationPrefillReport | undefined;
     try {
       if (prefillAhead) prefillReport = await prefillAhead.promise;
-      verified = await verification.send({ inputIds: payload.inputIds, maxNewTokens: payload.maxNewTokens, ...selectiveRequest, ...(payload.eosTokenId === undefined ? {} : { eosTokenId: payload.eosTokenId }), ...(payload.sessionId === undefined ? {} : { sessionId: payload.sessionId }) }) as DirectReport;
+      const verificationRequest = { inputIds: payload.inputIds, maxNewTokens: payload.maxNewTokens, ...selectiveRequest, ...(payload.eosTokenId === undefined ? {} : { eosTokenId: payload.eosTokenId }), ...(payload.sessionId === undefined ? {} : { sessionId: payload.sessionId }) };
+      verified = await verification.send(verificationRequest) as DirectReport;
+      if (verified.verificationStoppedAfterDivergence === true && verified.generatedTokenIds.length < payload.maxNewTokens && verified.generatedTokenIds.at(-1) !== payload.eosTokenId) {
+        const remaining = payload.maxNewTokens - verified.generatedTokenIds.length;
+        const continuation = await primary.send({ inputIds: [...payload.inputIds, ...verified.generatedTokenIds], maxNewTokens: remaining, ...(payload.eosTokenId === undefined ? {} : { eosTokenId: payload.eosTokenId }), ...(payload.sessionId === undefined ? {} : { sessionId: payload.sessionId }) }) as DirectReport;
+        const continuationAssessment = assessDirectVerification(continuation, marginThreshold);
+        if (!continuationAssessment.trigger) verified = combineVerifiedPrefixWithCompiledContinuation(payload.inputIds, verified, continuation, continuationAssessment);
+        else {
+          const fastPath = "verificationFastPath" in selectiveRequest ? selectiveRequest.verificationFastPath : undefined;
+          verified = await verification.send({ ...verificationRequest, ...(fastPath ? { verificationFastPath: { ...fastPath, stopAfterDivergence: false } } : {}) }) as DirectReport;
+          Object.assign(verified, {
+            compiledContinuationAccepted: false,
+            compiledContinuationRejectedReason: continuationAssessment.reason,
+            compiledContinuationMinimumMargin: continuationAssessment.minimumMargin,
+            compiledContinuationTokenSteps: continuation.generatedTokenIds.length,
+            compiledContinuationSeconds: continuation.elapsedSeconds,
+          });
+        }
+      }
       if (prefillAhead && prefillReport) {
         const completedAt = prefillAhead.completedAt ?? performance.now();
         Object.assign(verified, {
@@ -503,13 +521,37 @@ async function executeSelectedDirect(primary: PersistentJsonlWorker, verificatio
       : step);
   }
   const hybridSeconds = (performance.now() - started) / 1000;
+  const compiledContinuationAccepted = verified.compiledContinuationAccepted === true;
   return Object.assign(verified, {
-    selectionPolicy: verificationProvider.backend === "mlx-shared-control" ? "margin-verified-mlx-shared-control-v1" : verificationProvider.backend === "mlx-control" ? "margin-verified-mlx-control-v1" : "margin-verified-pytorch-v1", selectedBackend: verificationProvider.backend, fallbackTriggered: true, fallbackReason: assessment.reason,
+    selectionPolicy: compiledContinuationAccepted ? "margin-verified-pytorch-root-mlx-continuation-v1" : verificationProvider.backend === "mlx-shared-control" ? "margin-verified-mlx-shared-control-v1" : verificationProvider.backend === "mlx-control" ? "margin-verified-mlx-control-v1" : "margin-verified-pytorch-v1", selectedBackend: compiledContinuationAccepted ? "pytorch-root+mlx-continuation" : verificationProvider.backend, fallbackTriggered: true, fallbackReason: assessment.reason,
     fastPathMinimumMargin: assessment.minimumMargin, verificationMarginThreshold: marginThreshold, fastPathSeconds,
     verificationSeconds: Math.max(0, hybridSeconds - fastPathSeconds), workerVerificationSeconds: verified.elapsedSeconds,
     hybridSeconds, elapsedSeconds: hybridSeconds, tokensPerSecond: verified.generatedTokenIds.length / hybridSeconds,
     fastPath: fast,
   });
+}
+
+function combineVerifiedPrefixWithCompiledContinuation(inputIds: readonly number[], verified: DirectReport, continuation: DirectReport, assessment: DirectMarginAssessment): DirectReport {
+  const prefixLength = verified.generatedTokenIds.length;
+  const continuationSteps = Array.isArray(continuation.steps) ? continuation.steps.map((step, index) => ({ ...step, step: prefixLength + index, contextLength: inputIds.length + prefixLength + index })) : [];
+  const generatedTokenIds = [...verified.generatedTokenIds, ...continuation.generatedTokenIds];
+  return {
+    ...verified,
+    generatedTokenIds,
+    fullTokenIds: [...inputIds, ...generatedTokenIds],
+    steps: [...(verified.steps ?? []), ...continuationSteps],
+    ...(typeof continuation.terminalLogitsSha256 === "string" ? { terminalLogitsSha256: continuation.terminalLogitsSha256 } : {}),
+    compiledContinuationAccepted: true,
+    compiledContinuationMinimumMargin: assessment.minimumMargin,
+    compiledContinuationTokenSteps: continuation.generatedTokenIds.length,
+    compiledContinuationSeconds: continuation.elapsedSeconds,
+    compiledContinuationSessionCacheHit: continuation.sessionCacheHit === true,
+    compiledContinuationPrefixTokensReused: nonNegativeInteger(continuation.prefixTokensReused),
+    compiledContinuationPrefillTokensComputed: nonNegativeInteger(continuation.prefillTokensComputed),
+    trustedFastPathSteps: nonNegativeInteger(verified.trustedFastPathSteps) + continuation.generatedTokenIds.length,
+    verificationDecoderStepsAvoided: nonNegativeInteger(verified.verificationDecoderStepsAvoided) + continuation.generatedTokenIds.length,
+    verificationHeadPositionsAvoided: nonNegativeInteger(verified.verificationHeadPositionsAvoided) + continuation.generatedTokenIds.length,
+  };
 }
 
 function streamingEventSensitiveMargin(value: unknown, marginThreshold: number): { step: number; margin: number } | undefined {

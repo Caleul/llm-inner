@@ -3181,6 +3181,24 @@ latência absoluta desse fallback permanece dominada pelo prefill e pela
 cabeça exata iniciais, portanto a contagem de trabalho evitado não é apresentada
 como um speedup universal.
 
+Quando o verificador encontra uma divergência real, ele agora pode parar logo
+depois do primeiro token corrigido e devolver esse prefixo autoritativo ao
+runtime compilado. O Metal retoma a geração a partir do contexto corrigido e o
+servidor só aceita a continuação se **todas** as suas margens greedy forem
+estritamente maiores que o limiar configurado. Qualquer empate, margem sensível
+ou relatório incompleto descarta a tentativa e repete a sequência inteira no
+verificador PyTorch; portanto a otimização é fail-closed e não usa tokens da
+referência para decidir. O relatório identifica o caminho aceito como
+`margin-verified-pytorch-root-mlx-continuation-v1` /
+`pytorch-root+mlx-continuation` e publica
+`compiledContinuationTokenSteps`, `compiledContinuationSeconds`, margem mínima
+e reutilização do cache. Em uma validação real de oito tokens, `2 + 2 =`
+executou três passos exatos e retomou cinco no compilado (`1,243 s` no total),
+enquanto `Traduza para inglês: boa noite` executou quatro passos exatos e
+retomou quatro (`1,497 s`); ambos produziram os mesmos oito token IDs da
+referência. Esses casos demonstram a política, não certificam paridade para
+todo prompt nem o objetivo de aceleração em centenas de vezes.
+
 No primeiro passo do fallback, o hidden do prefill contém uma posição por token
 de entrada, mas `final_norm`, `lm_head` e o softcap são independentes entre
 posições e a seleção greedy lê somente a última. O verificador agora recorta
