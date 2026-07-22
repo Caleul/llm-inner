@@ -2699,6 +2699,16 @@ GPU e memória unificada; seus tempos não devem ser tratados como a latência
 isolada de inferência. A API aceita `measurementSchedule: "isolated" |
 "parallel"`, usando `isolated` quando o campo é omitido.
 
+A apresentação principal é deliberadamente binária: **Original — BF16** contra
+**LLM compilada — funções finais vetorizadas**. Paridade, primeira divergência,
+TTFT, speedup, KV cache e a tabela por passo usam exclusivamente
+`baselineGeneratedTokenIds` e `direct.generatedTokenIds`. A recomposição F32/F64
+anterior continua no mesmo relatório três-vias para auditoria, mas aparece
+recolhida em **Diagnóstico histórico de compatibilidade** e nunca muda o
+veredito da LLM compilada. Os controles de threads, precisão e arredondamento
+dessa via também ficam nesse diagnóstico, pois não configuram o plano Metal
+autenticado do runtime principal.
+
 A prontidão inicial carrega somente o runtime compilado e um worker dedicado de
 tokenização; o processo Transformers de aproximadamente 9 GiB permanece em
 estado `unloaded`. No modo isolado, a stream publica `direct-complete`, inicia a

@@ -5,16 +5,16 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Script } from "node:vm";
-import { gemma4RealCompareHtml, parseGemma4PromptMatrixInput, summarizeGemma4PromptMatrix } from "../src/gemma4-real-compare-ui.js";
+import { gemma4RealCompareHtml, parseGemma4PromptMatrixInput, projectGemma4PrimaryComparison, summarizeGemma4PromptMatrix } from "../src/gemma4-real-compare-ui.js";
 import { GEMMA4_FINAL_FORMULA_NODE_SEMANTICS, writeGemma4FinalFormulaRuntime } from "../src/gemma4-final-formula-runtime.js";
 import { assessDirectVerification, assertDirectFinalFormulaProgram, attachDirectFallbackOutcome, computeDirectExecutionMetrics, computeDirectLogitAgreement, createGemma4RealComparisonServer, parseGemma4RealServerOptions, type Gemma4CompiledProgramStatus } from "../src/gemma4-real-compare-server.js";
 
 test("interface diferencial contém controles e apresentação dos dois executores", () => {
   assert.match(gemma4RealCompareHtml, /Enviar e comparar/);
   assert.match(gemma4RealCompareHtml, /Original — BF16/);
-  assert.match(gemma4RealCompareHtml, /Compilado \(compatibilidade\) — F32\/F64/);
-  assert.match(gemma4RealCompareHtml, /Compilado direto — forward integral até logits/);
-  assert.match(gemma4RealCompareHtml, /Tokens orig\. \/ compat\. \/ direto/);
+  assert.match(gemma4RealCompareHtml, /LLM compilada — funções finais vetorizadas/);
+  assert.match(gemma4RealCompareHtml, /Tokens original \/ compilada/);
+  assert.match(gemma4RealCompareHtml, /Diagnóstico histórico de compatibilidade/);
   assert.match(gemma4RealCompareHtml, /linearBackend/);
   assert.match(gemma4RealCompareHtml, /lotes lineares/);
   assert.match(gemma4RealCompareHtml, /MLPs fundidos/);
@@ -44,13 +44,14 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /Conclusão bruta \(fiel\)/);
   assert.match(gemma4RealCompareHtml, /Chat IT \(contrato oficial Gemma 4\)/);
   assert.match(gemma4RealCompareHtml, /não transforma pesos base em pesos instruction-tuned/);
-  assert.match(gemma4RealCompareHtml, /razão direto\/original/);
+  assert.match(gemma4RealCompareHtml, /razão compilada\/original/);
   assert.match(gemma4RealCompareHtml, /Executor direto ausente: gere ou informe o bundle compilado/);
   assert.match(gemma4RealCompareHtml, /clearComparison/);
   assert.match(gemma4RealCompareHtml, /AbortController/);
-  assert.match(gemma4RealCompareHtml, /Direto: Δlogit \/ Δmargem \/ top-K/);
+  assert.match(gemma4RealCompareHtml, /Δlogit \/ Δmargem \/ top-K/);
   assert.match(gemma4RealCompareHtml, /divergência direta top-K/);
-  assert.match(gemma4RealCompareHtml, /compatibilidade:.*direto:/);
+  assert.match(gemma4RealCompareHtml, /Original e LLM compilada geraram exatamente os mesmos tokens/);
+  assert.match(gemma4RealCompareHtml, /Este resultado não altera o veredito da LLM compilada/);
   assert.match(gemma4RealCompareHtml, /prefixo KV/);
   assert.match(gemma4RealCompareHtml, /Primeiro token/);
   assert.match(gemma4RealCompareHtml, /prefillAvoidedRate/);
@@ -66,7 +67,7 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /kvPrefixValidationScansAvoided/);
   assert.match(gemma4RealCompareHtml, /decoderLayerValidityScansAvoided/);
   assert.match(gemma4RealCompareHtml, /parallelExecutionBackend/);
-  assert.match(gemma4RealCompareHtml, /--direct-threads não se aplica/);
+  assert.match(gemma4RealCompareHtml, /paralelismo compilado/);
   assert.match(gemma4RealCompareHtml, /decoder→logits compilado/);
   assert.match(gemma4RealCompareHtml, /compiledIncrementalDecoderSteps/);
   assert.match(gemma4RealCompareHtml, /incrementalCompilerCacheHit/);
@@ -98,6 +99,25 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /summarizeGemma4PromptMatrix/);
   assert.match(gemma4RealCompareHtml, /melhorou.*piorou.*continuou divergente/);
   const embedded = gemma4RealCompareHtml.match(/<script>([\s\S]*)<\/script>/)?.[1]; assert.ok(embedded); assert.doesNotThrow(() => new Script(embedded), "JavaScript embutido deve ser sintaticamente executável pelo navegador");
+});
+
+test("interface projeta o veredito somente de original × LLM compilada", () => {
+  const report = {
+    baselineGeneratedText: "original",
+    baselineGeneratedTokenIds: [1, 2],
+    candidateGeneratedText: "legado divergente",
+    candidateGeneratedTokenIds: [1, 9],
+    candidatePrecision: "f32",
+    roundingPolicy: "none",
+    direct: { generatedText: "compilado", generatedTokenIds: [1, 2] },
+  };
+  assert.deepEqual(projectGemma4PrimaryComparison(report), {
+    baselineText: "original", compiledText: "compilado", baselineTokenIds: [1, 2], compiledTokenIds: [1, 2], tokensEqual: true, firstDivergentStep: null,
+    compatibility: { text: "legado divergente", tokenIds: [1, 9], tokensEqual: false, firstDivergentStep: 1, precision: "f32", roundingPolicy: "none" },
+  });
+  const divergent = projectGemma4PrimaryComparison({ ...report, direct: { generatedText: "compilado divergente", generatedTokenIds: [1, 3] } });
+  assert.equal(divergent.tokensEqual, false); assert.equal(divergent.firstDivergentStep, 1);
+  assert.throws(() => projectGemma4PrimaryComparison({ ...report, direct: undefined }), /não contém as saídas/);
 });
 
 test("matriz da interface aceita linhas ou JSON e rejeita entradas ambíguas", () => {
