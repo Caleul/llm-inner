@@ -70,7 +70,7 @@ process.stdout.write(`${JSON.stringify({ ready: true, initializationSeconds: (pe
 
 const lines = createInterface({ input: process.stdin, crlfDelay: Infinity });
 for await (const line of lines) {
-  let request: { id?: unknown; control?: unknown; inputIds?: unknown; maxNewTokens?: unknown; sessionId?: unknown; stream?: unknown; verificationFastPath?: unknown } = {};
+  let request: { id?: unknown; control?: unknown; inputIds?: unknown; maxNewTokens?: unknown; eosTokenId?: unknown; sessionId?: unknown; stream?: unknown; verificationFastPath?: unknown } = {};
   try {
     request = JSON.parse(line) as typeof request;
     if (request.control === "trim-memory") {
@@ -82,11 +82,11 @@ for await (const line of lines) {
       continue;
     }
     if (request.control !== undefined) throw new Error("Controle de worker desconhecido.");
-    const inputIds = validateIds(request.inputIds), maxNewTokens = validateTokens(request.maxNewTokens);
+    const inputIds = validateIds(request.inputIds), maxNewTokens = validateTokens(request.maxNewTokens), eosTokenId = validateEosTokenId(request.eosTokenId);
     const sessionId = validateSessionId(request.sessionId), stream = validateStream(request.stream), verificationFastPath = validateVerificationFastPath(request.verificationFastPath, maxNewTokens);
     const report = verificationFastPath
-      ? await generateSelectiveVerification(inputIds, maxNewTokens, verificationFastPath)
-      : await generate(inputIds, maxNewTokens, sessionId, stream ? (event) => process.stdout.write(`${JSON.stringify({ id: request.id, event: { type: "token", ...event } })}\n`) : undefined);
+      ? await generateSelectiveVerification(inputIds, maxNewTokens, verificationFastPath, eosTokenId)
+      : await generate(inputIds, maxNewTokens, eosTokenId, sessionId, stream ? (event) => process.stdout.write(`${JSON.stringify({ id: request.id, event: { type: "token", ...event } })}\n`) : undefined);
     process.stdout.write(`${JSON.stringify({ id: request.id, report })}\n`);
   } catch (error) {
     process.stdout.write(`${JSON.stringify({ id: request.id, error: error instanceof Error ? error.message : String(error) })}\n`);
@@ -94,11 +94,11 @@ for await (const line of lines) {
 }
 await linear.close(); await pool.close(); await artifact.close();
 
-async function generate(inputIds: number[], maxNewTokens: number, sessionId?: number, onToken?: (event: Record<string, unknown>) => void): Promise<Record<string, unknown>> {
+async function generate(inputIds: number[], maxNewTokens: number, eosTokenId?: number, sessionId?: number, onToken?: (event: Record<string, unknown>) => void): Promise<Record<string, unknown>> {
   const dispatchesBefore = linear.dispatchMetrics();
   const started = performance.now(), generatedTokenIds: number[] = [], steps: Array<Record<string, unknown>> = [];
   if (args.residentGeneration === "on") {
-    const generated = await generateGemma4PagedTextLiteralNativeF32(artifact, { inputIds: [inputIds], maxNewTokens }, options, 5, { ...(sessionId === undefined ? {} : { sessionId }), ...(onToken === undefined ? {} : { onToken: (event) => onToken({ step: event.step, tokenId: event.tokenId, forwardSeconds: event.forwardSeconds, topLogits: Array.from(event.topTokenIds, (tokenId, rank) => ({ tokenId, value: event.topLogits[rank]! })) }) }) });
+    const generated = await generateGemma4PagedTextLiteralNativeF32(artifact, { inputIds: [inputIds], maxNewTokens, ...(eosTokenId === undefined ? {} : { eosTokenId }) }, options, 5, { ...(sessionId === undefined ? {} : { sessionId }), ...(onToken === undefined ? {} : { onToken: (event) => onToken({ step: event.step, tokenId: event.tokenId, forwardSeconds: event.forwardSeconds, topLogits: Array.from(event.topTokenIds, (tokenId, rank) => ({ tokenId, value: event.topLogits[rank]! })) }) }) });
     const elapsedSeconds = (performance.now() - started) / 1000, dispatchesAfter = linear.dispatchMetrics();
     for (let step = 0; step < generated.generatedTokenIds.length; step += 1) {
       generatedTokenIds.push(generated.generatedTokenIds[step]!);
@@ -113,7 +113,7 @@ async function generate(inputIds: number[], maxNewTokens: number, sessionId?: nu
     const top = rankGemma4TerminalLogits(current.logits), tokenId = selectGemma4LiteralGenerationToken(artifact.generation.controlProgram, current.logits);
     generatedTokenIds.push(tokenId);
     steps.push({ step, tokenId, contextLength: inputIds.length + step, forwardSeconds, topLogits: top });
-    if (step + 1 === maxNewTokens) break;
+    if (tokenId === eosTokenId || step + 1 === maxNewTokens) break;
     forwardStarted = performance.now();
     current = await executeGemma4PagedTextLiteralF32(artifact, { inputIds: [[tokenId]], positionIds: [[inputIds.length + step]], pastKeyValues: current.pastKeyValues }, options);
     forwardSeconds = (performance.now() - forwardStarted) / 1000;
@@ -130,14 +130,14 @@ interface VerificationFastPath {
   terminalLogitsSha256: string;
 }
 
-async function generateSelectiveVerification(inputIds: number[], maxNewTokens: number, fast: VerificationFastPath): Promise<Record<string, unknown>> {
+async function generateSelectiveVerification(inputIds: number[], maxNewTokens: number, fast: VerificationFastPath, eosTokenId?: number): Promise<Record<string, unknown>> {
   if (args.linearBackend !== "pytorch" || args.residentGeneration !== "off" || args.fusedTokenForwardRounding !== "off") throw new Error("Verificação seletiva requer backend PyTorch não residente.");
   const dispatchesBefore = linear.dispatchMetrics(), started = performance.now();
   const sensitive = new Set(fast.sensitiveSteps), generatedTokenIds: number[] = [], steps: Array<Record<string, unknown>> = [];
   let forwardStarted = performance.now();
   let current = await executeGemma4PagedTextHiddenLiteralF32(artifact, { inputIds: [inputIds] }, options);
   let forwardSeconds = (performance.now() - forwardStarted) / 1000, terminalLogitsSha256 = fast.terminalLogitsSha256, divergenceStep: number | null = null;
-  for (let step = 0; step < maxNewTokens; step += 1) {
+  for (let step = 0; step < fast.generatedTokenIds.length; step += 1) {
     const verify = divergenceStep !== null || sensitive.has(step);
     let tokenId = fast.generatedTokenIds[step]!, topLogits: unknown[] = [], verificationSkipped = true;
     if (verify) {
@@ -153,7 +153,7 @@ async function generateSelectiveVerification(inputIds: number[], maxNewTokens: n
     }
     generatedTokenIds.push(tokenId);
     steps.push({ step, tokenId, contextLength: inputIds.length + step, forwardSeconds, topLogits, verificationSkipped });
-    if (step + 1 === maxNewTokens) break;
+    if (tokenId === eosTokenId || step + 1 === maxNewTokens) break;
     forwardStarted = performance.now();
     current = await executeGemma4PagedTextHiddenLiteralF32(artifact, { inputIds: [[tokenId]], positionIds: [[inputIds.length + step]], pastKeyValues: current.pastKeyValues }, options);
     forwardSeconds = (performance.now() - forwardStarted) / 1000;
@@ -171,7 +171,7 @@ function buildReport(inputIds: number[], maxNewTokens: number, generatedTokenIds
     sourceCheckpointAccessed: false, compatibilityBinaryWeightsAccessed: true,
     inputIds, maxNewTokens, generatedTokenIds, fullTokenIds: [...inputIds, ...generatedTokenIds], steps,
     terminalLogitsSha256,
-    elapsedSeconds, tokensPerSecond: maxNewTokens / elapsedSeconds, linearThreads: args.threads,
+    elapsedSeconds, tokensPerSecond: generatedTokenIds.length / elapsedSeconds, linearThreads: args.threads,
     residentGeneration: args.residentGeneration,
     ...transport,
     maxReadMiB: args.maxReadBytes / (1024 * 1024),
@@ -242,6 +242,11 @@ function validateTokens(value: unknown): number {
   if (!Number.isSafeInteger(value) || (value as number) < 1 || (value as number) > 64) throw new Error("maxNewTokens deve estar entre 1 e 64.");
   return value as number;
 }
+function validateEosTokenId(value: unknown): number | undefined {
+  if (value === undefined) return undefined;
+  if (!Number.isSafeInteger(value) || (value as number) < 0) throw new Error("eosTokenId deve ser inteiro não negativo.");
+  return value as number;
+}
 function validateSessionId(value: unknown): number | undefined {
   if (value === undefined) return undefined;
   if (!Number.isSafeInteger(value) || (value as number) < 1 || (value as number) > 0xffff_ffff) throw new Error("sessionId deve ser inteiro entre 1 e 4.294.967.295.");
@@ -259,8 +264,8 @@ function validateVerificationFastPath(value: unknown, maxNewTokens: number): Ver
   const generatedTokenIds = candidate.generatedTokenIds;
   const sensitiveSteps = candidate.sensitiveSteps;
   const terminalLogitsSha256 = candidate.terminalLogitsSha256;
-  if (!Array.isArray(generatedTokenIds) || generatedTokenIds.length !== maxNewTokens || generatedTokenIds.some((token) => !Number.isSafeInteger(token) || (token as number) < 0)) throw new Error("verificationFastPath.generatedTokenIds deve conter exatamente maxNewTokens inteiros não negativos.");
-  if (!Array.isArray(sensitiveSteps) || sensitiveSteps.length === 0 || sensitiveSteps.some((step) => !Number.isSafeInteger(step) || (step as number) < 0 || (step as number) >= maxNewTokens)) throw new Error("verificationFastPath.sensitiveSteps deve conter passos válidos.");
+  if (!Array.isArray(generatedTokenIds) || generatedTokenIds.length < 1 || generatedTokenIds.length > maxNewTokens || generatedTokenIds.some((token) => !Number.isSafeInteger(token) || (token as number) < 0)) throw new Error("verificationFastPath.generatedTokenIds deve conter entre 1 e maxNewTokens inteiros não negativos.");
+  if (!Array.isArray(sensitiveSteps) || sensitiveSteps.length === 0 || sensitiveSteps.some((step) => !Number.isSafeInteger(step) || (step as number) < 0 || (step as number) >= generatedTokenIds.length)) throw new Error("verificationFastPath.sensitiveSteps deve conter passos gerados válidos.");
   const normalizedSteps = [...sensitiveSteps] as number[];
   if (normalizedSteps.some((step, index) => index > 0 && step <= normalizedSteps[index - 1]!)) throw new Error("verificationFastPath.sensitiveSteps deve estar ordenado e sem duplicatas.");
   if (typeof terminalLogitsSha256 !== "string" || !/^[0-9a-f]{64}$/.test(terminalLogitsSha256)) throw new Error("verificationFastPath.terminalLogitsSha256 deve ser SHA-256 hexadecimal minúsculo.");

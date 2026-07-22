@@ -206,7 +206,7 @@ def load_runtime(source, threads, logit_chunk):
     return model, AutoTokenizer.from_pretrained(source)
 
 
-def compare_request(model, tokenizer, source, prompt, input_ids, max_new_tokens, inspect_logit, threads=0, precision="f64", rounding_policy="none", session_id=None):
+def compare_request(model, tokenizer, source, prompt, input_ids, max_new_tokens, inspect_logit, threads=0, precision="f64", rounding_policy="none", session_id=None, eos_token_id=None):
     global REAL_DTYPE, ROUNDING_POLICY
     if max_new_tokens < 1 or max_new_tokens > 256:
         raise ValueError("maxNewTokens must be between 1 and 256")
@@ -230,6 +230,8 @@ def compare_request(model, tokenizer, source, prompt, input_ids, max_new_tokens,
         raise ValueError("inputIds requires comma-separated non-negative integers")
     if session_id is not None and (not isinstance(session_id, int) or isinstance(session_id, bool) or session_id < 1 or session_id > 0xffffffff):
         raise ValueError("sessionId must be an integer between 1 and 4294967295")
+    if eos_token_id is not None and (not isinstance(eos_token_id, int) or isinstance(eos_token_id, bool) or eos_token_id < 0 or eos_token_id >= tokenizer.vocab_size):
+        raise ValueError("eosTokenId must be a valid tokenizer vocabulary id")
     baseline_ids, candidate_ids = list(parsed_input_ids), list(parsed_input_ids)
     baseline_generated, candidate_generated, steps = [], [], []
     session = COMPARISON_SESSIONS.get(session_id) if session_id is not None else None
@@ -257,6 +259,8 @@ def compare_request(model, tokenizer, source, prompt, input_ids, max_new_tokens,
             "metrics": comparison, "inspectedLogits": inspected_logits(baseline_logits, candidate_logits, inspect_logit),
             "baselineTopLogits": top_logits(baseline_logits), "candidateTopLogits": top_logits(candidate_logits),
         })
+        if baseline_token == eos_token_id:
+            break
     baseline_total = sum(entry["baselineSeconds"] for entry in steps)
     candidate_total = sum(entry["candidateSeconds"] for entry in steps)
     peak_rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
@@ -284,8 +288,8 @@ def compare_request(model, tokenizer, source, prompt, input_ids, max_new_tokens,
         "baselinePrefillTokensComputed": len(parsed_input_ids) - baseline_reused, "candidatePrefillTokensComputed": len(parsed_input_ids) - candidate_reused,
         "performance": {
             "baselineSeconds": baseline_total, "candidateSeconds": candidate_total,
-            "baselineTokensPerSecond": max_new_tokens / baseline_total,
-            "candidateTokensPerSecond": max_new_tokens / candidate_total,
+            "baselineTokensPerSecond": len(baseline_generated) / baseline_total,
+            "candidateTokensPerSecond": len(candidate_generated) / candidate_total,
             "candidateSpeedup": baseline_total / candidate_total,
             "processPeakRssBytes": peak_rss_bytes,
         },
@@ -314,7 +318,7 @@ def main():
                         raise ValueError("encode requires non-empty text and boolean addSpecialTokens")
                     report = {"tokenIds": tokenizer.encode(text, add_special_tokens=add_special_tokens)}
                 else:
-                    report = compare_request(model, tokenizer, args.source, request.get("prompt"), request.get("inputIds"), int(request.get("maxNewTokens", 1)), request.get("inspectLogit", []), int(request.get("threads", 0)), request.get("precision", "f64"), request.get("roundingPolicy", "none"), request.get("sessionId"))
+                    report = compare_request(model, tokenizer, args.source, request.get("prompt"), request.get("inputIds"), int(request.get("maxNewTokens", 1)), request.get("inspectLogit", []), int(request.get("threads", 0)), request.get("precision", "f64"), request.get("roundingPolicy", "none"), request.get("sessionId"), request.get("eosTokenId"))
                 print(json.dumps({"id": request.get("id"), "report": report}), flush=True)
             except Exception as error:
                 print(json.dumps({"id": request.get("id") if "request" in locals() else None, "error": str(error)}), flush=True)

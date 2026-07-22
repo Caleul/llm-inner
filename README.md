@@ -2755,13 +2755,15 @@ o ranking. A UI publica ambas as quantidades de validações redundantes evitada
 
 O modo padrão, **Conclusão bruta (fiel)**, envia o texto literalmente porque o
 `gemma-4-E4B-dense/tokenizer_config.json` possui `chat_template: null`. O modo
-**Chat IT (experimental)** aplica, igualmente aos três executores, o contrato
-textual comprovado pelo `chat_template.jinja` do checkpoint instrucional local:
-`<|turn>user\n...<turn|>\n<|turn>model\n`. Isso permite testar a mecânica de
-conversa, mas não transforma os pesos densos base em pesos instruction-tuned;
-a interface exibe esse limite em vez de atribuir eventual qualidade textual à
-compilação. Trocar o modo inicia uma nova sessão para impedir mistura de
-contratos de tokenização.
+**Chat IT (contrato oficial Gemma 4)** aplica, igualmente aos três executores,
+`<|turn>user\n...<turn|>\n<|turn>model\n`, para a geração no token EOT 106 e
+reutiliza esse terminador sem duplicá-lo ao montar o turno seguinte. Os
+delimitadores de controle são rejeitados no texto do usuário para que ele não
+altere a estrutura da conversa. A formatação permite testar a mecânica de chat,
+mas não transforma os pesos densos base em pesos instruction-tuned; a interface
+exibe esse limite em vez de atribuir eventual qualidade textual à compilação.
+Trocar o modo inicia uma nova sessão para impedir mistura de contratos de
+tokenização.
 
 Além de igualdade do argmax, cada passo agora compara os top logits do runtime
 direto com os do Transformers: erro absoluto do logit escolhido, variação da
