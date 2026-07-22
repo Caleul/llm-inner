@@ -11,16 +11,17 @@ test("empacota grafo fechado, constant pool e tokenizer sem caminhos externos", 
   const { mkdir } = await import("node:fs/promises"); await mkdir(tokenizer);
   const graph = join(directory, "graph.json"), constants = join(directory, "constants.json"), globalSsa = join(directory, "global.json");
   const lowering = join(directory, "lowering.json");
+  const outputRoot = `sha256:${"d".repeat(64)}`;
   await writeFile(graph, '{"kind":"gemma4-parametric-reverse-algebraic-composition","schemaVersion":1,"output":{"family":"terminal_logit","dimension":0,"parameters":{}},"graph":{"nodes":[{"id":"sha256:a"}]},"root":"sha256:a","steps":[],"remainingFunctionCalls":[],"inputVector":{"tensor":"x","length":3}}\n');
   await writeFile(constants, "constant-pool");
-  await writeFile(globalSsa, `{"constantMemory":{"kind":"authenticated-gemma4-literal-artifact","artifact":"${constants}"},"outputs":[{"assignment":"calc_terminal_logit_0","value":"root:output","parameters":[],"coordinate":[],"finalQuantization":"BF16-round-to-nearest-ties-to-even"}]}\n`);
+  await writeFile(globalSsa, `{"constantMemory":{"kind":"authenticated-gemma4-literal-artifact","artifact":"${constants}"},"outputs":[{"assignment":"calc_terminal_logit_0","value":"${outputRoot}","parameters":[],"coordinate":[],"finalQuantization":"BF16-round-to-nearest-ties-to-even"}]}\n`);
   const functionBindings = [{ functionId: "op:0", operationId: "operation_0", ordinal: 0, output: "value_0", operation: "activation", kernel: "mlx-real-activation", root: "root:0", predecessorFunctions: [] }];
   const functionBindingsSha256 = createHash("sha256").update(JSON.stringify(functionBindings), "utf8").digest("hex");
   const orderedDispatchSha256 = createHash("sha256").update(JSON.stringify([{ id: "operation_0", op: "activation", output: "value_0" }]), "utf8").digest("hex");
   const compiledOutputProgram = { id: "gemma4-text-real-final-vectors", semantics: "shared-dag-parametric-output-functions-v1", logicalDispatchesPerForward: 1, operationFunctions: 1, outputFunctions: 1, firstOperationId: "operation_0", terminalOperationId: "operation_0", orderedDispatchSha256 };
-  const outputBinding = { name: "terminal_logit", operationId: "operation_0", fixedDimension: 0, coordinate: [], parameters: [], root: "root:output", finalQuantization: "BF16-round-to-nearest-ties-to-even" };
+  const outputBinding = { name: "terminal_logit", operationId: "operation_0", fixedDimension: 0, coordinate: [], parameters: [], root: outputRoot, finalQuantization: "BF16-round-to-nearest-ties-to-even" };
   const outputBindingsSha256 = createHash("sha256").update(JSON.stringify([outputBinding]), "utf8").digest("hex");
-  const standaloneSsaOutputsSha256 = createHash("sha256").update(JSON.stringify([{ assignment: "calc_terminal_logit_0", value: "root:output", parameters: [], coordinate: [], finalQuantization: "BF16-round-to-nearest-ties-to-even" }]), "utf8").digest("hex");
+  const standaloneSsaOutputsSha256 = createHash("sha256").update(JSON.stringify([{ assignment: "calc_terminal_logit_0", value: outputRoot, parameters: [], coordinate: [], finalQuantization: "BF16-round-to-nearest-ties-to-even" }]), "utf8").digest("hex");
   await writeFile(lowering, JSON.stringify({
     kind: "gemma4-vectorized-real-lowering-plan", schemaVersion: 3,
     contract: {
@@ -39,8 +40,8 @@ test("empacota grafo fechado, constant pool e tokenizer sem caminhos externos", 
     assert.deepEqual(manifest.runtimeLowering, { engine: "mlx-f32-real-decoder-stack-v1", directlyExecutesGlobalFormula: true, executesPersistedLoweringPlan: true, plan: "vectorized-real-lowering.json", functionBindingsSha256, outputBindingsSha256, standaloneSsaOutputsSha256, outputFunctions: 1, realSimplifiedProgramSha256: "b".repeat(64), globalFormulaRole: "compiled-executable-shared-dag", compiledOutputProgram });
     assert.equal(manifest.schemaVersion, 2); assert.equal(manifest.files.length, 9); assert.ok(manifest.files.every((entry) => !entry.file.includes(directory)));
     assert.deepEqual(manifest.globalProgram, { file: "global-formulas.ssa.json", terminalLogits: 1, constantPool: "constants.literal.json" });
-    assert.deepEqual(manifest.finalFormulaMap, { file: "final-formulas.json", functions: 1, inputTensor: "x", evaluator: "BF16_RNE(EVAL_EXACT_DAG(root,x))", globalFormulaSha256: manifest.files.find((entry) => entry.role === "global-formulas")!.sha256 });
-    assert.deepEqual(JSON.parse(await readFile(join(output, "final-formulas.json"), "utf8")), { calc_final_0: "BF16_RNE(EVAL_EXACT_DAG(\"root:output\", x))" });
+    assert.deepEqual(manifest.finalFormulaMap, { file: "final-formulas.json", functions: 1, inputTensor: "x", evaluator: "BF16_RNE(EVAL_EXACT_DAG(root,x))", globalFormulaSha256: manifest.files.find((entry) => entry.role === "global-formulas")!.sha256, orderedRootsSha256: createHash("sha256").update(`0:${outputRoot}\n`).digest("hex") });
+    assert.deepEqual(JSON.parse(await readFile(join(output, "final-formulas.json"), "utf8")), { calc_final_0: `BF16_RNE(EVAL_EXACT_DAG("${outputRoot}", x))` });
     assert.match(await readFile(join(output, "global-formulas.ssa.json"), "utf8"), /"artifact":"constants\.literal\.json"/);
     assert.deepEqual(JSON.parse(await readFile(join(output, "vectorized-real-lowering.json"), "utf8")), JSON.parse(await readFile(lowering, "utf8")));
     assert.deepEqual(JSON.parse(await readFile(join(output, "manifest.json"), "utf8")), manifest);

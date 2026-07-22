@@ -26,7 +26,7 @@ export interface Gemma4CompiledBundleManifest {
   };
   formula: { family: string; dimension: number; root: string; expressionNodes: number; inputTensor: "x"; inputLength: number; file: string };
   globalProgram?: { file: string; terminalLogits: number; constantPool: string };
-  finalFormulaMap?: { file: "final-formulas.json"; functions: number; inputTensor: "x"; evaluator: "BF16_RNE(EVAL_EXACT_DAG(root,x))"; globalFormulaSha256: string };
+  finalFormulaMap?: { file: "final-formulas.json"; functions: number; inputTensor: "x"; evaluator: "BF16_RNE(EVAL_EXACT_DAG(root,x))"; globalFormulaSha256: string; orderedRootsSha256: string };
   runtimeIndex?: { file: "constants.runtime-index.json"; schemaVersion: 1 | 2; constantPoolSha256: string; integrityRootSha256: string };
   files: Array<{ role: "formula-graph" | "global-formulas" | "final-formulas" | "vectorized-real-lowering" | "constant-pool" | "literal-runtime-index" | "runtime-weights" | "tokenizer" | "tokenizer-config" | "generation-config" | "model-config"; file: string; bytes: number; sha256: string }>;
 }
@@ -67,7 +67,7 @@ export async function createGemma4CompiledBundle(options: { graph: string; globa
   const globalFile = files.at(-1)!;
   const terminalLogitOffset = outputFamilyOffset(loweringPlan, "terminal_logit");
   const finalFormulaFile = join(output, "final-formulas.json");
-  await writeGemma4FinalFormulaMap(destination, finalFormulaFile, terminalLogitOffset, terminalLogits);
+  const finalFormulaMap = await writeGemma4FinalFormulaMap(destination, finalFormulaFile, terminalLogitOffset, terminalLogits);
   const finalFormulaInfo = await stat(finalFormulaFile);
   files.push({ role: "final-formulas", file: "final-formulas.json", bytes: finalFormulaInfo.size, sha256: await sha256File(finalFormulaFile) });
   const globalProgram: NonNullable<Gemma4CompiledBundleManifest["globalProgram"]> = { file: "global-formulas.ssa.json", terminalLogits, constantPool: "constants.literal.json" };
@@ -83,7 +83,7 @@ export async function createGemma4CompiledBundle(options: { graph: string; globa
     },
     formula: { family: summary.output.family, dimension: summary.output.dimension, root: summary.root, expressionNodes: summary.expressionNodes, inputTensor: "x", inputLength: summary.inputVector.length, file: "formula.graph.json" },
     globalProgram,
-    finalFormulaMap: { file: "final-formulas.json", functions: terminalLogits, inputTensor: "x", evaluator: "BF16_RNE(EVAL_EXACT_DAG(root,x))", globalFormulaSha256: globalFile.sha256 },
+    finalFormulaMap: { file: "final-formulas.json", functions: terminalLogits, inputTensor: "x", evaluator: "BF16_RNE(EVAL_EXACT_DAG(root,x))", globalFormulaSha256: globalFile.sha256, orderedRootsSha256: finalFormulaMap.orderedRootsSha256 },
     ...(runtimeIndexDescriptor ? { runtimeIndex: { file: "constants.runtime-index.json" as const, schemaVersion: runtimeIndexDescriptor.schemaVersion, constantPoolSha256: constantFile.sha256, integrityRootSha256: runtimeIndexDescriptor.integrityRootSha256 } } : {}),
     files,
   };
@@ -100,10 +100,11 @@ export async function bindGemma4FinalFormulaMap(bundleDirectory: string): Promis
   const plan = await readLoweringPlan(join(bundle, planFile.file)), family = plan.contract.source.outputFamilies.terminal_logit;
   if (!family || family.dimensions !== current.globalProgram.terminalLogits) throw new Error("Plano vetorial diverge da quantidade de logits do bundle.");
   const destination = join(bundle, "final-formulas.json"), temporary = `${destination}.next-${process.pid}`;
-  try { await writeGemma4FinalFormulaMap(join(bundle, globalFile.file), temporary, outputFamilyOffset(plan, "terminal_logit"), family.dimensions); await rename(temporary, destination); }
+  let finalFormulaMap: Awaited<ReturnType<typeof writeGemma4FinalFormulaMap>>;
+  try { finalFormulaMap = await writeGemma4FinalFormulaMap(join(bundle, globalFile.file), temporary, outputFamilyOffset(plan, "terminal_logit"), family.dimensions); await rename(temporary, destination); }
   catch (error) { await rm(temporary, { force: true }); throw error; }
   const info = await stat(destination), descriptor = { role: "final-formulas" as const, file: "final-formulas.json", bytes: info.size, sha256: await sha256File(destination) };
-  const manifest: Gemma4CompiledBundleManifest = { ...current, finalFormulaMap: { file: "final-formulas.json", functions: family.dimensions, inputTensor: "x", evaluator: "BF16_RNE(EVAL_EXACT_DAG(root,x))", globalFormulaSha256: globalFile.sha256 }, files: [...current.files.filter((entry) => entry.role !== "final-formulas"), descriptor] };
+  const manifest: Gemma4CompiledBundleManifest = { ...current, finalFormulaMap: { file: "final-formulas.json", functions: family.dimensions, inputTensor: "x", evaluator: "BF16_RNE(EVAL_EXACT_DAG(root,x))", globalFormulaSha256: globalFile.sha256, orderedRootsSha256: finalFormulaMap.orderedRootsSha256 }, files: [...current.files.filter((entry) => entry.role !== "final-formulas"), descriptor] };
   const manifestTemporary = `${manifestPath}.next-${process.pid}`;
   await writeFile(manifestTemporary, `${JSON.stringify(manifest, null, 2)}\n`, { encoding: "utf8", flag: "wx" }); await rename(manifestTemporary, manifestPath);
   return manifest;

@@ -2963,7 +2963,13 @@ A materialização final agora grava também `final-formulas.json` com exatament
 Cada raiz referencia a DAG matemática autenticada no próprio bundle; `x` é a
 única variável livre. O arquivo é produzido em streaming, vinculado ao SHA-256
 de `global-formulas.ssa.json` e incluído no manifesto com contagem, tamanho e
-SHA-256 próprios. Para adicionar ou regenerar o mapa em um bundle existente:
+SHA-256 próprios. O manifesto preserva também `orderedRootsSha256`, calculado
+sobre cada par ordenado `dimensão:raiz`. No modo compilado real, o servidor
+entrega esses compromissos ao worker, que valida as 262.144 chaves, a forma de
+cada `F_n(x)` e a ordem das raízes antes do warm-up. O worker publica
+`finalFormulaProgram.execution = vectorized-shared-dag-output-program` no
+status e em cada geração; a interface não fica pronta se esse vínculo divergir.
+Para adicionar ou regenerar o mapa em um bundle existente:
 
 ```bash
 npm run generate:gemma4-final-formula-map -- \
