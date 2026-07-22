@@ -114,6 +114,22 @@ test("evidência adia prefill exato sem cache e preserva antecipação do contex
   assert.equal(artifact.decision.selectedDefault, "defer-uncached-prefill");
 });
 
+test("evidência promove cabeça BF16 integral e rejeita prefill agrupado divergente", async () => {
+  const artifact = JSON.parse(await readFile("artifacts/gemma4-verification-whole-head-promotion.json", "utf8")) as any;
+  const digest = async (path: string) => createHash("sha256").update(await readFile(path)).digest("hex");
+  for (const source of Object.values(artifact.sources) as Array<{ file: string; sha256: string }>) assert.equal(await digest(source.file), source.sha256);
+  assert.equal(artifact.pairedBenchmark.allGeneratedTokensEqual, true);
+  assert.equal(artifact.pairedBenchmark.allTerminalLogitsSha256Equal, true);
+  assert.ok(artifact.pairedBenchmark.candidate.meanElapsedSeconds < artifact.pairedBenchmark.control.meanElapsedSeconds);
+  assert.ok(artifact.pairedBenchmark.meanWallReductionRate > 0.25);
+  assert.deepEqual([artifact.authoritativeCorpus.promptsEqual, artifact.authoritativeCorpus.prompts, artifact.authoritativeCorpus.equalTokenSteps, artifact.authoritativeCorpus.comparedTokenSteps], [5, 5, 40, 40]);
+  assert.ok(artifact.authoritativeCorpus.cases.every((entry: any) => JSON.stringify(entry.compiledTokenIds) === JSON.stringify(entry.baselineTokenIds)));
+  assert.equal(artifact.rejectedTrustedPrefixBatch.rejected, true);
+  assert.notDeepEqual(artifact.rejectedTrustedPrefixBatch.candidateTokenIds, artifact.rejectedTrustedPrefixBatch.baselineTokenIds);
+  assert.equal(artifact.rejectedTrustedPrefixBatch.firstDivergentStep, 3);
+  assert.equal(artifact.decision.selectedDefault, "native-bf16-whole");
+});
+
 test("evidência promove a fronteira Q8 0-19 com menos fallbacks e paridade integral", async () => {
   const artifact = JSON.parse(await readFile("artifacts/gemma4-q8-layer-boundary-promotion-32x8.json", "utf8")) as any;
   assert.deepEqual([artifact.configuration.prompts, artifact.configuration.tokensPerPrompt, artifact.configuration.decoderQuantization, artifact.configuration.verificationMargin], [32, 8, "q8-ffn-gate-up", 0]);

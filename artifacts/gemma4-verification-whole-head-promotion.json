@@ -1,0 +1,142 @@
+{
+  "kind": "gemma4-exact-verification-whole-head-promotion",
+  "schemaVersion": 1,
+  "capturedAt": "2026-07-22T19:23:31Z",
+  "machineScope": "local-apple-silicon-fresh-process-paired-samples",
+  "sources": {
+    "comparisonServer": {
+      "file": "src/gemma4-real-compare-server.ts",
+      "sha256": "55363a368960bb7429d680e4b753917557791475b33d8fe32e44399b32c0bd04"
+    },
+    "comparisonUi": {
+      "file": "src/gemma4-real-compare-ui.ts",
+      "sha256": "812a32451b79c66c2ef301af382252770971541b61eb88d5c579286640274006"
+    },
+    "verificationWorker": {
+      "file": "src/gemma4-paged-runtime-worker-cli.ts",
+      "sha256": "c9b998c42d008e6f76825c8e06214da29ee972abf9aa57debe26b7720abd8a3c"
+    },
+    "nativeTransport": {
+      "file": "src/gemma4-paged-native-linear.ts",
+      "sha256": "2f9ba662e342d9450c2b09a3b09641daf5631cffa2af385f23ddb2c2b848e014"
+    },
+    "pytorchKernel": {
+      "file": "scripts/gemma4-paged-linear-worker.py",
+      "sha256": "173df0d7f823ba215630263d75c6a310a80dee4a1334f8f83da3c946ec261314"
+    },
+    "runtimeIndex": {
+      "file": "artifacts/gemma4-compiled-global-runtime-bundle/constants.runtime-index.json",
+      "sha256": "a63159a92e27024862b478cd14fe80c283ab27ce32243e9c008d8d6a9c7847b4"
+    }
+  },
+  "request": {
+    "prompt": "Traduza para inglês: boa noite",
+    "conversationMode": "raw",
+    "maxNewTokens": 8,
+    "generatedTokenIds": [236764, 6913, 4280, 1983, 23667, 569, 236743, 236800],
+    "fastGeneratedTokenIds": [236764, 6913, 4280, 512, 14825, 569, 101008, 236761],
+    "terminalLogitsSha256": "02a8e5046419706b589c093ef6006dfd503e2063f3fc0e45fa8ff259020f564d",
+    "sensitiveSteps": [3],
+    "verificationDivergenceStep": 3
+  },
+  "pairedBenchmark": {
+    "control": {
+      "mode": "native-bf16-stream",
+      "elapsedSeconds": [6.088444833999998, 6.929191957999998],
+      "meanElapsedSeconds": 6.508818395999998,
+      "generatedTokensEqual": [true, true],
+      "terminalLogitsSha256Equal": [true, true]
+    },
+    "candidate": {
+      "mode": "native-bf16-whole",
+      "elapsedSeconds": [5.781675124999998, 3.879524707999999],
+      "meanElapsedSeconds": 4.830599916499999,
+      "wholeNativeBf16Dispatches": [1, 1],
+      "streamedNativeBf16Dispatches": [0, 0],
+      "generatedTokensEqual": [true, true],
+      "terminalLogitsSha256Equal": [true, true]
+    },
+    "meanWallReductionRate": 0.2578376561452921,
+    "meanSpeedup": 1.3474140911085737,
+    "allGeneratedTokensEqual": true,
+    "allTerminalLogitsSha256Equal": true
+  },
+  "stepProfile": {
+    "streamSensitiveForwardSeconds": 1.1951937910000014,
+    "wholeSensitiveForwardSeconds": 0.20578133399999932,
+    "wholeSecondSampleSensitiveForwardSeconds": 0.1928228330000002,
+    "decoderSteps": 4,
+    "headSteps": 1
+  },
+  "authoritativeCorpus": {
+    "prompts": 5,
+    "promptsEqual": 5,
+    "comparedTokenSteps": 40,
+    "equalTokenSteps": 40,
+    "rootCorrections": 3,
+    "cases": [
+      {
+        "prompt": "2 + 2 =",
+        "baselineTokenIds": [236743, 236812, 236761, 108, 2094, 563, 496, 3606],
+        "compiledTokenIds": [236743, 236812, 236761, 108, 2094, 563, 496, 3606],
+        "baselineSeconds": 2.63390862417873,
+        "compiledSeconds": 4.134740334000002,
+        "fallback": true,
+        "correction": false
+      },
+      {
+        "prompt": "The capital of France is",
+        "baselineTokenIds": [496, 3207, 600, 563, 2587, 529, 4083, 532],
+        "compiledTokenIds": [496, 3207, 600, 563, 2587, 529, 4083, 532],
+        "baselineSeconds": 1.412830040906556,
+        "compiledSeconds": 0.3621032919999998,
+        "fallback": false,
+        "correction": false
+      },
+      {
+        "prompt": "The largest ocean is",
+        "baselineTokenIds": [506, 14225, 18414, 236764, 837, 13526, 1003, 236743],
+        "compiledTokenIds": [506, 14225, 18414, 236764, 837, 13526, 1003, 236743],
+        "baselineSeconds": 1.3349503329955041,
+        "compiledSeconds": 1.4257267920000012,
+        "fallback": true,
+        "correction": true
+      },
+      {
+        "prompt": "The first month of the year is",
+        "baselineTokenIds": [1024, 532, 625, 236858, 236751, 990, 531, 1769],
+        "compiledTokenIds": [1024, 532, 625, 236858, 236751, 990, 531, 1769],
+        "baselineSeconds": 2.031490082037635,
+        "compiledSeconds": 1.3746170829999902,
+        "fallback": true,
+        "correction": true
+      },
+      {
+        "prompt": "Traduza para inglês: boa noite",
+        "baselineTokenIds": [236764, 6913, 4280, 1983, 23667, 569, 236743, 236800],
+        "compiledTokenIds": [236764, 6913, 4280, 1983, 23667, 569, 236743, 236800],
+        "baselineSeconds": 2.384998290799558,
+        "compiledSeconds": 0.561810249999995,
+        "fallback": true,
+        "correction": true,
+        "exactContextCacheHit": true
+      }
+    ]
+  },
+  "rejectedTrustedPrefixBatch": {
+    "description": "The input and three trusted generated tokens were evaluated as one causal prefill instead of the authoritative incremental sequence.",
+    "decoderStepsBefore": 4,
+    "decoderStepsAfter": 1,
+    "baselineTokenIds": [236764, 6913, 4280, 1983, 23667, 569, 236743, 236800],
+    "candidateTokenIds": [236764, 6913, 4280, 512, 14825, 569, 101008, 236761],
+    "firstDivergentStep": 3,
+    "rejected": true,
+    "reason": "Whole causal prefill and incremental BF16 decode use different native arithmetic and are not interchangeable."
+  },
+  "decision": {
+    "selectedDefault": "native-bf16-whole",
+    "controlFlag": "--direct-verification-final-head native-bf16-stream",
+    "trustedPrefixBatchRejected": true,
+    "reason": "The whole BF16 head preserved every authoritative token and terminal hash while reducing paired mean wall time by 25.78%."
+  }
+}

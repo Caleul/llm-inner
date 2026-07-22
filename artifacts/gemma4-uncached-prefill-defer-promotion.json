@@ -6,15 +6,15 @@
   "sources": {
     "comparisonServer": {
       "file": "src/gemma4-real-compare-server.ts",
-      "sha256": "158f72ebbdc364b055832355d890235aea4ac51b57d5d6e38ec28c03630715ce"
+      "sha256": "55363a368960bb7429d680e4b753917557791475b33d8fe32e44399b32c0bd04"
     },
     "comparisonUi": {
       "file": "src/gemma4-real-compare-ui.ts",
-      "sha256": "0c41410f429d34ae6aec2fd60a109a49c7db2ac338c76b1754a24a9898b1d15b"
+      "sha256": "812a32451b79c66c2ef301af382252770971541b61eb88d5c579286640274006"
     },
     "serverTest": {
       "file": "test/gemma4-real-compare-server.test.ts",
-      "sha256": "c238f94628c73c93d67f0958841be0cc6b5514250f09d8ca212c858ef796b730"
+      "sha256": "1d19248aa962d82b62fe355c70bb89e2eb9865597368e2419b3e92c26a0959c5"
     },
     "runtimeIndex": {
       "file": "artifacts/gemma4-compiled-global-runtime-bundle/constants.runtime-index.json",

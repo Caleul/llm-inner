@@ -3319,6 +3319,25 @@ promoção reduz uma regressão comprovada, mas não demonstra que todo prompt n
 já supera o runtime original. Evidência completa:
 `artifacts/gemma4-uncached-prefill-defer-promotion.json`.
 
+A cabeça seletiva exata agora usa por padrão `native-bf16-whole`: uma única
+multiplicação PyTorch BF16 para as `262.144` dimensões, em vez de paginar a
+mesma matriz por `native-bf16-stream`. O controle anterior continua disponível
+com `--direct-verification-final-head native-bf16-stream`. Em duas execuções
+com processo novo do fallback de tradução, o tempo médio caiu de `6,5088 s`
+para `4,8306 s` (`25,78%`), preservando os oito IDs e o SHA-256 terminal. No
+passo sensível observado, decoder mais cabeça caiu de `1,1952 s` para
+`0,2058 s`. Um corpus autoritativo de cinco prompts preservou `5/5` sequências
+e `40/40` tokens; três correções de raiz continuaram sendo aplicadas.
+
+O relatório também separa `verificationAcquireSeconds`,
+`verificationRequestWallSeconds`, `verificationRequestCount` e
+`verificationOrchestrationSeconds`, permitindo distinguir cálculo exato de
+retomada compilada. Um experimento que agrupava a entrada e os três tokens
+confiáveis em um único prefill reduziu quatro forwards para um, mas alterou o
+token sensível `1983` para `512`: prefill integral e decode incremental não são
+numericamente intercambiáveis no kernel BF16. Essa variante foi rejeitada e
+não permanece como opção do runtime.
+
 O verificador exato também mantém um cache LRU de prefixos por `sessionId`.
 Ele só reutiliza o hidden state terminal e os K/V BF16 quando todos os tokens
 residentes são um prefixo exato da nova entrada da mesma sessão; qualquer

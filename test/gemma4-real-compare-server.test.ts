@@ -294,6 +294,7 @@ test("servidor diferencial valida opções reprodutíveis", () => {
   assert.equal(directDefaults.directThreads, 8); assert.equal(directDefaults.directMaxReadMiB, 16); assert.equal(directDefaults.directFinalHeadReadMiB, 16); assert.equal(directDefaults.directVerificationMargin, 0);
   assert.equal(directDefaults.directVerificationPrefixAhead, true);
   assert.equal(directDefaults.directVerificationUncachedPrefillAhead, false);
+  assert.equal(directDefaults.directVerificationFinalHead, "native-bf16-whole");
   assert.equal(directDefaults.directMlxHeadQuantization, "off");
   assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-mlx-head-quantization", "q8-shortlist"]).directMlxHeadQuantization, "q8-shortlist");
   assert.equal(directDefaults.directMlxDecoderQuantization, "q8-ffn-gate-up");
@@ -322,6 +323,8 @@ test("servidor diferencial valida opções reprodutíveis", () => {
   assert.throws(() => parseGemma4RealServerOptions(["--direct-verification-prefix-ahead", "auto"]), /on ou off/);
   assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-verification-uncached-prefill-ahead", "on"]).directVerificationUncachedPrefillAhead, true);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-verification-uncached-prefill-ahead", "auto"]), /on ou off/);
+  assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-verification-final-head", "native-bf16-whole"]).directVerificationFinalHead, "native-bf16-whole");
+  assert.throws(() => parseGemma4RealServerOptions(["--direct-verification-final-head", "f32"]), /native-bf16-stream ou native-bf16-whole/);
   assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-linear-backend", "pytorch", "--direct-fused-decoder-stack", "native-bf16-ple"]).directFusedDecoderStack, "native-bf16-ple");
   const splitTiles = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-max-read-mib", "16", "--direct-final-head-read-mib", "32"]);
   assert.equal(splitTiles.directFinalHeadReadMiB, 32);
@@ -505,6 +508,7 @@ let generations=0;readline.createInterface({input:process.stdin}).on("line",line
     assert.equal(messages[0]?.generatedText, "8"); assert.deepEqual(messages[0]?.generatedTokenIds, [8]); assert.equal(messages[3]?.data?.generatedText, "7");
     const selected = messages[6]!.data!.direct; assert.deepEqual(selected.generatedTokenIds, [7]); assert.equal(selected.selectedBackend, "pytorch"); assert.equal(selected.fallbackTriggered, true); assert.equal(selected.fastPathMinimumMargin, 0); assert.deepEqual((selected.fastPath as { generatedTokenIds: number[] }).generatedTokenIds, [8]); assert.equal(selected.tokensEqualBaseline, true); assert.equal(selected.selectiveVerification, true); assert.deepEqual(selected.sensitiveSteps, [0]); assert.equal(selected.verificationHeadSteps, 1);
     assert.equal(selected.verificationPrefillAhead, true); assert.equal(selected.verificationPrefixAhead, undefined); assert.equal(selected.verificationPrefillAheadTokensComputed, 2); assert.equal(selected.verificationPrefillAheadCacheHit, false); assert.ok((selected.verificationPrefillOverlapSeconds as number) >= 0); assert.ok((selected.verificationPrefillWaitSeconds as number) >= 0);
+    assert.equal(selected.verificationRequestCount, 1); assert.ok((selected.verificationAcquireSeconds as number) >= 0); assert.ok((selected.verificationRequestWallSeconds as number) >= 0); assert.ok((selected.verificationOrchestrationSeconds as number) >= 0);
     const generateCompiled = async () => {
       const compiledResponse = await fetch(`${endpoint}/api/generate-stream`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt: "empate compilado", maxNewTokens: 1 }) });
       assert.equal(compiledResponse.status, 200);

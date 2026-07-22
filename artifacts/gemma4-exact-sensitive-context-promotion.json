@@ -13,7 +13,7 @@
     },
     "comparisonServer": {
       "file": "src/gemma4-real-compare-server.ts",
-      "sha256": "158f72ebbdc364b055832355d890235aea4ac51b57d5d6e38ec28c03630715ce"
+      "sha256": "55363a368960bb7429d680e4b753917557791475b33d8fe32e44399b32c0bd04"
     },
     "runtimeIndex": {
       "file": "artifacts/gemma4-compiled-global-runtime-bundle/constants.runtime-index.json",
