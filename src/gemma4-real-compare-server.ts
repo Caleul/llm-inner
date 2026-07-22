@@ -273,7 +273,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
           const executeDirect = () => executeSelectedDirect(direct, verificationProvider, options.directVerificationMargin, { inputIds, maxNewTokens: body.maxNewTokens, stream: true, ...(body.conversationMode === "chat" ? { eosTokenId: GEMMA4_CHAT_EOT_TOKEN_ID } : {}), ...(body.sessionId === undefined ? {} : { sessionId: body.sessionId }) }, (event) => {
             firstTokenWallSeconds ??= elapsedSeconds(directExecutionStarted);
             writeNdjson(response, { type: "direct-token", provisional: verificationEnabled, event, serverElapsedSeconds: elapsedSeconds(directExecutionStarted) });
-          }, (assessment) => writeNdjson(response, { type: "direct-fallback", ...assessment }), () => !clientDisconnected);
+          }, (assessment) => writeNdjson(response, { type: "direct-fallback", ...assessment }), () => !clientDisconnected, (prefill) => writeNdjson(response, { type: "direct-verification-prefill", ...prefill }));
           let report: ComparisonReport, directReport: DirectReport, directPhaseSeconds: number, referencePhaseSeconds: number, referenceStartupSeconds: number, referenceComputeSeconds: number, referenceColdStart: boolean, directRecoverySeconds = 0;
           if (schedule === "isolated") {
             const directStarted = performance.now(); directExecutionStarted = directStarted; directReport = await executeDirect(); directPhaseSeconds = elapsedSeconds(directStarted);
@@ -345,6 +345,14 @@ async function recoverDirectWorker(worker: PersistentJsonlWorker): Promise<numbe
 
 interface DirectMarginAssessment { trigger: boolean; reason: "margin-at-or-below-threshold" | "margin-unavailable"; minimumMargin: number | null; marginThreshold: number; sensitiveSteps: number[] }
 
+interface VerificationPrefillReport {
+  verificationPrefill?: boolean;
+  elapsedSeconds?: number;
+  verificationSessionCacheHit?: boolean;
+  verificationPrefixTokensReused?: number;
+  verificationPrefillTokensComputed?: number;
+}
+
 export function assessDirectVerification(report: DirectReport, marginThreshold: number): DirectMarginAssessment {
   if (!Array.isArray(report.steps) || report.steps.length !== report.generatedTokenIds.length) return { trigger: true, reason: "margin-unavailable", minimumMargin: null, marginThreshold, sensitiveSteps: [] };
   const margins = report.steps.map((step) => {
@@ -358,9 +366,24 @@ export function assessDirectVerification(report: DirectReport, marginThreshold: 
   return { trigger: sensitiveSteps.length > 0, reason: "margin-at-or-below-threshold", minimumMargin, marginThreshold, sensitiveSteps };
 }
 
-async function executeSelectedDirect(primary: PersistentJsonlWorker, verificationProvider: { get?(): Promise<PersistentJsonlWorker>; release?(): Promise<void>; backend: "pytorch" | "mlx-control" | "mlx-shared-control"; selectiveHeads: boolean } | undefined, marginThreshold: number | undefined, payload: { inputIds: number[]; maxNewTokens: number; eosTokenId?: number; sessionId?: number; stream?: boolean }, onEvent?: (event: unknown) => void, onFallback?: (assessment: DirectMarginAssessment & { verificationBackend: "pytorch" | "mlx-control" | "mlx-shared-control" }) => void, shouldVerify: () => boolean = () => true): Promise<DirectReport> {
+async function executeSelectedDirect(primary: PersistentJsonlWorker, verificationProvider: { get?(): Promise<PersistentJsonlWorker>; release?(): Promise<void>; backend: "pytorch" | "mlx-control" | "mlx-shared-control"; selectiveHeads: boolean } | undefined, marginThreshold: number | undefined, payload: { inputIds: number[]; maxNewTokens: number; eosTokenId?: number; sessionId?: number; stream?: boolean }, onEvent?: (event: unknown) => void, onFallback?: (assessment: DirectMarginAssessment & { verificationBackend: "pytorch" | "mlx-control" | "mlx-shared-control" }) => void, shouldVerify: () => boolean = () => true, onPrefillAhead?: (event: { step: number; margin: number; marginThreshold: number }) => void): Promise<DirectReport> {
   const started = performance.now();
-  const fast = await primary.send(payload, onEvent) as DirectReport;
+  const canPrefillAhead = verificationProvider?.backend === "pytorch" && verificationProvider.selectiveHeads && marginThreshold !== undefined && payload.sessionId !== undefined;
+  let prefillAhead: { startedAt: number; completedAt?: number; promise: Promise<VerificationPrefillReport> } | undefined;
+  const fast = await primary.send(canPrefillAhead ? { ...payload, stream: true } : payload, (event) => {
+    onEvent?.(event);
+    const sensitive = canPrefillAhead ? streamingEventSensitiveMargin(event, marginThreshold!) : undefined;
+    if (!prefillAhead && sensitive) {
+      onPrefillAhead?.({ ...sensitive, marginThreshold: marginThreshold! });
+      const startedAt = performance.now();
+      const promise = verificationProvider!.get!()
+        .then((verification) => verification.send({ inputIds: payload.inputIds, maxNewTokens: 1, sessionId: payload.sessionId, verificationPrefill: true }) as Promise<VerificationPrefillReport>)
+        .then((report) => { if (prefillAhead) prefillAhead.completedAt = performance.now(); return report; });
+      void promise.catch(() => undefined);
+      prefillAhead = { startedAt, promise };
+    }
+  }) as DirectReport;
+  const fastCompletedAt = performance.now();
   if (!verificationProvider || marginThreshold === undefined) return fast;
   const assessment = assessDirectVerification(fast, marginThreshold);
   const fastPathSeconds = (performance.now() - started) / 1000;
@@ -382,7 +405,24 @@ async function executeSelectedDirect(primary: PersistentJsonlWorker, verificatio
     }
   } else {
     const verification = await verificationProvider.get!();
-    try { verified = await verification.send({ inputIds: payload.inputIds, maxNewTokens: payload.maxNewTokens, ...selectiveRequest, ...(payload.eosTokenId === undefined ? {} : { eosTokenId: payload.eosTokenId }), ...(payload.sessionId === undefined ? {} : { sessionId: payload.sessionId }) }) as DirectReport; }
+    let prefillReport: VerificationPrefillReport | undefined;
+    try {
+      if (prefillAhead) prefillReport = await prefillAhead.promise;
+      verified = await verification.send({ inputIds: payload.inputIds, maxNewTokens: payload.maxNewTokens, ...selectiveRequest, ...(payload.eosTokenId === undefined ? {} : { eosTokenId: payload.eosTokenId }), ...(payload.sessionId === undefined ? {} : { sessionId: payload.sessionId }) }) as DirectReport;
+      if (prefillAhead && prefillReport) {
+        const completedAt = prefillAhead.completedAt ?? performance.now();
+        Object.assign(verified, {
+          verificationPrefillAhead: true,
+          verificationPrefillAheadSeconds: Math.max(0, (completedAt - prefillAhead.startedAt) / 1000),
+          verificationPrefillAheadWorkerSeconds: typeof prefillReport.elapsedSeconds === "number" ? prefillReport.elapsedSeconds : undefined,
+          verificationPrefillOverlapSeconds: Math.max(0, (Math.min(completedAt, fastCompletedAt) - prefillAhead.startedAt) / 1000),
+          verificationPrefillWaitSeconds: Math.max(0, (completedAt - fastCompletedAt) / 1000),
+          verificationPrefillAheadCacheHit: prefillReport.verificationSessionCacheHit === true,
+          verificationPrefillAheadPrefixTokensReused: Number.isSafeInteger(prefillReport.verificationPrefixTokensReused) ? prefillReport.verificationPrefixTokensReused : 0,
+          verificationPrefillAheadTokensComputed: Number.isSafeInteger(prefillReport.verificationPrefillTokensComputed) ? prefillReport.verificationPrefillTokensComputed : 0,
+        });
+      }
+    }
     finally { await verificationProvider.release!(); }
   }
   if (verified.selectiveVerification === true && Array.isArray(verified.steps) && Array.isArray(fast.steps)) {
@@ -398,6 +438,14 @@ async function executeSelectedDirect(primary: PersistentJsonlWorker, verificatio
     hybridSeconds, elapsedSeconds: hybridSeconds, tokensPerSecond: verified.generatedTokenIds.length / hybridSeconds,
     fastPath: fast,
   });
+}
+
+function streamingEventSensitiveMargin(value: unknown, marginThreshold: number): { step: number; margin: number } | undefined {
+  if (typeof value !== "object" || value === null || !Number.isFinite(marginThreshold) || marginThreshold < 0) return undefined;
+  const step = (value as { step?: unknown }).step;
+  const top = normalizeTopLogits((value as { topLogits?: unknown }).topLogits);
+  const margin = top.length >= 2 ? top[0]!.value - top[1]!.value : Number.NaN;
+  return Number.isSafeInteger(step) && (step as number) >= 0 && Number.isFinite(margin) && margin <= marginThreshold ? { step: step as number, margin } : undefined;
 }
 
 class Gemma4PersistentComparisonWorker {

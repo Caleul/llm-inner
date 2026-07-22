@@ -84,7 +84,7 @@ process.stdout.write(`${JSON.stringify({ ready: true, initializationSeconds: (pe
 
 const lines = createInterface({ input: process.stdin, crlfDelay: Infinity });
 for await (const line of lines) {
-  let request: { id?: unknown; control?: unknown; inputIds?: unknown; maxNewTokens?: unknown; eosTokenId?: unknown; sessionId?: unknown; stream?: unknown; verificationFastPath?: unknown; verificationControl?: unknown; captureLayerHidden?: unknown; captureLayerStages?: unknown } = {};
+  let request: { id?: unknown; control?: unknown; inputIds?: unknown; maxNewTokens?: unknown; eosTokenId?: unknown; sessionId?: unknown; stream?: unknown; verificationFastPath?: unknown; verificationControl?: unknown; verificationPrefill?: unknown; captureLayerHidden?: unknown; captureLayerStages?: unknown } = {};
   try {
     request = JSON.parse(line) as typeof request;
     if (request.control === "trim-memory") {
@@ -97,11 +97,14 @@ for await (const line of lines) {
     }
     if (request.control !== undefined) throw new Error("Controle de worker desconhecido.");
     const inputIds = validateIds(request.inputIds), maxNewTokens = validateTokens(request.maxNewTokens), eosTokenId = validateEosTokenId(request.eosTokenId);
-    const sessionId = validateSessionId(request.sessionId), stream = validateStream(request.stream), verificationFastPath = validateVerificationFastPath(request.verificationFastPath, maxNewTokens), verificationControl = validateVerificationControl(request.verificationControl), captureLayerHidden = validateCaptureLayerHidden(request.captureLayerHidden), captureLayerStages = validateCaptureLayerStages(request.captureLayerStages);
+    const sessionId = validateSessionId(request.sessionId), stream = validateStream(request.stream), verificationFastPath = validateVerificationFastPath(request.verificationFastPath, maxNewTokens), verificationControl = validateVerificationControl(request.verificationControl), verificationPrefill = validateVerificationPrefill(request.verificationPrefill), captureLayerHidden = validateCaptureLayerHidden(request.captureLayerHidden), captureLayerStages = validateCaptureLayerStages(request.captureLayerStages);
     if (verificationFastPath && verificationControl) throw new Error("verificationFastPath e verificationControl são mutuamente exclusivos.");
+    if (verificationPrefill && (verificationFastPath || verificationControl || args.linearBackend !== "pytorch" || sessionId === undefined || stream || captureLayerHidden || captureLayerStages !== undefined)) throw new Error("verificationPrefill requer backend PyTorch, sessionId e requisição isolada sem geração ou captura.");
     if (verificationControl && (args.linearBackend !== "mlx" || args.mlxDecoderQuantization !== "q8-ffn-gate-up-down" || sessionId !== undefined || stream)) throw new Error("verificationControl requer decoder MLX q8-ffn-gate-up-down sem sessão nem streaming.");
     if ((captureLayerHidden || captureLayerStages !== undefined) && (!verificationFastPath || args.linearBackend !== "pytorch" || sessionId !== undefined || stream)) throw new Error("Captura decoder requer verificationFastPath no backend PyTorch sem sessão nem streaming.");
-    const report = verificationFastPath
+    const report = verificationPrefill
+      ? await prefillSelectiveVerification(inputIds, sessionId!)
+      : verificationFastPath
       ? await generateSelectiveVerification(inputIds, maxNewTokens, verificationFastPath, eosTokenId, sessionId, captureLayerHidden, captureLayerStages)
       : await generate(inputIds, maxNewTokens, eosTokenId, sessionId, stream ? (event) => process.stdout.write(`${JSON.stringify({ id: request.id, event: { type: "token", ...event } })}\n`) : undefined, verificationControl);
     process.stdout.write(`${JSON.stringify({ id: request.id, report })}\n`);
@@ -145,6 +148,28 @@ interface VerificationFastPath {
   generatedTokenIds: number[];
   sensitiveSteps: number[];
   terminalLogitsSha256: string;
+}
+
+async function prefillSelectiveVerification(inputIds: number[], sessionId: number): Promise<Record<string, unknown>> {
+  const started = performance.now(), cached = verificationSessionCache.resolve(sessionId, inputIds), suffixTokenIds = cached?.suffixTokenIds ?? inputIds;
+  if (suffixTokenIds.length > 0) {
+    const currentInputIds = [...suffixTokenIds];
+    const current = await executeGemma4PagedTextHiddenLiteralF32(artifact, {
+      inputIds: [currentInputIds],
+      ...(cached ? { positionIds: [currentInputIds.map((_token, index) => cached.prefixTokensReused + index)], pastKeyValues: cached.state.pastKeyValues } : {}),
+    }, options);
+    verificationSessionCache.update(sessionId, inputIds, currentInputIds, { hidden: current.hidden, pastKeyValues: current.pastKeyValues }, verificationStateBytes(current));
+  }
+  return {
+    verificationPrefill: true,
+    elapsedSeconds: (performance.now() - started) / 1000,
+    verificationSessionCacheHit: cached !== undefined,
+    verificationPrefixTokensReused: cached?.prefixTokensReused ?? 0,
+    verificationPrefillTokensComputed: suffixTokenIds.length,
+    verificationCachedContextTokens: inputIds.length,
+    verificationResidentKvBytes: verificationSessionCache.residentBytes,
+    verificationCachedSessions: verificationSessionCache.sessions,
+  };
 }
 
 async function generateSelectiveVerification(inputIds: number[], maxNewTokens: number, fast: VerificationFastPath, eosTokenId?: number, sessionId?: number, captureLayerHidden = false, captureLayerStages?: number): Promise<Record<string, unknown>> {
@@ -368,6 +393,11 @@ function validateCaptureLayerStages(value: unknown): number | undefined {
 function validateVerificationControl(value: unknown): boolean {
   if (value === undefined) return false;
   if (typeof value !== "boolean") throw new Error("verificationControl deve ser booleano.");
+  return value;
+}
+function validateVerificationPrefill(value: unknown): boolean {
+  if (value === undefined) return false;
+  if (typeof value !== "boolean") throw new Error("verificationPrefill deve ser booleano.");
   return value;
 }
 function validateVerificationFastPath(value: unknown, maxNewTokens: number): VerificationFastPath | undefined {

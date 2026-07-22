@@ -150,6 +150,14 @@ interface ThreeWayCase {
     verificationDecoderStepsAvoided?: number;
     verificationHeadPositionsComputed?: number;
     verificationHeadPositionsAvoided?: number;
+    verificationPrefillAhead?: boolean;
+    verificationPrefillAheadSeconds?: number;
+    verificationPrefillAheadWorkerSeconds?: number;
+    verificationPrefillOverlapSeconds?: number;
+    verificationPrefillWaitSeconds?: number;
+    verificationPrefillAheadCacheHit?: boolean;
+    verificationPrefillAheadPrefixTokensReused?: number;
+    verificationPrefillAheadTokensComputed?: number;
     verificationEarlyExitStep?: number;
     verificationSessionCacheHit?: boolean;
     verificationPrefixTokensReused?: number;
@@ -309,6 +317,14 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.verificationDecoderStepsAvoided === undefined ? {} : { verificationDecoderStepsAvoided: entry.direct.verificationDecoderStepsAvoided }),
         ...(entry.direct.verificationHeadPositionsComputed === undefined ? {} : { verificationHeadPositionsComputed: entry.direct.verificationHeadPositionsComputed }),
         ...(entry.direct.verificationHeadPositionsAvoided === undefined ? {} : { verificationHeadPositionsAvoided: entry.direct.verificationHeadPositionsAvoided }),
+        ...(entry.direct.verificationPrefillAhead === undefined ? {} : { verificationPrefillAhead: entry.direct.verificationPrefillAhead }),
+        ...(entry.direct.verificationPrefillAheadSeconds === undefined ? {} : { verificationPrefillAheadSeconds: entry.direct.verificationPrefillAheadSeconds }),
+        ...(entry.direct.verificationPrefillAheadWorkerSeconds === undefined ? {} : { verificationPrefillAheadWorkerSeconds: entry.direct.verificationPrefillAheadWorkerSeconds }),
+        ...(entry.direct.verificationPrefillOverlapSeconds === undefined ? {} : { verificationPrefillOverlapSeconds: entry.direct.verificationPrefillOverlapSeconds }),
+        ...(entry.direct.verificationPrefillWaitSeconds === undefined ? {} : { verificationPrefillWaitSeconds: entry.direct.verificationPrefillWaitSeconds }),
+        ...(entry.direct.verificationPrefillAheadCacheHit === undefined ? {} : { verificationPrefillAheadCacheHit: entry.direct.verificationPrefillAheadCacheHit }),
+        ...(entry.direct.verificationPrefillAheadPrefixTokensReused === undefined ? {} : { verificationPrefillAheadPrefixTokensReused: entry.direct.verificationPrefillAheadPrefixTokensReused }),
+        ...(entry.direct.verificationPrefillAheadTokensComputed === undefined ? {} : { verificationPrefillAheadTokensComputed: entry.direct.verificationPrefillAheadTokensComputed }),
         ...(entry.direct.verificationEarlyExitStep === undefined ? {} : { verificationEarlyExitStep: entry.direct.verificationEarlyExitStep }),
         ...(entry.direct.verificationSessionCacheHit === undefined ? {} : { verificationSessionCacheHit: entry.direct.verificationSessionCacheHit }),
         ...(entry.direct.verificationPrefixTokensReused === undefined ? {} : { verificationPrefixTokensReused: entry.direct.verificationPrefixTokensReused }),

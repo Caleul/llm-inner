@@ -3166,6 +3166,19 @@ projeção `1 × vocab` em vez de `sequence × vocab`. As métricas
 `verificationHeadPositionsComputed` e `verificationHeadPositionsAvoided`
 expõem esse corte exato; não há shortlist nem aproximação do vocabulário.
 
+Quando a geração possui `sessionId`, o evento streaming do próprio Metal já
+inclui as top logits do passo. Se a margem desse passo está dentro do limiar, o
+servidor inicia imediatamente um `verificationPrefill` PyTorch em paralelo com
+os próximos passos Metal. Esse comando calcula somente hidden e KV exatos,
+autentica o prefixo no cache da sessão e não escolhe tokens. Depois do relatório
+Metal completo, a política seletiva permanece inalterada e usa o estado apenas
+se o fallback realmente foi confirmado. Eventos com logits ausentes ou
+malformadas não antecipam trabalho; prompts com margem segura não executam o
+prefill PyTorch. A interface recebe `direct-verification-prefill` enquanto a
+sobreposição ocorre e o relatório publica `verificationPrefillAheadSeconds`,
+`verificationPrefillOverlapSeconds`, `verificationPrefillWaitSeconds` e as
+contagens de tokens calculados/reutilizados.
+
 O verificador exato também mantém um cache LRU de prefixos por `sessionId`.
 Ele só reutiliza o hidden state terminal e os K/V BF16 quando todos os tokens
 residentes são um prefixo exato da nova entrada da mesma sessão; qualquer
@@ -3183,6 +3196,13 @@ tokens, calculou novamente somente a posição terminal e terminou em
 respectivamente: o cache miss ficou em `0,7715×` e o hit em `3,6969×` do
 throughput original. Esse resultado mede uma sessão e um hardware específicos,
 não uma promessa de latência ou equivalência universal para qualquer prompt.
+
+Com o prefill antecipado, o cache miss do mesmo caso terminou em `1,6848 s`:
+dos `0,4173 s` do prefill exato, `0,3105 s` ficaram escondidos pelos passos
+Metal e restaram `0,1074 s` de espera antes da cabeça seletiva. A chamada
+preservou os oito tokens e o hash terminal. Como controle negativo,
+`The capital of France is` teve margem mínima `0,125`, não iniciou prefill
+exato e executou em `0,2330 s` contra `0,8600 s` da referência (`3,6914×`).
 
 O corpus ampliado e reproduzível pode ser executado com:
 
