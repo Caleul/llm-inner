@@ -3351,6 +3351,25 @@ contra o runtime original. A evidência, os hashes das fontes e o limite da
 afirmação estão em
 `artifacts/gemma4-cached-prefix-ahead-promotion-8-token.json`.
 
+O verificador exato também pesquisa as oito entradas residentes por sessão e
+seleciona o maior prefixo de IDs de token idêntico, mesmo quando a requisição
+chega com outro `sessionId`. Se a entrada completa é idêntica, `hidden` e KV
+podem ser reutilizados diretamente. Se somente uma parte coincide, o runtime
+copia e trunca cada KV no eixo sequencial BHSD e sempre recalcula ao menos o
+token terminal; assim nunca associa ao novo prompt um `hidden` produzido para
+um sufixo diferente. A origem aparece como `verificationCacheScope` igual a
+`shared-prefix`, e a matriz contabiliza `verificationSharedPrefixHitPrompts`.
+
+Em duas execuções isoladas e aquecidas do prefill exato de nove tokens, a
+segunda sessão idêntica reutilizou `9/9` tokens e reduziu a média de
+`0,409259 s` para `0,000067 s`. Num alvo que compartilhava oito tokens e
+alterava o nono, o prefill caiu de `0,354902 s` para `0,154654 s`; a geração
+cacheada e a integral produziram o mesmo token `145047` e o mesmo SHA-256 de
+logits terminais. No caminho híbrido real, outra sessão do prompt
+`Traduza para inglês: boa noite` reutilizou oito tokens, calculou um e manteve
+os oito IDs iguais ao modelo original. A evidência completa e os limites da
+afirmação estão em `artifacts/gemma4-cross-session-prefix-promotion.json`.
+
 Iniciar esse prefill antes de existir uma margem sensível também foi medido e
 rejeitado. Em duas repetições aquecidas de três classes de prompt, o modo eager
 preservou todos os token IDs, mas com oito threads elevou a média do fallback

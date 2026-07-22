@@ -425,6 +425,8 @@ interface VerificationPrefillReport {
   verificationPrefill?: boolean;
   elapsedSeconds?: number;
   verificationSessionCacheHit?: boolean;
+  verificationCacheScope?: "session" | "shared-prefix";
+  verificationCacheSourceSessionId?: number;
   verificationPrefixTokensReused?: number;
   verificationPrefillTokensComputed?: number;
 }
@@ -546,6 +548,8 @@ async function executeSelectedDirect(primary: PersistentJsonlWorker, verificatio
           verificationPrefillOverlapSeconds: Math.max(0, (Math.min(completedAt, fastCompletedAt) - prefillAhead.startedAt) / 1000),
           verificationPrefillWaitSeconds: Math.max(0, (completedAt - fastCompletedAt) / 1000),
           verificationPrefillAheadCacheHit: prefillReport.verificationSessionCacheHit === true,
+          ...(prefillReport.verificationCacheScope === undefined ? {} : { verificationPrefillAheadCacheScope: prefillReport.verificationCacheScope }),
+          ...(prefillReport.verificationCacheSourceSessionId === undefined ? {} : { verificationPrefillAheadCacheSourceSessionId: prefillReport.verificationCacheSourceSessionId }),
           verificationPrefillAheadPrefixTokensReused: Number.isSafeInteger(prefillReport.verificationPrefixTokensReused) ? prefillReport.verificationPrefixTokensReused : 0,
           verificationPrefillAheadTokensComputed: Number.isSafeInteger(prefillReport.verificationPrefillTokensComputed) ? prefillReport.verificationPrefillTokensComputed : 0,
         });

@@ -1,0 +1,97 @@
+{
+  "kind": "gemma4-cross-session-exact-prefix-promotion",
+  "schemaVersion": 1,
+  "recordedAt": "2026-07-22",
+  "sources": {
+    "sessionCache": {
+      "file": "src/gemma4-verification-session-cache.ts",
+      "sha256": "61ec15b36d507b710c9009dfa6e89c456bd2bf49f032f5e01bc2458f2e1e215c"
+    },
+    "verificationWorker": {
+      "file": "src/gemma4-paged-runtime-worker-cli.ts",
+      "sha256": "8e80aba97cbd259c1df83b7997fad6136add38669b4304a3892e41650edc7945"
+    },
+    "runtimeIndex": {
+      "file": "artifacts/gemma4-compiled-global-runtime-bundle/constants.runtime-index.json",
+      "sha256": "a63159a92e27024862b478cd14fe80c283ab27ce32243e9c008d8d6a9c7847b4"
+    }
+  },
+  "configuration": {
+    "threads": 8,
+    "verificationBackend": "persistent-pytorch-mmap-f32-tile",
+    "fusedDecoderStack": "native-bf16-ple",
+    "inputTokens": 9,
+    "maxResidentSessions": 8,
+    "selection": "longest-token-identical-prefix",
+    "partialStatePolicy": "copy-truncated-bhsd-kv-and-recompute-at-least-one-terminal-token"
+  },
+  "isolatedExactPrefill": {
+    "identicalInputRepetitions": [
+      {
+        "cacheMissSeconds": 0.4070713330000003,
+        "sharedPrefixSeconds": 0.00009020800000007512,
+        "missTokensComputed": 9,
+        "sharedTokensReused": 9,
+        "sharedTokensComputed": 0
+      },
+      {
+        "cacheMissSeconds": 0.4114474170000003,
+        "sharedPrefixSeconds": 0.00004366699999991397,
+        "missTokensComputed": 9,
+        "sharedTokensReused": 9,
+        "sharedTokensComputed": 0
+      }
+    ],
+    "meanCacheMissSeconds": 0.4092593750000003,
+    "meanSharedPrefixSeconds": 0.00006693749999999455,
+    "latencyReductionRate": 0.9998364423539473
+  },
+  "partialPrefixParity": {
+    "sourceInputIds": [2, 2035, 25593, 2275, 1642, 101008, 236787, 39197, 51362],
+    "targetInputIds": [2, 2035, 25593, 2275, 1642, 101008, 236787, 39197, 51363],
+    "cleanTargetPrefillSeconds": 0.35490204099999983,
+    "sharedTargetPrefillSeconds": 0.1546535829999998,
+    "prefixTokensReused": 8,
+    "tokensComputed": 1,
+    "prefillLatencyReductionRate": 0.5642358591000611,
+    "cachedGeneratedTokenId": 145047,
+    "cleanGeneratedTokenId": 145047,
+    "cachedTerminalLogitsSha256": "54ed2293b6b11c856c12fbd573247f1eb3c198efde4e3ac7540b03042d675cd5",
+    "cleanTerminalLogitsSha256": "54ed2293b6b11c856c12fbd573247f1eb3c198efde4e3ac7540b03042d675cd5"
+  },
+  "liveHybrid": {
+    "prompt": "Traduza para inglês: boa noite",
+    "conversationMode": "raw",
+    "maxNewTokens": 8,
+    "firstSession": {
+      "prefillTokensReused": 0,
+      "prefillTokensComputed": 9,
+      "elapsedSeconds": 11.242578333000004
+    },
+    "secondSession": {
+      "cacheScope": "shared-prefix",
+      "prefillTokensReused": 8,
+      "prefillTokensComputed": 1,
+      "elapsedSeconds": 10.166602832999997
+    },
+    "observedLatencyReductionRate": 0.09570540387890636,
+    "generatedTokenIds": [236764, 6913, 4280, 1983, 23667, 569, 236743, 236800]
+  },
+  "liveOriginalComparison": {
+    "endpoint": "/api/compare-stream",
+    "cacheScope": "shared-prefix",
+    "prefixTokensReused": 8,
+    "prefillTokensComputed": 1,
+    "baselineGeneratedTokenIds": [236764, 6913, 4280, 1983, 23667, 569, 236743, 236800],
+    "compiledGeneratedTokenIds": [236764, 6913, 4280, 1983, 23667, 569, 236743, 236800],
+    "tokensEqual": true,
+    "firstDivergentStep": null
+  },
+  "decision": {
+    "selectedPolicy": "cross-session-longest-exact-token-prefix",
+    "defaultEnabled": true,
+    "safetyBoundary": "An exact complete input may reuse its hidden and KV state. A partial input may reuse only a copied BHSD KV prefix and must recompute at least one token so the terminal hidden belongs to the requested input.",
+    "memoryBoundary": "Only the existing eight session entries are searched; shared-prefix lookup does not add a second cache tier.",
+    "claimBoundary": "The measurements prove exact terminal-logit parity and lower prefill work for the measured inputs. They do not prove universal model equivalence, portable latency gains, or that fallback-heavy generation is faster than the original runtime."
+  }
+}

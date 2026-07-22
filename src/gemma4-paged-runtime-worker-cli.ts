@@ -14,7 +14,7 @@ import { rankGemma4TerminalLogits } from "./gemma4-terminal-logits.js";
 import { assertGemma4VectorizedRealLoweringPlanMatches, Gemma4VectorizedRealExecutionGuard, type Gemma4VectorizedRealLoweringPlan } from "./gemma4-vectorized-real-lowering.js";
 import { validateGemma4FinalFormulaMapFile, type Gemma4FinalFormulaMapValidation } from "./gemma4-final-formula-map.js";
 import { validateGemma4FinalFormulaRuntimeFile } from "./gemma4-final-formula-runtime.js";
-import type { Operation } from "./types.js";
+import type { DenseF32Tensor, Operation, ReferenceF32KeyValueCache } from "./types.js";
 
 const args = parseArguments(process.argv.slice(2));
 const initializationStarted = performance.now();
@@ -152,7 +152,7 @@ interface VerificationFastPath {
 }
 
 async function prefillSelectiveVerification(inputIds: number[], sessionId: number): Promise<Record<string, unknown>> {
-  const started = performance.now(), cached = verificationSessionCache.resolve(sessionId, inputIds), suffixTokenIds = cached?.suffixTokenIds ?? inputIds;
+  const started = performance.now(), cached = verificationSessionCache.resolve(sessionId, inputIds, truncateVerificationState), suffixTokenIds = cached?.suffixTokenIds ?? inputIds;
   if (suffixTokenIds.length > 0) {
     const currentInputIds = [...suffixTokenIds];
     const current = await executeGemma4PagedTextHiddenLiteralF32(artifact, {
@@ -165,6 +165,8 @@ async function prefillSelectiveVerification(inputIds: number[], sessionId: numbe
     verificationPrefill: true,
     elapsedSeconds: (performance.now() - started) / 1000,
     verificationSessionCacheHit: cached !== undefined,
+    verificationCacheScope: cached?.cacheScope,
+    verificationCacheSourceSessionId: cached?.sourceSessionId,
     verificationPrefixTokensReused: cached?.prefixTokensReused ?? 0,
     verificationPrefillTokensComputed: suffixTokenIds.length,
     verificationCachedContextTokens: inputIds.length,
@@ -191,7 +193,7 @@ async function generateSelectiveVerification(inputIds: number[], maxNewTokens: n
       acceptPle: (names: readonly string[], values: readonly Float32Array[]) => Object.assign(layerStageCaptures.at(-1)!, { pleNames: names, pleValues: values.map(encodeWholeF32) }),
     } }),
   } : options;
-  const cached = sessionId === undefined ? undefined : verificationSessionCache.resolve(sessionId, inputIds);
+  const cached = sessionId === undefined ? undefined : verificationSessionCache.resolve(sessionId, inputIds, truncateVerificationState);
   const suffixTokenIds = cached?.suffixTokenIds ?? inputIds;
   let current: VerificationCachedState, currentInputIds: number[], verificationDecoderSteps: number;
   if (cached && suffixTokenIds.length === 0) {
@@ -259,6 +261,8 @@ async function generateSelectiveVerification(inputIds: number[], maxNewTokens: n
     verificationDecoderSteps, verificationDecoderStepsAvoided,
     verificationHeadPositionsComputed, verificationHeadPositionsAvoided,
     verificationSessionCacheHit: cached !== undefined,
+    verificationCacheScope: cached?.cacheScope,
+    verificationCacheSourceSessionId: cached?.sourceSessionId,
     verificationPrefixTokensReused: cached?.prefixTokensReused ?? 0,
     verificationPrefillTokensComputed: suffixTokenIds.length,
     verificationCachedContextTokens: currentContextTokens.length,
@@ -275,6 +279,29 @@ function verificationStateBytes(state: VerificationCachedState): number {
   let bytes = state.hidden.values.byteLength;
   for (const cache of state.pastKeyValues.values()) bytes += cache.key.values.byteLength + cache.value.values.byteLength;
   return bytes;
+}
+
+function truncateVerificationState(state: VerificationCachedState, prefixTokens: number): VerificationCachedState {
+  if (!Number.isSafeInteger(prefixTokens) || prefixTokens < 1) throw new Error("Prefixo compartilhado de verificação é inválido.");
+  const pastKeyValues = new Map<number, ReferenceF32KeyValueCache>();
+  for (const [layer, cache] of state.pastKeyValues) pastKeyValues.set(layer, {
+    key: truncateKvSequence(cache.key, prefixTokens),
+    value: truncateKvSequence(cache.value, prefixTokens),
+  });
+  return { hidden: state.hidden, pastKeyValues };
+}
+
+function truncateKvSequence(tensor: DenseF32Tensor, prefixTokens: number): DenseF32Tensor {
+  if (tensor.shape.length !== 4) throw new Error("Cache KV compartilhado requer tensor BHSD.");
+  const [batch, heads, sequence, headDim] = tensor.shape as [number, number, number, number];
+  if (prefixTokens > sequence) throw new Error("Prefixo compartilhado excede o cache KV residente.");
+  const values = new Float32Array(batch * heads * prefixTokens * headDim);
+  for (let batchIndex = 0; batchIndex < batch; batchIndex += 1) for (let head = 0; head < heads; head += 1) {
+    const source = (batchIndex * heads + head) * sequence * headDim;
+    const target = (batchIndex * heads + head) * prefixTokens * headDim;
+    values.set(tensor.values.subarray(source, source + prefixTokens * headDim), target);
+  }
+  return { shape: [batch, heads, prefixTokens, headDim], values };
 }
 
 function encodeTerminalHidden(values: Float32Array): string {

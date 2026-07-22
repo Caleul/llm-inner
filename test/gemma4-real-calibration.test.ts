@@ -69,6 +69,21 @@ test("evidência promove antecipação do prefixo exato somente em sessão com c
   assert.ok(artifact.pairedBenchmark.candidate.repetitions.every((entry: any) => entry.verificationPrefixAhead === true && entry.verificationPrefillWaitSeconds === 0 && entry.verificationPrefillOverlapSeconds === entry.verificationPrefillAheadSeconds));
 });
 
+test("evidência promove o maior prefixo exato entre sessões sem alterar logits", async () => {
+  const artifact = JSON.parse(await readFile("artifacts/gemma4-cross-session-prefix-promotion.json", "utf8")) as any;
+  const digest = async (path: string) => createHash("sha256").update(await readFile(path)).digest("hex");
+  assert.equal(await digest(artifact.sources.sessionCache.file), artifact.sources.sessionCache.sha256);
+  assert.equal(await digest(artifact.sources.verificationWorker.file), artifact.sources.verificationWorker.sha256);
+  assert.equal(await digest(artifact.sources.runtimeIndex.file), artifact.sources.runtimeIndex.sha256);
+  assert.ok(artifact.isolatedExactPrefill.identicalInputRepetitions.every((entry: any) => entry.sharedTokensReused === 9 && entry.sharedTokensComputed === 0 && entry.sharedPrefixSeconds < entry.cacheMissSeconds));
+  assert.deepEqual([artifact.partialPrefixParity.prefixTokensReused, artifact.partialPrefixParity.tokensComputed], [8, 1]);
+  assert.equal(artifact.partialPrefixParity.cachedGeneratedTokenId, artifact.partialPrefixParity.cleanGeneratedTokenId);
+  assert.equal(artifact.partialPrefixParity.cachedTerminalLogitsSha256, artifact.partialPrefixParity.cleanTerminalLogitsSha256);
+  assert.deepEqual(artifact.liveOriginalComparison.compiledGeneratedTokenIds, artifact.liveOriginalComparison.baselineGeneratedTokenIds);
+  assert.equal(artifact.liveOriginalComparison.tokensEqual, true);
+  assert.equal(artifact.decision.selectedPolicy, "cross-session-longest-exact-token-prefix");
+});
+
 test("evidência promove a fronteira Q8 0-19 com menos fallbacks e paridade integral", async () => {
   const artifact = JSON.parse(await readFile("artifacts/gemma4-q8-layer-boundary-promotion-32x8.json", "utf8")) as any;
   assert.deepEqual([artifact.configuration.prompts, artifact.configuration.tokensPerPrompt, artifact.configuration.decoderQuantization, artifact.configuration.verificationMargin], [32, 8, "q8-ffn-gate-up", 0]);
