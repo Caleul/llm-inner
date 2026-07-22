@@ -3199,6 +3199,23 @@ retomou quatro (`1,497 s`); ambos produziram os mesmos oito token IDs da
 referência. Esses casos demonstram a política, não certificam paridade para
 todo prompt nem o objetivo de aceleração em centenas de vezes.
 
+A retomada corrigida também reaproveita o maior prefixo token-idêntico do cache
+KV Metal, mesmo quando a sessão contém um sufixo especulativo divergente. As
+chaves e valores são truncados no mesmo comprimento e o último token sempre é
+recalculado, pois o cache não guarda seus logits terminais. Como a mudança de
+shape pode alterar margens no runtime real simplificado, uma continuação
+prefixada sensível é descartada e repetida sem cache antes do replay PyTorch.
+As métricas `compiledContinuationPrefixRetry`,
+`compiledContinuationPrefixAttemptSeconds` e
+`compiledContinuationPrefixAttemptMinimumMargin` tornam esse custo visível.
+Na matriz real de cinco prompts por oito tokens, a saída permaneceu `5/5` e
+`40/40` idêntica à referência: duas retomadas aceitaram o cache truncado com
+apenas um token de prefill (`8` e `12` tokens reutilizados); `2 + 2 =` detectou
+margem zero na tentativa prefixada e aceitou a recomposição sem cache. O tempo
+compilado agregado caiu de aproximadamente `5,35 s` para `4,81 s` nessa
+comparação, mas o caso que exigiu retry regrediu cerca de `0,15 s`. Portanto o
+ganho é tratado como condicionado às margens, não como monotônico por prompt.
+
 No primeiro passo do fallback, o hidden do prefill contém uma posição por token
 de entrada, mas `final_norm`, `lm_head` e o softcap são independentes entre
 posições e a seleção greedy lê somente a última. O verificador agora recorta

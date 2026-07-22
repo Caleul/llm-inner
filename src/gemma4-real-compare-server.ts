@@ -484,9 +484,25 @@ async function executeSelectedDirect(primary: PersistentJsonlWorker, verificatio
       verified = await verification.send(verificationRequest) as DirectReport;
       if (verified.verificationStoppedAfterDivergence === true && verified.generatedTokenIds.length < payload.maxNewTokens && verified.generatedTokenIds.at(-1) !== payload.eosTokenId) {
         const remaining = payload.maxNewTokens - verified.generatedTokenIds.length;
-        const continuation = await primary.send({ inputIds: [...payload.inputIds, ...verified.generatedTokenIds], maxNewTokens: remaining, ...(payload.eosTokenId === undefined ? {} : { eosTokenId: payload.eosTokenId }), ...(payload.sessionId === undefined ? {} : { sessionId: payload.sessionId }) }) as DirectReport;
-        const continuationAssessment = assessDirectVerification(continuation, marginThreshold);
-        if (!continuationAssessment.trigger) verified = combineVerifiedPrefixWithCompiledContinuation(payload.inputIds, verified, continuation, continuationAssessment);
+        const continuationInputIds = [...payload.inputIds, ...verified.generatedTokenIds];
+        let continuation = await primary.send({ inputIds: continuationInputIds, maxNewTokens: remaining, ...(payload.eosTokenId === undefined ? {} : { eosTokenId: payload.eosTokenId }), ...(payload.sessionId === undefined ? {} : { sessionId: payload.sessionId }) }) as DirectReport;
+        let continuationAssessment = assessDirectVerification(continuation, marginThreshold);
+        let prefixRetry: { seconds: number; minimumMargin: number | null; tokenSteps: number } | undefined;
+        if (continuationAssessment.trigger && continuation.sessionCacheHit === true) {
+          prefixRetry = { seconds: finiteNonNegative(continuation.elapsedSeconds), minimumMargin: continuationAssessment.minimumMargin, tokenSteps: continuation.generatedTokenIds.length };
+          continuation = await primary.send({ inputIds: continuationInputIds, maxNewTokens: remaining, ...(payload.eosTokenId === undefined ? {} : { eosTokenId: payload.eosTokenId }) }) as DirectReport;
+          continuationAssessment = assessDirectVerification(continuation, marginThreshold);
+        }
+        if (!continuationAssessment.trigger) {
+          verified = combineVerifiedPrefixWithCompiledContinuation(payload.inputIds, verified, continuation, continuationAssessment);
+          if (prefixRetry) Object.assign(verified, {
+            compiledContinuationPrefixRetry: true,
+            compiledContinuationPrefixAttemptSeconds: prefixRetry.seconds,
+            compiledContinuationPrefixAttemptMinimumMargin: prefixRetry.minimumMargin,
+            compiledContinuationPrefixAttemptTokenSteps: prefixRetry.tokenSteps,
+            compiledContinuationSeconds: prefixRetry.seconds + finiteNonNegative(continuation.elapsedSeconds),
+          });
+        }
         else {
           const fastPath = "verificationFastPath" in selectiveRequest ? selectiveRequest.verificationFastPath : undefined;
           verified = await verification.send({ ...verificationRequest, ...(fastPath ? { verificationFastPath: { ...fastPath, stopAfterDivergence: false } } : {}) }) as DirectReport;
@@ -495,7 +511,8 @@ async function executeSelectedDirect(primary: PersistentJsonlWorker, verificatio
             compiledContinuationRejectedReason: continuationAssessment.reason,
             compiledContinuationMinimumMargin: continuationAssessment.minimumMargin,
             compiledContinuationTokenSteps: continuation.generatedTokenIds.length,
-            compiledContinuationSeconds: continuation.elapsedSeconds,
+            compiledContinuationSeconds: finiteNonNegative(continuation.elapsedSeconds) + (prefixRetry?.seconds ?? 0),
+            ...(prefixRetry ? { compiledContinuationPrefixRetry: true, compiledContinuationPrefixAttemptSeconds: prefixRetry.seconds, compiledContinuationPrefixAttemptMinimumMargin: prefixRetry.minimumMargin, compiledContinuationPrefixAttemptTokenSteps: prefixRetry.tokenSteps } : {}),
           });
         }
       }
@@ -664,6 +681,7 @@ export function computeDirectExecutionMetrics(direct: DirectReport, inputTokens:
 }
 
 function nonNegativeInteger(value: unknown): number { return Number.isSafeInteger(value) && (value as number) >= 0 ? value as number : 0; }
+function finiteNonNegative(value: unknown): number { return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0; }
 function declaresChatTemplate(source: string): boolean { try { const parsed = JSON.parse(readFileSync(join(source, "tokenizer_config.json"), "utf8")) as { chat_template?: unknown }; return typeof parsed.chat_template === "string" && parsed.chat_template.length > 0; } catch { return false; } }
 
 export function computeDirectLogitAgreement(baselineSteps: ReadonlyArray<{ baselineToken?: number; baselineTopLogits?: unknown }>, directSteps: ReadonlyArray<{ tokenId?: number; topLogits?: unknown }>): DirectLogitAgreement {

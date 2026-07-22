@@ -782,6 +782,31 @@ def bucket_causal_prefill_tokens(model, token_ids):
     return np.concatenate((token_ids, pad), axis=1), actual_tokens
 
 
+def resolve_resident_generation_session(session, session_id, token_ids):
+    """Reuse the longest token-identical KV prefix and discard speculative tail state.
+
+    The final requested token must still be executed because the resident cache
+    stores K/V, not the terminal hidden/logits needed to select the next token.
+    """
+    if session_id is None or session is None or session["id"] != session_id:
+        return None, 0
+    requested = np.asarray(token_ids, dtype=np.int32).reshape(-1)
+    cached = np.asarray(session["token_ids"], dtype=np.int32).reshape(-1)
+    reusable_limit = min(len(cached), max(0, len(requested) - 1))
+    reusable_tokens = 0
+    while reusable_tokens < reusable_limit and cached[reusable_tokens] == requested[reusable_tokens]:
+        reusable_tokens += 1
+    if reusable_tokens == 0:
+        return None, 0
+    caches = session["caches"]
+    if reusable_tokens < len(cached):
+        caches = {
+            layer: (key[..., :reusable_tokens, :], value[..., :reusable_tokens, :])
+            for layer, (key, value) in caches.items()
+        }
+    return {"id": session_id, "token_ids": cached[:reusable_tokens], "caches": caches}, reusable_tokens
+
+
 def execute_compiled_token_generation(pool, shards, token_ids, max_new_tokens, eos_token_id, top_k, session_id=None, stream=False, control=False):
     model = _resident_generation_control_model if control else _resident_generation_model
     if model is None:
@@ -796,11 +821,7 @@ def execute_compiled_token_generation(pool, shards, token_ids, max_new_tokens, e
     cache_hits_before, started = _widened_tensor_cache_hits, time.perf_counter()
     global _resident_generation_session
     model["prompt_length"] = token_ids.shape[1]
-    reusable = _resident_generation_session if session_id is not None and _resident_generation_session is not None and _resident_generation_session["id"] == session_id else None
-    cached_count = len(reusable["token_ids"]) if reusable is not None else 0
-    if reusable is not None and (cached_count >= token_ids.shape[1] or not np.array_equal(token_ids.reshape(-1)[:cached_count], reusable["token_ids"])):
-        reusable = None
-        cached_count = 0
+    reusable, cached_count = resolve_resident_generation_session(_resident_generation_session, session_id, token_ids)
     current_token_ids = token_ids[:, cached_count:] if reusable is not None else token_ids
     execution_token_ids, actual_appended_tokens = bucket_causal_prefill_tokens(model, current_token_ids)
     result, all_per_layer = model["execute_token_prelude"](execution_token_ids)
