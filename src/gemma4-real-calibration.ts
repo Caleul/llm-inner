@@ -40,6 +40,11 @@ interface ThreeWayCase {
     elapsedSeconds: number;
     tokensPerSecond: number;
     linearThreads: number;
+    parallelExecutionBackend?: "metal-vectorized-kernels" | "pytorch-cpu-thread-pool";
+    configuredHostThreads?: number;
+    hostThreadSettingApplied?: boolean;
+    metalCommandStreams?: number;
+    parallelTerminalOutputDimensions?: number;
     maxReadMiB?: number;
     finalHeadReadMiB?: number;
     mlxHeadQuantization?: "off" | "q8" | "q8-shortlist" | "q4";
@@ -263,6 +268,11 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
       baseline: { tokenIds: entry.baselineGeneratedTokenIds, text: entry.baselineGeneratedText, seconds: entry.performance.baselineSeconds, tokensPerSecond: entry.performance.baselineTokensPerSecond },
       compatibility: { tokenIds: entry.candidateGeneratedTokenIds, text: entry.candidateGeneratedText, tokensEqualBaseline: entry.generatedTokensEqual, firstDivergentStep: entry.firstDivergentStep, seconds: entry.performance.candidateSeconds, tokensPerSecond: entry.performance.candidateTokensPerSecond },
       direct: { tokenIds: entry.direct.generatedTokenIds, text: entry.direct.generatedText, tokensEqualBaseline: entry.direct.tokensEqualBaseline, firstDivergentStep: entry.direct.firstDivergentStep, seconds: entry.direct.elapsedSeconds, tokensPerSecond: entry.direct.tokensPerSecond, linearThreads: entry.direct.linearThreads,
+        ...(entry.direct.parallelExecutionBackend === undefined ? {} : { parallelExecutionBackend: entry.direct.parallelExecutionBackend }),
+        ...(entry.direct.configuredHostThreads === undefined ? {} : { configuredHostThreads: entry.direct.configuredHostThreads }),
+        ...(entry.direct.hostThreadSettingApplied === undefined ? {} : { hostThreadSettingApplied: entry.direct.hostThreadSettingApplied }),
+        ...(entry.direct.metalCommandStreams === undefined ? {} : { metalCommandStreams: entry.direct.metalCommandStreams }),
+        ...(entry.direct.parallelTerminalOutputDimensions === undefined ? {} : { parallelTerminalOutputDimensions: entry.direct.parallelTerminalOutputDimensions }),
         ...(entry.direct.selectionPolicy === undefined ? {} : { selectionPolicy: entry.direct.selectionPolicy }),
         ...(entry.direct.selectedBackend === undefined ? {} : { selectedBackend: entry.direct.selectedBackend }),
         ...(entry.direct.fallbackTriggered === undefined ? {} : { fallbackTriggered: entry.direct.fallbackTriggered }),

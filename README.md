@@ -2661,6 +2661,15 @@ publicado como `directExecutionMetrics`, com `firstTokenForwardSeconds`,
 `baselineSpeedup`, para que testes e clientes não precisem extrair números do
 texto técnico da interface.
 
+O painel distingue explicitamente os dois contratos de paralelismo. Na
+referência PyTorch, a contagem de threads configura o pool CPU. No runtime
+direto MLX, essa contagem não controla os GEMMs: o paralelismo ocorre dentro dos
+kernels vetorizados Metal sobre as dimensões dos tensores, atualmente em uma
+command stream. O relatório publica `parallelExecutionBackend`,
+`configuredHostThreads`, `hostThreadSettingApplied`, `metalCommandStreams` e
+`parallelTerminalOutputDimensions`; assim `--direct-threads` não é apresentado
+como aceleração efetiva do backend MLX.
+
 Uma validação real em dois turnos no modo chat gerou 8/8 tokens iguais ao
 Transformers. No segundo turno, 17 tokens do prefixo foram reutilizados, 18
 foram calculados e 48,6% do domínio de prefill foi evitado. O painel do
