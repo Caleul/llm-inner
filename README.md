@@ -3286,6 +3286,18 @@ por isso o runtime continua iniciando trabalho exato somente após o evento de
 margem sensível. A evidência reproduzível e seu limite de afirmação estão em
 `artifacts/gemma4-eager-verification-prefill-rejection-3x8.json`.
 
+O prefill paralelo também não é iniciado quando o evento sensível já é o
+último token solicitado ou o token de fim de turno. Nesse ponto não existe mais
+um passo Metal capaz de esconder o trabalho, portanto o verificador entra
+diretamente no replay exato e evita uma requisição de prefill separada. O
+relatório publica `verificationPrefillSkippedTerminal` e a matriz agrega
+`verificationPrefillSkippedTerminalPrompts`. No corpus canônico de 32 prompts ×
+8 tokens, o corte foi exercitado no empate terminal de
+`The capital of France is` e preservou 256/256 tokens, inclusive a correção de
+raiz no passo 3 de `Traduza para inglês: boa noite`. A evidência está em
+`artifacts/gemma4-terminal-prefill-skip-parity-32x8.json`; ela não declara ganho
+de latência porque a paginação da máquina variou durante essa coleta.
+
 O corpus ampliado e reproduzível pode ser executado com:
 
 ```bash

@@ -1,0 +1,49 @@
+{
+  "kind": "gemma4-terminal-verification-prefill-skip",
+  "schemaVersion": 1,
+  "createdAt": "2026-07-22",
+  "configuration": {
+    "prompts": 32,
+    "tokensPerPrompt": 8,
+    "directThreads": 8,
+    "verificationThreads": 8,
+    "verificationMargin": 0,
+    "conversationMode": "raw",
+    "isolatedSessionPerRequest": true
+  },
+  "sources": {
+    "prompts": {
+      "file": "gemma4-calibration-prompts-32.json",
+      "sha256": "23008073aafff2afcabbb548ef24a19672f69564f78a9bb9ec2450105e9846a2"
+    },
+    "authoritativeTokenIds": {
+      "file": "gemma4-q8-layers-0-20-margin0-calibration-32x8.json",
+      "sha256": "e4a81deb3e8e2aa68ddb30698e40334720123cd019d697e28e38c0d77eeaedfe",
+      "field": "cases[*].baseline.tokenIds"
+    }
+  },
+  "result": {
+    "promptsEqual": 32,
+    "comparedTokenSteps": 256,
+    "equalTokenSteps": 256,
+    "fallbackPrompts": 9,
+    "terminalPrefillSkips": 1,
+    "terminalSkipCase": {
+      "index": 0,
+      "prompt": "The capital of France is",
+      "sensitiveStep": 7,
+      "tokenIds": [496, 3207, 600, 563, 2587, 529, 4083, 532],
+      "verificationPrefillAhead": false,
+      "verificationPrefillSkippedTerminal": true,
+      "verificationDecoderSteps": 8
+    },
+    "rootCorrectionGuardCase": {
+      "index": 18,
+      "prompt": "Traduza para inglês: boa noite",
+      "verificationDivergenceStep": 3,
+      "compiledContinuationAccepted": true,
+      "tokenIds": [236764, 6913, 4280, 1983, 23667, 569, 236743, 236800]
+    }
+  },
+  "claimBoundary": "This run proves token parity and terminal-prefill suppression for the recorded corpus. It makes no latency claim because machine paging varied materially during collection."
+}

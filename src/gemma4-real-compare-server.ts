@@ -442,10 +442,12 @@ async function executeSelectedDirect(primary: PersistentJsonlWorker, verificatio
   const started = performance.now();
   const canPrefillAhead = verificationProvider?.backend === "pytorch" && verificationProvider.selectiveHeads && marginThreshold !== undefined && payload.sessionId !== undefined;
   let prefillAhead: { startedAt: number; completedAt?: number; promise: Promise<VerificationPrefillReport> } | undefined;
+  let terminalPrefillSkipped = false;
   const fast = await primary.send(canPrefillAhead ? { ...payload, stream: true } : payload, (event) => {
     onEvent?.(event);
     const sensitive = canPrefillAhead ? streamingEventSensitiveMargin(event, marginThreshold!) : undefined;
     if (!prefillAhead && sensitive) {
+      if (!shouldStartDirectVerificationPrefill(sensitive, payload.maxNewTokens, payload.eosTokenId)) { terminalPrefillSkipped = true; return; }
       onPrefillAhead?.({ ...sensitive, marginThreshold: marginThreshold! });
       const startedAt = performance.now();
       const promise = verificationProvider!.get!()
@@ -542,6 +544,7 @@ async function executeSelectedDirect(primary: PersistentJsonlWorker, verificatio
   return Object.assign(verified, {
     selectionPolicy: compiledContinuationAccepted ? "margin-verified-pytorch-root-mlx-continuation-v1" : verificationProvider.backend === "mlx-shared-control" ? "margin-verified-mlx-shared-control-v1" : verificationProvider.backend === "mlx-control" ? "margin-verified-mlx-control-v1" : "margin-verified-pytorch-v1", selectedBackend: compiledContinuationAccepted ? "pytorch-root+mlx-continuation" : verificationProvider.backend, fallbackTriggered: true, fallbackReason: assessment.reason,
     fastPathMinimumMargin: assessment.minimumMargin, verificationMarginThreshold: marginThreshold, fastPathSeconds,
+    ...(terminalPrefillSkipped ? { verificationPrefillSkippedTerminal: true } : {}),
     verificationSeconds: Math.max(0, hybridSeconds - fastPathSeconds), workerVerificationSeconds: verified.elapsedSeconds,
     hybridSeconds, elapsedSeconds: hybridSeconds, tokensPerSecond: verified.generatedTokenIds.length / hybridSeconds,
     fastPath: fast,
@@ -571,12 +574,18 @@ function combineVerifiedPrefixWithCompiledContinuation(inputIds: readonly number
   };
 }
 
-function streamingEventSensitiveMargin(value: unknown, marginThreshold: number): { step: number; margin: number } | undefined {
+function streamingEventSensitiveMargin(value: unknown, marginThreshold: number): { step: number; tokenId?: number; margin: number } | undefined {
   if (typeof value !== "object" || value === null || !Number.isFinite(marginThreshold) || marginThreshold < 0) return undefined;
   const step = (value as { step?: unknown }).step;
+  const tokenId = (value as { tokenId?: unknown }).tokenId;
   const top = normalizeTopLogits((value as { topLogits?: unknown }).topLogits);
   const margin = top.length >= 2 ? top[0]!.value - top[1]!.value : Number.NaN;
-  return Number.isSafeInteger(step) && (step as number) >= 0 && Number.isFinite(margin) && margin <= marginThreshold ? { step: step as number, margin } : undefined;
+  return Number.isSafeInteger(step) && (step as number) >= 0 && Number.isFinite(margin) && margin <= marginThreshold ? { step: step as number, ...(Number.isSafeInteger(tokenId) && (tokenId as number) >= 0 ? { tokenId: tokenId as number } : {}), margin } : undefined;
+}
+
+export function shouldStartDirectVerificationPrefill(event: { step: number; tokenId?: number }, maxNewTokens: number, eosTokenId?: number): boolean {
+  if (!Number.isSafeInteger(event.step) || event.step < 0 || !Number.isSafeInteger(maxNewTokens) || maxNewTokens < 1) throw new Error("Evento de prefill seletivo é inválido.");
+  return event.step + 1 < maxNewTokens && (eosTokenId === undefined || event.tokenId !== eosTokenId);
 }
 
 class Gemma4PersistentComparisonWorker {

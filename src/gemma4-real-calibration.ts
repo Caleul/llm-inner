@@ -160,6 +160,7 @@ interface ThreeWayCase {
     verificationPrefillAheadCacheHit?: boolean;
     verificationPrefillAheadPrefixTokensReused?: number;
     verificationPrefillAheadTokensComputed?: number;
+    verificationPrefillSkippedTerminal?: boolean;
     verificationEarlyExitStep?: number;
     verificationSessionCacheHit?: boolean;
     verificationPrefixTokensReused?: number;
@@ -327,6 +328,7 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.verificationPrefillAheadCacheHit === undefined ? {} : { verificationPrefillAheadCacheHit: entry.direct.verificationPrefillAheadCacheHit }),
         ...(entry.direct.verificationPrefillAheadPrefixTokensReused === undefined ? {} : { verificationPrefillAheadPrefixTokensReused: entry.direct.verificationPrefillAheadPrefixTokensReused }),
         ...(entry.direct.verificationPrefillAheadTokensComputed === undefined ? {} : { verificationPrefillAheadTokensComputed: entry.direct.verificationPrefillAheadTokensComputed }),
+        ...(entry.direct.verificationPrefillSkippedTerminal === undefined ? {} : { verificationPrefillSkippedTerminal: entry.direct.verificationPrefillSkippedTerminal }),
         ...(entry.direct.verificationEarlyExitStep === undefined ? {} : { verificationEarlyExitStep: entry.direct.verificationEarlyExitStep }),
         ...(entry.direct.verificationSessionCacheHit === undefined ? {} : { verificationSessionCacheHit: entry.direct.verificationSessionCacheHit }),
         ...(entry.direct.verificationPrefixTokensReused === undefined ? {} : { verificationPrefixTokensReused: entry.direct.verificationPrefixTokensReused }),

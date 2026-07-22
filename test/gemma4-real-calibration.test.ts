@@ -43,6 +43,16 @@ test("evidência rejeita prefill exato eager quando ele preserva tokens mas pior
   }
 });
 
+test("evidência do corte de prefill terminal preserva corpus e correção de raiz", async () => {
+  const artifact = JSON.parse(await readFile("artifacts/gemma4-terminal-prefill-skip-parity-32x8.json", "utf8")) as any;
+  assert.deepEqual([artifact.result.promptsEqual, artifact.result.comparedTokenSteps, artifact.result.equalTokenSteps, artifact.result.terminalPrefillSkips], [32, 256, 256, 1]);
+  assert.deepEqual([artifact.result.terminalSkipCase.verificationPrefillAhead, artifact.result.terminalSkipCase.verificationPrefillSkippedTerminal, artifact.result.terminalSkipCase.sensitiveStep], [false, true, 7]);
+  assert.deepEqual([artifact.result.rootCorrectionGuardCase.verificationDivergenceStep, artifact.result.rootCorrectionGuardCase.compiledContinuationAccepted], [3, true]);
+  const digest = async (path: string) => createHash("sha256").update(await readFile(path)).digest("hex");
+  assert.equal(await digest(`artifacts/${artifact.sources.prompts.file}`), artifact.sources.prompts.sha256);
+  assert.equal(await digest(`artifacts/${artifact.sources.authoritativeTokenIds.file}`), artifact.sources.authoritativeTokenIds.sha256);
+});
+
 test("calibração três-vias agrega acordo token a token e throughput", () => {
   const report = summarizeGemma4ThreeWayCalibration([baseCase], { maxNewTokens: 2, requestThreads: 1, precision: "f32", roundingPolicy: "none", runner: { source: "/model", python: "python", helper: "helper", directThreads: 4 } }, { ready: true });
   assert.equal(report.configuration.directMlxHeadQuantization, "off");
