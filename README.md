@@ -3104,6 +3104,24 @@ direto somou `54,0952 s` (`4,7324 tok/s`) contra `139,4139 s`
 matriz finita, ele sustenta a promoção conservadora da margem padrão, mas não
 prova equivalência universal para qualquer prompt possível.
 
+Uma varredura posterior isolou o erro acumulado do caminho Q8: quantizar gate e
+up em todas as 42 camadas ainda troca o empate de `A leap year usually has`,
+enquanto limitar Q8 às camadas `0-20` recupera os tokens `886, 919`; adicionar
+somente a camada 21 já reproduz `1651, 496`. Sem fallback, `0-20` alcançou
+`21,7130 tok/s` e `12,5295×`, mas expôs dois empates adicionais em português.
+Ambos tinham margem rápida exatamente zero.
+
+Por isso o perfil padrão agora combina `q8-ffn-gate-up` apenas em `0-20` com
+margem seletiva `0`: o cálculo compilado decide sozinho sempre que os dois
+melhores logits BF16 são distintos e chama o verificador PyTorch somente em
+empates. Na matriz completa, isso preservou `32/32` prompts e `256/256` tokens,
+com nove prompts verificados, zero divergências raiz e `6,4107 tok/s` contra
+`1,5795 tok/s` da referência, razão de `4,0586×`. O relatório é
+`artifacts/gemma4-q8-layers-0-20-margin0-calibration-32x8.json`. Um controle MLX
+persistente sem Q8 foi testado nos nove empates e rejeitado: ficou em `7/9`
+prompts e piorou inclusive um caso que o caminho rápido já acertava. Assim ele
+não substitui o verificador autoritativo.
+
 Depois do primeiro fallback, o servidor mantém o índice autenticado do
 artefato literal já aberto, mas reinicia o kernel linear PyTorch após cada
 verificação. Isso evita reler e reindexar os 20 GiB de `constants.literal.json`

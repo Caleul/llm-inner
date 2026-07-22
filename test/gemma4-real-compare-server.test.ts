@@ -247,11 +247,13 @@ test("servidor diferencial valida opções reprodutíveis", () => {
   assert.throws(() => parseGemma4RealServerOptions(["--direct-native-attention", "auto"]), /off, bf16 ou real/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-attention", "always"]), /off, bf16, real ou native-bf16/);
   const directDefaults = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool"]);
-  assert.equal(directDefaults.directThreads, 10); assert.equal(directDefaults.directMaxReadMiB, 16); assert.equal(directDefaults.directFinalHeadReadMiB, 16); assert.equal(directDefaults.directVerificationMargin, 0.25);
+  assert.equal(directDefaults.directThreads, 10); assert.equal(directDefaults.directMaxReadMiB, 16); assert.equal(directDefaults.directFinalHeadReadMiB, 16); assert.equal(directDefaults.directVerificationMargin, 0);
   assert.equal(directDefaults.directMlxHeadQuantization, "off");
   assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-mlx-head-quantization", "q8-shortlist"]).directMlxHeadQuantization, "q8-shortlist");
   assert.equal(directDefaults.directMlxDecoderQuantization, "q8-ffn-gate-up");
-  assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-mlx-decoder-quantization", "off"]).directMlxDecoderQuantization, "off");
+  assert.equal(directDefaults.directMlxDecoderQuantizationLayers, "0-20");
+  const unquantized = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-mlx-decoder-quantization", "off"]); assert.equal(unquantized.directMlxDecoderQuantization, "off"); assert.equal(unquantized.directMlxDecoderQuantizationLayers, undefined); assert.equal(unquantized.directVerificationMargin, 0.25);
+  const customQ8Layers = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-mlx-decoder-quantization-layers", "3,1-2,2"]); assert.equal(customQ8Layers.directMlxDecoderQuantizationLayers, "1-3"); assert.equal(customQ8Layers.directVerificationMargin, 0.25);
   const q4Layers = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-mlx-decoder-quantization", "q4-ffn-gate-up", "--direct-mlx-decoder-quantization-layers", "0-9"]);
   assert.equal(q4Layers.directMlxDecoderQuantization, "q4-ffn-gate-up"); assert.equal(q4Layers.directMlxDecoderQuantizationLayers, "0-9");
   assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-mlx-decoder-quantization", "q8-ffn-gate-up-attention"]).directMlxDecoderQuantization, "q8-ffn-gate-up-attention");
