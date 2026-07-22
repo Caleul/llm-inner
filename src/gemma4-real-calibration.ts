@@ -149,6 +149,12 @@ interface ThreeWayCase {
     verificationDecoderSteps?: number;
     verificationDecoderStepsAvoided?: number;
     verificationEarlyExitStep?: number;
+    verificationSessionCacheHit?: boolean;
+    verificationPrefixTokensReused?: number;
+    verificationPrefillTokensComputed?: number;
+    verificationCachedContextTokens?: number;
+    verificationResidentKvBytes?: number;
+    verificationCachedSessions?: number;
     controlVerificationTokenSteps?: number;
     controlCorrectionTriggered?: boolean;
     fastPath?: { generatedTokenIds?: number[]; elapsedSeconds?: number; tokensPerSecond?: number; linearBackend?: string };
@@ -300,6 +306,12 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.verificationDecoderSteps === undefined ? {} : { verificationDecoderSteps: entry.direct.verificationDecoderSteps }),
         ...(entry.direct.verificationDecoderStepsAvoided === undefined ? {} : { verificationDecoderStepsAvoided: entry.direct.verificationDecoderStepsAvoided }),
         ...(entry.direct.verificationEarlyExitStep === undefined ? {} : { verificationEarlyExitStep: entry.direct.verificationEarlyExitStep }),
+        ...(entry.direct.verificationSessionCacheHit === undefined ? {} : { verificationSessionCacheHit: entry.direct.verificationSessionCacheHit }),
+        ...(entry.direct.verificationPrefixTokensReused === undefined ? {} : { verificationPrefixTokensReused: entry.direct.verificationPrefixTokensReused }),
+        ...(entry.direct.verificationPrefillTokensComputed === undefined ? {} : { verificationPrefillTokensComputed: entry.direct.verificationPrefillTokensComputed }),
+        ...(entry.direct.verificationCachedContextTokens === undefined ? {} : { verificationCachedContextTokens: entry.direct.verificationCachedContextTokens }),
+        ...(entry.direct.verificationResidentKvBytes === undefined ? {} : { verificationResidentKvBytes: entry.direct.verificationResidentKvBytes }),
+        ...(entry.direct.verificationCachedSessions === undefined ? {} : { verificationCachedSessions: entry.direct.verificationCachedSessions }),
         ...(entry.direct.controlVerificationTokenSteps === undefined ? {} : { controlVerificationTokenSteps: entry.direct.controlVerificationTokenSteps }),
         ...(entry.direct.controlCorrectionTriggered === undefined ? {} : { controlCorrectionTriggered: entry.direct.controlCorrectionTriggered }),
         ...(entry.direct.fastPath === undefined ? {} : { fastPath: { tokenIds: entry.direct.fastPath.generatedTokenIds, seconds: entry.direct.fastPath.elapsedSeconds, tokensPerSecond: entry.direct.fastPath.tokensPerSecond, linearBackend: entry.direct.fastPath.linearBackend } }),

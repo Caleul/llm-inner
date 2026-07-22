@@ -3157,6 +3157,20 @@ latência absoluta desse fallback permanece dominada pelo prefill e pela
 cabeça exata iniciais, portanto a contagem de trabalho evitado não é apresentada
 como um speedup universal.
 
+O verificador exato também mantém um cache LRU de prefixos por `sessionId`.
+Ele só reutiliza o hidden state terminal e os K/V BF16 quando todos os tokens
+residentes são um prefixo exato da nova entrada da mesma sessão; qualquer
+troca de token invalida a entrada e força o prefill integral. O relatório e a
+interface expõem hit/miss, tokens de prefixo reutilizados, tokens de prefill
+calculados, bytes K/V residentes e número de sessões. Em duas chamadas
+consecutivas de `The first month of the year is` com a mesma sessão, a primeira
+calculou os oito tokens de prefill e a segunda reutilizou os oito, executando
+zero prefill e zero passos de decoder do verificador. As duas preservaram os
+oito tokens gerados e o SHA-256 terminal do caminho rápido autenticado; nessa
+medição, o tempo direto caiu de `7,6325 s` para `1,0520 s`. Esse resultado mede
+uma sessão quente e não é uma promessa de latência para hardware, prompts ou
+estados de cache diferentes.
+
 O corpus ampliado e reproduzível pode ser executado com:
 
 ```bash

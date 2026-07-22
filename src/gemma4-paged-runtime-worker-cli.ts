@@ -2,12 +2,13 @@ import { createHash } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { createInterface } from "node:readline";
 import { planGemma4SelectiveVerificationTail } from "./gemma4-selective-verification.js";
+import { Gemma4VerificationSessionCache } from "./gemma4-verification-session-cache.js";
 import { join, resolve } from "node:path";
 import { openGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-reader.js";
 import { assertGemma4VectorizedRealLoweringPlanMatchesRuntime, openGemma4PagedRuntimeArtifact } from "./gemma4-paged-runtime-index.js";
 import { Gemma4BinaryConstantPool } from "./gemma4-binary-constant-pool.js";
 import { Gemma4PagedNativeLinearWorker, normalizeGemma4DecoderQuantizationLayers, type Gemma4MlxDecoderQuantization } from "./gemma4-paged-native-linear.js";
-import { executeGemma4PagedTextEpilogueLiteralF32, executeGemma4PagedTextHiddenLiteralF32, executeGemma4PagedTextLiteralF32, generateGemma4PagedTextLiteralNativeF32 } from "./gemma4-paged-text.js";
+import { executeGemma4PagedTextEpilogueLiteralF32, executeGemma4PagedTextHiddenLiteralF32, executeGemma4PagedTextLiteralF32, generateGemma4PagedTextLiteralNativeF32, type Gemma4PagedTextHiddenResult } from "./gemma4-paged-text.js";
 import { selectGemma4LiteralGenerationToken } from "./gemma4-literal-generation-control.js";
 import { rankGemma4TerminalLogits } from "./gemma4-terminal-logits.js";
 import { assertGemma4VectorizedRealLoweringPlanMatches, Gemma4VectorizedRealExecutionGuard, type Gemma4VectorizedRealLoweringPlan } from "./gemma4-vectorized-real-lowering.js";
@@ -77,6 +78,8 @@ const createExecutionOptions = () => ({
   ...(args.fusedAttentionRounding === "off" ? {} : { fusedAttentionRounding: args.fusedAttentionRounding }),
 });
 let options = createExecutionOptions();
+type VerificationCachedState = Pick<Gemma4PagedTextHiddenResult, "hidden" | "pastKeyValues">;
+const verificationSessionCache = new Gemma4VerificationSessionCache<VerificationCachedState>(8);
 process.stdout.write(`${JSON.stringify({ ready: true, initializationSeconds: (performance.now() - initializationStarted) / 1000, artifactOpenStrategy: "runtimeIndexSchemaVersion" in artifact ? "authenticated-execution-index-v2" : args.artifactIndex ? "authenticated-runtime-index-v1" : "streamed-literal-scan-v1", ...(args.artifactIndex ? { artifactIndexSha256: args.artifactIndex.sha256 } : {}), backend: "paged-binary-native", linearBackend: linear.backend, mlxHeadQuantization: args.mlxHeadQuantization, fusedMlpRounding: args.fusedMlpRounding, fusedFfnRounding: args.fusedFfnRounding, fusedDecoderLayerRounding: args.fusedDecoderLayerRounding, fusedDecoderStackRounding: args.fusedDecoderStackRounding, fusedPleRounding: args.fusedPleRounding, fusedPlePreludeRounding: args.fusedPlePreludeRounding, fusedTokenForwardRounding: args.fusedTokenForwardRounding, residentGeneration: args.residentGeneration, finalHeadCompute: args.finalHeadCompute, nativeAttentionRounding: args.nativeAttentionRounding, fusedAttentionRounding: args.fusedAttentionRounding, threads: args.threads, maxReadMiB: args.maxReadBytes / (1024 * 1024), finalHeadReadMiB: args.finalHeadMaxReadBytes / (1024 * 1024), ...(vectorizedRealLowering ? { vectorizedRealLowering } : {}), ...(finalFormulaProgram ? { finalFormulaProgram } : {}) })}\n`);
 
 const lines = createInterface({ input: process.stdin, crlfDelay: Infinity });
@@ -99,7 +102,7 @@ for await (const line of lines) {
     if (verificationControl && (args.linearBackend !== "mlx" || args.mlxDecoderQuantization !== "q8-ffn-gate-up-down" || sessionId !== undefined || stream)) throw new Error("verificationControl requer decoder MLX q8-ffn-gate-up-down sem sessão nem streaming.");
     if ((captureLayerHidden || captureLayerStages !== undefined) && (!verificationFastPath || args.linearBackend !== "pytorch" || sessionId !== undefined || stream)) throw new Error("Captura decoder requer verificationFastPath no backend PyTorch sem sessão nem streaming.");
     const report = verificationFastPath
-      ? await generateSelectiveVerification(inputIds, maxNewTokens, verificationFastPath, eosTokenId, captureLayerHidden, captureLayerStages)
+      ? await generateSelectiveVerification(inputIds, maxNewTokens, verificationFastPath, eosTokenId, sessionId, captureLayerHidden, captureLayerStages)
       : await generate(inputIds, maxNewTokens, eosTokenId, sessionId, stream ? (event) => process.stdout.write(`${JSON.stringify({ id: request.id, event: { type: "token", ...event } })}\n`) : undefined, verificationControl);
     process.stdout.write(`${JSON.stringify({ id: request.id, report })}\n`);
   } catch (error) {
@@ -144,7 +147,7 @@ interface VerificationFastPath {
   terminalLogitsSha256: string;
 }
 
-async function generateSelectiveVerification(inputIds: number[], maxNewTokens: number, fast: VerificationFastPath, eosTokenId?: number, captureLayerHidden = false, captureLayerStages?: number): Promise<Record<string, unknown>> {
+async function generateSelectiveVerification(inputIds: number[], maxNewTokens: number, fast: VerificationFastPath, eosTokenId?: number, sessionId?: number, captureLayerHidden = false, captureLayerStages?: number): Promise<Record<string, unknown>> {
   if (args.linearBackend !== "pytorch" || args.residentGeneration !== "off" || args.fusedTokenForwardRounding !== "off") throw new Error("Verificação seletiva requer backend PyTorch não residente.");
   const dispatchesBefore = linear.dispatchMetrics(), started = performance.now();
   const sensitive = new Set(fast.sensitiveSteps), generatedTokenIds: number[] = [], steps: Array<Record<string, unknown>> = [];
@@ -162,8 +165,20 @@ async function generateSelectiveVerification(inputIds: number[], maxNewTokens: n
       acceptPle: (names: readonly string[], values: readonly Float32Array[]) => Object.assign(layerStageCaptures.at(-1)!, { pleNames: names, pleValues: values.map(encodeWholeF32) }),
     } }),
   } : options;
-  let current = await executeGemma4PagedTextHiddenLiteralF32(artifact, { inputIds: [inputIds] }, executionOptions);
-  let verificationDecoderSteps = 1, verificationEarlyExitStep: number | null = null, verificationDecoderStepsAvoided = 0;
+  const cached = sessionId === undefined ? undefined : verificationSessionCache.resolve(sessionId, inputIds);
+  const suffixTokenIds = cached?.suffixTokenIds ?? inputIds;
+  let current: VerificationCachedState, currentInputIds: number[], verificationDecoderSteps: number;
+  if (cached && suffixTokenIds.length === 0) {
+    current = cached.state; currentInputIds = cached.currentInputIds; verificationDecoderSteps = 0;
+  } else {
+    currentInputIds = [...suffixTokenIds]; verificationDecoderSteps = 1;
+    current = await executeGemma4PagedTextHiddenLiteralF32(artifact, {
+      inputIds: [currentInputIds],
+      ...(cached ? { positionIds: [currentInputIds.map((_token, index) => cached.prefixTokensReused + index)], pastKeyValues: cached.state.pastKeyValues } : {}),
+    }, executionOptions);
+  }
+  const currentContextTokens = [...inputIds];
+  let verificationEarlyExitStep: number | null = null, verificationDecoderStepsAvoided = 0;
   const lastSensitiveStep = fast.sensitiveSteps.at(-1)!;
   let forwardSeconds = (performance.now() - forwardStarted) / 1000, terminalLogitsSha256 = fast.terminalLogitsSha256, divergenceStep: number | null = null;
   for (let step = 0; step < fast.generatedTokenIds.length; step += 1) {
@@ -171,7 +186,7 @@ async function generateSelectiveVerification(inputIds: number[], maxNewTokens: n
     let tokenId = fast.generatedTokenIds[step]!, topLogits: unknown[] = [], verificationSkipped = true;
     if (verify) {
       const epilogueStarted = performance.now();
-      const logits = await executeGemma4PagedTextEpilogueLiteralF32(artifact, step === 0 ? [inputIds] : [[generatedTokenIds.at(-1)!]], current.hidden, options);
+      const logits = await executeGemma4PagedTextEpilogueLiteralF32(artifact, [currentInputIds], current.hidden, options);
       forwardSeconds += (performance.now() - epilogueStarted) / 1000;
       topLogits = rankGemma4TerminalLogits(logits);
       tokenId = selectGemma4LiteralGenerationToken(artifact.generation.controlProgram, logits);
@@ -202,18 +217,32 @@ async function generateSelectiveVerification(inputIds: number[], maxNewTokens: n
     }
     forwardStarted = performance.now();
     current = await executeGemma4PagedTextHiddenLiteralF32(artifact, { inputIds: [[tokenId]], positionIds: [[inputIds.length + step]], pastKeyValues: current.pastKeyValues }, executionOptions);
+    currentInputIds = [tokenId]; currentContextTokens.push(tokenId);
     verificationDecoderSteps += 1;
     forwardSeconds = (performance.now() - forwardStarted) / 1000;
   }
+  if (sessionId !== undefined) verificationSessionCache.update(sessionId, currentContextTokens, currentInputIds, { hidden: current.hidden, pastKeyValues: current.pastKeyValues }, verificationStateBytes(current));
   const elapsedSeconds = (performance.now() - started) / 1000, dispatchesAfter = linear.dispatchMetrics();
   return buildReport(inputIds, maxNewTokens, generatedTokenIds, steps, terminalLogitsSha256, elapsedSeconds, dispatchesBefore, dispatchesAfter, {
     selectiveVerification: true, sensitiveSteps: fast.sensitiveSteps, trustedFastPathSteps: steps.filter((step) => step.verificationSkipped === true).length,
     verificationHeadSteps: steps.filter((step) => step.verificationSkipped === false).length, verificationDivergenceStep: divergenceStep, externalForwardRequests: verificationDecoderSteps,
     verificationDecoderSteps, verificationDecoderStepsAvoided,
+    verificationSessionCacheHit: cached !== undefined,
+    verificationPrefixTokensReused: cached?.prefixTokensReused ?? 0,
+    verificationPrefillTokensComputed: suffixTokenIds.length,
+    verificationCachedContextTokens: currentContextTokens.length,
+    verificationResidentKvBytes: verificationSessionCache.residentBytes,
+    verificationCachedSessions: verificationSessionCache.sessions,
     ...(verificationEarlyExitStep === null ? {} : { verificationEarlyExitStep }),
     ...(captureLayerHidden ? { layerHiddenEncoding: "terminal-token-f32le-base64", layerHiddenCaptures, layerHiddenFullEncoding: "whole-tensor-f32le-base64", layerHiddenFullCaptures } : {}),
     ...(captureLayerStages === undefined ? {} : { layerStageEncoding: "whole-tensor-f32le-base64", layerStageLayer: captureLayerStages, layerStageCaptures }),
   });
+}
+
+function verificationStateBytes(state: VerificationCachedState): number {
+  let bytes = state.hidden.values.byteLength;
+  for (const cache of state.pastKeyValues.values()) bytes += cache.key.values.byteLength + cache.value.values.byteLength;
+  return bytes;
 }
 
 function encodeTerminalHidden(values: Float32Array): string {
