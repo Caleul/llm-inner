@@ -5,7 +5,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Script } from "node:vm";
-import { gemma4RealCompareHtml } from "../src/gemma4-real-compare-ui.js";
+import { gemma4RealCompareHtml, parseGemma4PromptMatrixInput, summarizeGemma4PromptMatrix } from "../src/gemma4-real-compare-ui.js";
 import { GEMMA4_FINAL_FORMULA_NODE_SEMANTICS, writeGemma4FinalFormulaRuntime } from "../src/gemma4-final-formula-runtime.js";
 import { assessDirectVerification, assertDirectFinalFormulaProgram, computeDirectExecutionMetrics, computeDirectLogitAgreement, createGemma4RealComparisonServer, parseGemma4RealServerOptions, type Gemma4CompiledProgramStatus } from "../src/gemma4-real-compare-server.js";
 
@@ -92,7 +92,33 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /worker autenticou as/);
   assert.match(gemma4RealCompareHtml, /Threads/);
   assert.match(gemma4RealCompareHtml, /\/api\/compare/);
+  assert.match(gemma4RealCompareHtml, /Matriz reproduzível de prompts/);
+  assert.match(gemma4RealCompareHtml, /Executar matriz/);
+  assert.match(gemma4RealCompareHtml, /Baixar relatório JSON/);
+  assert.match(gemma4RealCompareHtml, /summarizeGemma4PromptMatrix/);
   const embedded = gemma4RealCompareHtml.match(/<script>([\s\S]*)<\/script>/)?.[1]; assert.ok(embedded); assert.doesNotThrow(() => new Script(embedded), "JavaScript embutido deve ser sintaticamente executável pelo navegador");
+});
+
+test("matriz da interface aceita linhas ou JSON e rejeita entradas ambíguas", () => {
+  assert.deepEqual(parseGemma4PromptMatrixInput("um\n\ndois"), ["um", "dois"]);
+  assert.deepEqual(parseGemma4PromptMatrixInput('["linha 1\\nlinha 2", "  preservar  "]'), ["linha 1\nlinha 2", "  preservar  "]);
+  assert.throws(() => parseGemma4PromptMatrixInput(""), /entre 1 e 32/);
+  assert.throws(() => parseGemma4PromptMatrixInput("["), /JSON.*inválido/);
+  assert.throws(() => parseGemma4PromptMatrixInput(JSON.stringify(Array.from({ length: 33 }, (_, index) => String(index)))), /entre 1 e 32/);
+});
+
+test("matriz da interface agrega paridade, desempenho e divergência de logits sem esconder casos", () => {
+  const report = summarizeGemma4PromptMatrix([
+    { prompt: "igual", baselineGeneratedTokenIds: [7, 8], performance: { baselineSeconds: 2 }, directExecutionMetrics: { firstTokenWallSeconds: 0.1 }, direct: { generatedTokenIds: [7, 8], elapsedSeconds: 0.5, selectedBackend: "mlx", fallbackTriggered: false, logitAgreement: { steps: [{ contextsEqualBeforeStep: true, baselineArgmaxToken: 7, directArgmaxToken: 7, topKOverlapRate: 1, baselineArgmaxLogitAbsError: 0.25 }] } } },
+    { prompt: "diverge", baselineGeneratedTokenIds: [9, 10], performance: { baselineSeconds: 3 }, directExecutionMetrics: { firstTokenForwardSeconds: 0.2 }, direct: { generatedTokenIds: [9, 11], elapsedSeconds: 1, selectedBackend: "pytorch", fallbackTriggered: true, controlCorrectionTriggered: true, logitAgreement: { steps: [{ contextsEqualBeforeStep: true, baselineArgmaxToken: 10, directArgmaxToken: 11, topKOverlapRate: 0.5, baselineArgmaxLogitAbsError: 0.75 }, { contextsEqualBeforeStep: false, baselineArgmaxToken: 1, directArgmaxToken: 2 }] } } },
+  ]);
+  assert.deepEqual({ ...report.summary, meanFirstTokenWallSeconds: undefined }, { prompts: 2, promptsEqual: 1, promptAgreementRate: 0.5, comparedTokenSteps: 4, equalTokenSteps: 3, tokenAgreementRate: 0.75, firstDivergentPrompt: 1, fallbackPrompts: 1, fallbackRate: 0.5, correctionPrompts: 1, baselineSeconds: 5, directSeconds: 1.5, baselineTokensPerSecond: 0.8, directTokensPerSecond: 4 / 1.5, directVsBaselineThroughputRatio: 5 / 1.5, meanFirstTokenWallSeconds: undefined, directRootDivergences: 1, meanTopKOverlapRate: 0.75, maxBaselineArgmaxLogitAbsError: 0.75 });
+  assert.ok(Math.abs(report.summary.meanFirstTokenWallSeconds! - 0.15) < Number.EPSILON);
+  assert.equal(report.cases[1]?.firstDivergentStep, 1); assert.equal(report.cases[1]?.selectedBackend, "pytorch"); assert.equal(report.cases[1]?.fallbackTriggered, true); assert.equal(report.reports.length, 2);
+  const lengthMismatch = summarizeGemma4PromptMatrix([{ prompt: "EOS desigual", baselineGeneratedTokenIds: [1], performance: { baselineSeconds: 1 }, direct: { generatedTokenIds: [1, 2], elapsedSeconds: 1 } }]);
+  assert.equal(lengthMismatch.summary.comparedTokenSteps, 2); assert.equal(lengthMismatch.summary.equalTokenSteps, 1); assert.equal(lengthMismatch.summary.tokenAgreementRate, 0.5); assert.equal(lengthMismatch.cases[0]?.tokensEqual, false);
+  assert.throws(() => summarizeGemma4PromptMatrix([]), /ao menos um/);
+  assert.throws(() => summarizeGemma4PromptMatrix([{ prompt: "x" }]), /comparação original.*compilada/);
 });
 
 test("modo compilado exige que o worker autentique exatamente o mapa final", () => {

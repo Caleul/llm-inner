@@ -2661,6 +2661,19 @@ publicado como `directExecutionMetrics`, com `firstTokenForwardSeconds`,
 `baselineSpeedup`, para que testes e clientes não precisem extrair números do
 texto técnico da interface.
 
+O painel **Matriz reproduzível de prompts** executa entre 1 e 32 entradas
+independentes pelo mesmo `/api/compare-stream` e pelos mesmos workers autenticados da
+comparação individual. Ele aceita um prompt por linha ou um array JSON — este
+último preserva prompts multilinha e espaços significativos — e atualiza o
+resultado depois de cada caso. O agregado mostra igualdade por prompt e por
+token, primeira divergência, TTFT médio, throughput dos dois executores,
+speedup, divergências de raiz, sobreposição top-K e erro máximo do logit
+escolhido. Cada caso identifica também o backend selecionado, fallback e
+correção, enquanto o resumo agrega suas taxas. **Baixar relatório JSON**
+persiste o agregado, todos os casos e os
+relatórios brutos, junto às opções de geração usadas. Cancelar interrompe a
+requisição atual e mantém visíveis somente os casos realmente concluídos.
+
 O painel distingue explicitamente os dois contratos de paralelismo. Na
 referência PyTorch, a contagem de threads configura o pool CPU. No runtime
 direto MLX, essa contagem não controla os GEMMs: o paralelismo ocorre dentro dos
