@@ -2702,7 +2702,7 @@ O head de vocabulário usa por padrão o peso BF16 autenticado sem quantização
 preservando a política promovida pela calibração atual. A opção Q8 affine,
 `group_size=64`, é calculada deterministicamente quando selecionada e oferece
 uma representação alternativa da matriz `262144 × 2560`;
-`--direct-mlx-head-quantization off|q8|q4`
+`--direct-mlx-head-quantization off|q8|q8-shortlist|q4`
 permite comparar os modos, e a UI e o relatório registram
 `mlxHeadQuantization`. Q4 permanece apenas experimental: divergiu em uma
 decisão sensível. Na calibração Q8 de oito prompts
@@ -2710,6 +2710,31 @@ e oito tokens, o caminho direto reproduziu 64/64 tokens do Transformers, sem
 divergência raiz, com 96,56% de sobreposição top-K média e 21,13 tok/s contra
 1,91 tok/s do baseline (11,08×). Essa matriz é evidência amostral, não prova de
 paridade universal; prompts arbitrários continuam sendo comparados na interface.
+
+O modo opt-in `q8-shortlist` reduz a projeção principal da cabeça a um único
+matmul Q8 e recalcula com os pesos BF16 exatos os 16 IDs de maior logit
+aproximado antes do argmax e do top-K. Ele é identificado como
+`single-stage-affine-q8-shortlist-refined-v1` no relatório e como experimental
+na interface: o refinamento é exato dentro da shortlist, mas não constitui um
+limite global que prove que nenhum dos outros 262.128 IDs poderia entrar nela.
+Por isso o padrão continua `off` e mantém o vetor terminal BF16 integral.
+
+No controle pareado de 8 prompts × 4 tokens desta implementação,
+`q8-shortlist` preservou 32/32 decisões e elevou o throughput direto de
+`22,9385` para `24,1024 tok/s` (`+5,07%`). A calibração ampliada persistida em
+`artifacts/gemma4-three-way-calibration-32x4-q8-shortlist.json` preservou
+32/32 prompts, 128/128 tokens e zero divergências raiz. O fast path somou
+`5,3305 s`, alcançou `24,0126 tok/s` e foi `20,2494×` mais rápido que o
+Transformers medido no mesmo processo. Essa evidência finita não promove a
+shortlist a uma garantia para prompts arbitrários.
+
+Para reproduzir o modo na interface:
+
+```bash
+npm run compare:gemma4-real-ui -- \
+  --direct-mlx-head-quantization q8-shortlist \
+  --direct-verification-margin off
+```
 
 O compositor vetorizado também faz eliminação de subexpressões comuns por passo
 de geração: fatores seno/cosseno de RoPE e máscaras causais/sliding-window com

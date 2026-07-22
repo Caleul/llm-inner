@@ -19,6 +19,7 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /MLPs fundidos/);
   assert.match(gemma4RealCompareHtml, /projeção gate\/up/);
   assert.match(gemma4RealCompareHtml, /head BF16 exato: sem aproximação ou fallback/);
+  assert.match(gemma4RealCompareHtml, /head Q8 rápido: shortlist top-16 refinada com pesos BF16 exatos \(experimental\)/);
   assert.match(gemma4RealCompareHtml, /programa final direto/);
   assert.match(gemma4RealCompareHtml, /mapa executado/);
   assert.match(gemma4RealCompareHtml, /Inspetor das dimensões finais compiladas/);
@@ -69,6 +70,7 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /reference-loading/);
   assert.match(gemma4RealCompareHtml, /direct-rewarming/);
   assert.match(gemma4RealCompareHtml, /modelo original ainda não carregado/);
+  assert.match(gemma4RealCompareHtml, /verifier\?\.enabled===false\?'desabilitado'/);
   assert.match(gemma4RealCompareHtml, /parede total/);
   assert.match(gemma4RealCompareHtml, /fases stack attn\/FFN\/PLE/);
   assert.match(gemma4RealCompareHtml, /fases stack: fundidas no grafo Metal/);
@@ -195,12 +197,13 @@ test("servidor diferencial valida opções reprodutíveis", () => {
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-token-forward", "always"]), /off ou bf16/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-resident-generation", "always"]), /off ou on/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-final-head", "fp16"]), /f32, native-bf16, native-bf16-stream ou native-bf16-whole/);
-  assert.throws(() => parseGemma4RealServerOptions(["--direct-mlx-head-quantization", "q2"]), /off, q8 ou q4/);
+  assert.throws(() => parseGemma4RealServerOptions(["--direct-mlx-head-quantization", "q2"]), /off, q8, q8-shortlist ou q4/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-native-attention", "auto"]), /off, bf16 ou real/);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-fused-attention", "always"]), /off, bf16, real ou native-bf16/);
   const directDefaults = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool"]);
   assert.equal(directDefaults.directThreads, 10); assert.equal(directDefaults.directMaxReadMiB, 16); assert.equal(directDefaults.directFinalHeadReadMiB, 16); assert.equal(directDefaults.directVerificationMargin, 0);
   assert.equal(directDefaults.directMlxHeadQuantization, "off");
+  assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-mlx-head-quantization", "q8-shortlist"]).directMlxHeadQuantization, "q8-shortlist");
   assert.equal(directDefaults.directMlxDecoderQuantization, "q8-ffn-gate-up");
   assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-mlx-decoder-quantization", "off"]).directMlxDecoderQuantization, "off");
   const q4Layers = parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-mlx-decoder-quantization", "q4-ffn-gate-up", "--direct-mlx-decoder-quantization-layers", "0-9"]);

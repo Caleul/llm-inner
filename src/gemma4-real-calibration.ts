@@ -42,8 +42,8 @@ interface ThreeWayCase {
     linearThreads: number;
     maxReadMiB?: number;
     finalHeadReadMiB?: number;
-    mlxHeadQuantization?: "off" | "q8" | "q4";
-    mlxHeadQuantizationStrategy?: "exact-bf16" | "two-stage-residual-affine-certified-v1";
+    mlxHeadQuantization?: "off" | "q8" | "q8-shortlist" | "q4";
+    mlxHeadQuantizationStrategy?: "exact-bf16" | "two-stage-residual-affine-certified-v1" | "single-stage-affine-q8-shortlist-refined-v1";
     mlxDecoderQuantization?: Gemma4RealComparisonRunnerOptions["directMlxDecoderQuantization"];
     mlxDecoderQuantizationLayers?: string;
     mlxDecoderQuantizationStrategy?: "exact-bf16" | "single-stage-affine-q8-calibrated-v1" | "experimental-affine-q8" | "experimental-affine-q4";

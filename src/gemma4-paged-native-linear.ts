@@ -121,7 +121,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
   #nativeAttentionSeconds = 0;
   #fusedAttentionSeconds = 0;
 
-  constructor(options: { python: string; helper: string; threads: number; binaryPool?: string; storageTensors?: ReadonlyMap<string, TensorInfo>; backend?: "pytorch" | "mlx"; mlxHelper?: string; mlxHeadQuantization?: "off" | "q8" | "q4"; mlxDecoderQuantization?: Gemma4MlxDecoderQuantization; mlxDecoderQuantizationLayers?: string }) {
+  constructor(options: { python: string; helper: string; threads: number; binaryPool?: string; storageTensors?: ReadonlyMap<string, TensorInfo>; backend?: "pytorch" | "mlx"; mlxHelper?: string; mlxHeadQuantization?: "off" | "q8" | "q8-shortlist" | "q4"; mlxDecoderQuantization?: Gemma4MlxDecoderQuantization; mlxDecoderQuantizationLayers?: string }) {
     if (endianness() !== "LE") throw new Error("Kernel linear binário requer host little-endian.");
     if (!Number.isSafeInteger(options.threads) || options.threads < 1) throw new Error("threads do kernel linear deve ser positivo.");
     if ((options.binaryPool === undefined) !== (options.storageTensors === undefined)) throw new Error("Kernel linear mmap requer pool binário e catálogo juntos.");

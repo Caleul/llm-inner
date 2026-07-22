@@ -514,6 +514,12 @@ def build_quantized_head(head_weight, group_size, bits, chunk_rows=4096):
     return quantized, scales, biases, group_size, bits, correction_quantized, correction_scales, correction_biases, head_weight, max_errors, l2_errors
 
 
+def build_shortlist_quantized_head(head_weight, group_size=64, bits=8):
+    quantized, scales, biases = mx.quantize(head_weight, group_size=group_size, bits=bits)
+    mx.eval(quantized, scales, biases, head_weight)
+    return quantized, scales, biases, group_size, bits, head_weight
+
+
 def quantized_head_error_bounds(result, epilogue, rounding):
     norm_weight, head_weight, norm_epsilon, softcap = epilogue
     if not isinstance(head_weight, tuple) or len(head_weight) != 11:
@@ -559,6 +565,18 @@ def incremental_topology_mask(config, key_sequence, absolute_position):
 
 
 def rank_terminal_logits(logits, raw_logits, top_k, result=None, epilogue=None, rounding="native-bf16"):
+    if result is not None and epilogue is not None and isinstance(epilogue[1], tuple) and len(epilogue[1]) == 6:
+        values = logits.reshape((-1,))
+        shortlist_size = min(values.size, max(top_k, 16))
+        candidates_value = mx.argpartition(values, -shortlist_size)[-shortlist_size:]
+        exact_weight = epilogue[1][5]
+        exact_epilogue = (epilogue[0], mx.take(exact_weight, candidates_value, axis=0), epilogue[2], epilogue[3])
+        exact_values = finalize_decoder_logits(execute_decoder_head(result, exact_epilogue, rounding=rounding), exact_epilogue, rounding=rounding).reshape((-1,))
+        mx.eval(candidates_value, exact_values)
+        candidate_ids = np.asarray(candidates_value, dtype=np.int32)
+        candidate_logits = np.asarray(exact_values, dtype=np.float32)
+        ordered = np.lexsort((candidate_ids, -candidate_logits))
+        return int(candidate_ids[ordered[0]]), candidate_ids[ordered[:top_k]], candidate_logits[ordered[:top_k]], logits, False, False
     error_bounds = None if result is None or epilogue is None else quantized_head_error_bounds(result, epilogue, rounding)
     if error_bounds is None:
         selected, candidates, candidate_logits = rank_exact_logits(logits, top_k)
@@ -886,7 +904,9 @@ def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, 
             raise ValueError("MLX decoder stack epilogue metadata is invalid")
         final_norm_weight = read_whole_tensor(pool, shards, (hidden_size, 1)).reshape((hidden_size,))
         head_weight = read_whole_tensor(pool, shards, (vocabulary_size, hidden_size), widen=False, required_dtype=mx.bfloat16)
-        if _head_quantization != "off":
+        if _head_quantization == "q8-shortlist":
+            head_weight = build_shortlist_quantized_head(head_weight)
+        elif _head_quantization != "off":
             head_bits = 8 if _head_quantization == "q8" else 4
             group_size = 64
             head_weight = build_quantized_head(head_weight, group_size, head_bits)
@@ -985,7 +1005,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--threads", type=int, required=True)
     parser.add_argument("--binary-pool", required=True)
-    parser.add_argument("--head-quantization", choices=("off", "q8", "q4"), default="off")
+    parser.add_argument("--head-quantization", choices=("off", "q8", "q8-shortlist", "q4"), default="off")
     parser.add_argument("--decoder-quantization", choices=("off", "q8-ffn", "q8-ffn-gate-up", "q4-ffn-gate-up", "q8-ffn-gate-up-first-half", "q8-ffn-gate-up-last-half", "q8-ffn-down", "q8-attention", "q8-all"), default="off")
     parser.add_argument("--decoder-quantization-layers")
     args = parser.parse_args()
