@@ -3380,6 +3380,19 @@ selecionado final. `generatedText` é a fonte de verdade; `deltaText` é apenas 
 conveniência para consumidores incrementais, e `textReset: true` indica que a
 normalização do tokenizer exige substituir o texto acumulado em vez de anexá-lo.
 
+Quando a verificação seletiva PyTorch é acionada no modo compilado-only, ela pode
+expulsar páginas e especializações do hot path Metal da memória unificada. Depois
+de encerrar a resposta, o servidor agenda em segundo plano os mesmos warm-ups de
+um e oito tokens usados na recuperação comparativa. O worker JSONL serializa essa
+recuperação antes da próxima geração; portanto um turno imediatamente subsequente
+aguarda apenas sua parcela ainda pendente, enquanto uma pausa normal entre turnos
+absorve todo o custo. `comparisonTiming` publica
+`backgroundRecoveryScheduled`, `directBackgroundRecoveryWaitSeconds` e, quando
+houve espera, `awaitedBackgroundRecoverySeconds`; `/api/status` expõe
+`direct.backgroundRecovery` como `idle`, `running` ou `failed`. Falha de
+recuperação é fail-closed em vez de permitir uma geração concorrente sobre um
+worker em estado incerto.
+
 A escolha Q8 do decoder também foi comparada diretamente com `gate/up` BF16 e
 com uma decomposição experimental de dois estágios
 `W = Q8₀(W) + Q8₁(W-Q8₀(W))`. No mesmo corpus de 32 prompts × 4 tokens, o

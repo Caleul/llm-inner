@@ -80,6 +80,8 @@ test("interface diferencial contém controles e apresentação dos dois executor
   assert.match(gemma4RealCompareHtml, /direct-complete/);
   assert.match(gemma4RealCompareHtml, /message\.generatedText/);
   assert.match(gemma4RealCompareHtml, /assistantNode\.textContent=message\.data\.generatedText/);
+  assert.match(gemma4RealCompareHtml, /reaquecimento Metal agendado em segundo plano/);
+  assert.match(gemma4RealCompareHtml, /directBackgroundRecoveryWaitSeconds/);
   assert.match(gemma4RealCompareHtml, /reference-loading/);
   assert.match(gemma4RealCompareHtml, /direct-rewarming/);
   assert.match(gemma4RealCompareHtml, /modelo original ainda não carregado/);
@@ -465,7 +467,7 @@ let generations=0;readline.createInterface({input:process.stdin}).on("line",line
   try {
     const address = server.address(); if (!address || typeof address === "string") throw new Error("Endereço HTTP ausente.");
     const endpoint = `http://127.0.0.1:${address.port}`;
-    let status: { ready?: boolean; direct?: { verification?: { ready?: boolean; state?: string; marginThreshold?: number; lifecycle?: string; warmupComplete?: boolean; warmupSeconds?: number } } } = {};
+    let status: { ready?: boolean; direct?: { backgroundRecovery?: { state?: string; lastSeconds?: number }; verification?: { ready?: boolean; state?: string; marginThreshold?: number; lifecycle?: string; warmupComplete?: boolean; warmupSeconds?: number } } } = {};
     for (let index = 0; index < 50 && !status.ready; index += 1) { status = await fetch(`${endpoint}/api/status`).then((response) => response.json()) as typeof status; await new Promise((accept) => setTimeout(accept, 10)); }
     assert.equal(status.direct?.verification?.ready, true); assert.equal(status.direct?.verification?.state, "ready"); assert.equal(status.direct?.verification?.marginThreshold, 0); assert.equal(status.direct?.verification?.warmupComplete, true); assert.ok((status.direct?.verification?.warmupSeconds ?? -1) >= 0);
     const response = await fetch(`${endpoint}/api/compare-stream`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt: "empate", maxNewTokens: 1, sessionId: 101 }) });
@@ -474,10 +476,18 @@ let generations=0;readline.createInterface({input:process.stdin}).on("line",line
     assert.equal(messages[0]?.generatedText, "8"); assert.deepEqual(messages[0]?.generatedTokenIds, [8]); assert.equal(messages[3]?.data?.generatedText, "7");
     const selected = messages[6]!.data!.direct; assert.deepEqual(selected.generatedTokenIds, [7]); assert.equal(selected.selectedBackend, "pytorch"); assert.equal(selected.fallbackTriggered, true); assert.equal(selected.fastPathMinimumMargin, 0); assert.deepEqual((selected.fastPath as { generatedTokenIds: number[] }).generatedTokenIds, [8]); assert.equal(selected.tokensEqualBaseline, true); assert.equal(selected.selectiveVerification, true); assert.deepEqual(selected.sensitiveSteps, [0]); assert.equal(selected.verificationHeadSteps, 1);
     assert.equal(selected.verificationPrefillAhead, true); assert.equal(selected.verificationPrefillAheadTokensComputed, 2); assert.equal(selected.verificationPrefillAheadCacheHit, false); assert.ok((selected.verificationPrefillOverlapSeconds as number) >= 0); assert.ok((selected.verificationPrefillWaitSeconds as number) >= 0);
-    status = await fetch(`${endpoint}/api/status`).then((entry) => entry.json()) as typeof status; assert.equal(status.direct?.verification?.state, "ready"); assert.equal(status.direct?.verification?.ready, true); assert.equal(status.direct?.verification?.lifecycle, "warmed-persistent-exact-kernel-v1");
+    const generateCompiled = async () => {
+      const compiledResponse = await fetch(`${endpoint}/api/generate-stream`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt: "empate compilado", maxNewTokens: 1 }) });
+      assert.equal(compiledResponse.status, 200);
+      const stream = (await compiledResponse.text()).trim().split("\n").map((line) => JSON.parse(line) as { type: string; data?: { direct: { fastPath?: { workerGenerations?: number } }; comparisonTiming: { backgroundRecoveryScheduled?: boolean; directBackgroundRecoveryWaitSeconds?: number } } });
+      return stream.at(-1)!.data!;
+    };
+    const firstCompiled = await generateCompiled(); assert.equal(firstCompiled.comparisonTiming.backgroundRecoveryScheduled, true); assert.equal(firstCompiled.comparisonTiming.directBackgroundRecoveryWaitSeconds, 0);
+    const secondCompiled = await generateCompiled(); assert.equal(secondCompiled.comparisonTiming.backgroundRecoveryScheduled, true); assert.equal(secondCompiled.direct.fastPath!.workerGenerations, firstCompiled.direct.fastPath!.workerGenerations! + 3);
+    status = await fetch(`${endpoint}/api/status`).then((entry) => entry.json()) as typeof status; assert.ok(status.direct?.backgroundRecovery?.state === "idle" || status.direct?.backgroundRecovery?.state === "running"); assert.ok((status.direct?.backgroundRecovery?.lastSeconds ?? -1) >= 0); assert.equal(status.direct?.verification?.state, "ready"); assert.equal(status.direct?.verification?.ready, true); assert.equal(status.direct?.verification?.lifecycle, "warmed-persistent-exact-kernel-v1");
     const secondResponse = await fetch(`${endpoint}/api/compare`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt: "outro empate", maxNewTokens: 1 }) });
     const second = await secondResponse.json() as { direct: Record<string, unknown> };
-    assert.equal(second.direct.workerPid, selected.workerPid); assert.equal(second.direct.workerGenerations, (selected.workerGenerations as number) + 1); assert.deepEqual(second.direct.generatedTokenIds, [7]); assert.equal(second.direct.tokensEqualBaseline, true);
+    assert.equal(second.direct.workerPid, selected.workerPid); assert.equal(second.direct.workerGenerations, (selected.workerGenerations as number) + 3); assert.deepEqual(second.direct.generatedTokenIds, [7]); assert.equal(second.direct.tokensEqualBaseline, true);
     const diagnosticResponse = await fetch(`${endpoint}/api/diagnose-layers`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt: "diagnóstico", maxNewTokens: 1 }) });
     const diagnostic = await diagnosticResponse.json() as { kind: string; reference: { steps: Array<{ baselineLayerHidden?: string[] }> }; verifier: { decoderStack?: string; layerHiddenCaptures?: string[][] } };
     assert.equal(diagnostic.kind, "gemma4-decoder-layer-differential"); assert.deepEqual(diagnostic.reference.steps[0]?.baselineLayerHidden, ["AAAAAA=="]); assert.deepEqual(diagnostic.verifier.layerHiddenCaptures, [["AAAAAA=="]]); assert.equal(diagnostic.verifier.decoderStack, "native-bf16-ple");
