@@ -279,6 +279,8 @@ export interface PagedFusedTokenGenerationResult {
   residentKvBytes: number;
   prefixTokensReused: number;
   prefillTokensComputed: number;
+  prefillExecutionTokens: number;
+  prefillPaddingTokens: number;
   sessionCacheHit: boolean;
   cachedContextTokens: number;
   quantizedHeadCertifiedSteps: number;

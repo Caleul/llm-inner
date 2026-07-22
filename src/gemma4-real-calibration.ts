@@ -85,6 +85,8 @@ interface ThreeWayCase {
     quantizedHeadExactFallbackSteps?: number;
     tokenPreludeCacheHits?: number;
     tokenPreludeCacheMisses?: number;
+    prefillExecutionTokens?: number;
+    prefillPaddingTokens?: number;
     prefillSeconds?: number;
     incrementalDecoderSeconds?: number;
     tokenPreludeSeconds?: number;
@@ -376,6 +378,8 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.quantizedHeadExactFallbackSteps === undefined ? {} : { quantizedHeadExactFallbackSteps: entry.direct.quantizedHeadExactFallbackSteps }),
         ...(entry.direct.tokenPreludeCacheHits === undefined ? {} : { tokenPreludeCacheHits: entry.direct.tokenPreludeCacheHits }),
         ...(entry.direct.tokenPreludeCacheMisses === undefined ? {} : { tokenPreludeCacheMisses: entry.direct.tokenPreludeCacheMisses }),
+        ...(entry.direct.prefillExecutionTokens === undefined ? {} : { prefillExecutionTokens: entry.direct.prefillExecutionTokens }),
+        ...(entry.direct.prefillPaddingTokens === undefined ? {} : { prefillPaddingTokens: entry.direct.prefillPaddingTokens }),
         ...(entry.direct.prefillSeconds === undefined ? {} : { prefillSeconds: entry.direct.prefillSeconds }),
         ...(entry.direct.incrementalDecoderSeconds === undefined ? {} : { incrementalDecoderSeconds: entry.direct.incrementalDecoderSeconds }),
         ...(entry.direct.tokenPreludeSeconds === undefined ? {} : { tokenPreludeSeconds: entry.direct.tokenPreludeSeconds }),

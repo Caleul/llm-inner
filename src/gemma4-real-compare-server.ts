@@ -144,11 +144,12 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
     try {
       const tokenizerReady = tokenizer.whenReady();
       if (direct && directBackend === "mlx") {
+        await direct.whenReady();
+        if (verificationEnabled && options.directVerificationBackend !== "mlx-shared-control") await getVerificationWorker();
         directWarmupSeconds = await warmupDirectWorker(direct, directResidentGeneration === "on" ? 2 : 1);
         if (options.compiledProgram && (options.directFusedDecoderStack ?? "real") === "real") assertDirectFinalFormulaProgram(direct.readyMetadata, options.compiledProgram.finalFormulaMap, options.compiledProgram.finalFormulaRuntime);
         direct.readyMetadata.mlxDecoderQuantization = options.directMlxDecoderQuantization ?? "q8-ffn-gate-up";
         if (options.directMlxDecoderQuantizationLayers !== undefined) direct.readyMetadata.mlxDecoderQuantizationLayers = options.directMlxDecoderQuantizationLayers;
-        if (verificationEnabled && options.directVerificationBackend !== "mlx-shared-control") await getVerificationWorker();
       }
       await tokenizerReady;
       if (!direct) await getReferenceWorker();
@@ -340,7 +341,7 @@ async function warmupDirectWorker(worker: PersistentJsonlWorker, maxNewTokens: n
 }
 
 async function recoverDirectWorker(worker: PersistentJsonlWorker): Promise<number> {
-  const started = performance.now(); await worker.send({ inputIds: [2], maxNewTokens: 2 }); return elapsedSeconds(started);
+  return warmupDirectWorker(worker, 2);
 }
 
 interface DirectMarginAssessment { trigger: boolean; reason: "margin-at-or-below-threshold" | "margin-unavailable"; minimumMargin: number | null; marginThreshold: number; sensitiveSteps: number[] }

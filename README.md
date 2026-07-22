@@ -2719,9 +2719,32 @@ até o primeiro fallback; depois disso seu índice autenticado permanece pronto,
 enquanto o kernel pesado é reciclado após cada uso. O relatório distingue
 `referenceStartupSeconds`, `referenceComputeSeconds`, `referenceColdStart` e
 `referenceReleased`. Como a passagem da referência pode expulsar páginas do
-constant pool compilado do cache do sistema, o servidor repagina um prefill e
-um decode curtos depois de encerrar a referência; `directRecoverySeconds` mede
-essa recuperação, executada depois que o texto compilado já foi entregue.
+constant pool compilado do cache do sistema, o servidor repagina um prefill de
+um token e outro de oito tokens, ambos com decode, depois de encerrar a
+referência. O segundo shape restaura também o grafo de prefill mult-token em
+vez de deixar o próximo prompt pagar sua recompilação; `directRecoverySeconds`
+mede essa recuperação, executada depois que o texto compilado já foi entregue.
+Quando a política seletiva usa o verificador exato persistente, sua carga e seu
+aquecimento ocorrem antes do aquecimento Metal final. Assim o verificador de
+maior pressão de memória não deixa o primeiro prompt real com o prefill
+compilado frio.
+
+O prefill residente causal agrupa o sufixo lógico em shapes Metal múltiplos de
+oito. As linhas acrescentadas ficam à direita, repetem somente um token já
+válido e são invisíveis para todas as queries reais pelo mask causal. Antes da
+seleção, o runtime remove essas linhas do hidden e de cada KV produtor; contexto,
+posições, cache de sessão e cabeça terminal continuam contendo apenas os tokens
+reais. Qualquer topologia não causal desabilita o agrupamento. O relatório e a
+interface expõem `prefillExecutionTokens` e `prefillPaddingTokens`, além de
+`prefillTokensComputed`, para que o shape físico nunca fique implícito.
+
+No runtime local, `The largest ocean is` (cinco tokens de entrada) passou de
+`1,0352 s` de prefill frio para `0,2585 s` usando shape oito, mantendo os tokens
+`[506, 14225, 18414]` e exatamente o mesmo SHA-256 terminal
+`8884abd9fca2d97fc6f736609d2ff4f34fce1e90688776249231932e8cfa66cf`.
+Uma continuação também preservou paridade com cache hit, reutilizando oito
+tokens e calculando quatro dentro do bucket seguinte. Essa é uma medição local
+finita, não uma garantia universal para todo comprimento de contexto.
 
 Na geração residente, o `argmax` e o top-K do vetor final de 262.144 logits são
 calculados no MLX/Metal. Em passos não terminais, apenas o token e os candidatos

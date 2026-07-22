@@ -39,6 +39,7 @@ _decoder_quantization = "off"
 _decoder_quantization_layers = None
 EMBEDDING_ROW_CACHE_LIMIT = 4096
 TOKEN_PRELUDE_CACHE_LIMIT = 1024
+PREFILL_SEQUENCE_BUCKET = 8
 
 
 def read_exact(size):
@@ -658,7 +659,7 @@ def cache_prefill_token_prelude_rows(model, token_ids, result, all_per_layer):
         cache.popitem(last=False)
 
 
-def emit_resident_generation(model, result, produced_caches, raw_logits, logits, first_forward_seconds, max_new_tokens, eos_token_id, top_k, cache_hits_before, input_token_ids, session_id=None, stream=False, prefix_tokens_reused=0, prefill_tokens_computed=None, initial_rope_factor_context=None, initial_topology_mask_builds=0, initial_topology_mask_uses=0, initial_kv_prefix_validation_scans_avoided=0):
+def emit_resident_generation(model, result, produced_caches, raw_logits, logits, first_forward_seconds, max_new_tokens, eos_token_id, top_k, cache_hits_before, input_token_ids, session_id=None, stream=False, prefix_tokens_reused=0, prefill_tokens_computed=None, prefill_execution_tokens=None, initial_rope_factor_context=None, initial_topology_mask_builds=0, initial_topology_mask_uses=0, initial_kv_prefix_validation_scans_avoided=0):
     global _resident_generation_session
     generated_ids, forward_seconds, top_ids, top_values = [], [first_forward_seconds], [], []
     terminal_values = None
@@ -740,10 +741,13 @@ def emit_resident_generation(model, result, produced_caches, raw_logits, logits,
         write_bytes(np.stack(top_values).astype(np.float32).tobytes(order="C"))
     write_bytes(hashlib.sha256(np.asarray(terminal_values, dtype=np.float32).tobytes(order="C")).digest())
     computed = len(np.asarray(input_token_ids).reshape(-1)) if prefill_tokens_computed is None else prefill_tokens_computed
+    execution_tokens = computed if prefill_execution_tokens is None else prefill_execution_tokens
+    if execution_tokens < computed:
+        raise ValueError("MLX resident prefill execution shape is smaller than the logical suffix")
     cached_context_tokens = len(_resident_generation_session["token_ids"]) if session_id is not None else len(np.asarray(input_token_ids).reshape(-1)) + len(generated_ids) - 1
     compiled_incremental_decoder_steps = max(0, len(generated_ids) - 1)
     decoder_layer_validity_scans_avoided = compiled_incremental_decoder_steps * max(0, len(model["layer_plans"]) - 1)
-    profile = np.array((1, len(generated_ids), max(0, len(generated_ids) - 1), terminal_values.nbytes, rope_factor_builds, max(0, rope_factor_uses - rope_factor_builds), topology_mask_builds, max(0, topology_mask_uses - topology_mask_builds), len(generated_ids), kv_prefix_validation_scans_avoided, compiled_incremental_decoder_steps, 1 if model["incremental_compiler_cache_hit"] else 0, _widened_tensor_cache_hits - cache_hits_before, len(_widened_tensor_cache), _widened_tensor_cache_bytes, resident_kv_bytes, prefix_tokens_reused, computed, 1 if prefix_tokens_reused else 0, cached_context_tokens, quantized_head_certified_steps, quantized_head_exact_fallback_steps, token_prelude_cache_hits, token_prelude_cache_misses, first_forward_seconds, sum(forward_seconds[1:]), token_prelude_seconds, compiled_decoder_graph_seconds, token_selection_seconds, terminal_logit_transfer_seconds, decoder_layer_validity_scans_avoided), dtype=np.float32)
+    profile = np.array((1, len(generated_ids), max(0, len(generated_ids) - 1), terminal_values.nbytes, rope_factor_builds, max(0, rope_factor_uses - rope_factor_builds), topology_mask_builds, max(0, topology_mask_uses - topology_mask_builds), len(generated_ids), kv_prefix_validation_scans_avoided, compiled_incremental_decoder_steps, 1 if model["incremental_compiler_cache_hit"] else 0, _widened_tensor_cache_hits - cache_hits_before, len(_widened_tensor_cache), _widened_tensor_cache_bytes, resident_kv_bytes, prefix_tokens_reused, computed, 1 if prefix_tokens_reused else 0, cached_context_tokens, quantized_head_certified_steps, quantized_head_exact_fallback_steps, token_prelude_cache_hits, token_prelude_cache_misses, first_forward_seconds, sum(forward_seconds[1:]), token_prelude_seconds, compiled_decoder_graph_seconds, token_selection_seconds, terminal_logit_transfer_seconds, decoder_layer_validity_scans_avoided, execution_tokens, execution_tokens - computed), dtype=np.float32)
     write_float_tensor(mx.array(profile))
     sys.stdout.buffer.flush()
 
@@ -759,6 +763,23 @@ def continuation_topology_mask(config, query_sequence, key_sequence, absolute_st
         if last_key + 1 < key_sequence:
             values[..., query, last_key + 1:] = -np.inf
     return mx.array(values)
+
+
+def bucket_causal_prefill_tokens(model, token_ids):
+    """Pad causal-only prefill rows to a reusable Metal shape.
+
+    Right-side rows cannot affect an earlier causal query. They are removed
+    from hidden/KV state before token selection, so only the execution shape is
+    bucketed; the model context and positions remain the original token prefix.
+    """
+    actual_tokens = token_ids.shape[1]
+    if actual_tokens < 1 or any(not config["causal"] for config, _weights in model["layer_plans"]):
+        return token_ids, actual_tokens
+    execution_tokens = ((actual_tokens + PREFILL_SEQUENCE_BUCKET - 1) // PREFILL_SEQUENCE_BUCKET) * PREFILL_SEQUENCE_BUCKET
+    if execution_tokens == actual_tokens:
+        return token_ids, actual_tokens
+    pad = np.repeat(token_ids[:, -1:], execution_tokens - actual_tokens, axis=1)
+    return np.concatenate((token_ids, pad), axis=1), actual_tokens
 
 
 def execute_compiled_token_generation(pool, shards, token_ids, max_new_tokens, eos_token_id, top_k, session_id=None, stream=False, control=False):
@@ -781,9 +802,10 @@ def execute_compiled_token_generation(pool, shards, token_ids, max_new_tokens, e
         reusable = None
         cached_count = 0
     current_token_ids = token_ids[:, cached_count:] if reusable is not None else token_ids
-    result, all_per_layer = model["execute_token_prelude"](current_token_ids)
-    cache_prefill_token_prelude_rows(model, current_token_ids, result, all_per_layer)
-    positions = mx.array(np.arange(cached_count, token_ids.shape[1], dtype=np.int32).reshape(1, -1))
+    execution_token_ids, actual_appended_tokens = bucket_causal_prefill_tokens(model, current_token_ids)
+    result, all_per_layer = model["execute_token_prelude"](execution_token_ids)
+    cache_prefill_token_prelude_rows(model, current_token_ids, result[:, :actual_appended_tokens, :], all_per_layer[:, :actual_appended_tokens, :, :])
+    positions = mx.array(np.arange(cached_count, cached_count + execution_token_ids.shape[1], dtype=np.int32).reshape(1, -1))
     produced_caches = {}
     rope_factor_context = {"factors": {}, "builds": 0, "uses": 0}
     topology_masks, topology_mask_uses = {}, 0
@@ -797,23 +819,26 @@ def execute_compiled_token_generation(pool, shards, token_ids, max_new_tokens, e
                 source_value = mx.zeros((1, config["key_value_heads"], 0, config["head_dim"]), dtype=mx.float32)
         else:
             source_key, source_value = produced_caches[config["producer_layer"]]
-        key_sequence = source_key.shape[2] + (current_token_ids.shape[1] if config["produces_kv"] else 0)
+        key_sequence = source_key.shape[2] + (execution_token_ids.shape[1] if config["produces_kv"] else 0)
         topology_key = (config["mask_heads"], key_sequence, config["sliding_window"], config["causal"])
         mask = topology_masks.get(topology_key)
         topology_mask_uses += 1
         if mask is None:
-            mask = continuation_topology_mask(config, current_token_ids.shape[1], key_sequence, cached_count) if reusable is not None else prefill_topology_mask(config, token_ids.shape[1])
+            mask = continuation_topology_mask(config, execution_token_ids.shape[1], key_sequence, cached_count) if reusable is not None else prefill_topology_mask(config, execution_token_ids.shape[1])
             topology_masks[topology_key] = mask
         result, key, value, _valid, _ = execute_decoder_layer_mlx(pool, shards, result, all_per_layer[:, :, layer_index, :], positions, mask, source_key, source_value, config, weights, rope_factor_context, True)
         if config["produces_kv"]:
             produced_caches[layer_index] = (key, value)
             if source_key.shape[2]:
                 kv_prefix_validation_scans_avoided += 1
+    result = result[:, :actual_appended_tokens, :]
+    actual_key_tokens = cached_count + actual_appended_tokens
+    produced_caches = {layer: (key[..., :actual_key_tokens, :], value[..., :actual_key_tokens, :]) for layer, (key, value) in produced_caches.items()}
     # Every non-finite decoder result propagates through the following RMSNorm,
     # residual, and projection chain. Validate the only resident prefill state
     # once here instead of scheduling the same reduction after all 42 layers.
     all_valid = mx.all(mx.isfinite(result))
-    appended_tokens = current_token_ids.shape[1]
+    appended_tokens = actual_appended_tokens
     for key, value in produced_caches.values():
         all_valid = all_valid & mx.all(mx.isfinite(key[..., -appended_tokens:, :])) & mx.all(mx.isfinite(value[..., -appended_tokens:, :]))
     raw_logits = execute_decoder_head(result, model["epilogue"], rounding=model["rounding"])
@@ -824,7 +849,7 @@ def execute_compiled_token_generation(pool, shards, token_ids, max_new_tokens, e
     mx.eval(*evaluation)
     if not bool(np.asarray(all_valid).item()):
         raise ValueError("MLX compiled generation prefill produced non-finite state")
-    emit_resident_generation(model, result, produced_caches, raw_logits, logits, time.perf_counter() - started, max_new_tokens, eos_token_id, top_k, cache_hits_before, token_ids, session_id, stream, cached_count, current_token_ids.shape[1], rope_factor_context, len(topology_masks), topology_mask_uses, kv_prefix_validation_scans_avoided)
+    emit_resident_generation(model, result, produced_caches, raw_logits, logits, time.perf_counter() - started, max_new_tokens, eos_token_id, top_k, cache_hits_before, token_ids, session_id, stream, cached_count, current_token_ids.shape[1], execution_token_ids.shape[1], initial_rope_factor_context=rope_factor_context, initial_topology_mask_builds=len(topology_masks), initial_topology_mask_uses=topology_mask_uses, initial_kv_prefix_validation_scans_avoided=kv_prefix_validation_scans_avoided)
 
 
 def execute_decoder_stack_request(pool, shards, batch, num_layers, hidden_size, native_bf16_ple, fused_epilogue, fused_token_forward, fused_token_generation):
