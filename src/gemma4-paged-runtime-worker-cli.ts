@@ -8,7 +8,7 @@ import { openGemma4CompositeLiteralArtifact } from "./gemma4-composite-literal-r
 import { assertGemma4VectorizedRealLoweringPlanMatchesRuntime, openGemma4PagedRuntimeArtifact } from "./gemma4-paged-runtime-index.js";
 import { Gemma4BinaryConstantPool } from "./gemma4-binary-constant-pool.js";
 import { Gemma4PagedNativeLinearWorker, normalizeGemma4DecoderQuantizationLayers, type Gemma4MlxDecoderQuantization } from "./gemma4-paged-native-linear.js";
-import { executeGemma4PagedTextEpilogueLiteralF32, executeGemma4PagedTextHiddenLiteralF32, executeGemma4PagedTextLiteralF32, generateGemma4PagedTextLiteralNativeF32, type Gemma4PagedTextHiddenResult } from "./gemma4-paged-text.js";
+import { executeGemma4PagedTextEpilogueLiteralF32, executeGemma4PagedTextHiddenLiteralF32, executeGemma4PagedTextLiteralF32, generateGemma4PagedTextLiteralNativeF32, selectGemma4PagedTerminalHidden, type Gemma4PagedTextHiddenResult } from "./gemma4-paged-text.js";
 import { selectGemma4LiteralGenerationToken } from "./gemma4-literal-generation-control.js";
 import { rankGemma4TerminalLogits } from "./gemma4-terminal-logits.js";
 import { assertGemma4VectorizedRealLoweringPlanMatches, Gemma4VectorizedRealExecutionGuard, type Gemma4VectorizedRealLoweringPlan } from "./gemma4-vectorized-real-lowering.js";
@@ -178,7 +178,7 @@ async function generateSelectiveVerification(inputIds: number[], maxNewTokens: n
     }, executionOptions);
   }
   const currentContextTokens = [...inputIds];
-  let verificationEarlyExitStep: number | null = null, verificationDecoderStepsAvoided = 0;
+  let verificationEarlyExitStep: number | null = null, verificationDecoderStepsAvoided = 0, verificationHeadPositionsComputed = 0, verificationHeadPositionsAvoided = 0;
   const lastSensitiveStep = fast.sensitiveSteps.at(-1)!;
   let forwardSeconds = (performance.now() - forwardStarted) / 1000, terminalLogitsSha256 = fast.terminalLogitsSha256, divergenceStep: number | null = null;
   for (let step = 0; step < fast.generatedTokenIds.length; step += 1) {
@@ -186,7 +186,10 @@ async function generateSelectiveVerification(inputIds: number[], maxNewTokens: n
     let tokenId = fast.generatedTokenIds[step]!, topLogits: unknown[] = [], verificationSkipped = true;
     if (verify) {
       const epilogueStarted = performance.now();
-      const logits = await executeGemma4PagedTextEpilogueLiteralF32(artifact, [currentInputIds], current.hidden, options);
+      const terminal = selectGemma4PagedTerminalHidden([currentInputIds], current.hidden);
+      const logits = await executeGemma4PagedTextEpilogueLiteralF32(artifact, terminal.inputIds, terminal.hidden, options);
+      verificationHeadPositionsComputed += terminal.inputIds.length;
+      verificationHeadPositionsAvoided += terminal.positionsAvoided;
       forwardSeconds += (performance.now() - epilogueStarted) / 1000;
       topLogits = rankGemma4TerminalLogits(logits);
       tokenId = selectGemma4LiteralGenerationToken(artifact.generation.controlProgram, logits);
@@ -227,6 +230,7 @@ async function generateSelectiveVerification(inputIds: number[], maxNewTokens: n
     selectiveVerification: true, sensitiveSteps: fast.sensitiveSteps, trustedFastPathSteps: steps.filter((step) => step.verificationSkipped === true).length,
     verificationHeadSteps: steps.filter((step) => step.verificationSkipped === false).length, verificationDivergenceStep: divergenceStep, externalForwardRequests: verificationDecoderSteps,
     verificationDecoderSteps, verificationDecoderStepsAvoided,
+    verificationHeadPositionsComputed, verificationHeadPositionsAvoided,
     verificationSessionCacheHit: cached !== undefined,
     verificationPrefixTokensReused: cached?.prefixTokensReused ?? 0,
     verificationPrefillTokensComputed: suffixTokenIds.length,

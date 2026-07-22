@@ -114,7 +114,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
       const label = backend === "mlx" ? "Gemma 4 literal verificador MLX calibrado" : "Gemma 4 literal verificador PyTorch";
       const candidate = new PersistentJsonlWorker(process.execPath, directWorkerArguments(options, backend, false), label); verification = candidate;
       await candidate.whenReady();
-      if (backend === "mlx") verificationWarmupSeconds = await warmupDirectWorker(candidate, 2);
+      verificationWarmupSeconds = await warmupDirectWorker(candidate, backend === "mlx" ? 2 : 1);
       return candidate;
     })();
     void verificationInitialization.catch(() => undefined);
@@ -122,9 +122,9 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
   };
   const releaseVerificationWorker = async (): Promise<void> => {
     if (!verification?.ready) return;
-    if (options.directVerificationBackend === "mlx-control") return;
-    try { await verification.send({ control: "trim-memory" }); }
-    catch { verification.close(); verification = undefined; verificationInitialization = undefined; }
+    // The exact PyTorch kernel stays resident after its one-time warm-up. Its
+    // mmap-backed weights are immutable, while session KV is independently
+    // guarded by exact token-prefix validation inside the worker.
   };
   const verificationProvider = verificationEnabled ? { ...(options.directVerificationBackend === "mlx-shared-control" ? {} : { get: getVerificationWorker, release: releaseVerificationWorker }), backend: options.directVerificationBackend!, selectiveHeads: options.directVerificationBackend === "pytorch" } : undefined;
   const directVerificationStatus = (): Record<string, unknown> => {
@@ -135,9 +135,9 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
     };
     return {
       enabled: true, ...verification?.readyMetadata, backend: options.directVerificationBackend, executionBackend: verification?.readyMetadata.backend,
-      lifecycle: options.directVerificationBackend === "mlx-control" ? "persistent-compiled-control-v1" : "retained-index-restarted-kernel-v1", marginThreshold: options.directVerificationMargin,
+      lifecycle: options.directVerificationBackend === "mlx-control" ? "persistent-compiled-control-v1" : "warmed-persistent-exact-kernel-v1", marginThreshold: options.directVerificationMargin,
       state: verification?.ready ? "ready" : verificationInitialization ? "initializing" : "unloaded", ready: verification?.ready ?? false, initializationSeconds: verification?.initializationSeconds,
-      warmupSeconds: verificationWarmupSeconds, warmupComplete: options.directVerificationBackend === "mlx-control" ? verificationWarmupSeconds !== undefined : verification?.ready ?? false,
+      warmupSeconds: verificationWarmupSeconds, warmupComplete: verificationWarmupSeconds !== undefined,
     };
   };
   const initialize = (async () => {
@@ -148,7 +148,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
         if (options.compiledProgram && (options.directFusedDecoderStack ?? "real") === "real") assertDirectFinalFormulaProgram(direct.readyMetadata, options.compiledProgram.finalFormulaMap, options.compiledProgram.finalFormulaRuntime);
         direct.readyMetadata.mlxDecoderQuantization = options.directMlxDecoderQuantization ?? "q8-ffn-gate-up";
         if (options.directMlxDecoderQuantizationLayers !== undefined) direct.readyMetadata.mlxDecoderQuantizationLayers = options.directMlxDecoderQuantizationLayers;
-        if (verificationEnabled && options.directVerificationBackend === "mlx-control") await getVerificationWorker();
+        if (verificationEnabled && options.directVerificationBackend !== "mlx-shared-control") await getVerificationWorker();
       }
       await tokenizerReady;
       if (!direct) await getReferenceWorker();
@@ -201,7 +201,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
           outputBindingsSha256: options.compiledProgram.directRuntime.plan.outputBindingsSha256,
         });
       }
-      if (request.method === "GET" && request.url === "/api/status") return json(response, 200, { ready: tokenizer.ready && (!direct ? worker?.ready === true : direct.ready && directWarmupSeconds !== undefined && (options.directVerificationBackend !== "mlx-control" || !verificationEnabled || verificationWarmupSeconds !== undefined)), source: options.source, runtime: "persistent-jsonl", chatTemplate: GEMMA4_CHAT_TEMPLATE, chatContract: { source: GEMMA4_CHAT_CONTRACT_SOURCE, startOfTurnToken: { text: "<|turn>", id: GEMMA4_CHAT_SOT_TOKEN_ID }, endOfTurnToken: { text: "<turn|>", id: GEMMA4_CHAT_EOT_TOKEN_ID }, generationStopsAtEndOfTurn: true }, checkpointChatTemplateDeclared, tokenizer: { ready: tokenizer.ready, initializationSeconds: tokenizer.initializationSeconds, helper: options.tokenizerHelper }, reference: { state: worker?.ready ? "ready" : referenceInitialization ? "initializing" : "unloaded", initializationSeconds: worker?.initializationSeconds, ...(referenceError ? { error: referenceError.message } : {}) }, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), ...(initializationError ? { error: initializationError.message } : {}), direct: direct ? { enabled: true, artifact: options.literalArtifact, binaryPool: options.binaryPool, sourceIndependentBundle: options.literalArtifact !== undefined && options.binaryPool === dirname(options.literalArtifact), ...direct.readyMetadata, ready: direct.ready, initializationSeconds: direct.initializationSeconds, warmupSeconds: directWarmupSeconds, warmupComplete: directWarmupSeconds !== undefined, verification: directVerificationStatus() } : { enabled: false } });
+      if (request.method === "GET" && request.url === "/api/status") return json(response, 200, { ready: tokenizer.ready && (!direct ? worker?.ready === true : direct.ready && directWarmupSeconds !== undefined && (!verificationEnabled || options.directVerificationBackend === "mlx-shared-control" || verificationWarmupSeconds !== undefined)), source: options.source, runtime: "persistent-jsonl", chatTemplate: GEMMA4_CHAT_TEMPLATE, chatContract: { source: GEMMA4_CHAT_CONTRACT_SOURCE, startOfTurnToken: { text: "<|turn>", id: GEMMA4_CHAT_SOT_TOKEN_ID }, endOfTurnToken: { text: "<turn|>", id: GEMMA4_CHAT_EOT_TOKEN_ID }, generationStopsAtEndOfTurn: true }, checkpointChatTemplateDeclared, tokenizer: { ready: tokenizer.ready, initializationSeconds: tokenizer.initializationSeconds, helper: options.tokenizerHelper }, reference: { state: worker?.ready ? "ready" : referenceInitialization ? "initializing" : "unloaded", initializationSeconds: worker?.initializationSeconds, ...(referenceError ? { error: referenceError.message } : {}) }, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), ...(initializationError ? { error: initializationError.message } : {}), direct: direct ? { enabled: true, artifact: options.literalArtifact, binaryPool: options.binaryPool, sourceIndependentBundle: options.literalArtifact !== undefined && options.binaryPool === dirname(options.literalArtifact), ...direct.readyMetadata, ready: direct.ready, initializationSeconds: direct.initializationSeconds, warmupSeconds: directWarmupSeconds, warmupComplete: directWarmupSeconds !== undefined, verification: directVerificationStatus() } : { enabled: false } });
       if (request.method === "POST" && request.url === "/api/diagnose-layers") {
         await initialize;
         const body = JSON.parse(await readBody(request)) as Gemma4RealComparisonRequest;

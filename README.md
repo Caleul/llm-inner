@@ -3132,14 +3132,15 @@ persistente sem Q8 foi testado nos nove empates e rejeitado: ficou em `7/9`
 prompts e piorou inclusive um caso que o caminho rápido já acertava. Assim ele
 não substitui o verificador autoritativo.
 
-Depois do primeiro fallback, o servidor mantém o índice autenticado do
-artefato literal já aberto, mas reinicia o kernel linear PyTorch após cada
-verificação. Isso evita reler e reindexar os 20 GiB de `constants.literal.json`
-nos empates seguintes e, ao mesmo tempo, libera as páginas e buffers pesados
-do cálculo anterior. `/api/status` identifica esse ciclo como
-`retained-index-restarted-kernel-v1`; o primeiro empate ainda inclui a
-inicialização fria, enquanto `verificationSeconds` mede explicitamente o custo
-recorrente dos próximos empates.
+O servidor agora aquece uma vez o verificador PyTorch BF16 antes de publicar o
+estado pronto e mantém seu kernel linear mmap residente. Isso preserva o índice
+autenticado, os descritores e o hot path nativo entre empates, sem compartilhar
+KV entre sessões fora da validação token a token descrita abaixo.
+`/api/status` identifica esse ciclo como
+`warmed-persistent-exact-kernel-v1` e publica `warmupSeconds` e
+`warmupComplete`. O custo único passa para a inicialização do servidor;
+`verificationSeconds` continua medindo somente o fallback solicitado pelo
+prompt.
 
 A verificação seletiva também encerra a recomposição exata depois do último
 passo sensível quando esse passo confirma o token Metal e nenhuma captura
@@ -3157,6 +3158,14 @@ latência absoluta desse fallback permanece dominada pelo prefill e pela
 cabeça exata iniciais, portanto a contagem de trabalho evitado não é apresentada
 como um speedup universal.
 
+No primeiro passo do fallback, o hidden do prefill contém uma posição por token
+de entrada, mas `final_norm`, `lm_head` e o softcap são independentes entre
+posições e a seleção greedy lê somente a última. O verificador agora recorta
+essa posição antes do epílogo: mantém decoder e KV completos, porém executa a
+projeção `1 × vocab` em vez de `sequence × vocab`. As métricas
+`verificationHeadPositionsComputed` e `verificationHeadPositionsAvoided`
+expõem esse corte exato; não há shortlist nem aproximação do vocabulário.
+
 O verificador exato também mantém um cache LRU de prefixos por `sessionId`.
 Ele só reutiliza o hidden state terminal e os K/V BF16 quando todos os tokens
 residentes são um prefixo exato da nova entrada da mesma sessão; qualquer
@@ -3166,10 +3175,14 @@ calculados, bytes K/V residentes e número de sessões. Em duas chamadas
 consecutivas de `The first month of the year is` com a mesma sessão, a primeira
 calculou os oito tokens de prefill e a segunda reutilizou os oito, executando
 zero prefill e zero passos de decoder do verificador. As duas preservaram os
-oito tokens gerados e o SHA-256 terminal do caminho rápido autenticado; nessa
-medição, o tempo direto caiu de `7,6325 s` para `1,0520 s`. Esse resultado mede
-uma sessão quente e não é uma promessa de latência para hardware, prompts ou
-estados de cache diferentes.
+oito tokens gerados e o SHA-256 terminal do caminho rápido autenticado. Com o
+kernel aquecido e o epílogo terminal, a primeira chamada calculou uma posição
+da cabeça e evitou sete, terminando em `2,0031 s`; a segunda reutilizou os oito
+tokens, calculou novamente somente a posição terminal e terminou em
+`0,4116 s`. Na mesma execução, a referência levou `1,5454 s` e `1,5218 s`,
+respectivamente: o cache miss ficou em `0,7715×` e o hit em `3,6969×` do
+throughput original. Esse resultado mede uma sessão e um hardware específicos,
+não uma promessa de latência ou equivalência universal para qualquer prompt.
 
 O corpus ampliado e reproduzível pode ser executado com:
 

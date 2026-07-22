@@ -94,7 +94,7 @@ import {
   verifyGemma4CompositeLiteralPayloadsAgainstCatalog,
 } from "../src/gemma4-composite-literal-payload-verification.js";
 import { probeGemma4LiteralLinearReductionProfiles } from "../src/gemma4-linear-reduction-probe.js";
-import { executeGemma4PagedTextEpilogueLiteralF32, executeGemma4PagedTextHiddenLiteralF32, executeGemma4PagedTextLiteralF32, generateGemma4PagedTextLiteralF32 } from "../src/gemma4-paged-text.js";
+import { executeGemma4PagedTextEpilogueLiteralF32, executeGemma4PagedTextHiddenLiteralF32, executeGemma4PagedTextLiteralF32, generateGemma4PagedTextLiteralF32, selectGemma4PagedTerminalHidden } from "../src/gemma4-paged-text.js";
 import { executeGemma4VisionF32 } from "../src/gemma4-vision.js";
 import { GEMMA4_E4B_PYTORCH_BF16_ATTENTION_IMPLEMENTATION } from "../src/gemma4-text.js";
 import {
@@ -2715,6 +2715,11 @@ test("Gemma 4 paged text interpreter replays prefill and cached greedy decode fr
       const splitReplay = await executeGemma4PagedTextEpilogueLiteralF32(artifact, [[1, 2, 3]], hidden.hidden, { maxReadBytes: 64, allowUnverifiedFidelity: true });
       assert.deepEqual(splitReplay.shape, replay.logits.shape);
       assert.deepEqual([...splitReplay.values], [...replay.logits.values], "decoder oculto + epílogo deve equivaler ao forward integral");
+      const terminalHidden = selectGemma4PagedTerminalHidden([[1, 2, 3]], hidden.hidden);
+      const terminalReplay = await executeGemma4PagedTextEpilogueLiteralF32(artifact, terminalHidden.inputIds, terminalHidden.hidden, { maxReadBytes: 64, allowUnverifiedFidelity: true });
+      const vocabulary = replay.logits.shape[2]!;
+      assert.deepEqual(terminalReplay.shape, [1, 1, vocabulary]);
+      assert.deepEqual([...terminalReplay.values], [...replay.logits.values.subarray(replay.logits.values.length - vocabulary)], "epílogo terminal deve preservar exatamente os logits usados pelo greedy");
       assert.equal(hidden.pastKeyValues.size, replay.pastKeyValues.size);
       const nativeAttentionRequests: PagedNativeAttentionRequest[] = [];
       await executeGemma4PagedTextLiteralF32(artifact, { inputIds: [[1, 2, 3]] }, {

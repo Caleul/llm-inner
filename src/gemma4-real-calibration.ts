@@ -148,6 +148,8 @@ interface ThreeWayCase {
     verificationDivergenceStep?: number | null;
     verificationDecoderSteps?: number;
     verificationDecoderStepsAvoided?: number;
+    verificationHeadPositionsComputed?: number;
+    verificationHeadPositionsAvoided?: number;
     verificationEarlyExitStep?: number;
     verificationSessionCacheHit?: boolean;
     verificationPrefixTokensReused?: number;
@@ -305,6 +307,8 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.verificationDivergenceStep === undefined ? {} : { verificationDivergenceStep: entry.direct.verificationDivergenceStep }),
         ...(entry.direct.verificationDecoderSteps === undefined ? {} : { verificationDecoderSteps: entry.direct.verificationDecoderSteps }),
         ...(entry.direct.verificationDecoderStepsAvoided === undefined ? {} : { verificationDecoderStepsAvoided: entry.direct.verificationDecoderStepsAvoided }),
+        ...(entry.direct.verificationHeadPositionsComputed === undefined ? {} : { verificationHeadPositionsComputed: entry.direct.verificationHeadPositionsComputed }),
+        ...(entry.direct.verificationHeadPositionsAvoided === undefined ? {} : { verificationHeadPositionsAvoided: entry.direct.verificationHeadPositionsAvoided }),
         ...(entry.direct.verificationEarlyExitStep === undefined ? {} : { verificationEarlyExitStep: entry.direct.verificationEarlyExitStep }),
         ...(entry.direct.verificationSessionCacheHit === undefined ? {} : { verificationSessionCacheHit: entry.direct.verificationSessionCacheHit }),
         ...(entry.direct.verificationPrefixTokensReused === undefined ? {} : { verificationPrefixTokensReused: entry.direct.verificationPrefixTokensReused }),

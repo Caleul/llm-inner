@@ -260,6 +260,32 @@ export async function executeGemma4PagedTextEpilogueLiteralF32(
   return result.logits;
 }
 
+/**
+ * Narrows a decoder chunk to the final sequence position required by greedy
+ * selection. final_norm, lm_head and softcap are position-wise, so evaluating
+ * earlier positions cannot affect the terminal token.
+ */
+export function selectGemma4PagedTerminalHidden(
+  inputIds: number[][],
+  hidden: DenseF32Tensor,
+): { inputIds: number[][]; hidden: DenseF32Tensor; positionsAvoided: number } {
+  validateInputIds(inputIds);
+  const batch = inputIds.length, sequence = inputIds[0]!.length;
+  if (hidden.shape.length !== 3 || hidden.shape[0] !== batch || hidden.shape[1] !== sequence) throw new Error("Hidden terminal Gemma 4 recebeu shape incompatível.");
+  const hiddenSize = hidden.shape[2];
+  if (!Number.isSafeInteger(hiddenSize) || hiddenSize! < 1 || hidden.values.length !== batch * sequence * hiddenSize!) throw new Error("Hidden terminal Gemma 4 recebeu payload incompatível.");
+  const values = new Float32Array(batch * hiddenSize!);
+  for (let row = 0; row < batch; row += 1) {
+    const start = (row * sequence + sequence - 1) * hiddenSize!;
+    values.set(hidden.values.subarray(start, start + hiddenSize!), row * hiddenSize!);
+  }
+  return {
+    inputIds: inputIds.map((row) => [row.at(-1)!]),
+    hidden: { shape: [batch, 1, hiddenSize!], values },
+    positionsAvoided: batch * (sequence - 1),
+  };
+}
+
 /** Executes text layers and logits from the exact composite prelude values. */
 export async function executeGemma4PagedTextLiteralF32WithPreparedPrelude(
   artifact: Gemma4PagedTextArtifact,
