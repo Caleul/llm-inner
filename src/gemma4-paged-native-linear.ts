@@ -124,7 +124,7 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
   #nativeAttentionSeconds = 0;
   #fusedAttentionSeconds = 0;
 
-  constructor(options: { python: string; helper: string; threads: number; binaryPool?: string; storageTensors?: ReadonlyMap<string, TensorInfo>; backend?: "pytorch" | "mlx"; mlxHelper?: string; mlxHeadQuantization?: "off" | "q8" | "q8-shortlist" | "q4"; mlxDecoderQuantization?: Gemma4MlxDecoderQuantization; mlxDecoderQuantizationLayers?: string }) {
+  constructor(options: { python: string; helper: string; threads: number; binaryPool?: string; storageTensors?: ReadonlyMap<string, TensorInfo>; backend?: "pytorch" | "mlx"; mlxHelper?: string; mlxHeadQuantization?: "off" | "q8" | "q8-shortlist" | "q4"; mlxDecoderQuantization?: Gemma4MlxDecoderQuantization; mlxDecoderQuantizationLayers?: string; mlxDecoderQuantizationGroupSize?: 32 | 64 | 128 }) {
     if (endianness() !== "LE") throw new Error("Kernel linear binário requer host little-endian.");
     if (!Number.isSafeInteger(options.threads) || options.threads < 1) throw new Error("threads do kernel linear deve ser positivo.");
     if ((options.binaryPool === undefined) !== (options.storageTensors === undefined)) throw new Error("Kernel linear mmap requer pool binário e catálogo juntos.");
@@ -137,9 +137,11 @@ export class Gemma4PagedNativeLinearWorker implements PagedLinearTileKernel {
     const mlxHeadQuantization = options.mlxHeadQuantization ?? "off";
     const mlxDecoderQuantization = options.mlxDecoderQuantization ?? "off";
     const mlxDecoderQuantizationLayers = options.mlxDecoderQuantizationLayers === undefined ? undefined : normalizeGemma4DecoderQuantizationLayers(options.mlxDecoderQuantizationLayers);
+    const mlxDecoderQuantizationGroupSize = options.mlxDecoderQuantizationGroupSize ?? 64;
     if (backend !== "mlx" && (mlxHeadQuantization !== "off" || mlxDecoderQuantization !== "off")) throw new Error("Quantização do head/decoder requer kernel MLX.");
     if (mlxDecoderQuantizationLayers !== undefined && (backend !== "mlx" || (mlxDecoderQuantization !== "q8-ffn-gate-up" && mlxDecoderQuantization !== "q8-ffn-gate-up-down" && mlxDecoderQuantization !== "q4-ffn-gate-up"))) throw new Error("Seleção de camadas quantizadas requer decoder q8-ffn-gate-up, q8-ffn-gate-up-down ou q4-ffn-gate-up no backend MLX.");
-    const arguments_ = [helper, "--threads", String(options.threads), ...(options.binaryPool ? ["--binary-pool", resolve(options.binaryPool)] : []), ...(backend === "mlx" ? ["--head-quantization", mlxHeadQuantization, "--decoder-quantization", mlxDecoderQuantization, ...(mlxDecoderQuantizationLayers === undefined ? [] : ["--decoder-quantization-layers", mlxDecoderQuantizationLayers])] : [])];
+    if (backend !== "mlx" && options.mlxDecoderQuantizationGroupSize !== undefined) throw new Error("Tamanho de grupo do decoder quantizado requer kernel MLX.");
+    const arguments_ = [helper, "--threads", String(options.threads), ...(options.binaryPool ? ["--binary-pool", resolve(options.binaryPool)] : []), ...(backend === "mlx" ? ["--head-quantization", mlxHeadQuantization, "--decoder-quantization", mlxDecoderQuantization, "--decoder-quantization-group-size", String(mlxDecoderQuantizationGroupSize), ...(mlxDecoderQuantizationLayers === undefined ? [] : ["--decoder-quantization-layers", mlxDecoderQuantizationLayers])] : [])];
     this.child = spawn(options.python, arguments_, { stdio: ["pipe", "pipe", "pipe"] });
     if (options.binaryPool) {
       this.multiplyStorageReference = (input, tensor, startOutput, outputCount, rows) => this.#requestReference(input, tensor, startOutput, outputCount, rows);

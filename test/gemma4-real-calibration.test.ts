@@ -113,6 +113,21 @@ test("evidência rejeita Q8 na projeção down quando velocidade e verificação
   assert.equal(await digest(`artifacts/${artifact.sources.authoritativeTokenIds.file}`), artifact.sources.authoritativeTokenIds.sha256);
 });
 
+test("evidência rejeita grupos Q8 que divergem ou ampliam o fallback", async () => {
+  const artifact = JSON.parse(await readFile("artifacts/gemma4-q8-group-size-rejection-32x8.json", "utf8")) as any;
+  const digest = async (path: string) => createHash("sha256").update(await readFile(path)).digest("hex");
+  assert.equal(await digest(`artifacts/${artifact.sources.compiledBundleManifest.file}`), artifact.sources.compiledBundleManifest.sha256);
+  assert.equal(await digest(`artifacts/${artifact.sources.authoritativeTokenIds.file}`), artifact.sources.authoritativeTokenIds.sha256);
+  assert.equal(artifact.warmSmoke.group32.firstAuthoritativeDivergenceStep, 2);
+  assert.ok(artifact.warmSmoke.group32.meanElapsedSeconds > artifact.warmSmoke.group64.meanElapsedSeconds);
+  assert.equal(artifact.fastPathMatrix.group128.uncoveredDivergence.candidateGreedyMargin, 0.125);
+  assert.ok(artifact.selectedRuntimeMatrix.unsafeCandidate.equalTokenSteps < artifact.selectedRuntimeMatrix.unsafeCandidate.comparedTokenSteps);
+  assert.deepEqual([artifact.selectedRuntimeMatrix.control.equalTokenSteps, artifact.selectedRuntimeMatrix.safeCandidate.equalTokenSteps], [256, 256]);
+  assert.ok(artifact.selectedRuntimeMatrix.safeCandidate.fallbackPrompts > artifact.selectedRuntimeMatrix.control.fallbackPrompts);
+  assert.ok(artifact.selectedRuntimeMatrix.safeCandidate.tokensPerSecond < artifact.selectedRuntimeMatrix.control.tokensPerSecond);
+  assert.deepEqual([artifact.decision.selectedGroupSize, artifact.decision.rejectedGroupSizes], [64, [32, 128]]);
+});
+
 test("calibração três-vias agrega acordo token a token e throughput", () => {
   const report = summarizeGemma4ThreeWayCalibration([baseCase], { maxNewTokens: 2, requestThreads: 1, precision: "f32", roundingPolicy: "none", runner: { source: "/model", python: "python", helper: "helper", directThreads: 4 } }, { ready: true });
   assert.equal(report.configuration.directMlxHeadQuantization, "off");

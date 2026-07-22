@@ -1,0 +1,118 @@
+{
+  "kind": "gemma4-q8-decoder-group-size-rejection",
+  "schemaVersion": 1,
+  "recordedAt": "2026-07-22",
+  "sources": {
+    "compiledBundleManifest": {
+      "file": "gemma4-compiled-global-runtime-bundle/manifest.json",
+      "sha256": "fbc2e412a436132690d647f210df86b81aea0948bb844730368a5d087ad43d2d"
+    },
+    "authoritativeTokenIds": {
+      "file": "gemma4-q8-layers-0-19-margin0-calibration-32x8.json",
+      "sha256": "f288da6904f0079f5d5bd06546c37dfaa32c5816ac21e5db98797afffcbceb4e"
+    }
+  },
+  "configuration": {
+    "promptMatrix": 32,
+    "tokensPerPrompt": 8,
+    "smokePrompt": "The capital of France is",
+    "smokeTokens": 16,
+    "threads": 8,
+    "decoderQuantization": "q8-ffn-gate-up",
+    "quantizedLayers": "0-19",
+    "headQuantization": "off",
+    "controlGroupSize": 64,
+    "candidateGroupSizes": [32, 128]
+  },
+  "warmSmoke": {
+    "group64": {
+      "elapsedSeconds": [0.6789496660000004, 0.693725957999999, 0.6911607080000031],
+      "meanElapsedSeconds": 0.6879454440000008,
+      "generatedTokenIds": [496, 3207, 600, 563, 2587, 529, 4083, 532, 6540, 236761, 1030, 563, 496, 3207, 600, 563]
+    },
+    "group128": {
+      "elapsedSeconds": [0.6830955840000024, 0.6914795830000002, 0.6814635000000017],
+      "meanElapsedSeconds": 0.6853462223333348,
+      "throughputGainRate": 0.0037925672922172193,
+      "generatedTokenIds": [496, 3207, 600, 563, 2587, 529, 4083, 532, 6540, 236761, 1030, 563, 496, 3207, 600, 563]
+    },
+    "group32": {
+      "elapsedSeconds": [0.6965635419999999, 0.6959659159999974, 0.6981119579999977],
+      "meanElapsedSeconds": 0.6968804719999984,
+      "latencyRegressionRate": 0.012987989204559014,
+      "generatedTokenIds": [496, 3207, 529, 79339, 236761, 1030, 563, 496, 3207, 529, 4083, 532, 6540, 236764, 840, 992],
+      "firstAuthoritativeDivergenceStep": 2,
+      "expectedTokenId": 600,
+      "actualTokenId": 529
+    }
+  },
+  "fastPathMatrix": {
+    "verificationMargin": null,
+    "group64": {
+      "promptsEqual": 29,
+      "prompts": 32,
+      "totalElapsedSeconds": 13.775830045000006,
+      "tokensPerSecond": 18.583272235774732
+    },
+    "group128": {
+      "promptsEqual": 31,
+      "prompts": 32,
+      "equalTokenSteps": 252,
+      "comparedTokenSteps": 256,
+      "totalElapsedSeconds": 13.518830585000037,
+      "tokensPerSecond": 18.936549163065003,
+      "throughputGainRate": 0.01901048011394768,
+      "uncoveredDivergence": {
+        "prompt": "Traduza para inglês: boa noite",
+        "step": 3,
+        "expectedTokenId": 1983,
+        "actualTokenId": 512,
+        "candidateGreedyMargin": 0.125
+      }
+    }
+  },
+  "selectedRuntimeMatrix": {
+    "control": {
+      "groupSize": 64,
+      "verificationMargin": 0,
+      "promptsEqual": 32,
+      "equalTokenSteps": 256,
+      "comparedTokenSteps": 256,
+      "fallbackPrompts": 7,
+      "totalElapsedSeconds": 43.36774116699996,
+      "tokensPerSecond": 5.9030051626207225,
+      "fastPathSeconds": 13.529696539000058,
+      "verificationSeconds": 29.847734415999984
+    },
+    "unsafeCandidate": {
+      "groupSize": 128,
+      "verificationMargin": 0,
+      "promptsEqual": 31,
+      "equalTokenSteps": 252,
+      "comparedTokenSteps": 256,
+      "fallbackPrompts": 7,
+      "reason": "A positive-margin root divergence was not selected for exact verification."
+    },
+    "safeCandidate": {
+      "groupSize": 128,
+      "verificationMargin": 0.125,
+      "promptsEqual": 32,
+      "equalTokenSteps": 256,
+      "comparedTokenSteps": 256,
+      "fallbackPrompts": 15,
+      "totalElapsedSeconds": 50.837598919,
+      "tokensPerSecond": 5.035643017048997,
+      "fastPathSeconds": 13.92883921,
+      "verificationSeconds": 36.913762539999986,
+      "latencyRegressionRate": 0.1722445659144478,
+      "throughputRegressionRate": 0.1469356915125325
+    }
+  },
+  "decision": {
+    "selectedGroupSize": 64,
+    "rejectedGroupSizes": [32, 128],
+    "reason": "Group 32 was slower and changed an authoritative token. Group 128 required raising the verification margin to preserve all 256 decisions; the resulting 15 fallbacks reduced selected throughput by 14.69%.",
+    "configurationRemainsReproducible": true
+  },
+  "claimBoundary": "These measurements reject group-size promotion for the versioned 32x8 corpus on this machine. They do not assert portable timing or universal token equivalence."
+}

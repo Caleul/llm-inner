@@ -2979,6 +2979,19 @@ máscara `496`). Apesar de elevar o throughput medido de `18.06` para
 `21.75 tok/s`, a máscara não foi promovida porque velocidade sem paridade não
 atende ao contrato. O padrão permanece nas 42 FFNs.
 
+O tamanho de grupo affine do decoder também é explícito e reproduzível por
+`--direct-mlx-decoder-quantization-group-size 32|64|128`; o relatório e a UI
+publicam `mlxDecoderQuantizationGroupSize`. O padrão continua `64`. No smoke
+aquecido de 16 tokens, `128` trouxe somente `+0,38%`, enquanto `32` foi
+`1,30%` mais lento e já trocou o token autoritativo do passo 2 (`600 → 529`).
+Na matriz 32×8 sem fallback, `128` alcançou `18,9365 tok/s` contra `18,5833`
+de `64`, mas deixou passar uma divergência de raiz com margem positiva
+`0,125`. Ele só preservou 256/256 decisões ao elevar o limiar de verificação
+para `0,125`; isso aumentou os fallbacks de 7 para 15 e reduziu o throughput
+selecionado de `5,9030` para `5,0356 tok/s` (`-14,69%`). Portanto ambos os
+candidatos foram rejeitados. A evidência e os hashes de origem estão em
+`artifacts/gemma4-q8-group-size-rejection-32x8.json`.
+
 Toda tentativa de otimização pode ser promovida pelo gate reprodutível
 `npm run promote:gemma4-calibration --`. Ele recebe dois relatórios completos,
 por exemplo `--baseline baseline.json --candidate candidate.json

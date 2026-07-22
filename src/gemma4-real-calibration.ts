@@ -51,6 +51,7 @@ interface ThreeWayCase {
     mlxHeadQuantizationStrategy?: "exact-bf16" | "two-stage-residual-affine-certified-v1" | "single-stage-affine-q8-shortlist-refined-v1";
     mlxDecoderQuantization?: Gemma4RealComparisonRunnerOptions["directMlxDecoderQuantization"];
     mlxDecoderQuantizationLayers?: string;
+    mlxDecoderQuantizationGroupSize?: 32 | 64 | 128;
     mlxDecoderQuantizationStrategy?: "exact-bf16" | "single-stage-affine-q8-calibrated-v1" | "experimental-affine-q8" | "experimental-affine-q4";
     mlxDecoderGateUpProjectionStrategy?: "separate-projections" | "concatenated-affine-q8-v1" | "concatenated-affine-q4-v1";
     mlxDecoderGateUpSplitStrategy?: "separate-projections" | "static-index-take-v1";
@@ -251,6 +252,7 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
       prompts: cases.length, tokensPerPrompt: options.maxNewTokens, requestThreads: options.requestThreads,
       directMlxDecoderQuantization: options.runner.directMlxDecoderQuantization ?? (directBackend === "mlx" ? "q8-ffn-gate-up" : "off"),
       ...(options.runner.directMlxDecoderQuantizationLayers === undefined ? {} : { directMlxDecoderQuantizationLayers: options.runner.directMlxDecoderQuantizationLayers }),
+      directMlxDecoderQuantizationGroupSize: options.runner.directMlxDecoderQuantizationGroupSize ?? 64,
       directThreads: options.runner.directThreads, directMaxReadMiB: options.runner.directMaxReadMiB ?? 16, directFinalHeadReadMiB: options.runner.directFinalHeadReadMiB ?? (directBackend === "pytorch" ? 32 : options.runner.directMaxReadMiB ?? 16), directLinearBackend: directBackend, directMlxHeadQuantization: options.runner.directMlxHeadQuantization ?? "off", directVerificationMargin: options.runner.directVerificationMargin ?? null, directVerificationBackend: options.runner.directVerificationBackend ?? "pytorch", directFusedMlp: options.runner.directFusedMlp ?? (directBackend === "pytorch" ? "native-bf16" : "real"), directFusedFfn: options.runner.directFusedFfn ?? (directBackend === "pytorch" ? "native-bf16" : "off"), directFusedDecoderLayer: options.runner.directFusedDecoderLayer ?? (directBackend === "pytorch" ? "native-bf16" : "off"), directFusedDecoderStack: options.runner.directFusedDecoderStack ?? "native-bf16", directFusedPle: options.runner.directFusedPle ?? (directBackend === "pytorch" ? "bf16" : "off"), directFusedPlePrelude: options.runner.directFusedPlePrelude ?? (directBackend === "mlx" ? "bf16" : "off"), directFusedTokenForward: options.runner.directFusedTokenForward ?? (directBackend === "mlx" && options.runner.directFusedDecoderStack !== "off" ? "bf16" : "off"), directResidentGeneration: options.runner.directResidentGeneration ?? (directBackend === "mlx" && options.runner.directFusedDecoderStack !== "off" ? "on" : "off"), directFinalHead: options.runner.directFinalHead ?? (directBackend === "pytorch" ? "native-bf16-stream" : "native-bf16-whole"), directNativeAttention: options.runner.directNativeAttention ?? (directBackend === "pytorch" ? "real" : "off"), directFusedAttention: options.runner.directFusedAttention ?? (directBackend === "pytorch" ? "native-bf16" : "off"), precision: options.precision, roundingPolicy: options.roundingPolicy,
     },
     initialization: status,
@@ -352,6 +354,7 @@ export function summarizeGemma4ThreeWayCalibration(cases: ThreeWayCase[], option
         ...(entry.direct.mlxHeadQuantizationStrategy === undefined ? {} : { mlxHeadQuantizationStrategy: entry.direct.mlxHeadQuantizationStrategy }),
         ...(entry.direct.mlxDecoderQuantization === undefined ? {} : { mlxDecoderQuantization: entry.direct.mlxDecoderQuantization }),
         ...(entry.direct.mlxDecoderQuantizationLayers === undefined ? {} : { mlxDecoderQuantizationLayers: entry.direct.mlxDecoderQuantizationLayers }),
+        ...(entry.direct.mlxDecoderQuantizationGroupSize === undefined ? {} : { mlxDecoderQuantizationGroupSize: entry.direct.mlxDecoderQuantizationGroupSize }),
         ...(entry.direct.mlxDecoderQuantizationStrategy === undefined ? {} : { mlxDecoderQuantizationStrategy: entry.direct.mlxDecoderQuantizationStrategy }),
         ...(entry.direct.mlxDecoderGateUpProjectionStrategy === undefined ? {} : { mlxDecoderGateUpProjectionStrategy: entry.direct.mlxDecoderGateUpProjectionStrategy }),
         ...(entry.direct.mlxDecoderGateUpSplitStrategy === undefined ? {} : { mlxDecoderGateUpSplitStrategy: entry.direct.mlxDecoderGateUpSplitStrategy }),
