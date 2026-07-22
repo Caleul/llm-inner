@@ -73,24 +73,24 @@ def read_whole_tensor(pool, files, mappings, expected_shape, widen=True, require
 
 
 def rms_norm_real(tensor, weight, epsilon):
-    mean_squared = torch.mean(tensor * tensor, dim=-1, keepdim=True) + torch.tensor(epsilon, dtype=torch.float32)
+    mean_squared = tensor.pow(2).mean(dim=-1, keepdim=True) + torch.tensor(epsilon, dtype=torch.float32)
     scale = torch.pow(mean_squared, torch.tensor(-0.5, dtype=torch.float32))
     normalized = tensor * scale
     return normalized if weight is None else normalized * weight
 
 
-def rope_real(tensor, positions, rope_kind, theta, rotary_dim, proportional_pairs, proportional_factor, bf16_boundaries=False):
+def rope_real(tensor, positions, rope_kind, theta, rotary_dim, proportional_pairs, proportional_factor, bf16_boundaries=False, sequence_before_heads=False):
     head_dim = tensor.shape[-1]
     half = rotary_dim // 2
-    pairs = torch.arange(half, dtype=torch.float32)
     denominator_width = head_dim if rope_kind == 1 else rotary_dim
-    denominator = torch.pow(torch.tensor(theta, dtype=torch.float32), (torch.tensor(2.0, dtype=torch.float32) * pairs) / torch.tensor(denominator_width, dtype=torch.float32))
+    rotated_pairs = proportional_pairs if rope_kind == 1 else half
+    exponents = torch.arange(0, 2 * rotated_pairs, 2, dtype=torch.int64).to(dtype=torch.float32) / denominator_width
+    rotated_inverse_frequency = 1.0 / (torch.tensor(theta, dtype=torch.float32) ** exponents)
+    inverse_frequency = torch.cat((rotated_inverse_frequency, torch.zeros(half - rotated_pairs, dtype=torch.float32))) if rotated_pairs < half else rotated_inverse_frequency
     if rope_kind == 1:
-        denominator = denominator * torch.tensor(proportional_factor, dtype=torch.float32)
-    angles = positions[:, None, :, None].float() / denominator[None, None, None, :]
-    if rope_kind == 1 and proportional_pairs < half:
-        active = (pairs < proportional_pairs)[None, None, None, :]
-        angles = torch.where(active, angles, torch.zeros_like(angles))
+        inverse_frequency = inverse_frequency / proportional_factor
+    frequencies = torch.matmul(inverse_frequency[None, :, None].expand(positions.shape[0], -1, 1), positions[:, None, :].float()).transpose(1, 2)
+    angles = frequencies[:, :, None, :] if sequence_before_heads else frequencies[:, None, :, :]
     cosine, sine = torch.cos(angles), torch.sin(angles)
     if bf16_boundaries:
         cosine, sine = cosine.to(torch.bfloat16).float(), sine.to(torch.bfloat16).float()
@@ -119,6 +119,14 @@ def eager_bf16_attention(query, key, value, mask, scale):
     return torch.matmul(probabilities, value).to(torch.bfloat16).float()
 
 
+def repeat_key_value(hidden_states, groups):
+    if groups == 1:
+        return hidden_states
+    batch, key_value_heads, sequence, head_dim = hidden_states.shape
+    expanded = hidden_states[:, :, None, :, :].expand(batch, key_value_heads, groups, sequence, head_dim)
+    return expanded.reshape(batch, key_value_heads * groups, sequence, head_dim)
+
+
 def write_float_tensor(tensor):
     payload = tensor.contiguous().numpy().tobytes(order="C")
     sys.stdout.buffer.write(struct.pack("<I", len(payload)))
@@ -142,26 +150,26 @@ def execute_decoder_layer(pool, files, mappings, inputs, per_layer, positions, m
     query_norm = read_whole_tensor(pool, files, mappings, (head_dim, 1)).reshape(head_dim)
     output_weight = read_whole_tensor(pool, files, mappings, (hidden_size, query_heads * head_dim), widen=False, required_dtype=torch.bfloat16)
     normalized_input = boundary(rms_norm_real(inputs, input_norm_weight, config["input_epsilon"]))
-    query = boundary(project(normalized_input, query_weight)).reshape(batch, query_sequence, query_heads, head_dim).permute(0, 2, 1, 3)
-    query = rope_real(boundary(rms_norm_real(query, query_norm, config["attention_epsilon"])), positions, config["rope_kind"], config["theta"], config["rotary_dim"], config["proportional_pairs"], config["proportional_factor"], True)
+    query = boundary(project(normalized_input, query_weight)).reshape(batch, query_sequence, query_heads, head_dim)
+    query = rope_real(boundary(rms_norm_real(query, query_norm, config["attention_epsilon"])), positions, config["rope_kind"], config["theta"], config["rotary_dim"], config["proportional_pairs"], config["proportional_factor"], True, True).transpose(1, 2)
     if produces_kv:
         key_weight = read_whole_tensor(pool, files, mappings, (key_value_heads * head_dim, hidden_size), widen=False, required_dtype=torch.bfloat16)
         key_norm = read_whole_tensor(pool, files, mappings, (head_dim, 1)).reshape(head_dim)
-        current_key_heads = boundary(project(normalized_input, key_weight)).reshape(batch, query_sequence, key_value_heads, head_dim).permute(0, 2, 1, 3)
-        current_key = rope_real(boundary(rms_norm_real(current_key_heads, key_norm, config["attention_epsilon"])), positions, config["rope_kind"], config["theta"], config["rotary_dim"], config["proportional_pairs"], config["proportional_factor"], True)
+        current_key_heads = boundary(project(normalized_input, key_weight)).reshape(batch, query_sequence, key_value_heads, head_dim)
+        current_key = rope_real(boundary(rms_norm_real(current_key_heads, key_norm, config["attention_epsilon"])), positions, config["rope_kind"], config["theta"], config["rotary_dim"], config["proportional_pairs"], config["proportional_factor"], True, True).transpose(1, 2)
         if value_from_key:
-            current_value = boundary(rms_norm_real(current_key_heads, None, config["attention_epsilon"]))
+            current_value = boundary(rms_norm_real(current_key_heads, None, config["attention_epsilon"])).transpose(1, 2)
         else:
             value_weight = read_whole_tensor(pool, files, mappings, (key_value_heads * head_dim, hidden_size), widen=False, required_dtype=torch.bfloat16)
-            current_value = boundary(project(normalized_input, value_weight)).reshape(batch, query_sequence, key_value_heads, head_dim).permute(0, 2, 1, 3)
-            current_value = boundary(rms_norm_real(current_value, None, config["attention_epsilon"]))
+            current_value = boundary(project(normalized_input, value_weight)).reshape(batch, query_sequence, key_value_heads, head_dim)
+            current_value = boundary(rms_norm_real(current_value, None, config["attention_epsilon"])).transpose(1, 2)
         key = torch.cat((source_key, current_key), dim=2)
         value = torch.cat((source_value, current_value), dim=2)
     else:
         key, value = source_key, source_value
     group = query_heads // key_value_heads
-    attention_key = key if group == 1 else key.repeat_interleave(group, dim=1)
-    attention_value = value if group == 1 else value.repeat_interleave(group, dim=1)
+    attention_key = repeat_key_value(key, group)
+    attention_value = repeat_key_value(value, group)
     context = eager_bf16_attention(query, attention_key, attention_value, mask, config["scale"]).permute(0, 2, 1, 3).contiguous().reshape(batch, query_sequence, query_heads * head_dim)
     attention_projected = boundary(project(context, output_weight))
     attention_seconds = time.perf_counter() - attention_started

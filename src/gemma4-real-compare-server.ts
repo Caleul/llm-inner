@@ -232,6 +232,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
         directReport.generatedText = generated.text; directReport.fullText = full.text;
         directReport.tokensEqualBaseline = arraysEqual(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
         directReport.firstDivergentStep = firstDivergence(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
+        attachDirectFallbackOutcome(directReport, report.baselineGeneratedTokenIds);
         if (body.sessionId !== undefined) rememberSession(sessionInputs, body.sessionId, directReport.fullTokenIds, body.conversationMode ?? "raw");
         return json(response, 200, { ...report, prompt: body.prompt, conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), direct: directReport, directExecutionMetrics: computeDirectExecutionMetrics(directReport, inputIds.length, report.performance?.baselineSeconds), comparisonTiming: { schedule, directPhaseSeconds, referenceColdStart, referenceStartupSeconds, referenceComputeSeconds, referencePhaseSeconds, referenceReleased: true, directRecoverySeconds, totalWallSeconds: elapsedSeconds(comparisonStarted) } });
       }
@@ -276,6 +277,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
           }
           directReport.tokensEqualBaseline = arraysEqual(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
           directReport.firstDivergentStep = firstDivergence(directReport.generatedTokenIds, report.baselineGeneratedTokenIds);
+          attachDirectFallbackOutcome(directReport, report.baselineGeneratedTokenIds);
           if (body.sessionId !== undefined) rememberSession(sessionInputs, body.sessionId, directReport.fullTokenIds, body.conversationMode ?? "raw");
           writeNdjson(response, { type: "result", data: { ...report, prompt: body.prompt, conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null, ...(options.compiledProgram ? { compiledProgram: options.compiledProgram } : {}), direct: directReport, directExecutionMetrics: computeDirectExecutionMetrics(directReport, inputIds.length, report.performance?.baselineSeconds, firstTokenWallSeconds), comparisonTiming: { schedule, directPhaseSeconds, referenceColdStart, referenceStartupSeconds, referenceComputeSeconds, referencePhaseSeconds, referenceReleased: true, directRecoverySeconds, totalWallSeconds: elapsedSeconds(comparisonStarted) } } }); response.end(); return;
         } catch (error) {
@@ -440,6 +442,16 @@ export interface DirectLogitAgreement { reportedSteps: number; measuredSteps: nu
 function arraysEqual(left: readonly number[], right: readonly number[]): boolean { return left.length === right.length && left.every((value, index) => value === right[index]); }
 function firstDivergence(left: readonly number[], right: readonly number[]): number | null { const length = Math.max(left.length, right.length); for (let index = 0; index < length; index += 1) if (left[index] !== right[index]) return index; return null; }
 function elapsedSeconds(started: number): number { return (performance.now() - started) / 1000; }
+
+export function attachDirectFallbackOutcome(direct: DirectReport, baselineTokenIds: readonly number[]): void {
+  if (direct.fallbackTriggered !== true || !direct.fastPath || typeof direct.fastPath !== "object" || Array.isArray(direct.fastPath)) return;
+  const fastTokenIds = (direct.fastPath as { generatedTokenIds?: unknown }).generatedTokenIds;
+  if (!Array.isArray(fastTokenIds) || !fastTokenIds.every(Number.isSafeInteger)) return;
+  const fastEqual = arraysEqual(fastTokenIds as number[], baselineTokenIds), selectedEqual = arraysEqual(direct.generatedTokenIds, baselineTokenIds), changed = !arraysEqual(fastTokenIds as number[], direct.generatedTokenIds);
+  direct.fastPathTokensEqualBaseline = fastEqual;
+  direct.fallbackChangedTokens = changed;
+  direct.fallbackOutcome = fastEqual && !selectedEqual ? "worsened" : !fastEqual && selectedEqual ? "improved" : changed ? "changed-still-divergent" : selectedEqual ? "confirmed-equal" : "confirmed-divergent";
+}
 
 export function assertDirectFinalFormulaProgram(metadata: Record<string, unknown>, expected: Gemma4CompiledProgramStatus["finalFormulaMap"], runtime: Gemma4CompiledProgramStatus["finalFormulaRuntime"]): void {
   const program = metadata.finalFormulaProgram;

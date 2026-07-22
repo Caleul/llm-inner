@@ -3032,6 +3032,34 @@ foi `0,25` e a sobreposição top-K média `96,71875%`. O relatório reproduzív
 `artifacts/gemma4-bf16-attention-fallback-calibration-32x4.json`. Esses números
 são evidência finita do corpus versionado, não garantia universal.
 
+A ampliação do mesmo corpus para 32 prompts × 8 tokens encontrou o limite que
+o ensaio de quatro tokens não alcançava: `30/32` prompts, `252/256` tokens e
+duas divergências raiz. O runtime selecionado somou `18,6352 s`
+(`13,7375 tok/s`) contra `141,3338 s` (`1,8113 tok/s`) do Transformers, uma
+razão de `7,5843×`. Em `The binary representation of decimal 5 is`, o fast path
+já coincidia com a referência no passo 6 (`818`), mas o fallback escolheu
+`2021` e piorou o resultado. Em `A leap year usually has`, fast path e
+verificador escolheram `1651`, enquanto a referência escolheu `886`. O
+relatório integral está em
+`artifacts/gemma4-bf16-attention-fallback-calibration-32x8.json`.
+
+Por isso a comparação agora avalia o fallback somente depois que os dois
+executores terminaram, sem usar a referência para selecionar tokens. Cada caso
+publica `fastPathTokensEqualBaseline`, `fallbackChangedTokens` e
+`fallbackOutcome`, classificado como `improved`, `worsened`,
+`changed-still-divergent`, `confirmed-equal` ou `confirmed-divergent`. A matriz
+agrega quantos fallbacks melhoraram, pioraram ou mudaram a saída sem recuperar
+paridade. Uma mudança de backend deixa de aparecer genericamente como
+"correção" quando a evidência mostra o contrário.
+
+O verificador também passou a seguir literalmente três detalhes físicos do
+Transformers que antes estavam apenas algebricamente equivalentes: RMSNorm usa
+`pow(2).mean`, RoPE forma frequências por `1 / theta^exponent` seguido de
+matmul com posições, e Q/K/V preservam BSHD até norm/RoPE antes do
+`repeat_kv` por `expand + reshape`. Esses alinhamentos removem dispatches
+incompatíveis do contrato, mas não eliminaram sozinhos as duas divergências de
+oito tokens; elas permanecem visíveis, sem promoção indevida de paridade.
+
 Depois do primeiro fallback, o servidor mantém o índice autenticado do
 artefato literal já aberto, mas reinicia o kernel linear PyTorch após cada
 verificação. Isso evita reler e reindexar os 20 GiB de `constants.literal.json`
