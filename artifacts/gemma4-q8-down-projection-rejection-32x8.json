@@ -1,0 +1,103 @@
+{
+  "kind": "gemma4-q8-down-projection-rejection",
+  "schemaVersion": 1,
+  "configuration": {
+    "prompts": 32,
+    "tokensPerPrompt": 8,
+    "threads": 8,
+    "head": "exact-bf16",
+    "baseDecoderQuantization": "q8-ffn-gate-up",
+    "baseGateUpLayers": "0-19",
+    "verificationMargin": 0
+  },
+  "sources": {
+    "prompts": {
+      "file": "gemma4-calibration-prompts-32.json",
+      "sha256": "23008073aafff2afcabbb548ef24a19672f69564f78a9bb9ec2450105e9846a2"
+    },
+    "authoritativeTokenIds": {
+      "file": "gemma4-q8-layers-0-19-margin0-calibration-32x8.json",
+      "sha256": "f288da6904f0079f5d5bd06546c37dfaa32c5816ac21e5db98797afffcbceb4e"
+    }
+  },
+  "controlFastPath": {
+    "downLayers": "off",
+    "repetitions": [
+      {
+        "tokensPerSecond": 20.304076212045484,
+        "elapsedSeconds": 12.608305707999996,
+        "prefillSeconds": 3.2281671091914177,
+        "incrementalDecoderSeconds": 9.175333827733994
+      },
+      {
+        "tokensPerSecond": 21.862710090491923,
+        "elapsedSeconds": 11.709435789999988,
+        "prefillSeconds": 2.609183683991432,
+        "incrementalDecoderSeconds": 8.90155366063118
+      }
+    ]
+  },
+  "candidates": [
+    {
+      "id": "coupled-gate-up-down-0-19",
+      "contract": "quantize gate, up and down only in layers 0-19",
+      "fastPath": {
+        "repetitions": [
+          { "promptsEqual": 29, "equalTokenSteps": 242, "tokensPerSecond": 22.5604930227874 },
+          { "promptsEqual": 29, "equalTokenSteps": 242, "tokensPerSecond": 23.025997511214772 }
+        ]
+      },
+      "hybrid": {
+        "promptsEqual": 30,
+        "equalTokenSteps": 250,
+        "comparedTokenSteps": 256,
+        "fallbackPrompts": 4,
+        "elapsedSeconds": 22.372470414000002,
+        "tokensPerSecond": 11.44263441912088,
+        "fastPathSeconds": 12.700627627000003,
+        "verificationSeconds": 9.681049625999986,
+        "uncoveredPositiveMarginDivergences": [
+          "Traduza para inglês: boa noite",
+          "A leap year usually has"
+        ]
+      }
+    },
+    {
+      "id": "orthogonal-down-5-9",
+      "contract": "keep gate and up Q8 in layers 0-19; additionally quantize down only in layers 5-9",
+      "fastPath": {
+        "promptsEqual": 29,
+        "equalTokenSteps": 244,
+        "comparedTokenSteps": 256,
+        "elapsedSeconds": 22.178644710000007,
+        "tokensPerSecond": 11.542634969240188,
+        "prefillSeconds": 6.9695823937654495,
+        "incrementalDecoderSeconds": 14.726006746292114,
+        "uncoveredPositiveMarginDivergences": []
+      }
+    },
+    {
+      "id": "orthogonal-down-5-9-30-34",
+      "contract": "keep gate and up Q8 in layers 0-19; additionally quantize down in layers 5-9 and 30-34",
+      "fastPath": {
+        "promptsEqual": 29,
+        "equalTokenSteps": 243,
+        "comparedTokenSteps": 256,
+        "elapsedSeconds": 16.980864083999997,
+        "tokensPerSecond": 15.075793477506998,
+        "prefillSeconds": 5.8028132021427155,
+        "incrementalDecoderSeconds": 10.868808448314667,
+        "uncoveredPositiveMarginDivergences": [
+          "A leap year usually has"
+        ]
+      }
+    }
+  ],
+  "decision": {
+    "selectedDecoderQuantization": "q8-ffn-gate-up",
+    "selectedGateUpLayers": "0-19",
+    "selectedDownLayers": "off",
+    "reason": "The faster coupled candidate escapes the zero-margin verifier on two prompts; the orthogonal safe block is materially slower, and combining blocks creates another positive-margin divergence. No down-projection candidate preserves both the parity gate and throughput.",
+    "experimentalRuntimeCodeRetained": false
+  }
+}

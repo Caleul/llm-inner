@@ -3185,6 +3185,18 @@ e quantidade de passos sensíveis determinam se o verificador pode encerrar
 cedo. O default `0-19` foi mantido. A evidência reproduzível está em
 `artifacts/gemma4-sparse-q8-boundary-rejection-32x8.json`.
 
+A projeção FFN `down` também foi reavaliada sem confundir sua máscara com a de
+`gate/up`. Quantizar as três projeções em `0-19` elevou o fast path aquecido de
+`21,8627` para até `23,0260 tok/s`, mas o híbrido preservou somente `250/256`
+tokens: duas divergências passaram a ter margem positiva e escaparam do
+verificador configurado em zero. Manter `gate/up` em `0-19` e quantizar `down`
+apenas em `5-9` não criou divergência descoberta, porém caiu para `11,5426 tok/s`;
+combinar `5-9,30-34` recuperou parte do desempenho e voltou a deslocar
+`A leap year usually has` com margem positiva. O protótipo foi removido e o
+default continua sem Q8 em `down`. Configuração, tempos e vínculos ao corpus
+autoritativo estão em
+`artifacts/gemma4-q8-down-projection-rejection-32x8.json`.
+
 O servidor agora aquece uma vez o verificador PyTorch BF16 antes de publicar o
 estado pronto e mantém seu kernel linear mmap residente. Isso preserva o índice
 autenticado, os descritores e o hot path nativo entre empates, sem compartilhar
