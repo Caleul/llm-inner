@@ -1,6 +1,7 @@
 import { readFile, writeFile, stat } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { compileFixedTwoTokenModel, evaluateFixedTwoTokenModel } from "../dist/src/fixed-f16-two-token-model.js";
+import { compileFixedLogitAudit } from "../dist/src/fixed-f16-logit-audit.js";
 import { SafetensorsCatalogReader } from "../dist/src/safetensors.js";
 
 const fixture = JSON.parse(await readFile("test/fixtures/tiny-random-llama-two-token-attention-stages.json", "utf8"));
@@ -25,9 +26,12 @@ for (const layer of model.layers) for (const node of layer.attention.nodes) coun
 const projectionTerms = (program) => program.rows.reduce((sum, row) => sum + row.terms.length, 0);
 const mlpTermsPerToken = model.layers.reduce((sum, layer) =>
   sum + [layer.mlp.gate, layer.mlp.up, layer.mlp.down].reduce((part, projection) => part + projectionTerms(projection), 0), 0);
+const logitAudit = compileFixedLogitAudit(model, 1, output.tokens[1]);
 const result = {
   checkpoint_bytes: (await stat("artifacts/tiny-random-llama/model.safetensors")).size,
   compiled_json_bytes: Buffer.byteLength(JSON.stringify(model)),
+  one_logit_audit_json_bytes: Buffer.byteLength(JSON.stringify(logitAudit)),
+  one_logit_audit_nodes: logitAudit.nodes.length,
   attention_unique_nodes: model.layers.map((layer) => layer.attention.nodes.length),
   attention_node_ops: counts,
   mlp_projection_terms: model.layers.map((layer) => [layer.mlp.gate, layer.mlp.up, layer.mlp.down].map(projectionTerms)),

@@ -12,6 +12,7 @@ import { softmaxTwoF16IfElse } from "../src/fixed-f16-two-way-softmax.js";
 import { compileFixedTwoTokenAttention, evaluateFixedTwoTokenAttention } from "../src/fixed-f16-attention-program.js";
 import { addF16Bits, compileFixedMlp, evaluateFixedFourLaneProjection, evaluateFixedMlp, readFixedF16Vector, rmsNormF16 } from "../src/fixed-f16-layer-ops.js";
 import { compileFixedTwoTokenModel, evaluateFixedTwoTokenModel } from "../src/fixed-f16-two-token-model.js";
+import { compileFixedLogitAudit, evaluateFixedLogitAudit } from "../src/fixed-f16-logit-audit.js";
 
 test("if/else F16 respeita limites, empate par, sinal e overflow", () => {
   assert.equal(roundDyadicToF16IfElse({ coefficient: 2049n, exponent: -11 }), 0x3c00); // midpoint 1, 1+2^-10
@@ -323,4 +324,24 @@ test("32 pares do vocabulário inteiro preservam hashes de camada e logits PyTor
       assert.equal(actual.tokens[1], sample.next_token, `${sample.ids}: próximo token`);
     }
   } finally { await reader.close(); }
+});
+
+test("funções escalares auditáveis de logits são fechadas até os dois IDs de entrada", async (context) => {
+  const directory = resolve("artifacts/tiny-random-llama");
+  try { await access(join(directory, "model.safetensors")); } catch { context.skip("checkpoint opcional ausente"); return; }
+  const fixture = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-full-forward.json"), "utf8")) as
+    { cases: Record<string, Record<string, { output: number[] }>> };
+  const stages = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-two-token-attention-stages.json"), "utf8")) as
+    Record<string, { cos: number[][][]; sin: number[][][] }>;
+  const reader = new SafetensorsCatalogReader(directory);
+  const model = await compileFixedTwoTokenModel(reader, stages["0"]!.cos[0]!, stages["0"]!.sin[0]!);
+  await reader.close();
+  for (const token of [0, 1]) for (const dimension of [0, 20141, 31999]) {
+    const audit = JSON.parse(JSON.stringify(compileFixedLogitAudit(model, token, dimension))) as ReturnType<typeof compileFixedLogitAudit>;
+    assert.doesNotMatch(JSON.stringify(audit.nodes), /"op":"input"/, "nenhum hidden state é recebido como input");
+    for (const [name, records] of Object.entries(fixture.cases)) {
+      const expected = records.lm_head!.output[token * 32000 + dimension]!;
+      assert.equal(evaluateFixedLogitAudit(audit, name.split(",").map(Number)), expected, `${name}, token ${token}, logit ${dimension}`);
+    }
+  }
 });

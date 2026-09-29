@@ -1,6 +1,8 @@
 {
   "checkpoint_bytes": 2066960,
   "compiled_json_bytes": 3411616,
+  "one_logit_audit_json_bytes": 2046637,
+  "one_logit_audit_nodes": 13594,
   "attention_unique_nodes": [
     6172,
     6184
@@ -38,20 +40,20 @@
     "lm_head_pairwise_folds": 192000,
     "note": "Counts exclude RMSNorm, SiLU, softmax internals, and F16 conversions; multiply-add terms name a product plus accumulation."
   },
-  "compile_ms": 17.400042,
+  "compile_ms": 16.846167,
   "javascript": {
     "runtime": "Node.js scalar F16",
     "samples": 20,
-    "median_ms": 117.947208,
-    "min_ms": 114.2655,
+    "median_ms": 119.466958,
+    "min_ms": 115.401667,
     "next_token": 20141
   },
   "reference": {
     "runtime": "PyTorch CPU eager",
     "torch": "2.12.1",
     "samples": 20,
-    "median_ms": 1.2381045,
-    "min_ms": 0.899125,
+    "median_ms": 1.0671045000000001,
+    "min_ms": 0.882875,
     "next_token": 20141
   }
 }
