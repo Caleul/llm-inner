@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtemp, writeFile, rm, access, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -8,6 +9,9 @@ import { compileFixedF16Projection, evaluateFixedF16Projection, f16BitsToDyadic,
 import { evaluateFixedScalarFunctions, scalarizeFixedF16Projection, substituteFixedScalarFunctions } from "../src/fixed-f16-scalar-functions.js";
 import { evaluateFixedTwoTokenAttentionScores, evaluateFixedTwoTokenAttentionValues } from "../src/fixed-f16-attention-scores.js";
 import { softmaxTwoF16IfElse } from "../src/fixed-f16-two-way-softmax.js";
+import { compileFixedTwoTokenAttention, evaluateFixedTwoTokenAttention } from "../src/fixed-f16-attention-program.js";
+import { addF16Bits, compileFixedMlp, evaluateFixedFourLaneProjection, evaluateFixedMlp, readFixedF16Vector, rmsNormF16 } from "../src/fixed-f16-layer-ops.js";
+import { compileFixedTwoTokenModel, evaluateFixedTwoTokenModel } from "../src/fixed-f16-two-token-model.js";
 
 test("if/else F16 respeita limites, empate par, sinal e overflow", () => {
   assert.equal(roundDyadicToF16IfElse({ coefficient: 2049n, exponent: -11 }), 0x3c00); // midpoint 1, 1+2^-10
@@ -20,6 +24,15 @@ test("if/else F16 respeita limites, empate par, sinal e overflow", () => {
   assert.equal(roundDyadicToF32IfElse({ coefficient: 0x1000001n, exponent: -24 }), 0x3f800000); // empate F32: 1 é par
   assert.equal(roundDyadicToF32IfElse({ coefficient: 0x1000003n, exponent: -24 }), 0x3f800002);
   assert.equal(roundDyadicToF32IfElse({ coefficient: 1n, exponent: -150 }), 0);
+});
+
+test("softmax de dois logits cobre diferenças amplas e compara 212 pares com PyTorch CPU", async () => {
+  const fixture = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-softmax-pytorch-cpu.json"), "utf8")) as
+    { torch: string; cases: Array<{ score: [number, number]; probability: [number, number] }> };
+  assert.equal(fixture.cases.length, 212);
+  for (const [index, sample] of fixture.cases.entries()) {
+    assert.deepEqual(softmaxTwoF16IfElse(...sample.score), sample.probability, `caso ${index}, scores ${sample.score}`);
+  }
 });
 
 test("substitui pesos de cada dimensão e compõe duas projeções com arredondamento entre elas", async () => {
@@ -154,6 +167,160 @@ test("atenção completa de dois tokens atravessa AV e O com paridade de bits", 
       for (let token = 0; token < 2; token++) {
         assert.deepEqual(evaluateFixedF16Projection(projection, attention[token]!), outputs[String(layer)]!.output[0]![token]!, `O camada ${layer}, token ${token}`);
       }
+    }
+  } finally { await reader.close(); }
+});
+
+test("cada saída O de dois tokens depende somente da entrada da camada e de pesos literais", async (context) => {
+  const directory = resolve("artifacts/tiny-random-llama");
+  try { await access(join(directory, "model.safetensors")); } catch { context.skip("checkpoint opcional ausente"); return; }
+  const projections = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-two-token-projections.json"), "utf8")) as
+    Record<string, { input: number[][][] }>;
+  const stages = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-two-token-attention-stages.json"), "utf8")) as
+    Record<string, { cos: number[][][]; sin: number[][][] }>;
+  const outputs = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-two-token-attention-output.json"), "utf8")) as
+    Record<string, { output: number[][][] }>;
+  const reader = new SafetensorsCatalogReader(directory);
+  try {
+    for (const layer of [0, 1]) {
+      const program = await compileFixedTwoTokenAttention(reader, layer, stages[String(layer)]!.cos[0]!, stages[String(layer)]!.sin[0]!);
+      const input = projections[`model.layers.${layer}.self_attn.q_proj.weight`]!.input[0]!.flat();
+      assert.equal(program.outputs.length, 32);
+      assert.ok(program.nodes.every((node) => node.op !== "input" || node.index < 32));
+      assert.deepEqual(evaluateFixedTwoTokenAttention(program, input), outputs[String(layer)]!.output[0]!.flat(), `O fechado camada ${layer}`);
+      assert.doesNotMatch(JSON.stringify(program), /q_proj|k_proj|v_proj|o_proj|weightBits/);
+    }
+  } finally { await reader.close(); }
+});
+
+test("RMSNorm das duas camadas coincide com o forward capturado", async (context) => {
+  const directory = resolve("artifacts/tiny-random-llama");
+  try { await access(join(directory, "model.safetensors")); } catch { context.skip("checkpoint opcional ausente"); return; }
+  const fixture = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-full-forward.json"), "utf8")) as
+    { cases: Record<string, Record<string, { input: number[]; output: number[] }>> };
+  const reader = new SafetensorsCatalogReader(directory);
+  try {
+    for (const [caseName, records] of Object.entries(fixture.cases)) for (const layer of [0, 1]) {
+      for (const name of ["input_layernorm", "post_attention_layernorm"]) {
+        const key = `model.layers.${layer}.${name}`;
+        const weight = await readFixedF16Vector(reader, `${key}.weight`, 16);
+        const record = records[key]!;
+        for (let token = 0; token < 2; token++) {
+          assert.deepEqual(rmsNormF16(record.input.slice(token * 16, token * 16 + 16), weight),
+            record.output.slice(token * 16, token * 16 + 16), `${caseName}, ${key}, token ${token}`);
+        }
+      }
+    }
+  } finally { await reader.close(); }
+});
+
+test("projeções gate, up e down da MLP coincidem com o forward capturado", async (context) => {
+  const directory = resolve("artifacts/tiny-random-llama");
+  try { await access(join(directory, "model.safetensors")); } catch { context.skip("checkpoint opcional ausente"); return; }
+  const fixture = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-full-forward.json"), "utf8")) as
+    { cases: Record<string, Record<string, { input: number[]; output: number[] }>> };
+  const reader = new SafetensorsCatalogReader(directory);
+  try {
+    for (const layer of [0, 1]) for (const name of ["gate_proj", "up_proj", "down_proj"]) {
+      const key = `model.layers.${layer}.mlp.${name}`;
+      const program = await compileFixedF16Projection(reader, `${key}.weight`);
+      for (const [caseName, records] of Object.entries(fixture.cases)) {
+        const record = records[key]!;
+        for (let token = 0; token < 2; token++) {
+          assert.deepEqual(evaluateFixedFourLaneProjection(program, record.input.slice(token * program.inputSize, (token + 1) * program.inputSize)),
+            record.output.slice(token * program.outputSize, (token + 1) * program.outputSize), `${caseName}, ${key}, token ${token}`);
+        }
+      }
+    }
+  } finally { await reader.close(); }
+});
+
+test("MLP completa coincide com o forward capturado", async (context) => {
+  const directory = resolve("artifacts/tiny-random-llama");
+  try { await access(join(directory, "model.safetensors")); } catch { context.skip("checkpoint opcional ausente"); return; }
+  const fixture = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-full-forward.json"), "utf8")) as
+    { cases: Record<string, Record<string, { input: number[]; output: number[] }>> };
+  const reader = new SafetensorsCatalogReader(directory);
+  try {
+    for (const layer of [0, 1]) {
+      const program = await compileFixedMlp(reader, layer);
+      const key = `model.layers.${layer}.mlp`;
+      for (const [caseName, records] of Object.entries(fixture.cases)) {
+        const record = records[key]!;
+        for (let token = 0; token < 2; token++) {
+          assert.deepEqual(evaluateFixedMlp(program, record.input.slice(token * 16, token * 16 + 16)),
+            record.output.slice(token * 16, token * 16 + 16), `${caseName}, ${key}, token ${token}`);
+        }
+      }
+    }
+  } finally { await reader.close(); }
+});
+
+test("embedding, duas camadas e logits são calculados somente dos IDs de token", async (context) => {
+  const directory = resolve("artifacts/tiny-random-llama");
+  try { await access(join(directory, "model.safetensors")); } catch { context.skip("checkpoint opcional ausente"); return; }
+  const fixture = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-full-forward.json"), "utf8")) as
+    { cases: Record<string, Record<string, { input: number[]; output: number[] }> & { hidden_states: number[][]; argmax: number[] }> };
+  const stages = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-two-token-attention-stages.json"), "utf8")) as
+    Record<string, { cos: number[][][]; sin: number[][][] }>;
+  const reader = new SafetensorsCatalogReader(directory);
+  try {
+    const model = await compileFixedTwoTokenModel(reader, stages["0"]!.cos[0]!, stages["0"]!.sin[0]!);
+    const hydrated = JSON.parse(JSON.stringify(model)) as typeof model;
+    for (const [name, records] of Object.entries(fixture.cases)) {
+      const ids = name.split(",").map(Number);
+      const result = evaluateFixedTwoTokenModel(hydrated, ids);
+      assert.deepEqual(result.tokens, evaluateFixedTwoTokenModel(model, ids).tokens, `${name}, JSON recarregado`);
+      assert.deepEqual(result.layers[0], records.hidden_states[1], `${name}, camada 0`);
+      const layer1 = hydrated.layers[1];
+      const normalized1 = [0, 1].flatMap((token) => rmsNormF16(result.layers[0]!.slice(token * 16, token * 16 + 16), layer1.inputNorm));
+      assert.deepEqual(normalized1, records["model.layers.1.input_layernorm"]!.output, `${name}, norm de entrada camada 1`);
+      for (const projectionName of ["q_proj", "k_proj", "v_proj"]) {
+        const key = `model.layers.1.self_attn.${projectionName}`;
+        const projection = await compileFixedF16Projection(reader, `${key}.weight`);
+        const actual = [0, 1].flatMap((token) => evaluateFixedFourLaneProjection(projection, normalized1.slice(token * 16, token * 16 + 16)));
+        assert.deepEqual(actual, records[key]!.output, `${name}, ${projectionName} camada 1`);
+      }
+      const attention1 = evaluateFixedTwoTokenAttention(layer1.attention, normalized1);
+      assert.deepEqual(attention1, records["model.layers.1.self_attn"]!.output, `${name}, atenção camada 1`);
+      const residual1 = result.layers[0]!.map((value, index) => addF16Bits(value, attention1[index]!));
+      assert.deepEqual(residual1, records["model.layers.1.post_attention_layernorm"]!.input, `${name}, residual atenção camada 1`);
+      const mlpInput1 = [0, 1].flatMap((token) => rmsNormF16(residual1.slice(token * 16, token * 16 + 16), layer1.postAttentionNorm));
+      assert.deepEqual(mlpInput1, records["model.layers.1.post_attention_layernorm"]!.output, `${name}, norm MLP camada 1`);
+      const mlp1 = [0, 1].flatMap((token) => evaluateFixedMlp(layer1.mlp, mlpInput1.slice(token * 16, token * 16 + 16)));
+      assert.deepEqual(mlp1, records["model.layers.1.mlp"]!.output, `${name}, MLP camada 1`);
+      const finalResidual = records["model.layers.1.post_attention_layernorm"]!.input;
+      const finalMlp = records["model.layers.1.mlp"]!.output;
+      assert.deepEqual(result.layers[1], finalResidual.map((value, index) => addF16Bits(value, finalMlp[index]!)), `${name}, camada 1`);
+      assert.deepEqual(result.hidden, records["model.norm"]!.output, `${name}, norm final`);
+      assert.deepEqual(result.logits, records.lm_head!.output, `${name}, logits`);
+      assert.deepEqual(result.tokens, records.argmax, `${name}, argmax`);
+    }
+  } finally { await reader.close(); }
+});
+
+test("32 pares do vocabulário inteiro preservam hashes de camada e logits PyTorch", async (context) => {
+  const directory = resolve("artifacts/tiny-random-llama");
+  try { await access(join(directory, "model.safetensors")); } catch { context.skip("checkpoint opcional ausente"); return; }
+  const fixture = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-32-prompt-hashes.json"), "utf8")) as
+    { cases: Array<{ ids: number[]; layer0_sha256: string; final_hidden_sha256: string; logits_sha256: string; next_token: number }> };
+  const stages = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-two-token-attention-stages.json"), "utf8")) as
+    Record<string, { cos: number[][][]; sin: number[][][] }>;
+  const hash = (values: readonly number[]) => {
+    const bytes = Buffer.allocUnsafe(values.length * 2);
+    values.forEach((value, index) => bytes.writeUInt16LE(value, index * 2));
+    return createHash("sha256").update(bytes).digest("hex");
+  };
+  const reader = new SafetensorsCatalogReader(directory);
+  try {
+    const model = await compileFixedTwoTokenModel(reader, stages["0"]!.cos[0]!, stages["0"]!.sin[0]!);
+    assert.equal(fixture.cases.length, 32);
+    for (const sample of fixture.cases) {
+      const actual = evaluateFixedTwoTokenModel(model, sample.ids);
+      assert.equal(hash(actual.layers[0]!), sample.layer0_sha256, `${sample.ids}: camada 0`);
+      assert.equal(hash(actual.hidden), sample.final_hidden_sha256, `${sample.ids}: norm final`);
+      assert.equal(hash(actual.logits), sample.logits_sha256, `${sample.ids}: logits`);
+      assert.equal(actual.tokens[1], sample.next_token, `${sample.ids}: próximo token`);
     }
   } finally { await reader.close(); }
 });

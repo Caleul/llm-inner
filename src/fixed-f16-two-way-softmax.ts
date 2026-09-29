@@ -17,9 +17,12 @@ function compare(a: Rational, b: Rational): number {
   return difference < 0n ? -1 : difference > 0n ? 1 : 0;
 }
 
-/** Exact rational interval around exp(x), for -1 <= x <= 0. */
+/** Enclosed rational interval around exp(x), for -128 < x <= 0.
+ * Taylor is evaluated within [-1,0], then outward-rounded fixed-point
+ * intervals are squared. The fixed denominator prevents explosive growth. */
 function expNegativeInterval(value: Dyadic): [Rational, Rational] {
-  const x = toRational(value);
+  const original = toRational(value);
+  const x = rational(original.numerator, original.denominator * 128n);
   if (compare(x, rational(-1n, 1n)) < 0 || x.numerator > 0n) throw new Error("Argumento exp fora do intervalo certificado [-1,0].");
   let sum = rational(1n, 1n), term = sum;
   let lower = sum, upper = sum;
@@ -29,7 +32,14 @@ function expNegativeInterval(value: Dyadic): [Rational, Rational] {
     if (index === 39n) lower = sum;
     if (index === 40n) upper = sum;
   }
-  return [lower, upper];
+  const scale = 1n << 256n;
+  let low = lower.numerator * scale / lower.denominator;
+  let high = (upper.numerator * scale + upper.denominator - 1n) / upper.denominator;
+  for (let i = 0; i < 7; i++) {
+    low = low * low / scale;
+    high = (high * high + scale - 1n) / scale;
+  }
+  return [{ numerator: low, denominator: scale }, { numerator: high, denominator: scale }];
 }
 
 function roundRationalToF32IfElse(value: Rational): number {
