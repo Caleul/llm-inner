@@ -6,6 +6,7 @@ import test from "node:test";
 import { SafetensorsCatalogReader } from "../src/safetensors.js";
 import { compileFixedF16Projection, evaluateFixedF16Projection, f16BitsToDyadic, roundDyadicToF16IfElse, roundDyadicToF32IfElse } from "../src/fixed-f16-projection.js";
 import { evaluateFixedScalarFunctions, scalarizeFixedF16Projection, substituteFixedScalarFunctions } from "../src/fixed-f16-scalar-functions.js";
+import { evaluateFixedTwoTokenAttentionScores } from "../src/fixed-f16-attention-scores.js";
 
 test("if/else F16 respeita limites, empate par, sinal e overflow", () => {
   assert.equal(roundDyadicToF16IfElse({ coefficient: 2049n, exponent: -11 }), 0x3c00); // midpoint 1, 1+2^-10
@@ -96,4 +97,25 @@ test("atenção de um token: compõe V e O nas duas camadas com paridade de bits
       assert.doesNotMatch(JSON.stringify(closed), /self_attn|v_proj|o_proj|weightBits/);
     }
   } finally { await reader.close(); }
+});
+
+test("RoPE e scores mascarados de dois tokens coincidem por head e camada", async () => {
+  const projections = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-two-token-projections.json"), "utf8")) as
+    Record<string, { output: number[][][] }>;
+  const stages = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-two-token-attention-stages.json"), "utf8")) as
+    Record<string, { cos: number[][][]; sin: number[][][]; q_rotated: number[][][][]; k_rotated: number[][][][];
+      score: number[][][][]; scaled: number[][][][]; masked: number[][][][] }>;
+  for (const layer of [0, 1]) {
+    const base = `model.layers.${layer}.self_attn.`;
+    const fixture = stages[String(layer)]!;
+    const actual = evaluateFixedTwoTokenAttentionScores(
+      projections[`${base}q_proj.weight`]!.output[0]!, projections[`${base}k_proj.weight`]!.output[0]!,
+      fixture.cos[0]!, fixture.sin[0]!,
+    );
+    assert.deepEqual(actual.qRotated, fixture.q_rotated[0], `RoPE Q camada ${layer}`);
+    assert.deepEqual(actual.kRotated, fixture.k_rotated[0], `RoPE K camada ${layer}`);
+    assert.deepEqual(actual.score, fixture.score[0], `QK camada ${layer}`);
+    assert.deepEqual(actual.scaled, fixture.scaled[0], `escala camada ${layer}`);
+    assert.deepEqual(actual.masked, fixture.masked[0], `máscara camada ${layer}`);
+  }
 });

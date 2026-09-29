@@ -49,9 +49,15 @@ nós (cerca de 811 kB em JSON). Portanto a substituição está demonstrada, mas
 simplificação adicional precisa ser medida sem remover fronteiras numéricas
 nem alterar outputs.
 
+Para a sequência de dois tokens, `src/fixed-f16-attention-scores.ts` reproduz
+RoPE, produto QK, escala por `1/sqrt(4)` e máscara causal em cada head das duas
+camadas. As saídas intermediárias coincidiram bit a bit com o fixture PyTorch.
+Esse módulo ainda recebe Q/K e cos/sin como valores intermediários, para
+localizar a próxima fronteira; ele não é a função final substituída.
+
 Esses resultados **não** provam igualdade para qualquer entrada ou para a
-atenção com dois ou mais tokens, que precisa de RoPE, máscara e softmax não
-trivial. A hipótese observada para estas projeções é acumulação F32
+atenção com dois ou mais tokens: softmax não trivial e produto AV ainda faltam.
+A hipótese observada para estas projeções é acumulação F32
 sequencial; outros kernels podem usar FMA ou outra ordem. Nesses casos a árvore
 precisa incluir as fronteiras do kernel escolhido. A expressão atual não
 representa RMSNorm, RoPE, scores, softmax, máscara, residual, MLP nem logits.
@@ -60,10 +66,10 @@ NaN/Inf também precisa ser estabelecida antes de alegar paridade geral.
 
 ## Próxima extensão verificável
 
-1. Capturar RoPE, scores, probabilidades e saída da atenção no forward de dois
-   tokens, inclusive dtype, ordem das reduções e máscaras.
-2. Incorporar RoPE, produto QK, máscara, softmax e produto AV, com operações
-   de arredondamento explícitas; comparar os bits em cada fronteira.
+1. Fechar a semântica independente de runtime de `exp`, soma e divisão da
+   softmax, preservando os arredondamentos F32 e validando os pontos médios.
+2. Incorporar softmax e produto AV para dois tokens; comparar os bits em cada
+   fronteira antes de substituir Q/K/V nas funções finais.
 3. Conectar o resultado da atenção à projeção `o_proj`, residual,
    RMSNorm e MLP. Repetir a comparação em cada fronteira da camada 0.
 4. Usar a saída validada da camada 0 como entrada da camada 1. Só então
