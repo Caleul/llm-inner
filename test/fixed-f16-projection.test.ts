@@ -6,7 +6,8 @@ import test from "node:test";
 import { SafetensorsCatalogReader } from "../src/safetensors.js";
 import { compileFixedF16Projection, evaluateFixedF16Projection, f16BitsToDyadic, roundDyadicToF16IfElse, roundDyadicToF32IfElse } from "../src/fixed-f16-projection.js";
 import { evaluateFixedScalarFunctions, scalarizeFixedF16Projection, substituteFixedScalarFunctions } from "../src/fixed-f16-scalar-functions.js";
-import { evaluateFixedTwoTokenAttentionScores } from "../src/fixed-f16-attention-scores.js";
+import { evaluateFixedTwoTokenAttentionScores, evaluateFixedTwoTokenAttentionValues } from "../src/fixed-f16-attention-scores.js";
+import { softmaxTwoF16IfElse } from "../src/fixed-f16-two-way-softmax.js";
 
 test("if/else F16 respeita limites, empate par, sinal e overflow", () => {
   assert.equal(roundDyadicToF16IfElse({ coefficient: 2049n, exponent: -11 }), 0x3c00); // midpoint 1, 1+2^-10
@@ -104,7 +105,7 @@ test("RoPE e scores mascarados de dois tokens coincidem por head e camada", asyn
     Record<string, { output: number[][][] }>;
   const stages = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-two-token-attention-stages.json"), "utf8")) as
     Record<string, { cos: number[][][]; sin: number[][][]; q_rotated: number[][][][]; k_rotated: number[][][][];
-      score: number[][][][]; scaled: number[][][][]; masked: number[][][][] }>;
+      score: number[][][][]; scaled: number[][][][]; masked: number[][][][]; probabilities: number[][][][] }>;
   for (const layer of [0, 1]) {
     const base = `model.layers.${layer}.self_attn.`;
     const fixture = stages[String(layer)]!;
@@ -117,5 +118,42 @@ test("RoPE e scores mascarados de dois tokens coincidem por head e camada", asyn
     assert.deepEqual(actual.score, fixture.score[0], `QK camada ${layer}`);
     assert.deepEqual(actual.scaled, fixture.scaled[0], `escala camada ${layer}`);
     assert.deepEqual(actual.masked, fixture.masked[0], `máscara camada ${layer}`);
+    const probabilities = actual.masked.map((head) => head.map((row) => softmaxTwoF16IfElse(row[0]!, row[1]!)));
+    assert.deepEqual(probabilities, fixture.probabilities[0], `softmax camada ${layer}`);
   }
+});
+
+test("atenção completa de dois tokens atravessa AV e O com paridade de bits", async (context) => {
+  const projections = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-two-token-projections.json"), "utf8")) as
+    Record<string, { input: number[][][]; output: number[][][] }>;
+  const stages = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-two-token-attention-stages.json"), "utf8")) as
+    Record<string, { cos: number[][][]; sin: number[][][]; probabilities: number[][][][] }>;
+  const outputs = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-two-token-attention-output.json"), "utf8")) as
+    Record<string, { input: number[][][]; output: number[][][] }>;
+  const directory = resolve("artifacts/tiny-random-llama");
+  try { await access(join(directory, "model.safetensors")); } catch { context.skip("checkpoint opcional ausente"); return; }
+  const reader = new SafetensorsCatalogReader(directory);
+  try {
+    for (const layer of [0, 1]) {
+      const base = `model.layers.${layer}.self_attn.`;
+      const projected: Record<string, number[][]> = {};
+      for (const name of ["q_proj", "k_proj", "v_proj"]) {
+        const tensor = `${base}${name}.weight`;
+        const program = await compileFixedF16Projection(reader, tensor);
+        projected[name] = projections[tensor]!.input[0]!.map((input) => evaluateFixedF16Projection(program, input));
+        assert.deepEqual(projected[name], projections[tensor]!.output[0], `${name} camada ${layer}`);
+      }
+      const fixture = stages[String(layer)]!;
+      const scores = evaluateFixedTwoTokenAttentionScores(projected.q_proj!, projected.k_proj!, fixture.cos[0]!, fixture.sin[0]!);
+      const probabilities = scores.masked.map((head) => head.map((row) => softmaxTwoF16IfElse(row[0]!, row[1]!)));
+      assert.deepEqual(probabilities, fixture.probabilities[0], `softmax camada ${layer}`);
+      const value = projected.v_proj!;
+      const attention = evaluateFixedTwoTokenAttentionValues(probabilities, value);
+      assert.deepEqual(attention, outputs[String(layer)]!.input[0], `AV camada ${layer}`);
+      const projection = await compileFixedF16Projection(reader, `model.layers.${layer}.self_attn.o_proj.weight`);
+      for (let token = 0; token < 2; token++) {
+        assert.deepEqual(evaluateFixedF16Projection(projection, attention[token]!), outputs[String(layer)]!.output[0]![token]!, `O camada ${layer}, token ${token}`);
+      }
+    }
+  } finally { await reader.close(); }
 });

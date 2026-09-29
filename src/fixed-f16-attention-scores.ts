@@ -17,7 +17,7 @@ function addF16(left: number, right: number): number {
 function multiplyF16(left: number, right: number): number {
   return roundDyadicToF16IfElse(multiplyDyadic(f16BitsToDyadic(left), f16BitsToDyadic(right)));
 }
-function dotF16(left: readonly number[], right: readonly number[]): number {
+export function dotF16(left: readonly number[], right: readonly number[]): number {
   if (left.length !== right.length) throw new Error("Dimensões Q/K incompatíveis.");
   let accumulator = f32BitsToDyadic(0);
   for (let dimension = 0; dimension < left.length; dimension++) {
@@ -26,6 +26,21 @@ function dotF16(left: readonly number[], right: readonly number[]): number {
     accumulator = f32BitsToDyadic(roundDyadicToF32IfElse(addDyadic(accumulator, productF32)));
   }
   return roundDyadicToF16IfElse(accumulator);
+}
+
+/** Applies the two attention probabilities to V and concatenates four heads. */
+export function evaluateFixedTwoTokenAttentionValues(
+  probabilities: readonly (readonly (readonly number[])[])[],
+  value: readonly (readonly number[])[],
+): number[][] {
+  if (probabilities.length !== 4 || value.length !== 2 || value.some((row) => row.length !== 16)) {
+    throw new Error("Probabilidades ou valores fora do contrato da atenção fixa.");
+  }
+  return Array.from({ length: 2 }, (_, token) => Array.from({ length: 4 }, (_, head) =>
+    Array.from({ length: 4 }, (_, dimension) => dotF16(
+      probabilities[head]![token]!,
+      [value[0]![head * 4 + dimension]!, value[1]![head * 4 + dimension]!],
+    ))).flat());
 }
 
 /** Fixed two-token, four-head Llama attention through the masked score boundary. */

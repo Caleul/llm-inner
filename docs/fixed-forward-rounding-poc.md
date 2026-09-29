@@ -52,25 +52,33 @@ nem alterar outputs.
 Para a sequência de dois tokens, `src/fixed-f16-attention-scores.ts` reproduz
 RoPE, produto QK, escala por `1/sqrt(4)` e máscara causal em cada head das duas
 camadas. As saídas intermediárias coincidiram bit a bit com o fixture PyTorch.
-Esse módulo ainda recebe Q/K e cos/sin como valores intermediários, para
-localizar a próxima fronteira; ele não é a função final substituída.
+`src/fixed-f16-two-way-softmax.ts` calcula `exp` por um intervalo racional
+certificado, arredonda exp/soma/divisão a F32 por decisões sobre os pontos
+médios e devolve probabilidades F16. Em seguida, o produto AV e a projeção O
+também coincidiram bit a bit com o forward real, para os dois tokens nas duas
+camadas. Esse caminho ainda usa Q/K/V e cos/sin como valores intermediários
+durante a avaliação; ele não é a função final substituída.
 
-Esses resultados **não** provam igualdade para qualquer entrada ou para a
-atenção com dois ou mais tokens: softmax não trivial e produto AV ainda faltam.
-A hipótese observada para estas projeções é acumulação F32
+Esses resultados **não** provam igualdade para qualquer entrada ou backend:
+a softmax certificada cobre o argumento `exp` em [-1,0] e a região em que
+`exp` arredonda a zero F32. Argumentos fora dessas regiões falham explicitamente.
+A igualdade de `exp` matemático corretamente arredondado com a implementação
+particular de PyTorch também precisa de mais entradas de teste. A hipótese
+observada para estas projeções é acumulação F32
 sequencial; outros kernels podem usar FMA ou outra ordem. Nesses casos a árvore
-precisa incluir as fronteiras do kernel escolhido. A expressão atual não
-representa RMSNorm, RoPE, scores, softmax, máscara, residual, MLP nem logits.
-A semântica de zero com sinal e
-NaN/Inf também precisa ser estabelecida antes de alegar paridade geral.
+precisa incluir as fronteiras do kernel escolhido. A função escalar **composta**
+ainda cobre somente `V -> O` com um token; RoPE, scores, softmax, máscara,
+residual, RMSNorm, MLP e logits ainda não foram incorporados à substituição
+escalar. A semântica de zero com sinal e NaN/Inf também precisa ser estabelecida
+antes de alegar paridade geral.
 
 ## Próxima extensão verificável
 
-1. Fechar a semântica independente de runtime de `exp`, soma e divisão da
-   softmax, preservando os arredondamentos F32 e validando os pontos médios.
-2. Incorporar softmax e produto AV para dois tokens; comparar os bits em cada
-   fronteira antes de substituir Q/K/V nas funções finais.
-3. Conectar o resultado da atenção à projeção `o_proj`, residual,
+1. Estender e validar a softmax para todo o domínio F16 suportado pelo modelo,
+   inclusive transições de underflow e pontos médios.
+2. Substituir Q/K/V, RoPE, softmax, AV e O nas funções escalares finais de cada
+   dimensão, mantendo os pontos de arredondamento e medindo o crescimento.
+3. Conectar o resultado da atenção ao residual,
    RMSNorm e MLP. Repetir a comparação em cada fronteira da camada 0.
 4. Usar a saída validada da camada 0 como entrada da camada 1. Só então
    compor a função dos logits e medir tamanho, custo e paridade por token.
