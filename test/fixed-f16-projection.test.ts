@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import test from "node:test";
 import { SafetensorsCatalogReader } from "../src/safetensors.js";
 import { compileFixedF16Projection, evaluateFixedF16Projection, f16BitsToDyadic, roundDyadicToF16IfElse, roundDyadicToF32IfElse } from "../src/fixed-f16-projection.js";
+import { evaluateFixedScalarFunctions, scalarizeFixedF16Projection, substituteFixedScalarFunctions } from "../src/fixed-f16-scalar-functions.js";
 
 test("if/else F16 respeita limites, empate par, sinal e overflow", () => {
   assert.equal(roundDyadicToF16IfElse({ coefficient: 2049n, exponent: -11 }), 0x3c00); // midpoint 1, 1+2^-10
@@ -88,6 +89,11 @@ test("atenção de um token: compõe V e O nas duas camadas com paridade de bits
       assert.deepEqual(values, reference[valueKey]!.output[0]![0]!, `V camada ${layer}`);
       assert.deepEqual(values, reference[outputKey]!.input[0]![0]!, `entrada O camada ${layer}`);
       assert.deepEqual(evaluateFixedF16Projection(outputProgram, values), reference[outputKey]!.output[0]![0]!, `O camada ${layer}`);
+      const closed = substituteFixedScalarFunctions(scalarizeFixedF16Projection(outputProgram), scalarizeFixedF16Projection(valueProgram));
+      assert.equal(closed.outputs.length, 16);
+      assert.equal(closed.inputSize, 16);
+      assert.deepEqual(evaluateFixedScalarFunctions(closed, reference[valueKey]!.input[0]![0]!), reference[outputKey]!.output[0]![0]!, `funções compostas camada ${layer}`);
+      assert.doesNotMatch(JSON.stringify(closed), /self_attn|v_proj|o_proj|weightBits/);
     }
   } finally { await reader.close(); }
 });

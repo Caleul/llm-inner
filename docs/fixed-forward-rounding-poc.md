@@ -7,8 +7,16 @@ Safetensors com `config.json`. Cada linha vira uma função escalar independente
 os pesos são substituídos por seus bits originais e termos com peso zero são
 eliminados. Cada produto e cada adição do acumulador são arredondados para F32,
 em ordem crescente de índice; a saída passa por uma árvore de decisões que
-escolhe o F16 adjacente. O empate usa o bit par; overflow vai a infinito. Não há dependência do checkpoint ao
-avaliar o programa compilado.
+escolhe o F16 adjacente. O empate usa o bit par; overflow vai a infinito. Não há
+dependência do checkpoint ao avaliar o programa compilado.
+
+`src/fixed-f16-scalar-functions.ts` converte cada linha em uma expressão
+escalar e substitui integralmente os inputs de uma projeção pelas funções da
+anterior. Para o caso de um token, a composição `V -> O` produz 16 funções
+somente dos 16 valores de entrada, sem referência a Q/K/V, nomes de matrizes ou
+checkpoint. Os arredondamentos F32 da soma e F16 da fronteira entre as
+projeções continuam explícitos. Um produto de dois valores F16 finitos cabe
+exatamente em F32, por isso seu arredondamento F32 redundante é eliminado.
 
 O `if/else` é implementado por busca binária sobre os valores F32/F16 positivos,
 seguida de comparação com o ponto médio exato dos vizinhos. Isso representa
@@ -34,7 +42,12 @@ atenção tem uma única chave e vale 1; um segundo fixture confirma a composiç
 real `V -> O` nas duas camadas, incluindo a concatenação das quatro heads, com
 igualdade bit a bit na entrada e na saída de `O`. Um teste sintético cobre
 substituição por dimensão e composição de duas projeções, com arredondamento
-entre elas.
+entre elas. Essa expansão ainda aumenta o tamanho: as expressões separadas
+`V` e `O` têm 1.280 nós cada, enquanto as 16 funções substituídas somam 21.504
+nós (cerca de 811 kB em JSON). Portanto a substituição está demonstrada, mas
+**a compressão de tamanho e a aceleração ainda não estão demonstradas**. A
+simplificação adicional precisa ser medida sem remover fronteiras numéricas
+nem alterar outputs.
 
 Esses resultados **não** provam igualdade para qualquer entrada ou para a
 atenção com dois ou mais tokens, que precisa de RoPE, máscara e softmax não
