@@ -12,7 +12,7 @@
 
 ## Medição local
 
-`node scripts/benchmark-fixed-forward.mjs` faz três aquecimentos e vinte execuções de `[1,2]` em cada runtime, excluindo carregamento e compilação do tempo por forward. Uma execução registrou mediana de 119,47 ms em Node.js para a função fixa e 1,07 ms no PyTorch CPU eager; o próximo token foi 20141 em ambos. O número é específico desta máquina e desta execução. O JSON de uma função auditável para um logit tem 2.046.637 bytes e 13.594 nós; o programa compacto para todos os logits tem 3.411.616 bytes. As contagens de nós e termos estão em `FIXED-FORWARD-METRICS.json`; não são uma contagem completa de instruções CPU nem equiparam automaticamente um nó escalar a uma operação vetorizada.
+`node scripts/benchmark-fixed-forward.mjs` faz três aquecimentos e vinte execuções de `[1,2]` em cada runtime, excluindo carregamento e compilação do tempo por forward. Uma execução registrou mediana de 116,73 ms em Node.js para a função fixa e 1,08 ms no PyTorch CPU eager; o próximo token foi 20141 no executor, no forward e em `model.generate(max_new_tokens=1)`. O número é específico desta máquina e desta execução. O JSON de uma função auditável para um logit tem 2.046.637 bytes e 13.594 nós; o programa compacto para todos os logits tem 3.411.616 bytes. O profiler do PyTorch registrou 665 chamadas de 63 tipos de operador para um forward. As contagens de nós, termos e chamadas estão em `FIXED-FORWARD-METRICS.json`; essas unidades são diferentes e não equivalem a instruções CPU comparáveis.
 
 ## Trabalho restante para a formulação literal máxima
 

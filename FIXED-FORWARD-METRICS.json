@@ -40,20 +40,23 @@
     "lm_head_pairwise_folds": 192000,
     "note": "Counts exclude RMSNorm, SiLU, softmax internals, and F16 conversions; multiply-add terms name a product plus accumulation."
   },
-  "compile_ms": 16.846167,
+  "compile_ms": 17.063958,
   "javascript": {
     "runtime": "Node.js scalar F16",
     "samples": 20,
-    "median_ms": 119.466958,
-    "min_ms": 115.401667,
+    "median_ms": 116.733167,
+    "min_ms": 115.141541,
     "next_token": 20141
   },
   "reference": {
     "runtime": "PyTorch CPU eager",
     "torch": "2.12.1",
     "samples": 20,
-    "median_ms": 1.0671045000000001,
-    "min_ms": 0.882875,
-    "next_token": 20141
+    "median_ms": 1.0763125,
+    "min_ms": 0.952,
+    "next_token": 20141,
+    "generated_token": 20141,
+    "profiler_operator_calls": 665,
+    "profiler_operator_kinds": 63
   }
 }

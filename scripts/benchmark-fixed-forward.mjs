@@ -21,6 +21,10 @@ for (let i = 0; i < 20; i++) {
 const median = (values) => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)];
 const python = spawnSync("venv/bin/python", ["helpers/benchmark_fixed_llama_forward.py"], { encoding: "utf8" });
 if (python.status !== 0) throw new Error(python.stderr);
+const reference = JSON.parse(python.stdout);
+if (output.tokens[1] !== reference.next_token || output.tokens[1] !== reference.generated_token) {
+  throw new Error("Próximo token difere do forward ou generate PyTorch.");
+}
 const counts = {};
 for (const layer of model.layers) for (const node of layer.attention.nodes) counts[node.op] = (counts[node.op] ?? 0) + 1;
 const projectionTerms = (program) => program.rows.reduce((sum, row) => sum + row.terms.length, 0);
@@ -45,7 +49,7 @@ const result = {
   },
   compile_ms: compilationMs,
   javascript: { runtime: "Node.js scalar F16", samples: samples.length, median_ms: median(samples), min_ms: Math.min(...samples), next_token: output.tokens[1] },
-  reference: JSON.parse(python.stdout),
+  reference,
 };
 await writeFile("FIXED-FORWARD-METRICS.json", JSON.stringify(result, null, 2) + "\n");
 process.stdout.write(JSON.stringify(result, null, 2) + "\n");
