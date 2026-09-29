@@ -8,7 +8,35 @@ import { compileFixedF16Projection, evaluateFixedF16Projection, f16BitsToDyadic,
 import { evaluateFixedScalarFunctions, scalarizeFixedF16Projection, substituteFixedScalarFunctions } from "../src/fixed-f16-scalar-functions.js";
 import { evaluateFixedTwoTokenAttentionScores, evaluateFixedTwoTokenAttentionValues } from "../src/fixed-f16-attention-scores.js";
 import { softmaxTwoF16IfElse } from "../src/fixed-f16-two-way-softmax.js";
-import { compileFixedF16ParametricFormulas, evaluateFixedF16ParametricFormulas, substituteFixedF16ParametricFormulas } from "../src/fixed-f16-parametric-formulas.js";
+import { addFixedF16Residual, compileFixedF16AttentionParametricFormulas, compileFixedF16MlpParametricFormulas, compileFixedF16ParametricFormulas, compileFixedF16RmsNormParametricFormulas, estimateFixedF16ParametricSubstitutionCharacters, evaluateFixedF16ParametricFormulas, substituteFactoredRmsNorm, substituteFixedF16ParametricFormulas } from "../src/fixed-f16-parametric-formulas.js";
+
+test("atenção escalar paramétrica compara dimensões finais com PyTorch para n=1..8 e escores extremos", async (context) => {
+  const directory = resolve("artifacts/tiny-random-llama");
+  try { await access(join(directory, "model.safetensors")); } catch { context.skip("checkpoint opcional ausente"); return; }
+  const fixture = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-parametric-attention.json"), "utf8")) as
+    { cases: Record<string, Record<string, { layer_input: number[][][]; post_norm_input: number[][][]; input: number[][][]; output: number[][][] }>>;
+      stress: Record<string, Record<string, { input: number[][][]; output: number[][][] }>> };
+  const reader = new SafetensorsCatalogReader(directory);
+  try { for (const layer of [0, 1]) {
+    const program = await compileFixedF16AttentionParametricFormulas(reader, layer, 4, 4, 4, 10_000, "f32-interleaved-four-lane-pairwise");
+    for (const n of [1, 2, 3, 4, 5, 6, 7, 8]) {
+      const { input, output } = fixture.cases[String(n)]![String(layer)]!;
+      assert.deepEqual(evaluateFixedF16ParametricFormulas(program, input[0]!), output[0], `camada=${layer}, n=${n}`);
+    }
+    for (const scale of [10, 100, 1000]) {
+      const { input, output } = fixture.stress[String(scale)]![String(layer)]!;
+      assert.deepEqual(evaluateFixedF16ParametricFormulas(program, input[0]!), output[0], `camada=${layer}, escala=${scale}`);
+    }
+    const norm = await compileFixedF16RmsNormParametricFormulas(reader, `model.layers.${layer}.input_layernorm.weight`, 1e-6);
+    const fused = substituteFactoredRmsNorm(program, norm);
+    const residual = addFixedF16Residual(fused);
+    for (const n of [1, 2, 3, 4]) {
+      const { layer_input, post_norm_input, output } = fixture.cases[String(n)]![String(layer)]!;
+      assert.deepEqual(evaluateFixedF16ParametricFormulas(fused, layer_input[0]!), output[0], `norm+atenção camada=${layer}, n=${n}`);
+      assert.deepEqual(evaluateFixedF16ParametricFormulas(residual, layer_input[0]!), post_norm_input[0], `residual camada=${layer}, n=${n}`);
+    }
+  } } finally { await reader.close(); }
+});
 
 test("if/else F16 respeita limites, empate par, sinal e overflow", () => {
   assert.equal(roundDyadicToF16IfElse({ coefficient: 2049n, exponent: -11 }), 0x3c00); // midpoint 1, 1+2^-10
@@ -89,6 +117,7 @@ test("fórmulas escalares com pesos substituídos aceitam n tokens e compõem pr
     const k = await compileFixedF16ParametricFormulas(reader, kName);
     const kProjection = await compileFixedF16Projection(reader, kName);
     const composed = substituteFixedF16ParametricFormulas(k, q);
+    assert.equal(estimateFixedF16ParametricSubstitutionCharacters(k, q), BigInt(composed.formulas.join("").length));
     const causalConsumer = { kind: "fixed-f16-parametric-formulas" as const, inputSize: 16, outputSize: 1,
       formulas: ["f16Bits(causalSum(t, (j) => f16(x[j][0])))"], arithmetic: "f32-ascending-products-and-sum" as const };
     const causalClosed = substituteFixedF16ParametricFormulas(causalConsumer, q);
@@ -102,6 +131,92 @@ test("fórmulas escalares com pesos substituídos aceitam n tokens e compõem pr
       assert.deepEqual(evaluateFixedF16ParametricFormulas(causalClosed, input),
         evaluateFixedF16ParametricFormulas(causalConsumer, projected), `n=${length}, redução causal sem estágio`);
       assert.doesNotMatch(composed.formulas.join("\n"), /weightBits|q_proj|k_proj|function|=>/);
+    }
+  } finally { await reader.close(); }
+});
+
+test("fórmulas paramétricas de quatro acumuladores reproduzem PyTorch para n=1..4", async (context) => {
+  const directory = resolve("artifacts/tiny-random-llama");
+  try { await access(join(directory, "model.safetensors")); } catch { context.skip("checkpoint opcional ausente"); return; }
+  const fixture = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-parametric-linear.json"), "utf8")) as
+    { cases: Record<string, { inputs: number[][]; outputs: Record<string, number[][]> }> };
+  const reader = new SafetensorsCatalogReader(directory);
+  try {
+    for (const [name, values] of Object.entries(fixture.cases).filter(([name]) => name.includes("_proj"))) {
+      const program = await compileFixedF16ParametricFormulas(reader, `${name}.weight`, "f32-interleaved-four-lane-pairwise");
+      for (let length = 1; length <= 4; length++) {
+        assert.deepEqual(evaluateFixedF16ParametricFormulas(program, values.inputs.slice(0, length)),
+          values.outputs[String(length)], `${name}, n=${length}`);
+      }
+      assert.doesNotMatch(program.formulas.join("\n"), /weightBits|\.weight|layer\./);
+    }
+  } finally { await reader.close(); }
+});
+
+test("RMSNorm paramétrica F16 reproduz valores PyTorch por dimensão para n=1..4", async (context) => {
+  const directory = resolve("artifacts/tiny-random-llama");
+  try { await access(join(directory, "model.safetensors")); } catch { context.skip("checkpoint opcional ausente"); return; }
+  const fixture = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-parametric-linear.json"), "utf8")) as
+    { cases: Record<string, { inputs: number[][]; outputs: Record<string, number[][]> }> };
+  const reader = new SafetensorsCatalogReader(directory);
+  try {
+    for (const [name, values] of Object.entries(fixture.cases).filter(([name]) => name.includes("layernorm"))) {
+      const program = await compileFixedF16RmsNormParametricFormulas(reader, `${name}.weight`, 1e-6);
+      for (let length = 1; length <= 4; length++) {
+        assert.deepEqual(evaluateFixedF16ParametricFormulas(program, values.inputs.slice(0, length)),
+          values.outputs[String(length)], `${name}, n=${length}`);
+      }
+    }
+  } finally { await reader.close(); }
+});
+
+test("substituição literal de RMSNorm em Q preserva o resultado PyTorch para n variável", async (context) => {
+  const directory = resolve("artifacts/tiny-random-llama");
+  try { await access(join(directory, "model.safetensors")); } catch { context.skip("checkpoint opcional ausente"); return; }
+  const fixture = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-parametric-linear.json"), "utf8")) as
+    { composites: { layer0_norm_q: { inputs: number[][]; outputs: Record<string, number[][]> } } };
+  const reader = new SafetensorsCatalogReader(directory);
+  try {
+    const norm = await compileFixedF16RmsNormParametricFormulas(reader, "model.layers.0.input_layernorm.weight", 1e-6);
+    const q = await compileFixedF16ParametricFormulas(reader, "model.layers.0.self_attn.q_proj.weight", "f32-interleaved-four-lane-pairwise");
+    const composed = substituteFixedF16ParametricFormulas(q, norm);
+    assert.ok(composed.formulas.join("").length > q.formulas.join("").length);
+    for (let length = 1; length <= 4; length++) {
+      assert.deepEqual(evaluateFixedF16ParametricFormulas(composed, fixture.composites.layer0_norm_q.inputs.slice(0, length)),
+        fixture.composites.layer0_norm_q.outputs[String(length)], `n=${length}`);
+    }
+  } finally { await reader.close(); }
+});
+
+test("MLP completa é uma fórmula plana por dimensão para n=1..4", async (context) => {
+  const directory = resolve("artifacts/tiny-random-llama");
+  try { await access(join(directory, "model.safetensors")); } catch { context.skip("checkpoint opcional ausente"); return; }
+  const fixture = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-parametric-linear.json"), "utf8")) as
+    { mlps: Record<string, { inputs: number[][]; outputs: Record<string, number[][]> }> };
+  const reader = new SafetensorsCatalogReader(directory);
+  try {
+    for (const layer of [0, 1]) {
+      const program = await compileFixedF16MlpParametricFormulas(reader, layer, "f32-interleaved-four-lane-pairwise");
+      assert.equal(program.outputSize, 16);
+      assert.doesNotMatch(program.formulas.join("\n"), /gate_proj|up_proj|down_proj|weightBits/);
+      for (let length = 1; length <= 4; length++) {
+        assert.deepEqual(evaluateFixedF16ParametricFormulas(program, fixture.mlps[String(layer)]!.inputs.slice(0, length)),
+          fixture.mlps[String(layer)]!.outputs[String(length)], `camada ${layer}, n=${length}`);
+      }
+    }
+    const norm = await compileFixedF16RmsNormParametricFormulas(reader, "model.layers.0.post_attention_layernorm.weight", 1e-6);
+    const mlp = await compileFixedF16MlpParametricFormulas(reader, 0, "f32-interleaved-four-lane-pairwise");
+    const required = estimateFixedF16ParametricSubstitutionCharacters(mlp, norm);
+    assert.ok(required > 50_000_000n);
+    assert.throws(() => substituteFixedF16ParametricFormulas(mlp, norm, 10_000_000), /Nenhuma fórmula parcial/);
+    const factored = substituteFactoredRmsNorm(mlp, norm, 10_000_000);
+    assert.ok(BigInt(factored.formulas.join("").length) < required / 5n);
+    const fixtureWithComposite = fixture as typeof fixture &
+      { composites: { layer0_post_norm_mlp: { inputs: number[][]; outputs: Record<string, number[][]> } } };
+    for (let length = 1; length <= 4; length++) {
+      assert.deepEqual(evaluateFixedF16ParametricFormulas(factored,
+        fixtureWithComposite.composites.layer0_post_norm_mlp.inputs.slice(0, length)),
+      fixtureWithComposite.composites.layer0_post_norm_mlp.outputs[String(length)], `RMSNorm→MLP n=${length}`);
     }
   } finally { await reader.close(); }
 });

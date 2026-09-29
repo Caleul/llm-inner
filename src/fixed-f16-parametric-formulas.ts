@@ -7,8 +7,10 @@ export interface FixedF16ParametricFormulas {
   inputSize: number;
   outputSize: number;
   formulas: string[];
-  arithmetic: "f32-ascending-products-and-sum";
+  arithmetic: "f32-ascending-products-and-sum" | "f32-interleaved-four-lane-pairwise";
+  rmsFactor?: { expression: string; compactFormulas: string[]; symbol: string };
 }
+export type FixedF16FormulaArithmetic = FixedF16ParametricFormulas["arithmetic"];
 
 function literal(bits: number): string {
   const value = f16BitsToDyadic(bits);
@@ -18,27 +20,178 @@ function literal(bits: number): string {
 }
 
 /** Decode learned weights at compile time; the emitted formulas contain only literals and x[t][i]. */
-export function scalarizeFixedF16ProjectionForAnyLength(projection: FixedF16Projection): FixedF16ParametricFormulas {
-  if (projection.arithmetic !== "f32-ascending-products-and-sum" || projection.rounding !== "binary16-nearest-ties-to-even-conditional") {
+export function scalarizeFixedF16ProjectionForAnyLength(
+  projection: FixedF16Projection, arithmetic: FixedF16FormulaArithmetic = projection.arithmetic,
+): FixedF16ParametricFormulas {
+  if (projection.rounding !== "binary16-nearest-ties-to-even-conditional" ||
+    (arithmetic !== "f32-ascending-products-and-sum" && arithmetic !== "f32-interleaved-four-lane-pairwise")) {
     throw new Error("Política numérica incompatível com a fórmula F16 paramétrica.");
   }
   const formulas = projection.rows.map((row) => {
     let accumulator = "0";
+    const lanes = ["0", "0", "0", "0"];
     for (const term of row.terms) {
       const weight = literal(term.weightBits);
       const product = weight === "1" ? `f16(x[t][${term.input}])` :
         weight === "-1" ? `(-f16(x[t][${term.input}]))` :
         `Math.fround(f16(x[t][${term.input}]) * ${weight})`;
-      accumulator = `Math.fround(${accumulator} + ${product})`;
+      if (arithmetic === "f32-interleaved-four-lane-pairwise") {
+        const lane = term.input & 3;
+        lanes[lane] = `Math.fround(${lanes[lane]} + ${product})`;
+      } else accumulator = `Math.fround(${accumulator} + ${product})`;
+    }
+    if (arithmetic === "f32-interleaved-four-lane-pairwise") {
+      accumulator = `Math.fround(Math.fround(${lanes[0]} + ${lanes[1]}) + Math.fround(${lanes[2]} + ${lanes[3]}))`;
     }
     return `f16Bits(${accumulator})`;
   });
   return { kind: "fixed-f16-parametric-formulas", inputSize: projection.inputSize,
-    outputSize: projection.outputSize, formulas, arithmetic: projection.arithmetic };
+    outputSize: projection.outputSize, formulas, arithmetic };
 }
 
-export async function compileFixedF16ParametricFormulas(reader: SafetensorsCatalogReader, tensor: string): Promise<FixedF16ParametricFormulas> {
-  return scalarizeFixedF16ProjectionForAnyLength(await compileFixedF16Projection(reader, tensor));
+export async function compileFixedF16ParametricFormulas(
+  reader: SafetensorsCatalogReader, tensor: string, arithmetic?: FixedF16FormulaArithmetic,
+): Promise<FixedF16ParametricFormulas> {
+  const projection = await compileFixedF16Projection(reader, tensor);
+  return scalarizeFixedF16ProjectionForAnyLength(projection, arithmetic ?? projection.arithmetic);
+}
+
+/** Per-dimension RMSNorm formula with a literal learned scale and an F32 variance reduction. */
+export async function compileFixedF16RmsNormParametricFormulas(
+  reader: SafetensorsCatalogReader, tensorName: string, epsilon: number,
+): Promise<FixedF16ParametricFormulas> {
+  const tensor = (await reader.inspect()).tensors.get(tensorName);
+  if (!tensor || tensor.storageDtype !== "F16" || tensor.logicalShape.length !== 1 ||
+    !tensor.logicalShape[0] || !Number.isFinite(epsilon) || epsilon < 0) {
+    throw new Error(`${tensorName}: RMSNorm requer vetor F16 e epsilon finito.`);
+  }
+  const size = tensor.logicalShape[0]!;
+  const weights = await reader.readTensorBytes(tensor);
+  let sum = "0";
+  for (let dimension = 0; dimension < size; dimension++) {
+    const x = `f16(x[t][${dimension}])`;
+    sum = `Math.fround(${sum} + Math.fround(${x} * ${x}))`;
+  }
+  const variance = `Math.fround(${sum} / ${size})`;
+  const inverse = `Math.fround(1 / Math.sqrt(Math.fround(${variance} + Math.fround(${epsilon}))))`;
+  const formulas = Array.from({ length: size }, (_, dimension) => {
+    const normalized = `f16Bits(Math.fround(f16(x[t][${dimension}]) * ${inverse}))`;
+    const weight = literal(weights.readUInt16LE(dimension * 2));
+    return weight === "1" ? normalized : `f16Bits(f16(${normalized}) * ${weight})`;
+  });
+  const compactFormulas = Array.from({ length: size }, (_, dimension) => {
+    const normalized = `f16Bits(Math.fround(f16(x[t][${dimension}]) * rms_factor))`;
+    const weight = literal(weights.readUInt16LE(dimension * 2));
+    return weight === "1" ? normalized : `f16Bits(f16(${normalized}) * ${weight})`;
+  });
+  return { kind: "fixed-f16-parametric-formulas", inputSize: size, outputSize: size, formulas,
+    arithmetic: "f32-ascending-products-and-sum", rmsFactor: {
+      expression: inverse, compactFormulas, symbol: `rms_factor_${tensorName.replace(/\W/g, "_")}` } };
+}
+
+/** Hoist only the repeated scalar RMS denominator into the final coordinate function. */
+export function substituteFactoredRmsNorm(
+  consumer: FixedF16ParametricFormulas, norm: FixedF16ParametricFormulas, maxCharacters = 50_000_000,
+): FixedF16ParametricFormulas {
+  if (!norm.rmsFactor) throw new Error("Produtor não é uma RMSNorm fatorável.");
+  const compact: FixedF16ParametricFormulas = { kind: norm.kind, inputSize: norm.inputSize,
+    outputSize: norm.outputSize, arithmetic: norm.arithmetic,
+    formulas: norm.rmsFactor.compactFormulas.map((formula) =>
+      formula.replace(/\brms_factor\b/g, `${norm.rmsFactor!.symbol}(t)`)) };
+  const body = substituteFixedF16ParametricFormulas(consumer, compact, maxCharacters);
+  const prefix = `(() => { const ${norm.rmsFactor.symbol} = (p) => ${norm.rmsFactor.expression.replace(/x\[t\]/g, "x[p]")}; return `;
+  const formulas = body.formulas.map((formula) => `${prefix}${formula}; })()`);
+  if (formulas.reduce((sum, formula) => sum + formula.length, 0) > maxCharacters) {
+    throw new Error(`Fatoração RMSNorm excede ${maxCharacters} caracteres.`);
+  }
+  return { ...body, formulas };
+}
+
+/** Add the original token coordinate after an already substituted branch. */
+export function addFixedF16Residual(branch: FixedF16ParametricFormulas): FixedF16ParametricFormulas {
+  if (branch.inputSize !== branch.outputSize) throw new Error("Residual requer a mesma dimensão de entrada e saída.");
+  return { ...branch, formulas: branch.formulas.map((formula, dimension) =>
+    `add16(x[t][${dimension}],${formula})`) };
+}
+
+/** Fuse gate, SiLU, up and down by physical substitution into each output dimension. */
+export async function compileFixedF16MlpParametricFormulas(
+  reader: SafetensorsCatalogReader, layer: number, arithmetic: FixedF16FormulaArithmetic,
+  maxCharacters = 50_000_000,
+): Promise<FixedF16ParametricFormulas> {
+  const base = `model.layers.${layer}.mlp.`;
+  const gate = await compileFixedF16ParametricFormulas(reader, `${base}gate_proj.weight`, arithmetic);
+  const up = await compileFixedF16ParametricFormulas(reader, `${base}up_proj.weight`, arithmetic);
+  const down = await compileFixedF16ParametricFormulas(reader, `${base}down_proj.weight`, arithmetic);
+  if (gate.inputSize !== up.inputSize || gate.outputSize !== up.outputSize || down.inputSize !== gate.outputSize) {
+    throw new Error(`MLP da camada ${layer}: shapes incompatíveis.`);
+  }
+  const hidden = gate.formulas.map((formula, dimension) => {
+    const silu = `f16Bits(f16(${formula}) / (1 + Math.exp(-f16(${formula}))))`;
+    return `f16Bits(f16(${silu}) * f16(${up.formulas[dimension]!}))`;
+  });
+  return substituteFixedF16ParametricFormulas(down, {
+    kind: "fixed-f16-parametric-formulas", inputSize: gate.inputSize,
+    outputSize: gate.outputSize, formulas: hidden, arithmetic,
+  }, maxCharacters);
+}
+
+/** Expand eager causal attention into scalar formulas with a runtime key bound t. */
+export async function compileFixedF16AttentionParametricFormulas(
+  reader: SafetensorsCatalogReader, layer: number,
+  heads: number, kvHeads: number, headDim: number, ropeTheta: number,
+  arithmetic: FixedF16FormulaArithmetic, maxCharacters = 100_000_000,
+): Promise<FixedF16ParametricFormulas> {
+  if (!Number.isInteger(heads) || !Number.isInteger(kvHeads) || !Number.isInteger(headDim) ||
+    heads <= 0 || kvHeads <= 0 || headDim <= 0 || headDim % 2 !== 0 || heads % kvHeads !== 0 ||
+    !Number.isFinite(ropeTheta) || ropeTheta <= 0) throw new Error("Configuração de atenção incompatível.");
+  const base = `model.layers.${layer}.self_attn.`;
+  const q = await compileFixedF16ParametricFormulas(reader, `${base}q_proj.weight`, arithmetic);
+  const k = await compileFixedF16ParametricFormulas(reader, `${base}k_proj.weight`, arithmetic);
+  const v = await compileFixedF16ParametricFormulas(reader, `${base}v_proj.weight`, arithmetic);
+  const o = await compileFixedF16ParametricFormulas(reader, `${base}o_proj.weight`, arithmetic);
+  if (q.outputSize !== heads * headDim || k.outputSize !== kvHeads * headDim ||
+    v.outputSize !== kvHeads * headDim || o.inputSize !== q.outputSize ||
+    q.inputSize !== k.inputSize || q.inputSize !== v.inputSize) throw new Error("Shapes Q/K/V/O incompatíveis.");
+  const at = (formula: string, position: string) => formula.replace(/x\[t\]/g, `x[${position}]`);
+  const rotate = (formula: string, partner: string, position: string, dimension: number) => {
+    const signedPartner = dimension < headDim / 2 ? `neg16(${at(partner, position)})` : at(partner, position);
+    return `add16(mul16(${at(formula, position)},ropeBits(${position},${dimension},${headDim},${ropeTheta},0)),` +
+      `mul16(${signedPartner},ropeBits(${position},${dimension},${headDim},${ropeTheta},1)))`;
+  };
+  const context = Array.from({ length: heads * headDim }, (_, output) => {
+    const head = Math.floor(output / headDim), dimension = output % headDim;
+    const kvHead = Math.floor(head / (heads / kvHeads));
+    const query = Array.from({ length: headDim }, (_, dim) =>
+      rotate(q.formulas[head * headDim + dim]!, q.formulas[head * headDim + (dim + headDim / 2) % headDim]!, "t", dim));
+    const scoreTerms = Array.from({ length: headDim }, (_, dim) => {
+      const key = rotate(k.formulas[kvHead * headDim + dim]!,
+        k.formulas[kvHead * headDim + (dim + headDim / 2) % headDim]!, "j", dim);
+      return `Math.fround(f16(${query[dim]!}) * f16(${key}))`;
+    });
+    let score = "0";
+    for (const term of scoreTerms) score = `Math.fround(${score} + ${term})`;
+    const scoreBody = `return mul16(f16Bits(${score}),f16Bits(${1 / Math.sqrt(headDim)}));`;
+    const value = at(v.formulas[kvHead * headDim + dimension]!, "j");
+    return `(() => { const score = (j) => { ${scoreBody} }; ` +
+      `let maximum = -Infinity; for (let j = 0; j <= t; j++) maximum = Math.max(maximum, f16(score(j))); ` +
+      `let denominator = Math.fround(0); for (let j = 0; j <= t; j++) denominator = Math.fround(denominator + Math.fround(Math.exp(Math.fround(f16(score(j)) - maximum)))); ` +
+      `let acc = Math.fround(0); for (let j = 0; j <= t; j++) { ` +
+      `const probability = f16Bits(Math.fround(Math.fround(Math.exp(Math.fround(f16(score(j)) - maximum))) / denominator)); ` +
+      `acc = Math.fround(acc + Math.fround(f16(probability) * f16(${value}))); } return f16Bits(acc); })()`;
+  });
+  const result = substituteFixedF16ParametricFormulas(o, { kind: "fixed-f16-parametric-formulas",
+    inputSize: q.inputSize, outputSize: context.length, formulas: context, arithmetic }, maxCharacters);
+  return result;
+}
+
+function neg16(bits: number): number { return bits ^ 0x8000; }
+function mul16(left: number, right: number): number { return f16Bits(f16(left) * f16(right)); }
+function add16(left: number, right: number): number { return f16Bits(f16(left) + f16(right)); }
+function ropeBits(position: number, dimension: number, headDim: number, theta: number, sine: number): number {
+  const frequency = 1 / theta ** (2 * (dimension % (headDim / 2)) / headDim);
+  const angle = Math.fround(position * Math.fround(frequency));
+  return f16Bits(sine ? Math.sin(angle) : Math.cos(angle));
 }
 
 /** Physically substitute every previous-dimension formula; no producer call or stage input remains. */
@@ -46,13 +199,17 @@ export function substituteFixedF16ParametricFormulas(
   consumer: FixedF16ParametricFormulas, producer: FixedF16ParametricFormulas, maxCharacters = 10_000_000,
 ): FixedF16ParametricFormulas {
   if (consumer.inputSize !== producer.outputSize) throw new Error("Dimensões incompatíveis na substituição.");
+  const estimatedCharacters = estimateFixedF16ParametricSubstitutionCharacters(consumer, producer);
+  if (estimatedCharacters > BigInt(maxCharacters)) {
+    throw new Error(`Expansão literal requer ${estimatedCharacters} caracteres; limite ${maxCharacters}. Nenhuma fórmula parcial será retornada.`);
+  }
   let size = 0;
   const formulas = consumer.formulas.map((formula) => {
     const expanded = formula.replace(/x\[([a-z][a-z0-9]*)\]\[(\d+)\]/g, (_match, position: string, rawIndex: string) => {
       const index = Number(rawIndex);
       const replacement = producer.formulas[index];
       if (replacement === undefined) throw new Error(`Dimensão ${index} ausente no produtor.`);
-      return `(${replacement.replace(/x\[t\]/g, `x[${position}]`)})`;
+      return `(${replacement.replace(/x\[t\]/g, `x[${position}]`).replace(/(rms_factor_[a-zA-Z0-9_]+)\(t\)/g, `$1(${position})`)})`;
     });
     size += expanded.length;
     if (size > maxCharacters) throw new Error(`Expansão literal excede ${maxCharacters} caracteres; nenhuma fórmula parcial será retornada.`);
@@ -60,6 +217,27 @@ export function substituteFixedF16ParametricFormulas(
   });
   return { kind: "fixed-f16-parametric-formulas", inputSize: producer.inputSize,
     outputSize: consumer.outputSize, formulas, arithmetic: consumer.arithmetic };
+}
+
+/** Count substituted source bytes before allocating any expanded formula. */
+export function estimateFixedF16ParametricSubstitutionCharacters(
+  consumer: FixedF16ParametricFormulas, producer: FixedF16ParametricFormulas,
+): bigint {
+  if (consumer.inputSize !== producer.outputSize) throw new Error("Dimensões incompatíveis na estimativa.");
+  let total = 0n;
+  for (const formula of consumer.formulas) {
+    let length = BigInt(formula.length);
+    for (const match of formula.matchAll(/x\[([a-z][a-z0-9]*)\]\[(\d+)\]/g)) {
+      const replacement = producer.formulas[Number(match[2])];
+      if (replacement === undefined) throw new Error(`Dimensão ${match[2]} ausente no produtor.`);
+      const occurrences = [...replacement.matchAll(/x\[t\]/g)].length;
+      const factorOccurrences = [...replacement.matchAll(/rms_factor_[a-zA-Z0-9_]+\(t\)/g)].length;
+      length += BigInt(replacement.length + 2 - match[0].length +
+        (occurrences + factorOccurrences) * (match[1]!.length - 1));
+    }
+    total += length;
+  }
+  return total;
 }
 
 function f16(bits: number): number {
@@ -82,12 +260,15 @@ function causalSum(token: number, term: (key: number) => number): number {
 export function evaluateFixedF16ParametricFormulas(program: FixedF16ParametricFormulas, input: readonly (readonly number[])[]): number[][] {
   if (input.some((row) => row.length !== program.inputSize)) throw new Error("Dimensão de entrada incompatível.");
   const functions = program.formulas.map((formula) => {
-    if (!/^f16Bits\([\s\S]*\)$/.test(formula) || /\b(?:weight|projection|layer|eval|require|import)\b/.test(formula)) {
+    if (!(formula.startsWith("f16Bits(") || formula.startsWith("add16(") || formula.startsWith("(() => { const rms_factor_")) ||
+      /\b(?:weight|projection|layer|eval|require|import)\b/.test(formula)) {
       throw new Error("Fórmula escalar inválida ou não substituída.");
     }
-    return new Function("x", "t", "f16", "f16Bits", "causalSum", `return ${formula};`) as
+    return new Function("x", "t", "f16", "f16Bits", "causalSum", "add16", "mul16", "neg16", "ropeBits", `return ${formula};`) as
       (x: readonly (readonly number[])[], t: number, f16: (bits: number) => number,
-        f16Bits: (value: number) => number, causalSum: (token: number, term: (key: number) => number) => number) => number;
+        f16Bits: (value: number) => number, causalSum: (token: number, term: (key: number) => number) => number,
+        add16: (left: number, right: number) => number, mul16: (left: number, right: number) => number,
+        neg16: (value: number) => number, ropeBits: (position: number, dimension: number, headDim: number, theta: number, sine: number) => number) => number;
   });
-  return input.map((_, token) => functions.map((formula) => formula(input, token, f16, f16Bits, causalSum)));
+  return input.map((_, token) => functions.map((formula) => formula(input, token, f16, f16Bits, causalSum, add16, mul16, neg16, ropeBits)));
 }
