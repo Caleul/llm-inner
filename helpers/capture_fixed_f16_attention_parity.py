@@ -56,5 +56,13 @@ with torch.no_grad():
     for length in (1, 4, 8):
         output = model(input_ids=torch.tensor([token_ids[:length]]), use_cache=False)
         token_cases[str(length)] = {"ids": token_ids[:length], "logits": bits(output.logits)}
-json.dump({"torch": torch.__version__, "cases": cases, "stress": stress, "token_cases": token_cases},
+random_token_cases = {}
+with torch.no_grad():
+    for seed, length in ((42, 3), (2026, 7)):
+        generator = torch.Generator().manual_seed(seed)
+        ids = torch.randint(0, model.config.vocab_size, (length,), generator=generator).tolist()
+        output = model(input_ids=torch.tensor([ids]), use_cache=False)
+        random_token_cases[str(seed)] = {"ids": ids, "logits": bits(output.logits)}
+json.dump({"torch": torch.__version__, "cases": cases, "stress": stress, "token_cases": token_cases,
+           "random_token_cases": random_token_cases},
           sys.stdout, separators=(",", ":"))

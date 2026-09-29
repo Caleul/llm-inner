@@ -70,13 +70,17 @@ test("descobre o forward do pacote e gera logits escalares sem nomes de tensores
   const directory = resolve("artifacts/tiny-random-llama");
   try { await access(join(directory, "model.safetensors")); } catch { context.skip("checkpoint opcional ausente"); return; }
   const fixture = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-parametric-attention.json"), "utf8")) as
-    { token_cases: Record<string, { ids: number[]; logits: number[][][] }> };
+    { token_cases: Record<string, { ids: number[]; logits: number[][][] }>;
+      random_token_cases: Record<string, { ids: number[]; logits: number[][][] }> };
   const source = await compileFixedF16ScalarModelFromDirectory(directory);
   const metrics = { calls: {} as Record<string, number> };
   const run = prepareFixedF16CachedScalarSource(source, metrics);
   for (const n of [1, 4, 8]) {
     const { ids, logits } = fixture.token_cases[String(n)]!;
     assert.deepEqual(run(ids.map((id) => [id])), logits[0], `n=${n}`);
+  }
+  for (const [seed, { ids, logits }] of Object.entries(fixture.random_token_cases)) {
+    assert.deepEqual(run(ids.map((id) => [id])), logits[0], `seed=${seed}, n=${ids.length}`);
   }
   assert.ok((metrics.calls["Math.fround"] ?? 0) > 0);
   assert.ok((metrics.calls.f16Bits ?? 0) > 0);
