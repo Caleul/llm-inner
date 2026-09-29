@@ -89,6 +89,9 @@ test("fórmulas escalares com pesos substituídos aceitam n tokens e compõem pr
     const k = await compileFixedF16ParametricFormulas(reader, kName);
     const kProjection = await compileFixedF16Projection(reader, kName);
     const composed = substituteFixedF16ParametricFormulas(k, q);
+    const causalConsumer = { kind: "fixed-f16-parametric-formulas" as const, inputSize: 16, outputSize: 1,
+      formulas: ["f16Bits(causalSum(t, (j) => f16(x[j][0])))"], arithmetic: "f32-ascending-products-and-sum" as const };
+    const causalClosed = substituteFixedF16ParametricFormulas(causalConsumer, q);
     const rows = [...reference[qName]!.input[0]!, reference[qName]!.input[0]![0]!];
     assert.deepEqual(evaluateFixedF16ParametricFormulas(q, rows.slice(0, 2)), reference[qName]!.output[0]);
     for (const length of [0, 1, 2, 3]) {
@@ -96,6 +99,8 @@ test("fórmulas escalares com pesos substituídos aceitam n tokens e compõem pr
       const projected = evaluateFixedF16ParametricFormulas(q, input);
       const expected = projected.map((row) => evaluateFixedF16Projection(kProjection, row));
       assert.deepEqual(evaluateFixedF16ParametricFormulas(composed, input), expected, `n=${length}`);
+      assert.deepEqual(evaluateFixedF16ParametricFormulas(causalClosed, input),
+        evaluateFixedF16ParametricFormulas(causalConsumer, projected), `n=${length}, redução causal sem estágio`);
       assert.doesNotMatch(composed.formulas.join("\n"), /weightBits|q_proj|k_proj|function|=>/);
     }
   } finally { await reader.close(); }

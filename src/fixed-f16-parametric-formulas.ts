@@ -48,11 +48,11 @@ export function substituteFixedF16ParametricFormulas(
   if (consumer.inputSize !== producer.outputSize) throw new Error("Dimensões incompatíveis na substituição.");
   let size = 0;
   const formulas = consumer.formulas.map((formula) => {
-    const expanded = formula.replace(/x\[t\]\[(\d+)\]/g, (_match, rawIndex: string) => {
+    const expanded = formula.replace(/x\[([a-z][a-z0-9]*)\]\[(\d+)\]/g, (_match, position: string, rawIndex: string) => {
       const index = Number(rawIndex);
       const replacement = producer.formulas[index];
       if (replacement === undefined) throw new Error(`Dimensão ${index} ausente no produtor.`);
-      return `(${replacement})`;
+      return `(${replacement.replace(/x\[t\]/g, `x[${position}]`)})`;
     });
     size += expanded.length;
     if (size > maxCharacters) throw new Error(`Expansão literal excede ${maxCharacters} caracteres; nenhuma fórmula parcial será retornada.`);
@@ -72,6 +72,12 @@ function f16Bits(value: number): number {
   return roundDyadicToF16IfElse(f32BitsToDyadic(buffer.getUint32(0, true)));
 }
 
+function causalSum(token: number, term: (key: number) => number): number {
+  let accumulator = Math.fround(0);
+  for (let key = 0; key <= token; key++) accumulator = Math.fround(accumulator + Math.fround(term(key)));
+  return accumulator;
+}
+
 /** Execute source-generated formulas for every token; n is determined only at call time. */
 export function evaluateFixedF16ParametricFormulas(program: FixedF16ParametricFormulas, input: readonly (readonly number[])[]): number[][] {
   if (input.some((row) => row.length !== program.inputSize)) throw new Error("Dimensão de entrada incompatível.");
@@ -79,8 +85,9 @@ export function evaluateFixedF16ParametricFormulas(program: FixedF16ParametricFo
     if (!/^f16Bits\([\s\S]*\)$/.test(formula) || /\b(?:weight|projection|layer|eval|require|import)\b/.test(formula)) {
       throw new Error("Fórmula escalar inválida ou não substituída.");
     }
-    return new Function("x", "t", "f16", "f16Bits", `return ${formula};`) as
-      (x: readonly (readonly number[])[], t: number, f16: (bits: number) => number, f16Bits: (value: number) => number) => number;
+    return new Function("x", "t", "f16", "f16Bits", "causalSum", `return ${formula};`) as
+      (x: readonly (readonly number[])[], t: number, f16: (bits: number) => number,
+        f16Bits: (value: number) => number, causalSum: (token: number, term: (key: number) => number) => number) => number;
   });
-  return input.map((_, token) => functions.map((formula) => formula(input, token, f16, f16Bits)));
+  return input.map((_, token) => functions.map((formula) => formula(input, token, f16, f16Bits, causalSum)));
 }
