@@ -8,7 +8,47 @@ import { compileFixedF16Projection, evaluateFixedF16Projection, f16BitsToDyadic,
 import { evaluateFixedScalarFunctions, scalarizeFixedF16Projection, substituteFixedScalarFunctions } from "../src/fixed-f16-scalar-functions.js";
 import { evaluateFixedTwoTokenAttentionScores, evaluateFixedTwoTokenAttentionValues } from "../src/fixed-f16-attention-scores.js";
 import { softmaxTwoF16IfElse } from "../src/fixed-f16-two-way-softmax.js";
-import { addFixedF16Residual, compileFixedF16AttentionParametricFormulas, compileFixedF16EmbeddingParametricFormulas, compileFixedF16MlpParametricFormulas, compileFixedF16ParametricFormulas, compileFixedF16RmsNormParametricFormulas, composeCachedScalarSource, composeCachedScalarSources, estimateFixedF16ParametricSubstitutionCharacters, evaluateFixedF16CachedScalarSource, evaluateFixedF16ParametricFormulas, scalarSourceFromFormulas, substituteFactoredRmsNorm, substituteFixedF16ParametricFormulas } from "../src/fixed-f16-parametric-formulas.js";
+import { addFixedF16Residual, compileFixedF16AttentionParametricFormulas, compileFixedF16CachedAttentionSource, compileFixedF16CachedMlpSource, compileFixedF16EmbeddingParametricFormulas, compileFixedF16MlpParametricFormulas, compileFixedF16ParametricFormulas, compileFixedF16RmsNormParametricFormulas, composeCachedScalarSource, composeCachedScalarSources, estimateFixedF16ParametricSubstitutionCharacters, evaluateFixedF16CachedScalarSource, evaluateFixedF16ParametricFormulas, prepareFixedF16CachedScalarSource, scalarSourceFromFactoredRmsNorm, scalarSourceFromFormulas, substituteFactoredRmsNorm, substituteFixedF16ParametricFormulas } from "../src/fixed-f16-parametric-formulas.js";
+
+test("MLP escalar com cache gate/up preserva valores F16 para n variável", async (context) => {
+  const directory = resolve("artifacts/tiny-random-llama");
+  try { await access(join(directory, "model.safetensors")); } catch { context.skip("checkpoint opcional ausente"); return; }
+  const fixture = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-parametric-linear.json"), "utf8")) as
+    { mlps: Record<string, { inputs: number[][]; outputs: Record<string, number[][]> }> };
+  const reader = new SafetensorsCatalogReader(directory);
+  try {
+    for (const layer of [0, 1]) {
+      const source = await compileFixedF16CachedMlpSource(reader, fixtureMlpTensors(layer), "f32-interleaved-four-lane-pairwise");
+      for (const n of [1, 2, 3, 4]) {
+        assert.deepEqual(evaluateFixedF16CachedScalarSource(source, fixture.mlps[String(layer)]!.inputs.slice(0, n)),
+          fixture.mlps[String(layer)]!.outputs[String(n)], `layer=${layer}, n=${n}`);
+      }
+    }
+  } finally { await reader.close(); }
+});
+
+test("atenção escalar com cache Q/K/V preserva valores F16 para n variável e escores extremos", async (context) => {
+  const directory = resolve("artifacts/tiny-random-llama");
+  try { await access(join(directory, "model.safetensors")); } catch { context.skip("checkpoint opcional ausente"); return; }
+  const fixture = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-parametric-attention.json"), "utf8")) as
+    { cases: Record<string, { layers: Record<string, { input: number[][][]; output: number[][][] }> }>;
+      stress: Record<string, Record<string, { input: number[][][]; output: number[][][] }>> };
+  const reader = new SafetensorsCatalogReader(directory);
+  try {
+    for (const layer of [0, 1]) {
+      const source = await compileFixedF16CachedAttentionSource(reader, fixtureAttentionTensors(layer),
+        4, 4, 4, 10_000, "f32-interleaved-four-lane-pairwise");
+      for (const n of [1, 2, 3, 4, 5, 6, 7, 8]) {
+        const { input, output } = fixture.cases[String(n)]!.layers[String(layer)]!;
+        assert.deepEqual(evaluateFixedF16CachedScalarSource(source, input[0]!), output[0], `layer=${layer}, n=${n}`);
+      }
+      for (const scale of [10, 100, 1000]) {
+        const { input, output } = fixture.stress[String(scale)]![String(layer)]!;
+        assert.deepEqual(evaluateFixedF16CachedScalarSource(source, input[0]!), output[0], `layer=${layer}, scale=${scale}`);
+      }
+    }
+  } finally { await reader.close(); }
+});
 import { compileFixedF16ScalarModelFromDirectory, readFixedF16ScalarArtifact, writeFixedF16ScalarArtifact } from "../src/fixed-f16-ir-scalar-compiler.js";
 
 test("artefato escalar salvo executa logits sem consultar o checkpoint", async (context) => {
@@ -32,10 +72,15 @@ test("descobre o forward do pacote e gera logits escalares sem nomes de tensores
   const fixture = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-parametric-attention.json"), "utf8")) as
     { token_cases: Record<string, { ids: number[]; logits: number[][][] }> };
   const source = await compileFixedF16ScalarModelFromDirectory(directory);
-  for (const n of [1, 4]) {
+  const metrics = { calls: {} as Record<string, number> };
+  const run = prepareFixedF16CachedScalarSource(source, metrics);
+  for (const n of [1, 4, 8]) {
     const { ids, logits } = fixture.token_cases[String(n)]!;
-    assert.deepEqual(evaluateFixedF16CachedScalarSource(source, ids.map((id) => [id])), logits[0], `n=${n}`);
+    assert.deepEqual(run(ids.map((id) => [id])), logits[0], `n=${n}`);
   }
+  assert.ok((metrics.calls["Math.fround"] ?? 0) > 0);
+  assert.ok((metrics.calls.f16Bits ?? 0) > 0);
+  assert.ok((metrics.calls["Math.exp"] ?? 0) > 0);
 });
 
 const fixtureAttentionTensors = (index: number) => {

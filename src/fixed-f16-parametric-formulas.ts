@@ -22,6 +22,10 @@ export interface FixedF16CachedScalarSource {
   nextCacheId: number;
 }
 
+export interface FixedF16ScalarMetrics {
+  calls: Record<string, number>;
+}
+
 export function scalarSourceFromFormulas(program: FixedF16ParametricFormulas): FixedF16CachedScalarSource {
   return { kind: "fixed-f16-cached-scalar-source", inputSize: program.inputSize,
     outputSize: program.outputSize, formulas: program.formulas, declarations: "", nextCacheId: 0 };
@@ -46,7 +50,7 @@ export function composeCachedScalarSource(
     `default: throw new RangeError("Dimensão escalar inválida"); } })(); ` +
     `${map}.set(key,value); return value; };\n`;
   const formulas = consumer.formulas.map((formula) => formula.replace(
-    /x\[([a-z][a-z0-9]*)\]\[(\d+)\]/g,
+    /x\[([a-z][a-z0-9]*)\]\[([a-z][a-z0-9]*|\d+)\]/g,
     (_match, position: string, dimension: string) => `${name}(${position},${dimension})`,
   ));
   return { kind: "fixed-f16-cached-scalar-source", inputSize: producer.inputSize,
@@ -68,7 +72,7 @@ export function composeCachedScalarSources(
     arithmetic: "f32-interleaved-four-lane-pairwise" }, producer);
   const selectorName = `scalar_cache_${producer.nextCacheId}`;
   const declarations = producer.declarations + selector.declarations.slice(producer.declarations.length) +
-    shiftedDeclarations.replace(/x\[([a-z][a-z0-9]*)\]\[(\d+)\]/g,
+    shiftedDeclarations.replace(/x\[([a-z][a-z0-9]*)\]\[([a-z][a-z0-9]*|\d+)\]/g,
       (_match, position: string, dimension: string) => `${selectorName}(${position},${dimension})`);
   return { ...selector, declarations,
     nextCacheId: producer.nextCacheId + consumer.nextCacheId + 1 };
@@ -76,37 +80,64 @@ export function composeCachedScalarSources(
 
 /** Prepare the generated scalar source once, retaining no input or checkpoint state. */
 export function prepareFixedF16CachedScalarSource(
-  program: FixedF16CachedScalarSource,
+  program: FixedF16CachedScalarSource, metrics?: FixedF16ScalarMetrics,
 ): (input: readonly (readonly number[])[]) => number[][] {
+  const count = <T extends (...args: never[]) => number>(name: string, functionValue: T): T =>
+    (metrics ? ((...args: Parameters<T>) => {
+      metrics.calls[name] = (metrics.calls[name] ?? 0) + 1;
+      return functionValue(...args);
+    }) as T : functionValue);
+  const scalarF16 = count("f16", f16);
+  const scalarF16Bits = count("f16Bits", f16Bits);
+  const scalarAdd16 = count("add16", add16);
+  const scalarMul16 = count("mul16", mul16);
+  const scalarNeg16 = count("neg16", neg16);
+  const scalarRopeBits = count("ropeBits", ropeBits);
+  const scalarMath = metrics ? Object.assign(Object.create(Math) as Math,
+    Object.fromEntries(["fround", "exp", "sqrt", "sin", "cos", "max"].map((name) =>
+      [name, count(`Math.${name}`, (Math as unknown as Record<string, (...args: never[]) => number>)[name]!)]))) : Math;
   const validate = (input: readonly (readonly number[])[]) => {
     if (input.some((row) => row.length !== program.inputSize)) throw new Error("Dimensão de entrada incompatível.");
   };
   if (program.outputSize > 1024 && program.nextCacheId > 0) {
+    if (program.formulas.every((formula) => formula === program.formulas[0])) {
+      const factory = new Function("x", "f16", "f16Bits", "add16", "mul16", "neg16", "ropeBits", "Math",
+        `${program.declarations} return (t,d) => ${program.formulas[0]};`) as (...args: any[]) =>
+        (t: number, d: number) => number;
+      return (input) => {
+        validate(input);
+        const scalar = factory(input, scalarF16, scalarF16Bits, scalarAdd16,
+          scalarMul16, scalarNeg16, scalarRopeBits, scalarMath);
+        return input.map((_, t) => Array.from({ length: program.outputSize }, (_unused, d) => scalar(t, d)));
+      };
+    }
     const name = `scalar_cache_${program.nextCacheId - 1}`;
     if (program.formulas.some((formula) => !formula.includes(`${name}(`))) {
       throw new Error("Saída larga requer uma fonte escalar final fatorada.");
     }
-    const coreFactory = new Function("x", "f16", "f16Bits", "add16", "mul16", "neg16", "ropeBits",
+    const coreFactory = new Function("x", "f16", "f16Bits", "add16", "mul16", "neg16", "ropeBits", "Math",
       `${program.declarations} return ${name};`) as (...args: any[]) => (t: number, d: number) => number;
     const rows = program.formulas.map((formula) => new Function("t", name, "f16", "f16Bits", "add16", "mul16",
-      "neg16", "ropeBits", `return ${formula};`) as (...args: any[]) => number);
+      "neg16", "ropeBits", "Math", `return ${formula};`) as (...args: any[]) => number);
     return (input) => {
       validate(input);
-      const core = coreFactory(input, f16, f16Bits, add16, mul16, neg16, ropeBits);
-      return input.map((_, t) => rows.map((row) => row(t, core, f16, f16Bits, add16, mul16, neg16, ropeBits)));
+      const core = coreFactory(input, scalarF16, scalarF16Bits, scalarAdd16, scalarMul16, scalarNeg16, scalarRopeBits, scalarMath);
+      return input.map((_, t) => rows.map((row) => row(t, core, scalarF16, scalarF16Bits,
+        scalarAdd16, scalarMul16, scalarNeg16, scalarRopeBits, scalarMath)));
     };
   }
   const source = `${program.declarations} return (t,d) => { switch(d) { ${scalarCases(program.formulas)} ` +
     `default: throw new RangeError("Dimensão escalar inválida"); } };`;
-  const factory = new Function("x", "f16", "f16Bits", "add16", "mul16", "neg16", "ropeBits", source) as
+  const factory = new Function("x", "f16", "f16Bits", "add16", "mul16", "neg16", "ropeBits", "Math", source) as
     (x: readonly (readonly number[])[], f16: (bits: number) => number, f16Bits: (value: number) => number,
       add16: (left: number, right: number) => number, mul16: (left: number, right: number) => number,
       neg16: (bits: number) => number,
-      rope: (position: number, dimension: number, headDim: number, theta: number, sine: number) => number)
+      rope: (position: number, dimension: number, headDim: number, theta: number, sine: number) => number,
+      math: Math)
       => (t: number, d: number) => number;
   return (input) => {
     validate(input);
-    const scalar = factory(input, f16, f16Bits, add16, mul16, neg16, ropeBits);
+    const scalar = factory(input, scalarF16, scalarF16Bits, scalarAdd16, scalarMul16, scalarNeg16, scalarRopeBits, scalarMath);
     return input.map((_, t) => Array.from({ length: program.outputSize }, (_unused, d) => scalar(t, d)));
   };
 }
@@ -161,6 +192,30 @@ export async function compileFixedF16ParametricFormulas(
   return scalarizeFixedF16ProjectionForAnyLength(projection, arithmetic ?? projection.arithmetic);
 }
 
+/** Literal row selection plus the declared four-lane F32 reduction for a wide output projection. */
+export async function compileFixedF16CachedWideLinearSource(
+  reader: SafetensorsCatalogReader, tensorName: string,
+): Promise<FixedF16CachedScalarSource> {
+  const tensor = (await reader.inspect()).tensors.get(tensorName);
+  if (!tensor || tensor.storageDtype !== "F16" || tensor.logicalShape.length !== 2 ||
+    !tensor.logicalShape[0] || !tensor.logicalShape[1]) throw new Error(`${tensorName}: matriz F16 incompatível.`);
+  const [outputs, inputs] = tensor.logicalShape as [number, number];
+  const bytes = await reader.readTensorBytes(tensor);
+  const rows = Array.from({ length: outputs }, (_unused, output) => {
+    const weights = Array.from({ length: inputs }, (_unusedInput, input) =>
+      literal(bytes.readUInt16LE((output * inputs + input) * 2)));
+    return `case ${output}: return [${weights.join(",")}];`;
+  }).join("");
+  const declarations = `const wideRow=(d)=>{switch(d){${rows}default:throw new RangeError("Dimensão inválida");}};\n` +
+    `const wideDot=(p,d)=>{const row=wideRow(d),lanes=[0,0,0,0];` +
+    `for(let i=0;i<${inputs};i++){const weight=row[i],input=f16(x[p][i]);` +
+    `const product=weight===1?input:weight===-1?-input:Math.fround(input*weight);` +
+    `const lane=i&3;lanes[lane]=Math.fround(lanes[lane]+product);}` +
+    `return f16Bits(Math.fround(Math.fround(lanes[0]+lanes[1])+Math.fround(lanes[2]+lanes[3])));};\n`;
+  return { kind: "fixed-f16-cached-scalar-source", inputSize: inputs, outputSize: outputs,
+    declarations, nextCacheId: 0, formulas: Array.from({ length: outputs }, () => "wideDot(t,d)") };
+}
+
 /** Literal token selection for one embedding dimension, with arbitrary input token IDs. */
 export async function compileFixedF16EmbeddingParametricFormulas(
   reader: SafetensorsCatalogReader, tensorName: string,
@@ -177,6 +232,27 @@ export async function compileFixedF16EmbeddingParametricFormulas(
   });
   return { kind: "fixed-f16-parametric-formulas", inputSize: 1, outputSize: dimensions,
     formulas, arithmetic: "f32-ascending-products-and-sum" };
+}
+
+/** One token switch containing literal rows, instead of repeating 32k cases for every dimension. */
+export async function compileFixedF16CachedEmbeddingSource(
+  reader: SafetensorsCatalogReader, tensorName: string,
+): Promise<FixedF16CachedScalarSource> {
+  const tensor = (await reader.inspect()).tensors.get(tensorName);
+  if (!tensor || tensor.storageDtype !== "F16" || tensor.logicalShape.length !== 2 ||
+    !tensor.logicalShape[0] || !tensor.logicalShape[1]) throw new Error(`${tensorName}: embedding F16 incompatível.`);
+  const [vocabulary, dimensions] = tensor.logicalShape as [number, number];
+  const bytes = await reader.readTensorBytes(tensor);
+  const cases = Array.from({ length: vocabulary }, (_unused, token) => {
+    const row = Array.from({ length: dimensions }, (_unusedDimension, dimension) =>
+      bytes.readUInt16LE((token * dimensions + dimension) * 2));
+    return `case ${token}: return [${row.join(",")}][d];`;
+  }).join("");
+  const declarations = `const embeddedScalar=(p,d)=>{ switch(x[p][0]){ ${cases} ` +
+    `default: throw new RangeError("Token fora do vocabulário"); } };\n`;
+  return { kind: "fixed-f16-cached-scalar-source", inputSize: 1, outputSize: dimensions,
+    declarations, nextCacheId: 0,
+    formulas: Array.from({ length: dimensions }, () => "embeddedScalar(t,d)") };
 }
 
 /** Per-dimension RMSNorm formula with a literal learned scale and an F32 variance reduction. */
@@ -230,6 +306,18 @@ export function substituteFactoredRmsNorm(
   return { ...body, formulas };
 }
 
+/** One scalar inverse RMS per position, shared by every output coordinate. */
+export function scalarSourceFromFactoredRmsNorm(norm: FixedF16ParametricFormulas): FixedF16CachedScalarSource {
+  if (!norm.rmsFactor) throw new Error("RMSNorm fatorável necessária.");
+  const { symbol, expression, compactFormulas } = norm.rmsFactor;
+  const values = `${symbol}_values`;
+  const declarations = `const ${values}=new Map(); const ${symbol}=(p)=>{ if(${values}.has(p)) return ${values}.get(p); ` +
+    `const value=${expression.replace(/x\[t\]/g, "x[p]")}; ${values}.set(p,value); return value; };\n`;
+  return { kind: "fixed-f16-cached-scalar-source", inputSize: norm.inputSize,
+    outputSize: norm.outputSize, declarations, nextCacheId: 0,
+    formulas: compactFormulas.map((formula) => formula.replace(/\brms_factor\b/g, `${symbol}(t)`)) };
+}
+
 /** Add the original token coordinate after an already substituted branch. */
 export function addFixedF16Residual(branch: FixedF16ParametricFormulas): FixedF16ParametricFormulas {
   if (branch.inputSize !== branch.outputSize) throw new Error("Residual requer a mesma dimensão de entrada e saída.");
@@ -257,6 +345,37 @@ export async function compileFixedF16MlpParametricFormulas(
     kind: "fixed-f16-parametric-formulas", inputSize: gate.inputSize,
     outputSize: gate.outputSize, formulas: hidden, arithmetic,
   }, maxCharacters);
+}
+
+let mlpSourceId = 0;
+
+/** Factor gate/up activations before the down projection; all weights remain literal. */
+export async function compileFixedF16CachedMlpSource(
+  reader: SafetensorsCatalogReader, tensors: { gate: string; up: string; down: string },
+  arithmetic: FixedF16FormulaArithmetic,
+): Promise<FixedF16CachedScalarSource> {
+  const gate = await compileFixedF16ParametricFormulas(reader, tensors.gate, arithmetic);
+  const up = await compileFixedF16ParametricFormulas(reader, tensors.up, arithmetic);
+  const down = await compileFixedF16ParametricFormulas(reader, tensors.down, arithmetic);
+  if (gate.inputSize !== up.inputSize || gate.outputSize !== up.outputSize || down.inputSize !== gate.outputSize) {
+    throw new Error("MLP: shapes incompatíveis.");
+  }
+  const suffix = `_${mlpSourceId++}`;
+  const projection = (name: string, program: FixedF16ParametricFormulas) =>
+    `const ${name}Values${suffix}=new Map(); const ${name}${suffix}=(p,d)=>{ ` +
+    `const key=p*${program.outputSize}+d; if(${name}Values${suffix}.has(key)) return ${name}Values${suffix}.get(key); ` +
+    `const value=(() => { const t=p; switch(d){ ${scalarCases(program.formulas)} default: throw new RangeError("Dimensão inválida"); } })(); ` +
+    `${name}Values${suffix}.set(key,value); return value; };\n`;
+  const declarations = projection("gate", gate) + projection("up", up) +
+    `const hiddenValues${suffix}=new Map(); const hidden${suffix}=(p,d)=>{ ` +
+    `const key=p*${gate.outputSize}+d; if(hiddenValues${suffix}.has(key)) return hiddenValues${suffix}.get(key); ` +
+    `const g=gate${suffix}(p,d),u=up${suffix}(p,d); ` +
+    `const activated=f16Bits(f16(g)/(1+Math.exp(-f16(g)))); ` +
+    `const value=f16Bits(f16(activated)*f16(u)); hiddenValues${suffix}.set(key,value); return value; };\n`;
+  const formulas = down.formulas.map((formula) => formula.replace(/x\[t\]\[(\d+)\]/g,
+    (_match, dimension: string) => `hidden${suffix}(t,${dimension})`));
+  return { kind: "fixed-f16-cached-scalar-source", inputSize: gate.inputSize,
+    outputSize: down.outputSize, formulas, declarations, nextCacheId: 0 };
 }
 
 /** Expand eager causal attention into scalar formulas with a runtime key bound t. */
@@ -305,6 +424,60 @@ export async function compileFixedF16AttentionParametricFormulas(
   const result = substituteFixedF16ParametricFormulas(o, { kind: "fixed-f16-parametric-formulas",
     inputSize: q.inputSize, outputSize: context.length, formulas: context, arithmetic }, maxCharacters);
   return result;
+}
+
+let attentionSourceId = 0;
+
+/** Same eager attention equation, with each Q/K/V, score and context scalar evaluated once per coordinate. */
+export async function compileFixedF16CachedAttentionSource(
+  reader: SafetensorsCatalogReader, tensors: { q: string; k: string; v: string; o: string },
+  heads: number, kvHeads: number, headDim: number, ropeTheta: number,
+  arithmetic: FixedF16FormulaArithmetic,
+): Promise<FixedF16CachedScalarSource> {
+  if (!Number.isInteger(heads) || !Number.isInteger(kvHeads) || !Number.isInteger(headDim) ||
+    heads <= 0 || kvHeads <= 0 || headDim <= 0 || headDim % 2 !== 0 || heads % kvHeads !== 0 ||
+    !Number.isFinite(ropeTheta) || ropeTheta <= 0) throw new Error("Configuração de atenção incompatível.");
+  const q = await compileFixedF16ParametricFormulas(reader, tensors.q, arithmetic);
+  const k = await compileFixedF16ParametricFormulas(reader, tensors.k, arithmetic);
+  const v = await compileFixedF16ParametricFormulas(reader, tensors.v, arithmetic);
+  const o = await compileFixedF16ParametricFormulas(reader, tensors.o, arithmetic);
+  if (q.outputSize !== heads * headDim || k.outputSize !== kvHeads * headDim ||
+    v.outputSize !== kvHeads * headDim || o.inputSize !== q.outputSize ||
+    q.inputSize !== k.inputSize || q.inputSize !== v.inputSize) throw new Error("Shapes Q/K/V/O incompatíveis.");
+  const id = attentionSourceId++;
+  const suffix = `_${id}`;
+  const projection = (name: string, program: FixedF16ParametricFormulas) =>
+    `const ${name}Values${suffix} = new Map(); const ${name}${suffix} = (p,d) => { ` +
+    `const key=p*${program.outputSize}+d; if (${name}Values${suffix}.has(key)) return ${name}Values${suffix}.get(key); ` +
+    `const value=(() => { const t=p; switch(d){ ${scalarCases(program.formulas)} default: throw new RangeError("Dimensão inválida"); } })(); ` +
+    `${name}Values${suffix}.set(key,value); return value; };\n`;
+  const rotate = (project: string) => `const ${project}Rot${suffix} = (p,h,d) => { ` +
+    `const partner=(d+${headDim / 2})%${headDim}; ` +
+    `const signed=d<${headDim / 2}?neg16(${project}${suffix}(p,h*${headDim}+partner)):${project}${suffix}(p,h*${headDim}+partner); ` +
+    `return add16(mul16(${project}${suffix}(p,h*${headDim}+d),ropeBits(p,d,${headDim},${ropeTheta},0)),` +
+    `mul16(signed,ropeBits(p,d,${headDim},${ropeTheta},1))); };\n`;
+  const declarations = projection("q", q) + projection("k", k) + projection("v", v) +
+    rotate("q") + rotate("k") +
+    `const scoreValues${suffix}=new Map(); const score${suffix}=(p,j,h)=>{ const key=(p*(p+1)/2+j)*${heads}+h; ` +
+    `if(scoreValues${suffix}.has(key)) return scoreValues${suffix}.get(key); ` +
+    `let total=Math.fround(0); for(let d=0;d<${headDim};d++){ ` +
+    `total=Math.fround(total+Math.fround(f16(qRot${suffix}(p,h,d))*f16(kRot${suffix}(j,Math.floor(h/${heads / kvHeads}),d)))); } ` +
+    `const value=mul16(f16Bits(total),f16Bits(${1 / Math.sqrt(headDim)})); ` +
+    `scoreValues${suffix}.set(key,value); return value; };\n` +
+    `const contextValues${suffix}=new Map(); const context${suffix}=(p,coordinate)=>{ ` +
+    `const key=p*${heads * headDim}+coordinate; if(contextValues${suffix}.has(key)) return contextValues${suffix}.get(key); ` +
+    `const h=Math.floor(coordinate/${headDim}),d=coordinate%${headDim},kvh=Math.floor(h/${heads / kvHeads}); ` +
+    `let maximum=-Infinity; for(let j=0;j<=p;j++) maximum=Math.max(maximum,f16(score${suffix}(p,j,h))); ` +
+    `let denominator=Math.fround(0); for(let j=0;j<=p;j++) ` +
+    `denominator=Math.fround(denominator+Math.fround(Math.exp(Math.fround(f16(score${suffix}(p,j,h))-maximum)))); ` +
+    `let acc=Math.fround(0); for(let j=0;j<=p;j++){ ` +
+    `const probability=f16Bits(Math.fround(Math.fround(Math.exp(Math.fround(f16(score${suffix}(p,j,h))-maximum)))/denominator)); ` +
+    `acc=Math.fround(acc+Math.fround(f16(probability)*f16(v${suffix}(j,kvh*${headDim}+d)))); } ` +
+    `const value=f16Bits(acc); contextValues${suffix}.set(key,value); return value; };\n`;
+  const formulas = o.formulas.map((formula) => formula.replace(/x\[t\]\[(\d+)\]/g,
+    (_match, dimension: string) => `context${suffix}(t,${dimension})`));
+  return { kind: "fixed-f16-cached-scalar-source", inputSize: q.inputSize,
+    outputSize: o.outputSize, formulas, declarations, nextCacheId: 0 };
 }
 
 function neg16(bits: number): number { return bits ^ 0x8000; }

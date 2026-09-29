@@ -5,11 +5,12 @@ import { openCatalog } from "./catalog.js";
 import { SafetensorsCatalogReader } from "./safetensors.js";
 import type { Operation } from "./types.js";
 import {
-  addFixedF16Residual, compileFixedF16AttentionParametricFormulas,
-  compileFixedF16EmbeddingParametricFormulas, compileFixedF16MlpParametricFormulas,
-  compileFixedF16ParametricFormulas, compileFixedF16RmsNormParametricFormulas,
-  composeCachedScalarSource, composeCachedScalarSources, scalarSourceFromFormulas,
-  substituteFactoredRmsNorm, type FixedF16CachedScalarSource,
+  compileFixedF16CachedAttentionSource,
+  compileFixedF16CachedEmbeddingSource, compileFixedF16CachedMlpSource,
+  compileFixedF16CachedWideLinearSource,
+  compileFixedF16RmsNormParametricFormulas,
+  composeCachedScalarSource, composeCachedScalarSources, scalarSourceFromFactoredRmsNorm, scalarSourceFromFormulas,
+  type FixedF16CachedScalarSource,
 } from "./fixed-f16-parametric-formulas.js";
 
 type Linear = Extract<Operation, { op: "linear" }>;
@@ -51,7 +52,7 @@ export async function compileFixedF16ScalarModelFromDirectory(directory: string)
     requireForward(ir.prelude.length === 1 && ir.prelude[0]?.op === "embedding" &&
       ir.prelude[0].scale === undefined && ir.prelude[0].weight.storageDtype === "F16",
     "embedding F16 sem escala necessário");
-    const embedding = await compileFixedF16EmbeddingParametricFormulas(reader, ir.prelude[0].weight.name);
+    const embedding = await compileFixedF16CachedEmbeddingSource(reader, ir.prelude[0].weight.name);
     let source: FixedF16CachedScalarSource | undefined;
     for (const layer of ir.layers) {
       const ops = layer.operations;
@@ -97,17 +98,19 @@ export async function compileFixedF16ScalarModelFromDirectory(directory: string)
         secondAdd.inputs.includes(firstAdd.output) && secondAdd.inputs.includes(down.output),
       `camada ${layer.index}: dependências ou semântica numérica divergentes`);
       const compiledNorm = await compileFixedF16RmsNormParametricFormulas(reader, tensor(inputNorm), inputNorm.epsilon);
-      const compiledAttention = await compileFixedF16AttentionParametricFormulas(reader,
+      const compiledAttention = await compileFixedF16CachedAttentionSource(reader,
         { q: tensor(q), k: tensor(k), v: tensor(v), o: tensor(o) }, attention.numAttentionHeads,
         attention.numKeyValueHeads, attention.headDim, qRope.theta, "f32-interleaved-four-lane-pairwise");
-      const firstResidual = addFixedF16Residual(substituteFactoredRmsNorm(compiledAttention, compiledNorm));
+      const normalizedAttention = composeCachedScalarSources(compiledAttention, scalarSourceFromFactoredRmsNorm(compiledNorm));
+      const firstResidual = { ...normalizedAttention, formulas: normalizedAttention.formulas.map((formula, dimension) =>
+        `add16(x[t][${dimension}],${formula})`) };
       const compiledPostNorm = await compileFixedF16RmsNormParametricFormulas(reader, tensor(postNorm), postNorm.epsilon);
-      const compiledMlp = await compileFixedF16MlpParametricFormulas(reader,
+      const compiledMlp = await compileFixedF16CachedMlpSource(reader,
         { gate: tensor(gate), up: tensor(up), down: tensor(down) }, "f32-interleaved-four-lane-pairwise");
-      const postMlp = substituteFactoredRmsNorm(compiledMlp, compiledPostNorm);
+      const postMlp = composeCachedScalarSources(compiledMlp, scalarSourceFromFactoredRmsNorm(compiledPostNorm));
       const secondResidual = { ...postMlp, formulas: postMlp.formulas.map((formula, dimension) =>
         `add16(x[t][${dimension}],${formula})`) };
-      const local = composeCachedScalarSource(secondResidual, scalarSourceFromFormulas(firstResidual));
+      const local = composeCachedScalarSources(secondResidual, firstResidual);
       source = source ? composeCachedScalarSources(local, source) : local;
     }
     requireForward(source && ir.epilogue.length === 2, "normalização final e projeção de logits necessárias");
@@ -116,9 +119,9 @@ export async function compileFixedF16ScalarModelFromDirectory(directory: string)
     requireForward(head.input === finalNorm.output, "projeção final não recebe a RMSNorm final");
     const normalized = composeCachedScalarSource(await compileFixedF16RmsNormParametricFormulas(
       reader, tensor(finalNorm), finalNorm.epsilon), source);
-    const logits = composeCachedScalarSource(await compileFixedF16ParametricFormulas(
-      reader, tensor(head), "f32-interleaved-four-lane-pairwise"), normalized);
-    return composeCachedScalarSources(logits, scalarSourceFromFormulas(embedding));
+    const logits = composeCachedScalarSources(await compileFixedF16CachedWideLinearSource(
+      reader, tensor(head)), normalized);
+    return composeCachedScalarSources(logits, embedding);
   } finally {
     await reader.close();
     await opened.close();

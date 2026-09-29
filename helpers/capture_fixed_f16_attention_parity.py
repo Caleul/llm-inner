@@ -50,10 +50,10 @@ for scale in (10, 100, 1000):
         for layer_index, layer in enumerate(model.model.layers):
             output, _ = layer.self_attn(hidden_states=hidden, position_embeddings=rotary, attention_mask=mask)
             stress[str(scale)][str(layer_index)] = {"input": bits(hidden), "output": bits(output)}
-token_ids = [1, 17, 109, 31999]
+token_ids = [1, 17, 109, 31999, 5, 23, 407, 25000]
 token_cases = {}
 with torch.no_grad():
-    for length in (1, 4):
+    for length in (1, 4, 8):
         output = model(input_ids=torch.tensor([token_ids[:length]]), use_cache=False)
         token_cases[str(length)] = {"ids": token_ids[:length], "logits": bits(output.logits)}
 json.dump({"torch": torch.__version__, "cases": cases, "stress": stress, "token_cases": token_cases},
