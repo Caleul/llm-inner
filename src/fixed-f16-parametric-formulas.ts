@@ -12,6 +12,97 @@ export interface FixedF16ParametricFormulas {
 }
 export type FixedF16FormulaArithmetic = FixedF16ParametricFormulas["arithmetic"];
 
+/** Source for one requested scalar F(t,d); declarations contain only scalar caches. */
+export interface FixedF16CachedScalarSource {
+  kind: "fixed-f16-cached-scalar-source";
+  inputSize: number;
+  outputSize: number;
+  formulas: string[];
+  declarations: string;
+  nextCacheId: number;
+}
+
+export function scalarSourceFromFormulas(program: FixedF16ParametricFormulas): FixedF16CachedScalarSource {
+  return { kind: "fixed-f16-cached-scalar-source", inputSize: program.inputSize,
+    outputSize: program.outputSize, formulas: program.formulas, declarations: "", nextCacheId: 0 };
+}
+
+function scalarCases(formulas: readonly string[]): string {
+  return formulas.map((formula, dimension) => `case ${dimension}: return ${formula};`).join("\n");
+}
+
+/** Substitute a preceding scalar calculation once; repeated coordinates use its local cache. */
+export function composeCachedScalarSource(
+  consumer: FixedF16ParametricFormulas, producer: FixedF16CachedScalarSource,
+): FixedF16CachedScalarSource {
+  if (consumer.inputSize !== producer.outputSize) throw new Error("Dimensões incompatíveis na composição escalar.");
+  const id = producer.nextCacheId;
+  const name = `scalar_cache_${id}`;
+  const map = `scalar_values_${id}`;
+  const declaration = `const ${map} = new Map();\n` +
+    `const ${name} = (p,d) => { const key = p * ${producer.outputSize} + d; ` +
+    `if (${map}.has(key)) return ${map}.get(key); ` +
+    `const value = (() => { const t = p; switch(d) { ${scalarCases(producer.formulas)} ` +
+    `default: throw new RangeError("Dimensão escalar inválida"); } })(); ` +
+    `${map}.set(key,value); return value; };\n`;
+  const formulas = consumer.formulas.map((formula) => formula.replace(
+    /x\[([a-z][a-z0-9]*)\]\[(\d+)\]/g,
+    (_match, position: string, dimension: string) => `${name}(${position},${dimension})`,
+  ));
+  return { kind: "fixed-f16-cached-scalar-source", inputSize: producer.inputSize,
+    outputSize: consumer.outputSize, declarations: producer.declarations + declaration,
+    formulas, nextCacheId: id + 1 };
+}
+
+/** Compose two already factored scalar functions, renaming cache bindings before substitution. */
+export function composeCachedScalarSources(
+  consumer: FixedF16CachedScalarSource, producer: FixedF16CachedScalarSource,
+): FixedF16CachedScalarSource {
+  if (consumer.inputSize !== producer.outputSize) throw new Error("Dimensões incompatíveis na composição escalar.");
+  const shifted = (source: string) => source.replace(/\b(scalar_cache_|scalar_values_)(\d+)\b/g,
+    (_match, prefix: string, id: string) => `${prefix}${Number(id) + producer.nextCacheId + 1}`);
+  const shiftedFormulas = consumer.formulas.map(shifted);
+  const shiftedDeclarations = shifted(consumer.declarations);
+  const selector = composeCachedScalarSource({ kind: "fixed-f16-parametric-formulas", inputSize: producer.outputSize,
+    outputSize: consumer.outputSize, formulas: shiftedFormulas,
+    arithmetic: "f32-interleaved-four-lane-pairwise" }, producer);
+  const selectorName = `scalar_cache_${producer.nextCacheId}`;
+  const declarations = producer.declarations + selector.declarations.slice(producer.declarations.length) +
+    shiftedDeclarations.replace(/x\[([a-z][a-z0-9]*)\]\[(\d+)\]/g,
+      (_match, position: string, dimension: string) => `${selectorName}(${position},${dimension})`);
+  return { ...selector, declarations,
+    nextCacheId: producer.nextCacheId + consumer.nextCacheId + 1 };
+}
+
+/** Compile a single parameterized dimension function, sharing scalar values within a call. */
+export function evaluateFixedF16CachedScalarSource(
+  program: FixedF16CachedScalarSource, input: readonly (readonly number[])[],
+): number[][] {
+  if (input.some((row) => row.length !== program.inputSize)) throw new Error("Dimensão de entrada incompatível.");
+  if (program.outputSize > 1024 && program.nextCacheId > 0) {
+    const name = `scalar_cache_${program.nextCacheId - 1}`;
+    if (program.formulas.some((formula) => !formula.includes(`${name}(`))) {
+      throw new Error("Saída larga requer uma fonte escalar final fatorada.");
+    }
+    const coreFactory = new Function("x", "f16", "f16Bits", "add16", "mul16", "neg16", "ropeBits",
+      `${program.declarations} return ${name};`) as (...args: any[]) => (t: number, d: number) => number;
+    const core = coreFactory(input, f16, f16Bits, add16, mul16, neg16, ropeBits);
+    const rows = program.formulas.map((formula) => new Function("t", name, "f16", "f16Bits", "add16", "mul16",
+      "neg16", "ropeBits", `return ${formula};`) as (...args: any[]) => number);
+    return input.map((_, t) => rows.map((row) => row(t, core, f16, f16Bits, add16, mul16, neg16, ropeBits)));
+  }
+  const source = `${program.declarations} return (t,d) => { switch(d) { ${scalarCases(program.formulas)} ` +
+    `default: throw new RangeError("Dimensão escalar inválida"); } };`;
+  const factory = new Function("x", "f16", "f16Bits", "add16", "mul16", "neg16", "ropeBits", source) as
+    (x: readonly (readonly number[])[], f16: (bits: number) => number, f16Bits: (value: number) => number,
+      add16: (left: number, right: number) => number, mul16: (left: number, right: number) => number,
+      neg16: (bits: number) => number,
+      rope: (position: number, dimension: number, headDim: number, theta: number, sine: number) => number)
+      => (t: number, d: number) => number;
+  const scalar = factory(input, f16, f16Bits, add16, mul16, neg16, ropeBits);
+  return input.map((_, t) => Array.from({ length: program.outputSize }, (_unused, d) => scalar(t, d)));
+}
+
 function literal(bits: number): string {
   const value = f16BitsToDyadic(bits);
   const numeric = Number(value.coefficient) * 2 ** value.exponent;
@@ -54,6 +145,24 @@ export async function compileFixedF16ParametricFormulas(
 ): Promise<FixedF16ParametricFormulas> {
   const projection = await compileFixedF16Projection(reader, tensor);
   return scalarizeFixedF16ProjectionForAnyLength(projection, arithmetic ?? projection.arithmetic);
+}
+
+/** Literal token selection for one embedding dimension, with arbitrary input token IDs. */
+export async function compileFixedF16EmbeddingParametricFormulas(
+  reader: SafetensorsCatalogReader, tensorName: string,
+): Promise<FixedF16ParametricFormulas> {
+  const tensor = (await reader.inspect()).tensors.get(tensorName);
+  if (!tensor || tensor.storageDtype !== "F16" || tensor.logicalShape.length !== 2 ||
+    !tensor.logicalShape[0] || !tensor.logicalShape[1]) throw new Error(`${tensorName}: embedding F16 incompatível.`);
+  const [vocabulary, dimensions] = tensor.logicalShape as [number, number];
+  const bytes = await reader.readTensorBytes(tensor);
+  const formulas = Array.from({ length: dimensions }, (_, dimension) => {
+    const cases = Array.from({ length: vocabulary }, (_unused, token) =>
+      `case ${token}: return ${bytes.readUInt16LE((token * dimensions + dimension) * 2)};`).join("");
+    return `(() => { switch(x[t][0]) { ${cases} default: throw new RangeError("Token fora do vocabulário"); } })()`;
+  });
+  return { kind: "fixed-f16-parametric-formulas", inputSize: 1, outputSize: dimensions,
+    formulas, arithmetic: "f32-ascending-products-and-sum" };
 }
 
 /** Per-dimension RMSNorm formula with a literal learned scale and an F32 variance reduction. */
@@ -116,15 +225,14 @@ export function addFixedF16Residual(branch: FixedF16ParametricFormulas): FixedF1
 
 /** Fuse gate, SiLU, up and down by physical substitution into each output dimension. */
 export async function compileFixedF16MlpParametricFormulas(
-  reader: SafetensorsCatalogReader, layer: number, arithmetic: FixedF16FormulaArithmetic,
+  reader: SafetensorsCatalogReader, tensors: { gate: string; up: string; down: string }, arithmetic: FixedF16FormulaArithmetic,
   maxCharacters = 50_000_000,
 ): Promise<FixedF16ParametricFormulas> {
-  const base = `model.layers.${layer}.mlp.`;
-  const gate = await compileFixedF16ParametricFormulas(reader, `${base}gate_proj.weight`, arithmetic);
-  const up = await compileFixedF16ParametricFormulas(reader, `${base}up_proj.weight`, arithmetic);
-  const down = await compileFixedF16ParametricFormulas(reader, `${base}down_proj.weight`, arithmetic);
+  const gate = await compileFixedF16ParametricFormulas(reader, tensors.gate, arithmetic);
+  const up = await compileFixedF16ParametricFormulas(reader, tensors.up, arithmetic);
+  const down = await compileFixedF16ParametricFormulas(reader, tensors.down, arithmetic);
   if (gate.inputSize !== up.inputSize || gate.outputSize !== up.outputSize || down.inputSize !== gate.outputSize) {
-    throw new Error(`MLP da camada ${layer}: shapes incompatíveis.`);
+    throw new Error("MLP: shapes incompatíveis.");
   }
   const hidden = gate.formulas.map((formula, dimension) => {
     const silu = `f16Bits(f16(${formula}) / (1 + Math.exp(-f16(${formula}))))`;
@@ -138,18 +246,17 @@ export async function compileFixedF16MlpParametricFormulas(
 
 /** Expand eager causal attention into scalar formulas with a runtime key bound t. */
 export async function compileFixedF16AttentionParametricFormulas(
-  reader: SafetensorsCatalogReader, layer: number,
+  reader: SafetensorsCatalogReader, tensors: { q: string; k: string; v: string; o: string },
   heads: number, kvHeads: number, headDim: number, ropeTheta: number,
   arithmetic: FixedF16FormulaArithmetic, maxCharacters = 100_000_000,
 ): Promise<FixedF16ParametricFormulas> {
   if (!Number.isInteger(heads) || !Number.isInteger(kvHeads) || !Number.isInteger(headDim) ||
     heads <= 0 || kvHeads <= 0 || headDim <= 0 || headDim % 2 !== 0 || heads % kvHeads !== 0 ||
     !Number.isFinite(ropeTheta) || ropeTheta <= 0) throw new Error("Configuração de atenção incompatível.");
-  const base = `model.layers.${layer}.self_attn.`;
-  const q = await compileFixedF16ParametricFormulas(reader, `${base}q_proj.weight`, arithmetic);
-  const k = await compileFixedF16ParametricFormulas(reader, `${base}k_proj.weight`, arithmetic);
-  const v = await compileFixedF16ParametricFormulas(reader, `${base}v_proj.weight`, arithmetic);
-  const o = await compileFixedF16ParametricFormulas(reader, `${base}o_proj.weight`, arithmetic);
+  const q = await compileFixedF16ParametricFormulas(reader, tensors.q, arithmetic);
+  const k = await compileFixedF16ParametricFormulas(reader, tensors.k, arithmetic);
+  const v = await compileFixedF16ParametricFormulas(reader, tensors.v, arithmetic);
+  const o = await compileFixedF16ParametricFormulas(reader, tensors.o, arithmetic);
   if (q.outputSize !== heads * headDim || k.outputSize !== kvHeads * headDim ||
     v.outputSize !== kvHeads * headDim || o.inputSize !== q.outputSize ||
     q.inputSize !== k.inputSize || q.inputSize !== v.inputSize) throw new Error("Shapes Q/K/V/O incompatíveis.");

@@ -24,6 +24,9 @@ for length in range(1, 9):
         def pre_hook(_, args, kwargs, layer_index=layer_index):
             traces.setdefault(str(layer_index), {})["layer_input"] = bits(args[0] if args else kwargs["hidden_states"])
         handles.append(layer.register_forward_pre_hook(pre_hook, with_kwargs=True))
+        def layer_hook(_, args, kwargs, output, layer_index=layer_index):
+            traces[str(layer_index)]["layer_output"] = bits(output)
+        handles.append(layer.register_forward_hook(layer_hook, with_kwargs=True))
         def post_norm_hook(_, args, layer_index=layer_index):
             traces[str(layer_index)]["post_norm_input"] = bits(args[0])
         handles.append(layer.post_attention_layernorm.register_forward_pre_hook(post_norm_hook))
@@ -31,10 +34,10 @@ for length in range(1, 9):
             traces[str(layer_index)].update({"input": bits(kwargs["hidden_states"]), "output": bits(output[0])})
         handles.append(layer.self_attn.register_forward_hook(hook, with_kwargs=True))
     with torch.no_grad():
-        model(inputs_embeds=inputs[:length].unsqueeze(0), use_cache=False)
+        output = model(inputs_embeds=inputs[:length].unsqueeze(0), use_cache=False)
     for handle in handles:
         handle.remove()
-    cases[str(length)] = traces
+    cases[str(length)] = {"layers": traces, "logits": bits(output.logits)}
 stress = {}
 for scale in (10, 100, 1000):
     hidden = (inputs[:4].float() * scale).half().unsqueeze(0)
@@ -47,4 +50,11 @@ for scale in (10, 100, 1000):
         for layer_index, layer in enumerate(model.model.layers):
             output, _ = layer.self_attn(hidden_states=hidden, position_embeddings=rotary, attention_mask=mask)
             stress[str(scale)][str(layer_index)] = {"input": bits(hidden), "output": bits(output)}
-json.dump({"torch": torch.__version__, "cases": cases, "stress": stress}, sys.stdout, separators=(",", ":"))
+token_ids = [1, 17, 109, 31999]
+token_cases = {}
+with torch.no_grad():
+    for length in (1, 4):
+        output = model(input_ids=torch.tensor([token_ids[:length]]), use_cache=False)
+        token_cases[str(length)] = {"ids": token_ids[:length], "logits": bits(output.logits)}
+json.dump({"torch": torch.__version__, "cases": cases, "stress": stress, "token_cases": token_cases},
+          sys.stdout, separators=(",", ":"))

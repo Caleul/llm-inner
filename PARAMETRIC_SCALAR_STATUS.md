@@ -12,8 +12,12 @@ O alvo é uma função por dimensão final, parametrizada pela posição e pelo 
 - Nas entradas de escala 10/100/1000, as diferenças de escores válidos após subtrair o máximo incluíram o intervalo de −128 a −1 e valores menores que −128. A paridade observada não certifica todas as entradas possíveis nem todas as diferenças de `exp` entre JavaScript e PyTorch.
 - RMSNorm e MLP isolados, e RMSNorm substituída no MLP, coincidiram por dimensão para comprimentos 1 a 4.
 
-## Limite material ainda aberto
+## Composição final do fixture
 
-O residual após a atenção normalizada contém aproximadamente 8,2 milhões de caracteres de fonte para 16 dimensões. O MLP com sua RMSNorm pós-atenção contém aproximadamente 5,6 milhões de caracteres. A substituição literal deste MLP no residual foi estimada em **aproximadamente 25,3 bilhões de caracteres** antes de gerar a primeira camada inteira. A estimativa é feita antes da alocação; essa expansão não foi executada. A composição camada 0 → camada 1, embedding, RMSNorm final e logits ainda não foi produzida, portanto os valores finais do modelo não foram validados e ainda não há benchmark comparável ao forward completo.
+A substituição textual do MLP no residual havia sido estimada em aproximadamente 25,3 bilhões de caracteres. `composeCachedScalarSource` e `composeCachedScalarSources` evitam essa cópia: a função gerada calcula uma coordenada escalar por posição/dimensão e a reutiliza em um cache local ao cálculo. O cache não recebe ativações de camada, não lê o checkpoint e não é um executor de operações.
 
-O próximo passo requer uma fatoração escalar equivalente que reduza esta expansão preservando a ordem de cálculo e os arredondamentos F16/F32. A fatoração deve permanecer dentro da função final por dimensão, sem aceitar ativações intermediárias como entrada nem delegar atenção/MLP a um executor de estágios. Depois é necessário comparar cada logit com o forward para múltiplas entradas e comprimentos, investigar a primeira divergência e só então medir tamanho, operações, tempo e tokens produzidos.
+O teste `duas camadas completas preservam valores finais por dimensão com cache escalar` compara o resultado da camada 0 e da camada 1 com o forward PyTorch para comprimentos 1 a 4. Também compara **todos os 32.000 logits, em todas as posições**, para comprimentos 1 e 8 quando a entrada é `inputs_embeds`, e para comprimentos 1 e 4 quando a entrada é uma sequência de IDs que atravessa o embedding literal. As comparações passaram bit a bit no ambiente descrito acima.
+
+## Pendências do produto
+
+O teste ainda fornece explicitamente os nomes de tensores, a ordem das operações e os parâmetros de atenção. O motor de fórmulas não assume nomes de tensores Llama, mas ainda falta um descobridor que obtenha a semântica e a ordem do forward dos artefatos do modelo. Safetensors sozinho contém tensores e metadados; não especifica o forward. Também faltam a emissão de um artefato executável independente do compilador, validação com outras entradas/arquiteturas e a comparação de tamanho, operações, tempo e tokens com o forward original. A paridade do fixture não encerra essas pendências.
