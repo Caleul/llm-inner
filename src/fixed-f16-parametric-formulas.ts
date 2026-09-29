@@ -74,11 +74,13 @@ export function composeCachedScalarSources(
     nextCacheId: producer.nextCacheId + consumer.nextCacheId + 1 };
 }
 
-/** Compile a single parameterized dimension function, sharing scalar values within a call. */
-export function evaluateFixedF16CachedScalarSource(
-  program: FixedF16CachedScalarSource, input: readonly (readonly number[])[],
-): number[][] {
-  if (input.some((row) => row.length !== program.inputSize)) throw new Error("Dimensão de entrada incompatível.");
+/** Prepare the generated scalar source once, retaining no input or checkpoint state. */
+export function prepareFixedF16CachedScalarSource(
+  program: FixedF16CachedScalarSource,
+): (input: readonly (readonly number[])[]) => number[][] {
+  const validate = (input: readonly (readonly number[])[]) => {
+    if (input.some((row) => row.length !== program.inputSize)) throw new Error("Dimensão de entrada incompatível.");
+  };
   if (program.outputSize > 1024 && program.nextCacheId > 0) {
     const name = `scalar_cache_${program.nextCacheId - 1}`;
     if (program.formulas.some((formula) => !formula.includes(`${name}(`))) {
@@ -86,10 +88,13 @@ export function evaluateFixedF16CachedScalarSource(
     }
     const coreFactory = new Function("x", "f16", "f16Bits", "add16", "mul16", "neg16", "ropeBits",
       `${program.declarations} return ${name};`) as (...args: any[]) => (t: number, d: number) => number;
-    const core = coreFactory(input, f16, f16Bits, add16, mul16, neg16, ropeBits);
     const rows = program.formulas.map((formula) => new Function("t", name, "f16", "f16Bits", "add16", "mul16",
       "neg16", "ropeBits", `return ${formula};`) as (...args: any[]) => number);
-    return input.map((_, t) => rows.map((row) => row(t, core, f16, f16Bits, add16, mul16, neg16, ropeBits)));
+    return (input) => {
+      validate(input);
+      const core = coreFactory(input, f16, f16Bits, add16, mul16, neg16, ropeBits);
+      return input.map((_, t) => rows.map((row) => row(t, core, f16, f16Bits, add16, mul16, neg16, ropeBits)));
+    };
   }
   const source = `${program.declarations} return (t,d) => { switch(d) { ${scalarCases(program.formulas)} ` +
     `default: throw new RangeError("Dimensão escalar inválida"); } };`;
@@ -99,8 +104,17 @@ export function evaluateFixedF16CachedScalarSource(
       neg16: (bits: number) => number,
       rope: (position: number, dimension: number, headDim: number, theta: number, sine: number) => number)
       => (t: number, d: number) => number;
-  const scalar = factory(input, f16, f16Bits, add16, mul16, neg16, ropeBits);
-  return input.map((_, t) => Array.from({ length: program.outputSize }, (_unused, d) => scalar(t, d)));
+  return (input) => {
+    validate(input);
+    const scalar = factory(input, f16, f16Bits, add16, mul16, neg16, ropeBits);
+    return input.map((_, t) => Array.from({ length: program.outputSize }, (_unused, d) => scalar(t, d)));
+  };
+}
+
+export function evaluateFixedF16CachedScalarSource(
+  program: FixedF16CachedScalarSource, input: readonly (readonly number[])[],
+): number[][] {
+  return prepareFixedF16CachedScalarSource(program)(input);
 }
 
 function literal(bits: number): string {

@@ -1,3 +1,5 @@
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { buildModelIR } from "./architecture.js";
 import { openCatalog } from "./catalog.js";
 import { SafetensorsCatalogReader } from "./safetensors.js";
@@ -121,4 +123,30 @@ export async function compileFixedF16ScalarModelFromDirectory(directory: string)
     await reader.close();
     await opened.close();
   }
+}
+
+/** Persist only numeric source and literals; evaluation does not reopen the model directory. */
+export async function writeFixedF16ScalarArtifact(directory: string, output: string): Promise<void> {
+  const source = await compileFixedF16ScalarModelFromDirectory(directory);
+  await mkdir(dirname(output), { recursive: true });
+  await writeFile(output, JSON.stringify({ schemaVersion: 1, numericProfile: "pytorch-cpu-eager-f16-four-lane",
+    source }), "utf8");
+}
+
+export async function readFixedF16ScalarArtifact(path: string): Promise<FixedF16CachedScalarSource> {
+  const artifact: unknown = JSON.parse(await readFile(path, "utf8"));
+  if (!artifact || typeof artifact !== "object" || !("schemaVersion" in artifact) ||
+    artifact.schemaVersion !== 1 || !("numericProfile" in artifact) ||
+    artifact.numericProfile !== "pytorch-cpu-eager-f16-four-lane" || !("source" in artifact)) {
+    throw new Error("Artefato escalar F16 incompatível.");
+  }
+  const source = artifact.source;
+  if (!source || typeof source !== "object" || !("kind" in source) ||
+    source.kind !== "fixed-f16-cached-scalar-source" || !("formulas" in source) ||
+    !Array.isArray(source.formulas) || !("declarations" in source) ||
+    typeof source.declarations !== "string" || !("inputSize" in source) ||
+    typeof source.inputSize !== "number" || !("outputSize" in source) ||
+    typeof source.outputSize !== "number" || !("nextCacheId" in source) ||
+    typeof source.nextCacheId !== "number") throw new Error("Fonte escalar F16 inválida.");
+  return source as FixedF16CachedScalarSource;
 }

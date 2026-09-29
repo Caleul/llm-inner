@@ -9,7 +9,22 @@ import { evaluateFixedScalarFunctions, scalarizeFixedF16Projection, substituteFi
 import { evaluateFixedTwoTokenAttentionScores, evaluateFixedTwoTokenAttentionValues } from "../src/fixed-f16-attention-scores.js";
 import { softmaxTwoF16IfElse } from "../src/fixed-f16-two-way-softmax.js";
 import { addFixedF16Residual, compileFixedF16AttentionParametricFormulas, compileFixedF16EmbeddingParametricFormulas, compileFixedF16MlpParametricFormulas, compileFixedF16ParametricFormulas, compileFixedF16RmsNormParametricFormulas, composeCachedScalarSource, composeCachedScalarSources, estimateFixedF16ParametricSubstitutionCharacters, evaluateFixedF16CachedScalarSource, evaluateFixedF16ParametricFormulas, scalarSourceFromFormulas, substituteFactoredRmsNorm, substituteFixedF16ParametricFormulas } from "../src/fixed-f16-parametric-formulas.js";
-import { compileFixedF16ScalarModelFromDirectory } from "../src/fixed-f16-ir-scalar-compiler.js";
+import { compileFixedF16ScalarModelFromDirectory, readFixedF16ScalarArtifact, writeFixedF16ScalarArtifact } from "../src/fixed-f16-ir-scalar-compiler.js";
+
+test("artefato escalar salvo executa logits sem consultar o checkpoint", async (context) => {
+  const directory = resolve("artifacts/tiny-random-llama");
+  try { await access(join(directory, "model.safetensors")); } catch { context.skip("checkpoint opcional ausente"); return; }
+  const fixture = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-parametric-attention.json"), "utf8")) as
+    { token_cases: Record<string, { ids: number[]; logits: number[][][] }> };
+  const temporary = await mkdtemp(join(tmpdir(), "scalar-artifact-"));
+  try {
+    const artifact = join(temporary, "model.json");
+    await writeFixedF16ScalarArtifact(directory, artifact);
+    const source = await readFixedF16ScalarArtifact(artifact);
+    const { ids, logits } = fixture.token_cases["1"]!;
+    assert.deepEqual(evaluateFixedF16CachedScalarSource(source, ids.map((id) => [id])), logits[0]);
+  } finally { await rm(temporary, { recursive: true, force: true }); }
+});
 
 test("descobre o forward do pacote e gera logits escalares sem nomes de tensores fornecidos pelo teste", async (context) => {
   const directory = resolve("artifacts/tiny-random-llama");
