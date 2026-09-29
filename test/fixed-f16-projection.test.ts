@@ -9,6 +9,19 @@ import { evaluateFixedScalarFunctions, scalarizeFixedF16Projection, substituteFi
 import { evaluateFixedTwoTokenAttentionScores, evaluateFixedTwoTokenAttentionValues } from "../src/fixed-f16-attention-scores.js";
 import { softmaxTwoF16IfElse } from "../src/fixed-f16-two-way-softmax.js";
 import { addFixedF16Residual, compileFixedF16AttentionParametricFormulas, compileFixedF16EmbeddingParametricFormulas, compileFixedF16MlpParametricFormulas, compileFixedF16ParametricFormulas, compileFixedF16RmsNormParametricFormulas, composeCachedScalarSource, composeCachedScalarSources, estimateFixedF16ParametricSubstitutionCharacters, evaluateFixedF16CachedScalarSource, evaluateFixedF16ParametricFormulas, scalarSourceFromFormulas, substituteFactoredRmsNorm, substituteFixedF16ParametricFormulas } from "../src/fixed-f16-parametric-formulas.js";
+import { compileFixedF16ScalarModelFromDirectory } from "../src/fixed-f16-ir-scalar-compiler.js";
+
+test("descobre o forward do pacote e gera logits escalares sem nomes de tensores fornecidos pelo teste", async (context) => {
+  const directory = resolve("artifacts/tiny-random-llama");
+  try { await access(join(directory, "model.safetensors")); } catch { context.skip("checkpoint opcional ausente"); return; }
+  const fixture = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-parametric-attention.json"), "utf8")) as
+    { token_cases: Record<string, { ids: number[]; logits: number[][][] }> };
+  const source = await compileFixedF16ScalarModelFromDirectory(directory);
+  for (const n of [1, 4]) {
+    const { ids, logits } = fixture.token_cases[String(n)]!;
+    assert.deepEqual(evaluateFixedF16CachedScalarSource(source, ids.map((id) => [id])), logits[0], `n=${n}`);
+  }
+});
 
 const fixtureAttentionTensors = (index: number) => {
   const base = `model.layers.${index}.self_attn.`;
@@ -263,7 +276,7 @@ test("MLP completa é uma fórmula plana por dimensão para n=1..4", async (cont
     const norm = await compileFixedF16RmsNormParametricFormulas(reader, "model.layers.0.post_attention_layernorm.weight", 1e-6);
     const mlp = await compileFixedF16MlpParametricFormulas(reader, fixtureMlpTensors(0), "f32-interleaved-four-lane-pairwise");
     const required = estimateFixedF16ParametricSubstitutionCharacters(mlp, norm);
-    assert.ok(required > 50_000_000n);
+    assert.ok(required > 10_000_000n);
     assert.throws(() => substituteFixedF16ParametricFormulas(mlp, norm, 10_000_000), /Nenhuma fórmula parcial/);
     const factored = substituteFactoredRmsNorm(mlp, norm, 10_000_000);
     assert.ok(BigInt(factored.formulas.join("").length) < required / 5n);

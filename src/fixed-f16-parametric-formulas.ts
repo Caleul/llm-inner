@@ -235,8 +235,9 @@ export async function compileFixedF16MlpParametricFormulas(
     throw new Error("MLP: shapes incompatíveis.");
   }
   const hidden = gate.formulas.map((formula, dimension) => {
-    const silu = `f16Bits(f16(${formula}) / (1 + Math.exp(-f16(${formula}))))`;
-    return `f16Bits(f16(${silu}) * f16(${up.formulas[dimension]!}))`;
+    const silu = "f16Bits(f16(gate_value) / (1 + Math.exp(-f16(gate_value))))";
+    return `(() => { const gate_value = ${formula}; const up_value = ${up.formulas[dimension]!}; ` +
+      `return f16Bits(f16(${silu}) * f16(up_value)); })()`;
   });
   return substituteFixedF16ParametricFormulas(down, {
     kind: "fixed-f16-parametric-formulas", inputSize: gate.inputSize,
