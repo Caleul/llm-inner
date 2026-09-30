@@ -1,0 +1,141 @@
+{
+  "status": "pending",
+  "goalComplete": false,
+  "oneLayerFinalLogitParity": false,
+  "allVocabularyParity": false,
+  "realCheckpointParity": false,
+  "date": "2026-09-30",
+  "diagnosticCheckpoint": {
+    "architectures": [
+      "LlamaForCausalLM"
+    ],
+    "attention_bias": false,
+    "attention_dropout": 0.0,
+    "bos_token_id": 1,
+    "dtype": "float16",
+    "eos_token_id": 2,
+    "head_dim": 2,
+    "hidden_act": "silu",
+    "hidden_size": 2,
+    "initializer_range": 0.02,
+    "intermediate_size": 1,
+    "max_position_embeddings": 8,
+    "mlp_bias": false,
+    "model_type": "llama",
+    "num_attention_heads": 1,
+    "num_hidden_layers": 1,
+    "num_key_value_heads": 1,
+    "pad_token_id": null,
+    "pretraining_tp": 1,
+    "rms_norm_eps": 1e-06,
+    "rope_parameters": {
+      "rope_theta": 10000.0,
+      "rope_type": "default"
+    },
+    "tie_word_embeddings": false,
+    "transformers_version": "5.5.0",
+    "use_cache": true,
+    "vocab_size": 4
+  },
+  "diagnosticOnly": true,
+  "dimensionRequested": 2,
+  "compilationAttempts": [
+    {
+      "args": [
+        "rustc",
+        "-Awarnings",
+        "-Ztime-passes",
+        "-C",
+        "opt-level=0",
+        "/private/tmp/llm-inner-rust-numericscratch.rs",
+        "-o",
+        "/private/tmp/llm-inner-rust-numericscratch"
+      ],
+      "returncode": -9,
+      "elapsedSeconds": 152.93573516599645,
+      "maxRSSBytes": 13296566272,
+      "sourceBytes": 65271454,
+      "sourceSha256": "8b8117dbdfa66f01fcff2ab11a3ba46508bf4353ea6caa90e4eeb1f0ad2bd170",
+      "executableProduced": false
+    },
+    {
+      "args": [
+        "rustc",
+        "-Awarnings",
+        "-Ztime-passes",
+        "-C",
+        "opt-level=0",
+        "/private/tmp/llm-inner-rust-inputconditions.rs",
+        "-o",
+        "/private/tmp/llm-inner-rust-inputconditions"
+      ],
+      "returncode": -9,
+      "elapsedSeconds": 142.93198095899788,
+      "maxRSSBytes": 14272643072,
+      "sourceBytes": 65434834,
+      "sourceSha256": "4f967a2fd927b588eee796105f6297b1303fcf2d6eae3183268c756b26adbd04",
+      "executableProduced": false
+    },
+    {
+      "args": [
+        "rustup",
+        "run",
+        "1.95.0",
+        "rustc",
+        "-Awarnings",
+        "-Ztime-passes",
+        "-C",
+        "opt-level=0",
+        "/private/tmp/llm-inner-rust-propagated.rs",
+        "-o",
+        "/private/tmp/llm-inner-rust-propagated"
+      ],
+      "returncode": -9,
+      "elapsedSeconds": 131.05952716699903,
+      "maxRSSBytes": 14883045376,
+      "sourceBytes": 58438194,
+      "sourceSha256": "9c9d9d229e1afdbfc3233d320b04751df9f3dbd25aeb6fd3b7bd4a796681fce3",
+      "executableProduced": false
+    }
+  ],
+  "observedCompilerPhase": {
+    "source": "/private/tmp/llm-inner-rust-scalarloops.rs",
+    "sample": "/private/tmp/llm-inner-rust-scalarloops-sample.txt",
+    "phase": "rustc_borrowck::get_flow_results",
+    "physicalFootprintAtSample": "86.6G",
+    "note": "Sampling proves the phase and reported footprint, not the operating system reason for SIGKILL."
+  },
+  "verified": {
+    "zeroLayerFinalLogit": {
+      "dimension": 3,
+      "positions": 21,
+      "lengths": [
+        1,
+        2,
+        3,
+        4,
+        8
+      ],
+      "exactBits": true,
+      "coversAttentionOrMlp": false
+    },
+    "narrowExponential": {
+      "cases": 65537,
+      "domain": "F32 samples [-0.3399,0]",
+      "reference": "torch.exp CPU 2.12.1",
+      "exactBits": true
+    },
+    "boundedSilu": {
+      "cases": 23758,
+      "domain": "Every finite F16 input with magnitude <= 0.1",
+      "reference": "pytorch-2.12.1-cpu-f16-silu numeric policy profile",
+      "exactBits": true
+    }
+  },
+  "remaining": [
+    "Produce an executable for the recursively closed one-layer dimension and compare its final logit across lengths.",
+    "Prove final exact logits on the actual Llama checkpoint, with metadata discovered and no checkpoint dependency at runtime.",
+    "Expand and validate every vocabulary logit after the first dimension is proven."
+  ],
+  "pushUnavailable": "Repository has no configured Git remote."
+}

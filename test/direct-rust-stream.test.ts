@@ -7,7 +7,49 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { DirectRustStream } from "../src/direct-rust-stream.js";
 import { DirectBranchDomain, rational } from "../src/direct-branch-domain.js";
+import { emitRustExp, emitRustSilu, emitRustSqrt } from "../src/direct-rust-numeric.js";
 const run = promisify(execFile);
+test("propagated activation bounds eliminate unreachable scalar branches exactly",async()=>{
+  const dir=await mkdtemp(join(tmpdir(),"direct-activation-range-"));
+  try{
+    const file=join(dir,"activation.rs"),s=new DirectRustStream(file);
+    await s.write("fn full_exp(x:f64)->f64 {");await emitRustExp(s,()=>s.write("x"),true);
+    await s.write("}fn narrow_exp(x:f64)->f64 {");await emitRustExp(s,()=>s.write("x"),true,0.34);
+    await s.write("}fn full_silu(x:f64)->f64 {");await emitRustSilu(s,()=>s.write("x"));
+    await s.write("}fn narrow_silu(x:f64)->f64 {");await emitRustSilu(s,()=>s.write("x"),0.1);
+    await s.write("}fn main(){for i in 0..=20000 {let x=((i as f64)*(-0.3399)/20000.0) as f32 as f64;assert_eq!(full_exp(x).to_bits(),narrow_exp(x).to_bits());}for bits in 0_u32..31744 {let e=bits>>10;let m=bits&1023;let x=if e==0 {(m as f64)*2_f64.powi(-24)}else{(1.0+(m as f64)/1024.0)*2_f64.powi(e as i32-15)};if x>0.1 {break;}for sign in [-1.0,1.0]{assert_eq!(full_silu(sign*x).to_bits(),narrow_silu(sign*x).to_bits());}}}");
+    await s.close();assert.ok(s.eliminatedBranches>0);
+    const source=await readFile(file,"utf8");const narrow=source.split("fn narrow_exp")[1]!.split("fn full_silu")[0]!;
+    assert.doesNotMatch(narrow,/let (?:mut )?(?:exponent|scaled|remainder|first|second):f64/);
+    await run("rustc",["-Awarnings",file,"-o",join(dir,"run")]);await run(join(dir,"run"));
+  }finally{await rm(dir,{recursive:true,force:true});}
+});
+test("inline numeric scratch survives recursive producers and independent consumers",async()=>{
+  const dir=await mkdtemp(join(tmpdir(),"direct-inline-scratch-"));
+  try{
+    const file=join(dir,"numeric.rs"),s=new DirectRustStream(file);
+    const expression=async()=>{
+      await s.write("(");
+      await emitRustSilu(s,()=>s.round("f16",()=>emitRustSqrt(s,()=>emitRustExp(s,()=>s.write("x")))));
+      await s.write("+");await emitRustSilu(s,()=>s.round("f16",()=>emitRustExp(s,()=>s.write("-x"))));
+      await s.write(")");
+    };
+    await s.write("fn scoped(x:f64)->f64 {");await expression();await s.write("}fn reused(x:f64)->f64 {");
+    await s.declareRoundingScratch();await s.declareInlineNumericScratch();await expression();
+    await s.write("}fn main(){for i in -1000..=1000 {let x=(i as f64)/200.0;assert_eq!(scoped(x).to_bits(),reused(x).to_bits(),\"input {}\",x);}}");
+    await s.close();await run("rustc",["-Awarnings",file,"-o",join(dir,"run")]);await run(join(dir,"run"));
+  }finally{await rm(dir,{recursive:true,force:true});}
+});
+test("inline half rounding preserves every finite adjacent midpoint and ties to even",async()=>{
+  const dir=await mkdtemp(join(tmpdir(),"direct-half-midpoint-"));
+  try{
+    const file=join(dir,"half.rs"),s=new DirectRustStream(file);
+    await s.write("fn generated(x:f64)->f64 {");await s.declareRoundingScratch();
+    await s.round("f16",()=>s.write("x"),true);
+    await s.write("}fn decode(bits:u32)->f64 {let e=bits>>10;let m=bits&1023;if e==0 {(m as f64)*2_f64.powi(-24)} else {(1.0+(m as f64)/1024.0)*2_f64.powi(e as i32-15)}}fn main(){for bits in 0_u32..31743 {let lower=decode(bits);let upper=decode(bits+1);let midpoint=(lower+upper)/2.0;let even=if bits&1==0 {lower} else {upper};for (x,expected) in [(lower,lower),(midpoint,even),(f64::from_bits(midpoint.to_bits()-1),lower),(f64::from_bits(midpoint.to_bits()+1),upper)] {for sign in [1.0,-1.0] {assert_eq!(generated(sign*x).to_bits(),(sign*expected).to_bits());}}}assert_eq!(generated(65520.0),f64::INFINITY);assert_eq!(generated(-65520.0),f64::NEG_INFINITY);}");
+    await s.close();await run("rustc",["-Awarnings",file,"-o",join(dir,"run")]);await run(join(dir,"run"));
+  }finally{await rm(dir,{recursive:true,force:true});}
+});
 test("Rust executes flattened exact rounding over all finite half values and midpoint neighbors", async () => {
   const dir = await mkdtemp(join(tmpdir(), "direct-rust-"));
   try {
@@ -65,5 +107,17 @@ test("operator scratch preserves nested rounding without retaining producer resu
     await s.round("f32",async()=>{await s.round("f32",()=>s.write("x/3.0"));await s.write("+");await s.round("f32",()=>s.write("x*7.0"));});
     await s.write("}fn main(){for x in [-0.0,0.0,-1.0,1.0,65504.0,0.000000059604644775390625] {let expected=(((x/3.0) as f32)+((x*7.0) as f32)) as f64;assert_eq!(generated(x).to_bits(),expected.to_bits());}}");
     await s.close();await run("rustc",["-Awarnings",file,"-o",join(dir,"run")]);await run(join(dir,"run"));
+  }finally{await rm(dir,{recursive:true,force:true});}
+});
+test("positive interval facts remove impossible rounding branches without changing midpoint ties",async()=>{
+  const dir=await mkdtemp(join(tmpdir(),"direct-round-range-"));
+  try{
+    const file=join(dir,"range.rs"),s=new DirectRustStream(file);
+    await s.write("fn generated(x:f64)->f64 {");await s.declareRoundingScratch();
+    await s.round("f32",()=>s.write("x"),false,{minimum:2**-12,maximum:2});
+    await s.write("}fn main(){let mut state=97_u32;for _ in 0..20000 {state=state.wrapping_mul(1664525).wrapping_add(1013904223);let bits=0x39800000+(state%(0x40000000-0x39800000-1));let lower=f32::from_bits(bits) as f64;let upper=f32::from_bits(bits+1) as f64;let midpoint=(lower+upper)/2.0;for x in [lower,midpoint,f64::from_bits(midpoint.to_bits()-1),f64::from_bits(midpoint.to_bits()+1)] {assert_eq!(generated(x).to_bits(),((x as f32) as f64).to_bits());}}}");
+    await s.close();const source=(await readFile(file,"utf8")).split("fn main")[0]!;
+    assert.doesNotMatch(source,/round_negative\s*=|round_normal=|round_exponent=|INFINITY/);
+    await run("rustc",["-Awarnings",file,"-o",join(dir,"run")]);await run(join(dir,"run"));
   }finally{await rm(dir,{recursive:true,force:true});}
 });

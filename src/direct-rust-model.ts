@@ -94,6 +94,13 @@ export async function writeDirectRustModel(directory:string,python:string,dimens
       await flush(output.embeddingShape[0]-1);await s.write("panic!(\"token out of vocabulary\")}");
     };
     const norm=async(name:string,epsilon:number,coordinate:number,input:(coordinate:number)=>Promise<void>)=>{
+      const eps=Math.fround(epsilon),varianceMaximum=4*65504**2+2*eps;
+      // A sum of at most 10^6 nonnegative F16 squares incurs <1/8 relative
+      // F32 error. Division, epsilon addition and rounding stay strictly below
+      // this doubled envelope. The F32 epsilon is an exactly representable lower bound.
+      const varianceRange=width<=1000000 && eps>=2**-126 && varianceMaximum<3.4028234663852886e38?
+        {minimum:eps,maximum:varianceMaximum}:undefined;
+      const inverseRange=varianceRange?{minimum:0.25/Math.sqrt(varianceMaximum),maximum:4/Math.sqrt(eps)}:undefined;
       await s.round("f16",async()=>{
         await s.round("f16",async()=>s.round("f32",async()=>{
           await input(coordinate);await s.write("*");
@@ -105,9 +112,9 @@ export async function writeDirectRustModel(directory:string,python:string,dimens
                   await s.round("f32",async()=>{await sum(last-1);await s.write("+");await input(last);await s.write("*");await input(last);});
                 };
                 await sum(width-1);await s.write(`/${width}.0`);
-              });await s.write(`+${rustF64(Math.fround(epsilon))}`);
-            }));
-          });
+              });await s.write(`+${rustF64(eps)}`);
+            },false,varianceRange),varianceRange);
+          },false,inverseRange);
         }),true);await s.write(`*${await weight(name,coordinate)}`);
       },true);
     };
@@ -117,8 +124,19 @@ export async function writeDirectRustModel(directory:string,python:string,dimens
         await residual(layer,coordinate,position);await s.write("+");
         const p=layers[layer]!.mlp.mlp;
         await linear(p.down,coordinate,async neuron=>{
+          let gateBound=0,normBound=0;
+          const normalization=layers[layer]!.mlp.normalizations[1]!;
+          for(let c=0;c<width;c++){
+            const gamma=Math.abs(Number(await readDirectF16Literal(reader,tensor(normalization.weight),c)));
+            const bound=2*Math.sqrt(width)*gamma+2**-23;
+            normBound=Math.max(normBound,bound);
+            const w=Math.abs(Number(await readDirectF16Literal(reader,tensor(p.gate.weight),neuron*width+c)));
+            gateBound+=bound*w;
+          }
+          gateBound=gateBound*1.01+2**-24;
+          const finiteGateBound=width<=1000000 && normBound<65504 && gateBound<65504?gateBound:undefined;
           await s.round("f16",async()=>{
-            await emitRustSilu(s,()=>linear(p.gate,neuron,column=>postNorm(layer,column,position)));
+            await emitRustSilu(s,()=>linear(p.gate,neuron,column=>postNorm(layer,column,position)),finiteGateBound);
             await s.write("*");await linear(p.up,neuron,column=>postNorm(layer,column,position));
           },true);
         });
@@ -147,7 +165,8 @@ export async function writeDirectRustModel(directory:string,python:string,dimens
       return roundHalf(roundHalf(Math.fround(value*factor))*learned);
     };
     const tokenBranches=async(position:string,evaluate:(token:number)=>Promise<number>)=>{
-      await s.write(`'token_value:{let token=input_tokens[${position}];assert!(token<${output.embeddingShape[0]});`);
+      const selector=`input_tokens[${position}]`;
+      await s.write(`'token_value:{assert!(${selector}<${output.embeddingShape[0]});`);
       let domain=new DirectBranchDomain().split("token",">=",rational(0n)).truth!
         .split("token","<=",rational(BigInt(output.embeddingShape[0]-1))).truth!;
       let previous:number|undefined;
@@ -157,7 +176,7 @@ export async function writeDirectRustModel(directory:string,python:string,dimens
         const literal=rustF64(Object.is(previous,-0)?"-0":previous);
         if(!narrowed.truth){s.eliminatedBranches++;return;}
         if(!narrowed.falsity){s.eliminatedBranches++;await s.write(`break 'token_value ${literal};`);return;}
-        await s.write(`if token<=${end} {break 'token_value ${literal};}`);
+        await s.write(`if ${selector}<=${end} {break 'token_value ${literal};}`);
         domain=narrowed.falsity;
       };
       for(let token=0;token<output.embeddingShape[0];token++){
@@ -236,6 +255,7 @@ export async function writeDirectRustModel(directory:string,python:string,dimens
     // where the accumulated F32 error is <1/8; the factor 2 covers that error,
     // reciprocal/sqrt rounding and both F16 normalization boundaries.
     const causalOnly: boolean[]=[];
+    const scoreBounds:number[]=[];
     for(let layer=0;layer<layers.length;layer++){
       const a=layers[layer]!.attention.attention,normWeight=layers[layer]!.mlp.normalizations[0]!.weight;
       let normMaximum=0;
@@ -257,6 +277,7 @@ export async function writeDirectRustModel(directory:string,python:string,dimens
       const qRot=2*q*1.01+2**-23,kRot=2*k*1.01+2**-23;
       const scoreMaximum=(a.headDim*qRot*kRot*1.01+2**-24)*Math.abs(a.scaling)*1.01+2**-24;
       causalOnly.push(width<=1000000 && 2*Math.sqrt(width)*normMaximum<65504 && q<65504 && k<65504 && scoreMaximum<16);
+      scoreBounds.push(scoreMaximum);
     }
     const context=async(layer:number,head:number,coordinate:number,position:string)=>{
       const a=layers[layer]!.attention.attention;
@@ -266,7 +287,8 @@ export async function writeDirectRustModel(directory:string,python:string,dimens
       await s.round("f16",async()=>{
         await s.write(`{let mut maximum:f64=f64::NEG_INFINITY;for ${key} in 0..${bound} {let candidate:f64=`);
         await reachedScore();await s.write(";if candidate>maximum {maximum=candidate;}}let mut denominator:f64=0.0;");
-        const exponent:RustExpression=()=>emitRustExp(s,()=>s.round("f32",async()=>{await reachedScore();await s.write("-maximum");}),true);
+        const differenceBound=causalOnly[layer]?2*scoreBounds[layer]!*1.01+2**-149:undefined;
+        const exponent:RustExpression=()=>emitRustExp(s,()=>s.round("f32",async()=>{await reachedScore();await s.write("-maximum");}),true,differenceBound);
         await s.write(`for ${key} in 0..${bound} {denominator=`);await s.round("f32",async()=>{await s.write("denominator+");await exponent();});
         await s.write(`;}let mut acc:f64=0.0;for ${key} in 0..${bound} {acc=`);
         await s.round("f32",async()=>{
@@ -283,7 +305,7 @@ export async function writeDirectRustModel(directory:string,python:string,dimens
       if(a.headDim%2!==0||a.heads%a.kvHeads!==0||a.projections.o.shape[0]!==width||layer.mlp.normalizations.length!==2)throw new Error("Unsupported discovered geometry");
     }
     await s.write(`// Direct checkpoint specialization. Numeric policy: PyTorch CPU F16, four-lane F32 reductions.\n#![recursion_limit="65536"]\npub fn compiled_dimension(input_tokens:&[usize],t:usize)->f64 {let n=input_tokens.len();assert!(n>0 && n<=${output.maxPosition} && t<n);`);
-    await s.declareRoundingScratch();
+    await s.declareRoundingScratch();await s.declareInlineNumericScratch();
     await linear({weight:output.weight,shape:output.shape},dimension,c=>norm(output.finalNormWeight,output.finalNormEpsilon,c,column=>hidden(layers.length-1,column,"t")));
     await s.write("}\n");await s.close();
   } catch(error){s.destroy();throw error;}finally{await reader.close();}
