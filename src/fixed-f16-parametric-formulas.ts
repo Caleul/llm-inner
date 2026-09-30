@@ -1,4 +1,6 @@
 import { compileFixedF16Projection, f16BitsToDyadic, f32BitsToDyadic, roundDyadicToF16IfElse, type FixedF16Projection } from "./fixed-f16-projection.js";
+import { compileF16SiluBranches } from "./fixed-f16-conditional-linear.js";
+import { sleefExpF32 } from "./sleef-f32.js";
 import { type SafetensorsCatalogReader } from "./safetensors.js";
 
 /** Flat source formulas: F_d(x,t), valid for every t in an arbitrary-length input. */
@@ -20,6 +22,7 @@ export interface FixedF16CachedScalarSource {
   formulas: string[];
   declarations: string;
   nextCacheId: number;
+  maxSequenceLength?: number;
 }
 
 export interface FixedF16ScalarMetrics {
@@ -93,10 +96,14 @@ export function prepareFixedF16CachedScalarSource(
   const scalarMul16 = count("mul16", mul16);
   const scalarNeg16 = count("neg16", neg16);
   const scalarRopeBits = count("ropeBits", ropeBits);
-  const scalarMath = metrics ? Object.assign(Object.create(Math) as Math,
+  const numericMath = Object.assign(Object.create(Math) as Math, { exp: sleefExpF32 });
+  const scalarMath = metrics ? Object.assign(Object.create(numericMath) as Math,
     Object.fromEntries(["fround", "exp", "sqrt", "sin", "cos", "max"].map((name) =>
-      [name, count(`Math.${name}`, (Math as unknown as Record<string, (...args: never[]) => number>)[name]!)]))) : Math;
+      [name, count(`Math.${name}`, (numericMath as unknown as Record<string, (...args: never[]) => number>)[name]!)]))) : numericMath;
   const validate = (input: readonly (readonly number[])[]) => {
+    if (input.length === 0 || (program.maxSequenceLength !== undefined && input.length > program.maxSequenceLength)) {
+      throw new RangeError("Comprimento da sequência fora do domínio compilado.");
+    }
     if (input.some((row) => row.length !== program.inputSize)) throw new Error("Dimensão de entrada incompatível.");
   };
   if (program.outputSize > 1024 && program.nextCacheId > 0) {
@@ -159,8 +166,12 @@ export function prepareFixedF16CachedScalarDimensionSource(
     `${program.declarations} const d=${dimension}; return (t) => ${program.formulas[dimension]!};`) as
     (...args: any[]) => (position: number) => number;
   return (input) => {
+    if (input.length === 0 || (program.maxSequenceLength !== undefined && input.length > program.maxSequenceLength)) {
+      throw new RangeError("Comprimento da sequência fora do domínio compilado.");
+    }
     if (input.some((row) => row.length !== program.inputSize)) throw new Error("Dimensão de entrada incompatível.");
-    const scalar = factory(input, f16, f16Bits, add16, mul16, neg16, ropeBits, Math);
+    const scalar = factory(input, f16, f16Bits, add16, mul16, neg16, ropeBits,
+      Object.assign(Object.create(Math) as Math, { exp: sleefExpF32 }));
     return input.map((_row, position) => scalar(position));
   };
 }
@@ -377,6 +388,8 @@ export async function compileFixedF16CachedMlpSource(
   if (gate.inputSize !== up.inputSize || gate.outputSize !== up.outputSize || down.inputSize !== gate.outputSize) {
     throw new Error("MLP: shapes incompatíveis.");
   }
+  const silu = compileF16SiluBranches().source;
+  const siluBody = silu.slice("function(bits){".length, -1);
   const suffix = `_${mlpSourceId++}`;
   const projection = (name: string, program: FixedF16ParametricFormulas) =>
     `const ${name}Values${suffix}=new Map(); const ${name}${suffix}=(p,d)=>{ ` +
@@ -387,7 +400,7 @@ export async function compileFixedF16CachedMlpSource(
     `const hiddenValues${suffix}=new Map(); const hidden${suffix}=(p,d)=>{ ` +
     `const key=p*${gate.outputSize}+d; if(hiddenValues${suffix}.has(key)) return hiddenValues${suffix}.get(key); ` +
     `const g=gate${suffix}(p,d),u=up${suffix}(p,d); ` +
-    `const activated=f16Bits(f16(g)/(1+Math.exp(-f16(g)))); ` +
+    `const activated=(()=>{const bits=g;${siluBody}})(); ` +
     `const value=f16Bits(f16(activated)*f16(u)); hiddenValues${suffix}.set(key,value); return value; };\n`;
   const formulas = down.formulas.map((formula) => formula.replace(/x\[t\]\[(\d+)\]/g,
     (_match, dimension: string) => `hidden${suffix}(t,${dimension})`));

@@ -58,6 +58,12 @@ export async function compileFixedF16ScalarModelFromDirectory(
       ir.prelude[0].scale === undefined && ir.prelude[0].weight.storageDtype === "F16",
     "embedding F16 sem escala necessário");
     requireForward(inputBoundary === "embeddings" || inputBoundary === "token-ids", "fronteira de entrada inválida");
+    const configuredLimit = opened.catalog.config.max_position_embeddings;
+    const modelType = opened.catalog.config.model_type;
+    // LlamaConfig 5.5.0 defaults to 2048 when the fixture omits the field.
+    const maxSequenceLength = configuredLimit === undefined && modelType === "llama" ? 2048 : configuredLimit;
+    requireForward(typeof maxSequenceLength === "number" && Number.isSafeInteger(maxSequenceLength) &&
+      maxSequenceLength > 0, "limite de contexto definido pela configuração necessário");
     let source: FixedF16CachedScalarSource | undefined;
     for (const layer of ir.layers) {
       const ops = layer.operations;
@@ -126,9 +132,9 @@ export async function compileFixedF16ScalarModelFromDirectory(
       reader, tensor(finalNorm), finalNorm.epsilon), source);
     const logits = composeCachedScalarSources(await compileFixedF16CachedWideLinearSource(
       reader, tensor(head)), normalized);
-    if (inputBoundary === "embeddings") return logits;
+    if (inputBoundary === "embeddings") return { ...logits, maxSequenceLength };
     const embedding = await compileFixedF16CachedEmbeddingSource(reader, ir.prelude[0].weight.name);
-    return composeCachedScalarSources(logits, embedding);
+    return { ...composeCachedScalarSources(logits, embedding), maxSequenceLength };
   } finally {
     await reader.close();
     await opened.close();
@@ -162,5 +168,7 @@ export async function readFixedF16ScalarArtifact(path: string): Promise<FixedF16
     typeof source.inputSize !== "number" || !("outputSize" in source) ||
     typeof source.outputSize !== "number" || !("nextCacheId" in source) ||
     typeof source.nextCacheId !== "number") throw new Error("Fonte escalar F16 inválida.");
+  if ("maxSequenceLength" in source && (!Number.isSafeInteger(source.maxSequenceLength) ||
+    (source.maxSequenceLength as number) <= 0)) throw new Error("Limite de contexto inválido.");
   return source as FixedF16CachedScalarSource;
 }

@@ -56,17 +56,22 @@ test("artefato escalar salvo executa logits sem consultar o checkpoint", async (
   try { await access(join(directory, "model.safetensors")); } catch { context.skip("checkpoint opcional ausente"); return; }
   const fixture = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-parametric-attention.json"), "utf8")) as
     { token_cases: Record<string, { ids: number[]; logits: number[][][] }>;
-      random_token_cases: Record<string, { ids: number[]; logits: number[][][] }> };
+      random_token_cases: Record<string, { ids: number[]; logits: number[][][] }>;
+      cases: Record<string, { layers: Record<string, { layer_input: number[][][] }>;
+        logits: number[][][] }> };
   const temporary = await mkdtemp(join(tmpdir(), "scalar-artifact-"));
   try {
     const artifact = join(temporary, "model.json");
     await writeFixedF16ScalarArtifact(directory, artifact);
     const source = await readFixedF16ScalarArtifact(artifact);
     assert.equal(source.inputSize, 16);
+    assert.equal(source.maxSequenceLength, 2048);
+    const selected = prepareFixedF16CachedScalarDimensionSource(source, 17);
+    assert.throws(() => selected([]), /Comprimento da sequência/);
+    assert.throws(() => selected(Array.from({ length: 2049 }, () => Array(16).fill(0))), /Comprimento da sequência/);
     const reader = new SafetensorsCatalogReader(directory);
     const embedding = await compileFixedF16EmbeddingParametricFormulas(reader, "model.embed_tokens.weight");
     await reader.close();
-    const selected = prepareFixedF16CachedScalarDimensionSource(source, 17);
     for (const { ids, logits } of [
       fixture.token_cases["1"]!, fixture.token_cases["4"]!, fixture.token_cases["8"]!,
       ...Object.values(fixture.random_token_cases),
@@ -74,6 +79,11 @@ test("artefato escalar salvo executa logits sem consultar o checkpoint", async (
       const vectors = ids.map((id) => evaluateFixedF16CachedScalarSource(scalarSourceFromFormulas(embedding), [[id]])[0]!);
       assert.deepEqual(evaluateFixedF16CachedScalarSource(source, vectors), logits[0], `n=${ids.length}`);
       assert.deepEqual(selected(vectors), logits[0]!.map((row) => row[17]!), `dim=17, n=${ids.length}`);
+    }
+    for (let n = 1; n <= 8; n++) {
+      const sample = fixture.cases[String(n)]!;
+      assert.deepEqual(selected(sample.layers["0"]!.layer_input[0]!),
+        sample.logits[0]!.map((row) => row[17]!), `entrada de vetores independente, dim=17, n=${n}`);
     }
   } finally { await rm(temporary, { recursive: true, force: true }); }
 });
