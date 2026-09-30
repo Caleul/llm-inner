@@ -4,6 +4,12 @@
 
 O alvo é uma função por dimensão final, parametrizada pela posição e pelo número de tokens. A fronteira de entrada é a sequência ordenada de **vetores de embedding** fornecidos ao primeiro bloco do modelo. Cada vetor contém as dimensões numéricas de um token; a função não recebe IDs nem ativações de camadas como parâmetros. O lookup de embedding por ID é uma rota diagnóstica separada. A função alvo deve substituir todas as operações até essa fronteira e ter apenas ramos condicionais com expressões lineares em cada ramo, sem funções numéricas internas no artefato final. Paridade de um estágio intermediário não satisfaz esse contrato.
 
+## Backend de substituição por streaming (30/09/2026)
+
+`rewriteFixedF16HiddenFile` aplica a expansão de chamadas `hidden_l(t,d)` em uma passagem de arquivo para arquivo. A leitura conserva uma janela de 256 caracteres entre blocos, de modo que chamadas cortadas na fronteira de leitura sejam substituídas integralmente; a escrita respeita backpressure. O teste com blocos de sete caracteres comparou o arquivo emitido byte a byte com a substituição em memória, inclusive contagem de bytes e de chamadas substituídas. Isso elimina o limite de tamanho de string do V8 **para esta regra de emissão**, mas não resolve o carregamento ou a execução da função final.
+
+O próximo passo é generalizar as regras de substituição e simplificação por operação, depois expandir projeções gate/up, atenção e demais consumidores no arquivo emitido. A expressão completa ainda contém chamadas e operações numéricas internas, não foi executada como função final nem validada contra o forward após essa expansão. A expansão anterior de `hidden_*` observou 1.353.771.196 bytes; esta alteração não muda essa medição.
+
 ## Correção da fronteira de entrada
 
 `compileFixedF16ScalarModelFromDirectory` e `writeFixedF16ScalarArtifact` agora usam `embeddings` como fronteira padrão. A opção explícita `token-ids` conserva o experimento anterior. O artefato registra a fronteira escolhida. O teste do artefato padrão verifica todos os logits contra o forward de referência para sequências de 1, 4 e 8 tokens, além dos casos aleatórios do fixture, alimentando os vetores de embedding calculados do checkpoint. `prepareFixedF16CachedScalarDimensionSource` permite avaliar somente uma dimensão final; a dimensão 17 foi comparada nas mesmas sequências. Essa correção não implementa ainda a eliminação de `exp`, `sqrt`, produtos entre ativações nem arredondamentos na fonte gerada.
