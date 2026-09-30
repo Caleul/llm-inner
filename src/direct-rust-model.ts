@@ -283,6 +283,7 @@ export async function writeDirectRustModel(directory:string,python:string,dimens
       if(a.headDim%2!==0||a.heads%a.kvHeads!==0||a.projections.o.shape[0]!==width||layer.mlp.normalizations.length!==2)throw new Error("Unsupported discovered geometry");
     }
     await s.write(`// Direct checkpoint specialization. Numeric policy: PyTorch CPU F16, four-lane F32 reductions.\n#![recursion_limit="65536"]\npub fn compiled_dimension(input_tokens:&[usize],t:usize)->f64 {let n=input_tokens.len();assert!(n>0 && n<=${output.maxPosition} && t<n);`);
+    await s.declareRoundingScratch();
     await linear({weight:output.weight,shape:output.shape},dimension,c=>norm(output.finalNormWeight,output.finalNormEpsilon,c,column=>hidden(layers.length-1,column,"t")));
     await s.write("}\n");await s.close();
   } catch(error){s.destroy();throw error;}finally{await reader.close();}

@@ -130,6 +130,34 @@ test("evidência promove cabeça BF16 integral e rejeita prefill agrupado diverg
   assert.equal(artifact.decision.selectedDefault, "native-bf16-whole");
 });
 
+test("evidência promove cache de decisão exata e rejeita fronteira Q8 0-18", async () => {
+  const artifact = JSON.parse(await readFile("artifacts/gemma4-exact-decision-cache-promotion.json", "utf8")) as any;
+  const digest = async (path: string) => createHash("sha256").update(await readFile(path)).digest("hex");
+  for (const source of Object.values(artifact.sources) as Array<{ file: string; sha256: string }>) assert.equal(await digest(source.file), source.sha256);
+  assert.deepEqual([artifact.rejectedQuantizationBoundary.control.promptsEqual, artifact.rejectedQuantizationBoundary.control.equalTokenSteps], [32, 256]);
+  assert.deepEqual([artifact.rejectedQuantizationBoundary.candidate.promptsEqual, artifact.rejectedQuantizationBoundary.candidate.equalTokenSteps], [32, 256]);
+  assert.ok(artifact.rejectedQuantizationBoundary.candidate.fallbacks > artifact.rejectedQuantizationBoundary.control.fallbacks);
+  assert.ok(artifact.rejectedQuantizationBoundary.candidate.directSeconds > artifact.rejectedQuantizationBoundary.control.directSeconds);
+  assert.equal(artifact.rejectedQuantizationBoundary.rejected, true);
+  assert.equal(artifact.repeatedExactConfirmation.tokensEqual, true);
+  assert.deepEqual(artifact.repeatedExactConfirmation.repeatedAcrossSession, {
+    elapsedSeconds: 0.3910765410000004,
+    selectedBackend: "exact-decision-cache",
+    selectionPolicy: "margin-verified-exact-decision-cache-v1",
+    exactDecisionCacheHit: true,
+    exactDecisionCacheMatchedSteps: 1,
+    verificationRequestCount: 0,
+    verificationRequestWallSeconds: 0,
+    verificationDecoderSteps: 0,
+    verificationHeadPositionsComputed: 0,
+  });
+  assert.ok(artifact.repeatedExactConfirmation.selectedComputeSpeedup > 7);
+  assert.equal(artifact.negativeCorrectionControl.repeatedExactDecisionCacheHit, false);
+  assert.equal(artifact.negativeCorrectionControl.correctionPreserved, true);
+  assert.notDeepEqual(artifact.negativeCorrectionControl.selectedGeneratedTokenIds, artifact.negativeCorrectionControl.fastGeneratedTokenIds);
+  assert.equal(artifact.decision.selectedPolicy, "exact-token-context-decision-lru");
+});
+
 test("evidência promove a fronteira Q8 0-19 com menos fallbacks e paridade integral", async () => {
   const artifact = JSON.parse(await readFile("artifacts/gemma4-q8-layer-boundary-promotion-32x8.json", "utf8")) as any;
   assert.deepEqual([artifact.configuration.prompts, artifact.configuration.tokensPerPrompt, artifact.configuration.decoderQuantization, artifact.configuration.verificationMargin], [32, 8, "q8-ffn-gate-up", 0]);

@@ -54,6 +54,7 @@ export function normalizeExactAffineComparison(scale: Rational, offset: Rational
 }
 export class DirectBranchDomain {
   constructor(private readonly intervals: ReadonlyMap<string, Interval> = new Map()) {}
+  entries(): IterableIterator<[string, Interval]> { return this.intervals.entries(); }
   split(variable: string, op: Comparison, value: Rational): {
     truth: DirectBranchDomain | undefined; falsity: DirectBranchDomain | undefined;
   } {

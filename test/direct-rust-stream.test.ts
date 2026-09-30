@@ -41,3 +41,29 @@ test("inherited affine conditions eliminate impossible and redundant Rust branch
     await run("rustc",[file,"-o",join(dir,"run")]);await run(join(dir,"run"));
   } finally {await rm(dir,{recursive:true,force:true});}
 });
+test("reachable transformed branches flatten into reduced leaf conditions",async()=>{
+  const dir=await mkdtemp(join(tmpdir(),"direct-flat-"));
+  try {
+    const file=join(dir,"flat.rs"),s=new DirectRustStream(file);
+    await s.write("fn generated(x:f64)->i32 {'result:{");
+    const leaf=(domain:DirectBranchDomain,value:string)=>s.affineLeaf(domain,"result",()=>s.write(value));
+    await s.flattenedAffinePaths(new DirectBranchDomain(),"x",rational(1n),rational(0n),">",rational(3n),
+      domain=>s.flattenedAffinePaths(domain,"x",rational(4n),rational(0n),"<",rational(100n),
+        inner=>leaf(inner,"7"),inner=>leaf(inner,"8")),domain=>leaf(domain,"0"));
+    await s.write("panic!(\"finite input required\")}}fn main(){for (x,v) in [(2.0,0),(4.0,7),(25.0,8),(100.0,8)] {assert_eq!(generated(x),v);}}");
+    await s.close();const source=await readFile(file,"utf8");
+    assert.match(source,/x>=\(25\.0_f64\/1\.0_f64\)/);
+    assert.doesNotMatch(source,/else/);
+    await run("rustc",[file,"-o",join(dir,"run")]);await run(join(dir,"run"));
+  }finally{await rm(dir,{recursive:true,force:true});}
+});
+test("operator scratch preserves nested rounding without retaining producer results",async()=>{
+  const dir=await mkdtemp(join(tmpdir(),"direct-scratch-"));
+  try{
+    const file=join(dir,"scratch.rs"),s=new DirectRustStream(file);
+    await s.write("fn generated(x:f64)->f64 {");await s.declareRoundingScratch();
+    await s.round("f32",async()=>{await s.round("f32",()=>s.write("x/3.0"));await s.write("+");await s.round("f32",()=>s.write("x*7.0"));});
+    await s.write("}fn main(){for x in [-0.0,0.0,-1.0,1.0,65504.0,0.000000059604644775390625] {let expected=(((x/3.0) as f32)+((x*7.0) as f32)) as f64;assert_eq!(generated(x).to_bits(),expected.to_bits());}}");
+    await s.close();await run("rustc",["-Awarnings",file,"-o",join(dir,"run")]);await run(join(dir,"run"));
+  }finally{await rm(dir,{recursive:true,force:true});}
+});

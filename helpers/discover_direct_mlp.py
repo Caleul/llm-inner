@@ -29,7 +29,12 @@ def discover_mlp(model, layer_path):
     for relative in module_calls(forward):
         module = layer.get_submodule(relative)
         body = inspect.getsource(type(module).forward)
-        if "self.act_fn(" in body and " * " in body:
+        module_tree = ast.parse(textwrap.dedent(body))
+        has_gated_projection = any(isinstance(node, ast.Call) and node.args
+                                   and isinstance(node.args[0], ast.BinOp)
+                                   and isinstance(node.args[0].op, ast.Mult)
+                                   for node in ast.walk(module_tree))
+        if has_gated_projection:
             candidates.append((relative, module, body))
     if len(candidates) != 1:
         raise ValueError("Expected one source-discovered gated MLP")
@@ -48,7 +53,14 @@ def discover_mlp(model, layer_path):
     if not isinstance(product, ast.BinOp) or not isinstance(product.op, ast.Mult):
         raise ValueError("MLP producer is not a product")
     def unwrap_gate(node):
-        if not isinstance(node, ast.Call) or attribute_path(node.func) != "act_fn":
+        if not isinstance(node, ast.Call) or not node.args:
+            return None
+        try:
+            activation_module = mlp.get_submodule(attribute_path(node.func))
+            activation_source = inspect.getsource(type(activation_module).forward)
+        except (ValueError, AttributeError):
+            return None
+        if "silu" not in activation_source.lower():
             return None
         nested = node.args[0]
         return attribute_path(nested.func) if isinstance(nested, ast.Call) else None
@@ -57,9 +69,6 @@ def discover_mlp(model, layer_path):
     up = attribute_path(other.func) if isinstance(other, ast.Call) else None
     if not gate or not up:
         raise ValueError("MLP gate and up projections are not direct module calls")
-    activation = inspect.getsource(type(mlp.act_fn).forward)
-    if "silu" not in activation.lower():
-        raise ValueError("Only source-confirmed SiLU is numerically defined")
     result = {}
     for role, path in (("gate", gate), ("up", up), ("down", down)):
         module = mlp.get_submodule(path)

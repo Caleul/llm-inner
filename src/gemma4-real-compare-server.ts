@@ -17,7 +17,7 @@ export interface Gemma4RealComparisonRunnerOptions {
   compiledProgram?: Gemma4CompiledProgramStatus;
   directMlxDecoderQuantization?: Gemma4MlxDecoderQuantization;
   directMlxDecoderQuantizationLayers?: string;
-  literalArtifact?: string; binaryPool?: string; directArtifactIndex?: string; directArtifactIndexSha256?: string; directArtifactSha256?: string; directWorker?: string; directLinearHelper?: string; directMlxHelper?: string; directLinearBackend?: "pytorch" | "mlx"; directMlxHeadQuantization?: "off" | "q8" | "q8-shortlist" | "q4"; directFusedMlp?: "off" | "bf16" | "real" | "native-bf16"; directFusedFfn?: "off" | "native-bf16"; directFusedDecoderLayer?: "off" | "native-bf16"; directFusedDecoderStack?: "off" | "real" | "native-bf16" | "native-bf16-ple"; directFusedPle?: "off" | "bf16" | "real"; directFusedPlePrelude?: "off" | "bf16" | "real"; directFusedTokenForward?: "off" | "bf16"; directResidentGeneration?: "off" | "on"; directFinalHead?: "f32" | "native-bf16" | "native-bf16-stream" | "native-bf16-whole"; directNativeAttention?: "off" | "bf16" | "real"; directFusedAttention?: "off" | "bf16" | "real" | "native-bf16"; directThreads?: number; directMaxReadMiB?: number; directFinalHeadReadMiB?: number; directVerificationMargin?: number; directVerificationBackend?: "pytorch" | "mlx-control" | "mlx-shared-control"; directVerificationFinalHead?: "native-bf16-stream" | "native-bf16-whole"; directVerificationPrefixAhead?: boolean; directVerificationUncachedPrefillAhead?: boolean; directMlxDecoderQuantizationGroupSize?: 32 | 64 | 128;
+  literalArtifact?: string; binaryPool?: string; directArtifactIndex?: string; directArtifactIndexSha256?: string; directArtifactSha256?: string; directWorker?: string; directLinearHelper?: string; directMlxHelper?: string; directLinearBackend?: "pytorch" | "mlx"; directMlxHeadQuantization?: "off" | "q8" | "q8-shortlist" | "q4"; directFusedMlp?: "off" | "bf16" | "real" | "native-bf16"; directFusedFfn?: "off" | "native-bf16"; directFusedDecoderLayer?: "off" | "native-bf16"; directFusedDecoderStack?: "off" | "real" | "native-bf16" | "native-bf16-ple"; directFusedPle?: "off" | "bf16" | "real"; directFusedPlePrelude?: "off" | "bf16" | "real"; directFusedTokenForward?: "off" | "bf16"; directResidentGeneration?: "off" | "on"; directFinalHead?: "f32" | "native-bf16" | "native-bf16-stream" | "native-bf16-whole"; directNativeAttention?: "off" | "bf16" | "real"; directFusedAttention?: "off" | "bf16" | "real" | "native-bf16"; directThreads?: number; directMaxReadMiB?: number; directFinalHeadReadMiB?: number; directVerificationMargin?: number; directVerificationBackend?: "pytorch" | "mlx-control" | "mlx-shared-control"; directVerificationFinalHead?: "native-bf16-stream" | "native-bf16-whole"; directVerificationPrefixAhead?: boolean; directVerificationUncachedPrefillAhead?: boolean; directVerificationDecisionCacheEntries?: number; directMlxDecoderQuantizationGroupSize?: 32 | 64 | 128;
 }
 
 export interface Gemma4CompiledProgramStatus {
@@ -78,6 +78,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
   let worker: Gemma4PersistentComparisonWorker | undefined, referenceInitialization: Promise<Gemma4PersistentComparisonWorker> | undefined, initializationError: Error | undefined, referenceError: Error | undefined, closed = false, referenceLeases = 0, referenceReleaseRequested = false;
   const sessionInputs = new Map<number, SessionInput>();
   const verificationCachedSessions = new Map<number, readonly number[]>();
+  const verificationDecisionCache = new Gemma4ExactDecisionCache(options.directVerificationDecisionCacheEntries ?? 256);
   const finalFormulaCache = new Map<number, Promise<Gemma4GlobalSsaOutput>>();
   const finalFormulaResolutionCache = new Map<string, Promise<Gemma4GlobalSsaRootResolution>>();
   let directWarmupSeconds: number | undefined;
@@ -162,7 +163,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
     };
     return {
       enabled: true, ...verification?.readyMetadata, backend: options.directVerificationBackend, executionBackend: verification?.readyMetadata.backend,
-      lifecycle: options.directVerificationBackend === "mlx-control" ? "persistent-compiled-control-v1" : "warmed-persistent-exact-kernel-v1", marginThreshold: options.directVerificationMargin, prefixAheadOnCachedSession: options.directVerificationPrefixAhead !== false, uncachedPrefillAhead: options.directVerificationUncachedPrefillAhead === true,
+      lifecycle: options.directVerificationBackend === "mlx-control" ? "persistent-compiled-control-v1" : "warmed-persistent-exact-kernel-v1", marginThreshold: options.directVerificationMargin, prefixAheadOnCachedSession: options.directVerificationPrefixAhead !== false, uncachedPrefillAhead: options.directVerificationUncachedPrefillAhead === true, exactDecisionCache: verificationDecisionCache.status(),
       state: verification?.ready ? "ready" : verificationInitialization ? "initializing" : "unloaded", ready: verification?.ready ?? false, initializationSeconds: verification?.initializationSeconds,
       warmupSeconds: verificationWarmupSeconds, warmupComplete: verificationWarmupSeconds !== undefined,
     };
@@ -268,7 +269,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
           try { report = await lease.worker.compareTokens(body, inputIds, chatStopToken(body)) as ComparisonReport; } finally { lease.release(false); }
           return json(response, 200, { ...report, prompt: body.prompt, conversationMode: body.conversationMode ?? "raw", chatTemplate: body.conversationMode === "chat" ? GEMMA4_CHAT_TEMPLATE : null, comparisonTiming: { schedule: "reference-only", totalWallSeconds: elapsedSeconds(comparisonStarted) } });
         }
-        const executeDirect = () => executeSelectedDirect(direct, verificationProvider, options.directVerificationMargin, { inputIds, maxNewTokens: body.maxNewTokens, ...(body.conversationMode === "chat" ? { eosTokenId: GEMMA4_CHAT_EOT_TOKEN_ID } : {}), ...(body.sessionId === undefined ? {} : { sessionId: body.sessionId }) }, verificationCachedSessions, options.directVerificationPrefixAhead !== false, options.directVerificationUncachedPrefillAhead === true);
+        const executeDirect = () => executeSelectedDirect(direct, verificationProvider, options.directVerificationMargin, { inputIds, maxNewTokens: body.maxNewTokens, ...(body.conversationMode === "chat" ? { eosTokenId: GEMMA4_CHAT_EOT_TOKEN_ID } : {}), ...(body.sessionId === undefined ? {} : { sessionId: body.sessionId }) }, verificationCachedSessions, verificationDecisionCache, options.directVerificationPrefixAhead !== false, options.directVerificationUncachedPrefillAhead === true);
         let report: ComparisonReport, directReport: DirectReport, directPhaseSeconds: number, referencePhaseSeconds: number, referenceStartupSeconds: number, referenceComputeSeconds: number, referenceColdStart: boolean, directRecoverySeconds = 0;
         if (schedule === "isolated") {
           const directStarted = performance.now(); directReport = await executeDirect(); directPhaseSeconds = elapsedSeconds(directStarted);
@@ -303,7 +304,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
           const comparisonStarted = performance.now(), schedule = body.measurementSchedule ?? "isolated";
           let directExecutionStarted = comparisonStarted, firstTokenWallSeconds: number | undefined;
           const decodedStream = new DecodedTokenNdjsonStream(tokenizer, response);
-          const executeDirect = () => executeSelectedDirect(direct, verificationProvider, options.directVerificationMargin, { inputIds, maxNewTokens: body.maxNewTokens, stream: true, ...(body.conversationMode === "chat" ? { eosTokenId: GEMMA4_CHAT_EOT_TOKEN_ID } : {}), ...(body.sessionId === undefined ? {} : { sessionId: body.sessionId }) }, verificationCachedSessions, options.directVerificationPrefixAhead !== false, options.directVerificationUncachedPrefillAhead === true, (event) => {
+          const executeDirect = () => executeSelectedDirect(direct, verificationProvider, options.directVerificationMargin, { inputIds, maxNewTokens: body.maxNewTokens, stream: true, ...(body.conversationMode === "chat" ? { eosTokenId: GEMMA4_CHAT_EOT_TOKEN_ID } : {}), ...(body.sessionId === undefined ? {} : { sessionId: body.sessionId }) }, verificationCachedSessions, verificationDecisionCache, options.directVerificationPrefixAhead !== false, options.directVerificationUncachedPrefillAhead === true, (event) => {
             firstTokenWallSeconds ??= elapsedSeconds(directExecutionStarted);
             decodedStream.push(event, { type: "direct-token", provisional: verificationEnabled, serverElapsedSeconds: elapsedSeconds(directExecutionStarted) });
           }, (assessment) => decodedStream.write({ type: "direct-fallback", ...assessment }), () => !clientDisconnected, (prefill) => decodedStream.write({ type: "direct-verification-prefill", ...prefill }));
@@ -359,7 +360,7 @@ export function createGemma4RealComparisonServer(options: Gemma4RealComparisonRu
             inputIds, maxNewTokens: body.maxNewTokens, stream: true,
             ...(body.conversationMode === "chat" ? { eosTokenId: GEMMA4_CHAT_EOT_TOKEN_ID } : {}),
             ...(body.sessionId === undefined ? {} : { sessionId: body.sessionId }),
-          }, verificationCachedSessions, options.directVerificationPrefixAhead !== false, options.directVerificationUncachedPrefillAhead === true, (event) => {
+          }, verificationCachedSessions, verificationDecisionCache, options.directVerificationPrefixAhead !== false, options.directVerificationUncachedPrefillAhead === true, (event) => {
             firstTokenWallSeconds ??= elapsedSeconds(generationStarted);
             decodedStream.push(event, { type: "direct-token", provisional: verificationEnabled, serverElapsedSeconds: elapsedSeconds(generationStarted) });
           }, (assessment) => decodedStream.write({ type: "direct-fallback", ...assessment }), () => !clientDisconnected, (prefill) => decodedStream.write({ type: "direct-verification-prefill", ...prefill }));
@@ -421,6 +422,48 @@ async function recoverDirectWorker(worker: PersistentJsonlWorker): Promise<numbe
 
 interface DirectMarginAssessment { trigger: boolean; reason: "margin-at-or-below-threshold" | "margin-unavailable"; minimumMargin: number | null; marginThreshold: number; sensitiveSteps: number[] }
 
+class Gemma4ExactDecisionCache {
+  readonly #entries = new Map<string, number>();
+  #hits = 0;
+  #misses = 0;
+  constructor(readonly capacity: number) {
+    if (!Number.isSafeInteger(capacity) || capacity < 0 || capacity > 65_536) throw new Error("directVerificationDecisionCacheEntries deve estar entre 0 e 65.536.");
+  }
+  resolve(contextTokenIds: readonly number[]): number | undefined {
+    const key = exactDecisionKey(contextTokenIds), tokenId = this.#entries.get(key);
+    if (tokenId === undefined) { this.#misses += 1; return undefined; }
+    this.#hits += 1; this.#entries.delete(key); this.#entries.set(key, tokenId); return tokenId;
+  }
+  peek(contextTokenIds: readonly number[]): number | undefined { return this.#entries.get(exactDecisionKey(contextTokenIds)); }
+  remember(contextTokenIds: readonly number[], tokenId: number): void {
+    if (this.capacity === 0) return;
+    const key = exactDecisionKey(contextTokenIds); this.#entries.delete(key); this.#entries.set(key, tokenId);
+    while (this.#entries.size > this.capacity) this.#entries.delete(this.#entries.keys().next().value!);
+  }
+  status(): Record<string, number> { return { capacity: this.capacity, entries: this.#entries.size, hits: this.#hits, misses: this.#misses }; }
+}
+
+function exactDecisionKey(contextTokenIds: readonly number[]): string { return contextTokenIds.join(","); }
+
+function resolveCachedExactSensitiveDecisions(cache: Gemma4ExactDecisionCache, inputIds: readonly number[], fast: DirectReport, sensitiveSteps: readonly number[]): number | undefined {
+  if (sensitiveSteps.length === 0) return undefined;
+  for (const step of sensitiveSteps) {
+    const exactTokenId = cache.resolve([...inputIds, ...fast.generatedTokenIds.slice(0, step)]);
+    if (exactTokenId === undefined || exactTokenId !== fast.generatedTokenIds[step]) return undefined;
+  }
+  return sensitiveSteps.length;
+}
+
+function rememberExactSensitiveDecisions(cache: Gemma4ExactDecisionCache, inputIds: readonly number[], verified: DirectReport): void {
+  if (verified.selectiveVerification !== true || !Array.isArray(verified.sensitiveSteps) || !Array.isArray(verified.steps)) return;
+  for (const rawStep of verified.sensitiveSteps) {
+    if (!Number.isSafeInteger(rawStep) || (rawStep as number) < 0) continue;
+    const step = rawStep as number, detail = verified.steps[step], tokenId = verified.generatedTokenIds[step];
+    if (!detail || detail.verificationSkipped === true || !Number.isSafeInteger(tokenId) || (tokenId as number) < 0) continue;
+    cache.remember([...inputIds, ...verified.generatedTokenIds.slice(0, step)], tokenId!);
+  }
+}
+
 interface VerificationPrefillReport {
   verificationPrefill?: boolean;
   elapsedSeconds?: number;
@@ -444,7 +487,7 @@ export function assessDirectVerification(report: DirectReport, marginThreshold: 
   return { trigger: sensitiveSteps.length > 0, reason: "margin-at-or-below-threshold", minimumMargin, marginThreshold, sensitiveSteps };
 }
 
-async function executeSelectedDirect(primary: PersistentJsonlWorker, verificationProvider: { get?(): Promise<PersistentJsonlWorker>; release?(): Promise<void>; backend: "pytorch" | "mlx-control" | "mlx-shared-control"; selectiveHeads: boolean } | undefined, marginThreshold: number | undefined, payload: { inputIds: number[]; maxNewTokens: number; eosTokenId?: number; sessionId?: number; stream?: boolean }, verificationCachedSessions: Map<number, readonly number[]>, verificationPrefixAheadEnabled: boolean, uncachedPrefillAheadEnabled: boolean, onEvent?: (event: unknown) => void, onFallback?: (assessment: DirectMarginAssessment & { verificationBackend: "pytorch" | "mlx-control" | "mlx-shared-control" }) => void, shouldVerify: () => boolean = () => true, onPrefillAhead?: (event: { step: number; margin: number; marginThreshold: number }) => void): Promise<DirectReport> {
+async function executeSelectedDirect(primary: PersistentJsonlWorker, verificationProvider: { get?(): Promise<PersistentJsonlWorker>; release?(): Promise<void>; backend: "pytorch" | "mlx-control" | "mlx-shared-control"; selectiveHeads: boolean } | undefined, marginThreshold: number | undefined, payload: { inputIds: number[]; maxNewTokens: number; eosTokenId?: number; sessionId?: number; stream?: boolean }, verificationCachedSessions: Map<number, readonly number[]>, verificationDecisionCache: Gemma4ExactDecisionCache, verificationPrefixAheadEnabled: boolean, uncachedPrefillAheadEnabled: boolean, onEvent?: (event: unknown) => void, onFallback?: (assessment: DirectMarginAssessment & { verificationBackend: "pytorch" | "mlx-control" | "mlx-shared-control" }) => void, shouldVerify: () => boolean = () => true, onPrefillAhead?: (event: { step: number; margin: number; marginThreshold: number }) => void): Promise<DirectReport> {
   const started = performance.now();
   const canPrefillAhead = verificationProvider?.backend === "pytorch" && verificationProvider.selectiveHeads && marginThreshold !== undefined && payload.sessionId !== undefined;
   let prefillAhead: { startedAt: number; completedAt?: number; kind: "prefill" | "prefix"; step: number; generatedTokenIds: number[]; promise: Promise<DirectReport | VerificationPrefillReport> } | undefined;
@@ -460,6 +503,8 @@ async function executeSelectedDirect(primary: PersistentJsonlWorker, verificatio
       if (step === streamedGeneratedTokenIds.length && Number.isSafeInteger(tokenId) && (tokenId as number) >= 0) streamedGeneratedTokenIds.push(tokenId as number);
     }
     if (!prefillAhead && sensitive) {
+      const cachedDecision = verificationProvider?.backend === "pytorch" ? verificationDecisionCache.peek([...payload.inputIds, ...streamedGeneratedTokenIds.slice(0, sensitive.step)]) : undefined;
+      if (cachedDecision !== undefined && cachedDecision === sensitive.tokenId) return;
       if (!shouldStartDirectVerificationPrefill(sensitive, payload.maxNewTokens, payload.eosTokenId)) { terminalPrefillSkipped = true; return; }
       const generatedTokenIds = streamedGeneratedTokenIds.slice(0, sensitive.step + 1);
       if (generatedTokenIds.length !== sensitive.step + 1) return;
@@ -483,6 +528,22 @@ async function executeSelectedDirect(primary: PersistentJsonlWorker, verificatio
   if (!assessment.trigger) return Object.assign(fast, { selectionPolicy: "margin-verified-pytorch-v1", selectedBackend: "mlx", fallbackTriggered: false, fastPathMinimumMargin: assessment.minimumMargin, verificationMarginThreshold: marginThreshold, fastPathSeconds });
   if (!shouldVerify()) return fast;
   onFallback?.({ ...assessment, verificationBackend: verificationProvider.backend });
+  const cachedSensitiveDecisions = verificationProvider.backend === "pytorch" && assessment.reason === "margin-at-or-below-threshold"
+    ? resolveCachedExactSensitiveDecisions(verificationDecisionCache, payload.inputIds, fast, assessment.sensitiveSteps)
+    : undefined;
+  if (cachedSensitiveDecisions !== undefined) {
+    const hybridSeconds = elapsedSeconds(started);
+    return Object.assign({ ...fast }, {
+      selectionPolicy: "margin-verified-exact-decision-cache-v1", selectedBackend: "exact-decision-cache", fallbackTriggered: true, fallbackReason: assessment.reason,
+      fastPathMinimumMargin: assessment.minimumMargin, verificationMarginThreshold: marginThreshold, fastPathSeconds,
+      exactDecisionCacheHit: true, exactDecisionCacheMatchedSteps: cachedSensitiveDecisions,
+      verificationAcquireSeconds: 0, verificationRequestWallSeconds: 0, verificationRequestCount: 0,
+      verificationOrchestrationSeconds: Math.max(0, hybridSeconds - fastPathSeconds), verificationSeconds: Math.max(0, hybridSeconds - fastPathSeconds),
+      verificationDecoderSteps: 0, verificationDecoderStepsAvoided: assessment.sensitiveSteps.at(-1)! + 1,
+      verificationHeadPositionsComputed: 0, verificationHeadPositionsAvoided: cachedSensitiveDecisions,
+      hybridSeconds, elapsedSeconds: hybridSeconds, tokensPerSecond: fast.generatedTokenIds.length / hybridSeconds, fastPath: fast,
+    });
+  }
   const selectiveRequest = verificationProvider.selectiveHeads && assessment.reason === "margin-at-or-below-threshold" && assessment.sensitiveSteps.length > 0 && typeof fast.terminalLogitsSha256 === "string" && /^[0-9a-f]{64}$/.test(fast.terminalLogitsSha256)
     ? { verificationFastPath: { generatedTokenIds: fast.generatedTokenIds, sensitiveSteps: assessment.sensitiveSteps, terminalLogitsSha256: fast.terminalLogitsSha256, stopAfterDivergence: verificationProvider.backend === "pytorch" } }
     : {};
@@ -573,6 +634,7 @@ async function executeSelectedDirect(primary: PersistentJsonlWorker, verificatio
       ? { ...fast.steps![index], ...(step.forwardSeconds === undefined ? {} : { forwardSeconds: step.forwardSeconds }), verificationSkipped: true }
       : step);
   }
+  if (verificationProvider.backend === "pytorch") rememberExactSensitiveDecisions(verificationDecisionCache, payload.inputIds, verified);
   const hybridSeconds = (performance.now() - started) / 1000;
   const compiledContinuationAccepted = verified.compiledContinuationAccepted === true;
   return Object.assign(verified, {
@@ -900,7 +962,7 @@ export function parseGemma4RealServerOptions(arguments_: readonly string[]): Gem
     if (!flag?.startsWith("--") || value === undefined || values.has(flag)) throw new Error(`Argumento inválido: ${flag ?? "fim"}.`);
     values.set(flag, value);
   }
-  const known = new Set(["--source", "--compiled-bundle", "--python", "--helper", "--tokenizer-helper", "--port", "--host", "--literal-artifact", "--binary-pool", "--direct-worker", "--direct-linear-helper", "--direct-mlx-helper", "--direct-linear-backend", "--direct-mlx-head-quantization", "--direct-mlx-decoder-quantization", "--direct-mlx-decoder-quantization-layers", "--direct-mlx-decoder-quantization-group-size", "--direct-fused-mlp", "--direct-fused-ffn", "--direct-fused-decoder-layer", "--direct-fused-decoder-stack", "--direct-fused-ple", "--direct-fused-ple-prelude", "--direct-fused-token-forward", "--direct-resident-generation", "--direct-final-head", "--direct-final-head-read-mib", "--direct-native-attention", "--direct-fused-attention", "--direct-threads", "--direct-max-read-mib", "--direct-verification-margin", "--direct-verification-backend", "--direct-verification-final-head", "--direct-verification-prefix-ahead", "--direct-verification-uncached-prefill-ahead"]); for (const key of values.keys()) if (!known.has(key)) throw new Error(`Flag desconhecida: ${key}.`);
+  const known = new Set(["--source", "--compiled-bundle", "--python", "--helper", "--tokenizer-helper", "--port", "--host", "--literal-artifact", "--binary-pool", "--direct-worker", "--direct-linear-helper", "--direct-mlx-helper", "--direct-linear-backend", "--direct-mlx-head-quantization", "--direct-mlx-decoder-quantization", "--direct-mlx-decoder-quantization-layers", "--direct-mlx-decoder-quantization-group-size", "--direct-fused-mlp", "--direct-fused-ffn", "--direct-fused-decoder-layer", "--direct-fused-decoder-stack", "--direct-fused-ple", "--direct-fused-ple-prelude", "--direct-fused-token-forward", "--direct-resident-generation", "--direct-final-head", "--direct-final-head-read-mib", "--direct-native-attention", "--direct-fused-attention", "--direct-threads", "--direct-max-read-mib", "--direct-verification-margin", "--direct-verification-backend", "--direct-verification-final-head", "--direct-verification-prefix-ahead", "--direct-verification-uncached-prefill-ahead", "--direct-verification-decision-cache-entries"]); for (const key of values.keys()) if (!known.has(key)) throw new Error(`Flag desconhecida: ${key}.`);
   const port = Number(values.get("--port") ?? "8787"); if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) throw new Error("--port inválido.");
   const compiledBundle = resolve(values.get("--compiled-bundle") ?? "artifacts/gemma4-compiled-global-runtime-bundle");
   const bundleReady = existsSync(join(compiledBundle, "constants.literal.json")) && existsSync(join(compiledBundle, "model.safetensors")) && existsSync(join(compiledBundle, "tokenizer.json")) && existsSync(join(compiledBundle, "config.json")) && existsSync(join(compiledBundle, "manifest.json")) && existsSync(join(compiledBundle, "global-formulas.ssa.json")) && existsSync(join(compiledBundle, "final-formulas.json")) && existsSync(join(compiledBundle, "final-formulas.runtime.json")) && existsSync(join(compiledBundle, "vectorized-real-lowering.json"));
@@ -940,6 +1002,8 @@ export function parseGemma4RealServerOptions(arguments_: readonly string[]): Gem
   const directVerificationUncachedPrefillAheadValue = values.get("--direct-verification-uncached-prefill-ahead") ?? "off";
   if (directVerificationUncachedPrefillAheadValue !== "on" && directVerificationUncachedPrefillAheadValue !== "off") throw new Error("--direct-verification-uncached-prefill-ahead deve ser on ou off.");
   const directVerificationUncachedPrefillAhead = directVerificationUncachedPrefillAheadValue === "on";
+  const directVerificationDecisionCacheEntries = Number(values.get("--direct-verification-decision-cache-entries") ?? "256");
+  if (!Number.isSafeInteger(directVerificationDecisionCacheEntries) || directVerificationDecisionCacheEntries < 0 || directVerificationDecisionCacheEntries > 65_536) throw new Error("--direct-verification-decision-cache-entries deve estar entre 0 e 65.536.");
   const directThreads = Number(values.get("--direct-threads") ?? "8"), directMaxReadMiB = Number(values.get("--direct-max-read-mib") ?? "16"), directFinalHeadReadMiB = Number(values.get("--direct-final-head-read-mib") ?? (directLinearBackend === "pytorch" ? "32" : String(directMaxReadMiB)));
   if (!Number.isSafeInteger(directThreads) || directThreads < 1 || directThreads > 256 || !Number.isSafeInteger(directMaxReadMiB) || directMaxReadMiB < 1 || directMaxReadMiB > 1024 || !Number.isSafeInteger(directFinalHeadReadMiB) || directFinalHeadReadMiB < 1 || directFinalHeadReadMiB > 1024) throw new Error("Configuração direta inválida.");
   const directFusedMlp = values.get("--direct-fused-mlp") ?? (directLinearBackend === "pytorch" ? "native-bf16" : "real");
@@ -983,7 +1047,7 @@ export function parseGemma4RealServerOptions(arguments_: readonly string[]): Gem
     ...(directMlxDecoderQuantizationLayers === undefined ? {} : { directMlxDecoderQuantizationLayers }),
     directMlxDecoderQuantizationGroupSize,
     ...(compiledProgram ? { compiledProgram } : {}),
-    ...(literalArtifact && binaryPool ? { literalArtifact, binaryPool, ...(compiledProgram?.runtimeIndex && literalArtifact === join(compiledBundle, compiledProgram.constantPool.file) ? { directArtifactIndex: join(compiledBundle, compiledProgram.runtimeIndex.file), directArtifactIndexSha256: compiledProgram.runtimeIndex.sha256, directArtifactSha256: compiledProgram.runtimeIndex.constantPoolSha256 } : {}), directWorker: resolve(values.get("--direct-worker") ?? "dist/src/gemma4-paged-runtime-worker-cli.js"), directLinearHelper: resolve(values.get("--direct-linear-helper") ?? "scripts/gemma4-paged-linear-worker.py"), directMlxHelper: resolve(values.get("--direct-mlx-helper") ?? "scripts/gemma4-mlx-linear-worker.py"), directLinearBackend, directMlxHeadQuantization, directFusedMlp, directFusedFfn, directFusedDecoderLayer, directFusedDecoderStack, directFusedPle, directFusedPlePrelude, directFusedTokenForward, directResidentGeneration, directFinalHead, directNativeAttention, directFusedAttention, directThreads, directMaxReadMiB, directFinalHeadReadMiB, directVerificationBackend, directVerificationFinalHead, directVerificationPrefixAhead, directVerificationUncachedPrefillAhead, ...(directVerificationMargin === undefined ? {} : { directVerificationMargin }) } : {}),
+    ...(literalArtifact && binaryPool ? { literalArtifact, binaryPool, ...(compiledProgram?.runtimeIndex && literalArtifact === join(compiledBundle, compiledProgram.constantPool.file) ? { directArtifactIndex: join(compiledBundle, compiledProgram.runtimeIndex.file), directArtifactIndexSha256: compiledProgram.runtimeIndex.sha256, directArtifactSha256: compiledProgram.runtimeIndex.constantPoolSha256 } : {}), directWorker: resolve(values.get("--direct-worker") ?? "dist/src/gemma4-paged-runtime-worker-cli.js"), directLinearHelper: resolve(values.get("--direct-linear-helper") ?? "scripts/gemma4-paged-linear-worker.py"), directMlxHelper: resolve(values.get("--direct-mlx-helper") ?? "scripts/gemma4-mlx-linear-worker.py"), directLinearBackend, directMlxHeadQuantization, directFusedMlp, directFusedFfn, directFusedDecoderLayer, directFusedDecoderStack, directFusedPle, directFusedPlePrelude, directFusedTokenForward, directResidentGeneration, directFinalHead, directNativeAttention, directFusedAttention, directThreads, directMaxReadMiB, directFinalHeadReadMiB, directVerificationBackend, directVerificationFinalHead, directVerificationPrefixAhead, directVerificationUncachedPrefillAhead, directVerificationDecisionCacheEntries, ...(directVerificationMargin === undefined ? {} : { directVerificationMargin }) } : {}),
   };
 }
 

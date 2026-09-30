@@ -294,6 +294,7 @@ test("servidor diferencial valida opções reprodutíveis", () => {
   assert.equal(directDefaults.directThreads, 8); assert.equal(directDefaults.directMaxReadMiB, 16); assert.equal(directDefaults.directFinalHeadReadMiB, 16); assert.equal(directDefaults.directVerificationMargin, 0);
   assert.equal(directDefaults.directVerificationPrefixAhead, true);
   assert.equal(directDefaults.directVerificationUncachedPrefillAhead, false);
+  assert.equal(directDefaults.directVerificationDecisionCacheEntries, 256);
   assert.equal(directDefaults.directVerificationFinalHead, "native-bf16-whole");
   assert.equal(directDefaults.directMlxHeadQuantization, "off");
   assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-mlx-head-quantization", "q8-shortlist"]).directMlxHeadQuantization, "q8-shortlist");
@@ -323,6 +324,8 @@ test("servidor diferencial valida opções reprodutíveis", () => {
   assert.throws(() => parseGemma4RealServerOptions(["--direct-verification-prefix-ahead", "auto"]), /on ou off/);
   assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-verification-uncached-prefill-ahead", "on"]).directVerificationUncachedPrefillAhead, true);
   assert.throws(() => parseGemma4RealServerOptions(["--direct-verification-uncached-prefill-ahead", "auto"]), /on ou off/);
+  assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-verification-decision-cache-entries", "64"]).directVerificationDecisionCacheEntries, 64);
+  assert.throws(() => parseGemma4RealServerOptions(["--direct-verification-decision-cache-entries", "-1"]), /entre 0 e 65.536/);
   assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-verification-final-head", "native-bf16-whole"]).directVerificationFinalHead, "native-bf16-whole");
   assert.throws(() => parseGemma4RealServerOptions(["--direct-verification-final-head", "f32"]), /native-bf16-stream ou native-bf16-whole/);
   assert.equal(parseGemma4RealServerOptions(["--literal-artifact", "literal.json", "--binary-pool", "pool", "--direct-linear-backend", "pytorch", "--direct-fused-decoder-stack", "native-bf16-ple"]).directFusedDecoderStack, "native-bf16-ple");
@@ -536,7 +539,7 @@ readline.createInterface({input:process.stdin}).on("line",line=>{const r=JSON.pa
   await writeFile(direct, `import readline from "node:readline";
 const args=process.argv,backend=args[args.indexOf('--linear-backend')+1];let prefixRequests=0;console.log(JSON.stringify({ready:true,linearBackend:backend}));
 readline.createInterface({input:process.stdin}).on("line",line=>{const r=JSON.parse(line);if(r.verificationPrefill){console.log(JSON.stringify({id:r.id,report:{verificationPrefill:true,elapsedSeconds:0.01,verificationSessionCacheHit:false,verificationPrefixTokensReused:0,verificationPrefillTokensComputed:r.inputIds.length}}));return;}const prefixAhead=r.verificationFastPath&&r.verificationFastPath.terminalLogitsSha256===undefined;if(prefixAhead)prefixRequests++;const base=[8,9,10],tokens=(r.verificationFastPath?r.verificationFastPath.generatedTokenIds:base).slice(0,r.maxNewTokens),steps=tokens.map((tokenId,step)=>({step,tokenId,forwardSeconds:0.01,topLogits:step===0?[{tokenId:8,value:2},{tokenId:7,value:2}]:[{tokenId,value:3},{tokenId:7,value:2}],...(r.verificationFastPath&&step!==0?{verificationSkipped:true}:{})})),report={generatedTokenIds:tokens,fullTokenIds:[...r.inputIds,...tokens],elapsedSeconds:0.03,tokensPerSecond:tokens.length/0.03,linearBackend:backend,prefixRequests,terminalLogitsSha256:'${"0".repeat(64)}',steps,...(backend==='pytorch'?{verificationCachedContextTokens:r.inputIds.length,verificationSessionCacheHit:prefixAhead,verificationPrefixTokensReused:prefixAhead?r.inputIds.length:0,verificationPrefillTokensComputed:prefixAhead?0:r.inputIds.length}:{}),...(r.verificationFastPath?{selectiveVerification:true,sensitiveSteps:r.verificationFastPath.sensitiveSteps,trustedFastPathSteps:0,verificationHeadSteps:1,verificationDivergenceStep:null,verificationDecoderSteps:1,verificationDecoderStepsAvoided:0,verificationHeadPositionsComputed:1,verificationHeadPositionsAvoided:0}:{})};if(r.stream)for(const event of steps)console.log(JSON.stringify({id:r.id,event:{type:'token',...event}}));console.log(JSON.stringify({id:r.id,report}));});\n`);
-  const server = createGemma4RealComparisonServer({ source: directory, python: process.execPath, helper: transformer, tokenizerHelper: transformer, literalArtifact: "literal.json", binaryPool: directory, directWorker: direct, directLinearHelper: "unused.py", directVerificationMargin: 0 });
+  const server = createGemma4RealComparisonServer({ source: directory, python: process.execPath, helper: transformer, tokenizerHelper: transformer, literalArtifact: "literal.json", binaryPool: directory, directWorker: direct, directLinearHelper: "unused.py", directVerificationMargin: 0, directVerificationDecisionCacheEntries: 0 });
   await new Promise<void>((accept) => server.listen(0, "127.0.0.1", accept));
   try {
     const address = server.address(); if (!address || typeof address === "string") throw new Error("Endereço HTTP ausente."); const endpoint = `http://127.0.0.1:${address.port}`;
@@ -545,7 +548,18 @@ readline.createInterface({input:process.stdin}).on("line",line=>{const r=JSON.pa
     const first = await generate(); assert.deepEqual(first.generatedTokenIds, [8, 9, 10]); assert.equal(first.verificationPrefixAhead, undefined); assert.equal(first.verificationUncachedPrefillDeferred, true); assert.equal(first.verificationPrefillAhead, undefined);
     const second = await generate(); assert.deepEqual(second.generatedTokenIds, [8, 9, 10]); assert.equal(second.verificationPrefixAhead, true); assert.equal(second.verificationUncachedPrefillDeferred, undefined); assert.deepEqual([second.verificationPrefixAheadStep, second.verificationPrefixAheadTokenSteps, second.verificationEarlyExitStep], [0, 1, 0]); assert.equal(second.prefixRequests, 1); assert.equal(second.trustedFastPathSteps, 2);
     const changed = await generate("entrada diferente"); assert.deepEqual(changed.generatedTokenIds, [8, 9, 10]); assert.equal(changed.verificationPrefixAhead, undefined); assert.equal(changed.verificationUncachedPrefillDeferred, true); assert.equal(changed.prefixRequests, 1);
-  } finally { await new Promise<void>((accept, reject) => server.close((error) => error ? reject(error) : accept())); await rm(directory, { recursive: true, force: true }); }
+  } finally { await new Promise<void>((accept, reject) => server.close((error) => error ? reject(error) : accept())); }
+  const cachedServer = createGemma4RealComparisonServer({ source: directory, python: process.execPath, helper: transformer, tokenizerHelper: transformer, literalArtifact: "literal.json", binaryPool: directory, directWorker: direct, directLinearHelper: "unused.py", directVerificationMargin: 0 });
+  await new Promise<void>((accept) => cachedServer.listen(0, "127.0.0.1", accept));
+  try {
+    const address = cachedServer.address(); if (!address || typeof address === "string") throw new Error("Endereço HTTP ausente."); const endpoint = `http://127.0.0.1:${address.port}`;
+    let ready = false; for (let index = 0; index < 50 && !ready; index += 1) { ready = (await fetch(`${endpoint}/api/status`).then((response) => response.json()) as { ready: boolean }).ready; await new Promise((accept) => setTimeout(accept, 10)); }
+    const generate = async (sessionId: number) => { const response = await fetch(`${endpoint}/api/generate-stream`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt: "empate confirmado", maxNewTokens: 3, sessionId }) }); return (await response.text()).trim().split("\n").map((line) => JSON.parse(line)).at(-1).data.direct as Record<string, unknown>; };
+    const first = await generate(81); assert.equal(first.exactDecisionCacheHit, undefined); assert.equal(first.verificationRequestCount, 1);
+    const repeated = await generate(82); assert.deepEqual(repeated.generatedTokenIds, [8, 9, 10]); assert.equal(repeated.exactDecisionCacheHit, true); assert.equal(repeated.exactDecisionCacheMatchedSteps, 1); assert.equal(repeated.selectedBackend, "exact-decision-cache"); assert.equal(repeated.verificationRequestCount, 0); assert.equal(repeated.verificationDecoderSteps, 0); assert.equal(repeated.verificationHeadPositionsComputed, 0);
+    const status = await fetch(`${endpoint}/api/status`).then((response) => response.json()) as { direct?: { verification?: { exactDecisionCache?: { entries: number; hits: number } } } };
+    assert.equal(status.direct?.verification?.exactDecisionCache?.entries, 1); assert.ok((status.direct?.verification?.exactDecisionCache?.hits ?? 0) >= 1);
+  } finally { await new Promise<void>((accept, reject) => cachedServer.close((error) => error ? reject(error) : accept())); await rm(directory, { recursive: true, force: true }); }
 });
 
 test("modo down recupera margem sensível no mesmo worker MLX compilado", async () => {

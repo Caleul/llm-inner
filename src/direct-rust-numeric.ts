@@ -33,8 +33,9 @@ export async function emitRustSilu(s: DirectRustStream,input: RustExpression): P
       if(end===64511)await s.write(`break 'silu ${k}.0*bits+(${b}.0);`);
       else await s.write(`if bits<=${end}.0 {break 'silu ${k}.0*bits+(${b}.0);}`);
     };
-    for(let bits=1;bits<=65536;bits++) {
-      if(bits===31744||bits===64512||bits===65536){await flush();}
+    for(let bits=1;bits<=64512;bits++) {
+      if(bits===31744||bits===64512){await flush();}
+      if(bits===64512)break;
       if(bits>=31744&&bits<32768||bits>=64512)continue;
       const output=profile.readUInt16LE(bits*2);
       if(bits===32768){start=end=bits;first=output;slope=undefined;continue;}
