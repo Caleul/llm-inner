@@ -2,6 +2,7 @@ import { createWriteStream } from "node:fs";
 import { once } from "node:events";
 import { finished } from "node:stream/promises";
 import { DirectBranchDomain, type Comparison, type Rational, normalizeExactAffineComparison } from "./direct-branch-domain.js";
+import { DirectReductionGate } from "./direct-reduction-gate.js";
 
 export type RustExpression = () => Promise<void>;
 export interface PositiveRoundRange { minimum: number; maximum: number }
@@ -10,17 +11,10 @@ export class DirectRustStream {
   private readonly output;
   bytes = 0;
   eliminatedBranches = 0;
-  private reusableNumericScratch=false;
-  private reusableInlineScratch=false;
-  private readonly inlineVariables={
-    half_decode:["bits","negative","code","value"],
-    half_encode:["value","negative","magnitude","code"],
-    silu:["bits"],
-    sqrt:["value","scaled","scale","root"],
-    exp:["input","scaled","lower","fraction","exponent","reduced","polynomial","squared","tail","result","half","remainder","first","second","i","rest","first_product"],
-  } as const;
+  private reductionGate?:DirectReductionGate;
   constructor(path: string) { this.output = createWriteStream(path, { encoding: "utf8" }); }
   async write(source: string): Promise<void> {
+    this.reductionGate?.accept(source);
     // Numeric fragments are complete lexemes at emission boundaries. Mark
     // floating literals explicitly to avoid millions of unresolved operator
     // obligations in Rust's single-function type checker. Authored strings
@@ -29,7 +23,8 @@ export class DirectRustStream {
     this.bytes += Buffer.byteLength(source);
     if (!this.output.write(source)) await once(this.output, "drain");
   }
-  async close(): Promise<void> { this.output.end(); await finished(this.output); }
+  beginReducedExpression():void{this.reductionGate=new DirectReductionGate();}
+  async close(): Promise<void> { this.reductionGate?.finish();this.output.end(); await finished(this.output); }
   destroy(): void { this.output.on("error", () => {}); this.output.destroy(); }
   async exactAffineBranch(domain: DirectBranchDomain, variable: string, scale: Rational, offset: Rational,
     op: Comparison, rhs: Rational, truth: (domain: DirectBranchDomain) => Promise<void>,
@@ -79,70 +74,71 @@ export class DirectRustStream {
     await this.write(`break '${label} `);await body();await this.write(";");
     if(conditions.length)await this.write("}");
   }
-  /** Reusable operator scratch is overwritten at each operation, never memoized
-   * by coordinate or used to retain a computed activation between consumers.
+  /** Exact IEEE nearest-even lowering using only exponent predicates and
+   * linear binary64 arithmetic. Adding 2^52 rounds a nonnegative normalized
+   * significand (<2^24) to an integer; subtraction is exact by Sterbenz.
+   * This pair MUST NOT be cancelled by real-number algebra. No binding,
+   * scratch, mantissa loop or numeric helper survives the emitted operation.
    */
-  async declareRoundingScratch():Promise<void>{
-    await this.write("let mut round_input:f64;let mut round_negative:bool;let mut round_magnitude:f64;let mut round_base:f64;let mut round_unit:f64;let mut round_exponent:i32;let mut round_normal:bool;let mut round_lower:f64;let mut round_parity:bool;let mut round_midpoint:f64;let mut round_candidate:f64;let mut round_step:f64;");
-    this.reusableNumericScratch=true;
-  }
-  async declareInlineNumericScratch():Promise<void>{
-    for(const [family,variables] of Object.entries(this.inlineVariables)){
-      for(const variable of variables)await this.write(`let mut ${family}_${variable}:${variable==="negative"?"bool":"f64"};`);
-    }
-    this.reusableInlineScratch=true;
-  }
-  async writeNumeric(family:keyof DirectRustStream["inlineVariables"],source:string):Promise<void>{
-    if(this.reusableInlineScratch){
-      const variables=this.inlineVariables[family];
-      source=source.replace(new RegExp(`\\b(${variables.join("|")})\\b`,"g"),`${family}_$1`);
-      source=source.replace(new RegExp(`\\blet(?: mut)? (${family}_\\w+)(?::\\s*(?:f64|bool))?\\s*=`,"g"),"$1=");
-    }
-    await this.write(source);
-  }
-  private async writeRound(source:string):Promise<void>{
-    if(this.reusableNumericScratch){
-      source=source.replace(/\b(input|negative|magnitude|base|unit|exponent|normal|lower|parity|midpoint|candidate|step)\b/g,"round_$1");
-      source=source.replace(/\blet(?: mut)? (round_\w+)(?::\s*(?:f64|bool|i32))?\s*=/g,"$1=");
-    }
-    await this.write(source);
-  }
-  /** All rounding arithmetic is emitted at the use site; no numeric function survives. */
   async round(kind: "f16" | "f32", input: RustExpression, alreadyF32 = false, positiveRange?: PositiveRoundRange): Promise<void> {
-    await this.writeRound("{let input: f64 = ");
-    if (kind === "f16" && !alreadyF32) await this.round("f32", input);
-    else await input();
-    const half=kind==="f16",minimumExponent=half?-14:-126,mantissaBits=half?10:23;
-    const largest=half?65504:3.4028234663852886e38;
     if(positiveRange && (!Number.isFinite(positiveRange.minimum)||!Number.isFinite(positiveRange.maximum)||
       positiveRange.minimum<=0||positiveRange.maximum<positiveRange.minimum))throw new Error("Invalid positive rounding range");
-    if(positiveRange && kind!=="f32")throw new Error("Positive range propagation currently requires F32 input rounding");
-    const normalRange=positiveRange && positiveRange.minimum>=2**minimumExponent && positiveRange.maximum<=largest;
-    if(normalRange){
-      let initialExponent=Math.floor(Math.log2(positiveRange.minimum));
-      while(2**initialExponent>positiveRange.minimum)initialExponent--;
-      while(2**(initialExponent+1)<=positiveRange.minimum)initialExponent++;
-      let lastExponent=Math.floor(Math.log2(positiveRange.maximum));
-      while(2**lastExponent>positiveRange.maximum)lastExponent--;
-      while(2**(lastExponent+1)<=positiveRange.maximum)lastExponent++;
-      // Bounds are compile-time facts; the assertion protects their declared domain.
-      await this.writeRound(`;assert!(input>=${rustF64(positiveRange.minimum)} && input<=${rustF64(positiveRange.maximum)});let magnitude:f64=input;let mut base:f64=${rustF64(2**initialExponent)};let mut unit:f64=${rustF64(2**(initialExponent-mantissaBits))};`);
-      if(lastExponent>initialExponent)await this.writeRound("while magnitude>=base*2.0 {base*=2.0;unit*=2.0;}");
-      await this.writeRound("let mut lower:f64=base;let mut parity:bool=false;");
-    }else{
-      await this.writeRound(";assert!(input == input);let negative:bool = input < 0.0 || (input == 0.0 && 1.0/input < 0.0);let magnitude:f64 = if negative {-input} else {input};");
-      await this.writeRound(`let mut base:f64=${rustF64(2**minimumExponent)};let mut unit:f64=${rustF64(2**(minimumExponent-mantissaBits))};let mut exponent:i32=1;let normal:bool=magnitude>=base;`);
-      await this.writeRound(`while normal && exponent<${half?30:254} && magnitude>=base*2.0 {base*=2.0;unit*=2.0;exponent+=1;}`);
-      await this.writeRound("if !normal {base=0.0;}let mut lower:f64=base;let mut parity:bool=false;");
+    const operand=input,composedHalf=kind==="f16"&&!alreadyF32;
+    const half=kind==="f16",firstExponent=half?-14:-126,lastExponent=half?15:127,bits=half?10:23;
+    const largest=half?65504:3.4028234663852886e38;
+    const overflow=largest+2**(lastExponent-bits-1)-(composedHalf?2**(lastExponent-24):0);
+    const zeroThreshold=2**-25+(composedHalf?2**-49:0);
+    const value=async()=>{await this.write("(");await operand();await this.write(")");};
+    const linear=async(unit:number,negative:boolean,exponent:number)=>{
+      await this.write(negative?"-(((":"(((");
+      if(composedHalf){
+        const unit32=2**(exponent-23),ratio=unit/unit32;
+        await this.write("((");if(negative)await this.write("-");await value();
+        await this.write(`/${rustF64(unit32)}+4503599627370496.0)-4503599627370496.0)/${rustF64(ratio)}`);
+      }else{if(negative)await this.write("-");await value();await this.write(`/${rustF64(unit)}`);}
+      await this.write(`+4503599627370496.0)-4503599627370496.0)*${rustF64(unit)})`);
+    };
+    await this.write("'rounding:{");
+    if(!positiveRange){
+      await this.write("if ");await value();await this.write("==0.0 {break 'rounding ");await value();await this.write(";}");
     }
-    // Factor the identical scalar bit decision. Its fixed iteration count is
-    // the numeric format precision, not a model/sequence stage program. Each
-    // operation still emits its own decisions and overwrites operator scratch.
-    await this.writeRound(`let mut step:f64=${rustF64(2**(mantissaBits-1))};while step>=1.0 {let candidate:f64=lower+unit*step;if magnitude>=candidate {lower=candidate;parity=step==1.0;}step/=2.0;}`);
-    await this.writeRound("let midpoint:f64=lower+unit/2.0;if magnitude>midpoint || (magnitude==midpoint && parity) {lower+=unit;}");
-    if(!normalRange || positiveRange.maximum>=largest)await this.writeRound(`if magnitude>=${rustF64(largest)}+unit/2.0 {lower=f64::INFINITY;}`);
-    await this.writeRound(normalRange?"lower}":"if negative {-lower} else {lower}}");
+    if(!positiveRange || positiveRange.maximum>=overflow){
+      await this.write("if ");await value();await this.write(`>=${rustF64(overflow)} {break 'rounding f64::INFINITY;}`);
+    }
+    if(!positiveRange){
+      await this.write("if ");await value();await this.write(`<=${rustF64(-overflow)} {break 'rounding f64::NEG_INFINITY;}`);
+    }
+    if(half){
+      if(!positiveRange || positiveRange.minimum<=zeroThreshold){
+        await this.write("if ");
+        if(!positiveRange){await value();await this.write(">0.0 && ");}
+        await value();await this.write(`<=${rustF64(zeroThreshold)} {break 'rounding 0.0;}`);
+      }
+      if(!positiveRange){
+        await this.write("if ");await value();await this.write("<0.0 && ");await value();
+        await this.write(`>=${rustF64(-zeroThreshold)} {break 'rounding -0.0;}`);
+      }
+    }
+    for(let exponent=composedHalf?-25:firstExponent-1;exponent<=lastExponent;exponent++){
+      const subnormal=!composedHalf&&exponent<firstExponent,lo=subnormal?0:2**exponent,hi=subnormal?2**firstExponent:2**(exponent+1);
+      const unit=2**(Math.max(firstExponent,exponent)-bits);
+      if(positiveRange && (positiveRange.maximum<lo||positiveRange.minimum>=hi)){this.eliminatedBranches++;continue;}
+      const unconditional=positiveRange && positiveRange.maximum<hi;
+      if(!unconditional){
+        await this.write("if ");
+        if(!positiveRange){await value();await this.write(`${subnormal?">":">="}${rustF64(lo)} && `);}
+        await value();await this.write(`<${rustF64(hi)} {`);
+      }
+      await this.write("break 'rounding ");await linear(unit,false,exponent);await this.write(";");
+      if(!unconditional)await this.write("}");else{await this.write("}");return;}
+      if(!positiveRange){
+        await this.write("if ");await value();await this.write(`${subnormal?"<":"<="}${rustF64(-lo)} && `);
+        await value();await this.write(`>${rustF64(-hi)} {break 'rounding `);await linear(unit,true,exponent);await this.write(";}");
+      }
+    }
+    await this.write('panic!("undefined numeric domain")}');
   }
+
 }
 
 export function rustF64(value: number | string): string {

@@ -153,10 +153,34 @@
       "reference": "pytorch-2.12.1-cpu-f16-silu numeric policy profile",
       "exactBits": true
     },
-    "directRustRuleTestsPassed": 8
+    "directRustRuleTestsPassed": 12,
+    "reducedExponential": {
+      "cases": 1342,
+      "domain": "Every F32 input in [-0.10001,-0.1]",
+      "reference": "torch.exp CPU 2.12.1",
+      "exactBits": true,
+      "completeModelParity": false
+    },
+    "reducedFiniteSilu": {
+      "cases": 63488,
+      "reference": "pytorch-2.12.1-cpu-f16-silu numeric policy profile",
+      "exactBits": true,
+      "completeModelParity": false
+    },
+    "normalizationCorrection": {
+      "checkpoint": "artifacts/tiny-random-llama",
+      "tokens": 512,
+      "oldSequentialVarianceMismatches": 250,
+      "oldBinary64RootReciprocalMismatches": 141,
+      "correctedVarianceMismatches": 0,
+      "correctedFactorMismatches": 0,
+      "sumPolicy": "PyTorch 2.12.1 CPU arm64 contiguous F32 cascade sum, ordered scalar lane combination",
+      "source": "https://raw.githubusercontent.com/pytorch/pytorch/v2.12.1/aten/src/ATen/native/cpu/SumKernel.cpp",
+      "completeModelParity": false
+    }
   },
   "remaining": [
-    "Produce an executable for the recursively closed one-layer dimension and compare its final logit across lengths.",
+    "Complete global condition propagation and flattening before admitting the full model to Rust compilation; execute the chosen final logit and compare every requested sequence position bitwise.",
     "Prove final exact logits on the actual Llama checkpoint, with metadata discovered and no checkpoint dependency at runtime.",
     "Expand and validate every vocabulary logit after the first dimension is proven."
   ],
@@ -167,5 +191,30 @@
     "phase": "rustc_mir_dataflow::MaybeUninitializedPlaces::iterate_to_fixpoint",
     "physicalFootprintAtSample": "107.3G",
     "note": "The sample localizes initialization dataflow analysis. Termination is SIGKILL; its operating system cause has not been proven."
+  },
+  "routeCorrection": {
+    "reason": "User requires substitution, propagation and simplification before full-model Rust compilation.",
+    "historicalCompilerLimitsApplyTo": "Unreduced drafts with numerical scratch bindings and activation accumulators, not a fully reduced final function.",
+    "newFullModelRustCompilationAttempts": 0,
+    "admission": {
+      "streaming": true,
+      "rejects": [
+        "numerical intermediaries",
+        "runtime loops",
+        "generic numerical primitives",
+        "nested conditions requiring propagation/flattening"
+      ],
+      "pendingFile": "/private/tmp/llm-inner-flat-admission.rs.reduction.json",
+      "observedReason": "nested condition requiring propagation/flattening",
+      "finalArtifactPublished": false
+    },
+    "numericSourceReduction": {
+      "rounding": "Flat exponent branches and binary64 linear expressions; no numerical bindings or loops.",
+      "silu": "Flat affine runs verified at all finite F16 numeric-policy inputs.",
+      "sqrt": "Flat affine runs certified by exact squares of adjacent F32 midpoints.",
+      "exponential": "Declared F32 polynomial folded at compile time; flat affine runs checked point by point."
+    },
+    "attention": "Position indices selected from discovered context; scalar ordered sums replace runtime accumulators and key loops. Singleton finite softmax is eliminated before expansion.",
+    "remaining": "Propagate numerical producer conditions through their consumers to flattened complete-model leaves, simplify to fixed point, then generate and execute the final dimension."
   }
 }

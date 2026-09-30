@@ -1,4 +1,4 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { SafetensorsCatalogReader } from "./safetensors.js";
 import type { TensorInfo } from "./types.js";
@@ -8,6 +8,7 @@ import { discoverDirectMlp, type Projection } from "./direct-mlp-output.js";
 import { discoverDirectAttention } from "./direct-attention-output.js";
 import { DirectBranchDomain, rational } from "./direct-branch-domain.js";
 import { DirectRustStream, rustF64, type RustExpression } from "./direct-rust-stream.js";
+import { emitCpuArm64F32Sum, foldCpuArm64F32Sum } from "./direct-rust-mean.js";
 import { emitRustExp, emitRustSilu, emitRustSqrt } from "./direct-rust-numeric.js";
 import { f32BitsToDyadic, roundDyadicToF16IfElse } from "./fixed-f16-projection.js";
 import { decodeIeeeF16ToF32 } from "./utils.js";
@@ -24,7 +25,7 @@ export async function writeDirectRustModel(directory:string,python:string,dimens
     layers.push({mlp:await discoverDirectMlp(directory,python,index),attention:await discoverDirectAttention(directory,python,index)});
   }
   const reader=new SafetensorsCatalogReader(directory);
-  await mkdir(dirname(path),{recursive:true});const s=new DirectRustStream(path);
+  await mkdir(dirname(path),{recursive:true});const draft=path+".draft",s=new DirectRustStream(draft);
   try {
     const catalog=await reader.inspect();
     const tensor=(name:string):TensorInfo=>{
@@ -107,11 +108,7 @@ export async function writeDirectRustModel(directory:string,python:string,dimens
           await s.round("f32",async()=>{
             await s.write("1.0/");await emitRustSqrt(s,async()=>s.round("f32",async()=>{
               await s.round("f32",async()=>{
-                const sum=async(last:number):Promise<void>=>{
-                  if(last<0){await s.write("0.0");return;}
-                  await s.round("f32",async()=>{await sum(last-1);await s.write("+");await input(last);await s.write("*");await input(last);});
-                };
-                await sum(width-1);await s.write(`/${width}.0`);
+                await emitCpuArm64F32Sum(s,width,async c=>{await input(c);await s.write("*");await input(c);});await s.write(`/${width}.0`);
               });await s.write(`+${rustF64(eps)}`);
             },false,varianceRange),varianceRange);
           },false,inverseRange);
@@ -153,13 +150,13 @@ export async function writeDirectRustModel(directory:string,python:string,dimens
       return decodeIeeeF16ToF32(roundDyadicToF16IfElse(f32BitsToDyadic(bits)));
     };
     const firstNormValue=async(coordinate:number,token:number):Promise<number>=>{
-      const n=layers[0]!.mlp.normalizations[0]!;let sum=0;
-      for(let c=0;c<width;c++){
+      const n=layers[0]!.mlp.normalizations[0]!;
+      const sum=await foldCpuArm64F32Sum(width,async c=>{
         const value=Number(await readDirectF16Literal(reader,tensor(output.embeddingWeight),token*width+c));
-        sum=Math.fround(sum+value*value);
-      }
+        return Math.fround(value*value);
+      });
       const variance=Math.fround(Math.fround(sum/width)+Math.fround(n.epsilon));
-      const factor=Math.fround(1/Math.sqrt(variance));
+      const factor=Math.fround(1/Math.fround(Math.sqrt(variance)));
       const value=Number(await readDirectF16Literal(reader,tensor(output.embeddingWeight),token*width+coordinate));
       const learned=Number(await readDirectF16Literal(reader,tensor(n.weight),coordinate));
       return roundHalf(roundHalf(Math.fround(value*factor))*learned);
@@ -215,6 +212,11 @@ export async function writeDirectRustModel(directory:string,python:string,dimens
     };
     const rope=async(layer:number,coordinate:number,position:string,sine:0|1)=>{
       const a=layers[layer]!.attention.attention;
+      const known=Number(position);
+      if(Number.isSafeInteger(known)&&known>=0&&known<a.maxPosition){
+        await s.write(rustF64(decodeIeeeF16ToF32(fixedF16RopeLiteral(known,coordinate,a.headDim,a.ropeTheta,sine))));
+        return;
+      }
       await s.write("'rope:{");let from=0,prior:number|undefined;
       const flush=async(end:number)=>{
         if(prior===undefined)return;
@@ -244,11 +246,6 @@ export async function writeDirectRustModel(directory:string,python:string,dimens
         await reduction(a.headDim,async c=>{await rotated(layer,"q",head,c,position);await s.write("*");await rotated(layer,"k",head,c,key);});
         await s.write(`*${rustF64(a.scaling)}`);
       });
-    };
-    const score=async(layer:number,head:number,position:string,key:string)=>{
-      await s.write("{let raw:f64=");await unmaskedScore(layer,head,position,key);
-      await s.write(";let masked:f64=");await s.round("f16",()=>s.write("raw-65504.0"));
-      await s.write(`;if ${key}>${position} {masked} else {raw}}`);
     };
     // Nonnegative RMS reductions and Cauchy-Schwarz give a conservative
     // bound independent of the token sequence. Only use it within the domain
@@ -281,32 +278,76 @@ export async function writeDirectRustModel(directory:string,python:string,dimens
     }
     const context=async(layer:number,head:number,coordinate:number,position:string)=>{
       const a=layers[layer]!.attention.attention;
-      // Fresh scoped key name is needed for recursively expanded earlier attention.
-      const key=`j${layer}`,bound=causalOnly[layer]?`(${position}+1)`:"n";
-      const reachedScore=()=>causalOnly[layer]?unmaskedScore(layer,head,position,key):score(layer,head,position,key);
-      await s.round("f16",async()=>{
-        await s.write(`{let mut maximum:f64=f64::NEG_INFINITY;for ${key} in 0..${bound} {let candidate:f64=`);
-        await reachedScore();await s.write(";if candidate>maximum {maximum=candidate;}}let mut denominator:f64=0.0;");
-        const differenceBound=causalOnly[layer]?2*scoreBounds[layer]!*1.01+2**-149:undefined;
-        const exponent:RustExpression=()=>emitRustExp(s,()=>s.round("f32",async()=>{await reachedScore();await s.write("-maximum");}),true,differenceBound);
-        await s.write(`for ${key} in 0..${bound} {denominator=`);await s.round("f32",async()=>{await s.write("denominator+");await exponent();});
-        await s.write(`;}let mut acc:f64=0.0;for ${key} in 0..${bound} {acc=`);
-        await s.round("f32",async()=>{
-          await s.write("acc+");await s.round("f32",async()=>{
-            await s.round("f16",async()=>s.round("f32",async()=>{await exponent();await s.write("/denominator");}),true);
-            await s.write("*");await inputProjection(layer,"v",Math.floor(head/(a.heads/a.kvHeads))*a.headDim+coordinate,key);
+      const query=Number(position);
+      if(!Number.isSafeInteger(query)||query<0||query>=output.maxPosition)
+        throw new Error("Attention position was not substituted before reduction");
+      if(!causalOnly[layer])throw new Error("Finite causal-mask elimination has not been proved for this checkpoint");
+      const v=(key:number)=>inputProjection(layer,"v",Math.floor(head/(a.heads/a.kvHeads))*a.headDim+coordinate,String(key));
+      // A singleton softmax is exactly one for finite scores. Propagate its
+      // domain before reaching subtraction, exponential or either reduction.
+      if(query===0){
+        s.eliminatedBranches++;
+        // The ordered attention accumulator starts at +0. Keep that addition:
+        // returning V directly would change an underflowed negative zero.
+        await s.write("(0.0+");await v(0);await s.write(")");return;
+      }
+      const reachedScore=(key:number)=>unmaskedScore(layer,head,position,String(key));
+      const maximum:RustExpression=async()=>{
+        await s.write("'maximum_choice:{");
+        for(let winner=0;winner<=query;winner++){
+          await s.write("if ");let first=true;
+          for(let other=0;other<=query;other++){
+            if(other===winner)continue;
+            if(!first)await s.write(" && ");first=false;
+            await s.write("(");await reachedScore(winner);await s.write(other<winner?">":">=");await reachedScore(other);await s.write(")");
+          }
+          await s.write(" {break 'maximum_choice ");await reachedScore(winner);await s.write(";}");
+        }
+        await s.write('panic!("outside proved finite score domain")}');
+      };
+      const differenceBound=2*scoreBounds[layer]!*1.01+2**-149;
+      const exponent=(key:number):Promise<void>=>emitRustExp(s,()=>s.round("f32",async()=>{
+        await reachedScore(key);await s.write("-");await maximum();
+      // Every finite F16 score is an integer multiple of 2^-24. Its
+      // difference with another F16 score stays on that lattice after F32
+      // rounding (larger F32 ULPs are also multiples of the same quantum).
+      }),true,differenceBound,undefined,2**-24);
+      const denominator=(last:number):Promise<void>=>{
+        if(last<0)return s.write("0.0");
+        return s.round("f32",async()=>{await denominator(last-1);await s.write("+");await exponent(last);});
+      };
+      const sum=(last:number):Promise<void>=>{
+        if(last<0)return s.write("0.0");
+        return s.round("f32",async()=>{
+          await sum(last-1);await s.write("+");await s.round("f32",async()=>{
+            await s.round("f16",()=>s.round("f32",async()=>{
+              await exponent(last);await s.write("/");await denominator(query);
+            }),true);
+            await s.write("*");await v(last);
           });
-        });await s.write(";}acc}");
-      },true);
+        });
+      };
+      await s.round("f16",()=>sum(query),true);
     };
     if(output.embeddingShape[1]!==width)throw new Error("Embedding width mismatch");
     for(const layer of layers) {
       const a=layer.attention.attention;
       if(a.headDim%2!==0||a.heads%a.kvHeads!==0||a.projections.o.shape[0]!==width||layer.mlp.normalizations.length!==2)throw new Error("Unsupported discovered geometry");
     }
-    await s.write(`// Direct checkpoint specialization. Numeric policy: PyTorch CPU F16, four-lane F32 reductions.\n#![recursion_limit="65536"]\npub fn compiled_dimension(input_tokens:&[usize],t:usize)->f64 {let n=input_tokens.len();assert!(n>0 && n<=${output.maxPosition} && t<n);`);
-    await s.declareRoundingScratch();await s.declareInlineNumericScratch();
-    await linear({weight:output.weight,shape:output.shape},dimension,c=>norm(output.finalNormWeight,output.finalNormEpsilon,c,column=>hidden(layers.length-1,column,"t")));
-    await s.write("}\n");await s.close();
-  } catch(error){s.destroy();throw error;}finally{await reader.close();}
+    await s.write(`// Direct checkpoint specialization. Numeric policy: PyTorch CPU arm64 F16; ordered F32 reductions.\n#![recursion_limit="65536"]\npub fn compiled_dimension(input_tokens:&[usize],t:usize)->f64 {let n=input_tokens.len();assert!(n>0 && n<=${output.maxPosition} && t<n);`);
+    s.beginReducedExpression();
+    await s.write("'position_choice:{");
+    for(let position=0;position<output.maxPosition;position++){
+      await s.write(`if t==${position} {break 'position_choice `);
+      await linear({weight:output.weight,shape:output.shape},dimension,c=>norm(output.finalNormWeight,output.finalNormEpsilon,c,column=>hidden(layers.length-1,column,String(position))));
+      await s.write(";}");
+    }
+    await s.write('panic!("outside context domain")}');
+    await s.write("}\n");await s.close();await rename(draft,path);
+  } catch(error){
+    s.destroy();
+    await writeFile(path+".reduction.json",JSON.stringify({status:"pending",rustCompilationAdmitted:false,
+      reason:error instanceof Error?error.message:String(error),draft,dimension},null,2)+"\n");
+    throw error;
+  }finally{await reader.close();}
 }
