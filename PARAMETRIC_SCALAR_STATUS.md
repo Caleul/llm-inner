@@ -1,5 +1,11 @@
 # Compilador escalar paramétrico F16: estado verificado
 
+## Continuação da meta de uma dimensão em 30/09/2026
+
+Foi adicionada uma redução direta de `Math.fround` e `f16Bits` por condicionais, soma, subtração e escala por constantes. A conversão F16 preserva explicitamente o arredondamento F32 anterior; os testes cobrem 100 mil valores amostrados por formato, limites, empates e zero com sinal. A passagem substitui chamadas textuais por streaming, sem carregar o arquivo emitido em uma string.
+
+Para a dimensão solicitada como parâmetro 3, a passagem substituiu 17.336.359 chamadas em uma expressão de 21.433.591.679 bytes. A auditoria final encontrou zero `Math.fround` e `f16Bits`, mas ainda encontrou 7.769.536 `f16`, 18.432 `ropeBits`, 3.072 `Math.exp` e uma `Math.sqrt`. O arquivo emitido foi removido após a auditoria. A regra nova aplicada dentro do forward escalar diagnóstico com cache preservou os bits de todas as posições para comprimentos 1, 4 e 8 contra uma captura PyTorch 2.12.1 CPU executada nesta sessão. Isso **não** valida a expressão integral por streaming: ela ainda não foi executada, parte do IR atual e conserva operações proibidas. A meta permanece pendente.
+
 ## Seleção gulosa e escopo de arquitetura
 
 A dimensão 17 nas medições anteriores era apenas um ponto de depuração; nenhuma regra do compilador depende desse índice. `chooseFixedF16GreedyToken` compara os valores F16 de todas as dimensões na última posição válida e conserva o primeiro índice em caso de empate, conforme `torch.argmax`. A seleção recebe qualquer fonte escalar compilada com `outputSize` positivo. No fixture PyTorch 2.12.1 CPU, token escolhido e bits do logit vencedor coincidiram para comprimentos 1, 3, 4, 7 e 8. Em cada caso, a dimensão vencedora foi então compilada separadamente e seu valor coincidiu com o logit vencedor do forward. Os IDs vencedores foram 5971, 27488, 5995, 18171 e 24181 para n=1,3,4,7,8, respectivamente. Isso valida a escolha e a função escalar selecionada sobre a fonte existente, que ainda conserva caches e primitivas numéricas; não valida a função final de ramos lineares.

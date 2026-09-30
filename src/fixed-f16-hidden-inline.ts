@@ -8,6 +8,7 @@ import type { FixedF16CachedScalarSource } from "./fixed-f16-parametric-formulas
 import { f16BitsToDyadic, f32BitsToDyadic, roundDyadicToF16IfElse } from "./fixed-f16-projection.js";
 import { compileF16BitDecodeBranches } from "./fixed-f16-bit-decode-branches.js";
 import { compileFixedF16RopeBranches } from "./fixed-f16-rope-branches.js";
+import { directRoundPrefix } from "./fixed-f16-direct-rounding.js";
 
 const hiddenCall = /\bhidden_(\d+)\(t,(\d+)\)/g;
 const contextCall = /\bcontext_(\d+)\(t,(\d+)\)/g;
@@ -18,6 +19,7 @@ const constantNumericCall = /\b(f16Bits|f16|neg16|Math\.fround)\((-?(?:\d+(?:\.\
 const f16Prefix = /\bf16\(/g;
 const bitArithmeticPrefix = /\b(add16|mul16|neg16)\(/g;
 const ropeCall = /\bropeBits\((p|j),d,(\d+),(\d+(?:\.\d+)?),([01])\)/g;
+const roundingPrefix = /\b(f16Bits|Math\.fround)\(/g;
 const carryLength = 256;
 let cachedSiluBody: string | undefined;
 
@@ -271,6 +273,16 @@ export async function rewriteFixedF16RopeFile(
   if (inputPath === outputPath) throw new Error("Input and output paths must differ");
   const input = createReadStream(inputPath, { encoding: "utf8", highWaterMark: chunkSize });
   return rewriteFixedF16Chunks(input, outputPath, ropeCall, fixedF16RopeReplacer(maxSequenceLength));
+}
+
+/** Replace input-dependent F32 and F16 rounding at every textual call site. */
+export async function rewriteFixedF16DirectRoundingFile(
+  inputPath: string, outputPath: string, chunkSize = 64 * 1024,
+): Promise<{ replacements: number; bytes: number }> {
+  if (inputPath === outputPath) throw new Error("Input and output paths must differ");
+  const input = createReadStream(inputPath, { encoding: "utf8", highWaterMark: chunkSize });
+  return rewriteFixedF16Chunks(input, outputPath, roundingPrefix, (kind) =>
+    directRoundPrefix(kind as "f16Bits" | "Math.fround"));
 }
 
 async function rewriteFixedF16HiddenChunks(

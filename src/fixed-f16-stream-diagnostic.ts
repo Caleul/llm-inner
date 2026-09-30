@@ -5,7 +5,8 @@ import { compileFixedF16ScalarDimensionFromDirectory } from "./fixed-f16-ir-scal
 import { rewriteFixedF16ContextFile, rewriteFixedF16MlpFile, rewriteFixedF16ProjectionFile,
   rewriteFixedF16RotatedFile, rewriteFixedF16ScoreFile,
   rewriteFixedF16NumericConstantsFile, rewriteFixedF16DecodeFile,
-  rewriteFixedF16BitArithmeticFile, rewriteFixedF16RopeFile } from "./fixed-f16-hidden-inline.js";
+  rewriteFixedF16BitArithmeticFile, rewriteFixedF16RopeFile,
+  rewriteFixedF16DirectRoundingFile } from "./fixed-f16-hidden-inline.js";
 
 export interface FixedF16StreamDiagnostic {
   outputDimension: number;
@@ -39,7 +40,7 @@ export async function auditFixedF16StreamFile(path: string): Promise<Record<stri
 /** Emit the backward-expanded dimension without materializing the growing formula in V8. */
 export async function writeFixedF16StreamDiagnostic(
   checkpointDirectory: string, outputDimension: number, outputPath: string,
-  options: { decodeF16?: boolean; lowerRope?: boolean } = {},
+  options: { decodeF16?: boolean; lowerRope?: boolean; directRounding?: boolean } = {},
 ): Promise<FixedF16StreamDiagnostic> {
   const source = await compileFixedF16ScalarDimensionFromDirectory(checkpointDirectory, outputDimension);
   if (source.formulas.length !== 1 || source.maxSequenceLength === undefined) {
@@ -86,6 +87,13 @@ export async function writeFixedF16StreamDiagnostic(
       stages.push({ name: "decode-f16", ...lowered });
       await rm(input);
       input = decoded;
+    }
+    if (options.directRounding) {
+      const rounding = join(temporary, "direct-rounding");
+      const lowered = await rewriteFixedF16DirectRoundingFile(input, rounding);
+      stages.push({ name: "direct-rounding", ...lowered });
+      await rm(input);
+      input = rounding;
     }
     const remainingCalls = await auditFixedF16StreamFile(input);
     await rename(input, outputPath);
