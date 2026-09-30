@@ -1,5 +1,11 @@
 # Compilador escalar paramétrico F16: estado verificado
 
+## Seleção gulosa e escopo de arquitetura
+
+A dimensão 17 nas medições anteriores era apenas um ponto de depuração; nenhuma regra do compilador depende desse índice. `chooseFixedF16GreedyToken` compara os valores F16 de todas as dimensões na última posição válida e conserva o primeiro índice em caso de empate, conforme `torch.argmax`. A seleção recebe qualquer fonte escalar compilada com `outputSize` positivo. No fixture PyTorch 2.12.1 CPU, token escolhido e bits do logit vencedor coincidiram para comprimentos 1, 3, 4, 7 e 8. Em cada caso, a dimensão vencedora foi então compilada separadamente e seu valor coincidiu com o logit vencedor do forward. Os IDs vencedores foram 5971, 27488, 5995, 18171 e 24181 para n=1,3,4,7,8, respectivamente. Isso valida a escolha e a função escalar selecionada sobre a fonte existente, que ainda conserva caches e primitivas numéricas; não valida a função final de ramos lineares.
+
+O compilador lê pesos e configuração do Safetensors, usa o IR descoberto e não contém nomes de tensores Llama. Seu conjunto atual de operações suportadas, porém, corresponde ao bloco F16 com RMSNorm, atenção causal RoPE e MLP SiLU descrito abaixo. Arquiteturas com outra sequência ou semântica numérica são rejeitadas; portanto ainda não há prova de suporte geral a arquiteturas de LLM.
+
 ## Passagens de streaming verificadas em 30/09/2026
 
 A passagem de MLP substitui `hidden_*`, `gate_*` e `up_*` por fórmulas com pesos literais e ramos SiLU. A passagem seguinte substitui `context_*` pelo corpo causal da atenção; outra substitui `score_*` pela redução Q·K e sua escala. Em cada caso, uma ocorrência incorporada à fórmula da dimensão final 17 manteve o logit bit a bit para comprimentos 1, 2, 4 e 8 do fixture. Isso verifica essas substituições locais, não a execução do arquivo integral.
