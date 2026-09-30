@@ -88,6 +88,14 @@ const DEFAULT_DTYPE_POLICY: DtypePolicy = {
   outputDtype: "model-configured",
 };
 
+/** Context defaults belong to architecture discovery, not scalar lowering. */
+export function resolveModelContextLimit(config: JsonObject, modelType: string): number | undefined {
+  const configured = optionalNumber(config, ["max_position_embeddings"]);
+  if (configured !== undefined) return configured;
+  if (modelType === "llama") return 2048;
+  return undefined;
+}
+
 export async function buildModelIR(
   catalog: ModelCatalog,
   preview: PreviewOptions,

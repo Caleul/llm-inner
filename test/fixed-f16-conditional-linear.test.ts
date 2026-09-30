@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import { compileF16LiteralMultiplyBranches, compileF16SiluBranches, compileFiniteF16UnaryBranches } from "../src/fixed-f16-conditional-linear.js";
 import { compileFixedF16Projection, f16BitsToDyadic, multiplyDyadic, roundDyadicToF16IfElse } from "../src/fixed-f16-projection.js";
 import { SafetensorsCatalogReader } from "../src/safetensors.js";
+import { sleefExpF32 } from "../src/sleef-f32.js";
 
 test("multiplicação literal F16 vira somente ramos com folhas lineares constantes", () => {
   const weightBits = 0x3800;
@@ -59,5 +60,20 @@ test("SiLU F16 do PyTorch capturada é substituída por ramos lineares sem exp",
   for (let bits = 0; bits <= 0xffff; bits++) {
     if ((bits & 0x7c00) === 0x7c00) continue;
     assert.equal(evaluate(bits), expected.readUInt16LE(bits * 2), `bits=${bits}`);
+  }
+});
+
+test("exp F32 de SLEEF reproduz divergências observadas contra Math.exp", () => {
+  const cases = [
+    [3262825344, 305935162], [3184947456, 1063685354],
+    [3243791216, 901008368], [3246524984, 867911208],
+    [3254988800, 667789498], [3222659602, 1036314212],
+  ];
+  const buffer = new DataView(new ArrayBuffer(4));
+  for (const [inputBits, expectedBits] of cases) {
+    buffer.setUint32(0, inputBits!, true);
+    const input = buffer.getFloat32(0, true);
+    buffer.setFloat32(0, sleefExpF32(input), true);
+    assert.equal(buffer.getUint32(0, true), expectedBits);
   }
 });

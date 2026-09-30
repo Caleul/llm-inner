@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { buildModelIR } from "./architecture.js";
+import { buildModelIR, resolveModelContextLimit } from "./architecture.js";
 import { openCatalog } from "./catalog.js";
 import { SafetensorsCatalogReader } from "./safetensors.js";
 import type { Operation } from "./types.js";
@@ -58,10 +58,7 @@ export async function compileFixedF16ScalarModelFromDirectory(
       ir.prelude[0].scale === undefined && ir.prelude[0].weight.storageDtype === "F16",
     "embedding F16 sem escala necessário");
     requireForward(inputBoundary === "embeddings" || inputBoundary === "token-ids", "fronteira de entrada inválida");
-    const configuredLimit = opened.catalog.config.max_position_embeddings;
-    const modelType = opened.catalog.config.model_type;
-    // LlamaConfig 5.5.0 defaults to 2048 when the fixture omits the field.
-    const maxSequenceLength = configuredLimit === undefined && modelType === "llama" ? 2048 : configuredLimit;
+    const maxSequenceLength = resolveModelContextLimit(ir.config, ir.architecture.modelType);
     requireForward(typeof maxSequenceLength === "number" && Number.isSafeInteger(maxSequenceLength) &&
       maxSequenceLength > 0, "limite de contexto definido pela configuração necessário");
     let source: FixedF16CachedScalarSource | undefined;

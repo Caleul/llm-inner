@@ -3,7 +3,14 @@ import { mkdtemp, writeFile, rm, access, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
+import { resolveModelContextLimit } from "../src/architecture.js";
 import { SafetensorsCatalogReader } from "../src/safetensors.js";
+
+test("limite de contexto usa configuração e default do adaptador", () => {
+  assert.equal(resolveModelContextLimit({ max_position_embeddings: 4096 }, "custom"), 4096);
+  assert.equal(resolveModelContextLimit({}, "llama"), 2048);
+  assert.equal(resolveModelContextLimit({}, "custom"), undefined);
+});
 import { compileFixedF16Projection, evaluateFixedF16Projection, f16BitsToDyadic, roundDyadicToF16IfElse, roundDyadicToF32IfElse } from "../src/fixed-f16-projection.js";
 import { evaluateFixedScalarFunctions, scalarizeFixedF16Projection, substituteFixedScalarFunctions } from "../src/fixed-f16-scalar-functions.js";
 import { evaluateFixedTwoTokenAttentionScores, evaluateFixedTwoTokenAttentionValues } from "../src/fixed-f16-attention-scores.js";
