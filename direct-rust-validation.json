@@ -96,6 +96,28 @@
       "sourceBytes": 58438194,
       "sourceSha256": "9c9d9d229e1afdbfc3233d320b04751df9f3dbd25aeb6fd3b7bd4a796681fce3",
       "executableProduced": false
+    },
+    {
+      "args": [
+        "rustup",
+        "run",
+        "1.95.0",
+        "rustc",
+        "-Awarnings",
+        "-Ztime-passes",
+        "-C",
+        "opt-level=0",
+        "/private/tmp/llm-inner-rust-pointer.rs",
+        "-o",
+        "/private/tmp/llm-inner-rust-pointer"
+      ],
+      "returncode": -9,
+      "elapsedSeconds": 123.51208158299778,
+      "maxRSSBytes": 16083714048,
+      "sourceBytes": 59166509,
+      "executableProduced": false,
+      "inputAccessExperiment": "Bounds-validated input pointer. It did not solve the compiler limit and was removed from the compiler.",
+      "sourceSha256": "fe04c47e30a6a7ce89dd7c648c0c626bacccc44229c202a90f24e9a7bf714613"
     }
   ],
   "observedCompilerPhase": {
@@ -130,12 +152,20 @@
       "domain": "Every finite F16 input with magnitude <= 0.1",
       "reference": "pytorch-2.12.1-cpu-f16-silu numeric policy profile",
       "exactBits": true
-    }
+    },
+    "directRustRuleTestsPassed": 8
   },
   "remaining": [
     "Produce an executable for the recursively closed one-layer dimension and compare its final logit across lengths.",
     "Prove final exact logits on the actual Llama checkpoint, with metadata discovered and no checkpoint dependency at runtime.",
     "Expand and validate every vocabulary logit after the first dimension is proven."
   ],
-  "pushUnavailable": "Repository has no configured Git remote."
+  "pushUnavailable": "Repository has no configured Git remote.",
+  "latestObservedCompilerPhase": {
+    "source": "/private/tmp/llm-inner-rust-pointer.rs",
+    "sample": "/private/tmp/llm-inner-rust-pointer-sample.txt",
+    "phase": "rustc_mir_dataflow::MaybeUninitializedPlaces::iterate_to_fixpoint",
+    "physicalFootprintAtSample": "107.3G",
+    "note": "The sample localizes initialization dataflow analysis. Termination is SIGKILL; its operating system cause has not been proven."
+  }
 }
