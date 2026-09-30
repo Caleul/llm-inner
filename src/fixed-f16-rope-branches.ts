@@ -34,3 +34,23 @@ export function compileFixedF16RopeBranches(
   }
   return body + `throw new RangeError("Dimensão RoPE inválida");`;
 }
+
+/** Constant dimension removes the entire dimension dispatch during backward substitution. */
+export function compileFixedF16RopePositionBranches(
+  maxSequenceLength: number, headDim: number, theta: number, sine: number, dimension: number,
+): string {
+  if (!Number.isSafeInteger(maxSequenceLength) || maxSequenceLength <= 0 ||
+    !Number.isSafeInteger(headDim) || headDim <= 0 || headDim % 2 !== 0 ||
+    !Number.isInteger(dimension) || dimension < 0 || dimension >= headDim ||
+    !Number.isFinite(theta) || theta <= 0 || (sine !== 0 && sine !== 1)) {
+    throw new Error("Parâmetros RoPE inválidos.");
+  }
+  const values = Array.from({ length: maxSequenceLength }, (_, position) =>
+    fixedF16RopeLiteral(position, dimension, headDim, theta, sine));
+  const emit = (low: number, high: number): string => {
+    if (low === high) return `return ${values[low]};`;
+    const middle = Math.floor((low + high) / 2);
+    return `if(pos<=${middle}){${emit(low, middle)}}else{${emit(middle + 1, high)}}`;
+  };
+  return `if(pos<0||pos>=${maxSequenceLength})throw new RangeError("Posição RoPE inválida");${emit(0, maxSequenceLength - 1)}`;
+}

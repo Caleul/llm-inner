@@ -19,6 +19,9 @@ export function directRoundPrefix(kind: "f16Bits" | "Math.fround"): string {
   const finish = half
     ? "return (negative?32768:0)+(normal?exponent*1024:0)+mantissa;"
     : "return negative?-lower:lower;";
+  const exponentSteps = (half ? [16, 8, 4, 2, 1] : [128, 64, 32, 16, 8, 4, 2, 1])
+    .map((step) => `if(exponent+${step}<=${half ? 30 : 254}&&magnitude>=base*${2 ** step}){` +
+      `base*=${2 ** step};unit*=${2 ** step};exponent+=${step};}`).join("");
   return `((input)=>{` +
     `if(input!==input||input>1.7976931348623157e308||input< -1.7976931348623157e308)throw new RangeError('Entrada não finita');` +
     (half ? `input=${directRoundPrefix("Math.fround")}input);` : "") +
@@ -26,7 +29,7 @@ export function directRoundPrefix(kind: "f16Bits" | "Math.fround"): string {
     `const negative=input<0||(input===0&&1/input<0);const magnitude=negative?-input:input;` +
     `if(magnitude===0)return ${zero};` +
     `let base=${minimumNormal},unit=${minimumStep},exponent=1,normal=magnitude>=base;` +
-    `if(normal){while(magnitude>=base+base&&exponent<${half ? 30 : 254}){base+=base;unit+=unit;exponent++;}}` +
+    `if(normal){${exponentSteps}}` +
     `else{base=0;exponent=0;}` +
     `if(magnitude>=${largest}+unit/2)return ${overflow};` +
     `let lower=base,mantissa=0,step=unit*${initialStep},indexStep=${initialStep};` +
