@@ -3,13 +3,16 @@ import { dirname } from "node:path";
 import { buildModelIR, resolveModelContextLimit } from "./architecture.js";
 import { openCatalog } from "./catalog.js";
 import { SafetensorsCatalogReader } from "./safetensors.js";
+import { pruneFixedF16ScalarDeclarations } from "./fixed-f16-source-prune.js";
+import { inlineNextFixedF16ScalarCache } from "./fixed-f16-cache-inline.js";
 import type { Operation } from "./types.js";
 import {
   compileFixedF16CachedAttentionSource,
   compileFixedF16CachedEmbeddingSource, compileFixedF16CachedMlpSource,
-  compileFixedF16CachedWideLinearSource,
+  compileFixedF16CachedWideLinearSource, compileFixedF16OutputRowFormula,
   compileFixedF16RmsNormParametricFormulas,
   composeCachedScalarSource, composeCachedScalarSources, scalarSourceFromFactoredRmsNorm, scalarSourceFromFormulas,
+  substituteFixedF16ParametricFormulas,
   type FixedF16CachedScalarSource,
 } from "./fixed-f16-parametric-formulas.js";
 
@@ -47,7 +50,7 @@ export type FixedF16InputBoundary = "embeddings" | "token-ids";
 
 /** Lower a supported ordered decoder forward into a checkpoint-independent scalar function. */
 export async function compileFixedF16ScalarModelFromDirectory(
-  directory: string, inputBoundary: FixedF16InputBoundary = "embeddings",
+  directory: string, inputBoundary: FixedF16InputBoundary = "embeddings", outputDimension?: number,
 ): Promise<FixedF16CachedScalarSource> {
   const opened = await openCatalog(directory, false);
   const reader = new SafetensorsCatalogReader(directory);
@@ -125,10 +128,34 @@ export async function compileFixedF16ScalarModelFromDirectory(
     const finalNorm = norm(ir.epilogue[0]!);
     const head = linear(ir.epilogue[1]!);
     requireForward(head.input === finalNorm.output, "projeção final não recebe a RMSNorm final");
-    const normalized = composeCachedScalarSource(await compileFixedF16RmsNormParametricFormulas(
-      reader, tensor(finalNorm), finalNorm.epsilon), source);
-    const logits = composeCachedScalarSources(await compileFixedF16CachedWideLinearSource(
-      reader, tensor(head)), normalized);
+    const finalNormFormula = await compileFixedF16RmsNormParametricFormulas(
+      reader, tensor(finalNorm), finalNorm.epsilon);
+    let logits: FixedF16CachedScalarSource;
+    if (outputDimension === undefined) {
+      const normalized = composeCachedScalarSources(scalarSourceFromFactoredRmsNorm(finalNormFormula), source);
+      logits = composeCachedScalarSources(await compileFixedF16CachedWideLinearSource(reader, tensor(head)), normalized);
+    } else {
+      requireForward(finalNormFormula.rmsFactor, "fator RMSNorm final necessário");
+      const factor = finalNormFormula.rmsFactor;
+      const compactNorm = { ...finalNormFormula,
+        formulas: factor.compactFormulas.map((formula) => formula.replace(/\brms_factor\b/g, "final_rms_factor")) };
+      const output = substituteFixedF16ParametricFormulas(
+        await compileFixedF16OutputRowFormula(reader, tensor(head), outputDimension), compactNorm, null);
+      const expanded = { ...output, formulas: output.formulas.map((formula) =>
+        `(() => { const final_rms_factor=${factor.expression}; return ${formula}; })()`) };
+      const inlined = substituteFixedF16ParametricFormulas(expanded, {
+        kind: "fixed-f16-parametric-formulas", inputSize: source.inputSize,
+        outputSize: source.outputSize, formulas: source.formulas,
+        arithmetic: "f32-interleaved-four-lane-pairwise",
+      }, null);
+      let reduced = pruneFixedF16ScalarDeclarations({ ...source, outputSize: 1, formulas: inlined.formulas });
+      while (true) {
+        const next = inlineNextFixedF16ScalarCache(reduced);
+        if (next.inlined === null) break;
+        reduced = next.source;
+      }
+      logits = reduced;
+    }
     if (inputBoundary === "embeddings") return { ...logits, maxSequenceLength };
     const embedding = await compileFixedF16CachedEmbeddingSource(reader, ir.prelude[0].weight.name);
     return { ...composeCachedScalarSources(logits, embedding), maxSequenceLength };
@@ -136,6 +163,13 @@ export async function compileFixedF16ScalarModelFromDirectory(
     await reader.close();
     await opened.close();
   }
+}
+
+/** Start backward substitution at one final output dimension. */
+export async function compileFixedF16ScalarDimensionFromDirectory(
+  directory: string, dimension: number,
+): Promise<FixedF16CachedScalarSource> {
+  return compileFixedF16ScalarModelFromDirectory(directory, "embeddings", dimension);
 }
 
 /** Persist only numeric source and literals; evaluation does not reopen the model directory. */

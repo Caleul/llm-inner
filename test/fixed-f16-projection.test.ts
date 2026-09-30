@@ -56,7 +56,35 @@ test("atenção escalar com cache Q/K/V preserva valores F16 para n variável e 
     }
   } finally { await reader.close(); }
 });
-import { compileFixedF16ScalarModelFromDirectory, readFixedF16ScalarArtifact, writeFixedF16ScalarArtifact } from "../src/fixed-f16-ir-scalar-compiler.js";
+import { compileFixedF16ScalarDimensionFromDirectory, compileFixedF16ScalarModelFromDirectory, readFixedF16ScalarArtifact, writeFixedF16ScalarArtifact } from "../src/fixed-f16-ir-scalar-compiler.js";
+import { inlineFixedF16HiddenCall } from "../src/fixed-f16-hidden-inline.js";
+
+test("compila uma linha final literal antes de substituir o forward", async (context) => {
+  const directory = resolve("artifacts/tiny-random-llama");
+  try { await access(join(directory, "model.safetensors")); } catch { context.skip("checkpoint opcional ausente"); return; }
+  const fixture = JSON.parse(await readFile(resolve("test/fixtures/tiny-random-llama-parametric-attention.json"), "utf8")) as
+    { cases: Record<string, { layers: Record<string, { layer_input: number[][][] }>;
+      logits: number[][][] }> };
+  const source = await compileFixedF16ScalarDimensionFromDirectory(directory, 17);
+  assert.equal(source.inputSize, 16);
+  assert.equal(source.outputSize, 1);
+  assert.equal(source.maxSequenceLength, 2048);
+  assert.doesNotMatch(source.declarations, /wideRow|wideDot/);
+  assert.doesNotMatch(source.declarations, /const\s+scalar_cache_7\s*=/);
+  assert.match(source.formulas[0]!, /^\(\(\) => \{ const final_rms_factor=/);
+  assert.doesNotMatch(source.formulas[0]!, /scalar_cache_\d+/);
+  for (let n = 1; n <= 8; n++) {
+    const sample = fixture.cases[String(n)]!;
+    assert.deepEqual(evaluateFixedF16CachedScalarSource(source, sample.layers["0"]!.layer_input[0]!),
+      sample.logits[0]!.map((row) => [row[17]!]), `n=${n}`);
+  }
+  const expandedOnce = source.formulas[0]!.replace(/\bhidden_(\d+)\(t,(\d+)\)/,
+    (_call, layer: string, hidden: string) => inlineFixedF16HiddenCall(layer, hidden));
+  assert.notEqual(expandedOnce, source.formulas[0]);
+  const four = fixture.cases["4"]!;
+  assert.deepEqual(evaluateFixedF16CachedScalarSource({ ...source, formulas: [expandedOnce] },
+    four.layers["0"]!.layer_input[0]!), four.logits[0]!.map((row) => [row[17]!]));
+});
 
 test("artefato escalar salvo executa logits sem consultar o checkpoint", async (context) => {
   const directory = resolve("artifacts/tiny-random-llama");

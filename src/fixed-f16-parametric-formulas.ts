@@ -220,6 +220,27 @@ export async function compileFixedF16ParametricFormulas(
   return scalarizeFixedF16ProjectionForAnyLength(projection, arithmetic ?? projection.arithmetic);
 }
 
+/** Select one literal output row before substituting its producer. */
+export async function compileFixedF16OutputRowFormula(
+  reader: SafetensorsCatalogReader, tensorName: string, dimension: number,
+  arithmetic: FixedF16FormulaArithmetic = "f32-interleaved-four-lane-pairwise",
+): Promise<FixedF16ParametricFormulas> {
+  const tensor = (await reader.inspect()).tensors.get(tensorName);
+  if (!tensor || tensor.storageDtype !== "F16" || tensor.quantization || tensor.logicalShape.length !== 2 ||
+    !tensor.logicalShape[0] || !tensor.logicalShape[1] || !Number.isInteger(dimension) ||
+    dimension < 0 || dimension >= tensor.logicalShape[0]) {
+    throw new RangeError(`${tensorName}: dimensão final F16 inválida.`);
+  }
+  const [, inputSize] = tensor.logicalShape as [number, number];
+  const bytes = await reader.readTensorBytes(tensor);
+  const row = { output: 0, terms: Array.from({ length: inputSize }, (_unused, input) => ({
+    input, weightBits: bytes.readUInt16LE((dimension * inputSize + input) * 2),
+  })).filter(({ weightBits }) => (weightBits & 0x7fff) !== 0) };
+  return scalarizeFixedF16ProjectionForAnyLength({ kind: "fixed-f16-projection", tensor: tensorName,
+    inputSize, outputSize: 1, rows: [row], arithmetic: "f32-ascending-products-and-sum",
+    rounding: "binary16-nearest-ties-to-even-conditional" }, arithmetic);
+}
+
 /** Literal row selection plus the declared four-lane F32 reduction for a wide output projection. */
 export async function compileFixedF16CachedWideLinearSource(
   reader: SafetensorsCatalogReader, tensorName: string,
@@ -521,12 +542,14 @@ function ropeBits(position: number, dimension: number, headDim: number, theta: n
 
 /** Physically substitute every previous-dimension formula; no producer call or stage input remains. */
 export function substituteFixedF16ParametricFormulas(
-  consumer: FixedF16ParametricFormulas, producer: FixedF16ParametricFormulas, maxCharacters = 10_000_000,
+  consumer: FixedF16ParametricFormulas, producer: FixedF16ParametricFormulas, maxCharacters: number | null = 10_000_000,
 ): FixedF16ParametricFormulas {
   if (consumer.inputSize !== producer.outputSize) throw new Error("Dimensões incompatíveis na substituição.");
-  const estimatedCharacters = estimateFixedF16ParametricSubstitutionCharacters(consumer, producer);
-  if (estimatedCharacters > BigInt(maxCharacters)) {
-    throw new Error(`Expansão literal requer ${estimatedCharacters} caracteres; limite ${maxCharacters}. Nenhuma fórmula parcial será retornada.`);
+  if (maxCharacters !== null) {
+    const estimatedCharacters = estimateFixedF16ParametricSubstitutionCharacters(consumer, producer);
+    if (estimatedCharacters > BigInt(maxCharacters)) {
+      throw new Error(`Expansão literal requer ${estimatedCharacters} caracteres; limite ${maxCharacters}. Nenhuma fórmula parcial será retornada.`);
+    }
   }
   let size = 0;
   const formulas = consumer.formulas.map((formula) => {
@@ -537,7 +560,9 @@ export function substituteFixedF16ParametricFormulas(
       return `(${replacement.replace(/x\[t\]/g, `x[${position}]`).replace(/(rms_factor_[a-zA-Z0-9_]+)\(t\)/g, `$1(${position})`)})`;
     });
     size += expanded.length;
-    if (size > maxCharacters) throw new Error(`Expansão literal excede ${maxCharacters} caracteres; nenhuma fórmula parcial será retornada.`);
+    if (maxCharacters !== null && size > maxCharacters) {
+      throw new Error(`Expansão literal excede ${maxCharacters} caracteres; nenhuma fórmula parcial será retornada.`);
+    }
     return expanded;
   });
   return { kind: "fixed-f16-parametric-formulas", inputSize: producer.inputSize,
