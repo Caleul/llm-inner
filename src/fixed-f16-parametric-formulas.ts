@@ -148,6 +148,23 @@ export function evaluateFixedF16CachedScalarSource(
   return prepareFixedF16CachedScalarSource(program)(input);
 }
 
+/** Inspect one final coordinate while retaining the same scalar calculation and numeric profile. */
+export function prepareFixedF16CachedScalarDimensionSource(
+  program: FixedF16CachedScalarSource, dimension: number,
+): (input: readonly (readonly number[])[]) => number[] {
+  if (!Number.isInteger(dimension) || dimension < 0 || dimension >= program.outputSize) {
+    throw new RangeError("Dimensão final inválida.");
+  }
+  const factory = new Function("x", "f16", "f16Bits", "add16", "mul16", "neg16", "ropeBits", "Math",
+    `${program.declarations} const d=${dimension}; return (t) => ${program.formulas[dimension]!};`) as
+    (...args: any[]) => (position: number) => number;
+  return (input) => {
+    if (input.some((row) => row.length !== program.inputSize)) throw new Error("Dimensão de entrada incompatível.");
+    const scalar = factory(input, f16, f16Bits, add16, mul16, neg16, ropeBits, Math);
+    return input.map((_row, position) => scalar(position));
+  };
+}
+
 function literal(bits: number): string {
   const value = f16BitsToDyadic(bits);
   const numeric = Number(value.coefficient) * 2 ** value.exponent;

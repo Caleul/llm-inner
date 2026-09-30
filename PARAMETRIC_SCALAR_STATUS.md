@@ -2,7 +2,13 @@
 
 ## Contrato
 
-O alvo é uma função por dimensão final, parametrizada pela posição e pelo número de tokens. A função recebe apenas a entrada original, contém pesos literais extraídos do Safetensors e preserva os pontos de arredondamento. Paridade de um estágio intermediário não satisfaz esse contrato.
+O alvo é uma função por dimensão final, parametrizada pela posição e pelo número de tokens. A fronteira de entrada é a sequência ordenada de **vetores de embedding** fornecidos ao primeiro bloco do modelo. Cada vetor contém as dimensões numéricas de um token; a função não recebe IDs nem ativações de camadas como parâmetros. O lookup de embedding por ID é uma rota diagnóstica separada. A função alvo deve substituir todas as operações até essa fronteira e ter apenas ramos condicionais com expressões lineares em cada ramo, sem funções numéricas internas no artefato final. Paridade de um estágio intermediário não satisfaz esse contrato.
+
+## Correção da fronteira de entrada
+
+`compileFixedF16ScalarModelFromDirectory` e `writeFixedF16ScalarArtifact` agora usam `embeddings` como fronteira padrão. A opção explícita `token-ids` conserva o experimento anterior. O artefato registra a fronteira escolhida. O teste do artefato padrão verifica todos os logits contra o forward de referência para sequências de 1, 4 e 8 tokens, além dos casos aleatórios do fixture, alimentando os vetores de embedding calculados do checkpoint. `prepareFixedF16CachedScalarDimensionSource` permite avaliar somente uma dimensão final; a dimensão 17 foi comparada nas mesmas sequências. Essa correção não implementa ainda a eliminação de `exp`, `sqrt`, produtos entre ativações nem arredondamentos na fonte gerada.
+
+Na fronteira `embeddings`, a fonte necessária para a dimensão 17 tem 11.308.329 caracteres: 11.308.317 de declarações compartilhadas e 12 da expressão de seleção final. Ainda contém 6 chamadas textuais a `Math.exp`, 20 a `Math.sqrt`, 509 a `f16Bits` e 6.362 ocorrências de `scalar_cache_`. Esses números mostram precisamente por que avaliar apenas uma dimensão da fonte atual ainda não é expandi-la em ramos lineares.
 
 ## Evidência atual
 

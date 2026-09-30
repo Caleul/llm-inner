@@ -42,8 +42,13 @@ function norm(op: Operation): Norm {
   return op;
 }
 
+/** The compiled model starts at the vectors entering its first transformer layer. */
+export type FixedF16InputBoundary = "embeddings" | "token-ids";
+
 /** Lower a supported ordered decoder forward into a checkpoint-independent scalar function. */
-export async function compileFixedF16ScalarModelFromDirectory(directory: string): Promise<FixedF16CachedScalarSource> {
+export async function compileFixedF16ScalarModelFromDirectory(
+  directory: string, inputBoundary: FixedF16InputBoundary = "embeddings",
+): Promise<FixedF16CachedScalarSource> {
   const opened = await openCatalog(directory, false);
   const reader = new SafetensorsCatalogReader(directory);
   try {
@@ -52,7 +57,7 @@ export async function compileFixedF16ScalarModelFromDirectory(directory: string)
     requireForward(ir.prelude.length === 1 && ir.prelude[0]?.op === "embedding" &&
       ir.prelude[0].scale === undefined && ir.prelude[0].weight.storageDtype === "F16",
     "embedding F16 sem escala necessário");
-    const embedding = await compileFixedF16CachedEmbeddingSource(reader, ir.prelude[0].weight.name);
+    requireForward(inputBoundary === "embeddings" || inputBoundary === "token-ids", "fronteira de entrada inválida");
     let source: FixedF16CachedScalarSource | undefined;
     for (const layer of ir.layers) {
       const ops = layer.operations;
@@ -121,6 +126,8 @@ export async function compileFixedF16ScalarModelFromDirectory(directory: string)
       reader, tensor(finalNorm), finalNorm.epsilon), source);
     const logits = composeCachedScalarSources(await compileFixedF16CachedWideLinearSource(
       reader, tensor(head)), normalized);
+    if (inputBoundary === "embeddings") return logits;
+    const embedding = await compileFixedF16CachedEmbeddingSource(reader, ir.prelude[0].weight.name);
     return composeCachedScalarSources(logits, embedding);
   } finally {
     await reader.close();
@@ -129,11 +136,13 @@ export async function compileFixedF16ScalarModelFromDirectory(directory: string)
 }
 
 /** Persist only numeric source and literals; evaluation does not reopen the model directory. */
-export async function writeFixedF16ScalarArtifact(directory: string, output: string): Promise<void> {
-  const source = await compileFixedF16ScalarModelFromDirectory(directory);
+export async function writeFixedF16ScalarArtifact(
+  directory: string, output: string, inputBoundary: FixedF16InputBoundary = "embeddings",
+): Promise<void> {
+  const source = await compileFixedF16ScalarModelFromDirectory(directory, inputBoundary);
   await mkdir(dirname(output), { recursive: true });
   await writeFile(output, JSON.stringify({ schemaVersion: 1, numericProfile: "pytorch-cpu-eager-f16-four-lane",
-    source }), "utf8");
+    inputBoundary, source }), "utf8");
 }
 
 export async function readFixedF16ScalarArtifact(path: string): Promise<FixedF16CachedScalarSource> {
@@ -143,6 +152,8 @@ export async function readFixedF16ScalarArtifact(path: string): Promise<FixedF16
     artifact.numericProfile !== "pytorch-cpu-eager-f16-four-lane" || !("source" in artifact)) {
     throw new Error("Artefato escalar F16 incompatível.");
   }
+  if ("inputBoundary" in artifact && artifact.inputBoundary !== "embeddings" &&
+    artifact.inputBoundary !== "token-ids") throw new Error("Fronteira de entrada escalar inválida.");
   const source = artifact.source;
   if (!source || typeof source !== "object" || !("kind" in source) ||
     source.kind !== "fixed-f16-cached-scalar-source" || !("formulas" in source) ||
