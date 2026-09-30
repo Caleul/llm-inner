@@ -6,13 +6,15 @@ import { dirname } from "node:path";
 import { finished } from "node:stream/promises";
 import { promisify } from "node:util";
 import { SafetensorsCatalogReader } from "./safetensors.js";
-import { f16BitsToDyadic } from "./fixed-f16-projection.js";
+import { readDirectF16Literal } from "./direct-weight-literal.js";
+import type { TensorInfo } from "./types.js";
 import { compileF16SiluBranches } from "./fixed-f16-conditional-linear.js";
 
-interface Projection { weight: string; shape: [number, number] }
-interface DiscoveredMlp {
+export interface Projection { weight: string; shape: [number, number] }
+export interface DiscoveredMlp {
   layer: string;
   mlp: { gate: Projection; up: Projection; down: Projection };
+  normalizations: { weight: string; epsilon: number }[];
 }
 
 const runFile = promisify(execFile);
@@ -37,13 +39,13 @@ export async function writeDirectMlpOutput(
   };
   try {
     const catalog = await reader.inspect();
-    const read = async (projection: Projection): Promise<Buffer> => {
+    const read = async (projection: Projection): Promise<TensorInfo> => {
       const tensor = catalog.tensors.get(projection.weight);
       if (!tensor || tensor.storageDtype !== "F16" || tensor.logicalShape.length !== 2 ||
         tensor.logicalShape[0] !== projection.shape[0] || tensor.logicalShape[1] !== projection.shape[1]) {
         throw new Error(`Projeção ${projection.weight} incompatível com a fonte`);
       }
-      return reader.readTensorBytes(tensor);
+      return tensor;
     };
     const gate = await read(discovered.mlp.gate);
     const up = await read(discovered.mlp.up);
@@ -53,14 +55,10 @@ export async function writeDirectMlpOutput(
     if (!Number.isSafeInteger(dimension) || dimension < 0 || dimension >= hiddenSize) {
       throw new RangeError("Dimensão MLP inválida");
     }
-    const literal = (bytes: Buffer, width: number, row: number, column: number): string => {
-      const bits = bytes.readUInt16LE((row * width + column) * 2);
-      const dyadic = f16BitsToDyadic(bits);
-      const value = Number(dyadic.coefficient) * 2 ** dyadic.exponent;
-      return Object.is(value, -0) ? "-0" : String(value);
-    };
+    const literal = (tensor: TensorInfo, width: number, row: number, column: number): Promise<string> =>
+      readDirectF16Literal(reader, tensor, row * width + column);
     const emitLinear = async (
-      bytes: Buffer, width: number, row: number, emitInput: (column: number) => Promise<void>,
+      bytes: TensorInfo, width: number, row: number, emitInput: (column: number) => Promise<void>,
     ): Promise<void> => {
       await write("f16Bits(Math.fround(Math.fround(");
       for (let lane = 0; lane < 4; lane++) {
@@ -72,7 +70,7 @@ export async function writeDirectMlpOutput(
         for (const column of indices) {
           await write("+");
           await emitInput(column);
-          await write(`*${literal(bytes, width, row, column)})`);
+          await write(`*${await literal(bytes, width, row, column)})`);
         }
       }
       await write(")))");

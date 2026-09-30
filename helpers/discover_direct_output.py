@@ -162,11 +162,37 @@ def main(directory):
                 norm_matches.append((norm_tensor.get_shape(), norm_tensor.get_dtype()))
     if norm_matches != [([module.in_features], "F16")]:
         raise ValueError("Final normalization tensor does not match the logit input")
+    inner = model.get_submodule(".".join(norm_path.split(".")[:-1]))
+    inner_tree = ast.parse(textwrap.dedent(inspect.getsource(type(inner).forward)))
+    embeddings = []
+    for node in ast.walk(inner_tree):
+        if isinstance(node, (ast.Assign, ast.AnnAssign)) and isinstance(node.value, ast.Call):
+            try:
+                relative = attribute_path(node.value.func)
+                candidate = inner.get_submodule(relative)
+                if isinstance(candidate, torch.nn.Embedding):
+                    embeddings.append((relative, candidate))
+            except (ValueError, AttributeError):
+                continue
+    if len(embeddings) != 1:
+        raise ValueError("Input token embedding is not uniquely discoverable")
+    embedding_path, embedding = embeddings[0]
+    embedding_weight = ".".join(norm_path.split(".")[:-1]) + "." + embedding_path + ".weight"
+    embedding_matches = []
+    for candidate in files:
+        with safe_open(candidate, framework="pt") as reader:
+            if embedding_weight in reader.keys():
+                value = reader.get_slice(embedding_weight)
+                embedding_matches.append((value.get_shape(), value.get_dtype()))
+    if embedding_matches != [([embedding.num_embeddings, embedding.embedding_dim], "F16")]:
+        raise ValueError("Input embedding weight does not match source")
     print(json.dumps({"architecture": type(model).__name__, "forwardSourceSha256": source_hash,
                       "weight": weight_name, "safetensors": path, "shape": shape, "dtype": dtype,
                       "finalNormWeight": norm_weight, "finalNormEpsilon": epsilon,
                       "finalNormSourceSha256": norm_hash,
-                      "decoderLayers": layer_paths,
+                      "decoderLayers": layer_paths, "embeddingWeight": embedding_weight,
+                      "embeddingShape": [embedding.num_embeddings, embedding.embedding_dim],
+                      "maxPosition": config.max_position_embeddings,
                       "transformers": __import__("transformers").__version__, "torch": torch.__version__}))
 
 

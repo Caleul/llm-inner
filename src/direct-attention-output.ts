@@ -6,10 +6,11 @@ import { dirname } from "node:path";
 import { finished } from "node:stream/promises";
 import { promisify } from "node:util";
 import { SafetensorsCatalogReader } from "./safetensors.js";
-import { f16BitsToDyadic } from "./fixed-f16-projection.js";
+import { readDirectF16Literal } from "./direct-weight-literal.js";
+import type { TensorInfo } from "./types.js";
 
 interface Projection { weight: string; shape: [number, number] }
-interface DiscoveredAttention {
+export interface DiscoveredAttention {
   layer: string;
   attention: { projections: { q: Projection; k: Projection; v: Projection; o: Projection };
     heads: number; kvHeads: number; headDim: number; scaling: number; ropeTheta: number; maxPosition: number };
@@ -45,7 +46,7 @@ export async function writeDirectAttentionOutput(
   };
   try {
     const catalog = await reader.inspect();
-    const weights: Record<"q" | "k" | "v" | "o", Buffer> = {} as never;
+    const weights: Record<"q" | "k" | "v" | "o", TensorInfo> = {} as never;
     for (const role of ["q", "k", "v", "o"] as const) {
       const projection = spec.projections[role];
       const tensor = catalog.tensors.get(projection.weight);
@@ -53,15 +54,10 @@ export async function writeDirectAttentionOutput(
         tensor.logicalShape[0] !== projection.shape[0] || tensor.logicalShape[1] !== projection.shape[1]) {
         throw new Error(`Peso da atenção inválido: ${projection.weight}`);
       }
-      weights[role] = await reader.readTensorBytes(tensor);
+      weights[role] = tensor;
     }
-    const literal = (role: "q" | "k" | "v" | "o", row: number, column: number): string => {
-      const size = spec.projections[role].shape[1];
-      const bits = weights[role].readUInt16LE((row * size + column) * 2);
-      const value = f16BitsToDyadic(bits);
-      const numeric = Number(value.coefficient) * 2 ** value.exponent;
-      return Object.is(numeric, -0) ? "-0" : String(numeric);
-    };
+    const literal = (role: "q" | "k" | "v" | "o", row: number, column: number): Promise<string> =>
+      readDirectF16Literal(reader, weights[role], row * spec.projections[role].shape[1] + column);
     const emitReduction = async (size: number, term: (coordinate: number) => Promise<void>): Promise<void> => {
       await write("f16Bits(Math.fround(Math.fround(");
       for (let lane = 0; lane < 4; lane++) {
@@ -84,7 +80,7 @@ export async function writeDirectAttentionOutput(
       await emitReduction(size, async (coordinate) => {
         if (input) await input(coordinate);
         else await write(`f16(attnInput[${position}][${coordinate}])`);
-        await write(`*${literal(role, row, coordinate)}`);
+        await write(`*${await literal(role, row, coordinate)}`);
       });
     };
     const emitRotated = async (role: "q" | "k", head: number, coordinate: number, position: string): Promise<void> => {

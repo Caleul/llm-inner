@@ -3,6 +3,42 @@ import { stat } from "node:fs/promises";
 import { once } from "node:events";
 import { finished } from "node:stream/promises";
 
+/** Count exact UTF-8 output bytes before materializing a repeated scalar producer. */
+export async function estimateDirectCoordinateExpansion(
+  inputPath: string,
+  frontier: string,
+  position: string,
+  coordinatePaths: readonly string[],
+): Promise<{ bytes: number; replacements: number }> {
+  if (!/^[a-z][A-Za-z0-9]*$/.test(frontier) || !/^[a-z][a-z0-9]*$/.test(position)) {
+    throw new Error("Invalid scalar frontier");
+  }
+  const sizes = await Promise.all(coordinatePaths.map(async (path) => (await stat(path)).size));
+  const pattern = new RegExp(`\\b${frontier}\\[${position}\\]\\[(\\d+)\\]`, "g");
+  let pending = "", bytes = 0, replacements = 0;
+  const consume = (source: string, final: boolean): void => {
+    const limit = final ? source.length : Math.max(0, source.length - 256);
+    let cursor = 0, writableEnd = limit;
+    for (const match of source.matchAll(pattern)) {
+      if (match.index >= limit) break;
+      if (!final && match.index + match[0].length > limit) { writableEnd = match.index; break; }
+      const size = sizes[Number(match[1])];
+      if (size === undefined) throw new RangeError(`Coordinate ${match[1]} outside the discovered width`);
+      bytes += Buffer.byteLength(source.slice(cursor, match.index)) + size;
+      if (!Number.isSafeInteger(bytes)) throw new RangeError("Direct expansion size exceeds safe integer range");
+      replacements++;
+      cursor = match.index + match[0].length;
+    }
+    bytes += Buffer.byteLength(source.slice(cursor, writableEnd));
+    pending = source.slice(writableEnd);
+  };
+  for await (const chunk of createReadStream(inputPath, { encoding: "utf8", highWaterMark: 64 * 1024 })) {
+    consume(pending + chunk, false);
+  }
+  consume(pending, true);
+  return { bytes, replacements };
+}
+
 /** Copy complete scalar producers at every coordinate reference, with bounded memory. */
 export async function substituteDirectCoordinates(
   inputPath: string,
@@ -17,6 +53,10 @@ export async function substituteDirectCoordinates(
     throw new Error("Invalid scalar frontier");
   }
   if (!Number.isSafeInteger(maxBytes) || maxBytes < 0) throw new RangeError("Invalid byte limit");
+  const estimate = await estimateDirectCoordinateExpansion(inputPath, frontier, position, coordinatePaths);
+  if (estimate.bytes > maxBytes) {
+    throw new RangeError(`Direct expansion requires ${estimate.bytes} bytes, exceeds ${maxBytes}`);
+  }
   const paths = await Promise.all(coordinatePaths.map(async (path) => ({ path, size: (await stat(path)).size })));
   const pattern = new RegExp(`\\b${frontier}\\[${position}\\]\\[(\\d+)\\]`, "g");
   const output = createWriteStream(outputPath, { encoding: "utf8" });
@@ -54,6 +94,9 @@ export async function substituteDirectCoordinates(
     await consume(pending, true);
     output.end();
     await finished(output);
+    if (bytes !== estimate.bytes || replacements !== estimate.replacements) {
+      throw new Error("Streaming substitution differs from its size audit");
+    }
     return { bytes, replacements };
   } catch (error) {
     output.on("error", () => {});

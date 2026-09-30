@@ -6,7 +6,7 @@ import { dirname } from "node:path";
 import { finished } from "node:stream/promises";
 import { promisify } from "node:util";
 import { SafetensorsCatalogReader } from "./safetensors.js";
-import { f16BitsToDyadic } from "./fixed-f16-projection.js";
+import { readDirectF16Literal } from "./direct-weight-literal.js";
 
 const runFile = promisify(execFile);
 
@@ -21,6 +21,9 @@ export interface DirectOutputDiscovery {
   finalNormEpsilon: number;
   finalNormSourceSha256: string;
   decoderLayers: string[];
+  embeddingWeight: string;
+  embeddingShape: [number, number];
+  maxPosition: number;
   transformers: string;
   torch: string;
 }
@@ -61,7 +64,6 @@ export async function writeDirectOutputRow(
       tensor.logicalShape[0] !== discovered.shape[0] || tensor.logicalShape[1] !== discovered.shape[1]) {
       throw new Error("Peso de saída incompatível com a fonte do forward");
     }
-    const bytes = await reader.readTensorBytes(tensor);
     const width = discovered.shape[1];
     await write("f16Bits(Math.fround(Math.fround(");
     for (let lane = 0; lane < 4; lane++) {
@@ -71,10 +73,8 @@ export async function writeDirectOutputRow(
       for (const _index of indices) await write("Math.fround(");
       await write("0");
       for (const input of indices) {
-        const bits = bytes.readUInt16LE((dimension * width + input) * 2);
-        const dyadic = f16BitsToDyadic(bits);
-        const weight = Number(dyadic.coefficient) * 2 ** dyadic.exponent;
-        await write(`+f16(hidden[t][${input}])*${Object.is(weight, -0) ? "-0" : weight})`);
+        const weight = await readDirectF16Literal(reader, tensor, dimension * width + input);
+        await write(`+f16(hidden[t][${input}])*${weight})`);
       }
     }
     await write(")))");

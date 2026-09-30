@@ -86,6 +86,48 @@ def discover_mlp(model, layer_path):
                       "epsilon": float(getattr(candidate, eps_names[0]))})
     if len(norms) != 2:
         raise ValueError("Expected two source-discovered decoder normalizations")
+    # Establish the residual dependencies from source variable bindings. A
+    # module list or matching names alone does not establish execution order.
+    statements = forward.body
+    if len(statements) != 9 or not isinstance(statements[-1], ast.Return):
+        raise ValueError("Decoder residual source contains unsupported statements")
+    def name(node):
+        if not isinstance(node, ast.Name):
+            raise ValueError("Decoder residual binding must be a source variable")
+        return node.id
+    def assignment(index):
+        node = statements[index]
+        if not isinstance(node, ast.Assign) or len(node.targets) != 1:
+            raise ValueError("Decoder source requires one assignment target")
+        return node.targets[0], node.value
+    residual_target, input_value = assignment(0)
+    residual_name, hidden_name = name(residual_target), name(input_value)
+    expected_modules = [norms[0]["weight"].removeprefix(layer_path + ".").removesuffix(".weight"),
+                        None,
+                        norms[1]["weight"].removeprefix(layer_path + ".").removesuffix(".weight"),
+                        relative]
+    for index, expected in zip((1, 2, 5, 6), expected_modules):
+        target, call = assignment(index)
+        if isinstance(target, ast.Tuple):
+            target = target.elts[0]
+        if name(target) != hidden_name or not isinstance(call, ast.Call):
+            raise ValueError("Decoder source producer does not replace the hidden variable")
+        called_path = attribute_path(call.func)
+        if expected is not None and called_path != expected:
+            raise ValueError("Decoder normalization/MLP source dependency order differs")
+        if expected is None and "attention_interface(" not in inspect.getsource(type(layer.get_submodule(called_path)).forward):
+            raise ValueError("Decoder middle producer is not source-discovered attention")
+        operands = list(call.args) + [kw.value for kw in call.keywords if kw.arg is not None]
+        if not any(isinstance(value, ast.Name) and value.id == hidden_name for value in operands):
+            raise ValueError("Decoder producer does not consume the hidden variable")
+    for index in (3, 7):
+        target, value = assignment(index)
+        if name(target) != hidden_name or not isinstance(value, ast.BinOp) or not isinstance(value.op, ast.Add) \
+                or {name(value.left), name(value.right)} != {hidden_name, residual_name}:
+            raise ValueError("Decoder residual addition source unsupported")
+    target, value = assignment(4)
+    if name(target) != residual_name or name(value) != hidden_name or name(statements[-1].value) != hidden_name:
+        raise ValueError("Decoder residual reset/output source unsupported")
     return result, norms
 
 

@@ -45,7 +45,8 @@
     "loop:status": "node scripts/agent-loop-runner.mjs status",
     "loop:stop": "node scripts/agent-loop-runner.mjs stop",
     "loop:supervisor": "node scripts/agent-loop-supervisor.mjs run",
-    "loop:install-launchd": "node scripts/install-agent-loop-launchd.mjs"
+    "loop:install-launchd": "node scripts/install-agent-loop-launchd.mjs",
+    "compile:direct-rust": "npm run build && node dist/src/direct-rust-cli.js"
   },
   "engines": {
     "node": ">=22"
