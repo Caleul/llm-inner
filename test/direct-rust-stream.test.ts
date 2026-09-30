@@ -8,6 +8,7 @@ import { promisify } from "node:util";
 import { DirectRustStream } from "../src/direct-rust-stream.js";
 import { DirectBranchDomain, rational } from "../src/direct-branch-domain.js";
 import { DirectReductionGate, IncompleteDirectReduction } from "../src/direct-reduction-gate.js";
+import { exactNumberRational } from "../src/direct-round-preimage.js";
 import { foldCpuArm64F32Sum } from "../src/direct-rust-mean.js";
 import { emitRustExp, emitRustSilu, emitRustSqrt } from "../src/direct-rust-numeric.js";
 const run = promisify(execFile);
@@ -147,8 +148,47 @@ test("reachable transformed branches flatten into reduced leaf conditions",async
         inner=>leaf(inner,"7"),inner=>leaf(inner,"8")),domain=>leaf(domain,"0"));
     await s.write("panic!(\"finite input required\")}}fn main(){for (x,v) in [(2.0,0),(4.0,7),(25.0,8),(100.0,8)] {assert_eq!(generated(x),v);}}");
     await s.close();const source=await readFile(file,"utf8");
-    assert.match(source,/x>=\(25\.0_f64\/1\.0_f64\)/);
+    assert.match(source,/x>=25\.0_f64/);
     assert.doesNotMatch(source,/else/);
+    await run("rustc",[file,"-o",join(dir,"run")]);await run(join(dir,"run"));
+  }finally{await rm(dir,{recursive:true,force:true});}
+});
+test("rounded producer comparisons propagate to flat input conditions before emission",async()=>{
+  const dir=await mkdtemp(join(tmpdir(),"direct-rounded-paths-"));
+  try{
+    const file=join(dir,"flat.rs"),s=new DirectRustStream(file);
+    await s.write("fn generated(x:f64)->i32 {'answer:{");s.beginReducedExpression();
+    const leaf=(domain:DirectBranchDomain,value:string)=>s.affineLeaf(domain,"answer",()=>s.write(value));
+    await s.flattenedAffinePaths(new DirectBranchDomain(),"x",rational(1n),rational(0n),">",rational(3n),
+      domain=>s.flattenedRoundedAffinePaths(domain,"x","f32",rational(4n),rational(0n),"<",rational(5n),
+        inner=>leaf(inner,"999"),inner=>s.flattenedRoundedAffinePaths(inner,"x","f32-f16",rational(4n),rational(0n),"<",rational(100n),
+          low=>leaf(low,"7"),high=>leaf(high,"8"))),domain=>leaf(domain,"0"));
+    await s.write('panic!("outside input domain")}}');await s.close();
+    const source=await readFile(file,"utf8");assert.doesNotMatch(source,/999|rounding|\bas\b|else/);
+    const {appendFile}=await import("node:fs/promises");
+    await appendFile(file,'fn main(){for (x,y) in [(1.0,0),(3.0,0),(4.0,7),(24.99,7),(25.0,8),(100.0,8)]{assert_eq!(generated(x),y);}}');
+    await run("rustc",[file,"-o",join(dir,"run")]);await run(join(dir,"run"));
+    const tiny=join(dir,"tiny.rs"),stream=new DirectRustStream(tiny);
+    await stream.write("fn generated(x:f64)->i32 {'answer:{");stream.beginReducedExpression();
+    await stream.flattenedRoundedAffinePaths(new DirectBranchDomain(),"x","f32",rational(1n),rational(0n),"<",exactNumberRational(2**-149),
+      d=>stream.affineLeaf(d,"answer",()=>stream.write("1")),d=>stream.affineLeaf(d,"answer",()=>stream.write("0")));
+    await stream.write('panic!("outside input domain")}}');await stream.close();
+    await appendFile(tiny,'fn main(){let x=2_f64.powi(-150);for y in [f64::from_bits(x.to_bits()-1),x,f64::from_bits(x.to_bits()+1)]{assert_eq!(generated(y),if ((y as f32) as f64)<2_f64.powi(-149){1}else{0});}}');
+    await run("rustc",[tiny,"-o",join(dir,"tiny")]);await run(join(dir,"tiny"));
+  }finally{await rm(dir,{recursive:true,force:true});}
+});
+test("reciprocal-root comparisons eliminate the primitive and entry-domain redundancies",async()=>{
+  const dir=await mkdtemp(join(tmpdir(),"direct-inverse-root-paths-"));
+  try{
+    const file=join(dir,"root.rs"),s=new DirectRustStream(file);
+    await s.write("fn generated(x:f64)->i32 {'answer:{");s.beginReducedExpression();
+    const entry=new DirectBranchDomain().split("x",">=",rational(1n)).truth!.split("x","<=",rational(2n)).truth!;
+    await s.flattenedReciprocalRootPaths(entry,"x",rational(1n),rational(0n),"<",exactNumberRational(0.8),
+      d=>s.affineLeaf(d,"answer",()=>s.write("1"),entry),d=>s.affineLeaf(d,"answer",()=>s.write("0"),entry));
+    await s.write('panic!("outside input domain")}}');await s.close();
+    const source=await readFile(file,"utf8");assert.doesNotMatch(source,/sqrt|rounding|x>=1\.0|x<=2\.0/);
+    const {appendFile}=await import("node:fs/promises");
+    await appendFile(file,'fn main(){for i in 0..=20000{let x=1.0+(i as f64)/20000.0;let y=1.0_f32/(x as f32).sqrt();assert_eq!(generated(x),if (y as f64)<0.8{1}else{0});}}');
     await run("rustc",[file,"-o",join(dir,"run")]);await run(join(dir,"run"));
   }finally{await rm(dir,{recursive:true,force:true});}
 });

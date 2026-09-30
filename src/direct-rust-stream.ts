@@ -2,6 +2,7 @@ import { createWriteStream } from "node:fs";
 import { once } from "node:events";
 import { finished } from "node:stream/promises";
 import { DirectBranchDomain, type Comparison, type Rational, normalizeExactAffineComparison } from "./direct-branch-domain.js";
+import { exactNumberRational, normalizeReciprocalRootAffineComparison, normalizeRoundedAffineComparison, type DirectRoundedFormat } from "./direct-round-preimage.js";
 import { DirectReductionGate } from "./direct-reduction-gate.js";
 
 export type RustExpression = () => Promise<void>;
@@ -37,12 +38,7 @@ export class DirectRustStream {
     const paths = domain.split(variable, normalized.op, normalized.value);
     if (!paths.truth) { this.eliminatedBranches++; await falsity(paths.falsity!); return; }
     if (!paths.falsity) { this.eliminatedBranches++; await truth(paths.truth); return; }
-    const { numerator, denominator } = normalized.value;
-    // Comparing a rounded decimal approximation would change the branch domain.
-    // Emit exact integer ratios only within binary64's exact integer range.
-    if (numerator > 9007199254740992n || numerator < -9007199254740992n || denominator > 9007199254740992n ||
-      (denominator & (denominator - 1n)) !== 0n) throw new Error("Non-dyadic branch requires explicit IEEE boundary lowering");
-    await this.write(`if ${variable} ${normalized.op} (${numerator}.0_f64/${denominator}.0_f64) {`);
+    await this.write(`if ${variable} ${normalized.op} ${rustExactBoundary(normalized.value)} {`);
     await truth(paths.truth); await this.write("} else {"); await falsity(paths.falsity); await this.write("}");
   }
   /** Descend with semantic path facts; emit no parent branch or stored tree. */
@@ -55,19 +51,38 @@ export class DirectRustStream {
     if(paths.truth)await truth(paths.truth);else this.eliminatedBranches++;
     if(paths.falsity)await falsity(paths.falsity);else this.eliminatedBranches++;
   }
+  /** Propagate a rounded comparison back to its exact affine producer.
+   * Descend under the preimage facts; only flattened leaves emit conditions.
+   */
+  async flattenedRoundedAffinePaths(domain:DirectBranchDomain,variable:string,format:DirectRoundedFormat,
+    scale:Rational,offset:Rational,op:Comparison,rhs:Rational,
+    truth:(domain:DirectBranchDomain)=>Promise<void>,falsity:(domain:DirectBranchDomain)=>Promise<void>):Promise<void>{
+    const normalized=normalizeRoundedAffineComparison(format,scale,offset,op,rhs);
+    if(typeof normalized==="boolean"){this.eliminatedBranches++;await (normalized?truth:falsity)(domain);return;}
+    const paths=domain.split(variable,normalized.op,normalized.value);
+    if(paths.truth)await truth(paths.truth);else this.eliminatedBranches++;
+    if(paths.falsity)await falsity(paths.falsity);else this.eliminatedBranches++;
+  }
+  async flattenedReciprocalRootPaths(domain:DirectBranchDomain,variable:string,scale:Rational,offset:Rational,
+    op:Comparison,rhs:Rational,truth:(domain:DirectBranchDomain)=>Promise<void>,
+    falsity:(domain:DirectBranchDomain)=>Promise<void>):Promise<void>{
+    const normalized=normalizeReciprocalRootAffineComparison(scale,offset,op,rhs);
+    if(typeof normalized==="boolean"){this.eliminatedBranches++;await (normalized?truth:falsity)(domain);return;}
+    const paths=domain.split(variable,normalized.op,normalized.value);
+    if(paths.truth)await truth(paths.truth);else this.eliminatedBranches++;
+    if(paths.falsity)await falsity(paths.falsity);else this.eliminatedBranches++;
+  }
   /** Each surviving leaf gets one conjunction of reduced bounds, no nested if. */
-  async affineLeaf(domain:DirectBranchDomain,label:string,body:RustExpression):Promise<void>{
+  async affineLeaf(domain:DirectBranchDomain,label:string,body:RustExpression,assumed?:DirectBranchDomain):Promise<void>{
     if(!/^[a-z][a-z0-9_]*$/.test(label))throw new Error("Invalid Rust label");
     const conditions:string[]=[];
     for(const [variable,interval] of domain.entries()){
       if(!/^[a-z][a-z0-9_]*$/.test(variable))throw new Error("Invalid variable");
       for(const side of ["lower","upper"] as const){
         const bound=interval[side];if(!bound)continue;
-        const {numerator,denominator}=bound.value;
-        if(numerator>9007199254740992n||numerator< -9007199254740992n||denominator>9007199254740992n||
-          (denominator&(denominator-1n))!==0n)throw new Error("Branch boundary requires explicit IEEE lowering");
         const comparison=side==="lower"?(bound.inclusive?">=":">"):(bound.inclusive?"<=":"<");
-        conditions.push(`${variable}${comparison}(${numerator}.0_f64/${denominator}.0_f64)`);
+        if(assumed&&!assumed.split(variable,comparison,bound.value).falsity){this.eliminatedBranches++;continue;}
+        conditions.push(`${variable}${comparison}${rustExactBoundary(bound.value)}`);
       }
     }
     if(conditions.length)await this.write(`if ${conditions.join(" && ")} {`);
@@ -144,4 +159,22 @@ export class DirectRustStream {
 export function rustF64(value: number | string): string {
   const text = String(value);
   return /[.eE]/.test(text) ? `${text}_f64` : `${text}.0_f64`;
+}
+
+/** Emit a dyadic boundary only when decimal parsing reconstructs its exact
+ * binary64 value. This includes small IEEE preimages whose denominators are
+ * larger than 2^53; converting a rational approximately is never allowed.
+ */
+function rustExactBoundary(value:Rational):string{
+  const denominator=value.denominator;
+  if((denominator&(denominator-1n))!==0n)throw new Error("Non-dyadic branch requires explicit IEEE boundary lowering");
+  let numerator=value.numerator,exponent=-(denominator.toString(2).length-1);
+  if(numerator===0n)return "0.0_f64";
+  while((numerator&1n)===0n){numerator>>=1n;exponent++;}
+  const result=Number(numerator)*2**exponent;
+  if(!Number.isFinite(result))throw new Error("Branch boundary exceeds binary64 domain");
+  const exact=exactNumberRational(result);
+  if(exact.numerator!==value.numerator||exact.denominator!==value.denominator)
+    throw new Error("Branch boundary requires explicit IEEE lowering");
+  return rustF64(result);
 }

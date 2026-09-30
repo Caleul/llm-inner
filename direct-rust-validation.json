@@ -153,7 +153,7 @@
       "reference": "pytorch-2.12.1-cpu-f16-silu numeric policy profile",
       "exactBits": true
     },
-    "directRustRuleTestsPassed": 12,
+    "directRustRuleTestsPassed": 17,
     "reducedExponential": {
       "cases": 1342,
       "domain": "Every F32 input in [-0.10001,-0.1]",
@@ -176,6 +176,13 @@
       "correctedFactorMismatches": 0,
       "sumPolicy": "PyTorch 2.12.1 CPU arm64 contiguous F32 cascade sum, ordered scalar lane combination",
       "source": "https://raw.githubusercontent.com/pytorch/pytorch/v2.12.1/aten/src/ATen/native/cpu/SumKernel.cpp",
+      "completeModelParity": false
+    },
+    "exponentialLatticePolicy": {
+      "cases": 1677722,
+      "domain": "All inputs k * 2^-24 for -1677721 <= k <= 0",
+      "reference": "torch.exp CPU 2.12.1",
+      "exactBits": true,
       "completeModelParity": false
     }
   },
@@ -215,6 +222,19 @@
       "exponential": "Declared F32 polynomial folded at compile time; flat affine runs checked point by point."
     },
     "attention": "Position indices selected from discovered context; scalar ordered sums replace runtime accumulators and key loops. Singleton finite softmax is eliminated before expansion.",
-    "remaining": "Propagate numerical producer conditions through their consumers to flattened complete-model leaves, simplify to fixed point, then generate and execute the final dimension."
+    "remaining": "Integrate backward comparison preimages with every model producer and consumer; flatten and simplify the complete final expression to a fixed point before Rust compilation. No final-logit parity has been established for this new path.",
+    "backwardConditionReduction": {
+      "implemented": [
+        "nearest-even F32 and F16 comparison preimages",
+        "composed F64 to F32 to F16 preimages",
+        "positive reciprocal-root comparison preimages",
+        "exact affine normalization",
+        "contradictory paths removed",
+        "entry-domain implied comparisons removed"
+      ],
+      "source": "src/direct-round-preimage.ts",
+      "scope": "Compiler path-condition APIs; complete model producer/consumer integration remains pending."
+    },
+    "normalizationSpecialization": "Decoded learned weights +1 and -1 eliminate the multiplication and following F16 rounding as exact identities, preserving signed zero."
   }
 }

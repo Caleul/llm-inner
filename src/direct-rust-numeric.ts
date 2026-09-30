@@ -102,6 +102,21 @@ export async function emitRustSqrt(s:DirectRustStream,input:RustExpression,posit
   }
   await flush(true);await s.write("}");
 }
+export function foldDeclaredCpuF32Exponential(x:number):number{
+    if(x< -104)return 0;if(x>100)return Infinity;
+    const scaled=Math.fround(x*Math.fround(1.4426950408889634));
+    const lower=Math.floor(scaled),fraction=scaled-lower;
+    const exponent=lower+(fraction>0.5||(fraction===0.5&&lower%2!==0)?1:0);
+    let reduced=Math.fround(exponent*(-0.693145751953125)+x);
+    reduced=Math.fround(exponent*Math.fround(-1.428606765330187e-6)+reduced);
+    let polynomial=Math.fround(0.000198527617612853646278381);
+    for(const coefficient of [0.00139304355252534151077271,0.00833336077630519866943359,
+      0.0416664853692054748535156,0.166666671633720397949219,0.5])
+      polynomial=Math.fround(polynomial*reduced+Math.fround(coefficient));
+    const squared=Math.fround(reduced*reduced),tail=Math.fround(squared*polynomial+reduced);
+    const result=Math.fround(1+tail),half=Math.floor(exponent/2);
+    return Math.fround((result*2**half)*2**(exponent-half));
+}
 /** Fold the declared F32 range-reduction polynomial at compile time. No
  * exponential primitive, Euler constant or numerical temporary is emitted.
  * Runs are joined only after checking the emitted binary64 affine expression
@@ -116,26 +131,11 @@ export async function emitRustExp(s:DirectRustStream,input:RustExpression,alread
   const data=new DataView(new ArrayBuffer(4));
   const bits=(x:number)=>{data.setFloat32(0,x,true);return data.getUint32(0,true);};
   const number=(b:number)=>{data.setUint32(0,b,true);return data.getFloat32(0,true);};
-  const folded=(x:number)=>{
-    if(x< -104)return 0;if(x>100)return Infinity;
-    const scaled=Math.fround(x*Math.fround(1.4426950408889634));
-    const lower=Math.floor(scaled),fraction=scaled-lower;
-    const exponent=lower+(fraction>0.5||(fraction===0.5&&lower%2!==0)?1:0);
-    let reduced=Math.fround(exponent*(-0.693145751953125)+x);
-    reduced=Math.fround(exponent*Math.fround(-1.428606765330187e-6)+reduced);
-    let polynomial=Math.fround(0.000198527617612853646278381);
-    for(const coefficient of [0.00139304355252534151077271,0.00833336077630519866943359,
-      0.0416664853692054748535156,0.166666671633720397949219,0.5])
-      polynomial=Math.fround(polynomial*reduced+Math.fround(coefficient));
-    const squared=Math.fround(reduced*reduced),tail=Math.fround(squared*polynomial+reduced);
-    const result=Math.fround(1+tail),half=Math.floor(exponent/2);
-    return Math.fround((result*2**half)*2**(exponent-half));
-  };
   const literal=(x:number)=>x===Infinity?"f64::INFINITY":rustF64(Object.is(x,-0)?"-0":x);
   if(range.minimum===range.maximum){
     const point=Math.fround(range.minimum);
     if(alreadyF32&&point!==range.minimum)throw new Error("Empty F32 exponential point domain");
-    s.eliminatedBranches++;await s.write(literal(folded(point)));return;
+    s.eliminatedBranches++;await s.write(literal(foldDeclaredCpuF32Exponential(point)));return;
   }
   const value=async()=>{await s.write("(");if(alreadyF32)await input();else await s.round("f32",input);await s.write(")");};
   await s.write("'exponential_choice:{");
@@ -150,7 +150,7 @@ export async function emitRustExp(s:DirectRustStream,input:RustExpression,alread
     await s.write(";");if(!final)await s.write("}");
   };
   const consume=async(x:number)=>{
-    const y=folded(x);
+    const y=foldDeclaredCpuF32Exponential(x);
     if(firstX===undefined){firstX=lastX=x;firstY=y;return;}
     if(slope===undefined){
       if(Object.is(y,firstY)){slope=0;offset=firstY;lastX=x;return;}

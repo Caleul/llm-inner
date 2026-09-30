@@ -102,18 +102,25 @@ export async function writeDirectRustModel(directory:string,python:string,dimens
       const varianceRange=width<=1000000 && eps>=2**-126 && varianceMaximum<3.4028234663852886e38?
         {minimum:eps,maximum:varianceMaximum}:undefined;
       const inverseRange=varianceRange?{minimum:0.25/Math.sqrt(varianceMaximum),maximum:4/Math.sqrt(eps)}:undefined;
-      await s.round("f16",async()=>{
-        await s.round("f16",async()=>s.round("f32",async()=>{
-          await input(coordinate);await s.write("*");
-          await s.round("f32",async()=>{
-            await s.write("1.0/");await emitRustSqrt(s,async()=>s.round("f32",async()=>{
-              await s.round("f32",async()=>{
-                await emitCpuArm64F32Sum(s,width,async c=>{await input(c);await s.write("*");await input(c);});await s.write(`/${width}.0`);
-              });await s.write(`+${rustF64(eps)}`);
-            },false,varianceRange),varianceRange);
-          },false,inverseRange);
-        }),true);await s.write(`*${await weight(name,coordinate)}`);
-      },true);
+      const learned=Number(await readDirectF16Literal(reader,tensor(name),coordinate));
+      const normalized:RustExpression=()=>s.round("f16",()=>s.round("f32",async()=>{
+        await input(coordinate);await s.write("*");
+        await s.round("f32",async()=>{
+          await s.write("1.0/");await emitRustSqrt(s,()=>s.round("f32",async()=>{
+            await s.round("f32",async()=>{
+              await emitCpuArm64F32Sum(s,width,async c=>{await input(c);await s.write("*");await input(c);});
+              await s.write(`/${width}.0`);
+            });await s.write(`+${rustF64(eps)}`);
+          },false,varianceRange),varianceRange);
+        },false,inverseRange);
+      }),true);
+      // The producer is already F16. Multiplication by either unit weight is
+      // exact, including signed zeros and infinities; its following F16 round
+      // is consequently an identity. These are decoded checkpoint literals,
+      // not an architectural assumption about learned normalization weights.
+      if(learned===1){s.eliminatedBranches++;await normalized();return;}
+      if(learned===-1){s.eliminatedBranches++;await s.write("-(");await normalized();await s.write(")");return;}
+      await s.round("f16",async()=>{await normalized();await s.write(`*${rustF64(Object.is(learned,-0)?"-0":learned)}`);},true);
     };
     const hidden=async(layer:number,coordinate:number,position:string):Promise<void>=>{
       if(layer<0){await embedding(coordinate,position);return;}
