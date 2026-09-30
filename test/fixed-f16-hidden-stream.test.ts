@@ -6,6 +6,7 @@ import { test } from "node:test";
 import { inlineFixedF16HiddenCall, rewriteFixedF16HiddenFile, rewriteFixedF16ContextFile,
   rewriteFixedF16ScoreFile, fixedF16ContextReplacer, fixedF16ScoreReplacer } from "../src/fixed-f16-hidden-inline.js";
 import type { FixedF16CachedScalarSource } from "../src/fixed-f16-parametric-formulas.js";
+import { auditFixedF16StreamFile } from "../src/fixed-f16-stream-diagnostic.js";
 
 test("streaming substitutes hidden calls across read boundaries without changing surrounding text", async () => {
   const dir = await mkdtemp(join(tmpdir(), "f16-hidden-stream-"));
@@ -39,6 +40,18 @@ test("streaming expands context then score across file boundaries", async () => 
     const expectedContext = `(${fixedF16ContextReplacer(source)("0", "0")})`;
     const expected = expectedContext.replace("score_0(p,j,h)", fixedF16ScoreReplacer(source)("0", ""));
     assert.equal(await readFile(score, "utf8"), expected);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("streaming audit counts unresolved numeric calls across chunks", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "f16-audit-"));
+  try {
+    const path = join(dir, "formula");
+    await writeFile(path, `${"x".repeat(65530)} Math.exp(0)+f16Bits(1)+Math.exp(2)+q_0(t,0)`);
+    assert.deepEqual(await auditFixedF16StreamFile(path),
+      { "Math.exp": 2, f16Bits: 1, "q_*": 1 });
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
