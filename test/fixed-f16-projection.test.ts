@@ -57,7 +57,9 @@ test("atenção escalar com cache Q/K/V preserva valores F16 para n variável e 
   } finally { await reader.close(); }
 });
 import { compileFixedF16ScalarDimensionFromDirectory, compileFixedF16ScalarModelFromDirectory, readFixedF16ScalarArtifact, writeFixedF16ScalarArtifact } from "../src/fixed-f16-ir-scalar-compiler.js";
-import { inlineFixedF16HiddenCall } from "../src/fixed-f16-hidden-inline.js";
+import { inlineFixedF16HiddenCall, fixedF16MlpHiddenReplacer, fixedF16ContextReplacer,
+  fixedF16ScoreReplacer, fixedF16RotatedReplacer } from "../src/fixed-f16-hidden-inline.js";
+import { fixedF16ProjectionPrefixReplacer } from "../src/fixed-f16-hidden-inline.js";
 
 test("compila uma linha final literal antes de substituir o forward", async (context) => {
   const directory = resolve("artifacts/tiny-random-llama");
@@ -84,6 +86,65 @@ test("compila uma linha final literal antes de substituir o forward", async (con
   const four = fixture.cases["4"]!;
   assert.deepEqual(evaluateFixedF16CachedScalarSource({ ...source, formulas: [expandedOnce] },
     four.layers["0"]!.layer_input[0]!), four.logits[0]!.map((row) => [row[17]!]));
+  const inlineMlp = fixedF16MlpHiddenReplacer(source);
+  const expandedMlp = source.formulas[0]!.replace(/\bhidden_(\d+)\(t,(\d+)\)/,
+    (_call, layer: string, hidden: string) => inlineMlp(layer, hidden));
+  assert.doesNotMatch(expandedMlp, /\bgate_\d+\(t,\d+\)|\bup_\d+\(t,\d+\)/);
+  for (const n of [1, 2, 4, 8]) {
+    const sample = fixture.cases[String(n)]!;
+    assert.deepEqual(evaluateFixedF16CachedScalarSource({ ...source, formulas: [expandedMlp] },
+      sample.layers["0"]!.layer_input[0]!), sample.logits[0]!.map((row) => [row[17]!]), `mlp-expanded n=${n}`);
+  }
+  const inlineContext = fixedF16ContextReplacer(source);
+  const expandedContext = source.formulas[0]!.replace(/\bcontext_(\d+)\(t,(\d+)\)/,
+    (_call, attention: string, coordinate: string) => inlineContext(attention, coordinate));
+  assert.notEqual(expandedContext, source.formulas[0]);
+  for (const n of [1, 2, 4, 8]) {
+    const sample = fixture.cases[String(n)]!;
+    assert.deepEqual(evaluateFixedF16CachedScalarSource({ ...source, formulas: [expandedContext] },
+      sample.layers["0"]!.layer_input[0]!), sample.logits[0]!.map((row) => [row[17]!]), `context-expanded n=${n}`);
+  }
+  const inlineScore = fixedF16ScoreReplacer(source);
+  const expandedScore = expandedContext.replace(/\bscore_(\d+)\(p,j,h\)/,
+    (_call, attention: string) => inlineScore(attention, ""));
+  assert.notEqual(expandedScore, expandedContext);
+  for (const n of [1, 2, 4, 8]) {
+    const sample = fixture.cases[String(n)]!;
+    assert.deepEqual(evaluateFixedF16CachedScalarSource({ ...source, formulas: [expandedScore] },
+      sample.layers["0"]!.layer_input[0]!), sample.logits[0]!.map((row) => [row[17]!]), `score-expanded n=${n}`);
+  }
+  const inlineRotated = fixedF16RotatedReplacer(source);
+  const expandedRotated = expandedScore.replace(/\b(qRot|kRot)_(\d+)\((p|j),(h|Math\.floor\(h\/\d+\)),d\)/,
+    (_call, kind: string, attention: string, position: string, head: string) =>
+      inlineRotated(kind, attention, position, head));
+  assert.notEqual(expandedRotated, expandedScore);
+  for (const n of [1, 2, 4, 8]) {
+    const sample = fixture.cases[String(n)]!;
+    assert.deepEqual(evaluateFixedF16CachedScalarSource({ ...source, formulas: [expandedRotated] },
+      sample.layers["0"]!.layer_input[0]!), sample.logits[0]!.map((row) => [row[17]!]), `rope-expanded n=${n}`);
+  }
+  const inlineProjection = fixedF16ProjectionPrefixReplacer(source);
+  const expandedProjection = expandedRotated.replace(/\b(q|k|v)_(\d+)\(/,
+    (_call, kind: string, attention: string) => inlineProjection(kind, attention));
+  assert.notEqual(expandedProjection, expandedRotated);
+  for (const n of [1, 2, 4, 8]) {
+    const sample = fixture.cases[String(n)]!;
+    assert.deepEqual(evaluateFixedF16CachedScalarSource({ ...source, formulas: [expandedProjection] },
+      sample.layers["0"]!.layer_input[0]!), sample.logits[0]!.map((row) => [row[17]!]), `qkv-expanded n=${n}`);
+  }
+  const fullContext = expandedContext
+    .replace(/\bscore_(\d+)\(p,j,h\)/g, (_call, attention: string) => inlineScore(attention, ""))
+    .replace(/\b(qRot|kRot)_(\d+)\((p|j),(h|Math\.floor\(h\/\d+\)),d\)/g,
+      (_call, kind: string, attention: string, position: string, head: string) =>
+        inlineRotated(kind, attention, position, head))
+    .replace(/\b(q|k|v)_(\d+)\(/g,
+      (_call, kind: string, attention: string) => inlineProjection(kind, attention));
+  assert.doesNotMatch(fullContext, /\b(?:score|qRot|kRot|q|k|v)_\d+\(/);
+  for (const n of [1, 2, 4, 8]) {
+    const sample = fixture.cases[String(n)]!;
+    assert.deepEqual(evaluateFixedF16CachedScalarSource({ ...source, formulas: [fullContext] },
+      sample.layers["0"]!.layer_input[0]!), sample.logits[0]!.map((row) => [row[17]!]), `attention-expanded n=${n}`);
+  }
 });
 
 test("artefato escalar salvo executa logits sem consultar o checkpoint", async (context) => {

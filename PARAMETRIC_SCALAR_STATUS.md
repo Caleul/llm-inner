@@ -1,5 +1,11 @@
 # Compilador escalar paramétrico F16: estado verificado
 
+## Passagens de streaming verificadas em 30/09/2026
+
+A passagem de MLP substitui `hidden_*`, `gate_*` e `up_*` por fórmulas com pesos literais e ramos SiLU. A passagem seguinte substitui `context_*` pelo corpo causal da atenção; outra substitui `score_*` pela redução Q·K e sua escala. Em cada caso, uma ocorrência incorporada à fórmula da dimensão final 17 manteve o logit bit a bit para comprimentos 1, 2, 4 e 8 do fixture. Isso verifica essas substituições locais, não a execução do arquivo integral.
+
+Na emissão arquivo a arquivo da fórmula dessa dimensão, MLP: 6.144 substituições, 1.369.129.852 bytes, 1,83 s; contexto: 1.536 substituições, 1.370.042.236 bytes, 2,23 s; escore: 4.608 substituições, 1.370.867.068 bytes, 2,44 s; RoPE: 9.216 substituições, 1.372.618.108 bytes, 2,38 s; Q/K/V: 29.184 substituições, 1.969.774.204 bytes, 3,00 s. Tempos de uma execução local Node 24.13.0, macOS arm64, checkpoint `artifacts/tiny-random-llama`; arquivos temporários removidos. Uma ocorrência de contexto com escore, RoPE e Q/K/V incorporados manteve o logit da dimensão 17 para comprimentos 1, 2, 4 e 8. A saída integral ainda contém softmax, RMSNorm, conversões e arredondamentos numéricos; não foi executada nem demonstrada como ramos afins sobre embeddings. A paridade da expansão completa continua pendente.
+
 ## Contrato
 
 O alvo é uma função por dimensão final, parametrizada pela posição e pelo número de tokens. A fronteira de entrada é a sequência ordenada de **vetores de embedding** fornecidos ao primeiro bloco do modelo. Cada vetor contém as dimensões numéricas de um token; a função não recebe IDs nem ativações de camadas como parâmetros. O lookup de embedding por ID é uma rota diagnóstica separada. A função alvo deve substituir todas as operações até essa fronteira e ter apenas ramos condicionais com expressões lineares em cada ramo, sem funções numéricas internas no artefato final. Paridade de um estágio intermediário não satisfaz esse contrato.

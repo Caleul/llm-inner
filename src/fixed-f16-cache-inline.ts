@@ -24,7 +24,7 @@ function expressionEnd(source: string, start: number): number {
   throw new Error("Fórmula de cache incompleta.");
 }
 
-function cacheCases(declaration: string): string[] {
+export function fixedF16ScalarCases(declaration: string): string[] {
   const marker = /switch\s*\(d\)\s*\{/.exec(declaration);
   if (!marker || marker.index === undefined) throw new Error("Seletor escalar ausente.");
   const formulas: string[] = [];
@@ -56,7 +56,7 @@ export function inlineNextFixedF16ScalarCache(
   const statement = splitFixedF16Declarations(program.declarations).find((item) =>
     new RegExp(`^const\\s+${name}\\s*=`).test(item));
   if (!statement) throw new Error(`Definição de ${name} ausente.`);
-  const cases = cacheCases(statement);
+  const cases = fixedF16ScalarCases(statement);
   const call = new RegExp(`\\b${name}\\(t,(\\d+)\\)`, "g");
   const formulas = program.formulas.map((formula) => formula.replace(call, (_match, rawDimension: string) => {
     const replacement = cases[Number(rawDimension)];

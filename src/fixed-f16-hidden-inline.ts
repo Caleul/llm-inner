@@ -2,8 +2,15 @@ import { createReadStream, createWriteStream } from "node:fs";
 import { once } from "node:events";
 import { finished } from "node:stream/promises";
 import { compileF16SiluBranches } from "./fixed-f16-conditional-linear.js";
+import { fixedF16ScalarCases } from "./fixed-f16-cache-inline.js";
+import { splitFixedF16Declarations } from "./fixed-f16-source-prune.js";
+import type { FixedF16CachedScalarSource } from "./fixed-f16-parametric-formulas.js";
 
 const hiddenCall = /\bhidden_(\d+)\(t,(\d+)\)/g;
+const contextCall = /\bcontext_(\d+)\(t,(\d+)\)/g;
+const scoreCall = /\bscore_(\d+)\(p,j,h\)/g;
+const rotatedCall = /\b(qRot|kRot)_(\d+)\((p|j),(h|Math\.floor\(h\/\d+\)),d\)/g;
+const projectionPrefix = /\b(q|k|v)_(\d+)\(/g;
 const carryLength = 256;
 let cachedSiluBody: string | undefined;
 
@@ -16,6 +23,106 @@ export function inlineFixedF16HiddenCall(layerId: string, dimension: string): st
   return `(()=>{const g=gate_${layerId}(t,${dimension}),u=up_${layerId}(t,${dimension});` +
     `const activated=(()=>{const bits=g;${body}})();` +
     `return f16Bits(f16(activated)*f16(u));})()`;
+}
+
+/** Resolve gate/up selector cases before emitting the MLP branch for one coordinate. */
+export function fixedF16MlpHiddenReplacer(program: FixedF16CachedScalarSource):
+  (layerId: string, dimension: string) => string {
+  const definitions = new Map<string, string[]>();
+  for (const statement of splitFixedF16Declarations(program.declarations)) {
+    const match = /^const\s+((?:gate|up)_\d+)\s*=/.exec(statement);
+    if (match) definitions.set(match[1]!, fixedF16ScalarCases(statement));
+  }
+  return (layerId, dimension) => {
+    const selected = (name: string): string => {
+      const formula = definitions.get(`${name}_${layerId}`)?.[Number(dimension)];
+      if (formula === undefined) throw new Error(`${name}_${layerId}(t,${dimension}): fórmula ausente`);
+      return formula;
+    };
+    const gate = selected("gate"), up = selected("up");
+    const body = cachedSiluBody ??= (() => {
+      const silu = compileF16SiluBranches().source;
+      return silu.slice("function(bits){".length, -1);
+    })();
+    return `(()=>{const g=(${gate}),u=(${up});` +
+      `const activated=(()=>{const bits=g;${body}})();` +
+      `return f16Bits(f16(activated)*f16(u));})()`;
+  };
+}
+
+/** Embed the causal attention body at one literal output coordinate. */
+export function fixedF16ContextReplacer(program: FixedF16CachedScalarSource):
+  (attentionId: string, dimension: string) => string {
+  const bodies = new Map<string, string>();
+  for (const statement of splitFixedF16Declarations(program.declarations)) {
+    const match = /^const\s+(context_\d+)\s*=/.exec(statement);
+    if (!match) continue;
+    const start = statement.indexOf("const h=Math.floor(coordinate/");
+    const end = statement.indexOf("const value=f16Bits(acc);", start);
+    if (start < 0 || end < 0) throw new Error(`${match[1]}: corpo da atenção não reconhecido`);
+    bodies.set(match[1]!, statement.slice(start, end));
+  }
+  return (attentionId, dimension) => {
+    const body = bodies.get(`context_${attentionId}`);
+    if (!body) throw new Error(`context_${attentionId}: corpo ausente`);
+    return `(()=>{const p=t,coordinate=${dimension};${body}return f16Bits(acc);})()`;
+  };
+}
+
+/** Embed the ordered Q·K reduction and score scaling into the attention expression. */
+export function fixedF16ScoreReplacer(program: FixedF16CachedScalarSource):
+  (attentionId: string, unused: string) => string {
+  const bodies = new Map<string, string>();
+  for (const statement of splitFixedF16Declarations(program.declarations)) {
+    const match = /^const\s+(score_\d+)\s*=/.exec(statement);
+    if (!match) continue;
+    const start = statement.indexOf("let total=Math.fround(0);");
+    const end = statement.indexOf("const value=mul16(", start);
+    const tail = statement.indexOf(";", end);
+    if (start < 0 || end < 0 || tail < 0) throw new Error(`${match[1]}: redução QK não reconhecida`);
+    const expression = statement.slice(end + "const value=".length, tail);
+    bodies.set(match[1]!, `(()=>{${statement.slice(start, end)}return ${expression};})()`);
+  }
+  return (attentionId) => {
+    const body = bodies.get(`score_${attentionId}`);
+    if (!body) throw new Error(`score_${attentionId}: corpo ausente`);
+    return body;
+  };
+}
+
+/** Substitute RoPE coordinate arithmetic while retaining its exact F16 operations. */
+export function fixedF16RotatedReplacer(program: FixedF16CachedScalarSource):
+  (kind: string, attentionId: string, position: string, head: string) => string {
+  const bodies = new Map<string, string>();
+  for (const statement of splitFixedF16Declarations(program.declarations)) {
+    const match = /^const\s+((?:qRot|kRot)_\d+)\s*=/.exec(statement);
+    if (!match) continue;
+    const start = statement.indexOf("const partner=");
+    const end = statement.lastIndexOf("};");
+    if (start < 0 || end < start) throw new Error(`${match[1]}: RoPE não reconhecido`);
+    bodies.set(match[1]!, statement.slice(start, end));
+  }
+  return (kind, attentionId, position, head) => {
+    const body = bodies.get(`${kind}_${attentionId}`);
+    if (!body) throw new Error(`${kind}_${attentionId}: corpo ausente`);
+    return `((p,h,d)=>{${body}})(${position},${head},d)`;
+  };
+}
+
+/** Inline a learned projection selector; all case leaves contain literal weights. */
+export function fixedF16ProjectionPrefixReplacer(program: FixedF16CachedScalarSource):
+  (kind: string, attentionId: string) => string {
+  const cases = new Map<string, string[]>();
+  for (const statement of splitFixedF16Declarations(program.declarations)) {
+    const match = /^const\s+((?:q|k|v)_\d+)\s*=/.exec(statement);
+    if (match) cases.set(match[1]!, fixedF16ScalarCases(statement));
+  }
+  return (kind, attentionId) => {
+    const selected = cases.get(`${kind}_${attentionId}`);
+    if (!selected) throw new Error(`${kind}_${attentionId}: projeção ausente`);
+    return `((p,d)=>{const t=p;switch(d){${selected.map((formula, dimension) =>
+      `case ${dimension}:return ${formula};`).join("")}default:throw new RangeError("Dimensão inválida");}})(`;
+  };
 }
 
 /** Materialize the requested output expression without holding its expansion in a JS string. */
@@ -34,9 +141,62 @@ export async function rewriteFixedF16HiddenFile(inputPath: string, outputPath: s
   return rewriteFixedF16HiddenChunks(input, outputPath);
 }
 
-async function rewriteFixedF16HiddenChunks(chunks: AsyncIterable<string>, path: string): Promise<{
+/** Fuse gate/up literal projections while replacing hidden calls in a large file. */
+export async function rewriteFixedF16MlpFile(
+  inputPath: string, outputPath: string, program: FixedF16CachedScalarSource, chunkSize = 64 * 1024,
+): Promise<{ replacements: number; bytes: number }> {
+  if (inputPath === outputPath) throw new Error("Input and output paths must differ");
+  const input = createReadStream(inputPath, { encoding: "utf8", highWaterMark: chunkSize });
+  return rewriteFixedF16Chunks(input, outputPath, hiddenCall, fixedF16MlpHiddenReplacer(program));
+}
+
+export async function rewriteFixedF16ContextFile(
+  inputPath: string, outputPath: string, program: FixedF16CachedScalarSource, chunkSize = 64 * 1024,
+): Promise<{ replacements: number; bytes: number }> {
+  if (inputPath === outputPath) throw new Error("Input and output paths must differ");
+  const input = createReadStream(inputPath, { encoding: "utf8", highWaterMark: chunkSize });
+  return rewriteFixedF16Chunks(input, outputPath, contextCall, fixedF16ContextReplacer(program));
+}
+
+export async function rewriteFixedF16ScoreFile(
+  inputPath: string, outputPath: string, program: FixedF16CachedScalarSource, chunkSize = 64 * 1024,
+): Promise<{ replacements: number; bytes: number }> {
+  if (inputPath === outputPath) throw new Error("Input and output paths must differ");
+  const input = createReadStream(inputPath, { encoding: "utf8", highWaterMark: chunkSize });
+  return rewriteFixedF16Chunks(input, outputPath, scoreCall, fixedF16ScoreReplacer(program));
+}
+
+export async function rewriteFixedF16RotatedFile(
+  inputPath: string, outputPath: string, program: FixedF16CachedScalarSource, chunkSize = 64 * 1024,
+): Promise<{ replacements: number; bytes: number }> {
+  if (inputPath === outputPath) throw new Error("Input and output paths must differ");
+  const input = createReadStream(inputPath, { encoding: "utf8", highWaterMark: chunkSize });
+  const replace = fixedF16RotatedReplacer(program);
+  return rewriteFixedF16Chunks(input, outputPath, rotatedCall, (kind, id, position, head) =>
+    replace(kind, id, position, head));
+}
+
+export async function rewriteFixedF16ProjectionFile(
+  inputPath: string, outputPath: string, program: FixedF16CachedScalarSource, chunkSize = 64 * 1024,
+): Promise<{ replacements: number; bytes: number }> {
+  if (inputPath === outputPath) throw new Error("Input and output paths must differ");
+  const input = createReadStream(inputPath, { encoding: "utf8", highWaterMark: chunkSize });
+  return rewriteFixedF16Chunks(input, outputPath, projectionPrefix, fixedF16ProjectionPrefixReplacer(program));
+}
+
+async function rewriteFixedF16HiddenChunks(
+  chunks: AsyncIterable<string>, path: string,
+  replacement: (layerId: string, dimension: string) => string = inlineFixedF16HiddenCall,
+): Promise<{
   replacements: number; bytes: number;
 }> {
+  return rewriteFixedF16Chunks(chunks, path, hiddenCall, replacement);
+}
+
+async function rewriteFixedF16Chunks(
+  chunks: AsyncIterable<string>, path: string, call: RegExp,
+  replacement: (...captures: string[]) => string,
+): Promise<{ replacements: number; bytes: number }> {
   const output = createWriteStream(path, { encoding: "utf8" });
   const write = async (chunk: string): Promise<void> => {
     if (!output.write(chunk)) await once(output, "drain");
@@ -45,18 +205,18 @@ async function rewriteFixedF16HiddenChunks(chunks: AsyncIterable<string>, path: 
   const emit = async (source: string, final: boolean): Promise<void> => {
     const safeEnd = final ? source.length : Math.max(0, source.length - carryLength);
     let cursor = 0, writableEnd = safeEnd;
-    hiddenCall.lastIndex = 0;
-    for (const match of source.matchAll(hiddenCall)) {
+    call.lastIndex = 0;
+    for (const match of source.matchAll(call)) {
       if (match.index >= safeEnd) break;
       if (!final && match.index + match[0].length > safeEnd) {
         writableEnd = match.index;
         break;
       }
       const prefix = source.slice(cursor, match.index);
-      const replacement = inlineFixedF16HiddenCall(match[1]!, match[2]!);
+      const expanded = replacement(...match.slice(1).map((capture) => capture ?? ""));
       await write(prefix);
-      await write(replacement);
-      bytes += Buffer.byteLength(prefix) + Buffer.byteLength(replacement);
+      await write(expanded);
+      bytes += Buffer.byteLength(prefix) + Buffer.byteLength(expanded);
       replacements++;
       cursor = match.index + match[0].length;
     }
