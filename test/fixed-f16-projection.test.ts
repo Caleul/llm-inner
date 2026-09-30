@@ -149,7 +149,7 @@ test("compila uma linha final literal antes de substituir o forward", async (con
     assert.deepEqual(evaluateFixedF16CachedScalarSource({ ...source, formulas: [fullContext] },
       sample.layers["0"]!.layer_input[0]!), sample.logits[0]!.map((row) => [row[17]!]), `attention-expanded n=${n}`);
   }
-  const foldedConstants = fullContext.replace(/\b(f16Bits|Math\.fround)\((-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\)/g,
+  const foldedConstants = fullContext.replace(/\b(f16Bits|f16|neg16|Math\.fround)\((-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\)/g,
     (_call, kind: string, value: string) => foldFixedF16ConstantCall(kind, value));
   for (const n of [1, 2, 4, 8]) {
     const sample = fixture.cases[String(n)]!;

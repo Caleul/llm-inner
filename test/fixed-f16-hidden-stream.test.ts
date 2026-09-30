@@ -65,11 +65,11 @@ test("streaming folds literal F32/F16 boundaries and keeps signed zero behavior"
   const dir = await mkdtemp(join(tmpdir(), "f16-constants-"));
   try {
     const input = join(dir, "input"), output = join(dir, "output");
-    await writeFile(input, "Math.fround(-0)+f16Bits(0.5)+Math.fround(1e-10)+f16Bits(x)");
+    await writeFile(input, "Math.fround(-0)+f16Bits(0.5)+Math.fround(1e-10)+f16(15360)+neg16(0)+f16Bits(x)");
     const result = await rewriteFixedF16NumericConstantsFile(input, output, 2);
-    assert.equal(result.replacements, 3);
+    assert.equal(result.replacements, 5);
     assert.equal(await readFile(output, "utf8"),
-      `-0+${foldFixedF16ConstantCall("f16Bits", "0.5")}+${Math.fround(1e-10)}+f16Bits(x)`);
+      `-0+${foldFixedF16ConstantCall("f16Bits", "0.5")}+${Math.fround(1e-10)}+1+32768+f16Bits(x)`);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

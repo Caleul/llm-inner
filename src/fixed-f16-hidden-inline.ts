@@ -5,7 +5,7 @@ import { compileF16SiluBranches } from "./fixed-f16-conditional-linear.js";
 import { fixedF16ScalarCases } from "./fixed-f16-cache-inline.js";
 import { splitFixedF16Declarations } from "./fixed-f16-source-prune.js";
 import type { FixedF16CachedScalarSource } from "./fixed-f16-parametric-formulas.js";
-import { f32BitsToDyadic, roundDyadicToF16IfElse } from "./fixed-f16-projection.js";
+import { f16BitsToDyadic, f32BitsToDyadic, roundDyadicToF16IfElse } from "./fixed-f16-projection.js";
 import { compileF16BitDecodeBranches } from "./fixed-f16-bit-decode-branches.js";
 import { compileFixedF16RopeBranches } from "./fixed-f16-rope-branches.js";
 
@@ -14,7 +14,7 @@ const contextCall = /\bcontext_(\d+)\(t,(\d+)\)/g;
 const scoreCall = /\bscore_(\d+)\(p,j,h\)/g;
 const rotatedCall = /\b(qRot|kRot)_(\d+)\((p|j),(h|Math\.floor\(h\/\d+\)),d\)/g;
 const projectionPrefix = /\b(q|k|v)_(\d+)\(/g;
-const constantNumericCall = /\b(f16Bits|Math\.fround)\((-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\)/g;
+const constantNumericCall = /\b(f16Bits|f16|neg16|Math\.fround)\((-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\)/g;
 const f16Prefix = /\bf16\(/g;
 const bitArithmeticPrefix = /\b(add16|mul16|neg16)\(/g;
 const ropeCall = /\bropeBits\((p|j),d,(\d+),(\d+(?:\.\d+)?),([01])\)/g;
@@ -144,6 +144,15 @@ export function foldFixedF16ConstantCall(kind: string, rawValue: string): string
     const buffer = new DataView(new ArrayBuffer(4));
     buffer.setFloat32(0, value, true);
     return String(roundDyadicToF16IfElse(f32BitsToDyadic(buffer.getUint32(0, true))));
+  }
+  if (kind === "f16" || kind === "neg16") {
+    if (!Number.isInteger(value) || value < 0 || value > 65535) {
+      throw new Error(`Bits F16 inválidos: ${rawValue}`);
+    }
+    if (kind === "neg16") return String(value ^ 0x8000);
+    const dyadic = f16BitsToDyadic(value);
+    const decoded = Number(dyadic.coefficient) * 2 ** dyadic.exponent;
+    return Object.is(decoded, -0) ? "-0" : String(decoded);
   }
   throw new Error(`Operação constante não suportada: ${kind}`);
 }
