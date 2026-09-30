@@ -3,7 +3,9 @@ import { mkdtemp, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { compileFixedF16ScalarDimensionFromDirectory } from "./fixed-f16-ir-scalar-compiler.js";
 import { rewriteFixedF16ContextFile, rewriteFixedF16MlpFile, rewriteFixedF16ProjectionFile,
-  rewriteFixedF16RotatedFile, rewriteFixedF16ScoreFile } from "./fixed-f16-hidden-inline.js";
+  rewriteFixedF16RotatedFile, rewriteFixedF16ScoreFile,
+  rewriteFixedF16NumericConstantsFile, rewriteFixedF16DecodeFile,
+  rewriteFixedF16BitArithmeticFile, rewriteFixedF16RopeFile } from "./fixed-f16-hidden-inline.js";
 
 export interface FixedF16StreamDiagnostic {
   outputDimension: number;
@@ -37,6 +39,7 @@ export async function auditFixedF16StreamFile(path: string): Promise<Record<stri
 /** Emit the backward-expanded dimension without materializing the growing formula in V8. */
 export async function writeFixedF16StreamDiagnostic(
   checkpointDirectory: string, outputDimension: number, outputPath: string,
+  options: { decodeF16?: boolean; lowerRope?: boolean } = {},
 ): Promise<FixedF16StreamDiagnostic> {
   const source = await compileFixedF16ScalarDimensionFromDirectory(checkpointDirectory, outputDimension);
   if (source.formulas.length !== 1 || source.maxSequenceLength === undefined) {
@@ -59,6 +62,30 @@ export async function writeFixedF16StreamDiagnostic(
       stages.push({ name, ...result });
       await rm(input);
       input = next;
+    }
+    const numeric = join(temporary, "numeric-constants");
+    const folded = await rewriteFixedF16NumericConstantsFile(input, numeric);
+    stages.push({ name: "numeric-constants", ...folded });
+    await rm(input);
+    input = numeric;
+    if (options.lowerRope) {
+      const rope = join(temporary, "rope-coefficients");
+      const lowered = await rewriteFixedF16RopeFile(input, rope, source.maxSequenceLength);
+      stages.push({ name: "rope-coefficients", ...lowered });
+      await rm(input);
+      input = rope;
+    }
+    const arithmetic = join(temporary, "bit-arithmetic");
+    const embedded = await rewriteFixedF16BitArithmeticFile(input, arithmetic);
+    stages.push({ name: "bit-arithmetic", ...embedded });
+    await rm(input);
+    input = arithmetic;
+    if (options.decodeF16) {
+      const decoded = join(temporary, "decode-f16");
+      const lowered = await rewriteFixedF16DecodeFile(input, decoded);
+      stages.push({ name: "decode-f16", ...lowered });
+      await rm(input);
+      input = decoded;
     }
     const remainingCalls = await auditFixedF16StreamFile(input);
     await rename(input, outputPath);

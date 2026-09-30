@@ -5,12 +5,19 @@ import { compileF16SiluBranches } from "./fixed-f16-conditional-linear.js";
 import { fixedF16ScalarCases } from "./fixed-f16-cache-inline.js";
 import { splitFixedF16Declarations } from "./fixed-f16-source-prune.js";
 import type { FixedF16CachedScalarSource } from "./fixed-f16-parametric-formulas.js";
+import { f32BitsToDyadic, roundDyadicToF16IfElse } from "./fixed-f16-projection.js";
+import { compileF16BitDecodeBranches } from "./fixed-f16-bit-decode-branches.js";
+import { compileFixedF16RopeBranches } from "./fixed-f16-rope-branches.js";
 
 const hiddenCall = /\bhidden_(\d+)\(t,(\d+)\)/g;
 const contextCall = /\bcontext_(\d+)\(t,(\d+)\)/g;
 const scoreCall = /\bscore_(\d+)\(p,j,h\)/g;
 const rotatedCall = /\b(qRot|kRot)_(\d+)\((p|j),(h|Math\.floor\(h\/\d+\)),d\)/g;
 const projectionPrefix = /\b(q|k|v)_(\d+)\(/g;
+const constantNumericCall = /\b(f16Bits|Math\.fround)\((-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\)/g;
+const f16Prefix = /\bf16\(/g;
+const bitArithmeticPrefix = /\b(add16|mul16|neg16)\(/g;
+const ropeCall = /\bropeBits\((p|j),d,(\d+),(\d+(?:\.\d+)?),([01])\)/g;
 const carryLength = 256;
 let cachedSiluBody: string | undefined;
 
@@ -125,6 +132,22 @@ export function fixedF16ProjectionPrefixReplacer(program: FixedF16CachedScalarSo
   };
 }
 
+/** Fold numeric literals without moving any input-dependent rounding boundary. */
+export function foldFixedF16ConstantCall(kind: string, rawValue: string): string {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) throw new Error(`Constante numérica inválida: ${rawValue}`);
+  if (kind === "Math.fround") {
+    const result = Math.fround(value);
+    return Object.is(result, -0) ? "-0" : String(result);
+  }
+  if (kind === "f16Bits") {
+    const buffer = new DataView(new ArrayBuffer(4));
+    buffer.setFloat32(0, value, true);
+    return String(roundDyadicToF16IfElse(f32BitsToDyadic(buffer.getUint32(0, true))));
+  }
+  throw new Error(`Operação constante não suportada: ${kind}`);
+}
+
 /** Materialize the requested output expression without holding its expansion in a JS string. */
 export async function writeFixedF16HiddenExpandedFormula(formula: string, path: string): Promise<{
   replacements: number; bytes: number;
@@ -184,6 +207,63 @@ export async function rewriteFixedF16ProjectionFile(
   return rewriteFixedF16Chunks(input, outputPath, projectionPrefix, fixedF16ProjectionPrefixReplacer(program));
 }
 
+export async function rewriteFixedF16NumericConstantsFile(
+  inputPath: string, outputPath: string, chunkSize = 64 * 1024,
+): Promise<{ replacements: number; bytes: number }> {
+  if (inputPath === outputPath) throw new Error("Input and output paths must differ");
+  const input = createReadStream(inputPath, { encoding: "utf8", highWaterMark: chunkSize });
+  return rewriteFixedF16Chunks(input, outputPath, constantNumericCall, foldFixedF16ConstantCall);
+}
+
+/** Replace each finite F16 decode by an in-place conditional affine expression. */
+export async function rewriteFixedF16DecodeFile(
+  inputPath: string, outputPath: string, chunkSize = 64 * 1024,
+): Promise<{ replacements: number; bytes: number }> {
+  if (inputPath === outputPath) throw new Error("Input and output paths must differ");
+  const input = createReadStream(inputPath, { encoding: "utf8", highWaterMark: chunkSize });
+  const prefix = `((bits)=>{${compileF16BitDecodeBranches()}})(`;
+  return rewriteFixedF16Chunks(input, outputPath, f16Prefix, () => prefix);
+}
+
+/** Embed F16 arithmetic bodies before lowering their decode and rounding sites. */
+export function fixedF16BitArithmeticPrefix(kind: string): string {
+  if (kind === "add16") return "((left,right)=>f16Bits(f16(left)+f16(right)))(";
+  if (kind === "mul16") return "((left,right)=>f16Bits(f16(left)*f16(right)))(";
+  if (kind === "neg16") return "((bits)=>bits<32768?bits+32768:bits-32768)(";
+  throw new Error(`Aritmética F16 desconhecida: ${kind}`);
+}
+
+export async function rewriteFixedF16BitArithmeticFile(
+  inputPath: string, outputPath: string, chunkSize = 64 * 1024,
+): Promise<{ replacements: number; bytes: number }> {
+  if (inputPath === outputPath) throw new Error("Input and output paths must differ");
+  const input = createReadStream(inputPath, { encoding: "utf8", highWaterMark: chunkSize });
+  return rewriteFixedF16Chunks(input, outputPath, bitArithmeticPrefix, fixedF16BitArithmeticPrefix);
+}
+
+/** Replace RoPE coefficient calls by position/dimension branches in the compiled context. */
+export function fixedF16RopeReplacer(maxSequenceLength: number):
+  (position: string, headDim: string, theta: string, sine: string) => string {
+  const bodies = new Map<string, string>();
+  return (position, headDim, theta, sine) => {
+    const key = `${headDim}/${theta}/${sine}`;
+    let body = bodies.get(key);
+    if (!body) {
+      body = compileFixedF16RopeBranches(maxSequenceLength, Number(headDim), Number(theta), Number(sine));
+      bodies.set(key, body);
+    }
+    return `((pos,dim)=>{${body}})(${position},d)`;
+  };
+}
+
+export async function rewriteFixedF16RopeFile(
+  inputPath: string, outputPath: string, maxSequenceLength: number, chunkSize = 64 * 1024,
+): Promise<{ replacements: number; bytes: number }> {
+  if (inputPath === outputPath) throw new Error("Input and output paths must differ");
+  const input = createReadStream(inputPath, { encoding: "utf8", highWaterMark: chunkSize });
+  return rewriteFixedF16Chunks(input, outputPath, ropeCall, fixedF16RopeReplacer(maxSequenceLength));
+}
+
 async function rewriteFixedF16HiddenChunks(
   chunks: AsyncIterable<string>, path: string,
   replacement: (layerId: string, dimension: string) => string = inlineFixedF16HiddenCall,
@@ -198,8 +278,11 @@ async function rewriteFixedF16Chunks(
   replacement: (...captures: string[]) => string,
 ): Promise<{ replacements: number; bytes: number }> {
   const output = createWriteStream(path, { encoding: "utf8" });
+  let buffer = "";
   const write = async (chunk: string): Promise<void> => {
-    if (!output.write(chunk)) await once(output, "drain");
+    if (buffer.length + chunk.length < 1_000_000) { buffer += chunk; return; }
+    if (!output.write(buffer + chunk)) await once(output, "drain");
+    buffer = "";
   };
   let pending = "", replacements = 0, bytes = 0;
   const emit = async (source: string, final: boolean): Promise<void> => {
@@ -230,6 +313,7 @@ async function rewriteFixedF16Chunks(
       await emit(pending + chunk, false);
     }
     await emit(pending, true);
+    if (buffer && !output.write(buffer)) await once(output, "drain");
     output.end();
     await finished(output);
     return { replacements, bytes };

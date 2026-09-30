@@ -60,6 +60,10 @@ import { compileFixedF16ScalarDimensionFromDirectory, compileFixedF16ScalarModel
 import { inlineFixedF16HiddenCall, fixedF16MlpHiddenReplacer, fixedF16ContextReplacer,
   fixedF16ScoreReplacer, fixedF16RotatedReplacer } from "../src/fixed-f16-hidden-inline.js";
 import { fixedF16ProjectionPrefixReplacer } from "../src/fixed-f16-hidden-inline.js";
+import { foldFixedF16ConstantCall } from "../src/fixed-f16-hidden-inline.js";
+import { compileF16BitDecodeBranches } from "../src/fixed-f16-bit-decode-branches.js";
+import { fixedF16BitArithmeticPrefix } from "../src/fixed-f16-hidden-inline.js";
+import { fixedF16RopeReplacer } from "../src/fixed-f16-hidden-inline.js";
 
 test("compila uma linha final literal antes de substituir o forward", async (context) => {
   const directory = resolve("artifacts/tiny-random-llama");
@@ -144,6 +148,39 @@ test("compila uma linha final literal antes de substituir o forward", async (con
     const sample = fixture.cases[String(n)]!;
     assert.deepEqual(evaluateFixedF16CachedScalarSource({ ...source, formulas: [fullContext] },
       sample.layers["0"]!.layer_input[0]!), sample.logits[0]!.map((row) => [row[17]!]), `attention-expanded n=${n}`);
+  }
+  const foldedConstants = fullContext.replace(/\b(f16Bits|Math\.fround)\((-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\)/g,
+    (_call, kind: string, value: string) => foldFixedF16ConstantCall(kind, value));
+  for (const n of [1, 2, 4, 8]) {
+    const sample = fixture.cases[String(n)]!;
+    assert.deepEqual(evaluateFixedF16CachedScalarSource({ ...source, formulas: [foldedConstants] },
+      sample.layers["0"]!.layer_input[0]!), sample.logits[0]!.map((row) => [row[17]!]), `constant-folded n=${n}`);
+  }
+  const decodePrefix = `((bits)=>{${compileF16BitDecodeBranches()}})(`;
+  const decodedOne = foldedConstants.replace(/\bf16\(/, decodePrefix);
+  assert.notEqual(decodedOne, foldedConstants);
+  for (const n of [1, 2, 4, 8]) {
+    const sample = fixture.cases[String(n)]!;
+    assert.deepEqual(evaluateFixedF16CachedScalarSource({ ...source, formulas: [decodedOne] },
+      sample.layers["0"]!.layer_input[0]!), sample.logits[0]!.map((row) => [row[17]!]), `decoded-one n=${n}`);
+  }
+  const arithmeticOne = foldedConstants.replace(/\b(add16|mul16|neg16)\(/,
+    (_call, kind: string) => fixedF16BitArithmeticPrefix(kind));
+  assert.notEqual(arithmeticOne, foldedConstants);
+  for (const n of [1, 2, 4, 8]) {
+    const sample = fixture.cases[String(n)]!;
+    assert.deepEqual(evaluateFixedF16CachedScalarSource({ ...source, formulas: [arithmeticOne] },
+      sample.layers["0"]!.layer_input[0]!), sample.logits[0]!.map((row) => [row[17]!]), `arithmetic-one n=${n}`);
+  }
+  const inlineRope = fixedF16RopeReplacer(source.maxSequenceLength!);
+  const literalRope = fullContext.replace(/\bropeBits\((p|j),d,(\d+),(\d+(?:\.\d+)?),([01])\)/,
+    (_call, position: string, headDim: string, theta: string, sine: string) =>
+      inlineRope(position, headDim, theta, sine));
+  assert.notEqual(literalRope, fullContext);
+  for (const n of [1, 2, 4, 8]) {
+    const sample = fixture.cases[String(n)]!;
+    assert.deepEqual(evaluateFixedF16CachedScalarSource({ ...source, formulas: [literalRope] },
+      sample.layers["0"]!.layer_input[0]!), sample.logits[0]!.map((row) => [row[17]!]), `rope-literal n=${n}`);
   }
 });
 

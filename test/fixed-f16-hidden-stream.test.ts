@@ -5,6 +5,10 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { inlineFixedF16HiddenCall, rewriteFixedF16HiddenFile, rewriteFixedF16ContextFile,
   rewriteFixedF16ScoreFile, fixedF16ContextReplacer, fixedF16ScoreReplacer } from "../src/fixed-f16-hidden-inline.js";
+import { foldFixedF16ConstantCall, rewriteFixedF16NumericConstantsFile } from "../src/fixed-f16-hidden-inline.js";
+import { rewriteFixedF16DecodeFile } from "../src/fixed-f16-hidden-inline.js";
+import { fixedF16BitArithmeticPrefix, rewriteFixedF16BitArithmeticFile } from "../src/fixed-f16-hidden-inline.js";
+import { rewriteFixedF16RopeFile } from "../src/fixed-f16-hidden-inline.js";
 import type { FixedF16CachedScalarSource } from "../src/fixed-f16-parametric-formulas.js";
 import { auditFixedF16StreamFile } from "../src/fixed-f16-stream-diagnostic.js";
 
@@ -52,6 +56,69 @@ test("streaming audit counts unresolved numeric calls across chunks", async () =
     await writeFile(path, `${"x".repeat(65530)} Math.exp(0)+f16Bits(1)+Math.exp(2)+q_0(t,0)`);
     assert.deepEqual(await auditFixedF16StreamFile(path),
       { "Math.exp": 2, f16Bits: 1, "q_*": 1 });
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("streaming folds literal F32/F16 boundaries and keeps signed zero behavior", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "f16-constants-"));
+  try {
+    const input = join(dir, "input"), output = join(dir, "output");
+    await writeFile(input, "Math.fround(-0)+f16Bits(0.5)+Math.fround(1e-10)+f16Bits(x)");
+    const result = await rewriteFixedF16NumericConstantsFile(input, output, 2);
+    assert.equal(result.replacements, 3);
+    assert.equal(await readFile(output, "utf8"),
+      `-0+${foldFixedF16ConstantCall("f16Bits", "0.5")}+${Math.fround(1e-10)}+f16Bits(x)`);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("streaming replaces generic F16 decoding with affine guards", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "f16-decode-"));
+  try {
+    const input = join(dir, "input"), output = join(dir, "output");
+    await writeFile(input, "f16(0)+f16(32768)+f16Bits(0)");
+    const result = await rewriteFixedF16DecodeFile(input, output, 2);
+    const expanded = await readFile(output, "utf8");
+    assert.equal(result.replacements, 2);
+    assert.doesNotMatch(expanded, /\bf16\(/);
+    assert.equal(new Function("f16Bits", `return ${expanded}`)((value: number) => value), 0 + 0 + 0);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("streaming embeds F16 add, multiply and sign branches", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "f16-arithmetic-"));
+  try {
+    const input = join(dir, "input"), output = join(dir, "output");
+    await writeFile(input, "add16(1,2)+mul16(3,4)+neg16(5)");
+    const result = await rewriteFixedF16BitArithmeticFile(input, output, 2);
+    assert.equal(result.replacements, 3);
+    assert.equal(await readFile(output, "utf8"),
+      `${fixedF16BitArithmeticPrefix("add16")}1,2)+` +
+      `${fixedF16BitArithmeticPrefix("mul16")}3,4)+` +
+      `${fixedF16BitArithmeticPrefix("neg16")}5)`);
+    const negate = new Function("bits", `return ${fixedF16BitArithmeticPrefix("neg16")}bits)`) as
+      (bits: number) => number;
+    for (let bits = 0; bits <= 0xffff; bits++) assert.equal(negate(bits), bits ^ 0x8000);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("streaming lowers RoPE calls for the configured context", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "f16-rope-stream-"));
+  try {
+    const input = join(dir, "input"), output = join(dir, "output");
+    await writeFile(input, "ropeBits(p,d,4,10000,0)+ropeBits(j,d,4,10000,1)");
+    const result = await rewriteFixedF16RopeFile(input, output, 8, 3);
+    const expanded = await readFile(output, "utf8");
+    assert.equal(result.replacements, 2);
+    assert.doesNotMatch(expanded, /\bropeBits\(/);
+    assert.match(expanded, /pos>=8/);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
