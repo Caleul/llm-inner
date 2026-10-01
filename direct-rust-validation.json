@@ -188,6 +188,7 @@
     "rootChordPolicy": {
       "normalizedF32Values": 16777217,
       "randomPositiveF32Values": 1048576,
+      "normalizedAffineCells": 2048,
       "reference": "torch.sqrt CPU 2.12.1",
       "exactBits": true,
       "completeModelParity": false
@@ -272,7 +273,9 @@
         "streaming canonical arithmetic fingerprints propagate inherited comparisons after zero substitution; original guards retained",
         "finite IEEE preimages for literal-first addition and multiplication",
         "lower bounds of nonnegative sums propagated using opposite-operand maximum",
-        "signed variable-product endpoint comparisons propagated into discrete input domain"
+        "signed variable-product endpoint comparisons propagated into discrete input domain",
+        "root affine-cell widths reduced using certified curvature bounds: 2048 cells per normalized binade",
+        "canonical fingerprints replace singleton nonzero input intervals by their literal values"
       ],
       "runtimeAdmission": "complete emitted expression required; drafts are not compiled",
       "fullChosenLogitEmitted": false,
@@ -280,9 +283,9 @@
       "exactFinalParity": false,
       "fullModelRustCompilationAttempts": 0,
       "generation": {
-        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v21.rs --validate",
+        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v22.rs --validate",
         "status": "running",
-        "progress": "/private/tmp/llm-inner-flat-embeddings-v21.rs.progress.json"
+        "progress": "/private/tmp/llm-inner-flat-embeddings-v22.rs.progress.json"
       },
       "ruleTests": {
         "passed": 38,

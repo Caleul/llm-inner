@@ -565,24 +565,26 @@ export class DirectFlatSubstitution {
       if(input.minimum===input.maximum){
         await this.literal(path,foldCertifiedF32Sqrt(input.minimum),(p,v)=>consume(p,{...v,precision:"f32"}));return;
       }
-      // Normalize x=4^e*m, 1<=m<4. On cells of width h=2^-12,
-      // a chord through rounded F32 endpoints differs from sqrt(m) by
-      // at most 2^-24+h^2/32 < one F32 ulp (2^-23).
-      // The slope has <=11 significant bits: slope*m+offset is exact F64
+      // Normalize x=4^e*m, 1<=m<4. Use cell widths
+      // h=2^-10 on [1,2], h=2^-9 on [2,4]. Rounded-endpoint
+      // error is <=2^-24; interpolation error <=h^2/(32*m^1.5).
+      // Their sum is strictly less than one F32 ulp (2^-23).
+      // The slope has <=13 significant bits: slope*m+offset is exact F64
       // for every F32 m. Rounding that chord gives a candidate at most one
       // F32 value away. Exact midpoint squares correct it. A positive F32
       // input cannot equal these odd 49/50-bit squared midpoints: no tie
       // parity branch is needed. All consumer paths stay flattened.
       for(let exponent=Math.floor(Math.log2(input.minimum)/2);exponent<=Math.floor(Math.log2(input.maximum)/2);exponent++){
         const scale=2**(2*exponent),rootScale=2**exponent,unit=2**(exponent-23);
-        const first=Math.max(0,Math.min(12287,Math.floor((Math.max(1,input.minimum/scale)-1)*4096)));
-        const last=Math.max(0,Math.min(12287,Math.floor((Math.min(4,input.maximum/scale)-1)*4096)));
+        const index=(m:number)=>Math.max(0,Math.min(2047,Math.floor(m<2?(m-1)*1024:1024+(m-2)*512)));
+        const first=index(Math.max(1,input.minimum/scale)),last=index(Math.min(4,input.maximum/scale));
         for(let cell=first;cell<=last;cell++){
-          const lo=1+cell/4096,hi=1+(cell+1)/4096;
+          const density=cell<1024?1024:512;
+          const lo=cell<1024?1+cell/1024:2+(cell-1024)/512,hi=lo+1/density;
           const narrowed=await this.refine(path,input,{lower:{value:exactNumberRational(lo*scale),inclusive:true},
             upper:{value:exactNumberRational(hi*scale),inclusive:false}});
           if(!narrowed){this.stream.eliminatedBranches++;continue;}
-          const y0=foldCertifiedF32Sqrt(lo),y1=foldCertifiedF32Sqrt(hi),slope=(y1-y0)*4096,offset=y0-slope*lo;
+          const y0=foldCertifiedF32Sqrt(lo),y1=foldCertifiedF32Sqrt(hi),slope=(y1-y0)*density,offset=y0-slope*lo;
           const candidate:FlatInput={precision:"f32",quantum:unit,minimum:y0*rootScale,maximum:y1*rootScale,emit:async()=>{
             await this.stream.write(`((((${rustF64(slope)}*(`);await input.emit();
             await this.stream.write(`/${rustF64(scale)})+${rustF64(offset)})/${rustF64(2**-23)}+4503599627370496.0)-4503599627370496.0)*${rustF64(unit)})`);

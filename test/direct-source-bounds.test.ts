@@ -36,5 +36,6 @@ test("inherited square sums acquire the same fingerprint after zero substitution
   assert.equal(parse("x*x+y*y").key,parse("y*y").key);
   assert.notEqual(parse("0.0+y").key,parse("y").key);
   assert.notEqual(fold("-0.0").key,fold("0.0").key);
+  assert.equal(fold("input_tokens[0][1]",{"input_tokens[0][1]":2}).key,fold("2.0").key);
   assert.equal(fold("(4503599627370496.0+1.5)-4503599627370496.0").minimum,2);
 });

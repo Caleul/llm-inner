@@ -16,12 +16,12 @@ def check(bits):
     e = (exponent - 1) // 2
     scale = np.ldexp(np.ones(len(x)), 2 * e)
     m = x / scale
-    cell = np.minimum(((m - 1) * 4096).astype(np.int64), 12287)
-    lo = 1 + cell / 4096
-    hi = lo + 1 / 4096
+    density = np.where(m < 2, 1024, 512)
+    lo = np.floor(m * density) / density
+    hi = lo + 1 / density
     y0 = torch.sqrt(torch.from_numpy(lo.astype(np.float32))).numpy().astype(np.float64)
     y1 = torch.sqrt(torch.from_numpy(hi.astype(np.float32))).numpy().astype(np.float64)
-    slope = (y1 - y0) * 4096
+    slope = (y1 - y0) * density
     offset = y0 - slope * lo
     # These separate operations are also separate operations in the emitted
     # Rust. The affine interpolation is exact binary64 on this input domain.
@@ -48,6 +48,7 @@ random_count = 0
 for _ in range(16):
     random_count += check(generator.integers(1, 0x7f800000, 65536, dtype=np.uint32))
 report = {"normalizedF32Values": count, "randomPositiveF32Values": random_count,
+          "normalizedAffineCells": 2048,
           "reference": f"torch.sqrt CPU {torch.__version__}", "exactBits": True,
           "completeModelParity": False}
 Path(sys.argv[1]).write_text(json.dumps(report, indent=2) + "\n")

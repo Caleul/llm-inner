@@ -51,7 +51,10 @@ export class DirectSourceBounds {
     if(this.operands.length!==1)throw new Error("Incomplete scalar arithmetic");
     return this.operands[0]!;
   }
-  private push(value:SourceBounds):void{this.operands.push(value);this.expectOperand=false;}
+  private push(value:SourceBounds):void{
+    this.operands.push(!value.opaque&&Number.isFinite(value.minimum)&&Object.is(value.minimum,value.maximum)?
+      constant(value.minimum):value);this.expectOperand=false;
+  }
   private flushToken():void{
     if(!this.token)return;const token=this.token;this.token="";
     const number=Number(token.replace(/_f64$/, ""));
