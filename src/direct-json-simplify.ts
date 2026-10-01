@@ -1,0 +1,108 @@
+import {jsonConstant,jsonInteger,jsonOperation,jsonWidths,type JsonExpression} from './direct-json-expression.js';
+import {evaluateJsonExpression,jsonConstantValue} from './direct-json-evaluator.js';
+
+export interface JsonSimplificationStats { visited:number; folds:number; conditions:number; integerAlgebra:number }
+export const newJsonSimplificationStats=():JsonSimplificationStats=>({visited:0,folds:0,conditions:0,integerAlgebra:0});
+/** Structural equality only; no numerical equivalence inferred from rendered text. */
+export function sameJsonExpression(a:JsonExpression,b:JsonExpression):boolean {
+  if(a===b)return true;
+  if(a.length!==b.length||a[0]!==b[0]||a[1]!==b[1])return false;
+  if(a[0]==='input'||a[0]==='constant')return a[2]===b[2];
+  if(b[0]==='input'||b[0]==='constant')return false;
+  return (a.slice(2) as JsonExpression[]).every((x,i)=>sameJsonExpression(x,b[i+2] as JsonExpression));
+}
+function total(node:JsonExpression):boolean {
+  if(node[0]==='constant'||node[0]==='input')return true;
+  const args=node.slice(2) as JsonExpression[];
+  if(!args.every(total))return false;
+  if(jsonInteger(node[1])&&node[0]==='div')return args[1]![0]==='constant'&&jsonConstantValue(args[1]!)!==0n;
+  if(node[0]==='shl'||node[0]==='shr')return args[1]![0]==='constant'&&
+    (jsonConstantValue(args[1]!) as bigint)<BigInt(jsonWidths[node[1]]);
+  return true;
+}
+function proveIntegerComparison(node:JsonExpression,facts:readonly (readonly [JsonExpression,boolean])[]):boolean|undefined {
+  if(!['lt','le','eq'].includes(node[0]))return undefined;
+  const args=node.slice(2) as JsonExpression[],left=args[0]!,right=args[1]!;
+  if(!jsonInteger(left[1])||right[0]!=='constant'||!total(left))return undefined;
+  let lower=0n,upper=(1n<<BigInt(jsonWidths[left[1]]))-1n;
+  for(const [fact,truth] of facts){
+    if(!['lt','le','eq'].includes(fact[0]))continue;
+    const pair=fact.slice(2) as JsonExpression[];
+    if(!sameJsonExpression(left,pair[0]!)||pair[1]![0]!=='constant')continue;
+    const value=jsonConstantValue(pair[1]!) as bigint;
+    if(fact[0]==='lt'){if(truth)upper=upper<value-1n?upper:value-1n;else lower=lower>value?lower:value;}
+    else if(fact[0]==='le'){if(truth)upper=upper<value?upper:value;else lower=lower>value+1n?lower:value+1n;}
+    else if(truth){lower=lower>value?lower:value;upper=upper<value?upper:value;}
+  }
+  if(lower>upper)return undefined;
+  const value=jsonConstantValue(right) as bigint;
+  if(node[0]==='lt')return upper<value?true:lower>=value?false:undefined;
+  if(node[0]==='le')return upper<=value?true:lower>value?false:undefined;
+  return lower===upper&&lower===value?true:value<lower||value>upper?false:undefined;
+}
+export function simplifyJsonExpression(root:JsonExpression,stats=newJsonSimplificationStats()):JsonExpression {
+  const memo=new WeakMap<object,JsonExpression>();
+  function visit(node:JsonExpression,facts:readonly (readonly [JsonExpression,boolean])[]):JsonExpression {
+    stats.visited++;
+    if(node[0]==='constant'||node[0]==='input')return node;
+    const known=facts.find(([condition])=>sameJsonExpression(condition,node));
+    if(known){stats.conditions++;return jsonConstant('bool',known[1]);}
+    const implied=proveIntegerComparison(node,facts);
+    if(implied!==undefined){stats.conditions++;return jsonConstant('bool',implied);}
+    if(facts.length===0){const hit=memo.get(node);if(hit)return hit;}
+    const op=node[0],type=node[1],raw=node.slice(2) as JsonExpression[];
+    if(op==='if'){
+      const condition=visit(raw[0]!,facts);
+      if(condition[0]==='constant'){stats.conditions++;return visit(raw[jsonConstantValue(condition)?1:2]!,facts);}
+      const yes=visit(raw[1]!,[...facts,[condition,true]]),no=visit(raw[2]!,[...facts,[condition,false]]);
+      if(sameJsonExpression(yes,no)&&total(condition)){stats.conditions++;return yes;}
+      return jsonOperation('if',type,condition,yes,no);
+    }
+    const args=raw.map(x=>visit(x,facts));
+    let result=jsonOperation(op,type,...args);
+    if(args.every(x=>x[0]==='constant')){
+      // Preserve reinterpretation bit strings, including NaN payloads. Diagnostic
+      // floating execution cannot certify all payload-preserving rewrites.
+      if(op==='reinterpret'&&args[0]![0]==='constant'){
+        result=['constant',type,args[0]![2]];stats.folds++;
+      }else if(type!=='f16'){
+        try{const value=evaluateJsonExpression(result);
+          if(typeof value!=='number'||Number.isFinite(value)){result=jsonConstant(type,value);stats.folds++;}
+        }catch{
+          // Undefined integer operations remain visible and are never removed.
+        }
+      }
+    }else if(jsonInteger(type)){
+      const [a,b]=args;
+      const is=(x:JsonExpression|undefined,n:bigint)=>x?.[0]==='constant'&&jsonConstantValue(x)===n;
+      if((op==='add'||op==='or'||op==='xor')&&is(b,0n)||op==='mul'&&is(b,1n)||
+        (op==='shl'||op==='shr')&&is(b,0n)||op==='div'&&is(b,1n))result=a!;
+      else if((op==='add'||op==='or'||op==='xor')&&is(a,0n)||op==='mul'&&is(a,1n))result=b!;
+      else if((op==='mul'||op==='and')&&((is(a,0n)&&total(b!))||(is(b,0n)&&total(a!))))result=jsonConstant(type,0n);
+      else if((op==='sub'||op==='xor')&&sameJsonExpression(a!,b!)&&total(a!))result=jsonConstant(type,0n);
+      else if((op==='and'||op==='or')&&sameJsonExpression(a!,b!))result=a!;
+      else if(op==='add'&&a?.[0]==='mul'&&b?.[0]==='mul'&&sameJsonExpression(a[2]!,b[2]!)){
+        // Unsigned modular arithmetic permits factoring without float rounding.
+        result=jsonOperation('mul',type,a[2]!,visit(jsonOperation('add',type,a[3]!,b[3]!),facts));
+      }
+      if(result!==undefined&&!sameJsonExpression(result,jsonOperation(op,type,...args)))stats.integerAlgebra++;
+    }
+    if(facts.length===0)memo.set(node,result);
+    return result;
+  }
+  return visit(root,[]);
+}
+/** Reach a structural fixed point before any condition-product expansion. A
+ * rule set must terminate within the declared budget, not silently stop early. */
+export function simplifyJsonFixedPoint(root:JsonExpression,maxPasses=32):{
+  expression:JsonExpression;passes:number;stats:JsonSimplificationStats
+} {
+  if(!Number.isSafeInteger(maxPasses)||maxPasses<1)throw new RangeError('Invalid simplification pass budget');
+  const stats=newJsonSimplificationStats();let current=root;
+  for(let passes=1;passes<=maxPasses;passes++){
+    const next=simplifyJsonExpression(current,stats);
+    if(sameJsonExpression(current,next))return {expression:next,passes,stats};
+    current=next;
+  }
+  throw new Error('JSON simplification has not reached a fixed point');
+}
