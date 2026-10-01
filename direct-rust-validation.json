@@ -614,7 +614,8 @@
         "exact power-of-two scale propagation removes divisions and multiplications from rounding leaves; (x/unit + 2^52 - 2^52)*unit becomes (x + 2^52*unit) - 2^52*unit under proved exponent bounds",
         "small joint F16 domains prove comparisons by streamed literal substitution; impossible paths disappear and feasible input hulls propagate to a fixed point; both signs of zero are included and no output table is constructed",
         "joint finite-input comparison feasibility runs before the next consumer, not only at final leaves",
-        "root chord scales are incorporated into literal affine coefficients before its rounding offset"
+        "root chord scales are incorporated into literal affine coefficients before its rounding offset",
+        "inherited nonzero embedding magnitude and progressive correction bounds remove both residual dependencies when R16(R32(x+delta)) must retain x; strict midpoint margins include F32 error and zero signs remain explicit"
       ],
       "runtimeAdmission": "complete emitted expression required; drafts are not compiled",
       "fullChosenLogitEmitted": false,
@@ -641,10 +642,10 @@
         }
       },
       "ruleTests": {
-        "passed": 55,
+        "passed": 56,
         "command": "node --test dist/test/direct-source-bounds.test.js dist/test/direct-flat-substitution.test.js dist/test/direct-round-preimage.test.js dist/test/direct-rust-stream.test.js dist/test/direct-flat-zero-mlp.test.js dist/test/direct-finite-model-proof.test.js",
         "provesCompleteModel": false,
-        "lastRunSeconds": 57.76444625
+        "lastRunSeconds": 62.300719625
       },
       "finalValidationHarness": "helpers/validate_direct_flat_rust.py; compares final chosen logit bits for every position of varied embedding matrices and lengths; not yet executed",
       "remaining": "finish every surviving path of the first arbitrary dimension, compile the complete artifact and execute final-value PyTorch differential; correct the first numerical divergence before other dimensions",
@@ -798,6 +799,38 @@
           "finalParity": false,
           "rustCompilationAdmitted": false
         }
+      },
+      "residualAbsorption": {
+        "correction": "A proved correction magnitude strictly inside the F16 midpoint margin, including the ordered F32 addition error, removes the complete residual dependency for a nonzero embedding. Zero embeddings retain the stronger signed-zero/+0-dot proof.",
+        "endpointCommand": "/private/tmp/llm-inner-pytorch/bin/python helpers/validate_half_residual_absorption.py --report /private/tmp/llm-inner-half-residual-absorption.json",
+        "endpointReport": {
+          "rule": "R16(R32(x+delta)) == x inside a strict midpoint margin",
+          "torch": "2.12.1",
+          "backend": "cpu",
+          "dtype": "float16",
+          "comparisons": [
+            {
+              "sign": -1,
+              "scalars": 63486,
+              "nonzeroCorrectionScalars": 55296,
+              "bitDifferences": 0
+            },
+            {
+              "sign": 1,
+              "scalars": 63486,
+              "nonzeroCorrectionScalars": 55296,
+              "bitDifferences": 0
+            }
+          ],
+          "completeModelParity": false
+        },
+        "layerCommand": "/private/tmp/llm-inner-pytorch/bin/python helpers/validate_initial_hidden_identity.py --report /private/tmp/llm-inner-hidden-absorption.json",
+        "layerScalars": 2688,
+        "layerBitDifferences": 0,
+        "nonzeroAttentionScalars": 782,
+        "nonzeroMlpScalars": 288,
+        "completeModelParity": false,
+        "runningGenerationIncludesThisChange": false
       }
     }
   }

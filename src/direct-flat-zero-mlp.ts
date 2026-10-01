@@ -20,9 +20,9 @@ export async function proveInitialMlpProductZero(f:DirectFlatSubstitution,path:F
   return proveInitialZero(f,path,geometry,query,weight,{neuron});
 }
 
-/** If the attention correction rounds to signed zero and the complete down
- * projection is +0, both residual additions reduce to input + positive zero.
- * The final addition settles the sign even for a negative-zero embedding.
+/** Eliminate both corrections when their rounded additions provably retain
+ * a nonzero embedding. At zero, require the stronger signed-zero attention
+ * and +0 down-projection proof: that final addition settles a -0 embedding.
  */
 export async function proveInitialHiddenIdentity(f:DirectFlatSubstitution,path:FlatConditions,
   geometry:InitialMlpZeroGeometry&{down:Projection},query:number,coordinate:number,
@@ -98,12 +98,45 @@ async function proveInitialZero(f:DirectFlatSubstitution,path:FlatConditions,
   };
   if("neuron" in request)return productZero(request.neuron);
   if(request.coordinate<0||request.coordinate>=g.width||request.down.shape[1]!==g.gate.shape[0]||
-    g.gate.shape[0]>1000000||await dot(g.o,request.coordinate,context)!==0)return false;
+    g.gate.shape[0]>1000000)return false;
+  const attention=await dot(g.o,request.coordinate,context);
+  let margin=0;
+  await f.f16Input(path,()=>f.stream.write(`input_tokens[${query}][${request.coordinate}]`),async(_p,value)=>{
+    if(value.minimum>0||value.maximum<0)
+      margin=halfResidualMargin(Math.min(Math.abs(value.minimum),Math.abs(value.maximum)));
+  });
+  if(margin>0){
+    if(!(attention<margin))return false;
+    const down=await dot(request.down,request.coordinate,async neuron=>{
+      const gate=await dot(g.gate,neuron,post),up=await dot(g.up,neuron,post);
+      return upperHalf(gate*up);
+    });
+    return down<margin;
+  }
+  if(attention!==0)return false;
+  // A zero MAGNITUDE bound for down is insufficient at a -0 embedding:
+  // a nonzero negative dot could round to -0. Require zero input terms so
+  // its ordered +0 reduction seed proves the actual positive-zero result.
   for(let neuron=0;neuron<g.gate.shape[0];neuron++){
     if(!Number.isFinite(await weight(request.down.weight,request.coordinate*request.down.shape[1]+neuron))||
       !await productZero(neuron))return false;
   }
   return true;
+}
+
+function halfResidualMargin(minimumMagnitude:number):number{
+  if(!(minimumMagnitude>0&&minimumMagnitude<=65504))return 0;
+  // At every normal half x in this or a larger binade, the distance to
+  // either half midpoint is >= 2^(e-12); subnormals use 2^-25. The F32
+  // addition error is <= that actual midpoint distance / 4096, including
+  // powers of two. A STRICT correction bound below this margin therefore
+  // keeps R16(R32(x+delta)) == x without relying on tie ownership.
+  let gap=2**-25;
+  if(minimumMagnitude>=2**-14){
+    let binade=2**-14;gap=2**-26;
+    while(binade*2<=minimumMagnitude){binade*=2;gap*=2;}
+  }
+  return gap*(1-2**-12);
 }
 
 function upperHalf(value:number):number{

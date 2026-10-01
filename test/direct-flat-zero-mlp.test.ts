@@ -72,3 +72,31 @@ test("a proved signed-zero input eliminates its dependency in the ordered projec
     await s.close();
   }finally{await rm(dir,{recursive:true,force:true});}
 });
+
+test("nonzero residual corrections disappear when both rounded sums retain the embedding",async()=>{
+  const dir=await mkdtemp(join(tmpdir(),"direct-absorbed-residual-"));
+  try{
+    const s=new DirectRustStream(join(dir,"unused.rs")),f=new DirectFlatSubstitution(s);
+    for(const width of [2,4,8]){
+      const projection=(weight:string)=>({weight,shape:[width,width] as [number,number]});
+      const g={width,context:3,heads:1,kvHeads:1,headDim:width,
+        pre:{weight:"pre",epsilon:1e-6},post:{weight:"post",epsilon:1e-6},
+        v:projection("v"),o:projection("o"),gate:projection("gate"),up:projection("up"),down:projection("down")};
+      const weight=async(name:string,_index:number)=>name==="pre"||name==="post"?1:1/1024;
+      for(let query=0;query<3;query++)for(const sign of [-1,1]){
+        const source=`input_tokens[${query}][0]`,key=createHash("sha256").update(source).digest("hex");
+        const path=new FlatConditions().refine(key,()=>s.write(source),sign>0?
+          {lower:{value:exactNumberRational(4),inclusive:true}}:
+          {upper:{value:exactNumberRational(-4),inclusive:true}},true)!;
+        assert.equal(await proveInitialHiddenIdentity(f,path,g,query,0,weight),true,`${width},${query},${sign}`);
+        const nearZero=new FlatConditions().refine(key,()=>s.write(source),{
+          lower:{value:exactNumberRational(2**-24),inclusive:true},
+          upper:{value:exactNumberRational(2**-24),inclusive:true}},true)!;
+        assert.equal(await proveInitialHiddenIdentity(f,nearZero,g,query,0,weight),false);
+        assert.equal(await proveInitialHiddenIdentity(f,path,g,query,0,
+          async(name,index)=>name==="down"?NaN:weight(name,index)),false);
+      }
+    }
+    await s.close();
+  }finally{await rm(dir,{recursive:true,force:true});}
+});
