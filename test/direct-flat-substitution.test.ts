@@ -16,6 +16,47 @@ import { substituteFlatProjection } from "../src/direct-flat-projection.js";
 import { substituteCpuArm64SoftmaxSum } from "../src/direct-rust-softmax.js";
 const run=promisify(execFile);
 
+test("finite input substitution proves joint comparison contradictions without computing output tables",async()=>{
+  const directory=await mkdtemp(join(tmpdir(),"direct-flat-finite-conditions-"));
+  try{
+    const path=join(directory,"conditions.rs"),s=new DirectRustStream(path),f=new DirectFlatSubstitution(s),q=2**-24;
+    const name=(c:number)=>`input_tokens[0][${c}]`,hash=(source:string)=>createHash("sha256").update(source).digest("hex");
+    let base=new FlatConditions();
+    for(const c of [0,1])base=base.refine(hash(name(c)),()=>s.write(name(c)),{
+      lower:{value:exact(q),inclusive:true},upper:{value:exact(2*q),inclusive:true}},true)!;
+    const product=`(${name(0)}*${name(1)})`;
+    const constrain=(value:number)=>base.refine(hash(product),()=>s.write(product),{
+      lower:{value:exact(value),inclusive:true},upper:{value:exact(value),inclusive:true}})!;
+    await s.write("fn generated(input_tokens:&[[f64;2]])->f64 {'answer:{");s.beginReducedExpression();
+    await f.literal(constrain(3*q*q),999,(p,v)=>f.leaf(p,"answer",v));
+    const operand=(c:number):FlatProducer=>(p,k)=>f.f16Input(p,()=>s.write(name(c)),k);
+    await f.binary(constrain(4*q*q),operand(0),operand(1),"+",(p,v)=>f.leaf(p,"answer",v));
+    await f.literal(base,7,(p,v)=>f.leaf(p,"answer",v));await f.finishRound();
+    await s.write('panic!("outside declared input")}}');await s.close();
+    assert.doesNotMatch(await readFile(path,"utf8"),/999/);
+    await appendFile(path,`fn main(){let q=${q}_f64;for x in [q,2.0*q]{for y in [q,2.0*q]{let expected=if x==2.0*q && y==2.0*q {4.0*q}else{7.0};assert_eq!(generated(&[[x,y]]).to_bits(),expected.to_bits());}}}`);
+    await run("rustc",["--edition=2021","-Awarnings",path,"-o",join(directory,"run")]);await run(join(directory,"run"));
+  }finally{await rm(directory,{recursive:true,force:true});}
+});
+
+test("finite comparison substitution retains both zero signs in fundamental inputs",async()=>{
+  const directory=await mkdtemp(join(tmpdir(),"direct-flat-finite-zero-signs-"));
+  try{
+    const path=join(directory,"signs.rs"),s=new DirectRustStream(path),f=new DirectFlatSubstitution(s),q=2**-24;
+    const source="input_tokens[0][0]",hash=(source:string)=>createHash("sha256").update(source).digest("hex");
+    const base=new FlatConditions().refine(hash(source),()=>s.write(source),{
+      lower:{value:exact(-q),inclusive:true},upper:{value:exact(q),inclusive:true}},true)!;
+    const guard=`(${source}*1.0)`,zero=base.refine(hash(guard),()=>s.write(guard),{
+      lower:{value:exact(0),inclusive:true},upper:{value:exact(0),inclusive:true}})!;
+    await s.write("fn generated(input_tokens:&[[f64;1]])->f64 {'answer:{");s.beginReducedExpression();
+    await f.f16Input(zero,()=>s.write(source),(p,v)=>f.leaf(p,"answer",v));
+    await f.literal(base,7,(p,v)=>f.leaf(p,"answer",v));await f.finishRound();
+    await s.write('panic!("outside declared input")}}');await s.close();
+    await appendFile(path,`fn main(){for x in [-${q}_f64,-0.0,0.0,${q}]{let expected=if x==0.0{x}else{7.0};assert_eq!(generated(&[[x]]).to_bits(),expected.to_bits());}}`);
+    await run("rustc",["--edition=2021","-Awarnings",path,"-o",join(directory,"run")]);await run(join(directory,"run"));
+  }finally{await rm(directory,{recursive:true,force:true});}
+});
+
 test("proved power-of-two input lattices eliminate intervals containing no reachable F32 value",async()=>{
   const directory=await mkdtemp(join(tmpdir(),"direct-flat-input-lattice-"));
   try{

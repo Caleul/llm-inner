@@ -611,7 +611,8 @@
         "checkpoint-wide finite normalization inputs proved by progressive scalar weight reads; zero coordinates and zero learned normalization weights retain only signed-zero arithmetic",
         "normalization square-sum receives the current already-substituted numerator operand; emitted arithmetic remains duplicated and later path restrictions refresh it",
         "initial hidden value reduces to embedding + positive zero when progressive bounds prove signed-zero attention and +0 MLP; both residual additions retain exact zero-sign semantics",
-        "exact power-of-two scale propagation removes divisions and multiplications from rounding leaves; (x/unit + 2^52 - 2^52)*unit becomes (x + 2^52*unit) - 2^52*unit under proved exponent bounds"
+        "exact power-of-two scale propagation removes divisions and multiplications from rounding leaves; (x/unit + 2^52 - 2^52)*unit becomes (x + 2^52*unit) - 2^52*unit under proved exponent bounds",
+        "small joint F16 domains prove comparisons by streamed literal substitution; impossible paths disappear and feasible input hulls propagate to a fixed point; both signs of zero are included and no output table is constructed"
       ],
       "runtimeAdmission": "complete emitted expression required; drafts are not compiled",
       "fullChosenLogitEmitted": false,
@@ -619,15 +620,15 @@
       "exactFinalParity": false,
       "fullModelRustCompilationAttempts": 0,
       "generation": {
-        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v33.rs --validate",
+        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v34.rs --validate",
         "status": "running",
-        "progress": "/private/tmp/llm-inner-flat-embeddings-v33.rs.progress.json"
+        "progress": "/private/tmp/llm-inner-flat-embeddings-v34.rs.progress.json"
       },
       "ruleTests": {
-        "passed": 49,
+        "passed": 51,
         "command": "node --test dist/test/direct-source-bounds.test.js dist/test/direct-flat-substitution.test.js dist/test/direct-round-preimage.test.js dist/test/direct-rust-stream.test.js dist/test/direct-flat-zero-mlp.test.js dist/test/direct-finite-model-proof.test.js",
         "provesCompleteModel": false,
-        "lastRunSeconds": 52.882356708
+        "lastRunSeconds": 56.299408167
       },
       "finalValidationHarness": "helpers/validate_direct_flat_rust.py; compares final chosen logit bits for every position of varied embedding matrices and lengths; not yet executed",
       "remaining": "finish every surviving path of the first arbitrary dimension, compile the complete artifact and execute final-value PyTorch differential; correct the first numerical divergence before other dimensions",
@@ -637,15 +638,15 @@
           "status": "pending",
           "dimension": 2,
           "position": 0,
-          "leaves": 2844,
-          "bytes": 286683079,
-          "eliminatedBranches": 609347,
-          "inspectedExpressions": 4127583,
-          "elapsedMilliseconds": 1317691,
+          "leaves": 2907,
+          "bytes": 176979735,
+          "eliminatedBranches": 736731,
+          "inspectedExpressions": 4766640,
+          "elapsedMilliseconds": 1259736,
           "finalParity": false,
           "rustCompilationAdmitted": false
         },
-        "reason": "Interrupted after exact power-of-two scaling simplification passed the full 49-test rule suite. No prefix reused or compiled."
+        "reason": "Interrupted after joint finite-F16 comparison feasibility and zero-sign tests passed. New proof substitutes literal inputs into fully expanded conditions only, never evaluates forward stages or tabulates logits."
       },
       "rsqrtPolicyCheck": {
         "torch": "2.12.1 CPU arm64",
@@ -724,6 +725,10 @@
         },
         "focusedTests": "node --test dist/test/direct-flat-zero-mlp.test.js",
         "focusedTestsPassed": 3
+      },
+      "progressCounters": {
+        "leaves": "actual emitted branches",
+        "candidateLeaves": "visited complete substitution candidates, including infeasible and merged paths"
       }
     }
   }

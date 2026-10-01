@@ -36,7 +36,7 @@ export async function writeDirectFlatRustModel(directory:string,python:string,di
   const interrupt=()=>s.cancel("Generation interrupted; draft is not an executable artifact");
   process.on("SIGINT",interrupt);
   const started=Date.now();let leaves=0,position=0,progressWrite=Promise.resolve(),status="generating";
-  const snapshot=()=>JSON.stringify({status,dimension,position,leaves,bytes:s.bytes,
+  const snapshot=()=>JSON.stringify({status,dimension,position,leaves:f.emittedLeaves,candidateLeaves:leaves,bytes:s.bytes,
     eliminatedBranches:s.eliminatedBranches,inspectedExpressions:s.inspectedExpressions,
     elapsedMilliseconds:Date.now()-started,finalParity:false,rustCompilationAdmitted:status==="emitted"},null,2)+"\n";
   const progress=setInterval(()=>{
@@ -241,7 +241,8 @@ export async function writeDirectFlatRustModel(directory:string,python:string,di
     }
     await s.write('panic!("outside declared embedding domain")}}\n');await s.close();await rename(draft,path);
     status="emitted";
-    await writeFile(path+".reduction.json",JSON.stringify({status:"emitted",dimension,inputWidth:width,leaves,bytes:s.bytes,
+    await writeFile(path+".reduction.json",JSON.stringify({status:"emitted",dimension,inputWidth:width,
+      leaves:f.emittedLeaves,candidateLeaves:leaves,bytes:s.bytes,
       numericalPolicy:{torch:output.torch,backend:"cpu-arm64",weights:"finite-f16",
         rounding:"nearest-even F32/F16; ordered source reductions"},
       eliminatedBranches:s.eliminatedBranches,input:"finite-f16-embedding-matrix",runtimeIR:false,finalParity:false},null,2)+"\n");

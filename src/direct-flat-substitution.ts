@@ -68,6 +68,7 @@ export class FlatConditions {
  * outer conditions never contain an inline conditional producer.
  */
 export class DirectFlatSubstitution {
+  emittedLeaves=0;
   private pendingLeaf:{path:FlatConditions;label:string;input:FlatInput;key:string}|undefined;
   private refinementDepth=0;
   constructor(readonly stream: DirectRustStream) {}
@@ -664,6 +665,8 @@ export class DirectFlatSubstitution {
       Math.max(quantum??0,input.quantum??0)||undefined,visit),consume);
   }
   async leaf(path: FlatConditions, label: string, input: FlatInput): Promise<void> {
+    const feasible=await this.refineFiniteInputComparisons(path);
+    if(!feasible){this.stream.eliminatedBranches++;return;}path=feasible;
     const result=await this.sourceBounds(input.emit,path.domain);
     if(!result.opaque&&Object.is(result.minimum,result.maximum)){
       const value=result.minimum;
@@ -699,12 +702,80 @@ export class DirectFlatSubstitution {
     }
     await this.finishRound();this.pendingLeaf={path,label,input,key};
   }
-  private async sourceBounds(emit:RustExpression,domain:DirectBranchDomain):Promise<SourceBounds&{sourceKey:string}>{
+  /** Substitute literals into CONDITIONS only, never run a model or build a
+   * table of outputs. A small Cartesian domain permits an exact feasibility
+   * proof beyond interval arithmetic. Only one assignment and its logical
+   * hull are live; the streamed operator stack is the usual constant folder.
+   */
+  private async refineFiniteInputComparisons(path:FlatConditions):Promise<FlatConditions|undefined>{
+    if(path.guards.every(g=>g.fundamentalF16))return path;
+    const axes=new Map<string,{first:number;last:number;zero:boolean;count:number;low:number;high:number}>();
+    let points=1,tooWide=false;
+    for(const guard of path.guards){
+      await this.sourceBounds(guard.emit,path.domain,undefined,(name,range)=>{
+        if(axes.has(name)||tooWide)return;
+        if(!Number.isFinite(range.minimum)||!Number.isFinite(range.maximum)){tooWide=true;return;}
+        let lo=0,hi=63486;
+        while(lo<hi){const mid=Math.floor((lo+hi)/2);if(finiteIeeeValue("f16",mid)>=range.minimum)hi=mid;else lo=mid+1;}
+        const first=lo;lo=0;hi=63486;
+        while(lo<hi){const mid=Math.ceil((lo+hi)/2);if(finiteIeeeValue("f16",mid)<=range.maximum)lo=mid;else hi=mid-1;}
+        const last=lo,zero=first<=31743&&last>=31743,count=last-first+1+(zero?1:0);
+        if(first>last||count<1||points*count>128||axes.size>=128){tooWide=true;return;}
+        points*=count;axes.set(name,{first,last,zero,count,low:Infinity,high:-Infinity});
+      });
+      if(tooWide)return path;
+    }
+    if(!axes.size)return path;
+    const entries=[...axes],assignment=new Map<string,number>(),slots=new Array<number>(entries.length);
+    const at=(axis:(typeof entries)[number][1],slot:number)=>{
+      const zeroSlot=31743-axis.first;
+      if(axis.zero&&slot===zeroSlot)return -0;
+      return finiteIeeeValue("f16",axis.first+slot-(axis.zero&&slot>zeroSlot?1:0));
+    };
+    let survivors=0,unsupported=false;
+    const visit=async(depth:number):Promise<void>=>{
+      if(unsupported)return;
+      if(depth<entries.length){
+        const [name,axis]=entries[depth]!;
+        for(let slot=0;slot<axis.count;slot++){slots[depth]=slot;assignment.set(name,at(axis,slot));await visit(depth+1);}
+        return;
+      }
+      for(const guard of path.guards){
+        const range=await this.sourceBounds(guard.emit,new DirectBranchDomain(),assignment);
+        if(range.opaque||!Object.is(range.minimum,range.maximum)||!Number.isFinite(range.minimum)){unsupported=true;return;}
+        const interval=new Map(path.domain.entries()).get(guard.key)!;
+        for(const side of ["lower","upper"] as const){
+          const bound=interval[side];if(!bound)continue;
+          const comparison=compareRational(exactNumberRational(range.minimum),bound.value);
+          if(side==="lower"?(comparison<0||(comparison===0&&!bound.inclusive)):
+            (comparison>0||(comparison===0&&!bound.inclusive)))return;
+        }
+      }
+      survivors++;
+      for(let i=0;i<entries.length;i++){const axis=entries[i]![1];axis.low=Math.min(axis.low,slots[i]!);axis.high=Math.max(axis.high,slots[i]!);}
+    };
+    await visit(0);
+    if(unsupported)return path;
+    if(!survivors)return undefined;
+    let refined=path;
+    for(const [name,axis] of entries){
+      if(axis.low===0&&axis.high===axis.count-1)continue;
+      const key=createHash("sha256").update(name).digest("hex");
+      const next=refined.refine(key,()=>this.stream.write(name),{
+        lower:{value:exactNumberRational(at(axis,axis.low)),inclusive:true},
+        upper:{value:exactNumberRational(at(axis,axis.high)),inclusive:true}},true);
+      if(!next)return undefined;refined=next;
+    }
+    return refined===path?path:this.propagateComparisons(refined);
+  }
+  private async sourceBounds(emit:RustExpression,domain:DirectBranchDomain,
+    literalInputs?:ReadonlyMap<string,number>,visitInput?:(name:string,range:SourceBounds)=>void):Promise<SourceBounds&{sourceKey:string}>{
     const intervals=new Map(domain.entries());
     const sourceHash=createHash("sha256");
     const parser=new DirectSourceBounds(name=>{
       const hash=createHash("sha256").update(name).digest("hex"),interval=intervals.get(hash);
       if(/^input_tokens\[\d+\]\[\d+\]$/.test(name)){
+        if(literalInputs?.has(name)){const value=literalInputs.get(name)!;return {minimum:value,maximum:value,key:hash};}
         const satisfies=(index:number,side:"lower"|"upper")=>{
           const bound=interval?.[side];if(!bound)return true;
           const c=compareRational(exactNumberRational(finiteIeeeValue("f16",index)),bound.value);
@@ -714,7 +785,7 @@ export class DirectFlatSubstitution {
         const first=lo;lo=0;hi=63486;while(lo<hi){const mid=Math.ceil((lo+hi)/2);if(satisfies(mid,"upper"))lo=mid;else hi=mid-1;}
         if(first>lo||!satisfies(first,"lower")||!satisfies(lo,"upper"))return {minimum:-Infinity,maximum:Infinity,key:hash,opaque:true};
         const minimum=finiteIeeeValue("f16",first),maximum=finiteIeeeValue("f16",lo);
-        return {minimum:minimum===0?-0:minimum,maximum,key:hash};
+        const range={minimum:minimum===0?-0:minimum,maximum,key:hash};visitInput?.(name,range);return range;
       }
       if(interval?.lower&&interval.upper){
         const outward=(side:"lower"|"upper")=>{
@@ -850,6 +921,7 @@ export class DirectFlatSubstitution {
     if(!first)await this.stream.write(" {");
     await this.stream.write(`break '${label} `);await input.emit();await this.stream.write(";");
     if(!first)await this.stream.write("}");
+    this.emittedLeaves++;
   }
 }
 function unionLeafConditions(a:FlatConditions,b:FlatConditions):FlatConditions|undefined{
