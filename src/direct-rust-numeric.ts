@@ -1,13 +1,32 @@
 import { readFileSync } from "node:fs";
 import { DirectRustStream, rustF64, type RustExpression, type PositiveRoundRange } from "./direct-rust-stream.js";
 import { decodeIeeeF16ToF32 } from "./utils.js";
+import { f32BitsToDyadic,roundDyadicToF16IfElse } from "./fixed-f16-projection.js";
 
 export interface NumericAffineRun {
   minimum:number; maximum:number; slope:number; offset:number;
   /** Constants preserve their signed zero without evaluating 0*x+b. */
   constant?:number;
+  /** Compiler-certified F16 rounding of this exact F32 affine expression. */
+  rounded?:"f16";
 }
 export type NumericRunConsumer=(run:NumericAffineRun)=>Promise<void>;
+
+/** Midpoint-square certificate for the correctly rounded positive F32 root.
+ * Compiler only: the host approximation supplies a seed, never a verdict.
+ */
+export function foldCertifiedF32Sqrt(x:number):number{
+  if(!(x>0&&Number.isFinite(x)&&Math.fround(x)===x))throw new Error("Positive F32 root input required");
+  const data=new DataView(new ArrayBuffer(4));
+  const number=(code:number)=>{data.setUint32(0,code,true);return data.getFloat32(0,true);};
+  data.setFloat32(0,Math.sqrt(x),true);let code=data.getUint32(0,true);
+  for(;;){
+    const y=number(code),below=(number(code-1)+y)/2,above=(y+number(code+1))/2;
+    if(x<below*below||(x===below*below&&(code&1)!==0)){code--;continue;}
+    if(x>above*above||(x===above*above&&(code&1)!==0)){code++;continue;}
+    return y;
+  }
+}
 
 /** F16 policy specialized directly to numerical input intervals. The profile
  * defines the declared backend rule, not model outputs. Every finite input in
@@ -32,6 +51,14 @@ export async function emitRustSilu(s:DirectRustStream,input:RustExpression,maxim
     await visit({minimum:0,maximum:0,slope:1,offset:0});}
   else {await s.write("'activation:{if ");await value();await s.write("==0.0 {break 'activation ");await value();await s.write(";}");}
   let firstX:number|undefined,firstY=0,lastX=0,slope:number|undefined,offset=0;
+  let roundedFirst:number|undefined,roundedLast=0;
+  const flushRounded=async()=>{
+    if(roundedFirst===undefined)return;
+    await visit!({minimum:roundedFirst,maximum:roundedLast,slope:0.5,offset:2**-26,rounded:"f16"});
+    roundedFirst=undefined;
+  };
+  const reset=()=>{firstX=undefined;slope=undefined;offset=0;};
+  const halfBuffer=new DataView(new ArrayBuffer(4));
   const flush=async(final=false)=>{
     if(firstX===undefined)return;
     if(visit){await visit({minimum:firstX,maximum:lastX,slope:slope??0,offset,
@@ -45,6 +72,16 @@ export async function emitRustSilu(s:DirectRustStream,input:RustExpression,maxim
   };
   const consume=async(bits:number)=>{
     const x=decodeIeeeF16ToF32(bits),y=decodeIeeeF16ToF32(profile.readUInt16LE(bits*2));
+    if(visit&&Math.abs(x)<=2**-13){
+      halfBuffer.setFloat32(0,0.5*x+2**-26,true);
+      const code=halfBuffer.getUint32(0,true),rounded=(code&0x7fffffff)===0?(code>>>31?32768:0):
+        roundDyadicToF16IfElse(f32BitsToDyadic(code));
+      if(rounded===profile.readUInt16LE(bits*2)){
+        if(firstX!==undefined){await flush();reset();}
+        if(roundedFirst===undefined)roundedFirst=x;roundedLast=x;return;
+      }
+    }
+    await flushRounded();
     if(firstX===undefined){firstX=lastX=x;firstY=y;return;}
     if(slope===undefined){
       if(Object.is(y,firstY)){slope=0;offset=firstY;lastX=x;return;}
@@ -69,11 +106,11 @@ export async function emitRustSilu(s:DirectRustStream,input:RustExpression,maxim
   const negativeFirst=inputRange?firstAtLeast(-inputRange.maximum):1;
   const negativeLast=inputRange?lastAtMost(-inputRange.minimum):limit;
   for(let code=negativeLast;code>=negativeFirst;code--)await consume(32768+code);
-  await flush();firstX=undefined;slope=undefined;offset=0;
+  await flush();await flushRounded();reset();
   const positiveFirst=inputRange?firstAtLeast(inputRange.minimum):1;
   const positiveLast=inputRange?lastAtMost(inputRange.maximum):limit;
   for(let bits=positiveFirst;bits<=positiveLast;bits++)await consume(bits);
-  await flush(true);
+  await flush(true);await flushRounded();
   if(!visit){if(limit===0)await s.write('panic!("outside declared activation domain");');await s.write("}");}
 }
 /** Correctly-rounded F32 square root reduced into affine input runs. Each

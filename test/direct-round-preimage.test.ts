@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {exactNumberRational,normalizeFiniteAffineRunComparison,normalizePositiveReciprocalComparison,normalizeReciprocalRootAffineComparison,normalizeRoundedAffineComparison,type DirectPreimage} from '../src/direct-round-preimage.js';
+import {exactNumberRational,normalizeFiniteAffineRunComparison,normalizePositiveReciprocalComparison,normalizePositiveSqrtComparison,normalizeReciprocalRootAffineComparison,normalizeRoundedAffineComparison,type DirectPreimage} from '../src/direct-round-preimage.js';
 import {rational} from '../src/direct-branch-domain.js';
 import {decodeIeeeF16ToF32} from '../src/utils.js';
 import {f32BitsToDyadic,roundDyadicToF16IfElse} from '../src/fixed-f16-projection.js';
@@ -38,6 +38,19 @@ test('positive reciprocal comparisons propagate before the root producer is expa
         const x=decodeIeeeF16ToF32(bits),y=numerator/x;
         assert.equal(satisfies(x,p),op==='<'?y<rhs:op==='<='?y<=rhs:op==='>'?y>rhs:y>=rhs);
       }
+    }
+  }
+});
+test('direct corrected-root comparisons invert to the original positive F32 input',()=>{
+  for(const rhs of [2**-74,0.001,1,1.00001,2,1e10,1e20])for(const op of ['<','<=','>','>='] as const){
+    const p=normalizePositiveSqrtComparison(op,exactNumberRational(rhs));
+    assert.notEqual(typeof p,'boolean');
+    const cut=(p as DirectPreimage).value;
+    f32.setFloat32(0,Number(cut.numerator)/Number(cut.denominator),true);
+    const center=f32.getUint32(0,true);
+    for(let code=Math.max(1,center-2);code<=Math.min(0x7f7fffff,center+2);code++){
+      f32.setUint32(0,code,true);const x=f32.getFloat32(0,true),y=Math.fround(Math.sqrt(x));
+      assert.equal(satisfies(x,p),op==='<'?y<rhs:op==='<='?y<=rhs:op==='>'?y>rhs:y>=rhs);
     }
   }
 });

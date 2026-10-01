@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-export interface SourceBounds { minimum:number;maximum:number;key:string;opaque?:boolean }
+export interface SourceBounds { minimum:number;maximum:number;key:string;opaque?:boolean;positiveZero?:true }
 /** Streaming arithmetic reduction over the emitted scalar source. Only an
  * operator stack and operand ranges are held; no AST, nodes, model program,
  * activation values or source fragments are constructed or retained.
@@ -55,7 +55,7 @@ export class DirectSourceBounds {
   private flushToken():void{
     if(!this.token)return;const token=this.token;this.token="";
     const number=Number(token.replace(/_f64$/, ""));
-    if(Number.isFinite(number)){this.push({minimum:number,maximum:number,key:key("number",String(number))});return;}
+    if(Number.isFinite(number)){this.push(constant(number));return;}
     if(/^[a-z][a-z0-9_]*$/.test(token)){this.push(this.resolve(token));return;}
     throw new Error(`Unsupported scalar token ${token}`);
   }
@@ -63,23 +63,40 @@ export class DirectSourceBounds {
     const op=this.operators.pop()!,b=this.operands.pop();
     if(!b||op==="(")throw new Error("Invalid scalar reduction");
     if(op==="neg"||op==="pos"){
-      this.push(op==="pos"?b:{minimum:-b.maximum,maximum:-b.minimum,key:key(op,b.key),...(b.opaque?{opaque:true}:{})});return;
+      this.push(op==="pos"?b:Object.is(b.minimum,b.maximum)?constant(-b.minimum):
+        {minimum:-b.maximum,maximum:-b.minimum,key:key(op,b.key),...(b.opaque?{opaque:true}:{})});return;
     }
     const a=this.operands.pop();if(!a)throw new Error("Missing scalar operand");
     const identity=key(op,a.key,b.key);
     if(a.opaque||b.opaque){this.push({minimum:-Infinity,maximum:Infinity,key:identity,opaque:true});return;}
-    if(op==="-"&&a.key===b.key){this.push({minimum:0,maximum:0,key:identity});return;}
+    const apply=(x:number,y:number)=>op==="+"?x+y:op==="-"?x-y:op==="*"?x*y:x/y;
+    if(Object.is(a.minimum,a.maximum)&&Object.is(b.minimum,b.maximum)){
+      const value=apply(a.minimum,b.minimum);
+      if(Number.isFinite(value)){this.push(constant(value));return;}
+    }
+    // Canonicalize only exact identities, including the sign of zero. These
+    // fingerprints transfer inherited comparisons after input substitution;
+    // they never reassociate operations or cancel rounding expressions.
+    const zero=(v:SourceBounds)=>Object.is(v.minimum,0)&&Object.is(v.maximum,0);
+    if(op==="+"&&zero(a)&&(b.positiveZero||b.minimum>0||b.maximum<0)){this.push(b);return;}
+    if(op==="+"&&zero(b)&&(a.positiveZero||a.minimum>0||a.maximum<0)){this.push(a);return;}
+    if(op==="-"&&zero(b)){this.push(a);return;}
+    if(op==="*"&&a.minimum===1&&a.maximum===1){this.push(b);return;}
+    if((op==="*"||op==="/")&&b.minimum===1&&b.maximum===1){this.push(a);return;}
+    if(op==="-"&&a.key===b.key){this.push(constant(0));return;}
     if(op==="*"&&a.key===b.key){
       const minimum=a.minimum<=0&&a.maximum>=0?0:Math.min(a.minimum*a.minimum,a.maximum*a.maximum);
       const maximum=Math.max(a.minimum*a.minimum,a.maximum*a.maximum);
-      this.push({minimum,maximum,key:identity,...(!Number.isFinite(maximum)?{opaque:true}:{})});return;
+      this.push(minimum===maximum&&Number.isFinite(maximum)?constant(maximum):
+        {minimum,maximum,key:identity,positiveZero:true,...(!Number.isFinite(maximum)?{opaque:true}:{})});return;
     }
     if(op==="/"&&b.minimum<=0&&b.maximum>=0){this.push({minimum:-Infinity,maximum:Infinity,key:identity,opaque:true});return;}
-    const apply=(x:number,y:number)=>op==="+"?x+y:op==="-"?x-y:op==="*"?x*y:x/y;
     const values=[apply(a.minimum,b.minimum),apply(a.minimum,b.maximum),apply(a.maximum,b.minimum),apply(a.maximum,b.maximum)];
     this.push({minimum:Math.min(...values),maximum:Math.max(...values),key:identity,
       ...(values.some(x=>!Number.isFinite(x))?{opaque:true}:{})});
   }
 }
+function constant(value:number):SourceBounds{return {minimum:value,maximum:value,
+  key:key("number",Object.is(value,-0)?"-0":String(value)),...(!Object.is(value,-0)?{positiveZero:true as const}:{})};}
 function precedence(op:string):number{return op==="neg"||op==="pos"?3:op==="*"||op==="/"?2:1;}
 function key(...values:string[]):string{return createHash("sha256").update(values.join("|")).digest("hex");}

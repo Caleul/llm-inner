@@ -94,6 +94,13 @@ export function normalizePositiveReciprocalComparison(kind:'f16'|'f32',numerator
   if(lo===first)return high;if(lo===last+1)return !high;
   return {op:high?'>=':'<',value:exactNumberRational(finiteIeeeValue(kind,lo))};
 }
+export function normalizePositiveSqrtComparison(op:Comparison,rhs:Rational):DirectPreimage|boolean{
+  if(rhs.numerator<=0n)return op==='>'||op==='>=';
+  const boundary=roundedPreimage('f32',op,rhs);
+  if(boundary.value.numerator<=0n)return boundary.op==='>'||boundary.op==='>=';
+  return {op:boundary.op,value:rational(boundary.value.numerator*boundary.value.numerator,
+    boundary.value.denominator*boundary.value.denominator)};
+}
 function roundedPreimage(kind:'f16'|'f32',op:Comparison,rhs:Rational):DirectPreimage{
   const largest=kind==='f16'?31743:0x7f7fffff,sign=kind==='f16'?32768:0x80000000;
   const last=2*largest+2,data=new DataView(new ArrayBuffer(4));

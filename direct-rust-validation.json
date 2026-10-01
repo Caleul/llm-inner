@@ -4,7 +4,7 @@
   "oneLayerFinalLogitParity": false,
   "allVocabularyParity": false,
   "realCheckpointParity": false,
-  "date": "2026-09-30",
+  "date": "2026-10-01",
   "diagnosticCheckpoint": {
     "architectures": [
       "LlamaForCausalLM"
@@ -184,6 +184,13 @@
       "reference": "torch.exp CPU 2.12.1",
       "exactBits": true,
       "completeModelParity": false
+    },
+    "rootChordPolicy": {
+      "normalizedF32Values": 16777217,
+      "randomPositiveF32Values": 1048576,
+      "reference": "torch.sqrt CPU 2.12.1",
+      "exactBits": true,
+      "completeModelParity": false
     }
   },
   "remaining": [
@@ -257,7 +264,12 @@
         "remove guards implied by other emitted guards without circular self-proof",
         "merge adjacent identical result leaves with exact interval union",
         "SiLU visits only the inherited positive and negative F16 intervals before consumer expansion",
-        "zero projection weights removed before visiting dependencies; literal weight read before traversing input branches"
+        "zero projection weights removed before visiting dependencies; literal weight read before traversing input branches",
+        "certified affine root chords with exact midpoint correction and inverse comparisons",
+        "rounded-affine small SiLU runs certified against every reached F16 numeric policy value",
+        "exact representability proofs remove redundant F32/F16 rounding",
+        "nonzero and minimum-magnitude consequences propagate through signed products",
+        "streaming canonical arithmetic fingerprints propagate inherited comparisons after zero substitution; original guards retained"
       ],
       "runtimeAdmission": "complete emitted expression required; drafts are not compiled",
       "fullChosenLogitEmitted": false,
@@ -265,18 +277,33 @@
       "exactFinalParity": false,
       "fullModelRustCompilationAttempts": 0,
       "generation": {
-        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v14.rs --validate",
+        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v19.rs --validate",
         "status": "running",
-        "progress": "/private/tmp/llm-inner-flat-embeddings-v14.rs.progress.json"
+        "progress": "/private/tmp/llm-inner-flat-embeddings-v19.rs.progress.json"
       },
       "ruleTests": {
-        "passed": 29,
+        "passed": 37,
         "command": "node --test dist/test/direct-source-bounds.test.js dist/test/direct-flat-substitution.test.js dist/test/direct-round-preimage.test.js dist/test/direct-rust-stream.test.js",
         "provesCompleteModel": false
       },
       "finalValidationHarness": "helpers/validate_direct_flat_rust.py; compares final chosen logit bits for every position of varied embedding matrices and lengths; not yet executed",
       "remaining": "finish every surviving path of the first arbitrary dimension, compile the complete artifact and execute final-value PyTorch differential; correct the first numerical divergence before other dimensions",
-      "blocker": null
+      "blocker": null,
+      "previousGeneration": {
+        "progress": {
+          "status": "pending",
+          "dimension": 2,
+          "position": 0,
+          "leaves": 16257,
+          "bytes": 790188939,
+          "eliminatedBranches": 9559080,
+          "inspectedExpressions": 26350427,
+          "elapsedMilliseconds": 2710737,
+          "finalParity": false,
+          "rustCompilationAdmitted": false
+        },
+        "reason": "Interrupted to apply inherited-condition normalization and exact representability reductions. Prefix only, no full final function or full-model compilation."
+      }
     }
   }
 }

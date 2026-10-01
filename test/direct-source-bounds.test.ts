@@ -27,3 +27,14 @@ test("matrix reads and interval correlations are reduced without storing express
   parser.accept("input_tokens[0][0]*input_tokens[0][0]");
   const square=parser.finish();assert.equal(square.minimum,0);assert.equal(square.maximum,9);
 });
+test("inherited square sums acquire the same fingerprint after zero substitution",()=>{
+  const parse=(source:string)=>{
+    const parser=new DirectSourceBounds(name=>name==="x"?{minimum:-0,maximum:0,key:name}:
+      {minimum:-2,maximum:3,key:name});
+    parser.accept(source);return parser.finish();
+  };
+  assert.equal(parse("x*x+y*y").key,parse("y*y").key);
+  assert.notEqual(parse("0.0+y").key,parse("y").key);
+  assert.notEqual(fold("-0.0").key,fold("0.0").key);
+  assert.equal(fold("(4503599627370496.0+1.5)-4503599627370496.0").minimum,2);
+});

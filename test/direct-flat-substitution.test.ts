@@ -5,13 +5,117 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { createHash } from "node:crypto";
 import { DirectRustStream } from "../src/direct-rust-stream.js";
 import { DirectFlatSubstitution, FlatConditions, type FlatProducer } from "../src/direct-flat-substitution.js";
 import { rational } from "../src/direct-branch-domain.js";
+import { exactNumberRational as exact } from "../src/direct-round-preimage.js";
 import { substituteCpuArm64F32Sum } from "../src/direct-rust-mean.js";
 import { emitRustSilu } from "../src/direct-rust-numeric.js";
 import { substituteFlatProjection } from "../src/direct-flat-projection.js";
 const run=promisify(execFile);
+
+test("inherited sum comparisons survive zero substitution without deleting their guards",async()=>{
+  const directory=await mkdtemp(join(tmpdir(),"direct-flat-inherited-sum-"));
+  try{
+    const s=new DirectRustStream(join(directory,"unused.rs")),f=new DirectFlatSubstitution(s);
+    const hash=(source:string)=>createHash("sha256").update(source).digest("hex");
+    const source="(input_tokens[0][0]*input_tokens[0][0])+(input_tokens[0][1]*input_tokens[0][1])";
+    let path=new FlatConditions().refine(hash(source),()=>s.write(source),{lower:{value:rational(4n),inclusive:true}})!;
+    path=path.refine(hash("input_tokens[0][0]"),()=>s.write("input_tokens[0][0]"),
+      {lower:{value:rational(0n),inclusive:true},upper:{value:rational(0n),inclusive:true}},true)!;
+    const y:FlatProducer=(p,k)=>f.f16Input(p,()=>s.write("input_tokens[0][1]"),k);
+    const square:FlatProducer=(p,k)=>f.square(p,y,k);
+    let visits=0;
+    await f.binary(path,square,(p,k)=>f.literal(p,0,k),"+",async(p,value)=>{
+      visits++;assert.equal(value.minimum,4);assert.equal(p.guards.length,2);
+    });
+    assert.equal(visits,1);await s.close();
+  }finally{await rm(directory,{recursive:true,force:true});}
+});
+
+test("square magnitude bounds propagate through the sign of a positive variable product",async()=>{
+  const directory=await mkdtemp(join(tmpdir(),"direct-flat-magnitude-"));
+  try{
+    const s=new DirectRustStream(join(directory,"unused.rs")),f=new DirectFlatSubstitution(s);
+    const field=(i:number):FlatProducer=>(p,k)=>f.f16Input(p,()=>s.write(`input_tokens[0][${i}]`),k);
+    const x=field(0),y=field(1),square:FlatProducer=(p,k)=>f.square(p,x,k),product:FlatProducer=(p,k)=>f.binary(p,x,y,"*",k);
+    let positive=0,negative=0;
+    await f.comparison(new FlatConditions(),y,">=",rational(1n),p=>f.comparison(p,y,"<=",rational(2n),
+      p=>f.comparison(p,square,">=",rational(4n),p=>f.comparison(p,product,">=",rational(0n),
+        p=>x(p,async(_p,v)=>{positive++;assert.equal(v.minimum,2);}),
+        p=>x(p,async(_p,v)=>{negative++;assert.equal(v.maximum,-2);})),async()=>{}),async()=>{}),async()=>{});
+    assert.equal(positive,1);assert.equal(negative,1);await s.close();
+  }finally{await rm(directory,{recursive:true,force:true});}
+});
+
+test("rounded-affine SiLU substitution preserves all small F16 policy inputs and signed zeros",async()=>{
+  const directory=await mkdtemp(join(tmpdir(),"direct-flat-small-silu-"));
+  try{
+    const path=join(directory,"silu.rs"),s=new DirectRustStream(path),f=new DirectFlatSubstitution(s);
+    await s.write("fn generated(x:f64)->f64 {'answer:{");s.beginReducedExpression();
+    await f.silu(new FlatConditions(),(p,k)=>f.input(p,()=>s.write("x"),-(2**-13),2**-13,
+      (p,v)=>k(p,{...v,precision:"f16"})),(p,v)=>f.leaf(p,"answer",v));
+    await f.finishRound();await s.write('panic!("outside SiLU domain")}}');await s.close();
+    await appendFile(path,'fn decode(b:u16)->f64{let s=if b&32768==0{1.0}else{-1.0};let e=(b>>10)&31;let m=b&1023;s*if e==0{(m as f64)*2_f64.powi(-24)}else{(1.0+(m as f64)/1024.0)*2_f64.powi(e as i32-15)}}fn main(){let data=std::fs::read(std::env::args().nth(1).unwrap()).unwrap();for b in 0..=2048_u16{for sign in [0,32768]{let bits=b|sign;let i=bits as usize*2;let expected=decode(u16::from_le_bytes(data[i..i+2].try_into().unwrap()));assert_eq!(generated(decode(bits)).to_bits(),expected.to_bits(),"{}",bits);}}}');
+    await run("rustc",["--edition=2021","-Awarnings",path,"-o",join(directory,"run")]);
+    await run(join(directory,"run"),[new URL("../../numeric-profiles/pytorch-2.12.1-cpu-f16-silu.bin",import.meta.url).pathname]);
+    assert.ok(s.bytes<20000,`Small SiLU did not reduce: ${s.bytes} bytes`);
+  }finally{await rm(directory,{recursive:true,force:true});}
+});
+
+test("new fundamental constraints discard inherited contradictions before the next consumer",async()=>{
+  const directory=await mkdtemp(join(tmpdir(),"direct-flat-early-prune-"));
+  try{
+    const s=new DirectRustStream(join(directory,"unused.rs")),f=new DirectFlatSubstitution(s);
+    const x:FlatProducer=(p,k)=>f.f16Input(p,()=>s.write("input_tokens[0][0]"),k);
+    const squared:FlatProducer=(p,k)=>f.binary(p,x,x,"*",k);
+    const difference:FlatProducer=(p,k)=>f.binary(p,squared,(p,k)=>f.literal(p,1,k),"+",k);
+    let consumers=0;
+    await f.comparison(new FlatConditions(),difference,"<",rational(0n),p=>
+      f.comparison(p,x,"<=",rational(1n),async()=>{consumers++;},async()=>{consumers++;}),async()=>{});
+    assert.equal(consumers,0);assert.ok(s.eliminatedBranches>=2);await s.close();
+  }finally{await rm(directory,{recursive:true,force:true});}
+});
+
+test("equal-result leaves merge across a gap containing no valid fundamental F16 input",async()=>{
+  const directory=await mkdtemp(join(tmpdir(),"direct-flat-discrete-union-"));
+  try{
+    const path=join(directory,"union.rs"),s=new DirectRustStream(path),f=new DirectFlatSubstitution(s),base=new FlatConditions();
+    const x:FlatProducer=(p,k)=>f.f16Input(p,()=>s.write("x"),k);
+    await s.write("fn generated(x:f64)->f64 {'answer:{");s.beginReducedExpression();
+    for(const point of [1,1+2**-10]){
+      await f.comparison(base,x,">=",exact(point),p=>f.comparison(p,x,"<=",exact(point),
+        p=>f.literal(p,7,(p,v)=>f.leaf(p,"answer",v)),async()=>{}),async()=>{});
+    }
+    await f.finishRound();await s.write("break 'answer 0.0;}}");await s.close();
+    const source=await readFile(path,"utf8");assert.equal(source.match(/break 'answer 7/g)?.length,1);
+    await appendFile(path,'fn main(){assert_eq!(generated(1.0),7.0);assert_eq!(generated(1.0+2_f64.powi(-10)),7.0);assert_eq!(generated(1.0-2_f64.powi(-11)),0.0);assert_eq!(generated(1.0+2_f64.powi(-9)),0.0);}');
+    await run("rustc",["-Awarnings",path,"-o",join(directory,"run")]);await run(join(directory,"run"));
+  }finally{await rm(directory,{recursive:true,force:true});}
+});
+
+test("direct root chords correct every F32 value across binades, small variances and subnormal inputs",async()=>{
+  const directory=await mkdtemp(join(tmpdir(),"direct-flat-root-chords-"));
+  try{
+    const path=join(directory,"root.rs"),s=new DirectRustStream(path),f=new DirectFlatSubstitution(s);
+    const max=Math.fround(3.4028234663852886e38),ranges=[[1,1.001],[3.999,4.001],
+      [1e-6,1.001e-6],[2**-149,16*2**-149],[max-2**105,max]];
+    const data=new DataView(new ArrayBuffer(4));
+    const bits=(x:number)=>{data.setFloat32(0,x,true);return data.getUint32(0,true);};
+    let main="fn main(){";
+    for(const [i,range] of ranges.entries()){
+      const minimum=Math.fround(range[0]!),maximum=Math.fround(range[1]!);
+      await s.write(`fn root${i}(x:f64)->f64 {'answer:{`);s.beginReducedExpression();
+      await f.sqrt(new FlatConditions(),(p,k)=>f.input(p,()=>s.write("x"),minimum,maximum,
+        (p,v)=>k(p,{...v,precision:"f32"})),(p,v)=>f.leaf(p,"answer",v));
+      await f.finishRound();await s.write('panic!("outside root domain")}}');
+      main+=`for bits in ${bits(minimum)}..=${bits(maximum)}{let x=f32::from_bits(bits);assert_eq!(root${i}(x as f64).to_bits(),(x.sqrt() as f64).to_bits(),"window ${i}: {}",bits);}`;
+    }
+    await s.close();await appendFile(path,main+"}");
+    await run("rustc",["-Awarnings",path,"-o",join(directory,"run")]);await run(join(directory,"run"));
+  }finally{await rm(directory,{recursive:true,force:true});}
+});
 
 test("zero projection weights eliminate their dependencies before they are expanded",async()=>{
   const directory=await mkdtemp(join(tmpdir(),"direct-flat-zero-weights-"));
