@@ -6,10 +6,11 @@ const [directory,python,rawDimension,path,validation]=process.argv.slice(2);
 if(!directory||!python||!rawDimension||!path||(validation&&validation!=="--validate"))
   throw new Error("Usage: direct-rust-cli CHECKPOINT PYTHON DIMENSION OUTPUT.rs [--validate]");
 await writeDirectFlatRustModel(directory,python,Number(rawDimension),path);
-await appendFile(path,"\nfn main(){let tokens:Vec<Vec<f64>>=std::env::args().skip(1).map(|row|row.split(',').map(|x|x.parse().expect(\"F16 embedding value widened to f64\")).collect()).collect();for t in 0..tokens.len(){println!(\"{}\",compiled_dimension(&tokens,t).to_bits());}}\n");
+const metadata=JSON.parse(await readFile(path+".reduction.json","utf8"));
+if(!Number.isSafeInteger(metadata.inputWidth)||metadata.inputWidth<1)throw new Error("Missing discovered embedding width");
+await appendFile(path,`\nfn main(){let tokens:Vec<[f64;${metadata.inputWidth}]>=std::env::args().skip(1).map(|row|row.split(',').map(|x|x.parse().expect("F16 embedding value widened to f64")).collect::<Vec<f64>>().try_into().expect("Discovered embedding width")).collect();for t in 0..tokens.len(){println!("{}",compiled_dimension(&tokens,t).to_bits());}}\n`);
 if(validation){
   const run=promisify(execFile),executable=path+".executable",report=path+".parity.json";
-  const metadata=JSON.parse(await readFile(path+".reduction.json","utf8"));
   try{
     // The emitter admits only a complete flat expression. No draft is compiled.
     if(metadata.status!=="emitted")throw new Error("Complete expression was not admitted");

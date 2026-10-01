@@ -576,7 +576,9 @@
         "inherited comparison intervals propagated into canonical scalar subexpressions iteratively until no interval changes; no calculation values cached",
         "rational interval endpoints rounded outward for binary64 range proofs; strict comparisons retained in emitted guards",
         "CPU arm64 softmax horizontal order specialized by full sequence length, including masked trailing zeros; n=3 versus n>=4 retained when needed",
-        "first normalization signed zero bypasses variance/root dependencies only when all inputs are declared finite embedding coordinates and epsilon is positive finite F32"
+        "first normalization signed zero bypasses variance/root dependencies only when all inputs are declared finite embedding coordinates and epsilon is positive finite F32",
+        "comparison propagation reaches a fixed point after compound refinements, before the consumer; unchanged logical domains retain that proof",
+        "input Rust row width specialized from checkpoint metadata; row count remains variable"
       ],
       "runtimeAdmission": "complete emitted expression required; drafts are not compiled",
       "fullChosenLogitEmitted": false,
@@ -584,12 +586,12 @@
       "exactFinalParity": false,
       "fullModelRustCompilationAttempts": 0,
       "generation": {
-        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v25.rs --validate",
+        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v26.rs --validate",
         "status": "running",
-        "progress": "/private/tmp/llm-inner-flat-embeddings-v25.rs.progress.json"
+        "progress": "/private/tmp/llm-inner-flat-embeddings-v26.rs.progress.json"
       },
       "ruleTests": {
-        "passed": 40,
+        "passed": 41,
         "command": "node --test dist/test/direct-source-bounds.test.js dist/test/direct-flat-substitution.test.js dist/test/direct-round-preimage.test.js dist/test/direct-rust-stream.test.js",
         "provesCompleteModel": false
       },

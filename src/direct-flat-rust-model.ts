@@ -22,6 +22,8 @@ import { decodeIeeeF16ToF32 } from "./utils.js";
  */
 export async function writeDirectFlatRustModel(directory:string,python:string,dimension:number,path:string):Promise<void>{
   const output=await discoverDirectOutput(directory,python);
+  if(output.torch.split("+")[0]!=="2.12.1"||process.arch!=="arm64")
+    throw new Error("Direct numerical policy is defined for PyTorch 2.12.1 CPU arm64");
   if(!Number.isSafeInteger(dimension)||dimension<0||dimension>=output.shape[0])throw new RangeError("Invalid logit dimension");
   const layers:{mlp:Awaited<ReturnType<typeof discoverDirectMlp>>;attention:Awaited<ReturnType<typeof discoverDirectAttention>>}[]=[];
   for(let index=0;index<output.decoderLayers.length;index++)layers.push({
@@ -183,7 +185,7 @@ export async function writeDirectFlatRustModel(directory:string,python:string,di
       });
       return round(binary(residual(layer,coordinate,position),down,"+"),"f16");
     };
-    await s.write(`// Input: finite F16 embedding matrix, widened exactly to f64.\n// Policy: PyTorch 2.12.1 CPU arm64; scalar substitution, flat path conditions.\n#![recursion_limit="65536"]\npub fn compiled_dimension(input_tokens:&[Vec<f64>],t:usize)->f64 {let n=input_tokens.len();assert!(n>0 && n<=${output.maxPosition} && t<n);'result:{`);
+    await s.write(`// Input: finite F16 embedding matrix, widened exactly to f64.\n// Policy: PyTorch CPU arm64; scalar substitution, flat path conditions.\n#![recursion_limit="65536"]\npub fn compiled_dimension(input_tokens:&[[f64;${width}]],t:usize)->f64 {let n=input_tokens.len();assert!(n>0 && n<=${output.maxPosition} && t<n);'result:{`);
     s.beginReducedExpression();
     for(position=0;position<output.maxPosition;position++){
       const currentPosition=position;
@@ -204,7 +206,9 @@ export async function writeDirectFlatRustModel(directory:string,python:string,di
     }
     await s.write('panic!("outside declared embedding domain")}}\n');await s.close();await rename(draft,path);
     status="emitted";
-    await writeFile(path+".reduction.json",JSON.stringify({status:"emitted",dimension,leaves,bytes:s.bytes,
+    await writeFile(path+".reduction.json",JSON.stringify({status:"emitted",dimension,inputWidth:width,leaves,bytes:s.bytes,
+      numericalPolicy:{torch:output.torch,backend:"cpu-arm64",weights:"finite-f16",
+        rounding:"nearest-even F32/F16; ordered source reductions"},
       eliminatedBranches:s.eliminatedBranches,input:"finite-f16-embedding-matrix",runtimeIR:false,finalParity:false},null,2)+"\n");
   }catch(error){
     status="pending";

@@ -62,6 +62,10 @@ export class DirectBranchDomain {
     const refine = (comparison: Comparison): DirectBranchDomain | undefined => {
       const narrowed = intersectInterval(existing, boundInterval(comparison, value));
       if (!narrowed) return undefined;
+      if((["lower","upper"] as const).every(side=>{
+        const a=existing[side],b=narrowed[side];return !a||!b?a===b:
+          a.inclusive===b.inclusive&&compare(a.value,b.value)===0;
+      }))return this;
       const next = new Map(this.intervals); next.set(variable, narrowed);
       return new DirectBranchDomain(next);
     };

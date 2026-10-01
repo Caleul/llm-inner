@@ -94,6 +94,27 @@ test("normalized comparison consequences propagate into scalar subexpressions to
   }finally{await rm(directory,{recursive:true,force:true});}
 });
 
+test("compound comparisons reach a fixed point before their next consumer without a new input binding",async()=>{
+  const directory=await mkdtemp(join(tmpdir(),"direct-flat-compound-round-"));
+  try{
+    const s=new DirectRustStream(join(directory,"unused.rs")),f=new DirectFlatSubstitution(s);
+    const hash=(value:string)=>createHash("sha256").update(value).digest("hex");
+    const sum="(input_tokens[0][0]*input_tokens[0][0])+(input_tokens[0][1]*input_tokens[0][1])";
+    let path=new FlatConditions().refine(hash(sum),()=>s.write(sum),{lower:{value:rational(4n),inclusive:true}})!;
+    path=path.refine(hash("input_tokens[0][0]"),()=>s.write("input_tokens[0][0]"),
+      {lower:{value:rational(0n),inclusive:true},upper:{value:rational(0n),inclusive:true}},true)!;
+    const square="(input_tokens[0][1]*input_tokens[0][1])";
+    const squared:FlatProducer=(p,k)=>f.input(p,()=>s.write(square),0,65504**2,k);
+    const nested:FlatProducer=(p,k)=>f.input(p,()=>s.write(`(${square}+1.0)`),1,65504**2+1,k);
+    let visits=0;
+    await f.comparison(path,squared,"<=",rational(9n),p=>
+      f.binary(p,nested,(p,k)=>f.literal(p,2,k),"/",async(_p,value)=>{
+        visits++;assert.equal(value.minimum,2.5);assert.equal(value.maximum,5);
+      }),async()=>{});
+    assert.equal(visits,1);await s.close();
+  }finally{await rm(directory,{recursive:true,force:true});}
+});
+
 test("square magnitude bounds propagate through the sign of a positive variable product",async()=>{
   const directory=await mkdtemp(join(tmpdir(),"direct-flat-magnitude-"));
   try{

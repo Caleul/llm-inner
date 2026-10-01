@@ -31,7 +31,8 @@ export class FlatConditions {
   constructor(readonly domain = new DirectBranchDomain(),
     readonly guards: readonly { key: string; emit: RustExpression;fundamentalF16?:true }[] = [],
     readonly entryGuards:readonly RustExpression[] = [],readonly nonzero:ReadonlySet<string>=new Set(),
-    readonly minimumMagnitude:ReadonlyMap<string,number>=new Map()) {}
+    readonly minimumMagnitude:ReadonlyMap<string,number>=new Map(),
+    readonly comparisonsAtFixedPoint=false) {}
   refine(key: string, emit: RustExpression, interval: Interval,fundamentalF16?:true): FlatConditions | undefined {
     let domain: DirectBranchDomain | undefined = this.domain;
     for (const side of ["lower", "upper"] as const) {
@@ -43,6 +44,8 @@ export class FlatConditions {
     if (!domain) return undefined;
     const bounds=new Map(domain.entries()).get(key);
     if(this.nonzero.has(key)&&bounds?.lower?.value.numerator===0n&&bounds.upper?.value.numerator===0n)return undefined;
+    const existing=this.guards.find(g=>g.key===key);
+    if(domain===this.domain&&existing&&(!fundamentalF16||existing.fundamentalF16))return this;
     return new FlatConditions(domain, this.guards.some(g => g.key === key) ?
       (fundamentalF16?this.guards.map(g=>g.key===key?{...g,fundamentalF16}:g):this.guards) :
       [...this.guards, {key, emit,...(fundamentalF16?{fundamentalF16}:{})}],this.entryGuards,this.nonzero,this.minimumMagnitude);
@@ -55,6 +58,7 @@ export class FlatConditions {
   requireMagnitude(key:string,value:number):FlatConditions|undefined{
     const path=this.requireNonzero(key);if(!path)return undefined;
     const magnitude=Math.max(path.minimumMagnitude.get(key)??0,value);
+    if(magnitude===path.minimumMagnitude.get(key))return path;
     return new FlatConditions(path.domain,path.guards,path.entryGuards,path.nonzero,new Map([...path.minimumMagnitude,[key,magnitude]]));
   }
 }
@@ -65,6 +69,7 @@ export class FlatConditions {
  */
 export class DirectFlatSubstitution {
   private pendingLeaf:{path:FlatConditions;label:string;input:FlatInput;key:string}|undefined;
+  private refinementDepth=0;
   constructor(readonly stream: DirectRustStream) {}
   async literal(path:FlatConditions,value:number,consume:FlatConsumer):Promise<void>{
     if(!Number.isFinite(value))throw new Error("Nonfinite literal needs explicit numerical semantics");
@@ -339,6 +344,14 @@ export class DirectFlatSubstitution {
     return hash.digest("hex");
   }
   private async refine(path:FlatConditions,input:FlatInput,interval:Interval):Promise<FlatConditions|undefined>{
+    this.refinementDepth++;
+    let narrowed:FlatConditions|undefined;
+    try{narrowed=await this.narrow(path,input,interval);}
+    finally{this.refinementDepth--;}
+    return narrowed&&this.refinementDepth===0&&!narrowed.comparisonsAtFixedPoint?
+      this.propagateComparisons(narrowed):narrowed;
+  }
+  private async narrow(path:FlatConditions,input:FlatInput,interval:Interval):Promise<FlatConditions|undefined>{
     interval={...interval};
     const inputKey=path.nonzero.size?await this.key(input.emit):undefined;
     if(inputKey&&path.nonzero.has(inputKey)){
@@ -382,8 +395,9 @@ export class DirectFlatSubstitution {
     const consistent=intersectInterval(interval,{});if(!consistent)return undefined;interval=consistent;
     if(!interval.lower&&!interval.upper)return path;
     if(input.restrict)return input.restrict(path,interval);
-    let narrowed=path.refine(await this.key(input.emit),input.emit,interval,input.fundamentalF16);
-    if(!narrowed||!input.fundamentalF16)return narrowed;
+    return path.refine(await this.key(input.emit),input.emit,interval,input.fundamentalF16);
+  }
+  private async propagateComparisons(narrowed:FlatConditions):Promise<FlatConditions|undefined>{
     // Necessary consequences are safe for contradiction proofs, even when
     // they were derived from this guard. They are NOT sufficient to delete
     // a guard as invariant: that requires the independent leaf checks below.
@@ -415,10 +429,12 @@ export class DirectFlatSubstitution {
       }
       if(!domain)return undefined;
       if(!sameOptionalInterval(previous,new Map(domain.entries()).get(bounds.key)))changed=true;
-      narrowed=new FlatConditions(domain,narrowed.guards,narrowed.entryGuards,narrowed.nonzero,narrowed.minimumMagnitude);
+      if(domain!==narrowed.domain)
+        narrowed=new FlatConditions(domain,narrowed.guards,narrowed.entryGuards,narrowed.nonzero,narrowed.minimumMagnitude);
     }
     }while(changed);
-    return narrowed;
+    return new FlatConditions(narrowed.domain,narrowed.guards,narrowed.entryGuards,
+      narrowed.nonzero,narrowed.minimumMagnitude,true);
   }
   async comparison(path:FlatConditions,producer:FlatProducer,op:"<"|"<="|">"|">=",rhs:Rational,
     truth:FlatConsumer,falsity:FlatConsumer):Promise<void>{
