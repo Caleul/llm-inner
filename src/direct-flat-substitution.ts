@@ -116,10 +116,13 @@ export class DirectFlatSubstitution {
   }
   async binary(path: FlatConditions, left: FlatProducer, right: FlatProducer,
     operator: "+" | "-" | "*" | "/", consume: FlatConsumer): Promise<void> {
-    await left(path, async (aPath, a) => right(aPath, async (bPath, b) => {
-      const refreshedA=await this.refresh(bPath,a),refreshedB=await this.refresh(bPath,b);
+    await left(path, async (aPath, originalA) => right(aPath, async (bPath, originalB) => {
+      const refreshedA=await this.refresh(bPath,originalA),refreshedB=await this.refresh(bPath,originalB);
       if(!refreshedA||!refreshedB){this.stream.eliminatedBranches++;return;}
-      a=refreshedA;b=refreshedB;
+      // Each right-hand sibling starts with the original left operand. Freeze
+      // these branch-local values so deferred source emission cannot observe
+      // a refinement from a later sibling.
+      const a=refreshedA,b=refreshedB;
       if (operator === "/" && b.minimum <= 0 && b.maximum >= 0)
         throw new Error("Division requires a domain excluding zero");
       const apply = (x: number, y: number) => operator === "+" ? x+y : operator === "-" ? x-y :
@@ -349,8 +352,12 @@ export class DirectFlatSubstitution {
     let narrowed:FlatConditions|undefined;
     try{narrowed=await this.narrow(path,input,interval);}
     finally{this.refinementDepth--;}
-    return narrowed&&this.refinementDepth===0&&!narrowed.comparisonsAtFixedPoint?
-      this.propagateComparisons(narrowed):narrowed;
+    if(!narrowed||this.refinementDepth!==0)return narrowed;
+    const stable=narrowed.comparisonsAtFixedPoint?narrowed:await this.propagateComparisons(narrowed);
+    // Settle small fundamental-input domains BEFORE the next consumer expands
+    // its dependencies. Generic scalar rule domains still use their declared
+    // dtype preimages; the final leaf checks all reached input comparisons.
+    return stable&&stable.guards.some(g=>g.fundamentalF16)?this.refineFiniteInputComparisons(stable):stable;
   }
   private async narrow(path:FlatConditions,input:FlatInput,interval:Interval):Promise<FlatConditions|undefined>{
     const refreshed=await this.refresh(path,input);if(!refreshed)return undefined;input=refreshed;
@@ -633,10 +640,14 @@ export class DirectFlatSubstitution {
               (p,v)=>consume(p,{...v,precision:"f32"}));continue;
           }
           const y0=foldCertifiedF32Sqrt(lo),y1=foldCertifiedF32Sqrt(hi),slope=(y1-y0)*density,offset=y0-slope*lo;
-          const chord=(x:number)=>Math.fround(slope*(x/scale)+offset)*rootScale;
+          // The 13-bit slope times a 24-bit F32 input, and the aligned
+          // offset, fit exactly in F64. Move both power-of-two scales into
+          // their coefficients before the one rounding addition.
+          const linearSlope=slope/rootScale,linearOffset=offset*rootScale,roundingOffset=2**52*unit;
+          const chord=(x:number)=>((linearSlope*x+linearOffset)+roundingOffset)-roundingOffset;
           const candidate:FlatInput={precision:"f32",quantum:unit,minimum:chord(branchInput.minimum),maximum:chord(branchInput.maximum),emit:async()=>{
-            await this.stream.write(`((((${rustF64(slope)}*(`);await branchInput.emit();
-            await this.stream.write(`/${rustF64(scale)})+${rustF64(offset)})/${rustF64(2**-23)}+4503599627370496.0)-4503599627370496.0)*${rustF64(unit)})`);
+            await this.stream.write(`(((${rustF64(linearSlope)}*(`);await branchInput.emit();
+            await this.stream.write(`)+${rustF64(linearOffset)})+${rustF64(roundingOffset)})-${rustF64(roundingOffset)})`);
           }};
           const original:FlatProducer=(p,k)=>k(p,branchInput),c:FlatProducer=(p,k)=>k(p,candidate);
           const literal=(x:number):FlatProducer=>(p,k)=>this.literal(p,x,k);

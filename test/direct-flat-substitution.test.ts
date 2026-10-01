@@ -16,6 +16,72 @@ import { substituteFlatProjection } from "../src/direct-flat-projection.js";
 import { substituteCpuArm64SoftmaxSum } from "../src/direct-rust-softmax.js";
 const run=promisify(execFile);
 
+test("binary substitution does not carry a refined operand into sibling paths",async()=>{
+  const directory=await mkdtemp(join(tmpdir(),"direct-flat-sibling-literals-"));
+  try{
+    const s=new DirectRustStream(join(directory,"unused.rs")),f=new DirectFlatSubstitution(s),q=2**-24;
+    const source="input_tokens[0][0]",key=createHash("sha256").update(source).digest("hex");
+    const base=new FlatConditions().refine(key,()=>s.write(source),{
+      lower:{value:exact(q),inclusive:true},upper:{value:exact(2*q),inclusive:true}},true)!;
+    const right:FlatProducer=async(p,k)=>{
+      for(const value of [q,2*q]){
+        const branch=p.refine(key,()=>s.write(source),{
+          lower:{value:exact(value),inclusive:true},upper:{value:exact(value),inclusive:true}},true)!;
+        await f.literal(branch,2*value,k);
+      }
+    };
+    const observed:number[]=[];
+    await f.binary(base,(p,k)=>f.f16Input(p,()=>s.write(source),k),right,"+",async(_p,value)=>{
+      assert.notEqual(value.literal,undefined);observed.push(value.literal!);
+    });
+    await s.close();assert.deepEqual(observed,[3*q,6*q]);
+  }finally{await rm(directory,{recursive:true,force:true});}
+});
+
+test("deferred binary arithmetic retains the operands of its original branch",async()=>{
+  const directory=await mkdtemp(join(tmpdir(),"direct-flat-sibling-source-"));
+  try{
+    const path=join(directory,"siblings.rs"),s=new DirectRustStream(path),f=new DirectFlatSubstitution(s),q=2**-24;
+    const source="input_tokens[0][0]",key=createHash("sha256").update(source).digest("hex");
+    const base=new FlatConditions().refine(key,()=>s.write(source),{
+      lower:{value:exact(q),inclusive:true},upper:{value:exact(4*q),inclusive:true}},true)!;
+    const right:FlatProducer=async(p,k)=>{
+      for(const [low,high,value] of [[q,2*q,2*q],[4*q,4*q,4*q]]){
+        const branch=p.refine(key,()=>s.write(source),{
+          lower:{value:exact(low!),inclusive:true},upper:{value:exact(high!),inclusive:true}},true)!;
+        await f.literal(branch,value!,k);
+      }
+    };
+    await s.write("fn generated(input_tokens:&[[f64;1]])->f64 {'answer:{");s.beginReducedExpression();
+    await f.binary(base,(p,k)=>f.f16Input(p,()=>s.write(source),k),right,"+",(p,v)=>f.leaf(p,"answer",v));
+    await f.finishRound();await s.write('panic!("outside declared input")}}');await s.close();
+    await appendFile(path,`fn main(){let q=${q}_f64;for (x,expected) in [(q,3.0*q),(2.0*q,4.0*q),(4.0*q,8.0*q)]{assert_eq!(generated(&[[x]]).to_bits(),expected.to_bits());}}`);
+    await run("rustc",["--edition=2021","-Awarnings",path,"-o",join(directory,"run")]);await run(join(directory,"run"));
+  }finally{await rm(directory,{recursive:true,force:true});}
+});
+
+test("joint finite-input contradictions stop the next consumer before dependency expansion",async()=>{
+  const directory=await mkdtemp(join(tmpdir(),"direct-flat-finite-consumer-"));
+  try{
+    const s=new DirectRustStream(join(directory,"unused.rs")),f=new DirectFlatSubstitution(s),q=2**-24;
+    const hash=(source:string)=>createHash("sha256").update(source).digest("hex");
+    let path=new FlatConditions();
+    for(const c of [0,1]){
+      const source=`input_tokens[0][${c}]`;
+      path=path.refine(hash(source),()=>s.write(source),{
+        lower:{value:exact(q),inclusive:true},upper:{value:exact(2*q),inclusive:true}},true)!;
+    }
+    for(const [source,value] of [["(input_tokens[0][0]+input_tokens[0][1])",2*q],
+      ["(input_tokens[0][0]*input_tokens[0][1])",2*q*q]] as const){
+      path=path.refine(hash(source),()=>s.write(source),{
+        lower:{value:exact(value),inclusive:true},upper:{value:exact(value),inclusive:true}})!;
+    }
+    const forbidden=async()=>{throw new Error("An impossible joint comparison reached its consumer");};
+    await f.comparison(path,(p,k)=>f.f16Input(p,()=>s.write("input_tokens[0][0]"),k),">=",exact(q),forbidden,forbidden);
+    await s.close();
+  }finally{await rm(directory,{recursive:true,force:true});}
+});
+
 test("finite input substitution proves joint comparison contradictions without computing output tables",async()=>{
   const directory=await mkdtemp(join(tmpdir(),"direct-flat-finite-conditions-"));
   try{

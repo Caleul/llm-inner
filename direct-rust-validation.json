@@ -612,7 +612,9 @@
         "normalization square-sum receives the current already-substituted numerator operand; emitted arithmetic remains duplicated and later path restrictions refresh it",
         "initial hidden value reduces to embedding + positive zero when progressive bounds prove signed-zero attention and +0 MLP; both residual additions retain exact zero-sign semantics",
         "exact power-of-two scale propagation removes divisions and multiplications from rounding leaves; (x/unit + 2^52 - 2^52)*unit becomes (x + 2^52*unit) - 2^52*unit under proved exponent bounds",
-        "small joint F16 domains prove comparisons by streamed literal substitution; impossible paths disappear and feasible input hulls propagate to a fixed point; both signs of zero are included and no output table is constructed"
+        "small joint F16 domains prove comparisons by streamed literal substitution; impossible paths disappear and feasible input hulls propagate to a fixed point; both signs of zero are included and no output table is constructed",
+        "joint finite-input comparison feasibility runs before the next consumer, not only at final leaves",
+        "root chord scales are incorporated into literal affine coefficients before its rounding offset"
       ],
       "runtimeAdmission": "complete emitted expression required; drafts are not compiled",
       "fullChosenLogitEmitted": false,
@@ -620,15 +622,15 @@
       "exactFinalParity": false,
       "fullModelRustCompilationAttempts": 0,
       "generation": {
-        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v34.rs --validate",
+        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v36.rs --validate",
         "status": "running",
-        "progress": "/private/tmp/llm-inner-flat-embeddings-v34.rs.progress.json"
+        "progress": "/private/tmp/llm-inner-flat-embeddings-v36.rs.progress.json"
       },
       "ruleTests": {
-        "passed": 51,
+        "passed": 54,
         "command": "node --test dist/test/direct-source-bounds.test.js dist/test/direct-flat-substitution.test.js dist/test/direct-round-preimage.test.js dist/test/direct-rust-stream.test.js dist/test/direct-flat-zero-mlp.test.js dist/test/direct-finite-model-proof.test.js",
         "provesCompleteModel": false,
-        "lastRunSeconds": 56.299408167
+        "lastRunSeconds": 52.61493925
       },
       "finalValidationHarness": "helpers/validate_direct_flat_rust.py; compares final chosen logit bits for every position of varied embedding matrices and lengths; not yet executed",
       "remaining": "finish every surviving path of the first arbitrary dimension, compile the complete artifact and execute final-value PyTorch differential; correct the first numerical divergence before other dimensions",
@@ -638,15 +640,16 @@
           "status": "pending",
           "dimension": 2,
           "position": 0,
-          "leaves": 2907,
-          "bytes": 176979735,
-          "eliminatedBranches": 736731,
-          "inspectedExpressions": 4766640,
-          "elapsedMilliseconds": 1259736,
+          "leaves": 74,
+          "candidateLeaves": 75,
+          "bytes": 929305,
+          "eliminatedBranches": 288314,
+          "inspectedExpressions": 3839648,
+          "elapsedMilliseconds": 708144,
           "finalParity": false,
           "rustCompilationAdmitted": false
         },
-        "reason": "Interrupted after joint finite-F16 comparison feasibility and zero-sign tests passed. New proof substitutes literal inputs into fully expanded conditions only, never evaluates forward stages or tabulates logits."
+        "reason": "Interrupted after a reproduced sibling-path operand leak; old drafts are not trusted for completeness or equivalence and were never compiled as the final model."
       },
       "rsqrtPolicyCheck": {
         "torch": "2.12.1 CPU arm64",
@@ -729,6 +732,24 @@
       "progressCounters": {
         "leaves": "actual emitted branches",
         "candidateLeaves": "visited complete substitution candidates, including infeasible and merged paths"
+      },
+      "rootScaleFollowup": {
+        "command": "node --test --test-name-pattern='root|rounding|rounded' dist/test/direct-flat-substitution.test.js dist/test/direct-round-preimage.test.js dist/test/direct-rust-stream.test.js",
+        "passed": 46,
+        "seconds": 52.8611655,
+        "provesCompleteModel": false
+      },
+      "correctedSiblingLeak": {
+        "reproducedBeforeFix": true,
+        "inputQuantum": 5.960464477539063e-8,
+        "expectedSecondResult": 3.5762786865234375e-7,
+        "observedBeforeFix": 2.980232238769531e-7,
+        "correction": "Refresh the original left operand independently for each right sibling; freeze branch-local operands used by deferred source emission",
+        "regressions": [
+          "binary substitution does not carry a refined operand into sibling paths",
+          "deferred binary arithmetic retains the operands of its original branch"
+        ],
+        "completeModelParity": false
       }
     }
   }
