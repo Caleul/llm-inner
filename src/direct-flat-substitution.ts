@@ -494,11 +494,14 @@ export class DirectFlatSubstitution {
         const branchInput=await this.refresh(narrowed,input);
         if(!branchInput){this.stream.eliminatedBranches++;return;}
         const unit = 2**(Math.max(first,exponent)-bits);
-        const unit32 = 2**(exponent-23), ratio = unit/unit32;
+        const unit32 = 2**(exponent-23),offset=2**52*unit,offset32=2**52*unit32;
+        // Exact power-of-two scaling commutes with binary64 rounding in
+        // these proved finite exponent bands. Move the scale into the
+        // rounding offset; retain both additions, including their rounding.
         const roundValue = (x:number) => {
           let y = negative ? -x : x;
-          y = composed ? (((y/unit32+2**52)-2**52)/ratio) : y/unit;
-          y = ((y+2**52)-2**52)*unit;
+          if(composed)y=(y+offset32)-offset32;
+          y=(y+offset)-offset;
           return negative ? -y : y;
         };
         const from = Math.max(branchInput.minimum,minimum), to = Math.min(branchInput.maximum,maximum);
@@ -513,16 +516,18 @@ export class DirectFlatSubstitution {
         }
         await consume(narrowed,{minimum:roundedMinimum,maximum:roundedMaximum,precision:kind,
           quantum:Math.max(branchInput.quantum??unit,unit),restrict,emit:async()=>{
-          await this.stream.write(negative ? "-(((" : "(((");
+          if(negative)await this.stream.write("-(");
+          await this.stream.write("((");
           if(composed){
             await this.stream.write("((");if(negative)await this.stream.write("-");
             await this.stream.write("(");await branchInput.emit();await this.stream.write(")");
-            await this.stream.write(`/${rustF64(unit32)}+4503599627370496.0)-4503599627370496.0)/${rustF64(ratio)}`);
+            await this.stream.write(`+${rustF64(offset32)})-${rustF64(offset32)})`);
           }else{
             if(negative)await this.stream.write("-");await this.stream.write("(");await branchInput.emit();
-            await this.stream.write(`)/${rustF64(unit)}`);
+            await this.stream.write(")");
           }
-          await this.stream.write(`+4503599627370496.0)-4503599627370496.0)*${rustF64(unit)})`);
+          await this.stream.write(`+${rustF64(offset)})-${rustF64(offset)})`);
+          if(negative)await this.stream.write(")");
         }});
       };
       // Subnormals and zeros are included in the signed first bands. Returning
