@@ -622,20 +622,20 @@
       "exactFinalParity": false,
       "fullModelRustCompilationAttempts": 0,
       "generation": {
-        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v36.rs --validate",
+        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v37.rs --validate",
         "status": "running",
-        "progress": "/private/tmp/llm-inner-flat-embeddings-v36.rs.progress.json",
-        "compilerCommit": "00675b1",
+        "progress": "/private/tmp/llm-inner-flat-embeddings-v37.rs.progress.json",
+        "compilerCommit": "872761e",
         "latestObservedProgress": {
           "status": "generating",
           "dimension": 2,
           "position": 0,
-          "leaves": 9580,
-          "candidateLeaves": 9590,
-          "bytes": 999027002,
-          "eliminatedBranches": 361111,
-          "inspectedExpressions": 4835234,
-          "elapsedMilliseconds": 4476741,
+          "leaves": 444,
+          "candidateLeaves": 445,
+          "bytes": 1685982,
+          "eliminatedBranches": 107677,
+          "inspectedExpressions": 450214,
+          "elapsedMilliseconds": 151919,
           "finalParity": false,
           "rustCompilationAdmitted": false
         }
@@ -778,7 +778,26 @@
         "executedFiniteF16Values": 63488,
         "bitDifferences": 0,
         "completeModelParity": false,
-        "runningGenerationIncludesThisChange": false
+        "runningGenerationIncludesThisChange": true
+      },
+      "previousRunningGeneration": {
+        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v36.rs --validate",
+        "status": "running",
+        "progress": "/private/tmp/llm-inner-flat-embeddings-v36.rs.progress.json",
+        "compilerCommit": "00675b1",
+        "latestObservedProgress": {
+          "status": "generating",
+          "dimension": 2,
+          "position": 0,
+          "leaves": 9580,
+          "candidateLeaves": 9590,
+          "bytes": 999027002,
+          "eliminatedBranches": 361111,
+          "inspectedExpressions": 4835234,
+          "elapsedMilliseconds": 4476741,
+          "finalParity": false,
+          "rustCompilationAdmitted": false
+        }
       }
     }
   }
