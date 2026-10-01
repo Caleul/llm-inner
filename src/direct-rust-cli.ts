@@ -2,10 +2,33 @@ import { writeDirectFlatRustModel } from "./direct-flat-rust-model.js";
 import { appendFile,readFile,writeFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-const [directory,python,rawDimension,path,validation]=process.argv.slice(2);
-if(!directory||!python||!rawDimension||!path||(validation&&validation!=="--validate"))
-  throw new Error("Usage: direct-rust-cli CHECKPOINT PYTHON DIMENSION OUTPUT.rs [--validate]");
-await writeDirectFlatRustModel(directory,python,Number(rawDimension),path);
+import { writeParallelDirectFlatRustModel } from "./direct-parallel-rust-model.js";
+import type { DirectPoolOptions } from "./direct-compilation-pool.js";
+const [directory,python,rawDimension,path,...flags]=process.argv.slice(2);
+if(!directory||!python||!rawDimension||!path)
+  throw new Error("Usage: direct-rust-cli CHECKPOINT PYTHON DIMENSION OUTPUT.rs [--validate] [--workers N] [--partitions N] [--memory-mib N] [--weight-cache-mib N] [--max-output-mib N] [--serial]");
+let validation=false,serial=false;
+const options:DirectPoolOptions={};
+const numericFlags:Record<string,keyof DirectPoolOptions>={"--workers":"workers","--partitions":"partitions",
+  "--memory-mib":"memoryMiB","--heap-mib":"heapMiB","--weight-cache-mib":"weightCacheMiB",
+  "--partition-coordinate":"partitionCoordinate","--max-output-mib":"maxOutputMiB"};
+for(let i=0;i<flags.length;i++){
+  const flag=flags[i]!;
+  if(flag==="--validate")validation=true;
+  else if(flag==="--serial")serial=true;
+  else{
+    const key=numericFlags[flag],raw=flags[++i];
+    if(!key||raw===undefined||!/^\d+$/.test(raw))throw new Error(`Invalid compiler option: ${flag}`);
+    (options as Record<string,unknown>)[key]=Number(raw);
+  }
+}
+if(serial){
+  if(options.workers!==undefined||options.partitions!==undefined||options.partitionCoordinate!==undefined||
+    options.memoryMiB!==undefined||options.heapMiB!==undefined)throw new Error("Pool options cannot be used with --serial");
+  await writeDirectFlatRustModel(directory,python,Number(rawDimension),path,{
+    ...(options.weightCacheMiB!==undefined?{weightCacheBytes:options.weightCacheMiB*1024*1024}:{}),
+    ...(options.maxOutputMiB!==undefined?{maxOutputBytes:options.maxOutputMiB*1024*1024}:{})});
+}else await writeParallelDirectFlatRustModel(directory,python,Number(rawDimension),path,options);
 const metadata=JSON.parse(await readFile(path+".reduction.json","utf8"));
 if(!Number.isSafeInteger(metadata.inputWidth)||metadata.inputWidth<1)throw new Error("Missing discovered embedding width");
 await appendFile(path,`\nfn main(){let tokens:Vec<[f64;${metadata.inputWidth}]>=std::env::args().skip(1).map(|row|row.split(',').map(|x|x.parse().expect("F16 embedding value widened to f64")).collect::<Vec<f64>>().try_into().expect("Discovered embedding width")).collect();for t in 0..tokens.len(){println!("{}",compiled_dimension(&tokens,t).to_bits());}}\n`);

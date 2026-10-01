@@ -21,9 +21,20 @@ export class DirectRustStream {
   private fragments:string[]=[];
   private bufferedBytes=0;
   outputWrites=0;
+  private byteLimit:number|undefined;
+  private sharedBytes:BigInt64Array|undefined;
+  setSharedByteLimit(counter:SharedArrayBuffer|undefined,limit:number|undefined):void{
+    this.setByteLimit(limit);
+    if(counter){if(counter.byteLength!==8||limit===undefined)throw new RangeError("Invalid shared output budget");this.sharedBytes=new BigInt64Array(counter);}
+  }
+  setByteLimit(limit:number|undefined):void{
+    if(limit!==undefined&&(!Number.isSafeInteger(limit)||limit<1))throw new RangeError("Invalid output byte limit");
+    this.byteLimit=limit;
+  }
   constructor(path: string, private readonly bufferLimit=65536) {
     if(!Number.isSafeInteger(bufferLimit)||bufferLimit<0)throw new RangeError("Invalid stream buffer limit");
     this.output = createWriteStream(path, { encoding: "utf8" });
+    this.output.on("error",error=>{this.cancellation=error;});
   }
   write(source: string): Promise<void> {
     try {
@@ -35,7 +46,11 @@ export class DirectRustStream {
     // obligations in Rust's single-function type checker. Authored strings
     // contain no floating literals; checkpoint data never supplies source text.
     source=source.replace(/(?<![A-Za-z0-9_])(?:\d+\.\d+(?:[eE][+-]?\d+)?|\d+[eE][+-]?\d+)(?![A-Za-z0-9_.])/g,"$&_f64");
-    const size=Buffer.byteLength(source);this.bytes += size;
+    const size=Buffer.byteLength(source);
+    if(this.byteLimit!==undefined&&this.bytes+size>this.byteLimit)throw new Error("Compilation output byte limit exceeded");
+    if(this.sharedBytes&&Atomics.add(this.sharedBytes,0,BigInt(size))+BigInt(size)>BigInt(this.byteLimit!))
+      throw new Error("Compilation output byte limit exceeded");
+    this.bytes += size;
     // Buffer source bytes only: never retain calculations, weights or values.
     // The bound applies between sequential writes, including oversized chunks.
     if(this.bufferLimit===0){this.outputWrites++;return this.output.write(source)?completedWrite:once(this.output,"drain").then(()=>{});}

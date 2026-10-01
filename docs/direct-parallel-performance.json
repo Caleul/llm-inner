@@ -1,0 +1,160 @@
+{
+  "baselineCommit": "133baf4",
+  "scope": "Bounded real-checkpoint compilation diagnostics; no nonzero final-model parity claim",
+  "singlePrefix": {
+    "before": {
+      "scope": "fixed-work model compilation prefix, not final parity",
+      "target": 450000,
+      "status": "pending",
+      "dimension": 2,
+      "position": 0,
+      "leaves": 336,
+      "candidateLeaves": 337,
+      "bytes": 450015,
+      "eliminatedBranches": 77096,
+      "inspectedExpressions": 170284,
+      "elapsedMilliseconds": 23440,
+      "finalParity": false,
+      "rustCompilationAdmitted": false
+    },
+    "after": {
+      "scope": "fixed-work model compilation prefix, not final parity",
+      "target": 450000,
+      "status": "pending",
+      "dimension": 2,
+      "position": 0,
+      "leaves": 336,
+      "candidateLeaves": 337,
+      "bytes": 450015,
+      "eliminatedBranches": 77096,
+      "inspectedExpressions": 170284,
+      "elapsedMilliseconds": 13243,
+      "finalParity": false,
+      "rustCompilationAdmitted": false,
+      "weightReads": 11,
+      "weightPageHits": 72896,
+      "weightPageBytes": 72
+    },
+    "persistedCommonBytes": 393171,
+    "commonSha256": "b47e29bafb9770789b73d4649b670a3143f4c847344ab08f542c52fb68d7054b",
+    "byteIdentical": true,
+    "timeReductionPercent": 43.50255972696246
+  },
+  "workerPrefixes": {
+    "scope": "Independent identical real-checkpoint prefixes; not partitioning or final-model parity",
+    "diagnosticOnly": true,
+    "completeModelParity": false,
+    "target": 450000,
+    "jobCount": 4,
+    "byteIdentical": true,
+    "runs": [
+      {
+        "workers": 1,
+        "durationMs": 56068.275667,
+        "results": [
+          {
+            "id": 0,
+            "bytes": 393150,
+            "sha256": "d82bd000c850dcd96400dfa3270b110cdb674e501a65326ea7a1cfddce9685a2",
+            "leaves": 337,
+            "candidateLeaves": 338,
+            "eliminatedBranches": 77304,
+            "inspectedExpressions": 170519,
+            "weightReads": 9,
+            "weightPageHits": 73127
+          },
+          {
+            "id": 1,
+            "bytes": 393150,
+            "sha256": "d82bd000c850dcd96400dfa3270b110cdb674e501a65326ea7a1cfddce9685a2",
+            "leaves": 337,
+            "candidateLeaves": 338,
+            "eliminatedBranches": 77304,
+            "inspectedExpressions": 170519,
+            "weightReads": 9,
+            "weightPageHits": 73127
+          },
+          {
+            "id": 2,
+            "bytes": 393150,
+            "sha256": "d82bd000c850dcd96400dfa3270b110cdb674e501a65326ea7a1cfddce9685a2",
+            "leaves": 337,
+            "candidateLeaves": 338,
+            "eliminatedBranches": 77304,
+            "inspectedExpressions": 170519,
+            "weightReads": 9,
+            "weightPageHits": 73127
+          },
+          {
+            "id": 3,
+            "bytes": 393150,
+            "sha256": "d82bd000c850dcd96400dfa3270b110cdb674e501a65326ea7a1cfddce9685a2",
+            "leaves": 337,
+            "candidateLeaves": 338,
+            "eliminatedBranches": 77304,
+            "inspectedExpressions": 170519,
+            "weightReads": 9,
+            "weightPageHits": 73127
+          }
+        ]
+      },
+      {
+        "workers": 4,
+        "durationMs": 14678.876250000001,
+        "results": [
+          {
+            "id": 0,
+            "bytes": 393150,
+            "sha256": "d82bd000c850dcd96400dfa3270b110cdb674e501a65326ea7a1cfddce9685a2",
+            "leaves": 337,
+            "candidateLeaves": 338,
+            "eliminatedBranches": 77304,
+            "inspectedExpressions": 170519,
+            "weightReads": 9,
+            "weightPageHits": 73127
+          },
+          {
+            "id": 1,
+            "bytes": 393150,
+            "sha256": "d82bd000c850dcd96400dfa3270b110cdb674e501a65326ea7a1cfddce9685a2",
+            "leaves": 337,
+            "candidateLeaves": 338,
+            "eliminatedBranches": 77304,
+            "inspectedExpressions": 170519,
+            "weightReads": 9,
+            "weightPageHits": 73127
+          },
+          {
+            "id": 2,
+            "bytes": 393150,
+            "sha256": "d82bd000c850dcd96400dfa3270b110cdb674e501a65326ea7a1cfddce9685a2",
+            "leaves": 337,
+            "candidateLeaves": 338,
+            "eliminatedBranches": 77304,
+            "inspectedExpressions": 170519,
+            "weightReads": 9,
+            "weightPageHits": 73127
+          },
+          {
+            "id": 3,
+            "bytes": 393150,
+            "sha256": "d82bd000c850dcd96400dfa3270b110cdb674e501a65326ea7a1cfddce9685a2",
+            "leaves": 337,
+            "candidateLeaves": 338,
+            "eliminatedBranches": 77304,
+            "inspectedExpressions": 170519,
+            "weightReads": 9,
+            "weightPageHits": 73127
+          }
+        ]
+      }
+    ]
+  },
+  "workerSpeedup": 3.819657221171818,
+  "limitations": [
+    "Existing v39 generator stayed active.",
+    "One before/after prefix pair; four jobs per worker experiment.",
+    "Independent equal prefixes do not measure partition balance or complete-model compilation.",
+    "Measurements do not estimate rustc scaling."
+  ]
+}

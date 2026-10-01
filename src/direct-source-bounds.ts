@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { directSourceIdentity } from "./direct-source-identity.js";
 
 export interface SourceBounds { minimum:number;maximum:number;key:string;opaque?:boolean;positiveZero?:true }
 /** Streaming arithmetic reduction over the emitted scalar source. Only an
@@ -107,4 +107,4 @@ export class DirectSourceBounds {
 function constant(value:number):SourceBounds{return {minimum:value,maximum:value,
   key:key("number",Object.is(value,-0)?"-0":String(value)),...(!Object.is(value,-0)?{positiveZero:true as const}:{})};}
 function precedence(op:string):number{return op==="neg"||op==="pos"?3:op==="*"||op==="/"?2:1;}
-function key(...values:string[]):string{return createHash("sha256").update(values.join("|")).digest("hex");}
+function key(...values:string[]):string{return directSourceIdentity(...values);}

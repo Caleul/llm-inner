@@ -1,7 +1,9 @@
+import { withDirectCompilationLease } from "./direct-compilation-lease.js";
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { SafetensorsCatalogReader } from "./safetensors.js";
-import { readDirectF16Literal } from "./direct-weight-literal.js";
+import { DirectWeightPages } from "./direct-weight-pages.js";
+import { directCompilationUnits, directUnitConditions, directRustHeader, directRustFooter, validateDirectUnit, type DirectCompilationUnit } from "./direct-compilation-units.js";
 import { discoverDirectOutput } from "./direct-output-row.js";
 import { discoverDirectMlp, type Projection } from "./direct-mlp-output.js";
 import { discoverDirectAttention } from "./direct-attention-output.js";
@@ -22,23 +24,53 @@ import { decodeIeeeF16ToF32 } from "./utils.js";
  * Runtime input is a variable-length matrix of finite F16 embedding values,
  * exactly widened to f64. Position is a parameter, not a validation prompt.
  */
-export async function writeDirectFlatRustModel(directory:string,python:string,dimension:number,path:string):Promise<void>{
+export interface DirectModelDiscovery {
+  output: Awaited<ReturnType<typeof discoverDirectOutput>>;
+  /** Checkpoint-wide proof facts only; no per-coordinate bounds or values. */
+  proof?: {scoreBounds:number[]};
+  layers: {mlp:Awaited<ReturnType<typeof discoverDirectMlp>>;attention:Awaited<ReturnType<typeof discoverDirectAttention>>}[];
+}
+export interface DirectCompileResources { weightCacheBytes?:number; maxOutputBytes?:number; outputCounter?:SharedArrayBuffer }
+export async function discoverDirectModel(directory:string,python:string):Promise<DirectModelDiscovery>{
   const output=await discoverDirectOutput(directory,python);
   if(output.torch.split("+")[0]!=="2.12.1"||process.arch!=="arm64")
     throw new Error("Direct numerical policy is defined for PyTorch 2.12.1 CPU arm64");
-  if(!Number.isSafeInteger(dimension)||dimension<0||dimension>=output.shape[0])throw new RangeError("Invalid logit dimension");
-  const layers:{mlp:Awaited<ReturnType<typeof discoverDirectMlp>>;attention:Awaited<ReturnType<typeof discoverDirectAttention>>}[]=[];
+  const layers:DirectModelDiscovery["layers"]=[];
   for(let index=0;index<output.decoderLayers.length;index++)layers.push({
     mlp:await discoverDirectMlp(directory,python,index),attention:await discoverDirectAttention(directory,python,index)});
+  return {output,layers};
+}
+export async function writeDirectFlatRustModel(directory:string,python:string,dimension:number,path:string,
+  resources:DirectCompileResources={}):Promise<void>{
+  return withDirectCompilationLease(path,async()=>
+    compileDirectFlatRust(directory,dimension,path,await discoverDirectModel(directory,python),resources));
+}
+/** Internal fragments are never admitted as standalone models. */
+export async function writeDirectFlatRustUnit(directory:string,dimension:number,path:string,
+  discovered:DirectModelDiscovery,unit:DirectCompilationUnit,resources:DirectCompileResources={}):Promise<void>{
+  return compileDirectFlatRust(directory,dimension,path,discovered,resources,unit);
+}
+async function compileDirectFlatRust(directory:string,dimension:number,path:string,
+  {output,layers,proof}:DirectModelDiscovery,resources:DirectCompileResources,unit?:DirectCompilationUnit):Promise<void>{
+  if(output.torch.split("+")[0]!=="2.12.1"||process.arch!=="arm64")
+    throw new Error("Direct numerical policy is defined for PyTorch 2.12.1 CPU arm64");
+  if(!Number.isSafeInteger(dimension)||dimension<0||dimension>=output.shape[0])throw new RangeError("Invalid logit dimension");
+  if(unit)validateDirectUnit(unit,output.maxPosition,output.shape[1]);
+  if(resources.maxOutputBytes!==undefined&&(!Number.isSafeInteger(resources.maxOutputBytes)||resources.maxOutputBytes<1))
+    throw new RangeError("Invalid output byte limit");
+  if(resources.weightCacheBytes!==undefined&&(!Number.isSafeInteger(resources.weightCacheBytes)||resources.weightCacheBytes<0))
+    throw new RangeError("Invalid weight page budget");
   const reader=new SafetensorsCatalogReader(directory),draft=path+".draft";
   await mkdir(dirname(path),{recursive:true});
   const s=new DirectRustStream(draft),f=new DirectFlatSubstitution(s),width=output.shape[1];
+  s.setSharedByteLimit(resources.outputCounter,resources.maxOutputBytes);
+  const pages=new DirectWeightPages(reader,resources.weightCacheBytes);
   const interrupt=()=>s.cancel("Generation interrupted; draft is not an executable artifact");
   process.on("SIGINT",interrupt);
   const started=Date.now();let leaves=0,position=0,progressWrite=Promise.resolve(),status="generating";
   const snapshot=()=>JSON.stringify({status,dimension,position,leaves:f.emittedLeaves,candidateLeaves:leaves,bytes:s.bytes,
     eliminatedBranches:s.eliminatedBranches,inspectedExpressions:s.inspectedExpressions,
-    elapsedMilliseconds:Date.now()-started,finalParity:false,rustCompilationAdmitted:status==="emitted"},null,2)+"\n";
+    elapsedMilliseconds:Date.now()-started,finalParity:false,rustCompilationAdmitted:!unit&&status==="emitted",weightReads:pages.reads,weightPageHits:pages.hits,weightPageBytes:pages.retainedBytes},null,2)+"\n";
   const progress=setInterval(()=>{
     progressWrite=progressWrite.then(()=>writeFile(path+".progress.json",snapshot()));
   },5000);progress.unref();
@@ -47,7 +79,7 @@ export async function writeDirectFlatRustModel(directory:string,python:string,di
     const weight=async(name:string,index:number)=>{
       const tensor=catalog.tensors.get(name);
       if(!tensor||tensor.storageDtype!=="F16")throw new Error(`Unsupported weight dtype: ${name}`);
-      const value=Number(await readDirectF16Literal(reader,tensor,index));
+      const value=await pages.read(tensor,index);
       if(!Number.isFinite(value))throw new Error(`Nonfinite checkpoint weight: ${name}[${index}]`);
       return value;
     };
@@ -138,35 +170,9 @@ export async function writeDirectFlatRustModel(directory:string,python:string,di
         binary(rotated(layer,"q",head,c,query),rotated(layer,"k",head,c,key),"*"),k);
       return round(binary(dot,literal(Math.fround(a.scaling)),"*"),"f16");
     };
-    // Confirm masked cells underflow to zero using checkpoint-derived bounds.
-    const scoreBounds:number[]=[];
-    for(const layer of layers){
-      const a=layer.attention.attention;let gamma=0;
-      for(let c=0;c<width;c++)gamma=Math.max(gamma,Math.abs(await weight(layer.mlp.normalizations[0]!.weight,c)));
-      const projectionBound=async(role:"q"|"k")=>{
-        const projection=a.projections[role];let maximum=0;
-        for(let row=0;row<projection.shape[0];row++){
-          let squared=0,absolute=0;
-          for(let c=0;c<width;c++){const w=await weight(projection.weight,row*width+c);squared+=w*w;absolute+=Math.abs(w);}
-          maximum=Math.max(maximum,(2*Math.sqrt(width)*gamma*Math.sqrt(squared)+absolute*2**-23)*1.125+2**-24);
-        }
-        return maximum;
-      };
-      const q=await projectionBound("q"),k=await projectionBound("k");
-      const rotatedQ=2*q*1.01+2**-23,rotatedK=2*k*1.01+2**-23;
-      const bound=(a.headDim*rotatedQ*rotatedK*1.125+2**-24)*Math.abs(a.scaling)*1.01+2**-24;
-      if(!(a.headDim<=1000000&&bound<16&&2*Math.sqrt(width)*gamma<65504&&
-        rotatedQ<65504&&rotatedK<65504))throw new Error("Finite causal-mask elimination not proved");
-      scoreBounds.push(bound);
-    }
-    function* finiteLayerMetadata(){for(const layer of layers){
-      const a=layer.attention.attention,n=layer.mlp.normalizations,p=layer.mlp.mlp;
-      yield {pre:n[0]!,post:n[1]!,heads:a.heads,kvHeads:a.kvHeads,headDim:a.headDim,ropeTheta:a.ropeTheta,
-        v:a.projections.v,o:a.projections.o,gate:p.gate,up:p.up,down:p.down};
-    }}
-    allNormalizationInputsFinite=await proveFiniteNormalizationInputs(width,output.maxPosition,finiteLayerMetadata(),
-      {weight:output.finalNormWeight,epsilon:output.finalNormEpsilon},weight,scoreBounds.length===layers.length);
-    if(!allNormalizationInputsFinite)throw new Error("Finite normalization inputs are not proved for this checkpoint and embedding domain");
+    const scoreBounds=proof?.scoreBounds??await proveDirectNumerics(output,layers,width,weight);
+    if(scoreBounds.length!==layers.length)throw new Error("Invalid numerical proof certificate");
+    allNormalizationInputsFinite=true;
     let fullVectorSoftmax=false;
     const context=(layer:number,head:number,coordinate:number,query:number):FlatProducer=>{
       const a=layers[layer]!.attention.attention;
@@ -220,28 +226,21 @@ export async function writeDirectFlatRustModel(directory:string,python:string,di
         return expanded(path,k);
       };
     };
-    await s.write(`// Input: finite F16 embedding matrix, widened exactly to f64.\n// Policy: PyTorch CPU arm64; scalar substitution, flat path conditions.\n#![recursion_limit="65536"]\npub fn compiled_dimension(input_tokens:&[[f64;${width}]],t:usize)->f64 {let n=input_tokens.len();assert!(n>0 && n<=${output.maxPosition} && t<n);'result:{`);
+    if(!unit)await s.write(directRustHeader(width,output.maxPosition));
     s.beginReducedExpression();
-    for(position=0;position<output.maxPosition;position++){
-      const currentPosition=position;
-      // For <=2 active exponentials both horizontal orders coincide exactly.
-      // Three active values require a length split: n=3 versus n>=4, even
-      // though all subsequent causal-mask exponentials are positive zero.
-      const variants=position===2&&output.maxPosition>=4?[false,true]:[position>=3];
-      for(const fullVector of variants){
-      fullVectorSoftmax=fullVector;
-      const guards=[()=>s.write(`t==${currentPosition}`)];
-      if(variants.length>1)guards.push(()=>s.write(fullVector?"n>=4":"n==3"));
-      const pathConditions=new FlatConditions(undefined,[],guards);
+    for(const current of unit?[unit]:directCompilationUnits(output.maxPosition,width)){
+      position=current.position;fullVectorSoftmax=current.fullVectorSoftmax;
+      const pathConditions=directUnitConditions(current,output.maxPosition,width,s);
       const result=linear({weight:output.weight,shape:output.shape},dimension,c=>
         norm(output.finalNormWeight,output.finalNormEpsilon,c,column=>hidden(layers.length-1,column,position)));
       await result(pathConditions,async(p,value:FlatInput)=>{await f.leaf(p,"result",value);leaves++;});
       await f.finishRound();
-      }
     }
-    await s.write('panic!("outside declared embedding domain")}}\n');await s.close();await rename(draft,path);
-    status="emitted";
-    await writeFile(path+".reduction.json",JSON.stringify({status:"emitted",dimension,inputWidth:width,
+    if(!unit)await s.write(directRustFooter);
+    await s.close();await rename(draft,path);
+    status=unit?"fragment":"emitted";
+    await writeFile(path+".reduction.json",JSON.stringify({status,dimension,inputWidth:width,context:output.maxPosition,unit,
+      weightReads:pages.reads,weightPageHits:pages.hits,weightPageBytes:pages.retainedBytes,
       leaves:f.emittedLeaves,candidateLeaves:leaves,bytes:s.bytes,
       numericalPolicy:{torch:output.torch,backend:"cpu-arm64",weights:"finite-f16",
         rounding:"nearest-even F32/F16; ordered source reductions"},
@@ -252,6 +251,54 @@ export async function writeDirectFlatRustModel(directory:string,python:string,di
       bytes:s.bytes,reason:error instanceof Error?error.message:String(error),rustCompilationAdmitted:false},null,2)+"\n");throw error;
   }finally{
     process.off("SIGINT",interrupt);clearInterval(progress);await progressWrite;
-    await writeFile(path+".progress.json",snapshot());await reader.close();
+    await writeFile(path+".progress.json",snapshot());pages.clear();await reader.close();
   }
+}
+
+async function proveDirectNumerics(output:DirectModelDiscovery["output"],layers:DirectModelDiscovery["layers"],
+  width:number,weight:(name:string,index:number)=>Promise<number>):Promise<number[]>{
+    // Confirm masked cells underflow to zero using checkpoint-derived bounds.
+    const scoreBounds:number[]=[];
+    for(const layer of layers){
+      const a=layer.attention.attention;let gamma=0;
+      for(let c=0;c<width;c++)gamma=Math.max(gamma,Math.abs(await weight(layer.mlp.normalizations[0]!.weight,c)));
+      const projectionBound=async(role:"q"|"k")=>{
+        const projection=a.projections[role];let maximum=0;
+        for(let row=0;row<projection.shape[0];row++){
+          let squared=0,absolute=0;
+          for(let c=0;c<width;c++){const w=await weight(projection.weight,row*width+c);squared+=w*w;absolute+=Math.abs(w);}
+          maximum=Math.max(maximum,(2*Math.sqrt(width)*gamma*Math.sqrt(squared)+absolute*2**-23)*1.125+2**-24);
+        }
+        return maximum;
+      };
+      const q=await projectionBound("q"),k=await projectionBound("k");
+      const rotatedQ=2*q*1.01+2**-23,rotatedK=2*k*1.01+2**-23;
+      const bound=(a.headDim*rotatedQ*rotatedK*1.125+2**-24)*Math.abs(a.scaling)*1.01+2**-24;
+      if(!(a.headDim<=1000000&&bound<16&&2*Math.sqrt(width)*gamma<65504&&
+        rotatedQ<65504&&rotatedK<65504))throw new Error("Finite causal-mask elimination not proved");
+      scoreBounds.push(bound);
+    }
+    function* finiteLayerMetadata(){for(const layer of layers){
+      const a=layer.attention.attention,n=layer.mlp.normalizations,p=layer.mlp.mlp;
+      yield {pre:n[0]!,post:n[1]!,heads:a.heads,kvHeads:a.kvHeads,headDim:a.headDim,ropeTheta:a.ropeTheta,
+        v:a.projections.v,o:a.projections.o,gate:p.gate,up:p.up,down:p.down};
+    }}
+    const finite=await proveFiniteNormalizationInputs(width,output.maxPosition,finiteLayerMetadata(),
+      {weight:output.finalNormWeight,epsilon:output.finalNormEpsilon},weight,scoreBounds.length===layers.length);
+    if(!finite)throw new Error("Finite normalization inputs are not proved for this checkpoint and embedding domain");
+    return scoreBounds;
+}
+/** Discover and prove once for the pool. Certificates contain only a bounded
+ * score range per layer; they are compile-time facts and never emitted. */
+export async function prepareDirectModel(directory:string,python:string,weightCacheBytes:number):Promise<DirectModelDiscovery>{
+  const discovered=await discoverDirectModel(directory,python),reader=new SafetensorsCatalogReader(directory);
+  const pages=new DirectWeightPages(reader,weightCacheBytes);
+  try{
+    const catalog=await reader.inspect();
+    const weight=async(name:string,index:number)=>{
+      const tensor=catalog.tensors.get(name);if(!tensor)throw new Error(`Missing checkpoint tensor: ${name}`);
+      return pages.read(tensor,index);
+    };
+    return {...discovered,proof:{scoreBounds:await proveDirectNumerics(discovered.output,discovered.layers,discovered.output.shape[1],weight)}};
+  }finally{pages.clear();await reader.close();}
 }

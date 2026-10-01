@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { DirectSourceDigest } from "./direct-source-digest.js";
 import { DirectBranchDomain, intersectInterval, normalizeExactAffineComparison, rational, type Interval, type Rational } from "./direct-branch-domain.js";
 import { exactNumberRational, finiteIeeeValue, normalizeFiniteArithmeticComparison, normalizeFiniteAffineRunComparison, normalizePositiveReciprocalComparison, normalizePositiveSqrtComparison, normalizeRoundedAffineComparison } from "./direct-round-preimage.js";
 import { DirectRustStream, rustF64, type RustExpression } from "./direct-rust-stream.js";
@@ -398,8 +399,8 @@ export class DirectFlatSubstitution {
     });
   }
   private async key(emit: RustExpression): Promise<string> {
-    const hash = createHash("sha256");
-    // Hash direct streamed arithmetic, never retain a source string. Equal
+    const hash = new DirectSourceDigest();
+    // Hash direct streamed arithmetic with bounded lexical buffering. Equal
     // substituted producers share condition bounds without a scalar cache.
     await this.stream.inspectExpression(emit, chunk => { hash.update(chunk); });
     return hash.digest("hex");
@@ -840,7 +841,7 @@ export class DirectFlatSubstitution {
   private async sourceBounds(emit:RustExpression,domain:DirectBranchDomain,
     literalInputs?:ReadonlyMap<string,number>,visitInput?:(name:string,range:SourceBounds)=>void):Promise<SourceBounds&{sourceKey:string}>{
     const intervals=new Map(domain.entries());
-    const sourceHash=createHash("sha256");
+    const sourceHash=new DirectSourceDigest();
     const parser=new DirectSourceBounds(name=>{
       const hash=createHash("sha256").update(name).digest("hex"),interval=intervals.get(hash);
       if(/^input_tokens\[\d+\]\[\d+\]$/.test(name)){
