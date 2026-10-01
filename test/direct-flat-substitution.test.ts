@@ -13,7 +13,26 @@ import { exactNumberRational as exact } from "../src/direct-round-preimage.js";
 import { substituteCpuArm64F32Sum } from "../src/direct-rust-mean.js";
 import { emitRustSilu } from "../src/direct-rust-numeric.js";
 import { substituteFlatProjection } from "../src/direct-flat-projection.js";
+import { substituteCpuArm64SoftmaxSum } from "../src/direct-rust-softmax.js";
 const run=promisify(execFile);
+
+test("Rust softmax scalar substitution preserves the length-dependent SIMD reduction order",async()=>{
+  const directory=await mkdtemp(join(tmpdir(),"direct-flat-softmax-"));
+  try{
+    const path=join(directory,"softmax.rs"),s=new DirectRustStream(path),f=new DirectFlatSubstitution(s);
+    let main="fn main(){";
+    for(const [index,[active,full]] of ([[3,false],[3,true],[5,true],[8,true],[9,true]] as const).entries()){
+      await s.write(`fn sum${index}(x:&[f64])->f64 {'answer:{`);s.beginReducedExpression();
+      await substituteCpuArm64SoftmaxSum(f,new FlatConditions(),active,full,i=>(p,k)=>
+        f.input(p,()=>s.write(`x[${i}]`),0.91,0.99,(p,v)=>k(p,{...v,precision:"f32",quantum:2**-24})),
+        (p,v)=>f.leaf(p,"answer",v));
+      await f.finishRound();await s.write("}}");
+      main+=`for seed in 0..100_u32{let x:Vec<f64>=(0..${active}).map(|i|((0.911+((seed*13+i*7)%78) as f64*0.001) as f32) as f64).collect();let mut a=[0_f32;4];for (i,v) in x.iter().enumerate(){a[i%4]+=*v as f32;}let expected=${full?"(a[0]+a[2])+(a[1]+a[3])":"(a[0]+a[1])+a[2]"};assert_eq!(sum${index}(&x).to_bits(),(expected as f64).to_bits(),"case ${index}: {}",seed);}`;
+    }
+    await s.close();await appendFile(path,main+"}");
+    await run("rustc",["--edition=2021","-Awarnings",path,"-o",join(directory,"run")]);await run(join(directory,"run"));
+  }finally{await rm(directory,{recursive:true,force:true});}
+});
 
 test("product endpoint preimages retain every valid sign and threshold case",async()=>{
   const directory=await mkdtemp(join(tmpdir(),"direct-flat-product-bounds-"));

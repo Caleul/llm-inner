@@ -16,25 +16,28 @@ export class DirectSourceBounds {
   constructor(private readonly resolve:(name:string)=>SourceBounds,
     private readonly constrain:(value:SourceBounds)=>SourceBounds=value=>value){}
   accept(source:string):void{
-    for(const char of source){
+    for(let index=0;index<source.length;index++){
+      const char=source[index]!,code=source.charCodeAt(index);
       if(this.field){
         if(this.fieldClosed&&char!=="["){
           this.push(this.resolve(this.field));this.field="";this.fieldClosed=false;
         }else{this.field+=char;this.fieldClosed=char==="]";continue;}
       }
-      if(/[A-Za-z0-9_.:]/.test(char)||((char==="+"||char==="-")&&/[eE]$/.test(this.token))){
+      const tail=this.token.charCodeAt(this.token.length-1);
+      if((code>=65&&code<=90)||(code>=97&&code<=122)||(code>=48&&code<=57)||
+        code===95||code===46||code===58||((code===43||code===45)&&(tail===101||tail===69))){
         this.token+=char;if(this.token.length>128)throw new Error("Invalid scalar token");continue;
       }
       if(char==="["&&/^[a-z][a-z0-9_]*$/.test(this.token)){this.field=this.token+char;this.token="";continue;}
       this.flushToken();
-      if(/\s/.test(char))continue;
+      if(code===32||(code>=9&&code<=13)||(code>127&&/\s/.test(char)))continue;
       if(char==="("){this.operators.push(char);this.expectOperand=true;continue;}
       if(char===")"){
         while(this.operators.length&&this.operators.at(-1)!=="(")this.reduce();
         if(this.operators.pop()!=="(")throw new Error("Unbalanced scalar arithmetic");
         this.expectOperand=false;continue;
       }
-      if(!"+-*/".includes(char))throw new Error(`Unsupported scalar source token ${char}`);
+      if(code!==43&&code!==45&&code!==42&&code!==47)throw new Error(`Unsupported scalar source token ${char}`);
       const op=this.expectOperand?(char==="-"?"neg":char==="+"?"pos":"invalid"):char;
       if(op==="invalid")throw new Error("Invalid scalar operator");
       while(this.operators.length&&this.operators.at(-1)!=="("&&

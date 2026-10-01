@@ -9,6 +9,7 @@ import { DirectRustStream } from "./direct-rust-stream.js";
 import { DirectFlatSubstitution, FlatConditions, type FlatProducer, type FlatInput } from "./direct-flat-substitution.js";
 import { substituteFlatProjection, substituteFlatReduction } from "./direct-flat-projection.js";
 import { substituteCpuArm64F32Sum } from "./direct-rust-mean.js";
+import { substituteCpuArm64SoftmaxSum } from "./direct-rust-softmax.js";
 import { rational } from "./direct-branch-domain.js";
 import { fixedF16RopeLiteral } from "./fixed-f16-rope-branches.js";
 import { decodeIeeeF16ToF32 } from "./utils.js";
@@ -129,6 +130,7 @@ export async function writeDirectFlatRustModel(directory:string,python:string,di
       if(!(bound<16&&2*Math.sqrt(width)*gamma<65504&&q<65504&&k<65504))throw new Error("Finite causal-mask elimination not proved");
       scoreBounds.push(bound);
     }
+    let fullVectorSoftmax=false;
     const context=(layer:number,head:number,coordinate:number,query:number):FlatProducer=>{
       const a=layers[layer]!.attention.attention;
       const v=(key:number)=>projected(layer,"v",Math.floor(head/(a.heads/a.kvHeads))*a.headDim+coordinate,key);
@@ -143,14 +145,8 @@ export async function writeDirectFlatRustModel(directory:string,python:string,di
       const differenceBound=2*scoreBounds[layer]!*1.01+2**-149;
       const exponent=(key:number):FlatProducer=>(p,k)=>f.exponential(p,
         bounded(round(binary(score(layer,head,query,key),maximum(query),"-"),"f32"),-differenceBound,0),k,2**-24);
-      // softmax_lastdim's CPU F32 reduce_all accumulates four lanes,
-      // including a partial final vector, then combines lanes sequentially.
-      // Masked trailing zeros do not change this order for any valid n.
-      const lane=(index:number,last:number):FlatProducer=>last<index?literal(0):last===index?exponent(last):
-        round(binary(lane(index,last-4),exponent(last),"+"),"f32");
-      const denominator=(lastLane:number):FlatProducer=>lastLane<0?literal(0):
-        round(binary(denominator(lastLane-1),lane(lastLane,lastLane+4*Math.floor((query-lastLane)/4)),"+"),"f32");
-      const reciprocal=round(binary(literal(1),denominator(3),"/"),"f32");
+      const denominator:FlatProducer=(p,k)=>substituteCpuArm64SoftmaxSum(f,p,query+1,fullVectorSoftmax,exponent,k);
+      const reciprocal=round(binary(literal(1),denominator,"/"),"f32");
       const probability=(key:number)=>round(round(binary(exponent(key),reciprocal,"*"),"f32"),"f16",true);
       return (p,k)=>substituteFlatReduction(f,p,query+1,key=>binary(probability(key),v(key),"*"),k);
     };
@@ -174,11 +170,20 @@ export async function writeDirectFlatRustModel(directory:string,python:string,di
     s.beginReducedExpression();
     for(position=0;position<output.maxPosition;position++){
       const currentPosition=position;
-      const pathConditions=new FlatConditions(undefined,[],[()=>s.write(`t==${currentPosition}`)]);
+      // For <=2 active exponentials both horizontal orders coincide exactly.
+      // Three active values require a length split: n=3 versus n>=4, even
+      // though all subsequent causal-mask exponentials are positive zero.
+      const variants=position===2&&output.maxPosition>=4?[false,true]:[position>=3];
+      for(const fullVector of variants){
+      fullVectorSoftmax=fullVector;
+      const guards=[()=>s.write(`t==${currentPosition}`)];
+      if(variants.length>1)guards.push(()=>s.write(fullVector?"n>=4":"n==3"));
+      const pathConditions=new FlatConditions(undefined,[],guards);
       const result=linear({weight:output.weight,shape:output.shape},dimension,c=>
         norm(output.finalNormWeight,output.finalNormEpsilon,c,column=>hidden(layers.length-1,column,position)));
       await result(pathConditions,async(p,value:FlatInput)=>{await f.leaf(p,"result",value);leaves++;});
       await f.finishRound();
+      }
     }
     await s.write('panic!("outside declared embedding domain")}}\n');await s.close();await rename(draft,path);
     status="emitted";

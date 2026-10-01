@@ -192,6 +192,281 @@
       "reference": "torch.sqrt CPU 2.12.1",
       "exactBits": true,
       "completeModelParity": false
+    },
+    "softmaxReductionCorrection": {
+      "torch": "2.12.1",
+      "backend": "cpu-arm64",
+      "rows": [
+        {
+          "length": 1,
+          "active": 1,
+          "rows": 1000,
+          "oldMismatches": 0,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 2,
+          "active": 1,
+          "rows": 1000,
+          "oldMismatches": 0,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 2,
+          "active": 2,
+          "rows": 1000,
+          "oldMismatches": 0,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 3,
+          "active": 1,
+          "rows": 1000,
+          "oldMismatches": 0,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 3,
+          "active": 2,
+          "rows": 1000,
+          "oldMismatches": 0,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 3,
+          "active": 3,
+          "rows": 1000,
+          "oldMismatches": 0,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 4,
+          "active": 1,
+          "rows": 1000,
+          "oldMismatches": 0,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 4,
+          "active": 2,
+          "rows": 1000,
+          "oldMismatches": 0,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 4,
+          "active": 3,
+          "rows": 1000,
+          "oldMismatches": 331,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 4,
+          "active": 4,
+          "rows": 1000,
+          "oldMismatches": 482,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 5,
+          "active": 1,
+          "rows": 1000,
+          "oldMismatches": 0,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 5,
+          "active": 2,
+          "rows": 1000,
+          "oldMismatches": 0,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 5,
+          "active": 3,
+          "rows": 1000,
+          "oldMismatches": 313,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 5,
+          "active": 5,
+          "rows": 1000,
+          "oldMismatches": 873,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 6,
+          "active": 1,
+          "rows": 1000,
+          "oldMismatches": 0,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 6,
+          "active": 2,
+          "rows": 1000,
+          "oldMismatches": 0,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 6,
+          "active": 3,
+          "rows": 1000,
+          "oldMismatches": 286,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 6,
+          "active": 6,
+          "rows": 1000,
+          "oldMismatches": 1677,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 7,
+          "active": 1,
+          "rows": 1000,
+          "oldMismatches": 0,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 7,
+          "active": 2,
+          "rows": 1000,
+          "oldMismatches": 0,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 7,
+          "active": 3,
+          "rows": 1000,
+          "oldMismatches": 332,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 7,
+          "active": 7,
+          "rows": 1000,
+          "oldMismatches": 1418,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 8,
+          "active": 1,
+          "rows": 1000,
+          "oldMismatches": 0,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 8,
+          "active": 2,
+          "rows": 1000,
+          "oldMismatches": 0,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 8,
+          "active": 3,
+          "rows": 1000,
+          "oldMismatches": 303,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 8,
+          "active": 8,
+          "rows": 1000,
+          "oldMismatches": 1468,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 9,
+          "active": 1,
+          "rows": 1000,
+          "oldMismatches": 0,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 9,
+          "active": 2,
+          "rows": 1000,
+          "oldMismatches": 0,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 9,
+          "active": 3,
+          "rows": 1000,
+          "oldMismatches": 317,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 9,
+          "active": 9,
+          "rows": 1000,
+          "oldMismatches": 2081,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 13,
+          "active": 1,
+          "rows": 1000,
+          "oldMismatches": 0,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 13,
+          "active": 2,
+          "rows": 1000,
+          "oldMismatches": 0,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 13,
+          "active": 3,
+          "rows": 1000,
+          "oldMismatches": 347,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 13,
+          "active": 13,
+          "rows": 1000,
+          "oldMismatches": 3442,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 17,
+          "active": 1,
+          "rows": 1000,
+          "oldMismatches": 0,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 17,
+          "active": 2,
+          "rows": 1000,
+          "oldMismatches": 0,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 17,
+          "active": 3,
+          "rows": 1000,
+          "oldMismatches": 329,
+          "correctedMismatches": 0
+        },
+        {
+          "length": 17,
+          "active": 17,
+          "rows": 1000,
+          "oldMismatches": 3763,
+          "correctedMismatches": 0
+        }
+      ],
+      "exactBits": true,
+      "completeModelParity": false,
+      "source": "https://raw.githubusercontent.com/pytorch/pytorch/v2.12.1/aten/src/ATen/cpu/vec/functional_base.h"
     }
   },
   "remaining": [
@@ -277,7 +552,8 @@
         "root affine-cell widths reduced using certified curvature bounds: 2048 cells per normalized binade",
         "canonical fingerprints replace singleton nonzero input intervals by their literal values",
         "inherited comparison intervals propagated into canonical scalar subexpressions iteratively until no interval changes; no calculation values cached",
-        "rational interval endpoints rounded outward for binary64 range proofs; strict comparisons retained in emitted guards"
+        "rational interval endpoints rounded outward for binary64 range proofs; strict comparisons retained in emitted guards",
+        "CPU arm64 softmax horizontal order specialized by full sequence length, including masked trailing zeros; n=3 versus n>=4 retained when needed"
       ],
       "runtimeAdmission": "complete emitted expression required; drafts are not compiled",
       "fullChosenLogitEmitted": false,
@@ -285,12 +561,12 @@
       "exactFinalParity": false,
       "fullModelRustCompilationAttempts": 0,
       "generation": {
-        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v23.rs --validate",
+        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v24.rs --validate",
         "status": "running",
-        "progress": "/private/tmp/llm-inner-flat-embeddings-v23.rs.progress.json"
+        "progress": "/private/tmp/llm-inner-flat-embeddings-v24.rs.progress.json"
       },
       "ruleTests": {
-        "passed": 39,
+        "passed": 40,
         "command": "node --test dist/test/direct-source-bounds.test.js dist/test/direct-flat-substitution.test.js dist/test/direct-round-preimage.test.js dist/test/direct-rust-stream.test.js",
         "provesCompleteModel": false
       },
