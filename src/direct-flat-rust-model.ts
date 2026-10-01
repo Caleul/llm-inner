@@ -83,7 +83,11 @@ export async function writeDirectFlatRustModel(directory:string,python:string,di
         throw new Error("Normalization finite-error domain not proved");
       const gamma=await weight(name,coordinate);
       const evaluate=(p:FlatConditions,coordinateInput:FlatProducer)=>{
-      const sum:FlatProducer=(p,k)=>substituteCpuArm64F32Sum(f,p,width,c=>(p,k)=>f.square(p,input(c),k),k);
+      // This coordinate was already substituted on the active consumer path.
+      // Expand its arithmetic again in the emitted sum, but do not revisit its
+      // numerical choices. Later constraints refresh the reached operand.
+      const sum:FlatProducer=(p,k)=>substituteCpuArm64F32Sum(f,p,width,c=>(p,k)=>
+        f.square(p,c===coordinate?coordinateInput:input(c),k),k);
       const variance=round(binary(round(binary(sum,literal(width),"/"),"f32"),literal(Math.fround(epsilon)),"+"),"f32");
       const root:FlatProducer=(p,k)=>f.sqrt(p,variance,k);
       const inverse=round(binary(literal(1),root,"/"),"f32");
