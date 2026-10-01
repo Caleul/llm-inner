@@ -13,7 +13,8 @@ export class DirectSourceBounds {
   private expectOperand=true;
   private readonly operands:SourceBounds[]=[];
   private readonly operators:string[]=[];
-  constructor(private readonly resolve:(name:string)=>SourceBounds){}
+  constructor(private readonly resolve:(name:string)=>SourceBounds,
+    private readonly constrain:(value:SourceBounds)=>SourceBounds=value=>value){}
   accept(source:string):void{
     for(const char of source){
       if(this.field){
@@ -52,6 +53,7 @@ export class DirectSourceBounds {
     return this.operands[0]!;
   }
   private push(value:SourceBounds):void{
+    if(!value.opaque)value=this.constrain(value);
     this.operands.push(!value.opaque&&Number.isFinite(value.minimum)&&Object.is(value.minimum,value.maximum)?
       constant(value.minimum):value);this.expectOperand=false;
   }

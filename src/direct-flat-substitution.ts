@@ -382,11 +382,14 @@ export class DirectFlatSubstitution {
     const consistent=intersectInterval(interval,{});if(!consistent)return undefined;interval=consistent;
     if(!interval.lower&&!interval.upper)return path;
     if(input.restrict)return input.restrict(path,interval);
-    const narrowed=path.refine(await this.key(input.emit),input.emit,interval,input.fundamentalF16);
+    let narrowed=path.refine(await this.key(input.emit),input.emit,interval,input.fundamentalF16);
     if(!narrowed||!input.fundamentalF16)return narrowed;
     // Necessary consequences are safe for contradiction proofs, even when
     // they were derived from this guard. They are NOT sufficient to delete
     // a guard as invariant: that requires the independent leaf checks below.
+    let changed:boolean;
+    do{
+    changed=false;
     for(const guard of narrowed.guards){
       if(guard.fundamentalF16)continue;
       const bounds=await this.sourceBounds(guard.emit,narrowed.domain);
@@ -400,7 +403,21 @@ export class DirectFlatSubstitution {
           this.stream.eliminatedBranches++;return undefined;
         }
       }
+      // A comparison remains a comparison after replacing bound inputs. Keep
+      // its normalized interval as a logical consequence, never as an emitted
+      // value, stored expression or executable calculation.
+      let domain:DirectBranchDomain|undefined=narrowed.domain;
+      const previous=new Map(domain.entries()).get(bounds.key);
+      for(const side of ["lower","upper"] as const){
+        const bound=constraint[side];if(!bound||!domain)continue;
+        domain=domain.split(bounds.key,side==="lower"?(bound.inclusive?">=":">"):
+          (bound.inclusive?"<=":"<"),bound.value).truth;
+      }
+      if(!domain)return undefined;
+      if(!sameOptionalInterval(previous,new Map(domain.entries()).get(bounds.key)))changed=true;
+      narrowed=new FlatConditions(domain,narrowed.guards,narrowed.entryGuards,narrowed.nonzero,narrowed.minimumMagnitude);
     }
+    }while(changed);
     return narrowed;
   }
   async comparison(path:FlatConditions,producer:FlatProducer,op:"<"|"<="|">"|">=",rhs:Rational,
@@ -667,6 +684,22 @@ export class DirectFlatSubstitution {
         return {minimum:minimum===0?-0:minimum,maximum,key:hash};
       }
       return {minimum:-Infinity,maximum:Infinity,key:hash,opaque:true};
+    },value=>{
+      const interval=intervals.get(value.key);if(!interval)return value;
+      let minimum=value.minimum,maximum=value.maximum;
+      for(const side of ["lower","upper"] as const){
+        const bound=interval[side];if(!bound)continue;
+        let number=Number(bound.value.numerator)/Number(bound.value.denominator);
+        if(!Number.isFinite(number))continue;
+        // Range propagation is outward; strict ownership stays in the guard.
+        while(Number.isFinite(number)&&(side==="lower"?
+          compareRational(exactNumberRational(number),bound.value)>0:
+          compareRational(exactNumberRational(number),bound.value)<0))number=adjacentF64(number,side==="lower"?-1:1);
+        if(!Number.isFinite(number))continue;
+        if(side==="lower")minimum=Math.max(minimum,number===0?-0:number);
+        else maximum=Math.min(maximum,number===0?0:number);
+      }
+      return minimum<=maximum?{...value,minimum,maximum}:value;
     });
     await this.stream.inspectExpression(emit,chunk=>{sourceHash.update(chunk);parser.accept(chunk);});
     return {...parser.finish(),sourceKey:sourceHash.digest("hex")};
@@ -680,6 +713,11 @@ export class DirectFlatSubstitution {
     const range=await this.sourceBounds(input.emit,path.domain);
     const intervals=new Map(path.domain.entries());
     let interval=intervals.get(range.sourceKey);
+    const normalized=intervals.get(range.key);
+    if(normalized){
+      const intersection=intersectInterval(interval??{},normalized);
+      if(!intersection)return undefined;interval=intersection;
+    }
     // Re-normalize inherited comparisons under the current fundamental input
     // bindings. Retain every original guard: these are necessary consequences,
     // and cannot justify deleting the guard that supplied them.
@@ -815,6 +853,20 @@ function normalizeInterval(interval:Interval,normalize:(op:"<"|"<="|">"|">=",rhs
 function compareRational(a:Rational,b:Rational):number{
   const difference=a.numerator*b.denominator-b.numerator*a.denominator;
   return difference<0n?-1:difference>0n?1:0;
+}
+function adjacentF64(value:number,direction:1|-1):number{
+  if(value===0)return direction*Number.MIN_VALUE;
+  const data=new DataView(new ArrayBuffer(8));data.setFloat64(0,value);
+  const bits=data.getBigUint64(0);
+  data.setBigUint64(0,bits+BigInt((value>0?1:-1)*direction));
+  return data.getFloat64(0);
+}
+function sameOptionalInterval(a:Interval|undefined,b:Interval|undefined):boolean{
+  if(!a||!b)return a===b;
+  return (["lower","upper"] as const).every(side=>{
+    const x=a[side],y=b[side];return !x||!y?x===y:
+      x.inclusive===y.inclusive&&compareRational(x.value,y.value)===0;
+  });
 }
 function rustBoundary(value:Rational):string {
   const exponent = -(value.denominator.toString(2).length-1);

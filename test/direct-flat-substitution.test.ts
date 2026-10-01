@@ -56,6 +56,25 @@ test("inherited sum comparisons survive zero substitution without deleting their
   }finally{await rm(directory,{recursive:true,force:true});}
 });
 
+test("normalized comparison consequences propagate into scalar subexpressions to a fixed point",async()=>{
+  const directory=await mkdtemp(join(tmpdir(),"direct-flat-fixed-point-"));
+  try{
+    const s=new DirectRustStream(join(directory,"unused.rs")),f=new DirectFlatSubstitution(s);
+    const source="(input_tokens[0][0]*input_tokens[0][0])+(input_tokens[0][1]*input_tokens[0][1])";
+    const path=new FlatConditions().refine(createHash("sha256").update(source).digest("hex"),
+      ()=>s.write(source),{lower:{value:rational(4n),inclusive:true}})!;
+    const x:FlatProducer=(p,k)=>f.f16Input(p,()=>s.write("input_tokens[0][0]"),k);
+    const y:FlatProducer=(p,k)=>f.f16Input(p,()=>s.write("input_tokens[0][1]"),k);
+    const square:FlatProducer=(p,k)=>f.square(p,y,k);
+    let visits=0;
+    await f.comparison(path,x,">=",rational(0n),p=>f.comparison(p,x,"<=",rational(0n),p=>
+      f.binary(p,square,(p,k)=>f.literal(p,2,k),"/",async(p,value)=>{
+        visits++;assert.equal(value.minimum,2);assert.equal(p.guards.length,2);
+      }),async()=>{}),async()=>{});
+    assert.equal(visits,1);await s.close();
+  }finally{await rm(directory,{recursive:true,force:true});}
+});
+
 test("square magnitude bounds propagate through the sign of a positive variable product",async()=>{
   const directory=await mkdtemp(join(tmpdir(),"direct-flat-magnitude-"));
   try{

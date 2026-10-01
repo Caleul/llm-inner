@@ -275,7 +275,9 @@
         "lower bounds of nonnegative sums propagated using opposite-operand maximum",
         "signed variable-product endpoint comparisons propagated into discrete input domain",
         "root affine-cell widths reduced using certified curvature bounds: 2048 cells per normalized binade",
-        "canonical fingerprints replace singleton nonzero input intervals by their literal values"
+        "canonical fingerprints replace singleton nonzero input intervals by their literal values",
+        "inherited comparison intervals propagated into canonical scalar subexpressions iteratively until no interval changes; no calculation values cached",
+        "rational interval endpoints rounded outward for binary64 range proofs; strict comparisons retained in emitted guards"
       ],
       "runtimeAdmission": "complete emitted expression required; drafts are not compiled",
       "fullChosenLogitEmitted": false,
@@ -283,12 +285,12 @@
       "exactFinalParity": false,
       "fullModelRustCompilationAttempts": 0,
       "generation": {
-        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v22.rs --validate",
+        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v23.rs --validate",
         "status": "running",
-        "progress": "/private/tmp/llm-inner-flat-embeddings-v22.rs.progress.json"
+        "progress": "/private/tmp/llm-inner-flat-embeddings-v23.rs.progress.json"
       },
       "ruleTests": {
-        "passed": 38,
+        "passed": 39,
         "command": "node --test dist/test/direct-source-bounds.test.js dist/test/direct-flat-substitution.test.js dist/test/direct-round-preimage.test.js dist/test/direct-rust-stream.test.js",
         "provesCompleteModel": false
       },
