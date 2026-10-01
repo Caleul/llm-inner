@@ -1,0 +1,62 @@
+{
+  "date": "2026-10-01",
+  "baselineCommit": "6ca78a771a61ee74c06edeb019df2f1ab06178f9",
+  "scope": "Compile-time disjoint condition domains and inverse endpoint propagation; no model representation or output lookup added to runtime.",
+  "changes": [
+    "Keep exact unions of intervals alongside conservative hulls; intersection preserves strict endpoints and excluded gaps.",
+    "Project surviving assignments from the existing bounded 128-combination F16 condition proof into consecutive intervals rather than filling their gaps.",
+    "Invert positive square lower bounds into negative and positive IEEE intervals, then visit admitted fundamental F16 regions before expanding another producer.",
+    "Propagate necessary endpoint preimages through mixed-sign addition and subtraction using actual ordered binary64 arithmetic on discrete IEEE producers.",
+    "Keep the original comparison when endpoint projections are only necessary; preserve sufficient zero guards for nonnegative sums equal to zero.",
+    "Emit disjoint conditions as flat boolean alternatives and forbid hull-only merging of leaves carrying disjoint domains."
+  ],
+  "reproducedBeforeChange": [
+    "Square lower bounds still delivered a range crossing the impossible central interval to the next producer.",
+    "The finite proof of x*(x-4q)==0, q=2^-24, delivered the excluded middle values between its two survivors."
+  ],
+  "validation": {
+    "focusedTestsPassed": 65,
+    "testFiles": [
+      "test/direct-disjoint-domains.test.ts",
+      "test/direct-flat-substitution.test.ts",
+      "test/direct-round-preimage.test.ts",
+      "test/direct-rust-stream.test.ts",
+      "test/direct-source-bounds.test.ts",
+      "test/direct-flat-zero-mlp.test.ts",
+      "test/direct-finite-model-proof.test.ts",
+      "test/direct-stream-buffer.test.ts",
+      "test/direct-rational-performance.test.ts"
+    ],
+    "buildIsolation": "TypeScript compiled to /private/tmp/llm-inner-domain-audit/dist; numeric-profiles and helpers linked in that isolated root. Repository dist and the existing generation were not changed.",
+    "squareRustParity": {
+      "finiteF16Patterns": 63488,
+      "matrixLengths": [1, 2, 4],
+      "bitDifferences": 0,
+      "reference": "Direct square predicate and signed-zero-preserving output in independently written Rust."
+    },
+    "signedRustParity": {
+      "operations": ["+", "-"],
+      "comparisons": ["<", "<=", ">", ">="],
+      "thresholds": [-3, -5.960464477539063e-8, 0, 5.960464477539063e-8, 3],
+      "leftInputs": "Every finite F16 pattern within [-4,4], including both zero signs.",
+      "rightInputs": [-2, -1, -5.960464477539063e-8, "-0", 0, 5.960464477539063e-8, 1, 2],
+      "bitDifferences": 0,
+      "reference": "Direct ordered binary64 arithmetic and comparisons in independently written Rust."
+    },
+    "correctedRegression": "Endpoint consequences initially removed the sufficient input-zero guards for a nonnegative sum of squares equal to zero. Restore the sufficient-zero case before deriving necessary endpoint facts; the original Rust regression passes.",
+    "typecheck": "passed",
+    "diffCheck": "passed"
+  },
+  "isolatedPruningComparison": {
+    "condition": "x*(x-63q)==0 on [0,63q], q=2^-24, followed by SiLU emission.",
+    "before": {"candidateF16Inputs": 65, "inspectedExpressions": 307, "emittedLeaves": 3, "sourceBytes": 453},
+    "after": {"candidateF16Inputs": 3, "inspectedExpressions": 185, "emittedLeaves": 3, "sourceBytes": 453},
+    "candidateCounting": "Counts the two signs of zero separately.",
+    "generatedRustIdentical": true,
+    "bothRustExecutablesPassed": true,
+    "claim": "Less compilation work in this isolated case; no complete-model speedup claimed."
+  },
+  "exactFinalModelParity": false,
+  "existingGenerationRestarted": false,
+  "remaining": "Complete a full arbitrary logit artifact and execute the final-value differential against the original model."
+}

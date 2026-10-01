@@ -50,6 +50,16 @@ export class FlatConditions {
       (fundamentalF16?this.guards.map(g=>g.key===key?{...g,fundamentalF16}:g):this.guards) :
       [...this.guards, {key, emit,...(fundamentalF16?{fundamentalF16}:{})}],this.entryGuards,this.nonzero,this.minimumMagnitude);
   }
+  refineRegions(key:string,emit:RustExpression,regions:readonly Interval[],fundamentalF16?:true):FlatConditions|undefined{
+    const domain=this.domain.intersectRegions(key,regions);if(!domain)return undefined;
+    const bounds=new Map(domain.entries()).get(key);
+    if(this.nonzero.has(key)&&bounds?.lower?.value.numerator===0n&&bounds.upper?.value.numerator===0n)return undefined;
+    const existing=this.guards.find(g=>g.key===key);
+    if(domain===this.domain&&existing&&(!fundamentalF16||existing.fundamentalF16))return this;
+    return new FlatConditions(domain,existing?
+      (fundamentalF16?this.guards.map(g=>g.key===key?{...g,fundamentalF16}:g):this.guards):
+      [...this.guards,{key,emit,...(fundamentalF16?{fundamentalF16}:{})}],this.entryGuards,this.nonzero,this.minimumMagnitude);
+  }
   requireNonzero(key:string):FlatConditions|undefined{
     const interval=new Map(this.domain.entries()).get(key);
     if(interval?.lower?.value.numerator===0n&&interval.upper?.value.numerator===0n)return undefined;
@@ -96,6 +106,17 @@ export class DirectFlatSubstitution {
   }
   async f16Input(path:FlatConditions,emit:RustExpression,consume:FlatConsumer):Promise<void>{
     const sourceKey=await this.key(emit);
+    const regions=path.domain.regions(sourceKey);
+    if(regions.length>1){
+      // Visit only admitted intervals before any following producer expands.
+      // Each callback owns a narrowed path; both zero signs remain numeric
+      // members of a zero interval and are never converted into a literal.
+      for(const region of regions){
+        const branch=path.refine(sourceKey,emit,region,true);
+        if(branch)await this.f16Input(branch,emit,consume);
+      }
+      return;
+    }
     const interval=new Map(path.domain.entries()).get(sourceKey);
     const satisfies=(index:number,side:"lower"|"upper")=>{
       const bound=interval?.[side];if(!bound)return true;
@@ -250,29 +271,44 @@ export class DirectFlatSubstitution {
           return refreshed?this.refine(p,refreshed,remaining):undefined;
         };
       }
-      if(operator==="+"&&a.minimum>=0&&b.minimum>=0&&b.literal===undefined){
+      if((operator==="+"||operator==="-")&&a.literal===undefined&&b.literal===undefined){
         restrict=async(path,interval)=>{
-          const lower=interval.lower;
-          if(lower){
-            const before=path.guards;
-            for(const [operand,otherMaximum] of [[a,b.maximum],[b,a.maximum]] as const){
-              if(!operand.precision)continue;
-              // Addition is monotone in both finite operands. If a+b >= r,
-              // then a+max(b) >= r is necessary, including binary64 rounding.
-              const normalized=normalizeInterval({lower},(op,rhs)=>
-                normalizeFiniteArithmeticComparison(operand.precision!,"+",otherMaximum,op,rhs));
-              if(normalized===false)return undefined;
-              if(normalized!==true){const next=await this.refine(path,operand,normalized);if(!next)return undefined;path=next;}
-            }
-            path=new FlatConditions(path.domain,before,path.entryGuards,path.nonzero,path.minimumMagnitude);
-          }
           const upper=interval.upper;
-          if(upper&&upper.value.numerator===0n&&upper.inclusive){
+          // For a nonnegative sum <=0 the two zero preimages are sufficient,
+          // not merely necessary. Keep their emitted guards before deriving
+          // other endpoint facts that could make them appear redundant.
+          if(operator==="+"&&a.minimum>=0&&b.minimum>=0&&upper?.value.numerator===0n&&upper.inclusive){
             const zero:Interval={upper:{value:rational(0n),inclusive:true}};
             const first=await this.refine(path,a,zero);
             return first?this.refine(first,b,zero):undefined;
           }
-          if(upper){
+          const before=path.guards;
+          // Necessary endpoint preimages of the actual binary64 operation.
+          // Addition is increasing in both operands; subtraction decreases
+          // in its right operand. Mixed signs do not change these directions.
+          for(const side of ["lower","upper"] as const){
+            const bound=interval[side];if(!bound)continue;
+            const high=side==="lower";
+            if(a.precision){
+              const extreme=operator==="+"?(high?b.maximum:b.minimum):(high?b.minimum:b.maximum);
+              const normalized=normalizeInterval({[side]:bound},(op,rhs)=>
+                normalizeFiniteArithmeticComparison(a.precision!,operator,extreme,op,rhs));
+              if(normalized===false)return undefined;
+              if(normalized!==true){const next=await this.refine(path,a,normalized);if(!next)return undefined;path=next;}
+            }
+            if(b.precision){
+              const extreme=high?a.maximum:a.minimum;
+              const normalized=normalizeInterval({[side]:bound},(op,rhs)=>operator==="+"?
+                normalizeFiniteArithmeticComparison(b.precision!,"+",extreme,op,rhs):
+                normalizeFiniteAffineRunComparison(b.precision!,-1,extreme,op,rhs));
+              if(normalized===false)return undefined;
+              if(normalized!==true){const next=await this.refine(path,b,normalized);if(!next)return undefined;path=next;}
+            }
+          }
+          // Facts inferred from this comparison must not replace its guard.
+          // The necessary projections need not be jointly sufficient.
+          path=new FlatConditions(path.domain,before,path.entryGuards,path.nonzero,path.minimumMagnitude);
+          if(operator==="+"&&a.minimum>=0&&b.minimum>=0&&upper){
             const before=path.guards;
             const first=await this.refine(path,a,{upper});
             const second=first?await this.refine(first,b,{upper}):undefined;
@@ -330,6 +366,12 @@ export class DirectFlatSubstitution {
               if(c>0||(c===0&&bound.inclusive))hi=mid;else lo=mid+1;}
             const magnitude=path.requireMagnitude(await this.key(input.emit),finiteIeeeValue(kind,last+lo));
             if(!magnitude)return undefined;path=magnitude;
+            const cut=exactNumberRational(finiteIeeeValue(kind,last+lo));
+            const separated=path.refineRegions(await this.key(input.emit),input.emit,[
+              {upper:{value:rational(-cut.numerator,cut.denominator),inclusive:true}},
+              {lower:{value:cut,inclusive:true}},
+            ],input.fundamentalF16);
+            if(!separated)return undefined;path=separated;
           }
         }
         if(interval.upper?.value.numerator===0n&&interval.upper.inclusive){
@@ -703,20 +745,15 @@ export class DirectFlatSubstitution {
     // Sequential implication checks avoid circular elimination of two
     // equivalent guards. Derived facts with no emitted guard are excluded.
     for(const guard of path.guards){
-      const others=new DirectBranchDomain(new Map([...path.domain.entries()]
-        .filter(([key])=>key!==guard.key&&guards.some(g=>g.key===key))));
+      const others=path.domain.select(key=>key!==guard.key&&guards.some(g=>g.key===key));
       const range=await this.sourceBounds(guard.emit,others);
       if(range.opaque)continue;
-      const interval=new Map(path.domain.entries()).get(guard.key)!;
-      let always=true;
-      for(const side of ["lower","upper"] as const){
-        const bound=interval[side];if(!bound)continue;
-        const min=compareRational(exactNumberRational(range.minimum),bound.value);
-        const max=compareRational(exactNumberRational(range.maximum),bound.value);
-        const impossible=side==="lower"?(max<0||(max===0&&!bound.inclusive)):(min>0||(min===0&&!bound.inclusive));
-        if(impossible){this.stream.eliminatedBranches++;return;}
-        always&&=side==="lower"?(min>0||(min===0&&bound.inclusive)):(max<0||(max===0&&bound.inclusive));
-      }
+      const rangeInterval:Interval={lower:{value:exactNumberRational(range.minimum),inclusive:true},
+        upper:{value:exactNumberRational(range.maximum),inclusive:true}};
+      const regions=path.domain.regions(guard.key);
+      if(!regions.some(region=>intersectInterval(region,rangeInterval))){this.stream.eliminatedBranches++;return;}
+      // A hull contained in the union's hull can still cross an excluded gap.
+      const always=regions.some(region=>sameInterval(intersectInterval(region,rangeInterval)??{},rangeInterval));
       if(always){guards=guards.filter(g=>g.key!==guard.key);this.stream.eliminatedBranches++;}
     }
     path=new FlatConditions(path.domain,guards,path.entryGuards,path.nonzero,path.minimumMagnitude);
@@ -735,7 +772,7 @@ export class DirectFlatSubstitution {
    */
   private async refineFiniteInputComparisons(path:FlatConditions):Promise<FlatConditions|undefined>{
     if(path.guards.every(g=>g.fundamentalF16))return path;
-    const axes=new Map<string,{first:number;last:number;zero:boolean;count:number;low:number;high:number}>();
+    const axes=new Map<string,{first:number;last:number;zero:boolean;count:number;regions:readonly Interval[];surviving:Set<number>}>();
     let points=1,tooWide=false;
     for(const guard of path.guards){
       await this.sourceBounds(guard.emit,path.domain,undefined,(name,range)=>{
@@ -747,7 +784,7 @@ export class DirectFlatSubstitution {
         while(lo<hi){const mid=Math.ceil((lo+hi)/2);if(finiteIeeeValue("f16",mid)<=range.maximum)lo=mid;else hi=mid-1;}
         const last=lo,zero=first<=31743&&last>=31743,count=last-first+1+(zero?1:0);
         if(first>last||count<1||points*count>128||axes.size>=128){tooWide=true;return;}
-        points*=count;axes.set(name,{first,last,zero,count,low:Infinity,high:-Infinity});
+        points*=count;axes.set(name,{first,last,zero,count,regions:path.domain.regions(range.key),surviving:new Set()});
       });
       if(tooWide)return path;
     }
@@ -763,33 +800,39 @@ export class DirectFlatSubstitution {
       if(unsupported)return;
       if(depth<entries.length){
         const [name,axis]=entries[depth]!;
-        for(let slot=0;slot<axis.count;slot++){slots[depth]=slot;assignment.set(name,at(axis,slot));await visit(depth+1);}
+        for(let slot=0;slot<axis.count;slot++){
+          const value=at(axis,slot);
+          if(axis.regions.length>1&&!axis.regions.some(region=>containsNumber(region,value)))continue;
+          slots[depth]=slot;assignment.set(name,value);await visit(depth+1);
+        }
         return;
       }
       for(const guard of path.guards){
         const range=await this.sourceBounds(guard.emit,new DirectBranchDomain(),assignment);
         if(range.opaque||!Object.is(range.minimum,range.maximum)||!Number.isFinite(range.minimum)){unsupported=true;return;}
-        const interval=new Map(path.domain.entries()).get(guard.key)!;
-        for(const side of ["lower","upper"] as const){
-          const bound=interval[side];if(!bound)continue;
-          const comparison=compareRational(exactNumberRational(range.minimum),bound.value);
-          if(side==="lower"?(comparison<0||(comparison===0&&!bound.inclusive)):
-            (comparison>0||(comparison===0&&!bound.inclusive)))return;
-        }
+        if(!path.domain.regions(guard.key).some(region=>containsNumber(region,range.minimum)))return;
       }
       survivors++;
-      for(let i=0;i<entries.length;i++){const axis=entries[i]![1];axis.low=Math.min(axis.low,slots[i]!);axis.high=Math.max(axis.high,slots[i]!);}
+      for(let i=0;i<entries.length;i++)entries[i]![1].surviving.add(slots[i]!);
     };
     await visit(0);
     if(unsupported)return path;
     if(!survivors)return undefined;
     let refined=path;
     for(const [name,axis] of entries){
-      if(axis.low===0&&axis.high===axis.count-1)continue;
+      if(axis.surviving.size===axis.count)continue;
       const key=createHash("sha256").update(name).digest("hex");
-      const next=refined.refine(key,()=>this.stream.write(name),{
-        lower:{value:exactNumberRational(at(axis,axis.low)),inclusive:true},
-        upper:{value:exactNumberRational(at(axis,axis.high)),inclusive:true}},true);
+      // Retain consecutive surviving slots as intervals, not their convex
+      // hull. These indices describe condition feasibility, never outputs.
+      const regions:Interval[]=[];
+      const surviving=[...axis.surviving].sort((a,b)=>a-b);
+      for(let start=0;start<surviving.length;){
+        let end=start;while(end+1<surviving.length&&surviving[end+1]===surviving[end]!+1)end++;
+        regions.push({lower:{value:exactNumberRational(at(axis,surviving[start]!)),inclusive:true},
+          upper:{value:exactNumberRational(at(axis,surviving[end]!)),inclusive:true}});
+        start=end+1;
+      }
+      const next=refined.refineRegions(key,()=>this.stream.write(name),regions,true);
       if(!next)return undefined;refined=next;
     }
     return refined===path?path:this.propagateComparisons(refined);
@@ -878,6 +921,9 @@ export class DirectFlatSubstitution {
       const bounded=intersectInterval(interval,{lower:{value:exactNumberRational(input.minimum),inclusive:true},
         upper:{value:exactNumberRational(input.maximum),inclusive:true}});
       if(!bounded)return undefined;
+      // Scalar ranges remain conservative hulls, but cannot admit a range
+      // wholly inside a proved hole in this source's condition domain.
+      if(!path.domain.regions(range.sourceKey).some(region=>intersectInterval(region,bounded)))return undefined;
       if(input.precision){
         const kind=input.precision,last=kind==="f16"?63486:2*0x7f7fffff;
         const satisfies=(index:number,side:"lower"|"upper")=>{
@@ -939,14 +985,32 @@ export class DirectFlatSubstitution {
     let first=true;
     for(const entry of path.entryGuards){await this.stream.write(first?"if ":" && ");first=false;await entry();}
     for(const guard of path.guards){
-      const interval = new Map(path.domain.entries()).get(guard.key)!;
-      for(const side of ["lower","upper"] as const){
-        const bound=interval[side];if(!bound)continue;
-        await this.stream.write(first?"if ":" && ");first=false;
-        await this.stream.write("(");await guard.emit();await this.stream.write(")");
-        await this.stream.write(side==="lower"?(bound.inclusive?" >= ":" > "):(bound.inclusive?" <= ":" < "));
-        await this.stream.write(rustBoundary(bound.value));
+      const regions=path.domain.regions(guard.key);
+      if(regions.length===1){
+        for(const side of ["lower","upper"] as const){
+          const bound=regions[0]![side];if(!bound)continue;
+          await this.stream.write(first?"if ":" && ");first=false;
+          await this.stream.write("(");await guard.emit();await this.stream.write(")");
+          await this.stream.write(side==="lower"?(bound.inclusive?" >= ":" > "):(bound.inclusive?" <= ":" < "));
+          await this.stream.write(rustBoundary(bound.value));
+        }
+        continue;
       }
+      await this.stream.write(first?"if ":" && ");first=false;
+      await this.stream.write("(");
+      for(let i=0;i<regions.length;i++){
+        if(i)await this.stream.write(" || ");await this.stream.write("(");
+        let firstBound=true;
+        for(const side of ["lower","upper"] as const){
+          const bound=regions[i]![side];if(!bound)continue;
+          if(!firstBound)await this.stream.write(" && ");firstBound=false;
+          await this.stream.write("(");await guard.emit();await this.stream.write(")");
+          await this.stream.write(side==="lower"?(bound.inclusive?" >= ":" > "):(bound.inclusive?" <= ":" < "));
+          await this.stream.write(rustBoundary(bound.value));
+        }
+        if(firstBound)await this.stream.write("true");await this.stream.write(")");
+      }
+      await this.stream.write(")");
     }
     if(!first)await this.stream.write(" {");
     await this.stream.write(`break '${label} `);await input.emit();await this.stream.write(";");
@@ -955,6 +1019,8 @@ export class DirectFlatSubstitution {
   }
 }
 function unionLeafConditions(a:FlatConditions,b:FlatConditions):FlatConditions|undefined{
+  // Hull-only merging would fill excluded gaps or combine correlated regions.
+  if(a.domain.hasDisjointIntervals||b.domain.hasDisjointIntervals)return undefined;
   if(a.entryGuards!==b.entryGuards||a.guards.length!==b.guards.length)return undefined;
   const ai=new Map(a.domain.entries()),bi=new Map(b.domain.entries()),merged=new Map<string,Interval>();
   let differences=0;
@@ -1016,6 +1082,15 @@ function normalizeInterval(interval:Interval,normalize:(op:"<"|"<="|">"|">=",rhs
 function compareRational(a:Rational,b:Rational):number{
   const difference=a.numerator*b.denominator-b.numerator*a.denominator;
   return difference<0n?-1:difference>0n?1:0;
+}
+function containsNumber(interval:Interval,value:number):boolean{
+  const exact=exactNumberRational(value);
+  for(const side of ["lower","upper"] as const){
+    const bound=interval[side];if(!bound)continue;
+    const c=compareRational(exact,bound.value);
+    if(side==="lower"?(c<0||(c===0&&!bound.inclusive)):(c>0||(c===0&&!bound.inclusive)))return false;
+  }
+  return true;
 }
 function adjacentF64(value:number,direction:1|-1):number{
   if(value===0)return direction*Number.MIN_VALUE;

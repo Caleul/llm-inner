@@ -119,14 +119,22 @@ export class DirectRustStream {
   async affineLeaf(domain:DirectBranchDomain,label:string,body:RustExpression,assumed?:DirectBranchDomain):Promise<void>{
     if(!/^[a-z][a-z0-9_]*$/.test(label))throw new Error("Invalid Rust label");
     const conditions:string[]=[];
-    for(const [variable,interval] of domain.entries()){
+    for(const [variable] of domain.entries()){
       if(!/^[a-z][a-z0-9_]*$/.test(variable))throw new Error("Invalid variable");
-      for(const side of ["lower","upper"] as const){
-        const bound=interval[side];if(!bound)continue;
-        const comparison=side==="lower"?(bound.inclusive?">=":">"):(bound.inclusive?"<=":"<");
-        if(assumed&&!assumed.split(variable,comparison,bound.value).falsity){this.eliminatedBranches++;continue;}
-        conditions.push(`${variable}${comparison}${rustExactBoundary(bound.value)}`);
+      const regions=domain.regions(variable),alternatives:string[]=[];
+      for(const interval of regions){
+        const parts:string[]=[];
+        for(const side of ["lower","upper"] as const){
+          const bound=interval[side];if(!bound)continue;
+          const comparison=side==="lower"?(bound.inclusive?">=":">"):(bound.inclusive?"<=":"<");
+          if(assumed&&!assumed.split(variable,comparison,bound.value).falsity){this.eliminatedBranches++;continue;}
+          // Rust lexes `<-` as a token; negative preimage cuts need a space.
+          parts.push(`${variable}${comparison}${bound.value.numerator<0n?" ":""}${rustExactBoundary(bound.value)}`);
+        }
+        alternatives.push(parts.length?parts.join(" && "):"true");
       }
+      if(regions.length===1){if(alternatives[0]!=="true")conditions.push(alternatives[0]!);}
+      else conditions.push(`(${alternatives.map(x=>`(${x})`).join(" || ")})`);
     }
     if(conditions.length)await this.write(`if ${conditions.join(" && ")} {`);
     await this.write(`break '${label} `);await body();await this.write(";");
