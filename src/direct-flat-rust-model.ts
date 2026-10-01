@@ -10,6 +10,7 @@ import { DirectFlatSubstitution, FlatConditions, type FlatProducer, type FlatInp
 import { substituteFlatProjection, substituteFlatReduction } from "./direct-flat-projection.js";
 import { substituteCpuArm64F32Sum } from "./direct-rust-mean.js";
 import { substituteCpuArm64SoftmaxSum } from "./direct-rust-softmax.js";
+import {proveInitialMlpProductZero} from "./direct-flat-zero-mlp.js";
 import { rational } from "./direct-branch-domain.js";
 import { fixedF16RopeLiteral } from "./fixed-f16-rope-branches.js";
 import { decodeIeeeF16ToF32 } from "./utils.js";
@@ -71,8 +72,9 @@ export async function writeDirectFlatRustModel(directory:string,python:string,di
       if(low>high){s.eliminatedBranches++;return Promise.resolve();}
       return k(p,{...v,minimum:low,maximum:high});
     });
-    const linear=(projection:Projection,row:number,input:(coordinate:number)=>FlatProducer):FlatProducer=>(p,k)=>
-      substituteFlatProjection(f,p,projection.shape[1],c=>weight(projection.weight,row*projection.shape[1]+c),input,k);
+    const linear=(projection:Projection,row:number,input:(coordinate:number)=>FlatProducer,
+      zeroInputMagnitude?:(path:FlatConditions,coordinate:number)=>Promise<boolean>):FlatProducer=>(p,k)=>
+      substituteFlatProjection(f,p,projection.shape[1],c=>weight(projection.weight,row*projection.shape[1]+c),input,k,zeroInputMagnitude);
     const norm=(name:string,epsilon:number,coordinate:number,input:(coordinate:number)=>FlatProducer,
       finiteEmbeddingInput=false):FlatProducer=>async(p,k)=>{
       if(width>1000000||!Number.isFinite(Math.fround(epsilon))||!(Math.fround(epsilon)>=2**-126))
@@ -182,7 +184,13 @@ export async function writeDirectFlatRustModel(directory:string,python:string,di
         const activation:FlatProducer=(p,k)=>f.silu(p,gate,k);
         const up=linear(p.up,neuron,c=>postNorm(layer,c,position));
         return round(binary(activation,up,"*"),"f16",true);
-      });
+      },layer===0?(path,neuron)=>{
+        const a=layers[0]!.attention.attention,n=layers[0]!.mlp.normalizations;
+        if(!(a.ropeTheta>=1)||width>1000000||a.headDim>1000000)return Promise.resolve(false);
+        return proveInitialMlpProductZero(f,path,{width,context:output.maxPosition,heads:a.heads,kvHeads:a.kvHeads,
+          headDim:a.headDim,pre:n[0]!,post:n[1]!,v:a.projections.v,o:a.projections.o,gate:p.gate,up:p.up},
+          position,neuron,weight);
+      }:undefined);
       return round(binary(residual(layer,coordinate,position),down,"+"),"f16");
     };
     await s.write(`// Input: finite F16 embedding matrix, widened exactly to f64.\n// Policy: PyTorch CPU arm64; scalar substitution, flat path conditions.\n#![recursion_limit="65536"]\npub fn compiled_dimension(input_tokens:&[[f64;${width}]],t:usize)->f64 {let n=input_tokens.len();assert!(n>0 && n<=${output.maxPosition} && t<n);'result:{`);

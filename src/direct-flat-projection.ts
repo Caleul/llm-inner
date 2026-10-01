@@ -6,7 +6,7 @@ import { DirectFlatSubstitution, type FlatConditions, type FlatConsumer, type Fl
  */
 export async function substituteFlatProjection(f:DirectFlatSubstitution,path:FlatConditions,
   size:number,weight:(coordinate:number)=>Promise<number>,input:(coordinate:number)=>FlatProducer,
-  consume:FlatConsumer):Promise<void>{
+  consume:FlatConsumer,zeroInputMagnitude?:(path:FlatConditions,coordinate:number)=>Promise<boolean>):Promise<void>{
   if(!Number.isSafeInteger(size)||size<=0)throw new Error("Invalid discovered projection width");
   const term=(coordinate:number):FlatProducer=>async(path,k)=>{
     const value=await weight(coordinate);
@@ -14,6 +14,9 @@ export async function substituteFlatProjection(f:DirectFlatSubstitution,path:Fla
     // multiples of 2^-48, so an accumulator cannot underflow to -0. A zero
     // weight's signed product can therefore be removed before its dependency.
     if(value===0){f.stream.eliminatedBranches++;return f.literal(path,0,k);}
+    if(zeroInputMagnitude&&await zeroInputMagnitude(path,coordinate)){
+      f.stream.eliminatedBranches++;return f.literal(path,0,k);
+    }
     return f.binary(path,input(coordinate),async(path,k)=>{
       return f.literal(path,value,(path,scalar)=>k(path,{...scalar,precision:"f16"}));
     },"*",(path,product)=>{

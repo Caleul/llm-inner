@@ -11,10 +11,25 @@ import { DirectFlatSubstitution, FlatConditions, type FlatProducer } from "../sr
 import { rational } from "../src/direct-branch-domain.js";
 import { exactNumberRational as exact } from "../src/direct-round-preimage.js";
 import { substituteCpuArm64F32Sum } from "../src/direct-rust-mean.js";
-import { emitRustSilu } from "../src/direct-rust-numeric.js";
+import { emitRustSilu, foldDeclaredCpuF32Exponential } from "../src/direct-rust-numeric.js";
 import { substituteFlatProjection } from "../src/direct-flat-projection.js";
 import { substituteCpuArm64SoftmaxSum } from "../src/direct-rust-softmax.js";
 const run=promisify(execFile);
+
+test("exponential substitution uses the proved input lattice and preserves every reachable value",async()=>{
+  const directory=await mkdtemp(join(tmpdir(),"direct-flat-exp-lattice-"));
+  try{
+    const path=join(directory,"exp.rs"),s=new DirectRustStream(path),f=new DirectFlatSubstitution(s);
+    await s.write("fn generated(x:f64)->f64 {'answer:{");s.beginReducedExpression();let visits=0;
+    await f.exponential(new FlatConditions(),(p,k)=>f.input(p,()=>s.write("x"),-102/1024,0,
+      (p,v)=>k(p,{...v,precision:"f32",quantum:2**-10})),async(p,v)=>{visits++;await f.leaf(p,"answer",v);},2**-24);
+    await f.finishRound();await s.write('panic!("outside lattice")}}');await s.close();
+    assert.ok(visits<=103,`Unreachable lattice points survived: ${visits} runs`);
+    const expected=Array.from({length:103},(_,i)=>`${foldDeclaredCpuF32Exponential(-i/1024)}_f64`).join(",");
+    await appendFile(path,`fn main(){let expected=[${expected}];for i in 0..=102{let x=-(i as f64)/1024.0;assert_eq!(generated(x).to_bits(),expected[i].to_bits(),"{}",i);}}`);
+    await run("rustc",["--edition=2021","-Awarnings",path,"-o",join(directory,"run")]);await run(join(directory,"run"));
+  }finally{await rm(directory,{recursive:true,force:true});}
+});
 
 test("Rust softmax scalar substitution preserves the length-dependent SIMD reduction order",async()=>{
   const directory=await mkdtemp(join(tmpdir(),"direct-flat-softmax-"));

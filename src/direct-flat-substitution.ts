@@ -352,6 +352,7 @@ export class DirectFlatSubstitution {
       this.propagateComparisons(narrowed):narrowed;
   }
   private async narrow(path:FlatConditions,input:FlatInput,interval:Interval):Promise<FlatConditions|undefined>{
+    const refreshed=await this.refresh(path,input);if(!refreshed)return undefined;input=refreshed;
     interval={...interval};
     const inputKey=path.nonzero.size?await this.key(input.emit):undefined;
     if(inputKey&&path.nonzero.has(inputKey)){
@@ -644,7 +645,8 @@ export class DirectFlatSubstitution {
   }
   async exponential(path:FlatConditions,producer:FlatProducer,consume:FlatConsumer,quantum?:number):Promise<void>{
     await this.numeric(path,producer,"f32",(input,visit)=>emitRustExp(this.stream,input.emit,true,
-      undefined,{minimum:input.minimum,maximum:input.maximum},quantum,visit),consume);
+      undefined,{minimum:input.minimum,maximum:input.maximum},
+      Math.max(quantum??0,input.quantum??0)||undefined,visit),consume);
   }
   async leaf(path: FlatConditions, label: string, input: FlatInput): Promise<void> {
     const result=await this.sourceBounds(input.emit,path.domain);
@@ -737,7 +739,7 @@ export class DirectFlatSubstitution {
     // Re-normalize inherited comparisons under the current fundamental input
     // bindings. Retain every original guard: these are necessary consequences,
     // and cannot justify deleting the guard that supplied them.
-    if(!range.opaque){
+    if(!range.opaque&&!path.comparisonsAtFixedPoint){
       for(const guard of path.guards){
         if(guard.fundamentalF16||guard.key===range.sourceKey)continue;
         const inherited=await this.sourceBounds(guard.emit,path.domain);
