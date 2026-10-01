@@ -269,7 +269,10 @@
         "rounded-affine small SiLU runs certified against every reached F16 numeric policy value",
         "exact representability proofs remove redundant F32/F16 rounding",
         "nonzero and minimum-magnitude consequences propagate through signed products",
-        "streaming canonical arithmetic fingerprints propagate inherited comparisons after zero substitution; original guards retained"
+        "streaming canonical arithmetic fingerprints propagate inherited comparisons after zero substitution; original guards retained",
+        "finite IEEE preimages for literal-first addition and multiplication",
+        "lower bounds of nonnegative sums propagated using opposite-operand maximum",
+        "signed variable-product endpoint comparisons propagated into discrete input domain"
       ],
       "runtimeAdmission": "complete emitted expression required; drafts are not compiled",
       "fullChosenLogitEmitted": false,
@@ -277,12 +280,12 @@
       "exactFinalParity": false,
       "fullModelRustCompilationAttempts": 0,
       "generation": {
-        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v19.rs --validate",
+        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v21.rs --validate",
         "status": "running",
-        "progress": "/private/tmp/llm-inner-flat-embeddings-v19.rs.progress.json"
+        "progress": "/private/tmp/llm-inner-flat-embeddings-v21.rs.progress.json"
       },
       "ruleTests": {
-        "passed": 37,
+        "passed": 38,
         "command": "node --test dist/test/direct-source-bounds.test.js dist/test/direct-flat-substitution.test.js dist/test/direct-round-preimage.test.js dist/test/direct-rust-stream.test.js",
         "provesCompleteModel": false
       },

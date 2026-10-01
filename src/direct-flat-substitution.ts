@@ -193,6 +193,21 @@ export class DirectFlatSubstitution {
         ((b.minimum>0&&a.quantum*b.minimum>=2**-1022)||(b.maximum<0&&a.quantum*(-b.maximum)>=2**-1022))){
         const sign=b.minimum>0?1:-1;
         restrict=async(p,interval)=>{
+          if(a.precision){
+            for(const side of ["lower","upper"] as const){
+              const bound=interval[side];if(!bound)continue;
+              const positive=bound.value.numerator>=0n;
+              const extreme=side==="lower"?positive:!positive;
+              const factor=sign>0?(extreme?b.maximum:b.minimum):(extreme?b.minimum:b.maximum);
+              // Choose the endpoint giving the necessary extremal product on
+              // the side of zero selected by the comparison. The discrete
+              // preimage evaluates the actual binary64 multiplication.
+              const normalized=normalizeInterval({[side]:bound},(op,rhs)=>
+                normalizeFiniteArithmeticComparison(a.precision!,"*",factor,op,rhs));
+              if(normalized===false)return undefined;
+              if(normalized!==true){const next=await this.refine(p,a,normalized);if(!next)return undefined;p=next;}
+            }
+          }
           const remaining:Interval={};
           for(const side of ["lower","upper"] as const){
             const bound=interval[side];if(!bound)continue;
@@ -213,6 +228,20 @@ export class DirectFlatSubstitution {
       }
       if(operator==="+"&&a.minimum>=0&&b.minimum>=0&&b.literal===undefined){
         restrict=async(path,interval)=>{
+          const lower=interval.lower;
+          if(lower){
+            const before=path.guards;
+            for(const [operand,otherMaximum] of [[a,b.maximum],[b,a.maximum]] as const){
+              if(!operand.precision)continue;
+              // Addition is monotone in both finite operands. If a+b >= r,
+              // then a+max(b) >= r is necessary, including binary64 rounding.
+              const normalized=normalizeInterval({lower},(op,rhs)=>
+                normalizeFiniteArithmeticComparison(operand.precision!,"+",otherMaximum,op,rhs));
+              if(normalized===false)return undefined;
+              if(normalized!==true){const next=await this.refine(path,operand,normalized);if(!next)return undefined;path=next;}
+            }
+            path=new FlatConditions(path.domain,before,path.entryGuards,path.nonzero,path.minimumMagnitude);
+          }
           const upper=interval.upper;
           if(upper&&upper.value.numerator===0n&&upper.inclusive){
             const zero:Interval={upper:{value:rational(0n),inclusive:true}};

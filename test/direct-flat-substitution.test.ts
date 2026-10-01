@@ -15,6 +15,28 @@ import { emitRustSilu } from "../src/direct-rust-numeric.js";
 import { substituteFlatProjection } from "../src/direct-flat-projection.js";
 const run=promisify(execFile);
 
+test("product endpoint preimages retain every valid sign and threshold case",async()=>{
+  const directory=await mkdtemp(join(tmpdir(),"direct-flat-product-bounds-"));
+  try{
+    const s=new DirectRustStream(join(directory,"unused.rs")),f=new DirectFlatSubstitution(s);
+    const x:FlatProducer=(p,k)=>f.f16Input(p,()=>s.write("input_tokens[0][0]"),k);
+    const y:FlatProducer=(p,k)=>f.f16Input(p,()=>s.write("input_tokens[0][1]"),k);
+    const product:FlatProducer=(p,k)=>f.binary(p,x,y,"*",k);
+    for(const sign of [-1,1])for(const op of [">=","<="] as const)for(const threshold of [-1,0,1]){
+      const low=sign>0?1:-2,high=sign>0?2:-1;
+      await f.comparison(new FlatConditions(),y,">=",rational(BigInt(low)),p=>
+        f.comparison(p,y,"<=",rational(BigInt(high)),p=>
+          f.comparison(p,product,op,rational(BigInt(threshold)),p=>x(p,async(_p,value)=>{
+            for(const a of [-4,-2,-1,-0.5,0,0.5,1,2,4])for(const b of [low,(low+high)/2,high]){
+              if(op===">="?a*b>=threshold:a*b<=threshold)
+                assert.ok(a>=value.minimum&&a<=value.maximum,`${a}*${b} ${op} ${threshold}`);
+            }
+          }),async()=>{}),async()=>{}),async()=>{});
+    }
+    await s.close();
+  }finally{await rm(directory,{recursive:true,force:true});}
+});
+
 test("inherited sum comparisons survive zero substitution without deleting their guards",async()=>{
   const directory=await mkdtemp(join(tmpdir(),"direct-flat-inherited-sum-"));
   try{
