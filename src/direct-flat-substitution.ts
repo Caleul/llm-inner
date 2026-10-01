@@ -491,6 +491,8 @@ export class DirectFlatSubstitution {
         };
         const narrowed = await this.refine(inputPath,input,interval);
         if (!narrowed) { this.stream.eliminatedBranches++; return; }
+        const branchInput=await this.refresh(narrowed,input);
+        if(!branchInput){this.stream.eliminatedBranches++;return;}
         const unit = 2**(Math.max(first,exponent)-bits);
         const unit32 = 2**(exponent-23), ratio = unit/unit32;
         const roundValue = (x:number) => {
@@ -499,7 +501,7 @@ export class DirectFlatSubstitution {
           y = ((y+2**52)-2**52)*unit;
           return negative ? -y : y;
         };
-        const from = Math.max(input.minimum,minimum), to = Math.min(input.maximum,maximum);
+        const from = Math.max(branchInput.minimum,minimum), to = Math.min(branchInput.maximum,maximum);
         const restrict:NonNullable<FlatInput["restrict"]>=async(path,interval)=>{
           const normalized=normalizeInterval(interval,(op,rhs)=>normalizeRoundedAffineComparison(
             composed?"f32-f16":kind,rational(1n),rational(0n),op,rhs));
@@ -510,14 +512,14 @@ export class DirectFlatSubstitution {
           this.stream.eliminatedBranches++;await this.literal(narrowed,roundedMinimum,(p,v)=>consume(p,{...v,precision:kind}));return;
         }
         await consume(narrowed,{minimum:roundedMinimum,maximum:roundedMaximum,precision:kind,
-          quantum:Math.max(input.quantum??unit,unit),restrict,emit:async()=>{
+          quantum:Math.max(branchInput.quantum??unit,unit),restrict,emit:async()=>{
           await this.stream.write(negative ? "-(((" : "(((");
           if(composed){
             await this.stream.write("((");if(negative)await this.stream.write("-");
-            await this.stream.write("(");await input.emit();await this.stream.write(")");
+            await this.stream.write("(");await branchInput.emit();await this.stream.write(")");
             await this.stream.write(`/${rustF64(unit32)}+4503599627370496.0)-4503599627370496.0)/${rustF64(ratio)}`);
           }else{
-            if(negative)await this.stream.write("-");await this.stream.write("(");await input.emit();
+            if(negative)await this.stream.write("-");await this.stream.write("(");await branchInput.emit();
             await this.stream.write(`)/${rustF64(unit)}`);
           }
           await this.stream.write(`+4503599627370496.0)-4503599627370496.0)*${rustF64(unit)})`);
@@ -618,12 +620,19 @@ export class DirectFlatSubstitution {
           const narrowed=await this.refine(path,input,{lower:{value:exactNumberRational(lo*scale),inclusive:true},
             upper:{value:exactNumberRational(hi*scale),inclusive:false}});
           if(!narrowed){this.stream.eliminatedBranches++;continue;}
+          const branchInput=await this.refresh(narrowed,input);
+          if(!branchInput){this.stream.eliminatedBranches++;continue;}
+          if(branchInput.minimum===branchInput.maximum){
+            await this.literal(narrowed,foldCertifiedF32Sqrt(branchInput.minimum),
+              (p,v)=>consume(p,{...v,precision:"f32"}));continue;
+          }
           const y0=foldCertifiedF32Sqrt(lo),y1=foldCertifiedF32Sqrt(hi),slope=(y1-y0)*density,offset=y0-slope*lo;
-          const candidate:FlatInput={precision:"f32",quantum:unit,minimum:y0*rootScale,maximum:y1*rootScale,emit:async()=>{
-            await this.stream.write(`((((${rustF64(slope)}*(`);await input.emit();
+          const chord=(x:number)=>Math.fround(slope*(x/scale)+offset)*rootScale;
+          const candidate:FlatInput={precision:"f32",quantum:unit,minimum:chord(branchInput.minimum),maximum:chord(branchInput.maximum),emit:async()=>{
+            await this.stream.write(`((((${rustF64(slope)}*(`);await branchInput.emit();
             await this.stream.write(`/${rustF64(scale)})+${rustF64(offset)})/${rustF64(2**-23)}+4503599627370496.0)-4503599627370496.0)*${rustF64(unit)})`);
           }};
-          const original:FlatProducer=(p,k)=>k(p,input),c:FlatProducer=(p,k)=>k(p,candidate);
+          const original:FlatProducer=(p,k)=>k(p,branchInput),c:FlatProducer=(p,k)=>k(p,candidate);
           const literal=(x:number):FlatProducer=>(p,k)=>this.literal(p,x,k);
           const midpoint=(sign:number):FlatProducer=>(p,k)=>this.binary(p,c,literal(sign*unit/2),"+",k);
           const delta=(sign:number):FlatProducer=>(p,k)=>this.binary(p,original,
@@ -634,7 +643,8 @@ export class DirectFlatSubstitution {
               return normalized===false?undefined:normalized===true?p:this.refine(p,input,normalized);
             };
             const deliver=(p:FlatConditions,v:FlatInput)=>consume(p,{...v,precision:"f32",quantum:unit,restrict,
-              minimum:Math.max(y0*rootScale,v.minimum),maximum:Math.min(y1*rootScale,v.maximum)});
+              minimum:Math.max(foldCertifiedF32Sqrt(branchInput.minimum),v.minimum),
+              maximum:Math.min(foldCertifiedF32Sqrt(branchInput.maximum),v.maximum)});
             return correction===0?deliver(p,candidate):this.binary(p,c,literal(correction*unit),"+",deliver);
           };
           await this.comparison(narrowed,delta(-1),"<",rational(0n),p=>result(p,-1),

@@ -594,7 +594,8 @@
         "input Rust row width specialized from checkpoint metadata; row count remains variable",
         "first-layer MLP products eliminated before dependency expansion when progressively read weights and inherited embedding magnitude bounds prove F16 nearest-even zero; no bound/activation cache",
         "exponential input lattice intersected with the stronger proved producer lattice before enumerating branches",
-        "comparison operands refreshed before inverse refinement; fixed-point domains avoid repeated guard rescans"
+        "comparison operands refreshed before inverse refinement; fixed-point domains avoid repeated guard rescans",
+        "rounding and certified-root cell consumers refresh bounds after each refinement; singleton root inputs fold before midpoint comparisons"
       ],
       "runtimeAdmission": "complete emitted expression required; drafts are not compiled",
       "fullChosenLogitEmitted": false,
@@ -602,9 +603,9 @@
       "exactFinalParity": false,
       "fullModelRustCompilationAttempts": 0,
       "generation": {
-        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v27.rs --validate",
+        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v28.rs --validate",
         "status": "running",
-        "progress": "/private/tmp/llm-inner-flat-embeddings-v27.rs.progress.json"
+        "progress": "/private/tmp/llm-inner-flat-embeddings-v28.rs.progress.json"
       },
       "ruleTests": {
         "passed": 45,
