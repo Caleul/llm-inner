@@ -7,6 +7,40 @@ import { decodeIeeeF16ToF32 } from './utils.js';
  */
 export type DirectRoundedFormat='f16'|'f32'|'f32-f16';
 export interface DirectPreimage {op:Comparison;value:Rational}
+export function finiteIeeeValue(kind:'f16'|'f32',index:number):number{
+  const largest=kind==='f16'?31743:0x7f7fffff;
+  if(index<0||index>2*largest||!Number.isInteger(index))throw new RangeError('Finite IEEE index');
+  const rank=index-largest,code=rank<0?(kind==='f16'?32768:0x80000000)-rank:rank;
+  if(kind==='f16')return decodeIeeeF16ToF32(code);
+  const data=new DataView(new ArrayBuffer(4));data.setUint32(0,code,true);return data.getFloat32(0,true);
+}
+/** Actual binary64 operation on a discrete IEEE producer. Binary search
+ * evaluates its emitted arithmetic, including rounding; it does not assume
+ * real-number affine identities. No values or source fragments are cached.
+ */
+export function normalizeFiniteArithmeticComparison(kind:'f16'|'f32',operation:'+'|'-'|'*'|'/',
+  constant:number,op:Comparison,rhs:Rational):DirectPreimage|boolean{
+  if(!Number.isFinite(constant)||(operation==='/'&&constant===0))throw new Error('Undefined finite arithmetic preimage');
+  const largest=kind==='f16'?31743:0x7f7fffff,last=2*largest;
+  const negative=(operation==='*'||operation==='/')&&constant<0;
+  const target=negative?rational(-rhs.numerator,rhs.denominator):rhs;
+  const reverse:Record<Comparison,Comparison>={'<':'>','<=':'>=','>':'<','>=':'<='};
+  const comparison=negative?reverse[op]:op;
+  const strict=comparison==='>'||comparison==='<=';
+  const qualifies=(index:number)=>{
+    const x=finiteIeeeValue(kind,index);
+    const value=operation==='+'?x+constant:operation==='-'?x-constant:operation==='*'?x*constant:x/constant;
+    const y=negative?-value:value;
+    if(y===Infinity)return true;if(y===-Infinity)return false;
+    const exact=exactNumberRational(y),delta=exact.numerator*target.denominator-target.numerator*exact.denominator;
+    return delta>0n||(!strict&&delta===0n);
+  };
+  let lo=0,hi=last+1;
+  while(lo<hi){const mid=Math.floor((lo+hi)/2);if(mid<=last&&qualifies(mid))hi=mid;else lo=mid+1;}
+  const high=comparison==='>'||comparison==='>=';
+  if(lo===0)return high;if(lo===last+1)return !high;
+  return {op:high?'>=':'<',value:exactNumberRational(finiteIeeeValue(kind,lo))};
+}
 export function exactNumberRational(x:number):Rational{
   if(!Number.isFinite(x))throw new Error('A finite condition boundary is required');
   if(x===0)return rational(0n);
@@ -17,6 +51,48 @@ export function exactNumberRational(x:number):Rational{
   const exponent=(e===0?-1022:e-1023)-52;
   const signed=hi>>>31?-significand:significand;
   return exponent>=0?rational(signed<<BigInt(exponent)):rational(signed,1n<<BigInt(-exponent));
+}
+/** Invert the actual two binary64 operations of an emitted numerical run.
+ * The discrete source format settles ties without real-number division.
+ */
+export function normalizeFiniteAffineRunComparison(kind:'f16'|'f32',scale:number,offset:number,
+  op:Comparison,rhs:Rational):DirectPreimage|boolean{
+  if(!Number.isFinite(scale)||!Number.isFinite(offset))throw new Error('Nonfinite affine run');
+  if(scale===0){const x=exactNumberRational(offset),delta=x.numerator*rhs.denominator-rhs.numerator*x.denominator;
+    return op==='<'?delta<0n:op==='<='?delta<=0n:op==='>'?delta>0n:delta>=0n;}
+  const last=2*(kind==='f16'?31743:0x7f7fffff),negative=scale<0;
+  const reverse:Record<Comparison,Comparison>={'<':'>','<=':'>=','>':'<','>=':'<='};
+  const comparison=negative?reverse[op]:op,target=negative?rational(-rhs.numerator,rhs.denominator):rhs;
+  const strict=comparison==='>'||comparison==='<=';
+  const qualifies=(index:number)=>{
+    let y=scale*finiteIeeeValue(kind,index)+offset;if(negative)y=-y;
+    if(y===Infinity)return true;if(y===-Infinity)return false;
+    const x=exactNumberRational(y),delta=x.numerator*target.denominator-target.numerator*x.denominator;
+    return delta>0n||(!strict&&delta===0n);
+  };
+  let lo=0,hi=last+1;while(lo<hi){const mid=Math.floor((lo+hi)/2);if(mid<=last&&qualifies(mid))hi=mid;else lo=mid+1;}
+  const high=comparison==='>'||comparison==='>=';
+  if(lo===0)return high;if(lo===last+1)return !high;
+  return {op:high?'>=':'<',value:exactNumberRational(finiteIeeeValue(kind,lo))};
+}
+/** Binary64 reciprocal of a positive finite IEEE producer. Restricting the
+ * search to positive values avoids crossing the reciprocal discontinuity.
+ */
+export function normalizePositiveReciprocalComparison(kind:'f16'|'f32',numerator:number,
+  op:Comparison,rhs:Rational):DirectPreimage|boolean{
+  if(!(numerator>0&&Number.isFinite(numerator)))throw new Error('Positive reciprocal numerator required');
+  const largest=kind==='f16'?31743:0x7f7fffff,first=largest+1,last=2*largest;
+  const strict=op==='<'||op==='>=';
+  const qualifies=(index:number)=>{
+    const y=numerator/finiteIeeeValue(kind,index);
+    if(y===Infinity)return false;
+    const x=exactNumberRational(y),delta=x.numerator*rhs.denominator-rhs.numerator*x.denominator;
+    return delta<0n||(!strict&&delta===0n);
+  };
+  let lo=first,hi=last+1;while(lo<hi){const mid=Math.floor((lo+hi)/2);if(mid<=last&&qualifies(mid))hi=mid;else lo=mid+1;}
+  const high=op==='<'||op==='<=';
+  if(lo===first)return high;if(lo===last+1)return !high;
+  return {op:high?'>=':'<',value:exactNumberRational(finiteIeeeValue(kind,lo))};
 }
 function roundedPreimage(kind:'f16'|'f32',op:Comparison,rhs:Rational):DirectPreimage{
   const largest=kind==='f16'?31743:0x7f7fffff,sign=kind==='f16'?32768:0x80000000;

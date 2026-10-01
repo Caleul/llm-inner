@@ -1,4 +1,5 @@
 import { DirectRustStream, type RustExpression } from './direct-rust-stream.js';
+import { DirectFlatSubstitution, type FlatConditions, type FlatConsumer, type FlatProducer } from './direct-flat-substitution.js';
 
 /** Declared PyTorch 2.12.1 CPU arm64 contiguous F32 sum policy.
  * Backend vector width is four F32 lanes; it is not a model dimension.
@@ -107,4 +108,55 @@ export async function emitCpuArm64F32Sum(s:DirectRustStream,size:number,input:(i
     await add(()=>lanes(last-1),()=>component(last));
   };
   await lanes(vectorWidth-1);
+}
+
+/** The same reduction order, with producer paths substituted into consumers
+ * before emission. This keeps normalization's nested reductions out of Rust.
+ */
+export async function substituteCpuArm64F32Sum(f:DirectFlatSubstitution,path:FlatConditions,size:number,
+  input:(index:number)=>FlatProducer,consume:FlatConsumer):Promise<void>{
+  const g=geometry(size);
+  const add=(a:FlatProducer,b:FlatProducer):FlatProducer=>(p,k)=>f.round(p,(p,k)=>f.binary(p,a,b,"+",k),"f32",false,k);
+  const zero:FlatProducer=(p,k)=>f.literal(p,0,k);
+  const load=(row:number,lane:number):FlatProducer=>input(g.vector?row*vectorWidth+lane:row);
+  const component=(lane:number):FlatProducer=>{
+    const partial=(part:number):FlatProducer=>{
+      const block=(level:number,start:number):FlatProducer=>{
+        if(level===0)return load(part+4*start,lane);
+        const span=g.step**(level-1);
+        const sum=(last:number):FlatProducer=>last===0?block(level-1,start):
+          add(sum(last-1),block(level-1,start+last*span));
+        return sum(g.step-1);
+      };
+      const accumulator=(level:number,last:number,start:number,span:number):FlatProducer=>
+        last<start?zero:last===start?block(level,last):add(accumulator(level,last-span,start,span),block(level,last));
+      const levels=(last:number):FlatProducer=>{
+        if(last<0)return zero;
+        const span=g.step**last,end=Math.floor(g.groups/span)*span;
+        const start=last===3?0:Math.floor(g.groups/(span*g.step))*span*g.step;
+        if(start===end)return levels(last-1);
+        let previous=last-1;
+        while(previous>=0){
+          const previousSpan=g.step**previous,previousEnd=Math.floor(g.groups/previousSpan)*previousSpan;
+          const previousStart=Math.floor(g.groups/(previousSpan*g.step))*previousSpan*g.step;
+          if(previousStart<previousEnd)break;previous--;
+        }
+        return previous<0?accumulator(last,end-span,start,span):add(levels(previous),accumulator(last,end-span,start,span));
+      };
+      const tail=(last:number):FlatProducer=>{
+        if(part!==0||last<4*g.groups)return levels(3);
+        if(g.groups===0&&last===0)return load(last,lane);
+        return add(tail(last-1),load(last,lane));
+      };
+      return tail(g.rows-1);
+    };
+    const combine=(last:number):FlatProducer=>last===0||g.groups===0?partial(0):add(combine(last-1),partial(last));
+    return combine(3);
+  };
+  if(!g.vector)return component(0)(path,consume);
+  const tail=(last:number):FlatProducer=>last<g.rows*vectorWidth?zero:
+    last===g.rows*vectorWidth?input(last):add(tail(last-1),input(last));
+  const lanes=(last:number):FlatProducer=>last<0?tail(size-1):last===0&&g.rows*vectorWidth===size?
+    component(0):add(lanes(last-1),component(last));
+  return lanes(vectorWidth-1)(path,consume);
 }

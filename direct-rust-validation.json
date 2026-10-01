@@ -235,6 +235,48 @@
       "source": "src/direct-round-preimage.ts",
       "scope": "Compiler path-condition APIs; complete model producer/consumer integration remains pending."
     },
-    "normalizationSpecialization": "Decoded learned weights +1 and -1 eliminate the multiplication and following F16 rounding as exact identities, preserving signed zero."
+    "normalizationSpecialization": "Decoded learned weights +1 and -1 eliminate the multiplication and following F16 rounding as exact identities, preserving signed zero.",
+    "flatEmbeddingCompiler": {
+      "input": "variable-length matrix of finite F16 embeddings exactly widened to f64; confirmed by user",
+      "sources": [
+        "src/direct-flat-rust-model.ts",
+        "src/direct-flat-substitution.ts",
+        "src/direct-flat-projection.ts",
+        "src/direct-source-bounds.ts"
+      ],
+      "weightReads": "one reached F16 weight per 2-byte Safetensors range read; no weight-row cache",
+      "substitution": "producer continuations enter consumers under inherited conditions before flat leaf emission",
+      "knownReductions": [
+        "constant propagation preserving signed zero",
+        "IEEE finite arithmetic and rounded comparison preimages",
+        "numeric affine-run and positive reciprocal comparison preimages",
+        "nonnegative sum and F16 square inverse bounds",
+        "discrete lattice contradiction elimination",
+        "refresh stale operands under current source conditions",
+        "streaming arithmetic range evaluation",
+        "remove guards implied by other emitted guards without circular self-proof",
+        "merge adjacent identical result leaves with exact interval union",
+        "SiLU visits only the inherited positive and negative F16 intervals before consumer expansion",
+        "zero projection weights removed before visiting dependencies; literal weight read before traversing input branches"
+      ],
+      "runtimeAdmission": "complete emitted expression required; drafts are not compiled",
+      "fullChosenLogitEmitted": false,
+      "executableProduced": false,
+      "exactFinalParity": false,
+      "fullModelRustCompilationAttempts": 0,
+      "generation": {
+        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v14.rs --validate",
+        "status": "running",
+        "progress": "/private/tmp/llm-inner-flat-embeddings-v14.rs.progress.json"
+      },
+      "ruleTests": {
+        "passed": 29,
+        "command": "node --test dist/test/direct-source-bounds.test.js dist/test/direct-flat-substitution.test.js dist/test/direct-round-preimage.test.js dist/test/direct-rust-stream.test.js",
+        "provesCompleteModel": false
+      },
+      "finalValidationHarness": "helpers/validate_direct_flat_rust.py; compares final chosen logit bits for every position of varied embedding matrices and lengths; not yet executed",
+      "remaining": "finish every surviving path of the first arbitrary dimension, compile the complete artifact and execute final-value PyTorch differential; correct the first numerical divergence before other dimensions",
+      "blocker": null
+    }
   }
 }

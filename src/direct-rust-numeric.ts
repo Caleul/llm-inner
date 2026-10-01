@@ -2,12 +2,22 @@ import { readFileSync } from "node:fs";
 import { DirectRustStream, rustF64, type RustExpression, type PositiveRoundRange } from "./direct-rust-stream.js";
 import { decodeIeeeF16ToF32 } from "./utils.js";
 
+export interface NumericAffineRun {
+  minimum:number; maximum:number; slope:number; offset:number;
+  /** Constants preserve their signed zero without evaluating 0*x+b. */
+  constant?:number;
+}
+export type NumericRunConsumer=(run:NumericAffineRun)=>Promise<void>;
+
 /** F16 policy specialized directly to numerical input intervals. The profile
  * defines the declared backend rule, not model outputs. Every finite input in
  * an emitted affine run is checked at compilation; no representation bits,
  * table, numerical conversion or intermediate binding survives in Rust.
  */
-export async function emitRustSilu(s:DirectRustStream,input:RustExpression,maximumMagnitude?:number):Promise<void>{
+export async function emitRustSilu(s:DirectRustStream,input:RustExpression,maximumMagnitude?:number,
+  visit?:NumericRunConsumer,inputRange?:{minimum:number;maximum:number}):Promise<void>{
+  if(inputRange&&(!visit||!Number.isFinite(inputRange.minimum)||!Number.isFinite(inputRange.maximum)||
+    inputRange.minimum>inputRange.maximum))throw new Error("Invalid SiLU visitor domain");
   const profile=readFileSync(new URL("../../numeric-profiles/pytorch-2.12.1-cpu-f16-silu.bin",import.meta.url));
   if(profile.length!==131072)throw new Error("Invalid backend SiLU profile");
   let limit=31743;
@@ -18,10 +28,14 @@ export async function emitRustSilu(s:DirectRustStream,input:RustExpression,maxim
   }
   const literal=(x:number)=>rustF64(Object.is(x,-0)?"-0":x);
   const value=async()=>{await s.write("(");await input();await s.write(")");};
-  await s.write("'activation:{if ");await value();await s.write("==0.0 {break 'activation ");await value();await s.write(";}");
+  if(visit){if(!inputRange||(inputRange.minimum<=0&&inputRange.maximum>=0))
+    await visit({minimum:0,maximum:0,slope:1,offset:0});}
+  else {await s.write("'activation:{if ");await value();await s.write("==0.0 {break 'activation ");await value();await s.write(";}");}
   let firstX:number|undefined,firstY=0,lastX=0,slope:number|undefined,offset=0;
   const flush=async(final=false)=>{
     if(firstX===undefined)return;
+    if(visit){await visit({minimum:firstX,maximum:lastX,slope:slope??0,offset,
+      ...((slope===undefined||slope===0)?{constant:firstY}:{})});return;}
     if(!final){await s.write("if ");await value();await s.write(`<=${literal(lastX)} {`);}
     await s.write("break 'activation ");
     if(slope===undefined||slope===0)await s.write(literal(firstY));
@@ -44,19 +58,31 @@ export async function emitRustSilu(s:DirectRustStream,input:RustExpression,maxim
     }else if(Object.is(slope===0?firstY:slope*x+offset,y)){lastX=x;return;}
     await flush();firstX=lastX=x;firstY=y;slope=undefined;offset=0;
   };
-  for(let bits=32768+limit;bits>32768;bits--)await consume(bits);
+  const firstAtLeast=(value:number)=>{
+    let lo=1,hi=limit+1;while(lo<hi){const mid=Math.floor((lo+hi)/2);
+      if(mid<=limit&&decodeIeeeF16ToF32(mid)>=value)hi=mid;else lo=mid+1;}return lo;
+  };
+  const lastAtMost=(value:number)=>{
+    let lo=0,hi=limit;while(lo<hi){const mid=Math.ceil((lo+hi)/2);
+      if(decodeIeeeF16ToF32(mid)<=value)lo=mid;else hi=mid-1;}return lo;
+  };
+  const negativeFirst=inputRange?firstAtLeast(-inputRange.maximum):1;
+  const negativeLast=inputRange?lastAtMost(-inputRange.minimum):limit;
+  for(let code=negativeLast;code>=negativeFirst;code--)await consume(32768+code);
   await flush();firstX=undefined;slope=undefined;offset=0;
-  for(let bits=1;bits<=limit;bits++)await consume(bits);
+  const positiveFirst=inputRange?firstAtLeast(inputRange.minimum):1;
+  const positiveLast=inputRange?lastAtMost(inputRange.maximum):limit;
+  for(let bits=positiveFirst;bits<=positiveLast;bits++)await consume(bits);
   await flush(true);
-  if(limit===0)await s.write('panic!("outside declared activation domain");');
-  await s.write("}");
+  if(!visit){if(limit===0)await s.write('panic!("outside declared activation domain");');await s.write("}");}
 }
 /** Correctly-rounded F32 square root reduced into affine input runs. Each
  * numerical point is consumed, substituted into the current run and discarded.
  * Midpoint squares (at most 50 significant bits) are exact in binary64; they
  * certify the candidate independently of the host square-root approximation.
  */
-export async function emitRustSqrt(s:DirectRustStream,input:RustExpression,positiveInput?:PositiveRoundRange):Promise<void>{
+export async function emitRustSqrt(s:DirectRustStream,input:RustExpression,positiveInput?:PositiveRoundRange,
+  visit?:NumericRunConsumer):Promise<void>{
   const data=new DataView(new ArrayBuffer(4));
   const bits=(x:number)=>{data.setFloat32(0,x,true);return data.getUint32(0,true);};
   const number=(b:number)=>{data.setUint32(0,b,true);return data.getFloat32(0,true);};
@@ -78,13 +104,18 @@ export async function emitRustSqrt(s:DirectRustStream,input:RustExpression,posit
   };
   if(positiveInput&&positiveInput.minimum===positiveInput.maximum){
     if(number(first)!==positiveInput.minimum)throw new Error("Empty F32 square-root point domain");
-    s.eliminatedBranches++;await s.write(rustF64(root(number(first))));return;
+    s.eliminatedBranches++;
+    if(visit)await visit({minimum:number(first),maximum:number(first),slope:0,offset:0,constant:root(number(first))});
+    else await s.write(rustF64(root(number(first))));return;
   }
   const value=async()=>{await s.write("(");await input();await s.write(")");};
-  await s.write("'root_choice:{");
-  if(!positiveInput){await s.write("if ");await value();await s.write("==0.0 {break 'root_choice ");await value();await s.write(";}");}
+  if(!visit){await s.write("'root_choice:{");
+    if(!positiveInput){await s.write("if ");await value();await s.write("==0.0 {break 'root_choice ");await value();await s.write(";}");}}
+  else if(!positiveInput)await visit({minimum:0,maximum:0,slope:1,offset:0});
   let firstX=number(first),firstY=root(firstX),lastX=firstX,slope:number|undefined,offset=0;
   const flush=async(final=false)=>{
+    if(visit){await visit({minimum:firstX,maximum:lastX,slope:slope??0,offset,
+      ...((slope===undefined||slope===0)?{constant:firstY}:{})});return;}
     if(!final){await s.write("if ");await value();await s.write(`<=${rustF64(lastX)} {`);}
     await s.write("break 'root_choice ");
     if(slope===undefined||slope===0)await s.write(rustF64(firstY));
@@ -100,7 +131,7 @@ export async function emitRustSqrt(s:DirectRustStream,input:RustExpression,posit
     }else if(Object.is(slope===0?firstY:slope*x+offset,y)){lastX=x;continue;}
     await flush();firstX=lastX=x;firstY=y;slope=undefined;offset=0;
   }
-  await flush(true);await s.write("}");
+  await flush(true);if(!visit)await s.write("}");
 }
 export function foldDeclaredCpuF32Exponential(x:number):number{
     if(x< -104)return 0;if(x>100)return Infinity;
@@ -123,7 +154,8 @@ export function foldDeclaredCpuF32Exponential(x:number):number{
  * at every discrete F32 point; floating identities are never assumed.
  */
 export async function emitRustExp(s:DirectRustStream,input:RustExpression,alreadyF32=false,
-  nonpositiveMagnitudeBound?:number,inputRange?:{minimum:number;maximum:number},inputQuantum?:number):Promise<void>{
+  nonpositiveMagnitudeBound?:number,inputRange?:{minimum:number;maximum:number},inputQuantum?:number,
+  visit?:NumericRunConsumer):Promise<void>{
   const range=inputRange??(nonpositiveMagnitudeBound===undefined?undefined:
     {minimum:-nonpositiveMagnitudeBound,maximum:0});
   if(!range||!Number.isFinite(range.minimum)||!Number.isFinite(range.maximum)||range.minimum>range.maximum)
@@ -135,13 +167,17 @@ export async function emitRustExp(s:DirectRustStream,input:RustExpression,alread
   if(range.minimum===range.maximum){
     const point=Math.fround(range.minimum);
     if(alreadyF32&&point!==range.minimum)throw new Error("Empty F32 exponential point domain");
-    s.eliminatedBranches++;await s.write(literal(foldDeclaredCpuF32Exponential(point)));return;
+    s.eliminatedBranches++;
+    if(visit)await visit({minimum:point,maximum:point,slope:0,offset:0,constant:foldDeclaredCpuF32Exponential(point)});
+    else await s.write(literal(foldDeclaredCpuF32Exponential(point)));return;
   }
   const value=async()=>{await s.write("(");if(alreadyF32)await input();else await s.round("f32",input);await s.write(")");};
-  await s.write("'exponential_choice:{");
+  if(!visit)await s.write("'exponential_choice:{");
   let firstX:number|undefined,firstY=0,lastX=0,slope:number|undefined,offset=0;
   const flush=async(final=false)=>{
     if(firstX===undefined)return;
+    if(visit){await visit({minimum:firstX,maximum:lastX,slope:slope??0,offset,
+      ...((slope===undefined||slope===0)?{constant:firstY}:{})});return;}
     if(!final){await s.write("if ");await value();await s.write(`<=${literal(lastX)} {`);}
     await s.write("break 'exponential_choice ");
     if(slope===undefined||slope===0)await s.write(literal(firstY));
@@ -173,7 +209,7 @@ export async function emitRustExp(s:DirectRustStream,input:RustExpression,alread
       previous=x;await consume(x);
     }
     if(firstX===undefined)throw new Error("Empty exponential input lattice");
-    await flush(true);await s.write("}");return;
+    await flush(true);if(!visit)await s.write("}");return;
   }
   // Enumerate in numerical order, consuming and discarding one F32 value.
   // Domains are inclusive and are rounded outward when the input itself has
@@ -203,5 +239,5 @@ export async function emitRustExp(s:DirectRustStream,input:RustExpression,alread
     for(let code=first;code<=last;code++)await consume(number(code));
   }
   if(firstX===undefined)throw new Error("Empty F32 exponential domain");
-  await flush(true);await s.write("}");
+  await flush(true);if(!visit)await s.write("}");
 }

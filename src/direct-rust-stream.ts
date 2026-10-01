@@ -12,9 +12,14 @@ export class DirectRustStream {
   private readonly output;
   bytes = 0;
   eliminatedBranches = 0;
+  inspectedExpressions = 0;
   private reductionGate?:DirectReductionGate;
+  private inspection: ((source:string)=>void) | undefined;
+  private cancellation:Error|undefined;
   constructor(path: string) { this.output = createWriteStream(path, { encoding: "utf8" }); }
   async write(source: string): Promise<void> {
+    if(this.cancellation)throw this.cancellation;
+    if(this.inspection){this.inspection(source);return;}
     this.reductionGate?.accept(source);
     // Numeric fragments are complete lexemes at emission boundaries. Mark
     // floating literals explicitly to avoid millions of unresolved operator
@@ -25,8 +30,19 @@ export class DirectRustStream {
     if (!this.output.write(source)) await once(this.output, "drain");
   }
   beginReducedExpression():void{this.reductionGate=new DirectReductionGate();}
+  /** Inspect already substituted arithmetic with bounded memory. Inspection
+   * never writes, caches a source fragment or bypasses the flat-source gate.
+   */
+  async inspectExpression(expression:RustExpression,consume:(source:string)=>void):Promise<void>{
+    if(this.inspection)throw new Error("Nested expression inspection");
+    this.inspectedExpressions++;
+    const gate=new DirectReductionGate();
+    this.inspection=source=>{gate.accept(source);consume(source);};
+    try{await expression();gate.finish();}finally{this.inspection=undefined;}
+  }
   async close(): Promise<void> { this.reductionGate?.finish();this.output.end(); await finished(this.output); }
   destroy(): void { this.output.on("error", () => {}); this.output.destroy(); }
+  cancel(reason:string):void{this.cancellation=new Error(reason);}
   async exactAffineBranch(domain: DirectBranchDomain, variable: string, scale: Rational, offset: Rational,
     op: Comparison, rhs: Rational, truth: (domain: DirectBranchDomain) => Promise<void>,
     falsity: (domain: DirectBranchDomain) => Promise<void>): Promise<void> {
