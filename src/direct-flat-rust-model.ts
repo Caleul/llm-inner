@@ -71,24 +71,41 @@ export async function writeDirectFlatRustModel(directory:string,python:string,di
     });
     const linear=(projection:Projection,row:number,input:(coordinate:number)=>FlatProducer):FlatProducer=>(p,k)=>
       substituteFlatProjection(f,p,projection.shape[1],c=>weight(projection.weight,row*projection.shape[1]+c),input,k);
-    const norm=(name:string,epsilon:number,coordinate:number,input:(coordinate:number)=>FlatProducer):FlatProducer=>async(p,k)=>{
-      if(width>1000000||!(Math.fround(epsilon)>=2**-126))throw new Error("Normalization finite-error domain not proved");
+    const norm=(name:string,epsilon:number,coordinate:number,input:(coordinate:number)=>FlatProducer,
+      finiteEmbeddingInput=false):FlatProducer=>async(p,k)=>{
+      if(width>1000000||!Number.isFinite(Math.fround(epsilon))||!(Math.fround(epsilon)>=2**-126))
+        throw new Error("Normalization finite-error domain not proved");
+      const gamma=await weight(name,coordinate);
+      const evaluate=(p:FlatConditions,coordinateInput:FlatProducer)=>{
       const sum:FlatProducer=(p,k)=>substituteCpuArm64F32Sum(f,p,width,c=>(p,k)=>f.square(p,input(c),k),k);
       const variance=round(binary(round(binary(sum,literal(width),"/"),"f32"),literal(Math.fround(epsilon)),"+"),"f32");
       const root:FlatProducer=(p,k)=>f.sqrt(p,variance,k);
       const inverse=round(binary(literal(1),root,"/"),"f32");
       // Nonnegative RMS reduction: accumulated F32 error <1/8 in this domain.
       // The factor two conservatively covers sum, rsqrt and F16 rounding.
-      const product=bounded(binary(input(coordinate),inverse,"*"),-2*Math.sqrt(width),2*Math.sqrt(width));
+      const product=bounded(binary(coordinateInput,inverse,"*"),-2*Math.sqrt(width),2*Math.sqrt(width));
       const normalized=round(round(product,"f32"),"f16",true);
-      const gamma=await weight(name,coordinate);
       return round(binary(normalized,literal(gamma),"*"),"f16",true)(p,k);
+      };
+      if(!finiteEmbeddingInput)return evaluate(p,input(coordinate));
+      return input(coordinate)(p,(p,value)=>{
+        const reached:FlatProducer=(p,k)=>k(p,value);
+        // Every embedding coordinate is finite F16 by the declared input
+        // domain. Its squared mean is finite; positive finite F32 epsilon
+        // gives a positive finite root and reciprocal. Multiplication of
+        // either signed zero by that reciprocal preserves the input zero.
+        if(value.minimum===0&&value.maximum===0){
+          s.eliminatedBranches++;
+          return round(binary(reached,literal(gamma),"*"),"f16",true)(p,k);
+        }
+        return evaluate(p,reached);
+      });
     };
     const embeddings=(coordinate:number,position:number):FlatProducer=>(p,k)=>f.f16Input(p,
       ()=>s.write(`input_tokens[${position}][${coordinate}]`),k);
     const preNorm=(layer:number,coordinate:number,position:number):FlatProducer=>{
       const n=layers[layer]!.mlp.normalizations[0]!;
-      return norm(n.weight,n.epsilon,coordinate,c=>hidden(layer-1,c,position));
+      return norm(n.weight,n.epsilon,coordinate,c=>hidden(layer-1,c,position),layer===0);
     };
     const postNorm=(layer:number,coordinate:number,position:number):FlatProducer=>{
       const n=layers[layer]!.mlp.normalizations[1]!;

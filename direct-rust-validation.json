@@ -467,6 +467,28 @@
       "exactBits": true,
       "completeModelParity": false,
       "source": "https://raw.githubusercontent.com/pytorch/pytorch/v2.12.1/aten/src/ATen/cpu/vec/functional_base.h"
+    },
+    "initialNormalizationZero": {
+      "signedZeroCases": 180,
+      "widths": [
+        1,
+        2,
+        3,
+        16,
+        64
+      ],
+      "epsilonRange": "2^-126, 1e-6, maximum finite F32",
+      "gammaValues": [
+        -65504,
+        -1,
+        "-0",
+        0,
+        1,
+        65504
+      ],
+      "reference": "PyTorch F32 RMS computation followed by F16 gamma multiplication",
+      "exactBits": true,
+      "completeModelParity": false
     }
   },
   "remaining": [
@@ -553,7 +575,8 @@
         "canonical fingerprints replace singleton nonzero input intervals by their literal values",
         "inherited comparison intervals propagated into canonical scalar subexpressions iteratively until no interval changes; no calculation values cached",
         "rational interval endpoints rounded outward for binary64 range proofs; strict comparisons retained in emitted guards",
-        "CPU arm64 softmax horizontal order specialized by full sequence length, including masked trailing zeros; n=3 versus n>=4 retained when needed"
+        "CPU arm64 softmax horizontal order specialized by full sequence length, including masked trailing zeros; n=3 versus n>=4 retained when needed",
+        "first normalization signed zero bypasses variance/root dependencies only when all inputs are declared finite embedding coordinates and epsilon is positive finite F32"
       ],
       "runtimeAdmission": "complete emitted expression required; drafts are not compiled",
       "fullChosenLogitEmitted": false,
@@ -561,9 +584,9 @@
       "exactFinalParity": false,
       "fullModelRustCompilationAttempts": 0,
       "generation": {
-        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v24.rs --validate",
+        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v25.rs --validate",
         "status": "running",
-        "progress": "/private/tmp/llm-inner-flat-embeddings-v24.rs.progress.json"
+        "progress": "/private/tmp/llm-inner-flat-embeddings-v25.rs.progress.json"
       },
       "ruleTests": {
         "passed": 40,
