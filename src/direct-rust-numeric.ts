@@ -7,8 +7,9 @@ export interface NumericAffineRun {
   minimum:number; maximum:number; slope:number; offset:number;
   /** Constants preserve their signed zero without evaluating 0*x+b. */
   constant?:number;
-  /** Compiler-certified F16 rounding of this exact F32 affine expression. */
-  rounded?:"f16";
+  /** Compiler-certified rounding of the emitted native F64 affine operations. */
+  rounded?:"f16"|"f32";
+  rawQuantum?:number;
 }
 export type NumericRunConsumer=(run:NumericAffineRun)=>Promise<void>;
 
@@ -239,6 +240,38 @@ export async function emitRustExp(s:DirectRustStream,input:RustExpression,alread
       throw new Error("Undefined exponential input lattice");
     const first=Math.ceil(range.minimum/inputQuantum),last=Math.floor(range.maximum/inputQuantum);
     if(!Number.isSafeInteger(first)||!Number.isSafeInteger(last))throw new Error("Exponential lattice exceeds exact index domain");
+    if(visit&&inputQuantum>=2**-24&&range.minimum>=-0.34&&range.maximum<=0&&last-first>4096){
+      // One live rounded-affine run. Each policy value is consumed from the
+      // declared polynomial, not retained as an output table. The line must
+      // lie strictly inside every reached F32 result's rounding cell.
+      let start=first;
+      while(start<=last){
+        const probe=Math.min(last,start+1024),x0=start*inputQuantum;
+        const y0=foldDeclaredCpuF32Exponential(x0);
+        const a=probe===start?0:Math.fround((foldDeclaredCpuF32Exponential(probe*inputQuantum)-y0)/((probe-start)*inputQuantum));
+        let lower=-Infinity,upper=Infinity,end=start-1;
+        for(let index=start;index<=last;index++){
+          const x=index*inputQuantum,y=foldDeclaredCpuF32Exponential(x),code=bits(y);
+          const lo=(number(code-1)+y)/2-a*x,hi=(y+number(code+1))/2-a*x;
+          const nextLower=Math.max(lower,lo),nextUpper=Math.min(upper,hi);
+          if(!(nextLower<nextUpper))break;
+          lower=nextLower;upper=nextUpper;end=index;
+        }
+        if(end<start)throw new Error("Empty certified exponential rounding cell");
+        const b=(lower+upper)/2;
+        // With a F32 slope and inputs on a >=2^-24 lattice in this domain,
+        // products have <=47 significant bits; b is on a >=2^-49 lattice.
+        // Nevertheless certify the exact emitted F64 operations pointwise.
+        for(let index=start;index<=end;index++){
+          const x=index*inputQuantum;
+          if(!Object.is(Math.fround(a*x+b),foldDeclaredCpuF32Exponential(x)))
+            throw new Error(`Exponential affine certificate failed at ${x}`);
+        }
+        await visit({minimum:x0,maximum:end*inputQuantum,slope:a,offset:b,rounded:"f32",rawQuantum:2**-49});
+        s.eliminatedBranches+=end-start;start=end+1;
+      }
+      return;
+    }
     let previous:number|undefined;
     for(let index=first;index<=last;index++){
       const x=Math.fround(index*inputQuantum);

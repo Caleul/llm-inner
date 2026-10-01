@@ -11,6 +11,7 @@ import { substituteFlatProjection, substituteFlatReduction } from "./direct-flat
 import { substituteCpuArm64F32Sum } from "./direct-rust-mean.js";
 import { substituteCpuArm64SoftmaxSum } from "./direct-rust-softmax.js";
 import {proveInitialMlpProductZero} from "./direct-flat-zero-mlp.js";
+import {proveFiniteNormalizationInputs} from "./direct-finite-model-proof.js";
 import { rational } from "./direct-branch-domain.js";
 import { fixedF16RopeLiteral } from "./fixed-f16-rope-branches.js";
 import { decodeIeeeF16ToF32 } from "./utils.js";
@@ -75,6 +76,7 @@ export async function writeDirectFlatRustModel(directory:string,python:string,di
     const linear=(projection:Projection,row:number,input:(coordinate:number)=>FlatProducer,
       zeroInputMagnitude?:(path:FlatConditions,coordinate:number)=>Promise<boolean>):FlatProducer=>(p,k)=>
       substituteFlatProjection(f,p,projection.shape[1],c=>weight(projection.weight,row*projection.shape[1]+c),input,k,zeroInputMagnitude);
+    let allNormalizationInputsFinite=false;
     const norm=(name:string,epsilon:number,coordinate:number,input:(coordinate:number)=>FlatProducer,
       finiteEmbeddingInput=false):FlatProducer=>async(p,k)=>{
       if(width>1000000||!Number.isFinite(Math.fround(epsilon))||!(Math.fround(epsilon)>=2**-126))
@@ -91,14 +93,14 @@ export async function writeDirectFlatRustModel(directory:string,python:string,di
       const normalized=round(round(product,"f32"),"f16",true);
       return round(binary(normalized,literal(gamma),"*"),"f16",true)(p,k);
       };
-      if(!finiteEmbeddingInput)return evaluate(p,input(coordinate));
+      if(!finiteEmbeddingInput&&!allNormalizationInputsFinite)return evaluate(p,input(coordinate));
       return input(coordinate)(p,(p,value)=>{
         const reached:FlatProducer=(p,k)=>k(p,value);
-        // Every embedding coordinate is finite F16 by the declared input
-        // domain. Its squared mean is finite; positive finite F32 epsilon
-        // gives a positive finite root and reciprocal. Multiplication of
-        // either signed zero by that reciprocal preserves the input zero.
-        if(value.minimum===0&&value.maximum===0){
+        // Embeddings are finite by the input contract; subsequent inputs
+        // are finite by the checkpoint-wide proof. Positive finite epsilon
+        // gives a positive finite reciprocal. Zero coordinates or a zero
+        // learned weight therefore need only the coordinate's original sign.
+        if((value.minimum===0&&value.maximum===0)||gamma===0){
           s.eliminatedBranches++;
           return round(binary(reached,literal(gamma),"*"),"f16",true)(p,k);
         }
@@ -153,6 +155,14 @@ export async function writeDirectFlatRustModel(directory:string,python:string,di
         rotatedQ<65504&&rotatedK<65504))throw new Error("Finite causal-mask elimination not proved");
       scoreBounds.push(bound);
     }
+    function* finiteLayerMetadata(){for(const layer of layers){
+      const a=layer.attention.attention,n=layer.mlp.normalizations,p=layer.mlp.mlp;
+      yield {pre:n[0]!,post:n[1]!,heads:a.heads,kvHeads:a.kvHeads,headDim:a.headDim,ropeTheta:a.ropeTheta,
+        v:a.projections.v,o:a.projections.o,gate:p.gate,up:p.up,down:p.down};
+    }}
+    allNormalizationInputsFinite=await proveFiniteNormalizationInputs(width,output.maxPosition,finiteLayerMetadata(),
+      {weight:output.finalNormWeight,epsilon:output.finalNormEpsilon},weight,scoreBounds.length===layers.length);
+    if(!allNormalizationInputsFinite)throw new Error("Finite normalization inputs are not proved for this checkpoint and embedding domain");
     let fullVectorSoftmax=false;
     const context=(layer:number,head:number,coordinate:number,query:number):FlatProducer=>{
       const a=layers[layer]!.attention.attention;

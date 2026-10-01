@@ -82,10 +82,12 @@ export async function proveInitialMlpProductZero(f:DirectFlatSubstitution,path:F
 
 function upperHalf(value:number):number{
   if(value===0)return 0;
-  if(!(value>0&&Number.isFinite(value))||value>65504)return Infinity;
+  if(!(value>0&&Number.isFinite(value))||value>=65520)return Infinity;
   const data=new DataView(new ArrayBuffer(4));data.setFloat32(0,value,true);
-  let bits=roundDyadicToF16IfElse(f32BitsToDyadic(data.getUint32(0,true)));
-  let bound=decodeIeeeF16ToF32(bits);
-  if(bound<value){bits++;bound=decodeIeeeF16ToF32(bits);}
-  return bound;
+  const bits=roundDyadicToF16IfElse(f32BitsToDyadic(data.getUint32(0,true)));
+  // This bounds the R32 -> R16 RESULT, not the unrounded real value.
+  // Both rounding maps are monotone: actualF32<=value implies
+  // R16(actualF32)<=R16(R32(value)). A half ceiling unnecessarily kept
+  // subnormal terms that are provably nearest-even zero.
+  return decodeIeeeF16ToF32(bits);
 }

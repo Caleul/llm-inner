@@ -502,6 +502,13 @@
       "finiteF16Inputs": 63488,
       "holds": true,
       "completeModelParity": false
+    },
+    "roundedAffineExponential": {
+      "domain": "all k*2^-24 in [-0.1,0]",
+      "policyPointsCertified": 1677722,
+      "executedRustSamples": 10047,
+      "exactDeclaredPolicyBits": true,
+      "completeModelParity": false
     }
   },
   "remaining": [
@@ -597,7 +604,11 @@
         "comparison operands refreshed before inverse refinement; fixed-point domains avoid repeated guard rescans",
         "rounding and certified-root cell consumers refresh bounds after each refinement; singleton root inputs fold before midpoint comparisons",
         "normalization magnitude proofs include the F16 conversion before learned gamma multiplication and the later conversion separately",
-        "finite attention admission includes the RoPE output range and conservative ordered-reduction error up to the declared supported width"
+        "finite attention admission includes the RoPE output range and conservative ordered-reduction error up to the declared supported width",
+        "proved power-of-two lattices eliminate intervals with no reachable scalar, preserving signed zero and strict bounds",
+        "large exponential input lattices emit native F64 affine operations plus explicit F32 choices; every reached point is checked against the declared CPU polynomial before the run is emitted",
+        "normalization and projection magnitude bounds use the monotone R32 -> R16 result rather than an unnecessarily loose half ceiling",
+        "checkpoint-wide finite normalization inputs proved by progressive scalar weight reads; zero coordinates and zero learned normalization weights retain only signed-zero arithmetic"
       ],
       "runtimeAdmission": "complete emitted expression required; drafts are not compiled",
       "fullChosenLogitEmitted": false,
@@ -605,15 +616,13 @@
       "exactFinalParity": false,
       "fullModelRustCompilationAttempts": 0,
       "generation": {
-        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v28.rs --validate",
+        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v30.rs --validate",
         "status": "running",
-        "progress": "/private/tmp/llm-inner-flat-embeddings-v28.rs.progress.json",
-        "loadedRevision": "8792c59",
-        "currentBoundsRevisionNote": "The active diagnostic has width=headDim=2 and every normalization gamma is +1; its prior 1.01 reduction budget and single ceiling are valid there. General bounds are strengthened in the current source."
+        "progress": "/private/tmp/llm-inner-flat-embeddings-v30.rs.progress.json"
       },
       "ruleTests": {
-        "passed": 45,
-        "command": "node --test dist/test/direct-source-bounds.test.js dist/test/direct-flat-substitution.test.js dist/test/direct-round-preimage.test.js dist/test/direct-rust-stream.test.js dist/test/direct-flat-zero-mlp.test.js",
+        "passed": 49,
+        "command": "node --test dist/test/direct-source-bounds.test.js dist/test/direct-flat-substitution.test.js dist/test/direct-round-preimage.test.js dist/test/direct-rust-stream.test.js dist/test/direct-flat-zero-mlp.test.js dist/test/direct-finite-model-proof.test.js",
         "provesCompleteModel": false
       },
       "finalValidationHarness": "helpers/validate_direct_flat_rust.py; compares final chosen logit bits for every position of varied embedding matrices and lengths; not yet executed",
@@ -624,15 +633,15 @@
           "status": "pending",
           "dimension": 2,
           "position": 0,
-          "leaves": 16257,
-          "bytes": 790188939,
-          "eliminatedBranches": 9559080,
-          "inspectedExpressions": 26350427,
-          "elapsedMilliseconds": 2710737,
+          "leaves": 3523,
+          "bytes": 293143065,
+          "eliminatedBranches": 3741098,
+          "inspectedExpressions": 17106070,
+          "elapsedMilliseconds": 5080691,
           "finalParity": false,
           "rustCompilationAdmitted": false
         },
-        "reason": "Interrupted to apply inherited-condition normalization and exact representability reductions. Prefix only, no full final function or full-model compilation."
+        "reason": "Interrupted to incorporate checkpoint-wide finite-input proof and zero-coordinate elimination in later normalizations. No draft reused or compiled."
       }
     }
   }

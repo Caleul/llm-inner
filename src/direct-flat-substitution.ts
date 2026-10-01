@@ -559,18 +559,18 @@ export class DirectFlatSubstitution {
           upper:{value:exactNumberRational(maximum),inclusive:true}});
         if(!narrowed){this.stream.eliminatedBranches++;return;}
         if(run.rounded){
-          // This alternative was checked against every reached F16 policy
-          // input by the visitor. The raw affine value has <=13 bits here,
-          // so its two scalar operations are exact F32 before half rounding.
+          // The visitor checked every reached discrete policy input. Small
+          // half SiLU runs have an exact F32 affine value; rounded-F32 runs
+          // retain native F64 operations followed by their F32 rounding.
           const raw:FlatInput={minimum:run.slope*minimum+run.offset,maximum:run.slope*maximum+run.offset,
-            precision:"f32",quantum:2**-26,
+            ...(run.rounded==="f16"?{precision:"f32" as const}:{}),quantum:run.rawQuantum??2**-26,
             restrict:async(p,interval)=>{
               const normalized=normalizeInterval(interval,(op,rhs)=>normalizeFiniteAffineRunComparison(
                 input.precision!,run.slope,run.offset,op,rhs));
               return normalized===false?undefined:normalized===true?p:this.refine(p,input,normalized);
             },emit:async()=>{await this.stream.write(`(${rustF64(run.slope)}*(`);await input.emit();
               await this.stream.write(`)+${rustF64(run.offset)})`);}};
-          await this.round(narrowed,(p,k)=>k(p,raw),run.rounded,true,consume);return;
+          await this.round(narrowed,(p,k)=>k(p,raw),run.rounded,run.rounded==="f16",consume);return;
         }
         const apply=(x:number)=>run.constant===undefined?run.slope*x+run.offset:run.constant;
         const endpoints=[apply(minimum),apply(maximum)];
@@ -711,6 +711,17 @@ export class DirectFlatSubstitution {
         const minimum=finiteIeeeValue("f16",first),maximum=finiteIeeeValue("f16",lo);
         return {minimum:minimum===0?-0:minimum,maximum,key:hash};
       }
+      if(interval?.lower&&interval.upper){
+        const outward=(side:"lower"|"upper")=>{
+          const bound=interval[side]!;let number=Number(bound.value.numerator)/Number(bound.value.denominator);
+          while(Number.isFinite(number)&&(side==="lower"?
+            compareRational(exactNumberRational(number),bound.value)>0:
+            compareRational(exactNumberRational(number),bound.value)<0))number=adjacentF64(number,side==="lower"?-1:1);
+          return number===0?(side==="lower"?-0:0):number;
+        };
+        const minimum=outward("lower"),maximum=outward("upper");
+        if(Number.isFinite(minimum)&&Number.isFinite(maximum)&&minimum<=maximum)return {minimum,maximum,key:hash};
+      }
       return {minimum:-Infinity,maximum:Infinity,key:hash,opaque:true};
     },value=>{
       const interval=intervals.get(value.key);if(!interval)return value;
@@ -781,6 +792,22 @@ export class DirectFlatSubstitution {
           maximum:Math.min(input.maximum,Number(bounded.upper!.value.numerator)/Number(bounded.upper!.value.denominator))};
       }
     }
+    const latticeBounds=(value:FlatInput):FlatInput|undefined=>{
+      const q=value.quantum;if(!(q&&q>0&&Number.isInteger(Math.log2(q))))return value;
+      let lo=Math.ceil(value.minimum/q),hi=Math.floor(value.maximum/q);
+      if(!Number.isSafeInteger(lo)||!Number.isSafeInteger(hi))return value;
+      for(const side of ["lower","upper"] as const){
+        const bound=interval?.[side];if(!bound)continue;
+        const comparison=compareRational(exactNumberRational((side==="lower"?lo:hi)*q),bound.value);
+        if(comparison===0&&!bound.inclusive){if(side==="lower")lo++;else hi--;}
+      }
+      if(lo>hi)return undefined;
+      const minimum=lo*q,maximum=hi*q;
+      if(minimum===0&&maximum===0&&(path.nonzero.has(range.sourceKey)||path.nonzero.has(range.key)))return undefined;
+      return {...value,minimum:minimum===0&&(value.minimum<0||Object.is(value.minimum,-0))?-0:minimum,
+        maximum:maximum===0&&Object.is(value.maximum,-0)?-0:maximum};
+    };
+    const discrete=latticeBounds(input);if(!discrete)return undefined;input=discrete;
     if(input.minimum===input.maximum&&input.minimum!==0){
       const value=input.minimum;
       return {...input,literal:value,emit:()=>this.stream.write(rustF64(value))};
@@ -788,12 +815,13 @@ export class DirectFlatSubstitution {
     if(range.opaque)return input;
     const minimum=Math.max(input.minimum,range.minimum),maximum=Math.min(input.maximum,range.maximum);
     if(minimum>maximum)return undefined;
+    const clipped=latticeBounds({...input,minimum,maximum});if(!clipped)return undefined;
     if(Object.is(range.minimum,range.maximum)){
       const value=range.minimum;
       return {...input,minimum:value,maximum:value,literal:value,
         emit:()=>this.stream.write(rustF64(Object.is(value,-0)?"-0":value))};
     }
-    return {...input,minimum,maximum};
+    return clipped;
   }
   /** Commit the current affine/constant run before leaving a result block.
    * Only one not-yet-emitted leaf is retained for adjacent condition merging.
@@ -810,7 +838,7 @@ export class DirectFlatSubstitution {
         const bound=interval[side];if(!bound)continue;
         await this.stream.write(first?"if ":" && ");first=false;
         await this.stream.write("(");await guard.emit();await this.stream.write(")");
-        await this.stream.write(side==="lower"?(bound.inclusive?">=":">"):(bound.inclusive?"<=":"<"));
+        await this.stream.write(side==="lower"?(bound.inclusive?" >= ":" > "):(bound.inclusive?" <= ":" < "));
         await this.stream.write(rustBoundary(bound.value));
       }
     }

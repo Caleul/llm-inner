@@ -16,6 +16,38 @@ import { substituteFlatProjection } from "../src/direct-flat-projection.js";
 import { substituteCpuArm64SoftmaxSum } from "../src/direct-rust-softmax.js";
 const run=promisify(execFile);
 
+test("proved power-of-two input lattices eliminate intervals containing no reachable F32 value",async()=>{
+  const directory=await mkdtemp(join(tmpdir(),"direct-flat-input-lattice-"));
+  try{
+    const path=join(directory,"lattice.rs"),s=new DirectRustStream(path),f=new DirectFlatSubstitution(s);
+    const x:FlatProducer=(p,k)=>f.input(p,()=>s.write("x"),-1,1,(p,v)=>k(p,{...v,precision:"f32",quantum:0.25}));
+    const answer=(p:FlatConditions,value:number)=>f.literal(p,value,(p,v)=>f.leaf(p,"answer",v));
+    await s.write("fn generated(x:f64)->f64 {'answer:{");s.beginReducedExpression();
+    await f.comparison(new FlatConditions(),x,">",rational(0n),p=>f.comparison(p,x,"<",rational(1n,8n),
+      p=>answer(p,999),p=>answer(p,7)),p=>answer(p,0));
+    await f.finishRound();await s.write('panic!("outside lattice")}}');await s.close();
+    assert.doesNotMatch(await readFile(path,"utf8"),/999/);
+    await appendFile(path,'fn main(){for i in -4..=4{let x=i as f64/4.0;assert_eq!(generated(x),if x>0.0{7.0}else{0.0});}}');
+    await run("rustc",["-Awarnings",path,"-o",join(directory,"run")]);await run(join(directory,"run"));
+  }finally{await rm(directory,{recursive:true,force:true});}
+});
+
+test("large exponential domains reduce to certified rounded affine runs in flat Rust",async()=>{
+  const directory=await mkdtemp(join(tmpdir(),"direct-flat-exp-polynomial-"));
+  let succeeded=false;
+  try{
+    const path=join(directory,"polynomial.rs"),s=new DirectRustStream(path),f=new DirectFlatSubstitution(s);
+    await s.write("fn generated(x:f64)->f64 {'answer:{");s.beginReducedExpression();let visits=0;
+    await f.exponential(new FlatConditions(),(p,k)=>f.input(p,()=>s.write("x"),-0.1,0,
+      (p,v)=>k(p,{...v,precision:"f32",quantum:2**-24})),async(p,v)=>{visits++;await f.leaf(p,"answer",v);},2**-24);
+    await f.finishRound();await s.write('panic!("outside domain")}}');await s.close();
+    assert.ok(visits<1677722,`Polynomial enumerated every lattice point: ${visits} paths`);
+    await appendFile(path,'fn main(){for i in (0..=1677721).step_by(167){let x=-(i as f32)/16777216.0;let mut p=0.000198527617612853646278381_f32;for c in [0.00139304355252534151077271_f32,0.00833336077630519866943359_f32,0.0416664853692054748535156_f32,0.166666671633720397949219_f32,0.5_f32]{p=((p as f64)*(x as f64)+(c as f64)) as f32;}let squared=((x as f64)*(x as f64)) as f32;let tail=((squared as f64)*(p as f64)+(x as f64)) as f32;let expected=(1.0_f64+tail as f64) as f32;assert_eq!(generated(x as f64).to_bits(),(expected as f64).to_bits(),"{}",i);}}');
+    await run("rustc",["--edition=2021","-Awarnings",path,"-o",join(directory,"run")]);await run(join(directory,"run"));
+    succeeded=true;
+  }finally{if(succeeded)await rm(directory,{recursive:true,force:true});else process.stderr.write(`Preserved exponential rule evidence: ${directory}\n`);}
+});
+
 test("exponential substitution uses the proved input lattice and preserves every reachable value",async()=>{
   const directory=await mkdtemp(join(tmpdir(),"direct-flat-exp-lattice-"));
   try{
