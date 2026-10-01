@@ -595,7 +595,9 @@
         "first-layer MLP products eliminated before dependency expansion when progressively read weights and inherited embedding magnitude bounds prove F16 nearest-even zero; no bound/activation cache",
         "exponential input lattice intersected with the stronger proved producer lattice before enumerating branches",
         "comparison operands refreshed before inverse refinement; fixed-point domains avoid repeated guard rescans",
-        "rounding and certified-root cell consumers refresh bounds after each refinement; singleton root inputs fold before midpoint comparisons"
+        "rounding and certified-root cell consumers refresh bounds after each refinement; singleton root inputs fold before midpoint comparisons",
+        "normalization magnitude proofs include the F16 conversion before learned gamma multiplication and the later conversion separately",
+        "finite attention admission includes the RoPE output range and conservative ordered-reduction error up to the declared supported width"
       ],
       "runtimeAdmission": "complete emitted expression required; drafts are not compiled",
       "fullChosenLogitEmitted": false,
@@ -605,7 +607,9 @@
       "generation": {
         "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v28.rs --validate",
         "status": "running",
-        "progress": "/private/tmp/llm-inner-flat-embeddings-v28.rs.progress.json"
+        "progress": "/private/tmp/llm-inner-flat-embeddings-v28.rs.progress.json",
+        "loadedRevision": "8792c59",
+        "currentBoundsRevisionNote": "The active diagnostic has width=headDim=2 and every normalization gamma is +1; its prior 1.01 reduction budget and single ceiling are valid there. General bounds are strengthened in the current source."
       },
       "ruleTests": {
         "passed": 45,

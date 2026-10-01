@@ -40,6 +40,10 @@ test("initial MLP zero proof uses inherited embedding bounds and rejects unrestr
         assert.equal(await proveInitialMlpProductZero(f,path,g,query,0,weight),true,`${width},${query}`);
         assert.equal(await proveInitialMlpProductZero(f,new FlatConditions(),g,query,0,weight),false);
       }
+      for(const gamma of [-0.25,0,0.25]){
+        const learned=async(name:string,index:number)=>name==="pre"||name==="post"?gamma:weight(name,index);
+        assert.equal(await proveInitialMlpProductZero(f,path,g,2,0,learned),true,`${width},gamma=${gamma}`);
+      }
     }
     await s.close();
   }finally{await rm(dir,{recursive:true,force:true});}

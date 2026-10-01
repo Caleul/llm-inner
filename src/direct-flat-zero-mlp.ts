@@ -33,7 +33,11 @@ export async function proveInitialMlpProductZero(f:DirectFlatSubstitution,path:F
     const gamma=Math.abs(await weight(norm.weight,coordinate));
     // Variance >= epsilon. The 1.01 factor covers both normal F32 root
     // and reciprocal rounding; 2*sqrt(width) covers ordered mean error.
-    return upperHalf(Math.min(2*Math.sqrt(g.width),magnitude*1.01/Math.sqrt(epsilon))*gamma);
+    const converted=upperHalf(Math.min(2*Math.sqrt(g.width),magnitude*1.01/Math.sqrt(epsilon)));
+    // The source converts the normalized coordinate to half BEFORE the
+    // learned-weight multiplication. Bound both conversions separately;
+    // a single rounding after gamma could underestimate subnormal values.
+    return upperHalf(converted*gamma);
   };
   const pre=(position:number,coordinate:number)=>normalized(g.pre,coordinate,()=>embedding(position,coordinate));
   const dot=async(projection:Projection,row:number,input:(coordinate:number)=>Promise<number>)=>{

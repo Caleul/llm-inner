@@ -142,13 +142,15 @@ export async function writeDirectFlatRustModel(directory:string,python:string,di
         for(let row=0;row<projection.shape[0];row++){
           let squared=0,absolute=0;
           for(let c=0;c<width;c++){const w=await weight(projection.weight,row*width+c);squared+=w*w;absolute+=Math.abs(w);}
-          maximum=Math.max(maximum,(2*Math.sqrt(width)*gamma*Math.sqrt(squared)+absolute*2**-23)*1.01+2**-24);
+          maximum=Math.max(maximum,(2*Math.sqrt(width)*gamma*Math.sqrt(squared)+absolute*2**-23)*1.125+2**-24);
         }
         return maximum;
       };
       const q=await projectionBound("q"),k=await projectionBound("k");
-      const bound=(a.headDim*(2*q*1.01+2**-23)*(2*k*1.01+2**-23)*1.01+2**-24)*Math.abs(a.scaling)*1.01+2**-24;
-      if(!(bound<16&&2*Math.sqrt(width)*gamma<65504&&q<65504&&k<65504))throw new Error("Finite causal-mask elimination not proved");
+      const rotatedQ=2*q*1.01+2**-23,rotatedK=2*k*1.01+2**-23;
+      const bound=(a.headDim*rotatedQ*rotatedK*1.125+2**-24)*Math.abs(a.scaling)*1.01+2**-24;
+      if(!(a.headDim<=1000000&&bound<16&&2*Math.sqrt(width)*gamma<65504&&
+        rotatedQ<65504&&rotatedK<65504))throw new Error("Finite causal-mask elimination not proved");
       scoreBounds.push(bound);
     }
     let fullVectorSoftmax=false;
