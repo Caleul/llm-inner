@@ -5,6 +5,8 @@ import { DirectBranchDomain, type Comparison, type Rational, normalizeExactAffin
 import { exactNumberRational, normalizeReciprocalRootAffineComparison, normalizeRoundedAffineComparison, type DirectRoundedFormat } from "./direct-round-preimage.js";
 import { DirectReductionGate } from "./direct-reduction-gate.js";
 
+const completedWrite = Promise.resolve();
+
 export type RustExpression = () => Promise<void>;
 export interface PositiveRoundRange { minimum: number; maximum: number }
 /** Writes direct source with bounded memory; expression callbacks emit immediately. */
@@ -16,18 +18,43 @@ export class DirectRustStream {
   private reductionGate?:DirectReductionGate;
   private inspection: ((source:string)=>void) | undefined;
   private cancellation:Error|undefined;
-  constructor(path: string) { this.output = createWriteStream(path, { encoding: "utf8" }); }
-  async write(source: string): Promise<void> {
+  private fragments:string[]=[];
+  private bufferedBytes=0;
+  outputWrites=0;
+  constructor(path: string, private readonly bufferLimit=65536) {
+    if(!Number.isSafeInteger(bufferLimit)||bufferLimit<0)throw new RangeError("Invalid stream buffer limit");
+    this.output = createWriteStream(path, { encoding: "utf8" });
+  }
+  write(source: string): Promise<void> {
+    try {
     if(this.cancellation)throw this.cancellation;
-    if(this.inspection){this.inspection(source);return;}
+    if(this.inspection){this.inspection(source);return completedWrite;}
     this.reductionGate?.accept(source);
     // Numeric fragments are complete lexemes at emission boundaries. Mark
     // floating literals explicitly to avoid millions of unresolved operator
     // obligations in Rust's single-function type checker. Authored strings
     // contain no floating literals; checkpoint data never supplies source text.
     source=source.replace(/(?<![A-Za-z0-9_])(?:\d+\.\d+(?:[eE][+-]?\d+)?|\d+[eE][+-]?\d+)(?![A-Za-z0-9_.])/g,"$&_f64");
-    this.bytes += Buffer.byteLength(source);
-    if (!this.output.write(source)) await once(this.output, "drain");
+    const size=Buffer.byteLength(source);this.bytes += size;
+    // Buffer source bytes only: never retain calculations, weights or values.
+    // The bound applies between sequential writes, including oversized chunks.
+    if(this.bufferLimit===0){this.outputWrites++;return this.output.write(source)?completedWrite:once(this.output,"drain").then(()=>{});}
+    if(size>=this.bufferLimit)return this.flushThenWrite(source);
+    if(this.bufferedBytes+size>this.bufferLimit)return this.flush().then(()=>{
+      this.fragments.push(source);this.bufferedBytes=size;
+    });
+    this.fragments.push(source);this.bufferedBytes+=size;
+    return this.bufferedBytes>=this.bufferLimit?this.flush():completedWrite;
+    }catch(error){return Promise.reject(error);}
+  }
+  private flush():Promise<void>{
+    if(!this.bufferedBytes)return completedWrite;
+    const source=this.fragments.join("");this.fragments=[];this.bufferedBytes=0;this.outputWrites++;
+    return this.output.write(source)?completedWrite:once(this.output,"drain").then(()=>{});
+  }
+  private async flushThenWrite(source:string):Promise<void>{
+    await this.flush();this.outputWrites++;
+    if(!this.output.write(source))await once(this.output,"drain");
   }
   beginReducedExpression():void{this.reductionGate=new DirectReductionGate();}
   /** Inspect already substituted arithmetic with bounded memory. Inspection
@@ -40,8 +67,8 @@ export class DirectRustStream {
     this.inspection=source=>{gate.accept(source);consume(source);};
     try{await expression();gate.finish();}finally{this.inspection=undefined;}
   }
-  async close(): Promise<void> { this.reductionGate?.finish();this.output.end(); await finished(this.output); }
-  destroy(): void { this.output.on("error", () => {}); this.output.destroy(); }
+  async close(): Promise<void> { this.reductionGate?.finish();await this.flush();this.output.end(); await finished(this.output); }
+  destroy(): void { this.fragments=[];this.bufferedBytes=0;this.output.on("error", () => {}); this.output.destroy(); }
   cancel(reason:string):void{this.cancellation=new Error(reason);}
   async exactAffineBranch(domain: DirectBranchDomain, variable: string, scale: Rational, offset: Rational,
     op: Comparison, rhs: Rational, truth: (domain: DirectBranchDomain) => Promise<void>,

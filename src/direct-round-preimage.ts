@@ -41,16 +41,28 @@ export function normalizeFiniteArithmeticComparison(kind:'f16'|'f32',operation:'
   if(lo===0)return high;if(lo===last+1)return !high;
   return {op:high?'>=':'<',value:exactNumberRational(finiteIeeeValue(kind,lo))};
 }
+// Reusable decoding scratch, not a value/activation cache. This synchronous
+// conversion completes before any await; each worker owns its own view.
+const boundaryBits=new DataView(new ArrayBuffer(8));
 export function exactNumberRational(x:number):Rational{
   if(!Number.isFinite(x))throw new Error('A finite condition boundary is required');
   if(x===0)return rational(0n);
-  const data=new DataView(new ArrayBuffer(8));data.setFloat64(0,x,false);
+  const data=boundaryBits;data.setFloat64(0,x,false);
   const hi=data.getUint32(0,false),lo=data.getUint32(4,false),e=(hi>>>20)&2047;
   const magnitude=(BigInt(hi&0xfffff)<<32n)|BigInt(lo);
   const significand=e===0?magnitude:(1n<<52n)|magnitude;
-  const exponent=(e===0?-1022:e-1023)-52;
-  const signed=hi>>>31?-significand:significand;
-  return exponent>=0?rational(signed<<BigInt(exponent)):rational(signed,1n<<BigInt(-exponent));
+  let exponent=(e===0?-1022:e-1023)-52;
+  let signed=hi>>>31?-significand:significand;
+  if(exponent<0){
+    // The denominator is a power of two. Cancel exactly its common factors
+    // using the significand's trailing bits instead of a generic BigInt GCD.
+    const upper=(hi&0xfffff)|(e===0?0:0x100000);
+    const trailing=lo!==0?31-Math.clz32(lo&-lo):32+31-Math.clz32(upper&-upper);
+    const shift=Math.min(-exponent,trailing);
+    signed>>=BigInt(shift);exponent+=shift;
+  }
+  return exponent>=0?{numerator:signed<<BigInt(exponent),denominator:1n}:
+    {numerator:signed,denominator:1n<<BigInt(-exponent)};
 }
 /** Invert the actual two binary64 operations of an emitted numerical run.
  * The discrete source format settles ties without real-number division.

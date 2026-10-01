@@ -1,0 +1,223 @@
+{
+  "scope": "compiler performance experiment; not complete-model or final-logit parity",
+  "checkpoint": "/private/tmp/llm-inner-rust-validation",
+  "dimension": 2,
+  "baselineCommit": "7f28e51",
+  "changes": [
+    "bounded 64 KiB source output buffering",
+    "shared fulfilled write promise",
+    "exact dyadic rational reduction without generic GCD or per-call bit-buffer allocation"
+  ],
+  "fixedWorkRuns": [
+    {
+      "baseline": {
+        "scope": "fixed-work model compilation prefix, not final parity",
+        "target": 450000,
+        "status": "pending",
+        "dimension": 2,
+        "position": 0,
+        "leaves": 342,
+        "candidateLeaves": 343,
+        "bytes": 450001,
+        "eliminatedBranches": 87843,
+        "inspectedExpressions": 200428,
+        "elapsedMilliseconds": 29762,
+        "finalParity": false,
+        "rustCompilationAdmitted": false
+      },
+      "optimized": {
+        "scope": "fixed-work model compilation prefix, not final parity",
+        "target": 450000,
+        "status": "pending",
+        "dimension": 2,
+        "position": 0,
+        "leaves": 342,
+        "candidateLeaves": 343,
+        "bytes": 450001,
+        "eliminatedBranches": 87843,
+        "inspectedExpressions": 200428,
+        "elapsedMilliseconds": 25714,
+        "finalParity": false,
+        "rustCompilationAdmitted": false
+      },
+      "timeReductionPercent": 13.601236476043276,
+      "commonPrefixBytes": 393177,
+      "commonPrefixSha256": "fec521e42561c9282a015207f010b601db25ed6a36d767384cd2b70ddab18479",
+      "commonPrefixIdentical": true,
+      "baselineDraftBytes": 449837,
+      "optimizedDraftBytes": 393177
+    },
+    {
+      "baseline": {
+        "scope": "fixed-work model compilation prefix, not final parity",
+        "target": 450000,
+        "status": "pending",
+        "dimension": 2,
+        "position": 0,
+        "leaves": 342,
+        "candidateLeaves": 343,
+        "bytes": 450001,
+        "eliminatedBranches": 87843,
+        "inspectedExpressions": 200428,
+        "elapsedMilliseconds": 30562,
+        "finalParity": false,
+        "rustCompilationAdmitted": false
+      },
+      "optimized": {
+        "scope": "fixed-work model compilation prefix, not final parity",
+        "target": 450000,
+        "status": "pending",
+        "dimension": 2,
+        "position": 0,
+        "leaves": 342,
+        "candidateLeaves": 343,
+        "bytes": 450001,
+        "eliminatedBranches": 87843,
+        "inspectedExpressions": 200428,
+        "elapsedMilliseconds": 26359,
+        "finalParity": false,
+        "rustCompilationAdmitted": false
+      },
+      "timeReductionPercent": 13.752372226948495,
+      "commonPrefixBytes": 393177,
+      "commonPrefixSha256": "fec521e42561c9282a015207f010b601db25ed6a36d767384cd2b70ddab18479",
+      "commonPrefixIdentical": true,
+      "baselineDraftBytes": 449837,
+      "optimizedDraftBytes": 393177
+    }
+  ],
+  "independentScalarJobs": {
+    "scope": "substitution/emission experiment, not full-model parity",
+    "iterations": 10000,
+    "jobCount": 8,
+    "byteIdentical": true,
+    "runs": [
+      {
+        "name": "baseline",
+        "workers": 1,
+        "durationMs": 8428.964957999999,
+        "bytes": 18071120,
+        "inspections": 160000,
+        "outputWrites": null
+      },
+      {
+        "name": "buffered",
+        "workers": 1,
+        "durationMs": 7938.343750000002,
+        "bytes": 18071120,
+        "inspections": 160000,
+        "outputWrites": 280
+      },
+      {
+        "name": "parallel-4",
+        "workers": 4,
+        "durationMs": 2996.1097499999996,
+        "bytes": 18071120,
+        "inspections": 160000,
+        "outputWrites": 280
+      },
+      {
+        "name": "buffered-repeat",
+        "workers": 1,
+        "durationMs": 7339.343042,
+        "bytes": 18071120,
+        "inspections": 160000,
+        "outputWrites": 280
+      },
+      {
+        "name": "baseline-repeat",
+        "workers": 1,
+        "durationMs": 8946.381834,
+        "bytes": 18071120,
+        "inspections": 160000,
+        "outputWrites": null
+      },
+      {
+        "name": "parallel-4-repeat",
+        "workers": 4,
+        "durationMs": 3293.0488750000004,
+        "bytes": 18071120,
+        "inspections": 160000,
+        "outputWrites": 280
+      }
+    ],
+    "perJobOutputReference": [
+      {
+        "job": 0,
+        "bytes": 1228890,
+        "sha256": "89d0849c57613f956f84ba663b47b17439445ee142474c58db3378da360d75af",
+        "inspections": 20000,
+        "outputWrites": null
+      },
+      {
+        "job": 1,
+        "bytes": 2908890,
+        "sha256": "5e18ea291a8e97ae3558b911256fa1bcf0b41fe2009b6717dc31b631fbf125d5",
+        "inspections": 20000,
+        "outputWrites": null
+      },
+      {
+        "job": 2,
+        "bytes": 2828890,
+        "sha256": "1499e974ce9b3e301d377ca1e567485adc167f1b4b60e2c0635aa12f6ab4edfa",
+        "inspections": 20000,
+        "outputWrites": null
+      },
+      {
+        "job": 3,
+        "bytes": 1228890,
+        "sha256": "b989af657688ec97450e650986add94288986b0f226b002f6b33eb029ee12ff3",
+        "inspections": 20000,
+        "outputWrites": null
+      },
+      {
+        "job": 4,
+        "bytes": 2908890,
+        "sha256": "17006ad6ce2a7eaa0d7dc7f9658bb69691797dbf0ffe19ecdc593fc48db46824",
+        "inspections": 20000,
+        "outputWrites": null
+      },
+      {
+        "job": 5,
+        "bytes": 2828890,
+        "sha256": "f2b2b1dc94eb18b84e52384b16abb5706cc5162a7f453441f1e8ace94386ac7b",
+        "inspections": 20000,
+        "outputWrites": null
+      },
+      {
+        "job": 6,
+        "bytes": 1228890,
+        "sha256": "1fa8aae8bbec925a7e081c9a0ab651c7498c7a44fadd1f487041f3aa284a09c9",
+        "inspections": 20000,
+        "outputWrites": null
+      },
+      {
+        "job": 7,
+        "bytes": 2908890,
+        "sha256": "a4b755a36b2dfab7b4222c9704ebab2d75e130b01d4c896d94631b1c8fcb5e1a",
+        "inspections": 20000,
+        "outputWrites": null
+      }
+    ]
+  },
+  "parallelModelCompilerIntegrated": false,
+  "existingGenerationsRestarted": false,
+  "validation": {
+    "tests": 58,
+    "passed": 58,
+    "failed": 0,
+    "finiteF16RationalDomainChecked": 63487,
+    "randomF64RationalSamples": 20000,
+    "finalLogitParity": false
+  },
+  "limitations": [
+    "Four workers measured independent scalar compilation jobs, not checkpoint-wide domain partitioning.",
+    "Interrupted diagnostic drafts are not executable model artifacts; pending output buffers were discarded.",
+    "Existing generations use already-loaded compiler code; these changes apply to subsequent runs.",
+    "Measurements ran with existing generators active; fixed-work test repeated twice."
+  ],
+  "reproduce": {
+    "scalarJobs": "node scripts/benchmark-direct-stream.mjs BASELINE_BUILD CANDIDATE_BUILD REPORT.json 10000 8",
+    "modelPrefix": "node scripts/benchmark-direct-model-prefix.mjs BUILD CHECKPOINT PYTHON DIMENSION OUTPUT.rs 450000"
+  }
+}
