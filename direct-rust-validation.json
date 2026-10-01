@@ -623,20 +623,20 @@
       "exactFinalParity": false,
       "fullModelRustCompilationAttempts": 0,
       "generation": {
-        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v37.rs --validate",
+        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v38.rs --validate",
         "status": "running",
-        "progress": "/private/tmp/llm-inner-flat-embeddings-v37.rs.progress.json",
-        "compilerCommit": "872761e",
+        "progress": "/private/tmp/llm-inner-flat-embeddings-v38.rs.progress.json",
+        "compilerCommit": "af0caeb",
         "latestObservedProgress": {
           "status": "generating",
           "dimension": 2,
           "position": 0,
-          "leaves": 444,
-          "candidateLeaves": 445,
-          "bytes": 1685982,
-          "eliminatedBranches": 107677,
-          "inspectedExpressions": 450214,
-          "elapsedMilliseconds": 151919,
+          "leaves": 414,
+          "candidateLeaves": 415,
+          "bytes": 1137727,
+          "eliminatedBranches": 104030,
+          "inspectedExpressions": 373222,
+          "elapsedMilliseconds": 92336,
           "finalParity": false,
           "rustCompilationAdmitted": false
         }
@@ -781,25 +781,6 @@
         "completeModelParity": false,
         "runningGenerationIncludesThisChange": true
       },
-      "previousRunningGeneration": {
-        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v36.rs --validate",
-        "status": "running",
-        "progress": "/private/tmp/llm-inner-flat-embeddings-v36.rs.progress.json",
-        "compilerCommit": "00675b1",
-        "latestObservedProgress": {
-          "status": "generating",
-          "dimension": 2,
-          "position": 0,
-          "leaves": 9580,
-          "candidateLeaves": 9590,
-          "bytes": 999027002,
-          "eliminatedBranches": 361111,
-          "inspectedExpressions": 4835234,
-          "elapsedMilliseconds": 4476741,
-          "finalParity": false,
-          "rustCompilationAdmitted": false
-        }
-      },
       "residualAbsorption": {
         "correction": "A proved correction magnitude strictly inside the F16 midpoint margin, including the ordered F32 addition error, removes the complete residual dependency for a nonzero embedding. Zero embeddings retain the stronger signed-zero/+0-dot proof.",
         "endpointCommand": "/private/tmp/llm-inner-pytorch/bin/python helpers/validate_half_residual_absorption.py --report /private/tmp/llm-inner-half-residual-absorption.json",
@@ -830,7 +811,48 @@
         "nonzeroAttentionScalars": 782,
         "nonzeroMlpScalars": 288,
         "completeModelParity": false,
-        "runningGenerationIncludesThisChange": false
+        "runningGenerationIncludesThisChange": true
+      },
+      "supersededGenerations": [
+        {
+          "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v36.rs --validate",
+          "status": "interrupted",
+          "progress": "/private/tmp/llm-inner-flat-embeddings-v36.rs.progress.json",
+          "compilerCommit": "00675b1",
+          "latestObservedProgress": {
+            "status": "pending",
+            "dimension": 2,
+            "position": 0,
+            "leaves": 15445,
+            "candidateLeaves": 15455,
+            "bytes": 1694751250,
+            "eliminatedBranches": 432944,
+            "inspectedExpressions": 5970501,
+            "elapsedMilliseconds": 6394235,
+            "finalParity": false,
+            "rustCompilationAdmitted": false
+          },
+          "reason": "Intentionally superseded after the corrected magnitude propagation and proved residual absorption were implemented and verified; no draft compilation attempted."
+        }
+      ],
+      "previousRunningGeneration": {
+        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v37.rs --validate",
+        "status": "running",
+        "progress": "/private/tmp/llm-inner-flat-embeddings-v37.rs.progress.json",
+        "compilerCommit": "872761e",
+        "latestObservedProgress": {
+          "status": "generating",
+          "dimension": 2,
+          "position": 0,
+          "leaves": 2444,
+          "candidateLeaves": 2448,
+          "bytes": 188325570,
+          "eliminatedBranches": 233985,
+          "inspectedExpressions": 2903110,
+          "elapsedMilliseconds": 1868168,
+          "finalParity": false,
+          "rustCompilationAdmitted": false
+        }
       }
     }
   }
