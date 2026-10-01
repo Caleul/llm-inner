@@ -624,13 +624,27 @@
       "generation": {
         "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v36.rs --validate",
         "status": "running",
-        "progress": "/private/tmp/llm-inner-flat-embeddings-v36.rs.progress.json"
+        "progress": "/private/tmp/llm-inner-flat-embeddings-v36.rs.progress.json",
+        "compilerCommit": "00675b1",
+        "latestObservedProgress": {
+          "status": "generating",
+          "dimension": 2,
+          "position": 0,
+          "leaves": 9580,
+          "candidateLeaves": 9590,
+          "bytes": 999027002,
+          "eliminatedBranches": 361111,
+          "inspectedExpressions": 4835234,
+          "elapsedMilliseconds": 4476741,
+          "finalParity": false,
+          "rustCompilationAdmitted": false
+        }
       },
       "ruleTests": {
-        "passed": 54,
+        "passed": 55,
         "command": "node --test dist/test/direct-source-bounds.test.js dist/test/direct-flat-substitution.test.js dist/test/direct-round-preimage.test.js dist/test/direct-rust-stream.test.js dist/test/direct-flat-zero-mlp.test.js dist/test/direct-finite-model-proof.test.js",
         "provesCompleteModel": false,
-        "lastRunSeconds": 52.61493925
+        "lastRunSeconds": 57.76444625
       },
       "finalValidationHarness": "helpers/validate_direct_flat_rust.py; compares final chosen logit bits for every position of varied embedding matrices and lengths; not yet executed",
       "remaining": "finish every surviving path of the first arbitrary dimension, compile the complete artifact and execute final-value PyTorch differential; correct the first numerical divergence before other dimensions",
@@ -750,6 +764,21 @@
           "deferred binary arithmetic retains the operands of its original branch"
         ],
         "completeModelParity": false
+      },
+      "signKnownMagnitudePropagation": {
+        "reproducedBeforeFix": true,
+        "conditions": [
+          "x >= 0",
+          "x * x >= 4"
+        ],
+        "previousNextConsumerMinimum": 0,
+        "correctedNextConsumerMinimum": 2,
+        "negativeSideCorrectedMaximum": -2,
+        "correction": "Refresh fundamental inputs and substituted operands with inherited minimum-magnitude facts once their sign is proved; retain the original guard.",
+        "executedFiniteF16Values": 63488,
+        "bitDifferences": 0,
+        "completeModelParity": false,
+        "runningGenerationIncludesThisChange": false
       }
     }
   }

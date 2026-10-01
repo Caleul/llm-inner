@@ -95,7 +95,8 @@ export class DirectFlatSubstitution {
     await consume(path, {emit, minimum, maximum});
   }
   async f16Input(path:FlatConditions,emit:RustExpression,consume:FlatConsumer):Promise<void>{
-    const interval=new Map(path.domain.entries()).get(await this.key(emit));
+    const sourceKey=await this.key(emit);
+    const interval=new Map(path.domain.entries()).get(sourceKey);
     const satisfies=(index:number,side:"lower"|"upper")=>{
       const bound=interval?.[side];if(!bound)return true;
       const c=compareRational(exactNumberRational(finiteIeeeValue("f16",index)),bound.value);
@@ -107,12 +108,26 @@ export class DirectFlatSubstitution {
     while(lower<upper){const mid=Math.ceil((lower+upper)/2);if(satisfies(mid,"upper"))lower=mid;else upper=mid-1;}
     const last=lower;
     if(first>last||!satisfies(first,"lower")||!satisfies(last,"upper")){this.stream.eliminatedBranches++;return;}
-    const minimum=finiteIeeeValue("f16",first),maximum=finiteIeeeValue("f16",last);
-    if(minimum===0&&maximum===0&&path.nonzero.has(await this.key(emit))){this.stream.eliminatedBranches++;return;}
+    const bounded=this.magnitudeBounds(path,{emit,minimum:finiteIeeeValue("f16",first),
+      maximum:finiteIeeeValue("f16",last)},sourceKey);
+    if(!bounded){this.stream.eliminatedBranches++;return;}
+    const {minimum,maximum}=bounded;
+    if(minimum===0&&maximum===0&&path.nonzero.has(sourceKey)){this.stream.eliminatedBranches++;return;}
     if(minimum===maximum&&minimum!==0){
       this.stream.eliminatedBranches++;await this.literal(path,minimum,(p,v)=>consume(p,{...v,precision:"f16",quantum:2**-24}));return;
     }
     await consume(path,{emit,minimum,maximum,precision:"f16",quantum:2**-24,fundamentalF16:true});
+  }
+  /** A proved |x| lower bound becomes an ordinary endpoint once the active
+   * path proves its sign. Keep the original comparison guard; this is only
+   * its necessary consequence, never permission to remove that guard.
+   */
+  private magnitudeBounds(path:FlatConditions,input:FlatInput,sourceKey:string,canonicalKey=sourceKey):FlatInput|undefined{
+    const magnitude=Math.max(path.minimumMagnitude.get(sourceKey)??0,path.minimumMagnitude.get(canonicalKey)??0);
+    if(!magnitude)return input;
+    const minimum=input.minimum>=0?Math.max(input.minimum,magnitude):input.minimum;
+    const maximum=input.maximum<=0?Math.min(input.maximum,-magnitude):input.maximum;
+    return minimum>maximum?undefined:{...input,minimum,maximum};
   }
   async binary(path: FlatConditions, left: FlatProducer, right: FlatProducer,
     operator: "+" | "-" | "*" | "/", consume: FlatConsumer): Promise<void> {
@@ -894,7 +909,9 @@ export class DirectFlatSubstitution {
       return {...value,minimum:minimum===0&&(value.minimum<0||Object.is(value.minimum,-0))?-0:minimum,
         maximum:maximum===0&&Object.is(value.maximum,-0)?-0:maximum};
     };
-    const discrete=latticeBounds(input);if(!discrete)return undefined;input=discrete;
+    const magnitudeBounded=this.magnitudeBounds(path,input,range.sourceKey,range.key);
+    if(!magnitudeBounded)return undefined;
+    const discrete=latticeBounds(magnitudeBounded);if(!discrete)return undefined;input=discrete;
     if(input.minimum===input.maximum&&input.minimum!==0){
       const value=input.minimum;
       return {...input,literal:value,emit:()=>this.stream.write(rustF64(value))};
@@ -902,7 +919,9 @@ export class DirectFlatSubstitution {
     if(range.opaque)return input;
     const minimum=Math.max(input.minimum,range.minimum),maximum=Math.min(input.maximum,range.maximum);
     if(minimum>maximum)return undefined;
-    const clipped=latticeBounds({...input,minimum,maximum});if(!clipped)return undefined;
+    const magnitudeClipped=this.magnitudeBounds(path,{...input,minimum,maximum},range.sourceKey,range.key);
+    if(!magnitudeClipped)return undefined;
+    const clipped=latticeBounds(magnitudeClipped);if(!clipped)return undefined;
     if(Object.is(range.minimum,range.maximum)){
       const value=range.minimum;
       return {...input,minimum:value,maximum:value,literal:value,

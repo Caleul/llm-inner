@@ -284,6 +284,27 @@ test("square magnitude bounds propagate through the sign of a positive variable 
   }finally{await rm(directory,{recursive:true,force:true});}
 });
 
+test("square magnitude bounds refresh a sign-known input before its next consumer",async()=>{
+  const directory=await mkdtemp(join(tmpdir(),"direct-flat-sign-magnitude-"));
+  try{
+    const source=join(directory,"magnitude.rs"),s=new DirectRustStream(source),f=new DirectFlatSubstitution(s);
+    await s.write("fn generated(input_tokens:&[[f64;1]])->f64 {'answer:{");s.beginReducedExpression();
+    const x:FlatProducer=(p,k)=>f.f16Input(p,()=>s.write("input_tokens[0][0]"),k);
+    const square:FlatProducer=(p,k)=>f.square(p,x,k);
+    let positive=0,negative=0;
+    await f.comparison(new FlatConditions(),x,">=",rational(0n),p=>
+      f.comparison(p,square,">=",rational(4n),p=>x(p,async(p,v)=>{
+        positive++;assert.equal(v.minimum,2);await f.leaf(p,"answer",v);
+      }),async()=>{}),p=>f.comparison(p,square,">=",rational(4n),p=>
+        x(p,async(p,v)=>{negative++;assert.equal(v.maximum,-2);await f.leaf(p,"answer",v);}),async()=>{}));
+    assert.equal(positive,1);assert.equal(negative,1);await f.finishRound();
+    await s.write("break 'answer 0.0_f64;}}\n");await s.close();
+    await appendFile(source,"fn main(){for bits in 0_u32..65536 {let exponent=(bits>>10)&31;if exponent==31{continue;}let fraction=bits&1023;let magnitude=if exponent==0{(fraction as f64)*2.0_f64.powi(-24)}else{((1024+fraction) as f64)*2.0_f64.powi(exponent as i32-25)};let x=if bits&32768!=0{-magnitude}else{magnitude};let expected=if magnitude>=2.0{x}else{0.0};assert_eq!(generated(&[[x]]).to_bits(),expected.to_bits(),\"{}\",bits);}}\n");
+    const executable=join(directory,"magnitude");
+    await run("rustc",[source,"-o",executable]);await run(executable,[]);
+  }finally{await rm(directory,{recursive:true,force:true});}
+});
+
 test("rounded-affine SiLU substitution preserves all small F16 policy inputs and signed zeros",async()=>{
   const directory=await mkdtemp(join(tmpdir(),"direct-flat-small-silu-"));
   try{
