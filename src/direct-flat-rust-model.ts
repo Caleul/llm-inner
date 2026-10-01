@@ -10,7 +10,7 @@ import { DirectFlatSubstitution, FlatConditions, type FlatProducer, type FlatInp
 import { substituteFlatProjection, substituteFlatReduction } from "./direct-flat-projection.js";
 import { substituteCpuArm64F32Sum } from "./direct-rust-mean.js";
 import { substituteCpuArm64SoftmaxSum } from "./direct-rust-softmax.js";
-import {proveInitialMlpProductZero} from "./direct-flat-zero-mlp.js";
+import {proveInitialHiddenIdentity,proveInitialMlpProductZero} from "./direct-flat-zero-mlp.js";
 import {proveFiniteNormalizationInputs} from "./direct-finite-model-proof.js";
 import { rational } from "./direct-branch-domain.js";
 import { fixedF16RopeLiteral } from "./fixed-f16-rope-branches.js";
@@ -207,7 +207,18 @@ export async function writeDirectFlatRustModel(directory:string,python:string,di
           headDim:a.headDim,pre:n[0]!,post:n[1]!,v:a.projections.v,o:a.projections.o,gate:p.gate,up:p.up},
           position,neuron,weight);
       }:undefined);
-      return round(binary(residual(layer,coordinate,position),down,"+"),"f16");
+      const expanded=round(binary(residual(layer,coordinate,position),down,"+"),"f16");
+      if(layer!==0)return expanded;
+      return async(path,k)=>{
+        const a=layers[0]!.attention.attention,n=layers[0]!.mlp.normalizations;
+        if(await proveInitialHiddenIdentity(f,path,{width,context:output.maxPosition,heads:a.heads,kvHeads:a.kvHeads,
+          headDim:a.headDim,pre:n[0]!,post:n[1]!,v:a.projections.v,o:a.projections.o,
+          gate:p.gate,up:p.up,down:p.down},position,coordinate,weight)){
+          s.eliminatedBranches++;
+          return binary(embeddings(coordinate,position),literal(0),"+")(path,k);
+        }
+        return expanded(path,k);
+      };
     };
     await s.write(`// Input: finite F16 embedding matrix, widened exactly to f64.\n// Policy: PyTorch CPU arm64; scalar substitution, flat path conditions.\n#![recursion_limit="65536"]\npub fn compiled_dimension(input_tokens:&[[f64;${width}]],t:usize)->f64 {let n=input_tokens.len();assert!(n>0 && n<=${output.maxPosition} && t<n);'result:{`);
     s.beginReducedExpression();

@@ -609,7 +609,8 @@
         "large exponential input lattices emit native F64 affine operations plus explicit F32 choices; every reached point is checked against the declared CPU polynomial before the run is emitted",
         "normalization and projection magnitude bounds use the monotone R32 -> R16 result rather than an unnecessarily loose half ceiling",
         "checkpoint-wide finite normalization inputs proved by progressive scalar weight reads; zero coordinates and zero learned normalization weights retain only signed-zero arithmetic",
-        "normalization square-sum receives the current already-substituted numerator operand; emitted arithmetic remains duplicated and later path restrictions refresh it"
+        "normalization square-sum receives the current already-substituted numerator operand; emitted arithmetic remains duplicated and later path restrictions refresh it",
+        "initial hidden value reduces to embedding + positive zero when progressive bounds prove signed-zero attention and +0 MLP; both residual additions retain exact zero-sign semantics"
       ],
       "runtimeAdmission": "complete emitted expression required; drafts are not compiled",
       "fullChosenLogitEmitted": false,
@@ -617,9 +618,9 @@
       "exactFinalParity": false,
       "fullModelRustCompilationAttempts": 0,
       "generation": {
-        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v31.rs --validate",
+        "command": "node dist/src/direct-rust-cli.js /private/tmp/llm-inner-rust-validation /private/tmp/llm-inner-pytorch/bin/python 2 /private/tmp/llm-inner-flat-embeddings-v32.rs --validate",
         "status": "running",
-        "progress": "/private/tmp/llm-inner-flat-embeddings-v31.rs.progress.json"
+        "progress": "/private/tmp/llm-inner-flat-embeddings-v32.rs.progress.json"
       },
       "ruleTests": {
         "passed": 49,
@@ -634,15 +635,15 @@
           "status": "pending",
           "dimension": 2,
           "position": 0,
-          "leaves": 2271,
-          "bytes": 221170258,
-          "eliminatedBranches": 438387,
-          "inspectedExpressions": 2913455,
-          "elapsedMilliseconds": 887001,
+          "leaves": 2748,
+          "bytes": 280194181,
+          "eliminatedBranches": 508866,
+          "inspectedExpressions": 3579006,
+          "elapsedMilliseconds": 1135374,
           "finalParity": false,
           "rustCompilationAdmitted": false
         },
-        "reason": "Interrupted to remove re-expansion of the numerator coordinate inside the same normalization variance consumer. Arithmetic remains fully expanded in final source; no runtime binding or cache introduced."
+        "reason": "Interrupted to apply proved whole-hidden identity when both attention and MLP corrections round to zero. No prefix reused or compiled."
       },
       "rsqrtPolicyCheck": {
         "torch": "2.12.1 CPU arm64",
@@ -651,6 +652,76 @@
         "sampledPositiveF32": 1000000,
         "bitDifferences": 0,
         "provesCompleteModel": false
+      },
+      "initialHiddenIdentityRuleCheck": {
+        "command": "/private/tmp/llm-inner-pytorch/bin/python helpers/validate_initial_hidden_identity.py --report /private/tmp/llm-inner-zero-hidden-proof-v2.json",
+        "report": {
+          "rule": "hidden = embedding + positive zero when both corrections are proved zero",
+          "torch": "2.12.1",
+          "backend": "cpu-eager",
+          "dtype": "float16",
+          "linearWeights": 0.0009765625,
+          "normalizationWeights": 1,
+          "comparisons": [
+            {
+              "width": 2,
+              "length": 1,
+              "scalars": 32,
+              "bitDifferences": 0
+            },
+            {
+              "width": 2,
+              "length": 2,
+              "scalars": 64,
+              "bitDifferences": 0
+            },
+            {
+              "width": 2,
+              "length": 3,
+              "scalars": 96,
+              "bitDifferences": 0
+            },
+            {
+              "width": 4,
+              "length": 1,
+              "scalars": 64,
+              "bitDifferences": 0
+            },
+            {
+              "width": 4,
+              "length": 2,
+              "scalars": 128,
+              "bitDifferences": 0
+            },
+            {
+              "width": 4,
+              "length": 3,
+              "scalars": 192,
+              "bitDifferences": 0
+            },
+            {
+              "width": 8,
+              "length": 1,
+              "scalars": 128,
+              "bitDifferences": 0
+            },
+            {
+              "width": 8,
+              "length": 2,
+              "scalars": 256,
+              "bitDifferences": 0
+            },
+            {
+              "width": 8,
+              "length": 3,
+              "scalars": 384,
+              "bitDifferences": 0
+            }
+          ],
+          "completeModelParity": false
+        },
+        "focusedTests": "node --test dist/test/direct-flat-zero-mlp.test.js",
+        "focusedTestsPassed": 3
       }
     }
   }

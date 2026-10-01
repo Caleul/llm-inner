@@ -17,6 +17,22 @@ export interface InitialMlpZeroGeometry {
 export async function proveInitialMlpProductZero(f:DirectFlatSubstitution,path:FlatConditions,
   geometry:InitialMlpZeroGeometry,query:number,neuron:number,
   weight:(name:string,index:number)=>Promise<number>):Promise<boolean>{
+  return proveInitialZero(f,path,geometry,query,weight,{neuron});
+}
+
+/** If the attention correction rounds to signed zero and the complete down
+ * projection is +0, both residual additions reduce to input + positive zero.
+ * The final addition settles the sign even for a negative-zero embedding.
+ */
+export async function proveInitialHiddenIdentity(f:DirectFlatSubstitution,path:FlatConditions,
+  geometry:InitialMlpZeroGeometry&{down:Projection},query:number,coordinate:number,
+  weight:(name:string,index:number)=>Promise<number>):Promise<boolean>{
+  return proveInitialZero(f,path,geometry,query,weight,{coordinate,down:geometry.down});
+}
+
+async function proveInitialZero(f:DirectFlatSubstitution,path:FlatConditions,
+  geometry:InitialMlpZeroGeometry,query:number,weight:(name:string,index:number)=>Promise<number>,
+  request:{neuron:number}|{coordinate:number;down:Projection}):Promise<boolean>{
   const g=geometry;
   if(g.width>1000000||g.context>1000000||g.headDim>1000000||g.o.shape[1]>1000000||
     query<0||query>=g.context||g.heads%g.kvHeads)return false;
@@ -72,12 +88,22 @@ export async function proveInitialMlpProductZero(f:DirectFlatSubstitution,path:F
     return upperHalf(original+attention);
   };
   const post=(coordinate:number)=>normalized(g.post,coordinate,()=>residual(coordinate));
+  const productZero=async(neuron:number)=>{
   const gate=await dot(g.gate,neuron,post),up=await dot(g.up,neuron,post);
   if(!Number.isFinite(gate)||!Number.isFinite(up))return false;
   // The declared finite-F16 SiLU policy has |SiLU(x)|<=|x|. Products of
   // two finite F16 values are exact F32. Half nearest-even maps magnitude
   // <=2^-25 to signed zero, including the tie with the even zero code.
   return gate*up<=2**-25;
+  };
+  if("neuron" in request)return productZero(request.neuron);
+  if(request.coordinate<0||request.coordinate>=g.width||request.down.shape[1]!==g.gate.shape[0]||
+    g.gate.shape[0]>1000000||await dot(g.o,request.coordinate,context)!==0)return false;
+  for(let neuron=0;neuron<g.gate.shape[0];neuron++){
+    if(!Number.isFinite(await weight(request.down.weight,request.coordinate*request.down.shape[1]+neuron))||
+      !await productZero(neuron))return false;
+  }
+  return true;
 }
 
 function upperHalf(value:number):number{

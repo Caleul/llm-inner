@@ -8,7 +8,7 @@ import {DirectRustStream} from "../src/direct-rust-stream.js";
 import {DirectFlatSubstitution,FlatConditions} from "../src/direct-flat-substitution.js";
 import {exactNumberRational} from "../src/direct-round-preimage.js";
 import {decodeIeeeF16ToF32} from "../src/utils.js";
-import {proveInitialMlpProductZero,type InitialMlpZeroGeometry} from "../src/direct-flat-zero-mlp.js";
+import {proveInitialHiddenIdentity,proveInitialMlpProductZero,type InitialMlpZeroGeometry} from "../src/direct-flat-zero-mlp.js";
 import {substituteFlatProjection} from "../src/direct-flat-projection.js";
 
 test("the pinned finite half SiLU policy satisfies the magnitude bound used for zero elimination",async()=>{
@@ -44,6 +44,14 @@ test("initial MLP zero proof uses inherited embedding bounds and rejects unrestr
         const learned=async(name:string,index:number)=>name==="pre"||name==="post"?gamma:weight(name,index);
         assert.equal(await proveInitialMlpProductZero(f,path,g,2,0,learned),true,`${width},gamma=${gamma}`);
       }
+      const identityGeometry={...g,down:projection("down")};
+      const tiny=async(name:string,_index:number)=>name==="pre"||name==="post"?1:1/1024;
+      for(let query=0;query<3;query++){
+        assert.equal(await proveInitialHiddenIdentity(f,path,identityGeometry,query,0,tiny),true,`identity ${width},${query}`);
+        assert.equal(await proveInitialHiddenIdentity(f,new FlatConditions(),identityGeometry,query,0,tiny),false);
+      }
+      assert.equal(await proveInitialHiddenIdentity(f,path,identityGeometry,0,0,
+        async(name,index)=>name==="down"?NaN:tiny(name,index)),false);
     }
     await s.close();
   }finally{await rm(dir,{recursive:true,force:true});}
