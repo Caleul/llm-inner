@@ -10501,5 +10501,1301 @@
       },
       "scope": "The SiLU change followed the regression suite and was validated by its complete half-domain certificate and the same 60 coordinate comparisons; no other output coordinate was compiled."
     }
+  },
+  "residualCellExperiment": {
+    "beforeCommit": "213b1bb",
+    "sourceSha256": {
+      "src/direct-json-residual-cell.ts": "c07d6a5253850dd2ad115b320eb49b282d5d48bb4f9693984742a7c7af19d99c",
+      "src/direct-json-model.ts": "de8f79625cefbed0d0b136ab50bf8ca82a1b30155d92185bb7e0d41b83a861d8",
+      "test/direct-json-residual-cell.test.ts": "a4306b1d361d4a01f7d4e9822f0a44d8b4eeed68d2f4d33d01e1c7614af8c09d"
+    },
+    "productionEnabled": false,
+    "optIn": "JsonModelBuildOptions.residualCellGuards (default false)",
+    "proof": "Finite F16 base/correction. Strict correction magnitude below the smallest half midpoint distance minus the F32 addition error guarantees exact residual identity for nonzero bases. Tighten correction bounds to the greatest admissible F16 code. The complementary branch retains the original complete sum.",
+    "f32ErrorReservation": "1/4096 of the conservative half-cell radius",
+    "signedZeroGuarded": true,
+    "focused": {
+      "tests": 10,
+      "pass": 10,
+      "fail": 0,
+      "log": "/private/tmp/llm-inner-json-residual-cell-focused.log",
+      "includesLiveCoordinateCases": 60
+    },
+    "finalCellProof": {
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "log": "/private/tmp/llm-inner-json-residual-cell-proof-final.log",
+      "finiteBaseValuesPerBound": 63488,
+      "testedBounds": [
+        0,
+        1.4901161193847656e-08,
+        2.979504643008113e-08,
+        6.103515625e-05,
+        0.004,
+        1,
+        7.99
+      ],
+      "method": "Every finite F16 base; JSON guard checked against its threshold; both admissible extreme correction values checked by independent dyadic F32->F16 oracle. Monotonic composed rounding covers values between endpoints. Includes explicit signed-zero and invalid/non-strict bound cases."
+    },
+    "default": {
+      "milliseconds": 1825.8487080000004,
+      "exactComparisons": 60,
+      "coordinate": {
+        "position": 0,
+        "dimension": 2
+      },
+      "steps": [
+        {
+          "key": "exp:0:0:0:0",
+          "measure": {
+            "uniqueNodes": 1,
+            "uniqueDecisions": 0,
+            "occurrences": "1",
+            "decisions": "0",
+            "inputReferences": "0",
+            "serializedBytes": "39",
+            "depth": 1
+          }
+        },
+        {
+          "key": "denominator:0:0:0",
+          "measure": {
+            "uniqueNodes": 1,
+            "uniqueDecisions": 0,
+            "occurrences": "1",
+            "decisions": "0",
+            "inputReferences": "0",
+            "serializedBytes": "39",
+            "depth": 1
+          }
+        },
+        {
+          "key": "prob:0:0:0:0",
+          "measure": {
+            "uniqueNodes": 1,
+            "uniqueDecisions": 0,
+            "occurrences": "1",
+            "decisions": "0",
+            "inputReferences": "0",
+            "serializedBytes": "39",
+            "depth": 1
+          }
+        },
+        {
+          "key": "h:-1:0:0",
+          "measure": {
+            "uniqueNodes": 1,
+            "uniqueDecisions": 0,
+            "occurrences": "1",
+            "decisions": "0",
+            "inputReferences": "1",
+            "serializedBytes": "20",
+            "depth": 1
+          }
+        },
+        {
+          "key": "h:-1:0:1",
+          "measure": {
+            "uniqueNodes": 1,
+            "uniqueDecisions": 0,
+            "occurrences": "1",
+            "decisions": "0",
+            "inputReferences": "1",
+            "serializedBytes": "20",
+            "depth": 1
+          }
+        },
+        {
+          "key": "pre:0:0:inverse",
+          "measure": {
+            "uniqueNodes": 80,
+            "uniqueDecisions": 0,
+            "occurrences": "4092",
+            "decisions": "0",
+            "inputReferences": "832",
+            "serializedBytes": "92275",
+            "depth": 45
+          }
+        },
+        {
+          "key": "pre:0:0:0",
+          "measure": {
+            "uniqueNodes": 110,
+            "uniqueDecisions": 2,
+            "occurrences": "41022",
+            "decisions": "2",
+            "inputReferences": "8331",
+            "serializedBytes": "925135",
+            "depth": 62
+          }
+        },
+        {
+          "key": "pre:0:0:1",
+          "measure": {
+            "uniqueNodes": 110,
+            "uniqueDecisions": 2,
+            "occurrences": "41022",
+            "decisions": "2",
+            "inputReferences": "8331",
+            "serializedBytes": "925135",
+            "depth": 62
+          }
+        },
+        {
+          "key": "projection:0:v:0:0",
+          "measure": {
+            "uniqueNodes": 174,
+            "uniqueDecisions": 5,
+            "occurrences": "574423",
+            "decisions": "29",
+            "inputReferences": "116634",
+            "serializedBytes": "12954795",
+            "depth": 78
+          }
+        },
+        {
+          "key": "context:0:0:0:0",
+          "measure": {
+            "uniqueNodes": 204,
+            "uniqueDecisions": 6,
+            "occurrences": "2872167",
+            "decisions": "146",
+            "inputReferences": "583170",
+            "serializedBytes": "64775297",
+            "depth": 89
+          }
+        },
+        {
+          "key": "projection:0:v:0:1",
+          "measure": {
+            "uniqueNodes": 174,
+            "uniqueDecisions": 5,
+            "occurrences": "574423",
+            "decisions": "29",
+            "inputReferences": "116634",
+            "serializedBytes": "12954795",
+            "depth": 78
+          }
+        },
+        {
+          "key": "context:0:0:0:1",
+          "measure": {
+            "uniqueNodes": 204,
+            "uniqueDecisions": 6,
+            "occurrences": "2872167",
+            "decisions": "146",
+            "inputReferences": "583170",
+            "serializedBytes": "64775297",
+            "depth": 89
+          }
+        },
+        {
+          "key": "residual:0:0:0",
+          "measure": {
+            "uniqueNodes": 302,
+            "uniqueDecisions": 10,
+            "occurrences": "201052307",
+            "decisions": "10226",
+            "inputReferences": "40821905",
+            "serializedBytes": "4534286272",
+            "depth": 115
+          }
+        },
+        {
+          "key": "residual:0:0:1",
+          "measure": {
+            "uniqueNodes": 302,
+            "uniqueDecisions": 10,
+            "occurrences": "201052307",
+            "decisions": "10226",
+            "inputReferences": "40821905",
+            "serializedBytes": "4534286272",
+            "depth": 115
+          }
+        },
+        {
+          "key": "post:0:0:inverse",
+          "measure": {
+            "uniqueNodes": 400,
+            "uniqueDecisions": 12,
+            "occurrences": "167275522684",
+            "decisions": "8508032",
+            "inputReferences": "33963824960",
+            "serializedBytes": "3772526253939",
+            "depth": 159
+          }
+        },
+        {
+          "key": "post:0:0:0",
+          "measure": {
+            "uniqueNodes": 418,
+            "uniqueDecisions": 14,
+            "occurrences": "1674805960456",
+            "decisions": "85184627",
+            "inputReferences": "340054633031",
+            "serializedBytes": "37771512261373",
+            "depth": 176
+          }
+        },
+        {
+          "key": "post:0:0:1",
+          "measure": {
+            "uniqueNodes": 418,
+            "uniqueDecisions": 14,
+            "occurrences": "1674805960456",
+            "decisions": "85184627",
+            "inputReferences": "340054633031",
+            "serializedBytes": "37771512261373",
+            "depth": 176
+          }
+        },
+        {
+          "key": "gated:0:0:0",
+          "measure": {
+            "uniqueNodes": 551,
+            "uniqueDecisions": 21,
+            "occurrences": "1514024588259940",
+            "decisions": "77006902881",
+            "inputReferences": "307409388260024",
+            "serializedBytes": "34145447084475675",
+            "depth": 215
+          }
+        },
+        {
+          "key": "h:0:0:0",
+          "measure": {
+            "uniqueNodes": 642,
+            "uniqueDecisions": 24,
+            "occurrences": "15140246887861082",
+            "decisions": "770069079941",
+            "inputReferences": "3074094086709765",
+            "serializedBytes": "341454493516191747",
+            "depth": 235
+          }
+        },
+        {
+          "key": "h:0:0:1",
+          "measure": {
+            "uniqueNodes": 808,
+            "uniqueDecisions": 32,
+            "occurrences": "15140246887861082",
+            "decisions": "770069079941",
+            "inputReferences": "3074094086709765",
+            "serializedBytes": "341454493516191747",
+            "depth": 235
+          }
+        },
+        {
+          "key": "final:0:inverse",
+          "measure": {
+            "uniqueNodes": 671,
+            "uniqueDecisions": 23,
+            "occurrences": "12596685410700423484",
+            "decisions": "640697474510912",
+            "inputReferences": "2557646280142524480",
+            "serializedBytes": "284090138605471609139",
+            "depth": 279
+          }
+        },
+        {
+          "key": "final:0:0",
+          "measure": {
+            "uniqueNodes": 689,
+            "uniqueDecisions": 25,
+            "occurrences": "126121284625260417961",
+            "decisions": "6414829449724520",
+            "inputReferences": "25607818561109684403",
+            "serializedBytes": "2844384221888581249218",
+            "depth": 296
+          }
+        },
+        {
+          "key": "final:0:1",
+          "measure": {
+            "uniqueNodes": 689,
+            "uniqueDecisions": 25,
+            "occurrences": "126121284625260417961",
+            "decisions": "6414829449724520",
+            "inputReferences": "25607818561109684403",
+            "serializedBytes": "2844384221888581249218",
+            "depth": 296
+          }
+        },
+        {
+          "key": "output:0:2",
+          "measure": {
+            "uniqueNodes": 746,
+            "uniqueDecisions": 28,
+            "occurrences": "1765697984753645851569",
+            "decisions": "89807612296143281",
+            "inputReferences": "358509459855535581642",
+            "serializedBytes": "39821379106440137491957",
+            "depth": 312
+          }
+        }
+      ],
+      "cofactor": {
+        "candidates": 104,
+        "reducingCandidates": 3,
+        "accepted": 2,
+        "unsafe": 0,
+        "overBudget": 0,
+        "beforeBytes": "39821379106440137491957",
+        "afterBytes": "28192143437206182792739",
+        "rounds": 3,
+        "roundBudgetFailures": 0,
+        "converged": true,
+        "stopReason": "fixed-point"
+      },
+      "measure": {
+        "uniqueNodes": 1353,
+        "uniqueDecisions": 52,
+        "occurrences": "1250052408278066890205",
+        "decisions": "63580647955177275",
+        "inputReferences": "253812156751875508710",
+        "serializedBytes": "28192143437206182792739",
+        "depth": 312
+      },
+      "operations": [
+        {
+          "operation": "input:f64",
+          "physical": 2,
+          "expanded": "253812156751875508710"
+        },
+        {
+          "operation": "constant:u64",
+          "physical": 21,
+          "expanded": "216530145902397078579"
+        },
+        {
+          "operation": "mul:f64",
+          "physical": 86,
+          "expanded": "136825355852738710288"
+        },
+        {
+          "operation": "add:f64",
+          "physical": 134,
+          "expanded": "108540584948559948810"
+        },
+        {
+          "operation": "add:u64",
+          "physical": 184,
+          "expanded": "98480193997494910934"
+        },
+        {
+          "operation": "reinterpret:u64",
+          "physical": 118,
+          "expanded": "97267734787701424434"
+        },
+        {
+          "operation": "and:u64",
+          "physical": 250,
+          "expanded": "97267293341935915631"
+        },
+        {
+          "operation": "constant:f64",
+          "physical": 27,
+          "expanded": "82421013038261528028"
+        },
+        {
+          "operation": "shr:u64",
+          "physical": 102,
+          "expanded": "52286695628951254067"
+        },
+        {
+          "operation": "reinterpret:f64",
+          "physical": 162,
+          "expanded": "47321622753252412413"
+        },
+        {
+          "operation": "div:f64",
+          "physical": 30,
+          "expanded": "40824421644730901240"
+        },
+        {
+          "operation": "or:u64",
+          "physical": 58,
+          "expanded": "14656788086681520383"
+        },
+        {
+          "operation": "mul:u64",
+          "physical": 16,
+          "expanded": "1220846681706763699"
+        },
+        {
+          "operation": "xor:u64",
+          "physical": 7,
+          "expanded": "1218639452083851896"
+        },
+        {
+          "operation": "shl:u64",
+          "physical": 6,
+          "expanded": "1218639452081519440"
+        },
+        {
+          "operation": "if:f64",
+          "physical": 52,
+          "expanded": "63580647955177275"
+        },
+        {
+          "operation": "lt:bool",
+          "physical": 50,
+          "expanded": "63580647948179905"
+        },
+        {
+          "operation": "sub:f64",
+          "physical": 46,
+          "expanded": "33114661703287103"
+        },
+        {
+          "operation": "le:bool",
+          "physical": 2,
+          "expanded": "6997370"
+        }
+      ]
+    },
+    "candidate": {
+      "milliseconds": 1952.0011249999998,
+      "exactComparisons": 60,
+      "coordinate": {
+        "position": 0,
+        "dimension": 2
+      },
+      "steps": [
+        {
+          "key": "exp:0:0:0:0",
+          "measure": {
+            "uniqueNodes": 1,
+            "uniqueDecisions": 0,
+            "occurrences": "1",
+            "decisions": "0",
+            "inputReferences": "0",
+            "serializedBytes": "39",
+            "depth": 1
+          }
+        },
+        {
+          "key": "denominator:0:0:0",
+          "measure": {
+            "uniqueNodes": 1,
+            "uniqueDecisions": 0,
+            "occurrences": "1",
+            "decisions": "0",
+            "inputReferences": "0",
+            "serializedBytes": "39",
+            "depth": 1
+          }
+        },
+        {
+          "key": "prob:0:0:0:0",
+          "measure": {
+            "uniqueNodes": 1,
+            "uniqueDecisions": 0,
+            "occurrences": "1",
+            "decisions": "0",
+            "inputReferences": "0",
+            "serializedBytes": "39",
+            "depth": 1
+          }
+        },
+        {
+          "key": "h:-1:0:0",
+          "measure": {
+            "uniqueNodes": 1,
+            "uniqueDecisions": 0,
+            "occurrences": "1",
+            "decisions": "0",
+            "inputReferences": "1",
+            "serializedBytes": "20",
+            "depth": 1
+          }
+        },
+        {
+          "key": "h:-1:0:1",
+          "measure": {
+            "uniqueNodes": 1,
+            "uniqueDecisions": 0,
+            "occurrences": "1",
+            "decisions": "0",
+            "inputReferences": "1",
+            "serializedBytes": "20",
+            "depth": 1
+          }
+        },
+        {
+          "key": "pre:0:0:inverse",
+          "measure": {
+            "uniqueNodes": 80,
+            "uniqueDecisions": 0,
+            "occurrences": "4092",
+            "decisions": "0",
+            "inputReferences": "832",
+            "serializedBytes": "92275",
+            "depth": 45
+          }
+        },
+        {
+          "key": "pre:0:0:0",
+          "measure": {
+            "uniqueNodes": 110,
+            "uniqueDecisions": 2,
+            "occurrences": "41022",
+            "decisions": "2",
+            "inputReferences": "8331",
+            "serializedBytes": "925135",
+            "depth": 62
+          }
+        },
+        {
+          "key": "pre:0:0:1",
+          "measure": {
+            "uniqueNodes": 110,
+            "uniqueDecisions": 2,
+            "occurrences": "41022",
+            "decisions": "2",
+            "inputReferences": "8331",
+            "serializedBytes": "925135",
+            "depth": 62
+          }
+        },
+        {
+          "key": "projection:0:v:0:0",
+          "measure": {
+            "uniqueNodes": 174,
+            "uniqueDecisions": 5,
+            "occurrences": "574423",
+            "decisions": "29",
+            "inputReferences": "116634",
+            "serializedBytes": "12954795",
+            "depth": 78
+          }
+        },
+        {
+          "key": "context:0:0:0:0",
+          "measure": {
+            "uniqueNodes": 204,
+            "uniqueDecisions": 6,
+            "occurrences": "2872167",
+            "decisions": "146",
+            "inputReferences": "583170",
+            "serializedBytes": "64775297",
+            "depth": 89
+          }
+        },
+        {
+          "key": "projection:0:v:0:1",
+          "measure": {
+            "uniqueNodes": 174,
+            "uniqueDecisions": 5,
+            "occurrences": "574423",
+            "decisions": "29",
+            "inputReferences": "116634",
+            "serializedBytes": "12954795",
+            "depth": 78
+          }
+        },
+        {
+          "key": "context:0:0:0:1",
+          "measure": {
+            "uniqueNodes": 204,
+            "uniqueDecisions": 6,
+            "occurrences": "2872167",
+            "decisions": "146",
+            "inputReferences": "583170",
+            "serializedBytes": "64775297",
+            "depth": 89
+          }
+        },
+        {
+          "key": "residual:0:0:0",
+          "measure": {
+            "uniqueNodes": 308,
+            "uniqueDecisions": 11,
+            "occurrences": "201052315",
+            "decisions": "10227",
+            "inputReferences": "40821907",
+            "serializedBytes": "4534286457",
+            "depth": 116
+          }
+        },
+        {
+          "key": "residual:0:0:1",
+          "measure": {
+            "uniqueNodes": 308,
+            "uniqueDecisions": 11,
+            "occurrences": "201052315",
+            "decisions": "10227",
+            "inputReferences": "40821907",
+            "serializedBytes": "4534286457",
+            "depth": 116
+          }
+        },
+        {
+          "key": "post:0:0:inverse",
+          "measure": {
+            "uniqueNodes": 408,
+            "uniqueDecisions": 14,
+            "occurrences": "167275529340",
+            "decisions": "8508864",
+            "inputReferences": "33963826624",
+            "serializedBytes": "3772526407859",
+            "depth": 160
+          }
+        },
+        {
+          "key": "post:0:0:0",
+          "measure": {
+            "uniqueNodes": 428,
+            "uniqueDecisions": 16,
+            "occurrences": "1674966868956",
+            "decisions": "85201139",
+            "inputReferences": "340087307217",
+            "serializedBytes": "37775141231782",
+            "depth": 177
+          }
+        },
+        {
+          "key": "post:0:0:1",
+          "measure": {
+            "uniqueNodes": 428,
+            "uniqueDecisions": 16,
+            "occurrences": "1674966868956",
+            "decisions": "85201139",
+            "inputReferences": "340087307217",
+            "serializedBytes": "37775141231782",
+            "depth": 177
+          }
+        },
+        {
+          "key": "gated:0:0:0",
+          "measure": {
+            "uniqueNodes": 563,
+            "uniqueDecisions": 23,
+            "occurrences": "1514170049543940",
+            "decisions": "77021829729",
+            "inputReferences": "307438925724168",
+            "serializedBytes": "34148727673725411",
+            "depth": 216
+          }
+        },
+        {
+          "key": "h:0:0:0",
+          "measure": {
+            "uniqueNodes": 774,
+            "uniqueDecisions": 32,
+            "occurrences": "15141701902805758",
+            "decisions": "770218368881",
+            "inputReferences": "3074389542995029",
+            "serializedBytes": "341487308477263091",
+            "depth": 237
+          }
+        },
+        {
+          "key": "h:0:0:1",
+          "measure": {
+            "uniqueNodes": 834,
+            "uniqueDecisions": 36,
+            "occurrences": "15141701902805758",
+            "decisions": "770218368881",
+            "inputReferences": "3074389542995029",
+            "serializedBytes": "341487308477263091",
+            "depth": 237
+          }
+        },
+        {
+          "key": "final:0:inverse",
+          "measure": {
+            "uniqueNodes": 690,
+            "uniqueDecisions": 27,
+            "occurrences": "12597895983134393916",
+            "decisions": "640821682908992",
+            "inputReferences": "2557892099771864128",
+            "serializedBytes": "284117440653082967347",
+            "depth": 281
+          }
+        },
+        {
+          "key": "final:0:0",
+          "measure": {
+            "uniqueNodes": 710,
+            "uniqueDecisions": 29,
+            "occurrences": "126145518552274802589",
+            "decisions": "6416689231147613",
+            "inputReferences": "25612739282691586599",
+            "serializedBytes": "2844930766924079569636",
+            "depth": 298
+          }
+        },
+        {
+          "key": "final:0:1",
+          "measure": {
+            "uniqueNodes": 710,
+            "uniqueDecisions": 29,
+            "occurrences": "126145518552274802589",
+            "decisions": "6416689231147613",
+            "inputReferences": "25612739282691586599",
+            "serializedBytes": "2844930766924079569636",
+            "depth": 298
+          }
+        },
+        {
+          "key": "output:0:2",
+          "measure": {
+            "uniqueNodes": 769,
+            "uniqueDecisions": 32,
+            "occurrences": "1766037259731847236361",
+            "decisions": "89833649236066583",
+            "inputReferences": "358578349957682212386",
+            "serializedBytes": "39829030736937113977809",
+            "depth": 314
+          }
+        }
+      ],
+      "cofactor": {
+        "candidates": 116,
+        "reducingCandidates": 3,
+        "accepted": 2,
+        "unsafe": 0,
+        "overBudget": 0,
+        "beforeBytes": "39829030736937113977809",
+        "afterBytes": "28197564004341063533925",
+        "rounds": 3,
+        "roundBudgetFailures": 0,
+        "converged": true,
+        "stopReason": "fixed-point"
+      },
+      "measure": {
+        "uniqueNodes": 1394,
+        "uniqueDecisions": 62,
+        "occurrences": "1250292757417176245957",
+        "decisions": "63599089048218611",
+        "inputReferences": "253860959868223443834",
+        "serializedBytes": "28197564004341063533925",
+        "depth": 314
+      },
+      "operations": [
+        {
+          "operation": "input:f64",
+          "physical": 2,
+          "expanded": "253860959868223443834"
+        },
+        {
+          "operation": "constant:u64",
+          "physical": 24,
+          "expanded": "216571782244434206207"
+        },
+        {
+          "operation": "mul:f64",
+          "physical": 86,
+          "expanded": "136851657988936963952"
+        },
+        {
+          "operation": "add:f64",
+          "physical": 134,
+          "expanded": "108561449862456882364"
+        },
+        {
+          "operation": "add:u64",
+          "physical": 184,
+          "expanded": "98499124988027088378"
+        },
+        {
+          "operation": "reinterpret:u64",
+          "physical": 128,
+          "expanded": "97286438924785751044"
+        },
+        {
+          "operation": "and:u64",
+          "physical": 264,
+          "expanded": "97285997394011176967"
+        },
+        {
+          "operation": "constant:f64",
+          "physical": 27,
+          "expanded": "82436856949193666688"
+        },
+        {
+          "operation": "shr:u64",
+          "physical": 102,
+          "expanded": "52296746776281710789"
+        },
+        {
+          "operation": "reinterpret:f64",
+          "physical": 162,
+          "expanded": "47330719457736080067"
+        },
+        {
+          "operation": "div:f64",
+          "physical": 30,
+          "expanded": "40832269382393432440"
+        },
+        {
+          "operation": "or:u64",
+          "physical": 58,
+          "expanded": "14659605582419141857"
+        },
+        {
+          "operation": "mul:u64",
+          "physical": 16,
+          "expanded": "1221081366831456011"
+        },
+        {
+          "operation": "xor:u64",
+          "physical": 7,
+          "expanded": "1218873712909599320"
+        },
+        {
+          "operation": "shl:u64",
+          "physical": 6,
+          "expanded": "1218873712907266640"
+        },
+        {
+          "operation": "if:f64",
+          "physical": 62,
+          "expanded": "63599089048218611"
+        },
+        {
+          "operation": "lt:bool",
+          "physical": 50,
+          "expanded": "63592870297473171"
+        },
+        {
+          "operation": "sub:f64",
+          "physical": 46,
+          "expanded": "33121027531942177"
+        },
+        {
+          "operation": "le:bool",
+          "physical": 6,
+          "expanded": "6218750745440"
+        }
+      ]
+    },
+    "widerSearch": {
+      "milliseconds": 1985.4686250000004,
+      "exactComparisons": 60,
+      "coordinate": {
+        "position": 0,
+        "dimension": 2
+      },
+      "steps": [
+        {
+          "key": "exp:0:0:0:0",
+          "measure": {
+            "uniqueNodes": 1,
+            "uniqueDecisions": 0,
+            "occurrences": "1",
+            "decisions": "0",
+            "inputReferences": "0",
+            "serializedBytes": "39",
+            "depth": 1
+          }
+        },
+        {
+          "key": "denominator:0:0:0",
+          "measure": {
+            "uniqueNodes": 1,
+            "uniqueDecisions": 0,
+            "occurrences": "1",
+            "decisions": "0",
+            "inputReferences": "0",
+            "serializedBytes": "39",
+            "depth": 1
+          }
+        },
+        {
+          "key": "prob:0:0:0:0",
+          "measure": {
+            "uniqueNodes": 1,
+            "uniqueDecisions": 0,
+            "occurrences": "1",
+            "decisions": "0",
+            "inputReferences": "0",
+            "serializedBytes": "39",
+            "depth": 1
+          }
+        },
+        {
+          "key": "h:-1:0:0",
+          "measure": {
+            "uniqueNodes": 1,
+            "uniqueDecisions": 0,
+            "occurrences": "1",
+            "decisions": "0",
+            "inputReferences": "1",
+            "serializedBytes": "20",
+            "depth": 1
+          }
+        },
+        {
+          "key": "h:-1:0:1",
+          "measure": {
+            "uniqueNodes": 1,
+            "uniqueDecisions": 0,
+            "occurrences": "1",
+            "decisions": "0",
+            "inputReferences": "1",
+            "serializedBytes": "20",
+            "depth": 1
+          }
+        },
+        {
+          "key": "pre:0:0:inverse",
+          "measure": {
+            "uniqueNodes": 80,
+            "uniqueDecisions": 0,
+            "occurrences": "4092",
+            "decisions": "0",
+            "inputReferences": "832",
+            "serializedBytes": "92275",
+            "depth": 45
+          }
+        },
+        {
+          "key": "pre:0:0:0",
+          "measure": {
+            "uniqueNodes": 110,
+            "uniqueDecisions": 2,
+            "occurrences": "41022",
+            "decisions": "2",
+            "inputReferences": "8331",
+            "serializedBytes": "925135",
+            "depth": 62
+          }
+        },
+        {
+          "key": "pre:0:0:1",
+          "measure": {
+            "uniqueNodes": 110,
+            "uniqueDecisions": 2,
+            "occurrences": "41022",
+            "decisions": "2",
+            "inputReferences": "8331",
+            "serializedBytes": "925135",
+            "depth": 62
+          }
+        },
+        {
+          "key": "projection:0:v:0:0",
+          "measure": {
+            "uniqueNodes": 174,
+            "uniqueDecisions": 5,
+            "occurrences": "574423",
+            "decisions": "29",
+            "inputReferences": "116634",
+            "serializedBytes": "12954795",
+            "depth": 78
+          }
+        },
+        {
+          "key": "context:0:0:0:0",
+          "measure": {
+            "uniqueNodes": 204,
+            "uniqueDecisions": 6,
+            "occurrences": "2872167",
+            "decisions": "146",
+            "inputReferences": "583170",
+            "serializedBytes": "64775297",
+            "depth": 89
+          }
+        },
+        {
+          "key": "projection:0:v:0:1",
+          "measure": {
+            "uniqueNodes": 174,
+            "uniqueDecisions": 5,
+            "occurrences": "574423",
+            "decisions": "29",
+            "inputReferences": "116634",
+            "serializedBytes": "12954795",
+            "depth": 78
+          }
+        },
+        {
+          "key": "context:0:0:0:1",
+          "measure": {
+            "uniqueNodes": 204,
+            "uniqueDecisions": 6,
+            "occurrences": "2872167",
+            "decisions": "146",
+            "inputReferences": "583170",
+            "serializedBytes": "64775297",
+            "depth": 89
+          }
+        },
+        {
+          "key": "residual:0:0:0",
+          "measure": {
+            "uniqueNodes": 308,
+            "uniqueDecisions": 11,
+            "occurrences": "201052315",
+            "decisions": "10227",
+            "inputReferences": "40821907",
+            "serializedBytes": "4534286457",
+            "depth": 116
+          }
+        },
+        {
+          "key": "residual:0:0:1",
+          "measure": {
+            "uniqueNodes": 308,
+            "uniqueDecisions": 11,
+            "occurrences": "201052315",
+            "decisions": "10227",
+            "inputReferences": "40821907",
+            "serializedBytes": "4534286457",
+            "depth": 116
+          }
+        },
+        {
+          "key": "post:0:0:inverse",
+          "measure": {
+            "uniqueNodes": 408,
+            "uniqueDecisions": 14,
+            "occurrences": "167275529340",
+            "decisions": "8508864",
+            "inputReferences": "33963826624",
+            "serializedBytes": "3772526407859",
+            "depth": 160
+          }
+        },
+        {
+          "key": "post:0:0:0",
+          "measure": {
+            "uniqueNodes": 428,
+            "uniqueDecisions": 16,
+            "occurrences": "1674966868956",
+            "decisions": "85201139",
+            "inputReferences": "340087307217",
+            "serializedBytes": "37775141231782",
+            "depth": 177
+          }
+        },
+        {
+          "key": "post:0:0:1",
+          "measure": {
+            "uniqueNodes": 428,
+            "uniqueDecisions": 16,
+            "occurrences": "1674966868956",
+            "decisions": "85201139",
+            "inputReferences": "340087307217",
+            "serializedBytes": "37775141231782",
+            "depth": 177
+          }
+        },
+        {
+          "key": "gated:0:0:0",
+          "measure": {
+            "uniqueNodes": 563,
+            "uniqueDecisions": 23,
+            "occurrences": "1514170049543940",
+            "decisions": "77021829729",
+            "inputReferences": "307438925724168",
+            "serializedBytes": "34148727673725411",
+            "depth": 216
+          }
+        },
+        {
+          "key": "h:0:0:0",
+          "measure": {
+            "uniqueNodes": 774,
+            "uniqueDecisions": 32,
+            "occurrences": "15141701902805758",
+            "decisions": "770218368881",
+            "inputReferences": "3074389542995029",
+            "serializedBytes": "341487308477263091",
+            "depth": 237
+          }
+        },
+        {
+          "key": "h:0:0:1",
+          "measure": {
+            "uniqueNodes": 834,
+            "uniqueDecisions": 36,
+            "occurrences": "15141701902805758",
+            "decisions": "770218368881",
+            "inputReferences": "3074389542995029",
+            "serializedBytes": "341487308477263091",
+            "depth": 237
+          }
+        },
+        {
+          "key": "final:0:inverse",
+          "measure": {
+            "uniqueNodes": 690,
+            "uniqueDecisions": 27,
+            "occurrences": "12597895983134393916",
+            "decisions": "640821682908992",
+            "inputReferences": "2557892099771864128",
+            "serializedBytes": "284117440653082967347",
+            "depth": 281
+          }
+        },
+        {
+          "key": "final:0:0",
+          "measure": {
+            "uniqueNodes": 710,
+            "uniqueDecisions": 29,
+            "occurrences": "126145518552274802589",
+            "decisions": "6416689231147613",
+            "inputReferences": "25612739282691586599",
+            "serializedBytes": "2844930766924079569636",
+            "depth": 298
+          }
+        },
+        {
+          "key": "final:0:1",
+          "measure": {
+            "uniqueNodes": 710,
+            "uniqueDecisions": 29,
+            "occurrences": "126145518552274802589",
+            "decisions": "6416689231147613",
+            "inputReferences": "25612739282691586599",
+            "serializedBytes": "2844930766924079569636",
+            "depth": 298
+          }
+        },
+        {
+          "key": "output:0:2",
+          "measure": {
+            "uniqueNodes": 769,
+            "uniqueDecisions": 32,
+            "occurrences": "1766037259731847236361",
+            "decisions": "89833649236066583",
+            "inputReferences": "358578349957682212386",
+            "serializedBytes": "39829030736937113977809",
+            "depth": 314
+          }
+        }
+      ],
+      "cofactor": {
+        "candidates": 116,
+        "reducingCandidates": 3,
+        "accepted": 2,
+        "unsafe": 0,
+        "overBudget": 0,
+        "beforeBytes": "39829030736937113977809",
+        "afterBytes": "28197564004341063533925",
+        "rounds": 3,
+        "roundBudgetFailures": 0,
+        "converged": true,
+        "stopReason": "fixed-point"
+      },
+      "measure": {
+        "uniqueNodes": 1394,
+        "uniqueDecisions": 62,
+        "occurrences": "1250292757417176245957",
+        "decisions": "63599089048218611",
+        "inputReferences": "253860959868223443834",
+        "serializedBytes": "28197564004341063533925",
+        "depth": 314
+      },
+      "operations": [
+        {
+          "operation": "input:f64",
+          "physical": 2,
+          "expanded": "253860959868223443834"
+        },
+        {
+          "operation": "constant:u64",
+          "physical": 24,
+          "expanded": "216571782244434206207"
+        },
+        {
+          "operation": "mul:f64",
+          "physical": 86,
+          "expanded": "136851657988936963952"
+        },
+        {
+          "operation": "add:f64",
+          "physical": 134,
+          "expanded": "108561449862456882364"
+        },
+        {
+          "operation": "add:u64",
+          "physical": 184,
+          "expanded": "98499124988027088378"
+        },
+        {
+          "operation": "reinterpret:u64",
+          "physical": 128,
+          "expanded": "97286438924785751044"
+        },
+        {
+          "operation": "and:u64",
+          "physical": 264,
+          "expanded": "97285997394011176967"
+        },
+        {
+          "operation": "constant:f64",
+          "physical": 27,
+          "expanded": "82436856949193666688"
+        },
+        {
+          "operation": "shr:u64",
+          "physical": 102,
+          "expanded": "52296746776281710789"
+        },
+        {
+          "operation": "reinterpret:f64",
+          "physical": 162,
+          "expanded": "47330719457736080067"
+        },
+        {
+          "operation": "div:f64",
+          "physical": 30,
+          "expanded": "40832269382393432440"
+        },
+        {
+          "operation": "or:u64",
+          "physical": 58,
+          "expanded": "14659605582419141857"
+        },
+        {
+          "operation": "mul:u64",
+          "physical": 16,
+          "expanded": "1221081366831456011"
+        },
+        {
+          "operation": "xor:u64",
+          "physical": 7,
+          "expanded": "1218873712909599320"
+        },
+        {
+          "operation": "shl:u64",
+          "physical": 6,
+          "expanded": "1218873712907266640"
+        },
+        {
+          "operation": "if:f64",
+          "physical": 62,
+          "expanded": "63599089048218611"
+        },
+        {
+          "operation": "lt:bool",
+          "physical": 50,
+          "expanded": "63592870297473171"
+        },
+        {
+          "operation": "sub:f64",
+          "physical": 46,
+          "expanded": "33121027531942177"
+        },
+        {
+          "operation": "le:bool",
+          "physical": 6,
+          "expanded": "6218750745440"
+        }
+      ]
+    },
+    "candidateByteIncreasePercent": 0.019227226006969814,
+    "candidateExactCoordinateComparisons": 60,
+    "defaultExactCoordinateComparisons": 60,
+    "rejectedForDefaultReason": "The guards preserve bits but increase expanded JSON bytes; expanding the condition search budget gives the same fixed point. No size improvement was demonstrated.",
+    "nextInvestigation": "Typed numeric magnitude facts and rounding-cell proofs are global in the lowerer and not refined by promoted condition scopes. Determine how to carry scoped facts through substitution before numerical lowering; do not enable guard distribution on the current evidence.",
+    "finalArtifactEmitted": false,
+    "emittedUnits": 0,
+    "finalParity": false
   }
 }

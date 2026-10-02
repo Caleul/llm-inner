@@ -1089,3 +1089,36 @@ O tamanho previsto passou a 28.192.143.437.206.182.792.739 bytes, redução tota
 de 24,2% contra o commit anterior. A emissão continua recusada: zero unidades.
 A validação específica dessa mudança posterior à regressão consta separadamente
 no mapa; não afirma uma nova execução da suíte inteira.
+
+
+## Experimento de identidade nas células residuais (2026-10-02)
+
+`direct-json-residual-cell.ts` prova quando `R16(R32(base+correction))` conserva
+exatamente um base F16 não zero. Primeiro ajusta o limite de correção para o
+maior código F16 admissível, sem aproximar valores pequenos para zero. Reserva
+1/4096 do raio conservador da célula para o erro da soma F32. Exige desigualdade
+estrita; zeros de base continuam no caminho original para preservar sua
+canonicalização. O caminho complementar mantém toda a expressão residual.
+
+Os testes verificam todos os 63.488 códigos F16 finitos, para sete limites,
+com o guard JSON e os dois extremos admissíveis de correção. Um oráculo dyádico
+independente confirma os bits finais; monotonicidade de R32 seguida de R16
+cobre as correções intermediárias. Incluem -0, +0 e limites inválidos. A rodada
+focada teve dez passes, incluindo as 60 comparações vivas da coordenada usada.
+A prova discreta final foi repetida após o ajuste dos limites (dois passes).
+
+A integração é exclusivamente experimental: `residualCellGuards` no builder é
+false por padrão e a CLI não a habilita. As expressões são exatas, mas seu
+resultado literal aumentou de 28.192.143.437.206.182.792.739 para
+28.197.564.004.341.063.533.925 bytes. O orçamento de 2.048 candidatos/16 rodadas
+terminou no mesmo ponto fixo; o problema não era o limite de candidatos.
+Essa estratégia não foi adotada como otimização do compilador principal.
+O modo padrão repetiu a paridade e o tamanho anteriores.
+
+A lacuna a investigar é a passagem das provas numéricas por escopos de
+condições. O lowerer calcula faixas globais, fecha operações numéricas em
+bitwise e somente depois o cofactoring promove condições. A simplificação
+estrutural propaga fatos inteiros, mas não refina as faixas dos produtores
+originais de acordo com esses escopos. Apenas inserir guardas antes dessa
+correção aumenta a expressão complementar. A evidência fica preservada no mapa;
+não equivale à emissão do JSON do Llama, que permanece pendente.

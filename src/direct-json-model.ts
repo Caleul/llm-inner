@@ -7,11 +7,13 @@ import {jsonConstant as c,jsonInput,jsonOperation as o,type JsonExpression} from
 import {lowerJsonF32ToF16} from './direct-json-f16.js';
 import type {Projection} from './direct-mlp-output.js';
 import type {JsonScalarHeader} from './direct-json-stream.js';
-import type {JsonFloatRange} from './direct-json-range.js';
+import {jsonModelRangeAnalysis,type JsonFloatRange} from './direct-json-range.js';
+import {lowerJsonStableHalfResidual} from './direct-json-residual-cell.js';
 import {proveJsonHeadScoreBounds,type JsonHeadScoreBoundCertificate} from './direct-json-score-bound.js';
 import {certifyJsonRmsRoot,type JsonRmsRootCertificate} from './direct-json-rms-certificate.js';
 
 export interface JsonModelBuildOptions {
+  residualCellGuards?:boolean;
   /** Called after a source dependency is substituted, before its consumer resumes. */
   onDependency?:(key:string,expression:JsonExpression,facts:JsonModelLoweringFacts)=>void;
 }
@@ -120,11 +122,18 @@ export async function openJsonModelBuilder(directory:string,python:string,
         options.onDependency?.(key,expression,facts);return expression;
       });memo.set(key,pending);return pending;
     };
+    const range=jsonModelRangeAnalysis(facts);
     const f32=(op:'add'|'sub'|'mul'|'div',a:JsonExpression,b:JsonExpression)=>{
       stats.f32Arithmetic++;return o(op,'f32',a,b);
     };
     const widen=(x:JsonExpression)=>x[1]==='f32'?x:o('widen','f32',x);
     const half=(x:JsonExpression)=>{stats.f16Conversions++;const result=lowerJsonF32ToF16(x);facts.halfSources.set(result,x);return result;};
+    const residualSum=(base:JsonExpression,correction:JsonExpression)=>{
+      const sum=half(f32('add',widen(base),widen(correction)));
+      if(!options.residualCellGuards)return sum;
+      const interval=range(correction);
+      return interval?lowerJsonStableHalfResidual(base,correction,sum,Math.max(Math.abs(interval.minimum),Math.abs(interval.maximum))):sum;
+    };
     const zero=c('f32',0);
     const add=(a:JsonExpression,b:JsonExpression)=>f32('add',a,b);
     async function reduction(size:number,term:(index:number)=>Promise<JsonExpression>):Promise<JsonExpression>{
@@ -217,7 +226,7 @@ export async function openJsonModelBuilder(directory:string,python:string,
           const up=await linear(mlp.up,neuron,column=>postNorm(layer,column,row));
           return half(f32('mul',widen(activation),widen(up)));
         }));
-        return half(add(widen(await residual(layer,coordinate,row)),widen(down)));
+        return residualSum(await residual(layer,coordinate,row),down);
       });
     const preNorm=(layer:number,coordinate:number,row:number)=>{
       const n=layers[layer]!.mlp.normalizations[0]!;
@@ -297,7 +306,7 @@ export async function openJsonModelBuilder(directory:string,python:string,
       const a=layers[layer]!.attention.attention;
       const attention=await linear(a.projections.o,coordinate,column=>
         context(layer,Math.floor(column/a.headDim),column%a.headDim,row));
-      return half(add(widen(await hidden(layer-1,coordinate,row)),widen(attention)));
+      return residualSum(await hidden(layer-1,coordinate,row),attention);
     });
     const expression=await linear({weight:output.weight,shape:output.shape},dimension,column=>
       norm(`final:${position}`,output.finalNormWeight,output.finalNormEpsilon,column,
