@@ -9,6 +9,48 @@ from direct_sympy_strings import Domain,StringCompiler,syntax
 
 
 class StringCompilerTests(unittest.TestCase):
+    def test_repeated_grammar_admission_returns_independent_trees(self):
+        first=syntax("R32(X12345 + (-0.0))")
+        first.args[0].left.id="Changed"
+        second=syntax("R32(X12345 + (-0.0))")
+        self.assertEqual(second.args[0].left.id,"X12345")
+        self.assertIsInstance(second.args[0].right,ast.UnaryOp)
+        for _ in range(2):
+            with self.assertRaises(ValueError):syntax("R32(X12345.__class__)")
+
+    def test_grammar_cache_is_bounded_and_eviction_preserves_validation(self):
+        with patch.object(engine,"_validated_syntax",engine.OrderedDict()),patch.object(engine,"_validated_characters",0),patch.object(engine,"_syntax_cache_limit",10):
+            syntax("X12345")
+            syntax("X67890")
+            self.assertLessEqual(engine._validated_characters,10)
+            self.assertNotIn("X12345",engine._validated_syntax)
+            self.assertEqual(syntax("X12345").id,"X12345")
+            self.assertLessEqual(engine._validated_characters,10)
+
+    def test_equal_protected_calls_share_only_the_cas_atom(self):
+        view,protected=engine.cas_view("R32(X1)+R32(X1)+R32(-0.0)+R32(0.0)")
+        self.assertEqual(len(protected),3)
+        self.assertEqual(view.left.left.left.id,view.left.left.right.id)
+        self.assertNotEqual(view.left.right.id,view.right.id)
+        source="R32(X1)+R32(X1)"
+        compiler=StringCompiler()
+        result=compiler.stabilize(source,{"X1":Domain(F(-1),F(1),-24,False)})
+        self.assertEqual(result.count("R32("),2)
+        self.assertNotIn("CASBoundary",result)
+
+    def test_cached_envelope_does_not_reopen_descendant_branches(self):
+        expression="Piecewise((Piecewise((X1, X1>0), (-X1, True)), X1<2), (0, True))"
+        view,protected=engine.cas_view(expression,keep_piecewise=True)
+        calls=[n for n in ast.walk(view) if isinstance(n,ast.Call) and n.func.id=="Piecewise"]
+        self.assertEqual(len(calls),1)
+        self.assertTrue(any(value.startswith("Piecewise(") for value in protected.values()))
+        compiler=StringCompiler()
+        domains={"X1":Domain(F(-4),F(4),0,False)}
+        result=compiler.stabilize(expression,domains)
+        branch_events=[event for event in compiler.events if len(event[0])>=2]
+        self.assertTrue(branch_events)
+        self.assertEqual(compiler.stabilize(expression,domains),result)
+
     def test_cached_proof_still_runs_cas_and_owns_the_numeric_context(self):
         compiler=StringCompiler()
         positive={"X1":Domain(F(1),F(4),0,True)}

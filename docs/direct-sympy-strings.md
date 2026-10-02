@@ -309,3 +309,40 @@ três skips. A comparação por nome não encontrou passes perdidos ou falhas
 novas. O mapa mantém os registros anteriores e acrescenta
 arithmeticIdentityValidation com hashes das fontes, artefatos e resultados.
 Residual, MLP e saída continuam pendentes; as demais coordenadas não avançaram.
+
+## Preparação dos envelopes e admissão da gramática
+
+O perfil cProfile do commit dbfcc40 registrou 656.309.128 chamadas em
+120,365 segundos instrumentados. syntax acumulou 81,753 segundos, incluindo
+33,176 segundos internos em compile/parse. Esses tempos incluem a sobrecarga
+do instrumento e não estabelecem aceleração da compilação.
+
+A admissão da gramática agora possui um cache limitado a 8 MiB de strings.
+Cada chamada continua reparsando uma árvore nova; somente a validação dos
+nós admitidos é reutilizada. Nenhuma árvore mutável ou prova numérica/de
+contexto fica compartilhada por esse mecanismo. Os testes verificam mutação
+isolada, zeros com sinal, rejeição de sintaxe inválida e validação após expulsão.
+
+Chamadas protegidas idênticas recebem o mesmo átomo temporário para o SymPy,
+em vez de variáveis independentes. O envelope Piecewise reabre somente sua
+própria raiz após as provas dos ramos, sem reabrir as árvores descendentes.
+As expressões emitidas preservam as cópias e não possuem átomos CASBoundary.
+Essa alteração não autoriza fatoração IEEE sem a prova numérica independente.
+
+Os 16 testes do motor passaram. Build aprovado e regressão ampla: 594 testes,
+576 passes, as mesmas 15 falhas conhecidas e três skips; nenhum passe perdido
+ou falha nova por nome. O prefixo context:1 continua byte a byte igual ao
+anterior e passou novamente 527.904 comparações nativas sem divergências.
+
+O orçamento de 4 MiB/120 segundos continua encerrando em sete produtores.
+O ensaio de 8 MiB/300 segundos encontrou uma substituição acima do limite
+antes de alocá-la, também com sete produtores concluídos. Ainda falta medir
+o tamanho exato dessa tentativa e distinguir suas cópias por operação/caminho
+no residual; aumentar recursos não foi tomado como solução. Não foi demonstrado
+avanço adicional ou ganho no tempo total da coordenada. O prefixo mantém sqrt;
+a coordenada completa e o vetor final continuam pendentes.
+
+Um ensaio de amostragem de stacks com faulthandler terminou com exit 139;
+a causa nativa permanece não demonstrada, e nenhum resultado desse ensaio
+foi admitido. O perfil válido foi obtido depois com cProfile sem esse sampler.
+Os registros estão em grammarAndEnvelopeValidation, preservando o histórico.

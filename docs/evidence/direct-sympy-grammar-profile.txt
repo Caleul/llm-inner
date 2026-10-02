@@ -1,0 +1,54 @@
+Fri Oct  2 17:30:55 2026    /private/tmp/llm-inner-sympy-residual.profile
+
+         656309128 function calls (613315645 primitive calls) in 120.365 seconds
+
+   Ordered by: internal time
+   List reduced from 7884 to 15 due to restriction <15>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+     1264   33.176    0.026   33.176    0.026 {built-in method builtins.compile}
+ 50773055   10.618    0.000   21.514    0.000 ast.py:267(iter_child_nodes)
+     1173   10.244    0.009   81.753    0.070 direct_sympy_strings.py:43(syntax)
+233410879/233409805    7.346    0.000    7.348    0.000 {built-in method builtins.isinstance}
+ 70754187    7.100    0.000   10.082    0.000 ast.py:255(iter_fields)
+ 25388287    5.462    0.000   30.604    0.000 ast.py:380(walk)
+59142755/59142704    4.316    0.000    4.351    0.000 {built-in method builtins.getattr}
+2932170/843    3.423    0.000   24.961    0.030 ast.py:1445(visit_Call)
+11040112/363    3.353    0.000   77.293    0.213 ast.py:414(visit)
+ 25387122    3.017    0.000   24.532    0.000 {method 'extend' of 'collections.deque' objects}
+10769687/869    2.987    0.000   24.965    0.029 ast.py:801(traverse)
+1552780/1830    2.275    0.000   24.867    0.014 ast.py:1379(visit_BinOp)
+4367609/650    1.794    0.000    7.578    0.012 direct_sympy_signatures.py:23(token)
+2380787/2570    1.647    0.000    7.580    0.003 direct_sympy_signatures.py:20(key)
+ 15495601    1.631    0.000    2.064    0.000 ast.py:727(write)
+
+
+Fri Oct  2 17:30:55 2026    /private/tmp/llm-inner-sympy-residual.profile
+
+         656309128 function calls (613315645 primitive calls) in 120.365 seconds
+
+   Ordered by: cumulative time
+   List reduced from 7884 to 62 due to restriction <'direct_sympy_strings|ast.py'>
+   List reduced from 62 to 20 due to restriction <20>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+  370/194    0.286    0.001   94.885    0.489 direct_sympy_strings.py:247(stabilize)
+     1173   10.244    0.009   81.753    0.070 direct_sympy_strings.py:43(syntax)
+  161/139    0.175    0.001   80.973    0.583 direct_sympy_strings.py:270(_stabilize)
+11040112/363    3.353    0.000   77.293    0.213 ast.py:414(visit)
+       93    0.055    0.001   63.256    0.680 direct_sympy_strings.py:345(substitute)
+269859/161    0.359    0.000   56.719    0.352 ast.py:488(generic_visit)
+      321    0.216    0.001   33.695    0.105 direct_sympy_strings.py:221(cas_view)
+     1199    0.002    0.000   33.177    0.028 ast.py:33(parse)
+ 25388287    5.462    0.000   30.604    0.000 ast.py:380(walk)
+      869    0.002    0.000   25.056    0.029 ast.py:1679(unparse)
+      869    0.001    0.000   25.053    0.029 ast.py:811(visit)
+10769687/869    2.987    0.000   24.965    0.029 ast.py:801(traverse)
+2932170/843    3.423    0.000   24.961    0.030 ast.py:1445(visit_Call)
+1552780/1830    2.275    0.000   24.867    0.014 ast.py:1379(visit_BinOp)
+7972/2079    0.013    0.000   24.483    0.012 ast.py:1322(visit_Tuple)
+7972/2079    0.010    0.000   24.476    0.012 ast.py:706(items_view)
+7972/2079    0.011    0.000   24.472    0.012 ast.py:694(interleave)
+ 50773055   10.618    0.000   21.514    0.000 ast.py:267(iter_child_nodes)
+ 6647/139    0.015    0.000   18.705    0.135 direct_sympy_strings.py:279(visit_Call)
+  460/316    0.029    0.000   10.740    0.034 direct_sympy_strings.py:229(visit_Call)

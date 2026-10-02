@@ -7,11 +7,20 @@ tools until the checkpoint adapter has migrated and its final artifact passes.
 from __future__ import annotations
 
 import ast
+from collections import OrderedDict
 from dataclasses import dataclass, replace
 from fractions import Fraction
 import re
 
 import sympy as sp
+
+
+# Only grammar admission is reusable. Always parse a fresh tree: conversion
+# and branch transformers mutate their ASTs. Numeric/context proofs are not
+# part of this cache and remain owned by the compiler session.
+_validated_syntax=OrderedDict()
+_validated_characters=0
+_syntax_cache_limit=8*1024*1024
 
 
 @dataclass(frozen=True)
@@ -42,7 +51,11 @@ def quantum(value):
 
 def syntax(text):
     """Parse a deliberately small SymPy-compatible grammar, without eval."""
+    global _validated_characters
     tree = ast.parse(text, mode="eval").body
+    if text in _validated_syntax:
+        _validated_syntax.move_to_end(text)
+        return tree
     allowed = (ast.Expression, ast.Load, ast.BinOp, ast.UnaryOp, ast.Name,
                ast.Constant, ast.Call, ast.Tuple, ast.Compare, ast.BoolOp,
                ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Pow, ast.UAdd, ast.USub,
@@ -59,6 +72,12 @@ def syntax(text):
             raise ValueError("Only named mathematical functions are admitted")
         if isinstance(node, ast.Compare) and len(node.ops) != 1:
             raise ValueError("Use explicit And for multiple comparisons")
+    if len(text)<=_syntax_cache_limit:
+        while _validated_syntax and _validated_characters+len(text)>_syntax_cache_limit:
+            oldest,_=_validated_syntax.popitem(last=False)
+            _validated_characters-=len(oldest)
+        _validated_syntax[text]=True
+        _validated_characters+=len(text)
     return tree
 
 
@@ -225,14 +244,23 @@ def cas_view(expression,*,keep_piecewise=False):
     envelope may be inspected without recursively repeating that same work.
     """
     protected={}
+    atoms={}
+    tree=syntax(expression)
     class Protect(ast.NodeTransformer):
         def visit_Call(self,child):
-            if keep_piecewise and child.func.id=="Piecewise":return self.generic_visit(child)
+            # Descendant branches have already reached their own fixed point.
+            # The envelope must not reopen all copies of those branch trees.
+            if keep_piecewise and child is tree and child.func.id=="Piecewise":return self.generic_visit(child)
             body=ast.unparse(child)
-            key="CASBoundary"+str(len(protected))
-            protected[key]=body
+            # Equal deterministic calls represent the same quantity, not
+            # independent CAS variables. Exact strings include signed zeros.
+            key=atoms.get(body)
+            if key is None:
+                key="CASBoundary"+str(len(protected))
+                atoms[body]=key
+                protected[key]=body
             return ast.copy_location(ast.Name(id=key,ctx=ast.Load()),child)
-    return Protect().visit(syntax(expression)),protected
+    return Protect().visit(tree),protected
 
 
 class StringCompiler:
