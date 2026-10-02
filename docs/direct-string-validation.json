@@ -2185,5 +2185,195 @@
     "finalArtifactEmitted": false,
     "finalParity": false,
     "otherCoordinatesAdvanced": false
+  },
+  "verifiedSavepointValidation": {
+    "date": "2026-10-02T21:30:57.443987+00:00",
+    "baseCommit": "bd3f4c3",
+    "expressionFormat": "Separate SymPy mathematical string files; manifest contains compiler provenance and numeric proof metadata only",
+    "protocol": {
+      "schema": 1,
+      "frontier": "Only complete stabilized producers",
+      "identity": {
+        "byteOrder": "little",
+        "checkpoint": {
+          "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+          "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+        },
+        "dimension": 2,
+        "domains": {
+          "X1": [
+            "-65504",
+            "65504",
+            -24,
+            false
+          ],
+          "X2": [
+            "-65504",
+            "65504",
+            -24,
+            false
+          ]
+        },
+        "dtype": "f32",
+        "lowerConversions": true,
+        "platform": "macOS-26.7.1-arm64-arm-64bit",
+        "position": 0,
+        "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+        "schema": 1,
+        "sources": {
+          "direct_sympy_arithmetic.py": "3330b1e8680e80ca63175d2355b8d540e8ddb045b590fd9e721b0fccb9e09641",
+          "direct_sympy_checkpoint.py": "7568b3cce189ef51add46f9ebc49c37e92956b1f4dc4e57d55811c36c2aad6a5",
+          "direct_sympy_conversions.py": "fe239375db2f64c395a3912979aa4810fa950b57d9c70082143f805cb2f545c0",
+          "direct_sympy_savepoints.py": "4603165427ab218cd34cbd156723f7ca0ed04dd574b1d0f2471c6abdbf267bd9",
+          "direct_sympy_signatures.py": "d488ef703689811733e92aa4ae3616ac6d0b2269f841016307fb833abf5ccac3",
+          "direct_sympy_strings.py": "a3cf349a7dc7560a292e5c69daaa39891293f5c6c01b2c23012ce971dd564da3",
+          "direct_sympy_tandem.py": "c4c9db6a0fccdc7669bd8cf38d628809afd5348d51cbc232026c60d6cf70ad88",
+          "direct_sympy_words.py": "14333beaad846b7e565beb3d965480c510f9ed7cefcfcecf77a89d91267d51c1"
+        },
+        "sympy": "1.14.0"
+      },
+      "atomicPublication": "fsync object, atomic rename, directory fsync; same protocol for integrity-bound manifest",
+      "singleWriter": true,
+      "restoreMutation": "Only after every object, identity and frontier order passed verification",
+      "pendingProducerResumed": false,
+      "oldPrefixWithoutProofsAdmitted": false
+    },
+    "build": {
+      "command": "npm run build",
+      "exitCode": 0
+    },
+    "unitTests": {
+      "savepointTests": 3,
+      "nativeResumedRoundingCases": 30722,
+      "mismatches": 0,
+      "continuousAndResumedStrings": "byte identical",
+      "cases": [
+        "corrupt expression",
+        "changed checkpoint",
+        "wrong dimension",
+        "two writers",
+        "failed manifest publication preserves previous frontier",
+        "closed writer rejected"
+      ]
+    },
+    "freshRun": {
+      "maxCharacters": 8388608,
+      "maxSeconds": 300,
+      "exitCode": 1,
+      "completedDependencies": 8,
+      "lastDependency": "model.layers.0.residual:0",
+      "stopReason": "wall-clock budget"
+    },
+    "resumedRun": {
+      "maxCharacters": 8388608,
+      "maxSeconds": 300,
+      "exitCode": 1,
+      "restoredDependencies": 8,
+      "completedDependencies": 9,
+      "lastDependency": "model.layers.0.residual:1",
+      "stopReason": "wall-clock budget",
+      "newConversions": 3,
+      "newVisitedConversionNodes": 22
+    },
+    "savedProducer": {
+      "characters": 3847239,
+      "nativeComparisons": 527904,
+      "mismatches": 0,
+      "remainingPrimitives": [
+        "sqrt"
+      ],
+      "finalParity": false
+    },
+    "archive": {
+      "path": "docs/evidence/direct-sympy-frontier-nine",
+      "completedDependencies": 9,
+      "format": "compiler savepoint, not final model artifact"
+    },
+    "regression": {
+      "command": "LLM_INNER_DIRECT_PYTHON=/private/tmp/llm-inner-pytorch/bin/python LLM_INNER_DIRECT_JSON_CHECKPOINT=/private/tmp/llm-inner-rust-validation node --test $(rg --files dist/test -g '*.test.js' | rg -v '/direct-json-model.test.js$') scripts/*.test.mjs",
+      "terminal": true,
+      "exitCode": 1,
+      "tests": 595,
+      "pass": 577,
+      "fail": 15,
+      "skipped": 3,
+      "newFailures": [],
+      "lostPasses": [],
+      "failedTests": [
+        "Gemma 4 embedded adapter executes every serialized invocation program without hidden class transforms",
+        "Gemma 4 runtime-reduction provider executes the integrity-bound embedded adapter",
+        "evidência adia prefill exato sem cache e preserva antecipação do contexto exato",
+        "evidência do corte de prefill terminal preserva corpus e correção de raiz",
+        "evidência do default de oito threads vincula corpus e tokens autoritativos",
+        "evidência promove antecipação do prefixo exato somente em sessão com cache",
+        "evidência promove cabeça BF16 integral e rejeita prefill agrupado divergente",
+        "evidência promove cache de decisão exata e rejeita fronteira Q8 0-18",
+        "evidência promove contexto sensível exato sem replay do decoder",
+        "evidência promove o maior prefixo exato entre sessões sem alterar logits",
+        "evidência rejeita Q8 na projeção down quando velocidade e verificação deixam de coexistir",
+        "evidência rejeita grupos Q8 que divergem ou ampliam o fallback",
+        "evidência rejeita prefill exato eager quando ele preserva tokens mas piora todas as classes de latência",
+        "keeps the real agent-visible task free of controller context",
+        "scalar-substitution example contains concrete learned values and reproduces its F32 result"
+      ],
+      "preservedPassedTestMap": "elementaryConversionValidation.regression.passedTests",
+      "deferred": "Three existing all-coordinate tests remain deferred until the first final coordinate passes",
+      "savedLogNormalization": "Trailing whitespace removed only"
+    },
+    "directedTests": {
+      "command": "node --test dist/test/direct-sympy-strings.test.js with explicit Python and checkpoint env",
+      "tests": 4,
+      "pass": 4,
+      "fail": 0
+    },
+    "sourceHashes": {
+      "helpers/direct_sympy_savepoints.py": "4603165427ab218cd34cbd156723f7ca0ed04dd574b1d0f2471c6abdbf267bd9",
+      "helpers/direct_sympy_savepoints_test.py": "d2518c52d7486af24416ba9c4acd1c5d4f99b816ad2ddf1dd21fb42c85ac1365",
+      "helpers/direct_sympy_checkpoint.py": "7568b3cce189ef51add46f9ebc49c37e92956b1f4dc4e57d55811c36c2aad6a5",
+      "test/direct-sympy-strings.test.ts": "0633071e540098996402ecfff94ec1aa7b8ccab6962415ef6aa8b85d5c4757b8"
+    },
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-savepoints-tests.log": "3f922e1414dca06c46de7525c0befc687d53635f4ffb8098a73bc4046b558472",
+      "docs/evidence/direct-sympy-savepoints-cli.log": "e0d8ff8c84ecf8bf13de82a1c65c7bf911aebe1ea644fd5f4f71d577444cd3a9",
+      "docs/evidence/direct-sympy-savepoints-regression.log": "c6c5f9f0d7b09fca5d10055ada9ca242d56550bd6365f209d8854ef0c98fc3c7",
+      "docs/evidence/direct-sympy-savepoints-directed.log": "8630346a06980ff35a9d3fb547ae7e82789876b6d8174f0dd7b0652c21e22040",
+      "docs/evidence/direct-sympy-resumed-cli.log": "9ad434326bc6fa6f10d7e4c15ef204234e88d86c7cbaa6b72e112ea3f95719b6",
+      "docs/evidence/direct-sympy-resumed-growth.tsv": "68bf293fc26a72cc83b561838b00d615d4bbb919bfddedde930c02fd954a8965",
+      "docs/evidence/direct-sympy-resumed-substitutions.tsv": "c5ec906007ea2f99276c4ab89a8ab1f732207050ac084d2a77357673f16b5991",
+      "docs/evidence/direct-sympy-resumed-residual.prefix.work.expr": "f39ec23b97ee6d1966dfc7754ba59d84ba7a62c91e769669c67d6cc28f239639",
+      "docs/evidence/direct-sympy-resumed-proof.log": "09dc60ee3d752647e27881d3ecdbb29811226dc95bc8eef0fa4c9ece775d0f57",
+      "docs/evidence/direct-sympy-frontier-nine/objects/20547d6626e40f45a1b5b9c3ee9dbc4efb0f143173f75443d5f512e7e99bddc6.expr": "20547d6626e40f45a1b5b9c3ee9dbc4efb0f143173f75443d5f512e7e99bddc6",
+      "docs/evidence/direct-sympy-frontier-nine/objects/55f62197252112281cd9a4e335d720cddcd1c1681c9bb8bf959f2d7d02576d49.expr": "55f62197252112281cd9a4e335d720cddcd1c1681c9bb8bf959f2d7d02576d49",
+      "docs/evidence/direct-sympy-frontier-nine/objects/6d74bd741d3544edb56b2f2571629e8e9c6a817bada825c7cc877b1859f73a7e.expr": "6d74bd741d3544edb56b2f2571629e8e9c6a817bada825c7cc877b1859f73a7e",
+      "docs/evidence/direct-sympy-frontier-nine/objects/7929873ad869e984f00fb35f7d66993309de5d991a41a4dba80accc1d49a4207.expr": "7929873ad869e984f00fb35f7d66993309de5d991a41a4dba80accc1d49a4207",
+      "docs/evidence/direct-sympy-frontier-nine/objects/85aa0d9e74fd1bfa4962f293309d2d1b6d29874ba38993e92924f8589cb741f2.expr": "85aa0d9e74fd1bfa4962f293309d2d1b6d29874ba38993e92924f8589cb741f2",
+      "docs/evidence/direct-sympy-frontier-nine/objects/94aa610e0fa2e231a66771bd50269d0a4b5718916fc098055ff1cc2406183aa4.expr": "94aa610e0fa2e231a66771bd50269d0a4b5718916fc098055ff1cc2406183aa4",
+      "docs/evidence/direct-sympy-frontier-nine/objects/a20cc6b82d38b4623961462263d280fd6eaae352762dd8532ea30fee2eb0f729.expr": "a20cc6b82d38b4623961462263d280fd6eaae352762dd8532ea30fee2eb0f729",
+      "docs/evidence/direct-sympy-frontier-nine/objects/b91cb7688e5ce8655da01b231c4b7cbf9b0799d84d66c3309adf167c614aa642.expr": "b91cb7688e5ce8655da01b231c4b7cbf9b0799d84d66c3309adf167c614aa642",
+      "docs/evidence/direct-sympy-frontier-nine/objects/d3399678db994c12082bef7f8152f44a4717214543cc53d2a2eae6f6872a8588.expr": "d3399678db994c12082bef7f8152f44a4717214543cc53d2a2eae6f6872a8588",
+      "docs/evidence/direct-sympy-frontier-nine/frontier.json": "a26018b210be96f47ef6c519f61cff2433677541190e80ae7f8df45d112e2534",
+      "docs/evidence/direct-sympy-savepoint-writer-before-lock-guard.py.work": "2f059c6caf02399e8787c11f5b9cb9857e4b08fbdcf55d33a9398ded79ff814f",
+      "docs/evidence/direct-sympy-savepoint-writer-migration.json": "49616b11a16b68d56e44eaf11973bd05125c9522ad42c40eb1f5a5147a3f3068"
+    },
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "otherCoordinatesAdvanced": false,
+    "explicitCompatibilityMigration": {
+      "reason": "Only two closed-writer guards added; exact source diff checked, all other identity fields unchanged",
+      "oldWriterHash": "2f059c6caf02399e8787c11f5b9cb9857e4b08fbdcf55d33a9398ded79ff814f",
+      "newWriterHash": "4603165427ab218cd34cbd156723f7ca0ed04dd574b1d0f2471c6abdbf267bd9",
+      "restoredDependencies": 9,
+      "expressionHashesPreserved": [
+        "7929873ad869e984f00fb35f7d66993309de5d991a41a4dba80accc1d49a4207",
+        "85aa0d9e74fd1bfa4962f293309d2d1b6d29874ba38993e92924f8589cb741f2",
+        "6d74bd741d3544edb56b2f2571629e8e9c6a817bada825c7cc877b1859f73a7e",
+        "d3399678db994c12082bef7f8152f44a4717214543cc53d2a2eae6f6872a8588",
+        "94aa610e0fa2e231a66771bd50269d0a4b5718916fc098055ff1cc2406183aa4",
+        "20547d6626e40f45a1b5b9c3ee9dbc4efb0f143173f75443d5f512e7e99bddc6",
+        "a20cc6b82d38b4623961462263d280fd6eaae352762dd8532ea30fee2eb0f729",
+        "55f62197252112281cd9a4e335d720cddcd1c1681c9bb8bf959f2d7d02576d49",
+        "b91cb7688e5ce8655da01b231c4b7cbf9b0799d84d66c3309adf167c614aa642"
+      ]
+    }
   }
 }

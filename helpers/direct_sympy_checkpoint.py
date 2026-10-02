@@ -11,6 +11,7 @@ import math
 import signal
 from pathlib import Path
 import struct
+from contextlib import ExitStack
 
 from safetensors import safe_open
 from direct_sympy_strings import Domain,StringCompiler,syntax
@@ -56,6 +57,7 @@ class CheckpointStrings:
         self.sources=[]
         self.stack=[]
         self.events=[]
+        self.on_completed=None
 
     def __enter__(self):
         for path in sorted(self.directory.glob("*.safetensors")):
@@ -97,6 +99,7 @@ class CheckpointStrings:
         if self.conversions is not None:result=self.conversions.close(result)
         self.memo[key]=result
         self.events.append((key,len(expression),len(result),len(self.compiler.events)-before))
+        if self.on_completed is not None:self.on_completed(self)
         return result
 
     def reduction(self,terms):
@@ -230,12 +233,22 @@ def main():
     parser.add_argument("--max-characters",type=int,default=1048576)
     parser.add_argument("--max-seconds",type=int,default=60)
     parser.add_argument("--reference-boundaries",action="store_true",help="Keep numerical primitives for reference-string validation only")
+    parser.add_argument("--savepoint-directory")
+    parser.add_argument("--resume",action="store_true")
     args=parser.parse_args()
     if args.max_characters<1 or args.max_seconds<1:parser.error("Resource budgets must be positive")
+    if args.resume and not args.savepoint_directory:parser.error("--resume requires --savepoint-directory")
     def timeout(*_):raise TimeoutError("Compilation wall-clock budget exceeded")
     signal.signal(signal.SIGALRM,timeout);signal.alarm(args.max_seconds)
     compiler=StringCompiler(max_characters=args.max_characters)
-    with CheckpointStrings(args.checkpoint,compiler,lower_conversions=not args.reference_boundaries) as model:
+    with ExitStack() as resources:
+        model=resources.enter_context(CheckpointStrings(args.checkpoint,compiler,lower_conversions=not args.reference_boundaries))
+        if args.savepoint_directory:
+            from direct_sympy_savepoints import ProducerSavepoints
+            store=resources.enter_context(ProducerSavepoints(args.savepoint_directory,model,args.dimension))
+            if args.resume:print(f"Restored completed dependencies: {store.restore(model)}")
+            elif (store.directory/'frontier.json').exists():raise ValueError("Existing savepoint requires --resume; refusing to overwrite")
+            model.on_completed=store.save
         try:expression=model.coordinate(args.dimension)
         except (ValueError,TimeoutError) as error:
             signal.alarm(0)

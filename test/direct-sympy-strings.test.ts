@@ -4,6 +4,12 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 
 const python=process.env.LLM_INNER_DIRECT_PYTHON;
+test('SymPy savepoints preserve completed rounding frontiers and reject incompatible or corrupt state',
+  {skip:!python},async()=>{
+    const {stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_savepoints_test.py'],{timeout:120_000});
+    assert.match(stderr,/Ran 3 tests/);
+    assert.match(stderr,/OK/);
+  });
 test('SymPy string substitution factors and simplifies each step with isolated IEEE branch proofs',
   {skip:!python},async()=>{
     const {stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_strings_test.py'],{timeout:120_000});

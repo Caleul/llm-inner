@@ -385,3 +385,46 @@ Ainda não há coordenada final: o segundo residual estava em andamento no
 timeout, e faltam MLP, normalização final, saída e primitivas remanescentes.
 O residual salvo contém sqrt. Os resultados estão em
 subnormalGridAndExpansionValidation; o histórico permanece intacto.
+
+## Retomada em produtores concluídos
+
+O CLI aceita --savepoint-directory e --resume. Cada produtor concluído salva
+sua expressão diretamente sobre Xn em um arquivo .expr identificado pelo
+SHA-256. O manifesto contém apenas identidade, fronteira e provas numéricas;
+não contém AST, DAG, ativações ou expressões JSON. O runtime final não lê esses
+arquivos. Produtores interrompidos no meio de uma operação não são retomados.
+
+A identidade exige o mesmo conteúdo de configuração/Safetensors, dimensão,
+posição, domínios, política numérica, fontes do compilador, Python, SymPy e
+plataforma. A leitura dos hashes do checkpoint usa blocos de 1 MiB. Objetos e
+manifesto são sincronizados e publicados por rename atômico, seguido de fsync
+do diretório. Um lock permite um único escritor; escritores fechados rejeitam
+novas operações. A restauração valida todos os arquivos e a ordem da fronteira
+antes de alterar o estado do compilador. Provas de dtype, faixa, grade e zero
+com sinal são vinculadas novamente às expressões completas, no mesmo domínio.
+
+Três testes verificam geração contínua/retomada byte a byte, corrupção,
+checkpoint alterado, dimensão diferente, dois escritores, escritor fechado
+e falha na publicação do manifesto. A expressão retomada passou 30.722 casos
+Half nativos sem divergências. Build aprovado, quatro testes integrados
+aprovados e regressão ampla com 595 testes: 577 passes, as mesmas 15 falhas
+conhecidas e três skips, sem passe perdido ou falha nova por nome.
+
+O ensaio real de 8 MiB/300 segundos salvou oito produtores. A retomada carregou
+essa fronteira e concluiu residual:1, chegando a nove produtores. O residual
+salvo tem 3.847.239 caracteres e passou 527.904 comparações nativas sem diferença
+de bits. Os contadores de conversões/nós visitados da retomada correspondem
+somente ao novo trabalho; os eventos de produtores preservam o histórico.
+
+A proteção contra uso do escritor fechado foi acrescentada após o ensaio.
+Foi realizada uma migração explícita e localizada do manifesto: o diff exato
+contém apenas dois guards de lock fechado, todas as outras identidades foram
+mantidas e os nove hashes de expressões permaneceram iguais. Isso não estabelece
+compatibilidade automática com mudanças posteriores. Os fontes anteriores e
+o registro da migração acompanham a evidência.
+
+A fronteira completa de nove produtores foi arquivada em
+docs/evidence/direct-sympy-frontier-nine, separada do artefato final. Ela só é
+compatível com as fontes identificadas no manifesto. O registro está em
+verifiedSavepointValidation. A normalização após a atenção, o MLP e a saída
+continuam pendentes; o prefixo contém sqrt e não prova a coordenada completa.

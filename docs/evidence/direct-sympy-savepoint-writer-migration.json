@@ -1,0 +1,17 @@
+{
+  "reason": "Only two closed-writer guards added; exact source diff checked, all other identity fields unchanged",
+  "oldWriterHash": "2f059c6caf02399e8787c11f5b9cb9857e4b08fbdcf55d33a9398ded79ff814f",
+  "newWriterHash": "4603165427ab218cd34cbd156723f7ca0ed04dd574b1d0f2471c6abdbf267bd9",
+  "restoredDependencies": 9,
+  "expressionHashesPreserved": [
+    "7929873ad869e984f00fb35f7d66993309de5d991a41a4dba80accc1d49a4207",
+    "85aa0d9e74fd1bfa4962f293309d2d1b6d29874ba38993e92924f8589cb741f2",
+    "6d74bd741d3544edb56b2f2571629e8e9c6a817bada825c7cc877b1859f73a7e",
+    "d3399678db994c12082bef7f8152f44a4717214543cc53d2a2eae6f6872a8588",
+    "94aa610e0fa2e231a66771bd50269d0a4b5718916fc098055ff1cc2406183aa4",
+    "20547d6626e40f45a1b5b9c3ee9dbc4efb0f143173f75443d5f512e7e99bddc6",
+    "a20cc6b82d38b4623961462263d280fd6eaae352762dd8532ea30fee2eb0f729",
+    "55f62197252112281cd9a4e335d720cddcd1c1681c9bb8bf959f2d7d02576d49",
+    "b91cb7688e5ce8655da01b231c4b7cbf9b0799d84d66c3309adf167c614aa642"
+  ]
+}
