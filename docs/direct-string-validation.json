@@ -1628,5 +1628,87 @@
       "deferred": "Three existing all-coordinate tests remain deferred until the first final coordinate passes",
       "savedLogNormalization": "Trailing whitespace removed only"
     }
+  },
+  "convertedRegionValidation": {
+    "date": "2026-10-02T19:31:08.725040+00:00",
+    "baseCommit": "362d075",
+    "expressionFormat": "SymPy mathematical strings only",
+    "compilerOnly": true,
+    "regionAdmission": "Stable expression with no R16/R32 call; exact structural signature under immutable session input domains",
+    "runtimeCopiesPreserved": true,
+    "mandatoryCASRetained": true,
+    "pendingBoundariesCached": false,
+    "build": {
+      "command": "npm run build",
+      "exitCode": 0
+    },
+    "tests": {
+      "focusedTests": 3,
+      "focusedPassed": 3,
+      "conversionPythonTests": 8,
+      "nativeConversionComparisons": 201743408,
+      "typedPairs": 507904,
+      "wordIdentityComparisons": 16048,
+      "mismatches": 0,
+      "wideRegressionBaseline": "structuralSignatureValidation.regression; preserved, not rerun for this change"
+    },
+    "boundedRuns": [
+      {
+        "maxCharacters": 4194304,
+        "maxSeconds": 60,
+        "terminal": true,
+        "exitCode": 1,
+        "completedDependencies": 5,
+        "lastDependency": "model.layers.0.context:0",
+        "wholeCoordinateSpeedupEstablished": false
+      },
+      {
+        "maxCharacters": 4194304,
+        "maxSeconds": 120,
+        "terminal": true,
+        "exitCode": 1,
+        "completedDependencies": 7,
+        "lastDependency": "model.layers.0.context:1",
+        "closedConversions": 12,
+        "redundantConversions": 31,
+        "reusedConvertedRegions": 8,
+        "visitedConversionNodes": 211,
+        "wholeCoordinateSpeedupEstablished": false
+      }
+    ],
+    "savedProducerIdenticalTo": "docs/evidence/direct-sympy-signatures-context.prefix.work.expr",
+    "nativeParityReusedForIdenticalSavedProducer": 527904,
+    "referenceProducerCount": 19,
+    "referenceCountScope": "Reference-boundary graph only, not final elementary-kernel completion",
+    "sourceHashes": {
+      "helpers/direct_sympy_conversions.py": "d9d614963553a009dc2edd10fa83b4fdc075da469ab9974ded686b37e441d146",
+      "helpers/direct_sympy_conversions_test.py": "d6b2dc652dbcd60b39e21b464e9ba10daf98c455a0f9859dd73c362271871fd6",
+      "helpers/direct_sympy_checkpoint.py": "9b69affe80ef5bb80ee8f4594295b5e98366438b999c15b4943b05bdbe068ef0",
+      "test/direct-sympy-strings.test.ts": "dc62592962ff313d5e41c983779055ca936820995ffc1db98a805aef7790e140",
+      "helpers/direct_sympy_prefix_proof.py": "a339af049bd63c2f582e24e341a2ea3eb5e6dd5cca904660baecd4b3e857af3d"
+    },
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-regions-native.log": "ae8a714c113d6c71927bde7130b392425803ca9ab62fca98ccc4ae36613b4f96",
+      "docs/evidence/direct-sympy-regions-cli.log": "67d7dc9ad2e96dacc47f686471e8dd4ec1d95b03dd3368dad7c3b2dcb73f0197",
+      "docs/evidence/direct-sympy-regions-growth.tsv": "cad07203ce9c9c641dad3e3933a7cc0b71226351743e52733012e280362b4022",
+      "docs/evidence/direct-sympy-regions-focus.log": "df6840ff64281f5c73b3ed6ae4a559f05b0f17080794dc1f58654effe30bd516",
+      "docs/evidence/direct-sympy-regions-120-cli.log": "9bc52039440811ef160dbe9c12c9203557715676a0a6340ac883004295345da9",
+      "docs/evidence/direct-sympy-regions-120-growth.tsv": "ae1e576caddc8c4e21c6fbeb467dd64bd53ed99edf77d173347e136676b3ef33",
+      "docs/evidence/direct-sympy-regions-context1.prefix.work.expr": "7936890c454a1c44e28cd5caa322c66664775ff90533c04ac8de48705eace14e",
+      "docs/evidence/direct-sympy-regions-context1-proof.log": "afd5b4a5d0afa3a77ca252720a13f0ba6176b59b50612a67def982d101957483"
+    },
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "otherCoordinatesAdvanced": false,
+    "newSavedProducer": {
+      "dependency": "model.layers.0.context:1",
+      "characters": 442921,
+      "nativeComparisons": 527904,
+      "mismatches": 0,
+      "remainingPrimitives": [
+        "sqrt"
+      ],
+      "finalParity": false
+    }
   }
 }

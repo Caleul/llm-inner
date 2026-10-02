@@ -6,9 +6,11 @@ retains every classification. Constructors require a finite-source certificate.
 No R16/R32 or rounding-mode node is retained in their returned syntax.
 """
 from dataclasses import dataclass
+from types import MappingProxyType
 import ast
 import math
 import struct
+import re
 from fractions import Fraction
 
 from direct_sympy_strings import StringCompiler
@@ -96,7 +98,7 @@ class ConversionSession:
     merely because a kernel constructor exists.
     """
     def __init__(self,compiler,domains,*,input_dtype=None):
-        self.compiler,self.domains=compiler,domains
+        self.compiler,self.domains=compiler,MappingProxyType(dict(domains))
         self.signatures=StructuralSignatures()
         self.key=self.signatures.key
         self.completed={}
@@ -105,6 +107,9 @@ class ConversionSession:
         self.closed=0
         self.pending=0
         self.redundant=0
+        self.converted_regions=set()
+        self.reused_regions=0
+        self.visited_nodes=0
 
     @staticmethod
     def constant(node):
@@ -228,6 +233,16 @@ class ConversionSession:
     def close(self,expression):
         session=self
         class Boundaries(ast.NodeTransformer):
+            def visit(self,node):
+                # This region has no conversion left, under this session's
+                # unchanged input domain. Keep every literal copy, but avoid
+                # walking its already-converted descendants again.
+                if session.key(node) in session.converted_regions:
+                    session.reused_regions+=1
+                    return node
+                session.visited_nodes+=1
+                return super().visit(node)
+
             def generic_visit(self,node):
                 # Bounds may have cached the complete pre-substitution tree.
                 # Invalidate each mutable parent around child replacement.
@@ -278,4 +293,7 @@ class ConversionSession:
                 if before is not None:session.completed[session.key(rewritten)]=before
                 return rewritten
         tree=Boundaries().visit(syntax(expression))
-        return self.compiler.stabilize(ast.unparse(tree),self.domains)
+        result=self.compiler.stabilize(ast.unparse(tree),self.domains)
+        if not re.search(r"\bR(?:16|32)\s*\(",result):
+            self.converted_regions.add(self.key(syntax(result)))
+        return result

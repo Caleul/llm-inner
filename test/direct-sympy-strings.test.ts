@@ -22,7 +22,7 @@ test('SymPy checkpoint working string is re-read and matches a freshly captured 
 test('SymPy elementary conversion strings preserve native IEEE cells and composed boundaries',
   {skip:!python},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_conversions_test.py'],{timeout:120_000,maxBuffer:1024*1024});
-    assert.match(stderr,/Ran 7 tests/);
+    assert.match(stderr,/Ran 8 tests/);
     assert.match(stderr,/OK/);
     assert.match(stdout,/F32=100679708 F16=206870 composed=190458 prunedF32=100663300 prunedF16=3072 mismatches=0/);
   });

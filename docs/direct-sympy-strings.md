@@ -215,3 +215,34 @@ Regressão ampla após as assinaturas: 594 testes, 576 passes, as mesmas 15 falh
 conhecidas, três skips e nenhum passe anterior perdido, conferidos por nome.
 O prefixo salvo possui apenas X1/X2 como entradas, sem conversões R16/R32
 residuais; a raiz ainda impede sua admissão como compilação final.
+
+## Reutilização da análise de regiões já convertidas
+
+O passe de conversões registra a assinatura de um produtor estabilizado
+somente quando sua string não contém mais chamadas R16/R32. Ocorrências
+idênticas podem preservar literalmente a subárvore sem repetir a visita de
+conversões. O domínio de entrada da sessão é uma cópia imutável. Fronteiras
+pendentes não admitem esse reaproveitamento. O produtor inteiro ainda passa
+pelo ciclo SymPy após a substituição; nenhuma expressão vira alias ou execução
+por cache no arquivo emitido.
+
+O teste compara o resultado com e sem o reaproveitamento e exige menos nós
+visitados, com strings iguais; também verifica que conversões desconhecidas
+permanecem pendentes. Os três testes integrados e oito testes Python passaram,
+com as mesmas comparações numéricas nativas sem divergência. A regressão ampla
+da rodada anterior permanece como baseline; esta mudança recebeu validação
+direcionada e build.
+
+Em 60 segundos foram estabilizados cinco produtores, sem avanço adicional
+nesse orçamento. O prefixo é byte a byte igual ao contexto já validado em
+527.904 casos nativos. O grafo de referência possui 19 produtores para esta
+coordenada, mas essa contagem não inclui a conclusão dos kernels elementares.
+A coordenada completa permanece pendente.
+
+A execução de 4 MiB/120 segundos estabilizou sete produtores e chegou a
+context:1. O passe reaproveitou oito regiões e visitou 211 nós novos. O prefixo
+de 442.921 caracteres passou 527.904 comparações nativas sem divergência, com
+os pesos da segunda linha da projeção V e a redução causal correspondente.
+Isso não estabelece ganho isolado da otimização: o orçamento de tempo é
+diferente do ensaio de 60 segundos. Ainda falta o residual, MLP, normalização
+final e cabeça de saída, além da expansão das primitivas remanescentes.

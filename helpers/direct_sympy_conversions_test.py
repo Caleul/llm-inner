@@ -114,6 +114,25 @@ class ConversionStringTests(unittest.TestCase):
         expression=session.close("R16(R32(X1*1.0))")
         self.assertEqual(session.value_kind(syntax(expression)),"half")
 
+    def test_converted_region_reuse_keeps_literal_copies_and_pending_boundaries(self):
+        domains={name:Domain(F(-1),F(1),-24,False) for name in ("X1","X2")}
+        sessions=[ConversionSession(StringCompiler(),domains,input_dtype="f16") for _ in range(2)]
+        with self.assertRaises(TypeError):sessions[0].domains["X1"]=Domain(F(-2),F(2),-24,False)
+        first=[session.close("R16(X1+X2)") for session in sessions]
+        self.assertEqual(*first)
+        sessions[1].converted_regions.clear()
+        visited=[session.visited_nodes for session in sessions]
+        results=[session.close("R32("+expression+")") for session,expression in zip(sessions,first)]
+        self.assertEqual(*results)
+        self.assertGreater(sessions[0].reused_regions,0)
+        self.assertLess(sessions[0].visited_nodes-visited[0],sessions[1].visited_nodes-visited[1])
+        self.assertIn("X1",results[0]);self.assertIn("X2",results[0])
+        unknown=ConversionSession(StringCompiler(),{})
+        pending=unknown.close("R16(X3)")
+        self.assertFalse(unknown.converted_regions)
+        self.assertIn("R16",unknown.close(pending))
+        self.assertEqual(unknown.reused_regions,0)
+
     def test_constructor_rejects_uncertified_sources(self):
         with self.assertRaises(ValueError):FiniteSource(-math.inf,1)
         with self.assertRaises(ValueError):lower_finite_conversion("X1","R32",None,StringCompiler(),{})

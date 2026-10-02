@@ -244,7 +244,7 @@ def main():
                 "\n".join("\t".join(map(str,e)) for e in model.events)+"\n")
             last=next(reversed(model.memo),None)
             if last is not None:Path(str(path)+".prefix.work.expr").write_text(model.memo[last]+"\n")
-            print(f"Compilation stopped: {error}; completedDependencies={len(model.events)} lastDependency={last} closedConversions={model.conversions.closed if model.conversions else 0} redundantConversions={model.conversions.redundant if model.conversions else 0}; no coordinate artifact admitted")
+            print(f"Compilation stopped: {error}; completedDependencies={len(model.events)} lastDependency={last} closedConversions={model.conversions.closed if model.conversions else 0} redundantConversions={model.conversions.redundant if model.conversions else 0} reusedConvertedRegions={model.conversions.reused_regions if model.conversions else 0} visitedConversionNodes={model.conversions.visited_nodes if model.conversions else 0}; no coordinate artifact admitted")
             return 1
         signal.alarm(0)
         path=Path(args.output)
