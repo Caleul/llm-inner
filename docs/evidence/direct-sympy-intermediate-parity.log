@@ -1,0 +1,6 @@
+.
+----------------------------------------------------------------------
+Ran 1 test in 22.038s
+
+OK
+Working string parity: 60 exact cases, position=0 dimension=2; numerical primitives remain, finalParity=false

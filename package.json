@@ -47,7 +47,8 @@
     "loop:supervisor": "node scripts/agent-loop-supervisor.mjs run",
     "loop:install-launchd": "node scripts/install-agent-loop-launchd.mjs",
     "compile:direct-rust": "npm run build && node dist/src/direct-rust-cli.js",
-    "compile:direct-json": "npm run build && node dist/src/direct-json-cli.js"
+    "reference:direct-json": "npm run build && node dist/src/direct-json-cli.js",
+    "compile:direct-string": "npm run build && node dist/src/direct-string-cli.js"
   },
   "engines": {
     "node": ">=22"

@@ -1,6 +1,8 @@
 node_modules/
 venv/
 dist/
+__pycache__/
+*.pyc
 gemma-4-E4B-it-MLX-4bit/
 gemma-4-E4B-dense/
 artifacts/
