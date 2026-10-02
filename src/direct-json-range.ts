@@ -9,7 +9,7 @@ export interface JsonFloatRange {minimum:number;maximum:number}
 const word=new DataView(new ArrayBuffer(4));
 /** An outward F32 step covers double rounding in the endpoint calculation.
  * Bounds are compiler-only; this padding never changes the model arithmetic. */
-function outward(value:number,direction:-1|1):number {
+export function outwardJsonF32Bound(value:number,direction:-1|1):number {
   const rounded=Math.fround(value);
   if(!Number.isFinite(rounded))return rounded;
   if(rounded===0)return direction*2**-149;
@@ -17,7 +17,7 @@ function outward(value:number,direction:-1|1):number {
   const bits=word.getUint32(0)+(rounded>0?direction:-direction);
   word.setUint32(0,bits);return word.getFloat32(0);
 }
-function half(value:number):number {
+export function roundJsonF32BoundToHalf(value:number):number {
   if(Object.is(value,-0))return -0;
   word.setFloat32(0,value);
   return decodeIeeeF16ToF32(roundDyadicToF16IfElse(f32BitsToDyadic(word.getUint32(0))));
@@ -42,9 +42,12 @@ export function jsonModelRangeAnalysis(facts:JsonModelLoweringFacts):
       if(!node[1].startsWith('f'))return undefined;
       const x=Number(jsonConstantValue(node));return finite(x,x);
     }
-    if(node[0]==='input')return node[1]==='f16'?{minimum:-65504,maximum:65504}:undefined;
+    if(node[0]==='input'){
+      const maximum=facts.inputMagnitudeBounds?.get(node[2])?.maximum??65504;
+      return node[1]==='f16'?{minimum:-maximum,maximum}:undefined;
+    }
     const source=facts.halfSources.get(node);
-    if(source){const r=range(source);return r?finite(half(r.minimum),half(r.maximum)):undefined;}
+    if(source){const r=range(source);return r?finite(roundJsonF32BoundToHalf(r.minimum),roundJsonF32BoundToHalf(r.maximum)):undefined;}
     if(node[0]==='widen')return range(node[2]!);
     if(node[0]==='pending-silu'){
       const bound=facts.activationBounds.get(node);if(bound===undefined||bound>.1)return undefined;
@@ -64,7 +67,7 @@ export function jsonModelRangeAnalysis(facts:JsonModelLoweringFacts):
     }
     if(node[0]==='pending-sqrt'){
       const a=range(node[2]!);return a&&a.minimum>0?
-        finite(outward(Math.sqrt(a.minimum),-1),outward(Math.sqrt(a.maximum),1)):undefined;
+        finite(outwardJsonF32Bound(Math.sqrt(a.minimum),-1),outwardJsonF32Bound(Math.sqrt(a.maximum),1)):undefined;
     }
     if(node[1]!=='f32'||!['add','sub','mul','div'].includes(node[0]))return undefined;
     const a=range(node[2]!),b=range(node[3]!);if(!a||!b)return undefined;
@@ -78,7 +81,7 @@ export function jsonModelRangeAnalysis(facts:JsonModelLoweringFacts):
       if(node[0]==='mul'&&node[2]===node[3])minimum=a.minimum<=0&&a.maximum>=0?0:
         Math.min(a.minimum*a.minimum,a.maximum*a.maximum);
     }
-    let lo=outward(minimum,-1),hi=outward(maximum,1);
+    let lo=outwardJsonF32Bound(minimum,-1),hi=outwardJsonF32Bound(maximum,1);
     if(minimum>=0&&((node[0]==='mul'&&node[2]===node[3])||
       node[0]==='add'&&a.minimum>=0&&b.minimum>=0))lo=Math.max(0,lo);
     return finite(lo,hi);

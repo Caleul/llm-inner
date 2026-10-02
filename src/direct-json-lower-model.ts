@@ -11,6 +11,9 @@ import {f32BitsToDyadic,roundDyadicToF16IfElse} from './fixed-f16-projection.js'
 import type {JsonScalarHeader} from './direct-json-stream.js';
 import type {JsonPrecisionFacts} from './direct-json-precision.js';
 import {jsonModelRangeAnalysis} from './direct-json-range.js';
+import {maximumF32MagnitudeForHalfBound} from './direct-json-half-preimage.js';
+import {jsonModelMagnitudeAnalysis} from './direct-json-magnitude.js';
+import {jsonResidualCellThreshold} from './direct-json-residual-cell.js';
 import {createJsonModelSignProof} from './direct-json-sign.js';
 import {simplifyJsonFixedPoint,sameJsonExpression} from './direct-json-simplify.js';
 import {simplifyJsonBitPrecision} from './direct-json-precision.js';
@@ -47,6 +50,7 @@ export function createJsonModelLowerer(facts:JsonModelLoweringFacts,
   } {
   const memo=new WeakMap<object,JsonExpression>();let ordinal=0;
   const f32Sources=new WeakMap<JsonExpression,JsonExpression>();
+  const magnitude=facts.inputMagnitudeBounds?jsonModelMagnitudeAnalysis(facts):undefined;
   const range=jsonModelRangeAnalysis(facts),sourceSign=createJsonModelSignProof(facts,visit,range);
   const value=(node:JsonExpression)=>node[0]==='constant'?Number(jsonConstantValue(node)):undefined;
   const halfConstant=(node:JsonExpression)=>{
@@ -122,8 +126,13 @@ export function createJsonModelLowerer(facts:JsonModelLoweringFacts,
       // sums of products: their operands can have 22 significant bits.
       if((halfSource[0]==='add'||halfSource[0]==='sub')&&
         halfOperand(halfSource[2]!)&&halfOperand(halfSource[3]!)){
+        if(magnitude){
+          const a=magnitude(halfSource[2]!),b=magnitude(halfSource[3]!);
+          const threshold=b?jsonResidualCellThreshold(b.maximum):undefined;
+          if(a&&threshold!==undefined&&a.minimum>=threshold)return visit(halfSource[2]!);
+        }
         const raw=o(halfSource[0],'f64',visit(halfSource[2]!),visit(halfSource[3]!));
-        return lowerJsonFiniteF16AsF64(raw,range(halfSource),sourceSign(halfSource,raw));
+        return lowerJsonFiniteF16AsF64(raw,range(halfSource),sourceSign(halfSource,raw),magnitude?.(halfSource)?.minimum??0);
       }
       const source=visit(halfSource);
       if(source[0]==='constant'){
@@ -132,10 +141,21 @@ export function createJsonModelLowerer(facts:JsonModelLoweringFacts,
         const bits=Object.is(x,-0)?0x8000:roundDyadicToF16IfElse(f32BitsToDyadic(data.getUint32(0)));
         return c('f64',decodeIeeeF16ToF32(bits));
       }
-      const interval=range(halfSource),raw=f32Sources.get(source);
+      let interval=range(halfSource);
+      // A certified finite half output also bounds its F32 producer through
+      // the exact rounding preimage. Retain this relation when closing the
+      // conversion; an independent numerator/denominator bound loses RMS
+      // correlation and incorrectly leaves overflow and double rounding live.
+      const outputRange=facts.ranges?.get(node);
+      if(outputRange&&halfSource[1]==='f32'){
+        const maximum=maximumF32MagnitudeForHalfBound(Math.max(Math.abs(outputRange.minimum),Math.abs(outputRange.maximum)));
+        if(maximum!==undefined)interval=interval?{minimum:Math.max(interval.minimum,-maximum),maximum:Math.min(interval.maximum,maximum)}:
+          {minimum:-maximum,maximum};
+      }
+      const raw=f32Sources.get(source);
       if(raw&&interval&&Math.max(Math.abs(interval.minimum),Math.abs(interval.maximum))<65520)
-        return lowerJsonFiniteF32ThenF16AsF64(raw,interval,sourceSign(halfSource,source));
-      return lowerJsonFiniteF16AsF64(source,interval,sourceSign(halfSource,source));
+        return lowerJsonFiniteF32ThenF16AsF64(raw,interval,sourceSign(halfSource,source),magnitude?.(halfSource)?.minimum??0);
+      return lowerJsonFiniteF16AsF64(source,interval,sourceSign(halfSource,source),magnitude?.(halfSource)?.minimum??0);
     }
     if(node[0]==='constant')return node[1].startsWith('f')?c('f64',Number(jsonConstantValue(node))):node;
     if(node[0]==='input')return node[1]==='f16'?jsonInput('f64',node[2]):node;

@@ -7,10 +7,12 @@ import {lowerJsonRoundNormalF32AsF64} from './direct-json-f16.js';
  * subnormals, ties and overflow explicitly.
  * Combining the boundaries avoids encoding F16 and then decoding it again.
  * Optional signBits is a compiler certificate: exactly zero or bit 63, equal
- * to input's sign throughout the admitted domain, including signed zero. */
-export function lowerJsonFiniteF16AsF64(input:JsonExpression,range?:JsonFloatRange,signBits?:JsonExpression):JsonExpression {
+ * to input's sign throughout the admitted domain, including signed zero.
+ * minimumMagnitude must be a proved lower bound throughout that same domain. */
+export function lowerJsonFiniteF16AsF64(input:JsonExpression,range?:JsonFloatRange,signBits?:JsonExpression,minimumMagnitude=0):JsonExpression {
   if(input[1]!=='f64')throw new TypeError('Finite F64 source required');
   if(signBits&&signBits[1]!=='u64')throw new TypeError('Certified u64 sign word required');
+  if(!Number.isFinite(minimumMagnitude)||minimumMagnitude<0)throw new RangeError('Invalid certified minimum magnitude');
   if(range&&(!Number.isFinite(range.minimum)||!Number.isFinite(range.maximum)||range.minimum>range.maximum))
     throw new RangeError('Invalid certified F16 source interval');
   const u=(n:bigint)=>c('u64',n),bits=o('reinterpret','u64',input);
@@ -23,7 +25,7 @@ export function lowerJsonFiniteF16AsF64(input:JsonExpression,range?:JsonFloatRan
   // The addition is an actual F64 rounding boundary; do not cancel the offset.
   const subnormal=o('sub','f64',o('add','f64',magnitude,c('f64',2**28)),c('f64',2**28));
   const maximum=range?Math.max(Math.abs(range.minimum),Math.abs(range.maximum)):Infinity;
-  const minimum=range&&range.minimum>0?range.minimum:range&&range.maximum<0?-range.maximum:0;
+  const minimum=Math.max(minimumMagnitude,range&&range.minimum>0?range.minimum:range&&range.maximum<0?-range.maximum:0);
   if(maximum<65520){
     // In the normal arm the rounded magnitude is at most 65504. Adding
     // the low-bit bias cannot carry into the sign bit, and bit 42 is
@@ -75,14 +77,16 @@ export function lowerJsonNormalF32ThenF16AsF64(raw:JsonExpression):JsonExpressio
  * rounding preserves it, including negative zero. No overflow arm is admitted.
  * Classifying raw at 2^-14 is safe: the lower arm's fixed quantum also rounds
  * a value that F32 promotes to the smallest normal half at that boundary.
- * Optional signBits must certify raw's sign (zero or bit 63), including -0. */
-export function lowerJsonFiniteF32ThenF16AsF64(raw:JsonExpression,range:JsonFloatRange,signBits?:JsonExpression):JsonExpression {
+ * Optional signBits must certify raw's sign (zero or bit 63), including -0.
+ * minimumMagnitude bounds the rounded F32 source throughout the admitted domain. */
+export function lowerJsonFiniteF32ThenF16AsF64(raw:JsonExpression,range:JsonFloatRange,signBits?:JsonExpression,minimumMagnitude=0):JsonExpression {
   if(raw[1]!=='f64')throw new TypeError('F64 unrounded source required');
   if(signBits&&signBits[1]!=='u64')throw new TypeError('Certified u64 sign word required');
+  if(!Number.isFinite(minimumMagnitude)||minimumMagnitude<0)throw new RangeError('Invalid certified minimum magnitude');
   const maximum=Math.max(Math.abs(range.minimum),Math.abs(range.maximum));
   if(!Number.isFinite(maximum)||range.minimum>range.maximum||maximum>=65520)
     throw new RangeError('Finite F16 result certificate required');
-  const minimum=range.minimum>0?range.minimum:range.maximum<0?-range.maximum:0;
+  const minimum=Math.max(minimumMagnitude,range.minimum>0?range.minimum:range.maximum<0?-range.maximum:0);
   if(minimum>=2**-14)return lowerJsonNormalF32ThenF16AsF64(raw);
   const u=(n:bigint)=>c('u64',n),bits=o('reinterpret','u64',raw);
   const magnitudeBits=o('and','u64',bits,u(0x7fffffffffffffffn));

@@ -1122,3 +1122,42 @@ estrutural propaga fatos inteiros, mas não refina as faixas dos produtores
 originais de acordo com esses escopos. Apenas inserir guardas antes dessa
 correção aumenta a expressão complementar. A evidência fica preservada no mapa;
 não equivale à emissão do JSON do Llama, que permanece pendente.
+
+
+## Propagação da pré-imagem F16 e provas de magnitude (2026-10-02)
+
+O lowerer recupera agora o limite do produtor F32 a partir do limite já
+certificado de seu resultado F16. A pré-imagem usa o ponto médio exato
+entre códigos F16; empates pertencem ao código par. No máximo finito,
+exclui o empate que produz infinito. Essa informação correlacionada
+elimina braços de overflow e permite fundir conversões F32/F16, sem
+reordenar operações nem introduzir guardas de runtime.
+
+O teste independente cobre todas as 31.744 células de magnitude F16 finita,
+ambos os sinais e os dois lados da fronteira F32: 126.976 comparações de bits.
+A infraestrutura opcional de magnitude conserva domínios com uma lacuna
+em torno de zero e prova identidades residuais/conversões normais dentro
+do escopo. Não presume escopos na compilação padrão. Quem dividir um domínio
+deve manter seu complemento; metadados e caches ficam somente no compilador.
+
+A coordenada posição 0/dimensão 2 caiu de 28.192.143.437.206.182.792.739
+para 3.525.760.683.880.951.562.623 bytes literais previstos (87,5%). O teste
+integrado recapturou o forward PyTorch e verificou 60 resultados bit a bit.
+Os comprimentos variam entre 1 e 8, mas tokens posteriores não influenciam
+a posição zero: não é prova da última posição para todos os comprimentos.
+
+A divisão experimental por |X1| >= 16 conserva os 60 resultados, mas sua
+união completa prevê 3.746.307.046.986.377.784.855 bytes, maior que o padrão
+atual. Não foi adotada como otimização automática. O mapa conserva esse
+resultado negativo para evitar promover uma melhora só do ramo favorável.
+
+Regressão: 577 testes, 559 passes, as mesmas 15 falhas conhecidas e 3 skips;
+nenhum teste anteriormente aprovado foi perdido. Três testes históricos
+que compilam várias coordenadas continuam adiados. Testes focados: 11 passes.
+Os logs, corpus de referência e crescimento por substituição/dependência
+estão em docs/evidence e vinculados ao mapa por SHA-256.
+
+A CLI tentou emitir a coordenada com orçamento de 64 MiB e recusou antes
+da expressão: zero unidades, finalParity=false. A queda de tamanho não é
+o artefato. O JSON efetivo e sua paridade permanecem pendentes; outras
+coordenadas não foram compiladas nesta rodada.

@@ -30,6 +30,9 @@ export interface JsonModelLoweringFacts {
   exponentialScoreBounds?:WeakMap<JsonExpression,number>;
   activationBounds:WeakMap<JsonExpression,number>;
   ranges?:WeakMap<JsonExpression,JsonFloatRange>;
+  /** Compiler-only proofs valid throughout this lowering session's admitted
+   * condition scope. A caller splitting domains must retain the complement. */
+  inputMagnitudeBounds?:ReadonlyMap<string,{minimum:number;maximum:number}>;
 }
 /** Builds fully substituted scalar syntax backwards from an arbitrary logit.
  * The cache contains compiler expressions, not activations or forward values.

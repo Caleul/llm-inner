@@ -1,0 +1,19 @@
+✔ F32 widening and zero identities retain the stronger completed F16 precision proof (23.773333ms)
+✔ removing a redundant F32 bitword rounding never weakens its F16 producer precision (147.91075ms)
+✔ stronger precision is retained only when proved; arbitrary F32 constants do not acquire F16 precision (0.150666ms)
+✔ backward half-output bounds certify every finite half cell with exact F32 tie ownership (135.933917ms)
+✔ scoped unsigned magnitude proofs enclose all finite half inputs through F32 arithmetic and conversion (71.002417ms)
+✔ a scoped lower bound removes only proved residual changes and keeps the signed complement (1.767625ms)
+✔ invalid magnitude proofs are rejected rather than silently shrinking the input domain (0.238958ms)
+✔ scoped normal half conversion removes subnormal decisions for both signs and preserves every admitted half input (440.848166ms)
+✔ JSON zero identities preserve every finite half value and both zero signs (145.962833ms)
+✔ JSON reduction trailing zero is removed only after its accumulator excludes negative zero (472.147042ms)
+✔ JSON branch zero-sign proof requires both arms and does not assume half underflow is positive (0.439042ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1449.032458
