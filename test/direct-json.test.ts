@@ -370,12 +370,15 @@ test('JSON factorized SiLU polynomial is certified against every finite F16 poin
   assert.throws(()=>certifyJsonSmallSilu(.100001),/proven/);
 });
 test('JSON direct F64 to F16 composition matches an independent dyadic oracle at every half midpoint',()=>{
-  const expression=lowerJsonFiniteF16AsF64(input('f64','X1')),word=new DataView(new ArrayBuffer(8));
+  const x=input('f64','X1'),expression=lowerJsonFiniteF16AsF64(x),word=new DataView(new ArrayBuffer(8));
+  const certified=lowerJsonFiniteF16AsF64(x,{minimum:-65519,maximum:65519});
   function check(value:number){
     word.setFloat64(0,value);const bits=word.getBigUint64(0),e=Number((bits>>52n)&0x7ffn);
     const coefficient=((e?1n<<52n:0n)|(bits&0xfffffffffffffn))*(bits>>63n?-1n:1n);
     const expected=Object.is(value,-0)?-0:decodeIeeeF16ToF32(roundDyadicToF16IfElse({coefficient,exponent:e?e-1075:-1074}));
     assert.ok(Object.is(evaluate(expression,{X1:value}),expected),`direct F64 bits ${bits.toString(16)}`);
+    if(Math.abs(value)<=65519)
+      assert.ok(Object.is(evaluate(certified,{X1:value}),expected),`signed certified F64 bits ${bits.toString(16)}`);
   }
   for(let bits=0;bits<0x7bff;bits++){
     const middle=(decodeIeeeF16ToF32(bits)+decodeIeeeF16ToF32(bits+1))/2;

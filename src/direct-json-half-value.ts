@@ -21,6 +21,22 @@ export function lowerJsonFiniteF16AsF64(input:JsonExpression,range?:JsonFloatRan
   const subnormal=o('sub','f64',o('add','f64',magnitude,c('f64',2**28)),c('f64',2**28));
   const maximum=range?Math.max(Math.abs(range.minimum),Math.abs(range.maximum)):Infinity;
   const minimum=range&&range.minimum>0?range.minimum:range&&range.maximum<0?-range.maximum:0;
+  if(maximum<65520){
+    // In the normal arm the rounded magnitude is at most 65504. Adding
+    // the low-bit bias cannot carry into the sign bit, and bit 42 is
+    // independent of that sign. Round the signed word directly instead
+    // of stripping its sign and restoring another copy of input later.
+    const signedOdd=o('and','u64',o('shr','u64',bits,u(42n)),u(1n));
+    const signedNormal=o('reinterpret','f64',o('and','u64',
+      o('add','u64',bits,o('add','u64',u(0x1ffffffffffn),signedOdd)),u(0xfffffc0000000000n)));
+    const signedSubnormal=range!.minimum>0?subnormal:range!.maximum<0?
+      o('sub','f64',c('f64',-0),subnormal):
+      o('reinterpret','f64',o('or','u64',o('reinterpret','u64',subnormal),
+        o('and','u64',bits,u(0x8000000000000000n))));
+    if(maximum<2**-14)return signedSubnormal;
+    if(minimum>=2**-14)return signedNormal;
+    return o('if','f64',o('lt','bool',magnitude,c('f64',2**-14)),signedSubnormal,signedNormal);
+  }
   const aboveSubnormal=maximum<65520?normal:
     o('if','f64',o('lt','bool',magnitude,c('f64',65520)),normal,c('f64',Infinity));
   const positive=maximum<2**-14?subnormal:minimum>=2**-14?aboveSubnormal:

@@ -752,3 +752,33 @@ palavras u64 viram 266952571788309193812. Esses números medem a sintaxe literal
 não caminhos distintos de execução. A duplicação aritmética e das conversões
 continua sendo um gargalo mesmo quando decisões são combinadas. O perfil está
 registrado no mapa de validação para orientar a próxima redução exata.
+
+## Arredondamento F16 com sinal incorporado — validado
+
+Quando o intervalo provado exclui overflow F16 (magnitude menor que 65520),
+o braço normal soma o viés de arredondamento diretamente ao word com sinal.
+O bit retido de paridade independe do sinal, e a adição não pode carregar para
+o bit 63 nesse domínio. A máscara final preserva o sinal. O braço subnormal
+mantém a quantização e restauração explícita de sinal, inclusive underflow para
+-0. O caminho genérico com overflow continua usando a transformação anterior.
+
+Os três testes focados passaram. O oráculo dyádico independente que verifica
+cada midpoint F16, seus vizinhos F64 imediatos e os dois sinais agora verifica
+também o novo caminho certificado. Os testes de intervalos e de dupla conversão
+continuam passando. A suíte completa desta versão terminou e foi reconciliada no log
+`/private/tmp/llm-inner-json-signed-round-full-suite.log`: 553 testes, 535
+passando, as mesmas 15 falhas anteriores e três ignorados. Todos os passes
+da suíte anterior foram preservados. As árvores e os contadores serial/paralela
+coincidiram, e os 864 logits passaram nas duas representações (1.728 verificações
+bit a bit). O teste do modelo levou 987,3 segundos, mas a busca ampliada rodou
+concorrentemente; esse tempo não deve ser usado como comparação isolada de velocidade.
+
+Na posição 0/dimensão 2, a nova forma permitiu uma segunda promoção e caiu de
+72659232914655964882628 para 58127363857017047908129 bytes previstos, cerca de
+20%. A busca completou três rodadas, 240 candidatos e seu próprio ponto fixo.
+Na posição 7/dimensão 2, caiu de 14559843742299065345314960831221058 para
+14559833163458060370270377838148162 bytes, somente 0,000073%. A profundidade
+caiu de 484 para 472; as referências à entrada e decisões expandidas permanecem
+iguais nessa coordenada. O ganho inicial não representa o vetor inteiro.
+A busca terminal continua incompleta pelo limite de candidatos. Não houve
+emissão do JSON final. A validação completa desta alteração foi concluída.
