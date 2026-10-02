@@ -52,3 +52,29 @@ adicionais. Não conclui a compilação completa do Llama.
 O mapa e os hashes desta rodada estão em affineSubstitutionValidation
 de direct-json-validation.json. Alterações anteriores e instruções locais
 do usuário foram preservadas.
+
+
+## Reinício verificado com 63ef888
+
+O commit solicitado já estava no HEAD. O build foi repetido e os hashes
+dos fontes correspondem à evidência registrada para esse commit. Foram
+inspecionados nove estados JSON antigos: todos sem unidades emitidas,
+identidade versionada de compilador/checkpoint e cursor retomável. Nenhum
+foi reutilizado ou modificado. Logs de crescimento não são savepoints.
+
+A nova execução possui manifesto separado com hashes por conteúdo dos
+fontes, instruções e arquivos Safetensors/config. Esse manifesto audita
+o reinício; não implementa retomada. O escritor foi executado para posição
+0/dimensão 2 com 64 MiB. Os eventos confirmam estabilização após cada
+substituição, antes do consumidor seguinte. A preparação terminou, mas
+a emissão foi rejeitada: 3.525.522.711.179.479.875.721 bytes previstos,
+zero coordenadas emitidas e finalParity=false. O processo terminou; o
+status pending do escritor não significa que exista um processo ativo.
+
+O build passou e 23 testes focados foram aprovados. O teste integrado
+recapturou PyTorch e verificou 60 resultados da expressão fechada em
+vários comprimentos, incluindo fronteiras numéricas e sinais de zero.
+Não é paridade de um arquivo final nem de outras posições. Não avançamos
+às demais coordenadas. A regressão anterior de 590 testes foi preservada,
+sem alegar uma nova execução integral. Logs e hashes desta rodada estão
+em verifiedAffineCoordinateRestart no mapa de validação.

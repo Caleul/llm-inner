@@ -15213,7 +15213,8 @@
     "pendingHumanDecision": "Whether shared subexpressions may be represented in the compilation JSON. No change to the production artifact schema or final Rust contract has been authorized.",
     "rustEmissionGap": "Re-expanding these references for completely literal Rust would reproduce the same size problem. Shared compilation JSON alone does not prove that final Rust artifact.",
     "finalArtifactEmitted": false,
-    "finalParity": false
+    "finalParity": false,
+    "followup": "User requested restarting the literal compilation with 63ef888 and the updated algebraic contract. Shared diagnostic references remain unadmitted; the pending alternative was not used."
   },
   "affineSubstitutionValidation": {
     "beforeCommit": "92e475f",
@@ -16304,5 +16305,71 @@
       },
       "reason": "JSON output budget exceeded before expression emission"
     }
+  },
+  "verifiedAffineCoordinateRestart": {
+    "compilerCommit": "63ef8884043bb0679dd361dc1e303286cce446c3",
+    "requestedCommitAlreadyInHead": true,
+    "timestamp": "2026-10-02T12:11:21.554998-03:00",
+    "coordinate": {
+      "position": 0,
+      "dimension": 2
+    },
+    "build": "npm run build: exit 0",
+    "sourceUnchangedDuringRun": true,
+    "existingAffinedSourceHashesMatch": true,
+    "savedStateAudit": {
+      "checked": 9,
+      "reused": 0,
+      "oldStatesUnchanged": true,
+      "decision": "Fresh start. Every old JSON state had zero emitted units and lacked versioned compiler/checkpoint identity and a resumable cursor. Growth logs and diagnostics are not savepoints."
+    },
+    "freshValidation": {
+      "tests": 23,
+      "pass": 23,
+      "fail": 0,
+      "skipped": 0,
+      "includesFreshLivePyTorchCapture": true,
+      "coordinateExactComparisons": 60,
+      "scope": "Position 0 / dimension 2; lengths 1,2,3,4,8. Later tokens are causally irrelevant to position 0; this does not validate last-token outputs at other positions."
+    },
+    "previousRegressionPreserved": {
+      "tests": 590,
+      "pass": 572,
+      "fail": 15,
+      "skipped": 3,
+      "rerunThisRestart": false,
+      "sourceHashesRevalidated": true
+    },
+    "substitutionEvents": 234,
+    "dependencyEvents": 24,
+    "allSubstitutionsReachedFixedPoint": true,
+    "attempt": {
+      "terminal": true,
+      "exitCode": 1,
+      "writerStatus": {
+        "status": "pending",
+        "units": 0,
+        "bytes": 1376,
+        "finalParity": false,
+        "rejectedCoordinate": {
+          "position": 0,
+          "dimension": 2,
+          "predictedBytes": "3525522711179479875721",
+          "predictedOccurrences": "156320405794312843337"
+        },
+        "reason": "JSON output budget exceeded before expression emission"
+      },
+      "reason": "Byte budget rejects the current fully substituted expression before emission. No live compilation process remains from this run."
+    },
+    "files": {
+      "docs/evidence/direct-json-63ef888-restart-manifest.json": "0c22bb60c069fa8f3acdf6e5163c01bbf44e23ff1e226ea061f2c84d0b7542af",
+      "docs/evidence/direct-json-63ef888-restart-cli.log": "de9d9bc0b4e068df530de57d1778222626abc2d877328a5022131f3c3e019578",
+      "docs/evidence/direct-json-63ef888-restart-status.json": "440ef7fbfc9ddda407eed7392004ca921c395b21dcfbb0339fa1789f5b2f7715",
+      "docs/evidence/direct-json-63ef888-restart-growth.jsonl": "d18f29aebf043261f0ea27b09e2eca77cde501c59d20c6684cd1982922e08b37",
+      "docs/evidence/direct-json-63ef888-restart-focused.log": "49da7210dc7542f127c65071c586ee22d9c091101da059c813c7fffb71f6080f"
+    },
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "otherCoordinatesAdvanced": false
   }
 }

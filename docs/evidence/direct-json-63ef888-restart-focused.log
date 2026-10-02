@@ -1,0 +1,31 @@
+✔ affine substitution distributes coefficients and gathers repeated fundamental variables bitwise (263.816042ms)
+✔ floating rounding and signed-zero barriers survive affine analysis (0.227ms)
+✔ every operator and guard is visited and branch bounds never leak to the complement (0.41875ms)
+✔ incremental F32 substitution composes exact affine producers before bitwise rounding (74.208958ms)
+✔ invalid affine certificates fail instead of narrowing a numerical domain (0.293875ms)
+✔ affine forms reuse completed shared producers without enumerating literal copies (0.450167ms)
+✔ an identity cannot weaken the half lattice of a completed producer reused by later affine consumers (401.618958ms)
+✔ finite comparison proofs preserve endpoints, overlap, strictness and signed-zero equality (0.993458ms)
+✔ a proved guard cuts unreachable numerical producers before lowering for every finite half input (12.815958ms)
+✔ a constant discovered during condition substitution selects its branch before unsupported producers (1.613834ms)
+✔ F32 widening and zero identities retain the stronger completed F16 precision proof (27.738041ms)
+✔ removing a redundant F32 bitword rounding never weakens its F16 producer precision (162.471584ms)
+✔ stronger precision is retained only when proved; arbitrary F32 constants do not acquire F16 precision (0.221875ms)
+✔ unchanged structural and precision fixed points retain completed producer identity (0.915834ms)
+✔ incremental substitution stabilizes children before consumers and removes equivalent producer subtraction (41.00575ms)
+✔ a selected coordinate is emitted as a complete scalar artifact without pretending to cover the vector (26.747209ms)
+✔ one complete source-discovered coordinate preserves live PyTorch bits after each dependency is stabilized (11065.544ms)
+✔ constant F32 cells preserve exact dyadic results for every admitted half correction and both signs (130.943583ms)
+✔ constant-cell folding rejects zeros, ties, overflow, unknown operations and invalid bounds (0.143167ms)
+✔ a certified constant cell cuts its producer before lowering and folds the downstream root (1.625792ms)
+✔ JSON zero identities preserve every finite half value and both zero signs (134.392875ms)
+✔ JSON reduction trailing zero is removed only after its accumulator excludes negative zero (265.72425ms)
+✔ JSON branch zero-sign proof requires both arms and does not assume half underflow is positive (1.622667ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11252.402667
