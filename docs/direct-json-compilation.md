@@ -289,7 +289,7 @@ Novos testes em `test/direct-json.test.ts`:
 Validação histórica inicial: 44/44 testes aprovados, incluindo os 11 novos e
 os testes existentes `direct-round-preimage` e `direct-flat-substitution`.
 
-Validação atual: `test/direct-json.test.ts` tem 26 casos; também cobre widening,
+Validação atual: `test/direct-json.test.ts` tem 27 casos; também cobre widening,
 raiz, exponencial, SiLU certificado, conversões compostas, medição de duplicação
 e cancelamento de round com prova de precisão. `test/direct-json-model.test.ts`
 cobre os 32 pares posição/dimensão e as 864 comparações antes e depois do
@@ -301,7 +301,7 @@ teste integrado adicional de recusa antecipada, ambos aprovados nas execuções 
 nas 864 comparações do vetor completo; a coordenada terminal manteve a redução. O corpus inclui máximos F16 com
 ambos os sinais, magnitudes misturadas e fronteiras normal/subnormal.
 
-Suíte completa atual: 525 testes, 507 aprovados, 15 falhas, 3 skips.
+Suíte completa atual: 526 testes, 508 aprovados, 15 falhas, 3 skips.
 Todos os 479 testes aprovados no baseline continuam aprovados; as mesmas 15
 falhas anteriores estão mapeadas em `docs/direct-json-validation.json`. A suíte
 completa final e os contadores de simplificação são reconciliados nesse arquivo.
@@ -346,3 +346,28 @@ novamente no corpus completo. A CLI mantém uma rodada de combinação.
 O formato permanece literal, sem referências serializadas entre subexpressões.
 A alternativa de referências exclusivamente no JSON de compilação depende da
 resposta do usuário ao alinhamento de formato; não foi assumida como autorizada.
+
+## Simplificação de máscaras e deslocamentos
+
+As regras inteiras agora combinam máscaras AND/OR/XOR consecutivas, removem
+uma máscara completa, unem campos mascarados da mesma fonte e compõem dois
+deslocamentos constantes válidos na mesma direção. Uma máscara antes de SHR
+só desaparece quando todos os bits observados pela máscara posterior já estavam
+preservados. As regras mantêm o operando quando sua avaliação pode falhar;
+não fundem um deslocamento inválido nem usam essas identidades para números reais.
+
+O teste independente compara oito formas antes/depois para todos os 65.536
+valores u16, mais 4.101 valores/fronteiras em cada largura u32/u64: 589.904
+comparações. Inclui máscara necessária, shift inválido, entrada ausente e divisão
+por zero. Não há alteração na ordem das operações de ponto flutuante.
+
+No checkpoint, a primeira coordenada medida (posição 0/dimensão 2) passou de
+1.249 para 1.207 nós e de profundidade 444 para 421. A terminal (posição 7/dimensão
+2) passou de 15.927 para 15.556 nós e de profundidade 661 para 631. As 28 e 453
+decisões físicas, respectivamente, permaneceram iguais. A previsão literal caiu
+apenas cerca de 0,007%, para 1,1177e28 e 6,8084e41 bytes. Essa limpeza reduz a
+estrutura de bits, mas não resolve a duplicação do artefato final.
+
+A suíte completa após essas regras manteve os 479 passes do baseline e as
+mesmas 15 falhas anteriores. As 864 comparações de vetores antes/depois do
+fechamento passaram bit a bit. O mapa registra os nomes e o hash do log.

@@ -146,6 +146,43 @@ export function simplifyJsonExpression(root:JsonExpression,stats=newJsonSimplifi
         // Unsigned modular arithmetic permits factoring without float rounding.
         result=jsonOperation('mul',type,a[2]!,visit(jsonOperation('add',type,a[3]!,b[3]!),facts));
       }
+      // Bitword identities remove conversion scaffolding without touching
+      // float arithmetic. Evaluations that can fail remain visible.
+      const integer=(x:JsonExpression|undefined):bigint|undefined=>
+        x?.[0]==='constant'&&jsonInteger(x[1])?jsonConstantValue(x) as bigint:undefined;
+      const maskOperand=(x:JsonExpression|undefined,tag:string):[JsonExpression,bigint]|undefined=>{
+        if(x?.[0]!==tag)return undefined;
+        const a=x[2] as JsonExpression,b=x[3] as JsonExpression;
+        const left=integer(a),right=integer(b);
+        return right!==undefined?[a,right]:left!==undefined?[b,left]:undefined;
+      };
+      const all=(1n<<BigInt(jsonWidths[type]))-1n;
+      let source=a,constant=integer(b);
+      if(['and','or','xor'].includes(op)&&constant===undefined&&integer(a)!==undefined){source=b;constant=integer(a);}
+      if(result[0]===op&&jsonInteger(result[1])){
+        if(op==='and'&&constant===all)result=source!;
+        else if((op==='and'||op==='or'||op==='xor')&&constant!==undefined){
+          const nested=maskOperand(source,op);
+          if(nested)result=jsonOperation(op,type,nested[0],jsonConstant(type,
+            op==='and'?nested[1]&constant:op==='or'?nested[1]|constant:nested[1]^constant));
+          else if(op==='and'&&source?.[0]==='shr'){
+            const masked=maskOperand(source[2],'and'),shift=integer(source[3]);
+            if(masked&&shift!==undefined&&shift<BigInt(jsonWidths[type])&&
+              ((masked[1]>>shift)&constant)===constant)
+              result=jsonOperation('and',type,jsonOperation('shr',type,masked[0],source[3]!),jsonConstant(type,constant));
+          }
+        }else if(op==='or'||op==='xor'){
+          const left=maskOperand(a,'and'),right=maskOperand(b,'and');
+          if(left&&right&&sameJsonExpression(left[0],right[0])){
+            const combined=op==='or'?left[1]|right[1]:left[1]^right[1];
+            if(combined!==0n||total(left[0]))result=jsonOperation('and',type,left[0],jsonConstant(type,combined));
+          }
+        }else if((op==='shr'||op==='shl')&&a?.[0]===op){
+          const first=integer(a[3]),second=integer(b);
+          if(first!==undefined&&second!==undefined&&first+second<BigInt(jsonWidths[type]))
+            result=jsonOperation(op,type,a[2]!,jsonConstant(type,first+second));
+        }
+      }
       if(result!==undefined&&!sameJsonExpression(result,jsonOperation(op,type,...args)))stats.integerAlgebra++;
     }
     let scoped=memo.get(node);if(!scoped){scoped=new Map();memo.set(node,scoped);}scoped.set(context,result);

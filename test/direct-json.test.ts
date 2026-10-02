@@ -28,6 +28,39 @@ test('JSON exact constants survive serialization including signed zero and all f
     assert.ok(Object.is(evaluate(JSON.parse(JSON.stringify(expression))),decodeIeeeF16ToF32(bits)));
   }
 });
+test('JSON bitword mask and shift identities preserve all u16 values and unsigned width boundaries',()=>{
+  for(const dtype of ['u16','u32','u64'] as const){
+    const width=dtype==='u16'?16:dtype==='u32'?32:64,all=(1n<<BigInt(width))-1n,x=input(dtype,'X1');
+    const k=(n:bigint)=>c(dtype,n),low=all>>4n,high=all^15n;
+    const expressions=[
+      op('and',dtype,op('and',dtype,x,k(low)),k(high)),
+      op('or',dtype,k(15n),op('or',dtype,k(high),x)),
+      op('xor',dtype,op('xor',dtype,x,k(15n)),k(high)),
+      op('and',dtype,op('shr',dtype,op('and',dtype,x,k(high)),k(4n)),k(low)),
+      op('or',dtype,op('and',dtype,x,k(low)),op('and',dtype,k(high),x)),
+      op('xor',dtype,op('and',dtype,x,k(low)),op('and',dtype,k(high),x)),
+      op('shr',dtype,op('shr',dtype,x,k(3n)),k(4n)),
+      op('shl',dtype,op('shl',dtype,x,k(3n)),k(4n))];
+    const reduced=expressions.map(expression=>simplifyJsonFixedPoint(expression).expression);
+    for(let i=0;i<expressions.length;i++)assert.ok(measureJsonExpression(reduced[i]!).serializedBytes<measureJsonExpression(expressions[i]!).serializedBytes);
+    const values=dtype==='u16'?Array.from({length:65536},(_,n)=>BigInt(n)):
+      [0n,1n,all,all-1n,1n<<BigInt(width-1),...(Array.from({length:4096},(_,n)=>
+        (BigInt(n)*0x9e3779b97f4a7c15n+0xd1b54a32d192ed03n)&all))];
+    for(const value of values)for(let i=0;i<expressions.length;i++)
+      assert.equal(evaluate(reduced[i]!,{X1:value}),evaluate(expressions[i]!,{X1:value}));
+    // A mask removal is invalid when it would expose a previously cleared bit.
+    const necessary=op('and',dtype,op('shr',dtype,op('and',dtype,x,k(15n)),k(4n)),k(1n));
+    assert.equal(evaluate(simplifyJsonFixedPoint(necessary).expression,{X1:16n}),0n);
+    // Each original shift must be valid; two shifts at the width are not one
+    // valid operation, and undefined operands must remain evaluated.
+    const invalid=op('shr',dtype,op('shr',dtype,x,k(BigInt(width))),k(0n));
+    assert.throws(()=>evaluate(simplifyJsonFixedPoint(invalid).expression,{X1:1n}),/shift/i);
+    const undefinedValue=op('div',dtype,k(1n),k(0n));
+    const masked=op('and',dtype,op('and',dtype,undefinedValue,k(15n)),k(high));
+    assert.throws(()=>evaluate(simplifyJsonFixedPoint(masked).expression),/zero/i);
+    assert.throws(()=>evaluate(simplifyJsonFixedPoint(op('and',dtype,x,k(all))).expression),/Missing/);
+  }
+});
 test('JSON conditional facts remove repeated decisions without distributing branches',()=>{
   const x=input('u32','X1'),condition=op('lt','bool',x,c('u32',9));
   const expression=op('if','u32',condition,

@@ -1,9 +1,9 @@
 {
-  "beforeCommit": "946fb5f",
+  "beforeCommit": "7e395f1",
   "command": "LLM_INNER_DIRECT_PYTHON=PYTORCH_CPU_ARM64_2_12_1 LLM_INNER_DIRECT_JSON_CHECKPOINT=LLAMA_DIAGNOSTIC npm test",
   "summary": {
-    "tests": 525,
-    "pass": 507,
+    "tests": 526,
+    "pass": 508,
     "fail": 15,
     "skipped": 3
   },
@@ -31,6 +31,7 @@
     "JSON F64 to F32 bitwise conversion agrees with IEEE rounding at boundaries and sampled binary64 values",
     "JSON admission distinguishes shared decisions from expanded occurrences and rejects residual implicit rounding",
     "JSON admission rejects exponential duplication and longest shared paths without expanding the tree",
+    "JSON bitword mask and shift identities preserve all u16 values and unsigned width boundaries",
     "JSON certified F16 source ranges eliminate only unreachable sign, subnormal and overflow arms",
     "JSON compiler pipeline reports prepared coordinates without publishing an over-budget checkpoint vector",
     "JSON composed F16 conversion and widening preserves all F16 values and sampled F32 rounding boundaries",
@@ -68,7 +69,7 @@
     "elapsedMilliseconds": 95.443083,
     "domain": "all F32 mantissas in [1,4); remaining normal exponents covered by exact dyadic scale proof"
   },
-  "log": "/private/tmp/llm-inner-json-pipeline-full-suite.log",
+  "log": "/private/tmp/llm-inner-json-bitword-full-suite.log",
   "precisionMeasurement": [
     {
       "position": 0,
@@ -142,8 +143,8 @@
     "skipped": 0,
     "log": "/private/tmp/llm-inner-json-cofactor-full-candidates-tests.log"
   },
-  "note": "Full suite after adding literal JSON compiler orchestration and BigInt admission; same preexisting failures, no lost passing tests. The full Llama literal artifact remains pending.",
-  "logSha256": "4e472186d23ba985a9fe3dbcca9bcbbe988e686946aae76717532c2450592d92",
+  "note": "Full suite after exact integer mask/shift simplification; same preexisting failures, no lost passing tests. Full working/closed corpus parity passed. Literal Llama output remains pending.",
+  "logSha256": "bbf3ffb2b57058a235ab894d310e4a9f6c399650af64ee8b306c5935a98d3499",
   "afterShapeValidation": {
     "pass": 1,
     "fail": 0,
@@ -532,5 +533,63 @@
       "fail": 0,
       "log": "/private/tmp/llm-inner-json-pipeline-tests.log"
     }
+  },
+  "bitwordRuleMeasurement": [
+    {
+      "position": 0,
+      "dimension": 2,
+      "stats": {
+        "candidates": 27,
+        "reducingCandidates": 0,
+        "accepted": 0,
+        "unsafe": 0,
+        "overBudget": 0,
+        "beforeBytes": "11177149545153983716196588143",
+        "afterBytes": "11177149545153983716196588143"
+      },
+      "measure": {
+        "uniqueNodes": 1207,
+        "uniqueDecisions": 28,
+        "occurrences": "496181366836534374017378115",
+        "decisions": "4238798243497378233201",
+        "inputReferences": "99570228126527931684912000",
+        "serializedBytes": "11177149545153983716196588143",
+        "depth": 421
+      },
+      "milliseconds": 1534.7708330000005
+    },
+    {
+      "position": 7,
+      "dimension": 2,
+      "stats": {
+        "candidates": 168,
+        "reducingCandidates": 6,
+        "accepted": 1,
+        "unsafe": 0,
+        "overBudget": 0,
+        "beforeBytes": "1350215849619224938150946267395680662300143",
+        "afterBytes": "680842927473177015609058164780020760629599"
+      },
+      "measure": {
+        "uniqueNodes": 15556,
+        "uniqueDecisions": 453,
+        "occurrences": "30063415207752853480954829272041913208553",
+        "decisions": "257135653741869266302691191653293367",
+        "inputReferences": "6032921445978745427724954455857740384000",
+        "serializedBytes": "680842927473177015609058164780020760629599",
+        "depth": 631
+      },
+      "milliseconds": 16617.903083999998
+    }
+  ],
+  "bitwordRuleFocused": {
+    "pass": 1,
+    "fail": 0,
+    "log": "/private/tmp/llm-inner-json-bitword-rules-tests.log",
+    "u16Values": 65536,
+    "u32Values": 4101,
+    "u64Values": 4101,
+    "rewriteCasesPerValue": 8,
+    "comparisons": 589904
   }
 }
