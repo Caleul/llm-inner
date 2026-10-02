@@ -466,3 +466,30 @@ finiteHalfSquareValidation registra fontes, evidências, estado e limitações.
 A fronteira nova está em docs/evidence/direct-sympy-square-frontier.
 Ainda faltam normalização posterior, MLP, saída e primitivas remanescentes;
 não há artefato final nem paridade da coordenada completa nesta etapa.
+
+## Evitar reprocessar um arredondamento comprovadamente redundante
+
+O perfil interrompido de 45 segundos registrou 113 chamadas de syntax,
+com 26,523 segundos acumulados nelas. O quadrado Half já tinha uma prova
+de produto F32 exato antes da substituição, mas o construtor ainda criava
+R32 e percorria toda a expressão outra vez para removê-lo. Agora substitui
+diretamente no envelope de quadrado, preservando factor/simplify até o
+ponto fixo. O restante da aritmética e dos certificados não foi alterado.
+
+A fronteira de oito produtores foi migrada explicitamente para uma cópia:
+o diff completo só altera a construção do cast redundante, todos os outros
+campos de identidade foram comparados, e os oito objetos mantiveram seus
+hashes. O registro e o fonte anterior acompanham a evidência. A restauração
+normal permanece estrita; não existe compatibilidade automática entre fontes.
+
+A execução de 8 MiB/300 segundos concluiu residual:1 e salvou nove produtores.
+O residual passou 527.904 comparações nativas sem divergências. A execução
+parou na simplificação obrigatória da soma dos quadrados, com estimativa
+de 7.694.476 caracteres. Esta fronteira não contém a normalização posterior,
+MLP, norma final ou saída; sqrt permanece nos produtores.
+
+Build e quatro testes integrados passaram. A regressão preservou os 577
+passes, as mesmas 15 falhas e três skips, sem regressão nova por nome. O mapa
+redundantSquareCastValidation conserva fontes, evidências e limitações.
+Ainda não foi medido ganho de tempo para uma coordenada completa. A fronteira
+está em docs/evidence/direct-sympy-square-fast-frontier.

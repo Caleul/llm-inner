@@ -1,0 +1,19 @@
+{
+  "scope": "Exact finite Half square: remove redundant R32 construction; no changes to numerical proof helpers or stored expressions",
+  "automaticCompatibility": false,
+  "beforeManifestDigest": "02b2a65549123fdb967c93004902218ba48d19a4abebc07c635472b529a1d6ff",
+  "afterManifestDigest": "83d89ad84144e2eca7b9e5558a4b54fc8dd5e716de2c536e411b05367b53d825",
+  "unchangedProducerDigests": [
+    "236c655ba652f12bb783dfb921640443c3d65be719464c32c2293d494dc42319",
+    "e04049ed3bad6dcfae3d3426b096ecfb6d35cfbc1899eb742f713de851c32b44",
+    "ffa4c5213d8dde0571268247af8158f19473ca57bc63f8787acd76390ef050b0",
+    "dfa46c64ccea4988f1529a4c46cfd7eff61fee00557a614d2d40401a5dd7f6ab",
+    "b52582ac3a9b41e1002e9211a6c49fe236631e7e95c3e3123a3e1bd1c5eaad52",
+    "52c07d7635d1b09df8c7bdce73c031412c349c20a0096e53c199a55c437f27c7",
+    "55b69e7f40551fd5d665002b9e67d3d06e5ac6bf01f19e81a3ec971eaaa39428",
+    "3ebad3cebdcf98f7300fe9c780d914144003203715dfc66b9a40ddba5ac16078"
+  ],
+  "sourceDiff": "--- before\n+++ after\n@@ -90,8 +90,11 @@\n         if operation==\"*\" and a==b and self.conversions is not None:\n             operand=syntax(a)\n             if self.conversions.value_kind(operand)==\"half\" and self.conversions.bounds(operand) is not None:\n-                expression=self.compiler.substitute(\"R32(X999999998 ** 2)\",\"X999999998\",a,self.domains)\n-                return self.conversions.close(expression)\n+                # Finite Half squares are exact F32 products. Do not build\n+                # the redundant cast and reparse the entire closed operand\n+                # to prove its removal a second time. SymPy still processes\n+                # the substitution before the next dependency is requested.\n+                return self.compiler.substitute(\"(X999999998 ** 2)\",\"X999999998\",a,self.domains)\n         template=\"R32(X999999998 \"+operation+\" X999999999)\"\n         left=self.compiler.substitute(template,\"X999999998\",a,self.domains)\n         return self.compiler.substitute(left,\"X999999999\",b,self.domains)\n",
+  "restoredProducers": 8,
+  "proof": "63488 finite Half squares, bit-exact product equals F32 stored product; same proof precondition as prior constructor"
+}

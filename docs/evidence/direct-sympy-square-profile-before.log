@@ -1,0 +1,35 @@
+Restored completed dependencies: 8
+Compilation stopped: Compilation wall-clock budget exceeded; completedDependencies=8 lastDependency=model.layers.0.residual:0 closedConversions=0 redundantConversions=0 reusedConvertedRegions=0 visitedConversionNodes=0; no coordinate artifact admitted
+         198278906 function calls (175550067 primitive calls) in 45.490 seconds
+
+   Ordered by: cumulative time
+   List reduced from 7708 to 25 due to restriction <25>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000   45.491   45.491 /Users/caleul/.local/share/uv/python/cpython-3.10.13-macos-aarch64-none/lib/python3.10/runpy.py:260(run_path)
+   2450/2    0.032    0.000   45.489   22.744 {built-in method builtins.exec}
+        1    0.000    0.000   45.489   45.489 /Users/caleul/.local/share/uv/python/cpython-3.10.13-macos-aarch64-none/lib/python3.10/runpy.py:89(_run_module_code)
+        1    0.000    0.000   45.489   45.489 /Users/caleul/.local/share/uv/python/cpython-3.10.13-macos-aarch64-none/lib/python3.10/runpy.py:63(_run_code)
+        1    0.000    0.000   45.489   45.489 helpers/direct_sympy_checkpoint.py:1(<module>)
+        1    0.348    0.348   45.318   45.318 helpers/direct_sympy_checkpoint.py:234(main)
+        1    0.000    0.000   32.339   32.339 helpers/direct_sympy_checkpoint.py:226(coordinate)
+      9/1    0.000    0.000   32.338   32.338 helpers/direct_sympy_checkpoint.py:99(producer)
+        1    0.000    0.000   32.338   32.338 helpers/direct_sympy_checkpoint.py:230(<lambda>)
+      3/1    0.000    0.000   32.338   32.338 helpers/direct_sympy_checkpoint.py:118(linear)
+        1    0.000    0.000   32.338   32.338 helpers/direct_sympy_checkpoint.py:231(<lambda>)
+      2/1    0.000    0.000   32.338   32.338 helpers/direct_sympy_checkpoint.py:174(norm)
+      2/1    0.000    0.000   32.338   32.338 helpers/direct_sympy_checkpoint.py:175(build)
+      2/1    0.000    0.000   32.338   32.338 helpers/direct_sympy_checkpoint.py:177(<lambda>)
+      2/1    0.000    0.000   32.338   32.338 helpers/direct_sympy_checkpoint.py:132(rms_sum)
+      2/1    0.000    0.000   32.338   32.338 helpers/direct_sympy_checkpoint.py:141(component)
+      2/1    0.000    0.000   32.338   32.338 helpers/direct_sympy_checkpoint.py:142(partial)
+      2/1    0.000    0.000   32.338   32.338 helpers/direct_sympy_checkpoint.py:138(load)
+        1    0.000    0.000   32.338   32.338 helpers/direct_sympy_checkpoint.py:200(hidden)
+        1    0.000    0.000   32.338   32.338 helpers/direct_sympy_checkpoint.py:221(<lambda>)
+        1    0.000    0.000   32.338   32.338 helpers/direct_sympy_checkpoint.py:224(<lambda>)
+        1    0.000    0.000   32.338   32.338 helpers/direct_sympy_checkpoint.py:217(gated)
+        1    0.000    0.000   32.338   32.338 helpers/direct_sympy_checkpoint.py:215(post)
+        1    0.000    0.000   32.338   32.338 helpers/direct_sympy_checkpoint.py:88(op)
+      113    2.134    0.019   26.523    0.235 /Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_strings.py:52(syntax)
+
+

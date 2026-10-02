@@ -22,6 +22,8 @@ class CheckpointStringTests(unittest.TestCase):
             builder=CheckpointStrings(directory,compiler)
             result=builder.op("*","X1","X1")
             self.assertEqual(ast.dump(syntax(result)),ast.dump(syntax("X1 ** 2")))
+            self.assertEqual(builder.conversions.value_kind(syntax(result)),"f32")
+            self.assertTrue(builder.conversions.no_negative_zero(syntax(result)))
             self.assertEqual(len(compiler.substitution_events),1)
             self.assertTrue(all(e[2:4]==("factor","simplify") for e in compiler.events))
             builder.conversions.half_values.clear();builder.conversions.f32_values.clear()
