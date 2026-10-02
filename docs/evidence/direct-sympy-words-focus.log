@@ -1,0 +1,11 @@
+✔ SymPy string substitution factors and simplifies each step with isolated IEEE branch proofs (571.191667ms)
+✔ SymPy checkpoint working string is re-read and matches a freshly captured coordinate reference (33272.9135ms)
+✔ SymPy elementary conversion strings preserve native IEEE cells and composed boundaries (1223.792583ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 35123.069833

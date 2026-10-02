@@ -14,6 +14,7 @@ from fractions import Fraction
 from direct_sympy_strings import StringCompiler
 from direct_sympy_strings import syntax
 from direct_sympy_strings import quantum
+from direct_sympy_words import simplify_words
 
 
 @dataclass(frozen=True)
@@ -73,7 +74,7 @@ def lower_finite_conversion(expression,kind,certificate,compiler,domains,path=()
         signed_odd=call("U64And",call("U64Shr",raw,dropped),1)
         signed=call("Float64",call("U64And",call("U64Add",raw,
             call("U64Add",bias,signed_odd)),mask))
-        return compiler.substitute(signed,"X999999997",source,domains,path)
+        return simplify_words(compiler.substitute(signed,"X999999997",source,domains,path),compiler,domains)
     above=normal if maximum<overflow else call("Piecewise",
         "("+normal+", "+magnitude+" < "+str(overflow_threshold)+")",
         "("+str(0x7ff0000000000000)+", True)")
@@ -83,7 +84,7 @@ def lower_finite_conversion(expression,kind,certificate,compiler,domains,path=()
     template=call("Float64",call("U64Or",positive,sign))
     # Substitute the producer only after the template is complete. Every arm
     # then runs factor/simplify under its own inherited condition context.
-    return compiler.substitute(template,"X999999997",source,domains,path)
+    return simplify_words(compiler.substitute(template,"X999999997",source,domains,path),compiler,domains)
 
 
 class ConversionSession:

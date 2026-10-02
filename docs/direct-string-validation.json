@@ -1429,5 +1429,107 @@
       ],
       "finalParity": false
     }
+  },
+  "wordIdentityValidation": {
+    "date": "2026-10-02T19:03:29.974189+00:00",
+    "baseCommit": "2033fd8",
+    "expressionFormat": "SymPy mathematical strings",
+    "identities": [
+      "typed Bits64/Float64 inverses",
+      "nested masks",
+      "masked right shifts",
+      "unsigned zero and idempotence",
+      "constant unsigned operations modulo 2^64"
+    ],
+    "fixedPoint": "Every replacement factor/simplify; fixed point before next producer",
+    "build": {
+      "command": "npm run build",
+      "exitCode": 0
+    },
+    "tests": {
+      "focusedTests": 3,
+      "focusedPassed": 3,
+      "enginePythonTests": 12,
+      "conversionPythonTests": 6,
+      "nativeConversionComparisons": 201743408,
+      "nativeTypedPairs": 507904,
+      "wordIdentityComparisons": 16048,
+      "wordBitEdgesIncludeNaNs": true,
+      "mismatches": 0,
+      "wideRegressionBaseline": "elementaryConversionValidation.regression; preserved, not rerun for this change"
+    },
+    "v0Producer": {
+      "previousCharacters": 448238,
+      "characters": 442929,
+      "nativeComparisons": 527904,
+      "mismatches": 0,
+      "remainingPrimitives": [
+        "sqrt"
+      ],
+      "finalParity": false
+    },
+    "boundedRuns": [
+      {
+        "maxCharacters": 1048576,
+        "maxSeconds": 60,
+        "terminal": true,
+        "exitCode": 1,
+        "completedDependencies": 4,
+        "lastDependency": "model.layers.0.v:0"
+      },
+      {
+        "maxCharacters": 4194304,
+        "maxSeconds": 120,
+        "terminal": true,
+        "exitCode": 1,
+        "completedDependencies": 4,
+        "lastDependency": "model.layers.0.v:0"
+      },
+      {
+        "maxCharacters": 4194304,
+        "maxSeconds": 60,
+        "terminal": true,
+        "exitCode": 1,
+        "completedDependencies": 4,
+        "lastDependency": "model.layers.0.v:0",
+        "afterObjectIdentityOptimization": true,
+        "savedPrefixBitwiseTextIdentical": true,
+        "wholeCoordinateSpeedupEstablished": false
+      }
+    ],
+    "sourceHashes": {
+      "helpers/direct_sympy_words.py": "6e4634c63320c5fdfbf8fe16d38761b1b26aa4e5d44ee9f8ec39f5c8797cb3c5",
+      "helpers/direct_sympy_conversions.py": "1f378b3b97e7019fe81a45a6427ef2b4e5f9e56077d9b4aec49f8bd9103d1d1e",
+      "helpers/direct_sympy_conversions_test.py": "baf67b0914d4aeb2e40d7598dda84a9db952c32d18efd3841ac4a0f9eea972c4",
+      "test/direct-sympy-strings.test.ts": "03796d5c758a3e9aa3945891e9bbe2331b3204eb2232be982b80e538aeb3d769"
+    },
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-words-native.log": "c97a4bb82c5b19eaee92e2126902e55572bddd917c9b72466cdb877c19d82460",
+      "docs/evidence/direct-sympy-words-v0-proof.log": "0f3231ef4ae8ba0c0bdfe61bbddc7b6394965f8af59c9820bed4ff6b5a9c32bf",
+      "docs/evidence/direct-sympy-words-focus.log": "0f9553783cd32e75c8b74392f58c8a839ab4623402df4d7cb6664a106c7372ac",
+      "docs/evidence/direct-sympy-words-cli.log": "38d06be3c15b111daeb1c042711739be7db46dbeceda87cb24f7e8ab3aa85da7",
+      "docs/evidence/direct-sympy-words-growth.tsv": "f8bfa516cee3eb6eb96c8c057bf9373bbce34eb9d05c5dababb09e3340020005",
+      "docs/evidence/direct-sympy-words-v0.prefix.work.expr": "a01582d94ce381b1d9d7d956cf701d52210391c9f052b87560b066b131224080",
+      "docs/evidence/direct-sympy-words-four-mib-cli.log": "912b3824fb58ebfb69fa38162fb92563d972d25ddc9faca6bc4d58c3b4d158c9",
+      "docs/evidence/direct-sympy-words-four-mib-growth.tsv": "aef973a260514d355f98ba510b88aeefb683ac089179c624c70d3b9b1b1f6beb",
+      "docs/evidence/direct-sympy-words-profile-summary.log": "308ed6851061b660e5b8ccade3fd90b4cecf012ed10761f8402fb883ac409c0b",
+      "docs/evidence/direct-sympy-words-profile-cli.log": "939ab15f1eaded7d9a0a0d096cddb142bb350f5a547b75d7f41ed1768b2c9ece",
+      "docs/evidence/direct-sympy-words-fast-cli.log": "00e2cef395fc0c9b09b77024db273c8fdc7f102947afddc4feaaebb79e62fa61",
+      "docs/evidence/direct-sympy-words-fast-growth.tsv": "aef973a260514d355f98ba510b88aeefb683ac089179c624c70d3b9b1b1f6beb"
+    },
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "otherCoordinatesAdvanced": false,
+    "profile": {
+      "command": "python -m cProfile ... --max-characters 4194304 --max-seconds 60",
+      "scope": "Before object-identity fast path; instrumentation changes timings",
+      "wallSeconds": 60.256,
+      "astDumpCumulativeSeconds": 36.207,
+      "wordPassCumulativeSeconds": 36.627,
+      "diagnosis": "Unchanged AST nodes were serialized twice solely to check whether a rewrite happened",
+      "correction": "Identity comparison for unchanged nodes; typed structural comparison only for potentially identical operands",
+      "terminal": true,
+      "finalArtifactAdmitted": false
+    }
   }
 }

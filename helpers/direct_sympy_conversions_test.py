@@ -6,10 +6,12 @@ import subprocess
 import tempfile
 import unittest
 import sys
+import random
 
 from direct_sympy_conversions import FiniteSource,lower_finite_conversion,ConversionSession,binary_exponent
 from direct_sympy_strings import StringCompiler,syntax,Domain
 from fractions import Fraction as F
+from direct_sympy_words import simplify_words
 
 
 def cpp(node):
@@ -61,6 +63,39 @@ class ConversionStringTests(unittest.TestCase):
         for width in (1,2,1024,1000000):
             self.assertEqual(rms_half_bound(width,1e-6),2*math.sqrt(width))
 
+    def test_word_identities_are_typed_and_stabilized(self):
+        compiler=StringCompiler();domains={"X1":Domain(F(-65504),F(65504),-24,False)}
+        self.assertEqual(simplify_words("Bits64(Float64(U64And(Bits64(X1), 255)))",compiler,domains),"U64And(Bits64(X1), 255)")
+        self.assertEqual(simplify_words("Float64(Bits64(X1))",compiler,domains),"X1")
+        self.assertEqual(simplify_words("U64And(U64Shr(U64And(Bits64(X1), 18446744073172680704), 42), 1)",compiler,domains),"U64And(U64Shr(Bits64(X1), 42), 1)")
+        self.assertIn("Float64",simplify_words("Bits64(Float64(unknown(X1)))",compiler,domains))
+        self.assertIn("Bits64",simplify_words("Float64(Bits64(unknown(X1)))",compiler,domains))
+        self.assertIn("Bits64",simplify_words("Float64(Bits64(not X1))",compiler,domains))
+        self.assertTrue(all(event[2:4]==("factor","simplify") for event in compiler.events))
+        masks=(1<<64)-1
+        rules=["Bits64(Float64(U64And(Bits64(X1),255)))","Float64(Bits64(X1))",
+            "U64And(U64And(Bits64(X1),255),15)","U64Add(Bits64(X1),0)",
+            "U64Or(Bits64(X1),0)","U64And(Bits64(X1),Bits64(X1))",
+            "U64Shr(U64And(Bits64(X1),255),4)","U64Add(18446744073709551615,1)"]
+        functions={"Bits64":lambda x:struct.unpack("Q",struct.pack("d",x))[0],
+            "Float64":lambda x:struct.unpack("d",struct.pack("Q",x))[0],
+            "U64And":lambda a,b:a&b,"U64Or":lambda a,b:a|b,
+            "U64Add":lambda a,b:(a+b)&masks,"U64Shr":lambda a,b:a>>b}
+        rng=random.Random(72)
+        words=[0,1,masks,1<<63,0x7ff0000000000000,0x7ff8000000000001]+[rng.getrandbits(64) for _ in range(2000)]
+        comparisons=0
+        for rule in rules:
+            simplified=simplify_words(rule,compiler,domains)
+            before=compile(ast.Expression(syntax(rule)),"before","eval")
+            after=compile(ast.Expression(syntax(simplified)),"after","eval")
+            for bits in words:
+                env={"__builtins__":{},**functions,"X1":functions["Float64"](bits)}
+                a,b=eval(before,env),eval(after,env)
+                if type(a) is float:a=functions["Bits64"](a)
+                if type(b) is float:b=functions["Bits64"](b)
+                self.assertEqual(a,b,(rule,bits));comparisons+=1
+        print(f"Word identity comparisons: {comparisons}, mismatches=0")
+
     def test_constructor_rejects_uncertified_sources(self):
         with self.assertRaises(ValueError):FiniteSource(-math.inf,1)
         with self.assertRaises(ValueError):lower_finite_conversion("X1","R32",None,StringCompiler(),{})
@@ -85,6 +120,7 @@ class ConversionStringTests(unittest.TestCase):
         self.assertNotIn("R32",r32);self.assertNotIn("R16",r16)
         self.assertNotIn("X999999997",r32+r16)
         self.assertTrue(any(event[-1]=="branch-contexts" for event in compiler.events))
+        word=simplify_words("U64And(U64Shr(U64And(Bits64(X1), 18446744073172680704), 42), 1)",compiler,{})
         typed=ConversionSession(compiler,{name:Domain(F(-65504),F(65504),-24,False) for name in ("X1","X2")},input_dtype="f16")
         product=typed.close("R32(X1*X2)")
         addition=typed.close("R16(R32(X1+X2))")
@@ -110,10 +146,13 @@ double r16(double X1){return """+cpp(syntax(r16))+""";}
 double composed(double X1){return """+cpp(syntax(composed))+""";}
 double pruned32(double X1){return """+cpp(syntax(pruned32))+""";}
 double pruned16(double X1){return """+cpp(syntax(pruned16))+""";}
+uint64_t wordParity(double X1){return """+cpp(syntax(word))+""";}
 double typedProduct(double X1,double X2){return """+cpp(syntax(product))+""";}
 double typedAddition(double X1,double X2){return """+cpp(syntax(addition))+""";}
 double typedZero(double X1,double X2){return """+cpp(syntax(zero))+""";}
 int main(){
+ for(uint64_t bits:{UINT64_C(0),UINT64_C(1),UINT64_C(0x8000000000000000),UINT64_C(0x7ff0000000000000),UINT64_C(0x7ff8000000000001),UINT64_C(0xffffffffffffffff)})
+  if(wordParity(word<double>(bits))!=((bits>>42)&1))return 4;
  static_assert(FLT_EVAL_METHOD==0);static_assert(std::numeric_limits<double>::is_iec559);
  if(std::fesetround(FE_TONEAREST))return 2;
  uint64_t cases32=0,cases16=0,composedCases=0,pruned32Cases=0,pruned16Cases=0,failures=0;

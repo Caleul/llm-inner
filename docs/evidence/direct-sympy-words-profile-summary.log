@@ -1,0 +1,96 @@
+Fri Oct  2 16:04:29 2026    /private/tmp/llm-inner-sympy-words.profile
+
+         341519595 function calls (266144733 primitive calls) in 60.256 seconds
+
+   Ordered by: cumulative time
+   List reduced from 7814 to 22 due to restriction <22>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+   2522/1    0.039    0.000   60.260   60.260 {built-in method builtins.exec}
+        1    0.000    0.000   60.260   60.260 direct_sympy_checkpoint.py:1(<module>)
+        1    0.007    0.007   60.014   60.014 direct_sympy_checkpoint.py:226(main)
+        1    0.000    0.000   58.877   58.877 direct_sympy_checkpoint.py:218(coordinate)
+     11/1    0.001    0.000   58.877   58.877 direct_sympy_checkpoint.py:92(producer)
+        1    0.000    0.000   58.877   58.877 direct_sympy_checkpoint.py:222(<lambda>)
+      3/1    0.000    0.000   58.877   58.877 direct_sympy_checkpoint.py:110(linear)
+        1    0.000    0.000   58.870   58.870 direct_sympy_checkpoint.py:223(<lambda>)
+      3/1    0.000    0.000   58.870   58.870 direct_sympy_checkpoint.py:166(norm)
+      3/1    0.000    0.000   58.870   58.870 direct_sympy_checkpoint.py:167(build)
+      2/1    0.000    0.000   58.870   58.870 direct_sympy_checkpoint.py:169(<lambda>)
+      2/1    0.000    0.000   58.870   58.870 direct_sympy_checkpoint.py:124(rms_sum)
+      2/1    0.000    0.000   58.870   58.870 direct_sympy_checkpoint.py:133(component)
+      2/1    0.000    0.000   58.870   58.870 direct_sympy_checkpoint.py:134(partial)
+      3/1    0.000    0.000   58.870   58.870 direct_sympy_checkpoint.py:130(load)
+     13/1    0.000    0.000   58.870   58.870 direct_sympy_checkpoint.py:192(hidden)
+        1    0.000    0.000   58.870   58.870 direct_sympy_checkpoint.py:213(<lambda>)
+        1    0.000    0.000   58.870   58.870 direct_sympy_checkpoint.py:214(<lambda>)
+        1    0.000    0.000   58.870   58.870 direct_sympy_checkpoint.py:196(residual)
+        1    0.000    0.000   58.870   58.870 direct_sympy_checkpoint.py:203(<lambda>)
+        1    0.000    0.000   58.870   58.870 direct_sympy_checkpoint.py:197(value)
+2556454/143    0.747    0.000   56.892    0.398 ast.py:414(visit)
+
+
+Fri Oct  2 16:04:29 2026    /private/tmp/llm-inner-sympy-words.profile
+
+         341519595 function calls (266144733 primitive calls) in 60.256 seconds
+
+   Ordered by: internal time
+   List reduced from 7814 to 20 due to restriction <20>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+36009432/102994   27.561    0.000   36.154    0.000 ast.py:125(_format)
+      791    5.936    0.008    5.936    0.008 {built-in method builtins.compile}
+99049476/99048913    3.111    0.000    3.113    0.000 {built-in method builtins.isinstance}
+24660341/411385    2.397    0.000   35.604    0.000 {method 'join' of 'str' objects}
+      700    2.283    0.003   15.940    0.023 direct_sympy_strings.py:43(syntax)
+46777033/46776982    2.272    0.000    2.309    0.000 {built-in method builtins.getattr}
+ 10462754    2.181    0.000    4.296    0.000 ast.py:267(iter_child_nodes)
+ 14358134    1.420    0.000    1.920    0.000 ast.py:255(iter_fields)
+9213660/242581    1.303    0.000   35.520    0.000 ast.py:170(<genexpr>)
+  5232427    1.086    0.000    6.127    0.000 ast.py:380(walk)
+ 33534416    0.948    0.000    0.948    0.000 {method 'append' of 'list' objects}
+2556454/143    0.747    0.000   56.892    0.398 ast.py:414(visit)
+590895/453    0.673    0.000    4.925    0.011 ast.py:1445(visit_Call)
+8217330/8217323    0.639    0.000    0.639    0.000 {built-in method builtins.repr}
+  5231735    0.619    0.000    4.915    0.000 {method 'extend' of 'collections.deque' objects}
+2166311/464    0.593    0.000    4.927    0.011 ast.py:801(traverse)
+311118/1372    0.452    0.000    4.887    0.004 ast.py:1379(visit_BinOp)
+15803524/15801893    0.438    0.000    0.438    0.000 {built-in method builtins.len}
+389858/50    0.362    0.000   49.242    0.985 ast.py:488(generic_visit)
+  3118411    0.324    0.000    0.413    0.000 ast.py:727(write)
+
+
+Fri Oct  2 16:04:29 2026    /private/tmp/llm-inner-sympy-words.profile
+
+         341519595 function calls (266144733 primitive calls) in 60.256 seconds
+
+   Ordered by: cumulative time
+   List reduced from 7814 to 38 due to restriction <'direct_sympy_strings|direct_sympy_words|ast.py:17|ast.py:11'>
+   List reduced from 38 to 25 due to restriction <25>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+       10    0.009    0.001   36.627    3.663 direct_sympy_words.py:78(simplify_words)
+   102994    0.050    0.000   36.207    0.000 ast.py:113(dump)
+9213660/242581    1.303    0.000   35.520    0.000 ast.py:170(<genexpr>)
+ 39102/13    0.050    0.000   33.597    2.584 direct_sympy_words.py:83(visit_Call)
+  187/109    0.062    0.000   19.521    0.179 direct_sympy_strings.py:247(stabilize)
+   101/86    0.041    0.000   16.902    0.197 direct_sympy_strings.py:270(_stabilize)
+      700    2.283    0.003   15.940    0.023 direct_sympy_strings.py:43(syntax)
+       44    0.005    0.000   12.983    0.295 direct_sympy_strings.py:345(substitute)
+ 26462/83    0.010    0.000    8.324    0.100 direct_sympy_strings.py:279(visit_Call)
+      203    0.042    0.000    7.365    0.036 direct_sympy_strings.py:221(cas_view)
+    39089    0.057    0.000    3.572    0.000 direct_sympy_words.py:45(reduce_call)
+  226/196    0.006    0.000    2.359    0.012 direct_sympy_strings.py:229(visit_Call)
+        1    0.000    0.000    0.233    0.233 direct_sympy_strings.py:1(<module>)
+125301/47484    0.067    0.000    0.110    0.000 direct_sympy_words.py:17(word_width)
+   191938    0.032    0.000    0.039    0.000 direct_sympy_words.py:13(integer)
+      194    0.001    0.000    0.006    0.000 direct_sympy_strings.py:112(certificate)
+  411/203    0.001    0.000    0.005    0.000 direct_sympy_strings.py:65(symbolic)
+      443    0.000    0.000    0.003    0.000 direct_sympy_strings.py:29(power_two)
+  306/194    0.000    0.000    0.002    0.000 direct_sympy_strings.py:127(visit)
+      387    0.001    0.000    0.001    0.000 direct_sympy_strings.py:33(quantum)
+       55    0.000    0.000    0.001    0.000 direct_sympy_strings.py:121(bounded)
+       10    0.000    0.000    0.001    0.000 direct_sympy_strings.py:101(<listcomp>)
+       60    0.000    0.000    0.000    0.000 direct_sympy_strings.py:74(<genexpr>)
+      561    0.000    0.000    0.000    0.000 direct_sympy_strings.py:248(<genexpr>)
+       93    0.000    0.000    0.000    0.000 direct_sympy_strings.py:329(<lambda>)

@@ -152,3 +152,38 @@ Seu crescimento de 44.781 para 448.238 caracteres permanece registrado:
 conversões elementares ainda repetem a expressão por necessidade de cálculo;
 a correção de lanes vazias reduziu esse produtor de 896.738 caracteres.
 Essa execução não produziu nem admitiu o artefato da coordenada completa.
+
+## Identidades exatas de palavras
+
+Depois de substituir uma conversão, o compilador elimina os pares tipados
+Bits64/Float64 inversos, combina máscaras e simplifica deslocamentos, zeros,
+idempotência e constantes unsigned de 64 bits. Cada alteração passa novamente
+por factor/simplify; somente o ponto fixo entra no produtor seguinte.
+Identificadores ou chamadas sem tipo comprovado não permitem cancelamento.
+Isso não distribui caminhos nem reassocia aritmética de ponto flutuante.
+
+A ampliação passou os três testes integrados, seis testes Python de conversão,
+as comparações numéricas anteriores e 16.048 comparações das identidades sobre
+palavras, incluindo padrões NaN. A projeção V ficou com 442.929 caracteres e
+preservou os 527.904 resultados nativos. O inverso RMS permanece com 2.137
+caracteres. A suíte ampla anterior permanece registrada como baseline; nesta
+ampliação foram executados o build e os testes direcionados.
+
+As execuções com 1 MiB/60 segundos e 4 MiB/120 segundos terminaram pelo tempo,
+com quatro produtores completos. Logo, aumentar o orçamento de tamanho não
+resolveu esta etapa. A medição de custo da compilação orientará o próximo
+ajuste. A coordenada e o vetor final ainda não foram emitidos nem validados.
+
+O perfil instrumentado identificou 36,2 segundos cumulativos em ast.dump,
+dentro de 60,3 segundos observados. O novo passe comparava subárvores inteiras
+até quando reduce_call devolvia o mesmo objeto. Essa comparação passou a ser
+por identidade do nó; comparação estrutural de operandos só acontece quando
+seus tipos e funções podem coincidir. As simplificações aceitas e chamadas
+obrigatórias do CAS permanecem iguais. Esses números são de profiling,
+não um benchmark de velocidade final do modelo.
+
+Após corrigir a comparação de nós, a execução de 4 MiB/60 segundos manteve
+quatro produtores completos. O prefixo da projeção V é byte a byte igual ao
+que passou a prova nativa. A suíte numérica foi repetida após a correção.
+Não se conclui ganho de avanço ou velocidade da coordenada inteira a partir
+desta medição; o passe evita o trabalho estrutural redundante identificado.
