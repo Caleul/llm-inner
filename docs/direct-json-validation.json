@@ -1,0 +1,144 @@
+{
+  "beforeCommit": "656edd2",
+  "command": "LLM_INNER_DIRECT_PYTHON=PYTORCH_CPU_ARM64_2_12_1 LLM_INNER_DIRECT_JSON_CHECKPOINT=LLAMA_DIAGNOSTIC npm test",
+  "summary": {
+    "tests": 517,
+    "pass": 499,
+    "fail": 15,
+    "skipped": 3
+  },
+  "failedTests": [
+    "Gemma 4 embedded adapter executes every serialized invocation program without hidden class transforms",
+    "Gemma 4 runtime-reduction provider executes the integrity-bound embedded adapter",
+    "evidência adia prefill exato sem cache e preserva antecipação do contexto exato",
+    "evidência do corte de prefill terminal preserva corpus e correção de raiz",
+    "evidência do default de oito threads vincula corpus e tokens autoritativos",
+    "evidência promove antecipação do prefixo exato somente em sessão com cache",
+    "evidência promove cabeça BF16 integral e rejeita prefill agrupado divergente",
+    "evidência promove cache de decisão exata e rejeita fronteira Q8 0-18",
+    "evidência promove contexto sensível exato sem replay do decoder",
+    "evidência promove o maior prefixo exato entre sessões sem alterar logits",
+    "evidência rejeita Q8 na projeção down quando velocidade e verificação deixam de coexistir",
+    "evidência rejeita grupos Q8 que divergem ou ampliam o fallback",
+    "evidência rejeita prefill exato eager quando ele preserva tokens mas piora todas as classes de latência",
+    "keeps the real agent-visible task free of controller context",
+    "scalar-substitution example contains concrete learned values and reproduces its F32 result"
+  ],
+  "previousPassingTestsLost": [],
+  "newPassingTests": [
+    "JSON F32 to F16 bitwise conversion preserves every finite F16 value including signed zeros",
+    "JSON F32 to F16 explicit decisions agree with independent dyadic rounding at ties and sampled F32 bits",
+    "JSON F64 to F32 bitwise conversion agrees with IEEE rounding at boundaries and sampled binary64 values",
+    "JSON admission distinguishes shared decisions from expanded occurrences and rejects residual implicit rounding",
+    "JSON composed F16 conversion and widening preserves all F16 values and sampled F32 rounding boundaries",
+    "JSON conditional facts remove repeated decisions without distributing branches",
+    "JSON exact constants survive serialization including signed zero and all finite F16 bits",
+    "JSON exact widening covers every finite F16 bit pattern and sampled F32 normal/subnormal values",
+    "JSON exponential eliminates constant range reduction and reproduces the pinned F32 polynomial in its proved domain",
+    "JSON factoring is allowed for modular integers and withheld across float rounding",
+    "JSON factorized SiLU polynomial is certified against every finite F16 point in its declared domain",
+    "JSON fixed point propagates integer bounds to remove implied and contradictory conditions",
+    "JSON measurement predicts serialization and huge duplication without rendering expanded expressions",
+    "JSON normal rounding followed by exact widening collapses to one bitword rounding expression",
+    "JSON positive normal F32 square root is lowered without native sqrt and agrees bitwise on exponent and mantissa boundaries",
+    "JSON precision cancels redundant bit rounding only with a proved lattice and preserves signed zeros",
+    "JSON rejects hidden floating conversions and malformed operation types",
+    "JSON simplification preserves -0 and does not hide undefined integer operations",
+    "JSONL stream emits all scalar coordinates with exact syntax and refuses to publish incomplete vectors",
+    "source-discovered JSON working expressions reproduce complete checkpoint logits before primitive lowering"
+  ],
+  "newFailures": [],
+  "exactWorkingAndClosedVectorComparisons": 432,
+  "finalJsonArtifactEmitted": false,
+  "rawExpressionMeasure": "/private/tmp/llm-inner-json-closed-measure-optimized.json",
+  "simplifiedExpressionMeasure": "/private/tmp/llm-inner-json-simplified-measure.json",
+  "normalizedSquareRootExhaustive": {
+    "checked": 16777216,
+    "failures": 0,
+    "examples": [],
+    "maxRelativeError": 2.220446049250313e-16,
+    "elapsedMilliseconds": 95.443083,
+    "domain": "all F32 mantissas in [1,4); remaining normal exponents covered by exact dyadic scale proof"
+  },
+  "log": "/private/tmp/llm-inner-json-full-suite-final.log",
+  "precisionMeasurement": [
+    {
+      "position": 0,
+      "dimension": 2,
+      "construction": {
+        "f32Arithmetic": 158,
+        "f16Conversions": 47,
+        "squareRoots": 3,
+        "exponentials": 1,
+        "activations": 1,
+        "maximumComparisons": 0,
+        "lengthDecisions": 0,
+        "dependencies": 33
+      },
+      "precision": {
+        "redundantMasks": 0,
+        "redundantRoundings": 0
+      },
+      "simplification": {
+        "visited": 3303,
+        "folds": 47,
+        "conditions": 0,
+        "integerAlgebra": 0
+      },
+      "measure": {
+        "uniqueNodes": 1356,
+        "uniqueDecisions": 70,
+        "occurrences": "103050739760560592186004956925762",
+        "decisions": "1198172741154320178702955021",
+        "serializedBytes": "2321384722381469170995713144655678",
+        "depth": 456
+      }
+    },
+    {
+      "position": 7,
+      "dimension": 2,
+      "construction": {
+        "f32Arithmetic": 575,
+        "f16Conversions": 166,
+        "squareRoots": 10,
+        "exponentials": 8,
+        "activations": 1,
+        "maximumComparisons": 7,
+        "lengthDecisions": 0,
+        "dependencies": 131
+      },
+      "precision": {
+        "redundantMasks": 0,
+        "redundantRoundings": 0
+      },
+      "simplification": {
+        "visited": 20854,
+        "folds": 230,
+        "conditions": 0,
+        "integerAlgebra": 0
+      },
+      "measure": {
+        "uniqueNodes": 8637,
+        "uniqueDecisions": 451,
+        "occurrences": "3339129346073196475044784731864882042424366234434",
+        "decisions": "38844359627222111858650190615816547073138189",
+        "serializedBytes": "75603122500538646996637993253433503375703558872958",
+        "depth": 683
+      }
+    }
+  ],
+  "focusedTests": {
+    "tests": 20,
+    "pass": 20,
+    "fail": 0,
+    "skipped": 0,
+    "log": "/private/tmp/llm-inner-json-precision-tests.log"
+  },
+  "note": "Suite includes precision simplification. Source shape validation and reader cleanup were added afterward and verified separately by the same model integration test.",
+  "logSha256": "6e3b88f7475ae1798d9b226d823c4d2e60fa879463357d8a96398530bf1b8a33",
+  "afterShapeValidation": {
+    "pass": 1,
+    "fail": 0,
+    "log": "/private/tmp/llm-inner-json-shape-tests.log"
+  }
+}

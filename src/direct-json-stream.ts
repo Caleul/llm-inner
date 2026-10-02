@@ -4,7 +4,7 @@ import {dirname} from 'node:path';
 import {withDirectCompilationLease} from './direct-compilation-lease.js';
 import {validateJsonNode,type JsonDtype,type JsonExpression} from './direct-json-expression.js';
 
-export type JsonInputBinding = {dtype:JsonDtype;tokenPosition:number;coordinate:number} |
+export type JsonInputBinding = {dtype:JsonDtype;inputDtype?:'f16';tokenPosition:number;coordinate:number} |
   {dtype:'u32';source:'inputLength'};
 export interface JsonScalarHeader {
   schema:'direct-scalar-json-v1';
@@ -35,6 +35,7 @@ export function auditJsonExpression(root:JsonExpression,inputs:Record<string,Jso
       if(!binding||binding.dtype!==node[1])throw new Error('Undeclared or mistyped fundamental input');
       result.inputReferences++;
     }else if(node[0]!=='constant'){
+      if(node[0].startsWith('pending-')||node[0]==='widen')throw new Error('Unlowered numeric primitive cannot be admitted');
       if(node[1]==='f32'&&['add','sub','mul','div'].includes(node[0]))
         throw new Error('Implicit F32 arithmetic rounding must be lowered before emission');
       if(node[0]==='if'){result.decisions++;if(unique)result.uniqueDecisions++;}
@@ -65,7 +66,7 @@ export async function writeJsonScalarUnits(path:string,header:JsonScalarHeader,u
   for(const [name,b] of Object.entries(header.inputs)){
     if(!/^[A-Za-z][A-Za-z0-9_]*$/.test(name))throw new TypeError('Invalid fundamental input name');
     if('source' in b){if(b.source!=='inputLength'||b.dtype!=='u32')throw new TypeError('Invalid structural input binding');continue;}
-    if(b.dtype!=='f16'||!Number.isSafeInteger(b.tokenPosition)||
+    if(!(b.dtype==='f16'||b.dtype==='f64'&&b.inputDtype==='f16')||!Number.isSafeInteger(b.tokenPosition)||
       b.tokenPosition<0||b.tokenPosition>=header.context||!Number.isSafeInteger(b.coordinate)||
       b.coordinate<0||b.coordinate>=header.inputWidth)throw new TypeError('Invalid embedding input binding');
   }

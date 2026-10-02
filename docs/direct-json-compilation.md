@@ -103,18 +103,78 @@ O auditor conta ocorrências expandidas, nós distintos por identidade de objeto
 decisões e referências à entrada. Nós distintos não equivalem ainda à contagem
 de decisões originais do modelo: o adaptador deverá fornecer proveniência.
 
+## Adaptador e fechamento numérico implementados
+
+`direct-json-model.ts` descobre a geometria e os pesos da fonte e constrói uma
+coordenada de saída de trás para frente. A leitura usa páginas limitadas; a
+memoização conserva expressões do compilador, nunca ativações de runtime. O
+adaptador preserva a ordem de redução CPU arm64, RoPE, máximos de attention,
+fronteiras F16/F32, residual e MLP. Comprimentos 1, 2, 3, 4 e 8 são exercitados.
+O denominador de três termos possui decisão explícita sobre o comprimento total,
+pois a ordem de soma de PyTorch muda ao entrar no kernel vetorial.
+
+Os nós temporários `pending-sqrt`, `pending-exp`, `pending-silu` e `widen`
+existem apenas na construção. O lowerer produz exclusivamente operações
+aritméticas F64, bitwise inteiras e decisões. A avaliação fechada rejeita esses
+nós temporários e qualquer aritmética F32 implícita.
+
+- Widening F16/F32 é expandido em campos de bits e normalização de subnormais.
+- A raiz positiva normal F32 usa semente bitwise e quatro passos Newton F64,
+  seguidos de máscara de arredondamento. Não há chamada de raiz nem decisão
+  no caminho empregado pelo modelo. O kernel foi comparado nos 16.777.216
+  padrões de mantissa em [1,4); testes do próprio JSON cobrem expoentes e bordas.
+- A exponencial de attention usa o polinômio e a ordem numérica do backend
+  fixado, com prova de intervalo [-0,34; 0]. A redução de faixa se torna constante.
+- SiLU usa polinômio fatorado no intervalo comprovado pelo checkpoint, limitado
+  a magnitude 0,1. A admissão verifica todos os F16 desse intervalo contra o
+  perfil de referência: 23.758 pontos na faixa máxima. O perfil é uma fonte de
+  certificação durante compilação; nenhum lookup permanece na expressão.
+- F32 arredondado e mantido exatamente alargado para F64 usa uma única máscara
+  de 29 bits. F16 composto com widening conserva as decisões de subnormal e
+  overflow e os sinais de zero. Produtos de dois F16 dispensam F32 round porque
+  têm no máximo 22 bits significativos. Identidades não atravessam arredondamentos.
+
+A admissão atual é deliberadamente restrita: pesos F16 finitos, RMS epsilon
+positivo normal, prova de finitude do checkpoint, recursos limitados e as faixas
+certificadas dessas primitivas. Checkpoints fora dessas faixas são recusados;
+não recebem aproximação silenciosa. A generalização das provas segue pendente.
+
+`direct-json-precision.ts` cancela máscaras/arredondamentos repetidos somente
+quando os bits descartados já são comprovadamente zero. As provas são objetos
+do compilador e não metadados de execução. A regra foi validada em todos os
+F16 finitos, mas não encontrou cancelamento adicional neste checkpoint.
+
+## Diagnóstico de duplicação e limite de conclusão
+
+`direct-json-measure.ts` calcula exatamente ocorrências e bytes da árvore que
+seria serializada, sem renderizá-la. Valores BigInt evitam overflow do contador.
+Após fechamento e simplificação, posição 0/dimensão 2 possui 1.356 nós físicos,
+70 decisões físicas, profundidade 456 e aproximadamente 2,32e33 bytes expandidos.
+Posição 7/dimensão 2 possui 8.637 nós, 451 decisões, profundidade 683 e
+aproximadamente 7,56e49 bytes. Essas medidas incluem duplicação de operandos
+nas expansões numéricas; não são tamanho de arquivo gerado nem número de
+bifurcações originais do modelo. Nenhuma emissão desse volume foi iniciada.
+
+As expressões fechadas dos 32 pares posição/dimensão passaram em 432 resultados
+comparados bit a bit com PyTorch. Isso comprova o corpus diagnóstico após o
+fechamento; não comprova todas as entradas possíveis nem um artefato final
+serializado. O avaliador memoizado e a árvore compartilhada são ferramentas de
+teste/compilação, não a arquitetura final do produto. `finalParity` continua falso.
+
 ## Marcos restantes
 
-1. Adaptador genérico: construir/substituir expressões diretamente de config e
-   pesos paginados, sem passar pelo texto Rust existente.
-2. Provas e regras matemáticas ampliadas; widening exato e operações numéricas
-   completas para SiLU, raiz e exponencial, sem tabelas de respostas em runtime.
-3. Inventário das decisões originais por operação, redução e duplicação.
-4. Uma dimensão arbitrária completamente compilada e comparada com PyTorch.
+1. Ampliar simplificação com faixas, sinal, denominadores e precisão: eliminar
+   classificações inalcançáveis e repetições numéricas antes de distribuir condições.
+2. Inventário com proveniência das decisões originais, separado das ocorrências
+   expandidas de cada coordenada. Não usar parâmetros ou nós físicos como caminhos.
+3. Generalizar o fechamento numérico fora das faixas atualmente certificadas e
+   verificar formas/geometrias e certificados adicionais de modelos suportados.
+4. Obter uma expressão serializável de dimensão arbitrária e validá-la após
+   leitura do JSON, sem checkpoint ou primitivas pendentes.
 5. Todas as dimensões/posições, savepoints e artefato final completo independente
-   do checkpoint; avaliação diagnóstica bit a bit para múltiplas entradas.
-6. Comparação da suíte completa com baseline equivalente, commit e push quando
-   houver remote configurado. Atualmente nenhum remote está configurado.
+   do checkpoint; paridade para múltiplas entradas e comprimentos.
+6. Manter mapa de regressões e commits. Push depende de remote: nenhum está
+   configurado. Rust fica para a etapa posterior solicitada pelo usuário.
 
 O orçamento anterior ~1.072 decisões para oito tokens depende da hipótese de uma
 decisão por fronteira numérica. Não é uma contagem verificada nem limite do JSON
@@ -137,7 +197,19 @@ Novos testes em `test/direct-json.test.ts`:
 - Auditoria de duplicação, inputs e fronteiras F32 residuais.
 - JSONL completo, parsing fiel e preservação do target após falha/incompletude.
 
-Primeira validação: 44/44 testes aprovados, incluindo os 11 novos e os testes
-existentes `direct-round-preimage` e `direct-flat-substitution`. Log em
-`/private/tmp/llm-inner-direct-json-tests.log`. O vetor final do Llama e sua paridade
-continuam pendentes. Não foram inferidos a partir desse resultado.
+Validação histórica inicial: 44/44 testes aprovados, incluindo os 11 novos e
+os testes existentes `direct-round-preimage` e `direct-flat-substitution`.
+
+Validação atual: `test/direct-json.test.ts` tem 19 casos; também cobre widening,
+raiz, exponencial, SiLU certificado, conversões compostas, medição de duplicação
+e cancelamento de round com prova de precisão. `test/direct-json-model.test.ts`
+cobre os 32 pares posição/dimensão e as 432 comparações antes e depois do
+fechamento/simplificação. Este teste é pulado sem as variáveis
+`LLM_INNER_DIRECT_PYTHON` e `LLM_INNER_DIRECT_JSON_CHECKPOINT`; a validação registrada
+forneceu ambas. Os 20 testes focados passaram sem skips.
+
+Suíte completa final: 517 testes, 499 aprovados, 15 falhas, 3 skips.
+Todos os 479 testes aprovados no baseline continuam aprovados; as mesmas 15
+falhas anteriores estão mapeadas em `docs/direct-json-validation.json`. A suíte
+completa final e os contadores de simplificação são reconciliados nesse arquivo.
+Nenhum teste antigo foi apagado ou relaxado. Arquivo final do modelo ainda pendente.

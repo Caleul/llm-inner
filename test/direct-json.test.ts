@@ -3,7 +3,15 @@ import assert from 'node:assert/strict';
 import {jsonConstant as c,jsonInput as input,jsonOperation as op,type JsonExpression} from '../src/direct-json-expression.js';
 import {evaluateJsonExpression as evaluate} from '../src/direct-json-evaluator.js';
 import {simplifyJsonExpression as simplify,sameJsonExpression,simplifyJsonFixedPoint} from '../src/direct-json-simplify.js';
-import {lowerJsonF32ToF16,lowerJsonF64ToF32} from '../src/direct-json-f16.js';
+import {lowerJsonF32ToF16,lowerJsonF64ToF32,lowerJsonRoundNormalF32AsF64} from '../src/direct-json-f16.js';
+import {lowerJsonWiden} from '../src/direct-json-widen.js';
+import {lowerJsonPositiveNormalSqrt,lowerJsonPositiveNormalSqrtAsF64} from '../src/direct-json-sqrt.js';
+import {certifyJsonSmallSilu,lowerJsonSmallSilu} from '../src/direct-json-silu.js';
+import {lowerJsonSmallNonpositiveExp} from '../src/direct-json-exp.js';
+import {lowerJsonFiniteF16AsF64} from '../src/direct-json-half-value.js';
+import {measureJsonExpression} from '../src/direct-json-measure.js';
+import {simplifyJsonBitPrecision,type JsonPrecisionFacts} from '../src/direct-json-precision.js';
+import {foldDeclaredCpuF32Exponential} from '../src/direct-rust-numeric.js';
 import {f32BitsToDyadic,roundDyadicToF16IfElse} from '../src/fixed-f16-projection.js';
 import {decodeIeeeF16ToF32} from '../src/utils.js';
 import {mkdtemp,readFile,rm,writeFile} from 'node:fs/promises';
@@ -62,11 +70,33 @@ test('JSON simplification preserves -0 and does not hide undefined integer opera
   const invalidBound=op('lt','bool',invalid,c('u32',0));
   assert.throws(()=>evaluate(simplify(op('if','u32',invalidBound,c('u32',2),c('u32',3)))));
 });
+test('JSON precision cancels redundant bit rounding only with a proved lattice and preserves signed zeros',()=>{
+  const x=input('f64','X1'),rounded=lowerJsonRoundNormalF32AsF64(x);
+  const facts:JsonPrecisionFacts=new WeakMap([[x,42]]),stats={redundantMasks:0,redundantRoundings:0};
+  const reduced=simplify(simplifyJsonBitPrecision(rounded,facts,stats));
+  assert.ok(sameJsonExpression(reduced,x));assert.equal(stats.redundantRoundings,1);
+  // Without a certificate, an arbitrary F64 input must retain its rounding.
+  assert.ok(sameJsonExpression(simplifyJsonBitPrecision(rounded),rounded));
+  for(let bits=0;bits<65536;bits++)if((bits&0x7c00)!==0x7c00){
+    const value=decodeIeeeF16ToF32(bits);
+    assert.ok(Object.is(evaluate(rounded,{X1:value}),evaluate(reduced,{X1:value})));
+  }
+  const twice=lowerJsonRoundNormalF32AsF64(rounded);
+  const once=simplify(simplifyJsonBitPrecision(twice));
+  assert.ok(sameJsonExpression(once,rounded));
+  for(const value of [-0,0,1+2**-25,1+3*2**-24,-123.456])
+    assert.ok(Object.is(evaluate(once,{X1:value}),evaluate(twice,{X1:value})));
+  // A redundant mask retains an undefined operand rather than hiding it.
+  const invalid=op('shl','u64',c('u64',1),c('u64',64));
+  assert.throws(()=>evaluate(simplifyJsonBitPrecision(op('and','u64',invalid,c('u64',0xffffffffffffffffn)))));
+});
 test('JSON rejects hidden floating conversions and malformed operation types',()=>{
   assert.throws(()=>op('convert','f16',input('f32','X1')),/Unlowered/);
   assert.throws(()=>op('and','f32',c('f32',1),c('f32',2)),/unsigned/);
   assert.throws(()=>op('reinterpret','f64',c('u32',1)),/width/);
   assert.throws(()=>evaluate(['unknown','f64'] as unknown as JsonExpression),/Unknown/);
+  assert.throws(()=>evaluate(op('pending-exp','f32',c('f32',0)),{}, {allowPendingPrimitives:false}),/closed/);
+  assert.throws(()=>evaluate(op('add','f32',c('f32',1),c('f32',2)),{}, {allowPendingPrimitives:false}),/closed/);
 });
 test('JSON F32 to F16 bitwise conversion preserves every finite F16 value including signed zeros',()=>{
   const expression=lowerJsonF32ToF16(input('f32','X1'));
@@ -92,6 +122,82 @@ test('JSON F32 to F16 explicit decisions agree with independent dyadic rounding 
     assert.ok(Object.is(evaluate(expression,{X1:x}),decodeIeeeF16ToF32(bits)),`F32 ${x}`);
   }
 });
+test('JSON exact widening covers every finite F16 bit pattern and sampled F32 normal/subnormal values',()=>{
+  for(const target of ['f32','f64'] as const){
+    const expression=lowerJsonWiden(input('f16','X1'),target);
+    for(let bits=0;bits<65536;bits++)if((bits&0x7c00)!==0x7c00){
+      const x=decodeIeeeF16ToF32(bits);assert.ok(Object.is(evaluate(expression,{X1:x}),x));
+    }
+  }
+  const expression=lowerJsonWiden(input('f32','X1'),'f64'),buffer=new DataView(new ArrayBuffer(4));
+  let state=0x12345678;
+  for(let i=0;i<12000;i++){
+    state=(Math.imul(state,1664525)+1013904223)>>>0;buffer.setUint32(0,state);const x=buffer.getFloat32(0);
+    if(Number.isFinite(x))assert.ok(Object.is(evaluate(expression,{X1:x}),x));
+  }
+});
+test('JSON positive normal F32 square root is lowered without native sqrt and agrees bitwise on exponent and mantissa boundaries',()=>{
+  const expression=lowerJsonPositiveNormalSqrt(input('f32','X1'));
+  const composed=lowerJsonPositiveNormalSqrtAsF64(input('f64','X1'));
+  assert.equal(measureJsonExpression(composed).decisions,0n);
+  assert.doesNotMatch(JSON.stringify(expression),/pending|sqrt|round|widen/);
+  const buffer=new DataView(new ArrayBuffer(4));
+  const patterns:number[]=[];
+  for(let exponent=1;exponent<255;exponent++)for(const fraction of [0,1,2,0x3fffff,0x400000,0x7ffffe,0x7fffff])
+    patterns.push(exponent*2**23+fraction);
+  let state=0x12345678;
+  for(let i=0;i<12000;i++){
+    state=(Math.imul(state,1664525)+1013904223)>>>0;
+    const bits=state&0x7fffffff;if(bits>=0x00800000&&bits<0x7f800000)patterns.push(bits);
+  }
+  for(const bits of patterns){buffer.setUint32(0,bits);const x=buffer.getFloat32(0);
+    assert.ok(Object.is(evaluate(expression,{X1:x}),Math.fround(Math.sqrt(x))),`sqrt bits ${bits.toString(16)}`);
+    assert.ok(Object.is(evaluate(composed,{X1:x}),Math.fround(Math.sqrt(x))),`composed sqrt ${bits.toString(16)}`);
+  }
+});
+test('JSON factorized SiLU polynomial is certified against every finite F16 point in its declared domain',()=>{
+  const certificate=certifyJsonSmallSilu(.1);assert.equal(certificate.checkedPoints,23758);
+  assert.match(certificate.profileSha256,/^[a-f0-9]{64}$/);
+  const expression=lowerJsonSmallSilu(input('f16','X1'));
+  assert.doesNotMatch(JSON.stringify(expression),/pending|silu|exp|widen|round/);
+  assert.ok(Object.is(evaluate(expression,{X1:-0}),-0));
+  assert.throws(()=>certifyJsonSmallSilu(.100001),/proven/);
+});
+test('JSON exponential eliminates constant range reduction and reproduces the pinned F32 polynomial in its proved domain',()=>{
+  const expression=lowerJsonSmallNonpositiveExp(input('f32','X1'));
+  assert.doesNotMatch(JSON.stringify(expression),/pending|exp|widen|round/);
+  const samples=[-0,0,Math.fround(-.34),-(2**-25),-(2**-24),-(2**-149),-(2**-126)];
+  let state=0x12345678;
+  for(let i=0;i<12000;i++){
+    state=(Math.imul(state,1664525)+1013904223)>>>0;samples.push(Math.fround(-.34*state/0xffffffff));
+  }
+  for(const x of samples)assert.ok(Object.is(evaluate(expression,{X1:x}),foldDeclaredCpuF32Exponential(x)),`exp ${x}`);
+});
+test('JSON normal rounding followed by exact widening collapses to one bitword rounding expression',()=>{
+  const expression=lowerJsonRoundNormalF32AsF64(input('f64','X1'));
+  for(const x of [-0,0])assert.ok(Object.is(evaluate(expression,{X1:x}),x));
+  for(const sign of [-1,1])for(let exponent=-120;exponent<120;exponent++)
+    for(const fraction of [1,1+2**-24,1+3*2**-24,1.99999999999999]){
+      const x=sign*fraction*2**exponent;
+      assert.ok(Object.is(evaluate(expression,{X1:x}),Math.fround(x)));
+    }
+});
+test('JSON composed F16 conversion and widening preserves all F16 values and sampled F32 rounding boundaries',()=>{
+  const expression=lowerJsonFiniteF16AsF64(input('f64','X1'));
+  for(let bits=0;bits<65536;bits++)if((bits&0x7c00)!==0x7c00){
+    const x=decodeIeeeF16ToF32(bits);assert.ok(Object.is(evaluate(expression,{X1:x}),x));
+  }
+  const buffer=new DataView(new ArrayBuffer(4)),samples=[-0,0,2**-25,2**-24,2**-14,1+2**-11,65520,-65520];
+  let state=0x12345678;
+  for(let i=0;i<12000;i++){
+    state=(Math.imul(state,1664525)+1013904223)>>>0;buffer.setUint32(0,state);const x=buffer.getFloat32(0);
+    if(Number.isFinite(x))samples.push(x);
+  }
+  for(const x of samples){buffer.setFloat32(0,x);
+    const half=Object.is(x,-0)?0x8000:roundDyadicToF16IfElse(f32BitsToDyadic(buffer.getUint32(0)));
+    assert.ok(Object.is(evaluate(expression,{X1:x}),decodeIeeeF16ToF32(half)),`composed F16 ${x}`);
+  }
+});
 test('JSON F64 to F32 bitwise conversion agrees with IEEE rounding at boundaries and sampled binary64 values',()=>{
   const expression=lowerJsonF64ToF32(input('f64','X1'));
   assert.doesNotMatch(JSON.stringify(expression),/nearest|round|sqrt|exp/);
@@ -114,6 +220,20 @@ test('JSON admission distinguishes shared decisions from expanded occurrences an
   assert.throws(()=>auditJsonExpression(expression,bindings,2),/budget/);
   assert.throws(()=>auditJsonExpression(input('f16','X2'),bindings),/Undeclared/);
   assert.throws(()=>auditJsonExpression(op('add','f32',c('f32',1),c('f32',2)),{}),/Implicit/);
+});
+test('JSON measurement predicts serialization and huge duplication without rendering expanded expressions',()=>{
+  const x=input('f64','X1'),condition=op('lt','bool',x,c('f64',0));
+  const expression=op('if','f64',condition,x,op('mul','f64',x,c('f64',2)));
+  const measured=measureJsonExpression(expression);
+  assert.equal(measured.serializedBytes,BigInt(Buffer.byteLength(JSON.stringify(expression))));
+  let duplicated=x;
+  for(let i=0;i<100;i++)duplicated=op('add','f64',duplicated,duplicated);
+  const huge=measureJsonExpression(duplicated);
+  assert.equal(huge.uniqueNodes,101);assert.equal(huge.occurrences,(1n<<101n)-1n);
+  assert.throws(()=>measureJsonExpression(duplicated,10),/budget/);
+  const simplified=simplifyJsonFixedPoint(duplicated);
+  assert.equal(measureJsonExpression(simplified.expression).uniqueNodes,101);
+  assert.ok(sameJsonExpression(simplified.expression,duplicated));
 });
 test('JSONL stream emits all scalar coordinates with exact syntax and refuses to publish incomplete vectors',async()=>{
   const dir=await mkdtemp(join(tmpdir(),'direct-json-'));

@@ -3,7 +3,8 @@
  * are bit strings so JSON never normalizes -0 or rounds checkpoint values. */
 export type JsonDtype = 'bool' | 'u16' | 'u32' | 'u64' | 'f16' | 'f32' | 'f64';
 export type JsonOperator = 'add' | 'sub' | 'mul' | 'div' | 'and' | 'or' | 'xor' |
-  'shl' | 'shr' | 'eq' | 'lt' | 'le' | 'not' | 'if' | 'reinterpret' | 'convert';
+  'shl' | 'shr' | 'eq' | 'lt' | 'le' | 'not' | 'if' | 'reinterpret' | 'convert' |
+  'widen' | 'pending-sqrt' | 'pending-exp' | 'pending-silu';
 export type JsonExpression = readonly ['constant', JsonDtype, string] |
   readonly ['input', JsonDtype, string] |
   readonly [JsonOperator, JsonDtype, ...JsonExpression[]];
@@ -37,7 +38,8 @@ export function jsonOperation(op: JsonOperator,type: JsonDtype,...args: JsonExpr
   const result:JsonExpression=[op,type,...args];validateJsonNode(result);return result;
 }
 const arities:Record<JsonOperator,number>={add:2,sub:2,mul:2,div:2,and:2,or:2,xor:2,
-  shl:2,shr:2,eq:2,lt:2,le:2,not:1,if:3,reinterpret:1,convert:1};
+  shl:2,shr:2,eq:2,lt:2,le:2,not:1,if:3,reinterpret:1,convert:1,
+  widen:1,'pending-sqrt':1,'pending-exp':1,'pending-silu':1};
 export function validateJsonNode(node: JsonExpression): void {
   if(!Array.isArray(node)||!(node[1] in jsonWidths))throw new TypeError('Invalid scalar JSON node');
   const [op,type]=node;
@@ -66,6 +68,12 @@ export function validateJsonNode(node: JsonExpression): void {
   }else if(op==='convert'){
     // Only unsigned integer width conversion. Floating conversions must be lowered.
     if(!jsonInteger(type)||!jsonInteger(args[0]![1]))throw new TypeError('Unlowered floating conversion');
+  }else if(op==='widen'){
+    if(!type.startsWith('f')||!args[0]![1].startsWith('f')||jsonWidths[type]<=jsonWidths[args[0]![1]])
+      throw new TypeError('Invalid exact floating widening');
+  }else if(op.startsWith('pending-')){
+    const expected=op==='pending-silu'?'f16':'f32';
+    if(type!==expected||args[0]![1]!==expected)throw new TypeError('Invalid pending primitive dtype');
   }else{
     if(args.some(x=>x[1]!==type)||type==='bool')throw new TypeError('Invalid arithmetic types');
     if(['and','or','xor','shl','shr'].includes(op)&&!jsonInteger(type))throw new TypeError('Bitwise operand must be unsigned');

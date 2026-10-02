@@ -5,20 +5,59 @@ export interface JsonSimplificationStats { visited:number; folds:number; conditi
 export const newJsonSimplificationStats=():JsonSimplificationStats=>({visited:0,folds:0,conditions:0,integerAlgebra:0});
 /** Structural equality only; no numerical equivalence inferred from rendered text. */
 export function sameJsonExpression(a:JsonExpression,b:JsonExpression):boolean {
-  if(a===b)return true;
-  if(a.length!==b.length||a[0]!==b[0]||a[1]!==b[1])return false;
-  if(a[0]==='input'||a[0]==='constant')return a[2]===b[2];
-  if(b[0]==='input'||b[0]==='constant')return false;
-  return (a.slice(2) as JsonExpression[]).every((x,i)=>sameJsonExpression(x,b[i+2] as JsonExpression));
+  const pairs:([JsonExpression,JsonExpression])[]=[[a,b]],seen=new WeakMap<object,WeakSet<object>>();
+  while(pairs.length){
+    const [left,right]=pairs.pop()!;
+    if(left===right)continue;
+    if(left.length!==right.length||left[0]!==right[0]||left[1]!==right[1])return false;
+    if(left[0]==='input'||left[0]==='constant'){if(left[2]!==right[2])return false;continue;}
+    if(right[0]==='input'||right[0]==='constant')return false;
+    let matches=seen.get(left);if(matches?.has(right))continue;
+    if(!matches){matches=new WeakSet();seen.set(left,matches);}matches.add(right);
+    for(let i=2;i<left.length;i++)pairs.push([left[i] as JsonExpression,right[i] as JsonExpression]);
+  }
+  return true;
 }
-function total(node:JsonExpression):boolean {
+/** Exact structural IDs, not source strings or collision-prone numeric hashes.
+ * A key contains only the node tag/type and canonical child IDs. */
+class StructuralIndex {
+  private ids=new WeakMap<object,number>();
+  private shapes=new Map<string,number>();
+  private features=new WeakMap<object,ReadonlySet<number>>();
+  id(node:JsonExpression):number {
+    const hit=this.ids.get(node);if(hit!==undefined)return hit;
+    const key=node[0]==='constant'||node[0]==='input'?`${node[0]}:${node[1]}:${node[2]}`:
+      `${node[0]}:${node[1]}:`+(node.slice(2) as JsonExpression[]).map(x=>this.id(x)).join(',');
+    let id=this.shapes.get(key);if(id===undefined){id=this.shapes.size;this.shapes.set(key,id);}
+    this.ids.set(node,id);return id;
+  }
+  comparisonFeatures(node:JsonExpression):ReadonlySet<number> {
+    const hit=this.features.get(node);if(hit)return hit;
+    const result=new Set<number>();
+    if(node[0]!=='constant'&&node[0]!=='input'){
+      for(const child of node.slice(2) as JsonExpression[])for(const id of this.comparisonFeatures(child))result.add(id);
+      if(node[1]==='bool'){
+        result.add(this.id(node));
+        if(['lt','le','eq'].includes(node[0]))result.add(this.id(node[2]!));
+      }
+    }
+    this.features.set(node,result);return result;
+  }
+  relevant(node:JsonExpression,facts:readonly (readonly [JsonExpression,boolean])[]){
+    const features=this.comparisonFeatures(node);
+    return facts.filter(([fact])=>features.has(this.id(fact))||
+      ['lt','le','eq'].includes(fact[0])&&features.has(this.id(fact[2] as JsonExpression)));
+  }
+}
+function total(node:JsonExpression,memo=new WeakMap<object,boolean>()):boolean {
+  const hit=memo.get(node);if(hit!==undefined)return hit;
   if(node[0]==='constant'||node[0]==='input')return true;
   const args=node.slice(2) as JsonExpression[];
-  if(!args.every(total))return false;
-  if(jsonInteger(node[1])&&node[0]==='div')return args[1]![0]==='constant'&&jsonConstantValue(args[1]!)!==0n;
-  if(node[0]==='shl'||node[0]==='shr')return args[1]![0]==='constant'&&
+  let result=args.every(x=>total(x,memo));
+  if(result&&jsonInteger(node[1])&&node[0]==='div')result=args[1]![0]==='constant'&&jsonConstantValue(args[1]!)!==0n;
+  if(result&&(node[0]==='shl'||node[0]==='shr'))result=args[1]![0]==='constant'&&
     (jsonConstantValue(args[1]!) as bigint)<BigInt(jsonWidths[node[1]]);
-  return true;
+  memo.set(node,result);return result;
 }
 function proveIntegerComparison(node:JsonExpression,facts:readonly (readonly [JsonExpression,boolean])[]):boolean|undefined {
   if(!['lt','le','eq'].includes(node[0]))return undefined;
@@ -41,26 +80,36 @@ function proveIntegerComparison(node:JsonExpression,facts:readonly (readonly [Js
   return lower===upper&&lower===value?true:value<lower||value>upper?false:undefined;
 }
 export function simplifyJsonExpression(root:JsonExpression,stats=newJsonSimplificationStats()):JsonExpression {
-  const memo=new WeakMap<object,JsonExpression>();
+  const memo=new WeakMap<object,Map<string,JsonExpression>>(),index=new StructuralIndex();
   function visit(node:JsonExpression,facts:readonly (readonly [JsonExpression,boolean])[]):JsonExpression {
     stats.visited++;
     if(node[0]==='constant'||node[0]==='input')return node;
+    // Outer decisions on later computations do not influence an earlier pure
+    // expression unless a reachable comparison actually consumes those facts.
+    // Dropping irrelevant scope prevents a Cartesian expansion during rewriting.
+    facts=index.relevant(node,facts);
     const known=facts.find(([condition])=>sameJsonExpression(condition,node));
     if(known){stats.conditions++;return jsonConstant('bool',known[1]);}
     const implied=proveIntegerComparison(node,facts);
     if(implied!==undefined){stats.conditions++;return jsonConstant('bool',implied);}
-    if(facts.length===0){const hit=memo.get(node);if(hit)return hit;}
+    const context=facts.map(([fact,truth])=>`${index.id(fact)}:${truth?1:0}`).join(',');
+    const hit=memo.get(node)?.get(context);if(hit)return hit;
     const op=node[0],type=node[1],raw=node.slice(2) as JsonExpression[];
     if(op==='if'){
       const condition=visit(raw[0]!,facts);
       if(condition[0]==='constant'){stats.conditions++;return visit(raw[jsonConstantValue(condition)?1:2]!,facts);}
       const yes=visit(raw[1]!,[...facts,[condition,true]]),no=visit(raw[2]!,[...facts,[condition,false]]);
       if(sameJsonExpression(yes,no)&&total(condition)){stats.conditions++;return yes;}
-      return jsonOperation('if',type,condition,yes,no);
+      const result=jsonOperation('if',type,condition,yes,no);
+      let scoped=memo.get(node);if(!scoped){scoped=new Map();memo.set(node,scoped);}scoped.set(context,result);
+      return result;
     }
     const args=raw.map(x=>visit(x,facts));
     let result=jsonOperation(op,type,...args);
-    if(args.every(x=>x[0]==='constant')){
+    if(op==='reinterpret'&&args[0]![0]==='reinterpret'&&args[0]![2]![1]===type){
+      stats.folds++;return args[0]![2]!;
+    }
+    if(!op.startsWith('pending-')&&args.every(x=>x[0]==='constant')){
       // Preserve reinterpretation bit strings, including NaN payloads. Diagnostic
       // floating execution cannot certify all payload-preserving rewrites.
       if(op==='reinterpret'&&args[0]![0]==='constant'){
@@ -87,7 +136,7 @@ export function simplifyJsonExpression(root:JsonExpression,stats=newJsonSimplifi
       }
       if(result!==undefined&&!sameJsonExpression(result,jsonOperation(op,type,...args)))stats.integerAlgebra++;
     }
-    if(facts.length===0)memo.set(node,result);
+    let scoped=memo.get(node);if(!scoped){scoped=new Map();memo.set(node,scoped);}scoped.set(context,result);
     return result;
   }
   return visit(root,[]);

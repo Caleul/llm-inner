@@ -53,3 +53,29 @@ export function lowerJsonF64ToF32(input:JsonExpression):JsonExpression {
   const result=o('convert','u32',b('or',sign,choose(test('eq',exponent,u(2047)),nonfinite,finite)));
   return o('reinterpret','f32',result);
 }
+
+/** Requires a proof that the rounded result is finite and normal F32, for
+ * either sign. This is the same conversion with unreachable classifications
+ * eliminated before condition-product expansion. */
+export function lowerJsonF64ToNormalF32(input:JsonExpression):JsonExpression {
+  if(input[1]!=='f64')throw new TypeError('F64 normal-conversion operand required');
+  const u=(n:number|bigint)=>c('u64',n),b=(op:'add'|'sub'|'and'|'or'|'shl'|'shr',a:JsonExpression,z:JsonExpression)=>o(op,'u64',a,z);
+  const bits=o('reinterpret','u64',input),magnitude=b('and',bits,u(0x7fffffffffffffffn));
+  const fraction=b('and',bits,u(0xfffffffffffffn)),quotient=b('shr',fraction,u(29));
+  const rounded=b('shr',b('add',fraction,b('add',u(0xfffffff),b('and',quotient,u(1)))),u(29));
+  const exponent=b('sub',b('shr',magnitude,u(52)),u(896));
+  const sign=b('and',b('shr',bits,u(32)),u(0x80000000));
+  const result=b('or',sign,b('add',b('shl',exponent,u(23)),rounded));
+  return o('reinterpret','f32',o('convert','u32',result));
+}
+
+/** Round to a proved finite normal F32 value (or signed zero) and keep its exact F64 widening.
+ * Combining these boundaries eliminates exponent rebasing and repeated bit
+ * reconstruction. The dropped 29 bits are rounded and masked in one word. */
+export function lowerJsonRoundNormalF32AsF64(input:JsonExpression):JsonExpression {
+  if(input[1]!=='f64')throw new TypeError('F64 normal-rounding operand required');
+  const u=(n:bigint)=>c('u64',n),bits=o('reinterpret','u64',input);
+  const odd=o('and','u64',o('shr','u64',bits,u(29n)),u(1n));
+  const biased=o('add','u64',bits,o('add','u64',u(0xfffffffn),odd));
+  return o('reinterpret','f64',o('and','u64',biased,u(0xffffffffe0000000n)));
+}
