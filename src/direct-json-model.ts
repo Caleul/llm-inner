@@ -8,6 +8,7 @@ import {lowerJsonF32ToF16} from './direct-json-f16.js';
 import type {Projection} from './direct-mlp-output.js';
 import type {JsonScalarHeader} from './direct-json-stream.js';
 import type {JsonFloatRange} from './direct-json-range.js';
+import {proveJsonHeadScoreBounds,type JsonHeadScoreBoundCertificate} from './direct-json-score-bound.js';
 
 export interface JsonModelConstructionStats {
   f32Arithmetic:number;f16Conversions:number;squareRoots:number;exponentials:number;
@@ -28,6 +29,7 @@ export interface JsonModelLoweringFacts {
 export async function openJsonModelBuilder(directory:string,python:string,
   resources:{weightCacheBytes?:number;maxDependencies?:number}={}):Promise<{
     header:JsonScalarHeader;discovered:DirectModelDiscovery;
+    scoreBounds:number[][];scoreCertificates:(JsonHeadScoreBoundCertificate|undefined)[];
     build:(position:number,dimension:number)=>Promise<{expression:JsonExpression;stats:JsonModelConstructionStats;facts:JsonModelLoweringFacts}>;
     close:()=>Promise<void>
   }> {
@@ -58,6 +60,21 @@ export async function openJsonModelBuilder(directory:string,python:string,
     projectionShape(m.up,m.gate.shape[0],width);
     projectionShape(m.down,width,m.gate.shape[0]);
   }
+  const weight=async(name:string,index:number)=>{
+    const tensor=catalog.tensors.get(name);
+    if(!tensor||tensor.storageDtype!=='F16')throw new Error('Source-discovered F16 weight missing');
+    return pages.read(tensor,index);
+  };
+  const scoreBounds:number[][]=[],scoreCertificates:(JsonHeadScoreBoundCertificate|undefined)[]=[];
+  for(let index=0;index<layers.length;index++){
+    const layer=layers[index]!,a=layer.attention.attention;
+    const certificate=await proveJsonHeadScoreBounds({width,context:output.maxPosition,heads:a.heads,kvHeads:a.kvHeads,
+      headDim:a.headDim,ropeTheta:a.ropeTheta,scaling:a.scaling,normalization:layer.mlp.normalizations[0]!,
+      q:a.projections.q,k:a.projections.k},weight,maxDependencies);
+    scoreCertificates.push(certificate);
+    scoreBounds.push(Array.from({length:a.heads},(_,head)=>Math.min(discovered.proof!.scoreBounds[index]!,
+      certificate?.scoreBounds[head]??Infinity)));
+  }
   const activationBounds:number[][]=[];
   for(const layer of layers){
     let gamma=0;const post=layer.mlp.normalizations[1]!;
@@ -81,11 +98,6 @@ export async function openJsonModelBuilder(directory:string,python:string,
     outputWidth:output.shape[0],inputs:{N:{dtype:'u32',source:'inputLength'}}};
   for(let row=0;row<output.maxPosition;row++)for(let column=0;column<width;column++)
     header.inputs[`X${row*width+column+1}`]={dtype:'f16',tokenPosition:row,coordinate:column};
-  const weight=async(name:string,index:number)=>{
-    const tensor=catalog.tensors.get(name);
-    if(!tensor||tensor.storageDtype!=='F16')throw new Error('Source-discovered F16 weight missing');
-    return pages.read(tensor,index);
-  };
   async function build(position:number,dimension:number){
     if(!Number.isSafeInteger(position)||position<0||position>=output.maxPosition||!Number.isSafeInteger(dimension)||
       dimension<0||dimension>=output.shape[0])throw new RangeError('Invalid discovered output coordinate');
@@ -225,8 +237,8 @@ export async function openJsonModelBuilder(directory:string,python:string,
     const exponent=(layer:number,head:number,query:number,key:number)=>dependency(`exp:${layer}:${head}:${query}:${key}`,async()=>{
       const difference=f32('sub',widen(await score(layer,head,query,key)),widen(await maximum(layer,head,query)));
       stats.exponentials++;const result=o('pending-exp','f32',difference);
-      facts.exponentialBounds.set(result,2*discovered.proof!.scoreBounds[layer]!*1.01+2**-149);
-      facts.exponentialScoreBounds!.set(result,discovered.proof!.scoreBounds[layer]!);
+      facts.exponentialBounds.set(result,2*scoreBounds[layer]![head]!*1.01+2**-149);
+      facts.exponentialScoreBounds!.set(result,scoreBounds[layer]![head]!);
       return result;
     });
     const reciprocal=(layer:number,head:number,query:number)=>dependency(`denominator:${layer}:${head}:${query}`,async()=>{
@@ -263,6 +275,6 @@ export async function openJsonModelBuilder(directory:string,python:string,
         index=>hidden(layers.length-1,index,position)));
     return {expression,stats,facts};
   }
-  return {header,discovered,build,close:async()=>{pages.clear();await reader.close();}};
+  return {header,discovered,scoreBounds,scoreCertificates,build,close:async()=>{pages.clear();await reader.close();}};
   } catch(error){pages.clear();await reader.close();throw error;}
 }

@@ -9,6 +9,7 @@ from pathlib import Path
 
 import torch
 from transformers import AutoModelForCausalLM
+from transformers.models.llama import modeling_llama
 
 
 def main():
@@ -20,6 +21,19 @@ def main():
     model = AutoModelForCausalLM.from_pretrained(
         args.checkpoint, dtype=torch.float16, attn_implementation="eager"
     ).eval()
+    # Diagnostic only: observe the exact pre-mask half scores used by the
+    # installed eager attention implementation, then call it unchanged.
+    score_peaks = []
+    original_eager = modeling_llama.eager_attention_forward
+
+    def observe_scores(module, query, key, value, attention_mask, scaling, **kwargs):
+        repeated = modeling_llama.repeat_kv(key, module.num_key_value_groups)
+        scores = torch.matmul(query, repeated.transpose(2, 3)) * scaling
+        score_peaks.append({"layer": int(module.layer_idx),
+                            "byHeadMaximumMagnitude": scores.abs().amax(dim=(-2, -1))[0].tolist()})
+        return original_eager(module, query, key, value, attention_mask, scaling, **kwargs)
+
+    modeling_llama.eager_attention_forward = observe_scores
     embedding = model.get_input_embeddings()
     width = embedding.embedding_dim
     context = int(model.config.max_position_embeddings)
@@ -46,11 +60,13 @@ def main():
         for scale in [2.0 ** -24, 0.03125, 1.0, 32.0]:
             matrices.append((f"random-{scale}", (torch.rand(length, width, generator=generator) * (2 * scale) - scale).half()))
         for label, matrix in matrices:
+            score_peaks.clear()
             with torch.inference_mode():
                 logits = model(inputs_embeds=matrix.unsqueeze(0), use_cache=False).logits[0]
             bits = logits.double().contiguous().view(torch.int64).tolist()
             cases.append({"label": label, "inputBits": [[int(x) & 0xffff for x in row]
                           for row in matrix.contiguous().view(torch.int16).tolist()],
+                          "scorePeaks": list(score_peaks),
                           "logitF64Bits": [[f"0x{int(x) & 0xffffffffffffffff:016x}" for x in row] for row in bits]})
     Path(args.output).write_text(json.dumps({"torch": torch.__version__, "backend": "cpu-arm64-eager",
         "width": width, "vocab": embedding.num_embeddings, "context": context, "cases": cases}, indent=2) + "\n")

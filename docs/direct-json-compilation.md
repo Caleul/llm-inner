@@ -301,7 +301,7 @@ teste integrado adicional de recusa antecipada, ambos aprovados nas execuções 
 nas 864 comparações do vetor completo; a coordenada terminal manteve a redução. O corpus inclui máximos F16 com
 ambos os sinais, magnitudes misturadas e fronteiras normal/subnormal.
 
-Suíte completa atual: 529 testes, 511 aprovados, 15 falhas, 3 skips.
+Suíte completa atual: 531 testes, 513 aprovados, 15 falhas, 3 skips.
 Todos os 479 testes aprovados no baseline continuam aprovados; as mesmas 15
 falhas anteriores estão mapeadas em `docs/direct-json-validation.json`. A suíte
 completa final e os contadores de simplificação são reconciliados nesse arquivo.
@@ -446,3 +446,44 @@ Após o certificado, a suíte completa passou em 511 testes, manteve as mesmas
 15 falhas e 3 skips. Nenhum dos 479 passes anteriores foi perdido. O teste
 PyTorch percorreu os 1.111.041 pontos e as 864 comparações de vetores também
 passaram bit a bit. O JSON final continua não emitido.
+
+
+## Limite correlacionado de score por cabeça
+
+`direct-json-score-bound.ts` reutiliza o orçamento L2 da normalização finita e
+lê cada coeficiente Q/K em páginas. A norma de Frobenius da projeção limita
+cada cabeça por Cauchy. Para RoPE, cada par usa a matriz [[c,-s],[s,c]], cuja
+norma é sqrt(c²+s²); os coeficientes F16 concretos de todas as posições admitidas
+são verificados. Não se presume rotação real perfeita. O fator 1,001 cobre a
+avaliação das normas; 1,125 cobre a redução F32 da projeção/dot e arredondamento
+relativo F16; 1,01 e sqrt(headDim)*2^-23 cobrem os arredondamentos RoPE. Os
+limites de finitude são checados em cada fronteira antes de aceitar a prova.
+
+A geometria vem do checkpoint: heads, KV heads, headDim, largura, contexto,
+escala, epsilon e pesos. GQA usa a cabeça KV correspondente. A prova retorna
+indisponível para geometria não suportada, pesos não finitos ou orçamento de
+coeficientes insuficiente; nesses casos o adaptador conserva o limite anterior.
+O resultado é apenas metadado de compilação, sem valores de ativações.
+
+No checkpoint diagnóstico, o limite caiu de 0,03313671320996587 para
+0,0023031365207302873. Os 60 forwards PyTorch tiveram maior score absoluto
+0,0007162094116210938, dentro da prova. O hook diagnóstico captura scores antes
+da máscara e depois chama a implementação eager original sem alterá-la;
+esses valores nunca são consumidos pelo compilador.
+
+O certificado da exponencial agora admite grau 3: 12.655 scores F16 distintos,
+77.249 pontos na malha, sete discrepâncias do candidato provadas inalcançáveis.
+O teste live PyTorch percorreu toda essa malha, e as 864 comparações do vetor
+completo passaram bit a bit. A suíte completa manteve os 479 passes do baseline,
+as mesmas 15 falhas e 3 skips; os dois testes novos cobrem leitura incremental,
+GQA, coeficientes RoPE, orçamento, geometria inválida e finitude.
+
+A coordenada terminal passou de 1,6184e39 para 3,3286e38 bytes previstos
+(aproximadamente 4,86 vezes menos), com 15.826 nós físicos, 453 decisões físicas
+e profundidade 575. A primeira permanece em 2,1077e26 bytes. Esses volumes ainda
+impedem a emissão literal; o JSON final do Llama continua pendente.
+
+Depois da suíte completa, a admissão ganhou uma checagem explícita de finitude
+na saída escalada do score. O caso de escala que faria overflow F16 é recusado;
+os dois testes de limites e o teste live PyTorch passaram novamente (3/3).
+O limite do checkpoint diagnóstico permaneceu igual.

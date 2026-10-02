@@ -26,7 +26,7 @@ test('JSON half-difference exponential certificate agrees with live PyTorch thro
   let builder:Awaited<ReturnType<typeof openJsonModelBuilder>>|undefined;
   try{
     builder=await openJsonModelBuilder(checkpoint!,python!);
-    for(const bound of builder.discovered.proof!.scoreBounds){
+    for(const bound of new Set(builder.scoreBounds.flat())){
       const certificate=certifyJsonHalfDifferenceExp(bound),path=join(dir,'exp.bin');
       await promisify(execFile)(python!,[new URL('../../helpers/capture_direct_json_exp_lattice.py',import.meta.url).pathname,
         String(certificate.maxGridIndex+1),path],{maxBuffer:1024*1024});
@@ -70,7 +70,8 @@ test('source-discovered JSON working expressions reproduce complete checkpoint l
     const corpusPath=join(dir,'reference.json');
     await run(python!,[new URL('../../helpers/capture_direct_json_reference.py',import.meta.url).pathname,checkpoint!,corpusPath],{maxBuffer:1024*1024});
     const corpus=JSON.parse(await readFile(corpusPath,'utf8')) as {width:number;vocab:number;context:number;
-      cases:{label:string;inputBits:number[][];logitF64Bits:string[][]}[]};
+      cases:{label:string;inputBits:number[][];logitF64Bits:string[][];
+        scorePeaks:{layer:number;byHeadMaximumMagnitude:number[]}[]}[]};
     builder=await openJsonModelBuilder(checkpoint!,python!);
     assert.equal(builder.header.inputWidth,corpus.width);assert.equal(builder.header.outputWidth,corpus.vocab);
     const expressions:JsonExpression[][]=[];
@@ -94,6 +95,13 @@ test('source-discovered JSON working expressions reproduce complete checkpoint l
     }
     const bits=new DataView(new ArrayBuffer(8));
     for(const item of corpus.cases){
+      assert.equal(item.scorePeaks.length,builder.scoreBounds.length);
+      for(const peak of item.scorePeaks){
+        const bounds:number[]=builder.scoreBounds[peak.layer]!;
+        assert.equal(peak.byHeadMaximumMagnitude.length,bounds.length);
+        for(let head=0;head<bounds.length;head++)assert.ok(peak.byHeadMaximumMagnitude[head]!<=bounds[head]!,
+          `score bound ${item.label}, layer=${peak.layer}, head=${head}`);
+      }
       const inputs:Record<string,JsonValue>={N:BigInt(item.inputBits.length)};
       for(let row=0;row<item.inputBits.length;row++)for(let column=0;column<corpus.width;column++)
         inputs[`X${row*corpus.width+column+1}`]=decodeIeeeF16ToF32(item.inputBits[row]![column]!);

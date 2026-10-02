@@ -1,9 +1,9 @@
 {
-  "beforeCommit": "490ee8f",
+  "beforeCommit": "15d7390",
   "command": "LLM_INNER_DIRECT_PYTHON=PYTORCH_CPU_ARM64_2_12_1 LLM_INNER_DIRECT_JSON_CHECKPOINT=LLAMA_DIAGNOSTIC npm test",
   "summary": {
-    "tests": 529,
-    "pass": 511,
+    "tests": 531,
+    "pass": 513,
     "fail": 15,
     "skipped": 3
   },
@@ -36,6 +36,8 @@
     "JSON compiler pipeline reports prepared coordinates without publishing an over-budget checkpoint vector",
     "JSON composed F16 conversion and widening preserves all F16 values and sampled F32 rounding boundaries",
     "JSON conditional facts remove repeated decisions without distributing branches",
+    "JSON correlated score proof reads weights progressively and covers every paired RoPE coefficient",
+    "JSON correlated score proof refuses unsupported geometry, unavailable coefficient budgets and nonfinite projections",
     "JSON direct F64 to F16 composition matches an independent dyadic oracle at every half midpoint",
     "JSON exact constants survive serialization including signed zero and all finite F16 bits",
     "JSON exact widening covers every finite F16 bit pattern and sampled F32 normal/subnormal values",
@@ -72,7 +74,7 @@
     "elapsedMilliseconds": 95.443083,
     "domain": "all F32 mantissas in [1,4); remaining normal exponents covered by exact dyadic scale proof"
   },
-  "log": "/private/tmp/llm-inner-json-exp-certificate-full-suite.log",
+  "log": "/private/tmp/llm-inner-json-correlated-bound-full-suite.log",
   "precisionMeasurement": [
     {
       "position": 0,
@@ -146,8 +148,8 @@
     "skipped": 0,
     "log": "/private/tmp/llm-inner-json-cofactor-full-candidates-tests.log"
   },
-  "note": "Full suite after exhaustive half-difference exponential truncation; same preexisting failures, no lost passing tests. Live torch.exp containing lattice and full working/closed corpus parity passed. Literal Llama output remains pending.",
-  "logSha256": "40fea8d4f826ec44dfb2fe0eb628ec9eaddd908084e98c982c4b7d68a4c5fe1d",
+  "note": "Full suite after correlated per-head score bounds; same preexisting failures, no lost passing tests. Observed PyTorch scores fit the bounds; containing-lattice exponential checks and full working/closed corpus parity passed. Literal Llama output remains pending.",
+  "logSha256": "4ca94eb5c290e3384e70ee4dae95afc0fa6f00b92ffc991daaefc0fe17c2587b",
   "afterShapeValidation": {
     "pass": 1,
     "fail": 0,
@@ -795,5 +797,155 @@
     "candidateDifferences": 2,
     "reachableCandidateDifferences": 0,
     "log": "/private/tmp/llm-inner-json-exp-certificate-full-suite.log"
+  },
+  "correlatedScoreMeasurement": [
+    {
+      "position": 0,
+      "dimension": 2,
+      "previousScoreBounds": [
+        0.03313671320996587
+      ],
+      "scoreBounds": [
+        [
+          0.0023031365207302873
+        ]
+      ],
+      "scoreCertificates": [
+        {
+          "normalizationNorm": 1.767767121553763,
+          "rotationNorm": 1.001238747854382,
+          "scoreBounds": [
+            0.0023031365207302873
+          ],
+          "ropePoints": 8
+        }
+      ],
+      "expCertificates": [
+        {
+          "scoreBound": 0.0023031365207302873,
+          "halfScoreValues": 12655,
+          "maxGridIndex": 77248,
+          "checkedGridPoints": 77249,
+          "polynomialDegree": 3,
+          "unreachableDifferences": [
+            -0.002879798412322998,
+            -0.0030410289764404297,
+            -0.003268122673034668,
+            -0.0036643147468566895,
+            -0.0037766695022583008,
+            -0.003776729106903076,
+            -0.004564344882965088
+          ],
+          "policy": "declared-cpu-f32-exp-half-differences"
+        }
+      ],
+      "stats": {
+        "candidates": 27,
+        "reducingCandidates": 1,
+        "accepted": 1,
+        "unsafe": 0,
+        "overBudget": 0,
+        "beforeBytes": "234666833445066505853306869",
+        "afterBytes": "210765582749392127773866486"
+      },
+      "measure": {
+        "uniqueNodes": 2586,
+        "uniqueDecisions": 71,
+        "occurrences": "9356404858623278762094205",
+        "decisions": "80773004391050392955",
+        "inputReferences": "1877575897676698882304544",
+        "serializedBytes": "210765582749392127773866486",
+        "depth": 407
+      },
+      "milliseconds": 1534.9672499999997
+    },
+    {
+      "position": 7,
+      "dimension": 2,
+      "previousScoreBounds": [
+        0.03313671320996587
+      ],
+      "scoreBounds": [
+        [
+          0.0023031365207302873
+        ]
+      ],
+      "scoreCertificates": [
+        {
+          "normalizationNorm": 1.767767121553763,
+          "rotationNorm": 1.001238747854382,
+          "scoreBounds": [
+            0.0023031365207302873
+          ],
+          "ropePoints": 8
+        }
+      ],
+      "expCertificates": [
+        {
+          "scoreBound": 0.0023031365207302873,
+          "halfScoreValues": 12655,
+          "maxGridIndex": 77248,
+          "checkedGridPoints": 77249,
+          "polynomialDegree": 3,
+          "unreachableDifferences": [
+            -0.002879798412322998,
+            -0.0030410289764404297,
+            -0.003268122673034668,
+            -0.0036643147468566895,
+            -0.0037766695022583008,
+            -0.003776729106903076,
+            -0.004564344882965088
+          ],
+          "policy": "declared-cpu-f32-exp-half-differences"
+        }
+      ],
+      "stats": {
+        "candidates": 168,
+        "reducingCandidates": 7,
+        "accepted": 1,
+        "unsafe": 0,
+        "overBudget": 0,
+        "beforeBytes": "660120192880002815162317950880323506293",
+        "afterBytes": "332863937830794166975190178224479757953"
+      },
+      "measure": {
+        "uniqueNodes": 15826,
+        "uniqueDecisions": 453,
+        "occurrences": "14697995288716792228494926118004207379",
+        "decisions": "126972491256904323845077532782331",
+        "inputReferences": "2949491550495164572342979302017376512",
+        "serializedBytes": "332863937830794166975190178224479757953",
+        "depth": 575
+      },
+      "milliseconds": 15967.206459
+    }
+  ],
+  "correlatedScoreRuntime": {
+    "cases": 60,
+    "casesWithScorePeaks": 60,
+    "maximumObservedAbsoluteScore": 0.0007162094116210938,
+    "certifiedScoreBound": 0.0023031365207302873
+  },
+  "correlatedScoreFocused": {
+    "pass": 2,
+    "fail": 0,
+    "log": "/private/tmp/llm-inner-json-correlated-bound-core.log"
+  },
+  "correlatedScoreExpLiveTest": {
+    "pass": 1,
+    "fail": 0,
+    "containingLatticePoints": 77249,
+    "referenceMismatches": 0,
+    "candidateDifferences": 7,
+    "reachableCandidateDifferences": 0,
+    "log": "/private/tmp/llm-inner-json-correlated-bound-full-suite.log"
+  },
+  "correlatedScoreFinalGuard": {
+    "tests": 3,
+    "pass": 3,
+    "fail": 0,
+    "skipped": 0,
+    "log": "/private/tmp/llm-inner-json-correlated-bound-final-focused.log",
+    "note": "A scaled-output finite-half guard was added after the full suite. Unsupported scaling overflow is rejected; correlated-bound unit tests and live PyTorch exp checks passed afterward. Diagnostic checkpoint bound is unchanged."
   }
 }
