@@ -3,6 +3,7 @@ import {mkdir,open,rename,writeFile} from 'node:fs/promises';
 import {dirname} from 'node:path';
 import {withDirectCompilationLease} from './direct-compilation-lease.js';
 import {validateJsonNode,type JsonDtype,type JsonExpression} from './direct-json-expression.js';
+import {measureJsonExpression} from './direct-json-measure.js';
 
 export type JsonInputBinding = {dtype:JsonDtype;inputDtype?:'f16';tokenPosition:number;coordinate:number} |
   {dtype:'u32';source:'inputLength'};
@@ -28,21 +29,27 @@ export function auditJsonExpression(root:JsonExpression,inputs:Record<string,Jso
     validateJsonNode(node);
     if(active.has(node))throw new Error('Cyclic compilation expression');
     if(depth>512)throw new RangeError('Expression depth budget exceeded');
-    if(++result.occurrences>maxOccurrences)throw new RangeError('Expanded expression budget exceeded');
-    const unique=!seen.has(node);seen.add(node);if(unique)result.uniqueNodes++;
+    if(seen.has(node))continue;seen.add(node);
+    if(++result.uniqueNodes>Math.min(maxOccurrences,1_000_000))throw new RangeError('Unique expression budget exceeded');
     if(node[0]==='input'){
       const binding=inputs[node[2]];
       if(!binding||binding.dtype!==node[1])throw new Error('Undeclared or mistyped fundamental input');
-      result.inputReferences++;
     }else if(node[0]!=='constant'){
       if(node[0].startsWith('pending-')||node[0]==='widen')throw new Error('Unlowered numeric primitive cannot be admitted');
       if(node[1]==='f32'&&['add','sub','mul','div'].includes(node[0]))
         throw new Error('Implicit F32 arithmetic rounding must be lowered before emission');
-      if(node[0]==='if'){result.decisions++;if(unique)result.uniqueDecisions++;}
+      if(node[0]==='if')result.uniqueDecisions++;
       active.add(node);stack.push({node,leave:true,depth});
       for(const child of (node.slice(2) as JsonExpression[]).reverse())stack.push({node:child,leave:false,depth:depth+1});
     }
   }
+  const measured=measureJsonExpression(root,Math.min(maxOccurrences,1_000_000),513);
+  // Depth counts nodes here; the prior traversal counted edges. A shared node
+  // reached first on a short path must still be checked on its longest path.
+  if(measured.depth>513)throw new RangeError('Expression depth budget exceeded');
+  if(measured.occurrences>BigInt(maxOccurrences))throw new RangeError(`Expanded expression budget exceeded: ${measured.occurrences} > ${maxOccurrences}`);
+  result.occurrences=Number(measured.occurrences);result.decisions=Number(measured.decisions);
+  result.inputReferences=Number(measured.inputReferences);
   return result;
 }
 /** Writes primitive syntax iteratively, without rendering a whole expression as
@@ -76,6 +83,7 @@ export async function writeJsonScalarUnits(path:string,header:JsonScalarHeader,u
     await mkdir(dirname(path),{recursive:true});
     const draft=path+'.draft',file=await open(draft,'w'),hash=createHash('sha256');
     let bytes=0,count=0,decisions=0,buffer='';
+    let rejectedCoordinate:{position:number;dimension:number;predictedBytes:string;predictedOccurrences:string}|undefined;
     const flush=async()=>{if(buffer){await file.writeFile(buffer);buffer='';}};
     const emit=async(token:string)=>{
       bytes+=Buffer.byteLength(token);
@@ -92,7 +100,11 @@ export async function writeJsonScalarUnits(path:string,header:JsonScalarHeader,u
         // proportional to checkpoint context multiplied by vocabulary size.
         if(position!==Math.floor(count/header.outputWidth)||dimension!==count%header.outputWidth)
           throw new Error('Missing, duplicate or unordered JSON scalar coordinate');
+        const measure=measureJsonExpression(expression);
+        rejectedCoordinate={position,dimension,predictedBytes:measure.serializedBytes.toString(),predictedOccurrences:measure.occurrences.toString()};
+        if(measure.serializedBytes>BigInt(maxBytes-bytes))throw new RangeError('JSON output budget exceeded before expression emission');
         const audit=auditJsonExpression(expression,header.inputs,options.maxOccurrences);
+        rejectedCoordinate=undefined;
         decisions+=audit.decisions;
         await emit(`{"kind":"scalar","position":${position},"dimension":${dimension},"expression":`);
         for(const token of expressionTokens(expression))await emit(token);
@@ -109,7 +121,7 @@ export async function writeJsonScalarUnits(path:string,header:JsonScalarHeader,u
     }catch(error){
       await file.close().catch(()=>{});
       await writeFile(path+'.status.json',JSON.stringify({status:'pending',units:count,bytes,finalParity:false,
-        reason:error instanceof Error?error.message:String(error)},null,2)+'\n');
+        rejectedCoordinate,reason:error instanceof Error?error.message:String(error)},null,2)+'\n');
       throw error;
     }
   });

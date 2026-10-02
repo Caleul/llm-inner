@@ -1,28 +1,28 @@
 {
-  "beforeCommit": "df83f78",
+  "beforeCommit": "946fb5f",
   "command": "LLM_INNER_DIRECT_PYTHON=PYTORCH_CPU_ARM64_2_12_1 LLM_INNER_DIRECT_JSON_CHECKPOINT=LLAMA_DIAGNOSTIC npm test",
   "summary": {
-    "tests": 523,
-    "pass": 505,
+    "tests": 525,
+    "pass": 507,
     "fail": 15,
     "skipped": 3
   },
   "failedTests": [
-    "Gemma 4 embedded adapter executes every serialized invocation program without hidden class transforms",
-    "Gemma 4 runtime-reduction provider executes the integrity-bound embedded adapter",
-    "evidência adia prefill exato sem cache e preserva antecipação do contexto exato",
-    "evidência do corte de prefill terminal preserva corpus e correção de raiz",
     "evidência do default de oito threads vincula corpus e tokens autoritativos",
+    "evidência rejeita prefill exato eager quando ele preserva tokens mas piora todas as classes de latência",
+    "evidência do corte de prefill terminal preserva corpus e correção de raiz",
     "evidência promove antecipação do prefixo exato somente em sessão com cache",
+    "evidência promove o maior prefixo exato entre sessões sem alterar logits",
+    "evidência promove contexto sensível exato sem replay do decoder",
+    "evidência adia prefill exato sem cache e preserva antecipação do contexto exato",
     "evidência promove cabeça BF16 integral e rejeita prefill agrupado divergente",
     "evidência promove cache de decisão exata e rejeita fronteira Q8 0-18",
-    "evidência promove contexto sensível exato sem replay do decoder",
-    "evidência promove o maior prefixo exato entre sessões sem alterar logits",
     "evidência rejeita Q8 na projeção down quando velocidade e verificação deixam de coexistir",
     "evidência rejeita grupos Q8 que divergem ou ampliam o fallback",
-    "evidência rejeita prefill exato eager quando ele preserva tokens mas piora todas as classes de latência",
-    "keeps the real agent-visible task free of controller context",
-    "scalar-substitution example contains concrete learned values and reproduces its F32 result"
+    "Gemma 4 runtime-reduction provider executes the integrity-bound embedded adapter",
+    "Gemma 4 embedded adapter executes every serialized invocation program without hidden class transforms",
+    "scalar-substitution example contains concrete learned values and reproduces its F32 result",
+    "keeps the real agent-visible task free of controller context"
   ],
   "previousPassingTestsLost": [],
   "newPassingTests": [
@@ -30,7 +30,9 @@
     "JSON F32 to F16 explicit decisions agree with independent dyadic rounding at ties and sampled F32 bits",
     "JSON F64 to F32 bitwise conversion agrees with IEEE rounding at boundaries and sampled binary64 values",
     "JSON admission distinguishes shared decisions from expanded occurrences and rejects residual implicit rounding",
+    "JSON admission rejects exponential duplication and longest shared paths without expanding the tree",
     "JSON certified F16 source ranges eliminate only unreachable sign, subnormal and overflow arms",
+    "JSON compiler pipeline reports prepared coordinates without publishing an over-budget checkpoint vector",
     "JSON composed F16 conversion and widening preserves all F16 values and sampled F32 rounding boundaries",
     "JSON conditional facts remove repeated decisions without distributing branches",
     "JSON direct F64 to F16 composition matches an independent dyadic oracle at every half midpoint",
@@ -66,7 +68,7 @@
     "elapsedMilliseconds": 95.443083,
     "domain": "all F32 mantissas in [1,4); remaining normal exponents covered by exact dyadic scale proof"
   },
-  "log": "/private/tmp/llm-inner-json-cofactor-full-suite.log",
+  "log": "/private/tmp/llm-inner-json-pipeline-full-suite.log",
   "precisionMeasurement": [
     {
       "position": 0,
@@ -140,8 +142,8 @@
     "skipped": 0,
     "log": "/private/tmp/llm-inner-json-cofactor-full-candidates-tests.log"
   },
-  "note": "Full suite with shared-condition propagation; identical preexisting failures and no lost passing tests. Visit limits were added afterward and verified by focused core/model runs.",
-  "logSha256": "0e3d92794e02f2c91a9e1d3dec52c983157db08280f3cce82e3c16ad58847fa0",
+  "note": "Full suite after adding literal JSON compiler orchestration and BigInt admission; same preexisting failures, no lost passing tests. The full Llama literal artifact remains pending.",
+  "logSha256": "4e472186d23ba985a9fe3dbcca9bcbbe988e686946aae76717532c2450592d92",
   "afterShapeValidation": {
     "pass": 1,
     "fail": 0,
@@ -420,5 +422,115 @@
       "depth": 661
     },
     "milliseconds": 13697.881208
+  },
+  "iterativeSharedConditionExperiment": {
+    "position": 7,
+    "dimension": 2,
+    "maxCandidates": 1024,
+    "maxUniqueNodes": 50000,
+    "enabledInPipeline": false,
+    "fullCorpusParityVerified": false,
+    "fixedPointProved": false,
+    "rounds": [
+      {
+        "round": 1,
+        "stats": {
+          "candidates": 168,
+          "reducingCandidates": 6,
+          "accepted": 1,
+          "unsafe": 0,
+          "overBudget": 0,
+          "beforeBytes": "1350312926810365965563958892232105698224067",
+          "afterBytes": "680891877849241540425844435407454291913371"
+        },
+        "measure": {
+          "uniqueNodes": 15927,
+          "uniqueDecisions": 453,
+          "occurrences": "30065228184644132177872839295280192144989",
+          "decisions": "257135653741869266302691191653293367",
+          "serializedBytes": "680891877849241540425844435407454291913371",
+          "depth": 661
+        },
+        "milliseconds": 14143.942665999999,
+        "rss": 352763904
+      },
+      {
+        "round": 2,
+        "stats": {
+          "candidates": 448,
+          "reducingCandidates": 9,
+          "accepted": 1,
+          "unsafe": 0,
+          "overBudget": 0,
+          "beforeBytes": "680891877849241540425844435407454291913371",
+          "afterBytes": "357927768052693756379479562103496242585322"
+        },
+        "measure": {
+          "uniqueNodes": 29296,
+          "uniqueDecisions": 910,
+          "occurrences": "15802923989019647519809879609265373948222",
+          "decisions": "135156597682811551994496660105856581",
+          "serializedBytes": "357927768052693756379479562103496242585322",
+          "depth": 660
+        },
+        "milliseconds": 88567.932458,
+        "rss": 402915328
+      },
+      {
+        "round": 3,
+        "stats": {
+          "candidates": 897,
+          "reducingCandidates": 0,
+          "accepted": 0,
+          "unsafe": 0,
+          "overBudget": 897,
+          "beforeBytes": "357927768052693756379479562103496242585322",
+          "afterBytes": "357927768052693756379479562103496242585322"
+        },
+        "measure": {
+          "uniqueNodes": 29296,
+          "uniqueDecisions": 910,
+          "occurrences": "15802923989019647519809879609265373948222",
+          "decisions": "135156597682811551994496660105856581",
+          "serializedBytes": "357927768052693756379479562103496242585322",
+          "depth": 660
+        },
+        "milliseconds": 363060.1,
+        "rss": 499548160
+      }
+    ]
+  },
+  "pipelineAttempt": {
+    "command": "npm run compile:direct-json -- LLAMA_DIAGNOSTIC PYTORCH_CPU_ARM64_2_12_1 OUTPUT.jsonl",
+    "exitCode": 1,
+    "preparedUnits": 1,
+    "totalUnits": 32,
+    "status": {
+      "status": "pending",
+      "units": 0,
+      "bytes": 1323,
+      "finalParity": false,
+      "rejectedCoordinate": {
+        "position": 0,
+        "dimension": 0,
+        "predictedBytes": "11177958458709996050992512067",
+        "predictedOccurrences": "496211326597868164195004927"
+      },
+      "reason": "JSON output budget exceeded before expression emission"
+    },
+    "finalArtifactPublished": false,
+    "log": "/private/tmp/llm-inner-json-compile-cli.log"
+  },
+  "admissionFollowup": {
+    "core": {
+      "pass": 26,
+      "fail": 0,
+      "log": "/private/tmp/llm-inner-json-admission-final-tests.log"
+    },
+    "pipeline": {
+      "pass": 1,
+      "fail": 0,
+      "log": "/private/tmp/llm-inner-json-pipeline-tests.log"
+    }
   }
 }

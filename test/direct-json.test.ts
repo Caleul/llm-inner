@@ -344,9 +344,24 @@ test('JSON admission distinguishes shared decisions from expanded occurrences an
   const bindings={X1:{dtype:'f16' as const,tokenPosition:0,coordinate:0}};
   const audit=auditJsonExpression(expression,bindings);
   assert.equal(audit.decisions,3);assert.equal(audit.uniqueDecisions,2);
+  assert.equal(audit.inputReferences,5);
   assert.throws(()=>auditJsonExpression(expression,bindings,2),/budget/);
   assert.throws(()=>auditJsonExpression(input('f16','X2'),bindings),/Undeclared/);
   assert.throws(()=>auditJsonExpression(op('add','f32',c('f32',1),c('f32',2)),{}),/Implicit/);
+});
+test('JSON admission rejects exponential duplication and longest shared paths without expanding the tree',()=>{
+  const x=input('f64','X1'),bindings={X1:{dtype:'f64' as const,inputDtype:'f16' as const,tokenPosition:0,coordinate:0}};
+  let duplicated=x;for(let i=0;i<100;i++)duplicated=op('add','f64',duplicated,duplicated);
+  assert.equal(measureJsonExpression(duplicated).inputReferences,1n<<100n);
+  assert.throws(()=>auditJsonExpression(duplicated,bindings),/Expanded expression budget/);
+  let shared=x;for(let i=0;i<300;i++)shared=op('add','f64',shared,c('f64',0));
+  let deep=shared;for(let i=0;i<300;i++)deep=op('add','f64',deep,c('f64',0));
+  // The shared tail is seen first on the shorter path; memoization cannot
+  // conceal the longest path through it from the depth budget.
+  const root=op('add','f64',shared,deep);
+  assert.equal(measureJsonExpression(root).depth,602);
+  assert.throws(()=>auditJsonExpression(root,bindings),/depth budget/);
+  assert.throws(()=>measureJsonExpression(root,1_000_000,128),/depth budget/);
 });
 test('JSON measurement predicts serialization and huge duplication without rendering expanded expressions',()=>{
   const x=input('f64','X1'),condition=op('lt','bool',x,c('f64',0));
@@ -378,6 +393,17 @@ test('JSONL stream emits all scalar coordinates with exact syntax and refuses to
     await assert.rejects(writeJsonScalarUnits(path,header,incomplete()),/Incomplete/);
     assert.equal(await readFile(path,'utf8'),original);
     await assert.rejects(writeJsonScalarUnits(path,header,complete(),{maxBytes:10}),/budget/);
+    assert.equal(await readFile(path,'utf8'),original);
+    let huge:JsonExpression=input('f16','X1');
+    const condition=op('lt','bool',input('f16','X1'),['constant','f16','0x0000']);
+    for(let i=0;i<100;i++)huge=op('if','f16',condition,huge,huge);
+    async function* oversized(){yield {position:0,dimension:0,expression:huge};}
+    await assert.rejects(writeJsonScalarUnits(path,header,oversized()),/before expression emission/);
+    const status=JSON.parse(await readFile(path+'.status.json','utf8'));
+    assert.equal(status.units,0);assert.equal(status.finalParity,false);
+    assert.equal(status.rejectedCoordinate.dimension,0);
+    assert.ok(BigInt(status.rejectedCoordinate.predictedOccurrences)>1_000_000n);
+    assert.ok((await readFile(path+'.draft')).length<65536);
     assert.equal(await readFile(path,'utf8'),original);
     await writeFile(path+'.compile.lock','do not modify');
   }finally{await rm(dir,{recursive:true,force:true});}

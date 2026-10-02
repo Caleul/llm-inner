@@ -242,7 +242,7 @@ Após fechamento e simplificação, posição 0/dimensão 2 possui 1.249 nós f�
 Posição 7/dimensão 2 possui 15.927 nós, 453 decisões, profundidade 661 e
 aproximadamente 6,81e41 bytes após combinação de uma condição. Essas medidas incluem duplicação de operandos
 nas expansões numéricas; não são tamanho de arquivo gerado nem número de
-bifurcações originais do modelo. Nenhuma emissão desse volume foi iniciada.
+bifurcações originais do modelo. Nenhuma emissão dessas expressões foi iniciada; a tentativa real do pipeline foi recusada na admissão.
 
 As expressões fechadas dos 32 pares posição/dimensão passaram em 864 resultados
 comparados bit a bit com PyTorch. Isso comprova o corpus diagnóstico após o
@@ -289,19 +289,60 @@ Novos testes em `test/direct-json.test.ts`:
 Validação histórica inicial: 44/44 testes aprovados, incluindo os 11 novos e
 os testes existentes `direct-round-preimage` e `direct-flat-substitution`.
 
-Validação atual: `test/direct-json.test.ts` tem 25 casos; também cobre widening,
+Validação atual: `test/direct-json.test.ts` tem 26 casos; também cobre widening,
 raiz, exponencial, SiLU certificado, conversões compostas, medição de duplicação
 e cancelamento de round com prova de precisão. `test/direct-json-model.test.ts`
 cobre os 32 pares posição/dimensão e as 864 comparações antes e depois do
 fechamento/simplificação. Este teste é pulado sem as variáveis
 `LLM_INNER_DIRECT_PYTHON` e `LLM_INNER_DIRECT_JSON_CHECKPOINT`; a validação registrada
-forneceu ambas. Os 26 testes focados passaram sem skips após considerar as condições repetidas
-do vetor completo. Limites de visitas acrescentados depois também passaram na suíte focada e
+forneceu ambas. Os 26 testes focados anteriores passaram sem skips após considerar as condições repetidas
+do vetor completo. A admissão agora tem 26 testes de núcleo e o pipeline possui um
+teste integrado adicional de recusa antecipada, ambos aprovados nas execuções focadas. Limites de visitas acrescentados depois também passaram na suíte focada e
 nas 864 comparações do vetor completo; a coordenada terminal manteve a redução. O corpus inclui máximos F16 com
 ambos os sinais, magnitudes misturadas e fronteiras normal/subnormal.
 
-Suíte completa atual: 523 testes, 505 aprovados, 15 falhas, 3 skips.
+Suíte completa atual: 525 testes, 507 aprovados, 15 falhas, 3 skips.
 Todos os 479 testes aprovados no baseline continuam aprovados; as mesmas 15
 falhas anteriores estão mapeadas em `docs/direct-json-validation.json`. A suíte
 completa final e os contadores de simplificação são reconciliados nesse arquivo.
 Nenhum teste antigo foi apagado ou relaxado. Arquivo final do modelo ainda pendente.
+
+## Pipeline executável e admissão antes da emissão
+
+`npm run compile:direct-json -- CHECKPOINT PYTHON OUTPUT.jsonl` conecta descoberta,
+leitura paginada, substituição, fechamento numérico, simplificação de precisão,
+ponto fixo das regras básicas, combinação de uma condição e emissão JSONL literal.
+Os limites configuráveis incluem memória de pesos, dependências, candidatos,
+nós físicos, ocorrências expandidas e bytes de saída. Uma coordenada preparada
+não conta como coordenada emitida. O arquivo completo só é publicado após cobertura
+canônica de todas as posições/dimensões; `finalParity` permanece falso até validação
+do artefato publicado.
+
+A admissão mede bytes, decisões, ocorrências e referências à entrada com BigInt,
+percorrendo os nós distintos de compilação. Isso permite rejeitar duplicações
+exponenciais sem percorrer a árvore expandida. A auditoria também verifica a
+profundidade pelo caminho mais longo, mesmo quando uma subexpressão compartilhada
+foi visitada inicialmente por um caminho curto. O status de falha registra a
+coordenada rejeitada e suas contagens previstas; `predictedBytes` é o tamanho da
+expressão, sem o envelope JSONL. O target completo anterior é preservado.
+
+No checkpoint diagnóstico, a execução real da CLI preparou posição 0/dimensão 0
+com 11.177.958.458.709.996.050.992.512.067 bytes previstos e
+496.211.326.597.868.164.195.004.927 ocorrências. O writer recusou esse volume antes
+da emissão da expressão: zero coordenadas emitidas, nenhum JSON final publicado.
+O teste integrado reproduz essa recusa e verifica o status e a ausência do target.
+Isso prova a ligação do pipeline e seu comportamento de recusa; não prova um
+arquivo compilado do Llama.
+
+Um experimento separado repetiu a combinação de condições na posição 7/dimensão 2,
+com 1.024 candidatos e 50 mil nós permitidos. A segunda rodada reduziu a previsão
+de 6,81e41 para 3,58e41 bytes, com 29.296 nós físicos e 910 decisões físicas;
+levou aproximadamente 89 segundos e reportou 403 MB de RSS. A terceira levou
+aproximadamente 363 segundos, sem redução: os 897 candidatos excederam o limite de
+nós. Isso é esgotamento do orçamento, não prova de ponto fixo ou forma mínima.
+Essas rodadas adicionais não foram ativadas no pipeline padrão nem validadas
+novamente no corpus completo. A CLI mantém uma rodada de combinação.
+
+O formato permanece literal, sem referências serializadas entre subexpressões.
+A alternativa de referências exclusivamente no JSON de compilação depende da
+resposta do usuário ao alinhamento de formato; não foi assumida como autorizada.

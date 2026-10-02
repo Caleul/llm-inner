@@ -15,7 +15,25 @@ import {measureJsonExpression} from '../src/direct-json-measure.js';
 import {simplifyJsonBitPrecision,type JsonPrecisionFacts} from '../src/direct-json-precision.js';
 import {simplifyJsonFixedPoint} from '../src/direct-json-simplify.js';
 import {simplifyJsonSharedConditions} from '../src/direct-json-cofactor.js';
+import {writeDirectJsonModel} from '../src/direct-json-compile.js';
 const python=process.env.LLM_INNER_DIRECT_PYTHON,checkpoint=process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT;
+
+test('JSON compiler pipeline reports prepared coordinates without publishing an over-budget checkpoint vector',
+  {skip:!python||!checkpoint},async()=>{
+  const dir=await mkdtemp(join(tmpdir(),'direct-json-compiler-')),path=join(dir,'model.jsonl');
+  let prepared=0;
+  try{
+    await assert.rejects(writeDirectJsonModel(checkpoint!,python!,path,{maxBytes:4096,onPrepared:unit=>{
+      prepared=unit.preparedUnits;assert.ok(unit.totalUnits>0);
+      assert.ok(unit.measure.serializedBytes>4096n);
+    }}),/before expression emission/);
+    assert.equal(prepared,1);
+    await assert.rejects(readFile(path),{code:'ENOENT'});
+    const status=JSON.parse(await readFile(path+'.status.json','utf8'));
+    assert.equal(status.units,0);assert.equal(status.finalParity,false);
+    assert.equal(status.rejectedCoordinate.position,0);assert.equal(status.rejectedCoordinate.dimension,0);
+  }finally{await rm(dir,{recursive:true,force:true});}
+});
 
 test('source-discovered JSON working expressions reproduce complete checkpoint logits before primitive lowering',
   {skip:!python||!checkpoint},async()=>{
