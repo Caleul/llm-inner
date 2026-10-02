@@ -6,7 +6,7 @@ import {simplifyJsonExpression as simplify,sameJsonExpression,simplifyJsonFixedP
 import {lowerJsonF32ToF16,lowerJsonF64ToF32,lowerJsonRoundNormalF32AsF64} from '../src/direct-json-f16.js';
 import {lowerJsonWiden} from '../src/direct-json-widen.js';
 import {lowerJsonPositiveNormalSqrt,lowerJsonPositiveNormalSqrtAsF64} from '../src/direct-json-sqrt.js';
-import {certifyJsonSmallSilu,lowerJsonSmallSilu} from '../src/direct-json-silu.js';
+import {certifyJsonSmallSilu,lowerJsonSmallSilu,lowerJsonSmallSiluAsF64} from '../src/direct-json-silu.js';
 import {lowerJsonSmallNonpositiveExp} from '../src/direct-json-exp.js';
 import {lowerJsonFiniteF16AsF64,lowerJsonNormalF32ThenF16AsF64} from '../src/direct-json-half-value.js';
 import {measureJsonExpression} from '../src/direct-json-measure.js';
@@ -226,11 +226,37 @@ test('JSON positive normal F32 square root is lowered without native sqrt and ag
 });
 test('JSON factorized SiLU polynomial is certified against every finite F16 point in its declared domain',()=>{
   const certificate=certifyJsonSmallSilu(.1);assert.equal(certificate.checkedPoints,23758);
+  assert.equal(certificate.polynomialDegree,4);
+  assert.equal(certifyJsonSmallSilu(.03).polynomialDegree,2);
+  // -0.031005859375 is a real counterexample to the quadratic candidate.
+  assert.equal(certifyJsonSmallSilu(.0311).polynomialDegree,4);
   assert.match(certificate.profileSha256,/^[a-f0-9]{64}$/);
   const expression=lowerJsonSmallSilu(input('f16','X1'));
   assert.doesNotMatch(JSON.stringify(expression),/pending|silu|exp|widen|round/);
   assert.ok(Object.is(evaluate(expression,{X1:-0}),-0));
+  const closed=lowerJsonSmallSiluAsF64(input('f64','X1'));
+  assert.ok(Object.is(evaluate(closed,{X1:-0}),-0));
+  assert.equal(evaluate(closed,{X1:2**-24}),0);
+  assert.ok(Object.is(evaluate(closed,{X1:-(2**-24)}),-0));
+  assert.ok(measureJsonExpression(closed).occurrences<150n);
   assert.throws(()=>certifyJsonSmallSilu(.100001),/proven/);
+});
+test('JSON direct F64 to F16 composition matches an independent dyadic oracle at every half midpoint',()=>{
+  const expression=lowerJsonFiniteF16AsF64(input('f64','X1')),word=new DataView(new ArrayBuffer(8));
+  function check(value:number){
+    word.setFloat64(0,value);const bits=word.getBigUint64(0),e=Number((bits>>52n)&0x7ffn);
+    const coefficient=((e?1n<<52n:0n)|(bits&0xfffffffffffffn))*(bits>>63n?-1n:1n);
+    const expected=Object.is(value,-0)?-0:decodeIeeeF16ToF32(roundDyadicToF16IfElse({coefficient,exponent:e?e-1075:-1074}));
+    assert.ok(Object.is(evaluate(expression,{X1:value}),expected),`direct F64 bits ${bits.toString(16)}`);
+  }
+  for(let bits=0;bits<0x7bff;bits++){
+    const middle=(decodeIeeeF16ToF32(bits)+decodeIeeeF16ToF32(bits+1))/2;
+    word.setFloat64(0,middle);const raw=word.getBigUint64(0);
+    for(const adjacent of [-1n,0n,1n]){
+      word.setBigUint64(0,raw+adjacent);const value=word.getFloat64(0);check(value);check(-value);
+    }
+  }
+  for(const value of [-0,0,Number.MIN_VALUE,-Number.MIN_VALUE,65520,-65520,Number.MAX_VALUE,-Number.MAX_VALUE])check(value);
 });
 test('JSON exponential eliminates constant range reduction and reproduces the pinned F32 polynomial in its proved domain',()=>{
   const expression=lowerJsonSmallNonpositiveExp(input('f32','X1'));

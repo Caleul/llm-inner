@@ -1,9 +1,9 @@
 {
-  "beforeCommit": "9e5d6cf",
+  "beforeCommit": "e8a90a5",
   "command": "LLM_INNER_DIRECT_PYTHON=PYTORCH_CPU_ARM64_2_12_1 LLM_INNER_DIRECT_JSON_CHECKPOINT=LLAMA_DIAGNOSTIC npm test",
   "summary": {
-    "tests": 520,
-    "pass": 502,
+    "tests": 521,
+    "pass": 503,
     "fail": 15,
     "skipped": 3
   },
@@ -33,6 +33,7 @@
     "JSON certified F16 source ranges eliminate only unreachable sign, subnormal and overflow arms",
     "JSON composed F16 conversion and widening preserves all F16 values and sampled F32 rounding boundaries",
     "JSON conditional facts remove repeated decisions without distributing branches",
+    "JSON direct F64 to F16 composition matches an independent dyadic oracle at every half midpoint",
     "JSON exact constants survive serialization including signed zero and all finite F16 bits",
     "JSON exact widening covers every finite F16 bit pattern and sampled F32 normal/subnormal values",
     "JSON exponential eliminates constant range reduction and reproduces the pinned F32 polynomial in its proved domain",
@@ -63,7 +64,7 @@
     "elapsedMilliseconds": 95.443083,
     "domain": "all F32 mantissas in [1,4); remaining normal exponents covered by exact dyadic scale proof"
   },
-  "log": "/private/tmp/llm-inner-json-fused-full-suite.log",
+  "log": "/private/tmp/llm-inner-json-silu-certified-full-suite.log",
   "precisionMeasurement": [
     {
       "position": 0,
@@ -131,14 +132,14 @@
     }
   ],
   "focusedTests": {
-    "tests": 23,
-    "pass": 23,
+    "tests": 24,
+    "pass": 24,
     "fail": 0,
     "skipped": 0,
-    "log": "/private/tmp/llm-inner-json-fused-tests.log"
+    "log": "/private/tmp/llm-inner-json-silu-certified-tests.log"
   },
-  "note": "Complete suite after range propagation, sign restoration and fused double rounding; same preexisting failures. Independent double-rounding oracle strengthened afterward, with a focused followup.",
-  "logSha256": "4d9879f29deb42a5de8753b9a83f1f747ccfe8965b5dbccd30eee219d137d0ca",
+  "note": "Suite after narrower gate range and domain-certified SiLU degree selection; identical preexisting failures and no previously passing test lost.",
+  "logSha256": "38713a2b6d10be59029507a7a6f83cc74277dcb030edf57582e76da4c798e49d",
   "afterShapeValidation": {
     "pass": 1,
     "fail": 0,
@@ -262,5 +263,79 @@
     "fail": 0,
     "comparisons": 368628,
     "log": "/private/tmp/llm-inner-json-fused-independent-test.log"
+  },
+  "siluSimplifiedMeasurement": [
+    {
+      "position": 0,
+      "dimension": 2,
+      "construction": {
+        "f32Arithmetic": 158,
+        "f16Conversions": 47,
+        "squareRoots": 3,
+        "exponentials": 1,
+        "activations": 1,
+        "maximumComparisons": 0,
+        "lengthDecisions": 0,
+        "dependencies": 33
+      },
+      "siluCertificate": {
+        "bound": 0.02928494551503347,
+        "checkedPoints": 20224,
+        "maximumMagnitude": 0.01485443115234375,
+        "polynomialDegree": 2,
+        "profileSha256": "72c01cd5aa5bf5ce084a98df569f41350f14b62ab1696c4ce2f73c6437b8e750",
+        "policy": "pytorch-2.12.1-cpu-f16"
+      },
+      "measure": {
+        "uniqueNodes": 1249,
+        "uniqueDecisions": 28,
+        "occurrences": "496211326597868164195004927",
+        "decisions": "4238798243497378233201",
+        "serializedBytes": "11177958458709996050992512067",
+        "depth": 444
+      }
+    },
+    {
+      "position": 7,
+      "dimension": 2,
+      "construction": {
+        "f32Arithmetic": 575,
+        "f16Conversions": 166,
+        "squareRoots": 10,
+        "exponentials": 8,
+        "activations": 1,
+        "maximumComparisons": 7,
+        "lengthDecisions": 0,
+        "dependencies": 131
+      },
+      "siluCertificate": {
+        "bound": 0.02928494551503347,
+        "checkedPoints": 20224,
+        "maximumMagnitude": 0.01485443115234375,
+        "polynomialDegree": 2,
+        "profileSha256": "72c01cd5aa5bf5ce084a98df569f41350f14b62ab1696c4ce2f73c6437b8e750",
+        "policy": "pytorch-2.12.1-cpu-f16"
+      },
+      "measure": {
+        "uniqueNodes": 7896,
+        "uniqueDecisions": 169,
+        "occurrences": "59624630557643083650368829965709935804927",
+        "decisions": "509944838984080148762917023835833201",
+        "serializedBytes": "1350312926810365965563958892232105698224067",
+        "depth": 662
+      }
+    }
+  ],
+  "directF64HalfMidpointComparisons": 190466,
+  "liveSiluProfileValidation": {
+    "torch": "2.12.1",
+    "threads": 1,
+    "profileSha256": "72c01cd5aa5bf5ce084a98df569f41350f14b62ab1696c4ce2f73c6437b8e750",
+    "finitePoints": 63488,
+    "finiteMismatches": 0,
+    "admittedPoints": 23758,
+    "admittedMismatches": 0,
+    "checkpointPoints": 20224,
+    "checkpointMismatches": 0
   }
 }

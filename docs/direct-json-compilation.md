@@ -127,7 +127,8 @@ nós temporários e qualquer aritmética F32 implícita.
   fixado, com prova de intervalo [-0,34; 0]. A redução de faixa se torna constante.
 - SiLU usa polinômio fatorado no intervalo comprovado pelo checkpoint, limitado
   a magnitude 0,1. A admissão verifica todos os F16 desse intervalo contra o
-  perfil de referência: 23.758 pontos na faixa máxima. O perfil é uma fonte de
+  perfil de referência: 23.758 pontos na faixa máxima. Escolhe grau 2 ou 4
+  somente depois dessa certificação integral; não remove termos por tolerância. O perfil é uma fonte de
   certificação durante compilação; nenhum lookup permanece na expressão.
 - F32 arredondado e mantido exatamente alargado para F64 usa uma única máscara
   de 29 bits. F16 composto com widening conserva as decisões de subnormal e
@@ -168,14 +169,47 @@ A árvore prevista reduziu cerca de 33.677 vezes para posição 0/dimensão 2 e
 9.079.351 vezes para posição 7/dimensão 2 em relação ao checkpoint anterior.
 A medida continua enorme: nenhuma emissão foi iniciada por causa dessa redução.
 
+## Redução certificada de SiLU
+
+O polinômio do lowerer F64 agora elimina termos após comparar todos os F16
+admitidos pelo limite do checkpoint com o perfil numérico. Grau 2 é
+`x/2+x²/4`; grau 4 acrescenta `-x⁴/48`. Na faixa máxima de magnitude 0,1,
+o grau 2 tem 44 contraexemplos fora da célula de underflow e é recusado. O
+primeiro em magnitude é `-0,031005859375`; a regressão cobre essa fronteira.
+O grau 4 coincide em toda a faixa certificada.
+
+A célula `|x|<=2^-24` retorna zero com o sinal original: no backend, o produto
+F32 nesse domínio é `x/2` e o arredondamento F16 resulta em zero com empate
+para par. Arredondar diretamente o polinômio real daria um resultado diferente
+em `+2^-24`, por isso essa célula é explícita. Não há lookup de logits/prompts.
+
+O limite de gate foi estreitado por Cauchy com o orçamento L2 já admitido pela
+prova de finitude: `||gate_row||2 * (1,25*sqrt(width)*max_gamma +
+sqrt(width)*2^-23)`, acrescido das margens de redução e half. Isto substitui a
+soma de máximos independentes por coordenada. No Llama diagnóstico, a faixa
+é 0,02928494551503347: 20.224 valores F16 verificados, todos equivalentes ao
+grau 2. Essa faixa é descoberta de pesos/geometria, não constante do adaptador.
+
+O perfil foi revalidado contra `torch.nn.functional.silu` no PyTorch 2.12.1
+CPU instalado, com um thread: 63.488 padrões F16 finitos, zero divergências.
+O SHA-256 e os contadores da faixa máxima/checkpoint estão no relatório.
+
+A fronteira artificial F32 do polinômio escolhido foi eliminada após essa prova
+de resultado completo. A conversão direta F64→F16 foi validada independentemente
+em todos os midpoints F16 e vizinhos F64, incluindo subnormais e ambos os sinais.
+Ela não substitui a composição F64→F32→F16 em outras operações do modelo.
+
+Essa redução diminuiu a expressão prevista cerca de 6,17 vezes adicionais nas
+duas coordenadas medidas. O JSON final continua pendente.
+
 ## Diagnóstico de duplicação e limite de conclusão
 
 `direct-json-measure.ts` calcula exatamente ocorrências e bytes da árvore que
 seria serializada, sem renderizá-la. Valores BigInt evitam overflow do contador.
-Após fechamento e simplificação, posição 0/dimensão 2 possui 1.266 nós físicos,
-29 decisões físicas, profundidade 456 e aproximadamente 6,89e28 bytes expandidos.
-Posição 7/dimensão 2 possui 7.913 nós, 170 decisões, profundidade 674 e
-aproximadamente 8,33e42 bytes. Essas medidas incluem duplicação de operandos
+Após fechamento e simplificação, posição 0/dimensão 2 possui 1.249 nós físicos,
+28 decisões físicas, profundidade 444 e aproximadamente 1,12e28 bytes expandidos.
+Posição 7/dimensão 2 possui 7.896 nós, 169 decisões, profundidade 662 e
+aproximadamente 1,35e42 bytes. Essas medidas incluem duplicação de operandos
 nas expansões numéricas; não são tamanho de arquivo gerado nem número de
 bifurcações originais do modelo. Nenhuma emissão desse volume foi iniciada.
 
@@ -224,16 +258,16 @@ Novos testes em `test/direct-json.test.ts`:
 Validação histórica inicial: 44/44 testes aprovados, incluindo os 11 novos e
 os testes existentes `direct-round-preimage` e `direct-flat-substitution`.
 
-Validação atual: `test/direct-json.test.ts` tem 22 casos; também cobre widening,
+Validação atual: `test/direct-json.test.ts` tem 23 casos; também cobre widening,
 raiz, exponencial, SiLU certificado, conversões compostas, medição de duplicação
 e cancelamento de round com prova de precisão. `test/direct-json-model.test.ts`
 cobre os 32 pares posição/dimensão e as 864 comparações antes e depois do
 fechamento/simplificação. Este teste é pulado sem as variáveis
 `LLM_INNER_DIRECT_PYTHON` e `LLM_INNER_DIRECT_JSON_CHECKPOINT`; a validação registrada
-forneceu ambas. Os 23 testes focados passaram sem skips. O corpus inclui máximos F16 com
+forneceu ambas. Os 24 testes focados passaram sem skips. O corpus inclui máximos F16 com
 ambos os sinais, magnitudes misturadas e fronteiras normal/subnormal.
 
-Suíte completa atual: 520 testes, 502 aprovados, 15 falhas, 3 skips.
+Suíte completa atual: 521 testes, 503 aprovados, 15 falhas, 3 skips.
 Todos os 479 testes aprovados no baseline continuam aprovados; as mesmas 15
 falhas anteriores estão mapeadas em `docs/direct-json-validation.json`. A suíte
 completa final e os contadores de simplificação são reconciliados nesse arquivo.

@@ -89,8 +89,8 @@ export function lowerJsonModelExpression(root:JsonExpression,facts:JsonModelLowe
     if(node[0]==='pending-silu'){
       const bound=facts.activationBounds.get(node);
       if(bound===undefined)throw new Error('Missing checkpoint activation range');
-      certifyJsonSmallSilu(bound);const input=visit(args[0]!);
-      const expression=lowerJsonSmallSiluAsF64(input);
+      const certificate=certifyJsonSmallSilu(bound),input=visit(args[0]!);
+      const expression=lowerJsonSmallSiluAsF64(input,certificate.polynomialDegree);
       return input[0]==='constant'?c('f64',Number(evaluateJsonExpression(expression))):expression;
     }
     if(node[0]==='if')return o('if',node[1].startsWith('f')?'f64':node[1],...args.map(visit));

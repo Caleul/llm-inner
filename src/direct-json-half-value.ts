@@ -1,11 +1,12 @@
 import {jsonConstant as c,jsonOperation as o,type JsonExpression} from './direct-json-expression.js';
 import type {JsonFloatRange} from './direct-json-range.js';
 
-/** F16 conversion followed by exact F64 widening, for a finite value already
- * on the F32 lattice. Preserve sign, subnormals, ties and overflow explicitly.
+/** Direct finite F64 -> F16 conversion followed by exact F64 widening.
+ * Exactly widened F32 values are a subset of this domain. Preserve sign,
+ * subnormals, ties and overflow explicitly.
  * Combining the boundaries avoids encoding F16 and then decoding it again. */
 export function lowerJsonFiniteF16AsF64(input:JsonExpression,range?:JsonFloatRange):JsonExpression {
-  if(input[1]!=='f64')throw new TypeError('Exactly widened F32 value required');
+  if(input[1]!=='f64')throw new TypeError('Finite F64 source required');
   if(range&&(!Number.isFinite(range.minimum)||!Number.isFinite(range.maximum)||range.minimum>range.maximum))
     throw new RangeError('Invalid certified F16 source interval');
   const u=(n:bigint)=>c('u64',n),bits=o('reinterpret','u64',input);

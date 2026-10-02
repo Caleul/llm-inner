@@ -63,8 +63,16 @@ export async function openJsonModelBuilder(directory:string,python:string,
     for(let i=0;i<width;i++)gamma=Math.max(gamma,Math.abs(await pages.read(catalog.tensors.get(post.weight)!,i)));
     const gate=layer.mlp.mlp.gate,bounds:number[]=[];
     for(let neuron=0;neuron<gate.shape[0];neuron++){
-      let absolute=0;for(let i=0;i<gate.shape[1];i++)absolute+=Math.abs(await pages.read(catalog.tensors.get(gate.weight)!,neuron*gate.shape[1]+i));
-      bounds.push((2*Math.sqrt(width)*gamma*absolute+absolute*2**-23)*1.125+2**-24);
+      let squared=0;for(let i=0;i<gate.shape[1];i++){
+        const weight=await pages.read(catalog.tensors.get(gate.weight)!,neuron*gate.shape[1]+i);
+        squared+=weight*weight;
+      }
+      // Reuse the normalization L2 budget admitted by the finite-model proof.
+      // Cauchy bounds a projection by ||weight||2*||normalized input||2;
+      // summing independent coordinate maxima was unnecessarily loose.
+      // Extra margin covers bound evaluation and the final half conversion.
+      const norm=1.25*Math.sqrt(width)*gamma+Math.sqrt(width)*2**-23;
+      bounds.push(norm*Math.sqrt(squared)*1.125*1.01+2**-24);
     }
     activationBounds.push(bounds);
   }
