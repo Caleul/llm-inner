@@ -1,9 +1,9 @@
 {
-  "beforeCommit": "656edd2",
+  "beforeCommit": "9e5d6cf",
   "command": "LLM_INNER_DIRECT_PYTHON=PYTORCH_CPU_ARM64_2_12_1 LLM_INNER_DIRECT_JSON_CHECKPOINT=LLAMA_DIAGNOSTIC npm test",
   "summary": {
-    "tests": 517,
-    "pass": 499,
+    "tests": 520,
+    "pass": 502,
     "fail": 15,
     "skipped": 3
   },
@@ -30,6 +30,7 @@
     "JSON F32 to F16 explicit decisions agree with independent dyadic rounding at ties and sampled F32 bits",
     "JSON F64 to F32 bitwise conversion agrees with IEEE rounding at boundaries and sampled binary64 values",
     "JSON admission distinguishes shared decisions from expanded occurrences and rejects residual implicit rounding",
+    "JSON certified F16 source ranges eliminate only unreachable sign, subnormal and overflow arms",
     "JSON composed F16 conversion and widening preserves all F16 values and sampled F32 rounding boundaries",
     "JSON conditional facts remove repeated decisions without distributing branches",
     "JSON exact constants survive serialization including signed zero and all finite F16 bits",
@@ -39,16 +40,18 @@
     "JSON factorized SiLU polynomial is certified against every finite F16 point in its declared domain",
     "JSON fixed point propagates integer bounds to remove implied and contradictory conditions",
     "JSON measurement predicts serialization and huge duplication without rendering expanded expressions",
+    "JSON normal double rounding is fused with both widened even and odd tie cells preserved",
     "JSON normal rounding followed by exact widening collapses to one bitword rounding expression",
     "JSON positive normal F32 square root is lowered without native sqrt and agrees bitwise on exponent and mantissa boundaries",
     "JSON precision cancels redundant bit rounding only with a proved lattice and preserves signed zeros",
     "JSON rejects hidden floating conversions and malformed operation types",
     "JSON simplification preserves -0 and does not hide undefined integer operations",
+    "JSON working range analysis encloses F32 endpoint rounding and refuses unknown or zero-crossing divisors",
     "JSONL stream emits all scalar coordinates with exact syntax and refuses to publish incomplete vectors",
     "source-discovered JSON working expressions reproduce complete checkpoint logits before primitive lowering"
   ],
   "newFailures": [],
-  "exactWorkingAndClosedVectorComparisons": 432,
+  "exactWorkingAndClosedVectorComparisons": 864,
   "finalJsonArtifactEmitted": false,
   "rawExpressionMeasure": "/private/tmp/llm-inner-json-closed-measure-optimized.json",
   "simplifiedExpressionMeasure": "/private/tmp/llm-inner-json-simplified-measure.json",
@@ -60,7 +63,7 @@
     "elapsedMilliseconds": 95.443083,
     "domain": "all F32 mantissas in [1,4); remaining normal exponents covered by exact dyadic scale proof"
   },
-  "log": "/private/tmp/llm-inner-json-full-suite-final.log",
+  "log": "/private/tmp/llm-inner-json-fused-full-suite.log",
   "precisionMeasurement": [
     {
       "position": 0,
@@ -128,17 +131,136 @@
     }
   ],
   "focusedTests": {
-    "tests": 20,
-    "pass": 20,
+    "tests": 23,
+    "pass": 23,
     "fail": 0,
     "skipped": 0,
-    "log": "/private/tmp/llm-inner-json-precision-tests.log"
+    "log": "/private/tmp/llm-inner-json-fused-tests.log"
   },
-  "note": "Suite includes precision simplification. Source shape validation and reader cleanup were added afterward and verified separately by the same model integration test.",
-  "logSha256": "6e3b88f7475ae1798d9b226d823c4d2e60fa879463357d8a96398530bf1b8a33",
+  "note": "Complete suite after range propagation, sign restoration and fused double rounding; same preexisting failures. Independent double-rounding oracle strengthened afterward, with a focused followup.",
+  "logSha256": "4d9879f29deb42a5de8753b9a83f1f747ccfe8965b5dbccd30eee219d137d0ca",
   "afterShapeValidation": {
     "pass": 1,
     "fail": 0,
     "log": "/private/tmp/llm-inner-json-shape-tests.log"
+  },
+  "rangeMeasurement": [
+    {
+      "position": 0,
+      "dimension": 2,
+      "construction": {
+        "f32Arithmetic": 158,
+        "f16Conversions": 47,
+        "squareRoots": 3,
+        "exponentials": 1,
+        "activations": 1,
+        "maximumComparisons": 0,
+        "lengthDecisions": 0,
+        "dependencies": 33
+      },
+      "precision": {
+        "redundantMasks": 0,
+        "redundantRoundings": 0
+      },
+      "simplification": {
+        "visited": 3079,
+        "folds": 47,
+        "conditions": 0,
+        "integerAlgebra": 0
+      },
+      "measure": {
+        "uniqueNodes": 1266,
+        "uniqueDecisions": 52,
+        "occurrences": "5643887027130548603966443595486",
+        "decisions": "65421618345584563728326331",
+        "serializedBytes": "127137690978914642117585093411796",
+        "depth": 443
+      }
+    },
+    {
+      "position": 7,
+      "dimension": 2,
+      "construction": {
+        "f32Arithmetic": 575,
+        "f16Conversions": 166,
+        "squareRoots": 10,
+        "exponentials": 8,
+        "activations": 1,
+        "maximumComparisons": 7,
+        "lengthDecisions": 0,
+        "dependencies": 131
+      },
+      "precision": {
+        "redundantMasks": 0,
+        "redundantRoundings": 0
+      },
+      "simplification": {
+        "visited": 19206,
+        "folds": 222,
+        "conditions": 0,
+        "integerAlgebra": 0
+      },
+      "measure": {
+        "uniqueNodes": 7985,
+        "uniqueDecisions": 307,
+        "occurrences": "14028484939142613905389388395656866678457219806",
+        "decisions": "162689207609980707281909420885130157136571",
+        "serializedBytes": "317727108268705693435214658811459330406977830036",
+        "depth": 662
+      }
+    }
+  ],
+  "fusedMeasurement": [
+    {
+      "position": 0,
+      "dimension": 2,
+      "construction": {
+        "f32Arithmetic": 158,
+        "f16Conversions": 47,
+        "squareRoots": 3,
+        "exponentials": 1,
+        "activations": 1,
+        "maximumComparisons": 0,
+        "lengthDecisions": 0,
+        "dependencies": 33
+      },
+      "measure": {
+        "uniqueNodes": 1266,
+        "uniqueDecisions": 29,
+        "occurrences": "3059969843615408535184892927",
+        "decisions": "26139255802964375289201",
+        "serializedBytes": "68930743744504659465632928067",
+        "depth": 456
+      }
+    },
+    {
+      "position": 7,
+      "dimension": 2,
+      "construction": {
+        "f32Arithmetic": 575,
+        "f16Conversions": 166,
+        "squareRoots": 10,
+        "exponentials": 8,
+        "activations": 1,
+        "maximumComparisons": 7,
+        "lengthDecisions": 0,
+        "dependencies": 131
+      },
+      "measure": {
+        "uniqueNodes": 7913,
+        "uniqueDecisions": 170,
+        "occurrences": "367685221322961765047667740479075485692927",
+        "decisions": "3144659836560257094491431683152889201",
+        "serializedBytes": "8326929705158269715456624837708865977040067",
+        "depth": 674
+      }
+    }
+  ],
+  "doubleRoundingBoundaryComparisons": 368628,
+  "independentDoubleRoundingOracle": {
+    "pass": 1,
+    "fail": 0,
+    "comparisons": 368628,
+    "log": "/private/tmp/llm-inner-json-fused-independent-test.log"
   }
 }

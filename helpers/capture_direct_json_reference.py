@@ -30,6 +30,19 @@ def main():
         zeros = torch.zeros(length, width, dtype=torch.float16)
         zeros.view(torch.int16).reshape(-1)[::2] = -32768
         matrices.append(("signed-zeros", zeros))
+        matrices.append(("maximum-finite", torch.full((length, width), 65504.0, dtype=torch.float16)))
+        matrices.append(("minimum-finite", torch.full((length, width), -65504.0, dtype=torch.float16)))
+        alternating = torch.full((length, width), 65504.0, dtype=torch.float16)
+        alternating.reshape(-1)[::2] *= -1
+        matrices.append(("alternating-extremes", alternating))
+        for label, magnitude in [("smallest-normal", 2.0 ** -14),
+                                 ("largest-subnormal", 2.0 ** -14 - 2.0 ** -24)]:
+            boundary = torch.full((length, width), magnitude, dtype=torch.float16)
+            boundary.reshape(-1)[::2] *= -1
+            matrices.append((label, boundary))
+        mixed = torch.full((length, width), 2.0 ** -24, dtype=torch.float16)
+        mixed.reshape(-1)[::2] = -65504.0
+        matrices.append(("mixed-magnitudes", mixed))
         for scale in [2.0 ** -24, 0.03125, 1.0, 32.0]:
             matrices.append((f"random-{scale}", (torch.rand(length, width, generator=generator) * (2 * scale) - scale).half()))
         for label, matrix in matrices:

@@ -7,6 +7,7 @@ import {jsonConstant as c,jsonInput,jsonOperation as o,type JsonExpression} from
 import {lowerJsonF32ToF16} from './direct-json-f16.js';
 import type {Projection} from './direct-mlp-output.js';
 import type {JsonScalarHeader} from './direct-json-stream.js';
+import type {JsonFloatRange} from './direct-json-range.js';
 
 export interface JsonModelConstructionStats {
   f32Arithmetic:number;f16Conversions:number;squareRoots:number;exponentials:number;
@@ -17,6 +18,7 @@ export interface JsonModelLoweringFacts {
   positiveNormalRoots:WeakSet<JsonExpression>;
   exponentialBounds:WeakMap<JsonExpression,number>;
   activationBounds:WeakMap<JsonExpression,number>;
+  ranges?:WeakMap<JsonExpression,JsonFloatRange>;
 }
 /** Builds fully substituted scalar syntax backwards from an arbitrary logit.
  * The cache contains compiler expressions, not activations or forward values.
@@ -82,7 +84,7 @@ export async function openJsonModelBuilder(directory:string,python:string,
       exponentials:0,activations:0,maximumComparisons:0,lengthDecisions:0,dependencies:0};
     const memo=new Map<string,Promise<JsonExpression>>();
     const facts:JsonModelLoweringFacts={halfSources:new WeakMap(),positiveNormalRoots:new WeakSet(),
-      exponentialBounds:new WeakMap(),activationBounds:new WeakMap()};
+      exponentialBounds:new WeakMap(),activationBounds:new WeakMap(),ranges:new WeakMap()};
     const dependency=(key:string,make:()=>Promise<JsonExpression>):Promise<JsonExpression>=>{
       const hit=memo.get(key);if(hit)return hit;
       if(++stats.dependencies>maxDependencies)throw new RangeError('Compilation dependency budget exceeded');
@@ -154,6 +156,11 @@ export async function openJsonModelBuilder(directory:string,python:string,
           return f32('div',c('f32',1),root);
         });
         const normalized=half(f32('mul',widen(await input(coordinate)),inverse));
+        // RMS magnitude <=sqrt(width) in real arithmetic. The existing
+        // finite-normalization certificate admits <1.25 relative/error loss;
+        // factor two covers both explicit F32 and F16 rounding boundaries.
+        const bound=2*Math.sqrt(width);
+        facts.ranges!.set(normalized,{minimum:-bound,maximum:bound});
         return half(f32('mul',widen(normalized),c('f32',await weight(name,coordinate))));
       });
     const hidden=(layer:number,coordinate:number,row:number):Promise<JsonExpression>=>

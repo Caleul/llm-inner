@@ -1,7 +1,7 @@
 import {jsonConstant as c,jsonOperation as o,jsonInput,type JsonExpression} from './direct-json-expression.js';
 import {jsonConstantValue,evaluateJsonExpression} from './direct-json-evaluator.js';
 import {lowerJsonRoundNormalF32AsF64} from './direct-json-f16.js';
-import {lowerJsonFiniteF16AsF64} from './direct-json-half-value.js';
+import {lowerJsonFiniteF16AsF64,lowerJsonNormalF32ThenF16AsF64} from './direct-json-half-value.js';
 import {lowerJsonPositiveNormalSqrtAsF64} from './direct-json-sqrt.js';
 import {lowerJsonSmallNonpositiveExpAsF64} from './direct-json-exp.js';
 import {certifyJsonSmallSilu,lowerJsonSmallSiluAsF64} from './direct-json-silu.js';
@@ -10,6 +10,7 @@ import {decodeIeeeF16ToF32} from './utils.js';
 import {f32BitsToDyadic,roundDyadicToF16IfElse} from './fixed-f16-projection.js';
 import type {JsonScalarHeader} from './direct-json-stream.js';
 import type {JsonPrecisionFacts} from './direct-json-precision.js';
+import {jsonModelRangeAnalysis} from './direct-json-range.js';
 
 /** Runtime arguments were already finite F16 values exactly widened to F64.
  * Declare that input contract instead of encoding and decoding X at every use. */
@@ -26,6 +27,8 @@ export function loweredJsonHeader(header:JsonScalarHeader):JsonScalarHeader {
 export function lowerJsonModelExpression(root:JsonExpression,facts:JsonModelLoweringFacts,
   precision:JsonPrecisionFacts=new WeakMap()):JsonExpression {
   const memo=new WeakMap<object,JsonExpression>();
+  const f32Sources=new WeakMap<JsonExpression,JsonExpression>();
+  const range=jsonModelRangeAnalysis(facts);
   const value=(node:JsonExpression)=>node[0]==='constant'?Number(jsonConstantValue(node)):undefined;
   const halfConstant=(node:JsonExpression)=>{
     if(node[0]!=='constant'||node[1]!=='f32')return false;
@@ -61,7 +64,11 @@ export function lowerJsonModelExpression(root:JsonExpression,facts:JsonModelLowe
         const bits=Object.is(x,-0)?0x8000:roundDyadicToF16IfElse(f32BitsToDyadic(data.getUint32(0)));
         return c('f64',decodeIeeeF16ToF32(bits));
       }
-      return lowerJsonFiniteF16AsF64(source);
+      const interval=range(halfSource),raw=f32Sources.get(source);
+      if(raw&&interval&&(interval.minimum>=2**-14||interval.maximum<=-(2**-14))&&
+        Math.max(Math.abs(interval.minimum),Math.abs(interval.maximum))<65520)
+        return lowerJsonNormalF32ThenF16AsF64(raw);
+      return lowerJsonFiniteF16AsF64(source,interval);
     }
     if(node[0]==='constant')return node[1].startsWith('f')?c('f64',Number(jsonConstantValue(node))):node;
     if(node[0]==='input')return node[1]==='f16'?jsonInput('f64',node[2]):node;
@@ -100,7 +107,9 @@ export function lowerJsonModelExpression(root:JsonExpression,facts:JsonModelLowe
         Math.abs(value(a)??NaN)===1||Math.abs(value(b)??NaN)===1)||
         (node[0]==='add'||node[0]==='sub')&&(value(a)===0||value(b)===0)||
         node[0]==='div'&&Math.abs(value(b)??NaN)===1;
-      return exact?expression:lowerJsonRoundNormalF32AsF64(expression);
+      if(exact)return expression;
+      const rounded=lowerJsonRoundNormalF32AsF64(expression);
+      f32Sources.set(rounded,expression);return rounded;
     }
     return o(node[0],node[1],...args.map(visit));
   }

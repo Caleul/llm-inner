@@ -27,7 +27,7 @@ export function lowerJsonSmallSiluAsF64(x:JsonExpression):JsonExpression {
   return o('if','f64',o('eq','bool',x,c('f64',0)),x,
     lowerJsonFiniteF16AsF64(lowerJsonRoundNormalF32AsF64(result)));
 }
-export interface JsonSiluCertificate {bound:number;checkedPoints:number;profileSha256:string;policy:'pytorch-2.12.1-cpu-f16';}
+export interface JsonSiluCertificate {bound:number;checkedPoints:number;maximumMagnitude:number;profileSha256:string;policy:'pytorch-2.12.1-cpu-f16';}
 const certificates=new Map<number,JsonSiluCertificate>();
 export function certifyJsonSmallSilu(bound:number):JsonSiluCertificate {
   if(!Number.isFinite(bound)||bound<0||bound>.1)throw new RangeError('Small SiLU polynomial requires a proven magnitude <= 0.1');
@@ -36,7 +36,7 @@ export function certifyJsonSmallSilu(bound:number):JsonSiluCertificate {
   const composed=lowerJsonSmallSiluAsF64(jsonInput('f64','X1'));
   const profile=readFileSync(new URL('../../numeric-profiles/pytorch-2.12.1-cpu-f16-silu.bin',import.meta.url));
   if(profile.length!==131072)throw new Error('Invalid backend SiLU certificate profile');
-  let checkedPoints=0;
+  let checkedPoints=0,maximumMagnitude=0;
   for(let bits=0;bits<65536;bits++){
     if((bits&0x7c00)===0x7c00)continue;
     const value=decodeIeeeF16ToF32(bits);if(Math.abs(value)>bound)continue;
@@ -44,9 +44,9 @@ export function certifyJsonSmallSilu(bound:number):JsonSiluCertificate {
     const actual=evaluateJsonExpression(expression,{X1:value});
     if(!Object.is(actual,expected)||!Object.is(evaluateJsonExpression(composed,{X1:value}),expected))
       throw new Error(`SiLU polynomial certificate failed at F16 bits ${bits.toString(16)}`);
-    checkedPoints++;
+    checkedPoints++;maximumMagnitude=Math.max(maximumMagnitude,Math.abs(expected));
   }
-  const certificate:JsonSiluCertificate={bound,checkedPoints,profileSha256:createHash('sha256').update(profile).digest('hex'),policy:'pytorch-2.12.1-cpu-f16'};
+  const certificate:JsonSiluCertificate={bound,checkedPoints,maximumMagnitude,profileSha256:createHash('sha256').update(profile).digest('hex'),policy:'pytorch-2.12.1-cpu-f16'};
   if(certificates.size>=16)certificates.delete(certificates.keys().next().value!);
   certificates.set(bound,certificate);return certificate;
 }

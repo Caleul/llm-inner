@@ -144,18 +144,42 @@ quando os bits descartados já são comprovadamente zero. As provas são objetos
 do compilador e não metadados de execução. A regra foi validada em todos os
 F16 finitos, mas não encontrou cancelamento adicional neste checkpoint.
 
+## Simplificação por faixa e células de duplo arredondamento
+
+`direct-json-range.ts` propaga intervalos conservadores nas expressões de
+construção. Cada operação F32 recebe um passo de margem para fora, cobrindo
+arredondamento do cálculo do endpoint; um divisor que atravessa zero não recebe
+limite. Produtos quadráticos têm mínimo não negativo. RMS recebe o limite
+correlacionado provado, evitando a estimativa incorreta por divisão independente.
+SiLU recebe a magnitude máxima verificada em todos os pontos de seu certificado.
+
+Esses fatos eliminam braços de overflow, subnormal e sinal apenas quando sua
+inacessibilidade está demonstrada. A restauração geral de sinal F16 usa OR do
+bit original, sem decisão; conserva inclusive underflow para zero negativo.
+
+A composição F64→F32→F16 normal possui uma regra exata adicional. Não substituir
+por F64→F16 direto: o primeiro arredondamento alarga as células de empate. Na
+representação inteira F64, o viés é `2^41 - 2^28 - 1 + paridade*(2^29 + 1)`,
+seguido da máscara de 42 bits. Essa regra foi verificada em 368.628 casos:
+ambas as bordas de cada célula de empate normal F16, seus vizinhos F64 e ambos
+os sinais. O lowerer a usa somente com prova de resultado F16 normal e finito.
+
+A árvore prevista reduziu cerca de 33.677 vezes para posição 0/dimensão 2 e
+9.079.351 vezes para posição 7/dimensão 2 em relação ao checkpoint anterior.
+A medida continua enorme: nenhuma emissão foi iniciada por causa dessa redução.
+
 ## Diagnóstico de duplicação e limite de conclusão
 
 `direct-json-measure.ts` calcula exatamente ocorrências e bytes da árvore que
 seria serializada, sem renderizá-la. Valores BigInt evitam overflow do contador.
-Após fechamento e simplificação, posição 0/dimensão 2 possui 1.356 nós físicos,
-70 decisões físicas, profundidade 456 e aproximadamente 2,32e33 bytes expandidos.
-Posição 7/dimensão 2 possui 8.637 nós, 451 decisões, profundidade 683 e
-aproximadamente 7,56e49 bytes. Essas medidas incluem duplicação de operandos
+Após fechamento e simplificação, posição 0/dimensão 2 possui 1.266 nós físicos,
+29 decisões físicas, profundidade 456 e aproximadamente 6,89e28 bytes expandidos.
+Posição 7/dimensão 2 possui 7.913 nós, 170 decisões, profundidade 674 e
+aproximadamente 8,33e42 bytes. Essas medidas incluem duplicação de operandos
 nas expansões numéricas; não são tamanho de arquivo gerado nem número de
 bifurcações originais do modelo. Nenhuma emissão desse volume foi iniciada.
 
-As expressões fechadas dos 32 pares posição/dimensão passaram em 432 resultados
+As expressões fechadas dos 32 pares posição/dimensão passaram em 864 resultados
 comparados bit a bit com PyTorch. Isso comprova o corpus diagnóstico após o
 fechamento; não comprova todas as entradas possíveis nem um artefato final
 serializado. O avaliador memoizado e a árvore compartilhada são ferramentas de
@@ -200,15 +224,16 @@ Novos testes em `test/direct-json.test.ts`:
 Validação histórica inicial: 44/44 testes aprovados, incluindo os 11 novos e
 os testes existentes `direct-round-preimage` e `direct-flat-substitution`.
 
-Validação atual: `test/direct-json.test.ts` tem 19 casos; também cobre widening,
+Validação atual: `test/direct-json.test.ts` tem 22 casos; também cobre widening,
 raiz, exponencial, SiLU certificado, conversões compostas, medição de duplicação
 e cancelamento de round com prova de precisão. `test/direct-json-model.test.ts`
-cobre os 32 pares posição/dimensão e as 432 comparações antes e depois do
+cobre os 32 pares posição/dimensão e as 864 comparações antes e depois do
 fechamento/simplificação. Este teste é pulado sem as variáveis
 `LLM_INNER_DIRECT_PYTHON` e `LLM_INNER_DIRECT_JSON_CHECKPOINT`; a validação registrada
-forneceu ambas. Os 20 testes focados passaram sem skips.
+forneceu ambas. Os 23 testes focados passaram sem skips. O corpus inclui máximos F16 com
+ambos os sinais, magnitudes misturadas e fronteiras normal/subnormal.
 
-Suíte completa final: 517 testes, 499 aprovados, 15 falhas, 3 skips.
+Suíte completa atual: 520 testes, 502 aprovados, 15 falhas, 3 skips.
 Todos os 479 testes aprovados no baseline continuam aprovados; as mesmas 15
 falhas anteriores estão mapeadas em `docs/direct-json-validation.json`. A suíte
 completa final e os contadores de simplificação são reconciliados nesse arquivo.

@@ -8,9 +8,10 @@ import {lowerJsonWiden} from '../src/direct-json-widen.js';
 import {lowerJsonPositiveNormalSqrt,lowerJsonPositiveNormalSqrtAsF64} from '../src/direct-json-sqrt.js';
 import {certifyJsonSmallSilu,lowerJsonSmallSilu} from '../src/direct-json-silu.js';
 import {lowerJsonSmallNonpositiveExp} from '../src/direct-json-exp.js';
-import {lowerJsonFiniteF16AsF64} from '../src/direct-json-half-value.js';
+import {lowerJsonFiniteF16AsF64,lowerJsonNormalF32ThenF16AsF64} from '../src/direct-json-half-value.js';
 import {measureJsonExpression} from '../src/direct-json-measure.js';
 import {simplifyJsonBitPrecision,type JsonPrecisionFacts} from '../src/direct-json-precision.js';
+import {jsonModelRangeAnalysis} from '../src/direct-json-range.js';
 import {foldDeclaredCpuF32Exponential} from '../src/direct-rust-numeric.js';
 import {f32BitsToDyadic,roundDyadicToF16IfElse} from '../src/fixed-f16-projection.js';
 import {decodeIeeeF16ToF32} from '../src/utils.js';
@@ -89,6 +90,74 @@ test('JSON precision cancels redundant bit rounding only with a proved lattice a
   // A redundant mask retains an undefined operand rather than hiding it.
   const invalid=op('shl','u64',c('u64',1),c('u64',64));
   assert.throws(()=>evaluate(simplifyJsonBitPrecision(op('and','u64',invalid,c('u64',0xffffffffffffffffn)))));
+});
+test('JSON certified F16 source ranges eliminate only unreachable sign, subnormal and overflow arms',()=>{
+  const x=input('f64','X1'),generic=lowerJsonFiniteF16AsF64(x);
+  const ranges=[{minimum:-.1,maximum:.1},{minimum:2**-25,maximum:2**-15},
+    {minimum:-2,maximum:-1},{minimum:-65504,maximum:65504},{minimum:0,maximum:0}];
+  for(const range of ranges){
+    const reduced=lowerJsonFiniteF16AsF64(x,range);
+    assert.ok(measureJsonExpression(reduced).uniqueDecisions<measureJsonExpression(generic).uniqueDecisions);
+    for(let bits=0;bits<65536;bits++)if((bits&0x7c00)!==0x7c00){
+      const value=decodeIeeeF16ToF32(bits);
+      if(value>=range.minimum&&value<=range.maximum)
+        assert.ok(Object.is(evaluate(reduced,{X1:value}),evaluate(generic,{X1:value})));
+    }
+    // Non-F16 F32 values exercise rounding inside the certified intervals.
+    for(let i=0;i<1000;i++){
+      const value=Math.fround(range.minimum+(range.maximum-range.minimum)*i/999);
+      if(value>=range.minimum&&value<=range.maximum)
+        assert.ok(Object.is(evaluate(reduced,{X1:value}),evaluate(generic,{X1:value})));
+    }
+  }
+  assert.throws(()=>lowerJsonFiniteF16AsF64(x,{minimum:1,maximum:0}),/interval/);
+});
+test('JSON working range analysis encloses F32 endpoint rounding and refuses unknown or zero-crossing divisors',()=>{
+  const facts={halfSources:new WeakMap(),positiveNormalRoots:new WeakSet<JsonExpression>(),
+    exponentialBounds:new WeakMap(),activationBounds:new WeakMap(),ranges:new WeakMap()};
+  const range=jsonModelRangeAnalysis(facts),x=input('f16','X1'),wide=op('widen','f32',x);
+  const square=op('mul','f32',wide,wide),r=range(square)!;
+  assert.equal(r.minimum,0);assert.ok(r.maximum>=65504**2);
+  const sum=op('add','f32',square,c('f32',2**-126)),s=range(sum)!;
+  assert.ok(s.minimum>0);assert.ok(s.maximum>=r.maximum);
+  assert.equal(range(op('div','f32',c('f32',1),wide)),undefined);
+  assert.equal(range(input('f64','Unknown')),undefined);
+  assert.equal(range(c('bool',true)),undefined);
+  const source=op('mul','f32',wide,c('f32',.0001)),half=lowerJsonF32ToF16(source);
+  facts.halfSources.set(half,source);
+  const h=range(half)!;
+  for(const value of [-65504,-(2**-24),-0,0,2**-24,65504]){
+    const actual=Number(evaluate(half,{X1:value}));assert.ok(actual>=h.minimum&&actual<=h.maximum);
+  }
+});
+test('JSON normal double rounding is fused with both widened even and odd tie cells preserved',()=>{
+  const x=input('f64','X1'),fused=lowerJsonNormalF32ThenF16AsF64(x);
+  const separate=lowerJsonFiniteF16AsF64(lowerJsonRoundNormalF32AsF64(x));
+  const buffer=new DataView(new ArrayBuffer(8));
+  const f32=new DataView(new ArrayBuffer(4));
+  let comparisons=0;
+  // Each positive normal half midpoint, both F32 tie-cell edges and the
+  // adjacent binary64 values. Repeat with both signs; exclude overflow.
+  for(let bits=0x0400;bits<0x7bff;bits++){
+    const a=decodeIeeeF16ToF32(bits),b=decodeIeeeF16ToF32(bits+1),midpoint=(a+b)/2;
+    buffer.setFloat64(0,midpoint);const middle=buffer.getBigUint64(0);
+    for(const offset of [-(1n<<28n),1n<<28n])for(const adjacent of [-1n,0n,1n]){
+      buffer.setBigUint64(0,middle+offset+adjacent);const value=buffer.getFloat64(0);
+      for(const sign of [-1,1]){
+        const actual=evaluate(fused,{X1:sign*value});
+        assert.ok(Object.is(actual,evaluate(separate,{X1:sign*value})),
+          `half midpoint ${bits.toString(16)}, edge ${offset}, adjacent ${adjacent}, sign ${sign}`);
+        f32.setFloat32(0,sign*value);
+        const expected=decodeIeeeF16ToF32(roundDyadicToF16IfElse(f32BitsToDyadic(f32.getUint32(0))));
+        assert.ok(Object.is(actual,expected),'independent IEEE F32 and dyadic F16 oracle');
+        comparisons++;
+      }
+    }
+  }
+  assert.equal(comparisons,368628);
+  // Ordinary direct F64->F16 rounding differs at these double-rounding cells.
+  const value=1+2**-11+2**-25;
+  assert.equal(evaluate(fused,{X1:value}),1);
 });
 test('JSON rejects hidden floating conversions and malformed operation types',()=>{
   assert.throws(()=>op('convert','f16',input('f32','X1')),/Unlowered/);
