@@ -672,3 +672,83 @@ comparações dos vetores de referência e JSON fechado passaram bit a bit.
 A comparação live da malha de exponencial com PyTorch também passou.
 A CLI preparou 1/32 coordenadas e escreveu zero unidades, recusando a primeira
 árvore por tamanho antes da emissão e registrando paridade final não verificada.
+
+
+## Promoções de condições em rodadas com término explícito
+
+A combinação de condições não termina mais automaticamente após a primeira
+promoção. Cada rodada reaplica as regras básicas até seu ponto fixo, procura
+uma promoção estritamente menor em bytes literais e continua a partir dela.
+A ordem das operações em cada caminho permanece intacta. Não há produto
+cartesiano antecipado de condições nem geração de novos valores de referência.
+
+O limite padrão é de oito rodadas, com 256 candidatos por rodada e o limite
+já existente de 100.000 nós físicos. `--max-condition-rounds` permite controlar
+o primeiro limite; uma rodada reproduz a política anterior. Contadores são
+cumulativos. `converged` só fica verdadeiro se a última busca completa não
+achar promoção permitida que reduza bytes. `stopReason` distingue `fixed-point`,
+`round-budget`, `candidate-budget` e `resource-budget`. Esse ponto fixo vale
+somente para esta transformação, não demonstra que toda simplificação
+matemática possível foi realizada. Uma falha de orçamento em rodada posterior
+preserva a última expressão já admitida e informa que a busca ficou incompleta.
+
+O teste com dois grupos de decisões demonstra que a segunda promoção reduz
+mais que a primeira e mantém os quatro resultados possíveis. Outro teste
+exige que limites de rodadas e candidatos nunca sejam reportados como convergência.
+Os testes anteriores de lazy inputs e operações inteiras indefinidas continuam
+aplicáveis em cada rodada.
+
+Na medição inicial, a primeira coordenada (posição 0/dimensão 2) aceitou uma
+promoção e atingiu o ponto fixo desta regra na segunda rodada, em cerca de
+1,17 segundos. Manteve 72659232914655964882628 bytes previstos. A terminal
+(posição 7/dimensão 2) aceitou duas promoções em três rodadas e caiu de
+27697449910356226706169067089727129 para 14559843742299065345314960831221058
+bytes, cerca de 47% menos. A terceira rodada parou no limite de candidatos:
+672 candidatos foram examinados no total e a convergência não foi demonstrada.
+A busca terminal levou aproximadamente 140,6 segundos, com 24.894 nós físicos,
+878 decisões físicas e 23336047748076654126818621733 decisões expandidas.
+O crescimento dos nós/decisões físicos acompanha uma redução das ocorrências
+na árvore literal. O custo adicional de compilação é real e a opção de uma
+rodada preserva o caminho anterior. O JSON final permanece pendente.
+
+A suíte serial terminou e foi reconciliada: 549 testes, 531 passando,
+15 falhas anteriores e três ignorados. Nenhum dos passes anteriores foi perdido.
+As 864 comparações dos vetores de referência e expressões fechadas passaram.
+O terceiro teste de orçamento tardio passou separadamente porque foi adicionado
+após o início dessa execução.
+
+## Busca paralela durante a compilação
+
+Candidatos independentes de promoção são avaliados por até quatro workers,
+limitados pelos núcleos disponíveis e pela quantidade de candidatos seguros.
+Cada worker recebe uma cópia do grafo interno de uma coordenada; o leitor de
+pesos permanece incremental no processo principal. Operações numéricas de cada
+caminho mantêm sua ordem. A escolha final usa o menor tamanho e, no empate,
+a ordem serial dos candidatos. Nenhum worker ou referência é serializado no JSON.
+
+`--condition-workers 1` executa a busca serial. Mais workers aumentam o uso de
+CPU e memória temporária de compilação. Os limites de candidatos, nós e rodadas
+continuam explícitos; atingir um limite não declara convergência.
+
+Na coordenada terminal medida, quatro workers levaram 43,5 segundos contra
+140,6 segundos na busca serial, aproximadamente 3,2 vezes mais rápido.
+Os tamanhos e contadores coincidiram. Os três testes focados verificam a escolha
+determinística, entradas condicionais, operações indefinidas, zeros com sinal e
+orçamentos. A suíte integrada paralela terminou: 553 testes, 535 passando, as mesmas 15
+falhas anteriores e três ignorados. Todos os 479 passes originais e os 531
+passes da suíte serial imediatamente anterior foram preservados. As árvores
+completas e os contadores serial/paralela coincidiram nas posições inicial e
+terminal (dimensão 2). Os 864 logits passaram nas duas representações, totalizando
+1.728 verificações bit a bit. O teste completo do modelo levou 790,0 segundos
+contra 2.131,9 segundos na execução serial, aproximadamente 2,7 vezes mais rápido,
+mesmo incluindo a comparação serial adicional. O artefato literal final continua
+pendente.
+
+O perfil da primeira coordenada fechada diferencia a origem da duplicação:
+71 decisões físicas viram 117119344839022567 ocorrências de `if:f64`, enquanto
+duas entradas fundamentais viram 642642545222578663320 ocorrências.
+112 multiplicações F64 viram 340441137248730895154 ocorrências; 244 adições de
+palavras u64 viram 266952571788309193812. Esses números medem a sintaxe literal,
+não caminhos distintos de execução. A duplicação aritmética e das conversões
+continua sendo um gargalo mesmo quando decisões são combinadas. O perfil está
+registrado no mapa de validação para orientar a próxima redução exata.

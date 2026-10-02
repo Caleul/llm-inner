@@ -13,8 +13,9 @@ import type {JsonExpression} from '../src/direct-json-expression.js';
 import {lowerJsonModelExpression} from '../src/direct-json-lower-model.js';
 import {measureJsonExpression} from '../src/direct-json-measure.js';
 import {simplifyJsonBitPrecision,type JsonPrecisionFacts} from '../src/direct-json-precision.js';
-import {simplifyJsonFixedPoint} from '../src/direct-json-simplify.js';
+import {simplifyJsonFixedPoint,sameJsonExpression} from '../src/direct-json-simplify.js';
 import {simplifyJsonSharedConditions} from '../src/direct-json-cofactor.js';
+import {simplifyJsonSharedConditionsParallel} from '../src/direct-json-cofactor-parallel.js';
 import {writeDirectJsonModel} from '../src/direct-json-compile.js';
 import {certifyJsonHalfDifferenceExp,foldJsonExpPolynomial} from '../src/direct-json-exp.js';
 import {foldDeclaredCpuF32Exponential} from '../src/direct-rust-numeric.js';
@@ -87,7 +88,14 @@ test('source-discovered JSON working expressions reproduce complete checkpoint l
         const precision:JsonPrecisionFacts=new WeakMap();
         const expanded=lowerJsonModelExpression(expression,facts,precision);
         const fixed=simplifyJsonFixedPoint(simplifyJsonBitPrecision(expanded,precision)).expression;
-        const {expression:closed,stats:cofactor}=simplifyJsonSharedConditions(fixed);
+        const {expression:closed,stats:cofactor}=await simplifyJsonSharedConditionsParallel(fixed);
+        // Compare the complete compiler tree, not just its size, at both ends
+        // of the checkpoint's context. Corpus parity below checks the result.
+        if(dimension===2&&(row===0||row===corpus.context-1)){
+          const serial=simplifyJsonSharedConditions(fixed);
+          assert.deepEqual(cofactor,serial.stats);
+          assert.ok(sameJsonExpression(closed,serial.expression),`serial/parallel tree at position ${row}`);
+        }
         assert.ok(cofactor.afterBytes<=cofactor.beforeBytes);
         const measure=measureJsonExpression(closed);
         assert.ok(measure.uniqueNodes<100_000);lowered[row]!.push(closed);

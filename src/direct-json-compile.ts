@@ -1,13 +1,14 @@
 import {openJsonModelBuilder,type JsonModelConstructionStats} from './direct-json-model.js';
 import {loweredJsonHeader,lowerJsonModelExpression} from './direct-json-lower-model.js';
 import {simplifyJsonBitPrecision,type JsonPrecisionFacts} from './direct-json-precision.js';
-import {simplifyJsonSharedConditions,type JsonCofactorStats} from './direct-json-cofactor.js';
+import type {JsonCofactorStats} from './direct-json-cofactor.js';
+import {simplifyJsonSharedConditionsParallel} from './direct-json-cofactor-parallel.js';
 import {measureJsonExpression,type JsonExpressionMeasure} from './direct-json-measure.js';
 import {writeJsonScalarUnits,type JsonScalarUnit} from './direct-json-stream.js';
 
 export interface DirectJsonCompileOptions {
   weightCacheBytes?:number;maxDependencies?:number;maxBytes?:number;maxOccurrences?:number;
-  maxConditionCandidates?:number;maxUniqueNodes?:number;
+  maxConditionCandidates?:number;maxUniqueNodes?:number;maxConditionRounds?:number;maxConditionWorkers?:number;
   onPrepared?:(unit:{position:number;dimension:number;preparedUnits:number;totalUnits:number;
     construction:JsonModelConstructionStats;cofactor:JsonCofactorStats;measure:JsonExpressionMeasure})=>void;
 }
@@ -27,9 +28,11 @@ export async function writeDirectJsonModel(directory:string,python:string,path:s
       for(let position=0;position<header.context;position++)for(let dimension=0;dimension<header.outputWidth;dimension++){
         const {expression,stats,facts}=await builder.build(position,dimension),precision:JsonPrecisionFacts=new WeakMap();
         const lowered=lowerJsonModelExpression(expression,facts,precision);
-        const {expression:closed,stats:cofactor}=simplifyJsonSharedConditions(simplifyJsonBitPrecision(lowered,precision),{
+        const {expression:closed,stats:cofactor}=await simplifyJsonSharedConditionsParallel(simplifyJsonBitPrecision(lowered,precision),{
           ...(options.maxConditionCandidates!==undefined?{maxCandidates:options.maxConditionCandidates}:{}),
-          ...(options.maxUniqueNodes!==undefined?{maxUniqueNodes:options.maxUniqueNodes}:{})});
+          ...(options.maxUniqueNodes!==undefined?{maxUniqueNodes:options.maxUniqueNodes}:{}),
+          ...(options.maxConditionRounds!==undefined?{maxRounds:options.maxConditionRounds}:{}),
+          ...(options.maxConditionWorkers!==undefined?{workers:options.maxConditionWorkers}:{})});
         const measure=measureJsonExpression(closed,options.maxUniqueNodes??100_000);
         options.onPrepared?.({position,dimension,preparedUnits:++preparedUnits,
           totalUnits:header.context*header.outputWidth,construction:stats,cofactor,measure});

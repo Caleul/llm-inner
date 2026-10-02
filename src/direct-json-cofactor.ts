@@ -3,13 +3,14 @@ import {measureJsonExpression} from './direct-json-measure.js';
 import {simplifyJsonFixedPoint,simplifyJsonExpression,jsonExpressionIsTotal} from './direct-json-simplify.js';
 
 export interface JsonCofactorStats {candidates:number;reducingCandidates:number;accepted:number;unsafe:number;overBudget:number;
-  beforeBytes:bigint;afterBytes:bigint}
+  beforeBytes:bigint;afterBytes:bigint;rounds:number;converged:boolean;roundBudgetFailures:number;
+  stopReason:'fixed-point'|'round-budget'|'candidate-budget'|'resource-budget'}
 /** Select one existing pure decision, propagate its truth into the whole scalar,
  * and keep the decision once outside both simplified results. This combines
  * repeated condition queries without reordering arithmetic within a path.
  * Only byte-reducing candidates are accepted, and no Cartesian condition
  * product is generated in advance. All base rules reach a fixed point first. */
-export function simplifyJsonSharedConditions(root:JsonExpression,
+function simplifyOneSharedCondition(root:JsonExpression,
   options:{maxCandidates?:number;maxUniqueNodes?:number}={}):{expression:JsonExpression;stats:JsonCofactorStats} {
   const maxCandidates=options.maxCandidates??256,maxNodes=options.maxUniqueNodes??100_000;
   if(!Number.isSafeInteger(maxCandidates)||maxCandidates<0||!Number.isSafeInteger(maxNodes)||maxNodes<1)
@@ -17,7 +18,7 @@ export function simplifyJsonSharedConditions(root:JsonExpression,
   measureJsonExpression(root,maxNodes);
   const maxVisits=Math.min(1_000_000,maxNodes*8);
   const base=simplifyJsonFixedPoint(root,32,maxVisits).expression,before=measureJsonExpression(base,maxNodes);
-  const stats:JsonCofactorStats={candidates:0,reducingCandidates:0,accepted:0,unsafe:0,overBudget:0,beforeBytes:before.serializedBytes,afterBytes:before.serializedBytes};
+  const stats:JsonCofactorStats={candidates:0,reducingCandidates:0,accepted:0,unsafe:0,overBudget:0,beforeBytes:before.serializedBytes,afterBytes:before.serializedBytes,rounds:1,converged:false,roundBudgetFailures:0,stopReason:'round-budget'};
   // Postorder compiler nodes, never expanded occurrences. Weight each node by
   // its expanded multiplicity when ranking duplicated condition queries.
   const order:JsonExpression[]=[],seen=new WeakSet<object>();
@@ -66,5 +67,41 @@ export function simplifyJsonSharedConditions(root:JsonExpression,
     if(size.serializedBytes<stats.beforeBytes)stats.reducingCandidates++;
     if(size.serializedBytes<stats.afterBytes){best=candidate;stats.afterBytes=size.serializedBytes;stats.accepted=1;}
   }
+  if(stats.accepted===0){
+    stats.converged=stats.overBudget===0&&stats.candidates===candidates.length;
+    stats.stopReason=stats.overBudget>0?'resource-budget':stats.converged?'fixed-point':'candidate-budget';
+  }
   return {expression:best,stats};
+}
+
+/** Continue strictly byte-reducing promotions after each base-rule fixed point.
+ * Budgets bound compiler work, not model semantics. An exhausted budget is
+ * reported as incomplete; convergence applies only to this transformation. */
+export function simplifyJsonSharedConditions(root:JsonExpression,
+  options:{maxCandidates?:number;maxUniqueNodes?:number;maxRounds?:number}={}):{expression:JsonExpression;stats:JsonCofactorStats} {
+  const maxRounds=options.maxRounds??8;
+  if(!Number.isSafeInteger(maxRounds)||maxRounds<1)throw new RangeError('Invalid shared-condition round budget');
+  let expression=root,aggregate:JsonCofactorStats|undefined;
+  for(let round=0;round<maxRounds;round++){
+    let result:ReturnType<typeof simplifyOneSharedCondition>;
+    try{result=simplifyOneSharedCondition(expression,options);}
+    catch(error){
+      if(!(error instanceof RangeError)||!aggregate)throw error;
+      // The previous accepted expression is already measured and valid. A
+      // later base-rule budget cannot discard that progress or claim closure.
+      aggregate.rounds++;aggregate.roundBudgetFailures++;aggregate.converged=false;
+      aggregate.stopReason='resource-budget';return {expression,stats:aggregate};
+    }
+    expression=result.expression;
+    if(!aggregate)aggregate={...result.stats};
+    else {
+      for(const key of ['candidates','reducingCandidates','accepted','unsafe','overBudget','rounds','roundBudgetFailures'] as const)
+        aggregate[key]+=result.stats[key];
+      aggregate.afterBytes=result.stats.afterBytes;
+      aggregate.converged=result.stats.converged;aggregate.stopReason=result.stats.stopReason;
+    }
+    if(result.stats.accepted===0)return {expression,stats:aggregate};
+  }
+  aggregate!.converged=false;aggregate!.stopReason='round-budget';
+  return {expression,stats:aggregate!};
 }
