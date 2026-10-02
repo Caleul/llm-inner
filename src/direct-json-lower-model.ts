@@ -11,6 +11,7 @@ import {f32BitsToDyadic,roundDyadicToF16IfElse} from './fixed-f16-projection.js'
 import type {JsonScalarHeader} from './direct-json-stream.js';
 import type {JsonPrecisionFacts} from './direct-json-precision.js';
 import {jsonModelRangeAnalysis} from './direct-json-range.js';
+import {createJsonModelSignProof} from './direct-json-sign.js';
 import {simplifyJsonFixedPoint,sameJsonExpression} from './direct-json-simplify.js';
 import {simplifyJsonBitPrecision} from './direct-json-precision.js';
 import {shareJsonExpression} from './direct-json-share.js';
@@ -46,7 +47,7 @@ export function createJsonModelLowerer(facts:JsonModelLoweringFacts,
   } {
   const memo=new WeakMap<object,JsonExpression>();let ordinal=0;
   const f32Sources=new WeakMap<JsonExpression,JsonExpression>();
-  const range=jsonModelRangeAnalysis(facts);
+  const range=jsonModelRangeAnalysis(facts),sourceSign=createJsonModelSignProof(facts,visit,range);
   const value=(node:JsonExpression)=>node[0]==='constant'?Number(jsonConstantValue(node)):undefined;
   const halfConstant=(node:JsonExpression)=>{
     if(node[0]!=='constant'||node[1]!=='f32')return false;
@@ -122,7 +123,7 @@ export function createJsonModelLowerer(facts:JsonModelLoweringFacts,
       if((halfSource[0]==='add'||halfSource[0]==='sub')&&
         halfOperand(halfSource[2]!)&&halfOperand(halfSource[3]!)){
         const raw=o(halfSource[0],'f64',visit(halfSource[2]!),visit(halfSource[3]!));
-        return lowerJsonFiniteF16AsF64(raw,range(halfSource));
+        return lowerJsonFiniteF16AsF64(raw,range(halfSource),sourceSign(halfSource,raw));
       }
       const source=visit(halfSource);
       if(source[0]==='constant'){
@@ -133,8 +134,8 @@ export function createJsonModelLowerer(facts:JsonModelLoweringFacts,
       }
       const interval=range(halfSource),raw=f32Sources.get(source);
       if(raw&&interval&&Math.max(Math.abs(interval.minimum),Math.abs(interval.maximum))<65520)
-        return lowerJsonFiniteF32ThenF16AsF64(raw,interval);
-      return lowerJsonFiniteF16AsF64(source,interval);
+        return lowerJsonFiniteF32ThenF16AsF64(raw,interval,sourceSign(halfSource,source));
+      return lowerJsonFiniteF16AsF64(source,interval,sourceSign(halfSource,source));
     }
     if(node[0]==='constant')return node[1].startsWith('f')?c('f64',Number(jsonConstantValue(node))):node;
     if(node[0]==='input')return node[1]==='f16'?jsonInput('f64',node[2]):node;

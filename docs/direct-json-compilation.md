@@ -1046,3 +1046,46 @@ adiados nesta rodada para não avançar o teste integral de todas as coordenadas
 Os quatro testes novos cobrem identidade estável, ordem de substituição,
 gravador de coordenada e paridade viva da coordenada completa na memória do
 compilador. A meta do JSON efetivo e sua paridade continua pendente.
+
+
+## Proveniência do sinal durante a substituição (2026-10-02)
+
+O sinal requerido pela conversão F16 passa a ser deduzido do produtor original
+quando isso foi provado no domínio finito. Produtos e divisões usam o XOR dos
+sinais dos operandos; raiz positiva normal e exponencial certificada têm sinal
+positivo. Widening e conversão F16 preservam o sinal, inclusive underflow para
+-0. A SiLU certificada preserva o sinal em seu domínio completo de entradas
+F16. Somas permitem propagação somente quando as provas dos dois sinais são
+iguais. Intervalos contendo zero nunca classificam seu sinal.
+
+Isso permite à conversão usar o sinal de X, por exemplo, em vez de repetir
+X multiplicado pelo inverso positivo da raiz. Sem prova, mantém a extração do
+sinal da expressão completa. Essas provas e memoizações vivem somente no
+compilador; o JSON continua contendo cálculos literais e máscaras de bits.
+Nenhuma ordem aritmética ou fronteira de arredondamento foi alterada.
+
+Na coordenada posição 0/dimensão 2, o tamanho literal previsto caiu de
+37.186.567.571.186.275.285.119 para 31.363.758.398.253.704.659.919 bytes
+(15,7%). Os 60 casos vivos continuam iguais bit a bit. A CLI tentou gravar a
+coordenada e recusou a expressão por orçamento: zero unidades, finalParity=false.
+Ainda não existe o JSON efetivo do Llama nem prova de paridade do arquivo final.
+
+A regressão restrita anterior foi preservada: 569 testes, 551 passes, as mesmas
+15 falhas conhecidas e 3 skips; os testes do vetor completo permanecem adiados.
+Os testes focados adicionais incluem 1.015.808 produtos/divisões F32 sobre todos
+os F16 finitos, sinais de coeficientes, zeros assinados e fronteiras de conversão
+direta e dupla. O mapa registra separadamente a regressão e os testes acrescentados
+ou repetidos depois dela, com SHA dos fontes e logs.
+
+
+A conversão interna da SiLU usa a mesma proveniência. Fora da célula tiny,
+`.5*x` domina a correção não negativa, limitada por `.025*|x|` em `|x|<=.1`.
+O resultado mantém distância de pelo menos `.475*|x|` de zero; as operações
+F64 não podem mudar seu sinal nesse domínio. A célula tiny preserva seu sinal
+separadamente. A conversão extrai o sinal de x em vez de repetir o polinômio.
+O certificado completo foi repetido após essa mudança (23.758 pontos na faixa
+máxima), e a mesma coordenada manteve as 60 comparações bit a bit.
+O tamanho previsto passou a 28.192.143.437.206.182.792.739 bytes, redução total
+de 24,2% contra o commit anterior. A emissão continua recusada: zero unidades.
+A validação específica dessa mudança posterior à regressão consta separadamente
+no mapa; não afirma uma nova execução da suíte inteira.

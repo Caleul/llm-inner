@@ -32,9 +32,15 @@ export function lowerJsonSmallSiluAsF64(x:JsonExpression,degree:2|4=4):JsonExpre
   // At |x|<=2^-24 the declared F32 sigmoid/product equals x/2; final F16
   // ties-to-even underflows to signed zero. Keeping this cell explicit also
   // preserves -0; direct real-polynomial rounding would differ at +2^-24.
-  const signedZero=o('reinterpret','f64',o('and','u64',bits,c('u64',0x8000000000000000n)));
+  const signWord=o('and','u64',bits,c('u64',0x8000000000000000n));
+  const signedZero=o('reinterpret','f64',signWord);
   return o('if','f64',o('le','bool',magnitude,c('u64',0x3e70000000000000n)),signedZero,
-    lowerJsonFiniteF16AsF64(result,{minimum:-.1,maximum:.1}));
+    // Outside the tiny cell, .5*x dominates the nonnegative correction:
+    // 0 <= x²*(.25 - x²/48) <= .025*|x| for |x| <= .1.
+    // Thus both admitted polynomials retain x's sign. F64 rounding cannot
+    // bridge the >=.475*|x| separation from zero. Reuse x's sign word rather
+    // than substituting and re-evaluating the polynomial to extract it.
+    lowerJsonFiniteF16AsF64(result,{minimum:-.1,maximum:.1},signWord));
 }
 export interface JsonSiluCertificate {bound:number;checkedPoints:number;maximumMagnitude:number;polynomialDegree:2|4;profileSha256:string;policy:'pytorch-2.12.1-cpu-f16';}
 const certificates=new Map<number,JsonSiluCertificate>();
