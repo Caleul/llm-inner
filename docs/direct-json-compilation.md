@@ -580,3 +580,46 @@ A suíte completa passou em 522 testes de um total de 540, manteve as mesmas
 As 864 comparações dos vetores completos de referência e JSON fechado passaram
 bit a bit. A CLI confirmou a nova estimativa na primeira coordenada, preparou
 1/32 e escreveu zero unidades, com status pendente e paridade final não verificada.
+
+
+## Identidades de zero preservando o sinal e a origem do arredondamento
+
+As reduções CPU terminam com somas de lanes vazias iguais a +0. Elas não podem
+ser removidas de um operando que possa ser -0: -0 + +0 resulta em +0.
+O lowering agora demonstra o sinal possível do zero nos produtores F32 antes
+de remover esse tipo de soma. Uma soma F32 de operandos F32 finitos só pode
+produzir -0 se ambos forem -0; a soma exata é um múltiplo de 2^-149, portanto
+não há underflow de um resultado negativo não nulo para zero. Subtração F32
+exclui -0 quando o primeiro operando já o exclui. Ifs precisam da prova nos dois
+braços. Constantes, alargamento exato e raízes/exponenciais com domínios positivos
+certificados também propagam a prova. Conversões F16 permanecem desconhecidas:
+um número negativo não nulo pode arredondar para -0 nessa fronteira.
+
+As identidades incondicionais x + -0 = x e x - +0 = x também são aplicadas
+no domínio finito. As demais identidades com zero exigem a prova acima.
+O produtor já arredondado é devolvido diretamente, preservando sua origem
+numérica de compilação. Isso permite que a conversão F16 seguinte encontre
+o cálculo anterior ao arredondamento F32 e aplique a fusão já certificada.
+Nenhum metadado de prova ou referência intermediária é emitido em runtime.
+
+Os testes percorrem todos os 63.488 valores F16 finitos nas quatro identidades
+de soma/subtração com +0/-0, além de reduções com 18.764 pares finitos amostrados,
+branches com sinais diferentes e underflow F16 negativo. Eles exigem tanto
+paridade numérica quanto preservação da origem que permite a fusão.
+
+A primeira coordenada medida (posição 0, dimensão 2) passa de
+2092638568808685997560870 para 72659232914655964882628 bytes previstos:
+aproximadamente 29 vezes menos, com 2.094 nós físicos, 71 decisões físicas
+e profundidade 331. A terminal (posição 7, dimensão 2) passa de
+2753983529206566619594294091032880833 para 57373289093730727904233766012325529
+bytes, aproximadamente 48 vezes menos, com 13.657 nós físicos, 453 decisões
+físicas e profundidade 493. Os tamanhos literais continuam inviáveis;
+a emissão do JSON final do Llama permanece pendente.
+
+
+A suíte completa registrou 543 testes: 525 passes, as mesmas 15 falhas
+anteriores e três skips. Todos os 479 passes originais e os 522 passes da
+suíte imediatamente anterior foram preservados. As 864 comparações dos
+vetores de referência e JSON fechado passaram bit a bit. A CLI preparou
+1/32 coordenadas e escreveu zero: recusou a árvore literal antes da emissão,
+registrando status pendente e paridade final não verificada.

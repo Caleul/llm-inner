@@ -38,6 +38,26 @@ export function lowerJsonModelExpression(root:JsonExpression,facts:JsonModelLowe
     return Object.is(decodeIeeeF16ToF32(roundDyadicToF16IfElse(f32BitsToDyadic(data.getUint32(0)))),x);
   };
   const halfOperand=(node:JsonExpression)=>node[0]==='widen'&&node[2]![1]==='f16'||halfConstant(node);
+  const zeroSignMemo=new WeakMap<JsonExpression,boolean>();
+  // Within the admitted finite domain, addition/subtraction of F32 operands
+  // cannot underflow to -0: their exact sum is a multiple of 2^-149. A zero
+  // addition is negative only when both operands are -0. Half conversions
+  // remain unknown because a negative nonzero source can underflow to -0.
+  function excludesNegativeZero(node:JsonExpression):boolean {
+    const hit=zeroSignMemo.get(node);if(hit!==undefined)return hit;
+    let result=false;
+    if(node[0]==='constant'&&node[1].startsWith('f')){
+      const x=value(node)!;result=Number.isFinite(x)&&!Object.is(x,-0);
+    }else if(node[0]==='widen')result=excludesNegativeZero(node[2]!);
+    else if(node[0]==='if'&&node[1].startsWith('f'))
+      result=excludesNegativeZero(node[3]!)&&excludesNegativeZero(node[4]!);
+    else if(node[1]==='f32'&&node[0]==='add')
+      result=excludesNegativeZero(node[2]!)||excludesNegativeZero(node[3]!);
+    else if(node[1]==='f32'&&node[0]==='sub')result=excludesNegativeZero(node[2]!);
+    else if(node[0]==='pending-sqrt')result=facts.positiveNormalRoots.has(node);
+    else if(node[0]==='pending-exp')result=facts.exponentialBounds.has(node);
+    zeroSignMemo.set(node,result);return result;
+  }
   function visit(node:JsonExpression):JsonExpression {
     const hit=memo.get(node);if(hit)return hit;
     const result=calculate(node);
@@ -111,6 +131,15 @@ export function lowerJsonModelExpression(root:JsonExpression,facts:JsonModelLowe
     if(node[1]==='f32'&&['add','sub','mul','div'].includes(node[0])){
       const a=args[0]!,b=args[1]!,expression=o(node[0],'f64',visit(a),visit(b));
       if(node[0]==='sub'&&expression[2]===expression[3])return c('f64',0);
+      const left=expression[2] as JsonExpression,right=expression[3] as JsonExpression;
+      const leftValue=value(left),rightValue=value(right);
+      // Returning the already-rounded producer also preserves its fusion
+      // provenance. Keep +0 additions when they canonicalize a possible -0.
+      if(node[0]==='add'){
+        if(rightValue===0&&(Object.is(rightValue,-0)||excludesNegativeZero(a)))return left;
+        if(leftValue===0&&(Object.is(leftValue,-0)||excludesNegativeZero(b)))return right;
+      }
+      if(node[0]==='sub'&&rightValue===0&&(!Object.is(rightValue,-0)||excludesNegativeZero(a)))return left;
       if(facts.exactRmsMeans?.has(node))return expression;
       if(expression[2]![0]==='constant'&&expression[3]![0]==='constant')
         return c('f64',Math.fround(Number(evaluateJsonExpression(expression))));

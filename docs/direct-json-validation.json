@@ -1,9 +1,9 @@
 {
-  "beforeCommit": "d6006d6",
+  "beforeCommit": "6f54773",
   "command": "LLM_INNER_DIRECT_PYTHON=PYTORCH_CPU_ARM64_2_12_1 LLM_INNER_DIRECT_JSON_CHECKPOINT=LLAMA_DIAGNOSTIC npm test",
   "summary": {
-    "tests": 540,
-    "pass": 522,
+    "tests": 543,
+    "pass": 525,
     "fail": 15,
     "skipped": 3
   },
@@ -68,7 +68,10 @@
     "JSON half sum fusion preserves signed zero, binade gaps, cancellation and overflow across all finite half operands",
     "half addition identity is not applied to higher-precision operands or sums of half products",
     "summing exact half products still needs the F32 boundary at an odd half tie",
-    "closed JSON RMS composition preserves every critical coordinate and sign without pending primitives"
+    "closed JSON RMS composition preserves every critical coordinate and sign without pending primitives",
+    "JSON zero identities preserve every finite half value and both zero signs",
+    "JSON reduction trailing zero is removed only after its accumulator excludes negative zero",
+    "JSON branch zero-sign proof requires both arms and does not assume half underflow is positive"
   ],
   "newFailures": [],
   "exactWorkingAndClosedVectorComparisons": 864,
@@ -83,7 +86,7 @@
     "elapsedMilliseconds": 95.443083,
     "domain": "all F32 mantissas in [1,4); remaining normal exponents covered by exact dyadic scale proof"
   },
-  "log": "/private/tmp/llm-inner-json-half-addition-full-suite.log",
+  "log": "/private/tmp/llm-inner-json-zero-sign-full-suite.log",
   "precisionMeasurement": [
     {
       "position": 0,
@@ -157,8 +160,8 @@
     "skipped": 0,
     "log": "/private/tmp/llm-inner-json-cofactor-full-candidates-tests.log"
   },
-  "note": "Full suite after finite-half sum/difference fusion: all 479 baseline passes preserved, same 15 preexisting failures. Exhaustive native sum/difference certificate checked 1,007,713,280 magnitude-pair cases plus signed zeros. Closed JSON checked 507,904 cases. Counterexamples keep the F32 boundary for sums of products/higher-precision operands. All 864 working/closed full-vector comparisons passed. Literal output remains pending; CLI prepared 1/32 and wrote zero coordinates.",
-  "logSha256": "1e090fcfbf8732ab094c414d4fc054bc020a17fe9e119e57e871f9cbebd19572",
+  "note": "Full suite after zero-sign-aware identities preserve rounding provenance: all 479 original baseline passes and all 522 passes of the preceding full suite preserved, same 15 preexisting failures. Three focused tests cover every finite half value with signed zeros, reduction fusion provenance, conditional arms and negative half underflow. All 864 working/closed full-vector comparisons passed. Literal output remains pending; CLI prepared 1/32 and wrote zero coordinates.",
+  "logSha256": "4f157e9c71d39d4bed0f089abf5af2b325b93ea499299f5c975c7e95af1985d0",
   "afterShapeValidation": {
     "pass": 1,
     "fail": 0,
@@ -1098,5 +1101,63 @@
     "status": "pending",
     "rejectedPredictedBytes": "2092638568808685997560870",
     "log": "/private/tmp/llm-inner-json-half-addition-cli.log"
+  },
+  "zeroSignFocused": {
+    "tests": 3,
+    "pass": 3,
+    "fail": 0,
+    "skipped": 0,
+    "log": "/private/tmp/llm-inner-json-zero-sign-focused.log"
+  },
+  "zeroSignMeasurements": [
+    {
+      "position": 0,
+      "dimension": 2,
+      "uniqueNodes": 2094,
+      "uniqueDecisions": 71,
+      "occurrences": "3211446787441065138636",
+      "decisions": "117119344839022567",
+      "inputReferences": "642642545222578663320",
+      "serializedBytes": "72659232914655964882628",
+      "depth": 331,
+      "cofactor": {
+        "candidates": 27,
+        "reducingCandidates": 1,
+        "accepted": 1,
+        "unsafe": 0,
+        "overBudget": 0,
+        "beforeBytes": "80898935635106486250409",
+        "afterBytes": "72659232914655964882628"
+      }
+    },
+    {
+      "position": 7,
+      "dimension": 2,
+      "uniqueNodes": 13657,
+      "uniqueDecisions": 453,
+      "occurrences": "2522426360833396528897740521519723",
+      "decisions": "91964209225943913179319409403",
+      "inputReferences": "504764801882058827969308864219680",
+      "serializedBytes": "57373289093730727904233766012325529",
+      "depth": 493,
+      "cofactor": {
+        "candidates": 168,
+        "reducingCandidates": 7,
+        "accepted": 1,
+        "unsafe": 0,
+        "overBudget": 0,
+        "beforeBytes": "113780032599145720841737592858282809",
+        "afterBytes": "57373289093730727904233766012325529"
+      }
+    }
+  ],
+  "zeroSignCli": {
+    "preparedUnits": 1,
+    "totalUnits": 32,
+    "writtenUnits": 0,
+    "finalParity": false,
+    "status": "pending",
+    "rejectedPredictedBytes": "72659232914655964882628",
+    "log": "/private/tmp/llm-inner-json-zero-sign-cli.log"
   }
 }
