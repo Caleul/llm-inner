@@ -35,7 +35,10 @@ export function lowerJsonSmallNonpositiveExpAsF64(x:JsonExpression,certificate?:
   const squared=lowerJsonRoundNormalF32AsF64(o('mul','f64',x,x));
   const tail=lowerJsonRoundNormalF32AsF64(o('add','f64',o('mul','f64',squared,polynomial),x));
   const result=lowerJsonRoundNormalF32AsF64(o('add','f64',c('f64',1),tail));
-  return o('if','f64',o('lt','bool',x,c('f64',-(2**-25))),result,c('f64',1));
+  // Certified half differences are zero or have magnitude >=2^-24. Their
+  // squares/tails are normal F32 or zero, and the polynomial at ±0 yields 1.
+  // The tiny-input dispatch is necessary only for the generic F32 domain.
+  return certificate?result:o('if','f64',o('lt','bool',x,c('f64',-(2**-25))),result,c('f64',1));
 }
 
 const expCoefficients=[0.000198527617612853646278381,0.00139304355252534151077271,

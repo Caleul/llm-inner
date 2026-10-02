@@ -233,7 +233,10 @@ export async function openJsonModelBuilder(directory:string,python:string,
         const a=layers[layer]!.attention.attention;
         const dot=await reduction(a.headDim,async coordinate=>f32('mul',
           widen(await rotated(layer,'q',head,coordinate,query)),widen(await rotated(layer,'k',head,coordinate,key))));
-        return half(f32('mul',widen(dot),c('f32',a.scaling)));
+        const result=half(f32('mul',widen(dot),c('f32',a.scaling)));
+        const bound=scoreBounds[layer]![head]!;
+        facts.ranges!.set(result,{minimum:-bound,maximum:bound});
+        return result;
       });
     const maximum=(layer:number,head:number,query:number)=>dependency(`max:${layer}:${head}:${query}`,async()=>{
       let result=await score(layer,head,query,0);

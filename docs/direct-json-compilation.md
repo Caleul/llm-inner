@@ -623,3 +623,52 @@ suíte imediatamente anterior foram preservados. As 864 comparações dos
 vetores de referência e JSON fechado passaram bit a bit. A CLI preparou
 1/32 coordenadas e escreveu zero: recusou a árvore literal antes da emissão,
 registrando status pendente e paridade final não verificada.
+
+
+## Malha exata dos scores F16 e exponencial sem despacho minúsculo
+
+Todos os valores F16 finitos são múltiplos inteiros de 2^-24. Quando a soma
+dos limites absolutos de dois operandos F16 não ultrapassa um, sua soma ou
+diferença tem no máximo 24 bits significativos nessa malha, com os extremos
+±1 também exatos. O lowering elimina o arredondamento F32 nesse caso, após
+verificar o tipo dos dois operandos e os limites provados. Um limite pequeno
+sem a malha F16 não basta: produtos F32 de operandos F16 podem ter uma malha
+mais fina e continuam exigindo o arredondamento.
+
+O builder agora registra o limite correlacionado já certificado em cada score
+F16. A união dos braços do máximo propaga o mesmo limite. Isso permite aplicar
+a identidade às diferenças usadas pela exponencial, sem introduzir uma regra
+específica para uma camada ou quantidade de cabeças. A prova é geométrica e
+numérica; pesos, largura, cabeças e limites continuam descobertos do checkpoint.
+
+O certificado autenticado da exponencial admite apenas diferenças de scores
+F16 não positivas. Elas são zero ou têm magnitude pelo menos 2^-24. Seus
+quadrados e tails são F32 normais ou zero, e o polinômio em ±0 produz exatamente
+um. Portanto o despacho minúsculo da exponencial pode desaparecer nesse domínio.
+A versão genérica conserva o if para argumentos F32 subnormais. Não há tabela
+de resultados, novo operador de arredondamento ou primitiva exp no JSON fechado.
+
+Os testes percorrem os 33.554.433 pontos da malha em [-1,1], verificam signed
+zero separadamente e comparam 458.784 somas/diferenças JSON sobre todos os
+operandos F16 admitidos em [-0,5;0,5]. Domínios maiores e operandos fora da malha
+mantêm o arredondamento, com contraexemplos explícitos. Outro teste exige zero
+decisões no polinômio certificado, uma decisão na versão genérica e paridade
+com seu kernel numérico em toda a malha do certificado de teste.
+
+A coordenada terminal medida (posição 7, dimensão 2) passa de
+57373289093730727904233766012325529 para 27697449910356226706169067089727129
+bytes previstos: redução de aproximadamente 52%. Possui 13.465 nós físicos,
+437 decisões físicas (antes 453), profundidade 485 e
+44396514754408464210009611003 decisões expandidas. A primeira coordenada mantém
+72659232914655964882628 bytes, pois seu argumento exponencial é constante.
+Esses números continuam sendo previsões da árvore literal, não arquivos finais.
+A emissão do JSON completo do Llama permanece pendente.
+
+
+Após as duas mudanças, a suíte completa registrou 547 testes: 529 passes,
+as mesmas 15 falhas anteriores e três skips. Todos os 479 passes originais
+e os 525 passes da suíte imediatamente anterior foram preservados. As 864
+comparações dos vetores de referência e JSON fechado passaram bit a bit.
+A comparação live da malha de exponencial com PyTorch também passou.
+A CLI preparou 1/32 coordenadas e escreveu zero unidades, recusando a primeira
+árvore por tamanho antes da emissão e registrando paridade final não verificada.

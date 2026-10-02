@@ -151,6 +151,15 @@ export function lowerJsonModelExpression(root:JsonExpression,facts:JsonModelLowe
         (node[0]==='add'||node[0]==='sub')&&(value(a)===0||value(b)===0)||
         node[0]==='div'&&Math.abs(value(b)??NaN)===1;
       if(exact)return expression;
+      // Every finite half is an integer multiple of 2^-24. A sum/difference
+      // proved within [-1,1] has at most 24 significant integer bits (the
+      // endpoints are exact powers of two), hence needs no F32 rounding.
+      // This is a domain proof for half operands, never for products of them.
+      if((node[0]==='add'||node[0]==='sub')&&halfOperand(a)&&halfOperand(b)){
+        const ar=range(a),br=range(b);
+        if(ar&&br&&Math.max(Math.abs(ar.minimum),Math.abs(ar.maximum))+
+          Math.max(Math.abs(br.minimum),Math.abs(br.maximum))<=1)return expression;
+      }
       const rounded=lowerJsonRoundNormalF32AsF64(expression);
       f32Sources.set(rounded,expression);return rounded;
     }

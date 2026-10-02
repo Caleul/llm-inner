@@ -1,9 +1,9 @@
 {
-  "beforeCommit": "6f54773",
+  "beforeCommit": "8b725b5",
   "command": "LLM_INNER_DIRECT_PYTHON=PYTORCH_CPU_ARM64_2_12_1 LLM_INNER_DIRECT_JSON_CHECKPOINT=LLAMA_DIAGNOSTIC npm test",
   "summary": {
-    "tests": 543,
-    "pass": 525,
+    "tests": 547,
+    "pass": 529,
     "fail": 15,
     "skipped": 3
   },
@@ -71,7 +71,11 @@
     "closed JSON RMS composition preserves every critical coordinate and sign without pending primitives",
     "JSON zero identities preserve every finite half value and both zero signs",
     "JSON reduction trailing zero is removed only after its accumulator excludes negative zero",
-    "JSON branch zero-sign proof requires both arms and does not assume half underflow is positive"
+    "JSON branch zero-sign proof requires both arms and does not assume half underflow is positive",
+    "every point of the finite half sum/difference grid within [-1,1] is exact F32",
+    "certified bounded half sums and differences lose their F32 rounding but preserve all finite admitted operands",
+    "half-grid rounding removal requires both the half lattice and the absolute domain bound",
+    "half-difference exponential removes only its unreachable tiny dispatch and retains exact certified polynomial bits"
   ],
   "newFailures": [],
   "exactWorkingAndClosedVectorComparisons": 864,
@@ -86,7 +90,7 @@
     "elapsedMilliseconds": 95.443083,
     "domain": "all F32 mantissas in [1,4); remaining normal exponents covered by exact dyadic scale proof"
   },
-  "log": "/private/tmp/llm-inner-json-zero-sign-full-suite.log",
+  "log": "/private/tmp/llm-inner-json-half-grid-full-suite.log",
   "precisionMeasurement": [
     {
       "position": 0,
@@ -160,8 +164,8 @@
     "skipped": 0,
     "log": "/private/tmp/llm-inner-json-cofactor-full-candidates-tests.log"
   },
-  "note": "Full suite after zero-sign-aware identities preserve rounding provenance: all 479 original baseline passes and all 522 passes of the preceding full suite preserved, same 15 preexisting failures. Three focused tests cover every finite half value with signed zeros, reduction fusion provenance, conditional arms and negative half underflow. All 864 working/closed full-vector comparisons passed. Literal output remains pending; CLI prepared 1/32 and wrote zero coordinates.",
-  "logSha256": "4f157e9c71d39d4bed0f089abf5af2b325b93ea499299f5c975c7e95af1985d0",
+  "note": "Full suite after exact bounded half sums/differences and certified branchless exponential: all 479 original baseline passes and all 525 passes of the preceding full suite preserved, same 15 preexisting failures. Four focused tests cover the entire half quantum grid in [-1,1], bounded half JSON arithmetic, rejection of larger domains/finer product lattices, and certified/generic exponential dispatch. All 864 working/closed full-vector comparisons passed. Literal output remains pending; CLI prepared 1/32 and wrote zero coordinates.",
+  "logSha256": "e32f62b50e163e2ced873a52336a2a56efbf37447e742ff61ba5f77feb90361b",
   "afterShapeValidation": {
     "pass": 1,
     "fail": 0,
@@ -1159,5 +1163,65 @@
     "status": "pending",
     "rejectedPredictedBytes": "72659232914655964882628",
     "log": "/private/tmp/llm-inner-json-zero-sign-cli.log"
+  },
+  "halfGridFocused": {
+    "tests": 4,
+    "pass": 4,
+    "fail": 0,
+    "skipped": 0,
+    "log": "/private/tmp/llm-inner-json-half-grid-focused.log",
+    "integerGridPoints": 33554433,
+    "boundedJsonComparisons": 458784
+  },
+  "halfGridMeasurements": [
+    {
+      "position": 0,
+      "dimension": 2,
+      "uniqueNodes": 2094,
+      "uniqueDecisions": 71,
+      "occurrences": "3211446787441065138636",
+      "decisions": "117119344839022567",
+      "inputReferences": "642642545222578663320",
+      "serializedBytes": "72659232914655964882628",
+      "depth": 331,
+      "cofactor": {
+        "candidates": 27,
+        "reducingCandidates": 1,
+        "accepted": 1,
+        "unsafe": 0,
+        "overBudget": 0,
+        "beforeBytes": "80898935635106486250409",
+        "afterBytes": "72659232914655964882628"
+      }
+    },
+    {
+      "position": 7,
+      "dimension": 2,
+      "uniqueNodes": 13465,
+      "uniqueDecisions": 437,
+      "occurrences": "1217723070881786860968635374434923",
+      "decisions": "44396514754408464210009611003",
+      "inputReferences": "243679559557693170939613949659680",
+      "serializedBytes": "27697449910356226706169067089727129",
+      "depth": 485,
+      "cofactor": {
+        "candidates": 160,
+        "reducingCandidates": 7,
+        "accepted": 1,
+        "unsafe": 0,
+        "overBudget": 0,
+        "beforeBytes": "54928291601106561506689593378679609",
+        "afterBytes": "27697449910356226706169067089727129"
+      }
+    }
+  ],
+  "halfGridCli": {
+    "preparedUnits": 1,
+    "totalUnits": 32,
+    "writtenUnits": 0,
+    "finalParity": false,
+    "status": "pending",
+    "rejectedPredictedBytes": "72659232914655964882628",
+    "log": "/private/tmp/llm-inner-json-half-grid-cli.log"
   }
 }
