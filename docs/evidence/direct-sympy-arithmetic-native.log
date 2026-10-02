@@ -1,0 +1,7 @@
+..........
+----------------------------------------------------------------------
+Ran 10 tests in 2.396s
+
+OK
+Actual string IEEE certificate: F32=100679708 F16=206870 composed=559086 prunedF32=100663300 prunedF16=3072 mismatches=0; tandem=559130; typedPairs=507904
+Word identity comparisons: 16048, mismatches=0

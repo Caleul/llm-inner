@@ -139,6 +139,22 @@ class ConversionStringTests(unittest.TestCase):
             self.assertFalse(tandem_supported(certificate))
         self.assertTrue(tandem_supported(FiniteSource(-131008,131008,-126)))
 
+    def test_arithmetic_identities_require_the_correct_zero_sign(self):
+        from direct_sympy_arithmetic import simplify_arithmetic
+        domains={"X1":Domain(F(-1),F(1),-24,False)}
+        session=ConversionSession(StringCompiler(),domains,input_dtype="f16")
+        self.assertIn("+",simplify_arithmetic("X1+0.0",session))
+        self.assertEqual(simplify_arithmetic("X1*1.0",session),"X1")
+        self.assertEqual(simplify_arithmetic("X1/1.0",session),"X1")
+        self.assertFalse(session.no_negative_zero(syntax("R16(X1*0.00000001)")))
+        self.assertTrue(session.no_negative_zero(syntax("R32(0.0+X1)")))
+        self.assertTrue(session.no_negative_zero(syntax("X1-X1")))
+        self.assertFalse(session.no_negative_zero(syntax("-X1")))
+        certified=ConversionSession(StringCompiler(),{"X1":Domain(F(-1),F(1),-24,True)},input_dtype="f16")
+        self.assertEqual(simplify_arithmetic("X1+0.0",certified),"X1")
+        result=simplify_arithmetic("R32(R32(0.0+X1))+0.0",session)
+        self.assertEqual(ast.dump(syntax(result)),ast.dump(syntax("0.0+X1")))
+
     def test_constructor_rejects_uncertified_sources(self):
         with self.assertRaises(ValueError):FiniteSource(-math.inf,1)
         with self.assertRaises(ValueError):lower_finite_conversion("X1","R32",None,StringCompiler(),{})
@@ -171,7 +187,7 @@ class ConversionStringTests(unittest.TestCase):
         zero=typed.close("R16(R32((0.0+0.0)+X1))")
         for expression in (product,addition,zero):
             self.assertNotIn("R32(",expression);self.assertNotIn("R16(",expression)
-        self.assertGreaterEqual(typed.redundant,4)
+        self.assertGreaterEqual(typed.redundant+typed.arithmetic_eliminated,4)
         with tempfile.TemporaryDirectory(prefix="sympy-conversion-certificate-") as directory:
             root=Path(directory)
             source=root/"proof.cpp";binary=root/"proof"

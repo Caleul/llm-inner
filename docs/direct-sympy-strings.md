@@ -281,3 +281,31 @@ A projeção também contém reduções com zeros e conversões aninhadas cuja
 eliminação exige prova do sinal do zero; sua composição não deve ser feita
 por identidades sobre números reais. O residual e as etapas seguintes continuam
 pendentes, assim como a expansão das primitivas restantes e o vetor completo.
+
+## Identidades aritméticas antes da expansão das conversões
+
+Antes de fechar R32/R16, a sessão elimina conversões já comprovadamente
+redundantes e multiplicação/divisão finitas por um positivo. Isso expõe pares
+de conversões à composição certificada sem mudar a ordem das reduções.
+Cada substituição aceita passa novamente por factor/simplify até estabilizar.
+
+A soma com zero positivo só desaparece quando há prova de que o outro
+operando não pode ser zero negativo. Uma soma finita F64 só produz zero
+negativo se ambos os operandos forem zero negativo; um resultado não nulo
+não pode desaparecer por underflow nessa soma, pois os operandos já pertencem
+à grade F64. R32/R16 só propagam essa prova quando a grade da fonte exclui
+underflow não nulo para zero. Por isso o zero inicial da redução causal pode
+continuar necessário, mesmo após fechar a projeção V.
+
+No mesmo orçamento de 4 MiB/120 segundos, context:1 passou de 267.341 para
+160.219 caracteres (40,07% menos). Foram concluídos sete produtores; o ganho
+de avanço e o tempo total da coordenada ainda não foram demonstrados. O
+prefixo salvo passou 527.904 comparações nativas sem divergências. Ele mantém
+sqrt e ainda não representa a coordenada completa.
+
+Build aprovado, dez testes Python de conversões/identidades aprovados e
+regressão ampla com 594 testes: 576 passes, as mesmas 15 falhas conhecidas e
+três skips. A comparação por nome não encontrou passes perdidos ou falhas
+novas. O mapa mantém os registros anteriores e acrescenta
+arithmeticIdentityValidation com hashes das fontes, artefatos e resultados.
+Residual, MLP e saída continuam pendentes; as demais coordenadas não avançaram.

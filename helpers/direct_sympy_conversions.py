@@ -19,6 +19,7 @@ from direct_sympy_strings import quantum
 from direct_sympy_words import simplify_words
 from direct_sympy_signatures import StructuralSignatures
 from direct_sympy_tandem import supported as tandem_supported,lower_tandem
+from direct_sympy_arithmetic import simplify_arithmetic
 
 
 @dataclass(frozen=True)
@@ -111,6 +112,8 @@ class ConversionSession:
         self.converted_regions=set()
         self.reused_regions=0
         self.visited_nodes=0
+        self.no_negative_zero_values=set()
+        self.arithmetic_eliminated=0
 
     @staticmethod
     def constant(node):
@@ -168,6 +171,28 @@ class ConversionSession:
             d=self.bounds(node)
             if math.frexp(abs(right))[0]==0.5 and d is not None and d.quantum is not None and d.quantum>=-149 and max(abs(d.minimum),abs(d.maximum))<=3.4028234663852886e38:return "f32"
         return None
+
+    def no_negative_zero(self,node):
+        key=self.key(node)
+        if key in self.no_negative_zero_values:return True
+        d=self.bounds(node)
+        if d is None:return False
+        if d.minimum>0 or d.maximum<0:return True
+        literal=self.constant(node)
+        if literal is not None:return literal!=0 or math.copysign(1,literal)>0
+        if isinstance(node,ast.Name):
+            return self.domains[node.id].excludes_negative_zero
+        if isinstance(node,ast.UnaryOp) and isinstance(node.op,ast.UAdd):return self.no_negative_zero(node.operand)
+        if isinstance(node,ast.BinOp):
+            # Finite F64 addition cannot round a nonzero exact sum to zero:
+            # both operands are integer multiples of the minimum subnormal.
+            # The only negative-zero sum under RN-even is -0 + -0.
+            if isinstance(node.op,ast.Add):return self.no_negative_zero(node.left) or self.no_negative_zero(node.right)
+            if isinstance(node.op,ast.Sub) and self.key(node.left)==self.key(node.right):return True
+        if isinstance(node,ast.Call) and len(node.args)==1 and node.func.id in ("R16","R32"):
+            source=self.bounds(node.args[0]);minimum=-24 if node.func.id=="R16" else -149
+            return source is not None and source.quantum is not None and source.quantum>=minimum and self.no_negative_zero(node.args[0])
+        return False
 
     def bounds(self,node):
         key=self.key(node)
@@ -232,6 +257,7 @@ class ConversionSession:
         return None
 
     def close(self,expression):
+        expression=simplify_arithmetic(expression,self)
         session=self
         class Boundaries(ast.NodeTransformer):
             def visit(self,node):
@@ -254,11 +280,13 @@ class ConversionSession:
 
             def visit_Call(self,node):
                 before=session.bounds(node)
+                positive_zero=session.no_negative_zero(node)
                 literal=session.constant(node) if node.func.id in ("R16","R32") else None
                 if literal is not None and math.isfinite(literal):
                     text=session.compiler.stabilize(repr(literal),session.domains)
                     rewritten=syntax(text);key=session.key(rewritten)
                     if before is not None:session.completed[key]=before
+                    if positive_zero:session.no_negative_zero_values.add(key)
                     session.f32_values.add(key)
                     if node.func.id=="R16" or session.value_kind(rewritten)=="half":session.half_values.add(key)
                     session.redundant+=1
@@ -284,6 +312,7 @@ class ConversionSession:
                             rewritten=syntax(text);session.closed+=2
                             if before is not None:
                                 key=session.key(rewritten);session.completed[key]=before
+                                if positive_zero:session.no_negative_zero_values.add(key)
                                 session.half_values.add(key);session.f32_values.add(key)
                             return rewritten
                 source=session.bounds(node.args[0]) if node.func.id in ("R32","R16") and len(node.args)==1 else None
@@ -303,7 +332,9 @@ class ConversionSession:
                         key=session.key(rewritten)
                         session.f32_values.add(key)
                         if target=="R16" or kind=="half":session.half_values.add(key)
-                if before is not None:session.completed[session.key(rewritten)]=before
+                if before is not None:
+                    key=session.key(rewritten);session.completed[key]=before
+                    if positive_zero:session.no_negative_zero_values.add(key)
                 return rewritten
         tree=Boundaries().visit(syntax(expression))
         result=self.compiler.stabilize(ast.unparse(tree),self.domains)
