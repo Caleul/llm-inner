@@ -1,9 +1,9 @@
 {
-  "beforeCommit": "15d7390",
+  "beforeCommit": "4b555b0",
   "command": "LLM_INNER_DIRECT_PYTHON=PYTORCH_CPU_ARM64_2_12_1 LLM_INNER_DIRECT_JSON_CHECKPOINT=LLAMA_DIAGNOSTIC npm test",
   "summary": {
-    "tests": 531,
-    "pass": 513,
+    "tests": 535,
+    "pass": 517,
     "fail": 15,
     "skipped": 3
   },
@@ -59,7 +59,11 @@
     "JSON simplification preserves -0 and does not hide undefined integer operations",
     "JSON working range analysis encloses F32 endpoint rounding and refuses unknown or zero-crossing divisors",
     "JSONL stream emits all scalar coordinates with exact syntax and refuses to publish incomplete vectors",
-    "source-discovered JSON working expressions reproduce complete checkpoint logits before primitive lowering"
+    "source-discovered JSON working expressions reproduce complete checkpoint logits before primitive lowering",
+    "RMS consumer certificate exhausts root error cells and their finite half pair preimages",
+    "RMS certificate keeps four steps for unsupported widths, resource limits and invalid domains",
+    "three-step root is restricted to the certified consumer; standalone roots retain exact rounding",
+    "certified RMS critical pairs match live PyTorch for every sign and one/eight-token shapes"
   ],
   "newFailures": [],
   "exactWorkingAndClosedVectorComparisons": 864,
@@ -74,7 +78,7 @@
     "elapsedMilliseconds": 95.443083,
     "domain": "all F32 mantissas in [1,4); remaining normal exponents covered by exact dyadic scale proof"
   },
-  "log": "/private/tmp/llm-inner-json-correlated-bound-full-suite.log",
+  "log": "/private/tmp/llm-inner-json-rms-consumer-full-suite.log",
   "precisionMeasurement": [
     {
       "position": 0,
@@ -148,8 +152,8 @@
     "skipped": 0,
     "log": "/private/tmp/llm-inner-json-cofactor-full-candidates-tests.log"
   },
-  "note": "Full suite after correlated per-head score bounds; same preexisting failures, no lost passing tests. Observed PyTorch scores fit the bounds; containing-lattice exponential checks and full working/closed corpus parity passed. Literal Llama output remains pending.",
-  "logSha256": "4ca94eb5c290e3384e70ee4dae95afc0fa6f00b92ffc991daaefc0fe17c2587b",
+  "note": "Full suite after authenticated RMS consumer certificates and exact power-of-two means: same 15 baseline failures and all 479 baseline passes preserved. Full working/closed corpus parity passed (864 comparisons). An additional closed critical-consumer test was added during this run; the final focused suite afterward passed all five tests, including 968 signed JSON components and 968 live PyTorch cases. Literal Llama output remains pending.",
+  "logSha256": "701517521717e22b168922cc4c760598afed7e9a2038492e353701e0aff0ce32",
   "afterShapeValidation": {
     "pass": 1,
     "fail": 0,
@@ -947,5 +951,88 @@
     "skipped": 0,
     "log": "/private/tmp/llm-inner-json-correlated-bound-final-focused.log",
     "note": "A scaled-output finite-half guard was added after the full suite. Unsupported scaling overflow is rejected; correlated-bound unit tests and live PyTorch exp checks passed afterward. Diagnostic checkpoint bound is unchanged."
+  },
+  "rmsConsumerCertificate": {
+    "width": 2,
+    "epsilon": 9.999999974752427e-07,
+    "steps": 3,
+    "complete": true,
+    "reason": "all-critical-consumers-equal",
+    "variances": 208,
+    "sumCells": 224,
+    "normalizedMantissas": 16777216,
+    "rootFailures": 8,
+    "cases": 121
+  },
+  "rmsConsumerMeasurements": [
+    {
+      "position": 0,
+      "dimension": 2,
+      "uniqueNodes": 2491,
+      "uniqueDecisions": 71,
+      "occurrences": "133188058763398414335613",
+      "decisions": "4735336279253432699",
+      "inputReferences": "26651667477256926753312",
+      "serializedBytes": "3013399545832912041575670",
+      "depth": 377,
+      "cofactor": {
+        "candidates": 27,
+        "reducingCandidates": 1,
+        "accepted": 1,
+        "unsafe": 0,
+        "overBudget": 0,
+        "beforeBytes": "3355125211055318809305589",
+        "afterBytes": "3013399545832912041575670"
+      }
+    },
+    {
+      "position": 7,
+      "dimension": 2,
+      "uniqueNodes": 15496,
+      "uniqueDecisions": 453,
+      "occurrences": "209224547510862763934456666298281747",
+      "decisions": "7443791886954997919175113670395",
+      "inputReferences": "41867210604114401630344947006365952",
+      "serializedBytes": "4758883707766393775804908405907217025",
+      "depth": 545,
+      "cofactor": {
+        "candidates": 168,
+        "reducingCandidates": 7,
+        "accepted": 1,
+        "unsafe": 0,
+        "overBudget": 0,
+        "beforeBytes": "9437596350254268886619276292594797173",
+        "afterBytes": "4758883707766393775804908405907217025"
+      }
+    }
+  ],
+  "rmsConsumerFocused": {
+    "tests": 5,
+    "pass": 5,
+    "fail": 0,
+    "skipped": 0,
+    "log": "/private/tmp/llm-inner-json-rms-consumer-focused.log",
+    "passingTests": [
+      "RMS consumer certificate exhausts root error cells and their finite half pair preimages",
+      "RMS certificate keeps four steps for unsupported widths, resource limits and invalid domains",
+      "three-step root is restricted to the certified consumer; standalone roots retain exact rounding",
+      "certified RMS critical pairs match live PyTorch for every sign and one/eight-token shapes",
+      "closed JSON RMS composition preserves every critical coordinate and sign without pending primitives"
+    ]
+  },
+  "rmsConsumerLive": {
+    "torch": "2.12.1",
+    "cases": 968,
+    "mismatches": 0,
+    "log": "/private/tmp/llm-inner-json-rms-consumer-live.json"
+  },
+  "rmsConsumerCli": {
+    "preparedUnits": 1,
+    "totalUnits": 32,
+    "writtenUnits": 0,
+    "finalParity": false,
+    "status": "pending",
+    "rejectedPredictedBytes": "3013399545832912041575670",
+    "log": "/private/tmp/llm-inner-json-rms-consumer-cli.log"
   }
 }

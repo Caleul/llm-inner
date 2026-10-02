@@ -2,7 +2,7 @@ import {jsonConstant as c,jsonOperation as o,jsonInput,type JsonExpression} from
 import {jsonConstantValue,evaluateJsonExpression} from './direct-json-evaluator.js';
 import {lowerJsonRoundNormalF32AsF64} from './direct-json-f16.js';
 import {lowerJsonFiniteF16AsF64,lowerJsonFiniteF32ThenF16AsF64} from './direct-json-half-value.js';
-import {lowerJsonPositiveNormalSqrtAsF64} from './direct-json-sqrt.js';
+import {lowerJsonPositiveNormalSqrtAsF64,lowerJsonCertifiedRmsRootAsF64} from './direct-json-sqrt.js';
 import {lowerJsonSmallNonpositiveExpAsF64,certifyJsonHalfDifferenceExp} from './direct-json-exp.js';
 import {certifyJsonSmallSilu,lowerJsonSmallSiluAsF64} from './direct-json-silu.js';
 import type {JsonModelLoweringFacts} from './direct-json-model.js';
@@ -75,7 +75,8 @@ export function lowerJsonModelExpression(root:JsonExpression,facts:JsonModelLowe
     if(node[0]==='widen')return visit(args[0]!);
     if(node[0]==='pending-sqrt'){
       if(!facts.positiveNormalRoots.has(node))throw new Error('Missing positive normal root certificate');
-      const expression=lowerJsonPositiveNormalSqrtAsF64(visit(args[0]!));
+      const certificate=facts.rmsRootCertificates?.get(node);
+      const expression=certificate?lowerJsonCertifiedRmsRootAsF64(visit(args[0]!),certificate):lowerJsonPositiveNormalSqrtAsF64(visit(args[0]!));
       return args[0]![0]==='constant'?c('f64',Number(evaluateJsonExpression(expression))):expression;
     }
     if(node[0]==='pending-exp'){
@@ -99,6 +100,7 @@ export function lowerJsonModelExpression(root:JsonExpression,facts:JsonModelLowe
     if(node[1]==='f32'&&['add','sub','mul','div'].includes(node[0])){
       const a=args[0]!,b=args[1]!,expression=o(node[0],'f64',visit(a),visit(b));
       if(node[0]==='sub'&&expression[2]===expression[3])return c('f64',0);
+      if(facts.exactRmsMeans?.has(node))return expression;
       if(expression[2]![0]==='constant'&&expression[3]![0]==='constant')
         return c('f64',Math.fround(Number(evaluateJsonExpression(expression))));
       // Products of two finite F16 values have <=22 significant bits and are

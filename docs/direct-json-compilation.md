@@ -487,3 +487,51 @@ Depois da suíte completa, a admissão ganhou uma checagem explícita de finitud
 na saída escalada do score. O caso de escala que faria overflow F16 é recusado;
 os dois testes de limites e o teste live PyTorch passaram novamente (3/3).
 O limite do checkpoint diagnóstico permaneceu igual.
+
+
+## Raiz simplificada pela composição RMS F16
+
+`direct-json-rms-certificate.ts` certifica o consumidor inteiro para largura
+2 descoberta do checkpoint, não a raiz isolada. Três passos de Newton diferem
+em oito resultados F32 na varredura dos 16.777.216 significandos normalizados
+[1,4). A escala binária exata transporta esses casos para todos os expoentes
+normais. Para o epsilon F32 9,999999974752427e-7, 208 variâncias estão no domínio.
+Preimagens por pontos médios diádicos invertem exatamente o arredondamento da
+variância; 224 células da soma contêm 121 pares de magnitudes F16 alcançáveis.
+Os dois componentes da primeira saída F16 coincidem em todos esses pares.
+Permutação dos componentes e simetria de sinais cobrem as demais entradas;
+a multiplicação pelo gamma aprendido acontece depois dessa fronteira idêntica.
+
+O certificado é autenticado por identidade e o compilador só o associa às
+raízes desse consumidor RMS. Largura não suportada, orçamento insuficiente ou
+contraexemplo mantêm quatro passos. A raiz independente continua usando quatro
+passos, preservando seu resultado F32 exato. Os pares são evidência diagnóstica,
+não uma tabela de execução. O lowering continua emitindo apenas operações
+aritméticas e bitwise, sem raiz, arredondamento implícito ou certificado em runtime.
+
+Outra identidade exata elimina o arredondamento da média RMS quando a largura
+é potência de dois: a soma positiva F32 dos quadrados F16, normal ou zero,
+dividida por essa largura permanece exatamente na malha F32. O limite de
+largura já admitido evita underflow; a ordem de soma permanece a do backend.
+
+O teste do JSON fechado compara todos os 968 componentes críticos com sinais.
+A implementação real `LlamaRMSNorm` CPU foi verificada separadamente em 968
+casos com todos os sinais e formatos de um/oito tokens, sem divergências.
+
+A primeira coordenada medida (posição 0, dimensão 2) passa de
+210765582749392127773866486 para 3013399545832912041575670 bytes previstos,
+com 2.491 nós, 71 decisões físicas e profundidade 377. A terminal medida
+(posição 7, dimensão 2) passa de 332863937830794166975190178224479757953 para
+4758883707766393775804908405907217025 bytes, com 15.496 nós, 453 decisões físicas
+e profundidade 545. A redução é aproximadamente 70 vezes em ambas.
+Esses números são tamanhos da árvore literal após simplificação, não de um
+arquivo emitido. O JSON final do Llama permanece pendente.
+
+
+Após essa mudança, a suíte completa registrou 535 testes: 517 passes,
+as mesmas 15 falhas anteriores e três skips. Todos os 479 passes do baseline
+foram preservados. As 864 comparações dos vetores de referência e JSON fechado
+passaram bit a bit. Um teste adicional da composição JSON nos pares críticos
+foi acrescentado durante a execução; a suíte focada final passou em 5/5 testes.
+A CLI preparou 1/32 coordenadas e escreveu zero: o orçamento recusou a árvore
+literal antes da emissão da expressão, registrando `pending` e `finalParity=false`.

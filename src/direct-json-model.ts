@@ -9,6 +9,7 @@ import type {Projection} from './direct-mlp-output.js';
 import type {JsonScalarHeader} from './direct-json-stream.js';
 import type {JsonFloatRange} from './direct-json-range.js';
 import {proveJsonHeadScoreBounds,type JsonHeadScoreBoundCertificate} from './direct-json-score-bound.js';
+import {certifyJsonRmsRoot,type JsonRmsRootCertificate} from './direct-json-rms-certificate.js';
 
 export interface JsonModelConstructionStats {
   f32Arithmetic:number;f16Conversions:number;squareRoots:number;exponentials:number;
@@ -17,6 +18,8 @@ export interface JsonModelConstructionStats {
 export interface JsonModelLoweringFacts {
   halfSources:WeakMap<JsonExpression,JsonExpression>;
   positiveNormalRoots:WeakSet<JsonExpression>;
+  rmsRootCertificates?:WeakMap<JsonExpression,JsonRmsRootCertificate>;
+  exactRmsMeans?:WeakSet<JsonExpression>;
   exponentialBounds:WeakMap<JsonExpression,number>;
   exponentialScoreBounds?:WeakMap<JsonExpression,number>;
   activationBounds:WeakMap<JsonExpression,number>;
@@ -104,7 +107,7 @@ export async function openJsonModelBuilder(directory:string,python:string,
     const stats:JsonModelConstructionStats={f32Arithmetic:0,f16Conversions:0,squareRoots:0,
       exponentials:0,activations:0,maximumComparisons:0,lengthDecisions:0,dependencies:0};
     const memo=new Map<string,Promise<JsonExpression>>();
-    const facts:JsonModelLoweringFacts={halfSources:new WeakMap(),positiveNormalRoots:new WeakSet(),
+    const facts:JsonModelLoweringFacts={halfSources:new WeakMap(),positiveNormalRoots:new WeakSet(),rmsRootCertificates:new WeakMap(),exactRmsMeans:new WeakSet(),
       exponentialBounds:new WeakMap(),exponentialScoreBounds:new WeakMap(),activationBounds:new WeakMap(),ranges:new WeakMap()};
     const dependency=(key:string,make:()=>Promise<JsonExpression>):Promise<JsonExpression>=>{
       const hit=memo.get(key);if(hit)return hit;
@@ -171,9 +174,15 @@ export async function openJsonModelBuilder(directory:string,python:string,
         if(!(Math.fround(epsilon)>=2**-126&&Number.isFinite(Math.fround(epsilon))))
           throw new Error('Positive normal epsilon proof required');
         const inverse=await dependency(key+':inverse',async()=>{
-          const variance=add(f32('div',await rmsSum(input),c('f32',width)),c('f32',epsilon));
+          const mean=f32('div',await rmsSum(input),c('f32',width));
+          // Positive sums of finite half squares are normal F32 or zero.
+          // Dividing by a power-of-two width <=1e6 preserves that lattice,
+          // with minimum nonzero >=2^-68 and no overflow.
+          if((width&(width-1))===0)facts.exactRmsMeans!.add(mean);
+          const variance=add(mean,c('f32',epsilon));
           stats.squareRoots++;const root=o('pending-sqrt','f32',variance);
           facts.positiveNormalRoots.add(root);
+          facts.rmsRootCertificates!.set(root,certifyJsonRmsRoot(width,epsilon));
           return f32('div',c('f32',1),root);
         });
         const normalized=half(f32('mul',widen(await input(coordinate)),inverse));
