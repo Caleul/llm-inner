@@ -1,0 +1,12 @@
+✔ unchanged structural and precision fixed points retain completed producer identity (0.834333ms)
+✔ incremental substitution stabilizes children before consumers and removes equivalent producer subtraction (36.375417ms)
+✔ a selected coordinate is emitted as a complete scalar artifact without pretending to cover the vector (25.357541ms)
+✔ one complete source-discovered coordinate preserves live PyTorch bits after each dependency is stabilized (8895.711333ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9046.037917

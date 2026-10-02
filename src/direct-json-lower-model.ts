@@ -11,6 +11,7 @@ import {f32BitsToDyadic,roundDyadicToF16IfElse} from './fixed-f16-projection.js'
 import type {JsonScalarHeader} from './direct-json-stream.js';
 import type {JsonPrecisionFacts} from './direct-json-precision.js';
 import {jsonModelRangeAnalysis} from './direct-json-range.js';
+import {constantJsonF32Cell} from './direct-json-rounding-cell.js';
 import {maximumF32MagnitudeForHalfBound} from './direct-json-half-preimage.js';
 import {jsonModelMagnitudeAnalysis} from './direct-json-magnitude.js';
 import {jsonResidualCellThreshold} from './direct-json-residual-cell.js';
@@ -163,8 +164,9 @@ export function createJsonModelLowerer(facts:JsonModelLoweringFacts,
     if(node[0]==='widen')return visit(args[0]!);
     if(node[0]==='pending-sqrt'){
       if(!facts.positiveNormalRoots.has(node))throw new Error('Missing positive normal root certificate');
-      const expression=lowerJsonRationalPositiveNormalSqrtAsF64(visit(args[0]!));
-      return args[0]![0]==='constant'?c('f64',Number(evaluateJsonExpression(expression))):expression;
+      const input=visit(args[0]!);
+      const expression=lowerJsonRationalPositiveNormalSqrtAsF64(input);
+      return input[0]==='constant'?c('f64',Number(evaluateJsonExpression(expression))):expression;
     }
     if(node[0]==='pending-exp'){
       const bound=facts.exponentialBounds.get(node);
@@ -185,7 +187,10 @@ export function createJsonModelLowerer(facts:JsonModelLoweringFacts,
     if(node[0]==='if')return o('if',node[1].startsWith('f')?'f64':node[1],...args.map(visit));
     if(node[1]==='bool')return o(node[0],'bool',...args.map(visit));
     if(node[1]==='f32'&&['add','sub','mul','div'].includes(node[0])){
-      const a=args[0]!,b=args[1]!,expression=o(node[0],'f64',visit(a),visit(b));
+      const a=args[0]!,b=args[1]!;
+      const cell=constantJsonF32Cell(node[0],range(a),range(b));
+      if(cell!==undefined)return c('f64',cell);
+      const expression=o(node[0],'f64',visit(a),visit(b));
       if(node[0]==='sub'&&sameJsonExpression(expression[2] as JsonExpression,expression[3] as JsonExpression))return c('f64',0);
       const left=expression[2] as JsonExpression,right=expression[3] as JsonExpression;
       const leftValue=value(left),rightValue=value(right);

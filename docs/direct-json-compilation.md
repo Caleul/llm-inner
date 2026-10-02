@@ -1161,3 +1161,26 @@ A CLI tentou emitir a coordenada com orçamento de 64 MiB e recusou antes
 da expressão: zero unidades, finalParity=false. A queda de tamanho não é
 o artefato. O JSON efetivo e sua paridade permanecem pendentes; outras
 coordenadas não foram compiladas nesta rodada.
+
+
+## Célula F32 constante antes de expandir produtores (2026-10-02)
+
+`direct-json-rounding-cell.ts` delimita a operação real de soma, subtração
+ou produto usando as faixas já provadas dos operandos. Cada extremo
+recebe um passo F64 para fora; só dobra o resultado se ambos arredondarem
+para o mesmo F32 finito não zero. Assim o teste não depende de a expressão
+inteira ter sido fechada. Empates não demonstrados, overflow, zeros, faixas
+inválidas e divisões conservam o caminho original. A análise lê a sintaxe
+dos produtores e seus certificados, sem gerar sua representação bitwise.
+
+A raiz passa a testar seu operando depois da substituição, corrigindo uma
+lacuna: antes, apenas constantes presentes no fonte disparavam o folding.
+Uma constante descoberta pela simplificação agora elimina também a raiz.
+Os testes incluem um produtor variável eliminado antes do fechamento,
+comparações com oráculo dyádico e preservação de zeros assinados.
+
+A coordenada completa posição 0/dimensão 2 conservou as 60 comparações
+exatas, mas seu tamanho previsto não mudou: 3.525.760.683.880.951.562.623
+bytes. A união de escopos também conservou o tamanho anterior. Essa regra
+corrige uma lacuna do simplificador; ainda não demonstrou redução adicional
+nesse checkpoint. Não é a emissão da coordenada, que continua pendente.

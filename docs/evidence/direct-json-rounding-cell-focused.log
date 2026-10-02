@@ -1,0 +1,17 @@
+✔ F32 widening and zero identities retain the stronger completed F16 precision proof (24.095333ms)
+✔ removing a redundant F32 bitword rounding never weakens its F16 producer precision (154.148208ms)
+✔ stronger precision is retained only when proved; arbitrary F32 constants do not acquire F16 precision (0.175125ms)
+✔ constant F32 cells preserve exact dyadic results for every admitted half correction and both signs (114.317375ms)
+✔ constant-cell folding rejects zeros, ties, overflow, unknown operations and invalid bounds (0.1025ms)
+✔ a certified constant cell cuts its producer before lowering and folds the downstream root (0.864333ms)
+✔ JSON zero identities preserve every finite half value and both zero signs (118.150667ms)
+✔ JSON reduction trailing zero is removed only after its accumulator excludes negative zero (274.526542ms)
+✔ JSON branch zero-sign proof requires both arms and does not assume half underflow is positive (0.441625ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1213.683416
