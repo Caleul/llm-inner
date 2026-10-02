@@ -8,7 +8,7 @@ import {lowerJsonWiden} from '../src/direct-json-widen.js';
 import {lowerJsonPositiveNormalSqrt,lowerJsonPositiveNormalSqrtAsF64} from '../src/direct-json-sqrt.js';
 import {certifyJsonSmallSilu,lowerJsonSmallSilu,lowerJsonSmallSiluAsF64} from '../src/direct-json-silu.js';
 import {lowerJsonSmallNonpositiveExp} from '../src/direct-json-exp.js';
-import {lowerJsonFiniteF16AsF64,lowerJsonNormalF32ThenF16AsF64} from '../src/direct-json-half-value.js';
+import {lowerJsonFiniteF16AsF64,lowerJsonNormalF32ThenF16AsF64,lowerJsonFiniteF32ThenF16AsF64} from '../src/direct-json-half-value.js';
 import {measureJsonExpression} from '../src/direct-json-measure.js';
 import {simplifyJsonBitPrecision,type JsonPrecisionFacts} from '../src/direct-json-precision.js';
 import {jsonModelRangeAnalysis} from '../src/direct-json-range.js';
@@ -223,6 +223,37 @@ test('JSON normal double rounding is fused with both widened even and odd tie ce
   // Ordinary direct F64->F16 rounding differs at these double-rounding cells.
   const value=1+2**-11+2**-25;
   assert.equal(evaluate(fused,{X1:value}),1);
+});
+test('JSON finite double rounding composes normal and subnormal arms without duplicating the F32 result',()=>{
+  const x=input('f64','X1'),fused=lowerJsonFiniteF32ThenF16AsF64(x,{minimum:-65504,maximum:65504});
+  const separate=lowerJsonFiniteF16AsF64(lowerJsonRoundNormalF32AsF64(x),{minimum:-65504,maximum:65504});
+  assert.ok(measureJsonExpression(fused).inputReferences<measureJsonExpression(separate).inputReferences);
+  const buffer=new DataView(new ArrayBuffer(8)),f32=new DataView(new ArrayBuffer(4));
+  let comparisons=0;
+  const check=(value:number)=>{
+    f32.setFloat32(0,value);const rounded=f32.getFloat32(0);
+    const expected=Object.is(rounded,-0)?-0:decodeIeeeF16ToF32(roundDyadicToF16IfElse(f32BitsToDyadic(f32.getUint32(0))));
+    assert.ok(Object.is(evaluate(fused,{X1:value}),expected),`composed finite double rounding ${value}`);comparisons++;
+  };
+  for(let bits=0;bits<0x7bff;bits++){
+    const a=decodeIeeeF16ToF32(bits),b=decodeIeeeF16ToF32(bits+1),midpoint=(a+b)/2;
+    buffer.setFloat64(0,midpoint);const middle=buffer.getBigUint64(0);
+    // Both F32 tie-cell edges around every normal AND subnormal half midpoint.
+    for(const offset of [-(1n<<28n),1n<<28n])for(const adjacent of [-1n,0n,1n]){
+      buffer.setBigUint64(0,middle+offset+adjacent);const value=buffer.getFloat64(0);
+      check(value);check(-value);
+    }
+  }
+  for(const value of [-65504,-(2**-14),-(2**-24),-(2**-126),-0,0,2**-126,2**-24,2**-14,65504])check(value);
+  // The exact F64 neighbors of the normal/subnormal classification boundary.
+  buffer.setFloat64(0,2**-14);const edge=buffer.getBigUint64(0);
+  for(const offset of [-1n,0n,1n]){buffer.setBigUint64(0,edge+offset);const value=buffer.getFloat64(0);check(value);check(-value);}
+  assert.equal(comparisons,380932);
+  const tiny=lowerJsonFiniteF32ThenF16AsF64(x,{minimum:-(2**-15),maximum:2**-15});
+  assert.equal(measureJsonExpression(tiny).decisions,0n);
+  for(const value of [-0,0,-(2**-25),2**-25,2**-15])
+    assert.ok(Object.is(evaluate(tiny,{X1:value}),evaluate(fused,{X1:value})));
+  assert.throws(()=>lowerJsonFiniteF32ThenF16AsF64(x,{minimum:-65520,maximum:1}),/certificate/);
 });
 test('JSON rejects hidden floating conversions and malformed operation types',()=>{
   assert.throws(()=>op('convert','f16',input('f32','X1')),/Unlowered/);

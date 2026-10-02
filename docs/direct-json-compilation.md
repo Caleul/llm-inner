@@ -237,7 +237,7 @@ diferentes e não podem ser apresentados como bifurcações originais do modelo.
 
 `direct-json-measure.ts` calcula exatamente ocorrências e bytes da árvore que
 seria serializada, sem renderizá-la. Valores BigInt evitam overflow do contador.
-Após fechamento e simplificação, posição 0/dimensão 2 possui 1.249 nós físicos,
+Na medição anterior à fusão normal/subnormal, posição 0/dimensão 2 possuía 1.249 nós físicos,
 28 decisões físicas, profundidade 444 e aproximadamente 1,12e28 bytes expandidos.
 Posição 7/dimensão 2 possui 15.927 nós, 453 decisões, profundidade 661 e
 aproximadamente 6,81e41 bytes após combinação de uma condição. Essas medidas incluem duplicação de operandos
@@ -289,7 +289,7 @@ Novos testes em `test/direct-json.test.ts`:
 Validação histórica inicial: 44/44 testes aprovados, incluindo os 11 novos e
 os testes existentes `direct-round-preimage` e `direct-flat-substitution`.
 
-Validação atual: `test/direct-json.test.ts` tem 27 casos; também cobre widening,
+Validação atual: `test/direct-json.test.ts` tem 28 casos; também cobre widening,
 raiz, exponencial, SiLU certificado, conversões compostas, medição de duplicação
 e cancelamento de round com prova de precisão. `test/direct-json-model.test.ts`
 cobre os 32 pares posição/dimensão e as 864 comparações antes e depois do
@@ -301,7 +301,7 @@ teste integrado adicional de recusa antecipada, ambos aprovados nas execuções 
 nas 864 comparações do vetor completo; a coordenada terminal manteve a redução. O corpus inclui máximos F16 com
 ambos os sinais, magnitudes misturadas e fronteiras normal/subnormal.
 
-Suíte completa atual: 526 testes, 508 aprovados, 15 falhas, 3 skips.
+Suíte completa atual: 527 testes, 509 aprovados, 15 falhas, 3 skips.
 Todos os 479 testes aprovados no baseline continuam aprovados; as mesmas 15
 falhas anteriores estão mapeadas em `docs/direct-json-validation.json`. A suíte
 completa final e os contadores de simplificação são reconciliados nesse arquivo.
@@ -371,3 +371,35 @@ estrutura de bits, mas não resolve a duplicação do artefato final.
 A suíte completa após essas regras manteve os 479 passes do baseline e as
 mesmas 15 falhas anteriores. As 864 comparações de vetores antes/depois do
 fechamento passaram bit a bit. O mapa registra os nomes e o hash do log.
+
+## Fusão F32→F16 com faixa atravessando zero
+
+`lowerJsonFiniteF32ThenF16AsF64` estende a composição existente aos resultados
+F16 subnormais. O chamador precisa provar F32 normal-ou-zero e uma faixa do
+resultado F32 estritamente abaixo de 65.520 em magnitude. A fórmula inteira
+fundida preserva as células de duplo arredondamento no braço normal. Somente o
+braço subnormal mantém o arredondamento F32 antes da quantização fixa F16;
+a restauração de sinal usa a fonte original, pois F32 preserva seu sinal.
+
+A decisão compara a fonte bruta com 2^-14. Se uma fonte ligeiramente abaixo
+for promovida a 2^-14 pelo primeiro arredondamento, o braço de quantum fixo
+também produz esse mesmo valor. Não há intervalo perdido na fronteira. Zero
+negativo e underflow assinado continuam explícitos. Fora da prova finita,
+o lowerer conserva a conversão anterior, com suas classificações.
+
+O oráculo independente passou em 380.932 entradas: bordas e vizinhos F64 das
+células F32 em todos os midpoints F16, incluindo subnormais, ambos os sinais,
+zeros e fronteira normal/subnormal. A suíte completa manteve as mesmas falhas
+preexistentes e as 864 comparações do vetor passaram antes/depois do fechamento.
+
+Com a combinação padrão de uma condição, posição 0/dimensão 2 passou de
+1,1177e28 para 2,1077e26 bytes previstos, aproximadamente 53 vezes menos;
+posição 7/dimensão 2 passou de 6,8084e41 para 3,0876e39, aproximadamente 220
+vezes menos. Nós físicos: 2.586 e 16.562; decisões físicas: 71 e 453;
+profundidades: 407 e 611. A primeira coordenada agora tem uma combinação
+vantajosa, que duplica alguns nós físicos enquanto reduz a árvore expandida.
+Esses números não são contagem das bifurcações originais do modelo.
+
+A execução real da CLI confirmou 2,1077e26 bytes para posição 0/dimensão 0 e
+recusou a expressão antes da emissão; continuam zero coordenadas publicadas e
+`finalParity:false`. O arquivo final do Llama ainda não foi produzido.

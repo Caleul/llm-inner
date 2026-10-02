@@ -1,5 +1,6 @@
 import {jsonConstant as c,jsonOperation as o,type JsonExpression} from './direct-json-expression.js';
 import type {JsonFloatRange} from './direct-json-range.js';
+import {lowerJsonRoundNormalF32AsF64} from './direct-json-f16.js';
 
 /** Direct finite F64 -> F16 conversion followed by exact F64 widening.
  * Exactly widened F32 values are a subset of this domain. Preserve sign,
@@ -46,4 +47,29 @@ export function lowerJsonNormalF32ThenF16AsF64(raw:JsonExpression):JsonExpressio
   const odd=o('and','u64',o('shr','u64',bits,u(42n)),u(1n));
   const bias=o('add','u64',u((1n<<41n)-(1n<<28n)-1n),o('mul','u64',odd,u((1n<<29n)+1n)));
   return o('reinterpret','f64',o('and','u64',o('add','u64',bits,bias),u(0xfffffc0000000000n)));
+}
+
+/** Compose F64 -> normal-or-zero F32 -> finite F16 across zero as well.
+ * The range certifies the already-rounded F32 value. Normal half outputs use
+ * the exact double-rounding cells directly; only the subnormal arm retains
+ * the intermediate F32 quantization. Its sign comes from raw, because F32
+ * rounding preserves it, including negative zero. No overflow arm is admitted.
+ * Classifying raw at 2^-14 is safe: the lower arm's fixed quantum also rounds
+ * a value that F32 promotes to the smallest normal half at that boundary. */
+export function lowerJsonFiniteF32ThenF16AsF64(raw:JsonExpression,range:JsonFloatRange):JsonExpression {
+  if(raw[1]!=='f64')throw new TypeError('F64 unrounded source required');
+  const maximum=Math.max(Math.abs(range.minimum),Math.abs(range.maximum));
+  if(!Number.isFinite(maximum)||range.minimum>range.maximum||maximum>=65520)
+    throw new RangeError('Finite F16 result certificate required');
+  const minimum=range.minimum>0?range.minimum:range.maximum<0?-range.maximum:0;
+  if(minimum>=2**-14)return lowerJsonNormalF32ThenF16AsF64(raw);
+  const u=(n:bigint)=>c('u64',n),bits=o('reinterpret','u64',raw);
+  const magnitude=o('reinterpret','f64',o('and','u64',bits,u(0x7fffffffffffffffn)));
+  const roundedMagnitude=lowerJsonRoundNormalF32AsF64(magnitude);
+  const subnormal=o('sub','f64',o('add','f64',roundedMagnitude,c('f64',2**28)),c('f64',2**28));
+  const signedSubnormal=o('reinterpret','f64',o('or','u64',o('reinterpret','u64',subnormal),
+    o('and','u64',bits,u(0x8000000000000000n))));
+  if(maximum<2**-14)return signedSubnormal;
+  return o('if','f64',o('lt','bool',magnitude,c('f64',2**-14)),signedSubnormal,
+    lowerJsonNormalF32ThenF16AsF64(raw));
 }

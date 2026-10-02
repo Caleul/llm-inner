@@ -1,7 +1,7 @@
 import {jsonConstant as c,jsonOperation as o,jsonInput,type JsonExpression} from './direct-json-expression.js';
 import {jsonConstantValue,evaluateJsonExpression} from './direct-json-evaluator.js';
 import {lowerJsonRoundNormalF32AsF64} from './direct-json-f16.js';
-import {lowerJsonFiniteF16AsF64,lowerJsonNormalF32ThenF16AsF64} from './direct-json-half-value.js';
+import {lowerJsonFiniteF16AsF64,lowerJsonFiniteF32ThenF16AsF64} from './direct-json-half-value.js';
 import {lowerJsonPositiveNormalSqrtAsF64} from './direct-json-sqrt.js';
 import {lowerJsonSmallNonpositiveExpAsF64} from './direct-json-exp.js';
 import {certifyJsonSmallSilu,lowerJsonSmallSiluAsF64} from './direct-json-silu.js';
@@ -65,9 +65,8 @@ export function lowerJsonModelExpression(root:JsonExpression,facts:JsonModelLowe
         return c('f64',decodeIeeeF16ToF32(bits));
       }
       const interval=range(halfSource),raw=f32Sources.get(source);
-      if(raw&&interval&&(interval.minimum>=2**-14||interval.maximum<=-(2**-14))&&
-        Math.max(Math.abs(interval.minimum),Math.abs(interval.maximum))<65520)
-        return lowerJsonNormalF32ThenF16AsF64(raw);
+      if(raw&&interval&&Math.max(Math.abs(interval.minimum),Math.abs(interval.maximum))<65520)
+        return lowerJsonFiniteF32ThenF16AsF64(raw,interval);
       return lowerJsonFiniteF16AsF64(source,interval);
     }
     if(node[0]==='constant')return node[1].startsWith('f')?c('f64',Number(jsonConstantValue(node))):node;
