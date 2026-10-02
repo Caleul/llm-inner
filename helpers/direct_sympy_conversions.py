@@ -132,6 +132,7 @@ class ConversionSession:
                 if isinstance(node.op,ast.Add):return a+b
                 if isinstance(node.op,ast.Sub):return a-b
                 if isinstance(node.op,ast.Mult):return a*b
+                if isinstance(node.op,ast.Pow) and b==2:return a*a
                 if isinstance(node.op,ast.Div):return a/b
             except (OverflowError,ZeroDivisionError):return None
         if isinstance(node,ast.Call) and len(node.args)==1 and node.func.id in ("R16","R32"):
@@ -159,6 +160,7 @@ class ConversionSession:
         a,b=self.value_kind(node.left),self.value_kind(node.right)
         left,right=self.constant(node.left),self.constant(node.right)
         if self.bounds(node.left) is None or self.bounds(node.right) is None:return None
+        if isinstance(node.op,ast.Pow) and right==2 and a=="half":return "f32"
         if isinstance(node.op,(ast.Add,ast.Sub)):
             if left==0 and b is not None:return b
             if right==0 and a is not None:return a
@@ -188,6 +190,7 @@ class ConversionSession:
             return self.domains[node.id].excludes_negative_zero
         if isinstance(node,ast.UnaryOp) and isinstance(node.op,ast.UAdd):return self.no_negative_zero(node.operand)
         if isinstance(node,ast.BinOp):
+            if isinstance(node.op,ast.Pow) and self.constant(node.right)==2 and self.value_kind(node.left)=="half":return True
             # Finite F64 addition cannot round a nonzero exact sum to zero:
             # both operands are integer multiples of the minimum subnormal.
             # The only negative-zero sum under RN-even is -0 + -0.
@@ -211,6 +214,11 @@ class ConversionSession:
             d=self.bounds(node.operand)
             return None if d is None else d if isinstance(node.op,ast.UAdd) else FiniteSource(-d.maximum,-d.minimum,d.quantum)
         if isinstance(node,ast.BinOp):
+            # Only certified finite Half squares are admitted here. Their
+            # 22-bit product is exact in F32 and F64, including positive zero.
+            # Reuse the multiplication enclosure without duplicating text.
+            if isinstance(node.op,ast.Pow) and self.constant(node.right)==2 and self.value_kind(node.left)=="half" and self.bounds(node.left) is not None:
+                return self.bounds(ast.BinOp(left=node.left,op=ast.Mult(),right=node.left))
             a,b=self.bounds(node.left),self.bounds(node.right)
             if a is None or b is None:return None
             try:

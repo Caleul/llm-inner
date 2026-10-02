@@ -15,6 +15,21 @@ from direct_sympy_strings import StringCompiler,syntax
 
 
 class CheckpointStringTests(unittest.TestCase):
+    def test_square_substitutes_once_only_for_certified_finite_half(self):
+        with tempfile.TemporaryDirectory() as directory:
+            (Path(directory)/"config.json").write_text(json.dumps({"model_type":"llama","hidden_size":2,"num_hidden_layers":1}))
+            compiler=StringCompiler()
+            builder=CheckpointStrings(directory,compiler)
+            result=builder.op("*","X1","X1")
+            self.assertEqual(ast.dump(syntax(result)),ast.dump(syntax("X1 ** 2")))
+            self.assertEqual(len(compiler.substitution_events),1)
+            self.assertTrue(all(e[2:4]==("factor","simplify") for e in compiler.events))
+            builder.conversions.half_values.clear();builder.conversions.f32_values.clear()
+            before=len(compiler.substitution_events)
+            result=builder.op("*","X1","X1")
+            self.assertEqual(len(compiler.substitution_events)-before,2)
+            self.assertIn("R32",result)
+
     @unittest.skipUnless(os.environ.get("LLM_INNER_DIRECT_JSON_CHECKPOINT"),"Checkpoint validation fixture not configured")
     def test_re_read_working_string_matches_fresh_reference_coordinate(self):
         import torch

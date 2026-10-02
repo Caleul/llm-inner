@@ -44,6 +44,47 @@ def cpp(node):
 
 
 class ConversionStringTests(unittest.TestCase):
+    def test_half_square_compacts_one_operand_with_exhaustive_bit_parity(self):
+        domains={"X1":Domain(F(-65504),F(65504),-24,False)}
+        session=ConversionSession(StringCompiler(),domains,input_dtype="f16")
+        result=session.close("R32(X1 ** 2)")
+        self.assertEqual(ast.dump(syntax(result)),ast.dump(syntax("X1 ** 2")))
+        self.assertEqual(session.value_kind(syntax(result)),"f32")
+        self.assertTrue(session.no_negative_zero(syntax(result)))
+        square=session.bounds(syntax(result));product=session.bounds(syntax("X1*X1"))
+        self.assertEqual(square.quantum,product.quantum)
+        self.assertGreaterEqual(square.minimum,product.minimum)
+        self.assertLessEqual(square.maximum,product.maximum)
+        unknown=ConversionSession(StringCompiler(),domains)
+        self.assertIsNone(unknown.bounds(syntax("X1 ** 2")))
+        self.assertIn("R32",unknown.close("R32(X1 ** 2)"))
+        self.assertIsNone(session.bounds(syntax("X1 ** 3")))
+        count=0
+        for bits in range(65536):
+            x=struct.unpack("e",struct.pack("H",bits))[0]
+            if not math.isfinite(x):continue
+            expected=struct.pack("d",x*x)
+            self.assertEqual(struct.pack("d",x**2),expected,bits)
+            self.assertEqual(struct.pack("d",float(struct.unpack("f",struct.pack("f",x*x))[0])),expected,bits)
+            count+=1
+        source=r'''#include <cmath>
+#include <cstdint>
+#include <cstring>
+#include <cstdio>
+int main(){unsigned count=0;for(unsigned bits=0;bits<65536;++bits){
+uint16_t raw=bits;_Float16 half;std::memcpy(&half,&raw,2);double x=half;
+if(!std::isfinite(x))continue;double a=x*x,b=std::pow(x,2.0),c=float(x*x);
+if(std::memcmp(&a,&b,8)||std::memcmp(&a,&c,8))return 1;++count;}
+std::printf("Native Half squares: %u, mismatches=0\\n",count);}
+'''
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/"squares.cpp";path.write_text(source)
+            executable=Path(directory)/"squares"
+            subprocess.run(["clang++","-std=c++17","-O2","-ffp-contract=off",str(path),"-o",str(executable)],check=True,capture_output=True)
+            output=subprocess.run([str(executable)],check=True,capture_output=True,text=True).stdout
+            self.assertIn(str(count),output);print(output.strip())
+        self.assertEqual(count,63488)
+
     def test_binade_proofs_preserve_predecessors_of_powers_of_two(self):
         for exponent in range(-1021,1023):
             power=2.0**exponent

@@ -87,6 +87,11 @@ class CheckpointStrings:
 
     def op(self,operation,a,b):
         # Actual F32 evaluation order is retained in the mathematical syntax.
+        if operation=="*" and a==b and self.conversions is not None:
+            operand=syntax(a)
+            if self.conversions.value_kind(operand)=="half" and self.conversions.bounds(operand) is not None:
+                expression=self.compiler.substitute("R32(X999999998 ** 2)","X999999998",a,self.domains)
+                return self.conversions.close(expression)
         template="R32(X999999998 "+operation+" X999999999)"
         left=self.compiler.substitute(template,"X999999998",a,self.domains)
         return self.compiler.substitute(left,"X999999999",b,self.domains)

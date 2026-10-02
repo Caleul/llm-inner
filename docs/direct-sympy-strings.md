@@ -428,3 +428,41 @@ docs/evidence/direct-sympy-frontier-nine, separada do artefato final. Ela só é
 compatível com as fontes identificadas no manifesto. O registro está em
 verifiedSavepointValidation. A normalização após a atenção, o MLP e a saída
 continuam pendentes; o prefixo contém sqrt e não prova a coordenada completa.
+
+## Quadrado de um produtor Half finito
+
+O construtor de multiplicação reconhece operandos textualmente iguais apenas
+quando há prova de que o operando é Half finito. Em vez de substituir a mesma
+expressão duas vezes em R32(A*A), substitui uma vez em R32(A**2), passa por
+factor/simplify até estabilizar e elimina R32 pela prova de produto exato.
+O produto tem no máximo 22 bits significativos, cabe em F32 e seu menor valor
+não nulo é 2^-48. O quadrado de qualquer zero tem sinal positivo.
+A emissão Rust posterior deve baixar esse expoente inteiro dois para
+multiplicação direta; esta sintaxe não autoriza um operador genérico de potência.
+
+Não há aplicação desta regra a um valor F64 arbitrário, operando desconhecido,
+outro expoente ou produto de operandos distintos. Os intervalos reutilizam o
+certificado da multiplicação, incluindo a correlação do quadrado. Todas as
+63.488 entradas Half finitas foram comparadas por bits em Python e C++ contra
+o produto e seu armazenamento F32, sem divergências. Um teste do construtor
+verifica uma substituição no caso certificado e duas no caso não certificado.
+
+Esta mudança altera a identidade do compilador: os estados anteriores são
+rejeitados. As expressões antigas permanecem arquivadas; a execução nova
+reconstrói seus próprios produtores e salva somente fronteiras concluídas.
+
+O ensaio novo de 8 MiB/180 segundos concluiu oito dependências e validou o
+residual:0 em 527.904 comparações nativas sem divergência. Uma retomada de
+180 segundos admitiu a substituição compacta do quadrado com 3.847.225
+caracteres, contra 7.694.438 na substituição anterior com duas ocorrências,
+mas parou durante a construção de residual:1. O quadrado não foi arquivado
+como produtor concluído. O tempo de análise da string permanece um gargalo;
+a redução medida não demonstra ganho de tempo para a coordenada completa.
+
+Build, quatro testes integrados e as provas numéricas passaram. A regressão
+ampla manteve 595 testes, 577 passes, 15 falhas conhecidas e três skips,
+sem falha nova ou passe perdido por nome. O mapa anterior foi preservado e
+finiteHalfSquareValidation registra fontes, evidências, estado e limitações.
+A fronteira nova está em docs/evidence/direct-sympy-square-frontier.
+Ainda faltam normalização posterior, MLP, saída e primitivas remanescentes;
+não há artefato final nem paridade da coordenada completa nesta etapa.
