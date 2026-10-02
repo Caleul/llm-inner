@@ -1,0 +1,14 @@
+✔ finite comparison proofs preserve endpoints, overlap, strictness and signed-zero equality (1.159792ms)
+✔ a proved guard cuts unreachable numerical producers before lowering for every finite half input (10.176083ms)
+✔ a constant discovered during condition substitution selects its branch before unsupported producers (1.186083ms)
+✔ JSON zero identities preserve every finite half value and both zero signs (122.779959ms)
+✔ JSON reduction trailing zero is removed only after its accumulator excludes negative zero (300.1155ms)
+✔ JSON branch zero-sign proof requires both arms and does not assume half underflow is positive (0.84425ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 997.104792

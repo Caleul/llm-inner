@@ -11,6 +11,7 @@ import {f32BitsToDyadic,roundDyadicToF16IfElse} from './fixed-f16-projection.js'
 import type {JsonScalarHeader} from './direct-json-stream.js';
 import type {JsonPrecisionFacts} from './direct-json-precision.js';
 import {jsonModelRangeAnalysis} from './direct-json-range.js';
+import {proveJsonFiniteComparison} from './direct-json-condition-proof.js';
 import {constantJsonF32Cell} from './direct-json-rounding-cell.js';
 import {maximumF32MagnitudeForHalfBound} from './direct-json-half-preimage.js';
 import {jsonModelMagnitudeAnalysis} from './direct-json-magnitude.js';
@@ -184,8 +185,17 @@ export function createJsonModelLowerer(facts:JsonModelLoweringFacts,
       const expression=lowerJsonSmallSiluAsF64(input,certificate.polynomialDegree);
       return input[0]==='constant'?c('f64',Number(evaluateJsonExpression(expression))):expression;
     }
-    if(node[0]==='if')return o('if',node[1].startsWith('f')?'f64':node[1],...args.map(visit));
-    if(node[1]==='bool')return o(node[0],'bool',...args.map(visit));
+    if(node[0]==='if'){
+      // Stabilize the condition before touching either branch's producers.
+      const condition=simplifyJsonFixedPoint(visit(args[0]!)).expression;
+      if(condition[0]==='constant')return visit(args[jsonConstantValue(condition)?1:2]!);
+      return o('if',node[1].startsWith('f')?'f64':node[1],condition,visit(args[1]!),visit(args[2]!));
+    }
+    if(node[1]==='bool'){
+      const proof=args.length===2?proveJsonFiniteComparison(node[0],range(args[0]!),range(args[1]!)):undefined;
+      if(proof!==undefined)return c('bool',proof);
+      return o(node[0],'bool',...args.map(visit));
+    }
     if(node[1]==='f32'&&['add','sub','mul','div'].includes(node[0])){
       const a=args[0]!,b=args[1]!;
       const cell=constantJsonF32Cell(node[0],range(a),range(b));

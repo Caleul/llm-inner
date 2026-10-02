@@ -1184,3 +1184,25 @@ exatas, mas seu tamanho previsto não mudou: 3.525.760.683.880.951.562.623
 bytes. A união de escopos também conservou o tamanho anterior. Essa regra
 corrige uma lacuna do simplificador; ainda não demonstrou redução adicional
 nesse checkpoint. Não é a emissão da coordenada, que continua pendente.
+
+
+## Decidir condições antes de fechar seus ramos (2026-10-02)
+
+O lowerer anteriormente visitava ambos os ramos de um `if` antes de
+estabilizar sua condição. Agora fecha e simplifica a condição primeiro.
+Uma constante seleciona somente o ramo alcançável, evitando fechar
+produtores que seriam descartados. Comparações eq/lt/le também usam
+faixas finitas certificadas antes de expandir seus operandos. Faixas
+sobrepostas, desconhecidas, inválidas ou não finitas conservam a decisão.
+Igualdade numérica trata +0 e -0 conforme a semântica IEEE da comparação.
+
+Os testes verificam estritamente ambos os extremos, igualdade de zeros,
+comparações desconhecidas e a seleção após substituição. Um ramo morto
+contém um produtor numérico sem certificado: o teste só passa se esse
+produtor não for visitado. O resultado do ramo sobrevivente foi comparado
+sobre todos os 63.488 códigos F16 finitos.
+
+A coordenada padrão manteve 60 comparações exatas e o mesmo tamanho literal
+previsto. Essa mudança corrige a ordem de fechamento das condições, mas
+não reduz adicionalmente o checkpoint atual. O JSON efetivo continua
+pendente; os detalhes da rodada estão em constantConditionValidation no mapa.
