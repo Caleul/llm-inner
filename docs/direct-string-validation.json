@@ -2054,5 +2054,136 @@
     "finalArtifactEmitted": false,
     "finalParity": false,
     "otherCoordinatesAdvanced": false
+  },
+  "subnormalGridAndExpansionValidation": {
+    "date": "2026-10-02T21:00:45.483968+00:00",
+    "baseCommit": "d192095",
+    "expressionFormat": "SymPy mathematical strings",
+    "expansionDiagnosis": {
+      "templateCharacters": 427,
+      "replacementCharacters": 1923552,
+      "occurrences": 5,
+      "estimatedCharacters": 9618149,
+      "limit": 8388608,
+      "previousStep": {
+        "replacementCharacters": 320519,
+        "occurrences": 6,
+        "finalCharacters": 1923580
+      },
+      "resourceGuard": "Rejected before parsing/allocating substituted replacement; trace inputs are work expressions, not reusable verified savepoints"
+    },
+    "rule": "Normal word rounding also preserves exact target-subnormal-grid values: below the normal threshold those values have at most p-1 significant bits; retain the small kernel for finer source grids",
+    "quantumThresholds": {
+      "F32": -149,
+      "F16": -24,
+      "tandemF16": -24
+    },
+    "build": {
+      "command": "npm run build",
+      "exitCode": 0
+    },
+    "motorPythonTests": 17,
+    "nativeTests": {
+      "conversionPythonTests": 11,
+      "singleF32": 100679708,
+      "singleF16": 206870,
+      "genericComposed": 559086,
+      "composedDirect": 559130,
+      "prunedF32": 100663300,
+      "prunedF16": 3072,
+      "typedPairs": 507904,
+      "wordIdentities": 16048,
+      "mismatches": 0,
+      "doubleRoundingCoverage": "Every normal Half cell: both F32 midpoint-preimage boundaries and their F64 neighbors, both signs; explicit Half underflow/normal/overflow cells and signed zeros",
+      "exactF32SubnormalWordsIncludingSignedZeros": 16777216,
+      "exactF16SubnormalWordsIncludingSignedZeros": 2048,
+      "allHalfGridValuesFromMinusTwoToTwoTandem": 67108866
+    },
+    "boundedRun": {
+      "maxCharacters": 8388608,
+      "maxSeconds": 300,
+      "terminal": true,
+      "exitCode": 1,
+      "stopReason": "wall-clock budget",
+      "completedDependencies": 8,
+      "lastDependency": "model.layers.0.residual:0",
+      "closedConversions": 15,
+      "redundantConversions": 2,
+      "reusedConvertedRegions": 12,
+      "visitedConversionNodes": 132
+    },
+    "savedProducer": {
+      "producer": "model.layers.0.residual:0",
+      "characters": 3847215,
+      "nativeComparisons": 527904,
+      "mismatches": 0,
+      "fundamentalInputs": [
+        "X1",
+        "X2"
+      ],
+      "remainingPrimitives": [
+        "sqrt"
+      ],
+      "finalParity": false
+    },
+    "wholeCoordinateSpeedupEstablished": false,
+    "regression": {
+      "command": "LLM_INNER_DIRECT_PYTHON=/private/tmp/llm-inner-pytorch/bin/python LLM_INNER_DIRECT_JSON_CHECKPOINT=/private/tmp/llm-inner-rust-validation node --test $(rg --files dist/test -g '*.test.js' | rg -v '/direct-json-model.test.js$') scripts/*.test.mjs",
+      "terminal": true,
+      "exitCode": 1,
+      "tests": 594,
+      "pass": 576,
+      "fail": 15,
+      "skipped": 3,
+      "newFailures": [],
+      "lostPasses": [],
+      "failedTests": [
+        "Gemma 4 embedded adapter executes every serialized invocation program without hidden class transforms",
+        "Gemma 4 runtime-reduction provider executes the integrity-bound embedded adapter",
+        "evidência adia prefill exato sem cache e preserva antecipação do contexto exato",
+        "evidência do corte de prefill terminal preserva corpus e correção de raiz",
+        "evidência do default de oito threads vincula corpus e tokens autoritativos",
+        "evidência promove antecipação do prefixo exato somente em sessão com cache",
+        "evidência promove cabeça BF16 integral e rejeita prefill agrupado divergente",
+        "evidência promove cache de decisão exata e rejeita fronteira Q8 0-18",
+        "evidência promove contexto sensível exato sem replay do decoder",
+        "evidência promove o maior prefixo exato entre sessões sem alterar logits",
+        "evidência rejeita Q8 na projeção down quando velocidade e verificação deixam de coexistir",
+        "evidência rejeita grupos Q8 que divergem ou ampliam o fallback",
+        "evidência rejeita prefill exato eager quando ele preserva tokens mas piora todas as classes de latência",
+        "keeps the real agent-visible task free of controller context",
+        "scalar-substitution example contains concrete learned values and reproduces its F32 result"
+      ],
+      "preservedPassedTestMap": "elementaryConversionValidation.regression.passedTests",
+      "deferred": "Three existing all-coordinate tests remain deferred until the first final coordinate passes",
+      "savedLogNormalization": "Trailing whitespace removed only"
+    },
+    "sourceHashes": {
+      "helpers/direct_sympy_strings.py": "a3cf349a7dc7560a292e5c69daaa39891293f5c6c01b2c23012ce971dd564da3",
+      "helpers/direct_sympy_strings_test.py": "07f2b0df1d449fe793867dee72bd1b67e8bd05e95bd57b168b01031735830ee4",
+      "helpers/direct_sympy_checkpoint.py": "d03d117f1d2c57570f0ad6cf4724a65427ecf05657971a8281a3e221aa24f3e2",
+      "helpers/direct_sympy_conversions.py": "fe239375db2f64c395a3912979aa4810fa950b57d9c70082143f805cb2f545c0",
+      "helpers/direct_sympy_conversions_test.py": "ff2f8040358aec143815c6ddc7893a121b1538f2c24a9387d313305ee4541789",
+      "helpers/direct_sympy_tandem.py": "c4c9db6a0fccdc7669bd8cf38d628809afd5348d51cbc232026c60d6cf70ad88",
+      "helpers/direct_sympy_prefix_proof.py": "9a263f2e8bc8cdc5be111ae07cf8c1107f2f6f268458955f81c4e88c140d97da",
+      "test/direct-sympy-strings.test.ts": "216e7bd0c0128bd139e224ebfcc03f364110716d1bbe0b0fb1c570e1ad6b9f06"
+    },
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-grid-motor.log": "41171fb5ca04d0d482a8d79295deb2f71a92deaf9c75a3dcf3147c10655c587c",
+      "docs/evidence/direct-sympy-grid-native.log": "db180d5db7fa5aaa52e58e11517948467e95fe50b84adf866334eb2a27bbad41",
+      "docs/evidence/direct-sympy-grid-cli.log": "e0d8ff8c84ecf8bf13de82a1c65c7bf911aebe1ea644fd5f4f71d577444cd3a9",
+      "docs/evidence/direct-sympy-grid-growth.tsv": "afea8e624778bc1632ede679d11ef4da510a4287a0ecb67e1586e0bae07a5f74",
+      "docs/evidence/direct-sympy-grid-substitutions.tsv": "137cdeef07821341a2287bd07a04a3ad7602e5a76a4d2d9a67e99dcdb1b4b837",
+      "docs/evidence/direct-sympy-grid-residual.prefix.work.expr": "e625c9a7dac5c1aa44809855b75e296412bdb46f3ef30cc9d3654ec408652a4a",
+      "docs/evidence/direct-sympy-grid-residual-proof.log": "43a1143f505ed08a64c98daa9a69bd625888131b18aa3ccbdf25e33789d9740e",
+      "docs/evidence/direct-sympy-grid-regression.log": "9dbad3410124bad283e9062333dbce8989ed6dd5e3dee87bcabeb93311a34d2f",
+      "docs/evidence/direct-sympy-expansion-trace-cli.log": "1f417f4c9fe9b31a20ea8e6c149ecb3807ea23342e7ebc91d57386df3c7449ae",
+      "docs/evidence/direct-sympy-expansion-trace-substitutions.tsv": "8ab3333a07ec519d2136e6c244dd6ae587f27c089e4a66272690b1df2f3070eb",
+      "docs/evidence/direct-sympy-expansion-failed-template.work.expr": "197bef9ac6bcef464eeabfbca737a0a94545d38ea0444254d29fcdd6b74580fb",
+      "docs/evidence/direct-sympy-expansion-failed-replacement.work.expr": "e107967f332418e4617619c6246568a156b392db0042951af98015e39902dcdb"
+    },
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "otherCoordinatesAdvanced": false
   }
 }

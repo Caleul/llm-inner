@@ -37,7 +37,7 @@ def lower_tandem(source,certificate,compiler,domains):
     minimum=certificate.minimum if certificate.minimum>0 else -certificate.maximum if certificate.maximum<0 else 0
     if maximum<overflow:above=normal
     else:above=f"Piecewise(({normal}, {mag} < {overflow_bits}), ({infinity}, True))"
-    if maximum<small:template=sub
-    elif minimum>=small or certificate.quantum>=-14:template=above
+    if minimum>=small or certificate.quantum>=-24:template=above
+    elif maximum<small:template=sub
     else:template=f"Piecewise(({sub}, {mag} < {small_bits}), ({above}, True))"
     return simplify_words(compiler.substitute(template,"X999999997",source,domains),compiler,domains)

@@ -1,0 +1,1 @@
+Compilation stopped: Compilation wall-clock budget exceeded; completedDependencies=8 lastDependency=model.layers.0.residual:0 closedConversions=15 redundantConversions=2 reusedConvertedRegions=12 visitedConversionNodes=132; no coordinate artifact admitted

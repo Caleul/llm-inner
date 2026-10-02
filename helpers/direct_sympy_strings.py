@@ -269,6 +269,8 @@ class StringCompiler:
             raise ValueError("Expected IEEE f32/f64 dtype")
         self.dtype, self.max_characters, self.max_passes = dtype,max_characters,max_passes
         self.events = []
+        self.substitution_events = []
+        self.failed_substitution = None
         self._stable={}
         self._cache_characters=0
 
@@ -373,17 +375,24 @@ class StringCompiler:
     def substitute(self, expression, name, replacement, domains, path=()):
         if not re.fullmatch(r"X[1-9][0-9]*",name):
             raise ValueError("Substitution variables must be Xn")
-        syntax(replacement)
         # Identifier boundaries: X1 must not modify X10 or function names.
         # Replacement always carries its own parentheses before CAS parsing.
         enclosed = "("+expression+")"
         pattern = r"\b"+re.escape(name)+r"\b"
         occurrences = len(re.findall(pattern,enclosed))
         estimated = len(enclosed)+occurrences*(len(replacement)+2-len(name))
+        event=(name,len(expression),len(replacement),occurrences,estimated)
+        index=len(self.substitution_events)
+        self.substitution_events.append(event+(None,"pending"))
         if estimated>self.max_characters:
-            raise ValueError("Substitution exceeds string budget before allocation")
+            self.substitution_events[index]=event+(None,"budget")
+            self.failed_substitution=(expression,name,replacement)
+            raise ValueError(f"Substitution exceeds string budget before allocation: variable={name} templateCharacters={len(expression)} replacementCharacters={len(replacement)} occurrences={occurrences} estimatedCharacters={estimated} limit={self.max_characters}")
+        syntax(replacement)
         result = re.sub(pattern,lambda _:"("+replacement+")",enclosed)
-        return self.stabilize(result,domains,path)
+        stabilized=self.stabilize(result,domains,path)
+        self.substitution_events[index]=event+(len(stabilized),"admitted")
+        return stabilized
 
     def compile(self, expression, definitions, domains):
         """Backward substitution. An entire fixed point precedes next Xn."""

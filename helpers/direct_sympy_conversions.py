@@ -70,7 +70,11 @@ def lower_finite_conversion(expression,kind,certificate,compiler,domains,path=()
     minimum=certificate.minimum if certificate.minimum>0 else -certificate.maximum if certificate.maximum<0 else 0
     smallest=2**(-126 if kind=="R32" else -14)
     overflow=2**128-2**103 if kind=="R32" else 65520
-    zero_or_normal=certificate.quantum is not None and certificate.quantum>=(-126 if kind=="R32" else -14)
+    # A value on the target subnormal grid already has at most p-1
+    # significant bits below the normal threshold. Normal word rounding
+    # leaves it unchanged, including signed zero. A separate small kernel
+    # is needed only when the source can lie between those grid points.
+    zero_or_normal=certificate.quantum is not None and certificate.quantum>=(-149 if kind=="R32" else -24)
     if maximum<overflow and (minimum>=smallest or zero_or_normal):
         # Under this certificate the low-bit bias cannot carry into bit 63.
         # Round the signed word itself: the retained-bit parity is independent

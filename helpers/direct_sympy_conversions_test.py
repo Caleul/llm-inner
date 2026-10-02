@@ -159,6 +159,17 @@ class ConversionStringTests(unittest.TestCase):
         with self.assertRaises(ValueError):FiniteSource(-math.inf,1)
         with self.assertRaises(ValueError):lower_finite_conversion("X1","R32",None,StringCompiler(),{})
 
+    def test_exact_subnormal_grid_removes_only_the_unneeded_small_kernel(self):
+        compiler=StringCompiler()
+        for kind,q in (("R32",-149),("R16",-24)):
+            exact=lower_finite_conversion("X1",kind,FiniteSource(-2,2,q),compiler,{})
+            between=lower_finite_conversion("X1",kind,FiniteSource(-2,2,q-1),compiler,{})
+            self.assertNotIn("Piecewise",exact)
+            self.assertIn("Piecewise",between)
+        self.assertNotIn("Piecewise",lower_tandem("X1",FiniteSource(-2,2,-24),compiler,{}))
+        self.assertEqual(lower_tandem("X1",FiniteSource(-2**-15,2**-15,-24),compiler,{}),lower_tandem("X1",FiniteSource(-2,2,-24),compiler,{}))
+        self.assertIn("Piecewise",lower_tandem("X1",FiniteSource(-2,2,-25),compiler,{}))
+
     def test_unknown_source_remains_a_barrier_in_the_session(self):
         session=ConversionSession(StringCompiler(),{})
         self.assertIn("R16",session.close("R16(X2)"))
@@ -185,6 +196,9 @@ class ConversionStringTests(unittest.TestCase):
         product=typed.close("R32(X1*X2)")
         addition=typed.close("R16(R32(X1+X2))")
         zero=typed.close("R16(R32((0.0+0.0)+X1))")
+        grid32=lower_finite_conversion("X1","R32",FiniteSource(-2,2,-149),compiler,{})
+        grid16=lower_finite_conversion("X1","R16",FiniteSource(-2,2,-24),compiler,{})
+        grid_tandem=lower_tandem("X1",FiniteSource(-2,2,-24),compiler,{})
         for expression in (product,addition,zero):
             self.assertNotIn("R32(",expression);self.assertNotIn("R16(",expression)
         self.assertGreaterEqual(typed.redundant+typed.arithmetic_eliminated,4)
@@ -211,11 +225,31 @@ uint64_t wordParity(double X1){return """+cpp(syntax(word))+""";}
 double typedProduct(double X1,double X2){return """+cpp(syntax(product))+""";}
 double typedAddition(double X1,double X2){return """+cpp(syntax(addition))+""";}
 double typedZero(double X1,double X2){return """+cpp(syntax(zero))+""";}
+double grid32(double X1){return """+cpp(syntax(grid32))+""";}
+double grid16(double X1){return """+cpp(syntax(grid16))+""";}
+double gridTandem(double X1){return """+cpp(syntax(grid_tandem))+""";}
 int main(){
  for(uint64_t bits:{UINT64_C(0),UINT64_C(1),UINT64_C(0x8000000000000000),UINT64_C(0x7ff0000000000000),UINT64_C(0x7ff8000000000001),UINT64_C(0xffffffffffffffff)})
   if(wordParity(word<double>(bits))!=((bits>>42)&1))return 4;
  static_assert(FLT_EVAL_METHOD==0);static_assert(std::numeric_limits<double>::is_iec559);
  if(std::fesetround(FE_TONEAREST))return 2;
+ uint64_t grid32Cases=0,grid16Cases=0;
+ for(uint32_t bits=0;bits<0x800000;bits++)for(uint32_t sign:{uint32_t(0),uint32_t(0x80000000)}){
+  double x=word<float>(bits|sign);grid32Cases++;
+  if(word<uint64_t>(grid32(x))!=word<uint64_t>(x))return 6;
+ }
+ for(uint16_t bits=0;bits<0x0400;bits++)for(uint16_t sign:{uint16_t(0),uint16_t(0x8000)}){
+  double x=word<_Float16>(uint16_t(bits|sign));grid16Cases++;
+  if(word<uint64_t>(grid16(x))!=word<uint64_t>(x))return 7;
+ }
+ std::printf("Exact subnormal-grid certificates: F32=%llu F16=%llu mismatches=0\\n",(unsigned long long)grid32Cases,(unsigned long long)grid16Cases);
+ uint64_t gridTandemCases=0;
+ for(uint32_t i=0;i<=33554432;i++)for(double sign:{1.,-1.}){
+  double x=std::ldexp(double(i),-24)*sign;gridTandemCases++;
+  double expected=static_cast<_Float16>(static_cast<float>(x));
+  if(word<uint64_t>(gridTandem(x))!=word<uint64_t>(expected))return 8;
+ }
+ std::printf("Exact Half-grid tandem certificate: cases=%llu mismatches=0\\n",(unsigned long long)gridTandemCases);
  uint64_t cases32=0,cases16=0,composedCases=0,pruned32Cases=0,pruned16Cases=0,tandemCases=0,failures=0;
  auto check32=[&](double x){cases32++;double expected=static_cast<float>(x);if(word<uint64_t>(r32(x))!=word<uint64_t>(expected))failures++;};
  auto check16=[&](double x){cases16++;double expected=static_cast<_Float16>(x);if(word<uint64_t>(r16(x))!=word<uint64_t>(expected))failures++;};
@@ -267,7 +301,11 @@ int main(){
             subprocess.run(["clang++","-O3","-ffp-contract=off","-std=c++17",str(source),"-o",str(binary)],check=True,capture_output=True)
             result=subprocess.run([str(binary)],capture_output=True,text=True,timeout=120)
             self.assertEqual(result.returncode,0,result.stdout+result.stderr)
-            count32,count16,count_composed,count_pruned32,count_pruned16,count_tandem,failures=map(int,result.stdout.split())
+            self.assertIn("Exact subnormal-grid certificates: F32=16777216 F16=2048 mismatches=0",result.stdout)
+            print(result.stdout.splitlines()[0])
+            self.assertIn("Exact Half-grid tandem certificate: cases=67108866 mismatches=0",result.stdout)
+            print(result.stdout.splitlines()[1])
+            count32,count16,count_composed,count_pruned32,count_pruned16,count_tandem,failures=map(int,result.stdout.splitlines()[-1].split())
             self.assertEqual(count32,100663296+16376+36)
             self.assertEqual(count16,31743*6+16376+36)
             self.assertEqual(count_composed,31743*6+30719*12)

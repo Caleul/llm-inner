@@ -242,6 +242,12 @@ def main():
             path=Path(args.output);path.parent.mkdir(parents=True,exist_ok=True)
             Path(str(path)+".growth.tsv").write_text("dependency\tbeforeCharacters\tafterCharacters\tCASPasses\n"+
                 "\n".join("\t".join(map(str,e)) for e in model.events)+"\n")
+            Path(str(path)+".substitutions.tsv").write_text("variable\ttemplateCharacters\treplacementCharacters\toccurrences\testimatedCharacters\tfinalCharacters\tstatus\n"+
+                "\n".join("\t".join(map(str,e)) for e in compiler.substitution_events)+"\n")
+            if compiler.failed_substitution is not None:
+                template,name,replacement=compiler.failed_substitution
+                Path(str(path)+".failed-template.work.expr").write_text(template+"\n")
+                Path(str(path)+".failed-replacement.work.expr").write_text(replacement+"\n")
             last=next(reversed(model.memo),None)
             if last is not None:Path(str(path)+".prefix.work.expr").write_text(model.memo[last]+"\n")
             print(f"Compilation stopped: {error}; completedDependencies={len(model.events)} lastDependency={last} closedConversions={model.conversions.closed if model.conversions else 0} redundantConversions={model.conversions.redundant if model.conversions else 0} reusedConvertedRegions={model.conversions.reused_regions if model.conversions else 0} visitedConversionNodes={model.conversions.visited_nodes if model.conversions else 0}; no coordinate artifact admitted")

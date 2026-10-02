@@ -9,6 +9,15 @@ from direct_sympy_strings import Domain,StringCompiler,syntax
 
 
 class StringCompilerTests(unittest.TestCase):
+    def test_substitution_budget_records_growth_without_parsing_the_replacement(self):
+        compiler=StringCompiler(max_characters=10)
+        replacement="X2+X2+X2"
+        with patch.object(engine,"syntax",side_effect=AssertionError("Over-budget replacement must not be parsed")):
+            with self.assertRaisesRegex(ValueError,"occurrences=2 estimatedCharacters=23 limit=10"):
+                compiler.substitute("X1+X1","X1",replacement,{})
+        self.assertEqual(compiler.failed_substitution,("X1+X1","X1",replacement))
+        self.assertEqual(compiler.substitution_events[-1],("X1",5,8,2,23,None,"budget"))
+
     def test_repeated_grammar_admission_returns_independent_trees(self):
         first=syntax("R32(X12345 + (-0.0))")
         first.args[0].left.id="Changed"

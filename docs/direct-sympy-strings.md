@@ -346,3 +346,42 @@ Um ensaio de amostragem de stacks com faulthandler terminou com exit 139;
 a causa nativa permanece não demonstrada, e nenhum resultado desse ensaio
 foi admitido. O perfil válido foi obtido depois com cProfile sem esse sampler.
 Os registros estão em grammarAndEnvelopeValidation, preservando o histórico.
+
+## Crescimento por substituição e grade subnormal exata
+
+A tentativa que ultrapassava 8 MiB foi medida antes de alocá-la: um molde
+de 427 caracteres substituiria cinco ocorrências por uma fonte de 1.923.552
+caracteres, produzindo 9.618.149 caracteres. A conversão anterior já havia
+substituído seis ocorrências de uma fonte de 320.519 caracteres. O diagnóstico
+salva os dois operandos como strings matemáticas de trabalho e registra cada
+tentativa em TSV, incluindo resultados admitidos e operações pendentes.
+Esses arquivos não são estados de retomada verificados nem artefatos finais.
+
+A soma de dois valores Half pertence à grade 2^-24. Abaixo do limite normal
+Half, um valor nessa grade tem no máximo dez bits significativos, e portanto
+o kernel normal, que retém onze, não altera seus bits. Isso permite eliminar
+o kernel subnormal separado, inclusive preservando ambos os sinais do zero.
+O mesmo argumento vale para a grade F32 2^-149, com até 23 bits abaixo do
+limite normal e 24 bits retidos. Fontes entre pontos da grade continuam usando
+o tratamento subnormal. A composição F64 → F32 → Half admite a mesma prova
+na grade 2^-24 e conserva suas correções de arredondamento duplo.
+
+Os testes nativos cobrem todos os 16.777.216 words subnormais F32 com sinal
+(incluindo zeros), os 2.048 words Half correspondentes e todos os 67.108.866
+valores com sinal da grade Half em [-2, 2] na composição. Nenhuma divergência.
+As comparações anteriores de células, empates e 507.904 pares Half continuam
+aprovadas. Onze testes Python de conversões e 17 do motor passaram; build
+aprovado. A regressão ampla mantém 576 passes, 15 falhas conhecidas e três
+skips entre 594 testes, sem passe perdido ou falha nova por nome.
+
+O ensaio de 8 MiB/300 segundos concluiu oito produtores e salvou residual:0
+com 3.847.215 caracteres. A comparação com os 9.618.149 caracteres é contra
+a expansão antiga estimada, que havia sido rejeitada antes da alocação.
+O residual emitido passou 527.904 comparações nativas contra uma redução
+independente da projeção V, contexto, projeção O e soma residual, sem diferença
+de bits. A referência mantém os quatro acumuladores e o zero inicial causal.
+
+Ainda não há coordenada final: o segundo residual estava em andamento no
+timeout, e faltam MLP, normalização final, saída e primitivas remanescentes.
+O residual salvo contém sqrt. Os resultados estão em
+subnormalGridAndExpansionValidation; o histórico permanece intacto.

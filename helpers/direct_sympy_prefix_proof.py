@@ -14,10 +14,10 @@ from direct_sympy_conversions_test import cpp
 
 
 def main():
-    if len(sys.argv) not in (3,4):raise ValueError("Usage: prefix checkpoint [inverse|v0|v1|context0|context1]")
+    if len(sys.argv) not in (3,4):raise ValueError("Usage: prefix checkpoint [inverse|v0|v1|context0|context1|residual0|residual1]")
     prefix,checkpoint=sys.argv[1:3]
     producer=sys.argv[3] if len(sys.argv)==4 else "inverse"
-    if producer not in ("inverse","v0","v1","context0","context1"):raise ValueError("Unknown producer validation")
+    if producer not in ("inverse","v0","v1","context0","context1","residual0","residual1"):raise ValueError("Unknown producer validation")
     config=json.loads((Path(checkpoint)/"config.json").read_text())
     if config["hidden_size"]!=2:raise ValueError("This native prefix validation fixture requires width two")
     expected="double(inverse)"
@@ -27,9 +27,20 @@ def main():
         with CheckpointStrings(checkpoint,StringCompiler()) as model:
             gamma=[model.weight("model.layers.0.input_layernorm.weight",i) for i in range(2)]
             weights=[model.weight("model.layers.0.self_attn.v_proj.weight",int(producer[-1]),i) for i in range(2)]
+            if producer.startswith("residual"):
+                vweights=[[model.weight("model.layers.0.self_attn.v_proj.weight",j,i) for i in range(2)] for j in range(2)]
+                oweights=[model.weight("model.layers.0.self_attn.o_proj.weight",int(producer[-1]),i) for i in range(2)]
         expected="double(static_cast<_Float16>((float(0.0f+p0)+float(0.0f+p1))+float(0.0f+0.0f)))"
         if producer.startswith("context"):expected="double(float(0.0+"+expected+"))"
         recipe="\n".join(f"double n{i}=static_cast<_Float16>(float({('x','y')[i]}*double(inverse))); double h{i}=static_cast<_Float16>(float(n{i}*{gamma[i]})); float p{i}=float(h{i}*{weights[i]});" for i in range(2))
+        if producer.startswith("residual"):
+            # Independent four-lane reduction and Half stores, retaining the
+            # context's initial +0 (which resets a negative-zero V output).
+            recipe="\n".join(f"double n{i}=static_cast<_Float16>(float({('x','y')[i]}*double(inverse))); double h{i}=static_cast<_Float16>(float(n{i}*{gamma[i]}));" for i in range(2))
+            for j in range(2):
+                recipe+=f"\nfloat v{j}a=float(h0*{vweights[j][0]}),v{j}b=float(h1*{vweights[j][1]}); double v{j}=static_cast<_Float16>((float(0.0f+v{j}a)+float(0.0f+v{j}b))+float(0.0f+0.0f)); double c{j}=static_cast<_Float16>(float(0.0+v{j}));"
+            recipe+=f"\nfloat oa=float(c0*{oweights[0]}),ob=float(c1*{oweights[1]}); double attention=static_cast<_Float16>((float(0.0f+oa)+float(0.0f+ob))+float(0.0f+0.0f));"
+            expected="double(static_cast<_Float16>(float("+('x','y')[int(producer[-1])]+"+attention)))"
     else:recipe=""
     expression=Path(prefix).read_text()
     if "R32(" in expression or "R16(" in expression:raise ValueError("Residual conversion in saved producer prefix")
