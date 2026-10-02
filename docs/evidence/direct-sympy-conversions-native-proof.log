@@ -1,0 +1,6 @@
+.....
+----------------------------------------------------------------------
+Ran 5 tests in 0.680s
+
+OK
+Actual string IEEE certificate: F32=100679708 F16=206870 composed=190458 prunedF32=100663300 prunedF16=3072 mismatches=0; typedPairs=507904

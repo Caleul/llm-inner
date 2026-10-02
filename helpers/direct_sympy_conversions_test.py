@@ -1,0 +1,167 @@
+import ast
+import math
+from pathlib import Path
+import struct
+import subprocess
+import tempfile
+import unittest
+import sys
+
+from direct_sympy_conversions import FiniteSource,lower_finite_conversion,ConversionSession,binary_exponent
+from direct_sympy_strings import StringCompiler,syntax,Domain
+from fractions import Fraction as F
+
+
+def cpp(node):
+    if isinstance(node,ast.Name):return node.id
+    if isinstance(node,ast.Constant):
+        if type(node.value) is bool:return "true" if node.value else "false"
+        if type(node.value) is int:return "UINT64_C("+str(node.value)+")"
+        return repr(node.value)
+    if isinstance(node,ast.UnaryOp):return "(-double("+cpp(node.operand)+"))" if isinstance(node.op,ast.USub) else cpp(node.operand)
+    if isinstance(node,ast.BinOp):
+        if isinstance(node.op,ast.Pow):return "std::pow(double("+cpp(node.left)+"), double("+cpp(node.right)+"))"
+        op={ast.Add:"+",ast.Sub:"-",ast.Mult:"*",ast.Div:"/"}[type(node.op)]
+        return "("+cpp(node.left)+" "+op+" "+cpp(node.right)+")"
+    if isinstance(node,ast.Compare):return "("+cpp(node.left)+" < "+cpp(node.comparators[0])+")"
+    if isinstance(node,ast.Call):
+        name=node.func.id
+        if name=="Piecewise":
+            result="UINT64_C(0)"
+            for pair in reversed(node.args):result="("+cpp(pair.elts[1])+" ? "+cpp(pair.elts[0])+" : "+result+")"
+            return result
+        args=[cpp(x) for x in node.args]
+        if name=="Bits64":return "word<uint64_t>(double("+args[0]+"))"
+        if name=="Float64":return "word<double>(uint64_t("+args[0]+"))"
+        if name=="sqrt":return "std::sqrt(double("+args[0]+"))"
+        op={"U64And":"&","U64Or":"|","U64Shr":">>","U64Add":"+"}[name]
+        return "(uint64_t("+args[0]+") "+op+" uint64_t("+args[1]+"))"
+    raise AssertionError(ast.dump(node))
+
+
+class ConversionStringTests(unittest.TestCase):
+    def test_binade_proofs_preserve_predecessors_of_powers_of_two(self):
+        for exponent in range(-1021,1023):
+            power=2.0**exponent
+            predecessor=math.nextafter(power,0)
+            self.assertEqual(binary_exponent(predecessor),exponent-1)
+            self.assertEqual(binary_exponent(power),exponent)
+        x=math.nextafter(2.0**-126,0)
+        session=ConversionSession(StringCompiler(),{"X1":Domain(F(x),F(x),-179,True)})
+        self.assertEqual(session.bounds(syntax("X1+0")).quantum,-179)
+
+    def test_normalization_certificate_rejects_unproved_geometry_and_epsilon(self):
+        from direct_sympy_checkpoint import rms_half_bound
+        for width,epsilon in ((0,1e-6),(1000001,1e-6),(2,0),(2,2**-127),(2,math.inf),(2,math.nan)):
+            self.assertIsNone(rms_half_bound(width,epsilon))
+        session=ConversionSession(StringCompiler(),{},input_dtype="f16")
+        overflow=syntax("R16(65504.0*65504.0)")
+        self.assertIsNone(session.bounds(overflow))
+        self.assertIsNone(session.value_kind(overflow))
+        for width in (1,2,1024,1000000):
+            self.assertEqual(rms_half_bound(width,1e-6),2*math.sqrt(width))
+
+    def test_constructor_rejects_uncertified_sources(self):
+        with self.assertRaises(ValueError):FiniteSource(-math.inf,1)
+        with self.assertRaises(ValueError):lower_finite_conversion("X1","R32",None,StringCompiler(),{})
+
+    def test_unknown_source_remains_a_barrier_in_the_session(self):
+        session=ConversionSession(StringCompiler(),{})
+        self.assertIn("R16",session.close("R16(X2)"))
+        self.assertEqual(session.closed,0)
+        self.assertEqual(session.pending,1)
+
+    def test_actual_strings_match_native_ieee_conversion_cells_and_exponents(self):
+        compiler=StringCompiler()
+        r32=lower_finite_conversion("X1","R32",FiniteSource(-sys.float_info.max,sys.float_info.max),compiler,{})
+        r16=lower_finite_conversion("X1","R16",FiniteSource(-sys.float_info.max,sys.float_info.max),compiler,{})
+        pruned32=lower_finite_conversion("X1","R32",FiniteSource(-2,2,-126),compiler,{})
+        pruned16=lower_finite_conversion("X1","R16",FiniteSource(-2**-15,2**-15),compiler,{})
+        self.assertNotIn("Piecewise",pruned32+pruned16)
+        session=ConversionSession(compiler,{"X1":Domain(F(-65504),F(65504),-1074,False)})
+        composed=session.close("R16(R32(X1))")
+        self.assertEqual(session.closed,2)
+        self.assertNotIn("R16",composed);self.assertNotIn("R32",composed)
+        self.assertNotIn("R32",r32);self.assertNotIn("R16",r16)
+        self.assertNotIn("X999999997",r32+r16)
+        self.assertTrue(any(event[-1]=="branch-contexts" for event in compiler.events))
+        typed=ConversionSession(compiler,{name:Domain(F(-65504),F(65504),-24,False) for name in ("X1","X2")},input_dtype="f16")
+        product=typed.close("R32(X1*X2)")
+        addition=typed.close("R16(R32(X1+X2))")
+        zero=typed.close("R16(R32((0.0+0.0)+X1))")
+        for expression in (product,addition,zero):
+            self.assertNotIn("R32(",expression);self.assertNotIn("R16(",expression)
+        self.assertGreaterEqual(typed.redundant,4)
+        with tempfile.TemporaryDirectory(prefix="sympy-conversion-certificate-") as directory:
+            root=Path(directory)
+            source=root/"proof.cpp";binary=root/"proof"
+            source.write_text("""
+#include <cstdint>
+#include <cstring>
+#include <cmath>
+#include <cstdio>
+#include <cfenv>
+#include <cfloat>
+#include <initializer_list>
+#include <limits>
+template<class T,class U>T word(U value){static_assert(sizeof(T)==sizeof(U));T result;std::memcpy(&result,&value,sizeof(result));return result;}
+double r32(double X1){return """+cpp(syntax(r32))+""";}
+double r16(double X1){return """+cpp(syntax(r16))+""";}
+double composed(double X1){return """+cpp(syntax(composed))+""";}
+double pruned32(double X1){return """+cpp(syntax(pruned32))+""";}
+double pruned16(double X1){return """+cpp(syntax(pruned16))+""";}
+double typedProduct(double X1,double X2){return """+cpp(syntax(product))+""";}
+double typedAddition(double X1,double X2){return """+cpp(syntax(addition))+""";}
+double typedZero(double X1,double X2){return """+cpp(syntax(zero))+""";}
+int main(){
+ static_assert(FLT_EVAL_METHOD==0);static_assert(std::numeric_limits<double>::is_iec559);
+ if(std::fesetround(FE_TONEAREST))return 2;
+ uint64_t cases32=0,cases16=0,composedCases=0,pruned32Cases=0,pruned16Cases=0,failures=0;
+ auto check32=[&](double x){cases32++;double expected=static_cast<float>(x);if(word<uint64_t>(r32(x))!=word<uint64_t>(expected))failures++;};
+ auto check16=[&](double x){cases16++;double expected=static_cast<_Float16>(x);if(word<uint64_t>(r16(x))!=word<uint64_t>(expected))failures++;};
+ auto checkComposed=[&](double x){composedCases++;double expected=static_cast<_Float16>(static_cast<float>(x));if(word<uint64_t>(composed(x))!=word<uint64_t>(expected))failures++;};
+ auto checkPruned32=[&](double x){pruned32Cases++;double expected=static_cast<float>(x);if(word<uint64_t>(pruned32(x))!=word<uint64_t>(expected))failures++;};
+ auto checkPruned16=[&](double x){pruned16Cases++;double expected=static_cast<_Float16>(x);if(word<uint64_t>(pruned16(x))!=word<uint64_t>(expected))failures++;};
+ for(unsigned exponent=126;exponent<=127;exponent++)for(uint32_t fraction=0;fraction<0x800000;fraction++){
+  uint32_t bits=(exponent<<23)|fraction;
+  double a=word<float>(bits),b=word<float>(bits+1),mid=(a+b)/2;
+  for(double x:{std::nextafter(mid,-INFINITY),mid,std::nextafter(mid,INFINITY)})for(double sign:{1.,-1.}){check32(x*sign);checkPruned32(x*sign);}
+ }
+ for(uint16_t bits=0;bits<0x7bff;bits++){
+  double a=word<_Float16>(bits),b=word<_Float16>(uint16_t(bits+1)),mid=(a+b)/2;
+  for(double x:{std::nextafter(mid,-INFINITY),mid,std::nextafter(mid,INFINITY)})for(double sign:{1.,-1.}){check16(x*sign);checkComposed(x*sign);if(bits<512)checkPruned16(x*sign);}
+ }
+ for(unsigned exponent=0;exponent<2047;exponent++)for(uint64_t fraction:{UINT64_C(0),UINT64_C(1),UINT64_C(0x7ffffffffffff),UINT64_C(0xfffffffffffff)})for(uint64_t sign:{UINT64_C(0),UINT64_C(0x8000000000000000)}){
+  double x=word<double>(sign|(uint64_t(exponent)<<52)|fraction);check32(x);check16(x);
+ }
+ // Explicit target underflow, smallest-normal, binade and overflow cells.
+ for(double mid:{std::ldexp(1.,-150),std::ldexp(1.,-126)-std::ldexp(1.,-150),std::ldexp(1.,128)-std::ldexp(1.,103),std::ldexp(1.,-25),std::ldexp(1.,-14)-std::ldexp(1.,-25),65520.})
+  for(double x:{std::nextafter(mid,-INFINITY),mid,std::nextafter(mid,INFINITY)})for(double sign:{1.,-1.}){check32(x*sign);check16(x*sign);}
+ for(double x:{0.,std::ldexp(1.,-126)})for(double sign:{1.,-1.})checkPruned32(x*sign);
+ uint64_t typedCases=0;
+ for(uint32_t bits=0;bits<65536;bits++)if((bits&0x7c00)!=0x7c00)
+  for(uint16_t second:{uint16_t(0),uint16_t(0x8000),uint16_t(1),uint16_t(0x8001),uint16_t(0x3c00),uint16_t(0xbc00),uint16_t(0x7bff),uint16_t(0xfbff)}){
+   double x=word<_Float16>(uint16_t(bits)),y=word<_Float16>(second);
+   double product=static_cast<float>(x*y),addition=static_cast<_Float16>(static_cast<float>(x+y)),zero=static_cast<_Float16>(static_cast<float>(0.0+x));
+   typedCases++;
+   if(word<uint64_t>(typedProduct(x,y))!=word<uint64_t>(product)||word<uint64_t>(typedAddition(x,y))!=word<uint64_t>(addition)||word<uint64_t>(typedZero(x,y))!=word<uint64_t>(zero))failures++;
+  }
+ if(typedCases!=507904)return 3;
+ std::printf("%llu %llu %llu %llu %llu %llu\\n",(unsigned long long)cases32,(unsigned long long)cases16,(unsigned long long)composedCases,(unsigned long long)pruned32Cases,(unsigned long long)pruned16Cases,(unsigned long long)failures);
+ return failures?1:0;
+}
+""")
+            subprocess.run(["clang++","-O3","-ffp-contract=off","-std=c++17",str(source),"-o",str(binary)],check=True,capture_output=True)
+            result=subprocess.run([str(binary)],capture_output=True,text=True,timeout=120)
+            self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+            count32,count16,count_composed,count_pruned32,count_pruned16,failures=map(int,result.stdout.split())
+            self.assertEqual(count32,100663296+16376+36)
+            self.assertEqual(count16,31743*6+16376+36)
+            self.assertEqual(count_composed,31743*6)
+            self.assertEqual(count_pruned32,100663300)
+            self.assertEqual(count_pruned16,3072)
+            self.assertEqual(failures,0)
+            print(f"Actual string IEEE certificate: F32={count32} F16={count16} composed={count_composed} prunedF32={count_pruned32} prunedF16={count_pruned16} mismatches={failures}; typedPairs=507904")
+
+
+if __name__=="__main__":unittest.main()

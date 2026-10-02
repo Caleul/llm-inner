@@ -5,14 +5,35 @@ be lowered to elementary syntax before a final artifact can be admitted.
 Safetensors scalar reads are incremental; no tensor/checkpoint is materialized.
 """
 import argparse
+import ast
 import json
 import math
+import signal
 from pathlib import Path
 import struct
 
 from safetensors import safe_open
-from direct_sympy_strings import Domain,StringCompiler
+from direct_sympy_strings import Domain,StringCompiler,syntax
 from fractions import Fraction as F
+from direct_sympy_conversions import ConversionSession,FiniteSource
+
+
+def rms_half_bound(width,epsilon):
+    """Conservative bound for the actual rounded normalization, not real RMS.
+
+    With u=2^-23 (covering both F64 calculation and F32 quantization), positive
+    accumulation gives sum >= (1-width*u)*real_sum by Bernoulli. sqrt/div/mul
+    losses give factor <1.25 for width<=1e6. Half rounding adds at most relative
+    2^-11 or absolute 2^-25. Thus both the raw product and its rounded Half
+    are below 2*sqrt(width). Epsilon excludes zero denominators/underflow;
+    the upper certificate also excludes variance overflow. This is a compile
+    proof; it is not a runtime RMS helper or a checkpoint-size assumption.
+    """
+    if not 1<=width<=1000000 or not 2**-126<=epsilon<=1.7014117331926443e38:return None
+    u=2**-23
+    factor=(1+u)**3/((1-u)*math.sqrt(1-width*u))
+    if factor>=1.25:return None
+    return 2*math.sqrt(width)
 
 
 def f32(x):
@@ -20,7 +41,7 @@ def f32(x):
 
 
 class CheckpointStrings:
-    def __init__(self,directory,compiler):
+    def __init__(self,directory,compiler,*,lower_conversions=True):
         self.directory=Path(directory)
         self.config=json.loads((self.directory/"config.json").read_text())
         if self.config.get("model_type")!="llama":
@@ -29,6 +50,7 @@ class CheckpointStrings:
         self.layers=self.config["num_hidden_layers"]
         self.compiler=compiler
         self.domains={f"X{i+1}":Domain(F(-65504),F(65504),-24,False) for i in range(self.width)}
+        self.conversions=ConversionSession(compiler,self.domains,input_dtype="f16") if lower_conversions else None
         self.memo={}
         self.read_weights=0
         self.sources=[]
@@ -72,6 +94,7 @@ class CheckpointStrings:
         before=len(self.compiler.events)
         expression=build()
         result=self.compiler.stabilize("("+expression+")",self.domains)
+        if self.conversions is not None:result=self.conversions.close(result)
         self.memo[key]=result
         self.events.append((key,len(expression),len(result),len(self.compiler.events)-before))
         return result
@@ -145,7 +168,24 @@ class CheckpointStrings:
             epsilon=repr(f32(self.config["rms_norm_eps"]))
             inverse=self.producer(key+":inverse",lambda:self.op("/","1.0",
                 "R32(sqrt("+self.op("+",self.op("/",self.rms_sum(input_value),str(self.width)),epsilon)+"))"))
-            normalized="R16("+self.op("*",input_value(coordinate),inverse)+")"
+            product=self.op("*",input_value(coordinate),inverse)
+            normalized="R16("+product+")"
+            if self.conversions is not None:
+                bound=rms_half_bound(self.width,f32(self.config["rms_norm_eps"]))
+                # The correlation proof assumes finite Half operands. A
+                # later residual may overflow even when the original inputs
+                # are finite; never carry the bound across that frontier.
+                finite_half=bound is not None and all(
+                    self.conversions.value_kind(syntax(input_value(i)))=="half"
+                    and self.conversions.bounds(syntax(input_value(i))) is not None
+                    for i in range(self.width))
+                if finite_half:
+                    raw=syntax(product)
+                    for node in (raw,raw.args[0],syntax(normalized)):
+                        existing=self.conversions.bounds(node)
+                        q=existing.quantum if existing is not None else (-149 if node is raw else -1074)
+                        if node is not raw and isinstance(node,ast.Call) and node.func.id=="R16":q=-24
+                        self.conversions.completed[ast.dump(node)]=FiniteSource(-bound,bound,q)
             return "R16("+self.op("*",normalized,self.weight(name,coordinate))+")"
         return self.producer(key+":"+str(coordinate),build)
 
@@ -188,10 +228,25 @@ def main():
     parser.add_argument("checkpoint");parser.add_argument("output")
     parser.add_argument("--dimension",type=int,default=2)
     parser.add_argument("--max-characters",type=int,default=1048576)
+    parser.add_argument("--max-seconds",type=int,default=60)
+    parser.add_argument("--reference-boundaries",action="store_true",help="Keep numerical primitives for reference-string validation only")
     args=parser.parse_args()
+    if args.max_characters<1 or args.max_seconds<1:parser.error("Resource budgets must be positive")
+    def timeout(*_):raise TimeoutError("Compilation wall-clock budget exceeded")
+    signal.signal(signal.SIGALRM,timeout);signal.alarm(args.max_seconds)
     compiler=StringCompiler(max_characters=args.max_characters)
-    with CheckpointStrings(args.checkpoint,compiler) as model:
-        expression=model.coordinate(args.dimension)
+    with CheckpointStrings(args.checkpoint,compiler,lower_conversions=not args.reference_boundaries) as model:
+        try:expression=model.coordinate(args.dimension)
+        except (ValueError,TimeoutError) as error:
+            signal.alarm(0)
+            path=Path(args.output);path.parent.mkdir(parents=True,exist_ok=True)
+            Path(str(path)+".growth.tsv").write_text("dependency\tbeforeCharacters\tafterCharacters\tCASPasses\n"+
+                "\n".join("\t".join(map(str,e)) for e in model.events)+"\n")
+            last=next(reversed(model.memo),None)
+            if last is not None:Path(str(path)+".prefix.work.expr").write_text(model.memo[last]+"\n")
+            print(f"Compilation stopped: {error}; completedDependencies={len(model.events)} lastDependency={last} closedConversions={model.conversions.closed if model.conversions else 0} redundantConversions={model.conversions.redundant if model.conversions else 0}; no coordinate artifact admitted")
+            return 1
+        signal.alarm(0)
         path=Path(args.output)
         path.parent.mkdir(parents=True,exist_ok=True)
         # Working-expression suffix prevents mistaking residual numerical

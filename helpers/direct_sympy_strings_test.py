@@ -2,11 +2,25 @@ import ast
 from fractions import Fraction as F
 import struct
 import unittest
+from unittest.mock import patch
+import direct_sympy_strings as engine
 
 from direct_sympy_strings import Domain,StringCompiler,syntax
 
 
 class StringCompilerTests(unittest.TestCase):
+    def test_cached_proof_still_runs_cas_and_owns_the_numeric_context(self):
+        compiler=StringCompiler()
+        positive={"X1":Domain(F(1),F(4),0,True)}
+        mixed={"X1":Domain(F(-4),F(4),0,False)}
+        self.assertEqual(compiler.stabilize("X1-X1",positive),"0")
+        with patch.object(engine.sp,"factor",wraps=engine.sp.factor) as factor, patch.object(engine.sp,"simplify",wraps=engine.sp.simplify) as simplify:
+            self.assertEqual(compiler.stabilize("X1-X1",positive),"0")
+            self.assertGreaterEqual(factor.call_count,1)
+            self.assertGreaterEqual(simplify.call_count,1)
+        self.assertIn("X1",compiler.stabilize("X1-X1",mixed))
+        self.assertTrue(any(event[-1]=="cached-fixed-point" for event in compiler.events))
+
     def test_factor_after_each_substitution_reaches_inputs(self):
         compiler=StringCompiler()
         domains={f"X{i}":Domain(F(1),F(8),0,True) for i in range(1,7)}

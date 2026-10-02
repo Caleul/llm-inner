@@ -20,7 +20,7 @@ class CheckpointStringTests(unittest.TestCase):
         import torch
         checkpoint=os.environ["LLM_INNER_DIRECT_JSON_CHECKPOINT"]
         compiler=StringCompiler(max_characters=1048576)
-        with CheckpointStrings(checkpoint,compiler) as builder:
+        with CheckpointStrings(checkpoint,compiler,lower_conversions=False) as builder:
             expression=builder.coordinate(2)
             self.assertTrue(all(e[2:4]==("factor","simplify") for e in compiler.events))
             self.assertNotIn("CASBoundary",expression)

@@ -218,14 +218,56 @@ def refine(domains, condition, truth):
     return result
 
 
+def cas_view(expression,*,keep_piecewise=False):
+    """Protect function boundaries before asking CAS to inspect an envelope.
+
+    Branch bodies are already individually stabilized. Their outer Piecewise
+    envelope may be inspected without recursively repeating that same work.
+    """
+    protected={}
+    class Protect(ast.NodeTransformer):
+        def visit_Call(self,child):
+            if keep_piecewise and child.func.id=="Piecewise":return self.generic_visit(child)
+            body=ast.unparse(child)
+            key="CASBoundary"+str(len(protected))
+            protected[key]=body
+            return ast.copy_location(ast.Name(id=key,ctx=ast.Load()),child)
+    return Protect().visit(syntax(expression)),protected
+
+
 class StringCompiler:
     def __init__(self, *, dtype="f32", max_characters=1048576, max_passes=32):
         if dtype not in ("f32","f64"):
             raise ValueError("Expected IEEE f32/f64 dtype")
         self.dtype, self.max_characters, self.max_passes = dtype,max_characters,max_passes
         self.events = []
+        self._stable={}
+        self._cache_characters=0
 
     def stabilize(self, expression, domains, path=()):
+        context=tuple(sorted((name,d.minimum,d.maximum,d.quantum,d.excludes_negative_zero) for name,d in domains.items()))
+        key=(expression,context)
+        cached=self._stable.get(key)
+        if cached is not None:
+            result,view=cached
+            # Every occurrence still passes factor then simplify. Previously
+            # certified descendants need not be parsed/proved again under
+            # the identical context. Copies in the literal string remain.
+            sp.simplify(sp.factor(view))
+            self.events.append((path,0,"factor","simplify",len(expression),len(result),"cached-fixed-point"))
+            return result
+        result=self._stabilize(expression,domains,path)
+        view,_=cas_view(result,keep_piecewise=True)
+        footprint=len(expression)+len(result)
+        if footprint<=4*self.max_characters:
+            while self._stable and self._cache_characters+footprint>4*self.max_characters:
+                old_key=next(iter(self._stable));old_value=self._stable.pop(old_key)
+                self._cache_characters-=len(old_key[0])+len(old_value[0])
+            self._stable[key]=(result,symbolic(view))
+            self._cache_characters+=footprint
+        return result
+
+    def _stabilize(self, expression, domains, path=()):
         if len(expression) > self.max_characters:
             raise ValueError("String expression budget exceeded; no partial result admitted")
         current = expression
@@ -263,7 +305,8 @@ class StringCompiler:
                     raise ValueError("No reachable Piecewise branch in the certified domain")
                 candidate = "Piecewise("+", ".join("(("+body+"), "+guard+")" for body,guard in arms)+")"
                 # Mandatory factor then simplify at the branch envelope too.
-                factored = sp.factor(symbolic(syntax(candidate)))
+                envelope,_=cas_view(candidate,keep_piecewise=True)
+                factored = sp.factor(symbolic(envelope))
                 sp.simplify(factored)
                 self.events.append((path,iteration,"factor","simplify",len(current),len(candidate),"branch-contexts"))
             else:
@@ -272,16 +315,9 @@ class StringCompiler:
                 # function's huge arguments as if they were real arithmetic.
                 # Restore the original mathematical string before proof and
                 # emission: no atom identifiers survive the replacement.
-                protected={}
-                class ProtectBoundaries(ast.NodeTransformer):
-                    def visit_Call(self,child):
-                        body=ast.unparse(child)
-                        key="CASBoundary"+str(len(protected))
-                        protected[key]=body
-                        return ast.copy_location(ast.Name(id=key,ctx=ast.Load()),child)
                 # The transformer mutates its tree; retain the original AST
                 # for certification and parse a separate CAS view.
-                cas_node=ProtectBoundaries().visit(syntax(current))
+                cas_node,protected=cas_view(current)
                 value = symbolic(cas_node)
                 factored = sp.factor(value)
                 simplified = sp.simplify(factored)

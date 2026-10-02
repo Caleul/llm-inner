@@ -9,7 +9,7 @@ semântica e regressão. `compile:direct-json` foi substituído por
 `reference:direct-json`; a rota nova é `compile:direct-string`.
 
 ```sh
-npm run compile:direct-string -- PYTHON CHECKPOINT OUTPUT --dimension 2 --max-characters 1048576
+npm run compile:direct-string -- PYTHON CHECKPOINT OUTPUT --dimension 2 --max-characters 1048576 --max-seconds 60
 ```
 
 O Python selecionado precisa de `sympy==1.14.0`, Safetensors e PyTorch.
@@ -60,15 +60,17 @@ A coordenada inicial é posição 0/dimensão solicitada. A probabilidade de sua
 tokens posteriores não influenciam essa coordenada. Não se admite que essa
 prova cubra a última posição com múltiplos tokens nem o vetor completo.
 
-A expressão de trabalho preserva `R32`, `R16`, `sqrt` e `Silu16` para registrar
-as fronteiras ainda não migradas para operações elementares. Isso impede sua
-admissão como resultado final. O CLI grava somente `OUTPUT.work.expr` e o log
-de dependências `OUTPUT.growth.tsv`, e termina com código 2 para marcar a
+O modo `--reference-boundaries` preserva `R32`, `R16`, `sqrt` e `Silu16` para
+registrar as fronteiras de referência. O percurso padrão já substitui as
+conversões certificadas por operações elementares; fronteiras desconhecidas,
+raiz e ativação ainda impedem sua conclusão. Isso impede sua
+admissão como resultado final. Quando termina uma expressão de trabalho, o CLI grava somente
+`OUTPUT.work.expr` e o log de dependências `OUTPUT.growth.tsv`, e termina com código 2 para marcar a
 pendência. Não publica `OUTPUT` como função concluída. Os limites de caracteres
 rejeitam a expressão inteira antes de alocar uma substituição acima do limite;
 não omitem dependências ou caminhos.
 
-O arquivo de trabalho foi relido e sua coordenada comparada a 60 casos de uma
+Na validação histórica de referência, o arquivo de trabalho foi relido e sua coordenada comparada a 60 casos de uma
 captura PyTorch nova, bit a bit, em comprimentos 1/2/3/4/8. A execução do teste
 usa funções numéricas de referência, inclusive SiLU PyTorch; esse avaliador
 é validação do trabalho intermediário, não runtime do artefato final. A string
@@ -87,3 +89,66 @@ as mesmas 15 falhas conhecidas e 3 skips. Nenhum passe anterior perdido.
 Os dois testes integrados novos passaram, incluindo 11 casos do motor Python
 e a recaptura/releitura dos 60 resultados da coordenada. A rota antiga foi
 preservada como referência, com o mapa anterior intacto.
+
+## Conversões elementares e crescimento por produtor
+
+O percurso padrão agora fecha conversões F64 → F32/F16 sobre fontes finitas
+certificadas. As strings contêm reinterpretações `Bits64`/`Float64`, operações
+inteiras `U64And`, `U64Or`, `U64Shr`, `U64Add` e decisões `Piecewise`.
+Não contêm um nó de modo de arredondamento. Subnormais, empate, overflow e
+ambos os sinais do zero têm tratamento explícito; braços desaparecem somente
+quando o intervalo ou a grade da fonte demonstra que são inalcançáveis.
+As constantes destas máscaras são inteiros exatos.
+
+Na faixa normal certificada, a máscara e o incremento atuam diretamente na
+palavra com sinal. Isso elimina uma terceira cópia do produtor dentro do
+mesmo cálculo. Cópias em caminhos distintos permanecem. Produtos de dois
+F16 finitos são exatos em F32; operações com zero ou ±1 preservam o tipo
+quando comprovado. A operação com zero permanece se necessária ao sinal.
+A conversão F32 intermediária de uma soma/subtração de dois F16 antes de
+armazenar F16 também é dispensável, mas a regra não se estende a somas de
+produtos. Lanes constantes de uma redução são calculadas com a semântica
+IEEE original. Cada substituição executa novamente o ciclo SymPy.
+
+O certificado de RMS usa a correlação entre o numerador e a soma positiva
+dos quadrados para limitar a normalização, em vez de combinar intervalos
+independentes que inventam overflow. Aplica-se somente a operandos F16
+finitos, largura e epsilon dentro da faixa provada. Residual que possa
+transbordar invalida essa prova. Ausência de quantum não autoriza assumir
+uma grade F32 na multiplicação anterior à conversão.
+
+O CAS protege as fronteiras funcionais depois de visitar seus argumentos
+individualmente. Um cache exclusivo da compilação reaproveita uma prova
+sob expressão e domínio idênticos; cada ocorrência ainda chama `factor()`
+e `simplify()`. A chave inclui faixa, quantum e possibilidade de zero
+negativo. Seu orçamento de caracteres é quatro vezes o limite de uma
+expressão; isso não constitui limite absoluto de RAM. Nenhum alias ou cache
+é emitido na string de runtime.
+
+O CLI tem orçamento explícito de caracteres e tempo (60 segundos por padrão).
+Ao excedê-lo, grava o crescimento e o último produtor completo em
+`OUTPUT.prefix.work.expr`, termina com código 1 e não admite uma coordenada.
+Esse prefixo é evidência para inspeção, não um estado reutilizável ou um
+resultado parcial de inferência. Não há truncamento nem seleção de prompts.
+
+Validação numérica: 201.743.408 comparações de strings efetivamente compiladas
+em C++ com conversões nativas, mais 507.904 pares para as regras de tipos,
+sem divergências. A cadeia salva do inverso RMS tem 2.137 caracteres e
+passou 527.904 comparações nativas sem divergências; a raiz ainda é avaliada
+nativamente nessa prova. O prefixo equivalente da primeira tentativa tinha
+140.056 caracteres. Isso demonstra redução de um produtor, não velocidade
+do modelo nem paridade da coordenada completa.
+
+A execução limitada da coordenada e a regressão final estão registradas no
+mapa e nos arquivos de evidência. Ainda falta fechar a primeira coordenada,
+eliminar as primitivas restantes, provar sua paridade completa e então
+avançar às demais. A validação de referência permanece separada.
+
+Resultado desta ampliação: build aprovado; 594 testes, 576 passes, as mesmas
+15 falhas anteriores, três skips e nenhum passe perdido na comparação por
+nome. Os três testes integrados SymPy passaram. A projeção V salva também
+passou 527.904 casos nativos, com raiz de referência, sem divergências.
+Seu crescimento de 44.781 para 448.238 caracteres permanece registrado:
+conversões elementares ainda repetem a expressão por necessidade de cálculo;
+a correção de lanes vazias reduziu esse produtor de 896.738 caracteres.
+Essa execução não produziu nem admitiu o artefato da coordenada completa.

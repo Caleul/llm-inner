@@ -1,0 +1,5 @@
+dependency	beforeCharacters	afterCharacters	CASPasses
+model.layers.0.pre:inverse	92	2137	25
+model.layers.0.pre:0	2168	22334	41
+model.layers.0.pre:1	2168	22334	16
+model.layers.0.v:0	44781	448238	141
