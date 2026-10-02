@@ -14,20 +14,21 @@ from direct_sympy_conversions_test import cpp
 
 
 def main():
-    if len(sys.argv) not in (3,4):raise ValueError("Usage: prefix checkpoint [inverse|v0]")
+    if len(sys.argv) not in (3,4):raise ValueError("Usage: prefix checkpoint [inverse|v0|context0]")
     prefix,checkpoint=sys.argv[1:3]
     producer=sys.argv[3] if len(sys.argv)==4 else "inverse"
-    if producer not in ("inverse","v0"):raise ValueError("Unknown producer validation")
+    if producer not in ("inverse","v0","context0"):raise ValueError("Unknown producer validation")
     config=json.loads((Path(checkpoint)/"config.json").read_text())
     if config["hidden_size"]!=2:raise ValueError("This native prefix validation fixture requires width two")
     expected="double(inverse)"
-    if producer=="v0":
+    if producer in ("v0","context0"):
         from direct_sympy_checkpoint import CheckpointStrings
         from direct_sympy_strings import StringCompiler
         with CheckpointStrings(checkpoint,StringCompiler()) as model:
             gamma=[model.weight("model.layers.0.input_layernorm.weight",i) for i in range(2)]
             weights=[model.weight("model.layers.0.self_attn.v_proj.weight",0,i) for i in range(2)]
         expected="double(static_cast<_Float16>((float(0.0f+p0)+float(0.0f+p1))+float(0.0f+0.0f)))"
+        if producer=="context0":expected="double(float(0.0+"+expected+"))"
         recipe="\n".join(f"double n{i}=static_cast<_Float16>(float({('x','y')[i]}*double(inverse))); double h{i}=static_cast<_Float16>(float(n{i}*{gamma[i]})); float p{i}=float(h{i}*{weights[i]});" for i in range(2))
     else:recipe=""
     expression=Path(prefix).read_text()

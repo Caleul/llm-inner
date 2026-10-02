@@ -185,7 +185,7 @@ class CheckpointStrings:
                         existing=self.conversions.bounds(node)
                         q=existing.quantum if existing is not None else (-149 if node is raw else -1074)
                         if node is not raw and isinstance(node,ast.Call) and node.func.id=="R16":q=-24
-                        self.conversions.completed[ast.dump(node)]=FiniteSource(-bound,bound,q)
+                        self.conversions.completed[self.conversions.key(node)]=FiniteSource(-bound,bound,q)
             return "R16("+self.op("*",normalized,self.weight(name,coordinate))+")"
         return self.producer(key+":"+str(coordinate),build)
 

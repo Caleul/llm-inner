@@ -1531,5 +1531,102 @@
       "terminal": true,
       "finalArtifactAdmitted": false
     }
+  },
+  "structuralSignatureValidation": {
+    "date": "2026-10-02T19:18:22.156958+00:00",
+    "baseCommit": "5be1d0d",
+    "expressionFormat": "SymPy mathematical strings only",
+    "compilerOnly": true,
+    "signatureRepresentation": "Interned exact structural tuples, with IEEE bytes for floating constants; no lossy digest equality",
+    "mutationInvalidation": "Each mutable AST parent is invalidated before and after child substitution",
+    "build": {
+      "command": "npm run build",
+      "exitCode": 0
+    },
+    "nativeTests": {
+      "conversionPythonTests": 7,
+      "nativeConversionComparisons": 201743408,
+      "typedPairs": 507904,
+      "wordIdentityComparisons": 16048,
+      "mismatches": 0
+    },
+    "boundedRun": {
+      "maxCharacters": 4194304,
+      "maxSeconds": 60,
+      "terminal": true,
+      "exitCode": 1,
+      "completedDependencies": 5,
+      "previousCompletedDependencies": 4,
+      "lastDependency": "model.layers.0.context:0",
+      "closedConversions": 11,
+      "redundantConversions": 24,
+      "stopReason": "Wall-clock budget exceeded",
+      "wholeCoordinateSpeedupEstablished": false
+    },
+    "savedProducer": {
+      "characters": 442951,
+      "nativeComparisons": 527904,
+      "mismatches": 0,
+      "scope": "First causal attention context dimension zero; V projection followed by ordered zero-lane reduction, preserving signed zeros",
+      "remainingPrimitives": [
+        "sqrt"
+      ],
+      "finalParity": false,
+      "fundamentalInputs": [
+        "X1",
+        "X2"
+      ],
+      "residualConversions": []
+    },
+    "sourceHashes": {
+      "helpers/direct_sympy_signatures.py": "d488ef703689811733e92aa4ae3616ac6d0b2269f841016307fb833abf5ccac3",
+      "helpers/direct_sympy_conversions.py": "21fbd251f1059c071c18d451aad59904363b7f3c5d815d09183cada054efe9a6",
+      "helpers/direct_sympy_checkpoint.py": "0db6371fc47d92cb518b7dcab82f7cbd279e5a249963aaf507d1caea36ad9d9f",
+      "helpers/direct_sympy_conversions_test.py": "3d53e6f9380eece4e95ced7ca09a934bebce63d63f12026b28e62252d87e38e2",
+      "helpers/direct_sympy_prefix_proof.py": "1d5dbc4090e958401fc14160704c5c79651d0ea9c4af81b1e80ed35b7708aa4c",
+      "test/direct-sympy-strings.test.ts": "e49a22a875ed2546547bb1cc4c8288b3576aebd2a9520633cdcf9fe550e6b21a"
+    },
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-signatures-native.log": "4608760a4506d4b694fcd2345128fa3f3cc7ef0ca9edbf4ca8bf2ae0a2d38edf",
+      "docs/evidence/direct-sympy-signatures-cli.log": "06e6623a43a449bc12740e11476f4261f6c7e28e00cc8ddcc4362fcb234439a7",
+      "docs/evidence/direct-sympy-signatures-growth.tsv": "cad07203ce9c9c641dad3e3933a7cc0b71226351743e52733012e280362b4022",
+      "docs/evidence/direct-sympy-signatures-context.prefix.work.expr": "4aa60c0e9d24a4ccefbb233f37fb9b9085da6a6976c150e53c7e07486d7e70a6",
+      "docs/evidence/direct-sympy-signatures-context-proof.log": "3e9de471b4e1a92c8d286c3ab6664ecf823cd2c19001ca4041aa7276616a53f0",
+      "docs/evidence/direct-sympy-signatures-regression.log": "9f6063a69c04c3f5d3b319f30ae6b93b7b01d8e4e5370b6e241d7fac278299bc"
+    },
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "otherCoordinatesAdvanced": false,
+    "regression": {
+      "command": "LLM_INNER_DIRECT_PYTHON=/private/tmp/llm-inner-pytorch/bin/python LLM_INNER_DIRECT_JSON_CHECKPOINT=/private/tmp/llm-inner-rust-validation node --test $(rg --files dist/test -g '*.test.js' | rg -v '/direct-json-model.test.js$') scripts/*.test.mjs",
+      "terminal": true,
+      "exitCode": 1,
+      "tests": 594,
+      "pass": 576,
+      "fail": 15,
+      "skipped": 3,
+      "newFailures": [],
+      "lostPasses": [],
+      "failedTests": [
+        "Gemma 4 embedded adapter executes every serialized invocation program without hidden class transforms",
+        "Gemma 4 runtime-reduction provider executes the integrity-bound embedded adapter",
+        "evidência adia prefill exato sem cache e preserva antecipação do contexto exato",
+        "evidência do corte de prefill terminal preserva corpus e correção de raiz",
+        "evidência do default de oito threads vincula corpus e tokens autoritativos",
+        "evidência promove antecipação do prefixo exato somente em sessão com cache",
+        "evidência promove cabeça BF16 integral e rejeita prefill agrupado divergente",
+        "evidência promove cache de decisão exata e rejeita fronteira Q8 0-18",
+        "evidência promove contexto sensível exato sem replay do decoder",
+        "evidência promove o maior prefixo exato entre sessões sem alterar logits",
+        "evidência rejeita Q8 na projeção down quando velocidade e verificação deixam de coexistir",
+        "evidência rejeita grupos Q8 que divergem ou ampliam o fallback",
+        "evidência rejeita prefill exato eager quando ele preserva tokens mas piora todas as classes de latência",
+        "keeps the real agent-visible task free of controller context",
+        "scalar-substitution example contains concrete learned values and reproduces its F32 result"
+      ],
+      "preservedPassedTestMap": "elementaryConversionValidation.regression.passedTests",
+      "deferred": "Three existing all-coordinate tests remain deferred until the first final coordinate passes",
+      "savedLogNormalization": "Trailing whitespace removed only"
+    }
   }
 }

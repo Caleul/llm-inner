@@ -15,6 +15,7 @@ from direct_sympy_strings import StringCompiler
 from direct_sympy_strings import syntax
 from direct_sympy_strings import quantum
 from direct_sympy_words import simplify_words
+from direct_sympy_signatures import StructuralSignatures
 
 
 @dataclass(frozen=True)
@@ -96,8 +97,10 @@ class ConversionSession:
     """
     def __init__(self,compiler,domains,*,input_dtype=None):
         self.compiler,self.domains=compiler,domains
+        self.signatures=StructuralSignatures()
+        self.key=self.signatures.key
         self.completed={}
-        self.half_values={ast.dump(ast.Name(id=name,ctx=ast.Load())) for name in domains} if input_dtype=="f16" else set()
+        self.half_values={self.key(ast.Name(id=name,ctx=ast.Load())) for name in domains} if input_dtype=="f16" else set()
         self.f32_values=set(self.half_values)
         self.closed=0
         self.pending=0
@@ -127,7 +130,7 @@ class ConversionSession:
         return None
 
     def value_kind(self,node):
-        key=ast.dump(node)
+        key=self.key(node)
         if key in self.half_values:return "half"
         if key in self.f32_values:return "f32"
         value=self.constant(node)
@@ -146,7 +149,7 @@ class ConversionSession:
         if isinstance(node.op,(ast.Add,ast.Sub)):
             if left==0 and b is not None:return b
             if right==0 and a is not None:return a
-            if isinstance(node.op,ast.Sub) and ast.dump(node.left)==ast.dump(node.right):return "half"
+            if isinstance(node.op,ast.Sub) and self.key(node.left)==self.key(node.right):return "half"
         if isinstance(node.op,ast.Mult):
             if (left==0 and b is not None) or (right==0 and a is not None):return "half"
             if left is not None and abs(left)==1 and b is not None:return b
@@ -161,7 +164,7 @@ class ConversionSession:
         return None
 
     def bounds(self,node):
-        key=ast.dump(node)
+        key=self.key(node)
         if key in self.completed:return self.completed[key]
         if isinstance(node,ast.Name):
             d=self.domains.get(node.id)
@@ -184,7 +187,7 @@ class ConversionSession:
                 # Outward enclosure of actual F64 arithmetic. If a bound
                 # reaches infinity it cannot certify a finite-source kernel.
                 low=math.nextafter(min(values),-math.inf);high=math.nextafter(max(values),math.inf)
-                if isinstance(node.op,ast.Mult) and ast.dump(node.left)==ast.dump(node.right):
+                if isinstance(node.op,ast.Mult) and self.key(node.left)==self.key(node.right):
                     low=0 if a.minimum<=0<=a.maximum else math.nextafter(min(a.minimum*a.minimum,a.maximum*a.maximum),-math.inf)
                 q=None
                 if a.quantum is not None and b.quantum is not None:
@@ -225,12 +228,20 @@ class ConversionSession:
     def close(self,expression):
         session=self
         class Boundaries(ast.NodeTransformer):
+            def generic_visit(self,node):
+                # Bounds may have cached the complete pre-substitution tree.
+                # Invalidate each mutable parent around child replacement.
+                session.signatures.invalidate(node)
+                result=super().generic_visit(node)
+                session.signatures.invalidate(result)
+                return result
+
             def visit_Call(self,node):
                 before=session.bounds(node)
                 literal=session.constant(node) if node.func.id in ("R16","R32") else None
                 if literal is not None and math.isfinite(literal):
                     text=session.compiler.stabilize(repr(literal),session.domains)
-                    rewritten=syntax(text);key=ast.dump(rewritten)
+                    rewritten=syntax(text);key=session.key(rewritten)
                     if before is not None:session.completed[key]=before
                     session.f32_values.add(key)
                     if node.func.id=="R16" or session.value_kind(rewritten)=="half":session.half_values.add(key)
@@ -261,10 +272,10 @@ class ConversionSession:
                         session.closed+=1
                     else:session.pending+=1
                     if before is not None:
-                        key=ast.dump(rewritten)
+                        key=session.key(rewritten)
                         session.f32_values.add(key)
                         if target=="R16" or kind=="half":session.half_values.add(key)
-                if before is not None:session.completed[ast.dump(rewritten)]=before
+                if before is not None:session.completed[session.key(rewritten)]=before
                 return rewritten
         tree=Boundaries().visit(syntax(expression))
         return self.compiler.stabilize(ast.unparse(tree),self.domains)

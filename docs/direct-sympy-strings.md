@@ -187,3 +187,31 @@ quatro produtores completos. O prefixo da projeção V é byte a byte igual ao
 que passou a prova nativa. A suíte numérica foi repetida após a correção.
 Não se conclui ganho de avanço ou velocidade da coordenada inteira a partir
 desta medição; o passe evita o trabalho estrutural redundante identificado.
+
+## Assinaturas de prova sem impressão repetida
+
+O cache de faixas e tipos das conversões usa assinaturas estruturais exatas,
+em vez de serializar toda a subárvore por ast.dump em cada consulta. A chave
+é internada por tuplas; colisões de hash não são usadas como prova de igualdade.
+Floats são codificados com todos os bits IEEE, inclusive -0.0, e tipos de
+constantes permanecem distintos. Nós mutados são invalidados antes/depois da
+substituição dos filhos para não transportar a prova anterior à nova árvore.
+Tudo pertence exclusivamente à compilação. A saída continua uma string direta
+sem nomes das assinaturas, referências intermediárias ou executor.
+
+A execução de 4 MiB/60 segundos concluiu cinco dependências, avançando até
+context:0, onde a execução anterior havia parado em quatro. O prefixo de
+442.951 caracteres passou 527.904 comparações nativas. O teste distingue a
+projeção V da redução causal de uma chave: adicionar +0 ao valor Half -0 pode
+alterar o sinal, portanto o forward da projeção não é usado como referência
+de contexto sem reproduzir essa redução. Raiz permanece explícita nesta prova.
+
+Sete testes Python das conversões passaram, incluindo invalidação após mutação,
+tipos, nomes X1/X10 e ambos os sinais do zero. A suíte numérica anterior foi
+repetida. O avanço de um produtor não estabelece o tempo da coordenada inteira;
+o orçamento de tempo ainda terminou sem um artefato final admitido.
+
+Regressão ampla após as assinaturas: 594 testes, 576 passes, as mesmas 15 falhas
+conhecidas, três skips e nenhum passe anterior perdido, conferidos por nome.
+O prefixo salvo possui apenas X1/X2 como entradas, sem conversões R16/R32
+residuais; a raiz ainda impede sua admissão como compilação final.

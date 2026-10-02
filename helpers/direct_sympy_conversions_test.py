@@ -12,6 +12,7 @@ from direct_sympy_conversions import FiniteSource,lower_finite_conversion,Conver
 from direct_sympy_strings import StringCompiler,syntax,Domain
 from fractions import Fraction as F
 from direct_sympy_words import simplify_words
+from direct_sympy_signatures import StructuralSignatures
 
 
 def cpp(node):
@@ -95,6 +96,23 @@ class ConversionStringTests(unittest.TestCase):
                 if type(b) is float:b=functions["Bits64"](b)
                 self.assertEqual(a,b,(rule,bits));comparisons+=1
         print(f"Word identity comparisons: {comparisons}, mismatches=0")
+
+    def test_structural_signature_preserves_bits_and_invalidates_mutation(self):
+        signatures=StructuralSignatures()
+        for expression in ("X1", "R16(X1*2.0)", "Bits64(X1)"):
+            self.assertEqual(signatures.key(syntax(expression)),signatures.key(syntax(expression)))
+        self.assertNotEqual(signatures.key(ast.Constant(value=0.0)),signatures.key(ast.Constant(value=-0.0)))
+        self.assertNotEqual(signatures.key(ast.Constant(value=1)),signatures.key(ast.Constant(value=1.0)))
+        self.assertNotEqual(signatures.key(syntax("X1")),signatures.key(syntax("X10")))
+        tree=syntax("R16(X1+X2)");old=signatures.key(tree)
+        tree.args[0].right=syntax("X3")
+        signatures.invalidate(tree.args[0]);signatures.invalidate(tree)
+        self.assertNotEqual(old,signatures.key(tree))
+        self.assertEqual(signatures.key(tree),signatures.key(syntax("R16(X1+X3)")))
+        # Pre-bound parent signatures must not leak after child lowering.
+        session=ConversionSession(StringCompiler(),{"X1":Domain(F(-65504),F(65504),-24,False)},input_dtype="f16")
+        expression=session.close("R16(R32(X1*1.0))")
+        self.assertEqual(session.value_kind(syntax(expression)),"half")
 
     def test_constructor_rejects_uncertified_sources(self):
         with self.assertRaises(ValueError):FiniteSource(-math.inf,1)
