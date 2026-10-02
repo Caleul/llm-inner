@@ -36,10 +36,10 @@ class StructuralIndex {
     const result=new Set<number>();
     if(node[0]!=='constant'&&node[0]!=='input'){
       for(const child of node.slice(2) as JsonExpression[])for(const id of this.comparisonFeatures(child))result.add(id);
-      if(node[1]==='bool'){
-        result.add(this.id(node));
-        if(['lt','le','eq'].includes(node[0]))result.add(this.id(node[2]!));
-      }
+    }
+    if(node[1]==='bool'){
+      result.add(this.id(node));
+      if(node[0]==='lt'||node[0]==='le'||node[0]==='eq')result.add(this.id(node[2]!));
     }
     this.features.set(node,result);return result;
   }
@@ -49,16 +49,18 @@ class StructuralIndex {
       ['lt','le','eq'].includes(fact[0])&&features.has(this.id(fact[2] as JsonExpression)));
   }
 }
-function total(node:JsonExpression,memo=new WeakMap<object,boolean>()):boolean {
+export function jsonExpressionIsTotal(node:JsonExpression,memo=new WeakMap<object,boolean>()):boolean {
   const hit=memo.get(node);if(hit!==undefined)return hit;
   if(node[0]==='constant'||node[0]==='input')return true;
   const args=node.slice(2) as JsonExpression[];
-  let result=args.every(x=>total(x,memo));
+  let result=args.every(x=>jsonExpressionIsTotal(x,memo));
+  if(node[0].startsWith('pending-')||node[0]==='reinterpret'&&args[0]![1]==='f16')result=false;
   if(result&&jsonInteger(node[1])&&node[0]==='div')result=args[1]![0]==='constant'&&jsonConstantValue(args[1]!)!==0n;
   if(result&&(node[0]==='shl'||node[0]==='shr'))result=args[1]![0]==='constant'&&
     (jsonConstantValue(args[1]!) as bigint)<BigInt(jsonWidths[node[1]]);
   memo.set(node,result);return result;
 }
+const total=jsonExpressionIsTotal;
 function proveIntegerComparison(node:JsonExpression,facts:readonly (readonly [JsonExpression,boolean])[]):boolean|undefined {
   if(!['lt','le','eq'].includes(node[0]))return undefined;
   const args=node.slice(2) as JsonExpression[],left=args[0]!,right=args[1]!;
@@ -79,11 +81,21 @@ function proveIntegerComparison(node:JsonExpression,facts:readonly (readonly [Js
   if(node[0]==='le')return upper<=value?true:lower>value?false:undefined;
   return lower===upper&&lower===value?true:value<lower||value>upper?false:undefined;
 }
-export function simplifyJsonExpression(root:JsonExpression,stats=newJsonSimplificationStats()):JsonExpression {
+export function simplifyJsonExpression(root:JsonExpression,stats=newJsonSimplificationStats(),
+  initialFacts:readonly (readonly [JsonExpression,boolean])[]=[],maxVisits=1_000_000):JsonExpression {
+  if(!Number.isSafeInteger(maxVisits)||maxVisits<1)throw new RangeError('Invalid simplification visit budget');
+  for(const [condition,truth] of initialFacts)if(condition[1]!=='bool'||typeof truth!=='boolean')
+    throw new TypeError('Invalid compilation condition fact');
   const memo=new WeakMap<object,Map<string,JsonExpression>>(),index=new StructuralIndex();
+  let visits=0;
   function visit(node:JsonExpression,facts:readonly (readonly [JsonExpression,boolean])[]):JsonExpression {
+    if(++visits>maxVisits)throw new RangeError('Simplification visit budget exceeded');
     stats.visited++;
-    if(node[0]==='constant'||node[0]==='input')return node;
+    if(node[0]==='constant'||node[0]==='input'){
+      const known=node[0]==='input'&&node[1]==='bool'?facts.find(([condition])=>sameJsonExpression(condition,node)):undefined;
+      if(known){stats.conditions++;return jsonConstant('bool',known[1]);}
+      return node;
+    }
     // Outer decisions on later computations do not influence an earlier pure
     // expression unless a reachable comparison actually consumes those facts.
     // Dropping irrelevant scope prevents a Cartesian expansion during rewriting.
@@ -139,17 +151,17 @@ export function simplifyJsonExpression(root:JsonExpression,stats=newJsonSimplifi
     let scoped=memo.get(node);if(!scoped){scoped=new Map();memo.set(node,scoped);}scoped.set(context,result);
     return result;
   }
-  return visit(root,[]);
+  return visit(root,initialFacts);
 }
 /** Reach a structural fixed point before any condition-product expansion. A
  * rule set must terminate within the declared budget, not silently stop early. */
-export function simplifyJsonFixedPoint(root:JsonExpression,maxPasses=32):{
+export function simplifyJsonFixedPoint(root:JsonExpression,maxPasses=32,maxVisits=1_000_000):{
   expression:JsonExpression;passes:number;stats:JsonSimplificationStats
 } {
   if(!Number.isSafeInteger(maxPasses)||maxPasses<1)throw new RangeError('Invalid simplification pass budget');
   const stats=newJsonSimplificationStats();let current=root;
   for(let passes=1;passes<=maxPasses;passes++){
-    const next=simplifyJsonExpression(current,stats);
+    const next=simplifyJsonExpression(current,stats,[],maxVisits);
     if(sameJsonExpression(current,next))return {expression:next,passes,stats};
     current=next;
   }

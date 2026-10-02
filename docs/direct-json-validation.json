@@ -1,9 +1,9 @@
 {
-  "beforeCommit": "e8a90a5",
+  "beforeCommit": "df83f78",
   "command": "LLM_INNER_DIRECT_PYTHON=PYTORCH_CPU_ARM64_2_12_1 LLM_INNER_DIRECT_JSON_CHECKPOINT=LLAMA_DIAGNOSTIC npm test",
   "summary": {
-    "tests": 521,
-    "pass": 503,
+    "tests": 523,
+    "pass": 505,
     "fail": 15,
     "skipped": 3
   },
@@ -46,6 +46,8 @@
     "JSON positive normal F32 square root is lowered without native sqrt and agrees bitwise on exponent and mantissa boundaries",
     "JSON precision cancels redundant bit rounding only with a proved lattice and preserves signed zeros",
     "JSON rejects hidden floating conversions and malformed operation types",
+    "JSON shared condition promotion does not expose lazy missing inputs or undefined integer operations",
+    "JSON shared conditions combine repeated queries after fixed point without changing floating path arithmetic",
     "JSON simplification preserves -0 and does not hide undefined integer operations",
     "JSON working range analysis encloses F32 endpoint rounding and refuses unknown or zero-crossing divisors",
     "JSONL stream emits all scalar coordinates with exact syntax and refuses to publish incomplete vectors",
@@ -64,7 +66,7 @@
     "elapsedMilliseconds": 95.443083,
     "domain": "all F32 mantissas in [1,4); remaining normal exponents covered by exact dyadic scale proof"
   },
-  "log": "/private/tmp/llm-inner-json-silu-certified-full-suite.log",
+  "log": "/private/tmp/llm-inner-json-cofactor-full-suite.log",
   "precisionMeasurement": [
     {
       "position": 0,
@@ -132,14 +134,14 @@
     }
   ],
   "focusedTests": {
-    "tests": 24,
-    "pass": 24,
+    "tests": 26,
+    "pass": 26,
     "fail": 0,
     "skipped": 0,
-    "log": "/private/tmp/llm-inner-json-silu-certified-tests.log"
+    "log": "/private/tmp/llm-inner-json-cofactor-full-candidates-tests.log"
   },
-  "note": "Suite after narrower gate range and domain-certified SiLU degree selection; identical preexisting failures and no previously passing test lost.",
-  "logSha256": "38713a2b6d10be59029507a7a6f83cc74277dcb030edf57582e76da4c798e49d",
+  "note": "Full suite with shared-condition propagation; identical preexisting failures and no lost passing tests. Visit limits were added afterward and verified by focused core/model runs.",
+  "logSha256": "0e3d92794e02f2c91a9e1d3dec52c983157db08280f3cce82e3c16ad58847fa0",
   "afterShapeValidation": {
     "pass": 1,
     "fail": 0,
@@ -337,5 +339,86 @@
     "admittedMismatches": 0,
     "checkpointPoints": 20224,
     "checkpointMismatches": 0
+  },
+  "sharedConditionMeasurement": [
+    {
+      "position": 0,
+      "dimension": 2,
+      "stats": {
+        "candidates": 27,
+        "reducingCandidates": 0,
+        "accepted": 0,
+        "unsafe": 0,
+        "overBudget": 0,
+        "beforeBytes": "11177958458709996050992512067",
+        "afterBytes": "11177958458709996050992512067"
+      },
+      "measure": {
+        "uniqueNodes": 1249,
+        "uniqueDecisions": 28,
+        "occurrences": "496211326597868164195004927",
+        "decisions": "4238798243497378233201",
+        "serializedBytes": "11177958458709996050992512067",
+        "depth": 444
+      },
+      "milliseconds": 229.78079199999956
+    },
+    {
+      "position": 7,
+      "dimension": 2,
+      "stats": {
+        "candidates": 168,
+        "reducingCandidates": 6,
+        "accepted": 1,
+        "unsafe": 0,
+        "overBudget": 0,
+        "beforeBytes": "1350312926810365965563958892232105698224067",
+        "afterBytes": "680891877849241540425844435407454291913371"
+      },
+      "measure": {
+        "uniqueNodes": 15927,
+        "uniqueDecisions": 453,
+        "occurrences": "30065228184644132177872839295280192144989",
+        "decisions": "257135653741869266302691191653293367",
+        "serializedBytes": "680891877849241540425844435407454291913371",
+        "depth": 661
+      },
+      "milliseconds": 14962.116709
+    }
+  ],
+  "visitBudgetFollowup": {
+    "core": {
+      "pass": 25,
+      "fail": 0,
+      "log": "/private/tmp/llm-inner-json-cofactor-budget-tests.log"
+    },
+    "model": {
+      "pass": 1,
+      "fail": 0,
+      "exactComparisons": 864,
+      "log": "/private/tmp/llm-inner-json-cofactor-budget-model-tests.log"
+    }
+  },
+  "sharedConditionBudgetMeasurement": {
+    "position": 7,
+    "dimension": 2,
+    "stats": {
+      "candidates": 168,
+      "reducingCandidates": 6,
+      "accepted": 1,
+      "unsafe": 0,
+      "overBudget": 0,
+      "beforeBytes": "1350312926810365965563958892232105698224067",
+      "afterBytes": "680891877849241540425844435407454291913371"
+    },
+    "measure": {
+      "uniqueNodes": 15927,
+      "uniqueDecisions": 453,
+      "occurrences": "30065228184644132177872839295280192144989",
+      "decisions": "257135653741869266302691191653293367",
+      "serializedBytes": "680891877849241540425844435407454291913371",
+      "depth": 661
+    },
+    "milliseconds": 13697.881208
   }
 }

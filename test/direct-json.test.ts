@@ -12,6 +12,7 @@ import {lowerJsonFiniteF16AsF64,lowerJsonNormalF32ThenF16AsF64} from '../src/dir
 import {measureJsonExpression} from '../src/direct-json-measure.js';
 import {simplifyJsonBitPrecision,type JsonPrecisionFacts} from '../src/direct-json-precision.js';
 import {jsonModelRangeAnalysis} from '../src/direct-json-range.js';
+import {simplifyJsonSharedConditions} from '../src/direct-json-cofactor.js';
 import {foldDeclaredCpuF32Exponential} from '../src/direct-rust-numeric.js';
 import {f32BitsToDyadic,roundDyadicToF16IfElse} from '../src/fixed-f16-projection.js';
 import {decodeIeeeF16ToF32} from '../src/utils.js';
@@ -35,6 +36,37 @@ test('JSON conditional facts remove repeated decisions without distributing bran
   const reduced=simplify(expression);
   assert.ok(sameJsonExpression(reduced,op('if','u32',condition,c('u32',3),c('u32',4))));
   for(let n=0;n<20;n++)assert.equal(evaluate(reduced,{X1:BigInt(n)}),evaluate(expression,{X1:BigInt(n)}));
+});
+test('JSON shared conditions combine repeated queries after fixed point without changing floating path arithmetic',()=>{
+  const x=input('f64','X1'),p=op('lt','bool',op('mul','f64',x,c('f64',3)),c('f64',7));
+  const expression=op('add','f64',op('if','f64',p,c('f64',-0),c('f64',1e30)),
+    op('if','f64',p,c('f64',-0),c('f64',-1e30)));
+  const result=simplifyJsonSharedConditions(expression);
+  assert.ok(result.stats.accepted>0);assert.ok(result.stats.afterBytes<result.stats.beforeBytes);
+  for(const value of [-Infinity,-1,-0,0,1,3,Infinity,NaN])
+    assert.ok(Object.is(evaluate(expression,{X1:value}),evaluate(result.expression,{X1:value})));
+  const b=input('bool','P'),repeated=op('add','u32',op('if','u32',b,c('u32',3),c('u32',7)),
+    op('if','u32',b,c('u32',4),c('u32',8)));
+  const folded=simplifyJsonSharedConditions(repeated).expression;
+  assert.ok(measureJsonExpression(folded).serializedBytes<measureJsonExpression(repeated).serializedBytes);
+  for(const P of [true,false])assert.equal(evaluate(folded,{P}),evaluate(repeated,{P}));
+});
+test('JSON shared condition promotion does not expose lazy missing inputs or undefined integer operations',()=>{
+  const p=op('eq','bool',input('u32','Missing'),c('u32',0));
+  const inner=op('add','u32',op('if','u32',p,c('u32',3),c('u32',7)),
+    op('if','u32',p,c('u32',4),c('u32',8)));
+  const expression=op('if','u32',input('bool','Gate'),inner,c('u32',0));
+  const result=simplifyJsonSharedConditions(expression);
+  assert.ok(result.stats.unsafe>0);assert.equal(evaluate(result.expression,{Gate:false}),0n);
+  const invalid=op('eq','bool',op('div','u32',c('u32',1),input('u32','Z')),c('u32',0));
+  const undefinedRoot=op('add','u32',op('if','u32',invalid,c('u32',3),c('u32',7)),
+    op('if','u32',invalid,c('u32',4),c('u32',8)));
+  const unchanged=simplifyJsonSharedConditions(undefinedRoot);
+  assert.equal(unchanged.stats.accepted,0);assert.ok(unchanged.stats.unsafe>0);
+  assert.throws(()=>evaluate(unchanged.expression,{Z:0n}));
+  assert.throws(()=>simplifyJsonSharedConditions(inner,{maxCandidates:-1}),/budget/);
+  assert.throws(()=>simplifyJsonSharedConditions(inner,{maxUniqueNodes:2}),/budget/);
+  assert.throws(()=>simplify(inner,undefined,[],1),/budget/);
 });
 test('JSON fixed point propagates integer bounds to remove implied and contradictory conditions',()=>{
   const x=input('u32','X1');

@@ -14,6 +14,7 @@ import {lowerJsonModelExpression} from '../src/direct-json-lower-model.js';
 import {measureJsonExpression} from '../src/direct-json-measure.js';
 import {simplifyJsonBitPrecision,type JsonPrecisionFacts} from '../src/direct-json-precision.js';
 import {simplifyJsonFixedPoint} from '../src/direct-json-simplify.js';
+import {simplifyJsonSharedConditions} from '../src/direct-json-cofactor.js';
 const python=process.env.LLM_INNER_DIRECT_PYTHON,checkpoint=process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT;
 
 test('source-discovered JSON working expressions reproduce complete checkpoint logits before primitive lowering',
@@ -40,7 +41,9 @@ test('source-discovered JSON working expressions reproduce complete checkpoint l
         expressions[row]!.push(expression);
         const precision:JsonPrecisionFacts=new WeakMap();
         const expanded=lowerJsonModelExpression(expression,facts,precision);
-        const closed=simplifyJsonFixedPoint(simplifyJsonBitPrecision(expanded,precision)).expression;
+        const fixed=simplifyJsonFixedPoint(simplifyJsonBitPrecision(expanded,precision)).expression;
+        const {expression:closed,stats:cofactor}=simplifyJsonSharedConditions(fixed);
+        assert.ok(cofactor.afterBytes<=cofactor.beforeBytes);
         const measure=measureJsonExpression(closed);
         assert.ok(measure.uniqueNodes<100_000);lowered[row]!.push(closed);
       }

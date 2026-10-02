@@ -202,14 +202,45 @@ Ela não substitui a composição F64→F32→F16 em outras operações do model
 Essa redução diminuiu a expressão prevista cerca de 6,17 vezes adicionais nas
 duas coordenadas medidas. O JSON final continua pendente.
 
+## Combinação de consultas à mesma condição
+
+`direct-json-cofactor.ts` começa com o ponto fixo das regras básicas. Para cada
+condição existente repetida, constrói dois resultados temporários sob fatos
+`condição=true` e `condição=false`, simplifica ambos e mede exatamente o JSON que
+resultaria de uma única consulta externa. Mantém somente o candidato de menor
+tamanho, quando menor que o original. Não altera ordem de soma/produto em um
+caminho nem distribui antecipadamente todas as combinações de condições.
+
+A promoção é recusada quando o cálculo da condição pode conter uma operação
+inteira indefinida, uma primitiva pendente ou uma entrada que não era obrigatória
+no percurso original. O conjunto de entradas obrigatórias usa interseção entre
+braços de um `if`, preservando a leitura lazy. Limites de candidatos, nós e
+visitas interrompem trabalhos além do orçamento sem publicar resultado parcial.
+
+A passagem padrão testa até 256 condições e retém no máximo uma por chamada.
+`reducingCandidates` conta alternativas menores; `accepted` é zero ou um para a
+transformação final retida. Isso não prova saturação global nem forma mínima.
+Os testes cobrem signed zero, NaN, condicionais booleanas fundamentais, braços
+com entradas ausentes e divisões inteiras indefinidas.
+
+Na primeira posição/dimensão 2, 27 candidatos foram considerados e nenhum trouxe
+ganho. Na última, 168 candidatos foram considerados, 6 alternativas eram menores
+e uma foi retida: aproximadamente 6,81e41 bytes previstos, 1,98 vezes menos.
+Os nós físicos de compilação aumentaram para 15.927 e as decisões físicas para
+453; a contagem expandida de decisões caiu. A busca da coordenada terminal
+levou aproximadamente 15 segundos, e a validação dos 32 pares passou de cerca
+de 15 segundos para 189 segundos. A redução de árvore não é evidência de
+compilação mais rápida nesta fase. Esses contadores medem coisas
+diferentes e não podem ser apresentados como bifurcações originais do modelo.
+
 ## Diagnóstico de duplicação e limite de conclusão
 
 `direct-json-measure.ts` calcula exatamente ocorrências e bytes da árvore que
 seria serializada, sem renderizá-la. Valores BigInt evitam overflow do contador.
 Após fechamento e simplificação, posição 0/dimensão 2 possui 1.249 nós físicos,
 28 decisões físicas, profundidade 444 e aproximadamente 1,12e28 bytes expandidos.
-Posição 7/dimensão 2 possui 7.896 nós, 169 decisões, profundidade 662 e
-aproximadamente 1,35e42 bytes. Essas medidas incluem duplicação de operandos
+Posição 7/dimensão 2 possui 15.927 nós, 453 decisões, profundidade 661 e
+aproximadamente 6,81e41 bytes após combinação de uma condição. Essas medidas incluem duplicação de operandos
 nas expansões numéricas; não são tamanho de arquivo gerado nem número de
 bifurcações originais do modelo. Nenhuma emissão desse volume foi iniciada.
 
@@ -258,16 +289,18 @@ Novos testes em `test/direct-json.test.ts`:
 Validação histórica inicial: 44/44 testes aprovados, incluindo os 11 novos e
 os testes existentes `direct-round-preimage` e `direct-flat-substitution`.
 
-Validação atual: `test/direct-json.test.ts` tem 23 casos; também cobre widening,
+Validação atual: `test/direct-json.test.ts` tem 25 casos; também cobre widening,
 raiz, exponencial, SiLU certificado, conversões compostas, medição de duplicação
 e cancelamento de round com prova de precisão. `test/direct-json-model.test.ts`
 cobre os 32 pares posição/dimensão e as 864 comparações antes e depois do
 fechamento/simplificação. Este teste é pulado sem as variáveis
 `LLM_INNER_DIRECT_PYTHON` e `LLM_INNER_DIRECT_JSON_CHECKPOINT`; a validação registrada
-forneceu ambas. Os 24 testes focados passaram sem skips. O corpus inclui máximos F16 com
+forneceu ambas. Os 26 testes focados passaram sem skips após considerar as condições repetidas
+do vetor completo. Limites de visitas acrescentados depois também passaram na suíte focada e
+nas 864 comparações do vetor completo; a coordenada terminal manteve a redução. O corpus inclui máximos F16 com
 ambos os sinais, magnitudes misturadas e fronteiras normal/subnormal.
 
-Suíte completa atual: 521 testes, 503 aprovados, 15 falhas, 3 skips.
+Suíte completa atual: 523 testes, 505 aprovados, 15 falhas, 3 skips.
 Todos os 479 testes aprovados no baseline continuam aprovados; as mesmas 15
 falhas anteriores estão mapeadas em `docs/direct-json-validation.json`. A suíte
 completa final e os contadores de simplificação são reconciliados nesse arquivo.
