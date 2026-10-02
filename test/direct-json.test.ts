@@ -7,7 +7,7 @@ import {lowerJsonF32ToF16,lowerJsonF64ToF32,lowerJsonRoundNormalF32AsF64} from '
 import {lowerJsonWiden} from '../src/direct-json-widen.js';
 import {lowerJsonPositiveNormalSqrt,lowerJsonPositiveNormalSqrtAsF64} from '../src/direct-json-sqrt.js';
 import {certifyJsonSmallSilu,lowerJsonSmallSilu,lowerJsonSmallSiluAsF64} from '../src/direct-json-silu.js';
-import {lowerJsonSmallNonpositiveExp} from '../src/direct-json-exp.js';
+import {lowerJsonSmallNonpositiveExp,lowerJsonSmallNonpositiveExpAsF64,certifyJsonHalfDifferenceExp,foldJsonExpPolynomial} from '../src/direct-json-exp.js';
 import {lowerJsonFiniteF16AsF64,lowerJsonNormalF32ThenF16AsF64,lowerJsonFiniteF32ThenF16AsF64} from '../src/direct-json-half-value.js';
 import {measureJsonExpression} from '../src/direct-json-measure.js';
 import {simplifyJsonBitPrecision,type JsonPrecisionFacts} from '../src/direct-json-precision.js';
@@ -254,6 +254,38 @@ test('JSON finite double rounding composes normal and subnormal arms without dup
   for(const value of [-0,0,-(2**-25),2**-25,2**-15])
     assert.ok(Object.is(evaluate(tiny,{X1:value}),evaluate(fused,{X1:value})));
   assert.throws(()=>lowerJsonFiniteF32ThenF16AsF64(x,{minimum:-65520,maximum:1}),/certificate/);
+});
+test('JSON exponential truncation is certified over every possible bounded half-score difference',()=>{
+  const bound=.03313671320996587,certificate=certifyJsonHalfDifferenceExp(bound);
+  assert.equal(certificate.polynomialDegree,6);assert.equal(certificate.checkedGridPoints,1111041);
+  assert.equal(certificate.halfScoreValues,20603);assert.equal(certificate.unreachableDifferences.length,2);
+  assert.ok(Object.isFrozen(certificate));assert.ok(Object.isFrozen(certificate.unreachableDifferences));
+  const scores:number[]=[],integers=new Set<number>();
+  for(let bits=0;bits<65536;bits++)if((bits&0x7c00)!==0x7c00){
+    const x=decodeIeeeF16ToF32(bits);if(Math.abs(x)<=bound){scores.push(x);integers.add(x*2**24);}
+  }
+  // Independently validate that neither exceptional lattice point can be a-b.
+  for(const difference of certificate.unreachableDifferences)for(const a of integers)
+    assert.equal(integers.has(a-difference*2**24),false);
+  const x=input('f64','X1'),expression=lowerJsonSmallNonpositiveExpAsF64(x,certificate);
+  const full=lowerJsonSmallNonpositiveExpAsF64(x);
+  assert.ok(measureJsonExpression(expression).serializedBytes<measureJsonExpression(full).serializedBytes);
+  let state=0x8675309;
+  for(let i=0;i<8192;i++){
+    state=(Math.imul(state,1664525)+1013904223)>>>0;const a=scores[state%scores.length]!;
+    state=(Math.imul(state,1664525)+1013904223)>>>0;const b=scores[state%scores.length]!;
+    const difference=Math.min(a,b)-Math.max(a,b);
+    assert.equal(Math.fround(difference),difference);
+    const expected=foldDeclaredCpuF32Exponential(difference);
+    assert.ok(Object.is(evaluate(expression,{X1:difference},{allowPendingPrimitives:false}),expected));
+    assert.ok(Object.is(foldJsonExpPolynomial(difference,certificate.polynomialDegree),expected));
+  }
+  const reachable=decodeIeeeF16ToF32(0x004a)-decodeIeeeF16ToF32(0x250d);
+  assert.notEqual(foldJsonExpPolynomial(reachable,5),foldDeclaredCpuF32Exponential(reachable));
+  assert.equal(certifyJsonHalfDifferenceExp(.17).polynomialDegree,7);
+  assert.equal(certifyJsonHalfDifferenceExp(0).polynomialDegree,2);
+  assert.throws(()=>certifyJsonHalfDifferenceExp(.18),/magnitude/);
+  assert.throws(()=>lowerJsonSmallNonpositiveExpAsF64(x,{...certificate,polynomialDegree:2}),/Unverified/);
 });
 test('JSON rejects hidden floating conversions and malformed operation types',()=>{
   assert.throws(()=>op('convert','f16',input('f32','X1')),/Unlowered/);

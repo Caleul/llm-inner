@@ -16,7 +16,33 @@ import {simplifyJsonBitPrecision,type JsonPrecisionFacts} from '../src/direct-js
 import {simplifyJsonFixedPoint} from '../src/direct-json-simplify.js';
 import {simplifyJsonSharedConditions} from '../src/direct-json-cofactor.js';
 import {writeDirectJsonModel} from '../src/direct-json-compile.js';
+import {certifyJsonHalfDifferenceExp,foldJsonExpPolynomial} from '../src/direct-json-exp.js';
+import {foldDeclaredCpuF32Exponential} from '../src/direct-rust-numeric.js';
 const python=process.env.LLM_INNER_DIRECT_PYTHON,checkpoint=process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT;
+
+test('JSON half-difference exponential certificate agrees with live PyTorch throughout the containing F32 lattice',
+  {skip:!python||!checkpoint},async()=>{
+  const dir=await mkdtemp(join(tmpdir(),'direct-json-exp-'));
+  let builder:Awaited<ReturnType<typeof openJsonModelBuilder>>|undefined;
+  try{
+    builder=await openJsonModelBuilder(checkpoint!,python!);
+    for(const bound of builder.discovered.proof!.scoreBounds){
+      const certificate=certifyJsonHalfDifferenceExp(bound),path=join(dir,'exp.bin');
+      await promisify(execFile)(python!,[new URL('../../helpers/capture_direct_json_exp_lattice.py',import.meta.url).pathname,
+        String(certificate.maxGridIndex+1),path],{maxBuffer:1024*1024});
+      const profile=await readFile(path),metadata=JSON.parse(await readFile(path+'.meta.json','utf8'));
+      assert.equal(profile.length,4*(certificate.maxGridIndex+1));
+      assert.equal(metadata.points,certificate.maxGridIndex+1);
+      const excluded=new Set(certificate.unreachableDifferences);
+      for(let index=0;index<=certificate.maxGridIndex;index++){
+        const x=-index*2**-24,expected=profile.readFloatLE(index*4);
+        assert.equal(foldDeclaredCpuF32Exponential(x),expected,`live baseline exp ${x}`);
+        if(foldJsonExpPolynomial(x,certificate.polynomialDegree)!==expected)
+          assert.ok(excluded.has(x),`reachable candidate exp ${x}`);
+      }
+    }
+  }finally{await builder?.close();await rm(dir,{recursive:true,force:true});}
+});
 
 test('JSON compiler pipeline reports prepared coordinates without publishing an over-budget checkpoint vector',
   {skip:!python||!checkpoint},async()=>{

@@ -289,7 +289,7 @@ Novos testes em `test/direct-json.test.ts`:
 Validação histórica inicial: 44/44 testes aprovados, incluindo os 11 novos e
 os testes existentes `direct-round-preimage` e `direct-flat-substitution`.
 
-Validação atual: `test/direct-json.test.ts` tem 28 casos; também cobre widening,
+Validação atual: `test/direct-json.test.ts` tem 29 casos; também cobre widening,
 raiz, exponencial, SiLU certificado, conversões compostas, medição de duplicação
 e cancelamento de round com prova de precisão. `test/direct-json-model.test.ts`
 cobre os 32 pares posição/dimensão e as 864 comparações antes e depois do
@@ -301,7 +301,7 @@ teste integrado adicional de recusa antecipada, ambos aprovados nas execuções 
 nas 864 comparações do vetor completo; a coordenada terminal manteve a redução. O corpus inclui máximos F16 com
 ambos os sinais, magnitudes misturadas e fronteiras normal/subnormal.
 
-Suíte completa atual: 527 testes, 509 aprovados, 15 falhas, 3 skips.
+Suíte completa atual: 529 testes, 511 aprovados, 15 falhas, 3 skips.
 Todos os 479 testes aprovados no baseline continuam aprovados; as mesmas 15
 falhas anteriores estão mapeadas em `docs/direct-json-validation.json`. A suíte
 completa final e os contadores de simplificação são reconciliados nesse arquivo.
@@ -403,3 +403,46 @@ Esses números não são contagem das bifurcações originais do modelo.
 A execução real da CLI confirmou 2,1077e26 bytes para posição 0/dimensão 0 e
 recusou a expressão antes da emissão; continuam zero coordenadas publicadas e
 `finalParity:false`. O arquivo final do Llama ainda não foi produzido.
+
+## Certificado de exponencial para diferenças de scores F16
+
+O adaptador registra a faixa de scores junto de cada exponencial, além da
+faixa da diferença. Scores e máximo são F16 finitos, portanto múltiplos inteiros
+de 2^-24. Com |score|<=0,17, a diferença é exata F32: seu índice inteiro tem
+menos de 24 bits significativos. O certificado percorre a malha inteira entre
+as extremidades F16 admitidas. Cada divergência de um polinômio menor é testada
+contra TODOS os scores admitidos para verificar se algum par pode produzi-la.
+Um único par alcançável rejeita o candidato. A busca nunca usa amostragem para
+admitir um grau; o grau 7 permanece como fallback.
+
+Para o checkpoint atual: 20.603 scores distintos, faixa
+±0,03313671320996587, 1.111.041 pontos de diferenças na malha envolvente.
+O grau 6 diverge do polinômio de referência em dois pontos da malha,
+-0,034568071365356445 e -0,05368697643280029; nenhum par admitido os produz.
+O grau 5 tem contraexemplo alcançável e não é admitido. Certificados imutáveis
+são reconhecidos por identidade; um objeto forjado não habilita a redução.
+Somente os coeficientes e operações menores entram na expressão emitida,
+sem tabela de resultados ou referências a scores de runtime.
+
+A expressão JSON do candidato foi comparada em 8.192 pares amostrados, como
+validação do lowering; a admissão permanece exaustiva pela malha e pelos pares
+possíveis. Um teste opcional com as variáveis do checkpoint captura `torch.exp`
+F32 CPU e compara todo o polinômio de referência com o backend na malha inteira,
+exigindo que toda diferença do candidato esteja na lista provada inalcançável.
+Essa comparação é sobre `torch.exp`, sem presumir o dispatch interno do softmax;
+a paridade do vetor completo continua uma verificação separada.
+
+Na exploração anterior, a malha ligeiramente mais larga tinha 1.123.004 pontos:
+o polinômio de referência coincidiu bit a bit com `torch.exp` em todos eles.
+O teste integrado usa as extremidades F16 efetivamente admitidas e 1.111.041
+pontos. Os perfis são somente diagnóstico, nunca lookup no artefato.
+
+A coordenada terminal passou de 3,0876e39 para 1,6184e39 bytes previstos
+(1,91 vezes menos), com 16.378 nós, 453 decisões físicas e profundidade 602.
+A primeira mantém 2,1077e26 bytes: seu argumento exponencial é constante zero.
+O JSON final permanece pendente; essa redução não torna sua emissão viável.
+
+Após o certificado, a suíte completa passou em 511 testes, manteve as mesmas
+15 falhas e 3 skips. Nenhum dos 479 passes anteriores foi perdido. O teste
+PyTorch percorreu os 1.111.041 pontos e as 864 comparações de vetores também
+passaram bit a bit. O JSON final continua não emitido.

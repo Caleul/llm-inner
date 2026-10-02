@@ -3,7 +3,7 @@ import {jsonConstantValue,evaluateJsonExpression} from './direct-json-evaluator.
 import {lowerJsonRoundNormalF32AsF64} from './direct-json-f16.js';
 import {lowerJsonFiniteF16AsF64,lowerJsonFiniteF32ThenF16AsF64} from './direct-json-half-value.js';
 import {lowerJsonPositiveNormalSqrtAsF64} from './direct-json-sqrt.js';
-import {lowerJsonSmallNonpositiveExpAsF64} from './direct-json-exp.js';
+import {lowerJsonSmallNonpositiveExpAsF64,certifyJsonHalfDifferenceExp} from './direct-json-exp.js';
 import {certifyJsonSmallSilu,lowerJsonSmallSiluAsF64} from './direct-json-silu.js';
 import type {JsonModelLoweringFacts} from './direct-json-model.js';
 import {decodeIeeeF16ToF32} from './utils.js';
@@ -82,7 +82,9 @@ export function lowerJsonModelExpression(root:JsonExpression,facts:JsonModelLowe
       const bound=facts.exponentialBounds.get(node);
       if(bound===undefined||bound>.34)throw new Error('Small exponential domain is not proved for this checkpoint');
       const input=visit(args[0]!);
-      const expression=lowerJsonSmallNonpositiveExpAsF64(input);
+      const scoreBound=facts.exponentialScoreBounds?.get(node);
+      const certificate=scoreBound!==undefined&&scoreBound<=.17?certifyJsonHalfDifferenceExp(scoreBound):undefined;
+      const expression=lowerJsonSmallNonpositiveExpAsF64(input,certificate);
       return input[0]==='constant'?c('f64',Number(evaluateJsonExpression(expression))):expression;
     }
     if(node[0]==='pending-silu'){

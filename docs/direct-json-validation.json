@@ -1,9 +1,9 @@
 {
-  "beforeCommit": "4c084f9",
+  "beforeCommit": "490ee8f",
   "command": "LLM_INNER_DIRECT_PYTHON=PYTORCH_CPU_ARM64_2_12_1 LLM_INNER_DIRECT_JSON_CHECKPOINT=LLAMA_DIAGNOSTIC npm test",
   "summary": {
-    "tests": 527,
-    "pass": 509,
+    "tests": 529,
+    "pass": 511,
     "fail": 15,
     "skipped": 3
   },
@@ -40,10 +40,12 @@
     "JSON exact constants survive serialization including signed zero and all finite F16 bits",
     "JSON exact widening covers every finite F16 bit pattern and sampled F32 normal/subnormal values",
     "JSON exponential eliminates constant range reduction and reproduces the pinned F32 polynomial in its proved domain",
+    "JSON exponential truncation is certified over every possible bounded half-score difference",
     "JSON factoring is allowed for modular integers and withheld across float rounding",
     "JSON factorized SiLU polynomial is certified against every finite F16 point in its declared domain",
     "JSON finite double rounding composes normal and subnormal arms without duplicating the F32 result",
     "JSON fixed point propagates integer bounds to remove implied and contradictory conditions",
+    "JSON half-difference exponential certificate agrees with live PyTorch throughout the containing F32 lattice",
     "JSON measurement predicts serialization and huge duplication without rendering expanded expressions",
     "JSON normal double rounding is fused with both widened even and odd tie cells preserved",
     "JSON normal rounding followed by exact widening collapses to one bitword rounding expression",
@@ -70,7 +72,7 @@
     "elapsedMilliseconds": 95.443083,
     "domain": "all F32 mantissas in [1,4); remaining normal exponents covered by exact dyadic scale proof"
   },
-  "log": "/private/tmp/llm-inner-json-finite-fused-full-suite.log",
+  "log": "/private/tmp/llm-inner-json-exp-certificate-full-suite.log",
   "precisionMeasurement": [
     {
       "position": 0,
@@ -144,8 +146,8 @@
     "skipped": 0,
     "log": "/private/tmp/llm-inner-json-cofactor-full-candidates-tests.log"
   },
-  "note": "Full suite after finite normal/subnormal F32->F16 fusion; same preexisting failures, no lost passing tests. Full working/closed corpus parity passed. Literal Llama output remains pending.",
-  "logSha256": "9d0d21844f50abb294229eb5dd7166938bf68e3e151143747d2e9c2e5138a7eb",
+  "note": "Full suite after exhaustive half-difference exponential truncation; same preexisting failures, no lost passing tests. Live torch.exp containing lattice and full working/closed corpus parity passed. Literal Llama output remains pending.",
+  "logSha256": "40fea8d4f826ec44dfb2fe0eb628ec9eaddd908084e98c982c4b7d68a4c5fe1d",
   "afterShapeValidation": {
     "pass": 1,
     "fail": 0,
@@ -669,5 +671,129 @@
       "finalArtifactPublished": false,
       "log": "/private/tmp/llm-inner-json-compile-cli.log"
     }
-  ]
+  ],
+  "halfDifferenceExpMeasurement": [
+    {
+      "position": 0,
+      "dimension": 2,
+      "certificates": [
+        {
+          "scoreBound": 0.03313671320996587,
+          "halfScoreValues": 20603,
+          "maxGridIndex": 1111040,
+          "checkedGridPoints": 1111041,
+          "polynomialDegree": 6,
+          "unreachableDifferences": [
+            -0.034568071365356445,
+            -0.05368697643280029
+          ],
+          "policy": "declared-cpu-f32-exp-half-differences"
+        }
+      ],
+      "stats": {
+        "candidates": 27,
+        "reducingCandidates": 1,
+        "accepted": 1,
+        "unsafe": 0,
+        "overBudget": 0,
+        "beforeBytes": "234666833445066505853306869",
+        "afterBytes": "210765582749392127773866486"
+      },
+      "measure": {
+        "uniqueNodes": 2586,
+        "uniqueDecisions": 71,
+        "occurrences": "9356404858623278762094205",
+        "decisions": "80773004391050392955",
+        "inputReferences": "1877575897676698882304544",
+        "serializedBytes": "210765582749392127773866486",
+        "depth": 407
+      },
+      "milliseconds": 1653.7603339999996
+    },
+    {
+      "position": 7,
+      "dimension": 2,
+      "certificates": [
+        {
+          "scoreBound": 0.03313671320996587,
+          "halfScoreValues": 20603,
+          "maxGridIndex": 1111040,
+          "checkedGridPoints": 1111041,
+          "polynomialDegree": 6,
+          "unreachableDifferences": [
+            -0.034568071365356445,
+            -0.05368697643280029
+          ],
+          "policy": "declared-cpu-f32-exp-half-differences"
+        }
+      ],
+      "stats": {
+        "candidates": 168,
+        "reducingCandidates": 7,
+        "accepted": 1,
+        "unsafe": 0,
+        "overBudget": 0,
+        "beforeBytes": "3209549903284129413193342191495947260021",
+        "afterBytes": "1618407421808989297687653723984445138561"
+      },
+      "measure": {
+        "uniqueNodes": 16378,
+        "uniqueDecisions": 453,
+        "occurrences": "71462666746023293872585143352054525715",
+        "decisions": "617349009075825331642623097155323",
+        "inputReferences": "14340631331201155973935923164885197056",
+        "serializedBytes": "1618407421808989297687653723984445138561",
+        "depth": 602
+      },
+      "milliseconds": 17961.119166
+    }
+  ],
+  "halfDifferenceExpFocused": {
+    "pass": 1,
+    "fail": 0,
+    "log": "/private/tmp/llm-inner-json-exp-certificate-core.log",
+    "jsonCandidateSamplePairs": 8192
+  },
+  "halfDifferenceExpExploration": {
+    "scoreBound": 0.03313671320996587,
+    "differenceBound": 0.06693616068413105,
+    "halfScoreValues": 20603,
+    "reference": "declared CPU F32 polynomial only; no live backend certificate or JSON candidate admitted",
+    "results": [
+      {
+        "degree": 5,
+        "checked": 1123004,
+        "allGridFailures": 350,
+        "reachableFailures": 6,
+        "first": {
+          "difference": -0.01972520351409912,
+          "a": 4.410743713378906e-06,
+          "b": 0.0197296142578125
+        }
+      },
+      {
+        "degree": 6,
+        "checked": 1123004,
+        "allGridFailures": 2,
+        "reachableFailures": 0,
+        "first": null
+      }
+    ]
+  },
+  "halfDifferenceExpLiveExploration": {
+    "points": 1123004,
+    "mismatches": 0,
+    "examples": [],
+    "sha256": "b0334fd32b1bc565621e442237d57a509e767424b256bac309de6335300f1688",
+    "kernel": "torch.exp F32 CPU arm64, threads=1; not proof of softmax-internal dispatch"
+  },
+  "halfDifferenceExpLiveTest": {
+    "pass": 1,
+    "fail": 0,
+    "containingLatticePoints": 1111041,
+    "referenceMismatches": 0,
+    "candidateDifferences": 2,
+    "reachableCandidateDifferences": 0,
+    "log": "/private/tmp/llm-inner-json-exp-certificate-full-suite.log"
+  }
 }

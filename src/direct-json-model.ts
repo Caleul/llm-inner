@@ -17,6 +17,7 @@ export interface JsonModelLoweringFacts {
   halfSources:WeakMap<JsonExpression,JsonExpression>;
   positiveNormalRoots:WeakSet<JsonExpression>;
   exponentialBounds:WeakMap<JsonExpression,number>;
+  exponentialScoreBounds?:WeakMap<JsonExpression,number>;
   activationBounds:WeakMap<JsonExpression,number>;
   ranges?:WeakMap<JsonExpression,JsonFloatRange>;
 }
@@ -92,7 +93,7 @@ export async function openJsonModelBuilder(directory:string,python:string,
       exponentials:0,activations:0,maximumComparisons:0,lengthDecisions:0,dependencies:0};
     const memo=new Map<string,Promise<JsonExpression>>();
     const facts:JsonModelLoweringFacts={halfSources:new WeakMap(),positiveNormalRoots:new WeakSet(),
-      exponentialBounds:new WeakMap(),activationBounds:new WeakMap(),ranges:new WeakMap()};
+      exponentialBounds:new WeakMap(),exponentialScoreBounds:new WeakMap(),activationBounds:new WeakMap(),ranges:new WeakMap()};
     const dependency=(key:string,make:()=>Promise<JsonExpression>):Promise<JsonExpression>=>{
       const hit=memo.get(key);if(hit)return hit;
       if(++stats.dependencies>maxDependencies)throw new RangeError('Compilation dependency budget exceeded');
@@ -225,6 +226,7 @@ export async function openJsonModelBuilder(directory:string,python:string,
       const difference=f32('sub',widen(await score(layer,head,query,key)),widen(await maximum(layer,head,query)));
       stats.exponentials++;const result=o('pending-exp','f32',difference);
       facts.exponentialBounds.set(result,2*discovered.proof!.scoreBounds[layer]!*1.01+2**-149);
+      facts.exponentialScoreBounds!.set(result,discovered.proof!.scoreBounds[layer]!);
       return result;
     });
     const reciprocal=(layer:number,head:number,query:number)=>dependency(`denominator:${layer}:${head}:${query}`,async()=>{
