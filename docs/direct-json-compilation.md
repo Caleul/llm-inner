@@ -535,3 +535,48 @@ passaram bit a bit. Um teste adicional da composição JSON nos pares críticos
 foi acrescentado durante a execução; a suíte focada final passou em 5/5 testes.
 A CLI preparou 1/32 coordenadas e escreveu zero: o orçamento recusou a árvore
 literal antes da emissão da expressão, registrando `pending` e `finalParity=false`.
+
+
+## Soma de operandos F16 sem arredondamento F32 intermediário
+
+Para dois operandos finitos F16 a e b, R16(R32(a ± b)) = R16(a ± b),
+incluindo zeros com sinal e overflow F16. A soma exata cabe em F64.
+Se a diferença dos expoentes binários efetivos não supera 12, a soma tem
+no máximo 24 bits significativos, incluindo carry, e já é exata em F32.
+Se a diferença é pelo menos 13, o menor operando é no máximo
+2^(e-12) - 2^(e-23), onde e é o expoente do maior. A menor distância do
+maior a uma fronteira de sua célula F16 é 2^(e-12), na borda de uma binade.
+A margem que sobra é maior que o erro máximo do arredondamento F32.
+Nesse caso ambos os caminhos terminam no maior operando, com o sinal correto.
+Operandos subnormais têm menos bits significativos e não invalidam a margem.
+
+O lowering reconhece a composição apenas se os dois operandos são F16
+exatamente alargados ou constantes exatamente representáveis em F16.
+Substitui a conversão composta por arredondamento F16 explícito sobre a soma
+F64, mantendo os operadores bitwise, decisões de magnitude e sinal necessários.
+A regra não altera somas de produtos das projeções: esses produtos podem ter
+22 bits significativos. Um teste demonstra um contraexemplo em uma fronteira
+F16 ímpar e exige que o arredondamento F32 seja conservado nesse caso.
+
+`helpers/certify_half_addition.rs` é diagnóstico: quantizadores independentes
+F64 e F32→F16 compararam 1.007.713.280 somas/diferenças, sem divergências.
+Isso percorre todos os pares não ordenados dos 31.744 valores de magnitude
+F16 finitos; simetrias de sinais e permutação cobrem todos os pares assinados.
+Os oito casos de operação entre zeros com sinal são verificados separadamente.
+O teste do JSON fechado compara 507.904 casos sobre todos os operandos F16
+finitos, incluindo gaps 12/13, cancelamento, signed zero e overflow.
+Nenhum programa diagnóstico é usado na função gerada.
+
+Após simplificação, a coordenada medida na posição 0/dimensão 2 tem
+2092638568808685997560870 bytes previstos (31% menos), 2.391 nós físicos,
+71 decisões físicas e profundidade 373. A posição 7/dimensão 2 tem
+2753983529206566619594294091032880833 bytes (42% menos), 14.890 nós físicos,
+453 decisões físicas e profundidade 539. Os volumes continuam inviabilizando
+a emissão literal; o JSON final permanece pendente.
+
+
+A suíte completa passou em 522 testes de um total de 540, manteve as mesmas
+15 falhas e três skips, sem perder nenhum dos 479 passes do baseline.
+As 864 comparações dos vetores completos de referência e JSON fechado passaram
+bit a bit. A CLI confirmou a nova estimativa na primeira coordenada, preparou
+1/32 e escreveu zero unidades, com status pendente e paridade final não verificada.

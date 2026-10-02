@@ -1,9 +1,9 @@
 {
-  "beforeCommit": "4b555b0",
+  "beforeCommit": "d6006d6",
   "command": "LLM_INNER_DIRECT_PYTHON=PYTORCH_CPU_ARM64_2_12_1 LLM_INNER_DIRECT_JSON_CHECKPOINT=LLAMA_DIAGNOSTIC npm test",
   "summary": {
-    "tests": 535,
-    "pass": 517,
+    "tests": 540,
+    "pass": 522,
     "fail": 15,
     "skipped": 3
   },
@@ -63,7 +63,12 @@
     "RMS consumer certificate exhausts root error cells and their finite half pair preimages",
     "RMS certificate keeps four steps for unsupported widths, resource limits and invalid domains",
     "three-step root is restricted to the certified consumer; standalone roots retain exact rounding",
-    "certified RMS critical pairs match live PyTorch for every sign and one/eight-token shapes"
+    "certified RMS critical pairs match live PyTorch for every sign and one/eight-token shapes",
+    "finite half sum/difference needs no intermediate F32 boundary for every magnitude pair",
+    "JSON half sum fusion preserves signed zero, binade gaps, cancellation and overflow across all finite half operands",
+    "half addition identity is not applied to higher-precision operands or sums of half products",
+    "summing exact half products still needs the F32 boundary at an odd half tie",
+    "closed JSON RMS composition preserves every critical coordinate and sign without pending primitives"
   ],
   "newFailures": [],
   "exactWorkingAndClosedVectorComparisons": 864,
@@ -78,7 +83,7 @@
     "elapsedMilliseconds": 95.443083,
     "domain": "all F32 mantissas in [1,4); remaining normal exponents covered by exact dyadic scale proof"
   },
-  "log": "/private/tmp/llm-inner-json-rms-consumer-full-suite.log",
+  "log": "/private/tmp/llm-inner-json-half-addition-full-suite.log",
   "precisionMeasurement": [
     {
       "position": 0,
@@ -152,8 +157,8 @@
     "skipped": 0,
     "log": "/private/tmp/llm-inner-json-cofactor-full-candidates-tests.log"
   },
-  "note": "Full suite after authenticated RMS consumer certificates and exact power-of-two means: same 15 baseline failures and all 479 baseline passes preserved. Full working/closed corpus parity passed (864 comparisons). An additional closed critical-consumer test was added during this run; the final focused suite afterward passed all five tests, including 968 signed JSON components and 968 live PyTorch cases. Literal Llama output remains pending.",
-  "logSha256": "701517521717e22b168922cc4c760598afed7e9a2038492e353701e0aff0ce32",
+  "note": "Full suite after finite-half sum/difference fusion: all 479 baseline passes preserved, same 15 preexisting failures. Exhaustive native sum/difference certificate checked 1,007,713,280 magnitude-pair cases plus signed zeros. Closed JSON checked 507,904 cases. Counterexamples keep the F32 boundary for sums of products/higher-precision operands. All 864 working/closed full-vector comparisons passed. Literal output remains pending; CLI prepared 1/32 and wrote zero coordinates.",
+  "logSha256": "1e090fcfbf8732ab094c414d4fc054bc020a17fe9e119e57e871f9cbebd19572",
   "afterShapeValidation": {
     "pass": 1,
     "fail": 0,
@@ -1034,5 +1039,64 @@
     "status": "pending",
     "rejectedPredictedBytes": "3013399545832912041575670",
     "log": "/private/tmp/llm-inner-json-rms-consumer-cli.log"
+  },
+  "halfAdditionCertificate": {
+    "magnitudeValues": 31744,
+    "sumAndDifferenceComparisons": 1007713280,
+    "signedZeroComparisons": 8,
+    "mismatches": 0,
+    "coverage": "Every unordered finite half magnitude pair for sum and difference; sign/permutation symmetry and explicit signed-zero cases cover signed ordered pairs."
+  },
+  "halfAdditionJsonComparisons": 507904,
+  "halfAdditionMeasurements": [
+    {
+      "position": 0,
+      "dimension": 2,
+      "uniqueNodes": 2391,
+      "uniqueDecisions": 71,
+      "occurrences": "92491707311920460291917",
+      "decisions": "3288443454372995531",
+      "inputReferences": "18508102416293765244720",
+      "serializedBytes": "2092638568808685997560870",
+      "depth": 373,
+      "cofactor": {
+        "candidates": 27,
+        "reducingCandidates": 1,
+        "accepted": 1,
+        "unsafe": 0,
+        "overBudget": 0,
+        "beforeBytes": "2329948057822151462211733",
+        "afterBytes": "2092638568808685997560870"
+      }
+    },
+    {
+      "position": 7,
+      "dimension": 2,
+      "uniqueNodes": 14890,
+      "uniqueDecisions": 453,
+      "occurrences": "121079017128928715056681558775838323",
+      "decisions": "4308088626143788141442113306043",
+      "inputReferences": "24228709840563789982748628157485120",
+      "serializedBytes": "2753983529206566619594294091032880833",
+      "depth": 539,
+      "cofactor": {
+        "candidates": 168,
+        "reducingCandidates": 7,
+        "accepted": 1,
+        "unsafe": 0,
+        "overBudget": 0,
+        "beforeBytes": "5461571767488484518495798394197322933",
+        "afterBytes": "2753983529206566619594294091032880833"
+      }
+    }
+  ],
+  "halfAdditionCli": {
+    "preparedUnits": 1,
+    "totalUnits": 32,
+    "writtenUnits": 0,
+    "finalParity": false,
+    "status": "pending",
+    "rejectedPredictedBytes": "2092638568808685997560870",
+    "log": "/private/tmp/llm-inner-json-half-addition-cli.log"
   }
 }

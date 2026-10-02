@@ -57,6 +57,17 @@ export function lowerJsonModelExpression(root:JsonExpression,facts:JsonModelLowe
         if(halfOperand(a)&&value(b)===1)return visit(a);
         if(halfOperand(b)&&value(a)===1)return visit(b);
       }
+      // For finite half operands, R16(R32(a ± b)) == R16(a ± b).
+      // With exponent gap <=12 the exact sum has <=24 significant bits.
+      // With larger gaps the smaller operand stays strictly inside the larger
+      // operand's half cell, even after F32 rounding (also at binade edges).
+      // This includes signed zeros and half overflow. It does not extend to
+      // sums of products: their operands can have 22 significant bits.
+      if((halfSource[0]==='add'||halfSource[0]==='sub')&&
+        halfOperand(halfSource[2]!)&&halfOperand(halfSource[3]!)){
+        const raw=o(halfSource[0],'f64',visit(halfSource[2]!),visit(halfSource[3]!));
+        return lowerJsonFiniteF16AsF64(raw,range(halfSource));
+      }
       const source=visit(halfSource);
       if(source[0]==='constant'){
         const x=Number(jsonConstantValue(source));
