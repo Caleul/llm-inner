@@ -11,6 +11,7 @@ import {f32BitsToDyadic,roundDyadicToF16IfElse} from './fixed-f16-projection.js'
 import type {JsonScalarHeader} from './direct-json-stream.js';
 import type {JsonPrecisionFacts} from './direct-json-precision.js';
 import {jsonModelRangeAnalysis} from './direct-json-range.js';
+import {simplifyJsonAffine,type JsonAffineDomains} from './direct-json-affine.js';
 import {proveJsonFiniteComparison} from './direct-json-condition-proof.js';
 import {constantJsonF32Cell} from './direct-json-rounding-cell.js';
 import {maximumF32MagnitudeForHalfBound} from './direct-json-half-preimage.js';
@@ -52,6 +53,15 @@ export function createJsonModelLowerer(facts:JsonModelLoweringFacts,
   } {
   const memo=new WeakMap<object,JsonExpression>();let ordinal=0;
   const f32Sources=new WeakMap<JsonExpression,JsonExpression>();
+  const affineDomains:JsonAffineDomains=new WeakMap(),workingAffineDomains:JsonAffineDomains=new WeakMap();
+  function retainAffineDomain(map:JsonAffineDomains,node:JsonExpression,domain:NonNullable<ReturnType<JsonAffineDomains['get']>>):void {
+    const previous=map.get(node);
+    const merged=previous?{minimum:Math.max(previous.minimum,domain.minimum),maximum:Math.min(previous.maximum,domain.maximum),
+      quantumExponent:Math.max(previous.quantumExponent,domain.quantumExponent),
+      excludesNegativeZero:previous.excludesNegativeZero||domain.excludesNegativeZero}:domain;
+    if(merged.minimum>merged.maximum)throw new Error('Contradictory affine producer certificates');
+    map.set(node,merged);
+  }
   const magnitude=facts.inputMagnitudeBounds?jsonModelMagnitudeAnalysis(facts):undefined;
   const range=jsonModelRangeAnalysis(facts),sourceSign=createJsonModelSignProof(facts,visit,range);
   const value=(node:JsonExpression)=>node[0]==='constant'?Number(jsonConstantValue(node)):undefined;
@@ -87,18 +97,26 @@ export function createJsonModelLowerer(facts:JsonModelLoweringFacts,
     const hit=memo.get(node);if(hit)return hit;
     const produced=calculate(node);
     let result=produced;
-    if(options.incremental){
+    const sourceRange=range(node);
+    if(produced[1]==='f64'&&sourceRange&&(node[1]==='f16'||node[1]==='f32')){
+      const minimum=sourceRange.minimum>0?sourceRange.minimum:sourceRange.maximum<0?-sourceRange.maximum:0;
+      const quantumExponent=node[1]==='f16'?-24:minimum>0?Math.max(-149,Math.floor(Math.log2(minimum))-23):-149;
+      const domain={...sourceRange,quantumExponent:node[0]==='widen'&&node[2]![1]==='f16'?-24:quantumExponent,excludesNegativeZero:excludesNegativeZero(node)||minimum>0};
+      retainAffineDomain(affineDomains,produced,domain);retainAffineDomain(workingAffineDomains,node,domain);
+    }
+    if(options.incremental!==false){
       // Children have already reached their own fixed points. Stabilize the
       // newly substituted producer before making it available to consumers.
       let passes=0,stable=false;
       for(let round=0;round<32;round++){
-        const stabilized=simplifyJsonFixedPoint(shareJsonExpression(simplifyJsonBitPrecision(result,precision)).expression);
+        const stabilized=simplifyJsonFixedPoint(shareJsonExpression(simplifyJsonAffine(simplifyJsonBitPrecision(result,precision),affineDomains)).expression);
         passes+=stabilized.passes;
         if(sameJsonExpression(result,stabilized.expression)){stable=true;break;}
         result=stabilized.expression;
       }
       if(!stable)throw new Error('JSON substitution rules have not reached a joint fixed point');
       const raw=f32Sources.get(produced);if(raw)f32Sources.set(result,raw);
+      const domain=affineDomains.get(produced);if(domain)retainAffineDomain(affineDomains,result,domain);
       if(options.onSubstitution)options.onSubstitution({ordinal:++ordinal,operation:node[0],
         before:measureJsonExpression(produced),after:measureJsonExpression(result),passes});
     }
@@ -200,7 +218,13 @@ export function createJsonModelLowerer(facts:JsonModelLoweringFacts,
       const a=args[0]!,b=args[1]!;
       const cell=constantJsonF32Cell(node[0],range(a),range(b));
       if(cell!==undefined)return c('f64',cell);
-      const expression=o(node[0],'f64',visit(a),visit(b));
+      // Complete operands before composing their affine source forms. The
+      // root-only pass keeps all opaque producer identities and their facts.
+      const leftProducer=visit(a),rightProducer=visit(b);
+      const affineStats={visited:0,rewrites:0,barriers:0,exactRoot:false};
+      const composed=simplifyJsonAffine(node,workingAffineDomains,affineStats,true);
+      if(!sameJsonExpression(composed,node))return visit(composed);
+      const expression=o(node[0],'f64',leftProducer,rightProducer);
       if(node[0]==='sub'&&sameJsonExpression(expression[2] as JsonExpression,expression[3] as JsonExpression))return c('f64',0);
       const left=expression[2] as JsonExpression,right=expression[3] as JsonExpression;
       const leftValue=value(left),rightValue=value(right);
@@ -211,7 +235,7 @@ export function createJsonModelLowerer(facts:JsonModelLoweringFacts,
         if(leftValue===0&&(Object.is(leftValue,-0)||excludesNegativeZero(b)))return right;
       }
       if(node[0]==='sub'&&rightValue===0&&(!Object.is(rightValue,-0)||excludesNegativeZero(a)))return left;
-      if(facts.exactRmsMeans?.has(node))return expression;
+      if(facts.exactRmsMeans?.has(node)||affineStats.exactRoot)return expression;
       if(expression[2]![0]==='constant'&&expression[3]![0]==='constant')
         return c('f64',Math.fround(Number(evaluateJsonExpression(expression))));
       // Products of two finite F16 values have <=22 significant bits and are
