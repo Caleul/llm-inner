@@ -49,7 +49,7 @@ async function round(root:JsonExpression,options:JsonParallelConditionOptions){
     if(!jsonExpressionIsTotal(condition)||[...allInputs.get(condition)!].some(x=>!strictInputs.get(base)!.has(x)))stats.unsafe++;
     else safe.push({index:ordinal,condition});
   }
-  const workerCount=Math.min(options.workers??4,availableParallelism(),safe.length),workers:Worker[]=[];
+  const workerCount=Math.min(options.workers??availableParallelism(),availableParallelism(),safe.length),workers:Worker[]=[];
   const groups=Array.from({length:workerCount},()=>[] as Condition[]);
   for(let i=0;i<safe.length;i++)groups[i%workerCount]!.push(safe[i]!);
   let best=base,bestIndex=Infinity;
@@ -78,7 +78,7 @@ async function round(root:JsonExpression,options:JsonParallelConditionOptions){
 /** Bounded CPU workers test independent candidates, never distribute arithmetic
  * reductions or alter path order. The output remains one closed scalar tree. */
 export async function simplifyJsonSharedConditionsParallel(root:JsonExpression,options:JsonParallelConditionOptions={}){
-  const workers=options.workers??4,maxRounds=options.maxRounds??8;
+  const workers=options.workers??availableParallelism(),maxRounds=options.maxRounds??8;
   if(!Number.isSafeInteger(workers)||workers<1||!Number.isSafeInteger(maxRounds)||maxRounds<1)
     throw new RangeError('Invalid parallel condition worker or round budget');
   if(workers===1)return simplifyJsonSharedConditions(root,options);

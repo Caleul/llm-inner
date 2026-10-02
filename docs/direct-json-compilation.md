@@ -905,3 +905,95 @@ O código reproduzível da investigação da raiz foi salvo em
 `-O3 -ffp-contract=off -std=c++17` e a execução desse arquivo repetiram os
 16.777.216 pontos sem divergência. Esse arquivo é um experimento de prova,
 não uma nova primitiva do compilador nem o artefato final do Llama.
+
+## Raiz racional normalizada — implementação em validação
+
+A primitiva nova recebe um F32 positivo, finito e normal, exatamente alargado
+para F64. O compilador mantém a exigência da prova desse domínio antes de
+baixar `pending-sqrt`. A semente racional usa coeficientes binários fixos,
+duas iterações Newton F64 e conversão F32 por bits. Não usa raiz nativa,
+lookup de respostas, referência a peso ou intermediário serializado. As
+implementações anteriores continuam como referências independentes nos testes.
+
+Para x = m × 2^e, m = 1 + fraction × 2^-23, decompomos e = 2k + p, p em {0,1}.
+A semente e as duas iterações operam somente sobre m. O fator de escala é 2^k
+ou o valor binário64 de sqrt(2) multiplicado exatamente por 2^k. O expoente
+dessa escala é reconstruído por bits, sem decisão. No domínio F32 normal,
+todas as etapas F64 e a saída F32 são normais e finitas. Multiplicar por 2^k
+comuta exatamente com os arredondamentos dessas operações. Portanto cada
+resultado é o ponto normalizado da mesma paridade, escalado exatamente.
+
+A grade de 16.777.216 pontos ([1,2) e [2,4)) cobre ambas as paridades e, pela
+covariância de potências de dois, os 2.130.706.432 words F32 positivos normais.
+O novo teste gera C++ da própria árvore JSON literal, com contração FMA
+desabilitada, exige avaliação IEEE sem precisão estendida e compara todos os
+pontos normalizados com a raiz F32 nativa de referência. Outro teste cobre
+todos os positivos F16 finitos, limites de todos os expoentes normais e
+amostras F32. A expressão nova contém 26 ocorrências da entrada e nenhuma
+decisão, contra 62 na raiz exata anterior de quatro iterações.
+
+O fonte da nova primitiva foi preparado enquanto a suíte da versão com cache
+executava o dist anterior. O typecheck passou. O build e os testes novos
+aguardam a conclusão dessa suíte para não misturar versões de workers. O
+protótipo terminal já mostrou redução literal de 36% e 12 comparações exatas;
+isso ainda não demonstra a paridade do vetor completo nesta implementação.
+
+A suíte completa do commit 93e39a5, com cache de provas, terminou: 563 testes,
+545 passes, as mesmas 15 falhas e três ignorados. Todos os passes anteriores
+e originais foram preservados; árvores/contadores serial e paralelo coincidiram
+e as 1.728 comparações de logits passaram. O teste do modelo levou 699.8
+segundos, contra 1240,8 antes do cache e 519,4 antes das regras de intervalos.
+Os resultados não são de benchmarks isolados: o custo das regras novas ainda
+precisa ser acompanhado apesar da recuperação obtida com o cache.
+
+A medição isolada sequencial levou 31,6 segundos com 14 workers e 55,2
+segundos com quatro (1,75× mais rápido). Medidas e contadores coincidiram,
+e cada execução preservou as 12 comparações exatas. O padrão agora usa
+`availableParallelism()`, limitado pelas CPUs disponíveis e pelo número de
+candidatos seguros; `--condition-workers` continua permitindo um limite
+explícito. Nenhuma operação numérica do modelo é reordenada. O build passou.
+Os testes focados completos e a suíte integral dessa versão foram iniciados;
+o mapa registra os hashes e logs separados. A emissão literal continua
+pendente: a redução de tamanho não tornou o arquivo final viável.
+
+Os 52 testes focados passaram sem skips, incluindo os casos críticos RMS com
+PyTorch e a prova exaustiva gerada da expressão JSON. O CLI preparou 1/32
+coordenadas (37186567571186275285119 bytes previstos na primeira), mas recusou
+a emissão pelo orçamento antes de escrever a expressão. Zero coordenadas
+finais foram emitidas; a suíte completa da nova versão continua em execução.
+
+### Próxima investigação: preservar os operadores escalares F32
+
+O contrato requer tipos, ordem e conversões exatas. A representação atual
+promove cada operação F32 a F64 e reexpande seu arredondamento por bits. Isso
+introduz duas cópias do cálculo em cada fronteira, mesmo quando um operador
+escalar F32 direto expressaria a operação original com seu dtype. Não existe
+round/nearest-even no JSON, mas essa expansão artificial pode dominar o
+tamanho. Investigar um backend de expressões literais com operadores F32
+nativos e casts F16/F64 ainda baixados por bits, sem preservar intermediários,
+referências, primitivas exp/sqrt/SiLU ou estrutura do modelo. A auditoria atual
+veda F32 aritmético; essa política precisa ser avaliada contra a semântica,
+não simplesmente contornada ou desabilitada para obter um passe.
+
+Um protótipo pode mapear os produtores F16 para valores F32 exatamente
+alargados, usar uma conversão F32→F16→F32 por words u32 (braço normal assinado
+e subnormal quantizado por (abs(x)+0.5)-0.5, com sinal restaurado), e preservar
+a ordem dos operadores binários F32. A raiz pode normalizar diretamente o
+word F32 para o racional F64 e retornar F32 por bits. Os kernels exp/SiLU
+certificados podem continuar em F64 com fronteiras explícitas; não substituir
+produto+adição fundidos do perfil exp por dois arredondamentos F32 separados.
+São necessárias provas exaustivas das conversões, paridade integral contra
+PyTorch e medição literal antes de adotar qualquer alteração da representação.
+Essa investigação permanece proposta; o compilador atual ainda usa F64.
+
+A suíte completa da raiz racional com o novo padrão de workers terminou:
+565 testes, 547 passes, as mesmas 15 falhas e três ignorados. Todos os 545
+passes anteriores e os 479 originais foram preservados. As árvores completas
+e os contadores serial/paralelo coincidiram nas coordenadas inicial e terminal.
+Os 864 logits passaram nas duas representações (1.728 comparações bit a bit).
+O teste do modelo levou 568,6 segundos, contra 699,8 com cache e raiz anterior
+e 1240,8 antes do cache. Ainda ficou acima dos 519,4 da versão anterior às
+regras de intervalos; o benchmark isolado de workers demonstra o ganho de
+paralelismo, mas não elimina essa diferença entre versões completas.
+Os hashes do fonte testado foram reconferidos. O JSON final segue pendente,
+com zero coordenadas emitidas, apesar da paridade da expressão compilada.
