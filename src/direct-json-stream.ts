@@ -66,7 +66,7 @@ function* expressionTokens(root:JsonExpression):Generator<string> {
   }
 }
 export async function writeJsonScalarUnits(path:string,header:JsonScalarHeader,units:AsyncIterable<JsonScalarUnit>,
-  options:{maxBytes?:number;maxOccurrences?:number}={}):Promise<{units:number;bytes:number;sha256:string;decisions:number}> {
+  options:{maxBytes?:number;maxOccurrences?:number;coordinate?:{position:number;dimension:number}}={}):Promise<{units:number;bytes:number;sha256:string;decisions:number}> {
   for(const size of [header.inputWidth,header.context,header.outputWidth])if(!Number.isSafeInteger(size)||size<1)throw new RangeError('Invalid discovered JSON geometry');
   if(!Number.isSafeInteger(header.context*header.outputWidth))throw new RangeError('JSON coordinate count is not exactly representable');
   if(header.schema!=='direct-scalar-json-v1')throw new TypeError('Unknown JSON schema');
@@ -77,6 +77,10 @@ export async function writeJsonScalarUnits(path:string,header:JsonScalarHeader,u
       b.tokenPosition<0||b.tokenPosition>=header.context||!Number.isSafeInteger(b.coordinate)||
       b.coordinate<0||b.coordinate>=header.inputWidth)throw new TypeError('Invalid embedding input binding');
   }
+  const coordinate=options.coordinate;
+  if(coordinate&&(!Number.isSafeInteger(coordinate.position)||coordinate.position<0||coordinate.position>=header.context||
+    !Number.isSafeInteger(coordinate.dimension)||coordinate.dimension<0||coordinate.dimension>=header.outputWidth))
+    throw new RangeError('Invalid selected JSON scalar coordinate');
   const maxBytes=options.maxBytes??64*1024*1024;
   if(!Number.isSafeInteger(maxBytes)||maxBytes<1)throw new RangeError('Invalid JSON byte budget');
   return withDirectCompilationLease(path,async()=>{
@@ -91,14 +95,15 @@ export async function writeJsonScalarUnits(path:string,header:JsonScalarHeader,u
       hash.update(token);buffer+=token;if(Buffer.byteLength(buffer)>=65536)await flush();
     };
     try{
-      await emit(JSON.stringify({kind:'header',...header})+'\n');
+      await emit(JSON.stringify({kind:coordinate?'coordinate-header':'header',...header,...(coordinate?{coordinate}:{})})+'\n');
       for await(const unit of units){
         const {position,dimension,expression}=unit;
         if(!Number.isSafeInteger(position)||position<0||position>=header.context||
           !Number.isSafeInteger(dimension)||dimension<0||dimension>=header.outputWidth)throw new RangeError('Invalid JSON scalar coordinate');
         // Canonical order proves coverage/uniqueness without retaining a set
         // proportional to checkpoint context multiplied by vocabulary size.
-        if(position!==Math.floor(count/header.outputWidth)||dimension!==count%header.outputWidth)
+        if(coordinate?count!==0||position!==coordinate.position||dimension!==coordinate.dimension:
+          position!==Math.floor(count/header.outputWidth)||dimension!==count%header.outputWidth)
           throw new Error('Missing, duplicate or unordered JSON scalar coordinate');
         const measure=measureJsonExpression(expression);
         rejectedCoordinate={position,dimension,predictedBytes:measure.serializedBytes.toString(),predictedOccurrences:measure.occurrences.toString()};
@@ -111,12 +116,12 @@ export async function writeJsonScalarUnits(path:string,header:JsonScalarHeader,u
         await emit(',"audit":'+JSON.stringify(audit)+'}\n');count++;
       }
       // A complete vector contains every dimension at every supported position.
-      if(count!==header.context*header.outputWidth)throw new Error('Incomplete JSON output vector');
-      await emit(JSON.stringify({kind:'end',units:count,decisions,finalParity:false})+'\n');
+      if(count!==(coordinate?1:header.context*header.outputWidth))throw new Error('Incomplete JSON output vector');
+      await emit(JSON.stringify({kind:coordinate?'coordinate-end':'end',units:count,decisions,finalParity:false,...(coordinate?{coordinate,completeVector:false}:{})})+'\n');
       await flush();await file.sync();await file.close();
       const result={units:count,bytes,sha256:hash.digest('hex'),decisions};
       await rename(draft,path);
-      await writeFile(path+'.status.json',JSON.stringify({status:'emitted',...result,finalParity:false},null,2)+'\n');
+      await writeFile(path+'.status.json',JSON.stringify({status:'emitted',...result,finalParity:false,...(coordinate?{coordinate,completeVector:false}:{})},null,2)+'\n');
       return result;
     }catch(error){
       await file.close().catch(()=>{});

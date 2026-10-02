@@ -119,7 +119,7 @@ aritméticas F64, bitwise inteiras e decisões. A avaliação fechada rejeita es
 nós temporários e qualquer aritmética F32 implícita.
 
 - Widening F16/F32 é expandido em campos de bits e normalização de subnormais.
-- A raiz positiva normal F32 usa semente bitwise e quatro passos Newton F64,
+- A raiz positiva normal F32 usa semente racional normalizada e dois passos Newton F64,
   seguidos de máscara de arredondamento. Não há chamada de raiz nem decisão
   no caminho empregado pelo modelo. O kernel foi comparado nos 16.777.216
   padrões de mantissa em [1,4); testes do próprio JSON cobrem expoentes e bordas.
@@ -997,3 +997,52 @@ regras de intervalos; o benchmark isolado de workers demonstra o ganho de
 paralelismo, mas não elimina essa diferença entre versões completas.
 Os hashes do fonte testado foram reconferidos. O JSON final segue pendente,
 com zero coordenadas emitidas, apesar da paridade da expressão compilada.
+
+
+## Substituição incremental por dependência (2026-10-02)
+
+A CLI agora seleciona uma coordenada com `--position` e `--dimension` (defaults
+0 e 0). O registro de crescimento é `OUTPUT.growth.PID.jsonl`; cada processo
+possui seu arquivo, sem sobrescrever o diagnóstico de outro compilador. Há
+medidas literais antes/depois de cada substituição e após cada dependência.
+
+Uma sessão do lowerer vive somente durante a compilação dessa coordenada. Ao
+concluir uma dependência da fonte, baixa seus produtores com filhos já
+estabilizados; repete regras estruturais e de precisão até um ponto fixo
+conjunto, propagando os fatos dos braços condicionais. Somente então libera o
+consumidor. Não distribui combinações de condições nessa fase. A fase posterior
+de cofactoring recebe as expressões estabilizadas e mantém sua própria prova de
+ponto fixo. A AST de referência da fonte permanece exclusivamente no compilador.
+
+As regras que não alteram uma árvore agora preservam sua identidade. Assim,
+a reescrita não duplica artificialmente produtores equivalentes nem perde sua
+proveniência por reconstrução inútil. A subtração de produtores estruturalmente
+iguais reconhece o zero no domínio finito admitido. Projeções leem o peso antes
+de solicitar sua dependência: pesos zero dispensam o produtor e pesos um
+preservam diretamente o operando. Na redução finita de produtos F16, iniciada
+em +0, produtos zero de qualquer sinal têm contribuição equivalente. Uma única
+posição causal torna `exp(score-score)` exatamente um; elimina Q/K e a
+exponencial antes da expansão, preservando V e o restante do forward.
+
+O gravador aceita a coordenada selecionada como um artefato escalar explícito
+(`coordinate-header` / `coordinate-end`, `completeVector:false`). O protocolo
+anterior do vetor completo permanece separado e exige cobertura integral. A
+emissão escalar sintética foi testada por gravação e releitura; isso não é o
+artefato do Llama.
+
+A coordenada posição 0/dimensão 2 preservou os bits dos 60 casos do corpus vivo.
+Entradas possuem vários comprimentos, mas tokens posteriores não influenciam
+a posição 0 por causalidade. Essa prova não demonstra a saída do último token
+para todos os comprimentos nem paridade de um arquivo final serializado.
+A tentativa real de emissão ainda foi recusada, antes da expressão, com
+37.186.567.571.186.275.285.119 bytes previstos e zero unidades emitidas. O tamanho
+final não diminuiu nessa coordenada: a mudança evita expansão e reconstrução
+prematuras, mas não resolve a duplicação literal das conversões e dos kernels.
+
+O mapa de validação mantém os resultados históricos das 32 coordenadas e
+acrescenta a rodada restrita: 566 testes, 548 passes, as mesmas 15 falhas e
+3 skips. Os três testes de `direct-json-model.test.ts` ficaram explicitamente
+adiados nesta rodada para não avançar o teste integral de todas as coordenadas.
+Os quatro testes novos cobrem identidade estável, ordem de substituição,
+gravador de coordenada e paridade viva da coordenada completa na memória do
+compilador. A meta do JSON efetivo e sua paridade continua pendente.

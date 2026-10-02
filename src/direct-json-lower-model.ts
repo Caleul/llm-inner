@@ -11,6 +11,10 @@ import {f32BitsToDyadic,roundDyadicToF16IfElse} from './fixed-f16-projection.js'
 import type {JsonScalarHeader} from './direct-json-stream.js';
 import type {JsonPrecisionFacts} from './direct-json-precision.js';
 import {jsonModelRangeAnalysis} from './direct-json-range.js';
+import {simplifyJsonFixedPoint,sameJsonExpression} from './direct-json-simplify.js';
+import {simplifyJsonBitPrecision} from './direct-json-precision.js';
+import {shareJsonExpression} from './direct-json-share.js';
+import {measureJsonExpression,type JsonExpressionMeasure} from './direct-json-measure.js';
 
 /** Runtime arguments were already finite F16 values exactly widened to F64.
  * Declare that input contract instead of encoding and decoding X at every use. */
@@ -26,7 +30,21 @@ export function loweredJsonHeader(header:JsonScalarHeader):JsonScalarHeader {
  * that nonzero F32 arithmetic results are normal, not subnormal. */
 export function lowerJsonModelExpression(root:JsonExpression,facts:JsonModelLoweringFacts,
   precision:JsonPrecisionFacts=new WeakMap()):JsonExpression {
-  const memo=new WeakMap<object,JsonExpression>();
+  return createJsonModelLowerer(facts,precision).lower(root);
+}
+
+export interface JsonSubstitutionProgress {
+  ordinal:number;operation:string;before:JsonExpressionMeasure;after:JsonExpressionMeasure;passes:number;
+}
+/** One session per output coordinate. Completed producers are simplified before
+ * a consumer substitutes them. Memoization retains compiler syntax, never
+ * forward values, and no identifiers or aliases enter the literal artifact. */
+export function createJsonModelLowerer(facts:JsonModelLoweringFacts,
+  precision:JsonPrecisionFacts=new WeakMap(),
+  options:{incremental?:boolean;onSubstitution?:(event:JsonSubstitutionProgress)=>void}={}):{
+    lower:(root:JsonExpression)=>JsonExpression
+  } {
+  const memo=new WeakMap<object,JsonExpression>();let ordinal=0;
   const f32Sources=new WeakMap<JsonExpression,JsonExpression>();
   const range=jsonModelRangeAnalysis(facts);
   const value=(node:JsonExpression)=>node[0]==='constant'?Number(jsonConstantValue(node)):undefined;
@@ -60,7 +78,23 @@ export function lowerJsonModelExpression(root:JsonExpression,facts:JsonModelLowe
   }
   function visit(node:JsonExpression):JsonExpression {
     const hit=memo.get(node);if(hit)return hit;
-    const result=calculate(node);
+    const produced=calculate(node);
+    let result=produced;
+    if(options.incremental){
+      // Children have already reached their own fixed points. Stabilize the
+      // newly substituted producer before making it available to consumers.
+      let passes=0,stable=false;
+      for(let round=0;round<32;round++){
+        const stabilized=simplifyJsonFixedPoint(shareJsonExpression(simplifyJsonBitPrecision(result,precision)).expression);
+        passes+=stabilized.passes;
+        if(sameJsonExpression(result,stabilized.expression)){stable=true;break;}
+        result=stabilized.expression;
+      }
+      if(!stable)throw new Error('JSON substitution rules have not reached a joint fixed point');
+      const raw=f32Sources.get(produced);if(raw)f32Sources.set(result,raw);
+      if(options.onSubstitution)options.onSubstitution({ordinal:++ordinal,operation:node[0],
+        before:measureJsonExpression(produced),after:measureJsonExpression(result),passes});
+    }
     // Every completed F16/F32 producer is exactly widened. These are compiler
     // proofs, not retained conversion operators or runtime metadata.
     // An identity or widening can return an already-completed half producer.
@@ -131,7 +165,7 @@ export function lowerJsonModelExpression(root:JsonExpression,facts:JsonModelLowe
     if(node[1]==='bool')return o(node[0],'bool',...args.map(visit));
     if(node[1]==='f32'&&['add','sub','mul','div'].includes(node[0])){
       const a=args[0]!,b=args[1]!,expression=o(node[0],'f64',visit(a),visit(b));
-      if(node[0]==='sub'&&expression[2]===expression[3])return c('f64',0);
+      if(node[0]==='sub'&&sameJsonExpression(expression[2] as JsonExpression,expression[3] as JsonExpression))return c('f64',0);
       const left=expression[2] as JsonExpression,right=expression[3] as JsonExpression;
       const leftValue=value(left),rightValue=value(right);
       // Returning the already-rounded producer also preserves its fusion
@@ -166,5 +200,5 @@ export function lowerJsonModelExpression(root:JsonExpression,facts:JsonModelLowe
     }
     return o(node[0],node[1],...args.map(visit));
   }
-  return visit(root);
+  return {lower:visit};
 }

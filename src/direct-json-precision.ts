@@ -48,7 +48,7 @@ export function simplifyJsonBitPrecision(root:JsonExpression,facts:JsonPrecision
     const hit=memo.get(node);if(hit)return hit;
     if(node[0]==='constant'||node[0]==='input')return node;
     const args=(node.slice(2) as JsonExpression[]).map(visit);
-    let result=o(node[0],node[1],...args);
+    let result=args.every((arg,index)=>arg===node[index+2])?node:o(node[0],node[1],...args);
     if(node[0]==='and'&&jsonInteger(node[1])){
       let [source,mask]=args;
       if(integer(source)!==undefined)[source,mask]=[mask,source];

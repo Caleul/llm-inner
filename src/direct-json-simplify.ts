@@ -119,12 +119,12 @@ export function simplifyJsonExpression(root:JsonExpression,stats=newJsonSimplifi
       if(condition[0]==='constant'){stats.conditions++;return visit(raw[jsonConstantValue(condition)?1:2]!,facts);}
       const yes=visit(raw[1]!,[...facts,[condition,true]]),no=visit(raw[2]!,[...facts,[condition,false]]);
       if(sameJsonExpression(yes,no)&&total(condition)){stats.conditions++;return yes;}
-      const result=jsonOperation('if',type,condition,yes,no);
+      const result=condition===raw[0]&&yes===raw[1]&&no===raw[2]?node:jsonOperation('if',type,condition,yes,no);
       let scoped=memo.get(node);if(!scoped){scoped=new Map();memo.set(node,scoped);}scoped.set(context,result);
       return result;
     }
     const args=raw.map(x=>visit(x,facts));
-    let result=jsonOperation(op,type,...args);
+    let result=args.every((arg,index)=>arg===raw[index])?node:jsonOperation(op,type,...args);
     if(op==='reinterpret'&&args[0]![0]==='reinterpret'&&args[0]![2]![1]===type){
       stats.folds++;return args[0]![2]!;
     }
@@ -206,7 +206,7 @@ export function simplifyJsonFixedPoint(root:JsonExpression,maxPasses=32,maxVisit
   const stats=newJsonSimplificationStats();let current=root;
   for(let passes=1;passes<=maxPasses;passes++){
     const next=simplifyJsonExpression(current,stats,[],maxVisits);
-    if(sameJsonExpression(current,next))return {expression:next,passes,stats};
+    if(sameJsonExpression(current,next))return {expression:current,passes,stats};
     current=next;
   }
   throw new Error('JSON simplification has not reached a fixed point');

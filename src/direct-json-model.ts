@@ -11,6 +11,10 @@ import type {JsonFloatRange} from './direct-json-range.js';
 import {proveJsonHeadScoreBounds,type JsonHeadScoreBoundCertificate} from './direct-json-score-bound.js';
 import {certifyJsonRmsRoot,type JsonRmsRootCertificate} from './direct-json-rms-certificate.js';
 
+export interface JsonModelBuildOptions {
+  /** Called after a source dependency is substituted, before its consumer resumes. */
+  onDependency?:(key:string,expression:JsonExpression,facts:JsonModelLoweringFacts)=>void;
+}
 export interface JsonModelConstructionStats {
   f32Arithmetic:number;f16Conversions:number;squareRoots:number;exponentials:number;
   activations:number;maximumComparisons:number;lengthDecisions:number;dependencies:number;
@@ -33,7 +37,7 @@ export async function openJsonModelBuilder(directory:string,python:string,
   resources:{weightCacheBytes?:number;maxDependencies?:number}={}):Promise<{
     header:JsonScalarHeader;discovered:DirectModelDiscovery;
     scoreBounds:number[][];scoreCertificates:(JsonHeadScoreBoundCertificate|undefined)[];
-    build:(position:number,dimension:number)=>Promise<{expression:JsonExpression;stats:JsonModelConstructionStats;facts:JsonModelLoweringFacts}>;
+    build:(position:number,dimension:number,options?:JsonModelBuildOptions)=>Promise<{expression:JsonExpression;stats:JsonModelConstructionStats;facts:JsonModelLoweringFacts}>;
     close:()=>Promise<void>
   }> {
   const discovered=await prepareDirectModel(directory,python,resources.weightCacheBytes??16*1024*1024),{output,layers}=discovered;
@@ -101,7 +105,7 @@ export async function openJsonModelBuilder(directory:string,python:string,
     outputWidth:output.shape[0],inputs:{N:{dtype:'u32',source:'inputLength'}}};
   for(let row=0;row<output.maxPosition;row++)for(let column=0;column<width;column++)
     header.inputs[`X${row*width+column+1}`]={dtype:'f16',tokenPosition:row,coordinate:column};
-  async function build(position:number,dimension:number){
+  async function build(position:number,dimension:number,options:JsonModelBuildOptions={}){
     if(!Number.isSafeInteger(position)||position<0||position>=output.maxPosition||!Number.isSafeInteger(dimension)||
       dimension<0||dimension>=output.shape[0])throw new RangeError('Invalid discovered output coordinate');
     const stats:JsonModelConstructionStats={f32Arithmetic:0,f16Conversions:0,squareRoots:0,
@@ -112,7 +116,9 @@ export async function openJsonModelBuilder(directory:string,python:string,
     const dependency=(key:string,make:()=>Promise<JsonExpression>):Promise<JsonExpression>=>{
       const hit=memo.get(key);if(hit)return hit;
       if(++stats.dependencies>maxDependencies)throw new RangeError('Compilation dependency budget exceeded');
-      const pending=make();memo.set(key,pending);return pending;
+      const pending=make().then(expression=>{
+        options.onDependency?.(key,expression,facts);return expression;
+      });memo.set(key,pending);return pending;
     };
     const f32=(op:'add'|'sub'|'mul'|'div',a:JsonExpression,b:JsonExpression)=>{
       stats.f32Arithmetic++;return o(op,'f32',a,b);
@@ -130,8 +136,15 @@ export async function openJsonModelBuilder(directory:string,python:string,
       return half(add(add(lanes[0]!,lanes[1]!),add(lanes[2]!,lanes[3]!)));
     }
     const linear=(projection:Projection,row:number,input:(index:number)=>Promise<JsonExpression>)=>
-      reduction(projection.shape[1],async column=>f32('mul',widen(await input(column)),
-        c('f32',await weight(projection.weight,row*projection.shape[1]+column))));
+      reduction(projection.shape[1],async column=>{
+        const coefficient=await weight(projection.weight,row*projection.shape[1]+column);
+        // This finite-half projection reduction starts each lane at +0.
+        // Products cannot underflow F32; zero products of either sign thus
+        // contribute identically. Eliminate them before requesting the input.
+        if(coefficient===0)return zero;
+        const operand=widen(await input(column));
+        return coefficient===1?operand:f32('mul',operand,c('f32',coefficient));
+      });
     // CPU arm64 RMS reduction order, including cascade geometry for larger widths.
     async function rmsSum(input:(index:number)=>Promise<JsonExpression>):Promise<JsonExpression>{
       const vector=width>=4,rows=vector?Math.floor(width/4):width,groups=Math.floor(rows/4);
@@ -247,6 +260,10 @@ export async function openJsonModelBuilder(directory:string,python:string,
       return result;
     });
     const exponent=(layer:number,head:number,query:number,key:number)=>dependency(`exp:${layer}:${head}:${query}:${key}`,async()=>{
+      // A one-element causal maximum is that same finite score: subtraction
+      // gives +0 and exp gives exactly 1. Prove this before expanding Q/K,
+      // their normalization, RoPE, and the numerical exponential kernel.
+      if(query===0)return c('f32',1);
       const difference=f32('sub',widen(await score(layer,head,query,key)),widen(await maximum(layer,head,query)));
       stats.exponentials++;const result=o('pending-exp','f32',difference);
       facts.exponentialBounds.set(result,2*scoreBounds[layer]![head]!*1.01+2**-149);
@@ -285,6 +302,7 @@ export async function openJsonModelBuilder(directory:string,python:string,
     const expression=await linear({weight:output.weight,shape:output.shape},dimension,column=>
       norm(`final:${position}`,output.finalNormWeight,output.finalNormEpsilon,column,
         index=>hidden(layers.length-1,index,position)));
+    options.onDependency?.(`output:${position}:${dimension}`,expression,facts);
     return {expression,stats,facts};
   }
   return {header,discovered,scoreBounds,scoreCertificates,build,close:async()=>{pages.clear();await reader.close();}};
