@@ -15190,5 +15190,29 @@
     "finalArtifactEmitted": false,
     "finalParity": false,
     "note": "One position-zero coordinate only, including 60 cases against PyTorch. Fixes eager lowering of unreachable branches. No additional reduction of the current checkpoint and no serialized-artifact parity."
+  },
+  "representationImpasseDiagnostic": {
+    "beforeCommit": "2a92aad",
+    "diagnosticOnly": true,
+    "admittedFinalArtifact": false,
+    "compactBytes": 31450,
+    "literalBytes": "3525760683880951562623",
+    "uniqueNodes": 1350,
+    "uniqueDecisions": 40,
+    "expandedOccurrences": "156329219598071053963",
+    "expandedDecisions": "8279068533022349",
+    "exactComparisonsAfterSerializeReadAndReconstruct": 60,
+    "referenceCorpus": "/private/tmp/llm-inner-json-expanded-condition-reference.json",
+    "freshReferenceThisDiagnostic": false,
+    "files": {
+      "direct-json-representation-diagnostic.json": "85a6c0ea3b2b7fba8a5e41065c26dbfcf24df6142be7a0bfc3f5d7fa82453f6f",
+      "direct-json-representation-diagnostic-report.json": "2253717ae13a945482b02da5bb056ab3ea8663b8f0908a1669eefbaaf68501e2"
+    },
+    "numericAndCheckpointProofs": "This diagnostic is the same closed compiler expression for position 0/dimension 2, with only literal constants, fundamental inputs and scalar numeric/bitwise decisions. Weights and layers are absent. The diagnostic serializes node references and therefore violates the current final literal-JSON contract.",
+    "interpretation": "The tested expression is structurally small before literal copying. This does not prove a minimal-expression lower bound or mathematical impossibility of further simplification. It does demonstrate that increasing RAM/CPU cannot emit the current literal form.",
+    "pendingHumanDecision": "Whether shared subexpressions may be represented in the compilation JSON. No change to the production artifact schema or final Rust contract has been authorized.",
+    "rustEmissionGap": "Re-expanding these references for completely literal Rust would reproduce the same size problem. Shared compilation JSON alone does not prove that final Rust artifact.",
+    "finalArtifactEmitted": false,
+    "finalParity": false
   }
 }

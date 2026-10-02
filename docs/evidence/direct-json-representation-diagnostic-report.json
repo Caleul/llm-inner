@@ -1,0 +1,420 @@
+{
+  "diagnosticPath": "/private/tmp/llm-inner-json-representation-diagnostic.json",
+  "diagnosticBytes": 31450,
+  "admittedFinalArtifact": false,
+  "milliseconds": 1675.7577919999994,
+  "exactComparisons": 60,
+  "coordinate": {
+    "position": 0,
+    "dimension": 2
+  },
+  "steps": [
+    {
+      "key": "exp:0:0:0:0",
+      "measure": {
+        "uniqueNodes": 1,
+        "uniqueDecisions": 0,
+        "occurrences": "1",
+        "decisions": "0",
+        "inputReferences": "0",
+        "serializedBytes": "39",
+        "depth": 1
+      }
+    },
+    {
+      "key": "denominator:0:0:0",
+      "measure": {
+        "uniqueNodes": 1,
+        "uniqueDecisions": 0,
+        "occurrences": "1",
+        "decisions": "0",
+        "inputReferences": "0",
+        "serializedBytes": "39",
+        "depth": 1
+      }
+    },
+    {
+      "key": "prob:0:0:0:0",
+      "measure": {
+        "uniqueNodes": 1,
+        "uniqueDecisions": 0,
+        "occurrences": "1",
+        "decisions": "0",
+        "inputReferences": "0",
+        "serializedBytes": "39",
+        "depth": 1
+      }
+    },
+    {
+      "key": "h:-1:0:0",
+      "measure": {
+        "uniqueNodes": 1,
+        "uniqueDecisions": 0,
+        "occurrences": "1",
+        "decisions": "0",
+        "inputReferences": "1",
+        "serializedBytes": "20",
+        "depth": 1
+      }
+    },
+    {
+      "key": "h:-1:0:1",
+      "measure": {
+        "uniqueNodes": 1,
+        "uniqueDecisions": 0,
+        "occurrences": "1",
+        "decisions": "0",
+        "inputReferences": "1",
+        "serializedBytes": "20",
+        "depth": 1
+      }
+    },
+    {
+      "key": "pre:0:0:inverse",
+      "measure": {
+        "uniqueNodes": 80,
+        "uniqueDecisions": 0,
+        "occurrences": "4092",
+        "decisions": "0",
+        "inputReferences": "832",
+        "serializedBytes": "92275",
+        "depth": 45
+      }
+    },
+    {
+      "key": "pre:0:0:0",
+      "measure": {
+        "uniqueNodes": 109,
+        "uniqueDecisions": 1,
+        "occurrences": "20515",
+        "decisions": "1",
+        "inputReferences": "4166",
+        "serializedBytes": "462659",
+        "depth": 59
+      }
+    },
+    {
+      "key": "pre:0:0:1",
+      "measure": {
+        "uniqueNodes": 109,
+        "uniqueDecisions": 1,
+        "occurrences": "20515",
+        "decisions": "1",
+        "inputReferences": "4166",
+        "serializedBytes": "462659",
+        "depth": 59
+      }
+    },
+    {
+      "key": "projection:0:v:0:0",
+      "measure": {
+        "uniqueNodes": 170,
+        "uniqueDecisions": 3,
+        "occurrences": "287325",
+        "decisions": "15",
+        "inputReferences": "58324",
+        "serializedBytes": "6480131",
+        "depth": 75
+      }
+    },
+    {
+      "key": "context:0:0:0:0",
+      "measure": {
+        "uniqueNodes": 200,
+        "uniqueDecisions": 4,
+        "occurrences": "1436677",
+        "decisions": "76",
+        "inputReferences": "291620",
+        "serializedBytes": "32401977",
+        "depth": 86
+      }
+    },
+    {
+      "key": "projection:0:v:0:1",
+      "measure": {
+        "uniqueNodes": 170,
+        "uniqueDecisions": 3,
+        "occurrences": "287325",
+        "decisions": "15",
+        "inputReferences": "58324",
+        "serializedBytes": "6480131",
+        "depth": 75
+      }
+    },
+    {
+      "key": "context:0:0:0:1",
+      "measure": {
+        "uniqueNodes": 200,
+        "uniqueDecisions": 4,
+        "occurrences": "1436677",
+        "decisions": "76",
+        "inputReferences": "291620",
+        "serializedBytes": "32401977",
+        "depth": 86
+      }
+    },
+    {
+      "key": "residual:0:0:0",
+      "measure": {
+        "uniqueNodes": 299,
+        "uniqueDecisions": 8,
+        "occurrences": "100568007",
+        "decisions": "5326",
+        "inputReferences": "20413405",
+        "serializedBytes": "2268153872",
+        "depth": 112
+      }
+    },
+    {
+      "key": "residual:0:0:1",
+      "measure": {
+        "uniqueNodes": 299,
+        "uniqueDecisions": 8,
+        "occurrences": "100568007",
+        "decisions": "5326",
+        "inputReferences": "20413405",
+        "serializedBytes": "2268153872",
+        "depth": 112
+      }
+    },
+    {
+      "key": "post:0:0:inverse",
+      "measure": {
+        "uniqueNodes": 397,
+        "uniqueDecisions": 10,
+        "occurrences": "83672585084",
+        "decisions": "4431232",
+        "inputReferences": "16983952960",
+        "serializedBytes": "1887104097139",
+        "depth": 156
+      }
+    },
+    {
+      "key": "post:0:0:0",
+      "measure": {
+        "uniqueNodes": 414,
+        "uniqueDecisions": 11,
+        "occurrences": "418885879099",
+        "decisions": "22183856",
+        "inputReferences": "85025914506",
+        "serializedBytes": "9447314886837",
+        "depth": 170
+      }
+    },
+    {
+      "key": "post:0:0:1",
+      "measure": {
+        "uniqueNodes": 414,
+        "uniqueDecisions": 11,
+        "occurrences": "418885879099",
+        "decisions": "22183856",
+        "inputReferences": "85025914506",
+        "serializedBytes": "9447314886837",
+        "depth": 170
+      }
+    },
+    {
+      "key": "gated:0:0:0",
+      "measure": {
+        "uniqueNodes": 548,
+        "uniqueDecisions": 17,
+        "occurrences": "378672834713212",
+        "decisions": "20054205897",
+        "inputReferences": "76863426713424",
+        "serializedBytes": "8540372657895131",
+        "depth": 209
+      }
+    },
+    {
+      "key": "h:0:0:0",
+      "measure": {
+        "uniqueNodes": 639,
+        "uniqueDecisions": 20,
+        "occurrences": "3786728849972302",
+        "decisions": "200542085601",
+        "inputReferences": "768634369201265",
+        "serializedBytes": "85403737919724307",
+        "depth": 229
+      }
+    },
+    {
+      "key": "h:0:0:1",
+      "measure": {
+        "uniqueNodes": 805,
+        "uniqueDecisions": 26,
+        "occurrences": "3786728849972302",
+        "decisions": "200542085601",
+        "inputReferences": "768634369201265",
+        "serializedBytes": "85403737919724307",
+        "depth": 229
+      }
+    },
+    {
+      "key": "final:0:inverse",
+      "measure": {
+        "uniqueNodes": 668,
+        "uniqueDecisions": 19,
+        "occurrences": "3150558403176958524",
+        "decisions": "166851015220032",
+        "inputReferences": "639503795175452480",
+        "serializedBytes": "71055909949210699059",
+        "depth": 273
+      }
+    },
+    {
+      "key": "final:0:0",
+      "measure": {
+        "uniqueNodes": 685,
+        "uniqueDecisions": 20,
+        "occurrences": "15772483005904648633",
+        "decisions": "835297894945286",
+        "inputReferences": "3201515874597108978",
+        "serializedBytes": "355723649183236062699",
+        "depth": 287
+      }
+    },
+    {
+      "key": "final:0:1",
+      "measure": {
+        "uniqueNodes": 685,
+        "uniqueDecisions": 20,
+        "occurrences": "15772483005904648633",
+        "decisions": "835297894945286",
+        "inputReferences": "3201515874597108978",
+        "serializedBytes": "355723649183236062699",
+        "depth": 287
+      }
+    },
+    {
+      "key": "output:0:2",
+      "measure": {
+        "uniqueNodes": 743,
+        "uniqueDecisions": 22,
+        "occurrences": "220814762082665080977",
+        "decisions": "11694170529234005",
+        "inputReferences": "44821222244359525692",
+        "serializedBytes": "4980131088565304880691",
+        "depth": 303
+      }
+    }
+  ],
+  "cofactor": {
+    "candidates": 78,
+    "reducingCandidates": 3,
+    "accepted": 2,
+    "unsafe": 0,
+    "overBudget": 0,
+    "beforeBytes": "4980131088565304880691",
+    "afterBytes": "3525760683880951562623",
+    "rounds": 3,
+    "roundBudgetFailures": 0,
+    "converged": true,
+    "stopReason": "fixed-point"
+  },
+  "measure": {
+    "uniqueNodes": 1350,
+    "uniqueDecisions": 40,
+    "occurrences": "156329219598071053963",
+    "decisions": "8279068533022349",
+    "inputReferences": "31731876206093159460",
+    "serializedBytes": "3525760683880951562623",
+    "depth": 303
+  },
+  "operations": [
+    {
+      "operation": "input:f64",
+      "physical": 2,
+      "expanded": "31731876206093159460"
+    },
+    {
+      "operation": "constant:u64",
+      "physical": 19,
+      "expanded": "27072442496153841901"
+    },
+    {
+      "operation": "mul:f64",
+      "physical": 86,
+      "expanded": "17108137270498654518"
+    },
+    {
+      "operation": "add:f64",
+      "physical": 134,
+      "expanded": "13578443565618799990"
+    },
+    {
+      "operation": "add:u64",
+      "physical": 184,
+      "expanded": "12297155877871397306"
+    },
+    {
+      "operation": "reinterpret:u64",
+      "physical": 118,
+      "expanded": "12169214266092564924"
+    },
+    {
+      "operation": "and:u64",
+      "physical": 262,
+      "expanded": "12169103899316241611"
+    },
+    {
+      "operation": "constant:f64",
+      "physical": 26,
+      "expanded": "10315868740456708862"
+    },
+    {
+      "operation": "shr:u64",
+      "physical": 102,
+      "expanded": "6529421313738147953"
+    },
+    {
+      "operation": "reinterpret:f64",
+      "physical": 162,
+      "expanded": "5927909515104090943"
+    },
+    {
+      "operation": "div:f64",
+      "physical": 30,
+      "expanded": "5103301222352820620"
+    },
+    {
+      "operation": "or:u64",
+      "physical": 58,
+      "expanded": "1836327267609853503"
+    },
+    {
+      "operation": "mul:u64",
+      "physical": 28,
+      "expanded": "160506051697505115"
+    },
+    {
+      "operation": "xor:u64",
+      "physical": 7,
+      "expanded": "152337349922145976"
+    },
+    {
+      "operation": "shl:u64",
+      "physical": 6,
+      "expanded": "152337349920979720"
+    },
+    {
+      "operation": "sub:f64",
+      "physical": 46,
+      "expanded": "8279068558096863"
+    },
+    {
+      "operation": "if:f64",
+      "physical": 40,
+      "expanded": "8279068533022349"
+    },
+    {
+      "operation": "lt:bool",
+      "physical": 38,
+      "expanded": "8279068529523579"
+    },
+    {
+      "operation": "le:bool",
+      "physical": 2,
+      "expanded": "3498770"
+    }
+  ]
+}

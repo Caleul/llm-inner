@@ -1206,3 +1206,26 @@ A coordenada padrão manteve 60 comparações exatas e o mesmo tamanho literal
 previsto. Essa mudança corrige a ordem de fechamento das condições, mas
 não reduz adicionalmente o checkpoint atual. O JSON efetivo continua
 pendente; os detalhes da rodada estão em constantConditionValidation no mapa.
+
+
+## Diagnóstico da representação literal (2026-10-02)
+
+A expressão fechada da coordenada posição 0/dimensão 2 contém somente
+1.350 subexpressões distintas e 40 decisões distintas. Copiá-las literalmente
+produz 156.329.219.598.071.053.963 ocorrências e
+3.525.760.683.880.951.562.623 bytes previstos. CPU e memória adicionais
+não tornam essa forma atual emitível. Isso não prova um limite mínimo
+matemático para todas as expressões equivalentes possíveis.
+
+Um diagnóstico separado serializou as subexpressões com referências em
+31.450 bytes, leu o arquivo, reconstruiu a expressão e conferiu 60 resultados
+contra o corpus PyTorch existente. Não houve nova captura de referência
+nessa comparação. O arquivo está explicitamente marcado diagnosticOnly/
+admittedFinalArtifact=false e não foi adotado pelo escritor de produção.
+Esse JSON contém referências: não cumpre o contrato de árvore final literal.
+
+É necessária uma decisão humana antes de mudar a representação admitida
+no JSON de compilação. Essa alteração não resolveria automaticamente
+a emissão Rust: expandir todas as referências novamente reproduziria
+o mesmo crescimento. O contrato da função Rust permanece intacto.
+Os dois arquivos de diagnóstico e seus hashes estão no mapa de validação.
