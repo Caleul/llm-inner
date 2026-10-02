@@ -1,6 +1,7 @@
 import {jsonOperation,type JsonExpression} from './direct-json-expression.js';
 import {measureJsonExpression} from './direct-json-measure.js';
 import {simplifyJsonFixedPoint,simplifyJsonExpression,jsonExpressionIsTotal} from './direct-json-simplify.js';
+import {shareJsonExpression} from './direct-json-share.js';
 
 export interface JsonCofactorStats {candidates:number;reducingCandidates:number;accepted:number;unsafe:number;overBudget:number;
   beforeBytes:bigint;afterBytes:bigint;rounds:number;converged:boolean;roundBudgetFailures:number;
@@ -17,7 +18,8 @@ function simplifyOneSharedCondition(root:JsonExpression,
     throw new RangeError('Invalid shared-condition simplification budget');
   measureJsonExpression(root,maxNodes);
   const maxVisits=Math.min(1_000_000,maxNodes*8);
-  const base=simplifyJsonFixedPoint(root,32,maxVisits).expression,before=measureJsonExpression(base,maxNodes);
+  const base=shareJsonExpression(simplifyJsonFixedPoint(root,32,maxVisits).expression,maxVisits).expression,
+    before=measureJsonExpression(base,maxNodes);
   const stats:JsonCofactorStats={candidates:0,reducingCandidates:0,accepted:0,unsafe:0,overBudget:0,beforeBytes:before.serializedBytes,afterBytes:before.serializedBytes,rounds:1,converged:false,roundBudgetFailures:0,stopReason:'round-budget'};
   // Postorder compiler nodes, never expanded occurrences. Weight each node by
   // its expanded multiplicity when ranking duplicated condition queries.
@@ -59,7 +61,7 @@ function simplifyOneSharedCondition(root:JsonExpression,
     try{
       const yes=simplifyJsonFixedPoint(simplifyJsonExpression(base,undefined,[[condition,true]],maxVisits),32,maxVisits).expression;
       const no=simplifyJsonFixedPoint(simplifyJsonExpression(base,undefined,[[condition,false]],maxVisits),32,maxVisits).expression;
-      candidate=jsonOperation('if',base[1],condition,yes,no);
+      candidate=shareJsonExpression(jsonOperation('if',base[1],condition,yes,no),maxVisits).expression;
       size=measureJsonExpression(candidate,maxNodes);
     }catch(error){
       if(error instanceof RangeError){stats.overBudget++;continue;}throw error;

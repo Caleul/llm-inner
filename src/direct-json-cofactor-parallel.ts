@@ -4,6 +4,7 @@ import type {JsonExpression} from './direct-json-expression.js';
 import {measureJsonExpression} from './direct-json-measure.js';
 import {simplifyJsonFixedPoint,jsonExpressionIsTotal} from './direct-json-simplify.js';
 import {simplifyJsonSharedConditions,type JsonCofactorStats} from './direct-json-cofactor.js';
+import {shareJsonExpression} from './direct-json-share.js';
 export interface JsonParallelConditionOptions {maxCandidates?:number;maxUniqueNodes?:number;maxRounds?:number;workers?:number}
 interface Reply {best?:JsonExpression;bestIndex:number;bestBytes:bigint;reducingCandidates:number;overBudget:number;fatal?:string}
 interface Condition {index:number;condition:JsonExpression}
@@ -13,7 +14,8 @@ async function round(root:JsonExpression,options:JsonParallelConditionOptions){
   if(!Number.isSafeInteger(maxCandidates)||maxCandidates<0||!Number.isSafeInteger(maxNodes)||maxNodes<1)
     throw new RangeError('Invalid shared-condition simplification budget');
   measureJsonExpression(root,maxNodes);
-  const maxVisits=Math.min(1000000,maxNodes*8),base=simplifyJsonFixedPoint(root,32,maxVisits).expression;
+  const maxVisits=Math.min(1000000,maxNodes*8),
+    base=shareJsonExpression(simplifyJsonFixedPoint(root,32,maxVisits).expression,maxVisits).expression;
   const before=measureJsonExpression(base,maxNodes);
   const stats:JsonCofactorStats={candidates:0,reducingCandidates:0,accepted:0,unsafe:0,overBudget:0,
     beforeBytes:before.serializedBytes,afterBytes:before.serializedBytes,rounds:1,roundBudgetFailures:0,

@@ -782,3 +782,48 @@ caiu de 484 para 472; as referências à entrada e decisões expandidas permanec
 iguais nessa coordenada. O ganho inicial não representa o vetor inteiro.
 A busca terminal continua incompleta pelo limite de candidatos. Não houve
 emissão do JSON final. A validação completa desta alteração foi concluída.
+
+## Compartilhamento estrutural interno — validado
+
+Após a primeira promoção terminal, 437 objetos de condição representavam
+somente 183 estruturas distintas. As duas simplificações de ramo construíam
+cópias de prefixos idênticos. Isso desperdiçava busca e consumia o orçamento de
+candidatos com condições equivalentes, mesmo sem crescimento da sintaxe final.
+
+O compilador agora interna os nós por operador, dtype, payload exato de folhas
+e IDs estruturais dos filhos. A travessia é iterativa, admite orçamento de nós
+e rejeita ciclos. Ela não calcula valores, modifica operações ou reordena
+reduções. A árvore literal, seus bytes, ocorrências e ordem de avaliação
+permanecem iguais; apenas aliases em memória do compilador se unem. Nada desse
+índice é emitido no JSON final. Assim, a contagem de candidatos agrega consultas
+estruturalmente idênticas em vez de consumir o orçamento com suas cópias.
+
+Os 39 testes focados passaram, incluindo quatro novos testes de estrutura,
+IEEE/payloads/zeros, falhas condicionais e uma redução que antes ficava oculta
+porque a mesma condição existia como dois objetos diferentes.
+
+Na coordenada inicial, os nós físicos caíram de 4320 para 1310 e os candidatos
+cumulativos de 240 para 104, mantendo exatamente os mesmos bytes literais.
+Na busca terminal ampliada (2048 candidatos, 16 rodadas), cinco rodadas
+examinaram 1010 candidatos, aceitaram quatro promoções e atingiram o ponto fixo
+da transformação. O tamanho caiu de 14559833163458060370270377838148162 para
+8051335912809326043023129588358268 bytes, aproximadamente 45% menos. A expressão
+possui 8549 nós físicos, 255 decisões físicas e profundidade 470. Doze casos
+terminais comparados com PyTorch passaram bit a bit. Essa medição levou 42,0
+segundos; a busca anterior sem compartilhamento foi interrompida sem resultado
+após a duplicação estrutural ser demonstrada, não se deve atribuir a ela um
+speedup completo. A medição com limites padrão terminou em 41,5 segundos e produziu exatamente
+os mesmos contadores e medidas, com os mesmos 12 passes bit a bit. Portanto,
+a busca terminal atinge seu ponto fixo também com a configuração padrão, sem
+parar no limite de candidatos. Isso vale para essa transformação, não para
+todas as regras matemáticas possíveis. A suíte completa terminou: 557 testes,
+539 passando, as mesmas 15 falhas anteriores e três ignorados. Todos os passes
+anteriores foram preservados; as árvores serial/paralela coincidiram e os 864
+logits passaram em ambas as representações (1728 verificações bit a bit).
+O teste completo do modelo levou 519,4 segundos (8,7 minutos), contra 790,0
+segundos (13,2 minutos) na execução paralela anterior. A execução intermediária
+de 987,3 segundos tinha uma busca ampliada concorrente e não é uma comparação
+isolada de velocidade.
+O CLI preparou 1/32 coordenadas e recusou a emissão por tamanho antes de escrever
+a primeira expressão. O tamanho literal continua inviável e o JSON final
+permanece pendente.
