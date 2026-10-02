@@ -35,12 +35,12 @@ export function lowerJsonFiniteF16AsF64(input:JsonExpression,range?:JsonFloatRan
         o('and','u64',bits,u(0x8000000000000000n))));
     if(maximum<2**-14)return signedSubnormal;
     if(minimum>=2**-14)return signedNormal;
-    return o('if','f64',o('lt','bool',magnitude,c('f64',2**-14)),signedSubnormal,signedNormal);
+    return o('if','f64',o('lt','bool',magnitudeBits,u(0x3f10000000000000n)),signedSubnormal,signedNormal);
   }
   const aboveSubnormal=maximum<65520?normal:
-    o('if','f64',o('lt','bool',magnitude,c('f64',65520)),normal,c('f64',Infinity));
+    o('if','f64',o('lt','bool',magnitudeBits,u(0x40effe0000000000n)),normal,c('f64',Infinity));
   const positive=maximum<2**-14?subnormal:minimum>=2**-14?aboveSubnormal:
-    o('if','f64',o('lt','bool',magnitude,c('f64',2**-14)),subnormal,aboveSubnormal);
+    o('if','f64',o('lt','bool',magnitudeBits,u(0x3f10000000000000n)),subnormal,aboveSubnormal);
   // Strict sign bounds preserve negative zero; a bound containing zero cannot
   // remove the sign decision merely because -0 compares equal to +0.
   if(range&&range.minimum>0)return positive;
@@ -80,12 +80,13 @@ export function lowerJsonFiniteF32ThenF16AsF64(raw:JsonExpression,range:JsonFloa
   const minimum=range.minimum>0?range.minimum:range.maximum<0?-range.maximum:0;
   if(minimum>=2**-14)return lowerJsonNormalF32ThenF16AsF64(raw);
   const u=(n:bigint)=>c('u64',n),bits=o('reinterpret','u64',raw);
-  const magnitude=o('reinterpret','f64',o('and','u64',bits,u(0x7fffffffffffffffn)));
+  const magnitudeBits=o('and','u64',bits,u(0x7fffffffffffffffn));
+  const magnitude=o('reinterpret','f64',magnitudeBits);
   const roundedMagnitude=lowerJsonRoundNormalF32AsF64(magnitude);
   const subnormal=o('sub','f64',o('add','f64',roundedMagnitude,c('f64',2**28)),c('f64',2**28));
   const signedSubnormal=o('reinterpret','f64',o('or','u64',o('reinterpret','u64',subnormal),
     o('and','u64',bits,u(0x8000000000000000n))));
   if(maximum<2**-14)return signedSubnormal;
-  return o('if','f64',o('lt','bool',magnitude,c('f64',2**-14)),signedSubnormal,
+  return o('if','f64',o('lt','bool',magnitudeBits,u(0x3f10000000000000n)),signedSubnormal,
     lowerJsonNormalF32ThenF16AsF64(raw));
 }

@@ -72,7 +72,8 @@ export function simplifyJsonBitPrecision(root:JsonExpression,facts:JsonPrecision
         }
       }
     }
-    const certified=facts.get(node);if(certified!==undefined)facts.set(result,certified);
+    const certified=facts.get(node);
+    if(certified!==undefined)facts.set(result,Math.max(facts.get(result)??0,certified));
     memo.set(node,result);return result;
   }
   return visit(root);

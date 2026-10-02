@@ -1,5 +1,6 @@
 import {jsonConstant,jsonInteger,jsonOperation,jsonWidths,type JsonExpression} from './direct-json-expression.js';
 import {evaluateJsonExpression,jsonConstantValue} from './direct-json-evaluator.js';
+import {jsonIntegerRange} from './direct-json-integer-range.js';
 
 export interface JsonSimplificationStats { visited:number; folds:number; conditions:number; integerAlgebra:number }
 export const newJsonSimplificationStats=():JsonSimplificationStats=>({visited:0,folds:0,conditions:0,integerAlgebra:0});
@@ -40,6 +41,14 @@ class StructuralIndex {
     if(node[1]==='bool'){
       result.add(this.id(node));
       if(node[0]==='lt'||node[0]==='le'||node[0]==='eq')result.add(this.id(node[2]!));
+      if(['lt','le','eq'].includes(node[0])&&jsonInteger((node[2] as JsonExpression)[1])){
+        const stack:JsonExpression[]=[node[2] as JsonExpression],seen=new WeakSet<object>();
+        while(stack.length){
+          const operand=stack.pop()!;if(seen.has(operand))continue;seen.add(operand);result.add(this.id(operand));
+          if(operand[0]!=='input'&&operand[0]!=='constant')
+            for(const arg of operand.slice(2) as JsonExpression[])if(jsonInteger(arg[1]))stack.push(arg);
+        }
+      }
     }
     this.features.set(node,result);return result;
   }
@@ -60,22 +69,13 @@ export function jsonExpressionIsTotal(node:JsonExpression,memo=new WeakMap<objec
     (jsonConstantValue(args[1]!) as bigint)<BigInt(jsonWidths[node[1]]);
   memo.set(node,result);return result;
 }
-const total=jsonExpressionIsTotal;
-function proveIntegerComparison(node:JsonExpression,facts:readonly (readonly [JsonExpression,boolean])[]):boolean|undefined {
+function proveIntegerComparison(node:JsonExpression,facts:readonly (readonly [JsonExpression,boolean])[],maxNodes:number,
+  total:(expression:JsonExpression)=>boolean):boolean|undefined {
   if(!['lt','le','eq'].includes(node[0]))return undefined;
   const args=node.slice(2) as JsonExpression[],left=args[0]!,right=args[1]!;
   if(!jsonInteger(left[1])||right[0]!=='constant'||!total(left))return undefined;
-  let lower=0n,upper=(1n<<BigInt(jsonWidths[left[1]]))-1n;
-  for(const [fact,truth] of facts){
-    if(!['lt','le','eq'].includes(fact[0]))continue;
-    const pair=fact.slice(2) as JsonExpression[];
-    if(!sameJsonExpression(left,pair[0]!)||pair[1]![0]!=='constant')continue;
-    const value=jsonConstantValue(pair[1]!) as bigint;
-    if(fact[0]==='lt'){if(truth)upper=upper<value-1n?upper:value-1n;else lower=lower>value?lower:value;}
-    else if(fact[0]==='le'){if(truth)upper=upper<value?upper:value;else lower=lower>value+1n?lower:value+1n;}
-    else if(truth){lower=lower>value?lower:value;upper=upper<value?upper:value;}
-  }
-  if(lower>upper)return undefined;
+  const interval=jsonIntegerRange(left,facts,sameJsonExpression,maxNodes);if(!interval)return undefined;
+  const [lower,upper]=interval;
   const value=jsonConstantValue(right) as bigint;
   if(node[0]==='lt')return upper<value?true:lower>=value?false:undefined;
   if(node[0]==='le')return upper<=value?true:lower>value?false:undefined;
@@ -83,6 +83,9 @@ function proveIntegerComparison(node:JsonExpression,facts:readonly (readonly [Js
 }
 export function simplifyJsonExpression(root:JsonExpression,stats=newJsonSimplificationStats(),
   initialFacts:readonly (readonly [JsonExpression,boolean])[]=[],maxVisits=1_000_000):JsonExpression {
+  // Totality depends on the immutable expression, not on its condition scope.
+  // Reuse its proof within this pass without retaining facts across rewrites.
+  const totalMemo=new WeakMap<object,boolean>(),total=(node:JsonExpression)=>jsonExpressionIsTotal(node,totalMemo);
   if(!Number.isSafeInteger(maxVisits)||maxVisits<1)throw new RangeError('Invalid simplification visit budget');
   for(const [condition,truth] of initialFacts)if(condition[1]!=='bool'||typeof truth!=='boolean')
     throw new TypeError('Invalid compilation condition fact');
@@ -102,10 +105,14 @@ export function simplifyJsonExpression(root:JsonExpression,stats=newJsonSimplifi
     facts=index.relevant(node,facts);
     const known=facts.find(([condition])=>sameJsonExpression(condition,node));
     if(known){stats.conditions++;return jsonConstant('bool',known[1]);}
-    const implied=proveIntegerComparison(node,facts);
-    if(implied!==undefined){stats.conditions++;return jsonConstant('bool',implied);}
     const context=facts.map(([fact,truth])=>`${index.id(fact)}:${truth?1:0}`).join(',');
     const hit=memo.get(node)?.get(context);if(hit)return hit;
+    const implied=proveIntegerComparison(node,facts,maxVisits,total);
+    if(implied!==undefined){
+      stats.conditions++;const result=jsonConstant('bool',implied);
+      let scoped=memo.get(node);if(!scoped){scoped=new Map();memo.set(node,scoped);}
+      scoped.set(context,result);return result;
+    }
     const op=node[0],type=node[1],raw=node.slice(2) as JsonExpression[];
     if(op==='if'){
       const condition=visit(raw[0]!,facts);

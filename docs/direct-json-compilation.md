@@ -827,3 +827,81 @@ isolada de velocidade.
 O CLI preparou 1/32 coordenadas e recusou a emissão por tamanho antes de escrever
 a primeira expressão. O tamanho literal continua inviável e o JSON final
 permanece pendente.
+
+## Provas de precisão e intervalos de palavras — paridade validada; custo corrigido em validação
+
+Duas regressões focadas reproduziram a perda de prova: uma identidade ou
+alargamento retornava o mesmo produtor F16, mas substituía sua anotação de
+42 bits inferiores zerados pela anotação F32 de 29 bits. O compilador e o
+simplificador de bits agora preservam a maior prova já demonstrada. Os três
+testes específicos passaram após a correção; a equivalência numérica cobre
+todos os 63.488 valores F16 finitos. Essa correção isolada não reduziu a
+expressão inicial do Llama.
+
+As comparações de magnitude que escolhem os braços F16 agora operam sobre
+palavras u64 com o sinal removido. A ordem unsigned coincide com a ordem dos
+valores positivos nos limiares finitos utilizados; NaNs continuam acima deles.
+Isso permite propagar fatos pelos operadores inteiros sem introduzir álgebra
+real sobre as operações de ponto flutuante. O teste cobre todos os words F16,
+limiares e vizinhos F64, payloads NaN e words aleatórios.
+
+A análise conservadora de intervalos percorre somas, produtos, divisões
+definidas, máscaras, shifts e conversões unsigned. Ela conserva intervalos
+modulares apenas quando ambos os extremos pertencem à mesma célula de wrap;
+caso contrário retorna o domínio completo. Fatos de um operando permanecem
+relevantes nas condições derivadas de seus descendentes inteiros. Condições
+que poderiam esconder uma operação indefinida continuam protegidas pelo
+critério de totalidade. Os testes exaustivos cobrem os 65.536 valores u16.
+
+Os 45 testes focados e as 12 comparações terminais com PyTorch passaram. Na
+coordenada inicial a previsão caiu para 58125302555898598982655 bytes; na
+terminal, para 8051052324794883384027948204697032 bytes. O ganho terminal é
+somente cerca de 0,0035%; decisões e referências à entrada não diminuíram.
+A medição terminal levou 96,4 segundos com testes concorrentes, portanto não
+demonstra aceleração. A suíte completa está em andamento; o mapa de validação
+registra seu log e hashes dos arquivos testados. O JSON final permanece
+pendente e nenhuma coordenada literal completa foi emitida.
+
+Uma investigação isolada de semente quadrática com duas iterações de Newton
+testou exaustivamente 16.777.216 entradas F32 normalizadas, incluindo as duas
+paridades de expoente. Falhou em seis pontos; por exemplo, 0x3f800001 produziu
+0x3f800001 em vez de 0x3f800000. Uma busca de 129 vieses e outra de 129 sementes
+com endpoints fixos também não obtiveram paridade. O algoritmo foi rejeitado
+e não alterou a raiz utilizada pelo compilador. Os logs estão no mapa.
+O CLI desta versão preparou 1/32 coordenadas e recusou o tamanho antes de
+emitir a primeira expressão; continuam zero coordenadas finais emitidas.
+
+A semente racional ajustada passou nos mesmos 16.777.216 pontos normalizados
+e em 53.775 verificações da expressão JSON, cobrindo todos os valores F16
+positivos finitos, extremos de todos os expoentes F32 normais e amostras F32.
+O protótipo terminal preservou as 12 comparações com PyTorch e reduziu o tamanho
+previsto para 5151393979909648332159646255562184 bytes (36,0% menos), com 34,9%
+menos referências à entrada e 24,9% menos decisões expandidas. Ainda não foi
+adotado: faltam o certificado durável e a comparação do vetor completo.
+
+Um segundo protótipo reutiliza provas de totalidade e consulta a memoização
+por escopo antes de recalcular intervalos. Manteve medidas, contadores e os
+12 resultados exatos da versão de intervalos, levando 55,7 segundos em vez
+de 96,4 segundos na medição inicial. As execuções tiveram outros testes
+concorrentes; a comparação indica trabalho redundante evitado, mas não é um
+benchmark isolado. A implementação de produção permanece estável para a
+suíte atual. Os dois protótipos estão fora do repositório e não contam como
+validação final nem coordenadas emitidas.
+
+A suíte anterior ao cache terminou com 563 testes, 545 passes, as mesmas 15
+falhas e três ignorados. Os 539 passes da rodada anterior e os 479 originais
+foram preservados. Os 864 logits passaram nas duas representações (1.728
+comparações bit a bit), e árvores/contadores serial e paralelo coincidiram.
+Porém o teste do modelo levou 1240,8 segundos, contra 519,4 na rodada anterior;
+isso é uma regressão de tempo nesta execução, não um ganho de desempenho.
+A correção do cache de provas foi aplicada após a suíte terminar. O build
+passou; testes focados e a nova suíte completa foram iniciados, registrados
+separadamente para não atribuir o resultado anterior ao código alterado.
+
+Os 45 testes focados da correção de cache passaram. Sua suíte completa ainda
+está em execução; os hashes separam essa versão da suíte concluída anterior.
+O código reproduzível da investigação da raiz foi salvo em
+`docs/experiments/direct-json-rational-sqrt-proof.cpp`. A compilação com
+`-O3 -ffp-contract=off -std=c++17` e a execução desse arquivo repetiram os
+16.777.216 pontos sem divergência. Esse arquivo é um experimento de prova,
+não uma nova primitiva do compilador nem o artefato final do Llama.

@@ -63,8 +63,10 @@ export function lowerJsonModelExpression(root:JsonExpression,facts:JsonModelLowe
     const result=calculate(node);
     // Every completed F16/F32 producer is exactly widened. These are compiler
     // proofs, not retained conversion operators or runtime metadata.
-    if(node[1]==='f16')precision.set(result,42);
-    else if(node[1]==='f32')precision.set(result,29);
+    // An identity or widening can return an already-completed half producer.
+    // Its stronger proof remains valid; the consumer cannot weaken it.
+    if(node[1]==='f16'||node[1]==='f32')
+      precision.set(result,Math.max(precision.get(result)??0,node[1]==='f16'?42:29));
     memo.set(node,result);return result;
   }
   function calculate(node:JsonExpression):JsonExpression {
