@@ -2,7 +2,7 @@ import {jsonConstant as c,jsonOperation as o,jsonInput,type JsonExpression} from
 import {jsonConstantValue,evaluateJsonExpression} from './direct-json-evaluator.js';
 import {lowerJsonRoundNormalF32AsF64} from './direct-json-f16.js';
 import {lowerJsonFiniteF16AsF64,lowerJsonFiniteF32ThenF16AsF64} from './direct-json-half-value.js';
-import {lowerJsonRationalPositiveNormalSqrtAsF64} from './direct-json-rational-sqrt.js';
+import {lowerJsonRationalPositiveNormalSqrtAsF64,lowerJsonRationalPositiveNormalInverseSqrtAsF64} from './direct-json-rational-sqrt.js';
 import {lowerJsonSmallNonpositiveExpAsF64,certifyJsonHalfDifferenceExp} from './direct-json-exp.js';
 import {certifyJsonSmallSilu,lowerJsonSmallSiluAsF64} from './direct-json-silu.js';
 import type {JsonModelLoweringFacts} from './direct-json-model.js';
@@ -216,6 +216,11 @@ export function createJsonModelLowerer(facts:JsonModelLoweringFacts,
     }
     if(node[1]==='f32'&&['add','sub','mul','div'].includes(node[0])){
       const a=args[0]!,b=args[1]!;
+      if(node[0]==='div'&&value(a)===1&&b[0]==='pending-sqrt'&&facts.positiveNormalRoots.has(b)){
+        const input=visit(b[2]!);
+        const closed=lowerJsonRationalPositiveNormalInverseSqrtAsF64(input);
+        return input[0]==='constant'?c('f64',Number(evaluateJsonExpression(closed))):closed;
+      }
       const cell=constantJsonF32Cell(node[0],range(a),range(b));
       if(cell!==undefined)return c('f64',cell);
       // Complete operands before composing their affine source forms. The

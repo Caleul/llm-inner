@@ -1,0 +1,13 @@
+{
+  "status": "pending",
+  "units": 0,
+  "bytes": 1376,
+  "finalParity": false,
+  "rejectedCoordinate": {
+    "position": 0,
+    "dimension": 2,
+    "predictedBytes": "56393457973004369801",
+    "predictedOccurrences": "2495472992528062297"
+  },
+  "reason": "JSON output budget exceeded before expression emission"
+}

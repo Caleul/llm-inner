@@ -1,0 +1,22 @@
+✔ affine substitution distributes coefficients and gathers repeated fundamental variables bitwise (250.841834ms)
+✔ floating rounding and signed-zero barriers survive affine analysis (0.217375ms)
+✔ every operator and guard is visited and branch bounds never leak to the complement (0.593084ms)
+✔ incremental F32 substitution composes exact affine producers before bitwise rounding (74.389ms)
+✔ invalid affine certificates fail instead of narrowing a numerical domain (0.328875ms)
+✔ affine forms reuse completed shared producers without enumerating literal copies (0.381583ms)
+✔ an identity cannot weaken the half lattice of a completed producer reused by later affine consumers (410.172292ms)
+✔ unchanged structural and precision fixed points retain completed producer identity (0.92375ms)
+✔ incremental substitution stabilizes children before consumers and removes equivalent producer subtraction (37.723ms)
+✔ a selected coordinate is emitted as a complete scalar artifact without pretending to cover the vector (22.039875ms)
+✔ one complete source-discovered coordinate preserves live PyTorch bits after each dependency is stabilized (10599.731583ms)
+✔ normalized root and composed inverse JSON exhaust both F32 exponent parities against native IEEE boundaries (1491.852875ms)
+✔ rational root JSON preserves exact widening across normal exponent boundaries and all positive finite half values (1470.089625ms)
+✔ composed inverse preserves the root rounding boundary instead of silently becoming reciprocal sqrt (0.150375ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10757.590541

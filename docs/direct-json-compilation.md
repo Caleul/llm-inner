@@ -1229,3 +1229,47 @@ no JSON de compilação. Essa alteração não resolveria automaticamente
 a emissão Rust: expandir todas as referências novamente reproduziria
 o mesmo crescimento. O contrato da função Rust permanece intacto.
 Os dois arquivos de diagnóstico e seus hashes estão no mapa de validação.
+
+
+## Quantização normalizada: cópias e caminhos distintos
+
+Cópias necessárias em caminhos alcançáveis diferentes não são duplicações
+artificiais. Cada caminho mantém suas condições e cálculos. O kernel da
+raiz anterior e o novo não têm IF explícito no JSON; ambos codificam os
+resultados do arredondamento. Esta mudança altera essa realização numérica,
+sem descartar resultados de desempate nem cancelar fronteiras de precisão.
+
+A raiz normaliza o significando, realiza sua quantização F32 por uma soma
+F64 no quantum certificado e aplica uma escala exata de potência de dois.
+A composição do inverso preserva R32(1 / R32(sqrt(x))): os dois arredondamentos
+permanecem. Isso reduz as referências ao argumento da raiz de 26 para 13
+e as do inverso composto de 52 para 13. A regra exige o certificado de
+entrada F32 normal positiva; não reduz o domínio da coordenada.
+
+O teste compila o JSON efetivo em C++ com contração FMA desabilitada.
+Verifica 16.777.216 entradas normalizadas para raiz e inverso (33.554.432
+comparações), além de 50.331.648 casos imediatamente abaixo, no empate e
+imediatamente acima de cada célula de arredondamento. Nenhuma divergência.
+Também verifica Half finito positivo, fronteiras dos 254 expoentes normais
+e entradas aleatórias. Um teste distingue explicitamente o inverso composto
+de um reciprocal-sqrt com apenas um arredondamento.
+
+Build aprovado; 14 testes focados aprovados, incluindo 60 comparações com
+forward PyTorch recapturado para posição 0/dimensão 2. Regressão: 591 testes,
+573 passes, as mesmas 15 falhas conhecidas, 3 skips e nenhum passe anterior
+perdido (um teste renomeado e um acrescentado). Mantidos adiados os três
+testes históricos de múltiplas coordenadas.
+
+A expressão literal prevista caiu de 3.525.522.711.179.479.875.721 para
+56.393.457.973.004.369.801 bytes, cerca de 62,5 vezes. Ainda prevê 56,4
+exabytes. A execução isolada com heap de 512 MiB, saída de 64 MiB, limite
+de 10.000 nós únicos e dois workers estabilizou a coordenada e foi rejeitada
+antes da emissão. Zero coordenadas emitidas; finalParity=false; processo
+encerrado. O relatório de tamanho e a paridade da expressão em memória
+não são um JSON final validado. Nenhuma outra coordenada foi avançada.
+
+O mapa completo está em normalizedQuantumKernelValidation de
+direct-json-validation.json, com hashes, testes, medidas por dependência,
+log de crescimento e estado terminal em docs/evidence. O crescimento
+literal restante ainda precisa de simplificação global adicional; esta
+redução não conclui a compilação do Llama.
