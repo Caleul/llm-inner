@@ -13,6 +13,7 @@ from direct_sympy_strings import StringCompiler,syntax,Domain
 from fractions import Fraction as F
 from direct_sympy_words import simplify_words
 from direct_sympy_signatures import StructuralSignatures
+from direct_sympy_tandem import supported as tandem_supported,lower_tandem
 
 
 def cpp(node):
@@ -37,7 +38,7 @@ def cpp(node):
         if name=="Bits64":return "word<uint64_t>(double("+args[0]+"))"
         if name=="Float64":return "word<double>(uint64_t("+args[0]+"))"
         if name=="sqrt":return "std::sqrt(double("+args[0]+"))"
-        op={"U64And":"&","U64Or":"|","U64Shr":">>","U64Add":"+"}[name]
+        op={"U64And":"&","U64Or":"|","U64Shr":">>","U64Add":"+","U64Mul":"*"}[name]
         return "(uint64_t("+args[0]+") "+op+" uint64_t("+args[1]+"))"
     raise AssertionError(ast.dump(node))
 
@@ -133,6 +134,11 @@ class ConversionStringTests(unittest.TestCase):
         self.assertIn("R16",unknown.close(pending))
         self.assertEqual(unknown.reused_regions,0)
 
+    def test_tandem_rejects_unproved_f32_source(self):
+        for certificate in (None,FiniteSource(-1,1,None),FiniteSource(-1,1,-127),FiniteSource(-2**128,2**128,-24)):
+            self.assertFalse(tandem_supported(certificate))
+        self.assertTrue(tandem_supported(FiniteSource(-131008,131008,-126)))
+
     def test_constructor_rejects_uncertified_sources(self):
         with self.assertRaises(ValueError):FiniteSource(-math.inf,1)
         with self.assertRaises(ValueError):lower_finite_conversion("X1","R32",None,StringCompiler(),{})
@@ -152,6 +158,7 @@ class ConversionStringTests(unittest.TestCase):
         self.assertNotIn("Piecewise",pruned32+pruned16)
         session=ConversionSession(compiler,{"X1":Domain(F(-65504),F(65504),-1074,False)})
         composed=session.close("R16(R32(X1))")
+        tandem=lower_tandem("X1",FiniteSource(-131008,131008,-126),compiler,{})
         self.assertEqual(session.closed,2)
         self.assertNotIn("R16",composed);self.assertNotIn("R32",composed)
         self.assertNotIn("R32",r32);self.assertNotIn("R16",r16)
@@ -180,6 +187,7 @@ class ConversionStringTests(unittest.TestCase):
 template<class T,class U>T word(U value){static_assert(sizeof(T)==sizeof(U));T result;std::memcpy(&result,&value,sizeof(result));return result;}
 double r32(double X1){return """+cpp(syntax(r32))+""";}
 double r16(double X1){return """+cpp(syntax(r16))+""";}
+double tandem(double X1){return """+cpp(syntax(tandem))+""";}
 double composed(double X1){return """+cpp(syntax(composed))+""";}
 double pruned32(double X1){return """+cpp(syntax(pruned32))+""";}
 double pruned16(double X1){return """+cpp(syntax(pruned16))+""";}
@@ -192,10 +200,11 @@ int main(){
   if(wordParity(word<double>(bits))!=((bits>>42)&1))return 4;
  static_assert(FLT_EVAL_METHOD==0);static_assert(std::numeric_limits<double>::is_iec559);
  if(std::fesetround(FE_TONEAREST))return 2;
- uint64_t cases32=0,cases16=0,composedCases=0,pruned32Cases=0,pruned16Cases=0,failures=0;
+ uint64_t cases32=0,cases16=0,composedCases=0,pruned32Cases=0,pruned16Cases=0,tandemCases=0,failures=0;
  auto check32=[&](double x){cases32++;double expected=static_cast<float>(x);if(word<uint64_t>(r32(x))!=word<uint64_t>(expected))failures++;};
  auto check16=[&](double x){cases16++;double expected=static_cast<_Float16>(x);if(word<uint64_t>(r16(x))!=word<uint64_t>(expected))failures++;};
- auto checkComposed=[&](double x){composedCases++;double expected=static_cast<_Float16>(static_cast<float>(x));if(word<uint64_t>(composed(x))!=word<uint64_t>(expected))failures++;};
+ auto checkTandem=[&](double x){tandemCases++;double expected=static_cast<_Float16>(static_cast<float>(x));if(word<uint64_t>(tandem(x))!=word<uint64_t>(expected))failures++;};
+ auto checkComposed=[&](double x){composedCases++;double expected=static_cast<_Float16>(static_cast<float>(x));if(word<uint64_t>(composed(x))!=word<uint64_t>(expected))failures++;checkTandem(x);};
  auto checkPruned32=[&](double x){pruned32Cases++;double expected=static_cast<float>(x);if(word<uint64_t>(pruned32(x))!=word<uint64_t>(expected))failures++;};
  auto checkPruned16=[&](double x){pruned16Cases++;double expected=static_cast<_Float16>(x);if(word<uint64_t>(pruned16(x))!=word<uint64_t>(expected))failures++;};
  for(unsigned exponent=126;exponent<=127;exponent++)for(uint32_t fraction=0;fraction<0x800000;fraction++){
@@ -207,12 +216,24 @@ int main(){
   double a=word<_Float16>(bits),b=word<_Float16>(uint16_t(bits+1)),mid=(a+b)/2;
   for(double x:{std::nextafter(mid,-INFINITY),mid,std::nextafter(mid,INFINITY)})for(double sign:{1.,-1.}){check16(x*sign);checkComposed(x*sign);if(bits<512)checkPruned16(x*sign);}
  }
+ for(uint16_t bits=0x0400;bits<0x7bff;bits++){
+  double a=word<_Float16>(bits),b=word<_Float16>(uint16_t(bits+1)),mid=(a+b)/2;
+  uint64_t wordMid=word<uint64_t>(mid);
+  for(uint64_t boundary:{wordMid-(UINT64_C(1)<<28),wordMid+(UINT64_C(1)<<28)})
+   for(int offset:{-1,0,1})for(double sign:{1.,-1.})checkComposed(word<double>(uint64_t(boundary+offset))*sign);
+ }
  for(unsigned exponent=0;exponent<2047;exponent++)for(uint64_t fraction:{UINT64_C(0),UINT64_C(1),UINT64_C(0x7ffffffffffff),UINT64_C(0xfffffffffffff)})for(uint64_t sign:{UINT64_C(0),UINT64_C(0x8000000000000000)}){
   double x=word<double>(sign|(uint64_t(exponent)<<52)|fraction);check32(x);check16(x);
  }
  // Explicit target underflow, smallest-normal, binade and overflow cells.
  for(double mid:{std::ldexp(1.,-150),std::ldexp(1.,-126)-std::ldexp(1.,-150),std::ldexp(1.,128)-std::ldexp(1.,103),std::ldexp(1.,-25),std::ldexp(1.,-14)-std::ldexp(1.,-25),65520.})
   for(double x:{std::nextafter(mid,-INFINITY),mid,std::nextafter(mid,INFINITY)})for(double sign:{1.,-1.}){check32(x*sign);check16(x*sign);}
+ for(double mid:{std::ldexp(1.,-25),std::ldexp(1.,-14)-std::ldexp(1.,-25),65520.}){
+  uint64_t wordMid=word<uint64_t>(mid);
+  for(uint64_t boundary:{wordMid-(UINT64_C(1)<<28),wordMid+(UINT64_C(1)<<28)})
+   for(int offset:{-1,0,1})for(double sign:{1.,-1.})checkTandem(word<double>(uint64_t(boundary+offset))*sign);
+ }
+ for(double x:{0.,std::ldexp(1.,-126),131008.,65520.})for(double sign:{1.,-1.})checkTandem(x*sign);
  for(double x:{0.,std::ldexp(1.,-126)})for(double sign:{1.,-1.})checkPruned32(x*sign);
  uint64_t typedCases=0;
  for(uint32_t bits=0;bits<65536;bits++)if((bits&0x7c00)!=0x7c00)
@@ -223,21 +244,22 @@ int main(){
    if(word<uint64_t>(typedProduct(x,y))!=word<uint64_t>(product)||word<uint64_t>(typedAddition(x,y))!=word<uint64_t>(addition)||word<uint64_t>(typedZero(x,y))!=word<uint64_t>(zero))failures++;
   }
  if(typedCases!=507904)return 3;
- std::printf("%llu %llu %llu %llu %llu %llu\\n",(unsigned long long)cases32,(unsigned long long)cases16,(unsigned long long)composedCases,(unsigned long long)pruned32Cases,(unsigned long long)pruned16Cases,(unsigned long long)failures);
+ std::printf("%llu %llu %llu %llu %llu %llu %llu\\n",(unsigned long long)cases32,(unsigned long long)cases16,(unsigned long long)composedCases,(unsigned long long)pruned32Cases,(unsigned long long)pruned16Cases,(unsigned long long)tandemCases,(unsigned long long)failures);
  return failures?1:0;
 }
 """)
             subprocess.run(["clang++","-O3","-ffp-contract=off","-std=c++17",str(source),"-o",str(binary)],check=True,capture_output=True)
             result=subprocess.run([str(binary)],capture_output=True,text=True,timeout=120)
             self.assertEqual(result.returncode,0,result.stdout+result.stderr)
-            count32,count16,count_composed,count_pruned32,count_pruned16,failures=map(int,result.stdout.split())
+            count32,count16,count_composed,count_pruned32,count_pruned16,count_tandem,failures=map(int,result.stdout.split())
             self.assertEqual(count32,100663296+16376+36)
             self.assertEqual(count16,31743*6+16376+36)
-            self.assertEqual(count_composed,31743*6)
+            self.assertEqual(count_composed,31743*6+30719*12)
             self.assertEqual(count_pruned32,100663300)
             self.assertEqual(count_pruned16,3072)
+            self.assertEqual(count_tandem,559130)
             self.assertEqual(failures,0)
-            print(f"Actual string IEEE certificate: F32={count32} F16={count16} composed={count_composed} prunedF32={count_pruned32} prunedF16={count_pruned16} mismatches={failures}; typedPairs=507904")
+            print(f"Actual string IEEE certificate: F32={count32} F16={count16} composed={count_composed} prunedF32={count_pruned32} prunedF16={count_pruned16} mismatches={failures}; tandem={count_tandem}; typedPairs=507904")
 
 
 if __name__=="__main__":unittest.main()

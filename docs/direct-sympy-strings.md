@@ -246,3 +246,38 @@ os pesos da segunda linha da projeção V e a redução causal correspondente.
 Isso não estabelece ganho isolado da otimização: o orçamento de tempo é
 diferente do ensaio de 60 segundos. Ainda falta o residual, MLP, normalização
 final e cabeça de saída, além da expansão das primitivas remanescentes.
+
+## Composição certificada das duas conversões
+
+O compilador reconhece F64 → F32 → F16 antes de expandir as duas conversões
+separadamente. A composição exige fonte finita, sem overflow F32, e uma grade
+que exclua subnormais F32 não nulos. Fontes fora dessa prova usam a rota anterior.
+Isso não recorta o domínio de entrada nem aproxima os valores.
+
+Na faixa normal F16, uma única operação sobre a palavra de origem conserva os
+empates das duas conversões. Num midpoint F16, o significando F32 é par; a
+célula fechada do primeiro arredondamento precisa ser incluída antes de escolher
+o endpoint F16 par. O incremento depende do bit retido e é expresso com
+U64Mul, U64Add, máscaras e deslocamentos. Nos subnormais F16, a grade fixa recebe
+o valor F32 efetivamente arredondado. As condições usam preimagens exatas dos
+limites F16 através do arredondamento F32, inclusive o empate no overflow.
+Cada substituição continua passando por factor/simplify até estabilizar.
+
+A nova construção passou 559.130 comparações nativas, incluindo vizinhanças dos
+dois lados da célula F32 em cada midpoint normal F16, subnormais, overflow e
+ambos os sinais do zero. A composição genérica também foi comparada em 559.086
+casos. As demais provas numéricas permanecem no mapa. O novo contexto salvo
+passou 527.904 casos nativos sem divergências.
+
+A normalização inicial passou de 22.070 para 13.291 caracteres por dimensão.
+context:1 passou de 442.921 para 267.341 caracteres. O ensaio de 4 MiB/120
+segundos ainda completou sete produtores: redução de tamanho foi demonstrada,
+mas avanço adicional e tempo da coordenada inteira não foram demonstrados.
+Build aprovado; regressão ampla com 594 testes, 576 passes, as mesmas 15 falhas
+conhecidas, três skips, nenhum passe perdido e nenhuma falha nova por nome.
+
+O produtor salvo continua com raiz de referência. Não é a coordenada final.
+A projeção também contém reduções com zeros e conversões aninhadas cuja
+eliminação exige prova do sinal do zero; sua composição não deve ser feita
+por identidades sobre números reais. O residual e as etapas seguintes continuam
+pendentes, assim como a expansão das primitivas restantes e o vetor completo.

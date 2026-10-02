@@ -18,6 +18,7 @@ from direct_sympy_strings import syntax
 from direct_sympy_strings import quantum
 from direct_sympy_words import simplify_words
 from direct_sympy_signatures import StructuralSignatures
+from direct_sympy_tandem import supported as tandem_supported,lower_tandem
 
 
 @dataclass(frozen=True)
@@ -273,6 +274,18 @@ class ConversionSession:
                         op=inner.args[0]
                         if isinstance(op,ast.BinOp) and isinstance(op.op,(ast.Add,ast.Sub)) and session.value_kind(op.left)==session.value_kind(op.right)=="half":
                             node.args[0]=op;session.redundant+=1
+                if node.func.id=="R16" and len(node.args)==1:
+                    inner=node.args[0]
+                    if isinstance(inner,ast.Call) and inner.func.id=="R32" and len(inner.args)==1:
+                        raw=inner.args[0];certificate=session.bounds(raw)
+                        if tandem_supported(certificate) and session.value_kind(raw) is None:
+                            raw=self.visit(raw)
+                            text=lower_tandem(ast.unparse(raw),certificate,session.compiler,session.domains)
+                            rewritten=syntax(text);session.closed+=2
+                            if before is not None:
+                                key=session.key(rewritten);session.completed[key]=before
+                                session.half_values.add(key);session.f32_values.add(key)
+                            return rewritten
                 source=session.bounds(node.args[0]) if node.func.id in ("R32","R16") and len(node.args)==1 else None
                 rewritten=self.generic_visit(node)
                 if rewritten.func.id in ("R32","R16") and len(rewritten.args)==1:

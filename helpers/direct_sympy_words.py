@@ -29,7 +29,7 @@ def word_width(node):
     if wa is None or wb is None:return None
     if name=="U64And":return min(wa,wb)
     if name=="U64Or":return max(wa,wb)
-    if name=="U64Add":return 64
+    if name in ("U64Add","U64Mul"):return 64
     return None
 
 
@@ -49,18 +49,18 @@ def reduce_call(node,domains):
         if len(inner.args)==1:
             if name=="Bits64" and inner.func.id=="Float64" and word_width(inner.args[0]) is not None:return inner.args[0]
             if name=="Float64" and inner.func.id=="Bits64" and float_source(inner.args[0],domains):return inner.args[0]
-    if len(node.args)!=2 or name not in ("U64And","U64Or","U64Add","U64Shr"):return node
+    if len(node.args)!=2 or name not in ("U64And","U64Or","U64Add","U64Mul","U64Shr"):return node
     a,b=node.args;wa,wb=word_width(a),word_width(b)
     if wa is None or wb is None:return node
     av,bv=integer(a),integer(b)
     if name=="U64Shr" and (bv is None or bv>=64):return node
     if av is not None and bv is not None:
-        value={"U64And":lambda:av&bv,"U64Or":lambda:av|bv,"U64Add":lambda:(av+bv)&MASK,"U64Shr":lambda:av>>bv}[name]()
+        value={"U64And":lambda:av&bv,"U64Or":lambda:av|bv,"U64Add":lambda:(av+bv)&MASK,"U64Mul":lambda:(av*bv)&MASK,"U64Shr":lambda:av>>bv}[name]()
         return ast.Constant(value=value)
     if bv==0:
-        return ast.Constant(value=0) if name=="U64And" else a
-    if av==0 and name in ("U64And","U64Or","U64Add"):
-        return ast.Constant(value=0) if name=="U64And" else b
+        return ast.Constant(value=0) if name in ("U64And","U64Mul") else a
+    if av==0 and name in ("U64And","U64Or","U64Add","U64Mul"):
+        return ast.Constant(value=0) if name in ("U64And","U64Mul") else b
     if name in ("U64And","U64Or") and type(a) is type(b):
         possible=not isinstance(a,ast.Call) or a.func.id==b.func.id
         if possible and (a is b or ast.dump(a)==ast.dump(b)):return a

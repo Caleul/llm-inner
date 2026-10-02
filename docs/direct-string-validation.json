@@ -1710,5 +1710,114 @@
       ],
       "finalParity": false
     }
+  },
+  "tandemConversionValidation": {
+    "date": "2026-10-02T19:58:46.036986+00:00",
+    "baseCommit": "a9e8d9a",
+    "expressionFormat": "SymPy mathematical strings",
+    "rule": "Certified composition of normal-or-zero finite F32 rounding followed by Half rounding; all other sources fall back to generic lowering",
+    "bitOperations": [
+      "U64Add",
+      "U64And",
+      "U64Shr",
+      "U64Mul",
+      "Bits64",
+      "Float64"
+    ],
+    "conditions": "Explicit preimages of Half normal and overflow thresholds through F32, including even ties",
+    "scope": "No operation-order change to the model graph and no branch-domain narrowing",
+    "build": {
+      "command": "npm run build",
+      "exitCode": 0
+    },
+    "nativeTests": {
+      "conversionPythonTests": 9,
+      "singleF32": 100679708,
+      "singleF16": 206870,
+      "genericComposed": 559086,
+      "composedDirect": 559130,
+      "prunedF32": 100663300,
+      "prunedF16": 3072,
+      "typedPairs": 507904,
+      "wordIdentities": 16048,
+      "mismatches": 0,
+      "doubleRoundingCoverage": "Every normal Half cell: both F32 midpoint-preimage boundaries and their F64 neighbors, both signs; explicit Half underflow/normal/overflow cells and signed zeros"
+    },
+    "boundedRun": {
+      "maxCharacters": 4194304,
+      "maxSeconds": 120,
+      "terminal": true,
+      "exitCode": 1,
+      "completedDependencies": 7,
+      "lastDependency": "model.layers.0.context:1",
+      "closedConversions": 13,
+      "redundantConversions": 37,
+      "reusedConvertedRegions": 10,
+      "visitedConversionNodes": 248,
+      "wholeCoordinateSpeedupEstablished": false
+    },
+    "savedProducer": {
+      "characters": 267341,
+      "previousCharacters": 442921,
+      "nativeComparisons": 527904,
+      "mismatches": 0,
+      "fundamentalInputs": [
+        "X1",
+        "X2"
+      ],
+      "remainingPrimitives": [
+        "sqrt"
+      ],
+      "finalParity": false
+    },
+    "regression": {
+      "command": "LLM_INNER_DIRECT_PYTHON=/private/tmp/llm-inner-pytorch/bin/python LLM_INNER_DIRECT_JSON_CHECKPOINT=/private/tmp/llm-inner-rust-validation node --test $(rg --files dist/test -g '*.test.js' | rg -v '/direct-json-model.test.js$') scripts/*.test.mjs",
+      "terminal": true,
+      "exitCode": 1,
+      "tests": 594,
+      "pass": 576,
+      "fail": 15,
+      "skipped": 3,
+      "newFailures": [],
+      "lostPasses": [],
+      "failedTests": [
+        "Gemma 4 embedded adapter executes every serialized invocation program without hidden class transforms",
+        "Gemma 4 runtime-reduction provider executes the integrity-bound embedded adapter",
+        "evidência adia prefill exato sem cache e preserva antecipação do contexto exato",
+        "evidência do corte de prefill terminal preserva corpus e correção de raiz",
+        "evidência do default de oito threads vincula corpus e tokens autoritativos",
+        "evidência promove antecipação do prefixo exato somente em sessão com cache",
+        "evidência promove cabeça BF16 integral e rejeita prefill agrupado divergente",
+        "evidência promove cache de decisão exata e rejeita fronteira Q8 0-18",
+        "evidência promove contexto sensível exato sem replay do decoder",
+        "evidência promove o maior prefixo exato entre sessões sem alterar logits",
+        "evidência rejeita Q8 na projeção down quando velocidade e verificação deixam de coexistir",
+        "evidência rejeita grupos Q8 que divergem ou ampliam o fallback",
+        "evidência rejeita prefill exato eager quando ele preserva tokens mas piora todas as classes de latência",
+        "keeps the real agent-visible task free of controller context",
+        "scalar-substitution example contains concrete learned values and reproduces its F32 result"
+      ],
+      "preservedPassedTestMap": "elementaryConversionValidation.regression.passedTests",
+      "deferred": "Three existing all-coordinate tests remain deferred until the first final coordinate passes",
+      "savedLogNormalization": "Trailing whitespace removed only"
+    },
+    "sourceHashes": {
+      "helpers/direct_sympy_tandem.py": "b85df4da5221162e18a4d91fec6f704b5378965dee68f7cddb1a905fa7ade4bb",
+      "helpers/direct_sympy_conversions.py": "9688f0be1c5e633ec9e9790f0fd77f177e0f92286efb3d2cec2452bc83971588",
+      "helpers/direct_sympy_conversions_test.py": "d6b4c9ca480dd2bc78b84eeecdff7d8438808f51e1a2525deb7bc225d6c81b81",
+      "helpers/direct_sympy_words.py": "14333beaad846b7e565beb3d965480c510f9ed7cefcfcecf77a89d91267d51c1",
+      "test/direct-sympy-strings.test.ts": "10ac7f3c77dc14f18d91fa4a7936635808a474e2d53646ba28bc004033ad4d20"
+    },
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-tandem-native.log": "de8519ec7f6bbf85a15475965c3f6f3ef0267c0049769c3d2de6ea9252674db6",
+      "docs/evidence/direct-sympy-tandem-cli.log": "1edf3ce40d53386f5fc11f0ba7c2505bcc789e7c720fc4c8e72159e816f133f4",
+      "docs/evidence/direct-sympy-tandem-growth.tsv": "7b6fe293acb6348de262032b1f00296dc1df636688e91606e9bc9eeedf9f7ce3",
+      "docs/evidence/direct-sympy-tandem-context.prefix.work.expr": "539bd49ac559d426ec0abad693344632f98e7e9374ec4de6cb7bde9280c4d11f",
+      "docs/evidence/direct-sympy-tandem-context-proof.log": "afd5b4a5d0afa3a77ca252720a13f0ba6176b59b50612a67def982d101957483",
+      "docs/evidence/direct-sympy-tandem-regression.log": "d7c92abffcca6ee735e7e5f2be85be5e779f2f556674521e48ab463aaad412a6"
+    },
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "otherCoordinatesAdvanced": false
   }
 }
