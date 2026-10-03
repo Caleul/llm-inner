@@ -8749,5 +8749,26 @@
       "docs/evidence/direct-sympy-expression-writer-numeric-envelopes.tsv": "b75cdcdbd47d37c8e7d765019c5bfd5b405cb2402038588867739f126426ec25",
       "docs/evidence/direct-sympy-expression-writer-tests.log": "5a755a660a7c656d35e01926c2eaeb4a13c30b2f941c6038ae34d8514f6574a9"
     }
+  },
+  "rejectedExpansionExperiments": {
+    "date": "2026-10-03",
+    "report": "docs/evidence/direct-sympy-rejected-expansions/result.json",
+    "rootCandidateSource": "docs/evidence/direct-sympy-rejected-expansions/quadratic-root-candidate.cpp",
+    "rootCandidateCommand": "clang++ -O3 -ffp-contract=off docs/evidence/direct-sympy-rejected-expansions/quadratic-root-candidate.cpp -o /private/tmp/llm-inner-root-candidate && /private/tmp/llm-inner-root-candidate",
+    "rootCandidateExpectedExitCode": 1,
+    "rootCandidateCases": 16777216,
+    "rootCandidateMismatches": 39,
+    "maskExperimentRetained": false,
+    "productionCompilerChanged": false,
+    "restoredProductionPythonTests": {
+      "command": "LLM_INNER_DIRECT_JSON_CHECKPOINT=docs/evidence/direct-sympy-test-checkpoint /private/tmp/llm-inner-pytorch/bin/python -m unittest discover -s helpers -p 'direct_sympy_*test.py'",
+      "tests": 86,
+      "failures": 0,
+      "seconds": 24.433,
+      "log": "docs/evidence/direct-sympy-rejected-expansions/production-tests.log"
+    },
+    "buildExitCode": 0,
+    "coordinateComplete": false,
+    "finalParity": false
   }
 }

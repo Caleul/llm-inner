@@ -1,0 +1,138 @@
+diff --git a/helpers/direct_sympy_strings.py b/helpers/direct_sympy_strings.py
+index 87071f2..f12e9ee 100644
+--- a/helpers/direct_sympy_strings.py
++++ b/helpers/direct_sympy_strings.py
+@@ -322,8 +322,10 @@ class StringCompiler:
+         while self._regions and self._region_characters+len(expression)>4*self.max_characters:
+             old,_=self._regions.popitem(last=False);self._region_characters-=len(old[1]);self._region_roots.pop(old,None)
+         self._regions[key]=True;self._region_characters+=len(expression)
+-        from direct_sympy_words import word_width
+-        if word_closed:self._region_roots[key]=(node.func.id,word_width(node.args[0]) if node.func.id=="Float64" and len(node.args)==1 else None)
++        from direct_sympy_words import word_width,word_support
++        if word_closed:
++            argument=node.args[0] if node.func.id=="Float64" and len(node.args)==1 else None
++            self._region_roots[key]=(node.func.id,word_width(argument),word_support(argument))
+ 
+     def compact_regions(self,expression,context,*,validate_context=True):
+         # A whole admitted call has no external branch/context to inspect.
+diff --git a/helpers/direct_sympy_words.py b/helpers/direct_sympy_words.py
+index 2acf378..5041218 100644
+--- a/helpers/direct_sympy_words.py
++++ b/helpers/direct_sympy_words.py
+@@ -22,6 +22,9 @@ def word_width(node,widths=None):
+     if not isinstance(node,ast.Call):return None
+     name=node.func.id
+     if name in ("Bits64","U64FromF64") and len(node.args)==1:return 64
++    if name=='Piecewise':
++        widths_for_arms=[word_width(pair.elts[0],widths) for pair in node.args if isinstance(pair,ast.Tuple) and len(pair.elts)==2]
++        return max(widths_for_arms) if len(widths_for_arms)==len(node.args) and widths_for_arms and all(v is not None for v in widths_for_arms) else None
+     if len(node.args)!=2:return None
+     a,b=node.args
+     if name=="U64Shr":
+@@ -44,7 +47,48 @@ def float_source(node,domains,floats=()):
+     return False
+ 
+ 
+-def reduce_call(node,domains,widths=None,floats=()):
++def word_support(node,widths=None,supports=None):
++    """Conservative mask of bits that can be one, under unsigned wrapping."""
++    value=integer(node)
++    if value is not None:return value
++    if isinstance(node,ast.Name):
++        if node.id in (supports or {}):return supports[node.id]
++        width=(widths or {}).get(node.id)
++        return (1<<width)-1 if width is not None else None
++    if not isinstance(node,ast.Call):return None
++    name=node.func.id
++    if name in ('Bits64','U64FromF64') and len(node.args)==1:return MASK
++    if name=='Piecewise':
++        masks=[word_support(pair.elts[0],widths,supports) for pair in node.args if isinstance(pair,ast.Tuple) and len(pair.elts)==2]
++        if len(masks)!=len(node.args) or not masks or any(v is None for v in masks):return None
++        result=0
++        for mask in masks:result|=mask
++        return result
++    if len(node.args)!=2:return None
++    a,b=node.args;sa,sb=word_support(a,widths,supports),word_support(b,widths,supports)
++    if sa is None or sb is None:return None
++    if name=='U64And':return sa&sb
++    if name=='U64Or':return sa|sb
++    if name=='U64Shr':
++        shift=integer(b)
++        return sa>>shift if shift is not None and shift<64 else None
++    if name=='U64Mul':
++        for operand,mask in ((b,sa),(a,sb)):
++            constant=integer(operand)
++            if constant==0:return 0
++            if constant is not None and constant&(constant-1)==0:
++                return (mask<<(constant.bit_length()-1))&MASK
++        return MASK
++    if name=='U64Add':
++        if sa&sb==0:return sa|sb
++        maximum=sa+sb
++        mask=(1<<maximum.bit_length())-1 if maximum<=MASK else MASK
++        union=sa|sb
++        return mask&~((union&-union)-1) if union else 0
++    return None
++
++
++def reduce_call(node,domains,widths=None,floats=(),supports=None):
+     name=node.func.id
+     if len(node.args)==1 and isinstance(node.args[0],ast.Call):
+         inner=node.args[0]
+@@ -56,6 +100,28 @@ def reduce_call(node,domains,widths=None,floats=()):
+     if wa is None or wb is None:return node
+     av,bv=integer(a),integer(b)
+     if name=="U64Shr" and (bv is None or bv>=64):return node
++    sa,sb=word_support(a,widths,supports),word_support(b,widths,supports)
++    if name=='U64Add' and sa is not None and sb is not None and sa&sb==0:
++        return ast.Call(func=ast.Name(id='U64Or',ctx=ast.Load()),args=[a,b],keywords=[])
++    if name=='U64And' and bv is not None and sa is not None:
++        if sa&bv==0:return ast.Constant(value=0)
++        if sa&bv==sa:return a
++        if isinstance(a,ast.Call) and a.func.id=='U64Or' and len(a.args)==2:
++            for removed,retained in ((a.args[0],a.args[1]),(a.args[1],a.args[0])):
++                support=word_support(removed,widths,supports)
++                if support is not None and support&bv==0:
++                    return ast.Call(func=node.func,args=[retained,b],keywords=[])
++    if name=='U64Shr' and isinstance(a,ast.Call) and len(a.args)==2:
++        if a.func.id=='U64Shr':
++            first=integer(a.args[1])
++            if first is not None and first<64:
++                total=first+bv
++                return ast.Constant(value=0) if total>=64 else ast.Call(func=node.func,args=[a.args[0],ast.Constant(value=total)],keywords=[])
++        if a.func.id=='U64Or':
++            for removed,retained in ((a.args[0],a.args[1]),(a.args[1],a.args[0])):
++                support=word_support(removed,widths,supports)
++                if support is not None and support>>bv==0:
++                    return ast.Call(func=node.func,args=[retained,b],keywords=[])
+     if av is not None and bv is not None:
+         value={"U64And":lambda:av&bv,"U64Or":lambda:av|bv,"U64Add":lambda:(av+bv)&MASK,"U64Mul":lambda:(av*bv)&MASK,"U64Shr":lambda:av>>bv}[name]()
+         return ast.Constant(value=value)
+@@ -96,15 +162,16 @@ def simplify_words(expression,compiler,domains):
+     compact,regions=compiler.compact_regions(expression,compiler.context(domains))
+     if any((compiler.context(domains),text) not in compiler._region_roots for text in regions.values()):
+         compact,regions=expression,{}
+-    payloads={};widths={};floats=set()
++    payloads={};widths={};supports={};floats=set()
+     for name,text in regions.items():
+         root=compiler._region_roots.get((compiler.context(domains),text))
+         if root is None:continue
+-        function,width=root
++        function,width,support=root
+         if function in ("Float64","F64FromU64","R16","R32","sqrt","Silu16"):floats.add(name)
+         if function=="Float64" and width is not None:
+             payload="CASWordPayload"+str(len(payloads))
+             payloads[payload]=text[text.index('(')+1:-1];widths[payload]=width
++            if support is not None:supports[payload]=support
+             compact=re.sub(r"\b"+name+r"\b","Float64("+payload+")",compact)
+     def restore(text):
+         text=re.sub(r"\bCASWordPayload[0-9]+\b",lambda match:payloads[match.group(0)],text) if payloads else text
+@@ -116,7 +183,7 @@ def simplify_words(expression,compiler,domains):
+             def visit_Call(self,node):
+                 nonlocal changes
+                 original=self.generic_visit(node)
+-                replacement=reduce_call(original,domains,widths,floats)
++                replacement=reduce_call(original,domains,widths,floats,supports)
+                 if replacement is original:return original
+                 changes+=1
+                 return syntax(compiler.stabilize("("+ast.unparse(replacement)+")",domains))
