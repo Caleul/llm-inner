@@ -8,6 +8,7 @@ No R16/R32 or rounding-mode node is retained in their returned syntax.
 from dataclasses import dataclass
 from collections import OrderedDict
 from types import MappingProxyType
+from contextlib import contextmanager
 import ast
 import math
 import struct
@@ -16,7 +17,7 @@ from fractions import Fraction
 
 from direct_sympy_strings import StringCompiler
 from direct_sympy_strings import syntax
-from direct_sympy_strings import quantum
+from direct_sympy_strings import quantum,refine
 from direct_sympy_words import simplify_words
 from direct_sympy_signatures import StructuralSignatures
 from direct_sympy_tandem import supported as tandem_supported,lower_tandem
@@ -135,6 +136,61 @@ class ConversionSession:
         self.numeric_envelopes=[]
         self.selector_literals=OrderedDict()
         self.selector_view_characters=0
+        self.branch_depth=0
+        self.branch_facts=()
+
+    @contextmanager
+    def branch_context(self,domains,proofs,facts):
+        """Own every new numerical proof until this arm has been closed.
+
+        Inherited proofs remain conservative on a subset of their domain.
+        New proofs must not escape to siblings or enter global literal caches.
+        Strings and structural signatures are shared; only proof tables copy.
+        """
+        fields=('completed','half_values','f32_values','converted_regions',
+                'no_negative_zero_values')
+        saved={name:getattr(self,name) for name in fields}
+        old_domains,old_facts=self.domains,self.branch_facts
+        for name,value in saved.items():setattr(self,name,value.copy())
+        self.completed.update(proofs)
+        self.domains=MappingProxyType(dict(domains));self.branch_facts=facts
+        self.branch_depth+=1
+        try:yield
+        finally:
+            for name,value in saved.items():setattr(self,name,value)
+            self.domains,self.branch_facts=old_domains,old_facts
+            self.branch_depth-=1
+
+    def magnitude_guard_bounds(self,condition,truth,proofs):
+        """Conservative finite-F64 preimage of an unsigned magnitude guard.
+
+        A false guard spanning both signs has a disconnected preimage; leave
+        it unrefined. Never infer a dtype from a word comparison.
+        """
+        if not isinstance(condition,ast.Compare) or not isinstance(condition.ops[0],(ast.Lt,ast.LtE)):return proofs
+        left,right=condition.left,condition.comparators[0]
+        if not isinstance(right,ast.Constant) or type(right.value) is not int or not 0<right.value<0x7ff0000000000000:return proofs
+        if not isinstance(left,ast.Call) or left.func.id!='U64And' or len(left.args)!=2:return proofs
+        raw,mask=left.args
+        if not isinstance(mask,ast.Constant) or type(mask.value) is not int or mask.value!=0x7fffffffffffffff:return proofs
+        if not isinstance(raw,ast.Call) or raw.func.id!='Bits64' or len(raw.args)!=1:return proofs
+        source=raw.args[0];key=self.key(source);bound=proofs.get(key,self.bounds(source))
+        if bound is None:return proofs
+        threshold=struct.unpack('>d',struct.pack('>Q',right.value))[0]
+        low,high=bound.minimum,bound.maximum
+        if truth:
+            endpoint=math.nextafter(threshold,0) if isinstance(condition.ops[0],ast.Lt) else threshold
+            low,high=max(low,-endpoint),min(high,endpoint)
+        elif low>=0:
+            endpoint=threshold if isinstance(condition.ops[0],ast.Lt) else math.nextafter(threshold,math.inf)
+            low=max(low,endpoint)
+        elif high<=0:
+            endpoint=threshold if isinstance(condition.ops[0],ast.Lt) else math.nextafter(threshold,math.inf)
+            high=min(high,-endpoint)
+        else:return proofs
+        if low>high:return None
+        result=dict(proofs);result[key]=FiniteSource(low,high,bound.quantum)
+        return result
 
     def remember_selector_literal(self,expression,view,leaves=None):
         """Retain a bounded, compiler-only view of this rounding frontier.
@@ -184,6 +240,7 @@ class ConversionSession:
 
     def remember_closed_literal(self,expression,node=None):
         """Session-local proofs for immutable, completed literal strings."""
+        if self.branch_depth:return
         if re.search(r"\bCASNumericRegion[0-9]+\b",expression):return
         if expression in self.closed_literals:return
         node=syntax(expression) if node is None else node
@@ -669,6 +726,38 @@ class ConversionSession:
                 return result
 
             def visit_Call(self,node):
+                if node.func.id=='Piecewise':
+                    # Completed elementary selectors have no boundary left
+                    # to close. Avoid repeating CAS and copying proof tables
+                    # for every already-lowered numerical classification.
+                    if not any(isinstance(child,ast.Call) and child.func.id in ('R16','R32','Silu16') for child in ast.walk(node)):
+                        return self.generic_visit(node)
+                    # Classification conditions are ordered: each next arm
+                    # inherits the negation of every previous condition.
+                    remaining=dict(session.domains);proofs={};facts=session.branch_facts
+                    arms=[]
+                    for pair in node.args:
+                        if not isinstance(pair,ast.Tuple) or len(pair.elts)!=2:raise ValueError('Piecewise requires (expression, condition) pairs')
+                        body,condition=pair.elts
+                        with session.branch_context(remaining,proofs,facts):
+                            condition=self.visit(condition)
+                        own_facts=session.compiler.branch_facts.assume(condition,True,facts)
+                        own=refine(remaining,condition,True) if own_facts is not None else None
+                        own_proofs=session.magnitude_guard_bounds(condition,True,proofs) if own is not None else None
+                        if own is not None and own_proofs is not None:
+                            with session.branch_context(own,own_proofs,own_facts):
+                                # CAS before numerical closure, then CAS again
+                                # before returning this arm to the parent.
+                                text=simplify_arithmetic(ast.unparse(body),session)
+                                rewritten=self.visit(syntax(text))
+                                text=session.compiler.stabilize(ast.unparse(rewritten),session.domains,facts=own_facts)
+                            arms.append(ast.Tuple(elts=[syntax(text),condition],ctx=ast.Load()))
+                        facts=session.compiler.branch_facts.assume(condition,False,facts)
+                        remaining=refine(remaining,condition,False)
+                        proofs=session.magnitude_guard_bounds(condition,False,proofs)
+                        if remaining is None or proofs is None or facts is None:break
+                    if not arms:raise ValueError('No reachable conversion branch')
+                    return ast.Call(func=ast.Name(id='Piecewise',ctx=ast.Load()),args=arms,keywords=[])
                 before=session.bounds(node)
                 positive_zero=session.no_negative_zero(node)
                 if node.func.id=='R32' and len(node.args)==1:

@@ -1,0 +1,1 @@
+Compilation stopped: Closed numeric envelope exceeds string budget before allocation: expandedCharacters=6913579521 limit=2147483648; completedDependencies=13 lastDependency=model.layers.0.gate:0 closedConversions=30 redundantConversions=2 reusedConvertedRegions=23 visitedConversionNodes=187 earlyHalfProductsThisRun=16; no coordinate artifact admitted

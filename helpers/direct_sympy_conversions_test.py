@@ -54,6 +54,85 @@ def cpp(node):
 
 
 class ConversionStringTests(unittest.TestCase):
+    def test_conversion_closure_owns_ordered_arm_bounds_and_native_parity(self):
+        domains={'X1':Domain(F(-1),F(1),-24,False)}
+        session=ConversionSession(StringCompiler(),domains,input_dtype='f16')
+        expression='Piecewise((R16(X1/3.0), X1 < -0.0001220703125), (R16(X1/3.0), X1 < 0.0001220703125), (R16(X1/3.0), True))'
+        with patch('direct_sympy_conversions.lower_finite_conversion',wraps=lower_finite_conversion) as lower:
+            result=session.close(expression)
+        certificates=[call.args[2] for call in lower.call_args_list]
+        self.assertEqual(len(certificates),3)
+        self.assertLess(max(abs(certificates[1].minimum),abs(certificates[1].maximum)),2**-14)
+        self.assertLess(certificates[0].maximum,0)
+        self.assertGreater(certificates[2].minimum,0)
+        self.assertEqual(dict(session.domains),domains)
+        self.assertEqual(session.bounds(syntax('X1')).minimum,-1)
+        self.assertEqual(session.branch_depth,0)
+        self.assertNotIn('R16(',result)
+        self.assertEqual(result.count('4544132024016830464'),2)
+        # A later unrelated conversion must retain its whole-input enclosure.
+        with patch('direct_sympy_conversions.lower_finite_conversion',wraps=lower_finite_conversion) as lower:
+            session.close('R16(X1/3.0)')
+        self.assertLess(lower.call_args_list[0].args[2].minimum,-0.3)
+        with patch('direct_sympy_conversions.lower_finite_conversion',wraps=lower_finite_conversion) as lower:
+            magnitude=session.close('Piecewise((R16(X1/3.0), U64And(Bits64(X1), 9223372036854775807) < 4548635623644200960), (R16(X1/3.0), True))')
+        self.assertLess(max(abs(lower.call_args_list[0].args[2].minimum),abs(lower.call_args_list[0].args[2].maximum)),2**-14)
+        self.assertLess(lower.call_args_list[1].args[2].minimum,-0.3)
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);source=root/'branches.cpp';binary=root/'branches'
+            source.write_text('#include <cstdint>\n#include <cstring>\n#include <cmath>\n#include <cstdio>\ntemplate<class T,class U>T word(U value){T result;std::memcpy(&result,&value,sizeof(result));return result;}\n'+'double candidate(double X1){return '+cpp(syntax(result))+';}\n'+'double magnitude(double X1){return '+cpp(syntax(magnitude))+';}\n'+'''int main(){unsigned cases=0,mismatches=0;for(unsigned bits=0;bits<65536;bits++){if((bits&0x7c00)==0x7c00)continue;double x=word<_Float16>(uint16_t(bits));if(x < -1 || x > 1)continue;double expected=double(_Float16(x/3.0));mismatches+=word<uint64_t>(candidate(x))!=word<uint64_t>(expected);mismatches+=word<uint64_t>(magnitude(x))!=word<uint64_t>(expected);cases++;}std::printf("Scoped conversion parity: cases=%u mismatches=%u\\n",cases,mismatches);return mismatches?1:0;}''')
+            built=subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],capture_output=True,text=True)
+            self.assertEqual(built.returncode,0,built.stderr)
+            run=subprocess.run([str(binary)],capture_output=True,text=True,timeout=120)
+            self.assertEqual(run.returncode,0,run.stdout+run.stderr)
+            self.assertIn('cases=30722 mismatches=0',run.stdout);print(run.stdout,end='')
+
+    def test_magnitude_proofs_are_scoped_and_disconnected_complements_stay_conservative(self):
+        session=ConversionSession(StringCompiler(),{'X1':Domain(F(-1),F(1),-24,False)},input_dtype='f16')
+        node=syntax('CASNumericRegion42()');key=session.key(node)
+        session.completed[key]=FiniteSource(-1,1,-24)
+        session.half_values.add(key)
+        guard=syntax('U64And(Bits64(CASNumericRegion42()), 9223372036854775807) < 4544132024016830464')
+        own=session.magnitude_guard_bounds(guard,True,{})
+        self.assertEqual((own[key].minimum,own[key].maximum),(-math.nextafter(2**-14,0),math.nextafter(2**-14,0)))
+        self.assertEqual(session.magnitude_guard_bounds(guard,False,{}),{})
+        with self.assertRaisesRegex(RuntimeError,'scope'):
+            with session.branch_context(session.domains,own,()):
+                self.assertEqual(session.bounds(node).maximum,math.nextafter(2**-14,0))
+                session.completed[session.key(syntax('X1/3.0'))]=FiniteSource(0,0,0)
+                session.remember_closed_literal('0.0')
+                raise RuntimeError('scope')
+        self.assertEqual(session.bounds(node).maximum,1)
+        self.assertNotIn('0.0',session.closed_literals)
+        self.assertGreater(session.bounds(syntax('X1/3.0')).maximum,0.3)
+        self.assertEqual(session.branch_depth,0)
+        inclusive=syntax('U64And(Bits64(CASNumericRegion42()), 9223372036854775807) <= 4544132024016830464')
+        for bounds,sign in ((FiniteSource(0,1,-24),1),(FiniteSource(-1,0,-24),-1)):
+            session.completed[key]=bounds
+            complement=session.magnitude_guard_bounds(inclusive,False,{})[key]
+            endpoint=complement.minimum if sign==1 else -complement.maximum
+            self.assertEqual(endpoint,math.nextafter(2**-14,math.inf))
+        session.completed[key]=FiniteSource(-1,1,-24)
+        self.assertEqual(session.magnitude_guard_bounds(syntax('U64And(Bits64(X1), 1) < 2'),True,{}),{})
+
+    def test_branch_local_half_cell_cannot_eliminate_the_sibling_update(self):
+        domains={'X1':Domain(F(-2),F(2),-24,False)}
+        session=ConversionSession(StringCompiler(),domains,input_dtype='f16')
+        result=session.close('Piecewise((R16(X1 + 0.000000059604644775390625), X1 >= 1.0), (R16(X1 + 0.000000059604644775390625), True))')
+        tree=syntax(result)
+        self.assertEqual(ast.unparse(tree.args[0].elts[0]),'X1')
+        self.assertNotEqual(ast.unparse(tree.args[1].elts[0]),'X1')
+        self.assertFalse(session.half_update_is_invisible(syntax('X1'),syntax('0.000000059604644775390625')))
+        self.assertGreater(session.arithmetic_eliminated,0)
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);source=root/'update.cpp';binary=root/'update'
+            source.write_text('#include <cstdint>\n#include <cstring>\n#include <cmath>\n#include <cstdio>\ntemplate<class T,class U>T word(U value){T result;std::memcpy(&result,&value,sizeof(result));return result;}\n'+'double candidate(double X1){return '+cpp(syntax(result))+';}\n'+'''int main(){unsigned cases=0,mismatches=0;for(unsigned bits=0;bits<65536;bits++){if((bits&0x7c00)==0x7c00)continue;double x=word<_Float16>(uint16_t(bits));if(x < -2 || x > 2)continue;double expected=double(_Float16(x+0x1p-24));mismatches+=word<uint64_t>(candidate(x))!=word<uint64_t>(expected);cases++;}std::printf("Scoped Half update parity: cases=%u mismatches=%u\\n",cases,mismatches);return mismatches?1:0;}''')
+            built=subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],capture_output=True,text=True)
+            self.assertEqual(built.returncode,0,built.stderr)
+            run=subprocess.run([str(binary)],capture_output=True,text=True,timeout=120)
+            self.assertEqual(run.returncode,0,run.stdout+run.stderr)
+            self.assertIn('cases=32770 mismatches=0',run.stdout);print(run.stdout,end='')
+
     def test_tandem_sign_uses_only_a_proven_positive_factor_and_preserves_native_bits(self):
         domains={"X1":Domain(F(-65504),F(65504),-24,False),"X2":Domain(F(2)**-100,F(1024),-100,False)}
         def session():

@@ -9007,5 +9007,53 @@
       "mismatchesPerMode": 0,
       "coordinateComplete": false
     }
+  },
+  "branchLocalConversionValidation": {
+    "expressionFormat": "mathematical string",
+    "scope": "ordered Piecewise conversion closure; arm-local finite bounds and Half-cell identities",
+    "newTests": [
+      "test_conversion_closure_owns_ordered_arm_bounds_and_native_parity",
+      "test_magnitude_proofs_are_scoped_and_disconnected_complements_stay_conservative",
+      "test_branch_local_half_cell_cannot_eliminate_the_sibling_update"
+    ],
+    "pythonTests": 93,
+    "nativeDivisionInputs": 30722,
+    "nativeDivisionComparisons": 61444,
+    "nativeHalfUpdateInputs": 32770,
+    "mismatches": 0,
+    "nodeIntegrationTests": 8,
+    "buildExitCode": 0,
+    "regression": {
+      "tests": 599,
+      "passed": 581,
+      "failed": 15,
+      "skipped": 3,
+      "failedTests": [
+        "evidência do default de oito threads vincula corpus e tokens autoritativos",
+        "evidência rejeita prefill exato eager quando ele preserva tokens mas piora todas as classes de latência",
+        "evidência do corte de prefill terminal preserva corpus e correção de raiz",
+        "evidência promove antecipação do prefixo exato somente em sessão com cache",
+        "evidência promove o maior prefixo exato entre sessões sem alterar logits",
+        "evidência promove contexto sensível exato sem replay do decoder",
+        "evidência adia prefill exato sem cache e preserva antecipação do contexto exato",
+        "evidência promove cabeça BF16 integral e rejeita prefill agrupado divergente",
+        "evidência promove cache de decisão exata e rejeita fronteira Q8 0-18",
+        "evidência rejeita Q8 na projeção down quando velocidade e verificação deixam de coexistir",
+        "evidência rejeita grupos Q8 que divergem ou ampliam o fallback",
+        "Gemma 4 runtime-reduction provider executes the integrity-bound embedded adapter",
+        "Gemma 4 embedded adapter executes every serialized invocation program without hidden class transforms",
+        "scalar-substitution example contains concrete learned values and reproduces its F32 result",
+        "keeps the real agent-visible task free of controller context"
+      ],
+      "newFailures": []
+    },
+    "stateSummary": "docs/evidence/direct-sympy-branch-context/state-summary.json",
+    "completedDependencies": 13,
+    "samePriorProducerHashes": true,
+    "activationCharactersUnchanged": 6913579521,
+    "finalParity": false,
+    "coordinateComplete": false,
+    "performanceClaim": null,
+    "remaining": "propagate producer frontier dtype/range certificates into selected arm contexts before composing the next operation"
   }
 }

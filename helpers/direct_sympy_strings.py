@@ -204,13 +204,18 @@ def refine(domains, condition, truth):
         return dict(domains) if condition.value == truth else None
     if not isinstance(condition, ast.Compare):
         return dict(domains)
-    if not isinstance(condition.left, ast.Name) or not isinstance(condition.comparators[0], ast.Constant):
+    target_node=condition.comparators[0]
+    sign=1
+    if isinstance(target_node,ast.UnaryOp) and isinstance(target_node.op,(ast.UAdd,ast.USub)):
+        sign=-1 if isinstance(target_node.op,ast.USub) else 1
+        target_node=target_node.operand
+    if not isinstance(condition.left, ast.Name) or not isinstance(target_node,ast.Constant) or type(target_node.value) not in (int,float):
         return dict(domains)
     name = condition.left.id
     d = domains.get(name)
     if d is None:
         return dict(domains)
-    target = Fraction(condition.comparators[0].value)
+    target = sign*Fraction(target_node.value)
     op = type(condition.ops[0])
     if not truth:
         op = {ast.Lt:ast.GtE,ast.LtE:ast.Gt,ast.Gt:ast.LtE,ast.GtE:ast.Lt,ast.Eq:ast.NotEq,ast.NotEq:ast.Eq}[op]
