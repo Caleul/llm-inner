@@ -1,0 +1,16 @@
+{
+  "newFrontierDirectory": "artifacts/direct-sympy-envelope-frontier",
+  "completedDependencies": 15,
+  "sameLiteralDigestsAsPrevious": true,
+  "sameLiteralLengthsAsPrevious": true,
+  "semanticSourceHashesVerified": 13,
+  "oldStateRejectedWithoutLoadingExpressions": true,
+  "oldFrontierUnchanged": true,
+  "compileExitCode": 1,
+  "compileElapsedSeconds": 179.586865958001,
+  "stopReason": "Substitution exceeds string budget before allocation",
+  "nextEstimatedCharacters": 10534977944,
+  "maxCharacters": 9663676416,
+  "finalArtifactEmitted": false,
+  "finalParity": false
+}

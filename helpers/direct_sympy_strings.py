@@ -326,6 +326,11 @@ class StringCompiler:
         if word_closed:self._region_roots[key]=(node.func.id,word_width(node.args[0]) if node.func.id=="Float64" and len(node.args)==1 else None)
 
     def compact_regions(self,expression,context,*,validate_context=True):
+        # A whole admitted call has no external branch/context to inspect.
+        # Reuse the literal object instead of scanning and slicing its many
+        # gigabytes before discovering that it is exactly a saved producer.
+        if (context,expression) in self._regions:
+            return "CASStableRegion0",{"CASStableRegion0":expression}
         if re.search(r"\bCASStableRegion[0-9]+\b",expression):return expression,{}
         protected={};current=expression
         regions=sorted((text for own,text in self._regions if own==context),key=len,reverse=True)
@@ -501,8 +506,9 @@ class StringCompiler:
                 own=re.sub(r"\b"+old+r"\b",new,own)
             return own
         template=compact(expression);source=compact(replacement)
+        if not regions:return None
         virtual=re.sub(r"\b"+re.escape(name)+r"\b",lambda _:"("+source+")","("+template+")")
-        if not regions or len(virtual)>self.max_characters:return None
+        if len(virtual)>self.max_characters:return None
         for node in ast.walk(syntax(virtual)):
             if not isinstance(node,ast.Call) or node.func.id!="Piecewise":continue
             remaining=dict(domains)
@@ -525,18 +531,23 @@ class StringCompiler:
             raise ValueError("Substitution variables must be Xn")
         # Identifier boundaries: X1 must not modify X10 or function names.
         # Replacement always carries its own parentheses before CAS parsing.
-        enclosed = "("+expression+")"
         pattern = r"\b"+re.escape(name)+r"\b"
-        occurrences = len(re.findall(pattern,enclosed))
-        estimated = len(enclosed)+occurrences*(len(replacement)+2-len(name))
+        occurrences = len(re.findall(pattern,expression))
+        estimated = len(expression)+2+occurrences*(len(replacement)+2-len(name))
         event=(name,len(expression),len(replacement),occurrences,estimated)
         index=len(self.substitution_events)
         self.substitution_events.append(event+(None,"pending"))
-        if estimated>self.max_characters:
+        # The virtual composition runs the same CAS fixed-point passes and
+        # restores every literal before returning. Use it for large admitted
+        # replacements too: allocating their full substituted expression and
+        # another parenthesized copy first defeats the bounded CAS envelope.
+        if estimated>self.max_characters or max(len(expression),len(replacement))>=1024*1024:
             stabilized=self.stabilize_budget_envelope(expression,name,replacement,domains,path)
             if stabilized is not None:
-                self.substitution_events[index]=event+(len(stabilized),"admitted-after-budget-simplification")
+                status="admitted-after-budget-simplification" if estimated>self.max_characters else "admitted"
+                self.substitution_events[index]=event+(len(stabilized),status)
                 return stabilized
+        if estimated>self.max_characters:
             self.substitution_events[index]=event+(None,"budget")
             self.failed_substitution=(expression,name,replacement)
             raise ValueError(f"Substitution exceeds string budget before allocation: variable={name} templateCharacters={len(expression)} replacementCharacters={len(replacement)} occurrences={occurrences} estimatedCharacters={estimated} limit={self.max_characters}")
@@ -545,7 +556,7 @@ class StringCompiler:
             # the new envelope instead of reparsing all of their descendants.
             compact,_=self.compact_regions(replacement,self.context(domains))
             syntax(compact)
-        result = re.sub(pattern,lambda _:"("+replacement+")",enclosed)
+        result = re.sub(pattern,lambda _:"("+replacement+")","("+expression+")")
         stabilized=self.stabilize(result,domains,path)
         self.substitution_events[index]=event+(len(stabilized),"admitted")
         return stabilized

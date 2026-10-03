@@ -1,0 +1,37 @@
+Current thread 0x00000001f3cde1c0 (most recent call first):
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_strings.py", line 340 in compact_regions
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_strings.py", line 501 in compact
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_strings.py", line 508 in stabilize_budget_envelope
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_strings.py", line 545 in substitute
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 103 in op
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 136 in reduction
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 150 in linear
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 236 in <lambda>
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 109 in producer
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 235 in gated
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 286 in <lambda>
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 109 in producer
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 286 in <lambda>
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 148 in linear
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 285 in build_hidden
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 109 in producer
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 287 in hidden
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 294 in <lambda>
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 159 in load
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 179 in partial
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 181 in component
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 185 in rms_sum
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 198 in <lambda>
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 109 in producer
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 197 in build
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 109 in producer
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 226 in norm
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 294 in <lambda>
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 148 in linear
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 293 in <lambda>
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 109 in producer
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 293 in coordinate
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 320 in main
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_scan_cli.py", line 16 in <module>
+Compilation stopped: Substitution exceeds string budget before allocation: variable=X999999999 templateCharacters=9218105772 replacementCharacters=1316872178 occurrences=1 estimatedCharacters=10534977944 limit=9663676416; completedDependencies=15 lastDependency=model.layers.0.up:0 closedConversions=32 redundantConversions=2 reusedConvertedRegions=25 visitedConversionNodes=202; no coordinate artifact admitted
+{"scanBackend": "equivalent-stdlib-v1", "sources": {"direct_sympy_scan_backend.py": "b49c61b8b7821c03766a39073a96f0d10b6e02881a60d1d89e3e78222551c62a", "direct_sympy_scan_cli.py": "a0100529f03b0e5e03753f18fcc5a79afbd43ffbe2e0bfae7227fd25c258e381"}, "elapsedSeconds": 179.586865958001, "negativeSearches": 829, "identifierScans": 320, "characters": 116107255252}

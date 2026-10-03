@@ -9,6 +9,47 @@ from direct_sympy_strings import Domain,StringCompiler,syntax
 
 
 class StringCompilerTests(unittest.TestCase):
+    def test_whole_completed_literal_compacts_without_scanning_and_keeps_context(self):
+        domains={'X1':Domain(F(-1),F(1),-24,False)}
+        compiler=StringCompiler();region='Float64(Bits64(X1))'
+        compiler.register_completed_region(region,domains)
+        with patch.object(engine.re,'search',side_effect=AssertionError('whole producer was rescanned')):
+            compact,protected=compiler.compact_regions(region,compiler.context(domains))
+        self.assertEqual(compact,'CASStableRegion0')
+        self.assertIs(protected[compact],region)
+        narrowed={'X1':Domain(F(0),F(1),-24,False)}
+        self.assertEqual(compiler.compact_regions(region,compiler.context(narrowed)),(region,{}))
+
+    def test_budget_rejection_does_not_allocate_a_parenthesized_input_copy(self):
+        class NoEnvelope(str):
+            def __radd__(self,other):raise AssertionError('allocated envelope before budget admission')
+        compiler=StringCompiler(max_characters=20)
+        with self.assertRaisesRegex(ValueError,'before allocation'):
+            compiler.substitute(NoEnvelope('R32(X9+X9)'),'X9','X1*123456789',{})
+        self.assertEqual(compiler.substitution_events[-1][-1],'budget')
+
+    def test_large_admitted_substitution_stabilizes_envelope_before_restoration(self):
+        domains={'X1':Domain(F(-1),F(1),-24,False)}
+        region='Float64(Bits64(X1))'+' '*(2*1024*1024)
+        reference=StringCompiler(max_characters=8*1024*1024)
+        reference.register_completed_region(region,domains)
+        # Force the preceding literal-first path for a byte-level differential.
+        with patch.object(reference,'stabilize_budget_envelope',return_value=None):
+            expected=reference.substitute('R32(X9*0.5)','X9',region,domains)
+        compiler=StringCompiler(max_characters=8*1024*1024)
+        compiler.register_completed_region(region,domains)
+        original=compiler.stabilize;lengths=[]
+        def bounded(expression,*args,**kwargs):
+            lengths.append(len(expression))
+            self.assertLess(len(expression),1000)
+            return original(expression,*args,**kwargs)
+        with patch.object(compiler,'stabilize',side_effect=bounded),patch.object(engine.sp,'factor',wraps=engine.sp.factor) as factor,patch.object(engine.sp,'simplify',wraps=engine.sp.simplify) as simplify:
+            actual=compiler.substitute('R32(X9*0.5)','X9',region,domains)
+        self.assertEqual(actual,expected)
+        self.assertNotIn('CASStableRegion',actual)
+        self.assertTrue(lengths)
+        self.assertGreater(factor.call_count,0);self.assertGreater(simplify.call_count,0)
+
     def test_selector_purity_work_scales_with_nodes_without_changing_independent_decisions(self):
         from direct_sympy_synchronize import propose
         def run(depth):

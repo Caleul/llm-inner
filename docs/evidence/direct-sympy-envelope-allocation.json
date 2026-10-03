@@ -1,0 +1,17 @@
+{
+  "inputCharacters": 20971539,
+  "byteIdentical": true,
+  "scope": "Synthetic 20 MiB padded admitted literal; allocation comparison only, not a full-model benchmark",
+  "measurements": {
+    "literal-first": {
+      "seconds": 0.1630431249504909,
+      "peakAllocatedBytes": 42094079,
+      "outputCharacters": 20971550
+    },
+    "envelope-first": {
+      "seconds": 0.1310205000336282,
+      "peakAllocatedBytes": 21002270,
+      "outputCharacters": 20971550
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "failureNamesIdentical": true,
+  "newFailures": [],
+  "counts": [
+    "ℹ tests 598",
+    "ℹ pass 580",
+    "ℹ fail 15",
+    "ℹ skipped 3"
+  ]
+}

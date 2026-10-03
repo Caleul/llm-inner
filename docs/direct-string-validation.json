@@ -8373,5 +8373,123 @@
       "docs/evidence/direct-sympy-scan-regression-comparison.json": "fbdde66e77365558d52d3e245b7cdf3100fa788811a5ce1c448cd8904322f1ea"
     },
     "evidenceFormatting": "Build/regression logs normalize trailing whitespace only; content and failure names preserved"
+  },
+  "boundedSubstitutionEnvelopeValidation": {
+    "date": "2026-10-03T16:38:06.312440+00:00",
+    "expressionFormat": "Mathematical strings; no expression JSON",
+    "changes": [
+      "Check substitution size before making a parenthesized full expression copy",
+      "Compact exact whole completed producers using their identical-domain admission",
+      "Use mandatory SymPy fixed-point composition before restoring large admitted replacements, also below the output cap"
+    ],
+    "numericInvariant": "No numerical lowering, dtype, branch threshold or order changed; restored strings are byte-identical",
+    "oldStateHandling": "Strict source identity correctly rejects the prior frontier; previous state left unchanged; all fifteen producers recompiled in a new directory",
+    "tests": {
+      "build": "passed",
+      "pythonStringTests": 30,
+      "pythonBackendTests": 5,
+      "directedNodeTests": 7,
+      "directedPass": 7,
+      "globalTests": 598,
+      "globalPass": 580,
+      "globalFail": 15,
+      "globalSkipped": 3,
+      "failureNamesIdenticalToBaseline": true,
+      "newFailures": [],
+      "excludedLegacyTests": "Four direct-json-model tests, same exclusion as baseline"
+    },
+    "allocationBenchmark": {
+      "inputCharacters": 20971539,
+      "byteIdentical": true,
+      "scope": "Synthetic 20 MiB padded admitted literal; allocation comparison only, not a full-model benchmark",
+      "measurements": {
+        "literal-first": {
+          "seconds": 0.1630431249504909,
+          "peakAllocatedBytes": 42094079,
+          "outputCharacters": 20971550
+        },
+        "envelope-first": {
+          "seconds": 0.1310205000336282,
+          "peakAllocatedBytes": 21002270,
+          "outputCharacters": 20971550
+        }
+      }
+    },
+    "realCompilation": {
+      "newFrontierDirectory": "artifacts/direct-sympy-envelope-frontier",
+      "completedDependencies": 15,
+      "sameLiteralDigestsAsPrevious": true,
+      "sameLiteralLengthsAsPrevious": true,
+      "semanticSourceHashesVerified": 13,
+      "oldStateRejectedWithoutLoadingExpressions": true,
+      "oldFrontierUnchanged": true,
+      "compileExitCode": 1,
+      "compileElapsedSeconds": 179.586865958001,
+      "stopReason": "Substitution exceeds string budget before allocation",
+      "nextEstimatedCharacters": 10534977944,
+      "maxCharacters": 9663676416,
+      "finalArtifactEmitted": false,
+      "finalParity": false
+    },
+    "actualSavedIntermediateParity": {
+      "cases": 60,
+      "comparisons": 300,
+      "mismatches": 0,
+      "producerFilesEvaluated": 15,
+      "scope": "Full saved posterior normalization and completed gate/activation/up expressions, position 0; verification-only reuse of exact immutable earlier subtrees, not the final artifact or model coordinate parity",
+      "elapsedSeconds": 84.78068437502952
+    },
+    "physicalProfile": {
+      "physicalFootprintGiB": 24.4,
+      "peakAtSampleGiB": 24.8,
+      "scope": "One-second sample before termination; not the final peak"
+    },
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "otherCoordinatesAdvanced": false,
+    "remaining": "Reduce the actual gated product and subsequent down/residual/final normalization/head expressions while preserving every IEEE boundary; finish position-zero coordinate, then last-token positions and all output coordinates. The current 10.535-billion-character product exceeds the 9-GiB output cap.",
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-envelope-allocation.json": "0b25520b2b204a596624458a5c673fd41405ca8627df2915e5a82377cfbffbcd",
+      "docs/evidence/direct-sympy-envelope-backend.log": "519604ccb32bf038a6c6be457b96c4e77833155ee7caa43d12a627a221e314d6",
+      "docs/evidence/direct-sympy-envelope-before-direct_sympy_checkpoint.py.work": "5b78ae0bf2c09e11cf281093b296bce22dd16b629541284999ba3d095a3ad0fa",
+      "docs/evidence/direct-sympy-envelope-before-direct_sympy_savepoints.py.work": "4603165427ab218cd34cbd156723f7ca0ed04dd574b1d0f2471c6abdbf267bd9",
+      "docs/evidence/direct-sympy-envelope-before-direct_sympy_strings.py.work": "a3cf349a7dc7560a292e5c69daaa39891293f5c6c01b2c23012ce971dd564da3",
+      "docs/evidence/direct-sympy-envelope-budget-simplifications.tsv": "b37dc15f699a5c2ffed7b807244bbd57fb49129b39480cf9c4c9fef68fd89a92",
+      "docs/evidence/direct-sympy-envelope-build.log": "a408d94a3fffc856dc5364f9d4b4ab56fde09205ec19cae0976763ea611ad3df",
+      "docs/evidence/direct-sympy-envelope-compile.log": "c56844042d20a72c9b42323aa7ed7cdc7e14a2bc7729e007a99e7ff9bc2f000e",
+      "docs/evidence/direct-sympy-envelope-conditions.tsv": "69f94fb416891c2fbc872066bef1d011e30cd57fad38de7ef646d2597b93f980",
+      "docs/evidence/direct-sympy-envelope-directed.log": "09bed1158581acfd9b4248083d128e22fe4a2e0a4ea1a2dbe890d7810ae60a11",
+      "docs/evidence/direct-sympy-envelope-frontier.json": "d65f55281fe7e824ec0bd98e20757b3b2de33913be68e5d502a9cf528be169e3",
+      "docs/evidence/direct-sympy-envelope-growth.tsv": "ad97b1ca419aaae2940c3f324ac7241db2530e7998531f5552e5f9a159a75c8a",
+      "docs/evidence/direct-sympy-envelope-incompatible.log": "986374f291bb8f0c472a198bbe0af139620c9f592e41fcc008bdb324c0d55ec8",
+      "docs/evidence/direct-sympy-envelope-migration.json": "bbadd2f340ad8deae986a575b1c11261bb208b9d1ac713484e01aabe0438c720",
+      "docs/evidence/direct-sympy-envelope-numeric-envelopes.tsv": "61462d9274cdbd869bb69e8ab83634c5bc5b23cdb5f80ea85c9522c23e41693b",
+      "docs/evidence/direct-sympy-envelope-parity.log": "962fda8c3bc100b1432fdadb2c5354edb030690c6f880a51d7079264f20bb6fd",
+      "docs/evidence/direct-sympy-envelope-parity.py.work": "a86a8ca99e534ffff82e3311b55c7f41b47b4260061c232883f85ed7b9ac39b5",
+      "docs/evidence/direct-sympy-envelope-profile.txt": "1107a66618181e39b9aa3eb178f328ce9a5a50f4026fa04d2a3c3cb9fc65aa1b",
+      "docs/evidence/direct-sympy-envelope-regression-comparison.json": "134ed6e7703ee364de5365c19170a59b6111045b139d4aa985572bdf18ef5a7e",
+      "docs/evidence/direct-sympy-envelope-regression.log": "88279fa6a190b40032f621516475975f093e89daa8f623acd5e7caf1612b2935",
+      "docs/evidence/direct-sympy-envelope-state-comparison.json": "904753c990491564530cab81ce6b9441bbb6bba7c422c18a0b624c5e01e671a3",
+      "docs/evidence/direct-sympy-envelope-strings.log": "fbce9bc900e8f0adcdd51a76afed2a7089df900cb04b92bec54c470e37071d7e",
+      "docs/evidence/direct-sympy-envelope-substitutions.tsv": "b9c4c3d1931687b9b1a0e35c53cd94c4221185b32dd289a4b47e0c0aa453a69a",
+      "docs/evidence/direct-sympy-envelope-sync-budget-simplifications.tsv": "8fee5951ef5ad32f2c0721fd74f507df052b97dff14fc4a1b2ced4ca0094677b",
+      "docs/evidence/direct-sympy-envelope-sync-build.log": "a408d94a3fffc856dc5364f9d4b4ab56fde09205ec19cae0976763ea611ad3df",
+      "docs/evidence/direct-sympy-envelope-sync-compilation.log": "c5c9ee872cbc214f69af74d08f6c04439265482da4be89c2453a53e0d02d1823",
+      "docs/evidence/direct-sympy-envelope-sync-conditions.tsv": "a2ff5598582c308382556de34283d49161612780e911b47967292c9fc36f545c",
+      "docs/evidence/direct-sympy-envelope-sync-conversions.log": "feec3d7b67c89d3ca2b4724f059a5da3accfa4906f3926fea39ff541a895bd29",
+      "docs/evidence/direct-sympy-envelope-sync-directed.log": "48c97f3235878c3da6908f7ccd6a28bdfa7375adb1fc3c62359b7e2ec96ea55f",
+      "docs/evidence/direct-sympy-envelope-sync-engine.log": "a1721e8c6123b988a7f23de1996b0ba354c72acf231e40a57cd472203a9bd81c",
+      "docs/evidence/direct-sympy-envelope-sync-frontier.json": "4356aa011362bb30991949b4c4d10a822b1acfd17dc7d8013c01211859c2968b",
+      "docs/evidence/direct-sympy-envelope-sync-growth.tsv": "d9c9990d53f8981bfe37c9391cb58e19afd8f07d4f162bdce4944da2d136f0fc",
+      "docs/evidence/direct-sympy-envelope-sync-numeric-envelopes.tsv": "b3707580ad2b577aaaa586b2136cd355f8605f2ecf59544f13d3ecb736479a27",
+      "docs/evidence/direct-sympy-envelope-sync-reference.json": "4afc65b3afe16921b5ebd5f88ffea77bcb2c7f70a2345834a055912e9ec3f280",
+      "docs/evidence/direct-sympy-envelope-sync-regression.log": "bebaebcb38c1065d4c6830f9715c32132c7900b38bc1d68e7f39d604aa8ff10b",
+      "docs/evidence/direct-sympy-envelope-sync-residual-parity.log": "835ea75eededad3d3cd62f12573d073e26bc914ed0ec34d2d946ea07e03e1a75",
+      "docs/evidence/direct-sympy-envelope-sync-residual-parity.py.work": "468bc551d7771d4fafcf71aa9d7b13ae13b9bf6b02ef0ec471735944f5cf59d3",
+      "docs/evidence/direct-sympy-envelope-sync-substitutions.tsv": "270ad7f682959c8d08242662100b79a4bc5a2233a380df2fd344c368604e1131",
+      "docs/evidence/direct-sympy-envelope-sync-synchronization.tsv": "ad90f3482018bb63ab81f44f4bfc2ad35e1b1af3019473fa4b91ef2da0da6791",
+      "docs/evidence/direct-sympy-envelope-synchronization.tsv": "06ac082db30446e897b07079e65cebf0646cad121d2b56d9f2480346602cc891",
+      "docs/evidence/direct-sympy-envelope-status.md": "1bb6ac20431e8573815e11add95105fbb91e95659956dc467d0ca41db24e248d"
+    }
   }
 }
