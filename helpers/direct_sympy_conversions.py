@@ -133,6 +133,54 @@ class ConversionSession:
         self.closed_literal_pure={}
         self.envelope_serial=0
         self.numeric_envelopes=[]
+        self.selector_literals=OrderedDict()
+        self.selector_view_characters=0
+
+    def remember_selector_literal(self,expression,view,leaves=None):
+        """Retain a bounded, compiler-only view of this rounding frontier.
+
+        Leaf strings are immutable references, never copied or expanded here.
+        They are not runtime intermediates and are restored before emission.
+        """
+        if expression in self.selector_literals or len(view)>1048576 or 'Piecewise(' not in view:return
+        from direct_sympy_synchronize import GUARD_PURE
+        leaves={} if leaves is None else leaves
+        referenced=set(re.findall(r'\bCASNumericRegion[0-9]+\b',view))
+        if not referenced.issubset(leaves):return
+        leaves={token:leaves[token] for token in referenced}
+        if any(isinstance(child,ast.Call) and child.func.id not in GUARD_PURE and child.func.id not in leaves for child in ast.walk(syntax(view))):return
+        limit=16*1024*1024
+        footprint=len(view)+128+sum(len(token)+128 for token in leaves)
+        if footprint>limit:return
+        while self.selector_literals and self.selector_view_characters+footprint>limit:
+            _,old=self.selector_literals.popitem(last=False)
+            self.selector_view_characters-=old[2]
+        self.selector_literals[expression]=(view,leaves,footprint)
+        self.selector_view_characters+=footprint
+
+    def selector_views(self,protected,pure_functions):
+        """Expose only current producers; previous frontier leaves stay opaque."""
+        views={};canonical={}
+        for token,text in list(protected.items()):
+            stored=self.selector_literals.get(text)
+            if stored is None or token not in pure_functions:continue
+            view,leaves,_=stored
+            # A bounded proof cache may have evicted an earlier leaf. Keep
+            # this producer opaque rather than restoring an unproven alias.
+            if any(leaf not in self.closed_literal_keys for leaf in leaves.values()):continue
+            aliases={}
+            for old,leaf in leaves.items():
+                # Separate leaf aliases prevent recursive expansion and preserve
+                # equality of the same guard in two different producer views.
+                if leaf not in canonical:
+                    self.envelope_serial+=1
+                    alias='CASNumericRegion'+str(self.envelope_serial)
+                    canonical[leaf]=alias;protected[alias]=leaf
+                    if self.closed_literal_pure.get(leaf,False):pure_functions.append(alias)
+                aliases[old]=canonical[leaf]
+            if aliases:view=re.sub(r'\bCASNumericRegion[0-9]+\b',lambda m:aliases.get(m.group(0),m.group(0)),view)
+            views[token]=syntax(view)
+        return views
 
     def remember_closed_literal(self,expression,node=None):
         """Session-local proofs for immutable, completed literal strings."""
@@ -150,6 +198,7 @@ class ConversionSession:
         self.closed_literal_keys[expression]=self.key(node)
         from direct_sympy_synchronize import GUARD_PURE
         self.closed_literal_pure[expression]=all(not isinstance(child,ast.Call) or child.func.id in GUARD_PURE for child in ast.walk(node))
+        self.remember_selector_literal(expression,expression)
 
     def analyze_expression(self,expression):
         """Read-only type/range query over exact completed literal proofs.
@@ -210,6 +259,19 @@ class ConversionSession:
         self.closed_literals[expression]=(bounds,kind,positive_zero)
         self.closed_literal_keys[expression]=original;self.closed_literal_pure[expression]=pure
         self.closed_literal_characters+=len(expression)
+        # Reconstruct the view from the validated, compact saved producer.
+        # Persisted expressions contain no aliases; restore creates fresh
+        # compiler-only leaf names instead of losing selector visibility.
+        if pure:
+            view=ast.unparse(node)
+            leaves={}
+            if len(view)<=1048576 and 'Piecewise(' in view:
+                for old,text in regions.items():
+                    self.envelope_serial+=1;token='CASNumericRegion'+str(self.envelope_serial)
+                    leaves[token]=text
+                    pattern=r'\b'+re.escape(old)+(r'\b' if not old.endswith(')') else '')
+                    view=re.sub(pattern,lambda _:token+'()',view)
+                self.remember_selector_literal(expression,view,leaves)
         return original,pure
 
     def propagate_closed_identity(self,original,replacement):
@@ -485,72 +547,104 @@ class ConversionSession:
         if re.search(r"\bCASNumericRegion[0-9]+\b",expression):raise ValueError("Reserved compiler numeric placeholder")
         compact,regions=self.compiler.compact_regions(expression,self.compiler.context(self.domains))
         if regions and all(text in self.closed_literals for text in regions.values()):
-            from direct_sympy_synchronize import GUARD_PURE
-            protected={};literal_keys={};pure_functions=[]
-            for old,text in regions.items():
-                self.envelope_serial+=1;token="CASNumericRegion"+str(self.envelope_serial)
-                marker=syntax(token+"()");key=self.key(marker)
-                bounds,kind,positive_zero=self.closed_literals[text]
-                if bounds is not None:self.completed[key]=bounds
-                if kind=="half":self.half_values.add(key)
-                if kind in ("half","f32"):self.f32_values.add(key)
-                if positive_zero:self.no_negative_zero_values.add(key)
-                self.converted_regions.add(key);protected[token]=text
-                literal_keys[key]=self.closed_literal_keys[text]
-                if self.closed_literal_pure[text]:
-                    pure_functions.append(token)
-                compact=re.sub(r"\b"+old+r"\b",token+"()",compact)
-            # Preserve correlation certificates on enclosing operations.
-            # Independent interval arithmetic cannot recover these from the
-            # bounds of individual completed literals (e.g. RMS products).
-            virtual_tree=syntax(compact)
-            for node,original_key in self.signatures.translated_keys(virtual_tree,literal_keys).items():
-                virtual_key=self.key(node)
-                if original_key in self.completed:self.completed[virtual_key]=self.completed[original_key]
-                if original_key in self.half_values:self.half_values.add(virtual_key)
-                if original_key in self.f32_values:self.f32_values.add(virtual_key)
-                if original_key in self.no_negative_zero_values:self.no_negative_zero_values.add(virtual_key)
-                if original_key in self.converted_regions:self.converted_regions.add(virtual_key)
-            result=self._close(compact)
-            # Search the newly closed envelope before restoring large literals.
-            # Cost is the real restored string, not the short placeholder text.
-            # Equal selectors synchronize only after CAS has stabilized, and
-            # selected arms never inherit whole-root numeric proofs.
-            def expanded_size(candidate):
-                size=len(candidate)
-                for token,text in protected.items():
-                    size+=len(re.findall(r"\b"+token+r"\(\)",candidate))*(len(text)-len(token)-2)
-                return size
-            synchronized=self.compiler.synchronize(result,self.domains,pure_functions=pure_functions,measure=expanded_size)
-            if synchronized!=result and self.key(syntax(result)) in self.converted_regions:
-                self.propagate_closed_identity(result,synchronized)
-            result=synchronized
-            virtual=syntax(result);original=self.key(virtual)
-            pattern=r"\bCASNumericRegion[0-9]+\(\)"
-            expanded=expanded_size(result)
-            self.numeric_envelopes.append((len(expression),len(compact),len(result),expanded,len(protected)))
-            if expanded>self.compiler.max_characters:
-                raise ValueError(f"Closed numeric envelope exceeds string budget before allocation: expandedCharacters={expanded} limit={self.compiler.max_characters}")
-            result=re.sub(pattern,lambda match:protected[match.group(0)[:-2]],result)
-            if re.search(r"\bCASNumericRegion[0-9]+\b",result):raise ValueError("Numeric placeholder escaped restoration")
-            # The virtual fixed point must retain its proof on the restored
-            # whole root. Never infer a dtype from mere textual expansion.
-            if original in self.converted_regions:
-                literals={token+'()':text for token,text in protected.items()}
-                self.restore_compact_literal(result,virtual,literals,self.bounds(virtual),self.value_kind(virtual),self.no_negative_zero(virtual),True,self.closed_literal_keys.copy(),self.closed_literal_pure.copy())
-                # Root shape is unchanged by restoration. Whole-placeholder
-                # roots already denote a previously registered literal.
-                if isinstance(virtual,ast.Call) and virtual.func.id not in protected:
-                    self.compiler.register_completed_region(result,self.domains,virtual,word_closed=True)
-            else:
-                node=syntax(result);key=self.key(node)
-                if original in self.completed:self.completed[key]=self.completed[original]
-                if original in self.half_values:self.half_values.add(key)
-                if original in self.f32_values:self.f32_values.add(key)
-                if original in self.no_negative_zero_values:self.no_negative_zero_values.add(key)
-                self.remember_closed_literal(result,node)
-            return result
+            return self._close_completed(compact,regions,len(expression))
         return self._close(expression)
+
+    def compose_closed(self,template,bindings):
+        """Close a new operation before allocating its completed operands.
+
+        References exist only during compilation. Each substitution runs CAS
+        to a fixed point; every literal is restored before returning a string.
+        Only proofs owned by this session are admissible.
+        """
+        if re.search(r"\bCAS(?:Numeric|Stable)Region[0-9]+\b",template):
+            raise ValueError("Reserved compiler numeric placeholder")
+        tree=syntax(template)
+        if any(isinstance(node,ast.Call) and node.func.id=="Piecewise" for node in ast.walk(tree)):
+            raise ValueError("Compose branch arms separately in their own context")
+        estimated=len(template)
+        for name,literal in bindings.items():
+            if not re.fullmatch(r"X[1-9][0-9]*",name):
+                raise ValueError("Substitution variables must be Xn")
+            if name in self.domains or not re.search(r"\b"+name+r"\b",template):
+                raise ValueError("Composition bindings must be distinct from original inputs and used")
+            if literal not in self.closed_literals or literal not in self.closed_literal_keys:
+                raise ValueError("Composition requires completed literals from this session")
+            estimated+=len(re.findall(r"\b"+name+r"\b",template))*(len(literal)+2-len(name))
+        return self._close_completed(template,bindings,estimated,substitute=True)
+
+    def _close_completed(self,compact,regions,input_characters,*,substitute=False):
+        from direct_sympy_synchronize import GUARD_PURE
+        protected={};literal_keys={};pure_functions=[]
+        for old,text in regions.items():
+            self.envelope_serial+=1;token="CASNumericRegion"+str(self.envelope_serial)
+            marker=syntax(token+"()");key=self.key(marker)
+            bounds,kind,positive_zero=self.closed_literals[text]
+            if bounds is not None:self.completed[key]=bounds
+            if kind=="half":self.half_values.add(key)
+            if kind in ("half","f32"):self.f32_values.add(key)
+            if positive_zero:self.no_negative_zero_values.add(key)
+            self.converted_regions.add(key);protected[token]=text
+            literal_keys[key]=self.closed_literal_keys[text]
+            if self.closed_literal_pure[text]:
+                pure_functions.append(token)
+            if substitute:
+                compact=self.compiler.substitute(compact,old,token+"()",self.domains)
+            else:
+                compact=re.sub(r"\b"+old+r"\b",token+"()",compact)
+        # Preserve correlation certificates on enclosing operations.
+        # Independent interval arithmetic cannot recover these from the
+        # bounds of individual completed literals (e.g. RMS products).
+        virtual_tree=syntax(compact)
+        for node,original_key in self.signatures.translated_keys(virtual_tree,literal_keys).items():
+            virtual_key=self.key(node)
+            if original_key in self.completed:self.completed[virtual_key]=self.completed[original_key]
+            if original_key in self.half_values:self.half_values.add(virtual_key)
+            if original_key in self.f32_values:self.f32_values.add(virtual_key)
+            if original_key in self.no_negative_zero_values:self.no_negative_zero_values.add(virtual_key)
+            if original_key in self.converted_regions:self.converted_regions.add(virtual_key)
+        result=self._close(compact)
+        # Search the newly closed envelope before restoring large literals.
+        # Cost is the real restored string, not the short placeholder text.
+        # Equal selectors synchronize only after CAS has stabilized, and
+        # selected arms never inherit whole-root numeric proofs.
+        def expanded_size(candidate):
+            size=len(candidate)
+            for token,text in protected.items():
+                size+=len(re.findall(r"\b"+token+r"\(\)",candidate))*(len(text)-len(token)-2)
+            return size
+        views=self.selector_views(protected,pure_functions)
+        synchronized=self.compiler.synchronize(result,self.domains,pure_functions=pure_functions,measure=expanded_size,completed_views=views)
+        if synchronized!=result and self.key(syntax(result)) in self.converted_regions:
+            self.propagate_closed_identity(result,synchronized)
+        result=synchronized
+        virtual=syntax(result);original=self.key(virtual)
+        pattern=r"\bCASNumericRegion[0-9]+\(\)"
+        expanded=expanded_size(result)
+        self.numeric_envelopes.append((input_characters,len(compact),len(result),expanded,len(protected)))
+        if expanded>self.compiler.max_characters:
+            raise ValueError(f"Closed numeric envelope exceeds string budget before allocation: expandedCharacters={expanded} limit={self.compiler.max_characters}")
+        selector_view=result
+        result=re.sub(pattern,lambda match:protected[match.group(0)[:-2]],result)
+        if re.search(r"\bCASNumericRegion[0-9]+\b",result):raise ValueError("Numeric placeholder escaped restoration")
+        # The virtual fixed point must retain its proof on the restored
+        # whole root. Never infer a dtype from mere textual expansion.
+        if original in self.converted_regions:
+            self.remember_selector_literal(result,selector_view,protected)
+            literals={token+'()':text for token,text in protected.items()}
+            self.restore_compact_literal(result,virtual,literals,self.bounds(virtual),self.value_kind(virtual),self.no_negative_zero(virtual),True,self.closed_literal_keys.copy(),self.closed_literal_pure.copy())
+            # Root shape is unchanged by restoration. Whole-placeholder
+            # roots already denote a previously registered literal.
+            if isinstance(virtual,ast.Call) and virtual.func.id not in protected:
+                self.compiler.register_completed_region(result,self.domains,virtual,word_closed=True)
+        else:
+            node=syntax(result);key=self.key(node)
+            if original in self.completed:self.completed[key]=self.completed[original]
+            if original in self.half_values:self.half_values.add(key)
+            if original in self.f32_values:self.f32_values.add(key)
+            if original in self.no_negative_zero_values:self.no_negative_zero_values.add(key)
+            self.remember_closed_literal(result,node)
+        return result
 
     def _close(self,expression):
         expression=simplify_arithmetic(expression,self)

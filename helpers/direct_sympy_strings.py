@@ -282,7 +282,7 @@ class StringCompiler:
         self._region_characters=0
         self._region_roots={}
 
-    def synchronize(self,expression,domains,path=(),*,search_characters=1048576,max_lifts=256,max_nodes=262144,pure_functions=(),measure=None):
+    def synchronize(self,expression,domains,path=(),*,search_characters=1048576,max_lifts=256,max_nodes=262144,pure_functions=(),measure=None,completed_views=None):
         """Try synchronized control only after the mandatory CAS fixed point."""
         stable=self.stabilize(expression,domains,path)
         if len(stable)>search_characters:
@@ -290,7 +290,7 @@ class StringCompiler:
             return stable
         from direct_sympy_synchronize import propose
         size=len if measure is None else measure
-        candidate,lifts,zips,status=propose(stable,max_lifts=max_lifts,max_nodes=max_nodes,pure_functions=pure_functions)
+        candidate,lifts,zips,status=propose(stable,max_lifts=max_lifts,max_nodes=max_nodes,pure_functions=pure_functions,completed_views=completed_views)
         if status=='proposed' and len(candidate)<=self.max_characters:
             from direct_sympy_words import simplify_words
             candidate=simplify_words(candidate,self,domains)

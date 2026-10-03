@@ -46,10 +46,15 @@ class SavepointTests(unittest.TestCase):
                 self.assertEqual(self.first(resumed),first)
                 final=self.second(resumed)
                 self.assertEqual(final,self.second(original))
+                self.assertIn(first,resumed.conversions.selector_literals)
+                paired=lambda model:model.producer('fixture:paired',lambda:'R16(R32(('+self.first(model)+')+('+self.first(model)+')))')
+                expected_pair=paired(original);actual_pair=paired(resumed)
+                self.assertEqual(actual_pair,expected_pair)
+                self.assertEqual(actual_pair.count('Piecewise('),1)
                 self.assertTrue(resumed.conversions.numeric_envelopes)
                 self.assertTrue(original.conversions.numeric_envelopes)
                 self.assertNotIn('CASNumericRegion',final)
-                self.assertEqual(len(resumed.events),2)
+                self.assertEqual(len(resumed.events),3)
             source=root/'proof.cpp';binary=root/'proof'
             source.write_text('''
 #include <cstdint>

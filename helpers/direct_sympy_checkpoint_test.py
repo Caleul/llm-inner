@@ -230,12 +230,17 @@ double X1=word<_Float16>(uint16_t(bits)),X2=word<_Float16>(other);
             def linear(name,row,input_value):
                 order.append(("build",name));return "R16(X1)" if "gate" in name else "R16(X2)"
             def closed(expression):
-                order.append(("close",expression));return "X1" if "X1" in expression else "X2"
-            def product(operation,a,b):
+                order.append(("close",expression))
+                result="X1" if "X1" in expression else "X2"
+                builder.conversions.converted_regions.add(builder.conversions.key(syntax(result)))
+                builder.conversions.remember_closed_literal(result)
+                return result
+            def product(template,bindings):
                 self.assertEqual(list(builder.memo),["model.layers.0.gate:0","model.layers.0.activation:0","model.layers.0.up:0"])
-                self.assertEqual((operation,a,b),("*","X1","X2"))
+                self.assertEqual(template,"R16(R32(X999999998 * X999999999))")
+                self.assertEqual(bindings,{"X999999998":"X1","X999999999":"X2"})
                 order.append(("compose",));return "R32(X1*X2)"
-            with patch.object(builder,"linear",side_effect=linear),patch.object(builder.conversions,"close",side_effect=closed),patch.object(builder,"op",side_effect=product):
+            with patch.object(builder,"linear",side_effect=linear),patch.object(builder.conversions,"close",side_effect=closed),patch.object(builder.conversions,"compose_closed",side_effect=product):
                 builder.gated("model.layers.0.",0,lambda i:f"X{i+1}")
             self.assertEqual([x[0] for x in order],["build","close","close","build","close","compose"])
             self.assertEqual(order[2],('close','Silu16(X1)'))

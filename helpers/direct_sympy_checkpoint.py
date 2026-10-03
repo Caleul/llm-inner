@@ -258,6 +258,10 @@ class CheckpointStrings:
         activation=self.producer(prefix+"activation:"+str(neuron),lambda:"Silu16("+gate+")")
         up=self.producer(prefix+"up:"+str(neuron),lambda:
             self.linear(prefix+"mlp.up_proj.weight",neuron,input_value))
+        if self.conversions is not None and all(value in self.conversions.closed_literals and value in self.conversions.closed_literal_keys for value in (activation,up)):
+            return self.conversions.compose_closed(
+                "R16(R32(X999999998 * X999999999))",
+                {"X999999998":activation,"X999999999":up})
         return "R16("+self.op("*",activation,up)+")"
 
     def invisible_layer_update(self,layer,prefix,kind,coordinate,value):

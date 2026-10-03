@@ -81,6 +81,22 @@ class StringCompilerTests(unittest.TestCase):
             measure=lambda text:100 if text.count('Piecewise(')==2 else 1000),stable)
         self.assertEqual(compiler.synchronization_events[-1][-1],'no-size-reduction')
 
+    def test_completed_selector_views_keep_independent_guards_and_impure_calls_opaque(self):
+        from direct_sympy_synchronize import propose
+        views={'CASNumericRegion1':syntax('Piecewise((X1, X1 > 0), (-X1, True))'),
+               'CASNumericRegion2':syntax('Piecewise((X2, X2 > 0), (-X2, True))')}
+        pure=tuple(views)
+        same='CASNumericRegion1() + CASNumericRegion1()'
+        result,_,zips,status=propose(same,pure_functions=pure,completed_views=views)
+        self.assertEqual(status,'proposed');self.assertEqual(zips,1)
+        self.assertEqual(result.count('Piecewise('),1)
+        independent='CASNumericRegion1() + CASNumericRegion2()'
+        self.assertEqual(propose(independent,pure_functions=pure,completed_views=views)[0],independent)
+        views['CASNumericRegion2']=syntax('Piecewise((-X1, X1 <= 0), (X1, True))')
+        self.assertEqual(propose(independent,pure_functions=pure,completed_views=views)[0],independent)
+        views['CASNumericRegion1']=syntax('Unknown(Piecewise((X1, X1 > 0), (-X1, True)))')
+        self.assertEqual(propose(same,pure_functions=pure,completed_views=views)[0],same)
+
     def test_synchronized_siblings_share_one_ordered_decision_after_cas(self):
         domains={"X1":Domain(F(-65504),F(65504),-24,False)}
         guard="U64And(U64Shr(Bits64(X1),17),123456789)<1234567"

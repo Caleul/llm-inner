@@ -215,6 +215,40 @@ std::printf("Integer offset tandem parity: cases=%u mismatches=%u integerCastLos
             self.assertEqual(run.returncode,0,run.stdout+run.stderr)
             self.assertIn('cases=507904 mismatches=0',run.stdout);print(run.stdout,end='')
 
+    def test_completed_rounding_frontiers_synchronize_inside_activation(self):
+        domains={'X1':Domain(-F(1,64),F(1,64),-24,False)}
+        compiler=StringCompiler();session=ConversionSession(compiler,domains,input_dtype='f16')
+        producer=session.close('R16(R32(X1+X1/2.0))')
+        compiler.register_completed_region(producer,domains,word_closed=True)
+        with patch.object(session,'selector_views',return_value={}):
+            baseline=session.close('Silu16('+producer+')')
+        result=session.close('Silu16('+producer+')')
+        self.assertLess(len(result),len(baseline))
+        self.assertLess(result.count('Piecewise('),baseline.count('Piecewise('))
+        self.assertEqual(compiler.synchronization_events[-1][-1],'admitted')
+        for name in ('CASNumericRegion','CASStableRegion','Silu16(','R16(','R32('):self.assertNotIn(name,result)
+        self.assertEqual(session.value_kind(syntax(result)),'half')
+        self.assertTrue(all(e[2:4]==('factor','simplify') for e in compiler.events))
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);source=root/'views.cpp';binary=root/'views'
+            source.write_text('#include <cstdint>\n#include <cstring>\n#include <cmath>\n#include <cstdio>\n#include <initializer_list>\ntemplate<class T,class U>T word(U v){T r;std::memcpy(&r,&v,sizeof(r));return r;}\n'+
+                'double baseline(double X1){return '+cpp(syntax(baseline))+';}\n'+
+                'double compiled(double X1){return '+cpp(syntax(result))+';}\n'+
+                '''int main(){unsigned cases=0,mismatches=0;for(unsigned b=0;b<=0x2400;b++)for(unsigned sign:{0u,0x8000u}){double x=word<_Float16>(uint16_t(b|sign));mismatches+=word<uint64_t>(compiled(x))!=word<uint64_t>(baseline(x));cases++;}std::printf("Completed selector activation parity: cases=%u mismatches=%u\\n",cases,mismatches);return mismatches?1:0;}''')
+            build=subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],capture_output=True,text=True)
+            self.assertEqual(build.returncode,0,build.stderr)
+            run=subprocess.run([str(binary)],capture_output=True,text=True,timeout=120)
+            self.assertEqual(run.returncode,0,run.stdout+run.stderr)
+            self.assertIn('cases=18434 mismatches=0',run.stdout);print(run.stdout,end='')
+        leaf=session.close('R32(1.0/(1.0+X1**2))')
+        compiler.register_completed_region(leaf,domains,word_closed=True)
+        downstream=session.close('R16(R32(('+leaf+')*X1))')
+        self.assertIn(leaf,session.selector_literals[downstream][1].values())
+        session.closed_literal_keys.pop(leaf)
+        protected={'CASNumericRegion900':downstream}
+        self.assertEqual(session.selector_views(protected,['CASNumericRegion900']),{})
+        self.assertEqual(protected,{'CASNumericRegion900':downstream})
+
     def test_numeric_envelope_preserves_enclosing_correlation_and_exact_keys(self):
         import direct_sympy_conversions as conversions
         domains={'X1':Domain(F(-1),F(1),-24,False)}
@@ -243,7 +277,10 @@ std::printf("Integer offset tandem parity: cases=%u mismatches=%u integerCastLos
         domains={"X1":Domain(F(-1),F(1),-24,False)}
         compiler=StringCompiler();session=ConversionSession(compiler,domains,input_dtype='f16')
         first=session.close('R16(R32(X1+X1/2.0))')
-        original=session.close('R16(R32(('+first+')+('+first+')))')
+        # Deliberately retain the old opaque frontier to exercise explicit
+        # whole-root proof transfer; normal closure now synchronizes it early.
+        with patch.object(session,'selector_views',return_value={}):
+            original=session.close('R16(R32(('+first+')+('+first+')))')
         replacement=compiler.synchronize(original,domains)
         self.assertNotEqual(original,replacement)
         before=len(session.half_values);bounds=session.bounds(syntax(original))
@@ -295,6 +332,32 @@ std::printf("Integer offset tandem parity: cases=%u mismatches=%u integerCastLos
             self.assertEqual(built.returncode,0,built.stderr)
             result=subprocess.run([str(binary)],check=True,capture_output=True,text=True,timeout=120)
             self.assertIn('cases=196608 mismatches=0',result.stdout);print(result.stdout,end='')
+
+    def test_compose_closed_matches_literal_closure_and_checks_budget_before_restoration(self):
+        domains={"X1":Domain(F(-1),F(1),-24,False)}
+        compiler=StringCompiler(max_characters=100000)
+        session=ConversionSession(compiler,domains,input_dtype="f16")
+        first=session.close("R16(R32(X1+X1/2.0))")
+        second=session.close("R16(R32(X1*0.75))")
+        for literal in (first,second):compiler.register_completed_region(literal,domains,word_closed=True)
+        template="R16(R32(X999999998 * X999999999))"
+        bindings={"X999999998":first,"X999999999":second}
+        expected=session.close("R16(R32(("+first+") * ("+second+")))")
+        before=len(compiler.substitution_events)
+        actual=session.compose_closed(template,bindings)
+        self.assertEqual(actual,expected)
+        self.assertEqual([event[0] for event in compiler.substitution_events[before:] if event[0] in bindings],list(bindings))
+        self.assertNotIn("CASNumericRegion",actual)
+        self.assertNotIn("X99999999",actual)
+        self.assertEqual(session.value_kind(syntax(actual)),"half")
+        fresh=ConversionSession(compiler,domains,input_dtype="f16")
+        with self.assertRaisesRegex(ValueError,"from this session"):fresh.compose_closed(template,bindings)
+        with self.assertRaisesRegex(ValueError,"branch arms separately"):
+            session.compose_closed("Piecewise((X999999998,X1>0),(0.0,True))",{"X999999998":first})
+        compiler.max_characters=len(template)+100
+        with self.assertRaisesRegex(ValueError,"budget before allocation"):
+            session.compose_closed(template,bindings)
+        self.assertGreater(session.numeric_envelopes[-1][3],compiler.max_characters)
 
     def test_completed_numeric_envelopes_reuse_only_session_proofs_and_restore_literals(self):
         import direct_sympy_conversions as conversions

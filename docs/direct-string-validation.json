@@ -8770,5 +8770,86 @@
     "buildExitCode": 0,
     "coordinateComplete": false,
     "finalParity": false
+  },
+  "completedSelectorFrontierValidation": {
+    "evidence": "docs/evidence/direct-sympy-selector-frontiers/README.md",
+    "executionReport": "docs/evidence/direct-sympy-selector-frontiers/colab-report.json",
+    "result": "docs/evidence/direct-sympy-selector-frontiers/result.json",
+    "scope": "Producer frontier before compact-first composition; not final coordinate parity",
+    "activationCharactersBefore": 9218105754,
+    "activationCharactersAfter": 8230451759,
+    "completedProducers": 15,
+    "sameSequentialParallelProducerHashes": true,
+    "producerComparisonsPerMode": 300,
+    "producerCasesPerMode": 60,
+    "producerMismatches": 0,
+    "sequentialSeconds": 280.081256681,
+    "parallelSeconds": 290.700585726,
+    "sequentialPeakSampledAggregateRSSBytes": 40446996480,
+    "parallelPeakSampledAggregateRSSBytes": 40464420864,
+    "finalCoordinateEmitted": false,
+    "finalParity": false,
+    "otherCoordinatesAdvanced": false
+  },
+  "compactFirstCompositionValidation": {
+    "evidence": "docs/evidence/direct-sympy-compact-composition/README.md",
+    "sourceIdentity": "docs/evidence/direct-sympy-compact-composition/state-summary.json",
+    "tests": {
+      "python": 89,
+      "pythonFailures": 0,
+      "sympyNodeIntegrations": 8,
+      "nodeFailures": 0,
+      "buildExitCode": 0,
+      "literalVsCompactComposition": "Byte-identical numerical closure; private identifiers restored; source-session proofs and pre-allocation budget checked"
+    },
+    "realRun": {
+      "completedDependencies": 13,
+      "samePriorProducerHashes": true,
+      "seconds": 26.25168245797977,
+      "maxCharacters": 2147483648,
+      "nextActivationCharacters": 8230451759,
+      "stateDirectory": "artifacts/direct-sympy-compose-final/state",
+      "coordinateComplete": false,
+      "productReached": false,
+      "memoryOrSpeedImprovementMeasured": false,
+      "producerParity": {
+        "cases": 60,
+        "comparisons": 180,
+        "mismatches": 0,
+        "producerFilesEvaluated": 13,
+        "scope": "Full saved posterior normalization and completed gate/activation/up expressions, position 0; verification-only reuse of exact immutable earlier subtrees, not the final artifact or model coordinate parity",
+        "elapsedSeconds": 12.701502792013343
+      }
+    },
+    "priorStateReuse": "Rejected because source semantic identity changed; fresh manifest built without overriding identity",
+    "wholeModelFinalParity": false,
+    "otherCoordinatesAdvanced": false,
+    "regression": {
+      "tests": 599,
+      "pass": 581,
+      "fail": 15,
+      "skipped": 3,
+      "exitCode": 1,
+      "samePreviouslyMappedFailures": true,
+      "newFailures": [],
+      "failedTests": [
+        "Gemma 4 embedded adapter executes every serialized invocation program without hidden class transforms",
+        "Gemma 4 runtime-reduction provider executes the integrity-bound embedded adapter",
+        "evidência adia prefill exato sem cache e preserva antecipação do contexto exato",
+        "evidência do corte de prefill terminal preserva corpus e correção de raiz",
+        "evidência do default de oito threads vincula corpus e tokens autoritativos",
+        "evidência promove antecipação do prefixo exato somente em sessão com cache",
+        "evidência promove cabeça BF16 integral e rejeita prefill agrupado divergente",
+        "evidência promove cache de decisão exata e rejeita fronteira Q8 0-18",
+        "evidência promove contexto sensível exato sem replay do decoder",
+        "evidência promove o maior prefixo exato entre sessões sem alterar logits",
+        "evidência rejeita Q8 na projeção down quando velocidade e verificação deixam de coexistir",
+        "evidência rejeita grupos Q8 que divergem ou ampliam o fallback",
+        "evidência rejeita prefill exato eager quando ele preserva tokens mas piora todas as classes de latência",
+        "keeps the real agent-visible task free of controller context",
+        "scalar-substitution example contains concrete learned values and reproduces its F32 result"
+      ],
+      "evidence": "docs/evidence/direct-sympy-compact-composition/regression.log"
+    }
   }
 }

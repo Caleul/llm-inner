@@ -1,0 +1,159 @@
+{
+  "changes": [
+    {
+      "dependency": "model.layers.0.pre:inverse",
+      "previousCharacters": 5210,
+      "currentCharacters": 5210,
+      "sameSHA256": true
+    },
+    {
+      "dependency": "model.layers.0.pre:0",
+      "previousCharacters": 15989,
+      "currentCharacters": 15989,
+      "sameSHA256": true
+    },
+    {
+      "dependency": "model.layers.0.pre:1",
+      "previousCharacters": 15989,
+      "currentCharacters": 15989,
+      "sameSHA256": true
+    },
+    {
+      "dependency": "model.layers.0.v:0",
+      "previousCharacters": 128506,
+      "currentCharacters": 128506,
+      "sameSHA256": true
+    },
+    {
+      "dependency": "model.layers.0.context:0",
+      "previousCharacters": 128512,
+      "currentCharacters": 128512,
+      "sameSHA256": true
+    },
+    {
+      "dependency": "model.layers.0.v:1",
+      "previousCharacters": 128494,
+      "currentCharacters": 128494,
+      "sameSHA256": true
+    },
+    {
+      "dependency": "model.layers.0.context:1",
+      "previousCharacters": 128500,
+      "currentCharacters": 128500,
+      "sameSHA256": true
+    },
+    {
+      "dependency": "model.layers.0.residual:0",
+      "previousCharacters": 1028704,
+      "currentCharacters": 1028704,
+      "sameSHA256": true
+    },
+    {
+      "dependency": "model.layers.0.residual:1",
+      "previousCharacters": 1028712,
+      "currentCharacters": 1028712,
+      "sameSHA256": true
+    },
+    {
+      "dependency": "model.layers.0.post:inverse",
+      "previousCharacters": 53497922,
+      "currentCharacters": 53497922,
+      "sameSHA256": true
+    },
+    {
+      "dependency": "model.layers.0.post:0",
+      "previousCharacters": 164608933,
+      "currentCharacters": 164608933,
+      "sameSHA256": true
+    },
+    {
+      "dependency": "model.layers.0.post:1",
+      "previousCharacters": 164608965,
+      "currentCharacters": 164608965,
+      "sameSHA256": true
+    },
+    {
+      "dependency": "model.layers.0.gate:0",
+      "previousCharacters": 1316872194,
+      "currentCharacters": 1316872194,
+      "sameSHA256": true
+    },
+    {
+      "dependency": "model.layers.0.activation:0",
+      "previousCharacters": 9218105754,
+      "currentCharacters": 8230451759,
+      "sameSHA256": false
+    },
+    {
+      "dependency": "model.layers.0.up:0",
+      "previousCharacters": 1316872178,
+      "currentCharacters": 1316872178,
+      "sameSHA256": true
+    }
+  ],
+  "sameSequentialParallelRecords": true,
+  "coordinateComplete": false,
+  "finalParity": false,
+  "nextClosedProducerCharacters": 38189296054,
+  "limitCharacters": 9663676416,
+  "actualLocalActivation": {
+    "path": "artifacts/direct-sympy-selector-frontiers-local/state/objects/06fd41cfc46c08e95f15c675426db6d994c4a147af3cbe52c7ef8e831501f63d.expr",
+    "characters": 8230451759,
+    "sha256": "06fd41cfc46c08e95f15c675426db6d994c4a147af3cbe52c7ef8e831501f63d",
+    "sameAsBothVerifiedColabArtifacts": true
+  },
+  "localRecovery": {
+    "restored": 13,
+    "completed": 14,
+    "activation": {
+      "bounds": [
+        "-0x1.5c80000000000p-6",
+        "0x1.5c80000000000p-6",
+        -24
+      ],
+      "castsClosed": true,
+      "characters": 8230451759,
+      "digest": "06fd41cfc46c08e95f15c675426db6d994c4a147af3cbe52c7ef8e831501f63d",
+      "kind": "half",
+      "name": "model.layers.0.activation:0",
+      "noNegativeZero": false
+    },
+    "seconds": 393.05608458298957,
+    "coordinateComplete": false
+  },
+  "localRecoveryMemory": {
+    "sampled": {
+      "peakSampledRSSBytes": 10192715776,
+      "limitBytes": 25769803776,
+      "budgetAborted": false,
+      "processLive": true
+    },
+    "wholeRunSampling": false
+  },
+  "localProducerParity": {
+    "cases": 60,
+    "comparisons": 180,
+    "mismatches": 0,
+    "producerFilesEvaluated": 13,
+    "scope": "Full saved posterior normalization and completed gate/activation/up expressions, position 0; verification-only reuse of exact immutable earlier subtrees, not the final artifact or model coordinate parity",
+    "elapsedSeconds": 12.57891679200111
+  },
+  "colabProducerParity": {
+    "sequential": {
+      "cases": 60,
+      "comparisons": 300,
+      "mismatches": 0,
+      "producerFilesEvaluated": 15,
+      "scope": "Full saved posterior normalization and completed gate/activation/up expressions, position 0; verification-only reuse of exact immutable earlier subtrees, not the final artifact or model coordinate parity",
+      "elapsedSeconds": 145.22857344700014
+    },
+    "parallel": {
+      "cases": 60,
+      "comparisons": 300,
+      "mismatches": 0,
+      "producerFilesEvaluated": 15,
+      "scope": "Full saved posterior normalization and completed gate/activation/up expressions, position 0; verification-only reuse of exact immutable earlier subtrees, not the final artifact or model coordinate parity",
+      "elapsedSeconds": 145.00934760899986
+    }
+  }
+}

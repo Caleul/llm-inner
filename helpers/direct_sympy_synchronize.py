@@ -13,8 +13,12 @@ PURE={'R16','R32','sqrt','Silu16','Bits64','Float64','U64And','U64Or','U64Shr','
 GUARD_PURE=PURE|{'Piecewise','And','Or','Not','Eq','Ne','Lt','Le','Gt','Ge'}
 
 
-def propose(expression,*,max_lifts=256,max_nodes=262144,pure_functions=()):
-    if expression.count('Piecewise(')<2:return expression,0,0,'no-matching-siblings'
+def propose(expression,*,max_lifts=256,max_nodes=262144,pure_functions=(),completed_views=None):
+    # Only compiler-admitted, same-context views may expose an opaque producer.
+    # Their leaves remain opaque: reopening every prior producer would recreate
+    # the complete graph before finding a single matching decision.
+    completed_views=completed_views or {}
+    if expression.count('Piecewise(')<2 and not completed_views:return expression,0,0,'no-matching-siblings'
     signatures=StructuralSignatures();lifts=0;zips=0;costs={}
     guard_pure=GUARD_PURE|set(pure_functions)
     def cost(node):
@@ -53,6 +57,10 @@ def propose(expression,*,max_lifts=256,max_nodes=262144,pure_functions=()):
         # Piecewise at each unary ancestor. Arms are materialized only when
         # two siblings actually share the same ordered decision.
         if node in views:return views[node]
+        if isinstance(node,ast.Call) and not node.args and node.func.id in completed_views:
+            result=view(completed_views[node.func.id]) if pure(node) else None
+            views[node]=result
+            return result
         shape=selector(node)
         if shape is not None:
             result=(shape,[pair.elts for pair in node.args],0) if pure(node) else None

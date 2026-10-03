@@ -1,0 +1,33 @@
+........................................Closed gate/up projection parity: cases=1015808 mismatches=0 finalParity=false
+Closed RMS rounding parity: cases=888832 mismatches=0 unsafeEpsilon=6888 unsafeHalf=56 unsafeProduct=6
+Early Half product parity: cases=888832 mismatches=0
+Working string parity: 60 exact cases, position=0 dimension=2; numerical primitives remain, finalParity=false
+Expression file allocation parity: {"characters": 20971522, "byteIdentical": true, "peakAllocatedBytes": {"literal-copy": 41948798, "prior-scan-backend": 23075166, "chunked": 2103383}}
+Exact subnormal-grid certificates: F32=16777216 F16=2048 mismatches=0
+Exact Half-grid tandem certificate: cases=67108866 mismatches=0
+Actual string IEEE certificate: F32=100679708 F16=206870 composed=559086 prunedF32=100663300 prunedF16=3072 mismatches=0; tandem=559130; typedPairs=507904
+Exact branch facts native parity: cases=196608 mismatches=0
+Half normalization factor barrier: cases=126972 mismatches=0 unsafeRewrites=15421
+Completed selector activation parity: cases=18434 mismatches=0
+F32 normal-cell certificate: sqrt=2139095040 reciprocals=4219469826 mismatches=0 ties=0
+Half cell dependency parity: cases=327680 mismatches=0
+Native Half squares: 63488, mismatches=0\n
+Integer offset tandem parity: cases=1152322 mismatches=0 integerCastLoss=0
+Literal math native certificate: cases=7 mismatches=0
+Compact envelope selector parity: cases=507904 mismatches=0
+Synchronized sibling native parity: cases=131072 mismatches=0
+Positive-factor sign parity: cases=507904 mismatches=0
+Two-Half-square F32 certificate: pairs=503856640 mismatches=0 oddTies=0 evenTies=13918556
+Word identity comparisons: 16048, mismatches=0
+..Parallel working coordinate parity: cases=60 mismatches=0; finalParity=false
+...............................................
+----------------------------------------------------------------------
+Ran 89 tests in 22.639s
+
+OK
+Native resumed rounding: cases=30722 mismatches=0
+{"characters": 20400010, "normalIdentifierSeconds": 0.13620141701539978, "equivalentIdentifierSeconds": 0.006534041021950543, "identical": true}
+Bounded SiLU word parity: cases=21506 mismatches=0
+Bounded SiLU word parity: cases=22530 mismatches=0
+Bounded SiLU word parity: cases=19458 mismatches=0
+F32 sqrt emitted word parity: cases=25167601 mismatches=0 oddTies=0 evenTies=0

@@ -1,0 +1,9 @@
+{"scanBackend": "equivalent-stdlib-v1", "sources": {"direct_sympy_scan_backend.py": "b49c61b8b7821c03766a39073a96f0d10b6e02881a60d1d89e3e78222551c62a", "direct_sympy_scan_cli.py": "a0100529f03b0e5e03753f18fcc5a79afbd43ffbe2e0bfae7227fd25c258e381"}, "elapsedSeconds": 0.709816749964375, "negativeSearches": 0, "identifierScans": 0, "characters": 0}
+Traceback (most recent call last):
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_scan_cli.py", line 16, in <module>
+    try:result=main()
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 353, in main
+    if args.resume:print(f"Restored completed dependencies: {store.restore(model)}")
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_savepoints.py", line 128, in restore
+    if payload['identity']!=self.identity:raise ValueError('Incompatible savepoint: checkpoint, domain, dimension or compiler semantics differ')
+ValueError: Incompatible savepoint: checkpoint, domain, dimension or compiler semantics differ
