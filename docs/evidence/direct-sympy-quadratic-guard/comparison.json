@@ -1,0 +1,10 @@
+{
+  "sequentialSeconds": 146.29914462499983,
+  "parallelSeconds": 151.1153483209996,
+  "parallelPeakSampledAggregateRSSBytes": 29201965056,
+  "sequentialPeakRSSMeasured": false,
+  "same15ProducerRecords": true,
+  "comparisonsPerMode": 300,
+  "mismatchesPerMode": 0,
+  "coordinateComplete": false
+}

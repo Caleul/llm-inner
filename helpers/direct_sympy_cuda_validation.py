@@ -41,13 +41,22 @@ def main():
     reference=torch.nn.functional.silu(small)
     silu_cuda=torch.nn.functional.silu(small.cuda()).cpu()
     silu_mismatches=(reference.view(torch.int16)!=silu_cuda.view(torch.int16)).sum().item()
+    def shifted_square(values):return (values.to(torch.float64)+2**-25).square()
+    cpu_square=shifted_square(small)
+    cuda_square=shifted_square(small.cuda()).cpu()
+    quadratic=small.to(torch.float64)*(0.5+small.to(torch.float64)*0.25)
+    expected_guard=quadratic.to(torch.float32).abs()<2**-14
+    guard_cpu_mismatches=((cpu_square<2**-26)!=expected_guard).sum().item()
+    guard_cuda_mismatches=((cuda_square<2**-26)!=expected_guard).sum().item()
+    square_mismatches=(cpu_square.view(torch.int64)!=cuda_square.view(torch.int64)).sum().item()
     report={'device':torch.cuda.get_device_name(0),'torch':str(torch.__version__),'cuda':torch.version.cuda,'cpuThreads':torch.get_num_threads(),
         'halfProducts':{'cases':expected.numel(),'mismatches':product_mismatches,'medianCpuSeconds':cpu_time,'medianCudaSeconds':gpu_time,
             'medianCudaWithTransfersSeconds':end_to_end,'samples':15,'warmup':3},
         'silu':{'cases':small.numel(),'mismatches':silu_mismatches,'domain':[-3/128,3/128],'cudaAdmitted':silu_mismatches==0},
+        'quadraticThreshold':{'cases':small.numel(),'cpuMismatches':guard_cpu_mismatches,'cudaMismatches':guard_cuda_mismatches,'squareBitMismatches':square_mismatches,'cudaAdmitted':not(guard_cpu_mismatches or guard_cuda_mismatches or square_mismatches)},
         'cudaPeakAllocatedBytes':torch.cuda.max_memory_allocated()}
     print(json.dumps(report,indent=2))
-    if product_mismatches or silu_mismatches:raise RuntimeError('CUDA numerical parity failed; kernel not admitted')
+    if product_mismatches or silu_mismatches or guard_cpu_mismatches or guard_cuda_mismatches or square_mismatches:raise RuntimeError('CUDA numerical parity failed; kernel not admitted')
 
 
 if __name__=='__main__':main()

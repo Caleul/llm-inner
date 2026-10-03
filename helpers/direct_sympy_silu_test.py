@@ -8,7 +8,7 @@ import torch
 from direct_sympy_strings import Domain,StringCompiler,syntax
 from direct_sympy_conversions import ConversionSession
 from direct_sympy_conversions_test import cpp
-from direct_sympy_silu import supported,expand
+from direct_sympy_silu import supported,expand,quadratic_subnormal_guard
 
 
 class BoundedSiluTests(unittest.TestCase):
@@ -21,6 +21,36 @@ class BoundedSiluTests(unittest.TestCase):
         x=struct.unpack('e',struct.pack('H',42992))[0]
         quadratic=struct.unpack('e',struct.pack('e',struct.unpack('f',struct.pack('f',x*(0.5+x*0.25)))[0]))[0]
         self.assertNotEqual(quadratic,torch.nn.functional.silu(torch.tensor(x,dtype=torch.float16)).item())
+
+    def test_quadratic_guard_is_the_exact_threshold_preimage_for_all_admitted_half_values(self):
+        session=ConversionSession(StringCompiler(),{'X1':Domain(-F(3,128),F(3,128),-24,False)},input_dtype='f16')
+        raw=syntax('X1*(0.5+X1*0.25)')
+        guard=quadratic_subnormal_guard(raw,session)
+        self.assertEqual(guard.count('X1'),1)
+        cases=0
+        for bits in range(65536):
+            x=struct.unpack('e',struct.pack('H',bits))[0]
+            if not abs(x)<=3/128:continue
+            shifted=F(x)+F(2)**-25
+            self.assertEqual(F(x+2**-25),shifted)
+            self.assertEqual(F((x+2**-25)**2),shifted**2)
+            expected=abs(struct.unpack('f',struct.pack('f',x*(0.5+x*0.25)))[0])<2**-14
+            self.assertEqual((x+2**-25)**2<2**-26,expected,(bits,x))
+            cases+=1
+        self.assertEqual(cases,19458)
+        untyped=ConversionSession(StringCompiler(),session.domains)
+        self.assertIsNone(quadratic_subnormal_guard(raw,untyped))
+        wide=ConversionSession(StringCompiler(),{'X1':Domain(-F(1,32),F(1,32),-24,False)},input_dtype='f16')
+        self.assertIsNone(quadratic_subnormal_guard(raw,wide))
+        for expression in ('X1*(0.5+X1*0.5)','X1*(0.5+X2*0.25)','X1*0.5'):
+            self.assertIsNone(quadratic_subnormal_guard(syntax(expression),session))
+        from unittest.mock import patch
+        with patch('direct_sympy_silu.quadratic_subnormal_guard',return_value=None):baseline=session.close('Silu16(X1)')
+        result=session.close('Silu16(X1)')
+        self.assertEqual(baseline.count('X1'),7)
+        self.assertEqual(result.count('X1'),6)
+        self.assertLess(len(result),len(baseline))
+        print('Quadratic Half threshold preimage: cases=19458 mismatches=0 sourceCopies=7->6')
 
     def test_activation_closes_a_previously_certified_literal_in_the_same_context(self):
         self.verify_emitted(F(3,64),21506,10000,100,previous=True)

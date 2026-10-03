@@ -1,0 +1,41 @@
+{
+  "same15ProducerRecordsBetweenModes": true,
+  "samePrevious15ProducerHashes": true,
+  "comparison": {
+    "sequential": {
+      "beforeSeconds": 280.081256681,
+      "afterSeconds": 156.12187730200003,
+      "timeReductionPercent": 44.25836303647558,
+      "beforeAggregateRSSBytes": 40446996480,
+      "afterAggregateRSSBytes": 13296148480,
+      "aggregateRSSReductionPercent": 67.12698188461384
+    },
+    "parallel": {
+      "beforeSeconds": 290.7005857260001,
+      "afterSeconds": 165.73872493199997,
+      "timeReductionPercent": 42.986449608251895,
+      "beforeAggregateRSSBytes": 40464420864,
+      "afterAggregateRSSBytes": 33184432128,
+      "aggregateRSSReductionPercent": 17.99108594799337
+    }
+  },
+  "parity": {
+    "sequential": {
+      "cases": 60,
+      "comparisons": 300,
+      "mismatches": 0,
+      "producerFilesEvaluated": 15,
+      "scope": "Full saved posterior normalization and completed gate/activation/up expressions, position 0; verification-only reuse of exact immutable earlier subtrees, not the final artifact or model coordinate parity",
+      "elapsedSeconds": 146.31393977599964
+    },
+    "parallel": {
+      "cases": 60,
+      "comparisons": 300,
+      "mismatches": 0,
+      "producerFilesEvaluated": 15,
+      "scope": "Full saved posterior normalization and completed gate/activation/up expressions, position 0; verification-only reuse of exact immutable earlier subtrees, not the final artifact or model coordinate parity",
+      "elapsedSeconds": 146.74276274400017
+    }
+  },
+  "coordinateComplete": false
+}

@@ -1,0 +1,74 @@
+[
+  {
+    "completedJobs": 4,
+    "completedBlocks": 2,
+    "completedPairMerges": 0,
+    "seededLanes": 2,
+    "maxWorkersAdmitted": 2,
+    "peakObservedRSSBytes": 1224437760,
+    "seconds": 0.06105733300000793
+  },
+  {
+    "completedJobs": 2,
+    "completedBlocks": 1,
+    "completedPairMerges": 0,
+    "seededLanes": 1,
+    "maxWorkersAdmitted": 1,
+    "peakObservedRSSBytes": 918974464,
+    "seconds": 0.05083042899968859
+  },
+  {
+    "completedJobs": 4,
+    "completedBlocks": 2,
+    "completedPairMerges": 0,
+    "seededLanes": 2,
+    "maxWorkersAdmitted": 2,
+    "peakObservedRSSBytes": 1336893440,
+    "seconds": 0.05816624799990677
+  },
+  {
+    "completedJobs": 2,
+    "completedBlocks": 1,
+    "completedPairMerges": 0,
+    "seededLanes": 1,
+    "maxWorkersAdmitted": 1,
+    "peakObservedRSSBytes": 982327296,
+    "seconds": 0.05061759499994878
+  },
+  {
+    "completedJobs": 4,
+    "completedBlocks": 2,
+    "completedPairMerges": 0,
+    "seededLanes": 2,
+    "maxWorkersAdmitted": 2,
+    "peakObservedRSSBytes": 1432899584,
+    "seconds": 0.07039281600009417
+  },
+  {
+    "completedJobs": 4,
+    "completedBlocks": 2,
+    "completedPairMerges": 0,
+    "seededLanes": 2,
+    "maxWorkersAdmitted": 2,
+    "peakObservedRSSBytes": 1464041472,
+    "seconds": 0.07469756699993013
+  },
+  {
+    "completedJobs": 4,
+    "completedBlocks": 2,
+    "completedPairMerges": 0,
+    "seededLanes": 2,
+    "maxWorkersAdmitted": 2,
+    "peakObservedRSSBytes": 4542414848,
+    "seconds": 3.0896697400003177
+  },
+  {
+    "completedJobs": 4,
+    "completedBlocks": 2,
+    "completedPairMerges": 0,
+    "seededLanes": 2,
+    "maxWorkersAdmitted": 2,
+    "peakObservedRSSBytes": 33184432128,
+    "seconds": 3.5832142139997814
+  }
+]

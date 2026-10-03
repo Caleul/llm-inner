@@ -38,3 +38,18 @@ passaram e o build terminou com sucesso. A regressão geral teve 599 testes:
 581 passaram, três foram pulados e as mesmas 15 falhas já mapeadas
 permaneceram. Não houve falhas novas; os arquivos ausentes dos exemplos
 legados e do contrato de tarefas continuam pendentes no baseline.
+
+## Medição posterior no Colab
+
+A composição antes da materialização manteve os mesmos 15 arquivos e o mesmo
+ponto de parada do ensaio anterior. Em uma nova sessão A100 com memória alta,
+a execução sequencial caiu de 280,081 para 156,122 s e o RSS amostrado caiu
+de 40.446.996.480 para 13.296.148.480 bytes. A execução paralela caiu de
+290,701 para 165,739 s; seu RSS agregado foi 33.184.432.128 bytes. Os dois
+modos tiveram 300 comparações em 60 entradas, sem divergências. A sessão,
+as versões e os relatórios estão em `colab/`. São medições entre sessões,
+com variabilidade do ambiente; não constituem um microbenchmark isolado.
+O paralelo continua mais lento e usa mais RSS agregado neste prefixo.
+
+A redução posterior da condição quadrática, em
+`../direct-sympy-quadratic-guard/`, tem identidade e artefato próprios.

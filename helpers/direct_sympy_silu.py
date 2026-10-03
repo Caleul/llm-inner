@@ -27,3 +27,23 @@ def expand(source,session):
         polynomial=f'{x} * (0.5 + {x} * (0.25 - {x} * {x} / 48.0))'
     template=f'R16(R32({polynomial}))'
     return session.compiler.substitute(template,x,source,session.domains)
+
+
+def quadratic_subnormal_guard(node,session):
+    """Exact preimage of the F32 normal threshold for the Half quadratic.
+
+    On Half x in [-3/128,3/128], x*(0.5+x*0.25) is increasing.
+    Positive x reaches the threshold at 2**-13; negative x remains below
+    it at -2**-13, and crosses at the next negative Half. The shifted
+    square tests exactly this discrete interval with one occurrence of x.
+    Its addition and square are exact F64 operations on this Half domain.
+    """
+    import ast
+    if not isinstance(node,ast.BinOp) or not isinstance(node.op,ast.Mult):return None
+    x=node.left;factor=node.right
+    if not isinstance(factor,ast.BinOp) or not isinstance(factor.op,ast.Add) or session.constant(factor.left)!=0.5:return None
+    term=factor.right
+    if not isinstance(term,ast.BinOp) or not isinstance(term.op,ast.Mult) or session.constant(term.right)!=0.25 or session.key(term.left)!=session.key(x):return None
+    bounds=session.bounds(x)
+    if session.value_kind(x)!='half' or bounds is None or bounds.minimum < -3/128 or bounds.maximum > 3/128:return None
+    return '('+ast.unparse(x)+' + 2**-25)**2 < 2**-26'

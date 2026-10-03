@@ -1,0 +1,9 @@
+{
+  "path": "artifacts/direct-sympy-quadratic-guard/activation.expr",
+  "characters": 6913579521,
+  "sha256": "0c23d581d09ba4a9b33c073801d10fc1dc636e4cf59050a3a904e624336a351f",
+  "compressedPath": "artifacts/direct-sympy-quadratic-guard/activation.expr.gz",
+  "compressedBytes": 147062682,
+  "sourceBytesVerified": true,
+  "coordinateComplete": false
+}

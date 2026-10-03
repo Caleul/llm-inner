@@ -728,7 +728,9 @@ class ConversionSession:
                             raw=self.visit(raw)
                             sign=session.same_sign_operand(raw)
                             sign_expression=None if sign is raw else ast.unparse(sign)
-                            text=lower_tandem(ast.unparse(raw),certificate,session.compiler,session.domains,integer_word_exact=session.encoded_word_is_exact_integer(raw),sign_expression=sign_expression)
+                            from direct_sympy_silu import quadratic_subnormal_guard
+                            condition=quadratic_subnormal_guard(raw,session)
+                            text=lower_tandem(ast.unparse(raw),certificate,session.compiler,session.domains,integer_word_exact=session.encoded_word_is_exact_integer(raw),sign_expression=sign_expression,small_condition=condition)
                             rewritten=syntax(text);session.closed+=2
                             if before is not None:
                                 key=session.key(rewritten);session.completed[key]=before
