@@ -16,6 +16,8 @@ class BoundedSiluTests(unittest.TestCase):
         session=ConversionSession(StringCompiler(),{'X1':Domain(F(-1,16),F(1,16),-24,False)},input_dtype='f16')
         result=session.close('Silu16(X1)')
         self.assertEqual(session.activations_closed,1)
+        self.assertLessEqual(len(result),1000)
+        self.assertLessEqual(result.count("X1"),24)
         for primitive in ('R16(','R32(','Silu16(','exp(','sqrt(','CASNumericRegion'):
             self.assertNotIn(primitive,result)
         pairs=[];values=[]

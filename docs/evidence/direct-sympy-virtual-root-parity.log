@@ -1,0 +1,16 @@
+{"producer": "model.layers.0.pre:inverse", "characters": 5210, "validationEnvelopeCharacters": 5210, "sha256": "a2a26469b3e911647359354fcce3d74719a0b20a98e056ea583a6b470fd65839"}
+{"producer": "model.layers.0.pre:0", "characters": 21202, "validationEnvelopeCharacters": 426, "sha256": "c2217d61c1cc1732a7383877f9091e92c9076407e259eb055cadebd0a3eca2ab"}
+{"producer": "model.layers.0.pre:1", "characters": 21202, "validationEnvelopeCharacters": 426, "sha256": "4b088b2e746a0cea5c389ae8fdd65ba5812d9c2f760c2103847b1979c1bf7697"}
+{"producer": "model.layers.0.v:0", "characters": 170210, "validationEnvelopeCharacters": 722, "sha256": "b2636eff595ba94f96ef1f856b482945dd3b96878b4360cc88253e9815dceba8"}
+{"producer": "model.layers.0.context:0", "characters": 170216, "validationEnvelopeCharacters": 22, "sha256": "d78b8480e9086720e4bd842ffacd8c418e0fff0aaed2ea014d42401b2b07f863"}
+{"producer": "model.layers.0.v:1", "characters": 170198, "validationEnvelopeCharacters": 710, "sha256": "885f5eb4236f3b940e9e16017f9569726415da4cc04f9b07e2d81560131f7e3b"}
+{"producer": "model.layers.0.context:1", "characters": 170204, "validationEnvelopeCharacters": 22, "sha256": "1d50b21810ae985a9f64db1e26fde35fdb36052e2b8ea384907cc10c200e0c7c"}
+{"producer": "model.layers.0.residual:0", "characters": 1362336, "validationEnvelopeCharacters": 832, "sha256": "140df710a27d5efc952b32816baa227c872368fc8b7a4b3ee09d5591294786f3"}
+{"producer": "model.layers.0.residual:1", "characters": 1362344, "validationEnvelopeCharacters": 840, "sha256": "1bb4ccf96277d36d1c10f56357fec23bb761f487876df5e776822d15be32dbea"}
+{"producer": "model.layers.0.post:inverse", "characters": 70846786, "validationEnvelopeCharacters": 5938, "sha256": "059881a1148067cc2efba1af77d5b9298c84eb644be049b5da04b3b16b448c3a"}
+{"producer": "model.layers.0.post:0", "characters": 288836842, "validationEnvelopeCharacters": 482, "sha256": "8710462edb9df1b6148d73932fa1889811f4062d4574f0fe44eada76dc00047f"}
+{"producer": "model.layers.0.post:1", "characters": 288836874, "validationEnvelopeCharacters": 482, "sha256": "823f022d2230a39adc2a5ef8270723b9e78fb7d4775f69f86c829c5d8f78ea0d"}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 15601.87it/s]
+{"cases": 60, "comparisons": 120, "mismatches": 0, "producerFilesEvaluated": 12, "scope": "Full saved posterior normalization expressions, both required intermediate coordinates, position 0; verification-only reuse of exact immutable earlier subtrees, not the final artifact or model coordinate parity", "elapsedSeconds": 11.315135542012285}

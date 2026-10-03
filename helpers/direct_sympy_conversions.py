@@ -146,6 +146,7 @@ class ConversionSession:
         if len(expression)>4*self.compiler.max_characters:return
         self.closed_literals[expression]=(self.bounds(node),self.value_kind(node),self.no_negative_zero(node))
         self.closed_literal_characters+=len(expression)
+        self.compiler.register_completed_region(expression,self.domains,node,word_closed=True)
         self.closed_literal_keys[expression]=self.key(node)
         from direct_sympy_synchronize import GUARD_PURE
         self.closed_literal_pure[expression]=all(not isinstance(child,ast.Call) or child.func.id in GUARD_PURE for child in ast.walk(node))
@@ -199,7 +200,7 @@ class ConversionSession:
         if kind in ('half','f32'):self.f32_values.add(original)
         if positive_zero:self.no_negative_zero_values.add(original)
         from direct_sympy_synchronize import GUARD_PURE
-        pure=all(not isinstance(child,ast.Call) or child.func.id in GUARD_PURE for child in ast.walk(node)) and all(restored_purity[text] for text in regions.values())
+        pure=all(not isinstance(child,ast.Call) or child.func.id in GUARD_PURE or self.key(child) in replacements for child in ast.walk(node)) and all(restored_purity[text] for text in regions.values())
         if not closed:return original,pure
         self.converted_regions.add(original)
         if expression in self.closed_literals:return original,pure
@@ -502,13 +503,20 @@ class ConversionSession:
             if re.search(r"\bCASNumericRegion[0-9]+\b",result):raise ValueError("Numeric placeholder escaped restoration")
             # The virtual fixed point must retain its proof on the restored
             # whole root. Never infer a dtype from mere textual expansion.
-            node=syntax(result);key=self.key(node)
-            if original in self.completed:self.completed[key]=self.completed[original]
-            if original in self.half_values:self.half_values.add(key)
-            if original in self.f32_values:self.f32_values.add(key)
-            if original in self.no_negative_zero_values:self.no_negative_zero_values.add(key)
-            if original in self.converted_regions:self.converted_regions.add(key)
-            self.remember_closed_literal(result,node)
+            if original in self.converted_regions:
+                literals={token+'()':text for token,text in protected.items()}
+                self.restore_compact_literal(result,virtual,literals,self.bounds(virtual),self.value_kind(virtual),self.no_negative_zero(virtual),True,self.closed_literal_keys.copy(),self.closed_literal_pure.copy())
+                # Root shape is unchanged by restoration. Whole-placeholder
+                # roots already denote a previously registered literal.
+                if isinstance(virtual,ast.Call) and virtual.func.id not in protected:
+                    self.compiler.register_completed_region(result,self.domains,virtual,word_closed=True)
+            else:
+                node=syntax(result);key=self.key(node)
+                if original in self.completed:self.completed[key]=self.completed[original]
+                if original in self.half_values:self.half_values.add(key)
+                if original in self.f32_values:self.f32_values.add(key)
+                if original in self.no_negative_zero_values:self.no_negative_zero_values.add(key)
+                self.remember_closed_literal(result,node)
             return result
         return self._close(expression)
 

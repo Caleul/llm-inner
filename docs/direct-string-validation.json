@@ -7848,5 +7848,125 @@
       "docs/evidence/direct-sympy-query-substitutions.tsv": "f73fd938b41c556506685fde7a874459408f262c32cfa181168996080ad84f42",
       "docs/evidence/direct-sympy-query-synchronization.tsv": "ab8803e0484feb67a9d3da7b6429ed902306eb0e39d6b25d48bfb05bb8b6304f"
     }
+  },
+  "closedEnvelopeAndQuarticSiluValidation": {
+    "date": "2026-10-03",
+    "format": "mathematical strings; JSON only validation/savepoint metadata",
+    "changes": [
+      "Register immutable closed roots while their AST is already available; compose restored structural signatures and proofs without parsing the expanded envelope",
+      "Use certified ordered quartic/F32/Half SiLU kernel only on typed Half within [-1/16,1/16]"
+    ],
+    "build": {
+      "command": "npm run build",
+      "passed": true
+    },
+    "directed": {
+      "nodeTests": 6,
+      "passed": 6,
+      "pythonConversions": 27,
+      "newTest": "Restored literal has exact original structural key, bounds, dtype and zero proof without parsing the expanded result; no compiler placeholders emitted"
+    },
+    "regression": {
+      "tests": 597,
+      "pass": 579,
+      "fail": 15,
+      "skip": 3,
+      "newFailingNames": [],
+      "baseline": "docs/evidence/direct-sympy-query-regression.log",
+      "excluded": "Four JSON legacy model tests; unchanged exclusion",
+      "ordering": "Global suite ran before the new conversion test was added; build and six directed wrappers reran after the new test/count update"
+    },
+    "silu": {
+      "previousCharacters": 7218,
+      "characters": 683,
+      "previousInputReferences": 140,
+      "inputReferences": 24,
+      "nativeEmittedKernelCases": 22530,
+      "mismatches": 0,
+      "scalarAndVectorReference": "Torch CPU Half",
+      "preservedF32Boundary": true,
+      "outsideCertifiedDomain": "No polynomial admission"
+    },
+    "frontier": {
+      "completedDependencies": 12,
+      "position": 0,
+      "outputDimension": 2,
+      "previousTenProofRecordsAndBytesIdentical": true,
+      "sourceHashesVerified": 13,
+      "initialCharacterBudget": 402653184,
+      "resumedCharacterBudget": 1073741824,
+      "resumeRestoredDependencies": 12,
+      "nextClosedEnvelopePredictedCharacters": 2310695466,
+      "rejectedBeforeAllocation": true,
+      "expressions": [
+        {
+          "bounds": [
+            "-0x1.6a00000000000p+1",
+            "0x1.6a00000000000p+1",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 288836842,
+          "digest": "8710462edb9df1b6148d73932fa1889811f4062d4574f0fe44eada76dc00047f",
+          "kind": "half",
+          "name": "model.layers.0.post:0",
+          "noNegativeZero": false,
+          "path": "artifacts/direct-sympy-virtual-root-frontier/objects/8710462edb9df1b6148d73932fa1889811f4062d4574f0fe44eada76dc00047f.expr"
+        },
+        {
+          "bounds": [
+            "-0x1.6a00000000000p+1",
+            "0x1.6a00000000000p+1",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 288836874,
+          "digest": "823f022d2230a39adc2a5ef8270723b9e78fb7d4775f69f86c829c5d8f78ea0d",
+          "kind": "half",
+          "name": "model.layers.0.post:1",
+          "noNegativeZero": false,
+          "path": "artifacts/direct-sympy-virtual-root-frontier/objects/823f022d2230a39adc2a5ef8270723b9e78fb7d4775f69f86c829c5d8f78ea0d.expr"
+        }
+      ]
+    },
+    "parity": {
+      "cases": 60,
+      "lengths": [
+        1,
+        2,
+        3,
+        4,
+        8
+      ],
+      "comparisons": 120,
+      "mismatches": 0,
+      "producerFilesEvaluated": 12,
+      "method": "Read actual immutable expanded strings, verify hashes, then verification-only evaluation with reuse of exact earlier literal subtrees; compare both position-zero posterior normalization components against a fresh Torch forward",
+      "scope": "Intermediate posterior normalization only; not final output coordinate"
+    },
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "otherOutputCoordinatesAdvanced": false,
+    "remaining": "Gate/up expansion predicts 2.31 billion characters. Continue simplification and fidelity validation before MLP/down/final norm/head; full output coordinate and vector remain pending.",
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-virtual-root-budget-simplifications.tsv": "8fee5951ef5ad32f2c0721fd74f507df052b97dff14fc4a1b2ced4ca0094677b",
+      "docs/evidence/direct-sympy-virtual-root-build.log": "a408d94a3fffc856dc5364f9d4b4ab56fde09205ec19cae0976763ea611ad3df",
+      "docs/evidence/direct-sympy-virtual-root-compile.log": "00b8a6bfd459aa23f457265ec01faf17aa2ade314914d30a21bfa3720c31d86a",
+      "docs/evidence/direct-sympy-virtual-root-conditions.tsv": "b6ee16d6ca63ca7fb01f3c9befb3af644973b7e4b685f880f65494504c561ada",
+      "docs/evidence/direct-sympy-virtual-root-conversions.log": "f2cdb15e317f186d8180e000ff581ce1c032cd862a14ed94314db58e5e9c83a9",
+      "docs/evidence/direct-sympy-virtual-root-directed.log": "bd63fcc054fe15a1405591102c85a019eb77fd7e10b4d8e8cfcdf1f5a7dd86f8",
+      "docs/evidence/direct-sympy-virtual-root-frontier.json": "bfb34abb6b3c7198ccb6495e46948037de0f403c5b73cd5076b109a0c2f8cd6f",
+      "docs/evidence/direct-sympy-virtual-root-growth.tsv": "987670afae6979e271c16ddc3d8eeb85f72c5ce3fb55f060c559569cc2b473c8",
+      "docs/evidence/direct-sympy-virtual-root-numeric-envelopes.tsv": "82a6ebdbe5f05f77aa373c881053868267f503b122175bd0cd4f295c14b6828e",
+      "docs/evidence/direct-sympy-virtual-root-parity.log": "4385cf7d013e9822eae01eb6ed1db9ffcc9130dc8037a9d4dbbbe2c9973bdfca",
+      "docs/evidence/direct-sympy-virtual-root-parity.py.work": "626aaa66ccfef88ce8b4b80ae44bb1ef1e2a178878aa0fe4ebb7d6def168e9ef",
+      "docs/evidence/direct-sympy-virtual-root-regression.log": "335d8d8cc0625997dad15b1c3dcc87eae12591b395d847a055892d38a8f30634",
+      "docs/evidence/direct-sympy-virtual-root-resume.log": "42ae076bd298f9715bfb5c423454e0d2407e513366822c4c240fc7b3d1f075d7",
+      "docs/evidence/direct-sympy-virtual-root-silu-size.log": "f603d295b167586a163f38579ae53ad0bd07f38871d4fd45ca159f03dd7fd9b2",
+      "docs/evidence/direct-sympy-virtual-root-silu.log": "bea35c151f005c6fb4444bf7915dc40afb8c4ac41aac8848ad1845538fb0d93a",
+      "docs/evidence/direct-sympy-virtual-root-status.md": "904067214bb1f7667acdb91ba17c98704650f5baf6c205a80107b8ce5e4f6b65",
+      "docs/evidence/direct-sympy-virtual-root-substitutions.tsv": "fa48a5a49871f5a909d7dbb8bb44945fa35706f78e8ca613ebd8fbcb35b1f709",
+      "docs/evidence/direct-sympy-virtual-root-synchronization.tsv": "1418e082a78395d3bb959462085f14c8e8efbdc3389071ee75e6bfb8a408af86"
+    }
   }
 }

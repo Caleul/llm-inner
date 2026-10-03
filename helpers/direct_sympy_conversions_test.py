@@ -54,6 +54,22 @@ def cpp(node):
 
 
 class ConversionStringTests(unittest.TestCase):
+    def test_closed_envelope_restores_exact_proofs_without_parsing_expanded_result(self):
+        domains={"X1":Domain(F(-1),F(1),-24,False)}
+        session=ConversionSession(StringCompiler(),domains,input_dtype="f16")
+        first=session.close("R16(R32(X1+X1/2.0))")
+        with patch("direct_sympy_conversions.syntax",wraps=syntax) as parse:
+            result=session.close("R16(R32(("+first+") * 0.75))")
+        self.assertLess(max(len(call.args[0]) for call in parse.call_args_list),len(result))
+        actual=syntax(result)
+        self.assertEqual(session.closed_literal_keys[result],session.key(actual))
+        self.assertEqual(session.closed_literals[result],(session.bounds(actual),"half",session.no_negative_zero(actual)))
+        self.assertTrue(session.closed_literal_pure[result])
+        self.assertIn(first,result)
+        self.assertIn("X1",result)
+        for placeholder in ("CASNumericRegion","CASRegion","R16(","R32("):
+            self.assertNotIn(placeholder,result)
+
     def test_readonly_queries_compose_literal_keys_without_reopening_closed_subtrees(self):
         domains={"X1":Domain(F(-1),F(1),-24,False),"X2":Domain(F(-8),F(8),-24,False)}
         compiler=StringCompiler();session=ConversionSession(compiler,domains,input_dtype="f16")
@@ -577,6 +593,10 @@ std::printf("Native Half squares: %u, mismatches=0\\n",count);}
         first=[session.close("R16(X1+X2)") for session in sessions]
         self.assertEqual(*first)
         sessions[1].converted_regions.clear()
+        # Disable every completed-literal cache for the cold control. Merely
+        # clearing converted keys now leaves certified root/literal reuse live.
+        sessions[1].closed_literals.clear();sessions[1].closed_literal_keys.clear();sessions[1].closed_literal_pure.clear();sessions[1].closed_literal_characters=0
+        sessions[1].compiler._regions.clear();sessions[1].compiler._region_roots.clear();sessions[1].compiler._region_characters=0
         visited=[session.visited_nodes for session in sessions]
         results=[session.close("R32("+expression+")") for session,expression in zip(sessions,first)]
         self.assertEqual(*results)
