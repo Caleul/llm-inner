@@ -1,0 +1,15 @@
+# Progresso da compilação com arredondamento de palavras
+
+O formato da expressão é string matemática compatível com SymPy. JSON armazena somente configuração e provas. O processo mantém `factor()` e `simplify()` após cada substituição, com admissão independente por equivalência IEEE e contexto próprio de cada bifurcação.
+
+A nova regra usa conversões **numéricas** UInt64/F64 e adições em grades fixas. Ela só substitui o cálculo antigo quando a precisão admitida preserva a palavra na região normal utilizada. O `factor()` não pode cancelar as adições de offset, que arredondam efetivamente em F64. A passagem F32 e a passagem Half permanecem ordenadas; sinal, subnormais e overflow preservam caminhos próprios. As regiões não admitidas usam a implementação anterior. A regra não estende a conversão exata de palavra a subnormais F64 negativos arbitrários.
+
+A redução medida foi de 8.395.470 para 1.362.336 caracteres no residual 0. A inversa posterior, anteriormente estimada em 436.570.118, foi efetivamente salva com 70.846.786 caracteres. O primeiro limite de 64 MiB impediu sua alocação; a retomada compatível com 96 MiB concluiu a décima dependência, antes do limite de 600 segundos. O arquivo integral está em `artifacts/direct-sympy-offset-frontier/objects/059881a1148067cc2efba1af77d5b9298c84eb644be049b5da04b3b16b448c3a.expr`. É um intermediário, não a coordenada final.
+
+Os dez arquivos imutáveis foram conferidos por comprimento e SHA-256, junto à identidade atual dos treze helpers. O residual salvo foi relido e comparado com sessenta execuções novas do Torch. A inversa salva foi relida e comparada, também em sessenta entradas, com a sequência F32 declarada pelo compilador aplicada aos residuais capturados no Torch. Ambos tiveram zero divergências; a segunda prova não afirma igualdade de um inverso interno de `torch.rsqrt` nem paridade final do modelo.
+
+Validação: build passou; 25 testes de conversão passaram, incluindo 1.152.322 casos nativos novos de fronteira, sinal e arredondamento duplo com zero divergências e zero perdas na conversão inteira. Os seis testes direcionados passaram na regressão atual. A regressão executou 597 testes: 579 passaram, 15 falharam e 3 foram ignorados. Os quinze nomes de falha coincidem com a base registrada; os quatro testes do compilador JSON legado continuam excluídos, conforme mapa existente.
+
+Permanece pendente a coordenada final da posição 0/dimensão 2 e sua paridade integral; nenhuma outra dimensão foi avançada. O próximo ponto de expansão é a normalização posterior. O custo de reanalisar literais já fechados de dezenas de milhões de caracteres também precisa ser reduzido, sem introduzir variáveis intermediárias no artefato final.
+
+Uma segunda retomada restaurou as dez dependências, mas consumiu o orçamento de 300 segundos antes de fechar uma nova conversão. O tratamento do sinal foi adiado por uma operação longa do parser. Esse resultado identifica a reanálise de literais fechados como custo efetivo, sem produzir avanço adicional. O teste de conversões também verifica que subnormais F64 negativos não entram no novo kernel numérico.

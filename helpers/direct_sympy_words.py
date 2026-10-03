@@ -21,7 +21,7 @@ def word_width(node,widths=None):
     if value is not None:return value.bit_length()
     if not isinstance(node,ast.Call):return None
     name=node.func.id
-    if name=="Bits64" and len(node.args)==1:return 64
+    if name in ("Bits64","U64FromF64") and len(node.args)==1:return 64
     if len(node.args)!=2:return None
     a,b=node.args
     if name=="U64Shr":
@@ -40,7 +40,7 @@ def float_source(node,domains,floats=()):
     if isinstance(node,ast.Constant):return type(node.value) is float
     if isinstance(node,ast.UnaryOp) and isinstance(node.op,(ast.UAdd,ast.USub)):return float_source(node.operand,domains,floats)
     if isinstance(node,ast.Call):
-        return node.func.id in ("Float64","R16","R32","sqrt","Silu16") and len(node.args)==1
+        return node.func.id in ("Float64","F64FromU64","R16","R32","sqrt","Silu16") and len(node.args)==1
     return False
 
 
@@ -101,7 +101,7 @@ def simplify_words(expression,compiler,domains):
         root=compiler._region_roots.get((compiler.context(domains),text))
         if root is None:continue
         function,width=root
-        if function in ("Float64","R16","R32","sqrt","Silu16"):floats.add(name)
+        if function in ("Float64","F64FromU64","R16","R32","sqrt","Silu16"):floats.add(name)
         if function=="Float64" and width is not None:
             payload="CASWordPayload"+str(len(payloads))
             payloads[payload]=text[text.index('(')+1:-1];widths[payload]=width

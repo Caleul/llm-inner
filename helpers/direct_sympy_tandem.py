@@ -10,7 +10,7 @@ def supported(certificate):
     return certificate is not None and certificate.quantum is not None and certificate.quantum>=-126 and max(abs(certificate.minimum),abs(certificate.maximum))<2**128-2**103
 
 
-def lower_tandem(source,certificate,compiler,domains):
+def lower_tandem(source,certificate,compiler,domains,*,integer_word_exact=False):
     if not supported(certificate):raise ValueError("Tandem conversion requires finite normal-or-zero F32 source")
     source=compiler.stabilize("("+source+")",domains)
     raw="Bits64(X999999997)"
@@ -26,6 +26,14 @@ def lower_tandem(source,certificate,compiler,domains):
     normal=f"Float64(U64And(U64Add({raw}, U64Add({bias}, U64Mul({parity}, {extra}))), 18446739675663040512))"
     odd32=f"U64And(U64Shr({mag}, 29), 1)"
     rounded32=f"U64And(U64Add({mag}, U64Add(268435455, {odd32})), 18446744073172680704)"
+    if integer_word_exact:
+        # Exact UInt64 -> F64 admission comes from the source's significand
+        # certificate. Fixed offsets round the word on 2**29 and 2**42 grids
+        # in that order; the subtractions are exact by Sterbenz.
+        numeric=f"F64FromU64({raw})"
+        rounded_numeric=f"(({numeric} + 2**81) - 2**81)"
+        normal=f"Float64(U64FromF64(({rounded_numeric} + 2**94) - 2**94))"
+        rounded32=f"U64And(U64FromF64({rounded_numeric}), 9223372036854775807)"
     sub=f"Float64(U64Or(Bits64((Float64({rounded32}) + 2**28) - 2**28), {sign}))"
     infinity=f"Float64(U64Or(9218868437227405312, {sign}))"
     # Thresholds are preimages of representable F32 values, with even ties.

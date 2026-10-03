@@ -43,6 +43,8 @@ def cpp(node):
             for pair in reversed(node.args):result="("+cpp(pair.elts[1])+" ? "+cpp(pair.elts[0])+" : "+result+")"
             return result
         args=[cpp(x) for x in node.args]
+        if name=="F64FromU64":return "double(uint64_t("+args[0]+"))"
+        if name=="U64FromF64":return "uint64_t(double("+args[0]+"))"
         if name=="Bits64":return "word<uint64_t>(double("+args[0]+"))"
         if name=="Float64":return "word<double>(uint64_t("+args[0]+"))"
         if name=="sqrt":return "std::sqrt(double("+args[0]+"))"
@@ -52,6 +54,45 @@ def cpp(node):
 
 
 class ConversionStringTests(unittest.TestCase):
+    def test_integer_offset_composition_preserves_half_cells_and_rejects_inexact_words(self):
+        domains={"X1":Domain(F(-262144),F(262144),-126,False)}
+        compiler=StringCompiler()
+        expression=lower_tandem("X1",FiniteSource(-262144,262144,-126),compiler,domains,integer_word_exact=True)
+        self.assertEqual(expression.count("X1"),6)  # Includes explicit overflow guards/arms.
+        known=ConversionSession(StringCompiler(),{"X1":Domain(F(-65504),F(65504),-24,False),"X2":Domain(F(-2),F(2),-149,False)},input_dtype="f16")
+        known.half_values.discard(known.key(syntax("X2")));known.f32_values.add(known.key(syntax("X2")))
+        self.assertTrue(known.encoded_word_is_exact_integer(syntax("X1*X2")))
+        self.assertTrue(known.encoded_word_is_exact_integer(syntax("X1+X1")))
+        unknown=ConversionSession(StringCompiler(),domains)
+        self.assertFalse(unknown.encoded_word_is_exact_integer(syntax("X1")))
+        unknown.f32_values.add(unknown.key(syntax("X1")))
+        self.assertTrue(unknown.encoded_word_is_exact_integer(syntax("X1")))
+        # Precision admission is scoped to normal words. A signed F64
+        # subnormal must retain its target-subnormal kernel, where interpreting
+        # the signed raw word as a numeric F64 could lose low integer bits.
+        tiny=2.0**-1074
+        tiny_domains={"X1":Domain(F(-tiny),F(tiny),-1074,False)}
+        tiny_kernel=lower_finite_conversion("X1","R32",FiniteSource(-tiny,tiny,-1074),StringCompiler(),tiny_domains,integer_word_exact=True)
+        self.assertNotIn("F64FromU64",tiny_kernel)
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/"offset.work.expr";path.write_text(expression+"\n")
+            source=Path(directory)/"offset.cpp";binary=Path(directory)/"offset"
+            source.write_text("#include <cstdint>\n#include <cstring>\n#include <cmath>\n#include <cstdio>\n#include <cfenv>\n#include <initializer_list>\ntemplate<class T,class U>T word(U value){T result;std::memcpy(&result,&value,sizeof(result));return result;}\n"+"double compiled(double X1){return "+cpp(syntax(path.read_text()))+";}\n"+'''
+int main(){if(std::fesetround(FE_TONEAREST))return 2;unsigned cases=0,mismatches=0,integerLoss=0;
+auto check=[&](double x){uint64_t raw=word<uint64_t>(x);integerLoss+=uint64_t(double(raw))!=raw;double expected=static_cast<_Float16>(float(x));double actual=compiled(x);mismatches+=word<uint64_t>(actual)!=word<uint64_t>(expected);cases++;};
+for(unsigned h=0;h<0x7c00;h++){double low=word<_Float16>(uint16_t(h)),high=h==0x7bff?65536:double(word<_Float16>(uint16_t(h+1)));double midpoint=(low+high)/2;
+int e=std::ilogb(midpoint);double fuzz=std::ldexp(1.0,e-24);uint64_t center=word<uint64_t>(midpoint);
+for(int side:{-1,0,1}){uint64_t edge=word<uint64_t>(midpoint+side*fuzz);for(int delta:{-4096,-2048,0,2048,4096}){double x=word<double>(uint64_t(int64_t(edge)+delta));check(x);check(-x);}}
+}check(0.0);check(-0.0);uint64_t random=123456789;
+for(unsigned j=0;j<100000;j++){random^=random<<13;random^=random>>7;random^=random<<17;unsigned exponent=963+(j%78);uint64_t raw=(uint64_t(exponent)<<52)|(random&UINT64_C(4503599627368448));double x=word<double>(raw);check(x);check(-x);}
+std::printf("Integer offset tandem parity: cases=%u mismatches=%u integerCastLoss=%u\\n",cases,mismatches,integerLoss);return mismatches||integerLoss;}
+''')
+            built=subprocess.run(["clang++","-O3","-ffp-contract=off","-std=c++17",str(source),"-o",str(binary)],capture_output=True,text=True)
+            self.assertEqual(built.returncode,0,built.stderr)
+            result=subprocess.run([str(binary)],capture_output=True,text=True,timeout=120)
+            self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+            self.assertIn("mismatches=0 integerCastLoss=0",result.stdout);print(result.stdout,end="")
+
     def test_half_cell_elision_is_strict_typed_and_native_exact(self):
         domains={"X1":Domain(F(64),F(65504),-4,False),"X2":Domain(F(-1,128),F(1,128),-24,False)}
         session=ConversionSession(StringCompiler(),domains,input_dtype="f16")

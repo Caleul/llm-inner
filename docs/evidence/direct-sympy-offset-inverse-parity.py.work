@@ -1,0 +1,48 @@
+import ast,hashlib,json,struct,sys,time,math
+from pathlib import Path
+import torch
+from transformers import AutoModelForCausalLM
+sys.path.insert(0,'helpers')
+from direct_sympy_strings import syntax
+started=time.monotonic()
+state=Path('artifacts/direct-sympy-offset-frontier')
+manifest=json.loads((state/'frontier.json').read_text())['payload']
+for name,digest in manifest['identity']['sources'].items():
+ assert hashlib.sha256(Path('helpers',name).read_bytes()).hexdigest()==digest,name
+record=next(r for r in manifest['records'] if r['name']=='model.layers.0.post:inverse')
+path=state/'objects'/(record['digest']+'.expr');text=path.read_text()
+assert hashlib.sha256(path.read_bytes()).hexdigest()==record['digest']
+assert record['kind']=='f32' and record['castsClosed']
+assert not any(name in text for name in ('R16(','R32(','sqrt(','Silu16(','CASNumericRegion','CASStableRegion'))
+class LazyBranches(ast.NodeTransformer):
+ def visit_Call(self,node):
+  node=self.generic_visit(node)
+  if node.func.id!='Piecewise':return node
+  result=ast.Constant(value=0)
+  for pair in reversed(node.args):result=ast.IfExp(test=pair.elts[1],body=pair.elts[0],orelse=result)
+  return result
+print('Parsing saved inverse expression',flush=True)
+program=compile(ast.fix_missing_locations(ast.Expression(LazyBranches().visit(syntax(text)))),str(path),'eval')
+del text
+print('Saved expression compiled for parity evaluation',flush=True)
+MASK=2**64-1
+functions={'F64FromU64':lambda x:float(x),'U64FromF64':lambda x:int(x),'Bits64':lambda x:struct.unpack('Q',struct.pack('d',float(x)))[0], 'Float64':lambda x:struct.unpack('d',struct.pack('Q',x))[0], 'U64Add':lambda a,b:(a+b)&MASK, 'U64Mul':lambda a,b:(a*b)&MASK,'U64And':lambda a,b:a&b,'U64Or':lambda a,b:a|b,'U64Shr':lambda a,b:a>>b,'And':lambda *x:all(x),'Or':lambda *x:any(x),'Not':lambda x:not x}
+torch.set_num_threads(1)
+model=AutoModelForCausalLM.from_pretrained('docs/evidence/direct-sympy-test-checkpoint',dtype=torch.float16,attn_implementation='eager').eval()
+observed=[]
+def hook(module,args):observed.append(args[0].detach().clone())
+handle=model.model.layers[0].post_attention_layernorm.register_forward_pre_hook(hook)
+cases=json.loads(Path('docs/evidence/direct-sympy-offset-inputs.json').read_text())['cases'];compared=0
+for row in cases:
+ matrix=torch.tensor([[struct.unpack('e',struct.pack('H',v))[0] for v in values] for values in row['inputBits']],dtype=torch.float16)
+ observed.clear()
+ with torch.inference_mode():model(inputs_embeds=matrix.unsqueeze(0),use_cache=False)
+ a,b=map(float,observed[0][0,0]); f32=lambda x:struct.unpack('f',struct.pack('f',x))[0]
+ variance=f32(f32(f32(a*a)+f32(b*b))/2.0)
+ shifted=f32(variance+f32(1e-6))
+ expected=f32(1.0/f32(math.sqrt(shifted)));values={f'X{i+1}':float(v) for i,v in enumerate(matrix[0])}
+ actual=eval(program,{'__builtins__':{},**functions},values)
+ assert struct.pack('d',actual)==struct.pack('d',expected),(row['label'],actual,expected)
+ compared+=1
+handle.remove()
+print(json.dumps({'artifact':str(path),'sha256':record['digest'],'characters':record['characters'],'cases':compared,'mismatches':0,'scope':'position=0 post inverse, declared ordered F32 RMS semantics on freshly captured Torch residuals; not final coordinate or last-token parity','elapsedSeconds':time.monotonic()-started}))

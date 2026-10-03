@@ -1,0 +1,6 @@
+Parsing saved inverse expression
+Saved expression compiled for parity evaluation
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 20197.29it/s]
+{"artifact": "artifacts/direct-sympy-offset-frontier/objects/059881a1148067cc2efba1af77d5b9298c84eb644be049b5da04b3b16b448c3a.expr", "sha256": "059881a1148067cc2efba1af77d5b9298c84eb644be049b5da04b3b16b448c3a", "characters": 70846786, "cases": 60, "mismatches": 0, "scope": "position=0 post inverse, declared ordered F32 RMS semantics on freshly captured Torch residuals; not final coordinate or last-token parity", "elapsedSeconds": 104.87546358301188}

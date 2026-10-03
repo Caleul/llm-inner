@@ -7065,5 +7065,295 @@
       "docs/evidence/direct-sympy-purity-substitutions.tsv": "d9170daedd71268a6e4a07db56b3f636f153ea085af28988fd66a721ed781272",
       "docs/evidence/direct-sympy-purity-synchronization.tsv": "e00dab3eed2648c656df497dd5380bb4181b1d6271f5723ef7373783a565c576"
     }
+  },
+  "offsetWordRoundingValidation": {
+    "baseCommit": "b63c2e9",
+    "expressionFormat": "SymPy-compatible mathematical strings; JSON only for evidence/config/savepoint metadata",
+    "strategy": "Round admitted unsigned IEEE words on fixed F64 integer grids, preserving the ordered F32 and Half boundaries, signs, subnormal and overflow paths. Mandatory factor/simplify and independent IEEE admission remain unchanged.",
+    "castDefinitions": {
+      "F64FromU64": "Numeric UInt64 -> F64 conversion, not bit reinterpretation",
+      "U64FromF64": "Numeric F64 -> UInt64 conversion on generated nonnegative whole integers below 2**64",
+      "Bits64/Float64": "IEEE F64 bit reinterpretation"
+    },
+    "fixedGrids": {
+      "F32": "((F64FromU64(raw) + 2**81) - 2**81)",
+      "Half": "((numeric + 2**94) - 2**94)"
+    },
+    "certificate": {
+      "precisionBitsAtMost": 42,
+      "normalRawWordTrailingZeroBitsAtLeast": 11,
+      "scope": "Normal-F64 word branches only. IEEE target-normal-or-zero proofs admit those branches; the generic target-subnormal branch retains its original kernel. Tandem admission requires quantum >= -126, so every nonzero source is normal F64. The precision classifier is not an unconditional UInt64 conversion certificate for arbitrary negative F64 subnormals.",
+      "typedSources": [
+        "Half",
+        "F32",
+        "Half*F32",
+        "Half*Half",
+        "known bounded dyadic sources with <=42 significant bits"
+      ],
+      "unknownFullPrecisionSource": "Retains the existing word-parity implementation",
+      "doubleRounding": "The F32 grid is rounded before the Half grid; neither boundary is dropped",
+      "cancellation": "The offset addition rounds in F64; algebraic cancellation is forbidden"
+    },
+    "growth": {
+      "preCoordinate0": {
+        "before": 31727,
+        "after": 21202
+      },
+      "valueCoordinate0": {
+        "before": 381539,
+        "after": 170210
+      },
+      "residualCoordinate0": {
+        "before": 8395470,
+        "after": 1362336
+      },
+      "postInverse": {
+        "previousPredicted": 436570118,
+        "actualSaved": 70846786
+      }
+    },
+    "savepoints": {
+      "directory": "artifacts/direct-sympy-offset-frontier",
+      "verifiedSourceFiles": 13,
+      "verifiedImmutableObjects": 10,
+      "initial64MiBRun": {
+        "completedDependencies": 9,
+        "stop": "Post-inverse predicted 70846786 > 67108864 before allocation"
+      },
+      "compatible96MiBResume": {
+        "restoredDependencies": 9,
+        "completedDependencies": 10,
+        "lastDependency": "model.layers.0.post:inverse",
+        "stop": "600-second wall-clock budget exceeded after saving the inverse",
+        "budgetChangeCompatible": true
+      },
+      "records": [
+        {
+          "bounds": [
+            "0x1.0020040000000p-16",
+            "0x1.f3fffe0000000p+9",
+            -39
+          ],
+          "castsClosed": true,
+          "characters": 5210,
+          "digest": "a2a26469b3e911647359354fcce3d74719a0b20a98e056ea583a6b470fd65839",
+          "kind": "f32",
+          "name": "model.layers.0.pre:inverse",
+          "noNegativeZero": true
+        },
+        {
+          "bounds": [
+            "-0x1.6a00000000000p+1",
+            "0x1.6a00000000000p+1",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 21202,
+          "digest": "c2217d61c1cc1732a7383877f9091e92c9076407e259eb055cadebd0a3eca2ab",
+          "kind": "half",
+          "name": "model.layers.0.pre:0",
+          "noNegativeZero": false
+        },
+        {
+          "bounds": [
+            "-0x1.6a00000000000p+1",
+            "0x1.6a00000000000p+1",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 21202,
+          "digest": "4b088b2e746a0cea5c389ae8fdd65ba5812d9c2f760c2103847b1979c1bf7697",
+          "kind": "half",
+          "name": "model.layers.0.pre:1",
+          "noNegativeZero": false
+        },
+        {
+          "bounds": [
+            "-0x1.7ac0000000000p-6",
+            "0x1.7ac0000000000p-6",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 170210,
+          "digest": "b2636eff595ba94f96ef1f856b482945dd3b96878b4360cc88253e9815dceba8",
+          "kind": "half",
+          "name": "model.layers.0.v:0",
+          "noNegativeZero": false
+        },
+        {
+          "bounds": [
+            "-0x1.7ac0000000000p-6",
+            "0x1.7ac0000000000p-6",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 170216,
+          "digest": "d78b8480e9086720e4bd842ffacd8c418e0fff0aaed2ea014d42401b2b07f863",
+          "kind": "half",
+          "name": "model.layers.0.context:0",
+          "noNegativeZero": true
+        },
+        {
+          "bounds": [
+            "-0x1.dbc0000000000p-4",
+            "0x1.dbc0000000000p-4",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 170198,
+          "digest": "885f5eb4236f3b940e9e16017f9569726415da4cc04f9b07e2d81560131f7e3b",
+          "kind": "half",
+          "name": "model.layers.0.v:1",
+          "noNegativeZero": false
+        },
+        {
+          "bounds": [
+            "-0x1.dbc0000000000p-4",
+            "0x1.dbc0000000000p-4",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 170204,
+          "digest": "1d50b21810ae985a9f64db1e26fde35fdb36052e2b8ea384907cc10c200e0c7c",
+          "kind": "half",
+          "name": "model.layers.0.context:1",
+          "noNegativeZero": true
+        },
+        {
+          "bounds": [
+            "-0x1.ffc0000000000p+15",
+            "0x1.ffc0000000000p+15",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 1362336,
+          "digest": "140df710a27d5efc952b32816baa227c872368fc8b7a4b3ee09d5591294786f3",
+          "kind": "half",
+          "name": "model.layers.0.residual:0",
+          "noNegativeZero": false
+        },
+        {
+          "bounds": [
+            "-0x1.ffc0000000000p+15",
+            "0x1.ffc0000000000p+15",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 1362344,
+          "digest": "1bb4ccf96277d36d1c10f56357fec23bb761f487876df5e776822d15be32dbea",
+          "kind": "half",
+          "name": "model.layers.0.residual:1",
+          "noNegativeZero": false
+        },
+        {
+          "bounds": [
+            "0x1.0020040000000p-16",
+            "0x1.f3fffe0000000p+9",
+            -39
+          ],
+          "castsClosed": true,
+          "characters": 70846786,
+          "digest": "059881a1148067cc2efba1af77d5b9298c84eb644be049b5da04b3b16b448c3a",
+          "kind": "f32",
+          "name": "model.layers.0.post:inverse",
+          "noNegativeZero": true
+        }
+      ],
+      "second96MiBResume": {
+        "restoredDependencies": 10,
+        "completedDependencies": 10,
+        "closedConversions": 0,
+        "wallClockBudgetSeconds": 300,
+        "stop": "Entire budget consumed reloading large closed literals before closing a new conversion; signal handled after a long parser operation",
+        "finalCoordinateAdmitted": false
+      }
+    },
+    "validation": {
+      "buildExitCode": 0,
+      "conversionTests": 25,
+      "nativeOffsetCases": 1152322,
+      "nativeOffsetMismatches": 0,
+      "nativeIntegerCastLoss": 0,
+      "checkpointTests": 8,
+      "closedRmsNativeCases": 888832,
+      "closedRmsMismatches": 0,
+      "directedTests": {
+        "pass": 6,
+        "fail": 0,
+        "skip": 0,
+        "evidence": "docs/evidence/direct-sympy-offset-directed.log",
+        "afterNegativeSubnormalGuardAssertion": true
+      },
+      "residualArtifactParity": {
+        "artifact": "artifacts/direct-sympy-offset-frontier/objects/140df710a27d5efc952b32816baa227c872368fc8b7a4b3ee09d5591294786f3.expr",
+        "sha256": "140df710a27d5efc952b32816baa227c872368fc8b7a4b3ee09d5591294786f3",
+        "characters": 1362336,
+        "cases": 60,
+        "mismatches": 0,
+        "scope": "position=0 residual coordinate=0; not final coordinate or last-token parity",
+        "elapsedSeconds": 2.1277572500112
+      },
+      "inverseArtifactParity": {
+        "artifact": "artifacts/direct-sympy-offset-frontier/objects/059881a1148067cc2efba1af77d5b9298c84eb644be049b5da04b3b16b448c3a.expr",
+        "sha256": "059881a1148067cc2efba1af77d5b9298c84eb644be049b5da04b3b16b448c3a",
+        "characters": 70846786,
+        "cases": 60,
+        "mismatches": 0,
+        "scope": "position=0 post inverse, declared ordered F32 RMS semantics on freshly captured Torch residuals; not final coordinate or last-token parity",
+        "elapsedSeconds": 104.87546358301188
+      },
+      "regression": {
+        "total": 597,
+        "pass": 579,
+        "fail": 15,
+        "skip": 3,
+        "knownFailuresMatch": "docs/evidence/direct-sympy-half-cell-regression.log",
+        "newFailureNames": [],
+        "excludedLegacyJsonTests": 4
+      },
+      "negativeF64SubnormalAdmission": "Additional assertion verifies that even with precision admission enabled, the target-subnormal branch retains the original kernel without numeric UInt64/F64 conversion",
+      "artifactInputs": {
+        "file": "docs/evidence/direct-sympy-offset-inputs.json",
+        "cases": 60,
+        "lengths": [
+          1,
+          2,
+          3,
+          4,
+          8
+        ],
+        "casesPerLength": 12,
+        "archivedInputsExactlyMatchExecutedCorpus": true,
+        "archivedParityScripts": "Only the corpus path was changed to the durable evidence file; the executed input values and calculations are unchanged"
+      }
+    },
+    "testHarnessCorrection": "Removed an accidental duplicate class declaration that shadowed the new conversion test. The verified run executes 25 tests and asserts the native certificate count through the Node wrapper.",
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "otherCoordinatesAdvanced": false,
+    "remaining": "Post normalization, gate/up/SiLU/down residual and final normalization/head for position 0 dimension 2; then exact saved final-coordinate parity before other dimensions. Whole-vector and last-token parity remain open. Reduce repeated AST parsing of already certified large closed literals during restoration and correlation/type queries; enforce predictable budget response without losing valid states.",
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-offset-budget-simplifications.tsv": "8fee5951ef5ad32f2c0721fd74f507df052b97dff14fc4a1b2ced4ca0094677b",
+      "docs/evidence/direct-sympy-offset-build.log": "a408d94a3fffc856dc5364f9d4b4ab56fde09205ec19cae0976763ea611ad3df",
+      "docs/evidence/direct-sympy-offset-checkpoint.log": "e472b67c090e3263ef19561ee28e11b7effdd2cdbf39ffc9ebb9df1076bf576d",
+      "docs/evidence/direct-sympy-offset-compile-64m.log": "0db93fe2544efe6ce3a3174cca9ec2f809c90c4b82eac3e037e6b8352999a33d",
+      "docs/evidence/direct-sympy-offset-compile-96m.log": "b98a464d2fa18d301dc5b2e4fb12552de29a92c1334ad1a6f58ba7633e50a7e0",
+      "docs/evidence/direct-sympy-offset-compile-next.log": "0e288b8264f75e4edf86cc0a0a54b8f6a45b6d1eae09bfe53a6137de6c3526f5",
+      "docs/evidence/direct-sympy-offset-conditions.tsv": "6affd75b031c10e328f93c32f46899ba73b395db00ed6f40b8ebf57269bf2753",
+      "docs/evidence/direct-sympy-offset-conversions.log": "8502f7e20c2a037d46dcc203ee52c69a872f2caca307e802a4eb57c514bed468",
+      "docs/evidence/direct-sympy-offset-directed.log": "db27304783f69db77eebefda281846f58c25bf06ca9960c30f33700cd04dd22f",
+      "docs/evidence/direct-sympy-offset-frontier.json": "4f4198fe7d3531023c48b2ca3cdec01ab57de8fc113d80c39dd8446f465a3cef",
+      "docs/evidence/direct-sympy-offset-growth.tsv": "11d9c43f55090e9aef50b7952a201e7ba5744dac5f74ec295fe9ff1d7de258a0",
+      "docs/evidence/direct-sympy-offset-inputs.json": "f5e78bf5923b2a3d035733a9ee061a85ac90b1cbd620484bfb761e82e15e15b4",
+      "docs/evidence/direct-sympy-offset-inverse-parity.log": "bbdf9ba1dacb9677333c5de03a73770d1b3f974d80072ee270d0ec10b06e9f46",
+      "docs/evidence/direct-sympy-offset-inverse-parity.py.work": "7c46860e385bad0c98189dd656a7b1caa88771aa9e6b559e9d9611a14ad63fa1",
+      "docs/evidence/direct-sympy-offset-numeric-envelopes.tsv": "05d5dfcbb60f54e4eadfbcff28c9d3b535f118968a2b081a608e9ab88e4d126d",
+      "docs/evidence/direct-sympy-offset-regression.log": "24735574b5e61fa837059b39e3783779a775152f9e75c16d3c015680f310060a",
+      "docs/evidence/direct-sympy-offset-residual-parity.log": "23559cb48b9f4bf568c251d05fafc1911b31fab79ee8bd376f71a209f5c0e693",
+      "docs/evidence/direct-sympy-offset-residual-parity.py.work": "9164a3d2f00561239ec430953712328aed94264decf60d4f33aebdc4500242eb",
+      "docs/evidence/direct-sympy-offset-status.md": "55245f790d7270333ab361997adb07a1ef3874adb33be3505f40e3e7d1621947",
+      "docs/evidence/direct-sympy-offset-substitutions.tsv": "ec6e826ef8fab02b9497e2eb0f8a388ae57f2973ed7015a28bfeca896f4bc4ee",
+      "docs/evidence/direct-sympy-offset-synchronization.tsv": "89eac614ea71b8470b882b23011291a9b3f0d1e570d40992be383eec18e54c6d"
+    }
   }
 }

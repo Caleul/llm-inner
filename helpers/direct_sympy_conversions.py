@@ -46,7 +46,7 @@ def binary_exponent(value):
     return math.frexp(value)[1]-1
 
 
-def lower_finite_conversion(expression,kind,certificate,compiler,domains,path=(),*,no_odd_f32_ties=False):
+def lower_finite_conversion(expression,kind,certificate,compiler,domains,path=(),*,no_odd_f32_ties=False,integer_word_exact=False):
     if not isinstance(certificate,FiniteSource):
         raise ValueError("Finite source interval certificate required")
     if kind not in ("R32","R16"):
@@ -84,7 +84,13 @@ def lower_finite_conversion(expression,kind,certificate,compiler,domains,path=()
         # inside the same normal calculation; distinct paths are untouched.
         adjustment=bias if no_odd_f32_ties else call("U64Add",bias,call("U64And",call("U64Shr",raw,dropped),1))
         signed=call("Float64",call("U64And",call("U64Add",raw,adjustment),mask))
+        if integer_word_exact:
+            exponent=81 if kind=="R32" else 94
+            signed=call("Float64",call("U64FromF64","(("+call("F64FromU64",raw)+") + 2**"+str(exponent)+") - 2**"+str(exponent)))
         return simplify_words(compiler.substitute(signed,"X999999997",source,domains,path),compiler,domains)
+    if integer_word_exact:
+        exponent=81 if kind=="R32" else 94
+        normal=call("U64And",call("U64FromF64","(("+call("F64FromU64",raw)+") + 2**"+str(exponent)+") - 2**"+str(exponent)),0x7fffffffffffffff)
     above=normal if maximum<overflow else call("Piecewise",
         "("+normal+", "+magnitude+" < "+str(overflow_threshold)+")",
         "("+str(0x7ff0000000000000)+", True)")
@@ -237,6 +243,22 @@ class ConversionSession:
             source=self.bounds(node.args[0]);minimum=-24 if node.func.id=="R16" else -149
             return source is not None and source.quantum is not None and source.quantum>=minimum and self.no_negative_zero(node.args[0])
         return False
+
+    def encoded_word_is_exact_integer(self,node):
+        """A <=42-bit significand leaves >=11 trailing raw-word zeros.
+
+        Even a signed raw word then fits the 53-bit F64 integer grid. This
+        is a compile-time certificate, never a runtime approximation.
+        """
+        bounds=self.bounds(node)
+        if bounds is None:return False
+        kind=self.value_kind(node)
+        if kind in ("half","f32"):return True
+        if isinstance(node,ast.BinOp) and isinstance(node.op,ast.Mult):
+            kinds=(self.value_kind(node.left),self.value_kind(node.right))
+            if all(kind in ("half","f32") for kind in kinds) and sum(11 if kind=="half" else 24 for kind in kinds)<=42:return True
+        maximum=max(abs(bounds.minimum),abs(bounds.maximum))
+        return not maximum or (bounds.quantum is not None and binary_exponent(maximum)-bounds.quantum+1<=42)
 
     def half_update_is_invisible(self,value,update):
         """A strict Half-cell proof, including the smaller binade neighbor.
@@ -500,7 +522,7 @@ class ConversionSession:
                         raw=inner.args[0];certificate=session.bounds(raw)
                         if tandem_supported(certificate) and session.value_kind(raw) is None:
                             raw=self.visit(raw)
-                            text=lower_tandem(ast.unparse(raw),certificate,session.compiler,session.domains)
+                            text=lower_tandem(ast.unparse(raw),certificate,session.compiler,session.domains,integer_word_exact=session.encoded_word_is_exact_integer(raw))
                             rewritten=syntax(text);session.closed+=2
                             if before is not None:
                                 key=session.key(rewritten);session.completed[key]=before
@@ -517,7 +539,7 @@ class ConversionSession:
                         rewritten=syntax(session.compiler.stabilize(ast.unparse(rewritten.args[0]),session.domains));session.redundant+=1
                     elif source is not None:
                         text=lower_finite_conversion(ast.unparse(rewritten.args[0]),rewritten.func.id,
-                            source,session.compiler,session.domains,no_odd_f32_ties=no_odd_ties)
+                            source,session.compiler,session.domains,no_odd_f32_ties=no_odd_ties,integer_word_exact=session.encoded_word_is_exact_integer(node.args[0]))
                         rewritten=syntax(text)
                         session.closed+=1
                     else:session.pending+=1

@@ -1,0 +1,4 @@
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 7033.49it/s]
+{"artifact": "artifacts/direct-sympy-offset-frontier/objects/140df710a27d5efc952b32816baa227c872368fc8b7a4b3ee09d5591294786f3.expr", "sha256": "140df710a27d5efc952b32816baa227c872368fc8b7a4b3ee09d5591294786f3", "characters": 1362336, "cases": 60, "mismatches": 0, "scope": "position=0 residual coordinate=0; not final coordinate or last-token parity", "elapsedSeconds": 2.1277572500112}

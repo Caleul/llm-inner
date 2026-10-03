@@ -9,7 +9,7 @@ import copy
 from direct_sympy_strings import syntax
 from direct_sympy_signatures import StructuralSignatures
 
-PURE={'R16','R32','sqrt','Silu16','Bits64','Float64','U64And','U64Or','U64Shr','U64Add','U64Mul'}
+PURE={'R16','R32','sqrt','Silu16','Bits64','Float64','U64And','U64Or','U64Shr','U64Add','U64Mul','U64FromF64','F64FromU64'}
 GUARD_PURE=PURE|{'Piecewise','And','Or','Not','Eq','Ne','Lt','Le','Gt','Ge'}
 
 
