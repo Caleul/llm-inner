@@ -8,6 +8,7 @@ import argparse
 import ast
 import json
 import math
+import re
 import signal
 from pathlib import Path
 import struct
@@ -106,6 +107,8 @@ class CheckpointStrings:
         result=self.compiler.stabilize("("+expression+")",self.domains)
         if self.conversions is not None:
             result=self.conversions.close(result)
+            if re.search(r"\bR(?:16|32)\s*\(",result):
+                raise ValueError(f"Numeric closure incomplete for producer {key}; residual R16/R32; producer not published")
             if self.conversions.key(syntax(result)) in self.conversions.converted_regions:
                 synchronized=self.compiler.synchronize(result,self.domains)
                 if synchronized!=result:self.conversions.propagate_closed_identity(result,synchronized)

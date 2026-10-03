@@ -836,3 +836,28 @@ admitir esses produtores como completamente baixados. O processo terminou
 com código dois, destinado a expressões de trabalho, e não admitiu artefato
 final. Os objetos dos estados e a expressão emitida estão arquivados em
 `docs/evidence/direct-sympy-lazy-synchronization-*`.
+
+
+## Provas de correlação no envelope numérico — 2026-10-03
+
+A execução anterior perdeu certificados sobre operações que envolviam regiões
+compactadas. No RMS, a multiplicação de entrada por inverso voltava à faixa
+independente +/-65.503.996, em vez da faixa correlacionada +/-2,8284. As chaves
+estruturais traduzidas agora transportam certificados existentes para a forma
+virtual equivalente, na mesma sessão e domínio, sem alterar as chaves normais.
+Bits de literais e zeros com sinal fazem parte da correspondência.
+
+A primeira normalização voltou a 3.305 caracteres, sem R16/R32. Em 507.904
+comparações nativas com o kernel arredondado de referência, não houve diferença.
+Um novo teste impede que produtores ainda contendo R16/R32 sejam publicados
+como completos na rota que exige fechamento numérico.
+
+Uma execução nova com limite de três minutos e 64 MiB terminou por tempo com
+dez produtores, todos sem casts residuais, e 24 conversões fechadas. O residual
+permaneceu em 890.918 caracteres; a última dependência publicada foi
+`post:inverse`, com 3.564.181 caracteres. Não foi emitida uma nova coordenada.
+O estado arquivado corresponde à execução anterior à adição da rejeição de
+casts residuais: sua identidade não é compatível com o helper atual. Nenhuma
+retomada ou migração desse estado foi realizada. A coordenada de trabalho da
+etapa anterior conserva casts; seus 21 produtores simbólicos não constituem
+avanço equivalente no fechamento numérico.

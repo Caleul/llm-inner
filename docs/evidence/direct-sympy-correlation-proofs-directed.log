@@ -1,0 +1,12 @@
+✔ SymPy savepoints preserve completed rounding frontiers and reject incompatible or corrupt state (1804.134334ms)
+✔ SymPy string substitution factors and simplifies each step with isolated IEEE branch proofs (498.188417ms)
+✔ SymPy checkpoint working string is re-read and matches a freshly captured coordinate reference (5341.351375ms)
+✔ SymPy elementary conversion strings preserve native IEEE cells and composed boundaries (9197.763541ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17149.119

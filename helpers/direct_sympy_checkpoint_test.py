@@ -16,6 +16,17 @@ from direct_sympy_strings import StringCompiler,syntax
 
 
 class CheckpointStringTests(unittest.TestCase):
+    def test_unclosed_numeric_producer_is_never_published(self):
+        with tempfile.TemporaryDirectory() as directory:
+            (Path(directory)/'config.json').write_text(json.dumps({'model_type':'llama','hidden_size':1,'num_hidden_layers':1}))
+            builder=CheckpointStrings(directory,StringCompiler())
+            publish=unittest.mock.Mock();builder.on_completed=publish
+            with patch.object(builder.conversions,'close',return_value='R16(X1)'):
+                with self.assertRaisesRegex(ValueError,'closure incomplete.*not published'):
+                    builder.producer('fixture:pending',lambda:'R16(X1)')
+            self.assertEqual(builder.memo,{});self.assertEqual(builder.events,[])
+            publish.assert_not_called()
+
     def test_producer_synchronizes_only_after_closure_and_keeps_whole_root_dtype(self):
         from fractions import Fraction as F
         from direct_sympy_strings import Domain
@@ -40,6 +51,10 @@ class CheckpointStringTests(unittest.TestCase):
         checkpoint=os.environ["LLM_INNER_DIRECT_JSON_CHECKPOINT"]
         with CheckpointStrings(checkpoint,StringCompiler(max_characters=1048576)) as builder:
             builder.gated("model.layers.0.",0,lambda i:f"X{i+1}")
+            normalized=builder.norm('proof:test','model.layers.0.input_layernorm.weight',0,lambda i:f'X{i+1}')
+            self.assertNotIn('R16(',normalized);self.assertNotIn('R32(',normalized)
+            self.assertEqual(builder.conversions.value_kind(syntax(normalized)),'half')
+            self.assertLess(builder.conversions.bounds(syntax(normalized)).maximum,3)
             functions=[];checks=[]
             for projection in ("gate","up"):
                 expression=builder.memo["model.layers.0."+projection+":0"]

@@ -5689,5 +5689,138 @@
       "docs/evidence/direct-sympy-lazy-synchronization-coordinate.work.expr": "0b20b2c3f75b8ff31b600d5fb75eddc307c4926acd7fc6ed3cd69838528cca34",
       "docs/evidence/direct-sympy-lazy-synchronization-growth.tsv": "6bd2751bd9a3ce18743603e11d107f41892e59ec86e8442d91dd7d5c55c343f0"
     }
+  },
+  "correlationProofValidation": {
+    "date": "2026-10-03",
+    "baseCommit": "413afe5",
+    "previousTurn": "progress: lazy selector implementation, real residual parity, working coordinate emitted; final lowering remained incomplete",
+    "cause": "Numeric envelope copied literal proofs but lost correlated certificates on enclosing expressions; RMS range widened to +/-65503996 instead of +/-2.8284",
+    "fix": "Translate structural keys through exact same-session literal substitutions; preserve enclosing bounds/dtypes/zero signs without replacing ordinary keys; reject producer publication with residual R16/R32",
+    "tests": {
+      "engine": 25,
+      "conversions": 22,
+      "checkpoint": 6,
+      "nativeRMSCases": 507904,
+      "nativeRMSMismatches": 0,
+      "buildExitCode": 0,
+      "directedNodeTests": 4,
+      "directedFailures": 0
+    },
+    "normalization": {
+      "characters": 3305,
+      "residualR16": 0,
+      "residualR32": 0,
+      "artifact": "docs/evidence/direct-sympy-correlation-proofs-normalization.work.expr"
+    },
+    "freshCompilation": {
+      "exitCode": 1,
+      "reason": "180-second budget",
+      "maxCharacters": 67108864,
+      "maxSeconds": 180,
+      "completedProducers": 10,
+      "closedConversions": 24,
+      "records": [
+        {
+          "name": "model.layers.0.pre:inverse",
+          "characters": 473,
+          "R16": 0,
+          "R32": 0,
+          "digest": "67129734d23048f8ddc3c47ef84d086cfcbd4de2d0bdb839128260b62077dba3"
+        },
+        {
+          "name": "model.layers.0.pre:0",
+          "characters": 3305,
+          "R16": 0,
+          "R32": 0,
+          "digest": "f7428a71943a58e76e7601780707275b92a84c50e8e96c5f24d97912c6807187"
+        },
+        {
+          "name": "model.layers.0.pre:1",
+          "characters": 3305,
+          "R16": 0,
+          "R32": 0,
+          "digest": "d6c1d6838aebd114d32100cb92779d8006be308b489b6bdbe607b3fc015e2a1f"
+        },
+        {
+          "name": "model.layers.0.v:0",
+          "characters": 40427,
+          "R16": 0,
+          "R32": 0,
+          "digest": "d19ceeaaf3b2fcf54e87b9a138fa02e928c0f74902e9fb093e37ba039852fb41"
+        },
+        {
+          "name": "model.layers.0.context:0",
+          "characters": 40433,
+          "R16": 0,
+          "R32": 0,
+          "digest": "3e3914215da8a34abddfde2f0c49a3e2dca593d740e5277ef1a5064267f19fab"
+        },
+        {
+          "name": "model.layers.0.v:1",
+          "characters": 40409,
+          "R16": 0,
+          "R32": 0,
+          "digest": "4f7e025b1b0bf786ccc0b0e269b93c8ed3cc8e47851895c36b3f81c72b0b2e29"
+        },
+        {
+          "name": "model.layers.0.context:1",
+          "characters": 40415,
+          "R16": 0,
+          "R32": 0,
+          "digest": "039fb39044e351119dcdea4c507544fa7bd2972db8cd4e0e7dedbec512b19c83"
+        },
+        {
+          "name": "model.layers.0.residual:0",
+          "characters": 890918,
+          "R16": 0,
+          "R32": 0,
+          "digest": "41685736655b62799d57abbde2e26f2661c3a44159501ca45ac34b2786804113"
+        },
+        {
+          "name": "model.layers.0.residual:1",
+          "characters": 890940,
+          "R16": 0,
+          "R32": 0,
+          "digest": "aecc4b159a76dd86d2cd66b4be53c40b6b20c604bf999172fdc1ab0f71f50b75"
+        },
+        {
+          "name": "model.layers.0.post:inverse",
+          "characters": 3564181,
+          "R16": 0,
+          "R32": 0,
+          "digest": "6efa8f7d9a3562321b1f5652efa9c6b513f09c638d33466067921ddae29ef44f"
+        }
+      ],
+      "coordinateEmitted": false,
+      "finalParity": false,
+      "sourceNote": "Run ended before addition of fail-closed publication guard; archived identity is intentionally incompatible with that new guard. No archived state resumed or migrated."
+    },
+    "frontier": "docs/evidence/direct-sympy-correlation-proofs-frontier/frontier.json",
+    "remaining": [
+      "Full coordinate lowering",
+      "sqrt and activation lowering",
+      "Last-token multi-input parity",
+      "Complete output vector"
+    ],
+    "sourceHashes": {
+      "direct_sympy_conversions.py": "28cc9e1d051909c5d549b7ec4344dc7c61fbdf9e97b9f2269af3911fe8fbbe94",
+      "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+      "direct_sympy_checkpoint.py": "d41bcebf51a91391a2289b1c63e0b249a279193c0f78b52accacfb2151c9f1d8"
+    },
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-correlation-proofs-build.log": "a408d94a3fffc856dc5364f9d4b4ab56fde09205ec19cae0976763ea611ad3df",
+      "docs/evidence/direct-sympy-correlation-proofs-conversions.log": "ba7e16a386c56b17678c6b0eff60ab9ba9caf7ddc782381819d1a88a8c1d6fa2",
+      "docs/evidence/direct-sympy-correlation-proofs-native.log": "e59bcf0fd32537116f0bd61bfb77bddb7b37ca7da6caf89c5531b83ccbc34a12",
+      "docs/evidence/direct-sympy-correlation-proofs-debug.log": "24421cf353ac1a7ad7cdf6fc39fa8a7cc2673aae1bd44d318b613dd4be7c536d",
+      "docs/evidence/direct-sympy-correlation-proofs-fixed.log": "af8b5a8753dd7688668d090dbbd9b0d2e429c3ded636938f1c3d10104e95db5b",
+      "docs/evidence/direct-sympy-correlation-proofs-compilation.log": "3d757d42687574e30190f16363bf0965b9d28a2881e9bbb74edc19215aa99f35",
+      "docs/evidence/direct-sympy-correlation-proofs-growth.tsv": "97e702ca97cb127b020ebbb5cc33acc59de9b88ffbb8e44ef85489e32078707f",
+      "docs/evidence/direct-sympy-correlation-proofs-substitutions.tsv": "0f3804ad7f6da6769992694f856e36b481b1cd2da3222d8601a81f7d8fbd3272",
+      "docs/evidence/direct-sympy-correlation-proofs-synchronization.tsv": "b4cc2747c7cb8ce80eb001f24968b6ec18276930bf8a6ca46b22d1e8fc61ae3d",
+      "docs/evidence/direct-sympy-correlation-proofs-numeric-envelopes.tsv": "25e7830073bf344aa9c2259ac9034d17ab25a61542e97c3d40fab537429e8ed0",
+      "docs/evidence/direct-sympy-correlation-proofs-native.py.work": "f3f4749b78e455d73f3e68bd839f7c9f07e3b4346fb6e6831bc969aaa6fa76f9",
+      "docs/evidence/direct-sympy-correlation-proofs-normalization.work.expr": "9c696d105c5037779509f9e2f53be793b8873d25b195685ce193ed78abe89652",
+      "docs/evidence/direct-sympy-correlation-proofs-directed.log": "43afcd32f252e8485e47b87bc686814d625bf3e1be5f755c7d3f927db7bbda1b"
+    }
   }
 }

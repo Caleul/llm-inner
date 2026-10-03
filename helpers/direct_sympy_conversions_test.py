@@ -52,6 +52,30 @@ def cpp(node):
 
 
 class ConversionStringTests(unittest.TestCase):
+    def test_numeric_envelope_preserves_enclosing_correlation_and_exact_keys(self):
+        import direct_sympy_conversions as conversions
+        domains={'X1':Domain(F(-1),F(1),-24,False)}
+        compiler=StringCompiler();session=ConversionSession(compiler,domains,input_dtype='f16')
+        first=session.close('R16(R32(X1+X1/2.0))')
+        compiler.register_completed_region(first,domains,word_closed=True)
+        product=syntax('X1*('+first+')')
+        # first has the sign of X1. Independent interval multiplication
+        # cannot recover this valid nonnegative enclosure.
+        session.completed[session.key(product)]=FiniteSource(0,1.5001,-48)
+        with patch.object(conversions,'lower_finite_conversion',wraps=conversions.lower_finite_conversion) as lower:
+            result=session.close('R16('+ast.unparse(product)+')')
+        self.assertEqual(lower.call_args.args[2].minimum,0)
+        self.assertNotIn('R16(',result);self.assertNotIn('R32(',result)
+        self.assertEqual(session.pending,0)
+        virtual=syntax('R16(CASNumericRegion999())')
+        original=syntax('R16(-0.0)')
+        replacements={session.key(virtual.args[0]):session.key(original.args[0])}
+        ordinary=session.key(virtual)
+        mapped=session.signatures.translated_keys(virtual,replacements)
+        self.assertEqual(mapped[virtual],session.key(original))
+        self.assertEqual(session.key(virtual),ordinary)
+        self.assertNotEqual(mapped[virtual],session.key(syntax('R16(0.0)')))
+
     def test_synchronization_transfers_only_closed_whole_root_numeric_proofs(self):
         domains={"X1":Domain(F(-1),F(1),-24,False)}
         compiler=StringCompiler();session=ConversionSession(compiler,domains,input_dtype='f16')

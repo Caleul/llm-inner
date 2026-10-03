@@ -1,0 +1,14 @@
+CLOSE 82 root FiniteSource(minimum=1.526624328107573e-05, maximum=999.9999389648438, quantum=-39) f32
+boundary R32 82 FiniteSource(minimum=1.526624328107573e-05, maximum=999.9999389648438, quantum=-39) FiniteSource(minimum=1.5266243282852952e-05, maximum=999.9999525025511, quantum=-68) None
+boundary R32 71 FiniteSource(minimum=0.0010000000474974513, maximum=65504.0, quantum=-33) FiniteSource(minimum=0.0009999999987376214, maximum=65504.0, quantum=-62) None
+boundary R32 60 FiniteSource(minimum=9.999999974752427e-07, maximum=4290774016.0, quantum=-43) FiniteSource(minimum=9.999999974752425e-07, maximum=4290774016.0000014, quantum=-49) None
+boundary R32 31 FiniteSource(minimum=-0.0, maximum=4290774016.0, quantum=-49) FiniteSource(minimum=-5e-324, maximum=4290774016.0000005, quantum=-49) f32
+boundary R32 22 FiniteSource(minimum=-0.0, maximum=8581548032.0, quantum=-48) FiniteSource(minimum=-5e-324, maximum=8581548032.000002, quantum=-48) None
+CLOSE 504 root FiniteSource(minimum=-2.828125, maximum=2.828125, quantum=-24) half
+boundary R16 504 FiniteSource(minimum=-2.828125, maximum=2.828125, quantum=-24) FiniteSource(minimum=-2.8284270763397217, maximum=2.8284270763397217, quantum=-24) half
+boundary R32 499 FiniteSource(minimum=-2.8284270763397217, maximum=2.8284270763397217, quantum=-24) FiniteSource(minimum=-2.8284271247461907, maximum=2.8284271247461907, quantum=-24) half
+boundary R16 488 FiniteSource(minimum=-2.8284271247461903, maximum=2.8284271247461903, quantum=-24) FiniteSource(minimum=-2.8284271247461903, maximum=2.8284271247461903, quantum=-63) f32
+boundary R32 483 FiniteSource(minimum=-2.8284271247461903, maximum=2.8284271247461903, quantum=-63) FiniteSource(minimum=-2.8284271247461903, maximum=2.8284271247461903, quantum=-63) None
+TANDEM 24 FiniteSource(minimum=-2.8284271247461903, maximum=2.8284271247461903, quantum=-63) rounded bounds FiniteSource(minimum=-2.828125, maximum=2.828125, quantum=-24)
+TANDEM OUT 581
+RESULT 3305 casts 0 0

@@ -342,7 +342,7 @@ class ConversionSession:
         if re.search(r"\bCASNumericRegion[0-9]+\b",expression):raise ValueError("Reserved compiler numeric placeholder")
         compact,regions=self.compiler.compact_regions(expression,self.compiler.context(self.domains))
         if regions and all(text in self.closed_literals for text in regions.values()):
-            protected={}
+            protected={};literal_keys={}
             for old,text in regions.items():
                 self.envelope_serial+=1;token="CASNumericRegion"+str(self.envelope_serial)
                 marker=syntax(token+"()");key=self.key(marker)
@@ -352,7 +352,19 @@ class ConversionSession:
                 if kind in ("half","f32"):self.f32_values.add(key)
                 if positive_zero:self.no_negative_zero_values.add(key)
                 self.converted_regions.add(key);protected[token]=text
+                literal_keys[key]=self.key(syntax(text))
                 compact=re.sub(r"\b"+old+r"\b",token+"()",compact)
+            # Preserve correlation certificates on enclosing operations.
+            # Independent interval arithmetic cannot recover these from the
+            # bounds of individual completed literals (e.g. RMS products).
+            virtual_tree=syntax(compact)
+            for node,original_key in self.signatures.translated_keys(virtual_tree,literal_keys).items():
+                virtual_key=self.key(node)
+                if original_key in self.completed:self.completed[virtual_key]=self.completed[original_key]
+                if original_key in self.half_values:self.half_values.add(virtual_key)
+                if original_key in self.f32_values:self.f32_values.add(virtual_key)
+                if original_key in self.no_negative_zero_values:self.no_negative_zero_values.add(virtual_key)
+                if original_key in self.converted_regions:self.converted_regions.add(virtual_key)
             result=self._close(compact)
             virtual=syntax(result);original=self.key(virtual)
             pattern=r"\bCASNumericRegion[0-9]+\(\)"
