@@ -1,5 +1,8 @@
 """Positive finite F32 square root, returning the exact widened F32 value.
 
+A cubic/quadratic rational seed interpolates six Lobatto points, including
+both endpoints, before one ordered Newton correction.
+
 Mantissa/parity enumeration certifies all 2**24 normalized cases. Exact
 power-of-two scaling covers every F32 input exponent, including subnormals without output
 underflow/overflow. The rational coefficients are compiler constants, not response data.
@@ -8,8 +11,8 @@ from direct_sympy_strings import syntax
 from direct_sympy_words import simplify_words
 from direct_sympy_conversions import FiniteSource,lower_finite_conversion
 
-NUMERATOR=(0.04091863612351722,0.4844752145633112,1.439174633487947,1.224744871391589)
-DENOMINATOR=(0.004807144017881053,0.17054532022514554,0.8417478211033906,1.0)
+NUMERATOR=(0.011776416813942576, 0.31267808731141555, 1.2350886571993487, 1.2247448161010575)
+DENOMINATOR=(0.08581640268346791, 0.6751122868867456, 1.0)
 
 
 def supported(source,session):

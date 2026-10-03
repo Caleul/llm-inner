@@ -6744,5 +6744,133 @@
       "docs/evidence/direct-sympy-half-cell-substitutions.tsv": "60b7b1f9cb4ea319c59570fcc667e30f447adc82bd430be38be9760ab8211d7b",
       "docs/evidence/direct-sympy-half-cell-synchronization.tsv": "67a81b62284c187a0a1781cde50a7bd605117589dcf28f294bba0baa88855f1e"
     }
+  },
+  "lobattoSqrtValidation": {
+    "baseCommit": "09e548a",
+    "strategy": "Cubic/quadratic rational interpolation at six Lobatto points on normalized mantissa, one ordered Newton correction, exponent parity scaling, exact F32 bit rounding",
+    "normalizedCases": 16777216,
+    "emittedWordCases": 25167601,
+    "mismatches": 0,
+    "oddTies": 0,
+    "evenTies": 0,
+    "kernel": {
+      "beforeCharacters": 1708,
+      "afterCharacters": 1498,
+      "beforeInputOccurrences": 15,
+      "afterInputOccurrences": 13,
+      "artifact": "docs/evidence/direct-sympy-sqrt-lobatto-kernel.work.expr"
+    },
+    "rms": {
+      "beforeCharacters": 36347,
+      "afterCharacters": 31727,
+      "nativeCases": 507904,
+      "mismatches": 0,
+      "artifact": "docs/evidence/direct-sympy-sqrt-lobatto-rms.work.expr"
+    },
+    "residual": {
+      "beforeCharacters": 9615150,
+      "afterCharacters": 8395470,
+      "parity": {
+        "artifact": "artifacts/direct-sympy-sqrt-lobatto-frontier/objects/3589a226d16103cd9d9db7b50b00d5d635298b3251c06a7513dbb4f94c37a1a4.expr",
+        "sha256": "3589a226d16103cd9d9db7b50b00d5d635298b3251c06a7513dbb4f94c37a1a4",
+        "characters": 8395470,
+        "cases": 60,
+        "mismatches": 0,
+        "scope": "position=0 residual coordinate=0; not final coordinate or last-token parity",
+        "elapsedSeconds": 9.95460466700024
+      }
+    },
+    "compile": {
+      "fresh": true,
+      "resume": false,
+      "maxSeconds": 600,
+      "maxCharacters": 67108864,
+      "completedDependencies": 9,
+      "durableDependencies": 9,
+      "lastDependency": "model.layers.0.residual:1",
+      "lastCharacters": 8395492,
+      "beforePredictedPostInverseCharacters": 576915520,
+      "predictedPostInverseCharacters": 436570118,
+      "predictedReductionPercent": 24.32685499603131,
+      "stop": "Character budget before allocation",
+      "pathCuts": 0,
+      "finalCoordinateAdmitted": false,
+      "fullVector": false,
+      "lastTokenParity": false
+    },
+    "savepoints": {
+      "oldStatesReused": false,
+      "actualIncompatibleStateRejected": "artifacts/direct-sympy-half-cell-frontier-v2",
+      "allNineDigestsVerified": true,
+      "sources": {
+        "direct_sympy_arithmetic.py": "84e2cfa110fb0523fd94c7565c9e3a761514654c586b1a9ca66e71efc0396544",
+        "direct_sympy_checkpoint.py": "8ee97b439693c276477890eb09e98817d16900c9a670b7195bf4b650cb913c0d",
+        "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+        "direct_sympy_conversions.py": "7761d708f5360441b1e224bbf692d471d78c343d8e2c00afeff06274b15a7e6d",
+        "direct_sympy_layer_bounds.py": "2f8d73caf53371f4bba44a605a91098580f5dcaf90b292c135830d862513dcff",
+        "direct_sympy_savepoints.py": "b4f9b11d6631c7a1a5ae0e698c9e8a7e19def32b67595e447e60803a8abff517",
+        "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+        "direct_sympy_silu.py": "4336247be630c6e17a824fdb3804f05d56023796dbbc3d06ab98f5c2c6a8cc3a",
+        "direct_sympy_sqrt.py": "1bb02cbacdcd74c1db5cd0eb8829788d4f8a7159c4bbbac458fd8197bddb179e",
+        "direct_sympy_strings.py": "a0164864c528c458df4803a76be42880645cfe2a6e97b86aa4f901415369fca9",
+        "direct_sympy_synchronize.py": "6faf1058e0995f44ae76b8bd1dd311ecc0b66fbb2ede4cd3369814ff000e661a",
+        "direct_sympy_tandem.py": "c4c9db6a0fccdc7669bd8cf38d628809afd5348d51cbc232026c60d6cf70ad88",
+        "direct_sympy_words.py": "759c879d4f7ee2150ba20cca472a6431b1086517634db29f9c6b9d256fa72dd0"
+      },
+      "objects": "artifacts/direct-sympy-sqrt-lobatto-frontier/objects"
+    },
+    "tests": {
+      "buildExitCode": 0,
+      "directedNodeTests": 6,
+      "directedFailures": 0,
+      "engine": 26,
+      "conversions": 24,
+      "savepoints": 4,
+      "checkpoint": 7,
+      "silu": 1,
+      "sqrt": 1,
+      "lastFullRegressionCommit": "09e548a",
+      "lastFullRegressionTests": 597,
+      "lastFullRegressionPass": 579,
+      "lastFullRegressionFail": 15,
+      "lastFullRegressionSkip": 3,
+      "fullRegressionRepeatedAfterThisLeafChange": false
+    },
+    "probes": {
+      "candidateCount": 22,
+      "allDegreeTotalFourCandidatesRejected": true,
+      "someDegreeTotalFiveCandidatesRejectedDespiteSingleMismatch": true
+    },
+    "sourceHashes": {
+      "direct_sympy_sqrt.py": "1bb02cbacdcd74c1db5cd0eb8829788d4f8a7159c4bbbac458fd8197bddb179e",
+      "direct_sympy_sqrt_test.py": "a5221fc6f769ee841a0b020219bceb23e7dd0278358c9fa27fab60909d71b60b"
+    },
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-sqrt-lobatto-asymmetric-candidates.json": "8e4bf6c54e116bb59cd960d1f476fcf49f54e42b1ac66ebfb6bbb54e92b43700",
+      "docs/evidence/direct-sympy-sqrt-lobatto-asymmetric-probe.log": "e4e90d3d0de0e3b729e25830bb828997ecc3dac8dda78db1d2238fb56d588e63",
+      "docs/evidence/direct-sympy-sqrt-lobatto-asymmetric-probe.py.work": "23cc2f8b9d7daf3368ffb41992a2a263ad501827ce531e1a2baa366eff9a48a0",
+      "docs/evidence/direct-sympy-sqrt-lobatto-budget-simplifications.tsv": "8fee5951ef5ad32f2c0721fd74f507df052b97dff14fc4a1b2ced4ca0094677b",
+      "docs/evidence/direct-sympy-sqrt-lobatto-build.log": "a408d94a3fffc856dc5364f9d4b4ab56fde09205ec19cae0976763ea611ad3df",
+      "docs/evidence/direct-sympy-sqrt-lobatto-compatibility.log": "6c82a78e869bf29231718336555457931fb87b2779606f5a23dc9d18d848c99b",
+      "docs/evidence/direct-sympy-sqrt-lobatto-compile.log": "442c9b6106cf987be13f64ed65c240adf94940cfaceccbf12a1d5dbc020f9e7f",
+      "docs/evidence/direct-sympy-sqrt-lobatto-conditions.tsv": "a2ff5598582c308382556de34283d49161612780e911b47967292c9fc36f545c",
+      "docs/evidence/direct-sympy-sqrt-lobatto-directed.log": "9dba5f3a809a1885c39039ae02f5444f9dc4eb9d97d5c2bb1e517a183b3601f5",
+      "docs/evidence/direct-sympy-sqrt-lobatto-endpoint-candidates.json": "dfd99d25b010060ff55647c0970cfd094718a6a1fade704989ea8c2896fd63d2",
+      "docs/evidence/direct-sympy-sqrt-lobatto-endpoint-probe.log": "5d0339433248c386b26e3a43c80dd7e5d1c6377372345b7d54ef0af1b0e99e2b",
+      "docs/evidence/direct-sympy-sqrt-lobatto-endpoint-probe.py.work": "23b73582ae3e67ec5349e4b9eaf5814a3bd4c223d4b0874cbfdb8357dbee35fe",
+      "docs/evidence/direct-sympy-sqrt-lobatto-frontier.json": "468008146d09438071dbe7eb3f85035a494956250bd198f71c9ba73f1b40a74a",
+      "docs/evidence/direct-sympy-sqrt-lobatto-growth.tsv": "312a384c9c0dccbdb05f0213431ff34f8bf8d78756f1f5f757fe0f3c914f2029",
+      "docs/evidence/direct-sympy-sqrt-lobatto-kernel.work.expr": "63795ae227cbc05696bc6ece6a978b6feb0ac4fbc3ec59169949461b6aa15ec4",
+      "docs/evidence/direct-sympy-sqrt-lobatto-lower-degree-candidates.json": "3797695851530e2a6dcfa39b32d0b347a6a0e99eb20ac429f30af319dfe7b77b",
+      "docs/evidence/direct-sympy-sqrt-lobatto-lower-degree-probe.log": "fff92c2ebbfd980d5f0b11b2ecbcda47fd9b93afbedb6f79c51d5499ba1f9e22",
+      "docs/evidence/direct-sympy-sqrt-lobatto-lower-degree-probe.py.work": "24f15ef70b65f22978b094d3f70c0a8727f1bdc7edab0f4a0e4ce65d08a6a14f",
+      "docs/evidence/direct-sympy-sqrt-lobatto-residual-parity.log": "db2a0772f47fd0d25d43d21e29eae3038ab9ad87f246ca48007b211760ed776b",
+      "docs/evidence/direct-sympy-sqrt-lobatto-residual-parity.py.work": "ce4148a08cce94a5a888187d8bce5d87e65c6169482a714e4d539c20918add8b",
+      "docs/evidence/direct-sympy-sqrt-lobatto-rms-native.log": "b31e1844d7c15bc89a5e221d05fca26bb442534711413566d50c59b26577b242",
+      "docs/evidence/direct-sympy-sqrt-lobatto-rms-proof.py.work": "e3c0331bc758679f4d7a2ce7d7d4bc1bdab5fcd7a72d6d3784a6a65daa5feb4d",
+      "docs/evidence/direct-sympy-sqrt-lobatto-rms.work.expr": "f3961702702abebc2cf67343b2644161c4cf57d2240a9cfbb0e542d22b83dbed",
+      "docs/evidence/direct-sympy-sqrt-lobatto-substitutions.tsv": "d9170daedd71268a6e4a07db56b3f636f153ea085af28988fd66a721ed781272",
+      "docs/evidence/direct-sympy-sqrt-lobatto-synchronization.tsv": "e00dab3eed2648c656df497dd5380bb4181b1d6271f5723ef7373783a565c576"
+    }
   }
 }

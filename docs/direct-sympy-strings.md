@@ -1092,3 +1092,37 @@ coordenada completa nem reutilizou os estados incompatíveis. Build e seis
 testes dirigidos passaram; a regressão confirmou 597 testes, 579 aprovados,
 as mesmas quinze falhas nominais e três ignorados. Quatro testes legados
 da representação JSON permanecem excluídos conforme o mapa anterior.
+
+## Raiz racional cúbica/quadrática com pontos de Lobatto
+
+Foram comparadas 22 sementes racionais e ordens de correção. Mesmo
+candidatas com uma única divergência foram recusadas. Todas as formas
+experimentadas de grau total quatro falharam. A interpolação cúbica no
+numerador e quadrática no denominador, usando seis pontos de Lobatto
+(inclusive os extremos), seguida da correção aritmética ordenada, passou
+nas 16.777.216 mantissas/paridades normalizadas sem empates F32. A string
+real emitida passou em 25.167.601 casos, incluindo todos os subnormais
+positivos e extremos de expoentes. O domínio certificado continua sendo
+`R32(sqrt(F32 positivo finito))`; não é uma troca da semântica F64 da raiz.
+
+O kernel passou de 1.708 para 1.498 caracteres e de quinze para treze
+ocorrências do argumento. A primeira normalização passou de 36.347 para
+31.727 caracteres e preservou os bits em 507.904 casos nativos. O residual
+salvo passou de 9.615.150 para 8.395.470 caracteres e foi relido e comparado
+com o PyTorch em sessenta entradas, sem divergência. Cada substituição
+continua estabilizada com `factor()` e `simplify()` antes da próxima.
+
+Uma execução nova sobre todo o domínio Half concluiu e persistiu nove
+produtores. A previsão da segunda normalização caiu de 576.915.520 para
+436.570.118 caracteres (24,3% menor), mas continua acima do orçamento de
+64 MiB e foi recusada antes da alocação. Nenhum caminho foi omitido.
+Essa previsão não é um arquivo final gerado. A coordenada completa,
+o vetor e a paridade do último token permanecem pendentes.
+
+Os estados anteriores foram recusados por incompatibilidade; os nove
+novos digests e treze hashes de fontes foram conferidos. Build e seis
+testes dirigidos passaram. A suíte completa mais recente é a execução
+registrada em `09e548a`, com 597 testes, 579 aprovados, quinze falhas
+conhecidas e três ignorados; ela não foi repetida após esta alteração
+localizada do kernel. O mapa `lobattoSqrtValidation` registra os artefatos,
+as candidatas recusadas, o crescimento e o alcance exato das provas.

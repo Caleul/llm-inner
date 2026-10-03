@@ -1,0 +1,4 @@
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 11081.38it/s]
+{"artifact": "artifacts/direct-sympy-sqrt-lobatto-frontier/objects/3589a226d16103cd9d9db7b50b00d5d635298b3251c06a7513dbb4f94c37a1a4.expr", "sha256": "3589a226d16103cd9d9db7b50b00d5d635298b3251c06a7513dbb4f94c37a1a4", "characters": 8395470, "cases": 60, "mismatches": 0, "scope": "position=0 residual coordinate=0; not final coordinate or last-token parity", "elapsedSeconds": 9.95460466700024}

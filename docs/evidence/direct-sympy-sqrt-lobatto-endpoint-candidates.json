@@ -1,0 +1,98 @@
+[
+  {
+    "name": "left-endpoint-3-2-n1",
+    "p": [
+      0.011756582131787338,
+      0.31228736010376745,
+      1.234431909729237,
+      1.2247448428674323
+    ],
+    "q": [
+      0.08567677151198934,
+      0.6745760752314302,
+      1.0
+    ],
+    "correction": 1,
+    "result": "left-endpoint-3-2-n1: cases=16777216 mismatches=0 oddTies=0 evenTies=0 maxSeedRelativeError=8.6752916517163214e-08\n"
+  },
+  {
+    "name": "left-endpoint-2-3-n1",
+    "p": [
+      0.2429105042636241,
+      1.151961940227944,
+      1.22474483134314
+    ],
+    "q": [
+      -0.0019391299492547759,
+      0.051475621255334836,
+      0.607239618524833,
+      1.0
+    ],
+    "correction": 1,
+    "result": "left-endpoint-2-3-n1: cases=16777216 mismatches=0 oddTies=0 evenTies=0 maxSeedRelativeError=1.1513833264586992e-07\n"
+  },
+  {
+    "name": "endpoints-3-2-n1",
+    "p": [
+      0.011729689902744846,
+      0.31198931838717187,
+      1.2339975208846155,
+      1.2247448419961513
+    ],
+    "q": [
+      0.08555159797046759,
+      0.6742213991596472,
+      1.0
+    ],
+    "correction": 1,
+    "result": "endpoints-3-2-n1: cases=16777216 mismatches=0 oddTies=0 evenTies=0 maxSeedRelativeError=8.7899902800891994e-08\n"
+  },
+  {
+    "name": "endpoints-2-3-n1",
+    "p": [
+      0.2427107015576541,
+      1.151609580038628,
+      1.224744830131658
+    ],
+    "q": [
+      -0.0019327699956982404,
+      0.051408315015724605,
+      0.6069519190032721,
+      1.0
+    ],
+    "correction": 1,
+    "result": "endpoints-2-3-n1: cases=16777216 mismatches=0 oddTies=0 evenTies=0 maxSeedRelativeError=1.1663353038926516e-07\n"
+  },
+  {
+    "name": "lobatto-3-2-n1",
+    "p": [
+      0.011776416813942576,
+      0.31267808731141555,
+      1.2350886571993487,
+      1.2247448161010575
+    ],
+    "q": [
+      0.08581640268346791,
+      0.6751122868867456,
+      1.0
+    ],
+    "correction": 1,
+    "result": "lobatto-3-2-n1: cases=16777216 mismatches=0 oddTies=0 evenTies=0 maxSeedRelativeError=6.9471661312547894e-08\n"
+  },
+  {
+    "name": "lobatto-2-3-n1",
+    "p": [
+      0.2432523926613427,
+      1.1526130098383156,
+      1.224744793761112
+    ],
+    "q": [
+      -0.0019425352006465417,
+      0.05157665533323736,
+      0.6077711874522005,
+      1.0
+    ],
+    "correction": 1,
+    "result": "lobatto-2-3-n1: cases=16777216 mismatches=0 oddTies=0 evenTies=0 maxSeedRelativeError=9.408995649273777e-08\n"
+  }
+]

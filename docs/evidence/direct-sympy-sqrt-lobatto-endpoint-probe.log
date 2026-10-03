@@ -1,0 +1,6 @@
+left-endpoint-3-2-n1: cases=16777216 mismatches=0 oddTies=0 evenTies=0 maxSeedRelativeError=8.6752916517163214e-08
+left-endpoint-2-3-n1: cases=16777216 mismatches=0 oddTies=0 evenTies=0 maxSeedRelativeError=1.1513833264586992e-07
+endpoints-3-2-n1: cases=16777216 mismatches=0 oddTies=0 evenTies=0 maxSeedRelativeError=8.7899902800891994e-08
+endpoints-2-3-n1: cases=16777216 mismatches=0 oddTies=0 evenTies=0 maxSeedRelativeError=1.1663353038926516e-07
+lobatto-3-2-n1: cases=16777216 mismatches=0 oddTies=0 evenTies=0 maxSeedRelativeError=6.9471661312547894e-08
+lobatto-2-3-n1: cases=16777216 mismatches=0 oddTies=0 evenTies=0 maxSeedRelativeError=9.408995649273777e-08

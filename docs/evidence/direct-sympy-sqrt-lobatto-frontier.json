@@ -1,0 +1,228 @@
+{
+  "events": [
+    [
+      "model.layers.0.pre:inverse",
+      82,
+      5210,
+      59
+    ],
+    [
+      "model.layers.0.pre:0",
+      5241,
+      31727,
+      82
+    ],
+    [
+      "model.layers.0.pre:1",
+      5241,
+      31727,
+      23
+    ],
+    [
+      "model.layers.0.v:0",
+      63567,
+      381539,
+      144
+    ],
+    [
+      "model.layers.0.context:0",
+      381599,
+      381545,
+      169
+    ],
+    [
+      "model.layers.0.v:1",
+      63564,
+      381521,
+      38
+    ],
+    [
+      "model.layers.0.context:1",
+      381581,
+      381527,
+      63
+    ],
+    [
+      "model.layers.0.residual:0",
+      763200,
+      8395470,
+      283
+    ],
+    [
+      "model.layers.0.residual:1",
+      763202,
+      8395492,
+      51
+    ]
+  ],
+  "identity": {
+    "byteOrder": "little",
+    "checkpoint": {
+      "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+      "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+    },
+    "dimension": 2,
+    "domains": {
+      "X1": [
+        "-65504",
+        "65504",
+        -24,
+        false
+      ],
+      "X2": [
+        "-65504",
+        "65504",
+        -24,
+        false
+      ]
+    },
+    "dtype": "f32",
+    "lowerConversions": true,
+    "platform": "macOS-26.7.1-arm64-arm-64bit",
+    "position": 0,
+    "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+    "referenceBackend": {
+      "capability": "DEFAULT",
+      "gitVersion": "7269437d655783a26cba32aa88195b741ff496aa",
+      "name": "torch CPU",
+      "version": "2.12.1"
+    },
+    "schema": 1,
+    "sources": {
+      "direct_sympy_arithmetic.py": "84e2cfa110fb0523fd94c7565c9e3a761514654c586b1a9ca66e71efc0396544",
+      "direct_sympy_checkpoint.py": "8ee97b439693c276477890eb09e98817d16900c9a670b7195bf4b650cb913c0d",
+      "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+      "direct_sympy_conversions.py": "7761d708f5360441b1e224bbf692d471d78c343d8e2c00afeff06274b15a7e6d",
+      "direct_sympy_layer_bounds.py": "2f8d73caf53371f4bba44a605a91098580f5dcaf90b292c135830d862513dcff",
+      "direct_sympy_savepoints.py": "b4f9b11d6631c7a1a5ae0e698c9e8a7e19def32b67595e447e60803a8abff517",
+      "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+      "direct_sympy_silu.py": "4336247be630c6e17a824fdb3804f05d56023796dbbc3d06ab98f5c2c6a8cc3a",
+      "direct_sympy_sqrt.py": "1bb02cbacdcd74c1db5cd0eb8829788d4f8a7159c4bbbac458fd8197bddb179e",
+      "direct_sympy_strings.py": "a0164864c528c458df4803a76be42880645cfe2a6e97b86aa4f901415369fca9",
+      "direct_sympy_synchronize.py": "6faf1058e0995f44ae76b8bd1dd311ecc0b66fbb2ede4cd3369814ff000e661a",
+      "direct_sympy_tandem.py": "c4c9db6a0fccdc7669bd8cf38d628809afd5348d51cbc232026c60d6cf70ad88",
+      "direct_sympy_words.py": "759c879d4f7ee2150ba20cca472a6431b1086517634db29f9c6b9d256fa72dd0"
+    },
+    "sympy": "1.14.0"
+  },
+  "records": [
+    {
+      "bounds": [
+        "0x1.0020040000000p-16",
+        "0x1.f3fffe0000000p+9",
+        -39
+      ],
+      "castsClosed": true,
+      "characters": 5210,
+      "digest": "a2a26469b3e911647359354fcce3d74719a0b20a98e056ea583a6b470fd65839",
+      "kind": "f32",
+      "name": "model.layers.0.pre:inverse",
+      "noNegativeZero": true
+    },
+    {
+      "bounds": [
+        "-0x1.6a00000000000p+1",
+        "0x1.6a00000000000p+1",
+        -24
+      ],
+      "castsClosed": true,
+      "characters": 31727,
+      "digest": "e56dc952aa816aede641a58b8e64e3488d6b0c5b51a2dbe5c09827da10c326ec",
+      "kind": "half",
+      "name": "model.layers.0.pre:0",
+      "noNegativeZero": false
+    },
+    {
+      "bounds": [
+        "-0x1.6a00000000000p+1",
+        "0x1.6a00000000000p+1",
+        -24
+      ],
+      "castsClosed": true,
+      "characters": 31727,
+      "digest": "965be84b120eb05ce59d9cc18bb56fe7ee41fa3408e840a5db5972259f7c3e32",
+      "kind": "half",
+      "name": "model.layers.0.pre:1",
+      "noNegativeZero": false
+    },
+    {
+      "bounds": [
+        "-0x1.7ac0000000000p-6",
+        "0x1.7ac0000000000p-6",
+        -24
+      ],
+      "castsClosed": true,
+      "characters": 381539,
+      "digest": "acbf83bfec3578f297c7efad31f987cfb5ba731f9a57704075106e440a1f0f18",
+      "kind": "half",
+      "name": "model.layers.0.v:0",
+      "noNegativeZero": false
+    },
+    {
+      "bounds": [
+        "-0x1.7ac0000000000p-6",
+        "0x1.7ac0000000000p-6",
+        -24
+      ],
+      "castsClosed": true,
+      "characters": 381545,
+      "digest": "35015109e50a4e9500b088847560876bf4428bd93352a10d836fc6bc61a827ff",
+      "kind": "half",
+      "name": "model.layers.0.context:0",
+      "noNegativeZero": true
+    },
+    {
+      "bounds": [
+        "-0x1.dbc0000000000p-4",
+        "0x1.dbc0000000000p-4",
+        -24
+      ],
+      "castsClosed": true,
+      "characters": 381521,
+      "digest": "a4ad153f6d178677c89a38c243b3df3ace75789a1bd4b32c3e65d3c891725033",
+      "kind": "half",
+      "name": "model.layers.0.v:1",
+      "noNegativeZero": false
+    },
+    {
+      "bounds": [
+        "-0x1.dbc0000000000p-4",
+        "0x1.dbc0000000000p-4",
+        -24
+      ],
+      "castsClosed": true,
+      "characters": 381527,
+      "digest": "8dd2cc475984eefe462719c939d1215bc795453ed216090c770756d8125a3af2",
+      "kind": "half",
+      "name": "model.layers.0.context:1",
+      "noNegativeZero": true
+    },
+    {
+      "bounds": [
+        "-0x1.ffc0000000000p+15",
+        "0x1.ffc0000000000p+15",
+        -24
+      ],
+      "castsClosed": true,
+      "characters": 8395470,
+      "digest": "3589a226d16103cd9d9db7b50b00d5d635298b3251c06a7513dbb4f94c37a1a4",
+      "kind": "half",
+      "name": "model.layers.0.residual:0",
+      "noNegativeZero": false
+    },
+    {
+      "bounds": [
+        "-0x1.ffc0000000000p+15",
+        "0x1.ffc0000000000p+15",
+        -24
+      ],
+      "castsClosed": true,
+      "characters": 8395492,
+      "digest": "5056b4f83f3eb2e30365799c6178fb9b3eb8348d7111f7a713a8e2e703512885",
+      "kind": "half",
+      "name": "model.layers.0.residual:1",
+      "noNegativeZero": false
+    }
+  ],
+  "weightReads": 13
+}

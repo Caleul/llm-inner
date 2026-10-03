@@ -1,0 +1,23 @@
+bad=00000001 odd=0
+chebyshev-3-2-n1: cases=16777216 mismatches=1 oddTies=0 evenTies=0 maxSeedRelativeError=7.14903385379273e-08
+bad=00000001 odd=0
+chebyshev-2-3-n1: cases=16777216 mismatches=1 oddTies=0 evenTies=0 maxSeedRelativeError=9.4199958500240655e-08
+bad=00000001 odd=0
+bad=007fffff odd=1
+chebyshev-4-1-n1: cases=16777216 mismatches=2 oddTies=0 evenTies=0 maxSeedRelativeError=1.6689948756365425e-07
+bad=00000001 odd=0
+bad=00000003 odd=0
+bad=00000005 odd=0
+bad=007ffffd odd=1
+chebyshev-1-4-n1: cases=16777216 mismatches=5 oddTies=1 evenTies=0 maxSeedRelativeError=4.1755019730693732e-07
+bad=00000001 odd=0
+bad=00000003 odd=0
+bad=00000005 odd=0
+bad=00000007 odd=0
+pade-3-2-n1: cases=16777216 mismatches=31 oddTies=0 evenTies=0 maxSeedRelativeError=2.1256311795170291e-06
+bad=00000001 odd=0
+bad=00000003 odd=0
+bad=00000005 odd=0
+bad=00000007 odd=0
+pade-2-3-n1: cases=16777216 mismatches=45 oddTies=0 evenTies=0 maxSeedRelativeError=2.795283681189531e-06
+chebyshev-6-6-n0: cases=16777216 mismatches=0 oddTies=0 evenTies=0 maxSeedRelativeError=1.5543122344752192e-15
