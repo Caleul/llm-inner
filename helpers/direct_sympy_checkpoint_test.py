@@ -11,7 +11,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from direct_sympy_checkpoint import CheckpointStrings,f32
+from direct_sympy_checkpoint import CheckpointStrings,f32,rms_half_bound
 from direct_sympy_strings import StringCompiler,syntax
 
 
@@ -52,6 +52,9 @@ class CheckpointStringTests(unittest.TestCase):
             expression=builder.norm("rounding:proof","model.layers.0.input_layernorm.weight",0,lambda i:f"X{i+1}")
             epsilon=repr(f32(builder.config["rms_norm_eps"]))
             gamma=builder.weight("model.layers.0.input_layernorm.weight",0)
+            norm_bound=rms_half_bound(builder.width,f32(builder.config["rms_norm_eps"]))
+            self.assertGreater(norm_bound,math.sqrt(builder.width))
+            self.assertLess(norm_bound,1.416)
             for name in ("R16(","R32(","sqrt(","CASNumericRegion"):
                 self.assertNotIn(name,expression)
         with tempfile.TemporaryDirectory() as directory:
@@ -68,13 +71,14 @@ uint64_t raw=word<uint64_t>(variance);double withoutEpsilonParity=word<double>((
 unsafeEpsilon+=word<uint64_t>(withoutEpsilonParity)!=word<uint64_t>(double(float(variance)));
 float inverse=1.0f/std::sqrt(float(variance));double product=x*double(inverse);
 double normalized=static_cast<_Float16>(float(product));double expected=static_cast<_Float16>(float(normalized*GAMMA));
+mismatches+=std::fabs(product)>NORMBOUND;mismatches+=std::fabs(normalized)>NORMBOUND;
 unsafeHalf+=word<uint64_t>(normalized)!=word<uint64_t>(double(static_cast<_Float16>(product)));
 uint64_t p=word<uint64_t>(product);double noProductParity=word<double>((p+UINT64_C(268435455))&UINT64_C(18446744073172680704));
 unsafeProduct+=word<uint64_t>(normalized)!=word<uint64_t>(double(static_cast<_Float16>(noProductParity)));
 mismatches+=word<uint64_t>(compiled(x,y))!=word<uint64_t>(expected);cases++;
 }}std::printf("Closed RMS rounding parity: cases=%u mismatches=%u unsafeEpsilon=%u unsafeHalf=%u unsafeProduct=%u\\n",cases,mismatches,unsafeEpsilon,unsafeHalf,unsafeProduct);
 return (mismatches||!unsafeEpsilon||!unsafeHalf||!unsafeProduct)?1:0;}
-'''.replace("EPSILON",epsilon).replace("GAMMA",gamma))
+'''.replace("EPSILON",epsilon).replace("GAMMA",gamma).replace("NORMBOUND",repr(norm_bound)))
             built=subprocess.run(["clang++","-O3","-ffp-contract=off","-std=c++17",str(source),"-o",str(binary)],capture_output=True,text=True)
             self.assertEqual(built.returncode,0,built.stderr)
             result=subprocess.run([str(binary)],capture_output=True,text=True,timeout=120)
@@ -86,9 +90,10 @@ return (mismatches||!unsafeEpsilon||!unsafeHalf||!unsafeProduct)?1:0;}
             (Path(directory)/'config.json').write_text(json.dumps({'model_type':'llama','hidden_size':1,'num_hidden_layers':1}))
             builder=CheckpointStrings(directory,StringCompiler())
             publish=unittest.mock.Mock();builder.on_completed=publish
-            with patch.object(builder.conversions,'close',return_value='R16(X1)'):
-                with self.assertRaisesRegex(ValueError,'closure incomplete.*not published'):
-                    builder.producer('fixture:pending',lambda:'R16(X1)')
+            for primitive in ('R16(X1)','R32(X1)','Silu16(X1)','sqrt(X1)'):
+                with patch.object(builder.conversions,'close',return_value=primitive):
+                    with self.assertRaisesRegex(ValueError,'closure incomplete.*not published'):
+                        builder.producer('fixture:pending',lambda:primitive)
             self.assertEqual(builder.memo,{});self.assertEqual(builder.events,[])
             publish.assert_not_called()
 
@@ -115,7 +120,9 @@ return (mismatches||!unsafeEpsilon||!unsafeHalf||!unsafeProduct)?1:0;}
         from direct_sympy_conversions_test import cpp
         checkpoint=os.environ["LLM_INNER_DIRECT_JSON_CHECKPOINT"]
         with CheckpointStrings(checkpoint,StringCompiler(max_characters=1048576)) as builder:
-            builder.gated("model.layers.0.",0,lambda i:f"X{i+1}")
+            for projection in ('gate','up'):
+                builder.producer('model.layers.0.'+projection+':0',lambda projection=projection:
+                    builder.linear('model.layers.0.mlp.'+projection+'_proj.weight',0,lambda i:f'X{i+1}'))
             normalized=builder.norm('proof:test','model.layers.0.input_layernorm.weight',0,lambda i:f'X{i+1}')
             self.assertNotIn('R16(',normalized);self.assertNotIn('R32(',normalized)
             self.assertNotIn('sqrt(',normalized)
@@ -169,17 +176,26 @@ double X1=word<_Float16>(uint16_t(bits)),X2=word<_Float16>(other);
             def closed(expression):
                 order.append(("close",expression));return "X1" if "X1" in expression else "X2"
             def product(operation,a,b):
-                self.assertEqual(list(builder.memo),["model.layers.0.gate:0","model.layers.0.up:0"])
-                self.assertEqual((operation,a,b),("*","Silu16(X1)","X2"))
-                order.append(("compose",));return "R32(Silu16(X1)*X2)"
+                self.assertEqual(list(builder.memo),["model.layers.0.gate:0","model.layers.0.activation:0","model.layers.0.up:0"])
+                self.assertEqual((operation,a,b),("*","X1","X2"))
+                order.append(("compose",));return "R32(X1*X2)"
             with patch.object(builder,"linear",side_effect=linear),patch.object(builder.conversions,"close",side_effect=closed),patch.object(builder,"op",side_effect=product):
                 builder.gated("model.layers.0.",0,lambda i:f"X{i+1}")
-            self.assertEqual([x[0] for x in order],["build","close","build","close","compose"])
+            self.assertEqual([x[0] for x in order],["build","close","close","build","close","compose"])
+            self.assertEqual(order[2],('close','Silu16(X1)'))
             self.assertTrue(all(e[2:4]==("factor","simplify") for e in compiler.events))
             builder.memo.clear();order.clear()
             with patch.object(builder,"linear",side_effect=linear),patch.object(builder.conversions,"close",side_effect=ValueError("projection budget")):
                 with self.assertRaisesRegex(ValueError,"projection budget"):builder.gated("model.layers.0.",0,lambda i:f"X{i+1}")
             self.assertEqual(len(order),1);self.assertEqual(builder.memo,{})
+            order.clear()
+            def activation_fails(expression):
+                if 'Silu16' in expression:raise ValueError('activation budget')
+                return closed(expression)
+            with patch.object(builder,"linear",side_effect=linear) as projection,patch.object(builder.conversions,"close",side_effect=activation_fails):
+                with self.assertRaisesRegex(ValueError,'activation budget'):builder.gated('model.layers.0.',0,lambda i:f'X{i+1}')
+            self.assertEqual(projection.call_count,1)
+            self.assertEqual(list(builder.memo),['model.layers.0.gate:0'])
 
     def test_square_substitutes_once_only_for_certified_finite_half(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -1,0 +1,8 @@
+...
+----------------------------------------------------------------------
+Ran 3 tests in 3.586s
+
+OK
+Bounded SiLU word parity: cases=21506 mismatches=0
+Bounded SiLU word parity: cases=22530 mismatches=0
+Bounded SiLU word parity: cases=19458 mismatches=0

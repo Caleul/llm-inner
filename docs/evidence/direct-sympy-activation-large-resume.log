@@ -1,0 +1,2 @@
+Restored completed dependencies: 13
+Compilation stopped: Compilation wall-clock budget exceeded; completedDependencies=15 lastDependency=model.layers.0.up:0 closedConversions=4 redundantConversions=0 reusedConvertedRegions=5 visitedConversionNodes=25; no coordinate artifact admitted

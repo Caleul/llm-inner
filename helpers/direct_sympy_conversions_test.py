@@ -137,6 +137,13 @@ class ConversionStringTests(unittest.TestCase):
         known.half_values.discard(known.key(syntax("X2")));known.f32_values.add(known.key(syntax("X2")))
         self.assertTrue(known.encoded_word_is_exact_integer(syntax("X1*X2")))
         self.assertTrue(known.encoded_word_is_exact_integer(syntax("X1+X1")))
+        narrow=ConversionSession(StringCompiler(),{'X1':Domain(F(-3,128),F(3,128),-24,False)},input_dtype='f16')
+        self.assertTrue(narrow.encoded_word_is_exact_integer(syntax('X1*(0.5+X1*0.25)')))
+        untyped=ConversionSession(StringCompiler(),narrow.domains)
+        self.assertFalse(untyped.encoded_word_is_exact_integer(syntax('X1*(0.5+X1*0.25)')))
+        opaque=syntax('opaque(X1)*opaque(X1)')
+        narrow.completed[narrow.key(opaque)]=FiniteSource(-1,1,-20)
+        self.assertTrue(narrow.encoded_word_is_exact_integer(opaque))
         unknown=ConversionSession(StringCompiler(),domains)
         self.assertFalse(unknown.encoded_word_is_exact_integer(syntax("X1")))
         unknown.f32_values.add(unknown.key(syntax("X1")))
@@ -531,7 +538,9 @@ std::printf("Native Half squares: %u, mismatches=0\\n",count);}
         self.assertIsNone(session.bounds(overflow))
         self.assertIsNone(session.value_kind(overflow))
         for width in (1,2,1024,1000000):
-            self.assertEqual(rms_half_bound(width,1e-6),2*math.sqrt(width))
+            bound=rms_half_bound(width,1e-6)
+            self.assertGreater(bound,math.sqrt(width))
+            self.assertLess(bound,1.25*math.sqrt(width))
 
     def test_word_identities_are_typed_and_stabilized(self):
         compiler=StringCompiler();domains={"X1":Domain(F(-65504),F(65504),-24,False)}

@@ -8124,5 +8124,184 @@
       "docs/evidence/direct-sympy-sign-substitutions.tsv": "c35bd88f09ee3259cfb113e59e60584e01f2a301c061ff3926827a6d8687c544",
       "docs/evidence/direct-sympy-sign-synchronization.tsv": "07ca2a3dbd58cc725eb80c2a9d3a56de2dbb0c2645ee4a59a61e88c7e9984d7a"
     }
+  },
+  "orderedActivationClosureValidation": {
+    "date": "2026-10-03",
+    "format": "mathematical strings; JSON only config/evidence/savepoint metadata",
+    "changes": [
+      "MLP order is gate closure -> activation closure -> up closure -> product; activation failure does not request up",
+      "Producer refuses residual R16/R32/sqrt/Silu16 when numerical closure is enabled",
+      "RMS finite-Half correlation uses a conservative outward bound including accumulation, F32 losses and Half quantization",
+      "Quadratic/F32/Half SiLU admitted only on typed Half within [-3/128,3/128]; broader certified [-1/16,1/16] retains quartic",
+      "Compose significand-width certificates from dyadic bounds and typed operands to admit exact normal-word numeric offsets; retain whole-source quantum fallback",
+      "Close activation inside the outer numeric-literal context; reserved names remain rejected at public entry"
+    ],
+    "build": {
+      "command": "npm run build",
+      "passed": true
+    },
+    "directed": {
+      "nodeTests": 6,
+      "pass": 6,
+      "pythonConversionTests": 28,
+      "pythonCheckpointTests": 8,
+      "pythonSiluTests": 3,
+      "rmsNativeCases": 888832,
+      "rmsMismatches": 0,
+      "rmsBoundForWidth2": 1.4149053068299178,
+      "rmsRawAndHalfBoundAlsoChecked": true,
+      "projectionNativeCases": 1015808,
+      "projectionMismatches": 0,
+      "quadraticNativeCases": 19458,
+      "quarticNativeCases": 22530,
+      "previousLiteralActivationNativeCases": 21506,
+      "activationMismatches": 0
+    },
+    "regression": {
+      "tests": 597,
+      "pass": 579,
+      "fail": 15,
+      "skip": 3,
+      "newFailingNames": [],
+      "baseline": "docs/evidence/direct-sympy-sign-regression.log",
+      "excluded": "Four legacy JSON model tests; unchanged exclusion"
+    },
+    "kernels": [
+      {
+        "kernel": "quadratic",
+        "bound": "3/128",
+        "characters": 410,
+        "references": 7
+      },
+      {
+        "kernel": "quartic",
+        "bound": "1/16",
+        "characters": 644,
+        "references": 21
+      }
+    ],
+    "counterexamplesPreserved": [
+      {
+        "inputBits": 42992,
+        "reason": "Quadratic/F32/Half disagrees with Torch at -0.031005859375; interval cannot be enlarged to 1/32"
+      },
+      {
+        "inputBits": 1,
+        "reason": "Removing F32 from the quadratic/Half chain changes the least positive Half output from zero to the least Half"
+      }
+    ],
+    "frontier": {
+      "completedDependencies": 15,
+      "position": 0,
+      "outputDimension": 2,
+      "sourceHashesVerified": 13,
+      "freshAfterEachCompilerSourceChange": true,
+      "incompatibleOldSourcesNotForced": true,
+      "initialCharacterBudget": 1610612736,
+      "resumedCharacterBudget": 9663676416,
+      "resumedWallClockSeconds": 600,
+      "completedActivationCharacters": 9218105754,
+      "completedUpCharacters": 1316872178,
+      "lastDependency": "model.layers.0.up:0",
+      "terminalReason": "Compilation wall-clock budget exceeded after 15 completed dependencies; no final coordinate artifact admitted",
+      "activationClosureForecastBeforePrecisionProof": 14485594661,
+      "activationClosureForecastAfterPrecisionProof": 9218105754,
+      "actualMatchesForecast": true,
+      "expressions": [
+        {
+          "bounds": [
+            "-0x1.5c80000000000p-6",
+            "0x1.5c80000000000p-6",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 1316872194,
+          "digest": "9b6263ee0312ecd3bbee460baad57d8c22e651bba95179f50b565e640a5233d5",
+          "kind": "half",
+          "name": "model.layers.0.gate:0",
+          "noNegativeZero": false,
+          "path": "artifacts/direct-sympy-activation-proof-frontier/objects/9b6263ee0312ecd3bbee460baad57d8c22e651bba95179f50b565e640a5233d5.expr"
+        },
+        {
+          "bounds": [
+            "-0x1.5c80000000000p-6",
+            "0x1.5c80000000000p-6",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 9218105754,
+          "digest": "546305691d56bf95866e567f60412ee98dd3da1c916ced09c27cfac0fe5de72f",
+          "kind": "half",
+          "name": "model.layers.0.activation:0",
+          "noNegativeZero": false,
+          "path": "artifacts/direct-sympy-activation-proof-frontier/objects/546305691d56bf95866e567f60412ee98dd3da1c916ced09c27cfac0fe5de72f.expr"
+        },
+        {
+          "bounds": [
+            "-0x1.4800000000000p-5",
+            "0x1.4800000000000p-5",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 1316872178,
+          "digest": "ca2454da23c325f276f8d40e916ab3c269c2166e49d1dc14d7c042e6d381387b",
+          "kind": "half",
+          "name": "model.layers.0.up:0",
+          "noNegativeZero": false,
+          "path": "artifacts/direct-sympy-activation-proof-frontier/objects/ca2454da23c325f276f8d40e916ab3c269c2166e49d1dc14d7c042e6d381387b.expr"
+        }
+      ]
+    },
+    "parity": {
+      "cases": 60,
+      "sequenceLengths": [
+        1,
+        2,
+        3,
+        4,
+        8
+      ],
+      "comparisons": 300,
+      "mismatches": 0,
+      "producerFilesEvaluated": 15,
+      "method": "Actual immutable files read and SHA256 checked; exact literal subtrees reused only in verification; fresh Torch hooks for two posterior norm coordinates, gate, activation and up at position zero",
+      "verificationOptimization": "A negative substring prefilter skips only the reserved CASStableRegion regex when that exact substring is absent; same predicate, not algebra or proof mutation",
+      "scope": "Five intermediate scalar results; not the final output coordinate"
+    },
+    "profile": {
+      "physicalFootprintGiB": 16.1,
+      "peakPhysicalFootprintGiB": 23.9,
+      "observation": "One-second native sample showed regex scanning and hashing on the main Python thread; not a complete runtime breakdown"
+    },
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "otherOutputCoordinatesAdvanced": false,
+    "remaining": "Gated product, down projections, residuals, final normalization and head of the same coordinate; then full other coordinates and last-token positions. Inspect repeated scans/hash of fully expanded strings before increasing resource limits again.",
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-activation-budget-simplifications.tsv": "8fee5951ef5ad32f2c0721fd74f507df052b97dff14fc4a1b2ced4ca0094677b",
+      "docs/evidence/direct-sympy-activation-build.log": "a408d94a3fffc856dc5364f9d4b4ab56fde09205ec19cae0976763ea611ad3df",
+      "docs/evidence/direct-sympy-activation-checkpoint.log": "d08dde2f1de6a6d0774839dab7c47297e52109b57128997dd2e1ccdcd30eef6a",
+      "docs/evidence/direct-sympy-activation-closed-budget.log": "e87943cfad1bb8a80fc111ccefb21cc9b6530ba474eec3108e90f39a1206291f",
+      "docs/evidence/direct-sympy-activation-conditions.tsv": "a6c8ba3aaf8ed71ce24dd6db8671a457ce7bf69df5f57563a346c14bd14ef706",
+      "docs/evidence/direct-sympy-activation-conversions.log": "f384f63dfe3db67899e5e5d5d53fa71f69f792a404bdccb81d704f26bb5b095d",
+      "docs/evidence/direct-sympy-activation-directed.log": "266f7df4e12565a26b1acb03639ac26f75cd0779303dd5a912f478e110a99950",
+      "docs/evidence/direct-sympy-activation-frontier.json": "0c5b1eff9f5b7de2a4f5af2e52b072d2315184e6c87e6766887a429c7acda38e",
+      "docs/evidence/direct-sympy-activation-growth.tsv": "5a72f495213711ff342aabc6ecd431e42ae01f3094e7d2ac2a9c7b4b6f5b153b",
+      "docs/evidence/direct-sympy-activation-initial-failure.log": "68e16b8daec55b67eac24e4a27fbf1f7c15d7e5ffc0dc514c3501cc8fd4b40bb",
+      "docs/evidence/direct-sympy-activation-kernels.json": "a2629f405e86ae42324a21948bba28507ed7b4769196267284963f4dbb6b7015",
+      "docs/evidence/direct-sympy-activation-large-resume.log": "f1adb759f7e7397d6dc9b9cd8c8ef9c90a6f994e51e5e2626b8d8da33eac6dfd",
+      "docs/evidence/direct-sympy-activation-numeric-envelopes.tsv": "df8ffbe7e18673a7ed41b0760855026ed07ce88110dd2256e756c0bccd3267dc",
+      "docs/evidence/direct-sympy-activation-parity.log": "f1a8fe4676a99e37bbc92d1dc42c1a4a29fe656e2a3f4e4ef56d547a8c145ca5",
+      "docs/evidence/direct-sympy-activation-parity.py.work": "b9e5696f89c55a0436b6fe0640a5ba63a53714cc2f104d96bf174b59ad3adadd",
+      "docs/evidence/direct-sympy-activation-precision-budget.log": "2109a849fe0d9904f6489ddfe402c05bd4a335467b41c10a967923963e0640f6",
+      "docs/evidence/direct-sympy-activation-profile.txt": "4966a6356fb1123b7896ffc146c41939781980c5a60f7411a248d767ed91cf44",
+      "docs/evidence/direct-sympy-activation-quadratic.expr": "802ee4d397a08df6f4514642e68850330ee4776c716114270a4ed8fa4661a166",
+      "docs/evidence/direct-sympy-activation-quartic.expr": "405655d6c0e63569a6fa83e1eb1bee1488c6cd6dfa17496b6d5b37a1fef54a9f",
+      "docs/evidence/direct-sympy-activation-regression.log": "475fac09f8374d402207368b089df1a121edd6b8f463d8e19c44c531370ff170",
+      "docs/evidence/direct-sympy-activation-silu.log": "d62fe5abde4319168f6498f613f6835ec4ec815d64b9e4ab8f8d278aca0a4ec1",
+      "docs/evidence/direct-sympy-activation-status.md": "7d7bde1d4ad9be1b80199fc8f59b4f54191e4bc3272fe4391e52841be8ba8e7b",
+      "docs/evidence/direct-sympy-activation-substitutions.tsv": "80d799aa5acc0de174f5c0e7218fc44548dece05553a49168d57624d1d1c90b3",
+      "docs/evidence/direct-sympy-activation-synchronization.tsv": "b12b99830e664d977dccb162bc3a0d46f7fe878a7d278df6455a1b08a5162af9"
+    }
   }
 }

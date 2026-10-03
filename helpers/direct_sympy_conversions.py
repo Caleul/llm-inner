@@ -343,8 +343,20 @@ class ConversionSession:
         kind=self.value_kind(node)
         if kind in ("half","f32"):return True
         if isinstance(node,ast.BinOp) and isinstance(node.op,ast.Mult):
-            kinds=(self.value_kind(node.left),self.value_kind(node.right))
-            if all(kind in ("half","f32") for kind in kinds) and sum(11 if kind=="half" else 24 for kind in kinds)<=42:return True
+            widths=[]
+            for operand in (node.left,node.right):
+                kind=self.value_kind(operand)
+                if kind in ('half','f32'):widths.append(11 if kind=='half' else 24)
+                else:
+                    domain=self.bounds(operand)
+                    maximum=None if domain is None else max(abs(domain.minimum),abs(domain.maximum))
+                    if domain is None or domain.quantum is None:
+                        widths=None;break
+                    widths.append(0 if not maximum else min(53,binary_exponent(maximum)-domain.quantum+1))
+            # Multiplying p- and q-bit finite significands uses at most p+q
+            # bits; F64 rounding cannot increase that bound. The enclosure
+            # and dyadic quantum also prove widths for untyped F64 operands.
+            if widths is not None and sum(widths)<=42:return True
         maximum=max(abs(bounds.minimum),abs(bounds.maximum))
         return not maximum or (bounds.quantum is not None and binary_exponent(maximum)-bounds.quantum+1<=42)
 
@@ -583,7 +595,10 @@ class ConversionSession:
                     source=ast.unparse(node.args[0])
                     if supported(source,session):
                         source=ast.unparse(self.visit(node.args[0]))
-                        text=session.close(expand(source,session))
+                        # The outer close owns and restores any certified
+                        # numeric literals. Stay in that same proof context;
+                        # public close correctly rejects those reserved names.
+                        text=session._close(expand(source,session))
                         rewritten=syntax(text);key=session.key(rewritten)
                         if before is not None:session.completed[key]=before
                         session.half_values.add(key);session.f32_values.add(key)

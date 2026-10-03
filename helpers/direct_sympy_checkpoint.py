@@ -25,17 +25,18 @@ def rms_half_bound(width,epsilon):
 
     With u=2^-23 (covering both F64 calculation and F32 quantization), positive
     accumulation gives sum >= (1-width*u)*real_sum by Bernoulli. sqrt/div/mul
-    losses give factor <1.25 for width<=1e6. Half rounding adds at most relative
-    2^-11 or absolute 2^-25. Thus both the raw product and its rounded Half
-    are below 2*sqrt(width). Epsilon excludes zero denominators/underflow;
+    losses are enclosed by three (1+u) factors and three reciprocal (1-u)
+    factors, conservatively covering variance division/addition, sqrt,
+    reciprocal and multiplication. Half rounding adds at most relative
+    2^-11 or absolute 2^-25. Epsilon excludes zero denominators/underflow;
     the upper certificate also excludes variance overflow. This is a compile
     proof; it is not a runtime RMS helper or a checkpoint-size assumption.
     """
     if not 1<=width<=1000000 or not 2**-126<=epsilon<=1.7014117331926443e38:return None
     u=2**-23
-    factor=(1+u)**3/((1-u)*math.sqrt(1-width*u))
+    factor=(1+u)**3/((1-u)**3*math.sqrt(1-width*u))
     if factor>=1.25:return None
-    return 2*math.sqrt(width)
+    return math.nextafter(math.sqrt(width)*factor*(1+2**-11)+2**-25,math.inf)
 
 
 def f32(x):
@@ -109,8 +110,8 @@ class CheckpointStrings:
         result=self.compiler.stabilize("("+expression+")",self.domains)
         if self.conversions is not None:
             result=self.conversions.close(result)
-            if re.search(r"\bR(?:16|32)\s*\(",result):
-                raise ValueError(f"Numeric closure incomplete for producer {key}; residual R16/R32; producer not published")
+            if re.search(r"\b(?:R16|R32|sqrt|Silu16)\s*\(",result):
+                raise ValueError(f"Numeric closure incomplete for producer {key}; residual numeric primitive; producer not published")
             query,_=self.conversions.analyze_expression(result)
             if self.conversions.key(query) in self.conversions.converted_regions:
                 # Numeric closure already reached a certified CAS fixed
@@ -230,9 +231,10 @@ class CheckpointStrings:
         # reductions first postpones numerical simplification incorrectly.
         gate=self.producer(prefix+"gate:"+str(neuron),lambda:
             self.linear(prefix+"mlp.gate_proj.weight",neuron,input_value))
+        activation=self.producer(prefix+"activation:"+str(neuron),lambda:"Silu16("+gate+")")
         up=self.producer(prefix+"up:"+str(neuron),lambda:
             self.linear(prefix+"mlp.up_proj.weight",neuron,input_value))
-        return "R16("+self.op("*","Silu16("+gate+")",up)+")"
+        return "R16("+self.op("*",activation,up)+")"
 
     def invisible_layer_update(self,layer,prefix,kind,coordinate,value):
         if self.conversions is None:return False

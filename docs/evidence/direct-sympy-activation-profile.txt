@@ -1,0 +1,9 @@
+Physical footprint:         16.1G
+Physical footprint (peak):  23.9G
+                                                                                                                                                                            +   !       : | 280 sre_ucs1_match  (in libpython3.10.dylib) + 52,4332,...  [0x1015cc510,0x1015cd5c8,...]
+                                                                                                                                                                            +   !       : 28 sre_ucs1_match  (in libpython3.10.dylib) + 7504,7496,...  [0x1015ce22c,0x1015ce224,...]
+                                                                                                                                                                            +       :     |   + 91 sre_ucs1_match  (in libpython3.10.dylib) + 4332,5620,...  [0x1015cd5c8,0x1015cdad0,...]
+                                                                                                                                                                            +       :     |   8 sre_ucs1_match  (in libpython3.10.dylib) + 7504,7496  [0x1015ce22c,0x1015ce224]
+                                                                                                                                                                                    121 pysiphash  (in libpython3.10.dylib) + 848,860,...  [0x101e2a948,0x101e2a954,...]
+        sre_ucs1_match  (in libpython3.10.dylib)        407
+        pysiphash  (in libpython3.10.dylib)        121
