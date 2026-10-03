@@ -8696,5 +8696,58 @@
       "localDirectory": "/Users/caleul/Documents/Work/Projects/llm-inner/artifacts/direct-sympy-colab",
       "resumeCompatibility": "Colab/Linux reference identity; rejects macOS resume"
     }
+  },
+  "streamedExpressionWriterValidation": {
+    "date": "2026-10-03",
+    "baselineCommit": "d97c4c66110283783c0923b4cf59312b7267fd50",
+    "change": "Write mathematical-expression artifacts and failed-substitution diagnostics in 1 MiB chunks; append newline separately, without concatenating the full literal",
+    "numericalChange": false,
+    "expressionFormat": "Mathematical strings; no expression JSON",
+    "allocation": {
+      "characters": 20971522,
+      "byteIdentical": true,
+      "peakAllocatedBytes": {
+        "literal-copy": 41953358,
+        "prior-scan-backend": 23075646,
+        "chunked": 2103799
+      }
+    },
+    "actualArtifacts": {
+      "completedDependencies": 10,
+      "lastDependency": "model.layers.0.post:inverse",
+      "everyProducerByteIdenticalToPriorCompilation": true,
+      "diagnosticBytesIdenticalIncludingTrailingNewline": true,
+      "oldSavepointRejected": "Incompatible savepoint: checkpoint, domain, dimension or compiler semantics differ",
+      "finalCoordinateAdmitted": false
+    },
+    "compilation": {
+      "maxCharacters": 134217728,
+      "seconds": 6.389181499951519,
+      "completedDependencies": 10,
+      "stopReason": "Closed numeric envelope needs 164608933 characters before allocation; budget=134217728",
+      "finalCoordinateAdmitted": false,
+      "purpose": "Validate producer and diagnostic file bytes after I/O change; prior fifteen-producer frontier remains preserved"
+    },
+    "tests": {
+      "build": "passed",
+      "pythonTests": 86,
+      "pythonPass": 86,
+      "directedNodeTests": 8,
+      "directedNodePass": 8,
+      "allocationTestIncludingPriorScanBackend": "passed",
+      "priorGlobalRegression": "parallelColabValidation.tests: 599 tests, same 15 known failures; not repeated for this I/O-only change"
+    },
+    "evidence": {
+      "docs/evidence/direct-sympy-expression-writer-allocation.log": "87e9a333323cc7afce94f719f236c86dc9723849c54238f11343803c7911e2c6",
+      "docs/evidence/direct-sympy-expression-writer-artifact-validation.json": "e8f664764642b4e71bd4571ca3ca915c99be99a9b1cd84e71474002547df3067",
+      "docs/evidence/direct-sympy-expression-writer-budget-simplifications.tsv": "7cadef42618c7a5a67433d0956a88a0b6131de75f5a8379ae982e33b7b33a6e4",
+      "docs/evidence/direct-sympy-expression-writer-build.log": "a408d94a3fffc856dc5364f9d4b4ab56fde09205ec19cae0976763ea611ad3df",
+      "docs/evidence/direct-sympy-expression-writer-compile.log": "85bde7811d39bf69f7b44ee165c5b71931cc2b6aa33c1a0897880519e5b59808",
+      "docs/evidence/direct-sympy-expression-writer-frontier.json": "3125f38a376acf869d3f8b3aef8a72b6c3604a5ad156390be1b855c121d924f8",
+      "docs/evidence/direct-sympy-expression-writer-growth.tsv": "8fad168cd247cb17774d26bca274ef7197a0a69dc89ef16f1f2a10333754a55c",
+      "docs/evidence/direct-sympy-expression-writer-node.log": "b6fc8c11bfae0f7224db8d7e8cf9f04156e16246be670cc22ba329f4c2aea231",
+      "docs/evidence/direct-sympy-expression-writer-numeric-envelopes.tsv": "b75cdcdbd47d37c8e7d765019c5bfd5b405cb2402038588867739f126426ec25",
+      "docs/evidence/direct-sympy-expression-writer-tests.log": "5a755a660a7c656d35e01926c2eaeb4a13c30b2f941c6038ae34d8514f6574a9"
+    }
   }
 }

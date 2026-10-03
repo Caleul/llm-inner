@@ -11,11 +11,36 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from direct_sympy_checkpoint import CheckpointStrings,f32,rms_half_bound
+from direct_sympy_checkpoint import CheckpointStrings,f32,rms_half_bound,write_expression
 from direct_sympy_strings import StringCompiler,syntax
 
 
 class CheckpointStringTests(unittest.TestCase):
+    def test_streamed_expression_files_keep_literal_bytes_without_full_size_copy(self):
+        import tracemalloc
+        from direct_sympy_scan_backend import StreamingTextPath
+        expression='X1'+(' '*20*1024*1024)
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);measurements={}
+            for name,write in (
+                ('literal-copy',lambda path: path.write_text(expression+'\n',encoding='utf-8')),
+                ('prior-scan-backend',lambda path: StreamingTextPath(path).write_text(expression+'\n')),
+                ('chunked',lambda path: write_expression(path,expression))):
+                tracemalloc.start()
+                write(root/name)
+                _,peak=tracemalloc.get_traced_memory();tracemalloc.stop()
+                measurements[name]=peak
+            from direct_sympy_savepoints import digest_file
+            self.assertEqual(digest_file(root/'literal-copy'),digest_file(root/'chunked'))
+            self.assertEqual(digest_file(root/'prior-scan-backend'),digest_file(root/'chunked'))
+            self.assertLess(measurements['chunked'],4*1024*1024)
+            self.assertGreater(measurements['literal-copy'],len(expression))
+            self.assertGreater(measurements['prior-scan-backend'],len(expression))
+            for text in ('','-0.0','Piecewise((X1, X1 < 0), (X2, True))','X1\n + 2'):
+                write_expression(root/'small',text)
+                self.assertEqual((root/'small').read_bytes(),(text+'\n').encode('utf-8'))
+            print('Expression file allocation parity: '+json.dumps({'characters':len(expression),'byteIdentical':True,'peakAllocatedBytes':measurements}))
+
     def test_half_products_drop_f32_before_substitution_and_keep_other_boundaries(self):
         from direct_sympy_conversions_test import cpp
         with tempfile.TemporaryDirectory() as directory:

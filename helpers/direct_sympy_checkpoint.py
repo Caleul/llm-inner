@@ -43,6 +43,14 @@ def f32(x):
     return struct.unpack("f",struct.pack("f",x))[0]
 
 
+def write_expression(path,expression):
+    """Preserve literal bytes and trailing newline without a full-size copy."""
+    with Path(path).open('w',encoding='utf-8') as stream:
+        for offset in range(0,len(expression),1024*1024):
+            stream.write(expression[offset:offset+1024*1024])
+        stream.write('\n')
+
+
 class CheckpointStrings:
     def __init__(self,directory,compiler,*,lower_conversions=True,parallel_budget=None):
         self.directory=Path(directory)
@@ -362,10 +370,10 @@ def main():
                     "\n".join("\t".join(map(str,e)) for e in model.conversions.numeric_envelopes)+"\n")
             if compiler.failed_substitution is not None:
                 template,name,replacement=compiler.failed_substitution
-                Path(str(path)+".failed-template.work.expr").write_text(template+"\n")
-                Path(str(path)+".failed-replacement.work.expr").write_text(replacement+"\n")
+                write_expression(Path(str(path)+".failed-template.work.expr"),template)
+                write_expression(Path(str(path)+".failed-replacement.work.expr"),replacement)
             last=next(reversed(model.memo),None)
-            if last is not None:Path(str(path)+".prefix.work.expr").write_text(model.memo[last]+"\n")
+            if last is not None:write_expression(Path(str(path)+".prefix.work.expr"),model.memo[last])
             print(f"Compilation stopped: {error}; completedDependencies={len(model.events)} lastDependency={last} closedConversions={model.conversions.closed if model.conversions else 0} redundantConversions={model.conversions.redundant if model.conversions else 0} reusedConvertedRegions={model.conversions.reused_regions if model.conversions else 0} visitedConversionNodes={model.conversions.visited_nodes if model.conversions else 0} earlyHalfProductsThisRun={model.early_half_products}; no coordinate artifact admitted")
             return 1
         signal.alarm(0)
@@ -376,7 +384,7 @@ def main():
         # Working-expression suffix prevents mistaking residual numerical
         # primitives for a fully lowered final artifact.
         working=Path(str(path)+".work.expr")
-        working.write_text(expression+"\n")
+        write_expression(working,expression)
         growth=Path(str(path)+".growth.tsv")
         growth.write_text("dependency\tbeforeCharacters\tafterCharacters\tCASPasses\n"+
             "\n".join("\t".join(map(str,e)) for e in model.events)+"\n")

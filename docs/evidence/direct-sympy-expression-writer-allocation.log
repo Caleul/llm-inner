@@ -1,0 +1,6 @@
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.525s
+
+OK
+Expression file allocation parity: {"characters": 20971522, "byteIdentical": true, "peakAllocatedBytes": {"literal-copy": 41953358, "prior-scan-backend": 23075646, "chunked": 2103799}}

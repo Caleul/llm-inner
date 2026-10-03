@@ -39,6 +39,7 @@ test('SymPy checkpoint working string is re-read and matches a freshly captured 
     assert.match(stdout,/Closed RMS rounding parity: cases=888832 mismatches=0/);
     assert.match(stdout,/Closed gate\/up projection parity: cases=1015808 mismatches=0/);
     assert.match(stdout,/Early Half product parity: cases=888832 mismatches=0/);
+    assert.match(stdout,/Expression file allocation parity:/);
     assert.match(stdout,/finalParity=false/);
   });
 

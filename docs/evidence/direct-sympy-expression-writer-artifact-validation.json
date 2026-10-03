@@ -1,0 +1,8 @@
+{
+  "completedDependencies": 10,
+  "lastDependency": "model.layers.0.post:inverse",
+  "everyProducerByteIdenticalToPriorCompilation": true,
+  "diagnosticBytesIdenticalIncludingTrailingNewline": true,
+  "oldSavepointRejected": "Incompatible savepoint: checkpoint, domain, dimension or compiler semantics differ",
+  "finalCoordinateAdmitted": false
+}
