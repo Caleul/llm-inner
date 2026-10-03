@@ -9,6 +9,24 @@ from direct_sympy_strings import Domain,StringCompiler,syntax
 
 
 class StringCompilerTests(unittest.TestCase):
+    def test_selector_purity_work_scales_with_nodes_without_changing_independent_decisions(self):
+        from direct_sympy_synchronize import propose
+        def run(depth):
+            a="Piecewise((Bits64(X1),X1>0),(0,True))"
+            b="Piecewise((Bits64(X1),X1<0),(0,True))"
+            for _ in range(depth):a="U64Add("+a+",1)";b="U64Add("+b+",1)"
+            source=a+"+"+b;visits=0;original=ast.iter_child_nodes
+            def counted(node):
+                nonlocal visits
+                visits+=1
+                return original(node)
+            with patch.object(ast,"iter_child_nodes",side_effect=counted):result,lifts,zips,status=propose(source)
+            self.assertEqual(result,source);self.assertEqual((lifts,zips),(0,0))
+            self.assertEqual(status,"no-matching-siblings")
+            return visits
+        small=run(32);large=run(64)
+        self.assertLessEqual(large,small*3)
+
     def test_compact_selectors_require_purity_and_restored_size_admission(self):
         from direct_sympy_synchronize import propose
         domains={'X1':Domain(F(-1),F(1),-24,False)}

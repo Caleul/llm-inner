@@ -13,7 +13,7 @@ test('SymPy savepoints preserve completed rounding frontiers and reject incompat
 test('SymPy string substitution factors and simplifies each step with isolated IEEE branch proofs',
   {skip:!python},async()=>{
     const {stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_strings_test.py'],{timeout:120_000});
-    assert.match(stderr,/Ran 26 tests/);
+    assert.match(stderr,/Ran 27 tests/);
     assert.match(stderr,/OK/);
   });
 

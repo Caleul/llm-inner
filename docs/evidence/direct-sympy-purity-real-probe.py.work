@@ -1,0 +1,16 @@
+import sys,json,time,subprocess,importlib.util,tempfile,hashlib
+from pathlib import Path
+sys.path.insert(0,'helpers')
+from direct_sympy_synchronize import propose
+state=json.loads(Path('artifacts/direct-sympy-sqrt-lobatto-frontier/frontier.json').read_text())['payload']
+with tempfile.TemporaryDirectory() as directory:
+ path=Path(directory)/'baseline.py';path.write_text(subprocess.run(['git','show','651f728:helpers/direct_sympy_synchronize.py'],check=True,capture_output=True,text=True).stdout)
+ spec=importlib.util.spec_from_file_location('baseline',path);baseline=importlib.util.module_from_spec(spec);spec.loader.exec_module(baseline)
+ for name in ('model.layers.0.v:0','model.layers.0.residual:0'):
+  record=next(r for r in state['records'] if r['name']==name);source=Path('artifacts/direct-sympy-sqrt-lobatto-frontier/objects')/(record['digest']+'.expr');expression=source.read_text();results={}
+  for label,function in (('before',baseline.propose),('after',propose)):
+   start=time.monotonic();result=function(expression,max_lifts=1024,max_nodes=2097152);elapsed=time.monotonic()-start
+   results[label]={'seconds':elapsed,'characters':len(result[0]),'sha256':hashlib.sha256(result[0].encode()).hexdigest(),'lifts':result[1],'synchronizedOperations':result[2],'status':result[3]}
+   print(json.dumps({'dependency':name,'phase':label,**results[label]}),flush=True)
+  assert results['before']['sha256']==results['after']['sha256']
+  assert [results['before'][k] for k in ('lifts','synchronizedOperations','status')]==[results['after'][k] for k in ('lifts','synchronizedOperations','status')]

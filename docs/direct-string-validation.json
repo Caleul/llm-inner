@@ -6954,5 +6954,116 @@
       "docs/evidence/direct-sympy-rms-frontier-search.cpp": "b910407b2f8bff020917fc7a9df88a31540ba33eb154c43cb266b1ab7782c82a",
       "docs/evidence/direct-sympy-rms-frontier-search.log": "9b1eb064b5935155365a25b4ea6f5b837d191532f2cd891a252aa1a53b0feb03"
     }
+  },
+  "selectorPurityValidation": {
+    "baseCommit": "651f728",
+    "strategy": "Memoize invariant node purity within one selector search, including guard checks; preserve prior matching-selector policy and restored-size admission",
+    "benchmark": {
+      "samplesPerCase": 1,
+      "scope": "Selector proposal pass on saved exact expressions; not total compilation or model runtime",
+      "cases": [
+        {
+          "dependency": "model.layers.0.v:0",
+          "phase": "before",
+          "seconds": 1.5800006659992505,
+          "characters": 381539,
+          "sha256": "acbf83bfec3578f297c7efad31f987cfb5ba731f9a57704075106e440a1f0f18",
+          "lifts": 0,
+          "synchronizedOperations": 0,
+          "status": "no-matching-siblings"
+        },
+        {
+          "dependency": "model.layers.0.v:0",
+          "phase": "after",
+          "seconds": 0.2895437499973923,
+          "characters": 381539,
+          "sha256": "acbf83bfec3578f297c7efad31f987cfb5ba731f9a57704075106e440a1f0f18",
+          "lifts": 0,
+          "synchronizedOperations": 0,
+          "status": "no-matching-siblings"
+        },
+        {
+          "dependency": "model.layers.0.residual:0",
+          "phase": "before",
+          "seconds": 54.44634187500924,
+          "characters": 8395470,
+          "sha256": "3589a226d16103cd9d9db7b50b00d5d635298b3251c06a7513dbb4f94c37a1a4",
+          "lifts": 0,
+          "synchronizedOperations": 0,
+          "status": "synchronization-node-budget"
+        },
+        {
+          "dependency": "model.layers.0.residual:0",
+          "phase": "after",
+          "seconds": 14.48653633298818,
+          "characters": 8395470,
+          "sha256": "3589a226d16103cd9d9db7b50b00d5d635298b3251c06a7513dbb4f94c37a1a4",
+          "lifts": 0,
+          "synchronizedOperations": 0,
+          "status": "synchronization-node-budget"
+        }
+      ]
+    },
+    "rejectedMixedSelectorCandidate": {
+      "beforeCharacters": 381539,
+      "candidateCharacters": 524821,
+      "afterCasCandidateCharacters": 524825,
+      "admitted": false,
+      "mixedPolicyCommitted": false
+    },
+    "tests": {
+      "buildExitCode": 0,
+      "directedNodeTests": 6,
+      "directedFailures": 0,
+      "engine": 27,
+      "conversions": 24,
+      "checkpoint": 8,
+      "savepoints": 4,
+      "silu": 1,
+      "sqrt": 1,
+      "linearWorkRegressionFailsBaseline": true,
+      "lastFullRegressionCommit": "09e548a",
+      "fullRegressionRepeated": false,
+      "initialStaleBuildWrapperFailureCorrected": true
+    },
+    "compile": {
+      "fresh": true,
+      "resume": false,
+      "completedDependencies": 9,
+      "durableDependencies": 9,
+      "allNineProducerRecordsIdenticalToPrevious": true,
+      "allNineDigestsVerified": true,
+      "allThirteenSourcesVerified": true,
+      "lastDependency": "model.layers.0.residual:1",
+      "predictedPostInverseCharacters": 436570118,
+      "maxCharacters": 67108864,
+      "stop": "Character budget before allocation",
+      "pathCuts": 0,
+      "finalCoordinateAdmitted": false,
+      "fullVector": false,
+      "lastTokenParity": false,
+      "objects": "artifacts/direct-sympy-purity-frontier/objects"
+    },
+    "sourceHashes": {
+      "direct_sympy_synchronize.py": "d99f2f61cd73bcaf161dc5ec6b8e2e58c4756469682420f6e6ece56532c99be1",
+      "direct_sympy_strings_test.py": "f227196cdaea51f5fb0429e70be217e179944cf88e867299a7ee94f0eb19dffb"
+    },
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-purity-budget-simplifications.tsv": "8fee5951ef5ad32f2c0721fd74f507df052b97dff14fc4a1b2ced4ca0094677b",
+      "docs/evidence/direct-sympy-purity-build.log": "a408d94a3fffc856dc5364f9d4b4ab56fde09205ec19cae0976763ea611ad3df",
+      "docs/evidence/direct-sympy-purity-compile.log": "442c9b6106cf987be13f64ed65c240adf94940cfaceccbf12a1d5dbc020f9e7f",
+      "docs/evidence/direct-sympy-purity-conditions.tsv": "a2ff5598582c308382556de34283d49161612780e911b47967292c9fc36f545c",
+      "docs/evidence/direct-sympy-purity-directed.log": "47a8e0dedfbc644f464ef4df0e297f70695c92461e8486238403072961157ae2",
+      "docs/evidence/direct-sympy-purity-engine.log": "7a83ada2237f68849ade593737e54940f4ddae11f77a38781f7707f8a8251e35",
+      "docs/evidence/direct-sympy-purity-frontier.json": "40b4af9d0f13cc4b7cc92aca894cd11ba95c901606426589fbd963b8f8efd978",
+      "docs/evidence/direct-sympy-purity-growth.tsv": "312a384c9c0dccbdb05f0213431ff34f8bf8d78756f1f5f757fe0f3c914f2029",
+      "docs/evidence/direct-sympy-purity-large-selector.log": "62323b88eaa8e81c9ef8b5d6ffb443f8890cb162b54c23a019edc50474ec598b",
+      "docs/evidence/direct-sympy-purity-real-probe.log": "000b2758dd19f2cb4e68341897ccc7197655c0bdb9e63124aeb4ac9b43bcc567",
+      "docs/evidence/direct-sympy-purity-real-probe.py.work": "4d9c20cfbfb0a051ed6bddf69a73518d9b0400418c562bd410175b08f98b0123",
+      "docs/evidence/direct-sympy-purity-rejected-mixed-cas.log": "2ca4aea2824cf00a65c0f1fb45e68a4bf6cb6fe818463a946f2a00744f3e79dd",
+      "docs/evidence/direct-sympy-purity-rejected-mixed-selector.log": "b68995e9f0c30e9da49c62fad2936866d569945bc7ea023f68baf6466635c06e",
+      "docs/evidence/direct-sympy-purity-substitutions.tsv": "d9170daedd71268a6e4a07db56b3f636f153ea085af28988fd66a721ed781272",
+      "docs/evidence/direct-sympy-purity-synchronization.tsv": "e00dab3eed2648c656df497dd5380bb4181b1d6271f5723ef7373783a565c576"
+    }
   }
 }

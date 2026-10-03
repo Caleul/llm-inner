@@ -1154,3 +1154,36 @@ restaurar produtores nem reiniciar a compilação. A segunda normalização
 continua prevendo 436.570.118 caracteres; a coordenada completa e sua
 paridade continuam pendentes. O mapa `rmsRoundingFrontierValidation`
 registra as provas, contraexemplos e a compatibilidade do estado.
+
+## Custo da busca de seletores
+
+A verificação de pureza percorria novamente os descendentes de cada nó,
+inclusive nas condições. O percurso agora guarda esse fato somente durante
+uma busca. As transformações permitidas introduzem operações da mesma lista
+pura; esse fato não muda quando seus filhos são reescritos. As regras de
+sincronização, prioridades de condições e admissão pelo tamanho restaurado
+permanecem iguais. Nenhum cache participa da expressão emitida.
+
+Uma comparação direta com `651f728`, sobre as mesmas strings salvas,
+mediu a busca da projeção em 1,580 s antes e 0,290 s depois; no residual,
+54,446 s antes e 14,487 s depois. Cada resultado preservou o hash literal,
+o número de operações sincronizadas e o motivo de parada. São amostras
+únicas do passe de busca, não uma medição da compilação total ou inferência.
+Um teste determinístico de quantidade de visitas falha na versão anterior
+e passa na atual, sem depender de limites de tempo da máquina.
+
+Foi tentada também uma combinação de seletores compartilhados com outros
+independentes. Ela produziu 524.821 caracteres a partir de 381.539 e não
+encolheu após CAS; essa política foi descartada. Não se aumentou o limite
+de busca em produção nem se distribuiu essa combinação no artefato.
+
+Build e seis testes dirigidos passaram. A suíte do motor agora possui
+27 testes. A primeira execução dirigida começou antes do build terminar
+e usou a contagem antiga do wrapper; foi repetida com o build concluído.
+A recompilação nova persistiu nove produtores: todos os registros, provas
+numéricas e hashes literais são idênticos aos do estado anterior. Os treze
+novos hashes de fontes e nove digests foram conferidos. A segunda
+normalização ainda prevê 436.570.118 caracteres e foi recusada antes da
+alocação por 64 MiB; a coordenada completa e a paridade final continuam
+pendentes. O mapa `selectorPurityValidation` registra a comparação, o
+estado novo e o alcance das validações.

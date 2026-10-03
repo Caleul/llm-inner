@@ -25,13 +25,18 @@ def propose(expression,*,max_lifts=256,max_nodes=262144,pure_functions=()):
     def selector(node):
         if not (isinstance(node,ast.Call) and isinstance(node.func,ast.Name) and node.func.id=='Piecewise'):return None
         if not node.args or any(not isinstance(pair,ast.Tuple) or len(pair.elts)!=2 for pair in node.args):return None
-        if any(isinstance(child,ast.Call) and child.func.id not in guard_pure for pair in node.args for child in ast.walk(pair.elts[1])):return None
+        if any(not pure(pair.elts[1]) for pair in node.args):return None
         last=node.args[-1].elts[1]
         if not isinstance(last,ast.Constant) or last.value is not True:return None
         return tuple(signatures.key(pair.elts[1]) for pair in node.args)
-    views={}
+    views={};purity={}
     def pure(node):
-        return not any(isinstance(child,ast.Call) and child.func.id not in guard_pure for child in ast.walk(node))
+        # Synchronization introduces only whitelisted operations. A node's
+        # purity is therefore invariant under its bottom-up rewrites.
+        if node in purity:return purity[node]
+        result=not (isinstance(node,ast.Call) and node.func.id not in guard_pure) and all(pure(child) for child in ast.iter_child_nodes(node))
+        purity[node]=result
+        return result
     def rebuild(node,children):
         body=copy.copy(node)
         if isinstance(body,ast.Call):body.args=children
