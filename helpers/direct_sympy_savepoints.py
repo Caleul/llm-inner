@@ -15,7 +15,7 @@ import torch
 from direct_sympy_strings import syntax, StringCompiler
 from direct_sympy_conversions import FiniteSource
 
-SOURCES=('direct_sympy_layer_bounds.py','direct_sympy_savepoints.py','direct_sympy_checkpoint.py','direct_sympy_strings.py','direct_sympy_conversions.py','direct_sympy_words.py','direct_sympy_arithmetic.py','direct_sympy_tandem.py','direct_sympy_signatures.py','direct_sympy_conditions.py','direct_sympy_synchronize.py','direct_sympy_silu.py','direct_sympy_sqrt.py')
+SOURCES=('direct_sympy_layer_bounds.py','direct_sympy_savepoints.py','direct_sympy_checkpoint.py','direct_sympy_strings.py','direct_sympy_conversions.py','direct_sympy_words.py','direct_sympy_arithmetic.py','direct_sympy_tandem.py','direct_sympy_signatures.py','direct_sympy_conditions.py','direct_sympy_synchronize.py','direct_sympy_silu.py','direct_sympy_sqrt.py','direct_sympy_parallel.py')
 
 
 def digest_file(path):
@@ -38,6 +38,25 @@ def atomic(path,data):
             descriptor=os.open(path.parent,os.O_RDONLY)
             try:os.fsync(descriptor)
             finally:os.close(descriptor)
+        finally:temporary.unlink(missing_ok=True)
+
+
+def save_expression(directory,expression):
+    """Hash/write literal strings in chunks without a full encoded copy."""
+    h=hashlib.sha256()
+    with tempfile.NamedTemporaryFile(dir=directory,delete=False) as stream:
+        temporary=Path(stream.name)
+        try:
+            for offset in range(0,len(expression),1024*1024):
+                block=expression[offset:offset+1024*1024].encode('utf-8')
+                h.update(block);stream.write(block)
+            stream.flush();os.fsync(stream.fileno())
+            digest=h.hexdigest();target=Path(directory)/(digest+'.expr')
+            if not target.exists():os.replace(temporary,target)
+            descriptor=os.open(directory,os.O_RDONLY)
+            try:os.fsync(descriptor)
+            finally:os.close(descriptor)
+            return digest
         finally:temporary.unlink(missing_ok=True)
 
 
@@ -68,15 +87,13 @@ class ProducerSavepoints:
         records=[]
         previous=getattr(self,'_record_cache',{}) if getattr(self,'_record_session',None) is model.conversions else {}
         for name,expression in model.memo.items():
-            data=expression.encode();digest=hashlib.sha256(data).hexdigest()
-            target=self.directory/'objects'/(digest+'.expr')
-            if not target.exists():atomic(target,data)
             entry=previous.get(name)
-            if entry is not None and entry[0] is expression:
+            if entry is not None and entry[0] is expression and (self.directory/'objects'/(entry[1]['digest']+'.expr')).exists():
                 # Immutable literal, same conversion session and input domain.
                 # Do not parse/sign every old producer after each new one.
                 record=entry[1].copy();records.append(record)
                 continue
+            digest=save_expression(self.directory/'objects',expression)
             session=model.conversions
             if session and expression in session.closed_literals:
                 bounds,kind,positive_zero=session.closed_literals[expression]

@@ -1,0 +1,6 @@
+.....
+----------------------------------------------------------------------
+Ran 5 tests in 1.529s
+
+OK
+{"characters": 20400010, "normalIdentifierSeconds": 0.5554771899996922, "equivalentIdentifierSeconds": 0.014353001999552362, "identical": true}

@@ -1,0 +1,8 @@
+{
+  "cases": 60,
+  "comparisons": 864,
+  "mismatches": 0,
+  "differences": [],
+  "localTorch": "2.12.1",
+  "colabTorch": "2.11.0+cu130"
+}

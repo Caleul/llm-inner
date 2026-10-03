@@ -44,7 +44,7 @@ def f32(x):
 
 
 class CheckpointStrings:
-    def __init__(self,directory,compiler,*,lower_conversions=True):
+    def __init__(self,directory,compiler,*,lower_conversions=True,parallel_budget=None):
         self.directory=Path(directory)
         self.config=json.loads((self.directory/"config.json").read_text())
         if self.config.get("model_type")!="llama":
@@ -62,6 +62,9 @@ class CheckpointStrings:
         self.on_completed=None
         self.layer_bound_cache={}
         self.elided_updates=[]
+        self.early_half_products=0
+        self.parallel_budget=parallel_budget
+        self.parallel_events=[]
 
     def __enter__(self):
         for path in sorted(self.directory.glob("*.safetensors")):
@@ -91,17 +94,25 @@ class CheckpointStrings:
 
     def op(self,operation,a,b):
         # Actual F32 evaluation order is retained in the mathematical syntax.
-        if operation=="*" and a==b and self.conversions is not None:
-            operand,_=self.conversions.analyze_expression(a)
-            if self.conversions.value_kind(operand)=="half" and self.conversions.bounds(operand) is not None:
+        exact_half_product=False
+        if operation=="*" and self.conversions is not None:
+            operands=[self.conversions.analyze_expression(value)[0] for value in (a,b)]
+            exact_half_product=all(self.conversions.value_kind(operand)=="half" and self.conversions.bounds(operand) is not None for operand in operands)
+            if exact_half_product and a==b:
                 # Finite Half squares are exact F32 products. Do not build
                 # the redundant cast and reparse the entire closed operand
                 # to prove its removal a second time. SymPy still processes
                 # the substitution before the next dependency is requested.
                 return self.compiler.substitute("(X999999998 ** 2)","X999999998",a,self.domains)
-        template="R32(X999999998 "+operation+" X999999999)"
+        # Two finite Half significands use at most 22 product bits and the
+        # nonzero exponent range is [-48,32]. Their widened product is exact
+        # in F32, including signed zeros. Drop this proven boundary before
+        # literal substitution, instead of constructing it for close to remove.
+        template="(X999999998 * X999999999)" if exact_half_product else "R32(X999999998 "+operation+" X999999999)"
         left=self.compiler.substitute(template,"X999999998",a,self.domains)
-        return self.compiler.substitute(left,"X999999999",b,self.domains)
+        result=self.compiler.substitute(left,"X999999999",b,self.domains)
+        if exact_half_product:self.early_half_products+=1
+        return result
 
     def producer(self,key,build):
         if key in self.memo:return self.memo[key]
@@ -128,6 +139,11 @@ class CheckpointStrings:
         return result
 
     def reduction(self,terms):
+        if self.parallel_budget is not None:
+            from direct_sympy_parallel import parallel_lanes
+            lanes,stats=parallel_lanes(terms,self.compiler,self.domains,self.parallel_budget)
+            self.parallel_events.append(stats)
+            return "R16("+self.op("+",self.op("+",lanes[0],lanes[1]),self.op("+",lanes[2],lanes[3]))+")"
         lanes=[]
         for lane in range(4):
             value="0.0"
@@ -303,14 +319,22 @@ def main():
     parser.add_argument("--reference-boundaries",action="store_true",help="Keep numerical primitives for reference-string validation only")
     parser.add_argument("--savepoint-directory")
     parser.add_argument("--resume",action="store_true")
+    parser.add_argument("--workers",type=int,default=1)
+    parser.add_argument("--memory-mib",type=int,default=2048)
+    parser.add_argument("--block-size",type=int,default=64)
     args=parser.parse_args()
     if args.max_characters<1 or args.max_seconds<1:parser.error("Resource budgets must be positive")
     if args.resume and not args.savepoint_directory:parser.error("--resume requires --savepoint-directory")
     def timeout(*_):raise TimeoutError("Compilation wall-clock budget exceeded")
     signal.signal(signal.SIGALRM,timeout);signal.alarm(args.max_seconds)
     compiler=StringCompiler(max_characters=args.max_characters)
+    from direct_sympy_parallel import ParallelBudget
+    budget=ParallelBudget(args.workers,args.memory_mib*1024*1024,args.block_size)
+    if args.workers>1:
+        import torch
+        torch.set_num_threads(1)
     with ExitStack() as resources:
-        model=resources.enter_context(CheckpointStrings(args.checkpoint,compiler,lower_conversions=not args.reference_boundaries))
+        model=resources.enter_context(CheckpointStrings(args.checkpoint,compiler,lower_conversions=not args.reference_boundaries,parallel_budget=budget if args.workers>1 else None))
         if args.savepoint_directory:
             from direct_sympy_savepoints import ProducerSavepoints
             store=resources.enter_context(ProducerSavepoints(args.savepoint_directory,model,args.dimension))
@@ -320,6 +344,8 @@ def main():
         try:expression=model.coordinate(args.dimension)
         except (ValueError,TimeoutError) as error:
             signal.alarm(0)
+            Path(str(args.output)+".parallel.json").parent.mkdir(parents=True,exist_ok=True)
+            Path(str(args.output)+".parallel.json").write_text(json.dumps(model.parallel_events,indent=2)+"\n")
             path=Path(args.output);path.parent.mkdir(parents=True,exist_ok=True)
             Path(str(path)+".growth.tsv").write_text("dependency\tbeforeCharacters\tafterCharacters\tCASPasses\n"+
                 "\n".join("\t".join(map(str,e)) for e in model.events)+"\n")
@@ -340,9 +366,11 @@ def main():
                 Path(str(path)+".failed-replacement.work.expr").write_text(replacement+"\n")
             last=next(reversed(model.memo),None)
             if last is not None:Path(str(path)+".prefix.work.expr").write_text(model.memo[last]+"\n")
-            print(f"Compilation stopped: {error}; completedDependencies={len(model.events)} lastDependency={last} closedConversions={model.conversions.closed if model.conversions else 0} redundantConversions={model.conversions.redundant if model.conversions else 0} reusedConvertedRegions={model.conversions.reused_regions if model.conversions else 0} visitedConversionNodes={model.conversions.visited_nodes if model.conversions else 0}; no coordinate artifact admitted")
+            print(f"Compilation stopped: {error}; completedDependencies={len(model.events)} lastDependency={last} closedConversions={model.conversions.closed if model.conversions else 0} redundantConversions={model.conversions.redundant if model.conversions else 0} reusedConvertedRegions={model.conversions.reused_regions if model.conversions else 0} visitedConversionNodes={model.conversions.visited_nodes if model.conversions else 0} earlyHalfProductsThisRun={model.early_half_products}; no coordinate artifact admitted")
             return 1
         signal.alarm(0)
+        Path(str(args.output)+".parallel.json").parent.mkdir(parents=True,exist_ok=True)
+        Path(str(args.output)+".parallel.json").write_text(json.dumps(model.parallel_events,indent=2)+"\n")
         path=Path(args.output)
         path.parent.mkdir(parents=True,exist_ok=True)
         # Working-expression suffix prevents mistaking residual numerical

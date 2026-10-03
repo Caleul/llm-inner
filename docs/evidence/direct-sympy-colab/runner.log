@@ -1,0 +1,9 @@
+{"name": "cuda-numerics", "exitCode": 0, "seconds": 3.6062534729999243, "peakSampledRSSBytes": 885579776}
+{"name": "parallel-tests", "exitCode": 0, "seconds": 13.42518445099995, "peakSampledRSSBytes": 1427099648}
+{"name": "savepoints-tests", "exitCode": 0, "seconds": 3.2060930429997825, "peakSampledRSSBytes": 621207552}
+{"name": "strings-tests", "exitCode": 0, "seconds": 1.6029488419999325, "peakSampledRSSBytes": 77107200}
+{"name": "scan_backend-tests", "exitCode": 0, "seconds": 3.8066217069999766, "peakSampledRSSBytes": 570007552}
+{"name": "checkpoint-tests", "exitCode": 0, "seconds": 14.826990078000563, "peakSampledRSSBytes": 1575563264}
+{"name": "sequential", "exitCode": 1, "seconds": 232.19997878899994, "peakSampledRSSBytes": 31401312256}
+{"name": "parallel", "exitCode": 1, "seconds": 238.4244668629999, "peakSampledRSSBytes": 36047532032}
+COMPARISON_COMPLETE

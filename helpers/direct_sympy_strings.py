@@ -398,8 +398,9 @@ class StringCompiler:
             # another factor/simplify invocation in producer growth metrics.
             self.events[-1]=self.events[-1][:6]+("completed-regions-envelope",)
         footprint=len(expression)+len(result)
-        if footprint<=4*self.max_characters:
-            while self._stable and self._cache_characters+footprint>4*self.max_characters:
+        cache_limit=min(4*self.max_characters,16*1024*1024)
+        if footprint<=cache_limit:
+            while self._stable and self._cache_characters+footprint>cache_limit:
                 old_key=next(iter(self._stable));old_value=self._stable.pop(old_key)
                 self._cache_characters-=len(old_key[0])+len(old_value[0])
             self._stable[key]=(result,symbolic(view))

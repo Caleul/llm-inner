@@ -4,6 +4,13 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 
 const python=process.env.LLM_INNER_DIRECT_PYTHON;
+test('Parallel SymPy blocks preserve ordered F32 folds, branch contexts and memory admission',
+  {skip:!python},async()=>{
+    const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_parallel_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 4 tests/);
+    assert.match(stderr,/OK/);
+    if(process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT) assert.match(stdout,/cases=60 mismatches=0; finalParity=false/);
+  });
 test('Equivalent scan backend preserves Unicode regex results and byte-identical saved compiler states',
   {skip:!python},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_scan_backend_test.py'],{timeout:120_000,maxBuffer:1024*1024});
@@ -31,6 +38,7 @@ test('SymPy checkpoint working string is re-read and matches a freshly captured 
     assert.match(stdout,/60 exact cases/);
     assert.match(stdout,/Closed RMS rounding parity: cases=888832 mismatches=0/);
     assert.match(stdout,/Closed gate\/up projection parity: cases=1015808 mismatches=0/);
+    assert.match(stdout,/Early Half product parity: cases=888832 mismatches=0/);
     assert.match(stdout,/finalParity=false/);
   });
 

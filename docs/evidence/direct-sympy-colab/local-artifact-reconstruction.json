@@ -1,0 +1,7 @@
+{
+  "producers": 15,
+  "bytesVerified": 12237174562,
+  "strategy": "Reconstruct freshly compiled Colab artifacts from byte-identical local content, checked by SHA256; no earlier savepoint reused or identity overwritten",
+  "localDirectory": "/Users/caleul/Documents/Work/Projects/llm-inner/artifacts/direct-sympy-colab",
+  "resumeCompatibility": "Colab/Linux reference identity; rejects macOS resume"
+}

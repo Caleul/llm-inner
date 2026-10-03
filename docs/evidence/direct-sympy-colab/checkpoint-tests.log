@@ -1,0 +1,9 @@
+.........
+----------------------------------------------------------------------
+Ran 9 tests in 13.826s
+
+OK
+Closed gate/up projection parity: cases=1015808 mismatches=0 finalParity=false
+Closed RMS rounding parity: cases=888832 mismatches=0 unsafeEpsilon=6888 unsafeHalf=56 unsafeProduct=6
+Early Half product parity: cases=888832 mismatches=0
+Working string parity: 60 exact cases, position=0 dimension=2; numerical primitives remain, finalParity=false

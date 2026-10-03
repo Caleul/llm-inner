@@ -8491,5 +8491,210 @@
       "docs/evidence/direct-sympy-envelope-synchronization.tsv": "06ac082db30446e897b07079e65cebf0646cad121d2b56d9f2480346602cc891",
       "docs/evidence/direct-sympy-envelope-status.md": "1bb6ac20431e8573815e11add95105fbb91e95659956dc467d0ca41db24e248d"
     }
+  },
+  "parallelColabValidation": {
+    "date": "2026-10-03",
+    "expressionFormat": "Mathematical strings; JSON contains metadata only",
+    "changes": [
+      "Pairwise composition of ordered continuation blocks, never floating-point reassociation",
+      "Memory-based admission and Linux aggregate RSS monitoring",
+      "File descriptors across workers instead of copying mathematical strings through IPC",
+      "Finite Half products remove proven exact F32 boundaries before substitution",
+      "Chunked atomic savepoint writes and no rehash of unchanged immutable producers",
+      "Fixed-point cache capped at 16 MiB"
+    ],
+    "sequence": [
+      "parentheses",
+      "substitution",
+      "SymPy factor",
+      "SymPy simplify",
+      "IEEE certificate",
+      "repeat to fixed point",
+      "own branch context",
+      "pairwise continuation composition"
+    ],
+    "tests": {
+      "pythonTests": 85,
+      "pythonPass": 85,
+      "directedNodeTests": 8,
+      "directedPass": 8,
+      "build": "passed",
+      "globalTests": 599,
+      "globalPass": 581,
+      "globalFail": 15,
+      "globalSkipped": 3,
+      "knownFailureNamesMatch": true,
+      "newFailures": [],
+      "excludedLegacyTests": "Four direct-json-model tests, same exclusion as the mapped baseline",
+      "additionalMemoryAdmissionAndWorkerCleanup": "Four parallel tests rerun after adding adaptive admission and worker failure cleanup assertions; all passed"
+    },
+    "parity": {
+      "workingCoordinateCases": 60,
+      "workingCoordinateMismatches": 0,
+      "halfProductNativeCases": 888832,
+      "halfProductNativeMismatches": 0,
+      "crossPlatformReferenceCases": 60,
+      "crossPlatformReferenceValues": 864,
+      "crossPlatformReferenceMismatches": 0,
+      "cudaHalfProductCases": 888832,
+      "cudaHalfProductMismatches": 0,
+      "cudaSiluCases": 19458,
+      "cudaSiluDomain": [
+        -0.0234375,
+        0.0234375
+      ],
+      "cudaSiluMismatches": 0,
+      "finalCoordinateAdmitted": false,
+      "emittedProducerFilesPerMode": 15,
+      "emittedProducerComparisonsPerMode": 300,
+      "emittedProducerMismatchesPerMode": 0,
+      "everyProducerByteIdenticalAcrossModes": true
+    },
+    "colab": {
+      "integration": "colab",
+      "transport": "Access Broker MCP colab_cli",
+      "session": "llm-inner-sympy",
+      "cpuCount": 12,
+      "hostMemoryBytes": 179370467328,
+      "cudaDevice": "NVIDIA A100-SXM4-80GB",
+      "gpuMemoryBytes": 85094825984,
+      "cuda": "13.0",
+      "torch": "2.11.0+cu130",
+      "sympy": "1.14.0",
+      "comparison": {
+        "completedDependencies": 15,
+        "everyProducerByteIdentical": true,
+        "sameGrowth": false,
+        "finalCoordinateAdmitted": false,
+        "sequential": {
+          "name": "sequential",
+          "exitCode": 1,
+          "seconds": 232.19997878899994,
+          "peakSampledRSSBytes": 31401312256
+        },
+        "parallel": {
+          "name": "parallel",
+          "exitCode": 1,
+          "seconds": 238.4244668629999,
+          "peakSampledRSSBytes": 36047532032
+        },
+        "parallelTimeChangePercent": 2.6806583301440146,
+        "parallelRSSChangePercent": 14.79625990825344
+      },
+      "sourceIdentity": {
+        "byteOrder": "little",
+        "checkpoint": {
+          "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+          "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+        },
+        "dimension": 2,
+        "domains": {
+          "X1": [
+            "-65504",
+            "65504",
+            -24,
+            false
+          ],
+          "X2": [
+            "-65504",
+            "65504",
+            -24,
+            false
+          ]
+        },
+        "dtype": "f32",
+        "lowerConversions": true,
+        "platform": "Linux-6.6.122+-x86_64-with-glibc2.39",
+        "position": 0,
+        "python": "3.13.15 (main, Aug  6 2026, 11:06:22) [GCC 13.3.0]",
+        "referenceBackend": {
+          "capability": "AVX512",
+          "gitVersion": "70d99e998b4955e0049d13a98d77ae1b14db1f45",
+          "name": "torch CPU",
+          "version": "2.11.0+cu130"
+        },
+        "schema": 2,
+        "sources": {
+          "direct_sympy_arithmetic.py": "84e2cfa110fb0523fd94c7565c9e3a761514654c586b1a9ca66e71efc0396544",
+          "direct_sympy_checkpoint.py": "46fb721e6f1c416a16359b8a0a266567e572ba81e128527e3bce427e0d3a2ba7",
+          "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+          "direct_sympy_conversions.py": "29d778853af0bb683af9386de7914e7a9febe62d5b18ce75048c9d9b7616cc82",
+          "direct_sympy_layer_bounds.py": "2f8d73caf53371f4bba44a605a91098580f5dcaf90b292c135830d862513dcff",
+          "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+          "direct_sympy_savepoints.py": "9210f3f513f87f261ca5de3100a24179c82487baf7cad670e01098694322ca96",
+          "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+          "direct_sympy_silu.py": "5a004fef54b1682b871f1ad65c759fe14ab0dd08f3323bb95da1e16679320585",
+          "direct_sympy_sqrt.py": "1bb02cbacdcd74c1db5cd0eb8829788d4f8a7159c4bbbac458fd8197bddb179e",
+          "direct_sympy_strings.py": "1c01346f72925b5ca2871ecb138301f9d257a35644630a0b95a4b38ed10176e3",
+          "direct_sympy_synchronize.py": "49fa369afb1cee04240cceb5662b5b0aff7cbe319f7da245f612f9dbf5197699",
+          "direct_sympy_tandem.py": "21db153f053aa2822aac2fe1fd01ed6924cd6ba0ac18cc79d870f765002abc17",
+          "direct_sympy_words.py": "de9a1201043d26afe688adcc034adaffb376ef2b7370d3f77ff612ba573c0fc4"
+        },
+        "sympy": "1.14.0"
+      },
+      "parallelReductions": 8,
+      "completedBlocks": 14,
+      "completedPairMerges": 0,
+      "maxWorkersAdmitted": 2
+    },
+    "stateCompatibility": "Strict fourteen-source identity and reference environment fingerprint; no macOS frontier reused in Colab",
+    "limitations": [
+      "Actual graph traversal still builds producer prerequisites before ordered reduction blocks; no claim of parallel execution of the whole dependency graph",
+      "Reference-boundary coordinate tests do not admit a fully lowered final artifact",
+      "CUDA numerical batch speed does not imply faster SymPy or expression-string processing"
+    ],
+    "evidence": {
+      "docs/evidence/direct-sympy-parallel-build.log": "a408d94a3fffc856dc5364f9d4b4ab56fde09205ec19cae0976763ea611ad3df",
+      "docs/evidence/direct-sympy-parallel-node-tests.log": "75e243d6900416a616cdfef3800910a293b6471087e84cee96abcd8ca88f2228",
+      "docs/evidence/direct-sympy-parallel-regression-comparison.json": "483bf5c3e7e9d483dd302cc2604c86983e65a717031e1825d0ab75b3abb942e4",
+      "docs/evidence/direct-sympy-parallel-regression.log": "c09cb3525933255f8ebc233ceda309390fe80c437f3c21fbd49d642b0ad80bdf",
+      "docs/evidence/direct-sympy-parallel-suite.log": "c8c5f134349fbf95a912e8f8d72b4126ee05789177987cbff0db7ec65ee36754",
+      "docs/evidence/direct-sympy-colab/checkpoint-tests.log": "bbab1da36e93bfee449d91475bdf66e35550ff0712b4371298331ceea02a7a85",
+      "docs/evidence/direct-sympy-colab/comparison.json": "a869f83e65543edabc7ee91d8ae8c4d23535224da462b98562764568e072c32a",
+      "docs/evidence/direct-sympy-colab/conversions-tests.log": "6e136434216b4da58ec914b1f0a095414714938a1b23df6e60fdc4157f315c75",
+      "docs/evidence/direct-sympy-colab/cross-platform-reference.json": "3b8bd10b3b7706e0673d9900cefa136aa6633b7975b7f7bedbc43a6cb6bd1a27",
+      "docs/evidence/direct-sympy-colab/cuda-numerics.log": "4fe2821be71e51c23e3068e67655c0c5131e1fbefcbd00205295083192a3971b",
+      "docs/evidence/direct-sympy-colab/elementary-run.log": "fd4dc8cd29eeed3eb0a09e0472577e0027cb3df501d5f9982a79fd99b24e48ad",
+      "docs/evidence/direct-sympy-colab/fresh-reference.json": "187de955d20739b92f1353be65e06150b5971932cda9586efce73091f07b3e02",
+      "docs/evidence/direct-sympy-colab/local-artifact-reconstruction.json": "cc0c72fcb70a7909952420a410f472726989d92a1201326255731d2390837746",
+      "docs/evidence/direct-sympy-colab/parallel-parity.log": "c64a63fb2a250f0e5122797c006c90501f2cd6a54549233f24d161658c6a202a",
+      "docs/evidence/direct-sympy-colab/parallel-state/frontier.json": "d45a4f81d0d7ff208f7247be19911570f68e814840f39b7b4acc4b57960fede8",
+      "docs/evidence/direct-sympy-colab/parallel-tests.log": "3deaf8e36af1265106739b2ca566be77636dbcbfe29a3e992331d3d4474b9962",
+      "docs/evidence/direct-sympy-colab/parallel.budget-simplifications.tsv": "265a6c2f663216af8993aaf22466977e656bb2bee153ce73e57638a6f80517e1",
+      "docs/evidence/direct-sympy-colab/parallel.conditions.tsv": "69f94fb416891c2fbc872066bef1d011e30cd57fad38de7ef646d2597b93f980",
+      "docs/evidence/direct-sympy-colab/parallel.growth.tsv": "2fe9a980aa0a432b87326264504175e0987eb4e5d313019529b74c0db0ba69db",
+      "docs/evidence/direct-sympy-colab/parallel.log": "c2b22574cfcfa090e61f4d9bf9bac602e1b39687aaa620cb039fee4e64d8e8e6",
+      "docs/evidence/direct-sympy-colab/parallel.numeric-envelopes.tsv": "ec531cf97ad4259be9b45ad7e9394899ab9e57243d8ea1d217e5939c74484291",
+      "docs/evidence/direct-sympy-colab/parallel.parallel.json": "aaaaafe053041f059c8a0c1f4be84b3aa21fd038f7baec3a718c2254a376aa87",
+      "docs/evidence/direct-sympy-colab/parallel.substitutions.tsv": "8f35d49b618c743fcff6fbec9a17f70903ec63119d64526f762aa5dd435cd573",
+      "docs/evidence/direct-sympy-colab/parallel.synchronization.tsv": "06ac082db30446e897b07079e65cebf0646cad121d2b56d9f2480346602cc891",
+      "docs/evidence/direct-sympy-colab/parity-run.log": "7d495fbe3ebc9c073a4f566d7665a3dd1ea77ced378e40b665bead3b08906096",
+      "docs/evidence/direct-sympy-colab/report.json": "4721e32385da639e4d80561b048ee29ede621dbf8b02595c2743fee73245198d",
+      "docs/evidence/direct-sympy-colab/runner.log": "9e0f9f085fe96a62ce49eaf95a42a57a67ff69e5f8cad86a07f947b870dd4249",
+      "docs/evidence/direct-sympy-colab/savepoints-tests.log": "bd6ff6971bbcc65a443a9ac30c3d686391471134979c66eaaeac8debdb1a80c8",
+      "docs/evidence/direct-sympy-colab/scan_backend-tests.log": "5c0ee4909933d553255d9e43e70bb4da6c7e3d0f1ae7b3e2acb2d8b5c90bab34",
+      "docs/evidence/direct-sympy-colab/sequential-parity.log": "a5effa14fc348a65f4dc98319e6213b55699b59ccd016ae6ba055896e2e29352",
+      "docs/evidence/direct-sympy-colab/sequential-state/frontier.json": "cdad0b412793489537ee1ac7be7383869d0350c2c6e0bf03478d677764946e76",
+      "docs/evidence/direct-sympy-colab/sequential.budget-simplifications.tsv": "2c8363662ddff0231c79f237501cddd9557f989fd36c4fe05579f116c5441d80",
+      "docs/evidence/direct-sympy-colab/sequential.conditions.tsv": "69f94fb416891c2fbc872066bef1d011e30cd57fad38de7ef646d2597b93f980",
+      "docs/evidence/direct-sympy-colab/sequential.growth.tsv": "59431211cc4daab2b4ee2e42852ee15a9486b41267d2abd9751068cda5fda798",
+      "docs/evidence/direct-sympy-colab/sequential.log": "20820786c1257991bbda656a7c95546adda78834dcabd4f14d50da3ace3042ce",
+      "docs/evidence/direct-sympy-colab/sequential.numeric-envelopes.tsv": "ec531cf97ad4259be9b45ad7e9394899ab9e57243d8ea1d217e5939c74484291",
+      "docs/evidence/direct-sympy-colab/sequential.parallel.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "docs/evidence/direct-sympy-colab/sequential.substitutions.tsv": "a25aef12f25116943803518183ccbeb02dac0b65e141d53f0a03650296e1ad04",
+      "docs/evidence/direct-sympy-colab/sequential.synchronization.tsv": "06ac082db30446e897b07079e65cebf0646cad121d2b56d9f2480346602cc891",
+      "docs/evidence/direct-sympy-colab/silu-tests.log": "365376e777462f587770e643a30778b32c8a423ada77fe0d748da6863e641017",
+      "docs/evidence/direct-sympy-colab/sqrt-tests.log": "2878886d2673d412e10ab65205e69d2ffda8253c98536de6f56c63261dab19e3",
+      "docs/evidence/direct-sympy-colab/strings-tests.log": "e89fc3727cbf0943217267ee8341ce8a6d36bb7dc32bceddf5b3cdd99ae04da1",
+      "docs/evidence/direct-sympy-parallel-memory-tests.log": "9c796d4a48ce247068dec8944e564606efc27963b3ab9a9418441662edfeb686",
+      "docs/evidence/direct-sympy-parallel-status.md": "8b0d6b8c15d412d1a1bdbd16e58c6411294034d565a0f70c597be7362147a0e5"
+    },
+    "localArtifacts": {
+      "producers": 15,
+      "bytesVerified": 12237174562,
+      "strategy": "Reconstruct freshly compiled Colab artifacts from byte-identical local content, checked by SHA256; no earlier savepoint reused or identity overwritten",
+      "localDirectory": "/Users/caleul/Documents/Work/Projects/llm-inner/artifacts/direct-sympy-colab",
+      "resumeCompatibility": "Colab/Linux reference identity; rejects macOS resume"
+    }
   }
 }

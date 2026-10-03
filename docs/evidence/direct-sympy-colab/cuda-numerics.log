@@ -1,0 +1,25 @@
+{
+  "device": "NVIDIA A100-SXM4-80GB",
+  "torch": "2.11.0+cu130",
+  "cuda": "13.0",
+  "cpuThreads": 1,
+  "halfProducts": {
+    "cases": 888832,
+    "mismatches": 0,
+    "medianCpuSeconds": 0.00203859800058126,
+    "medianCudaSeconds": 7.708300017839065e-05,
+    "medianCudaWithTransfersSeconds": 0.002349019000575936,
+    "samples": 15,
+    "warmup": 3
+  },
+  "silu": {
+    "cases": 19458,
+    "mismatches": 0,
+    "domain": [
+      -0.0234375,
+      0.0234375
+    ],
+    "cudaAdmitted": true
+  },
+  "cudaPeakAllocatedBytes": 11682816
+}

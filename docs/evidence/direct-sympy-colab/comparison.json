@@ -1,0 +1,20 @@
+{
+  "completedDependencies": 15,
+  "everyProducerByteIdentical": true,
+  "sameGrowth": false,
+  "finalCoordinateAdmitted": false,
+  "sequential": {
+    "name": "sequential",
+    "exitCode": 1,
+    "seconds": 232.19997878899994,
+    "peakSampledRSSBytes": 31401312256
+  },
+  "parallel": {
+    "name": "parallel",
+    "exitCode": 1,
+    "seconds": 238.4244668629999,
+    "peakSampledRSSBytes": 36047532032
+  },
+  "parallelTimeChangePercent": 2.6806583301440146,
+  "parallelRSSChangePercent": 14.79625990825344
+}

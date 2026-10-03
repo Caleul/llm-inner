@@ -16,6 +16,37 @@ from direct_sympy_strings import StringCompiler,syntax
 
 
 class CheckpointStringTests(unittest.TestCase):
+    def test_half_products_drop_f32_before_substitution_and_keep_other_boundaries(self):
+        from direct_sympy_conversions_test import cpp
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            (root/'config.json').write_text(json.dumps({'model_type':'llama','hidden_size':2,'num_hidden_layers':1}))
+            compiler=StringCompiler();builder=CheckpointStrings(root,compiler)
+            result=builder.op('*','X1','X2')
+            self.assertNotIn('R32',result)
+            self.assertEqual(len(compiler.substitution_events),2)
+            self.assertTrue(all(e[2:4]==('factor','simplify') for e in compiler.events))
+            self.assertEqual(builder.conversions.value_kind(syntax(result)),'f32')
+            key=builder.conversions.key(syntax('X2'))
+            builder.conversions.half_values.discard(key)
+            mixed=builder.op('*','X1','X2')
+            self.assertIn('R32',mixed)
+            x=1+2**-10;y=1+2**-23
+            self.assertNotEqual(struct.pack('d',x*y),struct.pack('d',f32(x*y)))
+            builder.conversions.f32_values.discard(key)
+            self.assertIn('R32',builder.op('*','X1','X2'))
+            self.assertIn('R32',builder.op('+','X1','X2'))
+            unlowered=CheckpointStrings(root,StringCompiler(),lower_conversions=False)
+            self.assertIn('R32',unlowered.op('*','X1','X2'))
+            source=root/'products.cpp';binary=root/'products'
+            source.write_text('#include <cstdint>\n#include <cstring>\n#include <cstdio>\n#include <cfenv>\n#include <initializer_list>\ntemplate<class T,class U>T word(U value){T result;std::memcpy(&result,&value,sizeof(result));return result;}\n'+'double compiled(double X1,double X2){return '+cpp(syntax(result))+';}\n'+'''int main(){if(std::fesetround(FE_TONEAREST))return 2;unsigned cases=0,mismatches=0;for(unsigned b=0;b<65536;b++){if((b&0x7c00)==0x7c00)continue;double x=word<_Float16>(uint16_t(b));for(uint16_t o:{uint16_t(0),uint16_t(0x8000),uint16_t(1),uint16_t(0x8001),uint16_t(0x03ff),uint16_t(0x83ff),uint16_t(0x0400),uint16_t(0x8400),uint16_t(0x3555),uint16_t(0xb555),uint16_t(0x3c01),uint16_t(0xbc01),uint16_t(0x7bff),uint16_t(0xfbff)}){double y=word<_Float16>(o);double expected=float(x*y);mismatches+=word<uint64_t>(compiled(x,y))!=word<uint64_t>(expected);cases++;}}std::printf("Early Half product parity: cases=%u mismatches=%u\\n",cases,mismatches);return mismatches?1:0;}''')
+            built=subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],capture_output=True,text=True)
+            self.assertEqual(built.returncode,0,built.stderr)
+            run=subprocess.run([str(binary)],capture_output=True,text=True,timeout=120)
+            self.assertEqual(run.returncode,0,run.stdout+run.stderr)
+            self.assertIn('cases=888832 mismatches=0',run.stdout)
+            print(run.stdout,end='')
+
     @unittest.skipUnless(os.environ.get("LLM_INNER_DIRECT_JSON_CHECKPOINT"),"Checkpoint validation fixture not configured")
     def test_dependency_elision_requires_every_input_finite_and_a_strict_cell_bound(self):
         from fractions import Fraction as F

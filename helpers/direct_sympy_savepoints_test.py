@@ -127,9 +127,14 @@ if(word<uint64_t>(candidate(x))!=word<uint64_t>(expected))return 1;
             with ProducerSavepoints(root/'state',model,0) as store:
                 model.on_completed=store.save;self.first(model)
                 before=(root/'state/frontier.json').read_bytes()
-                with patch.object(saves,'syntax',side_effect=AssertionError('reparsed completed producer')):
+                with patch.object(saves,'syntax',side_effect=AssertionError('reparsed completed producer')),patch.object(saves,'save_expression',side_effect=AssertionError('rewrote identical producer')):
                     store.save(model)
                 self.assertEqual((root/'state/frontier.json').read_bytes(),before)
+                first_record=json.loads(before)['payload']['records'][0]
+                object_path=root/'state/objects'/(first_record['digest']+'.expr')
+                object_path.unlink()
+                store.save(model)
+                self.assertEqual(saves.digest_file(object_path),first_record['digest'])
                 # A changed expression under the same name must be re-certified.
                 model.memo['fixture:root']='-0.0'
                 with patch.object(saves,'syntax',wraps=saves.syntax) as parse:store.save(model)
