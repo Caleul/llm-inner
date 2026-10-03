@@ -1,0 +1,20 @@
+import hashlib,json,os,sys,tempfile,time,resource
+from pathlib import Path
+sys.path.insert(0,'helpers')
+from direct_sympy_checkpoint import CheckpointStrings
+from direct_sympy_savepoints import ProducerSavepoints,SOURCES
+from direct_sympy_strings import StringCompiler
+state=Path(sys.argv[1] if len(sys.argv)>1 else 'artifacts/direct-sympy-compact-final-frontier')
+snapshot=(state/'frontier.json').read_bytes();payload=json.loads(snapshot)['payload']
+with tempfile.TemporaryDirectory() as directory:
+ target=Path(directory);(target/'objects').mkdir();(target/'frontier.json').write_bytes(snapshot)
+ for record in payload['records']:os.link(state/'objects'/(record['digest']+'.expr'),target/'objects'/(record['digest']+'.expr'))
+ model=CheckpointStrings('docs/evidence/direct-sympy-test-checkpoint',StringCompiler(max_characters=100663296))
+ started=time.monotonic()
+ with ProducerSavepoints(target,model,2) as store:count=store.restore(model)
+ seconds=time.monotonic()-started
+ assert count==len(payload['records'])
+ for record in payload['records']:
+  value=model.memo[record['name']]
+  assert hashlib.sha256(value.encode()).hexdigest()==record['digest']
+ print(json.dumps({'restoredDependencies':count,'seconds':seconds,'characters':sum(r['characters'] for r in payload['records']),'peakResidentBytes':resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,'sourceFiles':len(SOURCES),'identityVerified':True,'expressionDigestsVerified':True,'scope':'Actual immutable frontier snapshot; restoration only, not new coordinate parity or total compilation speed'}))

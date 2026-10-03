@@ -325,7 +325,7 @@ class StringCompiler:
         from direct_sympy_words import word_width
         if word_closed:self._region_roots[key]=(node.func.id,word_width(node.args[0]) if node.func.id=="Float64" and len(node.args)==1 else None)
 
-    def compact_regions(self,expression,context):
+    def compact_regions(self,expression,context,*,validate_context=True):
         if re.search(r"\bCASStableRegion[0-9]+\b",expression):return expression,{}
         protected={};current=expression
         regions=sorted((text for own,text in self._regions if own==context),key=len,reverse=True)
@@ -353,7 +353,7 @@ class StringCompiler:
         # input domain. A new guard on a fundamental Xn can narrow it and
         # requires reopening the original producer in that arm. Word guards
         # which refine no input domain still run their own factor/simplify.
-        if re.search(r"\bPiecewise\s*\(",current):
+        if validate_context and re.search(r"\bPiecewise\s*\(",current):
             domains={name:Domain(low,high,q,zero) for name,low,high,q,zero in context}
             for node in ast.walk(syntax(current)):
                 if not isinstance(node,ast.Call) or node.func.id!="Piecewise":continue

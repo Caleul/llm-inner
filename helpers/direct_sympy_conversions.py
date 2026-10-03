@@ -129,20 +129,52 @@ class ConversionSession:
         self.arithmetic_eliminated=0
         self.closed_literals=OrderedDict()
         self.closed_literal_characters=0
+        self.closed_literal_keys={}
+        self.closed_literal_pure={}
         self.envelope_serial=0
         self.numeric_envelopes=[]
 
     def remember_closed_literal(self,expression,node=None):
         """Session-local proofs for immutable, completed literal strings."""
         if re.search(r"\bCASNumericRegion[0-9]+\b",expression):return
+        if expression in self.closed_literals:return
         node=syntax(expression) if node is None else node
         if self.key(node) not in self.converted_regions:return
-        if expression in self.closed_literals:return
         while self.closed_literals and self.closed_literal_characters+len(expression)>4*self.compiler.max_characters:
             old,_=self.closed_literals.popitem(last=False);self.closed_literal_characters-=len(old)
+            self.closed_literal_keys.pop(old,None);self.closed_literal_pure.pop(old,None)
         if len(expression)>4*self.compiler.max_characters:return
         self.closed_literals[expression]=(self.bounds(node),self.value_kind(node),self.no_negative_zero(node))
         self.closed_literal_characters+=len(expression)
+        self.closed_literal_keys[expression]=self.key(node)
+        from direct_sympy_synchronize import GUARD_PURE
+        self.closed_literal_pure[expression]=all(not isinstance(child,ast.Call) or child.func.id in GUARD_PURE for child in ast.walk(node))
+
+    def restore_compact_literal(self,expression,node,regions,bounds,kind,positive_zero,closed,restored_keys,restored_purity):
+        """Recover exact structural identity from previously validated literals.
+
+        Placeholders exist only during compilation. Interned structural keys,
+        including every F64 token bit, compose the original expression key;
+        immutable expression files remain fully substituted.
+        """
+        replacements={self.key(syntax(name)):restored_keys[text] for name,text in regions.items()}
+        original=self.signatures.translated_keys(node,replacements)[node]
+        if bounds is not None:self.completed[original]=bounds
+        if kind=='half':self.half_values.add(original)
+        if kind in ('half','f32'):self.f32_values.add(original)
+        if positive_zero:self.no_negative_zero_values.add(original)
+        from direct_sympy_synchronize import GUARD_PURE
+        pure=all(not isinstance(child,ast.Call) or child.func.id in GUARD_PURE for child in ast.walk(node)) and all(restored_purity[text] for text in regions.values())
+        if not closed:return original,pure
+        self.converted_regions.add(original)
+        if expression in self.closed_literals:return original,pure
+        while self.closed_literals and self.closed_literal_characters+len(expression)>4*self.compiler.max_characters:
+            old,_=self.closed_literals.popitem(last=False);self.closed_literal_characters-=len(old)
+            self.closed_literal_keys.pop(old,None);self.closed_literal_pure.pop(old,None)
+        self.closed_literals[expression]=(bounds,kind,positive_zero)
+        self.closed_literal_keys[expression]=original;self.closed_literal_pure[expression]=pure
+        self.closed_literal_characters+=len(expression)
+        return original,pure
 
     def propagate_closed_identity(self,original,replacement):
         """Transfer whole-root proofs after a proven pure control rewrite.
@@ -396,8 +428,8 @@ class ConversionSession:
                 if kind in ("half","f32"):self.f32_values.add(key)
                 if positive_zero:self.no_negative_zero_values.add(key)
                 self.converted_regions.add(key);protected[token]=text
-                literal=syntax(text);literal_keys[key]=self.key(literal)
-                if all(not isinstance(child,ast.Call) or child.func.id in GUARD_PURE for child in ast.walk(literal)):
+                literal_keys[key]=self.closed_literal_keys[text]
+                if self.closed_literal_pure[text]:
                     pure_functions.append(token)
                 compact=re.sub(r"\b"+old+r"\b",token+"()",compact)
             # Preserve correlation certificates on enclosing operations.

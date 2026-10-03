@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 353, in <module>
+    raise SystemExit(main())
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint.py", line 309, in main
+    if args.resume:print(f"Restored completed dependencies: {store.restore(model)}")
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_savepoints.py", line 99, in restore
+    if payload['identity']!=self.identity:raise ValueError('Incompatible savepoint: checkpoint, domain, dimension or compiler semantics differ')
+ValueError: Incompatible savepoint: checkpoint, domain, dimension or compiler semantics differ

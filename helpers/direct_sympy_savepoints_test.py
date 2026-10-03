@@ -1,4 +1,5 @@
 import json
+import hashlib
 from pathlib import Path
 import tempfile
 import subprocess
@@ -75,6 +76,49 @@ if(word<uint64_t>(candidate(x))!=word<uint64_t>(expected))return 1;
             self.assertNotIn('expression',payload['records'][0])
             self.assertIsNotNone(payload['records'][0]['bounds'])
             self.assertEqual(payload['records'][0]['kind'],'half')
+
+    def test_restore_compacts_validated_dependencies_and_keeps_exact_structural_keys(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);original=self.model(root)
+            with ProducerSavepoints(root/'state',original,0) as store:
+                original.on_completed=store.save
+                first=self.first(original);second=self.second(original)
+                original.producer('fixture:alias',lambda:first)
+            original.on_completed=None
+            resumed=self.model(root)
+            with ProducerSavepoints(root/'state',resumed,0) as store:
+                with patch.object(saves,'syntax',wraps=saves.syntax) as parse:
+                    self.assertEqual(store.restore(resumed),3)
+                self.assertLess(max(len(c.args[0]) for c in parse.call_args_list),len(second))
+                self.assertEqual(resumed.conversions.closed_literal_characters,sum(map(len,resumed.conversions.closed_literals)))
+                for expression in (first,second):
+                    self.assertEqual(resumed.conversions.closed_literal_keys[expression],resumed.conversions.key(syntax(expression)))
+                self.assertEqual(self.second(resumed),second)
+                expected=original.producer('fixture:third',lambda:'R16(R32(('+second+')*0.5))')
+                actual=resumed.producer('fixture:third',lambda:'R16(R32(('+second+')*0.5))')
+                self.assertEqual(actual,expected)
+            # A budget eviction of session literal caches cannot invalidate
+            # keys composed from earlier validated records during restoration.
+            evicted=self.model(root)
+            restore=ConversionSession.restore_compact_literal
+            def drop_cached_literals(session,*args):
+                result=restore(session,*args)
+                session.closed_literals.clear();session.closed_literal_keys.clear();session.closed_literal_pure.clear();session.closed_literal_characters=0
+                return result
+            with ProducerSavepoints(root/'state',evicted,0) as store:
+                with patch.object(ConversionSession,'restore_compact_literal',drop_cached_literals):self.assertEqual(store.restore(evicted),3)
+            self.assertEqual(evicted.conversions.value_kind(syntax(second)),'half')
+            # Recompute the manifest checksum to test validation itself,
+            # rather than merely testing the outer integrity checksum.
+            path=root/'state/frontier.json';envelope=json.loads(path.read_text());record=envelope['payload']['records'][1]
+            bad='('+second+') + X2';digest=hashlib.sha256(bad.encode()).hexdigest()
+            (root/'state/objects'/(digest+'.expr')).write_text(bad)
+            record['digest']=digest;record['characters']=len(bad)
+            envelope['integrity']=hashlib.sha256(saves.canonical(envelope['payload'])).hexdigest();path.write_bytes(saves.canonical(envelope))
+            fresh=self.model(root)
+            with ProducerSavepoints(root/'state',fresh,0) as store:
+                with self.assertRaisesRegex(ValueError,'non-input dependency'):store.restore(fresh)
+            self.assertFalse(fresh.memo);self.assertFalse(fresh.conversions.closed_literals)
 
     def test_published_records_reuse_only_the_identical_literal_and_session(self):
         with tempfile.TemporaryDirectory() as directory:

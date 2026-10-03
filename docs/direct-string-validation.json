@@ -7355,5 +7355,240 @@
       "docs/evidence/direct-sympy-offset-substitutions.tsv": "ec6e826ef8fab02b9497e2eb0f8a388ae57f2973ed7015a28bfeca896f4bc4ee",
       "docs/evidence/direct-sympy-offset-synchronization.tsv": "89eac614ea71b8470b882b23011291a9b3f0d1e570d40992be383eec18e54c6d"
     }
+  },
+  "compactRestorationValidation": {
+    "baseCommit": "7413e4b",
+    "expressionFormat": "Unchanged fully substituted mathematical strings",
+    "savepointSchema": 2,
+    "algorithm": "Validate prior immutable closed literals, compact only during grammar validation, compose exact structural keys, restore original text and proofs; no numerical transformation in restoration",
+    "contextControl": "Ordinary CAS compact_regions retains validate_context=True; restore-only validation passes False because it does not simplify branch arms",
+    "cacheScope": "Same compiler session and exact unchanged domain; local keys/purity for already certified immutable literals only; no runtime intermediates",
+    "compatibility": "All current compiler source hashes, checkpoint/config, domain, coordinate, dtype and numerical backends remain checked. Old identities were rejected.",
+    "validation": {
+      "buildExitCode": 0,
+      "directedPass": 6,
+      "directedFail": 0,
+      "savepointTests": 5,
+      "nativeResumedCases": 30722,
+      "nativeResumedMismatches": 0,
+      "structuralKeysMatchFullParsedExpressions": true,
+      "cacheEvictionCovered": true,
+      "invalidInputRejectedBeforeModelMutation": true,
+      "latestFullRegressionCommit": "7413e4b",
+      "latestFullRegression": {
+        "pass": 579,
+        "fail": 15,
+        "skip": 3,
+        "total": 597
+      },
+      "fullRegressionRepeatedForThisChange": false
+    },
+    "restoreNineBenchmark": {
+      "restoredDependencies": 9,
+      "seconds": 0.20716604200424626,
+      "characters": 3453122,
+      "peakResidentBytes": 235126784,
+      "sourceFiles": 13,
+      "identityVerified": true,
+      "expressionDigestsVerified": true,
+      "scope": "Actual immutable frontier snapshot; restoration only, not new coordinate parity or total compilation speed"
+    },
+    "compileState": "artifacts/direct-sympy-compact-current-frontier",
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "otherCoordinatesAdvanced": false,
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-compact-budget-simplifications.tsv": "8fee5951ef5ad32f2c0721fd74f507df052b97dff14fc4a1b2ced4ca0094677b",
+      "docs/evidence/direct-sympy-compact-build.log": "a408d94a3fffc856dc5364f9d4b4ab56fde09205ec19cae0976763ea611ad3df",
+      "docs/evidence/direct-sympy-compact-compile-current-64m.log": "0db93fe2544efe6ce3a3174cca9ec2f809c90c4b82eac3e037e6b8352999a33d",
+      "docs/evidence/direct-sympy-compact-compile.log": "cebb3412fdb45da0b5cb14b006b1fd5498368c883440c5236dc8c7489e4923d6",
+      "docs/evidence/direct-sympy-compact-conditions.tsv": "491a0dbde10e7d3c4060792f7841ae3c73f37e3dd98054ba207be846c89b8630",
+      "docs/evidence/direct-sympy-compact-directed.log": "70c9245b0caa474aacebb2236d0621e5588fcefd484c6e30c14b42f26e74ce2e",
+      "docs/evidence/direct-sympy-compact-frontier-current.json": "84d547a6c7405e6e3c72e498eb570ade5295448e9f1749c796d4647c8cee4a32",
+      "docs/evidence/direct-sympy-compact-frontier.json": "1dcf132965861f044d1008e753884c672e93f53bf0bb44e037f56033abe72ab4",
+      "docs/evidence/direct-sympy-compact-growth.tsv": "c5824d6a9599ba07924e21cd970cde55ec38263419be7ed556d190a919e0e2b9",
+      "docs/evidence/direct-sympy-compact-incompatible.log": "9f39fe2f7f66bee7a1d6f8359ff2b67c368d4b33fb5c1e5ec0aa681ce283f761",
+      "docs/evidence/direct-sympy-compact-numeric-envelopes.tsv": "ed689fa3a3ad61634915a979d779d12d572109fed5ab8b1372aabb8c8930c6c9",
+      "docs/evidence/direct-sympy-compact-restore-benchmark.py.work": "c029862d52093a4da320758a4f1deb13cac1c6ca44bb11ebb05c5e1df09c4f4b",
+      "docs/evidence/direct-sympy-compact-restore-current.log": "6ec5394bd354189d8fe31d9aa81c7c76b266151f768c7a0394c82b772b897208",
+      "docs/evidence/direct-sympy-compact-restore-nine.log": "349b3361af452d13acff8a4f9a55d14a0bf5e2b1afdcbc00465e6823af985539",
+      "docs/evidence/direct-sympy-compact-restore-ten.log": "6fcb1bb42a517b5c3f7c2f992860bbaf7577b3c938d8903975278ce03d06e460",
+      "docs/evidence/direct-sympy-compact-savepoints.log": "1c20b8b1c1b8e90191e2205f2a26e4d04a5f1265f2818f70a40834670a921d2e",
+      "docs/evidence/direct-sympy-compact-status.md": "5fd2d7af3bddb4701cb7e5bdeaff9400b23f9a70ab4215bca825cbb5482cb3f5",
+      "docs/evidence/direct-sympy-compact-substitutions.tsv": "16286135fccc9905387c51f691b4e9abe03cd00e3d1a46a313d31a5496066538",
+      "docs/evidence/direct-sympy-compact-synchronization.tsv": "f64c771707426b77819684c5935dbde7de49335bbdd9861ec562c0b914ae1d76"
+    },
+    "restoreTenBenchmark": {
+      "restoredDependencies": 10,
+      "seconds": 2.811657624988584,
+      "characters": 74299908,
+      "peakResidentBytes": 411582464,
+      "sourceFiles": 13,
+      "identityVerified": true,
+      "expressionDigestsVerified": true,
+      "scope": "Actual immutable frontier snapshot; restoration only, not new coordinate parity or total compilation speed",
+      "revisionScope": "Measured before the final duplicate-literal accounting fix. All ten producer digests are distinct, so that bookkeeping branch is inactive in this benchmark. Its snapshot is incompatible with the final current source hashes and was not forced into reuse."
+    },
+    "compilation": {
+      "maxCharacters": 100663296,
+      "maxSeconds": 600,
+      "completedDependencies": 10,
+      "lastDependency": "model.layers.0.post:inverse",
+      "stop": "Wall-clock budget exceeded during construction of next producer",
+      "allTenDigestsMatchBitwiseValidatedOffsetFrontier": true,
+      "verifiedCurrentSourceHashes": 13,
+      "records": [
+        {
+          "bounds": [
+            "0x1.0020040000000p-16",
+            "0x1.f3fffe0000000p+9",
+            -39
+          ],
+          "castsClosed": true,
+          "characters": 5210,
+          "digest": "a2a26469b3e911647359354fcce3d74719a0b20a98e056ea583a6b470fd65839",
+          "kind": "f32",
+          "name": "model.layers.0.pre:inverse",
+          "noNegativeZero": true
+        },
+        {
+          "bounds": [
+            "-0x1.6a00000000000p+1",
+            "0x1.6a00000000000p+1",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 21202,
+          "digest": "c2217d61c1cc1732a7383877f9091e92c9076407e259eb055cadebd0a3eca2ab",
+          "kind": "half",
+          "name": "model.layers.0.pre:0",
+          "noNegativeZero": false
+        },
+        {
+          "bounds": [
+            "-0x1.6a00000000000p+1",
+            "0x1.6a00000000000p+1",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 21202,
+          "digest": "4b088b2e746a0cea5c389ae8fdd65ba5812d9c2f760c2103847b1979c1bf7697",
+          "kind": "half",
+          "name": "model.layers.0.pre:1",
+          "noNegativeZero": false
+        },
+        {
+          "bounds": [
+            "-0x1.7ac0000000000p-6",
+            "0x1.7ac0000000000p-6",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 170210,
+          "digest": "b2636eff595ba94f96ef1f856b482945dd3b96878b4360cc88253e9815dceba8",
+          "kind": "half",
+          "name": "model.layers.0.v:0",
+          "noNegativeZero": false
+        },
+        {
+          "bounds": [
+            "-0x1.7ac0000000000p-6",
+            "0x1.7ac0000000000p-6",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 170216,
+          "digest": "d78b8480e9086720e4bd842ffacd8c418e0fff0aaed2ea014d42401b2b07f863",
+          "kind": "half",
+          "name": "model.layers.0.context:0",
+          "noNegativeZero": true
+        },
+        {
+          "bounds": [
+            "-0x1.dbc0000000000p-4",
+            "0x1.dbc0000000000p-4",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 170198,
+          "digest": "885f5eb4236f3b940e9e16017f9569726415da4cc04f9b07e2d81560131f7e3b",
+          "kind": "half",
+          "name": "model.layers.0.v:1",
+          "noNegativeZero": false
+        },
+        {
+          "bounds": [
+            "-0x1.dbc0000000000p-4",
+            "0x1.dbc0000000000p-4",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 170204,
+          "digest": "1d50b21810ae985a9f64db1e26fde35fdb36052e2b8ea384907cc10c200e0c7c",
+          "kind": "half",
+          "name": "model.layers.0.context:1",
+          "noNegativeZero": true
+        },
+        {
+          "bounds": [
+            "-0x1.ffc0000000000p+15",
+            "0x1.ffc0000000000p+15",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 1362336,
+          "digest": "140df710a27d5efc952b32816baa227c872368fc8b7a4b3ee09d5591294786f3",
+          "kind": "half",
+          "name": "model.layers.0.residual:0",
+          "noNegativeZero": false
+        },
+        {
+          "bounds": [
+            "-0x1.ffc0000000000p+15",
+            "0x1.ffc0000000000p+15",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 1362344,
+          "digest": "1bb4ccf96277d36d1c10f56357fec23bb761f487876df5e776822d15be32dbea",
+          "kind": "half",
+          "name": "model.layers.0.residual:1",
+          "noNegativeZero": false
+        },
+        {
+          "bounds": [
+            "0x1.0020040000000p-16",
+            "0x1.f3fffe0000000p+9",
+            -39
+          ],
+          "castsClosed": true,
+          "characters": 70846786,
+          "digest": "059881a1148067cc2efba1af77d5b9298c84eb644be049b5da04b3b16b448c3a",
+          "kind": "f32",
+          "name": "model.layers.0.post:inverse",
+          "noNegativeZero": true
+        }
+      ]
+    },
+    "remaining": "Reduce full literal AST parsing in CheckpointStrings.norm correlation/type queries and savepoint publication of a newly completed producer; close posterior normalization before advancing gate/up/SiLU/down and final normalization/head. No final coordinate admitted.",
+    "finalBookkeepingFix": "Identical producer aliases count once in the closed-literal character budget; the five savepoint tests now assert exact accounting.",
+    "currentRestoreBenchmark": {
+      "restoredDependencies": 9,
+      "seconds": 0.17662387501331978,
+      "characters": 3453122,
+      "peakResidentBytes": 235339776,
+      "sourceFiles": 13,
+      "identityVerified": true,
+      "expressionDigestsVerified": true,
+      "scope": "Actual immutable frontier snapshot; restoration only, not new coordinate parity or total compilation speed"
+    },
+    "currentFrontier": {
+      "directory": "artifacts/direct-sympy-compact-current-frontier",
+      "completedDependenciesAtResume": 9,
+      "verifiedCurrentSourceHashes": 13,
+      "expressionsMatchPriorFrontier": true,
+      "compile64MiBStop": "Predicted 70846786-character inverse exceeds 67108864 before allocation",
+      "compatible96MiBResume": "Running with 600-second budget; output prefix artifacts/direct-sympy-compact-current-resumed.work.expr; coordinate still pending"
+    }
   }
 }
