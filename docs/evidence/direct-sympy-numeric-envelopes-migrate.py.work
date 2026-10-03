@@ -1,0 +1,33 @@
+import copy,hashlib,json,shutil,subprocess,sys
+from pathlib import Path
+sys.path.insert(0,'helpers')
+from direct_sympy_checkpoint import CheckpointStrings
+from direct_sympy_strings import StringCompiler
+from direct_sympy_savepoints import ProducerSavepoints,SOURCES,canonical,atomic,digest_file
+source=Path('docs/evidence/direct-sympy-budget-cas-frontier.json')
+old=json.loads(source.read_text());payload=old['payload']
+assert hashlib.sha256(canonical(payload)).hexdigest()==old['integrity']
+assert len(payload['records'])==12 and payload['records'][-1]['name']=='model.layers.0.post:1'
+assert all(not any(part in r['name'] for part in ('gate:','up:','gated:','hidden:','output:','final:')) for r in payload['records'])
+for name in SOURCES:
+    before=subprocess.run(['git','show','b70991f:helpers/'+name],check=True,capture_output=True).stdout
+    assert hashlib.sha256(before).hexdigest()==payload['identity']['sources'][name],name
+root=Path('/private/tmp/llm-inner-numeric-envelopes-run');root.mkdir(exist_ok=False)
+state=root/'state';state.mkdir();(state/'objects').mkdir()
+objects=Path('docs/evidence/direct-sympy-record-cache-frontier/objects')
+for record in payload['records']:
+    original=objects/(record['digest']+'.expr')
+    assert digest_file(original)==record['digest']
+    assert record['castsClosed'] and record['characters']<=67108864
+    shutil.copyfile(original,state/'objects'/original.name)
+with CheckpointStrings('docs/evidence/direct-sympy-test-checkpoint',StringCompiler(max_characters=67108864)) as model,ProducerSavepoints(state,model,2) as store:
+    compatible=copy.deepcopy(payload['identity']);compatible['sources']=store.identity['sources']
+    assert compatible==store.identity,'Non-compiler identity changed'
+    changed={name for name in SOURCES if compatible['sources'][name]!=payload['identity']['sources'][name]}
+    assert changed=={'direct_sympy_checkpoint.py','direct_sympy_conversions.py','direct_sympy_savepoints.py'},changed
+    migrated=copy.deepcopy(payload);migrated['identity']=compatible
+    atomic(state/'frontier.json',canonical({'payload':migrated,'integrity':hashlib.sha256(canonical(migrated)).hexdigest()}))
+    assert store.restore(model)==12
+    record={'sourceManifest':str(source),'baselineCommit':'b70991f','changedSources':sorted(changed),'beforeSources':payload['identity']['sources'],'afterSources':compatible['sources'],'sameCheckpointDomainCoordinatePlatform':True,'unchangedExpressionDigests':[r['digest'] for r in payload['records']],'strictRestoreVerified':True,'completedDependencies':12,'lastDependency':payload['records'][-1]['name'],'reason':'Upstream producers do not use gate/up closure; numeric/cache changes retain certified kernels and reuse only existing closed proofs. All old strings and numeric proof records are unchanged.'}
+    (root/'migration.json').write_text(json.dumps(record,indent=2)+'\n')
+    print('Strict restored upstream frontier: 12 unchanged producer strings; changed sources:',sorted(changed))

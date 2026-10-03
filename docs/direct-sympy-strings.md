@@ -692,3 +692,46 @@ A paridade de referência da coordenada na posição zero continua passando em
 60 casos, com primitivas ainda presentes. A mudança de identidade do adaptador
 rejeita o estado antigo antes de carregar expressões ou modificar o modelo.
 Nenhum estado antigo foi retomado ou migrado nesta validação.
+# Reutilização das provas no fechamento numérico
+
+`ConversionSession` mantém provas de intervalo, dtype e zero com sinal para
+strings imutáveis cujo fechamento de conversões terminou. Quando a próxima
+substituição contém uma dessas chamadas completas no mesmo domínio, o
+fechamento numérico trabalha sobre um envelope temporário de chamadas opacas,
+preservando essas provas. `factor()`/`simplify()` continuam sendo obrigatórios.
+As expressões literais são restauradas antes de admitir o produtor; nenhum
+identificador `CASNumericRegion` pode aparecer na string devolvida.
+
+Essa reutilização existe apenas na compilação. Ela não acrescenta variáveis,
+cache de valores nem executor ao resultado. Um compilador/sessão diferente
+não herda as provas. Uma condição nova que restringe os Xn fundamentais exige
+reabrir a expressão. A retomada continua verificando identidade e integridade
+de todos os arquivos antes de inicializar a reutilização das provas fechadas.
+
+O tamanho da string restaurada é calculado antes de alocar suas cópias. Se
+ele exceder o orçamento, a compilação para sem publicar um produtor parcial.
+O TSV `numeric-envelopes` registra tamanho inicial, tamanho virtual, tamanho
+virtual fechado, tamanho restaurado estimado e quantidade de regiões. Ele
+mede o fechamento numérico; não constitui um artefato final nem paridade.
+
+Os testes verificam fechamento sobre envelopes pequenos, ausência de aliases,
+recusa de identificadores reservados, isolamento entre sessões, reabertura
+em condições novas e interrupção antes da alocação. A execução contínua e a
+retomada produzem strings idênticas, com 30.722 comparações nativas sem
+divergência na fronteira de arredondamento composta.
+A execução real sobre as duas expressões completas de pós-normalização
+recebeu 58.316.705 caracteres e fechou um envelope de 153 caracteres em
+1.055 caracteres, visitando 19 nós novos e reutilizando duas regiões. A
+restauração exigiria 349.900.367 caracteres: seis cópias do cálculo na
+conversão tandem F32 → Half, contando o teste de faixa, o caminho subnormal
+e o caminho normal. O orçamento de 64 MiB interrompeu antes da alocação.
+O processo terminou em 130,50 segundos, incluindo a retomada estrita. Esse
+tempo mede a tentativa limitada, não a compilação da coordenada nem um
+benchmark comparável às tentativas anteriores que paravam em outra etapa.
+
+A fronteira continua em 12 produtores, terminando em `post:1`. A migração
+explícita alterou apenas a identidade dos três arquivos de compilador que
+mudaram; todos os arquivos de expressão, checkpoint, domínio e provas
+numéricas anteriores permanecem idênticos e foram verificados pela retomada
+estrita. Os objetos estão no arquivo de evidências anterior, referenciado
+pelo mapa de validação; o manifest novo registra seus mesmos digests.

@@ -5,6 +5,7 @@ import struct
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 import sys
 import random
 
@@ -44,6 +45,34 @@ def cpp(node):
 
 
 class ConversionStringTests(unittest.TestCase):
+    def test_completed_numeric_envelopes_reuse_only_session_proofs_and_restore_literals(self):
+        import direct_sympy_conversions as conversions
+        domains={"X1":Domain(F(-1),F(1),-24,False)}
+        compiler=StringCompiler(max_characters=100000)
+        session=ConversionSession(compiler,domains,input_dtype="f16")
+        first=session.close("R16(R32(X1+X1/2.0))")
+        compiler.register_completed_region(first,domains,word_closed=True)
+        expression="R16(R32(("+first+")*0.5))"
+        with patch.object(conversions,"simplify_arithmetic",wraps=conversions.simplify_arithmetic) as arithmetic:
+            result=session.close(expression)
+        self.assertEqual(len(session.numeric_envelopes),1)
+        self.assertLess(len(arithmetic.call_args_list[0].args[0]),100)
+        self.assertNotIn("CASNumericRegion",result)
+        self.assertIn(first,result)
+        self.assertEqual(session.value_kind(syntax(result)),"half")
+        # A different session has no authority to inherit numeric proofs.
+        other=ConversionSession(compiler,domains,input_dtype="f16")
+        other.close(expression);self.assertEqual(other.numeric_envelopes,[])
+        before=len(session.numeric_envelopes)
+        session.close("Piecewise(("+expression+",X1>0),(0.0,True))")
+        self.assertEqual(len(session.numeric_envelopes),before)
+        with self.assertRaisesRegex(ValueError,"Reserved compiler numeric"):
+            session.close("CASNumericRegion1()")
+        compiler.max_characters=len(expression)+100
+        with self.assertRaisesRegex(ValueError,"budget before allocation"):
+            session.close(expression)
+        self.assertGreater(session.numeric_envelopes[-1][3],compiler.max_characters)
+
     def test_native_math_rationals_do_not_use_unsigned_integer_division(self):
         # Plain mathematical arithmetic is floating; unsigned operations have
         # their explicit U64* calls. SymPy may print an exact literal as 3/4.

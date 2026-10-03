@@ -125,6 +125,7 @@ class ProducerSavepoints:
                 if record['kind'] in ('half','f32'):session.f32_values.add(key)
                 if record['noNegativeZero']:session.no_negative_zero_values.add(key)
                 if record['castsClosed']:session.converted_regions.add(key)
+                if record['castsClosed']:session.remember_closed_literal(expression,node)
         model.events=[tuple(event) for event in payload['events']]
         model.read_weights=payload['weightReads']
         self._record_cache={record['name']:(expression,record.copy()) for record,expression,_,_ in loaded}

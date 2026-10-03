@@ -6,6 +6,7 @@ retains every classification. Constructors require a finite-source certificate.
 No R16/R32 or rounding-mode node is retained in their returned syntax.
 """
 from dataclasses import dataclass
+from collections import OrderedDict
 from types import MappingProxyType
 import ast
 import math
@@ -118,6 +119,22 @@ class ConversionSession:
         self.visited_nodes=0
         self.no_negative_zero_values=set()
         self.arithmetic_eliminated=0
+        self.closed_literals=OrderedDict()
+        self.closed_literal_characters=0
+        self.envelope_serial=0
+        self.numeric_envelopes=[]
+
+    def remember_closed_literal(self,expression,node=None):
+        """Session-local proofs for immutable, completed literal strings."""
+        if re.search(r"\bCASNumericRegion[0-9]+\b",expression):return
+        node=syntax(expression) if node is None else node
+        if self.key(node) not in self.converted_regions:return
+        if expression in self.closed_literals:return
+        while self.closed_literals and self.closed_literal_characters+len(expression)>4*self.compiler.max_characters:
+            old,_=self.closed_literals.popitem(last=False);self.closed_literal_characters-=len(old)
+        if len(expression)>4*self.compiler.max_characters:return
+        self.closed_literals[expression]=(self.bounds(node),self.value_kind(node),self.no_negative_zero(node))
+        self.closed_literal_characters+=len(expression)
 
     @staticmethod
     def constant(node):
@@ -305,6 +322,43 @@ class ConversionSession:
         return isinstance(node,ast.BinOp) and isinstance(node.op,ast.Add) and square(node.left) and square(node.right)
 
     def close(self,expression):
+        if re.search(r"\bCASNumericRegion[0-9]+\b",expression):raise ValueError("Reserved compiler numeric placeholder")
+        compact,regions=self.compiler.compact_regions(expression,self.compiler.context(self.domains))
+        if regions and all(text in self.closed_literals for text in regions.values()):
+            protected={}
+            for old,text in regions.items():
+                self.envelope_serial+=1;token="CASNumericRegion"+str(self.envelope_serial)
+                marker=syntax(token+"()");key=self.key(marker)
+                bounds,kind,positive_zero=self.closed_literals[text]
+                if bounds is not None:self.completed[key]=bounds
+                if kind=="half":self.half_values.add(key)
+                if kind in ("half","f32"):self.f32_values.add(key)
+                if positive_zero:self.no_negative_zero_values.add(key)
+                self.converted_regions.add(key);protected[token]=text
+                compact=re.sub(r"\b"+old+r"\b",token+"()",compact)
+            result=self._close(compact)
+            virtual=syntax(result);original=self.key(virtual)
+            pattern=r"\bCASNumericRegion[0-9]+\(\)"
+            expanded=len(result)
+            for token,text in protected.items():expanded+=len(re.findall(r"\b"+token+r"\(\)",result))*(len(text)-len(token)-2)
+            self.numeric_envelopes.append((len(expression),len(compact),len(result),expanded,len(protected)))
+            if expanded>self.compiler.max_characters:
+                raise ValueError(f"Closed numeric envelope exceeds string budget before allocation: expandedCharacters={expanded} limit={self.compiler.max_characters}")
+            result=re.sub(pattern,lambda match:protected[match.group(0)[:-2]],result)
+            if re.search(r"\bCASNumericRegion[0-9]+\b",result):raise ValueError("Numeric placeholder escaped restoration")
+            # The virtual fixed point must retain its proof on the restored
+            # whole root. Never infer a dtype from mere textual expansion.
+            node=syntax(result);key=self.key(node)
+            if original in self.completed:self.completed[key]=self.completed[original]
+            if original in self.half_values:self.half_values.add(key)
+            if original in self.f32_values:self.f32_values.add(key)
+            if original in self.no_negative_zero_values:self.no_negative_zero_values.add(key)
+            if original in self.converted_regions:self.converted_regions.add(key)
+            self.remember_closed_literal(result,node)
+            return result
+        return self._close(expression)
+
+    def _close(self,expression):
         expression=simplify_arithmetic(expression,self)
         session=self
         class Boundaries(ast.NodeTransformer):
@@ -389,4 +443,5 @@ class ConversionSession:
         result=self.compiler.stabilize(ast.unparse(tree),self.domains)
         if not re.search(r"\bR(?:16|32)\s*\(",result):
             self.converted_regions.add(self.key(syntax(result)))
+            self.remember_closed_literal(result)
         return result

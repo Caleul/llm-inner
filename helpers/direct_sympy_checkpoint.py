@@ -274,6 +274,9 @@ def main():
                 "\n".join("\t".join(map(str,e)) for e in compiler.substitution_events)+"\n")
             Path(str(path)+".budget-simplifications.tsv").write_text("virtualCharacters\tstabilizedVirtualCharacters\texpandedCharacters\tcompletedRegions\tCASPasses\tadmitted\n"+
                 "\n".join("\t".join(map(str,e)) for e in compiler.budget_events)+"\n")
+            if model.conversions is not None:
+                Path(str(path)+".numeric-envelopes.tsv").write_text("inputCharacters\tvirtualCharacters\tclosedVirtualCharacters\texpandedCharacters\tcompletedRegions\n"+
+                    "\n".join("\t".join(map(str,e)) for e in model.conversions.numeric_envelopes)+"\n")
             if compiler.failed_substitution is not None:
                 template,name,replacement=compiler.failed_substitution
                 Path(str(path)+".failed-template.work.expr").write_text(template+"\n")

@@ -5284,5 +5284,96 @@
       "docs/evidence/direct-sympy-projection-up.work.expr": "fa2c45999fbc39844a95c9c493ae39f78e7a440a69077fb17517eb8c3125b1c9"
     },
     "adapterHash": "1f1ac67f91eea2a2c4bac37e40ad07c2702b10931ed8ff09e6101bcc2b5fca48"
+  },
+  "numericEnvelopeValidation": {
+    "implementation": "Reuse immutable completed literal numeric proofs only in the same ConversionSession/domain; close the new opaque-call envelope and restore literal expressions before producer admission.",
+    "proofProperties": [
+      "finite bounds and dyadic quantum",
+      "Half/F32 kind",
+      "signed zero exclusion when proven",
+      "closed conversion frontier"
+    ],
+    "mandatoryCASPreserved": true,
+    "runtimeAliasesOrCacheIntroduced": false,
+    "freshInputRefiningGuardReopensLiteral": true,
+    "reservedIdentifiersRejected": true,
+    "tests": {
+      "conversionUnitTests": 18,
+      "savepointUnitTests": 4,
+      "checkpointUnitTests": 4,
+      "directedTests": 4,
+      "buildExitCode": 0
+    },
+    "nativeResumedParity": {
+      "cases": 30722,
+      "mismatches": 0,
+      "continuousAndResumedStringsIdentical": true,
+      "numericEnvelopesUsedInBoth": true
+    },
+    "regression": {
+      "tests": 595,
+      "pass": 577,
+      "fail": 15,
+      "skipped": 3,
+      "passedAndFailedNamesIdenticalToPrevious": true,
+      "newFailures": []
+    },
+    "actualCheckpointAttempt": {
+      "checkpoint": "docs/evidence/direct-sympy-test-checkpoint",
+      "dimension": 2,
+      "position": 0,
+      "maxCharacters": 67108864,
+      "maxSeconds": 600,
+      "exitCode": 1,
+      "wallSeconds": 130.5,
+      "includesStrictRestore": true,
+      "completedDependencies": 12,
+      "lastDependency": "model.layers.0.post:1",
+      "stage": "gate scalar projection F32 to Half closure before building up",
+      "inputCharacters": 58316705,
+      "virtualCharacters": 153,
+      "closedVirtualCharacters": 1055,
+      "expandedCharacters": 349900367,
+      "completedRegions": 2,
+      "visitedNewConversionNodes": 19,
+      "reusedConvertedRegions": 2,
+      "newClosedConversions": 2,
+      "expansionAllocated": false,
+      "newCoordinateAdmitted": false
+    },
+    "migration": {
+      "record": "docs/evidence/direct-sympy-numeric-envelopes-migration.json",
+      "script": "docs/evidence/direct-sympy-numeric-envelopes-migrate.py.work",
+      "baselineCommit": "b70991f",
+      "strictRestoreVerified": true,
+      "unchangedProducerFiles": 12,
+      "onlyCompilerSourceIdentityChanged": true,
+      "objects": "docs/evidence/direct-sympy-record-cache-frontier/objects"
+    },
+    "remaining": [
+      "Complete fully substituted gate and subsequent dependencies",
+      "Reduce repeated correlated decisions without dropping IEEE rounding boundaries",
+      "Lower remaining sqrt/Silu primitives",
+      "Prove a complete coordinate on original inputs for multiple token positions and then the complete output vector"
+    ],
+    "fullCoordinateAdmitted": false,
+    "fullVectorAdmitted": false,
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-numeric-envelopes-build.log": "a408d94a3fffc856dc5364f9d4b4ab56fde09205ec19cae0976763ea611ad3df",
+      "docs/evidence/direct-sympy-numeric-envelopes-checkpoint.log": "4f89d20e3c0e523def7e5b0ad725f52efef0c3be098f8a3076f6ddf431048738",
+      "docs/evidence/direct-sympy-numeric-envelopes-cli.log": "fbd9fdeaef0e2be390738f3f83b1116935635efe3422b2a7da54c95cb9c6d617",
+      "docs/evidence/direct-sympy-numeric-envelopes-conversions.log": "54e14752236200c3f7abaaa627bb4e4080e94e28cc9e975219e5e6072c819583",
+      "docs/evidence/direct-sympy-numeric-envelopes-directed.log": "fc2a2bef3001b512c3683dac5768c0e0a1d34fd9d963f4725aadd85d79be123a",
+      "docs/evidence/direct-sympy-numeric-envelopes-frontier.json": "67f0d4c257ec5c026e4be427cca1ab89cf1567eb6bd13bae5e6d837701feea07",
+      "docs/evidence/direct-sympy-numeric-envelopes-migrate.py.work": "74c68723b6f29a61ee53bb618a84f4b8da73ee60d7618f0ebb1bb4c84aa92928",
+      "docs/evidence/direct-sympy-numeric-envelopes-migration.json": "f2c5b943c25e2ae4be6207cfdf210e3bc9fda902d0a0f22dd3d72081a04aa108",
+      "docs/evidence/direct-sympy-numeric-envelopes-migration.log": "1069b84597d07cc4bbb0655bfc49ad2eb894fd1becea01163a1c4fe6f74ae662",
+      "docs/evidence/direct-sympy-numeric-envelopes-regression.log": "e1212cf95e0a8a418b3e91a8b040e4c63a08240df12d05c29244aa0dc9b03cf4",
+      "docs/evidence/direct-sympy-numeric-envelopes-resumed.budget-simplifications.tsv": "8fee5951ef5ad32f2c0721fd74f507df052b97dff14fc4a1b2ced4ca0094677b",
+      "docs/evidence/direct-sympy-numeric-envelopes-resumed.growth.tsv": "e37072dfee4337e9c98b9699249cf17b55a65a9da7659a88867cdd358ea638cb",
+      "docs/evidence/direct-sympy-numeric-envelopes-resumed.numeric-envelopes.tsv": "7fac6314958d5f95c7189810b74bc64f83e5353a3ad3a5fcfc47acafa2032b49",
+      "docs/evidence/direct-sympy-numeric-envelopes-resumed.substitutions.tsv": "04c2914d39258730547b106f7ac597c00ad278512bbd23266cc283339bd83b13",
+      "docs/evidence/direct-sympy-numeric-envelopes-savepoints.log": "eb83f099b4e93eaab9fc93e682833ceb3c1ea73bbef7612129b116cf04029e79"
+    }
   }
 }

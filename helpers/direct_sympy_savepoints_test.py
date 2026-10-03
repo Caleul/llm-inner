@@ -40,9 +40,13 @@ class SavepointTests(unittest.TestCase):
             resumed=self.model(root)
             with ProducerSavepoints(root/'state',resumed,0) as store:
                 self.assertEqual(store.restore(resumed),1)
+                self.assertIn(first,resumed.conversions.closed_literals)
                 self.assertEqual(self.first(resumed),first)
                 final=self.second(resumed)
                 self.assertEqual(final,self.second(original))
+                self.assertTrue(resumed.conversions.numeric_envelopes)
+                self.assertTrue(original.conversions.numeric_envelopes)
+                self.assertNotIn('CASNumericRegion',final)
                 self.assertEqual(len(resumed.events),2)
             source=root/'proof.cpp';binary=root/'proof'
             source.write_text('''
