@@ -22,8 +22,17 @@ class StringCompilerTests(unittest.TestCase):
         self.assertEqual(ast.dump(syntax(actual)),ast.dump(syntax(reference)))
         self.assertNotIn("CASStableRegion",actual)
         self.assertTrue(any(e[-1]=="completed-regions-envelope" for e in compiler.events))
+        # Compounds reuse admission too; a call cannot merge with another
+        # identifier or become a callable when a cache marker replaces it.
+        with patch.object(engine,"syntax",wraps=engine.syntax) as parse:
+            compiler.substitute("R32(X8)","X8","R32("+region+"*0.5)",domains)
+        self.assertLess(max(len(call.args[0]) for call in parse.call_args_list),200)
         own=compiler.context(domains)
         self.assertEqual(compiler.compact_regions("My"+region,own),("My"+region,{}))
+        for suffix in ("X1","1","(X1)"," (X1)"):
+            invalid=region+suffix
+            self.assertEqual(compiler.compact_regions(invalid,own),(invalid,{}))
+            with self.assertRaises((ValueError,SyntaxError)):compiler.stabilize(invalid,domains)
         compiler.max_characters=len(actual)-1
         with self.assertRaises(ValueError):compiler.stabilize(actual,domains)
 
@@ -44,6 +53,27 @@ class StringCompilerTests(unittest.TestCase):
         self.assertEqual(compiler.stabilize(region,positive),reference.stabilize(region,positive))
         with patch.object(engine,"_syntax_cache_limit",1):
             self.assertEqual(compiler.stabilize(region,positive),reference.stabilize(region,positive))
+
+    def test_over_budget_composition_simplifies_before_literal_allocation(self):
+        domains={"X1":Domain(F(-4),F(4),0,False)}
+        compiler=StringCompiler(max_characters=10000)
+        region=compiler.stabilize("R32("+" + ".join(["R32(X1+(-0.0))"]*100)+")",domains)
+        compiler.register_completed_region(region,domains)
+        compiler.max_characters=len(region)+100
+        with patch.object(engine.sp,"factor",wraps=engine.sp.factor) as factor,patch.object(engine.sp,"simplify",wraps=engine.sp.simplify) as simplify:
+            result=compiler.substitute("Piecewise((X9+X9,False),(1.0,True))","X9",region,domains)
+        self.assertGreater(factor.call_count,0);self.assertGreater(simplify.call_count,0)
+        self.assertEqual(float(engine.symbolic(syntax(result))),1.0)
+        self.assertNotIn("CASStableRegion",result)
+        self.assertEqual(compiler.substitution_events[-1][-1],"admitted-after-budget-simplification")
+        self.assertTrue(compiler.budget_events[-1][-1])
+        with self.assertRaisesRegex(ValueError,"budget before allocation"):
+            compiler.substitute("R32(X9+X9)","X9",region,domains)
+        self.assertFalse(compiler.budget_events[-1][-1])
+        before=len(compiler.budget_events)
+        with self.assertRaises(ValueError):
+            compiler.substitute("Piecewise((X9+X9,X1>0),(1.0,True))","X9",region,domains)
+        self.assertEqual(len(compiler.budget_events),before)
 
     def test_substitution_budget_records_growth_without_parsing_the_replacement(self):
         compiler=StringCompiler(max_characters=10)

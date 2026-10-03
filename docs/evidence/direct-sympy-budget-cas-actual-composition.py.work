@@ -1,0 +1,13 @@
+import sys,pathlib,json,time,hashlib
+sys.path.insert(0,str(pathlib.Path.cwd()/'helpers'))
+from direct_sympy_strings import StringCompiler,Domain,syntax
+from fractions import Fraction as F
+state=pathlib.Path('docs/evidence/direct-sympy-record-cache-frontier');payload=json.loads((state/'frontier.json').read_text())['payload'];domains={'X1':Domain(F(-65504),F(65504),-24,False),'X2':Domain(F(-65504),F(65504),-24,False)}
+c=StringCompiler(max_characters=33554432)
+for r in payload['records']:
+ text=(state/'objects'/(r['digest']+'.expr')).read_text();c.register_completed_region(text,domains,word_closed=True)
+template=pathlib.Path('docs/evidence/direct-sympy-record-cache-resumed.failed-template.work.expr').read_text().strip();replacement=pathlib.Path('docs/evidence/direct-sympy-record-cache-resumed.failed-replacement.work.expr').read_text().strip();start=time.perf_counter()
+try:c.substitute(template,'X999999999',replacement,domains)
+except ValueError as error:print('Expected bounded stop:',error)
+print('Actual MLP budget CAS:',c.budget_events,'seconds=',time.perf_counter()-start,'passes=',len(c.events),flush=True)
+assert c.budget_events and not c.budget_events[-1][-1]

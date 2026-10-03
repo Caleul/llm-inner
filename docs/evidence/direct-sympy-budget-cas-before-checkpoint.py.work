@@ -266,8 +266,6 @@ def main():
                 "\n".join("\t".join(map(str,e)) for e in model.events)+"\n")
             Path(str(path)+".substitutions.tsv").write_text("variable\ttemplateCharacters\treplacementCharacters\toccurrences\testimatedCharacters\tfinalCharacters\tstatus\n"+
                 "\n".join("\t".join(map(str,e)) for e in compiler.substitution_events)+"\n")
-            Path(str(path)+".budget-simplifications.tsv").write_text("virtualCharacters\tstabilizedVirtualCharacters\texpandedCharacters\tcompletedRegions\tCASPasses\tadmitted\n"+
-                "\n".join("\t".join(map(str,e)) for e in compiler.budget_events)+"\n")
             if compiler.failed_substitution is not None:
                 template,name,replacement=compiler.failed_substitution
                 Path(str(path)+".failed-template.work.expr").write_text(template+"\n")

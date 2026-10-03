@@ -1,0 +1,2 @@
+Expected bounded stop: Substitution exceeds string budget before allocation: variable=X999999999 templateCharacters=29158283 replacementCharacters=29158405 occurrences=1 estimatedCharacters=58316682 limit=33554432
+Actual MLP budget CAS: [(136, 132, 58316678, 2, 1, False)] seconds= 0.9160239589982666 passes= 1

@@ -271,7 +271,6 @@ class StringCompiler:
         self.events = []
         self.substitution_events = []
         self.failed_substitution = None
-        self.budget_events=[]
         self._stable={}
         self._cache_characters=0
         self._regions=OrderedDict()
@@ -312,13 +311,7 @@ class StringCompiler:
             name="CASStableRegion"+str(len(protected))
             chunks=[];start=0;replaced=False
             while position>=0:
-                end=position+len(text)
-                previous_ok=position==0 or not (current[position-1].isalnum() or current[position-1]=='_')
-                following_ok=end==len(current) or not (current[end].isalnum() or current[end]=='_')
-                following=end
-                while following<len(current) and current[following].isspace():following+=1
-                if following<len(current) and current[following]=='(':following_ok=False
-                if previous_ok and following_ok:
+                if position==0 or not (current[position-1].isalnum() or current[position-1]=='_'):
                     chunks.extend((current[start:position],name));start=position+len(text);replaced=True
                 position=current.find(text,position+len(text))
             if replaced:
@@ -450,43 +443,6 @@ class StringCompiler:
             current = candidate
         raise ValueError("factor/simplify did not stabilize; next substitution forbidden")
 
-    def stabilize_budget_envelope(self,expression,name,replacement,domains,path):
-        """Simplify a virtual literal composition before allocating its copies.
-
-        Only already-completed calls in the identical input context can be
-        hidden. Fresh input-refining guards require reopening those calls,
-        so this bounded route declines them. No runtime aliases are emitted.
-        """
-        if any(re.search(r"\bCASStableRegion[0-9]+\b",text) for text in (expression,replacement)):return None
-        context=self.context(domains);regions={};by_text={}
-        def compact(text):
-            own,protected=self.compact_regions(text,context)
-            for old,value in protected.items():
-                new=by_text.get(value)
-                if new is None:
-                    new="CASStableRegion"+str(1000000+len(regions));by_text[value]=new;regions[new]=value
-                own=re.sub(r"\b"+old+r"\b",new,own)
-            return own
-        template=compact(expression);source=compact(replacement)
-        virtual=re.sub(r"\b"+re.escape(name)+r"\b",lambda _:"("+source+")","("+template+")")
-        if not regions or len(virtual)>self.max_characters:return None
-        for node in ast.walk(syntax(virtual)):
-            if not isinstance(node,ast.Call) or node.func.id!="Piecewise":continue
-            remaining=dict(domains)
-            for pair in node.args:
-                if not isinstance(pair,ast.Tuple) or len(pair.elts)!=2:return None
-                own=refine(remaining,pair.elts[1],True);rest=refine(remaining,pair.elts[1],False)
-                if own is not None and own!=domains:return None
-                if rest is not None and rest!=domains:return None
-                if rest is None:break
-                remaining=rest
-        before=len(self.events);candidate=self.stabilize(virtual,domains,path)
-        expanded=len(candidate)
-        for token,value in regions.items():expanded+=len(re.findall(r"\b"+token+r"\b",candidate))*(len(value)-len(token))
-        self.budget_events.append((len(virtual),len(candidate),expanded,len(regions),len(self.events)-before,expanded<=self.max_characters))
-        if expanded>self.max_characters:return None
-        return re.sub(r"\bCASStableRegion[0-9]+\b",lambda match:regions[match.group(0)],candidate)
-
     def substitute(self, expression, name, replacement, domains, path=()):
         if not re.fullmatch(r"X[1-9][0-9]*",name):
             raise ValueError("Substitution variables must be Xn")
@@ -500,18 +456,10 @@ class StringCompiler:
         index=len(self.substitution_events)
         self.substitution_events.append(event+(None,"pending"))
         if estimated>self.max_characters:
-            stabilized=self.stabilize_budget_envelope(expression,name,replacement,domains,path)
-            if stabilized is not None:
-                self.substitution_events[index]=event+(len(stabilized),"admitted-after-budget-simplification")
-                return stabilized
             self.substitution_events[index]=event+(None,"budget")
             self.failed_substitution=(expression,name,replacement)
             raise ValueError(f"Substitution exceeds string budget before allocation: variable={name} templateCharacters={len(expression)} replacementCharacters={len(replacement)} occurrences={occurrences} estimatedCharacters={estimated} limit={self.max_characters}")
-        if (self.context(domains),replacement) not in self._regions:
-            # Completed calls already own their grammar admission. Validate
-            # the new envelope instead of reparsing all of their descendants.
-            compact,_=self.compact_regions(replacement,self.context(domains))
-            syntax(compact)
+        if (self.context(domains),replacement) not in self._regions:syntax(replacement)
         result = re.sub(pattern,lambda _:"("+replacement+")",enclosed)
         stabilized=self.stabilize(result,domains,path)
         self.substitution_events[index]=event+(len(stabilized),"admitted")

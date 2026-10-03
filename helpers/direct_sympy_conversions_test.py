@@ -26,7 +26,7 @@ def cpp(node):
     if isinstance(node,ast.BinOp):
         if isinstance(node.op,ast.Pow):return "std::pow(double("+cpp(node.left)+"), double("+cpp(node.right)+"))"
         op={ast.Add:"+",ast.Sub:"-",ast.Mult:"*",ast.Div:"/"}[type(node.op)]
-        return "("+cpp(node.left)+" "+op+" "+cpp(node.right)+")"
+        return "(double("+cpp(node.left)+") "+op+" double("+cpp(node.right)+"))"
     if isinstance(node,ast.Compare):return "("+cpp(node.left)+" < "+cpp(node.comparators[0])+")"
     if isinstance(node,ast.Call):
         name=node.func.id
@@ -44,6 +44,65 @@ def cpp(node):
 
 
 class ConversionStringTests(unittest.TestCase):
+    def test_native_math_rationals_do_not_use_unsigned_integer_division(self):
+        # Plain mathematical arithmetic is floating; unsigned operations have
+        # their explicit U64* calls. SymPy may print an exact literal as 3/4.
+        expressions=["0.75","0.125","1.5","3.5","7.75","-0.75","0.5+0.75"]
+        compiler=StringCompiler();lines=[]
+        for text in expressions:
+            expected=float(eval(text,{"__builtins__":{}}))
+            lowered=lower_finite_conversion(text,"R32",FiniteSource(expected,expected,-4),compiler,{})
+            lines.append("mismatches += word<uint64_t>(double("+cpp(syntax(lowered))+")) != word<uint64_t>(double("+repr(expected)+"));")
+        with tempfile.TemporaryDirectory() as directory:
+            source=Path(directory)/"literal.cpp";binary=Path(directory)/"literal"
+            source.write_text("#include <cstdint>\n#include <cstring>\n#include <cmath>\n#include <cstdio>\ntemplate<class T,class U>T word(U value){T result;std::memcpy(&result,&value,sizeof(result));return result;}\nint main(){unsigned mismatches=0;\n"+"\n".join(lines)+"\nstd::printf(\"Literal math native certificate: cases=7 mismatches=%u\\n\",mismatches);return mismatches?1:0;}")
+            built=subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],capture_output=True,text=True)
+            self.assertEqual(built.returncode,0,built.stderr)
+            result=subprocess.run([str(binary)],check=True,capture_output=True,text=True,timeout=120)
+            self.assertIn('cases=7 mismatches=0',result.stdout);print(result.stdout,end='')
+
+    def test_common_inverse_cannot_be_factored_through_half_stores(self):
+        compiler=StringCompiler();domains={"X1":Domain(F(-65504),F(65504),-24,False),"X2":Domain(F(-65504),F(65504),-24,False),"X3":Domain(F(1,65536),F(1024),-39,True)}
+        original="R16(R32(R16(R32(X1*X3))*0.25 + R16(R32(X2*X3))*0.5))"
+        stabilized=compiler.stabilize(original,domains)
+        self.assertEqual(ast.dump(syntax(stabilized)),ast.dump(syntax(original)))
+        def reference_cpp(node):
+            if isinstance(node,ast.Call) and node.func.id in ("R16","R32"):
+                value=reference_cpp(node.args[0])
+                return "double(float("+value+"))" if node.func.id=="R32" else "double(static_cast<_Float16>("+value+"))"
+            if isinstance(node,ast.BinOp):
+                op={ast.Add:"+",ast.Sub:"-",ast.Mult:"*",ast.Div:"/"}[type(node.op)]
+                return "("+reference_cpp(node.left)+op+reference_cpp(node.right)+")"
+            return cpp(node)
+        with tempfile.TemporaryDirectory() as directory:
+            source=Path(directory)/"proof.cpp";binary=Path(directory)/"proof"
+            source.write_text("""
+#include <cstdint>
+#include <cstring>
+#include <cmath>
+#include <cstdio>
+#include <cfenv>
+#include <initializer_list>
+template<class T,class U>T word(U value){T result;std::memcpy(&result,&value,sizeof(result));return result;}
+double candidate(double X1,double X2,double X3){return """+reference_cpp(syntax(stabilized))+""";}
+int main(){if(std::fesetround(FE_TONEAREST))return 2;unsigned mismatches=0,unsafe=0,cases=0;
+for(unsigned bits=1;bits<0x7c00;bits++)for(uint16_t other:{uint16_t(1),uint16_t(0x3c00),uint16_t(0x7bff),uint16_t(0xbc00)}){
+ double x=word<_Float16>(uint16_t(bits)),y=word<_Float16>(other);
+ float variance=(float(x*x)+float(y*y))/2.0f+1e-6f;
+ double inverse=1.0f/std::sqrt(variance);
+ double a=static_cast<_Float16>(float(x*inverse)),b=static_cast<_Float16>(float(y*inverse));
+ double expected=static_cast<_Float16>(float(a*0.25+b*0.5));
+ double factored=static_cast<_Float16>(float((x*0.25+y*0.5)*inverse));
+ cases++;mismatches+=word<uint64_t>(candidate(x,y,inverse))!=word<uint64_t>(expected);
+ unsafe+=word<uint64_t>(factored)!=word<uint64_t>(expected);
+}std::printf("Half normalization factor barrier: cases=%u mismatches=%u unsafeRewrites=%u\\n",cases,mismatches,unsafe);
+return mismatches||!unsafe;}
+""")
+            built=subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],capture_output=True,text=True)
+            self.assertEqual(built.returncode,0,built.stderr)
+            result=subprocess.run([str(binary)],check=True,capture_output=True,text=True,timeout=120)
+            self.assertIn('mismatches=0',result.stdout);print(result.stdout,end='')
+
     def test_f32_sqrt_and_reciprocal_normal_cells_need_no_parity_copy(self):
         domains={"X1":Domain(F(2)**-149,F(3.4028234663852886e38),-149,True)}
         session=ConversionSession(StringCompiler(),domains)

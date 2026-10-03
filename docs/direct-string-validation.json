@@ -5030,5 +5030,183 @@
       "purpose": "Original tiny test checkpoint archived with matching identity for reproducing proof/benchmark; never a generated-runtime dependency"
     },
     "logNormalization": "Trailing whitespace and final blank lines removed from archived logs; raw output remains in /private/tmp."
+  },
+  "preallocationCASValidation": {
+    "implementation": "Over-budget substitutions run mandatory factor/simplify on bounded envelopes of already-certified completed calls before deciding literal size; only identical input context; new refining guards require reopening and decline this shortcut; dead branches can admit a smaller equivalent result; no runtime cache or aliases.",
+    "grammarAdmission": "New compound envelope is validated without re-parsing admitted descendants; adjacent identifier or callable suffixes cannot hide malformed syntax.",
+    "tests": {
+      "engine": 20,
+      "conversions": 17,
+      "directed": {
+        "tests": 4,
+        "pass": 4,
+        "skip": 0
+      },
+      "buildExitCode": 0
+    },
+    "regression": {
+      "tests": 595,
+      "pass": 577,
+      "fail": 15,
+      "skipped": 3,
+      "exitCode": 1,
+      "samePassedNames": true,
+      "sameFailedNames": true,
+      "newFailures": [],
+      "lostPasses": [],
+      "baseline": "completedEnvelopeAndF32TieValidation.regression"
+    },
+    "actualTwoTermComposition": {
+      "unsimplifiedEstimatedCharacters": 58316682,
+      "virtualCharacters": 136,
+      "stabilizedVirtualCharacters": 132,
+      "stabilizedExpandedCharacters": 58316678,
+      "CASPasses": 1,
+      "completedRegions": 2,
+      "seconds": 0.916023958998,
+      "fits32MiB": false
+    },
+    "nativeFactorBarrier": {
+      "cases": 126972,
+      "mismatchesWithPreservedStores": 0,
+      "mismatchesWhenPullingInverseAcrossHalfStores": 15421,
+      "scope": "Concrete counterexample family; no general permission to erase Round/Half boundaries"
+    },
+    "nativeEmitterCorrection": {
+      "plainArithmetic": "Explicit double operands; unsigned word arithmetic only through U64* functions",
+      "previousFailure": "SymPy 3/4 could execute as unsigned integer division in the validation C++ emitter",
+      "literalCases": 7,
+      "mismatches": 0,
+      "existingLargeNumericCertificatesRevalidated": true
+    },
+    "revalidatedSavedProducer": {
+      "producer": "model.layers.0.post:1",
+      "cases": 527904,
+      "mismatches": 0,
+      "finalParity": false
+    },
+    "run": {
+      "maxCharacters": 67108864,
+      "maxSeconds": 600,
+      "restoredDependencies": 12,
+      "completedDependencies": 12,
+      "stop": "Gate/up composition size budget before allocation",
+      "unsimplifiedEstimatedCharacters": 116633426,
+      "stabilizedExpandedCharacters": 116633422,
+      "virtualCharacters": 334,
+      "stabilizedVirtualCharacters": 330,
+      "completedRegions": 2,
+      "CASPasses": 1,
+      "elapsedSeconds": 145.49,
+      "newProducerArtifact": false,
+      "manifest": "docs/evidence/direct-sympy-budget-cas-frontier.json",
+      "objects": "docs/evidence/direct-sympy-record-cache-frontier/objects",
+      "identity": {
+        "byteOrder": "little",
+        "checkpoint": {
+          "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+          "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+        },
+        "dimension": 2,
+        "domains": {
+          "X1": [
+            "-65504",
+            "65504",
+            -24,
+            false
+          ],
+          "X2": [
+            "-65504",
+            "65504",
+            -24,
+            false
+          ]
+        },
+        "dtype": "f32",
+        "lowerConversions": true,
+        "platform": "macOS-26.7.1-arm64-arm-64bit",
+        "position": 0,
+        "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+        "schema": 1,
+        "sources": {
+          "direct_sympy_arithmetic.py": "3330b1e8680e80ca63175d2355b8d540e8ddb045b590fd9e721b0fccb9e09641",
+          "direct_sympy_checkpoint.py": "b17a7c9faa04764fbb5f64e83a259f996a7ddb9c10f4cc61afca90f1c00d08fa",
+          "direct_sympy_conversions.py": "26f34f1ef698fa435feac3bfeffb1493972df9069e97f25a6e5025d87cabab5b",
+          "direct_sympy_savepoints.py": "2a8a047f7adcf61cabe5fa77164e2cc4863921d3cbffa951b2bca092135eab92",
+          "direct_sympy_signatures.py": "d488ef703689811733e92aa4ae3616ac6d0b2269f841016307fb833abf5ccac3",
+          "direct_sympy_strings.py": "429f34dbb3f48357b8b3d2227935599409c45bddb7b64786eefd28b34645d5b9",
+          "direct_sympy_tandem.py": "c4c9db6a0fccdc7669bd8cf38d628809afd5348d51cbc232026c60d6cf70ad88",
+          "direct_sympy_words.py": "b826ee7d416ed2f1c12e049c9c6798785612695074f649fd28e1cfb275579f34"
+        },
+        "sympy": "1.14.0"
+      }
+    },
+    "migration": {
+      "automaticCompatibility": false,
+      "changedSources": [
+        "direct_sympy_checkpoint.py",
+        "direct_sympy_strings.py"
+      ],
+      "scope": "Compiler-only budget and grammar admission changes. Existing 12 completed expressions and numerical helpers are unchanged; compound grammar cache requires the same context, validates envelope syntax, refuses identifier/call suffixes, and reopens new refining guards. C++ test emitter correction is not a compiler semantic change.",
+      "beforeSources": {
+        "direct_sympy_arithmetic.py": "3330b1e8680e80ca63175d2355b8d540e8ddb045b590fd9e721b0fccb9e09641",
+        "direct_sympy_checkpoint.py": "b349a1e03b474d77f9f859a7b005e199b7d1ddee40105c4161aa4f5373017f5f",
+        "direct_sympy_conversions.py": "26f34f1ef698fa435feac3bfeffb1493972df9069e97f25a6e5025d87cabab5b",
+        "direct_sympy_savepoints.py": "2a8a047f7adcf61cabe5fa77164e2cc4863921d3cbffa951b2bca092135eab92",
+        "direct_sympy_signatures.py": "d488ef703689811733e92aa4ae3616ac6d0b2269f841016307fb833abf5ccac3",
+        "direct_sympy_strings.py": "8575c5cc3894aa7dbaeebc69611747839de6c3d3def668018d2ce815a7cefe87",
+        "direct_sympy_tandem.py": "c4c9db6a0fccdc7669bd8cf38d628809afd5348d51cbc232026c60d6cf70ad88",
+        "direct_sympy_words.py": "b826ee7d416ed2f1c12e049c9c6798785612695074f649fd28e1cfb275579f34"
+      },
+      "afterSources": {
+        "direct_sympy_arithmetic.py": "3330b1e8680e80ca63175d2355b8d540e8ddb045b590fd9e721b0fccb9e09641",
+        "direct_sympy_checkpoint.py": "b17a7c9faa04764fbb5f64e83a259f996a7ddb9c10f4cc61afca90f1c00d08fa",
+        "direct_sympy_conversions.py": "26f34f1ef698fa435feac3bfeffb1493972df9069e97f25a6e5025d87cabab5b",
+        "direct_sympy_savepoints.py": "2a8a047f7adcf61cabe5fa77164e2cc4863921d3cbffa951b2bca092135eab92",
+        "direct_sympy_signatures.py": "d488ef703689811733e92aa4ae3616ac6d0b2269f841016307fb833abf5ccac3",
+        "direct_sympy_strings.py": "429f34dbb3f48357b8b3d2227935599409c45bddb7b64786eefd28b34645d5b9",
+        "direct_sympy_tandem.py": "c4c9db6a0fccdc7669bd8cf38d628809afd5348d51cbc232026c60d6cf70ad88",
+        "direct_sympy_words.py": "b826ee7d416ed2f1c12e049c9c6798785612695074f649fd28e1cfb275579f34"
+      },
+      "unchangedProducerDigests": [
+        "67129734d23048f8ddc3c47ef84d086cfcbd4de2d0bdb839128260b62077dba3",
+        "f7428a71943a58e76e7601780707275b92a84c50e8e96c5f24d97912c6807187",
+        "d6c1d6838aebd114d32100cb92779d8006be308b489b6bdbe607b3fc015e2a1f",
+        "d19ceeaaf3b2fcf54e87b9a138fa02e928c0f74902e9fb093e37ba039852fb41",
+        "b23c9562b1dfa47564b0cd9223b44fbdd67f05b8a326457607b142e7a193afe3",
+        "4f7e025b1b0bf786ccc0b0e269b93c8ed3cc8e47851895c36b3f81c72b0b2e29",
+        "cc38cb24ecb09c204bce384096d6bbe5904e33b9cd4e0ec93269fbd8eb290f3b",
+        "ba7b1c3f09d5e43f7cc4a31df4512395e5d60326e9877031f8fe88e79e1e5fef",
+        "1f12b4f56c5e6b6031cb5053e4dfb55d8191ef3d48a3b9ef7070ce4508e24306",
+        "df7c4f26f031a52b3a23faaceb9b3230053d59f96dad18ce99d38a7d76c495b0",
+        "6154e6e3c042d3c8797801d531c90881505f066e925cf17f59e468c08c5733d3",
+        "316faf3357936f80cdb0d7283f19e3b115ca07fc98a254b9312ce71d83d59a25"
+      ]
+    },
+    "completion": {
+      "fullCoordinate": false,
+      "fullVector": false,
+      "otherOutputDimensionsStarted": false,
+      "sqrtAndSiluLoweringComplete": false,
+      "nextAction": "Synchronize repeated branch decisions with path conditions; compile and numerically simplify each scalar projection before composing activation/up dependencies; preserve IEEE store boundaries unless separately proved."
+    },
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-budget-cas-engine.log": "9c1de35dbb8c39a3fa4d845815047bd7f8579a6dc62dc2048f8fc652edcda4df",
+      "docs/evidence/direct-sympy-budget-cas-conversions.log": "de3456232b2ed6bdf8956c87ad54efb21201fdc980bacdcfd4675d849e998ced",
+      "docs/evidence/direct-sympy-budget-cas-build.log": "a408d94a3fffc856dc5364f9d4b4ab56fde09205ec19cae0976763ea611ad3df",
+      "docs/evidence/direct-sympy-budget-cas-directed.log": "281ebb400b5f88759a8273e056b6b664a87c965db9c5d4e0585c3fb4b96d389b",
+      "docs/evidence/direct-sympy-budget-cas-regression.log": "8175cbcd22278d044b7a40e6972673c4db3b35c11092e120642e10e9d07dd8c0",
+      "docs/evidence/direct-sympy-budget-cas-post1-proof.log": "3fc299330a2efcd04979ad1ff3397f02c63daa0827701b3feff284af6973d41e",
+      "docs/evidence/direct-sympy-budget-cas-actual-composition.log": "472e54ec993fcbcd42f98ca2cabb7fb6b6f07c1af11d8837badd09ff5e8da11c",
+      "docs/evidence/direct-sympy-budget-cas-actual-composition.py.work": "cf98a77043f7ee9da64d4995e9d23e2bb275a3d9f65db226dc58847e0d7b8d46",
+      "docs/evidence/direct-sympy-budget-cas-cli.log": "c76a0feb51752a52849aa85e512e28e08b36a4e13a92f32c051266c2880a7f7a",
+      "docs/evidence/direct-sympy-budget-cas-migration.json": "1ca0e1d3fb560b0a5f7e65c7c9ea63b29e48f23df9aa0192b006497d8f39bee0",
+      "docs/evidence/direct-sympy-budget-cas-before-strings.py.work": "8575c5cc3894aa7dbaeebc69611747839de6c3d3def668018d2ce815a7cefe87",
+      "docs/evidence/direct-sympy-budget-cas-before-checkpoint.py.work": "b349a1e03b474d77f9f859a7b005e199b7d1ddee40105c4161aa4f5373017f5f",
+      "docs/evidence/direct-sympy-budget-cas-frontier.json": "4a642c4585584c19375efafb47fe8d14f84c57744ddc18431de1421732eb4db1",
+      "docs/evidence/direct-sympy-budget-cas-resumed.growth.tsv": "e37072dfee4337e9c98b9699249cf17b55a65a9da7659a88867cdd358ea638cb",
+      "docs/evidence/direct-sympy-budget-cas-resumed.substitutions.tsv": "1a547e5e17c115d9058fbdaab049005257c3e7859349e5f8b11e393cb5ef63e8",
+      "docs/evidence/direct-sympy-budget-cas-resumed.budget-simplifications.tsv": "1f5c30896f62d3427c06e5912d4fc579fab28843c9fc407ec861e178abffd78e"
+    }
   }
 }

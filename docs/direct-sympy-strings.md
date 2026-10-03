@@ -633,3 +633,38 @@ Build e quatro testes específicos passaram; os quatro testes de persistência
 incluem troca de expressão/sessão, corrupção, falha de publicação e 30.722
 casos nativos de retomada. A regressão manteve os mesmos nomes de 577 testes
 aprovados, 15 falhas conhecidas e três ignorados.
+
+## Simplificação antes da admissão de uma expansão grande
+
+Uma substituição cuja estimativa excede o orçamento passa agora pelo SymPy
+sobre um envelope de chamadas já certificadas, sem alocar todas as cópias.
+Somente contextos de entrada idênticos permitem essa proteção; um guard novo
+que restringe Xn exige reabrir a expressão. Ramos mortos podem desaparecer e
+permitir a substituição. Se a expressão estabilizada ainda exceder o limite,
+a compilação continua recusando a alocação, sem omitir caminhos.
+
+Na soma real da projeção MLP, 136 caracteres virtuais estabilizaram em 132;
+a expansão correspondente continuou com 58.316.678 caracteres. Na composição
+posterior gate/up, 334 estabilizaram em 330, correspondendo a 116.633.422
+caracteres. Portanto essas chamadas ao SymPy não demonstraram redução
+algébrica suficiente. A retomada com 64 MiB levou 145,49 segundos e parou
+antes de alocar a composição; a fronteira permanece em doze produtores.
+
+A admissão gramatical de um composto também evita reler os descendentes já
+validados. A proteção recusa sufixos que fundem identificadores ou transformam
+um resultado escalar em função, preservando a rejeição da sintaxe inválida.
+
+O teste nativo de fatoração verificou 126.972 casos: preservar os stores Half
+manteve zero divergências; puxar a inversa comum através desses stores alterou
+15.421 resultados. Isso exige prova adicional para esse tipo de fatoração.
+
+O emissor C++ de validação tinha uma lacuna: frações matemáticas como `3/4`
+podiam executar divisão inteira. Operações matemáticas simples agora convertem
+os dois operandos para double; as operações unsigned permanecem em U64*.
+Sete casos de literais, os certificados numéricos existentes e o produtor
+post:1 (527.904 casos) passaram com o emissor corrigido. O mapa
+`preallocationCASValidation` preserva os testes e registra essas distinções.
+
+O próximo trabalho é sincronizar decisões repetidas por contexto de caminho
+e concluir a simplificação numérica de cada projeção escalar antes de compor
+ativação e up. A coordenada final e a remoção de sqrt/Silu continuam pendentes.
