@@ -6297,5 +6297,115 @@
       "docs/evidence/direct-sympy-sqrt-no-ties-synchronization.tsv": "3cb2007d2df747e00509253901fb7fc39ce34b192b66af0ff56dfc645b51d746",
       "docs/evidence/direct-sympy-sqrt-no-ties-probe.py.work": "ecdef0c6e10a6136ba82b5824885750993df2136e15250f3fc6d507e1654f429"
     }
+  },
+  "rationalSqrtValidation": {
+    "baseCommit": "bd56af2",
+    "strategy": "Cubic/cubic Chebyshev rational seed on normalized mantissa, one ordered Newton correction, exponent-parity scaling and certified F32 bit rounding",
+    "internalBoundary": "Internal F64 values may differ; exact widened F32 output matches reference for every positive finite F32 via normalized enumeration and exact power-of-two scaling",
+    "normalizedCases": 16777216,
+    "oddTies": 0,
+    "evenTies": 0,
+    "emittedWordCases": 25167601,
+    "emittedWordMismatches": 0,
+    "rejectedCandidates": {
+      "pade2": 1724,
+      "pade3": 2,
+      "chebyshev2": 32
+    },
+    "kernel": {
+      "beforeCharacters": 2392,
+      "afterCharacters": 1708,
+      "beforeInputOccurrences": 21,
+      "afterInputOccurrences": 15,
+      "artifact": "docs/evidence/direct-sympy-sqrt-rational-kernel.work.expr"
+    },
+    "rms": {
+      "beforeCharacters": 50531,
+      "afterCharacters": 36347,
+      "nativeCases": 507904,
+      "mismatches": 0,
+      "artifact": "docs/evidence/direct-sympy-sqrt-rational-rms.work.expr"
+    },
+    "residual": {
+      "beforeCharacters": 13359726,
+      "afterCharacters": 9615150,
+      "parity": {
+        "artifact": "artifacts/direct-sympy-sqrt-rational-frontier/objects/38736a02815a47774292e9017beaaf5db9b37209f6f4fc292fd20a6adf2d1845.expr",
+        "sha256": "38736a02815a47774292e9017beaaf5db9b37209f6f4fc292fd20a6adf2d1845",
+        "characters": 9615150,
+        "cases": 60,
+        "mismatches": 0,
+        "scope": "position=0 residual coordinate=0; not final coordinate or last-token parity",
+        "elapsedSeconds": 19.09783783298917
+      }
+    },
+    "compile": {
+      "fresh": true,
+      "resume": false,
+      "maxSeconds": 600,
+      "maxCharacters": 67108864,
+      "completedDependencies": 9,
+      "durableDependencies": 9,
+      "lastDependency": "model.layers.0.residual:1",
+      "lastCharacters": 9615172,
+      "beforePredictedPostInverseCharacters": 1122226084,
+      "predictedPostInverseCharacters": 576915520,
+      "predictedReductionPercent": 48.59186324170309,
+      "stop": "Character budget before allocation",
+      "pathCuts": 0,
+      "finalCoordinateAdmitted": false,
+      "fullVector": false,
+      "lastTokenParity": false
+    },
+    "savepoints": {
+      "oldSourcesIncompatible": [
+        "direct_sympy_sqrt.py"
+      ],
+      "oldStatesReused": false,
+      "allNineDigestsVerified": true,
+      "objects": "artifacts/direct-sympy-sqrt-rational-frontier/objects"
+    },
+    "tests": {
+      "buildExitCode": 0,
+      "directedNodeTests": 6,
+      "directedFailures": 0,
+      "engine": 26,
+      "conversions": 23,
+      "savepoints": 4,
+      "checkpoint": 6,
+      "silu": 1,
+      "sqrt": 1,
+      "regressionTests": 597,
+      "regressionPass": 579,
+      "regressionFail": 15,
+      "regressionSkipped": 3,
+      "sameNamedFailuresAsBefore": true,
+      "legacyJsonTestsExcluded": 4
+    },
+    "sourceHashes": {
+      "direct_sympy_sqrt.py": "990ce236d45f9c38fce5babaf81eb7d3dbea06ab6dab284fb0edf3f7378579d7",
+      "direct_sympy_sqrt_test.py": "a1f51b524c7e5dd5e6b677f90c1fddeba43519501a820c1cdd339ccf0d2cf22b"
+    },
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-sqrt-rational-probe.log": "d8e1788458e629abdf4508b629ec89c90ed8714e141914c1acb3c0866ca29e17",
+      "docs/evidence/direct-sympy-sqrt-rational-substitutions.tsv": "60b7b1f9cb4ea319c59570fcc667e30f447adc82bd430be38be9760ab8211d7b",
+      "docs/evidence/direct-sympy-sqrt-rational-numeric-envelopes.tsv": "6eab2c6f15cdddb9404e762bc8b144c2fd061c8ed8290b8ee52be21e8cca2d3f",
+      "docs/evidence/direct-sympy-sqrt-rational-frontier.json": "8b8b97207a06249cf587482e52f6c53a7805b61eb49ffaa60851971eb607470e",
+      "docs/evidence/direct-sympy-sqrt-rational-residual-parity.py.work": "8c26dbf877a673f5ff31872bdbe0a95fab40031d3ce0ae2b0e880e32f0d767c8",
+      "docs/evidence/direct-sympy-sqrt-rational-kernel.work.expr": "e6a4f33f1fbaf6dea7158ceb941d665c985650901a1002bf4fb3e4d01c98ae7b",
+      "docs/evidence/direct-sympy-sqrt-rational-residual-parity.log": "4b58dc9105e43b609d6cdeb0625f626e680d7d51897dfda3d5145067a521f7c4",
+      "docs/evidence/direct-sympy-sqrt-rational-rms-native.log": "e59bcf0fd32537116f0bd61bfb77bddb7b37ca7da6caf89c5531b83ccbc34a12",
+      "docs/evidence/direct-sympy-sqrt-rational-directed.log": "92bef57e98bf33e3b0748f0522b40dce6fc2df6dd4c6c6b40548044c6b3ac8de",
+      "docs/evidence/direct-sympy-sqrt-rational-conditions.tsv": "a2ff5598582c308382556de34283d49161612780e911b47967292c9fc36f545c",
+      "docs/evidence/direct-sympy-sqrt-rational-budget-simplifications.tsv": "8fee5951ef5ad32f2c0721fd74f507df052b97dff14fc4a1b2ced4ca0094677b",
+      "docs/evidence/direct-sympy-sqrt-rational-probe.py.work": "935ac4caba8a1af7e3031bc34fc1824067cd8e0fdbb81bd6df4ee4918943fcb0",
+      "docs/evidence/direct-sympy-sqrt-rational-build.log": "a408d94a3fffc856dc5364f9d4b4ab56fde09205ec19cae0976763ea611ad3df",
+      "docs/evidence/direct-sympy-sqrt-rational-rms.work.expr": "bef1f60aa848fb8427e55a7dc4e31d9609c14a0880ef4d209da77c726f2b9fce",
+      "docs/evidence/direct-sympy-sqrt-rational-synchronization.tsv": "67a81b62284c187a0a1781cde50a7bd605117589dcf28f294bba0baa88855f1e",
+      "docs/evidence/direct-sympy-sqrt-rational-growth.tsv": "0f535765c10017c5f48d3f3d36eb2aa0da03f7056683efac4e39226806b04de2",
+      "docs/evidence/direct-sympy-sqrt-rational-regression.log": "b7a5ee0142f117902223a574058741aa1564674ca67aaf8ee71c6ca129383baa",
+      "docs/evidence/direct-sympy-sqrt-rational-native.log": "666cc412b169d161f81c6c14b30e92707419f6d1c71ee0e031118b351bc129a2",
+      "docs/evidence/direct-sympy-sqrt-rational-compilation.log": "cb9e86962f27aa237f2d75d5c0bf1bb8506533abb888b7b3d86ade62a84e0e16"
+    }
   }
 }

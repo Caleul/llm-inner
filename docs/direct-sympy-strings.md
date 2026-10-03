@@ -1008,3 +1008,40 @@ com 597 testes, 579 aprovados, quinze falhas conhecidas e três ignorados;
 ela não foi repetida após esta mudança localizada. O mapa e hashes estão
 em `sqrtNoMidpointValidation` de `direct-string-validation.json`, com os
 estados em `artifacts/direct-sympy-sqrt-no-ties-frontier`.
+
+## Raiz com semente racional cúbica
+
+O kernel agora usa uma semente racional cúbica sobre a mantissa normalizada,
+seguida de uma correção aritmética ordenada. Os coeficientes são constantes
+matemáticas de compilação, sem tabela de respostas. A operação F64 interna
+não é a fronteira de equivalência: o resultado F32 continua exato. A string
+emitida contém somente operações elementares, pesos/constantes e entrada.
+`factor()` e `simplify()` continuam obrigatórios após cada substituição.
+
+Foram testadas seis sementes candidatas. Padé de grau dois e três e a
+semente Chebyshev de grau dois foram recusadas, com respectivamente 1.724,
+duas e 32 divergências. A semente Chebyshev cúbica e sua correção passaram
+em todas as 16.777.216 mantissas/paridades normalizadas, sem empates F32.
+O kernel efetivamente emitido passou nas 25.167.601 comparações, incluindo
+todos os subnormais positivos. O certificado continua restrito a
+`R32(sqrt(F32 positivo finito))`, sem mudar outros domínios ou desempates.
+
+O kernel passou de 2.392 para 1.708 caracteres e de 21 para 15 ocorrências
+da entrada. A primeira normalização passou de 50.531 para 36.347 caracteres,
+preservando os bits nos 507.904 casos nativos. O primeiro residual passou de
+13.359.726 para 9.615.150 caracteres; sua expressão foi relida e comparada
+com o PyTorch em 60 entradas, sem divergência. Essa é uma prova de um
+residual na posição zero, não do resultado final nem do último token.
+
+Uma execução nova completou e persistiu nove produtores. A expansão prevista
+da segunda normalização caiu de 1.122.226.084 para 576.915.520 caracteres,
+cerca de 48,6% menor. Ela ainda ultrapassa 64 MiB e foi recusada antes da
+alocação. Nenhum caminho foi omitido. Os estados anteriores diferiam no
+helper da raiz e não foram reutilizados; os nove novos hashes foram
+verificados em `artifacts/direct-sympy-sqrt-rational-frontier`.
+
+Build, seis testes dirigidos e regressão foram executados. A regressão manteve
+597 testes, 579 aprovados, as mesmas quinze falhas e três ignorados. O mapa
+`rationalSqrtValidation` de `direct-string-validation.json` registra as
+expressões, hashes, resultados e crescimento. A coordenada completa, o vetor
+e a paridade do último token continuam pendentes.

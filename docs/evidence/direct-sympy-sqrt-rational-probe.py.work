@@ -1,0 +1,19 @@
+import mpmath as mp,json,subprocess,tempfile
+from pathlib import Path
+mp.mp.dps=100
+for method in ('pade','chebyshev'):
+ for degree in (2,3,4):
+  if method=='pade':p,q=mp.pade(mp.taylor(lambda z:mp.sqrt(mp.mpf('1.5')+z),0,2*degree),degree,degree)
+  else:
+   nodes=[mp.cos(mp.pi*(2*j+1)/(2*(2*degree+1)))/2 for j in range(2*degree+1)]
+   rows=[];values=[]
+   for z in nodes:
+    f=mp.sqrt(mp.mpf('1.5')+z);rows.append([z**j for j in range(degree+1)]+[-f*z**j for j in range(1,degree+1)]);values.append(f)
+   c=mp.lu_solve(mp.matrix(rows),mp.matrix(values));p=list(c[:degree+1]);q=[mp.mpf(1)]+list(c[degree+1:])
+  p=[float(x) for x in reversed(p)];q=[float(x) for x in reversed(q)]
+  Path(f'/private/tmp/llm-inner-sqrt-{method}-{degree}.json').write_text(json.dumps({'p':p,'q':q})+'\n')
+  with tempfile.TemporaryDirectory() as d:
+   root=Path(d);source=root/'proof.cpp';binary=root/'proof'
+   source.write_text('#include <cstdint>\n#include <cstring>\n#include <cmath>\n#include <cstdio>\ntemplate<class T,class U>T word(U value){T result;std::memcpy(&result,&value,sizeof(result));return result;}\nconst double p[]={'+','.join(map(repr,p))+'},q[]={'+','.join(map(repr,q))+'};\n'+'''int main(){unsigned cases=0,mismatches=0,oddTies=0,evenTies=0;double maximumError=0;for(unsigned b=0;b<8388608;b++){double m=word<float>(uint32_t(0x3f800000+b)),z=m-1.5,a=p[0],c=q[0];for(unsigned j=1;j<DEGREE+1;j++){a=p[j]+z*a;c=q[j]+z*c;}double seed=a/c;maximumError=fmax(maximumError,fabs(seed/std::sqrt(m)-1.0));double corrected=0.5*(seed+m/seed);for(unsigned odd=0;odd<2;odd++){double x=odd?m*2:m,y=corrected*(1.0+double(odd)*0.4142135623730951);uint64_t raw=word<uint64_t>(y);if((raw&UINT64_C(536870911))==UINT64_C(268435456)){if((raw>>29)&1)oddTies++;else evenTies++;}uint64_t actual=(raw+UINT64_C(268435455))&UINT64_C(18446744073172680704);uint64_t expected=word<uint64_t>(double(float(std::sqrt(x))));if(actual!=expected && mismatches<4)std::printf("bad=%08x odd=%u\\n",b,odd);mismatches+=actual!=expected;cases++;}}std::printf("METHOD DEGREE: cases=%u mismatches=%u oddTies=%u evenTies=%u maxSeedRelativeError=%.17g\\n",cases,mismatches,oddTies,evenTies,maximumError);return 0;}'''.replace('DEGREE',str(degree)).replace('METHOD',method))
+   build=subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],capture_output=True,text=True);assert build.returncode==0,build.stderr
+   run=subprocess.run([str(binary)],capture_output=True,text=True,timeout=120);print(run.stdout,end='',flush=True)
