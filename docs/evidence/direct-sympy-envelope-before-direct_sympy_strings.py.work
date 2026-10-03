@@ -273,70 +273,9 @@ class StringCompiler:
         self.failed_substitution = None
         self._stable={}
         self._cache_characters=0
-        self._regions=OrderedDict()
-        self._region_characters=0
-
-    def context(self,domains):
-        return tuple(sorted((name,d.minimum,d.maximum,d.quantum,d.excludes_negative_zero) for name,d in domains.items()))
-
-    def register_completed_region(self,expression,domains,node=None):
-        """Admit a completed producer, never an interrupted intermediate.
-
-        Callers must already have certified its fixed point in this domain
-        (or restored an identity-checked producer). Only a whole call may be
-        hidden: it was already opaque to algebra in cas_view. Runtime strings
-        remain fully substituted; compiler placeholders are always restored.
-        """
-        if len(expression)>self.max_characters or re.search(r"\bCASStableRegion[0-9]+\b",expression):return
-        node=syntax(expression) if node is None else node
-        if not isinstance(node,ast.Call):return
-        key=(self.context(domains),expression)
-        if key in self._regions:return
-        while self._regions and self._region_characters+len(expression)>4*self.max_characters:
-            old,_=self._regions.popitem(last=False);self._region_characters-=len(old[1])
-        self._regions[key]=True;self._region_characters+=len(expression)
-
-    def compact_regions(self,expression,context):
-        if re.search(r"\bCASStableRegion[0-9]+\b",expression):return expression,{}
-        protected={};current=expression
-        regions=sorted((text for own,text in self._regions if own==context),key=len,reverse=True)
-        for text in regions:
-            # A registered region starts with an identifier and ends with a
-            # balanced call. Never match a suffix of another function name.
-            position=current.find(text)
-            if position<0:continue
-            name="CASStableRegion"+str(len(protected))
-            chunks=[];start=0;replaced=False
-            while position>=0:
-                if position==0 or not (current[position-1].isalnum() or current[position-1]=='_'):
-                    chunks.extend((current[start:position],name));start=position+len(text);replaced=True
-                position=current.find(text,position+len(text))
-            if replaced:
-                chunks.append(current[start:]);current=''.join(chunks);protected[name]=text
-        if not protected:return expression,{}
-        # Only retain the envelope when every reachable arm has this exact
-        # input domain. A new guard on a fundamental Xn can narrow it and
-        # requires reopening the original producer in that arm. Word guards
-        # which refine no input domain still run their own factor/simplify.
-        if re.search(r"\bPiecewise\s*\(",current):
-            domains={name:Domain(low,high,q,zero) for name,low,high,q,zero in context}
-            for node in ast.walk(syntax(current)):
-                if not isinstance(node,ast.Call) or node.func.id!="Piecewise":continue
-                remaining=dict(domains)
-                for pair in node.args:
-                    if not isinstance(pair,ast.Tuple) or len(pair.elts)!=2:return expression,{}
-                    condition=pair.elts[1]
-                    own=refine(remaining,condition,True)
-                    rest=refine(remaining,condition,False)
-                    if own is not None and own!=domains:return expression,{}
-                    if rest is not None and rest!=domains:return expression,{}
-                    if rest is None:break
-                    remaining=rest
-        return current,protected
 
     def stabilize(self, expression, domains, path=()):
-        if len(expression)>self.max_characters:raise ValueError("String expression budget exceeded; no partial result admitted")
-        context=self.context(domains)
+        context=tuple(sorted((name,d.minimum,d.maximum,d.quantum,d.excludes_negative_zero) for name,d in domains.items()))
         key=(expression,context)
         cached=self._stable.get(key)
         if cached is not None:
@@ -347,15 +286,8 @@ class StringCompiler:
             sp.simplify(sp.factor(view))
             self.events.append((path,0,"factor","simplify",len(expression),len(result),"cached-fixed-point"))
             return result
-        compact,regions=self.compact_regions(expression,context)
-        stabilized=self._stabilize(compact,domains,path)
-        view,_=cas_view(stabilized,keep_piecewise=True)
-        result=re.sub(r"\bCASStableRegion[0-9]+\b",lambda match:regions[match.group(0)],stabilized) if regions else stabilized
-        if len(result)>self.max_characters:raise ValueError("Factored string exceeds output budget")
-        if regions:
-            # Annotate the actual CAS pass; do not count the restoration as
-            # another factor/simplify invocation in producer growth metrics.
-            self.events[-1]=self.events[-1][:6]+("completed-regions-envelope",)
+        result=self._stabilize(expression,domains,path)
+        view,_=cas_view(result,keep_piecewise=True)
         footprint=len(expression)+len(result)
         if footprint<=4*self.max_characters:
             while self._stable and self._cache_characters+footprint>4*self.max_characters:
@@ -456,7 +388,7 @@ class StringCompiler:
             self.substitution_events[index]=event+(None,"budget")
             self.failed_substitution=(expression,name,replacement)
             raise ValueError(f"Substitution exceeds string budget before allocation: variable={name} templateCharacters={len(expression)} replacementCharacters={len(replacement)} occurrences={occurrences} estimatedCharacters={estimated} limit={self.max_characters}")
-        if (self.context(domains),replacement) not in self._regions:syntax(replacement)
+        syntax(replacement)
         result = re.sub(pattern,lambda _:"("+replacement+")",enclosed)
         stabilized=self.stabilize(result,domains,path)
         self.substitution_events[index]=event+(len(stabilized),"admitted")

@@ -45,11 +45,12 @@ def binary_exponent(value):
     return math.frexp(value)[1]-1
 
 
-def lower_finite_conversion(expression,kind,certificate,compiler,domains,path=()):
+def lower_finite_conversion(expression,kind,certificate,compiler,domains,path=(),*,no_odd_f32_ties=False):
     if not isinstance(certificate,FiniteSource):
         raise ValueError("Finite source interval certificate required")
     if kind not in ("R32","R16"):
         raise ValueError("Unsupported conversion boundary")
+    if no_odd_f32_ties and kind!="R32":raise ValueError("Odd-tie certificate applies only to F32")
     # Fixed-point simplification must complete before this substitution too.
     source=compiler.stabilize("("+expression+")",domains,path)
     raw=call("Bits64","X999999997")
@@ -80,9 +81,8 @@ def lower_finite_conversion(expression,kind,certificate,compiler,domains,path=()
         # Round the signed word itself: the retained-bit parity is independent
         # of its sign. Avoid stripping/restoring a third copy of the producer
         # inside the same normal calculation; distinct paths are untouched.
-        signed_odd=call("U64And",call("U64Shr",raw,dropped),1)
-        signed=call("Float64",call("U64And",call("U64Add",raw,
-            call("U64Add",bias,signed_odd)),mask))
+        adjustment=bias if no_odd_f32_ties else call("U64Add",bias,call("U64And",call("U64Shr",raw,dropped),1))
+        signed=call("Float64",call("U64And",call("U64Add",raw,adjustment),mask))
         return simplify_words(compiler.substitute(signed,"X999999997",source,domains,path),compiler,domains)
     above=normal if maximum<overflow else call("Piecewise",
         "("+normal+", "+magnitude+" < "+str(overflow_threshold)+")",
@@ -155,6 +155,7 @@ class ConversionSession:
                 except OverflowError:pass
         if isinstance(node,ast.Call) and len(node.args)==1 and node.func.id in ("R16","R32") and self.bounds(node) is not None:
             return "half" if node.func.id=="R16" or self.value_kind(node.args[0])=="half" else "f32"
+        if isinstance(node,ast.Call) and len(node.args)==1 and node.func.id=="Silu16" and self.value_kind(node.args[0])=="half" and self.bounds(node) is not None:return "half"
         if isinstance(node,ast.UnaryOp) and isinstance(node.op,(ast.UAdd,ast.USub)):return self.value_kind(node.operand)
         if not isinstance(node,ast.BinOp):return None
         a,b=self.value_kind(node.left),self.value_kind(node.right)
@@ -264,9 +265,44 @@ class ConversionSession:
                     # |silu(x)|<=|x|; a conservative finite-half enclosure,
                     # not an implementation or proof of the activation bits.
                     maximum=max(abs(d.minimum),abs(d.maximum))
-                    if maximum<=65504:return FiniteSource(-maximum,maximum,-24)
+                    if maximum<=65504 and self.value_kind(node.args[0])=="half":return FiniteSource(-maximum,maximum,-24)
             except (OverflowError,ValueError):return None
         return None
+
+    def no_odd_f32_ties(self,node):
+        """Certified sources cannot land on an odd normal F32 halfway cell.
+
+        Write each nonzero Half as odd m*2^e, with <=11 bits in m.
+        Equal square exponents give <=23 significant bits: already F32.
+        Unequal square exponents differ by an even number; the aligned sum
+        is 1 mod 4. An exact F64 sum can be an F32 tie only with one bit
+        dropped, whose retained bit is then even. If F64 addition rounds,
+        the smaller <=22-bit square is <1/128 of the larger square's F32
+        ULP. That larger square is already exact F32, so no tie is possible.
+        Zeros square to +0. This is not a certificate for general Half sums.
+
+        For sqrt of finite nonnegative F32, a normal F32 midpoint has an
+        odd 25-bit significand. Its square has 49 or 50 significant bits,
+        so cannot be the 24-bit input. The minimum square-space separation
+        is larger than the F64 rounding interval around that midpoint.
+        For 1/F32, the midpoint's odd significand cannot divide a power of
+        two; the <=24-bit denominator also bounds separation away from the
+        F64 midpoint interval. Thus neither F64 operation can round onto
+        a normal F32 midpoint. Generic subnormal/overflow kernels remain.
+        """
+        if isinstance(node,ast.Call) and node.func.id=="sqrt" and len(node.args)==1:
+            source=self.bounds(node.args[0])
+            return source is not None and source.minimum>=0 and self.value_kind(node.args[0]) in ("half","f32")
+        if isinstance(node,ast.BinOp) and isinstance(node.op,ast.Div) and self.constant(node.left)==1:
+            source=self.bounds(node.right)
+            return source is not None and (source.minimum>0 or source.maximum<0) and self.value_kind(node.right) in ("half","f32")
+        def square(value):
+            if isinstance(value,ast.BinOp) and isinstance(value.op,ast.Pow) and self.constant(value.right)==2:
+                operand=value.left
+            elif isinstance(value,ast.BinOp) and isinstance(value.op,ast.Mult) and self.key(value.left)==self.key(value.right):operand=value.left
+            else:return False
+            return self.value_kind(operand)=="half" and self.bounds(operand) is not None
+        return isinstance(node,ast.BinOp) and isinstance(node.op,ast.Add) and square(node.left) and square(node.right)
 
     def close(self,expression):
         expression=simplify_arithmetic(expression,self)
@@ -328,6 +364,7 @@ class ConversionSession:
                                 session.half_values.add(key);session.f32_values.add(key)
                             return rewritten
                 source=session.bounds(node.args[0]) if node.func.id in ("R32","R16") and len(node.args)==1 else None
+                no_odd_ties=node.func.id=="R32" and len(node.args)==1 and session.no_odd_f32_ties(node.args[0])
                 rewritten=self.generic_visit(node)
                 if rewritten.func.id in ("R32","R16") and len(rewritten.args)==1:
                     target=rewritten.func.id
@@ -336,7 +373,7 @@ class ConversionSession:
                         rewritten=syntax(session.compiler.stabilize(ast.unparse(rewritten.args[0]),session.domains));session.redundant+=1
                     elif source is not None:
                         text=lower_finite_conversion(ast.unparse(rewritten.args[0]),rewritten.func.id,
-                            source,session.compiler,session.domains)
+                            source,session.compiler,session.domains,no_odd_f32_ties=no_odd_ties)
                         rewritten=syntax(text)
                         session.closed+=1
                     else:session.pending+=1

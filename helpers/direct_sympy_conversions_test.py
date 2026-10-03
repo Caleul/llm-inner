@@ -44,6 +44,101 @@ def cpp(node):
 
 
 class ConversionStringTests(unittest.TestCase):
+    def test_f32_sqrt_and_reciprocal_normal_cells_need_no_parity_copy(self):
+        domains={"X1":Domain(F(2)**-149,F(3.4028234663852886e38),-149,True)}
+        session=ConversionSession(StringCompiler(),domains)
+        session.f32_values.add(session.key(syntax("X1")))
+        self.assertTrue(session.no_odd_f32_ties(syntax("sqrt(X1)")))
+        self.assertTrue(session.no_odd_f32_ties(syntax("1.0/X1")))
+        unknown=ConversionSession(StringCompiler(),domains)
+        self.assertFalse(unknown.no_odd_f32_ties(syntax("sqrt(X1)")))
+        self.assertFalse(unknown.no_odd_f32_ties(syntax("1.0/X1")))
+        self.assertFalse(session.no_odd_f32_ties(syntax("sqrt(-X1)")))
+        self.assertFalse(session.no_odd_f32_ties(syntax("2.0/X1")))
+        sqrt=lower_finite_conversion("sqrt(X1)","R32",session.bounds(syntax("sqrt(X1)")),session.compiler,domains,no_odd_f32_ties=True)
+        reciprocal_domains={"X1":Domain(F(2)**-127,F(2)**125,-149,True)}
+        reciprocal_session=ConversionSession(StringCompiler(),reciprocal_domains)
+        reciprocal=lower_finite_conversion("1.0/X1","R32",reciprocal_session.bounds(syntax("1.0/X1")),reciprocal_session.compiler,reciprocal_domains,no_odd_f32_ties=True)
+        self.assertEqual(sqrt.count("X1"),1);self.assertEqual(reciprocal.count("X1"),1)
+        source=r'''#include <cstdint>
+#include <cstring>
+#include <cstdio>
+#include <cfenv>
+#include <cfloat>
+#include <cmath>
+template<class T,class U>T word(U x){T y;static_assert(sizeof(x)==sizeof(y));std::memcpy(&y,&x,sizeof(y));return y;}
+double root(double X1){return ROOT;}
+double inverse(double X1){return INVERSE;}
+int main(){static_assert(FLT_EVAL_METHOD==0);if(std::fesetround(FE_TONEAREST))return 2;
+uint64_t roots=0,inverses=0,errors=0,ties=0;constexpr uint64_t low=(UINT64_C(1)<<29)-1,mid=UINT64_C(1)<<28;
+for(uint32_t bits=0;bits<=UINT32_C(0x7f7fffff);bits++){
+ float x=word<float>(bits);double value=std::sqrt(double(x));ties+=(word<uint64_t>(value)&low)==mid;
+ errors+=word<uint64_t>(root(x))!=word<uint64_t>(double(std::sqrt(x)));roots++;
+}
+double negativeZero=-0.0;if(word<uint64_t>(root(negativeZero))!=word<uint64_t>(negativeZero))return 3;
+for(uint32_t bits=UINT32_C(0x00400000);bits<=UINT32_C(0x7e000000);bits++){
+ float x=word<float>(bits);double value=1.0/double(x);ties+=(word<uint64_t>(value)&low)==mid;
+ errors+=word<uint64_t>(inverse(x))!=word<uint64_t>(double(1.0f/x));
+ errors+=word<uint64_t>(inverse(-x))!=word<uint64_t>(double(1.0f/(-x)));inverses+=2;
+}
+std::printf("F32 normal-cell certificate: sqrt=%llu reciprocals=%llu mismatches=%llu ties=%llu\n",(unsigned long long)roots,(unsigned long long)inverses,(unsigned long long)errors,(unsigned long long)ties);
+return errors||ties?1:0;}
+'''.replace("ROOT",cpp(syntax(sqrt))).replace("INVERSE",cpp(syntax(reciprocal)))
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/"cells.cpp";path.write_text(source);executable=Path(directory)/"cells"
+            subprocess.run(["clang++","-std=c++17","-O3","-ffp-contract=off",str(path),"-o",str(executable)],check=True,capture_output=True)
+            output=subprocess.run([str(executable)],check=True,capture_output=True,text=True,timeout=90).stdout
+            self.assertIn("sqrt=2139095040 reciprocals=4219469826 mismatches=0 ties=0",output);print(output.strip())
+
+    def test_two_half_squares_remove_only_the_proved_odd_tie_copy(self):
+        domains={name:Domain(F(-65504),F(65504),-24,False) for name in ("X1","X2")}
+        session=ConversionSession(StringCompiler(),domains,input_dtype="f16")
+        for source in ("X1**2+X2**2","X1*X1+X2*X2"):
+            self.assertTrue(session.no_odd_f32_ties(syntax(source)))
+        for source in ("X1+X2","X1**2+X2","X1**2+X2**3","X1**2+X2**2+X1**2"):
+            self.assertFalse(session.no_odd_f32_ties(syntax(source)))
+        unknown=ConversionSession(StringCompiler(),domains)
+        self.assertFalse(unknown.no_odd_f32_ties(syntax("X1**2+X2**2")))
+        self.assertEqual(session.value_kind(syntax("Silu16(X1)")),"half")
+        self.assertEqual(session.value_kind(syntax("Silu16(X1)*X2")),"f32")
+        self.assertIsNone(unknown.bounds(syntax("Silu16(X1)")))
+        with self.assertRaises(ValueError):lower_finite_conversion("X1","R16",FiniteSource(-1,1,-24),session.compiler,domains,no_odd_f32_ties=True)
+        result=session.close("R32(X1**2 + X2**2)")
+        self.assertEqual(result.count("X1"),1);self.assertEqual(result.count("X2"),1)
+        general=lower_finite_conversion("X1+X2","R32",FiniteSource(-131008,131008,-24),session.compiler,domains)
+        self.assertEqual(general.count("X1"),2)
+        source=r'''#include <cstdint>
+#include <cstring>
+#include <cstdio>
+#include <cfenv>
+#include <cfloat>
+#include <cmath>
+#include <vector>
+template<class T,class U>T word(U x){T y;static_assert(sizeof(x)==sizeof(y));std::memcpy(&y,&x,sizeof(y));return y;}
+double candidate(double X1,double X2){return CANDIDATE;}
+double general(double X1,double X2){return GENERAL;}
+int main(){static_assert(FLT_EVAL_METHOD==0);if(std::fesetround(FE_TONEAREST))return 2;
+std::vector<double> values(31744);for(unsigned i=0;i<31744;i++)values[i]=word<_Float16>(uint16_t(i));
+uint64_t cases=0,errors=0,oddTies=0,evenTies=0;
+constexpr uint64_t low=(UINT64_C(1)<<29)-1,mid=UINT64_C(1)<<28;
+for(unsigned i=0;i<31744;i++)for(unsigned j=0;j<=i;j++){
+ double x=values[i],y=values[j],sum=x*x+y*y;uint64_t raw=word<uint64_t>(sum);
+ bool tie=(raw&low)==mid;oddTies+=tie&&((raw>>29)&1);evenTies+=tie&&!((raw>>29)&1);
+ errors+=word<uint64_t>(candidate(x,y))!=word<uint64_t>(double(float(sum)));cases++;
+}
+// General Half addition has odd ties and must retain the parity correction.
+double sum=1.0+3.0*std::ldexp(1.0,-24);uint64_t raw=word<uint64_t>(sum);
+if(word<uint64_t>(general(1.0,3.0*std::ldexp(1.0,-24)))!=word<uint64_t>(double(float(sum))))return 3;
+if(((raw+(mid-1))&~low)==word<uint64_t>(double(float(sum))))return 4;
+std::printf("Two-Half-square F32 certificate: pairs=%llu mismatches=%llu oddTies=%llu evenTies=%llu\n",(unsigned long long)cases,(unsigned long long)errors,(unsigned long long)oddTies,(unsigned long long)evenTies);
+return errors||oddTies?1:0;}
+'''.replace("CANDIDATE",cpp(syntax(result))).replace("GENERAL",cpp(syntax(general)))
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/"squares.cpp";path.write_text(source);executable=Path(directory)/"squares"
+            subprocess.run(["clang++","-std=c++17","-O3","-ffp-contract=off",str(path),"-o",str(executable)],check=True,capture_output=True)
+            output=subprocess.run([str(executable)],check=True,capture_output=True,text=True,timeout=90).stdout
+            self.assertIn("pairs=503856640 mismatches=0 oddTies=0",output);print(output.strip())
+
     def test_half_square_compacts_one_operand_with_exhaustive_bit_parity(self):
         domains={"X1":Domain(F(-65504),F(65504),-24,False)}
         session=ConversionSession(StringCompiler(),domains,input_dtype="f16")

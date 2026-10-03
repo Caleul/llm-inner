@@ -1,0 +1,12 @@
+..............
+----------------------------------------------------------------------
+Ran 14 tests in 12.103s
+
+OK
+Exact subnormal-grid certificates: F32=16777216 F16=2048 mismatches=0
+Exact Half-grid tandem certificate: cases=67108866 mismatches=0
+Actual string IEEE certificate: F32=100679708 F16=206870 composed=559086 prunedF32=100663300 prunedF16=3072 mismatches=0; tandem=559130; typedPairs=507904
+F32 normal-cell certificate: sqrt=2139095040 reciprocals=4219469826 mismatches=0 ties=0
+Native Half squares: 63488, mismatches=0\n
+Two-Half-square F32 certificate: pairs=503856640 mismatches=0 oddTies=0 evenTies=13918556
+Word identity comparisons: 16048, mismatches=0

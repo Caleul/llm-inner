@@ -9,6 +9,42 @@ from direct_sympy_strings import Domain,StringCompiler,syntax
 
 
 class StringCompilerTests(unittest.TestCase):
+    def test_completed_region_envelope_preserves_literal_expression_and_budget(self):
+        domains={"X1":Domain(F(-4),F(4),0,False)}
+        compiler=StringCompiler(max_characters=20000)
+        region=compiler.stabilize("R32("+" + ".join(["R32(X1 + (-0.0))"]*200)+")",domains)
+        compiler.register_completed_region(region,domains)
+        reference=StringCompiler(max_characters=20000).substitute("R32(X7*2)","X7",region,domains)
+        with patch.object(engine,"syntax",wraps=engine.syntax) as parse,patch.object(engine.sp,"factor",wraps=engine.sp.factor) as factor,patch.object(engine.sp,"simplify",wraps=engine.sp.simplify) as simplify:
+            actual=compiler.substitute("R32(X7*2)","X7",region,domains)
+            self.assertLess(max(len(call.args[0]) for call in parse.call_args_list),200)
+            self.assertGreaterEqual(factor.call_count,1);self.assertGreaterEqual(simplify.call_count,1)
+        self.assertEqual(ast.dump(syntax(actual)),ast.dump(syntax(reference)))
+        self.assertNotIn("CASStableRegion",actual)
+        self.assertTrue(any(e[-1]=="completed-regions-envelope" for e in compiler.events))
+        own=compiler.context(domains)
+        self.assertEqual(compiler.compact_regions("My"+region,own),("My"+region,{}))
+        compiler.max_characters=len(actual)-1
+        with self.assertRaises(ValueError):compiler.stabilize(actual,domains)
+
+    def test_completed_regions_reopen_for_external_branches_and_changed_domains(self):
+        domains={"X1":Domain(F(-4),F(4),0,False)}
+        compiler=StringCompiler();reference=StringCompiler()
+        region=compiler.stabilize("R32(Piecewise((X1-X1,X1>0),(X1-X1,True)))",domains)
+        compiler.register_completed_region(region,domains)
+        expression="Piecewise(("+region+",X1>0),("+region+",True))"
+        self.assertEqual(compiler.compact_regions(expression,compiler.context(domains)),(expression,{}))
+        self.assertEqual(compiler.stabilize(expression,domains),reference.stabilize(expression,domains))
+        word_branch="Piecewise(("+region+",Bits64(X1)>1),("+region+",True))"
+        compact,regions=compiler.compact_regions(word_branch,compiler.context(domains))
+        self.assertTrue(regions);self.assertLess(len(compact),len(word_branch))
+        self.assertEqual(compiler.stabilize(word_branch,domains),reference.stabilize(word_branch,domains))
+        positive={"X1":Domain(F(1),F(4),0,True)}
+        self.assertEqual(compiler.compact_regions(region,compiler.context(positive)),(region,{}))
+        self.assertEqual(compiler.stabilize(region,positive),reference.stabilize(region,positive))
+        with patch.object(engine,"_syntax_cache_limit",1):
+            self.assertEqual(compiler.stabilize(region,positive),reference.stabilize(region,positive))
+
     def test_substitution_budget_records_growth_without_parsing_the_replacement(self):
         compiler=StringCompiler(max_characters=10)
         replacement="X2+X2+X2"

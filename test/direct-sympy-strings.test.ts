@@ -13,7 +13,7 @@ test('SymPy savepoints preserve completed rounding frontiers and reject incompat
 test('SymPy string substitution factors and simplifies each step with isolated IEEE branch proofs',
   {skip:!python},async()=>{
     const {stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_strings_test.py'],{timeout:120_000});
-    assert.match(stderr,/Ran 17 tests/);
+    assert.match(stderr,/Ran 19 tests/);
     assert.match(stderr,/OK/);
   });
 
@@ -28,8 +28,10 @@ test('SymPy checkpoint working string is re-read and matches a freshly captured 
 test('SymPy elementary conversion strings preserve native IEEE cells and composed boundaries',
   {skip:!python},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_conversions_test.py'],{timeout:120_000,maxBuffer:1024*1024});
-    assert.match(stderr,/Ran 12 tests/);
+    assert.match(stderr,/Ran 14 tests/);
     assert.match(stderr,/OK/);
     assert.match(stdout,/Native Half squares: 63488, mismatches=0/);
+    assert.match(stdout,/Two-Half-square F32 certificate: pairs=503856640 mismatches=0 oddTies=0/);
+    assert.match(stdout,/F32 normal-cell certificate: sqrt=2139095040 reciprocals=4219469826 mismatches=0 ties=0/);
     assert.match(stdout,/F32=100679708 F16=206870 composed=559086 prunedF32=100663300 prunedF16=3072 mismatches=0/);
   });

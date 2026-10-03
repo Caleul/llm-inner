@@ -493,3 +493,74 @@ passes, as mesmas 15 falhas e três skips, sem regressão nova por nome. O mapa
 redundantSquareCastValidation conserva fontes, evidências e limitações.
 Ainda não foi medido ganho de tempo para uma coordenada completa. A fronteira
 está em docs/evidence/direct-sympy-square-fast-frontier.
+
+## Envelope de produtores estabilizados e certificados de empate F32
+
+Um produtor concluído cujo resultado é uma chamada inteira pode ser
+protegido durante o processamento de um novo envelope. Essas chamadas já
+eram opacas à álgebra em cas_view. A proteção agora ocorre antes do parsing
+completo, sob o mesmo domínio de entrada. Os símbolos são privados do CAS;
+o texto integral é restaurado e os limites de tamanho continuam incidindo
+sobre a expressão completa. Não são emitidos aliases de runtime.
+
+Uma condição externa que refine qualquer domínio de entrada força a análise
+completa do produtor sob cada ramo. Condições word/bitwise que mantêm todos
+os domínios idênticos permitem proteger os produtores; cada braço ainda passa
+por factor/simplify. Os testes cobrem mudança de domínio, branches externos,
+zero com sinal, limites, nomes de funções e restauração das cópias literais.
+
+Foram acrescentados três certificados para eliminar a leitura de paridade
+redundante no kernel normal F32. Eles não se aplicam ao kernel F16:
+
+- Soma de dois quadrados Half finitos: ao alinhar quadrados com expoentes
+  distintos, a soma é 1 módulo 4. Um empate F32 exato só pode descartar um
+  bit, cujo bit retido é par. Expoentes iguais produzem até 23 bits. Se a
+  adição F64 arredonda, a menor parcela está longe de qualquer midpoint F32.
+- Raiz de F32 não negativo: o quadrado de um midpoint F32 normal tem 49 ou
+  50 bits significativos e não pode ser a entrada de 24 bits. A separação
+  também impede o arredondamento F64 de atingir esse midpoint.
+- Recíproco de F32 não nulo: o significando ímpar de um midpoint não pode
+  dividir uma potência de dois. A precisão de 24 bits do denominador fornece
+  separação suficiente do intervalo de arredondamento F64.
+
+Os kernels subnormal/overflow mantêm seu tratamento anterior. A aplicação
+depende da prova de dtype e finitude; somas Half gerais conservam a correção
+de paridade. O controle negativo 1 + 3*2^-24 demonstra que remover a paridade
+de uma soma geral produziria um resultado incorreto.
+
+O próprio código gerado passou 503.856.640 pares de magnitudes Half,
+quotientados pela simetria exata de sinal/quadrado e ordem da soma: zero
+divergências, zero empates ímpares e 13.918.556 empates pares. O kernel de
+raiz passou todos os 2.139.095.040 valores F32 não negativos e preservou -0.
+O recíproco passou 4.219.469.826 casos com ambos os sinais, para denominadores
+F32 de 2^-127 a 2^125. Nenhum caso divergiu ou atingiu um midpoint F32.
+
+Silu16 só fornece um certificado Half quando recebe Half finito; assim seu
+produto por outro Half é exato F32. O limite da ativação não é atribuído a
+uma entrada F64 não certificada. A primitiva continua pendente de expansão
+e essa prova de dtype não constitui sua implementação final.
+
+A execução nova de 8 MiB concluiu dez produtores, incluindo post:inverse.
+Os residuais passaram de cerca de 3,85 milhões para cerca de 972 mil
+caracteres. post:inverse foi emitido com 3.887.805 caracteres e passou
+527.904 comparações nativas contra as projeções, residuais e RMS posteriores
+calculados independentemente. sqrt permanece: esta é uma prova de produtor,
+não a paridade final da coordenada. A etapa seguinte estimou 29.158.260
+caracteres para seis ocorrências do produto normalizado e foi rejeitada antes
+da alocação. A retomada de 32 MiB preserva o mesmo domínio e semântica.
+
+A retomada com 32 MiB validou a identidade dos dez produtores salvos e admitiu
+uma expressão de 29.158.252 caracteres. Parou pelo orçamento de 300 segundos
+no processamento numérico, sem concluir outro produtor. A fronteira continua
+em dez; não existe expressão final da coordenada. O próximo trabalho é medir
+o processamento da conversão Half admitida e reduzir apenas cópias cuja
+redundância numérica seja demonstrada, mantendo os caminhos de cada decisão.
+
+O mapa `completedEnvelopeAndF32TieValidation` preserva os resultados anteriores,
+arquiva a fronteira e os hashes e compara os nomes dos testes: 595 testes,
+577 aprovados, as mesmas 15 falhas e três ignorados; nenhuma nova falha ou
+aprovação perdida. Os testes específicos passaram (19 de expressão, 14 de
+conversões, três de estados e quatro de integração). O build passou.
+A paridade da inversa é intermediária: sqrt/Silu ainda não foram eliminados,
+a coordenada e o vetor final não estão concluídos, e a saída do último token
+para múltiplos tokens ainda não foi validada pelo adaptador desta experiência.
