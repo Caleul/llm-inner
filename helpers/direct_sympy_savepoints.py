@@ -64,10 +64,17 @@ class ProducerSavepoints:
     def save(self,model):
         if self.lock.closed:raise ValueError('Savepoint writer is closed')
         records=[]
+        previous=getattr(self,'_record_cache',{}) if getattr(self,'_record_session',None) is model.conversions else {}
         for name,expression in model.memo.items():
             data=expression.encode();digest=hashlib.sha256(data).hexdigest()
             target=self.directory/'objects'/(digest+'.expr')
             if not target.exists():atomic(target,data)
+            entry=previous.get(name)
+            if entry is not None and entry[0] is expression:
+                # Immutable literal, same conversion session and input domain.
+                # Do not parse/sign every old producer after each new one.
+                record=entry[1].copy();records.append(record)
+                continue
             node=syntax(expression);session=model.conversions
             bounds=session.bounds(node) if session else None
             records.append({'name':name,'digest':digest,'characters':len(expression),
@@ -78,6 +85,9 @@ class ProducerSavepoints:
         payload={'identity':self.identity,'records':records,'events':model.events,'weightReads':model.read_weights}
         envelope={'payload':payload,'integrity':hashlib.sha256(canonical(payload)).hexdigest()}
         atomic(self.directory/'frontier.json',canonical(envelope))
+        # Only a successfully published frontier enters this compiler cache.
+        self._record_cache={name:(expression,record.copy()) for (name,expression),record in zip(model.memo.items(),records)}
+        self._record_session=model.conversions
 
     def restore(self,model):
         if self.lock.closed:raise ValueError('Savepoint writer is closed')
@@ -117,4 +127,6 @@ class ProducerSavepoints:
                 if record['castsClosed']:session.converted_regions.add(key)
         model.events=[tuple(event) for event in payload['events']]
         model.read_weights=payload['weightReads']
+        self._record_cache={record['name']:(expression,record.copy()) for record,expression,_,_ in loaded}
+        self._record_session=model.conversions
         return len(loaded)

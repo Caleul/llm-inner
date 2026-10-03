@@ -599,3 +599,37 @@ mesmos nomes de 577 testes aprovados e 15 falhas anteriores foram preservados;
 três testes continuam ignorados. Os quatro testes específicos foram executados
 com Python e checkpoint explícitos e passaram; 19 testes de strings, 15 de
 conversões e três de estados também passaram. O build passou.
+
+## Persistência sem reanálise dos produtores já publicados
+
+A publicação de uma nova fronteira relia e construía assinaturas para cada
+string anterior, mesmo com conteúdo e contexto numérico inalterados. A
+persistência agora reutiliza somente os registros publicados com sucesso,
+associados à mesma instância de string imutável e à mesma ConversionSession.
+Uma expressão substituída ou uma nova sessão exige recertificação. A retomada
+continua validando identidade, manifesto e cada objeto antes de admitir os
+registros. Uma falha de publicação não promove registros novos ao cache.
+Esse cache existe exclusivamente durante a compilação.
+
+Na fronteira real com onze produtores, a republicação anterior consumiu
+55,154 segundos e a nova 0,0254 segundo. Os manifestos são idênticos byte a
+byte. A migração explícita de uma cópia da fronteira alterou somente o hash
+do helper de persistência: expressões, pesos, domínios, dtypes e helpers de
+semântica numérica permaneceram iguais. A compatibilidade automática continua
+estrita; nenhum estado antigo é admitido silenciosamente.
+
+A retomada concluiu `model.layers.0.post:1`: agora são doze dependências.
+A string efetivamente salva possui 29.158.367 caracteres e passou em 527.904
+comparações nativas, sem divergência. A próxima substituição da composição
+MLP exige 58.316.682 caracteres, acima dos 32 MiB permitidos; parou antes da
+alocação. O próximo trabalho é inspecionar essa composição e seus metadados
+antes de ampliar a expansão. A coordenada final, a remoção de sqrt/Silu e o
+vetor completo continuam pendentes.
+
+O mapa `publishedRecordCacheValidation` arquiva o benchmark reproduzível,
+a migração, os doze produtores e o checkpoint minúsculo original de teste.
+O checkpoint arquivado serve à reprodução das provas, não à execução gerada.
+Build e quatro testes específicos passaram; os quatro testes de persistência
+incluem troca de expressão/sessão, corrupção, falha de publicação e 30.722
+casos nativos de retomada. A regressão manteve os mesmos nomes de 577 testes
+aprovados, 15 falhas conhecidas e três ignorados.

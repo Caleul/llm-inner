@@ -4793,5 +4793,242 @@
       "fullCoordinate": false,
       "stillContainsGenericSqrt": true
     }
+  },
+  "publishedRecordCacheValidation": {
+    "implementation": "Reuse only successfully published immutable literal records in the identical ConversionSession; changed literal or session re-certifies; restore checks every object and manifest before cache installation; no runtime aliases",
+    "tests": {
+      "savepoints": 4,
+      "nativeResumedCases": 30722,
+      "nativeMismatches": 0,
+      "directed": {
+        "tests": 4,
+        "pass": 4,
+        "skip": 0
+      },
+      "buildExitCode": 0
+    },
+    "regression": {
+      "tests": 595,
+      "pass": 577,
+      "fail": 15,
+      "skipped": 3,
+      "exitCode": 1,
+      "samePassedNames": true,
+      "sameFailedNames": true,
+      "newFailures": [],
+      "lostPasses": [],
+      "baseline": "completedEnvelopeAndF32TieValidation.regression"
+    },
+    "sameActualFrontierBenchmark": {
+      "producers": 11,
+      "oldSeconds": 55.153900625,
+      "newSeconds": 0.025379375,
+      "identicalBytes": true,
+      "sha256": "bda9244d0f58be0b9ca42f4e8efbf27c8d0800fe1cd08d0fba11257580fcce4d",
+      "coordinateSpeedupProven": false,
+      "reproducer": "docs/evidence/direct-sympy-record-cache-benchmark.py.work"
+    },
+    "migration": {
+      "automaticCompatibility": false,
+      "scope": "Explicit compiler-only persistence migration: cached immutable published records; no expression, numeric proof, dtype, input-domain or checkpoint changes",
+      "changedSources": [
+        "direct_sympy_savepoints.py"
+      ],
+      "beforeManifestDigest": "02dc06234a76a21a9877da3378c57415d1e26e75312991e22ab25b2760ae2deb",
+      "afterManifestDigest": "bda9244d0f58be0b9ca42f4e8efbf27c8d0800fe1cd08d0fba11257580fcce4d",
+      "beforeHelperDigest": "f6cc16575387fd023164a4a73366178a30ed01ca6f17a642cfe6c60d88a3f534",
+      "afterHelperDigest": "2a8a047f7adcf61cabe5fa77164e2cc4863921d3cbffa951b2bca092135eab92",
+      "unchangedProducerDigests": [
+        "67129734d23048f8ddc3c47ef84d086cfcbd4de2d0bdb839128260b62077dba3",
+        "f7428a71943a58e76e7601780707275b92a84c50e8e96c5f24d97912c6807187",
+        "d6c1d6838aebd114d32100cb92779d8006be308b489b6bdbe607b3fc015e2a1f",
+        "d19ceeaaf3b2fcf54e87b9a138fa02e928c0f74902e9fb093e37ba039852fb41",
+        "b23c9562b1dfa47564b0cd9223b44fbdd67f05b8a326457607b142e7a193afe3",
+        "4f7e025b1b0bf786ccc0b0e269b93c8ed3cc8e47851895c36b3f81c72b0b2e29",
+        "cc38cb24ecb09c204bce384096d6bbe5904e33b9cd4e0ec93269fbd8eb290f3b",
+        "ba7b1c3f09d5e43f7cc4a31df4512395e5d60326e9877031f8fe88e79e1e5fef",
+        "1f12b4f56c5e6b6031cb5053e4dfb55d8191ef3d48a3b9ef7070ce4508e24306",
+        "df7c4f26f031a52b3a23faaceb9b3230053d59f96dad18ce99d38a7d76c495b0",
+        "6154e6e3c042d3c8797801d531c90881505f066e925cf17f59e468c08c5733d3"
+      ],
+      "verifiedTests": "4 persistence tests, including changed literal/session, corruption, failed atomic publication and 30722 native resumed cases"
+    },
+    "run": {
+      "maxSeconds": 600,
+      "maxCharacters": 33554432,
+      "restoredDependencies": 11,
+      "completedDependencies": 12,
+      "lastDependency": "model.layers.0.post:1",
+      "lastCharacters": 29158367,
+      "stop": "substitution size budget before allocation",
+      "nextEstimatedCharacters": 58316682,
+      "manifest": "docs/evidence/direct-sympy-record-cache-frontier/frontier.json",
+      "identity": {
+        "byteOrder": "little",
+        "checkpoint": {
+          "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+          "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+        },
+        "dimension": 2,
+        "domains": {
+          "X1": [
+            "-65504",
+            "65504",
+            -24,
+            false
+          ],
+          "X2": [
+            "-65504",
+            "65504",
+            -24,
+            false
+          ]
+        },
+        "dtype": "f32",
+        "lowerConversions": true,
+        "platform": "macOS-26.7.1-arm64-arm-64bit",
+        "position": 0,
+        "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+        "schema": 1,
+        "sources": {
+          "direct_sympy_arithmetic.py": "3330b1e8680e80ca63175d2355b8d540e8ddb045b590fd9e721b0fccb9e09641",
+          "direct_sympy_checkpoint.py": "b349a1e03b474d77f9f859a7b005e199b7d1ddee40105c4161aa4f5373017f5f",
+          "direct_sympy_conversions.py": "26f34f1ef698fa435feac3bfeffb1493972df9069e97f25a6e5025d87cabab5b",
+          "direct_sympy_savepoints.py": "2a8a047f7adcf61cabe5fa77164e2cc4863921d3cbffa951b2bca092135eab92",
+          "direct_sympy_signatures.py": "d488ef703689811733e92aa4ae3616ac6d0b2269f841016307fb833abf5ccac3",
+          "direct_sympy_strings.py": "8575c5cc3894aa7dbaeebc69611747839de6c3d3def668018d2ce815a7cefe87",
+          "direct_sympy_tandem.py": "c4c9db6a0fccdc7669bd8cf38d628809afd5348d51cbc232026c60d6cf70ad88",
+          "direct_sympy_words.py": "b826ee7d416ed2f1c12e049c9c6798785612695074f649fd28e1cfb275579f34"
+        },
+        "sympy": "1.14.0"
+      },
+      "events": [
+        [
+          "model.layers.0.pre:inverse",
+          82,
+          473,
+          26
+        ],
+        [
+          "model.layers.0.pre:0",
+          504,
+          3305,
+          47
+        ],
+        [
+          "model.layers.0.pre:1",
+          504,
+          3305,
+          21
+        ],
+        [
+          "model.layers.0.v:0",
+          6723,
+          40427,
+          149
+        ],
+        [
+          "model.layers.0.context:0",
+          40487,
+          40429,
+          178
+        ],
+        [
+          "model.layers.0.v:1",
+          6720,
+          40409,
+          76
+        ],
+        [
+          "model.layers.0.context:1",
+          40469,
+          40411,
+          105
+        ],
+        [
+          "model.layers.0.residual:0",
+          80968,
+          971823,
+          388
+        ],
+        [
+          "model.layers.0.residual:1",
+          80970,
+          971847,
+          103
+        ],
+        [
+          "model.layers.0.post:inverse",
+          1943748,
+          3887805,
+          129
+        ],
+        [
+          "model.layers.0.post:0",
+          4859657,
+          29158223,
+          21
+        ],
+        [
+          "model.layers.0.post:1",
+          4859681,
+          29158367,
+          21
+        ]
+      ]
+    },
+    "actualPostOneParity": {
+      "producer": "model.layers.0.post:1",
+      "cases": 527904,
+      "mismatches": 0,
+      "nativeExitCode": 0,
+      "position": 0,
+      "width": 2,
+      "finalParity": false,
+      "stillContainsSqrt": true
+    },
+    "completion": {
+      "finalCoordinate": false,
+      "fullVector": false,
+      "otherOutputDimensionsStarted": false,
+      "nextAction": "Inspect structural simplification of first MLP two-term composition before accepting a larger expansion; improve certified numeric metadata reuse; lower sqrt/Silu and prove full coordinate parity."
+    },
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-record-cache-before.py.work": "f6cc16575387fd023164a4a73366178a30ed01ca6f17a642cfe6c60d88a3f534",
+      "docs/evidence/direct-sympy-record-cache-migration.json": "4e55e776f1480f3d3ad05cc0c5c16023a747d7d77a3fc4727c9bfd0831b5ce5d",
+      "docs/evidence/direct-sympy-record-cache-migrate.py.work": "e49c9701c88d47705cc19dd73426528b8b789c2b42dac19c23e7611b8e45c524",
+      "docs/evidence/direct-sympy-record-cache-benchmark.py.work": "b64374c566ba8c2591dc98a8b6269f7eb95c2719e7d6987805a21c2bd230be5f",
+      "docs/evidence/direct-sympy-record-cache-benchmark.log": "a5f659d2de9583c9f582c2633432cab69d4853ff6d73d7af7f5969f2f920f8dc",
+      "docs/evidence/direct-sympy-record-cache-cli.log": "1286e9fef516e494ac49027dfba092f7751edd1678899c67fcd8a0981377df16",
+      "docs/evidence/direct-sympy-record-cache-build.log": "a408d94a3fffc856dc5364f9d4b4ab56fde09205ec19cae0976763ea611ad3df",
+      "docs/evidence/direct-sympy-record-cache-tests.log": "67210f759ea90887ce83a1eec9353b11629d45e8a9429c092a36a58d4704273e",
+      "docs/evidence/direct-sympy-record-cache-directed.log": "2a4e692aad8e48d1c6b8519bedcc2602491341f8c3a075475be57d9cdbcf939f",
+      "docs/evidence/direct-sympy-record-cache-regression.log": "05b21ba61146f9c78f97453f0e808fd279876cce4b29bae5bef00d5cd796ac3f",
+      "docs/evidence/direct-sympy-record-cache-post1-proof.log": "3fc299330a2efcd04979ad1ff3397f02c63daa0827701b3feff284af6973d41e",
+      "docs/evidence/direct-sympy-test-checkpoint/config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+      "docs/evidence/direct-sympy-test-checkpoint/model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb",
+      "docs/evidence/direct-sympy-record-cache-frontier/frontier.json": "19f691197d082028603dcb747177e82f6b105f1ebb001fecc1afc0998f359120",
+      "docs/evidence/direct-sympy-record-cache-frontier/objects/67129734d23048f8ddc3c47ef84d086cfcbd4de2d0bdb839128260b62077dba3.expr": "67129734d23048f8ddc3c47ef84d086cfcbd4de2d0bdb839128260b62077dba3",
+      "docs/evidence/direct-sympy-record-cache-frontier/objects/f7428a71943a58e76e7601780707275b92a84c50e8e96c5f24d97912c6807187.expr": "f7428a71943a58e76e7601780707275b92a84c50e8e96c5f24d97912c6807187",
+      "docs/evidence/direct-sympy-record-cache-frontier/objects/d6c1d6838aebd114d32100cb92779d8006be308b489b6bdbe607b3fc015e2a1f.expr": "d6c1d6838aebd114d32100cb92779d8006be308b489b6bdbe607b3fc015e2a1f",
+      "docs/evidence/direct-sympy-record-cache-frontier/objects/d19ceeaaf3b2fcf54e87b9a138fa02e928c0f74902e9fb093e37ba039852fb41.expr": "d19ceeaaf3b2fcf54e87b9a138fa02e928c0f74902e9fb093e37ba039852fb41",
+      "docs/evidence/direct-sympy-record-cache-frontier/objects/b23c9562b1dfa47564b0cd9223b44fbdd67f05b8a326457607b142e7a193afe3.expr": "b23c9562b1dfa47564b0cd9223b44fbdd67f05b8a326457607b142e7a193afe3",
+      "docs/evidence/direct-sympy-record-cache-frontier/objects/4f7e025b1b0bf786ccc0b0e269b93c8ed3cc8e47851895c36b3f81c72b0b2e29.expr": "4f7e025b1b0bf786ccc0b0e269b93c8ed3cc8e47851895c36b3f81c72b0b2e29",
+      "docs/evidence/direct-sympy-record-cache-frontier/objects/cc38cb24ecb09c204bce384096d6bbe5904e33b9cd4e0ec93269fbd8eb290f3b.expr": "cc38cb24ecb09c204bce384096d6bbe5904e33b9cd4e0ec93269fbd8eb290f3b",
+      "docs/evidence/direct-sympy-record-cache-frontier/objects/ba7b1c3f09d5e43f7cc4a31df4512395e5d60326e9877031f8fe88e79e1e5fef.expr": "ba7b1c3f09d5e43f7cc4a31df4512395e5d60326e9877031f8fe88e79e1e5fef",
+      "docs/evidence/direct-sympy-record-cache-frontier/objects/1f12b4f56c5e6b6031cb5053e4dfb55d8191ef3d48a3b9ef7070ce4508e24306.expr": "1f12b4f56c5e6b6031cb5053e4dfb55d8191ef3d48a3b9ef7070ce4508e24306",
+      "docs/evidence/direct-sympy-record-cache-frontier/objects/df7c4f26f031a52b3a23faaceb9b3230053d59f96dad18ce99d38a7d76c495b0.expr": "df7c4f26f031a52b3a23faaceb9b3230053d59f96dad18ce99d38a7d76c495b0",
+      "docs/evidence/direct-sympy-record-cache-frontier/objects/6154e6e3c042d3c8797801d531c90881505f066e925cf17f59e468c08c5733d3.expr": "6154e6e3c042d3c8797801d531c90881505f066e925cf17f59e468c08c5733d3",
+      "docs/evidence/direct-sympy-record-cache-frontier/objects/316faf3357936f80cdb0d7283f19e3b115ca07fc98a254b9312ce71d83d59a25.expr": "316faf3357936f80cdb0d7283f19e3b115ca07fc98a254b9312ce71d83d59a25",
+      "docs/evidence/direct-sympy-record-cache-resumed.growth.tsv": "e37072dfee4337e9c98b9699249cf17b55a65a9da7659a88867cdd358ea638cb",
+      "docs/evidence/direct-sympy-record-cache-resumed.substitutions.tsv": "f3bb1a94d51d303c9797c0a29da81af098b08a27e20771bbb2dc63f004386678",
+      "docs/evidence/direct-sympy-record-cache-resumed.failed-template.work.expr": "920912c66fc4943eaba463a7543066e0ddf264201d6ce803f506f88e185d86e9",
+      "docs/evidence/direct-sympy-record-cache-resumed.failed-replacement.work.expr": "cbc12d74b1be8435f873b168a6a7f4ac766fb13f924dadf9ea2ba5e48350fceb"
+    },
+    "fixture": {
+      "path": "docs/evidence/direct-sympy-test-checkpoint",
+      "purpose": "Original tiny test checkpoint archived with matching identity for reproducing proof/benchmark; never a generated-runtime dependency"
+    },
+    "logNormalization": "Trailing whitespace and final blank lines removed from archived logs; raw output remains in /private/tmp."
   }
 }

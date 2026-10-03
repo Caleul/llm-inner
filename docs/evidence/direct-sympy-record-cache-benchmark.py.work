@@ -1,0 +1,21 @@
+import pathlib,sys,tempfile,shutil,json,hashlib,time
+sys.path.insert(0,str(pathlib.Path.cwd()/'helpers'))
+from direct_sympy_savepoints import ProducerSavepoints,canonical,digest_file
+from direct_sympy_checkpoint import CheckpointStrings
+from direct_sympy_strings import StringCompiler
+old=pathlib.Path('docs/evidence/direct-sympy-word-envelope-frontier')
+with tempfile.TemporaryDirectory() as directory:
+ root=pathlib.Path(directory);state=root/'cached';shutil.copytree(old,state)
+ env=json.loads((state/'frontier.json').read_text());payload=env['payload'];assert payload['identity']['sources']['direct_sympy_savepoints.py']==digest_file('docs/evidence/direct-sympy-record-cache-before.py.work')
+ for name,digest in payload['identity']['sources'].items():
+  if name!='direct_sympy_savepoints.py':assert digest_file(pathlib.Path('helpers')/name)==digest
+ payload['identity']['sources']['direct_sympy_savepoints.py']=digest_file('helpers/direct_sympy_savepoints.py');env['integrity']=hashlib.sha256(canonical(payload)).hexdigest();(state/'frontier.json').write_bytes(canonical(env))
+ with CheckpointStrings('docs/evidence/direct-sympy-test-checkpoint',StringCompiler(max_characters=33554432)) as model:
+  with ProducerSavepoints(state,model,2) as store:
+   count=store.restore(model);before=(state/'frontier.json').read_bytes();start=time.perf_counter();store.save(model);elapsed=time.perf_counter()-start;fast=(state/'frontier.json').read_bytes();assert fast==before
+   print('Cached publication seconds=',elapsed,'producers=',count,'identicalRestoredManifest=',True,flush=True)
+  module=type(sys)('baseline_saves');module.__dict__['__file__']=str(pathlib.Path.cwd()/'helpers/direct_sympy_savepoints.py');exec(compile(pathlib.Path('docs/evidence/direct-sympy-record-cache-before.py.work').read_text(),'baseline_saves','exec'),module.__dict__)
+  baseline=root/'baseline';shutil.copytree(state,baseline)
+  with module.ProducerSavepoints(baseline,model,2) as store:
+   start=time.perf_counter();store.save(model);elapsed=time.perf_counter()-start;slow=(baseline/'frontier.json').read_bytes();assert slow==fast
+   print('Baseline publication seconds=',elapsed,'identicalBytes=',True,'manifestSha256=',hashlib.sha256(slow).hexdigest(),flush=True)

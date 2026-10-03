@@ -1,0 +1,18 @@
+import pathlib,json,hashlib,shutil,sys
+sys.path.insert(0,str(pathlib.Path.cwd()/'helpers'))
+from direct_sympy_savepoints import canonical,digest_file,SOURCES
+old=pathlib.Path('docs/evidence/direct-sympy-word-envelope-frontier');new=pathlib.Path('/private/tmp/llm-inner-record-cache/state')
+env=json.loads((old/'frontier.json').read_text());before=(old/'frontier.json').read_bytes();p=env['payload']
+assert hashlib.sha256(canonical(p)).hexdigest()==env['integrity']
+assert p['identity']['sources']['direct_sympy_savepoints.py']==digest_file('/private/tmp/llm-inner-savepoint-records-before.py')
+changed=[]
+for name in SOURCES:
+ current=digest_file(pathlib.Path('helpers')/name)
+ if current!=p['identity']['sources'][name]:changed.append(name)
+assert changed==['direct_sympy_savepoints.py'],changed
+for record in p['records']:
+ f=old/'objects'/(record['digest']+'.expr');assert digest_file(f)==record['digest'];assert len(f.read_text())==record['characters'];assert record['castsClosed']
+assert not new.exists();shutil.copytree(old,new)
+p['identity']['sources']['direct_sympy_savepoints.py']=digest_file('helpers/direct_sympy_savepoints.py');env['integrity']=hashlib.sha256(canonical(p)).hexdigest();(new/'frontier.json').write_bytes(canonical(env))
+evidence={'automaticCompatibility':False,'scope':'Explicit compiler-only persistence migration: cached immutable published records; no expression, numeric proof, dtype, input-domain or checkpoint changes','changedSources':changed,'beforeManifestDigest':hashlib.sha256(before).hexdigest(),'afterManifestDigest':digest_file(new/'frontier.json'),'beforeHelperDigest':digest_file('/private/tmp/llm-inner-savepoint-records-before.py'),'afterHelperDigest':digest_file('helpers/direct_sympy_savepoints.py'),'unchangedProducerDigests':[r['digest'] for r in p['records']],'verifiedTests':'4 persistence tests, including changed literal/session, corruption, failed atomic publication and 30722 native resumed cases'}
+pathlib.Path('/private/tmp/llm-inner-record-cache-migration.json').write_text(json.dumps(evidence,indent=2)+'\n');print('Migrated copy after verifying only persistence helper changed; original 11 objects unchanged; strict restore still required')

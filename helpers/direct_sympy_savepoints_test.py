@@ -72,6 +72,31 @@ if(word<uint64_t>(candidate(x))!=word<uint64_t>(expected))return 1;
             self.assertIsNotNone(payload['records'][0]['bounds'])
             self.assertEqual(payload['records'][0]['kind'],'half')
 
+    def test_published_records_reuse_only_the_identical_literal_and_session(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);model=self.model(root)
+            with ProducerSavepoints(root/'state',model,0) as store:
+                model.on_completed=store.save;self.first(model)
+                before=(root/'state/frontier.json').read_bytes()
+                with patch.object(saves,'syntax',side_effect=AssertionError('reparsed completed producer')):
+                    store.save(model)
+                self.assertEqual((root/'state/frontier.json').read_bytes(),before)
+                # A changed expression under the same name must be re-certified.
+                model.memo['fixture:root']='-0.0'
+                with patch.object(saves,'syntax',wraps=saves.syntax) as parse:store.save(model)
+                self.assertEqual(parse.call_count,1)
+                record=json.loads((root/'state/frontier.json').read_text())['payload']['records'][0]
+                self.assertNotEqual((root/'state/frontier.json').read_bytes(),before)
+                self.assertFalse(record['noNegativeZero'])
+                # A new session cannot inherit the old dtype/domain certificates.
+                model.conversions=ConversionSession(model.compiler,model.domains)
+                with patch.object(saves,'syntax',wraps=saves.syntax) as parse:store.save(model)
+                self.assertEqual(parse.call_count,1)
+            restored=self.model(root)
+            with ProducerSavepoints(root/'state',restored,0) as store:
+                self.assertEqual(store.restore(restored),1)
+                with patch.object(saves,'syntax',side_effect=AssertionError('reparsed restored producer')):store.save(restored)
+
     def test_corruption_and_checkpoint_changes_are_rejected_before_mutation(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);original=self.model(root)
