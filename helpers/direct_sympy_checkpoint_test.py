@@ -53,6 +53,8 @@ class CheckpointStringTests(unittest.TestCase):
             builder.gated("model.layers.0.",0,lambda i:f"X{i+1}")
             normalized=builder.norm('proof:test','model.layers.0.input_layernorm.weight',0,lambda i:f'X{i+1}')
             self.assertNotIn('R16(',normalized);self.assertNotIn('R32(',normalized)
+            self.assertNotIn('sqrt(',normalized)
+            self.assertGreater(builder.conversions.square_roots_closed,0)
             self.assertEqual(builder.conversions.value_kind(syntax(normalized)),'half')
             self.assertLess(builder.conversions.bounds(syntax(normalized)).maximum,3)
             functions=[];checks=[]

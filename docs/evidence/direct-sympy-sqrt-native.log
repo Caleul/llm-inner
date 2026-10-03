@@ -1,0 +1,6 @@
+.
+----------------------------------------------------------------------
+Ran 1 test in 1.528s
+
+OK
+F32 sqrt emitted word parity: cases=25167601 mismatches=0

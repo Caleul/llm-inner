@@ -113,6 +113,7 @@ class ConversionSession:
         self.f32_values=set(self.half_values)
         self.closed=0
         self.activations_closed=0
+        self.square_roots_closed=0
         self.pending=0
         self.redundant=0
         self.converted_regions=set()
@@ -413,6 +414,19 @@ class ConversionSession:
             def visit_Call(self,node):
                 before=session.bounds(node)
                 positive_zero=session.no_negative_zero(node)
+                if node.func.id=='R32' and len(node.args)==1:
+                    inner=node.args[0]
+                    if isinstance(inner,ast.Call) and inner.func.id=='sqrt' and len(inner.args)==1:
+                        from direct_sympy_sqrt import supported,expand
+                        source=ast.unparse(inner.args[0])
+                        if supported(source,session):
+                            source=ast.unparse(self.visit(inner.args[0]))
+                            rewritten=syntax(expand(source,session));key=session.key(rewritten)
+                            if before is not None:session.completed[key]=before
+                            session.f32_values.add(key)
+                            if positive_zero:session.no_negative_zero_values.add(key)
+                            session.closed+=1;session.square_roots_closed+=1
+                            return rewritten
                 if node.func.id=='Silu16' and len(node.args)==1:
                     from direct_sympy_silu import supported,expand
                     source=ast.unparse(node.args[0])

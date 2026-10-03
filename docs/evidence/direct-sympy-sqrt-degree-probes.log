@@ -1,0 +1,22 @@
+bad=00000001 odd=0 actual=3f800001 expected=3f800000
+bad=00000003 odd=0 actual=3f800002 expected=3f800001
+bad=00000005 odd=0 actual=3f800003 expected=3f800002
+bad=00000007 odd=0 actual=3f800004 expected=3f800003
+bad=00000009 odd=0 actual=3f800005 expected=3f800004
+bad=0000000b odd=0 actual=3f800006 expected=3f800005
+bad=0000000d odd=0 actual=3f800007 expected=3f800006
+bad=0000000f odd=0 actual=3f800008 expected=3f800007
+F32 sqrt normalized proof: cases=16777216 mismatches=1241
+bad=00000001 odd=0 actual=3f800001 expected=3f800000
+bad=00000003 odd=0 actual=3f800002 expected=3f800001
+bad=00000005 odd=0 actual=3f800003 expected=3f800002
+bad=00000007 odd=0 actual=3f800004 expected=3f800003
+bad=00000009 odd=0 actual=3f800005 expected=3f800004
+bad=0000000b odd=0 actual=3f800006 expected=3f800005
+bad=0000000d odd=0 actual=3f800007 expected=3f800006
+bad=00125859 odd=0 actual=3f88dd93 expected=3f88dd94
+F32 sqrt normalized proof: cases=16777216 mismatches=38
+bad=00000001 odd=0 actual=3f800001 expected=3f800000
+bad=007fffff odd=1 actual=40000000 expected=3fffffff
+F32 sqrt normalized proof: cases=16777216 mismatches=2
+F32 sqrt normalized proof: cases=16777216 mismatches=0

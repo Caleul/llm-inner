@@ -5971,5 +5971,126 @@
       "docs/evidence/direct-sympy-closed-frontier-silu.work.expr": "8c494a17cda9db056220f75ffe1fd80c9ef739dfc1317f8fe2aacf216c4df297",
       "docs/evidence/direct-sympy-closed-frontier-profile-frontier.json": "c26acbd193492f791a9743f2f85f941e108d364beb9d9c79e65bb467fa603e1b"
     }
+  },
+  "f32SquareRootValidation": {
+    "baseCommit": "56dc679",
+    "representation": "Mathematical strings only; JSON is test metadata, not expression representation",
+    "boundary": "R32(sqrt(positive finite F32 source)), exact widened F32 output; bare F64 sqrt and R16(sqrt(...)) are not covered",
+    "certificate": {
+      "normalizedMantissasAndParities": 16777216,
+      "normalExponentEdges": 1778,
+      "positiveSubnormals": 8388607,
+      "emittedWordTotal": 25167601,
+      "mismatches": 0,
+      "scaleProof": "Every positive F32 widens to normal F64; normalized mantissas are in the enumerated set. Exact power-of-two scaling has no F32 output underflow or overflow.",
+      "kernelCharacters": 4632,
+      "kernelCASPasses": 9,
+      "kernel": "docs/evidence/direct-sympy-sqrt.work.expr",
+      "internalBoundary": "The F64 polynomial need not equal F64 sqrt; only the requested F32 result is certified",
+      "unsupportedDomains": "Keep primitive; zero, negative, untyped and beyond finite-F32 domains rejected; no path cuts"
+    },
+    "actualRms": {
+      "nativeCases": 507904,
+      "mismatches": 0,
+      "characters": 97571,
+      "beforeCharacters": 3305,
+      "containsSqrtOrRoundingPrimitives": false,
+      "finalCoordinate": false
+    },
+    "compile": {
+      "fresh": true,
+      "resume": false,
+      "maxSeconds": 180,
+      "maxCharacters": 67108864,
+      "completedDependencies": 7,
+      "lastDependency": "model.layers.0.context:1",
+      "lastCharacters": 1171655,
+      "stop": "Wall-clock budget",
+      "savedObjects": "artifacts/direct-sympy-sqrt-frontier/objects",
+      "finalCoordinateAdmitted": false,
+      "fullVector": false,
+      "lastTokenParity": false
+    },
+    "beforeCompile": {
+      "source": "56dc679",
+      "maxSeconds": 600,
+      "maxCharacters": 67108864,
+      "completedDependencies": 12,
+      "lastDependency": "model.layers.0.post:1",
+      "predictedNextCharacters": 320774207,
+      "stop": "Character budget checked before allocation",
+      "finalCoordinateAdmitted": false,
+      "comparableTiming": false
+    },
+    "savepointIdentity": {
+      "sourceFiles": 12,
+      "newHelperIncluded": "direct_sympy_sqrt.py",
+      "checkpointAndBackendBound": true,
+      "oldStatesReused": false,
+      "savedDigestVerification": true
+    },
+    "tests": {
+      "buildExitCode": 0,
+      "directedNodeTests": 6,
+      "directedFailures": 0,
+      "engine": 25,
+      "conversions": 22,
+      "savepoints": 4,
+      "checkpoint": 6,
+      "silu": 1,
+      "sqrt": 1,
+      "regressionTests": 597,
+      "regressionPass": 579,
+      "regressionFail": 15,
+      "regressionSkipped": 3,
+      "sameNamedFailuresAsBefore": true,
+      "failureNames": [
+        "✖ Gemma 4 embedded adapter executes every serialized invocation program without hidden class transforms",
+        "✖ Gemma 4 runtime-reduction provider executes the integrity-bound embedded adapter",
+        "✖ evidência adia prefill exato sem cache e preserva antecipação do contexto exato",
+        "✖ evidência do corte de prefill terminal preserva corpus e correção de raiz",
+        "✖ evidência do default de oito threads vincula corpus e tokens autoritativos",
+        "✖ evidência promove antecipação do prefixo exato somente em sessão com cache",
+        "✖ evidência promove cabeça BF16 integral e rejeita prefill agrupado divergente",
+        "✖ evidência promove cache de decisão exata e rejeita fronteira Q8 0-18",
+        "✖ evidência promove contexto sensível exato sem replay do decoder",
+        "✖ evidência promove o maior prefixo exato entre sessões sem alterar logits",
+        "✖ evidência rejeita Q8 na projeção down quando velocidade e verificação deixam de coexistir",
+        "✖ evidência rejeita grupos Q8 que divergem ou ampliam o fallback",
+        "✖ evidência rejeita prefill exato eager quando ele preserva tokens mas piora todas as classes de latência",
+        "✖ keeps the real agent-visible task free of controller context",
+        "✖ scalar-substitution example contains concrete learned values and reproduces its F32 result"
+      ],
+      "legacyJsonTestsExcluded": 4
+    },
+    "sourceHashes": {
+      "direct_sympy_sqrt.py": "815f55b0fb56ebbcd26c95b3685f1b7bd49cb705c9b4ee3a4dec1c680bfedfcf",
+      "direct_sympy_conversions.py": "2777d18b7d9cfdf0906789c832d26e6f9cef69d65a76f03343dbd5bae4f10ee9",
+      "direct_sympy_savepoints.py": "bdcf3727e38f5966eae88d0fa13ad0c06baf98ec89d6f170dd789e7fa6365e2a",
+      "direct_sympy_sqrt_test.py": "72e8f95b5a8e70dd7269938787a3734bd232877b95b3fde7d11db94f5d87dcd3",
+      "direct_sympy_checkpoint_test.py": "b8f45b330719f5d8e33c0d17f5e9de8e743b5cbc3c154b54a9a9f00b57301d93"
+    },
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-sqrt-before-compilation.log": "b9592b0b17ba502a9c2508a0516ff8a5a3e6f91769199406e1527982f8c628a3",
+      "docs/evidence/direct-sympy-sqrt-synchronization.tsv": "f69705757c8fb0121973d8ecefa65836d7756b70295f16dce00d851619ad4f2b",
+      "docs/evidence/direct-sympy-sqrt-rms.work.expr": "7c7edd415f479944ee2cd7d2d0d4e3697d205b8e4ebdfbde83531016ce94cc2e",
+      "docs/evidence/direct-sympy-sqrt-budget-simplifications.tsv": "8fee5951ef5ad32f2c0721fd74f507df052b97dff14fc4a1b2ced4ca0094677b",
+      "docs/evidence/direct-sympy-sqrt-compilation.log": "d9d4e90ea66f04e32519b494beb744e65ff1e805236cbdb484f807410b6aa286",
+      "docs/evidence/direct-sympy-sqrt-build.log": "a408d94a3fffc856dc5364f9d4b4ab56fde09205ec19cae0976763ea611ad3df",
+      "docs/evidence/direct-sympy-sqrt-numeric-envelopes.tsv": "c9e883d302200a9c00137e9af6fe2e63dcb0ad7de6a98e6ecd21f4d39ab6411d",
+      "docs/evidence/direct-sympy-sqrt-rms-native.log": "e59bcf0fd32537116f0bd61bfb77bddb7b37ca7da6caf89c5531b83ccbc34a12",
+      "docs/evidence/direct-sympy-sqrt-growth.tsv": "c2d43f99a98aec055e13f9d0c2256c186cf800e6bd434636d353fdff72317f56",
+      "docs/evidence/direct-sympy-sqrt-conditions.tsv": "59c4a1e2b002512526c2ca048d8348e8d8765c9b48ecdf5fab24f54466443f08",
+      "docs/evidence/direct-sympy-sqrt-degree20-probe.py.work": "cc82023b6561426e8dce6816a7f1a74a7a10756aecacbbb9fcb63dea59c9757b",
+      "docs/evidence/direct-sympy-sqrt-native.log": "b652475be2f3b713882c46109549d53a5c0abda663b93cea200f7dcb7184f76a",
+      "docs/evidence/direct-sympy-sqrt-directed.log": "7d8c8d070367b0d5bb0f0d3950f9db419ee1debbd8c0599d2f6ec77df53dce50",
+      "docs/evidence/direct-sympy-sqrt-before-growth.tsv": "fd785b2d7765bad6f1f3c46d957e7832acbd3c516b23a37998738e2096664e8a",
+      "docs/evidence/direct-sympy-sqrt-before-frontier.json": "475a715ee9679c0cff22b02e8cc73a6295583c7bdacf8613c8aeddfa23131e81",
+      "docs/evidence/direct-sympy-sqrt-degree-probes.log": "ea7610b78d4e6852bb645925315b56eb36e4917491d48549e08c20a304a301c4",
+      "docs/evidence/direct-sympy-sqrt-substitutions.tsv": "aa5da57dfa2124a3a2d0aa10e82ee965fcd12a58a624c741e1fb22387ff4a27a",
+      "docs/evidence/direct-sympy-sqrt-frontier.json": "9c8a1ce9682def572865b79ce9dd423d60b8bf7f0e06497ac849a22d7f88b595",
+      "docs/evidence/direct-sympy-sqrt-regression.log": "261c0709f89a7123cd35b297e2ba4a5050321cedc98e017e62e0381e5aa46eae"
+    },
+    "evidenceWhitespaceNormalization": "Trailing whitespace and blank end-of-file lines removed; test messages and results preserved"
   }
 }

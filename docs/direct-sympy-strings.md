@@ -897,3 +897,42 @@ testes dirigidos passaram. A suíte completa registrou 596 testes: 578
 aprovados, as mesmas quinze falhas anteriores e três ignorados. As últimas
 mudanças pequenas de cache/identidade foram validadas pelos testes dirigidos.
 Ainda faltam fechamento da coordenada, raiz, vetor e paridade do último token.
+
+## Raiz F32: paridade e custo de expansão
+
+`R32(sqrt(expr))` agora é expandida quando `expr` está comprovadamente em
+F32 positivo finito. O kernel usa mantissa, expoente, um polinômio de Horner
+e máscaras de arredondamento, mantendo uma string exclusivamente sobre a
+entrada. Cada substituição continua passando por `factor()` e `simplify()`.
+A aproximação interna em F64 não é a fronteira de equivalência: o resultado
+observável F32 é exato. `sqrt` F64 isolada e `R16(sqrt(...))` não são cobertas
+por este certificado. Domínios não demonstrados conservam a operação pendente.
+
+O arquivo emitido de 4.632 caracteres foi relido antes da validação nativa:
+16.777.216 mantissas/paridades normalizadas, 1.778 extremos de expoentes e
+todos os 8.388.607 padrões subnormais positivos, totalizando 25.167.601
+comparações sem divergência. A escala por potências de dois é exata e não
+produz underflow/overflow na saída F32. A normalização real do checkpoint
+também passou em 507.904 casos, sem `sqrt`, `R16` ou `R32` residuais.
+
+Essa expansão custa tamanho: a primeira normalização cresceu de 3.305 para
+97.571 caracteres. A execução nova, sem retomada, completou oito dependências
+em 180 segundos, chegando ao primeiro residual com 28.121.679 caracteres,
+e parou pelo orçamento de tempo. A execução anterior, ainda com raiz
+pendente, havia completado doze dependências em um orçamento de 600 segundos;
+a projeção seguinte exigiria 320.774.207 caracteres e foi recusada antes da
+alocação. Esses orçamentos e graus de fechamento diferentes não permitem
+concluir que houve aceleração. Nenhum caminho ou domínio foi cortado.
+
+O helper da raiz participa da identidade dos estados salvos. Nenhum estado
+anterior foi reutilizado; os oito objetos novos tiveram seus hashes
+verificados. Permanecem em `artifacts/direct-sympy-sqrt-frontier`, com o
+manifesto e crescimento copiados para as evidências. O build e seis testes
+dirigidos passaram. A suíte de regressão registrou 597 testes: 579 aprovados,
+as mesmas quinze falhas anteriores e três ignorados; quatro testes da antiga
+representação JSON continuam excluídos deste comando, como no baseline.
+O mapa está em `f32SquareRootValidation` de `direct-string-validation.json`.
+
+A coordenada completa, o vetor e a paridade do último token continuam
+pendentes. A paridade destes kernels e da string de referência não substitui
+a validação de um artefato final inteiramente expandido.
