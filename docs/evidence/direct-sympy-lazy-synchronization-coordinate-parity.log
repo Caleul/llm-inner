@@ -1,0 +1,13 @@
+{
+  "cases": 60,
+  "mismatches": [],
+  "position": 0,
+  "dimension": 2,
+  "finalParity": false,
+  "residualPrimitives": [
+    "R16",
+    "R32",
+    "sqrt",
+    "Silu16"
+  ]
+}

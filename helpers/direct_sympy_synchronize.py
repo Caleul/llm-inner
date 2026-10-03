@@ -28,6 +28,42 @@ def propose(expression,*,max_lifts=256,max_nodes=262144):
         last=node.args[-1].elts[1]
         if not isinstance(last,ast.Constant) or last.value is not True:return None
         return tuple(signatures.key(pair.elts[1]) for pair in node.args)
+    views={}
+    def pure(node):
+        return not any(isinstance(child,ast.Call) and child.func.id not in GUARD_PURE for child in ast.walk(node))
+    def rebuild(node,children):
+        body=copy.copy(node)
+        if isinstance(body,ast.Call):body.args=children
+        elif isinstance(body,ast.BinOp):body.left,body.right=children
+        else:body.operand=children[0]
+        return body
+    def operands(node):
+        if isinstance(node,ast.Call) and node.func.id in PURE:return node.args
+        if isinstance(node,ast.BinOp):return [node.left,node.right]
+        if isinstance(node,ast.UnaryOp) and isinstance(node.op,(ast.UAdd,ast.USub)):return [node.operand]
+        return None
+    def view(node):
+        # Expose a selector through pure operations without creating a
+        # Piecewise at each unary ancestor. Arms are materialized only when
+        # two siblings actually share the same ordered decision.
+        if node in views:return views[node]
+        shape=selector(node)
+        if shape is not None:
+            result=(shape,[pair.elts for pair in node.args],0) if pure(node) else None
+        else:
+            children=operands(node);result=None
+            if children is not None and pure(node):
+                own=[view(child) for child in children]
+                indexes=[i for i,value in enumerate(own) if value is not None]
+                if indexes and all(own[i][0]==own[indexes[0]][0] for i in indexes):
+                    first=own[indexes[0]]
+                    arms=[]
+                    for arm,pair in enumerate(first[1]):
+                        selected=[own[i][1][arm][0] if i in indexes else child for i,child in enumerate(children)]
+                        arms.append([rebuild(node,selected),pair[1]])
+                    result=(first[0],arms,1+sum(own[i][2] for i in indexes))
+        views[node]=result
+        return result
     class Sync(ast.NodeTransformer):
         def visit_Call(self,node):
             if node.func.id=='Piecewise':
@@ -38,25 +74,22 @@ def propose(expression,*,max_lifts=256,max_nodes=262144):
         def visit_BinOp(self,node):
             node=self.generic_visit(node);return self.combine(node,[node.left,node.right])
         def visit_UnaryOp(self,node):
-            node=self.generic_visit(node)
-            return self.combine(node,[node.operand]) if isinstance(node.op,(ast.UAdd,ast.USub)) else node
+            # Retain the original unary expression. Its selector can be
+            # inspected by a parent without distributing it speculatively.
+            return self.generic_visit(node)
         def combine(self,node,children):
             nonlocal lifts,zips
-            indexes=[i for i,child in enumerate(children) if selector(child) is not None]
-            if not indexes:return node
-            if any(isinstance(child,ast.Call) and child.func.id not in GUARD_PURE for value in children for child in ast.walk(value)):return node
-            shape=selector(children[indexes[0]])
-            if any(selector(children[i])!=shape for i in indexes):return node
-            lifts+=1;zips+=len(indexes)>1
+            own=[view(child) for child in children]
+            indexes=[i for i,value in enumerate(own) if value is not None]
+            if len(indexes)<2 or not pure(node):return node
+            first=own[indexes[0]]
+            if any(own[i][0]!=first[0] for i in indexes):return node
+            lifts+=1+sum(own[i][2] for i in indexes);zips+=1
             if lifts>max_lifts:raise ValueError('synchronization-lift-budget')
-            first=children[indexes[0]];arms=[]
-            for arm,pair in enumerate(first.args):
-                own=[child.args[arm].elts[0] if i in indexes else child for i,child in enumerate(children)]
-                body=copy.copy(node)
-                if isinstance(body,ast.Call):body.args=own
-                elif isinstance(body,ast.BinOp):body.left,body.right=own
-                else:body.operand=own[0]
-                arms.append(ast.Tuple(elts=[body,pair.elts[1]],ctx=ast.Load()))
+            arms=[]
+            for arm,pair in enumerate(first[1]):
+                selected=[own[i][1][arm][0] if i in indexes else child for i,child in enumerate(children)]
+                arms.append(ast.Tuple(elts=[rebuild(node,selected),pair[1]],ctx=ast.Load()))
             result=ast.Call(func=ast.Name(id='Piecewise',ctx=ast.Load()),args=arms,keywords=[])
             if cost(result)>max_nodes:raise ValueError('synchronization-node-budget')
             return result

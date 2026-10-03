@@ -1,0 +1,31 @@
+import ast,json,sys,struct,math,functools,subprocess
+from pathlib import Path
+import torch
+sys.path.insert(0,'helpers')
+from direct_sympy_strings import syntax
+path=Path('docs/evidence/direct-sympy-lazy-synchronization-coordinate.work.expr')
+class LazyBranches(ast.NodeTransformer):
+ def visit_Call(self,node):
+  node=self.generic_visit(node)
+  if node.func.id!='Piecewise':return node
+  result=node.args[-1].elts[0]
+  for pair in reversed(node.args[:-1]):result=ast.IfExp(test=pair.elts[1],body=pair.elts[0],orelse=result)
+  return result
+program=compile(ast.fix_missing_locations(ast.Expression(LazyBranches().visit(syntax(path.read_text())))),str(path),'eval')
+reference=Path('/private/tmp/llm-inner-sync-lazy-coordinate-reference.json')
+subprocess.run([sys.executable,'helpers/capture_direct_json_reference.py','docs/evidence/direct-sympy-test-checkpoint',str(reference)],check=True,capture_output=True)
+mask=(1<<64)-1
+bits=lambda x:struct.unpack('Q',struct.pack('d',x))[0]
+floating=lambda x:struct.unpack('d',struct.pack('Q',x&mask))[0]
+@functools.lru_cache(maxsize=4096)
+def silu(x):return float(torch.nn.functional.silu(torch.tensor(x,dtype=torch.float16)).item())
+functions={'R32':lambda x:struct.unpack('f',struct.pack('f',x))[0],'R16':lambda x:struct.unpack('e',struct.pack('e',x))[0],'sqrt':math.sqrt,'Silu16':silu,'Bits64':bits,'Float64':floating,'U64And':lambda a,b:a&b,'U64Or':lambda a,b:a|b,'U64Shr':lambda a,b:a>>b,'U64Add':lambda a,b:(a+b)&mask,'U64Mul':lambda a,b:(a*b)&mask,'And':lambda *v:all(v),'Or':lambda *v:any(v),'Not':lambda v:not v}
+compared=0;mismatches=[]
+for row in json.loads(reference.read_text())['cases']:
+ values={f'X{i+1}':struct.unpack('e',struct.pack('H',b))[0] for i,b in enumerate(row['inputBits'][0])}
+ actual=eval(program,{'__builtins__':{},**functions},values)
+ got='0x'+struct.pack('>d',actual).hex();expected=row['logitF64Bits'][0][2]
+ if got!=expected:mismatches.append({'label':row['label'],'actual':got,'expected':expected})
+ compared+=1
+print(json.dumps({'cases':compared,'mismatches':mismatches,'position':0,'dimension':2,'finalParity':False,'residualPrimitives':['R16','R32','sqrt','Silu16']},indent=2),flush=True)
+raise SystemExit(bool(mismatches))

@@ -810,3 +810,29 @@ saída do último token ainda precisam ser alinhadas com o contrato de entrada.
 Não houve redução silenciosa do domínio enquanto essa definição está pendente.
 As evidências estão em `docs/evidence/direct-sympy-synchronization-*` e o mapa
 foi atualizado em `docs/direct-string-validation.json`.
+
+
+## Seletores sob demanda e coordenada de trabalho — 2026-10-03
+
+A sincronização inspeciona agora contextos puros sem distribuir cada operação
+unária antecipadamente. Materializa corpos somente quando encontra operações
+irmãs com as mesmas condições ordenadas. Seletores independentes não gastam o
+orçamento de levantamentos. O residual real caiu de 971.823 para 890.918
+caracteres (314 para 287 ocorrências Piecewise), com oito levantamentos e uma
+sincronização. Em 253.952 comparações nativas do trecho original e reduzido,
+não houve divergências. Os quatro testes dirigidos passaram novamente.
+
+Uma compilação nova, sem reutilizar estados incompatíveis, chegou a 21
+produtores simbólicos e emitiu a coordenada zero/dois com 3.814.474 caracteres.
+A expressão arquivada passou nos 60 casos do corpus contra a referência.
+Esses casos usam embeddings Half e incluem comprimentos variados, mas comparam
+a posição zero; não demonstram a saída do último token.
+
+Esse avanço não equivale ao fechamento numérico: o arquivo contém 2.235 R16,
+7.074 R32, 6.762 sqrt e dez Silu16. A reescrita altera formas reconhecidas pelas
+provas numéricas e conversões seguintes permanecem abertas. A próxima etapa
+precisa transportar provas de dtype/faixa com seus contextos de ramo antes de
+admitir esses produtores como completamente baixados. O processo terminou
+com código dois, destinado a expressões de trabalho, e não admitiu artefato
+final. Os objetos dos estados e a expressão emitida estão arquivados em
+`docs/evidence/direct-sympy-lazy-synchronization-*`.

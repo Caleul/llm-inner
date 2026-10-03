@@ -41,6 +41,16 @@ class StringCompilerTests(unittest.TestCase):
         self.assertEqual(propose(changed)[-1],'no-matching-siblings')
         impure="Piecewise((X1,Unknown(X1)>0),(0.0,True))"
         self.assertEqual(propose(impure+'+'+impure)[-1],'no-matching-siblings')
+        # A chain containing an independent selector spends no speculative
+        # lifting budget; matching siblings can expose that chain on demand.
+        independent=f"Float64(Bits64(Piecewise((X1,{a}),(0.0,True))))+Float64(Bits64(Piecewise((X1,{b}),(0.0,True))))"
+        untouched,lifts,zips,status=propose(independent,max_lifts=0)
+        self.assertEqual(untouched,independent);self.assertEqual((lifts,zips),(0,0))
+        self.assertEqual(status,'no-matching-siblings')
+        matching=f"Float64(Bits64(Piecewise((X1,{a}),(0.0,True))))+Float64(Bits64(Piecewise((X1,{a}),(0.0,True))))"
+        proposed,lifts,zips,status=propose(matching)
+        self.assertEqual(status,'proposed');self.assertEqual(zips,1)
+        self.assertEqual(proposed.count('Piecewise('),1)
 
     def test_repeated_word_decisions_propagate_through_both_paths(self):
         domains={"X1":Domain(F(-65504),F(65504),-24,False)}

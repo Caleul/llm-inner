@@ -1,0 +1,59 @@
+[
+  {
+    "dependency": "model.layers.0.pre:0",
+    "beforeCharacters": 3305,
+    "afterCharacters": 3305,
+    "beforePiecewiseOccurrences": 1,
+    "afterPiecewiseOccurrences": 1,
+    "synchronization": [
+      3305,
+      3305,
+      3305,
+      0,
+      0,
+      "no-matching-siblings"
+    ],
+    "wallSeconds": 0.023739666998153552,
+    "output": "docs/evidence/direct-sympy-record-cache-frontier/objects/f7428a71943a58e76e7601780707275b92a84c50e8e96c5f24d97912c6807187.expr",
+    "originalDigest": "f7428a71943a58e76e7601780707275b92a84c50e8e96c5f24d97912c6807187",
+    "resultDigest": "f7428a71943a58e76e7601780707275b92a84c50e8e96c5f24d97912c6807187"
+  },
+  {
+    "dependency": "model.layers.0.v:0",
+    "beforeCharacters": 40427,
+    "afterCharacters": 40427,
+    "beforePiecewiseOccurrences": 13,
+    "afterPiecewiseOccurrences": 13,
+    "synchronization": [
+      40427,
+      40427,
+      40427,
+      0,
+      0,
+      "no-matching-siblings"
+    ],
+    "wallSeconds": 0.2811025830160361,
+    "output": "docs/evidence/direct-sympy-record-cache-frontier/objects/d19ceeaaf3b2fcf54e87b9a138fa02e928c0f74902e9fb093e37ba039852fb41.expr",
+    "originalDigest": "d19ceeaaf3b2fcf54e87b9a138fa02e928c0f74902e9fb093e37ba039852fb41",
+    "resultDigest": "d19ceeaaf3b2fcf54e87b9a138fa02e928c0f74902e9fb093e37ba039852fb41"
+  },
+  {
+    "dependency": "model.layers.0.residual:0",
+    "beforeCharacters": 971823,
+    "afterCharacters": 890918,
+    "beforePiecewiseOccurrences": 314,
+    "afterPiecewiseOccurrences": 287,
+    "synchronization": [
+      971823,
+      890918,
+      890918,
+      8,
+      1,
+      "admitted"
+    ],
+    "wallSeconds": 22.378724125010194,
+    "output": "docs/evidence/direct-sympy-lazy-synchronization-residual.work.expr",
+    "originalDigest": "ba7b1c3f09d5e43f7cc4a31df4512395e5d60326e9877031f8fe88e79e1e5fef",
+    "resultDigest": "41685736655b62799d57abbde2e26f2661c3a44159501ca45ac34b2786804113"
+  }
+]

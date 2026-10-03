@@ -5599,5 +5599,95 @@
       "docs/evidence/direct-sympy-synchronization-actual.json": "861c169565f66dc5a6d00021dbe64b803c6138d0f91f827a1d800543e81d5637",
       "docs/evidence/direct-sympy-synchronization-actual.py.work": "e06901ea5ab13f0d4c484dafc1f7e37ed67e569d406c5b650da0eb2aadf7526f"
     }
+  },
+  "lazySelectorValidation": {
+    "date": "2026-10-03",
+    "baseCommit": "b4cae66",
+    "previousTurn": "progress: committed branch synchronization and verified native parity",
+    "change": "Expose pure unary/arithmetic selector contexts on demand; materialize only matching sibling decisions; keep independent selectors unchanged",
+    "unitTests": {
+      "engine": 25,
+      "conversions": 21,
+      "directedNode": 4,
+      "nativeSyntheticCases": 131072,
+      "nativeSyntheticMismatches": 0
+    },
+    "actualResidual": {
+      "dependency": "model.layers.0.residual:0",
+      "beforeCharacters": 971823,
+      "afterCharacters": 890918,
+      "beforePiecewiseOccurrences": 314,
+      "afterPiecewiseOccurrences": 287,
+      "synchronization": [
+        971823,
+        890918,
+        890918,
+        8,
+        1,
+        "admitted"
+      ],
+      "wallSeconds": 22.378724125010194,
+      "output": "docs/evidence/direct-sympy-lazy-synchronization-residual.work.expr",
+      "originalDigest": "ba7b1c3f09d5e43f7cc4a31df4512395e5d60326e9877031f8fe88e79e1e5fef",
+      "resultDigest": "41685736655b62799d57abbde2e26f2661c3a44159501ca45ac34b2786804113"
+    },
+    "actualResidualNativeParity": {
+      "cases": 253952,
+      "mismatches": 0
+    },
+    "freshCompilation": {
+      "terminalExitCode": 2,
+      "completedSymbolicProducers": 21,
+      "characters": 3814474,
+      "dimension": 2,
+      "position": 0,
+      "maxCharacters": 67108864,
+      "maxSeconds": 180,
+      "stateReuse": false,
+      "sourceIdentityIncludesSyncHelper": true,
+      "finalArtifactAdmitted": false,
+      "residualCalls": {
+        "R16": 2235,
+        "R32": 7074,
+        "sqrt": 6762,
+        "Silu16": 10
+      },
+      "artifact": "docs/evidence/direct-sympy-lazy-synchronization-coordinate.work.expr",
+      "frontier": "docs/evidence/direct-sympy-lazy-synchronization-frontier/frontier.json"
+    },
+    "coordinateWorkingParity": {
+      "cases": 60,
+      "mismatches": 0,
+      "scope": "Position zero, dimension two, input embeddings; corpus includes different sequence lengths but does not establish last-token parity",
+      "finalParity": false
+    },
+    "nextGap": "Recover branch-scoped numeric dtype/range proofs through certified rewrites; fresh symbolic producer completion is not numerical closure",
+    "previousRegression": {
+      "commit": "b4cae66",
+      "tests": 595,
+      "pass": 577,
+      "fail": 15,
+      "skipped": 3,
+      "rerunThisIteration": false,
+      "currentAffectedDirectedTestsPassed": true
+    },
+    "sources": {
+      "direct_sympy_synchronize.py": "d592a35d6045b57fa85cb45429ef86840dd4e8e545e3f1ccf471936fa9fface0",
+      "direct_sympy_strings_test.py": "627cc41a9d29e93a9ea90f3495f04ae725858a3209802b87fe82b09e5dce9565"
+    },
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-lazy-synchronization-engine.log": "e3df2a8ca877c36336f033264674b44008bc4a4dd9fc3d78cec5fe810ed5b31e",
+      "docs/evidence/direct-sympy-lazy-synchronization-conversions.log": "aaeb65edf625542f0e41d359d55d844f0b125aeb5557c040ba9549d73c0309c6",
+      "docs/evidence/direct-sympy-lazy-synchronization-actual.log": "ff09b37a0f479a63c02e69ceaf0ccf09b65f98c9dc1dc5544134c4c828185b09",
+      "docs/evidence/direct-sympy-lazy-synchronization-parity.log": "a06817b1bf139c2ed02363e49979aefa82036d348439cec598182921a402261a",
+      "docs/evidence/direct-sympy-lazy-synchronization-directed.log": "16453ba75c4c789a6a58e36e5ef92308fdb388526b9fac53bbad7bcf70077ac0",
+      "docs/evidence/direct-sympy-lazy-synchronization-compilation.log": "9f863032ed1ee72efa1183fbfdfdb2c89452b2217f5adf0a2d46091cfe0b6e28",
+      "docs/evidence/direct-sympy-lazy-synchronization-coordinate-parity.log": "fcf581ae886ab7898989b0add968a450f80f120c7efb02556466d9f71f57644c",
+      "docs/evidence/direct-sympy-lazy-synchronization-parity.py.work": "adbf200bd705a3f107c69b58332a04901ccd44470e97afee331cc1e31de10e51",
+      "docs/evidence/direct-sympy-lazy-synchronization-coordinate-parity.py.work": "cbaf1d4b426ee91df0e04593c02e723c709ec2a365b2bf79f56ee4db4d2b7cf2",
+      "docs/evidence/direct-sympy-lazy-synchronization-actual.json": "90c6f597e8fda35c8b5cefa6ffbec8b2ef4b04f0fa091aee2b9415b16ccf26c0",
+      "docs/evidence/direct-sympy-lazy-synchronization-coordinate.work.expr": "0b20b2c3f75b8ff31b600d5fb75eddc307c4926acd7fc6ed3cd69838528cca34",
+      "docs/evidence/direct-sympy-lazy-synchronization-growth.tsv": "6bd2751bd9a3ce18743603e11d107f41892e59ec86e8442d91dd7d5c55c343f0"
+    }
   }
 }
