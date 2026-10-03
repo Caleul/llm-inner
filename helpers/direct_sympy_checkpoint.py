@@ -59,6 +59,8 @@ class CheckpointStrings:
         self.stack=[]
         self.events=[]
         self.on_completed=None
+        self.layer_bound_cache={}
+        self.elided_updates=[]
 
     def __enter__(self):
         for path in sorted(self.directory.glob("*.safetensors")):
@@ -209,7 +211,10 @@ class CheckpointStrings:
                         existing=self.conversions.bounds(node)
                         q=existing.quantum if existing is not None else (-149 if node is raw else -1074)
                         if node is not raw and isinstance(node,ast.Call) and node.func.id=="R16":q=-24
-                        self.conversions.completed[self.conversions.key(node)]=FiniteSource(-bound,bound,q)
+                        low=-bound if existing is None else max(-bound,existing.minimum)
+                        high=bound if existing is None else min(bound,existing.maximum)
+                        if low>high:raise ValueError('RMS correlation contradicts existing enclosure')
+                        self.conversions.completed[self.conversions.key(node)]=FiniteSource(low,high,q)
             return "R16("+self.op("*",normalized,self.weight(name,coordinate))+")"
         return self.producer(key+":"+str(coordinate),build)
 
@@ -223,11 +228,37 @@ class CheckpointStrings:
             self.linear(prefix+"mlp.up_proj.weight",neuron,input_value))
         return "R16("+self.op("*","Silu16("+gate+")",up)+")"
 
+    def invisible_layer_update(self,layer,prefix,kind,coordinate,value):
+        if self.conversions is None:return False
+        # The RMS enclosure needs every previous scalar to be finite Half.
+        previous=[syntax(self.hidden(layer-1,i)) for i in range(self.width)]
+        if any(self.conversions.value_kind(x)!="half" or self.conversions.bounds(x) is None for x in previous):return False
+        radius=self.conversions.half_cell_radius(syntax(value))
+        if radius is None:return False
+        if prefix not in self.layer_bound_cache:
+            from direct_sympy_layer_bounds import layer as layer_bounds
+            self.layer_bound_cache[prefix]=layer_bounds(self,prefix)
+        bounds=self.layer_bound_cache[prefix]
+        if bounds is None or coordinate>=len(bounds[kind]):return False
+        if kind=="mlp":
+            # Post-attention RMS cannot inherit a finite-Half bound when
+            # any residual could overflow. Prove every residual enclosure
+            # without expanding its dependencies first.
+            for i,node in enumerate(previous):
+                domain=self.conversions.bounds(node)
+                if max(abs(domain.minimum),abs(domain.maximum))+bounds["attention"][i]>=65520:return False
+        bound=bounds[kind][coordinate]
+        if bound is None or not bound<radius:return False
+        self.elided_updates.append((prefix,kind,coordinate,bound,radius))
+        return True
+
     def hidden(self,layer,coordinate):
         if layer<0:return f"X{coordinate+1}"
         prefix=f"model.layers.{layer}."
         def pre(column):return self.norm(prefix+"pre",prefix+"input_layernorm.weight",column,lambda i:self.hidden(layer-1,i))
         def residual(column):
+            original=self.hidden(layer-1,column)
+            if self.invisible_layer_update(layer,prefix,"attention",column,original):return original
             def value(i):return self.producer(prefix+"v:"+str(i),lambda:self.linear(prefix+"self_attn.v_proj.weight",i,pre))
             heads=self.config["num_attention_heads"];kv_heads=self.config["num_key_value_heads"]
             head_dim=self.config.get("head_dim",self.width//heads)
@@ -237,13 +268,15 @@ class CheckpointStrings:
             context=lambda i:self.producer(prefix+"context:"+str(i),lambda:self.reduction([
                 self.op("*","1.0",value((i//head_dim//(heads//kv_heads))*head_dim+i%head_dim))]))
             attention=self.linear(prefix+"self_attn.o_proj.weight",column,context)
-            return "R16("+self.op("+",self.hidden(layer-1,column),attention)+")"
+            return "R16("+self.op("+",original,attention)+")"
         def post(column):return self.norm(prefix+"post",prefix+"post_attention_layernorm.weight",column,
             lambda i:self.producer(prefix+"residual:"+str(i),lambda:residual(i)))
-        return self.producer(prefix+"hidden:"+str(coordinate),lambda:
-            "R16("+self.op("+",self.producer(prefix+"residual:"+str(coordinate),lambda:residual(coordinate)),
-                self.linear(prefix+"mlp.down_proj.weight",coordinate,
-                    lambda i:self.producer(prefix+"gated:"+str(i),lambda:self.gated(prefix,i,post))))+")")
+        def build_hidden():
+            value=self.producer(prefix+"residual:"+str(coordinate),lambda:residual(coordinate))
+            if self.invisible_layer_update(layer,prefix,"mlp",coordinate,value):return value
+            return "R16("+self.op("+",value,self.linear(prefix+"mlp.down_proj.weight",coordinate,
+                lambda i:self.producer(prefix+"gated:"+str(i),lambda:self.gated(prefix,i,post))))+")"
+        return self.producer(prefix+"hidden:"+str(coordinate),build_hidden)
 
     def coordinate(self,dimension):
         if self.config.get("attention_bias") or self.config.get("mlp_bias"):

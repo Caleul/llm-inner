@@ -43,6 +43,13 @@ def simplify_arithmetic(expression,session):
 
         def visit_Call(self,node):
             node=self.generic_visit(node)
+            if node.func.id=='R16' and len(node.args)==1:
+                inner=node.args[0]
+                if isinstance(inner,ast.Call) and inner.func.id=='R32' and len(inner.args)==1:
+                    inner=inner.args[0]
+                if isinstance(inner,ast.BinOp) and isinstance(inner.op,(ast.Add,ast.Sub)):
+                    a,b=inner.left,inner.right
+                    if session.half_update_is_invisible(a,b):return self.accept(node,a)
             if node.func.id in ("R16","R32") and len(node.args)==1:
                 kind=session.value_kind(node.args[0])
                 if session.bounds(node.args[0]) is not None and ((node.func.id=="R32" and kind in ("half","f32")) or (node.func.id=="R16" and kind=="half")):

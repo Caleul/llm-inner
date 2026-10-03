@@ -29,11 +29,12 @@ test('SymPy checkpoint working string is re-read and matches a freshly captured 
 test('SymPy elementary conversion strings preserve native IEEE cells and composed boundaries',
   {skip:!python},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_conversions_test.py'],{timeout:120_000,maxBuffer:1024*1024});
-    assert.match(stderr,/Ran 23 tests/);
+    assert.match(stderr,/Ran 24 tests/);
     assert.match(stdout,/Compact envelope selector parity: cases=507904 mismatches=0/);
     assert.match(stdout,/Synchronized sibling native parity: cases=131072 mismatches=0/);
     assert.match(stdout,/Exact branch facts native parity: cases=196608 mismatches=0/);
     assert.match(stderr,/OK/);
+    assert.match(stdout,/Half cell dependency parity: cases=327680 mismatches=0/);
     assert.match(stdout,/Native Half squares: 63488, mismatches=0/);
     assert.match(stdout,/Two-Half-square F32 certificate: pairs=503856640 mismatches=0 oddTies=0/);
     assert.match(stdout,/F32 normal-cell certificate: sqrt=2139095040 reciprocals=4219469826 mismatches=0 ties=0/);

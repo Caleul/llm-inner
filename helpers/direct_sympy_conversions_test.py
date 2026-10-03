@@ -52,6 +52,26 @@ def cpp(node):
 
 
 class ConversionStringTests(unittest.TestCase):
+    def test_half_cell_elision_is_strict_typed_and_native_exact(self):
+        domains={"X1":Domain(F(64),F(65504),-4,False),"X2":Domain(F(-1,128),F(1,128),-24,False)}
+        session=ConversionSession(StringCompiler(),domains,input_dtype="f16")
+        for operation in ("+","-"):
+            self.assertEqual(session.close("R16(R32(X1 "+operation+" X2))"),"X1")
+        self.assertEqual(session.half_cell_radius(syntax("X1")),2**-6)
+        session=ConversionSession(StringCompiler(),{"X1":domains["X1"],"X2":Domain(F(-1,64),F(1,64),-24,False)},input_dtype="f16")
+        self.assertFalse(session.half_update_is_invisible(syntax("X1"),syntax("X2")))
+        session=ConversionSession(StringCompiler(),{"X1":Domain(F(-64),F(64),-24,False),"X2":domains["X2"]},input_dtype="f16")
+        self.assertIsNone(session.half_cell_radius(syntax("X1")))
+        session=ConversionSession(StringCompiler(),domains,input_dtype="f64")
+        self.assertFalse(session.half_update_is_invisible(syntax("X1"),syntax("X2")))
+        with tempfile.TemporaryDirectory() as directory:
+            source=Path(directory)/"cell.cpp";binary=Path(directory)/"cell"
+            source.write_text("#include <cstdint>\n#include <cstring>\n#include <cmath>\n#include <cstdio>\n#include <initializer_list>\ntemplate<class T,class U>T word(U value){T result;std::memcpy(&result,&value,sizeof(result));return result;}\n"+'''int main(){unsigned cases=0,mismatches=0;for(unsigned b=0;b<65536;b++){if((b&0x7c00)==0x7c00)continue;double x=word<_Float16>(uint16_t(b));if(std::fabs(x)<64)continue;for(double d:{0.0,-0.0,0x1p-24,-0x1p-24,0x1p-7,-0x1p-7,0x1.ffcp-7,-0x1.ffcp-7}){double sum=static_cast<_Float16>(float(x+d));double difference=static_cast<_Float16>(float(x-d));mismatches+=word<uint64_t>(sum)!=word<uint64_t>(x);mismatches+=word<uint64_t>(difference)!=word<uint64_t>(x);cases+=2;}}std::printf("Half cell dependency parity: cases=%u mismatches=%u\\n",cases,mismatches);return mismatches?1:0;}''')
+            build=subprocess.run(["clang++","-O3","-ffp-contract=off","-std=c++17",str(source),"-o",str(binary)],capture_output=True,text=True)
+            self.assertEqual(build.returncode,0,build.stderr)
+            result=subprocess.run([str(binary)],check=True,capture_output=True,text=True)
+            self.assertIn("mismatches=0",result.stdout);print(result.stdout,end="")
+
     def test_new_envelope_selectors_synchronize_before_literal_restoration(self):
         domains={name:Domain(F(-65504),F(65504),-24,False) for name in ('X1','X2')}
         compiler=StringCompiler();session=ConversionSession(compiler,domains,input_dtype='f16')

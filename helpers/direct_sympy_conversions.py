@@ -238,6 +238,25 @@ class ConversionSession:
             return source is not None and source.quantum is not None and source.quantum>=minimum and self.no_negative_zero(node.args[0])
         return False
 
+    def half_update_is_invisible(self,value,update):
+        """A strict Half-cell proof, including the smaller binade neighbor.
+
+        Half +/- Half followed by F32 then Half equals direct Half storage.
+        Stay strictly inside both neighbors; unknown types and zero-crossing
+        enclosures cannot prove that the center is a nonzero Half value.
+        """
+        if self.value_kind(value)!='half' or self.value_kind(update)!='half':return False
+        radius=self.half_cell_radius(value);delta=self.bounds(update)
+        return radius is not None and delta is not None and max(abs(delta.minimum),abs(delta.maximum))<radius
+
+    def half_cell_radius(self,value):
+        if self.value_kind(value)!='half':return None
+        source=self.bounds(value)
+        if source is None:return None
+        minimum=source.minimum if source.minimum>0 else -source.maximum if source.maximum<0 else 0
+        if not minimum:return None
+        return 2**(binary_exponent(minimum)-12)
+
     def bounds(self,node):
         key=self.key(node)
         if key in self.completed:return self.completed[key]

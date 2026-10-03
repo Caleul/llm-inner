@@ -6407,5 +6407,342 @@
       "docs/evidence/direct-sympy-sqrt-rational-native.log": "666cc412b169d161f81c6c14b30e92707419f6d1c71ee0e031118b351bc129a2",
       "docs/evidence/direct-sympy-sqrt-rational-compilation.log": "cb9e86962f27aa237f2d75d5c0bf1bb8506533abb888b7b3d86ade62a84e0e16"
     }
+  },
+  "halfCellDependencyElisionValidation": {
+    "baseCommit": "247a30f",
+    "strategy": "Prove a strict finite Half-cell enclosure before expanding attention/MLP updates; stabilize each surviving string with factor() then simplify()",
+    "representations": {
+      "expressions": "mathematical strings only",
+      "json": "metadata/config only"
+    },
+    "nativeHalfCellCases": 327680,
+    "nativeHalfCellMismatches": 0,
+    "conditionalBranches": {
+      "branches": [
+        {
+          "signs": [
+            1,
+            1
+          ],
+          "artifact": "docs/evidence/direct-sympy-half-cell-conditional.work.expr",
+          "sha256": "85de87d495372da9b62f8d3160c87948073e3f5b0c0d2aab7e066728c763276a",
+          "characters": 145949,
+          "cases": 40,
+          "mismatches": 0,
+          "elidedUpdates": [
+            [
+              "model.layers.0.",
+              "attention",
+              0,
+              0.01354217529296875,
+              0.015625
+            ],
+            [
+              "model.layers.0.",
+              "mlp",
+              0,
+              0.0008592605590820312,
+              0.015625
+            ],
+            [
+              "model.layers.0.",
+              "attention",
+              1,
+              0.0047454833984375,
+              0.015625
+            ],
+            [
+              "model.layers.0.",
+              "mlp",
+              1,
+              0.0010204315185546875,
+              0.015625
+            ]
+          ],
+          "completedDependencies": [
+            "model.layers.0.residual:0",
+            "model.layers.0.hidden:0",
+            "model.layers.0.residual:1",
+            "model.layers.0.hidden:1",
+            "final:inverse",
+            "final:0",
+            "final:1",
+            "output:0:2"
+          ],
+          "scope": "CONDITIONAL branch |X1|>=64 and |X2|>=64; position0 dimension2; NOT complete original domain"
+        },
+        {
+          "signs": [
+            1,
+            -1
+          ],
+          "artifact": "docs/evidence/direct-sympy-half-cell-conditional.work.expr",
+          "sha256": "85de87d495372da9b62f8d3160c87948073e3f5b0c0d2aab7e066728c763276a",
+          "characters": 145949,
+          "cases": 40,
+          "mismatches": 0,
+          "elidedUpdates": [
+            [
+              "model.layers.0.",
+              "attention",
+              0,
+              0.01354217529296875,
+              0.015625
+            ],
+            [
+              "model.layers.0.",
+              "mlp",
+              0,
+              0.0008592605590820312,
+              0.015625
+            ],
+            [
+              "model.layers.0.",
+              "attention",
+              1,
+              0.0047454833984375,
+              0.015625
+            ],
+            [
+              "model.layers.0.",
+              "mlp",
+              1,
+              0.0010204315185546875,
+              0.015625
+            ]
+          ],
+          "completedDependencies": [
+            "model.layers.0.residual:0",
+            "model.layers.0.hidden:0",
+            "model.layers.0.residual:1",
+            "model.layers.0.hidden:1",
+            "final:inverse",
+            "final:0",
+            "final:1",
+            "output:0:2"
+          ],
+          "scope": "CONDITIONAL branch |X1|>=64 and |X2|>=64; position0 dimension2; NOT complete original domain"
+        },
+        {
+          "signs": [
+            -1,
+            1
+          ],
+          "artifact": "docs/evidence/direct-sympy-half-cell-conditional.work.expr",
+          "sha256": "85de87d495372da9b62f8d3160c87948073e3f5b0c0d2aab7e066728c763276a",
+          "characters": 145949,
+          "cases": 40,
+          "mismatches": 0,
+          "elidedUpdates": [
+            [
+              "model.layers.0.",
+              "attention",
+              0,
+              0.01354217529296875,
+              0.015625
+            ],
+            [
+              "model.layers.0.",
+              "mlp",
+              0,
+              0.0008592605590820312,
+              0.015625
+            ],
+            [
+              "model.layers.0.",
+              "attention",
+              1,
+              0.0047454833984375,
+              0.015625
+            ],
+            [
+              "model.layers.0.",
+              "mlp",
+              1,
+              0.0010204315185546875,
+              0.015625
+            ]
+          ],
+          "completedDependencies": [
+            "model.layers.0.residual:0",
+            "model.layers.0.hidden:0",
+            "model.layers.0.residual:1",
+            "model.layers.0.hidden:1",
+            "final:inverse",
+            "final:0",
+            "final:1",
+            "output:0:2"
+          ],
+          "scope": "CONDITIONAL branch |X1|>=64 and |X2|>=64; position0 dimension2; NOT complete original domain"
+        },
+        {
+          "signs": [
+            -1,
+            -1
+          ],
+          "artifact": "docs/evidence/direct-sympy-half-cell-conditional.work.expr",
+          "sha256": "85de87d495372da9b62f8d3160c87948073e3f5b0c0d2aab7e066728c763276a",
+          "characters": 145949,
+          "cases": 40,
+          "mismatches": 0,
+          "elidedUpdates": [
+            [
+              "model.layers.0.",
+              "attention",
+              0,
+              0.01354217529296875,
+              0.015625
+            ],
+            [
+              "model.layers.0.",
+              "mlp",
+              0,
+              0.0008592605590820312,
+              0.015625
+            ],
+            [
+              "model.layers.0.",
+              "attention",
+              1,
+              0.0047454833984375,
+              0.015625
+            ],
+            [
+              "model.layers.0.",
+              "mlp",
+              1,
+              0.0010204315185546875,
+              0.015625
+            ]
+          ],
+          "completedDependencies": [
+            "model.layers.0.residual:0",
+            "model.layers.0.hidden:0",
+            "model.layers.0.residual:1",
+            "model.layers.0.hidden:1",
+            "final:inverse",
+            "final:0",
+            "final:1",
+            "output:0:2"
+          ],
+          "scope": "CONDITIONAL branch |X1|>=64 and |X2|>=64; position0 dimension2; NOT complete original domain"
+        }
+      ],
+      "cases": 160,
+      "mismatches": 0,
+      "elapsedSeconds": 3.4766550829808693,
+      "fullDomainParity": false,
+      "fullCoordinateComplete": false,
+      "compilerSources": {
+        "direct_sympy_layer_bounds.py": "2f8d73caf53371f4bba44a605a91098580f5dcaf90b292c135830d862513dcff",
+        "direct_sympy_savepoints.py": "b4f9b11d6631c7a1a5ae0e698c9e8a7e19def32b67595e447e60803a8abff517",
+        "direct_sympy_checkpoint.py": "8ee97b439693c276477890eb09e98817d16900c9a670b7195bf4b650cb913c0d",
+        "direct_sympy_strings.py": "a0164864c528c458df4803a76be42880645cfe2a6e97b86aa4f901415369fca9",
+        "direct_sympy_conversions.py": "7761d708f5360441b1e224bbf692d471d78c343d8e2c00afeff06274b15a7e6d",
+        "direct_sympy_words.py": "759c879d4f7ee2150ba20cca472a6431b1086517634db29f9c6b9d256fa72dd0",
+        "direct_sympy_arithmetic.py": "84e2cfa110fb0523fd94c7565c9e3a761514654c586b1a9ca66e71efc0396544",
+        "direct_sympy_tandem.py": "c4c9db6a0fccdc7669bd8cf38d628809afd5348d51cbc232026c60d6cf70ad88",
+        "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+        "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+        "direct_sympy_synchronize.py": "6faf1058e0995f44ae76b8bd1dd311ecc0b66fbb2ede4cd3369814ff000e661a",
+        "direct_sympy_silu.py": "4336247be630c6e17a824fdb3804f05d56023796dbbc3d06ab98f5c2c6a8cc3a",
+        "direct_sympy_sqrt.py": "990ce236d45f9c38fce5babaf81eb7d3dbea06ab6dab284fb0edf3f7378579d7"
+      }
+    },
+    "conditionalScope": "Position0 dimension2; both finite Half inputs have absolute value >=64; not a public input-domain restriction",
+    "fullDomainCompile": {
+      "fresh": true,
+      "resume": false,
+      "maxSeconds": 600,
+      "maxCharacters": 67108864,
+      "completedDependencies": 9,
+      "durableDependencies": 9,
+      "lastDependency": "model.layers.0.residual:1",
+      "lastCharacters": 9615172,
+      "predictedPostInverseCharacters": 576915520,
+      "stop": "Character budget before allocation",
+      "pathCuts": 0,
+      "finalCoordinateAdmitted": false,
+      "fullVector": false,
+      "lastTokenParity": false
+    },
+    "savepoints": {
+      "directory": "artifacts/direct-sympy-half-cell-frontier-v2",
+      "oldStatesReused": false,
+      "actualIncompatibleStatesRejected": [
+        "artifacts/direct-sympy-sqrt-rational-frontier",
+        "artifacts/direct-sympy-half-cell-frontier"
+      ],
+      "allNineDigestsVerified": true,
+      "compilerSourceCount": 13,
+      "sources": {
+        "direct_sympy_arithmetic.py": "84e2cfa110fb0523fd94c7565c9e3a761514654c586b1a9ca66e71efc0396544",
+        "direct_sympy_checkpoint.py": "8ee97b439693c276477890eb09e98817d16900c9a670b7195bf4b650cb913c0d",
+        "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+        "direct_sympy_conversions.py": "7761d708f5360441b1e224bbf692d471d78c343d8e2c00afeff06274b15a7e6d",
+        "direct_sympy_layer_bounds.py": "2f8d73caf53371f4bba44a605a91098580f5dcaf90b292c135830d862513dcff",
+        "direct_sympy_savepoints.py": "b4f9b11d6631c7a1a5ae0e698c9e8a7e19def32b67595e447e60803a8abff517",
+        "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+        "direct_sympy_silu.py": "4336247be630c6e17a824fdb3804f05d56023796dbbc3d06ab98f5c2c6a8cc3a",
+        "direct_sympy_sqrt.py": "990ce236d45f9c38fce5babaf81eb7d3dbea06ab6dab284fb0edf3f7378579d7",
+        "direct_sympy_strings.py": "a0164864c528c458df4803a76be42880645cfe2a6e97b86aa4f901415369fca9",
+        "direct_sympy_synchronize.py": "6faf1058e0995f44ae76b8bd1dd311ecc0b66fbb2ede4cd3369814ff000e661a",
+        "direct_sympy_tandem.py": "c4c9db6a0fccdc7669bd8cf38d628809afd5348d51cbc232026c60d6cf70ad88",
+        "direct_sympy_words.py": "759c879d4f7ee2150ba20cca472a6431b1086517634db29f9c6b9d256fa72dd0"
+      }
+    },
+    "tests": {
+      "buildExitCode": 0,
+      "directedNodeTests": 6,
+      "directedFailures": 0,
+      "engine": 26,
+      "conversions": 24,
+      "savepoints": 4,
+      "checkpoint": 7,
+      "silu": 1,
+      "sqrt": 1,
+      "regressionTests": 597,
+      "regressionPass": 579,
+      "regressionFail": 15,
+      "regressionSkipped": 3,
+      "sameNamedFailuresAsBefore": true,
+      "failureNames": [
+        "Gemma 4 embedded adapter executes every serialized invocation program without hidden class transforms",
+        "Gemma 4 runtime-reduction provider executes the integrity-bound embedded adapter",
+        "evidência adia prefill exato sem cache e preserva antecipação do contexto exato",
+        "evidência do corte de prefill terminal preserva corpus e correção de raiz",
+        "evidência do default de oito threads vincula corpus e tokens autoritativos",
+        "evidência promove antecipação do prefixo exato somente em sessão com cache",
+        "evidência promove cabeça BF16 integral e rejeita prefill agrupado divergente",
+        "evidência promove cache de decisão exata e rejeita fronteira Q8 0-18",
+        "evidência promove contexto sensível exato sem replay do decoder",
+        "evidência promove o maior prefixo exato entre sessões sem alterar logits",
+        "evidência rejeita Q8 na projeção down quando velocidade e verificação deixam de coexistir",
+        "evidência rejeita grupos Q8 que divergem ou ampliam o fallback",
+        "evidência rejeita prefill exato eager quando ele preserva tokens mas piora todas as classes de latência",
+        "keeps the real agent-visible task free of controller context",
+        "scalar-substitution example contains concrete learned values and reproduces its F32 result"
+      ],
+      "legacyJsonTestsExcluded": 4
+    },
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-half-cell-budget-simplifications.tsv": "8fee5951ef5ad32f2c0721fd74f507df052b97dff14fc4a1b2ced4ca0094677b",
+      "docs/evidence/direct-sympy-half-cell-build.log": "a408d94a3fffc856dc5364f9d4b4ab56fde09205ec19cae0976763ea611ad3df",
+      "docs/evidence/direct-sympy-half-cell-checkpoint.log": "ece270404be159e8414c4f58c3f77258518e2b08ce9bbf7078afbc10217da93a",
+      "docs/evidence/direct-sympy-half-cell-compatibility.log": "3c35aece78d44403125132e283b375e8c64c8b8e42613e1e10f6e2ce7c9e65eb",
+      "docs/evidence/direct-sympy-half-cell-compile.log": "cb9e86962f27aa237f2d75d5c0bf1bb8506533abb888b7b3d86ade62a84e0e16",
+      "docs/evidence/direct-sympy-half-cell-conditional-parity.json": "10fb66991fb82328f81c36b2c71a5ee3d4c6645aa1671bb42ff5aba5326705c1",
+      "docs/evidence/direct-sympy-half-cell-conditional-parity.log": "b24b7d84fc88bc8cef98c2c9f972596731065989b7138f3926623d4abd4f8596",
+      "docs/evidence/direct-sympy-half-cell-conditional-parity.py.work": "958d3f457dfe2181ac734b98a92a6abd902ca6fda7a35cab9147bf69671c3870",
+      "docs/evidence/direct-sympy-half-cell-conditional.work.expr": "85de87d495372da9b62f8d3160c87948073e3f5b0c0d2aab7e066728c763276a",
+      "docs/evidence/direct-sympy-half-cell-conditions.tsv": "a2ff5598582c308382556de34283d49161612780e911b47967292c9fc36f545c",
+      "docs/evidence/direct-sympy-half-cell-conversions.log": "7e143e332c0f4792d942d570a528f63ddeff2cca7c0bcd4c9a26f2e286899e01",
+      "docs/evidence/direct-sympy-half-cell-directed.log": "7c9020015e9e2afd3761cbbf910c4e0b9139454f846db4ba90cfb29156e64c23",
+      "docs/evidence/direct-sympy-half-cell-frontier.json": "b8f4e4b46985c583971d5d4110d9bd95e7270936e96916d9944910ebce475651",
+      "docs/evidence/direct-sympy-half-cell-growth.tsv": "0f535765c10017c5f48d3f3d36eb2aa0da03f7056683efac4e39226806b04de2",
+      "docs/evidence/direct-sympy-half-cell-regression.log": "f244a7173dd35cb27615d2db6abc668f8f5f2cfa29c904ccfa2c193b748534ae",
+      "docs/evidence/direct-sympy-half-cell-substitutions.tsv": "60b7b1f9cb4ea319c59570fcc667e30f447adc82bd430be38be9760ab8211d7b",
+      "docs/evidence/direct-sympy-half-cell-synchronization.tsv": "67a81b62284c187a0a1781cde50a7bd605117589dcf28f294bba0baa88855f1e"
+    }
   }
 }

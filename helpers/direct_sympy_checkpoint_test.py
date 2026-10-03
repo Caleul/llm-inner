@@ -16,6 +16,33 @@ from direct_sympy_strings import StringCompiler,syntax
 
 
 class CheckpointStringTests(unittest.TestCase):
+    @unittest.skipUnless(os.environ.get("LLM_INNER_DIRECT_JSON_CHECKPOINT"),"Checkpoint validation fixture not configured")
+    def test_dependency_elision_requires_every_input_finite_and_a_strict_cell_bound(self):
+        from fractions import Fraction as F
+        from direct_sympy_strings import Domain
+        from direct_sympy_conversions import ConversionSession
+        from direct_sympy_layer_bounds import layer
+        checkpoint=os.environ["LLM_INNER_DIRECT_JSON_CHECKPOINT"]
+        for signs in ((1,1),(1,-1),(-1,1),(-1,-1)):
+            with CheckpointStrings(checkpoint,StringCompiler()) as builder:
+                builder.domains={f"X{i+1}":Domain(F(64 if sign>0 else -65504),F(65504 if sign>0 else -64),-4,False) for i,sign in enumerate(signs)}
+                builder.conversions=ConversionSession(builder.compiler,builder.domains,input_dtype="f16")
+                bounds=layer(builder,"model.layers.0.")
+                self.assertTrue(all(0<x<2**-6 for x in bounds["attention"]+bounds["mlp"]))
+                self.assertEqual(builder.hidden(0,0),"X1")
+                self.assertEqual(builder.hidden(0,1),"X2")
+                self.assertEqual(len(builder.elided_updates),4)
+                self.assertEqual(len(builder.memo),4)
+                self.assertTrue(all("hidden:" in k or "residual:" in k for k in builder.memo))
+                self.assertTrue(all(e[2:4]==("factor","simplify") for e in builder.compiler.events))
+                builder.layer_bound_cache["model.layers.0."]={"attention":[16.0,16.0],"mlp":[0.0,0.0]}
+                self.assertFalse(builder.invisible_layer_update(0,"model.layers.0.","mlp",0,"X1"))
+        with CheckpointStrings(checkpoint,StringCompiler()) as builder:
+            self.assertFalse(builder.invisible_layer_update(0,"model.layers.0.","attention",0,"X1"))
+            self.assertEqual(builder.elided_updates,[])
+            builder.config["attention_bias"]=True
+            self.assertIsNone(layer(builder,"model.layers.0."))
+
     def test_unclosed_numeric_producer_is_never_published(self):
         with tempfile.TemporaryDirectory() as directory:
             (Path(directory)/'config.json').write_text(json.dumps({'model_type':'llama','hidden_size':1,'num_hidden_layers':1}))

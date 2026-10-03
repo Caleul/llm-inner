@@ -1045,3 +1045,50 @@ Build, seis testes dirigidos e regressão foram executados. A regressão manteve
 `rationalSqrtValidation` de `direct-string-validation.json` registra as
 expressões, hashes, resultados e crescimento. A coordenada completa, o vetor
 e a paridade do último token continuam pendentes.
+
+## Eliminação de dependências dentro da mesma célula Half
+
+Antes de expandir uma atualização residual, o compilador calcula um limite
+conservador a partir dos pesos concretos, lidos escalarmente. Se o valor
+central é Half finito e não zero, e a atualização fica estritamente dentro
+da menor distância até os pontos médios dos vizinhos, a atualização não
+altera nenhum bit. A dependência inteira pode desaparecer. Igualdade com
+um ponto médio, tipo desconhecido, intervalo que cruza zero, geometria
+não demonstrada e possível overflow impedem essa eliminação.
+
+A soma de dois Half é tratada com sua fronteira F32 → Half. O limite usa
+inclusive o vizinho da faixa de expoente inferior. Os intervalos correlatos
+da normalização agora são intersectados com os limites existentes, em vez
+de apagar limites de sinal que já haviam sido demonstrados. Cada produtor
+continua obrigatoriamente estabilizado por `factor()` e `simplify()` antes
+da próxima substituição. Nenhum desses certificados fica no runtime.
+
+A regra passou em 327.680 comparações nativas sem divergência. Para este
+checkpoint, os quatro contextos de sinal com `|X1| >= 64` e `|X2| >= 64`
+permitem eliminar as duas atualizações de atenção e as duas do MLP antes
+que suas dependências sejam expandidas. A coordenada na posição zero,
+dimensão dois, foi então completamente substituída nesses contextos:
+145.949 caracteres, oito produtores completados e 160 comparações exatas
+com PyTorch, com comprimentos 1, 2, 3, 4 e 8. Os quatro contextos geraram
+a mesma string; o arquivo é armazenado uma vez em
+`evidence/direct-sympy-half-cell-conditional.work.expr`.
+
+**Esse arquivo é condicional.** Sua precondição exige ambos os valores
+Half finitos com módulo de pelo menos 64. A implementação pública conserva
+o domínio original; não aplica esse resultado aos demais valores. Essa
+validação não conclui a coordenada completa, o vetor nem o último token.
+O relatório de paridade declara explicitamente `fullDomainParity=false`.
+Os estados anteriores são incompatíveis com os novos certificados e
+foram recusados sem carregar produtores; a nova execução usa treze hashes
+de fontes. O mapa `halfCellDependencyElisionValidation` registra o resultado
+da execução completa e dos testes, sem substituir o artefato final por
+métricas de expansão.
+
+A recompilação sobre todo o domínio Half concluiu e persistiu nove produtores.
+A segunda normalização continua prevendo 576.915.520 caracteres e foi
+recusada antes da alocação pelo orçamento de 64 MiB. Os nove hashes e os
+treze hashes do compilador foram conferidos. Essa execução não produziu a
+coordenada completa nem reutilizou os estados incompatíveis. Build e seis
+testes dirigidos passaram; a regressão confirmou 597 testes, 579 aprovados,
+as mesmas quinze falhas nominais e três ignorados. Quatro testes legados
+da representação JSON permanecem excluídos conforme o mapa anterior.

@@ -1,0 +1,7 @@
+.......
+----------------------------------------------------------------------
+Ran 7 tests in 4.813s
+
+OK
+Closed gate/up projection parity: cases=1015808 mismatches=0 finalParity=false
+Working string parity: 60 exact cases, position=0 dimension=2; numerical primitives remain, finalParity=false

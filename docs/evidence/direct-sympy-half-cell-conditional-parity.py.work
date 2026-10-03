@@ -1,0 +1,46 @@
+import ast,hashlib,json,struct,sys,time
+from pathlib import Path
+from fractions import Fraction as F
+import torch
+from transformers import AutoModelForCausalLM
+sys.path.insert(0,'helpers')
+from direct_sympy_strings import StringCompiler,Domain,syntax
+from direct_sympy_conversions import ConversionSession
+from direct_sympy_checkpoint import CheckpointStrings
+class LazyBranches(ast.NodeTransformer):
+ def visit_Call(self,node):
+  node=self.generic_visit(node)
+  if node.func.id!='Piecewise':return node
+  result=ast.Constant(value=0)
+  for pair in reversed(node.args):result=ast.IfExp(test=pair.elts[1],body=pair.elts[0],orelse=result)
+  return result
+MASK=2**64-1
+functions={'Bits64':lambda x:struct.unpack('Q',struct.pack('d',float(x)))[0],'Float64':lambda x:struct.unpack('d',struct.pack('Q',x))[0],'U64Add':lambda a,b:(a+b)&MASK,'U64Mul':lambda a,b:(a*b)&MASK,'U64And':lambda a,b:a&b,'U64Or':lambda a,b:a|b,'U64Shr':lambda a,b:a>>b,'And':lambda *x:all(x),'Or':lambda *x:any(x),'Not':lambda x:not x}
+torch.set_num_threads(1)
+checkpoint='docs/evidence/direct-sympy-test-checkpoint'
+reference=AutoModelForCausalLM.from_pretrained(checkpoint,dtype=torch.float16,attn_implementation='eager').eval()
+report=[];start=time.monotonic()
+for signs in ((1,1),(1,-1),(-1,1),(-1,-1)):
+ name=''.join('p' if s>0 else 'n' for s in signs)
+ compiler=StringCompiler(max_characters=67108864)
+ with CheckpointStrings(checkpoint,compiler) as builder:
+  builder.domains={f'X{i+1}':Domain(F(64 if sign>0 else -65504),F(65504 if sign>0 else -64),-4,False) for i,sign in enumerate(signs)}
+  builder.conversions=ConversionSession(compiler,builder.domains,input_dtype='f16')
+  expression=builder.coordinate(2)
+  assert all(e[2:4]==('factor','simplify') for e in compiler.events)
+  assert len(builder.elided_updates)==4
+  assert not any(x in expression for x in ('R16(','R32(','sqrt(','Silu16(','CASNumericRegion','CASStableRegion'))
+  path=Path('docs/evidence/direct-sympy-half-cell-conditional.work.expr');path.write_text(expression+'\n')
+  program=compile(ast.fix_missing_locations(ast.Expression(LazyBranches().visit(syntax(path.read_text())))),str(path),'eval')
+  pairs=((64,64),(64,65504),(65504,64),(65504,65504),(64.0625,128),(128,256),(128.125,4096),(8192,8192))
+  compared=0
+  for length in (1,2,3,4,8):
+   for a,b in pairs:
+    matrix=torch.tensor([[signs[0]*a,signs[1]*b]]+[[65,-1024]]*(length-1),dtype=torch.float16)
+    with torch.inference_mode():expected=float(reference(inputs_embeds=matrix.unsqueeze(0),use_cache=False).logits[0,0,2])
+    actual=eval(program,{'__builtins__':{},**functions},{'X1':float(matrix[0,0]),'X2':float(matrix[0,1])})
+    assert struct.pack('d',actual)==struct.pack('d',expected),(name,a,b,length,actual,expected)
+    compared+=1
+  report.append({'signs':signs,'artifact':str(path),'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'characters':len(expression),'cases':compared,'mismatches':0,'elidedUpdates':builder.elided_updates,'completedDependencies':list(builder.memo),'scope':'CONDITIONAL branch |X1|>=64 and |X2|>=64; position0 dimension2; NOT complete original domain'})
+ print(json.dumps(report[-1]),flush=True)
+Path('docs/evidence/direct-sympy-half-cell-conditional-parity.json').write_text(json.dumps({'branches':report,'cases':sum(x['cases'] for x in report),'mismatches':0,'elapsedSeconds':time.monotonic()-start,'fullDomainParity':False,'fullCoordinateComplete':False,'compilerSources':{name:hashlib.sha256(Path('helpers',name).read_bytes()).hexdigest() for name in __import__('direct_sympy_savepoints').SOURCES}},indent=2)+'\n')
