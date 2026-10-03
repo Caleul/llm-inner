@@ -5208,5 +5208,81 @@
       "docs/evidence/direct-sympy-budget-cas-resumed.substitutions.tsv": "1a547e5e17c115d9058fbdaab049005257c3e7859349e5f8b11e393cb5ef63e8",
       "docs/evidence/direct-sympy-budget-cas-resumed.budget-simplifications.tsv": "1f5c30896f62d3427c06e5912d4fc579fab28843c9fc407ec861e178abffd78e"
     }
+  },
+  "projectionClosureValidation": {
+    "implementation": "Gate and up scalar projections independently stabilize with factor/simplify and close numerical conversions before activation or composition; a failed gate closure prevents building up.",
+    "checkpoint": "docs/evidence/direct-sympy-test-checkpoint",
+    "boundaryOrderTest": {
+      "expected": [
+        "build gate",
+        "close gate",
+        "build up",
+        "close up",
+        "compose"
+      ],
+      "failurePreventsNextProjection": true
+    },
+    "nativeProjectionParity": {
+      "cases": 1015808,
+      "mismatches": 0,
+      "corpus": "63488 finite Half X1 values times eight X2 boundaries times two actual-weight projections",
+      "artifactsReadBeforeEmission": true,
+      "reference": "four-lane F32 reduction then Half store",
+      "finalParity": false
+    },
+    "workingCoordinateReferenceParity": {
+      "cases": 60,
+      "position": 0,
+      "dimension": 2,
+      "numericalPrimitivesRemain": true,
+      "finalParity": false
+    },
+    "artifacts": {
+      "gate": "docs/evidence/direct-sympy-projection-gate.work.expr",
+      "up": "docs/evidence/direct-sympy-projection-up.work.expr",
+      "gated": "docs/evidence/direct-sympy-projection-gated.work.expr",
+      "inputs": "Half values received from post-normalization, not fully substituted original-input coordinate",
+      "gateCharacters": 851,
+      "upCharacters": 827,
+      "gatedCharacters": 1699
+    },
+    "savedStateCompatibility": {
+      "oldFrontier": "docs/evidence/direct-sympy-budget-cas-frontier.json",
+      "completedRecords": 12,
+      "rejectedBeforeExpressionLoad": true,
+      "modelMutated": false,
+      "migratedOrResumed": false,
+      "reason": "checkpoint adapter source identity changed"
+    },
+    "tests": {
+      "checkpointUnitTests": 4,
+      "engineUnitTests": 20,
+      "conversionUnitTests": 17,
+      "savepointUnitTests": 4,
+      "directedTests": 4,
+      "buildExitCode": 0
+    },
+    "regression": {
+      "tests": 595,
+      "pass": 577,
+      "fail": 15,
+      "skipped": 3,
+      "passedAndFailedNamesIdenticalToPrevious": true,
+      "newFailures": []
+    },
+    "fullCoordinateAdmitted": false,
+    "fullVectorAdmitted": false,
+    "nextAction": "Close actual gate projection over fully substituted post-normalization inputs within bounded resources; synchronize repeated branch conditions without dropping IEEE stores; lower remaining primitives and prove the full coordinate.",
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-projection-build.log": "a408d94a3fffc856dc5364f9d4b4ab56fde09205ec19cae0976763ea611ad3df",
+      "docs/evidence/direct-sympy-projection-compatibility.log": "5f1f16931e8c3f7de3c3db145268f39b9d46d90f8c66cb6b392b8d1a8439c158",
+      "docs/evidence/direct-sympy-projection-directed.log": "fd4206299810e2807954c772889186b21f54748c9c17ebe8cd3a0072c927b7c5",
+      "docs/evidence/direct-sympy-projection-gate.work.expr": "f79cca36cdaeecd2bbe06505a40674e9c5313e1a343981dd6498d0c4327b364d",
+      "docs/evidence/direct-sympy-projection-gated.work.expr": "a0cac8101b3bccfacc5a99cdf64f41eef78c295db15222c9c83d3cb4488bd38f",
+      "docs/evidence/direct-sympy-projection-regression.log": "8568273039f831423379e97b3503404e2714abe88c026eeff909a7d10bf399ff",
+      "docs/evidence/direct-sympy-projection-tests.log": "1f34f60b3868bd0aaf57560e66b17495773af80f2362229f9baf912178a455ad",
+      "docs/evidence/direct-sympy-projection-up.work.expr": "fa2c45999fbc39844a95c9c493ae39f78e7a440a69077fb17517eb8c3125b1c9"
+    },
+    "adapterHash": "1f1ac67f91eea2a2c4bac37e40ad07c2702b10931ed8ff09e6101bcc2b5fca48"
   }
 }

@@ -668,3 +668,27 @@ post:1 (527.904 casos) passaram com o emissor corrigido. O mapa
 O próximo trabalho é sincronizar decisões repetidas por contexto de caminho
 e concluir a simplificação numérica de cada projeção escalar antes de compor
 ativação e up. A coordenada final e a remoção de sqrt/Silu continuam pendentes.
+# Fronteiras numéricas das projeções gate/up
+
+Cada projeção escalar de gate e up passa agora por `producer`: substituição,
+`factor()`/`simplify()` até estabilizar e fechamento das conversões. Somente
+depois disso a projeção é incorporada à ativação ou ao produto. Uma falha ao
+fechar gate impede a construção de up; os dois resultados permanecem strings
+completas, sem aliases no artefato. Os registros de produtores são ferramentas
+de compilação e persistência, não caches de runtime.
+
+O teste de ordem cobre também a interrupção antes da próxima dependência.
+O teste nativo usa os pesos gate/up do checkpoint arquivado, todos os 63.488
+valores Half finitos na primeira entrada e oito fronteiras na segunda:
+1.015.808 comparações das duas projeções, sem divergências. As strings são
+salvas e relidas antes da emissão C++. A redução de referência mantém suas
+quatro lanes F32 e o armazenamento Half. Os arquivos
+`docs/evidence/direct-sympy-projection-{gate,up}.work.expr` dependem dos valores
+Half recebidos da normalização; não representam a coordenada final nem
+substituem o fechamento das dependências anteriores. O arquivo `gated` mantém
+Silu16 e a conversão final como trabalho pendente.
+
+A paridade de referência da coordenada na posição zero continua passando em
+60 casos, com primitivas ainda presentes. A mudança de identidade do adaptador
+rejeita o estado antigo antes de carregar expressões ou modificar o modelo.
+Nenhum estado antigo foi retomado ou migrado nesta validação.

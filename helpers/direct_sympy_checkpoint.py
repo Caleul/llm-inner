@@ -201,6 +201,16 @@ class CheckpointStrings:
             return "R16("+self.op("*",normalized,self.weight(name,coordinate))+")"
         return self.producer(key+":"+str(coordinate),build)
 
+    def gated(self,prefix,neuron,input_value):
+        # Each scalar projection owns its rounding frontier. Close it before
+        # substituting it into the activation/product; composing both raw
+        # reductions first postpones numerical simplification incorrectly.
+        gate=self.producer(prefix+"gate:"+str(neuron),lambda:
+            self.linear(prefix+"mlp.gate_proj.weight",neuron,input_value))
+        up=self.producer(prefix+"up:"+str(neuron),lambda:
+            self.linear(prefix+"mlp.up_proj.weight",neuron,input_value))
+        return "R16("+self.op("*","Silu16("+gate+")",up)+")"
+
     def hidden(self,layer,coordinate):
         if layer<0:return f"X{coordinate+1}"
         prefix=f"model.layers.{layer}."
@@ -218,14 +228,10 @@ class CheckpointStrings:
             return "R16("+self.op("+",self.hidden(layer-1,column),attention)+")"
         def post(column):return self.norm(prefix+"post",prefix+"post_attention_layernorm.weight",column,
             lambda i:self.producer(prefix+"residual:"+str(i),lambda:residual(i)))
-        def gated(neuron):
-            gate=self.linear(prefix+"mlp.gate_proj.weight",neuron,post)
-            up=self.linear(prefix+"mlp.up_proj.weight",neuron,post)
-            return "R16("+self.op("*","Silu16("+gate+")",up)+")"
         return self.producer(prefix+"hidden:"+str(coordinate),lambda:
             "R16("+self.op("+",self.producer(prefix+"residual:"+str(coordinate),lambda:residual(coordinate)),
                 self.linear(prefix+"mlp.down_proj.weight",coordinate,
-                    lambda i:self.producer(prefix+"gated:"+str(i),lambda:gated(i))))+")")
+                    lambda i:self.producer(prefix+"gated:"+str(i),lambda:self.gated(prefix,i,post))))+")")
 
     def coordinate(self,dimension):
         if self.config.get("attention_bias") or self.config.get("mlp_bias"):
