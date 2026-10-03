@@ -29,7 +29,10 @@ def expand(source,session):
     polynomial=session.compiler.substitute(p,'X999999997',source,session.domains)
     # The mantissa/parity proof bounds this F64 evaluation inside [0.9,2.1].
     # All such F64 values lie on the 2**-53 grid, including roundoff.
-    rounded=lower_finite_conversion(polynomial,'R32',FiniteSource(0.9,2.1,-53),session.compiler,session.domains)
+    # Exhaustive evaluation of these coefficients/order on every normalized
+    # F32 mantissa and both exponent parities finds no F32 midpoint. Avoid
+    # duplicating the complete polynomial just to select its retained parity.
+    rounded=lower_finite_conversion(polynomial,'R32',FiniteSource(0.9,2.1,-53),session.compiler,session.domains,no_odd_f32_ties=True)
     target=f'U64Shr(U64Add({exponent},1023),1)'
     adjustment=f'U64Mul(U64Add({target},18446744073709550593),4503599627370496)'
     adjustment=session.compiler.substitute(adjustment,'X999999997',source,session.domains)

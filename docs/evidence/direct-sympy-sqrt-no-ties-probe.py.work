@@ -1,0 +1,11 @@
+import mpmath as mp,json,subprocess,tempfile
+from pathlib import Path
+mp.mp.dps=100
+coeffs,error=mp.chebyfit(lambda z:mp.sqrt(mp.mpf('1.5')+z),[-mp.mpf('.5'),mp.mpf('.5')],20,error=True)
+values=[float(x) for x in coeffs];Path('/private/tmp/llm-inner-sqrt-coefficients.json').write_text(json.dumps({'coefficients':values,'fitError':str(error)},indent=2)+'\n')
+with tempfile.TemporaryDirectory() as d:
+ p=Path(d);source=p/'sqrt.cpp';binary=p/'sqrt'
+ source.write_text('#include <cstdint>\n#include <cstring>\n#include <cmath>\n#include <cstdio>\ntemplate<class T,class U>T word(U value){T result;std::memcpy(&result,&value,sizeof(result));return result;}\nconst double c[]={'+','.join(repr(v) for v in values)+'};\n'+'''int main(){unsigned cases=0,mismatches=0,oddTies=0,evenTies=0;for(unsigned b=0;b<8388608;b++){double m=word<float>(uint32_t(0x3f800000+b)),z=m-1.5,p=c[0];for(unsigned j=1;j<20;j++)p=c[j]+z*p;for(unsigned odd=0;odd<2;odd++){double x=odd?m*2:m,y=odd?p*1.4142135623730951:p;auto raw=word<uint64_t>(y);if((raw&((UINT64_C(1)<<29)-1))==(UINT64_C(1)<<28)){if((raw>>29)&1)oddTies++;else evenTies++;}auto actual=word<uint32_t>(float(y)),expected=word<uint32_t>(float(std::sqrt(x)));if(actual!=expected && mismatches<8)std::printf("bad=%08x odd=%u actual=%08x expected=%08x\\n",b,odd,actual,expected);mismatches+=actual!=expected;cases++;}}std::printf("F32 sqrt normalized proof: cases=%u mismatches=%u oddTies=%u evenTies=%u\\n",cases,mismatches,oddTies,evenTies);return mismatches?1:0;}
+''')
+ q=subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],capture_output=True,text=True);assert q.returncode==0,q.stderr
+ q=subprocess.run([str(binary)],capture_output=True,text=True,timeout=120);print(q.stdout,end='');raise SystemExit(q.returncode)

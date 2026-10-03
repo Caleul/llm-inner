@@ -976,3 +976,35 @@ Build e seis testes dirigidos passaram; agora cobrem 26 testes do engine e
 quinze falhas e três ignorados. Evidências e paridade estão mapeadas em
 `numericEnvelopeSynchronizationValidation` de `direct-string-validation.json`.
 O artefato final da coordenada permanece pendente.
+
+## Eliminação do desempate da raiz certificada
+
+A enumeração de todas as 16.777.216 mantissas/paridades normalizadas mostrou
+que os coeficientes e a ordem exata do polinômio da raiz não produzem nenhum
+ponto médio F32, par ou ímpar. O teste passa a verificar essa propriedade
+explicitamente, além da paridade do kernel emitido. Essa prova permite
+remover exclusivamente a cópia do polinômio usada para decidir o desempate;
+não autoriza remover desempates de outras operações.
+
+O kernel passou de 4.632 para 2.392 caracteres e de 41 para 21 ocorrências da
+entrada. A expressão emitida manteve paridade nas 25.167.601 comparações
+nativas, incluindo todos os subnormais positivos. A primeira normalização
+real passou de 97.571 para 50.531 caracteres, sem divergência nos 507.904
+casos nativos. Cada substituição continua passando por `factor()` e
+`simplify()` antes da próxima dependência.
+
+A execução nova, sem reutilizar estados incompatíveis, completou e persistiu
+nove produtores. O primeiro residual passou de 25.778.286 para 13.359.726
+caracteres; o objeto relido manteve os bits em 60 entradas capturadas no
+PyTorch. A restauração prevista da inversa da segunda normalização passou
+de 4.227.656.564 para 1.122.226.084 caracteres (73,46% menor), mas ainda foi
+recusada antes da alocação pelo orçamento de 64 MiB. Essa previsão não é um
+artefato final produzido. A coordenada, o vetor e o último token continuam
+pendentes.
+
+Build e seis testes dirigidos passaram, incluindo o teste fortalecido da
+raiz. A última suíte completa continua sendo a execução do commit anterior
+com 597 testes, 579 aprovados, quinze falhas conhecidas e três ignorados;
+ela não foi repetida após esta mudança localizada. O mapa e hashes estão
+em `sqrtNoMidpointValidation` de `direct-string-validation.json`, com os
+estados em `artifacts/direct-sympy-sqrt-no-ties-frontier`.

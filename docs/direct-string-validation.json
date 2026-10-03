@@ -6193,5 +6193,109 @@
       "docs/evidence/direct-sympy-envelope-sync-regression.log": "bebaebcb38c1065d4c6830f9715c32132c7900b38bc1d68e7f39d604aa8ff10b",
       "docs/evidence/direct-sympy-envelope-sync-budget-simplifications.tsv": "8fee5951ef5ad32f2c0721fd74f507df052b97dff14fc4a1b2ced4ca0094677b"
     }
+  },
+  "sqrtNoMidpointValidation": {
+    "baseCommit": "c2b3674",
+    "certificate": "Exact stored Horner coefficients/order have no F32 halfway result in any normalized positive F32 mantissa/exponent parity; power-of-two rescaling remains exact",
+    "normalizedCases": 16777216,
+    "oddTies": 0,
+    "evenTies": 0,
+    "emittedWordCases": 25167601,
+    "emittedWordMismatches": 0,
+    "outsideCertificate": "Unchanged; no generic tie elimination or input-domain cut",
+    "kernel": {
+      "beforeCharacters": 4632,
+      "afterCharacters": 2392,
+      "beforeInputOccurrences": 41,
+      "afterInputOccurrences": 21,
+      "artifact": "docs/evidence/direct-sympy-sqrt-no-ties-kernel.work.expr"
+    },
+    "rms": {
+      "beforeCharacters": 97571,
+      "afterCharacters": 50531,
+      "nativeCases": 507904,
+      "mismatches": 0,
+      "artifact": "docs/evidence/direct-sympy-sqrt-no-ties-rms.work.expr"
+    },
+    "residual": {
+      "beforeCharacters": 25778286,
+      "afterCharacters": 13359726,
+      "parity": {
+        "artifact": "artifacts/direct-sympy-sqrt-no-ties-frontier/objects/70773bb4b8d2b79f4c8a6e18e61fdae590b56c6b53d79c46e736a6ca7aac0bc6.expr",
+        "sha256": "70773bb4b8d2b79f4c8a6e18e61fdae590b56c6b53d79c46e736a6ca7aac0bc6",
+        "characters": 13359726,
+        "cases": 60,
+        "mismatches": 0,
+        "scope": "position=0 residual coordinate=0; not final coordinate or last-token parity",
+        "elapsedSeconds": 14.678844417008804
+      }
+    },
+    "compile": {
+      "fresh": true,
+      "resume": false,
+      "maxCharacters": 67108864,
+      "maxSeconds": 600,
+      "completedDependencies": 9,
+      "durableDependencies": 9,
+      "lastDependency": "model.layers.0.residual:1",
+      "lastCharacters": 13359748,
+      "beforePredictedPostInverseCharacters": 4227656564,
+      "predictedPostInverseCharacters": 1122226084,
+      "predictedReductionPercent": 73.45512656926405,
+      "stop": "Character budget before allocation",
+      "finalCoordinateAdmitted": false,
+      "fullVector": false,
+      "lastTokenParity": false
+    },
+    "savepoints": {
+      "oldSourcesIncompatible": [
+        "direct_sympy_sqrt.py"
+      ],
+      "oldStatesReused": false,
+      "allNineObjectDigestsVerified": true,
+      "objects": "artifacts/direct-sympy-sqrt-no-ties-frontier/objects"
+    },
+    "tests": {
+      "buildExitCode": 0,
+      "directedNodeTests": 6,
+      "directedFailures": 0,
+      "engine": 26,
+      "conversions": 23,
+      "savepoints": 4,
+      "checkpoint": 6,
+      "silu": 1,
+      "sqrt": 1,
+      "sqrtTestAlsoRequiresZeroMidpoints": true,
+      "lastFullRegressionCommit": "c2b3674",
+      "lastFullRegressionTests": 597,
+      "lastFullRegressionPass": 579,
+      "lastFullRegressionFail": 15,
+      "lastFullRegressionSkip": 3,
+      "fullRegressionRepeatedAfterThisLeafChange": false
+    },
+    "sourceHashes": {
+      "direct_sympy_sqrt.py": "f3f4ee1ca35bb8301d134258952ae6eb00aad5b31263861bbaa91b2dd92dc09c",
+      "direct_sympy_sqrt_test.py": "1b1cea28509177c5dd6cd99ac1379d0408f4463044a13cc0de956023704459fd"
+    },
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-sqrt-no-ties-probe.log": "d0ac7d324c1c50b7b31367c9fb0928d9e558e6c14adae3713a444db7454f701a",
+      "docs/evidence/direct-sympy-sqrt-no-ties-growth.tsv": "3382122174e7de83033360e6015022c8015617ce020466fefe77b82b44207610",
+      "docs/evidence/direct-sympy-sqrt-no-ties-substitutions.tsv": "409b501abec16f51a58d47b0ce3ba6796c6b76d7447873539748d034fb3a4aef",
+      "docs/evidence/direct-sympy-sqrt-no-ties-residual-parity.log": "241ef4aba2921d1594741a5b762c0caefae2491f70ad69d3b80380b425d0a4ac",
+      "docs/evidence/direct-sympy-sqrt-no-ties-native.log": "a2be7a98ce8bbe8166e5d261a1d81a4fa37e30684c53643ae8d487c6a857940b",
+      "docs/evidence/direct-sympy-sqrt-no-ties-rms-native.log": "e59bcf0fd32537116f0bd61bfb77bddb7b37ca7da6caf89c5531b83ccbc34a12",
+      "docs/evidence/direct-sympy-sqrt-no-ties-budget-simplifications.tsv": "8fee5951ef5ad32f2c0721fd74f507df052b97dff14fc4a1b2ced4ca0094677b",
+      "docs/evidence/direct-sympy-sqrt-no-ties-frontier.json": "c644d2e8927de778f6bfd0b7d997fab4a55a8e47bc04a4edd8b4866162c07fad",
+      "docs/evidence/direct-sympy-sqrt-no-ties-rms.work.expr": "3b33ed46ca7e334e932b639ae7a208455db9abd86b8e8dcc3358ce0e93ace7cd",
+      "docs/evidence/direct-sympy-sqrt-no-ties-kernel.work.expr": "7385da94ed400be3ee6d0ba20b25cbfa0a5cc010067fdd9914b28f6b7a1ea281",
+      "docs/evidence/direct-sympy-sqrt-no-ties-directed.log": "40dcbdb2c98dceb81f30bdb7238a0e8e34a3852376115409c8cc3c052188a699",
+      "docs/evidence/direct-sympy-sqrt-no-ties-build.log": "a408d94a3fffc856dc5364f9d4b4ab56fde09205ec19cae0976763ea611ad3df",
+      "docs/evidence/direct-sympy-sqrt-no-ties-numeric-envelopes.tsv": "e9ba73991f55ca1f9137bf85cf7f2e61a962fb2888f026b5cd6b6fdb253a9de1",
+      "docs/evidence/direct-sympy-sqrt-no-ties-residual-parity.py.work": "b369a8b7c34589b5c87e92b904f072933e10a9865d88ad6effc7ce261e97c11e",
+      "docs/evidence/direct-sympy-sqrt-no-ties-conditions.tsv": "a2ff5598582c308382556de34283d49161612780e911b47967292c9fc36f545c",
+      "docs/evidence/direct-sympy-sqrt-no-ties-compilation.log": "afca3b0479bd9e36d4a6f535f4a2b04485e8b2d423e83472b4b7dfdcf7bea91f",
+      "docs/evidence/direct-sympy-sqrt-no-ties-synchronization.tsv": "3cb2007d2df747e00509253901fb7fc39ce34b192b66af0ff56dfc645b51d746",
+      "docs/evidence/direct-sympy-sqrt-no-ties-probe.py.work": "ecdef0c6e10a6136ba82b5824885750993df2136e15250f3fc6d507e1654f429"
+    }
   }
 }
