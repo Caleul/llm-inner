@@ -1,0 +1,10 @@
+epsilonCounterexample x=0004 y=0004 source=3eb0c6f7b0000000 expected=3eb0c6f7c0000000 noParity=3eb0c6f7a0000000
+epsilonCounterexample x=0004 y=000c source=3eb0c6f7f0000000 expected=3eb0c6f800000000 noParity=3eb0c6f7e0000000
+epsilonCounterexample x=0004 y=0014 source=3eb0c6f870000000 expected=3eb0c6f880000000 noParity=3eb0c6f860000000
+halfCounterexample x=0005 y=09bf source=3f33620008000000 expected=3f33600000000000 direct=3f33640000000000
+halfCounterexample x=0007 y=1571 source=3f33edfff4000000 expected=3f33f00000000000 direct=3f33ec0000000000
+halfCounterexample x=0009 y=2255 source=3f0ff40010000000 expected=3f0ff00000000000 direct=3f0ff80000000000
+productParityCounterexample x=000c y=0854 source=3f4755fff0000000 expected=3f47580000000000 simplified=3f47540000000000
+productParityCounterexample x=000c y=0d35 source=3f46ddfff0000000 expected=3f46e00000000000 simplified=3f46dc0000000000
+productParityCounterexample x=0014 y=0c08 source=3f533dfff0000000 expected=3f53400000000000 simplified=3f533c0000000000
+Early reject: cases=637961 missingProductParityErrors=3

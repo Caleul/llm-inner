@@ -43,6 +43,44 @@ class CheckpointStringTests(unittest.TestCase):
             builder.config["attention_bias"]=True
             self.assertIsNone(layer(builder,"model.layers.0."))
 
+    @unittest.skipUnless(os.environ.get("LLM_INNER_DIRECT_JSON_CHECKPOINT"),"Checkpoint validation fixture not configured")
+    def test_closed_rms_store_preserves_epsilon_and_double_rounding_counterexamples(self):
+        from direct_sympy_conversions_test import cpp
+        checkpoint=os.environ["LLM_INNER_DIRECT_JSON_CHECKPOINT"]
+        with CheckpointStrings(checkpoint,StringCompiler(max_characters=1048576)) as builder:
+            self.assertEqual(builder.width,2)
+            expression=builder.norm("rounding:proof","model.layers.0.input_layernorm.weight",0,lambda i:f"X{i+1}")
+            epsilon=repr(f32(builder.config["rms_norm_eps"]))
+            gamma=builder.weight("model.layers.0.input_layernorm.weight",0)
+            for name in ("R16(","R32(","sqrt(","CASNumericRegion"):
+                self.assertNotIn(name,expression)
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/"normalization.work.expr";path.write_text(expression+"\n")
+            source=Path(directory)/"rms.cpp";binary=Path(directory)/"rms"
+            source.write_text("#include <cstdint>\n#include <cstring>\n#include <cmath>\n#include <cstdio>\n#include <cfenv>\n#include <initializer_list>\ntemplate<class T,class U>T word(U value){T result;std::memcpy(&result,&value,sizeof(result));return result;}\n"+
+                "double compiled(double X1,double X2){return "+cpp(syntax(path.read_text()))+";}\n"+'''
+int main(){if(std::fesetround(FE_TONEAREST))return 2;unsigned cases=0,mismatches=0,unsafeEpsilon=0,unsafeHalf=0,unsafeProduct=0;
+for(unsigned bits=0;bits<65536;bits++){if((bits&0x7c00)==0x7c00)continue;
+for(uint16_t other:{uint16_t(0),uint16_t(0x8000),uint16_t(1),uint16_t(3),uint16_t(0x0c01),uint16_t(0x1001),uint16_t(0x3c00),uint16_t(0xbc00),uint16_t(0x3555),uint16_t(0x7bff),uint16_t(0xfbff),uint16_t(0x0854),uint16_t(0x0d35),uint16_t(0x0c08)}){
+double x=word<_Float16>(uint16_t(bits)),y=word<_Float16>(other);
+float sum=float(x*x)+float(y*y);double variance=double(sum/2.0f)+double(EPSILON);
+uint64_t raw=word<uint64_t>(variance);double withoutEpsilonParity=word<double>((raw+UINT64_C(268435455))&UINT64_C(18446744073172680704));
+unsafeEpsilon+=word<uint64_t>(withoutEpsilonParity)!=word<uint64_t>(double(float(variance)));
+float inverse=1.0f/std::sqrt(float(variance));double product=x*double(inverse);
+double normalized=static_cast<_Float16>(float(product));double expected=static_cast<_Float16>(float(normalized*GAMMA));
+unsafeHalf+=word<uint64_t>(normalized)!=word<uint64_t>(double(static_cast<_Float16>(product)));
+uint64_t p=word<uint64_t>(product);double noProductParity=word<double>((p+UINT64_C(268435455))&UINT64_C(18446744073172680704));
+unsafeProduct+=word<uint64_t>(normalized)!=word<uint64_t>(double(static_cast<_Float16>(noProductParity)));
+mismatches+=word<uint64_t>(compiled(x,y))!=word<uint64_t>(expected);cases++;
+}}std::printf("Closed RMS rounding parity: cases=%u mismatches=%u unsafeEpsilon=%u unsafeHalf=%u unsafeProduct=%u\\n",cases,mismatches,unsafeEpsilon,unsafeHalf,unsafeProduct);
+return (mismatches||!unsafeEpsilon||!unsafeHalf||!unsafeProduct)?1:0;}
+'''.replace("EPSILON",epsilon).replace("GAMMA",gamma))
+            built=subprocess.run(["clang++","-O3","-ffp-contract=off","-std=c++17",str(source),"-o",str(binary)],capture_output=True,text=True)
+            self.assertEqual(built.returncode,0,built.stderr)
+            result=subprocess.run([str(binary)],capture_output=True,text=True,timeout=120)
+            self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+            self.assertIn("cases=888832 mismatches=0",result.stdout);print(result.stdout,end="")
+
     def test_unclosed_numeric_producer_is_never_published(self):
         with tempfile.TemporaryDirectory() as directory:
             (Path(directory)/'config.json').write_text(json.dumps({'model_type':'llama','hidden_size':1,'num_hidden_layers':1}))

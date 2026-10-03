@@ -1126,3 +1126,31 @@ registrada em `09e548a`, com 597 testes, 579 aprovados, quinze falhas
 conhecidas e três ignorados; ela não foi repetida após esta alteração
 localizada do kernel. O mapa `lobattoSqrtValidation` registra os artefatos,
 as candidatas recusadas, o crescimento e o alcance exato das provas.
+
+## Contraexemplos nas fronteiras da segunda normalização
+
+A soma da média com epsilon pode atingir pontos médios F32 com retenção
+ímpar. Retirar esse desempate alterou 2.816 casos em um corpus de 698.368
+pares. Substituir F32 → Half por uma conversão direta alterou 42 casos.
+Nesse primeiro corpus, retirar o desempate do produto antes do Half não
+produziu divergências, mas uma busca adicional encontrou três contraexemplos
+após examinar 637.961 pares positivos, interrompendo-se na terceira falha.
+Essa busca não foi uma enumeração completa do domínio de pares.
+
+O teste da string real emitida de RMS foi ampliado para todos os 63.488
+padrões Half finitos da primeira entrada, combinados com quatorze valores
+da segunda. Nos 888.832 casos, a expressão relida preservou todos os bits.
+As variantes inseguras falharam em 6.888 casos para epsilon, 56 para o
+armazenamento Half direto e seis para o desempate do produto. Os pares
+subnormais `000c/0854`, `000c/0d35` e `0014/0c08`, em bits Half hexadecimais,
+estão incluídos nessa regressão. O teste verifica também que cada variante
+insegura realmente falha, evitando um corpus que nunca exercita a fronteira.
+
+Build e seis testes dirigidos passaram; a suíte Python do checkpoint agora
+possui oito testes. Não houve mudança da implementação do compilador nesta
+etapa: as simplificações inseguras foram recusadas. A identidade completa
+do estado anterior e os nove hashes dos objetos foram conferidos, sem
+restaurar produtores nem reiniciar a compilação. A segunda normalização
+continua prevendo 436.570.118 caracteres; a coordenada completa e sua
+paridade continuam pendentes. O mapa `rmsRoundingFrontierValidation`
+registra as provas, contraexemplos e a compatibilidade do estado.

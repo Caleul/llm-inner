@@ -1,0 +1,7 @@
+epsilonCounterexample x=0004 y=0c01 source=3eb14737b0000000 expected=3eb14737c0000000 noParity=3eb14737a0000000
+epsilonCounterexample x=000a y=1001 source=3eb2c7f7f0000000 expected=3eb2c7f800000000 noParity=3eb2c7f7e0000000
+epsilonCounterexample x=000c y=0c01 source=3eb14737f0000000 expected=3eb1473800000000 noParity=3eb14737e0000000
+halfCounterexample x=01ff y=0c01 source=3f9eba000da00000 expected=3f9eb80000000000 direct=3f9ebc0000000000
+halfCounterexample x=054e y=3c00 source=3f1e02000b100000 expected=3f1e000000000000 direct=3f1e040000000000
+halfCounterexample x=054e y=bc00 source=3f1e02000b100000 expected=3f1e000000000000 direct=3f1e040000000000
+RMS rounding frontier: cases=698368 epsilonOddTies=2816 missingEpsilonParityErrors=2816 productOddTies=992 directHalfErrors=42 missingProductParityErrors=0

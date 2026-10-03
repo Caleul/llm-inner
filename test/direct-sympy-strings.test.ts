@@ -22,6 +22,7 @@ test('SymPy checkpoint working string is re-read and matches a freshly captured 
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_checkpoint_test.py'],{timeout:120_000,maxBuffer:1024*1024});
     assert.match(stderr,/OK/);
     assert.match(stdout,/60 exact cases/);
+    assert.match(stdout,/Closed RMS rounding parity: cases=888832 mismatches=0/);
     assert.match(stdout,/Closed gate\/up projection parity: cases=1015808 mismatches=0/);
     assert.match(stdout,/finalParity=false/);
   });

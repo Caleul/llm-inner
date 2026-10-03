@@ -6872,5 +6872,87 @@
       "docs/evidence/direct-sympy-sqrt-lobatto-substitutions.tsv": "d9170daedd71268a6e4a07db56b3f636f153ea085af28988fd66a721ed781272",
       "docs/evidence/direct-sympy-sqrt-lobatto-synchronization.tsv": "e00dab3eed2648c656df497dd5380bb4181b1d6271f5723ef7373783a565c576"
     }
+  },
+  "rmsRoundingFrontierValidation": {
+    "baseCommit": "a215ddc",
+    "purpose": "Validate complete emitted RMS store on previously missing subnormal contexts; reject unsafe simplifications before next substitution",
+    "diagnosticCorpus": {
+      "cases": 698368,
+      "epsilonOddTies": 2816,
+      "missingEpsilonParityErrors": 2816,
+      "productOddTies": 992,
+      "directHalfErrors": 42,
+      "missingProductParityErrors": 0
+    },
+    "targetedSearch": {
+      "positiveHalfPairsExamined": 637961,
+      "earlyStopAtThirdMissingProductParityError": true,
+      "exhaustivePairDomain": false,
+      "counterexampleInputBits": [
+        [
+          "000c",
+          "0854"
+        ],
+        [
+          "000c",
+          "0d35"
+        ],
+        [
+          "0014",
+          "0c08"
+        ]
+      ]
+    },
+    "actualClosedRmsStore": {
+      "cases": 888832,
+      "mismatches": 0,
+      "scope": "position0 pre-attention RMS coordinate0, every finite Half first input and fourteen selected Half second inputs, real checkpoint epsilon/gamma; not final output",
+      "unsafeEpsilonErrors": 6888,
+      "unsafeDirectHalfErrors": 56,
+      "unsafeMissingProductParityErrors": 6
+    },
+    "tests": {
+      "buildExitCode": 0,
+      "directedNodeTests": 6,
+      "directedFailures": 0,
+      "engine": 26,
+      "conversions": 24,
+      "checkpoint": 8,
+      "savepoints": 4,
+      "silu": 1,
+      "sqrt": 1,
+      "lastFullRegressionCommit": "09e548a",
+      "fullRegressionRepeatedAfterThisTestOnlyChange": false
+    },
+    "savedFrontier": {
+      "directory": "artifacts/direct-sympy-sqrt-lobatto-frontier",
+      "fullIdentityVerifiedCompatible": true,
+      "allNineDigestsVerified": true,
+      "compilerSourcesUnchanged": 13,
+      "restoredProducers": 0
+    },
+    "compilationStatus": {
+      "finalCoordinateAdmitted": false,
+      "lastCompletedDependencies": 9,
+      "predictedPostInverseCharacters": 436570118,
+      "resourceLimitCharacters": 67108864,
+      "fullVector": false,
+      "lastTokenParity": false,
+      "compilationImplementationChanged": false
+    },
+    "testSourceHashes": {
+      "helpers/direct_sympy_checkpoint_test.py": "c951fe332d5ab51664db86b6bd541d060a6b4a1ff30f5ca14ca464d4c1a3aaf6",
+      "test/direct-sympy-strings.test.ts": "a5440c30c211a81e98852db41abf3e40f6a9ff6f3924f0c895f5e23c2a3ea5dc"
+    },
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-rms-frontier-build.log": "a408d94a3fffc856dc5364f9d4b4ab56fde09205ec19cae0976763ea611ad3df",
+      "docs/evidence/direct-sympy-rms-frontier-checkpoint.log": "ee174d71c0c9baef537e403610555f483fb2d5fafb6f3f05e98c3894c5744bc7",
+      "docs/evidence/direct-sympy-rms-frontier-compatibility.log": "9b1e99c1abe58cf49c70a64a51efda2ca57660d8005ecf2a5842d0e2485c073f",
+      "docs/evidence/direct-sympy-rms-frontier-corpus.cpp": "2ef2c3fb2d33e67e2d298ed154a916afd23eafe8a7273c553637aa603c7c1984",
+      "docs/evidence/direct-sympy-rms-frontier-corpus.log": "6401000facb7025c36a4b20ba1495bfd111199776bd94d9598cbad28377ebf86",
+      "docs/evidence/direct-sympy-rms-frontier-directed.log": "afddf0e91329b984c8070afa2789587c2cb2d1deaabcc0f48cc093b3637bc3b0",
+      "docs/evidence/direct-sympy-rms-frontier-search.cpp": "b910407b2f8bff020917fc7a9df88a31540ba33eb154c43cb266b1ab7782c82a",
+      "docs/evidence/direct-sympy-rms-frontier-search.log": "9b1eb064b5935155365a25b4ea6f5b837d191532f2cd891a252aa1a53b0feb03"
+    }
   }
 }
