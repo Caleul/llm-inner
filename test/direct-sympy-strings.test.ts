@@ -4,6 +4,13 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 
 const python=process.env.LLM_INNER_DIRECT_PYTHON;
+test('Equivalent scan backend preserves Unicode regex results and byte-identical saved compiler states',
+  {skip:!python},async()=>{
+    const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_scan_backend_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 5 tests/);
+    assert.match(stderr,/OK/);
+    assert.match(stdout,/"identical": true/);
+  });
 test('SymPy savepoints preserve completed rounding frontiers and reject incompatible or corrupt state',
   {skip:!python},async()=>{
     const {stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_savepoints_test.py'],{timeout:120_000});

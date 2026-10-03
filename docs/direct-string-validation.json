@@ -8303,5 +8303,75 @@
       "docs/evidence/direct-sympy-activation-substitutions.tsv": "80d799aa5acc0de174f5c0e7218fc44548dece05553a49168d57624d1d1c90b3",
       "docs/evidence/direct-sympy-activation-synchronization.tsv": "b12b99830e664d977dccb162bc3a0d46f7fe878a7d278df6455a1b08a5162af9"
     }
+  },
+  "equivalentScanBackendValidation": {
+    "expressionFormat": "Mathematical strings; JSON only evidence and savepoint metadata",
+    "backend": "Optional necessary-literal regex prefilters and stdlib boundary matching; numerical helpers unchanged",
+    "entrypoint": "helpers/direct_sympy_scan_cli.py",
+    "provenance": "Backend hashes reported separately from strict saved compiler semantics; no manifest rewriting",
+    "semanticSourcesVerified": 13,
+    "backendTests": {
+      "tests": 5,
+      "pass": 5,
+      "scope": "Unicode boundaries, flags, fallback API, byte-identical old savepoints, exact streamed diagnostic writes"
+    },
+    "sympyStringTests": {
+      "tests": 27,
+      "pass": 27,
+      "scope": "Per-substitution factor/simplify, fixed points, isolated branches and IEEE rewrite refusals"
+    },
+    "build": "passed",
+    "directedNodeTests": {
+      "tests": 7,
+      "pass": 7
+    },
+    "regression": {
+      "failureNamesIdentical": true,
+      "newFailures": [],
+      "baseline": {
+        "tests": 597,
+        "pass": 579,
+        "fail": 15,
+        "skipped": 3
+      },
+      "current": {
+        "tests": 598,
+        "pass": 580,
+        "fail": 15,
+        "skipped": 3
+      },
+      "frontierUnchanged": true,
+      "completedDependencies": 15,
+      "semanticSourcesVerified": 13,
+      "frontierSha256": "0c5b1eff9f5b7de2a4f5af2e52b072d2315184e6c87e6766887a429c7acda38e",
+      "firstResume": {
+        "exitCode": 137,
+        "cause": "SIGKILL; origin not established",
+        "reportEmitted": false
+      },
+      "isolatedResume": {
+        "exitCode": 137,
+        "cause": "SIGKILL; origin not established",
+        "restoredDependencies": 15,
+        "lastCapturedOperation": "StringCompiler.compact_regions during stabilize_budget_envelope for gated product",
+        "frontierUnchanged": true,
+        "finalArtifactEmitted": false,
+        "physicalFootprintSampleGiB": 11.6,
+        "peakPhysicalFootprintAtSampleGiB": 21.5
+      }
+    },
+    "finalParity": false,
+    "otherCoordinatesAdvanced": false,
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-scan-backend.log": "7a71cf0c617ca5718adacd65dbf9260bf051619834b5d488b81f1a40c3273ce2",
+      "docs/evidence/direct-sympy-scan-build.log": "a408d94a3fffc856dc5364f9d4b4ab56fde09205ec19cae0976763ea611ad3df",
+      "docs/evidence/direct-sympy-scan-directed.log": "094560807aa1cf7709566eca2c535aef2842b63697f8138ebdf110a8b3ea37a2",
+      "docs/evidence/direct-sympy-scan-isolated-profile.log": "d71b6a7c7c386000dabf385199ebc0950d5947a6cacf6ee3f5ecb042c2c11636",
+      "docs/evidence/direct-sympy-scan-isolated-resume.log": "b9240f04a9684bcbf6d175174f3248ffc197beb56f54aeefbd2688c16d0f94ea",
+      "docs/evidence/direct-sympy-scan-regression.log": "b4d2cdc4e71c3d7dd01a3f7e1bc96b433ea6a2aa2ae0340188954932e5ae77aa",
+      "docs/evidence/direct-sympy-scan-strings.log": "d532b4aa0ae7a92d20fe1fa5d4602a578f33b952729244b4c72fb057793492fb",
+      "docs/evidence/direct-sympy-scan-regression-comparison.json": "fbdde66e77365558d52d3e245b7cdf3100fa788811a5ce1c448cd8904322f1ea"
+    },
+    "evidenceFormatting": "Build/regression logs normalize trailing whitespace only; content and failure names preserved"
   }
 }

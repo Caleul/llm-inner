@@ -1,0 +1,35 @@
+{
+  "failureNamesIdentical": true,
+  "newFailures": [],
+  "baseline": {
+    "tests": 597,
+    "pass": 579,
+    "fail": 15,
+    "skipped": 3
+  },
+  "current": {
+    "tests": 598,
+    "pass": 580,
+    "fail": 15,
+    "skipped": 3
+  },
+  "frontierUnchanged": true,
+  "completedDependencies": 15,
+  "semanticSourcesVerified": 13,
+  "frontierSha256": "0c5b1eff9f5b7de2a4f5af2e52b072d2315184e6c87e6766887a429c7acda38e",
+  "firstResume": {
+    "exitCode": 137,
+    "cause": "SIGKILL; origin not established",
+    "reportEmitted": false
+  },
+  "isolatedResume": {
+    "exitCode": 137,
+    "cause": "SIGKILL; origin not established",
+    "restoredDependencies": 15,
+    "lastCapturedOperation": "StringCompiler.compact_regions during stabilize_budget_envelope for gated product",
+    "frontierUnchanged": true,
+    "finalArtifactEmitted": false,
+    "physicalFootprintSampleGiB": 11.6,
+    "peakPhysicalFootprintAtSampleGiB": 21.5
+  }
+}

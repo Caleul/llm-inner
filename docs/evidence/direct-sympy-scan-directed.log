@@ -1,0 +1,15 @@
+✔ Equivalent scan backend preserves Unicode regex results and byte-identical saved compiler states (3225.342208ms)
+✔ SymPy savepoints preserve completed rounding frontiers and reject incompatible or corrupt state (5874.317375ms)
+✔ SymPy string substitution factors and simplifies each step with isolated IEEE branch proofs (2080.147583ms)
+✔ SymPy checkpoint working string is re-read and matches a freshly captured coordinate reference (10287.882125ms)
+✔ SymPy elementary conversion strings preserve native IEEE cells and composed boundaries (12636.269667ms)
+✔ Bounded SiLU arithmetic lowering matches every certified Half scalar and vector input (2779.19125ms)
+✔ Positive F32 square-root word lowering preserves all mantissas, parities and subnormals (886.810209ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 38072.541209
