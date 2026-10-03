@@ -1,0 +1,2 @@
+Restored completed dependencies: 12
+Compilation stopped: Substitution exceeds string budget before allocation: variable=X999999999 templateCharacters=1316872220 replacementCharacters=1316872178 occurrences=1 estimatedCharacters=2633744392 limit=1610612736; completedDependencies=14 lastDependency=model.layers.0.up:0 closedConversions=4 redundantConversions=0 reusedConvertedRegions=4 visitedConversionNodes=34; no coordinate artifact admitted

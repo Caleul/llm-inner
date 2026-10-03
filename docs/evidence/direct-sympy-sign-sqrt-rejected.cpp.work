@@ -1,0 +1,5 @@
+#include <cmath>
+#include <cstdint>
+#include <cstring>
+#include <cstdio>
+int main(){unsigned mismatch=0;double error=0;for(uint32_t b=0;b<(1u<<23);b++){uint32_t bits=0x3f800000+b;float v;std::memcpy(&v,&bits,4);double z=double(v)-1.5;double seed=(1.224744871391589+z*(1.0294870565343948+z*0.17419039766421152))/(1.0+z*(0.507247903505105+z*0.02869157717198823));double y=0.5*(seed+double(v)/seed);error=std::fmax(error,std::fabs(seed/std::sqrt(double(v))-1));for(unsigned parity=0;parity<2;parity++){float actual=float(y*(1.0+parity*0.4142135623730951));float expected=std::sqrt(v*(parity?2.0f:1.0f));if(actual!=expected){if(mismatch<8)std::printf("b=%u p=%u actual=%a expected=%a\n",b,parity,double(actual),double(expected));mismatch++;}}}std::printf("cases=16777216 mismatches=%u maxSeedError=%.17g\n",mismatch,error);return mismatch?1:0;}

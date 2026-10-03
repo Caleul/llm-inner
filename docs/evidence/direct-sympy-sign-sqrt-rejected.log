@@ -1,0 +1,9 @@
+b=126879 p=1 actual=0x1.6cc43p+0 expected=0x1.6cc42ep+0
+b=211534 p=0 actual=0x1.03352ap+0 expected=0x1.033528p+0
+b=460608 p=0 actual=0x1.06ef36p+0 expected=0x1.06ef34p+0
+b=580298 p=0 actual=0x1.08b4e4p+0 expected=0x1.08b4e2p+0
+b=729665 p=1 actual=0x1.7974bcp+0 expected=0x1.7974bap+0
+b=1040450 p=1 actual=0x1.7fd5acp+0 expected=0x1.7fd5aap+0
+b=1560347 p=1 actual=0x1.8a464ap+0 expected=0x1.8a4648p+0
+b=1847640 p=1 actual=0x1.8fed3ep+0 expected=0x1.8fed3cp+0
+cases=16777216 mismatches=39 maxSeedError=1.3969706693650608e-06

@@ -312,6 +312,26 @@ class ConversionSession:
             return source is not None and source.quantum is not None and source.quantum>=minimum and self.no_negative_zero(node.args[0])
         return False
 
+    def same_sign_operand(self,node):
+        """Smaller finite producer with the same sign bit, including -0.
+
+        A strictly positive finite factor/divisor cannot change the IEEE
+        sign. Unknown intervals, zero factors and nonfinite results are
+        barriers. No magnitude or branch condition is substituted here.
+        """
+        if self.bounds(node) is None:return node
+        if isinstance(node,ast.Call) and node.func.id in ("R16","R32") and len(node.args)==1:
+            return self.same_sign_operand(node.args[0])
+        if isinstance(node,ast.BinOp) and isinstance(node.op,(ast.Mult,ast.Div)):
+            right=self.bounds(node.right)
+            if right is not None and right.minimum>0:
+                return self.same_sign_operand(node.left)
+            if isinstance(node.op,ast.Mult):
+                left=self.bounds(node.left)
+                if left is not None and left.minimum>0:
+                    return self.same_sign_operand(node.right)
+        return node
+
     def encoded_word_is_exact_integer(self,node):
         """A <=42-bit significand leaves >=11 trailing raw-word zeros.
 
@@ -597,7 +617,9 @@ class ConversionSession:
                         raw=inner.args[0];certificate=session.bounds(raw)
                         if tandem_supported(certificate) and session.value_kind(raw) is None:
                             raw=self.visit(raw)
-                            text=lower_tandem(ast.unparse(raw),certificate,session.compiler,session.domains,integer_word_exact=session.encoded_word_is_exact_integer(raw))
+                            sign=session.same_sign_operand(raw)
+                            sign_expression=None if sign is raw else ast.unparse(sign)
+                            text=lower_tandem(ast.unparse(raw),certificate,session.compiler,session.domains,integer_word_exact=session.encoded_word_is_exact_integer(raw),sign_expression=sign_expression)
                             rewritten=syntax(text);session.closed+=2
                             if before is not None:
                                 key=session.key(rewritten);session.completed[key]=before

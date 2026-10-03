@@ -10,12 +10,16 @@ def supported(certificate):
     return certificate is not None and certificate.quantum is not None and certificate.quantum>=-126 and max(abs(certificate.minimum),abs(certificate.maximum))<2**128-2**103
 
 
-def lower_tandem(source,certificate,compiler,domains,*,integer_word_exact=False):
+def lower_tandem(source,certificate,compiler,domains,*,integer_word_exact=False,sign_expression=None):
     if not supported(certificate):raise ValueError("Tandem conversion requires finite normal-or-zero F32 source")
     source=compiler.stabilize("("+source+")",domains)
     raw="Bits64(X999999997)"
     mag=f"U64And({raw}, 9223372036854775807)"
-    sign=f"U64And({raw}, 9223372036854775808)"
+    # Caller may certify a smaller expression with the identical IEEE sign,
+    # including both zeros. Only the sign field uses it; magnitude, rounding
+    # and every branch threshold still use the original producer.
+    sign_raw=raw if sign_expression is None else "Bits64(X999999996)"
+    sign=f"U64And({sign_raw}, 9223372036854775808)"
     # At a Half midpoint the F32 significand is even. Its whole closed
     # F64 tie cell [mid-2^28 ulps, mid+2^28 ulps] maps to that midpoint.
     # Even Half lower endpoints therefore switch above mid+2^28; odd ones
@@ -48,4 +52,6 @@ def lower_tandem(source,certificate,compiler,domains,*,integer_word_exact=False)
     if minimum>=small or certificate.quantum>=-24:template=above
     elif maximum<small:template=sub
     else:template=f"Piecewise(({sub}, {mag} < {small_bits}), ({above}, True))"
+    if sign_expression is not None:
+        template=compiler.substitute(template,"X999999996",sign_expression,domains)
     return simplify_words(compiler.substitute(template,"X999999997",source,domains),compiler,domains)

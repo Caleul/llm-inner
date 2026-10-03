@@ -30,7 +30,8 @@ test('SymPy checkpoint working string is re-read and matches a freshly captured 
 test('SymPy elementary conversion strings preserve native IEEE cells and composed boundaries',
   {skip:!python},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_conversions_test.py'],{timeout:120_000,maxBuffer:1024*1024});
-    assert.match(stderr,/Ran 27 tests/);
+    assert.match(stderr,/Ran 28 tests/);
+    assert.match(stdout,/Positive-factor sign parity: cases=507904 mismatches=0/);
     assert.match(stdout,/Compact envelope selector parity: cases=507904 mismatches=0/);
     assert.match(stdout,/Synchronized sibling native parity: cases=131072 mismatches=0/);
     assert.match(stdout,/Exact branch facts native parity: cases=196608 mismatches=0/);

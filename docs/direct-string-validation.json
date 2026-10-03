@@ -7968,5 +7968,161 @@
       "docs/evidence/direct-sympy-virtual-root-substitutions.tsv": "fa48a5a49871f5a909d7dbb8bb44945fa35706f78e8ca613ebd8fbcb35b1f709",
       "docs/evidence/direct-sympy-virtual-root-synchronization.tsv": "1418e082a78395d3bb959462085f14c8e8efbdc3389071ee75e6bfb8a408af86"
     }
+  },
+  "positiveFactorSignValidation": {
+    "date": "2026-10-03",
+    "format": "mathematical strings; JSON only evidence/savepoint metadata",
+    "change": "A tandem conversion may take its sign field from a smaller operand only when finite interval proofs show multiplication/division by a strictly positive finite operand. Magnitude, normal/subnormal/overflow decisions and rounding order retain the original producer.",
+    "unsupportedCases": "Unknown/zero/nonpositive factors retain the original sign expression; no real arithmetic reassociation or runtime shared scalar",
+    "build": {
+      "command": "npm run build",
+      "passed": true
+    },
+    "directed": {
+      "nodeTests": 6,
+      "pass": 6,
+      "pythonConversions": 28,
+      "positiveFactorNativeCases": 507904,
+      "mismatches": 0,
+      "coverage": "All finite Half values, eight positive F32 factors, signed zeros, underflow, normal/subnormal boundaries and Half overflow; emitted optimized kernel vs native F32/Half and unchanged kernel"
+    },
+    "regression": {
+      "tests": 597,
+      "pass": 579,
+      "fail": 15,
+      "skip": 3,
+      "newFailingNames": [],
+      "baseline": "docs/evidence/direct-sympy-virtual-root-regression.log",
+      "excluded": "Four JSON legacy model tests, unchanged"
+    },
+    "rejectedExploration": {
+      "candidate": "Quadratic/quadratic rational sqrt seed with one Newton correction",
+      "cases": 16777216,
+      "mismatches": 39,
+      "admitted": false,
+      "productionSqrtChanged": false
+    },
+    "frontier": {
+      "completedDependencies": 14,
+      "previousCompletedDependencies": 12,
+      "position": 0,
+      "outputDimension": 2,
+      "initialCharacterBudget": 629145600,
+      "resumeCharacterBudget": 1610612736,
+      "restoredDependencies": 12,
+      "sourceHashesVerified": 13,
+      "freshDirectoryAfterSourceChange": true,
+      "oldIncompatibleFrontierNotReused": true,
+      "previousPosteriorComponentCharacters": [
+        288836842,
+        288836874
+      ],
+      "posteriorComponentCharacters": [
+        164608933,
+        164608965
+      ],
+      "gateCharacters": 1316872194,
+      "upCharacters": 1316872178,
+      "nextSubstitutionPredictedCharacters": 2633744392,
+      "refusedBeforeAllocation": true,
+      "effectiveExpressions": [
+        {
+          "bounds": [
+            "-0x1.6a00000000000p+1",
+            "0x1.6a00000000000p+1",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 164608933,
+          "digest": "40b4dc7c5a71eef962da5743a19e7aea61050d2230cf1be10dfb3653a6fb7def",
+          "kind": "half",
+          "name": "model.layers.0.post:0",
+          "noNegativeZero": false,
+          "path": "artifacts/direct-sympy-sign-frontier/objects/40b4dc7c5a71eef962da5743a19e7aea61050d2230cf1be10dfb3653a6fb7def.expr"
+        },
+        {
+          "bounds": [
+            "-0x1.6a00000000000p+1",
+            "0x1.6a00000000000p+1",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 164608965,
+          "digest": "b4b4b9948518ab54460013ec15059f5ed8c48428e1fe08fcbad70d5c39def653",
+          "kind": "half",
+          "name": "model.layers.0.post:1",
+          "noNegativeZero": false,
+          "path": "artifacts/direct-sympy-sign-frontier/objects/b4b4b9948518ab54460013ec15059f5ed8c48428e1fe08fcbad70d5c39def653.expr"
+        },
+        {
+          "bounds": [
+            "-0x1.5c80000000000p-5",
+            "0x1.5c80000000000p-5",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 1316872194,
+          "digest": "9b6263ee0312ecd3bbee460baad57d8c22e651bba95179f50b565e640a5233d5",
+          "kind": "half",
+          "name": "model.layers.0.gate:0",
+          "noNegativeZero": false,
+          "path": "artifacts/direct-sympy-sign-frontier/objects/9b6263ee0312ecd3bbee460baad57d8c22e651bba95179f50b565e640a5233d5.expr"
+        },
+        {
+          "bounds": [
+            "-0x1.47c0000000000p-4",
+            "0x1.47c0000000000p-4",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 1316872178,
+          "digest": "ca2454da23c325f276f8d40e916ab3c269c2166e49d1dc14d7c042e6d381387b",
+          "kind": "half",
+          "name": "model.layers.0.up:0",
+          "noNegativeZero": false,
+          "path": "artifacts/direct-sympy-sign-frontier/objects/ca2454da23c325f276f8d40e916ab3c269c2166e49d1dc14d7c042e6d381387b.expr"
+        }
+      ]
+    },
+    "parity": {
+      "cases": 60,
+      "sequenceLengths": [
+        1,
+        2,
+        3,
+        4,
+        8
+      ],
+      "comparisons": 240,
+      "mismatches": 0,
+      "actualProducerFilesEvaluated": 14,
+      "method": "Read expanded files and verify SHA256, then verification-only evaluation with reuse of exact previously validated literal subtrees; fresh Torch hooks capture posterior norm, gate_proj and up_proj at position zero",
+      "scope": "Both posterior norm components and gate/up intermediate scalars; not final coordinate parity"
+    },
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "otherOutputCoordinatesAdvanced": false,
+    "remaining": "Close the SiLU scalar before substituting it into the up product. Currently gated() carries Silu16(gate) into op() and stops at the 2.63-billion-character raw product before numeric closure. Then continue MLP/down/final normalization/head and full coordinate/vector parity.",
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-sign-budget-simplifications.tsv": "8b1de2224ec754f958bba9189c28c09ad0aa839796c824b1f5b588271954fc9b",
+      "docs/evidence/direct-sympy-sign-build.log": "a408d94a3fffc856dc5364f9d4b4ab56fde09205ec19cae0976763ea611ad3df",
+      "docs/evidence/direct-sympy-sign-compile.log": "f74c44178863e66318e3c1cd830d018a4ae018ae9a13181afc5014a258f37441",
+      "docs/evidence/direct-sympy-sign-conditions.tsv": "cf895f64a5abc3c8cb66e89d3e8e142ddf86ba6dde7201e30da6d559e689ec39",
+      "docs/evidence/direct-sympy-sign-conversions.log": "80d81ffd01a366c2a93c998ab53f1ae5ac598865268ea78fe97875bb5a35bf5e",
+      "docs/evidence/direct-sympy-sign-directed.log": "c2830af8cfb35cd2661833e868379b834d7254ddaef88048281783fdd9b4a9f1",
+      "docs/evidence/direct-sympy-sign-frontier.json": "e620147cb62b50419a51871a0ad0e2417a5133b5ebc7e62453a0b3b7a8b4056e",
+      "docs/evidence/direct-sympy-sign-growth.tsv": "57d35239b486ca09de0692b01d6f648afa3a36c9167652671492c31fa885b5a0",
+      "docs/evidence/direct-sympy-sign-normalization-parity.log": "95b2ff6472705ddefeb10cf90388905b83258c60fd45d6f584973c4f4a898b3b",
+      "docs/evidence/direct-sympy-sign-numeric-envelopes.tsv": "6e1221318b764ade72b79e897b01b1cc8f86df267376b2fb1a9a4875d2a33ea8",
+      "docs/evidence/direct-sympy-sign-projections-parity.log": "ec1b04ccc783181f28ccd71bec27696c9d7e29b0c66467e9de5112aa58676139",
+      "docs/evidence/direct-sympy-sign-projections-parity.py.work": "aa705801118bc6023b5f0c6b07e5e5770ca1883491e7bec69b1b7eb3d67d5aa5",
+      "docs/evidence/direct-sympy-sign-regression.log": "d8796892973f62c94703af68e3ac2df8f2659e659dadd51dc6528916021c7af3",
+      "docs/evidence/direct-sympy-sign-resume.log": "dce0c9593fbf92e76d3c99a712ba5e7ca44dbfafff27b150afc78b4a3cb6dc62",
+      "docs/evidence/direct-sympy-sign-sqrt-rejected.cpp.work": "6a4d795a098775ffbee07ad8dea6f982ec6f2bcfb16db7fa08201ca89043211b",
+      "docs/evidence/direct-sympy-sign-sqrt-rejected.log": "e916357f07f54a41a70f4590d810e71269b232c8f4f7766e4aa383ee7d455235",
+      "docs/evidence/direct-sympy-sign-status.md": "258309fa4e1354b74ca8b56221e1555c80d112f55c5f7e61cb80d6bdd276611b",
+      "docs/evidence/direct-sympy-sign-substitutions.tsv": "c35bd88f09ee3259cfb113e59e60584e01f2a301c061ff3926827a6d8687c544",
+      "docs/evidence/direct-sympy-sign-synchronization.tsv": "07ca2a3dbd58cc725eb80c2a9d3a56de2dbb0c2645ee4a59a61e88c7e9984d7a"
+    }
   }
 }

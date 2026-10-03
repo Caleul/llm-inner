@@ -54,6 +54,34 @@ def cpp(node):
 
 
 class ConversionStringTests(unittest.TestCase):
+    def test_tandem_sign_uses_only_a_proven_positive_factor_and_preserves_native_bits(self):
+        domains={"X1":Domain(F(-65504),F(65504),-24,False),"X2":Domain(F(2)**-100,F(1024),-100,False)}
+        def session():
+            s=ConversionSession(StringCompiler(),domains,input_dtype="f16")
+            s.half_values.discard(s.key(syntax("X2")))
+            s.f32_values.add(s.key(syntax("X2")))
+            return s
+        optimized=session();control=session()
+        expression="R16(R32(X1*X2))"
+        result=optimized.close(expression)
+        with patch.object(control,"same_sign_operand",side_effect=lambda node:node):general=control.close(expression)
+        self.assertLess(result.count("X2"),general.count("X2"))
+        self.assertEqual(ast.unparse(optimized.same_sign_operand(syntax("X1*X2"))),"X1")
+        self.assertEqual(ast.unparse(optimized.same_sign_operand(syntax("X2*X1"))),"X1")
+        self.assertEqual(ast.unparse(optimized.same_sign_operand(syntax("X1/X2"))),"X1")
+        unknown=ConversionSession(StringCompiler(),{"X1":domains["X1"],"X2":Domain(F(0),F(1024),-100,False)},input_dtype="f16")
+        self.assertEqual(ast.unparse(unknown.same_sign_operand(syntax("X1*X2"))),"X1 * X2")
+        signed=ConversionSession(StringCompiler(),{"X1":domains["X1"],"X2":Domain(F(-1),F(1),-24,False)},input_dtype="f16")
+        self.assertEqual(ast.unparse(signed.same_sign_operand(syntax("X1*X2"))),"X1 * X2")
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);source=root/"sign.cpp";binary=root/"sign"
+            source.write_text('#include <cstdint>\n#include <cstring>\n#include <cmath>\n#include <cstdio>\n#include <initializer_list>\ntemplate<class T,class U>T word(U value){T result;std::memcpy(&result,&value,sizeof(result));return result;}\n'+'double candidate(double X1,double X2){return '+cpp(syntax(result))+';}\n'+'double control(double X1,double X2){return '+cpp(syntax(general))+';}\n'+'''int main(){unsigned cases=0,mismatches=0;for(uint32_t bits=0;bits<65536;bits++){if((bits&0x7c00)==0x7c00)continue;double x=word<_Float16>(uint16_t(bits));for(float factor:{0x1p-100f,0x1p-24f,0x1p-14f,0.000001f,0.75f,1.0f,1.25f,1024.0f}){double expected=double(_Float16(float(x*double(factor))));uint64_t got=word<uint64_t>(candidate(x,double(factor)));mismatches+=got!=word<uint64_t>(expected);mismatches+=got!=word<uint64_t>(control(x,double(factor)));cases++;}}std::printf("Positive-factor sign parity: cases=%u mismatches=%u\\n",cases,mismatches);return mismatches?1:0;}''')
+            built=subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],capture_output=True,text=True)
+            self.assertEqual(built.returncode,0,built.stderr)
+            run=subprocess.run([str(binary)],capture_output=True,text=True,timeout=120)
+            self.assertEqual(run.returncode,0,run.stdout+run.stderr)
+            self.assertIn('cases=507904 mismatches=0',run.stdout);print(run.stdout,end='')
+
     def test_closed_envelope_restores_exact_proofs_without_parsing_expanded_result(self):
         domains={"X1":Domain(F(-1),F(1),-24,False)}
         session=ConversionSession(StringCompiler(),domains,input_dtype="f16")
