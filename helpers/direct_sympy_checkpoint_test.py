@@ -163,7 +163,9 @@ return (mismatches||!unsafeEpsilon||!unsafeHalf||!unsafeProduct)?1:0;}
             builder.domains={'X1':Domain(F(-1),F(1),-24,False)}
             builder.conversions=ConversionSession(builder.compiler,builder.domains,input_dtype='f16')
             first=builder.producer('fixture:first',lambda:'R16(R32(X1+X1/2.0))')
-            result=builder.producer('fixture:twice',lambda:'R16(R32(('+first+')+('+first+')))')
+            # Exercise the original matching-selector pass independently.
+            with patch.object(builder.conversions,'close_frontier_candidates',side_effect=lambda compact,baseline,*_:baseline):
+                result=builder.producer('fixture:twice',lambda:'R16(R32(('+first+')+('+first+')))')
             self.assertTrue(any(e[-1]=='admitted' for e in builder.compiler.synchronization_events))
             self.assertNotIn('R16(',result);self.assertNotIn('R32(',result)
             self.assertEqual(result.count('Piecewise('),1)

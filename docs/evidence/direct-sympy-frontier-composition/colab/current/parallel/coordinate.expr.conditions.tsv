@@ -1,0 +1,156 @@
+path	arm	action
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+(0,)	0	decision
+(1,)	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+(0,)	0	decision
+(1,)	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+(0,)	0	decision
+(1,)	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+(0,)	0	decision
+(1,)	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+(0, 'nested')	0	decision
+(1, 'nested')	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+(0, 'nested')	0	decision
+(1, 'nested')	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+(0, 'nested')	0	decision
+(1, 'nested')	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+(0, 'nested')	0	decision
+(1, 'nested')	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+(0, 'nested')	0	decision
+('synchronized',)	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+(0, 'nested')	0	decision
+('synchronized',)	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+(0,)	0	decision
+(1,)	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+(0,)	0	decision
+(1,)	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+(0, 'nested')	0	decision
+(1, 'nested')	0	decision
+('synchronized',)	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+(1,)	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+(0,)	0	decision
+(1,)	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+()	0	decision
+(0,)	0	decision
+(1,)	0	decision
+('nested',)	0	decision
+('nested',)	0	decision
+('nested',)	0	decision
+('nested',)	0	decision
+('nested', 0, 'nested')	0	decision
+('nested', 1, 'nested')	0	decision
+()	0	decision
+(1, 'nested')	0	decision
+(1, 'nested', 0, 'nested')	0	decision
+(1, 'nested', 1, 'nested')	0	decision
+('nested',)	0	decision
+()	0	decision
+(1, 'nested')	0	decision
+()	0	decision
+()	0	decision
+(0, 'nested')	0	decision
+('synchronized',)	0	decision

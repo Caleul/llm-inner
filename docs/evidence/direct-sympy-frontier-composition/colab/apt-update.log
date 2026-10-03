@@ -1,0 +1,22 @@
+Get:1 https://cloud.r-project.org/bin/linux/ubuntu noble-cran40/ InRelease [3,631 B]
+Get:2 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64  InRelease [1,578 B]
+Get:3 https://cli.github.com/packages stable InRelease [3,917 B]
+Get:4 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64  Packages [1,884 kB]
+Hit:5 http://archive.ubuntu.com/ubuntu noble InRelease
+Get:6 http://security.ubuntu.com/ubuntu noble-security InRelease [126 kB]
+Get:7 http://archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]
+Get:8 https://r2u.stat.illinois.edu/ubuntu noble InRelease [9,161 B]
+Get:9 https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu noble InRelease [17.8 kB]
+Get:10 https://r2u.stat.illinois.edu/ubuntu noble/main amd64 Packages [3,040 kB]
+Hit:11 https://ppa.launchpadcontent.net/graphics-drivers/ppa/ubuntu noble InRelease
+Get:12 https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu noble/main amd64 Packages [52.1 kB]
+Get:13 http://archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]
+Get:14 http://security.ubuntu.com/ubuntu noble-security/main amd64 Packages [1,318 kB]
+Get:15 http://archive.ubuntu.com/ubuntu noble-updates/universe amd64 Packages [2,162 kB]
+Get:16 http://security.ubuntu.com/ubuntu noble-security/universe amd64 Packages [1,543 kB]
+Get:17 http://archive.ubuntu.com/ubuntu noble-updates/restricted amd64 Packages [2,127 kB]
+Get:18 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages [1,688 kB]
+Get:19 https://r2u.stat.illinois.edu/ubuntu noble/main all Packages [10.3 MB]
+Fetched 24.5 MB in 26s (958 kB/s)
+Reading package lists...
+W: Skipping acquire of configured file 'main/source/Sources' as repository 'https://r2u.stat.illinois.edu/ubuntu noble InRelease' does not seem to provide it (sources.list entry misspelt?)

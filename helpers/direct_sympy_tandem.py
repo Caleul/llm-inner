@@ -10,7 +10,7 @@ def supported(certificate):
     return certificate is not None and certificate.quantum is not None and certificate.quantum>=-126 and max(abs(certificate.minimum),abs(certificate.maximum))<2**128-2**103
 
 
-def lower_tandem(source,certificate,compiler,domains,*,integer_word_exact=False,sign_expression=None,small_condition=None):
+def lower_tandem(source,certificate,compiler,domains,*,integer_word_exact=False,sign_expression=None,small_condition=None,frontier=None):
     if not supported(certificate):raise ValueError("Tandem conversion requires finite normal-or-zero F32 source")
     source=compiler.stabilize("("+source+")",domains)
     raw="Bits64(X999999997)"
@@ -49,11 +49,17 @@ def lower_tandem(source,certificate,compiler,domains,*,integer_word_exact=False,
     minimum=certificate.minimum if certificate.minimum>0 else -certificate.maximum if certificate.maximum<0 else 0
     if maximum<overflow:above=normal
     else:above=f"Piecewise(({normal}, {mag} < {overflow_bits}), ({infinity}, True))"
+    mixed=False
     if minimum>=small or certificate.quantum>=-24:template=above
     elif maximum<small:template=sub
     else:
+        mixed=True
         condition=f"{mag} < {small_bits}" if small_condition is None else small_condition
         template=f"Piecewise(({sub}, {condition}), ({above}, True))"
     if sign_expression is not None:
         template=compiler.substitute(template,"X999999996",sign_expression,domains)
-    return simplify_words(compiler.substitute(template,"X999999997",source,domains),compiler,domains)
+    result=simplify_words(compiler.substitute(template,"X999999997",source,domains),compiler,domains)
+    if mixed and frontier is not None:
+        guard=compiler.substitute(condition,'X999999997',source,domains)
+        frontier.append((guard,-2**-14,2**-14,-24))
+    return result

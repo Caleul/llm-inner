@@ -370,6 +370,8 @@ def main():
             Path(str(path)+".synchronization.tsv").write_text("beforeCharacters\tcandidateCharacters\tafterCharacters\tlifts\tsynchronizedOperations\tstatus\n"+
                 "\n".join("\t".join(map(str,e)) for e in compiler.synchronization_events)+"\n")
             if model.conversions is not None:
+                Path(str(path)+".frontier-closures.tsv").write_text("producerAlias\tbeforeRestoredCharacters\tcandidateRestoredCharacters\tarms\tadmitted\n"+
+                    "\n".join("\t".join(map(str,e)) for e in model.conversions.frontier_events)+"\n")
                 Path(str(path)+".numeric-envelopes.tsv").write_text("inputCharacters\tvirtualCharacters\tclosedVirtualCharacters\texpandedCharacters\tcompletedRegions\n"+
                     "\n".join("\t".join(map(str,e)) for e in model.conversions.numeric_envelopes)+"\n")
             if compiler.failed_substitution is not None:

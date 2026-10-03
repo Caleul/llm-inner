@@ -46,8 +46,8 @@ MASK=2**64-1
 functions={'F64FromU64':lambda x:float(x),'U64FromF64':lambda x:int(x),'Bits64':lambda x:struct.unpack('Q',struct.pack('d',float(x)))[0],'Float64':lambda x:struct.unpack('d',struct.pack('Q',x))[0],'U64Add':lambda a,b:(a+b)&MASK,'U64Mul':lambda a,b:(a*b)&MASK,'U64And':lambda a,b:a&b,'U64Or':lambda a,b:a|b,'U64Shr':lambda a,b:a>>b,'And':lambda *x:all(x),'Or':lambda *x:any(x),'Not':lambda x:not x}
 torch.set_num_threads(1);model=AutoModelForCausalLM.from_pretrained(sys.argv[2],dtype=torch.float16,attn_implementation='eager').eval();observed={}
 handles=[]
-for label,module in [('post',model.model.layers[0].post_attention_layernorm),('gate',model.model.layers[0].mlp.gate_proj),('up',model.model.layers[0].mlp.up_proj),('activation',model.model.layers[0].mlp.act_fn)]:
- handles.append(module.register_forward_hook(lambda module,args,out,label=label:observed.__setitem__(label,out.detach().clone())))
+for label,module in [('post',model.model.layers[0].post_attention_layernorm),('gate',model.model.layers[0].mlp.gate_proj),('up',model.model.layers[0].mlp.up_proj),('activation',model.model.layers[0].mlp.act_fn),('hidden',model.model.layers[0]),('final',model.model.norm),('output',model.lm_head)]:
+ handles.append(module.register_forward_hook(lambda module,args,out,label=label:observed.__setitem__(label,(out[0] if isinstance(out,tuple) else out).detach().clone())))
 cases=json.loads(Path(sys.argv[3]).read_text())['cases'];comparisons=0
 for row in cases:
  matrix=torch.tensor([[struct.unpack('e',struct.pack('H',v))[0] for v in values] for values in row['inputBits']],dtype=torch.float16);observed.clear()
@@ -61,6 +61,15 @@ for row in cases:
   name=f'model.layers.0.{label}:0'
   if name in named:
    expected=float(observed[label][0,0,0]);actual=named[name];assert struct.pack('d',actual)==struct.pack('d',expected),(row['label'],label,actual,expected);comparisons+=1
+ if 'model.layers.0.gated:0' in named:
+  expected=float((observed['activation']*observed['up'])[0,0,0]);actual=named['model.layers.0.gated:0'];assert struct.pack('d',actual)==struct.pack('d',expected),(row['label'],'gated',actual,expected);comparisons+=1
+ for label,prefix in (('hidden','model.layers.0.hidden:'),('final','final:')):
+  for i in range(2):
+   if prefix+str(i) in named:
+    expected=float(observed[label][0,0,i]);actual=named[prefix+str(i)];assert struct.pack('d',actual)==struct.pack('d',expected),(row['label'],label,i,actual,expected);comparisons+=1
+ output='output:0:'+str(manifest['identity']['dimension'])
+ if output in named:
+  expected=float(observed['output'][0,0,manifest['identity']['dimension']]);actual=named[output];assert struct.pack('d',actual)==struct.pack('d',expected),(row['label'],'output',actual,expected);comparisons+=1
 for handle in handles:handle.remove()
 builder.__exit__(None,None,None)
-print(json.dumps({'cases':len(cases),'comparisons':comparisons,'mismatches':0,'producerFilesEvaluated':len(programs),'scope':'Full saved posterior normalization and completed gate/activation/up expressions, position 0; verification-only reuse of exact immutable earlier subtrees, not the final artifact or model coordinate parity','elapsedSeconds':time.monotonic()-started}))
+print(json.dumps({'cases':len(cases),'comparisons':comparisons,'mismatches':0,'producerFilesEvaluated':len(programs),'coordinateAtPositionZeroVerified':output in named,'scope':'Actual saved posterior normalization, gate/activation/up/gated and any completed hidden/final/output producers, position 0; verification-only reuse of immutable earlier subtrees. Does not prove the last-token next-token coordinate for variable sequence lengths.','elapsedSeconds':time.monotonic()-started}))

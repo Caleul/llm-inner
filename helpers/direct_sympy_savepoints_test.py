@@ -43,6 +43,8 @@ class SavepointTests(unittest.TestCase):
             with ProducerSavepoints(root/'state',resumed,0) as store:
                 self.assertEqual(store.restore(resumed),1)
                 self.assertIn(first,resumed.conversions.closed_literals)
+                self.assertEqual(resumed.conversions.selector_literals[first][3],original.conversions.selector_literals[first][3])
+                self.assertTrue(resumed.conversions.selector_literals[first][3])
                 self.assertEqual(self.first(resumed),first)
                 final=self.second(resumed)
                 self.assertEqual(final,self.second(original))
@@ -83,6 +85,7 @@ if(word<uint64_t>(candidate(x))!=word<uint64_t>(expected))return 1;
             self.assertIsNotNone(payload['records'][0]['bounds'])
             self.assertEqual(payload['records'][0]['kind'],'half')
 
+    @patch.object(ConversionSession,'close_frontier_candidates',lambda self,compact,baseline,*args:baseline)
     def test_restore_compacts_validated_dependencies_and_keeps_exact_structural_keys(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);original=self.model(root)

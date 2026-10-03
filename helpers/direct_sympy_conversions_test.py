@@ -54,6 +54,36 @@ def cpp(node):
 
 
 class ConversionStringTests(unittest.TestCase):
+    def test_certified_frontier_composition_closes_each_arm_before_restoring_operands(self):
+        import torch
+        domains={'X1':Domain(-F(1,64),F(1,64),-24,False),'X2':Domain(-F(1,64),F(1,64),-24,False)}
+        session=ConversionSession(StringCompiler(),domains,input_dtype='f16')
+        activation=session.close('Silu16(X1)');up=session.close('R16(X2/3.0)')
+        original_bounds=session.closed_literals[activation][0]
+        template='R16(R32(X999999998 * X999999999))';bindings={'X999999998':activation,'X999999999':up}
+        with patch.object(session,'close_frontier_candidates',side_effect=lambda compact,baseline,*_:baseline):baseline=session.compose_closed(template,bindings)
+        result=session.compose_closed(template,bindings)
+        self.assertLess(len(result),len(baseline))
+        self.assertTrue(any(event[-1] for event in session.frontier_events))
+        self.assertEqual(session.branch_depth,0)
+        self.assertEqual(session.value_kind(syntax(result)),'half')
+        self.assertEqual(session.closed_literals[activation][0],original_bounds)
+        for name in ('CASNumericRegion','CASStableRegion','R16(','R32(','Silu16('):self.assertNotIn(name,result)
+        pairs=[];inputs=[]
+        for bits in range(65536):
+            value=struct.unpack('e',struct.pack('H',bits))[0]
+            if abs(value)<=1/64:pairs.append(bits);inputs.append(value)
+        gold=torch.nn.functional.silu(torch.tensor(inputs,dtype=torch.float16)).view(torch.int16).tolist()
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);data=root/'gold.bin';data.write_bytes(b''.join(struct.pack('HH',a,b&65535) for a,b in zip(pairs,gold)))
+            source=root/'frontier.cpp';binary=root/'frontier'
+            source.write_text('#include <cstdint>\n#include <cstring>\n#include <cmath>\n#include <cstdio>\n#include <initializer_list>\ntemplate<class T,class U>T word(U value){T result;std::memcpy(&result,&value,sizeof(result));return result;}\n'+'double candidate(double X1,double X2){return '+cpp(syntax(result))+';}\n'+'double baseline(double X1,double X2){return '+cpp(syntax(baseline))+';}\n'+'''int main(int argc,char**argv){FILE*f=std::fopen(argv[1],"rb");uint16_t pair[2];unsigned cases=0,mismatches=0;while(std::fread(pair,2,2,f)==2){double x=word<_Float16>(pair[0]),a=word<_Float16>(pair[1]);for(double y:{-0x1p-6,-0x1p-14,-0x1p-24,-0.0,0.0,0x1p-24,0x1p-14,0x1p-6}){double u=double(_Float16(y/3.0)),expected=double(_Float16(float(a*u)));uint64_t got=word<uint64_t>(candidate(x,y));mismatches+=got!=word<uint64_t>(expected);mismatches+=got!=word<uint64_t>(baseline(x,y));cases++;}}std::printf("Certified frontier composition parity: cases=%u mismatches=%u characters=%u->%u\\n",cases,mismatches,'''+str(len(baseline))+','+str(len(result))+''');return mismatches?1:0;}''')
+            built=subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],capture_output=True,text=True)
+            self.assertEqual(built.returncode,0,built.stderr)
+            run=subprocess.run([str(binary),str(data)],capture_output=True,text=True,timeout=120)
+            self.assertEqual(run.returncode,0,run.stdout+run.stderr)
+            self.assertIn('cases=147472 mismatches=0',run.stdout);print(run.stdout,end='')
+
     def test_conversion_closure_owns_ordered_arm_bounds_and_native_parity(self):
         domains={'X1':Domain(F(-1),F(1),-24,False)}
         session=ConversionSession(StringCompiler(),domains,input_dtype='f16')
@@ -161,6 +191,7 @@ class ConversionStringTests(unittest.TestCase):
             self.assertEqual(run.returncode,0,run.stdout+run.stderr)
             self.assertIn('cases=507904 mismatches=0',run.stdout);print(run.stdout,end='')
 
+    @patch.object(ConversionSession,'close_frontier_candidates',lambda self,compact,baseline,*args:baseline)
     def test_closed_envelope_restores_exact_proofs_without_parsing_expanded_result(self):
         domains={"X1":Domain(F(-1),F(1),-24,False)}
         session=ConversionSession(StringCompiler(),domains,input_dtype="f16")
@@ -294,6 +325,7 @@ std::printf("Integer offset tandem parity: cases=%u mismatches=%u integerCastLos
             self.assertEqual(run.returncode,0,run.stdout+run.stderr)
             self.assertIn('cases=507904 mismatches=0',run.stdout);print(run.stdout,end='')
 
+    @patch.object(ConversionSession,'close_frontier_candidates',lambda self,compact,baseline,*args:baseline)
     def test_completed_rounding_frontiers_synchronize_inside_activation(self):
         domains={'X1':Domain(-F(1,64),F(1,64),-24,False)}
         compiler=StringCompiler();session=ConversionSession(compiler,domains,input_dtype='f16')
@@ -438,6 +470,7 @@ std::printf("Integer offset tandem parity: cases=%u mismatches=%u integerCastLos
             session.compose_closed(template,bindings)
         self.assertGreater(session.numeric_envelopes[-1][3],compiler.max_characters)
 
+    @patch.object(ConversionSession,'close_frontier_candidates',lambda self,compact,baseline,*args:baseline)
     def test_completed_numeric_envelopes_reuse_only_session_proofs_and_restore_literals(self):
         import direct_sympy_conversions as conversions
         domains={"X1":Domain(F(-1),F(1),-24,False)}

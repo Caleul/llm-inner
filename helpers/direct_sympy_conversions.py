@@ -47,7 +47,7 @@ def binary_exponent(value):
     return math.frexp(value)[1]-1
 
 
-def lower_finite_conversion(expression,kind,certificate,compiler,domains,path=(),*,no_odd_f32_ties=False,integer_word_exact=False):
+def lower_finite_conversion(expression,kind,certificate,compiler,domains,path=(),*,no_odd_f32_ties=False,integer_word_exact=False,frontier=None):
     if not isinstance(certificate,FiniteSource):
         raise ValueError("Finite source interval certificate required")
     if kind not in ("R32","R16"):
@@ -95,13 +95,20 @@ def lower_finite_conversion(expression,kind,certificate,compiler,domains,path=()
     above=normal if maximum<overflow else call("Piecewise",
         "("+normal+", "+magnitude+" < "+str(overflow_threshold)+")",
         "("+str(0x7ff0000000000000)+", True)")
+    mixed=False
     if maximum<smallest:positive=subnormal
     elif minimum>=smallest or zero_or_normal:positive=above
-    else:positive=call("Piecewise","("+subnormal+", "+magnitude+" < "+str(small_threshold)+")","("+above+", True)")
+    else:
+        mixed=True
+        positive=call("Piecewise","("+subnormal+", "+magnitude+" < "+str(small_threshold)+")","("+above+", True)")
     template=call("Float64",call("U64Or",positive,sign))
     # Substitute the producer only after the template is complete. Every arm
     # then runs factor/simplify under its own inherited condition context.
-    return simplify_words(compiler.substitute(template,"X999999997",source,domains,path),compiler,domains)
+    result=simplify_words(compiler.substitute(template,"X999999997",source,domains,path),compiler,domains)
+    if mixed and frontier is not None:
+        guard=compiler.substitute(magnitude+' < '+str(small_threshold),'X999999997',source,domains,path)
+        frontier.append((guard,-smallest,smallest,-149 if kind=='R32' else -24))
+    return result
 
 
 class ConversionSession:
@@ -138,6 +145,8 @@ class ConversionSession:
         self.selector_view_characters=0
         self.branch_depth=0
         self.branch_facts=()
+        self.frontier_bounds={}
+        self.frontier_events=[]
 
     @contextmanager
     def branch_context(self,domains,proofs,facts):
@@ -148,7 +157,7 @@ class ConversionSession:
         Strings and structural signatures are shared; only proof tables copy.
         """
         fields=('completed','half_values','f32_values','converted_regions',
-                'no_negative_zero_values')
+                'no_negative_zero_values','frontier_bounds')
         saved={name:getattr(self,name) for name in fields}
         old_domains,old_facts=self.domains,self.branch_facts
         for name,value in saved.items():setattr(self,name,value.copy())
@@ -192,7 +201,17 @@ class ConversionSession:
         result=dict(proofs);result[key]=FiniteSource(low,high,bound.quantum)
         return result
 
-    def remember_selector_literal(self,expression,view,leaves=None):
+    def remember_frontier_bounds(self,expression,certificates):
+        if not certificates:return
+        from direct_sympy_synchronize import frontier
+        functions={child.func.id for child in ast.walk(syntax(expression)) if isinstance(child,ast.Call) and self.key(child) in self.converted_regions}
+        arms=frontier(expression,pure_functions=functions)
+        if arms is None:return
+        known={self.key(syntax(guard)):FiniteSource(low,high,q) for guard,low,high,q in certificates}
+        bounds=tuple(known.get(self.key(condition)) for _,condition in arms)
+        if any(value is not None for value in bounds):self.frontier_bounds[self.key(syntax(expression))]=bounds
+
+    def remember_selector_literal(self,expression,view,leaves=None,arm_bounds=None):
         """Retain a bounded, compiler-only view of this rounding frontier.
 
         Leaf strings are immutable references, never copied or expanded here.
@@ -211,7 +230,10 @@ class ConversionSession:
         while self.selector_literals and self.selector_view_characters+footprint>limit:
             _,old=self.selector_literals.popitem(last=False)
             self.selector_view_characters-=old[2]
-        self.selector_literals[expression]=(view,leaves,footprint)
+        if arm_bounds is None:
+            key=self.closed_literal_keys.get(expression)
+            arm_bounds=self.frontier_bounds.get(key,())
+        self.selector_literals[expression]=(view,leaves,footprint,arm_bounds)
         self.selector_view_characters+=footprint
 
     def selector_views(self,protected,pure_functions):
@@ -220,7 +242,7 @@ class ConversionSession:
         for token,text in list(protected.items()):
             stored=self.selector_literals.get(text)
             if stored is None or token not in pure_functions:continue
-            view,leaves,_=stored
+            view,leaves,_,_=stored
             # A bounded proof cache may have evicted an earlier leaf. Keep
             # this producer opaque rather than restoring an unproven alias.
             if any(leaf not in self.closed_literal_keys for leaf in leaves.values()):continue
@@ -292,7 +314,7 @@ class ConversionSession:
             if old in self.converted_regions:self.converted_regions.add(new)
         return tree,original
 
-    def restore_compact_literal(self,expression,node,regions,bounds,kind,positive_zero,closed,restored_keys,restored_purity):
+    def restore_compact_literal(self,expression,node,regions,bounds,kind,positive_zero,closed,restored_keys,restored_purity,arm_bounds=()):
         """Recover exact structural identity from previously validated literals.
 
         Placeholders exist only during compilation. Interned structural keys,
@@ -315,6 +337,7 @@ class ConversionSession:
             self.closed_literal_keys.pop(old,None);self.closed_literal_pure.pop(old,None)
         self.closed_literals[expression]=(bounds,kind,positive_zero)
         self.closed_literal_keys[expression]=original;self.closed_literal_pure[expression]=pure
+        if arm_bounds:self.frontier_bounds[original]=arm_bounds
         self.closed_literal_characters+=len(expression)
         # Reconstruct the view from the validated, compact saved producer.
         # Persisted expressions contain no aliases; restore creates fresh
@@ -328,7 +351,7 @@ class ConversionSession:
                     leaves[token]=text
                     pattern=r'\b'+re.escape(old)+(r'\b' if not old.endswith(')') else '')
                     view=re.sub(pattern,lambda _:token+'()',view)
-                self.remember_selector_literal(expression,view,leaves)
+                self.remember_selector_literal(expression,view,leaves,arm_bounds)
         return original,pure
 
     def propagate_closed_identity(self,original,replacement):
@@ -630,6 +653,68 @@ class ConversionSession:
             estimated+=len(re.findall(r"\b"+name+r"\b",template))*(len(literal)+2-len(name))
         return self._close_completed(template,bindings,estimated,substitute=True)
 
+    def close_frontier_candidates(self,compact,baseline,protected,pure_functions,views,measure):
+        """Try one certified producer frontier after the substitution fixed
+        point. Close each selected arm with its own output interval/type,
+        then admit only an improvement in the fully restored expression.
+        """
+        from direct_sympy_synchronize import frontier
+        best=baseline;best_size=measure(baseline)
+        for token,view in views.items():
+            literal=protected[token];stored=self.selector_literals.get(literal)
+            if stored is None or not any(value is not None for value in stored[3]):continue
+            whole,kind,_=self.closed_literals[literal]
+            if whole is None or kind is None:continue
+            arms=frontier(ast.unparse(view),pure_functions=pure_functions)
+            if arms is None or len(arms)!=len(stored[3]) or len(arms)>16:continue
+            remaining=dict(self.domains);facts=self.branch_facts;result=[];result_bounds=[]
+            marker_key=self.key(syntax(token+'()'))
+            for (selected,condition),local in zip(arms,stored[3]):
+                own_facts=self.compiler.branch_facts.assume(condition,True,facts)
+                own=refine(remaining,condition,True) if own_facts is not None else None
+                low=whole.minimum if local is None else max(whole.minimum,local.minimum)
+                high=whole.maximum if local is None else min(whole.maximum,local.maximum)
+                if low>high:own=None
+                bounds=whole if local is None or own is None else FiniteSource(low,high,max(whole.quantum,local.quantum) if whole.quantum is not None and local.quantum is not None else whole.quantum if whole.quantum is not None else local.quantum)
+                if own is not None:
+                    selected_key=self.key(selected)
+                    with self.branch_context(own,{selected_key:bounds},own_facts):
+                        self.converted_regions.add(selected_key)
+                        if kind=='half':self.half_values.add(selected_key)
+                        self.f32_values.add(selected_key)
+                        body=re.sub(r'\b'+token+r'\(\)',lambda _: '('+ast.unparse(selected)+')',compact)
+                        # Keep original correlation certificates on enclosing
+                        # operations, intersected with tighter arm bounds.
+                        tree=syntax(body)
+                        for node,old in self.signatures.translated_keys(tree,{selected_key:marker_key}).items():
+                            key=self.key(node)
+                            if key==selected_key:continue
+                            previous=self.completed.get(old)
+                            if previous is not None:
+                                inferred=self.bounds(node)
+                                if inferred is not None:
+                                    previous=FiniteSource(max(previous.minimum,inferred.minimum),min(previous.maximum,inferred.maximum),previous.quantum)
+                                self.completed[key]=previous
+                            if old in self.half_values:self.half_values.add(key)
+                            if old in self.f32_values:self.f32_values.add(key)
+                        body=self._close(self.compiler.stabilize(body,self.domains,facts=own_facts))
+                        result_bounds.append(self.bounds(syntax(body)))
+                    result.append('('+body+', '+ast.unparse(condition)+')')
+                facts=self.compiler.branch_facts.assume(condition,False,facts)
+                remaining=refine(remaining,condition,False)
+                if remaining is None or facts is None:break
+            if not result:continue
+            candidate=self.compiler.stabilize('Piecewise('+', '.join(result)+')',self.domains)
+            candidate_size=measure(candidate)
+            admitted=candidate_size<best_size
+            self.frontier_events.append((token,best_size,candidate_size,len(result),admitted))
+            if admitted:
+                self.propagate_closed_identity(baseline,candidate)
+                extracted=frontier(candidate,pure_functions=pure_functions)
+                if extracted is not None and len(extracted)==len(result_bounds):self.frontier_bounds[self.key(syntax(candidate))]=tuple(result_bounds)
+                best,best_size=candidate,candidate_size
+        return best
+
     def _close_completed(self,compact,regions,input_characters,*,substitute=False):
         from direct_sympy_synchronize import GUARD_PURE
         protected={};literal_keys={};pure_functions=[]
@@ -671,7 +756,30 @@ class ConversionSession:
                 size+=len(re.findall(r"\b"+token+r"\(\)",candidate))*(len(text)-len(token)-2)
             return size
         views=self.selector_views(protected,pure_functions)
+        # New leaf aliases in the views also own the original whole-producer
+        # proofs. Selected arm proofs are introduced only inside their guards.
+        for token,text in protected.items():
+            marker=syntax(token+'()');key=self.key(marker)
+            bounds,kind,positive_zero=self.closed_literals[text]
+            if bounds is not None:self.completed[key]=bounds
+            if kind=='half':self.half_values.add(key)
+            if kind in ('half','f32'):self.f32_values.add(key)
+            if positive_zero:self.no_negative_zero_values.add(key)
+            self.converted_regions.add(key)
         synchronized=self.compiler.synchronize(result,self.domains,pure_functions=pure_functions,measure=expanded_size,completed_views=views)
+        if synchronized!=result and self.key(syntax(result)) in self.converted_regions:
+            self.propagate_closed_identity(result,synchronized)
+        result=synchronized
+        baseline=result
+        counters=('closed','activations_closed','square_roots_closed','pending','redundant','arithmetic_eliminated','reused_regions','visited_nodes')
+        before={name:getattr(self,name) for name in counters}
+        try:result=self.close_frontier_candidates(compact,result,protected,pure_functions,views,expanded_size)
+        except ValueError as error:
+            if 'budget' not in str(error).lower():raise
+            self.frontier_events.append(('',expanded_size(result),None,0,False))
+        finally:
+            for name,value in before.items():setattr(self,name,value)
+        synchronized=self.compiler.synchronize(result,self.domains,pure_functions=pure_functions,measure=expanded_size,completed_views=views) if result!=baseline else result
         if synchronized!=result and self.key(syntax(result)) in self.converted_regions:
             self.propagate_closed_identity(result,synchronized)
         result=synchronized
@@ -687,9 +795,10 @@ class ConversionSession:
         # The virtual fixed point must retain its proof on the restored
         # whole root. Never infer a dtype from mere textual expansion.
         if original in self.converted_regions:
-            self.remember_selector_literal(result,selector_view,protected)
+            arm_bounds=self.frontier_bounds.get(original,())
+            self.remember_selector_literal(result,selector_view,protected,arm_bounds)
             literals={token+'()':text for token,text in protected.items()}
-            self.restore_compact_literal(result,virtual,literals,self.bounds(virtual),self.value_kind(virtual),self.no_negative_zero(virtual),True,self.closed_literal_keys.copy(),self.closed_literal_pure.copy())
+            self.restore_compact_literal(result,virtual,literals,self.bounds(virtual),self.value_kind(virtual),self.no_negative_zero(virtual),True,self.closed_literal_keys.copy(),self.closed_literal_pure.copy(),arm_bounds)
             # Root shape is unchanged by restoration. Whole-placeholder
             # roots already denote a previously registered literal.
             if isinstance(virtual,ast.Call) and virtual.func.id not in protected:
@@ -819,7 +928,9 @@ class ConversionSession:
                             sign_expression=None if sign is raw else ast.unparse(sign)
                             from direct_sympy_silu import quadratic_subnormal_guard
                             condition=quadratic_subnormal_guard(raw,session)
-                            text=lower_tandem(ast.unparse(raw),certificate,session.compiler,session.domains,integer_word_exact=session.encoded_word_is_exact_integer(raw),sign_expression=sign_expression,small_condition=condition)
+                            frontier=[]
+                            text=lower_tandem(ast.unparse(raw),certificate,session.compiler,session.domains,integer_word_exact=session.encoded_word_is_exact_integer(raw),sign_expression=sign_expression,small_condition=condition,frontier=frontier)
+                            session.remember_frontier_bounds(text,frontier)
                             rewritten=syntax(text);session.closed+=2
                             if before is not None:
                                 key=session.key(rewritten);session.completed[key]=before
@@ -835,8 +946,10 @@ class ConversionSession:
                     if (target=="R32" and kind is not None) or (target=="R16" and kind=="half"):
                         rewritten=syntax(session.compiler.stabilize(ast.unparse(rewritten.args[0]),session.domains));session.redundant+=1
                     elif source is not None:
+                        frontier=[]
                         text=lower_finite_conversion(ast.unparse(rewritten.args[0]),rewritten.func.id,
-                            source,session.compiler,session.domains,no_odd_f32_ties=no_odd_ties,integer_word_exact=session.encoded_word_is_exact_integer(node.args[0]))
+                            source,session.compiler,session.domains,no_odd_f32_ties=no_odd_ties,integer_word_exact=session.encoded_word_is_exact_integer(node.args[0]),frontier=frontier)
+                        session.remember_frontier_bounds(text,frontier)
                         rewritten=syntax(text)
                         session.closed+=1
                     else:session.pending+=1
@@ -849,7 +962,9 @@ class ConversionSession:
                     if positive_zero:session.no_negative_zero_values.add(key)
                 return rewritten
         tree=Boundaries().visit(syntax(expression))
+        prior_key=self.key(tree)
         result=self.compiler.stabilize(ast.unparse(tree),self.domains)
+        if prior_key in self.frontier_bounds:self.frontier_bounds[self.key(syntax(result))]=self.frontier_bounds[prior_key]
         if not re.search(r"\bR(?:16|32)\s*\(",result):
             self.converted_regions.add(self.key(syntax(result)))
             self.remember_closed_literal(result)

@@ -1,0 +1,12 @@
+{"name": "apt-update", "exitCode": 0, "seconds": 27.302120140999705, "peakSampledRSSBytes": 127586304}
+{"name": "clang-install", "exitCode": 0, "seconds": 23.24989241200001, "peakSampledRSSBytes": 215810048}
+{"name": "cuda", "exitCode": 0, "seconds": 7.814269222000348, "peakSampledRSSBytes": 1049927680}
+{"name": "conversions", "exitCode": 0, "seconds": 32.26729996999984, "peakSampledRSSBytes": 635027456}
+{"name": "savepoints", "exitCode": 0, "seconds": 4.007619751999755, "peakSampledRSSBytes": 624926720}
+{"name": "baseline", "exitCode": 1, "seconds": 144.2614645939998, "peakSampledRSSBytes": 11977453568}
+{"name": "baseline-parity", "exitCode": 0, "seconds": 144.0538911929998, "peakSampledRSSBytes": 20632223744}
+{"name": "sequential", "exitCode": 1, "seconds": 128.23078741400013, "peakSampledRSSBytes": 9283489792}
+{"name": "sequential-parity", "exitCode": 0, "seconds": 100.57929672, "peakSampledRSSBytes": 11082412032}
+{"name": "parallel", "exitCode": 1, "seconds": 133.04566904600006, "peakSampledRSSBytes": 21158248448}
+{"name": "parallel-parity", "exitCode": 0, "seconds": 100.58027255000025, "peakSampledRSSBytes": 11081609216}
+FRONTIER_COMPARISON_COMPLETE

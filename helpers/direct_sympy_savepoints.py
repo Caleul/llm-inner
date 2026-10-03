@@ -69,7 +69,7 @@ class ProducerSavepoints:
         try:
             fcntl.flock(self.lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
             self.identity={
-                'schema':2,'position':0,'dimension':dimension,'dtype':model.compiler.dtype,
+                'schema':3,'position':0,'dimension':dimension,'dtype':model.compiler.dtype,
                 'lowerConversions':model.conversions is not None,
                 'domains':{k:[str(v.minimum),str(v.maximum),v.quantum,v.excludes_negative_zero] for k,v in model.domains.items()},
                 'checkpoint':{p.name:digest_file(p) for p in [model.directory/'config.json',*sorted(model.directory.glob('*.safetensors'))]},
@@ -113,6 +113,9 @@ class ProducerSavepoints:
                 'kind':session.value_kind(node) if session else None,
                 'noNegativeZero':session.no_negative_zero(node) if session else False,
                 'castsClosed':session is not None and session.key(node) in session.converted_regions})
+        for record,expression in zip(records,model.memo.values()):
+            stored=model.conversions.selector_literals.get(expression) if model.conversions else None
+            record['selectorArmBounds']=[] if stored is None else [None if b is None else [b.minimum.hex(),b.maximum.hex(),b.quantum] for b in stored[3]]
         payload={'identity':self.identity,'records':records,'events':model.events,'weightReads':model.read_weights}
         envelope={'payload':payload,'integrity':hashlib.sha256(canonical(payload)).hexdigest()}
         atomic(self.directory/'frontier.json',canonical(envelope))
@@ -126,7 +129,7 @@ class ProducerSavepoints:
         payload=envelope['payload']
         if hashlib.sha256(canonical(payload)).hexdigest()!=envelope['integrity']:raise ValueError('Savepoint manifest integrity mismatch')
         if payload['identity']!=self.identity:raise ValueError('Incompatible savepoint: checkpoint, domain, dimension or compiler semantics differ')
-        loaded=[];names=set()
+        loaded=[];names=set();arm_proofs={}
         validation=StringCompiler(dtype=model.compiler.dtype,max_characters=model.compiler.max_characters)
         for record in payload['records']:
             name=record['name'];digest=record['digest']
@@ -146,6 +149,10 @@ class ProducerSavepoints:
             if record['kind'] not in (None,'half','f32'):raise ValueError('Invalid saved dtype proof')
             if record['castsClosed'] and re.search(r'\bR(?:16|32)\s*\(',expression):raise ValueError('Savepoint conversion proof contradicts expression')
             bounds=None if record['bounds'] is None else FiniteSource(float.fromhex(record['bounds'][0]),float.fromhex(record['bounds'][1]),record['bounds'][2])
+            values=record.get('selectorArmBounds')
+            if not isinstance(values,list) or len(values)>16:raise ValueError('Invalid saved selector arm proofs')
+            try:arm_proofs[name]=tuple(None if b is None else FiniteSource(float.fromhex(b[0]),float.fromhex(b[1]),b[2]) for b in values)
+            except (ValueError,TypeError,IndexError):raise ValueError('Invalid saved selector arm proofs') from None
             loaded.append((record,expression,node,bounds,regions))
             # Prior dependencies are validated before serving as opaque literals.
             # Only closed producers are compacted; unclosed ones keep full parsing.
@@ -159,7 +166,8 @@ class ProducerSavepoints:
             model.compiler.register_completed_region(expression,model.domains,node,word_closed=record['castsClosed'])
             session=model.conversions
             if session:
-                original,pure=session.restore_compact_literal(expression,node,regions,bounds,record['kind'],record['noNegativeZero'],record['castsClosed'],restored_keys,restored_purity)
+                arm_bounds=arm_proofs[record['name']]
+                original,pure=session.restore_compact_literal(expression,node,regions,bounds,record['kind'],record['noNegativeZero'],record['castsClosed'],restored_keys,restored_purity,arm_bounds)
                 restored_keys[expression]=original;restored_purity[expression]=pure
         model.events=[tuple(event) for event in payload['events']]
         model.read_weights=payload['weightReads']

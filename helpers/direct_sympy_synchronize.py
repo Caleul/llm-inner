@@ -13,6 +13,38 @@ PURE={'R16','R32','sqrt','Silu16','Bits64','Float64','U64And','U64Or','U64Shr','
 GUARD_PURE=PURE|{'Piecewise','And','Or','Not','Eq','Ne','Lt','Le','Gt','Ge'}
 
 
+def frontier(expression,*,pure_functions=(),max_nodes=262144):
+    """Expose one ordered frontier through pure operations, never a product
+    of independent decisions. Returned bodies retain arithmetic order.
+    """
+    tree=syntax(expression);signatures=StructuralSignatures();allowed=GUARD_PURE|set(pure_functions)
+    if sum(1 for _ in ast.walk(tree))>max_nodes:return None
+    def visit(node):
+        if isinstance(node,ast.Call) and node.func.id=='Piecewise':
+            if not node.args or any(not isinstance(p,ast.Tuple) or len(p.elts)!=2 for p in node.args):return None
+            if not isinstance(node.args[-1].elts[1],ast.Constant) or node.args[-1].elts[1].value is not True:return None
+            return [(p.elts[0],p.elts[1]) for p in node.args]
+        if isinstance(node,ast.Call) and node.func.id in allowed:children=node.args
+        elif isinstance(node,ast.BinOp):children=[node.left,node.right]
+        elif isinstance(node,ast.UnaryOp) and isinstance(node.op,(ast.UAdd,ast.USub)):children=[node.operand]
+        else:return None
+        own=[visit(child) for child in children];indexes=[i for i,value in enumerate(own) if value is not None]
+        if not indexes:return None
+        first=own[indexes[0]];shape=[signatures.key(p[1]) for p in first]
+        if any([signatures.key(p[1]) for p in own[i]]!=shape for i in indexes):return None
+        result=[]
+        for arm,(_,condition) in enumerate(first):
+            selected=[own[i][arm][0] if i in indexes else child for i,child in enumerate(children)]
+            body=copy.copy(node)
+            if isinstance(body,ast.Call):body.args=selected
+            elif isinstance(body,ast.BinOp):body.left,body.right=selected
+            else:body.operand=selected[0]
+            result.append((body,condition))
+        return result
+    if any(isinstance(child,ast.Call) and child.func.id not in allowed for child in ast.walk(tree)):return None
+    return visit(tree)
+
+
 def propose(expression,*,max_lifts=256,max_nodes=262144,pure_functions=(),completed_views=None):
     # Only compiler-admitted, same-context views may expose an opaque producer.
     # Their leaves remain opaque: reopening every prior producer would recreate
