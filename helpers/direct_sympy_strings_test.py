@@ -9,6 +9,19 @@ from direct_sympy_strings import Domain,StringCompiler,syntax
 
 
 class StringCompilerTests(unittest.TestCase):
+    def test_compact_selectors_require_purity_and_restored_size_admission(self):
+        from direct_sympy_synchronize import propose
+        domains={'X1':Domain(F(-1),F(1),-24,False)}
+        atom='CASNumericRegion1()';guard='Bits64(X1)<9223372036854775808'
+        source=f'U64Or(Bits64(Piecewise(({atom},{guard}),(1.0,True))),Bits64(Piecewise(({atom},{guard}),(2.0,True))))'
+        self.assertEqual(propose(source)[-1],'no-matching-siblings')
+        compiler=StringCompiler();stable=compiler.stabilize(source,domains)
+        result=compiler.synchronize(source,domains,pure_functions=('CASNumericRegion1',))
+        self.assertEqual(result.count('Piecewise('),1)
+        self.assertEqual(compiler.synchronize(source,domains,pure_functions=('CASNumericRegion1',),
+            measure=lambda text:100 if text.count('Piecewise(')==2 else 1000),stable)
+        self.assertEqual(compiler.synchronization_events[-1][-1],'no-size-reduction')
+
     def test_synchronized_siblings_share_one_ordered_decision_after_cas(self):
         domains={"X1":Domain(F(-65504),F(65504),-24,False)}
         guard="U64And(U64Shr(Bits64(X1),17),123456789)<1234567"

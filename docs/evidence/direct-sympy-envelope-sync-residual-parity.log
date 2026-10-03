@@ -1,0 +1,4 @@
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 9876.70it/s]
+{"artifact": "artifacts/direct-sympy-envelope-sync-frontier/objects/4a2738b81f25e2e87eb6131ea56076d2e2092945b0039be928f1ef3c87bd7f55.expr", "sha256": "4a2738b81f25e2e87eb6131ea56076d2e2092945b0039be928f1ef3c87bd7f55", "characters": 25778286, "cases": 60, "mismatches": 0, "scope": "position=0 residual coordinate=0; not final coordinate or last-token parity", "elapsedSeconds": 34.76975820798543}

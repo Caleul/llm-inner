@@ -344,7 +344,8 @@ class ConversionSession:
         if re.search(r"\bCASNumericRegion[0-9]+\b",expression):raise ValueError("Reserved compiler numeric placeholder")
         compact,regions=self.compiler.compact_regions(expression,self.compiler.context(self.domains))
         if regions and all(text in self.closed_literals for text in regions.values()):
-            protected={};literal_keys={}
+            from direct_sympy_synchronize import GUARD_PURE
+            protected={};literal_keys={};pure_functions=[]
             for old,text in regions.items():
                 self.envelope_serial+=1;token="CASNumericRegion"+str(self.envelope_serial)
                 marker=syntax(token+"()");key=self.key(marker)
@@ -354,7 +355,9 @@ class ConversionSession:
                 if kind in ("half","f32"):self.f32_values.add(key)
                 if positive_zero:self.no_negative_zero_values.add(key)
                 self.converted_regions.add(key);protected[token]=text
-                literal_keys[key]=self.key(syntax(text))
+                literal=syntax(text);literal_keys[key]=self.key(literal)
+                if all(not isinstance(child,ast.Call) or child.func.id in GUARD_PURE for child in ast.walk(literal)):
+                    pure_functions.append(token)
                 compact=re.sub(r"\b"+old+r"\b",token+"()",compact)
             # Preserve correlation certificates on enclosing operations.
             # Independent interval arithmetic cannot recover these from the
@@ -368,10 +371,22 @@ class ConversionSession:
                 if original_key in self.no_negative_zero_values:self.no_negative_zero_values.add(virtual_key)
                 if original_key in self.converted_regions:self.converted_regions.add(virtual_key)
             result=self._close(compact)
+            # Search the newly closed envelope before restoring large literals.
+            # Cost is the real restored string, not the short placeholder text.
+            # Equal selectors synchronize only after CAS has stabilized, and
+            # selected arms never inherit whole-root numeric proofs.
+            def expanded_size(candidate):
+                size=len(candidate)
+                for token,text in protected.items():
+                    size+=len(re.findall(r"\b"+token+r"\(\)",candidate))*(len(text)-len(token)-2)
+                return size
+            synchronized=self.compiler.synchronize(result,self.domains,pure_functions=pure_functions,measure=expanded_size)
+            if synchronized!=result and self.key(syntax(result)) in self.converted_regions:
+                self.propagate_closed_identity(result,synchronized)
+            result=synchronized
             virtual=syntax(result);original=self.key(virtual)
             pattern=r"\bCASNumericRegion[0-9]+\(\)"
-            expanded=len(result)
-            for token,text in protected.items():expanded+=len(re.findall(r"\b"+token+r"\(\)",result))*(len(text)-len(token)-2)
+            expanded=expanded_size(result)
             self.numeric_envelopes.append((len(expression),len(compact),len(result),expanded,len(protected)))
             if expanded>self.compiler.max_characters:
                 raise ValueError(f"Closed numeric envelope exceeds string budget before allocation: expandedCharacters={expanded} limit={self.compiler.max_characters}")

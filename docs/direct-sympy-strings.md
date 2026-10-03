@@ -925,8 +925,11 @@ alocação. Esses orçamentos e graus de fechamento diferentes não permitem
 concluir que houve aceleração. Nenhum caminho ou domínio foi cortado.
 
 O helper da raiz participa da identidade dos estados salvos. Nenhum estado
-anterior foi reutilizado; os oito objetos novos tiveram seus hashes
-verificados. Permanecem em `artifacts/direct-sympy-sqrt-frontier`, com o
+anterior foi reutilizado. O timeout interrompeu a publicação do último estado:
+oito produtores foram compilados, mas sete registros ficaram confirmados no
+manifesto e tiveram seus hashes verificados. O prefixo completo do primeiro
+residual foi preservado separadamente. Os estados permanecem em
+`artifacts/direct-sympy-sqrt-frontier`, com o
 manifesto e crescimento copiados para as evidências. O build e seis testes
 dirigidos passaram. A suíte de regressão registrou 597 testes: 579 aprovados,
 as mesmas quinze falhas anteriores e três ignorados; quatro testes da antiga
@@ -936,3 +939,40 @@ O mapa está em `f32SquareRootValidation` de `direct-string-validation.json`.
 A coordenada completa, o vetor e a paridade do último token continuam
 pendentes. A paridade destes kernels e da string de referência não substitui
 a validação de um artefato final inteiramente expandido.
+
+## Sincronização antes da restauração numérica
+
+A busca por decisões repetidas agora também acontece no envelope numérico
+fechado, antes de restaurar os produtores grandes. Antes, a busca sobre a
+string restaurada era pulada acima de 1 MiB. O envelope mantém esse orçamento
+de busca, mas pode reduzir expressões físicas maiores. Somente placeholders
+da sessão cujas funções originais são comprovadamente puras participam.
+Condições independentes e ordens diferentes de seleção não são combinadas.
+
+Após `factor()` e `simplify()` estabilizarem cada ramo, a proposta é aceita
+somente se diminuir o tamanho real da string restaurada. Essa medida evita
+otimizar o texto do placeholder e aumentar o artefato efetivo. As provas de
+tipo e intervalo são transferidas exclusivamente para a raiz fechada;
+corpos selecionados não recebem provas que dependiam das condições.
+
+No primeiro residual do checkpoint, isso eliminou 2.343.393 caracteres:
+28.121.679 → 25.778.286 (8,33%). As ocorrências literais de `Piecewise`
+passaram de 314 para 287; não são contagens de decisões independentes.
+O novo teste nativo passou em 507.904 casos. O residual real foi relido do
+objeto com SHA verificado e comparado com um hook no PyTorch em 60 entradas,
+incluindo matrizes com vários tokens. Essa prova cobre somente posição zero,
+coordenada zero do residual, não a saída final nem o último token.
+
+A execução nova completou e persistiu nove produtores. Ao fechar a inversa
+da segunda normalização, a restauração prevista atingiu 4.227.656.564
+caracteres; o orçamento de 64 MiB recusou a alocação, sem omitir caminhos.
+O ganho medido no residual ainda não resolve essa expansão. Os nove estados
+tiveram todos os hashes verificados e estão em
+`artifacts/direct-sympy-envelope-sync-frontier`. Estados anteriores eram
+incompatíveis com três helpers modificados e não foram reutilizados.
+
+Build e seis testes dirigidos passaram; agora cobrem 26 testes do engine e
+23 das conversões. A regressão manteve 597 testes, 579 aprovados, as mesmas
+quinze falhas e três ignorados. Evidências e paridade estão mapeadas em
+`numericEnvelopeSynchronizationValidation` de `direct-string-validation.json`.
+O artefato final da coordenada permanece pendente.
