@@ -861,3 +861,39 @@ casts residuais: sua identidade não é compatível com o helper atual. Nenhuma
 retomada ou migração desse estado foi realizada. A coordenada de trabalho da
 etapa anterior conserva casts; seus 21 produtores simbólicos não constituem
 avanço equivalente no fechamento numérico.
+
+
+## Região fechada antecipada e ativação aritmética — 2026-10-03
+
+A migração dos dez produtores foi limitada à inserção exata da rejeição de
+casts abertos. Checkpoint, domínio, plataforma, versões, demais fontes,
+digests e provas permaneceram iguais; todos os produtores já satisfaziam a
+regra. A restauração estrita levou 7,5 s. A retomada de dez minutos publicou
+`post:0` (26.731.049 caracteres) e terminou por tempo com onze produtores.
+Os tempos inclusivos apontaram 307,9 s na estabilização da busca de seletores,
+apesar do limite dessa busca impedir inspeção de regiões maiores que um MiB.
+Não devem ser somados tempos inclusivos de métodos que chamam uns aos outros.
+
+O produtor fechado é registrado antes da sincronização. Factor/simplify
+continuam obrigatórios sobre o envelope certificado no mesmo contexto.
+Na região real de 26,7 milhões de caracteres, o registro levou 27,26 s e a
+sincronização 0,178 s, com um passe CAS e resultado byte a byte idêntico.
+A readmissão da mesma região imutável também evita repetir o parsing.
+Essa medição não demonstra o tempo da coordenada completa.
+
+SiLU sobre Half no intervalo [-1/16,1/16] passou a ser expandida em Horner
+cúbico, casts F32 e operações word. A prova cobre todos os 22.530 padrões Half
+do intervalo: a saída ampliada para Double coincide bit a bit com os kernels
+escalar e vetorial de referência. Grau dois falhou em 34 entradas; grau três
+não falhou. A aproximação interna não precisa reproduzir expf: o resultado
+observável do SiLU16 é exatamente a mesma saída Half. Fora desse certificado,
+a primitiva permanece para tratamento posterior, sem restringir entradas.
+O kernel emitido contém 15.424 caracteres, sem SiLU, exp, sqrt, R16 ou R32.
+
+O helper e a identidade do backend torch CPU participam agora dos estados
+salvos. A fronteira perfilada anterior permanece em artifacts, mas não é
+compatível com as novas fontes e não foi retomada novamente. O build e cinco
+testes dirigidos passaram. A suíte completa registrou 596 testes: 578
+aprovados, as mesmas quinze falhas anteriores e três ignorados. As últimas
+mudanças pequenas de cache/identidade foram validadas pelos testes dirigidos.
+Ainda faltam fechamento da coordenada, raiz, vetor e paridade do último token.

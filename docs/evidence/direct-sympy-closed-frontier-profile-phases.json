@@ -1,0 +1,20 @@
+{
+  "CAS-stabilize-inclusive": {
+    "calls": 477,
+    "seconds": 589.6617546998896,
+    "largestInput": 26731181,
+    "largestOutput": 26731080
+  },
+  "numeric-close-inclusive": {
+    "calls": 2,
+    "seconds": 97.49206116600544,
+    "largestInput": 4455150,
+    "largestOutput": 26731181
+  },
+  "selector-search-inclusive": {
+    "calls": 2,
+    "seconds": 307.8571205830085,
+    "largestInput": 26731181,
+    "largestOutput": 26731049
+  }
+}

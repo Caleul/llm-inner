@@ -314,10 +314,10 @@ class StringCompiler:
         remain fully substituted; compiler placeholders are always restored.
         """
         if len(expression)>self.max_characters or re.search(r"\bCASStableRegion[0-9]+\b",expression):return
-        node=syntax(expression) if node is None else node
-        if not isinstance(node,ast.Call):return
         key=(self.context(domains),expression)
         if key in self._regions:return
+        node=syntax(expression) if node is None else node
+        if not isinstance(node,ast.Call):return
         while self._regions and self._region_characters+len(expression)>4*self.max_characters:
             old,_=self._regions.popitem(last=False);self._region_characters-=len(old[1]);self._region_roots.pop(old,None)
         self._regions[key]=True;self._region_characters+=len(expression)

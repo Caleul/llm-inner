@@ -5822,5 +5822,154 @@
       "docs/evidence/direct-sympy-correlation-proofs-normalization.work.expr": "9c696d105c5037779509f9e2f53be793b8873d25b195685ce193ed78abe89652",
       "docs/evidence/direct-sympy-correlation-proofs-directed.log": "43afcd32f252e8485e47b87bc686814d625bf3e1be5f755c7d3f927db7bbda1b"
     }
+  },
+  "closedFrontierAndSiluValidation": {
+    "date": "2026-10-03",
+    "baseCommit": "19bb8ab",
+    "previousGoalTurn": "Progress: enclosing numeric proofs and fail-closed publication",
+    "migration": {
+      "source": "docs/evidence/direct-sympy-correlation-proofs-frontier",
+      "target": "artifacts/direct-sympy-guard-frontier",
+      "oldCheckpointHelper": "5aa03857e82fd9e9f816b593e8159d4c21f24369771a26002b5718afd1b1ee04",
+      "newCheckpointHelper": "d41bcebf51a91391a2289b1c63e0b249a279193c0f78b52accacfb2151c9f1d8",
+      "onlyDifference": "Exact fail-closed publication guard; all saved producers satisfy it",
+      "restored": 10,
+      "restoreSeconds": 7.504777916998137,
+      "expressionsChanged": false,
+      "strictRestoreBeforeMigrationRejected": true
+    },
+    "profile": {
+      "exitCode": 1,
+      "timeBudgetSeconds": 600,
+      "completedProducers": 11,
+      "lastProducer": "model.layers.0.post:0",
+      "lastCharacters": 26731049,
+      "phaseTimersInclusive": {
+        "CAS-stabilize-inclusive": {
+          "calls": 477,
+          "seconds": 589.6617546998896,
+          "largestInput": 26731181,
+          "largestOutput": 26731080
+        },
+        "numeric-close-inclusive": {
+          "calls": 2,
+          "seconds": 97.49206116600544,
+          "largestInput": 4455150,
+          "largestOutput": 26731181
+        },
+        "selector-search-inclusive": {
+          "calls": 2,
+          "seconds": 307.8571205830085,
+          "largestInput": 26731181,
+          "largestOutput": 26731049
+        }
+      },
+      "artifactAdmitted": false,
+      "stateDirectory": "artifacts/direct-sympy-guard-frontier",
+      "stateCompatibleWithFinalSources": false,
+      "reason": "Later cache/activation/backend identity changes; no automatic source bypass"
+    },
+    "envelopeBenchmark": {
+      "producer": "model.layers.0.post:0",
+      "characters": 26731049,
+      "registrationSeconds": 27.260726167005487,
+      "synchronizationSeconds": 0.17817795899463817,
+      "byteIdentical": true,
+      "CASPasses": 1,
+      "events": [
+        [
+          [],
+          0,
+          "factor",
+          "simplify",
+          16,
+          16,
+          "completed-regions-envelope"
+        ]
+      ],
+      "synchronization": [
+        26731049,
+        null,
+        26731049,
+        0,
+        0,
+        "search-budget"
+      ]
+    },
+    "changes": [
+      "Register closed fixed point before selector stabilization",
+      "Avoid reparsing admitted immutable region",
+      "Bounded Half SiLU expansion via cubic Horner/F32/word operations",
+      "Pin SiLU helper and torch CPU backend identity in savepoints"
+    ],
+    "silu": {
+      "inputDtype": "half",
+      "inputInterval": [
+        -0.0625,
+        0.0625
+      ],
+      "allInputPatterns": 22530,
+      "scalarAndVectorReferenceEqual": true,
+      "nativeDoubleBitMismatches": 0,
+      "degreeTwoMismatches": 34,
+      "degreeThreeMismatches": 0,
+      "wordKernelCharacters": 15424,
+      "wordKernel": "docs/evidence/direct-sympy-closed-frontier-silu.work.expr",
+      "observableBoundary": "Exact widened Half output; internal exponential approximation differs",
+      "outsideCertificate": "Keep primitive unchanged; no domain or path cuts"
+    },
+    "tests": {
+      "buildExitCode": 0,
+      "engine": 25,
+      "conversions": 22,
+      "savepoints": 4,
+      "checkpoint": 6,
+      "silu": 1,
+      "directedNodeTests": 5,
+      "directedFailures": 0
+    },
+    "regression": {
+      "tests": 596,
+      "pass": 578,
+      "fail": 15,
+      "skipped": 3,
+      "previousNamedOutcomesUnchanged": true,
+      "addedTests": [
+        "Bounded SiLU arithmetic lowering matches every certified Half scalar and vector input"
+      ],
+      "finalCacheAndBackendIdentityChanges": "Covered by subsequent five directed tests; full suite not repeated"
+    },
+    "completion": {
+      "fullCoordinate": false,
+      "fullVector": false,
+      "lastTokenParity": false,
+      "sqrtLowering": false
+    },
+    "sourceHashes": {
+      "direct_sympy_checkpoint.py": "b51fb0f5bff58d33c15690822dafe3bf0da4d6827466ca306f81ede1de97243e",
+      "direct_sympy_conversions.py": "9c5c80ff2621b5d297fb5b5acc680ca4f2b7fd4dba540a90d78720bdf2ef5e55",
+      "direct_sympy_savepoints.py": "aa61c0831ded1b1f07d2ce198c48760fbbb0f18ade396ecc20045c209ea70a5e",
+      "direct_sympy_strings.py": "6be53bd1921045a2551145f47d0812f25ef8fa4adfcd12dfd8b2de65e7713953",
+      "direct_sympy_silu.py": "4336247be630c6e17a824fdb3804f05d56023796dbbc3d06ab98f5c2c6a8cc3a"
+    },
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-closed-frontier-migration.log": "9e866e339b86e8ce793f63d88eefed927d978c739e42b54b2ddee0fedaf04318",
+      "docs/evidence/direct-sympy-closed-frontier-migration.json": "aebb9a62f428bf549cefcbed282bef0ffb3d191030a1317aec53fb6fe8f09f25",
+      "docs/evidence/direct-sympy-closed-frontier-migration.py.work": "a8f16b986dcc8470a595c189945d2f6b4e89f46a30fed914389f3f613a6be096",
+      "docs/evidence/direct-sympy-closed-frontier-profile.log": "ef67adbfe8bf845752f83280bb8fd1d7195991d0e235b6ebbf67eed9adb7e90e",
+      "docs/evidence/direct-sympy-closed-frontier-profile-phases.json": "fe7c8ee6b6f08b3171b92b626d28f49de34b8bfb22426e9927f25bae58a85370",
+      "docs/evidence/direct-sympy-closed-frontier-profile.py.work": "ee8d4a6f375b00541fce85403827549aa36015ef30340d6c09d905aae8d24bc3",
+      "docs/evidence/direct-sympy-closed-frontier-envelope-bench.log": "bc9bd8ae67464b5122818afadf52ae2670e5ee610575480816e1a29a09f25d74",
+      "docs/evidence/direct-sympy-closed-frontier-envelope-bench.json": "9ed38fc731838ff585c3bd69433a0c35295915667eafd0b05460d700ce60ba86",
+      "docs/evidence/direct-sympy-closed-frontier-envelope-bench.py.work": "12d524d1782b3ca4b8771607ceb160fac1305820f6b33710ec6738f9e16ede75",
+      "docs/evidence/direct-sympy-closed-frontier-silu-degrees.log": "06759170ef96255dbd2f7b4b2c49d9f0d434351c66038848efee41ab517f250b",
+      "docs/evidence/direct-sympy-closed-frontier-silu-degrees.py.work": "479494ae0b32b29d8e972ffe5d693d52ab5c8b40f50a5e4903be1ab040f6247e",
+      "docs/evidence/direct-sympy-closed-frontier-silu-native.log": "aef15dcd5ab9832c1093882126a1b9b0a8a12586691d93bd4467e1dcef9729f0",
+      "docs/evidence/direct-sympy-closed-frontier-build.log": "a408d94a3fffc856dc5364f9d4b4ab56fde09205ec19cae0976763ea611ad3df",
+      "docs/evidence/direct-sympy-closed-frontier-directed.log": "40eec0a368c94ce7ab92f7449513f6d95b353439aca978f302a6db4f5383f232",
+      "docs/evidence/direct-sympy-closed-frontier-regression.log": "b3669c7170a44bdcfbf83d6f0a5dbb459d077679c892908ea67da81ff4288947",
+      "docs/evidence/direct-sympy-closed-frontier-silu.work.expr": "8c494a17cda9db056220f75ffe1fd80c9ef739dfc1317f8fe2aacf216c4df297",
+      "docs/evidence/direct-sympy-closed-frontier-profile-frontier.json": "c26acbd193492f791a9743f2f85f941e108d364beb9d9c79e65bb467fa603e1b"
+    }
   }
 }

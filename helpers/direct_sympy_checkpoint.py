@@ -110,6 +110,10 @@ class CheckpointStrings:
             if re.search(r"\bR(?:16|32)\s*\(",result):
                 raise ValueError(f"Numeric closure incomplete for producer {key}; residual R16/R32; producer not published")
             if self.conversions.key(syntax(result)) in self.conversions.converted_regions:
+                # Numeric closure already reached a certified CAS fixed
+                # point. Register it before selector search so its mandatory
+                # stabilization can use the same-context literal envelope.
+                self.compiler.register_completed_region(result,self.domains,word_closed=True)
                 synchronized=self.compiler.synchronize(result,self.domains)
                 if synchronized!=result:self.conversions.propagate_closed_identity(result,synchronized)
                 result=synchronized

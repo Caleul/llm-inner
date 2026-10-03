@@ -1,0 +1,19 @@
+bad input=2810 actual=2420 expected=2421
+bad input=282f actual=2440 expected=2441
+bad input=2926 actual=2540 expected=2541
+bad input=2986 actual=25a4 expected=25a5
+bad input=299d actual=25bc expected=25bd
+bad input=29ca actual=25eb expected=25ec
+bad input=29e0 actual=2602 expected=2603
+bad input=2a0b actual=262f expected=2630
+Bounded SiLU polynomial: degree=2 cases=22530 mismatches=34
+Bounded SiLU polynomial: degree=3 cases=22530 mismatches=0
+Bounded SiLU polynomial: degree=4 cases=22530 mismatches=0
+Bounded SiLU polynomial: degree=5 cases=22530 mismatches=0
+Bounded SiLU polynomial: degree=6 cases=22530 mismatches=0
+Bounded SiLU polynomial: degree=7 cases=22530 mismatches=0
+Bounded SiLU polynomial: degree=8 cases=22530 mismatches=0
+Bounded SiLU polynomial: degree=9 cases=22530 mismatches=0
+Bounded SiLU polynomial: degree=10 cases=22530 mismatches=0
+Bounded SiLU polynomial: degree=11 cases=22530 mismatches=0
+Bounded SiLU polynomial: degree=12 cases=22530 mismatches=0

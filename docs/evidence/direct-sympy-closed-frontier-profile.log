@@ -1,0 +1,11 @@
+Restored completed dependencies: 10
+{"producer": "model.layers.0.post:0", "seconds": 463.96437395800604, "completed": true, "characters": 26731049}
+{"producer": "model.layers.0.post:1", "seconds": 129.72822575000464, "completed": false, "characters": null}
+{"producer": "model.layers.0.gate:0", "seconds": 594.412986957992, "completed": false, "characters": null}
+{"producer": "model.layers.0.gated:0", "seconds": 594.4129989999929, "completed": false, "characters": null}
+{"producer": "model.layers.0.hidden:0", "seconds": 594.4130337079987, "completed": false, "characters": null}
+{"producer": "final:inverse", "seconds": 594.4130526669906, "completed": false, "characters": null}
+{"producer": "final:0", "seconds": 594.4130657079804, "completed": false, "characters": null}
+{"producer": "output:0:2", "seconds": 594.413394208008, "completed": false, "characters": null}
+Compilation stopped: Compilation wall-clock budget exceeded; completedDependencies=11 lastDependency=model.layers.0.post:0 closedConversions=4 redundantConversions=0 reusedConvertedRegions=4 visitedConversionNodes=6; no coordinate artifact admitted
+{"inclusivePhaseTimers": {"CAS-stabilize-inclusive": {"calls": 477, "seconds": 589.6617546998896, "largestInput": 26731181, "largestOutput": 26731080}, "numeric-close-inclusive": {"calls": 2, "seconds": 97.49206116600544, "largestInput": 4455150, "largestOutput": 26731181}, "selector-search-inclusive": {"calls": 2, "seconds": 307.8571205830085, "largestInput": 26731181, "largestOutput": 26731049}}}

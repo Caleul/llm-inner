@@ -1,0 +1,35 @@
+import sys,time,json,functools
+from collections import defaultdict
+from pathlib import Path
+sys.path.insert(0,'helpers')
+import direct_sympy_checkpoint as checkpoint
+from direct_sympy_strings import StringCompiler
+from direct_sympy_conversions import ConversionSession
+stats=defaultdict(lambda:{'calls':0,'seconds':0.0,'largestInput':0,'largestOutput':0})
+def observe(cls,name,key):
+ old=getattr(cls,name)
+ @functools.wraps(old)
+ def timed(self,*args,**kwargs):
+  start=time.monotonic();result=None
+  try:result=old(self,*args,**kwargs);return result
+  finally:
+   s=stats[key];s['calls']+=1;s['seconds']+=time.monotonic()-start
+   if args and isinstance(args[0],str):s['largestInput']=max(s['largestInput'],len(args[0]))
+   if isinstance(result,str):s['largestOutput']=max(s['largestOutput'],len(result))
+ setattr(cls,name,timed)
+observe(StringCompiler,'stabilize','CAS-stabilize-inclusive')
+observe(StringCompiler,'synchronize','selector-search-inclusive')
+observe(ConversionSession,'close','numeric-close-inclusive')
+old=checkpoint.CheckpointStrings.producer
+@functools.wraps(old)
+def producer(self,key,build):
+ cached=key in self.memo;start=time.monotonic()
+ try:return old(self,key,build)
+ finally:
+  if not cached:print(json.dumps({'producer':key,'seconds':time.monotonic()-start,'completed':key in self.memo,'characters':len(self.memo[key]) if key in self.memo else None}),flush=True)
+checkpoint.CheckpointStrings.producer=producer
+sys.argv=['direct_sympy_checkpoint.py','docs/evidence/direct-sympy-test-checkpoint','/private/tmp/llm-inner-profile-coordinate','--max-characters','67108864','--max-seconds','600','--savepoint-directory','artifacts/direct-sympy-guard-frontier','--resume']
+try:raise SystemExit(checkpoint.main())
+finally:
+ Path('/private/tmp/llm-inner-profile-phases.json').write_text(json.dumps(stats,indent=2)+'\n')
+ print(json.dumps({'inclusivePhaseTimers':stats}),flush=True)

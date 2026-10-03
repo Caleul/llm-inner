@@ -112,6 +112,7 @@ class ConversionSession:
         self.half_values={self.key(ast.Name(id=name,ctx=ast.Load())) for name in domains} if input_dtype=="f16" else set()
         self.f32_values=set(self.half_values)
         self.closed=0
+        self.activations_closed=0
         self.pending=0
         self.redundant=0
         self.converted_regions=set()
@@ -412,6 +413,18 @@ class ConversionSession:
             def visit_Call(self,node):
                 before=session.bounds(node)
                 positive_zero=session.no_negative_zero(node)
+                if node.func.id=='Silu16' and len(node.args)==1:
+                    from direct_sympy_silu import supported,expand
+                    source=ast.unparse(node.args[0])
+                    if supported(source,session):
+                        source=ast.unparse(self.visit(node.args[0]))
+                        text=session.close(expand(source,session))
+                        rewritten=syntax(text);key=session.key(rewritten)
+                        if before is not None:session.completed[key]=before
+                        session.half_values.add(key);session.f32_values.add(key)
+                        if positive_zero:session.no_negative_zero_values.add(key)
+                        session.activations_closed+=1
+                        return rewritten
                 literal=session.constant(node) if node.func.id in ("R16","R32") else None
                 if literal is not None and math.isfinite(literal):
                     text=session.compiler.stabilize(repr(literal),session.domains)

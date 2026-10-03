@@ -1,0 +1,19 @@
+import torch,struct,subprocess,tempfile,json
+from pathlib import Path
+cases=[]
+for b in range(65536):
+ x=struct.unpack('e',struct.pack('H',b))[0]
+ if abs(x)<=1/16:
+  y=torch.nn.functional.silu(torch.tensor(x,dtype=torch.float16)).item();out=struct.unpack('H',struct.pack('e',y))[0];cases.append((b,out))
+with tempfile.TemporaryDirectory() as directory:
+ root=Path(directory);gold=root/'gold.bin';gold.write_bytes(b''.join(struct.pack('HH',a,b) for a,b in cases))
+ cpp=root/'poly.cpp';binary=root/'poly'
+ cpp.write_text('''#include <cmath>
+#include <cstdio>
+#include <cstdint>
+#include <cstring>
+template<class T,class U>T word(U value){T result;std::memcpy(&result,&value,sizeof(result));return result;}
+int main(int argc,char**argv){FILE*f=std::fopen(argv[1],"rb");uint16_t pair[2];unsigned cases=0,mismatches=0;for(unsigned degree=2;degree<=12;degree++){std::rewind(f);cases=0;mismatches=0;while(std::fread(pair,2,2,f)==2){double x=word<_Float16>(pair[0]);double p=1.0;for(int k=int(degree);k>=1;k--)p=1.0+(-x)*p/double(k);float e=float(p);float denominator=1.0f+e;float y=float(x)/denominator;uint16_t actual=word<uint16_t>(static_cast<_Float16>(y));if(actual!=pair[1]){if(mismatches<8)std::printf("bad input=%04x actual=%04x expected=%04x\\n",pair[0],actual,pair[1]);mismatches++;}cases++;}std::printf("Bounded SiLU polynomial: degree=%u cases=%u mismatches=%u\\n",degree,cases,mismatches);}return 0;}
+''')
+ p=subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(cpp),'-o',str(binary)],capture_output=True,text=True);assert p.returncode==0,p.stderr
+ p=subprocess.run([str(binary),str(gold)],capture_output=True,text=True);print(p.stdout,end='');print(p.stderr,end='');raise SystemExit(p.returncode)

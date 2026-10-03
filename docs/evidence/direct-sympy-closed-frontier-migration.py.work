@@ -1,0 +1,30 @@
+import sys,json,hashlib,subprocess,shutil,re,time
+from pathlib import Path
+sys.path.insert(0,'helpers')
+from direct_sympy_checkpoint import CheckpointStrings
+from direct_sympy_strings import StringCompiler
+from direct_sympy_savepoints import ProducerSavepoints,canonical,digest_file,atomic
+source=Path('docs/evidence/direct-sympy-correlation-proofs-frontier');target=Path('artifacts/direct-sympy-guard-frontier')
+assert not target.exists(),'Migration target already exists; inspect it instead of writing again'
+old=subprocess.run(['git','show','413afe5:helpers/direct_sympy_checkpoint.py'],check=True,capture_output=True,text=True).stdout
+expected=old.replace('import math\n','import math\nimport re\n',1).replace('            result=self.conversions.close(result)\n','            result=self.conversions.close(result)\n            if re.search(r"\\bR(?:16|32)\\s*\\(",result):\n                raise ValueError(f"Numeric closure incomplete for producer {key}; residual R16/R32; producer not published")\n',1)
+assert Path('helpers/direct_sympy_checkpoint.py').read_text()==expected,'Migration admits only exact fail-closed guard delta'
+shutil.copytree(source,target)
+with CheckpointStrings('docs/evidence/direct-sympy-test-checkpoint',StringCompiler(max_characters=67108864)) as model,ProducerSavepoints(target,model,2) as store:
+ envelope=json.loads((target/'frontier.json').read_text());payload=envelope['payload'];identity=payload['identity']
+ assert hashlib.sha256(canonical(payload)).hexdigest()==envelope['integrity']
+ before=json.loads(json.dumps(identity));after=json.loads(json.dumps(store.identity))
+ oldhash=before['sources'].pop('direct_sympy_checkpoint.py');newhash=after['sources'].pop('direct_sympy_checkpoint.py')
+ assert before==after,'Unexpected checkpoint/domain/platform/compiler change'
+ assert oldhash==hashlib.sha256(old.encode()).hexdigest()
+ try:store.restore(model)
+ except ValueError as error:assert 'Incompatible savepoint' in str(error)
+ else:raise AssertionError('Unmigrated state unexpectedly accepted')
+ for r in payload['records']:
+  path=target/'objects'/(r['digest']+'.expr');assert digest_file(path)==r['digest']
+  expression=path.read_text();assert len(expression)==r['characters'] and not re.search(r'\bR(?:16|32)\s*\(',expression)
+  assert r['castsClosed'],'All existing producers must satisfy new publication guard'
+ payload['identity']=store.identity;envelope['integrity']=hashlib.sha256(canonical(payload)).hexdigest();atomic(target/'frontier.json',canonical(envelope))
+ start=time.monotonic();count=store.restore(model)
+ audit={'source':str(source),'target':str(target),'oldCheckpointHelper':oldhash,'newCheckpointHelper':newhash,'onlyDifference':'Exact fail-closed publication guard; all saved producers satisfy it','restored':count,'restoreSeconds':time.monotonic()-start,'expressionsChanged':False,'strictRestoreBeforeMigrationRejected':True}
+ Path('/private/tmp/llm-inner-guard-migration.json').write_text(json.dumps(audit,indent=2)+'\n');print(json.dumps(audit),flush=True)

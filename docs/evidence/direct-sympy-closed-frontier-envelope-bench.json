@@ -1,0 +1,27 @@
+{
+  "producer": "model.layers.0.post:0",
+  "characters": 26731049,
+  "registrationSeconds": 27.260726167005487,
+  "synchronizationSeconds": 0.17817795899463817,
+  "byteIdentical": true,
+  "CASPasses": 1,
+  "events": [
+    [
+      [],
+      0,
+      "factor",
+      "simplify",
+      16,
+      16,
+      "completed-regions-envelope"
+    ]
+  ],
+  "synchronization": [
+    26731049,
+    null,
+    26731049,
+    0,
+    0,
+    "search-budget"
+  ]
+}

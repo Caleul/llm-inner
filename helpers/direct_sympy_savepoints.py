@@ -11,10 +11,11 @@ import sys
 import tempfile
 
 import sympy
+import torch
 from direct_sympy_strings import syntax
 from direct_sympy_conversions import FiniteSource
 
-SOURCES=('direct_sympy_savepoints.py','direct_sympy_checkpoint.py','direct_sympy_strings.py','direct_sympy_conversions.py','direct_sympy_words.py','direct_sympy_arithmetic.py','direct_sympy_tandem.py','direct_sympy_signatures.py','direct_sympy_conditions.py','direct_sympy_synchronize.py')
+SOURCES=('direct_sympy_savepoints.py','direct_sympy_checkpoint.py','direct_sympy_strings.py','direct_sympy_conversions.py','direct_sympy_words.py','direct_sympy_arithmetic.py','direct_sympy_tandem.py','direct_sympy_signatures.py','direct_sympy_conditions.py','direct_sympy_synchronize.py','direct_sympy_silu.py')
 
 
 def digest_file(path):
@@ -55,6 +56,7 @@ class ProducerSavepoints:
                 'checkpoint':{p.name:digest_file(p) for p in [model.directory/'config.json',*sorted(model.directory.glob('*.safetensors'))]},
                 'sources':{name:digest_file(Path(__file__).parent/name) for name in SOURCES},
                 'python':sys.version,'sympy':sympy.__version__,'platform':platform.platform(),'byteOrder':sys.byteorder,
+                'referenceBackend':{'name':'torch CPU','version':str(torch.__version__),'gitVersion':torch.version.git_version,'capability':torch.backends.cpu.get_cpu_capability()},
             }
         except BaseException:self.lock.close();raise
 

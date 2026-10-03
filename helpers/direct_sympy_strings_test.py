@@ -96,6 +96,8 @@ class StringCompilerTests(unittest.TestCase):
         compiler=StringCompiler(max_characters=20000)
         region=compiler.stabilize("R32("+" + ".join(["R32(X1 + (-0.0))"]*200)+")",domains)
         compiler.register_completed_region(region,domains)
+        with patch.object(engine,"syntax",side_effect=AssertionError("Completed immutable region must not be reparsed")):
+            compiler.register_completed_region(region,domains)
         reference=StringCompiler(max_characters=20000).substitute("R32(X7*2)","X7",region,domains)
         with patch.object(engine,"syntax",wraps=engine.syntax) as parse,patch.object(engine.sp,"factor",wraps=engine.sp.factor) as factor,patch.object(engine.sp,"simplify",wraps=engine.sp.simplify) as simplify:
             actual=compiler.substitute("R32(X7*2)","X7",region,domains)

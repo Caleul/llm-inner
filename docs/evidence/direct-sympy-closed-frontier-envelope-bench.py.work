@@ -1,0 +1,14 @@
+import sys,json,time,hashlib
+from pathlib import Path
+from fractions import Fraction as F
+sys.path.insert(0,'helpers')
+from direct_sympy_strings import StringCompiler,Domain
+root=Path('artifacts/direct-sympy-guard-frontier');front=json.loads((root/'frontier.json').read_text());record=front['payload']['records'][-1];assert record['name']=='model.layers.0.post:0' and record['castsClosed']
+expression=(root/'objects'/(record['digest']+'.expr')).read_text();assert hashlib.sha256(expression.encode()).hexdigest()==record['digest']
+domains={f'X{i+1}':Domain(F(-65504),F(65504),-24,False) for i in range(2)}
+compiler=StringCompiler(max_characters=67108864)
+start=time.monotonic();compiler.register_completed_region(expression,domains,word_closed=True);registration=time.monotonic()-start
+start=time.monotonic();result=compiler.synchronize(expression,domains);elapsed=time.monotonic()-start
+assert result==expression
+report={'producer':record['name'],'characters':len(expression),'registrationSeconds':registration,'synchronizationSeconds':elapsed,'byteIdentical':True,'CASPasses':len(compiler.events),'events':compiler.events,'synchronization':compiler.synchronization_events[-1]}
+Path('/private/tmp/llm-inner-frontier-envelope-bench.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps(report),flush=True)
