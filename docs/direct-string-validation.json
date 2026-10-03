@@ -5473,5 +5473,131 @@
       "docs/evidence/direct-sympy-branch-facts-regression.log": "77902fedd482d79aaa961670f575d5464739ba7768d6f6a1a3583fba788d34c2",
       "docs/evidence/direct-sympy-branch-facts-savepoints.log": "a2c0009fbde9d0b444f4f52f94b8cdf8599c9a1f8fe844cf4e549999af84e9ee"
     }
+  },
+  "synchronizedBranchValidation": {
+    "date": "2026-10-03",
+    "baseCommit": "4d53402",
+    "expressionFormat": "Mathematical strings; JSON is metadata only",
+    "rule": "Synchronize identical ordered pure selectors only after mandatory CAS fixed point and numeric closure; no Cartesian distribution of independent guards",
+    "numericProof": "Transfer closed whole-root bounds and dtype only; selected branch bodies do not inherit global proofs",
+    "wordRule": "Factor identical unsigned words under constant masks exactly",
+    "limits": {
+      "searchCharacters": 1048576,
+      "maxLifts": 256,
+      "maxNodes": 262144,
+      "onLimit": "Keep complete original expression; no domain or path cuts"
+    },
+    "tests": {
+      "engine": 25,
+      "conversions": 21,
+      "savepoints": 4,
+      "checkpoint": 5,
+      "directedNodeTests": 4,
+      "buildExitCode": 0,
+      "nativeBranchComparisons": 131072,
+      "nativeBranchMismatches": 0
+    },
+    "regression": {
+      "tests": 595,
+      "pass": 577,
+      "fail": 15,
+      "skipped": 3,
+      "sameNamedOutcomesAsPrevious": true,
+      "knownFailuresChanged": false
+    },
+    "actualExpressions": [
+      {
+        "dependency": "model.layers.0.pre:0",
+        "beforeCharacters": 3305,
+        "afterCharacters": 3305,
+        "beforePiecewiseOccurrences": 1,
+        "afterPiecewiseOccurrences": 1,
+        "synchronization": [
+          3305,
+          3305,
+          3305,
+          0,
+          0,
+          "no-matching-siblings"
+        ],
+        "wallSeconds": 0.02839666701038368,
+        "output": "docs/evidence/direct-sympy-record-cache-frontier/objects/f7428a71943a58e76e7601780707275b92a84c50e8e96c5f24d97912c6807187.expr",
+        "originalDigest": "f7428a71943a58e76e7601780707275b92a84c50e8e96c5f24d97912c6807187",
+        "resultDigest": "f7428a71943a58e76e7601780707275b92a84c50e8e96c5f24d97912c6807187"
+      },
+      {
+        "dependency": "model.layers.0.v:0",
+        "beforeCharacters": 40427,
+        "afterCharacters": 40427,
+        "beforePiecewiseOccurrences": 13,
+        "afterPiecewiseOccurrences": 13,
+        "synchronization": [
+          40427,
+          40427,
+          40427,
+          20,
+          0,
+          "no-matching-siblings"
+        ],
+        "wallSeconds": 0.2063858750043437,
+        "output": "docs/evidence/direct-sympy-record-cache-frontier/objects/d19ceeaaf3b2fcf54e87b9a138fa02e928c0f74902e9fb093e37ba039852fb41.expr",
+        "originalDigest": "d19ceeaaf3b2fcf54e87b9a138fa02e928c0f74902e9fb093e37ba039852fb41",
+        "resultDigest": "d19ceeaaf3b2fcf54e87b9a138fa02e928c0f74902e9fb093e37ba039852fb41"
+      },
+      {
+        "dependency": "model.layers.0.residual:0",
+        "beforeCharacters": 971823,
+        "afterCharacters": 971823,
+        "beforePiecewiseOccurrences": 314,
+        "afterPiecewiseOccurrences": 314,
+        "synchronization": [
+          971823,
+          971823,
+          971823,
+          257,
+          0,
+          "synchronization-lift-budget"
+        ],
+        "wallSeconds": 8.20293220799067,
+        "output": "docs/evidence/direct-sympy-record-cache-frontier/objects/ba7b1c3f09d5e43f7cc4a31df4512395e5d60326e9877031f8fe88e79e1e5fef.expr",
+        "originalDigest": "ba7b1c3f09d5e43f7cc4a31df4512395e5d60326e9877031f8fe88e79e1e5fef",
+        "resultDigest": "ba7b1c3f09d5e43f7cc4a31df4512395e5d60326e9877031f8fe88e79e1e5fef"
+      }
+    ],
+    "fullCoordinateCompleted": false,
+    "fullVectorCompleted": false,
+    "frontier": {
+      "completedProducers": 12,
+      "lastProducer": "model.layers.0.post:1",
+      "lastCharacters": 29158367,
+      "newCompletedProducers": 0
+    },
+    "inputContract": {
+      "current": "Arbitrary finite Half inputs_embeds; position zero coordinate two",
+      "embeddingsIncorporated": false,
+      "humanClarification": "Pending: token IDs with checkpoint embeddings versus supplied Half matrix",
+      "silentDomainNarrowing": false
+    },
+    "savepoints": "New synchronization helper is part of strict source identity; old states not resumed or migrated in this iteration",
+    "sourceHashes": {
+      "direct_sympy_synchronize.py": "604e83e4bc577501db80fb91ffc475e0cda4c827444e0b615b7013f33b368b2f",
+      "direct_sympy_strings.py": "a51297bf588cdef976bd313345c6c67ed47fa993f8fb1caffa555cdb01640a7a",
+      "direct_sympy_words.py": "759c879d4f7ee2150ba20cca472a6431b1086517634db29f9c6b9d256fa72dd0",
+      "direct_sympy_conversions.py": "1dd087a6e83a635e985b2bfa8cf43b8fe9d21644cafbf9bf1a68fd41a15f7cfd",
+      "direct_sympy_checkpoint.py": "5aa03857e82fd9e9f816b593e8159d4c21f24369771a26002b5718afd1b1ee04",
+      "direct_sympy_savepoints.py": "b7188c77e7b19415a2f46b34843dd175313669647b819d3b6493cc20cc08d1e3"
+    },
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-synchronization-engine.log": "065a6d36d7d40b429a67af7cdbb148722348efea645f4ae4745b0845534157b2",
+      "docs/evidence/direct-sympy-synchronization-conversions.log": "477c51035b30873a62bf0198390c1815931cffcf476e0a481ce6a75daada24d5",
+      "docs/evidence/direct-sympy-synchronization-savepoints.log": "c78f18a4661476530d7fb42d2c5ab96fc4d28c32e296852c405d9a3f09464574",
+      "docs/evidence/direct-sympy-synchronization-checkpoint.log": "e62c10583f2cbe05ee4d5d3c807723717078b0b8d97d5aecd42bfbb1e90a101f",
+      "docs/evidence/direct-sympy-synchronization-build.log": "a408d94a3fffc856dc5364f9d4b4ab56fde09205ec19cae0976763ea611ad3df",
+      "docs/evidence/direct-sympy-synchronization-directed.log": "4c8bf1d550518bd19a0eeb02e575c33db9263048d32779a7a352e6422005722d",
+      "docs/evidence/direct-sympy-synchronization-regression.log": "9225af46343ac18cd372653c7cc3b9db6fd52ba39bbfabac908ff6d83a90a2fa",
+      "docs/evidence/direct-sympy-synchronization-actual.log": "334b803aff8cd2659d3ba6f1ce1f9febd13ce5b7284f047c9586d4f207284250",
+      "docs/evidence/direct-sympy-synchronization-actual.json": "861c169565f66dc5a6d00021dbe64b803c6138d0f91f827a1d800543e81d5637",
+      "docs/evidence/direct-sympy-synchronization-actual.py.work": "e06901ea5ab13f0d4c484dafc1f7e37ed67e569d406c5b650da0eb2aadf7526f"
+    }
   }
 }

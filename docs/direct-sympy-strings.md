@@ -771,3 +771,42 @@ de compilação, não contagem de caminhos do modelo. O helper de condições
 participa da identidade dos estados salvos. As expressões arquivadas foram
 verificadas pelos digests e usadas somente como entrada da análise; nenhum
 estado antigo foi retomado ou migrado nesta etapa.
+
+
+## Sincronização de seletores após fechamento numérico — 2026-10-03
+
+Após o ciclo obrigatório de `factor()`/`simplify()` estabilizar e as conversões
+numéricas serem fechadas, operações puras com seletores idênticos podem ser
+reunidas em um único `Piecewise`. As condições e sua ordem precisam coincidir
+estruturalmente, com ramo final verdadeiro. Cada corpo conserva a ordem de
+suas operações. Seletores independentes não são distribuídos por esta etapa.
+O candidato passa novamente pelo SymPy e só substitui o original quando fica
+menor. Não existem aliases ou compartilhamento de intermediários no runtime.
+
+A simplificação bitwise reúne duas máscaras constantes sobre a mesma palavra
+unsigned. A prova do tipo, faixa e fechamento é transferida exclusivamente
+para a raiz completa equivalente; os corpos selecionados não recebem uma
+prova global que poderia depender de sua condição.
+
+Os testes nativos compararam 131.072 casos, incluindo todos os padrões Half,
+NaNs, infinitos e zeros com sinal, sem divergências. O build e os quatro testes
+Node dirigidos passaram. A regressão manteve os mesmos resultados por nome:
+595 testes, 577 aprovados, 15 falhas anteriores e três ignorados.
+
+A análise dos objetos reais, verificados por digest, conservou exatamente
+3.305 caracteres em `pre:0`, 40.427 em `v:0` e 971.823 em `residual:0`.
+Os dois primeiros não tinham operações irmãs sincronizáveis; o residual
+atingiu o limite de 256 levantamentos temporários e foi mantido integralmente.
+A busca limita-se a um MiB e 262.144 nós temporários. Esses limites interrompem
+uma tentativa de otimização, sem omitir caminhos ou restringir entradas.
+Nenhum estado anterior foi retomado ou migrado; a identidade dos estados
+inclui agora o novo helper de sincronização.
+
+A fronteira completa permanece em 12 produtores e 29.158.367 caracteres em
+`post:1`; esta etapa não concluiu a coordenada nem o vetor. A rota de referência
+atual recebe `inputs_embeds` Half arbitrários e compara a posição zero,
+coordenada dois. A incorporação dos embeddings a partir de IDs de tokens e a
+saída do último token ainda precisam ser alinhadas com o contrato de entrada.
+Não houve redução silenciosa do domínio enquanto essa definição está pendente.
+As evidências estão em `docs/evidence/direct-sympy-synchronization-*` e o mapa
+foi atualizado em `docs/direct-string-validation.json`.

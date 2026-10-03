@@ -275,11 +275,32 @@ class StringCompiler:
         self.budget_events=[]
         self.branch_facts=BranchFacts()
         self.condition_events=[]
+        self.synchronization_events=[]
         self._stable={}
         self._cache_characters=0
         self._regions=OrderedDict()
         self._region_characters=0
         self._region_roots={}
+
+    def synchronize(self,expression,domains,path=(),*,search_characters=1048576,max_lifts=256,max_nodes=262144):
+        """Try synchronized control only after the mandatory CAS fixed point."""
+        stable=self.stabilize(expression,domains,path)
+        if len(stable)>search_characters:
+            self.synchronization_events.append((len(stable),None,len(stable),0,0,'search-budget'))
+            return stable
+        from direct_sympy_synchronize import propose
+        candidate,lifts,zips,status=propose(stable,max_lifts=max_lifts,max_nodes=max_nodes)
+        if status=='proposed' and len(candidate)<=self.max_characters:
+            from direct_sympy_words import simplify_words
+            candidate=simplify_words(candidate,self,domains)
+            candidate=self.stabilize(candidate,domains,path+('synchronized',))
+            if len(candidate)<len(stable):
+                self.synchronization_events.append((len(stable),len(candidate),len(candidate),lifts,zips,'admitted'))
+                return candidate
+            status='no-size-reduction'
+        elif status=='proposed':status='candidate-budget'
+        self.synchronization_events.append((len(stable),len(candidate),len(stable),lifts,zips,status))
+        return stable
 
     def context(self,domains):
         return tuple(sorted((name,d.minimum,d.maximum,d.quantum,d.excludes_negative_zero) for name,d in domains.items()))

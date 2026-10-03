@@ -9,6 +9,39 @@ from direct_sympy_strings import Domain,StringCompiler,syntax
 
 
 class StringCompilerTests(unittest.TestCase):
+    def test_synchronized_siblings_share_one_ordered_decision_after_cas(self):
+        domains={"X1":Domain(F(-65504),F(65504),-24,False)}
+        guard="U64And(U64Shr(Bits64(X1),17),123456789)<1234567"
+        source=f"Piecewise((X1,{guard}),(-0.0,True))+Piecewise((X1,{guard}),(-0.0,True))"
+        compiler=StringCompiler(dtype="f64")
+        with patch.object(engine.sp,"factor",wraps=engine.sp.factor) as factor,patch.object(engine.sp,"simplify",wraps=engine.sp.simplify) as simplify:
+            result=compiler.synchronize(source,domains)
+        self.assertGreater(factor.call_count,0);self.assertGreater(simplify.call_count,0)
+        self.assertLess(len(result),len(compiler.stabilize(source,domains)))
+        self.assertEqual(result.count("Piecewise("),1)
+        self.assertEqual(compiler.synchronization_events[-1][-1],"admitted")
+        self.assertIn("-0.0",result)
+        substituted=compiler.substitute("X9+X9","X9",f"Piecewise((X1,{guard}),(-0.0,True))",domains)
+        self.assertEqual(compiler.synchronize(substituted,domains).count("Piecewise("),1)
+
+    def test_synchronization_never_crosses_independent_or_priority_changed_guards(self):
+        from direct_sympy_synchronize import propose
+        domains={"X1":Domain(F(-1),F(1),-24,False)}
+        compiler=StringCompiler();a="Bits64(X1)<9223372036854775808";b="Bits64(X1)<4607182418800017408"
+        source=f"Piecewise((X1,{a}),(0.0,True))+Piecewise((X1,{b}),(0.0,True))"
+        stable=compiler.stabilize(source,domains)
+        self.assertEqual(compiler.synchronize(source,domains),stable)
+        same=f"Piecewise((X1,{a}),(0.0,True))+Piecewise((X1,{a}),(0.0,True))"
+        stable=compiler.stabilize(same,domains)
+        self.assertEqual(compiler.synchronize(same,domains,max_lifts=0),stable)
+        self.assertEqual(compiler.synchronization_events[-1][-1],"synchronization-lift-budget")
+        self.assertEqual(compiler.synchronize(same,domains,max_nodes=0),stable)
+        self.assertEqual(compiler.synchronize(same,domains,search_characters=1),stable)
+        changed=f"Piecewise((X1,{a}),(0.0,{b}),(-0.0,True))+Piecewise((X1,{b}),(0.0,{a}),(-0.0,True))"
+        self.assertEqual(propose(changed)[-1],'no-matching-siblings')
+        impure="Piecewise((X1,Unknown(X1)>0),(0.0,True))"
+        self.assertEqual(propose(impure+'+'+impure)[-1],'no-matching-siblings')
+
     def test_repeated_word_decisions_propagate_through_both_paths(self):
         domains={"X1":Domain(F(-65504),F(65504),-24,False)}
         guard="Bits64(X1) < 9223372036854775808"

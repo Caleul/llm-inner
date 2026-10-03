@@ -52,6 +52,43 @@ def cpp(node):
 
 
 class ConversionStringTests(unittest.TestCase):
+    def test_synchronization_transfers_only_closed_whole_root_numeric_proofs(self):
+        domains={"X1":Domain(F(-1),F(1),-24,False)}
+        compiler=StringCompiler();session=ConversionSession(compiler,domains,input_dtype='f16')
+        first=session.close('R16(R32(X1+X1/2.0))')
+        original=session.close('R16(R32(('+first+')+('+first+')))')
+        replacement=compiler.synchronize(original,domains)
+        self.assertNotEqual(original,replacement)
+        before=len(session.half_values);bounds=session.bounds(syntax(original))
+        session.propagate_closed_identity(original,replacement)
+        self.assertEqual(session.value_kind(syntax(replacement)),'half')
+        self.assertEqual(session.bounds(syntax(replacement)),bounds)
+        self.assertIn(session.key(syntax(replacement)),session.converted_regions)
+        self.assertIn(replacement,session.closed_literals)
+        self.assertEqual(len(session.half_values),before+1)
+        with self.assertRaisesRegex(ValueError,'closed numeric frontier'):
+            session.propagate_closed_identity('R16(X1)',replacement)
+
+    def test_synchronized_float_and_word_siblings_preserve_every_half_pattern(self):
+        compiler=StringCompiler(dtype='f64');domains={"X1":Domain(F(-65504),F(65504),-24,False)}
+        c="U64And(U64Shr(Bits64(X1),17),123456789)<1234567"
+        value=f"Piecewise((X1,{c}),(-0.0,True))"
+        sources=[value+'+'+value,
+            f"Float64(U64Or(U64And(Bits64({value}),9223372036854775808),U64And(Bits64({value}),9223372036854775807)))"]
+        outputs=[compiler.synchronize(source,domains) for source in sources]
+        self.assertTrue(all(len(after)<len(compiler.stabilize(before,domains)) for before,after in zip(sources,outputs)))
+        self.assertTrue(all(text.count('Piecewise(')==1 for text in outputs))
+        with tempfile.TemporaryDirectory() as directory:
+            source=Path(directory)/'sync.cpp';binary=Path(directory)/'sync';functions=[];checks=[]
+            for index,(before,after) in enumerate(zip(sources,outputs)):
+                functions.extend([f'double before{index}(double X1){{return '+cpp(syntax(before))+';}',f'double after{index}(double X1){{return '+cpp(syntax(after))+';}'])
+                checks.append(f'mismatches+=word<uint64_t>(before{index}(x))!=word<uint64_t>(after{index}(x));cases++;')
+            source.write_text('#include <cstdint>\n#include <cstring>\n#include <cmath>\n#include <cstdio>\ntemplate<class T,class U>T word(U value){T result;std::memcpy(&result,&value,sizeof(result));return result;}\n'+'\n'.join(functions)+'\nint main(){unsigned cases=0,mismatches=0;for(unsigned bits=0;bits<65536;bits++){double x=word<_Float16>(uint16_t(bits));'+'\n'.join(checks)+'}\nstd::printf("Synchronized sibling native parity: cases=%u mismatches=%u\\n",cases,mismatches);return mismatches?1:0;}')
+            built=subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],capture_output=True,text=True)
+            self.assertEqual(built.returncode,0,built.stderr)
+            result=subprocess.run([str(binary)],check=True,capture_output=True,text=True,timeout=120)
+            self.assertIn('cases=131072 mismatches=0',result.stdout);print(result.stdout,end='')
+
     def test_branch_truth_propagation_preserves_all_half_words_and_nan_comparisons(self):
         compiler=StringCompiler();domains={"X1":Domain(F(-65504),F(65504),-24,False)}
         c="Bits64(X1)<9223372036854775808"

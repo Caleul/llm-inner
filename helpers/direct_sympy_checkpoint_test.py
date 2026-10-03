@@ -16,6 +16,24 @@ from direct_sympy_strings import StringCompiler,syntax
 
 
 class CheckpointStringTests(unittest.TestCase):
+    def test_producer_synchronizes_only_after_closure_and_keeps_whole_root_dtype(self):
+        from fractions import Fraction as F
+        from direct_sympy_strings import Domain
+        from direct_sympy_conversions import ConversionSession
+        with tempfile.TemporaryDirectory() as directory:
+            (Path(directory)/'config.json').write_text(json.dumps({'model_type':'llama','hidden_size':1,'num_hidden_layers':1}))
+            builder=CheckpointStrings(directory,StringCompiler())
+            builder.domains={'X1':Domain(F(-1),F(1),-24,False)}
+            builder.conversions=ConversionSession(builder.compiler,builder.domains,input_dtype='f16')
+            first=builder.producer('fixture:first',lambda:'R16(R32(X1+X1/2.0))')
+            result=builder.producer('fixture:twice',lambda:'R16(R32(('+first+')+('+first+')))')
+            self.assertTrue(any(e[-1]=='admitted' for e in builder.compiler.synchronization_events))
+            self.assertNotIn('R16(',result);self.assertNotIn('R32(',result)
+            self.assertEqual(result.count('Piecewise('),1)
+            self.assertEqual(builder.conversions.value_kind(syntax(result)),'half')
+            self.assertIn(builder.conversions.key(syntax(result)),builder.conversions.converted_regions)
+            self.assertIn(result,builder.conversions.closed_literals)
+
     @unittest.skipUnless(os.environ.get("LLM_INNER_DIRECT_JSON_CHECKPOINT"),"Checkpoint validation fixture not configured")
     def test_closed_gate_up_projections_preserve_native_half_boundaries(self):
         from direct_sympy_conversions_test import cpp

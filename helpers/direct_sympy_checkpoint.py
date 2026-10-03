@@ -104,7 +104,12 @@ class CheckpointStrings:
         before=len(self.compiler.events)
         expression=build()
         result=self.compiler.stabilize("("+expression+")",self.domains)
-        if self.conversions is not None:result=self.conversions.close(result)
+        if self.conversions is not None:
+            result=self.conversions.close(result)
+            if self.conversions.key(syntax(result)) in self.conversions.converted_regions:
+                synchronized=self.compiler.synchronize(result,self.domains)
+                if synchronized!=result:self.conversions.propagate_closed_identity(result,synchronized)
+                result=synchronized
         self.compiler.register_completed_region(result,self.domains,word_closed=self.conversions is not None)
         self.memo[key]=result
         self.events.append((key,len(expression),len(result),len(self.compiler.events)-before))
@@ -276,6 +281,8 @@ def main():
                 "\n".join("\t".join(map(str,e)) for e in compiler.budget_events)+"\n")
             Path(str(path)+".conditions.tsv").write_text("path\tarm\taction\n"+
                 "\n".join("\t".join(map(str,e)) for e in compiler.condition_events)+"\n")
+            Path(str(path)+".synchronization.tsv").write_text("beforeCharacters\tcandidateCharacters\tafterCharacters\tlifts\tsynchronizedOperations\tstatus\n"+
+                "\n".join("\t".join(map(str,e)) for e in compiler.synchronization_events)+"\n")
             if model.conversions is not None:
                 Path(str(path)+".numeric-envelopes.tsv").write_text("inputCharacters\tvirtualCharacters\tclosedVirtualCharacters\texpandedCharacters\tcompletedRegions\n"+
                     "\n".join("\t".join(map(str,e)) for e in model.conversions.numeric_envelopes)+"\n")

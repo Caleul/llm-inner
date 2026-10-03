@@ -136,6 +136,23 @@ class ConversionSession:
         self.closed_literals[expression]=(self.bounds(node),self.value_kind(node),self.no_negative_zero(node))
         self.closed_literal_characters+=len(expression)
 
+    def propagate_closed_identity(self,original,replacement):
+        """Transfer whole-root proofs after a proven pure control rewrite.
+
+        Selected branch bodies do not inherit global dtype/range proofs:
+        those may hold only under a branch's guard. No runtime aliases exist.
+        """
+        before=syntax(original);old=self.key(before)
+        if old not in self.converted_regions:raise ValueError("Control rewrite requires a closed numeric frontier")
+        after=syntax(replacement);new=self.key(after)
+        bounds=self.bounds(before);kind=self.value_kind(before)
+        if bounds is not None:self.completed[new]=bounds
+        if kind=='half':self.half_values.add(new)
+        if kind in ('half','f32'):self.f32_values.add(new)
+        if self.no_negative_zero(before):self.no_negative_zero_values.add(new)
+        self.converted_regions.add(new)
+        self.remember_closed_literal(replacement,after)
+
     @staticmethod
     def constant(node):
         if isinstance(node,ast.Constant) and type(node.value) in (int,float):return float(node.value)

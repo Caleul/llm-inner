@@ -66,6 +66,13 @@ def reduce_call(node,domains,widths=None,floats=()):
     if name in ("U64And","U64Or") and type(a) is type(b):
         possible=not isinstance(a,ast.Call) or a.func.id==b.func.id
         if possible and (a is b or ast.dump(a)==ast.dump(b)):return a
+        # Factor the same unsigned word under two constant masks. This is
+        # exact bit algebra, including NaN payloads and signed-zero fields.
+        if isinstance(a,ast.Call) and isinstance(b,ast.Call) and a.func.id==b.func.id=="U64And" and len(a.args)==len(b.args)==2:
+            ma,mb=integer(a.args[1]),integer(b.args[1])
+            if ma is not None and mb is not None and ast.dump(a.args[0])==ast.dump(b.args[0]):
+                mask=ma|mb if name=="U64Or" else ma&mb
+                return ast.Call(func=ast.Name(id="U64And",ctx=ast.Load()),args=[a.args[0],ast.Constant(value=mask)],keywords=[])
     if name=="U64And" and bv is not None:
         if bv&((1<<wa)-1)==(1<<wa)-1:return a
         if isinstance(a,ast.Call) and a.func.id=="U64And" and len(a.args)==2:

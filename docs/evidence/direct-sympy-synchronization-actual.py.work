@@ -1,0 +1,18 @@
+import hashlib,json,sys,time
+from fractions import Fraction as F
+from pathlib import Path
+sys.path.insert(0,'helpers')
+from direct_sympy_strings import Domain,StringCompiler
+front=json.loads(Path('docs/evidence/direct-sympy-numeric-envelopes-frontier.json').read_text())['payload']
+records={r['name']:r for r in front['records']}
+domains={'X1':Domain(F(-65504),F(65504),-24,False),'X2':Domain(F(-65504),F(65504),-24,False)}
+results=[]
+for name in ('model.layers.0.pre:0','model.layers.0.v:0','model.layers.0.residual:0'):
+    compiler=StringCompiler(max_characters=1048576)
+    record=records[name];source=Path('docs/evidence/direct-sympy-record-cache-frontier/objects')/(record['digest']+'.expr')
+    expression=source.read_text();assert hashlib.sha256(expression.encode()).hexdigest()==record['digest']
+    start=time.monotonic();result=compiler.synchronize(expression,domains)
+    output=Path('/private/tmp/llm-inner-sync-'+name.split('.')[-1].replace(':','-')+'.work.expr');output.write_text(result+'\n')
+    item={'dependency':name,'beforeCharacters':len(expression),'afterCharacters':len(result),'beforePiecewiseOccurrences':expression.count('Piecewise('),'afterPiecewiseOccurrences':result.count('Piecewise('),'synchronization':compiler.synchronization_events[-1],'wallSeconds':time.monotonic()-start,'output':str(output),'originalDigest':record['digest'],'resultDigest':hashlib.sha256(result.encode()).hexdigest()}
+    results.append(item);print(json.dumps(item),flush=True)
+Path('/private/tmp/llm-inner-sync-actual.json').write_text(json.dumps(results,indent=2)+'\n')

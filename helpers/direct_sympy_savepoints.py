@@ -14,7 +14,7 @@ import sympy
 from direct_sympy_strings import syntax
 from direct_sympy_conversions import FiniteSource
 
-SOURCES=('direct_sympy_savepoints.py','direct_sympy_checkpoint.py','direct_sympy_strings.py','direct_sympy_conversions.py','direct_sympy_words.py','direct_sympy_arithmetic.py','direct_sympy_tandem.py','direct_sympy_signatures.py','direct_sympy_conditions.py')
+SOURCES=('direct_sympy_savepoints.py','direct_sympy_checkpoint.py','direct_sympy_strings.py','direct_sympy_conversions.py','direct_sympy_words.py','direct_sympy_arithmetic.py','direct_sympy_tandem.py','direct_sympy_signatures.py','direct_sympy_conditions.py','direct_sympy_synchronize.py')
 
 
 def digest_file(path):
