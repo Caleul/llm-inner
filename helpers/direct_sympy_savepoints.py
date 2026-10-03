@@ -77,7 +77,19 @@ class ProducerSavepoints:
                 # Do not parse/sign every old producer after each new one.
                 record=entry[1].copy();records.append(record)
                 continue
-            node=syntax(expression);session=model.conversions
+            session=model.conversions
+            if session and expression in session.closed_literals:
+                bounds,kind,positive_zero=session.closed_literals[expression]
+                key=session.closed_literal_keys[expression]
+                bounds=session.completed.get(key,bounds)
+                if key in session.half_values:kind='half'
+                elif key in session.f32_values:kind='f32'
+                positive_zero=positive_zero or key in session.no_negative_zero_values
+                records.append({'name':name,'digest':digest,'characters':len(expression),
+                    'bounds':None if bounds is None else [bounds.minimum.hex(),bounds.maximum.hex(),bounds.quantum],
+                    'kind':kind,'noNegativeZero':positive_zero,'castsClosed':True})
+                continue
+            node=syntax(expression)
             bounds=session.bounds(node) if session else None
             records.append({'name':name,'digest':digest,'characters':len(expression),
                 'bounds':None if bounds is None else [bounds.minimum.hex(),bounds.maximum.hex(),bounds.quantum],

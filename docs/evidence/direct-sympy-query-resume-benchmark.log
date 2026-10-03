@@ -1,0 +1,1 @@
+{"secondsIncludingInterpreterStartup": 10.281394290999742, "exitCode": 1, "restoredDependencies": 10, "reason": "Preallocation character limit", "predictedCharacters": 288836842, "limit": 100663296, "wallClockBudgetSeconds": 30, "coordinateAdmitted": false, "scope": "Actual restored checkpoint continuation through post normalization construction; not final model parity"}

@@ -1,0 +1,13 @@
+# Consultas de provas sem reanalisar literais fechados
+
+As consultas de tipo e intervalo da normalização e da eliminação de quadrados usam produtores imutáveis já certificados no mesmo domínio. Cada consulta cria átomos locais distintos e recompõe a assinatura estrutural da expressão original. Um guard que altera o domínio fundamental reabre a expressão completa. Esses átomos são somente de consulta/compilação e nunca são emitidos. A correlação RMS é registrada tanto nas chaves locais quanto nas chaves originais, sem mudar operações ou arredondamentos.
+
+A publicação de um produtor novo usa seu certificado fechado, da mesma sessão, sem reanalisar todo o texto. Os fatos atuais da chave original podem fortalecer o certificado publicado. Literais alterados e novas sessões ainda exigem nova certificação. Os dez arquivos e respectivos registros de prova da compilação nova coincidem integralmente com a fronteira já validada; os treze hashes atuais dos helpers foram conferidos. A identidade de código mudou e nenhum estado antigo incompatível foi forçado a reutilização.
+
+Build e seis testes direcionados passaram: 26 testes de conversão e cinco de estados salvos, incluindo a publicação de um produtor novo sem reanálise, composição de assinaturas, contextos estreitados, tokens locais distintos e 30.722 casos nativos após retomar. A regressão atual executou 597 testes: 579 passaram, as mesmas quinze falhas anteriores permaneceram e três foram ignorados. Os quatro testes JSON legados continuam excluídos conforme mapa anterior.
+
+A compilação salvou dez dependências e alcançou o orçamento de tamanho da normalização posterior, antes de alocar seus 288.836.842 caracteres. Uma retomada real sob orçamento de 30 segundos reproduziu esse ponto em 10,281 segundos incluindo a inicialização do interpretador. O limite foi 100.663.296 caracteres. Essa medição não é o tempo total da compilação nem paridade final. Ainda não existe a coordenada final.
+
+O próximo gargalo é expandir/restaurar o texto completo sem reconstruir uma AST de centenas de milhões de caracteres apenas para transferir provas de raízes já certificadas. O resultado deve continuar sendo uma string matemática integral sobre as entradas.
+
+Foi feita também uma exploração da SiLU em todo o intervalo Half [-1/16,1/16]: a fórmula quadrática em F64 divergiu em 18 dos 22.530 valores; a quartica em F64 divergiu no menor Half positivo; a quartica seguida de armazenamento F32 e Half não divergiu. Isso confirma a necessidade de preservar a fronteira F32 nesse candidato. A exploração não valida um kernel de palavras emitido e não foi incorporada à produção. Essa validação exaustiva escalar/vetorial do kernel efetivo é a próxima condição para admitir a simplificação.

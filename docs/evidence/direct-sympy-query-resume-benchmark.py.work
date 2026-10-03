@@ -1,0 +1,9 @@
+import json,subprocess,time
+from pathlib import Path
+command=['/private/tmp/llm-inner-pytorch/bin/python','helpers/direct_sympy_checkpoint.py','docs/evidence/direct-sympy-test-checkpoint','artifacts/direct-sympy-query-timed.work.expr','--max-characters','100663296','--max-seconds','30','--savepoint-directory','artifacts/direct-sympy-query-frontier','--resume']
+started=time.monotonic();result=subprocess.run(command,capture_output=True,text=True,timeout=60)
+Path('/private/tmp/llm-inner-query-timed-cli.log').write_text(result.stdout+result.stderr)
+assert result.returncode==1 and 'Restored completed dependencies: 10' in result.stdout
+assert 'expandedCharacters=288836842 limit=100663296' in result.stdout
+assert 'wall-clock budget exceeded' not in result.stdout.lower()
+print(json.dumps({'secondsIncludingInterpreterStartup':time.monotonic()-started,'exitCode':result.returncode,'restoredDependencies':10,'reason':'Preallocation character limit','predictedCharacters':288836842,'limit':100663296,'wallClockBudgetSeconds':30,'coordinateAdmitted':False,'scope':'Actual restored checkpoint continuation through post normalization construction; not final model parity'}))

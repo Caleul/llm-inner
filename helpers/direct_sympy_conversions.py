@@ -150,6 +150,41 @@ class ConversionSession:
         from direct_sympy_synchronize import GUARD_PURE
         self.closed_literal_pure[expression]=all(not isinstance(child,ast.Call) or child.func.id in GUARD_PURE for child in ast.walk(node))
 
+    def analyze_expression(self,expression):
+        """Read-only type/range query over exact completed literal proofs.
+
+        Return a small query tree and its original structural keys. Unique
+        compiler-only atoms are never emitted or used as execution variables.
+        Unknown contexts reopen the expression through the ordinary parser.
+        """
+        if expression in self.closed_literals:
+            compact='CASStableRegion0';regions={compact:expression}
+        else:
+            compact,regions=self.compiler.compact_regions(expression,self.compiler.context(self.domains))
+        if not regions or not all(text in self.closed_literals for text in regions.values()):
+            return syntax(expression),{}
+        replacements={}
+        for name,text in regions.items():
+            self.envelope_serial+=1;token='CASNumericRegion'+str(self.envelope_serial)
+            marker=syntax(token+'()');key=self.key(marker)
+            bounds,kind,positive_zero=self.closed_literals[text]
+            if bounds is not None:self.completed[key]=bounds
+            if kind=='half':self.half_values.add(key)
+            if kind in ('half','f32'):self.f32_values.add(key)
+            if positive_zero:self.no_negative_zero_values.add(key)
+            self.converted_regions.add(key)
+            replacements[key]=self.closed_literal_keys[text]
+            compact=re.sub(r'\b'+name+r'\b',token+'()',compact)
+        tree=syntax(compact);original=self.signatures.translated_keys(tree,replacements)
+        for node,old in original.items():
+            new=self.key(node)
+            if old in self.completed:self.completed[new]=self.completed[old]
+            if old in self.half_values:self.half_values.add(new)
+            if old in self.f32_values:self.f32_values.add(new)
+            if old in self.no_negative_zero_values:self.no_negative_zero_values.add(new)
+            if old in self.converted_regions:self.converted_regions.add(new)
+        return tree,original
+
     def restore_compact_literal(self,expression,node,regions,bounds,kind,positive_zero,closed,restored_keys,restored_purity):
         """Recover exact structural identity from previously validated literals.
 

@@ -1,0 +1,1 @@
+{"cases": 22530, "mismatches": 0, "firstCounterexamples": [], "expression": "R16(R32(X1*(0.5+X1*(0.25-X1*X1/48.0))))", "scope": "Exploratory ordered Python F64 polynomial/F32/Half vs Torch Half vector; not emitted word-kernel validation"}

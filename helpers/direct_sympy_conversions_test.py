@@ -54,6 +54,36 @@ def cpp(node):
 
 
 class ConversionStringTests(unittest.TestCase):
+    def test_readonly_queries_compose_literal_keys_without_reopening_closed_subtrees(self):
+        domains={"X1":Domain(F(-1),F(1),-24,False),"X2":Domain(F(-8),F(8),-24,False)}
+        compiler=StringCompiler();session=ConversionSession(compiler,domains,input_dtype="f16")
+        first=session.close("R16(R32(X1+X1/2.0))")
+        second=session.close("R16(X2*0.5)")
+        for text in (first,second):compiler.register_completed_region(text,domains,word_closed=True)
+        expression="R32(("+first+") * 0.5)";original=syntax(expression)
+        expected_key=session.key(original);expected_bounds=session.bounds(original)
+        with patch("direct_sympy_conversions.syntax",wraps=syntax) as parse:
+            query,keys=session.analyze_expression(expression)
+        self.assertLess(max(len(c.args[0]) for c in parse.call_args_list),len(first))
+        self.assertEqual(keys[query],expected_key)
+        self.assertEqual(session.bounds(query),expected_bounds)
+        self.assertEqual(session.value_kind(query),"f32")
+        old,old_keys=session.analyze_expression(first)
+        other,other_keys=session.analyze_expression(second)
+        self.assertNotEqual(session.key(old),session.key(other))
+        self.assertEqual(session.bounds(old),session.closed_literals[first][0])
+        self.assertEqual(session.bounds(other),session.closed_literals[second][0])
+        self.assertEqual(old_keys[old],session.key(syntax(first)))
+        self.assertEqual(other_keys[other],session.key(syntax(second)))
+        # A fundamental-input guard changes the context, so this query
+        # deliberately reopens the literal instead of hiding its branches.
+        guarded="Piecewise((("+first+"), X1 > 0), (0.0, True))"
+        reopened,mapping=session.analyze_expression(guarded)
+        self.assertEqual(mapping,{})
+        self.assertNotIn("CASNumericRegion",ast.unparse(reopened))
+        final=compiler.substitute("(X999999999 * 0.5)","X999999999",first,domains)
+        self.assertNotIn("CASNumericRegion",final)
+
     def test_integer_offset_composition_preserves_half_cells_and_rejects_inexact_words(self):
         domains={"X1":Domain(F(-262144),F(262144),-126,False)}
         compiler=StringCompiler()

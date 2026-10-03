@@ -91,7 +91,7 @@ class CheckpointStrings:
     def op(self,operation,a,b):
         # Actual F32 evaluation order is retained in the mathematical syntax.
         if operation=="*" and a==b and self.conversions is not None:
-            operand=syntax(a)
+            operand,_=self.conversions.analyze_expression(a)
             if self.conversions.value_kind(operand)=="half" and self.conversions.bounds(operand) is not None:
                 # Finite Half squares are exact F32 products. Do not build
                 # the redundant cast and reparse the entire closed operand
@@ -111,7 +111,8 @@ class CheckpointStrings:
             result=self.conversions.close(result)
             if re.search(r"\bR(?:16|32)\s*\(",result):
                 raise ValueError(f"Numeric closure incomplete for producer {key}; residual R16/R32; producer not published")
-            if self.conversions.key(syntax(result)) in self.conversions.converted_regions:
+            query,_=self.conversions.analyze_expression(result)
+            if self.conversions.key(query) in self.conversions.converted_regions:
                 # Numeric closure already reached a certified CAS fixed
                 # point. Register it before selector search so its mandatory
                 # stabilization can use the same-context literal envelope.
@@ -202,19 +203,24 @@ class CheckpointStrings:
                 # later residual may overflow even when the original inputs
                 # are finite; never carry the bound across that frontier.
                 finite_half=bound is not None and all(
-                    self.conversions.value_kind(syntax(input_value(i)))=="half"
-                    and self.conversions.bounds(syntax(input_value(i))) is not None
-                    for i in range(self.width))
+                    self.conversions.value_kind(query)=="half"
+                    and self.conversions.bounds(query) is not None
+                    for i in range(self.width)
+                    for query,_ in (self.conversions.analyze_expression(input_value(i)),))
                 if finite_half:
-                    raw=syntax(product)
-                    for node in (raw,raw.args[0],syntax(normalized)):
+                    raw,raw_keys=self.conversions.analyze_expression(product)
+                    half,half_keys=self.conversions.analyze_expression(normalized)
+                    for node,keys in ((raw,raw_keys),(raw.args[0],raw_keys),(half,half_keys)):
                         existing=self.conversions.bounds(node)
                         q=existing.quantum if existing is not None else (-149 if node is raw else -1074)
                         if node is not raw and isinstance(node,ast.Call) and node.func.id=="R16":q=-24
                         low=-bound if existing is None else max(-bound,existing.minimum)
                         high=bound if existing is None else min(bound,existing.maximum)
                         if low>high:raise ValueError('RMS correlation contradicts existing enclosure')
-                        self.conversions.completed[self.conversions.key(node)]=FiniteSource(low,high,q)
+                        enclosure=FiniteSource(low,high,q)
+                        virtual=self.conversions.key(node)
+                        self.conversions.completed[virtual]=enclosure
+                        self.conversions.completed[keys.get(node,virtual)]=enclosure
             return "R16("+self.op("*",normalized,self.weight(name,coordinate))+")"
         return self.producer(key+":"+str(coordinate),build)
 

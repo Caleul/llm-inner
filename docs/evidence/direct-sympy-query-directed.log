@@ -1,0 +1,14 @@
+✔ SymPy savepoints preserve completed rounding frontiers and reject incompatible or corrupt state (2091.062042ms)
+✔ SymPy string substitution factors and simplifies each step with isolated IEEE branch proofs (566.000625ms)
+✔ SymPy checkpoint working string is re-read and matches a freshly captured coordinate reference (5569.625167ms)
+✔ SymPy elementary conversion strings preserve native IEEE cells and composed boundaries (8792.201208ms)
+✔ Bounded SiLU arithmetic lowering matches every certified Half scalar and vector input (1613.371292ms)
+✔ Positive F32 square-root word lowering preserves all mantissas, parities and subnormals (867.862417ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 19805.176666

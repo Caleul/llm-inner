@@ -35,7 +35,8 @@ class SavepointTests(unittest.TestCase):
             root=Path(directory);original=self.model(root)
             with ProducerSavepoints(root/'state',original,0) as store:
                 original.on_completed=store.save
-                first=self.first(original)
+                with patch.object(saves,'syntax',side_effect=AssertionError('reparsed new certified producer')):
+                    first=self.first(original)
             with self.assertRaisesRegex(ValueError,'writer is closed'):store.save(original)
             original.on_completed=None
             resumed=self.model(root)

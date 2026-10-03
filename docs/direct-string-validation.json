@@ -7590,5 +7590,263 @@
       "compile64MiBStop": "Predicted 70846786-character inverse exceeds 67108864 before allocation",
       "compatible96MiBResume": "Running with 600-second budget; output prefix artifacts/direct-sympy-compact-current-resumed.work.expr; coordinate still pending"
     }
+  },
+  "readOnlyLiteralQueryValidation": {
+    "baseCommit": "ece37f1",
+    "expressionFormat": "Fully substituted SymPy mathematical strings; unchanged artifact contents",
+    "queries": "Use exact immutable literal proofs and unique compiler-only atoms for read-only kind/bounds queries, then compose original structural keys. Changed fundamental-input guard contexts reopen the original literal.",
+    "correlation": "RMS correlation enclosures are written under both virtual query keys and the original fully substituted expression keys; no reassociation or boundary removal.",
+    "publication": "New closed producer records reuse their same-session literal certificate and current stronger root facts without another complete AST parse. Changed literals or sessions retain full recertification.",
+    "validation": {
+      "buildExitCode": 0,
+      "directedPass": 6,
+      "directedFail": 0,
+      "conversionTests": 26,
+      "savepointTests": 5,
+      "queryStructuralIdentity": true,
+      "queryAtomsDistinctAcrossDifferentLiterals": true,
+      "narrowedInputGuardsReopened": true,
+      "newCertifiedProducerPublishedWithoutReparse": true,
+      "nativeResumedRoundingCases": 30722,
+      "nativeResumedRoundingMismatches": 0,
+      "regression": {
+        "total": 597,
+        "pass": 579,
+        "fail": 15,
+        "skip": 3,
+        "knownFailureNamesMatch": "docs/evidence/direct-sympy-offset-regression.log",
+        "newFailureNames": [],
+        "legacyJsonTestsExcluded": 4
+      }
+    },
+    "frontier": {
+      "directory": "artifacts/direct-sympy-query-frontier",
+      "completedDependencies": 10,
+      "lastDependency": "model.layers.0.post:inverse",
+      "sourceFilesVerified": 13,
+      "allTenExpressionsAndProofRecordsMatchPriorValidatedFrontier": true,
+      "records": [
+        {
+          "bounds": [
+            "0x1.0020040000000p-16",
+            "0x1.f3fffe0000000p+9",
+            -39
+          ],
+          "castsClosed": true,
+          "characters": 5210,
+          "digest": "a2a26469b3e911647359354fcce3d74719a0b20a98e056ea583a6b470fd65839",
+          "kind": "f32",
+          "name": "model.layers.0.pre:inverse",
+          "noNegativeZero": true
+        },
+        {
+          "bounds": [
+            "-0x1.6a00000000000p+1",
+            "0x1.6a00000000000p+1",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 21202,
+          "digest": "c2217d61c1cc1732a7383877f9091e92c9076407e259eb055cadebd0a3eca2ab",
+          "kind": "half",
+          "name": "model.layers.0.pre:0",
+          "noNegativeZero": false
+        },
+        {
+          "bounds": [
+            "-0x1.6a00000000000p+1",
+            "0x1.6a00000000000p+1",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 21202,
+          "digest": "4b088b2e746a0cea5c389ae8fdd65ba5812d9c2f760c2103847b1979c1bf7697",
+          "kind": "half",
+          "name": "model.layers.0.pre:1",
+          "noNegativeZero": false
+        },
+        {
+          "bounds": [
+            "-0x1.7ac0000000000p-6",
+            "0x1.7ac0000000000p-6",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 170210,
+          "digest": "b2636eff595ba94f96ef1f856b482945dd3b96878b4360cc88253e9815dceba8",
+          "kind": "half",
+          "name": "model.layers.0.v:0",
+          "noNegativeZero": false
+        },
+        {
+          "bounds": [
+            "-0x1.7ac0000000000p-6",
+            "0x1.7ac0000000000p-6",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 170216,
+          "digest": "d78b8480e9086720e4bd842ffacd8c418e0fff0aaed2ea014d42401b2b07f863",
+          "kind": "half",
+          "name": "model.layers.0.context:0",
+          "noNegativeZero": true
+        },
+        {
+          "bounds": [
+            "-0x1.dbc0000000000p-4",
+            "0x1.dbc0000000000p-4",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 170198,
+          "digest": "885f5eb4236f3b940e9e16017f9569726415da4cc04f9b07e2d81560131f7e3b",
+          "kind": "half",
+          "name": "model.layers.0.v:1",
+          "noNegativeZero": false
+        },
+        {
+          "bounds": [
+            "-0x1.dbc0000000000p-4",
+            "0x1.dbc0000000000p-4",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 170204,
+          "digest": "1d50b21810ae985a9f64db1e26fde35fdb36052e2b8ea384907cc10c200e0c7c",
+          "kind": "half",
+          "name": "model.layers.0.context:1",
+          "noNegativeZero": true
+        },
+        {
+          "bounds": [
+            "-0x1.ffc0000000000p+15",
+            "0x1.ffc0000000000p+15",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 1362336,
+          "digest": "140df710a27d5efc952b32816baa227c872368fc8b7a4b3ee09d5591294786f3",
+          "kind": "half",
+          "name": "model.layers.0.residual:0",
+          "noNegativeZero": false
+        },
+        {
+          "bounds": [
+            "-0x1.ffc0000000000p+15",
+            "0x1.ffc0000000000p+15",
+            -24
+          ],
+          "castsClosed": true,
+          "characters": 1362344,
+          "digest": "1bb4ccf96277d36d1c10f56357fec23bb761f487876df5e776822d15be32dbea",
+          "kind": "half",
+          "name": "model.layers.0.residual:1",
+          "noNegativeZero": false
+        },
+        {
+          "bounds": [
+            "0x1.0020040000000p-16",
+            "0x1.f3fffe0000000p+9",
+            -39
+          ],
+          "castsClosed": true,
+          "characters": 70846786,
+          "digest": "059881a1148067cc2efba1af77d5b9298c84eb644be049b5da04b3b16b448c3a",
+          "kind": "f32",
+          "name": "model.layers.0.post:inverse",
+          "noNegativeZero": true
+        }
+      ]
+    },
+    "resumeBenchmark": {
+      "secondsIncludingInterpreterStartup": 10.281394290999742,
+      "exitCode": 1,
+      "restoredDependencies": 10,
+      "reason": "Preallocation character limit",
+      "predictedCharacters": 288836842,
+      "limit": 100663296,
+      "wallClockBudgetSeconds": 30,
+      "coordinateAdmitted": false,
+      "scope": "Actual restored checkpoint continuation through post normalization construction; not final model parity"
+    },
+    "nextExpansion": {
+      "dependency": "model.layers.0.post:0",
+      "predictedCharacters": 288836842,
+      "limit": 100663296,
+      "admitted": false,
+      "allocated": false,
+      "reason": "Preallocation size limit, not wall-clock expiration"
+    },
+    "siluExploration": {
+      "doubleOnly": {
+        "cases": 22530,
+        "reference": "Torch vector Half SiLU",
+        "candidateArithmetic": "Python ordered F64, direct Half storage; exploratory not emitted kernel parity",
+        "mismatches": {
+          "quadratic": 18,
+          "quartic": 1
+        },
+        "firstCounterexamples": {
+          "quadratic": [
+            {
+              "inputBits": 1,
+              "got": 1,
+              "expected": 0
+            },
+            {
+              "inputBits": 10825,
+              "got": 9841,
+              "expected": 9840
+            },
+            {
+              "inputBits": 10885,
+              "got": 9904,
+              "expected": 9903
+            }
+          ],
+          "quartic": [
+            {
+              "inputBits": 1,
+              "got": 1,
+              "expected": 0
+            }
+          ]
+        }
+      },
+      "withF32Boundary": {
+        "cases": 22530,
+        "mismatches": 0,
+        "firstCounterexamples": [],
+        "expression": "R16(R32(X1*(0.5+X1*(0.25-X1*X1/48.0))))",
+        "scope": "Exploratory ordered Python F64 polynomial/F32/Half vs Torch Half vector; not emitted word-kernel validation"
+      },
+      "productionChanged": false,
+      "nextGate": "Validate actual emitted closed word kernel against all 22530 Half scalar/vector values before admission"
+    },
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "otherCoordinatesAdvanced": false,
+    "remaining": "Avoid rebuilding a full AST after restoring closed numeric envelopes and reusing their certified root shape. Then close and validate posterior normalization without exhausting memory; continue to gate/up/SiLU/down and final normalization/head. Final coordinate, whole vector and last-token parity remain pending.",
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-query-budget-simplifications.tsv": "8fee5951ef5ad32f2c0721fd74f507df052b97dff14fc4a1b2ced4ca0094677b",
+      "docs/evidence/direct-sympy-query-build.log": "a408d94a3fffc856dc5364f9d4b4ab56fde09205ec19cae0976763ea611ad3df",
+      "docs/evidence/direct-sympy-query-compile.log": "e1f5b7fb1c5379ba6708fe9dec226601bd21c97be50ff5403f655e50a09f7c4a",
+      "docs/evidence/direct-sympy-query-conditions.tsv": "10a84ac62102bb679a15b5b1f0bb598b3aead1d4ab394af156d787e20c3c7a9f",
+      "docs/evidence/direct-sympy-query-conversions.log": "93bd312f28e91a589b76063a28c18fc17471b585db426a1452cbf7b3db8c6e38",
+      "docs/evidence/direct-sympy-query-directed.log": "b313a3f12118f2654b7a37109f72c4c3a91b30b847923ce65ed11851b28d806e",
+      "docs/evidence/direct-sympy-query-frontier.json": "e34e03c37c1f535b22d3dc3da0603c94c973b167128310d8de41f8db60963688",
+      "docs/evidence/direct-sympy-query-growth.tsv": "c5824d6a9599ba07924e21cd970cde55ec38263419be7ed556d190a919e0e2b9",
+      "docs/evidence/direct-sympy-query-numeric-envelopes.tsv": "e8df3ee5764284863a9dbef40a92700b4fab838f21d13099cbb8fbb340f2042b",
+      "docs/evidence/direct-sympy-query-regression.log": "e8e504d7619b77e99f7854224493bf48d38f4548455da069dd51f4d3d2bd416a",
+      "docs/evidence/direct-sympy-query-resume-benchmark.log": "0416b7d1b94091140b1d1d6fc79812ec7f667f89d212485842c49051b8f9c522",
+      "docs/evidence/direct-sympy-query-resume-benchmark.py.work": "12ec4d90136d1d1bd12137e7c4495e0c21c46becbc5a10206c89fa063a8c7968",
+      "docs/evidence/direct-sympy-query-resumed-cli.log": "469eea613dec98249f4ed6471338d4b667db8e68d033a146e050771ede017da3",
+      "docs/evidence/direct-sympy-query-savepoints.log": "fe0b9a742395c40dbcdf97e71c3404307aa997bcfe9ab2f9c7257d243ea6e648",
+      "docs/evidence/direct-sympy-query-silu-f32-probe.log": "7c15ec3d56367455e5379b755d17acfccdff1ec5b120f6dd9b9699e8593dd371",
+      "docs/evidence/direct-sympy-query-silu-polynomial-probe.log": "3d9323c36d1437f5a2adf15640b670bd9a8bed840bbeeb5b518d699aa50a60ab",
+      "docs/evidence/direct-sympy-query-status.md": "abf84eec6f5cdcaa78e88852ddad2355f45c29ef4450ac808adcf07f0c082e31",
+      "docs/evidence/direct-sympy-query-substitutions.tsv": "f73fd938b41c556506685fde7a874459408f262c32cfa181168996080ad84f42",
+      "docs/evidence/direct-sympy-query-synchronization.tsv": "ab8803e0484feb67a9d3da7b6429ed902306eb0e39d6b25d48bfb05bb8b6304f"
+    }
   }
 }
