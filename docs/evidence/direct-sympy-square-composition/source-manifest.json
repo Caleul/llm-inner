@@ -1,0 +1,7 @@
+{
+  "helpers/direct_sympy_silu.py": "0f4d9a7a17c38bc0ba8d8f7a28bbcfcc66ebe95c578e44b5a1f30a7d9c2affd8",
+  "helpers/direct_sympy_conversions.py": "5dbddacdf97b6e15c1caec546e3ac6372c69c13256470eeb4a1f306c920992be",
+  "helpers/direct_sympy_silu_test.py": "21de639bcc16fced1718c539518b67cc21104f02fe5722bcf207b9b281b4a68c",
+  "helpers/direct_sympy_conversions_test.py": "f1237acac34c9463b42a8970a535f1ec085b0508476c7a9ce1c3df64cc27cb9e",
+  "test/direct-sympy-strings.test.ts": "4ad5290c9190cccc4cd138b2f8d9a905550dd06a23378cda5b134782975b55fa"
+}

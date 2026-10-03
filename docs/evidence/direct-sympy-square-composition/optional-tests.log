@@ -1,0 +1,17 @@
+✔ unchanged structural and precision fixed points retain completed producer identity (1.226834ms)
+✔ incremental substitution stabilizes children before consumers and removes equivalent producer subtraction (38.367125ms)
+✔ a selected coordinate is emitted as a complete scalar artifact without pretending to cover the vector (15.107916ms)
+✔ one complete source-discovered coordinate preserves live PyTorch bits after each dependency is stabilized (9493.523167ms)
+✔ RMS consumer certificate exhausts root error cells and their finite half pair preimages (177.04075ms)
+✔ RMS certificate keeps four steps for unsupported widths, resource limits and invalid domains (7.2725ms)
+✔ three-step root is restricted to the certified consumer; standalone roots retain exact rounding (1.258667ms)
+✔ certified RMS critical pairs match live PyTorch for every sign and one/eight-token shapes (1983.032709ms)
+✔ closed JSON RMS composition preserves every critical coordinate and sign without pending primitives (34.752625ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9884.613584

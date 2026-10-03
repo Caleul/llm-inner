@@ -8,7 +8,7 @@ import torch
 from direct_sympy_strings import Domain,StringCompiler,syntax
 from direct_sympy_conversions import ConversionSession
 from direct_sympy_conversions_test import cpp
-from direct_sympy_silu import supported,expand,quadratic_subnormal_guard
+from direct_sympy_silu import supported,expand,quadratic_subnormal_guard,quadratic_tandem_source
 
 
 class BoundedSiluTests(unittest.TestCase):
@@ -45,21 +45,57 @@ class BoundedSiluTests(unittest.TestCase):
         for expression in ('X1*(0.5+X1*0.5)','X1*(0.5+X2*0.25)','X1*0.5'):
             self.assertIsNone(quadratic_subnormal_guard(syntax(expression),session))
         from unittest.mock import patch
-        with patch('direct_sympy_silu.quadratic_subnormal_guard',return_value=None):baseline=session.close('Silu16(X1)')
-        result=session.close('Silu16(X1)')
+        with patch('direct_sympy_silu.quadratic_tandem_source',return_value=None):
+            with patch('direct_sympy_silu.quadratic_subnormal_guard',return_value=None):baseline=session.close('Silu16(X1)')
+            result=session.close('Silu16(X1)')
         self.assertEqual(baseline.count('X1'),7)
         self.assertEqual(result.count('X1'),6)
         self.assertLess(len(result),len(baseline))
         print('Quadratic Half threshold preimage: cases=19458 mismatches=0 sourceCopies=7->6')
 
+    def test_completed_square_is_exact_except_raw_negative_zero_and_closes_at_half_boundary(self):
+        from unittest.mock import patch
+        session=ConversionSession(StringCompiler(),{'X1':Domain(-F(3,128),F(3,128),-24,False)},input_dtype='f16')
+        raw=syntax('X1*(0.5+X1*0.25)')
+        magnitude,sign=quadratic_tandem_source(raw,session)
+        self.assertEqual(sign,'X1');self.assertEqual(magnitude.count('X1'),1)
+        cases=0;zero_differences=0
+        for bits in range(65536):
+            x=struct.unpack('e',struct.pack('H',bits))[0]
+            if not abs(x)<=3/128:continue
+            expected=F(x)*(F(1,2)+F(x)/4)
+            old=x*(.5+x*.25);new=((x+1.0)**2-1.0)*.25
+            self.assertEqual(F(old),expected);self.assertEqual(F(new),expected)
+            if expected:self.assertLessEqual(abs(expected.numerator).bit_length(),37)
+            if struct.pack('d',old)!=struct.pack('d',new):
+                self.assertEqual(bits,0x8000);zero_differences+=1
+            cases+=1
+        self.assertEqual((cases,zero_differences),(19458,1))
+        untyped=ConversionSession(StringCompiler(),session.domains)
+        self.assertIsNone(quadratic_tandem_source(raw,untyped))
+        wide=ConversionSession(StringCompiler(),{'X1':Domain(-F(1,32),F(1,32),-24,False)},input_dtype='f16')
+        self.assertIsNone(quadratic_tandem_source(raw,wide))
+        with patch('direct_sympy_silu.quadratic_tandem_source',return_value=None):baseline=session.close('Silu16(X1)')
+        from direct_sympy_tandem import lower_tandem
+        candidate=lower_tandem(magnitude,session.bounds(raw),session.compiler,session.domains,integer_word_exact=True,sign_expression=sign,small_condition=quadratic_subnormal_guard(raw,session))
+        self.assertEqual(baseline.count('X1'),6);self.assertEqual(candidate.count('X1'),4)
+        # The short input remains in the smaller existing form; composed
+        # producers can make the four-occurrence candidate smaller instead.
+        self.assertEqual(session.close('Silu16(X1)'),baseline)
+        self.verify_emitted(F(3,128),19458,450,4,kernel=candidate)
+        # Native all-Half parity, including -0, is independently covered by
+        # test_smaller_quadratic_kernel_matches_every_half_in_its_certified_domain.
+        print('Completed square tandem certificate: cases=19458 rawNegativeZeroDifferences=1 sourceCopies=6->4')
+
     def test_activation_closes_a_previously_certified_literal_in_the_same_context(self):
         self.verify_emitted(F(3,64),21506,10000,100,previous=True)
 
-    def verify_emitted(self,bound,expected_cases,max_characters,max_references,previous=False):
+    def verify_emitted(self,bound,expected_cases,max_characters,max_references,previous=False,kernel=None):
         session=ConversionSession(StringCompiler(),{'X1':Domain(-bound,bound,-24,False)},input_dtype='f16')
         producer=session.close('R16(X1*0.5)') if previous else 'X1'
         result=session.close('Silu16('+producer+')')
         self.assertEqual(session.activations_closed,1)
+        if kernel is not None:result=kernel
         self.assertLessEqual(len(result),max_characters)
         self.assertLessEqual(result.count("X1"),max_references)
         for primitive in ('R16(','R32(','Silu16(','exp(','sqrt(','CASNumericRegion'):

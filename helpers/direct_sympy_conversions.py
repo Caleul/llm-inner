@@ -926,10 +926,21 @@ class ConversionSession:
                             raw=self.visit(raw)
                             sign=session.same_sign_operand(raw)
                             sign_expression=None if sign is raw else ast.unparse(sign)
-                            from direct_sympy_silu import quadratic_subnormal_guard
+                            from direct_sympy_silu import quadratic_subnormal_guard,quadratic_tandem_source
                             condition=quadratic_subnormal_guard(raw,session)
+                            polynomial=quadratic_tandem_source(raw,session)
+                            magnitude=ast.unparse(raw)
+                            exact_word=session.encoded_word_is_exact_integer(raw)
                             frontier=[]
-                            text=lower_tandem(ast.unparse(raw),certificate,session.compiler,session.domains,integer_word_exact=session.encoded_word_is_exact_integer(raw),sign_expression=sign_expression,small_condition=condition,frontier=frontier)
+                            text=lower_tandem(magnitude,certificate,session.compiler,session.domains,integer_word_exact=exact_word,sign_expression=sign_expression,small_condition=condition,frontier=frontier)
+                            if polynomial is not None:
+                                candidate_frontier=[]
+                                candidate=lower_tandem(polynomial[0],certificate,session.compiler,session.domains,integer_word_exact=True,sign_expression=polynomial[1],small_condition=condition,frontier=candidate_frontier)
+                                # Fewer occurrences of the certified operand;
+                                # requiring a smaller compact result is also
+                                # conservative when its literal is restored.
+                                if len(candidate)<len(text):
+                                    text,frontier=candidate,candidate_frontier
                             session.remember_frontier_bounds(text,frontier)
                             rewritten=syntax(text);session.closed+=2
                             if before is not None:

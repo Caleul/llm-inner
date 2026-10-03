@@ -326,7 +326,8 @@ std::printf("Integer offset tandem parity: cases=%u mismatches=%u integerCastLos
             self.assertIn('cases=507904 mismatches=0',run.stdout);print(run.stdout,end='')
 
     @patch.object(ConversionSession,'close_frontier_candidates',lambda self,compact,baseline,*args:baseline)
-    def test_completed_rounding_frontiers_synchronize_inside_activation(self):
+    @patch('direct_sympy_silu.quadratic_tandem_source',return_value=None)
+    def test_completed_rounding_frontiers_synchronize_inside_activation(self,_square):
         domains={'X1':Domain(-F(1,64),F(1,64),-24,False)}
         compiler=StringCompiler();session=ConversionSession(compiler,domains,input_dtype='f16')
         producer=session.close('R16(R32(X1+X1/2.0))')

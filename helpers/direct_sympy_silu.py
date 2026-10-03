@@ -29,6 +29,19 @@ def expand(source,session):
     return session.compiler.substitute(template,x,source,session.domains)
 
 
+def quadratic_source(node,session):
+    """Recognize only the certified Half quadratic, not real-algebra patterns."""
+    import ast
+    if not isinstance(node,ast.BinOp) or not isinstance(node.op,ast.Mult):return None
+    x=node.left;factor=node.right
+    if not isinstance(factor,ast.BinOp) or not isinstance(factor.op,ast.Add) or session.constant(factor.left)!=0.5:return None
+    term=factor.right
+    if not isinstance(term,ast.BinOp) or not isinstance(term.op,ast.Mult) or session.constant(term.right)!=0.25 or session.key(term.left)!=session.key(x):return None
+    bounds=session.bounds(x)
+    if session.value_kind(x)!='half' or bounds is None or bounds.minimum < -3/128 or bounds.maximum > 3/128:return None
+    return x
+
+
 def quadratic_subnormal_guard(node,session):
     """Exact preimage of the F32 normal threshold for the Half quadratic.
 
@@ -39,11 +52,23 @@ def quadratic_subnormal_guard(node,session):
     Its addition and square are exact F64 operations on this Half domain.
     """
     import ast
-    if not isinstance(node,ast.BinOp) or not isinstance(node.op,ast.Mult):return None
-    x=node.left;factor=node.right
-    if not isinstance(factor,ast.BinOp) or not isinstance(factor.op,ast.Add) or session.constant(factor.left)!=0.5:return None
-    term=factor.right
-    if not isinstance(term,ast.BinOp) or not isinstance(term.op,ast.Mult) or session.constant(term.right)!=0.25 or session.key(term.left)!=session.key(x):return None
-    bounds=session.bounds(x)
-    if session.value_kind(x)!='half' or bounds is None or bounds.minimum < -3/128 or bounds.maximum > 3/128:return None
+    x=quadratic_source(node,session)
+    if x is None:return None
     return '('+ast.unparse(x)+' + 2**-25)**2 < 2**-26'
+
+
+def quadratic_tandem_source(node,session):
+    """One-occurrence magnitude, certified only at the tandem Half boundary.
+
+    For Half |x| <= 3/128, (x+1)^2 and the subtraction are exact F64
+    dyadics, equal to x*(.5+x*.25). The nonzero product has <=37
+    significant bits (11-bit x times a <=26-bit factor), admitting the
+    exact integer-word tandem route. At -0 this polynomial becomes +0:
+    the caller MUST preserve the original x sign in the subnormal arm.
+    This is not a generic raw-expression or same-sign rewrite.
+    """
+    import ast
+    x=quadratic_source(node,session)
+    if x is None:return None
+    source=ast.unparse(x)
+    return '((('+source+') + 1.0)**2 - 1.0) * 0.25',source

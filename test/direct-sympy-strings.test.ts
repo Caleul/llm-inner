@@ -67,8 +67,9 @@ test('SymPy elementary conversion strings preserve native IEEE cells and compose
 test('Bounded SiLU arithmetic lowering matches every certified Half scalar and vector input',
   {skip:!python},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_silu_test.py'],{timeout:120_000,maxBuffer:1024*1024});
-    assert.match(stderr,/Ran 4 tests/);
+    assert.match(stderr,/Ran 5 tests/);
     assert.match(stdout,/Quadratic Half threshold preimage: cases=19458 mismatches=0 sourceCopies=7->6/);
+    assert.match(stdout,/Completed square tandem certificate: cases=19458 rawNegativeZeroDifferences=1 sourceCopies=6->4/);
     assert.match(stderr,/OK/);
     assert.match(stdout,/Bounded SiLU word parity: cases=22530 mismatches=0/);
     assert.match(stdout,/Bounded SiLU word parity: cases=19458 mismatches=0/);
