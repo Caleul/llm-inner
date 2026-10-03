@@ -735,3 +735,39 @@ mudaram; todos os arquivos de expressão, checkpoint, domínio e provas
 numéricas anteriores permanecem idênticos e foram verificados pela retomada
 estrita. Os objetos estão no arquivo de evidências anterior, referenciado
 pelo mapa de validação; o manifest novo registra seus mesmos digests.
+# Decisões conhecidas no caminho
+
+O compilador agora propaga fatos de verdade sobre condições matemáticas
+repetidas, além dos intervalos dos Xn. As chaves estruturais preservam tipos e
+bits dos literais, inclusive zero com sinal; não usam aproximação nem hashes
+como prova de igualdade. Cada ramo recebe suas próprias hipóteses e as
+negações dos guardas anteriores. A cache de simplificação inclui esses fatos:
+uma prova no ramo verdadeiro não é reutilizada no ramo falso.
+
+Se um `Piecewise` interno repete uma decisão já tomada, o compilador elimina
+a decisão e conserva apenas o corpo alcançável. Também propaga `Not`, os
+operandos de `And` verdadeiro e os operandos de `Or` falso. Isso não converte
+`not(x < 0)` em `x >= 0`: comparações calculadas podem conter NaN. O ciclo
+obrigatório de `factor()`/`simplify()` permanece em cada ramo e no envelope.
+Regiões completas não são ocultadas sob um novo guarda externo, incluindo
+guardas bitwise, pois a hipótese nova pode simplificar suas decisões internas.
+
+O emissor C++ de validação passou a distinguir os seis operadores de
+comparação e a emitir negação e operadores booleanos corretamente. A paridade
+nativa foi verificada em 196.608 comparações (três expressões sobre todos os
+65.536 padrões Half), incluindo NaNs, infinitos e zeros com sinal. O número
+de `Piecewise` nas três expressões passou de 3/2/3 para 1/2/1. Os testes também
+cobrem cache entre irmãos, reabertura de regiões e conjunções.
+
+Nas expressões reais arquivadas, `pre:0` permaneceu byte a byte com 3.305
+caracteres e um `Piecewise`; `v:0` permaneceu byte a byte com 40.427 caracteres
+e 13 ocorrências. Não foram encontradas decisões já conhecidas no caminho
+nesses dois casos. A mudança não demonstra redução da coordenada completa:
+as ocorrências repetidas em operações irmãs precisam de sincronização após
+estabilizar as simplificações, antes de distribuir suas combinações.
+
+O registro `conditions.tsv` informa ações por guarda visitado; são eventos
+de compilação, não contagem de caminhos do modelo. O helper de condições
+participa da identidade dos estados salvos. As expressões arquivadas foram
+verificadas pelos digests e usadas somente como entrada da análise; nenhum
+estado antigo foi retomado ou migrado nesta etapa.

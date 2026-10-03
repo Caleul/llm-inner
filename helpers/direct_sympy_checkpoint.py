@@ -274,6 +274,8 @@ def main():
                 "\n".join("\t".join(map(str,e)) for e in compiler.substitution_events)+"\n")
             Path(str(path)+".budget-simplifications.tsv").write_text("virtualCharacters\tstabilizedVirtualCharacters\texpandedCharacters\tcompletedRegions\tCASPasses\tadmitted\n"+
                 "\n".join("\t".join(map(str,e)) for e in compiler.budget_events)+"\n")
+            Path(str(path)+".conditions.tsv").write_text("path\tarm\taction\n"+
+                "\n".join("\t".join(map(str,e)) for e in compiler.condition_events)+"\n")
             if model.conversions is not None:
                 Path(str(path)+".numeric-envelopes.tsv").write_text("inputCharacters\tvirtualCharacters\tclosedVirtualCharacters\texpandedCharacters\tcompletedRegions\n"+
                     "\n".join("\t".join(map(str,e)) for e in model.conversions.numeric_envelopes)+"\n")

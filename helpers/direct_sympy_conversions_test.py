@@ -23,14 +23,21 @@ def cpp(node):
         if type(node.value) is bool:return "true" if node.value else "false"
         if type(node.value) is int:return "UINT64_C("+str(node.value)+")"
         return repr(node.value)
-    if isinstance(node,ast.UnaryOp):return "(-double("+cpp(node.operand)+"))" if isinstance(node.op,ast.USub) else cpp(node.operand)
+    if isinstance(node,ast.UnaryOp):
+        if isinstance(node.op,ast.Not):return "(!("+cpp(node.operand)+"))"
+        return "(-double("+cpp(node.operand)+"))" if isinstance(node.op,ast.USub) else cpp(node.operand)
     if isinstance(node,ast.BinOp):
         if isinstance(node.op,ast.Pow):return "std::pow(double("+cpp(node.left)+"), double("+cpp(node.right)+"))"
         op={ast.Add:"+",ast.Sub:"-",ast.Mult:"*",ast.Div:"/"}[type(node.op)]
         return "(double("+cpp(node.left)+") "+op+" double("+cpp(node.right)+"))"
-    if isinstance(node,ast.Compare):return "("+cpp(node.left)+" < "+cpp(node.comparators[0])+")"
+    if isinstance(node,ast.Compare):
+        op={ast.Lt:"<",ast.LtE:"<=",ast.Gt:">",ast.GtE:">=",ast.Eq:"==",ast.NotEq:"!="}[type(node.ops[0])]
+        return "("+cpp(node.left)+" "+op+" "+cpp(node.comparators[0])+")"
+    if isinstance(node,ast.BoolOp):return "("+(" && " if isinstance(node.op,ast.And) else " || ").join(cpp(x) for x in node.values)+")"
     if isinstance(node,ast.Call):
         name=node.func.id
+        if name=="Not":return "(!("+cpp(node.args[0])+"))"
+        if name in ("And","Or"):return "("+(" && " if name=="And" else " || ").join(cpp(x) for x in node.args)+")"
         if name=="Piecewise":
             result="UINT64_C(0)"
             for pair in reversed(node.args):result="("+cpp(pair.elts[1])+" ? "+cpp(pair.elts[0])+" : "+result+")"
@@ -45,6 +52,26 @@ def cpp(node):
 
 
 class ConversionStringTests(unittest.TestCase):
+    def test_branch_truth_propagation_preserves_all_half_words_and_nan_comparisons(self):
+        compiler=StringCompiler();domains={"X1":Domain(F(-65504),F(65504),-24,False)}
+        c="Bits64(X1)<9223372036854775808"
+        sources=[f"Piecewise((Piecewise((Float64(Bits64(X1)),{c}),(777.0,True)),{c}),(Piecewise((999.0,{c}),(-X1,True)),True))",
+            "Piecewise((Piecewise((1.0,X1>=0),(2.0,True)),Not(X1<0)),(3.0,True))",
+            f"Piecewise((Piecewise(((-0.0),Not({c})),(X1,True)),Not({c})),(Piecewise((X1,{c}),(0.0,True)),True))"]
+        outputs=[compiler.stabilize(source,domains) for source in sources]
+        self.assertEqual([s.count("Piecewise(") for s in outputs],[1,2,1])
+        with tempfile.TemporaryDirectory() as directory:
+            source=Path(directory)/"conditions.cpp";binary=Path(directory)/"conditions"
+            functions=[];checks=[]
+            for index,(before,after) in enumerate(zip(sources,outputs)):
+                functions.extend([f"double before{index}(double X1){{return "+cpp(syntax(before))+";}",f"double after{index}(double X1){{return "+cpp(syntax(after))+";}"])
+                checks.append(f"mismatches+=word<uint64_t>(before{index}(x))!=word<uint64_t>(after{index}(x));cases++;")
+            source.write_text("#include <cstdint>\n#include <cstring>\n#include <cmath>\n#include <cstdio>\ntemplate<class T,class U>T word(U value){T result;std::memcpy(&result,&value,sizeof(result));return result;}\n"+"\n".join(functions)+"\nint main(){unsigned cases=0,mismatches=0;for(unsigned bits=0;bits<65536;bits++){double x=word<_Float16>(uint16_t(bits));"+"\n".join(checks)+'}\nstd::printf("Exact branch facts native parity: cases=%u mismatches=%u\\n",cases,mismatches);return mismatches?1:0;}')
+            built=subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],capture_output=True,text=True)
+            self.assertEqual(built.returncode,0,built.stderr)
+            result=subprocess.run([str(binary)],check=True,capture_output=True,text=True,timeout=120)
+            self.assertIn('cases=196608 mismatches=0',result.stdout);print(result.stdout,end='')
+
     def test_completed_numeric_envelopes_reuse_only_session_proofs_and_restore_literals(self):
         import direct_sympy_conversions as conversions
         domains={"X1":Domain(F(-1),F(1),-24,False)}

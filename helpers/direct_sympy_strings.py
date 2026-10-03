@@ -13,6 +13,7 @@ from fractions import Fraction
 import re
 
 import sympy as sp
+from direct_sympy_conditions import BranchFacts
 
 
 # Only grammar admission is reusable. Always parse a fresh tree: conversion
@@ -272,6 +273,8 @@ class StringCompiler:
         self.substitution_events = []
         self.failed_substitution = None
         self.budget_events=[]
+        self.branch_facts=BranchFacts()
+        self.condition_events=[]
         self._stable={}
         self._cache_characters=0
         self._regions=OrderedDict()
@@ -336,6 +339,7 @@ class StringCompiler:
                 for pair in node.args:
                     if not isinstance(pair,ast.Tuple) or len(pair.elts)!=2:return expression,{}
                     condition=pair.elts[1]
+                    if not (isinstance(condition,ast.Constant) and type(condition.value) is bool):return expression,{}
                     own=refine(remaining,condition,True)
                     rest=refine(remaining,condition,False)
                     if own is not None and own!=domains:return expression,{}
@@ -344,10 +348,10 @@ class StringCompiler:
                     remaining=rest
         return current,protected
 
-    def stabilize(self, expression, domains, path=()):
+    def stabilize(self, expression, domains, path=(), *, facts=()):
         if len(expression)>self.max_characters:raise ValueError("String expression budget exceeded; no partial result admitted")
         context=self.context(domains)
-        key=(expression,context)
+        key=(expression,context,facts)
         cached=self._stable.get(key)
         if cached is not None:
             result,view=cached
@@ -357,8 +361,8 @@ class StringCompiler:
             sp.simplify(sp.factor(view))
             self.events.append((path,0,"factor","simplify",len(expression),len(result),"cached-fixed-point"))
             return result
-        compact,regions=self.compact_regions(expression,context)
-        stabilized=self._stabilize(compact,domains,path)
+        compact,regions=(expression,{}) if facts else self.compact_regions(expression,context)
+        stabilized=self._stabilize(compact,domains,path,facts)
         view,_=cas_view(stabilized,keep_piecewise=True)
         result=re.sub(r"\bCASStableRegion[0-9]+\b",lambda match:regions[match.group(0)],stabilized) if regions else stabilized
         if len(result)>self.max_characters:raise ValueError("Factored string exceeds output budget")
@@ -375,7 +379,7 @@ class StringCompiler:
             self._cache_characters+=footprint
         return result
 
-    def _stabilize(self, expression, domains, path=()):
+    def _stabilize(self, expression, domains, path=(), facts=()):
         if len(expression) > self.max_characters:
             raise ValueError("String expression budget exceeded; no partial result admitted")
         current = expression
@@ -386,7 +390,7 @@ class StringCompiler:
                 class NestedBranches(ast.NodeTransformer):
                     def visit_Call(self, child):
                         if isinstance(child.func,ast.Name) and child.func.id=="Piecewise":
-                            return syntax(compiler.stabilize(ast.unparse(child),domains,path+("nested",)))
+                            return syntax(compiler.stabilize(ast.unparse(child),domains,path+("nested",),facts=facts))
                         return self.generic_visit(child)
                 transformed = NestedBranches().visit(node)
                 # Reprinting preserves the AST's operation order; it performs
@@ -397,21 +401,28 @@ class StringCompiler:
             # negation of preceding guards, and owns its separate context.
             if isinstance(node, ast.Call) and node.func.id == "Piecewise":
                 remaining = dict(domains)
+                remaining_facts=facts
                 arms = []
                 for index, pair in enumerate(node.args):
                     if not isinstance(pair, ast.Tuple) or len(pair.elts)!=2:
                         raise ValueError("Piecewise requires (expression, condition) pairs")
                     branch, condition = pair.elts
-                    own = refine(remaining,condition,True)
+                    known=self.branch_facts.truth(condition,remaining_facts)
+                    own_facts=self.branch_facts.assume(condition,True,remaining_facts)
+                    own = refine(remaining,condition,True) if own_facts is not None else None
+                    if not (isinstance(condition,ast.Constant) and type(condition.value) is bool):
+                        self.condition_events.append((path,index,"known-true" if known is True else "known-false" if known is False else "interval-impossible" if own is None else "decision"))
                     if own is not None:
-                        body = self.stabilize(ast.unparse(branch),own,path+(index,))
-                        arms.append((body,ast.unparse(condition)))
+                        body = self.stabilize(ast.unparse(branch),own,path+(index,),facts=own_facts)
+                        arms.append((body,"True" if known is True else ast.unparse(condition)))
+                    remaining_facts=self.branch_facts.assume(condition,False,remaining_facts)
                     remaining = refine(remaining,condition,False)
-                    if remaining is None:
+                    if remaining is None or remaining_facts is None:
                         break
                 if not arms:
                     raise ValueError("No reachable Piecewise branch in the certified domain")
                 candidate = "Piecewise("+", ".join("(("+body+"), "+guard+")" for body,guard in arms)+")"
+                if len(arms)==1 and arms[0][1]=="True":candidate=arms[0][0]
                 # Mandatory factor then simplify at the branch envelope too.
                 envelope,_=cas_view(candidate,keep_piecewise=True)
                 factored = sp.factor(symbolic(envelope))

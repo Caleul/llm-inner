@@ -9,6 +9,45 @@ from direct_sympy_strings import Domain,StringCompiler,syntax
 
 
 class StringCompilerTests(unittest.TestCase):
+    def test_repeated_word_decisions_propagate_through_both_paths(self):
+        domains={"X1":Domain(F(-65504),F(65504),-24,False)}
+        guard="Bits64(X1) < 9223372036854775808"
+        source=f"Piecewise((Piecewise((X1,{guard}),(777.0,True)),{guard}),(Piecewise((999.0,{guard}),(-X1,True)),True))"
+        compiler=StringCompiler();result=compiler.stabilize(source,domains)
+        self.assertEqual(result.count("Piecewise("),1)
+        self.assertNotIn("777",result);self.assertNotIn("999",result)
+        self.assertTrue(any(e[-1]=="known-true" for e in compiler.condition_events))
+        self.assertTrue(any(e[-1]=="known-false" for e in compiler.condition_events))
+        self.assertTrue(all(e[2:4]==("factor","simplify") for e in compiler.events))
+        region=compiler.stabilize(f"R32(Piecewise((X1,{guard}),(-X1,True)))",domains)
+        compiler.register_completed_region(region,domains)
+        composed=f"Piecewise(({region},{guard}),({region},True))"
+        self.assertEqual(compiler.compact_regions(composed,compiler.context(domains)),(composed,{}))
+        self.assertEqual(compiler.stabilize(composed,domains).count("Piecewise("),1)
+
+    def test_truth_fact_cache_keeps_siblings_and_signed_zero_separate(self):
+        domains={"X1":Domain(F(-1),F(1),-24,False)}
+        compiler=StringCompiler();condition=syntax("Bits64(X1) < 9223372036854775808")
+        source="Piecewise(((-0.0), Bits64(X1) < 9223372036854775808), (X1, True))"
+        positive=compiler.branch_facts.assume(condition,True,())
+        negative=compiler.branch_facts.assume(condition,False,())
+        self.assertEqual(ast.dump(syntax(compiler.stabilize(source,domains,facts=positive))),ast.dump(syntax("-0.0")))
+        self.assertEqual(compiler.stabilize(source,domains,facts=negative),"X1")
+        self.assertIn("Piecewise",compiler.stabilize(source,domains))
+        self.assertIn("Piecewise",compiler.stabilize(source,domains))
+
+    def test_boolean_path_facts_preserve_nan_relational_negation(self):
+        domains={"X1":Domain(F(-1),F(1),-24,False),"X2":Domain(F(-1),F(1),-24,False)}
+        compiler=StringCompiler();a="Bits64(X1)<9223372036854775808";b="Bits64(X2)<9223372036854775808"
+        source=f"Piecewise((Piecewise((1.0,{a}),(2.0,True)), And({a},{b})),(3.0,True))"
+        result=compiler.stabilize(source,domains)
+        self.assertEqual(result.count("Piecewise("),1);self.assertNotIn("2.0",result)
+        # not(x < 0) cannot imply x >= 0 for a computed NaN.
+        nan="Float64(9221120237041090560)"
+        source=f"Piecewise((Piecewise((1.0,{nan}>=0),(2.0,True)),Not({nan}<0)),(3.0,True))"
+        result=compiler.stabilize(source,domains)
+        self.assertEqual(result.count("Piecewise("),2)
+
     def test_completed_region_envelope_preserves_literal_expression_and_budget(self):
         domains={"X1":Domain(F(-4),F(4),0,False)}
         compiler=StringCompiler(max_characters=20000)
@@ -46,7 +85,7 @@ class StringCompilerTests(unittest.TestCase):
         self.assertEqual(compiler.stabilize(expression,domains),reference.stabilize(expression,domains))
         word_branch="Piecewise(("+region+",Bits64(X1)>1),("+region+",True))"
         compact,regions=compiler.compact_regions(word_branch,compiler.context(domains))
-        self.assertTrue(regions);self.assertLess(len(compact),len(word_branch))
+        self.assertEqual((compact,regions),(word_branch,{}))
         self.assertEqual(compiler.stabilize(word_branch,domains),reference.stabilize(word_branch,domains))
         positive={"X1":Domain(F(1),F(4),0,True)}
         self.assertEqual(compiler.compact_regions(region,compiler.context(positive)),(region,{}))

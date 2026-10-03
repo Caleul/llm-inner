@@ -5375,5 +5375,103 @@
       "docs/evidence/direct-sympy-numeric-envelopes-resumed.substitutions.tsv": "04c2914d39258730547b106f7ac597c00ad278512bbd23266cc283339bd83b13",
       "docs/evidence/direct-sympy-numeric-envelopes-savepoints.log": "eb83f099b4e93eaab9fc93e682833ceb3c1ea73bbef7612129b116cf04029e79"
     }
+  },
+  "branchTruthFactsValidation": {
+    "implementation": "Propagate exact structural truth facts and prior-guard negations separately per path; include facts in fixed-point cache identity; reopen registered regions under external guards.",
+    "structuralGuardKeys": "Interned AST signatures preserve type, float bits and signed zero; no lossy hashing or real-arithmetic equivalence is assumed.",
+    "supportedLogic": [
+      "exact repeated condition",
+      "Not",
+      "true And operands",
+      "false Or operands"
+    ],
+    "nanSafety": "Does not replace negated floating inequalities with complementary relational operators.",
+    "mandatoryCASPreserved": true,
+    "newRuntimeAliasesOrState": false,
+    "independentBranchCombinationsDistributed": false,
+    "tests": {
+      "engineUnitTests": 23,
+      "conversionUnitTests": 19,
+      "savepointUnitTests": 4,
+      "checkpointUnitTests": 4,
+      "directedTests": 4,
+      "buildExitCode": 0
+    },
+    "nativeParity": {
+      "cases": 196608,
+      "mismatches": 0,
+      "corpus": "three expressions over all 65536 Half bit patterns, including infinities, NaNs and signed zeros",
+      "beforePiecewiseOccurrences": [
+        3,
+        2,
+        3
+      ],
+      "afterPiecewiseOccurrences": [
+        1,
+        2,
+        1
+      ]
+    },
+    "validationEmitterFix": "Distinguish all six comparisons and boolean negation/And/Or; previously Compare always emitted <.",
+    "realCheckpointExpressionAnalysis": [
+      {
+        "dependency": "model.layers.0.pre:0",
+        "beforeCharacters": 3305,
+        "afterCharacters": 3305,
+        "beforePiecewiseOccurrences": 1,
+        "afterPiecewiseOccurrences": 1,
+        "knownTrueEvents": 0,
+        "knownFalseEvents": 0,
+        "wallSeconds": 0.02595750000909902,
+        "output": "docs/evidence/direct-sympy-record-cache-frontier/objects/f7428a71943a58e76e7601780707275b92a84c50e8e96c5f24d97912c6807187.expr",
+        "originalDigest": "f7428a71943a58e76e7601780707275b92a84c50e8e96c5f24d97912c6807187",
+        "resultDigest": "f7428a71943a58e76e7601780707275b92a84c50e8e96c5f24d97912c6807187"
+      },
+      {
+        "dependency": "model.layers.0.v:0",
+        "beforeCharacters": 40427,
+        "afterCharacters": 40427,
+        "beforePiecewiseOccurrences": 13,
+        "afterPiecewiseOccurrences": 13,
+        "knownTrueEvents": 0,
+        "knownFalseEvents": 0,
+        "wallSeconds": 0.18268987501505762,
+        "output": "docs/evidence/direct-sympy-record-cache-frontier/objects/d19ceeaaf3b2fcf54e87b9a138fa02e928c0f74902e9fb093e37ba039852fb41.expr",
+        "originalDigest": "d19ceeaaf3b2fcf54e87b9a138fa02e928c0f74902e9fb093e37ba039852fb41",
+        "resultDigest": "d19ceeaaf3b2fcf54e87b9a138fa02e928c0f74902e9fb093e37ba039852fb41"
+      }
+    ],
+    "observedModelSizeReduction": false,
+    "regression": {
+      "tests": 595,
+      "pass": 577,
+      "fail": 15,
+      "skipped": 3,
+      "passedAndFailedNamesIdenticalToPrevious": true,
+      "newFailures": []
+    },
+    "savedStateIdentity": "The new condition helper is included in the compiler source identity; prior states require explicit compatibility verification. No prior frontier resumed or migrated in this validation.",
+    "conditionMetrics": "CLI .conditions.tsv records visited guard actions, not model path counts.",
+    "remaining": "Synchronize repeated decisions in sibling operations after CAS stabilization, then lower remaining primitives and complete coordinate/vector parity. Truth propagation alone did not shrink the two real expressions.",
+    "fullCoordinateAdmitted": false,
+    "fullVectorAdmitted": false,
+    "sourceHashes": {
+      "helpers/direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+      "helpers/direct_sympy_strings.py": "3646c2b843f8782fbbcae0944e1cad45ff51e25496df7631f4b2615df7a1e189",
+      "helpers/direct_sympy_savepoints.py": "942732558c44f3e9ba335678f920cf74d4b0499b19638f596a93ad747b639ece",
+      "helpers/direct_sympy_checkpoint.py": "983fac772c7b8c87434b17a7db15819df60bec301e25d9b95c30fcb65abb7b8f"
+    },
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-branch-facts-actual.json": "7ea9280fe0f41f974e006d6265731566a98c0bd20f9e0ca8953d956a1304c197",
+      "docs/evidence/direct-sympy-branch-facts-actual.log": "ee247e505ec4ea2c670d31b185029b5c14713d36e490941ade126d3c08be5aea",
+      "docs/evidence/direct-sympy-branch-facts-actual.py.work": "6be31c3b51cbb2d3de4eff2b5a274e3600c5016b36b89dcfaec8412047654f0a",
+      "docs/evidence/direct-sympy-branch-facts-build.log": "a408d94a3fffc856dc5364f9d4b4ab56fde09205ec19cae0976763ea611ad3df",
+      "docs/evidence/direct-sympy-branch-facts-checkpoint.log": "7fbac692092528097fbafff261245966a9db2097ea85322e2bccc0aa68d5983e",
+      "docs/evidence/direct-sympy-branch-facts-conversions.log": "9e16fdcb277193ffd61126a6c9a4dd2ba9b7e015fc40ca9e911d522a6775a51c",
+      "docs/evidence/direct-sympy-branch-facts-directed.log": "e86bac4f62057b8caf5a7d5c3b77eeec4145db6b22b12a1fd014462d7edde927",
+      "docs/evidence/direct-sympy-branch-facts-engine.log": "a23532ce4bafea2cf6e3284bd1856ede343266f7885ee9b3f67c5069389a6f0e",
+      "docs/evidence/direct-sympy-branch-facts-regression.log": "77902fedd482d79aaa961670f575d5464739ba7768d6f6a1a3583fba788d34c2",
+      "docs/evidence/direct-sympy-branch-facts-savepoints.log": "a2c0009fbde9d0b444f4f52f94b8cdf8599c9a1f8fe844cf4e549999af84e9ee"
+    }
   }
 }
