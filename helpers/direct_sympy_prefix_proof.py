@@ -14,17 +14,18 @@ from direct_sympy_conversions_test import cpp
 
 
 def main():
-    if len(sys.argv) not in (3,4):raise ValueError("Usage: prefix checkpoint [inverse|postinverse|v0|v1|context0|context1|residual0|residual1]")
+    if len(sys.argv) not in (3,4):raise ValueError("Usage: prefix checkpoint [inverse|postinverse|post0|post1|v0|v1|context0|context1|residual0|residual1]")
     prefix,checkpoint=sys.argv[1:3]
     producer=sys.argv[3] if len(sys.argv)==4 else "inverse"
-    if producer not in ("inverse","postinverse","v0","v1","context0","context1","residual0","residual1"):raise ValueError("Unknown producer validation")
+    if producer not in ("inverse","postinverse","post0","post1","v0","v1","context0","context1","residual0","residual1"):raise ValueError("Unknown producer validation")
     config=json.loads((Path(checkpoint)/"config.json").read_text())
     if config["hidden_size"]!=2:raise ValueError("This native prefix validation fixture requires width two")
     expected="double(inverse)"
-    if producer=="postinverse":
+    if producer in ("postinverse","post0","post1"):
         from direct_sympy_checkpoint import CheckpointStrings
         from direct_sympy_strings import StringCompiler
         with CheckpointStrings(checkpoint,StringCompiler()) as model:
+            post_gamma=model.weight("model.layers.0.post_attention_layernorm.weight",int(producer[-1])) if producer in ("post0","post1") else None
             gamma=[model.weight("model.layers.0.input_layernorm.weight",i) for i in range(2)]
             vweights=[[model.weight("model.layers.0.self_attn.v_proj.weight",j,i) for i in range(2)] for j in range(2)]
             oweights=[[model.weight("model.layers.0.self_attn.o_proj.weight",j,i) for i in range(2)] for j in range(2)]
@@ -35,6 +36,10 @@ def main():
             recipe+=f"\nfloat o{j}a=float(c0*{oweights[j][0]}),o{j}b=float(c1*{oweights[j][1]}); double attention{j}=static_cast<_Float16>((float(0.0f+o{j}a)+float(0.0f+o{j}b))+float(0.0f+0.0f)); double residual{j}=static_cast<_Float16>(float({('x','y')[j]}+attention{j}));"
         recipe+="\nfloat post_a=float(residual0)*float(residual0),post_b=float(residual1)*float(residual1); float post_sum=post_a+post_b,post_mean=post_sum/2.0f; float post_variance=post_mean+float("+repr(config['rms_norm_eps'])+"); float post_root=std::sqrt(post_variance),post_inverse=1.0f/post_root;"
         expected="double(post_inverse)"
+        if post_gamma is not None:
+            index=int(producer[-1])
+            recipe+=f"\ndouble post_value=static_cast<_Float16>(float(residual{index}*double(post_inverse))); double post_normalized=static_cast<_Float16>(float(post_value*{post_gamma}));"
+            expected="post_normalized"
     elif producer!="inverse":
         from direct_sympy_checkpoint import CheckpointStrings
         from direct_sympy_strings import StringCompiler

@@ -1,0 +1,78 @@
+Fri Oct  2 21:21:38 2026    /private/tmp/llm-inner-sympy-half-profile.pstats
+
+         469950490 function calls (378413205 primitive calls) in 129.610 seconds
+
+   Ordered by: cumulative time
+   List reduced from 7694 to 70 due to restriction <70>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+   2523/1    0.030    0.000  129.613  129.613 {built-in method builtins.exec}
+        1    0.000    0.000  129.613  129.613 direct_sympy_checkpoint.py:1(<module>)
+        1    0.271    0.271  129.347  129.347 direct_sympy_checkpoint.py:238(main)
+        1    0.000    0.000  114.466  114.466 direct_sympy_checkpoint.py:230(coordinate)
+     13/1    0.234    0.018  114.466  114.466 direct_sympy_checkpoint.py:102(producer)
+        1    0.000    0.000  114.466  114.466 direct_sympy_checkpoint.py:234(<lambda>)
+      3/1    0.000    0.000  114.466  114.466 direct_sympy_checkpoint.py:122(linear)
+        1    0.000    0.000  114.465  114.465 direct_sympy_checkpoint.py:235(<lambda>)
+      2/1    0.000    0.000  114.465  114.465 direct_sympy_checkpoint.py:178(norm)
+      2/1    0.000    0.000  114.465  114.465 direct_sympy_checkpoint.py:179(build)
+        1    0.000    0.000  114.465  114.465 direct_sympy_checkpoint.py:181(<lambda>)
+        1    0.000    0.000  114.465  114.465 direct_sympy_checkpoint.py:136(rms_sum)
+        1    0.000    0.000  114.465  114.465 direct_sympy_checkpoint.py:145(component)
+        1    0.000    0.000  114.465  114.465 direct_sympy_checkpoint.py:146(partial)
+        1    0.000    0.000  114.465  114.465 direct_sympy_checkpoint.py:142(load)
+        1    0.000    0.000  114.465  114.465 direct_sympy_checkpoint.py:204(hidden)
+        1    0.000    0.000  114.465  114.465 direct_sympy_checkpoint.py:225(<lambda>)
+        1    0.000    0.000  114.465  114.465 direct_sympy_checkpoint.py:228(<lambda>)
+        1    0.000    0.000  114.465  114.465 direct_sympy_checkpoint.py:221(gated)
+        1    0.000    0.000  114.465  114.465 direct_sympy_checkpoint.py:219(post)
+        1    0.000    0.000   87.421   87.421 direct_sympy_conversions.py:307(close)
+       82    3.743    0.046   66.164    0.807 direct_sympy_strings.py:52(syntax)
+5335457/29    1.554    0.000   64.750    2.233 ast.py:414(visit)
+      108    0.404    0.004   50.214    0.465 ast.py:33(parse)
+      173   49.811    0.288   49.811    0.288 {built-in method builtins.compile}
+        1    0.359    0.359   49.701   49.701 direct_sympy_arithmetic.py:7(simplify_arithmetic)
+13128218/154   10.639    0.000   44.063    0.286 direct_sympy_signatures.py:20(key)
+30502075/130    4.613    0.000   44.063    0.339 direct_sympy_signatures.py:28(<genexpr>)
+25632378/94   10.771    0.000   44.063    0.469 direct_sympy_signatures.py:23(token)
+9270412/87    0.848    0.000   44.062    0.506 direct_sympy_signatures.py:25(<genexpr>)
+     29/2    0.000    0.000   38.368   19.184 direct_sympy_arithmetic.py:9(visit)
+      5/1    0.000    0.000   35.166   35.166 direct_sympy_conversions.py:311(visit)
+        1    0.005    0.005   30.557   30.557 direct_sympy_conversions.py:329(visit_Call)
+      6/2    0.000    0.000   30.044   15.022 direct_sympy_arithmetic.py:44(visit_Call)
+        3    0.017    0.006   29.606    9.869 direct_sympy_arithmetic.py:19(accept)
+        1    0.001    0.001   28.422   28.422 direct_sympy_tandem.py:13(lower_tandem)
+        1    0.000    0.000   23.054   23.054 direct_sympy_words.py:80(simplify_words)
+   293/16    0.231    0.001   21.025    1.314 ast.py:488(generic_visit)
+     25/2    0.000    0.000   21.025   10.512 direct_sympy_arithmetic.py:13(generic_visit)
+        1    0.291    0.291   13.513   13.513 direct_sympy_savepoints.py:82(restore)
+       44    0.000    0.000   12.555    0.285 ast.py:1679(unparse)
+       44    0.000    0.000   12.555    0.285 ast.py:811(visit)
+5335139/44    1.409    0.000   12.509    0.284 ast.py:801(traverse)
+1541518/43    1.766    0.000   12.509    0.291 ast.py:1445(visit_Call)
+684100/55    0.988    0.000   12.508    0.227 ast.py:1379(visit_BinOp)
+18840/120    0.019    0.000   12.503    0.104 ast.py:1322(visit_Tuple)
+18840/120    0.010    0.000   12.503    0.104 ast.py:706(items_view)
+18840/120    0.015    0.000   12.503    0.104 ast.py:694(interleave)
+  9773030    1.983    0.000   11.899    0.000 ast.py:380(walk)
+      3/2    0.000    0.000   11.306    5.653 direct_sympy_arithmetic.py:32(visit_BinOp)
+    61/45    0.000    0.000   10.869    0.242 direct_sympy_conversions.py:205(bounds)
+  9772986    1.123    0.000    9.686    0.000 {method 'extend' of 'collections.deque' objects}
+ 56340946    7.539    0.000    9.650    0.000 ast.py:255(iter_fields)
+ 19545904    4.100    0.000    8.563    0.000 ast.py:267(iter_child_nodes)
+        5    0.144    0.029    7.653    1.531 direct_sympy_strings.py:443(substitute)
+ 13128218    5.611    0.000    7.395    0.000 weakref.py:452(get)
+9421/6661    0.026    0.000    5.129    0.001 ast.py:1409(visit_Compare)
+35680/35522    0.003    0.000    4.575    0.000 {built-in method builtins.all}
+        3    0.088    0.029    4.567    1.522 direct_sympy_checkpoint.py:190(<genexpr>)
+122301559/122301477    3.701    0.000    3.702    0.000 {built-in method builtins.isinstance}
+      225    0.004    0.000    3.602    0.016 __init__.py:1(<module>)
+ 22793653    3.460    0.000    3.460    0.000 {method 'get' of 'dict' objects}
+44636198/44636147    2.713    0.000    2.741    0.000 {built-in method builtins.getattr}
+        2    0.000    0.000    2.453    1.226 direct_sympy_checkpoint.py:88(op)
+    27/12    0.000    0.000    1.507    0.126 direct_sympy_conversions.py:146(value_kind)
+  1277993    0.389    0.000    1.262    0.000 ast.py:1225(visit_Constant)
+  1553/15    0.003    0.000    1.197    0.080 <frozen importlib._bootstrap>:1022(_find_and_load)
+  1553/15    0.003    0.000    1.197    0.080 <frozen importlib._bootstrap>:987(_find_and_load_unlocked)
+  1489/15    0.003    0.000    1.195    0.080 <frozen importlib._bootstrap>:664(_load_unlocked)
+  1445/14    0.001    0.000    1.195    0.085 <frozen importlib._bootstrap_external>:877(exec_module)

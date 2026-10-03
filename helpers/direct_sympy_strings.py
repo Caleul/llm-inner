@@ -275,11 +275,12 @@ class StringCompiler:
         self._cache_characters=0
         self._regions=OrderedDict()
         self._region_characters=0
+        self._region_roots={}
 
     def context(self,domains):
         return tuple(sorted((name,d.minimum,d.maximum,d.quantum,d.excludes_negative_zero) for name,d in domains.items()))
 
-    def register_completed_region(self,expression,domains,node=None):
+    def register_completed_region(self,expression,domains,node=None,*,word_closed=False):
         """Admit a completed producer, never an interrupted intermediate.
 
         Callers must already have certified its fixed point in this domain
@@ -293,8 +294,10 @@ class StringCompiler:
         key=(self.context(domains),expression)
         if key in self._regions:return
         while self._regions and self._region_characters+len(expression)>4*self.max_characters:
-            old,_=self._regions.popitem(last=False);self._region_characters-=len(old[1])
+            old,_=self._regions.popitem(last=False);self._region_characters-=len(old[1]);self._region_roots.pop(old,None)
         self._regions[key]=True;self._region_characters+=len(expression)
+        from direct_sympy_words import word_width
+        if word_closed:self._region_roots[key]=(node.func.id,word_width(node.args[0]) if node.func.id=="Float64" and len(node.args)==1 else None)
 
     def compact_regions(self,expression,context):
         if re.search(r"\bCASStableRegion[0-9]+\b",expression):return expression,{}

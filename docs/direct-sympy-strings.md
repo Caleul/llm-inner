@@ -564,3 +564,38 @@ conversões, três de estados e quatro de integração). O build passou.
 A paridade da inversa é intermediária: sqrt/Silu ainda não foram eliminados,
 a coordenada e o vetor final não estão concluídos, e a saída do último token
 para múltiplos tokens ainda não foi validada pelo adaptador desta experiência.
+
+## Envelope numérico no passe bitwise
+
+A medição da tentativa de retomada identificou processamento repetido de
+strings concluídas: 66,16 segundos acumulados em parsing e 44,06 em assinaturas
+estruturais, contra menos de um segundo no estabilizador SymPy daquela amostra.
+Os tempos acumulados se sobrepõem; não representam etapas somáveis.
+
+O passe bitwise agora protege produtores com fechamento numérico certificado
+no mesmo domínio. Expõe a chamada externa Float64 e conserva a prova de largura
+do argumento inteiro para cancelar uma Bits64 adjacente sem reler seu conteúdo.
+As substituições continuam passando por factor/simplify e as strings completas
+são restauradas antes da saída. Novos guards que refinam os Xn reabrem o conteúdo;
+regiões sem certificado, nomes reservados e limites de tamanho são verificados.
+
+No kernel real de 29.158.252 caracteres, o passe anterior levou 104,70 segundos
+e o novo 0,624 segundo. Ambos produziram exatamente os mesmos 29.158.223
+caracteres, com hash SHA-256
+`6154e6e3c042d3c8797801d531c90881505f066e925cf17f59e468c08c5733d3`.
+É um ganho do passe bitwise isolado, não de uma coordenada ou modelo completos.
+
+A retomada atual concluiu o produtor `model.layers.0.post:0`, com 29.158.223
+caracteres, e salvou onze dependências com hashes compatíveis com o compilador.
+A expressão efetivamente salva passou em 527.904 comparações nativas contra
+a receita independente de operações F32/Half: zero divergências. O orçamento
+de 300 segundos venceu durante a preparação da próxima dependência. Trata-se
+da primeira componente de um intermediário pós-normalização, não de uma nova
+coordenada do vetor de saída. A coordenada final continua em compilação.
+
+O registro `wordEnvelopeValidation` inclui a medição reproduzível sobre a
+expressão real, a fronteira de onze produtores e o certificado nativo. Os
+mesmos nomes de 577 testes aprovados e 15 falhas anteriores foram preservados;
+três testes continuam ignorados. Os quatro testes específicos foram executados
+com Python e checkpoint explícitos e passaram; 19 testes de strings, 15 de
+conversões e três de estados também passaram. O build passou.

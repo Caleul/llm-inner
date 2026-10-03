@@ -105,7 +105,7 @@ class CheckpointStrings:
         expression=build()
         result=self.compiler.stabilize("("+expression+")",self.domains)
         if self.conversions is not None:result=self.conversions.close(result)
-        self.compiler.register_completed_region(result,self.domains)
+        self.compiler.register_completed_region(result,self.domains,word_closed=self.conversions is not None)
         self.memo[key]=result
         self.events.append((key,len(expression),len(result),len(self.compiler.events)-before))
         if self.on_completed is not None:self.on_completed(self)

@@ -4565,5 +4565,233 @@
       "docs/evidence/direct-sympy-tie-pruned-frontier/objects/df7c4f26f031a52b3a23faaceb9b3230053d59f96dad18ce99d38a7d76c495b0.expr": "df7c4f26f031a52b3a23faaceb9b3230053d59f96dad18ce99d38a7d76c495b0"
     },
     "logNormalization": "Archived build/regression output has trailing whitespace and final blank lines removed; raw output retained in /private/tmp."
+  },
+  "wordEnvelopeValidation": {
+    "scope": "Compiler-only closed numeric producers in identical input context; expose Float64 root with certified argument width for adjacent reinterpretation cancellation; reopen refining guards; restore complete literal strings; factor/simplify every substitution",
+    "profile": {
+      "budgetSeconds": 120,
+      "interrupted": true,
+      "parsingCumulativeSeconds": 66.164,
+      "structuralSignaturesCumulativeSeconds": 44.063,
+      "stabilizeCumulativeSeconds": 0.695,
+      "overlappingTimesNotAdditive": true
+    },
+    "sameActualKernelBenchmark": {
+      "sourceCharacters": 29158252,
+      "resultCharacters": 29158223,
+      "oldSeconds": 104.701864875,
+      "newSeconds": 0.62425575,
+      "identicalBytes": true,
+      "sha256": "6154e6e3c042d3c8797801d531c90881505f066e925cf17f59e468c08c5733d3",
+      "fullCoordinateSpeedupProven": false,
+      "reproducer": "Run Python docs/evidence/direct-sympy-word-envelope-benchmark.py.work from repository root; uses archived strings and previous helper."
+    },
+    "tests": {
+      "engine": 19,
+      "conversions": 15,
+      "savepoints": 3,
+      "allPassed": true,
+      "directed": {
+        "tests": 4,
+        "pass": 4,
+        "skip": 0
+      }
+    },
+    "build": {
+      "exitCode": 0
+    },
+    "regression": {
+      "command": "LLM_INNER_DIRECT_PYTHON=/private/tmp/llm-inner-pytorch/bin/python LLM_INNER_DIRECT_JSON_CHECKPOINT=/private/tmp/llm-inner-rust-validation node --test $(rg --files dist/test -g '*.test.js' | rg -v '/direct-json-model.test.js$') scripts/*.test.mjs",
+      "tests": 595,
+      "pass": 577,
+      "fail": 15,
+      "skipped": 3,
+      "exitCode": 1,
+      "samePassedNames": true,
+      "sameFailedNames": true,
+      "newFailures": [],
+      "lostPasses": [],
+      "baseline": "completedEnvelopeAndF32TieValidation.regression",
+      "legacyJsonModelTests": "four intentionally excluded as in previous baseline; expressions now strings"
+    },
+    "freshRun": {
+      "maxSeconds": 300,
+      "maxCharacters": 33554432,
+      "stop": "wall-clock budget",
+      "completedDependencies": 10,
+      "closedConversions": 24,
+      "lastDependency": "model.layers.0.post:inverse",
+      "automaticOldStateReuse": false
+    },
+    "resume": {
+      "running": false,
+      "exitCode": 1,
+      "maxSeconds": 300,
+      "maxCharacters": 33554432,
+      "identityChecked": true,
+      "completedDependencies": 11,
+      "lastDependency": "model.layers.0.post:0",
+      "lastCharacters": 29158223,
+      "stop": "wall-clock budget while preparing subsequent dependency",
+      "closedConversions": 2,
+      "reusedConvertedRegions": 2,
+      "visitedConversionNodes": 3,
+      "events": [
+        [
+          "model.layers.0.pre:inverse",
+          82,
+          473,
+          26
+        ],
+        [
+          "model.layers.0.pre:0",
+          504,
+          3305,
+          47
+        ],
+        [
+          "model.layers.0.pre:1",
+          504,
+          3305,
+          21
+        ],
+        [
+          "model.layers.0.v:0",
+          6723,
+          40427,
+          149
+        ],
+        [
+          "model.layers.0.context:0",
+          40487,
+          40429,
+          178
+        ],
+        [
+          "model.layers.0.v:1",
+          6720,
+          40409,
+          76
+        ],
+        [
+          "model.layers.0.context:1",
+          40469,
+          40411,
+          105
+        ],
+        [
+          "model.layers.0.residual:0",
+          80968,
+          971823,
+          388
+        ],
+        [
+          "model.layers.0.residual:1",
+          80970,
+          971847,
+          103
+        ],
+        [
+          "model.layers.0.post:inverse",
+          1943748,
+          3887805,
+          129
+        ],
+        [
+          "model.layers.0.post:0",
+          4859657,
+          29158223,
+          21
+        ]
+      ],
+      "manifest": "docs/evidence/direct-sympy-word-envelope-frontier/frontier.json",
+      "identity": {
+        "byteOrder": "little",
+        "checkpoint": {
+          "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+          "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+        },
+        "dimension": 2,
+        "domains": {
+          "X1": [
+            "-65504",
+            "65504",
+            -24,
+            false
+          ],
+          "X2": [
+            "-65504",
+            "65504",
+            -24,
+            false
+          ]
+        },
+        "dtype": "f32",
+        "lowerConversions": true,
+        "platform": "macOS-26.7.1-arm64-arm-64bit",
+        "position": 0,
+        "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+        "schema": 1,
+        "sources": {
+          "direct_sympy_arithmetic.py": "3330b1e8680e80ca63175d2355b8d540e8ddb045b590fd9e721b0fccb9e09641",
+          "direct_sympy_checkpoint.py": "b349a1e03b474d77f9f859a7b005e199b7d1ddee40105c4161aa4f5373017f5f",
+          "direct_sympy_conversions.py": "26f34f1ef698fa435feac3bfeffb1493972df9069e97f25a6e5025d87cabab5b",
+          "direct_sympy_savepoints.py": "f6cc16575387fd023164a4a73366178a30ed01ca6f17a642cfe6c60d88a3f534",
+          "direct_sympy_signatures.py": "d488ef703689811733e92aa4ae3616ac6d0b2269f841016307fb833abf5ccac3",
+          "direct_sympy_strings.py": "8575c5cc3894aa7dbaeebc69611747839de6c3d3def668018d2ce815a7cefe87",
+          "direct_sympy_tandem.py": "c4c9db6a0fccdc7669bd8cf38d628809afd5348d51cbc232026c60d6cf70ad88",
+          "direct_sympy_words.py": "b826ee7d416ed2f1c12e049c9c6798785612695074f649fd28e1cfb275579f34"
+        },
+        "sympy": "1.14.0"
+      }
+    },
+    "finalArtifact": false,
+    "evidenceHashes": {
+      "docs/evidence/direct-sympy-word-envelope-profile.log": "84b22c78e50c0fb36b9f0b4ce538b7ceea4c0958590298d16a3d8a73556f03b1",
+      "docs/evidence/direct-sympy-word-envelope-profile-cli.log": "f8ebc0e4c80cf1cfed972b8476f4d0c5187927cc34f4d34e412b879fde9b829e",
+      "docs/evidence/direct-sympy-word-envelope-benchmark.log": "cf77d697ed90cabb59aaab48a27f345d6d19d2533efdf84135098d511488be02",
+      "docs/evidence/direct-sympy-word-envelope-benchmark.py.work": "396e8c39afbb08752496a23212379eb088008723fa0f52f53baa59983fa80883",
+      "docs/evidence/direct-sympy-word-envelope-before.py.work": "14333beaad846b7e565beb3d965480c510f9ed7cefcfcecf77a89d91267d51c1",
+      "docs/evidence/direct-sympy-word-envelope-build.log": "a408d94a3fffc856dc5364f9d4b4ab56fde09205ec19cae0976763ea611ad3df",
+      "docs/evidence/direct-sympy-word-envelope-directed.log": "dcc78465f87b7aa51d16b5aa38f0e07218721d893b73ff5556d75ff8c71f5507",
+      "docs/evidence/direct-sympy-word-envelope-regression.log": "9c600294dfa9a6217497dc8a7cf15604b303aadee04d10bd47064431380a2a7c",
+      "docs/evidence/direct-sympy-word-envelope-engine.log": "2f9c356a16bf58065a1caf973dcabf221d19287617e61585334391402e932531",
+      "docs/evidence/direct-sympy-word-envelope-savepoints.log": "c49903ccfa6f9c650fed0b1c079f05bc65b4997c36529c0dafe25d4607d6e0f4",
+      "docs/evidence/direct-sympy-word-envelope-conversions.log": "86e2b18bb6bb7f9c1779c01cca732bb24396099dd83f406d18a868cf924375d2",
+      "docs/evidence/direct-sympy-word-envelope-fresh-cli.log": "3d757d42687574e30190f16363bf0965b9d28a2881e9bbb74edc19215aa99f35",
+      "docs/evidence/direct-sympy-word-envelope-template.work.expr": "f4561e99a4467bfe1bf028b7708ac711d0397d0572fac23260603579e0200887",
+      "docs/evidence/direct-sympy-word-envelope-replacement.work.expr": "9bf4f6e686d519e1ef0248ed626f849e9c2e69294c9c42b6e61acc880a883088",
+      "docs/evidence/direct-sympy-word-envelope-frontier/frontier.json": "02dc06234a76a21a9877da3378c57415d1e26e75312991e22ab25b2760ae2deb",
+      "docs/evidence/direct-sympy-word-envelope-frontier/objects/67129734d23048f8ddc3c47ef84d086cfcbd4de2d0bdb839128260b62077dba3.expr": "67129734d23048f8ddc3c47ef84d086cfcbd4de2d0bdb839128260b62077dba3",
+      "docs/evidence/direct-sympy-word-envelope-frontier/objects/f7428a71943a58e76e7601780707275b92a84c50e8e96c5f24d97912c6807187.expr": "f7428a71943a58e76e7601780707275b92a84c50e8e96c5f24d97912c6807187",
+      "docs/evidence/direct-sympy-word-envelope-frontier/objects/d6c1d6838aebd114d32100cb92779d8006be308b489b6bdbe607b3fc015e2a1f.expr": "d6c1d6838aebd114d32100cb92779d8006be308b489b6bdbe607b3fc015e2a1f",
+      "docs/evidence/direct-sympy-word-envelope-frontier/objects/d19ceeaaf3b2fcf54e87b9a138fa02e928c0f74902e9fb093e37ba039852fb41.expr": "d19ceeaaf3b2fcf54e87b9a138fa02e928c0f74902e9fb093e37ba039852fb41",
+      "docs/evidence/direct-sympy-word-envelope-frontier/objects/b23c9562b1dfa47564b0cd9223b44fbdd67f05b8a326457607b142e7a193afe3.expr": "b23c9562b1dfa47564b0cd9223b44fbdd67f05b8a326457607b142e7a193afe3",
+      "docs/evidence/direct-sympy-word-envelope-frontier/objects/4f7e025b1b0bf786ccc0b0e269b93c8ed3cc8e47851895c36b3f81c72b0b2e29.expr": "4f7e025b1b0bf786ccc0b0e269b93c8ed3cc8e47851895c36b3f81c72b0b2e29",
+      "docs/evidence/direct-sympy-word-envelope-frontier/objects/cc38cb24ecb09c204bce384096d6bbe5904e33b9cd4e0ec93269fbd8eb290f3b.expr": "cc38cb24ecb09c204bce384096d6bbe5904e33b9cd4e0ec93269fbd8eb290f3b",
+      "docs/evidence/direct-sympy-word-envelope-frontier/objects/ba7b1c3f09d5e43f7cc4a31df4512395e5d60326e9877031f8fe88e79e1e5fef.expr": "ba7b1c3f09d5e43f7cc4a31df4512395e5d60326e9877031f8fe88e79e1e5fef",
+      "docs/evidence/direct-sympy-word-envelope-frontier/objects/1f12b4f56c5e6b6031cb5053e4dfb55d8191ef3d48a3b9ef7070ce4508e24306.expr": "1f12b4f56c5e6b6031cb5053e4dfb55d8191ef3d48a3b9ef7070ce4508e24306",
+      "docs/evidence/direct-sympy-word-envelope-frontier/objects/df7c4f26f031a52b3a23faaceb9b3230053d59f96dad18ce99d38a7d76c495b0.expr": "df7c4f26f031a52b3a23faaceb9b3230053d59f96dad18ce99d38a7d76c495b0",
+      "docs/evidence/direct-sympy-word-envelope-frontier/objects/6154e6e3c042d3c8797801d531c90881505f066e925cf17f59e468c08c5733d3.expr": "6154e6e3c042d3c8797801d531c90881505f066e925cf17f59e468c08c5733d3",
+      "docs/evidence/direct-sympy-word-envelope-coordinate.growth.tsv": "badd5b3520edcec83296f786655fff862e0902776a04148b39e6741fa87aa2a4",
+      "docs/evidence/direct-sympy-word-envelope-coordinate.substitutions.tsv": "b23bdc31d417c2a858eae2db6a4b3c4b84e529d9660d1cdbe3edc717b0812bce",
+      "docs/evidence/direct-sympy-word-envelope-resumed.growth.tsv": "5dab026ee234f1d6a03890e5fcb4cadfe2f72be28fdec52a096716ca4f88cb2b",
+      "docs/evidence/direct-sympy-word-envelope-resumed.substitutions.tsv": "ca6f7aecfcf69aae9a7d8e310c9244f39010a08bc2b124f0f5b5e6e8d69a447d",
+      "docs/evidence/direct-sympy-word-envelope-resumed-cli.log": "eb1876e0089dd84c396dcf0d20a41f7509f8f5be7dba45cf946bede8106fbb9b",
+      "docs/evidence/direct-sympy-word-envelope-post0-proof.log": "2cec9ae9b667fca37f4024a668b16ff30083c3c8595373c101d9259e1e8c7fba"
+    },
+    "testEnvironmentNote": "Initial npm attempts omitted the required Python/checkpoint env; mapped regression and four-case integration were rerun explicitly and the preserved baseline names matched.",
+    "nextAction": "Continue same output coordinate from 11 identity-checked producers; profile remaining numeric metadata; complete entire coordinate and lower sqrt/Silu before advancing to other output dimensions.",
+    "actualPostZeroParity": {
+      "producer": "model.layers.0.post:0",
+      "cases": 527904,
+      "mismatches": 0,
+      "nativeExitCode": 0,
+      "characters": 29158223,
+      "reference": "independent native F32/Half operation order, streamed concrete gamma/V/O weights",
+      "inputDomain": "finite Half X1 and X2; width two; position zero",
+      "fullCoordinate": false,
+      "stillContainsGenericSqrt": true
+    }
   }
 }

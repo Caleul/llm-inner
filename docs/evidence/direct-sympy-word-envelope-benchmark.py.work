@@ -1,0 +1,17 @@
+import sys,pathlib,json,time,importlib.util,hashlib
+sys.path.insert(0,str(pathlib.Path.cwd()/'helpers'))
+from direct_sympy_strings import StringCompiler,Domain
+from direct_sympy_words import simplify_words
+from fractions import Fraction as F
+state=pathlib.Path('docs/evidence/direct-sympy-tie-pruned-frontier');payload=json.loads((state/'frontier.json').read_text())['payload'];domains={'X1':Domain(F(-65504),F(65504),-24,False),'X2':Domain(F(-65504),F(65504),-24,False)}
+compiler=StringCompiler(max_characters=33554432)
+for record in payload['records']:
+ expression=(state/'objects'/(record['digest']+'.expr')).read_text();compiler.register_completed_region(expression,domains,word_closed=True)
+template=pathlib.Path('docs/evidence/direct-sympy-word-envelope-template.work.expr').read_text().strip();replacement=pathlib.Path('docs/evidence/direct-sympy-word-envelope-replacement.work.expr').read_text().strip()
+expression=compiler.substitute(template,'X999999997',replacement,domains)
+start=time.perf_counter();fast=simplify_words(expression,compiler,domains);elapsed=time.perf_counter()-start
+print('Envelope seconds=',elapsed,'sourceCharacters=',len(expression),'resultCharacters=',len(fast),'sha256=',hashlib.sha256(fast.encode()).hexdigest(),flush=True)
+module=type(sys)('baseline_words');exec(compile(pathlib.Path('docs/evidence/direct-sympy-word-envelope-before.py.work').read_text(),'baseline_words','exec'),module.__dict__)
+start=time.perf_counter();slow=module.simplify_words(expression,compiler,domains);elapsed=time.perf_counter()-start
+print('Baseline seconds=',elapsed,'resultCharacters=',len(slow),'identicalBytes=',fast==slow,'sha256=',hashlib.sha256(slow.encode()).hexdigest(),flush=True)
+assert fast==slow

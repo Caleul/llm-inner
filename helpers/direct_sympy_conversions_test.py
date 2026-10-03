@@ -234,6 +234,37 @@ std::printf("Native Half squares: %u, mismatches=0\\n",count);}
                 self.assertEqual(a,b,(rule,bits));comparisons+=1
         print(f"Word identity comparisons: {comparisons}, mismatches=0")
 
+    def test_word_envelope_exposes_reinterpretation_without_rewalking_producers(self):
+        from unittest.mock import patch
+        import direct_sympy_words as words
+        domains={"X1":Domain(F(-65504),F(65504),-24,False)}
+        compiler=StringCompiler(max_characters=20000)
+        region="Float64(U64And(U64Add(Bits64(X1), 268435455), 18446744073172680704))"
+        region=simplify_words(region,compiler,domains)
+        compiler.register_completed_region(region,domains,word_closed=True)
+        expression="U64And("+"U64Add("*100+"Bits64("+region+")"+", 1)"*100+", 255)"
+        reference=simplify_words(expression,StringCompiler(max_characters=20000),domains)
+        with patch.object(words,"syntax",wraps=words.syntax) as parse:
+            actual=simplify_words(expression,compiler,domains)
+        self.assertEqual(actual,reference)
+        self.assertLess(max(len(c.args[0]) for c in parse.call_args_list),len(expression))
+        self.assertNotIn("CASWordPayload",actual);self.assertNotIn("CASStableRegion",actual)
+        self.assertEqual(simplify_words("Bits64("+region+")",compiler,domains),region[8:-1])
+        narrowed={"X1":Domain(F(1),F(2),-24,True)}
+        self.assertEqual(simplify_words(expression,compiler,narrowed),simplify_words(expression,StringCompiler(max_characters=20000),narrowed))
+        with self.assertRaisesRegex(ValueError,"Reserved"):
+            simplify_words("Bits64(CASWordPayload0)",compiler,domains)
+        compiler.max_characters=len(expression)-1
+        with self.assertRaisesRegex(ValueError,"input budget"):
+            simplify_words(expression,compiler,domains)
+        compiler.max_characters=20000
+        unproved=StringCompiler()
+        pending="Float64(U64And(U64And(Bits64(X1),255),15))"
+        unproved.register_completed_region(pending,domains)
+        self.assertEqual(simplify_words(pending,unproved,domains),simplify_words(pending,StringCompiler(),domains))
+        branch="Piecewise((Bits64("+region+"),X1>0),(Bits64("+region+"),True))"
+        self.assertEqual(simplify_words(branch,compiler,domains),simplify_words(branch,StringCompiler(),domains))
+
     def test_structural_signature_preserves_bits_and_invalidates_mutation(self):
         signatures=StructuralSignatures()
         for expression in ("X1", "R16(X1*2.0)", "Bits64(X1)"):

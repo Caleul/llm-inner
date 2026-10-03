@@ -106,7 +106,7 @@ class ProducerSavepoints:
         # No model state is mutated until all files and proofs have passed.
         for record,expression,node,bounds in loaded:
             model.memo[record['name']]=expression
-            model.compiler.register_completed_region(expression,model.domains,node)
+            model.compiler.register_completed_region(expression,model.domains,node,word_closed=record['castsClosed'])
             session=model.conversions
             if session:
                 key=session.key(node)
