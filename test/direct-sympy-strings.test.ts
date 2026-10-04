@@ -4,10 +4,17 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 
 const python=process.env.LLM_INNER_DIRECT_PYTHON;
+test('Proved unsigned masks remove redundant operations without changing overflow or numeric contexts',
+  {skip:!python},async()=>{
+    const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_known_bits_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 4 tests/);
+    assert.match(stderr,/OK/);
+    assert.match(stdout,/Known word mask parity: comparisons=278544 mismatches=0/);
+  });
 test('Stabilized branches share decisions, preserve lazy guards and emit flat input-only expressions',
   {skip:!python},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_coherent_paths_test.py'],{timeout:120_000,maxBuffer:1024*1024});
-    assert.match(stderr,/Ran 7 tests/);
+    assert.match(stderr,/Ran 8 tests/);
     assert.match(stderr,/OK/);
     if(process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT) assert.match(stdout,/Flat checkpoint normalization: cases=888832 mismatches=0/);
   });
@@ -53,7 +60,7 @@ test('SymPy savepoints preserve completed rounding frontiers and reject incompat
 test('SymPy string substitution factors and simplifies each step with isolated IEEE branch proofs',
   {skip:!python},async()=>{
     const {stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_strings_test.py'],{timeout:120_000});
-    assert.match(stderr,/Ran 31 tests/);
+    assert.match(stderr,/Ran 32 tests/);
     assert.match(stderr,/OK/);
   });
 

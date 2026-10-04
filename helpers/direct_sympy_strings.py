@@ -485,6 +485,25 @@ class StringCompiler:
                     raise ValueError("No reachable Piecewise branch in the certified domain")
                 candidate = "Piecewise("+", ".join("(("+body+"), "+guard+")" for body,guard in arms)+")"
                 if len(arms)==1 and arms[0][1]=="True":candidate=arms[0][0]
+                elif remaining is None or remaining_facts is None:
+                    # Compare fully stabilized bodies with bit-sensitive
+                    # signatures, not real-number equality (+0 != -0).
+                    # A missing fallback cannot be erased. Unknown guard
+                    # calls must retain their ordered evaluation.
+                    from direct_sympy_synchronize import GUARD_PURE
+                    signatures=self.branch_facts.signatures
+                    identical=len({signatures.key(syntax(body)) for body,_ in arms})==1
+                    pure=all(not isinstance(child,ast.Call) or child.func.id in GUARD_PURE
+                        for _,guard in arms for child in ast.walk(syntax(guard)))
+                    # Preserve contexts needed to lower pending numeric
+                    # boundaries. Erasing their selector before closure
+                    # would prevent arm-specific conversion simplification.
+                    closed=all(not isinstance(child,ast.Call) or child.func.id not in
+                        {'R16','R32','sqrt','Silu16'}
+                        for body,_ in arms for child in ast.walk(syntax(body)))
+                    if identical and pure and closed:
+                        candidate=arms[0][0]
+                        self.condition_events.append((path,-1,'identical-results'))
                 # Mandatory factor then simplify at the branch envelope too.
                 envelope,_=cas_view(candidate,keep_piecewise=True)
                 factored = sp.factor(symbolic(envelope))

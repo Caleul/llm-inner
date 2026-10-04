@@ -10438,5 +10438,23 @@
       "Compile variable-length last-token semantics",
       "Compile remaining output coordinates"
     ]
+  },
+  "selectedPathNumericValidation": {
+    "report": "docs/evidence/direct-sympy-path-numeric/validation.json",
+    "testMap": {
+      "helpers/direct_sympy_known_bits_test.py": "Four tests, 278544 comparisons: exact unsigned masks, overflow, mandatory CAS, context isolation and opaque floating barriers.",
+      "helpers/direct_sympy_coherent_paths_test.py": "Eight tests including stale original-root payload isolation, lazy guard semantics, selected candidate costs, atomic caps and 888832 native emitted-prefix comparisons.",
+      "helpers/direct_sympy_strings_test.py": "32 tests including exhaustive identical-result removal, signed-zero distinction, missing fallback and preservation of pending conversion contexts.",
+      "test/direct-sympy-strings.test.ts": "14 named integrations passed, zero failed or skipped; final modified branch module revalidated separately."
+    },
+    "stateCompatibility": "Words helper source identity changes. Old producer states require strict rejection before restoration; selected-path root certificates are isolated in a fresh compiler and never copied from unselected original expressions.",
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "remaining": [
+      "Material reduction of repeated numerical dependencies; current size reduction remains small",
+      "Complete coordinate artifact and its native readback parity",
+      "Variable-length last-token semantics",
+      "All output coordinates"
+    ]
   }
 }

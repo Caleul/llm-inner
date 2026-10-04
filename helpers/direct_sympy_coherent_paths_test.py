@@ -44,9 +44,9 @@ class Lazy(ast.NodeTransformer):
         return node
 
 
-def evaluate(text,values):
+def evaluate(text,values,functions=None):
     tree=ast.fix_missing_locations(ast.Expression(Lazy().visit(syntax(text))))
-    return eval(compile(tree,'<actual-flat-file>','eval'),{'__builtins__':{}},values)
+    return eval(compile(tree,'<actual-flat-file>','eval'),{'__builtins__':{},**(functions or {})},values)
 
 
 class CoherentPathTests(unittest.TestCase):
@@ -122,6 +122,28 @@ class CoherentPathTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'failed pass'):
                 list(CoherentPaths(registry).arms('CompileValue0()'))
         self.assertIs(compiler.expression_size,original)
+
+    def test_selected_numeric_root_is_reduced_without_reusing_other_arm_payload(self):
+        registry=fixture([
+            'Piecewise((Float64(U64Or(Bits64(X1),1024)),X1>0.0), (Float64(U64Or(Bits64(X1),2048)),True))',
+            'Bits64(CompileValue0())'])
+        compiler=registry.model.compiler;context=compiler.context(registry.model.domains)
+        # Simulate a root annotation referring to an original whole value.
+        # It must never determine a selected arm's replacement payload.
+        compiler.register_completed_region('CompileValue0()',registry.model.domains)
+        compiler._region_roots[(context,'CompileValue0()')]=('Float64',64)
+        compiler._region_word_payloads[(context,'CompileValue0()')]='U64Or(Bits64(X1),4096)'
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'flat.expr'
+            CoherentPaths(registry).write(path,'CompileValue1()',max_characters=65536)
+            text=path.read_text()
+            self.assertNotIn('Float64',text)
+            self.assertNotIn('4096',text)
+            functions={'Bits64':lambda x:struct.unpack('Q',struct.pack('d',x))[0],
+                'U64Or':lambda x,y:x|y}
+            for x in [-1.0,-2**-24,-0.0,0.0,2**-24,1.0]:
+                self.assertEqual(evaluate(text,{'X1':x,'X2':0.0},functions),
+                    functions['Bits64'](x)|(1024 if x>0 else 2048))
 
     def test_budget_failure_keeps_existing_artifact_and_compressed_readback_matches(self):
         registry=fixture(['Piecewise((X1, X1>0.0), (-X1, True))'])

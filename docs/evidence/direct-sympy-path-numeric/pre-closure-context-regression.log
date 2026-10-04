@@ -1,0 +1,110 @@
+✔ Proved unsigned masks remove redundant operations without changing overflow or numeric contexts (699.464917ms)
+✔ Stabilized branches share decisions, preserve lazy guards and emit flat input-only expressions (2900.226917ms)
+✔ Compiler-only literal sharing uses expanded costs and emits bit-exact input-only expressions (40205.916166ms)
+✔ SymPy factors typed word polynomials modulo 2^64 without reassociating floating operations (720.803291ms)
+✔ Parallel SymPy blocks preserve ordered F32 folds, branch contexts and memory admission (4544.797542ms)
+✔ Equivalent scan backend preserves Unicode regex results and byte-identical saved compiler states (2238.694583ms)
+✔ SymPy savepoints preserve completed rounding frontiers and reject incompatible or corrupt state (2156.708041ms)
+✔ SymPy string substitution factors and simplifies each step with isolated IEEE branch proofs (619.32025ms)
+✔ SymPy checkpoint working string is re-read and matches a freshly captured coordinate reference (6013.8585ms)
+✖ SymPy elementary conversion strings preserve native IEEE cells and composed boundaries (13780.885583ms)
+✔ Bounded SiLU arithmetic lowering matches every certified Half scalar and vector input (4127.542167ms)
+✔ Positive F32 square-root word lowering preserves all mantissas, parities and subnormals (890.144167ms)
+✖ IEEE sign projections preserve signed zero and reduce completed down-conversion strings (5930.246458ms)
+✔ Budgeted coordinate continuation persists actual producers and rejects incompatible saved dimensions (18945.472708ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 12
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 104065.862958
+
+✖ failing tests:
+
+test at dist/test/direct-sympy-strings.test.js:69:1
+✖ SymPy elementary conversion strings preserve native IEEE cells and composed boundaries (13780.885583ms)
+  Error: Command failed: /private/tmp/llm-inner-pytorch/bin/python helpers/direct_sympy_conversions_test.py
+  ...E........F.....................
+  ======================================================================
+  ERROR: test_branch_local_half_cell_cannot_eliminate_the_sibling_update (__main__.ConversionStringTests)
+  ----------------------------------------------------------------------
+  Traceback (most recent call last):
+    File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_conversions_test.py", line 153, in test_branch_local_half_cell_cannot_eliminate_the_sibling_update
+      self.assertEqual(ast.unparse(tree.args[0].elts[0]),'X1')
+  AttributeError: 'Call' object has no attribute 'elts'
+
+  ======================================================================
+  FAIL: test_conversion_closure_owns_ordered_arm_bounds_and_native_parity (__main__.ConversionStringTests)
+  ----------------------------------------------------------------------
+  Traceback (most recent call last):
+    File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_conversions_test.py", line 94, in test_conversion_closure_owns_ordered_arm_bounds_and_native_parity
+      self.assertEqual(len(certificates),3)
+  AssertionError: 1 != 3
+
+  ----------------------------------------------------------------------
+  Ran 34 tests in 13.475s
+
+  FAILED (failures=1, errors=1)
+
+      at genericNodeError (node:internal/errors:985:15)
+      at wrappedFn (node:internal/errors:539:14)
+      at ChildProcess.exithandler (node:child_process:417:12)
+      at ChildProcess.emit (node:events:508:28)
+      at maybeClose (node:internal/child_process:1101:16)
+      at ChildProcess._handle.onexit (node:internal/child_process:305:5) {
+    code: 1,
+    killed: false,
+    signal: null,
+    cmd: '/private/tmp/llm-inner-pytorch/bin/python helpers/direct_sympy_conversions_test.py',
+    stdout: 'Exact subnormal-grid certificates: F32=16777216 F16=2048 mismatches=0\nExact Half-grid tandem certificate: cases=67108866 mismatches=0\nActual string IEEE certificate: F32=100679708 F16=206870 composed=559086 prunedF32=100663300 prunedF16=3072 mismatches=0; tandem=559130; typedPairs=507904\nExact branch facts native parity: cases=196608 mismatches=0\nCertified frontier composition parity: cases=147472 mismatches=0 characters=2643->1840\nHalf normalization factor barrier: cases=126972 mismatches=0 unsafeRewrites=15421\nCompleted selector activation parity: cases=18434 mismatches=0\nF32 normal-cell certificate: sqrt=2139095040 reciprocals=4219469826 mismatches=0 ties=0\nHalf cell dependency parity: cases=327680 mismatches=0\nNative Half squares: 63488, mismatches=0\\n\nInteger offset tandem parity: cases=1152322 mismatches=0 integerCastLoss=0\nLiteral math native certificate: cases=7 mismatches=0\nCompact envelope selector parity: cases=507904 mismatches=0\nSynchronized sibling native parity: cases=131072 mismatches=0\nPositive-factor sign parity: cases=507904 mismatches=0\nTwo-Half-square F32 certificate: pairs=503856640 mismatches=0 oddTies=0 evenTies=13918556\nWord identity comparisons: 16048, mismatches=0\n',
+    stderr: `...E........F.....................\n======================================================================\nERROR: test_branch_local_half_cell_cannot_eliminate_the_sibling_update (__main__.ConversionStringTests)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_conversions_test.py", line 153, in test_branch_local_half_cell_cannot_eliminate_the_sibling_update\n    self.assertEqual(ast.unparse(tree.args[0].elts[0]),'X1')\nAttributeError: 'Call' object has no attribute 'elts'\n\n======================================================================\nFAIL: test_conversion_closure_owns_ordered_arm_bounds_and_native_parity (__main__.ConversionStringTests)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_conversions_test.py", line 94, in test_conversion_closure_owns_ordered_arm_bounds_and_native_parity\n    self.assertEqual(len(certificates),3)\nAssertionError: 1 != 3\n\n----------------------------------------------------------------------\nRan 34 tests in 13.475s\n\nFAILED (failures=1, errors=1)\n`
+  }
+
+test at dist/test/direct-sympy-strings.test.js:103:1
+✖ IEEE sign projections preserve signed zero and reduce completed down-conversion strings (5930.246458ms)
+  Error: Command failed: /private/tmp/llm-inner-pytorch/bin/python helpers/direct_sympy_path_conversion_test.py
+  FFF.
+  ======================================================================
+  FAIL: test_disconnected_normal_path_preserves_both_signs_and_signed_zeros (__main__.PathConversionTests)
+  ----------------------------------------------------------------------
+  Traceback (most recent call last):
+    File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_path_conversion_test.py", line 38, in test_disconnected_normal_path_preserves_both_signs_and_signed_zeros
+      self.assertLess(len(result),len(baseline))
+  AssertionError: 366 not less than 366
+
+  ======================================================================
+  FAIL: test_f32_path_conversion_preserves_normal_subnormal_and_midpoint_boundaries (__main__.PathConversionTests)
+  ----------------------------------------------------------------------
+  Traceback (most recent call last):
+    File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_path_conversion_test.py", line 51, in test_f32_path_conversion_preserves_normal_subnormal_and_midpoint_boundaries
+      self.assertIn(('numeric/R32','small','path-proved-false'),session.compiler.condition_events)
+  AssertionError: ('numeric/R32', 'small', 'path-proved-false') not found in [((), 0, 'decision'), ((), -1, 'identical-results'), (('nested',), 0, 'decision'), (('nested',), 0, 'decision'), (('nested',), 0, 'decision')]
+
+  ======================================================================
+  FAIL: test_tandem_uses_its_exact_quadratic_preimage_only_in_the_selected_arm (__main__.PathConversionTests)
+  ----------------------------------------------------------------------
+  Traceback (most recent call last):
+    File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_path_conversion_test.py", line 63, in test_tandem_uses_its_exact_quadratic_preimage_only_in_the_selected_arm
+      self.assertIn(('numeric/tandem','small','path-proved-false'),session.compiler.condition_events)
+  AssertionError: ('numeric/tandem', 'small', 'path-proved-false') not found in [((), 0, 'decision'), ((), -1, 'identical-results'), ((), 0, 'decision'), ((), 0, 'decision'), ((), 0, 'decision'), ((), 0, 'decision'), ((), 0, 'decision')]
+
+  ----------------------------------------------------------------------
+  Ran 4 tests in 0.292s
+
+  FAILED (failures=3)
+
+      at genericNodeError (node:internal/errors:985:15)
+      at wrappedFn (node:internal/errors:539:14)
+      at ChildProcess.exithandler (node:child_process:417:12)
+      at ChildProcess.emit (node:events:508:28)
+      at maybeClose (node:internal/child_process:1101:16)
+      at ChildProcess._handle.onexit (node:internal/child_process:305:5) {
+    code: 1,
+    killed: false,
+    signal: null,
+    cmd: '/private/tmp/llm-inner-pytorch/bin/python helpers/direct_sympy_path_conversion_test.py',
+    stdout: '',
+    stderr: `FFF.\n======================================================================\nFAIL: test_disconnected_normal_path_preserves_both_signs_and_signed_zeros (__main__.PathConversionTests)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_path_conversion_test.py", line 38, in test_disconnected_normal_path_preserves_both_signs_and_signed_zeros\n    self.assertLess(len(result),len(baseline))\nAssertionError: 366 not less than 366\n\n======================================================================\nFAIL: test_f32_path_conversion_preserves_normal_subnormal_and_midpoint_boundaries (__main__.PathConversionTests)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_path_conversion_test.py", line 51, in test_f32_path_conversion_preserves_normal_subnormal_and_midpoint_boundaries\n    self.assertIn(('numeric/R32','small','path-proved-false'),session.compiler.condition_events)\nAssertionError: ('numeric/R32', 'small', 'path-proved-false') not found in [((), 0, 'decision'), ((), -1, 'identical-results'), (('nested',), 0, 'decision'), (('nested',), 0, 'decision'), (('nested',), 0, 'decision')]\n\n======================================================================\nFAIL: test_tandem_uses_its_exact_quadratic_preimage_only_in_the_selected_arm (__main__.PathConversionTests)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_path_conversion_test.py", line 63, in test_tandem_uses_its_exact_quadratic_preimage_only_in_the_selected_arm\n    self.assertIn(('numeric/tandem','small','path-proved-false'),session.compiler.condition_events)\nAssertionError: ('numeric/tandem', 'small', 'path-proved-false') not found in [((), 0, 'decision'), ((), -1, 'identical-results'), ((), 0, 'decision'), ((), 0, 'decision'), ((), 0, 'decision'), ((), 0, 'decision'), ((), 0, 'decision')]\n\n----------------------------------------------------------------------\nRan 4 tests in 0.292s\n\nFAILED (failures=3)\n`
+  }

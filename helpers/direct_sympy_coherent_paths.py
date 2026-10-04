@@ -11,10 +11,11 @@ import gzip
 import hashlib
 import os
 from pathlib import Path
+import re
 import tempfile
 
 from direct_sympy_streaming_literals import ALIASES,StreamingLiterals
-from direct_sympy_strings import syntax,refine
+from direct_sympy_strings import StringCompiler,syntax,refine
 
 
 class LiteralView:
@@ -147,12 +148,28 @@ class CoherentPaths:
         cost_view=object.__new__(LiteralView)
         cost_view.model=self.registry.model;cost_view.context=self.registry.context
         cost_view.definitions=texts
+        # Proofs of original roots must not be reused after choosing an
+        # arm: their payload can still contain branches discarded here.
+        # This isolated compiler registers only selected, completed values.
+        words=StringCompiler(dtype=self.compiler.dtype,max_characters=self.compiler.max_characters,
+            max_passes=self.compiler.max_passes)
+        words.branch_facts=self.facts;words.expression_size=cost_view.size
+        from direct_sympy_words import simplify_words
+        def stabilize_selected(expression):
+            stable=self.compiler.stabilize(expression,domains,facts=facts)
+            if ALIASES.fullmatch(stable) or not re.search(r'\b(?:Bits64|Float64|U64[A-Za-z0-9]*)\s*\(',stable):
+                return stable
+            candidate=simplify_words(stable,words,domains)
+            candidate=self.compiler.stabilize('('+candidate+')',domains,facts=facts)
+            return candidate if cost_view.size(candidate)<cost_view.size(stable) else stable
         def select(node):
             alias=self.alias(node)
             if alias is not None:
                 if alias not in memo:
                     selected=select(self.trees[alias])
-                    texts[alias]=self.compiler.stabilize('('+ast.unparse(selected)+')',domains,facts=facts)
+                    texts[alias]=stabilize_selected('('+ast.unparse(selected)+')')
+                    words.register_completed_region(texts[alias],domains,word_closed=True)
+                    words.copy_completed_word_root(texts[alias],f'CompileValue{alias}()',domains)
                     memo.add(alias)
                 return node
             if isinstance(node,ast.Call) and node.func.id=='Piecewise':
@@ -183,8 +200,10 @@ class CoherentPaths:
         original_cost=self.compiler.expression_size
         self.compiler.expression_size=cost_view.size
         try:
-            expression=self.compiler.stabilize('('+ast.unparse(select(root))+')',domains,facts=facts)
-        finally:self.compiler.expression_size=original_cost
+            expression=stabilize_selected('('+ast.unparse(select(root))+')')
+        finally:
+            self.compiler.expression_size=original_cost
+            self.compiler.events.extend(words.events)
         self.stats['CASPasses']+=len(self.compiler.events)-before
         return LiteralView(self.registry,texts),expression
 

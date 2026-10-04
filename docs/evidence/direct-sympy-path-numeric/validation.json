@@ -1,0 +1,54 @@
+{
+  "expressionFormat": "Mathematical strings; JSON contains diagnostics only",
+  "buildExitCode": 0,
+  "integrationTests": {
+    "pass": 14,
+    "fail": 0,
+    "skipped": 0,
+    "log": "docs/evidence/direct-sympy-path-numeric/integration-tests.log",
+    "finalChangedModuleLog": "docs/evidence/direct-sympy-path-numeric/final-path-tests.log"
+  },
+  "maskComparisons": 278544,
+  "nativePrefixComparisons": 888832,
+  "mismatches": 0,
+  "prefixArtifact": {
+    "path": "docs/evidence/direct-sympy-path-numeric/pre-coordinate.expr",
+    "characters": 11430,
+    "sha256": "fd1c57909e69b1dfe6f59cfcd5aa408944cb6b02129d4a01d802a8fff8651d95",
+    "flatSelectors": 1,
+    "compilerAliases": 0
+  },
+  "comparison": {
+    "baselineReport": "docs/evidence/direct-sympy-coherent-paths/coordinate-run.json",
+    "currentReport": "docs/evidence/direct-sympy-path-numeric/coordinate-run.json",
+    "baselineFirstBodyCharacters": 49281475763,
+    "currentFirstBodyCharacters": 49281257959,
+    "firstBodyReductionCharacters": 217804,
+    "firstBodyReductionPercent": 0.0004419591674718574,
+    "baselineLogicalCharacters": 13773588294816,
+    "currentLogicalCharacters": 13773588190880,
+    "performanceConclusion": "No demonstrated speedup; single local observations, not a controlled performance comparison."
+  },
+  "finalArtifactEmitted": false,
+  "finalParity": false,
+  "position": 0,
+  "sourceSha256": {
+    "helpers/direct_sympy_words.py": "49ebe03203f4f24e57f114801c5f3f855730d002a6b9eaca158dc6247ba22215",
+    "helpers/direct_sympy_coherent_paths.py": "625cefcf4e58c39564d2a11b38da4992d3e25bca53a0219b7109ac73fc70a259",
+    "helpers/direct_sympy_coherent_paths_test.py": "97b87f52e2cb53b2df1a0b3d40abb27fb60dc3c2bfd66c65d3a0d45ffbedc209",
+    "helpers/direct_sympy_known_bits_test.py": "09ca4379beaa31ddab0f3c8e0c3461ab16b43101eb34e302f14f79df18f450aa",
+    "test/direct-sympy-strings.test.ts": "5af15d57dac59456d0e21e3b96b673d9e90f0bd6ef146491a343e0b0d700d49a",
+    "helpers/direct_sympy_strings.py": "1d1b63ceb148730188bf2da922e402dc16531cf643df0dfcdd43cb0218085eb2",
+    "helpers/direct_sympy_strings_test.py": "a357c93ac863137157e4c0dd93847870bf0a95740e41554de2313e68b5a1b42b"
+  },
+  "identicalBodyRemoval": {
+    "conditions": [
+      "exhaustive coverage",
+      "bit-sensitive structural body equality",
+      "pure guards",
+      "completed numerical closure"
+    ],
+    "regressionLog": "docs/evidence/direct-sympy-path-numeric/pre-closure-context-regression.log",
+    "corrected": "Do not erase contexts before pending conversion closure; conversion/path parity gates passed again."
+  }
+}

@@ -9,6 +9,19 @@ from direct_sympy_strings import Domain,StringCompiler,syntax
 
 
 class StringCompilerTests(unittest.TestCase):
+    def test_identical_exhaustive_results_drop_pure_decisions_but_preserve_signed_zero(self):
+        compiler=StringCompiler();domains={'X1':Domain(F(-1),F(1),-24),
+            'X2':Domain(F(-1),F(1),-24)}
+        result=compiler.stabilize('Piecewise((X1,X2>0),(X1,True))',domains)
+        self.assertEqual(result,'X1')
+        self.assertTrue(any(event[-1]=='identical-results' for event in compiler.condition_events))
+        for source in ['Piecewise((-0.0,X2>0),(0.0,True))',
+                       'Piecewise((X1,X2>0))',
+                       'Piecewise((R16(X1),X2>0),(R16(X1),True))',
+                       'Piecewise((X1,Unknown(X2)>0),(X1,True))']:
+            self.assertIn('Piecewise',compiler.stabilize(source,domains))
+        self.assertTrue(all(event[2:4]==('factor','simplify') for event in compiler.events))
+
     def test_whole_completed_literal_compacts_without_scanning_and_keeps_context(self):
         domains={'X1':Domain(F(-1),F(1),-24,False)}
         compiler=StringCompiler();region='Float64(Bits64(X1))'

@@ -115,7 +115,35 @@ def float_source(node,domains,floats=()):
     return False
 
 
-def reduce_call(node,domains,widths=None,floats=()):
+def known_bits(node,known=None):
+    """Conservative zero/one masks for explicit unsigned operations.
+
+    Never infer bits of floating arithmetic. Addition and multiplication
+    only preserve proved trailing zero bits, including modular overflow.
+    """
+    if isinstance(node,ast.Name):return (known or {}).get(node.id,(0,0))
+    value=integer(node)
+    if value is not None:return MASK^value,value
+    if not isinstance(node,ast.Call) or len(node.args)!=2:return 0,0
+    name=node.func.id
+    if name not in ('U64And','U64Or','U64Shr','U64Add','U64Mul'):return 0,0
+    if word_width(node,{name:64 for name in (known or {})}) is None:return 0,0
+    a,b=node.args;za,oa=known_bits(a,known)
+    if name=='U64Shr':
+        shift=integer(b)
+        if shift is None or shift>=64:return 0,0
+        return (za>>shift)|((MASK<<(64-shift))&MASK),oa>>shift
+    zb,ob=known_bits(b,known)
+    if name=='U64And':return za|zb,oa&ob
+    if name=='U64Or':return za&zb,oa|ob
+    def trailing(mask):
+        unknown=MASK^mask
+        return 64 if not unknown else (unknown&-unknown).bit_length()-1
+    count=min(trailing(za),trailing(zb)) if name=='U64Add' else min(64,trailing(za)+trailing(zb))
+    return (1<<count)-1,0
+
+
+def reduce_call(node,domains,widths=None,floats=(),known=None):
     name=node.func.id
     if len(node.args)==1 and isinstance(node.args[0],ast.Call):
         inner=node.args[0]
@@ -145,10 +173,17 @@ def reduce_call(node,domains,widths=None,floats=()):
                 mask=ma|mb if name=="U64Or" else ma&mb
                 return ast.Call(func=ast.Name(id="U64And",ctx=ast.Load()),args=[a.args[0],ast.Constant(value=mask)],keywords=[])
     if name=="U64And" and bv is not None:
+        zero,one=known_bits(a,known)
+        if ((MASK^bv)&(MASK^zero))==0:return a
+        if (bv&(MASK^(zero|one)))==0:return ast.Constant(value=bv&one)
         if bv&((1<<wa)-1)==(1<<wa)-1:return a
         if isinstance(a,ast.Call) and a.func.id=="U64And" and len(a.args)==2:
             previous=integer(a.args[1])
             if previous is not None:return ast.Call(func=ast.Name(id="U64And",ctx=ast.Load()),args=[a.args[0],ast.Constant(value=previous&bv)],keywords=[])
+    if name=='U64Or' and bv is not None:
+        zero,one=known_bits(a,known)
+        if bv&(MASK^one)==0:return a
+        if (MASK^bv)&(MASK^(zero|one))==0:return ast.Constant(value=bv|one)
     if name=="U64Shr" and bv is not None and isinstance(a,ast.Call) and a.func.id=="U64And" and len(a.args)==2:
         mask=integer(a.args[1])
         if mask is not None:
@@ -167,7 +202,7 @@ def simplify_words(expression,compiler,domains):
     compact,regions=compiler.compact_regions(expression,compiler.context(domains))
     if any((compiler.context(domains),text) not in compiler._region_roots for text in regions.values()):
         compact,regions=expression,{}
-    payloads={};payload_roots={};widths={};floats=set()
+    payloads={};payload_roots={};widths={};floats=set();known={}
     for name,text in regions.items():
         root=compiler._region_roots.get((compiler.context(domains),text))
         if root is None:continue
@@ -177,6 +212,7 @@ def simplify_words(expression,compiler,domains):
             payload="CASWordPayload"+str(len(payloads))
             stored=compiler._region_word_payloads.get((compiler.context(domains),text))
             payloads[payload]=text[text.index('(')+1:-1] if stored is None else stored; widths[payload]=width
+            known[payload]=known_bits(syntax(payloads[payload]))
             payload_roots[payload]=text
             compact=re.sub(r"\b"+name+r"\b","Float64("+payload+")",compact)
     def restore(text):
@@ -194,7 +230,7 @@ def simplify_words(expression,compiler,domains):
             def visit_Call(self,node):
                 nonlocal changes
                 original=self.generic_visit(node)
-                replacement=reduce_call(original,domains,widths,floats)
+                replacement=reduce_call(original,domains,widths,floats,known)
                 if replacement is original:return original
                 changes+=1
                 return syntax(compiler.stabilize("("+ast.unparse(replacement)+")",domains))
