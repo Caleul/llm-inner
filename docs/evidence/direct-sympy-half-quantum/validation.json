@@ -1,0 +1,54 @@
+{
+  "change": "Propagate interval-specific Half dyadic grids and clamp Half subnormal cell radii.",
+  "expressionFormat": "Mathematical strings; JSON files in this folder contain diagnostic metadata only.",
+  "stateCompatibility": "Fresh run, no saved state restored. Conversion source identity changed; old savepoints must be rejected.",
+  "focusedTests": {
+    "tests": 3,
+    "finiteHalfGridCases": 63488,
+    "gridViolations": 0,
+    "nativeEmittedSumComparisons": 1050625,
+    "mismatches": 0,
+    "expressionCharacters": {
+      "conservativeBaseline": 294,
+      "intervalGrid": 233
+    }
+  },
+  "coordinate": {
+    "position": 0,
+    "dimension": 2,
+    "completedProducers": 25,
+    "storedCharacters": 846999,
+    "logicalCharacters": 13773588190880,
+    "compositionSeconds": 36.42454666696722,
+    "seconds": 50.30748741701245,
+    "peakRSSBytes": 718766080,
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "stop": "Flat artifact budget exceeded; no complete result"
+  },
+  "comparison": {
+    "previousLogicalCharacters": 13773588190880,
+    "currentLogicalCharacters": 13773588190880,
+    "delta": 0,
+    "speedupEstablished": false,
+    "timingNote": "The fresh coordinate run overlapped the regression suite; no controlled sequential/parallel benchmark."
+  },
+  "sources": {
+    "helpers/direct_sympy_conversions.py": "dc522691598596fbce44273c1a117fc3c55490bc82b58b6abfd7893851ca2d50",
+    "helpers/direct_sympy_half_quantum_test.py": "9d3c7e4077f8b9955f48d49878c40595241f090d5f1650bfc079e98c169c7ae7",
+    "test/direct-sympy-strings.test.ts": "d13b8eb2b69d76d231d1d929d031d307cee2acabad1e4ebb7d9f99dfcc38aa50"
+  },
+  "limitations": [
+    "The emitted-expression lemma checks Half pairs in [1,2], not full model outputs.",
+    "The coordinate remains position zero, dimension two; variable-length last-token semantics remain unproven.",
+    "No complete coordinate artifact or its parity was produced."
+  ],
+  "regressionGate": {
+    "buildExitCode": 0,
+    "namedIntegrations": 16,
+    "passed": 16,
+    "failed": 0,
+    "skipped": 0,
+    "durationMilliseconds": 112080.685417
+  }
+}

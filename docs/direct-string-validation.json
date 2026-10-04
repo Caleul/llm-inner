@@ -10474,5 +10474,23 @@
       "Variable-length last-token semantics",
       "All output coordinates"
     ]
+  },
+  "halfIntervalPrecisionValidation": {
+    "report": "docs/evidence/direct-sympy-half-quantum/validation.json",
+    "testMap": {
+      "helpers/direct_sympy_half_quantum_test.py": "Three tests: 63488 finite Half encodings, interval/subnormal barriers, actual emitted sum with 1050625 native comparisons and zero mismatches.",
+      "test/direct-sympy-strings.test.ts": "16 named integrations passed, zero failed/skipped; includes state compatibility, existing numeric suites and emitted-prefix parity."
+    },
+    "stateCompatibility": "Conversion helper source identity changed; fresh coordinate run restores no previous state. Strict compatibility rejection retained.",
+    "coordinateLogicalCharacters": 13773588190880,
+    "coordinateSizeReduced": false,
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "remaining": [
+      "Reduce repeated numerical dependency expansion with path-specific simplification",
+      "Complete coordinate artifact and native reference parity",
+      "Variable-length last-token semantics",
+      "All output coordinates"
+    ]
   }
 }

@@ -1,0 +1,8 @@
+...
+----------------------------------------------------------------------
+Ran 3 tests in 0.521s
+
+OK
+Half interval sum native parity: cases=1050625 mismatches=0
+Half interval expression: characters=294->233
+Half interval grid proof: cases=63488 violations=0

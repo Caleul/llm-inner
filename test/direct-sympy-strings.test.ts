@@ -148,6 +148,16 @@ test('IEEE sign projections preserve signed zero and reduce completed down-conve
     assert.match(rms.stdout,/RMS guard boundary parity: cases=634876 mismatches=0 guardDisagreements=39576/);
   });
 
+test('Half interval precision removes redundant F32 rounding with native emitted-expression parity',
+  {skip:!python},async()=>{
+    const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_half_quantum_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 3 tests/);
+    assert.match(stderr,/OK/);
+    assert.match(stdout,/Half interval grid proof: cases=63488 violations=0/);
+    assert.match(stdout,/Half interval sum native parity: cases=1050625 mismatches=0/);
+    assert.match(stdout,/Half interval expression: characters=294->233/);
+  });
+
 test('Budgeted coordinate continuation persists actual producers and rejects incompatible saved dimensions',
   {skip:!python || !process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_checkpoint_run_test.py'],{timeout:120_000,maxBuffer:1024*1024});

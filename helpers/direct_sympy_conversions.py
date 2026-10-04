@@ -570,7 +570,8 @@ class ConversionSession:
         if source is None:return None
         minimum=source.minimum if source.minimum>0 else -source.maximum if source.maximum<0 else 0
         if not minimum:return None
-        return 2**(binary_exponent(minimum)-12)
+        # Subnormal Half spacing stops shrinking at 2**-24.
+        return 2**max(-25,binary_exponent(minimum)-12)
 
     def f32_update_is_invisible(self,value,update):
         """Strict F32 cell containment for finite F32 operands.
@@ -640,8 +641,12 @@ class ConversionSession:
                     cast=lambda x:struct.unpack(fmt,struct.pack(fmt,x))[0]
                     low,high=cast(d.minimum),cast(d.maximum)
                     minimum=low if low>0 else -high if high<0 else 0
-                    q=-24 if fmt=="e" else max(-149,binary_exponent(minimum)-23) if minimum else -149
-                    if fmt=="f" and d.quantum is not None:q=max(q,d.quantum)
+                    # Use the smallest binade reached by this interval. A
+                    # zero crossing requires the format's subnormal grid.
+                    # Rounding also preserves a coarser source dyadic grid.
+                    precision,minimum_quantum=(11,-24) if fmt=='e' else (24,-149)
+                    q=max(minimum_quantum,binary_exponent(minimum)-(precision-1)) if minimum else minimum_quantum
+                    if d.quantum is not None:q=max(q,d.quantum)
                     return FiniteSource(low,high,q)
                 if node.func.id=="sqrt" and d.minimum>=0:
                     low,high=math.sqrt(d.minimum),math.sqrt(d.maximum)
