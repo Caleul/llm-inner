@@ -11,7 +11,8 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from direct_sympy_coherent_paths import CoherentPaths
+from direct_sympy_coherent_paths import CoherentPaths,UnreachableNumericPath
+from direct_sympy_conversions import FiniteSource
 from direct_sympy_conversions_test import cpp
 from direct_sympy_checkpoint import CheckpointStrings
 from direct_sympy_strings import Domain,StringCompiler,syntax
@@ -50,6 +51,27 @@ def evaluate(text,values,functions=None):
 
 
 class CoherentPathTests(unittest.TestCase):
+    def test_certified_empty_numeric_branch_is_pruned_but_other_errors_remain_fatal(self):
+        mask=0x7fffffffffffffff
+        threshold=struct.unpack('>Q',struct.pack('>d',2.0))[0]
+        registry=fixture(['X1 + 0.0',f'Piecewise((CompileValue0(), U64And(Bits64(CompileValue0()), {mask}) < {threshold}), (CompileValue0() + 2.0, True))'])
+        registry.definition_proofs=[(FiniteSource(-1,1,-24),'half',False,None),(None,None,False,None)]
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'flat.expr';plan=CoherentPaths(registry)
+            report=plan.write(path,'CompileValue1()',max_characters=65536)
+            self.assertEqual(report['paths'],1)
+            self.assertEqual(plan.stats['contradictions'],1)
+            functions={'Bits64':lambda x:struct.unpack('>Q',struct.pack('>d',x))[0],'U64And':lambda x,y:x&y}
+            for x in (-1.0,-2**-24,-0.0,0.0,2**-24,1.0):
+                self.assertEqual(struct.pack('d',evaluate(path.read_text(),{'X1':x,'X2':0.0},functions)),struct.pack('d',x+0.0))
+            original=path.read_bytes()
+            with patch.object(CoherentPaths,'literal',side_effect=ValueError('Bad certificate')):
+                with self.assertRaisesRegex(ValueError,'Bad certificate'):CoherentPaths(registry).write(path,'CompileValue1()',max_characters=65536)
+            self.assertEqual(path.read_bytes(),original)
+            with patch.object(CoherentPaths,'literal',side_effect=UnreachableNumericPath('empty')):
+                with self.assertRaisesRegex(ValueError,'No reachable numerical path'):CoherentPaths(registry).write(path,'CompileValue1()',max_characters=65536)
+            self.assertEqual(path.read_bytes(),original)
+
     def test_same_decision_reused_by_dependencies_has_two_paths_not_four(self):
         registry=fixture(['Piecewise((X1 * 0.5, X1 > 0.0), (X1 * 2.0, True))',
             'Piecewise((CompileValue0() + 1.0, X1 > 0.0), (CompileValue0() - 1.0, True))'])

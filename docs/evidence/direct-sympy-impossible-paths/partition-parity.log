@@ -1,0 +1,7 @@
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 15096.48it/s]
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 25216.26it/s]
+{"completedRegions": 74, "coveredInputPatterns": 244047872, "unfinishedInputPatterns": 3786678272, "cases": 19240, "mismatches": 0, "fullCoordinateParity": false}

@@ -1,0 +1,340 @@
+{
+  "regions": [
+    {
+      "region": "000000",
+      "previousCharacters": 15298,
+      "currentCharacters": 3825
+    },
+    {
+      "region": "0000010",
+      "previousCharacters": 19532,
+      "currentCharacters": 3905
+    },
+    {
+      "region": "0000011",
+      "previousCharacters": 39983,
+      "currentCharacters": 8164
+    },
+    {
+      "region": "0000100",
+      "previousCharacters": 19532,
+      "currentCharacters": 3905
+    },
+    {
+      "region": "00001010",
+      "previousCharacters": 19532,
+      "currentCharacters": 3905
+    },
+    {
+      "region": "00001011000",
+      "previousCharacters": 19532,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "000010110010",
+      "previousCharacters": 19532,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "0000101100110",
+      "previousCharacters": 19532,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "00001011001110",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "00001011001111",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "00001011010000",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "00001011010001",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "00001011010010",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "00001011010011",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "00001011010100",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "00001011010101",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "00001011010110",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "00001011010111",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "00001011011000",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "00001011011001",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "00001011011010",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "00001011011011",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "00001011011100",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "00001011011101",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "00001011011110",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "00001011011111",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "0000101110000000",
+      "previousCharacters": 5580,
+      "currentCharacters": 3014
+    },
+    {
+      "region": "0000101110000001",
+      "previousCharacters": 3905,
+      "currentCharacters": 2770
+    },
+    {
+      "region": "000010111000001",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "00001011100001",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "000010111000100",
+      "previousCharacters": 129748,
+      "currentCharacters": 3014
+    },
+    {
+      "region": "000010111000101",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "00001011100011",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "000010111001000",
+      "previousCharacters": 129748,
+      "currentCharacters": 3014
+    },
+    {
+      "region": "000010111001001",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "00001011100101",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "000010111001100",
+      "previousCharacters": 129748,
+      "currentCharacters": 3014
+    },
+    {
+      "region": "000010111001101",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "00001011100111",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "000010111010000",
+      "previousCharacters": 129748,
+      "currentCharacters": 3014
+    },
+    {
+      "region": "000010111010001",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "00001011101001",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "000010111010100",
+      "previousCharacters": 129748,
+      "currentCharacters": 3014
+    },
+    {
+      "region": "000010111010101",
+      "previousCharacters": 430300,
+      "currentCharacters": 2770
+    },
+    {
+      "region": "00001011101011",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "000010111011000",
+      "previousCharacters": 129748,
+      "currentCharacters": 3014
+    },
+    {
+      "region": "000010111011001",
+      "previousCharacters": 430300,
+      "currentCharacters": 2770
+    },
+    {
+      "region": "00001011101101",
+      "previousCharacters": 430300,
+      "currentCharacters": 2014
+    },
+    {
+      "region": "000010111011100",
+      "previousCharacters": 129748,
+      "currentCharacters": 22379
+    },
+    {
+      "region": "000010111011101",
+      "previousCharacters": 430300,
+      "currentCharacters": 2770
+    },
+    {
+      "region": "00001011101111",
+      "previousCharacters": 430300,
+      "currentCharacters": 39787
+    },
+    {
+      "region": "000010111100000",
+      "previousCharacters": 129748,
+      "currentCharacters": 22379
+    },
+    {
+      "region": "000010111100001",
+      "previousCharacters": 430300,
+      "currentCharacters": 2770
+    },
+    {
+      "region": "00001011110001",
+      "previousCharacters": 430300,
+      "currentCharacters": 39787
+    },
+    {
+      "region": "000010111100100",
+      "previousCharacters": 129748,
+      "currentCharacters": 22379
+    },
+    {
+      "region": "000010111100101",
+      "previousCharacters": 430300,
+      "currentCharacters": 2770
+    },
+    {
+      "region": "00001011110011",
+      "previousCharacters": 430300,
+      "currentCharacters": 39787
+    },
+    {
+      "region": "000010111101000",
+      "previousCharacters": 129748,
+      "currentCharacters": 22379
+    },
+    {
+      "region": "000010111101001",
+      "previousCharacters": 430300,
+      "currentCharacters": 2770
+    },
+    {
+      "region": "00001011110101",
+      "previousCharacters": 430300,
+      "currentCharacters": 39787
+    },
+    {
+      "region": "000010111101100",
+      "previousCharacters": 129748,
+      "currentCharacters": 22379
+    },
+    {
+      "region": "000010111101101",
+      "previousCharacters": 430300,
+      "currentCharacters": 2770
+    },
+    {
+      "region": "00001011110111",
+      "previousCharacters": 430300,
+      "currentCharacters": 39787
+    },
+    {
+      "region": "000010111110000",
+      "previousCharacters": 129748,
+      "currentCharacters": 22379
+    },
+    {
+      "region": "000010111110001",
+      "previousCharacters": 430300,
+      "currentCharacters": 2770
+    },
+    {
+      "region": "00001011111001",
+      "previousCharacters": 430300,
+      "currentCharacters": 39787
+    }
+  ],
+  "matchedRegions": 66,
+  "reducedRegions": 66,
+  "increasedRegions": 0,
+  "previousCharacters": 20672134,
+  "currentCharacters": 509190,
+  "scope": "Matching input regions across previous and current source versions; not an isolated timing benchmark or full-domain artifact."
+}

@@ -10819,5 +10819,30 @@
     "finalCoordinateParity": false,
     "multipleTokenParity": false,
     "scope": "Position zero, dimension two, one token. Regional native parity only; no full-domain coordinate or last-token variable-length output."
+  },
+  "unreachableNumericPathValidation": {
+    "report": "docs/evidence/direct-sympy-impossible-paths/validation.json",
+    "tests": 23,
+    "pass": 23,
+    "fail": 0,
+    "skipped": 0,
+    "coherentTests": 10,
+    "build": true,
+    "originalCaseUnreachablePaths": 1,
+    "originalCaseAfterFix": "Flat artifact budget exceeded; no complete result",
+    "attempts": 80,
+    "completedRegions": 74,
+    "coveredInputPatterns": 244047872,
+    "unfinishedInputPatterns": 3786678272,
+    "coveragePercent": 6.0546875,
+    "regionNativeCases": 19240,
+    "regionNativeMismatches": 0,
+    "distinctArtifacts": 13,
+    "matchedPreviousRegions": 66,
+    "previousCharacters": 20672134,
+    "currentCharacters": 509190,
+    "finalArtifactEmitted": false,
+    "finalCoordinateParity": false,
+    "multipleTokenParity": false
   }
 }

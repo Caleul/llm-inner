@@ -33,6 +33,10 @@ class LiteralView:
             if index>=len(registry.definitions) or text!=registry.definitions[index]:self.audit(text)
 
 
+class UnreachableNumericPath(ValueError):
+    """Certified numerical bounds exclude this branch context."""
+
+
 @dataclass(frozen=True)
 class Guard:
     view:LiteralView
@@ -199,7 +203,7 @@ class CoherentPaths:
                 truth=self.facts.truth(predicate,facts)
                 if truth is None:continue
                 own=numeric.magnitude_guard_bounds(predicate,truth,numeric.completed)
-                if own is None:raise ValueError('Selected producer contradicts its path conditions')
+                if own is None:raise UnreachableNumericPath('Selected producer contradicts its path conditions')
                 numeric.completed=own
         def stabilize_selected(expression):
             stable=self.compiler.stabilize(expression,domains,facts=facts)
@@ -295,12 +299,16 @@ class CoherentPaths:
             decision=self.next_decision(root,facts)
             if decision is None:
                 if self.stats['completedPaths']>=self.max_paths:raise ValueError('Path budget exceeded; no complete result')
-                view,body=self.literal(root,facts,domains)
+                try:view,body=self.literal(root,facts,domains)
+                except UnreachableNumericPath:
+                    self.stats['contradictions']+=1;continue
                 self.stats['completedPaths']+=1
                 yield PathArm(view,body,guards);continue
             # Freeze this guard BEFORE assuming its own truth or a later
             # predicate. Later arm-local identities must not alter dispatch.
-            view,condition=self.literal(decision,facts,domains)
+            try:view,condition=self.literal(decision,facts,domains)
+            except UnreachableNumericPath:
+                self.stats['contradictions']+=1;continue
             self.stats['splitContexts']+=1
             for truth in (False,True):
                 own=self.assume(decision,truth,facts)
@@ -353,6 +361,7 @@ class CoherentPaths:
                             if not guard.truth:emit(')')
                         if arm.guards:emit(')')
                         emit(')');count+=1
+                    if not count:raise ValueError('No reachable numerical path; no complete result')
                     emit(')')
                 finally:
                     if compressed:encoded.close()
