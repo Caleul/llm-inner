@@ -1,0 +1,14 @@
+{
+  "artifact": "docs/evidence/direct-sympy-composed-attention/composed.expr",
+  "sha256": "7f6b206ff30b6071ac0510f944b37bccc2c3a553085327c0f1143d9b4b08188b",
+  "characters": 13316,
+  "position": 0,
+  "tokens": 1,
+  "dimension": 2,
+  "inputCorpusVersion": 2,
+  "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+  "cases": 8196,
+  "mismatches": 0,
+  "firstMismatches": [],
+  "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+}

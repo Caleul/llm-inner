@@ -2,7 +2,7 @@
 import os,struct,subprocess,tempfile,unittest
 from fractions import Fraction as F
 from pathlib import Path
-from direct_sympy_layer_bounds import dot,half,layer,silu_bound
+from direct_sympy_layer_bounds import dot,half,layer,silu_bound,composed_dot,norm_linear_bound,norm,sqrt_outward
 from direct_sympy_checkpoint import CheckpointStrings
 from direct_sympy_strings import StringCompiler
 from direct_sympy_partition_run import update_threshold
@@ -15,7 +15,107 @@ class Weights:
     def weight(self,name,row,col):return repr(self.values[col])
 
 
+class Matrices:
+    def __init__(self,first,second):self.values={'first':first,'second':second}
+    def shape(self,name):return [len(self.values[name]),len(self.values[name][0])]
+    def weight(self,name,row,col):return repr(self.values[name][row][col])
+
+
 class LayerBoundTests(unittest.TestCase):
+    def test_correlated_norm_proof_roots_and_validation(self):
+        for value in (F(0),F(1),F(2),F(3,7),F(1,2**96),F(123456789,54321)):
+            self.assertGreaterEqual(sqrt_outward(value,True)**2,value)
+            self.assertLessEqual(sqrt_outward(value,False)**2,value)
+        class Normalized:
+            width=2;config={'rms_norm_eps':1e-6}
+            def shape(self,name):return [2]
+            def weight(self,name,i):return (1.0,1.0)[i]
+        m=Normalized();inputs=norm(m,'norm')
+        correlated=norm_linear_bound(m,'norm',[F(1),F(1)],inputs)
+        self.assertLess(correlated,sum(map(F,inputs)))
+        self.assertGreater(correlated,2)
+        self.assertEqual(norm_linear_bound(m,'norm',[F(0),F(0)],inputs),0)
+        self.assertIsNone(norm_linear_bound(m,'norm',[F(1)],inputs))
+        self.assertIsNone(norm_linear_bound(m,'norm',[F(1),F(1)],[None,inputs[1]]))
+        m.weight=lambda name,i:.1
+        self.assertIsNone(norm_linear_bound(m,'norm',[F(1),F(1)],inputs))
+
+    def test_ordered_native_correlated_norm_linear_forms(self):
+        records=[]
+        for weights in ((1.0,1.0),(.5,1.5),(-1.0,0.0)):
+            class Normalized:
+                width=2;config={'rms_norm_eps':1e-6}
+                def shape(self,name):return [2]
+                def weight(self,name,i):return weights[i]
+            m=Normalized();inputs=norm(m,'norm')
+            for coefficients in ((F(1),F(1)),(F(-3,4),F(7,8))):
+                bound=norm_linear_bound(m,'norm',coefficients,inputs)
+                upper=float(bound)
+                if F(upper)<bound:upper=__import__('math').nextafter(upper,float('inf'))
+                records.append('{'+','.join(map(str,(*weights,*map(float,coefficients),upper)))+'}')
+        self.native('''struct Record{double g0,g1,c0,c1,bound;};Record records[]={'''+','.join(records)+'''};
+int main(){std::fesetround(FE_TONEAREST);unsigned long long cases=0,fail=0;
+ for(auto r:records)for(unsigned b=0;b<65536;b++){if((b&0x7c00)==0x7c00)continue;
+  for(uint16_t a:anchors){double x=word<_Float16>(uint16_t(b)),y=word<_Float16>(a);
+   float sum=float(float(x*x)+float(y*y));float mean=float(float(sum/2.0f)+1e-6f);
+   float inverse=float(1.0/double(float(std::sqrt(double(mean)))));
+   double nx=double(_Float16(float(x*double(inverse))));double ny=double(_Float16(float(y*double(inverse))));
+   nx=double(_Float16(float(nx*r.g0)));ny=double(_Float16(float(ny*r.g1)));
+   fail+=std::abs(r.c0*nx+r.c1*ny)>r.bound;cases++;
+  }
+ }std::printf("Correlated RMS linear bounds: cases=%llu violations=%llu\\n",cases,fail);return fail?1:0;}
+''','Correlated RMS linear bounds: cases=5332992 violations=0')
+
+    def test_composed_projection_keeps_errors_and_rejects_unsupported_work(self):
+        m=Matrices([[1.0],[1.0]],[[1.0,-1.0]])
+        bound=composed_dot(m,'first','second',[1.0],[0,1])[0]
+        self.assertGreater(bound,0)  # Real cancellation alone is not a proof.
+        self.assertLess(bound,dot(m,'second',dot(m,'first',[1.0]))[0])
+        # Exact composed weights cancel, yet the two Half storage
+        # boundaries produce a nonzero output. Dropping their error terms
+        # would incorrectly prove this live dependency irrelevant.
+        cancellation=Matrices([[.5],[.75]],[[.75,-.5]])
+        x=1.0009765625;v1,v2=half(x*.5),half(x*.75)
+        actual=struct.unpack('e',struct.pack('e',struct.unpack('f',struct.pack('f',.75*v1-.5*v2))[0]))[0]
+        self.assertNotEqual(actual,0)
+        self.assertLessEqual(abs(actual),composed_dot(cancellation,'first','second',[x],[0,1])[0])
+        for mapping in ([0,2],[0],[-1,1],[False,1]):
+            self.assertIsNone(composed_dot(m,'first','second',[1.0],mapping))
+        self.assertIsNone(composed_dot(m,'first','second',[1.0],[0,1],max_products=1))
+        self.assertIsNone(composed_dot(Matrices([[.1],[1.0]],[[1.0,-1.0]]),'first','second',[1.0],[0,1]))
+        self.assertIsNone(composed_dot(Matrices([[1.0],[1.0]],[[1.0,float('nan')]]),'first','second',[1.0],[0,1]))
+        self.assertIsNone(composed_dot(Matrices([[65504.0],[1.0]],[[1.0,-1.0]]),'first','second',[65504.0],[0,1]))
+        # A zero stored bound still needs the subnormal storage-error term.
+        tiny=Matrices([[2**-24],[2**-24]],[[1.0,-1.0]])
+        self.assertIsNotNone(composed_dot(tiny,'first','second',[2**-24],[0,1]))
+
+    def test_ordered_native_composed_projections_and_grouped_replication(self):
+        records=[]
+        for n in (1,2,4,8):
+            first=[[(-1 if i&1 else 1)*2**-16 for i in range(n)] for _ in range(2)]
+            first[1][0]+=2**-24
+            for repeat in (1,2):
+                mapping=[0,1]*repeat;second=[[2**-10,-2**-10]*repeat]
+                m=Matrices(first,second);bound=composed_dot(m,'first','second',[65504.0]*n,mapping)[0]
+                old=dot(m,'second',[dot(m,'first',[65504.0]*n)[i] for i in mapping])[0]
+                self.assertLess(bound,old/100)
+                records.append('{'+','.join(map(str,(n,repeat,bound)))+'}')
+        self.native('''struct Record{int n,repeat;double bound;};Record records[]={'''+','.join(records)+'''};
+double linear(double *x,int n,int row){float lanes[4]={};
+ for(int i=0;i<n;i++){double w=(i&1)?-0x1p-16:0x1p-16;if(row&&i==0)w+=0x1p-24;
+  lanes[i%4]=float(double(lanes[i%4])+float(x[i]*w));}
+ float sum=float(double(float(double(lanes[0])+lanes[1]))+float(double(lanes[2])+lanes[3]));return double(_Float16(sum));}
+int main(){std::fesetround(FE_TONEAREST);unsigned long long cases=0,fail=0;
+ for(auto r:records)for(unsigned b=0;b<65536;b++){if((b&0x7c00)==0x7c00)continue;
+  for(uint16_t a:anchors){double x[8],v[2];for(int i=0;i<r.n;i++)x[i]=i?double(word<_Float16>(a)):double(word<_Float16>(uint16_t(b)));
+   for(int row=0;row<2;row++)v[row]=linear(x,r.n,row);
+   float lanes[4]={};for(int j=0;j<r.repeat*2;j++)lanes[j%4]=float(double(lanes[j%4])+float(v[j%2]*((j&1)?-0x1p-10:0x1p-10)));
+   float sum=float(double(float(double(lanes[0])+lanes[1]))+float(double(lanes[2])+lanes[3]));
+   double stored=double(_Float16(sum));fail+=std::abs(stored)>r.bound;cases++;
+  }
+ }std::printf("Composed projection bounds: cases=%llu violations=%llu\\n",cases,fail);return fail?1:0;}
+''','Composed projection bounds: cases=7110656 violations=0')
+
     def test_silu_bound_encloses_every_certified_half_prefix(self):
         import torch
         magnitudes=[struct.unpack('e',struct.pack('H',b))[0] for b in range(0x2c01)]
@@ -80,7 +180,7 @@ for(auto record:records)for(unsigned b=0;b<65536;b++){
     def test_actual_layer_updates_stay_inside_tighter_bounds(self):
         with CheckpointStrings(os.environ['LLM_INNER_DIRECT_JSON_CHECKPOINT'],StringCompiler()) as model:
             bounds=layer(model,'model.layers.0.')
-            self.assertEqual([update_threshold(max(bounds[k][i] for k in bounds)) for i in range(model.width)],[rank(8),rank(4)])
+            self.assertEqual([update_threshold(max(bounds[k][i] for k in bounds)) for i in range(model.width)],[rank(4),rank(2)])
             prefix='model.layers.0.'
             def weights(name):
                 shape=model.shape(name)

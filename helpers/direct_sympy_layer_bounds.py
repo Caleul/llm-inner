@@ -58,6 +58,95 @@ def dot(model,name,inputs):
     return None if any(x is None for x in result) else result
 
 
+def sqrt_outward(value,up):
+    """Directed square root of an exact nonnegative proof rational."""
+    result=math.sqrt(float(value))
+    while (Fraction(result)**2<value if up else Fraction(result)**2>value):
+        result=math.nextafter(result,math.inf if up else -math.inf)
+    return Fraction(result)
+
+
+def norm_linear_bound(model,name,coefficients,inputs):
+    """Absolute linear-form bound on this adapter's actual Half RMS output.
+
+    Caller certifies that inputs bound the named RMS vector, not arbitrary
+    independent scalars. The same common F32 loss factor as rms_half_bound
+    encloses the pre-Half vector's Euclidean norm by sqrt(n)*loss. Half
+    storage contributes relative 2**-11 plus Euclidean absolute error
+    sqrt(n)*2**-25. Account separately for the learned Half gamma storage.
+    All roots/coefficients are compiler-only outward proof arithmetic.
+    """
+    from direct_sympy_checkpoint import rms_half_bound
+    width=model.width
+    epsilon=struct.unpack('f',struct.pack('f',model.config['rms_norm_eps']))[0]
+    if len(coefficients)!=width or len(inputs)!=width or model.shape(name)!=[width] or rms_half_bound(width,epsilon) is None:return None
+    weights=[float(model.weight(name,i)) for i in range(width)]
+    if any(not math.isfinite(w) or half(abs(w))!=abs(w) for w in weights):return None
+    u=Fraction(1,2**23);root=sqrt_outward(Fraction(width),True)
+    loss=(1+u)**3/((1-u)**3*sqrt_outward(1-width*u,False))
+    magnitude=root*(loss*(1+Fraction(1,2**11))+Fraction(1,2**25))
+    squared=sum(((c*Fraction(w))**2 for c,w in zip(coefficients,weights)),Fraction(0))
+    result=magnitude*sqrt_outward(squared,True)
+    for c,w,bound in zip(coefficients,weights,inputs):
+        if bound is None or not math.isfinite(bound) or bound<0 or half(bound)!=bound:return None
+        if w in (-1.0,0.0,1.0):continue # These Half products store exactly.
+        exponent=math.frexp(bound)[1]-1 if bound else -14
+        result+=abs(c)*Fraction(2)**max(-25,exponent-11)
+    return result
+
+
+def composed_dot(model,first_name,second_name,inputs,mapping,*,max_products=2**20,input_norm=None):
+    """Enclose two ordered stored-Half projections without reassociating them.
+
+    Compose weights only in exact proof arithmetic. The actual first
+    projection remains rounded F32 then Half, and the actual second
+    projection retains its four-lane reduction and final Half boundary.
+    The first projection's reduction/storage error and the second's
+    reduction error are added to the composed exact sum before final
+    monotone Half storage. This exposes coefficient cancellations which
+    independent absolute sums lose. Large proof workloads retain dot().
+    """
+    a,b=model.shape(first_name),model.shape(second_name)
+    if (len(a)!=2 or len(b)!=2 or any(type(n)is not int or n<1 for n in a+b)
+        or a[1]!=len(inputs) or b[1]!=len(mapping) or a[1]>2**20 or b[1]>2**20
+        or any(type(i)is not int or not 0<=i<a[0] for i in mapping)
+        or type(max_products)is not int or max_products<1):return None
+    if (2*a[0]+b[0]*b[1])*a[1]+2*b[0]*b[1]>max_products:return None
+    first=dot(model,first_name,inputs)
+    if first is None:return None
+    old=dot(model,second_name,[first[i] for i in mapping])
+    if old is None:return None
+    gamma=lambda n:Fraction(n+3,2**24-n-3)
+    errors=[]
+    for row,stored_bound in enumerate(first):
+        total=sum((Fraction(inputs[col])*abs(Fraction(float(model.weight(first_name,row,col)))) for col in range(a[1])),Fraction(0))
+        # A rounded magnitude bound cannot lie below the binade of its
+        # unrounded upper endpoint. Include the fixed subnormal half-ULP
+        # even if that endpoint rounded to zero; powers of two use the
+        # larger outgoing spacing, which is conservative on both sides.
+        exponent=math.frexp(stored_bound)[1]-1 if stored_bound else -14
+        storage=Fraction(2)**max(-25,exponent-11)
+        errors.append(gamma(a[1])*total+storage)
+    result=[]
+    for row in range(b[0]):
+        weights=[Fraction(float(model.weight(second_name,row,j))) for j in range(b[1])]
+        total=Fraction(0);coefficients=[]
+        for col in range(a[1]):
+            coefficient=sum((weights[j]*Fraction(float(model.weight(first_name,mapping[j],col))) for j in range(b[1])),Fraction(0))
+            coefficients.append(coefficient)
+            total+=Fraction(inputs[col])*abs(coefficient)
+        if input_norm is not None:
+            correlated=norm_linear_bound(model,input_norm,coefficients,inputs)
+            if correlated is not None:total=min(total,correlated)
+        total+=sum((abs(w)*errors[mapping[j]] for j,w in enumerate(weights)),Fraction(0))
+        total+=gamma(b[1])*sum((abs(w)*Fraction(first[mapping[j]]) for j,w in enumerate(weights)),Fraction(0))
+        upper=float(total)
+        if Fraction(upper)<total:upper=math.nextafter(upper,math.inf)
+        stored=half(upper)
+        result.append(old[row] if stored is None else min(old[row],stored))
+    return result
+
+
 def norm(model,name):
     from direct_sympy_checkpoint import rms_half_bound
     bound=rms_half_bound(model.width,struct.unpack('f',struct.pack('f',model.config['rms_norm_eps']))[0])
@@ -85,6 +174,12 @@ def layer(model,prefix):
         if score is None:return None
     context=[v[(i//dimension//(heads//kv_heads))*dimension+i%dimension] for i in range(model.width)]
     attention=dot(model,prefix+'self_attn.o_proj.weight',context)
+    # At position zero a single finite causal key has probability one.
+    # Mapping retains grouped-query replication in the proof composition.
+    mapping=[(i//dimension//(heads//kv_heads))*dimension+i%dimension for i in range(model.width)]
+    composed=composed_dot(model,prefix+'self_attn.v_proj.weight',prefix+'self_attn.o_proj.weight',pre,mapping,
+        input_norm=prefix+'input_layernorm.weight')
+    if composed is not None:attention=composed
     gate=dot(model,prefix+'mlp.gate_proj.weight',post)
     up=dot(model,prefix+'mlp.up_proj.weight',post)
     if gate is None or up is None or len(gate)!=len(up):return None
