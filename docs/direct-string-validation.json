@@ -10143,16 +10143,82 @@
     "numericalSourcesUnchanged": true,
     "newRealProducersVerified": 0,
     "coordinateComplete": false,
-    "colabPending": true,
+    "colabPending": false,
     "evidenceDirectory": "docs/evidence/direct-sympy-producer-envelope",
     "colab": {
       "directory": "/content/llm-inner-producer-lifetime",
-      "status": "running",
+      "status": "terminal",
       "backendTestsPassed": 10,
       "controllerGatesExitCode": 0,
       "initialPersistedDependencies": 19,
       "newDependenciesVerified": 0,
-      "parityPending": true
+      "parityPending": false,
+      "seconds": 324.50679044799926,
+      "peakRSSBytes": 71297449984,
+      "savedProducerParity": {
+        "cases": 60,
+        "comparisons": 420,
+        "mismatches": 0,
+        "producerFiles": 19,
+        "position": 0,
+        "completeCoordinate": false
+      }
+    }
+  },
+  "consumingProjectionReductionValidation": {
+    "backendVersion": "equivalent-stdlib-v5",
+    "testMap": [
+      "helpers/direct_sympy_scan_backend_test.py",
+      "test/direct-sympy-strings.test.ts"
+    ],
+    "pythonTests": {
+      "tests": 13,
+      "pass": 13
+    },
+    "configuredIntegrations": {
+      "tests": 10,
+      "pass": 10,
+      "fail": 0,
+      "skip": 0
+    },
+    "finalNamedIntegration": {
+      "tests": 1,
+      "pass": 1
+    },
+    "allocationRegression": {
+      "characters": 16777284,
+      "byteIdentical": true,
+      "peakAllocatedBytes": {
+        "retainedProducts": 67110196,
+        "consumedProducts": 33555057
+      },
+      "scope": "Transient reduction string ownership; not full-checkpoint RSS"
+    },
+    "foldOrderAndEventsByteIdentical": true,
+    "publicReductionAndParallelPathUnchanged": true,
+    "numericalSourcesUnchanged": true,
+    "failedColabGatePreserved": true,
+    "colabDirectory": "/content/llm-inner-consuming-reduction-v2",
+    "colabPending": true,
+    "initialPersistedDependencies": 19,
+    "newRealProducersVerified": 0,
+    "coordinateComplete": false,
+    "evidenceDirectory": "docs/evidence/direct-sympy-consuming-reduction",
+    "colab": {
+      "status": "running",
+      "backendTests": {
+        "tests": 13,
+        "pass": 13
+      },
+      "controllerGatesExitCode": 0,
+      "peakMicroAllocatedBytes": {
+        "retainedProducts": 67109596,
+        "consumedProducts": 33555001
+      },
+      "restoredDependenciesVerified": 0,
+      "persistedDependencies": 19,
+      "newProducersVerified": 0,
+      "completeCoordinate": false
     }
   }
 }

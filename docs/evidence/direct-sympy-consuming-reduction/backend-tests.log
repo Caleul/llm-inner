@@ -1,0 +1,8 @@
+.............
+----------------------------------------------------------------------
+Ran 13 tests in 1.381s
+
+OK
+Projection reduction allocation parity: {"characters": 16777284, "byteIdentical": true, "peakAllocatedBytes": {"retained-products": 67110196, "consumed-products": 33555057}}
+{"characters": 20400010, "normalIdentifierSeconds": 0.10872108297189698, "equivalentIdentifierSeconds": 0.00473633297951892, "identical": true}
+Producer wrapper allocation parity: {"characters": 16777246, "byteIdentical": true, "peakAllocatedBytes": {"literal-wrapper": 33569463, "compact-wrapper": 16792460}}

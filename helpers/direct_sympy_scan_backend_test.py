@@ -6,12 +6,79 @@ import re
 import tempfile
 import time
 import unittest
-from direct_sympy_scan_backend import EquivalentScans,NECESSARY,StreamingTextPath,install
+from direct_sympy_scan_backend import EquivalentScans,NECESSARY,StreamingTextPath,install,consuming_reduction
 import direct_sympy_savepoints_test as fixtures
 from direct_sympy_savepoints import ProducerSavepoints
 
 
 class EquivalentScanTests(unittest.TestCase):
+    def test_consuming_projection_reduction_drops_transient_string_peak(self):
+        import tracemalloc
+        from types import SimpleNamespace
+        from direct_sympy_checkpoint import CheckpointStrings
+        results=[];peaks={}
+        for mode in ('retained-products','consumed-products'):
+            tracemalloc.start()
+            terms=['Float64('+(' '*16*1024**2)+'Bits64(X1))']
+            model=SimpleNamespace(parallel_budget=None,
+                op=lambda operator,a,b: ''.join(('R32(',a,' ',operator,' ',b,')')))
+            result=consuming_reduction(model,terms) if mode=='consumed-products' else CheckpointStrings.reduction(model,terms)
+            peaks[mode]=tracemalloc.get_traced_memory()[1];tracemalloc.stop()
+            results.append(result)
+        self.assertEqual(*results)
+        self.assertLess(peaks['consumed-products'],peaks['retained-products']*0.65)
+        print('Projection reduction allocation parity: '+json.dumps({'characters':len(results[0]),'byteIdentical':True,'peakAllocatedBytes':peaks}))
+
+    def test_owned_reduction_preserves_every_fold_and_releases_consumed_terms(self):
+        import weakref
+        from types import SimpleNamespace
+        from direct_sympy_checkpoint import CheckpointStrings
+        class TrackedString(str):pass
+        for width in (0,1,2,3,4,5,8,9,17):
+            results=[]
+            for consuming in (False,True):
+                calls=[];refs=[];terms=[]
+                for index in range(width):
+                    text=TrackedString('T'+str(index));refs.append(weakref.ref(text));terms.append(text)
+                if width:del text
+                released=[]
+                def op(operator,a,b):
+                    calls.append((operator,str(a),str(b)))
+                    released.append(sum(ref() is None for ref in refs))
+                    return '('+a+operator+b+')'
+                model=SimpleNamespace(parallel_budget=None,op=op)
+                result=consuming_reduction(model,terms) if consuming else CheckpointStrings.reduction(model,terms)
+                results.append((result,calls))
+                if consuming:
+                    self.assertTrue(all(term is None for term in terms))
+                    self.assertEqual(released[-1],width)
+                else:self.assertEqual(released[-1],0)
+            self.assertEqual(*results)
+        terms=['T0','T1'];model=SimpleNamespace(parallel_budget=object(),reduction=lambda supplied:(supplied is terms,list(supplied)))
+        self.assertEqual(consuming_reduction(model,terms),(True,['T0','T1']))
+        self.assertEqual(terms,['T0','T1'])
+
+    def test_linear_patch_keeps_real_projection_strings_and_restores_nested_methods(self):
+        from direct_sympy_checkpoint import CheckpointStrings
+        fixture=fixtures.SavepointTests();results=[]
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            for optimized in (False,True):
+                model=fixture.model(root)
+                model.shape=lambda _: (1,5)
+                model.weight=lambda _,row,column: ['0.5','-0.25','0.0','1.0','0.125'][column]
+                if optimized:
+                    with install():value=model.linear('fixture',0,lambda _: 'X1')
+                else:value=model.linear('fixture',0,lambda _: 'X1')
+                results.append((value,model.compiler.events,model.compiler.substitution_events,model.conversions.close(value)))
+            self.assertEqual(*results)
+        original=CheckpointStrings.linear
+        with install():
+            outer=CheckpointStrings.linear
+            with install():self.assertIsNot(CheckpointStrings.linear,outer)
+            self.assertIs(CheckpointStrings.linear,outer)
+        self.assertIs(CheckpointStrings.linear,original)
+
     def test_producer_releases_source_before_numeric_closure_without_changing_events(self):
         import weakref
         class TrackedString(str):pass

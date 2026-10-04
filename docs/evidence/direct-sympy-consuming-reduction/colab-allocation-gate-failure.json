@@ -1,0 +1,48 @@
+{
+  "operationId": "f74c6014-52e3-4333-8fd5-bea1bbd94e65",
+  "observation": {
+    "resources.json": null,
+    "report.json": {
+      "steps": [
+        {
+          "name": "gates",
+          "exitCode": 1,
+          "seconds": 8.199749689999408
+        }
+      ]
+    },
+    "diagnostic.json": null,
+    "processes": [],
+    "frontier": {
+      "records": 19,
+      "last": "model.layers.0.hidden:0",
+      "lengths": {
+        "model.layers.0.pre:mean": 329,
+        "model.layers.0.pre:inverse": 5821,
+        "model.layers.0.pre:0": 12289,
+        "model.layers.0.pre:1": 12289,
+        "model.layers.0.v:0": 98906,
+        "model.layers.0.context:0": 98912,
+        "model.layers.0.v:1": 98894,
+        "model.layers.0.context:1": 98900,
+        "model.layers.0.residual:0": 791904,
+        "model.layers.0.residual:1": 791912,
+        "model.layers.0.post:mean": 3167953,
+        "model.layers.0.post:inverse": 41184933,
+        "model.layers.0.post:0": 88705745,
+        "model.layers.0.post:1": 88705777,
+        "model.layers.0.gate:0": 709646690,
+        "model.layers.0.activation:0": 1596705580,
+        "model.layers.0.up:0": 709646674,
+        "model.layers.0.gated:0": 7273880362,
+        "model.layers.0.hidden:0": 12951847412
+      }
+    },
+    "gates.log": ".F...........\n======================================================================\nFAIL: test_consuming_projection_reduction_drops_transient_string_peak (direct_sympy_scan_backend_test.EquivalentScanTests.test_consuming_projection_reduction_drops_transient_string_peak)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/content/llm-inner-consuming-reduction/helpers/direct_sympy_scan_backend_test.py\", line 29, in test_consuming_projection_reduction_drops_transient_string_peak\n    self.assertLess(peaks['consumed-products'],peaks['retained-products']*0.65)\n    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 50332297 not less than 43621237.4\n\n----------------------------------------------------------------------\nRan 13 tests in 5.806s\n\nFAILED (failures=1)\n{\"characters\": 20400010, \"normalIdentifierSeconds\": 0.5551679439995496, \"equivalentIdentifierSeconds\": 0.014349164000122983, \"identical\": true}\nProducer wrapper allocation parity: {\"characters\": 16777246, \"byteIdentical\": true, \"peakAllocatedBytes\": {\"literal-wrapper\": 33571082, \"compact-wrapper\": 16793881}}\n",
+    "parity.log": null,
+    "compile.log": null,
+    "availableMemory": [
+      "MemAvailable:   85259120 kB"
+    ]
+  }
+}

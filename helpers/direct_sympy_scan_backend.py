@@ -16,7 +16,7 @@ import re
 from pathlib import Path
 
 
-BACKEND_VERSION='equivalent-stdlib-v4'
+BACKEND_VERSION='equivalent-stdlib-v5'
 
 
 NECESSARY={
@@ -180,6 +180,48 @@ def producer_envelope_method(original,backend):
     return result
 
 
+def consuming_reduction(model,terms):
+    """Consume the projection's private terms in the identical four-lane order.
+
+    Do not retain old products or lane sums while restoring the next large
+    literal. Public reduction callers keep their existing nonmutating path.
+    """
+    if model.parallel_budget is not None:return model.reduction(terms)
+    lanes=[]
+    for lane in range(4):
+        value='0.0'
+        for index in range(lane,len(terms),4):
+            value=model.op('+',value,terms[index]);terms[index]=None
+        lanes.append(value)
+    del value
+    first=model.op('+',lanes.pop(0),lanes.pop(0))
+    second=model.op('+',lanes.pop(0),lanes.pop(0))
+    result=model.op('+',first,second)
+    del first,second
+    return ''.join(('R16(',result,')'))
+
+
+def consuming_linear_method(original):
+    """Only the final reduction consumes the freshly created private list."""
+    source=getattr(original,'_consuming_linear_original',original)
+    tree=ast.parse(textwrap.dedent(inspect.getsource(source)));count=0
+    target=ast.dump(ast.parse('self.reduction(terms)',mode='eval').body)
+    class Reductions(ast.NodeTransformer):
+        def visit_Call(self,node):
+            nonlocal count
+            if ast.dump(node)==target:
+                count+=1
+                return ast.copy_location(ast.Call(func=ast.Name(id='_consuming_reduction',ctx=ast.Load()),
+                    args=[ast.Name(id='self',ctx=ast.Load()),ast.Name(id='terms',ctx=ast.Load())],keywords=[]),node)
+            return self.generic_visit(node)
+    tree=Reductions().visit(tree)
+    if count!=1:raise ValueError('Unsupported projection implementation; expected one private reduction')
+    namespace=dict(source.__globals__);namespace['_consuming_reduction']=consuming_reduction
+    exec(compile(ast.fix_missing_locations(tree),'<equivalent consuming projection>','exec'),namespace)
+    result=namespace[source.__name__];result._consuming_linear_original=source
+    return result
+
+
 @contextmanager
 def install():
     backend=EquivalentScans();saved=[]
@@ -191,6 +233,7 @@ def install():
             if name=='direct_sympy_checkpoint':
                 saved.append((module,'Path',module.Path));module.Path=StreamingTextPath
                 cls=module.CheckpointStrings;saved.append((cls,'producer',cls.producer));cls.producer=producer_envelope_method(cls.producer,backend)
+                saved.append((cls,'linear',cls.linear));cls.linear=consuming_linear_method(cls.linear)
         yield backend
     finally:
         for module,attribute,original in reversed(saved):setattr(module,attribute,original)
