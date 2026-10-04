@@ -11286,5 +11286,48 @@
     "fullCoordinateParity": false,
     "multipleTokenParity": false,
     "colabCurrentInventory": "No active sessions found; no remote run in this continuation."
+  },
+  "tightUpdateBoundValidation": {
+    "report": "docs/evidence/direct-sympy-tight-update-bounds/validation.json",
+    "build": true,
+    "tests": 27,
+    "pass": 27,
+    "fail": 0,
+    "skipped": 0,
+    "boundTests": 3,
+    "nativeProjectionCases": 3555328,
+    "nativeCheckpointUpdateCases": 888832,
+    "boundViolations": 0,
+    "oldSourceRejected": true,
+    "oldNumericalResultsReused": false,
+    "oldCompleteDomainsRecompiled": 89,
+    "oldCoveredInputPatterns": 1728946176,
+    "coveredInputPatterns": 1867358208,
+    "addedInputPatterns": 138412032,
+    "unfinishedInputPatterns": 2163367936,
+    "coveragePercent": 46.328084352237255,
+    "freshBroadRegionCompilations": 86,
+    "nativeCases": 704878,
+    "nativeMismatches": 0,
+    "completeRegions": 100,
+    "distinctExpressions": 20,
+    "newExpressionFiles": 1,
+    "matchedRegionProducersBefore": 25,
+    "matchedRegionProducersAfter": 17,
+    "matchedRegionArtifactCharacters": 171977,
+    "matchedRegionArtifactIdentical": true,
+    "matchedRegionNativeCases": 8196,
+    "matchedRegionNativeMismatches": 0,
+    "updateThresholdsBefore": [
+      32,
+      16
+    ],
+    "updateThresholdsAfter": [
+      8,
+      4
+    ],
+    "fullCoordinateArtifactEmitted": false,
+    "fullCoordinateParity": false,
+    "multipleTokenParity": false
   }
 }

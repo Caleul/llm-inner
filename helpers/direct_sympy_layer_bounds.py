@@ -1,12 +1,14 @@
 """Compiler-only Half update bounds for dependency elimination.
 
 Bounds contain no expressions and never execute in the generated artifact.
-Every estimated projection is finite Half. Twice the absolute exact sum
-bounds any F32 reduction order for <=2**20 terms: products of two Half
-values are exact F32, and its reduction error is far below a factor of two.
+Every estimated projection is finite Half. Half products are exact F32;
+their ordered reductions use a certified gamma bound rather than doubling
+the absolute sum at every projection. Fraction arithmetic and outward F64
+conversion keep the proof bound above the exact rational value.
 """
 import math
 import struct
+from fractions import Fraction
 
 
 def half(value):
@@ -17,13 +19,26 @@ def half(value):
 
 def dot(model,name,inputs):
     shape=model.shape(name)
-    if len(shape)!=2 or shape[1]!=len(inputs) or len(inputs)>2**20 or any(x is None for x in inputs):return None
+    if len(shape)!=2 or shape[1]!=len(inputs) or len(inputs)>2**20 or any(
+        x is None or not math.isfinite(x) or x<0 or half(x)!=x for x in inputs):return None
     result=[]
     for row in range(shape[0]):
-        products=[inputs[col]*abs(float(model.weight(name,row,col))) for col in range(shape[1])]
-        total=math.fsum(products)
-        if not math.isfinite(total) or total*2>3.4028234663852886e38:return None
-        result.append(half(total*2))
+        total=Fraction(0)
+        for col in range(shape[1]):
+            weight=abs(float(model.weight(name,row,col)))
+            if not math.isfinite(weight) or half(weight)!=weight:return None
+            total+=Fraction(inputs[col])*Fraction(weight)
+        # Four zero-initialized lanes followed by three F32 additions use
+        # at most n+3 rounded additions. Products and all nonzero sums are
+        # multiples of 2**-48, so F32 underflow cannot occur. The largest
+        # possible absolute sum (n<=2**20 finite Half products) is far below
+        # F32 overflow. With u=2**-24, 1+gamma_k=1/(1-k*u).
+        bound=total*Fraction(2**24,2**24-(len(inputs)+3))
+        upper=float(bound)
+        if Fraction(upper)<bound:upper=math.nextafter(upper,math.inf)
+        # Stored Half rounding is monotone. Do not round the proof bound
+        # down to F32 before applying this final storage boundary.
+        result.append(half(upper))
     return None if any(x is None for x in result) else result
 
 
@@ -58,6 +73,8 @@ def layer(model,prefix):
     up=dot(model,prefix+'mlp.up_proj.weight',post)
     if gate is None or up is None or len(gate)!=len(up):return None
     # Existing finite Half SiLU contract: |silu(x)| <= |x|.
-    gated=[half(2*a*b) for a,b in zip(gate,up)]
+    # Both operands are stored Half. Their product is exact F32; the final
+    # Half conversion is monotone, with no extra factor-of-two error bound.
+    gated=[half(a*b) for a,b in zip(gate,up)]
     mlp=dot(model,prefix+'mlp.down_proj.weight',gated)
     return {'attention':attention,'mlp':mlp} if attention is not None and mlp is not None else None

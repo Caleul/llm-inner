@@ -1,0 +1,7 @@
+...
+----------------------------------------------------------------------
+Ran 3 tests in 1.107s
+
+OK
+Tight checkpoint update bounds: cases=888832 violations=0
+Tight projection bounds: cases=3555328 violations=0

@@ -1,0 +1,120 @@
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 22399.49it/s]
+{"domain": {"X1": [-31743, -18432], "X2": [-31743, -17408]}, "added": 190840832, "covered": 190840832, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 21741.53it/s]
+{"domain": {"X1": [-31743, -18432], "X2": [17408, 31743]}, "added": 190840832, "covered": 381681664, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 52211.25it/s]
+{"domain": {"X1": [18432, 31743], "X2": [-31743, -17408]}, "added": 190840832, "covered": 572522496, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 31835.32it/s]
+{"domain": {"X1": [18432, 31743], "X2": [17408, 31743]}, "added": 190840832, "covered": 763363328, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 15505.74it/s]
+{"domain": {"X1": [-12288, 12288], "X2": [-31743, -24576]}, "added": 176175104, "covered": 939538432, "stop": null, "nativeCases": 8200, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 31997.23it/s]
+{"domain": {"X1": [-8192, 8192], "X2": [-31743, -20480]}, "added": 67117056, "covered": 1006655488, "stop": null, "nativeCases": 8200, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 28371.84it/s]
+{"domain": {"X1": [-8192, 8192], "X2": [20480, 31743]}, "added": 184571904, "covered": 1191227392, "stop": null, "nativeCases": 8200, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 37504.95it/s]
+{"domain": {"X1": [20480, 31743], "X2": [-8192, 8192]}, "added": 184571904, "covered": 1375799296, "stop": null, "nativeCases": 8200, "mismatches": 0}
+{"domain": {"X1": [-31743, -20480], "X2": [-31743, -19456]}, "added": 0, "covered": 1375799296, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -20480], "X2": [19456, 31743]}, "added": 0, "covered": 1375799296, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [20480, 31743], "X2": [-31743, -19456]}, "added": 0, "covered": 1375799296, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [20480, 31743], "X2": [19456, 31743]}, "added": 0, "covered": 1375799296, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 28500.37it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [-8192, 0]}, "added": 92297216, "covered": 1468096512, "stop": null, "nativeCases": 8198, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 35494.82it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [1, 8192]}, "added": 92274688, "covered": 1560371200, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 35419.88it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [-19455, -14592]}, "added": 31719424, "covered": 1592090624, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 40394.58it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [-14591, -14440]}, "added": 1712128, "covered": 1593802752, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 24244.53it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [-14439, -14364]}, "added": 856064, "covered": 1594658816, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 45964.98it/s]
+{"domain": {"X1": [-31743, -26112], "X2": [-14363, -14326]}, "added": 214016, "covered": 1594872832, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 20763.88it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-14363, -14326]}, "added": 214016, "covered": 1595086848, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 14891.02it/s]
+{"domain": {"X1": [-31743, -26112], "X2": [-14325, -14288]}, "added": 214016, "covered": 1595300864, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 42545.77it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-14325, -14288]}, "added": 214016, "covered": 1595514880, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 35098.78it/s]
+{"domain": {"X1": [-31743, -26112], "X2": [-14287, -14250]}, "added": 214016, "covered": 1595728896, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 40136.88it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-14287, -14250]}, "added": 214016, "covered": 1595942912, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 45303.01it/s]
+{"domain": {"X1": [-31743, -26112], "X2": [-14249, -14212]}, "added": 214016, "covered": 1596156928, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 28371.84it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-14249, -14212]}, "added": 214016, "covered": 1596370944, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 27339.30it/s]
+{"domain": {"X1": [-31743, -26112], "X2": [-14211, -14174]}, "added": 214016, "covered": 1596584960, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 39756.44it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-14211, -14174]}, "added": 214016, "covered": 1596798976, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 21085.73it/s]
+{"domain": {"X1": [-31743, -26112], "X2": [-14173, -14136]}, "added": 214016, "covered": 1597012992, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 61832.49it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-14173, -14136]}, "added": 214016, "covered": 1597227008, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 32535.00it/s]
+{"domain": {"X1": [-31743, -26112], "X2": [-14135, -14098]}, "added": 214016, "covered": 1597441024, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 20543.53it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-14135, -14098]}, "added": 214016, "covered": 1597655040, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 37365.74it/s]
+{"domain": {"X1": [-31743, -26112], "X2": [-14097, -14060]}, "added": 214016, "covered": 1597869056, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 42366.71it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-14097, -14060]}, "added": 214016, "covered": 1598083072, "stop": null, "nativeCases": 8196, "mismatches": 0}

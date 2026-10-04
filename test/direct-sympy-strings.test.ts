@@ -4,6 +4,14 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 
 const python=process.env.LLM_INNER_DIRECT_PYTHON;
+test('Tight Half update bounds preserve ordered F32 reductions and eliminate dependencies with proof',
+  {skip:!python || !process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT},async()=>{
+    const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_layer_bounds_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 3 tests/);
+    assert.match(stderr,/OK/);
+    assert.match(stdout,/Tight projection bounds: cases=3555328 violations=0/);
+    assert.match(stdout,/Tight checkpoint update bounds: cases=888832 violations=0/);
+  });
 test('Memory-admitted parallel regions preserve full geometry, ordered numerical bodies and native parity',
   {skip:!python || !process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_partition_parallel_test.py'],{timeout:180_000,maxBuffer:1024*1024});
@@ -11,7 +19,7 @@ test('Memory-admitted parallel regions preserve full geometry, ordered numerical
     assert.match(stderr,/OK/);
     assert.match(stdout,/Timeout retry proof: sameDomain=true deadlines=10,30 sizeFailurePreservesFullRoot=true/);
     assert.match(stdout,/Final publication proof: coalescedBody=true actualCheckpointRejectsWrongOutput=true atomic=true/);
-    assert.match(stdout,/Parallel partition proof: workers=1,2 patterns=553648128 identicalHashes=true mismatches=0/);
+    assert.match(stdout,/Parallel partition proof: workers=1,2 patterns=763363328 identicalHashes=true mismatches=0/);
   });
 test('Fresh broad-region covers refine only pending intersections and preserve exact source compatibility',
   {skip:!python || !process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT},async()=>{
@@ -207,7 +215,7 @@ test('Disjoint input partitions preserve complete Half coverage and emitted coor
     assert.match(stderr,/Ran 8 tests/);
     assert.match(stderr,/OK/);
     assert.match(stdout,/Partition domain proof: HalfPatterns=63488 vectorPatterns=4030726144 lost=0 overlaps=0/);
-    assert.match(stdout,/Checkpoint update-cell geometry: regions=4 covered=553648128 lost=0 overlaps=0 finalParity=false/);
+    assert.match(stdout,/Checkpoint update-cell geometry: regions=4 covered=763363328 lost=0 overlaps=0 finalParity=false/);
     const artifact=stdout.match(/Emitted full region coordinate: cases=576 mismatches=0 characters=(\d+) position=0 dimension=2 fullInputCoverage=false/);
     assert.ok(artifact,'Native reference parity of the emitted region is required');
     assert.ok(Number(artifact[1])<21922,'Rational root lowering must reduce the previous emitted region size');

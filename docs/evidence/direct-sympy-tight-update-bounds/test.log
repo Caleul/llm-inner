@@ -1,0 +1,35 @@
+✔ Tight Half update bounds preserve ordered F32 reductions and eliminate dependencies with proof (2678.923458ms)
+✔ Memory-admitted parallel regions preserve full geometry, ordered numerical bodies and native parity (16425.258041ms)
+✔ Fresh broad-region covers refine only pending intersections and preserve exact source compatibility (4512.126625ms)
+✔ Native parity corpus covers mixed signed zeros without exponential growth in high dimensions (2610.267ms)
+✔ Correlated RMS bounds eliminate proved constant components before expanding mean and inverse (2481.769208ms)
+✔ Scoped exact algebra factors closed producers while preserving native payloads and IEEE barriers (11316.631583ms)
+✔ Finite F32 cells and compile-time constants preserve native boundaries and signed zeros (1659.507333ms)
+✔ Proved unsigned masks remove redundant operations without changing overflow or numeric contexts (594.898208ms)
+✔ Stabilized branches share decisions, preserve lazy guards and emit flat input-only expressions (2638.610667ms)
+✔ Compiler-only literal sharing uses expanded costs and emits bit-exact input-only expressions (9064.440375ms)
+✔ SymPy factors typed word polynomials modulo 2^64 without reassociating floating operations (716.553167ms)
+✔ Parallel SymPy blocks preserve ordered F32 folds, branch contexts and memory admission (4270.8765ms)
+✔ Equivalent scan backend preserves Unicode regex results and byte-identical saved compiler states (2134.171125ms)
+✔ SymPy savepoints preserve completed rounding frontiers and reject incompatible or corrupt state (2146.904583ms)
+✔ SymPy string substitution factors and simplifies each step with isolated IEEE branch proofs (613.647709ms)
+✔ SymPy checkpoint working string is re-read and matches a freshly captured coordinate reference (6012.066125ms)
+✔ SymPy elementary conversion strings preserve native IEEE cells and composed boundaries (14941.609625ms)
+✔ Bounded SiLU arithmetic lowering matches every certified Half scalar and vector input (4205.935625ms)
+✔ Positive F32 square-root word lowering preserves all mantissas, parities and subnormals (893.833709ms)
+✔ IEEE sign projections preserve signed zero and reduce completed down-conversion strings (10539.996417ms)
+✔ Half interval precision removes redundant F32 rounding with native emitted-expression parity (871.931625ms)
+✔ Disjoint input partitions preserve complete Half coverage and emitted coordinate parity within each certified region (12723.354875ms)
+✔ Proved signed-zero updates preserve formats, branch isolation and native payloads (1281.139625ms)
+✔ Constant IEEE cells eliminate whole producers and propagate compound branch contexts (1236.030875ms)
+✔ Identical emitted coordinate bodies coalesce without losing coverage, signed zeros or lazy guards (1421.182708ms)
+✔ Budgeted coordinate continuation persists actual producers and rejects incompatible saved dimensions (14695.063916ms)
+✔ Source changes retain only audited partition geometry and recompile numerical evidence (816.306541ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 27
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 133791.50175
