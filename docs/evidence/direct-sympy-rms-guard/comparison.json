@@ -1,0 +1,65 @@
+{
+  "normalizationPredicate": {
+    "baselineCharacters": 17822,
+    "currentCharacters": 12289,
+    "cases": 888832,
+    "mismatches": 0
+  },
+  "boundaryParity": {
+    "cases": 634876,
+    "mismatches": 0,
+    "guardDisagreements": 39576
+  },
+  "resumeByteIdentity": true,
+  "checkpointComparison": {
+    "model.layers.0.pre:0": {
+      "previousCharacters": 15989,
+      "currentCharacters": 12289,
+      "reductionPercent": 23.140909375195452
+    },
+    "model.layers.0.post:0": {
+      "previousCharacters": 164608933,
+      "currentCharacters": 88705745,
+      "reductionPercent": 46.11122046456616
+    },
+    "model.layers.0.gate:0": {
+      "previousCharacters": 1316872194,
+      "currentCharacters": 709646690,
+      "reductionPercent": 46.111194903094756
+    },
+    "model.layers.0.activation:0": {
+      "previousCharacters": 2962962964,
+      "currentCharacters": 1596705580,
+      "reductionPercent": 46.111186693861086
+    },
+    "model.layers.0.up:0": {
+      "previousCharacters": 1316872178,
+      "currentCharacters": 709646674,
+      "reductionPercent": 46.11119546334588
+    },
+    "model.layers.0.gated:0": {
+      "previousCharacters": 13497941778,
+      "currentCharacters": 7273880362,
+      "reductionPercent": 46.11118878986766,
+      "previousScope": "Earlier A100 80GB run; same finite-Half input domain and checkpoint, not a matching runtime-speed baseline"
+    }
+  },
+  "coordinateComplete": false,
+  "savedRecords": 18,
+  "additionalMeanRecords": 2,
+  "realArchitectureProgressComparedWithPrior8GiBBudgetRun": [
+    "model.layers.0.gated:0"
+  ],
+  "savedProducerParity": {
+    "inputMatrices": 60,
+    "comparisons": 360,
+    "mismatches": 0,
+    "position": 0,
+    "completeCoordinateVerified": false
+  },
+  "compileSeconds": 332.24677273099996,
+  "compilePeakRSSBytes": 48787267584,
+  "nextRejectedCharacters": 12951847412,
+  "speedupClaimed": false,
+  "conclusion": "Structural reduction and one additional architecture producer within 8 GiB; final hidden/final normalization/output remain incomplete."
+}

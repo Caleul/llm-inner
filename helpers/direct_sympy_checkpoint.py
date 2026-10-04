@@ -218,8 +218,8 @@ class CheckpointStrings:
     def norm(self,key,name,coordinate,input_value):
         def build():
             epsilon=repr(f32(self.config["rms_norm_eps"]))
-            inverse=self.producer(key+":inverse",lambda:self.op("/","1.0",
-                "R32(sqrt("+self.op("+",self.op("/",self.rms_sum(input_value),str(self.width)),epsilon)+"))"))
+            mean=self.producer(key+":mean",lambda:self.op("+",self.op("/",self.rms_sum(input_value),str(self.width)),epsilon))
+            inverse=self.producer(key+":inverse",lambda:self.op("/","1.0","R32(sqrt("+mean+"))"))
             product=self.op("*",input_value(coordinate),inverse)
             normalized="R16("+product+")"
             if self.conversions is not None:
@@ -246,6 +246,9 @@ class CheckpointStrings:
                         virtual=self.conversions.key(node)
                         self.conversions.completed[virtual]=enclosure
                         self.conversions.completed[keys.get(node,virtual)]=enclosure
+                    # This is the inverse constructed immediately above,
+                    # not a guessed relation between positive cached values.
+                    self.conversions.remember_rms_guard(product,input_value(coordinate),mean,inverse)
             return "R16("+self.op("*",normalized,self.weight(name,coordinate))+")"
         return self.producer(key+":"+str(coordinate),build)
 

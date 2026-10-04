@@ -1,0 +1,90 @@
+{
+  "coordinateComplete": false,
+  "envelopes": [
+    {
+      "error": "Closed numeric envelope exceeds string budget before allocation: expandedCharacters=12951847412 limit=8589934592",
+      "compact": "Float64(U64FromF64(F64FromU64(Bits64(CASNumericRegion259() + Float64(Piecewise((U64Or(Bits64(Float64(U64And(Bits64(0.0 + Float64(U64Or(Bits64(Float64(U64And(Bits64(CASNumericRegion265() * CASNumericRegion262()), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(U64Add(Bits64(CASNumericRegion263()), Bits64(CASNumericRegion264())), 9223372036854775808))) * -0.015777587890625), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + Float64(U64Or(Bits64(Float64(U64And(Bits64(CASNumericRegion265() * CASNumericRegion262()), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(U64Add(Bits64(CASNumericRegion263()), Bits64(CASNumericRegion264())), 9223372036854775808))) * -0.015777587890625), 9223372036854775808)), U64And(Bits64(CASNumericRegion265() * CASNumericRegion262()), 9223372036854775807) < 4544132024016830464), (U64Or(Bits64(Float64(U64And(Bits64(0.0 + Float64(U64Or(U64And(U64FromF64(F64FromU64(Bits64(CASNumericRegion265() * CASNumericRegion262())) + 2 ** 94 - 2 ** 94), 9223372036854775807), U64And(U64Add(Bits64(CASNumericRegion263()), Bits64(CASNumericRegion264())), 9223372036854775808))) * -0.015777587890625), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + Float64(U64Or(U64And(U64FromF64(F64FromU64(Bits64(CASNumericRegion265() * CASNumericRegion262())) + 2 ** 94 - 2 ** 94), 9223372036854775807), U64And(U64Add(Bits64(CASNumericRegion263()), Bits64(CASNumericRegion264())), 9223372036854775808))) * -0.015777587890625), 9223372036854775808)), True))))) + 2 ** 94 - 2 ** 94))",
+      "compactCharacters": 1521,
+      "expandedCharacters": 12951847412,
+      "aliases": [
+        {
+          "alias": "CASNumericRegion258",
+          "producer": "model.layers.0.gated:0",
+          "characters": 7273880362,
+          "occurrences": 0,
+          "restoredContributionCharacters": 0
+        },
+        {
+          "alias": "CASNumericRegion259",
+          "producer": "model.layers.0.residual:0",
+          "characters": 791904,
+          "occurrences": 1,
+          "restoredContributionCharacters": 791904
+        },
+        {
+          "alias": "CASNumericRegion260",
+          "producer": null,
+          "characters": 354823343,
+          "occurrences": 0,
+          "restoredContributionCharacters": 0
+        },
+        {
+          "alias": "CASNumericRegion261",
+          "producer": null,
+          "characters": 791889,
+          "occurrences": 0,
+          "restoredContributionCharacters": 0
+        },
+        {
+          "alias": "CASNumericRegion262",
+          "producer": "model.layers.0.up:0",
+          "characters": 709646674,
+          "occurrences": 5,
+          "restoredContributionCharacters": 3548233370
+        },
+        {
+          "alias": "CASNumericRegion263",
+          "producer": null,
+          "characters": 177411650,
+          "occurrences": 4,
+          "restoredContributionCharacters": 709646600
+        },
+        {
+          "alias": "CASNumericRegion264",
+          "producer": null,
+          "characters": 177411629,
+          "occurrences": 4,
+          "restoredContributionCharacters": 709646516
+        },
+        {
+          "alias": "CASNumericRegion265",
+          "producer": "model.layers.0.activation:0",
+          "characters": 1596705580,
+          "occurrences": 5,
+          "restoredContributionCharacters": 7983527900
+        },
+        {
+          "alias": "CASNumericRegion266",
+          "producer": "model.layers.0.v:0",
+          "characters": 98906,
+          "occurrences": 0,
+          "restoredContributionCharacters": 0
+        },
+        {
+          "alias": "CASNumericRegion267",
+          "producer": "model.layers.0.v:1",
+          "characters": 98894,
+          "occurrences": 0,
+          "restoredContributionCharacters": 0
+        }
+      ],
+      "inputCharacters": 7274672349,
+      "scope": "Rejected compiler envelope; aliases are not final runtime variables"
+    }
+  ],
+  "restoredDependencies": 0,
+  "stop": "Closed numeric envelope exceeds string budget before allocation: expandedCharacters=12951847412 limit=8589934592",
+  "completedDependencies": 18,
+  "seconds": 332.24677273099996,
+  "peakRSSNativeUnits": 47643816
+}

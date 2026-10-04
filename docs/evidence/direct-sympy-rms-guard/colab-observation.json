@@ -1,0 +1,178 @@
+{
+  "resources.json": {
+    "cpuCount": 12,
+    "gpu": "NVIDIA A100-SXM4-40GB",
+    "gpuBytes": 42405855232,
+    "torch": "2.11.0+cu130",
+    "sympy": "1.14.0",
+    "memory": [
+      "MemTotal:       87528512 kB",
+      "MemAvailable:   85464284 kB"
+    ]
+  },
+  "report.json": {
+    "steps": [
+      {
+        "name": "apt-update",
+        "exitCode": 0,
+        "seconds": 5.955865320000015
+      },
+      {
+        "name": "clang-install",
+        "exitCode": 0,
+        "seconds": 22.355832389
+      },
+      {
+        "name": "rms-tests",
+        "exitCode": 0,
+        "seconds": 1.361609326000007
+      },
+      {
+        "name": "checkpoint-tests",
+        "exitCode": 0,
+        "seconds": 23.230881960000033
+      },
+      {
+        "name": "savepoint-tests",
+        "exitCode": 0,
+        "seconds": 4.645779649000019
+      },
+      {
+        "name": "cuda",
+        "exitCode": 0,
+        "seconds": 3.6637305460000107
+      },
+      {
+        "name": "compile",
+        "exitCode": 0,
+        "seconds": 335.03299141900004
+      },
+      {
+        "name": "parity",
+        "exitCode": 0,
+        "seconds": 136.25047026599998
+      }
+    ],
+    "terminal": true
+  },
+  "diagnostic.json": {
+    "coordinateComplete": false,
+    "envelopes": [
+      {
+        "error": "Closed numeric envelope exceeds string budget before allocation: expandedCharacters=12951847412 limit=8589934592",
+        "compact": "Float64(U64FromF64(F64FromU64(Bits64(CASNumericRegion259() + Float64(Piecewise((U64Or(Bits64(Float64(U64And(Bits64(0.0 + Float64(U64Or(Bits64(Float64(U64And(Bits64(CASNumericRegion265() * CASNumericRegion262()), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(U64Add(Bits64(CASNumericRegion263()), Bits64(CASNumericRegion264())), 9223372036854775808))) * -0.015777587890625), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + Float64(U64Or(Bits64(Float64(U64And(Bits64(CASNumericRegion265() * CASNumericRegion262()), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(U64Add(Bits64(CASNumericRegion263()), Bits64(CASNumericRegion264())), 9223372036854775808))) * -0.015777587890625), 9223372036854775808)), U64And(Bits64(CASNumericRegion265() * CASNumericRegion262()), 9223372036854775807) < 4544132024016830464), (U64Or(Bits64(Float64(U64And(Bits64(0.0 + Float64(U64Or(U64And(U64FromF64(F64FromU64(Bits64(CASNumericRegion265() * CASNumericRegion262())) + 2 ** 94 - 2 ** 94), 9223372036854775807), U64And(U64Add(Bits64(CASNumericRegion263()), Bits64(CASNumericRegion264())), 9223372036854775808))) * -0.015777587890625), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + Float64(U64Or(U64And(U64FromF64(F64FromU64(Bits64(CASNumericRegion265() * CASNumericRegion262())) + 2 ** 94 - 2 ** 94), 9223372036854775807), U64And(U64Add(Bits64(CASNumericRegion263()), Bits64(CASNumericRegion264())), 9223372036854775808))) * -0.015777587890625), 9223372036854775808)), True))))) + 2 ** 94 - 2 ** 94))",
+        "compactCharacters": 1521,
+        "expandedCharacters": 12951847412,
+        "aliases": [
+          {
+            "alias": "CASNumericRegion258",
+            "producer": "model.layers.0.gated:0",
+            "characters": 7273880362,
+            "occurrences": 0,
+            "restoredContributionCharacters": 0
+          },
+          {
+            "alias": "CASNumericRegion259",
+            "producer": "model.layers.0.residual:0",
+            "characters": 791904,
+            "occurrences": 1,
+            "restoredContributionCharacters": 791904
+          },
+          {
+            "alias": "CASNumericRegion260",
+            "producer": null,
+            "characters": 354823343,
+            "occurrences": 0,
+            "restoredContributionCharacters": 0
+          },
+          {
+            "alias": "CASNumericRegion261",
+            "producer": null,
+            "characters": 791889,
+            "occurrences": 0,
+            "restoredContributionCharacters": 0
+          },
+          {
+            "alias": "CASNumericRegion262",
+            "producer": "model.layers.0.up:0",
+            "characters": 709646674,
+            "occurrences": 5,
+            "restoredContributionCharacters": 3548233370
+          },
+          {
+            "alias": "CASNumericRegion263",
+            "producer": null,
+            "characters": 177411650,
+            "occurrences": 4,
+            "restoredContributionCharacters": 709646600
+          },
+          {
+            "alias": "CASNumericRegion264",
+            "producer": null,
+            "characters": 177411629,
+            "occurrences": 4,
+            "restoredContributionCharacters": 709646516
+          },
+          {
+            "alias": "CASNumericRegion265",
+            "producer": "model.layers.0.activation:0",
+            "characters": 1596705580,
+            "occurrences": 5,
+            "restoredContributionCharacters": 7983527900
+          },
+          {
+            "alias": "CASNumericRegion266",
+            "producer": "model.layers.0.v:0",
+            "characters": 98906,
+            "occurrences": 0,
+            "restoredContributionCharacters": 0
+          },
+          {
+            "alias": "CASNumericRegion267",
+            "producer": "model.layers.0.v:1",
+            "characters": 98894,
+            "occurrences": 0,
+            "restoredContributionCharacters": 0
+          }
+        ],
+        "inputCharacters": 7274672349,
+        "scope": "Rejected compiler envelope; aliases are not final runtime variables"
+      }
+    ],
+    "restoredDependencies": 0,
+    "stop": "Closed numeric envelope exceeds string budget before allocation: expandedCharacters=12951847412 limit=8589934592",
+    "completedDependencies": 18,
+    "seconds": 332.24677273099996,
+    "peakRSSNativeUnits": 47643816
+  },
+  "processes": [],
+  "frontier": {
+    "records": 18,
+    "last": "model.layers.0.gated:0",
+    "lengths": {
+      "model.layers.0.pre:mean": 329,
+      "model.layers.0.pre:inverse": 5821,
+      "model.layers.0.pre:0": 12289,
+      "model.layers.0.pre:1": 12289,
+      "model.layers.0.v:0": 98906,
+      "model.layers.0.context:0": 98912,
+      "model.layers.0.v:1": 98894,
+      "model.layers.0.context:1": 98900,
+      "model.layers.0.residual:0": 791904,
+      "model.layers.0.residual:1": 791912,
+      "model.layers.0.post:mean": 3167953,
+      "model.layers.0.post:inverse": 41184933,
+      "model.layers.0.post:0": 88705745,
+      "model.layers.0.post:1": 88705777,
+      "model.layers.0.gate:0": 709646690,
+      "model.layers.0.activation:0": 1596705580,
+      "model.layers.0.up:0": 709646674,
+      "model.layers.0.gated:0": 7273880362
+    }
+  },
+  "parity.log": "\", \"characters\": 88705745, \"validationEnvelopeCharacters\": 422, \"sha256\": \"51fe6703957c965c748ea739b49205a107e1d8f27a28608a818629b4a5ee1038\"}\n{\"producer\": \"model.layers.0.post:1\", \"characters\": 88705777, \"validationEnvelopeCharacters\": 422, \"sha256\": \"36c98860b8356a7cfdf0882458e3c5c1d999988aa553720ecd99f426acb875f5\"}\n{\"producer\": \"model.layers.0.gate:0\", \"characters\": 709646690, \"validationEnvelopeCharacters\": 730, \"sha256\": \"961ce63a52c06e6e15cc68c3cdd1ab7c9740619ea2cf3e0bb880d8d5bcf04e49\"}\n{\"producer\": \"model.layers.0.activation:0\", \"characters\": 1596705580, \"validationEnvelopeCharacters\": 2170, \"sha256\": \"54b29258dbd96e1b3f4bd6b5ec85c02386dc45de9ce93cf82127d47720ff94ad\"}\n{\"producer\": \"model.layers.0.up:0\", \"characters\": 709646674, \"validationEnvelopeCharacters\": 714, \"sha256\": \"9e556b16a864704b91282516a8dd81a925e1d0b5cf6613403606fb81b39b006f\"}\n{\"producer\": \"model.layers.0.gated:0\", \"characters\": 7273880362, \"validationEnvelopeCharacters\": 716, \"sha256\": \"443f7f13e54538128bed83ab56d610573c1d435b38b187fc78b8869e6cfbf3d5\"}\n\nLoading weights:   0%|          | 0/12 [00:00<?, ?it/s]\nLoading weights: 100%|██████████| 12/12 [00:00<00:00, 12764.81it/s]\n{\"cases\": 60, \"comparisons\": 360, \"mismatches\": 0, \"producerFilesEvaluated\": 18, \"coordinateAtPositionZeroVerified\": false, \"scope\": \"Actual saved posterior normalization, gate/activation/up/gated and any completed hidden/final/output producers, position 0; verification-only reuse of immutable earlier subtrees. Does not prove the last-token next-token coordinate for variable sequence lengths.\", \"elapsedSeconds\": 128.30024603200002}\n",
+  "compile.log": "{\"coordinateComplete\": false, \"restoredDependencies\": 0, \"stop\": \"Closed numeric envelope exceeds string budget before allocation: expandedCharacters=12951847412 limit=8589934592\", \"completedDependencies\": 18, \"seconds\": 332.24677273099996, \"peakRSSNativeUnits\": 47643816}\n",
+  "availableMemory": [
+    "MemAvailable:   85289988 kB"
+  ]
+}

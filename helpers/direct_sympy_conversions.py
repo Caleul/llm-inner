@@ -159,6 +159,7 @@ class ConversionSession:
         self.sign_projections={}
         self.closed_sign_literals={}
         self.frontier_events=[]
+        self.rms_guards={}
 
     @contextmanager
     def branch_context(self,domains,proofs,facts):
@@ -169,7 +170,7 @@ class ConversionSession:
         Strings and structural signatures are shared; only proof tables copy.
         """
         fields=('completed','half_values','f32_values','converted_regions',
-                'no_negative_zero_values','frontier_bounds','sign_projections')
+                'no_negative_zero_values','frontier_bounds','sign_projections','rms_guards')
         saved={name:getattr(self,name) for name in fields}
         old_domains,old_facts=self.domains,self.branch_facts
         for name,value in saved.items():setattr(self,name,value.copy())
@@ -527,6 +528,23 @@ class ConversionSession:
         maximum=max(abs(bounds.minimum),abs(bounds.maximum))
         return not maximum or (bounds.quantum is not None and binary_exponent(maximum)-bounds.quantum+1<=42)
 
+    def remember_rms_guard(self,product,input_value,mean_value,inverse_value):
+        """Adapter certificate for its actual ordered RMS inverse constructor.
+
+        The adapter must supply s and the value it produced with
+        R32(1/R32(sqrt(s))); a positive arbitrary factor is not sufficient.
+        Only current-session immutable inputs and finite F32 means qualify.
+        """
+        from direct_sympy_rms_guard import bindings
+        guard=bindings(input_value,mean_value,inverse_value,self)
+        if guard is None:return False
+        node,keys=self.analyze_expression(product)
+        if not isinstance(node,ast.Call) or node.func.id!='R32' or len(node.args)!=1:return False
+        raw=node.args[0]
+        if not isinstance(raw,ast.BinOp) or not isinstance(raw.op,ast.Mult):return False
+        self.rms_guards[keys.get(raw,self.key(raw))]=guard
+        return True
+
     def half_update_is_invisible(self,value,update):
         """A strict Half-cell proof, including the smaller binade neighbor.
 
@@ -775,6 +793,29 @@ class ConversionSession:
         # Independent interval arithmetic cannot recover these from the
         # bounds of individual completed literals (e.g. RMS products).
         virtual_tree=syntax(compact)
+        def bind_rms_guard(guard):
+            template,bindings=guard
+            by_text={text:token for token,text in protected.items()}
+            for name,text in bindings.items():
+                if text in self.domains:
+                    replacement=text
+                else:
+                    token=by_text.get(text)
+                    if token is None:
+                        self.envelope_serial+=1;token='CASNumericRegion'+str(self.envelope_serial)
+                        protected[token]=text;by_text[text]=token
+                        bounds,kind,positive_zero=self.closed_literals[text]
+                        marker=syntax(token+'()');key=self.key(marker)
+                        if bounds is not None:self.completed[key]=bounds
+                        if kind=='half':self.half_values.add(key)
+                        if kind in ('half','f32'):self.f32_values.add(key)
+                        if positive_zero:self.no_negative_zero_values.add(key)
+                        self.converted_regions.add(key)
+                        literal_keys[key]=self.closed_literal_keys[text]
+                        if self.closed_literal_pure[text]:pure_functions.append(token)
+                    replacement=token+'()'
+                template=self.compiler.substitute(template,name,replacement,self.domains)
+            return template,{}
         for node,original_key in self.signatures.translated_keys(virtual_tree,literal_keys).items():
             virtual_key=self.key(node)
             if original_key in self.completed:self.completed[virtual_key]=self.completed[original_key]
@@ -782,6 +823,8 @@ class ConversionSession:
             if original_key in self.f32_values:self.f32_values.add(virtual_key)
             if original_key in self.no_negative_zero_values:self.no_negative_zero_values.add(virtual_key)
             if original_key in self.converted_regions:self.converted_regions.add(virtual_key)
+            if original_key in self.rms_guards:
+                self.rms_guards[virtual_key]=bind_rms_guard(self.rms_guards[original_key])
         result=self._close(compact)
         # Search the newly closed envelope before restoring large literals.
         # Cost is the real restored string, not the short placeholder text.
@@ -986,6 +1029,10 @@ class ConversionSession:
                             sign_expression=None if sign is raw else ast.unparse(sign)
                             from direct_sympy_silu import quadratic_subnormal_guard,quadratic_tandem_source
                             condition=quadratic_subnormal_guard(raw,session)
+                            rms=session.rms_guards.get(session.key(raw))
+                            if condition is None and rms is not None:
+                                condition,bindings=rms
+                                for name,literal in bindings.items():condition=session.compiler.substitute(condition,name,literal,session.domains)
                             polynomial=quadratic_tandem_source(raw,session)
                             magnitude=ast.unparse(raw)
                             exact_word=session.encoded_word_is_exact_integer(raw)

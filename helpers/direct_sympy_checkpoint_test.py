@@ -106,6 +106,12 @@ class CheckpointStringTests(unittest.TestCase):
         with CheckpointStrings(checkpoint,StringCompiler(max_characters=1048576)) as builder:
             self.assertEqual(builder.width,2)
             expression=builder.norm("rounding:proof","model.layers.0.input_layernorm.weight",0,lambda i:f"X{i+1}")
+            self.assertTrue(builder.conversions.rms_guards)
+            with patch("direct_sympy_rms_guard.bindings",return_value=None):
+                with CheckpointStrings(checkpoint,StringCompiler(max_characters=1048576)) as legacy:
+                    baseline=legacy.norm("rounding:proof","model.layers.0.input_layernorm.weight",0,lambda i:f"X{i+1}")
+            self.assertLess(len(expression),len(baseline))
+            print(f"RMS predicate reduction: {len(baseline)} -> {len(expression)} characters")
             epsilon=repr(f32(builder.config["rms_norm_eps"]))
             gamma=builder.weight("model.layers.0.input_layernorm.weight",0)
             norm_bound=rms_half_bound(builder.width,f32(builder.config["rms_norm_eps"]))
@@ -117,7 +123,8 @@ class CheckpointStringTests(unittest.TestCase):
             path=Path(directory)/"normalization.work.expr";path.write_text(expression+"\n")
             source=Path(directory)/"rms.cpp";binary=Path(directory)/"rms"
             source.write_text("#include <cstdint>\n#include <cstring>\n#include <cmath>\n#include <cstdio>\n#include <cfenv>\n#include <initializer_list>\ntemplate<class T,class U>T word(U value){T result;std::memcpy(&result,&value,sizeof(result));return result;}\n"+
-                "double compiled(double X1,double X2){return "+cpp(syntax(path.read_text()))+";}\n"+'''
+                "double compiled(double X1,double X2){return "+cpp(syntax(path.read_text()))+";}\n"+
+                "double baseline(double X1,double X2){return "+cpp(syntax(baseline))+";}\n"+'''
 int main(){if(std::fesetround(FE_TONEAREST))return 2;unsigned cases=0,mismatches=0,unsafeEpsilon=0,unsafeHalf=0,unsafeProduct=0;
 for(unsigned bits=0;bits<65536;bits++){if((bits&0x7c00)==0x7c00)continue;
 for(uint16_t other:{uint16_t(0),uint16_t(0x8000),uint16_t(1),uint16_t(3),uint16_t(0x0c01),uint16_t(0x1001),uint16_t(0x3c00),uint16_t(0xbc00),uint16_t(0x3555),uint16_t(0x7bff),uint16_t(0xfbff),uint16_t(0x0854),uint16_t(0x0d35),uint16_t(0x0c08)}){
@@ -131,7 +138,8 @@ mismatches+=std::fabs(product)>NORMBOUND;mismatches+=std::fabs(normalized)>NORMB
 unsafeHalf+=word<uint64_t>(normalized)!=word<uint64_t>(double(static_cast<_Float16>(product)));
 uint64_t p=word<uint64_t>(product);double noProductParity=word<double>((p+UINT64_C(268435455))&UINT64_C(18446744073172680704));
 unsafeProduct+=word<uint64_t>(normalized)!=word<uint64_t>(double(static_cast<_Float16>(noProductParity)));
-mismatches+=word<uint64_t>(compiled(x,y))!=word<uint64_t>(expected);cases++;
+mismatches+=word<uint64_t>(compiled(x,y))!=word<uint64_t>(expected);
+mismatches+=word<uint64_t>(baseline(x,y))!=word<uint64_t>(expected);cases++;
 }}std::printf("Closed RMS rounding parity: cases=%u mismatches=%u unsafeEpsilon=%u unsafeHalf=%u unsafeProduct=%u\\n",cases,mismatches,unsafeEpsilon,unsafeHalf,unsafeProduct);
 return (mismatches||!unsafeEpsilon||!unsafeHalf||!unsafeProduct)?1:0;}
 '''.replace("EPSILON",epsilon).replace("GAMMA",gamma).replace("NORMBOUND",repr(norm_bound)))

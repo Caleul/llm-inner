@@ -1,0 +1,12 @@
+{
+  "archive": "artifacts/direct-sympy-rms-colab/backup.tar",
+  "archiveBytes": 258396160,
+  "sha256": "a8cdb345cdbe228dedb20541196c26821cfe1900c8b3a97f833a59cf5e8d4535",
+  "records": 18,
+  "verifiedImmutableObjects": 31,
+  "decodedCharacters": 11403929436,
+  "numericalSourcesMatch": true,
+  "seconds": 5.198411291989032,
+  "downloadOperation": "164d7289-96b5-4059-b385-8862f22a056a",
+  "coordinateComplete": false
+}

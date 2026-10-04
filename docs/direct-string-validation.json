@@ -9855,5 +9855,136 @@
       "immutableObjectReferencesIdentical": true,
       "currentNumericSourcesVerifiedAgainstFreshManifest": true
     }
+  },
+  "rmsGuardValidation": {
+    "normalizationPredicate": {
+      "baselineCharacters": 17822,
+      "currentCharacters": 12289,
+      "cases": 888832,
+      "mismatches": 0
+    },
+    "boundaryParity": {
+      "cases": 634876,
+      "mismatches": 0,
+      "guardDisagreements": 39576
+    },
+    "resumeByteIdentity": true,
+    "checkpointComparison": {
+      "model.layers.0.pre:0": {
+        "previousCharacters": 15989,
+        "currentCharacters": 12289,
+        "reductionPercent": 23.140909375195452
+      },
+      "model.layers.0.post:0": {
+        "previousCharacters": 164608933,
+        "currentCharacters": 88705745,
+        "reductionPercent": 46.11122046456616
+      },
+      "model.layers.0.gate:0": {
+        "previousCharacters": 1316872194,
+        "currentCharacters": 709646690,
+        "reductionPercent": 46.111194903094756
+      },
+      "model.layers.0.activation:0": {
+        "previousCharacters": 2962962964,
+        "currentCharacters": 1596705580,
+        "reductionPercent": 46.111186693861086
+      },
+      "model.layers.0.up:0": {
+        "previousCharacters": 1316872178,
+        "currentCharacters": 709646674,
+        "reductionPercent": 46.11119546334588
+      },
+      "model.layers.0.gated:0": {
+        "previousCharacters": 13497941778,
+        "currentCharacters": 7273880362,
+        "reductionPercent": 46.11118878986766,
+        "previousScope": "Earlier A100 80GB run; same finite-Half input domain and checkpoint, not a matching runtime-speed baseline"
+      }
+    },
+    "coordinateComplete": false,
+    "savedRecords": 18,
+    "additionalMeanRecords": 2,
+    "realArchitectureProgressComparedWithPrior8GiBBudgetRun": [
+      "model.layers.0.gated:0"
+    ],
+    "savedProducerParity": {
+      "inputMatrices": 60,
+      "comparisons": 360,
+      "mismatches": 0,
+      "position": 0,
+      "completeCoordinateVerified": false
+    },
+    "compileSeconds": 332.24677273099996,
+    "compilePeakRSSBytes": 48787267584,
+    "nextRejectedCharacters": 12951847412,
+    "speedupClaimed": false,
+    "conclusion": "Structural reduction and one additional architecture producer within 8 GiB; final hidden/final normalization/output remain incomplete.",
+    "evidenceDirectory": "docs/evidence/direct-sympy-rms-guard",
+    "colabSession": "llm-inner-rms-guard",
+    "sourceIdentityPolicy": "New RMS source fingerprint; fresh compilation; never rewrite old savepoint identity",
+    "testMap": [
+      "helpers/direct_sympy_rms_guard_test.py",
+      "helpers/direct_sympy_checkpoint_test.py",
+      "test/direct-sympy-strings.test.ts"
+    ],
+    "focusedIntegration": {
+      "tests": 9,
+      "pass": 9,
+      "fail": 0,
+      "skip": 0
+    },
+    "broadRegression": {
+      "tests": 603,
+      "pass": 570,
+      "fail": 15,
+      "skipped": 18,
+      "failureNames": [
+        "evidência do default de oito threads vincula corpus e tokens autoritativos",
+        "evidência rejeita prefill exato eager quando ele preserva tokens mas piora todas as classes de latência",
+        "evidência do corte de prefill terminal preserva corpus e correção de raiz",
+        "evidência promove antecipação do prefixo exato somente em sessão com cache",
+        "evidência promove o maior prefixo exato entre sessões sem alterar logits",
+        "evidência promove contexto sensível exato sem replay do decoder",
+        "evidência adia prefill exato sem cache e preserva antecipação do contexto exato",
+        "evidência promove cabeça BF16 integral e rejeita prefill agrupado divergente",
+        "evidência promove cache de decisão exata e rejeita fronteira Q8 0-18",
+        "evidência rejeita Q8 na projeção down quando velocidade e verificação deixam de coexistir",
+        "evidência rejeita grupos Q8 que divergem ou ampliam o fallback",
+        "Gemma 4 runtime-reduction provider executes the integrity-bound embedded adapter",
+        "Gemma 4 embedded adapter executes every serialized invocation program without hidden class transforms",
+        "scalar-substitution example contains concrete learned values and reproduces its F32 result",
+        "keeps the real agent-visible task free of controller context",
+        "evidência do default de oito threads vincula corpus e tokens autoritativos",
+        "evidência rejeita prefill exato eager quando ele preserva tokens mas piora todas as classes de latência",
+        "evidência do corte de prefill terminal preserva corpus e correção de raiz",
+        "evidência promove antecipação do prefixo exato somente em sessão com cache",
+        "evidência promove o maior prefixo exato entre sessões sem alterar logits",
+        "evidência promove contexto sensível exato sem replay do decoder",
+        "evidência adia prefill exato sem cache e preserva antecipação do contexto exato",
+        "evidência promove cabeça BF16 integral e rejeita prefill agrupado divergente",
+        "evidência promove cache de decisão exata e rejeita fronteira Q8 0-18",
+        "evidência rejeita Q8 na projeção down quando velocidade e verificação deixam de coexistir",
+        "evidência rejeita grupos Q8 que divergem ou ampliam o fallback",
+        "Gemma 4 runtime-reduction provider executes the integrity-bound embedded adapter",
+        "Gemma 4 embedded adapter executes every serialized invocation program without hidden class transforms",
+        "scalar-substitution example contains concrete learned values and reproduces its F32 result",
+        "keeps the real agent-visible task free of controller context"
+      ],
+      "failureNamesIdentical": true,
+      "newFailures": []
+    },
+    "backup": {
+      "archive": "artifacts/direct-sympy-rms-colab/backup.tar",
+      "archiveBytes": 258396160,
+      "sha256": "a8cdb345cdbe228dedb20541196c26821cfe1900c8b3a97f833a59cf5e8d4535",
+      "records": 18,
+      "verifiedImmutableObjects": 31,
+      "decodedCharacters": 11403929436,
+      "numericalSourcesMatch": true,
+      "seconds": 5.198411291989032,
+      "downloadOperation": "164d7289-96b5-4059-b385-8862f22a056a",
+      "coordinateComplete": false
+    }
   }
 }

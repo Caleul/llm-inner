@@ -101,4 +101,8 @@ test('IEEE sign projections preserve signed zero and reduce completed down-conve
     assert.match(paths.stdout,/Path Half conversion parity: cases=245776 mismatches=0/);
     assert.match(paths.stdout,/Path F32 conversion parity: cases=\d+ mismatches=0/);
     assert.match(paths.stdout,/Path tandem conversion parity: cases=19458 mismatches=0/);
+    const rms=await promisify(execFile)(python!,['helpers/direct_sympy_rms_guard_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(rms.stderr,/Ran 2 tests/);
+    assert.match(rms.stderr,/OK/);
+    assert.match(rms.stdout,/RMS guard boundary parity: cases=634876 mismatches=0 guardDisagreements=39576/);
   });

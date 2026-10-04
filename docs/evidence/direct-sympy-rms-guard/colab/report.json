@@ -1,0 +1,45 @@
+{
+  "steps": [
+    {
+      "name": "apt-update",
+      "exitCode": 0,
+      "seconds": 5.955865320000015
+    },
+    {
+      "name": "clang-install",
+      "exitCode": 0,
+      "seconds": 22.355832389
+    },
+    {
+      "name": "rms-tests",
+      "exitCode": 0,
+      "seconds": 1.361609326000007
+    },
+    {
+      "name": "checkpoint-tests",
+      "exitCode": 0,
+      "seconds": 23.230881960000033
+    },
+    {
+      "name": "savepoint-tests",
+      "exitCode": 0,
+      "seconds": 4.645779649000019
+    },
+    {
+      "name": "cuda",
+      "exitCode": 0,
+      "seconds": 3.6637305460000107
+    },
+    {
+      "name": "compile",
+      "exitCode": 0,
+      "seconds": 335.03299141900004
+    },
+    {
+      "name": "parity",
+      "exitCode": 0,
+      "seconds": 136.25047026599998
+    }
+  ],
+  "terminal": true
+}

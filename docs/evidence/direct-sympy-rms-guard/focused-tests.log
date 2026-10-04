@@ -1,0 +1,17 @@
+✔ Parallel SymPy blocks preserve ordered F32 folds, branch contexts and memory admission (4270.086334ms)
+✔ Equivalent scan backend preserves Unicode regex results and byte-identical saved compiler states (1449.163042ms)
+✔ SymPy savepoints preserve completed rounding frontiers and reject incompatible or corrupt state (2448.017542ms)
+✔ SymPy string substitution factors and simplifies each step with isolated IEEE branch proofs (614.717625ms)
+✔ SymPy checkpoint working string is re-read and matches a freshly captured coordinate reference (6073.289209ms)
+✔ SymPy elementary conversion strings preserve native IEEE cells and composed boundaries (11928.534416ms)
+✔ Bounded SiLU arithmetic lowering matches every certified Half scalar and vector input (3557.112667ms)
+✔ Positive F32 square-root word lowering preserves all mantissas, parities and subnormals (716.101417ms)
+✔ IEEE sign projections preserve signed zero and reduce completed down-conversion strings (8162.2345ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 39522.810542
