@@ -34,6 +34,14 @@ def cardinality(record):
     return math.prod(b-a+1+int(a<=0<=b) for a,b in record.values())
 
 
+def next_region(tree,order='coverage'):
+    """Visit the largest unfinished domain first, with reproducible ties."""
+    if order not in ('coverage','lexical'):raise ValueError('Unknown frontier order')
+    pending=[key for key,node in tree.items() if node['status']=='pending']
+    if not pending:return None
+    return min(pending,key=lambda key:(-cardinality(tree[key]['domains']),key)) if order=='coverage' else min(pending)
+
+
 def _compile_region(checkpoint,dimension,domains,path,*,max_characters,cas_characters,max_paths):
     started=time.monotonic();report={'complete':False,'inputDomains':encode(domains)}
     try:
@@ -174,14 +182,16 @@ def run(args):
                 state={'identity':identity,'root':root,'tree':{'':{'domains':root,'status':'pending'}},'attempts':[],
                     'finalArtifactEmitted':False,'finalParity':False}
         started=time.monotonic()
+        order=getattr(args,'frontier_order','lexical')
+        state['frontierOrder']=order
         for _ in range(args.max_attempts):
-            pending=sorted(key for key,node in state['tree'].items() if node['status']=='pending')
-            if not pending:break
-            key=pending[0];node=state['tree'][key];domains=decode(node['domains'])
+            key=next_region(state['tree'],order)
+            if key is None:break
+            node=state['tree'][key];domains=decode(node['domains'])
             file='region-'+hashlib.sha256(canonical(node['domains'])).hexdigest()+'.expr'
             result=compile_region(args.checkpoint,args.dimension,domains,directory/file,max_characters=args.max_characters,
                 cas_characters=args.cas_characters,max_paths=args.max_paths,max_seconds=args.region_seconds)
-            state['attempts'].append({'region':key,**result})
+            state['attempts'].append({'region':key,'selectionOrder':order,**result})
             if result['complete']:
                 node['status']='complete';node['artifact']={'file':file,**{k:result['artifact'][k] for k in ('characters','sha256')}}
             else:
@@ -227,6 +237,7 @@ def main():
     mode.add_argument('--resume',action='store_true')
     mode.add_argument('--repartition-from',help='Import audited input-domain splits; recompile every leaf with current sources')
     parser.add_argument('--dimension',type=int,default=2);parser.add_argument('--max-attempts',type=int,default=8)
+    parser.add_argument('--frontier-order',choices=('coverage','lexical'),default='lexical')
     parser.add_argument('--region-seconds',type=int,default=30);parser.add_argument('--max-paths',type=int,default=64)
     parser.add_argument('--max-characters',type=int,default=1048576);parser.add_argument('--cas-characters',type=int,default=8388608)
     parser.add_argument('--total-characters',type=int,default=67108864);parser.add_argument('--min-values',type=int,default=32)

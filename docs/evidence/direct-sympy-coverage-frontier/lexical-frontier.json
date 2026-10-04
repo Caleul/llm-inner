@@ -1,0 +1,3876 @@
+{
+  "attempts": [
+    {
+      "artifact": {
+        "characters": 3825,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "artifacts/direct-sympy-input-partitions/lexical-frontier-state/region-5606ace4cdcf8cdbfad9a4e02b59b365e7dd64b2283bcef76dd57e8552e5a8b0.expr",
+        "paths": 1,
+        "sha256": "529c972feba1bcd5258c0581bbe01d09cd1ec767f4df04d953317534d6fb31c6"
+      },
+      "complete": true,
+      "elidedUpdates": 4,
+      "inputDomains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "logicalCharacters": 3835,
+      "paths": {
+        "CASPasses": 83,
+        "completedPaths": 1,
+        "contradictions": 0,
+        "lastArm": {
+          "bodyCharacters": 3835,
+          "decisions": 0,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 1762,
+              "storedCharacters": 1760
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 1850,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 2,
+              "expandedCharacters": 1850,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 3,
+              "expandedCharacters": 3835,
+              "storedCharacters": 163
+            }
+          ],
+          "guardCharacters": 0
+        },
+        "numericArithmeticEliminated": 11,
+        "numericRecipeAdmissions": 0,
+        "numericRecipeAttempts": 4,
+        "numericRecipeBudgetStops": 0,
+        "selectorSelections": 0,
+        "splitContexts": 0
+      },
+      "producers": 9,
+      "region": "000000",
+      "seconds": 0.5774425420095213,
+      "selectionOrder": "lexical",
+      "storedCharacters": 2125,
+      "workerSeconds": 1.521535333013162
+    },
+    {
+      "artifact": {
+        "characters": 3905,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "artifacts/direct-sympy-input-partitions/lexical-frontier-state/region-396b6f4777916f6536cc0abef2e33121ba90904d162d6f46fb7df5e3120d77e8.expr",
+        "paths": 1,
+        "sha256": "c377b3adfdce57aed55d389c4cdd199c93678e330c37a8a361729813b25ee653"
+      },
+      "complete": true,
+      "elidedUpdates": 4,
+      "inputDomains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -23807,
+          -19840
+        ]
+      },
+      "logicalCharacters": 3915,
+      "paths": {
+        "CASPasses": 83,
+        "completedPaths": 1,
+        "contradictions": 0,
+        "lastArm": {
+          "bodyCharacters": 3915,
+          "decisions": 0,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 1802,
+              "storedCharacters": 1800
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 1890,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 2,
+              "expandedCharacters": 1890,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 3,
+              "expandedCharacters": 3915,
+              "storedCharacters": 163
+            }
+          ],
+          "guardCharacters": 0
+        },
+        "numericArithmeticEliminated": 11,
+        "numericRecipeAdmissions": 0,
+        "numericRecipeAttempts": 4,
+        "numericRecipeBudgetStops": 0,
+        "selectorSelections": 0,
+        "splitContexts": 0
+      },
+      "producers": 9,
+      "region": "0000010",
+      "seconds": 0.5568162080016918,
+      "selectionOrder": "lexical",
+      "storedCharacters": 2165,
+      "workerSeconds": 1.4257876250194386
+    },
+    {
+      "artifact": {
+        "characters": 8164,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "artifacts/direct-sympy-input-partitions/lexical-frontier-state/region-f94ec4d391cfd9a8076378fd2c53c33671b9a44de47325c64de458c50c911e59.expr",
+        "paths": 2,
+        "sha256": "f0fe80c23c18f822568145a1b1e9167cae38bee6f142188e5b558718c7db42e0"
+      },
+      "complete": true,
+      "elidedUpdates": 2,
+      "inputDomains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -19839,
+          -15872
+        ]
+      },
+      "logicalCharacters": 6036,
+      "paths": {
+        "CASPasses": 173,
+        "completedPaths": 2,
+        "contradictions": 0,
+        "lastArm": {
+          "bodyCharacters": 3915,
+          "decisions": 1,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 1802,
+              "storedCharacters": 1800
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 1890,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 2,
+              "expandedCharacters": 1890,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 11,
+              "expandedCharacters": 3915,
+              "storedCharacters": 163
+            }
+          ],
+          "guardCharacters": 110
+        },
+        "numericArithmeticEliminated": 22,
+        "numericRecipeAdmissions": 0,
+        "numericRecipeAttempts": 8,
+        "numericRecipeBudgetStops": 0,
+        "selectorSelections": 2,
+        "splitContexts": 1
+      },
+      "producers": 25,
+      "region": "0000011",
+      "seconds": 1.8962179170339368,
+      "selectionOrder": "lexical",
+      "storedCharacters": 3532,
+      "workerSeconds": 2.7529745000065304
+    },
+    {
+      "artifact": {
+        "characters": 3905,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "artifacts/direct-sympy-input-partitions/lexical-frontier-state/region-8d9228d3e63bf1c4d62b407f4e8756a422f0329d2319db6d09ff2fe7293a1426.expr",
+        "paths": 1,
+        "sha256": "c377b3adfdce57aed55d389c4cdd199c93678e330c37a8a361729813b25ee653"
+      },
+      "complete": true,
+      "elidedUpdates": 3,
+      "inputDomains": {
+        "X1": [
+          -23807,
+          -19840
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "logicalCharacters": 3915,
+      "paths": {
+        "CASPasses": 83,
+        "completedPaths": 1,
+        "contradictions": 0,
+        "lastArm": {
+          "bodyCharacters": 3915,
+          "decisions": 0,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 1802,
+              "storedCharacters": 1800
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 1890,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 2,
+              "expandedCharacters": 1890,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 6,
+              "expandedCharacters": 3915,
+              "storedCharacters": 163
+            }
+          ],
+          "guardCharacters": 0
+        },
+        "numericArithmeticEliminated": 11,
+        "numericRecipeAdmissions": 0,
+        "numericRecipeAttempts": 4,
+        "numericRecipeBudgetStops": 0,
+        "selectorSelections": 0,
+        "splitContexts": 0
+      },
+      "producers": 17,
+      "region": "0000100",
+      "seconds": 0.8837876659817994,
+      "selectionOrder": "lexical",
+      "storedCharacters": 3093,
+      "workerSeconds": 2.0044624579604715
+    },
+    {
+      "artifact": {
+        "characters": 3905,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "artifacts/direct-sympy-input-partitions/lexical-frontier-state/region-cbface47eb0431978084eaa74b0e89e24ae851747f2d2d1692cb7306c818405e.expr",
+        "paths": 1,
+        "sha256": "c377b3adfdce57aed55d389c4cdd199c93678e330c37a8a361729813b25ee653"
+      },
+      "complete": true,
+      "elidedUpdates": 3,
+      "inputDomains": {
+        "X1": [
+          -19839,
+          -17856
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "logicalCharacters": 3915,
+      "paths": {
+        "CASPasses": 83,
+        "completedPaths": 1,
+        "contradictions": 0,
+        "lastArm": {
+          "bodyCharacters": 3915,
+          "decisions": 0,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 1802,
+              "storedCharacters": 1800
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 1890,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 2,
+              "expandedCharacters": 1890,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 5,
+              "expandedCharacters": 3915,
+              "storedCharacters": 163
+            }
+          ],
+          "guardCharacters": 0
+        },
+        "numericArithmeticEliminated": 11,
+        "numericRecipeAdmissions": 0,
+        "numericRecipeAttempts": 4,
+        "numericRecipeBudgetStops": 0,
+        "selectorSelections": 0,
+        "splitContexts": 0
+      },
+      "producers": 17,
+      "region": "00001010",
+      "seconds": 0.8064063750207424,
+      "selectionOrder": "lexical",
+      "storedCharacters": 2482,
+      "workerSeconds": 1.626856874965597
+    },
+    {
+      "artifact": {
+        "characters": 2014,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "artifacts/direct-sympy-input-partitions/lexical-frontier-state/region-9b2f924288c97becefc4334d08e1a6c23ec624740354feacf19e8448d8ebd091.expr",
+        "paths": 1,
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "complete": true,
+      "elidedUpdates": 3,
+      "inputDomains": {
+        "X1": [
+          -17855,
+          -17608
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "logicalCharacters": 2020,
+      "paths": {
+        "CASPasses": 64,
+        "completedPaths": 1,
+        "contradictions": 0,
+        "lastArm": {
+          "bodyCharacters": 2020,
+          "decisions": 0,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 1802,
+              "storedCharacters": 1800
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 1890,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 4,
+              "expandedCharacters": 2020,
+              "storedCharacters": 143
+            }
+          ],
+          "guardCharacters": 0
+        },
+        "numericArithmeticEliminated": 8,
+        "numericRecipeAdmissions": 0,
+        "numericRecipeAttempts": 3,
+        "numericRecipeBudgetStops": 0,
+        "selectorSelections": 0,
+        "splitContexts": 0
+      },
+      "producers": 17,
+      "region": "00001011000",
+      "seconds": 0.7008595410152338,
+      "selectionOrder": "lexical",
+      "storedCharacters": 2329,
+      "workerSeconds": 1.549237874976825
+    },
+    {
+      "artifact": {
+        "characters": 2014,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "artifacts/direct-sympy-input-partitions/lexical-frontier-state/region-23964bf7630e2d5869b40078e614d1d591da9db9018bad024462497eee7d649e.expr",
+        "paths": 1,
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "complete": true,
+      "elidedUpdates": 3,
+      "inputDomains": {
+        "X1": [
+          -17607,
+          -17484
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "logicalCharacters": 2020,
+      "paths": {
+        "CASPasses": 64,
+        "completedPaths": 1,
+        "contradictions": 0,
+        "lastArm": {
+          "bodyCharacters": 2020,
+          "decisions": 0,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 1802,
+              "storedCharacters": 1800
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 1890,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 4,
+              "expandedCharacters": 2020,
+              "storedCharacters": 143
+            }
+          ],
+          "guardCharacters": 0
+        },
+        "numericArithmeticEliminated": 8,
+        "numericRecipeAdmissions": 0,
+        "numericRecipeAttempts": 3,
+        "numericRecipeBudgetStops": 0,
+        "selectorSelections": 0,
+        "splitContexts": 0
+      },
+      "producers": 17,
+      "region": "000010110010",
+      "seconds": 0.7086037500412203,
+      "selectionOrder": "lexical",
+      "storedCharacters": 2329,
+      "workerSeconds": 1.5332351669785567
+    },
+    {
+      "artifact": {
+        "characters": 2014,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "artifacts/direct-sympy-input-partitions/lexical-frontier-state/region-a38cd0a08cefaae4eef07bbbe4ebed614ff10b3164750714df3b91d942555934.expr",
+        "paths": 1,
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "complete": true,
+      "elidedUpdates": 3,
+      "inputDomains": {
+        "X1": [
+          -17483,
+          -17422
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "logicalCharacters": 2020,
+      "paths": {
+        "CASPasses": 64,
+        "completedPaths": 1,
+        "contradictions": 0,
+        "lastArm": {
+          "bodyCharacters": 2020,
+          "decisions": 0,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 1802,
+              "storedCharacters": 1800
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 1890,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 4,
+              "expandedCharacters": 2020,
+              "storedCharacters": 143
+            }
+          ],
+          "guardCharacters": 0
+        },
+        "numericArithmeticEliminated": 8,
+        "numericRecipeAdmissions": 0,
+        "numericRecipeAttempts": 3,
+        "numericRecipeBudgetStops": 0,
+        "selectorSelections": 0,
+        "splitContexts": 0
+      },
+      "producers": 17,
+      "region": "0000101100110",
+      "seconds": 0.7092073330422863,
+      "selectionOrder": "lexical",
+      "storedCharacters": 2329,
+      "workerSeconds": 1.540760833013337
+    },
+    {
+      "artifact": {
+        "characters": 2014,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "artifacts/direct-sympy-input-partitions/lexical-frontier-state/region-12762092671bae966cd7e3adc9e9fe98d92ac1af0e28895d93d52ff77b3fe4fc.expr",
+        "paths": 1,
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "complete": true,
+      "elidedUpdates": 3,
+      "inputDomains": {
+        "X1": [
+          -17421,
+          -17360
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "logicalCharacters": 2020,
+      "paths": {
+        "CASPasses": 64,
+        "completedPaths": 1,
+        "contradictions": 0,
+        "lastArm": {
+          "bodyCharacters": 2020,
+          "decisions": 0,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 1802,
+              "storedCharacters": 1800
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 1890,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 4,
+              "expandedCharacters": 2020,
+              "storedCharacters": 143
+            }
+          ],
+          "guardCharacters": 0
+        },
+        "numericArithmeticEliminated": 8,
+        "numericRecipeAdmissions": 0,
+        "numericRecipeAttempts": 3,
+        "numericRecipeBudgetStops": 0,
+        "selectorSelections": 0,
+        "splitContexts": 0
+      },
+      "producers": 17,
+      "region": "00001011001110",
+      "seconds": 0.7043706669937819,
+      "selectionOrder": "lexical",
+      "storedCharacters": 2329,
+      "workerSeconds": 1.5601704170112498
+    },
+    {
+      "artifact": {
+        "characters": 2014,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "artifacts/direct-sympy-input-partitions/lexical-frontier-state/region-9146d455c4a906919bc094c4efd91927d488531e35f0c51a493a8f6a4fb504cf.expr",
+        "paths": 1,
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "complete": true,
+      "elidedUpdates": 3,
+      "inputDomains": {
+        "X1": [
+          -17421,
+          -17360
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "logicalCharacters": 2020,
+      "paths": {
+        "CASPasses": 64,
+        "completedPaths": 1,
+        "contradictions": 0,
+        "lastArm": {
+          "bodyCharacters": 2020,
+          "decisions": 0,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 1802,
+              "storedCharacters": 1800
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 1890,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 4,
+              "expandedCharacters": 2020,
+              "storedCharacters": 143
+            }
+          ],
+          "guardCharacters": 0
+        },
+        "numericArithmeticEliminated": 8,
+        "numericRecipeAdmissions": 0,
+        "numericRecipeAttempts": 3,
+        "numericRecipeBudgetStops": 0,
+        "selectorSelections": 0,
+        "splitContexts": 0
+      },
+      "producers": 17,
+      "region": "00001011001111",
+      "seconds": 0.7076377499615774,
+      "selectionOrder": "lexical",
+      "storedCharacters": 2329,
+      "workerSeconds": 1.5337524999631569
+    },
+    {
+      "artifact": {
+        "characters": 2014,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "artifacts/direct-sympy-input-partitions/lexical-frontier-state/region-2e48ae7a455b13bb9c6c598810f33f8714bba1230585ed622752f563aa045a63.expr",
+        "paths": 1,
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "complete": true,
+      "elidedUpdates": 3,
+      "inputDomains": {
+        "X1": [
+          -17359,
+          -17298
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "logicalCharacters": 2020,
+      "paths": {
+        "CASPasses": 64,
+        "completedPaths": 1,
+        "contradictions": 0,
+        "lastArm": {
+          "bodyCharacters": 2020,
+          "decisions": 0,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 1802,
+              "storedCharacters": 1800
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 1890,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 4,
+              "expandedCharacters": 2020,
+              "storedCharacters": 143
+            }
+          ],
+          "guardCharacters": 0
+        },
+        "numericArithmeticEliminated": 8,
+        "numericRecipeAdmissions": 0,
+        "numericRecipeAttempts": 3,
+        "numericRecipeBudgetStops": 0,
+        "selectorSelections": 0,
+        "splitContexts": 0
+      },
+      "producers": 17,
+      "region": "00001011010000",
+      "seconds": 0.7181673749582842,
+      "selectionOrder": "lexical",
+      "storedCharacters": 2329,
+      "workerSeconds": 1.5640329160378315
+    },
+    {
+      "artifact": {
+        "characters": 2014,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "artifacts/direct-sympy-input-partitions/lexical-frontier-state/region-091473a9c08d89ed991135e79befca7e94ab76cc069d295dd7c93cd601fd92d5.expr",
+        "paths": 1,
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "complete": true,
+      "elidedUpdates": 3,
+      "inputDomains": {
+        "X1": [
+          -17359,
+          -17298
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "logicalCharacters": 2020,
+      "paths": {
+        "CASPasses": 64,
+        "completedPaths": 1,
+        "contradictions": 0,
+        "lastArm": {
+          "bodyCharacters": 2020,
+          "decisions": 0,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 1802,
+              "storedCharacters": 1800
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 1890,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 4,
+              "expandedCharacters": 2020,
+              "storedCharacters": 143
+            }
+          ],
+          "guardCharacters": 0
+        },
+        "numericArithmeticEliminated": 8,
+        "numericRecipeAdmissions": 0,
+        "numericRecipeAttempts": 3,
+        "numericRecipeBudgetStops": 0,
+        "selectorSelections": 0,
+        "splitContexts": 0
+      },
+      "producers": 17,
+      "region": "00001011010001",
+      "seconds": 0.7114534170250408,
+      "selectionOrder": "lexical",
+      "storedCharacters": 2329,
+      "workerSeconds": 1.5771946249878965
+    },
+    {
+      "artifact": {
+        "characters": 2014,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "artifacts/direct-sympy-input-partitions/lexical-frontier-state/region-6ee645bd7d022dc2a83774925d96d0d47c902db7b57b1c6f134b8cbf47c6936e.expr",
+        "paths": 1,
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "complete": true,
+      "elidedUpdates": 3,
+      "inputDomains": {
+        "X1": [
+          -17297,
+          -17236
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "logicalCharacters": 2020,
+      "paths": {
+        "CASPasses": 64,
+        "completedPaths": 1,
+        "contradictions": 0,
+        "lastArm": {
+          "bodyCharacters": 2020,
+          "decisions": 0,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 1802,
+              "storedCharacters": 1800
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 1890,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 4,
+              "expandedCharacters": 2020,
+              "storedCharacters": 143
+            }
+          ],
+          "guardCharacters": 0
+        },
+        "numericArithmeticEliminated": 8,
+        "numericRecipeAdmissions": 0,
+        "numericRecipeAttempts": 3,
+        "numericRecipeBudgetStops": 0,
+        "selectorSelections": 0,
+        "splitContexts": 0
+      },
+      "producers": 17,
+      "region": "00001011010010",
+      "seconds": 0.6936689579742961,
+      "selectionOrder": "lexical",
+      "storedCharacters": 2329,
+      "workerSeconds": 1.5586588750011288
+    },
+    {
+      "artifact": {
+        "characters": 2014,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "artifacts/direct-sympy-input-partitions/lexical-frontier-state/region-865bc4d151d6ff403a5b0ac849df6a7bcbe9898632e15046cad5eb9460d26c86.expr",
+        "paths": 1,
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "complete": true,
+      "elidedUpdates": 3,
+      "inputDomains": {
+        "X1": [
+          -17297,
+          -17236
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "logicalCharacters": 2020,
+      "paths": {
+        "CASPasses": 64,
+        "completedPaths": 1,
+        "contradictions": 0,
+        "lastArm": {
+          "bodyCharacters": 2020,
+          "decisions": 0,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 1802,
+              "storedCharacters": 1800
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 1890,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 4,
+              "expandedCharacters": 2020,
+              "storedCharacters": 143
+            }
+          ],
+          "guardCharacters": 0
+        },
+        "numericArithmeticEliminated": 8,
+        "numericRecipeAdmissions": 0,
+        "numericRecipeAttempts": 3,
+        "numericRecipeBudgetStops": 0,
+        "selectorSelections": 0,
+        "splitContexts": 0
+      },
+      "producers": 17,
+      "region": "00001011010011",
+      "seconds": 0.710817874991335,
+      "selectionOrder": "lexical",
+      "storedCharacters": 2329,
+      "workerSeconds": 1.5775758340023458
+    },
+    {
+      "artifact": {
+        "characters": 2014,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "artifacts/direct-sympy-input-partitions/lexical-frontier-state/region-41b659f466fa9235470c33aea5c6faacbd580d5b96cc919bb41a40f0a5e29e39.expr",
+        "paths": 1,
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "complete": true,
+      "elidedUpdates": 3,
+      "inputDomains": {
+        "X1": [
+          -17235,
+          -17174
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "logicalCharacters": 2020,
+      "paths": {
+        "CASPasses": 64,
+        "completedPaths": 1,
+        "contradictions": 0,
+        "lastArm": {
+          "bodyCharacters": 2020,
+          "decisions": 0,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 1802,
+              "storedCharacters": 1800
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 1890,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 4,
+              "expandedCharacters": 2020,
+              "storedCharacters": 143
+            }
+          ],
+          "guardCharacters": 0
+        },
+        "numericArithmeticEliminated": 8,
+        "numericRecipeAdmissions": 0,
+        "numericRecipeAttempts": 3,
+        "numericRecipeBudgetStops": 0,
+        "selectorSelections": 0,
+        "splitContexts": 0
+      },
+      "producers": 17,
+      "region": "00001011010100",
+      "seconds": 0.7247492499882355,
+      "selectionOrder": "lexical",
+      "storedCharacters": 2329,
+      "workerSeconds": 1.6373055829899386
+    },
+    {
+      "artifact": {
+        "characters": 2014,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "artifacts/direct-sympy-input-partitions/lexical-frontier-state/region-bc4aa9702359ae152e4d5c858af540a57887986091f8940c6e31bd4c5db04f0e.expr",
+        "paths": 1,
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "complete": true,
+      "elidedUpdates": 3,
+      "inputDomains": {
+        "X1": [
+          -17235,
+          -17174
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "logicalCharacters": 2020,
+      "paths": {
+        "CASPasses": 64,
+        "completedPaths": 1,
+        "contradictions": 0,
+        "lastArm": {
+          "bodyCharacters": 2020,
+          "decisions": 0,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 1802,
+              "storedCharacters": 1800
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 1890,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 4,
+              "expandedCharacters": 2020,
+              "storedCharacters": 143
+            }
+          ],
+          "guardCharacters": 0
+        },
+        "numericArithmeticEliminated": 8,
+        "numericRecipeAdmissions": 0,
+        "numericRecipeAttempts": 3,
+        "numericRecipeBudgetStops": 0,
+        "selectorSelections": 0,
+        "splitContexts": 0
+      },
+      "producers": 17,
+      "region": "00001011010101",
+      "seconds": 0.712068208027631,
+      "selectionOrder": "lexical",
+      "storedCharacters": 2329,
+      "workerSeconds": 1.80697058403166
+    },
+    {
+      "artifact": {
+        "characters": 2014,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "artifacts/direct-sympy-input-partitions/lexical-frontier-state/region-5b8052a23faef27ed1bbec6f0446ce3be8ce89bdb9c427fe707e4d3ac3486cdc.expr",
+        "paths": 1,
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "complete": true,
+      "elidedUpdates": 3,
+      "inputDomains": {
+        "X1": [
+          -17173,
+          -17112
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "logicalCharacters": 2020,
+      "paths": {
+        "CASPasses": 64,
+        "completedPaths": 1,
+        "contradictions": 0,
+        "lastArm": {
+          "bodyCharacters": 2020,
+          "decisions": 0,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 1802,
+              "storedCharacters": 1800
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 1890,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 4,
+              "expandedCharacters": 2020,
+              "storedCharacters": 143
+            }
+          ],
+          "guardCharacters": 0
+        },
+        "numericArithmeticEliminated": 8,
+        "numericRecipeAdmissions": 0,
+        "numericRecipeAttempts": 3,
+        "numericRecipeBudgetStops": 0,
+        "selectorSelections": 0,
+        "splitContexts": 0
+      },
+      "producers": 17,
+      "region": "00001011010110",
+      "seconds": 0.7291929160128348,
+      "selectionOrder": "lexical",
+      "storedCharacters": 2329,
+      "workerSeconds": 1.6390659589669667
+    },
+    {
+      "artifact": {
+        "characters": 2014,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "artifacts/direct-sympy-input-partitions/lexical-frontier-state/region-99e1a2dac6fc2189d74b469bbbfd492054bf0119f291282303dacaa23bdee94f.expr",
+        "paths": 1,
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "complete": true,
+      "elidedUpdates": 3,
+      "inputDomains": {
+        "X1": [
+          -17173,
+          -17112
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "logicalCharacters": 2020,
+      "paths": {
+        "CASPasses": 64,
+        "completedPaths": 1,
+        "contradictions": 0,
+        "lastArm": {
+          "bodyCharacters": 2020,
+          "decisions": 0,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 1802,
+              "storedCharacters": 1800
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 1890,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 4,
+              "expandedCharacters": 2020,
+              "storedCharacters": 143
+            }
+          ],
+          "guardCharacters": 0
+        },
+        "numericArithmeticEliminated": 8,
+        "numericRecipeAdmissions": 0,
+        "numericRecipeAttempts": 3,
+        "numericRecipeBudgetStops": 0,
+        "selectorSelections": 0,
+        "splitContexts": 0
+      },
+      "producers": 17,
+      "region": "00001011010111",
+      "seconds": 0.7349131659721024,
+      "selectionOrder": "lexical",
+      "storedCharacters": 2329,
+      "workerSeconds": 1.6476920840214007
+    },
+    {
+      "artifact": {
+        "characters": 2014,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "artifacts/direct-sympy-input-partitions/lexical-frontier-state/region-7c5f98ad323ca0ab1f0371e421087447aa2961221fcca403eb21854f0dd95685.expr",
+        "paths": 1,
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "complete": true,
+      "elidedUpdates": 3,
+      "inputDomains": {
+        "X1": [
+          -17111,
+          -17050
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "logicalCharacters": 2020,
+      "paths": {
+        "CASPasses": 64,
+        "completedPaths": 1,
+        "contradictions": 0,
+        "lastArm": {
+          "bodyCharacters": 2020,
+          "decisions": 0,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 1802,
+              "storedCharacters": 1800
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 1890,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 4,
+              "expandedCharacters": 2020,
+              "storedCharacters": 143
+            }
+          ],
+          "guardCharacters": 0
+        },
+        "numericArithmeticEliminated": 8,
+        "numericRecipeAdmissions": 0,
+        "numericRecipeAttempts": 3,
+        "numericRecipeBudgetStops": 0,
+        "selectorSelections": 0,
+        "splitContexts": 0
+      },
+      "producers": 17,
+      "region": "00001011011000",
+      "seconds": 0.7681784579763189,
+      "selectionOrder": "lexical",
+      "storedCharacters": 2329,
+      "workerSeconds": 1.7609528749599122
+    },
+    {
+      "artifact": {
+        "characters": 2014,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "artifacts/direct-sympy-input-partitions/lexical-frontier-state/region-1e7ba7a364cbf7fe77c329d3ce1e86573e92a00453965a1955bb550dbbc64d69.expr",
+        "paths": 1,
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "complete": true,
+      "elidedUpdates": 3,
+      "inputDomains": {
+        "X1": [
+          -17111,
+          -17050
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "logicalCharacters": 2020,
+      "paths": {
+        "CASPasses": 64,
+        "completedPaths": 1,
+        "contradictions": 0,
+        "lastArm": {
+          "bodyCharacters": 2020,
+          "decisions": 0,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 1802,
+              "storedCharacters": 1800
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 1890,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 4,
+              "expandedCharacters": 2020,
+              "storedCharacters": 143
+            }
+          ],
+          "guardCharacters": 0
+        },
+        "numericArithmeticEliminated": 8,
+        "numericRecipeAdmissions": 0,
+        "numericRecipeAttempts": 3,
+        "numericRecipeBudgetStops": 0,
+        "selectorSelections": 0,
+        "splitContexts": 0
+      },
+      "producers": 17,
+      "region": "00001011011001",
+      "seconds": 0.7096851250389591,
+      "selectionOrder": "lexical",
+      "storedCharacters": 2329,
+      "workerSeconds": 1.614435042021796
+    },
+    {
+      "artifact": {
+        "characters": 2014,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "artifacts/direct-sympy-input-partitions/lexical-frontier-state/region-d4ae93884f963cd2b6c5c42e4d960b2ccd719ffed4a1c94a4531eaa49aaf3b00.expr",
+        "paths": 1,
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "complete": true,
+      "elidedUpdates": 3,
+      "inputDomains": {
+        "X1": [
+          -17049,
+          -16988
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "logicalCharacters": 2020,
+      "paths": {
+        "CASPasses": 64,
+        "completedPaths": 1,
+        "contradictions": 0,
+        "lastArm": {
+          "bodyCharacters": 2020,
+          "decisions": 0,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 1802,
+              "storedCharacters": 1800
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 1890,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 3,
+              "expandedCharacters": 2020,
+              "storedCharacters": 143
+            }
+          ],
+          "guardCharacters": 0
+        },
+        "numericArithmeticEliminated": 8,
+        "numericRecipeAdmissions": 0,
+        "numericRecipeAttempts": 3,
+        "numericRecipeBudgetStops": 0,
+        "selectorSelections": 0,
+        "splitContexts": 0
+      },
+      "producers": 17,
+      "region": "00001011011010",
+      "seconds": 0.6839507499826141,
+      "selectionOrder": "lexical",
+      "storedCharacters": 2185,
+      "workerSeconds": 1.5551960000302643
+    },
+    {
+      "artifact": {
+        "characters": 2014,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "artifacts/direct-sympy-input-partitions/lexical-frontier-state/region-d3e0e6f92d5e58650dd96c6d191c31ac729eca5c8f4ff2fb746ef06517b53580.expr",
+        "paths": 1,
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "complete": true,
+      "elidedUpdates": 3,
+      "inputDomains": {
+        "X1": [
+          -17049,
+          -16988
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "logicalCharacters": 2020,
+      "paths": {
+        "CASPasses": 64,
+        "completedPaths": 1,
+        "contradictions": 0,
+        "lastArm": {
+          "bodyCharacters": 2020,
+          "decisions": 0,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 1802,
+              "storedCharacters": 1800
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 1890,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 4,
+              "expandedCharacters": 2020,
+              "storedCharacters": 143
+            }
+          ],
+          "guardCharacters": 0
+        },
+        "numericArithmeticEliminated": 8,
+        "numericRecipeAdmissions": 0,
+        "numericRecipeAttempts": 3,
+        "numericRecipeBudgetStops": 0,
+        "selectorSelections": 0,
+        "splitContexts": 0
+      },
+      "producers": 17,
+      "region": "00001011011011",
+      "seconds": 0.7076961250277236,
+      "selectionOrder": "lexical",
+      "storedCharacters": 2329,
+      "workerSeconds": 1.5738813339849003
+    },
+    {
+      "artifact": {
+        "characters": 2014,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "artifacts/direct-sympy-input-partitions/lexical-frontier-state/region-872e02f4dcc7583a5dbd697a0e4a8bc56b5d42a9178756f1ae9d407384a94c26.expr",
+        "paths": 1,
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "complete": true,
+      "elidedUpdates": 3,
+      "inputDomains": {
+        "X1": [
+          -16987,
+          -16926
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "logicalCharacters": 2020,
+      "paths": {
+        "CASPasses": 64,
+        "completedPaths": 1,
+        "contradictions": 0,
+        "lastArm": {
+          "bodyCharacters": 2020,
+          "decisions": 0,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 1802,
+              "storedCharacters": 1800
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 1890,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 3,
+              "expandedCharacters": 2020,
+              "storedCharacters": 143
+            }
+          ],
+          "guardCharacters": 0
+        },
+        "numericArithmeticEliminated": 8,
+        "numericRecipeAdmissions": 0,
+        "numericRecipeAttempts": 3,
+        "numericRecipeBudgetStops": 0,
+        "selectorSelections": 0,
+        "splitContexts": 0
+      },
+      "producers": 17,
+      "region": "00001011011100",
+      "seconds": 0.7041157499770634,
+      "selectionOrder": "lexical",
+      "storedCharacters": 2185,
+      "workerSeconds": 1.581415917025879
+    },
+    {
+      "artifact": {
+        "characters": 2014,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "artifacts/direct-sympy-input-partitions/lexical-frontier-state/region-24ee526e35a38db7234c781decea5fb9859574eaa42f49495a732b9a4add72cb.expr",
+        "paths": 1,
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "complete": true,
+      "elidedUpdates": 3,
+      "inputDomains": {
+        "X1": [
+          -16987,
+          -16926
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "logicalCharacters": 2020,
+      "paths": {
+        "CASPasses": 64,
+        "completedPaths": 1,
+        "contradictions": 0,
+        "lastArm": {
+          "bodyCharacters": 2020,
+          "decisions": 0,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 1802,
+              "storedCharacters": 1800
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 1890,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 4,
+              "expandedCharacters": 2020,
+              "storedCharacters": 143
+            }
+          ],
+          "guardCharacters": 0
+        },
+        "numericArithmeticEliminated": 8,
+        "numericRecipeAdmissions": 0,
+        "numericRecipeAttempts": 3,
+        "numericRecipeBudgetStops": 0,
+        "selectorSelections": 0,
+        "splitContexts": 0
+      },
+      "producers": 17,
+      "region": "00001011011101",
+      "seconds": 0.7044525420060381,
+      "selectionOrder": "lexical",
+      "storedCharacters": 2329,
+      "workerSeconds": 1.5729871660005301
+    }
+  ],
+  "coveredInputPatterns": 180575744,
+  "finalArtifactEmitted": false,
+  "finalParity": false,
+  "frontierOrder": "lexical",
+  "geometryImport": {
+    "leafRegions": 81,
+    "numericalResultsReused": false,
+    "sha256": "40ee8a66b1e7e0f7cd9f0d9030551e28412c2a57e51e96b9a099d5044d52bae9",
+    "sourceManifest": "/Users/caleul/Documents/Work/Projects/llm-inner/artifacts/direct-sympy-input-partitions/pruned-paths-state/frontier.json"
+  },
+  "identity": {
+    "byteOrder": "little",
+    "checkpoint": {
+      "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+      "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+    },
+    "dimension": 2,
+    "platform": "macOS-26.7.1-arm64-arm-64bit",
+    "position": 0,
+    "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+    "referenceBackend": {
+      "capability": "DEFAULT",
+      "gitVersion": "7269437d655783a26cba32aa88195b741ff496aa",
+      "name": "torch CPU",
+      "version": "2.12.1"
+    },
+    "sources": {
+      "direct_sympy_arithmetic.py": "426cde422fd5f4a31eb771dce9fa78b5556c50bca72bf9d33925209fa7d4535a",
+      "direct_sympy_checkpoint.py": "17ce30cefa8b9f0412de4dbd2996e84037b787098ea15cd083657b15ac2bef9f",
+      "direct_sympy_coherent_paths.py": "f3f1c30975616741b87563613cad629ac39eb4da888032c791abb3ac0562766a",
+      "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+      "direct_sympy_conversions.py": "2937c333a849c7719ab86dc25fadec52eac18ca63647c804a4804243a29f76f4",
+      "direct_sympy_input_partitions.py": "d0001b039ed49826ffb98e3c9f890bb345ebfec779a7369a4426da119eb54c88",
+      "direct_sympy_layer_bounds.py": "2f8d73caf53371f4bba44a605a91098580f5dcaf90b292c135830d862513dcff",
+      "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+      "direct_sympy_partition_run.py": "4e1453e6a1d070c05ace1e91eea3bd9d51f868725b8bb2b0cfe5893a51bb30bc",
+      "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+      "direct_sympy_savepoints.py": "682783ebfd3f1337bbcf015faa34876963a9f1b63eae2cba1c3159cb0ed5d266",
+      "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+      "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+      "direct_sympy_silu.py": "e623f38b5008356d8f6aa1615aabfa5a779f9dc7ea9d5b8183c5b17a78383fe3",
+      "direct_sympy_sqrt.py": "86b358773fa8b887659cd5598d7d37d7a4df5f338513117bc74ff6dd00ce6b17",
+      "direct_sympy_streaming_literals.py": "5a0046367e570549e5c804c0f5aa0737db2c506600c9ae19c72450ba0f38824e",
+      "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+      "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+      "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+      "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
+    },
+    "sympy": "1.14.0",
+    "version": 1
+  },
+  "root": {
+    "X1": [
+      -31743,
+      31743
+    ],
+    "X2": [
+      -31743,
+      31743
+    ]
+  },
+  "runSeconds": 39.855917417036835,
+  "totalInputPatterns": 4030726144,
+  "tree": {
+    "": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -31743,
+          31743
+        ],
+        "X2": [
+          -31743,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "0": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          0
+        ],
+        "X2": [
+          -31743,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "00": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -31743,
+          0
+        ],
+        "X2": [
+          -31743,
+          0
+        ]
+      },
+      "status": "split"
+    },
+    "000": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          0
+        ]
+      },
+      "status": "split"
+    },
+    "0000": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -31743,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          -15872
+        ]
+      },
+      "status": "split"
+    },
+    "00000": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -31743,
+          -15872
+        ]
+      },
+      "status": "split"
+    },
+    "000000": {
+      "artifact": {
+        "characters": 3825,
+        "file": "region-5606ace4cdcf8cdbfad9a4e02b59b365e7dd64b2283bcef76dd57e8552e5a8b0.expr",
+        "sha256": "529c972feba1bcd5258c0581bbe01d09cd1ec767f4df04d953317534d6fb31c6"
+      },
+      "domains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "complete"
+    },
+    "000001": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -23807,
+          -15872
+        ]
+      },
+      "status": "split"
+    },
+    "0000010": {
+      "artifact": {
+        "characters": 3905,
+        "file": "region-396b6f4777916f6536cc0abef2e33121ba90904d162d6f46fb7df5e3120d77e8.expr",
+        "sha256": "c377b3adfdce57aed55d389c4cdd199c93678e330c37a8a361729813b25ee653"
+      },
+      "domains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -23807,
+          -19840
+        ]
+      },
+      "status": "complete"
+    },
+    "0000011": {
+      "artifact": {
+        "characters": 8164,
+        "file": "region-f94ec4d391cfd9a8076378fd2c53c33671b9a44de47325c64de458c50c911e59.expr",
+        "sha256": "f0fe80c23c18f822568145a1b1e9167cae38bee6f142188e5b558718c7db42e0"
+      },
+      "domains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -19839,
+          -15872
+        ]
+      },
+      "status": "complete"
+    },
+    "00001": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -23807,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          -15872
+        ]
+      },
+      "status": "split"
+    },
+    "000010": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -23807,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000100": {
+      "artifact": {
+        "characters": 3905,
+        "file": "region-8d9228d3e63bf1c4d62b407f4e8756a422f0329d2319db6d09ff2fe7293a1426.expr",
+        "sha256": "c377b3adfdce57aed55d389c4cdd199c93678e330c37a8a361729813b25ee653"
+      },
+      "domains": {
+        "X1": [
+          -23807,
+          -19840
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "complete"
+    },
+    "0000101": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -19839,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001010": {
+      "artifact": {
+        "characters": 3905,
+        "file": "region-cbface47eb0431978084eaa74b0e89e24ae851747f2d2d1692cb7306c818405e.expr",
+        "sha256": "c377b3adfdce57aed55d389c4cdd199c93678e330c37a8a361729813b25ee653"
+      },
+      "domains": {
+        "X1": [
+          -19839,
+          -17856
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "complete"
+    },
+    "00001011": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -17855,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "000010110": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -17855,
+          -16864
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000101100": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -17855,
+          -17360
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011000": {
+      "artifact": {
+        "characters": 2014,
+        "file": "region-9b2f924288c97becefc4334d08e1a6c23ec624740354feacf19e8448d8ebd091.expr",
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "domains": {
+        "X1": [
+          -17855,
+          -17608
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "complete"
+    },
+    "00001011001": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -17607,
+          -17360
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "000010110010": {
+      "artifact": {
+        "characters": 2014,
+        "file": "region-23964bf7630e2d5869b40078e614d1d591da9db9018bad024462497eee7d649e.expr",
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "domains": {
+        "X1": [
+          -17607,
+          -17484
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "complete"
+    },
+    "000010110011": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -17483,
+          -17360
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000101100110": {
+      "artifact": {
+        "characters": 2014,
+        "file": "region-a38cd0a08cefaae4eef07bbbe4ebed614ff10b3164750714df3b91d942555934.expr",
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "domains": {
+        "X1": [
+          -17483,
+          -17422
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "complete"
+    },
+    "0000101100111": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -17421,
+          -17360
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011001110": {
+      "artifact": {
+        "characters": 2014,
+        "file": "region-12762092671bae966cd7e3adc9e9fe98d92ac1af0e28895d93d52ff77b3fe4fc.expr",
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "domains": {
+        "X1": [
+          -17421,
+          -17360
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "complete"
+    },
+    "00001011001111": {
+      "artifact": {
+        "characters": 2014,
+        "file": "region-9146d455c4a906919bc094c4efd91927d488531e35f0c51a493a8f6a4fb504cf.expr",
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "domains": {
+        "X1": [
+          -17421,
+          -17360
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "complete"
+    },
+    "0000101101": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -17359,
+          -16864
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011010": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -17359,
+          -17112
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "000010110100": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -17359,
+          -17236
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000101101000": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -17359,
+          -17298
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011010000": {
+      "artifact": {
+        "characters": 2014,
+        "file": "region-2e48ae7a455b13bb9c6c598810f33f8714bba1230585ed622752f563aa045a63.expr",
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "domains": {
+        "X1": [
+          -17359,
+          -17298
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "complete"
+    },
+    "00001011010001": {
+      "artifact": {
+        "characters": 2014,
+        "file": "region-091473a9c08d89ed991135e79befca7e94ab76cc069d295dd7c93cd601fd92d5.expr",
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "domains": {
+        "X1": [
+          -17359,
+          -17298
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "complete"
+    },
+    "0000101101001": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -17297,
+          -17236
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011010010": {
+      "artifact": {
+        "characters": 2014,
+        "file": "region-6ee645bd7d022dc2a83774925d96d0d47c902db7b57b1c6f134b8cbf47c6936e.expr",
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "domains": {
+        "X1": [
+          -17297,
+          -17236
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "complete"
+    },
+    "00001011010011": {
+      "artifact": {
+        "characters": 2014,
+        "file": "region-865bc4d151d6ff403a5b0ac849df6a7bcbe9898632e15046cad5eb9460d26c86.expr",
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "domains": {
+        "X1": [
+          -17297,
+          -17236
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "complete"
+    },
+    "000010110101": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -17235,
+          -17112
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000101101010": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -17235,
+          -17174
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011010100": {
+      "artifact": {
+        "characters": 2014,
+        "file": "region-41b659f466fa9235470c33aea5c6faacbd580d5b96cc919bb41a40f0a5e29e39.expr",
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "domains": {
+        "X1": [
+          -17235,
+          -17174
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "complete"
+    },
+    "00001011010101": {
+      "artifact": {
+        "characters": 2014,
+        "file": "region-bc4aa9702359ae152e4d5c858af540a57887986091f8940c6e31bd4c5db04f0e.expr",
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "domains": {
+        "X1": [
+          -17235,
+          -17174
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "complete"
+    },
+    "0000101101011": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -17173,
+          -17112
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011010110": {
+      "artifact": {
+        "characters": 2014,
+        "file": "region-5b8052a23faef27ed1bbec6f0446ce3be8ce89bdb9c427fe707e4d3ac3486cdc.expr",
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "domains": {
+        "X1": [
+          -17173,
+          -17112
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "complete"
+    },
+    "00001011010111": {
+      "artifact": {
+        "characters": 2014,
+        "file": "region-99e1a2dac6fc2189d74b469bbbfd492054bf0119f291282303dacaa23bdee94f.expr",
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "domains": {
+        "X1": [
+          -17173,
+          -17112
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "complete"
+    },
+    "00001011011": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -17111,
+          -16864
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "000010110110": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -17111,
+          -16988
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000101101100": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -17111,
+          -17050
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011011000": {
+      "artifact": {
+        "characters": 2014,
+        "file": "region-7c5f98ad323ca0ab1f0371e421087447aa2961221fcca403eb21854f0dd95685.expr",
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "domains": {
+        "X1": [
+          -17111,
+          -17050
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "complete"
+    },
+    "00001011011001": {
+      "artifact": {
+        "characters": 2014,
+        "file": "region-1e7ba7a364cbf7fe77c329d3ce1e86573e92a00453965a1955bb550dbbc64d69.expr",
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "domains": {
+        "X1": [
+          -17111,
+          -17050
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "complete"
+    },
+    "0000101101101": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -17049,
+          -16988
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011011010": {
+      "artifact": {
+        "characters": 2014,
+        "file": "region-d4ae93884f963cd2b6c5c42e4d960b2ccd719ffed4a1c94a4531eaa49aaf3b00.expr",
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "domains": {
+        "X1": [
+          -17049,
+          -16988
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "complete"
+    },
+    "00001011011011": {
+      "artifact": {
+        "characters": 2014,
+        "file": "region-d3e0e6f92d5e58650dd96c6d191c31ac729eca5c8f4ff2fb746ef06517b53580.expr",
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "domains": {
+        "X1": [
+          -17049,
+          -16988
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "complete"
+    },
+    "000010110111": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16987,
+          -16864
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000101101110": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16987,
+          -16926
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011011100": {
+      "artifact": {
+        "characters": 2014,
+        "file": "region-872e02f4dcc7583a5dbd697a0e4a8bc56b5d42a9178756f1ae9d407384a94c26.expr",
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "domains": {
+        "X1": [
+          -16987,
+          -16926
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "complete"
+    },
+    "00001011011101": {
+      "artifact": {
+        "characters": 2014,
+        "file": "region-24ee526e35a38db7234c781decea5fb9859574eaa42f49495a732b9a4add72cb.expr",
+        "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+      },
+      "domains": {
+        "X1": [
+          -16987,
+          -16926
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "complete"
+    },
+    "0000101101111": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16925,
+          -16864
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011011110": {
+      "domains": {
+        "X1": [
+          -16925,
+          -16864
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011011111": {
+      "domains": {
+        "X1": [
+          -16925,
+          -16864
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16863,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000101110": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16863,
+          -16368
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011100": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16863,
+          -16616
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "000010111000": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16863,
+          -16740
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000101110000": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16863,
+          -16802
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011100000": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16863,
+          -16802
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "split"
+    },
+    "000010111000000": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16863,
+          -16802
+        ],
+        "X2": [
+          -31743,
+          -29760
+        ]
+      },
+      "status": "split"
+    },
+    "0000101110000000": {
+      "domains": {
+        "X1": [
+          -16863,
+          -16802
+        ],
+        "X2": [
+          -31743,
+          -30752
+        ]
+      },
+      "status": "pending"
+    },
+    "0000101110000001": {
+      "domains": {
+        "X1": [
+          -16863,
+          -16802
+        ],
+        "X2": [
+          -30751,
+          -29760
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111000001": {
+      "domains": {
+        "X1": [
+          -16863,
+          -16802
+        ],
+        "X2": [
+          -29759,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011100001": {
+      "domains": {
+        "X1": [
+          -16863,
+          -16802
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "0000101110001": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16801,
+          -16740
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011100010": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16801,
+          -16740
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "split"
+    },
+    "000010111000100": {
+      "domains": {
+        "X1": [
+          -16801,
+          -16740
+        ],
+        "X2": [
+          -31743,
+          -29760
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111000101": {
+      "domains": {
+        "X1": [
+          -16801,
+          -16740
+        ],
+        "X2": [
+          -29759,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011100011": {
+      "domains": {
+        "X1": [
+          -16801,
+          -16740
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111001": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16739,
+          -16616
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000101110010": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16739,
+          -16678
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011100100": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16739,
+          -16678
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "split"
+    },
+    "000010111001000": {
+      "domains": {
+        "X1": [
+          -16739,
+          -16678
+        ],
+        "X2": [
+          -31743,
+          -29760
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111001001": {
+      "domains": {
+        "X1": [
+          -16739,
+          -16678
+        ],
+        "X2": [
+          -29759,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011100101": {
+      "domains": {
+        "X1": [
+          -16739,
+          -16678
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "0000101110011": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16677,
+          -16616
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011100110": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16677,
+          -16616
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "split"
+    },
+    "000010111001100": {
+      "domains": {
+        "X1": [
+          -16677,
+          -16616
+        ],
+        "X2": [
+          -31743,
+          -29760
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111001101": {
+      "domains": {
+        "X1": [
+          -16677,
+          -16616
+        ],
+        "X2": [
+          -29759,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011100111": {
+      "domains": {
+        "X1": [
+          -16677,
+          -16616
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011101": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16615,
+          -16368
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "000010111010": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16615,
+          -16492
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000101110100": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16615,
+          -16554
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011101000": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16615,
+          -16554
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "split"
+    },
+    "000010111010000": {
+      "domains": {
+        "X1": [
+          -16615,
+          -16554
+        ],
+        "X2": [
+          -31743,
+          -29760
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111010001": {
+      "domains": {
+        "X1": [
+          -16615,
+          -16554
+        ],
+        "X2": [
+          -29759,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011101001": {
+      "domains": {
+        "X1": [
+          -16615,
+          -16554
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "0000101110101": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16553,
+          -16492
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011101010": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16553,
+          -16492
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "split"
+    },
+    "000010111010100": {
+      "domains": {
+        "X1": [
+          -16553,
+          -16492
+        ],
+        "X2": [
+          -31743,
+          -29760
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111010101": {
+      "domains": {
+        "X1": [
+          -16553,
+          -16492
+        ],
+        "X2": [
+          -29759,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011101011": {
+      "domains": {
+        "X1": [
+          -16553,
+          -16492
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111011": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16491,
+          -16368
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000101110110": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16491,
+          -16430
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011101100": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16491,
+          -16430
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "split"
+    },
+    "000010111011000": {
+      "domains": {
+        "X1": [
+          -16491,
+          -16430
+        ],
+        "X2": [
+          -31743,
+          -29760
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111011001": {
+      "domains": {
+        "X1": [
+          -16491,
+          -16430
+        ],
+        "X2": [
+          -29759,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011101101": {
+      "domains": {
+        "X1": [
+          -16491,
+          -16430
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "0000101110111": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16429,
+          -16368
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011101110": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16429,
+          -16368
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "split"
+    },
+    "000010111011100": {
+      "domains": {
+        "X1": [
+          -16429,
+          -16368
+        ],
+        "X2": [
+          -31743,
+          -29760
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111011101": {
+      "domains": {
+        "X1": [
+          -16429,
+          -16368
+        ],
+        "X2": [
+          -29759,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011101111": {
+      "domains": {
+        "X1": [
+          -16429,
+          -16368
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "0000101111": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16367,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011110": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16367,
+          -16120
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "000010111100": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16367,
+          -16244
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000101111000": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16367,
+          -16306
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011110000": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16367,
+          -16306
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "split"
+    },
+    "000010111100000": {
+      "domains": {
+        "X1": [
+          -16367,
+          -16306
+        ],
+        "X2": [
+          -31743,
+          -29760
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111100001": {
+      "domains": {
+        "X1": [
+          -16367,
+          -16306
+        ],
+        "X2": [
+          -29759,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011110001": {
+      "domains": {
+        "X1": [
+          -16367,
+          -16306
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "0000101111001": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16305,
+          -16244
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011110010": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16305,
+          -16244
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "split"
+    },
+    "000010111100100": {
+      "domains": {
+        "X1": [
+          -16305,
+          -16244
+        ],
+        "X2": [
+          -31743,
+          -29760
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111100101": {
+      "domains": {
+        "X1": [
+          -16305,
+          -16244
+        ],
+        "X2": [
+          -29759,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011110011": {
+      "domains": {
+        "X1": [
+          -16305,
+          -16244
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111101": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16243,
+          -16120
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000101111010": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16243,
+          -16182
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011110100": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16243,
+          -16182
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "split"
+    },
+    "000010111101000": {
+      "domains": {
+        "X1": [
+          -16243,
+          -16182
+        ],
+        "X2": [
+          -31743,
+          -29760
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111101001": {
+      "domains": {
+        "X1": [
+          -16243,
+          -16182
+        ],
+        "X2": [
+          -29759,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011110101": {
+      "domains": {
+        "X1": [
+          -16243,
+          -16182
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "0000101111011": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16181,
+          -16120
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011110110": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16181,
+          -16120
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "split"
+    },
+    "000010111101100": {
+      "domains": {
+        "X1": [
+          -16181,
+          -16120
+        ],
+        "X2": [
+          -31743,
+          -29760
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111101101": {
+      "domains": {
+        "X1": [
+          -16181,
+          -16120
+        ],
+        "X2": [
+          -29759,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011110111": {
+      "domains": {
+        "X1": [
+          -16181,
+          -16120
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011111": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16119,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "000010111110": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16119,
+          -15996
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000101111100": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16119,
+          -16058
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011111000": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16119,
+          -16058
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "split"
+    },
+    "000010111110000": {
+      "domains": {
+        "X1": [
+          -16119,
+          -16058
+        ],
+        "X2": [
+          -31743,
+          -29760
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111110001": {
+      "domains": {
+        "X1": [
+          -16119,
+          -16058
+        ],
+        "X2": [
+          -29759,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011111001": {
+      "domains": {
+        "X1": [
+          -16119,
+          -16058
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "0000101111101": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16057,
+          -15996
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011111010": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16057,
+          -15996
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "split"
+    },
+    "000010111110100": {
+      "domains": {
+        "X1": [
+          -16057,
+          -15996
+        ],
+        "X2": [
+          -31743,
+          -29760
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111110101": {
+      "domains": {
+        "X1": [
+          -16057,
+          -15996
+        ],
+        "X2": [
+          -29759,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011111011": {
+      "domains": {
+        "X1": [
+          -16057,
+          -15996
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111111": {
+      "domains": {
+        "X1": [
+          -15995,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "000011": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -23807,
+          -15872
+        ],
+        "X2": [
+          -23807,
+          -15872
+        ]
+      },
+      "status": "split"
+    },
+    "0000110": {
+      "domains": {
+        "X1": [
+          -23807,
+          -19840
+        ],
+        "X2": [
+          -23807,
+          -15872
+        ]
+      },
+      "status": "pending"
+    },
+    "0000111": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -19839,
+          -15872
+        ],
+        "X2": [
+          -23807,
+          -15872
+        ]
+      },
+      "status": "split"
+    },
+    "00001110": {
+      "domains": {
+        "X1": [
+          -19839,
+          -15872
+        ],
+        "X2": [
+          -23807,
+          -19840
+        ]
+      },
+      "status": "pending"
+    },
+    "00001111": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -19839,
+          -15872
+        ],
+        "X2": [
+          -19839,
+          -15872
+        ]
+      },
+      "status": "split"
+    },
+    "000011110": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -19839,
+          -17856
+        ],
+        "X2": [
+          -19839,
+          -15872
+        ]
+      },
+      "status": "split"
+    },
+    "0000111100": {
+      "domains": {
+        "X1": [
+          -19839,
+          -17856
+        ],
+        "X2": [
+          -19839,
+          -17856
+        ]
+      },
+      "status": "pending"
+    },
+    "0000111101": {
+      "domains": {
+        "X1": [
+          -19839,
+          -17856
+        ],
+        "X2": [
+          -17855,
+          -15872
+        ]
+      },
+      "status": "pending"
+    },
+    "000011111": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -17855,
+          -15872
+        ],
+        "X2": [
+          -19839,
+          -15872
+        ]
+      },
+      "status": "split"
+    },
+    "0000111110": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -17855,
+          -15872
+        ],
+        "X2": [
+          -19839,
+          -17856
+        ]
+      },
+      "status": "split"
+    },
+    "00001111100": {
+      "domains": {
+        "X1": [
+          -17855,
+          -16864
+        ],
+        "X2": [
+          -19839,
+          -17856
+        ]
+      },
+      "status": "pending"
+    },
+    "00001111101": {
+      "domains": {
+        "X1": [
+          -16863,
+          -15872
+        ],
+        "X2": [
+          -19839,
+          -17856
+        ]
+      },
+      "status": "pending"
+    },
+    "0000111111": {
+      "domains": {
+        "X1": [
+          -17855,
+          -15872
+        ],
+        "X2": [
+          -17855,
+          -15872
+        ]
+      },
+      "status": "pending"
+    },
+    "0001": {
+      "domains": {
+        "X1": [
+          -31743,
+          -15872
+        ],
+        "X2": [
+          -15871,
+          0
+        ]
+      },
+      "status": "pending"
+    },
+    "001": {
+      "domains": {
+        "X1": [
+          -15871,
+          0
+        ],
+        "X2": [
+          -31743,
+          0
+        ]
+      },
+      "status": "pending"
+    },
+    "01": {
+      "domains": {
+        "X1": [
+          -31743,
+          0
+        ],
+        "X2": [
+          1,
+          31743
+        ]
+      },
+      "status": "pending"
+    },
+    "1": {
+      "domains": {
+        "X1": [
+          1,
+          31743
+        ],
+        "X2": [
+          -31743,
+          31743
+        ]
+      },
+      "status": "pending"
+    }
+  },
+  "unfinishedInputPatterns": 3850150400
+}

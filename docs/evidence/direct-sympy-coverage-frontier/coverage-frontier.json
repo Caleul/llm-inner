@@ -1,0 +1,3304 @@
+{
+  "attempts": [
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          1,
+          31743
+        ],
+        "X2": [
+          -31743,
+          31743
+        ]
+      },
+      "region": "1",
+      "seconds": 8.011385999969207,
+      "selectionOrder": "coverage",
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          -31743,
+          0
+        ],
+        "X2": [
+          1,
+          31743
+        ]
+      },
+      "region": "01",
+      "seconds": 8.010059083986562,
+      "selectionOrder": "coverage",
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          1,
+          31743
+        ],
+        "X2": [
+          -31743,
+          0
+        ]
+      },
+      "region": "10",
+      "seconds": 8.010720708000008,
+      "selectionOrder": "coverage",
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          1,
+          31743
+        ],
+        "X2": [
+          1,
+          31743
+        ]
+      },
+      "region": "11",
+      "seconds": 8.011360542033799,
+      "selectionOrder": "coverage",
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          -15871,
+          0
+        ],
+        "X2": [
+          -31743,
+          0
+        ]
+      },
+      "region": "001",
+      "seconds": 8.012966334004886,
+      "selectionOrder": "coverage",
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          -15871,
+          0
+        ],
+        "X2": [
+          1,
+          31743
+        ]
+      },
+      "region": "011",
+      "seconds": 8.010737375007011,
+      "selectionOrder": "coverage",
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          1,
+          31743
+        ],
+        "X2": [
+          -15871,
+          0
+        ]
+      },
+      "region": "101",
+      "seconds": 8.010483333957382,
+      "selectionOrder": "coverage",
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          -31743,
+          -15872
+        ],
+        "X2": [
+          1,
+          31743
+        ]
+      },
+      "region": "010",
+      "seconds": 8.010438167024404,
+      "selectionOrder": "coverage",
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          1,
+          31743
+        ],
+        "X2": [
+          -31743,
+          -15872
+        ]
+      },
+      "region": "100",
+      "seconds": 8.010856834007427,
+      "selectionOrder": "coverage",
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          1,
+          15872
+        ],
+        "X2": [
+          1,
+          31743
+        ]
+      },
+      "region": "110",
+      "seconds": 8.00996545900125,
+      "selectionOrder": "coverage",
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          15873,
+          31743
+        ],
+        "X2": [
+          1,
+          31743
+        ]
+      },
+      "region": "111",
+      "seconds": 8.010059875028674,
+      "selectionOrder": "coverage",
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          -15871,
+          0
+        ],
+        "X2": [
+          -15871,
+          0
+        ]
+      },
+      "region": "0011",
+      "seconds": 8.010465416009538,
+      "selectionOrder": "coverage",
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          -7935,
+          0
+        ],
+        "X2": [
+          1,
+          31743
+        ]
+      },
+      "region": "0111",
+      "seconds": 8.01062658301089,
+      "selectionOrder": "coverage",
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          1,
+          31743
+        ],
+        "X2": [
+          -7935,
+          0
+        ]
+      },
+      "region": "1011",
+      "seconds": 8.011250583978835,
+      "selectionOrder": "coverage",
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          -31743,
+          -15872
+        ],
+        "X2": [
+          -15871,
+          0
+        ]
+      },
+      "region": "0001",
+      "seconds": 8.012486541992985,
+      "selectionOrder": "coverage",
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          -15871,
+          0
+        ],
+        "X2": [
+          -31743,
+          -15872
+        ]
+      },
+      "region": "0010",
+      "seconds": 8.01157004199922,
+      "selectionOrder": "coverage",
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "complete": false,
+      "elidedUpdates": 1,
+      "inputDomains": {
+        "X1": [
+          -31743,
+          -15872
+        ],
+        "X2": [
+          1,
+          15872
+        ]
+      },
+      "logicalCharacters": 58159905279,
+      "producers": 25,
+      "region": "0100",
+      "seconds": 6.477423582982738,
+      "selectionOrder": "coverage",
+      "stop": "Flat artifact budget exceeded; no complete result",
+      "storedCharacters": 25446,
+      "workerSeconds": 7.3977358330157585
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          1,
+          15872
+        ],
+        "X2": [
+          -31743,
+          -15872
+        ]
+      },
+      "region": "1000",
+      "seconds": 8.011247667018324,
+      "selectionOrder": "coverage",
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          1,
+          15872
+        ],
+        "X2": [
+          1,
+          15872
+        ]
+      },
+      "region": "1100",
+      "seconds": 8.010368457995355,
+      "selectionOrder": "coverage",
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          -15871,
+          -7936
+        ],
+        "X2": [
+          1,
+          31743
+        ]
+      },
+      "region": "0110",
+      "seconds": 8.01204558298923,
+      "selectionOrder": "coverage",
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          1,
+          31743
+        ],
+        "X2": [
+          -15871,
+          -7936
+        ]
+      },
+      "region": "1010",
+      "seconds": 8.012487082974985,
+      "selectionOrder": "coverage",
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          -31743,
+          -15872
+        ],
+        "X2": [
+          15873,
+          31743
+        ]
+      },
+      "region": "0101",
+      "seconds": 8.012077999999747,
+      "selectionOrder": "coverage",
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          15873,
+          31743
+        ],
+        "X2": [
+          -31743,
+          -15872
+        ]
+      },
+      "region": "1001",
+      "seconds": 8.012621166999452,
+      "selectionOrder": "coverage",
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          1,
+          15872
+        ],
+        "X2": [
+          15873,
+          31743
+        ]
+      },
+      "region": "1101",
+      "seconds": 8.012443249986973,
+      "selectionOrder": "coverage",
+      "stop": "Region worker wall-clock budget exceeded"
+    }
+  ],
+  "coveredInputPatterns": 0,
+  "finalArtifactEmitted": false,
+  "finalParity": false,
+  "frontierOrder": "coverage",
+  "geometryImport": {
+    "leafRegions": 81,
+    "numericalResultsReused": false,
+    "sha256": "40ee8a66b1e7e0f7cd9f0d9030551e28412c2a57e51e96b9a099d5044d52bae9",
+    "sourceManifest": "/Users/caleul/Documents/Work/Projects/llm-inner/artifacts/direct-sympy-input-partitions/pruned-paths-state/frontier.json"
+  },
+  "identity": {
+    "byteOrder": "little",
+    "checkpoint": {
+      "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+      "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+    },
+    "dimension": 2,
+    "platform": "macOS-26.7.1-arm64-arm-64bit",
+    "position": 0,
+    "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+    "referenceBackend": {
+      "capability": "DEFAULT",
+      "gitVersion": "7269437d655783a26cba32aa88195b741ff496aa",
+      "name": "torch CPU",
+      "version": "2.12.1"
+    },
+    "sources": {
+      "direct_sympy_arithmetic.py": "426cde422fd5f4a31eb771dce9fa78b5556c50bca72bf9d33925209fa7d4535a",
+      "direct_sympy_checkpoint.py": "17ce30cefa8b9f0412de4dbd2996e84037b787098ea15cd083657b15ac2bef9f",
+      "direct_sympy_coherent_paths.py": "f3f1c30975616741b87563613cad629ac39eb4da888032c791abb3ac0562766a",
+      "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+      "direct_sympy_conversions.py": "2937c333a849c7719ab86dc25fadec52eac18ca63647c804a4804243a29f76f4",
+      "direct_sympy_input_partitions.py": "d0001b039ed49826ffb98e3c9f890bb345ebfec779a7369a4426da119eb54c88",
+      "direct_sympy_layer_bounds.py": "2f8d73caf53371f4bba44a605a91098580f5dcaf90b292c135830d862513dcff",
+      "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+      "direct_sympy_partition_run.py": "4e1453e6a1d070c05ace1e91eea3bd9d51f868725b8bb2b0cfe5893a51bb30bc",
+      "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+      "direct_sympy_savepoints.py": "682783ebfd3f1337bbcf015faa34876963a9f1b63eae2cba1c3159cb0ed5d266",
+      "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+      "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+      "direct_sympy_silu.py": "e623f38b5008356d8f6aa1615aabfa5a779f9dc7ea9d5b8183c5b17a78383fe3",
+      "direct_sympy_sqrt.py": "86b358773fa8b887659cd5598d7d37d7a4df5f338513117bc74ff6dd00ce6b17",
+      "direct_sympy_streaming_literals.py": "5a0046367e570549e5c804c0f5aa0737db2c506600c9ae19c72450ba0f38824e",
+      "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+      "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+      "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+      "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
+    },
+    "sympy": "1.14.0",
+    "version": 1
+  },
+  "root": {
+    "X1": [
+      -31743,
+      31743
+    ],
+    "X2": [
+      -31743,
+      31743
+    ]
+  },
+  "runSeconds": 191.8096056249924,
+  "totalInputPatterns": 4030726144,
+  "tree": {
+    "": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -31743,
+          31743
+        ],
+        "X2": [
+          -31743,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "0": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          0
+        ],
+        "X2": [
+          -31743,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "00": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -31743,
+          0
+        ],
+        "X2": [
+          -31743,
+          0
+        ]
+      },
+      "status": "split"
+    },
+    "000": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          0
+        ]
+      },
+      "status": "split"
+    },
+    "0000": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -31743,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          -15872
+        ]
+      },
+      "status": "split"
+    },
+    "00000": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -31743,
+          -15872
+        ]
+      },
+      "status": "split"
+    },
+    "000000": {
+      "domains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "000001": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -23807,
+          -15872
+        ]
+      },
+      "status": "split"
+    },
+    "0000010": {
+      "domains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -23807,
+          -19840
+        ]
+      },
+      "status": "pending"
+    },
+    "0000011": {
+      "domains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -19839,
+          -15872
+        ]
+      },
+      "status": "pending"
+    },
+    "00001": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -23807,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          -15872
+        ]
+      },
+      "status": "split"
+    },
+    "000010": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -23807,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000100": {
+      "domains": {
+        "X1": [
+          -23807,
+          -19840
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "0000101": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -19839,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001010": {
+      "domains": {
+        "X1": [
+          -19839,
+          -17856
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -17855,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "000010110": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -17855,
+          -16864
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000101100": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -17855,
+          -17360
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011000": {
+      "domains": {
+        "X1": [
+          -17855,
+          -17608
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011001": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -17607,
+          -17360
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "000010110010": {
+      "domains": {
+        "X1": [
+          -17607,
+          -17484
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "000010110011": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -17483,
+          -17360
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000101100110": {
+      "domains": {
+        "X1": [
+          -17483,
+          -17422
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "0000101100111": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -17421,
+          -17360
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011001110": {
+      "domains": {
+        "X1": [
+          -17421,
+          -17360
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011001111": {
+      "domains": {
+        "X1": [
+          -17421,
+          -17360
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "0000101101": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -17359,
+          -16864
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011010": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -17359,
+          -17112
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "000010110100": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -17359,
+          -17236
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000101101000": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -17359,
+          -17298
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011010000": {
+      "domains": {
+        "X1": [
+          -17359,
+          -17298
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011010001": {
+      "domains": {
+        "X1": [
+          -17359,
+          -17298
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "0000101101001": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -17297,
+          -17236
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011010010": {
+      "domains": {
+        "X1": [
+          -17297,
+          -17236
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011010011": {
+      "domains": {
+        "X1": [
+          -17297,
+          -17236
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "000010110101": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -17235,
+          -17112
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000101101010": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -17235,
+          -17174
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011010100": {
+      "domains": {
+        "X1": [
+          -17235,
+          -17174
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011010101": {
+      "domains": {
+        "X1": [
+          -17235,
+          -17174
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "0000101101011": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -17173,
+          -17112
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011010110": {
+      "domains": {
+        "X1": [
+          -17173,
+          -17112
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011010111": {
+      "domains": {
+        "X1": [
+          -17173,
+          -17112
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011011": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -17111,
+          -16864
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "000010110110": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -17111,
+          -16988
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000101101100": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -17111,
+          -17050
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011011000": {
+      "domains": {
+        "X1": [
+          -17111,
+          -17050
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011011001": {
+      "domains": {
+        "X1": [
+          -17111,
+          -17050
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "0000101101101": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -17049,
+          -16988
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011011010": {
+      "domains": {
+        "X1": [
+          -17049,
+          -16988
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011011011": {
+      "domains": {
+        "X1": [
+          -17049,
+          -16988
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "000010110111": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16987,
+          -16864
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000101101110": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16987,
+          -16926
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011011100": {
+      "domains": {
+        "X1": [
+          -16987,
+          -16926
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011011101": {
+      "domains": {
+        "X1": [
+          -16987,
+          -16926
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "0000101101111": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16925,
+          -16864
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011011110": {
+      "domains": {
+        "X1": [
+          -16925,
+          -16864
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011011111": {
+      "domains": {
+        "X1": [
+          -16925,
+          -16864
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16863,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000101110": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16863,
+          -16368
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011100": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16863,
+          -16616
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "000010111000": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16863,
+          -16740
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000101110000": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16863,
+          -16802
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011100000": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16863,
+          -16802
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "split"
+    },
+    "000010111000000": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16863,
+          -16802
+        ],
+        "X2": [
+          -31743,
+          -29760
+        ]
+      },
+      "status": "split"
+    },
+    "0000101110000000": {
+      "domains": {
+        "X1": [
+          -16863,
+          -16802
+        ],
+        "X2": [
+          -31743,
+          -30752
+        ]
+      },
+      "status": "pending"
+    },
+    "0000101110000001": {
+      "domains": {
+        "X1": [
+          -16863,
+          -16802
+        ],
+        "X2": [
+          -30751,
+          -29760
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111000001": {
+      "domains": {
+        "X1": [
+          -16863,
+          -16802
+        ],
+        "X2": [
+          -29759,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011100001": {
+      "domains": {
+        "X1": [
+          -16863,
+          -16802
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "0000101110001": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16801,
+          -16740
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011100010": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16801,
+          -16740
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "split"
+    },
+    "000010111000100": {
+      "domains": {
+        "X1": [
+          -16801,
+          -16740
+        ],
+        "X2": [
+          -31743,
+          -29760
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111000101": {
+      "domains": {
+        "X1": [
+          -16801,
+          -16740
+        ],
+        "X2": [
+          -29759,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011100011": {
+      "domains": {
+        "X1": [
+          -16801,
+          -16740
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111001": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16739,
+          -16616
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000101110010": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16739,
+          -16678
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011100100": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16739,
+          -16678
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "split"
+    },
+    "000010111001000": {
+      "domains": {
+        "X1": [
+          -16739,
+          -16678
+        ],
+        "X2": [
+          -31743,
+          -29760
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111001001": {
+      "domains": {
+        "X1": [
+          -16739,
+          -16678
+        ],
+        "X2": [
+          -29759,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011100101": {
+      "domains": {
+        "X1": [
+          -16739,
+          -16678
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "0000101110011": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16677,
+          -16616
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011100110": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16677,
+          -16616
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "split"
+    },
+    "000010111001100": {
+      "domains": {
+        "X1": [
+          -16677,
+          -16616
+        ],
+        "X2": [
+          -31743,
+          -29760
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111001101": {
+      "domains": {
+        "X1": [
+          -16677,
+          -16616
+        ],
+        "X2": [
+          -29759,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011100111": {
+      "domains": {
+        "X1": [
+          -16677,
+          -16616
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011101": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16615,
+          -16368
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "000010111010": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16615,
+          -16492
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000101110100": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16615,
+          -16554
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011101000": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16615,
+          -16554
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "split"
+    },
+    "000010111010000": {
+      "domains": {
+        "X1": [
+          -16615,
+          -16554
+        ],
+        "X2": [
+          -31743,
+          -29760
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111010001": {
+      "domains": {
+        "X1": [
+          -16615,
+          -16554
+        ],
+        "X2": [
+          -29759,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011101001": {
+      "domains": {
+        "X1": [
+          -16615,
+          -16554
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "0000101110101": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16553,
+          -16492
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011101010": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16553,
+          -16492
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "split"
+    },
+    "000010111010100": {
+      "domains": {
+        "X1": [
+          -16553,
+          -16492
+        ],
+        "X2": [
+          -31743,
+          -29760
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111010101": {
+      "domains": {
+        "X1": [
+          -16553,
+          -16492
+        ],
+        "X2": [
+          -29759,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011101011": {
+      "domains": {
+        "X1": [
+          -16553,
+          -16492
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111011": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16491,
+          -16368
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000101110110": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16491,
+          -16430
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011101100": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16491,
+          -16430
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "split"
+    },
+    "000010111011000": {
+      "domains": {
+        "X1": [
+          -16491,
+          -16430
+        ],
+        "X2": [
+          -31743,
+          -29760
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111011001": {
+      "domains": {
+        "X1": [
+          -16491,
+          -16430
+        ],
+        "X2": [
+          -29759,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011101101": {
+      "domains": {
+        "X1": [
+          -16491,
+          -16430
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "0000101110111": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16429,
+          -16368
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011101110": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16429,
+          -16368
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "split"
+    },
+    "000010111011100": {
+      "domains": {
+        "X1": [
+          -16429,
+          -16368
+        ],
+        "X2": [
+          -31743,
+          -29760
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111011101": {
+      "domains": {
+        "X1": [
+          -16429,
+          -16368
+        ],
+        "X2": [
+          -29759,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011101111": {
+      "domains": {
+        "X1": [
+          -16429,
+          -16368
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "0000101111": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16367,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011110": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16367,
+          -16120
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "000010111100": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16367,
+          -16244
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000101111000": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16367,
+          -16306
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011110000": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16367,
+          -16306
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "split"
+    },
+    "000010111100000": {
+      "domains": {
+        "X1": [
+          -16367,
+          -16306
+        ],
+        "X2": [
+          -31743,
+          -29760
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111100001": {
+      "domains": {
+        "X1": [
+          -16367,
+          -16306
+        ],
+        "X2": [
+          -29759,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011110001": {
+      "domains": {
+        "X1": [
+          -16367,
+          -16306
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "0000101111001": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16305,
+          -16244
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011110010": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16305,
+          -16244
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "split"
+    },
+    "000010111100100": {
+      "domains": {
+        "X1": [
+          -16305,
+          -16244
+        ],
+        "X2": [
+          -31743,
+          -29760
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111100101": {
+      "domains": {
+        "X1": [
+          -16305,
+          -16244
+        ],
+        "X2": [
+          -29759,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011110011": {
+      "domains": {
+        "X1": [
+          -16305,
+          -16244
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111101": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16243,
+          -16120
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000101111010": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16243,
+          -16182
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011110100": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16243,
+          -16182
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "split"
+    },
+    "000010111101000": {
+      "domains": {
+        "X1": [
+          -16243,
+          -16182
+        ],
+        "X2": [
+          -31743,
+          -29760
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111101001": {
+      "domains": {
+        "X1": [
+          -16243,
+          -16182
+        ],
+        "X2": [
+          -29759,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011110101": {
+      "domains": {
+        "X1": [
+          -16243,
+          -16182
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "0000101111011": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16181,
+          -16120
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011110110": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16181,
+          -16120
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "split"
+    },
+    "000010111101100": {
+      "domains": {
+        "X1": [
+          -16181,
+          -16120
+        ],
+        "X2": [
+          -31743,
+          -29760
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111101101": {
+      "domains": {
+        "X1": [
+          -16181,
+          -16120
+        ],
+        "X2": [
+          -29759,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011110111": {
+      "domains": {
+        "X1": [
+          -16181,
+          -16120
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011111": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16119,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "000010111110": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -16119,
+          -15996
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000101111100": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16119,
+          -16058
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011111000": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16119,
+          -16058
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "split"
+    },
+    "000010111110000": {
+      "domains": {
+        "X1": [
+          -16119,
+          -16058
+        ],
+        "X2": [
+          -31743,
+          -29760
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111110001": {
+      "domains": {
+        "X1": [
+          -16119,
+          -16058
+        ],
+        "X2": [
+          -29759,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011111001": {
+      "domains": {
+        "X1": [
+          -16119,
+          -16058
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "0000101111101": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16057,
+          -15996
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "00001011111010": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -16057,
+          -15996
+        ],
+        "X2": [
+          -31743,
+          -27776
+        ]
+      },
+      "status": "split"
+    },
+    "000010111110100": {
+      "domains": {
+        "X1": [
+          -16057,
+          -15996
+        ],
+        "X2": [
+          -31743,
+          -29760
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111110101": {
+      "domains": {
+        "X1": [
+          -16057,
+          -15996
+        ],
+        "X2": [
+          -29759,
+          -27776
+        ]
+      },
+      "status": "pending"
+    },
+    "00001011111011": {
+      "domains": {
+        "X1": [
+          -16057,
+          -15996
+        ],
+        "X2": [
+          -27775,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "000010111111": {
+      "domains": {
+        "X1": [
+          -15995,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "000011": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -23807,
+          -15872
+        ],
+        "X2": [
+          -23807,
+          -15872
+        ]
+      },
+      "status": "split"
+    },
+    "0000110": {
+      "domains": {
+        "X1": [
+          -23807,
+          -19840
+        ],
+        "X2": [
+          -23807,
+          -15872
+        ]
+      },
+      "status": "pending"
+    },
+    "0000111": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -19839,
+          -15872
+        ],
+        "X2": [
+          -23807,
+          -15872
+        ]
+      },
+      "status": "split"
+    },
+    "00001110": {
+      "domains": {
+        "X1": [
+          -19839,
+          -15872
+        ],
+        "X2": [
+          -23807,
+          -19840
+        ]
+      },
+      "status": "pending"
+    },
+    "00001111": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -19839,
+          -15872
+        ],
+        "X2": [
+          -19839,
+          -15872
+        ]
+      },
+      "status": "split"
+    },
+    "000011110": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -19839,
+          -17856
+        ],
+        "X2": [
+          -19839,
+          -15872
+        ]
+      },
+      "status": "split"
+    },
+    "0000111100": {
+      "domains": {
+        "X1": [
+          -19839,
+          -17856
+        ],
+        "X2": [
+          -19839,
+          -17856
+        ]
+      },
+      "status": "pending"
+    },
+    "0000111101": {
+      "domains": {
+        "X1": [
+          -19839,
+          -17856
+        ],
+        "X2": [
+          -17855,
+          -15872
+        ]
+      },
+      "status": "pending"
+    },
+    "000011111": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -17855,
+          -15872
+        ],
+        "X2": [
+          -19839,
+          -15872
+        ]
+      },
+      "status": "split"
+    },
+    "0000111110": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -17855,
+          -15872
+        ],
+        "X2": [
+          -19839,
+          -17856
+        ]
+      },
+      "status": "split"
+    },
+    "00001111100": {
+      "domains": {
+        "X1": [
+          -17855,
+          -16864
+        ],
+        "X2": [
+          -19839,
+          -17856
+        ]
+      },
+      "status": "pending"
+    },
+    "00001111101": {
+      "domains": {
+        "X1": [
+          -16863,
+          -15872
+        ],
+        "X2": [
+          -19839,
+          -17856
+        ]
+      },
+      "status": "pending"
+    },
+    "0000111111": {
+      "domains": {
+        "X1": [
+          -17855,
+          -15872
+        ],
+        "X2": [
+          -17855,
+          -15872
+        ]
+      },
+      "status": "pending"
+    },
+    "0001": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -15872
+        ],
+        "X2": [
+          -15871,
+          0
+        ]
+      },
+      "status": "split"
+    },
+    "00010": {
+      "domains": {
+        "X1": [
+          -31743,
+          -15872
+        ],
+        "X2": [
+          -15871,
+          -7936
+        ]
+      },
+      "status": "pending"
+    },
+    "00011": {
+      "domains": {
+        "X1": [
+          -31743,
+          -15872
+        ],
+        "X2": [
+          -7935,
+          0
+        ]
+      },
+      "status": "pending"
+    },
+    "001": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -15871,
+          0
+        ],
+        "X2": [
+          -31743,
+          0
+        ]
+      },
+      "status": "split"
+    },
+    "0010": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -15871,
+          0
+        ],
+        "X2": [
+          -31743,
+          -15872
+        ]
+      },
+      "status": "split"
+    },
+    "00100": {
+      "domains": {
+        "X1": [
+          -15871,
+          -7936
+        ],
+        "X2": [
+          -31743,
+          -15872
+        ]
+      },
+      "status": "pending"
+    },
+    "00101": {
+      "domains": {
+        "X1": [
+          -7935,
+          0
+        ],
+        "X2": [
+          -31743,
+          -15872
+        ]
+      },
+      "status": "pending"
+    },
+    "0011": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -15871,
+          0
+        ],
+        "X2": [
+          -15871,
+          0
+        ]
+      },
+      "status": "split"
+    },
+    "00110": {
+      "domains": {
+        "X1": [
+          -15871,
+          -7936
+        ],
+        "X2": [
+          -15871,
+          0
+        ]
+      },
+      "status": "pending"
+    },
+    "00111": {
+      "domains": {
+        "X1": [
+          -7935,
+          0
+        ],
+        "X2": [
+          -15871,
+          0
+        ]
+      },
+      "status": "pending"
+    },
+    "01": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -31743,
+          0
+        ],
+        "X2": [
+          1,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "010": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -15872
+        ],
+        "X2": [
+          1,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "0100": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -15872
+        ],
+        "X2": [
+          1,
+          15872
+        ]
+      },
+      "status": "split"
+    },
+    "01000": {
+      "domains": {
+        "X1": [
+          -31743,
+          -15872
+        ],
+        "X2": [
+          1,
+          7936
+        ]
+      },
+      "status": "pending"
+    },
+    "01001": {
+      "domains": {
+        "X1": [
+          -31743,
+          -15872
+        ],
+        "X2": [
+          7937,
+          15872
+        ]
+      },
+      "status": "pending"
+    },
+    "0101": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -31743,
+          -15872
+        ],
+        "X2": [
+          15873,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "01010": {
+      "domains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          15873,
+          31743
+        ]
+      },
+      "status": "pending"
+    },
+    "01011": {
+      "domains": {
+        "X1": [
+          -23807,
+          -15872
+        ],
+        "X2": [
+          15873,
+          31743
+        ]
+      },
+      "status": "pending"
+    },
+    "011": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -15871,
+          0
+        ],
+        "X2": [
+          1,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "0110": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -15871,
+          -7936
+        ],
+        "X2": [
+          1,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "01100": {
+      "domains": {
+        "X1": [
+          -15871,
+          -7936
+        ],
+        "X2": [
+          1,
+          15872
+        ]
+      },
+      "status": "pending"
+    },
+    "01101": {
+      "domains": {
+        "X1": [
+          -15871,
+          -7936
+        ],
+        "X2": [
+          15873,
+          31743
+        ]
+      },
+      "status": "pending"
+    },
+    "0111": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -7935,
+          0
+        ],
+        "X2": [
+          1,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "01110": {
+      "domains": {
+        "X1": [
+          -7935,
+          -3968
+        ],
+        "X2": [
+          1,
+          31743
+        ]
+      },
+      "status": "pending"
+    },
+    "01111": {
+      "domains": {
+        "X1": [
+          -3967,
+          0
+        ],
+        "X2": [
+          1,
+          31743
+        ]
+      },
+      "status": "pending"
+    },
+    "1": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          1,
+          31743
+        ],
+        "X2": [
+          -31743,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "10": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          1,
+          31743
+        ],
+        "X2": [
+          -31743,
+          0
+        ]
+      },
+      "status": "split"
+    },
+    "100": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          1,
+          31743
+        ],
+        "X2": [
+          -31743,
+          -15872
+        ]
+      },
+      "status": "split"
+    },
+    "1000": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          1,
+          15872
+        ],
+        "X2": [
+          -31743,
+          -15872
+        ]
+      },
+      "status": "split"
+    },
+    "10000": {
+      "domains": {
+        "X1": [
+          1,
+          7936
+        ],
+        "X2": [
+          -31743,
+          -15872
+        ]
+      },
+      "status": "pending"
+    },
+    "10001": {
+      "domains": {
+        "X1": [
+          7937,
+          15872
+        ],
+        "X2": [
+          -31743,
+          -15872
+        ]
+      },
+      "status": "pending"
+    },
+    "1001": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          15873,
+          31743
+        ],
+        "X2": [
+          -31743,
+          -15872
+        ]
+      },
+      "status": "split"
+    },
+    "10010": {
+      "domains": {
+        "X1": [
+          15873,
+          31743
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "10011": {
+      "domains": {
+        "X1": [
+          15873,
+          31743
+        ],
+        "X2": [
+          -23807,
+          -15872
+        ]
+      },
+      "status": "pending"
+    },
+    "101": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          1,
+          31743
+        ],
+        "X2": [
+          -15871,
+          0
+        ]
+      },
+      "status": "split"
+    },
+    "1010": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          1,
+          31743
+        ],
+        "X2": [
+          -15871,
+          -7936
+        ]
+      },
+      "status": "split"
+    },
+    "10100": {
+      "domains": {
+        "X1": [
+          1,
+          15872
+        ],
+        "X2": [
+          -15871,
+          -7936
+        ]
+      },
+      "status": "pending"
+    },
+    "10101": {
+      "domains": {
+        "X1": [
+          15873,
+          31743
+        ],
+        "X2": [
+          -15871,
+          -7936
+        ]
+      },
+      "status": "pending"
+    },
+    "1011": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          1,
+          31743
+        ],
+        "X2": [
+          -7935,
+          0
+        ]
+      },
+      "status": "split"
+    },
+    "10110": {
+      "domains": {
+        "X1": [
+          1,
+          31743
+        ],
+        "X2": [
+          -7935,
+          -3968
+        ]
+      },
+      "status": "pending"
+    },
+    "10111": {
+      "domains": {
+        "X1": [
+          1,
+          31743
+        ],
+        "X2": [
+          -3967,
+          0
+        ]
+      },
+      "status": "pending"
+    },
+    "11": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          1,
+          31743
+        ],
+        "X2": [
+          1,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "110": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          1,
+          15872
+        ],
+        "X2": [
+          1,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "1100": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          1,
+          15872
+        ],
+        "X2": [
+          1,
+          15872
+        ]
+      },
+      "status": "split"
+    },
+    "11000": {
+      "domains": {
+        "X1": [
+          1,
+          7936
+        ],
+        "X2": [
+          1,
+          15872
+        ]
+      },
+      "status": "pending"
+    },
+    "11001": {
+      "domains": {
+        "X1": [
+          7937,
+          15872
+        ],
+        "X2": [
+          1,
+          15872
+        ]
+      },
+      "status": "pending"
+    },
+    "1101": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          1,
+          15872
+        ],
+        "X2": [
+          15873,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "11010": {
+      "domains": {
+        "X1": [
+          1,
+          7936
+        ],
+        "X2": [
+          15873,
+          31743
+        ]
+      },
+      "status": "pending"
+    },
+    "11011": {
+      "domains": {
+        "X1": [
+          7937,
+          15872
+        ],
+        "X2": [
+          15873,
+          31743
+        ]
+      },
+      "status": "pending"
+    },
+    "111": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          15873,
+          31743
+        ],
+        "X2": [
+          1,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "1110": {
+      "domains": {
+        "X1": [
+          15873,
+          31743
+        ],
+        "X2": [
+          1,
+          15872
+        ]
+      },
+      "status": "pending"
+    },
+    "1111": {
+      "domains": {
+        "X1": [
+          15873,
+          31743
+        ],
+        "X2": [
+          15873,
+          31743
+        ]
+      },
+      "status": "pending"
+    }
+  },
+  "unfinishedInputPatterns": 4030726144
+}

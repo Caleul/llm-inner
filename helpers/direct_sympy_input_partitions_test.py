@@ -20,6 +20,22 @@ from direct_sympy_savepoints import atomic,digest_file
 
 
 class InputPartitionTests(unittest.TestCase):
+    def test_frontier_visits_largest_pending_domain_with_stable_ties_and_signed_zeros(self):
+        tree={'deep':{'status':'pending','domains':{'X1':[10,11]}},
+              'large':{'status':'pending','domains':{'X1':[-10,10]}},
+              'finished':{'status':'complete','domains':{'X1':[-100,100]}},
+              'split':{'status':'split','domains':{'X1':[-1000,1000]}}}
+        before=json.loads(json.dumps(tree))
+        self.assertEqual(runner.next_region(tree),'large')
+        self.assertEqual(runner.next_region(tree,'lexical'),'deep')
+        self.assertEqual(tree,before)
+        tree={'b':{'status':'pending','domains':{'X1':[-1,1]}},'a':{'status':'pending','domains':{'X1':[1,4]}}}
+        self.assertEqual(runner.cardinality(tree['b']['domains']),4)
+        self.assertEqual(runner.next_region(tree),'a')
+        tree['a']['status']='complete';self.assertEqual(runner.next_region(tree),'b')
+        tree['b']['status']='complete';self.assertIsNone(runner.next_region(tree))
+        with self.assertRaisesRegex(ValueError,'Unknown frontier order'):runner.next_region(tree,'bad')
+
     def test_all_finite_half_patterns_have_exact_disjoint_coverage_including_both_zeros(self):
         domains={'X1':interval(-65504,65504),'X2':interval(-65504,65504)}
         tree={'':{'domains':runner.encode(domains),'status':'pending'}}
