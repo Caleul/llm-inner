@@ -1,0 +1,6 @@
+{
+  "rejected": true,
+  "reason": "Incompatible cover state; no saved expression reused",
+  "manifestUnchanged": true,
+  "manifestSHA256": "c51cd80dab41b67a390244240d91c739d8a5b0082168e6de054c2b3931667130"
+}

@@ -17,6 +17,22 @@ def half(value):
     except OverflowError:return None
 
 
+def silu_bound(bound):
+    """Stored-Half magnitude bound for the existing certified SiLU kernel.
+
+    For Half |x|<=B<=1/16, the quartic's inner coefficient lies in [0,1/4].
+    Ordered F64 operations therefore give |x*(.5+x*c)|<=B*(.5+B/4).
+    The endpoint is an exact F64 dyadic (at most 37 significant bits).
+    Apply BOTH original storage boundaries monotonically: omitting F32
+    changes the bound at the smallest positive Half, among other ties.
+    This is compiler-only interval arithmetic, not a change to SiLU.
+    """
+    if bound is None or not math.isfinite(bound) or bound<0 or half(bound)!=bound:return None
+    if bound>1/16:return bound  # Existing finite-Half |silu(x)|<=|x| contract.
+    upper=bound*(0.5+bound*0.25)
+    return half(struct.unpack('f',struct.pack('f',upper))[0])
+
+
 def dot(model,name,inputs):
     shape=model.shape(name)
     if len(shape)!=2 or shape[1]!=len(inputs) or len(inputs)>2**20 or any(
@@ -72,9 +88,10 @@ def layer(model,prefix):
     gate=dot(model,prefix+'mlp.gate_proj.weight',post)
     up=dot(model,prefix+'mlp.up_proj.weight',post)
     if gate is None or up is None or len(gate)!=len(up):return None
-    # Existing finite Half SiLU contract: |silu(x)| <= |x|.
+    # Tighten the activation before expanding its producer, using the same
+    # certified Half polynomial as the expression compiler where admitted.
     # Both operands are stored Half. Their product is exact F32; the final
     # Half conversion is monotone, with no extra factor-of-two error bound.
-    gated=[half(a*b) for a,b in zip(gate,up)]
+    gated=[half(silu_bound(a)*b) for a,b in zip(gate,up)]
     mlp=dot(model,prefix+'mlp.down_proj.weight',gated)
     return {'attention':attention,'mlp':mlp} if attention is not None and mlp is not None else None

@@ -11329,5 +11329,49 @@
     "fullCoordinateArtifactEmitted": false,
     "fullCoordinateParity": false,
     "multipleTokenParity": false
+  },
+  "siluUpdateBoundValidation": {
+    "report": "docs/evidence/direct-sympy-silu-update-bounds/validation.json",
+    "build": true,
+    "tests": 27,
+    "pass": 27,
+    "fail": 0,
+    "skipped": 0,
+    "certifiedSiluHalfPatterns": 22530,
+    "activationBoundViolations": 0,
+    "nativeProjectionCases": 3555328,
+    "nativeCheckpointUpdateCases": 888832,
+    "oldSourceRejected": true,
+    "oldNumericalResultsReused": false,
+    "oldCompleteDomainsRecompiled": 100,
+    "oldCoveredInputPatterns": 1867358208,
+    "coveredInputPatterns": 2041455616,
+    "addedInputPatterns": 174097408,
+    "unfinishedInputPatterns": 1989270528,
+    "coveragePercent": 50.6473410265999,
+    "freshBroadRegionCompilations": 78,
+    "nativeCases": 639310,
+    "nativeMismatches": 0,
+    "completeRegions": 133,
+    "distinctExpressions": 21,
+    "newExpressionFiles": 7,
+    "matchedRegionProducersBefore": 25,
+    "matchedRegionProducersAfter": 17,
+    "matchedRegionExpandedCharactersBefore": 6581987,
+    "matchedRegionExpandedCharactersAfter": 149304,
+    "matchedRegionArtifactCharacters": 171977,
+    "matchedRegionNativeCases": 8196,
+    "matchedRegionNativeMismatches": 0,
+    "mlpBoundsBefore": [
+      1.341104507446289e-05,
+      1.5974044799804688e-05
+    ],
+    "mlpBoundsAfter": [
+      6.794929504394531e-06,
+      8.046627044677734e-06
+    ],
+    "fullCoordinateArtifactEmitted": false,
+    "fullCoordinateParity": false,
+    "multipleTokenParity": false
   }
 }

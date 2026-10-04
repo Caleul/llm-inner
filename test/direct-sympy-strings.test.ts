@@ -7,10 +7,11 @@ const python=process.env.LLM_INNER_DIRECT_PYTHON;
 test('Tight Half update bounds preserve ordered F32 reductions and eliminate dependencies with proof',
   {skip:!python || !process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_layer_bounds_test.py'],{timeout:120_000,maxBuffer:1024*1024});
-    assert.match(stderr,/Ran 3 tests/);
+    assert.match(stderr,/Ran 4 tests/);
     assert.match(stderr,/OK/);
     assert.match(stdout,/Tight projection bounds: cases=3555328 violations=0/);
     assert.match(stdout,/Tight checkpoint update bounds: cases=888832 violations=0/);
+    assert.match(stdout,/Certified SiLU magnitude bounds: cases=22530 violations=0/);
   });
 test('Memory-admitted parallel regions preserve full geometry, ordered numerical bodies and native parity',
   {skip:!python || !process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT},async()=>{

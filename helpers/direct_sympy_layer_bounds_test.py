@@ -2,7 +2,7 @@
 import os,struct,subprocess,tempfile,unittest
 from fractions import Fraction as F
 from pathlib import Path
-from direct_sympy_layer_bounds import dot,half,layer
+from direct_sympy_layer_bounds import dot,half,layer,silu_bound
 from direct_sympy_checkpoint import CheckpointStrings
 from direct_sympy_strings import StringCompiler
 from direct_sympy_partition_run import update_threshold
@@ -16,6 +16,32 @@ class Weights:
 
 
 class LayerBoundTests(unittest.TestCase):
+    def test_silu_bound_encloses_every_certified_half_prefix(self):
+        import torch
+        magnitudes=[struct.unpack('e',struct.pack('H',b))[0] for b in range(0x2c01)]
+        inputs=[x for b in range(0x2c01) for x in (magnitudes[b],-magnitudes[b])]
+        reference=torch.nn.functional.silu(torch.tensor(inputs,dtype=torch.float16)).abs().double().tolist()
+        maximum=0.0;records=[]
+        for i,bound in enumerate(magnitudes):
+            exact=F(bound)*(F(1,2)+F(bound)/4)
+            self.assertEqual(F(bound*(.5+bound*.25)),exact)
+            maximum=max(maximum,*reference[2*i:2*i+2])
+            upper=silu_bound(bound)
+            self.assertLessEqual(maximum,upper,(bound,maximum,upper))
+            records.append('{'+repr(bound)+','+repr(upper)+'}')
+        self.native('''struct Record{double b,upper;};Record records[]={'''+','.join(records)+'''};
+int main(){std::fesetround(FE_TONEAREST);unsigned cases=0,fail=0;double maximum=0;
+ for(auto r:records){for(double x:{r.b,-r.b}){
+  double value=x*(.5+x*(.25-x*x/48.0));double stored=double(_Float16(float(value)));
+  maximum=std::fmax(maximum,std::abs(stored));cases++;
+ }fail+=maximum>r.upper;}
+ std::printf("Certified SiLU magnitude bounds: cases=%u violations=%u\\n",cases,fail);return fail?1:0;}
+''','Certified SiLU magnitude bounds: cases=22530 violations=0')
+        self.assertEqual(silu_bound(2**-24),0.0)
+        self.assertNotEqual(half(2**-24*(.5+2**-24*.25)),silu_bound(2**-24))
+        for invalid in (None,-1.0,.1,float('nan'),float('inf')):self.assertIsNone(silu_bound(invalid))
+        for outside in (.125,1.0,65504.0):self.assertEqual(silu_bound(outside),outside)
+
     def test_exact_sum_gamma_and_storage_bound_are_outward(self):
         for n in (1,2,4,8,33):
             values=[2**-16]*n
@@ -96,6 +122,7 @@ for(unsigned b=0;b<65536;b++){if((b&0x7c00)==0x7c00)continue;
 #include <cstring>
 #include <cfenv>
 #include <cstdio>
+#include <initializer_list>
 template<class T,class U>T word(U x){T y;std::memcpy(&y,&x,sizeof(y));return y;}
 uint16_t anchors[]={0,0x8000,1,0x8001,0x03ff,0x83ff,0x0400,0x8400,0x3555,0xb555,0x3c01,0xbc01,0x7bff,0xfbff};
 '''+body)
