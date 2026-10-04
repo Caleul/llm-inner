@@ -1,0 +1,21 @@
+{
+  "session": "llm-inner-frontier-composition",
+  "directory": "/content/llm-inner-frontier-composition/square-anchored",
+  "launchOperation": "7134dd04-f46f-4736-9974-49f118fb08ff",
+  "observationOperation": "ccfda09a-6e73-4366-8f94-854606960387",
+  "state": "Broker operation pending; remote runner not yet confirmed",
+  "numericalSource": "Frozen square schema-3 compiler, strict restore identity; only optional scanner helpers are updated",
+  "baseline": {
+    "completedDependencies": 16,
+    "compileSeconds": 906.0542883019998,
+    "rejectedExpandedCharacters": 31935183934,
+    "characterLimit": 17179869184,
+    "parityComparisons": 360,
+    "mismatches": 0
+  },
+  "coordinateComplete": false,
+  "lastAuthoritativeObservation": {
+    "directoryExists": false,
+    "scope": "Read-only Colab status; does not establish whether queued launch will execute later"
+  }
+}
