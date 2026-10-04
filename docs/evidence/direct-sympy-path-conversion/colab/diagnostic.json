@@ -1,0 +1,62 @@
+{
+  "coordinateComplete": false,
+  "envelopes": [
+    {
+      "error": "Closed numeric envelope exceeds string budget before allocation: expandedCharacters=13497941778 limit=8589934592",
+      "compact": "Float64(U64Or(Piecewise((Bits64(Float64(U64And(Bits64(CASNumericRegion200() * CASNumericRegion201()), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(CASNumericRegion200() * CASNumericRegion201()), 9223372036854775807) < 4544132024016830464), (U64And(U64FromF64(F64FromU64(Bits64(CASNumericRegion200() * CASNumericRegion201())) + 2 ** 94 - 2 ** 94), 9223372036854775807), True)), U64And(U64Add(Bits64(CASNumericRegion202()), Bits64(CASNumericRegion203())), 9223372036854775808)))",
+      "compactCharacters": 489,
+      "expandedCharacters": 13497941778,
+      "aliases": [
+        {
+          "alias": "CASNumericRegion200",
+          "producer": "model.layers.0.activation:0",
+          "characters": 2962962964,
+          "occurrences": 3,
+          "restoredContributionCharacters": 8888888892
+        },
+        {
+          "alias": "CASNumericRegion201",
+          "producer": "model.layers.0.up:0",
+          "characters": 1316872178,
+          "occurrences": 3,
+          "restoredContributionCharacters": 3950616534
+        },
+        {
+          "alias": "CASNumericRegion202",
+          "producer": null,
+          "characters": 329218026,
+          "occurrences": 1,
+          "restoredContributionCharacters": 329218026
+        },
+        {
+          "alias": "CASNumericRegion203",
+          "producer": null,
+          "characters": 329218005,
+          "occurrences": 1,
+          "restoredContributionCharacters": 329218005
+        },
+        {
+          "alias": "CASNumericRegion204",
+          "producer": "model.layers.0.post:1",
+          "characters": 164608965,
+          "occurrences": 0,
+          "restoredContributionCharacters": 0
+        },
+        {
+          "alias": "CASNumericRegion205",
+          "producer": "model.layers.0.post:0",
+          "characters": 164608933,
+          "occurrences": 0,
+          "restoredContributionCharacters": 0
+        }
+      ],
+      "inputCharacters": 4279835159,
+      "scope": "Rejected compiler envelope; aliases are not final runtime variables"
+    }
+  ],
+  "restoredDependencies": 0,
+  "stop": "Closed numeric envelope exceeds string budget before allocation: expandedCharacters=13497941778 limit=8589934592",
+  "completedDependencies": 15,
+  "seconds": 122.0652110850001,
+  "peakRSSNativeUnits": 8435088
+}

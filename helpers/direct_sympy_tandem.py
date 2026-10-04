@@ -4,15 +4,16 @@ F32 must round a finite normal-or-zero source, without overflow. No real
 arithmetic reassociation is used. Other sources retain the generic route.
 """
 from direct_sympy_words import simplify_words
+from direct_sympy_strings import syntax
 
 
 def supported(certificate):
     return certificate is not None and certificate.quantum is not None and certificate.quantum>=-126 and max(abs(certificate.minimum),abs(certificate.maximum))<2**128-2**103
 
 
-def lower_tandem(source,certificate,compiler,domains,*,integer_word_exact=False,sign_expression=None,small_condition=None,frontier=None):
+def lower_tandem(source,certificate,compiler,domains,*,integer_word_exact=False,sign_expression=None,small_condition=None,frontier=None,facts=()):
     if not supported(certificate):raise ValueError("Tandem conversion requires finite normal-or-zero F32 source")
-    source=compiler.stabilize("("+source+")",domains)
+    source=compiler.stabilize("("+source+")",domains,facts=facts)
     raw="Bits64(X999999997)"
     mag=f"U64And({raw}, 9223372036854775807)"
     # Caller may certify a smaller expression with the identical IEEE sign,
@@ -49,12 +50,17 @@ def lower_tandem(source,certificate,compiler,domains,*,integer_word_exact=False,
     minimum=certificate.minimum if certificate.minimum>0 else -certificate.maximum if certificate.maximum<0 else 0
     if maximum<overflow:above=normal
     else:above=f"Piecewise(({normal}, {mag} < {overflow_bits}), ({infinity}, True))"
+    condition=f"{mag} < {small_bits}" if small_condition is None else small_condition
+    classification=None
+    if facts:
+        guard=compiler.substitute(condition,"X999999997",source,domains)
+        classification=compiler.branch_facts.truth(syntax(guard),facts)
+        if classification is not None:compiler.condition_events.append(("numeric/tandem","small","path-proved-"+str(classification).lower()))
     mixed=False
-    if minimum>=small or certificate.quantum>=-24:template=above
-    elif maximum<small:template=sub
+    if minimum>=small or certificate.quantum>=-24 or classification is False:template=above
+    elif maximum<small or classification is True:template=sub
     else:
         mixed=True
-        condition=f"{mag} < {small_bits}" if small_condition is None else small_condition
         template=f"Piecewise(({sub}, {condition}), ({above}, True))"
     if sign_expression is not None:
         template=compiler.substitute(template,"X999999996",sign_expression,domains)

@@ -1,0 +1,9 @@
+....
+----------------------------------------------------------------------
+Ran 4 tests in 1.485s
+
+OK
+Path Half conversion parity: cases=245776 mismatches=0 negative=57344 negativeZeros=65544
+Path conversion strings: 534 -> 379
+Path F32 conversion parity: cases=2377914 mismatches=0
+Path tandem conversion parity: cases=19458 mismatches=0

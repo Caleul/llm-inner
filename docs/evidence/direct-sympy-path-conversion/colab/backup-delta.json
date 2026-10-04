@@ -1,0 +1,7 @@
+{
+  "baseArchiveSha256": "ab70dc94ff4e43c149a124e0714f67b085b2bd55cba27538eb8dd4eaf7ce6d48",
+  "immutableProducerObjectsIdentical": true,
+  "producers": 15,
+  "stateIdentityOrigin": "Fresh compilation with current numerical sources, not identity migration",
+  "restorePolicy": "Combine this fresh frontier and its sources with verified identical objects from the base archive, then validate environment and compiler identity normally. Never resume the old frontier directly."
+}

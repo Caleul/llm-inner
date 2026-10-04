@@ -9620,5 +9620,240 @@
     },
     "numericalSourcesMatchSavedState": true,
     "observerScope": "Compiler observer only; final local CLI also persists a returned coordinate as a working expression and never claims parity before separate validation. Remote diagnostic used the frozen earlier observer; numerical sources identical."
+  },
+  "pathConversionValidation": {
+    "expressionFormat": "Mathematical strings; JSON evidence/savepoint metadata only",
+    "implementation": "Use exact path facts to select normal/subnormal conversion before restoring source expressions, including disconnected signed normal domains. Preserve numeric order, dtype and signed zeros.",
+    "native": {
+      "halfCases": 245776,
+      "f32Cases": 2377914,
+      "tandemCases": 19458,
+      "mismatches": 0,
+      "halfExpressionCharacters": {
+        "baseline": 534,
+        "current": 379
+      },
+      "scope": "Conversion kernels with their own path contexts; not the checkpoint coordinate"
+    },
+    "tests": {
+      "build": "passed",
+      "node": {
+        "tests": 9,
+        "pass": 9,
+        "skip": 0
+      },
+      "python": {
+        "tests": 110,
+        "pass": 110,
+        "skip": 0
+      },
+      "newPathTests": 4,
+      "broad": {
+        "tests": 603,
+        "pass": 570,
+        "fail": 15,
+        "skip": 18,
+        "seconds": 236.883229041,
+        "failureNamesIdentical": true,
+        "newFailures": [],
+        "failureNames": [
+          "Gemma 4 embedded adapter executes every serialized invocation program without hidden class transforms",
+          "Gemma 4 runtime-reduction provider executes the integrity-bound embedded adapter",
+          "evidência adia prefill exato sem cache e preserva antecipação do contexto exato",
+          "evidência do corte de prefill terminal preserva corpus e correção de raiz",
+          "evidência do default de oito threads vincula corpus e tokens autoritativos",
+          "evidência promove antecipação do prefixo exato somente em sessão com cache",
+          "evidência promove cabeça BF16 integral e rejeita prefill agrupado divergente",
+          "evidência promove cache de decisão exata e rejeita fronteira Q8 0-18",
+          "evidência promove contexto sensível exato sem replay do decoder",
+          "evidência promove o maior prefixo exato entre sessões sem alterar logits",
+          "evidência rejeita Q8 na projeção down quando velocidade e verificação deixam de coexistir",
+          "evidência rejeita grupos Q8 que divergem ou ampliam o fallback",
+          "evidência rejeita prefill exato eager quando ele preserva tokens mas piora todas as classes de latência",
+          "keeps the real agent-visible task free of controller context",
+          "scalar-substitution example contains concrete learned values and reproduces its F32 result"
+        ]
+      }
+    },
+    "stateCompatibility": "Changed numerical source identities reject prior states before loading/mutating producers; fresh compilation required",
+    "colab": {
+      "session": "llm-inner-envelope-diagnostic",
+      "directory": "/content/llm-inner-path-conversion",
+      "launchOperation": "0254469b-5b10-4411-a639-b50972ae9fd3",
+      "firstAttemptFailure": "Missing clang++; native gate failed before compilation. Installed Clang via the same Broker and repeated only after original runner terminal and no state existed.",
+      "setupOperation": "73211769-e4ff-4eb3-9802-5a6999206dea",
+      "retryOperation": "d12b0a32-b20b-48c1-ad16-89df677fb791",
+      "runnerPID": 14881,
+      "statusOperation": "0ee3a9d3-3341-4976-8b10-42bae5bbb2fd",
+      "lastConfirmed": "All runs terminal. Actual 15 saved files, 300 comparisons, zero mismatches. Next gated envelope unchanged at 13,497,941,778 characters; coordinate incomplete.",
+      "maximumCharacters": 8589934592,
+      "report": {
+        "runs": [
+          {
+            "name": "direct_sympy_path_conversion_test.py",
+            "seconds": 2.370794425999975,
+            "exitCode": 0,
+            "childrenPeakRSSKiB": 532020
+          },
+          {
+            "name": "direct_sympy_savepoints_test.py",
+            "seconds": 4.742947788000038,
+            "exitCode": 0,
+            "childrenPeakRSSKiB": 661200
+          },
+          {
+            "name": "cuda",
+            "seconds": 3.6732125590001488,
+            "exitCode": 0,
+            "childrenPeakRSSKiB": 1029184
+          },
+          {
+            "name": "compile",
+            "seconds": 124.70238238399997,
+            "exitCode": 0,
+            "childrenPeakRSSKiB": 8435088
+          },
+          {
+            "name": "parity",
+            "seconds": 85.27746076699987,
+            "exitCode": 0,
+            "childrenPeakRSSKiB": 8856468
+          }
+        ],
+        "coordinateComplete": false,
+        "oldStateRejectedBeforeMutation": true,
+        "terminal": "complete"
+      },
+      "diagnostic": {
+        "coordinateComplete": false,
+        "envelopes": [
+          {
+            "error": "Closed numeric envelope exceeds string budget before allocation: expandedCharacters=13497941778 limit=8589934592",
+            "compact": "Float64(U64Or(Piecewise((Bits64(Float64(U64And(Bits64(CASNumericRegion200() * CASNumericRegion201()), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(CASNumericRegion200() * CASNumericRegion201()), 9223372036854775807) < 4544132024016830464), (U64And(U64FromF64(F64FromU64(Bits64(CASNumericRegion200() * CASNumericRegion201())) + 2 ** 94 - 2 ** 94), 9223372036854775807), True)), U64And(U64Add(Bits64(CASNumericRegion202()), Bits64(CASNumericRegion203())), 9223372036854775808)))",
+            "compactCharacters": 489,
+            "expandedCharacters": 13497941778,
+            "aliases": [
+              {
+                "alias": "CASNumericRegion200",
+                "producer": "model.layers.0.activation:0",
+                "characters": 2962962964,
+                "occurrences": 3,
+                "restoredContributionCharacters": 8888888892
+              },
+              {
+                "alias": "CASNumericRegion201",
+                "producer": "model.layers.0.up:0",
+                "characters": 1316872178,
+                "occurrences": 3,
+                "restoredContributionCharacters": 3950616534
+              },
+              {
+                "alias": "CASNumericRegion202",
+                "producer": null,
+                "characters": 329218026,
+                "occurrences": 1,
+                "restoredContributionCharacters": 329218026
+              },
+              {
+                "alias": "CASNumericRegion203",
+                "producer": null,
+                "characters": 329218005,
+                "occurrences": 1,
+                "restoredContributionCharacters": 329218005
+              },
+              {
+                "alias": "CASNumericRegion204",
+                "producer": "model.layers.0.post:1",
+                "characters": 164608965,
+                "occurrences": 0,
+                "restoredContributionCharacters": 0
+              },
+              {
+                "alias": "CASNumericRegion205",
+                "producer": "model.layers.0.post:0",
+                "characters": 164608933,
+                "occurrences": 0,
+                "restoredContributionCharacters": 0
+              }
+            ],
+            "inputCharacters": 4279835159,
+            "scope": "Rejected compiler envelope; aliases are not final runtime variables"
+          }
+        ],
+        "restoredDependencies": 0,
+        "stop": "Closed numeric envelope exceeds string budget before allocation: expandedCharacters=13497941778 limit=8589934592",
+        "completedDependencies": 15,
+        "seconds": 122.0652110850001,
+        "peakRSSNativeUnits": 8435088
+      },
+      "actualFileParity": {
+        "cases": 60,
+        "comparisons": 300,
+        "mismatches": 0,
+        "producerFilesEvaluated": 15,
+        "coordinateAtPositionZeroVerified": false,
+        "scope": "Actual saved posterior normalization, gate/activation/up/gated and any completed hidden/final/output producers, position 0; verification-only reuse of immutable earlier subtrees. Does not prove the last-token next-token coordinate for variable sequence lengths.",
+        "elapsedSeconds": 77.55685923100009
+      },
+      "cuda": {
+        "device": "NVIDIA A100-SXM4-40GB",
+        "torch": "2.11.0+cu130",
+        "cuda": "13.0",
+        "cpuThreads": 1,
+        "halfProducts": {
+          "cases": 888832,
+          "mismatches": 0,
+          "medianCpuSeconds": 0.0020724649998555833,
+          "medianCudaSeconds": 8.495000020047883e-05,
+          "medianCudaWithTransfersSeconds": 0.002550544000314403,
+          "samples": 15,
+          "warmup": 3
+        },
+        "silu": {
+          "cases": 19458,
+          "mismatches": 0,
+          "domain": [
+            -0.0234375,
+            0.0234375
+          ],
+          "cudaAdmitted": true
+        },
+        "quadraticThreshold": {
+          "cases": 19458,
+          "cpuMismatches": 0,
+          "cudaMismatches": 0,
+          "squareBitMismatches": 0,
+          "cudaAdmitted": true
+        },
+        "cudaPeakAllocatedBytes": 11682816
+      },
+      "resources": {
+        "cpuCount": 12,
+        "gpu": "NVIDIA A100-SXM4-40GB",
+        "torch": "2.11.0+cu130",
+        "sympy": "1.14.0",
+        "memory": [
+          "MemTotal:       87528504 kB",
+          "MemAvailable:   85306728 kB"
+        ]
+      },
+      "structuralImprovementObservedOnCheckpoint": false,
+      "speedupMeasured": false,
+      "compilePeakRSSBytes": 8637530112,
+      "comparisonScope": "Previous fresh run used a larger character budget and external stop; previous 98-second run resumed 15 dependencies. Neither is a matching speed baseline for this fresh 8-GiB-budget run. Immutable producer expressions are byte-identical; no checkpoint speedup claimed."
+    },
+    "coordinateComplete": false,
+    "nextRequirement": "Complete the coordinate with only fundamental input variables, then validate it and subsequent positions/coordinates.",
+    "backup": {
+      "deltaArchive": "artifacts/direct-sympy-path-colab/evidence-and-state-delta.tar.gz",
+      "deltaSha256": "b0d8d6006fd5f2ac2227d568616dd2a89f01120cd414d23481f52bf410c3683c",
+      "baseArchive": "artifacts/direct-sympy-envelope-colab/state-backup.tar",
+      "baseSha256": "ab70dc94ff4e43c149a124e0714f67b085b2bd55cba27538eb8dd4eaf7ce6d48",
+      "policy": "Fresh current frontier from actual recompilation, plus verified identical immutable objects from the prior base; never rewrite an old frontier identity to reuse it.",
+      "downloadOperation": "0228eb25-c034-4fdb-9dc0-3e5b357813d3",
+      "localArchiveHashesVerified": true,
+      "immutableObjectReferencesIdentical": true,
+      "currentNumericSourcesVerifiedAgainstFreshManifest": true
+    }
   }
 }

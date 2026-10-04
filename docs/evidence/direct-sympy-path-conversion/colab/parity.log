@@ -1,0 +1,17 @@
+{"producer": "model.layers.0.pre:inverse", "characters": 5210, "validationEnvelopeCharacters": 5210, "sha256": "a2a26469b3e911647359354fcce3d74719a0b20a98e056ea583a6b470fd65839"}
+{"producer": "model.layers.0.pre:0", "characters": 15989, "validationEnvelopeCharacters": 407, "sha256": "97701b73d8b9e149788860d1b977f94a735527586fe243c43eee2ed57a259617"}
+{"producer": "model.layers.0.pre:1", "characters": 15989, "validationEnvelopeCharacters": 407, "sha256": "6d3362b76a28618b5cac0dc5c3bab13c63c4348b2717ea131af478b0ea44c91d"}
+{"producer": "model.layers.0.v:0", "characters": 128506, "validationEnvelopeCharacters": 722, "sha256": "1a013265a0327fa038411e974c4b183ca596872dae35a747e7dd272cf1e69ac4"}
+{"producer": "model.layers.0.context:0", "characters": 128512, "validationEnvelopeCharacters": 22, "sha256": "4c70f046b16de6d6fa99431f04157a9f85378719ac757f40ed5cd2b84264da84"}
+{"producer": "model.layers.0.v:1", "characters": 128494, "validationEnvelopeCharacters": 710, "sha256": "d3638df4fbc8cc0ebf7a98ae7ff0dea4a0e7b80a80d731960a57221fdef3f322"}
+{"producer": "model.layers.0.context:1", "characters": 128500, "validationEnvelopeCharacters": 22, "sha256": "a3c42c0b76d82fdf6e60490c00d4d85fdc30fba53a4dd7c3990e081a8bb8d81b"}
+{"producer": "model.layers.0.residual:0", "characters": 1028704, "validationEnvelopeCharacters": 832, "sha256": "f5dfa5089872564d7b3436b7f60f53c1fa8771934b50bd27197547d124986e4d"}
+{"producer": "model.layers.0.residual:1", "characters": 1028712, "validationEnvelopeCharacters": 840, "sha256": "4699c8f9e0a4b650e0b07a76274692b003a9c4943382cb79209f50fb5dc7a860"}
+{"producer": "model.layers.0.post:inverse", "characters": 53497922, "validationEnvelopeCharacters": 5938, "sha256": "a033d6c6a098417624d241fef9bf25cfa70d9fafda21c5d007ba797faa728bcc"}
+{"producer": "model.layers.0.post:0", "characters": 164608933, "validationEnvelopeCharacters": 463, "sha256": "40b4dc7c5a71eef962da5743a19e7aea61050d2230cf1be10dfb3653a6fb7def"}
+{"producer": "model.layers.0.post:1", "characters": 164608965, "validationEnvelopeCharacters": 463, "sha256": "b4b4b9948518ab54460013ec15059f5ed8c48428e1fe08fcbad70d5c39def653"}
+{"producer": "model.layers.0.gate:0", "characters": 1316872194, "validationEnvelopeCharacters": 730, "sha256": "9b6263ee0312ecd3bbee460baad57d8c22e651bba95179f50b565e640a5233d5"}
+{"producer": "model.layers.0.activation:0", "characters": 2962962964, "validationEnvelopeCharacters": 2170, "sha256": "842936b9b2e23a13ec7525cffe49ca95ff749c00a220e75e1e050a756088251e"}
+{"producer": "model.layers.0.up:0", "characters": 1316872178, "validationEnvelopeCharacters": 714, "sha256": "ca2454da23c325f276f8d40e916ab3c269c2166e49d1dc14d7c042e6d381387b"}
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]Loading weights: 100%|██████████| 12/12 [00:00<00:00, 7505.46it/s]
+{"cases": 60, "comparisons": 300, "mismatches": 0, "producerFilesEvaluated": 15, "coordinateAtPositionZeroVerified": false, "scope": "Actual saved posterior normalization, gate/activation/up/gated and any completed hidden/final/output producers, position 0; verification-only reuse of immutable earlier subtrees. Does not prove the last-token next-token coordinate for variable sequence lengths.", "elapsedSeconds": 77.55685923100009}

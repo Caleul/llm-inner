@@ -1,0 +1,26 @@
+{
+  "tests": 603,
+  "pass": 570,
+  "fail": 15,
+  "skip": 18,
+  "seconds": 236.883229041,
+  "failureNamesIdentical": true,
+  "newFailures": [],
+  "failureNames": [
+    "Gemma 4 embedded adapter executes every serialized invocation program without hidden class transforms",
+    "Gemma 4 runtime-reduction provider executes the integrity-bound embedded adapter",
+    "evidência adia prefill exato sem cache e preserva antecipação do contexto exato",
+    "evidência do corte de prefill terminal preserva corpus e correção de raiz",
+    "evidência do default de oito threads vincula corpus e tokens autoritativos",
+    "evidência promove antecipação do prefixo exato somente em sessão com cache",
+    "evidência promove cabeça BF16 integral e rejeita prefill agrupado divergente",
+    "evidência promove cache de decisão exata e rejeita fronteira Q8 0-18",
+    "evidência promove contexto sensível exato sem replay do decoder",
+    "evidência promove o maior prefixo exato entre sessões sem alterar logits",
+    "evidência rejeita Q8 na projeção down quando velocidade e verificação deixam de coexistir",
+    "evidência rejeita grupos Q8 que divergem ou ampliam o fallback",
+    "evidência rejeita prefill exato eager quando ele preserva tokens mas piora todas as classes de latência",
+    "keeps the real agent-visible task free of controller context",
+    "scalar-substitution example contains concrete learned values and reproduces its F32 result"
+  ]
+}

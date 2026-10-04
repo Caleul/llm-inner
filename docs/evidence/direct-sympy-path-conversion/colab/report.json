@@ -1,0 +1,37 @@
+{
+  "runs": [
+    {
+      "name": "direct_sympy_path_conversion_test.py",
+      "seconds": 2.370794425999975,
+      "exitCode": 0,
+      "childrenPeakRSSKiB": 532020
+    },
+    {
+      "name": "direct_sympy_savepoints_test.py",
+      "seconds": 4.742947788000038,
+      "exitCode": 0,
+      "childrenPeakRSSKiB": 661200
+    },
+    {
+      "name": "cuda",
+      "seconds": 3.6732125590001488,
+      "exitCode": 0,
+      "childrenPeakRSSKiB": 1029184
+    },
+    {
+      "name": "compile",
+      "seconds": 124.70238238399997,
+      "exitCode": 0,
+      "childrenPeakRSSKiB": 8435088
+    },
+    {
+      "name": "parity",
+      "seconds": 85.27746076699987,
+      "exitCode": 0,
+      "childrenPeakRSSKiB": 8856468
+    }
+  ],
+  "coordinateComplete": false,
+  "oldStateRejectedBeforeMutation": true,
+  "terminal": "complete"
+}

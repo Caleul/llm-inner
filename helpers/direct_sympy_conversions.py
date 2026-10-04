@@ -47,14 +47,14 @@ def binary_exponent(value):
     return math.frexp(value)[1]-1
 
 
-def lower_finite_conversion(expression,kind,certificate,compiler,domains,path=(),*,no_odd_f32_ties=False,integer_word_exact=False,frontier=None,sign_word=None):
+def lower_finite_conversion(expression,kind,certificate,compiler,domains,path=(),*,no_odd_f32_ties=False,integer_word_exact=False,frontier=None,sign_word=None,facts=()):
     if not isinstance(certificate,FiniteSource):
         raise ValueError("Finite source interval certificate required")
     if kind not in ("R32","R16"):
         raise ValueError("Unsupported conversion boundary")
     if no_odd_f32_ties and kind!="R32":raise ValueError("Odd-tie certificate applies only to F32")
     # Fixed-point simplification must complete before this substitution too.
-    source=compiler.stabilize("("+expression+")",domains,path)
+    source=compiler.stabilize("("+expression+")",domains,path,facts=facts)
     raw=call("Bits64","X999999997")
     magnitude=call("U64And",raw,0x7fffffffffffffff)
     sign=call("U64And",raw,0x8000000000000000) if sign_word is None else "X999999996"
@@ -78,7 +78,16 @@ def lower_finite_conversion(expression,kind,certificate,compiler,domains,path=()
     # leaves it unchanged, including signed zero. A separate small kernel
     # is needed only when the source can lie between those grid points.
     zero_or_normal=certificate.quantum is not None and certificate.quantum>=(-149 if kind=="R32" else -24)
-    if maximum<overflow and (minimum>=smallest or zero_or_normal):
+    # A path can exclude the entire central magnitude interval while still
+    # admitting both signs. A single signed interval cannot express that.
+    # Reuse only the exact predicate already present in this branch's facts.
+    classification=None
+    if facts:
+        guard=syntax(call("U64And",call("Bits64",source),0x7fffffffffffffff)+" < "+str(small_threshold))
+        classification=compiler.branch_facts.truth(guard,facts)
+        if classification is not None:compiler.condition_events.append(("numeric/"+kind,"small","path-proved-"+str(classification).lower()))
+    normal_domain=minimum>=smallest or zero_or_normal or classification is False
+    if maximum<overflow and normal_domain:
         # Under this certificate the low-bit bias cannot carry into bit 63.
         # Round the signed word itself: the retained-bit parity is independent
         # of its sign. Avoid stripping/restoring a third copy of the producer
@@ -96,8 +105,8 @@ def lower_finite_conversion(expression,kind,certificate,compiler,domains,path=()
         "("+normal+", "+magnitude+" < "+str(overflow_threshold)+")",
         "("+str(0x7ff0000000000000)+", True)")
     mixed=False
-    if maximum<smallest:positive=subnormal
-    elif minimum>=smallest or zero_or_normal:positive=above
+    if classification is True or maximum<smallest:positive=subnormal
+    elif normal_domain:positive=above
     else:
         mixed=True
         positive=call("Piecewise","("+subnormal+", "+magnitude+" < "+str(small_threshold)+")","("+above+", True)")
@@ -981,10 +990,10 @@ class ConversionSession:
                             magnitude=ast.unparse(raw)
                             exact_word=session.encoded_word_is_exact_integer(raw)
                             frontier=[]
-                            text=lower_tandem(magnitude,certificate,session.compiler,session.domains,integer_word_exact=exact_word,sign_expression=sign_expression,small_condition=condition,frontier=frontier)
+                            text=lower_tandem(magnitude,certificate,session.compiler,session.domains,integer_word_exact=exact_word,sign_expression=sign_expression,small_condition=condition,frontier=frontier,facts=session.branch_facts)
                             if polynomial is not None:
                                 candidate_frontier=[]
-                                candidate=lower_tandem(polynomial[0],certificate,session.compiler,session.domains,integer_word_exact=True,sign_expression=polynomial[1],small_condition=condition,frontier=candidate_frontier)
+                                candidate=lower_tandem(polynomial[0],certificate,session.compiler,session.domains,integer_word_exact=True,sign_expression=polynomial[1],small_condition=condition,frontier=candidate_frontier,facts=session.branch_facts)
                                 # Fewer occurrences of the certified operand;
                                 # requiring a smaller compact result is also
                                 # conservative when its literal is restored.
@@ -1011,7 +1020,7 @@ class ConversionSession:
                         projection=project(rewritten.args[0],session)
                         sign_word=simplify_words(ast.unparse(projection),session.compiler,session.domains)
                         text=lower_finite_conversion(ast.unparse(rewritten.args[0]),rewritten.func.id,
-                            source,session.compiler,session.domains,no_odd_f32_ties=no_odd_ties,integer_word_exact=session.encoded_word_is_exact_integer(node.args[0]),frontier=frontier,sign_word=sign_word)
+                            source,session.compiler,session.domains,no_odd_f32_ties=no_odd_ties,integer_word_exact=session.encoded_word_is_exact_integer(node.args[0]),frontier=frontier,sign_word=sign_word,facts=session.branch_facts)
                         session.remember_frontier_bounds(text,frontier)
                         rewritten=syntax(text)
                         session.sign_projections[session.key(rewritten)]=syntax(sign_word)

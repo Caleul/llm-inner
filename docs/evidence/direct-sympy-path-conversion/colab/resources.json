@@ -1,0 +1,10 @@
+{
+  "cpuCount": 12,
+  "gpu": "NVIDIA A100-SXM4-40GB",
+  "torch": "2.11.0+cu130",
+  "sympy": "1.14.0",
+  "memory": [
+    "MemTotal:       87528504 kB",
+    "MemAvailable:   85306728 kB"
+  ]
+}
