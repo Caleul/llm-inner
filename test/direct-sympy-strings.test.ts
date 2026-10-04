@@ -4,6 +4,13 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 
 const python=process.env.LLM_INNER_DIRECT_PYTHON;
+test('Stabilized branches share decisions, preserve lazy guards and emit flat input-only expressions',
+  {skip:!python},async()=>{
+    const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_coherent_paths_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 7 tests/);
+    assert.match(stderr,/OK/);
+    if(process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT) assert.match(stdout,/Flat checkpoint normalization: cases=888832 mismatches=0/);
+  });
 test('Compiler-only literal sharing uses expanded costs and emits bit-exact input-only expressions',
   {skip:!python},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_streaming_literals_test.py'],{timeout:120_000,maxBuffer:1024*1024});

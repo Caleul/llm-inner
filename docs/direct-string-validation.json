@@ -10421,5 +10421,22 @@
       "Last-token compilation for variable sequence lengths",
       "Other output coordinates"
     ]
+  },
+  "coherentPathValidation": {
+    "report": "docs/evidence/direct-sympy-coherent-paths/validation.json",
+    "coordinateRun": "docs/evidence/direct-sympy-coherent-paths/coordinate-run.json",
+    "testMap": {
+      "helpers/direct_sympy_coherent_paths_test.py": "Seven tests: shared versus independent decisions, logical contradictions and negation, prefix-owned lazy dispatch, ordered And/Or short circuit, path-specific expanded candidate costs and restoration after failure, atomic path/character caps and gzip readback, actual emitted checkpoint normalization native bit parity.",
+      "test/direct-sympy-strings.test.ts": "Thirteen named integrations; terminal results recorded in integration-tests.log."
+    },
+    "stateCompatibility": "Fresh model and compiler only; legacy producer states are not reused or relabelled compatible. Compiler-only definitions never remain in an emitted expression.",
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "remaining": [
+      "Reduce selected numerical dependency bodies before further path distribution",
+      "Emit complete coordinate and validate its readback against a fresh reference",
+      "Compile variable-length last-token semantics",
+      "Compile remaining output coordinates"
+    ]
   }
 }

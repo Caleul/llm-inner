@@ -1,0 +1,25 @@
+{
+  "expressionFormat": "Mathematical string; JSON files contain diagnostics only",
+  "scope": "Actual emitted input normalization coordinate 0, not full Llama output",
+  "artifact": "docs/evidence/direct-sympy-coherent-paths/pre-coordinate.expr",
+  "characters": 11430,
+  "sha256": "fd1c57909e69b1dfe6f59cfcd5aa408944cb6b02129d4a01d802a8fff8651d95",
+  "flatSelectors": 1,
+  "compilerAliases": 0,
+  "nativeReadbackComparisons": 888832,
+  "mismatches": 0,
+  "finalArtifactEmitted": false,
+  "finalParity": false,
+  "sourceSha256": {
+    "helpers/direct_sympy_coherent_paths.py": "8dc6125afaff5e7b63805f3013f597c6337756c7ba0b797f1eaad2c018b43994",
+    "helpers/direct_sympy_coherent_paths_test.py": "6a55f14d1e5d3e3023af0b3a02187bf4ce73dc1ac11d2feacbcfc3abbe2e36de",
+    "helpers/direct_sympy_coherent_run.py": "2a9c5b45d90ce3e318bbb5ba5134d523fc1b463b234cdc3bb00b722f70a501ef"
+  },
+  "integrationTests": {
+    "pass": 13,
+    "fail": 0,
+    "skipped": 0,
+    "log": "docs/evidence/direct-sympy-coherent-paths/integration-tests.log",
+    "finalChangedModuleLog": "docs/evidence/direct-sympy-coherent-paths/native-path-tests.log"
+  }
+}
