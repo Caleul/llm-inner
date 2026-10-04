@@ -15,6 +15,28 @@ import time
 import traceback
 
 
+def expansion_snapshot(model):
+    """Measure ownership without copying or serializing expression literals.
+
+    Character counts describe retained sources, not independent allocations:
+    compiler and conversion tables can refer to the same Python string.
+    Linux mappings distinguish the address-space limit from resident RAM.
+    """
+    snapshot={'producerCharacters':sum(map(len,model.memo.values())),
+        'producers':len(model.memo),
+        'registeredRegionCharacters':model.compiler._region_characters,
+        'lastSubstitution':model.compiler.substitution_events[-1:],
+        'lastBudgetEnvelope':model.compiler.budget_events[-1:]}
+    if model.conversions is not None:
+        snapshot['closedLiteralCharacters']=model.conversions.closed_literal_characters
+    statm=Path('/proc/self/statm')
+    if statm.exists():
+        pages=statm.read_text().split();page_size=os.sysconf('SC_PAGE_SIZE')
+        snapshot.update(addressSpaceBytes=int(pages[0])*page_size,
+                        residentBytes=int(pages[1])*page_size)
+    return snapshot
+
+
 def main():
     from direct_sympy_checkpoint import CheckpointStrings,write_expression
     from direct_sympy_envelope_diagnostic import capture_envelopes
@@ -64,6 +86,7 @@ def main():
                 if args.resume:
                     report['restoredDependencies']=store.restore(model)
                     report['resumeCompatible']=True
+                    report['restoredExpansion']=expansion_snapshot(model)
                     print(json.dumps({'event':'compatible-state-restored',
                         'dependencies':report['restoredDependencies']}),flush=True)
                 def persist(completed):
@@ -71,6 +94,7 @@ def main():
                     name=next(reversed(completed.memo))
                     print(json.dumps({'event':'producer-persisted','name':name,
                         'characters':len(completed.memo[name]),'dependencies':len(completed.memo),
+                        'expansion':expansion_snapshot(completed),
                         'seconds':time.monotonic()-started}),flush=True)
                 model.on_completed=persist
                 with capture_envelopes(model,report['envelopes']):
@@ -84,6 +108,7 @@ def main():
                         result=0
                     except (ValueError,TimeoutError,MemoryError) as error:
                         record_stop(error,'compilation')
+                        report['stoppedExpansion']=expansion_snapshot(model)
                 report['completedDependencies']=len(model.memo)
                 report['newDependencies']=len(model.memo)-report['restoredDependencies']
                 report['lastDependency']=next(reversed(model.memo),None)

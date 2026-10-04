@@ -1,0 +1,13 @@
+{
+  "archive": "/Users/caleul/Documents/Work/Projects/llm-inner/artifacts/direct-sympy-persistent-colab/hidden1-delta.tar",
+  "archiveSHA256": "0f3a7903a1af3d0dd729510dc3aeb8032ede50f8a53bebf9cc5196222e61d177",
+  "manifestIntegrityVerified": true,
+  "baseIdentityAnd19RecordPrefixUnchanged": true,
+  "savedRecords": 20,
+  "newProducer": "model.layers.0.hidden:1",
+  "newProducerCharacters": 12951847416,
+  "newProducerSHA256": "c3a846a0f27a868ae763984a5909e84b1ce39ffba9f4147db13c98243caa7baf",
+  "uncompressedContentVerified": true,
+  "coordinateComplete": false,
+  "verificationSeconds": 5.776236375037115
+}

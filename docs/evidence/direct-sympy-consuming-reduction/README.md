@@ -45,5 +45,35 @@ No new producer or complete-coordinate result is claimed until read back.
 
 The corrected Colab gate passed all 13 tests. Its allocation peaks are
 67,109,596 versus 33,555,001 bytes, with identical output. The Linux controller
-gate also exited zero. The bounded real compiler is now live, restoring the
-19-record state; no new saved producer has yet been observed.
+gate also exited zero. The bounded real compiler restored 19 records and persisted hidden:1 as
+record 20. It stopped after 541.385 seconds at 70,675,308,544 bytes peak RSS
+while substituting a finite-Half square in final RMS normalization. The v4
+run saved no new producer. These different terminal frontiers do not support
+a speedup ratio or an ETA for a complete coordinate. A Colab observation lost its connection while parity was live. Re-reading
+the same session confirmed terminal parity: 60 cases, 480 comparisons, zero
+mismatches across all 20 saved files, including hidden:1. Both processes
+are now absent. terminal-parity.json records the final readback. This
+validates position-zero producers only, not a full output coordinate or
+the last-token output at variable sequence lengths.
+
+The new hidden:1 mathematical string has 12,951,847,416 characters. Its
+291,891,200-byte delta archive was downloaded through the Broker. The local
+archive hash, manifest integrity, unchanged 19-record prefix and entire
+uncompressed expression digest were verified without materializing the
+13-GB string. hidden1-backup.json records the checks. The base and earlier
+hidden:0 delta archives are still required to reconstruct all 20 records.
+
+The controller now records retained producer/region characters, last
+substitution/budget envelope and Linux address-space/resident usage at
+restore, persistence and failure. Shared literal counts are not independent
+allocations. Numerical sources and strict savepoint identity are unchanged.
+The real resume/rejection test passed locally (one Linux-only skip), both
+controller tests passed on Colab Linux, the named Node integration passed
+and the TypeScript build passed. Their logs are mapped here.
+
+Next unresolved expansion is final:mean, not another output coordinate.
+Any simplification changes must keep dtype/order/sign-zero proofs and the
+per-substitution CAS fixed point. Reducing temporary ownership alone has
+not reduced the 13-GB saved expressions. Increasing resource caps alone
+does not address duplication in the final composition. The final artifact
+and position-dependent next-token coordinate remain unverified.

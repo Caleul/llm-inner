@@ -1,0 +1,137 @@
+{
+  "observedAt": "2026-10-04T04:55:15Z",
+  "report": {
+    "steps": [
+      {
+        "name": "gates",
+        "exitCode": 0,
+        "seconds": 8.11673872799929
+      },
+      {
+        "name": "controller-gates",
+        "exitCode": 0,
+        "seconds": 35.42991752200032
+      },
+      {
+        "name": "compile",
+        "exitCode": 1,
+        "seconds": 545.6551264500004
+      }
+    ]
+  },
+  "diagnostic": {
+    "coordinateComplete": false,
+    "parityVerified": false,
+    "resumeCompatible": true,
+    "restoredDependencies": 19,
+    "completedDependencies": 20,
+    "envelopes": [],
+    "budgets": {
+      "characters": 17179869184,
+      "seconds": 600,
+      "addressSpaceBytes": 77309411328
+    },
+    "stop": "Process address-space budget exhausted",
+    "failurePhase": "compilation",
+    "failureFrames": [
+      {
+        "file": "<equivalent producer envelope>",
+        "function": "producer",
+        "line": 4
+      },
+      {
+        "file": "direct_sympy_checkpoint.py",
+        "function": "build",
+        "line": 221
+      },
+      {
+        "file": "<equivalent producer envelope>",
+        "function": "producer",
+        "line": 4
+      },
+      {
+        "file": "direct_sympy_checkpoint.py",
+        "function": "<lambda>",
+        "line": 221
+      },
+      {
+        "file": "direct_sympy_checkpoint.py",
+        "function": "rms_sum",
+        "line": 209
+      },
+      {
+        "file": "direct_sympy_checkpoint.py",
+        "function": "component",
+        "line": 205
+      },
+      {
+        "file": "direct_sympy_checkpoint.py",
+        "function": "partial",
+        "line": 203
+      },
+      {
+        "file": "direct_sympy_checkpoint.py",
+        "function": "load",
+        "line": 184
+      },
+      {
+        "file": "direct_sympy_checkpoint.py",
+        "function": "op",
+        "line": 114
+      },
+      {
+        "file": "direct_sympy_strings.py",
+        "function": "substitute",
+        "line": 551
+      },
+      {
+        "file": "direct_sympy_strings.py",
+        "function": "stabilize_budget_envelope",
+        "line": 533
+      },
+      {
+        "file": "__init__.py",
+        "function": "sub",
+        "line": 208
+      }
+    ],
+    "newDependencies": 1,
+    "lastDependency": "model.layers.0.hidden:1",
+    "seconds": 541.3852402639995,
+    "peakRSSBytes": 70675308544,
+    "persistedDependencies": 20,
+    "lastPersistedDependency": "model.layers.0.hidden:1"
+  },
+  "processes": [
+    "  23664    1078 Ss         15:00 15280  0.0 /usr/bin/python3 runner.py",
+    "  26141   23664 Rl         05:11 30067796 100 /usr/bin/python3 helpers/direct_sympy_frontier_validation.py state docs/evidence/direct-sympy-test-checkpoint docs/evidence/direct-sympy-offset-inputs.json"
+  ],
+  "frontier": {
+    "records": 20,
+    "last": "model.layers.0.hidden:1",
+    "lengths": {
+      "model.layers.0.pre:mean": 329,
+      "model.layers.0.pre:inverse": 5821,
+      "model.layers.0.pre:0": 12289,
+      "model.layers.0.pre:1": 12289,
+      "model.layers.0.v:0": 98906,
+      "model.layers.0.context:0": 98912,
+      "model.layers.0.v:1": 98894,
+      "model.layers.0.context:1": 98900,
+      "model.layers.0.residual:0": 791904,
+      "model.layers.0.residual:1": 791912,
+      "model.layers.0.post:mean": 3167953,
+      "model.layers.0.post:inverse": 41184933,
+      "model.layers.0.post:0": 88705745,
+      "model.layers.0.post:1": 88705777,
+      "model.layers.0.gate:0": 709646690,
+      "model.layers.0.activation:0": 1596705580,
+      "model.layers.0.up:0": 709646674,
+      "model.layers.0.gated:0": 7273880362,
+      "model.layers.0.hidden:0": 12951847412,
+      "model.layers.0.hidden:1": 12951847416
+    }
+  },
+  "parityPending": true,
+  "coordinateComplete": false
+}

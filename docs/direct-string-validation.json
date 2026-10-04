@@ -10199,13 +10199,13 @@
     "numericalSourcesUnchanged": true,
     "failedColabGatePreserved": true,
     "colabDirectory": "/content/llm-inner-consuming-reduction-v2",
-    "colabPending": true,
+    "colabPending": false,
     "initialPersistedDependencies": 19,
-    "newRealProducersVerified": 0,
+    "newRealProducersVerified": 1,
     "coordinateComplete": false,
     "evidenceDirectory": "docs/evidence/direct-sympy-consuming-reduction",
     "colab": {
-      "status": "running",
+      "status": "terminal-incomplete-coordinate",
       "backendTests": {
         "tests": 13,
         "pass": 13
@@ -10215,10 +10215,52 @@
         "retainedProducts": 67109596,
         "consumedProducts": 33555001
       },
-      "restoredDependenciesVerified": 0,
-      "persistedDependencies": 19,
-      "newProducersVerified": 0,
-      "completeCoordinate": false
-    }
+      "restoredDependenciesVerified": 19,
+      "persistedDependencies": 20,
+      "newProducersVerified": 1,
+      "completeCoordinate": false,
+      "compilationSeconds": 541.3852402639995,
+      "peakRSSBytes": 70675308544,
+      "stop": "Process address-space budget exhausted",
+      "nextIncompleteProducer": "final:mean",
+      "parityPending": false,
+      "observationTimeoutDoesNotProveProcessTermination": true,
+      "processes": [],
+      "parityExitCode": 0,
+      "parity": {
+        "cases": 60,
+        "comparisons": 480,
+        "mismatches": 0,
+        "producerFilesEvaluated": 20,
+        "coordinateAtPositionZeroVerified": false,
+        "scope": "Saved producers through both hidden components, position zero; not last-token coordinate parity"
+      }
+    },
+    "localBackup": "artifacts/direct-sympy-persistent-colab/hidden1-delta.tar",
+    "backupManifestAndUncompressedContentVerified": true,
+    "expansionControllerDiagnostics": {
+      "tests": [
+        "helpers/direct_sympy_checkpoint_run_test.py",
+        "test/direct-sympy-strings.test.ts"
+      ],
+      "localPython": {
+        "pass": 1,
+        "skip": 1,
+        "fail": 0
+      },
+      "colabLinux": {
+        "pass": 2,
+        "skip": 0,
+        "fail": 0
+      },
+      "namedIntegration": {
+        "pass": 1,
+        "fail": 0
+      },
+      "build": "passed",
+      "numericSourceIdentityUnchanged": true,
+      "scope": "RAM/mappings and retained source lengths at restore, persistence and stop; counts are not summed as independent allocations"
+    },
+    "newProducerParityVerified": true
   }
 }

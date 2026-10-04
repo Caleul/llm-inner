@@ -38,6 +38,12 @@ class CheckpointRunTests(unittest.TestCase):
             self.assertFalse(first['coordinateComplete']);self.assertFalse(first['parityVerified'])
             self.assertEqual(first['persistedDependencies'],10)
             self.assertEqual(first['completedDependencies'],first['persistedDependencies'])
+            stopped=first['stoppedExpansion']
+            self.assertEqual(stopped['producers'],first['persistedDependencies'])
+            self.assertGreater(stopped['producerCharacters'],0)
+            self.assertEqual(stopped['lastSubstitution'][0][-1],'budget')
+            self.assertGreater(stopped['lastSubstitution'][0][4],1024**2)
+            self.assertNotIn('Float64(',json.dumps(stopped))
             manifest=state/'frontier.json';initial=manifest.read_bytes()
             self.assertNotIn('output:0:2',[r['name'] for r in json.loads(initial)['payload']['records']])
             rejected=run('--resume','--dimension','1','--max-characters',str(4*1024**2))
@@ -48,6 +54,11 @@ class CheckpointRunTests(unittest.TestCase):
             resumed=run('--resume','--max-characters',str(4*1024**2))
             self.assertTrue(resumed['resumeCompatible'])
             self.assertEqual(resumed['restoredDependencies'],10)
+            restored=resumed['restoredExpansion']
+            self.assertEqual(restored['producers'],10)
+            self.assertEqual(restored['producerCharacters'],sum(r['characters'] for r in json.loads(initial)['payload']['records']))
+            if sys.platform.startswith('linux'):
+                self.assertGreaterEqual(restored['addressSpaceBytes'],restored['residentBytes'])
             self.assertGreater(resumed['persistedDependencies'],10)
             self.assertEqual(resumed['completedDependencies'],resumed['persistedDependencies'])
             self.assertFalse(resumed['coordinateComplete']);self.assertFalse(resumed['parityVerified'])

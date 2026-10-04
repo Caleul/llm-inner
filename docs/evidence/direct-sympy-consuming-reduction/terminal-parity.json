@@ -1,0 +1,121 @@
+{
+  "observedAt": "2026-10-04T05:07:14Z",
+  "report": {
+    "steps": [
+      {
+        "name": "gates",
+        "exitCode": 0,
+        "seconds": 8.11673872799929
+      },
+      {
+        "name": "controller-gates",
+        "exitCode": 0,
+        "seconds": 35.42991752200032
+      },
+      {
+        "name": "compile",
+        "exitCode": 1,
+        "seconds": 545.6551264500004
+      },
+      {
+        "name": "parity",
+        "exitCode": 0,
+        "seconds": 500.5323029230003
+      }
+    ],
+    "terminal": true
+  },
+  "diagnostic": {
+    "coordinateComplete": false,
+    "parityVerified": false,
+    "resumeCompatible": true,
+    "restoredDependencies": 19,
+    "completedDependencies": 20,
+    "envelopes": [],
+    "budgets": {
+      "characters": 17179869184,
+      "seconds": 600,
+      "addressSpaceBytes": 77309411328
+    },
+    "stop": "Process address-space budget exhausted",
+    "failurePhase": "compilation",
+    "failureFrames": [
+      {
+        "file": "<equivalent producer envelope>",
+        "function": "producer",
+        "line": 4
+      },
+      {
+        "file": "direct_sympy_checkpoint.py",
+        "function": "build",
+        "line": 221
+      },
+      {
+        "file": "<equivalent producer envelope>",
+        "function": "producer",
+        "line": 4
+      },
+      {
+        "file": "direct_sympy_checkpoint.py",
+        "function": "<lambda>",
+        "line": 221
+      },
+      {
+        "file": "direct_sympy_checkpoint.py",
+        "function": "rms_sum",
+        "line": 209
+      },
+      {
+        "file": "direct_sympy_checkpoint.py",
+        "function": "component",
+        "line": 205
+      },
+      {
+        "file": "direct_sympy_checkpoint.py",
+        "function": "partial",
+        "line": 203
+      },
+      {
+        "file": "direct_sympy_checkpoint.py",
+        "function": "load",
+        "line": 184
+      },
+      {
+        "file": "direct_sympy_checkpoint.py",
+        "function": "op",
+        "line": 114
+      },
+      {
+        "file": "direct_sympy_strings.py",
+        "function": "substitute",
+        "line": 551
+      },
+      {
+        "file": "direct_sympy_strings.py",
+        "function": "stabilize_budget_envelope",
+        "line": 533
+      },
+      {
+        "file": "__init__.py",
+        "function": "sub",
+        "line": 208
+      }
+    ],
+    "newDependencies": 1,
+    "lastDependency": "model.layers.0.hidden:1",
+    "seconds": 541.3852402639995,
+    "peakRSSBytes": 70675308544,
+    "persistedDependencies": 20,
+    "lastPersistedDependency": "model.layers.0.hidden:1"
+  },
+  "processes": [],
+  "parity": {
+    "cases": 60,
+    "comparisons": 480,
+    "mismatches": 0,
+    "producerFilesEvaluated": 20,
+    "coordinateAtPositionZeroVerified": false,
+    "scope": "Actual saved posterior normalization, gate/activation/up/gated and any completed hidden/final/output producers, position 0; verification-only reuse of immutable earlier subtrees. Does not prove the last-token next-token coordinate for variable sequence lengths.",
+    "elapsedSeconds": 491.2844519219998
+  }
+}

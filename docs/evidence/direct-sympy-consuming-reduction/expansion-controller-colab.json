@@ -1,0 +1,5 @@
+{
+  "exitCode": 0,
+  "stdout": "Persistent checkpoint run: {\"restored\": 10, \"persisted\": 11, \"identityRejectionBeforeMutation\": true, \"coordinateComplete\": false}\n",
+  "stderr": "..\n----------------------------------------------------------------------\nRan 2 tests in 35.220s\n\nOK\n"
+}
