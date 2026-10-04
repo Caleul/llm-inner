@@ -1,0 +1,73 @@
+{
+  "complete": false,
+  "inputDomains": {
+    "X1": [
+      -17049,
+      -16988
+    ],
+    "X2": [
+      -31743,
+      -23808
+    ]
+  },
+  "producers": 17,
+  "elidedUpdates": 3,
+  "logicalCharacters": 5427192,
+  "storedCharacters": 35909,
+  "stop": "Flat artifact budget exceeded; no complete result",
+  "seconds": 5.19284329196671,
+  "paths": {
+    "splitContexts": 5,
+    "completedPaths": 3,
+    "contradictions": 0,
+    "selectorSelections": 50,
+    "CASPasses": 126,
+    "lastArm": {
+      "bodyCharacters": 818361,
+      "guardCharacters": 428785,
+      "decisions": 4,
+      "dependencyGrowth": [
+        {
+          "definition": 0,
+          "storedCharacters": 1800,
+          "expandedCharacters": 1802
+        },
+        {
+          "definition": 1,
+          "storedCharacters": 101,
+          "expandedCharacters": 1890
+        },
+        {
+          "definition": 2,
+          "storedCharacters": 101,
+          "expandedCharacters": 1890
+        },
+        {
+          "definition": 3,
+          "storedCharacters": 331,
+          "expandedCharacters": 7833
+        },
+        {
+          "definition": 7,
+          "storedCharacters": 7424,
+          "expandedCharacters": 192514
+        },
+        {
+          "definition": 8,
+          "storedCharacters": 8213,
+          "expandedCharacters": 216439
+        },
+        {
+          "definition": 9,
+          "storedCharacters": 101,
+          "expandedCharacters": 192602
+        },
+        {
+          "definition": 10,
+          "storedCharacters": 337,
+          "expandedCharacters": 818361
+        }
+      ]
+    }
+  }
+}

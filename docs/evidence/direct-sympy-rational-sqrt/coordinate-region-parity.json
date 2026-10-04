@@ -1,0 +1,12 @@
+{
+  "artifact": "docs/evidence/direct-sympy-rational-sqrt/coordinate-region.expr",
+  "sha256": "ec7554949ecba4e07dd1d226b3b24379ed2910ffedf9526e71107605f442df66",
+  "characters": 19532,
+  "position": 0,
+  "tokens": 1,
+  "dimension": 2,
+  "cases": 1028,
+  "mismatches": 0,
+  "firstMismatches": [],
+  "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+}

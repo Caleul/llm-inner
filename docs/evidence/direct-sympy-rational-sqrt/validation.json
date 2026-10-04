@@ -1,0 +1,358 @@
+{
+  "scope": "Mathematical expression strings; JSON is metadata/state only. Primitive F32 parity covers normalized mantissas/parities, every positive F32 subnormal and exponent boundaries. Coordinate parity is regional, position 0, dimension 2, one token.",
+  "testMap": {
+    "helpers/direct_sympy_sqrt_test.py": "One native test: 25167601 comparisons, zero mismatches, odd/even ties zero; coefficients reproduced from 100-digit rational interpolation and SymPy 70-digit factor roots; positive F32 admission only; bare F64 sqrt retained; 8 input occurrences instead of 9.",
+    "test/direct-sympy-strings.test.ts": "Build and 21 integrations passed, zero failures/skips; targeted rerun confirms stricter emitted-region size below 21922 while preserving 576 native comparisons.",
+    "helpers/direct_sympy_region_parity.py": "Current-source readback: 30 regions, 7800 native comparisons, zero mismatches. Positive durable expression: 1028 additional comparisons, zero mismatches.",
+    "helpers/direct_sympy_partition_run.py": "32 current-source attempts; audited old geometry imported, zero numerical results reused; 30 leaves compiled again.",
+    "helpers/direct_sympy_partition_coalesce.py": "30 regions, 6 distinct expressions, 9 coalesced rectangles; source identity validated and coverage retained."
+  },
+  "wholeDomainCoordinate": {
+    "coordinateCompositionComplete": true,
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "stateRestored": false,
+    "position": 0,
+    "dimension": 2,
+    "expressionFormat": "Mathematical string",
+    "producerGrowth": [
+      {
+        "producer": "model.layers.0.pre:mean",
+        "storedCharacters": 329,
+        "expandedCharacters": 331,
+        "definitions": 1
+      },
+      {
+        "producer": "model.layers.0.pre:inverse",
+        "storedCharacters": 3360,
+        "expandedCharacters": 3362,
+        "definitions": 2
+      },
+      {
+        "producer": "model.layers.0.pre:0",
+        "storedCharacters": 363,
+        "expandedCharacters": 7375,
+        "definitions": 4
+      },
+      {
+        "producer": "model.layers.0.pre:1",
+        "storedCharacters": 363,
+        "expandedCharacters": 7375,
+        "definitions": 6
+      },
+      {
+        "producer": "model.layers.0.v:0",
+        "storedCharacters": 714,
+        "expandedCharacters": 59596,
+        "definitions": 8
+      },
+      {
+        "producer": "model.layers.0.context:0",
+        "storedCharacters": 21,
+        "expandedCharacters": 59602,
+        "definitions": 8
+      },
+      {
+        "producer": "model.layers.0.v:1",
+        "storedCharacters": 702,
+        "expandedCharacters": 59584,
+        "definitions": 10
+      },
+      {
+        "producer": "model.layers.0.context:1",
+        "storedCharacters": 21,
+        "expandedCharacters": 59590,
+        "definitions": 10
+      },
+      {
+        "producer": "model.layers.0.residual:0",
+        "storedCharacters": 824,
+        "expandedCharacters": 477426,
+        "definitions": 12
+      },
+      {
+        "producer": "model.layers.0.residual:1",
+        "storedCharacters": 832,
+        "expandedCharacters": 477434,
+        "definitions": 14
+      },
+      {
+        "producer": "model.layers.0.post:mean",
+        "storedCharacters": 385,
+        "expandedCharacters": 1910043,
+        "definitions": 15
+      },
+      {
+        "producer": "model.layers.0.post:inverse",
+        "storedCharacters": 3808,
+        "expandedCharacters": 15281058,
+        "definitions": 16
+      },
+      {
+        "producer": "model.layers.0.post:0",
+        "storedCharacters": 422,
+        "expandedCharacters": 34382175,
+        "definitions": 18
+      },
+      {
+        "producer": "model.layers.0.post:1",
+        "storedCharacters": 422,
+        "expandedCharacters": 34382207,
+        "definitions": 20
+      },
+      {
+        "producer": "model.layers.0.gate:0",
+        "storedCharacters": 730,
+        "expandedCharacters": 275058132,
+        "definitions": 22
+      },
+      {
+        "producer": "model.layers.0.activation:0",
+        "storedCharacters": 2170,
+        "expandedCharacters": 618881322,
+        "definitions": 23
+      },
+      {
+        "producer": "model.layers.0.up:0",
+        "storedCharacters": 714,
+        "expandedCharacters": 275058116,
+        "definitions": 25
+      },
+      {
+        "producer": "model.layers.0.gated:0",
+        "storedCharacters": 636,
+        "expandedCharacters": 2819347556,
+        "definitions": 27
+      },
+      {
+        "producer": "model.layers.0.hidden:0",
+        "storedCharacters": 295,
+        "expandedCharacters": 5639172787,
+        "definitions": 29
+      },
+      {
+        "producer": "model.layers.0.hidden:1",
+        "storedCharacters": 293,
+        "expandedCharacters": 5639172793,
+        "definitions": 31
+      },
+      {
+        "producer": "final:mean",
+        "storedCharacters": 385,
+        "expandedCharacters": 22556691483,
+        "definitions": 32
+      },
+      {
+        "producer": "final:inverse",
+        "storedCharacters": 3808,
+        "expandedCharacters": 180453532578,
+        "definitions": 33
+      },
+      {
+        "producer": "final:0",
+        "storedCharacters": 422,
+        "expandedCharacters": 406020448099,
+        "definitions": 35
+      },
+      {
+        "producer": "final:1",
+        "storedCharacters": 422,
+        "expandedCharacters": 406020448123,
+        "definitions": 37
+      },
+      {
+        "producer": "output:0:2",
+        "storedCharacters": 734,
+        "expandedCharacters": 3248163585496,
+        "definitions": 39
+      }
+    ],
+    "completedProducers": 25,
+    "compilerDefinitions": 39,
+    "storedCharacters": 28869,
+    "logicalCharacters": 3248163585496,
+    "compositionSeconds": 7.139942375011742,
+    "arithmeticEliminated": 79,
+    "stop": "Flat artifact budget exceeded; no complete result",
+    "paths": {
+      "splitContexts": 14,
+      "completedPaths": 1,
+      "contradictions": 0,
+      "selectorSelections": 99,
+      "CASPasses": 454,
+      "lastArm": {
+        "bodyCharacters": 8648306495,
+        "guardCharacters": 4992480549,
+        "decisions": 14,
+        "dependencyGrowth": [
+          {
+            "definition": 1,
+            "storedCharacters": 3360,
+            "expandedCharacters": 3362
+          },
+          {
+            "definition": 2,
+            "storedCharacters": 195,
+            "expandedCharacters": 3544
+          },
+          {
+            "definition": 4,
+            "storedCharacters": 195,
+            "expandedCharacters": 3544
+          },
+          {
+            "definition": 6,
+            "storedCharacters": 359,
+            "expandedCharacters": 14477
+          },
+          {
+            "definition": 8,
+            "storedCharacters": 353,
+            "expandedCharacters": 14471
+          },
+          {
+            "definition": 10,
+            "storedCharacters": 449,
+            "expandedCharacters": 58287
+          },
+          {
+            "definition": 12,
+            "storedCharacters": 453,
+            "expandedCharacters": 58291
+          },
+          {
+            "definition": 15,
+            "storedCharacters": 3808,
+            "expandedCharacters": 1868546
+          },
+          {
+            "definition": 16,
+            "storedCharacters": 640,
+            "expandedCharacters": 1985279
+          },
+          {
+            "definition": 18,
+            "storedCharacters": 644,
+            "expandedCharacters": 1985287
+          },
+          {
+            "definition": 22,
+            "storedCharacters": 918,
+            "expandedCharacters": 15883056
+          },
+          {
+            "definition": 23,
+            "storedCharacters": 359,
+            "expandedCharacters": 7941429
+          },
+          {
+            "definition": 25,
+            "storedCharacters": 401,
+            "expandedCharacters": 31765924
+          },
+          {
+            "definition": 27,
+            "storedCharacters": 295,
+            "expandedCharacters": 63590384
+          },
+          {
+            "definition": 29,
+            "storedCharacters": 293,
+            "expandedCharacters": 63590386
+          },
+          {
+            "definition": 32,
+            "storedCharacters": 3808,
+            "expandedCharacters": 2034895618
+          },
+          {
+            "definition": 33,
+            "storedCharacters": 486,
+            "expandedCharacters": 2162076545
+          },
+          {
+            "definition": 35,
+            "storedCharacters": 484,
+            "expandedCharacters": 2162076549
+          },
+          {
+            "definition": 37,
+            "storedCharacters": 369,
+            "expandedCharacters": 8648306495
+          }
+        ]
+      }
+    },
+    "seconds": 8.536586834001355,
+    "peakRSSBytes": 251494400,
+    "sourceSHA256": {
+      "direct_sympy_strings.py": "b195bd6ef9f2bc356a4819aead1262a328c0492b49485f473664415095b1f8be",
+      "direct_sympy_conversions.py": "364b009e86a87e07e1aa71062674e56463f1a34baa593295f33554d75d9f8a77",
+      "direct_sympy_arithmetic.py": "973f8d8910fb0f59831e68379a950bf8f2952acdeeda75030ddb5d308674e890",
+      "direct_sympy_sqrt.py": "86b358773fa8b887659cd5598d7d37d7a4df5f338513117bc74ff6dd00ce6b17"
+    }
+  },
+  "previousLogicalCharacters": 4476543086072,
+  "logicalReductionPercent": 27.44035915565949,
+  "positiveRegion": {
+    "artifact": "docs/evidence/direct-sympy-rational-sqrt/coordinate-region.expr",
+    "sha256": "ec7554949ecba4e07dd1d226b3b24379ed2910ffedf9526e71107605f442df66",
+    "characters": 19532,
+    "position": 0,
+    "tokens": 1,
+    "dimension": 2,
+    "cases": 1028,
+    "mismatches": 0,
+    "firstMismatches": [],
+    "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+  },
+  "partitionParity": {
+    "completedRegions": 30,
+    "coveredInputPatterns": 181559808,
+    "unfinishedInputPatterns": 3849166336,
+    "cases": 7800,
+    "mismatches": 0,
+    "fullCoordinateParity": false
+  },
+  "coalescing": {
+    "completeRegions": 30,
+    "coalescedRectangles": 9,
+    "distinctExpressions": 6,
+    "copiedBodyCharacters": 8791792,
+    "sharedBodyCharacters": 518432,
+    "coveredInputPatterns": 181559808,
+    "unfinishedInputPatterns": 3849166336,
+    "finalArtifactEmitted": false,
+    "finalParity": false
+  },
+  "durableExpressions": {
+    "ec7554949ecba4e07dd1d226b3b24379ed2910ffedf9526e71107605f442df66": "docs/evidence/direct-sympy-rational-sqrt/coordinate-region.expr",
+    "64eb411c5435e2672ed39aeb0ac6499110e311fe580b448bc0dd3c21bc241ec4": "docs/evidence/direct-sympy-rational-sqrt/region-64eb411c5435e267.expr",
+    "60a54bcbd57802b2cc1907a340fde8daa1c3119cf970ca5630188387a23af211": "docs/evidence/direct-sympy-rational-sqrt/region-60a54bcbd57802b2.expr",
+    "2c5b7ffd0fe16faa4a070781d08692dd354c92cb34e02ee796e7260239e80e92": "docs/evidence/direct-sympy-rational-sqrt/region-2c5b7ffd0fe16faa.expr",
+    "56a59534cb7614f7b7b500360be33daa87192a1dbeb658785a8d4f987ca89da2": "docs/evidence/direct-sympy-rational-sqrt/region-56a59534cb7614f7.expr",
+    "c377b3adfdce57aed55d389c4cdd199c93678e330c37a8a361729813b25ee653": "docs/evidence/direct-sympy-rational-sqrt/region-c377b3adfdce57ae.expr"
+  },
+  "geometryImport": {
+    "leafRegions": 39,
+    "numericalResultsReused": false,
+    "sha256": "b648ef48d270c38de122c1a52efd9932734c043abc26aa3b0fa1936fb48a64aa",
+    "sourceManifest": "/Users/caleul/Documents/Work/Projects/llm-inner/artifacts/direct-sympy-input-partitions/replanned-state/frontier.json"
+  },
+  "rejectedAlternative": {
+    "description": "Degree 6/6 with integrated scale and seven input occurrences",
+    "cases": 25167601,
+    "mismatches": 80,
+    "ties": 1,
+    "adopted": false
+  },
+  "finalArtifactEmitted": false,
+  "finalParity": false,
+  "remaining": [
+    "Full admitted-domain coordinate artifact and native parity",
+    "Further simplification of repeated normalization and condition dependencies",
+    "Variable-length last-token semantics and parity",
+    "All output coordinates",
+    "Controlled Colab sequential/parallel comparison for current sources"
+  ]
+}

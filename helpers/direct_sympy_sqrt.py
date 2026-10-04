@@ -1,8 +1,8 @@
 """Positive finite F32 square root, returning the exact widened F32 value.
 
-A cubic/quadratic rational seed interpolates six Lobatto points, including
-both endpoints. SymPy factors its numerator around its farthest real root
-and completes squares in both polynomials before one Newton correction.
+A rational 5/5 expression interpolates eleven Lobatto points, including
+both endpoints. SymPy factors its numerator and denominator into one linear
+and two completed-square factors each. No refinement expression is duplicated.
 
 Mantissa/parity enumeration certifies all 2**24 normalized cases. Exact
 power-of-two scaling covers every F32 input exponent, including subnormals without output
@@ -12,13 +12,12 @@ from direct_sympy_strings import syntax
 from direct_sympy_words import simplify_words
 from direct_sympy_conversions import FiniteSource,lower_finite_conversion
 
-NUMERATOR=(0.011776416813942576, 0.31267808731141555, 1.2350886571993487, 1.2247448161010575)
-DENOMINATOR=(0.08581640268346791, 0.6751122868867456, 1.0)
-# Derived from the exact dyadic coefficients above using SymPy at 70 digits,
-# then rounded once to F64. They are arithmetic coefficients, not responses.
-NUMERATOR_FACTORS=(0.011776416813942576,21.998623763386323,2.276291905582069,-0.45394614911071773)
-DENOMINATOR_FACTORS=(0.08581640268346791,3.933468811183358,-3.819392936648755)
-
+# Eleven Lobatto samples of sqrt(z + 1.5), z in [-0.5, 0.5].
+# Solve the rational 5/5 interpolation at 100 digits, factor at 70 digits,
+# then round each coefficient once to F64. These are arithmetic constants.
+COEFFICIENT=13.367174015436346
+NUMERATOR_FACTORS=((18.5850823052632,), (1.664726217594286, -0.018266192753258678), (3.8155673924431786, -1.5052409305796959))
+DENOMINATOR_FACTORS=((72.88886838020784,), (1.8598888910976752, -0.05583983254715131), (5.991012208537561, -6.507242687878663))
 
 
 def supported(source,session):
@@ -31,19 +30,21 @@ def expand(source,session):
     raw='Bits64(X999999997)'
     m=f'Float64(U64Or(U64And({raw},4503599627370495),4607182418800017408))'
     z=f'(({m}) - 1.5)'
-    a,b,c,d=NUMERATOR_FACTORS
-    e,f,g=DENOMINATOR_FACTORS
-    numerator=f'(({repr(a)} * (({z}) + {repr(b)})) * ((({z}) + {repr(c)}) ** 2 + ({repr(d)})))'
-    denominator=f'({repr(e)} * ((({z}) + {repr(f)}) ** 2 + ({repr(g)})))'
-    seed=f'(({numerator}) / ({denominator}))'
-    p=f'(0.5 * (({seed}) + ({m}) / ({seed})))'
+    def product(factors):
+        parts=[f'(({z}) + {factor[0]!r})' if len(factor)==1 else f'((({z}) + {factor[0]!r}) ** 2 + ({factor[1]!r}))' for factor in factors]
+        result=parts[0]
+        for part in parts[1:]:result=f'(({result}) * ({part}))'
+        return result
+    numerator=product(NUMERATOR_FACTORS)
+    denominator=product(DENOMINATOR_FACTORS)
+    p=f'(({COEFFICIENT!r} * ({numerator})) / ({denominator}))'
     exponent=f'U64And(U64Shr({raw},52),2047)'
     parity=f'U64And(U64Add({exponent},1),1)'
     p=f'({p}) * (1.0 + ({parity}) * 0.4142135623730951)'
     candidate=session.compiler.substitute(p,'X999999997',source,session.domains)
-    # The mantissa/parity proof bounds this F64 evaluation inside [0.9,2.1].
+    # The exhaustive mantissa/parity proof bounds this F64 evaluation inside [0.9,2.1].
     # All such F64 values lie on the 2**-53 grid, including roundoff.
-    # Exhaustive evaluation of this rational seed/correction/order on every normalized
+    # Exhaustive evaluation of this rational expression/order on every normalized
     # F32 mantissa and both exponent parities finds no F32 midpoint. Avoid
     # duplicating the complete candidate just to select its retained parity.
     rounded=lower_finite_conversion(candidate,'R32',FiniteSource(0.9,2.1,-53),session.compiler,session.domains,no_odd_f32_ties=True)

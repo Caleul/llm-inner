@@ -10682,5 +10682,31 @@
     "additionalCoveredInputPatterns": 2460160,
     "finalArtifactEmitted": false,
     "finalParity": false
+  },
+  "rationalSqrtValidation": {
+    "report": "docs/evidence/direct-sympy-rational-sqrt/validation.json",
+    "testMap": {
+      "helpers/direct_sympy_sqrt_test.py": "One native test: 25167601 comparisons, zero mismatches, odd/even ties zero; coefficients reproduced from 100-digit rational interpolation and SymPy 70-digit factor roots; positive F32 admission only; bare F64 sqrt retained; 8 input occurrences instead of 9.",
+      "test/direct-sympy-strings.test.ts": "Build and 21 integrations passed, zero failures/skips; targeted rerun confirms stricter emitted-region size below 21922 while preserving 576 native comparisons.",
+      "helpers/direct_sympy_region_parity.py": "Current-source readback: 30 regions, 7800 native comparisons, zero mismatches. Positive durable expression: 1028 additional comparisons, zero mismatches.",
+      "helpers/direct_sympy_partition_run.py": "32 current-source attempts; audited old geometry imported, zero numerical results reused; 30 leaves compiled again.",
+      "helpers/direct_sympy_partition_coalesce.py": "30 regions, 6 distinct expressions, 9 coalesced rectangles; source identity validated and coverage retained."
+    },
+    "wholeCoordinateLogicalCharacters": 3248163585496,
+    "logicalReductionPercent": 27.44035915565949,
+    "positiveRegionCharacters": 19532,
+    "currentSourceRegions": 30,
+    "coveredInputPatterns": 181559808,
+    "nativeRegionComparisons": 8828,
+    "mismatches": 0,
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "remaining": [
+      "Full admitted-domain coordinate artifact and native parity",
+      "Further simplification of repeated normalization and condition dependencies",
+      "Variable-length last-token semantics and parity",
+      "All output coordinates",
+      "Controlled Colab sequential/parallel comparison for current sources"
+    ]
   }
 }

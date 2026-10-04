@@ -7,31 +7,44 @@ from pathlib import Path
 from direct_sympy_strings import StringCompiler,Domain,syntax
 from direct_sympy_conversions import ConversionSession
 from direct_sympy_conversions_test import cpp
-from direct_sympy_sqrt import supported,NUMERATOR,DENOMINATOR,NUMERATOR_FACTORS,DENOMINATOR_FACTORS
+from direct_sympy_sqrt import supported,COEFFICIENT,NUMERATOR_FACTORS,DENOMINATOR_FACTORS
 
 
 class SqrtWordTests(unittest.TestCase):
     def test_f32_boundary_matches_all_mantissas_parities_subnormals_and_exponents(self):
-        # Reproduce coefficients from exact F64 dyadics using SymPy rather
-        # than treating the factored constants as unexplained magic values.
+        # Reproduce every coefficient from the interpolation contract.
+        import mpmath as mp
         import sympy as sp
-        z=sp.Symbol('z');a,b,c,d=map(sp.Rational,NUMERATOR)
-        root=min(sp.nroots(sp.Poly.from_list([a,b,c,d],z),n=70,maxsteps=100))
-        shift=(b/a+root)/2;tail=-d/(a*root)-shift*shift
-        self.assertEqual(NUMERATOR_FACTORS,tuple(map(float,(a,-root,shift,tail))))
-        a,b,c=map(sp.Rational,DENOMINATOR);shift=b/(2*a);tail=c/a-shift*shift
-        self.assertEqual(DENOMINATOR_FACTORS,tuple(map(float,(a,shift,tail))))
+        with mp.workdps(100):
+            n=5;z=sp.Symbol('z')
+            nodes=[mp.mpf('0.5')*mp.cos(mp.pi*i/(2*n)) for i in range(2*n+1)]
+            matrix=mp.matrix([[x**j for j in range(n+1)]+[-mp.sqrt(x+mp.mpf('1.5'))*x**j for j in range(1,n+1)] for x in nodes])
+            solution=mp.lu_solve(matrix,mp.matrix([mp.sqrt(x+mp.mpf('1.5')) for x in nodes]))
+            coefficients=([solution[j] for j in range(n+1)],[mp.mpf(1)]+[solution[n+j] for j in range(1,n+1)])
+            self.assertEqual(COEFFICIENT,float(coefficients[0][-1]/coefficients[1][-1]))
+            for coefficients,expected in zip(coefficients,(NUMERATOR_FACTORS,DENOMINATOR_FACTORS)):
+                roots=sorted(sp.nroots(sp.Poly.from_list([sp.Float(mp.nstr(c,100),100) for c in reversed(coefficients)],z),n=70,maxsteps=500),reverse=True)
+                factors=[(float(-roots.pop()),)]
+                for i in range(0,len(roots),2):
+                    shift=-(roots[i]+roots[i+1])/2
+                    factors.append((float(shift),float(roots[i]*roots[i+1]-shift*shift)))
+                self.assertEqual(tuple(factors),expected)
         session=ConversionSession(StringCompiler(),{'X1':Domain(F(2)**-149,F(3.4028234663852886e38),-149,True)})
         session.f32_values.add(session.key(syntax('X1')))
         result=session.close('R32(sqrt(X1))')
         self.assertEqual(session.square_roots_closed,1)
-        self.assertEqual(result.count("X1"),9)
+        self.assertEqual(result.count("X1"),8)
         for name in ('sqrt(','R32(','R16(','CASNumericRegion','X999999997'):self.assertNotIn(name,result)
         self.assertEqual(session.value_kind(syntax(result)),'f32')
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);expression=root/'sqrt.work.expr';expression.write_text(result+'\n')
             source=root/'root.cpp';binary=root/'root'
-            polynomial='const double numerator[]={'+','.join(repr(c) for c in NUMERATOR_FACTORS)+'},denominator[]={'+','.join(repr(c) for c in DENOMINATOR_FACTORS)+'};\ndouble polynomial(double x){uint64_t raw=word<uint64_t>(x);double m=word<double>((raw&UINT64_C(4503599627370495))|UINT64_C(4607182418800017408));double z=m-1.5;double a=numerator[0]*(z+numerator[1])*((z+numerator[2])*(z+numerator[2])+numerator[3]);double b=denominator[0]*((z+denominator[1])*(z+denominator[1])+denominator[2]);double seed=a/b;return (0.5*(seed+m/seed))*(1.0+double(((raw>>52)+1)&1)*0.4142135623730951); }\n'
+            def product(factors):
+                parts=['(z+'+repr(f[0])+')' if len(f)==1 else '((z+'+repr(f[0])+')*(z+'+repr(f[0])+')+('+repr(f[1])+'))' for f in factors]
+                result=parts[0]
+                for part in parts[1:]:result='('+result+'*'+part+')'
+                return result
+            polynomial='double polynomial(double x){uint64_t raw=word<uint64_t>(x);double m=word<double>((raw&UINT64_C(4503599627370495))|UINT64_C(4607182418800017408));double z=m-1.5;return ('+repr(COEFFICIENT)+'*'+product(NUMERATOR_FACTORS)+')/'+product(DENOMINATOR_FACTORS)+'*(1.0+double(((raw>>52)+1)&1)*0.4142135623730951); }\n'
             source.write_text('#include <cstdint>\n#include <cstring>\n#include <cmath>\n#include <cstdio>\n#include <initializer_list>\ntemplate<class T,class U>T word(U value){T result;std::memcpy(&result,&value,sizeof(result));return result;}\n'+polynomial+'double compiled(double X1){return '+cpp(syntax(expression.read_text()))+';}\n'+'''int main(){unsigned cases=0,mismatches=0,oddTies=0,evenTies=0;for(unsigned b=0;b<8388608;b++){for(unsigned e=127;e<129;e++){double x=word<float>(uint32_t((e<<23)|b));uint64_t p=word<uint64_t>(polynomial(x));if((p&UINT64_C(536870911))==UINT64_C(268435456)){if((p>>29)&1)oddTies++;else evenTies++;}mismatches+=word<uint64_t>(compiled(x))!=word<uint64_t>(double(float(std::sqrt(x))));cases++;}}for(unsigned e=1;e<=254;e++){for(unsigned b:{0u,1u,2u,4194303u,4194304u,8388606u,8388607u}){double x=word<float>(uint32_t((e<<23)|b));uint64_t p=word<uint64_t>(polynomial(x));if((p&UINT64_C(536870911))==UINT64_C(268435456)){if((p>>29)&1)oddTies++;else evenTies++;}mismatches+=word<uint64_t>(compiled(x))!=word<uint64_t>(double(float(std::sqrt(x))));cases++;}}for(unsigned b=1;b<8388608;b++){double x=word<float>(uint32_t(b));mismatches+=word<uint64_t>(compiled(x))!=word<uint64_t>(double(float(std::sqrt(x))));cases++;}std::printf("F32 sqrt emitted word parity: cases=%u mismatches=%u oddTies=%u evenTies=%u\\n",cases,mismatches,oddTies,evenTies);return (mismatches||oddTies||evenTies)?1:0;}''')
             build=subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],capture_output=True,text=True)
             self.assertEqual(build.returncode,0,build.stderr)
