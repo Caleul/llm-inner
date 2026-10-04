@@ -62,6 +62,7 @@ class HalfQuantumTests(unittest.TestCase):
             root=Path(directory);path=root/'sum.expr';path.write_text(result)
             source=root/'sum.cpp';binary=root/'sum'
             source.write_text('''#include <cstdint>
+#include <cmath>
 #include <cstring>
 #include <cstdio>
 #include <cfenv>
@@ -74,7 +75,8 @@ double expected=float(float(_Float16(x))+float(_Float16(y)));
 if(word<uint64_t>(candidate(x,y))!=word<uint64_t>(expected))return 1;
 }std::printf("Half interval sum native parity: cases=%u mismatches=0\\n",cases);}
 ''')
-            subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],check=True,capture_output=True,text=True)
+            built=subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],capture_output=True,text=True)
+            self.assertEqual(built.returncode,0,built.stderr)
             outcome=subprocess.run([str(binary)],check=True,capture_output=True,text=True)
             self.assertIn('cases=1050625 mismatches=0',outcome.stdout);print(outcome.stdout,end='')
         print(f'Half interval expression: characters={len(baseline)}->{len(result)}')

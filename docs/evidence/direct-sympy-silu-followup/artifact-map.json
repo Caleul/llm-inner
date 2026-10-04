@@ -1,0 +1,89 @@
+[
+  {
+    "file": "region-62f596956ef184a9c012879759c1911f8062f5d431954e38404ce358ea46fe31.expr",
+    "sha256": "62f596956ef184a9c012879759c1911f8062f5d431954e38404ce358ea46fe31",
+    "domains": {
+      "X1": [
+        -11264,
+        -10240
+      ],
+      "X2": [
+        -22528,
+        -21504
+      ]
+    },
+    "characters": 649682,
+    "parity": {
+      "artifact": "artifacts/direct-sympy-input-partitions/silu-update-state/cover-62f596956ef184a9c012879759c1911f8062f5d431954e38404ce358ea46fe31.expr",
+      "sha256": "62f596956ef184a9c012879759c1911f8062f5d431954e38404ce358ea46fe31",
+      "characters": 649682,
+      "position": 0,
+      "tokens": 1,
+      "dimension": 2,
+      "inputCorpusVersion": 2,
+      "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+      "cases": 8196,
+      "mismatches": 0,
+      "firstMismatches": [],
+      "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+    }
+  },
+  {
+    "file": "region-9b5e55d469443197cef18b08947160c7a3bff1d70cde1552bf08311a5af9ee4f.expr",
+    "sha256": "9b5e55d469443197cef18b08947160c7a3bff1d70cde1552bf08311a5af9ee4f",
+    "domains": {
+      "X1": [
+        10240,
+        11264
+      ],
+      "X2": [
+        21504,
+        22528
+      ]
+    },
+    "characters": 649684,
+    "parity": {
+      "artifact": "artifacts/direct-sympy-input-partitions/silu-update-state/cover-9b5e55d469443197cef18b08947160c7a3bff1d70cde1552bf08311a5af9ee4f.expr",
+      "sha256": "9b5e55d469443197cef18b08947160c7a3bff1d70cde1552bf08311a5af9ee4f",
+      "characters": 649684,
+      "position": 0,
+      "tokens": 1,
+      "dimension": 2,
+      "inputCorpusVersion": 2,
+      "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+      "cases": 8196,
+      "mismatches": 0,
+      "firstMismatches": [],
+      "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+    }
+  },
+  {
+    "file": "region-383ac236ec6bb6032dc2e56a0fc08e59e41f5bce857ff6b961524d980441133a.expr",
+    "sha256": "383ac236ec6bb6032dc2e56a0fc08e59e41f5bce857ff6b961524d980441133a",
+    "domains": {
+      "X1": [
+        11264,
+        12288
+      ],
+      "X2": [
+        21504,
+        22528
+      ]
+    },
+    "characters": 32209,
+    "parity": {
+      "artifact": "artifacts/direct-sympy-input-partitions/silu-update-state/cover-383ac236ec6bb6032dc2e56a0fc08e59e41f5bce857ff6b961524d980441133a.expr",
+      "sha256": "383ac236ec6bb6032dc2e56a0fc08e59e41f5bce857ff6b961524d980441133a",
+      "characters": 32209,
+      "position": 0,
+      "tokens": 1,
+      "dimension": 2,
+      "inputCorpusVersion": 2,
+      "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+      "cases": 8196,
+      "mismatches": 0,
+      "firstMismatches": [],
+      "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+    }
+  }
+]

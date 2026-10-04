@@ -1,0 +1,8 @@
+....
+----------------------------------------------------------------------
+Ran 4 tests in 3.823s
+
+OK
+Fixed-grid F32 midpoint parity: cases=50331648 mismatches=0
+Fixed-grid Half midpoint parity: cases=184314 mismatches=0
+Fixed-grid scaled F32 parity: cases=15234 mismatches=0

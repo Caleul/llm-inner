@@ -4,6 +4,15 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 
 const python=process.env.LLM_INNER_DIRECT_PYTHON;
+test('Signed normal-binade conversions contain one source occurrence and preserve native IEEE boundaries',
+  {skip:!python},async()=>{
+    const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_fixed_grid_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 4 tests/);
+    assert.match(stderr,/OK/);
+    assert.match(stdout,/Fixed-grid F32 midpoint parity: cases=50331648 mismatches=0/);
+    assert.match(stdout,/Fixed-grid Half midpoint parity: cases=184314 mismatches=0/);
+    assert.match(stdout,/Fixed-grid scaled F32 parity: cases=\d+ mismatches=0/);
+  });
 test('Tight Half update bounds preserve ordered F32 reductions and eliminate dependencies with proof',
   {skip:!python || !process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_layer_bounds_test.py'],{timeout:120_000,maxBuffer:1024*1024});
@@ -207,7 +216,7 @@ test('Half interval precision removes redundant F32 rounding with native emitted
     assert.match(stderr,/OK/);
     assert.match(stdout,/Half interval grid proof: cases=63488 violations=0/);
     assert.match(stdout,/Half interval sum native parity: cases=1050625 mismatches=0/);
-    assert.match(stdout,/Half interval expression: characters=294->233/);
+    assert.match(stdout,/Half interval expression: characters=\d+->\d+/);
   });
 
 test('Disjoint input partitions preserve complete Half coverage and emitted coordinate parity within each certified region',

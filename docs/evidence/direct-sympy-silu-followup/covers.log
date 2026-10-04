@@ -1,0 +1,16 @@
+{"domain": {"X1": [-15360, -10240], "X2": [-31743, -22528]}, "added": 0, "covered": 2041455616, "stop": "Flat artifact budget exceeded; no complete result", "parity": null}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 21694.68it/s]
+{"domain": {"X1": [-11264, -10240], "X2": [-22528, -21504]}, "added": 657025, "covered": 2042112641, "stop": null, "parity": {"artifact": "artifacts/direct-sympy-input-partitions/silu-update-state/cover-62f596956ef184a9c012879759c1911f8062f5d431954e38404ce358ea46fe31.expr", "sha256": "62f596956ef184a9c012879759c1911f8062f5d431954e38404ce358ea46fe31", "characters": 649682, "position": 0, "tokens": 1, "dimension": 2, "inputCorpusVersion": 2, "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6", "cases": 8196, "mismatches": 0, "firstMismatches": [], "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."}}
+{"domain": {"X1": [-12288, -11264], "X2": [-22528, -21504]}, "added": 0, "covered": 2042112641, "stop": "Region already covered; no manifest mutation", "parity": null}
+{"domain": {"X1": [10240, 15360], "X2": [22528, 31743]}, "added": 0, "covered": 2042112641, "stop": "Flat artifact budget exceeded; no complete result", "parity": null}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 70197.56it/s]
+{"domain": {"X1": [10240, 11264], "X2": [21504, 22528]}, "added": 1050625, "covered": 2043163266, "stop": null, "parity": {"artifact": "artifacts/direct-sympy-input-partitions/silu-update-state/cover-9b5e55d469443197cef18b08947160c7a3bff1d70cde1552bf08311a5af9ee4f.expr", "sha256": "9b5e55d469443197cef18b08947160c7a3bff1d70cde1552bf08311a5af9ee4f", "characters": 649684, "position": 0, "tokens": 1, "dimension": 2, "inputCorpusVersion": 2, "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6", "cases": 8196, "mismatches": 0, "firstMismatches": [], "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."}}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 19546.27it/s]
+{"domain": {"X1": [11264, 12288], "X2": [21504, 22528]}, "added": 1049600, "covered": 2044212866, "stop": null, "parity": {"artifact": "artifacts/direct-sympy-input-partitions/silu-update-state/cover-383ac236ec6bb6032dc2e56a0fc08e59e41f5bce857ff6b961524d980441133a.expr", "sha256": "383ac236ec6bb6032dc2e56a0fc08e59e41f5bce857ff6b961524d980441133a", "characters": 32209, "position": 0, "tokens": 1, "dimension": 2, "inputCorpusVersion": 2, "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6", "cases": 8196, "mismatches": 0, "firstMismatches": [], "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."}}
+{"identityUnchanged": true, "coveredBefore": 2041455616, "coveredAfter": 2044212866, "addedInputPatterns": 2757250, "unfinishedInputPatterns": 1986513278, "totalInputPatterns": 4030726144, "nativeCases": 24588, "nativeMismatches": 0, "fullCoordinateArtifactEmitted": false, "fullCoordinateParity": false}

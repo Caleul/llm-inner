@@ -50,6 +50,27 @@ def binary_exponent(value):
     return math.frexp(value)[1]-1
 
 
+def fixed_grid_conversion(kind,certificate):
+    """One-occurrence normal conversion on a proved signed binade.
+
+    With q=2**(e-(p-1)), adding signed 2**(e-(p-1)+52) rounds on q's
+    grid in F64. The sum remains in the offset's binade; subtraction is
+    exact by Sterbenz. All source values lie in one target binade, where
+    this is precisely the target RN-even conversion. Both binade endpoints
+    align with the grid. Zero-crossing, subnormal and overflow domains
+    retain the generic kernel. This never changes the source operations.
+    """
+    if kind not in ('R32','R16') or not isinstance(certificate,FiniteSource):return None
+    if certificate.minimum>0:low,high,sign=certificate.minimum,certificate.maximum,1
+    elif certificate.maximum<0:low,high,sign=-certificate.maximum,-certificate.minimum,-1
+    else:return None
+    precision,smallest,overflow=(24,2**-126,2**128-2**103) if kind=='R32' else (11,2**-14,65520)
+    exponent=binary_exponent(low)
+    if low<smallest or high>=overflow or high>2**(exponent+1):return None
+    offset=('' if sign>0 else '-')+'2**('+str(exponent-precision+53)+')'
+    return '((X999999997 + ('+offset+')) - ('+offset+'))'
+
+
 def lower_finite_conversion(expression,kind,certificate,compiler,domains,path=(),*,no_odd_f32_ties=False,integer_word_exact=False,frontier=None,sign_word=None,facts=()):
     if not isinstance(certificate,FiniteSource):
         raise ValueError("Finite source interval certificate required")
@@ -58,6 +79,13 @@ def lower_finite_conversion(expression,kind,certificate,compiler,domains,path=()
     if no_odd_f32_ties and kind!="R32":raise ValueError("Odd-tie certificate applies only to F32")
     # Fixed-point simplification must complete before this substitution too.
     source=compiler.stabilize("("+expression+")",domains,path,facts=facts)
+    # Keep existing one-occurrence kernels identical across contexts. A
+    # shorter local spelling can otherwise fragment shared complete bodies
+    # and increase the eventual combined artifact. Use this alternative
+    # only where it actually removes the retained-parity copy of the source.
+    grid=None if no_odd_f32_ties or integer_word_exact else fixed_grid_conversion(kind,certificate)
+    if grid is not None:
+        return compiler.substitute(grid,'X999999997',source,domains,path)
     raw=call("Bits64","X999999997")
     magnitude=call("U64And",raw,0x7fffffffffffffff)
     sign=call("U64And",raw,0x8000000000000000) if sign_word is None else "X999999996"

@@ -1,0 +1,742 @@
+[
+  {
+    "compilerIdentity": {
+      "version": 1,
+      "dimension": 2,
+      "position": 0,
+      "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+      "sympy": "1.14.0",
+      "platform": "macOS-26.7.1-arm64-arm-64bit",
+      "byteOrder": "little",
+      "referenceBackend": {
+        "name": "torch CPU",
+        "version": "2.12.1",
+        "gitVersion": "7269437d655783a26cba32aa88195b741ff496aa",
+        "capability": "DEFAULT"
+      },
+      "checkpoint": {
+        "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+        "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+      },
+      "sources": {
+        "direct_sympy_arithmetic.py": "fd9779759345c7b381a01b54fee545218735eb8c26e4f6a8ffb560109431ff43",
+        "direct_sympy_checkpoint.py": "1e6c19fe6065738683f46b9db8b9fccc3d782ed21211b1e2d7e2be4d70c9e083",
+        "direct_sympy_coherent_paths.py": "f3f1c30975616741b87563613cad629ac39eb4da888032c791abb3ac0562766a",
+        "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+        "direct_sympy_conversions.py": "2937c333a849c7719ab86dc25fadec52eac18ca63647c804a4804243a29f76f4",
+        "direct_sympy_input_partitions.py": "21449edd26a0d43ad4a2c5b5e841c5e9d8e7de6afb6ac138a9eef88374558797",
+        "direct_sympy_layer_bounds.py": "49b22eba3f144936c1d1d5bed6a6485f78976e244c67eb9d600608282f32d85c",
+        "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+        "direct_sympy_partition_run.py": "6ae47bb0a1c8136757e72bf0a37bbdf28c0826cecc42ae5312141b6e19cbe452",
+        "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+        "direct_sympy_savepoints.py": "682783ebfd3f1337bbcf015faa34876963a9f1b63eae2cba1c3159cb0ed5d266",
+        "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+        "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+        "direct_sympy_silu.py": "e623f38b5008356d8f6aa1615aabfa5a779f9dc7ea9d5b8183c5b17a78383fe3",
+        "direct_sympy_sqrt.py": "ec9644071ed6ce1576f9550175ed768180d40d70c1bf610f0089785c5564e3fb",
+        "direct_sympy_streaming_literals.py": "5a0046367e570549e5c804c0f5aa0737db2c506600c9ae19c72450ba0f38824e",
+        "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+        "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+        "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+        "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
+      }
+    },
+    "inputDomains": {
+      "X1": [
+        -15360,
+        -10240
+      ],
+      "X2": [
+        -31743,
+        -22528
+      ]
+    },
+    "addedInputPatterns": 0,
+    "coveredBefore": 2041455616,
+    "coveredAfter": 2041455616,
+    "fullCoordinateParity": false,
+    "toolSHA256": "7ea6cded917a68939243a59ea541423952b8c019262e0dfbb88b68b8e220419c",
+    "compilation": {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          -15360,
+          -10240
+        ],
+        "X2": [
+          -31743,
+          -22528
+        ]
+      },
+      "producers": 25,
+      "elidedUpdates": 2,
+      "logicalCharacters": 12855717,
+      "storedCharacters": 32857,
+      "stop": "Flat artifact budget exceeded; no complete result",
+      "seconds": 6.018706500006374,
+      "workerSeconds": 6.765902834013104
+    },
+    "stop": "Flat artifact budget exceeded; no complete result"
+  },
+  {
+    "compilerIdentity": {
+      "version": 1,
+      "dimension": 2,
+      "position": 0,
+      "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+      "sympy": "1.14.0",
+      "platform": "macOS-26.7.1-arm64-arm-64bit",
+      "byteOrder": "little",
+      "referenceBackend": {
+        "name": "torch CPU",
+        "version": "2.12.1",
+        "gitVersion": "7269437d655783a26cba32aa88195b741ff496aa",
+        "capability": "DEFAULT"
+      },
+      "checkpoint": {
+        "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+        "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+      },
+      "sources": {
+        "direct_sympy_arithmetic.py": "fd9779759345c7b381a01b54fee545218735eb8c26e4f6a8ffb560109431ff43",
+        "direct_sympy_checkpoint.py": "1e6c19fe6065738683f46b9db8b9fccc3d782ed21211b1e2d7e2be4d70c9e083",
+        "direct_sympy_coherent_paths.py": "f3f1c30975616741b87563613cad629ac39eb4da888032c791abb3ac0562766a",
+        "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+        "direct_sympy_conversions.py": "2937c333a849c7719ab86dc25fadec52eac18ca63647c804a4804243a29f76f4",
+        "direct_sympy_input_partitions.py": "21449edd26a0d43ad4a2c5b5e841c5e9d8e7de6afb6ac138a9eef88374558797",
+        "direct_sympy_layer_bounds.py": "49b22eba3f144936c1d1d5bed6a6485f78976e244c67eb9d600608282f32d85c",
+        "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+        "direct_sympy_partition_run.py": "6ae47bb0a1c8136757e72bf0a37bbdf28c0826cecc42ae5312141b6e19cbe452",
+        "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+        "direct_sympy_savepoints.py": "682783ebfd3f1337bbcf015faa34876963a9f1b63eae2cba1c3159cb0ed5d266",
+        "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+        "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+        "direct_sympy_silu.py": "e623f38b5008356d8f6aa1615aabfa5a779f9dc7ea9d5b8183c5b17a78383fe3",
+        "direct_sympy_sqrt.py": "ec9644071ed6ce1576f9550175ed768180d40d70c1bf610f0089785c5564e3fb",
+        "direct_sympy_streaming_literals.py": "5a0046367e570549e5c804c0f5aa0737db2c506600c9ae19c72450ba0f38824e",
+        "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+        "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+        "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+        "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
+      }
+    },
+    "inputDomains": {
+      "X1": [
+        -11264,
+        -10240
+      ],
+      "X2": [
+        -22528,
+        -21504
+      ]
+    },
+    "addedInputPatterns": 657025,
+    "coveredBefore": 2041455616,
+    "coveredAfter": 2042112641,
+    "fullCoordinateParity": false,
+    "toolSHA256": "7ea6cded917a68939243a59ea541423952b8c019262e0dfbb88b68b8e220419c",
+    "compilation": {
+      "complete": true,
+      "inputDomains": {
+        "X1": [
+          -11264,
+          -10240
+        ],
+        "X2": [
+          -22528,
+          -21504
+        ]
+      },
+      "producers": 25,
+      "elidedUpdates": 2,
+      "logicalCharacters": 619681,
+      "storedCharacters": 23088,
+      "artifact": {
+        "path": "artifacts/direct-sympy-input-partitions/silu-update-state/cover-62f596956ef184a9c012879759c1911f8062f5d431954e38404ce358ea46fe31.expr",
+        "characters": 649682,
+        "sha256": "62f596956ef184a9c012879759c1911f8062f5d431954e38404ce358ea46fe31",
+        "paths": 2,
+        "compilerAliases": 0,
+        "complete": true
+      },
+      "paths": {
+        "splitContexts": 1,
+        "completedPaths": 2,
+        "contradictions": 0,
+        "selectorSelections": 2,
+        "CASPasses": 530,
+        "numericArithmeticEliminated": 97,
+        "numericRecipeAttempts": 23,
+        "numericRecipeAdmissions": 0,
+        "numericRecipeBudgetStops": 0,
+        "lastArm": {
+          "bodyCharacters": 554828,
+          "guardCharacters": 32415,
+          "decisions": 1,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "storedCharacters": 1602,
+              "expandedCharacters": 1604
+            },
+            {
+              "definition": 1,
+              "storedCharacters": 101,
+              "expandedCharacters": 1692
+            },
+            {
+              "definition": 2,
+              "storedCharacters": 144,
+              "expandedCharacters": 1823
+            },
+            {
+              "definition": 3,
+              "storedCharacters": 141,
+              "expandedCharacters": 1820
+            },
+            {
+              "definition": 4,
+              "storedCharacters": 202,
+              "expandedCharacters": 3817
+            },
+            {
+              "definition": 5,
+              "storedCharacters": 1693,
+              "expandedCharacters": 28309
+            },
+            {
+              "definition": 6,
+              "storedCharacters": 114,
+              "expandedCharacters": 32212
+            },
+            {
+              "definition": 7,
+              "storedCharacters": 143,
+              "expandedCharacters": 32342
+            },
+            {
+              "definition": 12,
+              "storedCharacters": 7048,
+              "expandedCharacters": 554698
+            },
+            {
+              "definition": 13,
+              "storedCharacters": 144,
+              "expandedCharacters": 554828
+            }
+          ]
+        }
+      },
+      "seconds": 8.460726291988976,
+      "workerSeconds": 9.212471125007141
+    },
+    "parity": {
+      "artifact": "artifacts/direct-sympy-input-partitions/silu-update-state/cover-62f596956ef184a9c012879759c1911f8062f5d431954e38404ce358ea46fe31.expr",
+      "sha256": "62f596956ef184a9c012879759c1911f8062f5d431954e38404ce358ea46fe31",
+      "characters": 649682,
+      "position": 0,
+      "tokens": 1,
+      "dimension": 2,
+      "inputCorpusVersion": 2,
+      "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+      "cases": 8196,
+      "mismatches": 0,
+      "firstMismatches": [],
+      "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+    },
+    "admittedRegions": [
+      "100011100010",
+      "100011011110",
+      "1000110110110",
+      "1000110110010",
+      "10001101011110",
+      "10001101011010"
+    ],
+    "sharedArtifact": {
+      "file": "cover-62f596956ef184a9c012879759c1911f8062f5d431954e38404ce358ea46fe31.expr",
+      "sha256": "62f596956ef184a9c012879759c1911f8062f5d431954e38404ce358ea46fe31",
+      "characters": 649682
+    },
+    "manifestBeforeSHA256": "fe90860b2d20f239c98a6d532a799b375850c68274b2171427677b53fb2d7e83"
+  },
+  {
+    "compilerIdentity": {
+      "version": 1,
+      "dimension": 2,
+      "position": 0,
+      "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+      "sympy": "1.14.0",
+      "platform": "macOS-26.7.1-arm64-arm-64bit",
+      "byteOrder": "little",
+      "referenceBackend": {
+        "name": "torch CPU",
+        "version": "2.12.1",
+        "gitVersion": "7269437d655783a26cba32aa88195b741ff496aa",
+        "capability": "DEFAULT"
+      },
+      "checkpoint": {
+        "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+        "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+      },
+      "sources": {
+        "direct_sympy_arithmetic.py": "fd9779759345c7b381a01b54fee545218735eb8c26e4f6a8ffb560109431ff43",
+        "direct_sympy_checkpoint.py": "1e6c19fe6065738683f46b9db8b9fccc3d782ed21211b1e2d7e2be4d70c9e083",
+        "direct_sympy_coherent_paths.py": "f3f1c30975616741b87563613cad629ac39eb4da888032c791abb3ac0562766a",
+        "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+        "direct_sympy_conversions.py": "2937c333a849c7719ab86dc25fadec52eac18ca63647c804a4804243a29f76f4",
+        "direct_sympy_input_partitions.py": "21449edd26a0d43ad4a2c5b5e841c5e9d8e7de6afb6ac138a9eef88374558797",
+        "direct_sympy_layer_bounds.py": "49b22eba3f144936c1d1d5bed6a6485f78976e244c67eb9d600608282f32d85c",
+        "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+        "direct_sympy_partition_run.py": "6ae47bb0a1c8136757e72bf0a37bbdf28c0826cecc42ae5312141b6e19cbe452",
+        "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+        "direct_sympy_savepoints.py": "682783ebfd3f1337bbcf015faa34876963a9f1b63eae2cba1c3159cb0ed5d266",
+        "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+        "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+        "direct_sympy_silu.py": "e623f38b5008356d8f6aa1615aabfa5a779f9dc7ea9d5b8183c5b17a78383fe3",
+        "direct_sympy_sqrt.py": "ec9644071ed6ce1576f9550175ed768180d40d70c1bf610f0089785c5564e3fb",
+        "direct_sympy_streaming_literals.py": "5a0046367e570549e5c804c0f5aa0737db2c506600c9ae19c72450ba0f38824e",
+        "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+        "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+        "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+        "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
+      }
+    },
+    "inputDomains": {
+      "X1": [
+        -12288,
+        -11264
+      ],
+      "X2": [
+        -22528,
+        -21504
+      ]
+    },
+    "addedInputPatterns": 0,
+    "coveredBefore": 2042112641,
+    "coveredAfter": 2042112641,
+    "fullCoordinateParity": false,
+    "toolSHA256": "7ea6cded917a68939243a59ea541423952b8c019262e0dfbb88b68b8e220419c",
+    "stop": "Region already covered; no manifest mutation"
+  },
+  {
+    "compilerIdentity": {
+      "version": 1,
+      "dimension": 2,
+      "position": 0,
+      "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+      "sympy": "1.14.0",
+      "platform": "macOS-26.7.1-arm64-arm-64bit",
+      "byteOrder": "little",
+      "referenceBackend": {
+        "name": "torch CPU",
+        "version": "2.12.1",
+        "gitVersion": "7269437d655783a26cba32aa88195b741ff496aa",
+        "capability": "DEFAULT"
+      },
+      "checkpoint": {
+        "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+        "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+      },
+      "sources": {
+        "direct_sympy_arithmetic.py": "fd9779759345c7b381a01b54fee545218735eb8c26e4f6a8ffb560109431ff43",
+        "direct_sympy_checkpoint.py": "1e6c19fe6065738683f46b9db8b9fccc3d782ed21211b1e2d7e2be4d70c9e083",
+        "direct_sympy_coherent_paths.py": "f3f1c30975616741b87563613cad629ac39eb4da888032c791abb3ac0562766a",
+        "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+        "direct_sympy_conversions.py": "2937c333a849c7719ab86dc25fadec52eac18ca63647c804a4804243a29f76f4",
+        "direct_sympy_input_partitions.py": "21449edd26a0d43ad4a2c5b5e841c5e9d8e7de6afb6ac138a9eef88374558797",
+        "direct_sympy_layer_bounds.py": "49b22eba3f144936c1d1d5bed6a6485f78976e244c67eb9d600608282f32d85c",
+        "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+        "direct_sympy_partition_run.py": "6ae47bb0a1c8136757e72bf0a37bbdf28c0826cecc42ae5312141b6e19cbe452",
+        "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+        "direct_sympy_savepoints.py": "682783ebfd3f1337bbcf015faa34876963a9f1b63eae2cba1c3159cb0ed5d266",
+        "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+        "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+        "direct_sympy_silu.py": "e623f38b5008356d8f6aa1615aabfa5a779f9dc7ea9d5b8183c5b17a78383fe3",
+        "direct_sympy_sqrt.py": "ec9644071ed6ce1576f9550175ed768180d40d70c1bf610f0089785c5564e3fb",
+        "direct_sympy_streaming_literals.py": "5a0046367e570549e5c804c0f5aa0737db2c506600c9ae19c72450ba0f38824e",
+        "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+        "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+        "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+        "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
+      }
+    },
+    "inputDomains": {
+      "X1": [
+        10240,
+        15360
+      ],
+      "X2": [
+        22528,
+        31743
+      ]
+    },
+    "addedInputPatterns": 0,
+    "coveredBefore": 2042112641,
+    "coveredAfter": 2042112641,
+    "fullCoordinateParity": false,
+    "toolSHA256": "7ea6cded917a68939243a59ea541423952b8c019262e0dfbb88b68b8e220419c",
+    "compilation": {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          10240,
+          15360
+        ],
+        "X2": [
+          22528,
+          31743
+        ]
+      },
+      "producers": 25,
+      "elidedUpdates": 2,
+      "logicalCharacters": 12852716,
+      "storedCharacters": 33216,
+      "stop": "Flat artifact budget exceeded; no complete result",
+      "seconds": 6.336391083954368,
+      "workerSeconds": 7.138197083026171
+    },
+    "stop": "Flat artifact budget exceeded; no complete result"
+  },
+  {
+    "compilerIdentity": {
+      "version": 1,
+      "dimension": 2,
+      "position": 0,
+      "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+      "sympy": "1.14.0",
+      "platform": "macOS-26.7.1-arm64-arm-64bit",
+      "byteOrder": "little",
+      "referenceBackend": {
+        "name": "torch CPU",
+        "version": "2.12.1",
+        "gitVersion": "7269437d655783a26cba32aa88195b741ff496aa",
+        "capability": "DEFAULT"
+      },
+      "checkpoint": {
+        "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+        "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+      },
+      "sources": {
+        "direct_sympy_arithmetic.py": "fd9779759345c7b381a01b54fee545218735eb8c26e4f6a8ffb560109431ff43",
+        "direct_sympy_checkpoint.py": "1e6c19fe6065738683f46b9db8b9fccc3d782ed21211b1e2d7e2be4d70c9e083",
+        "direct_sympy_coherent_paths.py": "f3f1c30975616741b87563613cad629ac39eb4da888032c791abb3ac0562766a",
+        "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+        "direct_sympy_conversions.py": "2937c333a849c7719ab86dc25fadec52eac18ca63647c804a4804243a29f76f4",
+        "direct_sympy_input_partitions.py": "21449edd26a0d43ad4a2c5b5e841c5e9d8e7de6afb6ac138a9eef88374558797",
+        "direct_sympy_layer_bounds.py": "49b22eba3f144936c1d1d5bed6a6485f78976e244c67eb9d600608282f32d85c",
+        "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+        "direct_sympy_partition_run.py": "6ae47bb0a1c8136757e72bf0a37bbdf28c0826cecc42ae5312141b6e19cbe452",
+        "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+        "direct_sympy_savepoints.py": "682783ebfd3f1337bbcf015faa34876963a9f1b63eae2cba1c3159cb0ed5d266",
+        "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+        "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+        "direct_sympy_silu.py": "e623f38b5008356d8f6aa1615aabfa5a779f9dc7ea9d5b8183c5b17a78383fe3",
+        "direct_sympy_sqrt.py": "ec9644071ed6ce1576f9550175ed768180d40d70c1bf610f0089785c5564e3fb",
+        "direct_sympy_streaming_literals.py": "5a0046367e570549e5c804c0f5aa0737db2c506600c9ae19c72450ba0f38824e",
+        "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+        "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+        "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+        "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
+      }
+    },
+    "inputDomains": {
+      "X1": [
+        10240,
+        11264
+      ],
+      "X2": [
+        21504,
+        22528
+      ]
+    },
+    "addedInputPatterns": 1050625,
+    "coveredBefore": 2042112641,
+    "coveredAfter": 2043163266,
+    "fullCoordinateParity": false,
+    "toolSHA256": "7ea6cded917a68939243a59ea541423952b8c019262e0dfbb88b68b8e220419c",
+    "compilation": {
+      "complete": true,
+      "inputDomains": {
+        "X1": [
+          10240,
+          11264
+        ],
+        "X2": [
+          21504,
+          22528
+        ]
+      },
+      "producers": 25,
+      "elidedUpdates": 2,
+      "logicalCharacters": 619346,
+      "storedCharacters": 23056,
+      "artifact": {
+        "path": "artifacts/direct-sympy-input-partitions/silu-update-state/cover-9b5e55d469443197cef18b08947160c7a3bff1d70cde1552bf08311a5af9ee4f.expr",
+        "characters": 649684,
+        "sha256": "9b5e55d469443197cef18b08947160c7a3bff1d70cde1552bf08311a5af9ee4f",
+        "paths": 2,
+        "compilerAliases": 0,
+        "complete": true
+      },
+      "paths": {
+        "splitContexts": 1,
+        "completedPaths": 2,
+        "contradictions": 0,
+        "selectorSelections": 2,
+        "CASPasses": 498,
+        "numericArithmeticEliminated": 97,
+        "numericRecipeAttempts": 23,
+        "numericRecipeAdmissions": 0,
+        "numericRecipeBudgetStops": 0,
+        "lastArm": {
+          "bodyCharacters": 554877,
+          "guardCharacters": 32399,
+          "decisions": 1,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "storedCharacters": 1602,
+              "expandedCharacters": 1604
+            },
+            {
+              "definition": 1,
+              "storedCharacters": 101,
+              "expandedCharacters": 1692
+            },
+            {
+              "definition": 2,
+              "storedCharacters": 143,
+              "expandedCharacters": 1822
+            },
+            {
+              "definition": 3,
+              "storedCharacters": 140,
+              "expandedCharacters": 1819
+            },
+            {
+              "definition": 4,
+              "storedCharacters": 202,
+              "expandedCharacters": 3815
+            },
+            {
+              "definition": 5,
+              "storedCharacters": 1693,
+              "expandedCharacters": 28295
+            },
+            {
+              "definition": 6,
+              "storedCharacters": 114,
+              "expandedCharacters": 32196
+            },
+            {
+              "definition": 7,
+              "storedCharacters": 142,
+              "expandedCharacters": 32325
+            },
+            {
+              "definition": 12,
+              "storedCharacters": 7384,
+              "expandedCharacters": 554746
+            },
+            {
+              "definition": 13,
+              "storedCharacters": 145,
+              "expandedCharacters": 554877
+            }
+          ]
+        }
+      },
+      "seconds": 8.420205749978777,
+      "workerSeconds": 9.215892624983098
+    },
+    "parity": {
+      "artifact": "artifacts/direct-sympy-input-partitions/silu-update-state/cover-9b5e55d469443197cef18b08947160c7a3bff1d70cde1552bf08311a5af9ee4f.expr",
+      "sha256": "9b5e55d469443197cef18b08947160c7a3bff1d70cde1552bf08311a5af9ee4f",
+      "characters": 649684,
+      "position": 0,
+      "tokens": 1,
+      "dimension": 2,
+      "inputCorpusVersion": 2,
+      "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+      "cases": 8196,
+      "mismatches": 0,
+      "firstMismatches": [],
+      "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+    },
+    "admittedRegions": [
+      "10111101010"
+    ],
+    "sharedArtifact": {
+      "file": "cover-9b5e55d469443197cef18b08947160c7a3bff1d70cde1552bf08311a5af9ee4f.expr",
+      "sha256": "9b5e55d469443197cef18b08947160c7a3bff1d70cde1552bf08311a5af9ee4f",
+      "characters": 649684
+    },
+    "manifestBeforeSHA256": "2abff1e55a18624c46679dc893be22c40244378ea519e2d5d63ce2587e5ca122"
+  },
+  {
+    "compilerIdentity": {
+      "version": 1,
+      "dimension": 2,
+      "position": 0,
+      "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+      "sympy": "1.14.0",
+      "platform": "macOS-26.7.1-arm64-arm-64bit",
+      "byteOrder": "little",
+      "referenceBackend": {
+        "name": "torch CPU",
+        "version": "2.12.1",
+        "gitVersion": "7269437d655783a26cba32aa88195b741ff496aa",
+        "capability": "DEFAULT"
+      },
+      "checkpoint": {
+        "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+        "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+      },
+      "sources": {
+        "direct_sympy_arithmetic.py": "fd9779759345c7b381a01b54fee545218735eb8c26e4f6a8ffb560109431ff43",
+        "direct_sympy_checkpoint.py": "1e6c19fe6065738683f46b9db8b9fccc3d782ed21211b1e2d7e2be4d70c9e083",
+        "direct_sympy_coherent_paths.py": "f3f1c30975616741b87563613cad629ac39eb4da888032c791abb3ac0562766a",
+        "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+        "direct_sympy_conversions.py": "2937c333a849c7719ab86dc25fadec52eac18ca63647c804a4804243a29f76f4",
+        "direct_sympy_input_partitions.py": "21449edd26a0d43ad4a2c5b5e841c5e9d8e7de6afb6ac138a9eef88374558797",
+        "direct_sympy_layer_bounds.py": "49b22eba3f144936c1d1d5bed6a6485f78976e244c67eb9d600608282f32d85c",
+        "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+        "direct_sympy_partition_run.py": "6ae47bb0a1c8136757e72bf0a37bbdf28c0826cecc42ae5312141b6e19cbe452",
+        "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+        "direct_sympy_savepoints.py": "682783ebfd3f1337bbcf015faa34876963a9f1b63eae2cba1c3159cb0ed5d266",
+        "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+        "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+        "direct_sympy_silu.py": "e623f38b5008356d8f6aa1615aabfa5a779f9dc7ea9d5b8183c5b17a78383fe3",
+        "direct_sympy_sqrt.py": "ec9644071ed6ce1576f9550175ed768180d40d70c1bf610f0089785c5564e3fb",
+        "direct_sympy_streaming_literals.py": "5a0046367e570549e5c804c0f5aa0737db2c506600c9ae19c72450ba0f38824e",
+        "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+        "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+        "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+        "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
+      }
+    },
+    "inputDomains": {
+      "X1": [
+        11264,
+        12288
+      ],
+      "X2": [
+        21504,
+        22528
+      ]
+    },
+    "addedInputPatterns": 1049600,
+    "coveredBefore": 2043163266,
+    "coveredAfter": 2044212866,
+    "fullCoordinateParity": false,
+    "toolSHA256": "7ea6cded917a68939243a59ea541423952b8c019262e0dfbb88b68b8e220419c",
+    "compilation": {
+      "complete": true,
+      "inputDomains": {
+        "X1": [
+          11264,
+          12288
+        ],
+        "X2": [
+          21504,
+          22528
+        ]
+      },
+      "producers": 17,
+      "elidedUpdates": 3,
+      "logicalCharacters": 32327,
+      "storedCharacters": 4139,
+      "artifact": {
+        "path": "artifacts/direct-sympy-input-partitions/silu-update-state/cover-383ac236ec6bb6032dc2e56a0fc08e59e41f5bce857ff6b961524d980441133a.expr",
+        "characters": 32209,
+        "sha256": "383ac236ec6bb6032dc2e56a0fc08e59e41f5bce857ff6b961524d980441133a",
+        "paths": 1,
+        "compilerAliases": 0,
+        "complete": true
+      },
+      "paths": {
+        "splitContexts": 0,
+        "completedPaths": 1,
+        "contradictions": 0,
+        "selectorSelections": 0,
+        "CASPasses": 168,
+        "numericArithmeticEliminated": 31,
+        "numericRecipeAttempts": 8,
+        "numericRecipeAdmissions": 0,
+        "numericRecipeBudgetStops": 0,
+        "lastArm": {
+          "bodyCharacters": 32327,
+          "guardCharacters": 0,
+          "decisions": 0,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "storedCharacters": 1602,
+              "expandedCharacters": 1604
+            },
+            {
+              "definition": 1,
+              "storedCharacters": 101,
+              "expandedCharacters": 1692
+            },
+            {
+              "definition": 2,
+              "storedCharacters": 143,
+              "expandedCharacters": 1822
+            },
+            {
+              "definition": 3,
+              "storedCharacters": 140,
+              "expandedCharacters": 1819
+            },
+            {
+              "definition": 4,
+              "storedCharacters": 202,
+              "expandedCharacters": 3815
+            },
+            {
+              "definition": 5,
+              "storedCharacters": 1693,
+              "expandedCharacters": 28295
+            },
+            {
+              "definition": 6,
+              "storedCharacters": 114,
+              "expandedCharacters": 32196
+            },
+            {
+              "definition": 7,
+              "storedCharacters": 144,
+              "expandedCharacters": 32327
+            }
+          ]
+        }
+      },
+      "seconds": 1.0604705829755403,
+      "workerSeconds": 1.8070171669824049
+    },
+    "parity": {
+      "artifact": "artifacts/direct-sympy-input-partitions/silu-update-state/cover-383ac236ec6bb6032dc2e56a0fc08e59e41f5bce857ff6b961524d980441133a.expr",
+      "sha256": "383ac236ec6bb6032dc2e56a0fc08e59e41f5bce857ff6b961524d980441133a",
+      "characters": 32209,
+      "position": 0,
+      "tokens": 1,
+      "dimension": 2,
+      "inputCorpusVersion": 2,
+      "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+      "cases": 8196,
+      "mismatches": 0,
+      "firstMismatches": [],
+      "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+    },
+    "admittedRegions": [
+      "101111011010"
+    ],
+    "sharedArtifact": {
+      "file": "cover-383ac236ec6bb6032dc2e56a0fc08e59e41f5bce857ff6b961524d980441133a.expr",
+      "sha256": "383ac236ec6bb6032dc2e56a0fc08e59e41f5bce857ff6b961524d980441133a",
+      "characters": 32209
+    },
+    "manifestBeforeSHA256": "8a249f48e1b330896664c44f831b89e0b52f766da89a375233bdc3cbfef5a353"
+  }
+]

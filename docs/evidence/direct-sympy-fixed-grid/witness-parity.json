@@ -1,0 +1,30 @@
+[
+  {
+    "artifact": "docs/evidence/direct-sympy-fixed-grid/previous.expr",
+    "sha256": "d0c21ae90842f3b5bdb6d444658fd417d04c7b850bfc0f99a9e8974aa0eadb52",
+    "characters": 17712,
+    "position": 0,
+    "tokens": 1,
+    "dimension": 2,
+    "inputCorpusVersion": 2,
+    "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+    "cases": 8196,
+    "mismatches": 0,
+    "firstMismatches": [],
+    "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+  },
+  {
+    "artifact": "docs/evidence/direct-sympy-fixed-grid/fixed-grid.expr",
+    "sha256": "d0c21ae90842f3b5bdb6d444658fd417d04c7b850bfc0f99a9e8974aa0eadb52",
+    "characters": 17712,
+    "position": 0,
+    "tokens": 1,
+    "dimension": 2,
+    "inputCorpusVersion": 2,
+    "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+    "cases": 8196,
+    "mismatches": 0,
+    "firstMismatches": [],
+    "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+  }
+]

@@ -1,0 +1,12 @@
+{
+  "identityUnchanged": true,
+  "coveredBefore": 2041455616,
+  "coveredAfter": 2044212866,
+  "addedInputPatterns": 2757250,
+  "unfinishedInputPatterns": 1986513278,
+  "totalInputPatterns": 4030726144,
+  "nativeCases": 24588,
+  "nativeMismatches": 0,
+  "fullCoordinateArtifactEmitted": false,
+  "fullCoordinateParity": false
+}

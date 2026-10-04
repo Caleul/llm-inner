@@ -1,0 +1,27 @@
+F..
+======================================================================
+FAIL: test_actual_emitted_half_sum_is_smaller_and_has_native_parity (__main__.HalfQuantumTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_half_quantum_test.py", line 78, in test_actual_emitted_half_sum_is_smaller_and_has_native_parity
+    self.assertEqual(built.returncode,0,built.stderr)
+AssertionError: 1 != 0 : /var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/tmpdnmanbt7/sum.cpp:6:88: error: no member named 'pow' in namespace 'std'
+    6 | double candidate(double X1,double X2){return (double((double((double(X1) + double(std::pow(double(UINT64_C(2)), double(UINT64_C(42)))))) - double(std::pow(double(UINT64_C(2)), double(UINT64_C(42)))))) + double((double((double(X2) + double(std::pow(double(UINT64_C(2)), double(UINT64_C(42)))))) - double(std::pow(double(UINT64_C(2)), double(UINT64_C(42)))))));}
+      |                                                                                        ^~~
+/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/tmpdnmanbt7/sum.cpp:6:152: error: no member named 'pow' in namespace 'std'
+    6 | double candidate(double X1,double X2){return (double((double((double(X1) + double(std::pow(double(UINT64_C(2)), double(UINT64_C(42)))))) - double(std::pow(double(UINT64_C(2)), double(UINT64_C(42)))))) + double((double((double(X2) + double(std::pow(double(UINT64_C(2)), double(UINT64_C(42)))))) - double(std::pow(double(UINT64_C(2)), double(UINT64_C(42)))))));}
+      |                                                                                                                                                        ^~~
+/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/tmpdnmanbt7/sum.cpp:6:245: error: no member named 'pow' in namespace 'std'
+    6 | double candidate(double X1,double X2){return (double((double((double(X1) + double(std::pow(double(UINT64_C(2)), double(UINT64_C(42)))))) - double(std::pow(double(UINT64_C(2)), double(UINT64_C(42)))))) + double((double((double(X2) + double(std::pow(double(UINT64_C(2)), double(UINT64_C(42)))))) - double(std::pow(double(UINT64_C(2)), double(UINT64_C(42)))))));}
+      |                                                                                                                                                                                                                                                     ^~~
+/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/tmpdnmanbt7/sum.cpp:6:309: error: no member named 'pow' in namespace 'std'
+    6 | double candidate(double X1,double X2){return (double((double((double(X1) + double(std::pow(double(UINT64_C(2)), double(UINT64_C(42)))))) - double(std::pow(double(UINT64_C(2)), double(UINT64_C(42)))))) + double((double((double(X2) + double(std::pow(double(UINT64_C(2)), double(UINT64_C(42)))))) - double(std::pow(double(UINT64_C(2)), double(UINT64_C(42)))))));}
+      |                                                                                                                                                                                                                                                                                                                     ^~~
+4 errors generated.
+
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.430s
+
+FAILED (failures=1)
+Half interval grid proof: cases=63488 violations=0
