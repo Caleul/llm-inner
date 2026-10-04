@@ -9240,5 +9240,53 @@
     "broadRegression": "Prior completedSquareTandemValidation evidence preserved; not rerun for this storage-only change. Focused compiler/savepoint tests rerun.",
     "coordinateComplete": false,
     "continuedOriginalState": "docs/evidence/direct-sympy-compressed-savepoints/resume-job.json"
+  },
+  "equivalentRegionSearchValidation": {
+    "backend": "equivalent-stdlib-v2",
+    "algorithm": "Suffix anchor then prefix/middle rejection and full exact literal verification; first occurrence order preserved",
+    "numericalSourcesChanged": false,
+    "savepointIdentityChanged": false,
+    "build": "passed",
+    "nodeTests": {
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "skip": 0
+    },
+    "pythonTests": {
+      "tests": 99,
+      "pass": 99,
+      "skip": 0
+    },
+    "newTests": [
+      "Large literal offsets, overlapping near matches, Unicode and start offsets against str.find",
+      "Registered region boundaries, nested installation and exception restoration against original compact_regions"
+    ],
+    "checkpoint": "docs/evidence/direct-sympy-test-checkpoint",
+    "benchmark": {
+      "runs": [
+        {
+          "case": "near-match",
+          "regionCharacters": 1316872194,
+          "expressionCharacters": 1316872195,
+          "stdlibSeconds": 0.4816126250079833,
+          "anchoredSeconds": 2.9082992114126682e-05,
+          "position": -1
+        },
+        {
+          "case": "present",
+          "regionCharacters": 1316872194,
+          "expressionCharacters": 1316872196,
+          "stdlibSeconds": 0.8321794579969719,
+          "anchoredSeconds": 0.025747957988642156,
+          "position": 1
+        }
+      ],
+      "peakRSSBytes": 3973890048,
+      "scope": "Exact literal search on the actual gate producer; not compilation or coordinate parity."
+    },
+    "scope": "Search acceleration only. Does not reduce expression size or prove a full coordinate. Broad baseline test failures preserved in prior records; broad suite not rerun for this search-only change.",
+    "evidenceDirectory": "docs/evidence/direct-sympy-region-search",
+    "coordinateComplete": false
   }
 }

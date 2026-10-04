@@ -5,9 +5,19 @@
   "runnerPID": 28981,
   "compilerPID": 28982,
   "lastObservation": {
-    "processes": "  28981 Ss         01:49 14988 /usr/bin/python3 /content/llm-inner-frontier-composition/square-resume/runner.py\n  28982 Rl         01:48 6385620 /usr/bin/python3 helpers/direct_sympy_scan_cli.py docs/evidence/direct-sympy-test-checkpoint /content/llm-inner-frontier-composition/square-resume/coordinate.expr --savepoint-directory /content/llm-inner-frontier-composition/square/state --resume --max-characters 17179869184 --max-seconds 1200 --workers 1 --memory-mib 98304\n",
+    "terminal": "complete",
+    "runnerState": "Z",
     "savedDependencies": 16,
-    "lastDependency": "model.layers.0.gated:0"
+    "lastDependency": "model.layers.0.gated:0",
+    "compileSeconds": 906.0542883019998,
+    "compileExitCode": 1,
+    "rejectedExpandedCharacters": 31935183934,
+    "characterLimit": 17179869184,
+    "paritySeconds": 306.200422547,
+    "parityExitCode": 0,
+    "parityComparisons": 360,
+    "parityMismatches": 0,
+    "coordinateComplete": false
   },
   "compatibility": {
     "numericSourceHashes": {

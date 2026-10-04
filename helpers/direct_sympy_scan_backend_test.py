@@ -12,6 +12,35 @@ from direct_sympy_savepoints import ProducerSavepoints
 
 
 class EquivalentScanTests(unittest.TestCase):
+    def test_large_region_search_preserves_first_offsets_near_matches_and_unicode(self):
+        backend=EquivalentScans();size=1048576
+        regions=['a'*(size-1)+'b','字'*(size-1)+'末',('ab'*size)+'END']
+        for region in regions:
+            near=region[:-1]+'!'
+            for text in (region,near,near+region,'x'+region+region,region+'x'+near):
+                for start in (-1,0,1,len(text)//2,len(text),len(text)+1):
+                    self.assertEqual(backend.literal_find(text,region,start),text.find(region,start))
+        self.assertGreater(backend.literal_region_searches,0)
+        self.assertGreater(backend.literal_region_candidates,0)
+
+    def test_large_compaction_preserves_identifier_boundaries_and_restores_method(self):
+        from fractions import Fraction as F
+        from direct_sympy_strings import StringCompiler,Domain,syntax
+        domains={'X1':Domain(F(-1),F(1),-24,False)}
+        region='Float64('+(' '*1048576)+'Bits64(X1))'
+        compiler=StringCompiler(max_characters=8*1048576);compiler.register_completed_region(region,domains,syntax(region))
+        expression='other'+region+' + '+region+' + '+region+' (X1)'
+        original=StringCompiler.compact_regions
+        expected=compiler.compact_regions(expression,compiler.context(domains))
+        with install() as backend:
+            self.assertEqual(compiler.compact_regions(expression,compiler.context(domains)),expected)
+            self.assertGreater(backend.literal_region_searches,0)
+            with install():self.assertEqual(compiler.compact_regions(expression,compiler.context(domains)),expected)
+        self.assertIs(StringCompiler.compact_regions,original)
+        with self.assertRaisesRegex(RuntimeError,'fixture'):
+            with install():raise RuntimeError('fixture')
+        self.assertIs(StringCompiler.compact_regions,original)
+
     def test_streaming_ascii_diagnostics_preserve_bytes_and_character_counts(self):
         with tempfile.TemporaryDirectory() as directory:
             text=('Float64(X1)\n'*100000)+'\n';root=Path(directory)
