@@ -1,0 +1,43 @@
+{
+  "complete": true,
+  "inputDomains": {
+    "X1": [
+      -31743,
+      -23808
+    ],
+    "X2": [
+      -1024,
+      0
+    ]
+  },
+  "producers": 25,
+  "elidedUpdates": 2,
+  "logicalCharacters": 11,
+  "storedCharacters": 2972,
+  "artifact": {
+    "path": "docs/evidence/direct-sympy-mixed-zero-continuation/zero-axis.expr",
+    "characters": 11,
+    "sha256": "6746e42184c7e92dd433e5da40fd9843c5f31c7aa733731c37b99a9bb8dcdbb6",
+    "paths": 1,
+    "compilerAliases": 0,
+    "complete": true
+  },
+  "paths": {
+    "splitContexts": 0,
+    "completedPaths": 1,
+    "contradictions": 0,
+    "selectorSelections": 0,
+    "CASPasses": 5,
+    "numericArithmeticEliminated": 0,
+    "numericRecipeAttempts": 0,
+    "numericRecipeAdmissions": 0,
+    "numericRecipeBudgetStops": 0,
+    "lastArm": {
+      "bodyCharacters": 11,
+      "guardCharacters": 0,
+      "decisions": 0,
+      "dependencyGrowth": []
+    }
+  },
+  "seconds": 0.5870716669596732
+}

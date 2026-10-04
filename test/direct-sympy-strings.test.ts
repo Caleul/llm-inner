@@ -4,6 +4,12 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 
 const python=process.env.LLM_INNER_DIRECT_PYTHON;
+test('Native parity corpus covers mixed signed zeros without exponential growth in high dimensions',
+  {skip:!python},async()=>{
+    const {stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_region_parity_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 4 tests/);
+    assert.match(stderr,/OK/);
+  });
 test('Correlated RMS bounds eliminate proved constant components before expanding mean and inverse',
   {skip:!python || !process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_rms_components_test.py'],{timeout:120_000,maxBuffer:1024*1024});
