@@ -1,0 +1,32 @@
+{
+  "tests": 22,
+  "pass": 22,
+  "fail": 0,
+  "skipped": 0,
+  "wordFactorComparisons": 278568,
+  "wordFactorMismatches": 0,
+  "benchmarkRuns": 6,
+  "benchmarkByteIdentical": true,
+  "medians": {
+    "printed": 6.5209879169706255,
+    "structural": 5.641614250023849
+  },
+  "speedup": 1.1558727037998138,
+  "timeSavedPercent": 13.485282876513837,
+  "benchmarkRegionCases": 1028,
+  "benchmarkRegionMismatches": 0,
+  "currentInitialRegions": 8,
+  "currentInitialRegionCases": 2080,
+  "currentInitialRegionMismatches": 0,
+  "currentInitialRegionsByteIdentical": true,
+  "previousSourceContinuationRegions": 66,
+  "previousSourceCoveredInputPatterns": 187464192,
+  "previousSourceRegionCases": 17160,
+  "previousSourceRegionMismatches": 0,
+  "sourceSHA256": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c",
+  "fullCoordinateParity": false,
+  "finalArtifactEmitted": false,
+  "multipleTokenParity": false,
+  "fullVectorParity": false,
+  "peakMemoryComparisonAvailable": false
+}

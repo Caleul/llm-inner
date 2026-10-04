@@ -1,0 +1,30 @@
+✔ Scoped exact algebra factors closed producers while preserving native payloads and IEEE barriers (12198.060709ms)
+✔ Finite F32 cells and compile-time constants preserve native boundaries and signed zeros (1647.059792ms)
+✔ Proved unsigned masks remove redundant operations without changing overflow or numeric contexts (603.167875ms)
+✔ Stabilized branches share decisions, preserve lazy guards and emit flat input-only expressions (2638.746042ms)
+✔ Compiler-only literal sharing uses expanded costs and emits bit-exact input-only expressions (9926.80625ms)
+✔ SymPy factors typed word polynomials modulo 2^64 without reassociating floating operations (742.892334ms)
+✔ Parallel SymPy blocks preserve ordered F32 folds, branch contexts and memory admission (4628.766417ms)
+✔ Equivalent scan backend preserves Unicode regex results and byte-identical saved compiler states (2365.441541ms)
+✔ SymPy savepoints preserve completed rounding frontiers and reject incompatible or corrupt state (2756.19325ms)
+✔ SymPy string substitution factors and simplifies each step with isolated IEEE branch proofs (671.379917ms)
+✔ SymPy checkpoint working string is re-read and matches a freshly captured coordinate reference (7421.611792ms)
+✔ SymPy elementary conversion strings preserve native IEEE cells and composed boundaries (14945.147708ms)
+✔ Bounded SiLU arithmetic lowering matches every certified Half scalar and vector input (4259.591125ms)
+✔ Positive F32 square-root word lowering preserves all mantissas, parities and subnormals (899.4325ms)
+✔ IEEE sign projections preserve signed zero and reduce completed down-conversion strings (10081.664709ms)
+✔ Half interval precision removes redundant F32 rounding with native emitted-expression parity (872.040875ms)
+✔ Disjoint input partitions preserve complete Half coverage and emitted coordinate parity within each certified region (5809.685375ms)
+✔ Proved signed-zero updates preserve formats, branch isolation and native payloads (1267.665875ms)
+✔ Constant IEEE cells eliminate whole producers and propagate compound branch contexts (1230.228917ms)
+✔ Identical emitted coordinate bodies coalesce without losing coverage, signed zeros or lazy guards (1475.952083ms)
+✔ Budgeted coordinate continuation persists actual producers and rejects incompatible saved dimensions (15726.839459ms)
+✔ Source changes retain only audited partition geometry and recompile numerical evidence (779.128833ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 103001.609125

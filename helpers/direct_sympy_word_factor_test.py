@@ -26,6 +26,13 @@ class WordFactorTests(unittest.TestCase):
         self.assertGreaterEqual(simplify.call_count,1)
         self.assertEqual(compiler.stabilize(result,{}),result)
         self.assertNotIn('WordFactor',result)
+        # Exact structural comparison does not allocate printed copies of
+        # opaque floating subtrees. Nested rewrites must invalidate parents.
+        nested='U64Add(U64Mul(U64Add(U64Mul(Bits64(X1),3),U64Mul(Bits64(X1),7)),3),U64Mul(U64Mul(10,Bits64(X1)),7))'
+        with patch.object(words.ast,'dump',side_effect=AssertionError('Printed subtree comparison')):
+            node,changes=words.factor_word_polynomials(syntax(nested))
+        self.assertGreater(changes,0)
+        self.assertEqual(ast.unparse(node),'U64Mul(100, Bits64(X1))')
 
     def test_repeated_words_and_overflow_match_all_f16_patterns_and_f64_boundaries(self):
         sources=[
@@ -55,6 +62,7 @@ class WordFactorTests(unittest.TestCase):
     def test_floating_order_and_unproved_words_are_barriers(self):
         for source in ('R32(X1 * X1 + X1 * X2)',
                        'U64Add(U64Mul(X1, 3), U64Mul(X1, 7))',
+                       'U64Add(U64Mul(Bits64(-0.0), 3), U64Mul(Bits64(0.0), 7))',
                        'U64Add(U64Mul(Bits64(X1), 3.0), U64Mul(Bits64(X1), 7))'):
             compiler=StringCompiler();result=compiler.stabilize(source,{})
             self.assertEqual(ast.dump(syntax(result)),ast.dump(syntax(source)))

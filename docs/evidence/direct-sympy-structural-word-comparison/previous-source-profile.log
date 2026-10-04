@@ -1,0 +1,42 @@
+REGION {"X1": [-16181, -16120], "X2": [-27775, -23808]} REPORT {"complete": true, "inputDomains": {"X1": [-16181, -16120], "X2": [-27775, -23808]}, "producers": 17, "elidedUpdates": 3, "logicalCharacters": 430997, "storedCharacters": 21134, "artifact": {"path": "/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/tmpr18wcjzw/coordinate.expr", "characters": 430300, "sha256": "2c5b7ffd0fe16faa4a070781d08692dd354c92cb34e02ee796e7260239e80e92", "paths": 2, "compilerAliases": 0, "complete": true}, "paths": {"splitContexts": 1, "completedPaths": 2, "contradictions": 0, "selectorSelections": 4, "CASPasses": 409, "numericArithmeticEliminated": 72, "numericRecipeAttempts": 19, "numericRecipeAdmissions": 0, "numericRecipeBudgetStops": 0, "lastArm": {"bodyCharacters": 140100, "guardCharacters": 7925, "decisions": 1, "dependencyGrowth": [{"definition": 0, "storedCharacters": 1800, "expandedCharacters": 1802}, {"definition": 1, "storedCharacters": 101, "expandedCharacters": 1890}, {"definition": 2, "storedCharacters": 101, "expandedCharacters": 1890}, {"definition": 3, "storedCharacters": 160, "expandedCharacters": 3912}, {"definition": 4, "storedCharacters": 157, "expandedCharacters": 3909}, {"definition": 6, "storedCharacters": 3560, "expandedCharacters": 65890}, {"definition": 7, "storedCharacters": 3866, "expandedCharacters": 73987}, {"definition": 8, "storedCharacters": 101, "expandedCharacters": 65978}, {"definition": 9, "storedCharacters": 163, "expandedCharacters": 140100}]}}, "seconds": 13.314262875006534}
+         69510190 function calls (57901328 primitive calls) in 13.307 seconds
+
+   Ordered by: cumulative time
+   List reduced from 2240 to 35 due to restriction <35>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000   13.314   13.314 direct_sympy_partition_run.py:37(_compile_region)
+        1    0.001    0.001   11.168   11.168 direct_sympy_coherent_paths.py:310(write)
+  772/757    0.025    0.000   10.934    0.014 direct_sympy_strings.py:423(stabilize)
+  461/451    0.024    0.000   10.278    0.023 direct_sympy_strings.py:455(_stabilize)
+1243971/2318    0.363    0.000    9.377    0.004 ast.py:414(visit)
+520087/1199    0.393    0.000    7.619    0.006 ast.py:488(generic_visit)
+      465    0.000    0.000    3.886    0.008 direct_sympy_words.py:73(factor_word_polynomials)
+44897/424    0.018    0.000    3.878    0.009 direct_sympy_words.py:77(visit_Call)
+     7806    0.004    0.000    3.659    0.000 ast.py:113(dump)
+3409216/7806    2.821    0.000    3.654    0.000 ast.py:125(_format)
+2353648/36645    0.244    0.000    3.611    0.000 {method 'join' of 'str' objects}
+761599/18468    0.110    0.000    3.599    0.000 ast.py:170(<genexpr>)
+        3    0.000    0.000    3.539    1.180 direct_sympy_coherent_paths.py:290(arms)
+        3    0.000    0.000    3.525    1.175 direct_sympy_coherent_paths.py:144(literal)
+   9438/3    0.013    0.000    3.483    1.161 direct_sympy_coherent_paths.py:242(select)
+  2566/12    0.001    0.000    3.361    0.280 direct_sympy_coherent_paths.py:277(<listcomp>)
+    44897    0.024    0.000    3.334    0.000 direct_sympy_words.py:16(factor_word_polynomial)
+24781/7315    0.036    0.000    3.305    0.000 direct_sympy_words.py:25(encode)
+       36    0.001    0.000    3.101    0.086 direct_sympy_conversions.py:761(close)
+     5370    0.251    0.000    2.848    0.001 direct_sympy_strings.py:53(syntax)
+       36    0.001    0.000    2.310    0.064 direct_sympy_conversions.py:1020(_close)
+        1    0.000    0.000    2.100    2.100 direct_sympy_checkpoint.py:323(coordinate)
+     31/1    0.001    0.000    2.100    2.100 direct_sympy_streaming_literals.py:142(producer)
+     17/1    0.000    0.000    2.099    2.099 direct_sympy_checkpoint.py:128(producer)
+     17/1    0.000    0.000    2.034    2.034 direct_sympy_streaming_literals.py:145(capture)
+        1    0.000    0.000    2.034    2.034 direct_sympy_checkpoint.py:327(<lambda>)
+      4/1    0.000    0.000    2.034    2.034 direct_sympy_checkpoint.py:165(linear)
+        2    0.000    0.000    2.010    1.005 direct_sympy_checkpoint.py:328(<lambda>)
+      6/2    0.000    0.000    2.010    1.005 direct_sympy_checkpoint.py:221(norm)
+       45    0.000    0.000    1.996    0.044 direct_sympy_coherent_paths.py:204(stabilize_selected)
+   395/36    0.001    0.000    1.980    0.055 direct_sympy_conversions.py:1024(visit)
+    49/31    0.001    0.000    1.967    0.063 direct_sympy_conversions.py:1050(visit_Call)
+      926    0.001    0.000    1.915    0.002 direct_sympy_strings.py:265(cas_view)
+     3854    0.002    0.000    1.901    0.000 ast.py:1679(unparse)
+     3854    0.002    0.000    1.896    0.000 ast.py:811(visit)

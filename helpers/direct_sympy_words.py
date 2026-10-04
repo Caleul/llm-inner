@@ -9,11 +9,12 @@ import re
 import struct
 import sympy as sp
 from direct_sympy_strings import syntax
+from direct_sympy_signatures import StructuralSignatures
 
 MASK=(1<<64)-1
 
 
-def factor_word_polynomial(node,widths=None):
+def factor_word_polynomial(node,widths=None,*,signatures=None):
     """Factor an integer polynomial in Z/(2**64), with SymPy.
 
     Only U64Add/U64Mul are opened. Other typed words are independent
@@ -22,6 +23,7 @@ def factor_word_polynomial(node,widths=None):
     remain true modulo 2**64 even when intermediate products overflow.
     """
     leaves={};originals={};counts={};operations=0
+    signatures=StructuralSignatures() if signatures is None else signatures
     def encode(child):
         nonlocal operations
         value=integer(child)
@@ -34,7 +36,7 @@ def factor_word_polynomial(node,widths=None):
             if terms>1024:raise ValueError('Word polynomial expansion search budget')
             return (sp.Add(a,b,evaluate=False) if child.func.id=='U64Add' else sp.Mul(a,b,evaluate=False)),terms
         if word_width(child,widths) is None:raise ValueError('Unsigned word proof required')
-        key=ast.dump(child);symbol=leaves.get(key)
+        key=signatures.key(child);symbol=leaves.get(key)
         if symbol is None:
             symbol=sp.Symbol('WordFactor'+str(len(leaves)),integer=True)
             leaves[key]=symbol;originals[symbol]=child
@@ -72,11 +74,22 @@ def factor_word_polynomial(node,widths=None):
 
 def factor_word_polynomials(node):
     """Apply the modular proof at every reachable integer subtree."""
-    changes=0
+    changes=0;signatures=StructuralSignatures()
     class Polynomials(ast.NodeTransformer):
+        def generic_visit(self,child):
+            # A replaced call can also change an enclosing arithmetic node,
+            # tuple or argument list. Invalidate every edited ancestor.
+            signatures.invalidate(child)
+            result=super().generic_visit(child)
+            signatures.invalidate(result)
+            return result
+
         def visit_Call(self,child):
             nonlocal changes
-            child=self.generic_visit(child);replacement=factor_word_polynomial(child)
+            # Bottom-up edits change parent fields. Reuse signatures only
+            # for untouched descendants; a rewritten parent is re-keyed.
+            child=self.generic_visit(child)
+            replacement=factor_word_polynomial(child,signatures=signatures)
             if replacement is not child:changes+=1
             return replacement
     result=Polynomials().visit(node)

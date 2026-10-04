@@ -10770,5 +10770,25 @@
     "fullCoordinateSizeReduction": false,
     "finalCoordinateParity": false,
     "multipleTokenParity": false
+  },
+  "structuralWordComparisonValidation": {
+    "report": "docs/evidence/direct-sympy-structural-word-comparison/validation.json",
+    "tests": 22,
+    "pass": 22,
+    "fail": 0,
+    "skipped": 0,
+    "wordComparisons": 278568,
+    "wordMismatches": 0,
+    "benchmarkRuns": 6,
+    "benchmarkByteIdentical": true,
+    "timeSavedPercent": 13.485282876513837,
+    "benchmarkRegionCases": 1028,
+    "benchmarkRegionMismatches": 0,
+    "currentInitialRegionCases": 2080,
+    "currentInitialRegionMismatches": 0,
+    "previousSourceContinuationRegions": 66,
+    "previousSourceContinuationCases": 17160,
+    "previousSourceContinuationMismatches": 0,
+    "finalCoordinateParity": false
   }
 }

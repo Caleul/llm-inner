@@ -1,0 +1,593 @@
+{
+  "complete": true,
+  "region": {
+    "X1": [
+      -16181,
+      -16120
+    ],
+    "X2": [
+      -27775,
+      -23808
+    ]
+  },
+  "rows": [
+    {
+      "mode": "printed",
+      "seconds": 7.067485333012883,
+      "report": {
+        "complete": true,
+        "inputDomains": {
+          "X1": [
+            -16181,
+            -16120
+          ],
+          "X2": [
+            -27775,
+            -23808
+          ]
+        },
+        "producers": 17,
+        "elidedUpdates": 3,
+        "logicalCharacters": 430997,
+        "storedCharacters": 21134,
+        "artifact": {
+          "path": "/Users/caleul/Documents/Work/Projects/llm-inner/docs/evidence/direct-sympy-structural-word-comparison/0-printed.expr",
+          "characters": 430300,
+          "sha256": "2c5b7ffd0fe16faa4a070781d08692dd354c92cb34e02ee796e7260239e80e92",
+          "paths": 2,
+          "compilerAliases": 0,
+          "complete": true
+        },
+        "paths": {
+          "splitContexts": 1,
+          "completedPaths": 2,
+          "contradictions": 0,
+          "selectorSelections": 4,
+          "CASPasses": 409,
+          "numericArithmeticEliminated": 72,
+          "numericRecipeAttempts": 19,
+          "numericRecipeAdmissions": 0,
+          "numericRecipeBudgetStops": 0,
+          "lastArm": {
+            "bodyCharacters": 140100,
+            "guardCharacters": 7925,
+            "decisions": 1,
+            "dependencyGrowth": [
+              {
+                "definition": 0,
+                "storedCharacters": 1800,
+                "expandedCharacters": 1802
+              },
+              {
+                "definition": 1,
+                "storedCharacters": 101,
+                "expandedCharacters": 1890
+              },
+              {
+                "definition": 2,
+                "storedCharacters": 101,
+                "expandedCharacters": 1890
+              },
+              {
+                "definition": 3,
+                "storedCharacters": 160,
+                "expandedCharacters": 3912
+              },
+              {
+                "definition": 4,
+                "storedCharacters": 157,
+                "expandedCharacters": 3909
+              },
+              {
+                "definition": 6,
+                "storedCharacters": 3560,
+                "expandedCharacters": 65890
+              },
+              {
+                "definition": 7,
+                "storedCharacters": 3866,
+                "expandedCharacters": 73987
+              },
+              {
+                "definition": 8,
+                "storedCharacters": 101,
+                "expandedCharacters": 65978
+              },
+              {
+                "definition": 9,
+                "storedCharacters": 163,
+                "expandedCharacters": 140100
+              }
+            ]
+          }
+        },
+        "seconds": 7.067069584038109
+      },
+      "sha256": "2c5b7ffd0fe16faa4a070781d08692dd354c92cb34e02ee796e7260239e80e92"
+    },
+    {
+      "mode": "structural",
+      "seconds": 5.641614250023849,
+      "report": {
+        "complete": true,
+        "inputDomains": {
+          "X1": [
+            -16181,
+            -16120
+          ],
+          "X2": [
+            -27775,
+            -23808
+          ]
+        },
+        "producers": 17,
+        "elidedUpdates": 3,
+        "logicalCharacters": 430997,
+        "storedCharacters": 21134,
+        "artifact": {
+          "path": "/Users/caleul/Documents/Work/Projects/llm-inner/docs/evidence/direct-sympy-structural-word-comparison/1-structural.expr",
+          "characters": 430300,
+          "sha256": "2c5b7ffd0fe16faa4a070781d08692dd354c92cb34e02ee796e7260239e80e92",
+          "paths": 2,
+          "compilerAliases": 0,
+          "complete": true
+        },
+        "paths": {
+          "splitContexts": 1,
+          "completedPaths": 2,
+          "contradictions": 0,
+          "selectorSelections": 4,
+          "CASPasses": 409,
+          "numericArithmeticEliminated": 72,
+          "numericRecipeAttempts": 19,
+          "numericRecipeAdmissions": 0,
+          "numericRecipeBudgetStops": 0,
+          "lastArm": {
+            "bodyCharacters": 140100,
+            "guardCharacters": 7925,
+            "decisions": 1,
+            "dependencyGrowth": [
+              {
+                "definition": 0,
+                "storedCharacters": 1800,
+                "expandedCharacters": 1802
+              },
+              {
+                "definition": 1,
+                "storedCharacters": 101,
+                "expandedCharacters": 1890
+              },
+              {
+                "definition": 2,
+                "storedCharacters": 101,
+                "expandedCharacters": 1890
+              },
+              {
+                "definition": 3,
+                "storedCharacters": 160,
+                "expandedCharacters": 3912
+              },
+              {
+                "definition": 4,
+                "storedCharacters": 157,
+                "expandedCharacters": 3909
+              },
+              {
+                "definition": 6,
+                "storedCharacters": 3560,
+                "expandedCharacters": 65890
+              },
+              {
+                "definition": 7,
+                "storedCharacters": 3866,
+                "expandedCharacters": 73987
+              },
+              {
+                "definition": 8,
+                "storedCharacters": 101,
+                "expandedCharacters": 65978
+              },
+              {
+                "definition": 9,
+                "storedCharacters": 163,
+                "expandedCharacters": 140100
+              }
+            ]
+          }
+        },
+        "seconds": 5.641179375001229
+      },
+      "sha256": "2c5b7ffd0fe16faa4a070781d08692dd354c92cb34e02ee796e7260239e80e92"
+    },
+    {
+      "mode": "structural",
+      "seconds": 5.566626041021664,
+      "report": {
+        "complete": true,
+        "inputDomains": {
+          "X1": [
+            -16181,
+            -16120
+          ],
+          "X2": [
+            -27775,
+            -23808
+          ]
+        },
+        "producers": 17,
+        "elidedUpdates": 3,
+        "logicalCharacters": 430997,
+        "storedCharacters": 21134,
+        "artifact": {
+          "path": "/Users/caleul/Documents/Work/Projects/llm-inner/docs/evidence/direct-sympy-structural-word-comparison/2-structural.expr",
+          "characters": 430300,
+          "sha256": "2c5b7ffd0fe16faa4a070781d08692dd354c92cb34e02ee796e7260239e80e92",
+          "paths": 2,
+          "compilerAliases": 0,
+          "complete": true
+        },
+        "paths": {
+          "splitContexts": 1,
+          "completedPaths": 2,
+          "contradictions": 0,
+          "selectorSelections": 4,
+          "CASPasses": 409,
+          "numericArithmeticEliminated": 72,
+          "numericRecipeAttempts": 19,
+          "numericRecipeAdmissions": 0,
+          "numericRecipeBudgetStops": 0,
+          "lastArm": {
+            "bodyCharacters": 140100,
+            "guardCharacters": 7925,
+            "decisions": 1,
+            "dependencyGrowth": [
+              {
+                "definition": 0,
+                "storedCharacters": 1800,
+                "expandedCharacters": 1802
+              },
+              {
+                "definition": 1,
+                "storedCharacters": 101,
+                "expandedCharacters": 1890
+              },
+              {
+                "definition": 2,
+                "storedCharacters": 101,
+                "expandedCharacters": 1890
+              },
+              {
+                "definition": 3,
+                "storedCharacters": 160,
+                "expandedCharacters": 3912
+              },
+              {
+                "definition": 4,
+                "storedCharacters": 157,
+                "expandedCharacters": 3909
+              },
+              {
+                "definition": 6,
+                "storedCharacters": 3560,
+                "expandedCharacters": 65890
+              },
+              {
+                "definition": 7,
+                "storedCharacters": 3866,
+                "expandedCharacters": 73987
+              },
+              {
+                "definition": 8,
+                "storedCharacters": 101,
+                "expandedCharacters": 65978
+              },
+              {
+                "definition": 9,
+                "storedCharacters": 163,
+                "expandedCharacters": 140100
+              }
+            ]
+          }
+        },
+        "seconds": 5.566204375005327
+      },
+      "sha256": "2c5b7ffd0fe16faa4a070781d08692dd354c92cb34e02ee796e7260239e80e92"
+    },
+    {
+      "mode": "printed",
+      "seconds": 6.387728416011669,
+      "report": {
+        "complete": true,
+        "inputDomains": {
+          "X1": [
+            -16181,
+            -16120
+          ],
+          "X2": [
+            -27775,
+            -23808
+          ]
+        },
+        "producers": 17,
+        "elidedUpdates": 3,
+        "logicalCharacters": 430997,
+        "storedCharacters": 21134,
+        "artifact": {
+          "path": "/Users/caleul/Documents/Work/Projects/llm-inner/docs/evidence/direct-sympy-structural-word-comparison/3-printed.expr",
+          "characters": 430300,
+          "sha256": "2c5b7ffd0fe16faa4a070781d08692dd354c92cb34e02ee796e7260239e80e92",
+          "paths": 2,
+          "compilerAliases": 0,
+          "complete": true
+        },
+        "paths": {
+          "splitContexts": 1,
+          "completedPaths": 2,
+          "contradictions": 0,
+          "selectorSelections": 4,
+          "CASPasses": 409,
+          "numericArithmeticEliminated": 72,
+          "numericRecipeAttempts": 19,
+          "numericRecipeAdmissions": 0,
+          "numericRecipeBudgetStops": 0,
+          "lastArm": {
+            "bodyCharacters": 140100,
+            "guardCharacters": 7925,
+            "decisions": 1,
+            "dependencyGrowth": [
+              {
+                "definition": 0,
+                "storedCharacters": 1800,
+                "expandedCharacters": 1802
+              },
+              {
+                "definition": 1,
+                "storedCharacters": 101,
+                "expandedCharacters": 1890
+              },
+              {
+                "definition": 2,
+                "storedCharacters": 101,
+                "expandedCharacters": 1890
+              },
+              {
+                "definition": 3,
+                "storedCharacters": 160,
+                "expandedCharacters": 3912
+              },
+              {
+                "definition": 4,
+                "storedCharacters": 157,
+                "expandedCharacters": 3909
+              },
+              {
+                "definition": 6,
+                "storedCharacters": 3560,
+                "expandedCharacters": 65890
+              },
+              {
+                "definition": 7,
+                "storedCharacters": 3866,
+                "expandedCharacters": 73987
+              },
+              {
+                "definition": 8,
+                "storedCharacters": 101,
+                "expandedCharacters": 65978
+              },
+              {
+                "definition": 9,
+                "storedCharacters": 163,
+                "expandedCharacters": 140100
+              }
+            ]
+          }
+        },
+        "seconds": 6.38721000001533
+      },
+      "sha256": "2c5b7ffd0fe16faa4a070781d08692dd354c92cb34e02ee796e7260239e80e92"
+    },
+    {
+      "mode": "printed",
+      "seconds": 6.5209879169706255,
+      "report": {
+        "complete": true,
+        "inputDomains": {
+          "X1": [
+            -16181,
+            -16120
+          ],
+          "X2": [
+            -27775,
+            -23808
+          ]
+        },
+        "producers": 17,
+        "elidedUpdates": 3,
+        "logicalCharacters": 430997,
+        "storedCharacters": 21134,
+        "artifact": {
+          "path": "/Users/caleul/Documents/Work/Projects/llm-inner/docs/evidence/direct-sympy-structural-word-comparison/4-printed.expr",
+          "characters": 430300,
+          "sha256": "2c5b7ffd0fe16faa4a070781d08692dd354c92cb34e02ee796e7260239e80e92",
+          "paths": 2,
+          "compilerAliases": 0,
+          "complete": true
+        },
+        "paths": {
+          "splitContexts": 1,
+          "completedPaths": 2,
+          "contradictions": 0,
+          "selectorSelections": 4,
+          "CASPasses": 409,
+          "numericArithmeticEliminated": 72,
+          "numericRecipeAttempts": 19,
+          "numericRecipeAdmissions": 0,
+          "numericRecipeBudgetStops": 0,
+          "lastArm": {
+            "bodyCharacters": 140100,
+            "guardCharacters": 7925,
+            "decisions": 1,
+            "dependencyGrowth": [
+              {
+                "definition": 0,
+                "storedCharacters": 1800,
+                "expandedCharacters": 1802
+              },
+              {
+                "definition": 1,
+                "storedCharacters": 101,
+                "expandedCharacters": 1890
+              },
+              {
+                "definition": 2,
+                "storedCharacters": 101,
+                "expandedCharacters": 1890
+              },
+              {
+                "definition": 3,
+                "storedCharacters": 160,
+                "expandedCharacters": 3912
+              },
+              {
+                "definition": 4,
+                "storedCharacters": 157,
+                "expandedCharacters": 3909
+              },
+              {
+                "definition": 6,
+                "storedCharacters": 3560,
+                "expandedCharacters": 65890
+              },
+              {
+                "definition": 7,
+                "storedCharacters": 3866,
+                "expandedCharacters": 73987
+              },
+              {
+                "definition": 8,
+                "storedCharacters": 101,
+                "expandedCharacters": 65978
+              },
+              {
+                "definition": 9,
+                "storedCharacters": 163,
+                "expandedCharacters": 140100
+              }
+            ]
+          }
+        },
+        "seconds": 6.5204313329886645
+      },
+      "sha256": "2c5b7ffd0fe16faa4a070781d08692dd354c92cb34e02ee796e7260239e80e92"
+    },
+    {
+      "mode": "structural",
+      "seconds": 5.735758499999065,
+      "report": {
+        "complete": true,
+        "inputDomains": {
+          "X1": [
+            -16181,
+            -16120
+          ],
+          "X2": [
+            -27775,
+            -23808
+          ]
+        },
+        "producers": 17,
+        "elidedUpdates": 3,
+        "logicalCharacters": 430997,
+        "storedCharacters": 21134,
+        "artifact": {
+          "path": "/Users/caleul/Documents/Work/Projects/llm-inner/docs/evidence/direct-sympy-structural-word-comparison/5-structural.expr",
+          "characters": 430300,
+          "sha256": "2c5b7ffd0fe16faa4a070781d08692dd354c92cb34e02ee796e7260239e80e92",
+          "paths": 2,
+          "compilerAliases": 0,
+          "complete": true
+        },
+        "paths": {
+          "splitContexts": 1,
+          "completedPaths": 2,
+          "contradictions": 0,
+          "selectorSelections": 4,
+          "CASPasses": 409,
+          "numericArithmeticEliminated": 72,
+          "numericRecipeAttempts": 19,
+          "numericRecipeAdmissions": 0,
+          "numericRecipeBudgetStops": 0,
+          "lastArm": {
+            "bodyCharacters": 140100,
+            "guardCharacters": 7925,
+            "decisions": 1,
+            "dependencyGrowth": [
+              {
+                "definition": 0,
+                "storedCharacters": 1800,
+                "expandedCharacters": 1802
+              },
+              {
+                "definition": 1,
+                "storedCharacters": 101,
+                "expandedCharacters": 1890
+              },
+              {
+                "definition": 2,
+                "storedCharacters": 101,
+                "expandedCharacters": 1890
+              },
+              {
+                "definition": 3,
+                "storedCharacters": 160,
+                "expandedCharacters": 3912
+              },
+              {
+                "definition": 4,
+                "storedCharacters": 157,
+                "expandedCharacters": 3909
+              },
+              {
+                "definition": 6,
+                "storedCharacters": 3560,
+                "expandedCharacters": 65890
+              },
+              {
+                "definition": 7,
+                "storedCharacters": 3866,
+                "expandedCharacters": 73987
+              },
+              {
+                "definition": 8,
+                "storedCharacters": 101,
+                "expandedCharacters": 65978
+              },
+              {
+                "definition": 9,
+                "storedCharacters": 163,
+                "expandedCharacters": 140100
+              }
+            ]
+          }
+        },
+        "seconds": 5.735294417012483
+      },
+      "sha256": "2c5b7ffd0fe16faa4a070781d08692dd354c92cb34e02ee796e7260239e80e92"
+    }
+  ],
+  "medians": {
+    "printed": 6.5209879169706255,
+    "structural": 5.641614250023849
+  },
+  "speedup": 1.1558727037998138,
+  "byteIdentical": true,
+  "sourceSHA256": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c",
+  "scope": "One emitted position-zero, dimension-two, one-token region; alternating in-process trials; other validation processes may run concurrently. Not full-coordinate speed or parity.",
+  "durableArtifact": {
+    "file": "coordinate.expr",
+    "sha256": "2c5b7ffd0fe16faa4a070781d08692dd354c92cb34e02ee796e7260239e80e92",
+    "characters": 430300
+  },
+  "trialArtifactsRemovedAfterReadback": true
+}

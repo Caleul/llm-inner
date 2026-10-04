@@ -1,0 +1,17 @@
+{
+  "artifact": "docs/evidence/direct-sympy-structural-word-comparison/5-structural.expr",
+  "sha256": "2c5b7ffd0fe16faa4a070781d08692dd354c92cb34e02ee796e7260239e80e92",
+  "characters": 430300,
+  "position": 0,
+  "tokens": 1,
+  "dimension": 2,
+  "cases": 1028,
+  "mismatches": 0,
+  "firstMismatches": [],
+  "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity.",
+  "durableArtifact": {
+    "file": "coordinate.expr",
+    "sha256": "2c5b7ffd0fe16faa4a070781d08692dd354c92cb34e02ee796e7260239e80e92",
+    "characters": 430300
+  }
+}
