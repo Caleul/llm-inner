@@ -1,0 +1,83 @@
+{
+  "coordinateComplete": false,
+  "parityVerified": false,
+  "resumeCompatible": false,
+  "restoredDependencies": 0,
+  "completedDependencies": 10,
+  "envelopes": [],
+  "budgets": {
+    "characters": 1048576,
+    "seconds": 60,
+    "addressSpaceBytes": 0
+  },
+  "stop": "Substitution exceeds string budget before allocation: variable=X999999999 templateCharacters=791927 replacementCharacters=791917 occurrences=1 estimatedCharacters=1583838 limit=1048576",
+  "failurePhase": "compilation",
+  "failureFrames": [
+    {
+      "file": "direct_sympy_checkpoint.py",
+      "function": "linear",
+      "line": 172
+    },
+    {
+      "file": "direct_sympy_checkpoint.py",
+      "function": "post",
+      "line": 311
+    },
+    {
+      "file": "direct_sympy_checkpoint.py",
+      "function": "norm",
+      "line": 253
+    },
+    {
+      "file": "<equivalent producer envelope>",
+      "function": "producer",
+      "line": 4
+    },
+    {
+      "file": "direct_sympy_checkpoint.py",
+      "function": "build",
+      "line": 221
+    },
+    {
+      "file": "<equivalent producer envelope>",
+      "function": "producer",
+      "line": 4
+    },
+    {
+      "file": "direct_sympy_checkpoint.py",
+      "function": "<lambda>",
+      "line": 221
+    },
+    {
+      "file": "direct_sympy_checkpoint.py",
+      "function": "rms_sum",
+      "line": 209
+    },
+    {
+      "file": "direct_sympy_checkpoint.py",
+      "function": "component",
+      "line": 205
+    },
+    {
+      "file": "direct_sympy_checkpoint.py",
+      "function": "partial",
+      "line": 203
+    },
+    {
+      "file": "direct_sympy_checkpoint.py",
+      "function": "op",
+      "line": 121
+    },
+    {
+      "file": "direct_sympy_strings.py",
+      "function": "substitute",
+      "line": 559
+    }
+  ],
+  "newDependencies": 10,
+  "lastDependency": "model.layers.0.residual:1",
+  "seconds": 12.471453915990423,
+  "peakRSSBytes": 419299328,
+  "persistedDependencies": 10,
+  "lastPersistedDependency": "model.layers.0.residual:1"
+}

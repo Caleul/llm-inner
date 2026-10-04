@@ -12,6 +12,7 @@ import resource
 import signal
 import sys
 import time
+import traceback
 
 
 def main():
@@ -51,6 +52,12 @@ def main():
         'budgets':{'characters':args.max_characters,'seconds':args.max_seconds,
                    'addressSpaceBytes':args.max_address_space_mib*1024**2}}
     result=1
+    def record_stop(error,phase):
+        report['stop']=str(error) or 'Process address-space budget exhausted'
+        report['failurePhase']=phase
+        report['failureFrames']=[{'file':Path(frame.f_code.co_filename).name,
+            'function':frame.f_code.co_name,'line':line}
+            for frame,line in traceback.walk_tb(error.__traceback__)][-12:]
     try:
         with install(),CheckpointStrings(args.checkpoint,StringCompiler(max_characters=args.max_characters)) as model:
             with ProducerSavepoints(args.state,model,args.dimension,compressed=True) as store:
@@ -76,12 +83,12 @@ def main():
                         report['coordinateCompilationFinished']=True
                         result=0
                     except (ValueError,TimeoutError,MemoryError) as error:
-                        report['stop']=str(error) or 'Process address-space budget exhausted'
+                        record_stop(error,'compilation')
                 report['completedDependencies']=len(model.memo)
                 report['newDependencies']=len(model.memo)-report['restoredDependencies']
                 report['lastDependency']=next(reversed(model.memo),None)
     except (ValueError,TimeoutError,MemoryError) as error:
-        report['stop']=str(error) or 'Process address-space budget exhausted during restore/setup'
+        record_stop(error,'restore/setup')
     finally:
         signal.alarm(0);signal.signal(signal.SIGALRM,previous)
         report['seconds']=time.monotonic()-started

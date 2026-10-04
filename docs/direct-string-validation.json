@@ -10102,13 +10102,57 @@
     "colab": {
       "session": "llm-inner-rms-guard",
       "directory": "/content/llm-inner-producer-envelope",
-      "status": "running",
+      "status": "terminal",
       "initialPersistedDependencies": 19,
       "newDependenciesVerified": 0,
-      "parityPending": true
+      "parityPending": false,
+      "resumeCompatible": true,
+      "seconds": 324.76036444400006,
+      "peakRSSBytes": 70676361216,
+      "stop": "Process address-space budget exhausted",
+      "savedProducerParity": {
+        "cases": 60,
+        "comparisons": 420,
+        "mismatches": 0,
+        "producerFiles": 19,
+        "position": 0,
+        "completeCoordinate": false
+      }
     },
     "coordinateComplete": false,
     "evidenceDirectory": "docs/evidence/direct-sympy-producer-envelope",
     "broadSuiteNotRerun": "All ten focused numerical/controller integrations passed; previous broad baseline retained separately"
+  },
+  "producerSourceLifetimeValidation": {
+    "backendVersion": "equivalent-stdlib-v4",
+    "sourceReleasedBeforeNumericClosure": true,
+    "byteIdenticalExpressionsAndEvents": true,
+    "configuredIntegrations": {
+      "tests": 10,
+      "pass": 10,
+      "fail": 0,
+      "skip": 0
+    },
+    "controllerTests": {
+      "tests": 2,
+      "pass": 1,
+      "skip": 1,
+      "reason": "Linux-specific address-space admission"
+    },
+    "failureFramesVerifiedOnRealBudgetStop": true,
+    "numericalSourcesUnchanged": true,
+    "newRealProducersVerified": 0,
+    "coordinateComplete": false,
+    "colabPending": true,
+    "evidenceDirectory": "docs/evidence/direct-sympy-producer-envelope",
+    "colab": {
+      "directory": "/content/llm-inner-producer-lifetime",
+      "status": "running",
+      "backendTestsPassed": 10,
+      "controllerGatesExitCode": 0,
+      "initialPersistedDependencies": 19,
+      "newDependenciesVerified": 0,
+      "parityPending": true
+    }
   }
 }

@@ -16,7 +16,7 @@ import re
 from pathlib import Path
 
 
-BACKEND_VERSION='equivalent-stdlib-v3'
+BACKEND_VERSION='equivalent-stdlib-v4'
 
 
 NECESSARY={
@@ -145,13 +145,26 @@ def region_search_method(original,backend):
 
 
 def producer_envelope_method(original,backend):
-    """Patch only the allocation order of the producer's initial envelope."""
+    """Change allocation/lifetime only; retain all producer numerical passes."""
     source=getattr(original,'_producer_envelope_original',original)
-    tree=ast.parse(textwrap.dedent(inspect.getsource(source)));count=0
+    tree=ast.parse(textwrap.dedent(inspect.getsource(source)));count=0;lengths=0;releases=0
     target=ast.dump(ast.parse("self.compiler.stabilize('(' + expression + ')', self.domains)",mode='eval').body)
+    length=ast.dump(ast.parse('len(expression)',mode='eval').body)
     class Envelopes(ast.NodeTransformer):
+        def visit_Assign(self,node):
+            nonlocal releases
+            envelope=ast.dump(node.value)==target
+            node=self.generic_visit(node)
+            if not envelope:return node
+            releases+=1
+            # The subsequent producer metrics need the size, not the source
+            # string. Neither closure nor synchronization reads that source.
+            return [node,*ast.parse('_producer_expression_characters=len(expression)\ndel expression').body]
         def visit_Call(self,node):
-            nonlocal count
+            nonlocal count,lengths
+            if ast.dump(node)==length:
+                lengths+=1
+                return ast.copy_location(ast.Name(id='_producer_expression_characters',ctx=ast.Load()),node)
             if ast.dump(node)==target:
                 count+=1
                 return ast.copy_location(ast.Call(func=ast.Name(id='_equivalent_enveloped_stabilize',ctx=ast.Load()),
@@ -159,7 +172,8 @@ def producer_envelope_method(original,backend):
                           ast.Name(id='expression',ctx=ast.Load()),node.args[1]],keywords=[]),node)
             return self.generic_visit(node)
     tree=Envelopes().visit(tree)
-    if count!=1:raise ValueError('Unsupported producer implementation; expected one initial envelope')
+    if (count,lengths,releases)!=(1,1,1):
+        raise ValueError('Unsupported producer implementation; expected one initial envelope and source-size metric')
     namespace=dict(source.__globals__);namespace['_equivalent_enveloped_stabilize']=backend.stabilize_enveloped
     exec(compile(ast.fix_missing_locations(tree),'<equivalent producer envelope>','exec'),namespace)
     result=namespace[source.__name__];result._producer_envelope_original=source

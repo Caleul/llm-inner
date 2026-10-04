@@ -37,3 +37,35 @@ compilation and parity remain incomplete. The previous run saved hidden:0,
 then reached the memory cap; its 60-case, 420-comparison producer parity is
 already separately verified. The real effect of this allocation change is
 pending terminal measurements and the new parity result.
+
+The v3 compilation then completed its bounded attempt: compatible restore of
+19 records, zero new producers, 324.760 seconds, 70,676,361,216 bytes peak RSS,
+and an address-space allocation failure. Saved-file parity was still running
+in the retained observation. This is not an acceleration result: it starts
+from 19 producers, unlike the older 18-to-19 attempt, so their total times are
+not a comparable sequential/parallel speed ratio.
+
+The v4 backend additionally releases the producer's original input string
+immediately after stabilization. Only its recorded character count is needed
+later. A weak-reference regression proves the old producer still retained the
+source during numerical closure while the new one has released it; returned
+expressions and all producer/CAS events are exactly identical. All ten focused
+integrations passed again. Numeric-source identity is unchanged.
+
+The execution controller now records at most 12 file/function/line frames and
+separates compilation failure from restore/setup failure. It records no input,
+weight, expression text or frame locals. The real 1-MiB budget test identified
+substitute() as the final failing frame; the changed-dimension test still
+rejects restore before mutation. Local controller tests pass with the existing
+Linux-only test explicitly skipped on macOS. These diagnostics do not alter
+model semantics or claim any new saved architecture producer.
+
+The v3 saved-file parity then completed: 60 cases, 420 bitwise comparisons,
+zero mismatches, all 19 files evaluated. Its runner is terminal with no
+remaining processes. The next frozen v4 run uses the same 19-record prefix
+and budgets, after backend and Linux controller gates pass.
+
+The frozen v4 runner is live in /content/llm-inner-producer-lifetime. All ten
+backend tests passed on Linux and the controller gate exited zero. The actual
+compile process is restoring the same 19-record state; no new producer or
+complete-coordinate parity is claimed in this observation.

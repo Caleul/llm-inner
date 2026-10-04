@@ -12,6 +12,28 @@ from direct_sympy_savepoints import ProducerSavepoints
 
 
 class EquivalentScanTests(unittest.TestCase):
+    def test_producer_releases_source_before_numeric_closure_without_changing_events(self):
+        import weakref
+        class TrackedString(str):pass
+        fixture=fixtures.SavepointTests();results=[]
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            for optimized in (False,True):
+                model=fixture.model(root);observed=[];source=[]
+                close=model.conversions.close
+                def build():
+                    text=TrackedString('R16(R32(X1 + 0.5))');source.append(weakref.ref(text));return text
+                def tracked_close(text):
+                    observed.append(source[0]() is not None);return close(text)
+                model.conversions.close=tracked_close
+                if optimized:
+                    with install():result=model.producer('fixture:lifetime',build)
+                else:result=model.producer('fixture:lifetime',build)
+                self.assertEqual(observed,[not optimized])
+                self.assertIsNone(source[0]())
+                results.append((result,model.events,model.compiler.events))
+        self.assertEqual(*results)
+
     def test_parenthesized_producer_compacts_before_allocating_a_second_giant_wrapper(self):
         import tracemalloc
         from fractions import Fraction as F

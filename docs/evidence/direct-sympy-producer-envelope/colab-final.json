@@ -1,0 +1,78 @@
+{
+  "operationId": "61771343-b662-48e6-bf95-9c5ba307ad73",
+  "observation": {
+    "resources.json": null,
+    "report.json": {
+      "steps": [
+        {
+          "name": "gates",
+          "exitCode": 0,
+          "seconds": 7.825761367999803
+        },
+        {
+          "name": "compile",
+          "exitCode": 1,
+          "seconds": 328.5773631440002
+        },
+        {
+          "name": "parity",
+          "exitCode": 0,
+          "seconds": 311.3639284970004
+        }
+      ],
+      "terminal": true
+    },
+    "diagnostic.json": {
+      "coordinateComplete": false,
+      "parityVerified": false,
+      "resumeCompatible": true,
+      "restoredDependencies": 19,
+      "completedDependencies": 19,
+      "envelopes": [],
+      "budgets": {
+        "characters": 17179869184,
+        "seconds": 600,
+        "addressSpaceBytes": 77309411328
+      },
+      "stop": "Process address-space budget exhausted",
+      "newDependencies": 0,
+      "lastDependency": "model.layers.0.hidden:0",
+      "seconds": 324.76036444400006,
+      "peakRSSBytes": 70676361216,
+      "persistedDependencies": 19,
+      "lastPersistedDependency": "model.layers.0.hidden:0"
+    },
+    "processes": [],
+    "frontier": {
+      "records": 19,
+      "last": "model.layers.0.hidden:0",
+      "lengths": {
+        "model.layers.0.pre:mean": 329,
+        "model.layers.0.pre:inverse": 5821,
+        "model.layers.0.pre:0": 12289,
+        "model.layers.0.pre:1": 12289,
+        "model.layers.0.v:0": 98906,
+        "model.layers.0.context:0": 98912,
+        "model.layers.0.v:1": 98894,
+        "model.layers.0.context:1": 98900,
+        "model.layers.0.residual:0": 791904,
+        "model.layers.0.residual:1": 791912,
+        "model.layers.0.post:mean": 3167953,
+        "model.layers.0.post:inverse": 41184933,
+        "model.layers.0.post:0": 88705745,
+        "model.layers.0.post:1": 88705777,
+        "model.layers.0.gate:0": 709646690,
+        "model.layers.0.activation:0": 1596705580,
+        "model.layers.0.up:0": 709646674,
+        "model.layers.0.gated:0": 7273880362,
+        "model.layers.0.hidden:0": 12951847412
+      }
+    },
+    "gates.log": ".........\n----------------------------------------------------------------------\nRan 9 tests in 5.392s\n\nOK\n{\"characters\": 20400010, \"normalIdentifierSeconds\": 0.5555606590000934, \"equivalentIdentifierSeconds\": 0.014303006999853096, \"identical\": true}\nProducer wrapper allocation parity: {\"characters\": 16777246, \"byteIdentical\": true, \"peakAllocatedBytes\": {\"literal-wrapper\": 33571920, \"compact-wrapper\": 16794599}}\n",
+    "parity.log": "haracters\": 88705777, \"validationEnvelopeCharacters\": 422, \"sha256\": \"36c98860b8356a7cfdf0882458e3c5c1d999988aa553720ecd99f426acb875f5\"}\n{\"producer\": \"model.layers.0.gate:0\", \"characters\": 709646690, \"validationEnvelopeCharacters\": 730, \"sha256\": \"961ce63a52c06e6e15cc68c3cdd1ab7c9740619ea2cf3e0bb880d8d5bcf04e49\"}\n{\"producer\": \"model.layers.0.activation:0\", \"characters\": 1596705580, \"validationEnvelopeCharacters\": 2170, \"sha256\": \"54b29258dbd96e1b3f4bd6b5ec85c02386dc45de9ce93cf82127d47720ff94ad\"}\n{\"producer\": \"model.layers.0.up:0\", \"characters\": 709646674, \"validationEnvelopeCharacters\": 714, \"sha256\": \"9e556b16a864704b91282516a8dd81a925e1d0b5cf6613403606fb81b39b006f\"}\n{\"producer\": \"model.layers.0.gated:0\", \"characters\": 7273880362, \"validationEnvelopeCharacters\": 716, \"sha256\": \"443f7f13e54538128bed83ab56d610573c1d435b38b187fc78b8869e6cfbf3d5\"}\n{\"producer\": \"model.layers.0.hidden:0\", \"characters\": 12951847412, \"validationEnvelopeCharacters\": 2494, \"sha256\": \"9c3aa5c455cb7e377f5094271092350f6cbcbf661403e01b3740cc78bc8c6c17\"}\n\nLoading weights:   0%|          | 0/12 [00:00<?, ?it/s]\nLoading weights: 100%|██████████| 12/12 [00:00<00:00, 10303.31it/s]\n{\"cases\": 60, \"comparisons\": 420, \"mismatches\": 0, \"producerFilesEvaluated\": 19, \"coordinateAtPositionZeroVerified\": false, \"scope\": \"Actual saved posterior normalization, gate/activation/up/gated and any completed hidden/final/output producers, position 0; verification-only reuse of immutable earlier subtrees. Does not prove the last-token next-token coordinate for variable sequence lengths.\", \"elapsedSeconds\": 302.5343531139997}\n",
+    "compile.log": "{\"event\": \"compatible-state-restored\", \"dependencies\": 19}\n{\"coordinateComplete\": false, \"parityVerified\": false, \"resumeCompatible\": true, \"restoredDependencies\": 19, \"completedDependencies\": 19, \"budgets\": {\"characters\": 17179869184, \"seconds\": 600, \"addressSpaceBytes\": 77309411328}, \"stop\": \"Process address-space budget exhausted\", \"newDependencies\": 0, \"lastDependency\": \"model.layers.0.hidden:0\", \"seconds\": 324.76036444400006, \"peakRSSBytes\": 70676361216, \"persistedDependencies\": 19, \"lastPersistedDependency\": \"model.layers.0.hidden:0\"}\n",
+    "availableMemory": [
+      "MemAvailable:   85234128 kB"
+    ]
+  }
+}
