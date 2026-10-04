@@ -1,0 +1,22 @@
+{
+  "regions": [
+    {
+      "artifact": "artifacts/direct-sympy-input-partitions/state/region-5606ace4cdcf8cdbfad9a4e02b59b365e7dd64b2283bcef76dd57e8552e5a8b0.expr",
+      "sha256": "f88383c8ce2cd9f5a47f9169d8570120680429afbf291da3684aea70a2f24290",
+      "characters": 27632,
+      "position": 0,
+      "tokens": 1,
+      "dimension": 2,
+      "cases": 260,
+      "mismatches": 0,
+      "firstMismatches": [],
+      "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+    }
+  ],
+  "completedRegions": 1,
+  "coveredInputPatterns": 62980096,
+  "unfinishedInputPatterns": 3967746048,
+  "cases": 260,
+  "mismatches": 0,
+  "fullCoordinateParity": false
+}

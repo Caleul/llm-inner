@@ -1,0 +1,61 @@
+{
+  "complete": true,
+  "inputDomains": {
+    "X1": [
+      20480,
+      31743
+    ],
+    "X2": [
+      20480,
+      31743
+    ]
+  },
+  "producers": 9,
+  "elidedUpdates": 4,
+  "logicalCharacters": 22672,
+  "storedCharacters": 3547,
+  "artifact": {
+    "path": "/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/tmpeduushnb/coordinate.expr",
+    "characters": 28282,
+    "sha256": "da7e5dbc78eca35f19eb04f1e3a5ccc7b8706687a5ee8021fe3fe006ee40fc60",
+    "paths": 2,
+    "compilerAliases": 0,
+    "complete": true
+  },
+  "paths": {
+    "splitContexts": 1,
+    "completedPaths": 2,
+    "contradictions": 0,
+    "selectorSelections": 2,
+    "CASPasses": 41,
+    "lastArm": {
+      "bodyCharacters": 5665,
+      "guardCharacters": 5641,
+      "decisions": 1,
+      "dependencyGrowth": [
+        {
+          "definition": 0,
+          "storedCharacters": 2675,
+          "expandedCharacters": 2677
+        },
+        {
+          "definition": 1,
+          "storedCharacters": 101,
+          "expandedCharacters": 2765
+        },
+        {
+          "definition": 2,
+          "storedCharacters": 101,
+          "expandedCharacters": 2765
+        },
+        {
+          "definition": 3,
+          "storedCharacters": 163,
+          "expandedCharacters": 5665
+        }
+      ]
+    }
+  },
+  "seconds": 0.5820111670182087,
+  "workerSeconds": 1.319980125001166
+}

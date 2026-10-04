@@ -1,0 +1,59 @@
+{
+  "expressionFormat": "Mathematical strings; JSON is diagnostic/compiler-state metadata only.",
+  "change": "Compile disjoint input contexts before dependency expansion; discard invisible updates, then close and flatten each entire coordinate arm.",
+  "regressionGate": {
+    "buildExitCode": 0,
+    "namedIntegrations": 17,
+    "passed": 17,
+    "failed": 0,
+    "skipped": 0,
+    "durationMilliseconds": 117958.492459
+  },
+  "partitionProof": {
+    "finiteHalfPatterns": 63488,
+    "fullVectorPatterns": 4030726144,
+    "lost": 0,
+    "overlaps": 0,
+    "signedZerosRetained": true
+  },
+  "adaptiveRun": {
+    "attempts": 12,
+    "completedRegions": 3,
+    "coveredInputPatterns": 125960192,
+    "unfinishedInputPatterns": 3904765952,
+    "coverageFraction": 0.03125,
+    "seconds": 94.3934678749647,
+    "regionTimeoutSeconds": 12,
+    "concurrentRegionWorkers": 1,
+    "workerDeadline": "Parent kills and reaps isolated workers; incomplete proof tables are never reused.",
+    "incompleteFinalEmissionBlocked": true
+  },
+  "actualArtifactParity": {
+    "positiveLargeRegionCases": 576,
+    "adaptiveRegionCases": 780,
+    "mismatches": 0,
+    "scope": "Position zero, dimension two, one token, within the exact emitted input regions; no full-domain or last-token parity claim."
+  },
+  "stateCompatibility": {
+    "previousInProcessStateRejectedBeforeMutation": true,
+    "checkpointSourcesPlatformAndBackendIdentityChecked": true,
+    "treeCoverageReplayedOnResume": true,
+    "completeArtifactHashesVerifiedOnResume": true
+  },
+  "finalArtifactEmitted": false,
+  "finalParity": false,
+  "sources": {
+    "helpers/direct_sympy_checkpoint.py": "988da636417d9e8812f78eefb8f6636a195537715f84e8b8300f72aa8235a2a9",
+    "helpers/direct_sympy_input_partitions.py": "d0001b039ed49826ffb98e3c9f890bb345ebfec779a7369a4426da119eb54c88",
+    "helpers/direct_sympy_partition_run.py": "ec5da242a36b1a9f24e0c7c45a4b3e961cace8b1d96e6700da61e45e01368b41",
+    "helpers/direct_sympy_region_parity.py": "fc1fb3e0dad0e912d3eaacd7f00546a8720e6d7244d0dc9319f34e001c762a9f",
+    "helpers/direct_sympy_input_partitions_test.py": "090ee1d2cd158ea7a25fe569ac79997fe65a5629af49eb2a6b61dd707efedead",
+    "helpers/direct_sympy_savepoints.py": "3c3433d3467e95dca2de4b1fe0b3b9ae7f60cb0ef4d1eb209be79e724cfb937d",
+    "test/direct-sympy-strings.test.ts": "c658e754fc07ae23bc0463f5b972647aeb94270ea193bcf5a877cbe6defbcfae"
+  },
+  "limitations": [
+    "96.875 percent of the admitted Half vector patterns remain uncompiled.",
+    "No controlled full-domain speedup or memory reduction benchmark is established.",
+    "Variable-length last-token semantics and the complete output vector remain pending."
+  ]
+}

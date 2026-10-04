@@ -10492,5 +10492,24 @@
       "Variable-length last-token semantics",
       "All output coordinates"
     ]
+  },
+  "inputContextPartitionValidation": {
+    "report": "docs/evidence/direct-sympy-input-partitions/validation.json",
+    "testMap": {
+      "helpers/direct_sympy_input_partitions_test.py": "Five tests: all 63488 finite Half encodings, full 4030726144-pattern vector coverage, strict dyadic/zero domains, incomplete dispatch and corruption rejection, external worker timeout/semantic failure, native emitted coordinate with 576 fresh-reference cases.",
+      "helpers/direct_sympy_region_parity.py": "Actual CLI readback of all three adaptively emitted coordinates, 780 fresh checkpoint comparisons, zero bit mismatches; scoped position zero only.",
+      "test/direct-sympy-strings.test.ts": "17 named integrations passed, zero failed/skipped, including existing numerical frontiers, strict state identity, ordered parallel reductions and actual emitted prefix checks."
+    },
+    "coveredInputPatterns": 125960192,
+    "totalInputPatterns": 4030726144,
+    "coverageFraction": 0.03125,
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "remaining": [
+      "Compile the pending full-domain regions without input omission or response lookup",
+      "Verify the combined entire coordinate artifact",
+      "Variable-length last-token semantics",
+      "All output coordinates and Colab performance comparison"
+    ]
   }
 }

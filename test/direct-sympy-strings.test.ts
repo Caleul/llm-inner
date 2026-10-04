@@ -158,6 +158,15 @@ test('Half interval precision removes redundant F32 rounding with native emitted
     assert.match(stdout,/Half interval expression: characters=294->233/);
   });
 
+test('Disjoint input partitions preserve complete Half coverage and emitted coordinate parity within each certified region',
+  {skip:!python || !process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT},async()=>{
+    const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_input_partitions_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 5 tests/);
+    assert.match(stderr,/OK/);
+    assert.match(stdout,/Partition domain proof: HalfPatterns=63488 vectorPatterns=4030726144 lost=0 overlaps=0/);
+    assert.match(stdout,/Emitted full region coordinate: cases=576 mismatches=0 characters=28282 position=0 dimension=2 fullInputCoverage=false/);
+  });
+
 test('Budgeted coordinate continuation persists actual producers and rejects incompatible saved dimensions',
   {skip:!python || !process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_checkpoint_run_test.py'],{timeout:120_000,maxBuffer:1024*1024});

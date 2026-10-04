@@ -1,0 +1,46 @@
+{
+  "regions": [
+    {
+      "artifact": "artifacts/direct-sympy-input-partitions/isolated-state/region-5606ace4cdcf8cdbfad9a4e02b59b365e7dd64b2283bcef76dd57e8552e5a8b0.expr",
+      "sha256": "f88383c8ce2cd9f5a47f9169d8570120680429afbf291da3684aea70a2f24290",
+      "characters": 27632,
+      "position": 0,
+      "tokens": 1,
+      "dimension": 2,
+      "cases": 260,
+      "mismatches": 0,
+      "firstMismatches": [],
+      "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+    },
+    {
+      "artifact": "artifacts/direct-sympy-input-partitions/isolated-state/region-396b6f4777916f6536cc0abef2e33121ba90904d162d6f46fb7df5e3120d77e8.expr",
+      "sha256": "da7e5dbc78eca35f19eb04f1e3a5ccc7b8706687a5ee8021fe3fe006ee40fc60",
+      "characters": 28282,
+      "position": 0,
+      "tokens": 1,
+      "dimension": 2,
+      "cases": 260,
+      "mismatches": 0,
+      "firstMismatches": [],
+      "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+    },
+    {
+      "artifact": "artifacts/direct-sympy-input-partitions/isolated-state/region-f94ec4d391cfd9a8076378fd2c53c33671b9a44de47325c64de458c50c911e59.expr",
+      "sha256": "ff2f96f1e6c26f0f4aa582421c6f161379bed6841555fc3314bfd05832025b72",
+      "characters": 57483,
+      "position": 0,
+      "tokens": 1,
+      "dimension": 2,
+      "cases": 260,
+      "mismatches": 0,
+      "firstMismatches": [],
+      "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+    }
+  ],
+  "completedRegions": 3,
+  "coveredInputPatterns": 125960192,
+  "unfinishedInputPatterns": 3904765952,
+  "cases": 780,
+  "mismatches": 0,
+  "fullCoordinateParity": false
+}

@@ -1,0 +1,15 @@
+{"region": "", "complete": false, "coveredInputPatterns": 0, "unfinishedInputPatterns": 4030726144, "attemptSeconds": 20.030367667030077}
+{"region": "0", "complete": false, "coveredInputPatterns": 0, "unfinishedInputPatterns": 4030726144, "attemptSeconds": 20.180759292037692}
+{"region": "00", "complete": false, "coveredInputPatterns": 0, "unfinishedInputPatterns": 4030726144, "attemptSeconds": 20.026657374983188}
+{"region": "000", "complete": false, "coveredInputPatterns": 0, "unfinishedInputPatterns": 4030726144, "attemptSeconds": 9.150091374991462}
+{"region": "0000", "complete": false, "coveredInputPatterns": 0, "unfinishedInputPatterns": 4030726144, "attemptSeconds": 6.136266042012721}
+{"region": "00000", "complete": false, "coveredInputPatterns": 0, "unfinishedInputPatterns": 4030726144, "attemptSeconds": 20.014041832997464}
+{"region": "000000", "complete": true, "coveredInputPatterns": 62980096, "unfinishedInputPatterns": 3967746048, "attemptSeconds": 0.5535153340315446}
+Exception ignored in: <function WeakKeyDictionary.__init__.<locals>.remove at 0x1107cecb0>
+Traceback (most recent call last):
+  File "/Users/caleul/.local/share/uv/python/cpython-3.10.13-macos-aarch64-none/lib/python3.10/weakref.py", line 370, in remove
+    def remove(k, selfref=ref(self)):
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_partition_run.py", line 39, in timeout
+    def timeout(*_):raise TimeoutError('Region compilation wall-clock budget exceeded')
+TimeoutError: Region compilation wall-clock budget exceeded
+{"region": "000001", "complete": false, "coveredInputPatterns": 62980096, "unfinishedInputPatterns": 3967746048, "attemptSeconds": 20.9705955000245}

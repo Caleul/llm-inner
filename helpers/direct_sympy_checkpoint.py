@@ -52,7 +52,7 @@ def write_expression(path,expression):
 
 
 class CheckpointStrings:
-    def __init__(self,directory,compiler,*,lower_conversions=True,parallel_budget=None):
+    def __init__(self,directory,compiler,*,lower_conversions=True,parallel_budget=None,input_domains=None):
         self.directory=Path(directory)
         self.config=json.loads((self.directory/"config.json").read_text())
         if self.config.get("model_type")!="llama":
@@ -61,6 +61,9 @@ class CheckpointStrings:
         self.layers=self.config["num_hidden_layers"]
         self.compiler=compiler
         self.domains={f"X{i+1}":Domain(F(-65504),F(65504),-24,False) for i in range(self.width)}
+        if input_domains is not None:
+            from direct_sympy_input_partitions import validate_domains
+            self.domains=validate_domains(input_domains,self.domains)
         self.conversions=ConversionSession(compiler,self.domains,input_dtype="f16") if lower_conversions else None
         self.memo={}
         self.read_weights=0
