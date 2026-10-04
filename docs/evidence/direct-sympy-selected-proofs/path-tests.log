@@ -1,0 +1,20 @@
+.......E.
+======================================================================
+ERROR: test_selected_numeric_certificates_propagate_without_changing_zero_sibling (__main__.CoherentPathTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_coherent_paths_test.py", line 192, in test_selected_numeric_certificates_propagate_without_changing_zero_sibling
+    reclosed=Path(directory)/'reclosed.expr';other=CoherentPaths(numerical)
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_coherent_paths.py", line 59, in __init__
+    self.trees=tuple(registry.audit(text) for text in self.originals)
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_coherent_paths.py", line 59, in <genexpr>
+    self.trees=tuple(registry.audit(text) for text in self.originals)
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_streaming_literals.py", line 43, in audit
+    raise ValueError('Unknown or unfinished literal call: '+child.func.id)
+ValueError: Unknown or unfinished literal call: R16
+
+----------------------------------------------------------------------
+Ran 9 tests in 2.549s
+
+FAILED (errors=1)
+Flat checkpoint normalization: cases=888832 mismatches=0

@@ -10722,5 +10722,20 @@
     "regionMismatches": 0,
     "fullCoordinateParity": false,
     "logicalCharactersReduction": 0
+  },
+  "selectedDependencyNumericalProofValidation": {
+    "report": "docs/evidence/direct-sympy-selected-proofs/validation.json",
+    "tests": 21,
+    "pass": 21,
+    "fail": 0,
+    "skipped": 0,
+    "nativeCases": 30722,
+    "nativeMismatches": 0,
+    "regionCases": 2080,
+    "regionMismatches": 0,
+    "currentCodeCompleteRegions": 8,
+    "firstPathBodyReductionPercent": 0.3768933492221242,
+    "negativeRegionReductionPercent": 20.03972402257997,
+    "fullCoordinateParity": false
   }
 }

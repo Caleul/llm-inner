@@ -161,6 +161,46 @@ class CoherentPathTests(unittest.TestCase):
             self.assertEqual(gzip.decompress(zipped.read_bytes()),path.read_bytes())
             self.assertEqual(set(p.name for p in root.iterdir()),{'flat.expr','flat.expr.gz'})
 
+    def test_selected_numeric_certificates_propagate_without_changing_zero_sibling(self):
+        from direct_sympy_conversions import ConversionSession,FiniteSource
+        guard='U64And(Bits64(X1),9223372036854775807)<'+str(0x3fb0000000000000)
+        registry=fixture(['Piecewise((-0.0,'+guard+'),(X1,True))','CompileValue0()+0.0'])
+        registry.model.conversions=ConversionSession(registry.model.compiler,registry.model.domains,input_dtype='f16')
+        registry.definition_proofs=[(FiniteSource(-1,1,-24),'half',False,
+            (FiniteSource(0,0,-24),FiniteSource(-1,1,-24,2**-4))),
+            (FiniteSource(-1,1,-24),'half',True,None)]
+        session=registry.model.conversions
+        alias=syntax('CompileValue0()');key=session.key(alias)
+        session.completed[key]=FiniteSource(-1,1,-24);session.half_values.add(key);session.f32_values.add(key)
+        session.converted_regions.add(key)
+        recipe='R16(R32(CompileValue0()+5.960464477539063e-08))'
+        lowered=session.close(recipe)
+        numerical=fixture([registry.definitions[0],lowered])
+        numerical.model.conversions=session
+        numerical.definition_proofs=[registry.definition_proofs[0],(FiniteSource(-1,1,-24),'half',False,None)]
+        numerical.definition_recipes={1:recipe}
+        before=registry.model.conversions.completed.copy()
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'numeric.expr';plan=CoherentPaths(registry)
+            report=plan.write(path,'CompileValue1()',max_characters=65536)
+            self.assertEqual(report['paths'],2)
+            self.assertGreater(plan.stats['numericArithmeticEliminated'],0)
+            text=path.read_text();self.assertNotIn('CompileValue',text)
+            arms=list(CoherentPaths(registry).arms('CompileValue1()'))
+            self.assertTrue(any(arm.view.definitions[1]=='CompileValue0()' for arm in arms))
+            self.assertEqual(registry.model.conversions.completed,before)
+            reclosed=Path(directory)/'reclosed.expr';other=CoherentPaths(numerical)
+            other.write(reclosed,'CompileValue1()',max_characters=65536)
+            self.assertGreater(other.stats['numericRecipeAdmissions'],0)
+            self.assertEqual(registry.model.conversions.completed,before)
+            self.assertNotIn('R16',reclosed.read_text());self.assertNotIn('R32',reclosed.read_text())
+            source=Path(directory)/'numeric.cpp';binary=Path(directory)/'numeric'
+            source.write_text('#include <cstdint>\n#include <cstring>\n#include <cmath>\n#include <cstdio>\ntemplate<class T,class U>T word(U x){T y;std::memcpy(&y,&x,sizeof(y));return y;}\n'+'double candidate(double X1,double X2){return '+cpp(syntax(text))+';}\n'+'double reclosed(double X1,double X2){return '+cpp(syntax(reclosed.read_text()))+';}\n'+"""int main(){unsigned cases=0,mismatches=0;for(unsigned bits=0;bits<65536;bits++){if((bits&0x7c00)==0x7c00)continue;double x=word<_Float16>(uint16_t(bits));if(std::abs(x)>1)continue;double expected=(std::abs(x)<0x1p-4?-0.0:x)+0.0;mismatches+=word<uint64_t>(candidate(x,0))!=word<uint64_t>(expected);double stored=double(_Float16(float((std::abs(x)<0x1p-4?-0.0:x)+0x1p-24)));mismatches+=word<uint64_t>(reclosed(x,0))!=word<uint64_t>(stored);cases++;}std::printf("Selected numeric propagation parity: cases=%u mismatches=%u\\n",cases,mismatches);return mismatches?1:0;}""")
+            built=subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],capture_output=True,text=True)
+            self.assertEqual(built.returncode,0,built.stderr)
+            run=subprocess.run([str(binary)],capture_output=True,text=True)
+            self.assertEqual(run.returncode,0,run.stdout+run.stderr);print(run.stdout,end='')
+
     @unittest.skipUnless(os.environ.get('LLM_INNER_DIRECT_JSON_CHECKPOINT'),'checkpoint not configured')
     def test_actual_checkpoint_normalization_flat_file_has_native_parity(self):
         checkpoint=os.environ['LLM_INNER_DIRECT_JSON_CHECKPOINT']

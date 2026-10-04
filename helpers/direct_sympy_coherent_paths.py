@@ -60,7 +60,7 @@ class CoherentPaths:
         LiteralView(registry,self.originals)
         self.max_paths=max_paths;self.max_search_nodes=max_search_nodes
         self.predicates={}
-        self.stats={'splitContexts':0,'completedPaths':0,'contradictions':0,'selectorSelections':0,'CASPasses':0}
+        self.stats={'splitContexts':0,'completedPaths':0,'contradictions':0,'selectorSelections':0,'CASPasses':0,'numericArithmeticEliminated':0,'numericRecipeAttempts':0,'numericRecipeAdmissions':0,'numericRecipeBudgetStops':0}
 
     @staticmethod
     def alias(node):
@@ -155,21 +155,100 @@ class CoherentPaths:
             max_passes=self.compiler.max_passes)
         words.branch_facts=self.facts;words.expression_size=cost_view.size
         from direct_sympy_words import simplify_words
+        from direct_sympy_conversions import ConversionSession,FiniteSource
+        from direct_sympy_arithmetic import simplify_arithmetic
+        from direct_sympy_synchronize import frontier
+        # Type/range certificates remain true on a reachable subset; word
+        # payload identities do not. This session contains only current-path
+        # aliases and never mutates the original producer proof tables.
+        numeric=ConversionSession(words,domains)
+        numeric.branch_facts=facts
+        if getattr(self.registry.model,'conversions',None) is not None:
+            source=self.registry.model.conversions
+            for name in domains:
+                original=source.key(syntax(name));own=numeric.key(syntax(name))
+                if original in source.half_values:numeric.half_values.add(own)
+                if original in source.f32_values:numeric.f32_values.add(own)
+        def certify_selected(alias):
+            proofs=getattr(self.registry,'definition_proofs',())
+            if alias>=len(proofs):return
+            bound,kind,positive_zero,arm_bounds=proofs[alias]
+            if bound is None:return
+            if arm_bounds:
+                arms=frontier(self.originals[alias],pure_functions=['CompileValue'+str(i) for i in range(alias)])
+                if arms is not None and len(arms)==len(arm_bounds):
+                    for (_,condition),local in zip(arms,arm_bounds):
+                        truth=self.facts.truth(condition,facts)
+                        if truth is None:break
+                        if not truth:continue
+                        if local is not None:
+                            low,high=max(bound.minimum,local.minimum),min(bound.maximum,local.maximum)
+                            magnitude=max(bound.minimum_magnitude,local.minimum_magnitude)
+                            if low>high or magnitude>max(abs(low),abs(high)):
+                                raise ValueError('Selected producer contradicts its numerical certificate')
+                            bound=FiniteSource(low,high,bound.quantum,magnitude)
+                        break
+            key=numeric.key(syntax('CompileValue'+str(alias)+'()'))
+            numeric.completed[key]=bound;numeric.converted_regions.add(key)
+            if kind=='half':numeric.half_values.add(key)
+            if kind in ('half','f32'):numeric.f32_values.add(key)
+            if positive_zero:numeric.no_negative_zero_values.add(key)
+            # Conditions may exclude the central magnitude gap of an alias
+            # without selecting one sign. Refine only predicates proved here.
+            for predicate in self.predicates.values():
+                truth=self.facts.truth(predicate,facts)
+                if truth is None:continue
+                own=numeric.magnitude_guard_bounds(predicate,truth,numeric.completed)
+                if own is None:raise ValueError('Selected producer contradicts its path conditions')
+                numeric.completed=own
         def stabilize_selected(expression):
             stable=self.compiler.stabilize(expression,domains,facts=facts)
+            arithmetic=simplify_arithmetic(stable,numeric)
+            if cost_view.size(arithmetic)<cost_view.size(stable):stable=arithmetic
             if ALIASES.fullmatch(stable) or not re.search(r'\b(?:Bits64|Float64|U64[A-Za-z0-9]*)\s*\(',stable):
                 return stable
             candidate=simplify_words(stable,words,domains)
             candidate=self.compiler.stabilize('('+candidate+')',domains,facts=facts)
             return candidate if cost_view.size(candidate)<cost_view.size(stable) else stable
+        def reclose_recipe(alias,baseline):
+            recipe=getattr(self.registry,'definition_recipes',{}).get(alias)
+            if recipe is None or any(int(m[1]) not in memo for m in ALIASES.finditer(recipe)):
+                return baseline
+            self.stats['numericRecipeAttempts']+=1
+            source=getattr(self.registry.model,'conversions',None)
+            with numeric.branch_context(domains,{},facts):
+                # These enclosures describe the exact pre-expansion operation
+                # on the same operand values. Transfer only numerical proofs,
+                # never an original closed word payload or conversion identity.
+                if source is not None:
+                    for child in ast.walk(syntax(recipe)):
+                        old=source.key(child);own=numeric.key(child)
+                        if old in source.completed:numeric.completed.setdefault(own,source.completed[old])
+                        if old in source.half_values:numeric.half_values.add(own)
+                        if old in source.f32_values:numeric.f32_values.add(own)
+                        if old in source.no_negative_zero_values:numeric.no_negative_zero_values.add(own)
+                        if old in source.rms_guards:numeric.rms_guards[own]=source.rms_guards[old]
+                try:candidate=numeric.close('('+recipe+')')
+                except ValueError as error:
+                    if 'budget' not in str(error).lower():raise
+                    self.stats['numericRecipeBudgetStops']+=1;return baseline
+                if re.search(r'\b(?:R16|R32|sqrt|Silu16)\s*\(',candidate):return baseline
+                tree=syntax(candidate)
+                if self.next_decision(tree,facts) is not None:return baseline
+                candidate=stabilize_selected('('+ast.unparse(select(tree))+')')
+                if cost_view.size(candidate)<cost_view.size(baseline):
+                    self.stats['numericRecipeAdmissions']+=1;return candidate
+            return baseline
         def select(node):
             alias=self.alias(node)
             if alias is not None:
                 if alias not in memo:
                     selected=select(self.trees[alias])
                     texts[alias]=stabilize_selected('('+ast.unparse(selected)+')')
+                    texts[alias]=reclose_recipe(alias,texts[alias])
                     words.register_completed_region(texts[alias],domains,word_closed=True)
                     words.copy_completed_word_root(texts[alias],f'CompileValue{alias}()',domains)
+                    certify_selected(alias)
                     memo.add(alias)
                 return node
             if isinstance(node,ast.Call) and node.func.id=='Piecewise':
@@ -204,6 +283,7 @@ class CoherentPaths:
         finally:
             self.compiler.expression_size=original_cost
             self.compiler.events.extend(words.events)
+        self.stats['numericArithmeticEliminated']+=numeric.arithmetic_eliminated
         self.stats['CASPasses']+=len(self.compiler.events)-before
         return LiteralView(self.registry,texts),expression
 

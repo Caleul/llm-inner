@@ -16,7 +16,7 @@ from direct_sympy_checkpoint import CheckpointStrings
 from direct_sympy_conversions_test import cpp
 import direct_sympy_savepoints_test as fixtures
 from direct_sympy_strings import StringCompiler,syntax
-from direct_sympy_streaming_literals import streaming_literals
+from direct_sympy_streaming_literals import ALIASES,streaming_literals
 
 
 class StreamingLiteralTests(unittest.TestCase):
@@ -104,6 +104,10 @@ if(word<uint64_t>(candidate(x))!=word<uint64_t>(expected))return 1;
             model=fixture.model(Path(directory))
             with streaming_literals(model) as registry:
                 value=fixture.first(model)
+                index=int(ALIASES.fullmatch(value)[1])
+                self.assertIn(index,registry.definition_recipes)
+                self.assertIn("R16",registry.definition_recipes[index])
+                self.assertEqual(len(registry.definition_proofs),len(registry.definitions))
                 captured=[]
                 def check(compact,baseline,protected,pure_functions,views,measure):
                     for token,text in protected.items():

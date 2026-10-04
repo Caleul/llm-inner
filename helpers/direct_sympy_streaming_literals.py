@@ -26,6 +26,7 @@ class StreamingLiterals:
         if model.memo or model.on_completed is not None or model.conversions is None:
             raise ValueError('Streaming literals require a fresh numerical compiler without a savepoint callback')
         self.model=model;self.definitions=[];self.by_text={};self.names={};self.events=[]
+        self.definition_proofs=[];self.definition_recipes={}
         self.context=model.compiler.context(model.domains)
 
     def audit(self,text):
@@ -57,6 +58,7 @@ class StreamingLiterals:
         bounds,kind,positive_zero=session.bounds(query),session.value_kind(query),session.no_negative_zero(query)
         name='CompileValue'+str(len(self.definitions));alias=name+'()'
         self.definitions.append(text);self.by_text[text]=alias
+        self.definition_proofs.append((bounds,kind,positive_zero,session.frontier_bounds.get(session.closed_literal_keys.get(text,session.key(node)))))
         marker=syntax(alias);key=session.key(marker)
         if bounds is not None:session.completed[key]=bounds
         if kind=='half':session.half_values.add(key)
@@ -139,7 +141,16 @@ def streaming_literals(model):
     model.compiler.expression_size=registry.size
     def producer(key,build):
         if key in model.memo:return model.memo[key]
-        text=original(key,build);alias=registry.intern(text);model.memo[key]=alias
+        recipe=[]
+        def capture():
+            expression=build();recipe.append(expression);return expression
+        text=original(key,capture);alias=registry.intern(text);model.memo[key]=alias
+        match=ALIASES.fullmatch(alias)
+        if match is not None and recipe:
+            index=int(match[1])
+            dependencies=[int(m[1]) for m in ALIASES.finditer(recipe[0])]
+            if all(dependency<index for dependency in dependencies):
+                registry.definition_recipes.setdefault(index,recipe[0])
         registry.names[key]=alias
         registry.events.append((key,len(text),registry.size(alias),len(registry.definitions)))
         return alias

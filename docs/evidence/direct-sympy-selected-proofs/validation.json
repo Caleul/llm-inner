@@ -1,0 +1,117 @@
+{
+  "scope": "Compiler-only numeric recipes reclosed after dependency selection, with isolated path certificates",
+  "expressionFormat": "Mathematical strings; JSON is metadata only",
+  "build": {
+    "command": "npm run build",
+    "exitCode": 0,
+    "log": "docs/evidence/direct-sympy-selected-proofs/build.log"
+  },
+  "integration": {
+    "tests": 21,
+    "pass": 21,
+    "fail": 0,
+    "skipped": 0,
+    "log": "docs/evidence/direct-sympy-selected-proofs/integration-tests-verified.log"
+  },
+  "nativeRegression": {
+    "cases": 30722,
+    "coordinateComparisonsPerCase": 2,
+    "mismatches": 0,
+    "signedZeros": true,
+    "siblingIsolation": true,
+    "wordPayloadIsolation": true,
+    "originalProofTablesUnchanged": true,
+    "log": "docs/evidence/direct-sympy-selected-proofs/path-tests-final.log"
+  },
+  "recipeCapture": {
+    "tests": 7,
+    "pass": 7,
+    "oneRecipePerAlias": true,
+    "onlyBackwardDependencies": true,
+    "compilerOnly": true,
+    "log": "docs/evidence/direct-sympy-selected-proofs/streaming-tests.log"
+  },
+  "coordinate": {
+    "position": 0,
+    "dimension": 2,
+    "tokens": 1,
+    "logicalCharactersBeforePathSelection": 3248163585496,
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "firstPathBodyBefore": 8648306495,
+    "firstPathBodyAfter": 8615711603,
+    "firstPathGuardsBefore": 4992480549,
+    "firstPathGuardsAfter": 4973664345,
+    "pathRecipeAttempts": 108,
+    "pathRecipeAdmissions": 46,
+    "pathRecipeBudgetStops": 0,
+    "report": "docs/evidence/direct-sympy-selected-proofs/coordinate-run.json",
+    "speedupEstablished": false
+  },
+  "negativeRegion": {
+    "charactersBefore": 19132,
+    "charactersAfter": 15298,
+    "reductionPercent": 20.03972402257997,
+    "artifact": "docs/evidence/direct-sympy-selected-proofs/region-1e2c282064ff1e2f.expr"
+  },
+  "regions": {
+    "completedRegions": 8,
+    "coveredInputPatterns": 176639488,
+    "unfinishedInputPatterns": 3854086656,
+    "cases": 2080,
+    "mismatches": 0,
+    "fullCoordinateParity": false
+  },
+  "positiveRegionParity": {
+    "artifact": "docs/evidence/direct-sympy-selected-proofs/coordinate-region.expr",
+    "sha256": "ec7554949ecba4e07dd1d226b3b24379ed2910ffedf9526e71107605f442df66",
+    "characters": 19532,
+    "position": 0,
+    "tokens": 1,
+    "dimension": 2,
+    "cases": 1028,
+    "mismatches": 0,
+    "firstMismatches": [],
+    "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+  },
+  "coalescence": {
+    "completeRegions": 8,
+    "coalescedRectangles": 4,
+    "distinctExpressions": 3,
+    "copiedBodyCharacters": 172473,
+    "sharedBodyCharacters": 74813,
+    "coveredInputPatterns": 176639488,
+    "unfinishedInputPatterns": 3854086656,
+    "finalArtifactEmitted": false,
+    "finalParity": false
+  },
+  "artifactMap": "docs/evidence/direct-sympy-selected-proofs/artifact-map.json",
+  "sourceSHA256": {
+    "direct_sympy_arithmetic.py": "973f8d8910fb0f59831e68379a950bf8f2952acdeeda75030ddb5d308674e890",
+    "direct_sympy_checkpoint.py": "988da636417d9e8812f78eefb8f6636a195537715f84e8b8300f72aa8235a2a9",
+    "direct_sympy_coherent_paths.py": "f08d00f446fb61856505ed2c3e4dce7882aa30df559e5e7a243af0b7e2de2fc8",
+    "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+    "direct_sympy_conversions.py": "2937c333a849c7719ab86dc25fadec52eac18ca63647c804a4804243a29f76f4",
+    "direct_sympy_input_partitions.py": "d0001b039ed49826ffb98e3c9f890bb345ebfec779a7369a4426da119eb54c88",
+    "direct_sympy_layer_bounds.py": "2f8d73caf53371f4bba44a605a91098580f5dcaf90b292c135830d862513dcff",
+    "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+    "direct_sympy_partition_run.py": "e6d416b4f15268876e7f65f71401271a812ceaf08c305bd7c9ae92b3aac1dd40",
+    "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+    "direct_sympy_savepoints.py": "682783ebfd3f1337bbcf015faa34876963a9f1b63eae2cba1c3159cb0ed5d266",
+    "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+    "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+    "direct_sympy_silu.py": "0f4d9a7a17c38bc0ba8d8f7a28bbcfcc66ebe95c578e44b5a1f30a7d9c2affd8",
+    "direct_sympy_sqrt.py": "86b358773fa8b887659cd5598d7d37d7a4df5f338513117bc74ff6dd00ce6b17",
+    "direct_sympy_streaming_literals.py": "5a0046367e570549e5c804c0f5aa0737db2c506600c9ae19c72450ba0f38824e",
+    "direct_sympy_strings.py": "b195bd6ef9f2bc356a4819aead1262a328c0492b49485f473664415095b1f8be",
+    "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+    "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+    "direct_sympy_words.py": "2377908fd2d5553a3c9a7e52d2f01a104877a62f3bd4fdc43cfeaf9d492987c5"
+  },
+  "pending": [
+    "Full-domain coordinate artifact and exact parity",
+    "Variable-length last-token and multiple tokens",
+    "All output coordinates",
+    "Current-code controlled sequential/parallel Colab compiler comparison"
+  ]
+}
