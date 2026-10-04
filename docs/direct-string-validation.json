@@ -10373,6 +10373,33 @@
       "Full input-only coordinate artifact and its read-back parity",
       "Last-token semantics for variable sequence lengths",
       "Remaining output dimensions"
-    ]
+    ],
+    "colabComparison": {
+      "session": "llm-inner-logical-simplification",
+      "device": "NVIDIA A100-SXM4-40GB",
+      "terminalState": "COMPLETED",
+      "report": "docs/evidence/direct-sympy-logical-cost/colab-comparison.json",
+      "sourceProvenance": "docs/evidence/direct-sympy-logical-cost/source-provenance.json",
+      "completedProducersEach": 25,
+      "parityCasesEach": 60,
+      "mismatchesEach": 0,
+      "sequentialSeconds": 68.08288002100016,
+      "parallelSeconds": 70.06562181200002,
+      "parallelTimeChangePercent": 2.91224723511736,
+      "sequentialPeakProcessRSSBytes": 951144448,
+      "parallelPeakObservedAggregateRSSBytes": 1831268352,
+      "parallelPeakObservedAggregateRSSChangePercent": 92.53314844560813,
+      "logicalReductionPercent": 22.52594779546935,
+      "correctedLogicalCharacters": 15345975626240,
+      "parallelCompletedBlocks": 18,
+      "parallelPairMerges": 0,
+      "interpretation": "Same effective progress and parity; parallel was slower and used more observed aggregate memory. Small projection dimensions admitted no pair merges. No complete final artifact emitted."
+    },
+    "auxiliaryCUDAValidation": {
+      "comparisons": 4194304,
+      "mismatches": 0,
+      "report": "docs/evidence/direct-sympy-logical-cost/cuda-parity.json",
+      "scope": "Existing modular integer arithmetic identities only; not checkpoint forward or final coordinate parity."
+    }
   }
 }

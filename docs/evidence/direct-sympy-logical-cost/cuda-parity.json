@@ -1,0 +1,1 @@
+{"device": "NVIDIA A100-SXM4-40GB", "cuda": "13.0", "samples": 1048576, "comparisons": 4194304, "mismatches": 0, "cpuBoundaryComparisons": 32, "peakGPUAllocatedBytes": 4194816, "seconds": 0.7437623239998175, "expressionCharacters": [[52, 22], [60, 21], [70, 50], [70, 50]], "scope": "Modular integer arithmetic only; not checkpoint forward or complete-coordinate parity"}

@@ -41,6 +41,40 @@ Estados antigos mantêm a verificação estrita das identidades dos helpers
 numéricos. A representação compartilhada exige um compilador novo e recusa
 o callback de savepoints legado; não reutiliza seus estados silenciosamente.
 
+## Comparação no Colab A100
+
+`colab-terminal.json` confirma o encerramento com `COMPLETED`.
+`colab-comparison.json` foi baixado pelo Access Broker sem modificar seus
+bytes; `colab-derived-metrics.json` referencia seu SHA256 e calcula o RSS
+agregado observado dos processos. O CAS e a referência ficaram na CPU.
+`source-provenance.json` verifica os hashes do bundle congelado e a
+equivalência das árvores sintáticas com o commit local: as únicas
+diferenças são comentários e a remoção de um import não utilizado.
+
+| Variante | Produtores completos | Tempo | Pico RSS do processo | Pico RSS agregado observado | Expansão lógica |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Custo de marcadores | 25 | 9,76 s | 565 MB | 565 MB | 19,81 TB |
+| Custo efetivo sequencial | 25 | 68,08 s | 951 MB | 951 MB | 15,35 TB |
+| Custo efetivo paralelo | 25 | 70,07 s | 951 MB | 1.831 MB | 15,35 TB |
+
+Cada variante passou em 60 casos de paridade de composição, com zero
+divergências. A forma menor exige mais trabalho de simplificação do que
+a escolha por marcadores. O paralelo ficou 2,91% mais lento e seu pico
+agregado observado cresceu 92,53% em relação ao sequencial corrigido.
+O RSS agregado é conservador: a soma pode contar páginas compartilhadas
+por mais de um processo; é uma observação amostrada, não um pico contínuo.
+
+O paralelo processou 18 blocos. As dimensões pequenas deste checkpoint
+não produziram combinações em pares dentro dos folds de projeção; foram
+zero merges nesse benchmark. O teste existente com blocos ímpares cobre
+as combinações de continuação que preservam a ordem original. Essa
+comparação não demonstra uma aceleração geral nem conclui o artefato.
+
+`cuda-parity.json` registra a validação numérica auxiliar executada na
+A100: 4.194.304 comparações, zero divergências. Esse teste cobre as
+identidades modulares já existentes; não representa um forward completo
+do modelo na GPU nem a paridade do artefato final.
+
 ## Reprodução
 
 ```sh

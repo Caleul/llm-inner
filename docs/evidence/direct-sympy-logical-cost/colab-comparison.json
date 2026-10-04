@@ -1,0 +1,672 @@
+{
+  "sourceHashes": {
+    "direct_sympy_arithmetic.py": "84e2cfa110fb0523fd94c7565c9e3a761514654c586b1a9ca66e71efc0396544",
+    "direct_sympy_checkpoint.py": "b076ecf8a262e6151fa6c71fb6c8be92b942dd9821311f4052127d8aedf74eb4",
+    "direct_sympy_checkpoint_run.py": "af1b4c1ebd8b5803e9fc9499baf322824c51a73d8c10757921204e072ce5b583",
+    "direct_sympy_checkpoint_run_test.py": "d47c82ee3d1eff9ef1730a7c36794ed6e6d21e3922750a1e0c4188598409ee79",
+    "direct_sympy_checkpoint_test.py": "459f1cfb3fe8bf10a3f4478ebc184b5e97eaf082dc5ab48efd38e3dce817ee71",
+    "direct_sympy_colab_benchmark.py": "73ad6b83e0f94a666b379171f7c527f93f86805023a315ec1d55227d0ee5fb09",
+    "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+    "direct_sympy_conversions.py": "627c1b89ceabd14d4bae5ba9b206cd81bad1156c13f4e0d3ce4d3fe668a00551",
+    "direct_sympy_conversions_test.py": "f1237acac34c9463b42a8970a535f1ec085b0508476c7a9ce1c3df64cc27cb9e",
+    "direct_sympy_cuda_validation.py": "67ea7ff6152876b737c3c5d62cead906a5762f24828c42db92901b5187bdb32e",
+    "direct_sympy_envelope_diagnostic.py": "c47ceb25428cf97c4f00adcaf35873d02c3d1dfa1c41e1efa0de430209d801ea",
+    "direct_sympy_envelope_diagnostic_test.py": "378c5fa81127c4ac638931742ee7e50541aae70d1ac3933b39a6d5f05b57bc98",
+    "direct_sympy_frontier_validation.py": "dd9f64b52a88b23da01d664cea1648e2be5ec9186c986a0db0e38422027caa53",
+    "direct_sympy_layer_bounds.py": "2f8d73caf53371f4bba44a605a91098580f5dcaf90b292c135830d862513dcff",
+    "direct_sympy_logical_cost_benchmark.py": "1728e7021a6cc6dd39fae57bae8de1c4d73135c5d5a62efd0141810203f5b2a3",
+    "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+    "direct_sympy_parallel_test.py": "fe05a1bef184b3695230496ebc38638c9802470b956a6bf36745f20cc203ec1d",
+    "direct_sympy_path_conversion_test.py": "48e769d3b561dd5935b00b3f339aca447b0ee4488dff64dfd7eecd9c44dcd0dd",
+    "direct_sympy_prefix_proof.py": "d0d1d0ad92623b308d35d9955cf41cf80bb6d607cb9ac212a8eeb1abe13b7a11",
+    "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+    "direct_sympy_rms_guard_test.py": "bf067bcace99f73ec4da0258315eabe284c1e55f455501368fedc7e4b09027e2",
+    "direct_sympy_savepoints.py": "857a4c96f305cb25efbffd4d2941b2aaa919e186cace6ae74f3efa3a3e89defe",
+    "direct_sympy_savepoints_test.py": "301c1d54e65efe9df79f7b56fff312c29414a5e3cf71d7ee58e63ca9a8981657",
+    "direct_sympy_scan_backend.py": "b1566a2c0c161bc143262ce8040fa0d3c350b9637ca5ec383d6f1c8b9c83e111",
+    "direct_sympy_scan_backend_test.py": "63ebf1c8ccb394e046f5d53227341ed98146fc53fba71669a081b05f7c92de95",
+    "direct_sympy_scan_cli.py": "7cdae2c8046649fd0a1bf421503cea845b87186e0b0141d2d7ed2d7d47a1198c",
+    "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+    "direct_sympy_signs.py": "62c6b8f2a4437920c604d183f517c77701d6d1ab4b9d5ebabcde390ede72229c",
+    "direct_sympy_signs_test.py": "1e01a7e43ce1e5c39b3903ed1317fcea9af68fd1e370cee809ef51f60d23e41e",
+    "direct_sympy_silu.py": "0f4d9a7a17c38bc0ba8d8f7a28bbcfcc66ebe95c578e44b5a1f30a7d9c2affd8",
+    "direct_sympy_silu_test.py": "21de639bcc16fced1718c539518b67cc21104f02fe5722bcf207b9b281b4a68c",
+    "direct_sympy_sqrt.py": "1bb02cbacdcd74c1db5cd0eb8829788d4f8a7159c4bbbac458fd8197bddb179e",
+    "direct_sympy_sqrt_test.py": "a5221fc6f769ee841a0b020219bceb23e7dd0278358c9fa27fab60909d71b60b",
+    "direct_sympy_streaming_literals.py": "ac7dee3110c1645720f33c24b7571d2d24f8e7999dcf09168dcd1059c0eeb67c",
+    "direct_sympy_streaming_literals_test.py": "a262cf9af630d963e001bc066dac6f321cd5a4902255715fda9a465efb95b2e1",
+    "direct_sympy_strings.py": "927a6ef23b8ac9e6c10d26d62c5cc7ce5ac6292c2b7952b97b9ade4ada765b38",
+    "direct_sympy_strings_test.py": "6b13e92fa3fe4939ce7f9186258e51b423f06af8a0207e8357624394126ab97f",
+    "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+    "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+    "direct_sympy_word_factor_cuda.py": "b48bb96041b20b16023604110794d56c76a67d4839223384b2c4998d83cc5f67",
+    "direct_sympy_word_factor_test.py": "bf7c55202e0df0cbaa45aad1e6e55065d22ba7cd1592ee50e46b512f0f58d92a",
+    "direct_sympy_words.py": "e5498cc303a9775e7d0d22f47b2b0ebaa85e8e9ec7573dfe53d67694c48e74f3"
+  },
+  "runs": [
+    {
+      "mode": "marker-cost",
+      "compilationSeconds": 9.764202639999894,
+      "peakProcessRSSBytes": 564871168,
+      "completedProducers": 25,
+      "compilerDefinitions": 41,
+      "storedLiteralCharacters": 19103,
+      "logicalOutputCharacters": 19807890757704,
+      "CASPasses": 1712,
+      "growth": [
+        {
+          "producer": "model.layers.0.pre:mean",
+          "residentCharacters": 329,
+          "expandedCharacters": 331,
+          "sharedDefinitions": 2
+        },
+        {
+          "producer": "model.layers.0.pre:inverse",
+          "residentCharacters": 1739,
+          "expandedCharacters": 5849,
+          "sharedDefinitions": 3
+        },
+        {
+          "producer": "model.layers.0.pre:0",
+          "residentCharacters": 363,
+          "expandedCharacters": 12349,
+          "sharedDefinitions": 5
+        },
+        {
+          "producer": "model.layers.0.pre:1",
+          "residentCharacters": 363,
+          "expandedCharacters": 12349,
+          "sharedDefinitions": 7
+        },
+        {
+          "producer": "model.layers.0.v:0",
+          "residentCharacters": 714,
+          "expandedCharacters": 99388,
+          "sharedDefinitions": 9
+        },
+        {
+          "producer": "model.layers.0.context:0",
+          "residentCharacters": 21,
+          "expandedCharacters": 99394,
+          "sharedDefinitions": 9
+        },
+        {
+          "producer": "model.layers.0.v:1",
+          "residentCharacters": 702,
+          "expandedCharacters": 99376,
+          "sharedDefinitions": 11
+        },
+        {
+          "producer": "model.layers.0.context:1",
+          "residentCharacters": 21,
+          "expandedCharacters": 99382,
+          "sharedDefinitions": 11
+        },
+        {
+          "producer": "model.layers.0.residual:0",
+          "residentCharacters": 824,
+          "expandedCharacters": 795762,
+          "sharedDefinitions": 13
+        },
+        {
+          "producer": "model.layers.0.residual:1",
+          "residentCharacters": 832,
+          "expandedCharacters": 795770,
+          "sharedDefinitions": 15
+        },
+        {
+          "producer": "model.layers.0.post:mean",
+          "residentCharacters": 385,
+          "expandedCharacters": 3183387,
+          "sharedDefinitions": 16
+        },
+        {
+          "producer": "model.layers.0.post:inverse",
+          "residentCharacters": 1752,
+          "expandedCharacters": 41385577,
+          "sharedDefinitions": 17
+        },
+        {
+          "producer": "model.layers.0.post:0",
+          "residentCharacters": 422,
+          "expandedCharacters": 89137901,
+          "sharedDefinitions": 19
+        },
+        {
+          "producer": "model.layers.0.post:1",
+          "residentCharacters": 422,
+          "expandedCharacters": 89137933,
+          "sharedDefinitions": 21
+        },
+        {
+          "producer": "model.layers.0.gate:0",
+          "residentCharacters": 730,
+          "expandedCharacters": 713103940,
+          "sharedDefinitions": 23
+        },
+        {
+          "producer": "model.layers.0.activation:0",
+          "residentCharacters": 436,
+          "expandedCharacters": 2852416134,
+          "sharedDefinitions": 25
+        },
+        {
+          "producer": "model.layers.0.up:0",
+          "residentCharacters": 714,
+          "expandedCharacters": 713103924,
+          "sharedDefinitions": 27
+        },
+        {
+          "producer": "model.layers.0.gated:0",
+          "residentCharacters": 449,
+          "expandedCharacters": 11053112406,
+          "sharedDefinitions": 29
+        },
+        {
+          "producer": "model.layers.0.hidden:0",
+          "residentCharacters": 295,
+          "expandedCharacters": 22107020823,
+          "sharedDefinitions": 31
+        },
+        {
+          "producer": "model.layers.0.hidden:1",
+          "residentCharacters": 293,
+          "expandedCharacters": 22107020829,
+          "sharedDefinitions": 33
+        },
+        {
+          "producer": "final:mean",
+          "residentCharacters": 385,
+          "expandedCharacters": 88428083627,
+          "sharedDefinitions": 34
+        },
+        {
+          "producer": "final:inverse",
+          "residentCharacters": 1752,
+          "expandedCharacters": 1149565088697,
+          "sharedDefinitions": 35
+        },
+        {
+          "producer": "final:0",
+          "residentCharacters": 422,
+          "expandedCharacters": 2475986344625,
+          "sharedDefinitions": 37
+        },
+        {
+          "producer": "final:1",
+          "residentCharacters": 422,
+          "expandedCharacters": 2475986344649,
+          "sharedDefinitions": 39
+        },
+        {
+          "producer": "output:0:2",
+          "residentCharacters": 734,
+          "expandedCharacters": 19807890757704,
+          "sharedDefinitions": 41
+        }
+      ],
+      "parallel": [],
+      "parity": {
+        "cases": 60,
+        "mismatches": 0,
+        "labels": [],
+        "position": 0,
+        "dimension": 2,
+        "scope": "Complete compiler-only composition; verifier reuses immutable definitions. No expanded final artifact emitted. Longer sequences verify position zero, not their last-token output."
+      },
+      "finalArtifactEmitted": false,
+      "finalParity": false
+    },
+    {
+      "mode": "sequential-logical",
+      "compilationSeconds": 68.08288002100016,
+      "peakProcessRSSBytes": 951144448,
+      "completedProducers": 25,
+      "compilerDefinitions": 26,
+      "storedLiteralCharacters": 846281,
+      "logicalOutputCharacters": 15345975626240,
+      "CASPasses": 2292,
+      "growth": [
+        {
+          "producer": "model.layers.0.pre:mean",
+          "residentCharacters": 329,
+          "expandedCharacters": 331,
+          "sharedDefinitions": 2
+        },
+        {
+          "producer": "model.layers.0.pre:inverse",
+          "residentCharacters": 1739,
+          "expandedCharacters": 5849,
+          "sharedDefinitions": 3
+        },
+        {
+          "producer": "model.layers.0.pre:0",
+          "residentCharacters": 363,
+          "expandedCharacters": 12349,
+          "sharedDefinitions": 5
+        },
+        {
+          "producer": "model.layers.0.pre:1",
+          "residentCharacters": 363,
+          "expandedCharacters": 12349,
+          "sharedDefinitions": 7
+        },
+        {
+          "producer": "model.layers.0.v:0",
+          "residentCharacters": 714,
+          "expandedCharacters": 99388,
+          "sharedDefinitions": 8
+        },
+        {
+          "producer": "model.layers.0.context:0",
+          "residentCharacters": 21,
+          "expandedCharacters": 99394,
+          "sharedDefinitions": 8
+        },
+        {
+          "producer": "model.layers.0.v:1",
+          "residentCharacters": 702,
+          "expandedCharacters": 99376,
+          "sharedDefinitions": 9
+        },
+        {
+          "producer": "model.layers.0.context:1",
+          "residentCharacters": 21,
+          "expandedCharacters": 99382,
+          "sharedDefinitions": 9
+        },
+        {
+          "producer": "model.layers.0.residual:0",
+          "residentCharacters": 824,
+          "expandedCharacters": 795762,
+          "sharedDefinitions": 10
+        },
+        {
+          "producer": "model.layers.0.residual:1",
+          "residentCharacters": 832,
+          "expandedCharacters": 795770,
+          "sharedDefinitions": 11
+        },
+        {
+          "producer": "model.layers.0.post:mean",
+          "residentCharacters": 383,
+          "expandedCharacters": 3183387,
+          "sharedDefinitions": 12
+        },
+        {
+          "producer": "model.layers.0.post:inverse",
+          "residentCharacters": 1752,
+          "expandedCharacters": 41385577,
+          "sharedDefinitions": 13
+        },
+        {
+          "producer": "model.layers.0.post:0",
+          "residentCharacters": 418,
+          "expandedCharacters": 89137901,
+          "sharedDefinitions": 14
+        },
+        {
+          "producer": "model.layers.0.post:1",
+          "residentCharacters": 422,
+          "expandedCharacters": 89137933,
+          "sharedDefinitions": 15
+        },
+        {
+          "producer": "model.layers.0.gate:0",
+          "residentCharacters": 730,
+          "expandedCharacters": 713103940,
+          "sharedDefinitions": 16
+        },
+        {
+          "producer": "model.layers.0.activation:0",
+          "residentCharacters": 2170,
+          "expandedCharacters": 1604484390,
+          "sharedDefinitions": 17
+        },
+        {
+          "producer": "model.layers.0.up:0",
+          "residentCharacters": 714,
+          "expandedCharacters": 713103924,
+          "sharedDefinitions": 18
+        },
+        {
+          "producer": "model.layers.0.gated:0",
+          "residentCharacters": 6939,
+          "expandedCharacters": 8735525439,
+          "sharedDefinitions": 19
+        },
+        {
+          "producer": "model.layers.0.hidden:0",
+          "residentCharacters": 14125,
+          "expandedCharacters": 17293571068,
+          "sharedDefinitions": 20
+        },
+        {
+          "producer": "model.layers.0.hidden:1",
+          "residentCharacters": 14122,
+          "expandedCharacters": 17293571072,
+          "sharedDefinitions": 21
+        },
+        {
+          "producer": "final:mean",
+          "residentCharacters": 56908,
+          "expandedCharacters": 68642640284,
+          "sharedDefinitions": 22
+        },
+        {
+          "producer": "final:inverse",
+          "residentCharacters": 739924,
+          "expandedCharacters": 890215014164,
+          "sharedDefinitions": 23
+        },
+        {
+          "producer": "final:0",
+          "residentCharacters": 422,
+          "expandedCharacters": 1918246953196,
+          "sharedDefinitions": 24
+        },
+        {
+          "producer": "final:1",
+          "residentCharacters": 422,
+          "expandedCharacters": 1918246953212,
+          "sharedDefinitions": 25
+        },
+        {
+          "producer": "output:0:2",
+          "residentCharacters": 734,
+          "expandedCharacters": 15345975626240,
+          "sharedDefinitions": 26
+        }
+      ],
+      "parallel": [],
+      "parity": {
+        "cases": 60,
+        "mismatches": 0,
+        "labels": [],
+        "position": 0,
+        "dimension": 2,
+        "scope": "Complete compiler-only composition; verifier reuses immutable definitions. No expanded final artifact emitted. Longer sequences verify position zero, not their last-token output."
+      },
+      "finalArtifactEmitted": false,
+      "finalParity": false
+    },
+    {
+      "mode": "parallel-logical",
+      "compilationSeconds": 70.06562181200002,
+      "peakProcessRSSBytes": 951128064,
+      "completedProducers": 25,
+      "compilerDefinitions": 26,
+      "storedLiteralCharacters": 846281,
+      "logicalOutputCharacters": 15345975626240,
+      "CASPasses": 2310,
+      "growth": [
+        {
+          "producer": "model.layers.0.pre:mean",
+          "residentCharacters": 329,
+          "expandedCharacters": 331,
+          "sharedDefinitions": 2
+        },
+        {
+          "producer": "model.layers.0.pre:inverse",
+          "residentCharacters": 1739,
+          "expandedCharacters": 5849,
+          "sharedDefinitions": 3
+        },
+        {
+          "producer": "model.layers.0.pre:0",
+          "residentCharacters": 363,
+          "expandedCharacters": 12349,
+          "sharedDefinitions": 5
+        },
+        {
+          "producer": "model.layers.0.pre:1",
+          "residentCharacters": 363,
+          "expandedCharacters": 12349,
+          "sharedDefinitions": 7
+        },
+        {
+          "producer": "model.layers.0.v:0",
+          "residentCharacters": 714,
+          "expandedCharacters": 99388,
+          "sharedDefinitions": 8
+        },
+        {
+          "producer": "model.layers.0.context:0",
+          "residentCharacters": 21,
+          "expandedCharacters": 99394,
+          "sharedDefinitions": 8
+        },
+        {
+          "producer": "model.layers.0.v:1",
+          "residentCharacters": 702,
+          "expandedCharacters": 99376,
+          "sharedDefinitions": 9
+        },
+        {
+          "producer": "model.layers.0.context:1",
+          "residentCharacters": 21,
+          "expandedCharacters": 99382,
+          "sharedDefinitions": 9
+        },
+        {
+          "producer": "model.layers.0.residual:0",
+          "residentCharacters": 824,
+          "expandedCharacters": 795762,
+          "sharedDefinitions": 10
+        },
+        {
+          "producer": "model.layers.0.residual:1",
+          "residentCharacters": 832,
+          "expandedCharacters": 795770,
+          "sharedDefinitions": 11
+        },
+        {
+          "producer": "model.layers.0.post:mean",
+          "residentCharacters": 383,
+          "expandedCharacters": 3183387,
+          "sharedDefinitions": 12
+        },
+        {
+          "producer": "model.layers.0.post:inverse",
+          "residentCharacters": 1752,
+          "expandedCharacters": 41385577,
+          "sharedDefinitions": 13
+        },
+        {
+          "producer": "model.layers.0.post:0",
+          "residentCharacters": 418,
+          "expandedCharacters": 89137901,
+          "sharedDefinitions": 14
+        },
+        {
+          "producer": "model.layers.0.post:1",
+          "residentCharacters": 422,
+          "expandedCharacters": 89137933,
+          "sharedDefinitions": 15
+        },
+        {
+          "producer": "model.layers.0.gate:0",
+          "residentCharacters": 730,
+          "expandedCharacters": 713103940,
+          "sharedDefinitions": 16
+        },
+        {
+          "producer": "model.layers.0.activation:0",
+          "residentCharacters": 2170,
+          "expandedCharacters": 1604484390,
+          "sharedDefinitions": 17
+        },
+        {
+          "producer": "model.layers.0.up:0",
+          "residentCharacters": 714,
+          "expandedCharacters": 713103924,
+          "sharedDefinitions": 18
+        },
+        {
+          "producer": "model.layers.0.gated:0",
+          "residentCharacters": 6939,
+          "expandedCharacters": 8735525439,
+          "sharedDefinitions": 19
+        },
+        {
+          "producer": "model.layers.0.hidden:0",
+          "residentCharacters": 14125,
+          "expandedCharacters": 17293571068,
+          "sharedDefinitions": 20
+        },
+        {
+          "producer": "model.layers.0.hidden:1",
+          "residentCharacters": 14122,
+          "expandedCharacters": 17293571072,
+          "sharedDefinitions": 21
+        },
+        {
+          "producer": "final:mean",
+          "residentCharacters": 56908,
+          "expandedCharacters": 68642640284,
+          "sharedDefinitions": 22
+        },
+        {
+          "producer": "final:inverse",
+          "residentCharacters": 739924,
+          "expandedCharacters": 890215014164,
+          "sharedDefinitions": 23
+        },
+        {
+          "producer": "final:0",
+          "residentCharacters": 422,
+          "expandedCharacters": 1918246953196,
+          "sharedDefinitions": 24
+        },
+        {
+          "producer": "final:1",
+          "residentCharacters": 422,
+          "expandedCharacters": 1918246953212,
+          "sharedDefinitions": 25
+        },
+        {
+          "producer": "output:0:2",
+          "residentCharacters": 734,
+          "expandedCharacters": 15345975626240,
+          "sharedDefinitions": 26
+        }
+      ],
+      "parallel": [
+        {
+          "completedJobs": 4,
+          "completedBlocks": 2,
+          "completedPairMerges": 0,
+          "seededLanes": 2,
+          "maxWorkersAdmitted": 2,
+          "peakObservedRSSBytes": 1220911104,
+          "seconds": 0.05799275699996542
+        },
+        {
+          "completedJobs": 2,
+          "completedBlocks": 1,
+          "completedPairMerges": 0,
+          "seededLanes": 1,
+          "maxWorkersAdmitted": 1,
+          "peakObservedRSSBytes": 891011072,
+          "seconds": 0.04049882300000718
+        },
+        {
+          "completedJobs": 4,
+          "completedBlocks": 2,
+          "completedPairMerges": 0,
+          "seededLanes": 2,
+          "maxWorkersAdmitted": 2,
+          "peakObservedRSSBytes": 1225060352,
+          "seconds": 0.05731957699981649
+        },
+        {
+          "completedJobs": 2,
+          "completedBlocks": 1,
+          "completedPairMerges": 0,
+          "seededLanes": 1,
+          "maxWorkersAdmitted": 1,
+          "peakObservedRSSBytes": 892948480,
+          "seconds": 0.04240310300019701
+        },
+        {
+          "completedJobs": 4,
+          "completedBlocks": 2,
+          "completedPairMerges": 0,
+          "seededLanes": 2,
+          "maxWorkersAdmitted": 2,
+          "peakObservedRSSBytes": 1227935744,
+          "seconds": 0.050877039999932094
+        },
+        {
+          "completedJobs": 4,
+          "completedBlocks": 2,
+          "completedPairMerges": 0,
+          "seededLanes": 2,
+          "maxWorkersAdmitted": 2,
+          "peakObservedRSSBytes": 1235185664,
+          "seconds": 0.05439875799993388
+        },
+        {
+          "completedJobs": 4,
+          "completedBlocks": 2,
+          "completedPairMerges": 0,
+          "seededLanes": 2,
+          "maxWorkersAdmitted": 2,
+          "peakObservedRSSBytes": 1238847488,
+          "seconds": 0.05714093699998557
+        },
+        {
+          "completedJobs": 4,
+          "completedBlocks": 2,
+          "completedPairMerges": 0,
+          "seededLanes": 2,
+          "maxWorkersAdmitted": 2,
+          "peakObservedRSSBytes": 1240489984,
+          "seconds": 0.05471553399979712
+        },
+        {
+          "completedJobs": 2,
+          "completedBlocks": 1,
+          "completedPairMerges": 0,
+          "seededLanes": 1,
+          "maxWorkersAdmitted": 1,
+          "peakObservedRSSBytes": 915132416,
+          "seconds": 0.0412939739999274
+        },
+        {
+          "completedJobs": 2,
+          "completedBlocks": 1,
+          "completedPairMerges": 0,
+          "seededLanes": 1,
+          "maxWorkersAdmitted": 1,
+          "peakObservedRSSBytes": 928579584,
+          "seconds": 0.04143189599994912
+        },
+        {
+          "completedJobs": 4,
+          "completedBlocks": 2,
+          "completedPairMerges": 0,
+          "seededLanes": 2,
+          "maxWorkersAdmitted": 2,
+          "peakObservedRSSBytes": 1831268352,
+          "seconds": 0.06806280900013917
+        }
+      ],
+      "parity": {
+        "cases": 60,
+        "mismatches": 0,
+        "labels": [],
+        "position": 0,
+        "dimension": 2,
+        "scope": "Complete compiler-only composition; verifier reuses immutable definitions. No expanded final artifact emitted. Longer sequences verify position zero, not their last-token output."
+      },
+      "finalArtifactEmitted": false,
+      "finalParity": false
+    }
+  ],
+  "logicalReductionPercent": 22.52594779546935,
+  "parallelTimeChangePercent": 2.91224723511736,
+  "parallelPeakProcessRSSChangePercent": -0.0017225564460265907,
+  "finalArtifactEmitted": false,
+  "finalParity": false
+}

@@ -1,0 +1,21 @@
+{
+  "filesVerified": 42,
+  "frozenBundleMatchesDownloadedReport": true,
+  "numericalSourceASTEqualToCommit": "83fbe9b87190031e15e75720498ebc3e52499c46",
+  "byteDifferences": [
+    {
+      "file": "direct_sympy_conversions.py",
+      "frozenSHA256": "627c1b89ceabd14d4bae5ba9b206cd81bad1156c13f4e0d3ce4d3fe668a00551",
+      "currentSHA256": "cf8a2e5471e7aa57d6df4dcda7acba63a5e8bbbb23246ad1c5bc80df2c3ea050",
+      "difference": "Comments only",
+      "semanticASTEqual": true
+    },
+    {
+      "file": "direct_sympy_logical_cost_benchmark.py",
+      "frozenSHA256": "1728e7021a6cc6dd39fae57bae8de1c4d73135c5d5a62efd0141810203f5b2a3",
+      "currentSHA256": "a29857982241129ecf331195bb2d3131b86a59cde9f294d57304846b4e686401",
+      "difference": "Removed unused Counter import",
+      "semanticASTEqual": true
+    }
+  ]
+}

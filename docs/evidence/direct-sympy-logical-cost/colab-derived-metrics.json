@@ -1,0 +1,11 @@
+{
+  "downloadedComparisonSHA256": "dd2b97a1216b685ec01fd1961d6b49b89243005201414d2304a03c62d4594fb4",
+  "parallelPeakObservedAggregateRSSChangePercent": 92.53314844560813,
+  "peakObservedAggregateRSSBytesByMode": {
+    "marker-cost": 564871168,
+    "sequential-logical": 951144448,
+    "parallel-logical": 1831268352
+  },
+  "parallelCompletedBlocks": 18,
+  "parallelPairMerges": 0
+}
