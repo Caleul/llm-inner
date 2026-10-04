@@ -20,6 +20,30 @@ from fractions import Fraction as F
 from direct_sympy_conversions import ConversionSession,FiniteSource
 
 
+def dominant_half_rms_source(sources,epsilon):
+    """Certify the original F32 mean equals one exact Half square / width.
+
+    Widths one/two use the original scalar reduction. Every Half square
+    and its division by 1/2 is exact normal F32. Strict smaller-neighbor
+    cells prove both the other square and epsilon invisible, including
+    binade boundaries. Unknown, zero-crossing and wider reductions fail.
+    """
+    width=len(sources)
+    if width not in (1,2) or not math.isfinite(epsilon) or epsilon<=0:return None
+    if any(source is None or max(abs(source.minimum),abs(source.maximum))>65504 for source in sources):return None
+    def radius(value):
+        exponent=value.numerator.bit_length()-value.denominator.bit_length()
+        if value<F(2)**exponent:exponent-=1
+        return F(2)**max(-150,exponent-25)
+    for index,source in enumerate(sources):
+        minimum=max(source.minimum_magnitude,source.minimum if source.minimum>0 else -source.maximum if source.maximum<0 else 0)
+        if not minimum:continue
+        square=F(minimum)**2
+        other=sum((F(max(abs(own.minimum),abs(own.maximum)))**2 for i,own in enumerate(sources) if i!=index),F(0))
+        if other<radius(square) and F(epsilon)<radius(square/width):return index
+    return None
+
+
 def rms_half_bound(width,epsilon):
     """Conservative bound for the actual rounded normalization, not real RMS.
 
@@ -124,6 +148,7 @@ class CheckpointStrings:
         self.parallel_budget=parallel_budget
         self.parallel_events=[]
         self.rms_constant_components=0
+        self.rms_dominant_squares=0
 
     def __enter__(self):
         for path in sorted(self.directory.glob("*.safetensors")):
@@ -288,8 +313,27 @@ class CheckpointStrings:
                     # numerical boundary, including the sign of zero.
                     self.rms_constant_components+=1
                     return 'R16('+self.op('*',repr(low),self.weight(name,coordinate))+')'
-            mean=self.producer(key+":mean",lambda:self.op("+",self.op("/",self.rms_sum(input_value),str(self.width)),epsilon))
-            inverse=self.producer(key+":inverse",lambda:self.op("/","1.0","R32(sqrt("+mean+"))"))
+            dominant=dominant_half_rms_source(source_bounds,epsilon_value) if source_bounds else None
+            if dominant is None:
+                mean=self.producer(key+":mean",lambda:self.op("+",self.op("/",self.rms_sum(input_value),str(self.width)),epsilon))
+                root="R32(sqrt("+mean+"))"
+            else:
+                # Exhaustive native proof over every finite nonzero Half
+                # certifies sqrt(x*x/width) rounded to F32 for widths 1/2.
+                # Keep the division by this rounded root in original order.
+                self.rms_dominant_squares+=1
+                operand=input_value(dominant)
+                mean=self.producer(key+":mean",lambda:self.op("/",self.op("*",operand,operand),str(self.width)))
+                magnitude="Float64(U64And(Bits64("+operand+"),9223372036854775807))"
+                own=source_bounds[dominant]
+                minimum=max(own.minimum_magnitude,own.minimum if own.minimum>0 else -own.maximum if own.maximum<0 else 0)
+                magnitude_key=self.conversions.key(syntax(magnitude))
+                self.conversions.completed[magnitude_key]=FiniteSource(minimum,max(abs(own.minimum),abs(own.maximum)),own.quantum,minimum)
+                self.conversions.half_values.add(magnitude_key)
+                self.conversions.f32_values.add(magnitude_key)
+                self.conversions.no_negative_zero_values.add(magnitude_key)
+                root="R32("+magnitude+" * "+("1.0" if self.width==1 else "0.7071067811865476")+")"
+            inverse=self.producer(key+":inverse",lambda:self.op("/","1.0",root))
             product=self.op("*",input_value(coordinate),inverse)
             normalized="R16("+product+")"
             if self.conversions is not None:

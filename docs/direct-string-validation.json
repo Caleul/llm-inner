@@ -11095,5 +11095,30 @@
     "compilationSpeedupMeasured": false,
     "fullCoordinateParity": false,
     "multipleTokenParity": false
+  },
+  "dominantSquareValidation": {
+    "report": "docs/evidence/direct-sympy-dominant-square/validation.json",
+    "build": true,
+    "integrationTests": 25,
+    "pass": 25,
+    "fail": 0,
+    "skipped": 0,
+    "componentTests": 5,
+    "exhaustiveHalfSquareRootCases": 126972,
+    "compiledNormCases": 90112,
+    "nativeMismatches": 0,
+    "oldArtifactCharacters": 121889,
+    "newArtifactCharacters": 17115,
+    "artifactReductionPercent": 85.9585360450902,
+    "completeRegionPaths": 4,
+    "newRegionNativeCases": 8200,
+    "baselineRegionNativeCases": 8200,
+    "regionMismatches": 0,
+    "newSourceCompatibleCoveredPatterns": 176175104,
+    "newSourceCompatiblePendingPatterns": 3854551040,
+    "previousSourceCoverageNotAdopted": true,
+    "compilationSpeedupMeasured": false,
+    "fullCoordinateParity": false,
+    "multipleTokenParity": false
   }
 }

@@ -1,0 +1,14 @@
+{
+  "artifact": "docs/evidence/direct-sympy-dominant-square/baseline.expr",
+  "sha256": "d657f5fe675b9c8e89a51d32c5d5540939949e8e32e2ce688f8c78966735fe3e",
+  "characters": 121889,
+  "position": 0,
+  "tokens": 1,
+  "dimension": 2,
+  "inputCorpusVersion": 2,
+  "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+  "cases": 8200,
+  "mismatches": 0,
+  "firstMismatches": [],
+  "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+}

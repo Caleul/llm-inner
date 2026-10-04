@@ -12,7 +12,7 @@ Two wider candidates were rejected without manifest mutation:
 | [-12288,12288] | 24,240,079 | 50,273 | Flat artifact budget exceeded |
 | [-19455,19455] | 1,013,336,912 | 52,705 | Flat artifact budget exceeded |
 
-X2 is [-31743,-20480] in this table. Logical expansion estimates are pre-flat-dispatch measurements; they are not final artifact sizes. The second X1 interval is [-0.0625,0.0625]; the third ends just below ±16.
+X2 is [-31743,-20480] in this table. Logical expansion estimates are pre-flat-dispatch measurements; they are not final artifact sizes. The second X1 interval is [-0.125,0.125]; the third ends just below ±16.
 
 `trace-growth.py` recompiles these domains with the current numerical sources and records actual producer events and direct literal occurrences without constructing a billion-character string. `growth.json` locates the wide-domain final inverse at 67,432,073 expanded characters, final component 0 at 185,901,923, and the output at 1,013,336,912. In that output definition, both final components occur four times. In component 0, earlier definitions occur 34, 70 and 70 times. These counts identify where substitution amplifies earlier expressions; they do not prove every repeated occurrence is eliminable. Branch-specific numerical conditions and rounding boundaries must be proved before removing or factoring copies. The next compiler change should address these producers before raising resource budgets.
 

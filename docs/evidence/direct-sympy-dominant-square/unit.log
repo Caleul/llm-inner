@@ -1,0 +1,8 @@
+.....
+----------------------------------------------------------------------
+Ran 5 tests in 3.443s
+
+OK
+Early RMS constant component: cases=122888 mismatches=0
+Dominant RMS square: kernels=126972 normCases=90112 mismatches=0
+Correlated RMS enclosures: cases=5332992 violations=0

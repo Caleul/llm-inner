@@ -2,7 +2,7 @@
 from fractions import Fraction as F
 import json,os,struct,subprocess,tempfile,unittest
 from pathlib import Path
-from direct_sympy_checkpoint import rms_component_enclosures,f32,CheckpointStrings
+from direct_sympy_checkpoint import rms_component_enclosures,f32,CheckpointStrings,dominant_half_rms_source
 from direct_sympy_conversions import FiniteSource
 from direct_sympy_strings import StringCompiler,syntax
 from direct_sympy_input_partitions import interval
@@ -10,6 +10,49 @@ from direct_sympy_conversions_test import cpp
 
 
 class ComponentTests(unittest.TestCase):
+    def test_dominant_square_requires_strict_original_rounding_cells(self):
+        eps=f32(1e-6)
+        small=FiniteSource(-0.0625,0.0625,-24)
+        large=FiniteSource(-65504,-512,-24)
+        self.assertEqual(dominant_half_rms_source([small,large],eps),1)
+        self.assertEqual(dominant_half_rms_source([large,small],eps),0)
+        self.assertIsNone(dominant_half_rms_source([small,FiniteSource(-65504,-32,-24)],eps))
+        self.assertIsNone(dominant_half_rms_source([small,small],eps))
+        self.assertIsNone(dominant_half_rms_source([large]*4,eps))
+        self.assertIsNone(dominant_half_rms_source([None,large],eps))
+        self.assertIsNone(dominant_half_rms_source([large],0))
+        # Exactly a half-cell is a possible tie, never an invisible update.
+        self.assertIsNone(dominant_half_rms_source([FiniteSource(1,1,-24)],2**-25))
+
+    @unittest.skipUnless(os.environ.get('LLM_INNER_DIRECT_JSON_CHECKPOINT'),'Checkpoint fixture required')
+    def test_dominant_square_kernel_and_compiled_norm_have_native_parity(self):
+        with CheckpointStrings(os.environ['LLM_INNER_DIRECT_JSON_CHECKPOINT'],StringCompiler(),input_domains={'X1':interval(-0.0625,0.0625),'X2':interval(-65504,-512)}) as model:
+            result=model.norm('dominant','model.layers.0.input_layernorm.weight',0,lambda i:'X'+str(i+1))
+            weight=model.weight('model.layers.0.input_layernorm.weight',0)
+            self.assertEqual(model.rms_dominant_squares,1)
+            self.assertNotIn('sqrt(',result)
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);source=root/'square.cpp';binary=root/'square'
+            source.write_text('#include <cmath>\n#include <cstdint>\n#include <cstring>\n#include <cstdio>\n#include <initializer_list>\n#include <cfenv>\ntemplate<class T,class U>T word(U x){T y;std::memcpy(&y,&x,sizeof(y));return y;}\ndouble candidate(double X1,double X2){return '+cpp(syntax(result))+';}\n'+r'''
+int main(){std::fesetround(FE_TONEAREST);unsigned kernels=0,norms=0,fail=0;
+for(unsigned b=0;b<65536;b++){if((b&0x7c00)==0x7c00 || !(b&0x7fff))continue;
+ double x=word<_Float16>(uint16_t(b));
+ for(int width:{1,2}){float mean=float(float(x*x)/width);float expected=float(std::sqrt(double(mean)));float actual=float(std::fabs(x)*(width==1?1.0:0.7071067811865476));fail+=word<uint32_t>(expected)!=word<uint32_t>(actual);kernels++;}
+ if(x < -0.0625 || x > 0.0625)continue;
+ for(double y:{-512.0,-640.0,-4604.0,-65504.0}){
+  float mean=float(float(float(x*x)+float(y*y))/2.0f+1e-6f);
+  float inverse=float(1.0/double(float(std::sqrt(double(mean)))));
+  double normalized=double(_Float16(float(x*double(inverse))));
+  double expected=double(_Float16(float(normalized*WEIGHT)));
+  fail+=word<uint64_t>(candidate(x,y))!=word<uint64_t>(expected);norms++;
+ }
+}
+std::printf("Dominant RMS square: kernels=%u normCases=%u mismatches=%u\n",kernels,norms,fail);return fail?1:0;}
+'''.replace('WEIGHT',weight))
+            subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],check=True,capture_output=True,text=True)
+            actual=subprocess.run([str(binary)],check=True,capture_output=True,text=True)
+            self.assertIn('kernels=126972',actual.stdout);self.assertIn('mismatches=0',actual.stdout);print(actual.stdout,end='')
+
     def test_sign_gap_zeros_and_unsafe_certificates(self):
         eps=f32(1e-6)
         negative=[FiniteSource(-1,1,-24),FiniteSource(-65504,-256,-2)]

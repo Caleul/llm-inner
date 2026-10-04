@@ -1,0 +1,90 @@
+{
+  "complete": true,
+  "inputDomains": {
+    "X1": [
+      -12288,
+      12288
+    ],
+    "X2": [
+      -31743,
+      -25600
+    ]
+  },
+  "producers": 25,
+  "elidedUpdates": 2,
+  "logicalCharacters": 99188,
+  "storedCharacters": 8841,
+  "artifact": {
+    "path": "/Users/caleul/Documents/Work/Projects/llm-inner/artifacts/direct-sympy-input-partitions/square-probe/dominated-baseline.expr",
+    "characters": 121889,
+    "sha256": "d657f5fe675b9c8e89a51d32c5d5540939949e8e32e2ce688f8c78966735fe3e",
+    "paths": 4,
+    "compilerAliases": 0,
+    "complete": true
+  },
+  "paths": {
+    "splitContexts": 5,
+    "completedPaths": 4,
+    "contradictions": 2,
+    "selectorSelections": 24,
+    "CASPasses": 1047,
+    "numericArithmeticEliminated": 160,
+    "numericRecipeAttempts": 50,
+    "numericRecipeAdmissions": 0,
+    "numericRecipeBudgetStops": 0,
+    "lastArm": {
+      "bodyCharacters": 23108,
+      "guardCharacters": 5626,
+      "decisions": 3,
+      "dependencyGrowth": [
+        {
+          "definition": 0,
+          "storedCharacters": 1602,
+          "expandedCharacters": 1604
+        },
+        {
+          "definition": 1,
+          "storedCharacters": 101,
+          "expandedCharacters": 1692
+        },
+        {
+          "definition": 3,
+          "storedCharacters": 147,
+          "expandedCharacters": 1826
+        },
+        {
+          "definition": 4,
+          "storedCharacters": 190,
+          "expandedCharacters": 2003
+        },
+        {
+          "definition": 9,
+          "storedCharacters": 203,
+          "expandedCharacters": 205
+        },
+        {
+          "definition": 11,
+          "storedCharacters": 292,
+          "expandedCharacters": 2662
+        },
+        {
+          "definition": 13,
+          "storedCharacters": 1700,
+          "expandedCharacters": 20224
+        },
+        {
+          "definition": 14,
+          "storedCharacters": 116,
+          "expandedCharacters": 22972
+        },
+        {
+          "definition": 16,
+          "storedCharacters": 150,
+          "expandedCharacters": 23108
+        }
+      ]
+    }
+  },
+  "seconds": 5.052694042038638,
+  "workerSeconds": 5.801963749981951
+}

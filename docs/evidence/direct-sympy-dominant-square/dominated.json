@@ -1,0 +1,99 @@
+{
+  "complete": true,
+  "inputDomains": {
+    "X1": [
+      -12288,
+      12288
+    ],
+    "X2": [
+      -31743,
+      -25600
+    ]
+  },
+  "producers": 25,
+  "elidedUpdates": 2,
+  "logicalCharacters": 10613,
+  "storedCharacters": 3906,
+  "artifact": {
+    "path": "docs/evidence/direct-sympy-dominant-square/dominated.expr",
+    "characters": 17115,
+    "sha256": "1f0c6db07a356bc185274f755b37c6f0480002a4cda920535e59e66b61f4891e",
+    "paths": 4,
+    "compilerAliases": 0,
+    "complete": true
+  },
+  "paths": {
+    "splitContexts": 5,
+    "completedPaths": 4,
+    "contradictions": 2,
+    "selectorSelections": 24,
+    "CASPasses": 939,
+    "numericArithmeticEliminated": 160,
+    "numericRecipeAttempts": 46,
+    "numericRecipeAdmissions": 0,
+    "numericRecipeBudgetStops": 0,
+    "lastArm": {
+      "bodyCharacters": 1918,
+      "guardCharacters": 1529,
+      "decisions": 3,
+      "dependencyGrowth": [
+        {
+          "definition": 0,
+          "storedCharacters": 317,
+          "expandedCharacters": 319
+        },
+        {
+          "definition": 1,
+          "storedCharacters": 101,
+          "expandedCharacters": 407
+        },
+        {
+          "definition": 3,
+          "storedCharacters": 147,
+          "expandedCharacters": 541
+        },
+        {
+          "definition": 4,
+          "storedCharacters": 190,
+          "expandedCharacters": 718
+        },
+        {
+          "definition": 8,
+          "storedCharacters": 203,
+          "expandedCharacters": 205
+        },
+        {
+          "definition": 10,
+          "storedCharacters": 292,
+          "expandedCharacters": 1377
+        },
+        {
+          "definition": 12,
+          "storedCharacters": 115,
+          "expandedCharacters": 1782
+        },
+        {
+          "definition": 14,
+          "storedCharacters": 150,
+          "expandedCharacters": 1918
+        }
+      ]
+    }
+  },
+  "seconds": 2.0632359589799307,
+  "workerSeconds": 2.8249126250157133,
+  "parity": {
+    "artifact": "docs/evidence/direct-sympy-dominant-square/dominated.expr",
+    "sha256": "1f0c6db07a356bc185274f755b37c6f0480002a4cda920535e59e66b61f4891e",
+    "characters": 17115,
+    "position": 0,
+    "tokens": 1,
+    "dimension": 2,
+    "inputCorpusVersion": 2,
+    "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+    "cases": 8200,
+    "mismatches": 0,
+    "firstMismatches": [],
+    "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+  }
+}

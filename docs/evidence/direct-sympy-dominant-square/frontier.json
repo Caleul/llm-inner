@@ -1,0 +1,1618 @@
+{
+  "attempts": [],
+  "coveragePromotions": [
+    {
+      "addedInputPatterns": 176175104,
+      "admittedRegions": [
+        "1001100",
+        "1001000",
+        "100010"
+      ],
+      "compilation": {
+        "artifact": {
+          "characters": 200303,
+          "compilerAliases": 0,
+          "complete": true,
+          "path": "artifacts/direct-sympy-input-partitions/dominant-square-state/cover-34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31.expr",
+          "paths": 4,
+          "sha256": "34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31"
+        },
+        "complete": true,
+        "elidedUpdates": 2,
+        "inputDomains": {
+          "X1": [
+            -12288,
+            12288
+          ],
+          "X2": [
+            -31743,
+            -24576
+          ]
+        },
+        "logicalCharacters": 170419,
+        "paths": {
+          "CASPasses": 1167,
+          "completedPaths": 4,
+          "contradictions": 2,
+          "lastArm": {
+            "bodyCharacters": 37716,
+            "decisions": 3,
+            "dependencyGrowth": [
+              {
+                "definition": 0,
+                "expandedCharacters": 1604,
+                "storedCharacters": 1602
+              },
+              {
+                "definition": 1,
+                "expandedCharacters": 1692,
+                "storedCharacters": 101
+              },
+              {
+                "definition": 3,
+                "expandedCharacters": 1829,
+                "storedCharacters": 150
+              },
+              {
+                "definition": 4,
+                "expandedCharacters": 1826,
+                "storedCharacters": 147
+              },
+              {
+                "definition": 5,
+                "expandedCharacters": 3829,
+                "storedCharacters": 202
+              },
+              {
+                "definition": 10,
+                "expandedCharacters": 205,
+                "storedCharacters": 203
+              },
+              {
+                "definition": 12,
+                "expandedCharacters": 4488,
+                "storedCharacters": 294
+              },
+              {
+                "definition": 14,
+                "expandedCharacters": 33006,
+                "storedCharacters": 1700
+              },
+              {
+                "definition": 15,
+                "expandedCharacters": 37580,
+                "storedCharacters": 116
+              },
+              {
+                "definition": 17,
+                "expandedCharacters": 37716,
+                "storedCharacters": 150
+              }
+            ],
+            "guardCharacters": 9278
+          },
+          "numericArithmeticEliminated": 196,
+          "numericRecipeAdmissions": 0,
+          "numericRecipeAttempts": 56,
+          "numericRecipeBudgetStops": 0,
+          "selectorSelections": 24,
+          "splitContexts": 5
+        },
+        "producers": 25,
+        "seconds": 6.063904333044775,
+        "storedCharacters": 9033,
+        "workerSeconds": 6.853068875032477
+      },
+      "compilerIdentity": {
+        "byteOrder": "little",
+        "checkpoint": {
+          "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+          "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+        },
+        "dimension": 2,
+        "platform": "macOS-26.7.1-arm64-arm-64bit",
+        "position": 0,
+        "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+        "referenceBackend": {
+          "capability": "DEFAULT",
+          "gitVersion": "7269437d655783a26cba32aa88195b741ff496aa",
+          "name": "torch CPU",
+          "version": "2.12.1"
+        },
+        "sources": {
+          "direct_sympy_arithmetic.py": "fd9779759345c7b381a01b54fee545218735eb8c26e4f6a8ffb560109431ff43",
+          "direct_sympy_checkpoint.py": "1e6c19fe6065738683f46b9db8b9fccc3d782ed21211b1e2d7e2be4d70c9e083",
+          "direct_sympy_coherent_paths.py": "f3f1c30975616741b87563613cad629ac39eb4da888032c791abb3ac0562766a",
+          "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+          "direct_sympy_conversions.py": "2937c333a849c7719ab86dc25fadec52eac18ca63647c804a4804243a29f76f4",
+          "direct_sympy_input_partitions.py": "21449edd26a0d43ad4a2c5b5e841c5e9d8e7de6afb6ac138a9eef88374558797",
+          "direct_sympy_layer_bounds.py": "2f8d73caf53371f4bba44a605a91098580f5dcaf90b292c135830d862513dcff",
+          "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+          "direct_sympy_partition_run.py": "6ae47bb0a1c8136757e72bf0a37bbdf28c0826cecc42ae5312141b6e19cbe452",
+          "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+          "direct_sympy_savepoints.py": "682783ebfd3f1337bbcf015faa34876963a9f1b63eae2cba1c3159cb0ed5d266",
+          "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+          "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+          "direct_sympy_silu.py": "e623f38b5008356d8f6aa1615aabfa5a779f9dc7ea9d5b8183c5b17a78383fe3",
+          "direct_sympy_sqrt.py": "ec9644071ed6ce1576f9550175ed768180d40d70c1bf610f0089785c5564e3fb",
+          "direct_sympy_streaming_literals.py": "5a0046367e570549e5c804c0f5aa0737db2c506600c9ae19c72450ba0f38824e",
+          "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+          "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+          "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+          "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
+        },
+        "sympy": "1.14.0",
+        "version": 1
+      },
+      "coveredAfter": 176175104,
+      "coveredBefore": 0,
+      "fullCoordinateParity": false,
+      "inputDomains": {
+        "X1": [
+          -12288,
+          12288
+        ],
+        "X2": [
+          -31743,
+          -24576
+        ]
+      },
+      "manifestBeforeSHA256": "3bcb64369914d181007e274ceed10bb3772dcd47cceb73b7d158d21f2c01733d",
+      "parity": {
+        "artifact": "artifacts/direct-sympy-input-partitions/dominant-square-state/cover-34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31.expr",
+        "cases": 8200,
+        "characters": 200303,
+        "dimension": 2,
+        "firstMismatches": [],
+        "inputCorpusVersion": 2,
+        "mismatches": 0,
+        "position": 0,
+        "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity.",
+        "sha256": "34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31",
+        "tokens": 1,
+        "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6"
+      },
+      "sharedArtifact": {
+        "characters": 200303,
+        "file": "cover-34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31.expr",
+        "sha256": "34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31"
+      },
+      "toolSHA256": "7ea6cded917a68939243a59ea541423952b8c019262e0dfbb88b68b8e220419c"
+    }
+  ],
+  "coveredInputPatterns": 176175104,
+  "finalArtifactEmitted": false,
+  "finalParity": false,
+  "identity": {
+    "byteOrder": "little",
+    "checkpoint": {
+      "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+      "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+    },
+    "dimension": 2,
+    "platform": "macOS-26.7.1-arm64-arm-64bit",
+    "position": 0,
+    "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+    "referenceBackend": {
+      "capability": "DEFAULT",
+      "gitVersion": "7269437d655783a26cba32aa88195b741ff496aa",
+      "name": "torch CPU",
+      "version": "2.12.1"
+    },
+    "sources": {
+      "direct_sympy_arithmetic.py": "fd9779759345c7b381a01b54fee545218735eb8c26e4f6a8ffb560109431ff43",
+      "direct_sympy_checkpoint.py": "1e6c19fe6065738683f46b9db8b9fccc3d782ed21211b1e2d7e2be4d70c9e083",
+      "direct_sympy_coherent_paths.py": "f3f1c30975616741b87563613cad629ac39eb4da888032c791abb3ac0562766a",
+      "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+      "direct_sympy_conversions.py": "2937c333a849c7719ab86dc25fadec52eac18ca63647c804a4804243a29f76f4",
+      "direct_sympy_input_partitions.py": "21449edd26a0d43ad4a2c5b5e841c5e9d8e7de6afb6ac138a9eef88374558797",
+      "direct_sympy_layer_bounds.py": "2f8d73caf53371f4bba44a605a91098580f5dcaf90b292c135830d862513dcff",
+      "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+      "direct_sympy_partition_run.py": "6ae47bb0a1c8136757e72bf0a37bbdf28c0826cecc42ae5312141b6e19cbe452",
+      "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+      "direct_sympy_savepoints.py": "682783ebfd3f1337bbcf015faa34876963a9f1b63eae2cba1c3159cb0ed5d266",
+      "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+      "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+      "direct_sympy_silu.py": "e623f38b5008356d8f6aa1615aabfa5a779f9dc7ea9d5b8183c5b17a78383fe3",
+      "direct_sympy_sqrt.py": "ec9644071ed6ce1576f9550175ed768180d40d70c1bf610f0089785c5564e3fb",
+      "direct_sympy_streaming_literals.py": "5a0046367e570549e5c804c0f5aa0737db2c506600c9ae19c72450ba0f38824e",
+      "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+      "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+      "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+      "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
+    },
+    "sympy": "1.14.0",
+    "version": 1
+  },
+  "root": {
+    "X1": [
+      -31743,
+      31743
+    ],
+    "X2": [
+      -31743,
+      31743
+    ]
+  },
+  "totalInputPatterns": 4030726144,
+  "tree": {
+    "": {
+      "axis": "X1",
+      "cut": -20480,
+      "domains": {
+        "X1": [
+          -31743,
+          31743
+        ],
+        "X2": [
+          -31743,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "0": {
+      "axis": "X2",
+      "cut": -19456,
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -31743,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "00": {
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -31743,
+          -19456
+        ]
+      },
+      "status": "pending"
+    },
+    "01": {
+      "axis": "X2",
+      "cut": 19455,
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -19455,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "010": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -19455,
+          19455
+        ]
+      },
+      "status": "split"
+    },
+    "0100": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -19455,
+          0
+        ]
+      },
+      "status": "split"
+    },
+    "01000": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -19455,
+          -9728
+        ]
+      },
+      "status": "split"
+    },
+    "010000": {
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -19455,
+          -14592
+        ]
+      },
+      "status": "pending"
+    },
+    "010001": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -14591,
+          -9728
+        ]
+      },
+      "status": "split"
+    },
+    "0100010": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -14591,
+          -12160
+        ]
+      },
+      "status": "split"
+    },
+    "01000100": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -14591,
+          -13376
+        ]
+      },
+      "status": "split"
+    },
+    "010001000": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -14591,
+          -13984
+        ]
+      },
+      "status": "split"
+    },
+    "0100010000": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -14591,
+          -14288
+        ]
+      },
+      "status": "split"
+    },
+    "01000100000": {
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -14591,
+          -14440
+        ]
+      },
+      "status": "pending"
+    },
+    "01000100001": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -14439,
+          -14288
+        ]
+      },
+      "status": "split"
+    },
+    "010001000010": {
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -14439,
+          -14364
+        ]
+      },
+      "status": "pending"
+    },
+    "010001000011": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -14363,
+          -14288
+        ]
+      },
+      "status": "split"
+    },
+    "0100010000110": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -14363,
+          -14326
+        ]
+      },
+      "status": "split"
+    },
+    "01000100001100": {
+      "domains": {
+        "X1": [
+          -31743,
+          -26112
+        ],
+        "X2": [
+          -14363,
+          -14326
+        ]
+      },
+      "status": "pending"
+    },
+    "01000100001101": {
+      "domains": {
+        "X1": [
+          -26111,
+          -20480
+        ],
+        "X2": [
+          -14363,
+          -14326
+        ]
+      },
+      "status": "pending"
+    },
+    "0100010000111": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -14325,
+          -14288
+        ]
+      },
+      "status": "split"
+    },
+    "01000100001110": {
+      "domains": {
+        "X1": [
+          -31743,
+          -26112
+        ],
+        "X2": [
+          -14325,
+          -14288
+        ]
+      },
+      "status": "pending"
+    },
+    "01000100001111": {
+      "domains": {
+        "X1": [
+          -26111,
+          -20480
+        ],
+        "X2": [
+          -14325,
+          -14288
+        ]
+      },
+      "status": "pending"
+    },
+    "0100010001": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -14287,
+          -13984
+        ]
+      },
+      "status": "split"
+    },
+    "01000100010": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -14287,
+          -14136
+        ]
+      },
+      "status": "split"
+    },
+    "010001000100": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -14287,
+          -14212
+        ]
+      },
+      "status": "split"
+    },
+    "0100010001000": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -14287,
+          -14250
+        ]
+      },
+      "status": "split"
+    },
+    "01000100010000": {
+      "domains": {
+        "X1": [
+          -31743,
+          -26112
+        ],
+        "X2": [
+          -14287,
+          -14250
+        ]
+      },
+      "status": "pending"
+    },
+    "01000100010001": {
+      "domains": {
+        "X1": [
+          -26111,
+          -20480
+        ],
+        "X2": [
+          -14287,
+          -14250
+        ]
+      },
+      "status": "pending"
+    },
+    "0100010001001": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -14249,
+          -14212
+        ]
+      },
+      "status": "split"
+    },
+    "01000100010010": {
+      "domains": {
+        "X1": [
+          -31743,
+          -26112
+        ],
+        "X2": [
+          -14249,
+          -14212
+        ]
+      },
+      "status": "pending"
+    },
+    "01000100010011": {
+      "domains": {
+        "X1": [
+          -26111,
+          -20480
+        ],
+        "X2": [
+          -14249,
+          -14212
+        ]
+      },
+      "status": "pending"
+    },
+    "010001000101": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -14211,
+          -14136
+        ]
+      },
+      "status": "split"
+    },
+    "0100010001010": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -14211,
+          -14174
+        ]
+      },
+      "status": "split"
+    },
+    "01000100010100": {
+      "domains": {
+        "X1": [
+          -31743,
+          -26112
+        ],
+        "X2": [
+          -14211,
+          -14174
+        ]
+      },
+      "status": "pending"
+    },
+    "01000100010101": {
+      "domains": {
+        "X1": [
+          -26111,
+          -20480
+        ],
+        "X2": [
+          -14211,
+          -14174
+        ]
+      },
+      "status": "pending"
+    },
+    "0100010001011": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -14173,
+          -14136
+        ]
+      },
+      "status": "split"
+    },
+    "01000100010110": {
+      "domains": {
+        "X1": [
+          -31743,
+          -26112
+        ],
+        "X2": [
+          -14173,
+          -14136
+        ]
+      },
+      "status": "pending"
+    },
+    "01000100010111": {
+      "domains": {
+        "X1": [
+          -26111,
+          -20480
+        ],
+        "X2": [
+          -14173,
+          -14136
+        ]
+      },
+      "status": "pending"
+    },
+    "01000100011": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -14135,
+          -13984
+        ]
+      },
+      "status": "split"
+    },
+    "010001000110": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -14135,
+          -14060
+        ]
+      },
+      "status": "split"
+    },
+    "0100010001100": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -14135,
+          -14098
+        ]
+      },
+      "status": "split"
+    },
+    "01000100011000": {
+      "domains": {
+        "X1": [
+          -31743,
+          -26112
+        ],
+        "X2": [
+          -14135,
+          -14098
+        ]
+      },
+      "status": "pending"
+    },
+    "01000100011001": {
+      "domains": {
+        "X1": [
+          -26111,
+          -20480
+        ],
+        "X2": [
+          -14135,
+          -14098
+        ]
+      },
+      "status": "pending"
+    },
+    "0100010001101": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -14097,
+          -14060
+        ]
+      },
+      "status": "split"
+    },
+    "01000100011010": {
+      "domains": {
+        "X1": [
+          -31743,
+          -26112
+        ],
+        "X2": [
+          -14097,
+          -14060
+        ]
+      },
+      "status": "pending"
+    },
+    "01000100011011": {
+      "domains": {
+        "X1": [
+          -26111,
+          -20480
+        ],
+        "X2": [
+          -14097,
+          -14060
+        ]
+      },
+      "status": "pending"
+    },
+    "010001000111": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -14059,
+          -13984
+        ]
+      },
+      "status": "split"
+    },
+    "0100010001110": {
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -14059,
+          -14022
+        ]
+      },
+      "status": "pending"
+    },
+    "0100010001111": {
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -14021,
+          -13984
+        ]
+      },
+      "status": "pending"
+    },
+    "010001001": {
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -13983,
+          -13376
+        ]
+      },
+      "status": "pending"
+    },
+    "01000101": {
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -13375,
+          -12160
+        ]
+      },
+      "status": "pending"
+    },
+    "0100011": {
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -12159,
+          -9728
+        ]
+      },
+      "status": "pending"
+    },
+    "01001": {
+      "axis": "X2",
+      "cut": -8193,
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -9727,
+          0
+        ]
+      },
+      "status": "split"
+    },
+    "010010": {
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -9727,
+          -8193
+        ]
+      },
+      "status": "pending"
+    },
+    "010011": {
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          -8192,
+          0
+        ]
+      },
+      "status": "pending"
+    },
+    "0101": {
+      "axis": "X2",
+      "cut": 8192,
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          1,
+          19455
+        ]
+      },
+      "status": "split"
+    },
+    "01010": {
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          1,
+          8192
+        ]
+      },
+      "status": "pending"
+    },
+    "01011": {
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          8193,
+          19455
+        ]
+      },
+      "status": "pending"
+    },
+    "011": {
+      "domains": {
+        "X1": [
+          -31743,
+          -20480
+        ],
+        "X2": [
+          19456,
+          31743
+        ]
+      },
+      "status": "pending"
+    },
+    "1": {
+      "axis": "X1",
+      "cut": 20479,
+      "domains": {
+        "X1": [
+          -20479,
+          31743
+        ],
+        "X2": [
+          -31743,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "10": {
+      "axis": "X2",
+      "cut": -19456,
+      "domains": {
+        "X1": [
+          -20479,
+          20479
+        ],
+        "X2": [
+          -31743,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "100": {
+      "axis": "X1",
+      "cut": -8193,
+      "domains": {
+        "X1": [
+          -20479,
+          20479
+        ],
+        "X2": [
+          -31743,
+          -19456
+        ]
+      },
+      "status": "split"
+    },
+    "1000": {
+      "axis": "X1",
+      "cut": -12289,
+      "domains": {
+        "X1": [
+          -20479,
+          -8193
+        ],
+        "X2": [
+          -31743,
+          -19456
+        ]
+      },
+      "status": "split"
+    },
+    "10000": {
+      "domains": {
+        "X1": [
+          -20479,
+          -12289
+        ],
+        "X2": [
+          -31743,
+          -19456
+        ]
+      },
+      "status": "pending"
+    },
+    "10001": {
+      "axis": "X2",
+      "cut": -24576,
+      "domains": {
+        "X1": [
+          -12288,
+          -8193
+        ],
+        "X2": [
+          -31743,
+          -19456
+        ]
+      },
+      "status": "split"
+    },
+    "100010": {
+      "artifact": {
+        "characters": 200303,
+        "file": "cover-34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31.expr",
+        "sha256": "34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31"
+      },
+      "compiledDomain": {
+        "X1": [
+          -12288,
+          12288
+        ],
+        "X2": [
+          -31743,
+          -24576
+        ]
+      },
+      "domains": {
+        "X1": [
+          -12288,
+          -8193
+        ],
+        "X2": [
+          -31743,
+          -24576
+        ]
+      },
+      "status": "complete"
+    },
+    "100011": {
+      "domains": {
+        "X1": [
+          -12288,
+          -8193
+        ],
+        "X2": [
+          -24575,
+          -19456
+        ]
+      },
+      "status": "pending"
+    },
+    "1001": {
+      "axis": "X1",
+      "cut": 8192,
+      "domains": {
+        "X1": [
+          -8192,
+          20479
+        ],
+        "X2": [
+          -31743,
+          -19456
+        ]
+      },
+      "status": "split"
+    },
+    "10010": {
+      "axis": "X2",
+      "cut": -20480,
+      "domains": {
+        "X1": [
+          -8192,
+          8192
+        ],
+        "X2": [
+          -31743,
+          -19456
+        ]
+      },
+      "status": "split"
+    },
+    "100100": {
+      "axis": "X2",
+      "cut": -24576,
+      "domains": {
+        "X1": [
+          -8192,
+          8192
+        ],
+        "X2": [
+          -31743,
+          -20480
+        ]
+      },
+      "status": "split"
+    },
+    "1001000": {
+      "artifact": {
+        "characters": 200303,
+        "file": "cover-34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31.expr",
+        "sha256": "34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31"
+      },
+      "compiledDomain": {
+        "X1": [
+          -12288,
+          12288
+        ],
+        "X2": [
+          -31743,
+          -24576
+        ]
+      },
+      "domains": {
+        "X1": [
+          -8192,
+          8192
+        ],
+        "X2": [
+          -31743,
+          -24576
+        ]
+      },
+      "status": "complete"
+    },
+    "1001001": {
+      "domains": {
+        "X1": [
+          -8192,
+          8192
+        ],
+        "X2": [
+          -24575,
+          -20480
+        ]
+      },
+      "status": "pending"
+    },
+    "100101": {
+      "domains": {
+        "X1": [
+          -8192,
+          8192
+        ],
+        "X2": [
+          -20479,
+          -19456
+        ]
+      },
+      "status": "pending"
+    },
+    "10011": {
+      "axis": "X1",
+      "cut": 12288,
+      "domains": {
+        "X1": [
+          8193,
+          20479
+        ],
+        "X2": [
+          -31743,
+          -19456
+        ]
+      },
+      "status": "split"
+    },
+    "100110": {
+      "axis": "X2",
+      "cut": -24576,
+      "domains": {
+        "X1": [
+          8193,
+          12288
+        ],
+        "X2": [
+          -31743,
+          -19456
+        ]
+      },
+      "status": "split"
+    },
+    "1001100": {
+      "artifact": {
+        "characters": 200303,
+        "file": "cover-34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31.expr",
+        "sha256": "34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31"
+      },
+      "compiledDomain": {
+        "X1": [
+          -12288,
+          12288
+        ],
+        "X2": [
+          -31743,
+          -24576
+        ]
+      },
+      "domains": {
+        "X1": [
+          8193,
+          12288
+        ],
+        "X2": [
+          -31743,
+          -24576
+        ]
+      },
+      "status": "complete"
+    },
+    "1001101": {
+      "domains": {
+        "X1": [
+          8193,
+          12288
+        ],
+        "X2": [
+          -24575,
+          -19456
+        ]
+      },
+      "status": "pending"
+    },
+    "100111": {
+      "domains": {
+        "X1": [
+          12289,
+          20479
+        ],
+        "X2": [
+          -31743,
+          -19456
+        ]
+      },
+      "status": "pending"
+    },
+    "101": {
+      "axis": "X2",
+      "cut": 19455,
+      "domains": {
+        "X1": [
+          -20479,
+          20479
+        ],
+        "X2": [
+          -19455,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "1010": {
+      "domains": {
+        "X1": [
+          -20479,
+          20479
+        ],
+        "X2": [
+          -19455,
+          19455
+        ]
+      },
+      "status": "pending"
+    },
+    "1011": {
+      "axis": "X1",
+      "cut": -8193,
+      "domains": {
+        "X1": [
+          -20479,
+          20479
+        ],
+        "X2": [
+          19456,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "10110": {
+      "domains": {
+        "X1": [
+          -20479,
+          -8193
+        ],
+        "X2": [
+          19456,
+          31743
+        ]
+      },
+      "status": "pending"
+    },
+    "10111": {
+      "axis": "X1",
+      "cut": 8192,
+      "domains": {
+        "X1": [
+          -8192,
+          20479
+        ],
+        "X2": [
+          19456,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "101110": {
+      "axis": "X2",
+      "cut": 20479,
+      "domains": {
+        "X1": [
+          -8192,
+          8192
+        ],
+        "X2": [
+          19456,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "1011100": {
+      "domains": {
+        "X1": [
+          -8192,
+          8192
+        ],
+        "X2": [
+          19456,
+          20479
+        ]
+      },
+      "status": "pending"
+    },
+    "1011101": {
+      "domains": {
+        "X1": [
+          -8192,
+          8192
+        ],
+        "X2": [
+          20480,
+          31743
+        ]
+      },
+      "status": "pending"
+    },
+    "101111": {
+      "domains": {
+        "X1": [
+          8193,
+          20479
+        ],
+        "X2": [
+          19456,
+          31743
+        ]
+      },
+      "status": "pending"
+    },
+    "11": {
+      "axis": "X2",
+      "cut": -19456,
+      "domains": {
+        "X1": [
+          20480,
+          31743
+        ],
+        "X2": [
+          -31743,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "110": {
+      "domains": {
+        "X1": [
+          20480,
+          31743
+        ],
+        "X2": [
+          -31743,
+          -19456
+        ]
+      },
+      "status": "pending"
+    },
+    "111": {
+      "axis": "X2",
+      "cut": 19455,
+      "domains": {
+        "X1": [
+          20480,
+          31743
+        ],
+        "X2": [
+          -19455,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "1110": {
+      "axis": "X2",
+      "cut": -8193,
+      "domains": {
+        "X1": [
+          20480,
+          31743
+        ],
+        "X2": [
+          -19455,
+          19455
+        ]
+      },
+      "status": "split"
+    },
+    "11100": {
+      "domains": {
+        "X1": [
+          20480,
+          31743
+        ],
+        "X2": [
+          -19455,
+          -8193
+        ]
+      },
+      "status": "pending"
+    },
+    "11101": {
+      "axis": "X2",
+      "cut": 8192,
+      "domains": {
+        "X1": [
+          20480,
+          31743
+        ],
+        "X2": [
+          -8192,
+          19455
+        ]
+      },
+      "status": "split"
+    },
+    "111010": {
+      "domains": {
+        "X1": [
+          20480,
+          31743
+        ],
+        "X2": [
+          -8192,
+          8192
+        ]
+      },
+      "status": "pending"
+    },
+    "111011": {
+      "domains": {
+        "X1": [
+          20480,
+          31743
+        ],
+        "X2": [
+          8193,
+          19455
+        ]
+      },
+      "status": "pending"
+    },
+    "1111": {
+      "domains": {
+        "X1": [
+          20480,
+          31743
+        ],
+        "X2": [
+          19456,
+          31743
+        ]
+      },
+      "status": "pending"
+    }
+  },
+  "unfinishedInputPatterns": 3854551040
+}
