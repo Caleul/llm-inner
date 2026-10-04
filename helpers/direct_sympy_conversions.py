@@ -47,7 +47,7 @@ def binary_exponent(value):
     return math.frexp(value)[1]-1
 
 
-def lower_finite_conversion(expression,kind,certificate,compiler,domains,path=(),*,no_odd_f32_ties=False,integer_word_exact=False,frontier=None):
+def lower_finite_conversion(expression,kind,certificate,compiler,domains,path=(),*,no_odd_f32_ties=False,integer_word_exact=False,frontier=None,sign_word=None):
     if not isinstance(certificate,FiniteSource):
         raise ValueError("Finite source interval certificate required")
     if kind not in ("R32","R16"):
@@ -57,7 +57,7 @@ def lower_finite_conversion(expression,kind,certificate,compiler,domains,path=()
     source=compiler.stabilize("("+expression+")",domains,path)
     raw=call("Bits64","X999999997")
     magnitude=call("U64And",raw,0x7fffffffffffffff)
-    sign=call("U64And",raw,0x8000000000000000)
+    sign=call("U64And",raw,0x8000000000000000) if sign_word is None else "X999999996"
     dropped=29 if kind=="R32" else 42
     bias=(1<<(dropped-1))-1
     mask=((1<<64)-1)^((1<<dropped)-1)
@@ -102,6 +102,7 @@ def lower_finite_conversion(expression,kind,certificate,compiler,domains,path=()
         mixed=True
         positive=call("Piecewise","("+subnormal+", "+magnitude+" < "+str(small_threshold)+")","("+above+", True)")
     template=call("Float64",call("U64Or",positive,sign))
+    if sign_word is not None:template=compiler.substitute(template,"X999999996",sign_word,domains,path)
     # Substitute the producer only after the template is complete. Every arm
     # then runs factor/simplify under its own inherited condition context.
     result=simplify_words(compiler.substitute(template,"X999999997",source,domains,path),compiler,domains)
@@ -146,6 +147,8 @@ class ConversionSession:
         self.branch_depth=0
         self.branch_facts=()
         self.frontier_bounds={}
+        self.sign_projections={}
+        self.closed_sign_literals={}
         self.frontier_events=[]
 
     @contextmanager
@@ -157,7 +160,7 @@ class ConversionSession:
         Strings and structural signatures are shared; only proof tables copy.
         """
         fields=('completed','half_values','f32_values','converted_regions',
-                'no_negative_zero_values','frontier_bounds')
+                'no_negative_zero_values','frontier_bounds','sign_projections')
         saved={name:getattr(self,name) for name in fields}
         old_domains,old_facts=self.domains,self.branch_facts
         for name,value in saved.items():setattr(self,name,value.copy())
@@ -270,6 +273,7 @@ class ConversionSession:
         while self.closed_literals and self.closed_literal_characters+len(expression)>4*self.compiler.max_characters:
             old,_=self.closed_literals.popitem(last=False);self.closed_literal_characters-=len(old)
             self.closed_literal_keys.pop(old,None);self.closed_literal_pure.pop(old,None)
+            self.closed_sign_literals.pop(old,None)
         if len(expression)>4*self.compiler.max_characters:return
         self.closed_literals[expression]=(self.bounds(node),self.value_kind(node),self.no_negative_zero(node))
         self.closed_literal_characters+=len(expression)
@@ -278,6 +282,16 @@ class ConversionSession:
         from direct_sympy_synchronize import GUARD_PURE
         self.closed_literal_pure[expression]=all(not isinstance(child,ast.Call) or child.func.id in GUARD_PURE for child in ast.walk(node))
         self.remember_selector_literal(expression,expression)
+        projection=self.sign_projections.get(self.key(node))
+        if projection is not None:
+            text=simplify_words("Float64("+ast.unparse(projection)+")",self.compiler,self.domains)
+            previous=self.closed_sign_literals.get(expression)
+            if (previous is None or len(text)<len(previous)) and len(text)<len(expression) and not re.search(r'\bCAS(?:Numeric|Stable)Region[0-9]+\b',text):
+                zero=syntax(text);key=self.key(zero)
+                self.completed[key]=FiniteSource(0.0,0.0,-24)
+                self.half_values.add(key);self.f32_values.add(key);self.converted_regions.add(key)
+                self.remember_closed_literal(text,zero)
+                self.closed_sign_literals[expression]=text
 
     def analyze_expression(self,expression):
         """Read-only type/range query over exact completed literal proofs.
@@ -335,6 +349,7 @@ class ConversionSession:
         while self.closed_literals and self.closed_literal_characters+len(expression)>4*self.compiler.max_characters:
             old,_=self.closed_literals.popitem(last=False);self.closed_literal_characters-=len(old)
             self.closed_literal_keys.pop(old,None);self.closed_literal_pure.pop(old,None)
+            self.closed_sign_literals.pop(old,None)
         self.closed_literals[expression]=(bounds,kind,positive_zero)
         self.closed_literal_keys[expression]=original;self.closed_literal_pure[expression]=pure
         if arm_bounds:self.frontier_bounds[original]=arm_bounds
@@ -363,6 +378,7 @@ class ConversionSession:
         before=syntax(original);old=self.key(before)
         if old not in self.converted_regions:raise ValueError("Control rewrite requires a closed numeric frontier")
         after=syntax(replacement);new=self.key(after)
+        if old in self.sign_projections:self.sign_projections[new]=self.sign_projections[old]
         bounds=self.bounds(before);kind=self.value_kind(before)
         if bounds is not None:self.completed[new]=bounds
         if kind=='half':self.half_values.add(new)
@@ -734,6 +750,18 @@ class ConversionSession:
                 compact=self.compiler.substitute(compact,old,token+"()",self.domains)
             else:
                 compact=re.sub(r"\b"+old+r"\b",token+"()",compact)
+        # A previously compiled sign-only scalar can stand in for the sign
+        # query on this producer. It never stands in for its magnitude.
+        for token,text in list(protected.items()):
+            projection=self.closed_sign_literals.get(text)
+            if projection is None or projection not in self.closed_literals:continue
+            self.envelope_serial+=1;alias="CASNumericRegion"+str(self.envelope_serial)
+            protected[alias]=projection;pure_functions.append(alias)
+            marker=syntax(alias+"()");key=self.key(marker)
+            self.completed[key]=FiniteSource(0.0,0.0,-24)
+            self.half_values.add(key);self.f32_values.add(key);self.converted_regions.add(key)
+            literal_keys[key]=self.closed_literal_keys[projection]
+            self.sign_projections[self.key(syntax(token+"()"))]=syntax("Bits64("+alias+"())")
         # Preserve correlation certificates on enclosing operations.
         # Independent interval arithmetic cannot recover these from the
         # bounds of individual completed literals (e.g. RMS products).
@@ -790,6 +818,12 @@ class ConversionSession:
         if expanded>self.compiler.max_characters:
             raise ValueError(f"Closed numeric envelope exceeds string budget before allocation: expandedCharacters={expanded} limit={self.compiler.max_characters}")
         selector_view=result
+        sign_literal=None
+        if not self.branch_depth and original in self.converted_regions and self.bounds(virtual) is not None:
+            from direct_sympy_signs import project
+            sign_view=simplify_words("Float64("+ast.unparse(project(virtual,self))+")",self.compiler,self.domains)
+            if expanded_size(sign_view)<expanded:
+                sign_literal=re.sub(pattern,lambda match:protected[match.group(0)[:-2]],sign_view)
         result=re.sub(pattern,lambda match:protected[match.group(0)[:-2]],result)
         if re.search(r"\bCASNumericRegion[0-9]+\b",result):raise ValueError("Numeric placeholder escaped restoration")
         # The virtual fixed point must retain its proof on the restored
@@ -810,6 +844,13 @@ class ConversionSession:
             if original in self.f32_values:self.f32_values.add(key)
             if original in self.no_negative_zero_values:self.no_negative_zero_values.add(key)
             self.remember_closed_literal(result,node)
+        if sign_literal is not None and sign_literal!=result:
+            # The complete sign projection has exactly +/-zero as values.
+            # Reuse original leaf proofs to intern its structural identity.
+            sign_node=syntax(sign_view)
+            self.restore_compact_literal(sign_literal,sign_node,literals,FiniteSource(0.0,0.0,-24),"half",False,True,self.closed_literal_keys.copy(),self.closed_literal_pure.copy())
+            previous=self.closed_sign_literals.get(result)
+            if previous is None or len(sign_literal)<len(previous):self.closed_sign_literals[result]=sign_literal
         return result
 
     def _close(self,expression):
@@ -824,7 +865,15 @@ class ConversionSession:
                     session.reused_regions+=1
                     return node
                 session.visited_nodes+=1
-                return super().visit(node)
+                projection=None
+                if isinstance(node,ast.Call) and node.func.id in ('R16','R32','Silu16') and len(node.args)==1 and session.bounds(node) is not None:
+                    from direct_sympy_signs import project
+                    candidate=project(node,session)
+                    text=ast.unparse(candidate)
+                    if len(text)<=1048576 and not re.search(r'\b(?:R16|R32|Silu16|sqrt)\s*\(',text):projection=candidate
+                result=super().visit(node)
+                if projection is not None and not re.search(r'\b(?:R16|R32|Silu16|sqrt)\s*\(',ast.unparse(result)):session.sign_projections[session.key(result)]=projection
+                return result
 
             def generic_visit(self,node):
                 # Bounds may have cached the complete pre-substitution tree.
@@ -958,10 +1007,14 @@ class ConversionSession:
                         rewritten=syntax(session.compiler.stabilize(ast.unparse(rewritten.args[0]),session.domains));session.redundant+=1
                     elif source is not None:
                         frontier=[]
+                        from direct_sympy_signs import project
+                        projection=project(rewritten.args[0],session)
+                        sign_word=simplify_words(ast.unparse(projection),session.compiler,session.domains)
                         text=lower_finite_conversion(ast.unparse(rewritten.args[0]),rewritten.func.id,
-                            source,session.compiler,session.domains,no_odd_f32_ties=no_odd_ties,integer_word_exact=session.encoded_word_is_exact_integer(node.args[0]),frontier=frontier)
+                            source,session.compiler,session.domains,no_odd_f32_ties=no_odd_ties,integer_word_exact=session.encoded_word_is_exact_integer(node.args[0]),frontier=frontier,sign_word=sign_word)
                         session.remember_frontier_bounds(text,frontier)
                         rewritten=syntax(text)
+                        session.sign_projections[session.key(rewritten)]=syntax(sign_word)
                         session.closed+=1
                     else:session.pending+=1
                     if before is not None:
@@ -975,6 +1028,7 @@ class ConversionSession:
         tree=Boundaries().visit(syntax(expression))
         prior_key=self.key(tree)
         result=self.compiler.stabilize(ast.unparse(tree),self.domains)
+        if prior_key in self.sign_projections:self.sign_projections[self.key(syntax(result))]=self.sign_projections[prior_key]
         if prior_key in self.frontier_bounds:self.frontier_bounds[self.key(syntax(result))]=self.frontier_bounds[prior_key]
         if not re.search(r"\bR(?:16|32)\s*\(",result):
             self.converted_regions.add(self.key(syntax(result)))

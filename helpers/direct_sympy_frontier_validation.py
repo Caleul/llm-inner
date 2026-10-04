@@ -12,7 +12,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parent))
 if len(sys.argv)!=4:raise ValueError('Usage: frontier-validation state checkpoint inputs')
 from direct_sympy_strings import StringCompiler,syntax
 from direct_sympy_checkpoint import CheckpointStrings
-from direct_sympy_savepoints import canonical,digest_file,ProducerSavepoints,read_expression
+from direct_sympy_savepoints import canonical,digest_file,ProducerSavepoints,read_expression,expression_path
 original_search=re.search
 def fast_search(pattern,text,*args,**kwargs):
  if pattern==r'\bCASStableRegion[0-9]+\b' and 'CASStableRegion' not in text:return None
@@ -37,7 +37,7 @@ for record in manifest['records']:
  with patch('direct_sympy_strings.re.search',side_effect=fast_search):
   compact,regions=compiler.compact_regions(text,compiler.context(builder.domains),validate_context=False)
  assert not any(x in text for x in ('CASBoundary','CASNumericRegion','CASStableRegion','R16(','R32(','Silu16(','sqrt('))
- node=syntax(compact);program=compile(ast.fix_missing_locations(ast.Expression(LazyBranches().visit(syntax(compact)))),str(path),'eval')
+ node=syntax(compact);program=compile(ast.fix_missing_locations(ast.Expression(LazyBranches().visit(syntax(compact)))),str(expression_path(state,record)),'eval')
  programs.append((record['name'],text,program,regions))
  with patch('direct_sympy_strings.re.search',side_effect=fast_search):
   compiler.register_completed_region(text,builder.domains,node,word_closed=True)

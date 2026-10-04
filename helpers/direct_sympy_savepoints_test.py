@@ -44,7 +44,7 @@ class SavepointTests(unittest.TestCase):
                 with patch.object(saves,'save_expression',side_effect=AssertionError('rewrote compressed producer')):
                     store.save(original)
                     original.producer('fixture:alias',lambda:first)
-                self.assertEqual(len(list((root/'state/objects').glob('*.expr.gz'))),1)
+                self.assertEqual(len(list((root/'state/objects').glob('*.expr.gz'))),1+int(record['signProjection'] is not None))
             original.on_completed=None
             resumed=self.model(root)
             with ProducerSavepoints(root/'state',resumed,0,compressed=True) as store:
@@ -58,6 +58,33 @@ class SavepointTests(unittest.TestCase):
             fresh=self.model(root)
             with ProducerSavepoints(root/'state',fresh,0,compressed=True) as store:
                 with self.assertRaisesRegex(ValueError,'integrity'):store.restore(fresh)
+            self.assertFalse(fresh.memo);self.assertFalse(fresh.conversions.closed_literals)
+
+    def test_signed_zero_projections_are_verified_before_any_restore_mutation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);original=self.model(root)
+            with ProducerSavepoints(root/'state',original,0) as store:
+                original.on_completed=store.save;self.first(original)
+            manifest=root/'state/frontier.json';envelope=json.loads(manifest.read_text())
+            record=envelope['payload']['records'][0]['signProjection']
+            self.assertIsNotNone(record)
+            path=saves.expression_path(root/'state',record);valid=path.read_bytes()
+            path.write_bytes(valid[:-1])
+            fresh=self.model(root)
+            with ProducerSavepoints(root/'state',fresh,0) as store:
+                with self.assertRaisesRegex(ValueError,'integrity'):store.restore(fresh)
+            self.assertFalse(fresh.memo);self.assertFalse(fresh.conversions.closed_literals)
+            path.write_bytes(valid)
+            # Even a rehashed mathematical expression must have a zero-only
+            # root before it can acquire a +/-zero type/range certificate.
+            text='Float64(Bits64(X1))'
+            record['digest']=saves.save_expression(root/'state/objects',text)
+            record['characters']=len(text)
+            envelope['integrity']=hashlib.sha256(saves.canonical(envelope['payload'])).hexdigest()
+            manifest.write_bytes(saves.canonical(envelope))
+            fresh=self.model(root)
+            with ProducerSavepoints(root/'state',fresh,0) as store:
+                with self.assertRaisesRegex(ValueError,'signed-zero'):store.restore(fresh)
             self.assertFalse(fresh.memo);self.assertFalse(fresh.conversions.closed_literals)
 
     def test_compressed_utf8_is_chunked_exact_and_size_bounded(self):

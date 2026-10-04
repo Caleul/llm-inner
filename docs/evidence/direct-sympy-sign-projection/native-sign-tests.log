@@ -1,0 +1,8 @@
+...
+----------------------------------------------------------------------
+Ran 3 tests in 1.747s
+
+OK
+Completed down projection parity: cases=147472 mismatches=0
+Sign projection strings: 5111 -> 2179
+Finite sign projection parity: cases=3047424 mismatches=0

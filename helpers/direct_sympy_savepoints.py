@@ -16,7 +16,7 @@ import torch
 from direct_sympy_strings import syntax, StringCompiler
 from direct_sympy_conversions import FiniteSource
 
-SOURCES=('direct_sympy_layer_bounds.py','direct_sympy_savepoints.py','direct_sympy_checkpoint.py','direct_sympy_strings.py','direct_sympy_conversions.py','direct_sympy_words.py','direct_sympy_arithmetic.py','direct_sympy_tandem.py','direct_sympy_signatures.py','direct_sympy_conditions.py','direct_sympy_synchronize.py','direct_sympy_silu.py','direct_sympy_sqrt.py','direct_sympy_parallel.py')
+SOURCES=('direct_sympy_layer_bounds.py','direct_sympy_savepoints.py','direct_sympy_checkpoint.py','direct_sympy_strings.py','direct_sympy_conversions.py','direct_sympy_words.py','direct_sympy_signs.py','direct_sympy_arithmetic.py','direct_sympy_tandem.py','direct_sympy_signatures.py','direct_sympy_conditions.py','direct_sympy_synchronize.py','direct_sympy_silu.py','direct_sympy_sqrt.py','direct_sympy_parallel.py')
 
 
 def digest_file(path):
@@ -110,7 +110,7 @@ class ProducerSavepoints:
         try:
             fcntl.flock(self.lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
             self.identity={
-                'schema':4,'objectEncoding':'gzip' if compressed else 'utf8','position':0,'dimension':dimension,'dtype':model.compiler.dtype,
+                'schema':5,'objectEncoding':'gzip' if compressed else 'utf8','position':0,'dimension':dimension,'dtype':model.compiler.dtype,
                 'lowerConversions':model.conversions is not None,
                 'domains':{k:[str(v.minimum),str(v.maximum),v.quantum,v.excludes_negative_zero] for k,v in model.domains.items()},
                 'checkpoint':{p.name:digest_file(p) for p in [model.directory/'config.json',*sorted(model.directory.glob('*.safetensors'))]},
@@ -162,6 +162,15 @@ class ProducerSavepoints:
                 'castsClosed':session is not None and session.key(node) in session.converted_regions})
         for record,expression in zip(records,model.memo.values()):
             record['encoding']='gzip' if self.compressed else 'utf8'
+            projection=model.conversions.closed_sign_literals.get(expression) if model.conversions else None
+            if projection is not None:
+                digest=self._object_cache.get(projection)
+                projected={'digest':digest,'characters':len(projection),'encoding':record['encoding']}
+                if digest is None or not expression_path(self.directory,projected).exists():
+                    digest=save_expression(self.directory/'objects',projection,compressed=self.compressed)
+                    self._object_cache[projection]=digest;projected['digest']=digest
+                record['signProjection']=projected
+            else:record['signProjection']=None
             stored=model.conversions.selector_literals.get(expression) if model.conversions else None
             record['selectorArmBounds']=[] if stored is None else [None if b is None else [b.minimum.hex(),b.maximum.hex(),b.quantum] for b in stored[3]]
         payload={'identity':self.identity,'records':records,'events':model.events,'weightReads':model.read_weights}
@@ -177,7 +186,7 @@ class ProducerSavepoints:
         payload=envelope['payload']
         if hashlib.sha256(canonical(payload)).hexdigest()!=envelope['integrity']:raise ValueError('Savepoint manifest integrity mismatch')
         if payload['identity']!=self.identity:raise ValueError('Incompatible savepoint: checkpoint, domain, dimension or compiler semantics differ')
-        loaded=[];names=set();arm_proofs={}
+        loaded=[];names=set();arm_proofs={};projections={};zero_literals=set()
         validation=StringCompiler(dtype=model.compiler.dtype,max_characters=model.compiler.max_characters)
         for record in payload['records']:
             name=record['name'];digest=record['digest']
@@ -201,6 +210,23 @@ class ProducerSavepoints:
             if not isinstance(values,list) or len(values)>16:raise ValueError('Invalid saved selector arm proofs')
             try:arm_proofs[name]=tuple(None if b is None else FiniteSource(float.fromhex(b[0]),float.fromhex(b[1]),b[2]) for b in values)
             except (ValueError,TypeError,IndexError):raise ValueError('Invalid saved selector arm proofs') from None
+            projection_record=record.get('signProjection')
+            if projection_record is not None:
+                if not isinstance(projection_record,dict) or set(projection_record)!={'digest','characters','encoding'}:raise ValueError('Invalid saved sign projection')
+                count=projection_record['characters']
+                if type(count) is not int or count<0 or count>=len(expression) or count>model.compiler.max_characters:raise ValueError('Saved sign projection exceeds budget or producer size')
+                projection=read_expression(self.directory,projection_record)
+                if len(projection)!=count or re.search(r'\b(?:CAS(?:Boundary|StableRegion|NumericRegion)[0-9]+|R16|R32|Silu16|sqrt)\b',projection):raise ValueError('Invalid saved sign projection syntax')
+                sign_compact,sign_regions=validation.compact_regions(projection,validation.context(model.domains),validate_context=False)
+                sign_node=syntax(sign_compact)
+                for child in ast.walk(sign_node):
+                    if isinstance(child,ast.Name) and re.fullmatch('X[0-9]+',child.id) and child.id not in model.domains:raise ValueError('Saved sign projection retains a non-input dependency')
+                from direct_sympy_signs import is_signed_zero
+                known={name for name,text in sign_regions.items() if text in zero_literals}
+                if not is_signed_zero(sign_node,known):raise ValueError('Saved sign projection is not a signed-zero expression')
+                projections[record['name']]=(projection,sign_node,sign_regions)
+                zero_literals.add(projection)
+                validation.register_completed_region(projection,model.domains,sign_node,word_closed=True)
             loaded.append((record,expression,node,bounds,regions))
             # Prior dependencies are validated before serving as opaque literals.
             # Only closed producers are compacted; unclosed ones keep full parsing.
@@ -217,9 +243,18 @@ class ProducerSavepoints:
                 arm_bounds=arm_proofs[record['name']]
                 original,pure=session.restore_compact_literal(expression,node,regions,bounds,record['kind'],record['noNegativeZero'],record['castsClosed'],restored_keys,restored_purity,arm_bounds)
                 restored_keys[expression]=original;restored_purity[expression]=pure
+                projected=projections.get(record['name'])
+                if projected is not None:
+                    projection,sign_node,sign_regions=projected
+                    model.compiler.register_completed_region(projection,model.domains,sign_node,word_closed=True)
+                    key,pure=session.restore_compact_literal(projection,sign_node,sign_regions,FiniteSource(0.0,0.0,-24),'half',False,True,restored_keys,restored_purity)
+                    restored_keys[projection]=key;restored_purity[projection]=pure
+                    session.closed_sign_literals[expression]=projection
         model.events=[tuple(event) for event in payload['events']]
         model.read_weights=payload['weightReads']
         self._record_cache={record['name']:(expression,record.copy()) for record,expression,_,_,_ in loaded}
         self._record_session=model.conversions
         self._object_cache={expression:record['digest'] for record,expression,_,_,_ in loaded}
+        for record,expression,_,_,_ in loaded:
+            if record['name'] in projections:self._object_cache[projections[record['name']][0]]=record['signProjection']['digest']
         return len(loaded)

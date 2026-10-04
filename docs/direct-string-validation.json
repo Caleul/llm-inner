@@ -9288,5 +9288,75 @@
     "scope": "Search acceleration only. Does not reduce expression size or prove a full coordinate. Broad baseline test failures preserved in prior records; broad suite not rerun for this search-only change.",
     "evidenceDirectory": "docs/evidence/direct-sympy-region-search",
     "coordinateComplete": false
+  },
+  "signedZeroProjectionValidation": {
+    "expressionFormat": "Mathematical strings per explicit SymPy request; JSON contains evidence and savepoint metadata",
+    "algorithm": "Finite IEEE sign projection after each substitution; no magnitude or floating reduction reordered",
+    "schema": 5,
+    "oldStatePolicy": "Strict source/schema identity rejects old compiler states. Fresh compile; no identity rewriting.",
+    "nativeSignCases": 3047424,
+    "completedDownCases": 147472,
+    "mismatches": 0,
+    "downKernelCharacters": {
+      "baseline": 5111,
+      "current": 2179
+    },
+    "local": {
+      "completedDependencies": 12,
+      "characterLimit": 268435456,
+      "rejectedSubstitutionCharacters": 329217980,
+      "compileSeconds": 10.920863915991504,
+      "processWallSeconds": 11.25,
+      "maximumRSSBytes": 1906606080,
+      "producerParity": {
+        "cases": 60,
+        "comparisons": 120,
+        "mismatches": 0,
+        "filesRead": 12
+      },
+      "prefixByteHashesIdenticalToPriorColab": true
+    },
+    "tests": {
+      "build": "passed",
+      "nodeIntegration": {
+        "tests": 9,
+        "pass": 9,
+        "skip": 0
+      },
+      "python": {
+        "tests": 103,
+        "pass": 103,
+        "skip": 0
+      },
+      "broad": {
+        "tests": 603,
+        "pass": 570,
+        "fail": 15,
+        "skip": 18,
+        "seconds": 205.711779,
+        "failureNamesIdentical": true,
+        "newFailures": [],
+        "command": "node --test --test-concurrency=2 dist/test/*.test.js scripts/*.test.mjs",
+        "scope": "Default optional integrations skipped; all 9 SymPy Node integrations separately passed with fixture configured."
+      }
+    },
+    "coordinateComplete": false,
+    "colab": {
+      "session": "llm-inner-frontier-composition",
+      "directory": "/content/llm-inner-frontier-composition/sign-projection",
+      "runnerPID": 45102,
+      "compilerPID": 45161,
+      "launchOperation": "df9b0993-a192-4888-b13c-2c387b5c774c",
+      "statusOperation": "7a83be22-3f30-4dbd-8cfa-ce4a236eb423",
+      "validatorUpdateOperation": "2114d6fe-ea30-4b45-8bde-15c6ff04ce94",
+      "lastConfirmedState": "At 5:19 compiler live, 16 saved dependencies; gated producer reduced from 16131686432 to 13497941778 characters; full-coordinate and actual-file parity pending.",
+      "scope": "One output dimension at position zero. No full coordinate parity claimed.",
+      "gatedProducer": {
+        "previousCharacters": 16131686432,
+        "currentCharacters": 13497941778,
+        "currentSignCharacters": 658436095,
+        "actualFileParity": "pending"
+      }
+    }
   }
 }

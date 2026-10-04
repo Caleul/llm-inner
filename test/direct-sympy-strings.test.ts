@@ -21,7 +21,7 @@ test('Equivalent scan backend preserves Unicode regex results and byte-identical
 test('SymPy savepoints preserve completed rounding frontiers and reject incompatible or corrupt state',
   {skip:!python},async()=>{
     const {stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_savepoints_test.py'],{timeout:120_000});
-    assert.match(stderr,/Ran 7 tests/);
+    assert.match(stderr,/Ran 8 tests/);
     assert.match(stderr,/OK/);
   });
 test('SymPy string substitution factors and simplifies each step with isolated IEEE branch proofs',
@@ -82,4 +82,13 @@ test('Positive F32 square-root word lowering preserves all mantissas, parities a
     assert.match(stderr,/Ran 1 test/);
     assert.match(stderr,/OK/);
     assert.match(stdout,/F32 sqrt emitted word parity: cases=25167601 mismatches=0/);
+  });
+
+test('IEEE sign projections preserve signed zero and reduce completed down-conversion strings',
+  {skip:!python},async()=>{
+    const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_signs_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 3 tests/);
+    assert.match(stderr,/OK/);
+    assert.match(stdout,/Finite sign projection parity: cases=3047424 mismatches=0/);
+    assert.match(stdout,/Completed down projection parity: cases=147472 mismatches=0/);
   });

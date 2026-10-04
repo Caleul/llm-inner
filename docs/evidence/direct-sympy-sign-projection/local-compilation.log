@@ -1,0 +1,20 @@
+Compilation stopped: Substitution exceeds string budget before allocation: variable=X999999999 templateCharacters=164608988 replacementCharacters=164608998 occurrences=1 estimatedCharacters=329217980 limit=268435456; completedDependencies=12 lastDependency=model.layers.0.post:1 closedConversions=26 redundantConversions=2 reusedConvertedRegions=18 visitedConversionNodes=158 earlyHalfProductsThisRun=16; no coordinate artifact admitted
+{"scanBackend": "equivalent-stdlib-v2", "sources": {"direct_sympy_scan_backend.py": "1a1382b3fa7f8a88340a527ea3aab2aa51c3fa5e6d0f61b435630cfe7c8d331f", "direct_sympy_scan_cli.py": "7cdae2c8046649fd0a1bf421503cea845b87186e0b0141d2d7ed2d7d47a1198c"}, "elapsedSeconds": 10.920863915991504, "negativeSearches": 1033, "identifierScans": 619, "characters": 6422824250, "literalRegionSearches": 167, "literalRegionCandidates": 21}
+       11.25 real        10.49 user         0.39 sys
+          1906606080  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+              139945  page reclaims
+                   5  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                 241  voluntary context switches
+                4627  involuntary context switches
+        120898242587  instructions retired
+         42244682662  cycles elapsed
+          1854900192  peak memory footprint
