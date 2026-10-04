@@ -1,0 +1,7 @@
+{
+  "helpers/direct_sympy_checkpoint.py": "922dc03bfd220531cdc08f0d9975bb72fad6f7d3028f8a717a00b5e66541bd30",
+  "helpers/direct_sympy_savepoints.py": "f16f6d42bb6c373fdd3fb4358db4f2989414f91072b65b19cf9367cb0d8e9686",
+  "helpers/direct_sympy_savepoints_test.py": "50809834501b6cb3b1ae8ba9e809c4803be4131c8b85b045d9a36cba725b3245",
+  "helpers/direct_sympy_frontier_validation.py": "c956c1dbcf0bc2bf74eb8e9d6fbb2e8ee7ee9272ec39cebf1bc2ac177e65e171",
+  "test/direct-sympy-strings.test.ts": "643ac04e1305d56ffd26a1c04ca2c84ab2a457997af01904c1f7123eea2235e0"
+}

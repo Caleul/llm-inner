@@ -1,0 +1,8 @@
+{
+  "producer": "model.layers.0.gated:0",
+  "sha256": "e531eede37afd1d2c0cc17fbc09b640067434b8199b4ee3635be44a3758a36f2",
+  "characters": 16131686432,
+  "compressedBytes": 343176312,
+  "compressionSecondsIncludingReadAndFsync": 91.45412172899978,
+  "coordinateComplete": false
+}

@@ -1,0 +1,28 @@
+Current thread 0x00007a8d6aabc080 (most recent call first):
+  File "/content/llm-inner-frontier-composition/square/helpers/direct_sympy_savepoints.py", line 53 in save_expression
+  File "/content/llm-inner-frontier-composition/square/helpers/direct_sympy_savepoints.py", line 96 in save
+  File "/content/llm-inner-frontier-composition/square/helpers/direct_sympy_checkpoint.py", line 146 in producer
+  File "/content/llm-inner-frontier-composition/square/helpers/direct_sympy_checkpoint.py", line 314 in <lambda>
+  File "/content/llm-inner-frontier-composition/square/helpers/direct_sympy_checkpoint.py", line 172 in linear
+  File "/content/llm-inner-frontier-composition/square/helpers/direct_sympy_checkpoint.py", line 313 in build_hidden
+  File "/content/llm-inner-frontier-composition/square/helpers/direct_sympy_checkpoint.py", line 128 in producer
+  File "/content/llm-inner-frontier-composition/square/helpers/direct_sympy_checkpoint.py", line 315 in hidden
+  File "/content/llm-inner-frontier-composition/square/helpers/direct_sympy_checkpoint.py", line 322 in <lambda>
+  File "/content/llm-inner-frontier-composition/square/helpers/direct_sympy_checkpoint.py", line 183 in load
+  File "/content/llm-inner-frontier-composition/square/helpers/direct_sympy_checkpoint.py", line 203 in partial
+  File "/content/llm-inner-frontier-composition/square/helpers/direct_sympy_checkpoint.py", line 205 in component
+  File "/content/llm-inner-frontier-composition/square/helpers/direct_sympy_checkpoint.py", line 209 in rms_sum
+  File "/content/llm-inner-frontier-composition/square/helpers/direct_sympy_checkpoint.py", line 222 in <lambda>
+  File "/content/llm-inner-frontier-composition/square/helpers/direct_sympy_checkpoint.py", line 128 in producer
+  File "/content/llm-inner-frontier-composition/square/helpers/direct_sympy_checkpoint.py", line 221 in build
+  File "/content/llm-inner-frontier-composition/square/helpers/direct_sympy_checkpoint.py", line 128 in producer
+  File "/content/llm-inner-frontier-composition/square/helpers/direct_sympy_checkpoint.py", line 250 in norm
+  File "/content/llm-inner-frontier-composition/square/helpers/direct_sympy_checkpoint.py", line 322 in <lambda>
+  File "/content/llm-inner-frontier-composition/square/helpers/direct_sympy_checkpoint.py", line 172 in linear
+  File "/content/llm-inner-frontier-composition/square/helpers/direct_sympy_checkpoint.py", line 321 in <lambda>
+  File "/content/llm-inner-frontier-composition/square/helpers/direct_sympy_checkpoint.py", line 128 in producer
+  File "/content/llm-inner-frontier-composition/square/helpers/direct_sympy_checkpoint.py", line 321 in coordinate
+  File "/content/llm-inner-frontier-composition/square/helpers/direct_sympy_checkpoint.py", line 356 in main
+  File "/content/llm-inner-frontier-composition/square/helpers/direct_sympy_scan_cli.py", line 16 in <module>
+Compilation stopped: Compilation wall-clock budget exceeded; completedDependencies=16 lastDependency=model.layers.0.gated:0 closedConversions=33 redundantConversions=2 reusedConvertedRegions=28 visitedConversionNodes=207 earlyHalfProductsThisRun=19; no coordinate artifact admitted
+{"scanBackend": "equivalent-stdlib-v1", "sources": {"direct_sympy_scan_backend.py": "b49c61b8b7821c03766a39073a96f0d10b6e02881a60d1d89e3e78222551c62a", "direct_sympy_scan_cli.py": "a0100529f03b0e5e03753f18fcc5a79afbd43ffbe2e0bfae7227fd25c258e381"}, "elapsedSeconds": 658.528218898, "negativeSearches": 1378, "identifierScans": 726, "characters": 385517914922}

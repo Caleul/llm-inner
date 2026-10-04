@@ -1,0 +1,10 @@
+.....
+----------------------------------------------------------------------
+Ran 5 tests in 3.777s
+
+OK
+Bounded SiLU word parity: cases=21506 mismatches=0
+Completed square tandem certificate: cases=19458 rawNegativeZeroDifferences=1 sourceCopies=6->4
+Bounded SiLU word parity: cases=22530 mismatches=0
+Quadratic Half threshold preimage: cases=19458 mismatches=0 sourceCopies=7->6
+Bounded SiLU word parity: cases=19458 mismatches=0

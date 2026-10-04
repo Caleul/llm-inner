@@ -21,7 +21,7 @@ test('Equivalent scan backend preserves Unicode regex results and byte-identical
 test('SymPy savepoints preserve completed rounding frontiers and reject incompatible or corrupt state',
   {skip:!python},async()=>{
     const {stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_savepoints_test.py'],{timeout:120_000});
-    assert.match(stderr,/Ran 5 tests/);
+    assert.match(stderr,/Ran 7 tests/);
     assert.match(stderr,/OK/);
   });
 test('SymPy string substitution factors and simplifies each step with isolated IEEE branch proofs',

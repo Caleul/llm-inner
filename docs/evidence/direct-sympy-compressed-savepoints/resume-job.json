@@ -1,0 +1,40 @@
+{
+  "session": "llm-inner-frontier-composition",
+  "directory": "/content/llm-inner-frontier-composition/square-resume",
+  "stateDirectory": "/content/llm-inner-frontier-composition/square/state",
+  "runnerPID": 28981,
+  "compilerPID": 28982,
+  "lastObservation": {
+    "processes": "  28981 Ss         01:49 14988 /usr/bin/python3 /content/llm-inner-frontier-composition/square-resume/runner.py\n  28982 Rl         01:48 6385620 /usr/bin/python3 helpers/direct_sympy_scan_cli.py docs/evidence/direct-sympy-test-checkpoint /content/llm-inner-frontier-composition/square-resume/coordinate.expr --savepoint-directory /content/llm-inner-frontier-composition/square/state --resume --max-characters 17179869184 --max-seconds 1200 --workers 1 --memory-mib 98304\n",
+    "savedDependencies": 16,
+    "lastDependency": "model.layers.0.gated:0"
+  },
+  "compatibility": {
+    "numericSourceHashes": {
+      "direct_sympy_layer_bounds.py": "2f8d73caf53371f4bba44a605a91098580f5dcaf90b292c135830d862513dcff",
+      "direct_sympy_strings.py": "09669b4bcf5ab05dead40a2ad967f4ce433e4f904ed5919e87c31495434df7b8",
+      "direct_sympy_conversions.py": "5dbddacdf97b6e15c1caec546e3ac6372c69c13256470eeb4a1f306c920992be",
+      "direct_sympy_words.py": "de9a1201043d26afe688adcc034adaffb376ef2b7370d3f77ff612ba573c0fc4",
+      "direct_sympy_arithmetic.py": "84e2cfa110fb0523fd94c7565c9e3a761514654c586b1a9ca66e71efc0396544",
+      "direct_sympy_tandem.py": "b13d6b16e80f6f10f44260131dd595225bf783c11368325e67d7f5853db43d11",
+      "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+      "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+      "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+      "direct_sympy_silu.py": "0f4d9a7a17c38bc0ba8d8f7a28bbcfcc66ebe95c578e44b5a1f30a7d9c2affd8",
+      "direct_sympy_sqrt.py": "1bb02cbacdcd74c1db5cd0eb8829788d4f8a7159c4bbbac458fd8197bddb179e",
+      "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423"
+    },
+    "numericalAdapterASTSha256": "4772f96469ba9cc140b6cef9e7478d42a04b95f79c04a8f2d519a89f13a93a89",
+    "executionSource": "Frozen square compiler; strict original schema-3 identity is checked on restore. Numerical sources match current compiler. Storage-only schema-4 changes are not applied.",
+    "priorProducerParity": {
+      "cases": 60,
+      "comparisons": 360,
+      "mismatches": 0,
+      "producerFilesEvaluated": 16,
+      "coordinateAtPositionZeroVerified": false,
+      "scope": "Actual saved posterior normalization, gate/activation/up/gated and any completed hidden/final/output producers, position 0; verification-only reuse of immutable earlier subtrees. Does not prove the last-token next-token coordinate for variable sequence lengths.",
+      "elapsedSeconds": 298.76940397900034
+    }
+  },
+  "coordinateComplete": false
+}

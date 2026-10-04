@@ -1,0 +1,14 @@
+{
+  "artifact": "/Users/caleul/Documents/Work/Projects/llm-inner/artifacts/direct-sympy-square/gated.expr.gz",
+  "compressedBytes": 343176312,
+  "characters": 16131686432,
+  "sha256": "e531eede37afd1d2c0cc17fbc09b640067434b8199b4ee3635be44a3758a36f2",
+  "coordinateComplete": false,
+  "parity": {
+    "cases": 60,
+    "comparisons": 360,
+    "mismatches": 0,
+    "producerFiles": 16,
+    "scope": "Position-zero partial producers, including gated; not complete output or last-token parity."
+  }
+}

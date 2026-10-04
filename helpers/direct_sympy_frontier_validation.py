@@ -12,7 +12,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parent))
 if len(sys.argv)!=4:raise ValueError('Usage: frontier-validation state checkpoint inputs')
 from direct_sympy_strings import StringCompiler,syntax
 from direct_sympy_checkpoint import CheckpointStrings
-from direct_sympy_savepoints import canonical,digest_file,ProducerSavepoints
+from direct_sympy_savepoints import canonical,digest_file,ProducerSavepoints,read_expression
 original_search=re.search
 def fast_search(pattern,text,*args,**kwargs):
  if pattern==r'\bCASStableRegion[0-9]+\b' and 'CASStableRegion' not in text:return None
@@ -22,7 +22,7 @@ for text in ('Bits64(X1)','CASStableRegion1()','otherCASStableRegion1()'):
 started=time.monotonic();state=Path(sys.argv[1]);envelope=json.loads((state/'frontier.json').read_text());manifest=envelope['payload']
 assert hashlib.sha256(canonical(manifest)).hexdigest()==envelope['integrity'],'Manifest integrity mismatch'
 builder=CheckpointStrings(sys.argv[2],StringCompiler(max_characters=max([1048576,*[r['characters'] for r in manifest['records']]])));compiler=builder.compiler
-with ProducerSavepoints(state,builder,manifest['identity']['dimension']) as store:
+with ProducerSavepoints(state,builder,manifest['identity']['dimension'],compressed=manifest['identity'].get('objectEncoding')=='gzip') as store:
  assert manifest['identity']==store.identity,'Incompatible saved semantics, checkpoint, domain or reference platform'
 class LazyBranches(ast.NodeTransformer):
  def visit_Call(self,node):
@@ -33,7 +33,7 @@ class LazyBranches(ast.NodeTransformer):
   return result
 programs=[]
 for record in manifest['records']:
- path=state/'objects'/(record['digest']+'.expr');assert digest_file(path)==record['digest'];text=path.read_text();assert len(text)==record['characters']
+ text=read_expression(state,record);assert len(text)==record['characters']
  with patch('direct_sympy_strings.re.search',side_effect=fast_search):
   compact,regions=compiler.compact_regions(text,compiler.context(builder.domains),validate_context=False)
  assert not any(x in text for x in ('CASBoundary','CASNumericRegion','CASStableRegion','R16(','R32(','Silu16(','sqrt('))

@@ -9164,13 +9164,81 @@
       "directory": "/content/llm-inner-frontier-composition/square",
       "runnerPID": 20719,
       "observedCompilerPID": 21041,
-      "state": "running; 16 dependencies confirmed; gated producer emitted, parity pending",
+      "state": "terminal; wall-clock budget exceeded; 16 completed dependencies; producer parity passed",
       "limitCharacters": 17179869184,
       "gatedProducer": {
         "characters": 16131686432,
         "sha256": "e531eede37afd1d2c0cc17fbc09b640067434b8199b4ee3635be44a3758a36f2",
-        "parity": "pending"
+        "parity": "passed in 60 reference input matrices",
+        "localArtifact": "docs/evidence/direct-sympy-square-composition/local-gated-artifact.json"
+      },
+      "runs": [
+        {
+          "name": "direct_sympy_silu_test.py",
+          "exitCode": 0,
+          "seconds": 6.114040179999392
+        },
+        {
+          "name": "direct_sympy_conversions_test.py",
+          "exitCode": 0,
+          "seconds": 31.975947813999483
+        },
+        {
+          "name": "direct_sympy_savepoints_test.py",
+          "exitCode": 0,
+          "seconds": 3.969506202000048
+        },
+        {
+          "name": "direct_sympy_cuda_validation.py",
+          "exitCode": 0,
+          "seconds": 3.5951015590007955
+        },
+        {
+          "name": "compile",
+          "exitCode": 1,
+          "seconds": 660.3082384250001
+        },
+        {
+          "name": "parity",
+          "exitCode": 0,
+          "seconds": 307.4409520420004
+        }
+      ],
+      "producerParity": {
+        "cases": 60,
+        "comparisons": 360,
+        "mismatches": 0,
+        "scope": "Partial position-zero producers; coordinate incomplete."
       }
     }
+  },
+  "compressedSavepointValidation": {
+    "evidenceDirectory": "docs/evidence/direct-sympy-compressed-savepoints",
+    "schema": 4,
+    "python": {
+      "tests": 97,
+      "pass": 97,
+      "skip": 0
+    },
+    "node": {
+      "tests": 8,
+      "pass": 8,
+      "skip": 0
+    },
+    "savepointTests": {
+      "tests": 7,
+      "pass": 7
+    },
+    "build": "passed",
+    "benchmark": "docs/evidence/direct-sympy-compressed-savepoints/benchmark.json",
+    "bitContentDigestPreserved": true,
+    "crossProducerStorageDeduplication": true,
+    "numericalProofsRecertifiedPerProducerAndSession": true,
+    "corruptionRejectedBeforeModelMutation": true,
+    "recordedSizeCheckedBeforeRead": true,
+    "legacySchema3AutomaticRestore": "rejected; original frozen compiler may resume only under its original exact identity",
+    "broadRegression": "Prior completedSquareTandemValidation evidence preserved; not rerun for this storage-only change. Focused compiler/savepoint tests rerun.",
+    "coordinateComplete": false,
+    "continuedOriginalState": "docs/evidence/direct-sympy-compressed-savepoints/resume-job.json"
   }
 }

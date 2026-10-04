@@ -331,6 +331,7 @@ def main():
     parser.add_argument("--reference-boundaries",action="store_true",help="Keep numerical primitives for reference-string validation only")
     parser.add_argument("--savepoint-directory")
     parser.add_argument("--resume",action="store_true")
+    parser.add_argument("--compressed-savepoints",action="store_true",help="Store exact producer strings with streaming lossless gzip")
     parser.add_argument("--workers",type=int,default=1)
     parser.add_argument("--memory-mib",type=int,default=2048)
     parser.add_argument("--block-size",type=int,default=64)
@@ -349,7 +350,7 @@ def main():
         model=resources.enter_context(CheckpointStrings(args.checkpoint,compiler,lower_conversions=not args.reference_boundaries,parallel_budget=budget if args.workers>1 else None))
         if args.savepoint_directory:
             from direct_sympy_savepoints import ProducerSavepoints
-            store=resources.enter_context(ProducerSavepoints(args.savepoint_directory,model,args.dimension))
+            store=resources.enter_context(ProducerSavepoints(args.savepoint_directory,model,args.dimension,compressed=args.compressed_savepoints))
             if args.resume:print(f"Restored completed dependencies: {store.restore(model)}")
             elif (store.directory/'frontier.json').exists():raise ValueError("Existing savepoint requires --resume; refusing to overwrite")
             model.on_completed=store.save

@@ -30,6 +30,47 @@ class SavepointTests(unittest.TestCase):
     def first(self,model):return model.producer('fixture:root',lambda:'R16(R32(X1+X1/2.0))')
     def second(self,model):return model.producer('fixture:next',lambda:'R16(R32(('+self.first(model)+')*0.5))')
 
+    def test_compressed_producers_resume_identically_and_reject_corruption_before_mutation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);original=self.model(root)
+            with ProducerSavepoints(root/'state',original,0,compressed=True) as store:
+                original.on_completed=store.save;first=self.first(original)
+                record=json.loads((root/'state/frontier.json').read_text())['payload']['records'][0]
+                self.assertEqual(record['encoding'],'gzip')
+                path=saves.expression_path(root/'state',record)
+                self.assertEqual(path.suffix,'.gz')
+                self.assertEqual(record['digest'],hashlib.sha256(first.encode()).hexdigest())
+                self.assertEqual(saves.read_expression(root/'state',record),first)
+                with patch.object(saves,'save_expression',side_effect=AssertionError('rewrote compressed producer')):
+                    store.save(original)
+                    original.producer('fixture:alias',lambda:first)
+                self.assertEqual(len(list((root/'state/objects').glob('*.expr.gz'))),1)
+            original.on_completed=None
+            resumed=self.model(root)
+            with ProducerSavepoints(root/'state',resumed,0,compressed=True) as store:
+                self.assertEqual(store.restore(resumed),2)
+                self.assertEqual(self.second(resumed),self.second(original))
+            incompatible=self.model(root)
+            with ProducerSavepoints(root/'state',incompatible,0) as store:
+                with self.assertRaisesRegex(ValueError,'Incompatible'):store.restore(incompatible)
+            self.assertFalse(incompatible.memo)
+            path.write_bytes(path.read_bytes()[:-8])
+            fresh=self.model(root)
+            with ProducerSavepoints(root/'state',fresh,0,compressed=True) as store:
+                with self.assertRaisesRegex(ValueError,'integrity'):store.restore(fresh)
+            self.assertFalse(fresh.memo);self.assertFalse(fresh.conversions.closed_literals)
+
+    def test_compressed_utf8_is_chunked_exact_and_size_bounded(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);(root/'objects').mkdir()
+            text='X1 + '+('α'*600000)+' + X2'
+            digest=saves.save_expression(root/'objects',text,compressed=True)
+            record={'digest':digest,'characters':len(text),'encoding':'gzip'}
+            self.assertEqual(saves.read_expression(root,record),text)
+            self.assertLess(saves.expression_path(root,record).stat().st_size,len(text.encode())//20)
+            with self.assertRaisesRegex(ValueError,'length'):saves.read_expression(root,{**record,'characters':2})
+            with self.assertRaisesRegex(ValueError,'encoding'):saves.read_expression(root,{**record,'encoding':'unknown'})
+
     def test_continuous_and_resumed_rounding_strings_are_byte_identical(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);original=self.model(root)

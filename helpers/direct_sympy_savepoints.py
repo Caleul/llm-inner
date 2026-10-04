@@ -1,6 +1,7 @@
 """Atomic compiler-only frontiers; expressions remain separate mathematical strings."""
 import ast
 import fcntl
+import gzip
 import hashlib
 import json
 import os
@@ -41,17 +42,21 @@ def atomic(path,data):
         finally:temporary.unlink(missing_ok=True)
 
 
-def save_expression(directory,expression):
+def save_expression(directory,expression,*,compressed=False):
     """Hash/write literal strings in chunks without a full encoded copy."""
     h=hashlib.sha256()
     with tempfile.NamedTemporaryFile(dir=directory,delete=False) as stream:
         temporary=Path(stream.name)
         try:
-            for offset in range(0,len(expression),1024*1024):
-                block=expression[offset:offset+1024*1024].encode('utf-8')
-                h.update(block);stream.write(block)
+            encoded=gzip.GzipFile(fileobj=stream,mode='wb',compresslevel=1,mtime=0,filename='') if compressed else stream
+            try:
+                for offset in range(0,len(expression),1024*1024):
+                    block=expression[offset:offset+1024*1024].encode('utf-8')
+                    h.update(block);encoded.write(block)
+            finally:
+                if compressed:encoded.close()
             stream.flush();os.fsync(stream.fileno())
-            digest=h.hexdigest();target=Path(directory)/(digest+'.expr')
+            digest=h.hexdigest();target=Path(directory)/(digest+('.expr.gz' if compressed else '.expr'))
             if not target.exists():os.replace(temporary,target)
             descriptor=os.open(directory,os.O_RDONLY)
             try:os.fsync(descriptor)
@@ -60,8 +65,44 @@ def save_expression(directory,expression):
         finally:temporary.unlink(missing_ok=True)
 
 
+def expression_path(directory,record):
+    encoding=record.get('encoding','utf8')
+    if encoding not in ('utf8','gzip'):raise ValueError('Invalid saved expression encoding')
+    if not re.fullmatch('[0-9a-f]{64}',record['digest']):raise ValueError('Invalid savepoint producer identity')
+    return Path(directory)/'objects'/(record['digest']+('.expr.gz' if encoding=='gzip' else '.expr'))
+
+
+def read_expression(directory,record):
+    """Verify the uncompressed mathematical string, with bounded decoding.
+
+    Read at most the manifest's UTF8 upper bound before accepting a state;
+    corrupted or oversized compressed objects never mutate the model.
+    """
+    import codecs
+    path=expression_path(directory,record)
+    opener=gzip.open if record.get('encoding')=='gzip' else open
+    digest=hashlib.sha256();decoder=codecs.getincrementaldecoder('utf-8')();parts=[];characters=0;byte_count=0
+    size=record['characters']
+    if type(size) is not int or size<0:raise ValueError('Invalid saved expression size')
+    try:
+        with opener(path,'rb') as stream:
+            while block:=stream.read(1024*1024):
+                byte_count+=len(block)
+                if byte_count>4*size:raise ValueError('Savepoint expression integrity mismatch: length mismatch')
+                digest.update(block);text=decoder.decode(block);characters+=len(text)
+                if characters>size:raise ValueError('Savepoint expression integrity mismatch: length mismatch')
+                parts.append(text)
+            text=decoder.decode(b'',final=True);characters+=len(text);parts.append(text)
+    except (OSError,EOFError,UnicodeError) as error:raise ValueError('Savepoint expression integrity mismatch') from error
+    if digest.hexdigest()!=record['digest']:raise ValueError('Savepoint expression integrity mismatch')
+    if characters!=size:raise ValueError('Savepoint expression integrity mismatch: length mismatch')
+    return ''.join(parts)
+
+
 class ProducerSavepoints:
-    def __init__(self,directory,model,dimension):
+    def __init__(self,directory,model,dimension,*,compressed=False):
+        self.compressed=compressed
+        self._object_cache={}
         self.directory=Path(directory)
         self.directory.mkdir(parents=True,exist_ok=True)
         (self.directory/'objects').mkdir(exist_ok=True)
@@ -69,7 +110,7 @@ class ProducerSavepoints:
         try:
             fcntl.flock(self.lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
             self.identity={
-                'schema':3,'position':0,'dimension':dimension,'dtype':model.compiler.dtype,
+                'schema':4,'objectEncoding':'gzip' if compressed else 'utf8','position':0,'dimension':dimension,'dtype':model.compiler.dtype,
                 'lowerConversions':model.conversions is not None,
                 'domains':{k:[str(v.minimum),str(v.maximum),v.quantum,v.excludes_negative_zero] for k,v in model.domains.items()},
                 'checkpoint':{p.name:digest_file(p) for p in [model.directory/'config.json',*sorted(model.directory.glob('*.safetensors'))]},
@@ -88,12 +129,18 @@ class ProducerSavepoints:
         previous=getattr(self,'_record_cache',{}) if getattr(self,'_record_session',None) is model.conversions else {}
         for name,expression in model.memo.items():
             entry=previous.get(name)
-            if entry is not None and entry[0] is expression and (self.directory/'objects'/(entry[1]['digest']+'.expr')).exists():
+            if entry is not None and entry[0] is expression and expression_path(self.directory,entry[1]).exists():
                 # Immutable literal, same conversion session and input domain.
                 # Do not parse/sign every old producer after each new one.
                 record=entry[1].copy();records.append(record)
                 continue
-            digest=save_expression(self.directory/'objects',expression)
+            digest=self._object_cache.get(expression)
+            cached={'digest':digest,'encoding':'gzip' if self.compressed else 'utf8'}
+            if digest is None or not expression_path(self.directory,cached).exists():
+                digest=save_expression(self.directory/'objects',expression,compressed=self.compressed)
+                self._object_cache[expression]=digest
+            # Storage identity shares immutable bytes only. Numerical bounds
+            # and dtype are still certified below for each producer/session.
             session=model.conversions
             if session and expression in session.closed_literals:
                 bounds,kind,positive_zero=session.closed_literals[expression]
@@ -114,6 +161,7 @@ class ProducerSavepoints:
                 'noNegativeZero':session.no_negative_zero(node) if session else False,
                 'castsClosed':session is not None and session.key(node) in session.converted_regions})
         for record,expression in zip(records,model.memo.values()):
+            record['encoding']='gzip' if self.compressed else 'utf8'
             stored=model.conversions.selector_literals.get(expression) if model.conversions else None
             record['selectorArmBounds']=[] if stored is None else [None if b is None else [b.minimum.hex(),b.maximum.hex(),b.quantum] for b in stored[3]]
         payload={'identity':self.identity,'records':records,'events':model.events,'weightReads':model.read_weights}
@@ -135,9 +183,9 @@ class ProducerSavepoints:
             name=record['name'];digest=record['digest']
             if name in names or not re.fullmatch('[0-9a-f]{64}',digest):raise ValueError('Invalid savepoint producer identity')
             names.add(name)
-            target=self.directory/'objects'/(digest+'.expr')
-            if digest_file(target)!=digest:raise ValueError('Savepoint expression integrity mismatch')
-            expression=target.read_text()
+            if type(record['characters']) is not int or record['characters']<0 or record['characters']>model.compiler.max_characters:
+                raise ValueError('Savepoint expression exceeds current budget or recorded length')
+            expression=read_expression(self.directory,record)
             if len(expression)!=record['characters'] or len(expression)>model.compiler.max_characters:raise ValueError('Savepoint expression exceeds current budget or recorded length')
             if re.search(r'\bCAS(?:Boundary|StableRegion|NumericRegion)[0-9]+\b',expression):raise ValueError('Savepoint retains a compiler placeholder')
             # Grammar validation only: do not transform or simplify an arm.
@@ -173,4 +221,5 @@ class ProducerSavepoints:
         model.read_weights=payload['weightReads']
         self._record_cache={record['name']:(expression,record.copy()) for record,expression,_,_,_ in loaded}
         self._record_session=model.conversions
+        self._object_cache={expression:record['digest'] for record,expression,_,_,_ in loaded}
         return len(loaded)

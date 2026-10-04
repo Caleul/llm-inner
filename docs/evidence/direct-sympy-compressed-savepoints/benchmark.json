@@ -1,0 +1,21 @@
+{
+  "producer": "model.layers.0.gate:0",
+  "runs": [
+    {
+      "compressed": false,
+      "secondsIncludingFsync": 0.9294748750398867,
+      "storedBytes": 1316872194,
+      "uncompressedBytes": 1316872194,
+      "sha256": "9b6263ee0312ecd3bbee460baad57d8c22e651bba95179f50b565e640a5233d5"
+    },
+    {
+      "compressed": true,
+      "secondsIncludingFsync": 1.7977250829571858,
+      "storedBytes": 28011357,
+      "uncompressedBytes": 1316872194,
+      "sha256": "9b6263ee0312ecd3bbee460baad57d8c22e651bba95179f50b565e640a5233d5"
+    }
+  ],
+  "peakWorkflowRSSBytes": 2871820288,
+  "scope": "Local disk, same fully expanded producer string; verifies lossless storage, not complete coordinate parity."
+}
