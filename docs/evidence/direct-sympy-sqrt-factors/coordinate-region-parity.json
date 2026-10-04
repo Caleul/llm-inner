@@ -1,0 +1,12 @@
+{
+  "artifact": "docs/evidence/direct-sympy-sqrt-factors/coordinate-region.expr",
+  "sha256": "e9d6fbdf7265df3da213d9e67e30a212dcc62e2769fe1e6b8bf465cfd27cf768",
+  "characters": 21922,
+  "position": 0,
+  "tokens": 1,
+  "dimension": 2,
+  "cases": 1028,
+  "mismatches": 0,
+  "firstMismatches": [],
+  "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+}

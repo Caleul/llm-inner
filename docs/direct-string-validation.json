@@ -10596,5 +10596,30 @@
       "Variable-length last-token semantics",
       "All output coordinates"
     ]
+  },
+  "factoredRootValidation": {
+    "report": "docs/evidence/direct-sympy-sqrt-factors/validation.json",
+    "testMap": {
+      "helpers/direct_sympy_sqrt_test.py": "One exhaustive native test: 25167601 comparisons; no mismatches or midpoint ties; exact dyadic/SymPy factor coefficient derivation; 9 input occurrences instead of 13; unsupported-domain barriers retained.",
+      "helpers/direct_sympy_input_partitions_test.py": "Five tests; exact Half domain coverage and 576 actual emitted-region comparisons with fresh checkpoint; no mismatches.",
+      "test/direct-sympy-strings.test.ts": "20 named integrations pass, zero failures/skips; build passed. Region size assertion now requires reduction from 28282 without weakening parity.",
+      "helpers/direct_sympy_region_parity.py": "Readback of 14 actual saved expressions: 3640 native comparisons, zero mismatches; durable positive-region expression: 1028 additional comparisons, zero mismatches.",
+      "helpers/direct_sympy_partition_coalesce.py": "Strict obsolete-source rejection; current-source audit: 14 regions, 4 byte-distinct functions, 5 coalesced rectangles, exact coverage retained; final output refused while domain pending."
+    },
+    "wholeCoordinateLogicalCharacters": 4476543086072,
+    "positiveRegionCharacters": 21922,
+    "completeRegions": 14,
+    "coveredInputPatterns": 178115584,
+    "unfinishedInputPatterns": 3852610560,
+    "nativeRegionComparisons": 4668,
+    "mismatches": 0,
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "remaining": [
+      "Full admitted-domain coordinate artifact and native reference parity",
+      "Variable-length last-token semantics and parity",
+      "All output coordinates",
+      "Controlled Colab sequential versus parallel comparison for current source hashes"
+    ]
   }
 }

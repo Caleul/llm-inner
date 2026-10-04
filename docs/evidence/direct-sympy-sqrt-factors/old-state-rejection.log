@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_partition_coalesce.py", line 119, in <module>
+    if __name__=='__main__':main()
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_partition_coalesce.py", line 104, in main
+    if digest_file(Path(__file__).parent/name)!=digest:raise ValueError('Incompatible saved compiler source')
+ValueError: Incompatible saved compiler source

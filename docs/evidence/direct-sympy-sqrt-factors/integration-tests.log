@@ -1,0 +1,49 @@
+✔ Finite F32 cells and compile-time constants preserve native boundaries and signed zeros (2727.619375ms)
+✔ Proved unsigned masks remove redundant operations without changing overflow or numeric contexts (575.711333ms)
+✔ Stabilized branches share decisions, preserve lazy guards and emit flat input-only expressions (1901.588583ms)
+✔ Compiler-only literal sharing uses expanded costs and emits bit-exact input-only expressions (9338.1685ms)
+✔ SymPy factors typed word polynomials modulo 2^64 without reassociating floating operations (702.152417ms)
+✔ Parallel SymPy blocks preserve ordered F32 folds, branch contexts and memory admission (4274.421875ms)
+✔ Equivalent scan backend preserves Unicode regex results and byte-identical saved compiler states (2187.027958ms)
+✔ SymPy savepoints preserve completed rounding frontiers and reject incompatible or corrupt state (2106.457917ms)
+✔ SymPy string substitution factors and simplifies each step with isolated IEEE branch proofs (577.225667ms)
+✔ SymPy checkpoint working string is re-read and matches a freshly captured coordinate reference (5838.042667ms)
+✔ SymPy elementary conversion strings preserve native IEEE cells and composed boundaries (14214.763458ms)
+✔ Bounded SiLU arithmetic lowering matches every certified Half scalar and vector input (4135.778625ms)
+✔ Positive F32 square-root word lowering preserves all mantissas, parities and subnormals (749.526709ms)
+✔ IEEE sign projections preserve signed zero and reduce completed down-conversion strings (9241.231458ms)
+✔ Half interval precision removes redundant F32 rounding with native emitted-expression parity (857.749791ms)
+✖ Disjoint input partitions preserve complete Half coverage and emitted coordinate parity within each certified region (5515.309875ms)
+✔ Proved signed-zero updates preserve formats, branch isolation and native payloads (752.217416ms)
+✔ Constant IEEE cells eliminate whole producers and propagate compound branch contexts (1296.942ms)
+✔ Identical emitted coordinate bodies coalesce without losing coverage, signed zeros or lazy guards (1384.331875ms)
+✔ Budgeted coordinate continuation persists actual producers and rejects incompatible saved dimensions (15836.768875ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 19
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 84510.022583
+
+✖ failing tests:
+
+test at dist/test/direct-sympy-strings.test.js:139:1
+✖ Disjoint input partitions preserve complete Half coverage and emitted coordinate parity within each certified region (5515.309875ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Emitted full region coordinate: cases=576 mismatches=0 characters=28282 position=0 dimension=2 fullInputCoverage=false/. Input:
+
+  'Partition domain proof: HalfPatterns=63488 vectorPatterns=4030726144 lost=0 overlaps=0\n' +
+    'Emitted full region coordinate: cases=576 mismatches=0 characters=21922 position=0 dimension=2 fullInputCoverage=false\n' +
+    '{"region": "", "complete": false, "coveredInputPatterns": 0, "unfinishedInputPatterns": 4030726144, "attemptSeconds": 0}\n'
+
+      at TestContext.<anonymous> (file:///Users/caleul/Documents/Work/Projects/llm-inner/dist/test/direct-sympy-strings.test.js:144:12)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Partition domain proof: HalfPatterns=63488 vectorPatterns=4030726144 lost=0 overlaps=0\nEmitted full region coordinate: cases=576 mismatches=0 characters=21922 position=0 dimension=2 fullInputCoverage=false\n{"region": "", "complete": false, "coveredInputPatterns": 0, "unfinishedInputPatterns": 4030726144, "attemptSeconds": 0}\n',
+    expected: /Emitted full region coordinate: cases=576 mismatches=0 characters=28282 position=0 dimension=2 fullInputCoverage=false/,
+    operator: 'match',
+    diff: 'simple'
+  }

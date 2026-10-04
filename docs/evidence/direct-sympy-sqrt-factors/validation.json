@@ -1,0 +1,337 @@
+{
+  "scope": "Mathematical expression strings. JSON only stores evidence/state. Position 0, dimension 2; one-token region parity is not full-coordinate parity.",
+  "testMap": {
+    "helpers/direct_sympy_sqrt_test.py": "One exhaustive native test: 25167601 comparisons; no mismatches or midpoint ties; exact dyadic/SymPy factor coefficient derivation; 9 input occurrences instead of 13; unsupported-domain barriers retained.",
+    "helpers/direct_sympy_input_partitions_test.py": "Five tests; exact Half domain coverage and 576 actual emitted-region comparisons with fresh checkpoint; no mismatches.",
+    "test/direct-sympy-strings.test.ts": "20 named integrations pass, zero failures/skips; build passed. Region size assertion now requires reduction from 28282 without weakening parity.",
+    "helpers/direct_sympy_region_parity.py": "Readback of 14 actual saved expressions: 3640 native comparisons, zero mismatches; durable positive-region expression: 1028 additional comparisons, zero mismatches.",
+    "helpers/direct_sympy_partition_coalesce.py": "Strict obsolete-source rejection; current-source audit: 14 regions, 4 byte-distinct functions, 5 coalesced rectangles, exact coverage retained; final output refused while domain pending."
+  },
+  "wholeDomainCoordinate": {
+    "coordinateCompositionComplete": true,
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "stateRestored": false,
+    "position": 0,
+    "dimension": 2,
+    "expressionFormat": "Mathematical string",
+    "producerGrowth": [
+      {
+        "producer": "model.layers.0.pre:mean",
+        "storedCharacters": 329,
+        "expandedCharacters": 331,
+        "definitions": 1
+      },
+      {
+        "producer": "model.layers.0.pre:inverse",
+        "storedCharacters": 3794,
+        "expandedCharacters": 3796,
+        "definitions": 2
+      },
+      {
+        "producer": "model.layers.0.pre:0",
+        "storedCharacters": 363,
+        "expandedCharacters": 8243,
+        "definitions": 4
+      },
+      {
+        "producer": "model.layers.0.pre:1",
+        "storedCharacters": 363,
+        "expandedCharacters": 8243,
+        "definitions": 6
+      },
+      {
+        "producer": "model.layers.0.v:0",
+        "storedCharacters": 714,
+        "expandedCharacters": 66540,
+        "definitions": 8
+      },
+      {
+        "producer": "model.layers.0.context:0",
+        "storedCharacters": 21,
+        "expandedCharacters": 66546,
+        "definitions": 8
+      },
+      {
+        "producer": "model.layers.0.v:1",
+        "storedCharacters": 702,
+        "expandedCharacters": 66528,
+        "definitions": 10
+      },
+      {
+        "producer": "model.layers.0.context:1",
+        "storedCharacters": 21,
+        "expandedCharacters": 66534,
+        "definitions": 10
+      },
+      {
+        "producer": "model.layers.0.residual:0",
+        "storedCharacters": 824,
+        "expandedCharacters": 532978,
+        "definitions": 12
+      },
+      {
+        "producer": "model.layers.0.residual:1",
+        "storedCharacters": 832,
+        "expandedCharacters": 532986,
+        "definitions": 14
+      },
+      {
+        "producer": "model.layers.0.post:mean",
+        "storedCharacters": 385,
+        "expandedCharacters": 2132251,
+        "definitions": 15
+      },
+      {
+        "producer": "model.layers.0.post:inverse",
+        "storedCharacters": 4298,
+        "expandedCharacters": 19191076,
+        "definitions": 16
+      },
+      {
+        "producer": "model.layers.0.post:0",
+        "storedCharacters": 422,
+        "expandedCharacters": 42646627,
+        "definitions": 18
+      },
+      {
+        "producer": "model.layers.0.post:1",
+        "storedCharacters": 422,
+        "expandedCharacters": 42646659,
+        "definitions": 20
+      },
+      {
+        "producer": "model.layers.0.gate:0",
+        "storedCharacters": 730,
+        "expandedCharacters": 341173748,
+        "definitions": 22
+      },
+      {
+        "producer": "model.layers.0.activation:0",
+        "storedCharacters": 2170,
+        "expandedCharacters": 767641458,
+        "definitions": 23
+      },
+      {
+        "producer": "model.layers.0.up:0",
+        "storedCharacters": 714,
+        "expandedCharacters": 341173732,
+        "definitions": 25
+      },
+      {
+        "producer": "model.layers.0.gated:0",
+        "storedCharacters": 636,
+        "expandedCharacters": 3497032620,
+        "definitions": 27
+      },
+      {
+        "producer": "model.layers.0.hidden:0",
+        "storedCharacters": 295,
+        "expandedCharacters": 6994598467,
+        "definitions": 29
+      },
+      {
+        "producer": "model.layers.0.hidden:1",
+        "storedCharacters": 293,
+        "expandedCharacters": 6994598473,
+        "definitions": 31
+      },
+      {
+        "producer": "final:mean",
+        "storedCharacters": 385,
+        "expandedCharacters": 27978394203,
+        "definitions": 32
+      },
+      {
+        "producer": "final:inverse",
+        "storedCharacters": 4298,
+        "expandedCharacters": 251805548644,
+        "definitions": 33
+      },
+      {
+        "producer": "final:0",
+        "storedCharacters": 422,
+        "expandedCharacters": 559567885671,
+        "definitions": 35
+      },
+      {
+        "producer": "final:1",
+        "storedCharacters": 422,
+        "expandedCharacters": 559567885695,
+        "definitions": 37
+      },
+      {
+        "producer": "output:0:2",
+        "storedCharacters": 734,
+        "expandedCharacters": 4476543086072,
+        "definitions": 39
+      }
+    ],
+    "completedProducers": 25,
+    "compilerDefinitions": 39,
+    "storedCharacters": 30283,
+    "logicalCharacters": 4476543086072,
+    "compositionSeconds": 5.609511332993861,
+    "arithmeticEliminated": 90,
+    "stop": "Flat artifact budget exceeded; no complete result",
+    "paths": {
+      "splitContexts": 14,
+      "completedPaths": 1,
+      "contradictions": 0,
+      "selectorSelections": 99,
+      "CASPasses": 454,
+      "lastArm": {
+        "bodyCharacters": 12086426103,
+        "guardCharacters": 6878832457,
+        "decisions": 14,
+        "dependencyGrowth": [
+          {
+            "definition": 1,
+            "storedCharacters": 3794,
+            "expandedCharacters": 3796
+          },
+          {
+            "definition": 2,
+            "storedCharacters": 195,
+            "expandedCharacters": 3978
+          },
+          {
+            "definition": 4,
+            "storedCharacters": 195,
+            "expandedCharacters": 3978
+          },
+          {
+            "definition": 6,
+            "storedCharacters": 359,
+            "expandedCharacters": 16213
+          },
+          {
+            "definition": 8,
+            "storedCharacters": 353,
+            "expandedCharacters": 16207
+          },
+          {
+            "definition": 10,
+            "storedCharacters": 449,
+            "expandedCharacters": 65231
+          },
+          {
+            "definition": 12,
+            "storedCharacters": 453,
+            "expandedCharacters": 65235
+          },
+          {
+            "definition": 15,
+            "storedCharacters": 4298,
+            "expandedCharacters": 2352112
+          },
+          {
+            "definition": 16,
+            "storedCharacters": 640,
+            "expandedCharacters": 2482733
+          },
+          {
+            "definition": 18,
+            "storedCharacters": 644,
+            "expandedCharacters": 2482741
+          },
+          {
+            "definition": 22,
+            "storedCharacters": 918,
+            "expandedCharacters": 19862688
+          },
+          {
+            "definition": 23,
+            "storedCharacters": 359,
+            "expandedCharacters": 9931245
+          },
+          {
+            "definition": 25,
+            "storedCharacters": 401,
+            "expandedCharacters": 39725188
+          },
+          {
+            "definition": 27,
+            "storedCharacters": 295,
+            "expandedCharacters": 79515856
+          },
+          {
+            "definition": 29,
+            "storedCharacters": 293,
+            "expandedCharacters": 79515858
+          },
+          {
+            "definition": 32,
+            "storedCharacters": 4298,
+            "expandedCharacters": 2862574576
+          },
+          {
+            "definition": 33,
+            "storedCharacters": 486,
+            "expandedCharacters": 3021606447
+          },
+          {
+            "definition": 35,
+            "storedCharacters": 484,
+            "expandedCharacters": 3021606451
+          },
+          {
+            "definition": 37,
+            "storedCharacters": 369,
+            "expandedCharacters": 12086426103
+          }
+        ]
+      }
+    },
+    "seconds": 6.835910082969349,
+    "peakRSSBytes": 251035648,
+    "sourceSHA256": {
+      "direct_sympy_strings.py": "b195bd6ef9f2bc356a4819aead1262a328c0492b49485f473664415095b1f8be",
+      "direct_sympy_conversions.py": "ebefd9e23e2770c17fbfe352ba497eb69d5292afbaff1ee3922d743b49f80de4",
+      "direct_sympy_arithmetic.py": "973f8d8910fb0f59831e68379a950bf8f2952acdeeda75030ddb5d308674e890",
+      "direct_sympy_sqrt.py": "7dc19903deb72507852300162d19a2ea2f37204048c745a9ce2ed3df20a54eed"
+    }
+  },
+  "positiveRegion": {
+    "artifact": "docs/evidence/direct-sympy-sqrt-factors/coordinate-region.expr",
+    "sha256": "e9d6fbdf7265df3da213d9e67e30a212dcc62e2769fe1e6b8bf465cfd27cf768",
+    "characters": 21922,
+    "position": 0,
+    "tokens": 1,
+    "dimension": 2,
+    "cases": 1028,
+    "mismatches": 0,
+    "firstMismatches": [],
+    "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+  },
+  "partitionParity": {
+    "completedRegions": 14,
+    "coveredInputPatterns": 178115584,
+    "unfinishedInputPatterns": 3852610560,
+    "cases": 3640,
+    "mismatches": 0,
+    "fullCoordinateParity": false
+  },
+  "coalescing": {
+    "completeRegions": 14,
+    "coalescedRectangles": 5,
+    "distinctExpressions": 4,
+    "copiedBodyCharacters": 3410767,
+    "sharedBodyCharacters": 623657,
+    "coveredInputPatterns": 178115584,
+    "unfinishedInputPatterns": 3852610560,
+    "finalArtifactEmitted": false,
+    "finalParity": false
+  },
+  "coveragePercent": 4.4189453125,
+  "logicalSizeReductionPercent": 61.92396485406735,
+  "stateRestored": false,
+  "finalArtifactEmitted": false,
+  "finalParity": false,
+  "remaining": [
+    "Full admitted-domain coordinate artifact and native reference parity",
+    "Variable-length last-token semantics and parity",
+    "All output coordinates",
+    "Controlled Colab sequential versus parallel comparison for current source hashes"
+  ]
+}

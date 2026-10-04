@@ -164,7 +164,9 @@ test('Disjoint input partitions preserve complete Half coverage and emitted coor
     assert.match(stderr,/Ran 5 tests/);
     assert.match(stderr,/OK/);
     assert.match(stdout,/Partition domain proof: HalfPatterns=63488 vectorPatterns=4030726144 lost=0 overlaps=0/);
-    assert.match(stdout,/Emitted full region coordinate: cases=576 mismatches=0 characters=28282 position=0 dimension=2 fullInputCoverage=false/);
+    const artifact=stdout.match(/Emitted full region coordinate: cases=576 mismatches=0 characters=(\d+) position=0 dimension=2 fullInputCoverage=false/);
+    assert.ok(artifact,'Native reference parity of the emitted region is required');
+    assert.ok(Number(artifact[1])<28282,'Factored root lowering must reduce the previous emitted region size');
   });
 
 test('Proved signed-zero updates preserve formats, branch isolation and native payloads',

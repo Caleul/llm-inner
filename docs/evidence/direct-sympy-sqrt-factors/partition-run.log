@@ -1,0 +1,12 @@
+{"region": "", "complete": false, "coveredInputPatterns": 0, "unfinishedInputPatterns": 4030726144, "attemptSeconds": 6.103903167007957}
+{"region": "0", "complete": false, "coveredInputPatterns": 0, "unfinishedInputPatterns": 4030726144, "attemptSeconds": 6.123096666997299}
+{"region": "00", "complete": false, "coveredInputPatterns": 0, "unfinishedInputPatterns": 4030726144, "attemptSeconds": 6.116948333976325}
+{"region": "000", "complete": false, "coveredInputPatterns": 0, "unfinishedInputPatterns": 4030726144, "attemptSeconds": 6.078925832989626}
+{"region": "0000", "complete": false, "coveredInputPatterns": 0, "unfinishedInputPatterns": 4030726144, "attemptSeconds": 6.049442582996562}
+{"region": "00000", "complete": false, "coveredInputPatterns": 0, "unfinishedInputPatterns": 4030726144, "attemptSeconds": 12.00937766599236}
+{"region": "000000", "complete": true, "coveredInputPatterns": 62980096, "unfinishedInputPatterns": 3967746048, "attemptSeconds": 0.5711612919694744}
+{"region": "000001", "complete": false, "coveredInputPatterns": 62980096, "unfinishedInputPatterns": 3967746048, "attemptSeconds": 12.01134920900222}
+{"region": "0000010", "complete": true, "coveredInputPatterns": 94470144, "unfinishedInputPatterns": 3936256000, "attemptSeconds": 0.561613124969881}
+{"region": "0000011", "complete": true, "coveredInputPatterns": 125960192, "unfinishedInputPatterns": 3904765952, "attemptSeconds": 2.9668613339890726}
+{"region": "00001", "complete": false, "coveredInputPatterns": 125960192, "unfinishedInputPatterns": 3904765952, "attemptSeconds": 6.105897291970905}
+{"region": "000010", "complete": false, "coveredInputPatterns": 125960192, "unfinishedInputPatterns": 3904765952, "attemptSeconds": 4.538357207959052}

@@ -1,7 +1,8 @@
 """Positive finite F32 square root, returning the exact widened F32 value.
 
 A cubic/quadratic rational seed interpolates six Lobatto points, including
-both endpoints, before one ordered Newton correction.
+both endpoints. SymPy factors its numerator around its farthest real root
+and completes squares in both polynomials before one Newton correction.
 
 Mantissa/parity enumeration certifies all 2**24 normalized cases. Exact
 power-of-two scaling covers every F32 input exponent, including subnormals without output
@@ -13,6 +14,11 @@ from direct_sympy_conversions import FiniteSource,lower_finite_conversion
 
 NUMERATOR=(0.011776416813942576, 0.31267808731141555, 1.2350886571993487, 1.2247448161010575)
 DENOMINATOR=(0.08581640268346791, 0.6751122868867456, 1.0)
+# Derived from the exact dyadic coefficients above using SymPy at 70 digits,
+# then rounded once to F64. They are arithmetic coefficients, not responses.
+NUMERATOR_FACTORS=(0.011776416813942576,21.998623763386323,2.276291905582069,-0.45394614911071773)
+DENOMINATOR_FACTORS=(0.08581640268346791,3.933468811183358,-3.819392936648755)
+
 
 
 def supported(source,session):
@@ -25,11 +31,11 @@ def expand(source,session):
     raw='Bits64(X999999997)'
     m=f'Float64(U64Or(U64And({raw},4503599627370495),4607182418800017408))'
     z=f'(({m}) - 1.5)'
-    def horner(coefficients):
-        p=repr(coefficients[0])
-        for coefficient in coefficients[1:]:p=f'({repr(coefficient)} + ({z}) * ({p}))'
-        return p
-    seed=f'(({horner(NUMERATOR)}) / ({horner(DENOMINATOR)}))'
+    a,b,c,d=NUMERATOR_FACTORS
+    e,f,g=DENOMINATOR_FACTORS
+    numerator=f'(({repr(a)} * (({z}) + {repr(b)})) * ((({z}) + {repr(c)}) ** 2 + ({repr(d)})))'
+    denominator=f'({repr(e)} * ((({z}) + {repr(f)}) ** 2 + ({repr(g)})))'
+    seed=f'(({numerator}) / ({denominator}))'
     p=f'(0.5 * (({seed}) + ({m}) / ({seed})))'
     exponent=f'U64And(U64Shr({raw},52),2047)'
     parity=f'U64And(U64Add({exponent},1),1)'
