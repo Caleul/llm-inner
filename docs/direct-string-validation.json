@@ -10670,5 +10670,17 @@
       "All output coordinates",
       "Current-source controlled Colab sequential/parallel benchmark"
     ]
+  },
+  "partitionContinuation46Validation": {
+    "report": "docs/evidence/direct-sympy-region-continuation-46/validation.json",
+    "testMap": {
+      "helpers/direct_sympy_region_parity.py": "30 emitted regions: 7800 native reference comparisons, zero mismatches; newly emitted byte-distinct functions preserved with SHA.",
+      "helpers/direct_sympy_partition_coalesce.py": "Current-source identity audit; 30 regions, six expressions, nine coalesced rectangles; exact coverage preserved.",
+      "test/direct-sympy-strings.test.ts": "No production source change; previous 21-pass, zero-skip gate remains the source gate."
+    },
+    "coveredInputPatterns": 181559808,
+    "additionalCoveredInputPatterns": 2460160,
+    "finalArtifactEmitted": false,
+    "finalParity": false
   }
 }

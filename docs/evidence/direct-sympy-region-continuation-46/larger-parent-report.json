@@ -1,0 +1,15 @@
+{
+  "complete": false,
+  "inputDomains": {
+    "X1": [
+      -17049,
+      -16988
+    ],
+    "X2": [
+      -31743,
+      -23808
+    ]
+  },
+  "stop": "Region worker wall-clock budget exceeded",
+  "seconds": 45.02927866700338
+}
