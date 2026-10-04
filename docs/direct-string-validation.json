@@ -10352,5 +10352,27 @@
       "pass": 5,
       "fail": 0
     }
+  },
+  "logicalLiteralCostValidation": {
+    "expressionFormat": "Mathematical strings; compiler-only sharing restored by a bounded atomic literal writer. JSON below is diagnostic metadata only.",
+    "problem": "Short compiler markers understated the final cost and rejected reductions that were longer locally but smaller after substituting dependencies.",
+    "change": "Use the fully substituted character cost to select synchronized frontiers and certified SiLU candidates; keep resident-string allocation budgets distinct.",
+    "testMap": {
+      "helpers/direct_sympy_streaming_literals_test.py": "5 tests: logical-cost frontier comparisons, optional explicit measurement override, context restoration, budget-safe atomic emission and native signed-zero parity; optional complete position-zero composition against a fresh reference.",
+      "test/direct-sympy-strings.test.ts": "12 named integrations passed with configured checkpoint and Python, including all 11 existing integrations.",
+      "docs/evidence/direct-sympy-logical-cost/integration-tests.log": "Authoritative local named-integration output: 12 passed, 0 failed, 0 skipped.",
+      "nativeEmittedLiteralParity": "30722 comparisons, zero mismatches, exact F64 bits against native F32/F16 operations; actual saved small mathematical expression re-read before native compilation.",
+      "checkpointCompositionParity": "60 cases, zero mismatches; complete dimension 2 composition at position 0. Verification-only reuse of compiler definitions; expanded final Llama artifact not emitted."
+    },
+    "checkpointScope": "The adapter still compiles position zero. Multi-token test rows do not prove the last-token output for variable lengths.",
+    "stateCompatibility": "Existing strict source identities include the modified strings/conversions helpers; older producer states must be rejected before restoration. Shared literals require fresh model.memo and prohibit the legacy savepoint callback.",
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "pending": [
+      "Further global simplification of repeated dependencies and correlated decisions",
+      "Full input-only coordinate artifact and its read-back parity",
+      "Last-token semantics for variable sequence lengths",
+      "Remaining output dimensions"
+    ]
   }
 }

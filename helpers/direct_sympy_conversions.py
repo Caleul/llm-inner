@@ -831,9 +831,9 @@ class ConversionSession:
         # Equal selectors synchronize only after CAS has stabilized, and
         # selected arms never inherit whole-root numeric proofs.
         def expanded_size(candidate):
-            size=len(candidate)
+            size=self.compiler.expression_size(candidate)
             for token,text in protected.items():
-                size+=len(re.findall(r"\b"+token+r"\(\)",candidate))*(len(text)-len(token)-2)
+                size+=len(re.findall(r"\b"+token+r"\(\)",candidate))*(self.compiler.expression_size(text)-len(token)-2)
             return size
         views=self.selector_views(protected,pure_functions)
         # New leaf aliases in the views also own the original whole-producer
@@ -865,7 +865,10 @@ class ConversionSession:
         result=synchronized
         virtual=syntax(result);original=self.key(virtual)
         pattern=r"\bCASNumericRegion[0-9]+\(\)"
-        expanded=expanded_size(result)
+        # The logical measure chooses the smallest fully substituted form.
+        # Admission limits the string we actually restore in memory; using
+        # the logical cost here would defeat compiler-only sharing entirely.
+        expanded=len(result)+sum(len(re.findall(r"\b"+token+r"\(\)",result))*(len(text)-len(token)-2) for token,text in protected.items())
         self.numeric_envelopes.append((input_characters,len(compact),len(result),expanded,len(protected)))
         if expanded>self.compiler.max_characters:
             raise ValueError(f"Closed numeric envelope exceeds string budget before allocation: expandedCharacters={expanded} limit={self.compiler.max_characters}")
@@ -1041,10 +1044,10 @@ class ConversionSession:
                             if polynomial is not None:
                                 candidate_frontier=[]
                                 candidate=lower_tandem(polynomial[0],certificate,session.compiler,session.domains,integer_word_exact=True,sign_expression=polynomial[1],small_condition=condition,frontier=candidate_frontier,facts=session.branch_facts)
-                                # Fewer occurrences of the certified operand;
-                                # requiring a smaller compact result is also
-                                # conservative when its literal is restored.
-                                if len(candidate)<len(text):
+                                # Compare complete literal costs. A longer
+                                # compiler envelope can still contain fewer
+                                # copies of an expensive completed operand.
+                                if session.compiler.expression_size(candidate)<session.compiler.expression_size(text):
                                     text,frontier=candidate,candidate_frontier
                             session.remember_frontier_bounds(text,frontier)
                             rewritten=syntax(text);session.closed+=2

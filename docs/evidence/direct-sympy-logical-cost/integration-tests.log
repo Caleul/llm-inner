@@ -1,0 +1,20 @@
+✔ Compiler-only literal sharing uses expanded costs and emits bit-exact input-only expressions (35860.32ms)
+✔ SymPy factors typed word polynomials modulo 2^64 without reassociating floating operations (729.299875ms)
+✔ Parallel SymPy blocks preserve ordered F32 folds, branch contexts and memory admission (4533.355375ms)
+✔ Equivalent scan backend preserves Unicode regex results and byte-identical saved compiler states (2269.055916ms)
+✔ SymPy savepoints preserve completed rounding frontiers and reject incompatible or corrupt state (2098.947583ms)
+✔ SymPy string substitution factors and simplifies each step with isolated IEEE branch proofs (577.623583ms)
+✔ SymPy checkpoint working string is re-read and matches a freshly captured coordinate reference (5957.143209ms)
+✔ SymPy elementary conversion strings preserve native IEEE cells and composed boundaries (14734.881917ms)
+✔ Bounded SiLU arithmetic lowering matches every certified Half scalar and vector input (4093.87425ms)
+✔ Positive F32 square-root word lowering preserves all mantissas, parities and subnormals (890.814083ms)
+✔ IEEE sign projections preserve signed zero and reduce completed down-conversion strings (9211.3425ms)
+✔ Budgeted coordinate continuation persists actual producers and rejects incompatible saved dimensions (18444.568917ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 99708.790125

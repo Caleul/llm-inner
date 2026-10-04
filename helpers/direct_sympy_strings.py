@@ -287,6 +287,10 @@ class StringCompiler:
         self._regions=OrderedDict()
         self._region_characters=0
         self._region_roots={}
+        # Logical output cost may differ from the resident string length
+        # when an optional compiler-only registry shares completed literals.
+        # Allocation budgets continue to measure actual resident strings.
+        self.expression_size=len
 
     def synchronize(self,expression,domains,path=(),*,search_characters=1048576,max_lifts=256,max_nodes=262144,pure_functions=(),measure=None,completed_views=None):
         """Try synchronized control only after the mandatory CAS fixed point."""
@@ -295,7 +299,7 @@ class StringCompiler:
             self.synchronization_events.append((len(stable),None,len(stable),0,0,'search-budget'))
             return stable
         from direct_sympy_synchronize import propose
-        size=len if measure is None else measure
+        size=self.expression_size if measure is None else measure
         candidate,lifts,zips,status=propose(stable,max_lifts=max_lifts,max_nodes=max_nodes,pure_functions=pure_functions,completed_views=completed_views)
         if status=='proposed' and len(candidate)<=self.max_characters:
             from direct_sympy_words import simplify_words
