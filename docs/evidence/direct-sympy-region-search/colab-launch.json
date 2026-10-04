@@ -3,7 +3,7 @@
   "directory": "/content/llm-inner-frontier-composition/square-anchored",
   "launchOperation": "7134dd04-f46f-4736-9974-49f118fb08ff",
   "observationOperation": "ccfda09a-6e73-4366-8f94-854606960387",
-  "state": "Broker operation pending; remote runner not yet confirmed",
+  "state": "Launch observation failed: COLAB_TIMEOUT, Connection was lost, outcomeUnknown=true; no retry of launch",
   "numericalSource": "Frozen square schema-3 compiler, strict restore identity; only optional scanner helpers are updated",
   "baseline": {
     "completedDependencies": 16,
@@ -17,5 +17,12 @@
   "lastAuthoritativeObservation": {
     "directoryExists": false,
     "scope": "Read-only Colab status; does not establish whether queued launch will execute later"
-  }
+  },
+  "failure": {
+    "code": "COLAB_TIMEOUT",
+    "outcomeUnknown": true,
+    "phase": "Colab CLI initial /content setup; no compiler output observed"
+  },
+  "reconciliationOperation": "a3a7c38a-0f84-44fb-b2e5-f3bf093ba93c",
+  "reconciliationState": "Pending; inspect this operation before another launch"
 }
