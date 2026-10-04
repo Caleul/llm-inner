@@ -1,8 +1,9 @@
 """Positive finite F32 square root, returning the exact widened F32 value.
 
 A rational 5/5 expression interpolates eleven Lobatto points, including
-both endpoints. SymPy factors its numerator and denominator into one linear
-and two completed-square factors each. No refinement expression is duplicated.
+both endpoints. Its partial fractions use five copies of the normalized
+input, instead of the factored numerator/denominator's six. Their ordered
+F64 evaluation is certified at the final F32 boundary.
 
 Mantissa/parity enumeration certifies all 2**24 normalized cases. Exact
 power-of-two scaling covers every F32 input exponent, including subnormals without output
@@ -12,12 +13,16 @@ from direct_sympy_strings import syntax
 from direct_sympy_words import simplify_words
 from direct_sympy_conversions import FiniteSource,lower_finite_conversion
 
-# Eleven Lobatto samples of sqrt(z + 1.5), z in [-0.5, 0.5].
-# Solve the rational 5/5 interpolation at 100 digits, factor at 70 digits,
-# then round each coefficient once to F64. These are arithmetic constants.
-COEFFICIENT=13.367174015436346
-NUMERATOR_FACTORS=((18.5850823052632,), (1.664726217594286, -0.018266192753258678), (3.8155673924431786, -1.5052409305796959))
-DENOMINATOR_FACTORS=((72.88886838020784,), (1.8598888910976752, -0.05583983254715131), (5.991012208537561, -6.507242687878663))
+# Solve eleven Lobatto samples at 100 digits, find denominator roots at
+# 70 digits, then round residues/poles once to F64. Descending contribution
+# at z=0 fixes the evaluation order; another order can produce a midpoint.
+# These constants describe the rational function, not model responses.
+CONSTANT_TERM=13.367174015436346
+PARTIAL_FRACTIONS=((-779.0174377628756,72.88886838020784),
+    (-9.032202101157678,8.541941977833192),
+    (-1.0005960489978687,3.4400824392419294),
+    (-0.1852754751106736,2.096193424586035),
+    (-0.029292444172441905,1.6235843576093156))
 
 
 def supported(source,session):
@@ -30,14 +35,9 @@ def expand(source,session):
     raw='Bits64(X999999997)'
     m=f'Float64(U64Or(U64And({raw},4503599627370495),4607182418800017408))'
     z=f'(({m}) - 1.5)'
-    def product(factors):
-        parts=[f'(({z}) + {factor[0]!r})' if len(factor)==1 else f'((({z}) + {factor[0]!r}) ** 2 + ({factor[1]!r}))' for factor in factors]
-        result=parts[0]
-        for part in parts[1:]:result=f'(({result}) * ({part}))'
-        return result
-    numerator=product(NUMERATOR_FACTORS)
-    denominator=product(DENOMINATOR_FACTORS)
-    p=f'(({COEFFICIENT!r} * ({numerator})) / ({denominator}))'
+    p=repr(CONSTANT_TERM)
+    for residue,pole in PARTIAL_FRACTIONS:
+        p=f'(({p}) + ({residue!r} / (({z}) + {pole!r})))'
     exponent=f'U64And(U64Shr({raw},52),2047)'
     parity=f'U64And(U64Add({exponent},1),1)'
     p=f'({p}) * (1.0 + ({parity}) * 0.4142135623730951)'

@@ -1,0 +1,9 @@
+{
+  "integration": "colab",
+  "tool": "colab_cli",
+  "arguments": ["sessions"],
+  "operationId": "d507dc18-cb8f-4e73-82d8-bea7b7fac6fc",
+  "exitCode": 0,
+  "stdout": "[colab] Pruned 1 stale local session(s).\n[colab] No active sessions found on server.\n",
+  "gpuValidationThisVersion": false
+}

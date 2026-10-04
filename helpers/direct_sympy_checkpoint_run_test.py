@@ -33,16 +33,27 @@ class CheckpointRunTests(unittest.TestCase):
                 return json.loads(report.read_text())
             first=run('--max-characters',str(1024**2))
             self.assertEqual(first['failurePhase'],'compilation')
-            self.assertEqual(first['failureFrames'][-1]['function'],'substitute')
-            self.assertEqual(first['failureFrames'][-1]['file'],'direct_sympy_strings.py')
+            # Equivalent numerical recipes can hit either admission boundary.
+            # Check the rejected expansion, not a recipe-specific stack frame.
+            failure=first['failureFrames'][-1]
+            self.assertIn((failure['file'],failure['function']),{
+                ('direct_sympy_strings.py','substitute'),
+                ('direct_sympy_conversions.py','_close_completed')})
             self.assertFalse(first['coordinateComplete']);self.assertFalse(first['parityVerified'])
             self.assertEqual(first['persistedDependencies'],10)
             self.assertEqual(first['completedDependencies'],first['persistedDependencies'])
             stopped=first['stoppedExpansion']
             self.assertEqual(stopped['producers'],first['persistedDependencies'])
             self.assertGreater(stopped['producerCharacters'],0)
-            self.assertEqual(stopped['lastSubstitution'][0][-1],'budget')
-            self.assertGreater(stopped['lastSubstitution'][0][4],1024**2)
+            if failure['function']=='substitute':
+                self.assertEqual(stopped['lastSubstitution'][0][-1],'budget')
+                self.assertGreater(stopped['lastSubstitution'][0][4],1024**2)
+                self.assertIn('Substitution exceeds string budget before allocation',first['stop'])
+            else:
+                envelope=first['envelopes'][-1]
+                self.assertGreater(envelope['expandedCharacters'],1024**2)
+                self.assertLess(envelope['compactCharacters'],1024**2)
+                self.assertIn('Closed numeric envelope exceeds string budget before allocation',first['stop'])
             self.assertNotIn('Float64(',json.dumps(stopped))
             manifest=state/'frontier.json';initial=manifest.read_bytes()
             self.assertNotIn('output:0:2',[r['name'] for r in json.loads(initial)['payload']['records']])

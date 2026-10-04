@@ -1,0 +1,11 @@
+{
+  "characters": 935,
+  "sha256": "7f888a2ba82b9cc69e762c383d500f652385f67ac1b1d5f8c73a72e7b5ebadcd",
+  "inputOccurrences": 7,
+  "cases": 25167601,
+  "mismatches": 0,
+  "oddTies": 0,
+  "evenTies": 0,
+  "scope": "Positive finite F32 square root observed after F32 conversion; not whole-model parity",
+  "validationLog": "sqrt-test.log"
+}
