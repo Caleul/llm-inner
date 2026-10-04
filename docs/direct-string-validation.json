@@ -10577,5 +10577,24 @@
       "Variable-length last-token semantics",
       "All output coordinates"
     ]
+  },
+  "signedZeroUpdateValidation": {
+    "report": "docs/evidence/direct-sympy-zero-updates/validation.json",
+    "testMap": {
+      "helpers/direct_sympy_zero_updates_test.py": "Three tests: 656300 native comparisons of all finite Half patterns, both zero signs and F32 exponent/binade/subnormal boundaries; branch-local zero bounds; positive-zero and unknown/nonfinite barriers.",
+      "test/direct-sympy-strings.test.ts": "20 named integrations passed, zero failed/skipped; build passed.",
+      "helpers/direct_sympy_partition_coalesce.py": "Existing saved source identity rejected before output mutation."
+    },
+    "wholeCoordinateLogicalCharacters": 11756851964536,
+    "wholeCoordinateSizeReduced": false,
+    "stateRestored": false,
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "remaining": [
+      "Reduce repeated normalization dependencies and repeated guard evaluations",
+      "Emit a complete coordinate over its entire admitted domain and verify bit-exact reference parity",
+      "Variable-length last-token semantics",
+      "All output coordinates"
+    ]
   }
 }

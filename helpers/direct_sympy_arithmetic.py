@@ -33,6 +33,8 @@ def simplify_arithmetic(expression,session):
             node=self.generic_visit(node)
             a,b=session.constant(node.left),session.constant(node.right)
             if isinstance(node.op,ast.Add):
+                if b==0 and math.copysign(1,b)<0 and session.bounds(node.left) is not None:return self.accept(node,node.left)
+                if a==0 and math.copysign(1,a)<0 and session.bounds(node.right) is not None:return self.accept(node,node.right)
                 if b==0 and math.copysign(1,b)>0 and session.no_negative_zero(node.left):return self.accept(node,node.left)
                 if a==0 and math.copysign(1,a)>0 and session.no_negative_zero(node.right):return self.accept(node,node.right)
             if isinstance(node.op,ast.Mult):

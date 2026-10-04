@@ -1,0 +1,46 @@
+{
+  "scope": "Finite-format proofs for signed-zero updates; full-domain coordinate still unfinished. Expressions use mathematical strings; JSON is validation metadata.",
+  "testMap": {
+    "helpers/direct_sympy_zero_updates_test.py": "Three tests: 656300 native comparisons of all finite Half patterns, both zero signs and F32 exponent/binade/subnormal boundaries; branch-local zero bounds; positive-zero and unknown/nonfinite barriers.",
+    "test/direct-sympy-strings.test.ts": "20 named integrations passed, zero failed/skipped; build passed.",
+    "helpers/direct_sympy_partition_coalesce.py": "Existing saved source identity rejected before output mutation."
+  },
+  "wholeDomainCoordinate": {
+    "baseline": "docs/evidence/direct-sympy-constant-cells/coordinate-run.json",
+    "previousLogicalCharacters": 11756851964536,
+    "logicalCharacters": 11756851964536,
+    "previousResidentCharacters": 34979,
+    "residentCharacters": 34979,
+    "sizeReduced": false,
+    "completedProducers": 25,
+    "sourceSHA256": {
+      "direct_sympy_strings.py": "b195bd6ef9f2bc356a4819aead1262a328c0492b49485f473664415095b1f8be",
+      "direct_sympy_conversions.py": "ebefd9e23e2770c17fbfe352ba497eb69d5292afbaff1ee3922d743b49f80de4",
+      "direct_sympy_arithmetic.py": "973f8d8910fb0f59831e68379a950bf8f2952acdeeda75030ddb5d308674e890"
+    },
+    "stateRestored": false
+  },
+  "smallRegion": {
+    "inputHalfRanks": [
+      -2,
+      2
+    ],
+    "inputValueRange": [
+      -1.1920928955078125e-07,
+      1.1920928955078125e-07
+    ],
+    "previousLogicalCharacters": 7780503,
+    "logicalCharacters": 7779511,
+    "emitted": false,
+    "parityVerified": false
+  },
+  "stateCompatibility": "Arithmetic and conversion module hashes changed. Previous producer proof tables are not reused; strict old-state rejection remains. Previously emitted functions are historical artifacts with their own SHA/parity evidence.",
+  "finalArtifactEmitted": false,
+  "finalParity": false,
+  "remaining": [
+    "Reduce repeated normalization dependencies and repeated guard evaluations",
+    "Emit a complete coordinate over its entire admitted domain and verify bit-exact reference parity",
+    "Variable-length last-token semantics",
+    "All output coordinates"
+  ]
+}

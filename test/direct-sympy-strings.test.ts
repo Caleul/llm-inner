@@ -167,6 +167,14 @@ test('Disjoint input partitions preserve complete Half coverage and emitted coor
     assert.match(stdout,/Emitted full region coordinate: cases=576 mismatches=0 characters=28282 position=0 dimension=2 fullInputCoverage=false/);
   });
 
+test('Proved signed-zero updates preserve formats, branch isolation and native payloads',
+  {skip:!python},async()=>{
+    const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_zero_updates_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 3 tests/);
+    assert.match(stderr,/OK/);
+    assert.match(stdout,/Zero-update native parity: cases=656300 mismatches=0/);
+  });
+
 test('Constant IEEE cells eliminate whole producers and propagate compound branch contexts',
   {skip:!python},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_constant_cells_test.py'],{timeout:120_000,maxBuffer:1024*1024});

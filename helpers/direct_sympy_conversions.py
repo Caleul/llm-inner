@@ -443,6 +443,12 @@ class ConversionSession:
         if self.bounds(node.left) is None or self.bounds(node.right) is None:return None
         if isinstance(node.op,ast.Pow) and right==2 and a=="half":return "f32"
         if isinstance(node.op,(ast.Add,ast.Sub)):
+            # A proved +/-zero can change the zero sign, but cannot move a
+            # finite Half/F32 operand outside its own representable format.
+            # Keep the sum/subtraction; remove only the redundant casts.
+            ab,bb=self.bounds(node.left),self.bounds(node.right)
+            if bb.minimum==bb.maximum==0 and a in ('half','f32'):return a
+            if ab.minimum==ab.maximum==0 and b in ('half','f32'):return b
             if left==0 and b is not None:return b
             if right==0 and a is not None:return a
             if isinstance(node.op,ast.Sub) and self.key(node.left)==self.key(node.right):return "half"
