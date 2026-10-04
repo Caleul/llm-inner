@@ -6,9 +6,80 @@ through mandatory factor/simplify under the caller's numeric context.
 """
 import ast
 import re
+import sympy as sp
 from direct_sympy_strings import syntax
 
 MASK=(1<<64)-1
+
+
+def factor_word_polynomial(node,widths=None):
+    """Factor an integer polynomial in Z/(2**64), with SymPy.
+
+    Only U64Add/U64Mul are opened. Other typed words are independent
+    polynomial leaves: floating arithmetic, masks, shifts and decisions
+    are never reassociated or distributed. Integer polynomial identities
+    remain true modulo 2**64 even when intermediate products overflow.
+    """
+    leaves={};originals={};counts={};operations=0
+    def encode(child):
+        nonlocal operations
+        value=integer(child)
+        if value is not None:return sp.Integer(value),1
+        if isinstance(child,ast.Call) and child.func.id in ('U64Add','U64Mul') and len(child.args)==2:
+            operations+=1
+            if operations>128:raise ValueError('Word polynomial search budget')
+            (a,ta),(b,tb)=map(encode,child.args)
+            terms=ta+tb if child.func.id=='U64Add' else ta*tb
+            if terms>1024:raise ValueError('Word polynomial expansion search budget')
+            return (sp.Add(a,b,evaluate=False) if child.func.id=='U64Add' else sp.Mul(a,b,evaluate=False)),terms
+        if word_width(child,widths) is None:raise ValueError('Unsigned word proof required')
+        key=ast.dump(child);symbol=leaves.get(key)
+        if symbol is None:
+            symbol=sp.Symbol('WordFactor'+str(len(leaves)),integer=True)
+            leaves[key]=symbol;originals[symbol]=child
+        counts[symbol]=counts.get(symbol,0)+1
+        return symbol,1
+    if not isinstance(node,ast.Call) or node.func.id not in ('U64Add','U64Mul'):return node
+    try:value,_=encode(node)
+    except ValueError:return node
+    # Distinct opaque words cannot yield a common symbolic factor. Avoid
+    # asking CAS to search their interiors, especially floating boundaries.
+    if not any(count>1 for count in counts.values()):return node
+    factored=sp.factor(value)
+    simplified=sp.simplify(factored)
+    candidate=sp.factor(simplified)
+    def call(name,a,b):return ast.Call(func=ast.Name(id=name,ctx=ast.Load()),args=[a,b],keywords=[])
+    def decode(value):
+        if value in originals:return originals[value]
+        if value.is_Integer:return ast.Constant(value=int(value)&MASK)
+        if value.func in (sp.Add,sp.Mul):
+            args=list(map(decode,value.args));result=args.pop(0)
+            for operand in args:result=call('U64Add' if value.func==sp.Add else 'U64Mul',result,operand)
+            return result
+        if value.func==sp.Pow and value.exp.is_Integer and 0<=int(value.exp)<=128:
+            base=decode(value.base);exponent=int(value.exp);result=ast.Constant(value=1)
+            while exponent:
+                if exponent&1:result=base if integer(result)==1 else call('U64Mul',result,base)
+                exponent>>=1
+                if exponent:base=call('U64Mul',base,base)
+            return result
+        raise ValueError('Non-polynomial CAS result')
+    try:replacement=decode(candidate)
+    except ValueError:return node
+    return replacement if len(ast.unparse(replacement))<len(ast.unparse(node)) else node
+
+
+def factor_word_polynomials(node):
+    """Apply the modular proof at every reachable integer subtree."""
+    changes=0
+    class Polynomials(ast.NodeTransformer):
+        def visit_Call(self,child):
+            nonlocal changes
+            child=self.generic_visit(child);replacement=factor_word_polynomial(child)
+            if replacement is not child:changes+=1
+            return replacement
+    result=Polynomials().visit(node)
+    return result,changes
 
 
 def integer(node):

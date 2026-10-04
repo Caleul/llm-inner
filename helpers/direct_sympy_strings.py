@@ -276,6 +276,7 @@ class StringCompiler:
         self.dtype, self.max_characters, self.max_passes = dtype,max_characters,max_passes
         self.events = []
         self.substitution_events = []
+        self.word_factor_events=[]
         self.failed_substitution = None
         self.budget_events=[]
         self.branch_facts=BranchFacts()
@@ -418,6 +419,14 @@ class StringCompiler:
         current = expression
         for iteration in range(self.max_passes):
             node = syntax(current)
+            # This integer proof is valid in every arm, including guards.
+            # Floating expressions remain opaque polynomial leaves.
+            from direct_sympy_words import factor_word_polynomials
+            node,word_changes=factor_word_polynomials(node)
+            if word_changes:
+                word_candidate=ast.unparse(node)
+                self.word_factor_events.append((path,iteration,len(current),len(word_candidate)))
+                current=word_candidate
             if not (isinstance(node,ast.Call) and node.func.id=="Piecewise"):
                 compiler = self
                 class NestedBranches(ast.NodeTransformer):

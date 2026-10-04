@@ -1,0 +1,5 @@
+{
+  "exitCode": 0,
+  "stdout": "Modular word factor parity: comparisons=278568 mismatches=0\n",
+  "stderr": ".....\n----------------------------------------------------------------------\nRan 5 tests in 1.222s\n\nOK\n"
+}

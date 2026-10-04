@@ -26,7 +26,9 @@ def expansion_snapshot(model):
         'producers':len(model.memo),
         'registeredRegionCharacters':model.compiler._region_characters,
         'lastSubstitution':model.compiler.substitution_events[-1:],
-        'lastBudgetEnvelope':model.compiler.budget_events[-1:]}
+        'lastBudgetEnvelope':model.compiler.budget_events[-1:],
+        'wordFactorPasses':len(model.compiler.word_factor_events),
+        'lastWordFactors':model.compiler.word_factor_events[-5:]}
     if model.conversions is not None:
         snapshot['closedLiteralCharacters']=model.conversions.closed_literal_characters
     statm=Path('/proc/self/statm')

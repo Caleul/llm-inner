@@ -4,6 +4,13 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 
 const python=process.env.LLM_INNER_DIRECT_PYTHON;
+test('SymPy factors typed word polynomials modulo 2^64 without reassociating floating operations',
+  {skip:!python},async()=>{
+    const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_word_factor_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 5 tests/);
+    assert.match(stderr,/OK/);
+    assert.match(stdout,/Modular word factor parity: comparisons=278568 mismatches=0/);
+  });
 test('Parallel SymPy blocks preserve ordered F32 folds, branch contexts and memory admission',
   {skip:!python},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_parallel_test.py'],{timeout:120_000,maxBuffer:1024*1024});

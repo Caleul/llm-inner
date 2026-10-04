@@ -1,0 +1,286 @@
+{
+  "report.json": {
+    "steps": [
+      {
+        "name": "word-gates",
+        "exitCode": 0,
+        "seconds": 1.7082572019999134
+      },
+      {
+        "name": "controller-gates",
+        "exitCode": 0,
+        "seconds": 35.78015481300008
+      },
+      {
+        "name": "identity-gate",
+        "exitCode": 0,
+        "seconds": 2.323918136999964
+      },
+      {
+        "name": "baseline-compile",
+        "exitCode": 1,
+        "seconds": 30.679804815999887
+      },
+      {
+        "name": "baseline-parity",
+        "exitCode": 0,
+        "seconds": 10.53763119300038
+      },
+      {
+        "name": "factored-compile",
+        "exitCode": 1,
+        "seconds": 31.17296773199996
+      },
+      {
+        "name": "factored-parity",
+        "exitCode": 0,
+        "seconds": 10.549713214999429
+      }
+    ],
+    "terminal": true
+  },
+  "baseline-diagnostic.json": {
+    "coordinateComplete": false,
+    "parityVerified": false,
+    "resumeCompatible": false,
+    "restoredDependencies": 0,
+    "completedDependencies": 14,
+    "envelopes": [],
+    "budgets": {
+      "characters": 134217728,
+      "seconds": 600,
+      "addressSpaceBytes": 25769803776
+    },
+    "stop": "Substitution exceeds string budget before allocation: variable=X999999999 templateCharacters=88705800 replacementCharacters=88705810 occurrences=1 estimatedCharacters=177411604 limit=134217728",
+    "failurePhase": "compilation",
+    "failureFrames": [
+      {
+        "file": "direct_sympy_checkpoint.py",
+        "function": "build_hidden",
+        "line": 316
+      },
+      {
+        "file": "<equivalent consuming projection>",
+        "function": "linear",
+        "line": 11
+      },
+      {
+        "file": "direct_sympy_checkpoint.py",
+        "function": "<lambda>",
+        "line": 317
+      },
+      {
+        "file": "<equivalent producer envelope>",
+        "function": "producer",
+        "line": 4
+      },
+      {
+        "file": "direct_sympy_checkpoint.py",
+        "function": "<lambda>",
+        "line": 317
+      },
+      {
+        "file": "direct_sympy_checkpoint.py",
+        "function": "gated",
+        "line": 259
+      },
+      {
+        "file": "<equivalent producer envelope>",
+        "function": "producer",
+        "line": 4
+      },
+      {
+        "file": "direct_sympy_checkpoint.py",
+        "function": "<lambda>",
+        "line": 260
+      },
+      {
+        "file": "<equivalent consuming projection>",
+        "function": "linear",
+        "line": 13
+      },
+      {
+        "file": "direct_sympy_scan_backend.py",
+        "function": "consuming_reduction",
+        "line": 197
+      },
+      {
+        "file": "direct_sympy_checkpoint.py",
+        "function": "op",
+        "line": 121
+      },
+      {
+        "file": "direct_sympy_strings.py",
+        "function": "substitute",
+        "line": 559
+      }
+    ],
+    "newDependencies": 14,
+    "lastDependency": "model.layers.0.post:1",
+    "seconds": 27.90481023600023,
+    "peakRSSBytes": 1180028928,
+    "persistedDependencies": 14,
+    "lastPersistedDependency": "model.layers.0.post:1"
+  },
+  "factored-diagnostic.json": {
+    "coordinateComplete": false,
+    "parityVerified": false,
+    "resumeCompatible": false,
+    "restoredDependencies": 0,
+    "completedDependencies": 14,
+    "envelopes": [],
+    "budgets": {
+      "characters": 134217728,
+      "seconds": 600,
+      "addressSpaceBytes": 25769803776
+    },
+    "stop": "Substitution exceeds string budget before allocation: variable=X999999999 templateCharacters=88705800 replacementCharacters=88705810 occurrences=1 estimatedCharacters=177411604 limit=134217728",
+    "failurePhase": "compilation",
+    "failureFrames": [
+      {
+        "file": "direct_sympy_checkpoint.py",
+        "function": "build_hidden",
+        "line": 316
+      },
+      {
+        "file": "<equivalent consuming projection>",
+        "function": "linear",
+        "line": 11
+      },
+      {
+        "file": "direct_sympy_checkpoint.py",
+        "function": "<lambda>",
+        "line": 317
+      },
+      {
+        "file": "<equivalent producer envelope>",
+        "function": "producer",
+        "line": 4
+      },
+      {
+        "file": "direct_sympy_checkpoint.py",
+        "function": "<lambda>",
+        "line": 317
+      },
+      {
+        "file": "direct_sympy_checkpoint.py",
+        "function": "gated",
+        "line": 259
+      },
+      {
+        "file": "<equivalent producer envelope>",
+        "function": "producer",
+        "line": 4
+      },
+      {
+        "file": "direct_sympy_checkpoint.py",
+        "function": "<lambda>",
+        "line": 260
+      },
+      {
+        "file": "<equivalent consuming projection>",
+        "function": "linear",
+        "line": 13
+      },
+      {
+        "file": "direct_sympy_scan_backend.py",
+        "function": "consuming_reduction",
+        "line": 197
+      },
+      {
+        "file": "direct_sympy_checkpoint.py",
+        "function": "op",
+        "line": 121
+      },
+      {
+        "file": "direct_sympy_strings.py",
+        "function": "substitute",
+        "line": 568
+      }
+    ],
+    "stoppedExpansion": {
+      "producerCharacters": 223774564,
+      "producers": 14,
+      "registeredRegionCharacters": 223576762,
+      "lastSubstitution": [
+        [
+          "X999999999",
+          88705800,
+          88705810,
+          1,
+          177411604,
+          null,
+          "budget"
+        ]
+      ],
+      "lastBudgetEnvelope": [
+        [
+          126,
+          122,
+          177411600,
+          2,
+          1,
+          false
+        ]
+      ],
+      "wordFactorPasses": 0,
+      "lastWordFactors": [],
+      "closedLiteralCharacters": 226991875,
+      "addressSpaceBytes": 4620615680,
+      "residentBytes": 1180729344
+    },
+    "newDependencies": 14,
+    "lastDependency": "model.layers.0.post:1",
+    "seconds": 28.39517895500012,
+    "peakRSSBytes": 1180176384,
+    "persistedDependencies": 14,
+    "lastPersistedDependency": "model.layers.0.post:1"
+  },
+  "processes": [],
+  "baselineFrontier": {
+    "records": 14,
+    "last": "model.layers.0.post:1",
+    "characters": {
+      "model.layers.0.pre:mean": 329,
+      "model.layers.0.pre:inverse": 5821,
+      "model.layers.0.pre:0": 12289,
+      "model.layers.0.pre:1": 12289,
+      "model.layers.0.v:0": 98906,
+      "model.layers.0.context:0": 98912,
+      "model.layers.0.v:1": 98894,
+      "model.layers.0.context:1": 98900,
+      "model.layers.0.residual:0": 791904,
+      "model.layers.0.residual:1": 791912,
+      "model.layers.0.post:mean": 3167953,
+      "model.layers.0.post:inverse": 41184933,
+      "model.layers.0.post:0": 88705745,
+      "model.layers.0.post:1": 88705777
+    }
+  },
+  "factoredFrontier": {
+    "records": 14,
+    "last": "model.layers.0.post:1",
+    "characters": {
+      "model.layers.0.pre:mean": 329,
+      "model.layers.0.pre:inverse": 5821,
+      "model.layers.0.pre:0": 12289,
+      "model.layers.0.pre:1": 12289,
+      "model.layers.0.v:0": 98906,
+      "model.layers.0.context:0": 98912,
+      "model.layers.0.v:1": 98894,
+      "model.layers.0.context:1": 98900,
+      "model.layers.0.residual:0": 791904,
+      "model.layers.0.residual:1": 791912,
+      "model.layers.0.post:mean": 3167953,
+      "model.layers.0.post:inverse": 41184933,
+      "model.layers.0.post:0": 88705745,
+      "model.layers.0.post:1": 88705777
+    }
+  },
+  "word-gates.log": "....\n----------------------------------------------------------------------\nRan 4 tests in 1.251s\n\nOK\nModular word factor parity: comparisons=278568 mismatches=0\n",
+  "controller-gates.log": "..\n----------------------------------------------------------------------\nRan 2 tests in 35.701s\n\nOK\nPersistent checkpoint run: {\"restored\": 10, \"persisted\": 11, \"identityRejectionBeforeMutation\": true, \"coordinateComplete\": false}\n",
+  "identity-gate.log": "{\"old20RecordStateRejectedBeforeLoading\": true, \"oldManifestUnchanged\": true, \"newCompilationIsFresh\": true}\n",
+  "baseline-parity.log": "791912, \"validationEnvelopeCharacters\": 840, \"sha256\": \"332e23c1a795e4bbe131e6e95dc96ea36d498849f969a1944de5ab6c21187305\"}\n{\"producer\": \"model.layers.0.post:mean\", \"characters\": 3167953, \"validationEnvelopeCharacters\": 385, \"sha256\": \"7bb2863bca8b8adc8bf2cdd5c937b55dc12932512e507ed91b69d6b153a0bb47\"}\n{\"producer\": \"model.layers.0.post:inverse\", \"characters\": 41184933, \"validationEnvelopeCharacters\": 1752, \"sha256\": \"704576992f66fdd1e797bb0a506b907ea3b64e819e7720714b2e13421a691a6e\"}\n{\"producer\": \"model.layers.0.post:0\", \"characters\": 88705745, \"validationEnvelopeCharacters\": 422, \"sha256\": \"51fe6703957c965c748ea739b49205a107e1d8f27a28608a818629b4a5ee1038\"}\n{\"producer\": \"model.layers.0.post:1\", \"characters\": 88705777, \"validationEnvelopeCharacters\": 422, \"sha256\": \"36c98860b8356a7cfdf0882458e3c5c1d999988aa553720ecd99f426acb875f5\"}\n\nLoading weights:   0%|          | 0/12 [00:00<?, ?it/s]\nLoading weights: 100%|██████████| 12/12 [00:00<00:00, 9972.59it/s]\n{\"cases\": 60, \"comparisons\": 120, \"mismatches\": 0, \"producerFilesEvaluated\": 14, \"coordinateAtPositionZeroVerified\": false, \"scope\": \"Actual saved posterior normalization, gate/activation/up/gated and any completed hidden/final/output producers, position 0; verification-only reuse of immutable earlier subtrees. Does not prove the last-token next-token coordinate for variable sequence lengths.\", \"elapsedSeconds\": 3.0537538930002484}\n",
+  "factored-parity.log": " 791912, \"validationEnvelopeCharacters\": 840, \"sha256\": \"332e23c1a795e4bbe131e6e95dc96ea36d498849f969a1944de5ab6c21187305\"}\n{\"producer\": \"model.layers.0.post:mean\", \"characters\": 3167953, \"validationEnvelopeCharacters\": 385, \"sha256\": \"7bb2863bca8b8adc8bf2cdd5c937b55dc12932512e507ed91b69d6b153a0bb47\"}\n{\"producer\": \"model.layers.0.post:inverse\", \"characters\": 41184933, \"validationEnvelopeCharacters\": 1752, \"sha256\": \"704576992f66fdd1e797bb0a506b907ea3b64e819e7720714b2e13421a691a6e\"}\n{\"producer\": \"model.layers.0.post:0\", \"characters\": 88705745, \"validationEnvelopeCharacters\": 422, \"sha256\": \"51fe6703957c965c748ea739b49205a107e1d8f27a28608a818629b4a5ee1038\"}\n{\"producer\": \"model.layers.0.post:1\", \"characters\": 88705777, \"validationEnvelopeCharacters\": 422, \"sha256\": \"36c98860b8356a7cfdf0882458e3c5c1d999988aa553720ecd99f426acb875f5\"}\n\nLoading weights:   0%|          | 0/12 [00:00<?, ?it/s]\nLoading weights: 100%|██████████| 12/12 [00:00<00:00, 6977.91it/s]\n{\"cases\": 60, \"comparisons\": 120, \"mismatches\": 0, \"producerFilesEvaluated\": 14, \"coordinateAtPositionZeroVerified\": false, \"scope\": \"Actual saved posterior normalization, gate/activation/up/gated and any completed hidden/final/output producers, position 0; verification-only reuse of immutable earlier subtrees. Does not prove the last-token next-token coordinate for variable sequence lengths.\", \"elapsedSeconds\": 3.057850141000017}\n",
+  "cuda-gate.log": "{\"device\": \"NVIDIA A100-SXM4-40GB\", \"cuda\": \"13.0\", \"samples\": 1048576, \"comparisons\": 4194304, \"mismatches\": 0, \"peakGPUAllocatedBytes\": 4194816, \"seconds\": 0.517946139999367, \"expressionCharacters\": [[52, 22], [60, 21], [70, 50], [70, 50]], \"scope\": \"Modular integer arithmetic only; not checkpoint forward or complete-coordinate parity\"}\n"
+}

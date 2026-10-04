@@ -10262,5 +10262,95 @@
       "scope": "RAM/mappings and retained source lengths at restore, persistence and stop; counts are not summed as independent allocations"
     },
     "newProducerParityVerified": true
+  },
+  "modularWordFactorValidation": {
+    "testMap": [
+      "helpers/direct_sympy_word_factor_test.py",
+      "helpers/direct_sympy_word_factor_cuda.py",
+      "test/direct-sympy-strings.test.ts"
+    ],
+    "python": {
+      "tests": 5,
+      "pass": 5,
+      "comparisons": 278568,
+      "mismatches": 0
+    },
+    "existingConfiguredIntegrations": {
+      "tests": 10,
+      "pass": 10,
+      "fail": 0
+    },
+    "newNamedIntegration": {
+      "tests": 1,
+      "pass": 1,
+      "fail": 0
+    },
+    "colabLinuxController": {
+      "tests": 2,
+      "pass": 2
+    },
+    "build": "passed",
+    "old20ProducerStateRejectedBeforeLoading": true,
+    "oldManifestUnchanged": true,
+    "colabRoot": "/content/llm-inner-modular-word-factor",
+    "freshComparison": {
+      "baseline": {
+        "seconds": 27.90481023600023,
+        "peakRSSBytes": 1180028928,
+        "persistedProducers": 14
+      },
+      "factored": {
+        "seconds": 28.39517895500012,
+        "peakRSSBytes": 1180176384,
+        "persistedProducers": 14,
+        "wordFactorPasses": 0
+      },
+      "identicalProducerCharacters": true,
+      "eachParity": {
+        "cases": 60,
+        "comparisons": 120,
+        "mismatches": 0,
+        "scope": "Saved producers at position zero; not output coordinate"
+      },
+      "checkpointImprovementObserved": false,
+      "coordinateComplete": false,
+      "revision": "Word factorization before final 1024-term pre-CAS search guard"
+    },
+    "evidenceDirectory": "docs/evidence/direct-sympy-word-factor",
+    "cudaNumericValidation": {
+      "device": "NVIDIA A100-SXM4-40GB",
+      "cuda": "13.0",
+      "samples": 1048576,
+      "comparisons": 4194304,
+      "mismatches": 0,
+      "cpuBoundaryComparisons": 32,
+      "peakGPUAllocatedBytes": 4194816,
+      "seconds": 0.5071506160002173,
+      "expressionCharacters": [
+        [
+          52,
+          22
+        ],
+        [
+          60,
+          21
+        ],
+        [
+          70,
+          50
+        ],
+        [
+          70,
+          50
+        ]
+      ],
+      "scope": "Modular integer arithmetic only; not checkpoint forward or complete-coordinate parity",
+      "source": "Final bounded word-factor helper; CUDA gate in /content/llm-inner-word-factor-bounded-gates"
+    },
+    "finalColabWordTests": {
+      "tests": 5,
+      "pass": 5,
+      "fail": 0
+    }
   }
 }
