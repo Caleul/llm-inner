@@ -7,11 +7,13 @@ const python=process.env.LLM_INNER_DIRECT_PYTHON;
 test('Compiler-only literal sharing uses expanded costs and emits bit-exact input-only expressions',
   {skip:!python},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_streaming_literals_test.py'],{timeout:120_000,maxBuffer:1024*1024});
-    assert.match(stderr,/Ran 5 tests/);
+    assert.match(stderr,/Ran 7 tests/);
     assert.match(stderr,/OK/);
     assert.match(stdout,/Emitted streaming literal: cases=30722 mismatches=0/);
-    if(process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT)
+    if(process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT) {
       assert.match(stdout,/Complete compiler composition: cases=60 mismatches=0; position=0 dimension=2; logicalCharacters=\d+; emittedFinalParity=false/);
+      assert.match(stdout,/Emitted checkpoint inverse: cases=888832 mismatches=0/);
+    }
   });
 test('SymPy factors typed word polynomials modulo 2^64 without reassociating floating operations',
   {skip:!python},async()=>{

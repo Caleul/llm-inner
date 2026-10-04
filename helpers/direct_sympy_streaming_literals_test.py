@@ -20,6 +20,27 @@ from direct_sympy_streaming_literals import streaming_literals
 
 
 class StreamingLiteralTests(unittest.TestCase):
+    def test_shared_root_and_numeric_marker_preserve_exact_outer_cancellation(self):
+        from direct_sympy_words import simplify_words
+        fixture=fixtures.SavepointTests()
+        with tempfile.TemporaryDirectory() as directory:
+            model=fixture.model(Path(directory))
+            with streaming_literals(model) as registry:
+                value=model.producer('fixture:word-root',lambda:'R16(R32(X1 + 0.03125))')
+                compiler=model.compiler;context=compiler.context(model.domains)
+                payload=compiler._region_word_payloads[(context,value)]
+                self.assertEqual(simplify_words('Bits64('+value+')',compiler,model.domains),payload)
+                self.assertEqual(simplify_words(value,compiler,model.domains),value)
+                marker='CASNumericRegion123456()'
+                self.assertTrue(compiler.copy_completed_word_root(value,marker,model.domains))
+                self.assertEqual(simplify_words('Bits64('+marker+')',compiler,model.domains),payload)
+                self.assertEqual(simplify_words(marker,compiler,model.domains),marker)
+                narrowed={}
+                self.assertFalse(compiler.copy_completed_word_root(value,'OtherMarker()',narrowed))
+                self.assertEqual(simplify_words('Bits64('+value+')',compiler,narrowed),'Bits64('+value+')')
+                pending='unknown(X1)';compiler.register_completed_region(pending,model.domains)
+                self.assertFalse(compiler.copy_completed_word_root(pending,'OtherMarker()',model.domains))
+
     def test_emitted_literal_preserves_native_rounding_and_zero_signs(self):
         fixture=fixtures.SavepointTests()
         with tempfile.TemporaryDirectory() as directory:
@@ -105,6 +126,44 @@ if(word<uint64_t>(candidate(x))!=word<uint64_t>(expected))return 1;
                     registry.intern('1.0')
             self.assertEqual(model.producer,original)
             self.assertIs(model.compiler.expression_size,len)
+
+    @unittest.skipUnless(os.environ.get('LLM_INNER_DIRECT_JSON_CHECKPOINT'),'checkpoint not configured')
+    def test_emitted_checkpoint_inverse_matches_native_reference_on_finite_half_pairs(self):
+        checkpoint=os.environ['LLM_INNER_DIRECT_JSON_CHECKPOINT']
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            path=Path(os.environ.get('LLM_INNER_DIRECT_PREFIX_OUTPUT',str(root/'pre-inverse.expr')))
+            with CheckpointStrings(checkpoint,StringCompiler(max_characters=65536)) as model:
+                with streaming_literals(model) as registry:
+                    model.norm('model.layers.0.pre','model.layers.0.input_layernorm.weight',0,lambda i:f'X{i+1}')
+                    registry.write(path,registry.names['model.layers.0.pre:inverse'],max_characters=65536,compressed=False)
+                    epsilon=model.config['rms_norm_eps']
+            text=path.read_text()
+            self.assertNotIn('CompileValue',text)
+            self.assertNotIn('CASNumericRegion',text)
+            source=root/'inverse.cpp';binary=root/'inverse'
+            source.write_text('''#include <cstdint>
+#include <cstring>
+#include <cmath>
+#include <cfenv>
+#include <cstdio>
+#include <initializer_list>
+template<class T,class U>T word(U value){T result;static_assert(sizeof(T)==sizeof(U));std::memcpy(&result,&value,sizeof(result));return result;}
+double candidate(double X1,double X2){return '''+cpp(syntax(text))+''';}
+int main(){if(std::fesetround(FE_TONEAREST))return 2;unsigned cases=0;
+for(unsigned bits=0;bits<65536;bits++){if((bits&0x7c00)==0x7c00)continue;
+double x=word<_Float16>(uint16_t(bits));
+for(uint16_t other:{uint16_t(0),uint16_t(0x8000),uint16_t(1),uint16_t(0x8001),uint16_t(0x03ff),uint16_t(0x83ff),uint16_t(0x0400),uint16_t(0x8400),uint16_t(0x3555),uint16_t(0xb555),uint16_t(0x3c01),uint16_t(0xbc01),uint16_t(0x7bff),uint16_t(0xfbff)}){
+double y=word<_Float16>(other);
+float sum=float(float(x*x)+float(y*y));float mean=float(float(sum/2.0f)+'''+repr(epsilon)+'''f);
+double expected=float(1.0f/std::sqrt(mean));cases++;
+if(word<uint64_t>(candidate(x,y))!=word<uint64_t>(expected))return 1;
+}}std::printf("Emitted checkpoint inverse: cases=%u mismatches=0\\n",cases);}
+''')
+            subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],check=True,capture_output=True,text=True)
+            result=subprocess.run([str(binary)],check=True,capture_output=True,text=True,timeout=120)
+            self.assertIn('cases=888832 mismatches=0',result.stdout)
+            print(result.stdout,end='')
 
     @unittest.skipUnless(os.environ.get('LLM_INNER_DIRECT_JSON_CHECKPOINT'),'checkpoint not configured')
     def test_complete_position_zero_composition_matches_fresh_reference(self):

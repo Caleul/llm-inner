@@ -167,7 +167,7 @@ def simplify_words(expression,compiler,domains):
     compact,regions=compiler.compact_regions(expression,compiler.context(domains))
     if any((compiler.context(domains),text) not in compiler._region_roots for text in regions.values()):
         compact,regions=expression,{}
-    payloads={};widths={};floats=set()
+    payloads={};payload_roots={};widths={};floats=set()
     for name,text in regions.items():
         root=compiler._region_roots.get((compiler.context(domains),text))
         if root is None:continue
@@ -175,9 +175,16 @@ def simplify_words(expression,compiler,domains):
         if function in ("Float64","F64FromU64","R16","R32","sqrt","Silu16"):floats.add(name)
         if function=="Float64" and width is not None:
             payload="CASWordPayload"+str(len(payloads))
-            payloads[payload]=text[text.index('(')+1:-1];widths[payload]=width
+            stored=compiler._region_word_payloads.get((compiler.context(domains),text))
+            payloads[payload]=text[text.index('(')+1:-1] if stored is None else stored; widths[payload]=width
+            payload_roots[payload]=text
             compact=re.sub(r"\b"+name+r"\b","Float64("+payload+")",compact)
     def restore(text):
+        # Preserve an unchanged completed value as its original literal or
+        # compile-only marker. Only a cancelled outer reinterpretation needs
+        # its proven word payload substituted into the new expression.
+        for payload,original in payload_roots.items():
+            text=re.sub(r'\bFloat64\(\s*'+payload+r'\s*\)',lambda _:original,text)
         text=re.sub(r"\bCASWordPayload[0-9]+\b",lambda match:payloads[match.group(0)],text) if payloads else text
         return re.sub(r"\bCASStableRegion[0-9]+\b",lambda match:regions[match.group(0)],text) if regions else text
     current=compact

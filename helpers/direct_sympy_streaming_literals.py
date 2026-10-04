@@ -73,6 +73,13 @@ class StreamingLiterals:
         if selector is not None:
             session.selector_literals[alias]=selector;session.selector_view_characters+=selector[2]
         self.model.compiler.register_completed_region(alias,self.model.domains,marker,word_closed=True)
+        if node.func.id=='Float64' and len(node.args)==1:
+            from direct_sympy_words import word_width
+            width=word_width(node.args[0])
+            if width is not None:
+                region=(self.context,alias)
+                self.model.compiler._region_roots[region]=('Float64',width)
+                self.model.compiler._region_word_payloads[region]=ast.unparse(node.args[0])
         sign=session.closed_sign_literals.get(text)
         if sign is not None and sign!=text:session.closed_sign_literals[alias]=self.intern(sign)
         return alias

@@ -10401,5 +10401,25 @@
       "report": "docs/evidence/direct-sympy-logical-cost/cuda-parity.json",
       "scope": "Existing modular integer arithmetic identities only; not checkpoint forward or final coordinate parity."
     }
+  },
+  "sharedOuterOperationValidation": {
+    "report": "docs/evidence/direct-sympy-shared-root/validation.json",
+    "testMap": {
+      "helpers/direct_sympy_streaming_literals_test.py": "Seven tests include explicit whole-root cancellation, propagation through numeric markers, context isolation, refusal of unproved roots, small emitted expression native parity, actual emitted checkpoint inverse native parity and complete position-zero composition parity.",
+      "test/direct-sympy-strings.test.ts": "Existing 11 integrations passed in integration-tests.log; final new named integration runs all seven Python tests in new-integration-tests.log.",
+      "nativePrefixComparisons": 888832,
+      "nativeSmallExpressionComparisons": 30722,
+      "checkpointCompositionComparisons": 60,
+      "mismatches": 0
+    },
+    "stateCompatibility": "Strict source identities change; no old savepoints restored under altered semantics. Sharing requires a fresh compiler and no legacy state callback.",
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "remaining": [
+      "Further global simplification and correlated-decision propagation",
+      "Complete emitted coordinate and artifact read-back parity",
+      "Last-token compilation for variable sequence lengths",
+      "Other output coordinates"
+    ]
   }
 }

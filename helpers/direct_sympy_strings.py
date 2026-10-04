@@ -287,6 +287,7 @@ class StringCompiler:
         self._regions=OrderedDict()
         self._region_characters=0
         self._region_roots={}
+        self._region_word_payloads={}
         # Logical output cost may differ from the resident string length
         # when an optional compiler-only registry shares completed literals.
         # Allocation budgets continue to measure actual resident strings.
@@ -330,10 +331,25 @@ class StringCompiler:
         node=syntax(expression) if node is None else node
         if not isinstance(node,ast.Call):return
         while self._regions and self._region_characters+len(expression)>4*self.max_characters:
-            old,_=self._regions.popitem(last=False);self._region_characters-=len(old[1]);self._region_roots.pop(old,None)
+            old,_=self._regions.popitem(last=False);self._region_characters-=len(old[1]);self._region_roots.pop(old,None);self._region_word_payloads.pop(old,None)
         self._regions[key]=True;self._region_characters+=len(expression)
         from direct_sympy_words import word_width
         if word_closed:self._region_roots[key]=(node.func.id,word_width(node.args[0]) if node.func.id=="Float64" and len(node.args)==1 else None)
+
+    def copy_completed_word_root(self,source,target,domains):
+        context=self.context(domains);old=(context,source)
+        payload=self._region_word_payloads.get(old)
+        root=self._region_roots.get(old)
+        if payload is None and root is not None and root[0]=='Float64' and root[1] is not None and self.expression_size is not len and len(source)<=1048576:
+            # Bounded literal views can also originate in a selected arm,
+            # before the sharing registry has assigned a whole-value marker.
+            payload=ast.unparse(syntax(source).args[0])
+        if old not in self._regions or payload is None or root is None:return False
+        self.register_completed_region(target,domains)
+        own=(context,target)
+        if own not in self._regions:return False
+        self._region_roots[own]=root;self._region_word_payloads[own]=payload
+        return True
 
     def compact_regions(self,expression,context,*,validate_context=True):
         # A whole admitted call has no external branch/context to inspect.

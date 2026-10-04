@@ -267,6 +267,7 @@ class ConversionSession:
                     self.envelope_serial+=1
                     alias='CASNumericRegion'+str(self.envelope_serial)
                     canonical[leaf]=alias;protected[alias]=leaf
+                    self.compiler.copy_completed_word_root(leaf,alias+'()',self.domains)
                     if self.closed_literal_pure.get(leaf,False):pure_functions.append(alias)
                 aliases[old]=canonical[leaf]
             if aliases:view=re.sub(r'\bCASNumericRegion[0-9]+\b',lambda m:aliases.get(m.group(0),m.group(0)),view)
@@ -770,6 +771,7 @@ class ConversionSession:
             if kind in ("half","f32"):self.f32_values.add(key)
             if positive_zero:self.no_negative_zero_values.add(key)
             self.converted_regions.add(key);protected[token]=text
+            self.compiler.copy_completed_word_root(text,token+'()',self.domains)
             literal_keys[key]=self.closed_literal_keys[text]
             if self.closed_literal_pure[text]:
                 pure_functions.append(token)
@@ -784,6 +786,7 @@ class ConversionSession:
             if projection is None or projection not in self.closed_literals:continue
             self.envelope_serial+=1;alias="CASNumericRegion"+str(self.envelope_serial)
             protected[alias]=projection;pure_functions.append(alias)
+            self.compiler.copy_completed_word_root(projection,alias+'()',self.domains)
             marker=syntax(alias+"()");key=self.key(marker)
             self.completed[key]=FiniteSource(0.0,0.0,-24)
             self.half_values.add(key);self.f32_values.add(key);self.converted_regions.add(key)
@@ -804,6 +807,7 @@ class ConversionSession:
                     if token is None:
                         self.envelope_serial+=1;token='CASNumericRegion'+str(self.envelope_serial)
                         protected[token]=text;by_text[text]=token
+                        self.compiler.copy_completed_word_root(text,token+'()',self.domains)
                         bounds,kind,positive_zero=self.closed_literals[text]
                         marker=syntax(token+'()');key=self.key(marker)
                         if bounds is not None:self.completed[key]=bounds
@@ -840,6 +844,7 @@ class ConversionSession:
         # proofs. Selected arm proofs are introduced only inside their guards.
         for token,text in protected.items():
             marker=syntax(token+'()');key=self.key(marker)
+            self.compiler.copy_completed_word_root(text,token+'()',self.domains)
             bounds,kind,positive_zero=self.closed_literals[text]
             if bounds is not None:self.completed[key]=bounds
             if kind=='half':self.half_values.add(key)

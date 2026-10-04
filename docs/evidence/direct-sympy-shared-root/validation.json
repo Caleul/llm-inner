@@ -1,0 +1,33 @@
+{
+  "baseCommit": "bf5c6f1ddded20bfea0969dac18b6add8f173f3b",
+  "change": "Preserve the proven outer operation and unsigned-word payload through compiler-only value markers and numeric substitution markers, so adjacent inverse reinterpretations still cancel. No branch is removed without existing proof.",
+  "scope": "First output coordinate composition remains position 0 / dimension 2; full final artifact not emitted. A separate first RMS inverse expression is fully emitted and re-read for native validation.",
+  "logicalCharactersBefore": 15345975626240,
+  "logicalCharactersAfter": 13773588294816,
+  "reductionPercent": 10.246251979804944,
+  "completedProducers": 25,
+  "storedLiteralDefinitions": 26,
+  "storedLiteralCharacters": 853868,
+  "compositionParity": {
+    "cases": 60,
+    "mismatches": 0,
+    "freshReference": true,
+    "emittedFinalParity": false
+  },
+  "emittedPrefix": {
+    "path": "docs/evidence/direct-sympy-shared-root/pre-inverse.expr",
+    "characters": 5212,
+    "sha256": "97eb5da782881ac370b6392e3c67d2aa51cbb92bfd926c51032d000b3b45af2f",
+    "nativeCases": 888832,
+    "mismatches": 0,
+    "scope": "First pre-attention RMS inverse, exclusively X1 and X2; not the full model coordinate"
+  },
+  "finalArtifactEmitted": false,
+  "finalParity": false,
+  "numericalSourceHashes": {
+    "direct_sympy_strings.py": "3176b752db05f3342fd872ba64a3eb0973a33bb3be3bf2e8f5e11b464f8002ce",
+    "direct_sympy_words.py": "5291bc802360cc6d028900b51e65687f35432a9d1f1af339f1e247e5598d7b8b",
+    "direct_sympy_conversions.py": "edee316b439cea78bbcf7a320fa62d735ac240c60ceacf4191882efe380555c6",
+    "direct_sympy_streaming_literals.py": "8f8b9d25c319e16be48cd97e45664f22770b122a8b2da1ceb98b0b74c5000177"
+  }
+}
