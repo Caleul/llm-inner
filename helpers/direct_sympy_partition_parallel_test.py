@@ -34,6 +34,31 @@ class ParallelRegionTests(unittest.TestCase):
         return checkpoint
 
     @unittest.skipUnless(os.environ.get('LLM_INNER_DIRECT_JSON_CHECKPOINT'),'Checkpoint required')
+    def test_timeout_retries_same_domain_before_real_size_failure_subdivision(self):
+        with tempfile.TemporaryDirectory() as directory:
+            checkpoint=self.seed(directory);args=self.args(checkpoint,directory,1)
+            args.max_attempts=1;args.region_seconds=10
+            before=json.loads((Path(directory)/'frontier.json').read_text())
+            def timeout(checkpoint,dimension,jobs,**budgets):
+                self.assertEqual(budgets['job_seconds'],[10])
+                return [{'complete':False,'stop':'Region worker wall-clock budget exceeded','inputDomains':jobs[0][1]}],{}
+            with patch('direct_sympy_partition_parallel.compile_wave',side_effect=timeout):run(args)
+            first=json.loads((Path(directory)/'frontier.json').read_text())
+            self.assertEqual(first['tree']['00']['domains'],before['tree']['00']['domains'])
+            self.assertEqual(first['tree']['00']['status'],'pending')
+            self.assertEqual(first['tree']['00']['timeoutRetries'],1)
+            self.assertNotIn('000',first['tree'])
+            def size_failure(checkpoint,dimension,jobs,**budgets):
+                self.assertEqual(budgets['job_seconds'],[30])
+                self.assertEqual(jobs[0][1],before['tree']['00']['domains'])
+                return [{'complete':False,'stop':'Flat artifact budget exceeded; no complete result','inputDomains':jobs[0][1]}],{}
+            with patch('direct_sympy_partition_parallel.compile_wave',side_effect=size_failure):run(args)
+            second=json.loads((Path(directory)/'frontier.json').read_text())
+            self.assertEqual(second['tree']['00']['status'],'split')
+            self.assertEqual(audit_tree(second['tree'],second['root']),(0,63488**2))
+        print('Timeout retry proof: sameDomain=true deadlines=10,30 sizeFailurePreservesFullRoot=true')
+
+    @unittest.skipUnless(os.environ.get('LLM_INNER_DIRECT_JSON_CHECKPOINT'),'Checkpoint required')
     def test_source_incompatibility_and_memory_failure_preserve_manifest(self):
         with tempfile.TemporaryDirectory() as directory:
             checkpoint=self.seed(directory);manifest=Path(directory)/'frontier.json'

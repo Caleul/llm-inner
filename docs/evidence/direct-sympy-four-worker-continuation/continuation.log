@@ -1,0 +1,29 @@
+{"maxWorkersLive": 4, "peakObservedRSSBytes": 1312751616, "workerReservationBytes": 939524096, "seconds": 7.496816415979993, "regions": ["10001100", "10001101", "10001110", "10001111"], "completed": 0, "coveredInputPatterns": 1721819136}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 22055.94it/s]
+{"maxWorkersLive": 4, "peakObservedRSSBytes": 1296695296, "workerReservationBytes": 939524096, "seconds": 4.832361041975673, "regions": ["100011000", "100011001", "100011010", "100011011"], "completed": 1, "coveredInputPatterns": 1724440576}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 38716.65it/s]
+{"maxWorkersLive": 4, "peakObservedRSSBytes": 1330135040, "workerReservationBytes": 939524096, "seconds": 4.903088207996916, "regions": ["1000110010", "1000110011", "1000110100", "1000110101"], "completed": 1, "coveredInputPatterns": 1725751296}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 17172.18it/s]
+{"maxWorkersLive": 4, "peakObservedRSSBytes": 1327349760, "workerReservationBytes": 939524096, "seconds": 4.937904082995374, "regions": ["10001100110", "10001100111", "10001101000", "10001101001"], "completed": 1, "coveredInputPatterns": 1726406656}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 19021.79it/s]
+{"maxWorkersLive": 4, "peakObservedRSSBytes": 1326596096, "workerReservationBytes": 939524096, "seconds": 4.898508124984801, "regions": ["100011001110", "100011001111", "100011010000", "100011010001"], "completed": 1, "coveredInputPatterns": 1726734336}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 29711.72it/s]
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 15037.84it/s]
+{"maxWorkersLive": 4, "peakObservedRSSBytes": 1348534272, "workerReservationBytes": 939524096, "seconds": 4.893161082989536, "regions": ["1000110011110", "1000110011111", "1000110100000", "1000110100001"], "completed": 2, "coveredInputPatterns": 1727062016}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 24953.72it/s]
+{"maxWorkersLive": 4, "peakObservedRSSBytes": 1457700864, "workerReservationBytes": 939524096, "seconds": 10.021263125003316, "regions": ["10001100111110", "10001100111111", "10001101000010", "10001101000011"], "completed": 1, "coveredInputPatterns": 1727143936}
+{"maxWorkersLive": 4, "peakObservedRSSBytes": 2154627072, "workerReservationBytes": 939524096, "seconds": 10.114164124999661, "regions": ["100011001111100", "100011001111101", "100011001111110", "100011001111111"], "completed": 0, "coveredInputPatterns": 1727143936}

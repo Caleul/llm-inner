@@ -1,0 +1,66 @@
+{
+  "build": true,
+  "tests": 26,
+  "pass": 26,
+  "fail": 0,
+  "skipped": 0,
+  "parallelRegionTests": 4,
+  "coveredBefore": 1721819136,
+  "addedInputPatterns": 6062080,
+  "coveredInputPatterns": 1727881216,
+  "unfinishedInputPatterns": 2302844928,
+  "coveragePercent": 42.867740309573364,
+  "completedRegions": 76,
+  "distinctArtifacts": 21,
+  "oldLeavesPreserved": 54,
+  "parallelAttempts": 56,
+  "parallelCompleted": 22,
+  "newNativeCases": 5720,
+  "allLeafNativeCases": 19782,
+  "mismatches": 0,
+  "peakObservedCompileRSSBytes": 2718269440,
+  "memoryBudgetBytes": 6442450944,
+  "deadlineRecoveredRegions": [
+    {
+      "region": "100011010001110",
+      "domains": {
+        "X1": [
+          -11200,
+          -11137
+        ],
+        "X2": [
+          -20735,
+          -20096
+        ]
+      },
+      "timeouts": [
+        10,
+        30
+      ]
+    },
+    {
+      "region": "100011010001111",
+      "domains": {
+        "X1": [
+          -11200,
+          -11137
+        ],
+        "X2": [
+          -20095,
+          -19456
+        ]
+      },
+      "timeouts": [
+        10,
+        30
+      ]
+    }
+  ],
+  "probeCharacters": 638482,
+  "exhaustiveProbeCases": 40960,
+  "exhaustiveProbeMismatches": 0,
+  "numericalCompilerSourcesChanged": false,
+  "fourWorkerSpeedupMeasured": false,
+  "fullCoordinateParity": false,
+  "multipleTokenParity": false
+}

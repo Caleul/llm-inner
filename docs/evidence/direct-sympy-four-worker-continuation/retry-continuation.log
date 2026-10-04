@@ -1,0 +1,11 @@
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 17778.75it/s]
+{"maxWorkersLive": 4, "peakObservedRSSBytes": 1451589632, "workerReservationBytes": 939524096, "seconds": 10.063085458008572, "regions": ["100011010001110", "100011010001111", "1000110100100", "1000110100101"], "completed": 1, "coveredInputPatterns": 1727799296, "deferredTimeoutRegions": ["100011010001110", "100011010001111"]}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 25705.64it/s]
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 31242.49it/s]
+{"maxWorkersLive": 4, "peakObservedRSSBytes": 2014052352, "workerReservationBytes": 939524096, "seconds": 10.997268665989395, "regions": ["100011010001110", "100011010001111", "10001101001010", "10001101001011"], "completed": 2, "coveredInputPatterns": 1727881216, "deferredTimeoutRegions": ["10001101001010"]}

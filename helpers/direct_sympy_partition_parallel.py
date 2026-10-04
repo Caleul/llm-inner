@@ -34,9 +34,11 @@ def rss_bytes(pid):
 
 
 def compile_wave(checkpoint,dimension,jobs,*,workers,memory_bytes,cas_characters,
-                 max_characters,max_paths,max_seconds):
+                 max_characters,max_paths,max_seconds,job_seconds=None):
     if min(workers,memory_bytes,cas_characters,max_characters,max_paths,max_seconds)<1:
         raise ValueError('Positive region budgets required')
+    limits=[max_seconds]*len(jobs) if job_seconds is None else job_seconds
+    if len(limits)!=len(jobs) or any(limit<1 for limit in limits):raise ValueError('Positive deadline per region required')
     reservation=768*1024**2+16*cas_characters
     active=[];results=[None]*len(jobs);index=0
     stats={'maxWorkersLive':0,'peakObservedRSSBytes':0,'workerReservationBytes':reservation}
@@ -63,13 +65,13 @@ def compile_wave(checkpoint,dimension,jobs,*,workers,memory_bytes,cas_characters
                         '--worker',str(checkpoint),str(path),str(dimension),str(max_characters),
                         str(cas_characters),str(max_paths),json.dumps(domains)]
                     process=subprocess.Popen(arguments,stdin=subprocess.DEVNULL,stdout=out,stderr=err)
-                    active.append({'index':index,'process':process,'out':out,'err':err,'started':time.monotonic()})
+                    active.append({'index':index,'process':process,'out':out,'err':err,'started':time.monotonic(),'limit':limits[index]})
                     index+=1;committed+=reservation
                     stats['maxWorkersLive']=max(stats['maxWorkersLive'],len(active))
                 if not active and index<len(jobs):raise ValueError('Parallel memory budget cannot admit one region')
                 for task in list(active):
                     process=task['process'];elapsed=time.monotonic()-task['started']
-                    timed_out=process.poll() is None and elapsed>=max_seconds
+                    timed_out=process.poll() is None and elapsed>=task['limit']
                     if timed_out:process.kill();process.wait()
                     if process.poll() is None:continue
                     try:
@@ -79,6 +81,7 @@ def compile_wave(checkpoint,dimension,jobs,*,workers,memory_bytes,cas_characters
                             if process.returncode:raise ValueError('Region worker semantic failure: '+task['err'].read().decode()[-2000:])
                             result=json.loads(task['out'].read());result['workerSeconds']=elapsed
                         result['inputDomains']=jobs[task['index']][1]
+                        result['timeoutSeconds']=task['limit']
                         results[task['index']]=result
                     finally:task['out'].close();task['err'].close();active.remove(task)
                 if active:time.sleep(.05)
@@ -119,7 +122,8 @@ def run(args):
             try:
                 results,stats=compile_wave(args.checkpoint,args.dimension,jobs,workers=args.workers,
                     memory_bytes=args.memory_bytes,cas_characters=args.cas_characters,max_characters=args.max_characters,
-                    max_paths=args.max_paths,max_seconds=args.region_seconds)
+                    max_paths=args.max_paths,max_seconds=args.region_seconds,
+                    job_seconds=[args.region_seconds*getattr(args,'retry_factor',3)**state['tree'][key].get('timeoutRetries',0) for key,_,_ in jobs])
                 # Reap the entire wave before native validation/publication.
                 # Ordered admission never depends on worker completion order.
                 if live_identity(args.checkpoint,args.dimension)!=identity:raise ValueError('Sources changed during parallel compilation')
@@ -144,6 +148,11 @@ def run(args):
                         else:atomic(destination,path.read_bytes())
                         result['artifact']['path']=str(destination);parity['artifact']=str(destination)
                         node.update(status='complete',artifact={'file':filename,**{name:result['artifact'][name] for name in ('characters','sha256')}},parity=parity)
+                    elif ('wall-clock budget exceeded' in result.get('stop','').lower()
+                          and node.get('timeoutRetries',0)<getattr(args,'timeout_retries',1)):
+                        # A deadline is not proof that a region is too large.
+                        # Retry the same numerical domain before creating cuts.
+                        node['timeoutRetries']=node.get('timeoutRetries',0)+1
                     else:
                         choices=[name for name,d in decode(domains).items() if rank(d.maximum)-rank(d.minimum)+1>2*args.min_values]
                         if choices:
@@ -158,7 +167,8 @@ def run(args):
                     state['attempts'].append({'region':key,'selectionOrder':order,'parallelRun':run_id,**result})
                     performed+=1
                 covered,pending=audit_tree(state['tree'],root)
-                stats.update(regions=[key for key,_,_ in jobs],completed=sum(r['complete'] for r in results),coveredInputPatterns=covered)
+                stats.update(regions=[key for key,_,_ in jobs],completed=sum(r['complete'] for r in results),coveredInputPatterns=covered,
+                    deferredTimeoutRegions=[key for key,_,_ in jobs if state['tree'][key]['status']=='pending'])
                 report['waves'].append(stats)
                 report.update(seconds=time.monotonic()-started,attempts=performed,coveredInputPatterns=covered,
                     addedInputPatterns=covered-initial,unfinishedInputPatterns=pending)
@@ -181,13 +191,14 @@ def main():
     parser.add_argument('checkpoint');parser.add_argument('state');parser.add_argument('report')
     parser.add_argument('--dimension',type=int,default=2);parser.add_argument('--workers',type=int,default=2)
     parser.add_argument('--memory-bytes',type=int,default=3*1024**3);parser.add_argument('--max-attempts',type=int,default=8)
+    parser.add_argument('--timeout-retries',type=int,default=1);parser.add_argument('--retry-factor',type=int,default=3)
     parser.add_argument('--region-seconds',type=int,default=10);parser.add_argument('--random-cases',type=int,default=256)
     parser.add_argument('--max-paths',type=int,default=128);parser.add_argument('--max-characters',type=int,default=1048576)
     parser.add_argument('--cas-characters',type=int,default=8388608);parser.add_argument('--min-values',type=int,default=32)
     parser.add_argument('--total-characters',type=int,default=67108864)
     parser.add_argument('--frontier-order',choices=('lexical','coverage','update-cells'))
     args=parser.parse_args()
-    if min(args.workers,args.memory_bytes,args.max_attempts,args.region_seconds,args.max_paths,args.max_characters,args.cas_characters,args.min_values,args.total_characters)<1 or args.random_cases<0:parser.error('Positive budgets and nonnegative corpus required')
+    if min(args.workers,args.memory_bytes,args.max_attempts,args.region_seconds,args.max_paths,args.max_characters,args.cas_characters,args.min_values,args.total_characters,args.retry_factor)<1 or args.random_cases<0 or args.timeout_retries<0:parser.error('Positive budgets and nonnegative corpus required')
     report=run(args);atomic(args.report,json.dumps(report,indent=2).encode())
     return 0 if report.get('addedInputPatterns',0) else 1
 

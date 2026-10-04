@@ -1,0 +1,16 @@
+{
+  "artifact": "/Users/caleul/Documents/Work/Projects/llm-inner/docs/evidence/direct-sympy-four-worker-continuation/probe.expr",
+  "sha256": "8c1882e09cb0adfd04c1a68b278e3785ab23cc01ca61063553e1411654c93fec",
+  "characters": 638482,
+  "position": 0,
+  "tokens": 1,
+  "dimension": 2,
+  "inputCorpusVersion": 2,
+  "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+  "cases": 40960,
+  "mismatches": 0,
+  "firstMismatches": [],
+  "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity.",
+  "corpus": "Every Half input-vector pattern in the recorded probe rectangle",
+  "fullRegionEnumeration": true
+}

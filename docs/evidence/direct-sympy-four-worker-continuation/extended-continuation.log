@@ -1,0 +1,40 @@
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 13838.78it/s]
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 10979.85it/s]
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 10770.74it/s]
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 20036.48it/s]
+{"maxWorkersLive": 4, "peakObservedRSSBytes": 1293320192, "workerReservationBytes": 939524096, "seconds": 10.67410750000272, "regions": ["1000110011111000", "1000110011111001", "1000110011111010", "1000110011111011"], "completed": 4, "coveredInputPatterns": 1727225856}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 16288.56it/s]
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 10000.33it/s]
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 16256.99it/s]
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 14563.56it/s]
+{"maxWorkersLive": 4, "peakObservedRSSBytes": 2718269440, "workerReservationBytes": 939524096, "seconds": 11.091383791994303, "regions": ["1000110011111100", "1000110011111101", "1000110011111110", "1000110011111111"], "completed": 4, "coveredInputPatterns": 1727307776}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 17343.78it/s]
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 40265.32it/s]
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 14376.36it/s]
+{"maxWorkersLive": 4, "peakObservedRSSBytes": 1571094528, "workerReservationBytes": 939524096, "seconds": 10.780845667002723, "regions": ["100011010000110", "100011010000111", "1000110100010", "1000110100011"], "completed": 3, "coveredInputPatterns": 1727553536}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 27294.82it/s]
+{"maxWorkersLive": 4, "peakObservedRSSBytes": 1519697920, "workerReservationBytes": 939524096, "seconds": 9.956079875002615, "regions": ["10001101000110", "10001101000111", "100011010010", "100011010011"], "completed": 1, "coveredInputPatterns": 1727635456}

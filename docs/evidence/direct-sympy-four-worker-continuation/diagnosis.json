@@ -1,0 +1,144 @@
+{
+  "inputDomains": {
+    "X1": [
+      -11328,
+      -11265
+    ],
+    "X2": [
+      -22015,
+      -21376
+    ]
+  },
+  "logicalCharacters": 609041,
+  "storedCharacters": 23053,
+  "dominantSquareProofs": 0,
+  "constantRMSComponents": 3,
+  "secondsBeforeFlatDistribution": 1.9992455840110779,
+  "producerGrowth": [
+    {
+      "producer": "model.layers.0.pre:mean",
+      "storedCharacters": 82,
+      "expandedCharacters": 82
+    },
+    {
+      "producer": "model.layers.0.pre:inverse",
+      "storedCharacters": 1567,
+      "expandedCharacters": 1569
+    },
+    {
+      "producer": "model.layers.0.pre:0",
+      "storedCharacters": 101,
+      "expandedCharacters": 1657
+    },
+    {
+      "producer": "model.layers.0.pre:1",
+      "storedCharacters": 8,
+      "expandedCharacters": 8
+    },
+    {
+      "producer": "model.layers.0.v:0",
+      "storedCharacters": 144,
+      "expandedCharacters": 1788
+    },
+    {
+      "producer": "model.layers.0.context:0",
+      "storedCharacters": 15,
+      "expandedCharacters": 1788
+    },
+    {
+      "producer": "model.layers.0.v:1",
+      "storedCharacters": 141,
+      "expandedCharacters": 1785
+    },
+    {
+      "producer": "model.layers.0.context:1",
+      "storedCharacters": 15,
+      "expandedCharacters": 1785
+    },
+    {
+      "producer": "model.layers.0.residual:0",
+      "storedCharacters": 202,
+      "expandedCharacters": 3747
+    },
+    {
+      "producer": "model.layers.0.residual:1",
+      "storedCharacters": 2,
+      "expandedCharacters": 2
+    },
+    {
+      "producer": "model.layers.0.post:mean",
+      "storedCharacters": 100,
+      "expandedCharacters": 3832
+    },
+    {
+      "producer": "model.layers.0.post:inverse",
+      "storedCharacters": 1693,
+      "expandedCharacters": 27819
+    },
+    {
+      "producer": "model.layers.0.post:0",
+      "storedCharacters": 114,
+      "expandedCharacters": 31652
+    },
+    {
+      "producer": "model.layers.0.post:1",
+      "storedCharacters": 8,
+      "expandedCharacters": 8
+    },
+    {
+      "producer": "model.layers.0.gate:0",
+      "storedCharacters": 9,
+      "expandedCharacters": 9
+    },
+    {
+      "producer": "model.layers.0.activation:0",
+      "storedCharacters": 9,
+      "expandedCharacters": 9
+    },
+    {
+      "producer": "model.layers.0.up:0",
+      "storedCharacters": 143,
+      "expandedCharacters": 31782
+    },
+    {
+      "producer": "model.layers.0.gated:0",
+      "storedCharacters": 435,
+      "expandedCharacters": 95738
+    },
+    {
+      "producer": "model.layers.0.hidden:0",
+      "storedCharacters": 838,
+      "expandedCharacters": 103605
+    },
+    {
+      "producer": "model.layers.0.hidden:1",
+      "storedCharacters": 2,
+      "expandedCharacters": 2
+    },
+    {
+      "producer": "final:mean",
+      "storedCharacters": 101,
+      "expandedCharacters": 103690
+    },
+    {
+      "producer": "final:inverse",
+      "storedCharacters": 8267,
+      "expandedCharacters": 537022
+    },
+    {
+      "producer": "final:0",
+      "storedCharacters": 9158,
+      "expandedCharacters": 608911
+    },
+    {
+      "producer": "final:1",
+      "storedCharacters": 8,
+      "expandedCharacters": 8
+    },
+    {
+      "producer": "output:0:2",
+      "storedCharacters": 144,
+      "expandedCharacters": 609041
+    }
+  ]
+}
