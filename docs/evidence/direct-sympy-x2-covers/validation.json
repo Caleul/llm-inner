@@ -1,0 +1,18 @@
+{
+  "coveredBefore": 983572480,
+  "addedInputPatterns": 369143808,
+  "coveredInputPatterns": 1352716288,
+  "unfinishedInputPatterns": 2678009856,
+  "coveragePercent": 33.56011397632674,
+  "completedRegions": 28,
+  "oldCompletedLeavesPreserved": 26,
+  "newNativeCases": 16400,
+  "newNativeMismatches": 0,
+  "allLeafNativeCases": 7294,
+  "allLeafNativeMismatches": 0,
+  "compilerSourcesChanged": false,
+  "lastIntegrationGate": "docs/evidence/direct-sympy-central-cover/test.log",
+  "compilationSpeedupMeasured": false,
+  "fullCoordinateParity": false,
+  "multipleTokenParity": false
+}

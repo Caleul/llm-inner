@@ -1,0 +1,176 @@
+{
+  "compilerIdentity": {
+    "version": 1,
+    "dimension": 2,
+    "position": 0,
+    "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+    "sympy": "1.14.0",
+    "platform": "macOS-26.7.1-arm64-arm-64bit",
+    "byteOrder": "little",
+    "referenceBackend": {
+      "name": "torch CPU",
+      "version": "2.12.1",
+      "gitVersion": "7269437d655783a26cba32aa88195b741ff496aa",
+      "capability": "DEFAULT"
+    },
+    "checkpoint": {
+      "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+      "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+    },
+    "sources": {
+      "direct_sympy_arithmetic.py": "fd9779759345c7b381a01b54fee545218735eb8c26e4f6a8ffb560109431ff43",
+      "direct_sympy_checkpoint.py": "17ce30cefa8b9f0412de4dbd2996e84037b787098ea15cd083657b15ac2bef9f",
+      "direct_sympy_coherent_paths.py": "f3f1c30975616741b87563613cad629ac39eb4da888032c791abb3ac0562766a",
+      "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+      "direct_sympy_conversions.py": "2937c333a849c7719ab86dc25fadec52eac18ca63647c804a4804243a29f76f4",
+      "direct_sympy_input_partitions.py": "21449edd26a0d43ad4a2c5b5e841c5e9d8e7de6afb6ac138a9eef88374558797",
+      "direct_sympy_layer_bounds.py": "2f8d73caf53371f4bba44a605a91098580f5dcaf90b292c135830d862513dcff",
+      "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+      "direct_sympy_partition_run.py": "6ae47bb0a1c8136757e72bf0a37bbdf28c0826cecc42ae5312141b6e19cbe452",
+      "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+      "direct_sympy_savepoints.py": "682783ebfd3f1337bbcf015faa34876963a9f1b63eae2cba1c3159cb0ed5d266",
+      "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+      "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+      "direct_sympy_silu.py": "e623f38b5008356d8f6aa1615aabfa5a779f9dc7ea9d5b8183c5b17a78383fe3",
+      "direct_sympy_sqrt.py": "ec9644071ed6ce1576f9550175ed768180d40d70c1bf610f0089785c5564e3fb",
+      "direct_sympy_streaming_literals.py": "5a0046367e570549e5c804c0f5aa0737db2c506600c9ae19c72450ba0f38824e",
+      "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+      "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+      "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+      "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
+    }
+  },
+  "inputDomains": {
+    "X1": [
+      -8192,
+      8192
+    ],
+    "X2": [
+      -31743,
+      -20480
+    ]
+  },
+  "addedInputPatterns": 184571904,
+  "coveredBefore": 983572480,
+  "coveredAfter": 1168144384,
+  "fullCoordinateParity": false,
+  "toolSHA256": "7ea6cded917a68939243a59ea541423952b8c019262e0dfbb88b68b8e220419c",
+  "compilation": {
+    "complete": true,
+    "inputDomains": {
+      "X1": [
+        -8192,
+        8192
+      ],
+      "X2": [
+        -31743,
+        -20480
+      ]
+    },
+    "producers": 25,
+    "elidedUpdates": 2,
+    "logicalCharacters": 170419,
+    "storedCharacters": 9033,
+    "artifact": {
+      "path": "artifacts/direct-sympy-input-partitions/update-cell-state/cover-34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31.expr",
+      "characters": 200303,
+      "sha256": "34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31",
+      "paths": 4,
+      "compilerAliases": 0,
+      "complete": true
+    },
+    "paths": {
+      "splitContexts": 5,
+      "completedPaths": 4,
+      "contradictions": 2,
+      "selectorSelections": 24,
+      "CASPasses": 1167,
+      "numericArithmeticEliminated": 196,
+      "numericRecipeAttempts": 56,
+      "numericRecipeAdmissions": 0,
+      "numericRecipeBudgetStops": 0,
+      "lastArm": {
+        "bodyCharacters": 37716,
+        "guardCharacters": 9278,
+        "decisions": 3,
+        "dependencyGrowth": [
+          {
+            "definition": 0,
+            "storedCharacters": 1602,
+            "expandedCharacters": 1604
+          },
+          {
+            "definition": 1,
+            "storedCharacters": 101,
+            "expandedCharacters": 1692
+          },
+          {
+            "definition": 3,
+            "storedCharacters": 150,
+            "expandedCharacters": 1829
+          },
+          {
+            "definition": 4,
+            "storedCharacters": 147,
+            "expandedCharacters": 1826
+          },
+          {
+            "definition": 5,
+            "storedCharacters": 202,
+            "expandedCharacters": 3829
+          },
+          {
+            "definition": 10,
+            "storedCharacters": 203,
+            "expandedCharacters": 205
+          },
+          {
+            "definition": 12,
+            "storedCharacters": 294,
+            "expandedCharacters": 4488
+          },
+          {
+            "definition": 14,
+            "storedCharacters": 1700,
+            "expandedCharacters": 33006
+          },
+          {
+            "definition": 15,
+            "storedCharacters": 116,
+            "expandedCharacters": 37580
+          },
+          {
+            "definition": 17,
+            "storedCharacters": 150,
+            "expandedCharacters": 37716
+          }
+        ]
+      }
+    },
+    "seconds": 5.689032624999527,
+    "workerSeconds": 6.44123799999943
+  },
+  "parity": {
+    "artifact": "artifacts/direct-sympy-input-partitions/update-cell-state/cover-34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31.expr",
+    "sha256": "34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31",
+    "characters": 200303,
+    "position": 0,
+    "tokens": 1,
+    "dimension": 2,
+    "inputCorpusVersion": 2,
+    "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+    "cases": 8200,
+    "mismatches": 0,
+    "firstMismatches": [],
+    "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+  },
+  "admittedRegions": [
+    "100100"
+  ],
+  "sharedArtifact": {
+    "file": "cover-34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31.expr",
+    "sha256": "34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31",
+    "characters": 200303
+  },
+  "manifestBeforeSHA256": "9475913665b01e416e8d8df803f6657ea0c8774a2a9e2a16da83e79c465ba44a"
+}

@@ -1,0 +1,38 @@
+[
+  {
+    "domains": {
+      "X1": [
+        -8192,
+        8192
+      ],
+      "X2": [
+        -31743,
+        -20480
+      ]
+    },
+    "file": "cover-34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31.expr",
+    "sha256": "34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31",
+    "characters": 200303,
+    "admittedRegions": [
+      "100100"
+    ]
+  },
+  {
+    "domains": {
+      "X1": [
+        -8192,
+        8192
+      ],
+      "X2": [
+        20480,
+        31743
+      ]
+    },
+    "file": "cover-b2c7985df29dbc6119550518d56223dcd4fd21e0062d2e29f1049e721e2c4299.expr",
+    "sha256": "b2c7985df29dbc6119550518d56223dcd4fd21e0062d2e29f1049e721e2c4299",
+    "characters": 201903,
+    "admittedRegions": [
+      "1011101"
+    ]
+  }
+]

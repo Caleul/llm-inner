@@ -1,0 +1,1039 @@
+[
+  {
+    "domains": {
+      "X1": [
+        -8192,
+        8192
+      ],
+      "X2": [
+        -31743,
+        -20480
+      ]
+    },
+    "logicalCharacters": 170419,
+    "storedCharacters": 9033,
+    "producerGrowth": [
+      {
+        "producer": "model.layers.0.pre:mean",
+        "storedCharacters": 87,
+        "expandedCharacters": 87,
+        "definitions": 0
+      },
+      {
+        "producer": "model.layers.0.pre:inverse",
+        "storedCharacters": 1602,
+        "expandedCharacters": 1604,
+        "definitions": 1
+      },
+      {
+        "producer": "model.layers.0.pre:0",
+        "storedCharacters": 435,
+        "expandedCharacters": 3615,
+        "definitions": 3
+      },
+      {
+        "producer": "model.layers.0.pre:1",
+        "storedCharacters": 8,
+        "expandedCharacters": 8,
+        "definitions": 3
+      },
+      {
+        "producer": "model.layers.0.v:0",
+        "storedCharacters": 150,
+        "expandedCharacters": 3752,
+        "definitions": 4
+      },
+      {
+        "producer": "model.layers.0.context:0",
+        "storedCharacters": 15,
+        "expandedCharacters": 3752,
+        "definitions": 4
+      },
+      {
+        "producer": "model.layers.0.v:1",
+        "storedCharacters": 147,
+        "expandedCharacters": 3749,
+        "definitions": 5
+      },
+      {
+        "producer": "model.layers.0.context:1",
+        "storedCharacters": 15,
+        "expandedCharacters": 3749,
+        "definitions": 5
+      },
+      {
+        "producer": "model.layers.0.residual:0",
+        "storedCharacters": 202,
+        "expandedCharacters": 7675,
+        "definitions": 7
+      },
+      {
+        "producer": "model.layers.0.residual:1",
+        "storedCharacters": 2,
+        "expandedCharacters": 2,
+        "definitions": 7
+      },
+      {
+        "producer": "model.layers.0.post:mean",
+        "storedCharacters": 100,
+        "expandedCharacters": 7760,
+        "definitions": 7
+      },
+      {
+        "producer": "model.layers.0.post:inverse",
+        "storedCharacters": 1693,
+        "expandedCharacters": 55315,
+        "definitions": 8
+      },
+      {
+        "producer": "model.layers.0.post:0",
+        "storedCharacters": 500,
+        "expandedCharacters": 149402,
+        "definitions": 10
+      },
+      {
+        "producer": "model.layers.0.post:1",
+        "storedCharacters": 8,
+        "expandedCharacters": 8,
+        "definitions": 10
+      },
+      {
+        "producer": "model.layers.0.gate:0",
+        "storedCharacters": 9,
+        "expandedCharacters": 9,
+        "definitions": 10
+      },
+      {
+        "producer": "model.layers.0.activation:0",
+        "storedCharacters": 9,
+        "expandedCharacters": 9,
+        "definitions": 10
+      },
+      {
+        "producer": "model.layers.0.up:0",
+        "storedCharacters": 11,
+        "expandedCharacters": 11,
+        "definitions": 10
+      },
+      {
+        "producer": "model.layers.0.gated:0",
+        "storedCharacters": 423,
+        "expandedCharacters": 425,
+        "definitions": 12
+      },
+      {
+        "producer": "model.layers.0.hidden:0",
+        "storedCharacters": 294,
+        "expandedCharacters": 8774,
+        "definitions": 14
+      },
+      {
+        "producer": "model.layers.0.hidden:1",
+        "storedCharacters": 2,
+        "expandedCharacters": 2,
+        "definitions": 14
+      },
+      {
+        "producer": "final:mean",
+        "storedCharacters": 101,
+        "expandedCharacters": 8859,
+        "definitions": 14
+      },
+      {
+        "producer": "final:inverse",
+        "storedCharacters": 1700,
+        "expandedCharacters": 63008,
+        "definitions": 15
+      },
+      {
+        "producer": "final:0",
+        "storedCharacters": 507,
+        "expandedCharacters": 170283,
+        "definitions": 17
+      },
+      {
+        "producer": "final:1",
+        "storedCharacters": 8,
+        "expandedCharacters": 8,
+        "definitions": 17
+      },
+      {
+        "producer": "output:0:2",
+        "storedCharacters": 150,
+        "expandedCharacters": 170419,
+        "definitions": 18
+      }
+    ],
+    "definitions": [
+      {
+        "definition": 0,
+        "storedCharacters": 1602,
+        "expandedCharacters": 1604,
+        "directDependencyOccurrences": {}
+      },
+      {
+        "definition": 1,
+        "storedCharacters": 435,
+        "expandedCharacters": 3615,
+        "directDependencyOccurrences": {
+          "0": 2
+        }
+      },
+      {
+        "definition": 2,
+        "storedCharacters": 96,
+        "expandedCharacters": 98,
+        "directDependencyOccurrences": {}
+      },
+      {
+        "definition": 3,
+        "storedCharacters": 150,
+        "expandedCharacters": 3752,
+        "directDependencyOccurrences": {
+          "1": 1
+        }
+      },
+      {
+        "definition": 4,
+        "storedCharacters": 147,
+        "expandedCharacters": 3749,
+        "directDependencyOccurrences": {
+          "1": 1
+        }
+      },
+      {
+        "definition": 5,
+        "storedCharacters": 202,
+        "expandedCharacters": 7675,
+        "directDependencyOccurrences": {
+          "3": 1,
+          "4": 1
+        }
+      },
+      {
+        "definition": 6,
+        "storedCharacters": 187,
+        "expandedCharacters": 7660,
+        "directDependencyOccurrences": {
+          "3": 1,
+          "4": 1
+        }
+      },
+      {
+        "definition": 7,
+        "storedCharacters": 1693,
+        "expandedCharacters": 55315,
+        "directDependencyOccurrences": {
+          "5": 7
+        }
+      },
+      {
+        "definition": 8,
+        "storedCharacters": 500,
+        "expandedCharacters": 149402,
+        "directDependencyOccurrences": {
+          "5": 5,
+          "7": 2
+        }
+      },
+      {
+        "definition": 9,
+        "storedCharacters": 235,
+        "expandedCharacters": 7708,
+        "directDependencyOccurrences": {
+          "3": 1,
+          "4": 1
+        }
+      },
+      {
+        "definition": 10,
+        "storedCharacters": 423,
+        "expandedCharacters": 425,
+        "directDependencyOccurrences": {}
+      },
+      {
+        "definition": 11,
+        "storedCharacters": 106,
+        "expandedCharacters": 108,
+        "directDependencyOccurrences": {}
+      },
+      {
+        "definition": 12,
+        "storedCharacters": 294,
+        "expandedCharacters": 8774,
+        "directDependencyOccurrences": {
+          "5": 1,
+          "10": 2
+        }
+      },
+      {
+        "definition": 13,
+        "storedCharacters": 279,
+        "expandedCharacters": 8759,
+        "directDependencyOccurrences": {
+          "5": 1,
+          "10": 2
+        }
+      },
+      {
+        "definition": 14,
+        "storedCharacters": 1700,
+        "expandedCharacters": 63008,
+        "directDependencyOccurrences": {
+          "12": 7
+        }
+      },
+      {
+        "definition": 15,
+        "storedCharacters": 507,
+        "expandedCharacters": 170283,
+        "directDependencyOccurrences": {
+          "12": 5,
+          "14": 2
+        }
+      },
+      {
+        "definition": 16,
+        "storedCharacters": 327,
+        "expandedCharacters": 8807,
+        "directDependencyOccurrences": {
+          "5": 1,
+          "10": 2
+        }
+      },
+      {
+        "definition": 17,
+        "storedCharacters": 150,
+        "expandedCharacters": 170419,
+        "directDependencyOccurrences": {
+          "15": 1
+        }
+      }
+    ],
+    "finalArtifactEmitted": false
+  },
+  {
+    "domains": {
+      "X1": [
+        -12288,
+        12288
+      ],
+      "X2": [
+        -31743,
+        -20480
+      ]
+    },
+    "logicalCharacters": 24240079,
+    "storedCharacters": 50273,
+    "producerGrowth": [
+      {
+        "producer": "model.layers.0.pre:mean",
+        "storedCharacters": 87,
+        "expandedCharacters": 87,
+        "definitions": 0
+      },
+      {
+        "producer": "model.layers.0.pre:inverse",
+        "storedCharacters": 1602,
+        "expandedCharacters": 1604,
+        "definitions": 1
+      },
+      {
+        "producer": "model.layers.0.pre:0",
+        "storedCharacters": 435,
+        "expandedCharacters": 3615,
+        "definitions": 3
+      },
+      {
+        "producer": "model.layers.0.pre:1",
+        "storedCharacters": 8,
+        "expandedCharacters": 8,
+        "definitions": 3
+      },
+      {
+        "producer": "model.layers.0.v:0",
+        "storedCharacters": 150,
+        "expandedCharacters": 3752,
+        "definitions": 4
+      },
+      {
+        "producer": "model.layers.0.context:0",
+        "storedCharacters": 15,
+        "expandedCharacters": 3752,
+        "definitions": 4
+      },
+      {
+        "producer": "model.layers.0.v:1",
+        "storedCharacters": 147,
+        "expandedCharacters": 3749,
+        "definitions": 5
+      },
+      {
+        "producer": "model.layers.0.context:1",
+        "storedCharacters": 15,
+        "expandedCharacters": 3749,
+        "definitions": 5
+      },
+      {
+        "producer": "model.layers.0.residual:0",
+        "storedCharacters": 202,
+        "expandedCharacters": 7675,
+        "definitions": 7
+      },
+      {
+        "producer": "model.layers.0.residual:1",
+        "storedCharacters": 2,
+        "expandedCharacters": 2,
+        "definitions": 7
+      },
+      {
+        "producer": "model.layers.0.post:mean",
+        "storedCharacters": 100,
+        "expandedCharacters": 7760,
+        "definitions": 7
+      },
+      {
+        "producer": "model.layers.0.post:inverse",
+        "storedCharacters": 1693,
+        "expandedCharacters": 55315,
+        "definitions": 8
+      },
+      {
+        "producer": "model.layers.0.post:0",
+        "storedCharacters": 500,
+        "expandedCharacters": 149402,
+        "definitions": 10
+      },
+      {
+        "producer": "model.layers.0.post:1",
+        "storedCharacters": 8,
+        "expandedCharacters": 8,
+        "definitions": 10
+      },
+      {
+        "producer": "model.layers.0.gate:0",
+        "storedCharacters": 151,
+        "expandedCharacters": 149540,
+        "definitions": 11
+      },
+      {
+        "producer": "model.layers.0.activation:0",
+        "storedCharacters": 125,
+        "expandedCharacters": 149651,
+        "definitions": 13
+      },
+      {
+        "producer": "model.layers.0.up:0",
+        "storedCharacters": 149,
+        "expandedCharacters": 149538,
+        "definitions": 14
+      },
+      {
+        "producer": "model.layers.0.gated:0",
+        "storedCharacters": 422,
+        "expandedCharacters": 897895,
+        "definitions": 16
+      },
+      {
+        "producer": "model.layers.0.hidden:0",
+        "storedCharacters": 1317,
+        "expandedCharacters": 1504764,
+        "definitions": 17
+      },
+      {
+        "producer": "model.layers.0.hidden:1",
+        "storedCharacters": 2,
+        "expandedCharacters": 2,
+        "definitions": 17
+      },
+      {
+        "producer": "final:mean",
+        "storedCharacters": 101,
+        "expandedCharacters": 1504849,
+        "definitions": 17
+      },
+      {
+        "producer": "final:inverse",
+        "storedCharacters": 12216,
+        "expandedCharacters": 8795011,
+        "definitions": 18
+      },
+      {
+        "producer": "final:0",
+        "storedCharacters": 29015,
+        "expandedCharacters": 24239943,
+        "definitions": 20
+      },
+      {
+        "producer": "final:1",
+        "storedCharacters": 8,
+        "expandedCharacters": 8,
+        "definitions": 20
+      },
+      {
+        "producer": "output:0:2",
+        "storedCharacters": 150,
+        "expandedCharacters": 24240079,
+        "definitions": 21
+      }
+    ],
+    "definitions": [
+      {
+        "definition": 0,
+        "storedCharacters": 1602,
+        "expandedCharacters": 1604,
+        "directDependencyOccurrences": {}
+      },
+      {
+        "definition": 1,
+        "storedCharacters": 435,
+        "expandedCharacters": 3615,
+        "directDependencyOccurrences": {
+          "0": 2
+        }
+      },
+      {
+        "definition": 2,
+        "storedCharacters": 96,
+        "expandedCharacters": 98,
+        "directDependencyOccurrences": {}
+      },
+      {
+        "definition": 3,
+        "storedCharacters": 150,
+        "expandedCharacters": 3752,
+        "directDependencyOccurrences": {
+          "1": 1
+        }
+      },
+      {
+        "definition": 4,
+        "storedCharacters": 147,
+        "expandedCharacters": 3749,
+        "directDependencyOccurrences": {
+          "1": 1
+        }
+      },
+      {
+        "definition": 5,
+        "storedCharacters": 202,
+        "expandedCharacters": 7675,
+        "directDependencyOccurrences": {
+          "3": 1,
+          "4": 1
+        }
+      },
+      {
+        "definition": 6,
+        "storedCharacters": 187,
+        "expandedCharacters": 7660,
+        "directDependencyOccurrences": {
+          "3": 1,
+          "4": 1
+        }
+      },
+      {
+        "definition": 7,
+        "storedCharacters": 1693,
+        "expandedCharacters": 55315,
+        "directDependencyOccurrences": {
+          "5": 7
+        }
+      },
+      {
+        "definition": 8,
+        "storedCharacters": 500,
+        "expandedCharacters": 149402,
+        "directDependencyOccurrences": {
+          "5": 5,
+          "7": 2
+        }
+      },
+      {
+        "definition": 9,
+        "storedCharacters": 235,
+        "expandedCharacters": 7708,
+        "directDependencyOccurrences": {
+          "3": 1,
+          "4": 1
+        }
+      },
+      {
+        "definition": 10,
+        "storedCharacters": 151,
+        "expandedCharacters": 149540,
+        "directDependencyOccurrences": {
+          "8": 1
+        }
+      },
+      {
+        "definition": 11,
+        "storedCharacters": 125,
+        "expandedCharacters": 149651,
+        "directDependencyOccurrences": {
+          "10": 1
+        }
+      },
+      {
+        "definition": 12,
+        "storedCharacters": 18,
+        "expandedCharacters": 20,
+        "directDependencyOccurrences": {}
+      },
+      {
+        "definition": 13,
+        "storedCharacters": 149,
+        "expandedCharacters": 149538,
+        "directDependencyOccurrences": {
+          "8": 1
+        }
+      },
+      {
+        "definition": 14,
+        "storedCharacters": 422,
+        "expandedCharacters": 897895,
+        "directDependencyOccurrences": {
+          "11": 3,
+          "13": 3
+        }
+      },
+      {
+        "definition": 15,
+        "storedCharacters": 69,
+        "expandedCharacters": 71,
+        "directDependencyOccurrences": {}
+      },
+      {
+        "definition": 16,
+        "storedCharacters": 1317,
+        "expandedCharacters": 1504764,
+        "directDependencyOccurrences": {
+          "5": 1,
+          "11": 5,
+          "13": 5
+        }
+      },
+      {
+        "definition": 17,
+        "storedCharacters": 12216,
+        "expandedCharacters": 8795011,
+        "directDependencyOccurrences": {
+          "5": 14,
+          "11": 29,
+          "13": 29
+        }
+      },
+      {
+        "definition": 18,
+        "storedCharacters": 29015,
+        "expandedCharacters": 24239943,
+        "directDependencyOccurrences": {
+          "5": 34,
+          "11": 70,
+          "13": 70,
+          "16": 2
+        }
+      },
+      {
+        "definition": 19,
+        "storedCharacters": 1394,
+        "expandedCharacters": 1504841,
+        "directDependencyOccurrences": {
+          "5": 1,
+          "11": 5,
+          "13": 5
+        }
+      },
+      {
+        "definition": 20,
+        "storedCharacters": 150,
+        "expandedCharacters": 24240079,
+        "directDependencyOccurrences": {
+          "18": 1
+        }
+      }
+    ],
+    "finalArtifactEmitted": false
+  },
+  {
+    "domains": {
+      "X1": [
+        -19455,
+        19455
+      ],
+      "X2": [
+        -31743,
+        -20480
+      ]
+    },
+    "logicalCharacters": 1013336912,
+    "storedCharacters": 52705,
+    "producerGrowth": [
+      {
+        "producer": "model.layers.0.pre:mean",
+        "storedCharacters": 87,
+        "expandedCharacters": 87,
+        "definitions": 0
+      },
+      {
+        "producer": "model.layers.0.pre:inverse",
+        "storedCharacters": 1602,
+        "expandedCharacters": 1604,
+        "definitions": 1
+      },
+      {
+        "producer": "model.layers.0.pre:0",
+        "storedCharacters": 435,
+        "expandedCharacters": 3615,
+        "definitions": 3
+      },
+      {
+        "producer": "model.layers.0.pre:1",
+        "storedCharacters": 101,
+        "expandedCharacters": 1692,
+        "definitions": 4
+      },
+      {
+        "producer": "model.layers.0.v:0",
+        "storedCharacters": 166,
+        "expandedCharacters": 5445,
+        "definitions": 5
+      },
+      {
+        "producer": "model.layers.0.context:0",
+        "storedCharacters": 15,
+        "expandedCharacters": 5445,
+        "definitions": 5
+      },
+      {
+        "producer": "model.layers.0.v:1",
+        "storedCharacters": 163,
+        "expandedCharacters": 5442,
+        "definitions": 6
+      },
+      {
+        "producer": "model.layers.0.context:1",
+        "storedCharacters": 15,
+        "expandedCharacters": 5442,
+        "definitions": 6
+      },
+      {
+        "producer": "model.layers.0.residual:0",
+        "storedCharacters": 660,
+        "expandedCharacters": 44090,
+        "definitions": 8
+      },
+      {
+        "producer": "model.layers.0.residual:1",
+        "storedCharacters": 2,
+        "expandedCharacters": 2,
+        "definitions": 8
+      },
+      {
+        "producer": "model.layers.0.post:mean",
+        "storedCharacters": 100,
+        "expandedCharacters": 44175,
+        "definitions": 8
+      },
+      {
+        "producer": "model.layers.0.post:inverse",
+        "storedCharacters": 1693,
+        "expandedCharacters": 310220,
+        "definitions": 9
+      },
+      {
+        "producer": "model.layers.0.post:0",
+        "storedCharacters": 500,
+        "expandedCharacters": 841287,
+        "definitions": 11
+      },
+      {
+        "producer": "model.layers.0.post:1",
+        "storedCharacters": 101,
+        "expandedCharacters": 310308,
+        "definitions": 12
+      },
+      {
+        "producer": "model.layers.0.gate:0",
+        "storedCharacters": 169,
+        "expandedCharacters": 1151735,
+        "definitions": 13
+      },
+      {
+        "producer": "model.layers.0.activation:0",
+        "storedCharacters": 125,
+        "expandedCharacters": 1151846,
+        "definitions": 15
+      },
+      {
+        "producer": "model.layers.0.up:0",
+        "storedCharacters": 165,
+        "expandedCharacters": 1151731,
+        "definitions": 16
+      },
+      {
+        "producer": "model.layers.0.gated:0",
+        "storedCharacters": 422,
+        "expandedCharacters": 6911059,
+        "definitions": 18
+      },
+      {
+        "producer": "model.layers.0.hidden:0",
+        "storedCharacters": 1317,
+        "expandedCharacters": 11563119,
+        "definitions": 19
+      },
+      {
+        "producer": "model.layers.0.hidden:1",
+        "storedCharacters": 2,
+        "expandedCharacters": 2,
+        "definitions": 19
+      },
+      {
+        "producer": "final:mean",
+        "storedCharacters": 101,
+        "expandedCharacters": 11563204,
+        "definitions": 19
+      },
+      {
+        "producer": "final:inverse",
+        "storedCharacters": 12216,
+        "expandedCharacters": 67432073,
+        "definitions": 20
+      },
+      {
+        "producer": "final:0",
+        "storedCharacters": 29015,
+        "expandedCharacters": 185901923,
+        "definitions": 22
+      },
+      {
+        "producer": "final:1",
+        "storedCharacters": 102,
+        "expandedCharacters": 67432161,
+        "definitions": 23
+      },
+      {
+        "producer": "output:0:2",
+        "storedCharacters": 702,
+        "expandedCharacters": 1013336912,
+        "definitions": 25
+      }
+    ],
+    "definitions": [
+      {
+        "definition": 0,
+        "storedCharacters": 1602,
+        "expandedCharacters": 1604,
+        "directDependencyOccurrences": {}
+      },
+      {
+        "definition": 1,
+        "storedCharacters": 435,
+        "expandedCharacters": 3615,
+        "directDependencyOccurrences": {
+          "0": 2
+        }
+      },
+      {
+        "definition": 2,
+        "storedCharacters": 96,
+        "expandedCharacters": 98,
+        "directDependencyOccurrences": {}
+      },
+      {
+        "definition": 3,
+        "storedCharacters": 101,
+        "expandedCharacters": 1692,
+        "directDependencyOccurrences": {
+          "0": 1
+        }
+      },
+      {
+        "definition": 4,
+        "storedCharacters": 166,
+        "expandedCharacters": 5445,
+        "directDependencyOccurrences": {
+          "1": 1,
+          "3": 1
+        }
+      },
+      {
+        "definition": 5,
+        "storedCharacters": 163,
+        "expandedCharacters": 5442,
+        "directDependencyOccurrences": {
+          "1": 1,
+          "3": 1
+        }
+      },
+      {
+        "definition": 6,
+        "storedCharacters": 660,
+        "expandedCharacters": 44090,
+        "directDependencyOccurrences": {
+          "4": 4,
+          "5": 4
+        }
+      },
+      {
+        "definition": 7,
+        "storedCharacters": 645,
+        "expandedCharacters": 44075,
+        "directDependencyOccurrences": {
+          "4": 4,
+          "5": 4
+        }
+      },
+      {
+        "definition": 8,
+        "storedCharacters": 1693,
+        "expandedCharacters": 310220,
+        "directDependencyOccurrences": {
+          "6": 7
+        }
+      },
+      {
+        "definition": 9,
+        "storedCharacters": 500,
+        "expandedCharacters": 841287,
+        "directDependencyOccurrences": {
+          "6": 5,
+          "8": 2
+        }
+      },
+      {
+        "definition": 10,
+        "storedCharacters": 693,
+        "expandedCharacters": 44123,
+        "directDependencyOccurrences": {
+          "4": 4,
+          "5": 4
+        }
+      },
+      {
+        "definition": 11,
+        "storedCharacters": 101,
+        "expandedCharacters": 310308,
+        "directDependencyOccurrences": {
+          "8": 1
+        }
+      },
+      {
+        "definition": 12,
+        "storedCharacters": 169,
+        "expandedCharacters": 1151735,
+        "directDependencyOccurrences": {
+          "9": 1,
+          "11": 1
+        }
+      },
+      {
+        "definition": 13,
+        "storedCharacters": 125,
+        "expandedCharacters": 1151846,
+        "directDependencyOccurrences": {
+          "12": 1
+        }
+      },
+      {
+        "definition": 14,
+        "storedCharacters": 18,
+        "expandedCharacters": 20,
+        "directDependencyOccurrences": {}
+      },
+      {
+        "definition": 15,
+        "storedCharacters": 165,
+        "expandedCharacters": 1151731,
+        "directDependencyOccurrences": {
+          "9": 1,
+          "11": 1
+        }
+      },
+      {
+        "definition": 16,
+        "storedCharacters": 422,
+        "expandedCharacters": 6911059,
+        "directDependencyOccurrences": {
+          "13": 3,
+          "15": 3
+        }
+      },
+      {
+        "definition": 17,
+        "storedCharacters": 69,
+        "expandedCharacters": 71,
+        "directDependencyOccurrences": {}
+      },
+      {
+        "definition": 18,
+        "storedCharacters": 1317,
+        "expandedCharacters": 11563119,
+        "directDependencyOccurrences": {
+          "6": 1,
+          "13": 5,
+          "15": 5
+        }
+      },
+      {
+        "definition": 19,
+        "storedCharacters": 12216,
+        "expandedCharacters": 67432073,
+        "directDependencyOccurrences": {
+          "6": 14,
+          "13": 29,
+          "15": 29
+        }
+      },
+      {
+        "definition": 20,
+        "storedCharacters": 29015,
+        "expandedCharacters": 185901923,
+        "directDependencyOccurrences": {
+          "6": 34,
+          "13": 70,
+          "15": 70,
+          "18": 2
+        }
+      },
+      {
+        "definition": 21,
+        "storedCharacters": 1394,
+        "expandedCharacters": 11563196,
+        "directDependencyOccurrences": {
+          "6": 1,
+          "13": 5,
+          "15": 5
+        }
+      },
+      {
+        "definition": 22,
+        "storedCharacters": 102,
+        "expandedCharacters": 67432161,
+        "directDependencyOccurrences": {
+          "19": 1
+        }
+      },
+      {
+        "definition": 23,
+        "storedCharacters": 702,
+        "expandedCharacters": 1013336912,
+        "directDependencyOccurrences": {
+          "20": 4,
+          "22": 4
+        }
+      },
+      {
+        "definition": 24,
+        "storedCharacters": 136,
+        "expandedCharacters": 253334190,
+        "directDependencyOccurrences": {
+          "20": 1,
+          "22": 1
+        }
+      }
+    ],
+    "finalArtifactEmitted": false
+  }
+]
