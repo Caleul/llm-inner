@@ -53,11 +53,14 @@ def next_region(tree,order='coverage',thresholds=None):
 
 
 def update_threshold(bound):
-    """First Half binade whose smaller-neighbor cell strictly exceeds bound."""
+    """First finite Half magnitude whose strict symmetric cell exceeds bound."""
+    from direct_sympy_conversions import half_cell_radius_bound
     if bound is None or not math.isfinite(bound) or bound<0:return None
     if bound<2**-25:return rank(2**-24)
     for exponent in range(-14,16):
-        if bound<2**(exponent-12):return rank(2**exponent)
+        base=2**exponent
+        for candidate in (base,base+2**(exponent-10)):
+            if bound<half_cell_radius_bound(candidate):return rank(candidate)
     return None
 
 

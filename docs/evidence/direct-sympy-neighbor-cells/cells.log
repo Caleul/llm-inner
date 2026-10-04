@@ -1,0 +1,9 @@
+....
+----------------------------------------------------------------------
+Ran 4 tests in 1.312s
+
+OK
+Half interval sum native parity: cases=1050625 mismatches=0
+Half interval expression: characters=110->49
+Half interval grid proof: cases=63488 violations=0
+Half neighbor cell native parity: cases=507888 mismatches=0

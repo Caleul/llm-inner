@@ -145,8 +145,8 @@ class ParallelRegionTests(unittest.TestCase):
                 report=run(self.args(checkpoint,path,workers));state=json.loads((path/'frontier.json').read_text())
                 self.assertEqual(report['nativeMismatches'],0)
                 self.assertEqual(report['attempts'],4)
-                self.assertEqual(report['coveredInputPatterns'],880803840)
-                self.assertEqual(audit_tree(state['tree'],state['root']),(880803840,3149922304))
+                self.assertEqual(report['coveredInputPatterns'],1006505988)
+                self.assertEqual(audit_tree(state['tree'],state['root']),(1006505988,3024220156))
                 self.assertEqual(max(w['maxWorkersLive'] for w in report['waves']),workers)
                 self.assertTrue(all(w['peakObservedRSSBytes']<=report['memoryBudgetBytes'] for w in report['waves']))
                 self.assertFalse(state['finalArtifactEmitted']);self.assertFalse(state['finalParity'])
@@ -154,11 +154,11 @@ class ParallelRegionTests(unittest.TestCase):
             rows=lambda state:{key:(node['domains'],node['artifact']['sha256']) for key,node in state['tree'].items() if node['status']=='complete'}
             self.assertEqual(rows(states[0]),rows(states[1]))
         result={'sequential':reports[0],'parallel':reports[1],
-            'identicalDomainsAndArtifactHashes':True,'coveredPatterns':880803840,
+            'identicalDomainsAndArtifactHashes':True,'coveredPatterns':1006505988,
             'speedRatio':reports[0]['seconds']/reports[1]['seconds'],'fullCoordinateParity':False}
         if os.environ.get('LLM_INNER_PARTITION_BENCHMARK_REPORT'):
             Path(os.environ['LLM_INNER_PARTITION_BENCHMARK_REPORT']).write_text(json.dumps(result,indent=2)+'\n')
-        print('Parallel partition proof: workers=1,2 patterns=880803840 identicalHashes=true mismatches=0')
+        print('Parallel partition proof: workers=1,2 patterns=1006505988 identicalHashes=true mismatches=0')
 
 
 if __name__=='__main__':unittest.main()

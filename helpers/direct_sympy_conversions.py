@@ -44,6 +44,26 @@ def call(name,*args):
     return name+"("+", ".join(map(str,args))+")"
 
 
+def half_cell_radius_bound(minimum):
+    """Smallest symmetric cell among finite nonzero Half magnitudes >= minimum.
+
+    Round the proof endpoint upward to an actual Half. Only a normal
+    power of two above the subnormal frontier has a smaller predecessor
+    spacing. Every later value, including the next binade's first value,
+    has at least this minimum cell radius. A strict radius comparison
+    still excludes ties and preserves the original F32/Half boundaries.
+    """
+    if not math.isfinite(minimum) or minimum<=0 or minimum>65504:return None
+    rounded=struct.unpack('e',struct.pack('e',minimum))[0]
+    bits=struct.unpack('H',struct.pack('e',rounded))[0]
+    if rounded<minimum:bits+=1
+    if not 0<bits<0x7c00:return None
+    exponent=bits>>10
+    radius=2**max(-25,exponent-26)
+    if exponent>1 and bits&1023==0:radius/=2
+    return radius
+
+
 def binary_exponent(value):
     # log2 rounds to an integer for some values immediately below a power
     # of two. frexp exposes the actual IEEE binade without that ambiguity.
@@ -647,7 +667,7 @@ class ConversionSession:
         minimum=max(source.minimum_magnitude,source.minimum if source.minimum>0 else -source.maximum if source.maximum<0 else 0)
         if not minimum:return None
         # Subnormal Half spacing stops shrinking at 2**-24.
-        return 2**max(-25,binary_exponent(minimum)-12)
+        return half_cell_radius_bound(minimum)
 
     def f32_update_is_invisible(self,value,update):
         """Strict F32 cell containment for finite F32 operands.

@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import patch
 
 from direct_sympy_strings import Domain,StringCompiler,syntax
-from direct_sympy_conversions import ConversionSession
+from direct_sympy_conversions import ConversionSession,half_cell_radius_bound
 from direct_sympy_conversions_test import cpp
 
 
@@ -19,6 +19,52 @@ def make(low,high,q=-1074):
 
 
 class HalfQuantumTests(unittest.TestCase):
+    def test_neighbor_cells_are_exact_and_native_updates_preserve_bits(self):
+        records=[]
+        for bits in range(1,0x7c00):
+            decode=lambda b:struct.unpack('e',struct.pack('H',b))[0]
+            center=decode(bits);previous=decode(bits-1)
+            following=decode(bits+1) if bits<0x7bff else 65536.0
+            expected=min(F(center)-F(previous),F(following)-F(center))/2
+            radius=half_cell_radius_bound(center)
+            self.assertEqual(F(radius),expected)
+            # The endpoint can lie between Half values. Use the next
+            # actual Half rather than inheriting the excluded power's cell.
+            if bits<0x7bff:
+                gap=center+(following-center)/3
+                self.assertEqual(half_cell_radius_bound(gap),half_cell_radius_bound(following))
+            below=decode(max(0,struct.unpack('H',struct.pack('e',radius))[0]-1))
+            records.append('{'+repr(center)+','+repr(below)+'}')
+        for invalid in (0,-0.0,-1,float('inf'),float('nan'),65505):self.assertIsNone(half_cell_radius_bound(invalid))
+        session=ConversionSession(StringCompiler(),{'X1':Domain(F(2.001953125),F(4),-24),
+            'X2':Domain(F(-2**-11),F(2**-11),-24)},input_dtype='f16')
+        self.assertEqual(session.close('R16(R32(X1+X2))'),'X1')
+        session=ConversionSession(StringCompiler(),{'X1':Domain(F(2),F(4),-24),
+            'X2':Domain(F(-2**-11),F(2**-11),-24)},input_dtype='f16')
+        self.assertFalse(session.half_update_is_invisible(syntax('X1'),syntax('X2')))
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);source=root/'cells.cpp';binary=root/'cells'
+            source.write_text('''#include <cstdint>
+#include <cstring>
+#include <cmath>
+#include <cfenv>
+#include <cstdio>
+#include <initializer_list>
+template<class T,class U>T word(U x){T y;std::memcpy(&y,&x,sizeof(y));return y;}
+struct Record{double center,below;};Record records[]={'''+','.join(records)+'''};
+int main(){std::fesetround(FE_TONEAREST);unsigned cases=0,fail=0;
+ for(auto r:records)for(double sign:{-1.0,1.0})for(double delta:{r.below,-r.below,0.0,-0.0}){
+  double x=r.center*sign;
+  double sum=double(_Float16(float(x+delta))),difference=double(_Float16(float(x-delta)));
+  fail+=word<uint64_t>(sum)!=word<uint64_t>(x);fail+=word<uint64_t>(difference)!=word<uint64_t>(x);cases+=2;
+ }std::printf("Half neighbor cell native parity: cases=%u mismatches=%u\\n",cases,fail);return fail?1:0;}
+''')
+            built=subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],capture_output=True,text=True)
+            self.assertEqual(built.returncode,0,built.stderr)
+            tested=subprocess.run([str(binary)],capture_output=True,text=True)
+            self.assertEqual(tested.returncode,0,tested.stdout+tested.stderr)
+            self.assertIn('cases=507888 mismatches=0',tested.stdout);print(tested.stdout,end='')
+
     def test_every_finite_half_value_obeys_its_interval_certificate(self):
         cases=0
         for exponent in range(31):

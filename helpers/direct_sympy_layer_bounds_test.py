@@ -180,7 +180,7 @@ for(auto record:records)for(unsigned b=0;b<65536;b++){
     def test_actual_layer_updates_stay_inside_tighter_bounds(self):
         with CheckpointStrings(os.environ['LLM_INNER_DIRECT_JSON_CHECKPOINT'],StringCompiler()) as model:
             bounds=layer(model,'model.layers.0.')
-            self.assertEqual([update_threshold(max(bounds[k][i] for k in bounds)) for i in range(model.width)],[rank(4),rank(2)])
+            self.assertEqual([update_threshold(max(bounds[k][i] for k in bounds)) for i in range(model.width)],[rank(2)+1,rank(1)+1])
             prefix='model.layers.0.'
             def weights(name):
                 shape=model.shape(name)

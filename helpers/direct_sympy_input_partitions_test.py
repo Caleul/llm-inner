@@ -26,7 +26,7 @@ class InputPartitionTests(unittest.TestCase):
         bounds={'attention':[0.0068,0.0024,0.0],'mlp':[0.0003,0.0003,0.0]}
         with patch('direct_sympy_layer_bounds.layer',return_value=bounds):
             tree,geometry=runner.seed_update_cells(model,root,9)
-        self.assertEqual(geometry['thresholdRanks'],{'X1':rank(32),'X2':rank(16),'X3':1})
+        self.assertEqual(geometry['thresholdRanks'],{'X1':rank(16)+1,'X2':rank(8)+1,'X3':1})
         self.assertEqual(geometry['seededAxes'],['X1','X2'])
         self.assertEqual(geometry['leafRegions'],9)
         self.assertEqual(runner.audit_tree(tree,root),(0,63488**3))
@@ -37,8 +37,8 @@ class InputPartitionTests(unittest.TestCase):
         with patch('direct_sympy_layer_bounds.layer',return_value=None):
             unchanged,geometry=runner.seed_update_cells(model,root,9)
         self.assertEqual(len(unchanged),1);self.assertEqual(geometry['seededAxes'],[])
-        for bound in (None,-1,float('inf'),8):self.assertIsNone(runner.update_threshold(bound))
-        self.assertEqual(runner.update_threshold(2**-25),rank(2**-12))
+        for bound in (None,-1,float('inf'),16):self.assertIsNone(runner.update_threshold(bound))
+        self.assertEqual(runner.update_threshold(2**-25),rank(2**-13)+1)
         source=runner.decode(root)
         for cut in (True,-MAX_RANK-1,MAX_RANK,1.5):
             with self.assertRaises(ValueError):split(source,'X1',cut)
@@ -54,11 +54,11 @@ class InputPartitionTests(unittest.TestCase):
                 min_values=32,total_characters=100000)
             self.assertEqual(runner.run(args),1)
             state=json.loads((Path(directory)/'frontier.json').read_text())
-            self.assertEqual(state['updateCellGeometry']['thresholdRanks'],{'X1':rank(4),'X2':rank(2)})
+            self.assertEqual(state['updateCellGeometry']['thresholdRanks'],{'X1':rank(2)+1,'X2':rank(1)+1})
             self.assertEqual([attempt['region'] for attempt in state['attempts']],['00','011','110','1111'])
             self.assertTrue(all(attempt['complete'] and attempt['elidedUpdates']==4 for attempt in state['attempts']))
             covered,pending=runner.audit_tree(state['tree'],state['root'])
-            self.assertEqual(covered,4*(MAX_RANK-rank(4)+1)*(MAX_RANK-rank(2)+1))
+            self.assertEqual(covered,4*(MAX_RANK-rank(2))*(MAX_RANK-rank(1)))
             self.assertEqual(covered+pending,63488**2)
             self.assertFalse(state['finalArtifactEmitted']);self.assertFalse(state['finalParity'])
             self.assertFalse((Path(directory)/'coordinate.expr').exists())
