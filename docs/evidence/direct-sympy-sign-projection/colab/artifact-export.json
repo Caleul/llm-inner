@@ -1,0 +1,47 @@
+{
+  "producer": "model.layers.0.gated:0",
+  "characters": 13497941778,
+  "sha256": "3517aeea2468309a5a6bdcd7a23901b2b61b6ed27ca77fc51adce43211ab441f",
+  "path": "/content/llm-inner-frontier-composition/sign-projection/state/objects/3517aeea2468309a5a6bdcd7a23901b2b61b6ed27ca77fc51adce43211ab441f.expr.gz",
+  "compressedBytes": 287127713,
+  "fullCoordinate": false,
+  "report": {
+    "runs": [
+      {
+        "name": "direct_sympy_signs_test.py",
+        "seconds": 3.2196896089990332,
+        "exitCode": 0,
+        "childrenPeakRSSKiB": 111620
+      },
+      {
+        "name": "direct_sympy_savepoints_test.py",
+        "seconds": 4.812720154999624,
+        "exitCode": 0,
+        "childrenPeakRSSKiB": 661256
+      },
+      {
+        "name": "compile",
+        "seconds": 668.5153009959995,
+        "exitCode": 1,
+        "childrenPeakRSSKiB": 87841672
+      },
+      {
+        "name": "parity",
+        "seconds": 243.60463377499946,
+        "exitCode": 0,
+        "childrenPeakRSSKiB": 87841672
+      }
+    ],
+    "coordinateComplete": false,
+    "terminal": "complete"
+  },
+  "parity": {
+    "cases": 60,
+    "comparisons": 360,
+    "mismatches": 0,
+    "producerFilesEvaluated": 16,
+    "coordinateAtPositionZeroVerified": false,
+    "scope": "Actual saved posterior normalization, gate/activation/up/gated and any completed hidden/final/output producers, position 0; verification-only reuse of immutable earlier subtrees. Does not prove the last-token next-token coordinate for variable sequence lengths.",
+    "elapsedSeconds": 234.58323135400133
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "oldSha256": "c956c1dbcf0bc2bf74eb8e9d6fbb2e8ee7ee9272ec39cebf1bc2ac177e65e171",
+  "newSha256": "dd9f64b52a88b23da01d664cea1648e2be5ec9186c986a0db0e38422027caa53",
+  "reason": "Fix undefined diagnostic filename in gzip-aware validator; numerical compiler sources unchanged"
+}

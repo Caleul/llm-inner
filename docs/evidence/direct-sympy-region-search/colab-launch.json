@@ -23,6 +23,6 @@
     "outcomeUnknown": true,
     "phase": "Colab CLI initial /content setup; no compiler output observed"
   },
-  "reconciliationOperation": "a3a7c38a-0f84-44fb-b2e5-f3bf093ba93c",
-  "reconciliationState": "Pending; inspect this operation before another launch"
+  "reconciliationOperation": "df5833f3-1061-4be2-a9dd-92460a9ecb1e",
+  "reconciliationState": "Read-only reconciliation found legacy square-anchored directory absent; fresh sign-projection job ran in a separate directory and finished. Legacy launch was not retried."
 }

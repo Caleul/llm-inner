@@ -52,6 +52,25 @@ class SignProjectionTests(unittest.TestCase):
             run=subprocess.run([str(binary)],capture_output=True,text=True);self.assertEqual(run.returncode,0,run.stdout+run.stderr);print(run.stdout,end='')
         print('Sign projection strings: '+str(len(baseline))+' -> '+str(len(result)))
 
+    def test_checkpoint_seeded_down_reduction_preserves_the_positive_zero_accumulator(self):
+        from direct_sympy_checkpoint import CheckpointStrings
+        checkpoint=Path(__file__).resolve().parents[1]/'docs/evidence/direct-sympy-test-checkpoint'
+        domains={name:Domain(-F(1,64),F(1,64),-24,False) for name in ('X1','X2')}
+        session=ConversionSession(StringCompiler(),domains,input_dtype='f16')
+        a=session.close('Silu16(X1)');u=session.close('R16(X2/3.0)')
+        g=session.compose_closed('R16(R32(X999999998 * X999999999))',{'X999999998':a,'X999999999':u})
+        with CheckpointStrings(checkpoint,session.compiler) as builder:
+            builder.domains=domains;builder.conversions=session
+            coefficient=builder.weight('model.layers.0.mlp.down_proj.weight',0,0)
+            result=session.close(builder.linear('model.layers.0.mlp.down_proj.weight',0,lambda _:g))
+        functions='\n'.join('double '+name+'(double X1,double X2){return '+cpp(syntax(text))+';}' for name,text in [('candidate',result),('act',a),('up',u)])
+        header='#include <cstdint>\n#include <cstring>\n#include <cmath>\n#include <cstdio>\n#include <initializer_list>\ntemplate<class T,class U>T word(U value){T result;std::memcpy(&result,&value,sizeof(result));return result;}\n'
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);source=root/'seeded.cpp';binary=root/'seeded'
+            source.write_text(header+functions+'\nint main(){unsigned cases=0,mismatches=0,negativeProductZeros=0;for(unsigned b=0;b<65536;b++){if((b&0x7c00)==0x7c00)continue;double x=word<_Float16>(uint16_t(b));if(std::abs(x)>0x1p-6)continue;for(double y:{-0x1p-6,-0x1p-14,-0x1p-24,-0.0,0.0,0x1p-24,0x1p-14,0x1p-6}){double g=double(_Float16(float(act(x,y)*up(x,y))));float product=float(g*'+coefficient+');float reduced=0.0f+product;negativeProductZeros+=product==0 && std::signbit(product);double expected=double(_Float16(reduced));mismatches+=word<uint64_t>(candidate(x,y))!=word<uint64_t>(expected);cases++;}}std::printf("Seeded checkpoint down reduction parity: cases=%u mismatches=%u negativeProductZeros=%u\\n",cases,mismatches,negativeProductZeros);return mismatches || !negativeProductZeros?1:0;}')
+            built=subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],capture_output=True,text=True);self.assertEqual(built.returncode,0,built.stderr)
+            run=subprocess.run([str(binary)],capture_output=True,text=True);self.assertEqual(run.returncode,0,run.stdout+run.stderr);print(run.stdout,end='')
+
     def test_branch_only_sign_proofs_do_not_escape_or_override_unknown_values(self):
         domains={'X1':Domain(F(-1),F(1),-24,False)}
         session=ConversionSession(StringCompiler(),domains,input_dtype='f16')

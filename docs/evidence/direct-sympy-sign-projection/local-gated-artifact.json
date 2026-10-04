@@ -1,0 +1,9 @@
+{
+  "path": "/Users/caleul/Documents/Work/Projects/llm-inner/artifacts/direct-sympy-sign-colab/gated.expr.gz",
+  "compressedBytes": 287127713,
+  "characters": 13497941778,
+  "sha256": "3517aeea2468309a5a6bdcd7a23901b2b61b6ed27ca77fc51adce43211ab441f",
+  "streamedLocalVerification": true,
+  "seconds": 6.397808042005636,
+  "scope": "Exact intermediate gated producer; not a complete output coordinate"
+}

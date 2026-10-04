@@ -1,0 +1,6 @@
+Current thread 0x00007d136adfb080 (most recent call first):
+  File "/content/llm-inner-frontier-composition/sign-projection/helpers/direct_sympy_checkpoint.py", line 50 in write_expression
+  File "/content/llm-inner-frontier-composition/sign-projection/helpers/direct_sympy_checkpoint.py", line 383 in main
+  File "/content/llm-inner-frontier-composition/sign-projection/helpers/direct_sympy_scan_cli.py", line 16 in <module>
+Compilation stopped: Closed numeric envelope exceeds string budget before allocation: expandedCharacters=24033949660 limit=17179869184; completedDependencies=16 lastDependency=model.layers.0.gated:0 closedConversions=35 redundantConversions=3 reusedConvertedRegions=30 visitedConversionNodes=223 earlyHalfProductsThisRun=19; no coordinate artifact admitted
+{"scanBackend": "equivalent-stdlib-v2", "sources": {"direct_sympy_scan_backend.py": "1a1382b3fa7f8a88340a527ea3aab2aa51c3fa5e6d0f61b435630cfe7c8d331f", "direct_sympy_scan_cli.py": "7cdae2c8046649fd0a1bf421503cea845b87186e0b0141d2d7ed2d7d47a1198c"}, "elapsedSeconds": 666.6909659039993, "negativeSearches": 1541, "identifierScans": 1070, "characters": 438200207110, "literalRegionSearches": 2157, "literalRegionCandidates": 56}

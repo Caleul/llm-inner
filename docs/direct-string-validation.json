@@ -9324,8 +9324,8 @@
         "skip": 0
       },
       "python": {
-        "tests": 103,
-        "pass": 103,
+        "tests": 104,
+        "pass": 104,
         "skip": 0
       },
       "broad": {
@@ -9347,16 +9347,135 @@
       "runnerPID": 45102,
       "compilerPID": 45161,
       "launchOperation": "df9b0993-a192-4888-b13c-2c387b5c774c",
-      "statusOperation": "7a83be22-3f30-4dbd-8cfa-ce4a236eb423",
+      "statusOperation": "774561a1-ac15-4480-a670-787a29d8c6b0",
       "validatorUpdateOperation": "2114d6fe-ea30-4b45-8bde-15c6ff04ce94",
-      "lastConfirmedState": "At 5:19 compiler live, 16 saved dependencies; gated producer reduced from 16131686432 to 13497941778 characters; full-coordinate and actual-file parity pending.",
+      "lastConfirmedState": "Compilation stopped before allocating a 24033949660-character next envelope; 16 actual saved files verified with 360 comparisons and zero mismatches",
       "scope": "One output dimension at position zero. No full coordinate parity claimed.",
       "gatedProducer": {
         "previousCharacters": 16131686432,
         "currentCharacters": 13497941778,
         "currentSignCharacters": 658436095,
-        "actualFileParity": "pending"
-      }
+        "actualFileParity": "passed: 60 cases, within actual 16-file comparison suite"
+      },
+      "terminal": "complete",
+      "report": {
+        "runs": [
+          {
+            "name": "direct_sympy_signs_test.py",
+            "seconds": 3.2196896089990332,
+            "exitCode": 0,
+            "childrenPeakRSSKiB": 111620
+          },
+          {
+            "name": "direct_sympy_savepoints_test.py",
+            "seconds": 4.812720154999624,
+            "exitCode": 0,
+            "childrenPeakRSSKiB": 661256
+          },
+          {
+            "name": "compile",
+            "seconds": 668.5153009959995,
+            "exitCode": 1,
+            "childrenPeakRSSKiB": 87841672
+          },
+          {
+            "name": "parity",
+            "seconds": 243.60463377499946,
+            "exitCode": 0,
+            "childrenPeakRSSKiB": 87841672
+          }
+        ],
+        "coordinateComplete": false,
+        "terminal": "complete"
+      },
+      "actualFileParity": {
+        "cases": 60,
+        "comparisons": 360,
+        "mismatches": 0,
+        "producerFilesEvaluated": 16,
+        "coordinateAtPositionZeroVerified": false,
+        "scope": "Actual saved posterior normalization, gate/activation/up/gated and any completed hidden/final/output producers, position 0; verification-only reuse of immutable earlier subtrees. Does not prove the last-token next-token coordinate for variable sequence lengths.",
+        "elapsedSeconds": 234.58323135400133
+      },
+      "nextRejectedCharacters": 24033949660,
+      "artifact": {
+        "producer": "model.layers.0.gated:0",
+        "characters": 13497941778,
+        "sha256": "3517aeea2468309a5a6bdcd7a23901b2b61b6ed27ca77fc51adce43211ab441f",
+        "path": "/content/llm-inner-frontier-composition/sign-projection/state/objects/3517aeea2468309a5a6bdcd7a23901b2b61b6ed27ca77fc51adce43211ab441f.expr.gz",
+        "compressedBytes": 287127713,
+        "fullCoordinate": false
+      },
+      "cuda": {
+        "device": "NVIDIA A100-SXM4-80GB",
+        "torch": "2.11.0+cu130",
+        "cuda": "13.0",
+        "cpuThreads": 1,
+        "halfProducts": {
+          "cases": 888832,
+          "mismatches": 0,
+          "medianCpuSeconds": 0.0021257160005916376,
+          "medianCudaSeconds": 8.310100020025857e-05,
+          "medianCudaWithTransfersSeconds": 0.0024895930000639055,
+          "samples": 15,
+          "warmup": 3
+        },
+        "silu": {
+          "cases": 19458,
+          "mismatches": 0,
+          "domain": [
+            -0.0234375,
+            0.0234375
+          ],
+          "cudaAdmitted": true
+        },
+        "quadraticThreshold": {
+          "cases": 19458,
+          "cpuMismatches": 0,
+          "cudaMismatches": 0,
+          "squareBitMismatches": 0,
+          "cudaAdmitted": true
+        },
+        "cudaPeakAllocatedBytes": 11682816
+      },
+      "baselineReport": {
+        "runs": [
+          {
+            "name": "compile",
+            "exitCode": 1,
+            "seconds": 660.3082384250001
+          },
+          {
+            "name": "parity",
+            "exitCode": 0,
+            "seconds": 307.4409520420004
+          }
+        ],
+        "coordinateComplete": false,
+        "memoryPeakMeasured": false
+      },
+      "comparisonScope": "Fresh one-worker compilation of the same checkpoint and dimension on the same VM; savepoint encoding/proof metadata differ. Both finish 16 dependencies, no complete coordinate. Earlier resumed 906-second run is a different workload and is not a speedup baseline.",
+      "peakMemoryBytes": 89949872128,
+      "numericalSourcesMatchCurrentCommit": true,
+      "remainingFailure": "Next hidden-state envelope is 24,033,949,660 characters, above the unchanged 17,179,869,184-character limit; no complete coordinate emitted.",
+      "localArtifactVerification": {
+        "path": "/Users/caleul/Documents/Work/Projects/llm-inner/artifacts/direct-sympy-sign-colab/gated.expr.gz",
+        "compressedBytes": 287127713,
+        "characters": 13497941778,
+        "sha256": "3517aeea2468309a5a6bdcd7a23901b2b61b6ed27ca77fc51adce43211ab441f",
+        "streamedLocalVerification": true,
+        "seconds": 6.397808042005636,
+        "scope": "Exact intermediate gated producer; not a complete output coordinate"
+      },
+      "compileSpeedupObserved": false,
+      "proofGateScope": "Remote sign suite had 3 tests; the additional seeded checkpoint reduction test passed locally in the final 4-test suite."
+    },
+    "completedDownCasesScope": "Isolated weighted-product Half conversion; not the full checkpoint reduction or coordinate",
+    "seededCheckpointDownReduction": {
+      "cases": 147472,
+      "mismatches": 0,
+      "negativeProductZeros": 50571,
+      "scope": "Actual checkpoint down-projection weight with ordered +0.0 accumulator; local native test, not full-model parity"
     }
   }
 }

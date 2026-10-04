@@ -1,9 +1,8 @@
-....
+...
 ----------------------------------------------------------------------
-Ran 4 tests in 4.551s
+Ran 3 tests in 2.716s
 
 OK
-Seeded checkpoint down reduction parity: cases=147472 mismatches=0 negativeProductZeros=50571
 Completed down projection parity: cases=147472 mismatches=0
 Sign projection strings: 5111 -> 2179
 Finite sign projection parity: cases=3047424 mismatches=0

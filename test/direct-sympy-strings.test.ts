@@ -87,8 +87,9 @@ test('Positive F32 square-root word lowering preserves all mantissas, parities a
 test('IEEE sign projections preserve signed zero and reduce completed down-conversion strings',
   {skip:!python},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_signs_test.py'],{timeout:120_000,maxBuffer:1024*1024});
-    assert.match(stderr,/Ran 3 tests/);
+    assert.match(stderr,/Ran 4 tests/);
     assert.match(stderr,/OK/);
     assert.match(stdout,/Finite sign projection parity: cases=3047424 mismatches=0/);
     assert.match(stdout,/Completed down projection parity: cases=147472 mismatches=0/);
+    assert.match(stdout,/Seeded checkpoint down reduction parity: cases=147472 mismatches=0/);
   });
