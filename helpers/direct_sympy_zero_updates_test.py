@@ -63,6 +63,41 @@ std::printf("Zero-update native parity: cases=%u mismatches=0\\n",cases);}
         self.assertEqual(s.bounds(syntax('X2')).maximum,2**-24)
         self.assertEqual(s.branch_depth,0)
 
+    def test_exact_zero_bounds_preserve_signs_and_division_barriers(self):
+        from direct_sympy_conversions import FiniteSource
+        s=ConversionSession(StringCompiler(),{'X1':Domain(F(-65504),F(65504),-24,False),'X2':Domain(F(0),F(0),-24,False)},input_dtype='f16')
+        finite=s.bounds(syntax('X1'))
+        for text in ('X1+X2','X2+X1','X1-X2'):
+            self.assertEqual(s.bounds(syntax(text)),finite)
+        self.assertEqual(s.bounds(syntax('X2-X1')),FiniteSource(-finite.maximum,-finite.minimum,finite.quantum))
+        for text in ('X1*X2','X2*X1'):
+            bound=s.bounds(syntax(text))
+            self.assertEqual((bound.minimum,bound.maximum),(0,0))
+            self.assertFalse(s.no_negative_zero(syntax(text)))
+        self.assertIsNone(s.bounds(syntax('X2/X1')))
+        self.assertIsNone(s.bounds(syntax('X2/0.0')))
+        self.assertIsNone(s.bounds(syntax('unknown()*X2')))
+        with s.branch_context({**s.domains,'X1':Domain(F(1),F(65504),-24,True)},{},()):
+            bound=s.bounds(syntax('X2/X1'))
+            self.assertEqual((bound.minimum,bound.maximum),(0,0))
+        self.assertIsNone(s.bounds(syntax('X2/X1')))
+        expressions=['R16(R32(X1*X2))','R16(R32(X2*X1))']
+        results=[s.close(text) for text in expressions]
+        with s.branch_context({**s.domains,'X1':Domain(F(1),F(65504),-24,True)},{},()):
+            positive=s.close('R16(R32(X2/X1))')
+        with s.branch_context({**s.domains,'X1':Domain(F(-65504),F(-1),-24,True)},{},()):
+            negative=s.close('R16(R32(X2/X1))')
+        # Validate actual emitted strings, including both zero signs.
+        functions='\n'.join('double candidate'+str(i)+'(double X1,double X2){return '+cpp(syntax(result))+';}' for i,result in enumerate(results+[positive,negative]))
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);source=root/'native.cpp';binary=root/'native'
+            source.write_text('#include <cstdint>\n#include <cstring>\n#include <cmath>\n#include <cstdio>\n#include <initializer_list>\ntemplate<class T,class U>T word(U x){T y;std::memcpy(&y,&x,sizeof(y));return y;}\n'+functions+"""\nint main(){unsigned cases=0,mismatches=0;for(unsigned b=0;b<65536;b++){if((b&0x7c00)==0x7c00)continue;double x=word<_Float16>(uint16_t(b));for(double y:{0.0,-0.0}){mismatches+=word<uint64_t>(candidate0(x,y))!=word<uint64_t>(double(_Float16(float(x*y))));cases++;mismatches+=word<uint64_t>(candidate1(x,y))!=word<uint64_t>(double(_Float16(float(y*x))));cases++;if(std::abs(x)>=1.0){double got=x>0?candidate2(x,y):candidate3(x,y);mismatches+=word<uint64_t>(got)!=word<uint64_t>(double(_Float16(float(y/x))));cases++;}}}std::printf("Exact-zero interval parity: cases=%u mismatches=%u\\n",cases,mismatches);return mismatches?1:0;}""")
+            built=subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],capture_output=True,text=True)
+            self.assertEqual(built.returncode,0,built.stderr)
+            tested=subprocess.run([str(binary)],capture_output=True,text=True)
+            self.assertEqual(tested.returncode,0,tested.stdout+tested.stderr)
+            self.assertIn('mismatches=0',tested.stdout);print(tested.stdout,end='')
+
     def test_positive_zero_and_nonfinite_unknown_operands_are_not_dropped(self):
         s=ConversionSession(StringCompiler(),{'X1':Domain(F(-1),F(1),-24,False)},input_dtype='f16')
         self.assertIn('+',simplify_arithmetic('X1+0.0',s))

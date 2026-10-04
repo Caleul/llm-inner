@@ -172,9 +172,10 @@ test('Disjoint input partitions preserve complete Half coverage and emitted coor
 test('Proved signed-zero updates preserve formats, branch isolation and native payloads',
   {skip:!python},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_zero_updates_test.py'],{timeout:120_000,maxBuffer:1024*1024});
-    assert.match(stderr,/Ran 3 tests/);
+    assert.match(stderr,/Ran 4 tests/);
     assert.match(stderr,/OK/);
     assert.match(stdout,/Zero-update native parity: cases=656300 mismatches=0/);
+    assert.match(stdout,/Exact-zero interval parity: cases=319488 mismatches=0/);
   });
 
 test('Constant IEEE cells eliminate whole producers and propagate compound branch contexts',

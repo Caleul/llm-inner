@@ -1,0 +1,62 @@
+{
+  "complete": true,
+  "inputDomains": {
+    "X1": [
+      20480,
+      31743
+    ],
+    "X2": [
+      20480,
+      31743
+    ]
+  },
+  "producers": 9,
+  "elidedUpdates": 4,
+  "logicalCharacters": 17584,
+  "storedCharacters": 2911,
+  "artifact": {
+    "path": "docs/evidence/direct-sympy-exact-zero-bounds/coordinate-region.expr",
+    "characters": 21922,
+    "sha256": "e9d6fbdf7265df3da213d9e67e30a212dcc62e2769fe1e6b8bf465cfd27cf768",
+    "paths": 2,
+    "compilerAliases": 0,
+    "complete": true,
+    "originalGenerationPath": "/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/tmpaf02ke1m/coordinate.expr"
+  },
+  "paths": {
+    "splitContexts": 1,
+    "completedPaths": 2,
+    "contradictions": 0,
+    "selectorSelections": 2,
+    "CASPasses": 41,
+    "lastArm": {
+      "bodyCharacters": 4393,
+      "guardCharacters": 4369,
+      "decisions": 1,
+      "dependencyGrowth": [
+        {
+          "definition": 0,
+          "storedCharacters": 2039,
+          "expandedCharacters": 2041
+        },
+        {
+          "definition": 1,
+          "storedCharacters": 101,
+          "expandedCharacters": 2129
+        },
+        {
+          "definition": 2,
+          "storedCharacters": 101,
+          "expandedCharacters": 2129
+        },
+        {
+          "definition": 3,
+          "storedCharacters": 163,
+          "expandedCharacters": 4393
+        }
+      ]
+    }
+  },
+  "seconds": 0.6341780420043506,
+  "workerSeconds": 1.6764020420378074
+}

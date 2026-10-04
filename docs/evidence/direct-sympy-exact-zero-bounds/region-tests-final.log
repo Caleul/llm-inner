@@ -1,0 +1,11 @@
+.Partition domain proof: HalfPatterns=63488 vectorPatterns=4030726144 lost=0 overlaps=0
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 18600.02it/s]
+..Emitted full region coordinate: cases=576 mismatches=0 characters=21922 position=0 dimension=2 fullInputCoverage=false
+{"region": "", "complete": false, "coveredInputPatterns": 0, "unfinishedInputPatterns": 4030726144, "attemptSeconds": 0}
+..
+----------------------------------------------------------------------
+Ran 5 tests in 6.489s
+
+OK

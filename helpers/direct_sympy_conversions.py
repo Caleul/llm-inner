@@ -640,6 +640,21 @@ class ConversionSession:
                 return self.bounds(ast.BinOp(left=node.left,op=ast.Mult(),right=node.left))
             a,b=self.bounds(node.left),self.bounds(node.right)
             if a is None or b is None:return None
+            # A finite signed zero changes signs, never magnitudes. Do not
+            # invent an outward ULP around exact zero arithmetic: that can
+            # turn a proved zero into an apparent nonzero dependency.
+            # Bounds do not encode its sign; no_negative_zero remains the
+            # separate certificate required before discarding either zero.
+            az=a.minimum==a.maximum==0
+            bz=b.minimum==b.maximum==0
+            if isinstance(node.op,ast.Add):
+                if bz:return a
+                if az:return b
+            if isinstance(node.op,ast.Sub):
+                if bz:return a
+                if az:return FiniteSource(-b.maximum,-b.minimum,b.quantum)
+            if isinstance(node.op,ast.Mult) and (az or bz):return FiniteSource(0.0,0.0,-1074)
+            if isinstance(node.op,ast.Div) and az and not b.minimum<=0<=b.maximum:return FiniteSource(0.0,0.0,-1074)
             try:
                 if isinstance(node.op,ast.Add):values=[a.minimum+b.minimum,a.maximum+b.maximum]
                 elif isinstance(node.op,ast.Sub):values=[a.minimum-b.maximum,a.maximum-b.minimum]

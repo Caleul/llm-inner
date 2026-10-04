@@ -1,0 +1,7 @@
+....
+----------------------------------------------------------------------
+Ran 4 tests in 2.296s
+
+OK
+Zero-update native parity: cases=656300 mismatches=0
+Exact-zero interval parity: cases=319488 mismatches=0

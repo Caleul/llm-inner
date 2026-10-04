@@ -10621,5 +10621,29 @@
       "All output coordinates",
       "Controlled Colab sequential versus parallel comparison for current source hashes"
     ]
+  },
+  "exactZeroBoundsValidation": {
+    "report": "docs/evidence/direct-sympy-exact-zero-bounds/validation.json",
+    "testMap": {
+      "helpers/direct_sympy_zero_updates_test.py": "Four tests: 656300 prior native zero-update comparisons plus 319488 actual emitted zero-product/zero-division comparisons; exact zero bounds, unknown/nonfinite and zero-denominator barriers, isolated branch proofs.",
+      "test/direct-sympy-strings.test.ts": "20 integrations passed without failure or skip; build passed. Targeted rerun also verifies the newly added 319488-case output assertion.",
+      "helpers/direct_sympy_input_partitions_test.py": "Final checkpoint-enabled run: five tests, zero skips; complete-domain geometry invariant, 576 actual emitted-region comparisons with no mismatches. Initial standalone run skipped checkpoint cases; not counted as model validation.",
+      "helpers/direct_sympy_region_parity.py": "Actual durable expression readback: 1028 native comparisons with a fresh checkpoint, zero mismatches; position 0, dimension 2, one-token, positive region only.",
+      "helpers/direct_sympy_partition_coalesce.py": "Saved state from previous source revision rejected; no old producer proof tables reused."
+    },
+    "nativePrimitiveCases": 975788,
+    "nativePrimitiveMismatches": 0,
+    "wholeCoordinateLogicalCharacters": 4476543086072,
+    "wholeCoordinateSizeReduced": false,
+    "stateRestored": false,
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "remaining": [
+      "Reduce whole-domain dependency and guard expansion; this change does not reduce measured coordinate size",
+      "Emit full admitted-domain coordinate and validate bit-exact reference parity",
+      "Variable-length last-token semantics",
+      "All output coordinates",
+      "Current-source controlled Colab sequential/parallel comparison"
+    ]
   }
 }

@@ -1,0 +1,6 @@
+.sss.
+----------------------------------------------------------------------
+Ran 5 tests in 0.361s
+
+OK (skipped=3)
+Partition domain proof: HalfPatterns=63488 vectorPatterns=4030726144 lost=0 overlaps=0
