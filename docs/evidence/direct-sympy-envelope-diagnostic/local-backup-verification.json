@@ -1,0 +1,10 @@
+{
+  "path": "/Users/caleul/Documents/Work/Projects/llm-inner/artifacts/direct-sympy-envelope-colab/state-backup.tar",
+  "bytes": 149207040,
+  "sha256": "ab70dc94ff4e43c149a124e0714f67b085b2bd55cba27538eb8dd4eaf7ce6d48",
+  "verifiedProducers": 15,
+  "verifiedExpressionObjectsIncludingSigns": 27,
+  "streamedUncompressedCharacters": 6973865123,
+  "seconds": 3.458992208004929,
+  "scope": "Integrity of saved compiler intermediates, not full-coordinate parity; environment identity must be revalidated before reuse"
+}

@@ -9477,5 +9477,148 @@
       "negativeProductZeros": 50571,
       "scope": "Actual checkpoint down-projection weight with ordered +0.0 accumulator; local native test, not full-model parity"
     }
+  },
+  "envelopeDiagnosticValidation": {
+    "implementation": "Read-only observer of rejected compact numeric envelopes; alias occurrence accounting before allocation, no numerical compiler changes",
+    "format": "Mathematical strings for expressions; JSON only for diagnostic metadata",
+    "tests": {
+      "build": "passed",
+      "node": {
+        "tests": 9,
+        "pass": 9,
+        "skip": 0
+      },
+      "python": {
+        "tests": 106,
+        "pass": 106,
+        "skip": 0
+      },
+      "diagnosticTests": 2
+    },
+    "broadRegressionScope": "Same 603-test baseline with 15 pre-existing failures; numerical sources unchanged, no additional broad rerun",
+    "localResume": {
+      "coordinateComplete": false,
+      "envelopes": [],
+      "restoredDependencies": 12,
+      "stop": "Substitution exceeds string budget before allocation: variable=X999999999 templateCharacters=164608988 replacementCharacters=164608998 occurrences=1 estimatedCharacters=329217980 limit=268435456",
+      "completedDependencies": 12,
+      "seconds": 5.85368549998384,
+      "peakRSSNativeUnits": 1897758720
+    },
+    "colab": {
+      "session": "llm-inner-envelope-diagnostic",
+      "createOperation": "99b5ec74-5f07-4b4b-98db-abb530062a23",
+      "launchOperation": "c78bc650-d85f-478f-9b5f-3c676786068e",
+      "freshPID": 6218,
+      "freshStopOperation": "44c8c59b-b8bd-46b1-93fa-6811d58a63e2",
+      "freshStopReason": "Sent SIGALRM after measuring 89,629,188,096-byte RAM, below previous 89,949,872,128-byte compile peak before OS reserve; preserved 15 producers. Diagnostic timeout text reflects external budget interruption.",
+      "resumeOperation": "1df36012-31e3-403a-89b0-8509b5a96a83",
+      "resumePID": 7039,
+      "resumeCharacterLimit": 8589934592,
+      "statusOperation": "1beffc28-0ce5-4108-a139-8012b4aab971",
+      "lastConfirmed": "Diagnostic and parity terminal; 15 actual producers, 300 comparisons, zero mismatches. Backup downloaded and streamed hashes verified.",
+      "diagnostic": {
+        "coordinateComplete": false,
+        "envelopes": [
+          {
+            "error": "Closed numeric envelope exceeds string budget before allocation: expandedCharacters=13497941778 limit=8589934592",
+            "compact": "Float64(U64Or(Piecewise((Bits64(Float64(U64And(Bits64(CASNumericRegion25() * CASNumericRegion26()), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(CASNumericRegion25() * CASNumericRegion26()), 9223372036854775807) < 4544132024016830464), (U64And(U64FromF64(F64FromU64(Bits64(CASNumericRegion25() * CASNumericRegion26())) + 2 ** 94 - 2 ** 94), 9223372036854775807), True)), U64And(U64Add(Bits64(CASNumericRegion27()), Bits64(CASNumericRegion28())), 9223372036854775808)))",
+            "compactCharacters": 481,
+            "expandedCharacters": 13497941778,
+            "aliases": [
+              {
+                "alias": "CASNumericRegion25",
+                "producer": "model.layers.0.activation:0",
+                "characters": 2962962964,
+                "occurrences": 3,
+                "restoredContributionCharacters": 8888888892
+              },
+              {
+                "alias": "CASNumericRegion26",
+                "producer": "model.layers.0.up:0",
+                "characters": 1316872178,
+                "occurrences": 3,
+                "restoredContributionCharacters": 3950616534
+              },
+              {
+                "alias": "CASNumericRegion27",
+                "producer": null,
+                "characters": 329218026,
+                "occurrences": 1,
+                "restoredContributionCharacters": 329218026
+              },
+              {
+                "alias": "CASNumericRegion28",
+                "producer": null,
+                "characters": 329218005,
+                "occurrences": 1,
+                "restoredContributionCharacters": 329218005
+              },
+              {
+                "alias": "CASNumericRegion29",
+                "producer": "model.layers.0.post:0",
+                "characters": 164608933,
+                "occurrences": 0,
+                "restoredContributionCharacters": 0
+              },
+              {
+                "alias": "CASNumericRegion30",
+                "producer": "model.layers.0.post:1",
+                "characters": 164608965,
+                "occurrences": 0,
+                "restoredContributionCharacters": 0
+              }
+            ],
+            "inputCharacters": 4279835159,
+            "scope": "Rejected compiler envelope; aliases are not final runtime variables"
+          }
+        ],
+        "restoredDependencies": 15,
+        "stop": "Closed numeric envelope exceeds string budget before allocation: expandedCharacters=13497941778 limit=8589934592",
+        "completedDependencies": 15,
+        "seconds": 98.00701731599997,
+        "peakRSSNativeUnits": 8924604
+      },
+      "resources": {
+        "cpuCount": 12,
+        "gpu": "NVIDIA A100-SXM4-40GB",
+        "torch": "2.11.0+cu130",
+        "sympy": "1.14.0"
+      },
+      "actualFileParity": {
+        "cases": 60,
+        "comparisons": 300,
+        "mismatches": 0,
+        "producerFilesEvaluated": 15,
+        "coordinateAtPositionZeroVerified": false,
+        "scope": "Actual saved posterior normalization, gate/activation/up/gated and any completed hidden/final/output producers, position 0; verification-only reuse of immutable earlier subtrees. Does not prove the last-token next-token coordinate for variable sequence lengths.",
+        "elapsedSeconds": 77.86982652000006
+      },
+      "parityOperation": "838ef476-1fd4-4268-ab98-d855d372cecb",
+      "backupDownloadOperation": "117e1e98-0cff-44d7-900b-ae236b5dcddf",
+      "backupVerification": {
+        "path": "/Users/caleul/Documents/Work/Projects/llm-inner/artifacts/direct-sympy-envelope-colab/state-backup.tar",
+        "bytes": 149207040,
+        "sha256": "ab70dc94ff4e43c149a124e0714f67b085b2bd55cba27538eb8dd4eaf7ce6d48",
+        "verifiedProducers": 15,
+        "verifiedExpressionObjectsIncludingSigns": 27,
+        "streamedUncompressedCharacters": 6973865123,
+        "seconds": 3.458992208004929,
+        "scope": "Integrity of saved compiler intermediates, not full-coordinate parity; environment identity must be revalidated before reuse"
+      }
+    },
+    "coordinateComplete": false,
+    "finding": {
+      "compactCharacters": 481,
+      "expandedCharacters": 13497941778,
+      "sourceOccurrences": {
+        "activation": 3,
+        "up": 3
+      },
+      "interpretation": "One magnitude condition and two conversion arms reuse the same product; these are not three independent decisions. Their elimination is not proved.",
+      "nextAction": "Investigate equivalent magnitude/rounding representation and propagate the selected path before restoring large operands; preserve all admitted inputs and IEEE cells."
+    },
+    "numericalSourcesMatchSavedState": true,
+    "observerScope": "Compiler observer only; final local CLI also persists a returned coordinate as a working expression and never claims parity before separate validation. Remote diagnostic used the frozen earlier observer; numerical sources identical."
   }
 }

@@ -92,4 +92,7 @@ test('IEEE sign projections preserve signed zero and reduce completed down-conve
     assert.match(stdout,/Finite sign projection parity: cases=3047424 mismatches=0/);
     assert.match(stdout,/Completed down projection parity: cases=147472 mismatches=0/);
     assert.match(stdout,/Seeded checkpoint down reduction parity: cases=147472 mismatches=0/);
+    const diagnostic=await promisify(execFile)(python!,['helpers/direct_sympy_envelope_diagnostic_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(diagnostic.stderr,/Ran 2 tests/);
+    assert.match(diagnostic.stderr,/OK/);
   });

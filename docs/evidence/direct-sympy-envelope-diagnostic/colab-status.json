@@ -1,0 +1,123 @@
+{
+  "runner.json": {
+    "pid": 6218,
+    "args": [
+      "/usr/bin/python3",
+      "helpers/direct_sympy_envelope_diagnostic.py",
+      "docs/evidence/direct-sympy-test-checkpoint",
+      "state",
+      "diagnostic.json",
+      "--fresh",
+      "--max-characters",
+      "17179869184",
+      "--max-seconds",
+      "600"
+    ],
+    "scope": "Fresh full finite Half input domain, position zero, dimension two; diagnostic does not prove coordinate parity"
+  },
+  "resources.json": {
+    "cpuCount": 12,
+    "gpu": "NVIDIA A100-SXM4-40GB",
+    "torch": "2.11.0+cu130",
+    "sympy": "1.14.0"
+  },
+  "diagnostic.json": {
+    "coordinateComplete": false,
+    "envelopes": [],
+    "restoredDependencies": 0,
+    "stop": "Diagnostic compilation wall-clock budget exceeded",
+    "completedDependencies": 15,
+    "seconds": 145.18280258799996,
+    "peakRSSNativeUnits": 21293648
+  },
+  "resume.json": {
+    "pid": 7039,
+    "args": [
+      "/usr/bin/python3",
+      "helpers/direct_sympy_envelope_diagnostic.py",
+      "docs/evidence/direct-sympy-test-checkpoint",
+      "state",
+      "gated-diagnostic.json",
+      "--max-characters",
+      "8589934592",
+      "--max-seconds",
+      "180"
+    ],
+    "reason": "Resume compatible 15-producer state with lower allocation budget, no source-state writes"
+  },
+  "gated-diagnostic.json": {
+    "coordinateComplete": false,
+    "envelopes": [
+      {
+        "error": "Closed numeric envelope exceeds string budget before allocation: expandedCharacters=13497941778 limit=8589934592",
+        "compact": "Float64(U64Or(Piecewise((Bits64(Float64(U64And(Bits64(CASNumericRegion25() * CASNumericRegion26()), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(CASNumericRegion25() * CASNumericRegion26()), 9223372036854775807) < 4544132024016830464), (U64And(U64FromF64(F64FromU64(Bits64(CASNumericRegion25() * CASNumericRegion26())) + 2 ** 94 - 2 ** 94), 9223372036854775807), True)), U64And(U64Add(Bits64(CASNumericRegion27()), Bits64(CASNumericRegion28())), 9223372036854775808)))",
+        "compactCharacters": 481,
+        "expandedCharacters": 13497941778,
+        "aliases": [
+          {
+            "alias": "CASNumericRegion25",
+            "producer": "model.layers.0.activation:0",
+            "characters": 2962962964,
+            "occurrences": 3,
+            "restoredContributionCharacters": 8888888892
+          },
+          {
+            "alias": "CASNumericRegion26",
+            "producer": "model.layers.0.up:0",
+            "characters": 1316872178,
+            "occurrences": 3,
+            "restoredContributionCharacters": 3950616534
+          },
+          {
+            "alias": "CASNumericRegion27",
+            "producer": null,
+            "characters": 329218026,
+            "occurrences": 1,
+            "restoredContributionCharacters": 329218026
+          },
+          {
+            "alias": "CASNumericRegion28",
+            "producer": null,
+            "characters": 329218005,
+            "occurrences": 1,
+            "restoredContributionCharacters": 329218005
+          },
+          {
+            "alias": "CASNumericRegion29",
+            "producer": "model.layers.0.post:0",
+            "characters": 164608933,
+            "occurrences": 0,
+            "restoredContributionCharacters": 0
+          },
+          {
+            "alias": "CASNumericRegion30",
+            "producer": "model.layers.0.post:1",
+            "characters": 164608965,
+            "occurrences": 0,
+            "restoredContributionCharacters": 0
+          }
+        ],
+        "inputCharacters": 4279835159,
+        "scope": "Rejected compiler envelope; aliases are not final runtime variables"
+      }
+    ],
+    "restoredDependencies": 15,
+    "stop": "Closed numeric envelope exceeds string budget before allocation: expandedCharacters=13497941778 limit=8589934592",
+    "completedDependencies": 15,
+    "seconds": 98.00701731599997,
+    "peakRSSNativeUnits": 8924604
+  },
+  "state": {
+    "dependencies": 15,
+    "last": "model.layers.0.up:0",
+    "characters": 1316872178
+  },
+  "process": "",
+  "resumeLog": "{\"coordinateComplete\": false, \"restoredDependencies\": 15, \"stop\": \"Closed numeric envelope exceeds string budget before allocation: expandedCharacters=13497941778 limit=8589934592\", \"completedDependencies\": 15, \"seconds\": 98.00701731599997, \"peakRSSNativeUnits\": 8924604}\n",
+  "logTail": "{\"coordinateComplete\": false, \"restoredDependencies\": 0, \"stop\": \"Diagnostic compilation wall-clock budget exceeded\", \"completedDependencies\": 15, \"seconds\": 145.18280258799996, \"peakRSSNativeUnits\": 21293648}\n",
+  "memory": [
+    "MemTotal:       87528504 kB",
+    "MemAvailable:   85450692 kB",
+    "SwapTotal:             0 kB"
+  ]
+}

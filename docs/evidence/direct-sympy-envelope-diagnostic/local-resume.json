@@ -1,0 +1,9 @@
+{
+  "coordinateComplete": false,
+  "envelopes": [],
+  "restoredDependencies": 12,
+  "stop": "Substitution exceeds string budget before allocation: variable=X999999999 templateCharacters=164608988 replacementCharacters=164608998 occurrences=1 estimatedCharacters=329217980 limit=268435456",
+  "completedDependencies": 12,
+  "seconds": 5.85368549998384,
+  "peakRSSNativeUnits": 1897758720
+}
