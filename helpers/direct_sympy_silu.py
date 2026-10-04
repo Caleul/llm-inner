@@ -32,11 +32,29 @@ def expand(source,session):
 def quadratic_source(node,session):
     """Recognize only the certified Half quadratic, not real-algebra patterns."""
     import ast
+    # The exact-arithmetic factor pass can move the dyadic denominator
+    # outside the product. Recognize those ordered forms too; each step
+    # remains exact on the admitted Half interval and preserves x's zero
+    # sign. Do not recognize an arbitrary real polynomial with different
+    # zero signs or unproved intermediate rounding.
+    divided=isinstance(node,ast.BinOp) and isinstance(node.op,ast.Div) and session.constant(node.right)==4
+    if divided:node=node.left
     if not isinstance(node,ast.BinOp) or not isinstance(node.op,ast.Mult):return None
     x=node.left;factor=node.right
-    if not isinstance(factor,ast.BinOp) or not isinstance(factor.op,ast.Add) or session.constant(factor.left)!=0.5:return None
-    term=factor.right
-    if not isinstance(term,ast.BinOp) or not isinstance(term.op,ast.Mult) or session.constant(term.right)!=0.25 or session.key(term.left)!=session.key(x):return None
+    if divided:
+        if not isinstance(factor,ast.BinOp) or not isinstance(factor.op,ast.Add):return None
+        if session.key(factor.left)!=session.key(x) or session.constant(factor.right)!=2:return None
+    else:
+        if isinstance(factor,ast.BinOp) and isinstance(factor.op,ast.Div) and session.constant(factor.right)==4:
+            term=factor.left
+            if not isinstance(term,ast.BinOp) or not isinstance(term.op,ast.Add) or session.key(term.left)!=session.key(x) or session.constant(term.right)!=2:return None
+        else:
+            if not isinstance(factor,ast.BinOp) or not isinstance(factor.op,ast.Add) or session.constant(factor.left)!=0.5:return None
+            term=factor.right
+            scaled=(isinstance(term,ast.BinOp) and
+                ((isinstance(term.op,ast.Mult) and session.constant(term.right)==0.25) or
+                 (isinstance(term.op,ast.Div) and session.constant(term.right)==4)))
+            if not scaled or session.key(term.left)!=session.key(x):return None
     bounds=session.bounds(x)
     if session.value_kind(x)!='half' or bounds is None or bounds.minimum < -3/128 or bounds.maximum > 3/128:return None
     return x

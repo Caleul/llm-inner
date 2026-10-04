@@ -1,0 +1,42 @@
+{
+  "region-5606ace4cdcf8cdbfad9a4e02b59b365e7dd64b2283bcef76dd57e8552e5a8b0.expr": {
+    "characters": 19008,
+    "file": "region-5606ace4cdcf8cdbfad9a4e02b59b365e7dd64b2283bcef76dd57e8552e5a8b0.expr",
+    "sha256": "dba9daef38f8c42a5823885e194cbeefc0cc4f6319691bbf91a7669bab510da3"
+  },
+  "region-396b6f4777916f6536cc0abef2e33121ba90904d162d6f46fb7df5e3120d77e8.expr": {
+    "characters": 19408,
+    "file": "region-396b6f4777916f6536cc0abef2e33121ba90904d162d6f46fb7df5e3120d77e8.expr",
+    "sha256": "945be8504f9b9b79cd1b37091a44338291cdd0a855129b50e3a4ef97df36a81a"
+  },
+  "region-f94ec4d391cfd9a8076378fd2c53c33671b9a44de47325c64de458c50c911e59.expr": {
+    "characters": 39735,
+    "file": "region-f94ec4d391cfd9a8076378fd2c53c33671b9a44de47325c64de458c50c911e59.expr",
+    "sha256": "b174551132e5a093229280e954d34e70b6cf3959f8389e05b21666e540b731a6"
+  },
+  "region-8d9228d3e63bf1c4d62b407f4e8756a422f0329d2319db6d09ff2fe7293a1426.expr": {
+    "characters": 19408,
+    "file": "region-8d9228d3e63bf1c4d62b407f4e8756a422f0329d2319db6d09ff2fe7293a1426.expr",
+    "sha256": "945be8504f9b9b79cd1b37091a44338291cdd0a855129b50e3a4ef97df36a81a"
+  },
+  "region-cbface47eb0431978084eaa74b0e89e24ae851747f2d2d1692cb7306c818405e.expr": {
+    "characters": 19408,
+    "file": "region-cbface47eb0431978084eaa74b0e89e24ae851747f2d2d1692cb7306c818405e.expr",
+    "sha256": "945be8504f9b9b79cd1b37091a44338291cdd0a855129b50e3a4ef97df36a81a"
+  },
+  "region-9b2f924288c97becefc4334d08e1a6c23ec624740354feacf19e8448d8ebd091.expr": {
+    "characters": 19408,
+    "file": "region-9b2f924288c97becefc4334d08e1a6c23ec624740354feacf19e8448d8ebd091.expr",
+    "sha256": "945be8504f9b9b79cd1b37091a44338291cdd0a855129b50e3a4ef97df36a81a"
+  },
+  "region-23964bf7630e2d5869b40078e614d1d591da9db9018bad024462497eee7d649e.expr": {
+    "characters": 19408,
+    "file": "region-23964bf7630e2d5869b40078e614d1d591da9db9018bad024462497eee7d649e.expr",
+    "sha256": "945be8504f9b9b79cd1b37091a44338291cdd0a855129b50e3a4ef97df36a81a"
+  },
+  "region-a38cd0a08cefaae4eef07bbbe4ebed614ff10b3164750714df3b91d942555934.expr": {
+    "characters": 19408,
+    "file": "region-a38cd0a08cefaae4eef07bbbe4ebed614ff10b3164750714df3b91d942555934.expr",
+    "sha256": "945be8504f9b9b79cd1b37091a44338291cdd0a855129b50e3a4ef97df36a81a"
+  }
+}

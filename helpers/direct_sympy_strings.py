@@ -175,14 +175,17 @@ def certificate(node, domains, dtype):
         if isinstance(n.op, ast.Mult):
             endpoints = [x * y for x in (a.minimum, a.maximum) for y in (b.minimum, b.maximum)]
             return bounded(min(endpoints), max(endpoints), a.quantum + b.quantum,
-                           (a.minimum > 0 or a.maximum < 0) and (b.minimum > 0 or b.maximum < 0))
+                           ((a.minimum > 0 or a.maximum < 0) and (b.minimum > 0 or b.maximum < 0)) or
+                           (b.minimum > 0 and a.excludes_negative_zero) or
+                           (a.minimum > 0 and b.excludes_negative_zero))
         if isinstance(n.op, ast.Div) and b.minimum == b.maximum and b.minimum:
             value = b.minimum
             if abs(value.numerator) & (abs(value.numerator) - 1):
                 return None
             endpoints = [a.minimum / value, a.maximum / value]
             return bounded(min(endpoints), max(endpoints), a.quantum - quantum(value),
-                           a.minimum > 0 or a.maximum < 0)
+                           a.minimum > 0 or a.maximum < 0 or
+                           (value > 0 and a.excludes_negative_zero))
         if isinstance(n.op, ast.Pow) and isinstance(n.right, ast.Constant) and type(n.right.value) is int and 0 <= n.right.value <= 8:
             count = n.right.value
             result = Domain(Fraction(1), Fraction(1), 0, True)

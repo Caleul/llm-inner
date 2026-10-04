@@ -1,0 +1,81 @@
+{
+  "completeRegions": 8,
+  "coalescedRectangles": 4,
+  "distinctExpressions": 3,
+  "copiedBodyCharacters": 175191,
+  "sharedBodyCharacters": 78151,
+  "coveredInputPatterns": 176639488,
+  "unfinishedInputPatterns": 3854086656,
+  "finalArtifactEmitted": false,
+  "finalParity": false,
+  "rectangles": [
+    {
+      "sha256": "dba9daef38f8c42a5823885e194cbeefc0cc4f6319691bbf91a7669bab510da3",
+      "domains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "leaves": [
+        "000000"
+      ]
+    },
+    {
+      "sha256": "945be8504f9b9b79cd1b37091a44338291cdd0a855129b50e3a4ef97df36a81a",
+      "domains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -23807,
+          -19840
+        ]
+      },
+      "leaves": [
+        "0000010"
+      ]
+    },
+    {
+      "sha256": "b174551132e5a093229280e954d34e70b6cf3959f8389e05b21666e540b731a6",
+      "domains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -19839,
+          -15872
+        ]
+      },
+      "leaves": [
+        "0000011"
+      ]
+    },
+    {
+      "sha256": "945be8504f9b9b79cd1b37091a44338291cdd0a855129b50e3a4ef97df36a81a",
+      "domains": {
+        "X1": [
+          -23807,
+          -17422
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "leaves": [
+        "0000100",
+        "00001010",
+        "00001011000",
+        "000010110010",
+        "0000101100110"
+      ]
+    }
+  ]
+}

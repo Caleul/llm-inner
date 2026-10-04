@@ -1,0 +1,37 @@
+{
+  "expressionFormat": "Mathematical strings; JSON is evidence/state only",
+  "tests": 22,
+  "pass": 22,
+  "fail": 0,
+  "skipped": 0,
+  "newExactFactorTests": 5,
+  "nativeFactorCases": 92166,
+  "nativeFactorMismatches": 0,
+  "priorSourceContinuation": {
+    "completeRegions": 63,
+    "coveredInputPatterns": 186972160,
+    "cases": 16380,
+    "mismatches": 0
+  },
+  "baselineLogicalCharacters": 3248163585496,
+  "currentLogicalCharacters": 3248163585496,
+  "baselineFirstPathBodyCharacters": 8615711603,
+  "currentFirstPathBodyCharacters": 8615711603,
+  "currentInitialRegions": 8,
+  "currentInitialRegionCases": 2080,
+  "currentInitialRegionMismatches": 0,
+  "initialRegionArtifactsByteIdentical": true,
+  "wholeCoordinateSizeReduction": false,
+  "compilerSpeedupEstablished": false,
+  "finalArtifactEmitted": false,
+  "fullCoordinateParity": false,
+  "multipleTokenParity": false,
+  "sourceSHA256": {
+    "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+    "direct_sympy_conversions.py": "2937c333a849c7719ab86dc25fadec52eac18ca63647c804a4804243a29f76f4",
+    "direct_sympy_arithmetic.py": "426cde422fd5f4a31eb771dce9fa78b5556c50bca72bf9d33925209fa7d4535a",
+    "direct_sympy_sqrt.py": "86b358773fa8b887659cd5598d7d37d7a4df5f338513117bc74ff6dd00ce6b17",
+    "direct_sympy_coherent_paths.py": "f08d00f446fb61856505ed2c3e4dce7882aa30df559e5e7a243af0b7e2de2fc8",
+    "direct_sympy_streaming_literals.py": "5a0046367e570549e5c804c0f5aa0737db2c506600c9ae19c72450ba0f38824e"
+  }
+}

@@ -10755,5 +10755,20 @@
     "cudaPrimitiveMismatches": 0,
     "torchFloat32SqrtCompatible": false,
     "compilerParallelSpeedupObserved": false
+  },
+  "exactProducerFactorValidation": {
+    "report": "docs/evidence/direct-sympy-exact-producer-factor/validation.json",
+    "tests": 22,
+    "pass": 22,
+    "fail": 0,
+    "skipped": 0,
+    "nativeCases": 92166,
+    "nativeMismatches": 0,
+    "currentInitialRegionCases": 2080,
+    "currentInitialRegionMismatches": 0,
+    "initialRegionArtifactsByteIdentical": true,
+    "fullCoordinateSizeReduction": false,
+    "finalCoordinateParity": false,
+    "multipleTokenParity": false
   }
 }

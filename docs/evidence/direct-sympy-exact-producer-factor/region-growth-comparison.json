@@ -1,0 +1,50 @@
+[
+  {
+    "region": "000000",
+    "oldCharacters": 15298,
+    "newCharacters": 15298,
+    "byteIdentical": true
+  },
+  {
+    "region": "0000010",
+    "oldCharacters": 19532,
+    "newCharacters": 19532,
+    "byteIdentical": true
+  },
+  {
+    "region": "0000011",
+    "oldCharacters": 39983,
+    "newCharacters": 39983,
+    "byteIdentical": true
+  },
+  {
+    "region": "0000100",
+    "oldCharacters": 19532,
+    "newCharacters": 19532,
+    "byteIdentical": true
+  },
+  {
+    "region": "00001010",
+    "oldCharacters": 19532,
+    "newCharacters": 19532,
+    "byteIdentical": true
+  },
+  {
+    "region": "00001011000",
+    "oldCharacters": 19532,
+    "newCharacters": 19532,
+    "byteIdentical": true
+  },
+  {
+    "region": "000010110010",
+    "oldCharacters": 19532,
+    "newCharacters": 19532,
+    "byteIdentical": true
+  },
+  {
+    "region": "0000101100110",
+    "oldCharacters": 19532,
+    "newCharacters": 19532,
+    "byteIdentical": true
+  }
+]

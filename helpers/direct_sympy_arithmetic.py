@@ -1,7 +1,68 @@
 """Exact arithmetic identities before conversion expansion, preserving zero signs."""
 import ast
+import copy
 import math
-from direct_sympy_strings import syntax
+import re
+from fractions import Fraction
+
+import sympy
+from direct_sympy_strings import Domain,certificate,symbolic,syntax
+
+
+def factor_certified(expression,session):
+    """Factor exact F64 islands with scoped, compiler-only numerical atoms.
+
+    Closed producers keep their own operation order. Only the surrounding
+    arithmetic is reassociated, after proving every original and proposed
+    operation exact on the current dyadic domains. No atoms survive emission.
+    """
+    tree=syntax(expression)
+    if not isinstance(tree,(ast.BinOp,ast.UnaryOp)):return expression
+    # Large closed payloads must not be parsed by CAS as polynomials. This
+    # pass is optional; normal mandatory stabilization still handles them.
+    if sum(1 for _ in ast.walk(tree))>4096:return expression
+    domains=dict(session.domains);leaves={};names={};failed=False
+
+    class Atoms(ast.NodeTransformer):
+        def visit_Call(self,node):
+            nonlocal failed
+            name=node.func.id
+            pure=name in {'R16','R32','Silu16','sqrt','Float64'} or re.fullmatch(r'(?:CompileValue|CASNumericRegion)[0-9]+',name)
+            bound=session.bounds(node) if pure else None
+            if bound is None or bound.quantum is None:
+                failed=True;return node
+            key=session.key(node)
+            if key not in names:
+                index=len(names)
+                atom='CASExactLeaf'+str(index)
+                while atom in domains or any(isinstance(child,ast.Name) and child.id==atom for child in ast.walk(tree)):
+                    index+=1;atom='CASExactLeaf'+str(index)
+                names[key]=atom;leaves[atom]=node
+                domains[atom]=Domain(Fraction(bound.minimum),Fraction(bound.maximum),bound.quantum,session.no_negative_zero(node))
+            return ast.Name(id=names[key],ctx=ast.Load())
+
+    compact=Atoms().visit(copy.deepcopy(tree))
+    if failed or not leaves:return expression
+    def occurrences(node):
+        return sum(isinstance(child,ast.Name) and child.id in leaves for child in ast.walk(node))
+    copies=occurrences(compact)
+    if copies<=len(leaves):return expression
+    original=certificate(compact,domains,'f64')
+    if original is None or not original.excludes_negative_zero:return expression
+    factored=sympy.factor(symbolic(compact))
+    candidate=syntax(sympy.sstr(sympy.factor(sympy.simplify(factored))))
+    replacement=certificate(candidate,domains,'f64')
+    if replacement is None or not replacement.excludes_negative_zero:return expression
+    # A shorter spelling of a coefficient can obscure later numerical
+    # kernels and grow their closed output. This pass addresses duplication:
+    # require fewer producer occurrences, not merely shorter resident text.
+    if occurrences(candidate)>=copies:return expression
+
+    class Restore(ast.NodeTransformer):
+        def visit_Name(self,node):return copy.deepcopy(leaves[node.id]) if node.id in leaves else node
+
+    result=ast.unparse(Restore().visit(candidate))
+    return result if session.compiler.expression_size(result)<session.compiler.expression_size(expression) else expression
 
 
 def simplify_arithmetic(expression,session):
@@ -41,6 +102,9 @@ def simplify_arithmetic(expression,session):
                 if b==1 and session.bounds(node.left) is not None:return self.accept(node,node.left)
                 if a==1 and session.bounds(node.right) is not None:return self.accept(node,node.right)
             if isinstance(node.op,ast.Div) and b==1 and session.bounds(node.left) is not None:return self.accept(node,node.left)
+            source=ast.unparse(node)
+            factored=factor_certified(source,session)
+            if factored!=source:return self.accept(node,syntax(factored))
             return node
 
         def visit_Call(self,node):
@@ -69,6 +133,12 @@ def simplify_arithmetic(expression,session):
     for _ in range(32):
         before=session.arithmetic_eliminated
         result=ast.unparse(Arithmetic().visit(syntax(current)))
-        if before==session.arithmetic_eliminated:return session.compiler.stabilize(result,session.domains)
+        if before==session.arithmetic_eliminated:
+            factored=factor_certified(result,session)
+            if factored!=result:
+                session.arithmetic_eliminated+=1
+                current=factored
+                continue
+            return session.compiler.stabilize(result,session.domains)
         current=result
     raise ValueError("Arithmetic identities did not stabilize; next dependency forbidden")
