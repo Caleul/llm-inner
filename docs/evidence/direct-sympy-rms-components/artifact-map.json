@@ -1,0 +1,122 @@
+[
+  {
+    "region": "000000",
+    "domains": {
+      "X1": [
+        -31743,
+        -23808
+      ],
+      "X2": [
+        -31743,
+        -23808
+      ]
+    },
+    "file": "partition-529c972feba1bcd5258c0581bbe01d09cd1ec767f4df04d953317534d6fb31c6.expr",
+    "sha256": "529c972feba1bcd5258c0581bbe01d09cd1ec767f4df04d953317534d6fb31c6"
+  },
+  {
+    "region": "0000010",
+    "domains": {
+      "X1": [
+        -31743,
+        -23808
+      ],
+      "X2": [
+        -23807,
+        -19840
+      ]
+    },
+    "file": "partition-c377b3adfdce57aed55d389c4cdd199c93678e330c37a8a361729813b25ee653.expr",
+    "sha256": "c377b3adfdce57aed55d389c4cdd199c93678e330c37a8a361729813b25ee653"
+  },
+  {
+    "region": "0000011",
+    "domains": {
+      "X1": [
+        -31743,
+        -23808
+      ],
+      "X2": [
+        -19839,
+        -15872
+      ]
+    },
+    "file": "partition-f0fe80c23c18f822568145a1b1e9167cae38bee6f142188e5b558718c7db42e0.expr",
+    "sha256": "f0fe80c23c18f822568145a1b1e9167cae38bee6f142188e5b558718c7db42e0"
+  },
+  {
+    "region": "0000100",
+    "domains": {
+      "X1": [
+        -23807,
+        -19840
+      ],
+      "X2": [
+        -31743,
+        -23808
+      ]
+    },
+    "file": "partition-c377b3adfdce57aed55d389c4cdd199c93678e330c37a8a361729813b25ee653.expr",
+    "sha256": "c377b3adfdce57aed55d389c4cdd199c93678e330c37a8a361729813b25ee653"
+  },
+  {
+    "region": "00001010",
+    "domains": {
+      "X1": [
+        -19839,
+        -17856
+      ],
+      "X2": [
+        -31743,
+        -23808
+      ]
+    },
+    "file": "partition-c377b3adfdce57aed55d389c4cdd199c93678e330c37a8a361729813b25ee653.expr",
+    "sha256": "c377b3adfdce57aed55d389c4cdd199c93678e330c37a8a361729813b25ee653"
+  },
+  {
+    "region": "00001011000",
+    "domains": {
+      "X1": [
+        -17855,
+        -17608
+      ],
+      "X2": [
+        -31743,
+        -23808
+      ]
+    },
+    "file": "partition-d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6.expr",
+    "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+  },
+  {
+    "region": "000010110010",
+    "domains": {
+      "X1": [
+        -17607,
+        -17484
+      ],
+      "X2": [
+        -31743,
+        -23808
+      ]
+    },
+    "file": "partition-d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6.expr",
+    "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+  },
+  {
+    "region": "0000101100110",
+    "domains": {
+      "X1": [
+        -17483,
+        -17422
+      ],
+      "X2": [
+        -31743,
+        -23808
+      ]
+    },
+    "file": "partition-d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6.expr",
+    "sha256": "d774bf58c4aa8cc61b8e3192eaee792c771be2ec3d695ef1a1be8e0622ccbba6"
+  }
+]

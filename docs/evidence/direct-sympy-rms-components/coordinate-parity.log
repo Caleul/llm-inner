@@ -1,0 +1,4 @@
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 7001.20it/s]
+{"artifact": "docs/evidence/direct-sympy-rms-components/coordinate.expr", "sha256": "f185e8fc560b69916e9ee164c81ba7a1d51acb4a044aafd4e6143a955bfe43a3", "characters": 39787, "position": 0, "tokens": 1, "dimension": 2, "cases": 1028, "mismatches": 0, "firstMismatches": [], "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."}

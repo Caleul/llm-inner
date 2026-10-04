@@ -39,6 +39,53 @@ def rms_half_bound(width,epsilon):
     return math.nextafter(math.sqrt(width)*factor*(1+2**-11)+2**-25,math.inf)
 
 
+def rms_component_enclosures(sources,coordinate,epsilon):
+    """Correlated enclosures of the ordered F32 product and stored Half.
+
+    Caller certifies finite Half operands. For absolute component t and
+    other squared magnitudes B, real RMS gives n*t²/(t²+B+n*epsilon).
+    This ratio increases with t and decreases with B. A conservative
+    F32 loss factor encloses the original reduction/division/sqrt/inverse/
+    product; the ratio is a proof only, never a replacement computation.
+    Fraction comparisons direct every endpoint outward, including sqrt.
+    """
+    width=len(sources)
+    if rms_half_bound(width,epsilon) is None or not 0<=coordinate<width:return None
+    if any(max(abs(d.minimum),abs(d.maximum))>65504 for d in sources):return None
+    def directed(q,up):
+        value=float(q)
+        if (F(value)<q if up else F(value)>q):value=math.nextafter(value,math.inf if up else -math.inf)
+        return value
+    def sqrt_bounds(q):
+        value=math.sqrt(float(q));low=high=value
+        while F(low)*F(low)>q:low=math.nextafter(low,-math.inf)
+        while F(high)*F(high)<q:high=math.nextafter(high,math.inf)
+        return low,high
+    def magnitudes(d):
+        small=max(d.minimum_magnitude,d.minimum if d.minimum>0 else -d.maximum if d.maximum<0 else 0)
+        return F(small),F(max(abs(d.minimum),abs(d.maximum)))
+    magnitudes_all=[magnitudes(d) for d in sources]
+    minimum,maximum=magnitudes_all[coordinate]
+    lower_sum=sum(a*a for i,(a,b) in enumerate(magnitudes_all) if i!=coordinate)
+    upper_sum=sum(b*b for i,(a,b) in enumerate(magnitudes_all) if i!=coordinate)
+    eps=width*F(epsilon)
+    real_low=sqrt_bounds(width*minimum*minimum/(minimum*minimum+upper_sum+eps))[0]
+    real_high=sqrt_bounds(width*maximum*maximum/(maximum*maximum+lower_sum+eps))[1]
+    u=F(1,2**23);accumulation=1-width*u
+    root_low=sqrt_bounds(accumulation)[0]
+    loss=directed((1+u)**3/((1-u)**3*F(root_low)),True)
+    low=directed(F(real_low)/F(loss),False)
+    high=directed(F(real_high)*F(loss),True)
+    d=sources[coordinate]
+    # A numerical zero endpoint admits both IEEE zero signs. Keep those
+    # signs in the enclosure without inventing nonzero values of the
+    # opposite sign; endpoint Half payloads then prevent unsafe folding.
+    signed=(low if low else -0.0,high) if d.minimum>=0 else (-high,-low if low else 0.0) if d.maximum<=0 else (-high,high)
+    cast=lambda value:struct.unpack('e',struct.pack('e',value))[0]
+    stored=tuple(map(cast,signed))
+    return (signed,low),(stored,abs(cast(low)))
+
+
 def f32(x):
     return struct.unpack("f",struct.pack("f",x))[0]
 
@@ -76,6 +123,7 @@ class CheckpointStrings:
         self.early_half_products=0
         self.parallel_budget=parallel_budget
         self.parallel_events=[]
+        self.rms_constant_components=0
 
     def __enter__(self):
         for path in sorted(self.directory.glob("*.safetensors")):
@@ -220,21 +268,35 @@ class CheckpointStrings:
 
     def norm(self,key,name,coordinate,input_value):
         def build():
-            epsilon=repr(f32(self.config["rms_norm_eps"]))
+            epsilon_value=f32(self.config['rms_norm_eps'])
+            epsilon=repr(epsilon_value)
+            bound=rms_half_bound(self.width,epsilon_value)
+            source_bounds=[]
+            if self.conversions is not None and bound is not None:
+                for i in range(self.width):
+                    query,_=self.conversions.analyze_expression(input_value(i))
+                    own=self.conversions.bounds(query)
+                    if self.conversions.value_kind(query)!='half' or own is None:
+                        source_bounds=[];break
+                    source_bounds.append(own)
+            components=rms_component_enclosures(source_bounds,coordinate,epsilon_value) if source_bounds else None
+            if components is not None:
+                low,high=components[1][0]
+                if struct.pack('e',low)==struct.pack('e',high):
+                    # Prove irrelevance before expanding mean/inverse roots.
+                    # The weighted Half operation still follows its original
+                    # numerical boundary, including the sign of zero.
+                    self.rms_constant_components+=1
+                    return 'R16('+self.op('*',repr(low),self.weight(name,coordinate))+')'
             mean=self.producer(key+":mean",lambda:self.op("+",self.op("/",self.rms_sum(input_value),str(self.width)),epsilon))
             inverse=self.producer(key+":inverse",lambda:self.op("/","1.0","R32(sqrt("+mean+"))"))
             product=self.op("*",input_value(coordinate),inverse)
             normalized="R16("+product+")"
             if self.conversions is not None:
-                bound=rms_half_bound(self.width,f32(self.config["rms_norm_eps"]))
                 # The correlation proof assumes finite Half operands. A
                 # later residual may overflow even when the original inputs
                 # are finite; never carry the bound across that frontier.
-                finite_half=bound is not None and all(
-                    self.conversions.value_kind(query)=="half"
-                    and self.conversions.bounds(query) is not None
-                    for i in range(self.width)
-                    for query,_ in (self.conversions.analyze_expression(input_value(i)),))
+                finite_half=len(source_bounds)==self.width
                 if finite_half:
                     raw,raw_keys=self.conversions.analyze_expression(product)
                     half,half_keys=self.conversions.analyze_expression(normalized)
@@ -244,8 +306,13 @@ class CheckpointStrings:
                         if node is not raw and isinstance(node,ast.Call) and node.func.id=="R16":q=-24
                         low=-bound if existing is None else max(-bound,existing.minimum)
                         high=bound if existing is None else min(bound,existing.maximum)
+                        magnitude=existing.minimum_magnitude if existing is not None else 0
+                        if components is not None:
+                            own,minimum=components[1 if node is half else 0]
+                            low,high=max(low,own[0]),min(high,own[1])
+                            magnitude=max(magnitude,minimum)
                         if low>high:raise ValueError('RMS correlation contradicts existing enclosure')
-                        enclosure=FiniteSource(low,high,q)
+                        enclosure=FiniteSource(low,high,q,magnitude)
                         virtual=self.conversions.key(node)
                         self.conversions.completed[virtual]=enclosure
                         self.conversions.completed[keys.get(node,virtual)]=enclosure

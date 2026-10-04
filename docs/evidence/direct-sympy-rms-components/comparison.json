@@ -1,0 +1,566 @@
+{
+  "complete": true,
+  "region": {
+    "X1": [
+      -16181,
+      -16120
+    ],
+    "X2": [
+      -27775,
+      -23808
+    ]
+  },
+  "rows": [
+    {
+      "mode": "previous",
+      "report": {
+        "complete": true,
+        "inputDomains": {
+          "X1": [
+            -16181,
+            -16120
+          ],
+          "X2": [
+            -27775,
+            -23808
+          ]
+        },
+        "producers": 17,
+        "elidedUpdates": 3,
+        "logicalCharacters": 430997,
+        "storedCharacters": 21134,
+        "artifact": {
+          "path": "/Users/caleul/Documents/Work/Projects/llm-inner/docs/evidence/direct-sympy-rms-components/0-previous.expr",
+          "characters": 430300,
+          "sha256": "2c5b7ffd0fe16faa4a070781d08692dd354c92cb34e02ee796e7260239e80e92",
+          "paths": 2,
+          "compilerAliases": 0,
+          "complete": true
+        },
+        "paths": {
+          "splitContexts": 1,
+          "completedPaths": 2,
+          "contradictions": 0,
+          "selectorSelections": 4,
+          "CASPasses": 409,
+          "numericArithmeticEliminated": 72,
+          "numericRecipeAttempts": 19,
+          "numericRecipeAdmissions": 0,
+          "numericRecipeBudgetStops": 0,
+          "lastArm": {
+            "bodyCharacters": 140100,
+            "guardCharacters": 7925,
+            "decisions": 1,
+            "dependencyGrowth": [
+              {
+                "definition": 0,
+                "storedCharacters": 1800,
+                "expandedCharacters": 1802
+              },
+              {
+                "definition": 1,
+                "storedCharacters": 101,
+                "expandedCharacters": 1890
+              },
+              {
+                "definition": 2,
+                "storedCharacters": 101,
+                "expandedCharacters": 1890
+              },
+              {
+                "definition": 3,
+                "storedCharacters": 160,
+                "expandedCharacters": 3912
+              },
+              {
+                "definition": 4,
+                "storedCharacters": 157,
+                "expandedCharacters": 3909
+              },
+              {
+                "definition": 6,
+                "storedCharacters": 3560,
+                "expandedCharacters": 65890
+              },
+              {
+                "definition": 7,
+                "storedCharacters": 3866,
+                "expandedCharacters": 73987
+              },
+              {
+                "definition": 8,
+                "storedCharacters": 101,
+                "expandedCharacters": 65978
+              },
+              {
+                "definition": 9,
+                "storedCharacters": 163,
+                "expandedCharacters": 140100
+              }
+            ]
+          }
+        },
+        "seconds": 6.4562053750269115
+      },
+      "sha256": "2c5b7ffd0fe16faa4a070781d08692dd354c92cb34e02ee796e7260239e80e92"
+    },
+    {
+      "mode": "correlated",
+      "report": {
+        "complete": true,
+        "inputDomains": {
+          "X1": [
+            -16181,
+            -16120
+          ],
+          "X2": [
+            -27775,
+            -23808
+          ]
+        },
+        "producers": 17,
+        "elidedUpdates": 3,
+        "logicalCharacters": 39919,
+        "storedCharacters": 4549,
+        "artifact": {
+          "path": "/Users/caleul/Documents/Work/Projects/llm-inner/docs/evidence/direct-sympy-rms-components/1-correlated.expr",
+          "characters": 39787,
+          "sha256": "f185e8fc560b69916e9ee164c81ba7a1d51acb4a044aafd4e6143a955bfe43a3",
+          "paths": 1,
+          "compilerAliases": 0,
+          "complete": true
+        },
+        "paths": {
+          "splitContexts": 0,
+          "completedPaths": 1,
+          "contradictions": 0,
+          "selectorSelections": 0,
+          "CASPasses": 168,
+          "numericArithmeticEliminated": 31,
+          "numericRecipeAttempts": 8,
+          "numericRecipeAdmissions": 0,
+          "numericRecipeBudgetStops": 0,
+          "lastArm": {
+            "bodyCharacters": 39919,
+            "guardCharacters": 0,
+            "decisions": 0,
+            "dependencyGrowth": [
+              {
+                "definition": 0,
+                "storedCharacters": 1800,
+                "expandedCharacters": 1802
+              },
+              {
+                "definition": 1,
+                "storedCharacters": 101,
+                "expandedCharacters": 1890
+              },
+              {
+                "definition": 2,
+                "storedCharacters": 144,
+                "expandedCharacters": 2021
+              },
+              {
+                "definition": 3,
+                "storedCharacters": 141,
+                "expandedCharacters": 2018
+              },
+              {
+                "definition": 4,
+                "storedCharacters": 202,
+                "expandedCharacters": 4213
+              },
+              {
+                "definition": 5,
+                "storedCharacters": 1904,
+                "expandedCharacters": 35490
+              },
+              {
+                "definition": 6,
+                "storedCharacters": 114,
+                "expandedCharacters": 39789
+              },
+              {
+                "definition": 7,
+                "storedCharacters": 143,
+                "expandedCharacters": 39919
+              }
+            ]
+          }
+        },
+        "seconds": 1.0720047920476645
+      },
+      "sha256": "f185e8fc560b69916e9ee164c81ba7a1d51acb4a044aafd4e6143a955bfe43a3"
+    },
+    {
+      "mode": "correlated",
+      "report": {
+        "complete": true,
+        "inputDomains": {
+          "X1": [
+            -16181,
+            -16120
+          ],
+          "X2": [
+            -27775,
+            -23808
+          ]
+        },
+        "producers": 17,
+        "elidedUpdates": 3,
+        "logicalCharacters": 39919,
+        "storedCharacters": 4549,
+        "artifact": {
+          "path": "/Users/caleul/Documents/Work/Projects/llm-inner/docs/evidence/direct-sympy-rms-components/2-correlated.expr",
+          "characters": 39787,
+          "sha256": "f185e8fc560b69916e9ee164c81ba7a1d51acb4a044aafd4e6143a955bfe43a3",
+          "paths": 1,
+          "compilerAliases": 0,
+          "complete": true
+        },
+        "paths": {
+          "splitContexts": 0,
+          "completedPaths": 1,
+          "contradictions": 0,
+          "selectorSelections": 0,
+          "CASPasses": 168,
+          "numericArithmeticEliminated": 31,
+          "numericRecipeAttempts": 8,
+          "numericRecipeAdmissions": 0,
+          "numericRecipeBudgetStops": 0,
+          "lastArm": {
+            "bodyCharacters": 39919,
+            "guardCharacters": 0,
+            "decisions": 0,
+            "dependencyGrowth": [
+              {
+                "definition": 0,
+                "storedCharacters": 1800,
+                "expandedCharacters": 1802
+              },
+              {
+                "definition": 1,
+                "storedCharacters": 101,
+                "expandedCharacters": 1890
+              },
+              {
+                "definition": 2,
+                "storedCharacters": 144,
+                "expandedCharacters": 2021
+              },
+              {
+                "definition": 3,
+                "storedCharacters": 141,
+                "expandedCharacters": 2018
+              },
+              {
+                "definition": 4,
+                "storedCharacters": 202,
+                "expandedCharacters": 4213
+              },
+              {
+                "definition": 5,
+                "storedCharacters": 1904,
+                "expandedCharacters": 35490
+              },
+              {
+                "definition": 6,
+                "storedCharacters": 114,
+                "expandedCharacters": 39789
+              },
+              {
+                "definition": 7,
+                "storedCharacters": 143,
+                "expandedCharacters": 39919
+              }
+            ]
+          }
+        },
+        "seconds": 1.0008584160241298
+      },
+      "sha256": "f185e8fc560b69916e9ee164c81ba7a1d51acb4a044aafd4e6143a955bfe43a3"
+    },
+    {
+      "mode": "previous",
+      "report": {
+        "complete": true,
+        "inputDomains": {
+          "X1": [
+            -16181,
+            -16120
+          ],
+          "X2": [
+            -27775,
+            -23808
+          ]
+        },
+        "producers": 17,
+        "elidedUpdates": 3,
+        "logicalCharacters": 430997,
+        "storedCharacters": 21134,
+        "artifact": {
+          "path": "/Users/caleul/Documents/Work/Projects/llm-inner/docs/evidence/direct-sympy-rms-components/3-previous.expr",
+          "characters": 430300,
+          "sha256": "2c5b7ffd0fe16faa4a070781d08692dd354c92cb34e02ee796e7260239e80e92",
+          "paths": 2,
+          "compilerAliases": 0,
+          "complete": true
+        },
+        "paths": {
+          "splitContexts": 1,
+          "completedPaths": 2,
+          "contradictions": 0,
+          "selectorSelections": 4,
+          "CASPasses": 409,
+          "numericArithmeticEliminated": 72,
+          "numericRecipeAttempts": 19,
+          "numericRecipeAdmissions": 0,
+          "numericRecipeBudgetStops": 0,
+          "lastArm": {
+            "bodyCharacters": 140100,
+            "guardCharacters": 7925,
+            "decisions": 1,
+            "dependencyGrowth": [
+              {
+                "definition": 0,
+                "storedCharacters": 1800,
+                "expandedCharacters": 1802
+              },
+              {
+                "definition": 1,
+                "storedCharacters": 101,
+                "expandedCharacters": 1890
+              },
+              {
+                "definition": 2,
+                "storedCharacters": 101,
+                "expandedCharacters": 1890
+              },
+              {
+                "definition": 3,
+                "storedCharacters": 160,
+                "expandedCharacters": 3912
+              },
+              {
+                "definition": 4,
+                "storedCharacters": 157,
+                "expandedCharacters": 3909
+              },
+              {
+                "definition": 6,
+                "storedCharacters": 3560,
+                "expandedCharacters": 65890
+              },
+              {
+                "definition": 7,
+                "storedCharacters": 3866,
+                "expandedCharacters": 73987
+              },
+              {
+                "definition": 8,
+                "storedCharacters": 101,
+                "expandedCharacters": 65978
+              },
+              {
+                "definition": 9,
+                "storedCharacters": 163,
+                "expandedCharacters": 140100
+              }
+            ]
+          }
+        },
+        "seconds": 6.008008916978724
+      },
+      "sha256": "2c5b7ffd0fe16faa4a070781d08692dd354c92cb34e02ee796e7260239e80e92"
+    },
+    {
+      "mode": "previous",
+      "report": {
+        "complete": true,
+        "inputDomains": {
+          "X1": [
+            -16181,
+            -16120
+          ],
+          "X2": [
+            -27775,
+            -23808
+          ]
+        },
+        "producers": 17,
+        "elidedUpdates": 3,
+        "logicalCharacters": 430997,
+        "storedCharacters": 21134,
+        "artifact": {
+          "path": "/Users/caleul/Documents/Work/Projects/llm-inner/docs/evidence/direct-sympy-rms-components/4-previous.expr",
+          "characters": 430300,
+          "sha256": "2c5b7ffd0fe16faa4a070781d08692dd354c92cb34e02ee796e7260239e80e92",
+          "paths": 2,
+          "compilerAliases": 0,
+          "complete": true
+        },
+        "paths": {
+          "splitContexts": 1,
+          "completedPaths": 2,
+          "contradictions": 0,
+          "selectorSelections": 4,
+          "CASPasses": 409,
+          "numericArithmeticEliminated": 72,
+          "numericRecipeAttempts": 19,
+          "numericRecipeAdmissions": 0,
+          "numericRecipeBudgetStops": 0,
+          "lastArm": {
+            "bodyCharacters": 140100,
+            "guardCharacters": 7925,
+            "decisions": 1,
+            "dependencyGrowth": [
+              {
+                "definition": 0,
+                "storedCharacters": 1800,
+                "expandedCharacters": 1802
+              },
+              {
+                "definition": 1,
+                "storedCharacters": 101,
+                "expandedCharacters": 1890
+              },
+              {
+                "definition": 2,
+                "storedCharacters": 101,
+                "expandedCharacters": 1890
+              },
+              {
+                "definition": 3,
+                "storedCharacters": 160,
+                "expandedCharacters": 3912
+              },
+              {
+                "definition": 4,
+                "storedCharacters": 157,
+                "expandedCharacters": 3909
+              },
+              {
+                "definition": 6,
+                "storedCharacters": 3560,
+                "expandedCharacters": 65890
+              },
+              {
+                "definition": 7,
+                "storedCharacters": 3866,
+                "expandedCharacters": 73987
+              },
+              {
+                "definition": 8,
+                "storedCharacters": 101,
+                "expandedCharacters": 65978
+              },
+              {
+                "definition": 9,
+                "storedCharacters": 163,
+                "expandedCharacters": 140100
+              }
+            ]
+          }
+        },
+        "seconds": 5.9062032089568675
+      },
+      "sha256": "2c5b7ffd0fe16faa4a070781d08692dd354c92cb34e02ee796e7260239e80e92"
+    },
+    {
+      "mode": "correlated",
+      "report": {
+        "complete": true,
+        "inputDomains": {
+          "X1": [
+            -16181,
+            -16120
+          ],
+          "X2": [
+            -27775,
+            -23808
+          ]
+        },
+        "producers": 17,
+        "elidedUpdates": 3,
+        "logicalCharacters": 39919,
+        "storedCharacters": 4549,
+        "artifact": {
+          "path": "/Users/caleul/Documents/Work/Projects/llm-inner/docs/evidence/direct-sympy-rms-components/5-correlated.expr",
+          "characters": 39787,
+          "sha256": "f185e8fc560b69916e9ee164c81ba7a1d51acb4a044aafd4e6143a955bfe43a3",
+          "paths": 1,
+          "compilerAliases": 0,
+          "complete": true
+        },
+        "paths": {
+          "splitContexts": 0,
+          "completedPaths": 1,
+          "contradictions": 0,
+          "selectorSelections": 0,
+          "CASPasses": 168,
+          "numericArithmeticEliminated": 31,
+          "numericRecipeAttempts": 8,
+          "numericRecipeAdmissions": 0,
+          "numericRecipeBudgetStops": 0,
+          "lastArm": {
+            "bodyCharacters": 39919,
+            "guardCharacters": 0,
+            "decisions": 0,
+            "dependencyGrowth": [
+              {
+                "definition": 0,
+                "storedCharacters": 1800,
+                "expandedCharacters": 1802
+              },
+              {
+                "definition": 1,
+                "storedCharacters": 101,
+                "expandedCharacters": 1890
+              },
+              {
+                "definition": 2,
+                "storedCharacters": 144,
+                "expandedCharacters": 2021
+              },
+              {
+                "definition": 3,
+                "storedCharacters": 141,
+                "expandedCharacters": 2018
+              },
+              {
+                "definition": 4,
+                "storedCharacters": 202,
+                "expandedCharacters": 4213
+              },
+              {
+                "definition": 5,
+                "storedCharacters": 1904,
+                "expandedCharacters": 35490
+              },
+              {
+                "definition": 6,
+                "storedCharacters": 114,
+                "expandedCharacters": 39789
+              },
+              {
+                "definition": 7,
+                "storedCharacters": 143,
+                "expandedCharacters": 39919
+              }
+            ]
+          }
+        },
+        "seconds": 0.9913082080311142
+      },
+      "sha256": "f185e8fc560b69916e9ee164c81ba7a1d51acb4a044aafd4e6143a955bfe43a3"
+    }
+  ],
+  "medians": {
+    "previous": 6.008008916978724,
+    "correlated": 1.0008584160241298
+  },
+  "timeSavedPercent": 83.34126280678964,
+  "sizeSavedPercent": 90.75366023704392,
+  "sourceSHA256": "17ce30cefa8b9f0412de4dbd2996e84037b787098ea15cd083657b15ac2bef9f",
+  "scope": "Six alternating in-process trials; same region, position zero, dimension two, one token. No isolated memory measurement or full-domain result."
+}
