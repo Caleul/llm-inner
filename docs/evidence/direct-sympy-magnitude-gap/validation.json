@@ -1,0 +1,95 @@
+{
+  "scope": "Branch-local magnitude gap propagation; emitted artifacts are one-token position 0 dimension 2 regions only",
+  "expressionFormat": "Mathematical string; JSON stores evidence and savepoint metadata only",
+  "build": {
+    "command": "npm run build",
+    "exitCode": 0
+  },
+  "integration": {
+    "command": "LLM_INNER_DIRECT_PYTHON=/private/tmp/llm-inner-pytorch/bin/python LLM_INNER_DIRECT_JSON_CHECKPOINT=docs/evidence/direct-sympy-test-checkpoint node --test dist/test/direct-sympy-strings.test.js",
+    "tests": 21,
+    "pass": 21,
+    "fail": 0,
+    "skipped": 0,
+    "log": "docs/evidence/direct-sympy-magnitude-gap/integration-tests-final.log"
+  },
+  "newNativeRegression": {
+    "cases": 122888,
+    "mismatches": 0,
+    "charactersBefore": 226,
+    "charactersAfter": 160,
+    "signedInputsAndZeros": true,
+    "branchIsolation": true,
+    "log": "docs/evidence/direct-sympy-magnitude-gap/path-tests.log"
+  },
+  "savepointProofs": {
+    "tests": 8,
+    "pass": 8,
+    "nonzeroMagnitudeRoundtrip": true,
+    "incompatiblePreviousSourcesRejected": true,
+    "geometryOnlyImport": true
+  },
+  "coordinate": {
+    "logicalCharactersBefore": 3248163585496,
+    "logicalCharactersAfter": 3248163585496,
+    "reduction": 0,
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "producerGrowthReport": "docs/evidence/direct-sympy-magnitude-gap/coordinate-run.json"
+  },
+  "regions": {
+    "completedRegions": 43,
+    "coveredInputPatterns": 183650944,
+    "unfinishedInputPatterns": 3847075200,
+    "cases": 11180,
+    "mismatches": 0,
+    "fullCoordinateParity": false
+  },
+  "artifactMap": "docs/evidence/direct-sympy-magnitude-gap/artifact-map.json",
+  "coalescence": {
+    "completeRegions": 43,
+    "coalescedRectangles": 10,
+    "distinctExpressions": 7,
+    "copiedBodyCharacters": 13415017,
+    "sharedBodyCharacters": 754597,
+    "coveredInputPatterns": 183650944,
+    "unfinishedInputPatterns": 3847075200,
+    "finalArtifactEmitted": false,
+    "finalParity": false
+  },
+  "sourceSHA256": {
+    "direct_sympy_arithmetic.py": "973f8d8910fb0f59831e68379a950bf8f2952acdeeda75030ddb5d308674e890",
+    "direct_sympy_checkpoint.py": "988da636417d9e8812f78eefb8f6636a195537715f84e8b8300f72aa8235a2a9",
+    "direct_sympy_coherent_paths.py": "625cefcf4e58c39564d2a11b38da4992d3e25bca53a0219b7109ac73fc70a259",
+    "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+    "direct_sympy_conversions.py": "2937c333a849c7719ab86dc25fadec52eac18ca63647c804a4804243a29f76f4",
+    "direct_sympy_input_partitions.py": "d0001b039ed49826ffb98e3c9f890bb345ebfec779a7369a4426da119eb54c88",
+    "direct_sympy_layer_bounds.py": "2f8d73caf53371f4bba44a605a91098580f5dcaf90b292c135830d862513dcff",
+    "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+    "direct_sympy_partition_run.py": "e6d416b4f15268876e7f65f71401271a812ceaf08c305bd7c9ae92b3aac1dd40",
+    "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+    "direct_sympy_savepoints.py": "682783ebfd3f1337bbcf015faa34876963a9f1b63eae2cba1c3159cb0ed5d266",
+    "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+    "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+    "direct_sympy_silu.py": "0f4d9a7a17c38bc0ba8d8f7a28bbcfcc66ebe95c578e44b5a1f30a7d9c2affd8",
+    "direct_sympy_sqrt.py": "86b358773fa8b887659cd5598d7d37d7a4df5f338513117bc74ff6dd00ce6b17",
+    "direct_sympy_streaming_literals.py": "8f8b9d25c319e16be48cd97e45664f22770b122a8b2da1ceb98b0b74c5000177",
+    "direct_sympy_strings.py": "b195bd6ef9f2bc356a4819aead1262a328c0492b49485f473664415095b1f8be",
+    "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+    "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+    "direct_sympy_words.py": "2377908fd2d5553a3c9a7e52d2f01a104877a62f3bd4fdc43cfeaf9d492987c5"
+  },
+  "pending": [
+    "Complete-domain coordinate artifact and bit parity",
+    "Variable-length last-token output and multiple tokens",
+    "All output dimensions",
+    "Current-code controlled sequential/parallel Colab compiler comparison"
+  ],
+  "colabExperimentalTranslation": {
+    "validated": false,
+    "cpuMismatches": 53,
+    "cudaValidationStarted": false,
+    "operationId": "4589b413-2afe-4b60-916e-a061178b016c",
+    "cause": "CPU translation comparison failed; cause not established"
+  }
+}

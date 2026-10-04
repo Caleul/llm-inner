@@ -125,7 +125,7 @@ class ConversionStringTests(unittest.TestCase):
         guard=syntax('U64And(Bits64(CASNumericRegion42()), 9223372036854775807) < 4544132024016830464')
         own=session.magnitude_guard_bounds(guard,True,{})
         self.assertEqual((own[key].minimum,own[key].maximum),(-math.nextafter(2**-14,0),math.nextafter(2**-14,0)))
-        self.assertEqual(session.magnitude_guard_bounds(guard,False,{}),{})
+        self.assertEqual(session.magnitude_guard_bounds(guard,False,{})[key],FiniteSource(-1,1,-24,2**-14))
         with self.assertRaisesRegex(RuntimeError,'scope'):
             with session.branch_context(session.domains,own,()):
                 self.assertEqual(session.bounds(node).maximum,math.nextafter(2**-14,0))

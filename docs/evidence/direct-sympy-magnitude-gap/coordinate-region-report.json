@@ -1,0 +1,61 @@
+{
+  "complete": true,
+  "inputDomains": {
+    "X1": [
+      20480,
+      31743
+    ],
+    "X2": [
+      20480,
+      31743
+    ]
+  },
+  "producers": 9,
+  "elidedUpdates": 4,
+  "logicalCharacters": 15672,
+  "storedCharacters": 2672,
+  "artifact": {
+    "path": "docs/evidence/direct-sympy-magnitude-gap/coordinate-region.expr",
+    "characters": 19532,
+    "sha256": "ec7554949ecba4e07dd1d226b3b24379ed2910ffedf9526e71107605f442df66",
+    "paths": 2,
+    "compilerAliases": 0,
+    "complete": true
+  },
+  "paths": {
+    "splitContexts": 1,
+    "completedPaths": 2,
+    "contradictions": 0,
+    "selectorSelections": 2,
+    "CASPasses": 41,
+    "lastArm": {
+      "bodyCharacters": 3915,
+      "guardCharacters": 3891,
+      "decisions": 1,
+      "dependencyGrowth": [
+        {
+          "definition": 0,
+          "storedCharacters": 1800,
+          "expandedCharacters": 1802
+        },
+        {
+          "definition": 1,
+          "storedCharacters": 101,
+          "expandedCharacters": 1890
+        },
+        {
+          "definition": 2,
+          "storedCharacters": 101,
+          "expandedCharacters": 1890
+        },
+        {
+          "definition": 3,
+          "storedCharacters": 163,
+          "expandedCharacters": 3915
+        }
+      ]
+    }
+  },
+  "seconds": 0.6268505420302972,
+  "workerSeconds": 1.711663708963897
+}

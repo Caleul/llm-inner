@@ -113,6 +113,7 @@ class SavepointTests(unittest.TestCase):
                 self.assertIn(first,resumed.conversions.closed_literals)
                 self.assertEqual(resumed.conversions.selector_literals[first][3],original.conversions.selector_literals[first][3])
                 self.assertTrue(resumed.conversions.selector_literals[first][3])
+                self.assertTrue(any(b is not None and b.minimum_magnitude>0 for b in resumed.conversions.selector_literals[first][3]))
                 self.assertEqual(self.first(resumed),first)
                 final=self.second(resumed)
                 self.assertEqual(final,self.second(original))

@@ -150,13 +150,13 @@ class ProducerSavepoints:
                 elif key in session.f32_values:kind='f32'
                 positive_zero=positive_zero or key in session.no_negative_zero_values
                 records.append({'name':name,'digest':digest,'characters':len(expression),
-                    'bounds':None if bounds is None else [bounds.minimum.hex(),bounds.maximum.hex(),bounds.quantum],
+                    'bounds':None if bounds is None else [bounds.minimum.hex(),bounds.maximum.hex(),bounds.quantum,bounds.minimum_magnitude.hex()],
                     'kind':kind,'noNegativeZero':positive_zero,'castsClosed':True})
                 continue
             node=syntax(expression)
             bounds=session.bounds(node) if session else None
             records.append({'name':name,'digest':digest,'characters':len(expression),
-                'bounds':None if bounds is None else [bounds.minimum.hex(),bounds.maximum.hex(),bounds.quantum],
+                'bounds':None if bounds is None else [bounds.minimum.hex(),bounds.maximum.hex(),bounds.quantum,bounds.minimum_magnitude.hex()],
                 'kind':session.value_kind(node) if session else None,
                 'noNegativeZero':session.no_negative_zero(node) if session else False,
                 'castsClosed':session is not None and session.key(node) in session.converted_regions})
@@ -172,7 +172,7 @@ class ProducerSavepoints:
                 record['signProjection']=projected
             else:record['signProjection']=None
             stored=model.conversions.selector_literals.get(expression) if model.conversions else None
-            record['selectorArmBounds']=[] if stored is None else [None if b is None else [b.minimum.hex(),b.maximum.hex(),b.quantum] for b in stored[3]]
+            record['selectorArmBounds']=[] if stored is None else [None if b is None else [b.minimum.hex(),b.maximum.hex(),b.quantum,b.minimum_magnitude.hex()] for b in stored[3]]
         payload={'identity':self.identity,'records':records,'events':model.events,'weightReads':model.read_weights}
         envelope={'payload':payload,'integrity':hashlib.sha256(canonical(payload)).hexdigest()}
         atomic(self.directory/'frontier.json',canonical(envelope))
@@ -205,10 +205,10 @@ class ProducerSavepoints:
                 if isinstance(child,ast.Name) and child.id not in regions and (child.id.startswith('CASBoundary') or (re.fullmatch('X[0-9]+',child.id) and child.id not in model.domains)):raise ValueError('Savepoint retains a non-input dependency')
             if record['kind'] not in (None,'half','f32'):raise ValueError('Invalid saved dtype proof')
             if record['castsClosed'] and re.search(r'\bR(?:16|32)\s*\(',expression):raise ValueError('Savepoint conversion proof contradicts expression')
-            bounds=None if record['bounds'] is None else FiniteSource(float.fromhex(record['bounds'][0]),float.fromhex(record['bounds'][1]),record['bounds'][2])
+            bounds=None if record['bounds'] is None else FiniteSource(float.fromhex(record['bounds'][0]),float.fromhex(record['bounds'][1]),record['bounds'][2],float.fromhex(record['bounds'][3]))
             values=record.get('selectorArmBounds')
             if not isinstance(values,list) or len(values)>16:raise ValueError('Invalid saved selector arm proofs')
-            try:arm_proofs[name]=tuple(None if b is None else FiniteSource(float.fromhex(b[0]),float.fromhex(b[1]),b[2]) for b in values)
+            try:arm_proofs[name]=tuple(None if b is None else FiniteSource(float.fromhex(b[0]),float.fromhex(b[1]),b[2],float.fromhex(b[3])) for b in values)
             except (ValueError,TypeError,IndexError):raise ValueError('Invalid saved selector arm proofs') from None
             projection_record=record.get('signProjection')
             if projection_record is not None:

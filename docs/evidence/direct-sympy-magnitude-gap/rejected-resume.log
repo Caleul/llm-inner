@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_partition_run.py", line 238, in <module>
+    if __name__=='__main__':raise SystemExit(main())
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_partition_run.py", line 235, in main
+    return run(args)
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_partition_run.py", line 159, in run
+    if state['identity']!=identity:raise ValueError('Incompatible partition state; no saved expression reused')
+ValueError: Incompatible partition state; no saved expression reused

@@ -1,0 +1,64 @@
+✔ Finite F32 cells and compile-time constants preserve native boundaries and signed zeros (1880.832625ms)
+✔ Proved unsigned masks remove redundant operations without changing overflow or numeric contexts (826.085ms)
+✔ Stabilized branches share decisions, preserve lazy guards and emit flat input-only expressions (2461.317ms)
+✔ Compiler-only literal sharing uses expanded costs and emits bit-exact input-only expressions (12520.529083ms)
+✔ SymPy factors typed word polynomials modulo 2^64 without reassociating floating operations (802.972833ms)
+✔ Parallel SymPy blocks preserve ordered F32 folds, branch contexts and memory admission (6293.170333ms)
+✔ Equivalent scan backend preserves Unicode regex results and byte-identical saved compiler states (2712.184709ms)
+✔ SymPy savepoints preserve completed rounding frontiers and reject incompatible or corrupt state (2593.396167ms)
+✔ SymPy string substitution factors and simplifies each step with isolated IEEE branch proofs (746.247709ms)
+✔ SymPy checkpoint working string is re-read and matches a freshly captured coordinate reference (7330.327041ms)
+✔ SymPy elementary conversion strings preserve native IEEE cells and composed boundaries (13564.78625ms)
+✔ Bounded SiLU arithmetic lowering matches every certified Half scalar and vector input (4530.3825ms)
+✔ Positive F32 square-root word lowering preserves all mantissas, parities and subnormals (1134.897542ms)
+✖ IEEE sign projections preserve signed zero and reduce completed down-conversion strings (8718.1665ms)
+✔ Half interval precision removes redundant F32 rounding with native emitted-expression parity (1151.074042ms)
+✔ Disjoint input partitions preserve complete Half coverage and emitted coordinate parity within each certified region (7932.468458ms)
+✔ Proved signed-zero updates preserve formats, branch isolation and native payloads (1358.618834ms)
+✔ Constant IEEE cells eliminate whole producers and propagate compound branch contexts (1408.399167ms)
+✔ Identical emitted coordinate bodies coalesce without losing coverage, signed zeros or lazy guards (2231.455167ms)
+✔ Budgeted coordinate continuation persists actual producers and rejects incompatible saved dimensions (19773.528916ms)
+✔ Source changes retain only audited partition geometry and recompile numerical evidence (1160.991833ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 20
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 101428.299709
+
+✖ failing tests:
+
+test at dist/test/direct-sympy-strings.test.js:110:1
+✖ IEEE sign projections preserve signed zero and reduce completed down-conversion strings (8718.1665ms)
+  Error: Command failed: /private/tmp/llm-inner-pytorch/bin/python helpers/direct_sympy_path_conversion_test.py
+  .F...
+  ======================================================================
+  FAIL: test_disconnected_normal_path_preserves_both_signs_and_signed_zeros (__main__.PathConversionTests)
+  ----------------------------------------------------------------------
+  Traceback (most recent call last):
+    File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_path_conversion_test.py", line 38, in test_disconnected_normal_path_preserves_both_signs_and_signed_zeros
+      self.assertLess(len(result),len(baseline))
+  AssertionError: 350 not less than 350
+
+  ----------------------------------------------------------------------
+  Ran 5 tests in 1.412s
+
+  FAILED (failures=1)
+
+      at genericNodeError (node:internal/errors:985:15)
+      at wrappedFn (node:internal/errors:539:14)
+      at ChildProcess.exithandler (node:child_process:417:12)
+      at ChildProcess.emit (node:events:508:28)
+      at maybeClose (node:internal/child_process:1101:16)
+      at Socket.<anonymous> (node:internal/child_process:457:11)
+      at Socket.emit (node:events:508:28)
+      at Pipe.<anonymous> (node:net:346:12) {
+    code: 1,
+    killed: false,
+    signal: null,
+    cmd: '/private/tmp/llm-inner-pytorch/bin/python helpers/direct_sympy_path_conversion_test.py',
+    stdout: 'Disconnected magnitude parity: cases=122888 mismatches=0\nDisconnected magnitude strings: 226 -> 160\nPath F32 conversion parity: cases=2377914 mismatches=0\nPath tandem conversion parity: cases=19458 mismatches=0\n',
+    stderr: '.F...\n======================================================================\nFAIL: test_disconnected_normal_path_preserves_both_signs_and_signed_zeros (__main__.PathConversionTests)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_path_conversion_test.py", line 38, in test_disconnected_normal_path_preserves_both_signs_and_signed_zeros\n    self.assertLess(len(result),len(baseline))\nAssertionError: 350 not less than 350\n\n----------------------------------------------------------------------\nRan 5 tests in 1.412s\n\nFAILED (failures=1)\n'
+  }

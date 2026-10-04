@@ -10708,5 +10708,19 @@
       "All output coordinates",
       "Controlled Colab sequential/parallel comparison for current sources"
     ]
+  },
+  "branchMagnitudeGapValidation": {
+    "report": "docs/evidence/direct-sympy-magnitude-gap/validation.json",
+    "tests": 21,
+    "pass": 21,
+    "fail": 0,
+    "skipped": 0,
+    "nativeBranchCases": 122888,
+    "nativeBranchMismatches": 0,
+    "completeRegions": 43,
+    "regionCases": 11180,
+    "regionMismatches": 0,
+    "fullCoordinateParity": false,
+    "logicalCharactersReduction": 0
   }
 }

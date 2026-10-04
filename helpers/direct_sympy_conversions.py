@@ -29,8 +29,11 @@ class FiniteSource:
     minimum: float
     maximum: float
     quantum: int|None=None
+    minimum_magnitude: float=0.0
 
     def __post_init__(self):
+        if not math.isfinite(self.minimum_magnitude) or self.minimum_magnitude<0 or self.minimum_magnitude>max(abs(self.minimum),abs(self.maximum)):
+            raise ValueError("Invalid finite-source magnitude certificate")
         if not math.isfinite(self.minimum) or not math.isfinite(self.maximum) or self.minimum>self.maximum:
             raise ValueError("Finite source interval certificate required")
         if self.quantum is not None and not -1074<=self.quantum<=1023:
@@ -70,7 +73,7 @@ def lower_finite_conversion(expression,kind,certificate,compiler,domains,path=()
     small_threshold=0x3810000000000000 if kind=="R32" else 0x3f10000000000000
     overflow_threshold=0x47effffff0000000 if kind=="R32" else 0x40effe0000000000
     maximum=max(abs(certificate.minimum),abs(certificate.maximum))
-    minimum=certificate.minimum if certificate.minimum>0 else -certificate.maximum if certificate.maximum<0 else 0
+    minimum=max(certificate.minimum_magnitude,certificate.minimum if certificate.minimum>0 else -certificate.maximum if certificate.maximum<0 else 0)
     smallest=2**(-126 if kind=="R32" else -14)
     overflow=2**128-2**103 if kind=="R32" else 65520
     # A value on the target subnormal grid already has at most p-1
@@ -187,8 +190,9 @@ class ConversionSession:
     def magnitude_guard_bounds(self,condition,truth,proofs):
         """Conservative finite-F64 preimage of an unsigned magnitude guard.
 
-        A false guard spanning both signs has a disconnected preimage; leave
-        it unrefined. Never infer a dtype from a word comparison.
+        A false guard spanning both signs has a disconnected preimage. Keep
+        its signed enclosure and record the excluded central magnitude gap.
+        Never infer a dtype or sign from a magnitude comparison.
         """
         if not isinstance(condition,ast.Compare) or not isinstance(condition.ops[0],(ast.Lt,ast.LtE)):return proofs
         left,right=condition.left,condition.comparators[0]
@@ -201,8 +205,10 @@ class ConversionSession:
         if bound is None:return proofs
         threshold=struct.unpack('>d',struct.pack('>Q',right.value))[0]
         low,high=bound.minimum,bound.maximum
+        minimum_magnitude=bound.minimum_magnitude
         if truth:
             endpoint=math.nextafter(threshold,0) if isinstance(condition.ops[0],ast.Lt) else threshold
+            if minimum_magnitude>endpoint:return None
             low,high=max(low,-endpoint),min(high,endpoint)
         elif low>=0:
             endpoint=threshold if isinstance(condition.ops[0],ast.Lt) else math.nextafter(threshold,math.inf)
@@ -210,9 +216,11 @@ class ConversionSession:
         elif high<=0:
             endpoint=threshold if isinstance(condition.ops[0],ast.Lt) else math.nextafter(threshold,math.inf)
             high=min(high,-endpoint)
-        else:return proofs
-        if low>high:return None
-        result=dict(proofs);result[key]=FiniteSource(low,high,bound.quantum)
+        else:
+            endpoint=threshold if isinstance(condition.ops[0],ast.Lt) else math.nextafter(threshold,math.inf)
+            minimum_magnitude=max(minimum_magnitude,endpoint)
+        if low>high or minimum_magnitude>max(abs(low),abs(high)):return None
+        result=dict(proofs);result[key]=FiniteSource(low,high,bound.quantum,minimum_magnitude)
         return result
 
     def remember_frontier_bounds(self,expression,certificates):
@@ -223,6 +231,15 @@ class ConversionSession:
         if arms is None:return
         known={self.key(syntax(guard)):FiniteSource(low,high,q) for guard,low,high,q in certificates}
         bounds=tuple(known.get(self.key(condition)) for _,condition in arms)
+        # Only a two-arm finite conversion frontier certifies its complement.
+        # Small outputs fit the declared subnormal grid; the other kernel's
+        # outputs are normal, with either sign. Overflow has its own arm.
+        if len(arms)==2 and bounds[0] is not None and isinstance(arms[1][1],ast.Constant) and arms[1][1].value is True:
+            small=bounds[0]
+            if small.quantum in (-24,-149):
+                peak=65504.0 if small.quantum==-24 else float.fromhex('0x1.fffffep127')
+                normal=FiniteSource(-peak,peak,small.quantum,max(abs(small.minimum),abs(small.maximum)))
+                bounds=(small,normal)
         if any(value is not None for value in bounds):self.frontier_bounds[self.key(syntax(expression))]=bounds
 
     def remember_selector_literal(self,expression,view,leaves=None,arm_bounds=None):
@@ -477,7 +494,7 @@ class ConversionSession:
         if key in self.no_negative_zero_values:return True
         d=self.bounds(node)
         if d is None:return False
-        if d.minimum>0 or d.maximum<0:return True
+        if d.minimum>0 or d.maximum<0 or d.minimum_magnitude>0:return True
         literal=self.constant(node)
         if literal is not None:return literal!=0 or math.copysign(1,literal)>0
         if isinstance(node,ast.Name):
@@ -599,7 +616,7 @@ class ConversionSession:
         if self.value_kind(value)!='half':return None
         source=self.bounds(value)
         if source is None:return None
-        minimum=source.minimum if source.minimum>0 else -source.maximum if source.maximum<0 else 0
+        minimum=max(source.minimum_magnitude,source.minimum if source.minimum>0 else -source.maximum if source.maximum<0 else 0)
         if not minimum:return None
         # Subnormal Half spacing stops shrinking at 2**-24.
         return 2**max(-25,binary_exponent(minimum)-12)
@@ -615,7 +632,7 @@ class ConversionSession:
             return False
         source=self.bounds(value);delta=self.bounds(update)
         if source is None or delta is None:return False
-        minimum=source.minimum if source.minimum>0 else -source.maximum if source.maximum<0 else 0
+        minimum=max(source.minimum_magnitude,source.minimum if source.minimum>0 else -source.maximum if source.maximum<0 else 0)
         if not minimum:return False
         radius=2**max(-150,binary_exponent(minimum)-25)
         return max(abs(delta.minimum),abs(delta.maximum))<radius
@@ -631,7 +648,7 @@ class ConversionSession:
             return FiniteSource(x,x,quantum(Fraction(x))) if math.isfinite(x) else None
         if isinstance(node,ast.UnaryOp) and isinstance(node.op,(ast.UAdd,ast.USub)):
             d=self.bounds(node.operand)
-            return None if d is None else d if isinstance(node.op,ast.UAdd) else FiniteSource(-d.maximum,-d.minimum,d.quantum)
+            return None if d is None else d if isinstance(node.op,ast.UAdd) else FiniteSource(-d.maximum,-d.minimum,d.quantum,d.minimum_magnitude)
         if isinstance(node,ast.BinOp):
             # Only certified finite Half squares are admitted here. Their
             # 22-bit product is exact in F32 and F64, including positive zero.
@@ -652,7 +669,7 @@ class ConversionSession:
                 if az:return b
             if isinstance(node.op,ast.Sub):
                 if bz:return a
-                if az:return FiniteSource(-b.maximum,-b.minimum,b.quantum)
+                if az:return FiniteSource(-b.maximum,-b.minimum,b.quantum,b.minimum_magnitude)
             if isinstance(node.op,ast.Mult) and (az or bz):return FiniteSource(0.0,0.0,-1074)
             if isinstance(node.op,ast.Div) and az and not b.minimum<=0<=b.maximum:return FiniteSource(0.0,0.0,-1074)
             try:
@@ -793,7 +810,7 @@ class ConversionSession:
                 low=whole.minimum if local is None else max(whole.minimum,local.minimum)
                 high=whole.maximum if local is None else min(whole.maximum,local.maximum)
                 if low>high:own=None
-                bounds=whole if local is None or own is None else FiniteSource(low,high,max(whole.quantum,local.quantum) if whole.quantum is not None and local.quantum is not None else whole.quantum if whole.quantum is not None else local.quantum)
+                bounds=whole if local is None or own is None else FiniteSource(low,high,max(whole.quantum,local.quantum) if whole.quantum is not None and local.quantum is not None else whole.quantum if whole.quantum is not None else local.quantum,max(whole.minimum_magnitude,local.minimum_magnitude))
                 if own is not None:
                     selected_key=self.key(selected)
                     with self.branch_context(own,{selected_key:bounds},own_facts):
@@ -811,7 +828,7 @@ class ConversionSession:
                             if previous is not None:
                                 inferred=self.bounds(node)
                                 if inferred is not None:
-                                    previous=FiniteSource(max(previous.minimum,inferred.minimum),min(previous.maximum,inferred.maximum),previous.quantum)
+                                    previous=FiniteSource(max(previous.minimum,inferred.minimum),min(previous.maximum,inferred.maximum),previous.quantum,max(previous.minimum_magnitude,inferred.minimum_magnitude))
                                 self.completed[key]=previous
                             if old in self.half_values:self.half_values.add(key)
                             if old in self.f32_values:self.f32_values.add(key)

@@ -33,7 +33,9 @@ class PathConversionTests(unittest.TestCase):
         expression='Piecewise((R16(X1*X2),'+guard+'),(R16(X1*X2),True))'
         old=conversions.lower_finite_conversion
         def legacy(*args,**kwargs):kwargs.pop('facts',None);return old(*args,**kwargs)
-        with patch('direct_sympy_conversions.lower_finite_conversion',side_effect=legacy):_,baseline=self.build(expression,domains)
+        old_guard=ConversionSession.magnitude_guard_bounds
+        with patch('direct_sympy_conversions.lower_finite_conversion',side_effect=legacy), patch.object(ConversionSession,'magnitude_guard_bounds',lambda self,c,t,p:old_guard(self,c,t,p) if t else p):
+            _,baseline=self.build(expression,domains)
         session,result=self.build(expression,domains)
         self.assertLess(len(result),len(baseline))
         self.assertIn(('numeric/R16','small','path-proved-false'),session.compiler.condition_events)
@@ -75,11 +77,36 @@ class PathConversionTests(unittest.TestCase):
         self.assertEqual(inside,before)
         self.assertEqual(session.branch_facts,())
         self.assertEqual(session.close('R16('+source+')'),before)
-        # A normal magnitude guard is disconnected; do not invent a signed
-        # lower bound or narrow either fundamental input's accepted domain.
+        # A disconnected magnitude proof must not invent a signed bound
+        # or narrow either fundamental input's accepted domain.
         guard=syntax('U64And(Bits64('+source+'),9223372036854775807)<4544132024016830464')
-        self.assertEqual(session.magnitude_guard_bounds(guard,False,{}),{})
+        proof=session.magnitude_guard_bounds(guard,False,{})[session.key(syntax(source))]
+        self.assertEqual((proof.minimum,proof.maximum),(session.bounds(syntax(source)).minimum,session.bounds(syntax(source)).maximum))
+        self.assertEqual(proof.minimum_magnitude,2**-14)
         self.assertEqual(dict(session.domains),domains)
 
+
+    def test_disconnected_magnitude_eliminates_only_the_selected_half_update(self):
+        import ast
+        from direct_sympy_conversions import FiniteSource
+        domains={'X1':Domain(-F(1),F(1),-24,False),'X2':Domain(-F(2)**-24,F(2)**-24,-24,False)}
+        guard='U64And(Bits64(X1),9223372036854775807)<'+str(0x3fb0000000000000)
+        expression='Piecewise((R16(R32(X1-X2)),'+guard+'),(R16(R32(X1+X2)),True))'
+        with patch.object(ConversionSession,'magnitude_guard_bounds',lambda self,c,t,p:p):
+            _,baseline=self.build(expression,domains)
+        session,result=self.build(expression,domains)
+        self.assertLess(len(result),len(baseline))
+        self.assertEqual(ast.unparse(syntax(result).args[-1].elts[0]),'X1')
+        self.assertNotEqual(ast.unparse(syntax(result).args[0].elts[0]),'X1')
+        self.assertEqual(session.bounds(syntax('X1')).minimum_magnitude,0)
+        proof=session.magnitude_guard_bounds(syntax(guard),False,{})
+        with session.branch_context(domains,proof,()):
+            self.assertTrue(session.no_negative_zero(syntax('X1')))
+            self.assertEqual(session.half_cell_radius(syntax('-X1')),2**-16)
+            self.assertIsNone(session.magnitude_guard_bounds(syntax(guard),True,proof))
+        self.assertFalse(session.no_negative_zero(syntax('X1')))
+        with self.assertRaises(ValueError):FiniteSource(-1,1,-24,2)
+        self.native({'candidate':result,'baseline':baseline},"""int main(){unsigned cases=0,mismatches=0;for(unsigned bits=0;bits<65536;bits++){if((bits&0x7c00)==0x7c00)continue;double x=word<_Float16>(uint16_t(bits));if(std::abs(x)>1)continue;for(double y:{-0x1p-24,-0.0,0.0,0x1p-24}){double expected=double(_Float16(float(std::abs(x)<0x1p-4?x-y:x+y)));mismatches+=word<uint64_t>(candidate(x,y))!=word<uint64_t>(expected)||word<uint64_t>(baseline(x,y))!=word<uint64_t>(expected);cases++;}}std::printf("Disconnected magnitude parity: cases=%u mismatches=%u\\n",cases,mismatches);return mismatches?1:0;}""")
+        print('Disconnected magnitude strings: '+str(len(baseline))+' -> '+str(len(result)))
 
 if __name__=='__main__':unittest.main()

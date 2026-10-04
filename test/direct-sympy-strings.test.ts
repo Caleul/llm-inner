@@ -137,7 +137,8 @@ test('IEEE sign projections preserve signed zero and reduce completed down-conve
     assert.match(diagnostic.stderr,/Ran 2 tests/);
     assert.match(diagnostic.stderr,/OK/);
     const paths=await promisify(execFile)(python!,['helpers/direct_sympy_path_conversion_test.py'],{timeout:120_000,maxBuffer:1024*1024});
-    assert.match(paths.stderr,/Ran 4 tests/);
+    assert.match(paths.stderr,/Ran 5 tests/);
+    assert.match(paths.stdout,/Disconnected magnitude parity: cases=122888 mismatches=0/);
     assert.match(paths.stderr,/OK/);
     assert.match(paths.stdout,/Path Half conversion parity: cases=245776 mismatches=0/);
     assert.match(paths.stdout,/Path F32 conversion parity: cases=\d+ mismatches=0/);
