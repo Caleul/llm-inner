@@ -1,0 +1,7 @@
+{
+  "pid": 9567,
+  "processes": [
+    "   9567    1078 Zs         02:08     0 [python3] <defunct>"
+  ],
+  "log": "..\n----------------------------------------------------------------------\nRan 2 tests in 34.817s\n\nOK\nPersistent checkpoint run: {\"restored\": 10, \"persisted\": 11, \"identityRejectionBeforeMutation\": true, \"coordinateComplete\": false}\n"
+}

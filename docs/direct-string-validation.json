@@ -9986,5 +9986,85 @@
       "downloadOperation": "164d7289-96b5-4059-b385-8862f22a056a",
       "coordinateComplete": false
     }
+  },
+  "persistentContinuationValidation": {
+    "controller": "helpers/direct_sympy_checkpoint_run.py",
+    "testMap": [
+      "helpers/direct_sympy_checkpoint_run_test.py",
+      "test/direct-sympy-strings.test.ts"
+    ],
+    "configuredIntegration": {
+      "tests": 10,
+      "pass": 10,
+      "fail": 0,
+      "skip": 0
+    },
+    "finalControllerNamedIntegration": {
+      "tests": 1,
+      "pass": 1
+    },
+    "linuxControllerTests": {
+      "tests": 2,
+      "pass": 2,
+      "skip": 0
+    },
+    "macosControllerTests": {
+      "tests": 2,
+      "pass": 1,
+      "skip": 1,
+      "reason": "Linux-specific mapped-address-space admission"
+    },
+    "realCheckpointResumeTest": {
+      "freshPersisted": 10,
+      "compatibleRestored": 10,
+      "resumedPersisted": 11,
+      "differentDimensionRejectedBeforeMutation": true,
+      "previousRecordsUnchanged": true
+    },
+    "colabResume": {
+      "directory": "/content/llm-inner-rms-resume16",
+      "restored": 18,
+      "persisted": 19,
+      "newProducer": "model.layers.0.hidden:0",
+      "characters": 12951847412,
+      "seconds": 531.0939945129999,
+      "peakRSSBytes": 66997841920,
+      "stop": "Process address-space budget exhausted",
+      "parityPending": false,
+      "savedProducerParity": {
+        "cases": 60,
+        "comparisons": 420,
+        "mismatches": 0,
+        "position": 0,
+        "completeCoordinate": false
+      }
+    },
+    "coordinateComplete": false,
+    "broadSuiteNotRerun": "Numerical sources unchanged; prior exact 603-test baseline is mapped separately",
+    "evidenceDirectory": "docs/evidence/direct-sympy-persistent-continuation",
+    "backup": {
+      "deltaArchive": "artifacts/direct-sympy-persistent-colab/state-delta.tar",
+      "deltaBytes": 291829760,
+      "deltaSha256": "969e5c14eaaa859fdb6d66ac88dfd05d1e927eab2c8509969520e285f341cdb0",
+      "baseArchive": "artifacts/direct-sympy-rms-colab/backup.tar",
+      "baseSha256": "a8cdb345cdbe228dedb20541196c26821cfe1900c8b3a97f833a59cf5e8d4535",
+      "basePrefixUnchanged": true,
+      "numericSourcesMatch": true,
+      "records": 19,
+      "newProducer": "model.layers.0.hidden:0",
+      "newProducerCharacters": 12951847412,
+      "newProducerSha256": "9c3aa5c455cb7e377f5094271092350f6cbcbf661403e01b3740cc78bc8c6c17",
+      "seconds": 5.914626499987207,
+      "downloadOperation": "49e84725-95b0-44cc-9f3c-f5c7eb41984c",
+      "parityPending": false,
+      "coordinateComplete": false,
+      "savedProducerParity": {
+        "cases": 60,
+        "comparisons": 420,
+        "mismatches": 0,
+        "completeCoordinate": false,
+        "position": 0
+      }
+    }
   }
 }

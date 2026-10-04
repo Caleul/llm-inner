@@ -1,0 +1,9 @@
+{
+  "cases": 60,
+  "comparisons": 420,
+  "mismatches": 0,
+  "producerFilesEvaluated": 19,
+  "coordinateAtPositionZeroVerified": false,
+  "scope": "Actual saved posterior normalization, gate/activation/up/gated and any completed hidden/final/output producers, position 0; verification-only reuse of immutable earlier subtrees. Does not prove the last-token next-token coordinate for variable sequence lengths.",
+  "elapsedSeconds": 301.0322449700002
+}

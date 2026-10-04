@@ -106,3 +106,14 @@ test('IEEE sign projections preserve signed zero and reduce completed down-conve
     assert.match(rms.stderr,/OK/);
     assert.match(rms.stdout,/RMS guard boundary parity: cases=634876 mismatches=0 guardDisagreements=39576/);
   });
+
+test('Budgeted coordinate continuation persists actual producers and rejects incompatible saved dimensions',
+  {skip:!python || !process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT},async()=>{
+    const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_checkpoint_run_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 2 tests/);
+    assert.match(stderr,/OK/);
+    if(process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT){
+      assert.match(stdout,/Persistent checkpoint run:/);
+      assert.match(stdout,/"identityRejectionBeforeMutation": true/);
+    }
+  });
