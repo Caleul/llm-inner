@@ -1,0 +1,100 @@
+{
+  "sourceCommit": "4f2240977a970b3e25afdfc1d749ca44a287b08c",
+  "productionCodeChanged": false,
+  "expressionFormat": "Mathematical strings; JSON stores metadata only",
+  "localContinuation": {
+    "newAttempts": 48,
+    "newCompleteRegions": 43,
+    "totalAttempts": 56,
+    "completeRegions": 51,
+    "pendingRegions": 6,
+    "previousCoveredInputPatterns": 176639488,
+    "coveredInputPatterns": 185004032,
+    "addedInputPatterns": 8364544,
+    "coveragePercent": 4.58984375,
+    "unfinishedInputPatterns": 3845722112,
+    "nativeCases": 13260,
+    "mismatches": 0,
+    "finalCoordinateParity": false,
+    "sourceIdentityVerifiedOnResume": true,
+    "distinctExpressions": 7,
+    "uniqueBodyCharacters": 644346
+  },
+  "colabCompilation": {
+    "state": "COMPLETED",
+    "runs": 6,
+    "sequence": [
+      1,
+      2,
+      2,
+      1,
+      1,
+      2
+    ],
+    "sequentialMedian": {
+      "compileSeconds": 2.3857577339999807,
+      "wallSeconds": 4.655818907000025,
+      "sampledAggregateRSSBytes": 639111168
+    },
+    "parallelMedian": {
+      "compileSeconds": 2.459415801000034,
+      "wallSeconds": 4.758158153999943,
+      "sampledAggregateRSSBytes": 1220562944
+    },
+    "parallelCompileTimeChangePercent": 3.087407658805219,
+    "identicalArtifacts": true,
+    "scope": "one token, position 0, dimension 2, X1/X2 [32,65504]",
+    "artifactCharacters": 19532,
+    "completedProducersPerRun": 9,
+    "completedParallelJobs": 4,
+    "completedParallelBlocks": 2,
+    "completedPairMerges": 0,
+    "memoryBudgetBytes": 8589934592,
+    "remoteNativeCases": 1028,
+    "remoteNativeMismatches": 0,
+    "downloadedLocalNativeCases": 1028,
+    "downloadedLocalNativeMismatches": 0,
+    "fullCoordinateParity": false,
+    "report": "docs/evidence/direct-sympy-continuation-56-colab/colab/comparison-job.json"
+  },
+  "cudaPrimitive": {
+    "cases": 25167601,
+    "cudaVsCPUExpressionMismatches": 0,
+    "declaredReferenceMismatches": 0,
+    "benchmark": {
+      "values": 262272,
+      "trials": 5,
+      "cpuThreads": 1,
+      "cpuMedianSeconds": 0.06480390600000874,
+      "cudaResidentMedianSeconds": 0.0011558719873428344,
+      "cudaIncludingTransfersMedianSeconds": 0.00291391799999019,
+      "scope": "Elementwise emitted sqrt expression; not factor/simplify or model speedup"
+    },
+    "memoryBudgetBytes": 536870912,
+    "cudaPeakAllocatedBytes": 115343360,
+    "cudaPeakReservedBytes": 150994944,
+    "finalCoordinateParity": false,
+    "scope": "Emitted positive F32 sqrt CUDA expression vs the same CPU expression and F64 sqrt rounded to F32; not PyTorch Float32 sqrt, model/coordinate GPU parity, or CAS speedup",
+    "torchFloat32SqrtReferenceCompatible": false,
+    "initialReferenceDiagnosis": {
+      "cases": 8196,
+      "compiledVsScalar": 0,
+      "floatTorchVsScalar": 53,
+      "doubleTorchVsScalar": 0,
+      "cudaVsCompiledCPU": 0
+    },
+    "report": "docs/evidence/direct-sympy-continuation-56-colab/rational-sqrt-report.json"
+  },
+  "verification": {
+    "previousBuildAndRegression": "Production source bytes unchanged since the build and 21 passed integrations at 4f22409; tests were not rerun for evidence-only changes",
+    "downloadedArchiveSHA256": "6e48ebf587e95603ac318a8e5baf3c531babea36b4c3466f4a3e59d4e7997e97",
+    "forwardChanged": false,
+    "backendDifferencePreserved": true
+  },
+  "pending": [
+    "Complete-domain first coordinate artifact and exact parity",
+    "Variable-length last-token output and multiple tokens",
+    "Complete output vector",
+    "Full compiler speedup and completion-time estimate"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "workers": 1,
+  "compileSeconds": 2.3857577339999807,
+  "artifact": {
+    "path": "/content/llm-inner-current/results/comparison-3-1.expr",
+    "characters": 19532,
+    "sha256": "ec7554949ecba4e07dd1d226b3b24379ed2910ffedf9526e71107605f442df66",
+    "paths": 2,
+    "compilerAliases": 0,
+    "complete": true
+  },
+  "producers": 9,
+  "parallelEvents": [],
+  "scope": "position-zero coordinate, input range [32,65504] for every dimension"
+}

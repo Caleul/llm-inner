@@ -1,0 +1,69 @@
+{
+  "platform": "Linux-6.6.122+-x86_64-with-glibc2.39",
+  "torch": "2.11.0+cu130",
+  "cpuCapability": "AVX512",
+  "cases": 8196,
+  "expression": {
+    "expressionSHA256": "d71236cdccd68965a02b876160f9f814a27263f3caf690636e83c7450b74e654",
+    "expressionCharacters": 1048,
+    "inputOccurrences": 8,
+    "operations": 70
+  },
+  "compiledVsScalar": 0,
+  "floatTorchVsScalar": 53,
+  "doubleTorchVsScalar": 0,
+  "cudaAvailable": true,
+  "examples": [
+    {
+      "input": "0x1.871d860000000p-125",
+      "compiled": "0x1.bf7e840000000p-63",
+      "torchFloat": "0x1.bf7e820000000p-63",
+      "scalar": "0x1.bf7e840000000p-63"
+    },
+    {
+      "input": "0x1.24cf6a0000000p+7",
+      "compiled": "0x1.83318c0000000p+3",
+      "torchFloat": "0x1.83318a0000000p+3",
+      "scalar": "0x1.83318c0000000p+3"
+    },
+    {
+      "input": "0x1.3daad00000000p-49",
+      "compiled": "0x1.934b220000000p-25",
+      "torchFloat": "0x1.934b200000000p-25",
+      "scalar": "0x1.934b220000000p-25"
+    },
+    {
+      "input": "0x1.0469d60000000p-84",
+      "compiled": "0x1.0232820000000p-42",
+      "torchFloat": "0x1.0232800000000p-42",
+      "scalar": "0x1.0232820000000p-42"
+    },
+    {
+      "input": "0x1.6263840000000p+22",
+      "compiled": "0x1.2d34160000000p+11",
+      "torchFloat": "0x1.2d34140000000p+11",
+      "scalar": "0x1.2d34160000000p+11"
+    },
+    {
+      "input": "0x1.325a3a0000000p-90",
+      "compiled": "0x1.180bfe0000000p-45",
+      "torchFloat": "0x1.180bfc0000000p-45",
+      "scalar": "0x1.180bfe0000000p-45"
+    },
+    {
+      "input": "0x1.43b74a0000000p-55",
+      "compiled": "0x1.971d6e0000000p-28",
+      "torchFloat": "0x1.971d6c0000000p-28",
+      "scalar": "0x1.971d6e0000000p-28"
+    },
+    {
+      "input": "0x1.87ded40000000p-121",
+      "compiled": "0x1.bfed0c0000000p-61",
+      "torchFloat": "0x1.bfed0a0000000p-61",
+      "scalar": "0x1.bfed0c0000000p-61"
+    }
+  ],
+  "gpu": "NVIDIA A100-SXM4-40GB",
+  "cudaVsCompiledCPU": 0,
+  "cudaVsScalar": 0
+}

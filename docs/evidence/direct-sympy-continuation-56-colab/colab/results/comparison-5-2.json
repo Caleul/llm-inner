@@ -1,0 +1,25 @@
+{
+  "workers": 2,
+  "compileSeconds": 2.463482431999978,
+  "artifact": {
+    "path": "/content/llm-inner-current/results/comparison-5-2.expr",
+    "characters": 19532,
+    "sha256": "ec7554949ecba4e07dd1d226b3b24379ed2910ffedf9526e71107605f442df66",
+    "paths": 2,
+    "compilerAliases": 0,
+    "complete": true
+  },
+  "producers": 9,
+  "parallelEvents": [
+    {
+      "completedJobs": 4,
+      "completedBlocks": 2,
+      "completedPairMerges": 0,
+      "seededLanes": 2,
+      "maxWorkersAdmitted": 2,
+      "peakObservedRSSBytes": 1221197824,
+      "seconds": 0.0512640569999121
+    }
+  ],
+  "scope": "position-zero coordinate, input range [32,65504] for every dimension"
+}

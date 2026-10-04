@@ -1,0 +1,38 @@
+{
+  "expression": {
+    "expressionSHA256": "d71236cdccd68965a02b876160f9f814a27263f3caf690636e83c7450b74e654",
+    "expressionCharacters": 1048,
+    "inputOccurrences": 8,
+    "operations": 70
+  },
+  "cpuTranslationCases": 8196,
+  "platform": "Linux-6.6.122+-x86_64-with-glibc2.39",
+  "torch": "2.11.0+cu130",
+  "cpuCount": 12,
+  "ramBytes": 89629196288,
+  "cudaAvailable": true,
+  "finalCoordinateParity": false,
+  "scope": "Emitted positive F32 sqrt CUDA expression vs the same CPU expression and F64 sqrt rounded to F32; not PyTorch Float32 sqrt, model/coordinate GPU parity, or CAS speedup",
+  "torchFloat32SqrtReferenceCompatible": false,
+  "gpu": "NVIDIA A100-SXM4-40GB",
+  "gpuBytes": 42405855232,
+  "memoryBudgetBytes": 536870912,
+  "tileValues": 262144,
+  "cases": 25167601,
+  "mismatches": 0,
+  "cudaVsCPUExpressionMismatches": 0,
+  "kernelMilliseconds": 102.49852782487869,
+  "transferAndKernelSeconds": 0.23080575200000908,
+  "numericalBenchmark": {
+    "values": 262272,
+    "trials": 5,
+    "cpuThreads": 1,
+    "cpuMedianSeconds": 0.06480390600000874,
+    "cudaResidentMedianSeconds": 0.0011558719873428344,
+    "cudaIncludingTransfersMedianSeconds": 0.00291391799999019,
+    "scope": "Elementwise emitted sqrt expression; not factor/simplify or model speedup"
+  },
+  "seconds": 7.254459940999993,
+  "cudaPeakAllocatedBytes": 115343360,
+  "cudaPeakReservedBytes": 150994944
+}

@@ -1,0 +1,170 @@
+{
+  "state": "COMPLETED",
+  "runs": [
+    {
+      "workers": 1,
+      "wallSeconds": 6.886846322999986,
+      "sampledAggregateRSSBytes": 681705472,
+      "exitCode": 0,
+      "compileSeconds": 2.562861063000014,
+      "artifact": {
+        "path": "/content/llm-inner-current/results/comparison-0-1.expr",
+        "characters": 19532,
+        "sha256": "ec7554949ecba4e07dd1d226b3b24379ed2910ffedf9526e71107605f442df66",
+        "paths": 2,
+        "compilerAliases": 0,
+        "complete": true
+      },
+      "producers": 9,
+      "parallelEvents": [],
+      "scope": "position-zero coordinate, input range [32,65504] for every dimension"
+    },
+    {
+      "workers": 2,
+      "wallSeconds": 4.75716367900003,
+      "sampledAggregateRSSBytes": 884834304,
+      "exitCode": 0,
+      "compileSeconds": 2.459415801000034,
+      "artifact": {
+        "path": "/content/llm-inner-current/results/comparison-1-2.expr",
+        "characters": 19532,
+        "sha256": "ec7554949ecba4e07dd1d226b3b24379ed2910ffedf9526e71107605f442df66",
+        "paths": 2,
+        "compilerAliases": 0,
+        "complete": true
+      },
+      "producers": 9,
+      "parallelEvents": [
+        {
+          "completedJobs": 4,
+          "completedBlocks": 2,
+          "completedPairMerges": 0,
+          "seededLanes": 2,
+          "maxWorkersAdmitted": 2,
+          "peakObservedRSSBytes": 1221091328,
+          "seconds": 0.04799894500001756
+        }
+      ],
+      "scope": "position-zero coordinate, input range [32,65504] for every dimension"
+    },
+    {
+      "workers": 2,
+      "wallSeconds": 4.758158153999943,
+      "sampledAggregateRSSBytes": 1220562944,
+      "exitCode": 0,
+      "compileSeconds": 2.456616569000005,
+      "artifact": {
+        "path": "/content/llm-inner-current/results/comparison-2-2.expr",
+        "characters": 19532,
+        "sha256": "ec7554949ecba4e07dd1d226b3b24379ed2910ffedf9526e71107605f442df66",
+        "paths": 2,
+        "compilerAliases": 0,
+        "complete": true
+      },
+      "producers": 9,
+      "parallelEvents": [
+        {
+          "completedJobs": 4,
+          "completedBlocks": 2,
+          "completedPairMerges": 0,
+          "seededLanes": 2,
+          "maxWorkersAdmitted": 2,
+          "peakObservedRSSBytes": 1221017600,
+          "seconds": 0.04672242899999901
+        }
+      ],
+      "scope": "position-zero coordinate, input range [32,65504] for every dimension"
+    },
+    {
+      "workers": 1,
+      "wallSeconds": 4.655818907000025,
+      "sampledAggregateRSSBytes": 639111168,
+      "exitCode": 0,
+      "compileSeconds": 2.3857577339999807,
+      "artifact": {
+        "path": "/content/llm-inner-current/results/comparison-3-1.expr",
+        "characters": 19532,
+        "sha256": "ec7554949ecba4e07dd1d226b3b24379ed2910ffedf9526e71107605f442df66",
+        "paths": 2,
+        "compilerAliases": 0,
+        "complete": true
+      },
+      "producers": 9,
+      "parallelEvents": [],
+      "scope": "position-zero coordinate, input range [32,65504] for every dimension"
+    },
+    {
+      "workers": 1,
+      "wallSeconds": 4.6552808939999295,
+      "sampledAggregateRSSBytes": 574328832,
+      "exitCode": 0,
+      "compileSeconds": 2.3694411330000094,
+      "artifact": {
+        "path": "/content/llm-inner-current/results/comparison-4-1.expr",
+        "characters": 19532,
+        "sha256": "ec7554949ecba4e07dd1d226b3b24379ed2910ffedf9526e71107605f442df66",
+        "paths": 2,
+        "compilerAliases": 0,
+        "complete": true
+      },
+      "producers": 9,
+      "parallelEvents": [],
+      "scope": "position-zero coordinate, input range [32,65504] for every dimension"
+    },
+    {
+      "workers": 2,
+      "wallSeconds": 4.758669320000081,
+      "sampledAggregateRSSBytes": 1220591616,
+      "exitCode": 0,
+      "compileSeconds": 2.463482431999978,
+      "artifact": {
+        "path": "/content/llm-inner-current/results/comparison-5-2.expr",
+        "characters": 19532,
+        "sha256": "ec7554949ecba4e07dd1d226b3b24379ed2910ffedf9526e71107605f442df66",
+        "paths": 2,
+        "compilerAliases": 0,
+        "complete": true
+      },
+      "producers": 9,
+      "parallelEvents": [
+        {
+          "completedJobs": 4,
+          "completedBlocks": 2,
+          "completedPairMerges": 0,
+          "seededLanes": 2,
+          "maxWorkersAdmitted": 2,
+          "peakObservedRSSBytes": 1221197824,
+          "seconds": 0.0512640569999121
+        }
+      ],
+      "scope": "position-zero coordinate, input range [32,65504] for every dimension"
+    }
+  ],
+  "fullCoordinateParity": false,
+  "medians": {
+    "1": {
+      "compileSeconds": 2.3857577339999807,
+      "wallSeconds": 4.655818907000025,
+      "sampledAggregateRSSBytes": 639111168
+    },
+    "2": {
+      "compileSeconds": 2.459415801000034,
+      "wallSeconds": 4.758158153999943,
+      "sampledAggregateRSSBytes": 1220562944
+    }
+  },
+  "identicalArtifacts": true,
+  "regionParity": {
+    "artifact": "/content/llm-inner-current/results/comparison-0-1.expr",
+    "sha256": "ec7554949ecba4e07dd1d226b3b24379ed2910ffedf9526e71107605f442df66",
+    "characters": 19532,
+    "position": 0,
+    "tokens": 1,
+    "dimension": 2,
+    "cases": 1028,
+    "mismatches": 0,
+    "firstMismatches": [],
+    "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+  },
+  "verificationRepair": "Compiler runs were not repeated; clang was installed after the original native readback failed because clang++ was absent."
+}

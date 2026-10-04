@@ -10737,5 +10737,23 @@
     "firstPathBodyReductionPercent": 0.3768933492221242,
     "negativeRegionReductionPercent": 20.03972402257997,
     "fullCoordinateParity": false
+  },
+  "continuedCoordinateAndCurrentColabValidation": {
+    "report": "docs/evidence/direct-sympy-continuation-56-colab/validation.json",
+    "completeRegions": 51,
+    "nativeRegionCases": 13260,
+    "nativeRegionMismatches": 0,
+    "coveredInputPatterns": 185004032,
+    "finalCoordinateParity": false,
+    "colabRuns": 6,
+    "identicalColabArtifacts": true,
+    "colabRegionCases": 1028,
+    "colabRegionMismatches": 0,
+    "downloadedLocalRegionCases": 1028,
+    "downloadedLocalRegionMismatches": 0,
+    "cudaPrimitiveCases": 25167601,
+    "cudaPrimitiveMismatches": 0,
+    "torchFloat32SqrtCompatible": false,
+    "compilerParallelSpeedupObserved": false
   }
 }
