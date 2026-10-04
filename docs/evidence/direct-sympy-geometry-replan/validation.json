@@ -1,0 +1,63 @@
+{
+  "scope": "Audited geometry reuse only; numerical proofs, expressions and reference results are always recompiled. Mathematical strings remain expression format.",
+  "testMap": {
+    "helpers/direct_sympy_partition_replan_test.py": "Two tests: source/backend changes permit audited geometry only; all artifact/proof/attempt/completion data removed; no old artifact read; checkpoint, coordinate, root and corrupt coverage rejected; source state unchanged.",
+    "test/direct-sympy-strings.test.ts": "21 integrations passed, zero failures/skips; build passed.",
+    "helpers/direct_sympy_partition_run.py": "Real import recompiles 14 prior complete regions in 14 attempts; eight resumed attempts complete four new regions. Existing destination import rejected with unchanged frontier digest.",
+    "helpers/direct_sympy_region_parity.py": "18 actual newly emitted expressions: 4680 native comparisons against fresh CPU checkpoint, zero mismatches; one token, position 0, dimension 2 only.",
+    "helpers/direct_sympy_partition_coalesce.py": "Current source identity accepted; 18 regions, four distinct functions, five coalesced rectangles. Pending domain prevents final emission."
+  },
+  "geometryImport": {
+    "leafRegions": 23,
+    "numericalResultsReused": false,
+    "sha256": "cc5f8ac40d684c95a004ad21de74307ac9d0f5e9bb8214061ca9b29237f5e95c",
+    "sourceManifest": "/Users/caleul/Documents/Work/Projects/llm-inner/artifacts/direct-sympy-input-partitions/sqrt-factor-state/frontier.json"
+  },
+  "attempts": 22,
+  "previousCompletedRegions": 14,
+  "completedRegions": 18,
+  "coveredInputPatterns": 179099648,
+  "previousCoveredInputPatterns": 178115584,
+  "additionalCoveredInputPatterns": 984064,
+  "unfinishedInputPatterns": 3851626496,
+  "coveragePercent": 4.443359375,
+  "cases": 4680,
+  "mismatches": 0,
+  "durableExpressions": {
+    "e8b74deb77eeedb1a90b8b27f677d21af02de0c1407a85b8182de798f74621cd": "docs/evidence/direct-sympy-geometry-replan/region-e8b74deb77eeedb1.expr",
+    "e9d6fbdf7265df3da213d9e67e30a212dcc62e2769fe1e6b8bf465cfd27cf768": "docs/evidence/direct-sympy-geometry-replan/region-e9d6fbdf7265df3d.expr",
+    "1ff2fc6acd9838870ceac2219d6c2fef04c4dfc8b748b514cdb1ae00211e3628": "docs/evidence/direct-sympy-geometry-replan/region-1ff2fc6acd983887.expr",
+    "e47997ffcbed991798b2aa79fe5739cdbf3605bcda3d5bc9d296fe803021f921": "docs/evidence/direct-sympy-geometry-replan/region-e47997ffcbed9917.expr"
+  },
+  "sourceSHA256": {
+    "direct_sympy_arithmetic.py": "973f8d8910fb0f59831e68379a950bf8f2952acdeeda75030ddb5d308674e890",
+    "direct_sympy_checkpoint.py": "988da636417d9e8812f78eefb8f6636a195537715f84e8b8300f72aa8235a2a9",
+    "direct_sympy_coherent_paths.py": "625cefcf4e58c39564d2a11b38da4992d3e25bca53a0219b7109ac73fc70a259",
+    "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+    "direct_sympy_conversions.py": "364b009e86a87e07e1aa71062674e56463f1a34baa593295f33554d75d9f8a77",
+    "direct_sympy_input_partitions.py": "d0001b039ed49826ffb98e3c9f890bb345ebfec779a7369a4426da119eb54c88",
+    "direct_sympy_layer_bounds.py": "2f8d73caf53371f4bba44a605a91098580f5dcaf90b292c135830d862513dcff",
+    "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+    "direct_sympy_partition_run.py": "e6d416b4f15268876e7f65f71401271a812ceaf08c305bd7c9ae92b3aac1dd40",
+    "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+    "direct_sympy_savepoints.py": "3c3433d3467e95dca2de4b1fe0b3b9ae7f60cb0ef4d1eb209be79e724cfb937d",
+    "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+    "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+    "direct_sympy_silu.py": "0f4d9a7a17c38bc0ba8d8f7a28bbcfcc66ebe95c578e44b5a1f30a7d9c2affd8",
+    "direct_sympy_sqrt.py": "7dc19903deb72507852300162d19a2ea2f37204048c745a9ce2ed3df20a54eed",
+    "direct_sympy_streaming_literals.py": "8f8b9d25c319e16be48cd97e45664f22770b122a8b2da1ceb98b0b74c5000177",
+    "direct_sympy_strings.py": "b195bd6ef9f2bc356a4819aead1262a328c0492b49485f473664415095b1f8be",
+    "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+    "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+    "direct_sympy_words.py": "2377908fd2d5553a3c9a7e52d2f01a104877a62f3bd4fdc43cfeaf9d492987c5"
+  },
+  "finalArtifactEmitted": false,
+  "finalParity": false,
+  "remaining": [
+    "Reduce whole-domain dependency and condition growth",
+    "Complete admitted-domain coordinate artifact and native parity",
+    "Variable-length last-token semantics and parity",
+    "All output coordinates",
+    "Current-source controlled Colab sequential/parallel benchmark"
+  ]
+}

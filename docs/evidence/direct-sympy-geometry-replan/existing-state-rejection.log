@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_partition_run.py", line 238, in <module>
+    if __name__=='__main__':raise SystemExit(main())
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_partition_run.py", line 235, in main
+    return run(args)
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_partition_run.py", line 156, in run
+    if getattr(args,'repartition_from',None):raise ValueError('Geometry import requires a fresh destination state')
+ValueError: Geometry import requires a fresh destination state

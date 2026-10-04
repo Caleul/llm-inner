@@ -1,0 +1,8 @@
+{"region": "0000101101010", "complete": false, "coveredInputPatterns": 178115584, "unfinishedInputPatterns": 3852610560, "attemptSeconds": 5.749823582998943}
+{"region": "00001011010100", "complete": true, "coveredInputPatterns": 178361600, "unfinishedInputPatterns": 3852364544, "attemptSeconds": 7.4298084579641}
+{"region": "00001011010101", "complete": true, "coveredInputPatterns": 178607616, "unfinishedInputPatterns": 3852118528, "attemptSeconds": 7.36087137501454}
+{"region": "0000101101011", "complete": false, "coveredInputPatterns": 178607616, "unfinishedInputPatterns": 3852118528, "attemptSeconds": 5.623554416990373}
+{"region": "00001011010110", "complete": true, "coveredInputPatterns": 178853632, "unfinishedInputPatterns": 3851872512, "attemptSeconds": 7.436854958999902}
+{"region": "00001011010111", "complete": true, "coveredInputPatterns": 179099648, "unfinishedInputPatterns": 3851626496, "attemptSeconds": 7.042408583976794}
+{"region": "00001011011", "complete": false, "coveredInputPatterns": 179099648, "unfinishedInputPatterns": 3851626496, "attemptSeconds": 5.670850666007027}
+{"region": "000010110110", "complete": false, "coveredInputPatterns": 179099648, "unfinishedInputPatterns": 3851626496, "attemptSeconds": 5.417079082981218}

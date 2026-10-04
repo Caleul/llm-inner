@@ -205,3 +205,12 @@ test('Budgeted coordinate continuation persists actual producers and rejects inc
       assert.match(stdout,/"identityRejectionBeforeMutation": true/);
     }
   });
+
+
+test('Source changes retain only audited partition geometry and recompile numerical evidence',
+  {skip:!python},async()=>{
+    const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_partition_replan_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 2 tests/);
+    assert.match(stderr,/OK/);
+    assert.match(stdout,/Geometry replan: numericalResultsReused=false lost=0 overlaps=0/);
+  });

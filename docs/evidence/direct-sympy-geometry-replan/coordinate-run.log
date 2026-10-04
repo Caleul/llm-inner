@@ -1,0 +1,14 @@
+{"region": "000000", "complete": true, "coveredInputPatterns": 62980096, "unfinishedInputPatterns": 3967746048, "attemptSeconds": 0.6260450420086272}
+{"region": "0000010", "complete": true, "coveredInputPatterns": 94470144, "unfinishedInputPatterns": 3936256000, "attemptSeconds": 0.6819145829649642}
+{"region": "0000011", "complete": true, "coveredInputPatterns": 125960192, "unfinishedInputPatterns": 3904765952, "attemptSeconds": 3.250394083035644}
+{"region": "0000100", "complete": true, "coveredInputPatterns": 157450240, "unfinishedInputPatterns": 3873275904, "attemptSeconds": 1.004045708978083}
+{"region": "00001010", "complete": true, "coveredInputPatterns": 173195264, "unfinishedInputPatterns": 3857530880, "attemptSeconds": 0.9820764169562608}
+{"region": "00001011000", "complete": true, "coveredInputPatterns": 175163392, "unfinishedInputPatterns": 3855562752, "attemptSeconds": 0.9828947909991257}
+{"region": "000010110010", "complete": true, "coveredInputPatterns": 176147456, "unfinishedInputPatterns": 3854578688, "attemptSeconds": 0.9707807080121711}
+{"region": "0000101100110", "complete": true, "coveredInputPatterns": 176639488, "unfinishedInputPatterns": 3854086656, "attemptSeconds": 0.9926478330162354}
+{"region": "00001011001110", "complete": true, "coveredInputPatterns": 176885504, "unfinishedInputPatterns": 3853840640, "attemptSeconds": 7.056689250050113}
+{"region": "00001011001111", "complete": true, "coveredInputPatterns": 177131520, "unfinishedInputPatterns": 3853594624, "attemptSeconds": 7.1865467090392485}
+{"region": "00001011010000", "complete": true, "coveredInputPatterns": 177377536, "unfinishedInputPatterns": 3853348608, "attemptSeconds": 7.4757242079940625}
+{"region": "00001011010001", "complete": true, "coveredInputPatterns": 177623552, "unfinishedInputPatterns": 3853102592, "attemptSeconds": 7.384942000033334}
+{"region": "00001011010010", "complete": true, "coveredInputPatterns": 177869568, "unfinishedInputPatterns": 3852856576, "attemptSeconds": 7.571916583983693}
+{"region": "00001011010011", "complete": true, "coveredInputPatterns": 178115584, "unfinishedInputPatterns": 3852610560, "attemptSeconds": 7.688520958006848}

@@ -89,6 +89,25 @@ def audit_tree(tree,root):
     return covered,unfinished
 
 
+def replan(previous,identity,root):
+    """Reuse only audited domain geometry, never expressions or proofs."""
+    for field in ('version','dimension','position','checkpoint'):
+        if previous['identity'].get(field)!=identity.get(field):
+            raise ValueError('Partition geometry belongs to another checkpoint or coordinate')
+    if previous['root']!=root:raise ValueError('Partition geometry root differs from admitted domain')
+    audit_tree(previous['tree'],root)
+    tree={}
+    for key,node in previous['tree'].items():
+        clean={'domains':{name:list(bounds) for name,bounds in node['domains'].items()},'status':'pending'}
+        if node['status']=='split':clean.update(status='split',axis=node['axis'])
+        tree[key]=clean
+    covered,unfinished=audit_tree(tree,root)
+    if covered or unfinished!=cardinality(root):raise ValueError('Replanned geometry retained numerical results')
+    return {'identity':identity,'root':root,'tree':tree,'attempts':[],
+        'coveredInputPatterns':0,'unfinishedInputPatterns':unfinished,'totalInputPatterns':unfinished,
+        'finalArtifactEmitted':False,'finalParity':False}
+
+
 def combine(directory,tree,path,max_characters):
     root=tree['']['domains'];covered,unfinished=audit_tree(tree,root)
     if unfinished:raise ValueError('Unfinished regions cannot be emitted as a final coordinate')
@@ -134,6 +153,7 @@ def run(args):
         model=CheckpointStrings(args.checkpoint,StringCompiler())
         root=encode(model.domains)
         if manifest.exists():
+            if getattr(args,'repartition_from',None):raise ValueError('Geometry import requires a fresh destination state')
             if not args.resume:raise ValueError('Existing partition state requires --resume')
             state=json.loads(manifest.read_text())
             if state['identity']!=identity:raise ValueError('Incompatible partition state; no saved expression reused')
@@ -144,8 +164,15 @@ def run(args):
                     raise ValueError('Saved partition artifact integrity mismatch')
         else:
             if args.resume:raise ValueError('No partition state to resume')
-            state={'identity':identity,'root':root,'tree':{'':{'domains':root,'status':'pending'}},'attempts':[],
-                'finalArtifactEmitted':False,'finalParity':False}
+            source=getattr(args,'repartition_from',None)
+            if source:
+                source=Path(source)/'frontier.json';raw=source.read_bytes()
+                state=replan(json.loads(raw),identity,root)
+                state['geometryImport']={'sourceManifest':str(source.resolve()),'sha256':hashlib.sha256(raw).hexdigest(),
+                    'numericalResultsReused':False,'leafRegions':sum(node['status']=='pending' for node in state['tree'].values())}
+            else:
+                state={'identity':identity,'root':root,'tree':{'':{'domains':root,'status':'pending'}},'attempts':[],
+                    'finalArtifactEmitted':False,'finalParity':False}
         started=time.monotonic()
         for _ in range(args.max_attempts):
             pending=sorted(key for key,node in state['tree'].items() if node['status']=='pending')
@@ -195,7 +222,10 @@ def main():
         print(json.dumps(report),flush=True)
         return 0
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('checkpoint');parser.add_argument('state');parser.add_argument('--resume',action='store_true')
+    parser.add_argument('checkpoint');parser.add_argument('state')
+    mode=parser.add_mutually_exclusive_group()
+    mode.add_argument('--resume',action='store_true')
+    mode.add_argument('--repartition-from',help='Import audited input-domain splits; recompile every leaf with current sources')
     parser.add_argument('--dimension',type=int,default=2);parser.add_argument('--max-attempts',type=int,default=8)
     parser.add_argument('--region-seconds',type=int,default=30);parser.add_argument('--max-paths',type=int,default=64)
     parser.add_argument('--max-characters',type=int,default=1048576);parser.add_argument('--cas-characters',type=int,default=8388608)

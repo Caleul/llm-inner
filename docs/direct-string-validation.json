@@ -10645,5 +10645,30 @@
       "All output coordinates",
       "Current-source controlled Colab sequential/parallel comparison"
     ]
+  },
+  "partitionGeometryReplanValidation": {
+    "report": "docs/evidence/direct-sympy-geometry-replan/validation.json",
+    "testMap": {
+      "helpers/direct_sympy_partition_replan_test.py": "Two tests: source/backend changes permit audited geometry only; all artifact/proof/attempt/completion data removed; no old artifact read; checkpoint, coordinate, root and corrupt coverage rejected; source state unchanged.",
+      "test/direct-sympy-strings.test.ts": "21 integrations passed, zero failures/skips; build passed.",
+      "helpers/direct_sympy_partition_run.py": "Real import recompiles 14 prior complete regions in 14 attempts; eight resumed attempts complete four new regions. Existing destination import rejected with unchanged frontier digest.",
+      "helpers/direct_sympy_region_parity.py": "18 actual newly emitted expressions: 4680 native comparisons against fresh CPU checkpoint, zero mismatches; one token, position 0, dimension 2 only.",
+      "helpers/direct_sympy_partition_coalesce.py": "Current source identity accepted; 18 regions, four distinct functions, five coalesced rectangles. Pending domain prevents final emission."
+    },
+    "completedRegions": 18,
+    "coveredInputPatterns": 179099648,
+    "additionalCoveredInputPatterns": 984064,
+    "cases": 4680,
+    "mismatches": 0,
+    "numericalResultsReused": false,
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "remaining": [
+      "Reduce whole-domain dependency and condition growth",
+      "Complete admitted-domain coordinate artifact and native parity",
+      "Variable-length last-token semantics and parity",
+      "All output coordinates",
+      "Current-source controlled Colab sequential/parallel benchmark"
+    ]
   }
 }
