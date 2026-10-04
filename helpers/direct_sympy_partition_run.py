@@ -34,12 +34,68 @@ def cardinality(record):
     return math.prod(b-a+1+int(a<=0<=b) for a,b in record.values())
 
 
-def next_region(tree,order='coverage'):
+def next_region(tree,order='coverage',thresholds=None):
     """Visit the largest unfinished domain first, with reproducible ties."""
-    if order not in ('coverage','lexical'):raise ValueError('Unknown frontier order')
+    if order not in ('coverage','lexical','update-cells'):raise ValueError('Unknown frontier order')
     pending=[key for key,node in tree.items() if node['status']=='pending']
     if not pending:return None
+    if order=='update-cells':
+        if not thresholds:raise ValueError('Update-cell ordering requires threshold geometry')
+        def outside(key):
+            domains=tree[key]['domains']
+            return set(domains)==set(thresholds) and all(
+                threshold is not None and (domains[name][1]<=-threshold or domains[name][0]>=threshold)
+                for name,threshold in thresholds.items())
+        # Visit all provably separated seed boxes before returning to the
+        # normal lexical continuation. Scheduling creates no numeric proof.
+        return min(pending,key=lambda key:(not outside(key),key))
     return min(pending,key=lambda key:(-cardinality(tree[key]['domains']),key)) if order=='coverage' else min(pending)
+
+
+def update_threshold(bound):
+    """First Half binade whose smaller-neighbor cell strictly exceeds bound."""
+    if bound is None or not math.isfinite(bound) or bound<0:return None
+    if bound<2**-25:return rank(2**-24)
+    for exponent in range(-14,16):
+        if bound<2**(exponent-12):return rank(2**exponent)
+    return None
+
+
+def seed_update_cells(model,root,max_regions):
+    """Propose geometry from streaming checkpoint bounds, never outputs.
+
+    Each region recompiles independently. A cut is only an opportunity to
+    prove an update irrelevant; it is never an adopted numerical result.
+    Preserve every central band and signed zero, bounding geometric fanout.
+    """
+    if type(max_regions) is not int or max_regions<1:raise ValueError('Positive seed region budget required')
+    from direct_sympy_layer_bounds import layer
+    bounds=[layer(model,f'model.layers.{i}.') for i in range(model.layers)]
+    thresholds={name:None for name in root}
+    if bounds and all(bound is not None for bound in bounds):
+        for coordinate,name in enumerate(sorted(root,key=lambda key:int(key[1:]))):
+            peak=max(bound[kind][coordinate] for bound in bounds for kind in ('attention','mlp'))
+            thresholds[name]=update_threshold(peak)
+    tree={'':{'domains':root,'status':'pending'}};leaves=[''];axes=[]
+    for name,threshold in thresholds.items():
+        if threshold is None or len(leaves)*3>max_regions:continue
+        low,high=root[name]
+        if not low<=-threshold<threshold<=high:continue
+        remaining=[]
+        for key in leaves:
+            node=tree[key];domains=decode(node['domains'])
+            _,negative,rest=split(domains,name,-threshold)
+            node.update(status='split',axis=name,cut=-threshold)
+            tree[key+'0']={'domains':encode(negative),'status':'pending'}
+            middle=key+'1';tree[middle]={'domains':encode(rest),'status':'split','axis':name,'cut':threshold-1}
+            _,central,positive=split(rest,name,threshold-1)
+            tree[middle+'0']={'domains':encode(central),'status':'pending'}
+            tree[middle+'1']={'domains':encode(positive),'status':'pending'}
+            remaining.extend((key+'0',middle+'0',middle+'1'))
+        leaves=remaining;axes.append(name)
+    audit_tree(tree,root)
+    return tree,{'thresholdRanks':thresholds,'seededAxes':axes,'leafRegions':len(leaves),
+        'maxRegions':max_regions,'numericalResultsReused':False}
 
 
 def _compile_region(checkpoint,dimension,domains,path,*,max_characters,cas_characters,max_paths):
@@ -88,7 +144,7 @@ def audit_tree(tree,root):
         if node is None or node['domains']!=expected:raise ValueError('Partition tree coverage mismatch')
         seen.add(key)
         if node['status']=='split':
-            _,left,right=split(decode(expected),node['axis'])
+            _,left,right=split(decode(expected),node['axis'],node.get('cut'))
             pending.extend(((key+'0',encode(left)),(key+'1',encode(right))))
         elif node['status']=='complete':covered+=cardinality(expected)
         elif node['status']=='pending':unfinished+=cardinality(expected)
@@ -107,7 +163,9 @@ def replan(previous,identity,root):
     tree={}
     for key,node in previous['tree'].items():
         clean={'domains':{name:list(bounds) for name,bounds in node['domains'].items()},'status':'pending'}
-        if node['status']=='split':clean.update(status='split',axis=node['axis'])
+        if node['status']=='split':
+            clean.update(status='split',axis=node['axis'])
+            if 'cut' in node:clean['cut']=node['cut']
         tree[key]=clean
     covered,unfinished=audit_tree(tree,root)
     if covered or unfinished!=cardinality(root):raise ValueError('Replanned geometry retained numerical results')
@@ -181,11 +239,14 @@ def run(args):
             else:
                 state={'identity':identity,'root':root,'tree':{'':{'domains':root,'status':'pending'}},'attempts':[],
                     'finalArtifactEmitted':False,'finalParity':False}
+                if getattr(args,'seed_update_cells',False):
+                    with model:
+                        state['tree'],state['updateCellGeometry']=seed_update_cells(model,root,getattr(args,'seed_max_regions',81))
         started=time.monotonic()
-        order=getattr(args,'frontier_order','lexical')
+        order=getattr(args,'frontier_order',None) or ('update-cells' if 'updateCellGeometry' in state else 'lexical')
         state['frontierOrder']=order
         for _ in range(args.max_attempts):
-            key=next_region(state['tree'],order)
+            key=next_region(state['tree'],order,state.get('updateCellGeometry',{}).get('thresholdRanks'))
             if key is None:break
             node=state['tree'][key];domains=decode(node['domains'])
             file='region-'+hashlib.sha256(canonical(node['domains'])).hexdigest()+'.expr'
@@ -236,13 +297,15 @@ def main():
     mode=parser.add_mutually_exclusive_group()
     mode.add_argument('--resume',action='store_true')
     mode.add_argument('--repartition-from',help='Import audited input-domain splits; recompile every leaf with current sources')
+    mode.add_argument('--seed-update-cells',action='store_true',help='Seed complete-domain cuts from checkpoint update bounds; compile every leaf afresh')
     parser.add_argument('--dimension',type=int,default=2);parser.add_argument('--max-attempts',type=int,default=8)
-    parser.add_argument('--frontier-order',choices=('coverage','lexical'),default='lexical')
+    parser.add_argument('--frontier-order',choices=('coverage','lexical','update-cells'))
+    parser.add_argument('--seed-max-regions',type=int,default=81)
     parser.add_argument('--region-seconds',type=int,default=30);parser.add_argument('--max-paths',type=int,default=64)
     parser.add_argument('--max-characters',type=int,default=1048576);parser.add_argument('--cas-characters',type=int,default=8388608)
     parser.add_argument('--total-characters',type=int,default=67108864);parser.add_argument('--min-values',type=int,default=32)
     args=parser.parse_args()
-    if min(args.max_attempts,args.region_seconds,args.max_paths,args.max_characters,args.cas_characters,args.total_characters,args.min_values)<1:parser.error('Positive budgets required')
+    if min(args.max_attempts,args.region_seconds,args.max_paths,args.max_characters,args.cas_characters,args.total_characters,args.min_values,args.seed_max_regions)<1:parser.error('Positive budgets required')
     return run(args)
 
 

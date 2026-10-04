@@ -20,6 +20,57 @@ from direct_sympy_savepoints import atomic,digest_file
 
 
 class InputPartitionTests(unittest.TestCase):
+    def test_checkpoint_update_cuts_preserve_complete_coverage_and_bound_geometric_fanout(self):
+        root=runner.encode({name:interval(-65504,65504) for name in ('X1','X2','X3')})
+        model=argparse.Namespace(layers=2)
+        bounds={'attention':[0.0068,0.0024,0.0],'mlp':[0.0003,0.0003,0.0]}
+        with patch('direct_sympy_layer_bounds.layer',return_value=bounds):
+            tree,geometry=runner.seed_update_cells(model,root,9)
+        self.assertEqual(geometry['thresholdRanks'],{'X1':rank(32),'X2':rank(16),'X3':1})
+        self.assertEqual(geometry['seededAxes'],['X1','X2'])
+        self.assertEqual(geometry['leafRegions'],9)
+        self.assertEqual(runner.audit_tree(tree,root),(0,63488**3))
+        for name in ('X1','X2'):
+            ranges=sorted({tuple(node['domains'][name]) for node in tree.values() if node['status']=='pending'})
+            for index in range(-MAX_RANK,MAX_RANK+1):self.assertEqual(sum(a<=index<=b for a,b in ranges),1)
+            self.assertEqual(sum(a<=0<=b for a,b in ranges),1)
+        with patch('direct_sympy_layer_bounds.layer',return_value=None):
+            unchanged,geometry=runner.seed_update_cells(model,root,9)
+        self.assertEqual(len(unchanged),1);self.assertEqual(geometry['seededAxes'],[])
+        for bound in (None,-1,float('inf'),8):self.assertIsNone(runner.update_threshold(bound))
+        self.assertEqual(runner.update_threshold(2**-25),rank(2**-12))
+        source=runner.decode(root)
+        for cut in (True,-MAX_RANK-1,MAX_RANK,1.5):
+            with self.assertRaises(ValueError):split(source,'X1',cut)
+        broken=json.loads(json.dumps(tree));broken['']['cut']+=1
+        with self.assertRaisesRegex(ValueError,'coverage'):runner.audit_tree(broken,root)
+
+    @unittest.skipUnless(os.environ.get('LLM_INNER_DIRECT_JSON_CHECKPOINT'),'Checkpoint fixture required')
+    def test_seeded_controller_emits_all_four_external_boxes_before_central_continuation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            args=argparse.Namespace(checkpoint=os.environ['LLM_INNER_DIRECT_JSON_CHECKPOINT'],state=directory,
+                resume=False,seed_update_cells=True,seed_max_regions=9,dimension=2,max_attempts=4,
+                max_characters=1048576,cas_characters=8388608,max_paths=64,region_seconds=30,
+                min_values=32,total_characters=100000)
+            self.assertEqual(runner.run(args),1)
+            state=json.loads((Path(directory)/'frontier.json').read_text())
+            self.assertEqual(state['updateCellGeometry']['thresholdRanks'],{'X1':rank(32),'X2':rank(16)})
+            self.assertEqual([attempt['region'] for attempt in state['attempts']],['00','011','110','1111'])
+            self.assertTrue(all(attempt['complete'] and attempt['elidedUpdates']==4 for attempt in state['attempts']))
+            covered,pending=runner.audit_tree(state['tree'],state['root'])
+            self.assertEqual(covered,4*(MAX_RANK-rank(32)+1)*(MAX_RANK-rank(16)+1))
+            self.assertEqual(covered+pending,63488**2)
+            self.assertFalse(state['finalArtifactEmitted']);self.assertFalse(state['finalParity'])
+            self.assertFalse((Path(directory)/'coordinate.expr').exists())
+            # Scheduling can change without weakening numerical identity.
+            args.resume=True;args.seed_update_cells=False;args.frontier_order='lexical';args.max_attempts=1
+            with patch.object(runner,'compile_region',return_value={'complete':False,'stop':'test budget','seconds':0}):
+                self.assertEqual(runner.run(args),1)
+            resumed=json.loads((Path(directory)/'frontier.json').read_text())
+            self.assertEqual(resumed['coveredInputPatterns'],covered)
+            self.assertEqual(resumed['attempts'][-1]['region'],'010')
+            print(f'Checkpoint update-cell geometry: regions=4 covered={covered} lost=0 overlaps=0 finalParity=false')
+
     def test_frontier_visits_largest_pending_domain_with_stable_ties_and_signed_zeros(self):
         tree={'deep':{'status':'pending','domains':{'X1':[10,11]}},
               'large':{'status':'pending','domains':{'X1':[-10,10]}},

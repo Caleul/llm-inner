@@ -56,10 +56,13 @@ def validate_domains(domains,originals):
     return result
 
 
-def split(domains,axis):
+def split(domains,axis,cut=None):
     source=domains[axis];low,high=rank(source.minimum),rank(source.maximum)
     if low==high:raise ValueError('Cannot subdivide a singleton input interval')
-    midpoint=(low+high)//2;boundary=value(midpoint)
+    midpoint=(low+high)//2 if cut is None else cut
+    if type(midpoint) is not int or not low<=midpoint<high:
+        raise ValueError('Split cut must be an interior finite Half rank')
+    boundary=value(midpoint)
     left=dict(domains);right=dict(domains)
     left[axis]=interval(source.minimum,boundary)
     right[axis]=interval(value(midpoint+1),source.maximum)

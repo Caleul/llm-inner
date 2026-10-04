@@ -186,9 +186,10 @@ test('Half interval precision removes redundant F32 rounding with native emitted
 test('Disjoint input partitions preserve complete Half coverage and emitted coordinate parity within each certified region',
   {skip:!python || !process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_input_partitions_test.py'],{timeout:120_000,maxBuffer:1024*1024});
-    assert.match(stderr,/Ran 6 tests/);
+    assert.match(stderr,/Ran 8 tests/);
     assert.match(stderr,/OK/);
     assert.match(stdout,/Partition domain proof: HalfPatterns=63488 vectorPatterns=4030726144 lost=0 overlaps=0/);
+    assert.match(stdout,/Checkpoint update-cell geometry: regions=4 covered=553648128 lost=0 overlaps=0 finalParity=false/);
     const artifact=stdout.match(/Emitted full region coordinate: cases=576 mismatches=0 characters=(\d+) position=0 dimension=2 fullInputCoverage=false/);
     assert.ok(artifact,'Native reference parity of the emitted region is required');
     assert.ok(Number(artifact[1])<21922,'Rational root lowering must reduce the previous emitted region size');
