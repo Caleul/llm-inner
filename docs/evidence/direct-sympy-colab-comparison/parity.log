@@ -1,0 +1,2 @@
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]Loading weights: 100%|██████████| 12/12 [00:00<00:00, 8257.86it/s]
+{"artifact": "docs/evidence/direct-sympy-colab-comparison/coordinate-region.expr", "sha256": "da7e5dbc78eca35f19eb04f1e3a5ccc7b8706687a5ee8021fe3fe006ee40fc60", "characters": 28282, "position": 0, "tokens": 1, "dimension": 2, "cases": 1028, "mismatches": 0, "firstMismatches": [], "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."}

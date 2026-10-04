@@ -10534,5 +10534,27 @@
       "All output coordinates",
       "Controlled sequential/parallel Colab comparison"
     ]
+  },
+  "colabActualCoordinateComparison": {
+    "report": "docs/evidence/direct-sympy-colab-comparison/validation.json",
+    "artifact": "docs/evidence/direct-sympy-colab-comparison/coordinate-region.expr",
+    "testMap": {
+      "helpers/direct_sympy_region_parity.py": "Downloaded serial/parallel files verified byte-identical, actual saved expression natively compiled: 1028 fresh CPU-checkpoint cases, no mismatches; one-token position zero dimension two, X1/X2 in [32,65504].",
+      "helpers/direct_sympy_parallel_test.py": "Prior mapped parallel suite checks ordered continuation composition and pairwise merges; current actual width-two coordinate completed two blocks and zero pair merges."
+    },
+    "identicalArtifacts": true,
+    "sampledCompileSeconds": {
+      "sequential": 1.8439986760004103,
+      "twoWorkers": 1.4523039079995215
+    },
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "remaining": [
+      "Reduce numerical dependency expansion before further full-domain compilation",
+      "Complete one coordinate over the entire admitted input domain",
+      "Variable-length last-token output",
+      "All output coordinates",
+      "Repeat controlled measurements across order and larger actual dependencies"
+    ]
   }
 }

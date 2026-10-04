@@ -1,0 +1,66 @@
+{
+  "session": "llm-inner-sympy-compare",
+  "transport": "Access Broker colab_cli",
+  "sourceArchiveSHA256": "7b7f8ab5a4708699f47917b76aa03aad7d03b6f6a16f5a001f26b43e6d1e2e70",
+  "downloadedEvidenceSHA256": "ee219af98689f9f12f361f2ba92979b94fc55a960ab1bda887a9f527c1758d39",
+  "scope": {
+    "position": 0,
+    "dimension": 2,
+    "tokens": 1,
+    "inputDomain": {
+      "X1": [
+        32,
+        65504
+      ],
+      "X2": [
+        32,
+        65504
+      ]
+    },
+    "entireInputDomain": false,
+    "entireOutputVector": false
+  },
+  "identicalArtifacts": true,
+  "characters": 28282,
+  "producersEach": 9,
+  "pathsEach": 2,
+  "compileSeconds": {
+    "sequential": 1.8439986760004103,
+    "twoWorkers": 1.4523039079995215
+  },
+  "observedCompileTimeReductionFraction": 0.21241597030344161,
+  "parallelWork": [
+    {
+      "completedJobs": 4,
+      "completedBlocks": 2,
+      "completedPairMerges": 0,
+      "seededLanes": 2,
+      "maxWorkersAdmitted": 2,
+      "peakObservedRSSBytes": 1221746688,
+      "seconds": 0.046161958999618946
+    }
+  ],
+  "memoryLimitation": "50ms aggregate RSS sampling misses short-lived workers: backend observed 1221746688 bytes during a 46ms parallel event; sampled subprocess aggregate was 680738816 bytes. Neither is unique physical memory; summed RSS may count shared pages repeatedly.",
+  "performanceLimitation": "One trial, sequential first. Import/setup warming and runtime variability prevent claiming a reproducible speedup or extrapolating full-domain completion time. End-to-end process wall time includes Python/Torch initialization.",
+  "nativeReadbackParity": {
+    "artifact": "docs/evidence/direct-sympy-colab-comparison/coordinate-region.expr",
+    "sha256": "da7e5dbc78eca35f19eb04f1e3a5ccc7b8706687a5ee8021fe3fe006ee40fc60",
+    "characters": 28282,
+    "position": 0,
+    "tokens": 1,
+    "dimension": 2,
+    "cases": 1028,
+    "mismatches": 0,
+    "firstMismatches": [],
+    "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+  },
+  "finalArtifactEmitted": false,
+  "finalParity": false,
+  "remaining": [
+    "Reduce numerical dependency expansion before further full-domain compilation",
+    "Complete one coordinate over the entire admitted input domain",
+    "Variable-length last-token output",
+    "All output coordinates",
+    "Repeat controlled measurements across order and larger actual dependencies"
+  ]
+}

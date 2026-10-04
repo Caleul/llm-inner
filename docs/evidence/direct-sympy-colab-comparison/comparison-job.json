@@ -1,0 +1,53 @@
+{
+  "state": "COMPLETED",
+  "runs": [
+    {
+      "workers": 1,
+      "wallSeconds": 6.579586789000132,
+      "sampledAggregateRSSBytes": 680857600,
+      "exitCode": 0,
+      "compileSeconds": 1.8439986760004103,
+      "artifact": {
+        "path": "/content/llm-inner-input-partitions/results/comparison-1.expr",
+        "characters": 28282,
+        "sha256": "da7e5dbc78eca35f19eb04f1e3a5ccc7b8706687a5ee8021fe3fe006ee40fc60",
+        "paths": 2,
+        "compilerAliases": 0,
+        "complete": true
+      },
+      "producers": 9,
+      "parallelEvents": [],
+      "scope": "position-zero coordinate, input range [32,65504] for every dimension"
+    },
+    {
+      "workers": 2,
+      "wallSeconds": 3.6933589950003807,
+      "sampledAggregateRSSBytes": 680738816,
+      "exitCode": 0,
+      "compileSeconds": 1.4523039079995215,
+      "artifact": {
+        "path": "/content/llm-inner-input-partitions/results/comparison-2.expr",
+        "characters": 28282,
+        "sha256": "da7e5dbc78eca35f19eb04f1e3a5ccc7b8706687a5ee8021fe3fe006ee40fc60",
+        "paths": 2,
+        "compilerAliases": 0,
+        "complete": true
+      },
+      "producers": 9,
+      "parallelEvents": [
+        {
+          "completedJobs": 4,
+          "completedBlocks": 2,
+          "completedPairMerges": 0,
+          "seededLanes": 2,
+          "maxWorkersAdmitted": 2,
+          "peakObservedRSSBytes": 1221746688,
+          "seconds": 0.046161958999618946
+        }
+      ],
+      "scope": "position-zero coordinate, input range [32,65504] for every dimension"
+    }
+  ],
+  "fullCoordinateParity": false,
+  "identicalArtifacts": true
+}
