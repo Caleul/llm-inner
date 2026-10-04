@@ -5,7 +5,7 @@ from direct_sympy_partition_parallel import compile_wave,run
 from direct_sympy_checkpoint import CheckpointStrings
 from direct_sympy_cover_regions import live_identity
 from direct_sympy_partition_run import encode,seed_update_cells,audit_tree
-from direct_sympy_savepoints import atomic,canonical
+from direct_sympy_savepoints import atomic,canonical,digest_file
 from direct_sympy_strings import StringCompiler
 
 
@@ -32,6 +32,69 @@ class ParallelRegionTests(unittest.TestCase):
             'finalArtifactEmitted':False,'finalParity':False}
         atomic(Path(directory)/'frontier.json',canonical(state))
         return checkpoint
+
+    def completed_seed(self,directory,body):
+        checkpoint=self.seed(directory);manifest=Path(directory)/'frontier.json'
+        state=json.loads(manifest.read_text());path=Path(directory)/'body.expr';atomic(path,body.encode())
+        for node in state['tree'].values():
+            if node['status']=='pending':
+                node.update(status='complete',artifact={'file':path.name,'characters':len(body),'sha256':digest_file(path)})
+        covered,pending=audit_tree(state['tree'],state['root'])
+        state.update(coveredInputPatterns=covered,unfinishedInputPatterns=pending)
+        atomic(manifest,canonical(state));return checkpoint,state
+
+    @unittest.skipUnless(os.environ.get('LLM_INNER_DIRECT_JSON_CHECKPOINT'),'Checkpoint required')
+    def test_final_publication_coalesces_and_verifies_exact_candidate_before_admission(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);checkpoint,state=self.completed_seed(root,'X1 * 0.5 + X2 * 0.25')
+            final=root/'coordinate.expr';final.write_text('previous')
+            checked=[]
+            def verify(checkpoint,dimension,candidate,domains,**kwargs):
+                self.assertEqual(final.read_text(),'previous')
+                self.assertEqual(encode(domains),state['root'])
+                text=candidate.read_text();self.assertEqual(text.count('X1'),1);self.assertEqual(text.count('X2'),1)
+                checked.append(candidate.read_bytes())
+                return {'cases':123,'mismatches':0,'artifact':str(candidate),'sha256':digest_file(candidate)}
+            with (patch('direct_sympy_partition_parallel.compile_wave',side_effect=AssertionError('already complete')),
+                  patch('direct_sympy_partition_parallel.verify_region',side_effect=verify)):
+                report=run(self.args(checkpoint,root,2))
+            saved=json.loads((root/'frontier.json').read_text())
+            self.assertEqual(final.read_bytes(),checked[0]);self.assertFalse(saved['finalParity'])
+            self.assertTrue(saved['positionZeroArtifactParityVerified'])
+            self.assertEqual(saved['finalParityEvidence']['cases'],123)
+            self.assertEqual(saved['finalParityEvidence']['artifact'],str(final))
+            self.assertEqual(saved['finalParityScope'],'position-zero-native-corpus')
+            self.assertEqual(saved['finalCoalescing']['completeRegions'],9)
+            self.assertEqual(saved['finalCoalescing']['distinctExpressions'],1)
+            self.assertEqual(saved['finalArtifact']['sha256'],digest_file(final))
+            self.assertFalse(report['fullCoordinateParity']);self.assertTrue(report['positionZeroArtifactParityVerified'])
+            self.assertFalse(list(root.glob('.coordinate-*.expr')))
+
+    @unittest.skipUnless(os.environ.get('LLM_INNER_DIRECT_JSON_CHECKPOINT'),'Checkpoint required')
+    def test_final_candidate_modified_during_parity_is_not_published(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);checkpoint,_=self.completed_seed(root,'X1')
+            manifest=root/'frontier.json';before=manifest.read_bytes()
+            final=root/'coordinate.expr';final.write_text('previous')
+            def tamper(checkpoint,dimension,candidate,domains,**kwargs):
+                digest=digest_file(candidate);candidate.write_text('1.0')
+                return {'cases':123,'mismatches':0,'sha256':digest}
+            with patch('direct_sympy_partition_parallel.verify_region',side_effect=tamper):
+                with self.assertRaisesRegex(ValueError,'integrity changed'):run(self.args(checkpoint,root,2))
+            self.assertEqual(manifest.read_bytes(),before);self.assertEqual(final.read_text(),'previous')
+            self.assertFalse(list(root.glob('.coordinate-*.expr')))
+
+    @unittest.skipUnless(os.environ.get('LLM_INNER_DIRECT_JSON_CHECKPOINT'),'Checkpoint required')
+    def test_real_final_parity_failure_preserves_previous_artifact_and_manifest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);checkpoint,_=self.completed_seed(root,'0.0')
+            manifest=root/'frontier.json';before=manifest.read_bytes()
+            final=root/'coordinate.expr';final.write_text('previous')
+            with self.assertRaisesRegex(ValueError,'Combined coordinate parity failed'):
+                run(self.args(checkpoint,root,2))
+            self.assertEqual(manifest.read_bytes(),before);self.assertEqual(final.read_text(),'previous')
+            self.assertFalse(list(root.glob('.coordinate-*.expr')))
+        print('Final publication proof: coalescedBody=true actualCheckpointRejectsWrongOutput=true atomic=true')
 
     @unittest.skipUnless(os.environ.get('LLM_INNER_DIRECT_JSON_CHECKPOINT'),'Checkpoint required')
     def test_timeout_retries_same_domain_before_real_size_failure_subdivision(self):

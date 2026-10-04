@@ -1,0 +1,43 @@
+...
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 17930.76it/s]
+{"maxWorkersLive": 1, "peakObservedRSSBytes": 546488320, "workerReservationBytes": 939524096, "seconds": 1.9485074169933796, "regions": ["00"], "completed": 1, "coveredInputPatterns": 138412032, "deferredTimeoutRegions": []}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 59144.12it/s]
+{"maxWorkersLive": 1, "peakObservedRSSBytes": 589529088, "workerReservationBytes": 939524096, "seconds": 1.9961462499923073, "regions": ["011"], "completed": 1, "coveredInputPatterns": 276824064, "deferredTimeoutRegions": []}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 19737.90it/s]
+{"maxWorkersLive": 1, "peakObservedRSSBytes": 587104256, "workerReservationBytes": 939524096, "seconds": 1.9292924169567414, "regions": ["110"], "completed": 1, "coveredInputPatterns": 415236096, "deferredTimeoutRegions": []}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 21779.16it/s]
+{"maxWorkersLive": 1, "peakObservedRSSBytes": 595410944, "workerReservationBytes": 939524096, "seconds": 1.942460458027199, "regions": ["1111"], "completed": 1, "coveredInputPatterns": 553648128, "deferredTimeoutRegions": []}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 27398.83it/s]
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 59144.12it/s]
+{"maxWorkersLive": 2, "peakObservedRSSBytes": 833142784, "workerReservationBytes": 939524096, "seconds": 2.017115625028964, "regions": ["00", "011"], "completed": 2, "coveredInputPatterns": 276824064, "deferredTimeoutRegions": []}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 14794.72it/s]
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 23956.04it/s]
+{"maxWorkersLive": 2, "peakObservedRSSBytes": 831963136, "workerReservationBytes": 939524096, "seconds": 2.0143150410149246, "regions": ["110", "1111"], "completed": 2, "coveredInputPatterns": 553648128, "deferredTimeoutRegions": []}
+.Parallel partition proof: workers=1,2 patterns=553648128 identicalHashes=true mismatches=0
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 23607.71it/s]
+..Final publication proof: coalescedBody=true actualCheckpointRejectsWrongOutput=true atomic=true
+{"regions": ["00"], "completed": 0, "coveredInputPatterns": 0, "deferredTimeoutRegions": ["00"]}
+{"regions": ["00"], "completed": 0, "coveredInputPatterns": 0, "deferredTimeoutRegions": []}
+.
+----------------------------------------------------------------------
+Ran 7 tests in 15.529s
+
+OK
+Timeout retry proof: sameDomain=true deadlines=10,30 sizeFailurePreservesFullRoot=true

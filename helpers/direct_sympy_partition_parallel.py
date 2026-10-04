@@ -18,7 +18,7 @@ import uuid
 import torch
 from direct_sympy_cover_regions import live_identity
 from direct_sympy_checkpoint import CheckpointStrings
-from direct_sympy_partition_run import audit_tree,cardinality,decode,encode,next_region,combine
+from direct_sympy_partition_run import audit_tree,cardinality,decode,encode,next_region
 from direct_sympy_input_partitions import rank,split
 from direct_sympy_region_parity import verify_region
 from direct_sympy_savepoints import atomic,canonical,digest_file
@@ -31,6 +31,42 @@ def rss_bytes(pid):
     text=result.stdout.strip()
     if not text:return None
     return int(text)*1024
+
+
+def publish_coordinate(args,directory,state,identity,manifest,original):
+    """Coalesce exact bodies and validate the actual full-domain artifact.
+
+    Failed emission/parity leaves both the manifest and any previous final
+    expression untouched. Compilation proofs remain leaf-local; grouping
+    only byte-identical bodies introduces no numerical transformation.
+    """
+    from direct_sympy_partition_coalesce import emit
+    candidate=directory/('.coordinate-'+uuid.uuid4().hex+'.expr')
+    destination=directory/'coordinate.expr'
+    try:
+        emission=emit(directory,state['tree'],candidate,max_characters=args.total_characters)
+        parity=verify_region(args.checkpoint,args.dimension,candidate,decode(state['root']),random_cases=args.random_cases)
+        if parity['mismatches']:raise ValueError('Combined coordinate parity failed; final artifact not published')
+        if digest_file(candidate)!=emission['artifact']['sha256'] or parity['sha256']!=emission['artifact']['sha256']:
+            raise ValueError('Combined coordinate integrity changed during parity; final artifact not published')
+        if live_identity(args.checkpoint,args.dimension)!=identity:raise ValueError('Sources changed during combined coordinate parity')
+        if manifest.read_bytes()!=original:raise ValueError('Parallel manifest changed before final publication')
+        artifact=emission['artifact']
+        parity['artifact']=str(destination)
+        final={'file':destination.name,'characters':artifact['characters'],'sha256':artifact['sha256'],
+            'coveredInputPatterns':state['coveredInputPatterns'],'complete':True,'parityVerified':True}
+        # The temporary expression is the exact file verified above.
+        os.replace(candidate,destination)
+        # The current numerical adapter/verifier covers position zero only.
+        # Native corpus parity must not stand in for variable-length parity.
+        state.update(finalArtifact=final,finalArtifactEmitted=True,finalParity=False,
+            positionZeroArtifactParityVerified=True,
+            finalParityEvidence=parity,finalParityScope='position-zero-native-corpus',
+            finalCoalescing={name:emission[name] for name in ('completeRegions','coalescedRectangles',
+                'distinctExpressions','copiedBodyCharacters','sharedBodyCharacters')})
+        atomic(manifest,canonical(state))
+        return {'artifact':final,'parity':parity,'coalescing':state['finalCoalescing']}
+    finally:candidate.unlink(missing_ok=True)
 
 
 def compile_wave(checkpoint,dimension,jobs,*,workers,memory_bytes,cas_characters,
@@ -108,7 +144,8 @@ def run(args):
                 raise ValueError('Saved parallel artifact integrity mismatch')
         initial=state['coveredInputPatterns'];report={'controllerSHA256':digest_file(Path(__file__)),
             'compilerIdentity':identity,'workersRequested':args.workers,'memoryBudgetBytes':args.memory_bytes,
-            'waves':[],'nativeCases':0,'nativeMismatches':0,'fullCoordinateParity':False}
+            'waves':[],'nativeCases':0,'nativeMismatches':0,'fullCoordinateParity':False,
+            'coveredInputPatterns':initial,'addedInputPatterns':0,'unfinishedInputPatterns':state['unfinishedInputPatterns']}
         started=time.monotonic();performed=0;run_id=uuid.uuid4().hex
         order=getattr(args,'frontier_order',None) or ('update-cells' if 'updateCellGeometry' in state else 'lexical')
         while performed<args.max_attempts:
@@ -180,9 +217,11 @@ def run(args):
                 for _,_,path in jobs:path.unlink(missing_ok=True)
             if 'stop' in state:break
         if state['unfinishedInputPatterns']==0:
-            state['finalArtifact']=combine(directory,state['tree'],directory/'coordinate.expr',args.total_characters)
-            state['finalArtifactEmitted']=True
-            atomic(manifest,canonical(state))
+            final=publish_coordinate(args,directory,state,identity,manifest,original)
+            report.update(finalCoordinate=final,positionZeroArtifactParityVerified=True,
+                parityScope='position-zero-native-corpus')
+            report['nativeCases']+=final['parity']['cases']
+        report['seconds']=time.monotonic()-started
         return report
 
 
@@ -200,7 +239,7 @@ def main():
     args=parser.parse_args()
     if min(args.workers,args.memory_bytes,args.max_attempts,args.region_seconds,args.max_paths,args.max_characters,args.cas_characters,args.min_values,args.total_characters,args.retry_factor)<1 or args.random_cases<0 or args.timeout_retries<0:parser.error('Positive budgets and nonnegative corpus required')
     report=run(args);atomic(args.report,json.dumps(report,indent=2).encode())
-    return 0 if report.get('addedInputPatterns',0) else 1
+    return 0 if report.get('addedInputPatterns',0) or report.get('positionZeroArtifactParityVerified') else 1
 
 
 if __name__=='__main__':raise SystemExit(main())
