@@ -10066,5 +10066,49 @@
         "position": 0
       }
     }
+  },
+  "producerEnvelopeValidation": {
+    "backend": "helpers/direct_sympy_scan_backend.py",
+    "version": "equivalent-stdlib-v3",
+    "testMap": [
+      "helpers/direct_sympy_scan_backend_test.py",
+      "test/direct-sympy-strings.test.ts"
+    ],
+    "buildPassed": true,
+    "configuredIntegration": {
+      "tests": 10,
+      "pass": 10,
+      "fail": 0,
+      "skip": 0
+    },
+    "linuxBackendTests": {
+      "tests": 9,
+      "pass": 9
+    },
+    "allocationRegression": {
+      "characters": 16777246,
+      "byteIdentical": true,
+      "localPeakAllocatedBytes": {
+        "literalWrapper": 33569503,
+        "compactWrapper": 16792862
+      },
+      "colabPeakAllocatedBytes": {
+        "literalWrapper": 33571920,
+        "compactWrapper": 16794599
+      },
+      "scope": "Temporary allocation; not full-checkpoint RSS or expression size"
+    },
+    "numericSourcesUnchanged": true,
+    "colab": {
+      "session": "llm-inner-rms-guard",
+      "directory": "/content/llm-inner-producer-envelope",
+      "status": "running",
+      "initialPersistedDependencies": 19,
+      "newDependenciesVerified": 0,
+      "parityPending": true
+    },
+    "coordinateComplete": false,
+    "evidenceDirectory": "docs/evidence/direct-sympy-producer-envelope",
+    "broadSuiteNotRerun": "All ten focused numerical/controller integrations passed; previous broad baseline retained separately"
   }
 }

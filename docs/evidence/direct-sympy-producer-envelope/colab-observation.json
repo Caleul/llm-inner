@@ -1,0 +1,51 @@
+{
+  "operationId": "71fc2a8b-187c-4cfc-8522-3864373e1580",
+  "observation": {
+    "resources.json": null,
+    "report.json": {
+      "steps": [
+        {
+          "name": "gates",
+          "exitCode": 0,
+          "seconds": 7.825761367999803
+        }
+      ]
+    },
+    "diagnostic.json": null,
+    "processes": [
+      "  16066    1078 Ss         00:21 15208  0.2 /usr/bin/python3 runner.py",
+      "  16112   16066 Rl         00:13 1625140 109 /usr/bin/python3 helpers/direct_sympy_checkpoint_run.py docs/evidence/direct-sympy-test-checkpoint state diagnostic.json --resume --max-characters 17179869184 --max-address-space-mib 73728 --max-seconds 600"
+    ],
+    "frontier": {
+      "records": 19,
+      "last": "model.layers.0.hidden:0",
+      "lengths": {
+        "model.layers.0.pre:mean": 329,
+        "model.layers.0.pre:inverse": 5821,
+        "model.layers.0.pre:0": 12289,
+        "model.layers.0.pre:1": 12289,
+        "model.layers.0.v:0": 98906,
+        "model.layers.0.context:0": 98912,
+        "model.layers.0.v:1": 98894,
+        "model.layers.0.context:1": 98900,
+        "model.layers.0.residual:0": 791904,
+        "model.layers.0.residual:1": 791912,
+        "model.layers.0.post:mean": 3167953,
+        "model.layers.0.post:inverse": 41184933,
+        "model.layers.0.post:0": 88705745,
+        "model.layers.0.post:1": 88705777,
+        "model.layers.0.gate:0": 709646690,
+        "model.layers.0.activation:0": 1596705580,
+        "model.layers.0.up:0": 709646674,
+        "model.layers.0.gated:0": 7273880362,
+        "model.layers.0.hidden:0": 12951847412
+      }
+    },
+    "gates.log": ".........\n----------------------------------------------------------------------\nRan 9 tests in 5.392s\n\nOK\n{\"characters\": 20400010, \"normalIdentifierSeconds\": 0.5555606590000934, \"equivalentIdentifierSeconds\": 0.014303006999853096, \"identical\": true}\nProducer wrapper allocation parity: {\"characters\": 16777246, \"byteIdentical\": true, \"peakAllocatedBytes\": {\"literal-wrapper\": 33571920, \"compact-wrapper\": 16794599}}\n",
+    "parity.log": null,
+    "compile.log": "",
+    "availableMemory": [
+      "MemAvailable:   83857700 kB"
+    ]
+  }
+}

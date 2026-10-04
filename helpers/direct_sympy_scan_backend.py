@@ -1,8 +1,11 @@
-"""Optional equivalent stdlib-regex scans; numerical compiler sources stay unchanged.
+"""Equivalent scans and producer envelope allocation; numerical sources stay unchanged.
 
 Necessary-literal negative checks, group-free identifier findall and large
 region searches are accelerated. Region candidates undergo full literal
-verification; regex matches, Unicode boundaries and flags use stdlib semantics. This changes neither expressions nor numeric proofs.
+verification; regex matches, Unicode boundaries and flags use stdlib semantics.
+Producer parentheses are added after compacting certified literals, avoiding a
+large temporary copy. Every returned expression restores the original literals.
+This changes neither expressions nor numeric proofs.
 """
 from contextlib import contextmanager
 import importlib
@@ -13,7 +16,7 @@ import re
 from pathlib import Path
 
 
-BACKEND_VERSION='equivalent-stdlib-v2'
+BACKEND_VERSION='equivalent-stdlib-v3'
 
 
 NECESSARY={
@@ -41,6 +44,27 @@ class EquivalentScans:
     def __init__(self):
         self.negative_searches=0;self.identifier_scans=0;self.characters=0
         self.literal_region_searches=0;self.literal_region_candidates=0
+        self.producer_envelopes=[]
+
+    def stabilize_enveloped(self,compiler,expression,domains):
+        """Exactly the producer's parenthesized fixed point, compacted first.
+
+        Only already admitted literals in the same context can be protected.
+        This removes the giant temporary wrapper, never a numerical boundary.
+        All literals and parentheses are restored in the returned string.
+        """
+        if len(expression)+2>compiler.max_characters:
+            raise ValueError('String expression budget exceeded; no partial result admitted')
+        if len(expression)<1048576:
+            return compiler.stabilize('('+expression+')',domains)
+        compact,regions=compiler.compact_regions(expression,compiler.context(domains))
+        if not regions:return compiler.stabilize('('+expression+')',domains)
+        result=compiler.stabilize('('+compact+')',domains)
+        result=re.sub(r'\bCASStableRegion[0-9]+\b',lambda m:regions[m.group(0)],result)
+        if len(result)>compiler.max_characters:raise ValueError('Factored string exceeds output budget')
+        compiler.events[-1]=compiler.events[-1][:6]+('completed-regions-envelope',)
+        self.producer_envelopes.append((len(expression)+2,len(compact)+2,len(result)))
+        return result
 
     def __getattr__(self,name):return getattr(re,name)
 
@@ -92,7 +116,7 @@ class EquivalentScans:
             position=text.find(suffix,position+1)
         return -1
 
-    def summary(self):return {'negativeSearches':self.negative_searches,'identifierScans':self.identifier_scans,'characters':self.characters,'literalRegionSearches':self.literal_region_searches,'literalRegionCandidates':self.literal_region_candidates}
+    def summary(self):return {'negativeSearches':self.negative_searches,'identifierScans':self.identifier_scans,'characters':self.characters,'literalRegionSearches':self.literal_region_searches,'literalRegionCandidates':self.literal_region_candidates,'producerEnvelopeCompactions':len(self.producer_envelopes)}
 
 
 def region_search_method(original,backend):
@@ -120,6 +144,28 @@ def region_search_method(original,backend):
     return result
 
 
+def producer_envelope_method(original,backend):
+    """Patch only the allocation order of the producer's initial envelope."""
+    source=getattr(original,'_producer_envelope_original',original)
+    tree=ast.parse(textwrap.dedent(inspect.getsource(source)));count=0
+    target=ast.dump(ast.parse("self.compiler.stabilize('(' + expression + ')', self.domains)",mode='eval').body)
+    class Envelopes(ast.NodeTransformer):
+        def visit_Call(self,node):
+            nonlocal count
+            if ast.dump(node)==target:
+                count+=1
+                return ast.copy_location(ast.Call(func=ast.Name(id='_equivalent_enveloped_stabilize',ctx=ast.Load()),
+                    args=[ast.Attribute(value=ast.Name(id='self',ctx=ast.Load()),attr='compiler',ctx=ast.Load()),
+                          ast.Name(id='expression',ctx=ast.Load()),node.args[1]],keywords=[]),node)
+            return self.generic_visit(node)
+    tree=Envelopes().visit(tree)
+    if count!=1:raise ValueError('Unsupported producer implementation; expected one initial envelope')
+    namespace=dict(source.__globals__);namespace['_equivalent_enveloped_stabilize']=backend.stabilize_enveloped
+    exec(compile(ast.fix_missing_locations(tree),'<equivalent producer envelope>','exec'),namespace)
+    result=namespace[source.__name__];result._producer_envelope_original=source
+    return result
+
+
 @contextmanager
 def install():
     backend=EquivalentScans();saved=[]
@@ -130,6 +176,7 @@ def install():
                 cls=module.StringCompiler;saved.append((cls,'compact_regions',cls.compact_regions));cls.compact_regions=region_search_method(cls.compact_regions,backend)
             if name=='direct_sympy_checkpoint':
                 saved.append((module,'Path',module.Path));module.Path=StreamingTextPath
+                cls=module.CheckpointStrings;saved.append((cls,'producer',cls.producer));cls.producer=producer_envelope_method(cls.producer,backend)
         yield backend
     finally:
         for module,attribute,original in reversed(saved):setattr(module,attribute,original)

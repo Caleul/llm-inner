@@ -12,6 +12,56 @@ from direct_sympy_savepoints import ProducerSavepoints
 
 
 class EquivalentScanTests(unittest.TestCase):
+    def test_parenthesized_producer_compacts_before_allocating_a_second_giant_wrapper(self):
+        import tracemalloc
+        from fractions import Fraction as F
+        from direct_sympy_strings import StringCompiler,Domain,syntax
+        domains={'X1':Domain(F(-1),F(1),-24,False)}
+        leaf='Float64('+(' '*16*1024**2)+'Bits64(X1))'
+        expression='R16('+leaf+' + 0.0)'
+        results={};peaks={}
+        for mode in ('literal-wrapper','compact-wrapper'):
+            compiler=StringCompiler(max_characters=64*1024**2)
+            compiler.register_completed_region(leaf,domains,syntax('Float64(Bits64(X1))'),word_closed=True)
+            backend=EquivalentScans()
+            tracemalloc.start()
+            results[mode]=compiler.stabilize('('+expression+')',domains) if mode=='literal-wrapper' else backend.stabilize_enveloped(compiler,expression,domains)
+            peaks[mode]=tracemalloc.get_traced_memory()[1];tracemalloc.stop()
+            self.assertTrue(all(e[2:4]==('factor','simplify') for e in compiler.events))
+            self.assertNotIn('CASStableRegion',results[mode])
+        self.assertEqual(results['literal-wrapper'],results['compact-wrapper'])
+        self.assertLess(peaks['compact-wrapper'],peaks['literal-wrapper']*0.65)
+        print('Producer wrapper allocation parity: '+json.dumps({'characters':len(expression),'byteIdentical':True,'peakAllocatedBytes':peaks}))
+
+    def test_envelope_compaction_keeps_input_refining_barriers_limits_and_producer_restoration(self):
+        from fractions import Fraction as F
+        from direct_sympy_strings import StringCompiler,Domain,syntax
+        from direct_sympy_checkpoint import CheckpointStrings
+        domains={'X1':Domain(F(-1),F(1),-24,False)}
+        leaf='Float64('+(' '*1048576)+'Bits64(X1))'
+        for expression in ('R16('+leaf+' * 0.5)',
+                           'Piecewise((R16('+leaf+'),X1>0),(R16('+leaf+'),True))',
+                           'U64And(Bits64('+leaf+'),9223372036854775808)'):
+            outputs=[]
+            for optimized in (False,True):
+                compiler=StringCompiler(max_characters=8*1048576)
+                compiler.register_completed_region(leaf,domains,syntax('Float64(Bits64(X1))'),word_closed=True)
+                backend=EquivalentScans()
+                outputs.append(backend.stabilize_enveloped(compiler,expression,domains) if optimized else compiler.stabilize('('+expression+')',domains))
+                if 'Piecewise' in expression:self.assertEqual(backend.producer_envelopes,[])
+            self.assertEqual(*outputs)
+        compiler=StringCompiler(max_characters=len(leaf))
+        with self.assertRaisesRegex(ValueError,'String expression budget exceeded'):
+            EquivalentScans().stabilize_enveloped(compiler,leaf,domains)
+        original=CheckpointStrings.producer
+        with self.assertRaisesRegex(RuntimeError,'fixture'):
+            with install():
+                outer=CheckpointStrings.producer
+                with install():self.assertIsNot(CheckpointStrings.producer,original)
+                self.assertIs(CheckpointStrings.producer,outer)
+                raise RuntimeError('fixture')
+        self.assertIs(CheckpointStrings.producer,original)
+
     def test_large_region_search_preserves_first_offsets_near_matches_and_unicode(self):
         backend=EquivalentScans();size=1048576
         regions=['a'*(size-1)+'b','字'*(size-1)+'末',('ab'*size)+'END']

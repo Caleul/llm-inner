@@ -14,9 +14,10 @@ test('Parallel SymPy blocks preserve ordered F32 folds, branch contexts and memo
 test('Equivalent scan backend preserves Unicode regex results and byte-identical saved compiler states',
   {skip:!python},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_scan_backend_test.py'],{timeout:120_000,maxBuffer:1024*1024});
-    assert.match(stderr,/Ran 7 tests/);
+    assert.match(stderr,/Ran 9 tests/);
     assert.match(stderr,/OK/);
     assert.match(stdout,/"identical": true/);
+    assert.match(stdout,/Producer wrapper allocation parity:/);
   });
 test('SymPy savepoints preserve completed rounding frontiers and reject incompatible or corrupt state',
   {skip:!python},async()=>{
