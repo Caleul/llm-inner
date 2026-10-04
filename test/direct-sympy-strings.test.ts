@@ -167,6 +167,15 @@ test('Disjoint input partitions preserve complete Half coverage and emitted coor
     assert.match(stdout,/Emitted full region coordinate: cases=576 mismatches=0 characters=28282 position=0 dimension=2 fullInputCoverage=false/);
   });
 
+test('Constant IEEE cells eliminate whole producers and propagate compound branch contexts',
+  {skip:!python},async()=>{
+    const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_constant_cells_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 4 tests/);
+    assert.match(stderr,/OK/);
+    assert.match(stdout,/Constant-cell native parity: cases=317440 mismatches=0/);
+    assert.match(stdout,/Signed-zero cell native parity: cases=63488 mismatches=0/);
+  });
+
 test('Identical emitted coordinate bodies coalesce without losing coverage, signed zeros or lazy guards',
   {skip:!python},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_partition_coalesce_test.py'],{timeout:120_000,maxBuffer:1024*1024});

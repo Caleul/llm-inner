@@ -42,6 +42,8 @@ def simplify_arithmetic(expression,session):
             return node
 
         def visit_Call(self,node):
+            constant=session.constant_rounding_cell(node)
+            if constant is not None:return self.accept(node,ast.Constant(value=constant))
             node=self.generic_visit(node)
             if node.func.id=='R32' and len(node.args)==1:
                 inner=node.args[0]

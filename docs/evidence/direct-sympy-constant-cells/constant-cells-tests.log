@@ -1,0 +1,7 @@
+....
+----------------------------------------------------------------------
+Ran 4 tests in 1.170s
+
+OK
+Constant-cell native parity: cases=317440 mismatches=0
+Signed-zero cell native parity: cases=63488 mismatches=0

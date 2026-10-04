@@ -1,0 +1,44 @@
+[
+  {
+    "complete": false,
+    "inputDomains": {
+      "X1": [
+        -2,
+        2
+      ],
+      "X2": [
+        -2,
+        2
+      ]
+    },
+    "producers": 25,
+    "elidedUpdates": 0,
+    "logicalCharacters": 10303598463,
+    "storedCharacters": 14424,
+    "stop": "Flat artifact budget exceeded; no complete result",
+    "seconds": 2.6416899589821696,
+    "version": "before",
+    "wallSeconds": 3.4566710829967633
+  },
+  {
+    "complete": false,
+    "inputDomains": {
+      "X1": [
+        -2,
+        2
+      ],
+      "X2": [
+        -2,
+        2
+      ]
+    },
+    "producers": 25,
+    "elidedUpdates": 0,
+    "logicalCharacters": 11613191,
+    "storedCharacters": 7142,
+    "stop": "Flat artifact budget exceeded; no complete result",
+    "seconds": 1.9424313339986838,
+    "version": "after",
+    "wallSeconds": 2.76941775000887
+  }
+]

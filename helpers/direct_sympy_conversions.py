@@ -141,6 +141,7 @@ class ConversionSession:
         self.pending=0
         self.redundant=0
         self.converted_regions=set()
+        self.pure_numeric_regions=set()
         self.reused_regions=0
         self.visited_nodes=0
         self.no_negative_zero_values=set()
@@ -170,7 +171,7 @@ class ConversionSession:
         Strings and structural signatures are shared; only proof tables copy.
         """
         fields=('completed','half_values','f32_values','converted_regions',
-                'no_negative_zero_values','frontier_bounds','sign_projections','rms_guards')
+                'no_negative_zero_values','frontier_bounds','sign_projections','rms_guards','pure_numeric_regions')
         saved={name:getattr(self,name) for name in fields}
         old_domains,old_facts=self.domains,self.branch_facts
         for name,value in saved.items():setattr(self,name,value.copy())
@@ -553,6 +554,30 @@ class ConversionSession:
         self.rms_guards[keys.get(raw,self.key(raw))]=guard
         return True
 
+    def constant_rounding_cell(self,node):
+        """Prove a whole finite producer belongs to one IEEE rounding cell.
+
+        Round-to-nearest-even is monotone on each signed finite interval.
+        Identical endpoint *payloads*, not numeric equality, certify every
+        enclosed result. An interval containing zero alone cannot establish
+        its sign. Unknown/impure calls are never discarded by this proof.
+        """
+        if not isinstance(node,ast.Call) or node.func.id not in ('R16','R32') or len(node.args)!=1:return None
+        source=node.args[0];bound=self.bounds(source)
+        if bound is None:return None
+        from direct_sympy_synchronize import GUARD_PURE
+        for child in ast.walk(source):
+            if isinstance(child,ast.Call) and child.func.id not in GUARD_PURE and self.key(child) not in self.pure_numeric_regions:return None
+        fmt='e' if node.func.id=='R16' else 'f'
+        try:
+            low=struct.pack(fmt,bound.minimum);high=struct.pack(fmt,bound.maximum)
+        except (OverflowError,ValueError):return None
+        if low!=high:return None
+        result=struct.unpack(fmt,low)[0]
+        if not math.isfinite(result):return None
+        if result==0 and bound.minimum<=0<=bound.maximum and not self.no_negative_zero(source):return None
+        return result
+
     def half_update_is_invisible(self,value,update):
         """A strict Half-cell proof, including the smaller binade neighbor.
 
@@ -802,6 +827,7 @@ class ConversionSession:
             self.compiler.copy_completed_word_root(text,token+'()',self.domains)
             literal_keys[key]=self.closed_literal_keys[text]
             if self.closed_literal_pure[text]:
+                self.pure_numeric_regions.add(key)
                 pure_functions.append(token)
             if substitute:
                 compact=self.compiler.substitute(compact,old,token+"()",self.domains)
@@ -816,6 +842,7 @@ class ConversionSession:
             protected[alias]=projection;pure_functions.append(alias)
             self.compiler.copy_completed_word_root(projection,alias+'()',self.domains)
             marker=syntax(alias+"()");key=self.key(marker)
+            self.pure_numeric_regions.add(key)
             self.completed[key]=FiniteSource(0.0,0.0,-24)
             self.half_values.add(key);self.f32_values.add(key);self.converted_regions.add(key)
             literal_keys[key]=self.closed_literal_keys[projection]
@@ -844,7 +871,9 @@ class ConversionSession:
                         if positive_zero:self.no_negative_zero_values.add(key)
                         self.converted_regions.add(key)
                         literal_keys[key]=self.closed_literal_keys[text]
-                        if self.closed_literal_pure[text]:pure_functions.append(token)
+                        if self.closed_literal_pure[text]:
+                            self.pure_numeric_regions.add(key)
+                            pure_functions.append(token)
                     replacement=token+'()'
                 template=self.compiler.substitute(template,name,replacement,self.domains)
             return template,{}
@@ -910,7 +939,10 @@ class ConversionSession:
         if not self.branch_depth and original in self.converted_regions and self.bounds(virtual) is not None:
             from direct_sympy_signs import project
             sign_view=simplify_words("Float64("+ast.unparse(project(virtual,self))+")",self.compiler,self.domains)
-            if expanded_size(sign_view)<expanded:
+            sign_expanded=len(sign_view)+sum(len(re.findall(r"\b"+token+r"\(\)",sign_view))*(len(text)-len(token)-2) for token,text in protected.items())
+            # Compare fully substituted costs with each other, then enforce
+            # the separate resident allocation limit before restoring bytes.
+            if sign_expanded<=self.compiler.max_characters and expanded_size(sign_view)<expanded_size(result):
                 sign_literal=re.sub(pattern,lambda match:protected[match.group(0)[:-2]],sign_view)
         result=re.sub(pattern,lambda match:protected[match.group(0)[:-2]],result)
         if re.search(r"\bCASNumericRegion[0-9]+\b",result):raise ValueError("Numeric placeholder escaped restoration")
@@ -939,6 +971,12 @@ class ConversionSession:
             self.restore_compact_literal(sign_literal,sign_node,literals,FiniteSource(0.0,0.0,-24),"half",False,True,self.closed_literal_keys.copy(),self.closed_literal_pure.copy())
             previous=self.closed_sign_literals.get(result)
             if previous is None or len(sign_literal)<len(previous):self.closed_sign_literals[result]=sign_literal
+            bounds=self.bounds(virtual)
+            if bounds.minimum==bounds.maximum==0 and self.closed_literal_pure.get(result,False):
+                # The proved magnitude is zero. Its complete sign expression
+                # is therefore the entire value, preserving both IEEE zeros.
+                self.arithmetic_eliminated+=1
+                return sign_literal
         return result
 
     def _close(self,expression):
@@ -1004,6 +1042,18 @@ class ConversionSession:
                         if remaining is None or proofs is None or facts is None:break
                     if not arms:raise ValueError('No reachable conversion branch')
                     return ast.Call(func=ast.Name(id='Piecewise',ctx=ast.Load()),args=arms,keywords=[])
+                constant=session.constant_rounding_cell(node)
+                if constant is not None:
+                    # Conditions have already narrowed this arm's domains.
+                    # Eliminate the producer before visiting its descendants.
+                    rewritten=syntax(session.compiler.stabilize(repr(constant),session.domains))
+                    key=session.key(rewritten)
+                    session.completed[key]=FiniteSource(constant,constant,quantum(Fraction(constant)))
+                    session.f32_values.add(key)
+                    if node.func.id=='R16' or session.value_kind(rewritten)=='half':session.half_values.add(key)
+                    if constant!=0 or math.copysign(1,constant)>0:session.no_negative_zero_values.add(key)
+                    session.arithmetic_eliminated+=1
+                    return rewritten
                 before=session.bounds(node)
                 positive_zero=session.no_negative_zero(node)
                 if node.func.id=='R32' and len(node.args)==1:

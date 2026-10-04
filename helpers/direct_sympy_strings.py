@@ -202,6 +202,22 @@ def refine(domains, condition, truth):
     """Refine one branch, never mutate the sibling context."""
     if isinstance(condition, ast.Constant) and type(condition.value) is bool:
         return dict(domains) if condition.value == truth else None
+    # Conjunctions on the selected path and disjunctions on its complement
+    # imply every component. Refine those components successively; never
+    # intersect the alternatives of a union (that would remove real paths).
+    logical=None;children=()
+    if isinstance(condition,ast.BoolOp):
+        logical='And' if isinstance(condition.op,ast.And) else 'Or';children=condition.values
+    elif isinstance(condition,ast.Call) and condition.func.id in ('And','Or'):
+        logical=condition.func.id;children=condition.args
+    if logical is not None:
+        if (logical=='And' and truth) or (logical=='Or' and not truth):
+            result=dict(domains)
+            for child in children:
+                result=refine(result,child,truth)
+                if result is None:return None
+            return result
+        return dict(domains) # Disconnected union: retain a safe enclosure.
     if not isinstance(condition, ast.Compare):
         return dict(domains)
     target_node=condition.comparators[0]

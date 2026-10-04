@@ -1,0 +1,53 @@
+{
+  "expressionFormat": "Mathematical strings",
+  "testMap": {
+    "helpers/direct_sympy_constant_cells_test.py": "Four tests: native parity for 317440 constant-cell cases and 63488 signed-zero cases; exact midpoint payloads, zero ambiguity, overflow, impurity and branch isolation; closed producer magnitude elimination.",
+    "helpers/direct_sympy_conversions_test.py": "All 34 tests pass; existing 196608 native comparisons including Half NaN patterns retained without weakening the expected structure.",
+    "test/direct-sympy-strings.test.ts": "19 named integrations passed, zero failures or skips; build passed.",
+    "helpers/direct_sympy_partition_coalesce.py": "Old state readback rejected after source identity changed; no proof tables reused."
+  },
+  "wholeDomainCoordinate": {
+    "baselineReport": "docs/evidence/direct-sympy-half-quantum/coordinate-run.json",
+    "baselineStoredCharacters": 846999,
+    "storedCharacters": 34979,
+    "baselineLogicalCharacters": 13773588190880,
+    "logicalCharacters": 11756851964536,
+    "completedProducers": 25,
+    "compilerDefinitions": 39,
+    "sourceSHA256": {
+      "direct_sympy_strings.py": "b195bd6ef9f2bc356a4819aead1262a328c0492b49485f473664415095b1f8be",
+      "direct_sympy_conversions.py": "7b499b1232260b1bce2c4acae9d420aec83ae79fbdaa853840cce61ff9315896",
+      "direct_sympy_arithmetic.py": "9629be5d6b0306c310f5a1c453de3865a426e310f766d003b2e17fc2edb03691"
+    },
+    "finalArtifactEmitted": false,
+    "finalParity": false
+  },
+  "smallRegion": {
+    "inputHalfRankRange": [
+      -2,
+      2
+    ],
+    "inputValueRange": [
+      -1.1920928955078125e-07,
+      1.1920928955078125e-07
+    ],
+    "eachInputPatterns": 6,
+    "vectorInputPatterns": 36,
+    "baselineLogicalCharacters": 10303598463,
+    "logicalCharacters": 7780503,
+    "emissionBudgetBytes": 16777216,
+    "emissionComplete": false,
+    "parityVerified": false
+  },
+  "stateCompatibility": "Conversions, arithmetic and string source hashes changed. Existing states fail the strict compatibility check. Fresh whole-domain and restricted-region runs reuse no old producer proofs. Previously emitted strings remain historical artifacts only.",
+  "guardCorrection": "Initial Not-comparison refinement changed the NaN case in an existing native-parity test. It was removed; original negated comparisons retain their conservative domain handling, and existing assertion/native corpus are unchanged.",
+  "performanceLimitation": "Root runs show reduced resident storage and logical size. Wall/RSS measurements are observations rather than a controlled speedup; other validations ran concurrently. Logical expansion remains far too large.",
+  "finalArtifactEmitted": false,
+  "finalParity": false,
+  "remaining": [
+    "Reduce repeated dependencies in nonconstant normalization and signed-zero residuals",
+    "Emit and verify a complete input-domain coordinate",
+    "Variable-length last-token semantics",
+    "All output coordinates"
+  ]
+}

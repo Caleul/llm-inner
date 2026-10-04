@@ -10556,5 +10556,26 @@
       "All output coordinates",
       "Repeat controlled measurements across order and larger actual dependencies"
     ]
+  },
+  "constantRoundingCellValidation": {
+    "report": "docs/evidence/direct-sympy-constant-cells/validation.json",
+    "testMap": {
+      "helpers/direct_sympy_constant_cells_test.py": "Four tests: native parity for 317440 constant-cell cases and 63488 signed-zero cases; exact midpoint payloads, zero ambiguity, overflow, impurity and branch isolation; closed producer magnitude elimination.",
+      "helpers/direct_sympy_conversions_test.py": "All 34 tests pass; existing 196608 native comparisons including Half NaN patterns retained without weakening the expected structure.",
+      "test/direct-sympy-strings.test.ts": "19 named integrations passed, zero failures or skips; build passed.",
+      "helpers/direct_sympy_partition_coalesce.py": "Old state readback rejected after source identity changed; no proof tables reused."
+    },
+    "wholeDomainStoredCharacters": 34979,
+    "wholeDomainLogicalCharacters": 11756851964536,
+    "smallRegionLogicalCharacters": 7780503,
+    "stateRestored": false,
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "remaining": [
+      "Reduce repeated dependencies in nonconstant normalization and signed-zero residuals",
+      "Emit and verify a complete input-domain coordinate",
+      "Variable-length last-token semantics",
+      "All output coordinates"
+    ]
   }
 }
