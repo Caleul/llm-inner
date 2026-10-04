@@ -1,0 +1,36 @@
+.
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 13393.20it/s]
+{"maxWorkersLive": 1, "peakObservedRSSBytes": 547749888, "workerReservationBytes": 939524096, "seconds": 1.8065205829916522, "regions": ["00"], "completed": 1, "coveredInputPatterns": 138412032}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 23119.73it/s]
+{"maxWorkersLive": 1, "peakObservedRSSBytes": 589070336, "workerReservationBytes": 939524096, "seconds": 1.9082640000269748, "regions": ["011"], "completed": 1, "coveredInputPatterns": 276824064}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 29995.02it/s]
+{"maxWorkersLive": 1, "peakObservedRSSBytes": 597311488, "workerReservationBytes": 939524096, "seconds": 1.8269357500248589, "regions": ["110"], "completed": 1, "coveredInputPatterns": 415236096}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 16638.56it/s]
+{"maxWorkersLive": 1, "peakObservedRSSBytes": 596033536, "workerReservationBytes": 939524096, "seconds": 1.8850886659929529, "regions": ["1111"], "completed": 1, "coveredInputPatterns": 553648128}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 25705.64it/s]
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 57985.77it/s]
+{"maxWorkersLive": 2, "peakObservedRSSBytes": 842317824, "workerReservationBytes": 939524096, "seconds": 2.0092727500014007, "regions": ["00", "011"], "completed": 2, "coveredInputPatterns": 276824064}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 59074.70it/s]
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 9585.15it/s]
+{"maxWorkersLive": 2, "peakObservedRSSBytes": 841760768, "workerReservationBytes": 939524096, "seconds": 1.997754290990997, "regions": ["110", "1111"], "completed": 2, "coveredInputPatterns": 553648128}
+..
+----------------------------------------------------------------------
+Ran 3 tests in 15.802s
+
+OK
+Parallel partition proof: workers=1,2 patterns=553648128 identicalHashes=true mismatches=0

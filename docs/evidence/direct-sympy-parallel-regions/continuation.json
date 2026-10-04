@@ -1,0 +1,152 @@
+{
+  "controllerSHA256": "a9b969d7a0428478253bb3a1d0d4d2d7cf86c2ca21e4b7b16b8f6df34c7816fe",
+  "compilerIdentity": {
+    "version": 1,
+    "dimension": 2,
+    "position": 0,
+    "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+    "sympy": "1.14.0",
+    "platform": "macOS-26.7.1-arm64-arm-64bit",
+    "byteOrder": "little",
+    "referenceBackend": {
+      "name": "torch CPU",
+      "version": "2.12.1",
+      "gitVersion": "7269437d655783a26cba32aa88195b741ff496aa",
+      "capability": "DEFAULT"
+    },
+    "checkpoint": {
+      "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+      "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+    },
+    "sources": {
+      "direct_sympy_arithmetic.py": "fd9779759345c7b381a01b54fee545218735eb8c26e4f6a8ffb560109431ff43",
+      "direct_sympy_checkpoint.py": "1e6c19fe6065738683f46b9db8b9fccc3d782ed21211b1e2d7e2be4d70c9e083",
+      "direct_sympy_coherent_paths.py": "f3f1c30975616741b87563613cad629ac39eb4da888032c791abb3ac0562766a",
+      "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+      "direct_sympy_conversions.py": "2937c333a849c7719ab86dc25fadec52eac18ca63647c804a4804243a29f76f4",
+      "direct_sympy_input_partitions.py": "21449edd26a0d43ad4a2c5b5e841c5e9d8e7de6afb6ac138a9eef88374558797",
+      "direct_sympy_layer_bounds.py": "2f8d73caf53371f4bba44a605a91098580f5dcaf90b292c135830d862513dcff",
+      "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+      "direct_sympy_partition_run.py": "6ae47bb0a1c8136757e72bf0a37bbdf28c0826cecc42ae5312141b6e19cbe452",
+      "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+      "direct_sympy_savepoints.py": "682783ebfd3f1337bbcf015faa34876963a9f1b63eae2cba1c3159cb0ed5d266",
+      "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+      "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+      "direct_sympy_silu.py": "e623f38b5008356d8f6aa1615aabfa5a779f9dc7ea9d5b8183c5b17a78383fe3",
+      "direct_sympy_sqrt.py": "ec9644071ed6ce1576f9550175ed768180d40d70c1bf610f0089785c5564e3fb",
+      "direct_sympy_streaming_literals.py": "5a0046367e570549e5c804c0f5aa0737db2c506600c9ae19c72450ba0f38824e",
+      "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+      "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+      "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+      "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
+    }
+  },
+  "workersRequested": 2,
+  "memoryBudgetBytes": 3221225472,
+  "waves": [
+    {
+      "maxWorkersLive": 2,
+      "peakObservedRSSBytes": 872054784,
+      "workerReservationBytes": 939524096,
+      "seconds": 5.874052416009363,
+      "regions": [
+        "010001001010",
+        "010001001011"
+      ],
+      "completed": 2,
+      "coveredInputPatterns": 1415716864
+    },
+    {
+      "maxWorkersLive": 2,
+      "peakObservedRSSBytes": 934936576,
+      "workerReservationBytes": 939524096,
+      "seconds": 5.916153583035339,
+      "regions": [
+        "0100010011",
+        "01000101"
+      ],
+      "completed": 2,
+      "coveredInputPatterns": 1432838144
+    },
+    {
+      "maxWorkersLive": 2,
+      "peakObservedRSSBytes": 849297408,
+      "workerReservationBytes": 939524096,
+      "seconds": 5.837819667009171,
+      "regions": [
+        "0100011",
+        "010010"
+      ],
+      "completed": 2,
+      "coveredInputPatterns": 1477522432
+    },
+    {
+      "maxWorkersLive": 2,
+      "peakObservedRSSBytes": 1002520576,
+      "workerReservationBytes": 939524096,
+      "seconds": 10.106611625000369,
+      "regions": [
+        "01011",
+        "10000"
+      ],
+      "completed": 1,
+      "coveredInputPatterns": 1604388864
+    },
+    {
+      "maxWorkersLive": 2,
+      "peakObservedRSSBytes": 1045135360,
+      "workerReservationBytes": 939524096,
+      "seconds": 10.040623500011861,
+      "regions": [
+        "100000",
+        "100001"
+      ],
+      "completed": 1,
+      "coveredInputPatterns": 1654708224
+    },
+    {
+      "maxWorkersLive": 2,
+      "peakObservedRSSBytes": 893730816,
+      "workerReservationBytes": 939524096,
+      "seconds": 2.281743125000503,
+      "regions": [
+        "1000000",
+        "1000001"
+      ],
+      "completed": 2,
+      "coveredInputPatterns": 1705039872
+    },
+    {
+      "maxWorkersLive": 2,
+      "peakObservedRSSBytes": 945569792,
+      "workerReservationBytes": 939524096,
+      "seconds": 7.0090895829489455,
+      "regions": [
+        "100011",
+        "100101"
+      ],
+      "completed": 1,
+      "coveredInputPatterns": 1721819136
+    },
+    {
+      "maxWorkersLive": 2,
+      "peakObservedRSSBytes": 912392192,
+      "workerReservationBytes": 939524096,
+      "seconds": 6.187526624999009,
+      "regions": [
+        "1000110",
+        "1000111"
+      ],
+      "completed": 0,
+      "coveredInputPatterns": 1721819136
+    }
+  ],
+  "nativeCases": 2864,
+  "nativeMismatches": 0,
+  "fullCoordinateParity": false,
+  "seconds": 60.31671954202466,
+  "attempts": 16,
+  "coveredInputPatterns": 1721819136,
+  "addedInputPatterns": 307814400,
+  "unfinishedInputPatterns": 2308907008
+}

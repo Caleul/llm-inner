@@ -1,0 +1,76 @@
+import argparse,json,os,tempfile,unittest
+from pathlib import Path
+from unittest.mock import patch
+from direct_sympy_partition_parallel import compile_wave,run
+from direct_sympy_checkpoint import CheckpointStrings
+from direct_sympy_cover_regions import live_identity
+from direct_sympy_partition_run import encode,seed_update_cells,audit_tree
+from direct_sympy_savepoints import atomic,canonical
+from direct_sympy_strings import StringCompiler
+
+
+class ParallelRegionTests(unittest.TestCase):
+    def test_memory_admission_rejects_before_starting_a_worker(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'out.expr'
+            with patch('direct_sympy_partition_parallel.rss_bytes',return_value=100),patch('direct_sympy_partition_parallel.subprocess.Popen',side_effect=AssertionError('must not start')):
+                with self.assertRaisesRegex(ValueError,'cannot admit'):
+                    compile_wave('unused',2,[('',{'X1':[1,2]},path)],workers=2,memory_bytes=200,cas_characters=1000,max_characters=1000,max_paths=2,max_seconds=1)
+            self.assertFalse(path.exists())
+
+    def args(self,checkpoint,directory,workers):
+        return argparse.Namespace(checkpoint=checkpoint,state=directory,dimension=2,workers=workers,memory_bytes=3*1024**3,
+            max_attempts=4,region_seconds=20,random_cases=64,max_paths=128,max_characters=1048576,
+            cas_characters=8388608,min_values=32,total_characters=67108864,frontier_order=None)
+
+    def seed(self,directory):
+        checkpoint=os.environ['LLM_INNER_DIRECT_JSON_CHECKPOINT']
+        with CheckpointStrings(checkpoint,StringCompiler()) as model:
+            root=encode(model.domains);tree,geometry=seed_update_cells(model,root,81)
+        state={'identity':live_identity(checkpoint,2),'root':root,'tree':tree,'updateCellGeometry':geometry,'attempts':[],
+            'coveredInputPatterns':0,'unfinishedInputPatterns':63488**2,'totalInputPatterns':63488**2,
+            'finalArtifactEmitted':False,'finalParity':False}
+        atomic(Path(directory)/'frontier.json',canonical(state))
+        return checkpoint
+
+    @unittest.skipUnless(os.environ.get('LLM_INNER_DIRECT_JSON_CHECKPOINT'),'Checkpoint required')
+    def test_source_incompatibility_and_memory_failure_preserve_manifest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            checkpoint=self.seed(directory);manifest=Path(directory)/'frontier.json'
+            state=json.loads(manifest.read_text());state['identity']['version']=-1
+            atomic(manifest,canonical(state));before=manifest.read_bytes()
+            with patch('direct_sympy_partition_parallel.compile_wave',side_effect=AssertionError('must reject first')):
+                with self.assertRaisesRegex(ValueError,'Incompatible'):run(self.args(checkpoint,directory,2))
+            self.assertEqual(manifest.read_bytes(),before)
+            checkpoint=self.seed(directory);before=manifest.read_bytes()
+            args=self.args(checkpoint,directory,2);args.memory_bytes=1
+            with self.assertRaisesRegex(ValueError,'memory'):run(args)
+            self.assertEqual(manifest.read_bytes(),before)
+            self.assertEqual(list(Path(directory).glob('.parallel-*.expr')),[])
+
+    @unittest.skipUnless(os.environ.get('LLM_INNER_DIRECT_JSON_CHECKPOINT'),'Checkpoint required')
+    def test_one_and_two_workers_emit_identical_complete_regions_and_exact_coverage(self):
+        reports=[];states=[]
+        with tempfile.TemporaryDirectory() as directory:
+            for workers in (1,2):
+                path=Path(directory)/str(workers);path.mkdir();checkpoint=self.seed(path)
+                report=run(self.args(checkpoint,path,workers));state=json.loads((path/'frontier.json').read_text())
+                self.assertEqual(report['nativeMismatches'],0)
+                self.assertEqual(report['attempts'],4)
+                self.assertEqual(report['coveredInputPatterns'],553648128)
+                self.assertEqual(audit_tree(state['tree'],state['root']),(553648128,3477078016))
+                self.assertEqual(max(w['maxWorkersLive'] for w in report['waves']),workers)
+                self.assertTrue(all(w['peakObservedRSSBytes']<=report['memoryBudgetBytes'] for w in report['waves']))
+                self.assertFalse(state['finalArtifactEmitted']);self.assertFalse(state['finalParity'])
+                reports.append(report);states.append(state)
+            rows=lambda state:{key:(node['domains'],node['artifact']['sha256']) for key,node in state['tree'].items() if node['status']=='complete'}
+            self.assertEqual(rows(states[0]),rows(states[1]))
+        result={'sequential':reports[0],'parallel':reports[1],
+            'identicalDomainsAndArtifactHashes':True,'coveredPatterns':553648128,
+            'speedRatio':reports[0]['seconds']/reports[1]['seconds'],'fullCoordinateParity':False}
+        if os.environ.get('LLM_INNER_PARTITION_BENCHMARK_REPORT'):
+            Path(os.environ['LLM_INNER_PARTITION_BENCHMARK_REPORT']).write_text(json.dumps(result,indent=2)+'\n')
+        print('Parallel partition proof: workers=1,2 patterns=553648128 identicalHashes=true mismatches=0')
+
+
+if __name__=='__main__':unittest.main()

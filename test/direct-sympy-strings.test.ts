@@ -4,6 +4,13 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 
 const python=process.env.LLM_INNER_DIRECT_PYTHON;
+test('Memory-admitted parallel regions preserve full geometry, ordered numerical bodies and native parity',
+  {skip:!python || !process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT},async()=>{
+    const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_partition_parallel_test.py'],{timeout:180_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 3 tests/);
+    assert.match(stderr,/OK/);
+    assert.match(stdout,/Parallel partition proof: workers=1,2 patterns=553648128 identicalHashes=true mismatches=0/);
+  });
 test('Fresh broad-region covers refine only pending intersections and preserve exact source compatibility',
   {skip:!python || !process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_cover_regions_test.py'],{timeout:120_000,maxBuffer:1024*1024});
