@@ -1,0 +1,16 @@
+{
+  "operationId": "34deb47c-d26f-401f-9fea-ff3486fdc80d",
+  "integration": "colab",
+  "tool": "colab_cli",
+  "arguments": [
+    "sessions"
+  ],
+  "result": {
+    "ok": true,
+    "exitCode": 0,
+    "stdout": "[colab] No active sessions found on server.\n",
+    "stderr": "",
+    "limited": false,
+    "timedOut": false
+  }
+}

@@ -1,0 +1,112 @@
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 20729.67it/s]
+{"sourceRegion": "100100", "added": 67117056, "covered": 243292160, "stop": null, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 21500.06it/s]
+{"sourceRegion": "1011101", "added": 184571904, "covered": 427864064, "stop": null, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 23910.52it/s]
+{"sourceRegion": "111010", "added": 184571904, "covered": 612435968, "stop": null, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 31242.49it/s]
+{"sourceRegion": "00", "added": 138412032, "covered": 750848000, "stop": null, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 45964.98it/s]
+{"sourceRegion": "011", "added": 138412032, "covered": 889260032, "stop": null, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 25165.82it/s]
+{"sourceRegion": "110", "added": 138412032, "covered": 1027672064, "stop": null, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 13454.06it/s]
+{"sourceRegion": "1111", "added": 138412032, "covered": 1166084096, "stop": null, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 15587.38it/s]
+{"sourceRegion": "010011", "added": 92297216, "covered": 1258381312, "stop": null, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 34076.95it/s]
+{"sourceRegion": "01010", "added": 92274688, "covered": 1350656000, "stop": null, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 29554.70it/s]
+{"sourceRegion": "010000", "added": 54788096, "covered": 1405444096, "stop": null, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 51254.22it/s]
+{"sourceRegion": "01000100000", "added": 1712128, "covered": 1407156224, "stop": null, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 22017.34it/s]
+{"sourceRegion": "010001000010", "added": 856064, "covered": 1408012288, "stop": null, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 52869.38it/s]
+{"sourceRegion": "01000100001100", "added": 214016, "covered": 1408226304, "stop": null, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 19569.07it/s]
+{"sourceRegion": "01000100001101", "added": 214016, "covered": 1408440320, "stop": null, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 38716.65it/s]
+{"sourceRegion": "01000100001110", "added": 214016, "covered": 1408654336, "stop": null, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 63469.92it/s]
+{"sourceRegion": "01000100001111", "added": 214016, "covered": 1408868352, "stop": null, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 65536.00it/s]
+{"sourceRegion": "01000100010000", "added": 214016, "covered": 1409082368, "stop": null, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 38304.15it/s]
+{"sourceRegion": "01000100010001", "added": 214016, "covered": 1409296384, "stop": null, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 24953.72it/s]
+{"sourceRegion": "01000100010010", "added": 214016, "covered": 1409510400, "stop": null, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 19901.80it/s]
+{"sourceRegion": "01000100010011", "added": 214016, "covered": 1409724416, "stop": null, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 30084.67it/s]
+{"sourceRegion": "01000100010100", "added": 214016, "covered": 1409938432, "stop": null, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 27280.03it/s]
+{"sourceRegion": "01000100010101", "added": 214016, "covered": 1410152448, "stop": null, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 38362.54it/s]
+{"sourceRegion": "01000100010110", "added": 214016, "covered": 1410366464, "stop": null, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 48582.67it/s]
+{"sourceRegion": "01000100010111", "added": 214016, "covered": 1410580480, "stop": null, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 35519.86it/s]
+{"sourceRegion": "01000100011000", "added": 214016, "covered": 1410794496, "stop": null, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 22774.50it/s]
+{"sourceRegion": "01000100011001", "added": 214016, "covered": 1411008512, "stop": null, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 51516.53it/s]
+{"sourceRegion": "01000100011010", "added": 214016, "covered": 1411222528, "stop": null, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 27853.71it/s]
+{"sourceRegion": "01000100011011", "added": 214016, "covered": 1411436544, "stop": null, "mismatches": 0}

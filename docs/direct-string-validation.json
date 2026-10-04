@@ -11120,5 +11120,30 @@
     "compilationSpeedupMeasured": false,
     "fullCoordinateParity": false,
     "multipleTokenParity": false
+  },
+  "dominantResumeValidation": {
+    "report": "docs/evidence/direct-sympy-dominant-resume/validation.json",
+    "priorSourceCoverage": 1352716288,
+    "coveredInputPatterns": 1414004736,
+    "additionalPatternsBeyondPriorSourceCoverage": 61288448,
+    "unfinishedInputPatterns": 2616721408,
+    "coveragePercent": 35.08064516129032,
+    "completedRegions": 43,
+    "distinctArtifacts": 8,
+    "ordinaryAttempts": 24,
+    "ordinaryCompletedAttempts": 12,
+    "geometryRegionsRecompiled": 28,
+    "recompiledRegionNativeCases": 7294,
+    "allLeafNativeCases": 11198,
+    "allLeafMismatches": 0,
+    "numericalResultsFromPreviousSourceReused": false,
+    "allPreviousCompletedDomainsRecovered": true,
+    "lastIntegrationGate": "docs/evidence/direct-sympy-dominant-square/test.log",
+    "integrationTests": 25,
+    "compilerSourcesChangedSinceGate": false,
+    "compilationSpeedupMeasured": false,
+    "fullCoordinateParity": false,
+    "multipleTokenParity": false,
+    "colabActiveSessions": 0
   }
 }
