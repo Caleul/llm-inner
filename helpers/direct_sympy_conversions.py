@@ -456,6 +456,13 @@ class ConversionSession:
             if abs(right)==1:return a
             d=self.bounds(node)
             if math.frexp(abs(right))[0]==0.5 and d is not None and d.quantum is not None and d.quantum>=-149 and max(abs(d.minimum),abs(d.maximum))<=3.4028234663852886e38:return "f32"
+        # A proved dyadic grid with at most 24 significant bits fits F32
+        # exactly. This preserves the F64 operation order; it only removes
+        # a cast which cannot change either value or zero sign.
+        d=self.bounds(node)
+        if d is not None and d.quantum is not None and d.quantum>=-149:
+            peak=max(abs(d.minimum),abs(d.maximum))
+            if peak<=3.4028234663852886e38 and Fraction(peak)/(Fraction(2)**d.quantum)<=2**24:return 'f32'
         return None
 
     def no_negative_zero(self,node):
@@ -564,6 +571,22 @@ class ConversionSession:
         minimum=source.minimum if source.minimum>0 else -source.maximum if source.maximum<0 else 0
         if not minimum:return None
         return 2**(binary_exponent(minimum)-12)
+
+    def f32_update_is_invisible(self,value,update):
+        """Strict F32 cell containment for finite F32 operands.
+
+        Use the smaller neighbor at binade boundaries and the subnormal
+        spacing. F32 operands also prevent a prior F64 sum from crossing
+        an odd midpoint through an unmodelled fine-grid update.
+        """
+        if self.value_kind(value) not in ('half','f32') or self.value_kind(update) not in ('half','f32'):
+            return False
+        source=self.bounds(value);delta=self.bounds(update)
+        if source is None or delta is None:return False
+        minimum=source.minimum if source.minimum>0 else -source.maximum if source.maximum<0 else 0
+        if not minimum:return False
+        radius=2**max(-150,binary_exponent(minimum)-25)
+        return max(abs(delta.minimum),abs(delta.maximum))<radius
 
     def bounds(self,node):
         key=self.key(node)

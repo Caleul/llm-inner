@@ -4,6 +4,14 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 
 const python=process.env.LLM_INNER_DIRECT_PYTHON;
+test('Finite F32 cells and compile-time constants preserve native boundaries and signed zeros',
+  {skip:!python},async()=>{
+    const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_f32_cells_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 4 tests/);
+    assert.match(stderr,/OK/);
+    assert.match(stdout,/F32 cell native parity: cases=268216 mismatches=0/);
+    assert.match(stdout,/Constant cast parity: cases=69634 mismatches=0/);
+  });
 test('Proved unsigned masks remove redundant operations without changing overflow or numeric contexts',
   {skip:!python},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_known_bits_test.py'],{timeout:120_000,maxBuffer:1024*1024});

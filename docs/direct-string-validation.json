@@ -10456,5 +10456,23 @@
       "Variable-length last-token semantics",
       "All output coordinates"
     ]
+  },
+  "finiteF32ArithmeticValidation": {
+    "report": "docs/evidence/direct-sympy-f32-cells/validation.json",
+    "testMap": {
+      "helpers/direct_sympy_f32_cells_test.py": "Four tests: finite cell elision, strict midpoint/type/zero barriers, exact grids and constant reinterpretations; 268216 and 263173 native comparisons plus 69634 constant cases.",
+      "helpers/direct_sympy_conversions_test.py": "34 tests remain; activation-frontier fixture uses a conservative grid to preserve independent synchronization coverage after new exact-grid elimination.",
+      "test/direct-sympy-strings.test.ts": "15 named integrations passed, zero failed/skipped, including real state resume, emitted prefix parity and existing numerical/regression suites."
+    },
+    "stateCompatibility": "Arithmetic/conversions/words/signs source identities change. Strict old-state rejection is retained; newly generated canonical positive scalar zero is admitted by the signed-zero validator without admitting booleans or nonzero integers.",
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "remaining": [
+      "Correct interval-specific Half quantum propagation",
+      "Reduce full numerical dependency expansion",
+      "Complete coordinate emission and reference parity",
+      "Variable-length last-token semantics",
+      "All output coordinates"
+    ]
   }
 }

@@ -52,7 +52,10 @@ def project(node,session):
 def is_signed_zero(node,zero_names=()):
     """Structural admission for persisted +/-zero projections only."""
     if isinstance(node,ast.Name):return node.id in zero_names
-    if isinstance(node,ast.Constant):return type(node.value) is float and node.value==0.0
+    if isinstance(node,ast.Constant):
+        # SymPy canonicalizes positive scalar 0.0 to integer 0. Both
+        # encode +zero when used as a scalar; booleans are not admitted.
+        return type(node.value) in (int,float) and node.value==0.0
     if isinstance(node,ast.UnaryOp) and isinstance(node.op,(ast.USub,ast.UAdd)):
         return is_signed_zero(node.operand,zero_names)
     if not isinstance(node,ast.Call) or node.func.id!='Float64' or len(node.args)!=1:return False

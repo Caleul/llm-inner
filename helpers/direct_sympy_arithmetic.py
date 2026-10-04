@@ -43,6 +43,11 @@ def simplify_arithmetic(expression,session):
 
         def visit_Call(self,node):
             node=self.generic_visit(node)
+            if node.func.id=='R32' and len(node.args)==1:
+                inner=node.args[0]
+                if isinstance(inner,ast.BinOp) and isinstance(inner.op,(ast.Add,ast.Sub)):
+                    if session.f32_update_is_invisible(inner.left,inner.right):return self.accept(node,inner.left)
+                    if isinstance(inner.op,ast.Add) and session.f32_update_is_invisible(inner.right,inner.left):return self.accept(node,inner.right)
             if node.func.id=='R16' and len(node.args)==1:
                 inner=node.args[0]
                 if isinstance(inner,ast.Call) and inner.func.id=='R32' and len(inner.args)==1:

@@ -328,7 +328,10 @@ std::printf("Integer offset tandem parity: cases=%u mismatches=%u integerCastLos
     @patch.object(ConversionSession,'close_frontier_candidates',lambda self,compact,baseline,*args:baseline)
     @patch('direct_sympy_silu.quadratic_tandem_source',return_value=None)
     def test_completed_rounding_frontiers_synchronize_inside_activation(self,_square):
-        domains={'X1':Domain(-F(1,64),F(1,64),-24,False)}
+        # A conservative grid keeps the F32 frontier observable here.
+        # The tighter Half grid is now independently proved exact F32;
+        # this test isolates selector synchronization, not grid elision.
+        domains={'X1':Domain(-F(1,64),F(1,64),-30,False)}
         compiler=StringCompiler();session=ConversionSession(compiler,domains,input_dtype='f16')
         producer=session.close('R16(R32(X1+X1/2.0))')
         compiler.register_completed_region(producer,domains,word_closed=True)

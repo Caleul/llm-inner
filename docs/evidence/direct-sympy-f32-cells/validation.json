@@ -1,0 +1,35 @@
+{
+  "expressionFormat": "Mathematical strings; JSON contains diagnostic metadata only",
+  "buildExitCode": 0,
+  "integrationTests": {
+    "pass": 15,
+    "fail": 0,
+    "skipped": 0,
+    "log": "docs/evidence/direct-sympy-f32-cells/integration-tests.log"
+  },
+  "nativeCellCases": 268216,
+  "nativeGridCases": 263173,
+  "constantCastCases": 69634,
+  "mismatches": 0,
+  "checkpointScope": "Position 0, dimension 2; complete emitted coordinate absent",
+  "logicalCharacters": 13773588190880,
+  "baselineLogicalCharacters": 13773588190880,
+  "firstPathBodyCharacters": 49281257959,
+  "finalArtifactEmitted": false,
+  "finalParity": false,
+  "nextInvestigation": {
+    "source": "R16(X1) for X1 in [1,2]",
+    "observedQuantum": -24,
+    "expectedSafeHalfQuantum": -10,
+    "implemented": false
+  },
+  "sourceSha256": {
+    "helpers/direct_sympy_arithmetic.py": "ef0f8d1f9569724af2d3ddadc82ced3d004b7e61011fe78bd67633b737645040",
+    "helpers/direct_sympy_conversions.py": "9c2b54357643eb66d363446e81c9d097320e23e4406e54f03c95f622d194ba9b",
+    "helpers/direct_sympy_conversions_test.py": "062b6179646008cc6e3f1e0a9bf9585377a4ea50b1bc947adf194471b9d845e6",
+    "helpers/direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+    "helpers/direct_sympy_words.py": "2377908fd2d5553a3c9a7e52d2f01a104877a62f3bd4fdc43cfeaf9d492987c5",
+    "helpers/direct_sympy_f32_cells_test.py": "fe50c1efa4b4870055ab9f107692a1ff6c44717830d5a5355e37d784368dff87",
+    "test/direct-sympy-strings.test.ts": "865fc78fa3bdc4541e225f4ecb33f812d862a631956e963ab8d1f8c99dd07a43"
+  }
+}

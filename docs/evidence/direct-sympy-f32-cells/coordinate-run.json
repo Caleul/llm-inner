@@ -1,0 +1,274 @@
+{
+  "coordinateCompositionComplete": true,
+  "finalArtifactEmitted": false,
+  "finalParity": false,
+  "position": 0,
+  "dimension": 2,
+  "stateRestored": false,
+  "expressionFormat": "Mathematical string",
+  "budgets": {
+    "artifactCharacters": 1048576,
+    "casCharacters": 8388608,
+    "paths": 4,
+    "seconds": 90
+  },
+  "completedProducers": 25,
+  "compilerDefinitions": 25,
+  "storedCharacters": 846999,
+  "logicalCharacters": 13773588190880,
+  "compositionSeconds": 36.64468358299928,
+  "producerGrowth": [
+    {
+      "producer": "model.layers.0.pre:mean",
+      "storedCharacters": 329,
+      "expandedCharacters": 331,
+      "definitions": 1
+    },
+    {
+      "producer": "model.layers.0.pre:inverse",
+      "storedCharacters": 5210,
+      "expandedCharacters": 5212,
+      "definitions": 2
+    },
+    {
+      "producer": "model.layers.0.pre:0",
+      "storedCharacters": 363,
+      "expandedCharacters": 11075,
+      "definitions": 4
+    },
+    {
+      "producer": "model.layers.0.pre:1",
+      "storedCharacters": 363,
+      "expandedCharacters": 11075,
+      "definitions": 6
+    },
+    {
+      "producer": "model.layers.0.v:0",
+      "storedCharacters": 714,
+      "expandedCharacters": 89196,
+      "definitions": 7
+    },
+    {
+      "producer": "model.layers.0.context:0",
+      "storedCharacters": 21,
+      "expandedCharacters": 89202,
+      "definitions": 7
+    },
+    {
+      "producer": "model.layers.0.v:1",
+      "storedCharacters": 702,
+      "expandedCharacters": 89184,
+      "definitions": 8
+    },
+    {
+      "producer": "model.layers.0.context:1",
+      "storedCharacters": 21,
+      "expandedCharacters": 89190,
+      "definitions": 8
+    },
+    {
+      "producer": "model.layers.0.residual:0",
+      "storedCharacters": 824,
+      "expandedCharacters": 714226,
+      "definitions": 9
+    },
+    {
+      "producer": "model.layers.0.residual:1",
+      "storedCharacters": 832,
+      "expandedCharacters": 714234,
+      "definitions": 10
+    },
+    {
+      "producer": "model.layers.0.post:mean",
+      "storedCharacters": 381,
+      "expandedCharacters": 2857243,
+      "definitions": 11
+    },
+    {
+      "producer": "model.layers.0.post:inverse",
+      "storedCharacters": 5886,
+      "expandedCharacters": 37145068,
+      "definitions": 12
+    },
+    {
+      "producer": "model.layers.0.post:0",
+      "storedCharacters": 418,
+      "expandedCharacters": 80004595,
+      "definitions": 13
+    },
+    {
+      "producer": "model.layers.0.post:1",
+      "storedCharacters": 418,
+      "expandedCharacters": 80004627,
+      "definitions": 14
+    },
+    {
+      "producer": "model.layers.0.gate:0",
+      "storedCharacters": 730,
+      "expandedCharacters": 640037492,
+      "definitions": 15
+    },
+    {
+      "producer": "model.layers.0.activation:0",
+      "storedCharacters": 2170,
+      "expandedCharacters": 1440084882,
+      "definitions": 16
+    },
+    {
+      "producer": "model.layers.0.up:0",
+      "storedCharacters": 714,
+      "expandedCharacters": 640037476,
+      "definitions": 17
+    },
+    {
+      "producer": "model.layers.0.gated:0",
+      "storedCharacters": 6881,
+      "expandedCharacters": 7840461393,
+      "definitions": 18
+    },
+    {
+      "producer": "model.layers.0.hidden:0",
+      "storedCharacters": 14009,
+      "expandedCharacters": 15521628052,
+      "definitions": 19
+    },
+    {
+      "producer": "model.layers.0.hidden:1",
+      "storedCharacters": 14005,
+      "expandedCharacters": 15521628056,
+      "definitions": 20
+    },
+    {
+      "producer": "final:mean",
+      "storedCharacters": 56440,
+      "expandedCharacters": 61609341912,
+      "definitions": 21
+    },
+    {
+      "producer": "final:inverse",
+      "storedCharacters": 733840,
+      "expandedCharacters": 799001334672,
+      "definitions": 22
+    },
+    {
+      "producer": "final:0",
+      "storedCharacters": 422,
+      "expandedCharacters": 1721698523776,
+      "definitions": 23
+    },
+    {
+      "producer": "final:1",
+      "storedCharacters": 422,
+      "expandedCharacters": 1721698523792,
+      "definitions": 24
+    },
+    {
+      "producer": "output:0:2",
+      "storedCharacters": 734,
+      "expandedCharacters": 13773588190880,
+      "definitions": 25
+    }
+  ],
+  "stop": "Flat artifact budget exceeded; no complete result",
+  "paths": {
+    "splitContexts": 13,
+    "completedPaths": 1,
+    "contradictions": 0,
+    "selectorSelections": 91,
+    "CASPasses": 619,
+    "lastArm": {
+      "bodyCharacters": 49281257959,
+      "guardCharacters": 26942163578,
+      "decisions": 13,
+      "dependencyGrowth": [
+        {
+          "definition": 1,
+          "storedCharacters": 5210,
+          "expandedCharacters": 5212
+        },
+        {
+          "definition": 2,
+          "storedCharacters": 195,
+          "expandedCharacters": 5394
+        },
+        {
+          "definition": 4,
+          "storedCharacters": 195,
+          "expandedCharacters": 5394
+        },
+        {
+          "definition": 6,
+          "storedCharacters": 359,
+          "expandedCharacters": 21877
+        },
+        {
+          "definition": 7,
+          "storedCharacters": 353,
+          "expandedCharacters": 21871
+        },
+        {
+          "definition": 8,
+          "storedCharacters": 449,
+          "expandedCharacters": 87887
+        },
+        {
+          "definition": 9,
+          "storedCharacters": 453,
+          "expandedCharacters": 87891
+        },
+        {
+          "definition": 11,
+          "storedCharacters": 5886,
+          "expandedCharacters": 4575336
+        },
+        {
+          "definition": 12,
+          "storedCharacters": 639,
+          "expandedCharacters": 4751269
+        },
+        {
+          "definition": 13,
+          "storedCharacters": 643,
+          "expandedCharacters": 4751277
+        },
+        {
+          "definition": 16,
+          "storedCharacters": 359,
+          "expandedCharacters": 19005389
+        },
+        {
+          "definition": 18,
+          "storedCharacters": 4974,
+          "expandedCharacters": 228153874
+        },
+        {
+          "definition": 19,
+          "storedCharacters": 4972,
+          "expandedCharacters": 228153876
+        },
+        {
+          "definition": 21,
+          "storedCharacters": 263702,
+          "expandedCharacters": 11864006504
+        },
+        {
+          "definition": 22,
+          "storedCharacters": 5165,
+          "expandedCharacters": 12320314411
+        },
+        {
+          "definition": 23,
+          "storedCharacters": 5163,
+          "expandedCharacters": 12320314415
+        },
+        {
+          "definition": 24,
+          "storedCharacters": 369,
+          "expandedCharacters": 49281257959
+        }
+      ]
+    }
+  },
+  "seconds": 50.53575149999233,
+  "peakRSSBytes": 715390976
+}

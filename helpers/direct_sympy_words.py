@@ -6,6 +6,7 @@ through mandatory factor/simplify under the caller's numeric context.
 """
 import ast
 import re
+import struct
 import sympy as sp
 from direct_sympy_strings import syntax
 
@@ -145,6 +146,21 @@ def known_bits(node,known=None):
 
 def reduce_call(node,domains,widths=None,floats=(),known=None):
     name=node.func.id
+    if len(node.args)==1:
+        value=node.args[0]
+        if name=='Bits64':
+            sign=1
+            if isinstance(value,ast.UnaryOp) and isinstance(value.op,(ast.UAdd,ast.USub)):
+                sign=-1 if isinstance(value.op,ast.USub) else 1;value=value.operand
+            if isinstance(value,ast.Constant) and type(value.value) is float:
+                literal=value.value if sign==1 else -value.value
+                return ast.Constant(value=struct.unpack('>Q',struct.pack('>d',literal))[0])
+        if name=='Float64' and integer(value) is not None:
+            literal=struct.unpack('>d',struct.pack('>Q',value.value))[0]
+            # Keep nonfinite payloads encoded; textual nan/inf would lose
+            # their exact bits and are outside the literal grammar.
+            import math
+            if math.isfinite(literal):return ast.Constant(value=literal)
     if len(node.args)==1 and isinstance(node.args[0],ast.Call):
         inner=node.args[0]
         if len(inner.args)==1:

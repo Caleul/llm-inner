@@ -1,0 +1,122 @@
+✔ Finite F32 cells and compile-time constants preserve native boundaries and signed zeros (1942.786125ms)
+✔ Proved unsigned masks remove redundant operations without changing overflow or numeric contexts (593.931209ms)
+✔ Stabilized branches share decisions, preserve lazy guards and emit flat input-only expressions (2544.605666ms)
+✔ Compiler-only literal sharing uses expanded costs and emits bit-exact input-only expressions (41153.599458ms)
+✔ SymPy factors typed word polynomials modulo 2^64 without reassociating floating operations (738.841083ms)
+✔ Parallel SymPy blocks preserve ordered F32 folds, branch contexts and memory admission (4593.082792ms)
+✔ Equivalent scan backend preserves Unicode regex results and byte-identical saved compiler states (2246.537875ms)
+✔ SymPy savepoints preserve completed rounding frontiers and reject incompatible or corrupt state (2228.089625ms)
+✔ SymPy string substitution factors and simplifies each step with isolated IEEE branch proofs (627.363625ms)
+✔ SymPy checkpoint working string is re-read and matches a freshly captured coordinate reference (6148.265167ms)
+✖ SymPy elementary conversion strings preserve native IEEE cells and composed boundaries (14453.752875ms)
+✔ Bounded SiLU arithmetic lowering matches every certified Half scalar and vector input (4002.731125ms)
+✔ Positive F32 square-root word lowering preserves all mantissas, parities and subnormals (930.272916ms)
+✖ IEEE sign projections preserve signed zero and reduce completed down-conversion strings (9476.53625ms)
+✖ Budgeted coordinate continuation persists actual producers and rejects incompatible saved dimensions (16092.483958ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 12
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 108085.186542
+
+✖ failing tests:
+
+test at dist/test/direct-sympy-strings.test.js:76:1
+✖ SymPy elementary conversion strings preserve native IEEE cells and composed boundaries (14453.752875ms)
+  Error: Command failed: /private/tmp/llm-inner-pytorch/bin/python helpers/direct_sympy_conversions_test.py
+  .........F........................
+  ======================================================================
+  FAIL: test_completed_rounding_frontiers_synchronize_inside_activation (__main__.ConversionStringTests)
+  ----------------------------------------------------------------------
+  Traceback (most recent call last):
+    File "/Users/caleul/.local/share/uv/python/cpython-3.10.13-macos-aarch64-none/lib/python3.10/unittest/mock.py", line 1379, in patched
+      return func(*newargs, **newkeywargs)
+    File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_conversions_test.py", line 338, in test_completed_rounding_frontiers_synchronize_inside_activation
+      self.assertLess(len(result),len(baseline))
+  AssertionError: 2428 not less than 2428
+
+  ----------------------------------------------------------------------
+  Ran 34 tests in 14.162s
+
+  FAILED (failures=1)
+
+      at genericNodeError (node:internal/errors:985:15)
+      at wrappedFn (node:internal/errors:539:14)
+      at ChildProcess.exithandler (node:child_process:417:12)
+      at ChildProcess.emit (node:events:508:28)
+      at maybeClose (node:internal/child_process:1101:16)
+      at ChildProcess._handle.onexit (node:internal/child_process:305:5) {
+    code: 1,
+    killed: false,
+    signal: null,
+    cmd: '/private/tmp/llm-inner-pytorch/bin/python helpers/direct_sympy_conversions_test.py',
+    stdout: 'Exact subnormal-grid certificates: F32=16777216 F16=2048 mismatches=0\nExact Half-grid tandem certificate: cases=67108866 mismatches=0\nActual string IEEE certificate: F32=100679708 F16=206870 composed=559086 prunedF32=100663300 prunedF16=3072 mismatches=0; tandem=559130; typedPairs=507904\nScoped Half update parity: cases=32770 mismatches=0\nExact branch facts native parity: cases=196608 mismatches=0\nCertified frontier composition parity: cases=147472 mismatches=0 characters=2643->1840\nHalf normalization factor barrier: cases=126972 mismatches=0 unsafeRewrites=15421\nScoped conversion parity: cases=30722 mismatches=0\nF32 normal-cell certificate: sqrt=2139095040 reciprocals=4219469826 mismatches=0 ties=0\nHalf cell dependency parity: cases=327680 mismatches=0\nNative Half squares: 63488, mismatches=0\\n\nInteger offset tandem parity: cases=1152322 mismatches=0 integerCastLoss=0\nLiteral math native certificate: cases=7 mismatches=0\nCompact envelope selector parity: cases=507904 mismatches=0\nSynchronized sibling native parity: cases=131072 mismatches=0\nPositive-factor sign parity: cases=507904 mismatches=0\nTwo-Half-square F32 certificate: pairs=503856640 mismatches=0 oddTies=0 evenTies=13918556\nWord identity comparisons: 16048, mismatches=0\n',
+    stderr: '.........F........................\n======================================================================\nFAIL: test_completed_rounding_frontiers_synchronize_inside_activation (__main__.ConversionStringTests)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File "/Users/caleul/.local/share/uv/python/cpython-3.10.13-macos-aarch64-none/lib/python3.10/unittest/mock.py", line 1379, in patched\n    return func(*newargs, **newkeywargs)\n  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_conversions_test.py", line 338, in test_completed_rounding_frontiers_synchronize_inside_activation\n    self.assertLess(len(result),len(baseline))\nAssertionError: 2428 not less than 2428\n\n----------------------------------------------------------------------\nRan 34 tests in 14.162s\n\nFAILED (failures=1)\n'
+  }
+
+test at dist/test/direct-sympy-strings.test.js:110:1
+✖ IEEE sign projections preserve signed zero and reduce completed down-conversion strings (9476.53625ms)
+  Error: Command failed: /private/tmp/llm-inner-pytorch/bin/python helpers/direct_sympy_rms_guard_test.py
+  .E
+  ======================================================================
+  ERROR: test_resume_rebuilds_rms_certificate_without_reusing_stale_guard_context (__main__.RmsGuardTests)
+  ----------------------------------------------------------------------
+  Traceback (most recent call last):
+    File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_rms_guard_test.py", line 33, in test_resume_rebuilds_rms_certificate_without_reusing_stale_guard_context
+      self.assertEqual(store.restore(resumed),2)
+    File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_savepoints.py", line 226, in restore
+      if not is_signed_zero(sign_node,known):raise ValueError('Saved sign projection is not a signed-zero expression')
+  ValueError: Saved sign projection is not a signed-zero expression
+
+  ----------------------------------------------------------------------
+  Ran 2 tests in 1.274s
+
+  FAILED (errors=1)
+
+      at genericNodeError (node:internal/errors:985:15)
+      at wrappedFn (node:internal/errors:539:14)
+      at ChildProcess.exithandler (node:child_process:417:12)
+      at ChildProcess.emit (node:events:508:28)
+      at maybeClose (node:internal/child_process:1101:16)
+      at ChildProcess._handle.onexit (node:internal/child_process:305:5) {
+    code: 1,
+    killed: false,
+    signal: null,
+    cmd: '/private/tmp/llm-inner-pytorch/bin/python helpers/direct_sympy_rms_guard_test.py',
+    stdout: 'RMS guard boundary parity: cases=634876 mismatches=0 guardDisagreements=39576\n',
+    stderr: `.E\n======================================================================\nERROR: test_resume_rebuilds_rms_certificate_without_reusing_stale_guard_context (__main__.RmsGuardTests)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_rms_guard_test.py", line 33, in test_resume_rebuilds_rms_certificate_without_reusing_stale_guard_context\n    self.assertEqual(store.restore(resumed),2)\n  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_savepoints.py", line 226, in restore\n    if not is_signed_zero(sign_node,known):raise ValueError('Saved sign projection is not a signed-zero expression')\nValueError: Saved sign projection is not a signed-zero expression\n\n----------------------------------------------------------------------\nRan 2 tests in 1.274s\n\nFAILED (errors=1)\n`
+  }
+
+test at dist/test/direct-sympy-strings.test.js:131:1
+✖ Budgeted coordinate continuation persists actual producers and rejects incompatible saved dimensions (16092.483958ms)
+  Error: Command failed: /private/tmp/llm-inner-pytorch/bin/python helpers/direct_sympy_checkpoint_run_test.py
+  sF
+  ======================================================================
+  FAIL: test_real_checkpoint_continues_after_budget_stop_and_rejects_changed_dimension (__main__.CheckpointRunTests)
+  ----------------------------------------------------------------------
+  Traceback (most recent call last):
+    File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint_run_test.py", line 55, in test_real_checkpoint_continues_after_budget_stop_and_rejects_changed_dimension
+      self.assertTrue(resumed['resumeCompatible'])
+  AssertionError: False is not true
+
+  ----------------------------------------------------------------------
+  Ran 2 tests in 16.057s
+
+  FAILED (failures=1, skipped=1)
+
+      at genericNodeError (node:internal/errors:985:15)
+      at wrappedFn (node:internal/errors:539:14)
+      at ChildProcess.exithandler (node:child_process:417:12)
+      at ChildProcess.emit (node:events:508:28)
+      at maybeClose (node:internal/child_process:1101:16)
+      at ChildProcess._handle.onexit (node:internal/child_process:305:5) {
+    code: 1,
+    killed: false,
+    signal: null,
+    cmd: '/private/tmp/llm-inner-pytorch/bin/python helpers/direct_sympy_checkpoint_run_test.py',
+    stdout: '',
+    stderr: `sF\n======================================================================\nFAIL: test_real_checkpoint_continues_after_budget_stop_and_rejects_changed_dimension (__main__.CheckpointRunTests)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint_run_test.py", line 55, in test_real_checkpoint_continues_after_budget_stop_and_rejects_changed_dimension\n    self.assertTrue(resumed['resumeCompatible'])\nAssertionError: False is not true\n\n----------------------------------------------------------------------\nRan 2 tests in 16.057s\n\nFAILED (failures=1, skipped=1)\n`
+  }
