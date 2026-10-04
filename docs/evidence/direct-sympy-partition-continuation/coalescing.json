@@ -1,0 +1,102 @@
+{
+  "completeRegions": 14,
+  "coalescedRectangles": 5,
+  "distinctExpressions": 4,
+  "copiedBodyCharacters": 6035807,
+  "sharedBodyCharacters": 1076897,
+  "coveredInputPatterns": 178115584,
+  "unfinishedInputPatterns": 3852610560,
+  "finalArtifactEmitted": false,
+  "finalParity": false,
+  "rectangles": [
+    {
+      "sha256": "f88383c8ce2cd9f5a47f9169d8570120680429afbf291da3684aea70a2f24290",
+      "domains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "leaves": [
+        "000000"
+      ]
+    },
+    {
+      "sha256": "da7e5dbc78eca35f19eb04f1e3a5ccc7b8706687a5ee8021fe3fe006ee40fc60",
+      "domains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -23807,
+          -19840
+        ]
+      },
+      "leaves": [
+        "0000010"
+      ]
+    },
+    {
+      "sha256": "ff2f96f1e6c26f0f4aa582421c6f161379bed6841555fc3314bfd05832025b72",
+      "domains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -19839,
+          -15872
+        ]
+      },
+      "leaves": [
+        "0000011"
+      ]
+    },
+    {
+      "sha256": "da7e5dbc78eca35f19eb04f1e3a5ccc7b8706687a5ee8021fe3fe006ee40fc60",
+      "domains": {
+        "X1": [
+          -23807,
+          -17422
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "leaves": [
+        "0000100",
+        "00001010",
+        "00001011000",
+        "000010110010",
+        "0000101100110"
+      ]
+    },
+    {
+      "sha256": "729cc5beb306d4c73ef96754c141fe122868cad88d852a57b59ec795c379360e",
+      "domains": {
+        "X1": [
+          -17421,
+          -17236
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "leaves": [
+        "00001011001110",
+        "00001011010000",
+        "00001011010010",
+        "00001011001111",
+        "00001011010001",
+        "00001011010011"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{"region": "0000100", "complete": true, "coveredInputPatterns": 157450240, "unfinishedInputPatterns": 3873275904, "attemptSeconds": 0.9087471659877338}
+{"region": "0000101", "complete": false, "coveredInputPatterns": 157450240, "unfinishedInputPatterns": 3873275904, "attemptSeconds": 2.2753477499936707}
+{"region": "00001010", "complete": true, "coveredInputPatterns": 173195264, "unfinishedInputPatterns": 3857530880, "attemptSeconds": 0.915294417005498}
+{"region": "00001011", "complete": false, "coveredInputPatterns": 173195264, "unfinishedInputPatterns": 3857530880, "attemptSeconds": 2.2641469159862027}
+{"region": "000010110", "complete": false, "coveredInputPatterns": 173195264, "unfinishedInputPatterns": 3857530880, "attemptSeconds": 5.929415999969933}
+{"region": "0000101100", "complete": false, "coveredInputPatterns": 173195264, "unfinishedInputPatterns": 3857530880, "attemptSeconds": 5.918554957956076}
+{"region": "00001011000", "complete": true, "coveredInputPatterns": 175163392, "unfinishedInputPatterns": 3855562752, "attemptSeconds": 0.9191051660454832}
+{"region": "00001011001", "complete": false, "coveredInputPatterns": 175163392, "unfinishedInputPatterns": 3855562752, "attemptSeconds": 5.9917175830341876}
+{"region": "000010110010", "complete": true, "coveredInputPatterns": 176147456, "unfinishedInputPatterns": 3854578688, "attemptSeconds": 0.96914800000377}
+{"region": "000010110011", "complete": false, "coveredInputPatterns": 176147456, "unfinishedInputPatterns": 3854578688, "attemptSeconds": 6.367351792054251}
+{"region": "0000101100110", "complete": true, "coveredInputPatterns": 176639488, "unfinishedInputPatterns": 3854086656, "attemptSeconds": 0.9364740840392187}
+{"region": "0000101100111", "complete": false, "coveredInputPatterns": 176639488, "unfinishedInputPatterns": 3854086656, "attemptSeconds": 5.9607581670279615}
+{"region": "00001011001110", "complete": true, "coveredInputPatterns": 176885504, "unfinishedInputPatterns": 3853840640, "attemptSeconds": 9.794711250055116}
+{"region": "00001011001111", "complete": true, "coveredInputPatterns": 177131520, "unfinishedInputPatterns": 3853594624, "attemptSeconds": 9.988251292030327}
+{"region": "0000101101", "complete": false, "coveredInputPatterns": 177131520, "unfinishedInputPatterns": 3853594624, "attemptSeconds": 6.31460512499325}
+{"region": "00001011010", "complete": false, "coveredInputPatterns": 177131520, "unfinishedInputPatterns": 3853594624, "attemptSeconds": 6.00179108401062}
+{"region": "000010110100", "complete": false, "coveredInputPatterns": 177131520, "unfinishedInputPatterns": 3853594624, "attemptSeconds": 6.098414832958952}
+{"region": "0000101101000", "complete": false, "coveredInputPatterns": 177131520, "unfinishedInputPatterns": 3853594624, "attemptSeconds": 6.070567000017036}
+{"region": "00001011010000", "complete": true, "coveredInputPatterns": 177377536, "unfinishedInputPatterns": 3853348608, "attemptSeconds": 10.19595487503102}
+{"region": "00001011010001", "complete": true, "coveredInputPatterns": 177623552, "unfinishedInputPatterns": 3853102592, "attemptSeconds": 10.040437999996357}
+{"region": "0000101101001", "complete": false, "coveredInputPatterns": 177623552, "unfinishedInputPatterns": 3853102592, "attemptSeconds": 6.112204083998222}
+{"region": "00001011010010", "complete": true, "coveredInputPatterns": 177869568, "unfinishedInputPatterns": 3852856576, "attemptSeconds": 10.27373366698157}
+{"region": "00001011010011", "complete": true, "coveredInputPatterns": 178115584, "unfinishedInputPatterns": 3852610560, "attemptSeconds": 9.930434665991925}
+{"region": "000010110101", "complete": false, "coveredInputPatterns": 178115584, "unfinishedInputPatterns": 3852610560, "attemptSeconds": 5.945105249993503}
+      155.70 real       149.85 user         4.26 sys
+           590299136  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+              673040  page reclaims
+                3275  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                2419  voluntary context switches
+               62075  involuntary context switches
+          8823913061  instructions retired
+          3484558351  cycles elapsed
+           177390312  peak memory footprint

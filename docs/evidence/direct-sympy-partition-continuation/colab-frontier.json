@@ -1,0 +1,669 @@
+{
+  "attempts": [
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          -31743,
+          31743
+        ],
+        "X2": [
+          -31743,
+          31743
+        ]
+      },
+      "region": "",
+      "seconds": 12.031914771000174,
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          -31743,
+          0
+        ],
+        "X2": [
+          -31743,
+          31743
+        ]
+      },
+      "region": "0",
+      "seconds": 12.031423718999804,
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          -31743,
+          0
+        ],
+        "X2": [
+          -31743,
+          0
+        ]
+      },
+      "region": "00",
+      "seconds": 12.032778407000023,
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          -31743,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          0
+        ]
+      },
+      "region": "000",
+      "seconds": 12.032876790000046,
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          -31743,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          -15872
+        ]
+      },
+      "region": "0000",
+      "seconds": 12.03194215099984,
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -31743,
+          -15872
+        ]
+      },
+      "region": "00000",
+      "seconds": 12.032617903000073,
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "artifact": {
+        "characters": 27632,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "/content/llm-inner-input-partitions/state/region-5606ace4cdcf8cdbfad9a4e02b59b365e7dd64b2283bcef76dd57e8552e5a8b0.expr",
+        "paths": 2,
+        "sha256": "f88383c8ce2cd9f5a47f9169d8570120680429afbf291da3684aea70a2f24290"
+      },
+      "complete": true,
+      "elidedUpdates": 4,
+      "inputDomains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "logicalCharacters": 22152,
+      "paths": {
+        "CASPasses": 41,
+        "completedPaths": 2,
+        "contradictions": 0,
+        "lastArm": {
+          "bodyCharacters": 5535,
+          "decisions": 1,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 2612,
+              "storedCharacters": 2610
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 2700,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 2,
+              "expandedCharacters": 2700,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 3,
+              "expandedCharacters": 5535,
+              "storedCharacters": 163
+            }
+          ],
+          "guardCharacters": 5511
+        },
+        "selectorSelections": 2,
+        "splitContexts": 1
+      },
+      "producers": 9,
+      "region": "000000",
+      "seconds": 1.4607220160000907,
+      "storedCharacters": 3482,
+      "workerSeconds": 3.7304705630001536
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -23807,
+          -15872
+        ]
+      },
+      "region": "000001",
+      "seconds": 12.033759786000019,
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "artifact": {
+        "characters": 28282,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "/content/llm-inner-input-partitions/state/region-396b6f4777916f6536cc0abef2e33121ba90904d162d6f46fb7df5e3120d77e8.expr",
+        "paths": 2,
+        "sha256": "da7e5dbc78eca35f19eb04f1e3a5ccc7b8706687a5ee8021fe3fe006ee40fc60"
+      },
+      "complete": true,
+      "elidedUpdates": 4,
+      "inputDomains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -23807,
+          -19840
+        ]
+      },
+      "logicalCharacters": 22672,
+      "paths": {
+        "CASPasses": 41,
+        "completedPaths": 2,
+        "contradictions": 0,
+        "lastArm": {
+          "bodyCharacters": 5665,
+          "decisions": 1,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 2677,
+              "storedCharacters": 2675
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 2765,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 2,
+              "expandedCharacters": 2765,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 3,
+              "expandedCharacters": 5665,
+              "storedCharacters": 163
+            }
+          ],
+          "guardCharacters": 5641
+        },
+        "selectorSelections": 2,
+        "splitContexts": 1
+      },
+      "producers": 9,
+      "region": "0000010",
+      "seconds": 1.3970334210000601,
+      "storedCharacters": 3547,
+      "workerSeconds": 3.658000255999923
+    },
+    {
+      "artifact": {
+        "characters": 57483,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "/content/llm-inner-input-partitions/state/region-f94ec4d391cfd9a8076378fd2c53c33671b9a44de47325c64de458c50c911e59.expr",
+        "paths": 4,
+        "sha256": "ff2f96f1e6c26f0f4aa582421c6f161379bed6841555fc3314bfd05832025b72"
+      },
+      "complete": true,
+      "elidedUpdates": 2,
+      "inputDomains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -19839,
+          -15872
+        ]
+      },
+      "logicalCharacters": 34656,
+      "paths": {
+        "CASPasses": 84,
+        "completedPaths": 4,
+        "contradictions": 0,
+        "lastArm": {
+          "bodyCharacters": 5665,
+          "decisions": 2,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 2677,
+              "storedCharacters": 2675
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 2765,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 2,
+              "expandedCharacters": 2765,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 12,
+              "expandedCharacters": 5665,
+              "storedCharacters": 163
+            }
+          ],
+          "guardCharacters": 5751
+        },
+        "selectorSelections": 10,
+        "splitContexts": 3
+      },
+      "producers": 25,
+      "region": "0000011",
+      "seconds": 7.244746869999972,
+      "storedCharacters": 11087,
+      "workerSeconds": 9.558957146000012
+    },
+    {
+      "complete": false,
+      "inputDomains": {
+        "X1": [
+          -23807,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          -15872
+        ]
+      },
+      "region": "00001",
+      "seconds": 12.033895664000056,
+      "stop": "Region worker wall-clock budget exceeded"
+    },
+    {
+      "complete": false,
+      "elidedUpdates": 3,
+      "inputDomains": {
+        "X1": [
+          -23807,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "logicalCharacters": 44617568,
+      "producers": 17,
+      "region": "000010",
+      "seconds": 5.660776498000132,
+      "stop": "Flat artifact budget exceeded; no complete result",
+      "storedCharacters": 11654,
+      "workerSeconds": 7.962071465000008
+    }
+  ],
+  "coveredInputPatterns": 125960192,
+  "finalArtifactEmitted": false,
+  "finalParity": false,
+  "identity": {
+    "byteOrder": "little",
+    "checkpoint": {
+      "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+      "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+    },
+    "dimension": 2,
+    "platform": "Linux-6.6.122+-x86_64-with-glibc2.39",
+    "position": 0,
+    "python": "3.13.15 (main, Aug  6 2026, 11:06:22) [GCC 13.3.0]",
+    "referenceBackend": {
+      "capability": "AVX512",
+      "gitVersion": "70d99e998b4955e0049d13a98d77ae1b14db1f45",
+      "name": "torch CPU",
+      "version": "2.11.0+cu130"
+    },
+    "sources": {
+      "direct_sympy_arithmetic.py": "ef0f8d1f9569724af2d3ddadc82ced3d004b7e61011fe78bd67633b737645040",
+      "direct_sympy_checkpoint.py": "988da636417d9e8812f78eefb8f6636a195537715f84e8b8300f72aa8235a2a9",
+      "direct_sympy_coherent_paths.py": "625cefcf4e58c39564d2a11b38da4992d3e25bca53a0219b7109ac73fc70a259",
+      "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+      "direct_sympy_conversions.py": "dc522691598596fbce44273c1a117fc3c55490bc82b58b6abfd7893851ca2d50",
+      "direct_sympy_input_partitions.py": "d0001b039ed49826ffb98e3c9f890bb345ebfec779a7369a4426da119eb54c88",
+      "direct_sympy_layer_bounds.py": "2f8d73caf53371f4bba44a605a91098580f5dcaf90b292c135830d862513dcff",
+      "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+      "direct_sympy_partition_run.py": "ec5da242a36b1a9f24e0c7c45a4b3e961cace8b1d96e6700da61e45e01368b41",
+      "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+      "direct_sympy_savepoints.py": "3c3433d3467e95dca2de4b1fe0b3b9ae7f60cb0ef4d1eb209be79e724cfb937d",
+      "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+      "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+      "direct_sympy_silu.py": "0f4d9a7a17c38bc0ba8d8f7a28bbcfcc66ebe95c578e44b5a1f30a7d9c2affd8",
+      "direct_sympy_sqrt.py": "1bb02cbacdcd74c1db5cd0eb8829788d4f8a7159c4bbbac458fd8197bddb179e",
+      "direct_sympy_streaming_literals.py": "8f8b9d25c319e16be48cd97e45664f22770b122a8b2da1ceb98b0b74c5000177",
+      "direct_sympy_strings.py": "1d1b63ceb148730188bf2da922e402dc16531cf643df0dfcdd43cb0218085eb2",
+      "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+      "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+      "direct_sympy_words.py": "2377908fd2d5553a3c9a7e52d2f01a104877a62f3bd4fdc43cfeaf9d492987c5"
+    },
+    "sympy": "1.14.0",
+    "version": 1
+  },
+  "root": {
+    "X1": [
+      -31743,
+      31743
+    ],
+    "X2": [
+      -31743,
+      31743
+    ]
+  },
+  "runSeconds": 121.26806240199994,
+  "totalInputPatterns": 4030726144,
+  "tree": {
+    "": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -31743,
+          31743
+        ],
+        "X2": [
+          -31743,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "0": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          0
+        ],
+        "X2": [
+          -31743,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "00": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -31743,
+          0
+        ],
+        "X2": [
+          -31743,
+          0
+        ]
+      },
+      "status": "split"
+    },
+    "000": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          0
+        ]
+      },
+      "status": "split"
+    },
+    "0000": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -31743,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          -15872
+        ]
+      },
+      "status": "split"
+    },
+    "00000": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -31743,
+          -15872
+        ]
+      },
+      "status": "split"
+    },
+    "000000": {
+      "artifact": {
+        "characters": 27632,
+        "file": "region-5606ace4cdcf8cdbfad9a4e02b59b365e7dd64b2283bcef76dd57e8552e5a8b0.expr",
+        "sha256": "f88383c8ce2cd9f5a47f9169d8570120680429afbf291da3684aea70a2f24290"
+      },
+      "domains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "complete"
+    },
+    "000001": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -23807,
+          -15872
+        ]
+      },
+      "status": "split"
+    },
+    "0000010": {
+      "artifact": {
+        "characters": 28282,
+        "file": "region-396b6f4777916f6536cc0abef2e33121ba90904d162d6f46fb7df5e3120d77e8.expr",
+        "sha256": "da7e5dbc78eca35f19eb04f1e3a5ccc7b8706687a5ee8021fe3fe006ee40fc60"
+      },
+      "domains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -23807,
+          -19840
+        ]
+      },
+      "status": "complete"
+    },
+    "0000011": {
+      "artifact": {
+        "characters": 57483,
+        "file": "region-f94ec4d391cfd9a8076378fd2c53c33671b9a44de47325c64de458c50c911e59.expr",
+        "sha256": "ff2f96f1e6c26f0f4aa582421c6f161379bed6841555fc3314bfd05832025b72"
+      },
+      "domains": {
+        "X1": [
+          -31743,
+          -23808
+        ],
+        "X2": [
+          -19839,
+          -15872
+        ]
+      },
+      "status": "complete"
+    },
+    "00001": {
+      "axis": "X2",
+      "domains": {
+        "X1": [
+          -23807,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          -15872
+        ]
+      },
+      "status": "split"
+    },
+    "000010": {
+      "axis": "X1",
+      "domains": {
+        "X1": [
+          -23807,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "split"
+    },
+    "0000100": {
+      "domains": {
+        "X1": [
+          -23807,
+          -19840
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "0000101": {
+      "domains": {
+        "X1": [
+          -19839,
+          -15872
+        ],
+        "X2": [
+          -31743,
+          -23808
+        ]
+      },
+      "status": "pending"
+    },
+    "000011": {
+      "domains": {
+        "X1": [
+          -23807,
+          -15872
+        ],
+        "X2": [
+          -23807,
+          -15872
+        ]
+      },
+      "status": "pending"
+    },
+    "0001": {
+      "domains": {
+        "X1": [
+          -31743,
+          -15872
+        ],
+        "X2": [
+          -15871,
+          0
+        ]
+      },
+      "status": "pending"
+    },
+    "001": {
+      "domains": {
+        "X1": [
+          -15871,
+          0
+        ],
+        "X2": [
+          -31743,
+          0
+        ]
+      },
+      "status": "pending"
+    },
+    "01": {
+      "domains": {
+        "X1": [
+          -31743,
+          0
+        ],
+        "X2": [
+          1,
+          31743
+        ]
+      },
+      "status": "pending"
+    },
+    "1": {
+      "domains": {
+        "X1": [
+          1,
+          31743
+        ],
+        "X2": [
+          -31743,
+          31743
+        ]
+      },
+      "status": "pending"
+    }
+  },
+  "unfinishedInputPatterns": 3904765952
+}

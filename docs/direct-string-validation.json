@@ -10511,5 +10511,28 @@
       "Variable-length last-token semantics",
       "All output coordinates and Colab performance comparison"
     ]
+  },
+  "completedBodyCoalescingValidation": {
+    "report": "docs/evidence/direct-sympy-partition-continuation/validation.json",
+    "testMap": {
+      "helpers/direct_sympy_partition_coalesce_test.py": "Three tests: identical-body exact domain union; 126976 native comparisons; signed zeros, nonadjacent regions and lazy guards; pending/corrupt/budgeted emission cannot overwrite output.",
+      "helpers/direct_sympy_region_parity.py": "Actual strings from 14 complete regions: 3640 fresh-checkpoint comparisons, zero mismatches; position zero, one token, dimension two only.",
+      "test/direct-sympy-strings.test.ts": "18 named integrations passed with no failure or skip; final protected numeric-guard change additionally passed the focused integration."
+    },
+    "coveredInputPatterns": 178115584,
+    "totalInputPatterns": 4030726144,
+    "distinctCompletedExpressions": 4,
+    "coalescedRectangles": 5,
+    "copiedBodyCharacters": 6035807,
+    "uniqueBodyCharacters": 1076897,
+    "finalArtifactEmitted": false,
+    "finalParity": false,
+    "remaining": [
+      "Reduce numerical dependency expansion in pending regions",
+      "Emit and verify entire input-domain coordinate",
+      "Variable-length last-token semantics",
+      "All output coordinates",
+      "Controlled sequential/parallel Colab comparison"
+    ]
   }
 }

@@ -1,0 +1,53 @@
+{
+  "state": "COMPLETED",
+  "runs": [
+    {
+      "name": "dependencies",
+      "exitCode": 0,
+      "seconds": 2.6334125060000133
+    },
+    {
+      "name": "cuda-numerics",
+      "exitCode": 0,
+      "seconds": 5.689888604000089
+    },
+    {
+      "name": "input_partitions-tests",
+      "exitCode": 0,
+      "seconds": 16.41522190899991
+    },
+    {
+      "name": "parallel-tests",
+      "exitCode": 0,
+      "seconds": 13.561711889000208
+    },
+    {
+      "name": "initial-partitions",
+      "exitCode": 1,
+      "seconds": 123.499851003
+    },
+    {
+      "name": "native-parity",
+      "exitCode": 0,
+      "seconds": 8.851095406000013
+    }
+  ],
+  "fullCoordinateParity": false,
+  "runtime": {
+    "torch": "2.11.0+cu130",
+    "sympy": "1.14.0",
+    "cpuCount": 12,
+    "ramBytes": 89629196288,
+    "cuda": "13.0",
+    "cudaAvailable": true,
+    "device": "NVIDIA A100-SXM4-40GB",
+    "clang": "/usr/bin/clang++"
+  },
+  "coverage": {
+    "coveredInputPatterns": 125960192,
+    "unfinishedInputPatterns": 3904765952,
+    "totalInputPatterns": 4030726144,
+    "finalArtifactEmitted": false,
+    "finalParity": false
+  }
+}

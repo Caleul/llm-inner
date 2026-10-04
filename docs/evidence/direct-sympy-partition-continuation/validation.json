@@ -1,0 +1,59 @@
+{
+  "scope": "Adaptive input-domain compilation of position 0, dimension 2; not complete last-token or full-vector compilation.",
+  "coalescing": {
+    "completeRegions": 14,
+    "coalescedRectangles": 5,
+    "distinctExpressions": 4,
+    "copiedBodyCharacters": 6035807,
+    "sharedBodyCharacters": 1076897,
+    "coveredInputPatterns": 178115584,
+    "unfinishedInputPatterns": 3852610560,
+    "finalArtifactEmitted": false,
+    "finalParity": false
+  },
+  "localContinuation": {
+    "attemptsCumulative": 36,
+    "attemptsThisRun": 24,
+    "wallSeconds": 154.5422225,
+    "maxRSSBytes": 590299136,
+    "memoryScope": "time -l process maximum; not sampled simultaneous aggregate worker RSS"
+  },
+  "nativeRegionParity": {
+    "regions": 14,
+    "cases": 3640,
+    "mismatches": 0
+  },
+  "tests": {
+    "build": "passed",
+    "namedIntegrationGate": {
+      "passed": 18,
+      "failed": 0,
+      "skipped": 0,
+      "log": "integration-tests.log"
+    },
+    "finalFocusedIntegration": {
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "log": "final-coalescing-integration.log"
+    },
+    "coalescingPythonTests": 3,
+    "coalescingNativeCases": 126976
+  },
+  "colab": {
+    "completedEvidence": "colab-job.json",
+    "initialFailure": "clang++ unavailable; repaired through Access Broker, original failure retained",
+    "fullCoordinateParity": false,
+    "sameSessionComparison": "not dispatched to a verified live job; session absent at readback on 2026-10-04; no active sessions reported by official CLI"
+  },
+  "stateCompatibility": "Existing producer/partition compiler sources unchanged. Standalone coalescer checks saved source hashes and completed artifact hashes before use; final emission also requires reference checkpoint identity and complete root coverage.",
+  "finalArtifactEmitted": false,
+  "finalParity": false,
+  "remaining": [
+    "Reduce numerical dependency expansion in pending regions",
+    "Emit and verify entire input-domain coordinate",
+    "Variable-length last-token semantics",
+    "All output coordinates",
+    "Controlled sequential/parallel Colab comparison"
+  ]
+}

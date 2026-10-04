@@ -1,0 +1,22 @@
+{
+  "state": "FAILED",
+  "runs": [
+    {
+      "name": "dependencies",
+      "exitCode": 0,
+      "seconds": 12.66284753399998
+    }
+  ],
+  "fullCoordinateParity": false,
+  "runtime": {
+    "torch": "2.11.0+cu130",
+    "sympy": "1.14.0",
+    "cpuCount": 12,
+    "ramBytes": 89629196288,
+    "cuda": "13.0",
+    "cudaAvailable": true,
+    "device": "NVIDIA A100-SXM4-40GB",
+    "clang": null
+  },
+  "error": "Native parity compiler unavailable"
+}

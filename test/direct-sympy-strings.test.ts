@@ -167,6 +167,14 @@ test('Disjoint input partitions preserve complete Half coverage and emitted coor
     assert.match(stdout,/Emitted full region coordinate: cases=576 mismatches=0 characters=28282 position=0 dimension=2 fullInputCoverage=false/);
   });
 
+test('Identical emitted coordinate bodies coalesce without losing coverage, signed zeros or lazy guards',
+  {skip:!python},async()=>{
+    const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_partition_coalesce_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 3 tests/);
+    assert.match(stderr,/OK/);
+    assert.match(stdout,/Coalesced native parity: cases=126976 mismatches=0/);
+  });
+
 test('Budgeted coordinate continuation persists actual producers and rejects incompatible saved dimensions',
   {skip:!python || !process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_checkpoint_run_test.py'],{timeout:120_000,maxBuffer:1024*1024});
