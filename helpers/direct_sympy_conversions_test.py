@@ -309,7 +309,9 @@ std::printf("Integer offset tandem parity: cases=%u mismatches=%u integerCastLos
         compiler=StringCompiler();session=ConversionSession(compiler,domains,input_dtype='f16')
         producer=session.close('R32(1.0/(1.0+X1**2))')
         compiler.register_completed_region(producer,domains,word_closed=True)
-        result=session.close(f'R16(R32(({producer})*X2)) + R16(R32(({producer})*X2))')
+        # A nonlinear consumer keeps distinct selector occurrences alive:
+        # exact linear factoring may legitimately remove A+A before sync.
+        result=session.close(f'R16(R32(({producer})*X2)) * R16(R32(({producer})*X2))')
         self.assertEqual(result.count('Piecewise('),1)
         self.assertNotIn('CASNumericRegion',result)
         event=compiler.synchronization_events[-1]
@@ -318,7 +320,7 @@ std::printf("Integer offset tandem parity: cases=%u mismatches=%u integerCastLos
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);expression=root/'envelope.work.expr';expression.write_text(result+'\n')
             source=root/'envelope.cpp';binary=root/'envelope'
-            source.write_text('#include <cstdint>\n#include <cstring>\n#include <cmath>\n#include <cstdio>\n#include <initializer_list>\ntemplate<class T,class U>T word(U value){T result;std::memcpy(&result,&value,sizeof(result));return result;}\n'+'double compiled(double X1,double X2){return '+cpp(syntax(expression.read_text()))+';}\n'+'''int main(){unsigned cases=0,mismatches=0;for(unsigned b=0;b<65536;b++){if((b&0x7c00)==0x7c00)continue;double X1=word<_Float16>(uint16_t(b));for(uint16_t other:{uint16_t(0),uint16_t(0x8000),uint16_t(1),uint16_t(0x8001),uint16_t(0x3c00),uint16_t(0xbc00),uint16_t(0x7bff),uint16_t(0xfbff)}){double X2=word<_Float16>(other);double r=static_cast<_Float16>(float(double(float(1.0/(1.0+X1*X1)))*X2));mismatches+=word<uint64_t>(compiled(X1,X2))!=word<uint64_t>(r+r);cases++;}}std::printf("Compact envelope selector parity: cases=%u mismatches=%u\\n",cases,mismatches);return mismatches?1:0;}''')
+            source.write_text('#include <cstdint>\n#include <cstring>\n#include <cmath>\n#include <cstdio>\n#include <initializer_list>\ntemplate<class T,class U>T word(U value){T result;std::memcpy(&result,&value,sizeof(result));return result;}\n'+'double compiled(double X1,double X2){return '+cpp(syntax(expression.read_text()))+';}\n'+'''int main(){unsigned cases=0,mismatches=0;for(unsigned b=0;b<65536;b++){if((b&0x7c00)==0x7c00)continue;double X1=word<_Float16>(uint16_t(b));for(uint16_t other:{uint16_t(0),uint16_t(0x8000),uint16_t(1),uint16_t(0x8001),uint16_t(0x3c00),uint16_t(0xbc00),uint16_t(0x7bff),uint16_t(0xfbff)}){double X2=word<_Float16>(other);double r=static_cast<_Float16>(float(double(float(1.0/(1.0+X1*X1)))*X2));mismatches+=word<uint64_t>(compiled(X1,X2))!=word<uint64_t>(r*r);cases++;}}std::printf("Compact envelope selector parity: cases=%u mismatches=%u\\n",cases,mismatches);return mismatches?1:0;}''')
             build=subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],capture_output=True,text=True)
             self.assertEqual(build.returncode,0,build.stderr)
             run=subprocess.run([str(binary)],capture_output=True,text=True,timeout=120)
@@ -395,7 +397,7 @@ std::printf("Integer offset tandem parity: cases=%u mismatches=%u integerCastLos
         # Deliberately retain the old opaque frontier to exercise explicit
         # whole-root proof transfer; normal closure now synchronizes it early.
         with patch.object(session,'selector_views',return_value={}):
-            original=session.close('R16(R32(('+first+')+('+first+')))')
+            original=session.close('R16(R32(('+first+')*('+first+')))')
         replacement=compiler.synchronize(original,domains)
         self.assertNotEqual(original,replacement)
         before=len(session.half_values);bounds=session.bounds(syntax(original))

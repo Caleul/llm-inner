@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from direct_sympy_arithmetic import factor_certified,simplify_arithmetic
+from direct_sympy_arithmetic import factor_certified,simplify_arithmetic,linear_zero_signs_agree
 from direct_sympy_conversions import ConversionSession,FiniteSource
 from direct_sympy_conversions_test import cpp
 from direct_sympy_strings import Domain,StringCompiler,syntax
@@ -93,7 +93,9 @@ class ExactFactorTests(unittest.TestCase):
         session,key=self.session()
         expression='3.0*CompileValue0() + 7.0*CompileValue0()'
         session.no_negative_zero_values.clear()
-        self.assertEqual(factor_certified(expression,session),expression)
+        self.assertNotEqual(factor_certified(expression,session),expression)
+        self.assertEqual(factor_certified('3.0*CompileValue0() - 7.0*CompileValue0()',session),
+            '3.0*CompileValue0() - 7.0*CompileValue0()')
         session.no_negative_zero_values.add(key)
         for bound in [FiniteSource(-1e20,1e20,0),FiniteSource(-1,1,None)]:
             session.completed[key]=bound
@@ -107,6 +109,36 @@ class ExactFactorTests(unittest.TestCase):
             self.assertEqual(factor_certified(text,session),text)
         session.completed.pop(key)
         self.assertEqual(factor_certified(expression,session),expression)
+
+    def test_homogeneous_linear_factoring_proves_both_zero_signs_and_rejects_cancellation(self):
+        session,_=self.session();session.no_negative_zero_values.clear()
+        x='CompileValue0()'
+        sources=[f'3.0*{x}+7.0*{x}',f'-3.0*{x}-7.0*{x}',
+            f'{x}/2.0+{x}/4.0',f'3.0*(2.0*{x})+7.0*(2.0*{x})']
+        results=[factor_certified(text,session) for text in sources]
+        for before,after in zip(sources,results):
+            self.assertNotEqual(before,after)
+            self.assertEqual(after.count(x),1)
+            self.assertEqual(factor_certified(after,session),after)
+        for text in [f'3.0*{x}-7.0*{x}',f'{x}-{x}',f'{x}*{x}+{x}*{x}']:
+            self.assertEqual(factor_certified(text,session),text)
+        for before,after in [('3*A+7*A+1','10*A+1'),('A*A+A*A','2*A*A'),
+            ('A+B+A+B','2*A+2*B'),('A-A','0')]:
+            self.assertFalse(linear_zero_signs_agree(syntax(before),syntax(after),{'A':syntax('X1')}))
+        # Restore the actual input, retaining its sign instead of adding +0.
+        functions='\n'.join(f'double before{i}(double X1){{return '+cpp(syntax(a.replace(x,'X1')))+';}\n'+
+            f'double after{i}(double X1){{return '+cpp(syntax(b.replace(x,'X1')))+';}'
+            for i,(a,b) in enumerate(zip(sources,results)))
+        checks=''.join(f'mismatches+=word<uint64_t>(before{i}(x))!=word<uint64_t>(after{i}(x));cases++;' for i in range(len(results)))
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);source=root/'zero.cpp';binary=root/'zero'
+            source.write_text('#include <cstdint>\n#include <cstring>\n#include <cstdio>\n#include <cfenv>\n'+
+                'template<class T,class U>T word(U x){T y;std::memcpy(&y,&x,sizeof(y));return y;}\n'+functions+
+                '\nint main(){if(std::fesetround(FE_TONEAREST))return 2;unsigned cases=0,mismatches=0;for(unsigned bits=0;bits<65536;bits++){if((bits&0x7c00)==0x7c00)continue;double x=word<_Float16>(uint16_t(bits));if(x < -1 || x > 1)continue;'+checks+
+                '}std::printf("Linear signed-zero factoring: cases=%u mismatches=%u\\n",cases,mismatches);return mismatches?1:0;}')
+            subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],check=True,capture_output=True,text=True)
+            run=subprocess.run([str(binary)],check=True,capture_output=True,text=True)
+            self.assertIn('cases=122888 mismatches=0',run.stdout);print(run.stdout,end='')
 
     def test_narrow_path_proofs_never_escape_to_sibling_or_original_session(self):
         session,key=self.session()

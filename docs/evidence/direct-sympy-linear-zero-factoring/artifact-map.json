@@ -1,0 +1,82 @@
+[
+  {
+    "file": "coordinate-region.expr",
+    "sha256": "542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810",
+    "characters": 32224,
+    "domains": {
+      "X1": [
+        -16181,
+        -16120
+      ],
+      "X2": [
+        -27775,
+        -23808
+      ]
+    },
+    "patterns": 246016
+  },
+  {
+    "file": "large-region-0.expr",
+    "sha256": "6d5c6e41f5609d70af5238651070d862243bbead4844f1e790a7d9c73121c303",
+    "characters": 17552,
+    "domains": {
+      "X1": [
+        -31743,
+        -20480
+      ],
+      "X2": [
+        -31743,
+        -20480
+      ]
+    },
+    "patterns": 126877696
+  },
+  {
+    "file": "large-region-1.expr",
+    "sha256": "6d5c6e41f5609d70af5238651070d862243bbead4844f1e790a7d9c73121c303",
+    "characters": 17552,
+    "domains": {
+      "X1": [
+        20480,
+        31743
+      ],
+      "X2": [
+        20480,
+        31743
+      ]
+    },
+    "patterns": 126877696
+  },
+  {
+    "file": "large-region-2.expr",
+    "sha256": "6d5c6e41f5609d70af5238651070d862243bbead4844f1e790a7d9c73121c303",
+    "characters": 17552,
+    "domains": {
+      "X1": [
+        -31743,
+        -20480
+      ],
+      "X2": [
+        20480,
+        31743
+      ]
+    },
+    "patterns": 126877696
+  },
+  {
+    "file": "large-region-3.expr",
+    "sha256": "6d5c6e41f5609d70af5238651070d862243bbead4844f1e790a7d9c73121c303",
+    "characters": 17552,
+    "domains": {
+      "X1": [
+        20480,
+        31743
+      ],
+      "X2": [
+        -31743,
+        -20480
+      ]
+    },
+    "patterns": 126877696
+  }
+]

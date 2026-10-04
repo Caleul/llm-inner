@@ -9,6 +9,48 @@ import sympy
 from direct_sympy_strings import Domain,certificate,symbolic,syntax
 
 
+def linear_zero_signs_agree(original,candidate,leaves):
+    """Exact homogeneous one-variable islands can only vanish at input zero.
+
+    Caller proves all operations exact independently. A nonzero linear
+    coefficient excludes cancellation to zero at every nonzero input. The
+    two remaining IEEE cases are checked in original operation order, without
+    evaluating model inputs or assuming that real equality preserves -0.
+    """
+    if len(leaves)!=1:return False
+    name=next(iter(leaves));variable=sympy.Symbol(name,real=True)
+    try:
+        expressions=[symbolic(node) for node in (original,candidate)]
+        if any(expression.free_symbols!={variable} for expression in expressions):return False
+        polynomials=[sympy.Poly(expression,variable) for expression in expressions]
+        if polynomials[0]!=polynomials[1] or polynomials[0].degree()!=1 or polynomials[0].nth(0)!=0:return False
+    except (ValueError,sympy.PolynomialError):return False
+    def evaluate(node,zero):
+        if isinstance(node,ast.Name) and node.id==name:return zero
+        if isinstance(node,ast.Constant) and type(node.value) in (int,float):return float(node.value)
+        if isinstance(node,ast.UnaryOp):
+            value=evaluate(node.operand,zero)
+            if isinstance(node.op,ast.UAdd):return value
+            if isinstance(node.op,ast.USub):return -value
+        if isinstance(node,ast.BinOp):
+            a,b=evaluate(node.left,zero),evaluate(node.right,zero)
+            if isinstance(node.op,ast.Add):return a+b
+            if isinstance(node.op,ast.Sub):return a-b
+            if isinstance(node.op,ast.Mult):return a*b
+            if isinstance(node.op,ast.Div):return a/b
+            if isinstance(node.op,ast.Pow) and b.is_integer() and 0<=b<=8:
+                result=1.0
+                for _ in range(int(b)):result*=a
+                return result
+        raise ValueError('Unsupported zero-sign proof operation')
+    try:
+        for zero in (0.0,-0.0):
+            a,b=evaluate(original,zero),evaluate(candidate,zero)
+            if a!=0 or b!=0 or math.copysign(1,a)!=math.copysign(1,b):return False
+        return True
+    except (ValueError,ZeroDivisionError,OverflowError):return False
+
+
 def factor_certified(expression,session):
     """Factor exact F64 islands with scoped, compiler-only numerical atoms.
 
@@ -48,15 +90,17 @@ def factor_certified(expression,session):
     copies=occurrences(compact)
     if copies<=len(leaves):return expression
     original=certificate(compact,domains,'f64')
-    if original is None or not original.excludes_negative_zero:return expression
+    if original is None:return expression
     factored=sympy.factor(symbolic(compact))
     candidate=syntax(sympy.sstr(sympy.factor(sympy.simplify(factored))))
     replacement=certificate(candidate,domains,'f64')
-    if replacement is None or not replacement.excludes_negative_zero:return expression
+    if replacement is None:return expression
     # A shorter spelling of a coefficient can obscure later numerical
     # kernels and grow their closed output. This pass addresses duplication:
     # require fewer producer occurrences, not merely shorter resident text.
     if occurrences(candidate)>=copies:return expression
+    if not (original.excludes_negative_zero and replacement.excludes_negative_zero):
+        if not linear_zero_signs_agree(compact,candidate,leaves):return expression
 
     class Restore(ast.NodeTransformer):
         def visit_Name(self,node):return copy.deepcopy(leaves[node.id]) if node.id in leaves else node

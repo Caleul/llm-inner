@@ -1,0 +1,262 @@
+[
+  {
+    "complete": true,
+    "inputDomains": {
+      "X1": [
+        -31743,
+        -20480
+      ],
+      "X2": [
+        -31743,
+        -20480
+      ]
+    },
+    "producers": 9,
+    "elidedUpdates": 4,
+    "logicalCharacters": 14088,
+    "storedCharacters": 2474,
+    "artifact": {
+      "path": "docs/evidence/direct-sympy-linear-zero-factoring/large-region-0.expr",
+      "characters": 17552,
+      "sha256": "6d5c6e41f5609d70af5238651070d862243bbead4844f1e790a7d9c73121c303",
+      "paths": 2,
+      "compilerAliases": 0,
+      "complete": true
+    },
+    "paths": {
+      "splitContexts": 1,
+      "completedPaths": 2,
+      "contradictions": 0,
+      "selectorSelections": 2,
+      "CASPasses": 230,
+      "numericArithmeticEliminated": 26,
+      "numericRecipeAttempts": 11,
+      "numericRecipeAdmissions": 0,
+      "numericRecipeBudgetStops": 0,
+      "lastArm": {
+        "bodyCharacters": 3519,
+        "guardCharacters": 3495,
+        "decisions": 1,
+        "dependencyGrowth": [
+          {
+            "definition": 0,
+            "storedCharacters": 1602,
+            "expandedCharacters": 1604
+          },
+          {
+            "definition": 1,
+            "storedCharacters": 101,
+            "expandedCharacters": 1692
+          },
+          {
+            "definition": 2,
+            "storedCharacters": 101,
+            "expandedCharacters": 1692
+          },
+          {
+            "definition": 3,
+            "storedCharacters": 163,
+            "expandedCharacters": 3519
+          }
+        ]
+      }
+    },
+    "seconds": 1.0757848750217818,
+    "workerSeconds": 1.862850208999589
+  },
+  {
+    "complete": true,
+    "inputDomains": {
+      "X1": [
+        20480,
+        31743
+      ],
+      "X2": [
+        20480,
+        31743
+      ]
+    },
+    "producers": 9,
+    "elidedUpdates": 4,
+    "logicalCharacters": 14088,
+    "storedCharacters": 2474,
+    "artifact": {
+      "path": "docs/evidence/direct-sympy-linear-zero-factoring/large-region-1.expr",
+      "characters": 17552,
+      "sha256": "6d5c6e41f5609d70af5238651070d862243bbead4844f1e790a7d9c73121c303",
+      "paths": 2,
+      "compilerAliases": 0,
+      "complete": true
+    },
+    "paths": {
+      "splitContexts": 1,
+      "completedPaths": 2,
+      "contradictions": 0,
+      "selectorSelections": 2,
+      "CASPasses": 230,
+      "numericArithmeticEliminated": 26,
+      "numericRecipeAttempts": 11,
+      "numericRecipeAdmissions": 0,
+      "numericRecipeBudgetStops": 0,
+      "lastArm": {
+        "bodyCharacters": 3519,
+        "guardCharacters": 3495,
+        "decisions": 1,
+        "dependencyGrowth": [
+          {
+            "definition": 0,
+            "storedCharacters": 1602,
+            "expandedCharacters": 1604
+          },
+          {
+            "definition": 1,
+            "storedCharacters": 101,
+            "expandedCharacters": 1692
+          },
+          {
+            "definition": 2,
+            "storedCharacters": 101,
+            "expandedCharacters": 1692
+          },
+          {
+            "definition": 3,
+            "storedCharacters": 163,
+            "expandedCharacters": 3519
+          }
+        ]
+      }
+    },
+    "seconds": 1.0589688750333153,
+    "workerSeconds": 1.9579227499780245
+  },
+  {
+    "complete": true,
+    "inputDomains": {
+      "X1": [
+        -31743,
+        -20480
+      ],
+      "X2": [
+        20480,
+        31743
+      ]
+    },
+    "producers": 9,
+    "elidedUpdates": 4,
+    "logicalCharacters": 14088,
+    "storedCharacters": 2602,
+    "artifact": {
+      "path": "docs/evidence/direct-sympy-linear-zero-factoring/large-region-2.expr",
+      "characters": 17552,
+      "sha256": "6d5c6e41f5609d70af5238651070d862243bbead4844f1e790a7d9c73121c303",
+      "paths": 2,
+      "compilerAliases": 0,
+      "complete": true
+    },
+    "paths": {
+      "splitContexts": 1,
+      "completedPaths": 2,
+      "contradictions": 0,
+      "selectorSelections": 2,
+      "CASPasses": 230,
+      "numericArithmeticEliminated": 26,
+      "numericRecipeAttempts": 11,
+      "numericRecipeAdmissions": 0,
+      "numericRecipeBudgetStops": 0,
+      "lastArm": {
+        "bodyCharacters": 3519,
+        "guardCharacters": 3495,
+        "decisions": 1,
+        "dependencyGrowth": [
+          {
+            "definition": 0,
+            "storedCharacters": 1602,
+            "expandedCharacters": 1604
+          },
+          {
+            "definition": 1,
+            "storedCharacters": 101,
+            "expandedCharacters": 1692
+          },
+          {
+            "definition": 2,
+            "storedCharacters": 101,
+            "expandedCharacters": 1692
+          },
+          {
+            "definition": 3,
+            "storedCharacters": 163,
+            "expandedCharacters": 3519
+          }
+        ]
+      }
+    },
+    "seconds": 1.0740190409705974,
+    "workerSeconds": 1.9780644169659354
+  },
+  {
+    "complete": true,
+    "inputDomains": {
+      "X1": [
+        20480,
+        31743
+      ],
+      "X2": [
+        -31743,
+        -20480
+      ]
+    },
+    "producers": 9,
+    "elidedUpdates": 4,
+    "logicalCharacters": 14088,
+    "storedCharacters": 2602,
+    "artifact": {
+      "path": "docs/evidence/direct-sympy-linear-zero-factoring/large-region-3.expr",
+      "characters": 17552,
+      "sha256": "6d5c6e41f5609d70af5238651070d862243bbead4844f1e790a7d9c73121c303",
+      "paths": 2,
+      "compilerAliases": 0,
+      "complete": true
+    },
+    "paths": {
+      "splitContexts": 1,
+      "completedPaths": 2,
+      "contradictions": 0,
+      "selectorSelections": 2,
+      "CASPasses": 230,
+      "numericArithmeticEliminated": 26,
+      "numericRecipeAttempts": 11,
+      "numericRecipeAdmissions": 0,
+      "numericRecipeBudgetStops": 0,
+      "lastArm": {
+        "bodyCharacters": 3519,
+        "guardCharacters": 3495,
+        "decisions": 1,
+        "dependencyGrowth": [
+          {
+            "definition": 0,
+            "storedCharacters": 1602,
+            "expandedCharacters": 1604
+          },
+          {
+            "definition": 1,
+            "storedCharacters": 101,
+            "expandedCharacters": 1692
+          },
+          {
+            "definition": 2,
+            "storedCharacters": 101,
+            "expandedCharacters": 1692
+          },
+          {
+            "definition": 3,
+            "storedCharacters": 163,
+            "expandedCharacters": 3519
+          }
+        ]
+      }
+    },
+    "seconds": 1.0738957920111716,
+    "workerSeconds": 1.942825291014742
+  }
+]

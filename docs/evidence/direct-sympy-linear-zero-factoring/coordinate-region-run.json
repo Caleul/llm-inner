@@ -1,0 +1,85 @@
+{
+  "complete": true,
+  "inputDomains": {
+    "X1": [
+      -16181,
+      -16120
+    ],
+    "X2": [
+      -27775,
+      -23808
+    ]
+  },
+  "producers": 17,
+  "elidedUpdates": 3,
+  "logicalCharacters": 32342,
+  "storedCharacters": 4140,
+  "artifact": {
+    "path": "docs/evidence/direct-sympy-linear-zero-factoring/coordinate-region.expr",
+    "characters": 32224,
+    "sha256": "542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810",
+    "paths": 1,
+    "compilerAliases": 0,
+    "complete": true
+  },
+  "paths": {
+    "splitContexts": 0,
+    "completedPaths": 1,
+    "contradictions": 0,
+    "selectorSelections": 0,
+    "CASPasses": 168,
+    "numericArithmeticEliminated": 31,
+    "numericRecipeAttempts": 8,
+    "numericRecipeAdmissions": 0,
+    "numericRecipeBudgetStops": 0,
+    "lastArm": {
+      "bodyCharacters": 32342,
+      "guardCharacters": 0,
+      "decisions": 0,
+      "dependencyGrowth": [
+        {
+          "definition": 0,
+          "storedCharacters": 1602,
+          "expandedCharacters": 1604
+        },
+        {
+          "definition": 1,
+          "storedCharacters": 101,
+          "expandedCharacters": 1692
+        },
+        {
+          "definition": 2,
+          "storedCharacters": 144,
+          "expandedCharacters": 1823
+        },
+        {
+          "definition": 3,
+          "storedCharacters": 141,
+          "expandedCharacters": 1820
+        },
+        {
+          "definition": 4,
+          "storedCharacters": 202,
+          "expandedCharacters": 3817
+        },
+        {
+          "definition": 5,
+          "storedCharacters": 1693,
+          "expandedCharacters": 28309
+        },
+        {
+          "definition": 6,
+          "storedCharacters": 114,
+          "expandedCharacters": 32212
+        },
+        {
+          "definition": 7,
+          "storedCharacters": 143,
+          "expandedCharacters": 32342
+        }
+      ]
+    }
+  },
+  "seconds": 1.080910541000776,
+  "workerSeconds": 1.8542266670265235
+}

@@ -1,0 +1,107 @@
+✔ Native parity corpus covers mixed signed zeros without exponential growth in high dimensions (3046.559166ms)
+✔ Correlated RMS bounds eliminate proved constant components before expanding mean and inverse (1786.619292ms)
+✔ Scoped exact algebra factors closed producers while preserving native payloads and IEEE barriers (10851.77625ms)
+✔ Finite F32 cells and compile-time constants preserve native boundaries and signed zeros (1592.687291ms)
+✔ Proved unsigned masks remove redundant operations without changing overflow or numeric contexts (583.438833ms)
+✔ Stabilized branches share decisions, preserve lazy guards and emit flat input-only expressions (2549.830833ms)
+✔ Compiler-only literal sharing uses expanded costs and emits bit-exact input-only expressions (9080.748584ms)
+✔ SymPy factors typed word polynomials modulo 2^64 without reassociating floating operations (729.320041ms)
+✔ Parallel SymPy blocks preserve ordered F32 folds, branch contexts and memory admission (4375.690875ms)
+✔ Equivalent scan backend preserves Unicode regex results and byte-identical saved compiler states (2266.694917ms)
+✔ SymPy savepoints preserve completed rounding frontiers and reject incompatible or corrupt state (2172.563667ms)
+✔ SymPy string substitution factors and simplifies each step with isolated IEEE branch proofs (626.740125ms)
+✖ SymPy checkpoint working string is re-read and matches a freshly captured coordinate reference (5942.615584ms)
+✖ SymPy elementary conversion strings preserve native IEEE cells and composed boundaries (14111.687709ms)
+✔ Bounded SiLU arithmetic lowering matches every certified Half scalar and vector input (4186.705334ms)
+✔ Positive F32 square-root word lowering preserves all mantissas, parities and subnormals (891.669333ms)
+✔ IEEE sign projections preserve signed zero and reduce completed down-conversion strings (10027.2465ms)
+✔ Half interval precision removes redundant F32 rounding with native emitted-expression parity (923.911584ms)
+✔ Disjoint input partitions preserve complete Half coverage and emitted coordinate parity within each certified region (5615.014459ms)
+✔ Proved signed-zero updates preserve formats, branch isolation and native payloads (1310.3315ms)
+✔ Constant IEEE cells eliminate whole producers and propagate compound branch contexts (1293.330917ms)
+✔ Identical emitted coordinate bodies coalesce without losing coverage, signed zeros or lazy guards (1418.9405ms)
+✔ Budgeted coordinate continuation persists actual producers and rejects incompatible saved dimensions (14953.599167ms)
+✔ Source changes retain only audited partition geometry and recompile numerical evidence (735.979708ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 22
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 101374.855
+
+✖ failing tests:
+
+test at dist/test/direct-sympy-strings.test.js:88:1
+✖ SymPy checkpoint working string is re-read and matches a freshly captured coordinate reference (5942.615584ms)
+  Error: Command failed: /private/tmp/llm-inner-pytorch/bin/python helpers/direct_sympy_checkpoint_test.py
+  ....F.....
+  ======================================================================
+  FAIL: test_producer_synchronizes_only_after_closure_and_keeps_whole_root_dtype (__main__.CheckpointStringTests)
+  ----------------------------------------------------------------------
+  Traceback (most recent call last):
+    File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint_test.py", line 177, in test_producer_synchronizes_only_after_closure_and_keeps_whole_root_dtype
+      self.assertTrue(any(e[-1]=='admitted' for e in builder.compiler.synchronization_events))
+  AssertionError: False is not true
+
+  ----------------------------------------------------------------------
+  Ran 10 tests in 5.632s
+
+  FAILED (failures=1)
+
+      at genericNodeError (node:internal/errors:985:15)
+      at wrappedFn (node:internal/errors:539:14)
+      at ChildProcess.exithandler (node:child_process:417:12)
+      at ChildProcess.emit (node:events:508:28)
+      at maybeClose (node:internal/child_process:1101:16)
+      at ChildProcess._handle.onexit (node:internal/child_process:305:5) {
+    code: 1,
+    killed: false,
+    signal: null,
+    cmd: '/private/tmp/llm-inner-pytorch/bin/python helpers/direct_sympy_checkpoint_test.py',
+    stdout: 'Closed gate/up projection parity: cases=1015808 mismatches=0 finalParity=false\nRMS predicate reduction: 10247 -> 7239 characters\nClosed RMS rounding parity: cases=888832 mismatches=0 unsafeEpsilon=6888 unsafeHalf=56 unsafeProduct=6\nEarly Half product parity: cases=888832 mismatches=0\nWorking string parity: 60 exact cases, position=0 dimension=2; numerical primitives remain, finalParity=false\nExpression file allocation parity: {"characters": 20971522, "byteIdentical": true, "peakAllocatedBytes": {"literal-copy": 41948798, "prior-scan-backend": 23075598, "chunked": 2103799}}\n',
+    stderr: `....F.....\n======================================================================\nFAIL: test_producer_synchronizes_only_after_closure_and_keeps_whole_root_dtype (__main__.CheckpointStringTests)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_checkpoint_test.py", line 177, in test_producer_synchronizes_only_after_closure_and_keeps_whole_root_dtype\n    self.assertTrue(any(e[-1]=='admitted' for e in builder.compiler.synchronization_events))\nAssertionError: False is not true\n\n----------------------------------------------------------------------\nRan 10 tests in 5.632s\n\nFAILED (failures=1)\n`
+  }
+
+test at dist/test/direct-sympy-strings.test.js:98:1
+✖ SymPy elementary conversion strings preserve native IEEE cells and composed boundaries (14111.687709ms)
+  Error: Command failed: /private/tmp/llm-inner-pytorch/bin/python helpers/direct_sympy_conversions_test.py
+  .....................F....F.......
+  ======================================================================
+  FAIL: test_new_envelope_selectors_synchronize_before_literal_restoration (__main__.ConversionStringTests)
+  ----------------------------------------------------------------------
+  Traceback (most recent call last):
+    File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_conversions_test.py", line 316, in test_new_envelope_selectors_synchronize_before_literal_restoration
+      self.assertEqual(event[-1],'admitted');self.assertLess(event[2],event[0])
+  AssertionError: 'no-matching-siblings' != 'admitted'
+  - no-matching-siblings
+  + admitted
+
+
+  ======================================================================
+  FAIL: test_synchronization_transfers_only_closed_whole_root_numeric_proofs (__main__.ConversionStringTests)
+  ----------------------------------------------------------------------
+  Traceback (most recent call last):
+    File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_conversions_test.py", line 400, in test_synchronization_transfers_only_closed_whole_root_numeric_proofs
+      self.assertNotEqual(original,replacement)
+  AssertionError: 'Float64(U64FromF64(F64FromU64(Bits64(2 * Piecewise(((Float64(U64Or(Bits64(Float64(U64And(U64FromF64(F64FromU64(Bits64(X1 + X1 / 2.0)) + 2 ** 81 - 2 ** 81), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(X1 + X1 / 2.0), 9223372036854775808)))), U64And(Bits64(X1 + X1 / 2.0), 9223372036854775807) < 4544132023748395008), ((Float64(U64FromF64(F64FromU64(Bits64(X1 + X1 / 2.0)) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94))), True)))) + 2 ** 94 - 2 ** 94))' == 'Float64(U64FromF64(F64FromU64(Bits64(2 * Piecewise(((Float64(U64Or(Bits64(Float64(U64And(U64FromF64(F64FromU64(Bits64(X1 + X1 / 2.0)) + 2 ** 81 - 2 ** 81), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(X1 + X1 / 2.0), 9223372036854775808)))), U64And(Bits64(X1 + X1 / 2.0), 9223372036854775807) < 4544132023748395008), ((Float64(U64FromF64(F64FromU64(Bits64(X1 + X1 / 2.0)) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94))), True)))) + 2 ** 94 - 2 ** 94))'
+
+  ----------------------------------------------------------------------
+  Ran 34 tests in 13.796s
+
+  FAILED (failures=2)
+
+      at genericNodeError (node:internal/errors:985:15)
+      at wrappedFn (node:internal/errors:539:14)
+      at ChildProcess.exithandler (node:child_process:417:12)
+      at ChildProcess.emit (node:events:508:28)
+      at maybeClose (node:internal/child_process:1101:16)
+      at ChildProcess._handle.onexit (node:internal/child_process:305:5) {
+    code: 1,
+    killed: false,
+    signal: null,
+    cmd: '/private/tmp/llm-inner-pytorch/bin/python helpers/direct_sympy_conversions_test.py',
+    stdout: 'Exact subnormal-grid certificates: F32=16777216 F16=2048 mismatches=0\nExact Half-grid tandem certificate: cases=67108866 mismatches=0\nActual string IEEE certificate: F32=100679708 F16=206870 composed=559086 prunedF32=100663300 prunedF16=3072 mismatches=0; tandem=559130; typedPairs=507904\nScoped Half update parity: cases=32770 mismatches=0\nExact branch facts native parity: cases=196608 mismatches=0\nCertified frontier composition parity: cases=147472 mismatches=0 characters=2643->1840\nHalf normalization factor barrier: cases=126972 mismatches=0 unsafeRewrites=15421\nCompleted selector activation parity: cases=18434 mismatches=0\nScoped conversion parity: cases=30722 mismatches=0\nF32 normal-cell certificate: sqrt=2139095040 reciprocals=4219469826 mismatches=0 ties=0\nHalf cell dependency parity: cases=327680 mismatches=0\nNative Half squares: 63488, mismatches=0\\n\nInteger offset tandem parity: cases=1152322 mismatches=0 integerCastLoss=0\nLiteral math native certificate: cases=7 mismatches=0\nSynchronized sibling native parity: cases=131072 mismatches=0\nPositive-factor sign parity: cases=507904 mismatches=0\nTwo-Half-square F32 certificate: pairs=503856640 mismatches=0 oddTies=0 evenTies=13918556\nWord identity comparisons: 16048, mismatches=0\n',
+    stderr: `.....................F....F.......\n======================================================================\nFAIL: test_new_envelope_selectors_synchronize_before_literal_restoration (__main__.ConversionStringTests)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_conversions_test.py", line 316, in test_new_envelope_selectors_synchronize_before_literal_restoration\n    self.assertEqual(event[-1],'admitted');self.assertLess(event[2],event[0])\nAssertionError: 'no-matching-siblings' != 'admitted'\n- no-matching-siblings\n+ admitted\n\n\n======================================================================\nFAIL: test_synchronization_transfers_only_closed_whole_root_numeric_proofs (__main__.ConversionStringTests)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_conversions_test.py", line 400, in test_synchronization_transfers_only_closed_whole_root_numeric_proofs\n    self.assertNotEqual(original,replacement)\nAssertionError: 'Float64(U64FromF64(F64FromU64(Bits64(2 * Piecewise(((Float64(U64Or(Bits64(Float64(U64And(U64FromF64(F64FromU64(Bits64(X1 + X1 / 2.0)) + 2 ** 81 - 2 ** 81), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(X1 + X1 / 2.0), 9223372036854775808)))), U64And(Bits64(X1 + X1 / 2.0), 9223372036854775807) < 4544132023748395008), ((Float64(U64FromF64(F64FromU64(Bits64(X1 + X1 / 2.0)) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94))), True)))) + 2 ** 94 - 2 ** 94))' == 'Float64(U64FromF64(F64FromU64(Bits64(2 * Piecewise(((Float64(U64Or(Bits64(Float64(U64And(U64FromF64(F64FromU64(Bits64(X1 + X1 / 2.0)) + 2 ** 81 - 2 ** 81), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(X1 + X1 / 2.0), 9223372036854775808)))), U64And(Bits64(X1 + X1 / 2.0), 9223372036854775807) < 4544132023748395008), ((Float64(U64FromF64(F64FromU64(Bits64(X1 + X1 / 2.0)) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94))), True)))) + 2 ** 94 - 2 ** 94))'\n\n----------------------------------------------------------------------\nRan 34 tests in 13.796s\n\nFAILED (failures=2)\n`
+  }
