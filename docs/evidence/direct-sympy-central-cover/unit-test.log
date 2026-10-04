@@ -1,0 +1,11 @@
+..Cover intersection proof: vectorPatterns=324 added=48 lost=0 overlaps=0 signedZeroPatterns=4
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 17747.41it/s]
+{"region": "00", "complete": false, "coveredInputPatterns": 184571904, "unfinishedInputPatterns": 3846154240, "attemptSeconds": 0}
+.
+----------------------------------------------------------------------
+Ran 3 tests in 3.483s
+
+OK
+Fresh central cover parity: patterns=184571904 mismatches=0 compatibleResume=true finalParity=false

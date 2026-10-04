@@ -4,6 +4,14 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 
 const python=process.env.LLM_INNER_DIRECT_PYTHON;
+test('Fresh broad-region covers refine only pending intersections and preserve exact source compatibility',
+  {skip:!python || !process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT},async()=>{
+    const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_cover_regions_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 3 tests/);
+    assert.match(stderr,/OK/);
+    assert.match(stdout,/Cover intersection proof: vectorPatterns=324 added=48 lost=0 overlaps=0 signedZeroPatterns=4/);
+    assert.match(stdout,/Fresh central cover parity: patterns=184571904 mismatches=0 compatibleResume=true finalParity=false/);
+  });
 test('Native parity corpus covers mixed signed zeros without exponential growth in high dimensions',
   {skip:!python},async()=>{
     const {stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_region_parity_test.py'],{timeout:120_000,maxBuffer:1024*1024});
