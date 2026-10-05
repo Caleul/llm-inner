@@ -65,6 +65,55 @@ outputs with zero mismatches; all four file hashes match between modes. This
 measures the listed regions, not the unfinished coordinate. Admission reserves
 each worker's memory and enforces a 3 GiB total limit.
 
+## Colab execution and native parser repair
+
+The current sources and checkpoint were uploaded through Access Broker's
+`colab_cli` to `llm-inner-norm-correlation`: two CPUs, about 12.67 GiB host RAM,
+and a Tesla T4 with 15 GiB device RAM. Symbolic algebra runs on CPU. CUDA
+validation runs in a separate process, without initializing CUDA in CPU CAS
+workers. Its results admit only the numerical operations and domains tested;
+they do not switch the model reference to a GPU backend.
+
+| Same four regions | One worker | Two workers | Speed ratio |
+| --- | ---: | ---: | ---: |
+| Local, seconds | 11.697 | 6.494 | 1.801x |
+| Colab, seconds | 29.123 | 25.063 | 1.162x |
+| Colab sampled parent/worker RSS, MiB | 1452.2 | 1980.3 | |
+
+Both modes have identical artifact hashes and zero corpus mismatches. The
+mixed region takes 205.97 seconds to compile remotely and produces the same
+10,253,949-character file/hash as locally. This Colab runtime is slower for the
+symbolic workload; it is not evidence of a faster whole-coordinate compile.
+
+The T4 passes 888,832 Half-product checks and 19,458 SiLU/threshold checks,
+with zero CPU/CUDA bit mismatches in the declared domains. Product medians are
+6.586 ms CPU, 0.218 ms on resident GPU tensors, and 2.414 ms including transfers
+(2.729x over CPU). These measure the numerical kernel, not SymPy or inference.
+
+The original remote validation failed because older Clang's default lexical
+nesting limit was 256. The emitted expression was retained; both native
+validators now specify `-fbracket-depth=4096`, retaining `-O3` and
+`-ffp-contract=off`. `colab-recover.py` checks the terminal original report,
+unchanged numerical source/checkpoint identity and exact artifact hash before
+validating that existing file. The corpus passes all 8,196 cases. The two
+exhaustive tests then pass all 41,961,474 inputs, zero mismatches, against the
+Colab Torch CPU backend as well. Full local exhaustive checks also pass after
+the parser adjustment. The original failure and successful recovery are both
+retained in `colab/`.
+
+Colab uses Python 3.13, Torch 2.11.0+cu130 and SymPy 1.14.0; local evidence
+uses its separately recorded backend identity. No numerical savepoint is
+reused across those differing environments. `record-colab.py` audits the
+actual-file parity, source hashes and resource comparison before appending
+`colabNormCorrelationValidation`. Repeated identical audits preserve every
+existing test-map byte; differing evidence requires a new entry.
+
+Two kernel observation calls lost their WebSocket connection and timed out.
+The same operations were polled to termination. File downloads through the
+same Broker connector recovered the authoritative terminal reports; the
+compilation was not replayed because an observation failed. A session marked
+IDLE was not taken as evidence that its child compilation had stopped.
+
 ## Validation, recovery and rejected experiment
 
 The six new proof tests include all 83,922,948 original rounded pairs across
@@ -97,8 +146,10 @@ Reproduction uses `/private/tmp/llm-inner-pytorch/bin/python` locally:
 LLM_INNER_DIRECT_JSON_CHECKPOINT=docs/evidence/direct-sympy-test-checkpoint \
   python helpers/direct_sympy_norm_correlation_test.py
 python docs/evidence/direct-sympy-norm-correlation/recompile.py
-python docs/evidence/direct-sympy-norm-correlation/exhaustive.py --x-sign -1 --y-sign 1
-python docs/evidence/direct-sympy-norm-correlation/exhaustive.py --x-sign 1 --y-sign -1
+python docs/evidence/direct-sympy-norm-correlation/exhaustive.py \
+  --artifact docs/evidence/direct-sympy-norm-correlation/mixed.expr --x-sign -1 --y-sign 1
+python docs/evidence/direct-sympy-norm-correlation/exhaustive.py \
+  --artifact docs/evidence/direct-sympy-norm-correlation/mixed.expr --x-sign 1 --y-sign -1
 python docs/evidence/direct-sympy-norm-correlation/record.py
 ```
 

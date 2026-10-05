@@ -1,0 +1,984 @@
+{
+  "terminal": true,
+  "fullCoordinateParity": false,
+  "runs": [
+    {
+      "name": "cuda",
+      "exitCode": 0,
+      "seconds": 5.992809512000122
+    },
+    {
+      "name": "norm-tests",
+      "exitCode": 0,
+      "seconds": 25.168241895999927
+    }
+  ],
+  "resources": {
+    "cpu": 2,
+    "platform": "Linux-6.6.122+-x86_64-with-glibc2.39",
+    "memory": [
+      "MemTotal:       13286944 kB",
+      "MemFree:         4481672 kB",
+      "MemAvailable:   11721284 kB"
+    ],
+    "gpu": "Tesla T4, 15360 MiB"
+  },
+  "compilerIdentity": {
+    "version": 1,
+    "dimension": 2,
+    "position": 0,
+    "python": "3.13.15 (main, Aug  6 2026, 11:06:22) [GCC 13.3.0]",
+    "sympy": "1.14.0",
+    "platform": "Linux-6.6.122+-x86_64-with-glibc2.39",
+    "byteOrder": "little",
+    "referenceBackend": {
+      "name": "torch CPU",
+      "version": "2.11.0+cu130",
+      "gitVersion": "70d99e998b4955e0049d13a98d77ae1b14db1f45",
+      "capability": "AVX512"
+    },
+    "checkpoint": {
+      "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+      "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+    },
+    "sources": {
+      "direct_sympy_arithmetic.py": "fd9779759345c7b381a01b54fee545218735eb8c26e4f6a8ffb560109431ff43",
+      "direct_sympy_checkpoint.py": "ae6eafb6a988d2437fde073e3b162b707e42aaf7b9c845144e7c2f34e6291ec5",
+      "direct_sympy_coherent_paths.py": "a4ed6b5ad6001fd7fbd7bbcac5469053507d740b8ed9466425ba66789b71e084",
+      "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+      "direct_sympy_conversions.py": "50847bb8ffc58153d7142867c5b5421f3f58b3869858176d2acd2b0ecdabcf4f",
+      "direct_sympy_input_partitions.py": "21449edd26a0d43ad4a2c5b5e841c5e9d8e7de6afb6ac138a9eef88374558797",
+      "direct_sympy_layer_bounds.py": "92ff5195525ac44fd4e2450c9e9d75374a4470b706eeb643c13f2ae281c9c830",
+      "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+      "direct_sympy_partition_run.py": "9985ec29e19e73f59ab0691be88f8278966d64fe2daaaf5fab77135901a66482",
+      "direct_sympy_projection_constraints.py": "f0cbafbccbdd7bc084ad72b22e1d3db61d9ecf6f3b9ad2cb4d76cf8b44392fce",
+      "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+      "direct_sympy_savepoints.py": "9a6938574aa06eeb044b5c5b7d07f798cf8ed80970d8c4a6ed188f88cf56305a",
+      "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+      "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+      "direct_sympy_silu.py": "e623f38b5008356d8f6aa1615aabfa5a779f9dc7ea9d5b8183c5b17a78383fe3",
+      "direct_sympy_sqrt.py": "ec9644071ed6ce1576f9550175ed768180d40d70c1bf610f0089785c5564e3fb",
+      "direct_sympy_streaming_literals.py": "5a0046367e570549e5c804c0f5aa0737db2c506600c9ae19c72450ba0f38824e",
+      "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+      "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+      "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+      "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
+    }
+  },
+  "comparison": [
+    {
+      "workers": 1,
+      "seconds": 29.12312780299999,
+      "memory": {
+        "maxWorkersLive": 1,
+        "peakObservedRSSBytes": 1522782208,
+        "workerReservationBytes": 939524096,
+        "seconds": 26.06374934900009
+      },
+      "compiled": [
+        {
+          "complete": true,
+          "inputDomains": {
+            "X1": [
+              -256,
+              0
+            ],
+            "X2": [
+              -31743,
+              -15360
+            ]
+          },
+          "producers": 17,
+          "elidedUpdates": 1,
+          "logicalCharacters": 48227,
+          "storedCharacters": 5229,
+          "artifact": {
+            "path": "/content/llm-inner-norm-correlation/results/workers-1/0.expr",
+            "characters": 37476,
+            "sha256": "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+            "paths": 2,
+            "compilerAliases": 0,
+            "complete": true
+          },
+          "paths": {
+            "splitContexts": 2,
+            "completedPaths": 2,
+            "contradictions": 1,
+            "selectorSelections": 8,
+            "CASPasses": 331,
+            "numericArithmeticEliminated": 45,
+            "numericRecipeAttempts": 18,
+            "numericRecipeAdmissions": 0,
+            "numericRecipeBudgetStops": 0,
+            "coupledProjectionContradictions": 0,
+            "lastArm": {
+              "bodyCharacters": 15630,
+              "guardCharacters": 2857,
+              "decisions": 2,
+              "dependencyGrowth": [
+                {
+                  "definition": 0,
+                  "storedCharacters": 88,
+                  "expandedCharacters": 90
+                },
+                {
+                  "definition": 1,
+                  "storedCharacters": 88,
+                  "expandedCharacters": 90
+                },
+                {
+                  "definition": 2,
+                  "storedCharacters": 203,
+                  "expandedCharacters": 205
+                },
+                {
+                  "definition": 4,
+                  "storedCharacters": 292,
+                  "expandedCharacters": 749
+                },
+                {
+                  "definition": 6,
+                  "storedCharacters": 3331,
+                  "expandedCharacters": 14659
+                },
+                {
+                  "definition": 7,
+                  "storedCharacters": 114,
+                  "expandedCharacters": 15494
+                },
+                {
+                  "definition": 8,
+                  "storedCharacters": 149,
+                  "expandedCharacters": 15630
+                }
+              ]
+            }
+          },
+          "seconds": 3.7288258529999894,
+          "workerSeconds": 6.0970404660001805,
+          "timeoutSeconds": 60
+        },
+        {
+          "complete": true,
+          "inputDomains": {
+            "X1": [
+              -256,
+              0
+            ],
+            "X2": [
+              15360,
+              31743
+            ]
+          },
+          "producers": 17,
+          "elidedUpdates": 1,
+          "logicalCharacters": 46328,
+          "storedCharacters": 5174,
+          "artifact": {
+            "path": "/content/llm-inner-norm-correlation/results/workers-1/1.expr",
+            "characters": 35411,
+            "sha256": "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2",
+            "paths": 2,
+            "compilerAliases": 0,
+            "complete": true
+          },
+          "paths": {
+            "splitContexts": 2,
+            "completedPaths": 2,
+            "contradictions": 1,
+            "selectorSelections": 8,
+            "CASPasses": 331,
+            "numericArithmeticEliminated": 45,
+            "numericRecipeAttempts": 18,
+            "numericRecipeAdmissions": 0,
+            "numericRecipeBudgetStops": 0,
+            "coupledProjectionContradictions": 0,
+            "lastArm": {
+              "bodyCharacters": 14792,
+              "guardCharacters": 2690,
+              "decisions": 2,
+              "dependencyGrowth": [
+                {
+                  "definition": 0,
+                  "storedCharacters": 89,
+                  "expandedCharacters": 91
+                },
+                {
+                  "definition": 1,
+                  "storedCharacters": 87,
+                  "expandedCharacters": 89
+                },
+                {
+                  "definition": 2,
+                  "storedCharacters": 175,
+                  "expandedCharacters": 177
+                },
+                {
+                  "definition": 4,
+                  "storedCharacters": 292,
+                  "expandedCharacters": 694
+                },
+                {
+                  "definition": 6,
+                  "storedCharacters": 3331,
+                  "expandedCharacters": 13875
+                },
+                {
+                  "definition": 7,
+                  "storedCharacters": 114,
+                  "expandedCharacters": 14655
+                },
+                {
+                  "definition": 8,
+                  "storedCharacters": 150,
+                  "expandedCharacters": 14792
+                }
+              ]
+            }
+          },
+          "seconds": 4.560170110999934,
+          "workerSeconds": 6.932644157999903,
+          "timeoutSeconds": 60
+        },
+        {
+          "complete": true,
+          "inputDomains": {
+            "X1": [
+              1,
+              256
+            ],
+            "X2": [
+              -31743,
+              -15360
+            ]
+          },
+          "producers": 17,
+          "elidedUpdates": 1,
+          "logicalCharacters": 48227,
+          "storedCharacters": 5229,
+          "artifact": {
+            "path": "/content/llm-inner-norm-correlation/results/workers-1/2.expr",
+            "characters": 37476,
+            "sha256": "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+            "paths": 2,
+            "compilerAliases": 0,
+            "complete": true
+          },
+          "paths": {
+            "splitContexts": 2,
+            "completedPaths": 2,
+            "contradictions": 1,
+            "selectorSelections": 8,
+            "CASPasses": 331,
+            "numericArithmeticEliminated": 45,
+            "numericRecipeAttempts": 18,
+            "numericRecipeAdmissions": 0,
+            "numericRecipeBudgetStops": 0,
+            "coupledProjectionContradictions": 0,
+            "lastArm": {
+              "bodyCharacters": 15630,
+              "guardCharacters": 2857,
+              "decisions": 2,
+              "dependencyGrowth": [
+                {
+                  "definition": 0,
+                  "storedCharacters": 88,
+                  "expandedCharacters": 90
+                },
+                {
+                  "definition": 1,
+                  "storedCharacters": 88,
+                  "expandedCharacters": 90
+                },
+                {
+                  "definition": 2,
+                  "storedCharacters": 203,
+                  "expandedCharacters": 205
+                },
+                {
+                  "definition": 4,
+                  "storedCharacters": 292,
+                  "expandedCharacters": 749
+                },
+                {
+                  "definition": 6,
+                  "storedCharacters": 3331,
+                  "expandedCharacters": 14659
+                },
+                {
+                  "definition": 7,
+                  "storedCharacters": 114,
+                  "expandedCharacters": 15494
+                },
+                {
+                  "definition": 8,
+                  "storedCharacters": 149,
+                  "expandedCharacters": 15630
+                }
+              ]
+            }
+          },
+          "seconds": 3.714017048999949,
+          "workerSeconds": 6.047725848000027,
+          "timeoutSeconds": 60
+        },
+        {
+          "complete": true,
+          "inputDomains": {
+            "X1": [
+              1,
+              256
+            ],
+            "X2": [
+              15360,
+              31743
+            ]
+          },
+          "producers": 17,
+          "elidedUpdates": 1,
+          "logicalCharacters": 46328,
+          "storedCharacters": 5174,
+          "artifact": {
+            "path": "/content/llm-inner-norm-correlation/results/workers-1/3.expr",
+            "characters": 35411,
+            "sha256": "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2",
+            "paths": 2,
+            "compilerAliases": 0,
+            "complete": true
+          },
+          "paths": {
+            "splitContexts": 2,
+            "completedPaths": 2,
+            "contradictions": 1,
+            "selectorSelections": 8,
+            "CASPasses": 331,
+            "numericArithmeticEliminated": 45,
+            "numericRecipeAttempts": 18,
+            "numericRecipeAdmissions": 0,
+            "numericRecipeBudgetStops": 0,
+            "coupledProjectionContradictions": 0,
+            "lastArm": {
+              "bodyCharacters": 14792,
+              "guardCharacters": 2690,
+              "decisions": 2,
+              "dependencyGrowth": [
+                {
+                  "definition": 0,
+                  "storedCharacters": 89,
+                  "expandedCharacters": 91
+                },
+                {
+                  "definition": 1,
+                  "storedCharacters": 87,
+                  "expandedCharacters": 89
+                },
+                {
+                  "definition": 2,
+                  "storedCharacters": 175,
+                  "expandedCharacters": 177
+                },
+                {
+                  "definition": 4,
+                  "storedCharacters": 292,
+                  "expandedCharacters": 694
+                },
+                {
+                  "definition": 6,
+                  "storedCharacters": 3331,
+                  "expandedCharacters": 13875
+                },
+                {
+                  "definition": 7,
+                  "storedCharacters": 114,
+                  "expandedCharacters": 14655
+                },
+                {
+                  "definition": 8,
+                  "storedCharacters": 150,
+                  "expandedCharacters": 14792
+                }
+              ]
+            }
+          },
+          "seconds": 4.583035890000019,
+          "workerSeconds": 6.9716070439999385,
+          "timeoutSeconds": 60
+        }
+      ],
+      "parity": [
+        {
+          "artifact": "/content/llm-inner-norm-correlation/results/workers-1/0.expr",
+          "sha256": "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+          "characters": 37476,
+          "position": 0,
+          "tokens": 1,
+          "dimension": 2,
+          "inputCorpusVersion": 2,
+          "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+          "cases": 262,
+          "mismatches": 0,
+          "firstMismatches": [],
+          "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+        },
+        {
+          "artifact": "/content/llm-inner-norm-correlation/results/workers-1/1.expr",
+          "sha256": "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2",
+          "characters": 35411,
+          "position": 0,
+          "tokens": 1,
+          "dimension": 2,
+          "inputCorpusVersion": 2,
+          "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+          "cases": 262,
+          "mismatches": 0,
+          "firstMismatches": [],
+          "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+        },
+        {
+          "artifact": "/content/llm-inner-norm-correlation/results/workers-1/2.expr",
+          "sha256": "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+          "characters": 37476,
+          "position": 0,
+          "tokens": 1,
+          "dimension": 2,
+          "inputCorpusVersion": 2,
+          "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+          "cases": 260,
+          "mismatches": 0,
+          "firstMismatches": [],
+          "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+        },
+        {
+          "artifact": "/content/llm-inner-norm-correlation/results/workers-1/3.expr",
+          "sha256": "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2",
+          "characters": 35411,
+          "position": 0,
+          "tokens": 1,
+          "dimension": 2,
+          "inputCorpusVersion": 2,
+          "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+          "cases": 260,
+          "mismatches": 0,
+          "firstMismatches": [],
+          "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+        }
+      ],
+      "artifactHashes": [
+        "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+        "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2",
+        "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+        "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2"
+      ]
+    },
+    {
+      "workers": 2,
+      "seconds": 25.06315792600003,
+      "memory": {
+        "maxWorkersLive": 2,
+        "peakObservedRSSBytes": 2076446720,
+        "workerReservationBytes": 939524096,
+        "seconds": 23.528308592999792
+      },
+      "compiled": [
+        {
+          "complete": true,
+          "inputDomains": {
+            "X1": [
+              -256,
+              0
+            ],
+            "X2": [
+              -31743,
+              -15360
+            ]
+          },
+          "producers": 17,
+          "elidedUpdates": 1,
+          "logicalCharacters": 48227,
+          "storedCharacters": 5229,
+          "artifact": {
+            "path": "/content/llm-inner-norm-correlation/results/workers-2/0.expr",
+            "characters": 37476,
+            "sha256": "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+            "paths": 2,
+            "compilerAliases": 0,
+            "complete": true
+          },
+          "paths": {
+            "splitContexts": 2,
+            "completedPaths": 2,
+            "contradictions": 1,
+            "selectorSelections": 8,
+            "CASPasses": 331,
+            "numericArithmeticEliminated": 45,
+            "numericRecipeAttempts": 18,
+            "numericRecipeAdmissions": 0,
+            "numericRecipeBudgetStops": 0,
+            "coupledProjectionContradictions": 0,
+            "lastArm": {
+              "bodyCharacters": 15630,
+              "guardCharacters": 2857,
+              "decisions": 2,
+              "dependencyGrowth": [
+                {
+                  "definition": 0,
+                  "storedCharacters": 88,
+                  "expandedCharacters": 90
+                },
+                {
+                  "definition": 1,
+                  "storedCharacters": 88,
+                  "expandedCharacters": 90
+                },
+                {
+                  "definition": 2,
+                  "storedCharacters": 203,
+                  "expandedCharacters": 205
+                },
+                {
+                  "definition": 4,
+                  "storedCharacters": 292,
+                  "expandedCharacters": 749
+                },
+                {
+                  "definition": 6,
+                  "storedCharacters": 3331,
+                  "expandedCharacters": 14659
+                },
+                {
+                  "definition": 7,
+                  "storedCharacters": 114,
+                  "expandedCharacters": 15494
+                },
+                {
+                  "definition": 8,
+                  "storedCharacters": 149,
+                  "expandedCharacters": 15630
+                }
+              ]
+            }
+          },
+          "seconds": 7.6653066479998415,
+          "workerSeconds": 11.476682038999797,
+          "timeoutSeconds": 60
+        },
+        {
+          "complete": true,
+          "inputDomains": {
+            "X1": [
+              -256,
+              0
+            ],
+            "X2": [
+              15360,
+              31743
+            ]
+          },
+          "producers": 17,
+          "elidedUpdates": 1,
+          "logicalCharacters": 46328,
+          "storedCharacters": 5174,
+          "artifact": {
+            "path": "/content/llm-inner-norm-correlation/results/workers-2/1.expr",
+            "characters": 35411,
+            "sha256": "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2",
+            "paths": 2,
+            "compilerAliases": 0,
+            "complete": true
+          },
+          "paths": {
+            "splitContexts": 2,
+            "completedPaths": 2,
+            "contradictions": 1,
+            "selectorSelections": 8,
+            "CASPasses": 331,
+            "numericArithmeticEliminated": 45,
+            "numericRecipeAttempts": 18,
+            "numericRecipeAdmissions": 0,
+            "numericRecipeBudgetStops": 0,
+            "coupledProjectionContradictions": 0,
+            "lastArm": {
+              "bodyCharacters": 14792,
+              "guardCharacters": 2690,
+              "decisions": 2,
+              "dependencyGrowth": [
+                {
+                  "definition": 0,
+                  "storedCharacters": 89,
+                  "expandedCharacters": 91
+                },
+                {
+                  "definition": 1,
+                  "storedCharacters": 87,
+                  "expandedCharacters": 89
+                },
+                {
+                  "definition": 2,
+                  "storedCharacters": 175,
+                  "expandedCharacters": 177
+                },
+                {
+                  "definition": 4,
+                  "storedCharacters": 292,
+                  "expandedCharacters": 694
+                },
+                {
+                  "definition": 6,
+                  "storedCharacters": 3331,
+                  "expandedCharacters": 13875
+                },
+                {
+                  "definition": 7,
+                  "storedCharacters": 114,
+                  "expandedCharacters": 14655
+                },
+                {
+                  "definition": 8,
+                  "storedCharacters": 150,
+                  "expandedCharacters": 14792
+                }
+              ]
+            }
+          },
+          "seconds": 7.917930001000059,
+          "workerSeconds": 11.877344427000025,
+          "timeoutSeconds": 60
+        },
+        {
+          "complete": true,
+          "inputDomains": {
+            "X1": [
+              1,
+              256
+            ],
+            "X2": [
+              -31743,
+              -15360
+            ]
+          },
+          "producers": 17,
+          "elidedUpdates": 1,
+          "logicalCharacters": 48227,
+          "storedCharacters": 5229,
+          "artifact": {
+            "path": "/content/llm-inner-norm-correlation/results/workers-2/2.expr",
+            "characters": 37476,
+            "sha256": "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+            "paths": 2,
+            "compilerAliases": 0,
+            "complete": true
+          },
+          "paths": {
+            "splitContexts": 2,
+            "completedPaths": 2,
+            "contradictions": 1,
+            "selectorSelections": 8,
+            "CASPasses": 331,
+            "numericArithmeticEliminated": 45,
+            "numericRecipeAttempts": 18,
+            "numericRecipeAdmissions": 0,
+            "numericRecipeBudgetStops": 0,
+            "coupledProjectionContradictions": 0,
+            "lastArm": {
+              "bodyCharacters": 15630,
+              "guardCharacters": 2857,
+              "decisions": 2,
+              "dependencyGrowth": [
+                {
+                  "definition": 0,
+                  "storedCharacters": 88,
+                  "expandedCharacters": 90
+                },
+                {
+                  "definition": 1,
+                  "storedCharacters": 88,
+                  "expandedCharacters": 90
+                },
+                {
+                  "definition": 2,
+                  "storedCharacters": 203,
+                  "expandedCharacters": 205
+                },
+                {
+                  "definition": 4,
+                  "storedCharacters": 292,
+                  "expandedCharacters": 749
+                },
+                {
+                  "definition": 6,
+                  "storedCharacters": 3331,
+                  "expandedCharacters": 14659
+                },
+                {
+                  "definition": 7,
+                  "storedCharacters": 114,
+                  "expandedCharacters": 15494
+                },
+                {
+                  "definition": 8,
+                  "storedCharacters": 149,
+                  "expandedCharacters": 15630
+                }
+              ]
+            }
+          },
+          "seconds": 7.70798581400004,
+          "workerSeconds": 11.486879965000071,
+          "timeoutSeconds": 60
+        },
+        {
+          "complete": true,
+          "inputDomains": {
+            "X1": [
+              1,
+              256
+            ],
+            "X2": [
+              15360,
+              31743
+            ]
+          },
+          "producers": 17,
+          "elidedUpdates": 1,
+          "logicalCharacters": 46328,
+          "storedCharacters": 5174,
+          "artifact": {
+            "path": "/content/llm-inner-norm-correlation/results/workers-2/3.expr",
+            "characters": 35411,
+            "sha256": "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2",
+            "paths": 2,
+            "compilerAliases": 0,
+            "complete": true
+          },
+          "paths": {
+            "splitContexts": 2,
+            "completedPaths": 2,
+            "contradictions": 1,
+            "selectorSelections": 8,
+            "CASPasses": 331,
+            "numericArithmeticEliminated": 45,
+            "numericRecipeAttempts": 18,
+            "numericRecipeAdmissions": 0,
+            "numericRecipeBudgetStops": 0,
+            "coupledProjectionContradictions": 0,
+            "lastArm": {
+              "bodyCharacters": 14792,
+              "guardCharacters": 2690,
+              "decisions": 2,
+              "dependencyGrowth": [
+                {
+                  "definition": 0,
+                  "storedCharacters": 89,
+                  "expandedCharacters": 91
+                },
+                {
+                  "definition": 1,
+                  "storedCharacters": 87,
+                  "expandedCharacters": 89
+                },
+                {
+                  "definition": 2,
+                  "storedCharacters": 175,
+                  "expandedCharacters": 177
+                },
+                {
+                  "definition": 4,
+                  "storedCharacters": 292,
+                  "expandedCharacters": 694
+                },
+                {
+                  "definition": 6,
+                  "storedCharacters": 3331,
+                  "expandedCharacters": 13875
+                },
+                {
+                  "definition": 7,
+                  "storedCharacters": 114,
+                  "expandedCharacters": 14655
+                },
+                {
+                  "definition": 8,
+                  "storedCharacters": 150,
+                  "expandedCharacters": 14792
+                }
+              ]
+            }
+          },
+          "seconds": 7.8058635690001665,
+          "workerSeconds": 11.579610501999923,
+          "timeoutSeconds": 60
+        }
+      ],
+      "parity": [
+        {
+          "artifact": "/content/llm-inner-norm-correlation/results/workers-2/0.expr",
+          "sha256": "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+          "characters": 37476,
+          "position": 0,
+          "tokens": 1,
+          "dimension": 2,
+          "inputCorpusVersion": 2,
+          "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+          "cases": 262,
+          "mismatches": 0,
+          "firstMismatches": [],
+          "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+        },
+        {
+          "artifact": "/content/llm-inner-norm-correlation/results/workers-2/1.expr",
+          "sha256": "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2",
+          "characters": 35411,
+          "position": 0,
+          "tokens": 1,
+          "dimension": 2,
+          "inputCorpusVersion": 2,
+          "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+          "cases": 262,
+          "mismatches": 0,
+          "firstMismatches": [],
+          "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+        },
+        {
+          "artifact": "/content/llm-inner-norm-correlation/results/workers-2/2.expr",
+          "sha256": "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+          "characters": 37476,
+          "position": 0,
+          "tokens": 1,
+          "dimension": 2,
+          "inputCorpusVersion": 2,
+          "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+          "cases": 260,
+          "mismatches": 0,
+          "firstMismatches": [],
+          "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+        },
+        {
+          "artifact": "/content/llm-inner-norm-correlation/results/workers-2/3.expr",
+          "sha256": "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2",
+          "characters": 35411,
+          "position": 0,
+          "tokens": 1,
+          "dimension": 2,
+          "inputCorpusVersion": 2,
+          "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+          "cases": 260,
+          "mismatches": 0,
+          "firstMismatches": [],
+          "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+        }
+      ],
+      "artifactHashes": [
+        "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+        "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2",
+        "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+        "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2"
+      ]
+    }
+  ],
+  "comparisonScope": "The same four regions, including native candidate parity; not full-coordinate performance.",
+  "comparisonPatterns": 16842752,
+  "speedRatio": 1.1619895580990705,
+  "mixedCompilation": {
+    "complete": true,
+    "inputDomains": {
+      "X1": [
+        -16384,
+        -11264
+      ],
+      "X2": [
+        11264,
+        15360
+      ]
+    },
+    "producers": 17,
+    "elidedUpdates": 2,
+    "logicalCharacters": 22862412,
+    "storedCharacters": 11823,
+    "artifact": {
+      "path": "/content/llm-inner-norm-correlation/results/mixed.expr",
+      "characters": 10253949,
+      "sha256": "62a1d627e115eb51db84daf3e184110768a7b9a4b018a159ed81e6c895a1050b",
+      "paths": 5,
+      "compilerAliases": 0,
+      "complete": true
+    },
+    "paths": {
+      "splitContexts": 9,
+      "completedPaths": 5,
+      "contradictions": 5,
+      "selectorSelections": 42,
+      "CASPasses": 1979,
+      "numericArithmeticEliminated": 378,
+      "numericRecipeAttempts": 85,
+      "numericRecipeAdmissions": 4,
+      "numericRecipeBudgetStops": 0,
+      "coupledProjectionContradictions": 5,
+      "lastArm": {
+        "bodyCharacters": 725715,
+        "guardCharacters": 756411,
+        "decisions": 4,
+        "dependencyGrowth": [
+          {
+            "definition": 1,
+            "storedCharacters": 2897,
+            "expandedCharacters": 2899
+          },
+          {
+            "definition": 2,
+            "storedCharacters": 101,
+            "expandedCharacters": 2987
+          },
+          {
+            "definition": 3,
+            "storedCharacters": 101,
+            "expandedCharacters": 2987
+          },
+          {
+            "definition": 4,
+            "storedCharacters": 160,
+            "expandedCharacters": 6106
+          },
+          {
+            "definition": 6,
+            "storedCharacters": 157,
+            "expandedCharacters": 6103
+          },
+          {
+            "definition": 7,
+            "storedCharacters": 373,
+            "expandedCharacters": 12407
+          },
+          {
+            "definition": 8,
+            "storedCharacters": 230,
+            "expandedCharacters": 12411
+          },
+          {
+            "definition": 10,
+            "storedCharacters": 3261,
+            "expandedCharacters": 350295
+          },
+          {
+            "definition": 11,
+            "storedCharacters": 115,
+            "expandedCharacters": 362788
+          },
+          {
+            "definition": 12,
+            "storedCharacters": 115,
+            "expandedCharacters": 362792
+          },
+          {
+            "definition": 13,
+            "storedCharacters": 165,
+            "expandedCharacters": 725715
+          }
+        ]
+      }
+    },
+    "seconds": 205.97044301300002,
+    "workerSeconds": 208.22416520599995
+  },
+  "success": false,
+  "error": "Traceback (most recent call last):\n  File \"/content/llm-inner-norm-correlation/docs/evidence/direct-sympy-norm-correlation/colab-run.py\", line 59, in <module>\n    report['mixedParity']=verify_region(checkpoint,2,artifact,domain,random_cases=8192);save()\n                          ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/content/llm-inner-norm-correlation/helpers/direct_sympy_region_parity.py\", line 84, in verify_region\n    if built.returncode:raise ValueError('Native region validation build failed: '+built.stderr[:2000])\n                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nValueError: Native region validation build failed: /tmp/tmp8fy5dpg2/native.cpp:7:139897: fatal error: bracket nesting level exceeded maximum of 256\n/tmp/tmp8fy5dpg2/native.cpp:7:139897: note: use -fbracket-depth=N to increase maximum nesting level\n1 error generated.\n\n"
+}

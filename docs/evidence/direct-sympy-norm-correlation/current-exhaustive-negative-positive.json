@@ -44,12 +44,12 @@
       "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
     }
   },
-  "verifierSHA256": "be0182810f6e1458fff10169483958b585de9f8e32de75a035c27a032bd865ce",
+  "verifierSHA256": "a7f8d4f6077c928433a0f2c1febad01da02c029ea15a63c1af557e413a9612d7",
   "cases": 20980737,
   "totalCases": 20980737,
   "mismatches": 0,
   "firstMismatches": [],
-  "seconds": 21.11147433303995,
+  "seconds": 20.87779945798684,
   "batchSize": 4096,
   "position": 0,
   "tokens": 1,

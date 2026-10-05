@@ -80,7 +80,9 @@ template<class T,class U>T word(U x){T y;std::memcpy(&y,&x,sizeof(y));return y;}
             'int main(){if(std::fesetround(FE_TONEAREST))return 2;'+declarations+
             f'while(std::scanf("{fmt}",{refs})=={len(names)})'+
             '{auto result=candidate('+inputs+');std::printf("%016llx\\n",(unsigned long long)word<uint64_t>(result));}}')
-        built=subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],capture_output=True,text=True)
+        # Fully substituted candidates exceed older Clang's default lexical
+        # nesting limit. Increase parser capacity without changing FP flags.
+        built=subprocess.run(['clang++','-O3','-ffp-contract=off','-fbracket-depth=4096','-std=c++17',str(source),'-o',str(binary)],capture_output=True,text=True)
         if built.returncode:raise ValueError('Native region validation build failed: '+built.stderr[:2000])
         executed=subprocess.run([str(binary)],input=''.join(' '.join(map(str,row))+'\n' for row in bits),check=True,capture_output=True,text=True)
     actual=executed.stdout.splitlines()

@@ -1,20 +1,18 @@
 {
-  "artifact": "mixed.expr",
-  "sha256": "62a1d627e115eb51db84daf3e184110768a7b9a4b018a159ed81e6c895a1050b",
-  "characters": 10253949,
+  "terminal": true,
   "compilerIdentity": {
     "version": 1,
     "dimension": 2,
     "position": 0,
-    "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+    "python": "3.13.15 (main, Aug  6 2026, 11:06:22) [GCC 13.3.0]",
     "sympy": "1.14.0",
-    "platform": "macOS-26.7.1-arm64-arm-64bit",
+    "platform": "Linux-6.6.122+-x86_64-with-glibc2.39",
     "byteOrder": "little",
     "referenceBackend": {
       "name": "torch CPU",
-      "version": "2.12.1",
-      "gitVersion": "7269437d655783a26cba32aa88195b741ff496aa",
-      "capability": "DEFAULT"
+      "version": "2.11.0+cu130",
+      "gitVersion": "70d99e998b4955e0049d13a98d77ae1b14db1f45",
+      "capability": "AVX512"
     },
     "checkpoint": {
       "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
@@ -44,26 +42,35 @@
       "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
     }
   },
-  "verifierSHA256": "a7f8d4f6077c928433a0f2c1febad01da02c029ea15a63c1af557e413a9612d7",
-  "cases": 20980737,
-  "totalCases": 20980737,
-  "mismatches": 0,
-  "firstMismatches": [],
-  "seconds": 20.277350249991287,
-  "batchSize": 4096,
-  "position": 0,
-  "tokens": 1,
-  "dimension": 2,
-  "complete": true,
-  "inputRankDomains": {
-    "X1": [
-      11264,
-      16384
-    ],
-    "X2": [
-      -15360,
-      -11264
-    ]
+  "originalFailure": "report.json",
+  "artifactSHA256": "62a1d627e115eb51db84daf3e184110768a7b9a4b018a159ed81e6c895a1050b",
+  "recompiled": false,
+  "fullCoordinateParity": false,
+  "exhaustive": [
+    {
+      "report": "exhaustive--1-1.json",
+      "exitCode": 0,
+      "seconds": 80.19647270600012
+    },
+    {
+      "report": "exhaustive-1--1.json",
+      "exitCode": 0,
+      "seconds": 80.22648065299995
+    }
+  ],
+  "corpusParity": {
+    "artifact": "/content/llm-inner-norm-correlation/results/mixed.expr",
+    "sha256": "62a1d627e115eb51db84daf3e184110768a7b9a4b018a159ed81e6c895a1050b",
+    "characters": 10253949,
+    "position": 0,
+    "tokens": 1,
+    "dimension": 2,
+    "inputCorpusVersion": 2,
+    "verifierSHA256": "a66f4633278d38cd9d270a23fdb4e22443613f59e6768091f2418ac65016c085",
+    "cases": 8196,
+    "mismatches": 0,
+    "firstMismatches": [],
+    "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
   },
-  "scope": "Every Half pair in the declared central region; not full-coordinate or multiple-token parity."
+  "success": true
 }

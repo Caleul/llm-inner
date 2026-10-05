@@ -1,0 +1,25 @@
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 3871.96it/s]
+{"cases": 4096, "totalCases": 20980737, "mismatches": 0, "seconds": 38.28710376500021, "complete": false}
+{"cases": 1052672, "totalCases": 20980737, "mismatches": 0, "seconds": 39.916585706000205, "complete": false}
+{"cases": 2101248, "totalCases": 20980737, "mismatches": 0, "seconds": 41.50145579500031, "complete": false}
+{"cases": 3149824, "totalCases": 20980737, "mismatches": 0, "seconds": 43.09693688900006, "complete": false}
+{"cases": 4198400, "totalCases": 20980737, "mismatches": 0, "seconds": 44.837671523000154, "complete": false}
+{"cases": 5246976, "totalCases": 20980737, "mismatches": 0, "seconds": 46.77527226100028, "complete": false}
+{"cases": 6295552, "totalCases": 20980737, "mismatches": 0, "seconds": 48.40474484900005, "complete": false}
+{"cases": 7344128, "totalCases": 20980737, "mismatches": 0, "seconds": 49.98089926700004, "complete": false}
+{"cases": 8392704, "totalCases": 20980737, "mismatches": 0, "seconds": 51.59092737800029, "complete": false}
+{"cases": 9441280, "totalCases": 20980737, "mismatches": 0, "seconds": 53.16978980700014, "complete": false}
+{"cases": 10489856, "totalCases": 20980737, "mismatches": 0, "seconds": 54.75500845500028, "complete": false}
+{"cases": 11538432, "totalCases": 20980737, "mismatches": 0, "seconds": 56.34449487400025, "complete": false}
+{"cases": 12587008, "totalCases": 20980737, "mismatches": 0, "seconds": 58.2433493880003, "complete": false}
+{"cases": 13635584, "totalCases": 20980737, "mismatches": 0, "seconds": 60.02574101300024, "complete": false}
+{"cases": 14684160, "totalCases": 20980737, "mismatches": 0, "seconds": 61.636712477999936, "complete": false}
+{"cases": 15732736, "totalCases": 20980737, "mismatches": 0, "seconds": 63.23295333100032, "complete": false}
+{"cases": 16781312, "totalCases": 20980737, "mismatches": 0, "seconds": 64.80611028300018, "complete": false}
+{"cases": 17829888, "totalCases": 20980737, "mismatches": 0, "seconds": 66.38506890300005, "complete": false}
+{"cases": 18878464, "totalCases": 20980737, "mismatches": 0, "seconds": 68.00271352300024, "complete": false}
+{"cases": 19927040, "totalCases": 20980737, "mismatches": 0, "seconds": 69.71664252600021, "complete": false}
+{"cases": 20975616, "totalCases": 20980737, "mismatches": 0, "seconds": 71.69425897200017, "complete": false}
+{"cases": 20980737, "totalCases": 20980737, "mismatches": 0, "seconds": 71.71441054000024, "complete": true}

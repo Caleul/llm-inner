@@ -96,10 +96,11 @@ for name in ('build.log','corrected-test.log','project-test.log','correlation-co
 for name,data in (('validation.json',validation),('artifact-map.json',rows),('frontier.json',state)):
     (root/name).write_text(json.dumps(data,indent=2)+'\n')
 mapfile=Path('docs/direct-string-validation.json');raw=mapfile.read_text()
-if 'normCorrelationValidation' in json.loads(raw):
-    prefix=raw.split(',\n  "normCorrelationValidation": ',1)
-    if len(prefix)!=2:raise ValueError('Evidence block is not independently replaceable')
-    raw=prefix[0]+'\n}\n'
-assert raw.rstrip().endswith('}')
-mapfile.write_text(raw.rstrip()[:-1].rstrip()+',\n  "normCorrelationValidation": '+json.dumps(validation,indent=2).replace('\n','\n  ')+'\n}\n')
+existing=json.loads(raw)
+if 'normCorrelationValidation' in existing:
+    if existing['normCorrelationValidation']!=validation:
+        raise ValueError('Historical validation differs; append a new evidence entry instead')
+else:
+    assert raw.rstrip().endswith('}')
+    mapfile.write_text(raw.rstrip()[:-1].rstrip()+',\n  "normCorrelationValidation": '+json.dumps(validation,indent=2).replace('\n','\n  ')+'\n}\n')
 print(json.dumps(validation),flush=True)

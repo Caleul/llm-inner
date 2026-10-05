@@ -45,7 +45,7 @@ int main(){if(std::fesetround(FE_TONEAREST))return 2;
   if(std::fwrite(out,8,n,stdout)!=n||std::fflush(stdout))return 4;
  }return std::ferror(stdin)?5:0;}
 ''')
-    built=subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],capture_output=True,text=True)
+    built=subprocess.run(['clang++','-O3','-ffp-contract=off','-fbracket-depth=4096','-std=c++17',str(source),'-o',str(binary)],capture_output=True,text=True)
     if built.returncode:raise ValueError(built.stderr[:2000])
     process=subprocess.Popen([str(binary)],stdin=subprocess.PIPE,stdout=subprocess.PIPE)
     try:

@@ -1,20 +1,20 @@
 {
-  "artifact": "mixed.expr",
+  "artifact": "/content/llm-inner-norm-correlation/results/mixed.expr",
   "sha256": "62a1d627e115eb51db84daf3e184110768a7b9a4b018a159ed81e6c895a1050b",
   "characters": 10253949,
   "compilerIdentity": {
     "version": 1,
     "dimension": 2,
     "position": 0,
-    "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+    "python": "3.13.15 (main, Aug  6 2026, 11:06:22) [GCC 13.3.0]",
     "sympy": "1.14.0",
-    "platform": "macOS-26.7.1-arm64-arm-64bit",
+    "platform": "Linux-6.6.122+-x86_64-with-glibc2.39",
     "byteOrder": "little",
     "referenceBackend": {
       "name": "torch CPU",
-      "version": "2.12.1",
-      "gitVersion": "7269437d655783a26cba32aa88195b741ff496aa",
-      "capability": "DEFAULT"
+      "version": "2.11.0+cu130",
+      "gitVersion": "70d99e998b4955e0049d13a98d77ae1b14db1f45",
+      "capability": "AVX512"
     },
     "checkpoint": {
       "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
@@ -49,7 +49,7 @@
   "totalCases": 20980737,
   "mismatches": 0,
   "firstMismatches": [],
-  "seconds": 20.277350249991287,
+  "seconds": 71.71441054000024,
   "batchSize": 4096,
   "position": 0,
   "tokens": 1,

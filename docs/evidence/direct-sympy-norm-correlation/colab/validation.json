@@ -1,20 +1,18 @@
 {
-  "artifact": "mixed.expr",
-  "sha256": "62a1d627e115eb51db84daf3e184110768a7b9a4b018a159ed81e6c895a1050b",
-  "characters": 10253949,
+  "session": "llm-inner-norm-correlation",
   "compilerIdentity": {
     "version": 1,
     "dimension": 2,
     "position": 0,
-    "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+    "python": "3.13.15 (main, Aug  6 2026, 11:06:22) [GCC 13.3.0]",
     "sympy": "1.14.0",
-    "platform": "macOS-26.7.1-arm64-arm-64bit",
+    "platform": "Linux-6.6.122+-x86_64-with-glibc2.39",
     "byteOrder": "little",
     "referenceBackend": {
       "name": "torch CPU",
-      "version": "2.12.1",
-      "gitVersion": "7269437d655783a26cba32aa88195b741ff496aa",
-      "capability": "DEFAULT"
+      "version": "2.11.0+cu130",
+      "gitVersion": "70d99e998b4955e0049d13a98d77ae1b14db1f45",
+      "capability": "AVX512"
     },
     "checkpoint": {
       "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
@@ -44,26 +42,59 @@
       "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
     }
   },
-  "verifierSHA256": "a7f8d4f6077c928433a0f2c1febad01da02c029ea15a63c1af557e413a9612d7",
-  "cases": 20980737,
-  "totalCases": 20980737,
-  "mismatches": 0,
-  "firstMismatches": [],
-  "seconds": 20.277350249991287,
-  "batchSize": 4096,
-  "position": 0,
-  "tokens": 1,
-  "dimension": 2,
-  "complete": true,
-  "inputRankDomains": {
-    "X1": [
-      11264,
-      16384
-    ],
-    "X2": [
-      -15360,
-      -11264
-    ]
+  "sameNumericalSourcesAndCheckpointAsLocal": true,
+  "localArtifact": "mixed.expr",
+  "artifactSHA256": "62a1d627e115eb51db84daf3e184110768a7b9a4b018a159ed81e6c895a1050b",
+  "corpusCases": 8196,
+  "corpusMismatches": 0,
+  "exhaustiveArtifactCases": 41961474,
+  "exhaustiveArtifactMismatches": 0,
+  "artifactRecompiledDuringRecovery": false,
+  "clangParserFix": "-fbracket-depth=4096; original FP flags and expression retained",
+  "comparison": {
+    "patterns": 16842752,
+    "identicalArtifactHashes": true,
+    "sequentialSeconds": 29.12312780299999,
+    "parallelSeconds": 25.06315792600003,
+    "speedRatio": 1.1619895580990705,
+    "sequentialPeakObservedRSSBytes": 1522782208,
+    "parallelPeakObservedRSSBytes": 2076446720,
+    "scope": "The same four regions, including native candidate parity; not full-coordinate performance."
   },
-  "scope": "Every Half pair in the declared central region; not full-coordinate or multiple-token parity."
+  "mixedCompilationSeconds": 205.97044301300002,
+  "cuda": {
+    "device": "Tesla T4",
+    "torch": "2.11.0+cu130",
+    "cuda": "13.0",
+    "cpuThreads": 1,
+    "halfProducts": {
+      "cases": 888832,
+      "mismatches": 0,
+      "medianCpuSeconds": 0.006586191000224062,
+      "medianCudaSeconds": 0.00021811099986734916,
+      "medianCudaWithTransfersSeconds": 0.0024136330000601447,
+      "samples": 15,
+      "warmup": 3
+    },
+    "silu": {
+      "cases": 19458,
+      "mismatches": 0,
+      "domain": [
+        -0.0234375,
+        0.0234375
+      ],
+      "cudaAdmitted": true
+    },
+    "quadraticThreshold": {
+      "cases": 19458,
+      "cpuMismatches": 0,
+      "cudaMismatches": 0,
+      "squareBitMismatches": 0,
+      "cudaAdmitted": true
+    },
+    "cudaPeakAllocatedBytes": 11682816
+  },
+  "fullCoordinateArtifactEmitted": false,
+  "fullCoordinateParity": false,
+  "multipleTokenParity": false
 }
