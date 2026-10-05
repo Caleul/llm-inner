@@ -1,0 +1,8 @@
+........
+----------------------------------------------------------------------
+Ran 8 tests in 9.836s
+
+OK
+Complete compiler composition: cases=60 mismatches=0; position=0 dimension=2; logicalCharacters=2296038099016; emittedFinalParity=false
+Emitted checkpoint inverse: cases=888832 mismatches=0
+Emitted streaming literal: cases=30722 mismatches=0

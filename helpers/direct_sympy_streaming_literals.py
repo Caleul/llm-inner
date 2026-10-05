@@ -137,13 +137,30 @@ class StreamingLiterals:
 @contextmanager
 def streaming_literals(model):
     registry=StreamingLiterals(model);original=model.producer
+    original_compose=model.conversions.compose_closed
+    compositions=[]
     original_measure=model.compiler.expression_size
     model.compiler.expression_size=registry.size
+    def compose(template,bindings):
+        result=original_compose(template,bindings)
+        # A completed composition is not its numerical recipe. Preserve
+        # the original boundaries for later branch-local reclosure, using
+        # only compact backward aliases (never restoring their payloads).
+        # Match the entire producer, like projection certificates do.
+        if compositions and all(ALIASES.fullmatch(value) for value in bindings.values()):
+            recipe=template
+            for name,value in bindings.items():
+                recipe=model.compiler.substitute(recipe,name,value,model.domains)
+            compositions[-1][result]=recipe
+        return result
     def producer(key,build):
         if key in model.memo:return model.memo[key]
         recipe=[]
         def capture():
-            expression=build();recipe.append(expression);return expression
+            composed={};compositions.append(composed)
+            try:expression=build()
+            finally:compositions.pop()
+            recipe.append(composed.get(expression,expression));return expression
         text=original(key,capture);alias=registry.intern(text);model.memo[key]=alias
         match=ALIASES.fullmatch(alias)
         if match is not None and recipe:
@@ -155,7 +172,9 @@ def streaming_literals(model):
         registry.events.append((key,len(text),registry.size(alias),len(registry.definitions)))
         return alias
     model.producer=producer
+    model.conversions.compose_closed=compose
     try:yield registry
     finally:
         model.producer=original
+        model.conversions.compose_closed=original_compose
         model.compiler.expression_size=original_measure

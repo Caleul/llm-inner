@@ -20,6 +20,30 @@ from direct_sympy_streaming_literals import ALIASES,streaming_literals
 
 
 class StreamingLiteralTests(unittest.TestCase):
+    def test_composed_producer_retains_its_original_rounding_recipe(self):
+        fixture=fixtures.SavepointTests()
+        with tempfile.TemporaryDirectory() as directory:
+            model=fixture.model(Path(directory));original=model.conversions.compose_closed
+            with streaming_literals(model) as registry:
+                first=fixture.first(model)
+                def composed():
+                    return model.conversions.compose_closed('R16(R32(X999999998*X999999999))',
+                        {'X999999998':first,'X999999999':first})
+                result=model.producer('fixture:composed-square',composed)
+                index=int(ALIASES.fullmatch(result)[1]);recipe=registry.definition_recipes[index]
+                self.assertIn('R16',recipe);self.assertIn('R32',recipe)
+                self.assertEqual([int(m[1])for m in ALIASES.finditer(recipe)],
+                    [int(ALIASES.fullmatch(first)[1])]*2)
+                self.assertNotIn('Bits64',recipe)
+                self.assertLess(len(recipe),128)
+                self.assertNotIn('R16',registry.definitions[index])
+                # An embedded composition does not certify its enclosing
+                # addition as a whole product.
+                embedded=model.producer('fixture:composed-residual',lambda:'R16(R32('+composed()+' + 0.03125))')
+                embedded_index=int(ALIASES.fullmatch(embedded)[1])
+                self.assertIn('0.03125',registry.definition_recipes[embedded_index])
+            self.assertEqual(model.conversions.compose_closed,original)
+
     def test_shared_root_and_numeric_marker_preserve_exact_outer_cancellation(self):
         from direct_sympy_words import simplify_words
         fixture=fixtures.SavepointTests()
