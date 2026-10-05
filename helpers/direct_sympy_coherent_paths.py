@@ -221,10 +221,23 @@ class CoherentPaths:
 
         No predicate assumes its own truth. Numerical enclosures are scoped
         to the frozen prefix, and unsupported/overlapping comparisons stay
-        undecided. Logical operands keep their existing lazy traversal.
+        undecided. Logical operands are proved in their lazy evaluation order;
+        an unknown operand stops the proof before any later operand is visited.
         """
         known=self.facts.truth(node,facts)
         if known is not None:return known
+        negated=self.facts.negate(node)
+        if negated is not None:
+            truth=self.condition_truth(negated,facts)
+            return None if truth is None else not truth
+        logical=self.facts.logical(node)
+        if logical:
+            kind,children=logical
+            for child in children:
+                truth=self.condition_truth(child,facts)
+                if truth is None:return None
+                if truth is (False if kind=='And' else True):return truth
+            return kind=='And'
         if not isinstance(node,ast.Compare) or len(node.ops)!=1 or len(node.comparators)!=1:return None
         from direct_sympy_conversions import ConversionSession,FiniteSource
         key=(facts,len(self.predicates))
@@ -359,10 +372,11 @@ class CoherentPaths:
             if logical:
                 kind,children=logical
                 for index,child in enumerate(children):
+                    truth=self.condition_truth(child,facts)
+                    if truth is (False if kind=='And' else True):return None
+                    if truth is not None:continue
                     nested=find(child)
                     if nested is not None:return nested
-                    truth=self.facts.truth(child,facts)
-                    if truth is (False if kind=='And' else True):return None
                     if truth is None and index+1<len(children):return child
                 return None
             if isinstance(node,ast.Call) and node.func.id=='Piecewise':
@@ -590,7 +604,7 @@ class CoherentPaths:
             if logical:
                 kind,children=logical;selected=[]
                 for child in children:
-                    truth=self.facts.truth(child,facts)
+                    truth=self.condition_truth(child,facts)
                     if truth is None:selected.append(select(child))
                     elif truth is (False if kind=='And' else True):
                         selected.append(ast.Constant(value=truth));break

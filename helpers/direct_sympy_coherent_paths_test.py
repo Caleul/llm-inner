@@ -221,6 +221,45 @@ class CoherentPathTests(unittest.TestCase):
         self.assertIsNone(plan.condition_truth(syntax('X1 <= 0.0'),()))
         self.assertEqual(registry.model.domains['X1'].minimum,F(-1))
 
+    def test_numeric_logical_proofs_preserve_order_unknowns_and_prefix_ownership(self):
+        registry=fixture(['X1'])
+        registry.definition_proofs=[(FiniteSource(-1,1,-24),'half',False,None)]
+        registry.definition_recipes={0:'X1'}
+        plan=CoherentPaths(registry)
+        self.assertIs(plan.condition_truth(syntax('And(CompileValue0()>=-1.0,CompileValue0()<=1.0)'),()),True)
+        self.assertIs(plan.condition_truth(syntax('Or(CompileValue0()>1.0,CompileValue0()<=1.0)'),()),True)
+        self.assertIs(plan.condition_truth(syntax('Not(CompileValue0()>1.0)'),()),True)
+        unknown=syntax('And(CompileValue0()>0.0,CompileValue0()<=1.0)')
+        self.assertIsNone(plan.condition_truth(unknown,()))
+        positive=plan.assume(syntax('X1>0.5'),True,())
+        self.assertIs(plan.condition_truth(unknown,positive),True)
+        self.assertIsNone(plan.condition_truth(unknown,()))
+        # This unsupported operand must never be inspected by a numerical
+        # proof after a decisive operand, nor after an unknown lazy prefix.
+        original=plan.condition_truth
+        def checked(node,facts):
+            if isinstance(node,ast.Call) and node.func.id=='Poison':
+                raise AssertionError('Visited unreachable or unproved lazy operand')
+            return original(node,facts)
+        with patch.object(plan,'condition_truth',side_effect=checked):
+            self.assertIs(plan.condition_truth(syntax('And(CompileValue0()>1.0,Poison())'),()),False)
+            self.assertIs(plan.condition_truth(syntax('Or(CompileValue0()<=1.0,Poison())'),()),True)
+            self.assertIsNone(plan.condition_truth(syntax('And(CompileValue0()>0.0,Poison())'),()))
+
+    def test_numeric_logical_dispatch_removes_redundant_choices_with_bitwise_parity(self):
+        registry=fixture(['X1','Piecewise((-0.0,And(CompileValue0()>1.0,1.0/X1>0.0)),(CompileValue0(),Or(CompileValue0()>1.0,CompileValue0()<=1.0)),(9.0,True))'])
+        registry.definition_proofs=[(FiniteSource(-1,1,-24),'half',False,None),(None,None,False,None)]
+        with tempfile.TemporaryDirectory()as directory:
+            path=Path(directory)/'logical.expr';plan=CoherentPaths(registry)
+            report=plan.write(path,'CompileValue1()',max_characters=65536)
+            self.assertEqual(report['paths'],1)
+            self.assertEqual(plan.stats['splitContexts'],0)
+            text=path.read_text();self.assertNotIn('1.0 / X1',text)
+            for magnitude in range(0x3c01):
+                for sign in (0,0x8000):
+                    x=struct.unpack('e',struct.pack('H',magnitude|sign))[0]
+                    self.assertEqual(struct.pack('d',evaluate(text,{'X1':x,'X2':0.0})),struct.pack('d',x))
+
     def test_certified_empty_numeric_branch_is_pruned_but_other_errors_remain_fatal(self):
         mask=0x7fffffffffffffff
         threshold=struct.unpack('>Q',struct.pack('>d',2.0))[0]
