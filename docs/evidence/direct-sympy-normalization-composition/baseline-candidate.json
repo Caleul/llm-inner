@@ -1,0 +1,1498 @@
+{
+  "compilerIdentity": {
+    "version": 1,
+    "dimension": 2,
+    "position": 0,
+    "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+    "sympy": "1.14.0",
+    "platform": "macOS-26.7.1-arm64-arm-64bit",
+    "byteOrder": "little",
+    "referenceBackend": {
+      "name": "torch CPU",
+      "version": "2.12.1",
+      "gitVersion": "7269437d655783a26cba32aa88195b741ff496aa",
+      "capability": "DEFAULT"
+    },
+    "checkpoint": {
+      "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+      "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+    },
+    "sources": {
+      "direct_sympy_arithmetic.py": "b67816f4954a9ef6877bc0b549044c3f2bf6878451f5b4a94fa13f0237072f6d",
+      "direct_sympy_checkpoint.py": "889ecefef40b7cbf1b87452e92decda5837ab9d01bc61affcb0274c045bac146",
+      "direct_sympy_coherent_paths.py": "5db837861f7f1ab0056e38eecb8bb8dcc497f8102d8e6dd60304cea708c8dcb0",
+      "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+      "direct_sympy_conversions.py": "632e7e2b26ca677b3bc69ece3c08c6a4bc8c8f590b99e873a64f9c58453a02a3",
+      "direct_sympy_input_partitions.py": "21449edd26a0d43ad4a2c5b5e841c5e9d8e7de6afb6ac138a9eef88374558797",
+      "direct_sympy_layer_bounds.py": "c1a93f951ff5ad5af8510671e42ac8c05d73c246dfb2460bacd43cf0e3774dae",
+      "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+      "direct_sympy_partition_run.py": "9985ec29e19e73f59ab0691be88f8278966d64fe2daaaf5fab77135901a66482",
+      "direct_sympy_projection_constraints.py": "bcf9ed81383577aa2f095178f8cc678e77aa2ca2f7220a39e96b3fa1bd10d03a",
+      "direct_sympy_recipe_bounds.py": "b9c3ff5ce7bbd8ecab6cc4a1172949de6c1c3b76eddc1a3f3e692fae7ca129a2",
+      "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+      "direct_sympy_savepoints.py": "064a2a6ae267ac4338ae6bb102a5ddb2272869d63f0ff857a1d0116313de4cb7",
+      "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+      "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+      "direct_sympy_silu.py": "e623f38b5008356d8f6aa1615aabfa5a779f9dc7ea9d5b8183c5b17a78383fe3",
+      "direct_sympy_sqrt.py": "71875ff81696163c1b7ddfe16906cdeec6a03ba2dc67ee0915b76ba8d966c948",
+      "direct_sympy_streaming_literals.py": "7310a1dd1a7ee97bcab7f792859a67cf02ea075e2e72c546b92231687ae0c9d6",
+      "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+      "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+      "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+      "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
+    }
+  },
+  "seconds": 38.57291983399773,
+  "candidate": 8,
+  "bodyCharacters": 3577798761,
+  "expression": "CompileValue39()",
+  "definitions": [
+    {
+      "index": 0,
+      "text": "Float64(U64And(U64Add(Bits64(Float64(U64And(U64Add(Bits64(X1 ** 2 + X2 ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), U64Add(268435455, U64And(U64Shr(Bits64(Float64(U64And(U64Add(Bits64(X1 ** 2 + X2 ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), 29), 1))), 18446744073172680704))",
+      "recipe": "R32(R32(R32(X1 ** 2 + X2 ** 2) / 2) + 9.999999974752427e-07)",
+      "expandedCharacters": 331,
+      "references": {}
+    },
+    {
+      "index": 1,
+      "text": "Float64(U64And(U64Add(Bits64(1.0 / Float64(U64Add(U64And(U64Add(Bits64((13.367174015436346 + -779.0174377628756 / (Float64(U64Or(U64And(U64Add(Bits64(Float64(U64And(U64Add(Bits64(X1 ** 2 + X2 ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), U64Add(268435455, U64And(U64Shr(Bits64(Float64(U64And(U64Add(Bits64(X1 ** 2 + X2 ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), 29), 1))), 4503599090499584), 4607182418800017408)) - 1.5 + 72.88886838020784) + -9.032202101157678 / (Float64(U64Or(U64And(U64Add(Bits64(Float64(U64And(U64Add(Bits64(X1 ** 2 + X2 ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), U64Add(268435455, U64And(U64Shr(Bits64(Float64(U64And(U64Add(Bits64(X1 ** 2 + X2 ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), 29), 1))), 4503599090499584), 4607182418800017408)) - 1.5 + 8.541941977833192) + -1.0005960489978687 / (Float64(U64Or(U64And(U64Add(Bits64(Float64(U64And(U64Add(Bits64(X1 ** 2 + X2 ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), U64Add(268435455, U64And(U64Shr(Bits64(Float64(U64And(U64Add(Bits64(X1 ** 2 + X2 ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), 29), 1))), 4503599090499584), 4607182418800017408)) - 1.5 + 3.4400824392419294) + -0.1852754751106736 / (Float64(U64Or(U64And(U64Add(Bits64(Float64(U64And(U64Add(Bits64(X1 ** 2 + X2 ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), U64Add(268435455, U64And(U64Shr(Bits64(Float64(U64And(U64Add(Bits64(X1 ** 2 + X2 ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), 29), 1))), 4503599090499584), 4607182418800017408)) - 1.5 + 2.096193424586035) + -0.029292444172441905 / (Float64(U64Or(U64And(U64Add(Bits64(Float64(U64And(U64Add(Bits64(X1 ** 2 + X2 ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), U64Add(268435455, U64And(U64Shr(Bits64(Float64(U64And(U64Add(Bits64(X1 ** 2 + X2 ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), 29), 1))), 4503599090499584), 4607182418800017408)) - 1.5 + 1.6235843576093156)) * (1.0 + U64And(U64Add(U64And(U64Shr(U64Add(Bits64(Float64(U64And(U64Add(Bits64(X1 ** 2 + X2 ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), U64Add(268435455, U64And(U64Shr(Bits64(Float64(U64And(U64Add(Bits64(X1 ** 2 + X2 ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), 29), 1))), 52), 2047), 1), 1) * 0.4142135623730951)), 268435455), 18446744073172680704), U64Mul(U64Add(U64Shr(U64Add(U64And(U64Shr(U64Add(Bits64(Float64(U64And(U64Add(Bits64(X1 ** 2 + X2 ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), U64Add(268435455, U64And(U64Shr(Bits64(Float64(U64And(U64Add(Bits64(X1 ** 2 + X2 ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), 29), 1))), 52), 2047), 1023), 1), 18446744073709550593), 4503599627370496)))), 268435455), 18446744073172680704))",
+      "recipe": "R32(1.0 / R32(sqrt(CompileValue0())))",
+      "expandedCharacters": 2969,
+      "references": {}
+    },
+    {
+      "index": 2,
+      "text": "Float64(U64Or(Bits64(Float64(U64And(U64FromF64(F64FromU64(Bits64(X1 * CompileValue1())) + 2 ** 81 - 2 ** 81), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(X1), 9223372036854775808)))",
+      "recipe": "R16(R16(R32(X1 * CompileValue1())) * 1.0)",
+      "expandedCharacters": 3151,
+      "references": {
+        "CompileValue1": 1
+      }
+    },
+    {
+      "index": 3,
+      "text": "Float64(U64And(U64Add(U64And(Bits64(X1), 9223372036854775808), Bits64(0)), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 98,
+      "references": {}
+    },
+    {
+      "index": 4,
+      "text": "Float64(U64FromF64(F64FromU64(Bits64(X2 * CompileValue1())) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94))",
+      "recipe": "R16(R16(R32(X2 * CompileValue1())) * 1.0)",
+      "expandedCharacters": 3057,
+      "references": {
+        "CompileValue1": 1
+      }
+    },
+    {
+      "index": 5,
+      "text": "Float64(U64And(U64Add(U64And(Bits64(X2), 9223372036854775808), Bits64(0)), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 98,
+      "references": {}
+    },
+    {
+      "index": 6,
+      "text": "Float64(U64Or(Bits64(Float64(U64And(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue2() * 0.0030536651611328125 + (0.0 + CompileValue4() * 0.00511932373046875))) + 2 ** 81 - 2 ** 81), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue2() * 0.0030536651611328125 + (0.0 + CompileValue4() * 0.00511932373046875)), 9223372036854775808)))",
+      "recipe": "R16(R32(R32(R32(0.0 + CompileValue2() * 0.0030536651611328125) + R32(0.0 + CompileValue4() * 0.00511932373046875)) + R32(0.0 + 0.0)))",
+      "expandedCharacters": 12717,
+      "references": {
+        "CompileValue4": 2,
+        "CompileValue2": 2
+      }
+    },
+    {
+      "index": 7,
+      "text": "Float64(U64And(Bits64(0.0 + CompileValue2() * 0.0030536651611328125 + (0.0 + CompileValue4() * 0.00511932373046875)), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 6319,
+      "references": {
+        "CompileValue4": 1,
+        "CompileValue2": 1
+      }
+    },
+    {
+      "index": 8,
+      "text": "0.0 + Float64(U64Or(Bits64(Float64(U64And(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue2() * 0.0030536651611328125 + (0.0 + CompileValue4() * 0.00511932373046875))) + 2 ** 81 - 2 ** 81), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue2() * 0.0030536651611328125 + (0.0 + CompileValue4() * 0.00511932373046875)), 9223372036854775808)))",
+      "recipe": "R16(R32(R32(R32(0.0 + 1.0 * CompileValue6()) + 0.0) + R32(0.0 + 0.0)))",
+      "expandedCharacters": 12723,
+      "references": {
+        "CompileValue4": 2,
+        "CompileValue2": 2
+      }
+    },
+    {
+      "index": 9,
+      "text": "Float64(U64Or(Bits64(Float64(U64And(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue2() * -0.0226287841796875 + (0.0 + CompileValue4() * 0.0184478759765625))) + 2 ** 81 - 2 ** 81), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue2() * -0.0226287841796875 + (0.0 + CompileValue4() * 0.0184478759765625)), 9223372036854775808)))",
+      "recipe": "R16(R32(R32(R32(0.0 + CompileValue2() * -0.0226287841796875) + R32(0.0 + CompileValue4() * 0.0184478759765625)) + R32(0.0 + 0.0)))",
+      "expandedCharacters": 12711,
+      "references": {
+        "CompileValue4": 2,
+        "CompileValue2": 2
+      }
+    },
+    {
+      "index": 10,
+      "text": "Float64(U64And(Bits64(0.0 + CompileValue2() * -0.0226287841796875 + (0.0 + CompileValue4() * 0.0184478759765625)), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 6316,
+      "references": {
+        "CompileValue4": 1,
+        "CompileValue2": 1
+      }
+    },
+    {
+      "index": 11,
+      "text": "0.0 + Float64(U64Or(Bits64(Float64(U64And(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue2() * -0.0226287841796875 + (0.0 + CompileValue4() * 0.0184478759765625))) + 2 ** 81 - 2 ** 81), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue2() * -0.0226287841796875 + (0.0 + CompileValue4() * 0.0184478759765625)), 9223372036854775808)))",
+      "recipe": "R16(R32(R32(R32(0.0 + 1.0 * CompileValue9()) + 0.0) + R32(0.0 + 0.0)))",
+      "expandedCharacters": 12717,
+      "references": {
+        "CompileValue4": 2,
+        "CompileValue2": 2
+      }
+    },
+    {
+      "index": 12,
+      "text": "Float64(U64FromF64(F64FromU64(Bits64(X1 + Float64(U64Or(Bits64(Float64(U64And(Bits64(0.0 + CompileValue8() * 0.032928466796875 + (0.0 + CompileValue11() * -0.0225982666015625)), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue8() * 0.032928466796875 + (0.0 + CompileValue11() * -0.0225982666015625)), 9223372036854775808))))) + 2 ** 94 - 2 ** 94))",
+      "recipe": "R16(R32(X1 + R16(R32(R32(R32(0.0 + CompileValue8() * 0.032928466796875) + R32(0.0 + CompileValue11() * -0.0225982666015625)) + R32(0.0 + 0.0)))))",
+      "expandedCharacters": 51195,
+      "references": {
+        "CompileValue11": 2,
+        "CompileValue8": 2
+      }
+    },
+    {
+      "index": 13,
+      "text": "Float64(U64And(Bits64(X1 + Piecewise((Float64(U64Or(Bits64(Float64(U64And(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue8() * 0.032928466796875 + (0.0 + CompileValue11() * -0.0225982666015625))) + 2 ** 81 - 2 ** 81), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue8() * 0.032928466796875 + (0.0 + CompileValue11() * -0.0225982666015625)), 9223372036854775808))), U64And(Bits64(0.0 + CompileValue8() * 0.032928466796875 + (0.0 + CompileValue11() * -0.0225982666015625)), 9223372036854775807) < 4544132023748395008), (Float64(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue8() * 0.032928466796875 + (0.0 + CompileValue11() * -0.0225982666015625))) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94)), True))), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 102387,
+      "references": {
+        "CompileValue11": 4,
+        "CompileValue8": 4
+      }
+    },
+    {
+      "index": 14,
+      "text": "Float64(U64FromF64(F64FromU64(Bits64(X2 + Float64(U64Or(Bits64(Float64(U64And(Bits64(0.0 + CompileValue8() * 0.0203399658203125 + (0.0 + CompileValue11() * 0.006168365478515625)), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue8() * 0.0203399658203125 + (0.0 + CompileValue11() * 0.006168365478515625)), 9223372036854775808))))) + 2 ** 94 - 2 ** 94))",
+      "recipe": "R16(R32(X2 + R16(R32(R32(R32(0.0 + CompileValue8() * 0.0203399658203125) + R32(0.0 + CompileValue11() * 0.006168365478515625)) + R32(0.0 + 0.0)))))",
+      "expandedCharacters": 51199,
+      "references": {
+        "CompileValue11": 2,
+        "CompileValue8": 2
+      }
+    },
+    {
+      "index": 15,
+      "text": "Float64(U64And(Bits64(X2 + Piecewise((Float64(U64Or(Bits64(Float64(U64And(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue8() * 0.0203399658203125 + (0.0 + CompileValue11() * 0.006168365478515625))) + 2 ** 81 - 2 ** 81), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue8() * 0.0203399658203125 + (0.0 + CompileValue11() * 0.006168365478515625)), 9223372036854775808))), U64And(Bits64(0.0 + CompileValue8() * 0.0203399658203125 + (0.0 + CompileValue11() * 0.006168365478515625)), 9223372036854775807) < 4544132023748395008), (Float64(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue8() * 0.0203399658203125 + (0.0 + CompileValue11() * 0.006168365478515625))) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94)), True))), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 102395,
+      "references": {
+        "CompileValue11": 4,
+        "CompileValue8": 4
+      }
+    },
+    {
+      "index": 16,
+      "text": "Float64(U64And(U64Add(Bits64(Float64(U64And(U64Add(Bits64(CompileValue12() ** 2 + CompileValue14() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), U64Add(268435455, U64And(U64Shr(Bits64(Float64(U64And(U64Add(Bits64(CompileValue12() ** 2 + CompileValue14() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), 29), 1))), 18446744073172680704))",
+      "recipe": "R32(R32(R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2) + 9.999999974752427e-07)",
+      "expandedCharacters": 205111,
+      "references": {
+        "CompileValue14": 2,
+        "CompileValue12": 2
+      }
+    },
+    {
+      "index": 17,
+      "text": "Float64(U64And(U64Add(Bits64(1.0 / Float64(U64Add(U64And(U64Add(Bits64((13.367174015436346 + -779.0174377628756 / (Float64(U64Or(U64And(U64Add(Bits64(Float64(U64And(U64Add(Bits64(CompileValue12() ** 2 + CompileValue14() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), U64Add(268435455, U64And(U64Shr(Bits64(Float64(U64And(U64Add(Bits64(CompileValue12() ** 2 + CompileValue14() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), 29), 1))), 4503599090499584), 4607182418800017408)) - 1.5 + 72.88886838020784) + -9.032202101157678 / (Float64(U64Or(U64And(U64Add(Bits64(Float64(U64And(U64Add(Bits64(CompileValue12() ** 2 + CompileValue14() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), U64Add(268435455, U64And(U64Shr(Bits64(Float64(U64And(U64Add(Bits64(CompileValue12() ** 2 + CompileValue14() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), 29), 1))), 4503599090499584), 4607182418800017408)) - 1.5 + 8.541941977833192) + -1.0005960489978687 / (Float64(U64Or(U64And(U64Add(Bits64(Float64(U64And(U64Add(Bits64(CompileValue12() ** 2 + CompileValue14() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), U64Add(268435455, U64And(U64Shr(Bits64(Float64(U64And(U64Add(Bits64(CompileValue12() ** 2 + CompileValue14() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), 29), 1))), 4503599090499584), 4607182418800017408)) - 1.5 + 3.4400824392419294) + -0.1852754751106736 / (Float64(U64Or(U64And(U64Add(Bits64(Float64(U64And(U64Add(Bits64(CompileValue12() ** 2 + CompileValue14() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), U64Add(268435455, U64And(U64Shr(Bits64(Float64(U64And(U64Add(Bits64(CompileValue12() ** 2 + CompileValue14() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), 29), 1))), 4503599090499584), 4607182418800017408)) - 1.5 + 2.096193424586035) + -0.029292444172441905 / (Float64(U64Or(U64And(U64Add(Bits64(Float64(U64And(U64Add(Bits64(CompileValue12() ** 2 + CompileValue14() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), U64Add(268435455, U64And(U64Shr(Bits64(Float64(U64And(U64Add(Bits64(CompileValue12() ** 2 + CompileValue14() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), 29), 1))), 4503599090499584), 4607182418800017408)) - 1.5 + 1.6235843576093156)) * (1.0 + U64And(U64Add(U64And(U64Shr(U64Add(Bits64(Float64(U64And(U64Add(Bits64(CompileValue12() ** 2 + CompileValue14() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), U64Add(268435455, U64And(U64Shr(Bits64(Float64(U64And(U64Add(Bits64(CompileValue12() ** 2 + CompileValue14() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), 29), 1))), 52), 2047), 1), 1) * 0.4142135623730951)), 268435455), 18446744073172680704), U64Mul(U64Add(U64Shr(U64Add(U64And(U64Shr(U64Add(Bits64(Float64(U64And(U64Add(Bits64(CompileValue12() ** 2 + CompileValue14() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), U64Add(268435455, U64And(U64Shr(Bits64(Float64(U64And(U64Add(Bits64(CompileValue12() ** 2 + CompileValue14() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), 29), 1))), 52), 2047), 1023), 1), 18446744073709550593), 4503599627370496)))), 268435455), 18446744073172680704))",
+      "recipe": "R32(1.0 / R32(sqrt(CompileValue16())))",
+      "expandedCharacters": 1436429,
+      "references": {
+        "CompileValue14": 14,
+        "CompileValue12": 14
+      }
+    },
+    {
+      "index": 18,
+      "text": "Float64(U64Or(Bits64(Float64(U64And(U64FromF64(F64FromU64(Bits64(CompileValue12() * CompileValue17())) + 2 ** 81 - 2 ** 81), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(U64FromF64(F64FromU64(Bits64(X1 + Float64(U64Or(Bits64(Float64(U64And(Bits64(0.0 + CompileValue8() * 0.032928466796875 + (0.0 + CompileValue11() * -0.0225982666015625)), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue8() * 0.032928466796875 + (0.0 + CompileValue11() * -0.0225982666015625)), 9223372036854775808))))) + 2 ** 94 - 2 ** 94), 9223372036854775808)))",
+      "recipe": "R16(R16(R32(CompileValue12() * CompileValue17())) * 1.0)",
+      "expandedCharacters": 1538978,
+      "references": {
+        "CompileValue17": 1,
+        "CompileValue11": 2,
+        "CompileValue12": 1,
+        "CompileValue8": 2
+      }
+    },
+    {
+      "index": 19,
+      "text": "Float64(U64And(U64Add(U64And(Bits64(X1 + Piecewise((Float64(U64Or(Bits64(Float64(U64And(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue8() * 0.032928466796875 + (0.0 + CompileValue11() * -0.0225982666015625))) + 2 ** 81 - 2 ** 81), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue8() * 0.032928466796875 + (0.0 + CompileValue11() * -0.0225982666015625)), 9223372036854775808))), U64And(Bits64(0.0 + CompileValue8() * 0.032928466796875 + (0.0 + CompileValue11() * -0.0225982666015625)), 9223372036854775807) < 4544132023748395008), (Float64(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue8() * 0.032928466796875 + (0.0 + CompileValue11() * -0.0225982666015625))) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94)), True))), 9223372036854775808), Bits64(0)), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 102435,
+      "references": {
+        "CompileValue11": 4,
+        "CompileValue8": 4
+      }
+    },
+    {
+      "index": 20,
+      "text": "Float64(U64FromF64(F64FromU64(Bits64(CompileValue14() * CompileValue17())) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94))",
+      "recipe": "R16(R16(R32(CompileValue14() * CompileValue17())) * 1.0)",
+      "expandedCharacters": 1487714,
+      "references": {
+        "CompileValue17": 1,
+        "CompileValue14": 1
+      }
+    },
+    {
+      "index": 21,
+      "text": "Float64(U64And(U64Add(U64And(Bits64(X2 + Piecewise((Float64(U64Or(Bits64(Float64(U64And(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue8() * 0.0203399658203125 + (0.0 + CompileValue11() * 0.006168365478515625))) + 2 ** 81 - 2 ** 81), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue8() * 0.0203399658203125 + (0.0 + CompileValue11() * 0.006168365478515625)), 9223372036854775808))), U64And(Bits64(0.0 + CompileValue8() * 0.0203399658203125 + (0.0 + CompileValue11() * 0.006168365478515625)), 9223372036854775807) < 4544132023748395008), (Float64(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue8() * 0.0203399658203125 + (0.0 + CompileValue11() * 0.006168365478515625))) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94)), True))), 9223372036854775808), Bits64(0)), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 102443,
+      "references": {
+        "CompileValue11": 4,
+        "CompileValue8": 4
+      }
+    },
+    {
+      "index": 22,
+      "text": "Float64(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue18() * -0.00046515464782714844 + (0.0 + CompileValue20() * -0.0145721435546875))) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94))",
+      "recipe": "R16(R32(R32(R32(0.0 + CompileValue18() * -0.00046515464782714844) + R32(0.0 + CompileValue20() * -0.0145721435546875)) + R32(0.0 + 0.0)))",
+      "expandedCharacters": 3026840,
+      "references": {
+        "CompileValue20": 1,
+        "CompileValue18": 1
+      }
+    },
+    {
+      "index": 23,
+      "text": "Float64(U64And(Bits64(0.0 + CompileValue18() * -0.00046515464782714844 + (0.0 + CompileValue20() * -0.0145721435546875)), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 3026805,
+      "references": {
+        "CompileValue20": 1,
+        "CompileValue18": 1
+      }
+    },
+    {
+      "index": 24,
+      "text": "Float64(U64Or(Bits64(Float64(U64And(U64FromF64(F64FromU64(Bits64(((Float64(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue18() * -0.00046515464782714844 + (0.0 + CompileValue20() * -0.0145721435546875))) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94)) + 1.0) ** 2 - 1.0) * 0.25)) + 2 ** 81 - 2 ** 81), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue18() * -0.00046515464782714844 + (0.0 + CompileValue20() * -0.0145721435546875))) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94), 9223372036854775808)))",
+      "recipe": "Silu16(CompileValue22())",
+      "expandedCharacters": 6053862,
+      "references": {
+        "CompileValue20": 2,
+        "CompileValue18": 2
+      }
+    },
+    {
+      "index": 25,
+      "text": "Float64(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue18() * 0.006542205810546875 + (0.0 + CompileValue20() * 0.0217437744140625))) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94))",
+      "recipe": "R16(R32(R32(R32(0.0 + CompileValue18() * 0.006542205810546875) + R32(0.0 + CompileValue20() * 0.0217437744140625)) + R32(0.0 + 0.0)))",
+      "expandedCharacters": 3026836,
+      "references": {
+        "CompileValue20": 1,
+        "CompileValue18": 1
+      }
+    },
+    {
+      "index": 26,
+      "text": "Float64(U64And(Bits64(0.0 + CompileValue18() * 0.006542205810546875 + (0.0 + CompileValue20() * 0.0217437744140625)), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 3026801,
+      "references": {
+        "CompileValue20": 1,
+        "CompileValue18": 1
+      }
+    },
+    {
+      "index": 27,
+      "text": "Float64(U64Or(Bits64(Float64(U64And(Bits64(CompileValue24() * CompileValue25()), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64Add(U64And(Bits64(0.0 + CompileValue18() * -0.00046515464782714844 + (0.0 + CompileValue20() * -0.0145721435546875)), 9223372036854775808), U64And(Bits64(0.0 + CompileValue18() * 0.006542205810546875 + (0.0 + CompileValue20() * 0.0217437744140625)), 9223372036854775808))))",
+      "recipe": "R16(R32(CompileValue24() * CompileValue25()))",
+      "expandedCharacters": 15134389,
+      "references": {
+        "CompileValue20": 2,
+        "CompileValue24": 1,
+        "CompileValue18": 2,
+        "CompileValue25": 1
+      }
+    },
+    {
+      "index": 28,
+      "text": "Float64(U64Add(U64And(Bits64(0.0 + CompileValue18() * -0.00046515464782714844 + (0.0 + CompileValue20() * -0.0145721435546875)), 9223372036854775808), U64And(Bits64(0.0 + CompileValue18() * 0.006542205810546875 + (0.0 + CompileValue20() * 0.0217437744140625)), 9223372036854775808)))",
+      "recipe": null,
+      "expandedCharacters": 6053605,
+      "references": {
+        "CompileValue20": 2,
+        "CompileValue18": 2
+      }
+    },
+    {
+      "index": 29,
+      "text": "Float64(U64FromF64(F64FromU64(Bits64(CompileValue12() + Float64(U64Or(Bits64(Float64(U64And(Bits64(0.0 + CompileValue27() * -0.015777587890625), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue27() * -0.015777587890625), 9223372036854775808))))) + 2 ** 94 - 2 ** 94))",
+      "recipe": "R16(R32(CompileValue12() + R16(R32(R32(R32(0.0 + CompileValue27() * -0.015777587890625) + 0.0) + R32(0.0 + 0.0)))))",
+      "expandedCharacters": 30320222,
+      "references": {
+        "CompileValue27": 2,
+        "CompileValue12": 1
+      }
+    },
+    {
+      "index": 30,
+      "text": "Float64(U64And(Bits64(CompileValue12() + Float64(U64Or(Bits64(Float64(U64And(Bits64(0.0 + CompileValue27() * -0.015777587890625), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue27() * -0.015777587890625), 9223372036854775808)))), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 30320207,
+      "references": {
+        "CompileValue27": 2,
+        "CompileValue12": 1
+      }
+    },
+    {
+      "index": 31,
+      "text": "Float64(U64FromF64(F64FromU64(Bits64(CompileValue14() + Float64(U64Or(Bits64(Float64(U64And(Bits64(0.0 + CompileValue27() * -0.01873779296875), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue27() * -0.01873779296875), 9223372036854775808))))) + 2 ** 94 - 2 ** 94))",
+      "recipe": "R16(R32(CompileValue14() + R16(R32(R32(R32(0.0 + CompileValue27() * -0.01873779296875) + 0.0) + R32(0.0 + 0.0)))))",
+      "expandedCharacters": 30320224,
+      "references": {
+        "CompileValue14": 1,
+        "CompileValue27": 2
+      }
+    },
+    {
+      "index": 32,
+      "text": "Float64(U64And(Bits64(CompileValue14() + Float64(U64Or(Bits64(Float64(U64And(Bits64(0.0 + CompileValue27() * -0.01873779296875), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue27() * -0.01873779296875), 9223372036854775808)))), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 30320209,
+      "references": {
+        "CompileValue14": 1,
+        "CompileValue27": 2
+      }
+    },
+    {
+      "index": 33,
+      "text": "Float64(U64And(U64Add(Bits64(Float64(U64And(U64Add(Bits64(CompileValue29() ** 2 + CompileValue31() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), U64Add(268435455, U64And(U64Shr(Bits64(Float64(U64And(U64Add(Bits64(CompileValue29() ** 2 + CompileValue31() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), 29), 1))), 18446744073172680704))",
+      "recipe": "R32(R32(R32(CompileValue29() ** 2 + CompileValue31() ** 2) / 2) + 9.999999974752427e-07)",
+      "expandedCharacters": 121281215,
+      "references": {
+        "CompileValue29": 2,
+        "CompileValue31": 2
+      }
+    },
+    {
+      "index": 34,
+      "text": "Float64(U64And(U64Add(Bits64(1.0 / Float64(U64Add(U64And(U64Add(Bits64((13.367174015436346 + -779.0174377628756 / (Float64(U64Or(U64And(U64Add(Bits64(Float64(U64And(U64Add(Bits64(CompileValue29() ** 2 + CompileValue31() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), U64Add(268435455, U64And(U64Shr(Bits64(Float64(U64And(U64Add(Bits64(CompileValue29() ** 2 + CompileValue31() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), 29), 1))), 4503599090499584), 4607182418800017408)) - 1.5 + 72.88886838020784) + -9.032202101157678 / (Float64(U64Or(U64And(U64Add(Bits64(Float64(U64And(U64Add(Bits64(CompileValue29() ** 2 + CompileValue31() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), U64Add(268435455, U64And(U64Shr(Bits64(Float64(U64And(U64Add(Bits64(CompileValue29() ** 2 + CompileValue31() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), 29), 1))), 4503599090499584), 4607182418800017408)) - 1.5 + 8.541941977833192) + -1.0005960489978687 / (Float64(U64Or(U64And(U64Add(Bits64(Float64(U64And(U64Add(Bits64(CompileValue29() ** 2 + CompileValue31() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), U64Add(268435455, U64And(U64Shr(Bits64(Float64(U64And(U64Add(Bits64(CompileValue29() ** 2 + CompileValue31() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), 29), 1))), 4503599090499584), 4607182418800017408)) - 1.5 + 3.4400824392419294) + -0.1852754751106736 / (Float64(U64Or(U64And(U64Add(Bits64(Float64(U64And(U64Add(Bits64(CompileValue29() ** 2 + CompileValue31() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), U64Add(268435455, U64And(U64Shr(Bits64(Float64(U64And(U64Add(Bits64(CompileValue29() ** 2 + CompileValue31() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), 29), 1))), 4503599090499584), 4607182418800017408)) - 1.5 + 2.096193424586035) + -0.029292444172441905 / (Float64(U64Or(U64And(U64Add(Bits64(Float64(U64And(U64Add(Bits64(CompileValue29() ** 2 + CompileValue31() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), U64Add(268435455, U64And(U64Shr(Bits64(Float64(U64And(U64Add(Bits64(CompileValue29() ** 2 + CompileValue31() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), 29), 1))), 4503599090499584), 4607182418800017408)) - 1.5 + 1.6235843576093156)) * (1.0 + U64And(U64Add(U64And(U64Shr(U64Add(Bits64(Float64(U64And(U64Add(Bits64(CompileValue29() ** 2 + CompileValue31() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), U64Add(268435455, U64And(U64Shr(Bits64(Float64(U64And(U64Add(Bits64(CompileValue29() ** 2 + CompileValue31() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), 29), 1))), 52), 2047), 1), 1) * 0.4142135623730951)), 268435455), 18446744073172680704), U64Mul(U64Add(U64Shr(U64Add(U64And(U64Shr(U64Add(Bits64(Float64(U64And(U64Add(Bits64(CompileValue29() ** 2 + CompileValue31() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), U64Add(268435455, U64And(U64Shr(Bits64(Float64(U64And(U64Add(Bits64(CompileValue29() ** 2 + CompileValue31() ** 2), 268435455), 18446744073172680704)) / 2 + 9.999999974752427e-07), 29), 1))), 52), 2047), 1023), 1), 18446744073709550593), 4503599627370496)))), 268435455), 18446744073172680704))",
+      "recipe": "R32(1.0 / R32(sqrt(CompileValue33())))",
+      "expandedCharacters": 848969157,
+      "references": {
+        "CompileValue29": 14,
+        "CompileValue31": 14
+      }
+    },
+    {
+      "index": 35,
+      "text": "Float64(U64Or(Bits64(Float64(U64And(U64FromF64(F64FromU64(Bits64(CompileValue29() * CompileValue34())) + 2 ** 81 - 2 ** 81), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(U64FromF64(F64FromU64(Bits64(CompileValue12() + Float64(U64Or(Bits64(Float64(U64And(Bits64(0.0 + CompileValue27() * -0.015777587890625), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue27() * -0.015777587890625), 9223372036854775808))))) + 2 ** 94 - 2 ** 94), 9223372036854775808)))",
+      "recipe": "R16(R16(R32(CompileValue29() * CompileValue34())) * 1.0)",
+      "expandedCharacters": 909609760,
+      "references": {
+        "CompileValue29": 1,
+        "CompileValue27": 2,
+        "CompileValue12": 1,
+        "CompileValue34": 1
+      }
+    },
+    {
+      "index": 36,
+      "text": "Float64(U64And(U64Add(U64And(Bits64(CompileValue12() + Float64(U64Or(Bits64(Float64(U64And(Bits64(0.0 + CompileValue27() * -0.015777587890625), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue27() * -0.015777587890625), 9223372036854775808)))), 9223372036854775808), Bits64(0)), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 30320255,
+      "references": {
+        "CompileValue27": 2,
+        "CompileValue12": 1
+      }
+    },
+    {
+      "index": 37,
+      "text": "Float64(U64FromF64(F64FromU64(Bits64(CompileValue31() * CompileValue34())) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94))",
+      "recipe": "R16(R16(R32(CompileValue31() * CompileValue34())) * 1.0)",
+      "expandedCharacters": 879289467,
+      "references": {
+        "CompileValue31": 1,
+        "CompileValue34": 1
+      }
+    },
+    {
+      "index": 38,
+      "text": "Float64(U64And(U64Add(U64And(Bits64(CompileValue14() + Float64(U64Or(Bits64(Float64(U64And(Bits64(0.0 + CompileValue27() * -0.01873779296875), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue27() * -0.01873779296875), 9223372036854775808)))), 9223372036854775808), Bits64(0)), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 30320257,
+      "references": {
+        "CompileValue14": 1,
+        "CompileValue27": 2
+      }
+    },
+    {
+      "index": 39,
+      "text": "Float64(U64Or(Bits64(Float64(U64And(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue35() * -0.007061004638671875 + (0.0 + CompileValue37() * -0.0025844573974609375))) + 2 ** 81 - 2 ** 81), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue35() * -0.007061004638671875 + (0.0 + CompileValue37() * -0.0025844573974609375)), 9223372036854775808)))",
+      "recipe": "R16(R32(R32(R32(0.0 + CompileValue35() * -0.007061004638671875) + R32(0.0 + CompileValue37() * -0.0025844573974609375)) + R32(0.0 + 0.0)))",
+      "expandedCharacters": 3577798761,
+      "references": {
+        "CompileValue37": 2,
+        "CompileValue35": 2
+      }
+    },
+    {
+      "index": 40,
+      "text": "Float64(U64And(Bits64(0.0 + CompileValue35() * -0.007061004638671875 + (0.0 + CompileValue37() * -0.0025844573974609375)), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 1788899341,
+      "references": {
+        "CompileValue37": 1,
+        "CompileValue35": 1
+      }
+    }
+  ],
+  "observedMeanConversions": [
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CASNumericRegion137() ** 2 + CASNumericRegion138() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CASNumericRegion300() ** 2 + CASNumericRegion301() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue29() ** 2 + CompileValue31() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue29() ** 2 + CompileValue31() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000000862930849e-06,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 8.881784197001252e-14,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue29() ** 2 + CompileValue31() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue29() ** 2 + CompileValue31() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    }
+  ],
+  "guards": [
+    {
+      "expression": "X1 ** 2 < CompileValue0() * 2 ** (-28)",
+      "truth": true,
+      "expandedCharacters": 354
+    },
+    {
+      "expression": "X2 ** 2 < CompileValue0() * 2 ** (-28)",
+      "truth": false,
+      "expandedCharacters": 354
+    },
+    {
+      "expression": "U64And(Bits64(0.0 + CompileValue2() * 0.0030536651611328125 + (0.0 + CompileValue4() * 0.00511932373046875)), 9223372036854775807) < 4544132023748395008",
+      "truth": true,
+      "expandedCharacters": 6330
+    },
+    {
+      "expression": "U64And(Bits64(0.0 + CompileValue2() * -0.0226287841796875 + (0.0 + CompileValue4() * 0.0184478759765625)), 9223372036854775807) < 4544132023748395008",
+      "truth": true,
+      "expandedCharacters": 6327
+    },
+    {
+      "expression": "CompileValue12() ** 2 < CompileValue16() * 2 ** (-28)",
+      "truth": true,
+      "expandedCharacters": 256327
+    },
+    {
+      "expression": "CompileValue14() ** 2 < CompileValue16() * 2 ** (-28)",
+      "truth": false,
+      "expandedCharacters": 256331
+    },
+    {
+      "expression": "U64And(Bits64(0.0 + CompileValue18() * -0.00046515464782714844 + (0.0 + CompileValue20() * -0.0145721435546875)), 9223372036854775807) < 4544132023748395008",
+      "truth": false,
+      "expandedCharacters": 3026816
+    },
+    {
+      "expression": "(Float64(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue18() * -0.00046515464782714844 + (0.0 + CompileValue20() * -0.0145721435546875))) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94)) + 2 ** (-25)) ** 2 < 2 ** (-26)",
+      "truth": true,
+      "expandedCharacters": 3026871
+    },
+    {
+      "expression": "U64And(Bits64(0.0 + CompileValue18() * 0.006542205810546875 + (0.0 + CompileValue20() * 0.0217437744140625)), 9223372036854775807) < 4544132023748395008",
+      "truth": false,
+      "expandedCharacters": 3026812
+    },
+    {
+      "expression": "U64And(Bits64(CompileValue24() * CompileValue25()), 9223372036854775807) < 4544132024016830464",
+      "truth": true,
+      "expandedCharacters": 9080760
+    },
+    {
+      "expression": "CompileValue29() ** 2 < CompileValue33() * 2 ** (-28)",
+      "truth": true,
+      "expandedCharacters": 151601458
+    },
+    {
+      "expression": "CompileValue31() ** 2 < CompileValue33() * 2 ** (-28)",
+      "truth": false,
+      "expandedCharacters": 151601460
+    },
+    {
+      "expression": "U64And(Bits64(0.0 + CompileValue35() * -0.007061004638671875 + (0.0 + CompileValue37() * -0.0025844573974609375)), 9223372036854775807) < 4544132023748395008",
+      "truth": true,
+      "expandedCharacters": 1788899352
+    }
+  ],
+  "stats": {
+    "splitContexts": 25,
+    "completedPaths": 8,
+    "contradictions": 10,
+    "selectorSelections": 482,
+    "CASPasses": 12489,
+    "numericArithmeticEliminated": 2171,
+    "numericRecipeAttempts": 690,
+    "numericRecipeAdmissions": 228,
+    "numericRecipeBudgetStops": 0,
+    "coupledProjectionContradictions": 0,
+    "rmsBranchRefinements": 504,
+    "rmsConstantCells": 60,
+    "orderedGuardEliminations": 0,
+    "guardProofPasses": 0,
+    "guardProofBudgetStops": 0,
+    "numericGuardImplications": 147,
+    "recipeConstraintRefinements": 1377,
+    "recipeConstraintPasses": 126,
+    "backwardRoundingSteps": 9910,
+    "selectedRecipeIdentities": 16,
+    "frozenGuardImplications": 4,
+    "prefixRecipeRefinements": 1
+  }
+}

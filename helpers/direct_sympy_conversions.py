@@ -790,7 +790,21 @@ class ConversionSession:
                 # reaches infinity it cannot certify a finite-source kernel.
                 low=math.nextafter(min(values),-math.inf);high=math.nextafter(max(values),math.inf)
                 if isinstance(node.op,ast.Mult) and self.key(node.left)==self.key(node.right):
-                    low=0 if a.minimum<=0<=a.maximum else math.nextafter(min(a.minimum*a.minimum,a.maximum*a.maximum),-math.inf)
+                    low=max(0,math.nextafter(a.minimum_magnitude*a.minimum_magnitude,-math.inf)) if a.minimum<=0<=a.maximum else math.nextafter(min(a.minimum*a.minimum,a.maximum*a.maximum),-math.inf)
+                # An excluded central magnitude interval remains meaningful
+                # through a residual addition, even when its hull spans zero.
+                # Bound real magnitudes first, then enclose F64 rounding.
+                gap_a=Fraction(max(a.minimum_magnitude,a.minimum if a.minimum>0 else -a.maximum if a.maximum<0 else 0))
+                gap_b=Fraction(max(b.minimum_magnitude,b.minimum if b.minimum>0 else -b.maximum if b.maximum<0 else 0))
+                peak_a=Fraction(max(abs(a.minimum),abs(a.maximum)))
+                peak_b=Fraction(max(abs(b.minimum),abs(b.maximum)))
+                gap=Fraction(0)
+                if isinstance(node.op,(ast.Add,ast.Sub)):gap=max(gap,gap_a-peak_b,gap_b-peak_a)
+                elif isinstance(node.op,ast.Mult):gap=gap_a*gap_b
+                elif isinstance(node.op,ast.Div) and peak_b:gap=gap_a/peak_b
+                gap=max(Fraction(0),gap*(1-Fraction(1,2**52))-Fraction(1,2**1074))
+                magnitude=float(gap)
+                if Fraction(magnitude)>gap:magnitude=math.nextafter(magnitude,0)
                 q=None
                 if a.quantum is not None and b.quantum is not None:
                     if isinstance(node.op,(ast.Add,ast.Sub)):q=min(a.quantum,b.quantum)
@@ -798,10 +812,10 @@ class ConversionSession:
                     elif isinstance(node.op,ast.Div) and b.minimum==b.maximum and b.minimum:
                         d=Fraction(b.minimum)
                         if abs(d.numerator)&(abs(d.numerator)-1)==0:q=a.quantum-quantum(d)
-                minimum=low if low>0 else -high if high<0 else 0
+                minimum=max(magnitude,low if low>0 else -high if high<0 else 0)
                 inherent=max(-1074,binary_exponent(minimum)-52) if minimum else -1074
                 q=max(inherent,q) if q is not None else inherent
-                return FiniteSource(low,high,q)
+                return FiniteSource(low,high,q,magnitude)
             except (OverflowError,ValueError):return None
         if isinstance(node,ast.Call) and len(node.args)==1:
             d=self.bounds(node.args[0])
@@ -811,14 +825,15 @@ class ConversionSession:
                     fmt="f" if node.func.id=="R32" else "e"
                     cast=lambda x:struct.unpack(fmt,struct.pack(fmt,x))[0]
                     low,high=cast(d.minimum),cast(d.maximum)
-                    minimum=low if low>0 else -high if high<0 else 0
+                    magnitude=cast(d.minimum_magnitude)
+                    minimum=max(magnitude,low if low>0 else -high if high<0 else 0)
                     # Use the smallest binade reached by this interval. A
                     # zero crossing requires the format's subnormal grid.
                     # Rounding also preserves a coarser source dyadic grid.
                     precision,minimum_quantum=(11,-24) if fmt=='e' else (24,-149)
                     q=max(minimum_quantum,binary_exponent(minimum)-(precision-1)) if minimum else minimum_quantum
                     if d.quantum is not None:q=max(q,d.quantum)
-                    return FiniteSource(low,high,q)
+                    return FiniteSource(low,high,q,magnitude)
                 if node.func.id=="sqrt" and d.minimum>=0:
                     low,high=math.sqrt(d.minimum),math.sqrt(d.maximum)
                     q=max(-1074,binary_exponent(low)-52) if low else -1074

@@ -1,0 +1,44 @@
+✔ Signed normal-binade conversions contain one source occurrence and preserve native IEEE boundaries (4882.066208ms)
+✔ Certified constant projections avoid dead producers and preserve signed Half outcomes (2112.650542ms)
+✔ Tight Half update bounds preserve ordered F32 reductions and eliminate dependencies with proof (4545.4935ms)
+✔ Memory-admitted parallel regions preserve full geometry, ordered numerical bodies and native parity (27305.2115ms)
+✔ Fresh broad-region covers refine only pending intersections and preserve exact source compatibility (4616.693333ms)
+✔ Native parity corpus covers mixed signed zeros without exponential growth in high dimensions (2678.87275ms)
+✔ Correlated RMS bounds eliminate proved constant components before expanding mean and inverse (2514.891209ms)
+✔ Scoped exact algebra factors closed producers while preserving native payloads and IEEE barriers (12286.81725ms)
+✔ Finite F32 cells and compile-time constants preserve native boundaries and signed zeros (3263.094125ms)
+✔ Proved unsigned masks remove redundant operations without changing overflow or numeric contexts (605.233916ms)
+✔ Stabilized branches share decisions, preserve lazy guards and emit flat input-only expressions (3567.5255ms)
+✔ Compiler-only literal sharing uses expanded costs and emits bit-exact input-only expressions (9897.305041ms)
+✔ SymPy factors typed word polynomials modulo 2^64 without reassociating floating operations (736.753375ms)
+✔ Parallel SymPy blocks preserve ordered F32 folds, branch contexts and memory admission (4421.730916ms)
+✔ Equivalent scan backend preserves Unicode regex results and byte-identical saved compiler states (2506.36475ms)
+✔ SymPy savepoints preserve completed rounding frontiers and reject incompatible or corrupt state (2233.969334ms)
+✔ SymPy string substitution factors and simplifies each step with isolated IEEE branch proofs (630.302667ms)
+✔ SymPy checkpoint working string is re-read and matches a freshly captured coordinate reference (6621.791125ms)
+✔ SymPy elementary conversion strings preserve native IEEE cells and composed boundaries (15044.068542ms)
+✔ Bounded SiLU arithmetic lowering matches every certified Half scalar and vector input (4131.305459ms)
+✔ Positive F32 square-root word lowering preserves all mantissas, parities and subnormals (2019.687083ms)
+✔ IEEE sign projections preserve signed zero and reduce completed down-conversion strings (10135.312542ms)
+✔ Half interval precision removes redundant F32 rounding with native emitted-expression parity (1670.708959ms)
+✔ Disjoint input partitions preserve complete Half coverage and emitted coordinate parity within each certified region (18967.222792ms)
+✔ Proved signed-zero updates preserve formats, branch isolation and native payloads (1200.114666ms)
+✔ Constant IEEE cells eliminate whole producers and propagate compound branch contexts (1225.941459ms)
+✔ Identical emitted coordinate bodies coalesce without losing coverage, signed zeros or lazy guards (1431.847875ms)
+✔ Budgeted coordinate continuation persists actual producers and rejects incompatible saved dimensions (14994.882875ms)
+✔ Residual arithmetic preserves central magnitude exclusions through storage and squares (490.480417ms)
+✔ Bidirectional recipe constraints retain rounding cells and original residual storage (1152.34025ms)
+✔ Coupled projection exclusions preserve rounded reductions across every central Half pair (1369.748125ms)
+✔ Cross-normalization path exclusions include every original rounding and reject foreign contexts (3532.103708ms)
+✔ Directed attention bounds retain both projection roundings and prove residual cells for every mixed Half pair (3418.17975ms)
+✔ RMS subnormal branch proofs retain shared means and original Half storage cells (3077.794417ms)
+✔ Source changes retain only audited partition geometry and recompile numerical evidence (771.5505ms)
+✔ Branch-local projection cells propagate constants in original dependency order without replacing residual sums (1704.670167ms)
+ℹ tests 36
+ℹ suites 0
+ℹ pass 36
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 182066.9735

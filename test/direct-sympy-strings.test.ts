@@ -285,6 +285,14 @@ test('Budgeted coordinate continuation persists actual producers and rejects inc
   });
 
 
+test('Residual arithmetic preserves central magnitude exclusions through storage and squares',
+  {skip:!python},async()=>{
+    const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_magnitude_gap_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 1 test/);
+    assert.match(stderr,/OK/);
+    assert.match(stdout,/Residual magnitude exclusion: cases=147456 violations=0/);
+  });
+
 test('Bidirectional recipe constraints retain rounding cells and original residual storage',
   {skip:!python},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_recipe_bounds_test.py'],{timeout:120_000,maxBuffer:1024*1024});
