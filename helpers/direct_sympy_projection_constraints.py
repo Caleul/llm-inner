@@ -509,3 +509,75 @@ def rms_output_source_bounds(registry,proofs):
             # and clips to the exact source grid without erasing zero signs.
             result[key]=FiniteSource(low,high,b.quantum)
     return result
+
+
+def rms_projection_sign_source(registry,alias,bound,*,anchors=()):
+    """Smaller sign source, only beyond every original rounding error.
+
+    A linear form of one stored RMS vector differs from its real normalized
+    form by at most ||coefficients||*RMS_error plus its ordered arithmetic
+    error. The real inverse is positive, so its sign is the sign of the
+    weighted original sources. Enclose that smaller F64 sum's error too.
+    No magnitude calculation changes; zero and cancellation remain barriers.
+    """
+    def minimum(b):return max(b.minimum_magnitude,b.minimum if b.minimum>0 else -b.maximum if b.maximum<0 else 0)
+    margin=minimum(bound)
+    if not margin and not anchors:return None
+    model=registry.model;context=model.compiler.context(model.domains)
+    cache=getattr(registry,'_rms_projection_signs',None)
+    vectors=tuple(getattr(model,'norm_vectors',{}).values())
+    identity=(context,len(registry.definitions),tuple(sorted(getattr(registry,'definition_recipes',{}).items())),
+        tuple((v.get('width'),v.get('sources'),v.get('sourceBounds'),tuple(v.get('components',{}).items()),v.get('magnitudes'),
+            v.get('gamma'),v.get('epsilon'),v.get('context'),v.get('roundingError'))for v in vectors))
+    if cache is None or cache[0]!=identity:
+        cache=(identity,{});registry._rms_projection_signs=cache
+    if alias not in cache[1]:
+        candidates=[]
+        for vector in vectors:
+            n=vector.get('width',0);sources=vector.get('sources',());gamma=vector.get('gamma',())
+            stored=vector.get('sourceBounds',());eps=vector.get('epsilon',0);error=vector.get('roundingError')
+            if (not 1<=n<=8 or len(sources)!=n or len(gamma)!=n or len(stored)!=n
+                or len(vector.get('components',{}))!=n or vector.get('context')!=context
+                or eps<=0 or error is None or error<0 or any(g not in (-1,1)for g in gamma)
+                or any(b is None or max(abs(b.minimum),abs(b.maximum))>65504 for b in stored)):continue
+            if norm_error_bound(n,eps) is None:continue
+            proof=LinearProof(registry,vector)
+            form=proof.form(syntax(f'CompileValue{alias}()'))
+            if form is None:continue
+            coefficients,bias,arithmetic_error=form
+            if bias or not any(coefficients):continue
+            terms=[];supported=True
+            for coefficient,g,text,b in zip(coefficients,gamma,sources,stored):
+                coefficient*=g
+                if not coefficient:continue
+                try:value=float(coefficient)
+                except OverflowError:supported=False;break
+                if not math.isfinite(value) or F(value)!=coefficient or abs(coefficient)*F(max(abs(b.minimum),abs(b.maximum)))>F(2)**1022:
+                    supported=False;break
+                if any(int(m[1])>=alias for m in re.finditer(r'CompileValue([0-9]+)\(\)',text)):
+                    supported=False;break
+                terms.append(f'({value!r}*({text}))')
+            if not supported or not terms:continue
+            # Relative F64 product/reduction losses after multiplication by
+            # the real RMS inverse: each normalized source is <=sqrt(n).
+            # Absolute F64 underflow is also bounded by inverse<=1/sqrt(eps).
+            u=F(1,2**52);operations=2*n+1
+            summation=operations*u/(1-operations*u)*sqrt_outward(F(n),True)*sum(map(abs,coefficients))
+            summation+=operations*F(1,2**1074)/sqrt_outward(F(eps),False)
+            normalization=F(error)*sqrt_outward(sum((c*c for c in coefficients),F(0)),True)
+            loss=normalization+arithmetic_error+summation
+            candidates.append((loss,'0.0+'+'+'.join(terms),proof,coefficients,normalization,arithmetic_error,summation))
+        cache[1][alias]=tuple(candidates)
+    admissible=[]
+    for error,text,proof,coefficients,normalization,arithmetic_error,summation in cache[1][alias]:
+        if F(margin)>error:admissible.append(text);continue
+        for node,anchor_bound in anchors:
+            form=proof.form(node)
+            if form is None or form[0]!=coefficients or form[1]:continue
+            # The known anchor and target share the same real linear form.
+            # Keep both independent error envelopes: an anchor's large
+            # magnitude alone never asserts the target's sign or zero state.
+            required=normalization+form[2]+max(normalization+arithmetic_error,summation)
+            if F(minimum(anchor_bound))>required:
+                admissible.append(text);break
+    return min(admissible,key=len)if admissible else None

@@ -503,12 +503,26 @@ class CoherentPaths:
             if positive_zero:numeric.no_negative_zero_values.add(key)
             # Conditions may exclude the central magnitude gap of an alias
             # without selecting one sign. Refine only predicates proved here.
+            sign_anchors=[]
             for predicate in self.predicates.values():
                 truth=self.facts.truth(predicate,facts)
                 if truth is None:continue
                 own=numeric.magnitude_guard_bounds(predicate,truth,numeric.completed)
                 if own is None:raise UnreachableNumericPath('Selected producer contradicts its path conditions')
                 numeric.completed=own
+                if (isinstance(predicate,ast.Compare) and isinstance(predicate.left,ast.Call)
+                    and predicate.left.func.id=='U64And' and len(predicate.left.args)==2
+                    and isinstance(predicate.left.args[0],ast.Call) and predicate.left.args[0].func.id=='Bits64'
+                    and len(predicate.left.args[0].args)==1):
+                    anchor=predicate.left.args[0].args[0];anchor_bound=numeric.completed.get(numeric.key(anchor))
+                    if anchor_bound is not None:sign_anchors.append((anchor,anchor_bound))
+            from direct_sympy_projection_constraints import rms_projection_sign_source
+            sign_source=rms_projection_sign_source(self.registry,alias,numeric.completed[key],anchors=sign_anchors)
+            if sign_source is not None:
+                projection=syntax(f'U64And(Bits64({sign_source}),9223372036854775808)')
+                numeric.sign_projections[key]=projection
+                numeric.sign_projections[numeric.key(selected)]=projection
+                self.stats['rmsProjectionSignAdmissions']=self.stats.get('rmsProjectionSignAdmissions',0)+1
         def stabilize_selected(expression):
             stable=self.compiler.stabilize(expression,domains,facts=facts)
             class Squares(ast.NodeTransformer):
@@ -519,6 +533,24 @@ class CoherentPaths:
                         if prior is not None:node.left=syntax(f'CompileValue{prior}()')
                     return node
             stable=ast.unparse(Squares().visit(syntax(stable)))
+            class SignMasks(ast.NodeTransformer):
+                def generic_visit(self,node):
+                    numeric.signatures.invalidate(node)
+                    result=super().generic_visit(node)
+                    numeric.signatures.invalidate(result)
+                    return result
+                def visit_Call(self,node):
+                    node=self.generic_visit(node)
+                    if (node.func.id!='U64And' or len(node.args)!=2 or not isinstance(node.args[1],ast.Constant)
+                        or type(node.args[1].value)is not int or node.args[1].value!=1<<63):return node
+                    word=node.args[0]
+                    value=word.args[0]if isinstance(word,ast.Call) and word.func.id=='Bits64' and len(word.args)==1 else ast.Call(func=ast.Name(id='Float64',ctx=ast.Load()),args=[word],keywords=[])
+                    projection=numeric.sign_projections.get(numeric.key(value))
+                    if projection is None or numeric.key(node)==numeric.key(projection):return node
+                    self.stats['selectedSignMaskEliminations']=self.stats.get('selectedSignMaskEliminations',0)+1
+                    return copy.deepcopy(projection)
+                def __init__(self,stats):self.stats=stats
+            stable=ast.unparse(SignMasks(self.stats).visit(syntax(stable)))
             arithmetic=simplify_arithmetic(stable,numeric)
             if cost_view.size(arithmetic)<cost_view.size(stable):stable=arithmetic
             if ALIASES.fullmatch(stable) or not re.search(r'\b(?:Bits64|Float64|U64[A-Za-z0-9]*)\s*\(',stable):

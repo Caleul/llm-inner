@@ -1,0 +1,8 @@
+..
+----------------------------------------------------------------------
+Ran 2 tests in 12.528s
+
+OK
+RMS projection sign parity: cases=37838852 selected=36904348 mismatches=0
+Selected checkpoint projection parity: cases=135184 accepted=117379 mismatches=0
+Selected projection replacement: admittedCharacters=107 fallbackCharacters=8836 emittedCharacters=62059

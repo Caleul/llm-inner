@@ -369,3 +369,15 @@ test('Branch-local projection cells propagate constants in original dependency o
     assert.match(stderr,/OK/);
     assert.match(stdout,/Branch projection cells: pairs=462422016 selected=22147398 violations=0/);
   });
+
+test('Projection sign simplification requires a strict branch error margin and preserves original rounded reductions',
+  {skip:!python},async()=>{
+    const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_projection_sign_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 2 tests/);
+    assert.match(stderr,/OK/);
+    assert.match(stdout,/RMS projection sign parity: cases=37838852 selected=36904348 mismatches=0/);
+    if(process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT){
+      assert.match(stdout,/Selected checkpoint projection parity: cases=135184 accepted=117379 mismatches=0/);
+      assert.match(stdout,/Selected projection replacement: admittedCharacters=107 fallbackCharacters=8836 emittedCharacters=62059/);
+    }
+  });

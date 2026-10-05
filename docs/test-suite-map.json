@@ -149,5 +149,26 @@
       "observedLogSHA256": "42373ff31f0e86060bf622eed251c2886b2ba1944532225717be440e61e49ea4"
     },
     "interpretation": "Counts are an observed snapshot, not a hardcoded acceptance rule for future compiler validation. Default success does not claim historical/native integrations pass or complete Llama parity."
+  },
+  "directProjectionSignCompilerValidation": {
+    "source": "test/direct-sympy-strings.test.ts",
+    "helper": "helpers/direct_sympy_projection_sign_test.py",
+    "evidence": "docs/evidence/direct-sympy-projection-sign/validation.json",
+    "focused": {
+      "tests": 39,
+      "pass": 39,
+      "fail": 0,
+      "skipped": 0
+    },
+    "default": {
+      "tests": 619,
+      "pass": 571,
+      "fail": 0,
+      "skipped": 48
+    },
+    "numericalGuarantee": "Strict branch-local error bound; original magnitude and ordered rounding retained",
+    "fullCoordinateParity": false,
+    "multipleTokenParity": false,
+    "fullVectorParity": false
   }
 }
