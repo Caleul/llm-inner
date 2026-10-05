@@ -1,0 +1,527 @@
+{
+  "baselineCommit": "9e6279f64b234ba79c1e7e64afb14ef1da9725ab",
+  "compilerIdentity": {
+    "version": 1,
+    "dimension": 2,
+    "position": 0,
+    "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+    "sympy": "1.14.0",
+    "platform": "macOS-26.7.1-arm64-arm-64bit",
+    "byteOrder": "little",
+    "referenceBackend": {
+      "name": "torch CPU",
+      "version": "2.12.1",
+      "gitVersion": "7269437d655783a26cba32aa88195b741ff496aa",
+      "capability": "DEFAULT"
+    },
+    "checkpoint": {
+      "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+      "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+    },
+    "sources": {
+      "direct_sympy_arithmetic.py": "b67816f4954a9ef6877bc0b549044c3f2bf6878451f5b4a94fa13f0237072f6d",
+      "direct_sympy_checkpoint.py": "889ecefef40b7cbf1b87452e92decda5837ab9d01bc61affcb0274c045bac146",
+      "direct_sympy_coherent_paths.py": "ee86567bcee1a2946181945bac186a7d40aafbe143206e921c0fa39b08092abb",
+      "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+      "direct_sympy_conversions.py": "77ac9f3e14c873f2ac4c53e082db78f03596f6b985ee6286f39fc5bb83b167c2",
+      "direct_sympy_input_partitions.py": "21449edd26a0d43ad4a2c5b5e841c5e9d8e7de6afb6ac138a9eef88374558797",
+      "direct_sympy_layer_bounds.py": "c1a93f951ff5ad5af8510671e42ac8c05d73c246dfb2460bacd43cf0e3774dae",
+      "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+      "direct_sympy_partition_run.py": "9985ec29e19e73f59ab0691be88f8278966d64fe2daaaf5fab77135901a66482",
+      "direct_sympy_projection_constraints.py": "568fb807619f566c8da2a1df85407455cde84164e1f9fd2ccca3fd69ee88189f",
+      "direct_sympy_recipe_bounds.py": "c75607053ee144fd76d591530dba9a06d28634a6bdc96978b0894ecac76621ae",
+      "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+      "direct_sympy_savepoints.py": "064a2a6ae267ac4338ae6bb102a5ddb2272869d63f0ff857a1d0116313de4cb7",
+      "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+      "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+      "direct_sympy_silu.py": "e623f38b5008356d8f6aa1615aabfa5a779f9dc7ea9d5b8183c5b17a78383fe3",
+      "direct_sympy_sqrt.py": "f4d7d61f2f10ade6772c1e39e97d93ccf17585fed03a65738ece656aa63bf587",
+      "direct_sympy_streaming_literals.py": "7310a1dd1a7ee97bcab7f792859a67cf02ea075e2e72c546b92231687ae0c9d6",
+      "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+      "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+      "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+      "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
+    }
+  },
+  "regionalRootCertificateCases": 19398662,
+  "regionalRootEmittedScaleCases": 67895912,
+  "rootBitMismatches": 0,
+  "rootMidpoints": 0,
+  "noNewRuntimeKernelBranch": true,
+  "unknownScaleExponentWordAdjustmentRetained": true,
+  "normalizedRootGridCertified": true,
+  "fixedScaleExponentAdjustmentIsExactMultiplication": true,
+  "numericalOrderChanged": false,
+  "regionalCoordinatePreviousCharacters": 229153,
+  "regionalCoordinateCurrentCharacters": 217033,
+  "regionalCoordinateParityCases": 66049,
+  "regionalCoordinateBitMismatches": 0,
+  "regionalArtifact": {
+    "path": "/Users/caleul/Documents/Work/Projects/llm-inner/docs/evidence/direct-sympy-root-grid-scale/smoke.expr",
+    "characters": 217033,
+    "sha256": "2afc88626cb5d42cd8a444cd3155786c00d37ebf0200bf017147eea42863be71",
+    "paths": 2,
+    "compilerAliases": 0,
+    "complete": true
+  },
+  "regionalInputDomains": {
+    "X1": [
+      10240,
+      10496
+    ],
+    "X2": [
+      10240,
+      10496
+    ]
+  },
+  "sameOrderedBranchSkeletons": 27,
+  "candidateExpansionComparisons": [
+    {
+      "candidate": 1,
+      "previousBodyCharacters": 6379,
+      "currentBodyCharacters": 6379,
+      "previousGuardCharacters": 1948,
+      "currentGuardCharacters": 1948,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 2,
+      "previousBodyCharacters": 6555,
+      "currentBodyCharacters": 6555,
+      "previousGuardCharacters": 394,
+      "currentGuardCharacters": 394,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 3,
+      "previousBodyCharacters": 9035,
+      "currentBodyCharacters": 9035,
+      "previousGuardCharacters": 77722,
+      "currentGuardCharacters": 71882,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 4,
+      "previousBodyCharacters": 264351,
+      "currentBodyCharacters": 243347,
+      "previousGuardCharacters": 41941,
+      "currentGuardCharacters": 38933,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 5,
+      "previousBodyCharacters": 9211,
+      "currentBodyCharacters": 9211,
+      "previousGuardCharacters": 41945,
+      "currentGuardCharacters": 38937,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 6,
+      "previousBodyCharacters": 240467,
+      "currentBodyCharacters": 221351,
+      "previousGuardCharacters": 126352,
+      "currentGuardCharacters": 116618,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 7,
+      "previousBodyCharacters": 240467,
+      "currentBodyCharacters": 221351,
+      "previousGuardCharacters": 6164,
+      "currentGuardCharacters": 5988,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 8,
+      "previousBodyCharacters": 181667,
+      "currentBodyCharacters": 167271,
+      "previousGuardCharacters": 331044,
+      "currentGuardCharacters": 305144,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 9,
+      "previousBodyCharacters": 90829,
+      "currentBodyCharacters": 83631,
+      "previousGuardCharacters": 240239,
+      "currentGuardCharacters": 221537,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 10,
+      "previousBodyCharacters": 181667,
+      "currentBodyCharacters": 167271,
+      "previousGuardCharacters": 240256,
+      "currentGuardCharacters": 221554,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 11,
+      "previousBodyCharacters": 90829,
+      "currentBodyCharacters": 83631,
+      "previousGuardCharacters": 149451,
+      "currentGuardCharacters": 137947,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 12,
+      "previousBodyCharacters": 181667,
+      "currentBodyCharacters": 167271,
+      "previousGuardCharacters": 331099,
+      "currentGuardCharacters": 305199,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 13,
+      "previousBodyCharacters": 90829,
+      "currentBodyCharacters": 83631,
+      "previousGuardCharacters": 240294,
+      "currentGuardCharacters": 221592,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 14,
+      "previousBodyCharacters": 16173023,
+      "currentBodyCharacters": 14893667,
+      "previousGuardCharacters": 8235989,
+      "currentGuardCharacters": 7584807,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 15,
+      "previousBodyCharacters": 8086507,
+      "currentBodyCharacters": 7446829,
+      "previousGuardCharacters": 149506,
+      "currentGuardCharacters": 138002,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 16,
+      "previousBodyCharacters": 181667,
+      "currentBodyCharacters": 167271,
+      "previousGuardCharacters": 240252,
+      "currentGuardCharacters": 221550,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 17,
+      "previousBodyCharacters": 90829,
+      "currentBodyCharacters": 83631,
+      "previousGuardCharacters": 149447,
+      "currentGuardCharacters": 137943,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 18,
+      "previousBodyCharacters": 11815983,
+      "currentBodyCharacters": 10881187,
+      "previousGuardCharacters": 5966622,
+      "currentGuardCharacters": 5494918,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 19,
+      "previousBodyCharacters": 5907987,
+      "currentBodyCharacters": 5440589,
+      "previousGuardCharacters": 58659,
+      "currentGuardCharacters": 54353,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 20,
+      "previousBodyCharacters": 124107,
+      "currentBodyCharacters": 114431,
+      "previousGuardCharacters": 453349,
+      "currentGuardCharacters": 429871,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 21,
+      "previousBodyCharacters": 62049,
+      "currentBodyCharacters": 57211,
+      "previousGuardCharacters": 391324,
+      "currentGuardCharacters": 372684,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 22,
+      "previousBodyCharacters": 17506183,
+      "currentBodyCharacters": 16141867,
+      "previousGuardCharacters": 9082379,
+      "currentGuardCharacters": 8386419,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 23,
+      "previousBodyCharacters": 8753087,
+      "currentBodyCharacters": 8070929,
+      "previousGuardCharacters": 329316,
+      "currentGuardCharacters": 315514,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 24,
+      "previousBodyCharacters": 85416287,
+      "currentBodyCharacters": 81677811,
+      "previousGuardCharacters": 58300703,
+      "currentGuardCharacters": 55749665,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 25,
+      "previousBodyCharacters": 42708139,
+      "currentBodyCharacters": 40838901,
+      "previousGuardCharacters": 15592588,
+      "currentGuardCharacters": 14910788,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 26,
+      "previousBodyCharacters": 88956915,
+      "currentBodyCharacters": 85073063,
+      "previousGuardCharacters": 57899534,
+      "currentGuardCharacters": 55372214,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 27,
+      "previousBodyCharacters": 44478453,
+      "currentBodyCharacters": 42536527,
+      "previousGuardCharacters": 13421105,
+      "currentGuardCharacters": 12835711,
+      "sameOrderedGuardSkeleton": true
+    }
+  ],
+  "initialFocusedIntegrations": {
+    "tests": 40,
+    "pass": 39,
+    "fail": 1,
+    "skipped": 0
+  },
+  "affectedIntegrationsAfterSizeAssertionUpdate": {
+    "tests": 2,
+    "pass": 2,
+    "fail": 0,
+    "skipped": 0
+  },
+  "initialFailureWasStaleSizeAssertion": true,
+  "portableSuite": {
+    "tests": 620,
+    "pass": 571,
+    "fail": 0,
+    "skipped": 49
+  },
+  "wholeDomainAttempt": {
+    "expressionAndConditionBudgetBytes": 536870912,
+    "measuredRAMBudgetBytes": 7184069427,
+    "peakObservedRSSBytes": 455524352,
+    "seconds": 194.94236583303427,
+    "workerExitCode": 0,
+    "stop": null,
+    "previousControllerAdmissionStop": "Conservative 16xCAS reservation exceeded 80% available RAM; no worker dispatched by controller",
+    "coordinate": {
+      "artifactPublished": false,
+      "compilerIdentity": {
+        "byteOrder": "little",
+        "checkpoint": {
+          "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+          "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+        },
+        "dimension": 2,
+        "platform": "macOS-26.7.1-arm64-arm-64bit",
+        "position": 0,
+        "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+        "referenceBackend": {
+          "capability": "DEFAULT",
+          "gitVersion": "7269437d655783a26cba32aa88195b741ff496aa",
+          "name": "torch CPU",
+          "version": "2.12.1"
+        },
+        "sources": {
+          "direct_sympy_arithmetic.py": "b67816f4954a9ef6877bc0b549044c3f2bf6878451f5b4a94fa13f0237072f6d",
+          "direct_sympy_checkpoint.py": "889ecefef40b7cbf1b87452e92decda5837ab9d01bc61affcb0274c045bac146",
+          "direct_sympy_coherent_paths.py": "ee86567bcee1a2946181945bac186a7d40aafbe143206e921c0fa39b08092abb",
+          "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+          "direct_sympy_conversions.py": "77ac9f3e14c873f2ac4c53e082db78f03596f6b985ee6286f39fc5bb83b167c2",
+          "direct_sympy_input_partitions.py": "21449edd26a0d43ad4a2c5b5e841c5e9d8e7de6afb6ac138a9eef88374558797",
+          "direct_sympy_layer_bounds.py": "c1a93f951ff5ad5af8510671e42ac8c05d73c246dfb2460bacd43cf0e3774dae",
+          "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+          "direct_sympy_partition_run.py": "9985ec29e19e73f59ab0691be88f8278966d64fe2daaaf5fab77135901a66482",
+          "direct_sympy_projection_constraints.py": "568fb807619f566c8da2a1df85407455cde84164e1f9fd2ccca3fd69ee88189f",
+          "direct_sympy_recipe_bounds.py": "c75607053ee144fd76d591530dba9a06d28634a6bdc96978b0894ecac76621ae",
+          "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+          "direct_sympy_savepoints.py": "064a2a6ae267ac4338ae6bb102a5ddb2272869d63f0ff857a1d0116313de4cb7",
+          "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+          "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+          "direct_sympy_silu.py": "e623f38b5008356d8f6aa1615aabfa5a779f9dc7ea9d5b8183c5b17a78383fe3",
+          "direct_sympy_sqrt.py": "f4d7d61f2f10ade6772c1e39e97d93ccf17585fed03a65738ece656aa63bf587",
+          "direct_sympy_streaming_literals.py": "7310a1dd1a7ee97bcab7f792859a67cf02ea075e2e72c546b92231687ae0c9d6",
+          "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+          "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+          "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+          "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
+        },
+        "sympy": "1.14.0",
+        "version": 1
+      },
+      "complete": false,
+      "dimension": 2,
+      "parityVerified": false,
+      "producersCompleted": 25,
+      "seconds": 186.06039804202737,
+      "stats": {
+        "CASPasses": 28392,
+        "backwardRMSVectorRefinements": 385,
+        "backwardRoundingSteps": 104130,
+        "completedPaths": 28,
+        "contradictions": 12,
+        "coupledProjectionContradictions": 0,
+        "guardProofBudgetStops": 0,
+        "guardProofPasses": 273,
+        "lastArm": {
+          "bodyCharacters": 61175761,
+          "decisions": 13,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 169,
+              "storedCharacters": 167
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 1067,
+              "storedCharacters": 449
+            },
+            {
+              "definition": 2,
+              "expandedCharacters": 1205,
+              "storedCharacters": 151
+            },
+            {
+              "definition": 4,
+              "expandedCharacters": 1155,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 8,
+              "expandedCharacters": 2498,
+              "storedCharacters": 166
+            },
+            {
+              "definition": 11,
+              "expandedCharacters": 2495,
+              "storedCharacters": 163
+            },
+            {
+              "definition": 12,
+              "expandedCharacters": 10317,
+              "storedCharacters": 391
+            },
+            {
+              "definition": 14,
+              "expandedCharacters": 10321,
+              "storedCharacters": 395
+            },
+            {
+              "definition": 16,
+              "expandedCharacters": 20803,
+              "storedCharacters": 195
+            },
+            {
+              "definition": 17,
+              "expandedCharacters": 104461,
+              "storedCharacters": 524
+            },
+            {
+              "definition": 18,
+              "expandedCharacters": 114864,
+              "storedCharacters": 116
+            },
+            {
+              "definition": 20,
+              "expandedCharacters": 114868,
+              "storedCharacters": 116
+            },
+            {
+              "definition": 24,
+              "expandedCharacters": 459914,
+              "storedCharacters": 512
+            },
+            {
+              "definition": 25,
+              "expandedCharacters": 229862,
+              "storedCharacters": 160
+            },
+            {
+              "definition": 27,
+              "expandedCharacters": 689842,
+              "storedCharacters": 96
+            },
+            {
+              "definition": 29,
+              "expandedCharacters": 1390227,
+              "storedCharacters": 354
+            },
+            {
+              "definition": 31,
+              "expandedCharacters": 1390230,
+              "storedCharacters": 353
+            },
+            {
+              "definition": 33,
+              "expandedCharacters": 2780622,
+              "storedCharacters": 195
+            },
+            {
+              "definition": 34,
+              "expandedCharacters": 13903556,
+              "storedCharacters": 524
+            },
+            {
+              "definition": 35,
+              "expandedCharacters": 15293869,
+              "storedCharacters": 116
+            },
+            {
+              "definition": 37,
+              "expandedCharacters": 15293872,
+              "storedCharacters": 116
+            },
+            {
+              "definition": 39,
+              "expandedCharacters": 61175761,
+              "storedCharacters": 341
+            }
+          ],
+          "guardCharacters": 40164840
+        },
+        "numericArithmeticEliminated": 7103,
+        "numericGuardImplications": 343,
+        "numericRecipeAdmissions": 650,
+        "numericRecipeAttempts": 1469,
+        "numericRecipeBudgetStops": 0,
+        "orderedGuardEliminations": 81,
+        "prefixRecipeRefinements": 64,
+        "prospectiveGuardEliminations": 36,
+        "recipeConstraintBudgetStops": 1,
+        "recipeConstraintPasses": 1114,
+        "recipeConstraintRefinements": 18253,
+        "rmsBranchRefinements": 1461,
+        "rmsConstantCells": 31,
+        "rmsProjectionSignAdmissions": 188,
+        "selectedRecipeIdentities": 36,
+        "selectedSignMaskEliminations": 16,
+        "selectorSelections": 1062,
+        "splitContexts": 44
+      },
+      "stop": "Flat artifact budget exceeded; no complete result",
+      "weightReads": 2084
+    }
+  },
+  "fullCoordinateArtifactEmitted": false,
+  "fullCoordinateParity": false,
+  "multipleTokenParity": false,
+  "fullVectorParity": false,
+  "historicalNumericalStatesReused": false
+}

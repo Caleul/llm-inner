@@ -100,15 +100,19 @@ def expand(source,session):
         if first%2:p=f'({p}) * 1.4142135623730951'
     else:p=f'({p}) * (1.0 + ({parity}) * 0.4142135623730951)'
     candidate=session.compiler.substitute(p,'X999999997',source,session.domains)
-    # The exhaustive mantissa/parity proof bounds this F64 evaluation inside [0.9,2.1].
-    # All such F64 values lie on the 2**-53 grid, including roundoff.
-    # Exhaustive evaluation of this rational expression/order on every normalized
-    # F32 mantissa and both exponent parities finds no F32 midpoint. Avoid
-    # duplicating the complete candidate just to select its retained parity.
-    rounded=lower_finite_conversion(candidate,'R32',FiniteSource(0.9,2.1,-53),session.compiler,session.domains,no_odd_f32_ties=True)
-    if constant_scale:adjustment=str((first//2*4503599627370496)%(1<<64))
-    else:
-        target=f'U64Shr(U64Add({exponent},1023),1)'
-        adjustment=f'U64Mul(U64Add({target},18446744073709550593),4503599627370496)'
-        adjustment=session.compiler.substitute(adjustment,'X999999997',source,session.domains)
+    # Certified ordered kernels normalize the root to [1,2], including
+    # values infinitesimally outside the endpoints from F64 evaluation.
+    # Their exhaustive native certificate also verifies rounding on the
+    # 2**-23 grid: RN-even addition at 2**29 then exact Sterbenz subtraction.
+    # Endpoint neighborhoods round to 1 or 2, matching the original F32
+    # boundary. This is a certificate of these kernels, not generic rounding.
+    rounded=session.compiler.stabilize(f'(({candidate}) + 2**29) - 2**29',session.domains)
+    if constant_scale:
+        # A widened rounded F32 root scaled by this exact power of two
+        # remains normal F64 throughout every finite positive F32 exponent.
+        # It has the same bits as adjusting its exponent word directly.
+        return rounded if first//2==0 else session.compiler.stabilize(f'({rounded}) * 2**({first//2})',session.domains)
+    target=f'U64Shr(U64Add({exponent},1023),1)'
+    adjustment=f'U64Mul(U64Add({target},18446744073709550593),4503599627370496)'
+    adjustment=session.compiler.substitute(adjustment,'X999999997',source,session.domains)
     return simplify_words(f'Float64(U64Add(Bits64({rounded}),{adjustment}))',session.compiler,session.domains)

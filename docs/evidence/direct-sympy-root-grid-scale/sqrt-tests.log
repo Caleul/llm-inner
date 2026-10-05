@@ -1,0 +1,11 @@
+....
+----------------------------------------------------------------------
+Ran 4 tests in 8.869s
+
+OK
+F32 sqrt emitted word parity: cases=25167601 mismatches=0 oddTies=0 evenTies=0
+Fixed-scale sqrt parity: cases=58720257 mismatches=0
+Narrow sqrt emitted parity: cases=1835032 mismatches=0
+Narrow sqrt mantissa certificate: cases=524290 mismatches=0 midpoints=0
+Regional sqrt emitted parity: cases=67895912 mismatches=0
+Regional sqrt mantissa certificate: cases=19398662 mismatches=0 midpoints=0

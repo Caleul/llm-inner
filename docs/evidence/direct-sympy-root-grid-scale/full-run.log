@@ -1,0 +1,1 @@
+{"expressionAndConditionBudgetBytes": 536870912, "measuredRAMBudgetBytes": 7184069427, "peakObservedRSSBytes": 455524352, "seconds": 194.94236583303427, "workerExitCode": 0, "stop": null, "previousControllerAdmissionStop": "Conservative 16xCAS reservation exceeded 80% available RAM; no worker dispatched by controller"}
