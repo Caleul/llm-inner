@@ -51,6 +51,20 @@ def evaluate(text,values,functions=None):
 
 
 class CoherentPathTests(unittest.TestCase):
+    def test_numerical_comparisons_use_only_prefix_bounds_and_keep_overlap(self):
+        registry=fixture(['X1'])
+        registry.definition_proofs=[(FiniteSource(-1,1,-24),'half',False,None)]
+        plan=CoherentPaths(registry)
+        self.assertIs(plan.condition_truth(syntax('CompileValue0() >= -1.0'),()),True)
+        self.assertIs(plan.condition_truth(syntax('CompileValue0() > 1.0'),()),False)
+        self.assertIsNone(plan.condition_truth(syntax('CompileValue0() < 0.0'),()))
+        self.assertIsNone(plan.condition_truth(syntax('CompileValue0() == 0.0'),()))
+        self.assertIsNone(plan.condition_truth(syntax('1.0/X1 < 0.0'),()))
+        positive=plan.assume(syntax('X1>0.5'),True,())
+        self.assertIs(plan.condition_truth(syntax('X1 <= 0.0'),positive),False)
+        self.assertIsNone(plan.condition_truth(syntax('X1 <= 0.0'),()))
+        self.assertEqual(registry.model.domains['X1'].minimum,F(-1))
+
     def test_certified_empty_numeric_branch_is_pruned_but_other_errors_remain_fatal(self):
         mask=0x7fffffffffffffff
         threshold=struct.unpack('>Q',struct.pack('>d',2.0))[0]
@@ -60,7 +74,9 @@ class CoherentPathTests(unittest.TestCase):
             path=Path(directory)/'flat.expr';plan=CoherentPaths(registry)
             report=plan.write(path,'CompileValue1()',max_characters=65536)
             self.assertEqual(report['paths'],1)
-            self.assertEqual(plan.stats['contradictions'],1)
+            self.assertEqual(plan.stats['contradictions'],0)
+            self.assertEqual(plan.stats['splitContexts'],0)
+            self.assertGreater(plan.stats['numericGuardImplications'],0)
             functions={'Bits64':lambda x:struct.unpack('>Q',struct.pack('>d',x))[0],'U64And':lambda x,y:x&y}
             for x in (-1.0,-2**-24,-0.0,0.0,2**-24,1.0):
                 self.assertEqual(struct.pack('d',evaluate(path.read_text(),{'X1':x,'X2':0.0},functions)),struct.pack('d',x+0.0))

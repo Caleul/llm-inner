@@ -127,8 +127,77 @@ class CoherentPaths:
         self.trees=tuple(registry.audit(text) for text in self.originals)
         LiteralView(registry,self.originals)
         self.max_paths=max_paths;self.max_search_nodes=max_search_nodes
-        self.predicates={};self.rms_bounds_cache={}
+        self.predicates={};self.rms_bounds_cache={};self.guard_bounds_cache={};self.guard_implications=set()
         self.stats={'splitContexts':0,'completedPaths':0,'contradictions':0,'selectorSelections':0,'CASPasses':0,'numericArithmeticEliminated':0,'numericRecipeAttempts':0,'numericRecipeAdmissions':0,'numericRecipeBudgetStops':0,'coupledProjectionContradictions':0,'rmsBranchRefinements':0,'rmsConstantCells':0,'orderedGuardEliminations':0,'guardProofPasses':0,'guardProofBudgetStops':0}
+        self.stats['numericGuardImplications']=0
+
+    def condition_truth(self,node,facts):
+        """Prove a comparison from prior path bounds before distributing it.
+
+        No predicate assumes its own truth. Numerical enclosures are scoped
+        to the frozen prefix, and unsupported/overlapping comparisons stay
+        undecided. Logical operands keep their existing lazy traversal.
+        """
+        known=self.facts.truth(node,facts)
+        if known is not None:return known
+        if not isinstance(node,ast.Compare) or len(node.ops)!=1 or len(node.comparators)!=1:return None
+        from direct_sympy_conversions import ConversionSession,FiniteSource
+        key=(facts,len(self.predicates))
+        if key not in self.guard_bounds_cache:
+            domains=self.domains(facts)
+            if domains is None:return None
+            refined=self.rms_bounds(facts)
+            for name,domain in list(domains.items()):
+                local=refined.get(name)
+                if local is not None:
+                    low,high=max(domain.minimum,local.minimum),min(domain.maximum,local.maximum)
+                    if low>high:return None
+                    domains[name]=Domain(low,high,domain.quantum,domain.excludes_negative_zero)
+            numeric=ConversionSession(self.compiler,domains)
+            source=getattr(self.registry.model,'conversions',None)
+            if source is not None:
+                for name in domains:
+                    own=numeric.key(syntax(name));old=source.key(syntax(name))
+                    if old in source.half_values:numeric.half_values.add(own)
+                    if old in source.f32_values:numeric.f32_values.add(own)
+            for alias,proof in enumerate(getattr(self.registry,'definition_proofs',())):
+                bound,kind,_,_=proof
+                if bound is None:continue
+                local=refined.get(alias)
+                if local is not None:
+                    low,high=max(bound.minimum,local.minimum),min(bound.maximum,local.maximum)
+                    if low>high:continue
+                    bound=FiniteSource(low,high,min(bound.quantum,local.quantum) if bound.quantum is not None and local.quantum is not None else None,max(bound.minimum_magnitude,local.minimum_magnitude))
+                own=numeric.key(syntax(f'CompileValue{alias}()'));numeric.completed[own]=bound
+                if kind=='half':numeric.half_values.add(own)
+                if kind in ('half','f32'):numeric.f32_values.add(own)
+            self.guard_bounds_cache[key]=numeric
+        numeric=self.guard_bounds_cache[key];left=node.left;right=node.comparators[0];op=node.ops[0]
+        if (isinstance(left,ast.Call) and left.func.id=='U64And' and len(left.args)==2
+            and isinstance(left.args[1],ast.Constant) and left.args[1].value==0x7fffffffffffffff
+            and isinstance(left.args[0],ast.Call) and left.args[0].func.id=='Bits64' and len(left.args[0].args)==1
+            and isinstance(right,ast.Constant) and type(right.value)is int and 0<=right.value<0x7ff0000000000000):
+            import struct
+            a=numeric.bounds(left.args[0].args[0])
+            if a is None:return None
+            low=max(a.minimum_magnitude,a.minimum if a.minimum>0 else -a.maximum if a.maximum<0 else 0)
+            high=max(abs(a.minimum),abs(a.maximum))
+            threshold=struct.unpack('d',struct.pack('Q',right.value))[0]
+            a=FiniteSource(low,high);b=FiniteSource(threshold,threshold)
+        else:a,b=numeric.bounds(left),numeric.bounds(right)
+        if a is None or b is None:return None
+        truth=None
+        if isinstance(op,ast.Lt):truth=True if a.maximum<b.minimum else False if a.minimum>=b.maximum else None
+        elif isinstance(op,ast.LtE):truth=True if a.maximum<=b.minimum else False if a.minimum>b.maximum else None
+        elif isinstance(op,ast.Gt):truth=True if a.minimum>b.maximum else False if a.maximum<=b.minimum else None
+        elif isinstance(op,ast.GtE):truth=True if a.minimum>=b.maximum else False if a.maximum<b.minimum else None
+        # Numeric equality cannot establish payload equality (+0/-0), and
+        # overlapping intervals cannot establish a new dispatch decision.
+        if truth is not None:
+            proof=(facts,self.facts.signatures.key(node))
+            if proof not in self.guard_implications:
+                self.guard_implications.add(proof);self.stats['numericGuardImplications']+=1
+        return truth
 
     @staticmethod
     def alias(node):
@@ -198,7 +267,7 @@ class CoherentPaths:
             if isinstance(node,ast.Call) and node.func.id=='Piecewise':
                 for pair in node.args:
                     body,condition=pair.elts
-                    truth=self.facts.truth(condition,facts)
+                    truth=self.condition_truth(condition,facts)
                     if truth is False:continue
                     if truth is None:
                         nested=find(condition)
@@ -373,7 +442,7 @@ class CoherentPaths:
             if isinstance(node,ast.Call) and node.func.id=='Piecewise':
                 for pair in node.args:
                     body,condition=pair.elts
-                    truth=self.facts.truth(condition,facts)
+                    truth=self.condition_truth(condition,facts)
                     if truth is None:raise ValueError('Undecided selector in a supposedly complete path')
                     if truth:
                         self.stats['selectorSelections']+=1
