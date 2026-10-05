@@ -7,7 +7,7 @@ from pathlib import Path
 from direct_sympy_strings import StringCompiler,Domain,syntax
 from direct_sympy_conversions import ConversionSession
 from direct_sympy_conversions_test import cpp
-from direct_sympy_sqrt import supported,CONSTANT_TERM,PARTIAL_FRACTIONS,NARROW_CONSTANT_TERM,NARROW_PARTIAL_FRACTIONS
+from direct_sympy_sqrt import supported,CONSTANT_TERM,PARTIAL_FRACTIONS,NARROW_CONSTANT_TERM,NARROW_PARTIAL_FRACTIONS,REGIONAL_KERNELS,certified_kernel
 import struct
 
 
@@ -45,7 +45,7 @@ class SqrtWordTests(unittest.TestCase):
             other=ConversionSession(StringCompiler(),{'X1':Domain(low,high,-23,True)})
             other.f32_values.add(other.key(syntax('X1')))
             text=other.close('R32(sqrt(X1))')
-            self.assertEqual(text.count('X1'),5 if high<2 else 7)
+            self.assertEqual(text.count('X1'),3 if high<2 else 7)
             self.assertEqual(getattr(other,'narrow_square_roots_closed',0),0)
         with tempfile.TemporaryDirectory()as directory:
             root=Path(directory);source=root/'narrow.cpp';binary=root/'narrow'
@@ -70,6 +70,59 @@ uint64_t normalized=0;for(unsigned m=262144;m<=524288;m++)for(unsigned p=0;p<2;p
             tested=subprocess.run([str(binary)],check=True,capture_output=True,text=True,timeout=120)
             self.assertIn('cases=1835032 mismatches=0',tested.stdout)
             self.assertIn('cases=524290 mismatches=0 midpoints=0',tested.stdout);print(tested.stdout,end='')
+
+    def test_regional_kernels_certify_complete_mantissas_and_emitted_scales(self):
+        import math
+        import mpmath as mp
+        import sympy as sp
+        kernels=[k for k in REGIONAL_KERNELS if k[0]!=(1.03125,1.0625)]
+        functions=[];polynomials=[];ranges=[];normalized=[]
+        for index,(interval,center,constant,fractions)in enumerate(kernels):
+            # Independently reproduce every coefficient before native parity.
+            with mp.workdps(100):
+                n=len(fractions);z=sp.Symbol('z');c=mp.mpf(center);radius=(mp.mpf(interval[1])-mp.mpf(interval[0]))/2
+                nodes=[radius*mp.cos(mp.pi*i/(2*n))for i in range(2*n+1)]
+                matrix=mp.matrix([[x**j for j in range(n+1)]+[-mp.sqrt(x+c)*x**j for j in range(1,n+1)]for x in nodes])
+                solution=mp.lu_solve(matrix,mp.matrix([mp.sqrt(x+c)for x in nodes]))
+                numerator=[solution[j]for j in range(n+1)];denominator=[mp.mpf(1)]+[solution[n+j]for j in range(1,n+1)]
+                self.assertEqual(constant,float(numerator[-1]/denominator[-1]))
+                poles=sp.nroots(sp.Poly.from_list([sp.Float(mp.nstr(x,100),100)for x in reversed(denominator)],z),n=70,maxsteps=500)
+                reproduced=[]
+                for pole in poles:
+                    r=mp.mpf(str(pole));residue=sum(numerator[j]*r**j for j in range(n+1))/sum(j*denominator[j]*r**(j-1)for j in range(1,n+1))
+                    reproduced.append((float(residue),float(-r)))
+                reproduced.sort(key=lambda row:abs(row[0]/row[1]),reverse=True)
+                self.assertEqual(tuple(reproduced),fractions)
+            high=min(interval[1],2-2**-23)
+            self.assertEqual(certified_kernel(interval[0],high),(interval,center,constant,fractions))
+            self.assertIsNone(certified_kernel(interval[0],high*2))
+            approximation=repr(constant)
+            for residue,pole in fractions:approximation=f'(({approximation})+({residue!r}/(z+{pole!r})))'
+            polynomials.append(f'double p{index}(double m,unsigned parity){{double z=m-{center!r};return ({approximation})*(parity?1.4142135623730951:1.0);}}')
+            normalized.append((int((interval[0]-1)*2**23),int((high-1)*2**23)))
+            for exponent in (-140,-126,-25,-1,0,1,24,127):
+                low,upper=F(interval[0])*F(2)**exponent,F(high)*F(2)**exponent
+                session=ConversionSession(StringCompiler(),{'X1':Domain(low,upper,max(-149,exponent-23),True)})
+                session.f32_values.add(session.key(syntax('X1')))
+                expression=session.close('R32(sqrt(X1))')
+                self.assertEqual(expression.count('X1'),len(fractions))
+                self.assertNotIn('sqrt(',expression);self.assertNotIn('R32(',expression)
+                functions.append(f'double f{len(functions)}(double X1){{return '+cpp(syntax(expression))+';}')
+                a,b=(struct.unpack('I',struct.pack('f',float(x)))[0]for x in (low,upper))
+                if F(struct.unpack('f',struct.pack('I',a))[0])<low:a+=1
+                if F(struct.unpack('f',struct.pack('I',b))[0])>upper:b-=1
+                ranges.append((a,b))
+        with tempfile.TemporaryDirectory()as directory:
+            root=Path(directory);source=root/'regional.cpp';binary=root/'regional'
+            source.write_text('#include <cstdint>\n#include <cstring>\n#include <cmath>\n#include <cstdio>\n#include <cfenv>\ntemplate<class T,class U>T word(U x){T y;std::memcpy(&y,&x,sizeof(y));return y;}\n'+
+                '\n'.join(functions+polynomials)+'\nint main(){if(std::fesetround(FE_TONEAREST))return 2;uint64_t cases=0,failures=0,ties=0;double (*fs[])(double)={'+','.join(f'f{i}'for i in range(len(functions)))+'};unsigned ranges[][2]={'+','.join('{'+str(a)+','+str(b)+'}'for a,b in ranges)+'};'+
+                'for(unsigned i=0;i<'+str(len(functions))+';i++)for(unsigned b=ranges[i][0];b<=ranges[i][1];b++){double x=word<float>(uint32_t(b));failures+=word<uint64_t>(fs[i](x))!=word<uint64_t>(double(float(std::sqrt(x))));cases++;}std::printf("Regional sqrt emitted parity: cases=%llu mismatches=%llu\\n",(unsigned long long)cases,(unsigned long long)failures);'+
+                'uint64_t normalized=0;double (*ps[])(double,unsigned)={'+','.join(f'p{i}'for i in range(len(kernels)))+'};unsigned ms[][2]={'+','.join('{'+str(a)+','+str(b)+'}'for a,b in normalized)+'};'+
+                'for(unsigned i=0;i<'+str(len(kernels))+';i++)for(unsigned m=ms[i][0];m<=ms[i][1];m++)for(unsigned p=0;p<2;p++){double x=word<float>(uint32_t((127u<<23)|m));double raw=ps[i](x,p);failures+=word<uint32_t>(float(raw))!=word<uint32_t>(float(std::sqrt(x*(p?2.0:1.0))));ties+=(word<uint64_t>(raw)&UINT64_C(536870911))==UINT64_C(268435456);normalized++;}std::printf("Regional sqrt mantissa certificate: cases=%llu mismatches=%llu midpoints=%llu\\n",(unsigned long long)normalized,(unsigned long long)failures,(unsigned long long)ties);return failures||ties?1:0;}')
+            subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],check=True,capture_output=True,text=True)
+            tested=subprocess.run([str(binary)],capture_output=True,text=True,timeout=120)
+            self.assertEqual(tested.returncode,0,tested.stdout+tested.stderr)
+            self.assertIn('mismatches=0 midpoints=0',tested.stdout);print(tested.stdout,end='')
 
     def test_fixed_scale_context_removes_only_proved_source_occurrences(self):
         expressions=[]

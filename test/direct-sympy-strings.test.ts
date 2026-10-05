@@ -194,9 +194,11 @@ test('Bounded SiLU arithmetic lowering matches every certified Half scalar and v
 test('Positive F32 square-root word lowering preserves all mantissas, parities and subnormals',
   {skip:!python},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_sqrt_test.py'],{timeout:120_000,maxBuffer:1024*1024});
-    assert.match(stderr,/Ran 3 tests/);
+    assert.match(stderr,/Ran 4 tests/);
     assert.match(stdout,/Narrow sqrt emitted parity: cases=1835032 mismatches=0/);
     assert.match(stdout,/Narrow sqrt mantissa certificate: cases=524290 mismatches=0 midpoints=0/);
+    assert.match(stdout,/Regional sqrt emitted parity: cases=67895912 mismatches=0/);
+    assert.match(stdout,/Regional sqrt mantissa certificate: cases=19398662 mismatches=0 midpoints=0/);
     assert.match(stderr,/OK/);
     assert.match(stdout,/F32 sqrt emitted word parity: cases=25167601 mismatches=0/);
     assert.match(stdout,/Fixed-scale sqrt parity: cases=58720257 mismatches=0/);

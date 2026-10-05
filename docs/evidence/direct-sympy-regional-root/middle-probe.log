@@ -1,0 +1,3 @@
+kernel=0 cases=10485762 mismatches=8 midpoints=0
+kernel=1 cases=11010050 mismatches=8 midpoints=0
+kernel=2 cases=10354690 mismatches=4 midpoints=0

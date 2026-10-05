@@ -35,6 +35,33 @@ NARROW_CONSTANT_TERM=5.115760004435847
 NARROW_PARTIAL_FRACTIONS=((-42.49736561224015,10.962622678643505),
     (-0.3455137406727387,1.599440032849224))
 
+# Compiler-selected numerical certificates, ordered by source occurrences.
+# Selection requires the entire branch enclosure inside one binary scale and
+# one certified interval. These constants approximate the operation, not model
+# responses. Never extrapolate or introduce a runtime kernel selector.
+REGIONAL_KERNELS=(
+    ((1.0,1.03125),1.015625,5.03882163904675,
+        ((-40.608633603342646,10.635356285748777),(-0.33015693435982507,1.5516929693141102))),
+    (NARROW_INTERVAL,NARROW_CENTER,NARROW_CONSTANT_TERM,NARROW_PARTIAL_FRACTIONS),
+    ((1.0,1.125),1.0625,7.213649925328846,
+        ((-121.21401571571069,21.44681022912209),(-1.2643385409523005,2.731723482708797),
+         (-0.08923857710404674,1.3085889107675457))),
+    ((1.0,1.5),1.25,10.034070281879014,
+        ((-328.42424548693276,41.215407137443975),(-3.6876941635275764,4.9684755018866555),
+         (-0.36684145291176556,2.1193794430256965),(-0.045564819547329084,1.413021128487478))),
+    ((1.5,2.0),1.75,11.88892058018027,
+        ((-546.3483212075085,57.866108384246175),(-6.140496982105641,6.977579432856978),
+         (-0.6123816025075169,2.9745257795503455),(-0.07631459236509174,1.980002684263491))),
+)
+
+
+def certified_kernel(minimum,maximum):
+    first=math.frexp(minimum)[1]-1;last=math.frexp(maximum)[1]-1
+    if first!=last:return None
+    low,high=math.ldexp(minimum,-first),math.ldexp(maximum,-first)
+    return next((kernel for kernel in REGIONAL_KERNELS
+        if kernel[0][0]<=low and high<=kernel[0][1]),None)
+
 
 def supported(source,session):
     node=syntax(source);bounds=session.bounds(node)
@@ -48,14 +75,16 @@ def expand(source,session):
     bounds=session.bounds(syntax(source))
     first=math.frexp(bounds.minimum)[1]-1;last=math.frexp(bounds.maximum)[1]-1
     constant_scale=first==last
-    narrow=(constant_scale and math.ldexp(bounds.minimum,-first)>=NARROW_INTERVAL[0]
-        and math.ldexp(bounds.maximum,-first)<=NARROW_INTERVAL[1])
-    z=f'(({m}) - {NARROW_CENTER if narrow else 1.5!r})'
-    p=repr(NARROW_CONSTANT_TERM if narrow else CONSTANT_TERM)
-    for residue,pole in (NARROW_PARTIAL_FRACTIONS if narrow else PARTIAL_FRACTIONS):
+    kernel=certified_kernel(bounds.minimum,bounds.maximum)
+    center,constant,fractions=(kernel[1:] if kernel is not None else (1.5,CONSTANT_TERM,PARTIAL_FRACTIONS))
+    z=f'(({m}) - {center!r})'
+    p=repr(constant)
+    for residue,pole in fractions:
         p=f'(({p}) + ({residue!r} / (({z}) + {pole!r})))'
-    if narrow:
+    if kernel is not None and kernel[0]==NARROW_INTERVAL:
         session.narrow_square_roots_closed=getattr(session,'narrow_square_roots_closed',0)+1
+    elif kernel is not None:
+        session.regional_square_roots_closed=getattr(session,'regional_square_roots_closed',0)+1
     exponent=f'U64And(U64Shr({raw},52),2047)'
     parity=f'U64And(U64Add({exponent},1),1)'
     if constant_scale:

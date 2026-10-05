@@ -1,0 +1,210 @@
+{
+  "seconds": 74.58864066598471,
+  "stats": {
+    "splitContexts": 31,
+    "completedPaths": 23,
+    "contradictions": 5,
+    "selectorSelections": 717,
+    "CASPasses": 20105,
+    "numericArithmeticEliminated": 5090,
+    "numericRecipeAttempts": 1017,
+    "numericRecipeAdmissions": 480,
+    "numericRecipeBudgetStops": 0,
+    "coupledProjectionContradictions": 0,
+    "rmsBranchRefinements": 1009,
+    "rmsConstantCells": 31,
+    "orderedGuardEliminations": 69,
+    "guardProofPasses": 198,
+    "guardProofBudgetStops": 0,
+    "numericGuardImplications": 339,
+    "recipeConstraintRefinements": 11530,
+    "recipeConstraintPasses": 719,
+    "backwardRoundingSteps": 66281,
+    "prospectiveGuardEliminations": 36,
+    "lastArm": {
+      "bodyCharacters": 9724295,
+      "guardCharacters": 428688,
+      "decisions": 8,
+      "dependencyGrowth": [
+        {
+          "definition": 1,
+          "storedCharacters": 625,
+          "expandedCharacters": 627
+        },
+        {
+          "definition": 2,
+          "storedCharacters": 151,
+          "expandedCharacters": 765
+        },
+        {
+          "definition": 4,
+          "storedCharacters": 101,
+          "expandedCharacters": 715
+        },
+        {
+          "definition": 8,
+          "storedCharacters": 166,
+          "expandedCharacters": 1618
+        },
+        {
+          "definition": 11,
+          "storedCharacters": 163,
+          "expandedCharacters": 1615
+        },
+        {
+          "definition": 12,
+          "storedCharacters": 330,
+          "expandedCharacters": 6736
+        },
+        {
+          "definition": 14,
+          "storedCharacters": 334,
+          "expandedCharacters": 6740
+        },
+        {
+          "definition": 17,
+          "storedCharacters": 681,
+          "expandedCharacters": 27571
+        },
+        {
+          "definition": 18,
+          "storedCharacters": 116,
+          "expandedCharacters": 34393
+        },
+        {
+          "definition": 20,
+          "storedCharacters": 116,
+          "expandedCharacters": 34397
+        },
+        {
+          "definition": 24,
+          "storedCharacters": 862,
+          "expandedCharacters": 275896
+        },
+        {
+          "definition": 25,
+          "storedCharacters": 160,
+          "expandedCharacters": 68920
+        },
+        {
+          "definition": 27,
+          "storedCharacters": 373,
+          "expandedCharacters": 482675
+        },
+        {
+          "definition": 29,
+          "storedCharacters": 234,
+          "expandedCharacters": 972274
+        },
+        {
+          "definition": 31,
+          "storedCharacters": 232,
+          "expandedCharacters": 972276
+        },
+        {
+          "definition": 34,
+          "storedCharacters": 681,
+          "expandedCharacters": 3889719
+        },
+        {
+          "definition": 35,
+          "storedCharacters": 116,
+          "expandedCharacters": 4862079
+        },
+        {
+          "definition": 37,
+          "storedCharacters": 116,
+          "expandedCharacters": 4862081
+        },
+        {
+          "definition": 39,
+          "storedCharacters": 165,
+          "expandedCharacters": 9724295
+        }
+      ]
+    },
+    "backwardRMSVectorRefinements": 268,
+    "selectedRecipeIdentities": 36,
+    "rmsProjectionSignAdmissions": 94,
+    "selectedSignMaskEliminations": 6
+  },
+  "rootEnclosures": [
+    {
+      "first": -20,
+      "last": 31,
+      "normalizedMinimum": 1.0485759973526,
+      "normalizedMaximum": 4499202654601216.0,
+      "uses": 6
+    },
+    {
+      "first": -20,
+      "last": -20,
+      "normalizedMinimum": 1.0485759973526,
+      "normalizedMaximum": 1.0486505031585693,
+      "uses": 26
+    },
+    {
+      "first": -20,
+      "last": -20,
+      "normalizedMinimum": 1.0485759973526,
+      "normalizedMaximum": 1.048581838607788,
+      "uses": 6
+    },
+    {
+      "first": -20,
+      "last": -20,
+      "normalizedMinimum": 1.0485759973526,
+      "normalizedMaximum": 1.0485764741897583,
+      "uses": 4
+    },
+    {
+      "first": -20,
+      "last": -20,
+      "normalizedMinimum": 1.0485759973526,
+      "normalizedMaximum": 1.0485767126083374,
+      "uses": 1
+    },
+    {
+      "first": -20,
+      "last": -20,
+      "normalizedMinimum": 1.0485759973526,
+      "normalizedMaximum": 1.0485867261886597,
+      "uses": 3
+    },
+    {
+      "first": -20,
+      "last": -20,
+      "normalizedMinimum": 1.0485759973526,
+      "normalizedMaximum": 1.0487133264541626,
+      "uses": 29
+    },
+    {
+      "first": -20,
+      "last": -20,
+      "normalizedMinimum": 1.0485759973526,
+      "normalizedMaximum": 1.414646029472351,
+      "uses": 4
+    },
+    {
+      "first": -20,
+      "last": -20,
+      "normalizedMinimum": 1.0485759973526,
+      "normalizedMaximum": 1.657058835029602,
+      "uses": 1
+    },
+    {
+      "first": -20,
+      "last": -20,
+      "normalizedMinimum": 1.0485759973526,
+      "normalizedMaximum": 1.0506688356399536,
+      "uses": 7
+    },
+    {
+      "first": -20,
+      "last": -20,
+      "normalizedMinimum": 1.0485759973526,
+      "normalizedMaximum": 1.0505766868591309,
+      "uses": 10
+    }
+  ]
+}

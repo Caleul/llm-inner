@@ -25237,5 +25237,507 @@
       "controllerSHA256": "d5c31bf91d5dd72d6c8e7c68d7503cb834e066c2186afafbf685d381d9504200",
       "artifactBudgetSHA256": "1f05236c49828134d2c7bce880df7f9c3859e848813d0a7f595694c43bdd62ea"
     }
+  },
+  "validatedRegionalSquareRoots": {
+    "baselineCommit": "3c7da72cdfa955840ad3638796ebcb3ca25c01c3",
+    "compilerIdentity": {
+      "version": 1,
+      "dimension": 2,
+      "position": 0,
+      "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+      "sympy": "1.14.0",
+      "platform": "macOS-26.7.1-arm64-arm-64bit",
+      "byteOrder": "little",
+      "referenceBackend": {
+        "name": "torch CPU",
+        "version": "2.12.1",
+        "gitVersion": "7269437d655783a26cba32aa88195b741ff496aa",
+        "capability": "DEFAULT"
+      },
+      "checkpoint": {
+        "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+        "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+      },
+      "sources": {
+        "direct_sympy_arithmetic.py": "b67816f4954a9ef6877bc0b549044c3f2bf6878451f5b4a94fa13f0237072f6d",
+        "direct_sympy_checkpoint.py": "889ecefef40b7cbf1b87452e92decda5837ab9d01bc61affcb0274c045bac146",
+        "direct_sympy_coherent_paths.py": "ee86567bcee1a2946181945bac186a7d40aafbe143206e921c0fa39b08092abb",
+        "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+        "direct_sympy_conversions.py": "77ac9f3e14c873f2ac4c53e082db78f03596f6b985ee6286f39fc5bb83b167c2",
+        "direct_sympy_input_partitions.py": "21449edd26a0d43ad4a2c5b5e841c5e9d8e7de6afb6ac138a9eef88374558797",
+        "direct_sympy_layer_bounds.py": "c1a93f951ff5ad5af8510671e42ac8c05d73c246dfb2460bacd43cf0e3774dae",
+        "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+        "direct_sympy_partition_run.py": "9985ec29e19e73f59ab0691be88f8278966d64fe2daaaf5fab77135901a66482",
+        "direct_sympy_projection_constraints.py": "568fb807619f566c8da2a1df85407455cde84164e1f9fd2ccca3fd69ee88189f",
+        "direct_sympy_recipe_bounds.py": "c75607053ee144fd76d591530dba9a06d28634a6bdc96978b0894ecac76621ae",
+        "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+        "direct_sympy_savepoints.py": "064a2a6ae267ac4338ae6bb102a5ddb2272869d63f0ff857a1d0116313de4cb7",
+        "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+        "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+        "direct_sympy_silu.py": "e623f38b5008356d8f6aa1615aabfa5a779f9dc7ea9d5b8183c5b17a78383fe3",
+        "direct_sympy_sqrt.py": "8faedbfbe6660a4d5355d7cf30c581a25578117904374c302f6d52186c36a1ca",
+        "direct_sympy_streaming_literals.py": "7310a1dd1a7ee97bcab7f792859a67cf02ea075e2e72c546b92231687ae0c9d6",
+        "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+        "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+        "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+        "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
+      }
+    },
+    "regionalRootCertificateCases": 19398662,
+    "regionalRootEmittedScaleCases": 67895912,
+    "rootBitMismatches": 0,
+    "rootMidpoints": 0,
+    "noNewRuntimeKernelBranch": true,
+    "universalFallbackRetained": true,
+    "numericalOrderChanged": false,
+    "regionalCoordinatePreviousCharacters": 326051,
+    "regionalCoordinateCurrentCharacters": 268753,
+    "regionalCoordinateParityCases": 66049,
+    "regionalCoordinateBitMismatches": 0,
+    "regionalArtifact": {
+      "path": "/Users/caleul/Documents/Work/Projects/llm-inner/docs/evidence/direct-sympy-regional-root/smoke.expr",
+      "characters": 268753,
+      "sha256": "2869923edb15ec8f500bfaa6053059b1d8e37b2ca9091927120941f0a2ec90d8",
+      "paths": 2,
+      "compilerAliases": 0,
+      "complete": true
+    },
+    "regionalInputDomains": {
+      "X1": [
+        10240,
+        10496
+      ],
+      "X2": [
+        10240,
+        10496
+      ]
+    },
+    "sameOrderedBranchSkeletons": 27,
+    "candidateExpansionComparisons": [
+      {
+        "candidate": 1,
+        "previousBodyCharacters": 6379,
+        "currentBodyCharacters": 6379,
+        "previousGuardCharacters": 1948,
+        "currentGuardCharacters": 1948,
+        "sameOrderedGuardSkeleton": true
+      },
+      {
+        "candidate": 2,
+        "previousBodyCharacters": 6555,
+        "currentBodyCharacters": 6555,
+        "previousGuardCharacters": 394,
+        "currentGuardCharacters": 394,
+        "sameOrderedGuardSkeleton": true
+      },
+      {
+        "candidate": 3,
+        "previousBodyCharacters": 9035,
+        "currentBodyCharacters": 9035,
+        "previousGuardCharacters": 85954,
+        "currentGuardCharacters": 85954,
+        "sameOrderedGuardSkeleton": true
+      },
+      {
+        "candidate": 4,
+        "previousBodyCharacters": 294255,
+        "currentBodyCharacters": 294255,
+        "previousGuardCharacters": 46141,
+        "currentGuardCharacters": 46141,
+        "sameOrderedGuardSkeleton": true
+      },
+      {
+        "candidate": 5,
+        "previousBodyCharacters": 9211,
+        "currentBodyCharacters": 9211,
+        "previousGuardCharacters": 46145,
+        "currentGuardCharacters": 46145,
+        "sameOrderedGuardSkeleton": true
+      },
+      {
+        "candidate": 6,
+        "previousBodyCharacters": 267683,
+        "currentBodyCharacters": 267683,
+        "previousGuardCharacters": 140128,
+        "currentGuardCharacters": 140128,
+        "sameOrderedGuardSkeleton": true
+      },
+      {
+        "candidate": 7,
+        "previousBodyCharacters": 267683,
+        "currentBodyCharacters": 267683,
+        "previousGuardCharacters": 6332,
+        "currentGuardCharacters": 6332,
+        "sameOrderedGuardSkeleton": true
+      },
+      {
+        "candidate": 8,
+        "previousBodyCharacters": 202163,
+        "currentBodyCharacters": 202163,
+        "previousGuardCharacters": 367836,
+        "currentGuardCharacters": 367836,
+        "sameOrderedGuardSkeleton": true
+      },
+      {
+        "candidate": 9,
+        "previousBodyCharacters": 101077,
+        "currentBodyCharacters": 101077,
+        "previousGuardCharacters": 266783,
+        "currentGuardCharacters": 266783,
+        "sameOrderedGuardSkeleton": true
+      },
+      {
+        "candidate": 10,
+        "previousBodyCharacters": 202163,
+        "currentBodyCharacters": 202163,
+        "previousGuardCharacters": 266800,
+        "currentGuardCharacters": 266800,
+        "sameOrderedGuardSkeleton": true
+      },
+      {
+        "candidate": 11,
+        "previousBodyCharacters": 101077,
+        "currentBodyCharacters": 101077,
+        "previousGuardCharacters": 165747,
+        "currentGuardCharacters": 165747,
+        "sameOrderedGuardSkeleton": true
+      },
+      {
+        "candidate": 12,
+        "previousBodyCharacters": 202163,
+        "currentBodyCharacters": 202163,
+        "previousGuardCharacters": 367891,
+        "currentGuardCharacters": 367891,
+        "sameOrderedGuardSkeleton": true
+      },
+      {
+        "candidate": 13,
+        "previousBodyCharacters": 101077,
+        "currentBodyCharacters": 101077,
+        "previousGuardCharacters": 266838,
+        "currentGuardCharacters": 266838,
+        "sameOrderedGuardSkeleton": true
+      },
+      {
+        "candidate": 14,
+        "previousBodyCharacters": 17994479,
+        "currentBodyCharacters": 17994479,
+        "previousGuardCharacters": 9163013,
+        "currentGuardCharacters": 9163013,
+        "sameOrderedGuardSkeleton": true
+      },
+      {
+        "candidate": 15,
+        "previousBodyCharacters": 8997235,
+        "currentBodyCharacters": 8997235,
+        "previousGuardCharacters": 165802,
+        "currentGuardCharacters": 165802,
+        "sameOrderedGuardSkeleton": true
+      },
+      {
+        "candidate": 16,
+        "previousBodyCharacters": 202163,
+        "currentBodyCharacters": 202163,
+        "previousGuardCharacters": 266796,
+        "currentGuardCharacters": 266796,
+        "sameOrderedGuardSkeleton": true
+      },
+      {
+        "candidate": 17,
+        "previousBodyCharacters": 101077,
+        "currentBodyCharacters": 101077,
+        "previousGuardCharacters": 165743,
+        "currentGuardCharacters": 165743,
+        "sameOrderedGuardSkeleton": true
+      },
+      {
+        "candidate": 18,
+        "previousBodyCharacters": 13146879,
+        "currentBodyCharacters": 13146879,
+        "previousGuardCharacters": 6638118,
+        "currentGuardCharacters": 6638118,
+        "sameOrderedGuardSkeleton": true
+      },
+      {
+        "candidate": 19,
+        "previousBodyCharacters": 6573435,
+        "currentBodyCharacters": 6573435,
+        "previousGuardCharacters": 64707,
+        "currentGuardCharacters": 64707,
+        "sameOrderedGuardSkeleton": true
+      },
+      {
+        "candidate": 20,
+        "previousBodyCharacters": 137883,
+        "currentBodyCharacters": 137883,
+        "previousGuardCharacters": 566497,
+        "currentGuardCharacters": 505849,
+        "sameOrderedGuardSkeleton": true
+      },
+      {
+        "candidate": 21,
+        "previousBodyCharacters": 68937,
+        "currentBodyCharacters": 68937,
+        "previousGuardCharacters": 497584,
+        "currentGuardCharacters": 436936,
+        "sameOrderedGuardSkeleton": true
+      },
+      {
+        "candidate": 22,
+        "previousBodyCharacters": 19448599,
+        "currentBodyCharacters": 19448599,
+        "previousGuardCharacters": 10152959,
+        "currentGuardCharacters": 10092311,
+        "sameOrderedGuardSkeleton": true
+      },
+      {
+        "candidate": 23,
+        "previousBodyCharacters": 9724295,
+        "currentBodyCharacters": 9724295,
+        "previousGuardCharacters": 428688,
+        "currentGuardCharacters": 368040,
+        "sameOrderedGuardSkeleton": true
+      },
+      {
+        "candidate": 24,
+        "previousBodyCharacters": 168126471,
+        "currentBodyCharacters": 96061439,
+        "previousGuardCharacters": 109003811,
+        "currentGuardCharacters": 65564183,
+        "sameOrderedGuardSkeleton": true
+      },
+      {
+        "candidate": 25,
+        "previousBodyCharacters": 84063231,
+        "currentBodyCharacters": 48030715,
+        "previousGuardCharacters": 24940604,
+        "currentGuardCharacters": 17533492,
+        "sameOrderedGuardSkeleton": true
+      },
+      {
+        "candidate": 26,
+        "previousBodyCharacters": 117367675,
+        "currentBodyCharacters": 100045755,
+        "previousGuardCharacters": 76385582,
+        "currentGuardCharacters": 65114630,
+        "sameOrderedGuardSkeleton": true
+      },
+      {
+        "candidate": 27,
+        "previousBodyCharacters": 58683833,
+        "currentBodyCharacters": 50022873,
+        "previousGuardCharacters": 17701773,
+        "currentGuardCharacters": 15091781,
+        "sameOrderedGuardSkeleton": true
+      }
+    ],
+    "focusedIntegrations": {
+      "tests": 40,
+      "pass": 40,
+      "fail": 0,
+      "skipped": 0
+    },
+    "portableSuite": {
+      "tests": 620,
+      "pass": 571,
+      "fail": 0,
+      "skipped": 49
+    },
+    "wholeDomainAttempt": {
+      "expressionAndConditionBudgetBytes": 536870912,
+      "measuredRAMBudgetBytes": 6303711232,
+      "peakObservedRSSBytes": 499712000,
+      "seconds": 130.50109829101712,
+      "workerExitCode": 0,
+      "stop": null,
+      "controllerAdmissionStop": "Conservative 16xCAS reservation exceeded 80% available RAM; no worker dispatched by controller",
+      "coordinate": {
+        "artifactPublished": false,
+        "compilerIdentity": {
+          "byteOrder": "little",
+          "checkpoint": {
+            "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+            "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+          },
+          "dimension": 2,
+          "platform": "macOS-26.7.1-arm64-arm-64bit",
+          "position": 0,
+          "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+          "referenceBackend": {
+            "capability": "DEFAULT",
+            "gitVersion": "7269437d655783a26cba32aa88195b741ff496aa",
+            "name": "torch CPU",
+            "version": "2.12.1"
+          },
+          "sources": {
+            "direct_sympy_arithmetic.py": "b67816f4954a9ef6877bc0b549044c3f2bf6878451f5b4a94fa13f0237072f6d",
+            "direct_sympy_checkpoint.py": "889ecefef40b7cbf1b87452e92decda5837ab9d01bc61affcb0274c045bac146",
+            "direct_sympy_coherent_paths.py": "ee86567bcee1a2946181945bac186a7d40aafbe143206e921c0fa39b08092abb",
+            "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+            "direct_sympy_conversions.py": "77ac9f3e14c873f2ac4c53e082db78f03596f6b985ee6286f39fc5bb83b167c2",
+            "direct_sympy_input_partitions.py": "21449edd26a0d43ad4a2c5b5e841c5e9d8e7de6afb6ac138a9eef88374558797",
+            "direct_sympy_layer_bounds.py": "c1a93f951ff5ad5af8510671e42ac8c05d73c246dfb2460bacd43cf0e3774dae",
+            "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+            "direct_sympy_partition_run.py": "9985ec29e19e73f59ab0691be88f8278966d64fe2daaaf5fab77135901a66482",
+            "direct_sympy_projection_constraints.py": "568fb807619f566c8da2a1df85407455cde84164e1f9fd2ccca3fd69ee88189f",
+            "direct_sympy_recipe_bounds.py": "c75607053ee144fd76d591530dba9a06d28634a6bdc96978b0894ecac76621ae",
+            "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+            "direct_sympy_savepoints.py": "064a2a6ae267ac4338ae6bb102a5ddb2272869d63f0ff857a1d0116313de4cb7",
+            "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+            "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+            "direct_sympy_silu.py": "e623f38b5008356d8f6aa1615aabfa5a779f9dc7ea9d5b8183c5b17a78383fe3",
+            "direct_sympy_sqrt.py": "8faedbfbe6660a4d5355d7cf30c581a25578117904374c302f6d52186c36a1ca",
+            "direct_sympy_streaming_literals.py": "7310a1dd1a7ee97bcab7f792859a67cf02ea075e2e72c546b92231687ae0c9d6",
+            "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+            "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+            "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+            "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
+          },
+          "sympy": "1.14.0",
+          "version": 1
+        },
+        "complete": false,
+        "dimension": 2,
+        "parityVerified": false,
+        "producersCompleted": 25,
+        "seconds": 127.07093283400172,
+        "stats": {
+          "CASPasses": 26997,
+          "backwardRMSVectorRefinements": 345,
+          "backwardRoundingSteps": 90400,
+          "completedPaths": 27,
+          "contradictions": 10,
+          "coupledProjectionContradictions": 0,
+          "guardProofBudgetStops": 0,
+          "guardProofPasses": 258,
+          "lastArm": {
+            "bodyCharacters": 50022873,
+            "decisions": 12,
+            "dependencyGrowth": [
+              {
+                "definition": 1,
+                "expandedCharacters": 1294,
+                "storedCharacters": 1292
+              },
+              {
+                "definition": 2,
+                "expandedCharacters": 1432,
+                "storedCharacters": 151
+              },
+              {
+                "definition": 4,
+                "expandedCharacters": 1382,
+                "storedCharacters": 101
+              },
+              {
+                "definition": 8,
+                "expandedCharacters": 2952,
+                "storedCharacters": 166
+              },
+              {
+                "definition": 11,
+                "expandedCharacters": 2949,
+                "storedCharacters": 163
+              },
+              {
+                "definition": 12,
+                "expandedCharacters": 12133,
+                "storedCharacters": 391
+              },
+              {
+                "definition": 14,
+                "expandedCharacters": 12137,
+                "storedCharacters": 395
+              },
+              {
+                "definition": 17,
+                "expandedCharacters": 122890,
+                "storedCharacters": 1698
+              },
+              {
+                "definition": 18,
+                "expandedCharacters": 135109,
+                "storedCharacters": 116
+              },
+              {
+                "definition": 20,
+                "expandedCharacters": 135113,
+                "storedCharacters": 116
+              },
+              {
+                "definition": 24,
+                "expandedCharacters": 540894,
+                "storedCharacters": 512
+              },
+              {
+                "definition": 25,
+                "expandedCharacters": 270352,
+                "storedCharacters": 160
+              },
+              {
+                "definition": 27,
+                "expandedCharacters": 1130615,
+                "storedCharacters": 733
+              },
+              {
+                "definition": 29,
+                "expandedCharacters": 2273612,
+                "storedCharacters": 295
+              },
+              {
+                "definition": 31,
+                "expandedCharacters": 2273614,
+                "storedCharacters": 293
+              },
+              {
+                "definition": 34,
+                "expandedCharacters": 22737670,
+                "storedCharacters": 1698
+              },
+              {
+                "definition": 35,
+                "expandedCharacters": 25011368,
+                "storedCharacters": 116
+              },
+              {
+                "definition": 37,
+                "expandedCharacters": 25011370,
+                "storedCharacters": 116
+              },
+              {
+                "definition": 39,
+                "expandedCharacters": 50022873,
+                "storedCharacters": 165
+              }
+            ],
+            "guardCharacters": 15091781
+          },
+          "numericArithmeticEliminated": 6614,
+          "numericGuardImplications": 343,
+          "numericRecipeAdmissions": 598,
+          "numericRecipeAttempts": 1344,
+          "numericRecipeBudgetStops": 0,
+          "orderedGuardEliminations": 79,
+          "prefixRecipeRefinements": 32,
+          "prospectiveGuardEliminations": 36,
+          "recipeConstraintPasses": 972,
+          "recipeConstraintRefinements": 15860,
+          "rmsBranchRefinements": 1336,
+          "rmsConstantCells": 31,
+          "rmsProjectionSignAdmissions": 160,
+          "selectedRecipeIdentities": 36,
+          "selectedSignMaskEliminations": 16,
+          "selectorSelections": 966,
+          "splitContexts": 41
+        },
+        "stop": "Flat artifact budget exceeded; no complete result",
+        "weightReads": 1984
+      }
+    },
+    "fullCoordinateArtifactEmitted": false,
+    "fullCoordinateParity": false,
+    "multipleTokenParity": false,
+    "fullVectorParity": false,
+    "historicalNumericalStatesReused": false
   }
 }
