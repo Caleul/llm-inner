@@ -1,0 +1,61 @@
+{
+  "scope": "six elementary counterexamples only; one thread",
+  "torch": "2.12.1",
+  "machine": "arm64",
+  "rows": [
+    {
+      "x": -0.0030410289764404297,
+      "vectorBits": "0x3fefe72040000000",
+      "scalarBits": "0x3fefe72040000000",
+      "softmaxBits": [
+        "0x3fdff38b60000000",
+        "0x3fe0063a60000000"
+      ]
+    },
+    {
+      "x": -0.003268122673034668,
+      "vectorBits": "0x3fefe54580000000",
+      "scalarBits": "0x3fefe54580000000",
+      "softmaxBits": [
+        "0x3fdff29d20000000",
+        "0x3fe006b160000000"
+      ]
+    },
+    {
+      "x": -0.0036643147468566895,
+      "vectorBits": "0x3fefe20980000000",
+      "scalarBits": "0x3fefe20980000000",
+      "softmaxBits": [
+        "0x3fdff0fdc0000000",
+        "0x3fe0078120000000"
+      ]
+    },
+    {
+      "x": 0.0,
+      "vectorBits": "0x3ff0000000000000",
+      "scalarBits": "0x3ff0000000000000",
+      "softmaxBits": [
+        "0x3fe0000000000000",
+        "0x3fe0000000000000"
+      ]
+    },
+    {
+      "x": -5.960464477539063e-08,
+      "vectorBits": "0x3fefffffe0000000",
+      "scalarBits": "0x3fefffffe0000000",
+      "softmaxBits": [
+        "0x3fdfffffe0000000",
+        "0x3fe0000000000000"
+      ]
+    },
+    {
+      "x": -0.0282745361328125,
+      "vectorBits": "0x3fef1b9e80000000",
+      "scalarBits": "0x3fef1b9e80000000",
+      "softmaxBits": [
+        "0x3fdf8c3200000000",
+        "0x3fe039e700000000"
+      ]
+    }
+  ]
+}

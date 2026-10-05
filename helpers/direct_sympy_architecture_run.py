@@ -42,7 +42,8 @@ def unit_with_scans(args):
     import torch
     torch.set_num_threads(1)
     from direct_sympy_architecture import architecture_plan,compose_architecture,prune_plan,last_position_indices
-    from direct_sympy_architecture_test import program,numeric_functions
+    from direct_sympy_architecture_test import numeric_functions
+    from direct_sympy_working_program import WorkingProgram
     from direct_sympy_checkpoint import write_expression
     from direct_sympy_parallel import ParallelBudget
     from direct_sympy_strings import StringCompiler
@@ -65,7 +66,8 @@ def unit_with_scans(args):
             'reachableInterfaceOutputSlots':sum(len(b.outputs) for b in pruned)})
         def progress(stats):
             write_json(root/'composition-progress.json',stats)
-        outputs,stats=compose_architecture(plan,StringCompiler(max_characters=args.max_characters),ParallelBudget(args.workers,args.memory_mib*1024**2),output_indices=indices,on_wave=progress)
+        compiler=StringCompiler(max_characters=args.max_characters)
+        outputs,stats=compose_architecture(plan,compiler,ParallelBudget(args.workers,args.memory_mib*1024**2),output_indices=indices,on_wave=progress)
         if len(outputs)!=plan.vocab:raise ValueError('Final-position logit vector is incomplete')
         report['composition']=stats
         functions=numeric_functions();codes=[];records=[]
@@ -73,7 +75,7 @@ def unit_with_scans(args):
             row,coordinate=divmod(indices[index],plan.vocab)
             target=root/f'position-{row}-logit-{coordinate}.work.expr'
             write_expression(target,text)
-            restored=target.read_text().strip();codes.append(program(restored))
+            restored=target.read_text().strip();codes.append(WorkingProgram(restored,compiler,functions))
             records.append({'position':row,'coordinate':coordinate,'path':target.name,'characters':len(text),
                 'sha256':hashlib.sha256(target.read_bytes()).hexdigest()})
         report['workingExpressionsEmitted']=len(outputs);report['expressions']=records
@@ -83,10 +85,13 @@ def unit_with_scans(args):
             values={f'X{i+1}':struct.unpack('e',struct.pack('H',bits))[0] for i,bits in enumerate(bit for row in case['inputBits'] for bit in row)}
             expected=case['logitF64Bits'][-1]
             for index,code in enumerate(codes):
-                actual='0x'+struct.pack('>d',eval(code,{'__builtins__':{},**functions},values)).hex()
+                actual='0x'+struct.pack('>d',code(values)).hex()
                 report['verifiedLogits']+=1
                 if actual!=expected[index]:report['mismatches'].append({'case':case['label'],'position':plan.length-1,'coordinate':index,'actual':actual,'expected':expected[index]})
-        report['workingExpressionParity']=not report['mismatches']
+        report['workingExpressionParity']=report['verifiedLogits']>0 and not report['mismatches']
+        report['referenceTarget']={key:corpus.get(key) for key in ('torch','backend','machine')}
+        if not report['verifiedLogits']:report['workingParityStop']='No matching reference cases'
+        report['verificationParsedCharacters']=sum(code.parsed_characters for code in codes)
         write_json(root/'result.json',report)
         if args.lower:
             # A closure failure is recorded per coordinate, never relabelled
@@ -130,7 +135,7 @@ def unit_with_scans(args):
     finally:
         signal.alarm(0);report['seconds']=time.monotonic()-started
         write_json(root/'result.json',report)
-    return int(bool(report.get('stop') or report['mismatches'] or
+    return int(bool(report.get('stop') or report.get('workingParityStop') or report['mismatches'] or
         args.lower and any(not row['complete'] for row in report.get('lowering',[]))))
 
 
@@ -143,8 +148,12 @@ def main():
     parser.add_argument('--lengths',help='Comma-separated lengths; default every discovered length')
     parser.add_argument('--lower',action='store_true');parser.add_argument('--lower-seconds',type=int,default=15)
     parser.add_argument('--unit-length',type=int);parser.add_argument('--reference')
+    parser.add_argument('--inline-diagnostic',action='store_true',help='Diagnostic full textual inlining; effective compilation uses defined scalar locals')
     args=parser.parse_args()
     if min(args.workers,args.memory_mib,args.max_characters,args.seconds_per_length,args.lower_seconds)<1:parser.error('Positive budgets required')
+    if not args.inline_diagnostic:
+        from direct_sympy_scalar_run import run
+        return run(args)
     if args.unit_length:return unit(args)
     import psutil
     config=json.loads(Path(args.checkpoint,'config.json').read_text())
@@ -158,7 +167,7 @@ def main():
     for length in lengths:
         directory=root/f'length-{length}';directory.mkdir(exist_ok=True)
         command=[sys.executable,str(Path(__file__).resolve()),args.checkpoint,str(directory),'--unit-length',str(length),
-            '--reference',str(reference),'--workers',str(args.workers),'--memory-mib',str(args.memory_mib),
+            '--reference',str(reference),'--inline-diagnostic','--workers',str(args.workers),'--memory-mib',str(args.memory_mib),
             '--max-characters',str(args.max_characters),'--seconds-per-length',str(args.seconds_per_length),'--lower-seconds',str(args.lower_seconds)]
         if args.lower:command.append('--lower')
         started=time.monotonic();peak=0;reason=None
@@ -211,7 +220,7 @@ def main():
             except (ValueError,OSError,TimeoutError) as error:
                 summary['rustStop']=str(error)
     write_json(root/'summary.json',summary)
-    return int(bool(args.lower and not summary['complete']) or any(r.get('stop') or r.get('coordinatorStop') or r.get('mismatches') for r in summary['results']))
+    return int(bool(args.lower and not summary['complete']) or any(r.get('stop') or r.get('coordinatorStop') or r.get('workingParityStop') or r.get('mismatches') for r in summary['results']))
 
 
 if __name__=='__main__':raise SystemExit(main())

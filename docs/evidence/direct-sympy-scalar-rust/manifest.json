@@ -1,0 +1,260 @@
+{
+  "artifactSha256": "25aac526deff02d6d60726e07925e7f32eb7cb34e43b706282da245cd8e7eecd",
+  "files": [
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/README.md",
+      "bytes": 6636,
+      "sha256": "5abae8f8f2e50b4cfe9f7628a1003dff39ce1f652175c8a5e8fccce34a6c73ab"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/arm64-exp-counterexamples.json",
+      "bytes": 1433,
+      "sha256": "38e3c03d12daac9d5c3e00b0a960086b495df5bbe99cff9072e8a28901cc93f6"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/arm64-exp-lattice-reference.bin.gz",
+      "bytes": 511645,
+      "sha256": "cfc8388faa1bb2d2a9a9d96d87b29258cfad83dd750477b8fb60d9adc3c70ade"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/arm64-exp-lattice-reference.json",
+      "bytes": 400,
+      "sha256": "56b83f029841b96c807b5875737e08f00ffdb713437c09884eb0d5354d381136"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/arm64-silu-domain-reference.bin.gz",
+      "bytes": 85638,
+      "sha256": "2ff7183965d1bc805b954bbc5d765a19f79f39b7fd847a5d5f9495753ba0d757"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/arm64-silu-domain-reference.json",
+      "bytes": 375,
+      "sha256": "54281de2b332b5a981e34f05bd1be91db4c510752bea1cdcd15e2e75f960ef42"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/artifacts/llama-next-token.rs",
+      "bytes": 393073,
+      "sha256": "25aac526deff02d6d60726e07925e7f32eb7cb34e43b706282da245cd8e7eecd"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/arm64-exp-parity-result.json",
+      "bytes": 260,
+      "sha256": "fa2cb57cc81d22c4c6185df8e15a00a376d23bd4d6215513ccd4c4eeea55da12"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/arm64-exp-parity.rs",
+      "bytes": 690,
+      "sha256": "7b5ed68eee1b0676eae1a35c822949322ffb98a1fb370c9e85e6333680fbf80e"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/arm64-silu-parity-result.json",
+      "bytes": 258,
+      "sha256": "1b6389b0c50d5fcf651025493137ae5807f0036da0933fd486f27a8911193811"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/arm64-silu-parity.rs",
+      "bytes": 700,
+      "sha256": "51677dc60ac43c711040ce8c99600577065e5116ff835cdedd07768c82b453a0"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/evidence-manifest.json",
+      "bytes": 5084,
+      "sha256": "eeb13d9bd78f7047aa353c88095775025c4a8fb5bdcde8ba29f49805935812cb"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/integrated-command.log",
+      "bytes": 1138,
+      "sha256": "fc4949203c747d49be130bdd70675ef7749ff2702e2e0fbb93e016f97a58fb7d"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/integrated-run/length-1/result.json",
+      "bytes": 6095,
+      "sha256": "96550dd49f285186f1a20a04e7e1e855ee837a1ab3f60f356de4dfd3ae538e3d"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/integrated-run/length-1/scalar-program.json",
+      "bytes": 3713,
+      "sha256": "8f6e8cf06252e2a86d745f3be67da9bed4088d5eece75c83dbfba8e3ad1f007d"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/integrated-run/length-2/result.json",
+      "bytes": 7486,
+      "sha256": "a48b526d1b8c71580b1504fbc0e02e5af7a38886bb1af10564d01188151bc42b"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/integrated-run/length-2/scalar-program.json",
+      "bytes": 6709,
+      "sha256": "b966d12f7a34bdce928e36a7fd61cea3b9716a11fc24917015097d8167460134"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/integrated-run/length-3/result.json",
+      "bytes": 7480,
+      "sha256": "b09d514b70fa58a1f88a39df41f17351deebd6bcfd85dd3e8e2902f0a9f50dae"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/integrated-run/length-3/scalar-program.json",
+      "bytes": 9194,
+      "sha256": "c84fbac548afbc8a1b8be9f0d78271764100ed78d7060af993091428dc604605"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/integrated-run/length-4/result.json",
+      "bytes": 7488,
+      "sha256": "9a3d11c2bdd41350151ded88619a5013f700e83f3526927b0ad513b053492b89"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/integrated-run/length-4/scalar-program.json",
+      "bytes": 13198,
+      "sha256": "d44fafc2a7d8cf472f6870d5207f7ae41cf662f1b14696b71439a306750a16ff"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/integrated-run/length-5/result.json",
+      "bytes": 7495,
+      "sha256": "7702d56487fa9f284a082f77a8ab932b378b0f805a623a1b5dbbb039a274dd99"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/integrated-run/length-5/scalar-program.json",
+      "bytes": 19908,
+      "sha256": "8973be50787e7e88f469f46c720b6ba97d60bcf75fcd2ce8a71e3995c404d970"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/integrated-run/length-6/result.json",
+      "bytes": 7494,
+      "sha256": "e5adcccdb07e21babecac52964bdafe7b35e7aa8cd8d47ad7aec9bee4fdd0725"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/integrated-run/length-6/scalar-program.json",
+      "bytes": 30765,
+      "sha256": "d53159d5f5b286fc836ea941365f51272b08905e483eb71d7396240a33c0c642"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/integrated-run/length-7/result.json",
+      "bytes": 7508,
+      "sha256": "ba8ab84578b829fab4e83ac1a01da45ce07cd80eb3cfebf5aa7ce8c6963a37ca"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/integrated-run/length-7/scalar-program.json",
+      "bytes": 47553,
+      "sha256": "101fd52700b2d4fa179bc475cd903791ad41158c23bc304a6611595483d9abec"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/integrated-run/length-8/result.json",
+      "bytes": 7506,
+      "sha256": "b01b4bfedd1f447a691f919ce009bc60c0a175314fe00f2ff11cec43859ebf7c"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/integrated-run/length-8/scalar-program.json",
+      "bytes": 72377,
+      "sha256": "2f3d8bd3babb00ccf9c85f7bc0e3d875aef59ed8be44f083ffde7b7e1e035ad0"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/integrated-run/summary.json",
+      "bytes": 69195,
+      "sha256": "8fb67a9003df5b7f766b9c09ac098026e0bf393b977ed6aa207e6e2e75ee955f"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/numeric-parity-result.json",
+      "bytes": 694,
+      "sha256": "cfd4246b1e47e1de2a23e328858e2467921451b6f73fc216b09fbdd1a30dd9ed"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/numeric-parity.rs",
+      "bytes": 1687,
+      "sha256": "8a94d430a438d0d2fe6ab43859fab5dbba8ce9f7e73017cb3804136b85ec481e"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/regression-result.json",
+      "bytes": 73935,
+      "sha256": "e48296672bfb3eff49cfce6efffb548f63eb02e80746e0432ecdf26384e9bb02"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/regression-tests.log",
+      "bytes": 727,
+      "sha256": "9ff3acbbbc8553709ca9a036a2bcf19e3db43d6df757752eb97f8d25a9e00564"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/root-boundary-result.json",
+      "bytes": 282,
+      "sha256": "b93474bb0dd20448727fb62814454d353045d1ab672caa494214c205fe7e6351"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/rust-result.json",
+      "bytes": 418,
+      "sha256": "0098c94a74d26a32c4005b64dd7b407056479bab37d5375fc5214462eeb418dc"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/rust-run.log",
+      "bytes": 3462,
+      "sha256": "395930ac32b1a2466f0a9e0e6cf8d3b23c3235357ed5c4c0ea6c83665ada5d7f"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/streaming-result.json",
+      "bytes": 259,
+      "sha256": "23a7442b62fe9c1ed4c4d91a8de936bc9b5d37970a020e2240d00e32200ce755"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/streaming-tests.log",
+      "bytes": 101,
+      "sha256": "edb4e2159c923ea45a32656078835cdf531c3d7b414c670dd786978875cb0678"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/summary.json",
+      "bytes": 124138,
+      "sha256": "7e1551619e39a0dfcb55756db02bd5fde31da5b63f5357fc99df383bf8bc3843"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/tests-result.json",
+      "bytes": 15,
+      "sha256": "47b8b6b49d4695fe6e036bd916538aff4f46773e212ca0d429db80f3963e2cfe"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/remote/tests.log",
+      "bytes": 101,
+      "sha256": "2ff17d7f32be1da1d4f7adfcb922d6098584d3c9a9bb4c9a61036d49b14c382f"
+    },
+    {
+      "path": "docs/evidence/direct-sympy-scalar-rust/resource-status.json",
+      "bytes": 274,
+      "sha256": "f9ccfbbfa661e4948ef0f9cc120503e3f9f62a1d286291d5796bd314387d9636"
+    },
+    {
+      "path": "helpers/direct_sympy_architecture.py",
+      "bytes": 17328,
+      "sha256": "c665a1c77b8f0d64356434a0a84bf3993cba427715b3c740373d8ae280a9c626"
+    },
+    {
+      "path": "helpers/direct_sympy_architecture_run.py",
+      "bytes": 15056,
+      "sha256": "bdcb641bfa0ad038d19f6e9850df8704f87a9b2b0d1c9f41d3b8fdaecf5f57eb"
+    },
+    {
+      "path": "helpers/direct_sympy_parallel.py",
+      "bytes": 12363,
+      "sha256": "5f57df63f05067767c1128211a90780e9b04b9a75aeac4ec0b218f357f60d2ec"
+    },
+    {
+      "path": "helpers/direct_sympy_scalar.py",
+      "bytes": 6384,
+      "sha256": "6e5c582cb1d9627023b0f469d4f458374b4541b41e3d0e2cfcdf320a2c0e1877"
+    },
+    {
+      "path": "helpers/direct_sympy_scalar_run.py",
+      "bytes": 8445,
+      "sha256": "b77c43a26fb26afc3bd69c9e8b1afd164fad6ebac1a8a35f4d5c48537e1df24e"
+    },
+    {
+      "path": "helpers/direct_sympy_scalar_rust.py",
+      "bytes": 7623,
+      "sha256": "81b66f412a1f05a86521cd810c13ea4d581b41882576c0d3b1872a8d1242da9e"
+    },
+    {
+      "path": "helpers/direct_sympy_scalar_rust_test.py",
+      "bytes": 3089,
+      "sha256": "0c79e4316f63c1f90d2a7135cb83f98b36254d7c15f8e19c423098fdc7369b4b"
+    },
+    {
+      "path": "helpers/direct_sympy_scalar_test.py",
+      "bytes": 2317,
+      "sha256": "c0e9d39a8bb936de9c7040326c2cfdbe31ce1ae9e7f167eb831746cb140b8051"
+    }
+  ]
+}

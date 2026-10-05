@@ -158,5 +158,45 @@
   "native-header/capture.log": {
     "sha256": "9178b7f7b173cac5e276fc00140afa1673c368cbd0dc7b627e0037505ced0dfb",
     "bytes": 144
+  },
+  "working/working-tests-result.json": {
+    "sha256": "a8afc8876068e152aa6e357cc4868b5dfd47ecfe63246553e869141816768484",
+    "bytes": 46
+  },
+  "working/working-tests.log": {
+    "sha256": "5609c3f25944b9e14da05813e7bba81b5dea4d0cd37dce7b43947dca2f1f1830",
+    "bytes": 104
+  },
+  "working/working-run-result.json": {
+    "sha256": "3915032ef955cc386be72555cd11f0d3b5edf03b2286c8c4f4910e6170a1880f",
+    "bytes": 45
+  },
+  "working/working-run/summary.json": {
+    "sha256": "14f3d8da03d57517e8e1b4257be05c319f328661a98c0d25a75e9afb05714673",
+    "bytes": 21686
+  },
+  "working/working-run/length-1/result.json": {
+    "sha256": "a969d42de293117378885cbc33450e8ff28082f8dcdc24f89c06f0689b1b4848",
+    "bytes": 7611
+  },
+  "working/working-run/length-2/result.json": {
+    "sha256": "b567404db96a343bb658ebea30ea00234bdcafa7ca883971b1259a3936dd6bad",
+    "bytes": 9139
+  },
+  "parent-stack/stack-signal.json": {
+    "sha256": "826639e17b3882680e8643abaf2f3beae4cadde88a8429fbb58cbe8aafcb3ecf",
+    "bytes": 38
+  },
+  "parent-stack/parent-stack-result.json": {
+    "sha256": "1e85e30c066c0723c5f53a99b57338caff5a67c433e5f5ff4ec8348dea52ee5b",
+    "bytes": 40
+  },
+  "parent-stack/parent-stack-run/summary.json": {
+    "sha256": "af61c95d0389c7ec205d1d96d9f1f3c29f2ee4b782406885bba67899b71f73ba",
+    "bytes": 9808
+  },
+  "parent-stack/parent-stack-run/length-2/worker.log": {
+    "sha256": "015a01edc003760e816186834ad834d151acc3a29d1cc3dac2f85ace74964632",
+    "bytes": 62156
   }
 }

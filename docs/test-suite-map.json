@@ -3794,6 +3794,102 @@
         "finalArtifactParity": false
       },
       "supersededTraceAttempt": "parent watchdog before fork interfered with child watchdog; replaced with on-demand SIGUSR1 stack capture"
+    },
+    "boundedWorkingVerifier": {
+      "sources": [
+        "helpers/direct_sympy_working_program_test.py",
+        "helpers/direct_sympy_architecture_run_test.py"
+      ],
+      "pass": 6,
+      "fail": 0,
+      "seconds": 23.738,
+      "verifierOnly": true,
+      "noAliasesInEmittedExpressions": true,
+      "length2": {
+        "workingLogits": 4,
+        "originalBitComparisons": 48,
+        "mismatches": 0,
+        "wallSeconds": 52.18102332499984,
+        "compositionSeconds": 43.72606860999986,
+        "peakWorkerTreeRSSBytes": 1004589056,
+        "previousPeakWorkerTreeRSSBytes": 8598380544,
+        "finalArtifactParity": false
+      },
+      "emptyReferenceCannotAdmitParity": true
     }
+  },
+  "directScalarRust": {
+    "date": "2026-10-05",
+    "strategy": "pairwise mathematical strings; fully defined scalar Rust locals",
+    "effectiveCommand": "python helpers/direct_sympy_architecture_run.py CHECKPOINT OUTPUT --reference PINNED_ARM64_REFERENCE --workers 2 --memory-mib 6144 --max-characters 2147483648 --seconds-per-length 60",
+    "colabSession": "llm-inner-final-logits-eligible-20261005",
+    "expressionConditionBudgetBytes": 2147483648,
+    "ramBudgetBytes": 6442450944,
+    "regression": {
+      "tests": 66,
+      "passed": 66,
+      "seconds": 36.227,
+      "evidence": "docs/evidence/direct-sympy-scalar-rust/remote/regression-tests.log"
+    },
+    "postRegressionGates": {
+      "streaming": "3 tests passed; output byte-identical",
+      "rootBoundaryAndScalarCounters": "6 tests passed; model body byte-identical"
+    },
+    "artifact": {
+      "path": "docs/evidence/direct-sympy-scalar-rust/artifacts/llama-next-token.rs",
+      "bytes": 393073,
+      "sha256": "25aac526deff02d6d60726e07925e7f32eb7cb34e43b706282da245cd8e7eecd",
+      "lastPositionOnly": true,
+      "logits": 4,
+      "lengths": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "pendingPrimitives": [],
+      "localScalarDefinitionsFullyResolved": true
+    },
+    "parity": {
+      "target": "Torch 2.12.1 CPU ARM64 eager",
+      "cases": 96,
+      "logitComparisons": 384,
+      "mismatches": 0,
+      "sequentialComparisons": 384,
+      "parallelComparisons": 384,
+      "publicCommandExitCode": 0
+    },
+    "numericCertificates": {
+      "sqrtMantissaParityCases": 16777216,
+      "round32FiniteSourceCases": 1000000,
+      "siluAllAdmittedHalfCases": 22530,
+      "expAllContainingDifferenceGridCases": 474369,
+      "targetMismatches": 0,
+      "nonTargetColabExpDifferentialMismatches": 2583
+    },
+    "resources": {
+      "cpuCount": 2,
+      "totalRAMBytes": 13605830656,
+      "cudaAvailable": false,
+      "gpuAccelerationClaimed": false
+    },
+    "comparison": {
+      "singleWorker": {
+        "wallSeconds": 79.34615996899993,
+        "compositionSeconds": 26.2054326699963,
+        "peakRSSBytes": 516505600
+      },
+      "twoWorkers": {
+        "wallSeconds": 85.55070000300111,
+        "compositionSeconds": 27.40689931700581,
+        "peakRSSBytes": 725266432
+      },
+      "statisticallyRepeated": false
+    },
+    "evidence": "docs/evidence/direct-sympy-scalar-rust/README.md"
   }
 }

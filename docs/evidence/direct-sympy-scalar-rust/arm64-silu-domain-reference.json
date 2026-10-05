@@ -1,0 +1,11 @@
+{
+  "torch": "2.12.1",
+  "machine": "arm64",
+  "cases": 22530,
+  "domain": "All finite Half words in [-1/16,1/16], including both signed zeros",
+  "bytes": 360480,
+  "sha256": "9b925557a6b5de540b26943de5303d8fd2c96f3f799503b348c08baa0e39c2ec",
+  "seconds": 0.0064847919857129455,
+  "cpuThreads": 1,
+  "scope": "small native reference capture; validation executes in Colab"
+}

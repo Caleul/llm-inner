@@ -81,9 +81,29 @@ A captura diagnóstica agora identifica a máquina real. O smoke no Colab gerou
 Não declara mais ARM64 para um processo x86_64 e não substitui a referência
 original CPU ARM64/PyTorch 2.12.1.
 
+A captura de stack em `remote/parent-stack/` localizou o próximo pico na AST
+do verificador, em `program()`/`syntax()`, depois da composição. O avaliador
+`WorkingProgram` agora compila envelopes de literais certificados e os avalia
+por chamadas preguiçosas, com cache exclusivo de cada entrada. Preserva ramos
+inalcançáveis, ordem e zeros com sinal; não entra nos arquivos emitidos ou Rust.
+
+O ensaio `working` passou os cinco testes iniciais e concluiu quatro strings
+para cada comprimento 1 e 2. Cada vetor passou 48 comparações bit a bit contra
+a captura original, sem divergências. Para dois tokens, foram 52,181 s de
+execução, 43,726 s de composição e pico de 1.004.589.056 bytes na árvore. O
+ensaio anterior terminava após 77,011 s com pico de 8.598.380.544 bytes e sem
+paridade da expressão. A comparação demonstra remoção do bloqueio de memória,
+mas não é um benchmark repetido de velocidade.
+
+A regressão do verificador e runner passou depois seis testes em 23,738 s,
+incluindo a rejeição de paridade quando não existe caso de referência para o
+comprimento. Zero comparações nunca autoriza declarar paridade. O arquivo
+literal continua completamente substituído; os aliases existem somente no
+verificador. Primitivas numéricas ainda permanecem nas strings de trabalho.
+
 ## Conclusão exigida
 
-A função Rust integral ainda não foi emitida. As expressões de trabalho mantêm
+Na fase registrada neste diretório, a função Rust integral ainda não havia sido emitida. As expressões de trabalho mantêm
 primitivas numéricas que precisam ser expandidas, simplificadas e validadas.
 A referência original também precisa cobrir todos os comprimentos antes de
 admitir a paridade final. Nenhum resultado deste diretório substitui esses gates.
@@ -91,3 +111,6 @@ admitir a paridade final. Nenhum resultado deste diretório substitui esses gate
 `remote-manifest.json` contém tamanho e SHA-256 dos arquivos recuperados do
 Colab. O mapa geral de testes conserva os resultados anteriores e acrescenta
 estes ensaios, distinguindo paridade de componentes e do artefato final.
+
+O fechamento posterior está em `../direct-sympy-scalar-rust/README.md`, com
+função Rust efetiva, todos os comprimentos e paridade contra a referência ARM64.

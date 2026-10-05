@@ -27,6 +27,22 @@ class RunnerScopeTests(unittest.TestCase):
         pruned=prune_plan(constant,[0])
         self.assertEqual(pruned,(OperatorBlock((),('1.0',)),))
 
+    def test_missing_reference_cases_cannot_report_bit_parity(self):
+        plan=ArchitecturePlan((OperatorBlock(('X1','X2'),('0.0',)*4),),('output',),1,2,4,0,{})
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);reference=root/'reference.json';reference.write_text(json.dumps({'cases':[]}))
+            args=SimpleNamespace(output=str(root/'result'),unit_length=1,seconds_per_length=30,
+                checkpoint='unused',max_characters=2147483648,workers=1,memory_mib=4096,
+                reference=str(reference),lower=False)
+            with patch('direct_sympy_architecture.architecture_plan',return_value=plan),patch(
+                'direct_sympy_architecture.compose_architecture',return_value=(('0.0',)*4,{'completedJobs':1})):
+                self.assertEqual(unit(args),1)
+            result=json.loads((root/'result/result.json').read_text())
+            self.assertEqual(result['workingExpressionsEmitted'],4)
+            self.assertEqual(result['verifiedLogits'],0)
+            self.assertFalse(result['workingExpressionParity'])
+            self.assertEqual(result['workingParityStop'],'No matching reference cases')
+
     def test_runner_selects_prunes_rereads_and_compares_only_final_logits(self):
         plan=ArchitecturePlan((OperatorBlock(('X1','X2','X3','X4'),tuple('X1' for _ in range(8))),),('output',),2,2,4,0,{})
         values=(-0.,1.,2.,3.)

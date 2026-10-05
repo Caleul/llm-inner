@@ -69,6 +69,13 @@ def _job(job):
         left,right=(Path(path).read_text() for path in paths)
         expression=compiler.substitute(right,hole,left,domains)
     elif kind=='seed':expression=compiler.substitute(Path(paths[0]).read_text(),hole,'0.0',domains)
+    elif kind in ('scalar-prepare','scalar-merge'):
+        from direct_sympy_scalar import prepare_block,merge_blocks
+        blocks=[json.loads(Path(path).read_text()) for path in paths]
+        result=prepare_block(blocks[0],compiler,domains) if kind=='scalar-prepare' else merge_blocks(*blocks,compiler,domains)
+        expression=json.dumps(result,separators=(',',':'))
+        if len(expression.encode('utf-8'))>hole:
+            raise ValueError('Accumulated scalar expression/condition reservation exceeded')
     elif kind in ('operator-prepare','operator-merge'):
         blocks=[json.loads(Path(path).read_text()) for path in paths]
         left=blocks[0]
@@ -146,6 +153,10 @@ def _wave(jobs,budget,compiler,domains,stats,*,on_progress=None):
                 stats.setdefault('operatorPairMerges',0)
                 stats['operatorPreparations']+=result['kind']=='operator-prepare'
                 stats['operatorPairMerges']+=result['kind']=='operator-merge'
+                stats.setdefault('scalarPreparations',0)
+                stats.setdefault('scalarPairMerges',0)
+                stats['scalarPreparations']+=result['kind']=='scalar-prepare'
+                stats['scalarPairMerges']+=result['kind']=='scalar-merge'
                 stats.setdefault('growth',[]).append({k:v for k,v in result.items() if k not in ('events','substitutionEvents','path')})
                 if on_progress is not None:on_progress(dict(stats))
         # Merge evidence in original descriptor order, independently of the

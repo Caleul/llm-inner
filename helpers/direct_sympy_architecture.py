@@ -71,7 +71,8 @@ def finite_architecture(model,length):
         gated=[stored(g*u) for g,u in zip(gate,up)]
         down=project(prefix+'mlp.down_proj.weight',gated)
         if max(down,default=0)>=15:raise ValueError('Finite MLP residual certificate unavailable')
-        records.append({'layer':layer,'scoreAbsMaximum':score,'attentionUpdateAbsMaximum':max(attention,default=0),
+        records.append({'layer':layer,'scoreAbsMaximum':score,'gateAbsMaximum':max(gate,default=0),
+            'attentionUpdateAbsMaximum':max(attention,default=0),
             'mlpUpdateAbsMaximum':max(down,default=0)})
     final=normalized('model.norm.weight')
     output='model.embed_tokens.weight' if config.get('tie_word_embeddings') else 'lm_head.weight'

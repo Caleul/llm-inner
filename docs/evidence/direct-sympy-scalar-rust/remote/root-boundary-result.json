@@ -1,0 +1,7 @@
+{
+  "testsExitCode": 0,
+  "validatedModelBodyByteIdentical": true,
+  "artifactSha256": "25aac526deff02d6d60726e07925e7f32eb7cb34e43b706282da245cd8e7eecd",
+  "source": "Access Broker get_operation 89090fb1-c8f9-4e88-9f10-09fd7bec0b49; actual Colab command output",
+  "testsRun": 6
+}

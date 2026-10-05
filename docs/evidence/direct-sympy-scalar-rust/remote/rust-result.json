@@ -1,0 +1,27 @@
+{
+  "finalArtifactParity": true,
+  "emission": {
+    "bytes": 393073,
+    "scalarProducers": 550,
+    "lengths": 8,
+    "logits": 4,
+    "finalParity": false
+  },
+  "kernelFactorSimplifyEvents": 51,
+  "parity": {
+    "comparisons": 384,
+    "lengths": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "mismatches": 0,
+    "candidateParity": true
+  },
+  "seconds": 74.75110806299926
+}

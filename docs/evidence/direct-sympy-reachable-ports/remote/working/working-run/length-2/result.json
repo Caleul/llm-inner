@@ -1,0 +1,342 @@
+{
+  "length": 2,
+  "workingExpressionsEmitted": 4,
+  "verifiedLogits": 48,
+  "mismatches": [],
+  "finalArtifactEmitted": false,
+  "finalArtifactParity": false,
+  "composition": {
+    "completedJobs": 29,
+    "completedBlocks": 0,
+    "completedPairMerges": 0,
+    "seededLanes": 0,
+    "maxWorkersAdmitted": 2,
+    "peakObservedRSSBytes": 1017995264,
+    "compositionLevels": 4,
+    "peakAccumulatedBytes": 156684102,
+    "operatorPreparations": 15,
+    "operatorPairMerges": 14,
+    "growth": [
+      {
+        "characters": 558,
+        "inputBytes": 558,
+        "unusedInterfacePorts": 0,
+        "kind": "operator-prepare",
+        "seconds": 0.02806421799959935,
+        "pid": 24037,
+        "rssBytes": 199249920
+      },
+      {
+        "characters": 1156,
+        "inputBytes": 1156,
+        "unusedInterfacePorts": 0,
+        "kind": "operator-prepare",
+        "seconds": 0.040018218999648525,
+        "pid": 24038,
+        "rssBytes": 198975488
+      },
+      {
+        "characters": 479,
+        "inputBytes": 479,
+        "unusedInterfacePorts": 0,
+        "kind": "operator-prepare",
+        "seconds": 0.020207200000186276,
+        "pid": 24037,
+        "rssBytes": 199319552
+      },
+      {
+        "characters": 350,
+        "inputBytes": 350,
+        "unusedInterfacePorts": 0,
+        "kind": "operator-prepare",
+        "seconds": 0.015597102000356244,
+        "pid": 24038,
+        "rssBytes": 199008256
+      },
+      {
+        "characters": 240,
+        "inputBytes": 240,
+        "unusedInterfacePorts": 0,
+        "kind": "operator-prepare",
+        "seconds": 0.018157457000597788,
+        "pid": 24038,
+        "rssBytes": 199041024
+      },
+      {
+        "characters": 278,
+        "inputBytes": 278,
+        "unusedInterfacePorts": 0,
+        "kind": "operator-prepare",
+        "seconds": 0.012415737999617704,
+        "pid": 24038,
+        "rssBytes": 199041024
+      },
+      {
+        "characters": 92,
+        "inputBytes": 92,
+        "unusedInterfacePorts": 0,
+        "kind": "operator-prepare",
+        "seconds": 0.0036947750004401314,
+        "pid": 24038,
+        "rssBytes": 199041024
+      },
+      {
+        "characters": 310,
+        "inputBytes": 310,
+        "unusedInterfacePorts": 0,
+        "kind": "operator-prepare",
+        "seconds": 0.012698343999545614,
+        "pid": 24038,
+        "rssBytes": 199380992
+      },
+      {
+        "characters": 284,
+        "inputBytes": 284,
+        "unusedInterfacePorts": 0,
+        "kind": "operator-prepare",
+        "seconds": 0.00969799199992849,
+        "pid": 24038,
+        "rssBytes": 199380992
+      },
+      {
+        "characters": 94,
+        "inputBytes": 94,
+        "unusedInterfacePorts": 0,
+        "kind": "operator-prepare",
+        "seconds": 0.005262208999738505,
+        "pid": 24038,
+        "rssBytes": 199385088
+      },
+      {
+        "characters": 212,
+        "inputBytes": 212,
+        "unusedInterfacePorts": 0,
+        "kind": "operator-prepare",
+        "seconds": 0.007836447000045155,
+        "pid": 24038,
+        "rssBytes": 199389184
+      },
+      {
+        "characters": 100,
+        "inputBytes": 100,
+        "unusedInterfacePorts": 0,
+        "kind": "operator-prepare",
+        "seconds": 0.005841063999469043,
+        "pid": 24038,
+        "rssBytes": 199401472
+      },
+      {
+        "characters": 310,
+        "inputBytes": 310,
+        "unusedInterfacePorts": 0,
+        "kind": "operator-prepare",
+        "seconds": 0.00860353100051725,
+        "pid": 24038,
+        "rssBytes": 199401472
+      },
+      {
+        "characters": 485,
+        "inputBytes": 485,
+        "unusedInterfacePorts": 0,
+        "kind": "operator-prepare",
+        "seconds": 0.013767536000159453,
+        "pid": 24038,
+        "rssBytes": 199417856
+      },
+      {
+        "characters": 532,
+        "inputBytes": 532,
+        "unusedInterfacePorts": 0,
+        "kind": "operator-prepare",
+        "seconds": 0.40169789499941544,
+        "pid": 24037,
+        "rssBytes": 200241152
+      },
+      {
+        "characters": 778,
+        "inputBytes": 829,
+        "unusedInterfacePorts": 82,
+        "kind": "operator-merge",
+        "seconds": 0.09351473500009888,
+        "pid": 24046,
+        "rssBytes": 199299072
+      },
+      {
+        "characters": 3547,
+        "inputBytes": 1714,
+        "unusedInterfacePorts": 50,
+        "kind": "operator-merge",
+        "seconds": 0.10662135300026421,
+        "pid": 24045,
+        "rssBytes": 199188480
+      },
+      {
+        "characters": 298,
+        "inputBytes": 370,
+        "unusedInterfacePorts": 4,
+        "kind": "operator-merge",
+        "seconds": 0.018385611000667268,
+        "pid": 24045,
+        "rssBytes": 199217152
+      },
+      {
+        "characters": 772,
+        "inputBytes": 594,
+        "unusedInterfacePorts": 10,
+        "kind": "operator-merge",
+        "seconds": 0.05445441099982418,
+        "pid": 24045,
+        "rssBytes": 199651328
+      },
+      {
+        "characters": 265,
+        "inputBytes": 306,
+        "unusedInterfacePorts": 8,
+        "kind": "operator-merge",
+        "seconds": 0.017766058999768575,
+        "pid": 24045,
+        "rssBytes": 199663616
+      },
+      {
+        "characters": 494,
+        "inputBytes": 410,
+        "unusedInterfacePorts": 0,
+        "kind": "operator-merge",
+        "seconds": 0.03546500399988872,
+        "pid": 24045,
+        "rssBytes": 199696384
+      },
+      {
+        "characters": 1064,
+        "inputBytes": 772,
+        "unusedInterfacePorts": 22,
+        "kind": "operator-merge",
+        "seconds": 1.7224512639995737,
+        "pid": 24046,
+        "rssBytes": 200548352
+      },
+      {
+        "characters": 7586,
+        "inputBytes": 4325,
+        "unusedInterfacePorts": 82,
+        "kind": "operator-merge",
+        "seconds": 0.10620628900051088,
+        "pid": 24053,
+        "rssBytes": 199372800
+      },
+      {
+        "characters": 1671,
+        "inputBytes": 1037,
+        "unusedInterfacePorts": 10,
+        "kind": "operator-merge",
+        "seconds": 0.0960034239997185,
+        "pid": 24053,
+        "rssBytes": 200024064
+      },
+      {
+        "characters": 2211,
+        "inputBytes": 979,
+        "unusedInterfacePorts": 0,
+        "kind": "operator-merge",
+        "seconds": 0.1353310109998347,
+        "pid": 24053,
+        "rssBytes": 200048640
+      },
+      {
+        "characters": 2258,
+        "inputBytes": 1362,
+        "unusedInterfacePorts": 2,
+        "kind": "operator-merge",
+        "seconds": 5.025805930999923,
+        "pid": 24054,
+        "rssBytes": 201281536
+      },
+      {
+        "characters": 34335,
+        "inputBytes": 3882,
+        "unusedInterfacePorts": 0,
+        "kind": "operator-merge",
+        "seconds": 2.148729841000204,
+        "pid": 24078,
+        "rssBytes": 205582336
+      },
+      {
+        "characters": 372064,
+        "inputBytes": 9844,
+        "unusedInterfacePorts": 2,
+        "kind": "operator-merge",
+        "seconds": 13.988504535000175,
+        "pid": 24077,
+        "rssBytes": 205176832
+      },
+      {
+        "characters": 156277703,
+        "inputBytes": 406399,
+        "unusedInterfacePorts": 0,
+        "kind": "operator-merge",
+        "seconds": 5.617004943999746,
+        "pid": 24137,
+        "rssBytes": 596463616
+      }
+    ],
+    "seconds": 43.72606860999986,
+    "stageNames": [
+      "model.layers.0.pre-normalization",
+      "model.layers.0.qkv-projections",
+      "model.layers.0.rotary",
+      "model.layers.0.attention-scores",
+      "model.layers.0.softmax",
+      "model.layers.0.attention-context",
+      "model.layers.0.attention-output",
+      "model.layers.0.attention-residual",
+      "model.layers.0.post-normalization",
+      "model.layers.0.gate-up",
+      "model.layers.0.activation-product",
+      "model.layers.0.down-projection",
+      "model.layers.0.mlp-residual",
+      "final-normalization",
+      "output-logits"
+    ],
+    "length": 2,
+    "width": 2,
+    "vocab": 4,
+    "weightReads": 108,
+    "originalInterfaceOutputSlots": 128,
+    "reachableInterfaceOutputSlots": 79,
+    "originalComputedOutputs": 72,
+    "reachableComputedOutputs": 45
+  },
+  "expressions": [
+    {
+      "position": 1,
+      "coordinate": 0,
+      "path": "position-1-logit-0.work.expr",
+      "characters": 39069413,
+      "sha256": "1374186b1ac4826b3eaf2dafe4eba11152c2299dc0a7a5319d2c4d060bbc1856"
+    },
+    {
+      "position": 1,
+      "coordinate": 1,
+      "path": "position-1-logit-1.work.expr",
+      "characters": 39069410,
+      "sha256": "ce653e6a4344fc086af9769ad60ed042b74e5ac8e8324e7749cf1c42c0379a1f"
+    },
+    {
+      "position": 1,
+      "coordinate": 2,
+      "path": "position-1-logit-2.work.expr",
+      "characters": 39069417,
+      "sha256": "b76c3a05dd4d224abf68d4e8698311c9c762dab539ebcfc74872ff80e04d7277"
+    },
+    {
+      "position": 1,
+      "coordinate": 3,
+      "path": "position-1-logit-3.work.expr",
+      "characters": 39069407,
+      "sha256": "0285e56d758be22f925de6920dc214ce5505114c18b2d7262353f0319ce2f936"
+    }
+  ],
+  "workingExpressionParity": true,
+  "verificationParsedCharacters": 71227,
+  "seconds": 48.90539874000024
+}

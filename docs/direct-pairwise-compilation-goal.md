@@ -3,7 +3,7 @@
 Compilar Safetensors/config em expressões diretas especializadas: incorporar
 pesos, compor operadores em pares e aplicar fatoração/simplificação até
 estabilizar antes e depois de cada substituição, preservando tipos, ordem
-numérica e contexto de cada ramificação. O JSON estrutural é a fonte de verdade; texto é ponte para o SymPy e diagnóstico.
+numérica e contexto de cada ramificação. As expressões matemáticas em strings são o percurso efetivo do SymPy; JSON transporta somente metadados e diagnósticos.
 Eliminar todas as interfaces de bloco e dependências do checkpoint no
 resultado final. Usar paralelismo limitado pela memória, GPUs do Colab via
 Access Broker para trabalho numérico compatível e CPU para SymPy quando
@@ -11,6 +11,27 @@ não houver backend CUDA equivalente. Entregar exclusivamente os logits da últi
 token após toda a entrada, para todos os comprimentos descobertos. Preservar
 todas as dependências causais alcançáveis de atenção. Preservar o mapa de testes, integrar alterações,
 commitar e enviar para o remoto existente.
+
+## Resultado validado atual — 2026-10-05
+
+O Llama do checkpoint de validação foi compilado em
+`docs/evidence/direct-sympy-scalar-rust/artifacts/llama-next-token.rs`:
+quatro logits finais, entradas de 1 a 8 tokens, pesos incorporados e corpos
+numéricos completos. O artefato tem 393.073 bytes e passou 384 comparações
+bit a bit com a referência Torch 2.12.1/ARM64. A emissão pública reproduz
+os mesmos bytes. Os temporários escalares locais estão autorizados pelo
+AGENTS.md atual e têm todos os seus cálculos definidos; não há executor de
+grafo ou dependências pendentes no runtime.
+
+A composição em pares mantém strings, substituição e SymPy até estabilizar.
+Produtores compartilhados são calculados uma vez como escalares definidos,
+removendo o crescimento por cópias da arquitetura anterior. Os ensaios
+sequencial e paralelo concluem todos os comprimentos com a mesma paridade.
+O Colab atual oferece CPU; CUDA indisponível. O teto aplicado é 2 GiB,
+com a RAM controlada separadamente. Relatórios, limites, matriz de testes
+e certificados estão em `docs/evidence/direct-sympy-scalar-rust/README.md`.
+As seções de estado abaixo registram as fases anteriores e não substituem
+este resultado atual.
 
 ## Fluxo e contagem
 
@@ -40,9 +61,9 @@ interfaces, primitivas pendentes, cobertura parcial ou paridade não validada.
   A publicação final continua exigindo paridade de cada artefato.
 - Emitir o artefato efetivo e validar seu resultado, sem trocar a entrega
   por uma estimativa de expansão ou por um executor de intermediários.
-- Manter teto de 512 MiB para expressões/condições e medir RAM/GPU à parte.
+- Manter o teto autorizado de 2 GiB para expressões/condições e medir RAM/GPU à parte.
 
-## Estado na retomada
+## Estado na retomada (histórico)
 
 O vetor e uma coordenada completa ainda não foram entregues. Há provas
 regionais e testes de componentes. Uma alteração local de cancelamento
@@ -50,7 +71,7 @@ de bitcasts condicionais ficou sem validação; será validada ou retirada
 antes de integrar o novo percurso. A nova estratégia deve ser confrontada
 com o checkpoint efetivo, não só com testes algébricos.
 
-## Implementação iniciada
+## Implementação iniciada (histórico)
 
 `helpers/direct_sympy_operators.py` prepara operadores vetoriais e os
 compõe em pares ordenados. As projeções do adaptador Llama usam esse

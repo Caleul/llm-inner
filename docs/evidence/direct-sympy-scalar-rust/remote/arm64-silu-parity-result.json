@@ -1,0 +1,8 @@
+{
+  "referenceTarget": "Torch 2.12.1 CPU ARM64 eager",
+  "referenceSha256": "9b925557a6b5de540b26943de5303d8fd2c96f3f799503b348c08baa0e39c2ec",
+  "rustcExitCode": 0,
+  "exitCode": 0,
+  "stdout": "ARM64 activation cases=22530 mismatches=0\n",
+  "stderr": ""
+}

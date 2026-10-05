@@ -1,0 +1,331 @@
+{
+  "lengths": [
+    2
+  ],
+  "vocab": 4,
+  "outputScope": "last-position-only",
+  "results": [
+    {
+      "length": 2,
+      "workingExpressionsEmitted": 0,
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "composition": {
+        "completedJobs": 29,
+        "completedBlocks": 0,
+        "completedPairMerges": 0,
+        "seededLanes": 0,
+        "maxWorkersAdmitted": 1,
+        "peakObservedRSSBytes": 915410944,
+        "compositionLevels": 3,
+        "peakAccumulatedBytes": 156684102,
+        "operatorPreparations": 15,
+        "operatorPairMerges": 14,
+        "growth": [
+          {
+            "characters": 558,
+            "inputBytes": 558,
+            "unusedInterfacePorts": 0,
+            "kind": "operator-prepare",
+            "seconds": 0.02012643800026126,
+            "pid": 22835,
+            "rssBytes": 199475200
+          },
+          {
+            "characters": 1156,
+            "inputBytes": 1156,
+            "unusedInterfacePorts": 0,
+            "kind": "operator-prepare",
+            "seconds": 0.02091323099921283,
+            "pid": 22835,
+            "rssBytes": 199532544
+          },
+          {
+            "characters": 479,
+            "inputBytes": 479,
+            "unusedInterfacePorts": 0,
+            "kind": "operator-prepare",
+            "seconds": 0.014237982999475207,
+            "pid": 22835,
+            "rssBytes": 199569408
+          },
+          {
+            "characters": 350,
+            "inputBytes": 350,
+            "unusedInterfacePorts": 0,
+            "kind": "operator-prepare",
+            "seconds": 0.009991870000703784,
+            "pid": 22835,
+            "rssBytes": 199598080
+          },
+          {
+            "characters": 532,
+            "inputBytes": 532,
+            "unusedInterfacePorts": 0,
+            "kind": "operator-prepare",
+            "seconds": 0.3797287010002037,
+            "pid": 22835,
+            "rssBytes": 200384512
+          },
+          {
+            "characters": 240,
+            "inputBytes": 240,
+            "unusedInterfacePorts": 0,
+            "kind": "operator-prepare",
+            "seconds": 0.01032134999968548,
+            "pid": 22835,
+            "rssBytes": 200392704
+          },
+          {
+            "characters": 278,
+            "inputBytes": 278,
+            "unusedInterfacePorts": 0,
+            "kind": "operator-prepare",
+            "seconds": 0.009533889999147505,
+            "pid": 22835,
+            "rssBytes": 200417280
+          },
+          {
+            "characters": 92,
+            "inputBytes": 92,
+            "unusedInterfacePorts": 0,
+            "kind": "operator-prepare",
+            "seconds": 0.0035219789997427142,
+            "pid": 22835,
+            "rssBytes": 200417280
+          },
+          {
+            "characters": 310,
+            "inputBytes": 310,
+            "unusedInterfacePorts": 0,
+            "kind": "operator-prepare",
+            "seconds": 0.010963668999465881,
+            "pid": 22835,
+            "rssBytes": 200417280
+          },
+          {
+            "characters": 284,
+            "inputBytes": 284,
+            "unusedInterfacePorts": 0,
+            "kind": "operator-prepare",
+            "seconds": 0.009364179999465705,
+            "pid": 22835,
+            "rssBytes": 200445952
+          },
+          {
+            "characters": 94,
+            "inputBytes": 94,
+            "unusedInterfacePorts": 0,
+            "kind": "operator-prepare",
+            "seconds": 0.004273831000318751,
+            "pid": 22835,
+            "rssBytes": 200445952
+          },
+          {
+            "characters": 212,
+            "inputBytes": 212,
+            "unusedInterfacePorts": 0,
+            "kind": "operator-prepare",
+            "seconds": 0.008777007000389858,
+            "pid": 22835,
+            "rssBytes": 200450048
+          },
+          {
+            "characters": 100,
+            "inputBytes": 100,
+            "unusedInterfacePorts": 0,
+            "kind": "operator-prepare",
+            "seconds": 0.0043388990006860695,
+            "pid": 22835,
+            "rssBytes": 200450048
+          },
+          {
+            "characters": 310,
+            "inputBytes": 310,
+            "unusedInterfacePorts": 0,
+            "kind": "operator-prepare",
+            "seconds": 0.010658770999725675,
+            "pid": 22835,
+            "rssBytes": 200466432
+          },
+          {
+            "characters": 485,
+            "inputBytes": 485,
+            "unusedInterfacePorts": 0,
+            "kind": "operator-prepare",
+            "seconds": 0.01513277900085086,
+            "pid": 22835,
+            "rssBytes": 200470528
+          },
+          {
+            "characters": 3547,
+            "inputBytes": 1714,
+            "unusedInterfacePorts": 50,
+            "kind": "operator-merge",
+            "seconds": 0.08627871999942727,
+            "pid": 22857,
+            "rssBytes": 199720960
+          },
+          {
+            "characters": 778,
+            "inputBytes": 829,
+            "unusedInterfacePorts": 82,
+            "kind": "operator-merge",
+            "seconds": 0.05399603099976957,
+            "pid": 22857,
+            "rssBytes": 199933952
+          },
+          {
+            "characters": 1064,
+            "inputBytes": 772,
+            "unusedInterfacePorts": 22,
+            "kind": "operator-merge",
+            "seconds": 2.806139644999348,
+            "pid": 22857,
+            "rssBytes": 200953856
+          },
+          {
+            "characters": 298,
+            "inputBytes": 370,
+            "unusedInterfacePorts": 4,
+            "kind": "operator-merge",
+            "seconds": 0.023852604000239808,
+            "pid": 22857,
+            "rssBytes": 200962048
+          },
+          {
+            "characters": 772,
+            "inputBytes": 594,
+            "unusedInterfacePorts": 10,
+            "kind": "operator-merge",
+            "seconds": 0.052843879000647576,
+            "pid": 22857,
+            "rssBytes": 201109504
+          },
+          {
+            "characters": 265,
+            "inputBytes": 306,
+            "unusedInterfacePorts": 8,
+            "kind": "operator-merge",
+            "seconds": 0.020827416999964043,
+            "pid": 22857,
+            "rssBytes": 201113600
+          },
+          {
+            "characters": 494,
+            "inputBytes": 410,
+            "unusedInterfacePorts": 0,
+            "kind": "operator-merge",
+            "seconds": 0.04387466499974835,
+            "pid": 22857,
+            "rssBytes": 201121792
+          },
+          {
+            "characters": 7586,
+            "inputBytes": 4325,
+            "unusedInterfacePorts": 82,
+            "kind": "operator-merge",
+            "seconds": 0.12286456099991483,
+            "pid": 22879,
+            "rssBytes": 199880704
+          },
+          {
+            "characters": 2258,
+            "inputBytes": 1362,
+            "unusedInterfacePorts": 2,
+            "kind": "operator-merge",
+            "seconds": 3.6356388730000617,
+            "pid": 22879,
+            "rssBytes": 201814016
+          },
+          {
+            "characters": 1671,
+            "inputBytes": 1037,
+            "unusedInterfacePorts": 10,
+            "kind": "operator-merge",
+            "seconds": 0.059163132999856316,
+            "pid": 22879,
+            "rssBytes": 201846784
+          },
+          {
+            "characters": 2211,
+            "inputBytes": 979,
+            "unusedInterfacePorts": 0,
+            "kind": "operator-merge",
+            "seconds": 0.07918586800042249,
+            "pid": 22879,
+            "rssBytes": 201846784
+          },
+          {
+            "characters": 372064,
+            "inputBytes": 9844,
+            "unusedInterfacePorts": 2,
+            "kind": "operator-merge",
+            "seconds": 12.249147325000195,
+            "pid": 22902,
+            "rssBytes": 205639680
+          },
+          {
+            "characters": 34335,
+            "inputBytes": 3882,
+            "unusedInterfacePorts": 0,
+            "kind": "operator-merge",
+            "seconds": 0.9908670390004772,
+            "pid": 22902,
+            "rssBytes": 209903616
+          },
+          {
+            "characters": 156277703,
+            "inputBytes": 406399,
+            "unusedInterfacePorts": 0,
+            "kind": "operator-merge",
+            "seconds": 4.769362528999409,
+            "pid": 22959,
+            "rssBytes": 596533248
+          }
+        ]
+      },
+      "plan": {
+        "length": 2,
+        "width": 2,
+        "vocab": 4,
+        "stageNames": [
+          "model.layers.0.pre-normalization",
+          "model.layers.0.qkv-projections",
+          "model.layers.0.rotary",
+          "model.layers.0.attention-scores",
+          "model.layers.0.softmax",
+          "model.layers.0.attention-context",
+          "model.layers.0.attention-output",
+          "model.layers.0.attention-residual",
+          "model.layers.0.post-normalization",
+          "model.layers.0.gate-up",
+          "model.layers.0.activation-product",
+          "model.layers.0.down-projection",
+          "model.layers.0.mlp-residual",
+          "final-normalization",
+          "output-logits"
+        ],
+        "weightsRead": 108,
+        "operatorCount": 15,
+        "selectedOutputIndices": [
+          4,
+          5,
+          6,
+          7
+        ],
+        "originalComputedOutputs": 72,
+        "reachableComputedOutputs": 45,
+        "originalInterfaceOutputSlots": 128,
+        "reachableInterfaceOutputSlots": 79
+      },
+      "exitCode": -9,
+      "wallSeconds": 70.60353334800038,
+      "peakObservedAggregateRSSBytes": 8608124928,
+      "coordinatorStop": "Aggregate RAM budget exceeded"
+    }
+  ],
+  "complete": false,
+  "finalArtifactParity": false,
+  "workingExpressionsComplete": false
+}

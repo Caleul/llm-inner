@@ -1,0 +1,12 @@
+{
+  "rustcExitCode": 0,
+  "resources": {
+    "cpuCount": 2,
+    "totalRAMBytes": 13605830656,
+    "cudaAvailable": false
+  },
+  "scope": "Colab CPU diagnostic primitive oracle; model target parity is independently pinned ARM64",
+  "exitCode": 1,
+  "stdout": "root cases=16777216 mismatches=0\nround32 random-cases=1000000 mismatches=0\nexp-gold.bin mismatch -0.0030410289764404297 3fefe72040000000 3fefe72020000000\nexp-gold.bin mismatch -0.003268122673034668 3fefe54580000000 3fefe54560000000\nexp-gold.bin mismatch -0.0036643147468566895 3fefe20980000000 3fefe20960000000\nexp-gold.bin cases=474369 mismatches=2583\nsilu-gold.bin cases=22530 mismatches=0\n",
+  "seconds": 17.437383243999648
+}

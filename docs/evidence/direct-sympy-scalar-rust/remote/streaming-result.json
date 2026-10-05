@@ -1,0 +1,12 @@
+{
+  "testsExitCode": 0,
+  "emission": {
+    "bytes": 393073,
+    "scalarProducers": 550,
+    "lengths": 8,
+    "logits": 4,
+    "finalParity": false
+  },
+  "byteIdentical": true,
+  "sha256": "25aac526deff02d6d60726e07925e7f32eb7cb34e43b706282da245cd8e7eecd"
+}

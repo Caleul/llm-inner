@@ -1,0 +1,13 @@
+{
+  "scope": "bounded vectorized native reference capture; validation executes in Colab",
+  "torch": "2.12.1",
+  "machine": "arm64",
+  "cpuThreads": 1,
+  "cases": 474369,
+  "inputQuantum": 5.960464477539063e-08,
+  "minimum": -0.0282745361328125,
+  "maximum": 0.0,
+  "bytes": 3794952,
+  "sha256": "b062f3f823f8cbc6b08cec39b8eb7624254486c05e8fb7ebaa30bd5d2c3eb74a",
+  "seconds": 0.008686207991559058
+}

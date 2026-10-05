@@ -1,0 +1,236 @@
+{
+  "length": 1,
+  "finalArtifactParity": false,
+  "composition": {
+    "completedJobs": 23,
+    "completedBlocks": 0,
+    "completedPairMerges": 0,
+    "seededLanes": 0,
+    "maxWorkersAdmitted": 2,
+    "peakObservedRSSBytes": 674910208,
+    "compositionLevels": 4,
+    "peakAccumulatedBytes": 6799,
+    "operatorPreparations": 0,
+    "operatorPairMerges": 0,
+    "growth": [
+      {
+        "characters": 315,
+        "inputBytes": 320,
+        "unusedInterfacePorts": 0,
+        "kind": "scalar-prepare",
+        "seconds": 0.014649807999376208,
+        "pid": 39572,
+        "rssBytes": 197316608
+      },
+      {
+        "characters": 340,
+        "inputBytes": 343,
+        "unusedInterfacePorts": 0,
+        "kind": "scalar-prepare",
+        "seconds": 0.01865073100088921,
+        "pid": 39571,
+        "rssBytes": 197697536
+      },
+      {
+        "characters": 220,
+        "inputBytes": 225,
+        "unusedInterfacePorts": 0,
+        "kind": "scalar-prepare",
+        "seconds": 0.01005698400149413,
+        "pid": 39572,
+        "rssBytes": 197337088
+      },
+      {
+        "characters": 322,
+        "inputBytes": 327,
+        "unusedInterfacePorts": 0,
+        "kind": "scalar-prepare",
+        "seconds": 0.008665164999911212,
+        "pid": 39571,
+        "rssBytes": 197701632
+      },
+      {
+        "characters": 136,
+        "inputBytes": 125,
+        "unusedInterfacePorts": 0,
+        "kind": "scalar-prepare",
+        "seconds": 0.005016058999899542,
+        "pid": 39572,
+        "rssBytes": 197337088
+      },
+      {
+        "characters": 354,
+        "inputBytes": 357,
+        "unusedInterfacePorts": 0,
+        "kind": "scalar-prepare",
+        "seconds": 0.012066587998560863,
+        "pid": 39571,
+        "rssBytes": 197746688
+      },
+      {
+        "characters": 328,
+        "inputBytes": 333,
+        "unusedInterfacePorts": 0,
+        "kind": "scalar-prepare",
+        "seconds": 0.009972694999305531,
+        "pid": 39572,
+        "rssBytes": 197341184
+      },
+      {
+        "characters": 120,
+        "inputBytes": 131,
+        "unusedInterfacePorts": 0,
+        "kind": "scalar-prepare",
+        "seconds": 0.004826944999877014,
+        "pid": 39571,
+        "rssBytes": 197746688
+      },
+      {
+        "characters": 136,
+        "inputBytes": 125,
+        "unusedInterfacePorts": 0,
+        "kind": "scalar-prepare",
+        "seconds": 0.0035630999991553836,
+        "pid": 39571,
+        "rssBytes": 197746688
+      },
+      {
+        "characters": 249,
+        "inputBytes": 253,
+        "unusedInterfacePorts": 0,
+        "kind": "scalar-prepare",
+        "seconds": 0.008671630001117592,
+        "pid": 39572,
+        "rssBytes": 197345280
+      },
+      {
+        "characters": 342,
+        "inputBytes": 329,
+        "unusedInterfacePorts": 0,
+        "kind": "scalar-prepare",
+        "seconds": 0.008147474998622783,
+        "pid": 39571,
+        "rssBytes": 197750784
+      },
+      {
+        "characters": 547,
+        "inputBytes": 522,
+        "unusedInterfacePorts": 0,
+        "kind": "scalar-prepare",
+        "seconds": 0.010350178999942727,
+        "pid": 39572,
+        "rssBytes": 197365760
+      },
+      {
+        "characters": 577,
+        "inputBytes": 655,
+        "unusedInterfacePorts": 0,
+        "kind": "scalar-merge",
+        "seconds": 0.03467759799968917,
+        "pid": 39575,
+        "rssBytes": 197464064
+      },
+      {
+        "characters": 454,
+        "inputBytes": 542,
+        "unusedInterfacePorts": 0,
+        "kind": "scalar-merge",
+        "seconds": 0.03634350900028949,
+        "pid": 39576,
+        "rssBytes": 197459968
+      },
+      {
+        "characters": 360,
+        "inputBytes": 448,
+        "unusedInterfacePorts": 0,
+        "kind": "scalar-merge",
+        "seconds": 0.012439312000424252,
+        "pid": 39576,
+        "rssBytes": 197488640
+      },
+      {
+        "characters": 297,
+        "inputBytes": 385,
+        "unusedInterfacePorts": 0,
+        "kind": "scalar-merge",
+        "seconds": 0.012467014999856474,
+        "pid": 39576,
+        "rssBytes": 197496832
+      },
+      {
+        "characters": 426,
+        "inputBytes": 490,
+        "unusedInterfacePorts": 0,
+        "kind": "scalar-merge",
+        "seconds": 0.034801259000232676,
+        "pid": 39575,
+        "rssBytes": 197922816
+      },
+      {
+        "characters": 825,
+        "inputBytes": 889,
+        "unusedInterfacePorts": 0,
+        "kind": "scalar-merge",
+        "seconds": 0.029139677999410196,
+        "pid": 39576,
+        "rssBytes": 197570560
+      },
+      {
+        "characters": 949,
+        "inputBytes": 1031,
+        "unusedInterfacePorts": 0,
+        "kind": "scalar-merge",
+        "seconds": 0.032658832000379334,
+        "pid": 39583,
+        "rssBytes": 197455872
+      },
+      {
+        "characters": 698,
+        "inputBytes": 786,
+        "unusedInterfacePorts": 0,
+        "kind": "scalar-merge",
+        "seconds": 0.034062894999806304,
+        "pid": 39584,
+        "rssBytes": 197468160
+      },
+      {
+        "characters": 1058,
+        "inputBytes": 1122,
+        "unusedInterfacePorts": 0,
+        "kind": "scalar-merge",
+        "seconds": 0.026786198999616317,
+        "pid": 39583,
+        "rssBytes": 197931008
+      },
+      {
+        "characters": 1559,
+        "inputBytes": 1647,
+        "unusedInterfacePorts": 0,
+        "kind": "scalar-merge",
+        "seconds": 0.025087558000450372,
+        "pid": 39587,
+        "rssBytes": 197894144
+      },
+      {
+        "characters": 2541,
+        "inputBytes": 2617,
+        "unusedInterfacePorts": 0,
+        "kind": "scalar-merge",
+        "seconds": 0.03259401700051967,
+        "pid": 39590,
+        "rssBytes": 197898240
+      }
+    ],
+    "seconds": 0.40648969799985935,
+    "scalarProducers": 25,
+    "scalarCharacters": 2204,
+    "factorSimplifyEvents": 179,
+    "substitutions": 56
+  },
+  "verifiedLogits": 48,
+  "mismatches": [],
+  "workingExpressionParity": true,
+  "logits": 4,
+  "descriptorSha256": "8f6e8cf06252e2a86d745f3be67da9bed4088d5eece75c83dbfba8e3ad1f007d",
+  "seconds": 1.154403975000605
+}

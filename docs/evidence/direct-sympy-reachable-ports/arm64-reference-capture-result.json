@@ -1,0 +1,28 @@
+{
+  "scope": "lightweight pinned-ARM64 reference capture; no compilation or CAS",
+  "exitCode": 0,
+  "seconds": 3.3404286660370417,
+  "peakRSSBytes": 344457216,
+  "memoryCeilingBytes": 1073741824,
+  "deadlineSeconds": 30,
+  "threads": 1,
+  "stop": null,
+  "torch": "2.12.1",
+  "backend": "cpu-arm64-eager",
+  "machine": "arm64",
+  "system": "Darwin",
+  "width": 2,
+  "vocab": 4,
+  "context": 8,
+  "cases": 96,
+  "lengths": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+  ]
+}
