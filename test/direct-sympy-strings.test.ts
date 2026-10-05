@@ -285,6 +285,15 @@ test('Budgeted coordinate continuation persists actual producers and rejects inc
   });
 
 
+test('Bidirectional recipe constraints retain rounding cells and original residual storage',
+  {skip:!python},async()=>{
+    const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_recipe_bounds_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 4 tests/);
+    assert.match(stderr,/OK/);
+    assert.match(stdout,/Backward residual certificate: cases=10242 selected=4 violations=0/);
+    assert.match(stdout,/Backward varying inverse certificate: cases=10242 selected=132 violations=0/);
+  });
+
 test('Coupled projection exclusions preserve rounded reductions across every central Half pair',
   {skip:!python || !process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_projection_constraints_test.py'],{timeout:120_000,maxBuffer:1024*1024});

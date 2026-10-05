@@ -16,7 +16,7 @@ import torch
 from direct_sympy_strings import syntax, StringCompiler
 from direct_sympy_conversions import FiniteSource
 
-SOURCES=('direct_sympy_projection_constraints.py','direct_sympy_rms_guard.py','direct_sympy_layer_bounds.py','direct_sympy_savepoints.py','direct_sympy_checkpoint.py','direct_sympy_input_partitions.py','direct_sympy_strings.py','direct_sympy_conversions.py','direct_sympy_words.py','direct_sympy_signs.py','direct_sympy_arithmetic.py','direct_sympy_tandem.py','direct_sympy_signatures.py','direct_sympy_conditions.py','direct_sympy_synchronize.py','direct_sympy_silu.py','direct_sympy_sqrt.py','direct_sympy_parallel.py')
+SOURCES=('direct_sympy_recipe_bounds.py','direct_sympy_projection_constraints.py','direct_sympy_rms_guard.py','direct_sympy_layer_bounds.py','direct_sympy_savepoints.py','direct_sympy_checkpoint.py','direct_sympy_input_partitions.py','direct_sympy_strings.py','direct_sympy_conversions.py','direct_sympy_words.py','direct_sympy_signs.py','direct_sympy_arithmetic.py','direct_sympy_tandem.py','direct_sympy_signatures.py','direct_sympy_conditions.py','direct_sympy_synchronize.py','direct_sympy_silu.py','direct_sympy_sqrt.py','direct_sympy_parallel.py')
 
 
 def digest_file(path):

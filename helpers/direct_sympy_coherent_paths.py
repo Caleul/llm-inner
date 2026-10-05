@@ -394,7 +394,10 @@ class CoherentPaths:
                     from direct_sympy_conversions import FiniteSource
                     low,high=max(previous.minimum,bound.minimum),min(previous.maximum,bound.maximum)
                     if low<=high:refined[name]=FiniteSource(low,high,intersection_quantum(previous.quantum,bound.quantum),max(previous.minimum_magnitude,bound.minimum_magnitude))
-            self.rms_bounds_cache[key]=projection_branch_bounds(self.registry,refined)
+            from direct_sympy_recipe_bounds import propagate_recipe_bounds
+            refined=propagate_recipe_bounds(self.registry,projection_branch_bounds(self.registry,refined),self.stats,assumptions=assumptions)
+            if refined is None:raise UnreachableNumericPath('Ordered recipe constraints contradict this prefix')
+            self.rms_bounds_cache[key]=refined
         return self.rms_bounds_cache[key]
 
     def literal(self,root,facts,domains):
@@ -618,7 +621,9 @@ class CoherentPaths:
             from direct_sympy_projection_constraints import impossible_projections
             if impossible_projections(self.registry,guards):
                 self.stats['contradictions']+=1;self.stats['coupledProjectionContradictions']+=1;continue
-            decision=self.next_decision(root,facts)
+            try:decision=self.next_decision(root,facts)
+            except UnreachableNumericPath:
+                self.stats['contradictions']+=1;continue
             if decision is None:
                 if self.stats['completedPaths']>=self.max_paths:raise ValueError('Path budget exceeded; no complete result')
                 try:view,body=self.literal(root,facts,domains)

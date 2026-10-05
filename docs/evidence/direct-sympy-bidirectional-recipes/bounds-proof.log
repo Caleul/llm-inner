@@ -1,0 +1,7 @@
+....
+----------------------------------------------------------------------
+Ran 4 tests in 0.933s
+
+OK
+Backward residual certificate: cases=10242 selected=4 violations=0
+Backward varying inverse certificate: cases=10242 selected=132 violations=0
