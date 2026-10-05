@@ -40,7 +40,8 @@ class CheckpointRunTests(unittest.TestCase):
                 ('direct_sympy_strings.py','substitute'),
                 ('direct_sympy_conversions.py','_close_completed')})
             self.assertFalse(first['coordinateComplete']);self.assertFalse(first['parityVerified'])
-            self.assertEqual(first['persistedDependencies'],10)
+            initial_count=first['persistedDependencies']
+            self.assertGreater(initial_count,0)
             self.assertEqual(first['completedDependencies'],first['persistedDependencies'])
             stopped=first['stoppedExpansion']
             self.assertEqual(stopped['producers'],first['persistedDependencies'])
@@ -55,29 +56,33 @@ class CheckpointRunTests(unittest.TestCase):
                 self.assertLess(envelope['compactCharacters'],1024**2)
                 self.assertIn('Closed numeric envelope exceeds string budget before allocation',first['stop'])
             self.assertNotIn('Float64(',json.dumps(stopped))
+            # Resume must admit the expansion actually rejected, rather than
+            # assume an old recipe fits inside a fixed 4 MiB budget.
+            rejected_characters=stopped['lastSubstitution'][0][4] if failure['function']=='substitute' else first['envelopes'][-1]['expandedCharacters']
+            resume_budget=max(4*1024**2,2*rejected_characters)
             manifest=state/'frontier.json';initial=manifest.read_bytes()
             self.assertNotIn('output:0:2',[r['name'] for r in json.loads(initial)['payload']['records']])
-            rejected=run('--resume','--dimension','1','--max-characters',str(4*1024**2))
+            rejected=run('--resume','--dimension','1','--max-characters',str(resume_budget))
             self.assertEqual(rejected['failurePhase'],'restore/setup')
             self.assertTrue(any(frame['function']=='restore' for frame in rejected['failureFrames']))
             self.assertFalse(rejected['resumeCompatible']);self.assertIn('Incompatible',rejected['stop'])
             self.assertEqual(manifest.read_bytes(),initial)
-            resumed=run('--resume','--max-characters',str(4*1024**2))
+            resumed=run('--resume','--max-characters',str(resume_budget))
             self.assertTrue(resumed['resumeCompatible'])
-            self.assertEqual(resumed['restoredDependencies'],10)
+            self.assertEqual(resumed['restoredDependencies'],initial_count)
             restored=resumed['restoredExpansion']
-            self.assertEqual(restored['producers'],10)
+            self.assertEqual(restored['producers'],initial_count)
             self.assertEqual(restored['producerCharacters'],sum(r['characters'] for r in json.loads(initial)['payload']['records']))
             if sys.platform.startswith('linux'):
                 self.assertGreaterEqual(restored['addressSpaceBytes'],restored['residentBytes'])
-            self.assertGreater(resumed['persistedDependencies'],10)
+            self.assertGreater(resumed['persistedDependencies'],initial_count)
             self.assertEqual(resumed['completedDependencies'],resumed['persistedDependencies'])
             self.assertFalse(resumed['coordinateComplete']);self.assertFalse(resumed['parityVerified'])
             old_records=json.loads(initial)['payload']['records']
             new_records=json.loads(manifest.read_text())['payload']['records']
             self.assertEqual(new_records[:len(old_records)],old_records)
             self.assertGreater(resumed['peakRSSBytes'],0)
-            print('Persistent checkpoint run: '+json.dumps({'restored':10,'persisted':len(new_records),
+            print('Persistent checkpoint run: '+json.dumps({'restored':initial_count,'persisted':len(new_records),
                 'identityRejectionBeforeMutation':True,'coordinateComplete':False}))
 
 

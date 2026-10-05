@@ -91,19 +91,20 @@ def fixed_grid_conversion(kind,certificate):
     return '((X999999997 + ('+offset+')) - ('+offset+'))'
 
 
-def lower_finite_conversion(expression,kind,certificate,compiler,domains,path=(),*,no_odd_f32_ties=False,integer_word_exact=False,frontier=None,sign_word=None,facts=()):
+def lower_finite_conversion(expression,kind,certificate,compiler,domains,path=(),*,no_odd_f32_ties=False,integer_word_exact=False,normal_word_rounding_stable=False,frontier=None,sign_word=None,facts=()):
     if not isinstance(certificate,FiniteSource):
         raise ValueError("Finite source interval certificate required")
     if kind not in ("R32","R16"):
         raise ValueError("Unsupported conversion boundary")
     if no_odd_f32_ties and kind!="R32":raise ValueError("Odd-tie certificate applies only to F32")
+    if normal_word_rounding_stable and kind!="R32":raise ValueError("Stable word rounding certificate applies only to F32")
     # Fixed-point simplification must complete before this substitution too.
     source=compiler.stabilize("("+expression+")",domains,path,facts=facts)
     # Keep existing one-occurrence kernels identical across contexts. A
     # shorter local spelling can otherwise fragment shared complete bodies
     # and increase the eventual combined artifact. Use this alternative
     # only where it actually removes the retained-parity copy of the source.
-    grid=None if no_odd_f32_ties or integer_word_exact else fixed_grid_conversion(kind,certificate)
+    grid=None if no_odd_f32_ties or integer_word_exact or normal_word_rounding_stable else fixed_grid_conversion(kind,certificate)
     if grid is not None:
         return compiler.substitute(grid,'X999999997',source,domains,path)
     raw=call("Bits64","X999999997")
@@ -145,7 +146,7 @@ def lower_finite_conversion(expression,kind,certificate,compiler,domains,path=()
         # inside the same normal calculation; distinct paths are untouched.
         adjustment=bias if no_odd_f32_ties else call("U64Add",bias,call("U64And",call("U64Shr",raw,dropped),1))
         signed=call("Float64",call("U64And",call("U64Add",raw,adjustment),mask))
-        if integer_word_exact:
+        if integer_word_exact or normal_word_rounding_stable:
             exponent=81 if kind=="R32" else 94
             signed=call("Float64",call("U64FromF64","(("+call("F64FromU64",raw)+") + 2**"+str(exponent)+") - 2**"+str(exponent)))
         return simplify_words(compiler.substitute(signed,"X999999997",source,domains,path),compiler,domains)
@@ -846,6 +847,46 @@ class ConversionSession:
             except (OverflowError,ValueError):return None
         return None
 
+    def normal_word_rounding_stable(self,node):
+        """One-source normal F32 rounding of a nonnegative F32 plus a constant.
+
+        UInt64-to-F64 can lose at most 512 raw-word units for positive
+        finite F64 words. The offset kernel rounds on the 2**29 grid.
+        Exclude a 1024-unit neighborhood of each nonexact midpoint before
+        using that composition. Exact midpoints remain exactly stored.
+        This is a stability proof, NOT an exact-integer-word certificate.
+
+        For source binade e, if the constant is below the preceding F32
+        spacing 2**(e-24), the F32 operand is in binade e. Otherwise it is
+        at least in e-1, provided the constant is below 2**(e-1). Its
+        aligned mantissa is respectively a multiple of 2**29 or 2**28.
+        F64 addition rounds the constant's aligned displacement to nearest
+        even. Test its residue against every possible F32 midpoint. Small
+        binades with <=42 significant bits already have exact word casts.
+        Zero/cancellation, subnormal/overflow and unknown dtypes reject.
+        """
+        if not isinstance(node,ast.BinOp) or not isinstance(node.op,ast.Add):return False
+        bound=self.bounds(node)
+        if bound is None or bound.quantum is None or bound.minimum<2**-126 or bound.maximum>=2**128-2**103:return False
+        for operand,constant in ((node.left,node.right),(node.right,node.left)):
+            value=self.constant(constant);domain=self.bounds(operand)
+            if value is None or not math.isfinite(value) or value<=0 or domain is None or domain.minimum<0:continue
+            if self.value_kind(operand) not in ('half','f32'):continue
+            c=Fraction(value);admitted=True
+            for exponent in range(binary_exponent(bound.minimum),binary_exponent(bound.maximum)+1):
+                if exponent-bound.quantum+1<=42:continue
+                if c>=Fraction(2)**(exponent-1):admitted=False;break
+                displacement=c/(Fraction(2)**(exponent-52))
+                integer,remainder=divmod(displacement.numerator,displacement.denominator)
+                if 2*remainder>displacement.denominator or (2*remainder==displacement.denominator and integer%2):integer+=1
+                if c<Fraction(2)**(exponent-24):
+                    distance=abs(integer%(1<<29)-(1<<28))
+                else:
+                    residue=integer%(1<<28);distance=min(residue,(1<<28)-residue)
+                if 0<distance<=1024:admitted=False;break
+            if admitted:return True
+        return False
+
     def no_odd_f32_ties(self,node):
         """Certified sources cannot land on an odd normal F32 halfway cell.
 
@@ -1302,6 +1343,7 @@ class ConversionSession:
                             return rewritten
                 source=session.bounds(node.args[0]) if node.func.id in ("R32","R16") and len(node.args)==1 else None
                 no_odd_ties=node.func.id=="R32" and len(node.args)==1 and session.no_odd_f32_ties(node.args[0])
+                stable_word_rounding=node.func.id=="R32" and len(node.args)==1 and session.normal_word_rounding_stable(node.args[0])
                 rewritten=self.generic_visit(node)
                 if rewritten.func.id in ("R32","R16") and len(rewritten.args)==1:
                     target=rewritten.func.id
@@ -1314,7 +1356,7 @@ class ConversionSession:
                         projection=project(rewritten.args[0],session)
                         sign_word=simplify_words(ast.unparse(projection),session.compiler,session.domains)
                         text=lower_finite_conversion(ast.unparse(rewritten.args[0]),rewritten.func.id,
-                            source,session.compiler,session.domains,no_odd_f32_ties=no_odd_ties,integer_word_exact=session.encoded_word_is_exact_integer(node.args[0]),frontier=frontier,sign_word=sign_word,facts=session.branch_facts)
+                            source,session.compiler,session.domains,no_odd_f32_ties=no_odd_ties,integer_word_exact=session.encoded_word_is_exact_integer(node.args[0]),normal_word_rounding_stable=stable_word_rounding,frontier=frontier,sign_word=sign_word,facts=session.branch_facts)
                         session.remember_frontier_bounds(text,frontier)
                         rewritten=syntax(text)
                         session.sign_projections[session.key(rewritten)]=syntax(sign_word)

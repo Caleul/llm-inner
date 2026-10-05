@@ -285,6 +285,14 @@ test('Budgeted coordinate continuation persists actual producers and rejects inc
   });
 
 
+test('Mean conversion uses one source only after excluding double-rounding midpoint neighborhoods',
+  {skip:!python},async()=>{
+    const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_mean_rounding_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 1 test/);
+    assert.match(stderr,/OK/);
+    assert.match(stdout,/One-source mean rounding: cases=494927874 mismatches=0/);
+  });
+
 test('Residual arithmetic preserves central magnitude exclusions through storage and squares',
   {skip:!python},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_magnitude_gap_test.py'],{timeout:120_000,maxBuffer:1024*1024});

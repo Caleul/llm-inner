@@ -1,0 +1,128 @@
+{
+  "coordinateComplete": false,
+  "parityVerified": false,
+  "resumeCompatible": false,
+  "restoredDependencies": 0,
+  "completedDependencies": 11,
+  "envelopes": [
+    {
+      "error": "Closed numeric envelope exceeds string budget before allocation: expandedCharacters=4454001 limit=1048576",
+      "compact": "Float64(U64And(U64Add(Bits64(1.0 / Float64(U64Add(U64And(U64Add(Bits64((13.367174015436346 + -779.0174377628756 / (Float64(U64Or(U64And(Bits64(CASNumericRegion132()), 4503599627370495), 4607182418800017408)) - 1.5 + 72.88886838020784) + -9.032202101157678 / (Float64(U64Or(U64And(Bits64(CASNumericRegion132()), 4503599627370495), 4607182418800017408)) - 1.5 + 8.541941977833192) + -1.0005960489978687 / (Float64(U64Or(U64And(Bits64(CASNumericRegion132()), 4503599627370495), 4607182418800017408)) - 1.5 + 3.4400824392419294) + -0.1852754751106736 / (Float64(U64Or(U64And(Bits64(CASNumericRegion132()), 4503599627370495), 4607182418800017408)) - 1.5 + 2.096193424586035) + -0.029292444172441905 / (Float64(U64Or(U64And(Bits64(CASNumericRegion132()), 4503599627370495), 4607182418800017408)) - 1.5 + 1.6235843576093156)) * (1.0 + U64And(U64Add(U64And(U64Shr(Bits64(CASNumericRegion132()), 52), 2047), 1), 1) * 0.4142135623730951)), 268435455), 18446744073172680704), U64Mul(U64Add(U64Shr(U64Add(U64And(U64Shr(Bits64(CASNumericRegion132()), 52), 2047), 1023), 1), 18446744073709550593), 4503599627370496)))), 268435455), 18446744073172680704))",
+      "compactCharacters": 1140,
+      "expandedCharacters": 4454001,
+      "aliases": [
+        {
+          "alias": "CASNumericRegion132",
+          "producer": "model.layers.0.post:mean",
+          "characters": 636144,
+          "occurrences": 7,
+          "restoredContributionCharacters": 4453008
+        },
+        {
+          "alias": "CASNumericRegion133",
+          "producer": null,
+          "characters": 1,
+          "occurrences": 0,
+          "restoredContributionCharacters": 0
+        }
+      ],
+      "inputCharacters": 636166,
+      "scope": "Rejected compiler envelope; aliases are not final runtime variables"
+    }
+  ],
+  "budgets": {
+    "characters": 1048576,
+    "seconds": 60,
+    "addressSpaceBytes": 0
+  },
+  "stop": "Closed numeric envelope exceeds string budget before allocation: expandedCharacters=4454001 limit=1048576",
+  "failurePhase": "compilation",
+  "failureFrames": [
+    {
+      "file": "direct_sympy_checkpoint.py",
+      "function": "<lambda>",
+      "line": 540
+    },
+    {
+      "file": "direct_sympy_checkpoint.py",
+      "function": "gated",
+      "line": 450
+    },
+    {
+      "file": "<equivalent producer envelope>",
+      "function": "producer",
+      "line": 6
+    },
+    {
+      "file": "direct_sympy_checkpoint.py",
+      "function": "<lambda>",
+      "line": 451
+    },
+    {
+      "file": "<equivalent consuming projection>",
+      "function": "linear",
+      "line": 20
+    },
+    {
+      "file": "direct_sympy_checkpoint.py",
+      "function": "post",
+      "line": 534
+    },
+    {
+      "file": "direct_sympy_checkpoint.py",
+      "function": "norm",
+      "line": 436
+    },
+    {
+      "file": "<equivalent producer envelope>",
+      "function": "producer",
+      "line": 6
+    },
+    {
+      "file": "direct_sympy_checkpoint.py",
+      "function": "build",
+      "line": 405
+    },
+    {
+      "file": "<equivalent producer envelope>",
+      "function": "producer",
+      "line": 13
+    },
+    {
+      "file": "direct_sympy_conversions.py",
+      "function": "close",
+      "line": 929
+    },
+    {
+      "file": "direct_sympy_conversions.py",
+      "function": "_close_completed",
+      "line": 1138
+    }
+  ],
+  "stoppedExpansion": {
+    "producerCharacters": 1442909,
+    "producers": 11,
+    "registeredRegionCharacters": 1363577,
+    "lastSubstitution": [
+      [
+        "X999999997",
+        76,
+        1074,
+        1,
+        1144,
+        1140,
+        "admitted"
+      ]
+    ],
+    "lastBudgetEnvelope": [],
+    "wordFactorPasses": 0,
+    "lastWordFactors": [],
+    "closedLiteralCharacters": 2098799
+  },
+  "newDependencies": 11,
+  "lastDependency": "model.layers.0.post:mean",
+  "seconds": 11.490028791013174,
+  "peakRSSBytes": 382418944,
+  "persistedDependencies": 11,
+  "lastPersistedDependency": "model.layers.0.post:mean"
+}
