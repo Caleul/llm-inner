@@ -491,6 +491,14 @@ class ConversionSession:
     def value_kind(self,node):
         key=self.key(node)
         if key in self.half_values:return "half"
+        # Format membership is a value proof, not a change to operation
+        # dtype. A finite grid with <=11 significant bits fits Half; both
+        # signs of zero fit too. Preserve the original arithmetic order.
+        enclosure=self.bounds(node)
+        if enclosure is not None:
+            peak=max(abs(enclosure.minimum),abs(enclosure.maximum))
+            if not peak or (enclosure.quantum is not None and enclosure.quantum>=-24
+                and peak<=65504 and Fraction(peak)/(Fraction(2)**enclosure.quantum)<=2**11):return 'half'
         if key in self.f32_values:return "f32"
         value=self.constant(node)
         if value is not None and math.isfinite(value):

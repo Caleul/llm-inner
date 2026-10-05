@@ -25,6 +25,24 @@ def session(low,high,delta,typed=True):
 
 
 class F32CellTests(unittest.TestCase):
+    def test_exact_half_membership_elides_only_a_proved_format_boundary(self):
+        step=2**-21;s=ConversionSession(StringCompiler(),{'X1':Domain(F(-125*step),F(125*step),-21,False)})
+        s.f32_values.add(s.key(syntax('X1')))
+        self.assertEqual(s.value_kind(syntax('X1')),'half')
+        after=simplify_arithmetic('R16(X1)',s);self.assertEqual(after,'X1')
+        for peak,q in ((2049*2**-24,-24),(2**-25,-25),(65536,5)):
+            other=ConversionSession(StringCompiler(),{'X1':Domain(F(-peak),F(peak),q,False)})
+            self.assertNotEqual(other.value_kind(syntax('X1')),'half')
+        zeros=ConversionSession(StringCompiler(),{'X1':Domain(F(0),F(0),-149,False)})
+        zeros.f32_values.add(zeros.key(syntax('X1')))
+        self.assertIn('R32',simplify_arithmetic('R32(sqrt(X1))',zeros))
+        with tempfile.TemporaryDirectory()as directory:
+            root=Path(directory);source=root/'membership.cpp';binary=root/'membership'
+            source.write_text('#include <cstdint>\n#include <cstring>\n#include <cstdio>\n#include <cfenv>\n#include <initializer_list>\ntemplate<class T,class U>T word(U x){T y;std::memcpy(&y,&x,sizeof(y));return y;}\ndouble candidate(double X1){return '+cpp(syntax(after))+';}\nint main(){if(std::fesetround(FE_TONEAREST))return 2;unsigned cases=0,mismatches=0;for(int i=-125;i<=125;i++){double x=i*0x1p-21;cases++;mismatches+=word<uint64_t>(candidate(x))!=word<uint64_t>(double(_Float16(float(x))));}for(double x:{0.0,-0.0}){cases++;mismatches+=word<uint64_t>(candidate(x))!=word<uint64_t>(double(_Float16(float(x))));}std::printf("Exact Half membership: cases=%u mismatches=%u\\n",cases,mismatches);return mismatches?1:0;}')
+            subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],check=True,capture_output=True,text=True)
+            result=subprocess.run([str(binary)],check=True,capture_output=True,text=True)
+            self.assertIn('cases=253 mismatches=0',result.stdout);print(result.stdout,end='')
+
     def test_unit_grid_scale_preserves_order_and_native_signed_zero_payloads(self):
         forms=[]
         coefficients=[-0.0,0.0,-1.5,-1.0,-.5,.5,1.,1.5,999.9999389648438,-999.9999389648438,
@@ -56,6 +74,8 @@ class F32CellTests(unittest.TestCase):
         with s.branch_context(s.domains,{source:FiniteSource(-2**-24,2**-24,-24)},()):
             result=s.unit_grid_rounding_scale(expression)
             self.assertEqual(ast.unparse(result),'1000.0 * CompileValue0()')
+            simplified=simplify_arithmetic(ast.unparse(expression),s)
+            self.assertEqual(s.bounds(syntax(simplified)).quantum,-21)
         self.assertIsNone(s.unit_grid_rounding_scale(expression))
         # Numerical bounds alone cannot authorize discarding an unknown call.
         s.pure_numeric_regions.remove(constant)

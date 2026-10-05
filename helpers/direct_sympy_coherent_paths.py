@@ -370,12 +370,12 @@ class CoherentPaths:
                 if low>high:raise UnreachableNumericPath('Selected recipe contradicts its stored enclosure')
                 bound=FiniteSource(low,high,intersection_quantum(bound.quantum,local.quantum),max(bound.minimum_magnitude,local.minimum_magnitude))
             selected=syntax(texts[alias])
-            if isinstance(selected,ast.Constant) or isinstance(selected,ast.UnaryOp) and isinstance(selected.op,ast.USub) and isinstance(selected.operand,ast.Constant):
-                actual=numeric.bounds(selected)
-                if actual is not None:
-                    low,high=max(bound.minimum,actual.minimum),min(bound.maximum,actual.maximum)
-                    if low>high:raise UnreachableNumericPath('Selected constant contradicts its stored enclosure')
-                    bound=FiniteSource(low,high,bound.quantum,max(bound.minimum_magnitude,actual.minimum_magnitude))
+            actual=numeric.bounds(selected)
+            if actual is not None:
+                low,high=max(bound.minimum,actual.minimum),min(bound.maximum,actual.maximum)
+                magnitude=max(bound.minimum_magnitude,actual.minimum_magnitude)
+                if low>high or magnitude>max(abs(low),abs(high)):raise UnreachableNumericPath('Selected expression contradicts its stored enclosure')
+                bound=FiniteSource(low,high,intersection_quantum(bound.quantum,actual.quantum),magnitude)
             if alias in rms_bounds:
                 local=rms_bounds[alias];low,high=max(bound.minimum,local.minimum),min(bound.maximum,local.maximum)
                 magnitude=max(bound.minimum_magnitude,local.minimum_magnitude)

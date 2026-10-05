@@ -134,6 +134,17 @@ def simplify_arithmetic(expression,session):
             kind=session.value_kind(original)
             positive_zero=session.no_negative_zero(original)
             result=syntax(session.compiler.stabilize("("+ast.unparse(replacement)+")",session.domains))
+            # The admitted replacement may expose a stronger exact grid
+            # than the original cast's format-wide enclosure. Preserve
+            # both proofs of the same value before the next dependency.
+            actual=session.bounds(result)
+            if bounds is not None and actual is not None:
+                from direct_sympy_conversions import FiniteSource
+                low,high=max(bounds.minimum,actual.minimum),min(bounds.maximum,actual.maximum)
+                magnitude=max(bounds.minimum_magnitude,actual.minimum_magnitude)
+                if low>high or magnitude>max(abs(low),abs(high)):raise ValueError('Equivalent arithmetic enclosures disagree')
+                known=[q for q in (bounds.quantum,actual.quantum) if q is not None]
+                bounds=FiniteSource(low,high,max(known) if known else None,magnitude)
             key=session.key(result)
             if bounds is not None:session.completed[key]=bounds
             if kind=="half":session.half_values.add(key)
@@ -178,6 +189,10 @@ def simplify_arithmetic(expression,session):
                     a,b=inner.left,inner.right
                     if session.half_update_is_invisible(a,b):return self.accept(node,a)
             if node.func.id in ("R16","R32") and len(node.args)==1:
+                # Positive F32 sqrt is lowered as one fused boundary. An
+                # exact-format proof alone must not expose a standalone,
+                # still-unexpanded sqrt (including either signed zero).
+                if node.func.id=='R32' and isinstance(node.args[0],ast.Call) and node.args[0].func.id=='sqrt':return node
                 kind=session.value_kind(node.args[0])
                 if session.bounds(node.args[0]) is not None and ((node.func.id=="R32" and kind in ("half","f32")) or (node.func.id=="R16" and kind=="half")):
                     return self.accept(node,node.args[0])

@@ -1,0 +1,22 @@
+First path decisions: 6
+RMS: ((('X1', Fraction(-65504, 1), Fraction(65504, 1), -24, False), ('X2', Fraction(-65504, 1), Fraction(65504, 1), -24, False)), 'model.layers.0.input_layernorm.weight', ('X1', 'X2')) sources: ('X1', 'X2')
+RMS: ((('X1', Fraction(-65504, 1), Fraction(65504, 1), -24, False), ('X2', Fraction(-65504, 1), Fraction(65504, 1), -24, False)), 'model.layers.0.post_attention_layernorm.weight', ('CompileValue12()', 'CompileValue14()')) sources: ('CompileValue12()', 'CompileValue14()')
+Selected source 12 : X1 + Float64(U64Or(Bits64(Float64(U64And(Bits64(0.0 + CompileValue8() * 0.032928466796875 + (0.0 + CompileValue11() * -0.0225982666015625)), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue8() * 0.032928466796875 + (0.0 + CompileValue11() * -0.0225982666015625)), 9223372036854775808)))
+Selected source 14 : X2 + Float64(U64Or(Bits64(Float64(U64And(Bits64(0.0 + CompileValue8() * 0.0203399658203125 + (0.0 + CompileValue11() * 0.006168365478515625)), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue8() * 0.0203399658203125 + (0.0 + CompileValue11() * 0.006168365478515625)), 9223372036854775808)))
+RMS: ((('X1', Fraction(-65504, 1), Fraction(65504, 1), -24, False), ('X2', Fraction(-65504, 1), Fraction(65504, 1), -24, False)), 'model.norm.weight', ('CompileValue29()', 'CompileValue31()')) sources: ('CompileValue29()', 'CompileValue31()')
+Selected source 29 : CompileValue12() + Float64(U64Or(Bits64(Float64(U64And(Bits64(0.0 + CompileValue27() * -0.015777587890625), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue27() * -0.015777587890625), 9223372036854775808)))
+Selected source 31 : CompileValue14() + Float64(U64Or(Bits64(Float64(U64And(Bits64(0.0 + CompileValue27() * -0.01873779296875), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue27() * -0.01873779296875), 9223372036854775808)))
+Selected producer 0 : 9.999999974752427e-07
+Selected producer 1 : 999.9999389648438
+Selected producer 2 : 1000.0 * X1
+Selected producer 3 : Float64(U64And(U64Add(U64And(Bits64(X1), 9223372036854775808), Bits64(0)), 9223372036854775808))
+Selected producer 4 : 1000.0 * X2
+Selected producer 5 : Float64(U64And(U64Add(U64And(Bits64(X2), 9223372036854775808), Bits64(0)), 9223372036854775808))
+Selected producer 6 : Float64(U64Or(Bits64(Float64(U64And(Bits64(0.0 + CompileValue2() * 0.0030536651611328125 + (0.0 + CompileValue4() * 0.00511932373046875)), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue2() * 0.0030536651611328125 + (0.0 + CompileValue4() * 0.00511932373046875)), 9223372036854775808)))
+Selected producer 7 : Float64(U64And(Bits64(0.0 + CompileValue2() * 0.0030536651611328125 + (0.0 + CompileValue4() * 0.00511932373046875)), 9223372036854775808))
+Selected producer 8 : 0.0 + CompileValue6()
+Selected producer 9 : Float64(U64Or(Bits64(Float64(U64And(Bits64(0.0 + CompileValue2() * -0.0226287841796875 + (0.0 + CompileValue4() * 0.0184478759765625)), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue2() * -0.0226287841796875 + (0.0 + CompileValue4() * 0.0184478759765625)), 9223372036854775808)))
+Selected producer 10 : Float64(U64And(Bits64(0.0 + CompileValue2() * -0.0226287841796875 + (0.0 + CompileValue4() * 0.0184478759765625)), 9223372036854775808))
+Selected producer 11 : 0.0 + CompileValue9()
+Selected producer 12 : X1 + Float64(U64Or(Bits64(Float64(U64And(Bits64(0.0 + CompileValue8() * 0.032928466796875 + (0.0 + CompileValue11() * -0.0225982666015625)), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue8() * 0.032928466796875 + (0.0 + CompileValue11() * -0.0225982666015625)), 9223372036854775808)))
+Selected producer 13 : Float64(U64And(Bits64(X1 + Piecewise((Float64(U64Or(Bits64(Float64(U64And(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue8() * 0.032928466796875 + (0.0 + CompileValue11() * -0.0225982666015625))) + 2 ** 81 - 2 ** 81), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue8() * 0.032928466796875 + (0.0 + CompileValue11() * -0.0225982666015625)), 9223372036854775808))), U64And(Bits64(0.0 + CompileValue8() * 0.032928466796875 + (0.0 + CompileValue11() * -0.0225982666015625)), 9223372036854775807) < 4544132023748395008), (Float64(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue8() * 0.032928466796875 + (0.0 + CompileValue11() * -0.0225982666015625))) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94)), True))), 9223372036854775808))

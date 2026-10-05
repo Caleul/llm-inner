@@ -51,6 +51,31 @@ def evaluate(text,values,functions=None):
 
 
 class CoherentPathTests(unittest.TestCase):
+    def test_selected_scale_precision_reaches_next_subnormal_cast(self):
+        from direct_sympy_conversions import lower_finite_conversion
+        unit=2**-24;registry=fixture(['X1','1000.0*CompileValue0()'])
+        registry.model.domains={'X1':Domain(F(-unit),F(unit),-24,False),'X2':Domain(F(-unit),F(unit),-24,False)}
+        registry.context=registry.model.compiler.context(registry.model.domains)
+        source=ConversionSession(registry.model.compiler,registry.model.domains,input_dtype='f16')
+        key=source.key(syntax('CompileValue1()'))
+        source.completed[key]=FiniteSource(-1000*unit,1000*unit,-24);source.half_values.add(key)
+        scalar=repr(2**-128);recipe=f'R32(CompileValue1()*{scalar})'
+        closed=lower_finite_conversion('CompileValue1()*'+scalar,'R32',
+            FiniteSource(-1000*unit*2**-128,1000*unit*2**-128,-152),registry.model.compiler,registry.model.domains)
+        registry.definitions.append(closed);registry.definition_recipes={2:recipe}
+        registry.model.conversions=source
+        registry.definition_proofs=[(FiniteSource(-unit,unit,-24),'half',False,None),
+            (FiniteSource(-1000*unit,1000*unit,-24),'half',False,None),
+            (FiniteSource(-1000*unit*2**-128,1000*unit*2**-128,-149),'f32',False,None)]
+        with tempfile.TemporaryDirectory()as directory:
+            path=Path(directory)/'propagated.expr';plan=CoherentPaths(registry)
+            plan.write(path,'CompileValue2()',max_characters=65536)
+            text=path.read_text();self.assertLess(len(text),128)
+            self.assertNotIn('Float64',text);self.assertNotIn('CompileValue',text)
+            for x in (-unit,-0.0,0.0,unit):
+                expected=struct.unpack('f',struct.pack('f',(1000.0*x)*2**-128))[0]
+                self.assertEqual(struct.pack('d',evaluate(text,{'X1':x,'X2':0.0})),struct.pack('d',expected))
+
     def test_intersected_precision_admits_exact_factor_without_changing_addition_grid(self):
         from direct_sympy_arithmetic import factor_certified
         self.assertEqual(intersection_quantum(-149,-23),-23)
