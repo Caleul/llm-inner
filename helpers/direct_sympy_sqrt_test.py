@@ -7,10 +7,70 @@ from pathlib import Path
 from direct_sympy_strings import StringCompiler,Domain,syntax
 from direct_sympy_conversions import ConversionSession
 from direct_sympy_conversions_test import cpp
-from direct_sympy_sqrt import supported,CONSTANT_TERM,PARTIAL_FRACTIONS
+from direct_sympy_sqrt import supported,CONSTANT_TERM,PARTIAL_FRACTIONS,NARROW_CONSTANT_TERM,NARROW_PARTIAL_FRACTIONS
+import struct
 
 
 class SqrtWordTests(unittest.TestCase):
+    def test_narrow_two_source_kernel_preserves_every_admitted_mantissa_and_scale(self):
+        import mpmath as mp
+        import sympy as sp
+        with mp.workdps(100):
+            n=2;z=sp.Symbol('z');center=mp.mpf('1.046875');radius=mp.mpf('0.015625')
+            nodes=[radius*mp.cos(mp.pi*i/(2*n))for i in range(2*n+1)]
+            matrix=mp.matrix([[x**j for j in range(n+1)]+[-mp.sqrt(x+center)*x**j for j in range(1,n+1)]for x in nodes])
+            solution=mp.lu_solve(matrix,mp.matrix([mp.sqrt(x+center)for x in nodes]))
+            numerator=[solution[j]for j in range(n+1)];denominator=[mp.mpf(1)]+[solution[n+j]for j in range(1,n+1)]
+            self.assertEqual(NARROW_CONSTANT_TERM,float(numerator[-1]/denominator[-1]))
+            roots=sp.nroots(sp.Poly.from_list([sp.Float(mp.nstr(c,100),100)for c in reversed(denominator)],z),n=70,maxsteps=500)
+            fractions=[]
+            for root in roots:
+                r=mp.mpf(str(root))
+                residue=sum(numerator[i]*r**i for i in range(n+1))/sum(i*denominator[i]*r**(i-1)for i in range(1,n+1))
+                fractions.append((float(residue),float(-r)))
+            fractions.sort(key=lambda row:abs(row[0]/row[1]),reverse=True)
+            self.assertEqual(tuple(fractions),NARROW_PARTIAL_FRACTIONS)
+        expressions=[];ranges=[]
+        for exponent in (-140,-126,-25,-1,0,1,24,127):
+            low,high=F(33,32)*F(2)**exponent,F(17,16)*F(2)**exponent
+            session=ConversionSession(StringCompiler(),{'X1':Domain(low,high,max(-149,exponent-23),True)})
+            session.f32_values.add(session.key(syntax('X1')))
+            expression=session.close('R32(sqrt(X1))')
+            self.assertEqual(expression.count('X1'),2)
+            self.assertEqual(session.narrow_square_roots_closed,1)
+            self.assertNotIn('sqrt(',expression);self.assertNotIn('R32(',expression)
+            expressions.append(expression)
+            ranges.append(tuple(struct.unpack('I',struct.pack('f',float(x)))[0]for x in (low,high)))
+        for low,high in ((F(33,32)-F(2)**-23,F(17,16)),(F(33,32),F(17,16)+F(2)**-23),(F(33,32),F(33,16))):
+            other=ConversionSession(StringCompiler(),{'X1':Domain(low,high,-23,True)})
+            other.f32_values.add(other.key(syntax('X1')))
+            text=other.close('R32(sqrt(X1))')
+            self.assertEqual(text.count('X1'),5 if high<2 else 7)
+            self.assertEqual(getattr(other,'narrow_square_roots_closed',0),0)
+        with tempfile.TemporaryDirectory()as directory:
+            root=Path(directory);source=root/'narrow.cpp';binary=root/'narrow'
+            functions='\n'.join('double f'+str(i)+'(double X1){return '+cpp(syntax(text))+';}'for i,text in enumerate(expressions))
+            approximation=repr(NARROW_CONSTANT_TERM)
+            for residue,pole in NARROW_PARTIAL_FRACTIONS:
+                approximation=f'(({approximation})+({residue!r}/(z+{pole!r})))'
+            source.write_text('#include <cstdint>\n#include <cstring>\n#include <cmath>\n#include <cstdio>\n#include <cfenv>\ntemplate<class T,class U>T word(U x){T y;std::memcpy(&y,&x,sizeof(y));return y;}\n'+functions+
+                '\ndouble polynomial(double m,unsigned p){double z=m-1.046875;return ('+approximation+')*(p?1.4142135623730951:1.0);}\n'+
+                'int main(){if(std::fesetround(FE_TONEAREST))return 2;uint64_t cases=0,failures=0,ties=0;double (*functions[])(double)={f0,f1,f2,f3,f4,f5,f6,f7};unsigned ranges[][2]={'+','.join('{'+str(a)+','+str(b)+'}'for a,b in ranges)+'};'+'''
+for(unsigned i=0;i<8;i++)for(unsigned b=ranges[i][0];b<=ranges[i][1];b++){
+ double x=word<float>(uint32_t(b));double actual=functions[i](x),expected=double(float(std::sqrt(x)));
+ failures+=word<uint64_t>(actual)!=word<uint64_t>(expected);cases++;
+}std::printf("Narrow sqrt emitted parity: cases=%llu mismatches=%llu\\n",(unsigned long long)cases,(unsigned long long)failures);
+uint64_t normalized=0;for(unsigned m=262144;m<=524288;m++)for(unsigned p=0;p<2;p++){
+ double x=word<float>(uint32_t((127u<<23)|m));double raw=polynomial(x,p);
+ failures+=word<uint32_t>(float(raw))!=word<uint32_t>(float(std::sqrt(x*(p?2.0:1.0))));
+ ties+=(word<uint64_t>(raw)&UINT64_C(536870911))==UINT64_C(268435456);normalized++;
+}std::printf("Narrow sqrt mantissa certificate: cases=%llu mismatches=%llu midpoints=%llu\\n",(unsigned long long)normalized,(unsigned long long)failures,(unsigned long long)ties);return failures||ties?1:0;}
+''')
+            subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],check=True,capture_output=True,text=True)
+            tested=subprocess.run([str(binary)],check=True,capture_output=True,text=True,timeout=120)
+            self.assertIn('cases=1835032 mismatches=0',tested.stdout)
+            self.assertIn('cases=524290 mismatches=0 midpoints=0',tested.stdout);print(tested.stdout,end='')
+
     def test_fixed_scale_context_removes_only_proved_source_occurrences(self):
         expressions=[]
         for exponent in (-149,-126,-25,-1,0,1,24,127):

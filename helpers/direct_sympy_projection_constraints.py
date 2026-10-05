@@ -458,7 +458,9 @@ def rms_output_source_bounds(registry,proofs):
     """Invert a small whole-vector RMS norm using its original error bound.
 
     If stored outputs have Euclidean norm <=H, the real RMS norm is <=H+E.
-    With K=(H+E)^2<n and T=sum(input_i^2), n*T/(T+n*eps)<=K implies
+    The existing lower-norm theorem also gives the tighter upper enclosure
+    loss*(H+sqrt(n)*2^-25)/(1-2^-11). Use the smaller proved bound.
+    With its square K<n and T=sum(input_i^2), n*T/(T+n*eps)<=K implies
     T<=n*eps*K/(n-K). Only exact +/-1 gamma and certified finite Half
     sources are admitted. These are prefix-local enclosures, not numerical
     replacements for RMS or its mean. Zero signs remain unconstrained.
@@ -485,7 +487,14 @@ def rms_output_source_bounds(registry,proofs):
             if own is None or own not in proofs:break
             keys.append(own)
         if len(caps)!=n or len(keys)!=n:continue
-        upper=sqrt_outward(sum((c*c for c in caps),F(0)),True)+F(error)
+        h=sqrt_outward(sum((c*c for c in caps),F(0)),True)
+        upper=h+F(error)
+        from direct_sympy_checkpoint import rms_half_bound
+        if rms_half_bound(n,eps) is not None:
+            u=F(1,2**23)
+            loss=(1+u)**3/((1-u)**3*sqrt_outward(1-n*u,False))
+            relative=loss*(h+sqrt_outward(F(n),True)*F(1,2**25))/(1-F(1,2**11))
+            upper=min(upper,relative)
         k=upper*upper
         if k>=n:continue
         cap=sqrt_outward(n*F(eps)*k/(n-k),True)

@@ -1,0 +1,7 @@
+..
+----------------------------------------------------------------------
+Ran 2 tests in 2.051s
+
+OK
+Backward RMS vector bound: cases=37773316 selected=552300 violations=0
+Relative RMS tiny-output bound: cases=319488 selected=9 violations=0

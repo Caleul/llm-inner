@@ -1,0 +1,2742 @@
+{
+  "literalGuardMatches": [
+    {
+      "guardTruth": false,
+      "matchedDefinition": null,
+      "source": "0.0 + CompileValue2() * 0.0030536651611328125 + CompileValue4() * 0.00511932373046875"
+    },
+    {
+      "guardTruth": false,
+      "matchedDefinition": null,
+      "source": "0.0 + CompileValue2() * -0.0226287841796875 + CompileValue4() * 0.0184478759765625"
+    },
+    {
+      "guardTruth": true,
+      "matchedDefinition": null,
+      "source": "CompileValue8() * 0.032928466796875 + CompileValue11() * -0.0225982666015625"
+    },
+    {
+      "guardTruth": true,
+      "matchedDefinition": null,
+      "source": "CompileValue8() * 0.0203399658203125 + CompileValue11() * 0.006168365478515625"
+    },
+    {
+      "guardTruth": false,
+      "matchedDefinition": null,
+      "source": "CompileValue18() * -0.00046515464782714844 + CompileValue20() * -0.0145721435546875"
+    },
+    {
+      "guardTruth": true,
+      "matchedDefinition": null,
+      "source": "CompileValue18() * -0.00046515464782714844 + CompileValue20() * -0.0145721435546875"
+    },
+    {
+      "guardTruth": true,
+      "matchedDefinition": null,
+      "source": "CompileValue18() * 0.006542205810546875 + CompileValue20() * 0.0217437744140625"
+    },
+    {
+      "guardTruth": true,
+      "matchedDefinition": null,
+      "source": "CompileValue24() * CompileValue25()"
+    },
+    {
+      "guardTruth": true,
+      "matchedDefinition": null,
+      "source": "CompileValue35() * -0.007061004638671875 + CompileValue37() * -0.0025844573974609375"
+    }
+  ],
+  "compilerIdentity": {
+    "version": 1,
+    "dimension": 2,
+    "position": 0,
+    "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+    "sympy": "1.14.0",
+    "platform": "macOS-26.7.1-arm64-arm-64bit",
+    "byteOrder": "little",
+    "referenceBackend": {
+      "name": "torch CPU",
+      "version": "2.12.1",
+      "gitVersion": "7269437d655783a26cba32aa88195b741ff496aa",
+      "capability": "DEFAULT"
+    },
+    "checkpoint": {
+      "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+      "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+    },
+    "sources": {
+      "direct_sympy_arithmetic.py": "b67816f4954a9ef6877bc0b549044c3f2bf6878451f5b4a94fa13f0237072f6d",
+      "direct_sympy_checkpoint.py": "889ecefef40b7cbf1b87452e92decda5837ab9d01bc61affcb0274c045bac146",
+      "direct_sympy_coherent_paths.py": "2ba3d4e1a737b0087c3152cc4ab46021ecf07f7298d733b066b90ddd3e54b19a",
+      "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+      "direct_sympy_conversions.py": "77ac9f3e14c873f2ac4c53e082db78f03596f6b985ee6286f39fc5bb83b167c2",
+      "direct_sympy_input_partitions.py": "21449edd26a0d43ad4a2c5b5e841c5e9d8e7de6afb6ac138a9eef88374558797",
+      "direct_sympy_layer_bounds.py": "c1a93f951ff5ad5af8510671e42ac8c05d73c246dfb2460bacd43cf0e3774dae",
+      "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+      "direct_sympy_partition_run.py": "9985ec29e19e73f59ab0691be88f8278966d64fe2daaaf5fab77135901a66482",
+      "direct_sympy_projection_constraints.py": "5691d612482c0f2f507f480028140ee7a9bfa2f06aff581ed0742ed08effd351",
+      "direct_sympy_recipe_bounds.py": "c75607053ee144fd76d591530dba9a06d28634a6bdc96978b0894ecac76621ae",
+      "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+      "direct_sympy_savepoints.py": "064a2a6ae267ac4338ae6bb102a5ddb2272869d63f0ff857a1d0116313de4cb7",
+      "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+      "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+      "direct_sympy_silu.py": "e623f38b5008356d8f6aa1615aabfa5a779f9dc7ea9d5b8183c5b17a78383fe3",
+      "direct_sympy_sqrt.py": "54d1504b9d9389d4e061b19894e6322ccf9f8434997c4fe1687f7e2a8b9f9b8a",
+      "direct_sympy_streaming_literals.py": "7310a1dd1a7ee97bcab7f792859a67cf02ea075e2e72c546b92231687ae0c9d6",
+      "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+      "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+      "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+      "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
+    }
+  },
+  "seconds": 77.5009376249509,
+  "candidate": 24,
+  "bodyCharacters": 168126471,
+  "expression": "CompileValue39()",
+  "definitions": [
+    {
+      "index": 0,
+      "text": "Float64(U64FromF64(F64FromU64(Bits64(Float64(U64FromF64(F64FromU64(Bits64(X1 ** 2 + X2 ** 2)) + 2 ** 81 - 2 ** 81)) / 2 + 9.999999974752427e-07)) + 2 ** 81 - 2 ** 81))",
+      "recipe": "R32(R32(R32(X1 ** 2 + X2 ** 2) / 2) + 9.999999974752427e-07)",
+      "expandedCharacters": 169,
+      "references": {}
+    },
+    {
+      "index": 1,
+      "text": "Float64(U64And(U64Add(Bits64(1.0 / Float64(U64Add(U64And(U64Add(Bits64(13.367174015436346 + -779.0174377628756 / (Float64(U64Or(U64And(U64FromF64(F64FromU64(Bits64(Float64(U64FromF64(F64FromU64(Bits64(X1 ** 2 + X2 ** 2)) + 2 ** 81 - 2 ** 81)) / 2 + 9.999999974752427e-07)) + 2 ** 81 - 2 ** 81), 4503599627370495), 4607182418800017408)) - 1.5 + 72.88886838020784) + -9.032202101157678 / (Float64(U64Or(U64And(U64FromF64(F64FromU64(Bits64(Float64(U64FromF64(F64FromU64(Bits64(X1 ** 2 + X2 ** 2)) + 2 ** 81 - 2 ** 81)) / 2 + 9.999999974752427e-07)) + 2 ** 81 - 2 ** 81), 4503599627370495), 4607182418800017408)) - 1.5 + 8.541941977833192) + -1.0005960489978687 / (Float64(U64Or(U64And(U64FromF64(F64FromU64(Bits64(Float64(U64FromF64(F64FromU64(Bits64(X1 ** 2 + X2 ** 2)) + 2 ** 81 - 2 ** 81)) / 2 + 9.999999974752427e-07)) + 2 ** 81 - 2 ** 81), 4503599627370495), 4607182418800017408)) - 1.5 + 3.4400824392419294) + -0.1852754751106736 / (Float64(U64Or(U64And(U64FromF64(F64FromU64(Bits64(Float64(U64FromF64(F64FromU64(Bits64(X1 ** 2 + X2 ** 2)) + 2 ** 81 - 2 ** 81)) / 2 + 9.999999974752427e-07)) + 2 ** 81 - 2 ** 81), 4503599627370495), 4607182418800017408)) - 1.5 + 2.096193424586035) + -0.029292444172441905 / (Float64(U64Or(U64And(U64FromF64(F64FromU64(Bits64(Float64(U64FromF64(F64FromU64(Bits64(X1 ** 2 + X2 ** 2)) + 2 ** 81 - 2 ** 81)) / 2 + 9.999999974752427e-07)) + 2 ** 81 - 2 ** 81), 4503599627370495), 4607182418800017408)) - 1.5 + 1.6235843576093156)), 268435455), 18446744073172680704), 18401708077435846656))), 268435455), 18446744073172680704))",
+      "recipe": "R32(1.0 / R32(sqrt(CompileValue0())))",
+      "expandedCharacters": 1560,
+      "references": {}
+    },
+    {
+      "index": 2,
+      "text": "Float64(U64Or(Bits64(Float64(U64And(Bits64(X1 * CompileValue1()), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(X1), 9223372036854775808)))",
+      "recipe": "R16(R16(R32(X1 * CompileValue1())) * 1.0)",
+      "expandedCharacters": 1698,
+      "references": {
+        "CompileValue1": 1
+      }
+    },
+    {
+      "index": 3,
+      "text": "Float64(U64And(U64Add(U64And(Bits64(X1), 9223372036854775808), Bits64(0)), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 98,
+      "references": {}
+    },
+    {
+      "index": 4,
+      "text": "Float64(U64FromF64(F64FromU64(Bits64(X2 * CompileValue1())) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94))",
+      "recipe": "R16(R16(R32(X2 * CompileValue1())) * 1.0)",
+      "expandedCharacters": 1648,
+      "references": {
+        "CompileValue1": 1
+      }
+    },
+    {
+      "index": 5,
+      "text": "Float64(U64And(U64Add(U64And(Bits64(X2), 9223372036854775808), Bits64(0)), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 98,
+      "references": {}
+    },
+    {
+      "index": 6,
+      "text": "Float64(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue2() * 0.0030536651611328125 + CompileValue4() * 0.00511932373046875)) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94))",
+      "recipe": "R16(R32(R32(R32(0.0 + CompileValue2() * 0.0030536651611328125) + R32(0.0 + CompileValue4() * 0.00511932373046875)) + R32(0.0 + 0.0)))",
+      "expandedCharacters": 3484,
+      "references": {
+        "CompileValue4": 1,
+        "CompileValue2": 1
+      }
+    },
+    {
+      "index": 7,
+      "text": "Float64(U64And(Bits64(0.0 + CompileValue2() * 0.0030536651611328125 + (0.0 + CompileValue4() * 0.00511932373046875)), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 3457,
+      "references": {
+        "CompileValue4": 1,
+        "CompileValue2": 1
+      }
+    },
+    {
+      "index": 8,
+      "text": "Float64(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue2() * 0.0030536651611328125 + CompileValue4() * 0.00511932373046875)) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94))",
+      "recipe": "R16(R32(R32(R32(0.0 + 1.0 * CompileValue6()) + 0.0) + R32(0.0 + 0.0)))",
+      "expandedCharacters": 3484,
+      "references": {
+        "CompileValue4": 1,
+        "CompileValue2": 1
+      }
+    },
+    {
+      "index": 9,
+      "text": "Float64(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue2() * -0.0226287841796875 + CompileValue4() * 0.0184478759765625)) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94))",
+      "recipe": "R16(R32(R32(R32(0.0 + CompileValue2() * -0.0226287841796875) + R32(0.0 + CompileValue4() * 0.0184478759765625)) + R32(0.0 + 0.0)))",
+      "expandedCharacters": 3481,
+      "references": {
+        "CompileValue4": 1,
+        "CompileValue2": 1
+      }
+    },
+    {
+      "index": 10,
+      "text": "Float64(U64And(Bits64(0.0 + CompileValue2() * -0.0226287841796875 + (0.0 + CompileValue4() * 0.0184478759765625)), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 3454,
+      "references": {
+        "CompileValue4": 1,
+        "CompileValue2": 1
+      }
+    },
+    {
+      "index": 11,
+      "text": "Float64(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue2() * -0.0226287841796875 + CompileValue4() * 0.0184478759765625)) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94))",
+      "recipe": "R16(R32(R32(R32(0.0 + 1.0 * CompileValue9()) + 0.0) + R32(0.0 + 0.0)))",
+      "expandedCharacters": 3481,
+      "references": {
+        "CompileValue4": 1,
+        "CompileValue2": 1
+      }
+    },
+    {
+      "index": 12,
+      "text": "Float64(U64FromF64(F64FromU64(Bits64(X1 + Float64(U64Or(Bits64(Float64(U64And(U64FromF64(F64FromU64(Bits64(CompileValue8() * 0.032928466796875 + CompileValue11() * -0.0225982666015625)) + 2 ** 81 - 2 ** 81), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(CompileValue8() * 0.032928466796875 + CompileValue11() * -0.0225982666015625), 9223372036854775808))))) + 2 ** 94 - 2 ** 94))",
+      "recipe": "R16(R32(X1 + R16(R32(R32(R32(0.0 + CompileValue8() * 0.032928466796875) + R32(0.0 + CompileValue11() * -0.0225982666015625)) + R32(0.0 + 0.0)))))",
+      "expandedCharacters": 14261,
+      "references": {
+        "CompileValue11": 2,
+        "CompileValue8": 2
+      }
+    },
+    {
+      "index": 13,
+      "text": "Float64(U64And(Bits64(X1 + Piecewise((Float64(U64Or(Bits64(Float64(U64And(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue8() * 0.032928466796875 + (0.0 + CompileValue11() * -0.0225982666015625))) + 2 ** 81 - 2 ** 81), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue8() * 0.032928466796875 + (0.0 + CompileValue11() * -0.0225982666015625)), 9223372036854775808))), U64And(Bits64(0.0 + CompileValue8() * 0.032928466796875 + (0.0 + CompileValue11() * -0.0225982666015625)), 9223372036854775807) < 4544132023748395008), (Float64(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue8() * 0.032928466796875 + (0.0 + CompileValue11() * -0.0225982666015625))) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94)), True))), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 28487,
+      "references": {
+        "CompileValue11": 4,
+        "CompileValue8": 4
+      }
+    },
+    {
+      "index": 14,
+      "text": "Float64(U64FromF64(F64FromU64(Bits64(X2 + Float64(U64Or(Bits64(Float64(U64And(U64FromF64(F64FromU64(Bits64(CompileValue8() * 0.0203399658203125 + CompileValue11() * 0.006168365478515625)) + 2 ** 81 - 2 ** 81), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(CompileValue8() * 0.0203399658203125 + CompileValue11() * 0.006168365478515625), 9223372036854775808))))) + 2 ** 94 - 2 ** 94))",
+      "recipe": "R16(R32(X2 + R16(R32(R32(R32(0.0 + CompileValue8() * 0.0203399658203125) + R32(0.0 + CompileValue11() * 0.006168365478515625)) + R32(0.0 + 0.0)))))",
+      "expandedCharacters": 14265,
+      "references": {
+        "CompileValue11": 2,
+        "CompileValue8": 2
+      }
+    },
+    {
+      "index": 15,
+      "text": "Float64(U64And(Bits64(X2 + Piecewise((Float64(U64Or(Bits64(Float64(U64And(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue8() * 0.0203399658203125 + (0.0 + CompileValue11() * 0.006168365478515625))) + 2 ** 81 - 2 ** 81), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue8() * 0.0203399658203125 + (0.0 + CompileValue11() * 0.006168365478515625)), 9223372036854775808))), U64And(Bits64(0.0 + CompileValue8() * 0.0203399658203125 + (0.0 + CompileValue11() * 0.006168365478515625)), 9223372036854775807) < 4544132023748395008), (Float64(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue8() * 0.0203399658203125 + (0.0 + CompileValue11() * 0.006168365478515625))) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94)), True))), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 28495,
+      "references": {
+        "CompileValue11": 4,
+        "CompileValue8": 4
+      }
+    },
+    {
+      "index": 16,
+      "text": "Float64(U64FromF64(F64FromU64(Bits64(Float64(U64FromF64(F64FromU64(Bits64(CompileValue12() ** 2 + CompileValue14() ** 2)) + 2 ** 81 - 2 ** 81)) / 2 + 9.999999974752427e-07)) + 2 ** 81 - 2 ** 81))",
+      "recipe": "R32(R32(R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2) + 9.999999974752427e-07)",
+      "expandedCharacters": 28691,
+      "references": {
+        "CompileValue14": 1,
+        "CompileValue12": 1
+      }
+    },
+    {
+      "index": 17,
+      "text": "Float64(U64And(U64Add(Bits64(1.0 / Float64(U64Add(U64And(U64Add(Bits64(13.367174015436346 + -779.0174377628756 / (Float64(U64Or(U64And(U64FromF64(F64FromU64(Bits64(Float64(U64FromF64(F64FromU64(Bits64(CompileValue12() ** 2 + CompileValue14() ** 2)) + 2 ** 81 - 2 ** 81)) / 2 + 9.999999974752427e-07)) + 2 ** 81 - 2 ** 81), 4503599627370495), 4607182418800017408)) - 1.5 + 72.88886838020784) + -9.032202101157678 / (Float64(U64Or(U64And(U64FromF64(F64FromU64(Bits64(Float64(U64FromF64(F64FromU64(Bits64(CompileValue12() ** 2 + CompileValue14() ** 2)) + 2 ** 81 - 2 ** 81)) / 2 + 9.999999974752427e-07)) + 2 ** 81 - 2 ** 81), 4503599627370495), 4607182418800017408)) - 1.5 + 8.541941977833192) + -1.0005960489978687 / (Float64(U64Or(U64And(U64FromF64(F64FromU64(Bits64(Float64(U64FromF64(F64FromU64(Bits64(CompileValue12() ** 2 + CompileValue14() ** 2)) + 2 ** 81 - 2 ** 81)) / 2 + 9.999999974752427e-07)) + 2 ** 81 - 2 ** 81), 4503599627370495), 4607182418800017408)) - 1.5 + 3.4400824392419294) + -0.1852754751106736 / (Float64(U64Or(U64And(U64FromF64(F64FromU64(Bits64(Float64(U64FromF64(F64FromU64(Bits64(CompileValue12() ** 2 + CompileValue14() ** 2)) + 2 ** 81 - 2 ** 81)) / 2 + 9.999999974752427e-07)) + 2 ** 81 - 2 ** 81), 4503599627370495), 4607182418800017408)) - 1.5 + 2.096193424586035) + -0.029292444172441905 / (Float64(U64Or(U64And(U64FromF64(F64FromU64(Bits64(Float64(U64FromF64(F64FromU64(Bits64(CompileValue12() ** 2 + CompileValue14() ** 2)) + 2 ** 81 - 2 ** 81)) / 2 + 9.999999974752427e-07)) + 2 ** 81 - 2 ** 81), 4503599627370495), 4607182418800017408)) - 1.5 + 1.6235843576093156)), 268435455), 18446744073172680704), 18401708077435846656))), 268435455), 18446744073172680704))",
+      "recipe": "R32(1.0 / R32(sqrt(CompileValue16())))",
+      "expandedCharacters": 144170,
+      "references": {
+        "CompileValue14": 5,
+        "CompileValue12": 5
+      }
+    },
+    {
+      "index": 18,
+      "text": "Float64(U64FromF64(F64FromU64(Bits64(CompileValue12() * CompileValue17())) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94))",
+      "recipe": "R16(R16(R32(CompileValue12() * CompileValue17())) * 1.0)",
+      "expandedCharacters": 158517,
+      "references": {
+        "CompileValue12": 1,
+        "CompileValue17": 1
+      }
+    },
+    {
+      "index": 19,
+      "text": "Float64(U64And(U64Add(U64And(Bits64(X1 + Piecewise((Float64(U64Or(Bits64(Float64(U64And(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue8() * 0.032928466796875 + (0.0 + CompileValue11() * -0.0225982666015625))) + 2 ** 81 - 2 ** 81), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue8() * 0.032928466796875 + (0.0 + CompileValue11() * -0.0225982666015625)), 9223372036854775808))), U64And(Bits64(0.0 + CompileValue8() * 0.032928466796875 + (0.0 + CompileValue11() * -0.0225982666015625)), 9223372036854775807) < 4544132023748395008), (Float64(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue8() * 0.032928466796875 + (0.0 + CompileValue11() * -0.0225982666015625))) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94)), True))), 9223372036854775808), Bits64(0)), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 28535,
+      "references": {
+        "CompileValue11": 4,
+        "CompileValue8": 4
+      }
+    },
+    {
+      "index": 20,
+      "text": "Float64(U64FromF64(F64FromU64(Bits64(CompileValue14() * CompileValue17())) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94))",
+      "recipe": "R16(R16(R32(CompileValue14() * CompileValue17())) * 1.0)",
+      "expandedCharacters": 158521,
+      "references": {
+        "CompileValue14": 1,
+        "CompileValue17": 1
+      }
+    },
+    {
+      "index": 21,
+      "text": "Float64(U64And(U64Add(U64And(Bits64(X2 + Piecewise((Float64(U64Or(Bits64(Float64(U64And(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue8() * 0.0203399658203125 + (0.0 + CompileValue11() * 0.006168365478515625))) + 2 ** 81 - 2 ** 81), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue8() * 0.0203399658203125 + (0.0 + CompileValue11() * 0.006168365478515625)), 9223372036854775808))), U64And(Bits64(0.0 + CompileValue8() * 0.0203399658203125 + (0.0 + CompileValue11() * 0.006168365478515625)), 9223372036854775807) < 4544132023748395008), (Float64(U64FromF64(F64FromU64(Bits64(0.0 + CompileValue8() * 0.0203399658203125 + (0.0 + CompileValue11() * 0.006168365478515625))) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94)), True))), 9223372036854775808), Bits64(0)), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 28543,
+      "references": {
+        "CompileValue11": 4,
+        "CompileValue8": 4
+      }
+    },
+    {
+      "index": 22,
+      "text": "Float64(U64FromF64(F64FromU64(Bits64(CompileValue18() * -0.00046515464782714844 + CompileValue20() * -0.0145721435546875)) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94))",
+      "recipe": "R16(R32(R32(R32(0.0 + CompileValue18() * -0.00046515464782714844) + R32(0.0 + CompileValue20() * -0.0145721435546875)) + R32(0.0 + 0.0)))",
+      "expandedCharacters": 317172,
+      "references": {
+        "CompileValue18": 1,
+        "CompileValue20": 1
+      }
+    },
+    {
+      "index": 23,
+      "text": "Float64(U64And(Bits64(0.0 + CompileValue18() * -0.00046515464782714844 + (0.0 + CompileValue20() * -0.0145721435546875)), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 317151,
+      "references": {
+        "CompileValue18": 1,
+        "CompileValue20": 1
+      }
+    },
+    {
+      "index": 24,
+      "text": "Float64(U64Or(Bits64(Float64(U64And(U64FromF64(F64FromU64(Bits64(((Float64(U64FromF64(F64FromU64(Bits64(CompileValue18() * -0.00046515464782714844 + CompileValue20() * -0.0145721435546875)) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94)) + 1.0) ** 2 - 1.0) * 0.25)) + 2 ** 81 - 2 ** 81), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(U64FromF64(F64FromU64(Bits64(CompileValue18() * -0.00046515464782714844 + CompileValue20() * -0.0145721435546875)) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94), 9223372036854775808)))",
+      "recipe": "Silu16(CompileValue22())",
+      "expandedCharacters": 634526,
+      "references": {
+        "CompileValue18": 2,
+        "CompileValue20": 2
+      }
+    },
+    {
+      "index": 25,
+      "text": "Float64(U64Or(Bits64(Float64(U64And(U64FromF64(F64FromU64(Bits64(CompileValue18() * 0.006542205810546875 + CompileValue20() * 0.0217437744140625)) + 2 ** 81 - 2 ** 81), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(CompileValue18() * 0.006542205810546875 + CompileValue20() * 0.0217437744140625), 9223372036854775808)))",
+      "recipe": "R16(R32(R32(R32(0.0 + CompileValue18() * 0.006542205810546875) + R32(0.0 + CompileValue20() * 0.0217437744140625)) + R32(0.0 + 0.0)))",
+      "expandedCharacters": 634345,
+      "references": {
+        "CompileValue18": 2,
+        "CompileValue20": 2
+      }
+    },
+    {
+      "index": 26,
+      "text": "Float64(U64And(Bits64(0.0 + CompileValue18() * 0.006542205810546875 + (0.0 + CompileValue20() * 0.0217437744140625)), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 317147,
+      "references": {
+        "CompileValue18": 1,
+        "CompileValue20": 1
+      }
+    },
+    {
+      "index": 27,
+      "text": "Float64(U64Or(Bits64(Float64(U64And(Bits64(CompileValue24() * CompileValue25()), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64Add(U64And(Bits64(CompileValue18() * -0.00046515464782714844 + CompileValue20() * -0.0145721435546875), 9223372036854775808), U64And(Bits64(CompileValue18() * 0.006542205810546875 + CompileValue20() * 0.0217437744140625), 9223372036854775808))))",
+      "recipe": "R16(R32(CompileValue24() * CompileValue25()))",
+      "expandedCharacters": 1903226,
+      "references": {
+        "CompileValue18": 2,
+        "CompileValue25": 1,
+        "CompileValue20": 2,
+        "CompileValue24": 1
+      }
+    },
+    {
+      "index": 28,
+      "text": "Float64(U64Add(U64And(Bits64(0.0 + CompileValue18() * -0.00046515464782714844 + (0.0 + CompileValue20() * -0.0145721435546875)), 9223372036854775808), U64And(Bits64(0.0 + CompileValue18() * 0.006542205810546875 + (0.0 + CompileValue20() * 0.0217437744140625)), 9223372036854775808)))",
+      "recipe": null,
+      "expandedCharacters": 634297,
+      "references": {
+        "CompileValue18": 2,
+        "CompileValue20": 2
+      }
+    },
+    {
+      "index": 29,
+      "text": "CompileValue12() + Float64(U64Or(Bits64(Float64(U64And(Bits64(0.0 + CompileValue27() * -0.015777587890625), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue27() * -0.015777587890625), 9223372036854775808)))",
+      "recipe": "R16(R32(CompileValue12() + R16(R32(R32(R32(0.0 + CompileValue27() * -0.015777587890625) + 0.0) + R32(0.0 + 0.0)))))",
+      "expandedCharacters": 3820901,
+      "references": {
+        "CompileValue12": 1,
+        "CompileValue27": 2
+      }
+    },
+    {
+      "index": 30,
+      "text": "Float64(U64And(Bits64(CompileValue12() + Float64(U64Or(Bits64(Float64(U64And(Bits64(0.0 + CompileValue27() * -0.015777587890625), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue27() * -0.015777587890625), 9223372036854775808)))), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 3820947,
+      "references": {
+        "CompileValue12": 1,
+        "CompileValue27": 2
+      }
+    },
+    {
+      "index": 31,
+      "text": "CompileValue14() + Float64(U64Or(Bits64(Float64(U64And(Bits64(0.0 + CompileValue27() * -0.01873779296875), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue27() * -0.01873779296875), 9223372036854775808)))",
+      "recipe": "R16(R32(CompileValue14() + R16(R32(R32(R32(0.0 + CompileValue27() * -0.01873779296875) + 0.0) + R32(0.0 + 0.0)))))",
+      "expandedCharacters": 3820903,
+      "references": {
+        "CompileValue14": 1,
+        "CompileValue27": 2
+      }
+    },
+    {
+      "index": 32,
+      "text": "Float64(U64And(Bits64(CompileValue14() + Float64(U64Or(Bits64(Float64(U64And(Bits64(0.0 + CompileValue27() * -0.01873779296875), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue27() * -0.01873779296875), 9223372036854775808)))), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 3820949,
+      "references": {
+        "CompileValue14": 1,
+        "CompileValue27": 2
+      }
+    },
+    {
+      "index": 33,
+      "text": "Float64(U64FromF64(F64FromU64(Bits64(Float64(U64FromF64(F64FromU64(Bits64(CompileValue29() ** 2 + CompileValue31() ** 2)) + 2 ** 81 - 2 ** 81)) / 2 + 9.999999974752427e-07)) + 2 ** 81 - 2 ** 81))",
+      "recipe": "R32(R32(R32(CompileValue29() ** 2 + CompileValue31() ** 2) / 2) + 9.999999974752427e-07)",
+      "expandedCharacters": 7641969,
+      "references": {
+        "CompileValue31": 1,
+        "CompileValue29": 1
+      }
+    },
+    {
+      "index": 34,
+      "text": "Float64(U64And(U64Add(Bits64(1.0 / Float64(U64Add(U64And(U64Add(Bits64(13.367174015436346 + -779.0174377628756 / (Float64(U64Or(U64And(U64FromF64(F64FromU64(Bits64(Float64(U64FromF64(F64FromU64(Bits64(CompileValue29() ** 2 + CompileValue31() ** 2)) + 2 ** 81 - 2 ** 81)) / 2 + 9.999999974752427e-07)) + 2 ** 81 - 2 ** 81), 4503599627370495), 4607182418800017408)) - 1.5 + 72.88886838020784) + -9.032202101157678 / (Float64(U64Or(U64And(U64FromF64(F64FromU64(Bits64(Float64(U64FromF64(F64FromU64(Bits64(CompileValue29() ** 2 + CompileValue31() ** 2)) + 2 ** 81 - 2 ** 81)) / 2 + 9.999999974752427e-07)) + 2 ** 81 - 2 ** 81), 4503599627370495), 4607182418800017408)) - 1.5 + 8.541941977833192) + -1.0005960489978687 / (Float64(U64Or(U64And(U64FromF64(F64FromU64(Bits64(Float64(U64FromF64(F64FromU64(Bits64(CompileValue29() ** 2 + CompileValue31() ** 2)) + 2 ** 81 - 2 ** 81)) / 2 + 9.999999974752427e-07)) + 2 ** 81 - 2 ** 81), 4503599627370495), 4607182418800017408)) - 1.5 + 3.4400824392419294) + -0.1852754751106736 / (Float64(U64Or(U64And(U64FromF64(F64FromU64(Bits64(Float64(U64FromF64(F64FromU64(Bits64(CompileValue29() ** 2 + CompileValue31() ** 2)) + 2 ** 81 - 2 ** 81)) / 2 + 9.999999974752427e-07)) + 2 ** 81 - 2 ** 81), 4503599627370495), 4607182418800017408)) - 1.5 + 2.096193424586035) + -0.029292444172441905 / (Float64(U64Or(U64And(U64FromF64(F64FromU64(Bits64(Float64(U64FromF64(F64FromU64(Bits64(CompileValue29() ** 2 + CompileValue31() ** 2)) + 2 ** 81 - 2 ** 81)) / 2 + 9.999999974752427e-07)) + 2 ** 81 - 2 ** 81), 4503599627370495), 4607182418800017408)) - 1.5 + 1.6235843576093156)), 268435455), 18446744073172680704), 18401708077435846656))), 268435455), 18446744073172680704))",
+      "recipe": "R32(1.0 / R32(sqrt(CompileValue33())))",
+      "expandedCharacters": 38210560,
+      "references": {
+        "CompileValue31": 5,
+        "CompileValue29": 5
+      }
+    },
+    {
+      "index": 35,
+      "text": "Float64(U64FromF64(F64FromU64(Bits64(CompileValue29() * CompileValue34())) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94))",
+      "recipe": "R16(R16(R32(CompileValue29() * CompileValue34())) * 1.0)",
+      "expandedCharacters": 42031547,
+      "references": {
+        "CompileValue34": 1,
+        "CompileValue29": 1
+      }
+    },
+    {
+      "index": 36,
+      "text": "Float64(U64And(U64Add(U64And(Bits64(CompileValue12() + Float64(U64Or(Bits64(Float64(U64And(Bits64(0.0 + CompileValue27() * -0.015777587890625), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue27() * -0.015777587890625), 9223372036854775808)))), 9223372036854775808), Bits64(0)), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 3820995,
+      "references": {
+        "CompileValue12": 1,
+        "CompileValue27": 2
+      }
+    },
+    {
+      "index": 37,
+      "text": "Float64(U64FromF64(F64FromU64(Bits64(CompileValue31() * CompileValue34())) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94))",
+      "recipe": "R16(R16(R32(CompileValue31() * CompileValue34())) * 1.0)",
+      "expandedCharacters": 42031549,
+      "references": {
+        "CompileValue31": 1,
+        "CompileValue34": 1
+      }
+    },
+    {
+      "index": 38,
+      "text": "Float64(U64And(U64Add(U64And(Bits64(CompileValue14() + Float64(U64Or(Bits64(Float64(U64And(Bits64(0.0 + CompileValue27() * -0.01873779296875), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(0.0 + CompileValue27() * -0.01873779296875), 9223372036854775808)))), 9223372036854775808), Bits64(0)), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 3820997,
+      "references": {
+        "CompileValue14": 1,
+        "CompileValue27": 2
+      }
+    },
+    {
+      "index": 39,
+      "text": "Float64(U64Or(Bits64(Float64(U64And(U64FromF64(F64FromU64(Bits64(CompileValue35() * -0.007061004638671875 + CompileValue37() * -0.0025844573974609375)) + 2 ** 81 - 2 ** 81), 9223372036854775807)) + 2 ** 28 - 2 ** 28), U64And(Bits64(CompileValue35() * -0.007061004638671875 + CompileValue37() * -0.0025844573974609375), 9223372036854775808)))",
+      "recipe": "R16(R32(R32(R32(0.0 + CompileValue35() * -0.007061004638671875) + R32(0.0 + CompileValue37() * -0.0025844573974609375)) + R32(0.0 + 0.0)))",
+      "expandedCharacters": 168126471,
+      "references": {
+        "CompileValue35": 2,
+        "CompileValue37": 2
+      }
+    },
+    {
+      "index": 40,
+      "text": "Float64(U64And(Bits64(0.0 + CompileValue35() * -0.007061004638671875 + (0.0 + CompileValue37() * -0.0025844573974609375)), 9223372036854775808))",
+      "recipe": null,
+      "expandedCharacters": 84063210,
+      "references": {
+        "CompileValue35": 1,
+        "CompileValue37": 1
+      }
+    }
+  ],
+  "observedMeanConversions": [
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CASNumericRegion137() ** 2 + CASNumericRegion138() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CASNumericRegion300() ** 2 + CASNumericRegion301() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000710535251758e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999289414253094e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 7.105604993284942e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000055699066481e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99994425043837e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 5.572431405198586e-12,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000102648177747e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999897301327106e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.0267342531733448e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000004539989506e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999995409515346e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4.565237077258644e-13,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000006405164188e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999993544340664e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 6.430411758628907e-13,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000004539989506e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999995409515346e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4.565237077258644e-13,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000006405164188e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999993544340664e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 6.430411758628907e-13,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000055699066481e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99994425043837e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 5.572431405198586e-12,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000102648177747e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999897301327106e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.0267342531733448e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000055699066481e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99994425043837e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 5.572431405198586e-12,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000102648177747e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999897301327106e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.0267342531733448e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000055699066481e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99994425043837e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 5.572431405198586e-12,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000102648177747e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999897301327106e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.0267342531733448e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000055699066481e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99994425043837e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 5.572431405198586e-12,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000102648177747e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999897301327106e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.0267342531733448e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000710535251758e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999289414253094e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 7.105604993284942e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000004539989506e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999995409515346e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4.565237077258644e-13,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000710535251758e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999289414253094e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 7.105604993284942e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000710535251758e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999289414253094e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 7.105604993284942e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000710535251758e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999289414253094e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 7.105604993284942e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000710535251758e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999289414253094e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 7.105604993284942e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000710535251758e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999289414253094e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 7.105604993284942e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000710535251758e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999289414253094e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 7.105604993284942e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000710535251758e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999289414253094e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 7.105604993284942e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000710535251758e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999289414253094e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 7.105604993284942e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000710535251758e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999289414253094e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 7.105604993284942e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000710535251758e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999289414253094e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 7.105604993284942e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000710535251758e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999289414253094e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 7.105604993284942e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000710535251758e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999289414253094e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 7.105604993284942e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000710535251758e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999289414253094e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 7.105604993284942e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000710535251758e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999289414253094e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 7.105604993284942e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000710535251758e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999289414253094e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 7.105604993284942e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue29() ** 2 + CompileValue31() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000710535251758e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999289414253094e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 7.105604993284942e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue29() ** 2 + CompileValue31() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000710535251758e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999289414253094e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 7.105604993284942e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue29() ** 2 + CompileValue31() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000710535251758e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999289414253094e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 7.105604993284942e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000710535251758e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999289414253094e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 7.105604993284942e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000710535251758e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999289414253094e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 7.105604993284942e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000710535251758e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999289414253094e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 7.105604993284942e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000710535251758e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999289414253094e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 7.105604993284942e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue29() ** 2 + CompileValue31() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000710535251758e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999289414253094e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 7.105604993284942e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue29() ** 2 + CompileValue31() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000710535251758e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999289414253094e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 7.105604993284942e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue29() ** 2 + CompileValue31() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0001309096452362e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99869085305249e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.3091216999328026e-10,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000055699066481e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99994425043837e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 5.572431405198586e-12,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 4290774016.0000014,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4290774016.0,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.3491116135355698e-06,
+        "quantum": -49,
+        "minimum_magnitude": 6.508883814149156e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 3.491116160603269e-07,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.3491116135355698e-06,
+        "quantum": -49,
+        "minimum_magnitude": 6.508883814149156e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 3.491116160603269e-07,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.580294451741793e-06,
+        "quantum": -49,
+        "minimum_magnitude": 4.197055432086926e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 5.8029445426655e-07,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000004539989506e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999995409515346e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 4.565237077258644e-13,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.3491116135355698e-06,
+        "quantum": -49,
+        "minimum_magnitude": 6.508883814149156e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 3.491116160603269e-07,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.580294451741793e-06,
+        "quantum": -49,
+        "minimum_magnitude": 4.197055432086926e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 5.8029445426655e-07,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.3491116135355698e-06,
+        "quantum": -49,
+        "minimum_magnitude": 6.508883814149156e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 3.491116160603269e-07,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.580294451741793e-06,
+        "quantum": -49,
+        "minimum_magnitude": 4.197055432086926e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 5.8029445426655e-07,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0019959137963499e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.980040811541353e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.995916321106961e-09,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0019080267653637e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.980919681851215e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.908029290120794e-09,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0019959137963499e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.980040811541353e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.995916321106961e-09,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0019080267653637e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.980919681851215e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.908029290120794e-09,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0019959137963499e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.980040811541353e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.995916321106961e-09,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0019080267653637e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.980919681851215e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.908029290120794e-09,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0019959137963499e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.980040811541353e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.995916321106961e-09,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0019080267653637e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.980919681851215e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.908029290120794e-09,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0019959137963499e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.980040811541353e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.995916321106961e-09,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0019080267653637e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.980919681851215e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.908029290120794e-09,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue29() ** 2 + CompileValue31() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0019080267653637e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.980919681851215e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.908029290120794e-09,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0019959137963499e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.980040811541353e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.995916321106961e-09,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0019080267653637e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.980919681851215e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.908029290120794e-09,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue29() ** 2 + CompileValue31() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0019080267653637e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.980919681851215e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.908029290120794e-09,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0019959137963499e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.980040811541353e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.995916321106961e-09,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0019080267653637e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.980919681851215e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.908029290120794e-09,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(CompileValue29() ** 2 + CompileValue31() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0019080267653637e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.980919681851215e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.908029290120794e-09,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.3491116135355698e-06,
+        "quantum": -49,
+        "minimum_magnitude": 6.508883814149156e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 3.491116160603269e-07,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.580294451741793e-06,
+        "quantum": -49,
+        "minimum_magnitude": 4.197055432086926e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 5.8029445426655e-07,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.3491116135355698e-06,
+        "quantum": -49,
+        "minimum_magnitude": 6.508883814149156e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 3.491116160603269e-07,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.580294451741793e-06,
+        "quantum": -49,
+        "minimum_magnitude": 4.197055432086926e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 5.8029445426655e-07,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.1757224029906867e-06,
+        "quantum": -49,
+        "minimum_magnitude": 8.242775919597987e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.7572240551544382e-07,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.1676064701759972e-06,
+        "quantum": -49,
+        "minimum_magnitude": 8.323935247744883e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.6760647270075424e-07,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.1757224029906867e-06,
+        "quantum": -49,
+        "minimum_magnitude": 8.242775919597987e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.7572240551544382e-07,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.1676064701759972e-06,
+        "quantum": -49,
+        "minimum_magnitude": 8.323935247744883e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.6760647270075424e-07,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue29() ** 2 + CompileValue31() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.1676617077682751e-06,
+        "quantum": -49,
+        "minimum_magnitude": 8.323382871822103e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.6766171029303223e-07,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.000011653928823e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.999883410216621e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.1656453580144444e-11,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.1757224029906867e-06,
+        "quantum": -49,
+        "minimum_magnitude": 8.242775919597987e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.7572240551544382e-07,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.1676064701759972e-06,
+        "quantum": -49,
+        "minimum_magnitude": 8.323935247744883e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.6760647270075424e-07,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue29() ** 2 + CompileValue31() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.1676617077682751e-06,
+        "quantum": -49,
+        "minimum_magnitude": 8.323382871822103e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.6766171029303223e-07,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.0000012000688232e-06,
+        "quantum": -49,
+        "minimum_magnitude": 9.99998794881662e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.2025935802739696e-12,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.1757224029906867e-06,
+        "quantum": -49,
+        "minimum_magnitude": 8.242775919597987e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.7572240551544382e-07,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.1676064701759972e-06,
+        "quantum": -49,
+        "minimum_magnitude": 8.323935247744883e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.6760647270075424e-07,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue29() ** 2 + CompileValue31() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.1676617077682751e-06,
+        "quantum": -49,
+        "minimum_magnitude": 8.323382871822103e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.6766171029303223e-07,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(X1 ** 2 + X2 ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.1757224029906867e-06,
+        "quantum": -49,
+        "minimum_magnitude": 8.242775919597987e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.7572240551544382e-07,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue12() ** 2 + CompileValue14() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.1676064701759972e-06,
+        "quantum": -49,
+        "minimum_magnitude": 8.323935247744883e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.6760647270075424e-07,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    },
+    {
+      "expression": "R32(CompileValue29() ** 2 + CompileValue31() ** 2) / 2 + 9.999999974752427e-07",
+      "bound": {
+        "minimum": 9.999999974752425e-07,
+        "maximum": 1.1676617077682751e-06,
+        "quantum": -49,
+        "minimum_magnitude": 8.323382871822103e-07
+      },
+      "leftBound": {
+        "minimum": -0.0,
+        "maximum": 1.6766171029303223e-07,
+        "quantum": -49,
+        "minimum_magnitude": 0.0
+      },
+      "leftKind": "f32",
+      "noOddTies": false
+    }
+  ],
+  "guards": [
+    {
+      "expression": "X1 ** 2 < CompileValue0() * 2 ** (-28)",
+      "truth": true,
+      "expandedCharacters": 197
+    },
+    {
+      "expression": "X2 ** 2 < CompileValue0() * 2 ** (-28)",
+      "truth": false,
+      "expandedCharacters": 197
+    },
+    {
+      "expression": "U64And(Bits64(0.0 + CompileValue2() * 0.0030536651611328125 + CompileValue4() * 0.00511932373046875), 9223372036854775807) < 4544132023748395008",
+      "truth": false,
+      "expandedCharacters": 4544
+    },
+    {
+      "expression": "U64And(Bits64(0.0 + CompileValue2() * -0.0226287841796875 + CompileValue4() * 0.0184478759765625), 9223372036854775807) < 4544132023748395008",
+      "truth": false,
+      "expandedCharacters": 4541
+    },
+    {
+      "expression": "U64And(Bits64(CompileValue8() * 0.032928466796875 + CompileValue11() * -0.0225982666015625), 9223372036854775807) < 4544132023748395008",
+      "truth": true,
+      "expandedCharacters": 9237
+    },
+    {
+      "expression": "U64And(Bits64(CompileValue8() * 0.0203399658203125 + CompileValue11() * 0.006168365478515625), 9223372036854775807) < 4544132023748395008",
+      "truth": true,
+      "expandedCharacters": 7071
+    },
+    {
+      "expression": "CompileValue12() ** 2 < CompileValue16() * 2 ** (-28)",
+      "truth": false,
+      "expandedCharacters": 42973
+    },
+    {
+      "expression": "CompileValue14() ** 2 < CompileValue16() * 2 ** (-28)",
+      "truth": false,
+      "expandedCharacters": 42977
+    },
+    {
+      "expression": "U64And(Bits64(CompileValue18() * -0.00046515464782714844 + CompileValue20() * -0.0145721435546875), 9223372036854775807) < 4544132023748395008",
+      "truth": false,
+      "expandedCharacters": 317148
+    },
+    {
+      "expression": "(Float64(U64FromF64(F64FromU64(Bits64(CompileValue18() * -0.00046515464782714844 + CompileValue20() * -0.0145721435546875)) + 2 ** 81 - 2 ** 81 + 2 ** 94 - 2 ** 94)) + 2 ** (-25)) ** 2 < 2 ** (-26)",
+      "truth": true,
+      "expandedCharacters": 317203
+    },
+    {
+      "expression": "U64And(Bits64(CompileValue18() * 0.006542205810546875 + CompileValue20() * 0.0217437744140625), 9223372036854775807) < 4544132023748395008",
+      "truth": true,
+      "expandedCharacters": 317144
+    },
+    {
+      "expression": "U64And(Bits64(CompileValue24() * CompileValue25()), 9223372036854775807) < 4544132024016830464",
+      "truth": true,
+      "expandedCharacters": 1268933
+    },
+    {
+      "expression": "CompileValue29() ** 2 < CompileValue33() * 2 ** (-28)",
+      "truth": false,
+      "expandedCharacters": 11462891
+    },
+    {
+      "expression": "CompileValue31() ** 2 < CompileValue33() * 2 ** (-28)",
+      "truth": false,
+      "expandedCharacters": 11462893
+    },
+    {
+      "expression": "U64And(Bits64(CompileValue35() * -0.007061004638671875 + CompileValue37() * -0.0025844573974609375), 9223372036854775807) < 4544132023748395008",
+      "truth": true,
+      "expandedCharacters": 84063207
+    }
+  ],
+  "stats": {
+    "splitContexts": 37,
+    "completedPaths": 24,
+    "contradictions": 7,
+    "selectorSelections": 826,
+    "CASPasses": 23315,
+    "numericArithmeticEliminated": 5806,
+    "numericRecipeAttempts": 1161,
+    "numericRecipeAdmissions": 529,
+    "numericRecipeBudgetStops": 0,
+    "coupledProjectionContradictions": 0,
+    "rmsBranchRefinements": 1153,
+    "rmsConstantCells": 31,
+    "orderedGuardEliminations": 0,
+    "guardProofPasses": 0,
+    "guardProofBudgetStops": 0,
+    "numericGuardImplications": 341,
+    "recipeConstraintRefinements": 14115,
+    "recipeConstraintPasses": 868,
+    "backwardRoundingSteps": 80534,
+    "prospectiveGuardEliminations": 36,
+    "backwardRMSVectorRefinements": 304,
+    "selectedRecipeIdentities": 36,
+    "prefixRecipeRefinements": 12
+  }
+}

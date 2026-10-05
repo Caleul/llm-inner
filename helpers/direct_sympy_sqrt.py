@@ -25,6 +25,16 @@ PARTIAL_FRACTIONS=((-779.0174377628756,72.88886838020784),
     (-0.1852754751106736,2.096193424586035),
     (-0.029292444172441905,1.6235843576093156))
 
+# Five Lobatto samples on [1.03125,1.0625], centered at 1.046875,
+# admit a two-source 2/2 kernel. Its original ordered F64 evaluation is
+# certified on every F32 mantissa in this interval and both scale parities.
+# Outside a proved single-binade enclosure, retain the universal 5/5 kernel.
+NARROW_CENTER=1.046875
+NARROW_INTERVAL=(1.03125,1.0625)
+NARROW_CONSTANT_TERM=5.115760004435847
+NARROW_PARTIAL_FRACTIONS=((-42.49736561224015,10.962622678643505),
+    (-0.3455137406727387,1.599440032849224))
+
 
 def supported(source,session):
     node=syntax(source);bounds=session.bounds(node)
@@ -35,13 +45,17 @@ def expand(source,session):
     if not supported(source,session):raise ValueError('F32 sqrt certificate requires finite positive F32 input')
     raw='Bits64(X999999997)'
     m=f'Float64(U64Or(U64And({raw},4503599627370495),4607182418800017408))'
-    z=f'(({m}) - 1.5)'
-    p=repr(CONSTANT_TERM)
-    for residue,pole in PARTIAL_FRACTIONS:
-        p=f'(({p}) + ({residue!r} / (({z}) + {pole!r})))'
     bounds=session.bounds(syntax(source))
     first=math.frexp(bounds.minimum)[1]-1;last=math.frexp(bounds.maximum)[1]-1
     constant_scale=first==last
+    narrow=(constant_scale and math.ldexp(bounds.minimum,-first)>=NARROW_INTERVAL[0]
+        and math.ldexp(bounds.maximum,-first)<=NARROW_INTERVAL[1])
+    z=f'(({m}) - {NARROW_CENTER if narrow else 1.5!r})'
+    p=repr(NARROW_CONSTANT_TERM if narrow else CONSTANT_TERM)
+    for residue,pole in (NARROW_PARTIAL_FRACTIONS if narrow else PARTIAL_FRACTIONS):
+        p=f'(({p}) + ({residue!r} / (({z}) + {pole!r})))'
+    if narrow:
+        session.narrow_square_roots_closed=getattr(session,'narrow_square_roots_closed',0)+1
     exponent=f'U64And(U64Shr({raw},52),2047)'
     parity=f'U64And(U64Add({exponent},1),1)'
     if constant_scale:
