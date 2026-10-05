@@ -1,0 +1,68 @@
+warn: It looks like you have an existing installation of Rust at:
+warn: /usr/bin
+warn: This could mean one of the following:
+warn: - You have already installed rustup: you can quit the installer right now.
+warn: - You haven't installed rustup yet, but have Rust installed from elsewhere.
+warn: In the latter case, rustup can coexist with and adopt your existing Rust.
+warn: To adopt, please reply `yes`, or set RUSTUP_INIT_SKIP_PATH_CHECK to yes,
+warn: or pass `-y` to ignore all ignorable checks, then follow the instructions at:
+warn: <https://rust-lang.github.io/rustup/installation/already-installed-rust.html>
+error: cannot install while Rust is installed
+warn: continuing (because the -y flag is set and the error is ignorable)
+info: profile set to minimal
+info: default host tuple is x86_64-unknown-linux-gnu
+info: syncing channel updates for 1.85.1-x86_64-unknown-linux-gnu
+info: latest update on 2025-03-18 for version 1.85.1 (4eb161250 2025-03-15)
+info: downloading 3 components
+info: default toolchain set to 1.85.1-x86_64-unknown-linux-gnu
+
+  1.85.1-x86_64-unknown-linux-gnu installed - rustc 1.85.1 (4eb161250 2025-03-15)
+
+
+Rust is installed now. Great!
+
+To get started you need Cargo's bin directory ($HOME/.cargo/bin) in your PATH
+environment variable. This has not been done automatically.
+
+To configure your current shell, you need to source
+the corresponding env file under $HOME/.cargo.
+
+Consider running the right command for your shell (note the leading DOT):
+. "$HOME/.cargo/env" # For sh/ash/dash/pdksh/bash
+cargo:rerun-if-env-changed=CC_x86_64-unknown-linux-gnu
+CC_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=CC_x86_64_unknown_linux_gnu
+CC_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_CC
+HOST_CC = None
+cargo:rerun-if-env-changed=CC
+CC = None
+cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+CRATE_CC_NO_DEFAULTS = None
+cargo:rerun-if-env-changed=CFLAGS
+CFLAGS = None
+cargo:rerun-if-env-changed=HOST_CFLAGS
+HOST_CFLAGS = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64_unknown_linux_gnu
+CFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64-unknown-linux-gnu
+CFLAGS_x86_64-unknown-linux-gnu = None
+rustc 1.85.1 (4eb161250 2025-03-15)
+
+TAP version 13
+# Subtest: finite half sum/difference needs no intermediate F32 boundary for every magnitude pair
+ok 1 - finite half sum/difference needs no intermediate F32 boundary for every magnitude pair
+  ---
+  duration_ms: 7067.092464
+  type: 'test'
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 7168.929735

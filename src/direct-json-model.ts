@@ -1,3 +1,4 @@
+import type {DirectModelSnapshot} from './direct-model-snapshot.js';
 import {SafetensorsCatalogReader} from './safetensors.js';
 import {DirectWeightPages} from './direct-weight-pages.js';
 import {prepareDirectModel,type DirectModelDiscovery} from './direct-flat-rust-model.js';
@@ -39,13 +40,13 @@ export interface JsonModelLoweringFacts {
  * It is cleared between scalar units. Pending numerical primitives are explicit
  * and cannot pass final JSON admission until their lowering has been proved. */
 export async function openJsonModelBuilder(directory:string,python:string,
-  resources:{weightCacheBytes?:number;maxDependencies?:number}={}):Promise<{
+  resources:{weightCacheBytes?:number;maxDependencies?:number;discoverySnapshot?:DirectModelSnapshot}={}):Promise<{
     header:JsonScalarHeader;discovered:DirectModelDiscovery;
     scoreBounds:number[][];scoreCertificates:(JsonHeadScoreBoundCertificate|undefined)[];
     build:(position:number,dimension:number,options?:JsonModelBuildOptions)=>Promise<{expression:JsonExpression;stats:JsonModelConstructionStats;facts:JsonModelLoweringFacts}>;
     close:()=>Promise<void>
   }> {
-  const discovered=await prepareDirectModel(directory,python,resources.weightCacheBytes??16*1024*1024),{output,layers}=discovered;
+  const discovered=await prepareDirectModel(directory,python,resources.weightCacheBytes??16*1024*1024,resources.discoverySnapshot),{output,layers}=discovered;
   const reader=new SafetensorsCatalogReader(directory),catalog=await reader.inspect();
   const pages=new DirectWeightPages(reader,resources.weightCacheBytes);
   try {

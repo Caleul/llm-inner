@@ -1,0 +1,21 @@
+{
+  "length": 6,
+  "position": 5,
+  "outputs": [
+    {
+      "dimension": 2,
+      "dependencies": 98,
+      "substitutions": 915,
+      "verifiedLogits": 0,
+      "mismatches": [],
+      "status": "compiling",
+      "lastDependency": "gated:0:5:0"
+    }
+  ],
+  "finalArtifactEmitted": false,
+  "finalArtifactParity": false,
+  "exitCode": -9,
+  "wallSeconds": 180.06193289899988,
+  "peakObservedAggregateRSSBytes": 243396608,
+  "coordinatorStop": "Remote unit deadline exceeded"
+}

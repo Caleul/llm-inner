@@ -1,0 +1,34 @@
+{
+  "length": 3,
+  "width": 2,
+  "vocab": 4,
+  "stageNames": [
+    "model.layers.0.pre-normalization",
+    "model.layers.0.qkv-projections",
+    "model.layers.0.rotary",
+    "model.layers.0.attention-scores",
+    "model.layers.0.softmax",
+    "model.layers.0.attention-context",
+    "model.layers.0.attention-output",
+    "model.layers.0.attention-residual",
+    "model.layers.0.post-normalization",
+    "model.layers.0.gate-up",
+    "model.layers.0.activation-product",
+    "model.layers.0.down-projection",
+    "model.layers.0.mlp-residual",
+    "final-normalization",
+    "output-logits"
+  ],
+  "weightsRead": 144,
+  "operatorCount": 15,
+  "selectedOutputIndices": [
+    8,
+    9,
+    10,
+    11
+  ],
+  "originalComputedOutputs": 111,
+  "reachableComputedOutputs": 55,
+  "originalInterfaceOutputSlots": 195,
+  "reachableInterfaceOutputSlots": 95
+}

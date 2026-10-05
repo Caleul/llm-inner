@@ -3331,5 +3331,63 @@
     "closedGateUpCases": 1015808,
     "closedRMSCases": 888832,
     "closedProjectionMismatches": 0
+  },
+  "directFinalPositionColabValidation": {
+    "date": "2026-10-05",
+    "evidence": "docs/evidence/direct-sympy-whole-architecture/validation.json",
+    "scope": "four final-position logits only, lengths 1..8",
+    "newTests": [
+      "helpers/direct_sympy_architecture_test.py",
+      "helpers/direct_sympy_architecture_run_test.py",
+      "test/direct-json-conditional-bitcast.test.ts",
+      "test/direct-json-simplification-session.test.ts",
+      "test/direct-model-snapshot.test.ts"
+    ],
+    "closedCompilerCoordinates": 32,
+    "diagnosticBitComparisons": 384,
+    "bitMismatches": 0,
+    "cudaBitComparisons": 384,
+    "cudaBitMismatches": 0,
+    "finalArtifactsEmitted": 0,
+    "finalArtifactParity": false,
+    "focused": {
+      "tests": 16,
+      "pass": 16,
+      "fail": 0
+    },
+    "remoteJSONInitial": {
+      "tests": 107,
+      "pass": 99,
+      "fail": 2,
+      "skipped": 6,
+      "failures": "rustc and clang++ absent; native reexecution tracked independently"
+    },
+    "earlierPortableRegression": {
+      "tests": 627,
+      "pass": 577,
+      "fail": 0,
+      "skipped": 50,
+      "interpretation": "Predates source-bound snapshot and simplification-session additions; not a current full-suite result."
+    },
+    "remoteNativeReexecution": {
+      "sqrtInverse": {
+        "pass": 1,
+        "fail": 0,
+        "tool": "clang++"
+      },
+      "halfAddition": {
+        "pass": 1,
+        "fail": 0,
+        "tool": "rustc 1.85.1",
+        "magnitudeComparisons": 1007713280,
+        "signedZeroComparisons": 8
+      },
+      "effectiveJSONSelection": {
+        "pass": 101,
+        "fail": 0,
+        "skipped": 6,
+        "interpretation": "Initial selection plus targeted reexecution; not a single rerun of all 107 tests."
+      }
+    }
   }
 }

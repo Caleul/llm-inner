@@ -18,7 +18,7 @@ import {maximumF32MagnitudeForHalfBound} from './direct-json-half-preimage.js';
 import {jsonModelMagnitudeAnalysis} from './direct-json-magnitude.js';
 import {jsonResidualCellThreshold} from './direct-json-residual-cell.js';
 import {createJsonModelSignProof} from './direct-json-sign.js';
-import {simplifyJsonFixedPoint,sameJsonExpression} from './direct-json-simplify.js';
+import {simplifyJsonFixedPoint,sameJsonExpression,JsonSimplificationSession} from './direct-json-simplify.js';
 import {simplifyJsonBitPrecision} from './direct-json-precision.js';
 import {shareJsonExpression} from './direct-json-share.js';
 import {measureJsonExpression,type JsonExpressionMeasure} from './direct-json-measure.js';
@@ -42,6 +42,7 @@ export function lowerJsonModelExpression(root:JsonExpression,facts:JsonModelLowe
 
 export interface JsonSubstitutionProgress {
   ordinal:number;operation:string;before:JsonExpressionMeasure;after:JsonExpressionMeasure;passes:number;
+  simplificationCacheHits:number;simplificationCacheMisses:number;
 }
 /** One session per output coordinate. Completed producers are simplified before
  * a consumer substitutes them. Memoization retains compiler syntax, never
@@ -51,7 +52,7 @@ export function createJsonModelLowerer(facts:JsonModelLoweringFacts,
   options:{incremental?:boolean;onSubstitution?:(event:JsonSubstitutionProgress)=>void}={}):{
     lower:(root:JsonExpression)=>JsonExpression
   } {
-  const memo=new WeakMap<object,JsonExpression>();let ordinal=0;
+  const memo=new WeakMap<object,JsonExpression>(),simplification=new JsonSimplificationSession();let ordinal=0;
   const f32Sources=new WeakMap<JsonExpression,JsonExpression>();
   const affineDomains:JsonAffineDomains=new WeakMap(),workingAffineDomains:JsonAffineDomains=new WeakMap();
   function retainAffineDomain(map:JsonAffineDomains,node:JsonExpression,domain:NonNullable<ReturnType<JsonAffineDomains['get']>>):void {
@@ -109,7 +110,7 @@ export function createJsonModelLowerer(facts:JsonModelLoweringFacts,
       // newly substituted producer before making it available to consumers.
       let passes=0,stable=false;
       for(let round=0;round<32;round++){
-        const stabilized=simplifyJsonFixedPoint(shareJsonExpression(simplifyJsonAffine(simplifyJsonBitPrecision(result,precision),affineDomains)).expression);
+        const stabilized=simplifyJsonFixedPoint(shareJsonExpression(simplifyJsonAffine(simplifyJsonBitPrecision(result,precision),affineDomains)).expression,32,1_000_000,simplification);
         passes+=stabilized.passes;
         if(sameJsonExpression(result,stabilized.expression)){stable=true;break;}
         result=stabilized.expression;
@@ -118,7 +119,8 @@ export function createJsonModelLowerer(facts:JsonModelLoweringFacts,
       const raw=f32Sources.get(produced);if(raw)f32Sources.set(result,raw);
       const domain=affineDomains.get(produced);if(domain)retainAffineDomain(affineDomains,result,domain);
       if(options.onSubstitution)options.onSubstitution({ordinal:++ordinal,operation:node[0],
-        before:measureJsonExpression(produced),after:measureJsonExpression(result),passes});
+        before:measureJsonExpression(produced),after:measureJsonExpression(result),passes,
+        simplificationCacheHits:simplification.stats.hits,simplificationCacheMisses:simplification.stats.misses});
     }
     // Every completed F16/F32 producer is exactly widened. These are compiler
     // proofs, not retained conversion operators or runtime metadata.

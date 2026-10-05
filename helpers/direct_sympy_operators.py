@@ -20,7 +20,7 @@ class OperatorBlock:
     outputs:tuple[str,...]
 
 
-def compose_operators(blocks,compiler,domains,budget,*,max_accumulated_characters=512*1024**2):
+def compose_operators(blocks,compiler,domains,budget,*,max_accumulated_characters=512*1024**2,on_wave=None):
     """Prepare independently; compose adjacent pairs until one block remains.
 
     Each stage owns disjoint Xn interface names. Only original input domains
@@ -58,7 +58,8 @@ def compose_operators(blocks,compiler,domains,budget,*,max_accumulated_character
             remaining=max_accumulated_characters-sum(p.stat().st_size for p in root.iterdir())
             allowance=remaining//len(jobs)
             reserved=[(kind,sources,allowance,output) for kind,sources,_,output in jobs]
-            _wave(reserved,budget,compiler,domains,stats);charge()
+            _wave(reserved,budget,compiler,domains,stats,on_progress=on_wave);charge()
+            if on_wave is not None:on_wave(dict(stats))
         paths=[];jobs=[]
         for index,block in enumerate(blocks):
             source=str(root/f'source-{index}');output=str(root/f'prepared-{index}')

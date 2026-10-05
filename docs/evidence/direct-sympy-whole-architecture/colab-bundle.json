@@ -1,0 +1,8 @@
+{
+  "archiveSha256": "6ebe730c3c4bd3c1da21b27c8834e9b9c854091e6be16e94cade36d1251ca6f9",
+  "archiveBytes": 1066222,
+  "sourceFiles": 357,
+  "snapshot": "source CPU arm64 target, checkpoint/compiler identities bound",
+  "remoteRoot": "/content/llm-inner-final-logits",
+  "session": "llm-inner-final-logits-20261005"
+}

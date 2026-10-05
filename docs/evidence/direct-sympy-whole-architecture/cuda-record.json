@@ -1,0 +1,75 @@
+{
+  "device": "NVIDIA A100-SXM4-40GB",
+  "cuda": "13.0",
+  "cpuCount": 12,
+  "totalRAMBytes": 89629196288,
+  "totalGPUBytes": 42405855232,
+  "peakGPUAllocatedBytes": 34816,
+  "results": [
+    {
+      "length": 1,
+      "cases": 12,
+      "logits": 48,
+      "mismatches": [],
+      "seconds": 0.22099161100004494
+    },
+    {
+      "length": 2,
+      "cases": 12,
+      "logits": 96,
+      "mismatches": [],
+      "seconds": 0.10520263400007934
+    },
+    {
+      "length": 3,
+      "cases": 12,
+      "logits": 144,
+      "mismatches": [],
+      "seconds": 0.12491010600001573
+    },
+    {
+      "length": 4,
+      "cases": 12,
+      "logits": 192,
+      "mismatches": [],
+      "seconds": 0.14141489200005708
+    },
+    {
+      "length": 5,
+      "cases": 12,
+      "logits": 240,
+      "mismatches": [],
+      "seconds": 0.22893861899990497
+    },
+    {
+      "length": 6,
+      "cases": 12,
+      "logits": 288,
+      "mismatches": [],
+      "seconds": 0.3629886339999757
+    },
+    {
+      "length": 7,
+      "cases": 12,
+      "logits": 336,
+      "mismatches": [],
+      "seconds": 0.5704060709999794
+    },
+    {
+      "length": 8,
+      "cases": 12,
+      "logits": 384,
+      "mismatches": [],
+      "seconds": 1.0570069939999485
+    }
+  ],
+  "seconds": 3.1096667369999977,
+  "finalArtifactParity": false,
+  "scope": "Diagnostic complete-architecture numerical templates, all positions; before last-position scope correction",
+  "brokerExecutionOperation": "236fb809-a7f6-4253-a6ca-507a6216ef0c",
+  "cleanup": {
+    "stopOperation": "43472822-dd9c-46cf-99ec-f11037c45a92",
+    "inventoryOperation": "bbd8c597-287c-47b9-9179-9d0fcaca4702",
+    "activeSessions": 0
+  }
+}

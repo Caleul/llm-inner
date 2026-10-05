@@ -1,0 +1,14 @@
+{
+  "length": 3,
+  "workingExpressionsEmitted": 0,
+  "verifiedLogits": 0,
+  "mismatches": [],
+  "finalArtifactEmitted": false,
+  "finalArtifactParity": false,
+  "stop": "Accumulated operator expression/condition reservation exceeded",
+  "seconds": 107.55365198799973,
+  "exitCode": 1,
+  "wallSeconds": 110.35323930699997,
+  "peakObservedAggregateRSSBytes": 3388010496,
+  "coordinatorStop": null
+}

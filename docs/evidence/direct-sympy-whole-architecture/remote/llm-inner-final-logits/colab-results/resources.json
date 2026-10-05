@@ -1,0 +1,11 @@
+{
+  "device": "NVIDIA A100-SXM4-40GB",
+  "cuda": "13.0",
+  "cpuCount": 12,
+  "RAMBytes": 89629196288,
+  "GPUBytes": 42405855232,
+  "expressionConditionBudgetBytes": 536870912,
+  "scope": "Four logits of the final position only",
+  "sourceTarget": "pytorch-2.12.1-cpu-arm64",
+  "hostArchitecture": "x86_64"
+}

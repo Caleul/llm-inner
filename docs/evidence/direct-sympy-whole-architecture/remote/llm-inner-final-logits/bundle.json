@@ -1,0 +1,9 @@
+{
+  "device": "NVIDIA A100-SXM4-40GB",
+  "CPU": 12,
+  "RAMBytes": 89629196288,
+  "GPUBytes": 42405855232,
+  "cuda": "13.0",
+  "node": "v22.22.2",
+  "bundleSha256": "6ebe730c3c4bd3c1da21b27c8834e9b9c854091e6be16e94cade36d1251ca6f9"
+}

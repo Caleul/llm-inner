@@ -16,6 +16,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("checkpoint")
     parser.add_argument("output")
+    parser.add_argument("--all-lengths",action="store_true",help="Cover every discovered causal sequence length")
     args = parser.parse_args()
     torch.set_num_threads(1)
     model = AutoModelForCausalLM.from_pretrained(
@@ -39,7 +40,8 @@ def main():
     context = int(model.config.max_position_embeddings)
     cases = []
     generator = torch.Generator().manual_seed(8675309)
-    for length in sorted({1, min(2, context), min(3, context), min(4, context), context}):
+    lengths=range(1,context+1) if args.all_lengths else sorted({1,min(2,context),min(3,context),min(4,context),context})
+    for length in lengths:
         matrices = [("embedding", embedding(torch.randint(0, embedding.num_embeddings, (length,), generator=generator)).detach())]
         zeros = torch.zeros(length, width, dtype=torch.float16)
         zeros.view(torch.int16).reshape(-1)[::2] = -32768

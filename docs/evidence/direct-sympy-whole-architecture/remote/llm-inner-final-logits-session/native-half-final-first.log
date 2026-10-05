@@ -1,0 +1,40 @@
+TAP version 13
+# Subtest: finite half sum/difference needs no intermediate F32 boundary for every magnitude pair
+not ok 1 - finite half sum/difference needs no intermediate F32 boundary for every magnitude pair
+  ---
+  duration_ms: 71.3083
+  type: 'test'
+  location: '/content/llm-inner-final-logits-session/dist/test/direct-json-half-addition.test.js:28:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Command failed: rustc --edition=2021 -O /content/llm-inner-final-logits-session/helpers/certify_half_addition.rs -o /tmp/half-addition-tJqv6m/certificate
+    error[E0658]: use of unstable library feature 'round_ties_even'
+     --> /content/llm-inner-final-logits-session/helpers/certify_half_addition.rs:8:61
+      |
+    8 |     if v<2.0f64.powi(-14) {return sign|((v*2.0f64.powi(24)).round_ties_even() as u16);}
+      |                                                             ^^^^^^^^^^^^^^^
+      |
+      = note: see issue #96710 <https://github.com/rust-lang/rust/issues/96710> for more information
+    
+    error: aborting due to previous error
+    
+    For more information about this error, try `rustc --explain E0658`.
+    
+  code: 1
+  stack: |-
+    genericNodeError (node:internal/errors:983:15)
+    wrappedFn (node:internal/errors:537:14)
+    ChildProcess.exithandler (node:child_process:417:12)
+    ChildProcess.emit (node:events:519:28)
+    maybeClose (node:internal/child_process:1101:16)
+    ChildProcess._handle.onexit (node:internal/child_process:304:5)
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 0
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 169.834039

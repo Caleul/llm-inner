@@ -411,7 +411,13 @@ class StringCompiler:
                 for pair in node.args:
                     if not isinstance(pair,ast.Tuple) or len(pair.elts)!=2:return expression,{}
                     condition=pair.elts[1]
-                    if not (isinstance(condition,ast.Constant) and type(condition.value) is bool):return expression,{}
+                    if not (isinstance(condition,ast.Constant) and type(condition.value) is bool):
+                        # Optional architecture mode can retain a prefix with
+                        # no decisions of its own. There is no descendant
+                        # branch to reopen under the new relational facts.
+                        # Input-domain narrowing still forces reopening below.
+                        if not getattr(self,'reuse_branch_free_regions',False) or any(
+                            re.search(r'\bPiecewise\s*\(',text) for text in protected.values()):return expression,{}
                     own=refine(remaining,condition,True)
                     rest=refine(remaining,condition,False)
                     if own is not None and own!=domains:return expression,{}

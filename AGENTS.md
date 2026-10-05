@@ -25,12 +25,10 @@ produz, incorpore seus pesos e aplique fatoração/simplificação antes de
 continuar. Repita até restarem somente os Xn da entrada original. A
 notação Xn não autoriza preservar valores intermediários no resultado final.
 
-Não há formato obrigatório para representar as expressões. Escolha a
-representação que permita substituir, fatorar, simplificar e propagar
-condições com fidelidade: objetos simbólicos, texto matemático, JSON ou
-outra estrutura adequada. Preserve entradas, constantes, operações,
-tipos e bifurcações. A representação não deve ditar a arquitetura nem
-substituir a entrega da expressão direta completa.
+As expressões são manipuladas estruturalmente em JSON, com entradas,
+constantes, operações, tipos e bifurcações explícitos. Strings são uma ponte
+para o SymPy e diagnósticos; não são a fonte de verdade da simplificação.
+O Rust será gerado posteriormente a partir do JSON compilado.
 
 Estruturas compartilhadas podem evitar trabalho repetido durante a
 compilação; não devem preservar intermediários no resultado final.
@@ -44,9 +42,12 @@ pelas decisões sobreviventes, não pelo tamanho da representação escolhida.
 
 ## Paralelismo e prioridade de execução
 
-A prioridade é entregar a primeira coordenada completa e provar sua
-paridade; depois avançar para o vetor inteiro. Infraestrutura, métricas
-e testes de componentes não substituem esse resultado.
+A direção atual autorizada é compor a arquitetura inteira e executar os logits da última posição para todas
+as coordenadas, investigando divergências sem bloquear os demais
+ensaios pela primeira coordenada. Valide cada resultado contra a referência
+e registre separadamente artefatos efetivos e expressões com primitivas
+ainda pendentes. Infraestrutura, métricas e testes de componentes não
+substituem o vetor direto completo com paridade.
 
 Paralelize dependências e blocos independentes durante a compilação.
 Cada bloco mantém seu contexto de condições; combine resultados em ordem
@@ -76,11 +77,21 @@ uso. Registre separadamente substituições, composições de blocos, passes
 de fatoração/simplificação, decisões e tamanho expandido. Ocorrências
 repetidas de uma fórmula não representam novos neurônios ou forwards.
 
-Use as GPUs NVIDIA disponíveis no Colab, via Access Broker, para tarefas
-numéricas compatíveis que contribuam diretamente para a compilação e
-validação. Execute fatoração/simplificação na CPU quando o backend não
-tiver suporte CUDA. Não apresente paralelismo de CPU ou um benchmark
-isolado como aceleração da compilação na GPU.
+Execute a compilação e as validações pesadas no Colab, via `colab_cli`
+do Access Broker. Use o Colab mesmo sem ganho significativo de desempenho
+ou com uma demora levemente maior: a prioridade é evitar sobrecarregar
+a máquina local, usando a CPU, RAM e GPU disponíveis no ambiente remoto.
+Não limite o Colab a benchmarks isolados enquanto a compilação pesada
+continua local. Reserve a máquina local para edição, coordenação e
+verificações leves; se o Colab estiver indisponível, avance nas tarefas
+locais independentes sem iniciar automaticamente uma carga pesada local.
+
+Use as GPUs NVIDIA do Colab para tarefas numéricas compatíveis que
+contribuam diretamente para a compilação e validação. Execute
+`factor()` e `simplify()` na CPU do Colab quando não houver suporte CUDA.
+Não apresente paralelismo de CPU ou um benchmark isolado como aceleração
+da compilação na GPU. Preserve a ordem numérica e a paridade bit a bit
+também na execução remota.
 
 Limite a concorrência pelo consumo efetivo de memória. Monitore RAM e
 memória da GPU separadamente do teto acumulado de expressões e condições.
@@ -188,13 +199,14 @@ compilação e validação, não a arquitetura de execução final.
 
 ## Direção atual e conclusão
 
-Primeiro compile uma coordenada arbitrária até uma expressão direta
-completamente substituída e simplificada. Valide com um e múltiplos tokens,
-diferentes entradas e casos numéricos de fronteira.
+Compile todas as coordenadas da última posição com composição da arquitetura inteira e
+substituição/simplificação incremental. Compare todos os logits com um e
+múltiplos tokens, diferentes entradas e casos numéricos de fronteira.
+Investigue qualquer divergência e mantenha o erro explícito, sem relaxar
+a equivalência bit a bit nem publicar como final um artefato pendente.
 
-Depois aplique o processo a todas as coordenadas. A emissão e validação
-Rust serão derivadas das expressões compiladas, sem exigir um formato
-intermediário específico.
+A emissão e validação
+Rust serão derivadas do JSON estrutural compilado.
 
 Mantenha o mapa dos testes existentes e verifique regressões.
 
@@ -202,3 +214,8 @@ Não conclua apenas porque um arquivo foi emitido ou uma primitiva virou
 código escalar. Conclua quando as expressões dependerem exclusivamente
 da entrada, os pesos estiverem incorporados, as expansões estiverem
 completas e a paridade exigida tiver sido demonstrada.
+
+O vetor desejado contém somente os logits da última posição, que preveem
+o próximo token após toda a entrada. Elimine todas as dependências exclusivas
+de logits anteriores antes da composição, preservando as chaves/valores
+e demais cálculos de atenção alcançáveis pela última posição.

@@ -398,3 +398,14 @@ test('Independent logits share the expression budget and validate one coordinate
       assert.match(controller.stdout,/Coordinate publication fault injection: parityMismatch=refused changedCandidate=refused verifierCrash=refused/);
     }
   });
+
+test('Complete Llama operator architecture preserves final-position logits and prunes only exclusive producers',
+  {skip:!python || !process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT},async()=>{
+    const native=await promisify(execFile)(python!,['helpers/direct_sympy_architecture_test.py'],{timeout:180_000,maxBuffer:1024*1024});
+    assert.match(native.stderr,/Ran 3 tests/);
+    assert.match(native.stderr,/OK/);
+    assert.match(native.stdout,/Last-position parity: cases=96 logits=384 lengths=\[1, 2, 3, 4, 5, 6, 7, 8\] mismatches=0/);
+    const runner=await promisify(execFile)(python!,['helpers/direct_sympy_architecture_run_test.py'],{timeout:30_000,maxBuffer:1024*1024});
+    assert.match(runner.stderr,/Ran 2 tests/);
+    assert.match(runner.stderr,/OK/);
+  });

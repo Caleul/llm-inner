@@ -1,0 +1,163 @@
+{
+  "scope": "Only four final-position logits, lengths 1 through 8",
+  "sourceTarget": "pytorch-2.12.1-cpu-arm64",
+  "session": "llm-inner-final-logits-20261005",
+  "resources": {
+    "device": "NVIDIA A100-SXM4-40GB",
+    "cuda": "13.0",
+    "cpuCount": 12,
+    "RAMBytes": 89629196288,
+    "GPUBytes": 42405855232,
+    "expressionConditionBudgetBytes": 536870912,
+    "scope": "Four logits of the final position only",
+    "sourceTarget": "pytorch-2.12.1-cpu-arm64",
+    "hostArchitecture": "x86_64"
+  },
+  "results": [
+    {
+      "length": 1,
+      "closedCoordinates": 4,
+      "verifiedLogits": 48,
+      "bitMismatches": 0,
+      "minimumSeconds": 7.446389921,
+      "maximumSeconds": 7.590457407999999,
+      "maximumObservedWorkerRSSBytes": 160940032,
+      "uniqueNodesPerCoordinate": 715,
+      "uniqueDecisionsPerCoordinate": 23,
+      "finalArtifactsEmitted": 0
+    },
+    {
+      "length": 2,
+      "closedCoordinates": 4,
+      "verifiedLogits": 48,
+      "bitMismatches": 0,
+      "minimumSeconds": 25.136730598,
+      "maximumSeconds": 26.030239628,
+      "maximumObservedWorkerRSSBytes": 216240128,
+      "uniqueNodesPerCoordinate": 1548,
+      "uniqueDecisionsPerCoordinate": 52,
+      "finalArtifactsEmitted": 0
+    },
+    {
+      "length": 3,
+      "closedCoordinates": 4,
+      "verifiedLogits": 48,
+      "bitMismatches": 0,
+      "minimumSeconds": 42.53218868,
+      "maximumSeconds": 44.360471788000005,
+      "maximumObservedWorkerRSSBytes": 282636288,
+      "uniqueNodesPerCoordinate": 2017,
+      "uniqueDecisionsPerCoordinate": 68,
+      "finalArtifactsEmitted": 0
+    },
+    {
+      "length": 4,
+      "closedCoordinates": 4,
+      "verifiedLogits": 48,
+      "bitMismatches": 0,
+      "minimumSeconds": 68.65218833200001,
+      "maximumSeconds": 69.744660987,
+      "maximumObservedWorkerRSSBytes": 295952384,
+      "uniqueNodesPerCoordinate": 2443,
+      "uniqueDecisionsPerCoordinate": 82,
+      "finalArtifactsEmitted": 0
+    },
+    {
+      "length": 5,
+      "closedCoordinates": 4,
+      "verifiedLogits": 48,
+      "bitMismatches": 0,
+      "minimumSeconds": 86.571351816,
+      "maximumSeconds": 90.744465695,
+      "maximumObservedWorkerRSSBytes": 373362688,
+      "uniqueNodesPerCoordinate": 2891,
+      "uniqueDecisionsPerCoordinate": 97,
+      "finalArtifactsEmitted": 0
+    },
+    {
+      "length": 6,
+      "closedCoordinates": 4,
+      "verifiedLogits": 48,
+      "bitMismatches": 0,
+      "minimumSeconds": 116.532592266,
+      "maximumSeconds": 117.773554101,
+      "maximumObservedWorkerRSSBytes": 476254208,
+      "uniqueNodesPerCoordinate": 3335,
+      "uniqueDecisionsPerCoordinate": 112,
+      "finalArtifactsEmitted": 0
+    },
+    {
+      "length": 7,
+      "closedCoordinates": 4,
+      "verifiedLogits": 48,
+      "bitMismatches": 0,
+      "minimumSeconds": 155.11743382,
+      "maximumSeconds": 156.654062303,
+      "maximumObservedWorkerRSSBytes": 601792512,
+      "uniqueNodesPerCoordinate": 3782,
+      "uniqueDecisionsPerCoordinate": 127,
+      "finalArtifactsEmitted": 0
+    },
+    {
+      "length": 8,
+      "closedCoordinates": 4,
+      "verifiedLogits": 48,
+      "bitMismatches": 0,
+      "minimumSeconds": 202.566615008,
+      "maximumSeconds": 215.53334540300003,
+      "maximumObservedWorkerRSSBytes": 677904384,
+      "uniqueNodesPerCoordinate": 4227,
+      "uniqueDecisionsPerCoordinate": 142,
+      "finalArtifactsEmitted": 0
+    }
+  ],
+  "closedCoordinates": 32,
+  "diagnosticBitComparisons": 384,
+  "bitMismatches": 0,
+  "finalArtifactsEmitted": 0,
+  "finalArtifactParity": false,
+  "primitiveFreeCompilerExpressions": true,
+  "interpretation": "Fully substituted elementary compiler expressions were evaluated; no literal final JSON was emitted. Compiler sharing is not a runtime artifact.",
+  "pruning": [
+    {
+      "length": 1,
+      "before": 25,
+      "after": 25
+    },
+    {
+      "length": 2,
+      "before": 72,
+      "after": 45
+    },
+    {
+      "length": 3,
+      "before": 111,
+      "after": 55
+    },
+    {
+      "length": 4,
+      "before": 152,
+      "after": 65
+    },
+    {
+      "length": 5,
+      "before": 195,
+      "after": 75
+    },
+    {
+      "length": 6,
+      "before": 240,
+      "after": 85
+    },
+    {
+      "length": 7,
+      "before": 287,
+      "after": 95
+    },
+    {
+      "length": 8,
+      "before": 336,
+      "after": 105
+    }
+  ]
+}

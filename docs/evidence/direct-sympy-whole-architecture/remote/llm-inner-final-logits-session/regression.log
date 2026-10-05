@@ -1,0 +1,669 @@
+TAP version 13
+# Subtest: affine substitution distributes coefficients and gathers repeated fundamental variables bitwise
+ok 1 - affine substitution distributes coefficients and gathers repeated fundamental variables bitwise
+  ---
+  duration_ms: 2806.138676
+  type: 'test'
+  ...
+# Subtest: floating rounding and signed-zero barriers survive affine analysis
+ok 2 - floating rounding and signed-zero barriers survive affine analysis
+  ---
+  duration_ms: 0.861103
+  type: 'test'
+  ...
+# Subtest: every operator and guard is visited and branch bounds never leak to the complement
+ok 3 - every operator and guard is visited and branch bounds never leak to the complement
+  ---
+  duration_ms: 2.012675
+  type: 'test'
+  ...
+# Subtest: incremental F32 substitution composes exact affine producers before bitwise rounding
+ok 4 - incremental F32 substitution composes exact affine producers before bitwise rounding
+  ---
+  duration_ms: 545.492338
+  type: 'test'
+  ...
+# Subtest: invalid affine certificates fail instead of narrowing a numerical domain
+ok 5 - invalid affine certificates fail instead of narrowing a numerical domain
+  ---
+  duration_ms: 1.046739
+  type: 'test'
+  ...
+# Subtest: affine forms reuse completed shared producers without enumerating literal copies
+ok 6 - affine forms reuse completed shared producers without enumerating literal copies
+  ---
+  duration_ms: 2.664854
+  type: 'test'
+  ...
+# Subtest: an identity cannot weaken the half lattice of a completed producer reused by later affine consumers
+ok 7 - an identity cannot weaken the half lattice of a completed producer reused by later affine consumers
+  ---
+  duration_ms: 3448.110734
+  type: 'test'
+  ...
+# Subtest: parallel condition workers preserve alias facts, stable candidate choice and serial convergence
+ok 8 - parallel condition workers preserve alias facts, stable candidate choice and serial convergence
+  ---
+  duration_ms: 1041.290664
+  type: 'test'
+  ...
+# Subtest: parallel conditions retain lazy missing inputs, undefined integer operations and signed floating paths
+ok 9 - parallel conditions retain lazy missing inputs, undefined integer operations and signed floating paths
+  ---
+  duration_ms: 206.217774
+  type: 'test'
+  ...
+# Subtest: parallel condition budgets match serial incomplete results and retain earlier progress
+ok 10 - parallel condition budgets match serial incomplete results and retain earlier progress
+  ---
+  duration_ms: 405.983607
+  type: 'test'
+  ...
+# Subtest: shared condition reduction continues past one promotion to its own fixed point
+ok 11 - shared condition reduction continues past one promotion to its own fixed point
+  ---
+  duration_ms: 31.242192
+  type: 'test'
+  ...
+# Subtest: condition candidate and round budgets never masquerade as convergence
+ok 12 - condition candidate and round budgets never masquerade as convergence
+  ---
+  duration_ms: 5.305082
+  type: 'test'
+  ...
+# Subtest: later resource exhaustion preserves the already-admitted reduction without claiming convergence
+ok 13 - later resource exhaustion preserves the already-admitted reduction without claiming convergence
+  ---
+  duration_ms: 7.654118
+  type: 'test'
+  ...
+# Subtest: finite comparison proofs preserve endpoints, overlap, strictness and signed-zero equality
+ok 14 - finite comparison proofs preserve endpoints, overlap, strictness and signed-zero equality
+  ---
+  duration_ms: 19.651273
+  type: 'test'
+  ...
+# Subtest: a proved guard cuts unreachable numerical producers before lowering for every finite half input
+ok 15 - a proved guard cuts unreachable numerical producers before lowering for every finite half input
+  ---
+  duration_ms: 167.401121
+  type: 'test'
+  ...
+# Subtest: a constant discovered during condition substitution selects its branch before unsupported producers
+ok 16 - a constant discovered during condition substitution selects its branch before unsupported producers
+  ---
+  duration_ms: 7.171825
+  type: 'test'
+  ...
+# Subtest: Inverse bitcasts cancel within their existing arms and retain guards and signed zeros
+ok 17 - Inverse bitcasts cancel within their existing arms and retain guards and signed zeros
+  ---
+  duration_ms: 34.477916
+  type: 'test'
+  ...
+# Subtest: Conditional bitcasts keep an undefined unselected arm lazy and do not distribute arithmetic
+ok 18 - Conditional bitcasts keep an undefined unselected arm lazy and do not distribute arithmetic
+  ---
+  duration_ms: 2.150625
+  type: 'test'
+  ...
+# Global modular JSON proof: cases=71680 floatReassociation=false
+# Subtest: global integer factors collect repeated nonadjacent inputs and preserve all u16 values
+ok 19 - global integer factors collect repeated nonadjacent inputs and preserve all u16 values
+  ---
+  duration_ms: 1893.696144
+  type: 'test'
+  ...
+# Subtest: global modular cancellation and common factors preserve overflow at every integer width
+ok 20 - global modular cancellation and common factors preserve overflow at every integer width
+  ---
+  duration_ms: 219.136125
+  type: 'test'
+  ...
+# Subtest: global collection keeps partial operations and IEEE arithmetic barriers
+ok 21 - global collection keeps partial operations and IEEE arithmetic barriers
+  ---
+  duration_ms: 1.084081
+  type: 'test'
+  ...
+# Subtest: bounded global collection declines oversized searches without dropping terms
+ok 22 - bounded global collection declines oversized searches without dropping terms
+  ---
+  duration_ms: 174.764063
+  type: 'test'
+  ...
+# Subtest: finite half sum/difference needs no intermediate F32 boundary for every magnitude pair
+not ok 23 - finite half sum/difference needs no intermediate F32 boundary for every magnitude pair
+  ---
+  duration_ms: 34.129533
+  type: 'test'
+  location: '/content/llm-inner-final-logits-session/dist/test/direct-json-half-addition.test.js:28:1'
+  failureType: 'testCodeFailure'
+  error: 'spawn rustc ENOENT'
+  code: 'ENOENT'
+  stack: |-
+    ChildProcess._handle.onexit (node:internal/child_process:285:19)
+    onErrorNT (node:internal/child_process:483:16)
+    process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+  ...
+# Subtest: JSON half sum fusion preserves signed zero, binade gaps, cancellation and overflow across all finite half operands
+ok 24 - JSON half sum fusion preserves signed zero, binade gaps, cancellation and overflow across all finite half operands
+  ---
+  duration_ms: 18084.995599
+  type: 'test'
+  ...
+# Subtest: half addition identity is not applied to higher-precision operands or sums of half products
+ok 25 - half addition identity is not applied to higher-precision operands or sums of half products
+  ---
+  duration_ms: 11.735353
+  type: 'test'
+  ...
+# Subtest: summing exact half products still needs the F32 boundary at an odd half tie
+ok 26 - summing exact half products still needs the F32 boundary at an odd half tie
+  ---
+  duration_ms: 7.931434
+  type: 'test'
+  ...
+# Subtest: every point of the finite half sum/difference grid within [-1,1] is exact F32
+ok 27 - every point of the finite half sum/difference grid within [-1,1] is exact F32
+  ---
+  duration_ms: 509.388362
+  type: 'test'
+  ...
+# Subtest: certified bounded half sums and differences lose their F32 rounding but preserve all finite admitted operands
+ok 28 - certified bounded half sums and differences lose their F32 rounding but preserve all finite admitted operands
+  ---
+  duration_ms: 992.898601
+  type: 'test'
+  ...
+# Subtest: half-grid rounding removal requires both the half lattice and the absolute domain bound
+ok 29 - half-grid rounding removal requires both the half lattice and the absolute domain bound
+  ---
+  duration_ms: 5.411796
+  type: 'test'
+  ...
+# Subtest: half-difference exponential removes only its unreachable tiny dispatch and retains exact certified polynomial bits
+ok 30 - half-difference exponential removes only its unreachable tiny dispatch and retains exact certified polynomial bits
+  ---
+  duration_ms: 4267.006433
+  type: 'test'
+  ...
+# Subtest: F32 widening and zero identities retain the stronger completed F16 precision proof
+ok 31 - F32 widening and zero identities retain the stronger completed F16 precision proof
+  ---
+  duration_ms: 272.392156
+  type: 'test'
+  ...
+# Subtest: removing a redundant F32 bitword rounding never weakens its F16 producer precision
+ok 32 - removing a redundant F32 bitword rounding never weakens its F16 producer precision
+  ---
+  duration_ms: 1709.164752
+  type: 'test'
+  ...
+# Subtest: stronger precision is retained only when proved; arbitrary F32 constants do not acquire F16 precision
+ok 33 - stronger precision is retained only when proved; arbitrary F32 constants do not acquire F16 precision
+  ---
+  duration_ms: 3.857646
+  type: 'test'
+  ...
+# Subtest: backward half-output bounds certify every finite half cell with exact F32 tie ownership
+ok 34 - backward half-output bounds certify every finite half cell with exact F32 tie ownership
+  ---
+  duration_ms: 1528.596587
+  type: 'test'
+  ...
+# Subtest: unchanged structural and precision fixed points retain completed producer identity
+ok 35 - unchanged structural and precision fixed points retain completed producer identity
+  ---
+  duration_ms: 3.623802
+  type: 'test'
+  ...
+# Subtest: incremental substitution stabilizes children before consumers and removes equivalent producer subtraction
+ok 36 - incremental substitution stabilizes children before consumers and removes equivalent producer subtraction
+  ---
+  duration_ms: 511.989505
+  type: 'test'
+  ...
+# Subtest: a selected coordinate is emitted as a complete scalar artifact without pretending to cover the vector
+ok 37 - a selected coordinate is emitted as a complete scalar artifact without pretending to cover the vector
+  ---
+  duration_ms: 48.988144
+  type: 'test'
+  ...
+# Subtest: one complete source-discovered coordinate preserves live PyTorch bits after each dependency is stabilized
+ok 38 - one complete source-discovered coordinate preserves live PyTorch bits after each dependency is stabilized # SKIP
+  ---
+  duration_ms: 0.275815
+  type: 'test'
+  ...
+# Subtest: unsigned interval propagation encloses every u16 operand through wrap, masks, shifts and conversion
+ok 39 - unsigned interval propagation encloses every u16 operand through wrap, masks, shifts and conversion
+  ---
+  duration_ms: 6249.32499
+  type: 'test'
+  ...
+# Subtest: derived integer comparisons inherit path bounds without losing wrap or lazy failure semantics
+ok 40 - derived integer comparisons inherit path bounds without losing wrap or lazy failure semantics
+  ---
+  duration_ms: 844.447022
+  type: 'test'
+  ...
+# Subtest: positive IEEE magnitude classification equals unsigned word ordering including zeros and nonfinite payloads
+ok 41 - positive IEEE magnitude classification equals unsigned word ordering including zeros and nonfinite payloads
+  ---
+  duration_ms: 2508.960791
+  type: 'test'
+  ...
+# Subtest: scoped unsigned magnitude proofs enclose all finite half inputs through F32 arithmetic and conversion
+ok 42 - scoped unsigned magnitude proofs enclose all finite half inputs through F32 arithmetic and conversion
+  ---
+  duration_ms: 559.747073
+  type: 'test'
+  ...
+# Subtest: a scoped lower bound removes only proved residual changes and keeps the signed complement
+ok 43 - a scoped lower bound removes only proved residual changes and keeps the signed complement
+  ---
+  duration_ms: 18.41798
+  type: 'test'
+  ...
+# Subtest: invalid magnitude proofs are rejected rather than silently shrinking the input domain
+ok 44 - invalid magnitude proofs are rejected rather than silently shrinking the input domain
+  ---
+  duration_ms: 1.029649
+  type: 'test'
+  ...
+# Subtest: scoped normal half conversion removes subnormal decisions for both signs and preserves every admitted half input
+ok 45 - scoped normal half conversion removes subnormal decisions for both signs and preserves every admitted half input
+  ---
+  duration_ms: 1949.593705
+  type: 'test'
+  ...
+# Subtest: JSON half-difference exponential certificate agrees with live PyTorch throughout the containing F32 lattice
+ok 46 - JSON half-difference exponential certificate agrees with live PyTorch throughout the containing F32 lattice # SKIP
+  ---
+  duration_ms: 4.419265
+  type: 'test'
+  ...
+# Subtest: JSON compiler pipeline reports prepared coordinates without publishing an over-budget checkpoint vector
+ok 47 - JSON compiler pipeline reports prepared coordinates without publishing an over-budget checkpoint vector # SKIP
+  ---
+  duration_ms: 0.240837
+  type: 'test'
+  ...
+# Subtest: source-discovered JSON working expressions reproduce complete checkpoint logits before primitive lowering
+ok 48 - source-discovered JSON working expressions reproduce complete checkpoint logits before primitive lowering # SKIP
+  ---
+  duration_ms: 0.165844
+  type: 'test'
+  ...
+# Subtest: normalized root and composed inverse JSON exhaust both F32 exponent parities against native IEEE boundaries
+not ok 49 - normalized root and composed inverse JSON exhaust both F32 exponent parities against native IEEE boundaries
+  ---
+  duration_ms: 38.372831
+  type: 'test'
+  location: '/content/llm-inner-final-logits-session/dist/test/direct-json-rational-sqrt.test.js:31:1'
+  failureType: 'testCodeFailure'
+  error: 'spawn clang++ ENOENT'
+  code: 'ENOENT'
+  stack: |-
+    ChildProcess._handle.onexit (node:internal/child_process:285:19)
+    onErrorNT (node:internal/child_process:483:16)
+    process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+  ...
+# Subtest: rational root JSON preserves exact widening across normal exponent boundaries and all positive finite half values
+ok 50 - rational root JSON preserves exact widening across normal exponent boundaries and all positive finite half values
+  ---
+  duration_ms: 9911.542397
+  type: 'test'
+  ...
+# Subtest: composed inverse preserves the root rounding boundary instead of silently becoming reciprocal sqrt
+ok 51 - composed inverse preserves the root rounding boundary instead of silently becoming reciprocal sqrt
+  ---
+  duration_ms: 0.704475
+  type: 'test'
+  ...
+# Subtest: residual cell guards retain every finite half at both correction endpoints with a strict F32 margin
+ok 52 - residual cell guards retain every finite half at both correction endpoints with a strict F32 margin
+  ---
+  duration_ms: 10298.091527
+  type: 'test'
+  ...
+# Subtest: residual cells never remove signed-zero canonicalization or claim a non-strict or invalid bound
+ok 53 - residual cells never remove signed-zero canonicalization or claim a non-strict or invalid bound
+  ---
+  duration_ms: 5.614291
+  type: 'test'
+  ...
+# Subtest: RMS consumer certificate exhausts root error cells and their finite half pair preimages
+ok 54 - RMS consumer certificate exhausts root error cells and their finite half pair preimages
+  ---
+  duration_ms: 1663.178997
+  type: 'test'
+  ...
+# Subtest: RMS certificate keeps four steps for unsupported widths, resource limits and invalid domains
+ok 55 - RMS certificate keeps four steps for unsupported widths, resource limits and invalid domains
+  ---
+  duration_ms: 60.185521
+  type: 'test'
+  ...
+# Subtest: three-step root is restricted to the certified consumer; standalone roots retain exact rounding
+ok 56 - three-step root is restricted to the certified consumer; standalone roots retain exact rounding
+  ---
+  duration_ms: 12.779809
+  type: 'test'
+  ...
+# Subtest: certified RMS critical pairs match live PyTorch for every sign and one/eight-token shapes
+ok 57 - certified RMS critical pairs match live PyTorch for every sign and one/eight-token shapes # SKIP
+  ---
+  duration_ms: 0.217441
+  type: 'test'
+  ...
+# Subtest: closed JSON RMS composition preserves every critical coordinate and sign without pending primitives
+ok 58 - closed JSON RMS composition preserves every critical coordinate and sign without pending primitives
+  ---
+  duration_ms: 266.152768
+  type: 'test'
+  ...
+# Subtest: constant F32 cells preserve exact dyadic results for every admitted half correction and both signs
+ok 59 - constant F32 cells preserve exact dyadic results for every admitted half correction and both signs
+  ---
+  duration_ms: 1354.191182
+  type: 'test'
+  ...
+# Subtest: constant-cell folding rejects zeros, ties, overflow, unknown operations and invalid bounds
+ok 60 - constant-cell folding rejects zeros, ties, overflow, unknown operations and invalid bounds
+  ---
+  duration_ms: 0.595014
+  type: 'test'
+  ...
+# Subtest: a certified constant cell cuts its producer before lowering and folds the downstream root
+ok 61 - a certified constant cell cuts its producer before lowering and folds the downstream root
+  ---
+  duration_ms: 6.64914
+  type: 'test'
+  ...
+# Subtest: JSON correlated score proof reads weights progressively and covers every paired RoPE coefficient
+ok 62 - JSON correlated score proof reads weights progressively and covers every paired RoPE coefficient
+  ---
+  duration_ms: 12.939715
+  type: 'test'
+  ...
+# Subtest: JSON correlated score proof refuses unsupported geometry, unavailable coefficient budgets and nonfinite projections
+ok 63 - JSON correlated score proof refuses unsupported geometry, unavailable coefficient budgets and nonfinite projections
+  ---
+  duration_ms: 2.190173
+  type: 'test'
+  ...
+# Subtest: compiler structural sharing preserves the entire literal tree and floating evaluation order
+ok 64 - compiler structural sharing preserves the entire literal tree and floating evaluation order
+  ---
+  duration_ms: 7.129659
+  type: 'test'
+  ...
+# Subtest: structural sharing distinguishes IEEE payloads, signed zeros, types and input names
+ok 65 - structural sharing distinguishes IEEE payloads, signed zeros, types and input names
+  ---
+  duration_ms: 0.824227
+  type: 'test'
+  ...
+# Subtest: structural sharing keeps lazy failures and rejects cycles or exhausted compiler budgets
+ok 66 - structural sharing keeps lazy failures and rejects cycles or exhausted compiler budgets
+  ---
+  duration_ms: 1.473325
+  type: 'test'
+  ...
+# Subtest: equivalent condition objects count as one repeated candidate instead of hiding a reduction
+ok 67 - equivalent condition objects count as one repeated candidate instead of hiding a reduction
+  ---
+  duration_ms: 6.335597
+  type: 'test'
+  ...
+# Subtest: finite product and quotient sign provenance removes positive-root consumers while preserving all half signs
+ok 68 - finite product and quotient sign provenance removes positive-root consumers while preserving all half signs
+  ---
+  duration_ms: 1431.755365
+  type: 'test'
+  ...
+# Subtest: product and quotient sign proofs match actual F32 arithmetic over all finite half values and coefficient signs
+ok 69 - product and quotient sign proofs match actual F32 arithmetic over all finite half values and coefficient signs
+  ---
+  duration_ms: 7835.545632
+  type: 'test'
+  ...
+# Subtest: sign proofs do not classify intervals containing zero and prove finite squares positive even at negative zero
+ok 70 - sign proofs do not classify intervals containing zero and prove finite squares positive even at negative zero
+  ---
+  duration_ms: 1.877498
+  type: 'test'
+  ...
+# Subtest: certified source signs preserve direct and double-rounded half cells without repeating the positive divisor
+ok 71 - certified source signs preserve direct and double-rounded half cells without repeating the positive divisor
+  ---
+  duration_ms: 1562.08162
+  type: 'test'
+  ...
+# Subtest: Completed producer proofs are reused only under the same relevant branch context
+ok 72 - Completed producer proofs are reused only under the same relevant branch context
+  ---
+  duration_ms: 12.370704
+  type: 'test'
+  ...
+# Subtest: Reusing numerical proof nodes cannot erase a reachable undefined branch
+ok 73 - Reusing numerical proof nodes cannot erase a reachable undefined branch
+  ---
+  duration_ms: 1.604305
+  type: 'test'
+  ...
+# Subtest: JSON zero identities preserve every finite half value and both zero signs
+ok 74 - JSON zero identities preserve every finite half value and both zero signs
+  ---
+  duration_ms: 972.292133
+  type: 'test'
+  ...
+# Subtest: JSON reduction trailing zero is removed only after its accumulator excludes negative zero
+ok 75 - JSON reduction trailing zero is removed only after its accumulator excludes negative zero
+  ---
+  duration_ms: 2063.65446
+  type: 'test'
+  ...
+# Subtest: JSON branch zero-sign proof requires both arms and does not assume half underflow is positive
+ok 76 - JSON branch zero-sign proof requires both arms and does not assume half underflow is positive
+  ---
+  duration_ms: 9.009671
+  type: 'test'
+  ...
+# Subtest: JSON exact constants survive serialization including signed zero and all finite F16 bits
+ok 77 - JSON exact constants survive serialization including signed zero and all finite F16 bits
+  ---
+  duration_ms: 390.266491
+  type: 'test'
+  ...
+# Subtest: JSON bitword mask and shift identities preserve all u16 values and unsigned width boundaries
+ok 78 - JSON bitword mask and shift identities preserve all u16 values and unsigned width boundaries
+  ---
+  duration_ms: 6927.99767
+  type: 'test'
+  ...
+# Subtest: JSON conditional facts remove repeated decisions without distributing branches
+ok 79 - JSON conditional facts remove repeated decisions without distributing branches
+  ---
+  duration_ms: 4.910966
+  type: 'test'
+  ...
+# Subtest: JSON shared conditions combine repeated queries after fixed point without changing floating path arithmetic
+ok 80 - JSON shared conditions combine repeated queries after fixed point without changing floating path arithmetic
+  ---
+  duration_ms: 5.200712
+  type: 'test'
+  ...
+# Subtest: JSON shared condition promotion does not expose lazy missing inputs or undefined integer operations
+ok 81 - JSON shared condition promotion does not expose lazy missing inputs or undefined integer operations
+  ---
+  duration_ms: 1.994822
+  type: 'test'
+  ...
+# Subtest: JSON fixed point propagates integer bounds to remove implied and contradictory conditions
+ok 82 - JSON fixed point propagates integer bounds to remove implied and contradictory conditions
+  ---
+  duration_ms: 1.940813
+  type: 'test'
+  ...
+# Subtest: JSON factoring is allowed for modular integers and withheld across float rounding
+ok 83 - JSON factoring is allowed for modular integers and withheld across float rounding
+  ---
+  duration_ms: 0.99865
+  type: 'test'
+  ...
+# Subtest: JSON simplification preserves -0 and does not hide undefined integer operations
+ok 84 - JSON simplification preserves -0 and does not hide undefined integer operations
+  ---
+  duration_ms: 0.884174
+  type: 'test'
+  ...
+# Subtest: JSON precision cancels redundant bit rounding only with a proved lattice and preserves signed zeros
+ok 85 - JSON precision cancels redundant bit rounding only with a proved lattice and preserves signed zeros
+  ---
+  duration_ms: 948.019161
+  type: 'test'
+  ...
+# Subtest: JSON certified F16 source ranges eliminate only unreachable sign, subnormal and overflow arms
+ok 86 - JSON certified F16 source ranges eliminate only unreachable sign, subnormal and overflow arms
+  ---
+  duration_ms: 4456.52438
+  type: 'test'
+  ...
+# Subtest: JSON working range analysis encloses F32 endpoint rounding and refuses unknown or zero-crossing divisors
+ok 87 - JSON working range analysis encloses F32 endpoint rounding and refuses unknown or zero-crossing divisors
+  ---
+  duration_ms: 4.077761
+  type: 'test'
+  ...
+# Subtest: JSON normal double rounding is fused with both widened even and odd tie cells preserved
+ok 88 - JSON normal double rounding is fused with both widened even and odd tie cells preserved
+  ---
+  duration_ms: 17793.933056
+  type: 'test'
+  ...
+# Subtest: JSON finite double rounding composes normal and subnormal arms without duplicating the F32 result
+ok 89 - JSON finite double rounding composes normal and subnormal arms without duplicating the F32 result
+  ---
+  duration_ms: 8067.287498
+  type: 'test'
+  ...
+# Subtest: JSON exponential truncation is certified over every possible bounded half-score difference
+ok 90 - JSON exponential truncation is certified over every possible bounded half-score difference
+  ---
+  duration_ms: 1169.404054
+  type: 'test'
+  ...
+# Subtest: JSON rejects hidden floating conversions and malformed operation types
+ok 91 - JSON rejects hidden floating conversions and malformed operation types
+  ---
+  duration_ms: 0.597096
+  type: 'test'
+  ...
+# Subtest: JSON F32 to F16 bitwise conversion preserves every finite F16 value including signed zeros
+ok 92 - JSON F32 to F16 bitwise conversion preserves every finite F16 value including signed zeros
+  ---
+  duration_ms: 2568.729745
+  type: 'test'
+  ...
+# Subtest: JSON F32 to F16 explicit decisions agree with independent dyadic rounding at ties and sampled F32 bits
+ok 93 - JSON F32 to F16 explicit decisions agree with independent dyadic rounding at ties and sampled F32 bits
+  ---
+  duration_ms: 312.333724
+  type: 'test'
+  ...
+# Subtest: JSON exact widening covers every finite F16 bit pattern and sampled F32 normal/subnormal values
+ok 94 - JSON exact widening covers every finite F16 bit pattern and sampled F32 normal/subnormal values
+  ---
+  duration_ms: 4310.304463
+  type: 'test'
+  ...
+# Subtest: JSON positive normal F32 square root is lowered without native sqrt and agrees bitwise on exponent and mantissa boundaries
+ok 95 - JSON positive normal F32 square root is lowered without native sqrt and agrees bitwise on exponent and mantissa boundaries
+  ---
+  duration_ms: 2349.121051
+  type: 'test'
+  ...
+# Subtest: JSON factorized SiLU polynomial is certified against every finite F16 point in its declared domain
+ok 96 - JSON factorized SiLU polynomial is certified against every finite F16 point in its declared domain
+  ---
+  duration_ms: 10708.00545
+  type: 'test'
+  ...
+# Subtest: JSON direct F64 to F16 composition matches an independent dyadic oracle at every half midpoint
+ok 97 - JSON direct F64 to F16 composition matches an independent dyadic oracle at every half midpoint
+  ---
+  duration_ms: 7546.342908
+  type: 'test'
+  ...
+# Subtest: JSON exponential eliminates constant range reduction and reproduces the pinned F32 polynomial in its proved domain
+ok 98 - JSON exponential eliminates constant range reduction and reproduces the pinned F32 polynomial in its proved domain
+  ---
+  duration_ms: 2037.236433
+  type: 'test'
+  ...
+# Subtest: JSON normal rounding followed by exact widening collapses to one bitword rounding expression
+ok 99 - JSON normal rounding followed by exact widening collapses to one bitword rounding expression
+  ---
+  duration_ms: 38.246575
+  type: 'test'
+  ...
+# Subtest: JSON composed F16 conversion and widening preserves all F16 values and sampled F32 rounding boundaries
+ok 100 - JSON composed F16 conversion and widening preserves all F16 values and sampled F32 rounding boundaries
+  ---
+  duration_ms: 1727.162487
+  type: 'test'
+  ...
+# Subtest: JSON F64 to F32 bitwise conversion agrees with IEEE rounding at boundaries and sampled binary64 values
+ok 101 - JSON F64 to F32 bitwise conversion agrees with IEEE rounding at boundaries and sampled binary64 values
+  ---
+  duration_ms: 240.420722
+  type: 'test'
+  ...
+# Subtest: JSON admission distinguishes shared decisions from expanded occurrences and rejects residual implicit rounding
+ok 102 - JSON admission distinguishes shared decisions from expanded occurrences and rejects residual implicit rounding
+  ---
+  duration_ms: 1.028724
+  type: 'test'
+  ...
+# Subtest: JSON admission rejects exponential duplication and longest shared paths without expanding the tree
+ok 103 - JSON admission rejects exponential duplication and longest shared paths without expanding the tree
+  ---
+  duration_ms: 14.943591
+  type: 'test'
+  ...
+# Subtest: JSON measurement predicts serialization and huge duplication without rendering expanded expressions
+ok 104 - JSON measurement predicts serialization and huge duplication without rendering expanded expressions
+  ---
+  duration_ms: 2.175459
+  type: 'test'
+  ...
+# Subtest: JSONL stream emits all scalar coordinates with exact syntax and refuses to publish incomplete vectors
+ok 105 - JSONL stream emits all scalar coordinates with exact syntax and refuses to publish incomplete vectors
+  ---
+  duration_ms: 48.205922
+  type: 'test'
+  ...
+# Subtest: Remote target discovery rejects wrong numerical policies before reading or trusting state
+ok 106 - Remote target discovery rejects wrong numerical policies before reading or trusting state
+  ---
+  duration_ms: 2.36457
+  type: 'test'
+  ...
+# Subtest: Compile-only target snapshots reject changed checkpoint, compiler and discovery identities
+ok 107 - Compile-only target snapshots reject changed checkpoint, compiler and discovery identities # SKIP
+  ---
+  duration_ms: 0.312491
+  type: 'test'
+  ...
+1..107
+# tests 107
+# suites 0
+# pass 99
+# fail 2
+# cancelled 0
+# skipped 6
+# todo 0
+# duration_ms 74826.949362

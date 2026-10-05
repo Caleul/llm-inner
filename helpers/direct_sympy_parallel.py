@@ -10,6 +10,7 @@ from dataclasses import dataclass
 import multiprocessing
 import os
 import json
+import re
 import subprocess
 from pathlib import Path
 import resource
@@ -50,6 +51,10 @@ class ParallelBudget:
 
 
 def _job(job):
+    trace_stalls=os.environ.get('LLM_INNER_CAS_TRACE_STALLS')=='1'
+    if trace_stalls:
+        import faulthandler
+        faulthandler.dump_traceback_later(10,repeat=True)
     compiler,domains=_BASE
     before=len(compiler.events);before_substitutions=len(compiler.substitution_events);started=time.monotonic()
     kind,paths,hole,output=job
@@ -81,12 +86,13 @@ def _job(job):
             raise ValueError('Accumulated operator expression/condition reservation exceeded')
     else:raise ValueError('Unknown composition job')
     write_string(output,expression)
+    if trace_stalls:faulthandler.cancel_dump_traceback_later()
     return {'path':output,'characters':len(expression),'inputBytes':sum(Path(path).stat().st_size for path in paths),
         'events':compiler.events[before:],'substitutionEvents':compiler.substitution_events[before_substitutions:],
         'kind':kind,'seconds':time.monotonic()-started,'pid':os.getpid(),'rssBytes':resident_bytes()}
 
 
-def _wave(jobs,budget,compiler,domains,stats):
+def _wave(jobs,budget,compiler,domains,stats,*,on_progress=None):
     global _BASE
     if not jobs:return []
     parent=resident_bytes()
@@ -124,11 +130,19 @@ def _wave(jobs,budget,compiler,domains,stats):
                 stats['operatorPreparations']+=result['kind']=='operator-prepare'
                 stats['operatorPairMerges']+=result['kind']=='operator-merge'
                 stats.setdefault('growth',[]).append({k:v for k,v in result.items() if k not in ('events','substitutionEvents','path')})
+                if on_progress is not None:on_progress(dict(stats))
         # Merge evidence in original descriptor order, independently of the
         # workers' completion order. No child compiler cache is published.
         for result in results:
             compiler.events.extend(result['events'])
             compiler.substitution_events.extend(result['substitutionEvents'])
+            if result['kind'].startswith('operator-'):
+                # Only input-complete prefixes can be protected. A block
+                # containing an internal port must remain open to the next
+                # substitution; hiding that port would lose its replacement.
+                for expression in json.loads(Path(result['path']).read_text())['outputs']:
+                    if set(re.findall(r'\bX[1-9][0-9]*\b',expression))<=domains.keys():
+                        compiler.register_completed_region(expression,domains)
         return results
     finally:
         for process in list(executor._processes.values()):

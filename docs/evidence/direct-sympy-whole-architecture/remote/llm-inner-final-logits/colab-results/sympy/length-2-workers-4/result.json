@@ -1,0 +1,14 @@
+{
+  "length": 2,
+  "workingExpressionsEmitted": 0,
+  "verifiedLogits": 0,
+  "mismatches": [],
+  "finalArtifactEmitted": false,
+  "finalArtifactParity": false,
+  "stop": "Whole-architecture worker deadline exceeded",
+  "seconds": 148.71120225100003,
+  "exitCode": 1,
+  "wallSeconds": 151.42696276999982,
+  "peakObservedAggregateRSSBytes": 11000176640,
+  "coordinatorStop": null
+}

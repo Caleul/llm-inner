@@ -1,3 +1,4 @@
+import {validateDirectModelSnapshot,type DirectModelSnapshot} from './direct-model-snapshot.js';
 import { withDirectCompilationLease } from "./direct-compilation-lease.js";
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
@@ -290,8 +291,8 @@ async function proveDirectNumerics(output:DirectModelDiscovery["output"],layers:
 }
 /** Discover and prove once for the pool. Certificates contain only a bounded
  * score range per layer; they are compile-time facts and never emitted. */
-export async function prepareDirectModel(directory:string,python:string,weightCacheBytes:number):Promise<DirectModelDiscovery>{
-  const discovered=await discoverDirectModel(directory,python),reader=new SafetensorsCatalogReader(directory);
+export async function prepareDirectModel(directory:string,python:string,weightCacheBytes:number,snapshot?:DirectModelSnapshot):Promise<DirectModelDiscovery>{
+  const discovered=snapshot?await validateDirectModelSnapshot(directory,snapshot):await discoverDirectModel(directory,python),reader=new SafetensorsCatalogReader(directory);
   const pages=new DirectWeightPages(reader,weightCacheBytes);
   try{
     const catalog=await reader.inspect();

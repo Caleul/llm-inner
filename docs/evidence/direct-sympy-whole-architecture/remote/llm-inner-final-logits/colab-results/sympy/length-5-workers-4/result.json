@@ -1,0 +1,14 @@
+{
+  "length": 5,
+  "workingExpressionsEmitted": 0,
+  "verifiedLogits": 0,
+  "mismatches": [],
+  "finalArtifactEmitted": false,
+  "finalArtifactParity": false,
+  "stop": "Substitution exceeds string budget before allocation: variable=X229 templateCharacters=9043 replacementCharacters=7369631 occurrences=105 estimatedCharacters=773820090 limit=536870912",
+  "seconds": 49.12519046899979,
+  "exitCode": 1,
+  "wallSeconds": 51.90534884999988,
+  "peakObservedAggregateRSSBytes": 3085127680,
+  "coordinatorStop": null
+}
