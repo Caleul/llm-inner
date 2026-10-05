@@ -64,7 +64,7 @@ class CoherentPaths:
         LiteralView(registry,self.originals)
         self.max_paths=max_paths;self.max_search_nodes=max_search_nodes
         self.predicates={}
-        self.stats={'splitContexts':0,'completedPaths':0,'contradictions':0,'selectorSelections':0,'CASPasses':0,'numericArithmeticEliminated':0,'numericRecipeAttempts':0,'numericRecipeAdmissions':0,'numericRecipeBudgetStops':0}
+        self.stats={'splitContexts':0,'completedPaths':0,'contradictions':0,'selectorSelections':0,'CASPasses':0,'numericArithmeticEliminated':0,'numericRecipeAttempts':0,'numericRecipeAdmissions':0,'numericRecipeBudgetStops':0,'coupledProjectionContradictions':0}
 
     @staticmethod
     def alias(node):
@@ -296,6 +296,9 @@ class CoherentPaths:
         while pending:
             facts,guards=pending.pop();domains=self.domains(facts)
             if domains is None:self.stats['contradictions']+=1;continue
+            from direct_sympy_projection_constraints import impossible_projections
+            if impossible_projections(self.registry,guards):
+                self.stats['contradictions']+=1;self.stats['coupledProjectionContradictions']+=1;continue
             decision=self.next_decision(root,facts)
             if decision is None:
                 if self.stats['completedPaths']>=self.max_paths:raise ValueError('Path budget exceeded; no complete result')

@@ -144,6 +144,7 @@ class CheckpointStrings:
         self.on_completed=None
         self.layer_bound_cache={}
         self.norm_bound_cache={}
+        self.norm_vectors={}
         self.constant_projections=0
         self.elided_updates=[]
         self.early_half_products=0
@@ -327,18 +328,24 @@ class CheckpointStrings:
         return result
 
     def norm(self,key,name,coordinate,input_value):
+        certificate=[]
         def build():
             epsilon_value=f32(self.config['rms_norm_eps'])
             epsilon=repr(epsilon_value)
             bound=rms_half_bound(self.width,epsilon_value)
-            source_bounds=[]
+            source_bounds=[];input_expressions=[]
             if self.conversions is not None and bound is not None:
                 for i in range(self.width):
-                    query,_=self.conversions.analyze_expression(input_value(i))
+                    operand=input_value(i);input_expressions.append(operand)
+                    query,_=self.conversions.analyze_expression(operand)
                     own=self.conversions.bounds(query)
                     if self.conversions.value_kind(query)!='half' or own is None:
                         source_bounds=[];break
                     source_bounds.append(own)
+            if source_bounds and self.width<=8 and all(float(self.weight(name,i)) in (-1,1) for i in range(self.width)):
+                from direct_sympy_projection_constraints import norm_squared_floor
+                floor=norm_squared_floor(source_bounds,epsilon_value)
+                if floor:certificate.append(((self.compiler.context(self.domains),name,tuple(input_expressions)),floor))
             components=rms_component_enclosures(source_bounds,coordinate,epsilon_value) if source_bounds else None
             if components is not None:
                 low,high=components[1][0]
@@ -399,7 +406,15 @@ class CheckpointStrings:
                     # not a guessed relation between positive cached values.
                     self.conversions.remember_rms_guard(product,input_value(coordinate),mean,inverse)
             return "R16("+self.op("*",normalized,self.weight(name,coordinate))+")"
-        return self.producer(key+":"+str(coordinate),build)
+        result=self.producer(key+":"+str(coordinate),build)
+        if certificate:
+            vector_key,floor=certificate[0]
+            vector=self.norm_vectors.setdefault(vector_key,{'width':self.width,'floor':floor,'components':{},'magnitudes':{}})
+            bound=self.conversions.bounds(syntax(result))
+            if bound is not None:
+                vector['components'][coordinate]=result
+                vector['magnitudes'][coordinate]=F(max(abs(bound.minimum),abs(bound.maximum)))
+        return result
 
     def gated(self,prefix,neuron,input_value,*,input_bounds=None):
         # Each scalar projection owns its rounding frontier. Close it before

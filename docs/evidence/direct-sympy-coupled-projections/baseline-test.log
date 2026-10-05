@@ -1,0 +1,279 @@
+✖ evidência do default de oito threads vincula corpus e tokens autoritativos (3.329708ms)
+✖ evidência rejeita prefill exato eager quando ele preserva tokens mas piora todas as classes de latência (1.055333ms)
+✖ evidência do corte de prefill terminal preserva corpus e correção de raiz (1.360125ms)
+✖ evidência promove antecipação do prefixo exato somente em sessão com cache (0.751708ms)
+✖ evidência promove o maior prefixo exato entre sessões sem alterar logits (0.729959ms)
+✖ evidência promove contexto sensível exato sem replay do decoder (1.251458ms)
+✖ evidência adia prefill exato sem cache e preserva antecipação do contexto exato (0.779125ms)
+✖ evidência promove cabeça BF16 integral e rejeita prefill agrupado divergente (0.835542ms)
+✖ evidência promove cache de decisão exata e rejeita fronteira Q8 0-18 (0.350583ms)
+✔ evidência promove a fronteira Q8 0-19 com menos fallbacks e paridade integral (0.549958ms)
+✔ evidência rejeita fronteiras Q8 esparsas que reduzem fallbacks mas pioram o híbrido (0.507833ms)
+✖ evidência rejeita Q8 na projeção down quando velocidade e verificação deixam de coexistir (0.546125ms)
+✖ evidência rejeita grupos Q8 que divergem ou ampliam o fallback (0.393958ms)
+✔ calibração três-vias agrega acordo token a token e throughput (0.836792ms)
+✔ calibração preserva métricas da cabeça quantizada certificada (0.2605ms)
+✔ opções da calibração validam corpus e preservam opções do runtime (2.242291ms)
+✔ opções da calibração rejeitam corpus vazio e limites inválidos (0.977458ms)
+✔ Gemma 4 native-reduction coverage binds both exact operands and native output in program order (0.837042ms)
+✔ Gemma 4 native-reduction coverage fails closed for an earlier or tampered operand checkpoint (0.235458ms)
+✔ Gemma 4 runtime-reduction provider accepts only its pinned contract and exact output shape (4.563167ms)
+✔ Gemma 4 runtime-reduction transport preserves exact finite IEEE-F32 bits (0.30075ms)
+✔ Gemma 4 runtime-reduction transcript binds the exact invocation environment (0.343625ms)
+✔ Gemma 4 runtime-reduction replay commits every receipt in artifact-declared operation order (0.860458ms)
+✖ Gemma 4 runtime-reduction provider executes the integrity-bound embedded adapter (5.91525ms)
+✖ Gemma 4 embedded adapter executes every serialized invocation program without hidden class transforms (2.693583ms)
+✖ scalar-substitution example contains concrete learned values and reproduces its F32 result (1.264333ms)
+✔ builds an isolated engineering task without controller context (0.370833ms)
+✖ keeps the real agent-visible task free of controller context (2.089959ms)
+✔ requires exactly one explicit objective result (0.553375ms)
+✔ prevents an implementation session from certifying its own changes (0.079833ms)
+✔ creates internal continuity records without assigning future work (0.142334ms)
+ℹ tests 31
+ℹ suites 0
+ℹ pass 16
+ℹ fail 15
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 82.92325
+
+✖ failing tests:
+
+test at dist/test/gemma4-real-calibration.test.js:15:1
+✖ evidência do default de oito threads vincula corpus e tokens autoritativos (3.329708ms)
+  Error: ENOENT: no such file or directory, open 'artifacts/gemma4-q8-layers-0-20-margin0-calibration-32x8.json'
+      at async open (node:internal/fs/promises:637:25)
+      at async readFile (node:internal/fs/promises:1269:14)
+      at async digest (file:///private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/dist/test/gemma4-real-calibration.test.js:19:64)
+      at async TestContext.<anonymous> (file:///private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/dist/test/gemma4-real-calibration.test.js:21:18)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'artifacts/gemma4-q8-layers-0-20-margin0-calibration-32x8.json'
+  }
+
+test at dist/test/gemma4-real-calibration.test.js:27:1
+✖ evidência rejeita prefill exato eager quando ele preserva tokens mas piora todas as classes de latência (1.055333ms)
+  Error: ENOENT: no such file or directory, open 'artifacts/gemma4-q8-layers-0-20-margin0-calibration-32x8.json'
+      at async open (node:internal/fs/promises:637:25)
+      at async readFile (node:internal/fs/promises:1269:14)
+      at async TestContext.<anonymous> (file:///private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/dist/test/gemma4-real-calibration.test.js:34:48)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'artifacts/gemma4-q8-layers-0-20-margin0-calibration-32x8.json'
+  }
+
+test at dist/test/gemma4-real-calibration.test.js:43:1
+✖ evidência do corte de prefill terminal preserva corpus e correção de raiz (1.360125ms)
+  Error: ENOENT: no such file or directory, open 'artifacts/gemma4-q8-layers-0-20-margin0-calibration-32x8.json'
+      at async open (node:internal/fs/promises:637:25)
+      at async readFile (node:internal/fs/promises:1269:14)
+      at async digest (file:///private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/dist/test/gemma4-real-calibration.test.js:48:64)
+      at async TestContext.<anonymous> (file:///private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/dist/test/gemma4-real-calibration.test.js:50:18)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'artifacts/gemma4-q8-layers-0-20-margin0-calibration-32x8.json'
+  }
+
+test at dist/test/gemma4-real-calibration.test.js:52:1
+✖ evidência promove antecipação do prefixo exato somente em sessão com cache (0.751708ms)
+  Error: ENOENT: no such file or directory, open 'artifacts/gemma4-q8-layers-0-19-margin0-calibration-32x8.json'
+      at async open (node:internal/fs/promises:637:25)
+      at async readFile (node:internal/fs/promises:1269:14)
+      at async digest (file:///private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/dist/test/gemma4-real-calibration.test.js:54:64)
+      at async TestContext.<anonymous> (file:///private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/dist/test/gemma4-real-calibration.test.js:56:18)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'artifacts/gemma4-q8-layers-0-19-margin0-calibration-32x8.json'
+  }
+
+test at dist/test/gemma4-real-calibration.test.js:67:1
+✖ evidência promove o maior prefixo exato entre sessões sem alterar logits (0.729959ms)
+  Error: ENOENT: no such file or directory, open 'artifacts/gemma4-compiled-global-runtime-bundle/constants.runtime-index.json'
+      at async open (node:internal/fs/promises:637:25)
+      at async readFile (node:internal/fs/promises:1269:14)
+      at async digest (file:///private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/dist/test/gemma4-real-calibration.test.js:69:64)
+      at async TestContext.<anonymous> (file:///private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/dist/test/gemma4-real-calibration.test.js:72:18)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'artifacts/gemma4-compiled-global-runtime-bundle/constants.runtime-index.json'
+  }
+
+test at dist/test/gemma4-real-calibration.test.js:81:1
+✖ evidência promove contexto sensível exato sem replay do decoder (1.251458ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + '4bccd4ce7e6071c78addfb91f2e67b7bf8737ef4ac344d781700c8ff2b2cfe0d'
+  - '55363a368960bb7429d680e4b753917557791475b33d8fe32e44399b32c0bd04'
+
+      at TestContext.<anonymous> (file:///private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/dist/test/gemma4-real-calibration.test.js:85:16)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '4bccd4ce7e6071c78addfb91f2e67b7bf8737ef4ac344d781700c8ff2b2cfe0d',
+    expected: '55363a368960bb7429d680e4b753917557791475b33d8fe32e44399b32c0bd04',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/gemma4-real-calibration.test.js:94:1
+✖ evidência adia prefill exato sem cache e preserva antecipação do contexto exato (0.779125ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + '4bccd4ce7e6071c78addfb91f2e67b7bf8737ef4ac344d781700c8ff2b2cfe0d'
+  - '55363a368960bb7429d680e4b753917557791475b33d8fe32e44399b32c0bd04'
+
+      at TestContext.<anonymous> (file:///private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/dist/test/gemma4-real-calibration.test.js:98:16)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '4bccd4ce7e6071c78addfb91f2e67b7bf8737ef4ac344d781700c8ff2b2cfe0d',
+    expected: '55363a368960bb7429d680e4b753917557791475b33d8fe32e44399b32c0bd04',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/gemma4-real-calibration.test.js:111:1
+✖ evidência promove cabeça BF16 integral e rejeita prefill agrupado divergente (0.835542ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + '4bccd4ce7e6071c78addfb91f2e67b7bf8737ef4ac344d781700c8ff2b2cfe0d'
+  - '55363a368960bb7429d680e4b753917557791475b33d8fe32e44399b32c0bd04'
+
+      at TestContext.<anonymous> (file:///private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/dist/test/gemma4-real-calibration.test.js:115:16)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '4bccd4ce7e6071c78addfb91f2e67b7bf8737ef4ac344d781700c8ff2b2cfe0d',
+    expected: '55363a368960bb7429d680e4b753917557791475b33d8fe32e44399b32c0bd04',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/gemma4-real-calibration.test.js:127:1
+✖ evidência promove cache de decisão exata e rejeita fronteira Q8 0-18 (0.350583ms)
+  Error: ENOENT: no such file or directory, open 'artifacts/gemma4-exact-decision-cache-promotion.json'
+      at async open (node:internal/fs/promises:637:25)
+      at async readFile (node:internal/fs/promises:1269:14)
+      at async TestContext.<anonymous> (file:///private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/dist/test/gemma4-real-calibration.test.js:128:33)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'artifacts/gemma4-exact-decision-cache-promotion.json'
+  }
+
+test at dist/test/gemma4-real-calibration.test.js:180:1
+✖ evidência rejeita Q8 na projeção down quando velocidade e verificação deixam de coexistir (0.546125ms)
+  Error: ENOENT: no such file or directory, open 'artifacts/gemma4-q8-layers-0-19-margin0-calibration-32x8.json'
+      at async open (node:internal/fs/promises:637:25)
+      at async readFile (node:internal/fs/promises:1269:14)
+      at async digest (file:///private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/dist/test/gemma4-real-calibration.test.js:192:64)
+      at async TestContext.<anonymous> (file:///private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/dist/test/gemma4-real-calibration.test.js:194:18)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'artifacts/gemma4-q8-layers-0-19-margin0-calibration-32x8.json'
+  }
+
+test at dist/test/gemma4-real-calibration.test.js:196:1
+✖ evidência rejeita grupos Q8 que divergem ou ampliam o fallback (0.393958ms)
+  Error: ENOENT: no such file or directory, open 'artifacts/gemma4-compiled-global-runtime-bundle/manifest.json'
+      at async open (node:internal/fs/promises:637:25)
+      at async readFile (node:internal/fs/promises:1269:14)
+      at async digest (file:///private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/dist/test/gemma4-real-calibration.test.js:198:64)
+      at async TestContext.<anonymous> (file:///private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/dist/test/gemma4-real-calibration.test.js:199:18)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'artifacts/gemma4-compiled-global-runtime-bundle/manifest.json'
+  }
+
+test at dist/test/gemma4-runtime-reduction-trace-coverage.test.js:242:1
+✖ Gemma 4 runtime-reduction provider executes the integrity-bound embedded adapter (5.91525ms)
+  Error: spawnSync /private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/venv/bin/python ENOENT
+      at Object.spawnSync (node:internal/child_process:1120:20)
+      at spawnSync (node:child_process:911:24)
+      at Gemma4TorchRuntimeReductionProvider.execute (file:///private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/dist/src/gemma4-torch-runtime-reduction-provider.js:59:27)
+      at executeGemma4RuntimeReduction (file:///private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/dist/src/gemma4-runtime-reduction-provider.js:53:32)
+      at TestContext.<anonymous> (file:///private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/dist/test/gemma4-runtime-reduction-trace-coverage.test.js:285:26)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'spawnSync /private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/venv/bin/python',
+    path: '/private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/venv/bin/python',
+    spawnargs: [ '/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-gemma4-runtime-reduction-gW82az/embedded-runtime-reduction.py', '/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-gemma4-runtime-reduction-gW82az/request.json' ]
+  }
+
+test at dist/test/gemma4-runtime-reduction-trace-coverage.test.js:318:1
+✖ Gemma 4 embedded adapter executes every serialized invocation program without hidden class transforms (2.693583ms)
+  Error: spawnSync /private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/venv/bin/python ENOENT
+      at Object.spawnSync (node:internal/child_process:1120:20)
+      at spawnSync (node:child_process:911:24)
+      at Gemma4TorchRuntimeReductionProvider.execute (file:///private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/dist/src/gemma4-torch-runtime-reduction-provider.js:59:27)
+      at executeGemma4RuntimeReduction (file:///private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/dist/src/gemma4-runtime-reduction-provider.js:53:32)
+      at TestContext.<anonymous> (file:///private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/dist/test/gemma4-runtime-reduction-trace-coverage.test.js:342:24)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'spawnSync /private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/venv/bin/python',
+    path: '/private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/venv/bin/python',
+    spawnargs: [ '/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-gemma4-runtime-reduction-NeBWqM/embedded-runtime-reduction.py', '/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-gemma4-runtime-reduction-NeBWqM/request.json' ]
+  }
+
+test at dist/test/literal-scalar-substitution-example.test.js:5:1
+✖ scalar-substitution example contains concrete learned values and reproduces its F32 result (1.264333ms)
+  Error: ENOENT: no such file or directory, open '/private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/docs/examples/literal-scalar-substitution.example.json'
+      at async open (node:internal/fs/promises:637:25)
+      at async readFile (node:internal/fs/promises:1269:14)
+      at async TestContext.<anonymous> (file:///private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/dist/test/literal-scalar-substitution-example.test.js:6:33)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: '/private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/docs/examples/literal-scalar-substitution.example.json'
+  }
+
+test at scripts/agent-task-contract.test.mjs:19:1
+✖ keeps the real agent-visible task free of controller context (2.089959ms)
+  Error: ENOENT: no such file or directory, open '/private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/.agent-loop/prompts/master-prompt.md'
+      at async open (node:internal/fs/promises:637:25)
+      at async readFile (node:internal/fs/promises:1269:14)
+      at async Promise.all (index 0)
+      at async TestContext.<anonymous> (file:///private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/scripts/agent-task-contract.test.mjs:20:42)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: '/private/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-baseline-8b70cbkq/.agent-loop/prompts/master-prompt.md'
+  }

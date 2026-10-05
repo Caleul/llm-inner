@@ -1,0 +1,3890 @@
+[
+  {
+    "region": "00",
+    "domains": {
+      "X1": [
+        -31743,
+        -20480
+      ],
+      "X2": [
+        -31743,
+        -19456
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "0100000",
+    "domains": {
+      "X1": [
+        -31743,
+        -20480
+      ],
+      "X2": [
+        -19455,
+        -17408
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "0100001000",
+    "domains": {
+      "X1": [
+        -31743,
+        -21504
+      ],
+      "X2": [
+        -17407,
+        -16384
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "0100001001",
+    "domains": {
+      "X1": [
+        -31743,
+        -21504
+      ],
+      "X2": [
+        -16383,
+        -15361
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "010000101",
+    "domains": {
+      "X1": [
+        -31743,
+        -21504
+      ],
+      "X2": [
+        -15360,
+        -14592
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010000110",
+    "domains": {
+      "X1": [
+        -21503,
+        -20480
+      ],
+      "X2": [
+        -17407,
+        -16384
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "0100001110",
+    "domains": {
+      "X1": [
+        -21503,
+        -20480
+      ],
+      "X2": [
+        -16383,
+        -15361
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "0100001111",
+    "domains": {
+      "X1": [
+        -21503,
+        -20480
+      ],
+      "X2": [
+        -15360,
+        -14592
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-1b5b9842b0466099fcb117cad7ce8cad4ba0b4044cf479b19776412d6cca4b28.expr",
+    "sha256": "1b5b9842b0466099fcb117cad7ce8cad4ba0b4044cf479b19776412d6cca4b28",
+    "characters": 7372
+  },
+  {
+    "region": "010001000000",
+    "domains": {
+      "X1": [
+        -31743,
+        -21504
+      ],
+      "X2": [
+        -14591,
+        -14440
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001000001",
+    "domains": {
+      "X1": [
+        -21503,
+        -20480
+      ],
+      "X2": [
+        -14591,
+        -14440
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-c4aab18e1df8ddaab54bc99b54707c24ad69a02dc04b24945893bec3e0fe8895.expr",
+    "sha256": "c4aab18e1df8ddaab54bc99b54707c24ad69a02dc04b24945893bec3e0fe8895",
+    "characters": 3988
+  },
+  {
+    "region": "0100010000100",
+    "domains": {
+      "X1": [
+        -31743,
+        -21504
+      ],
+      "X2": [
+        -14439,
+        -14364
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "0100010000101",
+    "domains": {
+      "X1": [
+        -21503,
+        -20480
+      ],
+      "X2": [
+        -14439,
+        -14364
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-c4aab18e1df8ddaab54bc99b54707c24ad69a02dc04b24945893bec3e0fe8895.expr",
+    "sha256": "c4aab18e1df8ddaab54bc99b54707c24ad69a02dc04b24945893bec3e0fe8895",
+    "characters": 3988
+  },
+  {
+    "region": "01000100001100",
+    "domains": {
+      "X1": [
+        -31743,
+        -26112
+      ],
+      "X2": [
+        -14363,
+        -14326
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001000011010",
+    "domains": {
+      "X1": [
+        -26111,
+        -21504
+      ],
+      "X2": [
+        -14363,
+        -14326
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001000011011",
+    "domains": {
+      "X1": [
+        -21503,
+        -20480
+      ],
+      "X2": [
+        -14363,
+        -14326
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2.expr",
+    "sha256": "78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2",
+    "characters": 1817
+  },
+  {
+    "region": "01000100001110",
+    "domains": {
+      "X1": [
+        -31743,
+        -26112
+      ],
+      "X2": [
+        -14325,
+        -14288
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001000011110",
+    "domains": {
+      "X1": [
+        -26111,
+        -21504
+      ],
+      "X2": [
+        -14325,
+        -14288
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001000011111",
+    "domains": {
+      "X1": [
+        -21503,
+        -20480
+      ],
+      "X2": [
+        -14325,
+        -14288
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2.expr",
+    "sha256": "78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2",
+    "characters": 1817
+  },
+  {
+    "region": "01000100010000",
+    "domains": {
+      "X1": [
+        -31743,
+        -26112
+      ],
+      "X2": [
+        -14287,
+        -14250
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001000100010",
+    "domains": {
+      "X1": [
+        -26111,
+        -21504
+      ],
+      "X2": [
+        -14287,
+        -14250
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001000100011",
+    "domains": {
+      "X1": [
+        -21503,
+        -20480
+      ],
+      "X2": [
+        -14287,
+        -14250
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2.expr",
+    "sha256": "78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2",
+    "characters": 1817
+  },
+  {
+    "region": "01000100010010",
+    "domains": {
+      "X1": [
+        -31743,
+        -26112
+      ],
+      "X2": [
+        -14249,
+        -14212
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001000100110",
+    "domains": {
+      "X1": [
+        -26111,
+        -21504
+      ],
+      "X2": [
+        -14249,
+        -14212
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001000100111",
+    "domains": {
+      "X1": [
+        -21503,
+        -20480
+      ],
+      "X2": [
+        -14249,
+        -14212
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2.expr",
+    "sha256": "78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2",
+    "characters": 1817
+  },
+  {
+    "region": "01000100010100",
+    "domains": {
+      "X1": [
+        -31743,
+        -26112
+      ],
+      "X2": [
+        -14211,
+        -14174
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001000101010",
+    "domains": {
+      "X1": [
+        -26111,
+        -21504
+      ],
+      "X2": [
+        -14211,
+        -14174
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001000101011",
+    "domains": {
+      "X1": [
+        -21503,
+        -20480
+      ],
+      "X2": [
+        -14211,
+        -14174
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2.expr",
+    "sha256": "78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2",
+    "characters": 1817
+  },
+  {
+    "region": "01000100010110",
+    "domains": {
+      "X1": [
+        -31743,
+        -26112
+      ],
+      "X2": [
+        -14173,
+        -14136
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001000101110",
+    "domains": {
+      "X1": [
+        -26111,
+        -21504
+      ],
+      "X2": [
+        -14173,
+        -14136
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001000101111",
+    "domains": {
+      "X1": [
+        -21503,
+        -20480
+      ],
+      "X2": [
+        -14173,
+        -14136
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2.expr",
+    "sha256": "78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2",
+    "characters": 1817
+  },
+  {
+    "region": "01000100011000",
+    "domains": {
+      "X1": [
+        -31743,
+        -26112
+      ],
+      "X2": [
+        -14135,
+        -14098
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001000110010",
+    "domains": {
+      "X1": [
+        -26111,
+        -21504
+      ],
+      "X2": [
+        -14135,
+        -14098
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001000110011",
+    "domains": {
+      "X1": [
+        -21503,
+        -20480
+      ],
+      "X2": [
+        -14135,
+        -14098
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2.expr",
+    "sha256": "78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2",
+    "characters": 1817
+  },
+  {
+    "region": "01000100011010",
+    "domains": {
+      "X1": [
+        -31743,
+        -26112
+      ],
+      "X2": [
+        -14097,
+        -14060
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001000110110",
+    "domains": {
+      "X1": [
+        -26111,
+        -21504
+      ],
+      "X2": [
+        -14097,
+        -14060
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001000110111",
+    "domains": {
+      "X1": [
+        -21503,
+        -20480
+      ],
+      "X2": [
+        -14097,
+        -14060
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2.expr",
+    "sha256": "78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2",
+    "characters": 1817
+  },
+  {
+    "region": "01000100011100",
+    "domains": {
+      "X1": [
+        -31743,
+        -26112
+      ],
+      "X2": [
+        -14059,
+        -14022
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001000111010",
+    "domains": {
+      "X1": [
+        -26111,
+        -21504
+      ],
+      "X2": [
+        -14059,
+        -14022
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001000111011",
+    "domains": {
+      "X1": [
+        -21503,
+        -20480
+      ],
+      "X2": [
+        -14059,
+        -14022
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2.expr",
+    "sha256": "78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2",
+    "characters": 1817
+  },
+  {
+    "region": "01000100011110",
+    "domains": {
+      "X1": [
+        -31743,
+        -26112
+      ],
+      "X2": [
+        -14021,
+        -13984
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001000111110",
+    "domains": {
+      "X1": [
+        -26111,
+        -21504
+      ],
+      "X2": [
+        -14021,
+        -13984
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001000111111",
+    "domains": {
+      "X1": [
+        -21503,
+        -20480
+      ],
+      "X2": [
+        -14021,
+        -13984
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2.expr",
+    "sha256": "78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2",
+    "characters": 1817
+  },
+  {
+    "region": "01000100100000",
+    "domains": {
+      "X1": [
+        -31743,
+        -26112
+      ],
+      "X2": [
+        -13983,
+        -13946
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001001000010",
+    "domains": {
+      "X1": [
+        -26111,
+        -21504
+      ],
+      "X2": [
+        -13983,
+        -13946
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001001000011",
+    "domains": {
+      "X1": [
+        -21503,
+        -20480
+      ],
+      "X2": [
+        -13983,
+        -13946
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2.expr",
+    "sha256": "78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2",
+    "characters": 1817
+  },
+  {
+    "region": "01000100100010",
+    "domains": {
+      "X1": [
+        -31743,
+        -26112
+      ],
+      "X2": [
+        -13945,
+        -13908
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001001000110",
+    "domains": {
+      "X1": [
+        -26111,
+        -21504
+      ],
+      "X2": [
+        -13945,
+        -13908
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001001000111",
+    "domains": {
+      "X1": [
+        -21503,
+        -20480
+      ],
+      "X2": [
+        -13945,
+        -13908
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2.expr",
+    "sha256": "78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2",
+    "characters": 1817
+  },
+  {
+    "region": "01000100100100",
+    "domains": {
+      "X1": [
+        -31743,
+        -26112
+      ],
+      "X2": [
+        -13907,
+        -13870
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001001001010",
+    "domains": {
+      "X1": [
+        -26111,
+        -21504
+      ],
+      "X2": [
+        -13907,
+        -13870
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001001001011",
+    "domains": {
+      "X1": [
+        -21503,
+        -20480
+      ],
+      "X2": [
+        -13907,
+        -13870
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2.expr",
+    "sha256": "78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2",
+    "characters": 1817
+  },
+  {
+    "region": "01000100100110",
+    "domains": {
+      "X1": [
+        -31743,
+        -26112
+      ],
+      "X2": [
+        -13869,
+        -13832
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001001001110",
+    "domains": {
+      "X1": [
+        -26111,
+        -21504
+      ],
+      "X2": [
+        -13869,
+        -13832
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001001001111",
+    "domains": {
+      "X1": [
+        -21503,
+        -20480
+      ],
+      "X2": [
+        -13869,
+        -13832
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2.expr",
+    "sha256": "78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2",
+    "characters": 1817
+  },
+  {
+    "region": "0100010010100",
+    "domains": {
+      "X1": [
+        -31743,
+        -21504
+      ],
+      "X2": [
+        -13831,
+        -13756
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "0100010010101",
+    "domains": {
+      "X1": [
+        -21503,
+        -20480
+      ],
+      "X2": [
+        -13831,
+        -13756
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-c4aab18e1df8ddaab54bc99b54707c24ad69a02dc04b24945893bec3e0fe8895.expr",
+    "sha256": "c4aab18e1df8ddaab54bc99b54707c24ad69a02dc04b24945893bec3e0fe8895",
+    "characters": 3988
+  },
+  {
+    "region": "0100010010110",
+    "domains": {
+      "X1": [
+        -31743,
+        -21504
+      ],
+      "X2": [
+        -13755,
+        -13680
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "0100010010111",
+    "domains": {
+      "X1": [
+        -21503,
+        -20480
+      ],
+      "X2": [
+        -13755,
+        -13680
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-c4aab18e1df8ddaab54bc99b54707c24ad69a02dc04b24945893bec3e0fe8895.expr",
+    "sha256": "c4aab18e1df8ddaab54bc99b54707c24ad69a02dc04b24945893bec3e0fe8895",
+    "characters": 3988
+  },
+  {
+    "region": "01000100110",
+    "domains": {
+      "X1": [
+        -31743,
+        -21504
+      ],
+      "X2": [
+        -13679,
+        -13376
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "01000100111",
+    "domains": {
+      "X1": [
+        -21503,
+        -20480
+      ],
+      "X2": [
+        -13679,
+        -13376
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-c4aab18e1df8ddaab54bc99b54707c24ad69a02dc04b24945893bec3e0fe8895.expr",
+    "sha256": "c4aab18e1df8ddaab54bc99b54707c24ad69a02dc04b24945893bec3e0fe8895",
+    "characters": 3988
+  },
+  {
+    "region": "010001010",
+    "domains": {
+      "X1": [
+        -31743,
+        -21504
+      ],
+      "X2": [
+        -13375,
+        -12160
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001011",
+    "domains": {
+      "X1": [
+        -21503,
+        -20480
+      ],
+      "X2": [
+        -13375,
+        -12160
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001100",
+    "domains": {
+      "X1": [
+        -31743,
+        -21504
+      ],
+      "X2": [
+        -12159,
+        -11264
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010001101",
+    "domains": {
+      "X1": [
+        -31743,
+        -21504
+      ],
+      "X2": [
+        -11263,
+        -9728
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "01000111",
+    "domains": {
+      "X1": [
+        -21503,
+        -20480
+      ],
+      "X2": [
+        -12159,
+        -9728
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "010010",
+    "domains": {
+      "X1": [
+        -31743,
+        -20480
+      ],
+      "X2": [
+        -9727,
+        -8193
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-6746e42184c7e92dd433e5da40fd9843c5f31c7aa733731c37b99a9bb8dcdbb6.expr",
+    "sha256": "6746e42184c7e92dd433e5da40fd9843c5f31c7aa733731c37b99a9bb8dcdbb6",
+    "characters": 11
+  },
+  {
+    "region": "010011",
+    "domains": {
+      "X1": [
+        -31743,
+        -20480
+      ],
+      "X2": [
+        -8192,
+        0
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-6746e42184c7e92dd433e5da40fd9843c5f31c7aa733731c37b99a9bb8dcdbb6.expr",
+    "sha256": "6746e42184c7e92dd433e5da40fd9843c5f31c7aa733731c37b99a9bb8dcdbb6",
+    "characters": 11
+  },
+  {
+    "region": "01010",
+    "domains": {
+      "X1": [
+        -31743,
+        -20480
+      ],
+      "X2": [
+        1,
+        8192
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-6746e42184c7e92dd433e5da40fd9843c5f31c7aa733731c37b99a9bb8dcdbb6.expr",
+    "sha256": "6746e42184c7e92dd433e5da40fd9843c5f31c7aa733731c37b99a9bb8dcdbb6",
+    "characters": 11
+  },
+  {
+    "region": "01011000",
+    "domains": {
+      "X1": [
+        -31743,
+        -21504
+      ],
+      "X2": [
+        8193,
+        11263
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-34160f82afe379489def9c5773b52c975807d34d02cd8c91128451801f3175d5.expr",
+    "sha256": "34160f82afe379489def9c5773b52c975807d34d02cd8c91128451801f3175d5",
+    "characters": 525809
+  },
+  {
+    "region": "010110010",
+    "domains": {
+      "X1": [
+        -31743,
+        -21504
+      ],
+      "X2": [
+        11264,
+        15360
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2.expr",
+    "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2",
+    "characters": 171939
+  },
+  {
+    "region": "0101100110",
+    "domains": {
+      "X1": [
+        -31743,
+        -21504
+      ],
+      "X2": [
+        15361,
+        16383
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "0101100111",
+    "domains": {
+      "X1": [
+        -31743,
+        -21504
+      ],
+      "X2": [
+        16384,
+        17407
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "010110100",
+    "domains": {
+      "X1": [
+        -21503,
+        -20480
+      ],
+      "X2": [
+        8193,
+        15360
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-34160f82afe379489def9c5773b52c975807d34d02cd8c91128451801f3175d5.expr",
+    "sha256": "34160f82afe379489def9c5773b52c975807d34d02cd8c91128451801f3175d5",
+    "characters": 525809
+  },
+  {
+    "region": "010110101",
+    "domains": {
+      "X1": [
+        -21503,
+        -20480
+      ],
+      "X2": [
+        15361,
+        16383
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "01011011",
+    "domains": {
+      "X1": [
+        -21503,
+        -20480
+      ],
+      "X2": [
+        16384,
+        17407
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "010111",
+    "domains": {
+      "X1": [
+        -31743,
+        -20480
+      ],
+      "X2": [
+        17408,
+        19455
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "011",
+    "domains": {
+      "X1": [
+        -31743,
+        -20480
+      ],
+      "X2": [
+        19456,
+        31743
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "1000000",
+    "domains": {
+      "X1": [
+        -20479,
+        -18432
+      ],
+      "X2": [
+        -31743,
+        -19456
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "10000010",
+    "domains": {
+      "X1": [
+        -18431,
+        -17408
+      ],
+      "X2": [
+        -31743,
+        -19456
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "100000110",
+    "domains": {
+      "X1": [
+        -17407,
+        -16385
+      ],
+      "X2": [
+        -31743,
+        -19456
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "100000111",
+    "domains": {
+      "X1": [
+        -16384,
+        -16384
+      ],
+      "X2": [
+        -31743,
+        -19456
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-c97892c3abe2fd563033879b0bd746426bf58ceb04ac5ff6ef851e4380f71735.expr",
+    "sha256": "c97892c3abe2fd563033879b0bd746426bf58ceb04ac5ff6ef851e4380f71735",
+    "characters": 7372
+  },
+  {
+    "region": "1000010",
+    "domains": {
+      "X1": [
+        -16383,
+        -15361
+      ],
+      "X2": [
+        -31743,
+        -19456
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-60e8f842178f31891b823714bb9000f4470b380af7e306807790c5af83d8a1e7.expr",
+    "sha256": "60e8f842178f31891b823714bb9000f4470b380af7e306807790c5af83d8a1e7",
+    "characters": 524269
+  },
+  {
+    "region": "10000110",
+    "domains": {
+      "X1": [
+        -15360,
+        -12289
+      ],
+      "X2": [
+        -31743,
+        -21504
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "10000111",
+    "domains": {
+      "X1": [
+        -15360,
+        -12289
+      ],
+      "X2": [
+        -21503,
+        -19456
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-60e8f842178f31891b823714bb9000f4470b380af7e306807790c5af83d8a1e7.expr",
+    "sha256": "60e8f842178f31891b823714bb9000f4470b380af7e306807790c5af83d8a1e7",
+    "characters": 524269
+  },
+  {
+    "region": "1000100",
+    "domains": {
+      "X1": [
+        -12288,
+        -10240
+      ],
+      "X2": [
+        -31743,
+        -24576
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "1000101",
+    "domains": {
+      "X1": [
+        -10239,
+        -8193
+      ],
+      "X2": [
+        -31743,
+        -24576
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31.expr",
+    "sha256": "34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31",
+    "characters": 200303
+  },
+  {
+    "region": "1000110000",
+    "domains": {
+      "X1": [
+        -12288,
+        -11777
+      ],
+      "X2": [
+        -24575,
+        -21504
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "1000110001",
+    "domains": {
+      "X1": [
+        -12288,
+        -11777
+      ],
+      "X2": [
+        -21503,
+        -19456
+      ]
+    },
+    "file": "../direct-sympy-four-worker-continuation/region-542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810.expr",
+    "sha256": "542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810",
+    "characters": 32224
+  },
+  {
+    "region": "10001100100",
+    "domains": {
+      "X1": [
+        -11776,
+        -11521
+      ],
+      "X2": [
+        -24575,
+        -21504
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "10001100101",
+    "domains": {
+      "X1": [
+        -11776,
+        -11521
+      ],
+      "X2": [
+        -21503,
+        -19456
+      ]
+    },
+    "file": "../direct-sympy-four-worker-continuation/region-542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810.expr",
+    "sha256": "542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810",
+    "characters": 32224
+  },
+  {
+    "region": "100011001100",
+    "domains": {
+      "X1": [
+        -11520,
+        -11393
+      ],
+      "X2": [
+        -24575,
+        -21504
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "100011001101",
+    "domains": {
+      "X1": [
+        -11520,
+        -11393
+      ],
+      "X2": [
+        -21503,
+        -19456
+      ]
+    },
+    "file": "../direct-sympy-four-worker-continuation/region-542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810.expr",
+    "sha256": "542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810",
+    "characters": 32224
+  },
+  {
+    "region": "1000110011100",
+    "domains": {
+      "X1": [
+        -11392,
+        -11329
+      ],
+      "X2": [
+        -24575,
+        -21504
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "1000110011101",
+    "domains": {
+      "X1": [
+        -11392,
+        -11329
+      ],
+      "X2": [
+        -21503,
+        -19456
+      ]
+    },
+    "file": "../direct-sympy-four-worker-continuation/region-542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810.expr",
+    "sha256": "542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810",
+    "characters": 32224
+  },
+  {
+    "region": "1000110011110",
+    "domains": {
+      "X1": [
+        -11328,
+        -11265
+      ],
+      "X2": [
+        -24575,
+        -22016
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "1000110011111000",
+    "domains": {
+      "X1": [
+        -11328,
+        -11265
+      ],
+      "X2": [
+        -22015,
+        -21696
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "10001100111110010",
+    "domains": {
+      "X1": [
+        -11328,
+        -11265
+      ],
+      "X2": [
+        -21695,
+        -21504
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "10001100111110011",
+    "domains": {
+      "X1": [
+        -11328,
+        -11265
+      ],
+      "X2": [
+        -21503,
+        -21376
+      ]
+    },
+    "file": "../direct-sympy-silu-update-bounds/region-91bdf602fb922f7f33fe5022304cfa1d9943c2cd783913c875703aab7b9a79e4.expr",
+    "sha256": "91bdf602fb922f7f33fe5022304cfa1d9943c2cd783913c875703aab7b9a79e4",
+    "characters": 17424
+  },
+  {
+    "region": "1000110011111010",
+    "domains": {
+      "X1": [
+        -11328,
+        -11265
+      ],
+      "X2": [
+        -21375,
+        -21056
+      ]
+    },
+    "file": "../direct-sympy-silu-update-bounds/region-aecc2ade9a069d09c67f8e73da84533a7a06a02bb84cf7810a714145568b2735.expr",
+    "sha256": "aecc2ade9a069d09c67f8e73da84533a7a06a02bb84cf7810a714145568b2735",
+    "characters": 2493
+  },
+  {
+    "region": "1000110011111011",
+    "domains": {
+      "X1": [
+        -11328,
+        -11265
+      ],
+      "X2": [
+        -21055,
+        -20736
+      ]
+    },
+    "file": "../direct-sympy-silu-update-bounds/region-6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb.expr",
+    "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb",
+    "characters": 31629
+  },
+  {
+    "region": "1000110011111100",
+    "domains": {
+      "X1": [
+        -11328,
+        -11265
+      ],
+      "X2": [
+        -20735,
+        -20416
+      ]
+    },
+    "file": "../direct-sympy-silu-update-bounds/region-6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb.expr",
+    "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb",
+    "characters": 31629
+  },
+  {
+    "region": "1000110011111101",
+    "domains": {
+      "X1": [
+        -11328,
+        -11265
+      ],
+      "X2": [
+        -20415,
+        -20096
+      ]
+    },
+    "file": "../direct-sympy-silu-update-bounds/region-6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb.expr",
+    "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb",
+    "characters": 31629
+  },
+  {
+    "region": "1000110011111110",
+    "domains": {
+      "X1": [
+        -11328,
+        -11265
+      ],
+      "X2": [
+        -20095,
+        -19776
+      ]
+    },
+    "file": "../direct-sympy-silu-update-bounds/region-6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb.expr",
+    "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb",
+    "characters": 31629
+  },
+  {
+    "region": "1000110011111111",
+    "domains": {
+      "X1": [
+        -11328,
+        -11265
+      ],
+      "X2": [
+        -19775,
+        -19456
+      ]
+    },
+    "file": "../direct-sympy-silu-update-bounds/region-6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb.expr",
+    "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb",
+    "characters": 31629
+  },
+  {
+    "region": "1000110100000",
+    "domains": {
+      "X1": [
+        -11264,
+        -11201
+      ],
+      "X2": [
+        -24575,
+        -22016
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "100011010000100",
+    "domains": {
+      "X1": [
+        -11264,
+        -11201
+      ],
+      "X2": [
+        -22015,
+        -21504
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "100011010000101",
+    "domains": {
+      "X1": [
+        -11264,
+        -11201
+      ],
+      "X2": [
+        -21503,
+        -20736
+      ]
+    },
+    "file": "../direct-sympy-four-worker-continuation/region-542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810.expr",
+    "sha256": "542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810",
+    "characters": 32224
+  },
+  {
+    "region": "100011010000110",
+    "domains": {
+      "X1": [
+        -11264,
+        -11201
+      ],
+      "X2": [
+        -20735,
+        -20096
+      ]
+    },
+    "file": "../direct-sympy-silu-update-bounds/region-6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb.expr",
+    "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb",
+    "characters": 31629
+  },
+  {
+    "region": "100011010000111",
+    "domains": {
+      "X1": [
+        -11264,
+        -11201
+      ],
+      "X2": [
+        -20095,
+        -19456
+      ]
+    },
+    "file": "../direct-sympy-silu-update-bounds/region-6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb.expr",
+    "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb",
+    "characters": 31629
+  },
+  {
+    "region": "1000110100010",
+    "domains": {
+      "X1": [
+        -11200,
+        -11137
+      ],
+      "X2": [
+        -24575,
+        -22016
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "100011010001100",
+    "domains": {
+      "X1": [
+        -11200,
+        -11137
+      ],
+      "X2": [
+        -22015,
+        -21504
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "100011010001101",
+    "domains": {
+      "X1": [
+        -11200,
+        -11137
+      ],
+      "X2": [
+        -21503,
+        -20736
+      ]
+    },
+    "file": "../direct-sympy-four-worker-continuation/region-542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810.expr",
+    "sha256": "542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810",
+    "characters": 32224
+  },
+  {
+    "region": "100011010001110",
+    "domains": {
+      "X1": [
+        -11200,
+        -11137
+      ],
+      "X2": [
+        -20735,
+        -20096
+      ]
+    },
+    "file": "../direct-sympy-silu-update-bounds/region-6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb.expr",
+    "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb",
+    "characters": 31629
+  },
+  {
+    "region": "100011010001111",
+    "domains": {
+      "X1": [
+        -11200,
+        -11137
+      ],
+      "X2": [
+        -20095,
+        -19456
+      ]
+    },
+    "file": "../direct-sympy-silu-update-bounds/region-6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb.expr",
+    "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb",
+    "characters": 31629
+  },
+  {
+    "region": "1000110100100",
+    "domains": {
+      "X1": [
+        -11136,
+        -11073
+      ],
+      "X2": [
+        -24575,
+        -22016
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "100011010010100",
+    "domains": {
+      "X1": [
+        -11136,
+        -11073
+      ],
+      "X2": [
+        -22015,
+        -21504
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "100011010010101",
+    "domains": {
+      "X1": [
+        -11136,
+        -11073
+      ],
+      "X2": [
+        -21503,
+        -20736
+      ]
+    },
+    "file": "../direct-sympy-four-worker-continuation/region-542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810.expr",
+    "sha256": "542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810",
+    "characters": 32224
+  },
+  {
+    "region": "100011010010110",
+    "domains": {
+      "X1": [
+        -11136,
+        -11073
+      ],
+      "X2": [
+        -20735,
+        -20096
+      ]
+    },
+    "file": "../direct-sympy-silu-update-bounds/region-6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb.expr",
+    "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb",
+    "characters": 31629
+  },
+  {
+    "region": "100011010010111",
+    "domains": {
+      "X1": [
+        -11136,
+        -11073
+      ],
+      "X2": [
+        -20095,
+        -19456
+      ]
+    },
+    "file": "../direct-sympy-silu-update-bounds/region-6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb.expr",
+    "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb",
+    "characters": 31629
+  },
+  {
+    "region": "1000110100110",
+    "domains": {
+      "X1": [
+        -11072,
+        -11009
+      ],
+      "X2": [
+        -24575,
+        -22016
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "100011010011100",
+    "domains": {
+      "X1": [
+        -11072,
+        -11009
+      ],
+      "X2": [
+        -22015,
+        -21504
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "100011010011101",
+    "domains": {
+      "X1": [
+        -11072,
+        -11009
+      ],
+      "X2": [
+        -21503,
+        -20736
+      ]
+    },
+    "file": "../direct-sympy-four-worker-continuation/region-542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810.expr",
+    "sha256": "542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810",
+    "characters": 32224
+  },
+  {
+    "region": "100011010011110",
+    "domains": {
+      "X1": [
+        -11072,
+        -11009
+      ],
+      "X2": [
+        -20735,
+        -20096
+      ]
+    },
+    "file": "../direct-sympy-silu-update-bounds/region-6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb.expr",
+    "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb",
+    "characters": 31629
+  },
+  {
+    "region": "100011010011111",
+    "domains": {
+      "X1": [
+        -11072,
+        -11009
+      ],
+      "X2": [
+        -20095,
+        -19456
+      ]
+    },
+    "file": "../direct-sympy-silu-update-bounds/region-6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb.expr",
+    "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb",
+    "characters": 31629
+  },
+  {
+    "region": "1000110101000",
+    "domains": {
+      "X1": [
+        -11008,
+        -10945
+      ],
+      "X2": [
+        -24575,
+        -22016
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "100011010100100",
+    "domains": {
+      "X1": [
+        -11008,
+        -10945
+      ],
+      "X2": [
+        -22015,
+        -21504
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "100011010100101",
+    "domains": {
+      "X1": [
+        -11008,
+        -10945
+      ],
+      "X2": [
+        -21503,
+        -20736
+      ]
+    },
+    "file": "../direct-sympy-four-worker-continuation/region-542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810.expr",
+    "sha256": "542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810",
+    "characters": 32224
+  },
+  {
+    "region": "100011010100110",
+    "domains": {
+      "X1": [
+        -11008,
+        -10945
+      ],
+      "X2": [
+        -20735,
+        -20096
+      ]
+    },
+    "file": "../direct-sympy-silu-update-bounds/region-6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb.expr",
+    "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb",
+    "characters": 31629
+  },
+  {
+    "region": "100011010100111",
+    "domains": {
+      "X1": [
+        -11008,
+        -10945
+      ],
+      "X2": [
+        -20095,
+        -19456
+      ]
+    },
+    "file": "../direct-sympy-silu-update-bounds/region-6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb.expr",
+    "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb",
+    "characters": 31629
+  },
+  {
+    "region": "1000110101010",
+    "domains": {
+      "X1": [
+        -10944,
+        -10881
+      ],
+      "X2": [
+        -24575,
+        -22016
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "100011010101100",
+    "domains": {
+      "X1": [
+        -10944,
+        -10881
+      ],
+      "X2": [
+        -22015,
+        -21504
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "100011010101101",
+    "domains": {
+      "X1": [
+        -10944,
+        -10881
+      ],
+      "X2": [
+        -21503,
+        -20736
+      ]
+    },
+    "file": "../direct-sympy-four-worker-continuation/region-542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810.expr",
+    "sha256": "542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810",
+    "characters": 32224
+  },
+  {
+    "region": "1000110101100",
+    "domains": {
+      "X1": [
+        -10880,
+        -10817
+      ],
+      "X2": [
+        -24575,
+        -22529
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "10001101011010",
+    "domains": {
+      "X1": [
+        -10880,
+        -10817
+      ],
+      "X2": [
+        -22528,
+        -21504
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "1000110101110",
+    "domains": {
+      "X1": [
+        -10816,
+        -10753
+      ],
+      "X2": [
+        -24575,
+        -22529
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "10001101011110",
+    "domains": {
+      "X1": [
+        -10816,
+        -10753
+      ],
+      "X2": [
+        -22528,
+        -21504
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "100011011000",
+    "domains": {
+      "X1": [
+        -10752,
+        -10625
+      ],
+      "X2": [
+        -24575,
+        -22529
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "1000110110010",
+    "domains": {
+      "X1": [
+        -10752,
+        -10625
+      ],
+      "X2": [
+        -22528,
+        -21504
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "100011011010",
+    "domains": {
+      "X1": [
+        -10624,
+        -10497
+      ],
+      "X2": [
+        -24575,
+        -22529
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "1000110110110",
+    "domains": {
+      "X1": [
+        -10624,
+        -10497
+      ],
+      "X2": [
+        -22528,
+        -21504
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "10001101110",
+    "domains": {
+      "X1": [
+        -10496,
+        -10241
+      ],
+      "X2": [
+        -24575,
+        -22529
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "100011011110",
+    "domains": {
+      "X1": [
+        -10496,
+        -10241
+      ],
+      "X2": [
+        -22528,
+        -21504
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "10001110000",
+    "domains": {
+      "X1": [
+        -10240,
+        -10240
+      ],
+      "X2": [
+        -24575,
+        -22529
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "100011100010",
+    "domains": {
+      "X1": [
+        -10240,
+        -10240
+      ],
+      "X2": [
+        -22528,
+        -21504
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "1001000000",
+    "domains": {
+      "X1": [
+        -8192,
+        -1025
+      ],
+      "X2": [
+        -31743,
+        -24576
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31.expr",
+    "sha256": "34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31",
+    "characters": 200303
+  },
+  {
+    "region": "1001000001",
+    "domains": {
+      "X1": [
+        -1024,
+        -257
+      ],
+      "X2": [
+        -31743,
+        -24576
+      ]
+    },
+    "file": "../direct-sympy-early-projection/2d04da55c2dbcb40a964ab02c769dc6228ec2a6648923935ea31be758221d2bd.expr",
+    "sha256": "2d04da55c2dbcb40a964ab02c769dc6228ec2a6648923935ea31be758221d2bd",
+    "characters": 10
+  },
+  {
+    "region": "100100001",
+    "domains": {
+      "X1": [
+        -256,
+        -65
+      ],
+      "X2": [
+        -31743,
+        -24576
+      ]
+    },
+    "file": "../direct-sympy-early-projection/6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37.expr",
+    "sha256": "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+    "characters": 37476
+  },
+  {
+    "region": "100100010",
+    "domains": {
+      "X1": [
+        -64,
+        64
+      ],
+      "X2": [
+        -31743,
+        -24576
+      ]
+    },
+    "file": "../direct-sympy-early-projection/5da4b91a8eb1710a494dea259561f888d11fd8c634033701c503a100a9d041da.expr",
+    "sha256": "5da4b91a8eb1710a494dea259561f888d11fd8c634033701c503a100a9d041da",
+    "characters": 952013
+  },
+  {
+    "region": "1001000110",
+    "domains": {
+      "X1": [
+        65,
+        256
+      ],
+      "X2": [
+        -31743,
+        -24576
+      ]
+    },
+    "file": "../direct-sympy-early-projection/6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37.expr",
+    "sha256": "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+    "characters": 37476
+  },
+  {
+    "region": "10010001110",
+    "domains": {
+      "X1": [
+        257,
+        1024
+      ],
+      "X2": [
+        -31743,
+        -24576
+      ]
+    },
+    "file": "../direct-sympy-early-projection/2d04da55c2dbcb40a964ab02c769dc6228ec2a6648923935ea31be758221d2bd.expr",
+    "sha256": "2d04da55c2dbcb40a964ab02c769dc6228ec2a6648923935ea31be758221d2bd",
+    "characters": 10
+  },
+  {
+    "region": "10010001111",
+    "domains": {
+      "X1": [
+        1025,
+        8192
+      ],
+      "X2": [
+        -31743,
+        -24576
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31.expr",
+    "sha256": "34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31",
+    "characters": 200303
+  },
+  {
+    "region": "1001001000",
+    "domains": {
+      "X1": [
+        -8192,
+        -1025
+      ],
+      "X2": [
+        -24575,
+        -20480
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31.expr",
+    "sha256": "34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31",
+    "characters": 200303
+  },
+  {
+    "region": "1001001001",
+    "domains": {
+      "X1": [
+        -1024,
+        -257
+      ],
+      "X2": [
+        -24575,
+        -20480
+      ]
+    },
+    "file": "../direct-sympy-early-projection/2d04da55c2dbcb40a964ab02c769dc6228ec2a6648923935ea31be758221d2bd.expr",
+    "sha256": "2d04da55c2dbcb40a964ab02c769dc6228ec2a6648923935ea31be758221d2bd",
+    "characters": 10
+  },
+  {
+    "region": "100100101",
+    "domains": {
+      "X1": [
+        -256,
+        -65
+      ],
+      "X2": [
+        -24575,
+        -20480
+      ]
+    },
+    "file": "../direct-sympy-early-projection/6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37.expr",
+    "sha256": "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+    "characters": 37476
+  },
+  {
+    "region": "100100110",
+    "domains": {
+      "X1": [
+        -64,
+        64
+      ],
+      "X2": [
+        -24575,
+        -20480
+      ]
+    },
+    "file": "../direct-sympy-early-projection/5da4b91a8eb1710a494dea259561f888d11fd8c634033701c503a100a9d041da.expr",
+    "sha256": "5da4b91a8eb1710a494dea259561f888d11fd8c634033701c503a100a9d041da",
+    "characters": 952013
+  },
+  {
+    "region": "1001001110",
+    "domains": {
+      "X1": [
+        65,
+        256
+      ],
+      "X2": [
+        -24575,
+        -20480
+      ]
+    },
+    "file": "../direct-sympy-early-projection/6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37.expr",
+    "sha256": "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+    "characters": 37476
+  },
+  {
+    "region": "10010011110",
+    "domains": {
+      "X1": [
+        257,
+        1024
+      ],
+      "X2": [
+        -24575,
+        -20480
+      ]
+    },
+    "file": "../direct-sympy-early-projection/2d04da55c2dbcb40a964ab02c769dc6228ec2a6648923935ea31be758221d2bd.expr",
+    "sha256": "2d04da55c2dbcb40a964ab02c769dc6228ec2a6648923935ea31be758221d2bd",
+    "characters": 10
+  },
+  {
+    "region": "10010011111",
+    "domains": {
+      "X1": [
+        1025,
+        8192
+      ],
+      "X2": [
+        -24575,
+        -20480
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31.expr",
+    "sha256": "34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31",
+    "characters": 200303
+  },
+  {
+    "region": "100101000",
+    "domains": {
+      "X1": [
+        -8192,
+        -1025
+      ],
+      "X2": [
+        -20479,
+        -19456
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31.expr",
+    "sha256": "34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31",
+    "characters": 200303
+  },
+  {
+    "region": "100101001",
+    "domains": {
+      "X1": [
+        -1024,
+        -257
+      ],
+      "X2": [
+        -20479,
+        -19456
+      ]
+    },
+    "file": "../direct-sympy-early-projection/2d04da55c2dbcb40a964ab02c769dc6228ec2a6648923935ea31be758221d2bd.expr",
+    "sha256": "2d04da55c2dbcb40a964ab02c769dc6228ec2a6648923935ea31be758221d2bd",
+    "characters": 10
+  },
+  {
+    "region": "10010101",
+    "domains": {
+      "X1": [
+        -256,
+        -65
+      ],
+      "X2": [
+        -20479,
+        -19456
+      ]
+    },
+    "file": "../direct-sympy-early-projection/6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37.expr",
+    "sha256": "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+    "characters": 37476
+  },
+  {
+    "region": "10010110",
+    "domains": {
+      "X1": [
+        -64,
+        64
+      ],
+      "X2": [
+        -20479,
+        -19456
+      ]
+    },
+    "file": "../direct-sympy-early-projection/5da4b91a8eb1710a494dea259561f888d11fd8c634033701c503a100a9d041da.expr",
+    "sha256": "5da4b91a8eb1710a494dea259561f888d11fd8c634033701c503a100a9d041da",
+    "characters": 952013
+  },
+  {
+    "region": "100101110",
+    "domains": {
+      "X1": [
+        65,
+        256
+      ],
+      "X2": [
+        -20479,
+        -19456
+      ]
+    },
+    "file": "../direct-sympy-early-projection/6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37.expr",
+    "sha256": "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+    "characters": 37476
+  },
+  {
+    "region": "1001011110",
+    "domains": {
+      "X1": [
+        257,
+        1024
+      ],
+      "X2": [
+        -20479,
+        -19456
+      ]
+    },
+    "file": "../direct-sympy-early-projection/2d04da55c2dbcb40a964ab02c769dc6228ec2a6648923935ea31be758221d2bd.expr",
+    "sha256": "2d04da55c2dbcb40a964ab02c769dc6228ec2a6648923935ea31be758221d2bd",
+    "characters": 10
+  },
+  {
+    "region": "1001011111",
+    "domains": {
+      "X1": [
+        1025,
+        8192
+      ],
+      "X2": [
+        -20479,
+        -19456
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31.expr",
+    "sha256": "34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31",
+    "characters": 200303
+  },
+  {
+    "region": "10011000",
+    "domains": {
+      "X1": [
+        8193,
+        10239
+      ],
+      "X2": [
+        -31743,
+        -24576
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31.expr",
+    "sha256": "34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31",
+    "characters": 200303
+  },
+  {
+    "region": "10011001",
+    "domains": {
+      "X1": [
+        10240,
+        12288
+      ],
+      "X2": [
+        -31743,
+        -24576
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "100110110",
+    "domains": {
+      "X1": [
+        10240,
+        12288
+      ],
+      "X2": [
+        -24575,
+        -21504
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "100111000",
+    "domains": {
+      "X1": [
+        12289,
+        15360
+      ],
+      "X2": [
+        -31743,
+        -21504
+      ]
+    },
+    "file": "../direct-sympy-tight-update-bounds/tightened.expr",
+    "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea",
+    "characters": 171977
+  },
+  {
+    "region": "1001110101",
+    "domains": {
+      "X1": [
+        16385,
+        17407
+      ],
+      "X2": [
+        -31743,
+        -19456
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "100111011",
+    "domains": {
+      "X1": [
+        17408,
+        18431
+      ],
+      "X2": [
+        -31743,
+        -19456
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "1001111",
+    "domains": {
+      "X1": [
+        18432,
+        20479
+      ],
+      "X2": [
+        -31743,
+        -19456
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "101000",
+    "domains": {
+      "X1": [
+        -20479,
+        -18432
+      ],
+      "X2": [
+        -19455,
+        -17408
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "10100100",
+    "domains": {
+      "X1": [
+        -20479,
+        -18432
+      ],
+      "X2": [
+        -17407,
+        -16384
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "1010010100",
+    "domains": {
+      "X1": [
+        -20479,
+        -18432
+      ],
+      "X2": [
+        -16383,
+        -15361
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "10100101011",
+    "domains": {
+      "X1": [
+        -20479,
+        -18432
+      ],
+      "X2": [
+        15361,
+        16383
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "101001011",
+    "domains": {
+      "X1": [
+        -20479,
+        -18432
+      ],
+      "X2": [
+        16384,
+        17407
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "1010011",
+    "domains": {
+      "X1": [
+        -20479,
+        -18432
+      ],
+      "X2": [
+        17408,
+        19455
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "10101000",
+    "domains": {
+      "X1": [
+        -18431,
+        -17408
+      ],
+      "X2": [
+        -19455,
+        -16384
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "1010100100",
+    "domains": {
+      "X1": [
+        -18431,
+        -17408
+      ],
+      "X2": [
+        -16383,
+        -15361
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "10101001011",
+    "domains": {
+      "X1": [
+        -18431,
+        -17408
+      ],
+      "X2": [
+        15361,
+        16383
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "101010011",
+    "domains": {
+      "X1": [
+        -18431,
+        -17408
+      ],
+      "X2": [
+        16384,
+        19455
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "1010101000",
+    "domains": {
+      "X1": [
+        -17407,
+        -16385
+      ],
+      "X2": [
+        -19455,
+        -15361
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "10101010011",
+    "domains": {
+      "X1": [
+        -17407,
+        -16385
+      ],
+      "X2": [
+        15361,
+        19455
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "101010101000010",
+    "domains": {
+      "X1": [
+        -16384,
+        -11264
+      ],
+      "X2": [
+        -15360,
+        -11264
+      ]
+    },
+    "file": "central-positive.expr",
+    "sha256": "b4920091a4eee6b90daa70e5350ea252563fc06774864a846da3473ab5889916",
+    "characters": 4100744
+  },
+  {
+    "region": "1010101010010",
+    "domains": {
+      "X1": [
+        -256,
+        -65
+      ],
+      "X2": [
+        -19455,
+        -15360
+      ]
+    },
+    "file": "../direct-sympy-early-projection/6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37.expr",
+    "sha256": "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+    "characters": 37476
+  },
+  {
+    "region": "10101010100111",
+    "domains": {
+      "X1": [
+        -256,
+        -65
+      ],
+      "X2": [
+        15360,
+        19455
+      ]
+    },
+    "file": "../direct-sympy-early-projection/early.expr",
+    "sha256": "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2",
+    "characters": 35411
+  },
+  {
+    "region": "1010101010100",
+    "domains": {
+      "X1": [
+        -64,
+        64
+      ],
+      "X2": [
+        -19455,
+        -12288
+      ]
+    },
+    "file": "../direct-sympy-early-projection/5da4b91a8eb1710a494dea259561f888d11fd8c634033701c503a100a9d041da.expr",
+    "sha256": "5da4b91a8eb1710a494dea259561f888d11fd8c634033701c503a100a9d041da",
+    "characters": 952013
+  },
+  {
+    "region": "10101010101011",
+    "domains": {
+      "X1": [
+        -64,
+        64
+      ],
+      "X2": [
+        12288,
+        19455
+      ]
+    },
+    "file": "../direct-sympy-early-projection/2ea6671af9c07d1ac4916a80b00247373d41e47278e68eec10c69b8ceedc43ea.expr",
+    "sha256": "2ea6671af9c07d1ac4916a80b00247373d41e47278e68eec10c69b8ceedc43ea",
+    "characters": 955219
+  },
+  {
+    "region": "10101010101100",
+    "domains": {
+      "X1": [
+        65,
+        256
+      ],
+      "X2": [
+        -19455,
+        -15360
+      ]
+    },
+    "file": "../direct-sympy-early-projection/6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37.expr",
+    "sha256": "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+    "characters": 37476
+  },
+  {
+    "region": "101010101011011",
+    "domains": {
+      "X1": [
+        65,
+        256
+      ],
+      "X2": [
+        15360,
+        19455
+      ]
+    },
+    "file": "../direct-sympy-early-projection/early.expr",
+    "sha256": "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2",
+    "characters": 35411
+  },
+  {
+    "region": "1010101010111110",
+    "domains": {
+      "X1": [
+        11264,
+        16384
+      ],
+      "X2": [
+        11264,
+        15360
+      ]
+    },
+    "file": "central-positive.expr",
+    "sha256": "b4920091a4eee6b90daa70e5350ea252563fc06774864a846da3473ab5889916",
+    "characters": 4100744
+  },
+  {
+    "region": "10101010110",
+    "domains": {
+      "X1": [
+        16385,
+        17407
+      ],
+      "X2": [
+        -19455,
+        -15361
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "101010101111",
+    "domains": {
+      "X1": [
+        16385,
+        17407
+      ],
+      "X2": [
+        15361,
+        19455
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "101010110",
+    "domains": {
+      "X1": [
+        17408,
+        18431
+      ],
+      "X2": [
+        -19455,
+        -16384
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "10101011100",
+    "domains": {
+      "X1": [
+        17408,
+        18431
+      ],
+      "X2": [
+        -16383,
+        -15361
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "101010111011",
+    "domains": {
+      "X1": [
+        17408,
+        18431
+      ],
+      "X2": [
+        15361,
+        16383
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "1010101111",
+    "domains": {
+      "X1": [
+        17408,
+        18431
+      ],
+      "X2": [
+        16384,
+        19455
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "1010110",
+    "domains": {
+      "X1": [
+        18432,
+        20479
+      ],
+      "X2": [
+        -19455,
+        -17408
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "101011100",
+    "domains": {
+      "X1": [
+        18432,
+        20479
+      ],
+      "X2": [
+        -17407,
+        -16384
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "10101110100",
+    "domains": {
+      "X1": [
+        18432,
+        20479
+      ],
+      "X2": [
+        -16383,
+        -15361
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "101011101011",
+    "domains": {
+      "X1": [
+        18432,
+        20479
+      ],
+      "X2": [
+        15361,
+        16383
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "1010111011",
+    "domains": {
+      "X1": [
+        18432,
+        20479
+      ],
+      "X2": [
+        16384,
+        17407
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "10101111",
+    "domains": {
+      "X1": [
+        18432,
+        20479
+      ],
+      "X2": [
+        17408,
+        19455
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "101100",
+    "domains": {
+      "X1": [
+        -20479,
+        -18432
+      ],
+      "X2": [
+        19456,
+        31743
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "10110100",
+    "domains": {
+      "X1": [
+        -18431,
+        -17408
+      ],
+      "X2": [
+        19456,
+        31743
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "101101010",
+    "domains": {
+      "X1": [
+        -17407,
+        -16385
+      ],
+      "X2": [
+        19456,
+        31743
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54.expr",
+    "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54",
+    "characters": 112371
+  },
+  {
+    "region": "101101101",
+    "domains": {
+      "X1": [
+        -15360,
+        -10240
+      ],
+      "X2": [
+        21504,
+        31743
+      ]
+    },
+    "file": "../direct-sympy-silu-update-bounds/region-3e90a66da98def9e92fd2d0981369eb6f220d916a5e0e4566877f23676c0a1ec.expr",
+    "sha256": "3e90a66da98def9e92fd2d0981369eb6f220d916a5e0e4566877f23676c0a1ec",
+    "characters": 171897
+  },
+  {
+    "region": "1011100001",
+    "domains": {
+      "X1": [
+        -1024,
+        -257
+      ],
+      "X2": [
+        19456,
+        20479
+      ]
+    },
+    "file": "../direct-sympy-early-projection/072d8877e3140356bfc8fc1bf736a04a2151659ad8e5b6c77ce84481bd9174fb.expr",
+    "sha256": "072d8877e3140356bfc8fc1bf736a04a2151659ad8e5b6c77ce84481bd9174fb",
+    "characters": 11
+  },
+  {
+    "region": "101110001",
+    "domains": {
+      "X1": [
+        -256,
+        -65
+      ],
+      "X2": [
+        19456,
+        20479
+      ]
+    },
+    "file": "../direct-sympy-early-projection/early.expr",
+    "sha256": "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2",
+    "characters": 35411
+  },
+  {
+    "region": "101110010",
+    "domains": {
+      "X1": [
+        -64,
+        64
+      ],
+      "X2": [
+        19456,
+        20479
+      ]
+    },
+    "file": "../direct-sympy-early-projection/2ea6671af9c07d1ac4916a80b00247373d41e47278e68eec10c69b8ceedc43ea.expr",
+    "sha256": "2ea6671af9c07d1ac4916a80b00247373d41e47278e68eec10c69b8ceedc43ea",
+    "characters": 955219
+  },
+  {
+    "region": "1011100110",
+    "domains": {
+      "X1": [
+        65,
+        256
+      ],
+      "X2": [
+        19456,
+        20479
+      ]
+    },
+    "file": "../direct-sympy-early-projection/early.expr",
+    "sha256": "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2",
+    "characters": 35411
+  },
+  {
+    "region": "10111001110",
+    "domains": {
+      "X1": [
+        257,
+        1024
+      ],
+      "X2": [
+        19456,
+        20479
+      ]
+    },
+    "file": "../direct-sympy-early-projection/072d8877e3140356bfc8fc1bf736a04a2151659ad8e5b6c77ce84481bd9174fb.expr",
+    "sha256": "072d8877e3140356bfc8fc1bf736a04a2151659ad8e5b6c77ce84481bd9174fb",
+    "characters": 11
+  },
+  {
+    "region": "1011101000",
+    "domains": {
+      "X1": [
+        -8192,
+        -1025
+      ],
+      "X2": [
+        20480,
+        31743
+      ]
+    },
+    "file": "../direct-sympy-early-projection/159ad30fb89bcdc6d65aacd729ee26b703603e39b2804fd0c6b5f199ef245e1a.expr",
+    "sha256": "159ad30fb89bcdc6d65aacd729ee26b703603e39b2804fd0c6b5f199ef245e1a",
+    "characters": 197871
+  },
+  {
+    "region": "1011101001",
+    "domains": {
+      "X1": [
+        -1024,
+        -257
+      ],
+      "X2": [
+        20480,
+        31743
+      ]
+    },
+    "file": "../direct-sympy-early-projection/072d8877e3140356bfc8fc1bf736a04a2151659ad8e5b6c77ce84481bd9174fb.expr",
+    "sha256": "072d8877e3140356bfc8fc1bf736a04a2151659ad8e5b6c77ce84481bd9174fb",
+    "characters": 11
+  },
+  {
+    "region": "101110101",
+    "domains": {
+      "X1": [
+        -256,
+        -65
+      ],
+      "X2": [
+        20480,
+        31743
+      ]
+    },
+    "file": "../direct-sympy-early-projection/early.expr",
+    "sha256": "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2",
+    "characters": 35411
+  },
+  {
+    "region": "101110110",
+    "domains": {
+      "X1": [
+        -64,
+        64
+      ],
+      "X2": [
+        20480,
+        31743
+      ]
+    },
+    "file": "../direct-sympy-early-projection/2ea6671af9c07d1ac4916a80b00247373d41e47278e68eec10c69b8ceedc43ea.expr",
+    "sha256": "2ea6671af9c07d1ac4916a80b00247373d41e47278e68eec10c69b8ceedc43ea",
+    "characters": 955219
+  },
+  {
+    "region": "1011101110",
+    "domains": {
+      "X1": [
+        65,
+        256
+      ],
+      "X2": [
+        20480,
+        31743
+      ]
+    },
+    "file": "../direct-sympy-early-projection/early.expr",
+    "sha256": "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2",
+    "characters": 35411
+  },
+  {
+    "region": "10111011110",
+    "domains": {
+      "X1": [
+        257,
+        1024
+      ],
+      "X2": [
+        20480,
+        31743
+      ]
+    },
+    "file": "../direct-sympy-early-projection/072d8877e3140356bfc8fc1bf736a04a2151659ad8e5b6c77ce84481bd9174fb.expr",
+    "sha256": "072d8877e3140356bfc8fc1bf736a04a2151659ad8e5b6c77ce84481bd9174fb",
+    "characters": 11
+  },
+  {
+    "region": "10111011111",
+    "domains": {
+      "X1": [
+        1025,
+        8192
+      ],
+      "X2": [
+        20480,
+        31743
+      ]
+    },
+    "file": "../direct-sympy-early-projection/159ad30fb89bcdc6d65aacd729ee26b703603e39b2804fd0c6b5f199ef245e1a.expr",
+    "sha256": "159ad30fb89bcdc6d65aacd729ee26b703603e39b2804fd0c6b5f199ef245e1a",
+    "characters": 197871
+  },
+  {
+    "region": "10111101010",
+    "domains": {
+      "X1": [
+        10240,
+        11264
+      ],
+      "X2": [
+        21504,
+        22528
+      ]
+    },
+    "file": "../direct-sympy-silu-update-bounds/region-3e90a66da98def9e92fd2d0981369eb6f220d916a5e0e4566877f23676c0a1ec.expr",
+    "sha256": "3e90a66da98def9e92fd2d0981369eb6f220d916a5e0e4566877f23676c0a1ec",
+    "characters": 171897
+  },
+  {
+    "region": "10111101011",
+    "domains": {
+      "X1": [
+        10240,
+        11264
+      ],
+      "X2": [
+        22529,
+        31743
+      ]
+    },
+    "file": "../direct-sympy-silu-update-bounds/region-3e90a66da98def9e92fd2d0981369eb6f220d916a5e0e4566877f23676c0a1ec.expr",
+    "sha256": "3e90a66da98def9e92fd2d0981369eb6f220d916a5e0e4566877f23676c0a1ec",
+    "characters": 171897
+  },
+  {
+    "region": "101111011010",
+    "domains": {
+      "X1": [
+        11265,
+        12288
+      ],
+      "X2": [
+        21504,
+        22528
+      ]
+    },
+    "file": "../direct-sympy-silu-update-bounds/region-3e90a66da98def9e92fd2d0981369eb6f220d916a5e0e4566877f23676c0a1ec.expr",
+    "sha256": "3e90a66da98def9e92fd2d0981369eb6f220d916a5e0e4566877f23676c0a1ec",
+    "characters": 171897
+  },
+  {
+    "region": "101111011011",
+    "domains": {
+      "X1": [
+        11265,
+        12288
+      ],
+      "X2": [
+        22529,
+        31743
+      ]
+    },
+    "file": "../direct-sympy-silu-update-bounds/region-3e90a66da98def9e92fd2d0981369eb6f220d916a5e0e4566877f23676c0a1ec.expr",
+    "sha256": "3e90a66da98def9e92fd2d0981369eb6f220d916a5e0e4566877f23676c0a1ec",
+    "characters": 171897
+  },
+  {
+    "region": "1011110111001",
+    "domains": {
+      "X1": [
+        12289,
+        15360
+      ],
+      "X2": [
+        21504,
+        31743
+      ]
+    },
+    "file": "../direct-sympy-silu-update-bounds/region-3e90a66da98def9e92fd2d0981369eb6f220d916a5e0e4566877f23676c0a1ec.expr",
+    "sha256": "3e90a66da98def9e92fd2d0981369eb6f220d916a5e0e4566877f23676c0a1ec",
+    "characters": 171897
+  },
+  {
+    "region": "1011110111011",
+    "domains": {
+      "X1": [
+        16385,
+        17407
+      ],
+      "X2": [
+        19456,
+        31743
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "10111101111",
+    "domains": {
+      "X1": [
+        17408,
+        18431
+      ],
+      "X2": [
+        19456,
+        31743
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "1011111",
+    "domains": {
+      "X1": [
+        18432,
+        20479
+      ],
+      "X2": [
+        19456,
+        31743
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "110",
+    "domains": {
+      "X1": [
+        20480,
+        31743
+      ],
+      "X2": [
+        -31743,
+        -19456
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "111000",
+    "domains": {
+      "X1": [
+        20480,
+        31743
+      ],
+      "X2": [
+        -19455,
+        -17408
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "11100100",
+    "domains": {
+      "X1": [
+        20480,
+        21503
+      ],
+      "X2": [
+        -17407,
+        -16384
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "111001010",
+    "domains": {
+      "X1": [
+        20480,
+        21503
+      ],
+      "X2": [
+        -16383,
+        -15361
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "111001100",
+    "domains": {
+      "X1": [
+        21504,
+        31743
+      ],
+      "X2": [
+        -17407,
+        -16384
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "111001101",
+    "domains": {
+      "X1": [
+        21504,
+        31743
+      ],
+      "X2": [
+        -16383,
+        -15361
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "111001110",
+    "domains": {
+      "X1": [
+        21504,
+        31743
+      ],
+      "X2": [
+        -15360,
+        -11264
+      ]
+    },
+    "file": "../direct-sympy-silu-update-bounds/region-0358dffba87a7ed1dec16baea195bfeb7049a933f61fa594d4e52ae188c79de3.expr",
+    "sha256": "0358dffba87a7ed1dec16baea195bfeb7049a933f61fa594d4e52ae188c79de3",
+    "characters": 171943
+  },
+  {
+    "region": "111010",
+    "domains": {
+      "X1": [
+        20480,
+        31743
+      ],
+      "X2": [
+        -8192,
+        8192
+      ]
+    },
+    "file": "../direct-sympy-parallel-regions/region-66815c0e03525071185954d6f31b75089ee5120ac29140ed96ba72836afc2731.expr",
+    "sha256": "66815c0e03525071185954d6f31b75089ee5120ac29140ed96ba72836afc2731",
+    "characters": 12
+  },
+  {
+    "region": "1110110001",
+    "domains": {
+      "X1": [
+        20480,
+        21503
+      ],
+      "X2": [
+        15361,
+        16383
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "111011001",
+    "domains": {
+      "X1": [
+        20480,
+        21503
+      ],
+      "X2": [
+        16384,
+        17407
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "1110110110",
+    "domains": {
+      "X1": [
+        21504,
+        31743
+      ],
+      "X2": [
+        11264,
+        15360
+      ]
+    },
+    "file": "../direct-sympy-silu-update-bounds/region-0358dffba87a7ed1dec16baea195bfeb7049a933f61fa594d4e52ae188c79de3.expr",
+    "sha256": "0358dffba87a7ed1dec16baea195bfeb7049a933f61fa594d4e52ae188c79de3",
+    "characters": 171943
+  },
+  {
+    "region": "11101101110",
+    "domains": {
+      "X1": [
+        21504,
+        31743
+      ],
+      "X2": [
+        15361,
+        16383
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "11101101111",
+    "domains": {
+      "X1": [
+        21504,
+        31743
+      ],
+      "X2": [
+        16384,
+        17407
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "1110111",
+    "domains": {
+      "X1": [
+        20480,
+        31743
+      ],
+      "X2": [
+        17408,
+        19455
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  },
+  {
+    "region": "1111",
+    "domains": {
+      "X1": [
+        20480,
+        31743
+      ],
+      "X2": [
+        19456,
+        31743
+      ]
+    },
+    "file": "../direct-sympy-neighbor-cells/f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29.expr",
+    "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29",
+    "characters": 112399
+  }
+]

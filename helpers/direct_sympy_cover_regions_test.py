@@ -53,15 +53,21 @@ class CoverRegionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             checkpoint,manifest,state=self.setup_state(directory)
             rectangle={'X1':[-31743,-20480],'X2':[-8192,8192]}
+            before=manifest.read_bytes()
+            for kwargs in ({'max_characters':0},{'cas_characters':0},{'max_paths':0},{'max_seconds':0},{'random_cases':-1}):
+                with self.assertRaisesRegex(ValueError,'budgets'):cover(checkpoint,directory,rectangle,**kwargs)
+            self.assertEqual(manifest.read_bytes(),before)
             state['identity']['sources'][next(iter(state['identity']['sources']))]='changed'
             atomic(manifest,canonical(state));before=manifest.read_bytes()
             with patch('direct_sympy_cover_regions.compile_region',side_effect=AssertionError('must reject before compiling')):
                 with self.assertRaisesRegex(ValueError,'Incompatible'):cover(checkpoint,directory,rectangle)
             self.assertEqual(manifest.read_bytes(),before)
             checkpoint,manifest,state=self.setup_state(directory);before=manifest.read_bytes()
-            with patch('direct_sympy_cover_regions.compile_region',return_value={'complete':False,'stop':'test budget'}):
-                result=cover(checkpoint,directory,rectangle)
+            with patch('direct_sympy_cover_regions.compile_region',return_value={'complete':False,'stop':'test budget'}) as compile_call:
+                result=cover(checkpoint,directory,rectangle,max_characters=4194304,max_seconds=120)
                 self.assertEqual(result['addedInputPatterns'],0)
+                self.assertEqual(compile_call.call_args.kwargs['max_characters'],4194304)
+                self.assertEqual(compile_call.call_args.kwargs['max_seconds'],120)
             self.assertEqual(manifest.read_bytes(),before)
             def fake_compile(checkpoint,dimension,domains,path,**_):
                 import hashlib

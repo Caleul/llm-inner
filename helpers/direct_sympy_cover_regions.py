@@ -72,7 +72,10 @@ def promote_tree(tree,root,rectangle,artifact):
     return result,admitted,added
 
 
-def cover(checkpoint,directory,rectangle,*,dimension=2,max_seconds=30,random_cases=8192):
+def cover(checkpoint,directory,rectangle,*,dimension=2,max_seconds=30,random_cases=8192,
+    max_characters=1048576,cas_characters=8388608,max_paths=128):
+    if min(max_seconds,max_characters,cas_characters,max_paths)<1 or random_cases<0:
+        raise ValueError('Positive compilation budgets and nonnegative sample count required')
     directory=Path(directory);manifest=directory/'frontier.json'
     # Share the controller's writer lock; uncertain or concurrent writes
     # cannot silently replace progress from another compilation process.
@@ -90,12 +93,13 @@ def cover(checkpoint,directory,rectangle,*,dimension=2,max_seconds=30,random_cas
         _,_,possible=promote_tree(state['tree'],root,rectangle,{})
         report={'compilerIdentity':expected,'inputDomains':rectangle,'addedInputPatterns':0,
             'coveredBefore':before,'coveredAfter':before,'fullCoordinateParity':False,
+            'budgets':{'seconds':max_seconds,'artifactCharacters':max_characters,'CASCharacters':cas_characters,'paths':max_paths},
             'toolSHA256':digest_file(Path(__file__))}
         if not possible:return {**report,'stop':'Region already covered; no manifest mutation'}
         with tempfile.TemporaryDirectory(prefix='direct-cover-') as temporary:
             artifact=Path(temporary)/'coordinate.expr'
             compiled=compile_region(checkpoint,dimension,decode(rectangle),artifact,
-                max_characters=1048576,cas_characters=8388608,max_paths=128,max_seconds=max_seconds)
+                max_characters=max_characters,cas_characters=cas_characters,max_paths=max_paths,max_seconds=max_seconds)
             report['compilation']=compiled
             if not compiled['complete']:return {**report,'stop':compiled['stop']}
             sha=digest_file(artifact)
@@ -129,10 +133,15 @@ def main():
     parser.add_argument('--domains',required=True,help='Input rank intervals; expressions remain mathematical strings')
     parser.add_argument('--dimension',type=int,default=2);parser.add_argument('--max-seconds',type=int,default=30)
     parser.add_argument('--random-cases',type=int,default=8192)
+    parser.add_argument('--max-characters',type=int,default=1048576)
+    parser.add_argument('--cas-characters',type=int,default=8388608)
+    parser.add_argument('--max-paths',type=int,default=128)
     args=parser.parse_args()
-    if args.max_seconds<1 or args.random_cases<0:parser.error('Positive time budget and nonnegative sample count required')
+    if min(args.max_seconds,args.max_characters,args.cas_characters,args.max_paths)<1 or args.random_cases<0:
+        parser.error('Positive compilation budgets and nonnegative sample count required')
     result=cover(args.checkpoint,args.state,json.loads(args.domains),dimension=args.dimension,
-        max_seconds=args.max_seconds,random_cases=args.random_cases)
+        max_seconds=args.max_seconds,random_cases=args.random_cases,
+        max_characters=args.max_characters,cas_characters=args.cas_characters,max_paths=args.max_paths)
     atomic(args.report,json.dumps(result,indent=2).encode())
     print(json.dumps(result),flush=True)
     return 0 if result['addedInputPatterns'] else 1
