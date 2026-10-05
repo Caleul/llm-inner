@@ -137,6 +137,30 @@ class ParallelRegionTests(unittest.TestCase):
             self.assertEqual(list(Path(directory).glob('.parallel-*.expr')),[])
 
     @unittest.skipUnless(os.environ.get('LLM_INNER_DIRECT_JSON_CHECKPOINT'),'Checkpoint required')
+    def test_accumulated_wave_budget_precedes_parity_and_publication(self):
+        with tempfile.TemporaryDirectory() as directory:
+            checkpoint=self.seed(directory);args=self.args(checkpoint,directory,2)
+            args.total_characters=11
+            manifest=Path(directory)/'frontier.json';before=manifest.read_bytes()
+            def candidates(checkpoint,dimension,jobs,**budgets):
+                results=[]
+                for _,_,path in jobs:
+                    atomic(path,b'X1 + X2')
+                    results.append({'complete':True,'artifact':{'characters':7,'sha256':digest_file(path)}})
+                return results,{}
+            with patch('direct_sympy_partition_parallel.compile_wave',side_effect=candidates),\
+                patch('direct_sympy_partition_parallel.verify_region',side_effect=AssertionError('budget first')):
+                with self.assertRaisesRegex(ValueError,'Accumulated expression/condition budget exceeded'):run(args)
+            self.assertEqual(manifest.read_bytes(),before)
+            self.assertFalse(list(Path(directory).glob('parallel-*.expr')))
+            self.assertFalse(list(Path(directory).glob('.parallel-*.expr')))
+            state=json.loads(before);state['regionVerificationPolicy']={'enabled':True,'randomCases':8192}
+            atomic(manifest,canonical(state));before=manifest.read_bytes()
+            with patch('direct_sympy_partition_parallel.compile_wave',side_effect=AssertionError('policy first')):
+                with self.assertRaisesRegex(ValueError,'verification policy'):run(args)
+            self.assertEqual(manifest.read_bytes(),before)
+
+    @unittest.skipUnless(os.environ.get('LLM_INNER_DIRECT_JSON_CHECKPOINT'),'Checkpoint required')
     def test_one_and_two_workers_emit_identical_complete_regions_and_exact_coverage(self):
         reports=[];states=[]
         with tempfile.TemporaryDirectory() as directory:

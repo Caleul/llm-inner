@@ -1,0 +1,11 @@
+Structural coordinate parity: position=0 dimension=2 cases=60 tokenLengths=1,2,3,4,8 mismatches=0 artifactEmitted=false
+✔ one complete source-discovered coordinate preserves live PyTorch bits after each dependency is stabilized (66449.292417ms)
+✔ Memory-admitted parallel regions preserve full geometry, ordered numerical bodies and native parity (97058.284333ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 97166.910583

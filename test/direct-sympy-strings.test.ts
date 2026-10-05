@@ -35,7 +35,7 @@ test('Tight Half update bounds preserve ordered F32 reductions and eliminate dep
 test('Memory-admitted parallel regions preserve full geometry, ordered numerical bodies and native parity',
   {skip:!python || !process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_partition_parallel_test.py'],{timeout:180_000,maxBuffer:1024*1024});
-    assert.match(stderr,/Ran 7 tests/);
+    assert.match(stderr,/Ran 8 tests/);
     assert.match(stderr,/OK/);
     assert.match(stdout,/Timeout retry proof: sameDomain=true deadlines=10,30 sizeFailurePreservesFullRoot=true/);
     assert.match(stdout,/Final publication proof: coalescedBody=true actualCheckpointRejectsWrongOutput=true atomic=true/);

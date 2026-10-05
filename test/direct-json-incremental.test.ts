@@ -83,5 +83,6 @@ test('one complete source-discovered coordinate preserves live PyTorch bits afte
       assert.equal('0x'+word.getBigUint64(0).toString(16).padStart(16,'0'),row.logitF64Bits[position]![dimension]);compared++;
     }
     assert.ok(compared>1);
+    console.log(`Structural coordinate parity: position=${position} dimension=${dimension} cases=${compared} tokenLengths=${[...new Set(corpus.cases.map(row=>row.inputBits.length))].sort((a,b)=>a-b).join(',')} mismatches=0 artifactEmitted=false`);
   }finally{await builder?.close();await rm(dir,{recursive:true,force:true});}
 });

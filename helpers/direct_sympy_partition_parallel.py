@@ -18,7 +18,7 @@ import uuid
 import torch
 from direct_sympy_cover_regions import live_identity
 from direct_sympy_checkpoint import CheckpointStrings
-from direct_sympy_partition_run import audit_tree,cardinality,decode,encode,next_region
+from direct_sympy_partition_run import audit_tree,cardinality,decode,encode,next_region,region_character_charge
 from direct_sympy_input_partitions import rank,split
 from direct_sympy_region_parity import verify_region
 from direct_sympy_savepoints import atomic,canonical,digest_file
@@ -139,9 +139,22 @@ def run(args):
         root=encode(CheckpointStrings(args.checkpoint,StringCompiler()).domains)
         if state['root']!=root:raise ValueError('Parallel state must cover the complete admitted root')
         audit_tree(state['tree'],root)
+        policy=state.get('regionVerificationPolicy',{})
+        if policy.get('enabled') and policy.get('randomCases')!=args.random_cases:
+            raise ValueError('Incompatible region verification policy; saved proofs not downgraded')
         for node in state['tree'].values():
             if node['status']=='complete' and digest_file(directory/node['artifact']['file'])!=node['artifact']['sha256']:
                 raise ValueError('Saved parallel artifact integrity mismatch')
+        charge=10
+        for node in state['tree'].values():
+            if node['status']!='complete':continue
+            cost=region_character_charge(directory,node)
+            if policy.get('enabled') and (
+                not node.get('parity') or node['parity'].get('mismatches')!=0
+                or node['parity'].get('sha256')!=node['artifact']['sha256']):
+                raise ValueError('Unverified saved region cannot enter parallel compilation')
+            node['artifact']['combinedCharacterCharge']=cost;charge+=cost
+        if charge>args.total_characters:raise ValueError('Saved regions exceed accumulated artifact budget')
         initial=state['coveredInputPatterns'];report={'controllerSHA256':digest_file(Path(__file__)),
             'compilerIdentity':identity,'workersRequested':args.workers,'memoryBudgetBytes':args.memory_bytes,
             'waves':[],'nativeCases':0,'nativeMismatches':0,'fullCoordinateParity':False,
@@ -165,18 +178,27 @@ def run(args):
                 # Ordered admission never depends on worker completion order.
                 if live_identity(args.checkpoint,args.dimension)!=identity:raise ValueError('Sources changed during parallel compilation')
                 if manifest.read_bytes()!=original:raise ValueError('Parallel manifest changed during worker wave')
-                admissions=[]
+                admissions=[];costs=[];prospective_charge=charge
+                for (key,domains,path),result in zip(jobs,results):
+                    cost=0
+                    if result['complete']:
+                        cost=region_character_charge(directory,{'domains':domains,
+                            'artifact':{'file':path.name,'sha256':result['artifact']['sha256']}})
+                    costs.append(cost);prospective_charge+=cost
+                if prospective_charge>args.total_characters:
+                    raise ValueError('Accumulated expression/condition budget exceeded; wave not published')
                 for (key,domains,path),result in zip(jobs,results):
                     if result['complete']:
                         if digest_file(path)!=result['artifact']['sha256']:raise ValueError('Fresh worker artifact integrity mismatch')
                         parity=verify_region(args.checkpoint,args.dimension,path,decode(domains),random_cases=args.random_cases)
-                        if parity['mismatches']:raise ValueError('Fresh parallel region parity failed; wave not published')
+                        if parity['mismatches'] or parity['sha256']!=result['artifact']['sha256']:
+                            raise ValueError('Fresh parallel region parity failed; wave not published')
                         report['nativeCases']+=parity['cases'];report['nativeMismatches']+=parity['mismatches']
                         admissions.append(parity)
                     else:admissions.append(None)
                 if live_identity(args.checkpoint,args.dimension)!=identity:raise ValueError('Sources changed during parallel parity')
                 if manifest.read_bytes()!=original:raise ValueError('Parallel manifest changed before publication')
-                for (key,domains,path),result,parity in zip(jobs,results,admissions):
+                for (key,domains,path),result,parity,cost in zip(jobs,results,admissions,costs):
                     node=state['tree'][key]
                     if result['complete']:
                         filename='parallel-'+result['artifact']['sha256']+'.expr';destination=directory/filename
@@ -184,7 +206,8 @@ def run(args):
                             if digest_file(destination)!=result['artifact']['sha256']:raise ValueError('Shared artifact integrity mismatch')
                         else:atomic(destination,path.read_bytes())
                         result['artifact']['path']=str(destination);parity['artifact']=str(destination)
-                        node.update(status='complete',artifact={'file':filename,**{name:result['artifact'][name] for name in ('characters','sha256')}},parity=parity)
+                        node.update(status='complete',artifact={'file':filename,'combinedCharacterCharge':cost,
+                            **{name:result['artifact'][name] for name in ('characters','sha256')}},parity=parity)
                     elif ('wall-clock budget exceeded' in result.get('stop','').lower()
                           and node.get('timeoutRetries',0)<getattr(args,'timeout_retries',1)):
                         # A deadline is not proof that a region is too large.
@@ -204,6 +227,7 @@ def run(args):
                     state['attempts'].append({'region':key,'selectionOrder':order,'parallelRun':run_id,**result})
                     performed+=1
                 covered,pending=audit_tree(state['tree'],root)
+                charge=prospective_charge;state['accumulatedArtifactCharacters']=charge
                 stats.update(regions=[key for key,_,_ in jobs],completed=sum(r['complete'] for r in results),coveredInputPatterns=covered,
                     deferredTimeoutRegions=[key for key,_,_ in jobs if state['tree'][key]['status']=='pending'])
                 report['waves'].append(stats)

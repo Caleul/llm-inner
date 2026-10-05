@@ -1,0 +1,3 @@
+Substitution growth log: /private/tmp/llm-inner-structural-clean-baseline-20261005.jsonl.growth.15306.jsonl
+Prepared 1/1: position=0, dimension=2, expressionBytes=56393457973004369801, conditionRounds=3, promotions=2, conditionConverged=true, conditionStop=fixed-point
+JSON output budget exceeded before expression emission

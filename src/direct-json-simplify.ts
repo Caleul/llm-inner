@@ -1,6 +1,7 @@
 import {jsonConstant,jsonInteger,jsonOperation,jsonWidths,type JsonExpression} from './direct-json-expression.js';
 import {evaluateJsonExpression,jsonConstantValue} from './direct-json-evaluator.js';
 import {jsonIntegerRange} from './direct-json-integer-range.js';
+import {factorJsonIntegerSum} from './direct-json-global-integer-factor.js';
 
 export interface JsonSimplificationStats { visited:number; folds:number; conditions:number; integerAlgebra:number }
 export const newJsonSimplificationStats=():JsonSimplificationStats=>({visited:0,folds:0,conditions:0,integerAlgebra:0});
@@ -190,6 +191,7 @@ export function simplifyJsonExpression(root:JsonExpression,stats=newJsonSimplifi
             result=jsonOperation(op,type,a[2]!,jsonConstant(type,first+second));
         }
       }
+      result=factorJsonIntegerSum(result,node=>index.id(node),total);
       if(result!==undefined&&!sameJsonExpression(result,jsonOperation(op,type,...args)))stats.integerAlgebra++;
     }
     let scoped=memo.get(node);if(!scoped){scoped=new Map();memo.set(node,scoped);}scoped.set(context,result);

@@ -1,0 +1,25 @@
+....Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]Loading weights: 100%|██████████| 12/12 [00:00<00:00, 12396.96it/s]
+{"maxWorkersLive": 1, "peakObservedRSSBytes": 562872320, "workerReservationBytes": 939524096, "seconds": 2.72053670801688, "regions": ["00"], "completed": 1, "coveredInputPatterns": 251626497, "deferredTimeoutRegions": []}
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]Loading weights: 100%|██████████| 12/12 [00:00<00:00, 33984.91it/s]
+{"maxWorkersLive": 1, "peakObservedRSSBytes": 576520192, "workerReservationBytes": 939524096, "seconds": 3.346039583964739, "regions": ["011"], "completed": 1, "coveredInputPatterns": 503252994, "deferredTimeoutRegions": []}
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]Loading weights: 100%|██████████| 12/12 [00:00<00:00, 58867.42it/s]
+{"maxWorkersLive": 1, "peakObservedRSSBytes": 578240512, "workerReservationBytes": 939524096, "seconds": 3.3450100410263985, "regions": ["110"], "completed": 1, "coveredInputPatterns": 754879491, "deferredTimeoutRegions": []}
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]Loading weights: 100%|██████████| 12/12 [00:00<00:00, 23119.73it/s]
+{"maxWorkersLive": 1, "peakObservedRSSBytes": 567820288, "workerReservationBytes": 939524096, "seconds": 2.896533291961532, "regions": ["1111"], "completed": 1, "coveredInputPatterns": 1006505988, "deferredTimeoutRegions": []}
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]Loading weights: 100%|██████████| 12/12 [00:00<00:00, 49539.02it/s]
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]Loading weights: 100%|██████████| 12/12 [00:00<00:00, 21390.42it/s]
+{"maxWorkersLive": 2, "peakObservedRSSBytes": 813105152, "workerReservationBytes": 939524096, "seconds": 3.8044284590287134, "regions": ["00", "011"], "completed": 2, "coveredInputPatterns": 503252994, "deferredTimeoutRegions": []}
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]Loading weights: 100%|██████████| 12/12 [00:00<00:00, 45466.71it/s]
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]Loading weights: 100%|██████████| 12/12 [00:00<00:00, 59990.05it/s]
+{"maxWorkersLive": 2, "peakObservedRSSBytes": 812302336, "workerReservationBytes": 939524096, "seconds": 3.285461917053908, "regions": ["110", "1111"], "completed": 2, "coveredInputPatterns": 1006505988, "deferredTimeoutRegions": []}
+.Parallel partition proof: workers=1,2 patterns=1006505988 identicalHashes=true mismatches=0
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]Loading weights: 100%|██████████| 12/12 [00:00<00:00, 22982.49it/s]
+..Final publication proof: coalescedBody=true actualCheckpointRejectsWrongOutput=true atomic=true
+{"regions": ["00"], "completed": 0, "coveredInputPatterns": 0, "deferredTimeoutRegions": ["00"]}
+{"regions": ["00"], "completed": 0, "coveredInputPatterns": 0, "deferredTimeoutRegions": []}
+.
+----------------------------------------------------------------------
+Ran 8 tests in 25.518s
+
+OK
+Timeout retry proof: sameDomain=true deadlines=10,30 sizeFailurePreservesFullRoot=true

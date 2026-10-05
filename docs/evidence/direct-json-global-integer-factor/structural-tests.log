@@ -1,0 +1,46 @@
+Global modular JSON proof: cases=71680 floatReassociation=false
+✔ global integer factors collect repeated nonadjacent inputs and preserve all u16 values (444.404791ms)
+✔ global modular cancellation and common factors preserve overflow at every integer width (54.879375ms)
+✔ global collection keeps partial operations and IEEE arithmetic barriers (1.02325ms)
+✔ bounded global collection declines oversized searches without dropping terms (25.288583ms)
+✔ unchanged structural and precision fixed points retain completed producer identity (1.112792ms)
+✔ incremental substitution stabilizes children before consumers and removes equivalent producer subtraction (59.410541ms)
+✔ a selected coordinate is emitted as a complete scalar artifact without pretending to cover the vector (18.952417ms)
+﹣ one complete source-discovered coordinate preserves live PyTorch bits after each dependency is stabilized (0.153292ms) # SKIP
+✔ JSON exact constants survive serialization including signed zero and all finite F16 bits (69.72675ms)
+✔ JSON bitword mask and shift identities preserve all u16 values and unsigned width boundaries (1531.032ms)
+✔ JSON conditional facts remove repeated decisions without distributing branches (0.914042ms)
+✔ JSON shared conditions combine repeated queries after fixed point without changing floating path arithmetic (1.55675ms)
+✔ JSON shared condition promotion does not expose lazy missing inputs or undefined integer operations (0.504709ms)
+✔ JSON fixed point propagates integer bounds to remove implied and contradictory conditions (0.44975ms)
+✔ JSON factoring is allowed for modular integers and withheld across float rounding (0.280458ms)
+✔ JSON simplification preserves -0 and does not hide undefined integer operations (0.272666ms)
+✔ JSON precision cancels redundant bit rounding only with a proved lattice and preserves signed zeros (292.937708ms)
+✔ JSON certified F16 source ranges eliminate only unreachable sign, subnormal and overflow arms (1296.268458ms)
+✔ JSON working range analysis encloses F32 endpoint rounding and refuses unknown or zero-crossing divisors (1.005416ms)
+✔ JSON normal double rounding is fused with both widened even and odd tie cells preserved (26218.915959ms)
+✔ JSON finite double rounding composes normal and subnormal arms without duplicating the F32 result (8405.046125ms)
+✔ JSON exponential truncation is certified over every possible bounded half-score difference (1134.20475ms)
+✔ JSON rejects hidden floating conversions and malformed operation types (0.334416ms)
+✔ JSON F32 to F16 bitwise conversion preserves every finite F16 value including signed zeros (1682.9785ms)
+✔ JSON F32 to F16 explicit decisions agree with independent dyadic rounding at ties and sampled F32 bits (348.188917ms)
+✔ JSON exact widening covers every finite F16 bit pattern and sampled F32 normal/subnormal values (3537.0325ms)
+✔ JSON positive normal F32 square root is lowered without native sqrt and agrees bitwise on exponent and mantissa boundaries (2297.065042ms)
+✔ JSON factorized SiLU polynomial is certified against every finite F16 point in its declared domain (14125.238958ms)
+✔ JSON direct F64 to F16 composition matches an independent dyadic oracle at every half midpoint (9898.062917ms)
+✔ JSON exponential eliminates constant range reduction and reproduces the pinned F32 polynomial in its proved domain (1145.907042ms)
+✔ JSON normal rounding followed by exact widening collapses to one bitword rounding expression (11.195708ms)
+✔ JSON composed F16 conversion and widening preserves all F16 values and sampled F32 rounding boundaries (1452.889583ms)
+✔ JSON F64 to F32 bitwise conversion agrees with IEEE rounding at boundaries and sampled binary64 values (213.611583ms)
+✔ JSON admission distinguishes shared decisions from expanded occurrences and rejects residual implicit rounding (0.70275ms)
+✔ JSON admission rejects exponential duplication and longest shared paths without expanding the tree (6.0085ms)
+✔ JSON measurement predicts serialization and huge duplication without rendering expanded expressions (0.812917ms)
+✔ JSONL stream emits all scalar coordinates with exact syntax and refuses to publish incomplete vectors (95.192667ms)
+ℹ tests 37
+ℹ suites 0
+ℹ pass 36
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 73885.376125
