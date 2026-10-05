@@ -37,6 +37,81 @@ class UnreachableNumericPath(ValueError):
     """Certified numerical bounds exclude this branch context."""
 
 
+class SelectedRecipeKeys:
+    """Prefix-local identities preserving order, casts and signed zeros.
+
+    Magnitude keys identify equal values except possibly the sign of zero.
+    Only a square consumes them as a bit-exact identity. Interned integer
+    keys avoid recursively copying/hashing entire dependency expressions.
+    These proofs never become runtime nodes.
+    """
+    def __init__(self,numeric):
+        self.numeric=numeric;self.keys={};self.values={};self.by_bits={};self.by_magnitude={}
+
+    def intern(self,key):
+        if key not in self.keys:self.keys[key]=len(self.keys)
+        return self.keys[key]
+
+    def signature(self,node):
+        import math,struct
+        n=self.numeric
+        if n.bounds(node) is None:return None
+        alias=CoherentPaths.alias(node)
+        if alias is not None:
+            if n.key(node) not in n.pure_numeric_regions:return None
+            return self.values.get(alias,(self.intern(('bits',alias)),self.intern(('magnitude',alias))))
+        if isinstance(node,ast.Name):
+            return self.intern(('input-bits',node.id)),self.intern(('input-magnitude',node.id))
+        if isinstance(node,ast.Constant) and type(node.value) in (int,float):
+            value=float(node.value)
+            if not math.isfinite(value) or value!=node.value:return None
+            kind=type(node.value).__name__
+            return self.intern(('constant',kind,struct.pack('d',value))),self.intern(('constant',kind,struct.pack('d',value if value else 0.0)))
+        if isinstance(node,ast.UnaryOp) and isinstance(node.op,(ast.USub,ast.UAdd)):
+            own=self.signature(node.operand)
+            if own is None:return None
+            if isinstance(node.op,ast.UAdd):return own
+            return tuple(self.intern(('negate',key))for key in own)
+        if isinstance(node,ast.BinOp):
+            a,b=self.signature(node.left),self.signature(node.right)
+            if a is None or b is None:return None
+            if isinstance(node.op,ast.Pow):
+                if n.constant(node.right)!=2:return None
+                key=self.intern(('square',a[1]));return key,key
+            if not isinstance(node.op,(ast.Add,ast.Sub,ast.Mult,ast.Div)):return None
+            if isinstance(node.op,ast.Div):
+                bound=n.bounds(node.right)
+                if bound.minimum<=0<=bound.maximum:return None
+            operation=type(node.op).__name__
+            bits=self.intern((operation,a[0],b[0]));magnitude=self.intern((operation,a[1],b[1]))
+            if isinstance(node.op,ast.Add):
+                for zero,other,own in ((node.left,node.right,b),(node.right,node.left,a)):
+                    value=n.constant(zero)
+                    if value==0:
+                        magnitude=own[1]
+                        if math.copysign(1,value)<0 or n.no_negative_zero(other):bits=own[0]
+            return bits,magnitude
+        if isinstance(node,ast.Call) and len(node.args)==1 and node.func.id in ('R16','R32','sqrt'):
+            own=self.signature(node.args[0])
+            if own is not None:return tuple(self.intern((node.func.id,key))for key in own)
+        return None
+
+    def remember(self,alias,recipe,selected):
+        signature=self.signature(syntax(selected))
+        if signature is None and recipe is not None:signature=self.signature(syntax(recipe))
+        if signature is None:return
+        self.values[alias]=signature
+        self.by_bits.setdefault(signature[0],alias);self.by_magnitude.setdefault(signature[1],alias)
+
+    def exact_alias(self,node):
+        signature=self.signature(node)
+        return self.by_bits.get(signature[0]) if signature is not None else None
+
+    def square_base(self,node):
+        signature=self.signature(node)
+        return self.by_magnitude.get(signature[1]) if signature is not None else None
+
+
 def intersection_quantum(a,b):
     """Intersect guarantees of multiples of 2**q for the SAME value.
 
@@ -353,6 +428,8 @@ class CoherentPaths:
         # aliases and never mutates the original producer proof tables.
         numeric=ConversionSession(words,domains)
         numeric.branch_facts=facts
+        identities=SelectedRecipeKeys(numeric)
+        exact_aliases={}
         if getattr(self.registry.model,'conversions',None) is not None:
             source=self.registry.model.conversions
             for name in domains:
@@ -417,6 +494,14 @@ class CoherentPaths:
                 numeric.completed=own
         def stabilize_selected(expression):
             stable=self.compiler.stabilize(expression,domains,facts=facts)
+            class Squares(ast.NodeTransformer):
+                def visit_BinOp(self,node):
+                    node=self.generic_visit(node)
+                    if isinstance(node.op,ast.Pow) and numeric.constant(node.right)==2:
+                        prior=identities.square_base(node.left)
+                        if prior is not None:node.left=syntax(f'CompileValue{prior}()')
+                    return node
+            stable=ast.unparse(Squares().visit(syntax(stable)))
             arithmetic=simplify_arithmetic(stable,numeric)
             if cost_view.size(arithmetic)<cost_view.size(stable):stable=arithmetic
             if ALIASES.fullmatch(stable) or not re.search(r'\b(?:Bits64|Float64|U64[A-Za-z0-9]*)\s*\(',stable):
@@ -458,6 +543,11 @@ class CoherentPaths:
                         if old in source.rms_guards:numeric.rms_guards[own]=source.rms_guards[old]
                 local_bound=numeric.bounds(syntax(recipe))
                 if local_bound is not None:recipe_bounds[alias]=local_bound
+                prior=identities.exact_alias(syntax(recipe))
+                if prior is not None and prior<alias:
+                    self.stats['selectedRecipeIdentities']=self.stats.get('selectedRecipeIdentities',0)+1
+                    exact_aliases[alias]=prior
+                    return stabilize_selected(f'(CompileValue{prior}())')
                 try:candidate=numeric.close('('+recipe+')')
                 except ValueError as error:
                     if 'budget' not in str(error).lower():raise
@@ -481,8 +571,9 @@ class CoherentPaths:
                     words.register_completed_region(texts[alias],domains,word_closed=True)
                     words.copy_completed_word_root(texts[alias],f'CompileValue{alias}()',domains)
                     certify_selected(alias)
+                    identities.remember(alias,getattr(self.registry,'definition_recipes',{}).get(alias),texts[alias])
                     memo.add(alias)
-                return node
+                return syntax(f'CompileValue{exact_aliases[alias]}()') if alias in exact_aliases else node
             if isinstance(node,ast.Call) and node.func.id=='Piecewise':
                 for pair in node.args:
                     body,condition=pair.elts
@@ -540,6 +631,19 @@ class CoherentPaths:
             try:view,condition=self.literal(decision,facts,domains)
             except UnreachableNumericPath:
                 self.stats['contradictions']+=1;continue
+            # Original producers can become the very same predicate after
+            # selected substitution (e.g. two RMS stages separated by +0).
+            # Compare their actual expanded bytes in the frozen prefixes,
+            # before assuming this decision. They are not independent choices.
+            repeated=next((guard for guard in guards if guard.expression==condition
+                and same_literal(guard,Guard(view,condition,True))),None)
+            if repeated is not None:
+                own=self.assume(decision,repeated.truth,facts)
+                if own is None:self.stats['contradictions']+=1
+                else:
+                    self.stats['frozenGuardImplications']=self.stats.get('frozenGuardImplications',0)+1
+                    pending.append((own,guards))
+                continue
             self.stats['splitContexts']+=1
             for truth in (False,True):
                 own=self.assume(decision,truth,facts)

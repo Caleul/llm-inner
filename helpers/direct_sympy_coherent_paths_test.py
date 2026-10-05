@@ -11,7 +11,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from direct_sympy_coherent_paths import CoherentPaths,UnreachableNumericPath,OrderedGuardPruner,Guard,PathArm,LiteralView,intersection_quantum
+from direct_sympy_coherent_paths import CoherentPaths,UnreachableNumericPath,OrderedGuardPruner,Guard,PathArm,LiteralView,intersection_quantum,SelectedRecipeKeys
 from direct_sympy_conversions import FiniteSource,ConversionSession
 from direct_sympy_conversions_test import cpp
 from direct_sympy_checkpoint import CheckpointStrings
@@ -51,6 +51,39 @@ def evaluate(text,values,functions=None):
 
 
 class CoherentPathTests(unittest.TestCase):
+    def test_selected_recipe_keys_preserve_signed_zero_casts_and_order(self):
+        s=ConversionSession(StringCompiler(),{'X1':Domain(F(-1),F(1),-24,False)},input_dtype='f16')
+        keys=SelectedRecipeKeys(s)
+        a=keys.signature(syntax('X1'));b=keys.signature(syntax('X1+0.0'))
+        self.assertNotEqual(a[0],b[0]);self.assertEqual(a[1],b[1])
+        self.assertEqual(keys.signature(syntax('X1**2')),keys.signature(syntax('(X1+0.0)**2')))
+        self.assertNotEqual(keys.signature(syntax('R16(X1*.3)')),keys.signature(syntax('R32(X1*.3)')))
+        self.assertNotEqual(keys.signature(syntax('1')),keys.signature(syntax('1.0')))
+        self.assertNotEqual(keys.signature(syntax('(X1+.25)+.5')),keys.signature(syntax('X1+(.25+.5)')))
+        self.assertIsNone(keys.signature(syntax('1.0/X1')))
+        self.assertIsNone(keys.signature(syntax('Bits64(X1)')))
+        self.assertIsNone(keys.signature(syntax('unknown(X1)')))
+
+    def test_frozen_equal_squares_do_not_split_independent_zero_sign_paths(self):
+        registry=fixture(['X1','CompileValue0()+0.0',
+            'Piecewise((1.0,CompileValue0()**2<.25),(2.0,True))',
+            'Piecewise((3.0,CompileValue1()**2<.25),(4.0,True))'])
+        registry.model.conversions=ConversionSession(registry.model.compiler,registry.model.domains,input_dtype='f16')
+        registry.definition_proofs=[(FiniteSource(-1,1,-24),'half',False,None),
+            (FiniteSource(-1,1,-24),'half',True,None),(FiniteSource(1,2,-24),'half',True,None),
+            (FiniteSource(3,4,-24),'half',True,None)]
+        registry.definition_recipes={0:'X1',1:'CompileValue0()+0.0'}
+        with tempfile.TemporaryDirectory()as directory:
+            root=Path(directory);path=root/'squares.expr';plan=CoherentPaths(registry)
+            report=plan.write(path,'CompileValue2()+CompileValue3()',max_characters=65536)
+            self.assertEqual(report['paths'],2)
+            self.assertGreater(plan.stats.get('frozenGuardImplications',0),0)
+            source=root/'squares.cpp';binary=root/'squares'
+            source.write_text('#include <cmath>\n#include <cstdint>\n#include <cstring>\n#include <cstdio>\n#include <cfenv>\n#include <initializer_list>\ntemplate<class T,class U>T word(U x){T y;std::memcpy(&y,&x,sizeof(y));return y;}\ndouble candidate(double X1){return '+cpp(syntax(path.read_text()))+';}\nint main(){if(std::fesetround(FE_TONEAREST))return 2;unsigned cases=0,mismatches=0;for(unsigned i=0;i<=0x3c00;i++)for(unsigned sign:{0u,0x8000u}){double x=word<_Float16>(uint16_t(i|sign));double expected=x*x<.25?4.0:6.0;cases++;mismatches+=word<uint64_t>(candidate(x))!=word<uint64_t>(expected);}std::printf("Frozen square identity parity: cases=%u mismatches=%u\\n",cases,mismatches);return mismatches?1:0;}')
+            subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],check=True,capture_output=True,text=True)
+            result=subprocess.run([str(binary)],check=True,capture_output=True,text=True)
+            self.assertIn('cases=30722 mismatches=0',result.stdout);print(result.stdout,end='')
+
     def test_selected_scale_precision_reaches_next_subnormal_cast(self):
         from direct_sympy_conversions import lower_finite_conversion
         unit=2**-24;registry=fixture(['X1','1000.0*CompileValue0()'])
