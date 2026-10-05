@@ -3640,6 +3640,17 @@
       "mismatches": 0,
       "nativeRuntime": "Colab CPU PyTorch 2.11.0; diagnostic, not original final target",
       "initialStop": "40-second deadline exceeded"
+    },
+    "officialCLISmoke": {
+      "build": "passed",
+      "remote": "Colab CPU",
+      "workingLogits": 4,
+      "workingBitComparisons": 48,
+      "mismatches": 0,
+      "expectedExitCode": 1,
+      "actualExitCode": 1,
+      "finalRustExists": false,
+      "evidence": "docs/evidence/direct-sympy-rust-2g/remote/cli-vector-smoke-result.json"
     }
   }
 }

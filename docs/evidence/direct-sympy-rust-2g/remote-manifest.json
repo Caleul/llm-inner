@@ -18,5 +18,6 @@
   "rust-runner-final-test-result.json": "f9c62816052b8e12a13c3b76a53613368cc7f4e5a06a2a3b8c0494845426bd55",
   "architecture-2g/summary.json": "a0f64b1f052974ac6631080496ac5985a6a4395d4639ac98b0ca0ef51813e1da",
   "architecture-2g/length-2/composition-progress.json": "aae1e27110ffa4251576bd7c56c261cc282a71b6202dec5fc94d26d8f632b165",
-  "architecture-2g/length-1/result.json": "fca43656a82b2e5f5cd8e0b03b73a36d38379d8c56dc8cf4774db90393f2dbfb"
+  "architecture-2g/length-1/result.json": "fca43656a82b2e5f5cd8e0b03b73a36d38379d8c56dc8cf4774db90393f2dbfb",
+  "cli-vector-smoke-result.json": "729282d9c8e5c6cb8cde38be87449c04871f4c76239d462c76247daf124e732d"
 }

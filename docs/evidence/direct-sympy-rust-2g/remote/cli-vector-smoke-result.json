@@ -1,0 +1,10 @@
+{
+  "exitCode": 1,
+  "seconds": 23.986874864999663,
+  "workingLogits": 4,
+  "workingBitComparisons": 48,
+  "workingParity": true,
+  "complete": false,
+  "finalRustExists": false,
+  "interpretation": "Expected rejection: CLI defaults to vector/Rust path and cannot publish unfinished elementary lowering."
+}
