@@ -11,6 +11,34 @@ from direct_sympy_sqrt import supported,CONSTANT_TERM,PARTIAL_FRACTIONS
 
 
 class SqrtWordTests(unittest.TestCase):
+    def test_fixed_scale_context_removes_only_proved_source_occurrences(self):
+        expressions=[]
+        for exponent in (-149,-126,-25,-1,0,1,24,127):
+            low=F(2)**exponent
+            high=low if exponent==-149 else low*(2-F(2)**-23)
+            session=ConversionSession(StringCompiler(),{'X1':Domain(low,high,max(-149,exponent-23),True)})
+            session.f32_values.add(session.key(syntax('X1')))
+            expression=session.close('R32(sqrt(X1))')
+            if exponent!=-149:self.assertEqual(expression.count('X1'),5)
+            expressions.append((exponent,expression))
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);source=root/'fixed.cpp';binary=root/'fixed'
+            functions='\n'.join('double f'+str(i)+'(double X1){return '+cpp(syntax(text))+';}'for i,(_,text)in enumerate(expressions))
+            source.write_text('#include <cstdint>\n#include <cstring>\n#include <cmath>\n#include <cstdio>\n#include <cfenv>\ntemplate<class T,class U>T word(U x){T y;std::memcpy(&y,&x,sizeof(y));return y;}\n'+functions+'''
+int main(){std::fesetround(FE_TONEAREST);unsigned long long cases=0,mismatches=0;
+double (*functions[])(double)={f0,f1,f2,f3,f4,f5,f6,f7};int exponents[]={-149,-126,-25,-1,0,1,24,127};
+for(unsigned i=0;i<8;i++)for(unsigned m=0;m<(i==0?1u:8388608u);m++){
+ float x=i==0?word<float>(uint32_t(1)):word<float>(uint32_t(((exponents[i]+127)<<23)|m));
+ double actual=functions[i](double(x)),expected=double(float(std::sqrt(double(x))));
+ mismatches+=word<uint64_t>(actual)!=word<uint64_t>(expected);cases++;
+}std::printf("Fixed-scale sqrt parity: cases=%llu mismatches=%llu\\n",cases,mismatches);return mismatches?1:0;}
+''')
+            built=subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],capture_output=True,text=True)
+            self.assertEqual(built.returncode,0,built.stderr)
+            tested=subprocess.run([str(binary)],capture_output=True,text=True,timeout=120)
+            self.assertEqual(tested.returncode,0,tested.stdout+tested.stderr)
+            self.assertIn('cases=58720257 mismatches=0',tested.stdout);print(tested.stdout,end='')
+
     def test_f32_boundary_matches_all_mantissas_parities_subnormals_and_exponents(self):
         # Reproduce every coefficient from the interpolation contract.
         import mpmath as mp

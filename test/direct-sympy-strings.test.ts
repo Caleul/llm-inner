@@ -190,9 +190,10 @@ test('Bounded SiLU arithmetic lowering matches every certified Half scalar and v
 test('Positive F32 square-root word lowering preserves all mantissas, parities and subnormals',
   {skip:!python},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_sqrt_test.py'],{timeout:120_000,maxBuffer:1024*1024});
-    assert.match(stderr,/Ran 1 test/);
+    assert.match(stderr,/Ran 2 tests/);
     assert.match(stderr,/OK/);
     assert.match(stdout,/F32 sqrt emitted word parity: cases=25167601 mismatches=0/);
+    assert.match(stdout,/Fixed-scale sqrt parity: cases=58720257 mismatches=0/);
   });
 
 test('IEEE sign projections preserve signed zero and reduce completed down-conversion strings',
