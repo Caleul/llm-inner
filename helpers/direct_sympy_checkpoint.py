@@ -362,15 +362,16 @@ class CheckpointStrings:
             if source_bounds and self.width<=8 and all(float(self.weight(name,i)) in (-1,1) for i in range(self.width)):
                 from direct_sympy_projection_constraints import norm_squared_floor,norm_error_bound
                 floor=norm_squared_floor(source_bounds,epsilon_value)
-                if floor:
-                    minimum=lambda s:F(max(s.minimum_magnitude,s.minimum if s.minimum>0 else -s.maximum if s.maximum<0 else 0))
-                    metadata={'sources':tuple(input_expressions),'sourceBounds':tuple(source_bounds),'epsilon':F(epsilon_value),
-                        'context':self.compiler.context(self.domains),
-                        'sourceNormFloor':sum((minimum(s)**2 for s in source_bounds),F(0)),
-                        'inputMagnitudes':{i:F(max(abs(s.minimum),abs(s.maximum))) for i,s in enumerate(source_bounds)},
-                        'gamma':tuple(F(float(self.weight(name,i))) for i in range(self.width)),
-                        'roundingError':norm_error_bound(self.width,epsilon_value)}
-                    certificate.append(((self.compiler.context(self.domains),name,tuple(input_expressions)),floor,metadata))
+                # A zero lower bound does not invalidate finite-source metadata.
+                # Exclusions that need a positive floor check it independently.
+                minimum=lambda s:F(max(s.minimum_magnitude,s.minimum if s.minimum>0 else -s.maximum if s.maximum<0 else 0))
+                metadata={'sources':tuple(input_expressions),'sourceBounds':tuple(source_bounds),'epsilon':F(epsilon_value),
+                    'context':self.compiler.context(self.domains),
+                    'sourceNormFloor':sum((minimum(s)**2 for s in source_bounds),F(0)),
+                    'inputMagnitudes':{i:F(max(abs(s.minimum),abs(s.maximum))) for i,s in enumerate(source_bounds)},
+                    'gamma':tuple(F(float(self.weight(name,i))) for i in range(self.width)),
+                    'roundingError':norm_error_bound(self.width,epsilon_value)}
+                certificate.append(((self.compiler.context(self.domains),name,tuple(input_expressions)),floor,metadata))
             components=rms_component_enclosures(source_bounds,coordinate,epsilon_value) if source_bounds else None
             if components is not None:
                 low,high=components[1][0]

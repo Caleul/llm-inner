@@ -1,0 +1,4 @@
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 8577.31it/s]
+{"characters": 58417, "cases": 16, "mismatches": 0, "sha256": "121c054dd241c5248f3bf3975572770926778c1c9abf13ead0d480d35935d3cf"}

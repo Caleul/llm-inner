@@ -110,6 +110,65 @@ def rms_branch_bounds(registry,assumptions):
 
 
 
+def rms_source_branch_bounds(registry,assumptions):
+    """Bound actual Half sources when all share a certified small-mean arm.
+
+    Sum x_i^2 < sum(c_i)*m and use the original F32 upper envelope
+    m <= K*T/n+(1+u)*eps. Solve the inequality before substituting any
+    source. Bounds belong only to this path; neither m nor its order changes.
+    Unsupported predicates/contexts keep their original domains.
+    """
+    from direct_sympy_conversions import FiniteSource
+    from direct_sympy_input_partitions import value,MAX_RANK
+    result={};context=registry.model.compiler.context(registry.model.domains)
+    for vector in getattr(registry.model,'norm_vectors',{}).values():
+        n=vector['width'];sources=vector.get('sources',());bounds=vector.get('sourceBounds',())
+        if (n!=2 or len(sources)!=n or len(bounds)!=n or vector.get('context')!=context
+            or 'mean' not in vector or vector.get('epsilon',0)<=0):continue
+        if any(b is None or max(abs(b.minimum),abs(b.maximum))>65504 for b in bounds):continue
+        mean=syntax(vector['mean']);coefficients={}
+        for predicate,truth in assumptions:
+            if not isinstance(predicate,ast.Compare) or len(predicate.ops)!=1 or len(predicate.comparators)!=1:continue
+            if not (isinstance(predicate.ops[0],ast.Lt) and truth or isinstance(predicate.ops[0],ast.GtE) and not truth):continue
+            right=predicate.comparators[0]
+            if not isinstance(right,ast.BinOp) or not isinstance(right.op,ast.Mult):continue
+            coefficient=right.right if ast.dump(right.left)==ast.dump(mean) else right.left if ast.dump(right.right)==ast.dump(mean) else None
+            if not (isinstance(coefficient,ast.BinOp) and isinstance(coefficient.op,ast.Pow)
+                and isinstance(coefficient.left,ast.Constant) and type(coefficient.left.value)is int and coefficient.left.value==2
+                and isinstance(coefficient.right,ast.UnaryOp) and isinstance(coefficient.right.op,ast.USub)
+                and isinstance(coefficient.right.operand,ast.Constant) and type(coefficient.right.operand.value)is int
+                and 28<=coefficient.right.operand.value<=64):continue
+            c=F(1,2**coefficient.right.operand.value);left=predicate.left
+            for i,source in enumerate(sources):
+                node=syntax(source)
+                if isinstance(left,ast.BinOp) and (
+                    isinstance(left.op,ast.Pow) and ast.dump(left.left)==ast.dump(node) and isinstance(left.right,ast.Constant) and left.right.value==2
+                    or isinstance(left.op,ast.Mult) and ast.dump(left.left)==ast.dump(node) and ast.dump(left.right)==ast.dump(node)):
+                    coefficients[i]=min(c,coefficients.get(i,c))
+        if len(coefficients)!=n:continue
+        u=F(1,2**23);C=sum(coefficients.values(),F(0));denominator=1-C*(1+u)**(n+3)/n
+        if denominator<=0:continue
+        cap=sqrt_outward(C*(1+u)*vector['epsilon']/denominator,True)
+        # Sources already are Half. Select the largest representable endpoint
+        # below the conservative real cap, without rounding it up to a cell.
+        low,high=0,MAX_RANK
+        while low<high:
+            middle=(low+high+1)//2
+            if value(middle)<=cap:low=middle
+            else:high=middle-1
+        endpoint=float(value(low))
+        for source,b in zip(sources,bounds):
+            match=re.fullmatch(r'CompileValue([0-9]+)\(\)',source)
+            key=int(match[1]) if match else source if source in registry.model.domains else None
+            if key is None:continue
+            a,z=max(b.minimum,-endpoint),min(b.maximum,endpoint)
+            if a>z:continue  # Reachability remains the separate guard proof's job.
+            previous=result.get(key)
+            if previous is not None:a,z=max(a,previous.minimum),min(z,previous.maximum)
+            if a<=z:result[key]=FiniteSource(a,z,b.quantum,b.minimum_magnitude)
+    return result
+
+
 def projection_branch_bounds(registry, refined, *, max_products=2**20):
     """Propagate branch enclosures through actual whole-producer projections.
 

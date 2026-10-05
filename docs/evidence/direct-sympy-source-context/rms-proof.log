@@ -1,0 +1,7 @@
+....
+----------------------------------------------------------------------
+Ran 4 tests in 2.460s
+
+OK
+RMS subnormal branch cells: pairs=462422016 selected=44294796 violations=0
+Zero-admitting RMS parity: cases=3047424 mismatches=0

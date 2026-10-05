@@ -15,7 +15,7 @@ import re
 import tempfile
 
 from direct_sympy_streaming_literals import ALIASES,StreamingLiterals
-from direct_sympy_strings import StringCompiler,syntax,refine
+from direct_sympy_strings import Domain,StringCompiler,syntax,refine
 
 
 class LiteralView:
@@ -212,15 +212,32 @@ class CoherentPaths:
         return find(root)
 
     def rms_bounds(self,facts):
-        from direct_sympy_projection_constraints import rms_branch_bounds,projection_branch_bounds
+        from direct_sympy_projection_constraints import rms_branch_bounds,rms_source_branch_bounds,projection_branch_bounds
         key=(facts,len(self.predicates))
         if key not in self.rms_bounds_cache:
             assumptions=[(p,truth) for p in self.predicates.values() if (truth:=self.facts.truth(p,facts)) is not None]
-            self.rms_bounds_cache[key]=projection_branch_bounds(self.registry,rms_branch_bounds(self.registry,assumptions))
+            refined=rms_branch_bounds(self.registry,assumptions)
+            for name,bound in rms_source_branch_bounds(self.registry,assumptions).items():
+                previous=refined.get(name)
+                if previous is None:refined[name]=bound
+                else:
+                    from direct_sympy_conversions import FiniteSource
+                    low,high=max(previous.minimum,bound.minimum),min(previous.maximum,bound.maximum)
+                    if low<=high:refined[name]=FiniteSource(low,high,min(previous.quantum,bound.quantum),max(previous.minimum_magnitude,bound.minimum_magnitude))
+            self.rms_bounds_cache[key]=projection_branch_bounds(self.registry,refined)
         return self.rms_bounds_cache[key]
 
     def literal(self,root,facts,domains):
-        texts=list(self.originals);memo=set();before=len(self.compiler.events);rms_bounds=self.rms_bounds(facts)
+        texts=list(self.originals);memo=set();recipe_bounds={};before=len(self.compiler.events);rms_bounds=self.rms_bounds(facts)
+        # Tighten only this selected leaf. Prefix guards retain the context in
+        # which they were frozen, and sibling/global input domains stay intact.
+        domains=dict(domains)
+        for name in domains:
+            own=rms_bounds.get(name)
+            if own is None:continue
+            previous=domains[name];low=max(previous.minimum,own.minimum);high=min(previous.maximum,own.maximum)
+            if low>high:raise UnreachableNumericPath('RMS source guard contradicts its input domain')
+            domains[name]=Domain(low,high,previous.quantum,previous.excludes_negative_zero)
         # Candidate costs must expand the selected definitions of this
         # path, rather than the original definitions of other branches.
         cost_view=object.__new__(LiteralView)
@@ -252,6 +269,11 @@ class CoherentPaths:
             if alias>=len(proofs):return
             bound,kind,positive_zero,arm_bounds=proofs[alias]
             if bound is None:return
+            local=recipe_bounds.get(alias)
+            if local is not None:
+                low,high=max(bound.minimum,local.minimum),min(bound.maximum,local.maximum)
+                if low>high:raise UnreachableNumericPath('Selected recipe contradicts its stored enclosure')
+                bound=FiniteSource(low,high,min(bound.quantum,local.quantum),max(bound.minimum_magnitude,local.minimum_magnitude))
             selected=syntax(texts[alias])
             if isinstance(selected,ast.Constant) or isinstance(selected,ast.UnaryOp) and isinstance(selected.op,ast.USub) and isinstance(selected.operand,ast.Constant):
                 actual=numeric.bounds(selected)
@@ -313,11 +335,16 @@ class CoherentPaths:
                 if source is not None:
                     for child in ast.walk(syntax(recipe)):
                         old=source.key(child);own=numeric.key(child)
-                        if old in source.completed:numeric.completed.setdefault(own,source.completed[old])
+                        # A globally valid enclosure may be much wider than
+                        # this branch. Recompute from selected operands first;
+                        # copy the old bound only when no local proof exists.
+                        if old in source.completed and numeric.bounds(child) is None:numeric.completed.setdefault(own,source.completed[old])
                         if old in source.half_values:numeric.half_values.add(own)
                         if old in source.f32_values:numeric.f32_values.add(own)
                         if old in source.no_negative_zero_values:numeric.no_negative_zero_values.add(own)
                         if old in source.rms_guards:numeric.rms_guards[own]=source.rms_guards[old]
+                local_bound=numeric.bounds(syntax(recipe))
+                if local_bound is not None:recipe_bounds[alias]=local_bound
                 try:candidate=numeric.close('('+recipe+')')
                 except ValueError as error:
                     if 'budget' not in str(error).lower():raise
