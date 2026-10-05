@@ -715,7 +715,7 @@ class CoherentPaths:
             for truth,own in candidates:
                 pending.append((own,guards+(Guard(view,condition,truth),)))
 
-    def write(self,path,expression,*,max_characters,compressed=False):
+    def write(self,path,expression,*,max_characters,compressed=False,artifact_lease=None):
         if max_characters<1:raise ValueError('Positive artifact budget required')
         path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
         written=0;digest=hashlib.sha256()
@@ -728,6 +728,7 @@ class CoherentPaths:
                     if 'CompileValue' in text:raise ValueError('Compiler alias in final path')
                     written+=len(text)
                     if written>max_characters:raise ValueError('Flat artifact budget exceeded; no complete result')
+                    if artifact_lease is not None:artifact_lease.claim(written)
                     block=text.encode();digest.update(block);encoded.write(block)
                 try:
                     emit('Piecewise(');count=0;pruner=OrderedGuardPruner(self.stats)
@@ -751,6 +752,8 @@ class CoherentPaths:
                         # bounded prefix may replace an existing artifact.
                         if written+body_size+sum(guard_sizes)>max_characters:
                             raise ValueError('Flat artifact budget exceeded; no complete result')
+                        if artifact_lease is not None:
+                            artifact_lease.claim(written+body_size+sum(guard_sizes)+36+8*len(arm.guards))
                         if count:emit(', ')
                         emit('((')
                         for text in arm.view.chunks(arm.expression):emit(text)
@@ -780,6 +783,7 @@ class CoherentPaths:
                 if 'CompileValue' in final:raise ValueError('Compiler alias in combined artifact')
                 written=len(final)
                 if written>max_characters:raise ValueError('Stabilized artifact exceeds budget; no complete result')
+                if artifact_lease is not None:artifact_lease.claim(written)
                 digest=hashlib.sha256(final.encode())
                 stream.seek(0);stream.truncate()
                 if compressed:
@@ -789,4 +793,5 @@ class CoherentPaths:
                     for offset in range(0,len(final),1024*1024):stream.write(final[offset:offset+1024*1024].encode())
                 stream.flush();os.fsync(stream.fileno());os.replace(temporary,path)
             finally:temporary.unlink(missing_ok=True)
+        if artifact_lease is not None:artifact_lease.commit(written)
         return {'path':str(path),'characters':written,'sha256':digest.hexdigest(),'paths':count,'compilerAliases':0,'complete':True}

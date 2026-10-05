@@ -381,3 +381,16 @@ test('Projection sign simplification requires a strict branch error margin and p
       assert.match(stdout,/Selected projection replacement: admittedCharacters=107 fallbackCharacters=8836 emittedCharacters=62059/);
     }
   });
+
+test('Independent logits share the expression budget and validate one coordinate before memory-admitted parallel workers',
+  {skip:!python},async()=>{
+    const budget=await promisify(execFile)(python!,['helpers/direct_sympy_artifact_budget_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(budget.stderr,/Ran 3 tests/);
+    assert.match(budget.stderr,/OK/);
+    const controller=await promisify(execFile)(python!,['helpers/direct_sympy_logits_run_test.py'],{timeout:180_000,maxBuffer:1024*1024});
+    assert.match(controller.stderr,/Ran 2 tests/);
+    assert.match(controller.stderr,/OK/);
+    if(process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT){
+      assert.match(controller.stdout,/Parallel logit controller: completeCoordinates=4 maxWorkersLive=2 bitMismatches=0/);
+    }
+  });

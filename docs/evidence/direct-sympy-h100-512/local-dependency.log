@@ -1,0 +1,5 @@
+Using Python 3.10.13 environment at: /private/tmp/llm-inner-directed-residual-20261005
+Resolved 1 package in 365ms
+Prepared 1 package in 119ms
+Installed 1 package in 3ms
+ + psutil==7.0.0

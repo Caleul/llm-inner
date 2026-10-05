@@ -1,0 +1,8 @@
+{
+  "path": "/private/tmp/llm-inner-h100-512-20261005.tar.gz",
+  "bytes": 293672,
+  "sha256": "18ea51e4d0eec40383555d3e7859be4cde33f256b4d256983e6e7cbe8493eed0",
+  "executionDispatched": false,
+  "requestedGPU": "H100",
+  "expressionAndConditionBudgetBytes": 536870912
+}

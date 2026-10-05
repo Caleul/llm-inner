@@ -170,5 +170,80 @@
     "fullCoordinateParity": false,
     "multipleTokenParity": false,
     "fullVectorParity": false
+  },
+  "memoryAdmittedLogitControllerValidation": {
+    "defaultExpressionAndConditionBudgetBytes": 536870912,
+    "budgetSharedAcrossCoordinates": true,
+    "RAMMonitoredSeparately": true,
+    "firstCoordinateMustPassBeforeRemainingLogits": true,
+    "CPUFactorAndSimplify": true,
+    "numericalOrderChanged": false,
+    "numericalOrIntegrityChecksRelaxed": false,
+    "nativeSchedulingFixture": "Disposable checkpoint with four zero output rows; unmodified Llama not compiled",
+    "schedulingFixtureCompleteCoordinates": 4,
+    "schedulingFixtureMaxWorkersLive": 2,
+    "schedulingFixtureBitMismatches": 0,
+    "realCheckpointBoundedAttemptDispatchesRemainingLogits": false,
+    "checkpointNormalizationIdenticalWithSharedBudget": true,
+    "nativeNormalizationCases": 888832,
+    "nativeNormalizationMismatches": 0,
+    "focusedTests": {
+      "tests": 40,
+      "pass": 40,
+      "fail": 0,
+      "skipped": 0
+    },
+    "portableSuite": {
+      "tests": 620,
+      "pass": 571,
+      "fail": 0,
+      "skipped": 49
+    },
+    "accessBrokerObservation": {
+      "observedAtUTC": "2026-10-05T12:11:14Z",
+      "integration": "colab",
+      "tool": "colab_cli",
+      "requestedArguments": [
+        "new",
+        "-s",
+        "llm-inner-h100-512-20261005",
+        "--gpu",
+        "H100",
+        "--high-mem"
+      ],
+      "creationOperationId": "bcaff23a-eb29-4afa-8339-40c1df06431e",
+      "creationTerminalExitCode": 1,
+      "creationError": "Backend rejected accelerator 'H100'. You may not have quota or entitlement for this accelerator on your account.",
+      "sessionsReadbackOperationId": "d803dfb7-da92-4779-a9c4-73b03c4a09b2",
+      "activeSessions": 0,
+      "usageReadbackOperationId": "b7ae7e4a-128e-44c0-bbad-d7b51f7efdca",
+      "balanceComputeUnits": 6.48,
+      "computeUnitsPerHour": 0.0,
+      "H100Allocated": false,
+      "remoteCPUCount": null,
+      "remoteRAMBytes": null,
+      "remoteGPUVRAMBytes": null,
+      "alternativeGPUAuthorized": false
+    },
+    "sources": {
+      "direct_sympy_coherent_paths.py": "ee86567bcee1a2946181945bac186a7d40aafbe143206e921c0fa39b08092abb",
+      "direct_sympy_artifact_budget.py": "1f05236c49828134d2c7bce880df7f9c3859e848813d0a7f595694c43bdd62ea",
+      "direct_sympy_logits_run.py": "351496ef6f02b500c0a1b1c354ab8ce2417b3fed9507d1d7722ece7387608ac5",
+      "direct_sympy_colab_logits_prepare.py": "7e8b08c1da6e60597b7bfc8fcbd630e5c34de6c901481d6a6b2a511c37e57c73"
+    },
+    "sourceArchive": {
+      "path": "/private/tmp/llm-inner-h100-512-20261005.tar.gz",
+      "bytes": 293672,
+      "sha256": "18ea51e4d0eec40383555d3e7859be4cde33f256b4d256983e6e7cbe8493eed0",
+      "executionDispatched": false,
+      "requestedGPU": "H100",
+      "expressionAndConditionBudgetBytes": 536870912
+    },
+    "CUDAUsed": false,
+    "production512MiBAttemptExecuted": false,
+    "fullCoordinateArtifactEmitted": false,
+    "fullCoordinateParity": false,
+    "multipleTokenParity": false,
+    "fullVectorParity": false
   }
 }
