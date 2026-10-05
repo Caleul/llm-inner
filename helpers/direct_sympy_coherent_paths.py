@@ -352,8 +352,10 @@ class CoherentPaths:
                     bound=FiniteSource(low,high,bound.quantum,max(bound.minimum_magnitude,actual.minimum_magnitude))
             if alias in rms_bounds:
                 local=rms_bounds[alias];low,high=max(bound.minimum,local.minimum),min(bound.maximum,local.maximum)
-                if low>high:raise UnreachableNumericPath('RMS guard contradicts the stored component enclosure')
-                bound=FiniteSource(low,high,bound.quantum,max(bound.minimum_magnitude,local.minimum_magnitude))
+                magnitude=max(bound.minimum_magnitude,local.minimum_magnitude)
+                if low>high or magnitude>max(abs(low),abs(high)):
+                    raise UnreachableNumericPath('RMS guard contradicts the selected component enclosure')
+                bound=FiniteSource(low,high,bound.quantum,magnitude)
                 self.stats['rmsBranchRefinements']+=1
             if arm_bounds:
                 arms=frontier(self.originals[alias],pure_functions=['CompileValue'+str(i) for i in range(alias)])
@@ -371,6 +373,11 @@ class CoherentPaths:
                         break
             key=numeric.key(syntax('CompileValue'+str(alias)+'()'))
             numeric.completed[key]=bound;numeric.converted_regions.add(key)
+            # This marker names the audited, selected numerical producer.
+            # Its immutable scalar is pure in this prefix. Without this
+            # certificate a following constant-cell proof rejects the marker
+            # as an unknown call, even when its value is already a singleton.
+            numeric.pure_numeric_regions.add(key)
             if kind=='half':numeric.half_values.add(key)
             if kind in ('half','f32'):numeric.f32_values.add(key)
             if positive_zero:numeric.no_negative_zero_values.add(key)
@@ -393,8 +400,19 @@ class CoherentPaths:
             return candidate if cost_view.size(candidate)<cost_view.size(stable) else stable
         def reclose_recipe(alias,baseline):
             recipe=getattr(self.registry,'definition_recipes',{}).get(alias)
-            if recipe is None or any(int(m[1]) not in memo for m in ALIASES.finditer(recipe)):
-                return baseline
+            if recipe is None:return baseline
+            dependencies=list(dict.fromkeys(int(m[1]) for m in ALIASES.finditer(recipe)))
+            if any(dependency>=alias for dependency in dependencies):return baseline
+            # Word closure can inline a previous producer's payload, hiding
+            # its marker from the selected tree. Its numerical recipe still
+            # needs that scalar's current-context certificate. Select and
+            # stabilize those dependencies first instead of silently falling
+            # back to the old, broadly expanded payload. Undecided original
+            # dependencies remain a barrier; no new path is assumed here.
+            for dependency in dependencies:
+                if dependency in memo:continue
+                if self.next_decision(self.trees[dependency],facts) is not None:return baseline
+                select(syntax(f'CompileValue{dependency}()'))
             self.stats['numericRecipeAttempts']+=1
             source=getattr(self.registry.model,'conversions',None)
             with numeric.branch_context(domains,{},facts):

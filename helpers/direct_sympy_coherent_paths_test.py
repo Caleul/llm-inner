@@ -12,7 +12,7 @@ import unittest
 from unittest.mock import patch
 
 from direct_sympy_coherent_paths import CoherentPaths,UnreachableNumericPath,OrderedGuardPruner,Guard,PathArm,LiteralView
-from direct_sympy_conversions import FiniteSource
+from direct_sympy_conversions import FiniteSource,ConversionSession
 from direct_sympy_conversions_test import cpp
 from direct_sympy_checkpoint import CheckpointStrings
 from direct_sympy_strings import Domain,StringCompiler,syntax
@@ -51,6 +51,31 @@ def evaluate(text,values,functions=None):
 
 
 class CoherentPathTests(unittest.TestCase):
+    def test_selected_pure_scalar_admits_next_constant_cell_without_reopening(self):
+        registry=fixture(['Piecewise((1.0,X1>0.0),(2.0,True))'])
+        source=ConversionSession(registry.model.compiler,registry.model.domains)
+        marker=source.key(syntax('CompileValue0()'))
+        source.completed[marker]=FiniteSource(1,2,0);source.f32_values.add(marker)
+        recipe='R32(1.0/R32(sqrt(CompileValue0())))'
+        closed=source.close(recipe)
+        # Reproduce word closure embedding an earlier producer's payload.
+        # The selected tree no longer visits its marker, but the original
+        # numerical recipe still needs its current-context certificate.
+        closed=closed.replace('CompileValue0()','('+registry.definitions[0]+')')
+        self.assertNotIn('CompileValue0()',closed)
+        registry.definitions.append(closed)
+        registry.model.conversions=source
+        registry.definition_proofs=[(FiniteSource(1,2,0),'f32',True,None),(FiniteSource(.7,1,-24),'f32',True,None)]
+        registry.definition_recipes={1:recipe}
+        with tempfile.TemporaryDirectory()as directory:
+            path=Path(directory)/'constant.expr';plan=CoherentPaths(registry)
+            plan.write(path,'CompileValue1()',max_characters=65536)
+            text=path.read_text();self.assertLess(len(text),128)
+            self.assertNotIn('Float64',text);self.assertNotIn('CompileValue',text)
+            expected=struct.unpack('f',struct.pack('f',1.0/struct.unpack('f',struct.pack('f',2**.5))[0]))[0]
+            for x in (-1.,-0.,0.,1.):
+                self.assertEqual(struct.pack('d',evaluate(text,{'X1':x,'X2':0.})),struct.pack('d',1. if x>0 else expected))
+
     def test_numerical_comparisons_use_only_prefix_bounds_and_keep_overlap(self):
         registry=fixture(['X1'])
         registry.definition_proofs=[(FiniteSource(-1,1,-24),'half',False,None)]

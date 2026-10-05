@@ -1,0 +1,7 @@
+..............
+----------------------------------------------------------------------
+Ran 14 tests in 3.008s
+
+OK
+Flat checkpoint normalization: cases=888832 mismatches=0
+Selected numeric propagation parity: cases=30722 mismatches=0
